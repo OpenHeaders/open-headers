@@ -5,16 +5,13 @@
  * template-folder entity type.
  */
 
-import { applySyncPayload, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
 import { type MutationEnvelope, type TemplateFolderParentRef } from '@openheaders/core/sync';
 import {
   getActiveTemplateFolderSyncMirror,
   type TemplateFolderSyncMirror,
 } from '@/context/template-folder-sync-mirror';
-import {
-  ensureRendererContext,
-  type RendererContextHandle,
-} from '@/context/renderer-mutator-context';
+import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import {
   buildCreateTemplateFolderBatch,
   buildDeleteTemplateFolderBatch,
@@ -38,11 +35,6 @@ function resolveMirror(opts: TemplateFolderWriteOptions): TemplateFolderSyncMirr
   return opts.mirror ?? getActiveTemplateFolderSyncMirror();
 }
 
-function resolveContext(opts: TemplateFolderWriteOptions): RendererContextHandle {
-  if (opts.context) return opts.context;
-  return ensureRendererContext({ workspaceId: opts.workspaceId, surfaceId: opts.surfaceId });
-}
-
 export interface ApplyTemplateFolderRenameInput {
   folderUid: string;
   name: string;
@@ -54,7 +46,7 @@ export async function applyTemplateFolderRename(
 ): Promise<TemplateFolderSimpleResult> {
   const mirror = resolveMirror(opts);
   if (!mirror.getTemplateFolderMirror(input.folderUid)) return { ok: false, reason: 'not-found' };
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRenameTemplateFolderBatch(input, ctx));
 }
 
@@ -70,7 +62,7 @@ export async function applyTemplateFolderCreate(
   input: ApplyTemplateFolderCreateInput,
   opts: TemplateFolderWriteOptions,
 ): Promise<TemplateFolderSimpleResult> {
-  const ctx = resolveContext(opts).next(
+  const ctx = resolveRendererContext(opts).next(
     opts.batchId
       ? { batchId: opts.batchId }
       : { batchId: `template-folder-create-${input.folderUid}` },
@@ -87,7 +79,7 @@ export async function applyTemplateFolderDelete(
   input: ApplyTemplateFolderDeleteInput,
   opts: TemplateFolderWriteOptions,
 ): Promise<TemplateFolderSimpleResult> {
-  const ctx = resolveContext(opts).next(
+  const ctx = resolveRendererContext(opts).next(
     opts.batchId
       ? { batchId: opts.batchId }
       : { batchId: `template-folder-delete-${input.folderUid}` },
@@ -106,7 +98,7 @@ export async function applyTemplateFolderMove(
   input: ApplyTemplateFolderMoveInput,
   opts: TemplateFolderWriteOptions,
 ): Promise<TemplateFolderSimpleResult> {
-  const ctx = resolveContext(opts).next(
+  const ctx = resolveRendererContext(opts).next(
     opts.batchId
       ? { batchId: opts.batchId }
       : { batchId: `template-folder-move-${input.folderUid}` },

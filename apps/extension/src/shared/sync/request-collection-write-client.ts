@@ -5,16 +5,13 @@
  * request-collection entity type. Catalog ships rename-only at v1.
  */
 
-import { applySyncPayload, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
 import { type MutationEnvelope } from '@openheaders/core/sync';
 import {
   getActiveRequestCollectionSyncMirror,
   type RequestCollectionSyncMirror,
 } from '@/context/request-collection-sync-mirror';
-import {
-  ensureRendererContext,
-  type RendererContextHandle,
-} from '@/context/renderer-mutator-context';
+import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import {
   buildDeleteRequestCollectionBatch,
   buildRenameRequestCollectionBatch,
@@ -36,11 +33,6 @@ function resolveMirror(opts: RequestCollectionWriteOptions): RequestCollectionSy
   return opts.mirror ?? getActiveRequestCollectionSyncMirror();
 }
 
-function resolveContext(opts: RequestCollectionWriteOptions): RendererContextHandle {
-  if (opts.context) return opts.context;
-  return ensureRendererContext({ workspaceId: opts.workspaceId, surfaceId: opts.surfaceId });
-}
-
 export interface ApplyRequestCollectionRenameInput {
   collectionUid: string;
   name: string;
@@ -54,7 +46,7 @@ export async function applyRequestCollectionRename(
   if (!mirror.getRequestCollectionMirror(input.collectionUid)) {
     return { ok: false, reason: 'not-found' };
   }
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRenameRequestCollectionBatch(input, ctx));
 }
 
@@ -66,7 +58,7 @@ export async function applyRequestCollectionDelete(
   input: ApplyRequestCollectionDeleteInput,
   opts: RequestCollectionWriteOptions,
 ): Promise<RequestCollectionSimpleResult> {
-  const ctx = resolveContext(opts).next(
+  const ctx = resolveRendererContext(opts).next(
     opts.batchId
       ? { batchId: opts.batchId }
       : { batchId: `request-collection-delete-${input.collectionUid}` },

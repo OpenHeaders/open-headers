@@ -16,7 +16,7 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import { applySyncPayload, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
 import { mintBatch, type MutationBody, type MutationEnvelope, type SideEffectIntent } from '@openheaders/core/sync';
 import {
   COLLECTION_ENTITY_TYPE,
@@ -29,10 +29,7 @@ import {
   createCollectionSyncMirror,
   getActiveCollectionSyncMirror,
 } from '@/context/collection-sync-mirror';
-import {
-  ensureRendererContext,
-  type RendererContextHandle,
-} from '@/context/renderer-mutator-context';
+import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import {
   buildRemoveCollectionVarBatch,
   buildRenameCollectionBatch,
@@ -60,11 +57,6 @@ function resolveMirror(opts: CollectionWriteOptions): CollectionSyncMirror {
   return opts.mirror ?? getActiveCollectionSyncMirror();
 }
 
-function resolveContext(opts: CollectionWriteOptions): RendererContextHandle {
-  if (opts.context) return opts.context;
-  return ensureRendererContext({ workspaceId: opts.workspaceId, surfaceId: opts.surfaceId });
-}
-
 export interface ApplyCollectionSetVarInput {
   collectionUid: string;
   name: string;
@@ -76,7 +68,7 @@ export async function applyCollectionSetVar(
   input: ApplyCollectionSetVarInput,
   opts: CollectionWriteOptions,
 ): Promise<CollectionSimpleResult> {
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildSetCollectionVarBatch(input, ctx));
 }
 
@@ -89,7 +81,7 @@ export async function applyCollectionRemoveVar(
   input: ApplyCollectionRemoveVarInput,
   opts: CollectionWriteOptions,
 ): Promise<CollectionSimpleResult> {
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRemoveCollectionVarBatch(input, ctx));
 }
 
@@ -105,7 +97,7 @@ export async function applyCollectionRenameVar(
   input: ApplyCollectionRenameVarInput,
   opts: CollectionWriteOptions,
 ): Promise<CollectionSimpleResult> {
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRenameCollectionVarBatch(input, ctx));
 }
 
@@ -120,7 +112,7 @@ export async function applyCollectionSetVarType(
   input: ApplyCollectionSetVarTypeInput,
   opts: CollectionWriteOptions,
 ): Promise<CollectionSimpleResult> {
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildSetCollectionVarTypeBatch(input, ctx));
 }
 
@@ -133,7 +125,7 @@ export async function applyRenameCollection(
   input: ApplyRenameCollectionInput,
   opts: CollectionWriteOptions,
 ): Promise<CollectionSimpleResult> {
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRenameCollectionBatch(input, ctx));
 }
 
@@ -146,7 +138,7 @@ export async function applySetPinnedEnvironments(
   input: ApplySetPinnedEnvironmentsInput,
   opts: CollectionWriteOptions,
 ): Promise<CollectionSimpleResult> {
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildSetPinnedEnvironmentsBatch(input, ctx));
 }
 
@@ -159,7 +151,7 @@ export async function applySetDefaultEnvironmentId(
   input: ApplySetDefaultEnvironmentIdInput,
   opts: CollectionWriteOptions,
 ): Promise<CollectionSimpleResult> {
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildSetDefaultEnvironmentIdBatch(input, ctx));
 }
 
@@ -173,7 +165,7 @@ export async function applySetPinnedAndDefault(
   input: ApplySetPinnedAndDefaultInput,
   opts: CollectionWriteOptions,
 ): Promise<CollectionSimpleResult> {
-  const ctx = resolveContext(opts).next({
+  const ctx = resolveRendererContext(opts).next({
     batchId: opts.batchId ?? `coll-pinned-${input.collectionUid}`,
   });
   return applySyncPayload(buildSetPinnedAndDefaultBatch(input, ctx));
@@ -198,7 +190,7 @@ export async function applyCollectionVariablesReplacement(
     newByName.set(v.name, v);
   }
 
-  const ctx = resolveContext(opts).next({ batchId: opts.batchId ?? `coll-replace-${collectionUid}` });
+  const ctx = resolveRendererContext(opts).next({ batchId: opts.batchId ?? `coll-replace-${collectionUid}` });
 
   const bodies: MutationBody[] = [];
   for (const [name] of oldByName) {

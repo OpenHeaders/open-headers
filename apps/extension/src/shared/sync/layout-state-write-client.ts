@@ -10,8 +10,8 @@
  * broadcast for cross-surface consistency.
  */
 
-import { ensureRendererContext, type RendererContextHandle } from '@/context/renderer-mutator-context';
-import { applySyncPayload, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import type { RendererContextHandle } from '@/context/renderer-mutator-context';
+import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
 import { buildSetLayoutBatch } from '@/shared/sync/layout-state-mutations';
 
 export type LayoutStateResult = SyncSimpleResult;
@@ -23,11 +23,6 @@ export interface LayoutStateWriteOptions {
   context?: RendererContextHandle;
 }
 
-function resolveContext(opts: LayoutStateWriteOptions): RendererContextHandle {
-  if (opts.context) return opts.context;
-  return ensureRendererContext({ workspaceId: opts.workspaceId, surfaceId: opts.surfaceId });
-}
-
 export interface ApplyLayoutSetInput {
   layout: unknown;
 }
@@ -36,6 +31,6 @@ export async function applyLayoutSet(
   input: ApplyLayoutSetInput,
   opts: LayoutStateWriteOptions,
 ): Promise<LayoutStateResult> {
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildSetLayoutBatch({ layout: input.layout }, ctx));
 }

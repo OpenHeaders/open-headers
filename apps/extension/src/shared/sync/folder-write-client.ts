@@ -12,7 +12,7 @@
  * layer on top.
  */
 
-import { applySyncPayload, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
 import { type MutationEnvelope } from '@openheaders/core/sync';
 import type { FolderParentRef } from '@openheaders/core/sync';
 import {
@@ -20,10 +20,7 @@ import {
   type FolderSyncMirror,
   getActiveFolderSyncMirror,
 } from '@/context/folder-sync-mirror';
-import {
-  ensureRendererContext,
-  type RendererContextHandle,
-} from '@/context/renderer-mutator-context';
+import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import {
   buildCreateFolderBatch,
   buildDeleteFolderBatch,
@@ -47,11 +44,6 @@ function resolveMirror(opts: FolderWriteOptions): FolderSyncMirror {
   return opts.mirror ?? getActiveFolderSyncMirror();
 }
 
-function resolveContext(opts: FolderWriteOptions): RendererContextHandle {
-  if (opts.context) return opts.context;
-  return ensureRendererContext({ workspaceId: opts.workspaceId, surfaceId: opts.surfaceId });
-}
-
 export interface ApplyFolderRenameInput {
   folderUid: string;
   name: string;
@@ -66,7 +58,7 @@ export async function applyFolderRename(
   // entity exists, but the editor UX wants the early fail signal.
   const mirror = resolveMirror(opts);
   if (!mirror.getFolderMirror(input.folderUid)) return { ok: false, reason: 'not-found' };
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRenameFolderBatch(input, ctx));
 }
 
@@ -82,7 +74,7 @@ export async function applyFolderCreate(
   input: ApplyFolderCreateInput,
   opts: FolderWriteOptions,
 ): Promise<FolderSimpleResult> {
-  const ctx = resolveContext(opts).next(
+  const ctx = resolveRendererContext(opts).next(
     opts.batchId ? { batchId: opts.batchId } : { batchId: `folder-create-${input.folderUid}` },
   );
   return applySyncPayload(buildCreateFolderBatch(input, ctx));
@@ -97,7 +89,7 @@ export async function applyFolderDelete(
   input: ApplyFolderDeleteInput,
   opts: FolderWriteOptions,
 ): Promise<FolderSimpleResult> {
-  const ctx = resolveContext(opts).next(
+  const ctx = resolveRendererContext(opts).next(
     opts.batchId ? { batchId: opts.batchId } : { batchId: `folder-delete-${input.folderUid}` },
   );
   return applySyncPayload(buildDeleteFolderBatch(input, ctx));
@@ -116,7 +108,7 @@ export async function applyFolderMove(
   input: ApplyFolderMoveInput,
   opts: FolderWriteOptions,
 ): Promise<FolderSimpleResult> {
-  const ctx = resolveContext(opts).next(
+  const ctx = resolveRendererContext(opts).next(
     opts.batchId ? { batchId: opts.batchId } : { batchId: `folder-move-${input.folderUid}` },
   );
   return applySyncPayload(buildMoveFolderBatch(input, ctx));

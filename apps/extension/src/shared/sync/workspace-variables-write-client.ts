@@ -17,7 +17,7 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import { applySyncPayload, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
 import {
   mintBatch,
   type MutationBody,
@@ -29,10 +29,7 @@ import {
   WORKSPACE_VARIABLES_PATH,
   workspaceVariablesInvalidateResolverIntent,
 } from '@openheaders/core/sync';
-import {
-  ensureRendererContext,
-  type RendererContextHandle,
-} from '@/context/renderer-mutator-context';
+import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import {
   createWorkspaceVariablesSyncMirror,
   getActiveWorkspaceVariablesSyncMirror,
@@ -58,11 +55,6 @@ export interface WorkspaceVariablesWriteOptions {
   context?: RendererContextHandle;
 }
 
-function resolveContext(opts: WorkspaceVariablesWriteOptions): RendererContextHandle {
-  if (opts.context) return opts.context;
-  return ensureRendererContext({ workspaceId: opts.workspaceId, surfaceId: opts.surfaceId });
-}
-
 export interface ApplyWorkspaceVarSetInput {
   name: string;
   value: string;
@@ -73,7 +65,7 @@ export async function applyWorkspaceVarSet(
   input: ApplyWorkspaceVarSetInput,
   opts: WorkspaceVariablesWriteOptions,
 ): Promise<WorkspaceVariablesSimpleResult> {
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildSetWorkspaceVarBatch(input, ctx));
 }
 
@@ -85,7 +77,7 @@ export async function applyWorkspaceVarRemove(
   input: ApplyWorkspaceVarRemoveInput,
   opts: WorkspaceVariablesWriteOptions,
 ): Promise<WorkspaceVariablesSimpleResult> {
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRemoveWorkspaceVarBatch(input, ctx));
 }
 
@@ -100,7 +92,7 @@ export async function applyWorkspaceVarRename(
   input: ApplyWorkspaceVarRenameInput,
   opts: WorkspaceVariablesWriteOptions,
 ): Promise<WorkspaceVariablesSimpleResult> {
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRenameWorkspaceVarBatch(input, ctx));
 }
 
@@ -114,7 +106,7 @@ export async function applyWorkspaceVarSetType(
   input: ApplyWorkspaceVarSetTypeInput,
   opts: WorkspaceVariablesWriteOptions,
 ): Promise<WorkspaceVariablesSimpleResult> {
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildSetWorkspaceVarTypeBatch(input, ctx));
 }
 
@@ -138,7 +130,7 @@ export async function applyWorkspaceVariablesReplacement(
     newByName.set(v.name, v);
   }
 
-  const ctx = resolveContext(opts).next({ batchId: opts.batchId ?? `workspace-vars-replace` });
+  const ctx = resolveRendererContext(opts).next({ batchId: opts.batchId ?? `workspace-vars-replace` });
 
   const bodies: MutationBody[] = [];
   for (const [name] of oldByName) {

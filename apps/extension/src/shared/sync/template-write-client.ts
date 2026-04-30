@@ -12,15 +12,12 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import {
-  ensureRendererContext,
-  type RendererContextHandle,
-} from '@/context/renderer-mutator-context';
+import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import {
   getActiveTemplateSyncMirror,
   type TemplateSyncMirror,
 } from '@/context/template-sync-mirror';
-import { applySyncPayload, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
 import {
   buildAddBatch,
   buildDeleteBatch,
@@ -48,11 +45,6 @@ function resolveMirror(opts: TemplateWriteOptions): TemplateSyncMirror {
   return opts.mirror ?? getActiveTemplateSyncMirror();
 }
 
-function resolveContext(opts: TemplateWriteOptions): RendererContextHandle {
-  if (opts.context) return opts.context;
-  return ensureRendererContext({ workspaceId: opts.workspaceId, surfaceId: opts.surfaceId });
-}
-
 export async function applyTemplateUpdate(
   templateUid: string,
   updates: TemplateUpdates,
@@ -61,7 +53,7 @@ export async function applyTemplateUpdate(
   const mirror = resolveMirror(opts);
   const entry = mirror.getTemplateMirror(templateUid);
   if (!entry) return { ok: false, reason: 'not-found' };
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   // Renderer-side adapter: combine the mirror's order keys with the
   // canonical template snapshot to find each row's content via uid
   // lookup. The synthesizer needs `(itemId, orderKey, item)` triplets
@@ -88,7 +80,7 @@ export async function applyTemplateCreate(
   template: V5.Template,
   opts: TemplateWriteOptions,
 ): Promise<TemplateSimpleResult> {
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildAddBatch(template, ctx);
   return applySyncPayload(payload);
 }
@@ -115,7 +107,7 @@ export async function applyTemplateDelete(
 ): Promise<TemplateSimpleResult> {
   const mirror = resolveMirror(opts);
   if (!mirror.getTemplateMirror(templateUid)) return { ok: false, reason: 'not-found' };
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildDeleteBatch(templateUid, ctx);
   return applySyncPayload(payload);
 }

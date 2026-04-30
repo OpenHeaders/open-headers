@@ -16,6 +16,10 @@
 
 import type { MutationBatch, SideEffectIntent } from '@openheaders/core/sync';
 import { call } from '@utils/bridge';
+import {
+  ensureRendererContext,
+  type RendererContextHandle,
+} from '@/context/renderer-mutator-context';
 
 /**
  * Uniform structured result for sync writes. Every entity's
@@ -30,6 +34,30 @@ export type SyncSimpleResult =
 export interface SyncMutationPayload {
   batch: MutationBatch;
   sideEffects: SideEffectIntent[];
+}
+
+/**
+ * Common shape every renderer-side write-client's options carry.
+ * Per-entity options extend this with their mirror (and any
+ * entity-specific knobs).
+ */
+export interface BaseSyncWriteOptions {
+  workspaceId: string;
+  surfaceId: string;
+  /** Optional batchId so multi-mutation gestures share one all-or-nothing batch. */
+  batchId?: string;
+  /** Override the renderer context handle for tests. */
+  context?: RendererContextHandle;
+}
+
+/**
+ * Resolve the per-surface HLC sequencer + nodeId for the active
+ * workspace. Tests pass an explicit `context`; production goes through
+ * the singleton renderer-mutator-context.
+ */
+export function resolveRendererContext(opts: BaseSyncWriteOptions): RendererContextHandle {
+  if (opts.context) return opts.context;
+  return ensureRendererContext({ workspaceId: opts.workspaceId, surfaceId: opts.surfaceId });
 }
 
 /**

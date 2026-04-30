@@ -6,16 +6,13 @@
  * no renderer-direct create gesture today.
  */
 
-import { applySyncPayload, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
 import { type MutationEnvelope } from '@openheaders/core/sync';
 import {
   getActiveTemplateCollectionSyncMirror,
   type TemplateCollectionSyncMirror,
 } from '@/context/template-collection-sync-mirror';
-import {
-  ensureRendererContext,
-  type RendererContextHandle,
-} from '@/context/renderer-mutator-context';
+import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import {
   buildDeleteTemplateCollectionBatch,
   buildRenameTemplateCollectionBatch,
@@ -37,11 +34,6 @@ function resolveMirror(opts: TemplateCollectionWriteOptions): TemplateCollection
   return opts.mirror ?? getActiveTemplateCollectionSyncMirror();
 }
 
-function resolveContext(opts: TemplateCollectionWriteOptions): RendererContextHandle {
-  if (opts.context) return opts.context;
-  return ensureRendererContext({ workspaceId: opts.workspaceId, surfaceId: opts.surfaceId });
-}
-
 export interface ApplyTemplateCollectionRenameInput {
   collectionUid: string;
   name: string;
@@ -55,7 +47,7 @@ export async function applyTemplateCollectionRename(
   if (!mirror.getTemplateCollectionMirror(input.collectionUid)) {
     return { ok: false, reason: 'not-found' };
   }
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRenameTemplateCollectionBatch(input, ctx));
 }
 
@@ -67,7 +59,7 @@ export async function applyTemplateCollectionDelete(
   input: ApplyTemplateCollectionDeleteInput,
   opts: TemplateCollectionWriteOptions,
 ): Promise<TemplateCollectionSimpleResult> {
-  const ctx = resolveContext(opts).next(
+  const ctx = resolveRendererContext(opts).next(
     opts.batchId
       ? { batchId: opts.batchId }
       : { batchId: `template-collection-delete-${input.collectionUid}` },

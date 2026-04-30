@@ -14,15 +14,12 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import {
-  ensureRendererContext,
-  type RendererContextHandle,
-} from '@/context/renderer-mutator-context';
+import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import {
   getActiveRuleSyncMirror,
   type RuleSyncMirror,
 } from '@/context/rule-sync-mirror';
-import { applySyncPayload, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
 import {
   buildDeleteBatch,
   buildToggleBatch,
@@ -53,11 +50,6 @@ function resolveMirror(opts: RuleWriteOptions): RuleSyncMirror {
   return opts.mirror ?? getActiveRuleSyncMirror();
 }
 
-function resolveContext(opts: RuleWriteOptions): RendererContextHandle {
-  if (opts.context) return opts.context;
-  return ensureRendererContext({ workspaceId: opts.workspaceId, surfaceId: opts.surfaceId });
-}
-
 /**
  * Apply a partial Rule patch through the local oracle.
  *
@@ -75,7 +67,7 @@ export async function applyRuleUpdate(
   const mirror = resolveMirror(opts);
   const entry = mirror.getRuleMirror(ruleUid);
   if (!entry) return { ok: false, reason: 'not-found' };
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   // Renderer-side adapter: combine the mirror's order keys with the
   // canonical rule snapshot to find each row's content via uid lookup.
   // The synthesizer needs `(itemId, orderKey, item)` triplets to
@@ -105,7 +97,7 @@ export async function applyRuleToggle(
 ): Promise<RuleSimpleResult> {
   const mirror = resolveMirror(opts);
   if (!mirror.getRuleMirror(ruleUid)) return { ok: false, reason: 'not-found' };
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildToggleBatch(ruleUid, enabled, ctx);
   return applySyncPayload(payload);
 }
@@ -116,7 +108,7 @@ export async function applyRuleDelete(
 ): Promise<RuleSimpleResult> {
   const mirror = resolveMirror(opts);
   if (!mirror.getRuleMirror(ruleUid)) return { ok: false, reason: 'not-found' };
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildDeleteBatch(ruleUid, ctx);
   return applySyncPayload(payload);
 }

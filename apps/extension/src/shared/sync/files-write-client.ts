@@ -16,16 +16,13 @@
  */
 
 import { type FileRefSlot } from '@openheaders/core/sync';
-import {
-  ensureRendererContext,
-  type RendererContextHandle,
-} from '@/context/renderer-mutator-context';
+import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import {
   createFilesSyncMirror,
   getActiveFilesSyncMirror,
   type FilesSyncMirror,
 } from '@/context/files-sync-mirror';
-import { applySyncPayload, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
 import {
   buildAddFileRefBatch,
   buildRemoveFileRefBatch,
@@ -44,11 +41,6 @@ export interface FilesWriteOptions {
   context?: RendererContextHandle;
 }
 
-function resolveContext(opts: FilesWriteOptions): RendererContextHandle {
-  if (opts.context) return opts.context;
-  return ensureRendererContext({ workspaceId: opts.workspaceId, surfaceId: opts.surfaceId });
-}
-
 function resolveMirror(opts: FilesWriteOptions): FilesSyncMirror {
   return opts.mirror ?? getActiveFilesSyncMirror();
 }
@@ -61,7 +53,7 @@ export async function applyFileAdd(
   input: ApplyFileAddInput,
   opts: FilesWriteOptions,
 ): Promise<FilesResult> {
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildAddFileRefBatch(input, ctx));
 }
 
@@ -73,7 +65,7 @@ export async function applyFileRemove(
   input: ApplyFileRemoveInput,
   opts: FilesWriteOptions,
 ): Promise<FilesResult> {
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRemoveFileRefBatch(input, ctx));
 }
 

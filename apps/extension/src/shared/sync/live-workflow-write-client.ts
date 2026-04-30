@@ -7,11 +7,8 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import { applySyncPayload, type SyncSimpleResult } from '@/shared/sync/apply-payload';
-import {
-  ensureRendererContext,
-  type RendererContextHandle,
-} from '@/context/renderer-mutator-context';
+import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import {
   getActiveLiveWorkflowSyncMirror,
   type LiveWorkflowSyncMirror,
@@ -43,11 +40,6 @@ function resolveMirror(opts: LiveWorkflowWriteOptions): LiveWorkflowSyncMirror {
   return opts.mirror ?? getActiveLiveWorkflowSyncMirror();
 }
 
-function resolveContext(opts: LiveWorkflowWriteOptions): RendererContextHandle {
-  if (opts.context) return opts.context;
-  return ensureRendererContext({ workspaceId: opts.workspaceId, surfaceId: opts.surfaceId });
-}
-
 export async function applyLiveWorkflowUpdate(
   workflowUid: string,
   updates: LiveWorkflowUpdates,
@@ -56,7 +48,7 @@ export async function applyLiveWorkflowUpdate(
   const mirror = resolveMirror(opts);
   const entry = mirror.getLiveWorkflowMirror(workflowUid);
   if (!entry) return { ok: false, reason: 'not-found' };
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildUpdateLiveWorkflowBatch(workflowUid, updates, ctx);
   const ack = await applySyncPayload(payload);
   if (ack.ok) {
@@ -70,7 +62,7 @@ export async function applyLiveWorkflowCreate(
   workflow: V5.LiveWorkflow,
   opts: LiveWorkflowWriteOptions,
 ): Promise<LiveWorkflowSimpleResult> {
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildAddLiveWorkflowBatch(workflow, ctx);
   return applySyncPayload(payload);
 }
@@ -81,7 +73,7 @@ export async function applyLiveWorkflowDelete(
 ): Promise<LiveWorkflowSimpleResult> {
   const mirror = resolveMirror(opts);
   if (!mirror.getLiveWorkflowMirror(workflowUid)) return { ok: false, reason: 'not-found' };
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildDeleteLiveWorkflowBatch(workflowUid, ctx);
   return applySyncPayload(payload);
 }

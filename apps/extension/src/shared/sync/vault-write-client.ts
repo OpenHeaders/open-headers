@@ -18,7 +18,7 @@
  * the schema-marked-sensitive payload never crosses any sync transport.
  */
 
-import { applySyncPayload, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
 import {
   mintBatch,
   type MutationBody,
@@ -30,10 +30,7 @@ import {
   vaultInvalidateResolverIntent,
 } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
-import {
-  ensureRendererContext,
-  type RendererContextHandle,
-} from '@/context/renderer-mutator-context';
+import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import {
   createVaultSyncMirror,
   getActiveVaultSyncMirror,
@@ -58,11 +55,6 @@ export interface VaultWriteOptions {
   context?: RendererContextHandle;
 }
 
-function resolveContext(opts: VaultWriteOptions): RendererContextHandle {
-  if (opts.context) return opts.context;
-  return ensureRendererContext({ workspaceId: opts.workspaceId, surfaceId: opts.surfaceId });
-}
-
 export interface ApplyVaultSecretSetInput {
   secret: V5.VaultSecret;
 }
@@ -71,7 +63,7 @@ export async function applyVaultSecretSet(
   input: ApplyVaultSecretSetInput,
   opts: VaultWriteOptions,
 ): Promise<VaultSimpleResult> {
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildSetVaultSecretBatch({ secret: input.secret }, ctx));
 }
 
@@ -83,7 +75,7 @@ export async function applyVaultSecretRemove(
   input: ApplyVaultSecretRemoveInput,
   opts: VaultWriteOptions,
 ): Promise<VaultSimpleResult> {
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRemoveVaultSecretBatch({ name: input.name }, ctx));
 }
 
@@ -96,7 +88,7 @@ export async function applyVaultSecretRename(
   input: ApplyVaultSecretRenameInput,
   opts: VaultWriteOptions,
 ): Promise<VaultSimpleResult> {
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRenameVaultSecretBatch(input, ctx));
 }
 
@@ -122,7 +114,7 @@ export async function applyVaultReplacement(
     newByName.set(s.name, s);
   }
 
-  const ctx = resolveContext(opts).next({ batchId: opts.batchId ?? `vault-replace` });
+  const ctx = resolveRendererContext(opts).next({ batchId: opts.batchId ?? `vault-replace` });
 
   const bodies: MutationBody[] = [];
   for (const [name] of oldByName) {

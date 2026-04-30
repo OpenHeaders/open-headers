@@ -13,15 +13,12 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import {
-  ensureRendererContext,
-  type RendererContextHandle,
-} from '@/context/renderer-mutator-context';
+import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import {
   getActiveRequestSyncMirror,
   type RequestSyncMirror,
 } from '@/context/request-sync-mirror';
-import { applySyncPayload, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
 import {
   buildAddBatch,
   buildDeleteBatch,
@@ -52,11 +49,6 @@ function resolveMirror(opts: RequestWriteOptions): RequestSyncMirror {
   return opts.mirror ?? getActiveRequestSyncMirror();
 }
 
-function resolveContext(opts: RequestWriteOptions): RendererContextHandle {
-  if (opts.context) return opts.context;
-  return ensureRendererContext({ workspaceId: opts.workspaceId, surfaceId: opts.surfaceId });
-}
-
 /**
  * Apply a partial Request patch through the local oracle. Returns
  * `{ ok: true, request }` with an optimistic merge of `updates` into
@@ -71,7 +63,7 @@ export async function applyRequestUpdate(
   const mirror = resolveMirror(opts);
   const entry = mirror.getRequestMirror(requestUid);
   if (!entry) return { ok: false, reason: 'not-found' };
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   // Renderer-side adapter: combine the mirror's order keys with the
   // canonical request snapshot to find each row's content via uid
   // lookup. The diff-detect needs `(itemId, orderKey, item)` triplets to
@@ -102,7 +94,7 @@ export async function applyRequestCreate(
   request: V5.Request,
   opts: RequestWriteOptions,
 ): Promise<RequestSimpleResult> {
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildAddBatch(request, ctx);
   return applySyncPayload(payload);
 }
@@ -113,7 +105,7 @@ export async function applyRequestDelete(
 ): Promise<RequestSimpleResult> {
   const mirror = resolveMirror(opts);
   if (!mirror.getRequestMirror(requestUid)) return { ok: false, reason: 'not-found' };
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildDeleteBatch(requestUid, ctx);
   return applySyncPayload(payload);
 }

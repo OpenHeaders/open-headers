@@ -9,11 +9,8 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import { applySyncPayload, type SyncSimpleResult } from '@/shared/sync/apply-payload';
-import {
-  ensureRendererContext,
-  type RendererContextHandle,
-} from '@/context/renderer-mutator-context';
+import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import {
   getActiveLiveVariableSyncMirror,
   type LiveVariableSyncMirror,
@@ -45,11 +42,6 @@ function resolveMirror(opts: LiveVariableWriteOptions): LiveVariableSyncMirror {
   return opts.mirror ?? getActiveLiveVariableSyncMirror();
 }
 
-function resolveContext(opts: LiveVariableWriteOptions): RendererContextHandle {
-  if (opts.context) return opts.context;
-  return ensureRendererContext({ workspaceId: opts.workspaceId, surfaceId: opts.surfaceId });
-}
-
 export async function applyLiveVariableUpdate(
   liveVariableUid: string,
   updates: LiveVariableUpdates,
@@ -58,7 +50,7 @@ export async function applyLiveVariableUpdate(
   const mirror = resolveMirror(opts);
   const entry = mirror.getLiveVariableMirror(liveVariableUid);
   if (!entry) return { ok: false, reason: 'not-found' };
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildUpdateLiveVariableBatch(liveVariableUid, updates, ctx);
   const ack = await applySyncPayload(payload);
   if (ack.ok) {
@@ -72,7 +64,7 @@ export async function applyLiveVariableCreate(
   liveVariable: V5.LiveVariable,
   opts: LiveVariableWriteOptions,
 ): Promise<LiveVariableSimpleResult> {
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildAddLiveVariableBatch(liveVariable, ctx);
   return applySyncPayload(payload);
 }
@@ -83,7 +75,7 @@ export async function applyLiveVariableDelete(
 ): Promise<LiveVariableSimpleResult> {
   const mirror = resolveMirror(opts);
   if (!mirror.getLiveVariableMirror(liveVariableUid)) return { ok: false, reason: 'not-found' };
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildDeleteLiveVariableBatch(liveVariableUid, ctx);
   return applySyncPayload(payload);
 }

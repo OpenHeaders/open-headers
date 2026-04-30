@@ -22,7 +22,7 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import { applySyncPayload, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
 import { mintBatch, type MutationBody, type MutationEnvelope, type SideEffectIntent } from '@openheaders/core/sync';
 import {
   ENV_VARS_PATH,
@@ -35,10 +35,7 @@ import {
   type EnvSyncMirror,
   getActiveEnvSyncMirror,
 } from '@/context/env-sync-mirror';
-import {
-  ensureRendererContext,
-  type RendererContextHandle,
-} from '@/context/renderer-mutator-context';
+import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import {
   buildRemoveEnvVarBatch,
   buildRenameEnvironmentBatch,
@@ -65,11 +62,6 @@ function resolveMirror(opts: EnvWriteOptions): EnvSyncMirror {
   return opts.mirror ?? getActiveEnvSyncMirror();
 }
 
-function resolveContext(opts: EnvWriteOptions): RendererContextHandle {
-  if (opts.context) return opts.context;
-  return ensureRendererContext({ workspaceId: opts.workspaceId, surfaceId: opts.surfaceId });
-}
-
 export interface ApplyEnvSetVarInput {
   envId: string;
   name: string;
@@ -78,7 +70,7 @@ export interface ApplyEnvSetVarInput {
 }
 
 export async function applyEnvSetVar(input: ApplyEnvSetVarInput, opts: EnvWriteOptions): Promise<EnvSimpleResult> {
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildSetEnvVarBatch(input, ctx));
 }
 
@@ -91,7 +83,7 @@ export async function applyEnvRemoveVar(
   input: ApplyEnvRemoveVarInput,
   opts: EnvWriteOptions,
 ): Promise<EnvSimpleResult> {
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRemoveEnvVarBatch(input, ctx));
 }
 
@@ -107,7 +99,7 @@ export async function applyEnvRenameVar(
   input: ApplyEnvRenameVarInput,
   opts: EnvWriteOptions,
 ): Promise<EnvSimpleResult> {
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRenameEnvVarBatch(input, ctx));
 }
 
@@ -122,7 +114,7 @@ export async function applyEnvSetVarType(
   input: ApplyEnvSetVarTypeInput,
   opts: EnvWriteOptions,
 ): Promise<EnvSimpleResult> {
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildSetEnvVarTypeBatch(input, ctx));
 }
 
@@ -135,7 +127,7 @@ export async function applyRenameEnvironment(
   input: ApplyRenameEnvironmentInput,
   opts: EnvWriteOptions,
 ): Promise<EnvSimpleResult> {
-  const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRenameEnvironmentBatch(input, ctx));
 }
 
@@ -162,7 +154,7 @@ export async function applyEnvVariablesReplacement(
     newByName.set(v.name, v);
   }
 
-  const ctx = resolveContext(opts).next({ batchId: opts.batchId ?? `env-replace-${envId}` });
+  const ctx = resolveRendererContext(opts).next({ batchId: opts.batchId ?? `env-replace-${envId}` });
 
   const bodies: MutationBody[] = [];
   // Removals: anything in old but not in new.
