@@ -19,10 +19,9 @@
  *        (diffImportReports called from the modal produces
  *        `hasChanges: false` for an identical re-import).
  *
- * We drive via RPC rather than the UI for the same reason as
- * phase10-stale-draft.spec.ts: the import flow's invariants are a
- * contract between core (parser), SW (storage), and the bridge. The
- * modal orchestrates the sequence but the persisted state is the
+ * We drive via RPC rather than the UI: the import flow's invariants
+ * are a contract between core (parser), SW (storage), and the bridge.
+ * The modal orchestrates the sequence but the persisted state is the
  * source of truth.
  */
 

@@ -23,15 +23,16 @@
  *   - `markPersisted(next)` is called after a successful save to
  *     snapshot the just-persisted value. `isDirty` flips to false on
  *     the next render.
- *   - `resetToServer()` discards local edits — used by the
- *     stale-draft "reload" path.
  *
- * Resync behaviour: when `serverDraft` changes identity AND its
- * fingerprint differs from the last-known persisted fingerprint, the
- * hook snaps `draft` to the new server value and updates
- * `persistedFp`. This matches the prior per-editor behaviour (another
- * tab saves → my draft is replaced). The Phase 10 stale-draft banner
- * is the richer UX; this hook is just the plumbing.
+ * Resync behaviour (sync engine §6.3): when `serverDraft` changes
+ * identity AND its fingerprint differs from the last-known persisted
+ * fingerprint AND the editor is currently CLEAN (`fingerprint(draft) ===
+ * persistedFp`), the hook snaps `draft` to the new server value and
+ * updates `persistedFp` — landing the external commit in the form
+ * without disturbing user state. When the editor is DIRTY, the hook
+ * leaves the draft alone; the LWW save resolves the conflict at oracle
+ * time per §6.3. Without the dirty gate an external commit would
+ * silently clobber the user's typing.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -53,9 +54,6 @@ export interface UseDirtyDraftApi<T> {
    *  Callers that transform before saving (e.g. vault) pass the
    *  transformed draft so the fingerprint lines up. */
   markPersisted: (persisted: T) => void;
-  /** Discard local edits; snap draft + fingerprint back to
-   *  `serverDraft`. No-op when the server value isn't loaded yet. */
-  resetToServer: () => void;
 }
 
 export function useDirtyDraft<T>({ serverDraft, fingerprint, empty }: UseDirtyDraftOptions<T>): UseDirtyDraftApi<T> {
@@ -72,14 +70,16 @@ export function useDirtyDraft<T>({ serverDraft, fingerprint, empty }: UseDirtyDr
   // new array with identical content; we must NOT treat that as "the
   // server moved" and blow away in-flight edits.
   //
+  // The §6.3 dirty-gate is the second guard: when the user has
+  // uncommitted edits, an external commit lands at the oracle (LWW
+  // resolves there) but does NOT clobber the form.
+  //
   // `fingerprint` is deterministic-by-contract: identical content →
   // identical `serverFp` → effect doesn't re-run → draft preserved.
-  // When the server's content actually changes, `serverFp` changes and
-  // React creates a fresh effect closure with the new `serverDraft`,
-  // so the `setDraft(serverDraft)` below sees the post-change value.
   // biome-ignore lint/correctness/useExhaustiveDependencies: server-content-change only — see comment block above
   useEffect(() => {
     if (serverDraft == null || serverFp == null) return;
+    if (fingerprint(draft) !== persistedFp) return;
     setPersistedFp(serverFp);
     setDraft(serverDraft);
   }, [serverFp]);
@@ -93,11 +93,5 @@ export function useDirtyDraft<T>({ serverDraft, fingerprint, empty }: UseDirtyDr
     [fingerprint],
   );
 
-  const resetToServer = useCallback(() => {
-    if (serverDraft == null || serverFp == null) return;
-    setPersistedFp(serverFp);
-    setDraft(serverDraft);
-  }, [serverDraft, serverFp]);
-
-  return { draft, setDraft, isDirty, markPersisted, resetToServer };
+  return { draft, setDraft, isDirty, markPersisted };
 }

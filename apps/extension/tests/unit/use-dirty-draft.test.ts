@@ -142,33 +142,23 @@ describe('useDirtyDraft — external server updates', () => {
   });
 });
 
-describe('useDirtyDraft — resetToServer', () => {
-  it('restores draft to the server value and clears dirty', () => {
+describe('useDirtyDraft — §6.3 dirty-gate on resync', () => {
+  it('does NOT clobber user typing when an external commit lands while dirty', () => {
     const seed: Entry[] = [{ name: 'A', value: '1' }];
-    const { result } = mount(seed);
+    const external: Entry[] = [{ name: 'A', value: 'committed-elsewhere' }];
+    const { result, rerender } = mount(seed);
 
+    // User starts typing.
     act(() => {
       result.current.setDraft([{ name: 'A', value: 'draft-edit' }]);
     });
     expect(result.current.isDirty).toBe(true);
 
-    act(() => {
-      result.current.resetToServer();
-    });
-    expect(result.current.draft).toEqual(seed);
-    expect(result.current.isDirty).toBe(false);
-  });
+    // External commit lands — broadcast replays a new server value.
+    rerender({ serverDraft: external });
 
-  it('is a no-op when serverDraft is null', () => {
-    const { result } = mount(null);
-    act(() => {
-      result.current.setDraft([{ name: 'A', value: '1' }]);
-    });
-    const before = result.current.draft;
-    act(() => {
-      result.current.resetToServer();
-    });
-    // Unchanged — nothing to reset to.
-    expect(result.current.draft).toBe(before);
+    // Draft stays as the user's typing — LWW resolves at the oracle on save.
+    expect(result.current.draft).toEqual([{ name: 'A', value: 'draft-edit' }]);
+    expect(result.current.isDirty).toBe(true);
   });
 });
