@@ -7,10 +7,14 @@
 import {
   COLLECTION_ENTITY_TYPE,
   COLLECTION_VARS_PATH,
+  createFolder,
+  FOLDER_CHILDREN_PATH,
   mintBatch,
+  moveFolder,
   type MutationEnvelope,
   type MutatorContext,
   RULE_ENTITY_TYPE,
+  seedKey,
   setCollectionVar,
 } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
@@ -108,5 +112,63 @@ describe('projectCollectionPostState', () => {
     const live = oracle.liveSetItems(COLLECTION_ENTITY_TYPE, coll.uid, COLLECTION_VARS_PATH);
     const projected = projectCollectionByUid(oracle, coll.uid);
     expect(projected?.varNames.sort()).toEqual(live.map((e) => e.itemId).sort());
+  });
+
+  it('carries setOrderKeys.folders matching the parent-set order, reflecting moveFolder', async () => {
+    const oracle = newOracle();
+    const coll = makeCollection('coll-4');
+    await oracle.apply(seedCollection(coll, ctx(1)), []);
+    // Two child folders seed at distinct keys so initial order is stable.
+    await oracle.apply(
+      createFolder(ctx(2), {
+        folderUid: 'fold-a',
+        parent: { type: COLLECTION_ENTITY_TYPE, uid: coll.uid },
+        name: 'A',
+        orderKey: 'a0',
+      }).batch,
+      [],
+    );
+    await oracle.apply(
+      createFolder(ctx(3), {
+        folderUid: 'fold-b',
+        parent: { type: COLLECTION_ENTITY_TYPE, uid: coll.uid },
+        name: 'B',
+        orderKey: 'b0',
+      }).batch,
+      [],
+    );
+
+    const before = projectCollectionByUid(oracle, coll.uid);
+    expect(before?.setOrderKeys[FOLDER_CHILDREN_PATH]?.map((s) => s.itemId)).toEqual([
+      'fold-a',
+      'fold-b',
+    ]);
+
+    // Move fold-b to before fold-a — orderKey lexicographically less than 'a0'.
+    await oracle.apply(
+      moveFolder(ctx(4), {
+        folderUid: 'fold-b',
+        newParent: { type: COLLECTION_ENTITY_TYPE, uid: coll.uid },
+        orderKey: 'a',
+      }).batch,
+      [],
+    );
+
+    const after = projectCollectionByUid(oracle, coll.uid);
+    expect(after?.setOrderKeys[FOLDER_CHILDREN_PATH]?.map((s) => s.itemId)).toEqual([
+      'fold-b',
+      'fold-a',
+    ]);
+  });
+
+  it('omits setOrderKeys.folders for collections with no child folders', async () => {
+    const oracle = newOracle();
+    const coll = makeCollection('coll-5');
+    await oracle.apply(seedCollection(coll, ctx(1)), []);
+    const projected = projectCollectionByUid(oracle, coll.uid);
+    expect(projected?.setOrderKeys[FOLDER_CHILDREN_PATH]).toBeUndefined();
+    // Sanity: seedKey is the canonical first-slot key — kept in this
+    // assertion to ensure the export remains live.
+    expect(seedKey()).toBeDefined();
   });
 });

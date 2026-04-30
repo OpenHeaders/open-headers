@@ -8,8 +8,10 @@
 import {
   COLLECTION_ENTITY_TYPE,
   createFolder,
+  FOLDER_CHILDREN_PATH,
   FOLDER_ENTITY_TYPE,
   mintBatch,
+  moveFolder,
   type MutationEnvelope,
   type MutatorContext,
   renameFolder,
@@ -150,6 +152,75 @@ describe('projectFolderPostState', () => {
     const tomb = mintBatch(ctx(3), [{ kind: 'delete', type: FOLDER_ENTITY_TYPE, id: 'f-del' }]);
     await oracle.apply(tomb, []);
     expect(projectFolderByUid(oracle, 'f-del')).toBeNull();
+  });
+
+  it('carries setOrderKeys.folders for nested child folders, reflecting moveFolder', async () => {
+    const oracle = newOracle();
+    const coll = makeCollection('col-ord');
+    await oracle.apply(seedCollection(coll, ctx(1)), []);
+    await oracle.apply(
+      createFolder(ctx(2), {
+        folderUid: 'parent',
+        parent: { type: COLLECTION_ENTITY_TYPE, uid: coll.uid },
+        name: 'Parent',
+      }).batch,
+      [],
+    );
+    await oracle.apply(
+      createFolder(ctx(3), {
+        folderUid: 'child-a',
+        parent: { type: FOLDER_ENTITY_TYPE, uid: 'parent' },
+        name: 'A',
+        orderKey: 'a0',
+      }).batch,
+      [],
+    );
+    await oracle.apply(
+      createFolder(ctx(4), {
+        folderUid: 'child-b',
+        parent: { type: FOLDER_ENTITY_TYPE, uid: 'parent' },
+        name: 'B',
+        orderKey: 'b0',
+      }).batch,
+      [],
+    );
+
+    const before = projectFolderByUid(oracle, 'parent');
+    expect(before?.setOrderKeys[FOLDER_CHILDREN_PATH]?.map((s) => s.itemId)).toEqual([
+      'child-a',
+      'child-b',
+    ]);
+
+    await oracle.apply(
+      moveFolder(ctx(5), {
+        folderUid: 'child-b',
+        newParent: { type: FOLDER_ENTITY_TYPE, uid: 'parent' },
+        orderKey: 'a',
+      }).batch,
+      [],
+    );
+
+    const after = projectFolderByUid(oracle, 'parent');
+    expect(after?.setOrderKeys[FOLDER_CHILDREN_PATH]?.map((s) => s.itemId)).toEqual([
+      'child-b',
+      'child-a',
+    ]);
+  });
+
+  it('omits setOrderKeys.folders for leaf folders', async () => {
+    const oracle = newOracle();
+    const coll = makeCollection('col-leaf');
+    await oracle.apply(seedCollection(coll, ctx(1)), []);
+    await oracle.apply(
+      createFolder(ctx(2), {
+        folderUid: 'leaf',
+        parent: { type: COLLECTION_ENTITY_TYPE, uid: coll.uid },
+        name: 'Leaf',
+      }).batch,
+      [],
+    );
+    const post = projectFolderByUid(oracle, 'leaf');
+    expect(post?.setOrderKeys[FOLDER_CHILDREN_PATH]).toBeUndefined();
   });
 
   it('returns null when parent slot is missing', async () => {
