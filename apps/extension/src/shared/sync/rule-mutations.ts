@@ -10,20 +10,22 @@
  * The four helpers below produce `(batch, sideEffects)` pairs for the
  * four legacy write paths. They're pure transforms — no oracle reads,
  * no IO — so the rule-store can apply them under its existing
- * orchestration (which still owns optimistic local apply for collection
- * / folder operations, batched scheduleUpdate, and the chrome.runtime
- * `rulesUpdated` broadcast).
+ * orchestration.
  *
  * Set-modeled fields (`conditions`, `action.requestHeaders`,
  * `action.responseHeaders`) need special handling on partial updates:
  * a naïve `setField('conditions', [...])` would write a leaf entry
  * that competes with the oracle's setItems entries at the same path,
- * producing a non-deterministic materialized view. {@link buildUpdateBatch}
- * therefore reads the live itemIds from the oracle, emits one
- * `removeFromSet` per existing item, then emits one `addToSet` per
- * member of the new value with a fresh itemId. Replacement semantics
- * are preserved; convergence is preserved; latest-HLC wins between
- * concurrent set-replacements applies as designed.
+ * producing a non-deterministic materialized view. The shared
+ * {@link synthesizeSetDiff} computes the **minimum** envelope sequence
+ * — `removeFromSet` for vanished uids, `addToSet` for new and
+ * content-changed uids (per-itemId LWW supersedes; no redundant
+ * `removeFromSet` for content edits), and `moveBefore` for pure
+ * position changes. Mixed gestures emit the minimum diff in one walk.
+ *
+ * Persistent row identity comes from the schema: each `RuleCondition`,
+ * `HeaderModification` carries a required `uid` field that doubles as
+ * the sync engine's itemId. Save → reload preserves identity.
  */
 
 import {
@@ -36,9 +38,9 @@ import {
   type SideEffectIntent,
   toggleEnabled,
 } from '@openheaders/core/sync';
-import { generateUid } from '@openheaders/core/utils';
 import type { V5 } from '@openheaders/core/types';
 import { seedRule } from './rule-projection';
+import { type LiveSetEntry, synthesizeSetDiff } from './set-diff';
 
 export interface RuleMutationPayload {
   batch: MutationBatch;
@@ -46,15 +48,18 @@ export interface RuleMutationPayload {
 }
 
 /**
- * Live-itemId reader for set-modeled paths. The SW oracle exposes
- * `(itemId, item)` pairs via `oracle.liveSetItems`; the renderer-side
- * mirror exposes just `string[]` itemIds via
- * `mirror.liveSetItems(uid, path)`. {@link buildUpdateBatch} only needs
- * itemIds — anything else would couple the renderer to the SW's richer
- * shape — so we accept the narrower function signature and let either
- * caller satisfy it.
+ * Live-set reader for set-modeled paths on a Rule. Returns the
+ * triplet `{itemId, orderKey, item}` per live set member in canonical
+ * sort order — {@link synthesizeSetDiff} consults the orderKey + item
+ * to detect pure-reorder gestures, content edits, and additions in
+ * one pass. SW + renderer both satisfy this — see
+ * `oracle.liveOrderedSetItems` and `RuleSyncMirror.liveOrderedSetItems`
+ * combined with the rule snapshot for `item` resolution.
  */
-export type LiveSetItemIds = (ruleUid: string, setPath: string) => readonly string[];
+export type LiveSetEntries = (
+  ruleUid: string,
+  setPath: string,
+) => ReadonlyArray<LiveSetEntry>;
 
 /** New rule → seed batch + DNR recompile intent. */
 export function buildAddBatch(rule: V5.Rule, ctx: MutatorContext): RuleMutationPayload {
@@ -97,22 +102,19 @@ const isSetPath = (top: string, sub?: string): SetPath | null => {
 /**
  * Translate a `Partial<Omit<V5.Rule, 'uid'|'path'>>` patch into a
  * single batch of mutations. Scalar fields → one `setField` per
- * leaf; set-modeled fields → `removeFromSet` per existing itemId
- * followed by `addToSet` per new member.
+ * leaf; set-modeled fields → minimum diff via {@link synthesizeSetDiff}.
  *
- * `oracle.liveSetItems` is consulted at emit time so the removeFromSet
- * envelopes carry the itemIds the oracle currently holds. Concurrency
- * with another emitter mid-update is handled by per-itemId LWW: a
- * concurrent `addToSet(newItemId, ...)` wins because we never tombstone
- * an itemId we didn't observe; a concurrent `removeFromSet(itemId)` is
- * idempotent under tombstone HLC compare.
+ * Concurrency with another emitter mid-update is handled by per-itemId
+ * LWW: a concurrent `addToSet(newItemId, ...)` wins because we never
+ * tombstone an itemId we didn't observe; a concurrent
+ * `removeFromSet(itemId)` is idempotent under tombstone HLC compare.
  */
 export function buildUpdateBatch(
   ruleUid: string,
   ruleType: V5.Rule['type'],
   updates: Partial<Omit<V5.Rule, 'uid' | 'path'>>,
   ctx: MutatorContext,
-  liveSetItemIds: LiveSetItemIds,
+  liveSetEntries: LiveSetEntries,
 ): RuleMutationPayload {
   const bodies: MutationBody[] = [];
 
@@ -121,7 +123,15 @@ export function buildUpdateBatch(
 
     // conditions: top-level set-modeled path on every rule variant.
     if (key === 'conditions' && Array.isArray(value)) {
-      pushSetReplacement(bodies, ruleUid, 'conditions', value, liveSetItemIds);
+      bodies.push(
+        ...synthesizeSetDiff({
+          type: RULE_ENTITY_TYPE,
+          id: ruleUid,
+          path: 'conditions',
+          live: liveSetEntries(ruleUid, 'conditions'),
+          newItems: value,
+        }),
+      );
       continue;
     }
 
@@ -136,7 +146,15 @@ export function buildUpdateBatch(
       for (const [subKey, subVal] of Object.entries(action)) {
         const setPath = isSetPath('action', subKey);
         if (setPath && Array.isArray(subVal)) {
-          pushSetReplacement(bodies, ruleUid, setPath, subVal, liveSetItemIds);
+          bodies.push(
+            ...synthesizeSetDiff({
+              type: RULE_ENTITY_TYPE,
+              id: ruleUid,
+              path: setPath,
+              live: liveSetEntries(ruleUid, setPath),
+              newItems: subVal,
+            }),
+          );
           continue;
         }
         remaining[subKey] = subVal;
@@ -164,29 +182,6 @@ export function buildUpdateBatch(
     batch: mintBatch(ctx, bodies),
     sideEffects: bodies.length > 0 ? [recompileDnrIntent(ruleUid, ctx.hlc)] : [],
   };
-}
-
-function pushSetReplacement(
-  bodies: MutationBody[],
-  ruleUid: string,
-  setPath: SetPath,
-  newItems: unknown[],
-  liveSetItemIds: LiveSetItemIds,
-): void {
-  const live = liveSetItemIds(ruleUid, setPath);
-  for (const itemId of live) {
-    bodies.push({ kind: 'removeFromSet', type: RULE_ENTITY_TYPE, id: ruleUid, path: setPath, itemId });
-  }
-  for (const item of newItems) {
-    bodies.push({
-      kind: 'addToSet',
-      type: RULE_ENTITY_TYPE,
-      id: ruleUid,
-      path: setPath,
-      itemId: generateUid(),
-      item,
-    });
-  }
 }
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> =>

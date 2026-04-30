@@ -32,6 +32,8 @@ export interface RuleMirrorEntry {
   rule: V5.Rule;
   /** Map keyed by set path (e.g. `conditions`). */
   setItemIds: Record<string, string[]>;
+  /** Per-set ordered `(itemId, orderKey)` pairs for synthesizer-driven writes. */
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
 }
 
 export type RuleMirrorListener = (uid: string) => void;
@@ -44,6 +46,11 @@ export interface RuleSyncMirror {
    *  shape the SW oracle exposes via `liveSetItems`, so write helpers
    *  can take either. */
   liveSetItems(uid: string, setPath: string): string[];
+  /** Live `(itemId, orderKey)` pairs at a set path on the rule, in
+   *  canonical sort order. Returns `[]` when unknown. The renderer
+   *  write-client feeds these into `synthesizeSetDiff` so save-time
+   *  gestures emit the minimum envelope set. */
+  liveOrderedSetItems(uid: string, setPath: string): Array<{ itemId: string; orderKey: string }>;
   /** Subscribe to changes for one rule. Listener fires after every
    *  broadcast that mutates `uid`. Returns an unsubscribe handle. */
   subscribeRuleMirror(uid: string, listener: RuleMirrorListener): () => void;
@@ -84,7 +91,11 @@ export function createRuleSyncMirror(options: CreateRuleSyncMirrorOptions = {}):
       return;
     }
 
-    entries.set(uid, { rule: rulePostState.rule, setItemIds: rulePostState.setItemIds });
+    entries.set(uid, {
+      rule: rulePostState.rule,
+      setItemIds: rulePostState.setItemIds,
+      setOrderKeys: rulePostState.setOrderKeys,
+    });
     notify(listeners, uid);
   });
 
@@ -96,7 +107,11 @@ export function createRuleSyncMirror(options: CreateRuleSyncMirrorOptions = {}):
           // post-commit state — defer to it instead of overwriting.
           const uid = entry.rule.uid;
           if (seenSinceMount.has(uid)) continue;
-          entries.set(uid, { rule: entry.rule, setItemIds: entry.setItemIds });
+          entries.set(uid, {
+            rule: entry.rule,
+            setItemIds: entry.setItemIds,
+            setOrderKeys: entry.setOrderKeys,
+          });
           notify(listeners, uid);
         }
       })
@@ -113,6 +128,11 @@ export function createRuleSyncMirror(options: CreateRuleSyncMirrorOptions = {}):
       const entry = entries.get(uid);
       if (!entry) return [];
       return entry.setItemIds[setPath] ?? [];
+    },
+    liveOrderedSetItems(uid, setPath) {
+      const entry = entries.get(uid);
+      if (!entry) return [];
+      return entry.setOrderKeys[setPath] ?? [];
     },
     subscribeRuleMirror(uid, listener) {
       let bucket = listeners.get(uid);

@@ -30,7 +30,7 @@ const RULE_SET_PATHS = ['conditions', 'action.requestHeaders', 'action.responseH
  * fires; just without the optional payload.
  */
 export function projectRulePostState(
-  oracle: Pick<EntityOracle, 'materializeOne' | 'liveSetItems'>,
+  oracle: Pick<EntityOracle, 'materializeOne' | 'liveOrderedSetItems'>,
   envelope: MutationEnvelope,
 ): SyncRulePostState | null {
   if (envelope.body.type !== RULE_ENTITY_TYPE) return null;
@@ -43,7 +43,7 @@ export function projectRulePostState(
  * freshly-mounted renderer mirrors before the next live broadcast.
  */
 export function projectRuleByUid(
-  oracle: Pick<EntityOracle, 'materializeOne' | 'liveSetItems'>,
+  oracle: Pick<EntityOracle, 'materializeOne' | 'liveOrderedSetItems'>,
   ruleUid: string,
 ): SyncRulePostState | null {
   const materialized = oracle.materializeOne(RULE_ENTITY_TYPE, ruleUid);
@@ -52,12 +52,18 @@ export function projectRuleByUid(
   const rule = projectRule(materialized);
   if (!rule) return null;
 
+  // One ordered read per set path; the renderer's mirror needs both the
+  // bare itemId list (legacy enumeration callers) AND the per-itemId
+  // order keys (synthesizer-driven write paths). Computing both from
+  // the same ordered read keeps the two views byte-aligned.
   const setItemIds: Record<string, string[]> = {};
+  const setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>> = {};
   for (const path of RULE_SET_PATHS) {
-    const items = oracle.liveSetItems(RULE_ENTITY_TYPE, ruleUid, path);
+    const items = oracle.liveOrderedSetItems(RULE_ENTITY_TYPE, ruleUid, path);
     if (items.length === 0) continue;
     setItemIds[path] = items.map((entry) => entry.itemId);
+    setOrderKeys[path] = items.map((entry) => ({ itemId: entry.itemId, orderKey: entry.key }));
   }
 
-  return { rule, setItemIds };
+  return { rule, setItemIds, setOrderKeys };
 }

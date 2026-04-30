@@ -50,11 +50,25 @@ const headerRule: V5.HeaderRule = {
   action: { requestHeaders: [], responseHeaders: [] },
 };
 
-function makeMirror(rule: V5.Rule | null, setItemIds: Record<string, string[]> = {}): RuleSyncMirror {
+function makeMirror(
+  rule: V5.Rule | null,
+  setItemIds: Record<string, string[]> = {},
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>> = {},
+): RuleSyncMirror {
+  // Default order keys: synthesize `{itemId, orderKey: 'm{i}'}` from
+  // setItemIds when the test didn't pin specific keys. Tests that care
+  // about specific positions pass setOrderKeys explicitly.
+  const resolvedOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>> = { ...setOrderKeys };
+  for (const [path, ids] of Object.entries(setItemIds)) {
+    if (resolvedOrderKeys[path]) continue;
+    resolvedOrderKeys[path] = ids.map((itemId, i) => ({ itemId, orderKey: `m${i}` }));
+  }
   return {
     getRuleMirror: (uid) =>
-      rule && rule.uid === uid ? { rule, setItemIds } : null,
+      rule && rule.uid === uid ? { rule, setItemIds, setOrderKeys: resolvedOrderKeys } : null,
     liveSetItems: (uid, path) => (rule && rule.uid === uid ? (setItemIds[path] ?? []) : []),
+    liveOrderedSetItems: (uid, path) =>
+      rule && rule.uid === uid ? (resolvedOrderKeys[path] ?? []) : [],
     subscribeRuleMirror: () => () => undefined,
     dispose: () => undefined,
   };

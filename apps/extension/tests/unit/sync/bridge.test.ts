@@ -91,7 +91,13 @@ describe('sync bridge', () => {
     const projector: BroadcastProjector = (envelope) => {
       seen.push(envelope);
       return envelope.body.type === RULE_ENTITY_TYPE
-        ? { rulePostState: { rule: { uid: envelope.body.id } as never, setItemIds: { conditions: ['a', 'b'] } } }
+        ? {
+            rulePostState: {
+              rule: { uid: envelope.body.id } as never,
+              setItemIds: { conditions: ['a', 'b'] },
+              setOrderKeys: { conditions: [{ itemId: 'a', orderKey: 'm' }, { itemId: 'b', orderKey: 'n' }] },
+            },
+          }
         : null;
     };
     const off = wireBroadcastToSink(broadcast, (e) => sink.push(e), projector);
