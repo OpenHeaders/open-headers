@@ -19,6 +19,10 @@ import {
 
 export interface FolderMirrorEntry {
   folder: V5.Folder;
+  /** Per-set ordered `(itemId, orderKey)` pairs. Carries the folder's
+   *  own `folders` set (slots for nested child folders); read via
+   *  `liveOrderedSetItems`. */
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
 }
 
 export type FolderMirrorListener = (folderUid: string) => void;
@@ -27,6 +31,10 @@ export interface FolderSyncMirror {
   getFolderMirror(folderUid: string): FolderMirrorEntry | null;
   /** Snapshot of every known folder, in stable uid order. */
   listFolders(): V5.Folder[];
+  liveOrderedSetItems(
+    folderUid: string,
+    setPath: string,
+  ): Array<{ itemId: string; orderKey: string }>;
   subscribeFolderMirror(folderUid: string, listener: FolderMirrorListener): () => void;
   /** Subscribe to *any* folder change. */
   subscribeAny(listener: FolderMirrorListener): () => void;
@@ -46,11 +54,17 @@ export function createFolderSyncMirror(
         if (envelope.body.type !== FOLDER_ENTITY_TYPE) return null;
         const uid = envelope.body.id;
         if (!folderPostState) return { uid, entry: null };
-        return { uid, entry: { folder: folderPostState.folder } };
+        return {
+          uid,
+          entry: { folder: folderPostState.folder, setOrderKeys: folderPostState.setOrderKeys },
+        };
       },
       fetchSnapshot: async () => {
         const resp = await call('oh.sync.snapshotFolders');
-        return resp.entries.map((e) => ({ uid: e.folder.uid, entry: { folder: e.folder } }));
+        return resp.entries.map((e) => ({
+          uid: e.folder.uid,
+          entry: { folder: e.folder, setOrderKeys: e.setOrderKeys },
+        }));
       },
     },
     options,
@@ -62,6 +76,7 @@ export function createFolderSyncMirror(
         .list()
         .map((e) => e.folder)
         .sort((a, b) => (a.uid < b.uid ? -1 : a.uid > b.uid ? 1 : 0)),
+    liveOrderedSetItems: (uid, setPath) => core.get(uid)?.setOrderKeys[setPath] ?? [],
     subscribeFolderMirror: core.subscribe,
     subscribeAny: core.subscribeAny,
     dispose: core.dispose,

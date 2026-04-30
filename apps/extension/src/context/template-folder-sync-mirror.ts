@@ -15,6 +15,9 @@ import {
 
 export interface TemplateFolderMirrorEntry {
   folder: V5.Folder;
+  /** Per-set ordered `(itemId, orderKey)` pairs. Carries the folder's
+   *  own `folders` set; read via `liveOrderedSetItems`. */
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
 }
 
 export type TemplateFolderMirrorListener = (folderUid: string) => void;
@@ -22,6 +25,10 @@ export type TemplateFolderMirrorListener = (folderUid: string) => void;
 export interface TemplateFolderSyncMirror {
   getTemplateFolderMirror(folderUid: string): TemplateFolderMirrorEntry | null;
   listTemplateFolders(): V5.Folder[];
+  liveOrderedSetItems(
+    folderUid: string,
+    setPath: string,
+  ): Array<{ itemId: string; orderKey: string }>;
   subscribeTemplateFolderMirror(
     folderUid: string,
     listener: TemplateFolderMirrorListener,
@@ -43,11 +50,20 @@ export function createTemplateFolderSyncMirror(
         if (envelope.body.type !== TEMPLATE_FOLDER_ENTITY_TYPE) return null;
         const uid = envelope.body.id;
         if (!templateFolderPostState) return { uid, entry: null };
-        return { uid, entry: { folder: templateFolderPostState.folder } };
+        return {
+          uid,
+          entry: {
+            folder: templateFolderPostState.folder,
+            setOrderKeys: templateFolderPostState.setOrderKeys,
+          },
+        };
       },
       fetchSnapshot: async () => {
         const resp = await call('oh.sync.snapshotTemplateFolders');
-        return resp.entries.map((e) => ({ uid: e.folder.uid, entry: { folder: e.folder } }));
+        return resp.entries.map((e) => ({
+          uid: e.folder.uid,
+          entry: { folder: e.folder, setOrderKeys: e.setOrderKeys },
+        }));
       },
     },
     options,
@@ -59,6 +75,7 @@ export function createTemplateFolderSyncMirror(
         .list()
         .map((e) => e.folder)
         .sort((a, b) => (a.uid < b.uid ? -1 : a.uid > b.uid ? 1 : 0)),
+    liveOrderedSetItems: (uid, setPath) => core.get(uid)?.setOrderKeys[setPath] ?? [],
     subscribeTemplateFolderMirror: core.subscribe,
     subscribeAny: core.subscribeAny,
     dispose: core.dispose,

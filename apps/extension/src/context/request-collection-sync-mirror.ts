@@ -18,6 +18,9 @@ import {
 
 export interface RequestCollectionMirrorEntry {
   collection: V5.Collection;
+  /** Per-set ordered `(itemId, orderKey)` pairs. Carries the parent's
+   *  `folders` set; read via `liveOrderedSetItems`. */
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
 }
 
 export type RequestCollectionMirrorListener = (collectionUid: string) => void;
@@ -25,6 +28,10 @@ export type RequestCollectionMirrorListener = (collectionUid: string) => void;
 export interface RequestCollectionSyncMirror {
   getRequestCollectionMirror(collectionUid: string): RequestCollectionMirrorEntry | null;
   listRequestCollections(): V5.Collection[];
+  liveOrderedSetItems(
+    collectionUid: string,
+    setPath: string,
+  ): Array<{ itemId: string; orderKey: string }>;
   subscribeRequestCollectionMirror(
     collectionUid: string,
     listener: RequestCollectionMirrorListener,
@@ -46,13 +53,19 @@ export function createRequestCollectionSyncMirror(
         if (envelope.body.type !== REQUEST_COLLECTION_ENTITY_TYPE) return null;
         const uid = envelope.body.id;
         if (!requestCollectionPostState) return { uid, entry: null };
-        return { uid, entry: { collection: requestCollectionPostState.collection } };
+        return {
+          uid,
+          entry: {
+            collection: requestCollectionPostState.collection,
+            setOrderKeys: requestCollectionPostState.setOrderKeys,
+          },
+        };
       },
       fetchSnapshot: async () => {
         const resp = await call('oh.sync.snapshotRequestCollections');
         return resp.entries.map((e) => ({
           uid: e.collection.uid,
-          entry: { collection: e.collection },
+          entry: { collection: e.collection, setOrderKeys: e.setOrderKeys },
         }));
       },
     },
@@ -65,6 +78,7 @@ export function createRequestCollectionSyncMirror(
         .list()
         .map((e) => e.collection)
         .sort((a, b) => (a.uid < b.uid ? -1 : a.uid > b.uid ? 1 : 0)),
+    liveOrderedSetItems: (uid, setPath) => core.get(uid)?.setOrderKeys[setPath] ?? [],
     subscribeRequestCollectionMirror: core.subscribe,
     subscribeAny: core.subscribeAny,
     dispose: core.dispose,

@@ -18,6 +18,9 @@ export interface CollectionMirrorEntry {
   collection: V5.Collection;
   /** Live variable names (set member identity = variable name). */
   varNames: string[];
+  /** Per-set ordered `(itemId, orderKey)` pairs. Carries the parent's
+   *  `folders` set today; readers consume via `liveOrderedSetItems`. */
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
 }
 
 export type CollectionMirrorListener = (collectionUid: string) => void;
@@ -25,6 +28,10 @@ export type CollectionMirrorListener = (collectionUid: string) => void;
 export interface CollectionSyncMirror {
   getCollectionMirror(collectionUid: string): CollectionMirrorEntry | null;
   liveVarNames(collectionUid: string): string[];
+  liveOrderedSetItems(
+    collectionUid: string,
+    setPath: string,
+  ): Array<{ itemId: string; orderKey: string }>;
   subscribeCollectionMirror(collectionUid: string, listener: CollectionMirrorListener): () => void;
   dispose(): void;
 }
@@ -47,6 +54,7 @@ export function createCollectionSyncMirror(
           entry: {
             collection: collectionPostState.collection,
             varNames: collectionPostState.varNames,
+            setOrderKeys: collectionPostState.setOrderKeys,
           },
         };
       },
@@ -54,7 +62,7 @@ export function createCollectionSyncMirror(
         const resp = await call('oh.sync.snapshotCollections');
         return resp.entries.map((e) => ({
           uid: e.collection.uid,
-          entry: { collection: e.collection, varNames: e.varNames },
+          entry: { collection: e.collection, varNames: e.varNames, setOrderKeys: e.setOrderKeys },
         }));
       },
     },
@@ -63,6 +71,7 @@ export function createCollectionSyncMirror(
   return {
     getCollectionMirror: core.get,
     liveVarNames: (uid) => core.get(uid)?.varNames ?? [],
+    liveOrderedSetItems: (uid, setPath) => core.get(uid)?.setOrderKeys[setPath] ?? [],
     subscribeCollectionMirror: core.subscribe,
     dispose: core.dispose,
   };

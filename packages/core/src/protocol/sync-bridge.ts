@@ -95,6 +95,14 @@ export interface SyncCollectionPostState {
   collection: V5.Collection;
   /** Live variable names — the set-member identity for collection vars. */
   varNames: string[];
+  /**
+   * Live `(itemId, orderKey)` pairs at the parent-owned `folders` set
+   * (§23.5). Renderer-side mirrors fold this into a per-collection
+   * ordered child-folder list; the sidebar tree consumes it to render
+   * folder siblings in fractional-indexing order, and the dnd surface
+   * uses it to compute `keyBetween(prev, next)` at drop time.
+   */
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
 }
 
 /**
@@ -172,6 +180,13 @@ export interface SyncRequestPostState {
  */
 export interface SyncFolderPostState {
   folder: V5.Folder;
+  /**
+   * Live `(itemId, orderKey)` pairs at the folder's own `folders` set
+   * (§23.5) — the slot list for child folders nested under this folder.
+   * Same shape as {@link SyncCollectionPostState.setOrderKeys}; folder
+   * dnd reads this to compute `keyBetween` for nested-folder drops.
+   */
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
 }
 
 /**
@@ -184,6 +199,9 @@ export interface SyncFolderPostState {
  */
 export interface SyncRequestCollectionPostState {
   collection: V5.Collection;
+  /** Live `(itemId, orderKey)` pairs at the parent-owned `folders` set
+   *  (§23.5). Same shape as {@link SyncCollectionPostState.setOrderKeys}. */
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
 }
 
 /**
@@ -194,6 +212,9 @@ export interface SyncRequestCollectionPostState {
  */
 export interface SyncRequestFolderPostState {
   folder: V5.Folder;
+  /** Live `(itemId, orderKey)` pairs at the folder's own `folders` set
+   *  (§23.5). Same shape as {@link SyncFolderPostState.setOrderKeys}. */
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
 }
 
 /**
@@ -231,6 +252,9 @@ export interface SyncTemplatePostState {
  */
 export interface SyncTemplateCollectionPostState {
   collection: V5.Collection;
+  /** Live `(itemId, orderKey)` pairs at the parent-owned `folders` set
+   *  (§23.5). Same shape as {@link SyncCollectionPostState.setOrderKeys}. */
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
 }
 
 /**
@@ -241,6 +265,9 @@ export interface SyncTemplateCollectionPostState {
  */
 export interface SyncTemplateFolderPostState {
   folder: V5.Folder;
+  /** Live `(itemId, orderKey)` pairs at the folder's own `folders` set
+   *  (§23.5). Same shape as {@link SyncFolderPostState.setOrderKeys}. */
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
 }
 
 /**

@@ -21,9 +21,13 @@ import {
   type MutationEnvelope,
 } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
+import { buildFolderChildrenOrderKeys } from './folder-children-order-keys';
 import type { EntityOracle } from './oracle';
 
-type Reads = Pick<EntityOracle, 'materializeOne' | 'materializeAll' | 'liveSetItems'>;
+type Reads = Pick<
+  EntityOracle,
+  'materializeOne' | 'materializeAll' | 'liveSetItems' | 'liveOrderedSetItems'
+>;
 
 /**
  * Per-tree configuration. The two entity-type constants + the children
@@ -48,11 +52,19 @@ export interface FolderTreeKinds<
  * `folders` set republish through the cache's full-refresh path
  * (paths can shift when a parent renames or reparents).
  */
+export interface FolderPostStateProjection {
+  folder: V5.Folder;
+  /** Live `(itemId, orderKey)` pairs at the folder's own `folders` set
+   *  — the slot list for nested child folders. Keyed by setPath
+   *  (`'folders'`) for shape consistency with other entities. */
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
+}
+
 export function projectFolderPostStateGeneric<C extends string, F extends string>(
   oracle: Reads,
   envelope: MutationEnvelope,
   kinds: FolderTreeKinds<C, F>,
-): { folder: V5.Folder } | null {
+): FolderPostStateProjection | null {
   if (envelope.body.type !== kinds.folderType) return null;
   return projectFolderByUidGeneric(oracle, envelope.body.id, kinds);
 }
@@ -65,7 +77,7 @@ export function projectFolderByUidGeneric<C extends string, F extends string>(
   oracle: Reads,
   folderUid: string,
   kinds: FolderTreeKinds<C, F>,
-): { folder: V5.Folder } | null {
+): FolderPostStateProjection | null {
   const materialized = oracle.materializeOne(kinds.folderType, folderUid);
   if (!materialized) return null;
 
@@ -75,7 +87,10 @@ export function projectFolderByUidGeneric<C extends string, F extends string>(
   const folder = kinds.projectFolder(materialized, parentPath);
   if (!folder) return null;
 
-  return { folder };
+  return {
+    folder,
+    setOrderKeys: buildFolderChildrenOrderKeys(oracle, kinds.folderType, folderUid, kinds.childrenPath),
+  };
 }
 
 /**

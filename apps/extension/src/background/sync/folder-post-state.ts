@@ -25,7 +25,10 @@ import {
 } from './folder-tree-post-state';
 import type { EntityOracle } from './oracle';
 
-type Reads = Pick<EntityOracle, 'materializeOne' | 'materializeAll' | 'liveSetItems'>;
+type Reads = Pick<
+  EntityOracle,
+  'materializeOne' | 'materializeAll' | 'liveSetItems' | 'liveOrderedSetItems'
+>;
 
 const KINDS: FolderTreeKinds<typeof COLLECTION_ENTITY_TYPE, typeof FOLDER_ENTITY_TYPE> = {
   collectionType: COLLECTION_ENTITY_TYPE,
