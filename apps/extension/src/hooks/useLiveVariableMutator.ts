@@ -1,13 +1,10 @@
 /**
  * useLiveVariableMutator — write-only API for live-variable edits.
  *
- * Thin React adapter over `live-variable-write-client.ts`. Mirrors
- * `useTemplateMutator` shape — every memoised callback closes over
- * `(workspaceId, surfaceId)` so a workspace switch produces a fresh
- * function reference.
+ * Thin React adapter over `live-variable-write-client.ts`.
  */
 
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import type { V5 } from '@openheaders/core/types';
 import {
   applyLiveVariableCreate,
@@ -17,6 +14,7 @@ import {
   type LiveVariableSimpleResult,
   type LiveVariableUpdates,
 } from '@/shared/sync/live-variable-write-client';
+import { useGuardedMutation } from './use-guarded-mutation';
 
 export type { LiveVariableMutationResult, LiveVariableSimpleResult, LiveVariableUpdates };
 
@@ -34,33 +32,29 @@ export interface UseLiveVariableMutatorApi {
   deleteLiveVariable(liveVariableUid: string): Promise<LiveVariableSimpleResult>;
 }
 
-const NO_WORKSPACE = { ok: false, reason: 'other', message: 'no active workspace' } as const;
-
-export function useLiveVariableMutator(opts: UseLiveVariableMutatorOptions): UseLiveVariableMutatorApi {
+export function useLiveVariableMutator(
+  opts: UseLiveVariableMutatorOptions,
+): UseLiveVariableMutatorApi {
   const { workspaceId, surfaceId } = opts;
 
-  const updateLiveVariable = useCallback<UseLiveVariableMutatorApi['updateLiveVariable']>(
-    async (uid, updates) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyLiveVariableUpdate(uid, updates, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const updateLiveVariable = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, uid: string, updates: LiveVariableUpdates) =>
+      applyLiveVariableUpdate(uid, updates, writeOpts),
   );
 
-  const createLiveVariable = useCallback<UseLiveVariableMutatorApi['createLiveVariable']>(
-    async (liveVariable) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyLiveVariableCreate(liveVariable, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const createLiveVariable = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, liveVariable: V5.LiveVariable) =>
+      applyLiveVariableCreate(liveVariable, writeOpts),
   );
 
-  const deleteLiveVariable = useCallback<UseLiveVariableMutatorApi['deleteLiveVariable']>(
-    async (uid) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyLiveVariableDelete(uid, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const deleteLiveVariable = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, uid: string) => applyLiveVariableDelete(uid, writeOpts),
   );
 
   return useMemo(

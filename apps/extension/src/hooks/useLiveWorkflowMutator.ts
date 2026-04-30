@@ -4,7 +4,7 @@
  * Thin React adapter over `live-workflow-write-client.ts`.
  */
 
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import type { V5 } from '@openheaders/core/types';
 import {
   applyLiveWorkflowCreate,
@@ -14,6 +14,7 @@ import {
   type LiveWorkflowSimpleResult,
   type LiveWorkflowUpdates,
 } from '@/shared/sync/live-workflow-write-client';
+import { useGuardedMutation } from './use-guarded-mutation';
 
 export type { LiveWorkflowMutationResult, LiveWorkflowSimpleResult, LiveWorkflowUpdates };
 
@@ -31,33 +32,26 @@ export interface UseLiveWorkflowMutatorApi {
   deleteLiveWorkflow(workflowUid: string): Promise<LiveWorkflowSimpleResult>;
 }
 
-const NO_WORKSPACE = { ok: false, reason: 'other', message: 'no active workspace' } as const;
-
-export function useLiveWorkflowMutator(opts: UseLiveWorkflowMutatorOptions): UseLiveWorkflowMutatorApi {
+export function useLiveWorkflowMutator(
+  opts: UseLiveWorkflowMutatorOptions,
+): UseLiveWorkflowMutatorApi {
   const { workspaceId, surfaceId } = opts;
 
-  const updateLiveWorkflow = useCallback<UseLiveWorkflowMutatorApi['updateLiveWorkflow']>(
-    async (uid, updates) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyLiveWorkflowUpdate(uid, updates, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const updateLiveWorkflow = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, uid: string, updates: LiveWorkflowUpdates) =>
+      applyLiveWorkflowUpdate(uid, updates, writeOpts),
   );
 
-  const createLiveWorkflow = useCallback<UseLiveWorkflowMutatorApi['createLiveWorkflow']>(
-    async (workflow) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyLiveWorkflowCreate(workflow, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const createLiveWorkflow = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, workflow: V5.LiveWorkflow) => applyLiveWorkflowCreate(workflow, writeOpts),
   );
 
-  const deleteLiveWorkflow = useCallback<UseLiveWorkflowMutatorApi['deleteLiveWorkflow']>(
-    async (uid) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyLiveWorkflowDelete(uid, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const deleteLiveWorkflow = useGuardedMutation(workspaceId, surfaceId, (writeOpts, uid: string) =>
+    applyLiveWorkflowDelete(uid, writeOpts),
   );
 
   return useMemo(

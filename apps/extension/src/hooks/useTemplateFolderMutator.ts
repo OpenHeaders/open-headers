@@ -1,12 +1,11 @@
 /**
  * useTemplateFolderMutator — write-only API for template-folder edits.
  *
- * Thin React adapter over `template-folder-write-client.ts`. Mirrors
- * `useRequestFolderMutator`.
+ * Thin React adapter over `template-folder-write-client.ts`.
  */
 
 import type { TemplateFolderParentRef } from '@openheaders/core/sync';
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   applyTemplateFolderCreate,
   applyTemplateFolderDelete,
@@ -14,6 +13,7 @@ import {
   applyTemplateFolderRename,
   type TemplateFolderSimpleResult,
 } from '@/shared/sync/template-folder-write-client';
+import { useGuardedMutation } from './use-guarded-mutation';
 
 export type { TemplateFolderSimpleResult };
 
@@ -43,43 +43,37 @@ export interface UseTemplateFolderMutatorApi {
   }): Promise<TemplateFolderSimpleResult>;
 }
 
-const NO_WORKSPACE = { ok: false, reason: 'other', message: 'no active workspace' } as const;
-
 export function useTemplateFolderMutator(
   opts: UseTemplateFolderMutatorOptions,
 ): UseTemplateFolderMutatorApi {
   const { workspaceId, surfaceId } = opts;
 
-  const renameTemplateFolder = useCallback<UseTemplateFolderMutatorApi['renameTemplateFolder']>(
-    async (folderUid, name) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyTemplateFolderRename({ folderUid, name }, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const renameTemplateFolder = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, folderUid: string, name: string) =>
+      applyTemplateFolderRename({ folderUid, name }, writeOpts),
   );
 
-  const createTemplateFolder = useCallback<UseTemplateFolderMutatorApi['createTemplateFolder']>(
-    async (input) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyTemplateFolderCreate(input, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const createTemplateFolder = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, input: Parameters<UseTemplateFolderMutatorApi['createTemplateFolder']>[0]) =>
+      applyTemplateFolderCreate(input, writeOpts),
   );
 
-  const deleteTemplateFolder = useCallback<UseTemplateFolderMutatorApi['deleteTemplateFolder']>(
-    async (input) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyTemplateFolderDelete(input, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const deleteTemplateFolder = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, input: Parameters<UseTemplateFolderMutatorApi['deleteTemplateFolder']>[0]) =>
+      applyTemplateFolderDelete(input, writeOpts),
   );
 
-  const moveTemplateFolder = useCallback<UseTemplateFolderMutatorApi['moveTemplateFolder']>(
-    async (input) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyTemplateFolderMove(input, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const moveTemplateFolder = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, input: Parameters<UseTemplateFolderMutatorApi['moveTemplateFolder']>[0]) =>
+      applyTemplateFolderMove(input, writeOpts),
   );
 
   return useMemo(

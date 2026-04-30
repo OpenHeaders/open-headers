@@ -8,12 +8,13 @@
  * because there's no renderer-direct create gesture surfaced today.
  */
 
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   applyRequestCollectionDelete,
   applyRequestCollectionRename,
   type RequestCollectionSimpleResult,
 } from '@/shared/sync/request-collection-write-client';
+import { useGuardedMutation } from './use-guarded-mutation';
 
 export type { RequestCollectionSimpleResult };
 
@@ -30,31 +31,23 @@ export interface UseRequestCollectionMutatorApi {
   deleteRequestCollection(collectionUid: string): Promise<RequestCollectionSimpleResult>;
 }
 
-const NO_WORKSPACE = { ok: false, reason: 'other', message: 'no active workspace' } as const;
-
 export function useRequestCollectionMutator(
   opts: UseRequestCollectionMutatorOptions,
 ): UseRequestCollectionMutatorApi {
   const { workspaceId, surfaceId } = opts;
 
-  const renameRequestCollection = useCallback<
-    UseRequestCollectionMutatorApi['renameRequestCollection']
-  >(
-    async (collectionUid, name) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyRequestCollectionRename({ collectionUid, name }, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const renameRequestCollection = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, collectionUid: string, name: string) =>
+      applyRequestCollectionRename({ collectionUid, name }, writeOpts),
   );
 
-  const deleteRequestCollection = useCallback<
-    UseRequestCollectionMutatorApi['deleteRequestCollection']
-  >(
-    async (collectionUid) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyRequestCollectionDelete({ collectionUid }, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const deleteRequestCollection = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, collectionUid: string) =>
+      applyRequestCollectionDelete({ collectionUid }, writeOpts),
   );
 
   return useMemo(

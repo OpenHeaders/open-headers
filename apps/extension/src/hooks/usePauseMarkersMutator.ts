@@ -1,23 +1,19 @@
 /**
  * usePauseMarkersMutator — write-only API for pause-marker toggles.
  *
- * Thin React adapter over the imperative helpers in
- * `pause-markers-write-client.ts`. Mirrors `useVaultMutator`. Every
- * memoised callback closes over the `(workspaceId, surfaceId)` pair so
- * a workspace switch produces fresh function references and any
- * in-flight envelope carries the workspace id it was minted under.
- *
- * Singleton entity — none of the helpers take an entity id.
+ * Thin React adapter over `pause-markers-write-client.ts`. Singleton
+ * entity — none of the helpers take an entity id.
  */
 
 import type { PauseMarkerKind } from '@openheaders/core/sync';
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   applyPauseMarkerClear,
   applyPauseMarkerSet,
   applyPauseMarkersReplacement,
   type PauseMarkersResult,
 } from '@/shared/sync/pause-markers-write-client';
+import { useGuardedMutation } from './use-guarded-mutation';
 
 export type { PauseMarkersResult };
 
@@ -35,35 +31,27 @@ export interface UsePauseMarkersMutatorApi {
   ): Promise<PauseMarkersResult>;
 }
 
-const NO_WORKSPACE = { ok: false, reason: 'other', message: 'no active workspace' } as const;
-
 export function usePauseMarkersMutator(
   opts: UsePauseMarkersMutatorOptions,
 ): UsePauseMarkersMutatorApi {
   const { workspaceId, surfaceId } = opts;
 
-  const setMarker = useCallback<UsePauseMarkersMutatorApi['setMarker']>(
-    async (path, marker) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyPauseMarkerSet({ path, marker }, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const setMarker = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, path: string, marker: PauseMarkerKind) =>
+      applyPauseMarkerSet({ path, marker }, writeOpts),
   );
 
-  const clearMarker = useCallback<UsePauseMarkersMutatorApi['clearMarker']>(
-    async (path) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyPauseMarkerClear({ path }, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const clearMarker = useGuardedMutation(workspaceId, surfaceId, (writeOpts, path: string) =>
+    applyPauseMarkerClear({ path }, writeOpts),
   );
 
-  const replaceMarkers = useCallback<UsePauseMarkersMutatorApi['replaceMarkers']>(
-    async (next) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyPauseMarkersReplacement(next, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const replaceMarkers = useGuardedMutation<
+    [ReadonlyMap<string, PauseMarkerKind> | Readonly<Record<string, PauseMarkerKind>>],
+    PauseMarkersResult
+  >(workspaceId, surfaceId, (writeOpts, next) =>
+    applyPauseMarkersReplacement(next, writeOpts),
   );
 
   return useMemo(

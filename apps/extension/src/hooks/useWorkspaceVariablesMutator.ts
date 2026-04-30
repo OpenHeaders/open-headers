@@ -1,18 +1,13 @@
 /**
  * useWorkspaceVariablesMutator — write-only API for workspace-vars edits.
  *
- * Thin React adapter over the imperative helpers in
- * `workspace-variables-write-client.ts`. Mirrors `useEnvironmentMutator`
- * — every memoised callback closes over the `(workspaceId, surfaceId)`
- * pair so a workspace switch produces fresh function references and
- * any in-flight envelope carries the workspace id it was minted under.
- *
+ * Thin React adapter over `workspace-variables-write-client.ts`.
  * Singleton entity — none of the helpers take an entity id.
  */
 
 import type { VariableType } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   applyWorkspaceVariablesReplacement,
   applyWorkspaceVarRemove,
@@ -21,6 +16,7 @@ import {
   applyWorkspaceVarSetType,
   type WorkspaceVariablesSimpleResult,
 } from '@/shared/sync/workspace-variables-write-client';
+import { useGuardedMutation } from './use-guarded-mutation';
 
 export type { WorkspaceVariablesSimpleResult };
 
@@ -30,7 +26,11 @@ export interface UseWorkspaceVariablesMutatorOptions {
 }
 
 export interface UseWorkspaceVariablesMutatorApi {
-  setVariable(name: string, value: string, type?: VariableType): Promise<WorkspaceVariablesSimpleResult>;
+  setVariable(
+    name: string,
+    value: string,
+    type?: VariableType,
+  ): Promise<WorkspaceVariablesSimpleResult>;
   removeVariable(name: string): Promise<WorkspaceVariablesSimpleResult>;
   renameVariable(
     oldName: string,
@@ -38,7 +38,11 @@ export interface UseWorkspaceVariablesMutatorApi {
     value: string,
     type?: VariableType,
   ): Promise<WorkspaceVariablesSimpleResult>;
-  setVariableType(name: string, value: string, type: VariableType): Promise<WorkspaceVariablesSimpleResult>;
+  setVariableType(
+    name: string,
+    value: string,
+    type: VariableType,
+  ): Promise<WorkspaceVariablesSimpleResult>;
   /** Replace the full variables list — see `applyWorkspaceVariablesReplacement`. */
   replaceVariables(
     newVars: readonly V5.Variable[],
@@ -46,54 +50,41 @@ export interface UseWorkspaceVariablesMutatorApi {
   ): Promise<WorkspaceVariablesSimpleResult>;
 }
 
-const NO_WORKSPACE = { ok: false, reason: 'other', message: 'no active workspace' } as const;
-
 export function useWorkspaceVariablesMutator(
   opts: UseWorkspaceVariablesMutatorOptions,
 ): UseWorkspaceVariablesMutatorApi {
   const { workspaceId, surfaceId } = opts;
 
-  const setVariable = useCallback<UseWorkspaceVariablesMutatorApi['setVariable']>(
-    async (name, value, type) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyWorkspaceVarSet({ name, value, type }, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const setVariable = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, name: string, value: string, type?: VariableType) =>
+      applyWorkspaceVarSet({ name, value, type }, writeOpts),
   );
 
-  const removeVariable = useCallback<UseWorkspaceVariablesMutatorApi['removeVariable']>(
-    async (name) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyWorkspaceVarRemove({ name }, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const removeVariable = useGuardedMutation(workspaceId, surfaceId, (writeOpts, name: string) =>
+    applyWorkspaceVarRemove({ name }, writeOpts),
   );
 
-  const renameVariable = useCallback<UseWorkspaceVariablesMutatorApi['renameVariable']>(
-    async (oldName, newName, value, type) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyWorkspaceVarRename(
-        { oldName, newName, value, type },
-        { workspaceId, surfaceId },
-      );
-    },
-    [workspaceId, surfaceId],
+  const renameVariable = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, oldName: string, newName: string, value: string, type?: VariableType) =>
+      applyWorkspaceVarRename({ oldName, newName, value, type }, writeOpts),
   );
 
-  const setVariableType = useCallback<UseWorkspaceVariablesMutatorApi['setVariableType']>(
-    async (name, value, type) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyWorkspaceVarSetType({ name, value, type }, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const setVariableType = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, name: string, value: string, type: VariableType) =>
+      applyWorkspaceVarSetType({ name, value, type }, writeOpts),
   );
 
-  const replaceVariables = useCallback<UseWorkspaceVariablesMutatorApi['replaceVariables']>(
-    async (newVars, oldVars) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyWorkspaceVariablesReplacement(newVars, oldVars, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const replaceVariables = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, newVars: readonly V5.Variable[], oldVars: readonly V5.Variable[]) =>
+      applyWorkspaceVariablesReplacement(newVars, oldVars, writeOpts),
   );
 
   return useMemo(

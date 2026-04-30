@@ -1,14 +1,10 @@
 /**
  * useTemplateMutator — write-only API for template edits.
  *
- * Thin React adapter over `template-write-client.ts`. Mirrors
- * `useRequestMutator` shape — every memoised callback closes over
- * `(workspaceId, surfaceId)` so a workspace switch produces a fresh
- * function reference and any in-flight envelope still carries the
- * workspace id it was minted under.
+ * Thin React adapter over `template-write-client.ts`.
  */
 
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import type { V5 } from '@openheaders/core/types';
 import {
   applyTemplateCreate,
@@ -18,6 +14,7 @@ import {
   type TemplateSimpleResult,
   type TemplateUpdates,
 } from '@/shared/sync/template-write-client';
+import { useGuardedMutation } from './use-guarded-mutation';
 
 export type { TemplateMutationResult, TemplateSimpleResult, TemplateUpdates };
 
@@ -32,33 +29,26 @@ export interface UseTemplateMutatorApi {
   deleteTemplate(templateUid: string): Promise<TemplateSimpleResult>;
 }
 
-const NO_WORKSPACE = { ok: false, reason: 'other', message: 'no active workspace' } as const;
-
 export function useTemplateMutator(opts: UseTemplateMutatorOptions): UseTemplateMutatorApi {
   const { workspaceId, surfaceId } = opts;
 
-  const updateTemplate = useCallback<UseTemplateMutatorApi['updateTemplate']>(
-    async (templateUid, updates) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyTemplateUpdate(templateUid, updates, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const updateTemplate = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, templateUid: string, updates: TemplateUpdates) =>
+      applyTemplateUpdate(templateUid, updates, writeOpts),
   );
 
-  const createTemplate = useCallback<UseTemplateMutatorApi['createTemplate']>(
-    async (template) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyTemplateCreate(template, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const createTemplate = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, template: V5.Template) => applyTemplateCreate(template, writeOpts),
   );
 
-  const deleteTemplate = useCallback<UseTemplateMutatorApi['deleteTemplate']>(
-    async (templateUid) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyTemplateDelete(templateUid, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const deleteTemplate = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, templateUid: string) => applyTemplateDelete(templateUid, writeOpts),
   );
 
   return useMemo(

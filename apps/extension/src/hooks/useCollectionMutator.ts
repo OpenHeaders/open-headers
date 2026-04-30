@@ -1,13 +1,12 @@
 /**
  * useCollectionMutator — write-only API for collection edits.
  *
- * Thin React adapter over the imperative helpers in
- * `collection-write-client.ts`. Mirrors `useEnvironmentMutator`.
+ * Thin React adapter over `collection-write-client.ts`.
  */
 
 import type { V5 } from '@openheaders/core/types';
 import type { VariableType } from '@openheaders/core/sync';
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   applyCollectionRemoveVar,
   applyCollectionRenameVar,
@@ -20,6 +19,7 @@ import {
   applySetPinnedEnvironments,
   type CollectionSimpleResult,
 } from '@/shared/sync/collection-write-client';
+import { useGuardedMutation } from './use-guarded-mutation';
 
 export type { CollectionSimpleResult };
 
@@ -70,99 +70,88 @@ export interface UseCollectionMutatorApi {
   ): Promise<CollectionSimpleResult>;
 }
 
-const NO_WORKSPACE = { ok: false, reason: 'other', message: 'no active workspace' } as const;
-
 export function useCollectionMutator(opts: UseCollectionMutatorOptions): UseCollectionMutatorApi {
   const { workspaceId, surfaceId } = opts;
 
-  const setVariable = useCallback<UseCollectionMutatorApi['setVariable']>(
-    async (collectionUid, name, value, type) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyCollectionSetVar({ collectionUid, name, value, type }, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const setVariable = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, collectionUid: string, name: string, value: string, type?: VariableType) =>
+      applyCollectionSetVar({ collectionUid, name, value, type }, writeOpts),
   );
 
-  const removeVariable = useCallback<UseCollectionMutatorApi['removeVariable']>(
-    async (collectionUid, name) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyCollectionRemoveVar({ collectionUid, name }, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const removeVariable = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, collectionUid: string, name: string) =>
+      applyCollectionRemoveVar({ collectionUid, name }, writeOpts),
   );
 
-  const renameVariable = useCallback<UseCollectionMutatorApi['renameVariable']>(
-    async (collectionUid, oldName, newName, value, type) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyCollectionRenameVar(
-        { collectionUid, oldName, newName, value, type },
-        { workspaceId, surfaceId },
-      );
-    },
-    [workspaceId, surfaceId],
+  const renameVariable = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (
+      writeOpts,
+      collectionUid: string,
+      oldName: string,
+      newName: string,
+      value: string,
+      type?: VariableType,
+    ) => applyCollectionRenameVar({ collectionUid, oldName, newName, value, type }, writeOpts),
   );
 
-  const setVariableType = useCallback<UseCollectionMutatorApi['setVariableType']>(
-    async (collectionUid, name, value, type) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyCollectionSetVarType(
-        { collectionUid, name, value, type },
-        { workspaceId, surfaceId },
-      );
-    },
-    [workspaceId, surfaceId],
+  const setVariableType = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, collectionUid: string, name: string, value: string, type: VariableType) =>
+      applyCollectionSetVarType({ collectionUid, name, value, type }, writeOpts),
   );
 
-  const renameCollection = useCallback<UseCollectionMutatorApi['renameCollection']>(
-    async (collectionUid, name) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyRenameCollection({ collectionUid, name }, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const renameCollection = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, collectionUid: string, name: string) =>
+      applyRenameCollection({ collectionUid, name }, writeOpts),
   );
 
-  const setPinnedEnvironments = useCallback<UseCollectionMutatorApi['setPinnedEnvironments']>(
-    async (collectionUid, pinnedEnvironmentIds) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applySetPinnedEnvironments(
-        { collectionUid, pinnedEnvironmentIds },
-        { workspaceId, surfaceId },
-      );
-    },
-    [workspaceId, surfaceId],
+  const setPinnedEnvironments = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, collectionUid: string, pinnedEnvironmentIds: readonly string[]) =>
+      applySetPinnedEnvironments({ collectionUid, pinnedEnvironmentIds }, writeOpts),
   );
 
-  const setDefaultEnvironmentId = useCallback<UseCollectionMutatorApi['setDefaultEnvironmentId']>(
-    async (collectionUid, defaultEnvironmentId) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applySetDefaultEnvironmentId(
-        { collectionUid, defaultEnvironmentId },
-        { workspaceId, surfaceId },
-      );
-    },
-    [workspaceId, surfaceId],
+  const setDefaultEnvironmentId = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, collectionUid: string, defaultEnvironmentId: string | null) =>
+      applySetDefaultEnvironmentId({ collectionUid, defaultEnvironmentId }, writeOpts),
   );
 
-  const setPinnedAndDefault = useCallback<UseCollectionMutatorApi['setPinnedAndDefault']>(
-    async (collectionUid, pinnedEnvironmentIds, defaultEnvironmentId) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applySetPinnedAndDefault(
+  const setPinnedAndDefault = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (
+      writeOpts,
+      collectionUid: string,
+      pinnedEnvironmentIds: readonly string[],
+      defaultEnvironmentId: string | null,
+    ) =>
+      applySetPinnedAndDefault(
         { collectionUid, pinnedEnvironmentIds, defaultEnvironmentId },
-        { workspaceId, surfaceId },
-      );
-    },
-    [workspaceId, surfaceId],
+        writeOpts,
+      ),
   );
 
-  const replaceVariables = useCallback<UseCollectionMutatorApi['replaceVariables']>(
-    async (collectionUid, newVars, oldVars) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyCollectionVariablesReplacement(collectionUid, newVars, oldVars, {
-        workspaceId,
-        surfaceId,
-      });
-    },
-    [workspaceId, surfaceId],
+  const replaceVariables = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (
+      writeOpts,
+      collectionUid: string,
+      newVars: readonly V5.Variable[],
+      oldVars: readonly V5.Variable[],
+    ) => applyCollectionVariablesReplacement(collectionUid, newVars, oldVars, writeOpts),
   );
 
   return useMemo(

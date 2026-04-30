@@ -5,12 +5,13 @@
  * Thin React adapter over `template-collection-write-client.ts`.
  */
 
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   applyTemplateCollectionDelete,
   applyTemplateCollectionRename,
   type TemplateCollectionSimpleResult,
 } from '@/shared/sync/template-collection-write-client';
+import { useGuardedMutation } from './use-guarded-mutation';
 
 export type { TemplateCollectionSimpleResult };
 
@@ -27,31 +28,23 @@ export interface UseTemplateCollectionMutatorApi {
   deleteTemplateCollection(collectionUid: string): Promise<TemplateCollectionSimpleResult>;
 }
 
-const NO_WORKSPACE = { ok: false, reason: 'other', message: 'no active workspace' } as const;
-
 export function useTemplateCollectionMutator(
   opts: UseTemplateCollectionMutatorOptions,
 ): UseTemplateCollectionMutatorApi {
   const { workspaceId, surfaceId } = opts;
 
-  const renameTemplateCollection = useCallback<
-    UseTemplateCollectionMutatorApi['renameTemplateCollection']
-  >(
-    async (collectionUid, name) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyTemplateCollectionRename({ collectionUid, name }, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const renameTemplateCollection = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, collectionUid: string, name: string) =>
+      applyTemplateCollectionRename({ collectionUid, name }, writeOpts),
   );
 
-  const deleteTemplateCollection = useCallback<
-    UseTemplateCollectionMutatorApi['deleteTemplateCollection']
-  >(
-    async (collectionUid) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyTemplateCollectionDelete({ collectionUid }, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const deleteTemplateCollection = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, collectionUid: string) =>
+      applyTemplateCollectionDelete({ collectionUid }, writeOpts),
   );
 
   return useMemo(

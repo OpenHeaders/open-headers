@@ -1,12 +1,11 @@
 /**
  * useRequestFolderMutator — write-only API for request-folder edits.
  *
- * Thin React adapter over `request-folder-write-client.ts`. Mirrors
- * `useFolderMutator`.
+ * Thin React adapter over `request-folder-write-client.ts`.
  */
 
 import type { RequestFolderParentRef } from '@openheaders/core/sync';
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   applyRequestFolderCreate,
   applyRequestFolderDelete,
@@ -14,6 +13,7 @@ import {
   applyRequestFolderRename,
   type RequestFolderSimpleResult,
 } from '@/shared/sync/request-folder-write-client';
+import { useGuardedMutation } from './use-guarded-mutation';
 
 export type { RequestFolderSimpleResult };
 
@@ -42,43 +42,37 @@ export interface UseRequestFolderMutatorApi {
   }): Promise<RequestFolderSimpleResult>;
 }
 
-const NO_WORKSPACE = { ok: false, reason: 'other', message: 'no active workspace' } as const;
-
 export function useRequestFolderMutator(
   opts: UseRequestFolderMutatorOptions,
 ): UseRequestFolderMutatorApi {
   const { workspaceId, surfaceId } = opts;
 
-  const renameRequestFolder = useCallback<UseRequestFolderMutatorApi['renameRequestFolder']>(
-    async (folderUid, name) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyRequestFolderRename({ folderUid, name }, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const renameRequestFolder = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, folderUid: string, name: string) =>
+      applyRequestFolderRename({ folderUid, name }, writeOpts),
   );
 
-  const createRequestFolder = useCallback<UseRequestFolderMutatorApi['createRequestFolder']>(
-    async (input) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyRequestFolderCreate(input, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const createRequestFolder = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, input: Parameters<UseRequestFolderMutatorApi['createRequestFolder']>[0]) =>
+      applyRequestFolderCreate(input, writeOpts),
   );
 
-  const deleteRequestFolder = useCallback<UseRequestFolderMutatorApi['deleteRequestFolder']>(
-    async (input) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyRequestFolderDelete(input, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const deleteRequestFolder = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, input: Parameters<UseRequestFolderMutatorApi['deleteRequestFolder']>[0]) =>
+      applyRequestFolderDelete(input, writeOpts),
   );
 
-  const moveRequestFolder = useCallback<UseRequestFolderMutatorApi['moveRequestFolder']>(
-    async (input) => {
-      if (!workspaceId) return NO_WORKSPACE;
-      return applyRequestFolderMove(input, { workspaceId, surfaceId });
-    },
-    [workspaceId, surfaceId],
+  const moveRequestFolder = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, input: Parameters<UseRequestFolderMutatorApi['moveRequestFolder']>[0]) =>
+      applyRequestFolderMove(input, writeOpts),
   );
 
   return useMemo(
