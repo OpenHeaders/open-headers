@@ -144,11 +144,6 @@ export async function createWorkspace(input: CreateWorkspaceInput): Promise<V5.E
       const now = new Date().toISOString();
       const workspace: V5.ExtensionWorkspace = {
         schemaVersion: 5,
-        // Phase 10 write counter — starts at 1 on creation; every
-        // updateWorkspace / reorder increments it on a per-workspace
-        // basis so WorkspaceManager's rename dialog can detect
-        // concurrent edits across tabs.
-        version: 1,
         id: generateUid(),
         kind: input.kind ?? 'personal',
         name: input.name.trim() || 'Untitled Workspace',
@@ -182,26 +177,25 @@ export interface UpdateWorkspaceInput {
 }
 
 /**
- * Outcome of a versioned workspace metadata write (Phase 10 stale-draft
- * contract — parallel to `RuleWriteResult`). WorkspaceManager's rename
- * dialog sends `expectedVersion` to detect concurrent tabs editing the
- * same workspace; sidebar context menu + quick edits omit it and get
- * last-write-wins.
+ * Outcome of a workspace metadata write. Sync engine §24 retired the
+ * Phase 10 stale-draft contract; the per-entity-id `withLock` below
+ * still serializes concurrent puts so storage-level interleaving stays
+ * coherent, and convergence is per-(field) LWW by arrival order.
+ *
+ * ExtensionWorkspace is the cross-workspace ("global") metadata entity
+ * — it doesn't fit the per-workspace oracle scope used by the eighteen
+ * Phase-B-closed entities, so it remains on the legacy direct-write
+ * path. Full sync-engine treatment is a separate slice (would need a
+ * global-scope oracle).
  */
 export type WorkspaceUpdateResult =
-  | { ok: true; version: number; workspace: V5.ExtensionWorkspace }
-  | { ok: false; reason: 'stale-draft'; serverVersion: number; serverWorkspace: V5.ExtensionWorkspace }
+  | { ok: true; workspace: V5.ExtensionWorkspace }
   | { ok: false; reason: 'not-found' };
-
-export interface WorkspaceUpdateOptions {
-  expectedVersion?: number;
-}
 
 /** Update an existing workspace's metadata. */
 export async function updateWorkspace(
   id: string,
   updates: UpdateWorkspaceInput,
-  options: WorkspaceUpdateOptions = {},
 ): Promise<WorkspaceUpdateResult> {
   return withLock(
     entityLockName('global', 'workspace-meta', id),
@@ -210,22 +204,11 @@ export async function updateWorkspace(
       if (idx === -1) return { ok: false, reason: 'not-found' } as WorkspaceUpdateResult;
 
       const prev = workspaces[idx];
-      const current = prev.version;
-      if (options.expectedVersion !== undefined && options.expectedVersion !== current) {
-        return {
-          ok: false,
-          reason: 'stale-draft',
-          serverVersion: current,
-          serverWorkspace: prev,
-        } as WorkspaceUpdateResult;
-      }
-      const nextVersion = current + 1;
       const next: V5.ExtensionWorkspace = {
         ...prev,
         ...(updates.name !== undefined && { name: updates.name.trim() || prev.name }),
         ...(updates.description !== undefined && { description: updates.description }),
         ...(updates.color !== undefined && { color: updates.color }),
-        version: nextVersion,
         updatedAt: new Date().toISOString(),
       };
       if (updates.icon === null) {
@@ -235,7 +218,7 @@ export async function updateWorkspace(
       }
       workspaces = [...workspaces.slice(0, idx), next, ...workspaces.slice(idx + 1)];
       await persistWorkspaces();
-      return { ok: true, version: nextVersion, workspace: next } as WorkspaceUpdateResult;
+      return { ok: true, workspace: next } as WorkspaceUpdateResult;
     },
     { op: 'workspace-update' },
   );
@@ -308,13 +291,11 @@ export async function reorderWorkspaces(idOrder: readonly string[]): Promise<voi
         const ws = byId.get(id);
         if (!ws || touched.has(id)) continue;
         touched.add(id);
-        // Reorder bumps the version counter too so a cross-tab rename
-        // following a reorder doesn't silently lose the rename.
-        reordered.push({ ...ws, sortIndex: index++, version: ws.version + 1 });
+        reordered.push({ ...ws, sortIndex: index++ });
       }
       for (const ws of workspaces) {
         if (touched.has(ws.id)) continue;
-        reordered.push({ ...ws, sortIndex: index++, version: ws.version + 1 });
+        reordered.push({ ...ws, sortIndex: index++ });
       }
       const now = new Date().toISOString();
       workspaces = reordered.map((w) => ({ ...w, updatedAt: now }));
@@ -389,7 +370,6 @@ export async function bootstrap(): Promise<void> {
   const now = new Date().toISOString();
   const defaultWorkspace: V5.ExtensionWorkspace = {
     schemaVersion: 5,
-    version: 1,
     id: generateUid(),
     kind: 'personal',
     name: DEFAULT_WORKSPACE_NAME,

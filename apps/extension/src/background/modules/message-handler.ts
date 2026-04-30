@@ -318,18 +318,10 @@ export function handleGeneralMessage(
         .catch(() => safeResponse({ success: false }));
       return true;
     } else if (message.type === 'updateWorkspace') {
-      const expectedVersion = message.expectedVersion as number | undefined;
-      updateWorkspaceMeta(message.id as string, message.updates as Record<string, unknown>, { expectedVersion })
+      updateWorkspaceMeta(message.id as string, message.updates as Record<string, unknown>)
         .then((result) => {
           if (result.ok) {
-            safeResponse({ success: true, workspace: result.workspace, version: result.version });
-          } else if (result.reason === 'stale-draft') {
-            safeResponse({
-              success: false,
-              reason: 'stale-draft',
-              serverVersion: result.serverVersion,
-              serverWorkspace: result.serverWorkspace,
-            });
+            safeResponse({ success: true, workspace: result.workspace });
           } else {
             safeResponse({ success: false, reason: 'not-found' });
           }

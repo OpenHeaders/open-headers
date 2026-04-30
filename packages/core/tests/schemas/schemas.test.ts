@@ -128,7 +128,6 @@ describe('ExtensionWorkspaceSchema', () => {
     expect(
       v.parse(ExtensionWorkspaceSchema, {
         schemaVersion: 5,
-        version: 1,
         id: 'abcd1234',
         kind: 'personal',
         name: 'mine',
@@ -143,7 +142,6 @@ describe('ExtensionWorkspaceSchema', () => {
     expect(
       v.safeParse(ExtensionWorkspaceSchema, {
         schemaVersion: 5,
-        version: 1,
         id: 'abcd1234',
         kind: 'public',
         name: 'x',
@@ -157,21 +155,6 @@ describe('ExtensionWorkspaceSchema', () => {
   it('rejects a missing schemaVersion', () => {
     expect(
       v.safeParse(ExtensionWorkspaceSchema, {
-        version: 1,
-        id: 'abcd1234',
-        kind: 'personal',
-        name: 'mine',
-        sortIndex: 0,
-        createdAt: '2026',
-        updatedAt: '2026',
-      }).success,
-    ).toBe(false);
-  });
-
-  it('rejects a missing version (Phase 10 write counter required)', () => {
-    expect(
-      v.safeParse(ExtensionWorkspaceSchema, {
-        schemaVersion: 5,
         id: 'abcd1234',
         kind: 'personal',
         name: 'mine',

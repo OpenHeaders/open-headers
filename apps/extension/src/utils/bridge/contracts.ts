@@ -139,19 +139,13 @@ export interface BridgeRpcContract {
         /** `null` clears the icon (color-only mode); undefined leaves it untouched. */
         icon?: string | null;
       };
-      /** Phase 10 stale-draft contract — see `updateLocalRule`. */
-      expectedVersion?: number;
     };
     /**
-     * `success`/`workspace` shape is preserved for existing callers
-     * (WorkspaceManager.onSubmit pattern). The Phase 10 fields
-     * (`version`, `reason`) are additive — callers that want the
-     * discriminated union shape read them; callers that don't keep
-     * using `success`.
+     * Sync engine §24 retired the Phase 10 stale-draft contract; the
+     * SW's per-workspace `withLock` still serializes concurrent puts.
      */
     res:
-      | { success: true; workspace: V5.ExtensionWorkspace; version: number }
-      | { success: false; reason: 'stale-draft'; serverVersion: number; serverWorkspace: V5.ExtensionWorkspace }
+      | { success: true; workspace: V5.ExtensionWorkspace }
       | { success: false; reason: 'not-found' }
       | { success: false; reason: 'other'; message: string };
   };

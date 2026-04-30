@@ -162,26 +162,10 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api }) => {
           // emits `undefined` when the user selects "No icon", so
           // coerce undefined to null here to distinguish "no change"
           // (field not in the patch) from "clear it" (null).
-          // Pass the version we loaded so the SW can detect a
-          // concurrent rename from another tab.
-          const result = await api.updateWorkspace(
-            editTarget.id,
-            { ...values, icon: values.icon ?? null },
-            editTarget.version,
-          );
+          const result = await api.updateWorkspace(editTarget.id, { ...values, icon: values.icon ?? null });
           if (result.success) {
             message.success(`Updated "${result.workspace.name}"`);
             return true;
-          }
-          if (result.reason === 'stale-draft') {
-            message.warning(
-              `"${result.serverWorkspace.name}" was modified in another tab — reopening with the latest version`,
-            );
-            // Rehydrate the dialog's target to the server copy so a
-            // retry is unambiguous. The user re-enters any field
-            // changes, then saves.
-            setEditTarget(result.serverWorkspace);
-            return false;
           }
           if (result.reason === 'not-found') {
             message.error('This workspace was deleted from another tab');
