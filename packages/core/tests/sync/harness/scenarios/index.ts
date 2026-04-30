@@ -4,6 +4,7 @@ export { genConcurrentRenames } from './concurrent-renames';
 export { genCreateDeleteHlcOrder } from './create-delete-hlc-order';
 export { genCrossEntityRuleEnv } from './cross-entity-rule-env';
 export { genCrossEntityRuleVault } from './cross-entity-rule-vault';
+export { genCrossEntityRuleWorkspaceVars } from './cross-entity-rule-workspace-vars';
 export { genEnvRename } from './env-rename';
 export { genFolderMove } from './folder-move';
 export { genRequestEdit } from './request-edit';
