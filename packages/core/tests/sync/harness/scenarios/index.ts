@@ -2,6 +2,7 @@ export { genAddRemoveAdd } from './add-remove-add';
 export { genCollectionRename } from './collection-rename';
 export { genConcurrentRenames } from './concurrent-renames';
 export { genCreateDeleteHlcOrder } from './create-delete-hlc-order';
+export { genCrossEntityRequestFolder } from './cross-entity-request-folder';
 export { genCrossEntityRuleEnv } from './cross-entity-rule-env';
 export { genCrossEntityRuleVault } from './cross-entity-rule-vault';
 export { genCrossEntityRuleWorkspaceVars } from './cross-entity-rule-workspace-vars';

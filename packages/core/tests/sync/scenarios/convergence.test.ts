@@ -18,6 +18,7 @@ import {
   genCollectionRename,
   genConcurrentRenames,
   genCreateDeleteHlcOrder,
+  genCrossEntityRequestFolder,
   genCrossEntityRuleEnv,
   genCrossEntityRuleVault,
   genCrossEntityRuleWorkspaceVars,
@@ -60,6 +61,7 @@ const BUCKETS: Bucket[] = [
   { name: 'cross-entity-rule-env', generate: genCrossEntityRuleEnv, count: 1500 },
   { name: 'cross-entity-rule-vault', generate: genCrossEntityRuleVault, count: 1500 },
   { name: 'cross-entity-rule-workspace-vars', generate: genCrossEntityRuleWorkspaceVars, count: 1500 },
+  { name: 'cross-entity-request-folder', generate: genCrossEntityRequestFolder, count: 1500 },
   { name: 'uniform-random', generate: genUniformRandom, count: 2500 },
 ];
 
