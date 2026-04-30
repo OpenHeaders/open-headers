@@ -23,7 +23,7 @@ import {
 import {
   ensureRendererContext,
   type RendererContextHandle,
-} from '@/context/rule-mutator-context';
+} from '@/context/renderer-mutator-context';
 import {
   buildCreateFolderBatch,
   buildDeleteFolderBatch,

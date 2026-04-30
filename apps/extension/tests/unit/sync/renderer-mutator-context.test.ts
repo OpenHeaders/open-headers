@@ -12,7 +12,7 @@ import {
   ensureRendererContext,
   getActiveRendererContext,
   setActiveRendererContext,
-} from '@/context/rule-mutator-context';
+} from '@/context/renderer-mutator-context';
 
 describe('rule mutator context (renderer)', () => {
   it('mints monotonically advancing HLCs', () => {

@@ -37,7 +37,7 @@ import {
   applyRuleUpdate,
 } from '@/shared/sync/rule-write-client';
 import type { RuleSyncMirror } from '@/context/rule-sync-mirror';
-import type { RendererContextHandle } from '@/context/rule-mutator-context';
+import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 
 const headerRule: V5.HeaderRule = {
   schemaVersion: 5,

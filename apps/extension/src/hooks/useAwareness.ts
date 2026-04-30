@@ -20,7 +20,7 @@ import { type HLC } from '@openheaders/core/sync';
 import { useEffect, useRef } from 'react';
 import { call } from '@utils/bridge';
 import { logger } from '@utils/logger';
-import { ensureRendererContext } from '@/context/rule-mutator-context';
+import { ensureRendererContext } from '@/context/renderer-mutator-context';
 
 export interface UseAwarenessOptions {
   workspaceId: string | null;

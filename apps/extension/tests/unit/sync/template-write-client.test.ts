@@ -42,7 +42,7 @@ import {
   applyTemplateUpdate,
 } from '@/shared/sync/template-write-client';
 import type { TemplateSyncMirror } from '@/context/template-sync-mirror';
-import type { RendererContextHandle } from '@/context/rule-mutator-context';
+import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 
 const baseTemplate: V5.Template = {
   schemaVersion: 5,

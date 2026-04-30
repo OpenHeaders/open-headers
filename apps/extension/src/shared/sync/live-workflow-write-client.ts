@@ -11,7 +11,7 @@ import { call } from '@utils/bridge';
 import {
   ensureRendererContext,
   type RendererContextHandle,
-} from '@/context/rule-mutator-context';
+} from '@/context/renderer-mutator-context';
 import {
   getActiveLiveWorkflowSyncMirror,
   type LiveWorkflowSyncMirror,

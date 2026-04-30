@@ -12,7 +12,7 @@
 
 import { type MutatorIntent } from '@openheaders/core/sync';
 import { call } from '@utils/bridge';
-import { ensureRendererContext, type RendererContextHandle } from '@/context/rule-mutator-context';
+import { ensureRendererContext, type RendererContextHandle } from '@/context/renderer-mutator-context';
 import { buildSetLayoutBatch } from '@/shared/sync/layout-state-mutations';
 
 export type LayoutStateResult = { ok: true } | { ok: false; reason: 'other'; message?: string };
