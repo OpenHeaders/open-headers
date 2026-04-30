@@ -12,7 +12,12 @@
  * layer on top.
  */
 
-import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import {
+  applySyncPayload,
+  type BaseSyncWriteOptions,
+  resolveRendererContext,
+  type SyncSimpleResult,
+} from '@/shared/sync/apply-payload';
 import { type MutationEnvelope } from '@openheaders/core/sync';
 import type { FolderParentRef } from '@openheaders/core/sync';
 import {
@@ -20,7 +25,6 @@ import {
   type FolderSyncMirror,
   getActiveFolderSyncMirror,
 } from '@/context/folder-sync-mirror';
-import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import {
   buildCreateFolderBatch,
   buildDeleteFolderBatch,
@@ -32,12 +36,8 @@ export { createFolderSyncMirror } from '@/context/folder-sync-mirror';
 
 export type FolderSimpleResult = SyncSimpleResult;
 
-export interface FolderWriteOptions {
-  workspaceId: string;
-  surfaceId: string;
-  batchId?: string;
+export interface FolderWriteOptions extends BaseSyncWriteOptions {
   mirror?: FolderSyncMirror;
-  context?: RendererContextHandle;
 }
 
 function resolveMirror(opts: FolderWriteOptions): FolderSyncMirror {

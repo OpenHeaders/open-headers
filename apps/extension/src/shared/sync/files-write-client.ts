@@ -16,13 +16,17 @@
  */
 
 import { type FileRefSlot } from '@openheaders/core/sync';
-import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import {
   createFilesSyncMirror,
   getActiveFilesSyncMirror,
   type FilesSyncMirror,
 } from '@/context/files-sync-mirror';
-import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import {
+  applySyncPayload,
+  type BaseSyncWriteOptions,
+  resolveRendererContext,
+  type SyncSimpleResult,
+} from '@/shared/sync/apply-payload';
 import {
   buildAddFileRefBatch,
   buildRemoveFileRefBatch,
@@ -33,12 +37,8 @@ export { createFilesSyncMirror } from '@/context/files-sync-mirror';
 
 export type FilesResult = SyncSimpleResult;
 
-export interface FilesWriteOptions {
-  workspaceId: string;
-  surfaceId: string;
-  batchId?: string;
+export interface FilesWriteOptions extends BaseSyncWriteOptions {
   mirror?: FilesSyncMirror;
-  context?: RendererContextHandle;
 }
 
 function resolveMirror(opts: FilesWriteOptions): FilesSyncMirror {

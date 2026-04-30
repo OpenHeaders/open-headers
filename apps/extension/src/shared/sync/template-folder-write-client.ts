@@ -5,13 +5,17 @@
  * template-folder entity type.
  */
 
-import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import {
+  applySyncPayload,
+  type BaseSyncWriteOptions,
+  resolveRendererContext,
+  type SyncSimpleResult,
+} from '@/shared/sync/apply-payload';
 import { type MutationEnvelope, type TemplateFolderParentRef } from '@openheaders/core/sync';
 import {
   getActiveTemplateFolderSyncMirror,
   type TemplateFolderSyncMirror,
 } from '@/context/template-folder-sync-mirror';
-import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import {
   buildCreateTemplateFolderBatch,
   buildDeleteTemplateFolderBatch,
@@ -23,12 +27,8 @@ export { createTemplateFolderSyncMirror } from '@/context/template-folder-sync-m
 
 export type TemplateFolderSimpleResult = SyncSimpleResult;
 
-export interface TemplateFolderWriteOptions {
-  workspaceId: string;
-  surfaceId: string;
-  batchId?: string;
+export interface TemplateFolderWriteOptions extends BaseSyncWriteOptions {
   mirror?: TemplateFolderSyncMirror;
-  context?: RendererContextHandle;
 }
 
 function resolveMirror(opts: TemplateFolderWriteOptions): TemplateFolderSyncMirror {

@@ -6,13 +6,17 @@
  * no renderer-direct create gesture today.
  */
 
-import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import {
+  applySyncPayload,
+  type BaseSyncWriteOptions,
+  resolveRendererContext,
+  type SyncSimpleResult,
+} from '@/shared/sync/apply-payload';
 import { type MutationEnvelope } from '@openheaders/core/sync';
 import {
   getActiveTemplateCollectionSyncMirror,
   type TemplateCollectionSyncMirror,
 } from '@/context/template-collection-sync-mirror';
-import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import {
   buildDeleteTemplateCollectionBatch,
   buildRenameTemplateCollectionBatch,
@@ -22,12 +26,8 @@ export { createTemplateCollectionSyncMirror } from '@/context/template-collectio
 
 export type TemplateCollectionSimpleResult = SyncSimpleResult;
 
-export interface TemplateCollectionWriteOptions {
-  workspaceId: string;
-  surfaceId: string;
-  batchId?: string;
+export interface TemplateCollectionWriteOptions extends BaseSyncWriteOptions {
   mirror?: TemplateCollectionSyncMirror;
-  context?: RendererContextHandle;
 }
 
 function resolveMirror(opts: TemplateCollectionWriteOptions): TemplateCollectionSyncMirror {

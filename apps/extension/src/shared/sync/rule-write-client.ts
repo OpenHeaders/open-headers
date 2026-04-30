@@ -14,12 +14,16 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import {
   getActiveRuleSyncMirror,
   type RuleSyncMirror,
 } from '@/context/rule-sync-mirror';
-import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import {
+  applySyncPayload,
+  type BaseSyncWriteOptions,
+  resolveRendererContext,
+  type SyncSimpleResult,
+} from '@/shared/sync/apply-payload';
 import {
   buildDeleteBatch,
   buildToggleBatch,
@@ -35,15 +39,9 @@ export type RuleMutationResult =
 
 export type RuleSimpleResult = SyncSimpleResult;
 
-export interface RuleWriteOptions {
-  workspaceId: string;
-  surfaceId: string;
-  /** Optional batchId so multi-mutation gestures share one all-or-nothing batch. */
-  batchId?: string;
+export interface RuleWriteOptions extends BaseSyncWriteOptions {
   /** Override the singleton mirror for tests. */
   mirror?: RuleSyncMirror;
-  /** Override the renderer context handle for tests. */
-  context?: RendererContextHandle;
 }
 
 function resolveMirror(opts: RuleWriteOptions): RuleSyncMirror {

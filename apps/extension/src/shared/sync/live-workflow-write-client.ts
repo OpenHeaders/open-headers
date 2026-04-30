@@ -7,8 +7,12 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
-import type { RendererContextHandle } from '@/context/renderer-mutator-context';
+import {
+  applySyncPayload,
+  type BaseSyncWriteOptions,
+  resolveRendererContext,
+  type SyncSimpleResult,
+} from '@/shared/sync/apply-payload';
 import {
   getActiveLiveWorkflowSyncMirror,
   type LiveWorkflowSyncMirror,
@@ -28,12 +32,8 @@ export type LiveWorkflowMutationResult =
 
 export type LiveWorkflowSimpleResult = SyncSimpleResult;
 
-export interface LiveWorkflowWriteOptions {
-  workspaceId: string;
-  surfaceId: string;
-  batchId?: string;
+export interface LiveWorkflowWriteOptions extends BaseSyncWriteOptions {
   mirror?: LiveWorkflowSyncMirror;
-  context?: RendererContextHandle;
 }
 
 function resolveMirror(opts: LiveWorkflowWriteOptions): LiveWorkflowSyncMirror {

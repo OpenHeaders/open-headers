@@ -13,12 +13,16 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import {
   getActiveRequestSyncMirror,
   type RequestSyncMirror,
 } from '@/context/request-sync-mirror';
-import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import {
+  applySyncPayload,
+  type BaseSyncWriteOptions,
+  resolveRendererContext,
+  type SyncSimpleResult,
+} from '@/shared/sync/apply-payload';
 import {
   buildAddBatch,
   buildDeleteBatch,
@@ -34,15 +38,9 @@ export type RequestMutationResult =
 
 export type RequestSimpleResult = SyncSimpleResult;
 
-export interface RequestWriteOptions {
-  workspaceId: string;
-  surfaceId: string;
-  /** Optional batchId so multi-mutation gestures share one all-or-nothing batch. */
-  batchId?: string;
+export interface RequestWriteOptions extends BaseSyncWriteOptions {
   /** Override the singleton mirror for tests. */
   mirror?: RequestSyncMirror;
-  /** Override the renderer context handle for tests. */
-  context?: RendererContextHandle;
 }
 
 function resolveMirror(opts: RequestWriteOptions): RequestSyncMirror {

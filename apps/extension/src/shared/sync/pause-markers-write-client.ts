@@ -15,12 +15,16 @@
  * reach for the singleton mirror, keeping it injectable for tests).
  */
 
-import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import {
+  applySyncPayload,
+  type BaseSyncWriteOptions,
+  resolveRendererContext,
+  type SyncSimpleResult,
+} from '@/shared/sync/apply-payload';
 import {
   type MutatorIntent,
   type PauseMarkerKind,
 } from '@openheaders/core/sync';
-import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import {
   createPauseMarkersSyncMirror,
   getActivePauseMarkersSyncMirror,
@@ -37,12 +41,8 @@ export { createPauseMarkersSyncMirror } from '@/context/pause-markers-sync-mirro
 
 export type PauseMarkersResult = SyncSimpleResult;
 
-export interface PauseMarkersWriteOptions {
-  workspaceId: string;
-  surfaceId: string;
-  batchId?: string;
+export interface PauseMarkersWriteOptions extends BaseSyncWriteOptions {
   mirror?: PauseMarkersSyncMirror;
-  context?: RendererContextHandle;
 }
 
 function resolveMirror(opts: PauseMarkersWriteOptions): PauseMarkersSyncMirror {

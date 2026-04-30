@@ -8,13 +8,17 @@
  * write client is a thin wire layer on top.
  */
 
-import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import {
+  applySyncPayload,
+  type BaseSyncWriteOptions,
+  resolveRendererContext,
+  type SyncSimpleResult,
+} from '@/shared/sync/apply-payload';
 import { type MutationEnvelope, type RequestFolderParentRef } from '@openheaders/core/sync';
 import {
   getActiveRequestFolderSyncMirror,
   type RequestFolderSyncMirror,
 } from '@/context/request-folder-sync-mirror';
-import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import {
   buildCreateRequestFolderBatch,
   buildDeleteRequestFolderBatch,
@@ -26,12 +30,8 @@ export { createRequestFolderSyncMirror } from '@/context/request-folder-sync-mir
 
 export type RequestFolderSimpleResult = SyncSimpleResult;
 
-export interface RequestFolderWriteOptions {
-  workspaceId: string;
-  surfaceId: string;
-  batchId?: string;
+export interface RequestFolderWriteOptions extends BaseSyncWriteOptions {
   mirror?: RequestFolderSyncMirror;
-  context?: RendererContextHandle;
 }
 
 function resolveMirror(opts: RequestFolderWriteOptions): RequestFolderSyncMirror {

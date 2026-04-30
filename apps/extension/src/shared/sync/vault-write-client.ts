@@ -18,7 +18,12 @@
  * the schema-marked-sensitive payload never crosses any sync transport.
  */
 
-import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import {
+  applySyncPayload,
+  type BaseSyncWriteOptions,
+  resolveRendererContext,
+  type SyncSimpleResult,
+} from '@/shared/sync/apply-payload';
 import {
   mintBatch,
   type MutationBody,
@@ -30,7 +35,6 @@ import {
   vaultInvalidateResolverIntent,
 } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
-import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import {
   createVaultSyncMirror,
   getActiveVaultSyncMirror,
@@ -47,12 +51,8 @@ export { createVaultSyncMirror } from '@/context/vault-sync-mirror';
 
 export type VaultSimpleResult = SyncSimpleResult;
 
-export interface VaultWriteOptions {
-  workspaceId: string;
-  surfaceId: string;
-  batchId?: string;
+export interface VaultWriteOptions extends BaseSyncWriteOptions {
   mirror?: VaultSyncMirror;
-  context?: RendererContextHandle;
 }
 
 export interface ApplyVaultSecretSetInput {

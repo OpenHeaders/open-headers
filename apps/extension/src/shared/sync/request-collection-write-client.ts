@@ -5,13 +5,17 @@
  * request-collection entity type. Catalog ships rename-only at v1.
  */
 
-import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import {
+  applySyncPayload,
+  type BaseSyncWriteOptions,
+  resolveRendererContext,
+  type SyncSimpleResult,
+} from '@/shared/sync/apply-payload';
 import { type MutationEnvelope } from '@openheaders/core/sync';
 import {
   getActiveRequestCollectionSyncMirror,
   type RequestCollectionSyncMirror,
 } from '@/context/request-collection-sync-mirror';
-import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import {
   buildDeleteRequestCollectionBatch,
   buildRenameRequestCollectionBatch,
@@ -21,12 +25,8 @@ export { createRequestCollectionSyncMirror } from '@/context/request-collection-
 
 export type RequestCollectionSimpleResult = SyncSimpleResult;
 
-export interface RequestCollectionWriteOptions {
-  workspaceId: string;
-  surfaceId: string;
-  batchId?: string;
+export interface RequestCollectionWriteOptions extends BaseSyncWriteOptions {
   mirror?: RequestCollectionSyncMirror;
-  context?: RendererContextHandle;
 }
 
 function resolveMirror(opts: RequestCollectionWriteOptions): RequestCollectionSyncMirror {

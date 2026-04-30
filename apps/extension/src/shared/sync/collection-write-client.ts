@@ -16,7 +16,12 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import {
+  applySyncPayload,
+  type BaseSyncWriteOptions,
+  resolveRendererContext,
+  type SyncSimpleResult,
+} from '@/shared/sync/apply-payload';
 import { mintBatch, type MutationBody, type MutationEnvelope, type SideEffectIntent } from '@openheaders/core/sync';
 import {
   COLLECTION_ENTITY_TYPE,
@@ -29,7 +34,6 @@ import {
   createCollectionSyncMirror,
   getActiveCollectionSyncMirror,
 } from '@/context/collection-sync-mirror';
-import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import {
   buildRemoveCollectionVarBatch,
   buildRenameCollectionBatch,
@@ -45,12 +49,8 @@ export { createCollectionSyncMirror } from '@/context/collection-sync-mirror';
 
 export type CollectionSimpleResult = SyncSimpleResult;
 
-export interface CollectionWriteOptions {
-  workspaceId: string;
-  surfaceId: string;
-  batchId?: string;
+export interface CollectionWriteOptions extends BaseSyncWriteOptions {
   mirror?: CollectionSyncMirror;
-  context?: RendererContextHandle;
 }
 
 function resolveMirror(opts: CollectionWriteOptions): CollectionSyncMirror {

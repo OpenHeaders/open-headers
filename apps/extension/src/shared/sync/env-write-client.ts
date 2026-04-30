@@ -22,7 +22,12 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import {
+  applySyncPayload,
+  type BaseSyncWriteOptions,
+  resolveRendererContext,
+  type SyncSimpleResult,
+} from '@/shared/sync/apply-payload';
 import { mintBatch, type MutationBody, type MutationEnvelope, type SideEffectIntent } from '@openheaders/core/sync';
 import {
   ENV_VARS_PATH,
@@ -35,7 +40,6 @@ import {
   type EnvSyncMirror,
   getActiveEnvSyncMirror,
 } from '@/context/env-sync-mirror';
-import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import {
   buildRemoveEnvVarBatch,
   buildRenameEnvironmentBatch,
@@ -50,12 +54,8 @@ export { createEnvSyncMirror } from '@/context/env-sync-mirror';
 
 export type EnvSimpleResult = SyncSimpleResult;
 
-export interface EnvWriteOptions {
-  workspaceId: string;
-  surfaceId: string;
-  batchId?: string;
+export interface EnvWriteOptions extends BaseSyncWriteOptions {
   mirror?: EnvSyncMirror;
-  context?: RendererContextHandle;
 }
 
 function resolveMirror(opts: EnvWriteOptions): EnvSyncMirror {

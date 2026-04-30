@@ -12,12 +12,16 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import {
   getActiveTemplateSyncMirror,
   type TemplateSyncMirror,
 } from '@/context/template-sync-mirror';
-import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import {
+  applySyncPayload,
+  type BaseSyncWriteOptions,
+  resolveRendererContext,
+  type SyncSimpleResult,
+} from '@/shared/sync/apply-payload';
 import {
   buildAddBatch,
   buildDeleteBatch,
@@ -33,12 +37,8 @@ export type TemplateMutationResult =
 
 export type TemplateSimpleResult = SyncSimpleResult;
 
-export interface TemplateWriteOptions {
-  workspaceId: string;
-  surfaceId: string;
-  batchId?: string;
+export interface TemplateWriteOptions extends BaseSyncWriteOptions {
   mirror?: TemplateSyncMirror;
-  context?: RendererContextHandle;
 }
 
 function resolveMirror(opts: TemplateWriteOptions): TemplateSyncMirror {

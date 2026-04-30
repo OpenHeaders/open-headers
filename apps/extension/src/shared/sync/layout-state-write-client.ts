@@ -10,18 +10,17 @@
  * broadcast for cross-surface consistency.
  */
 
-import type { RendererContextHandle } from '@/context/renderer-mutator-context';
-import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import {
+  applySyncPayload,
+  type BaseSyncWriteOptions,
+  resolveRendererContext,
+  type SyncSimpleResult,
+} from '@/shared/sync/apply-payload';
 import { buildSetLayoutBatch } from '@/shared/sync/layout-state-mutations';
 
 export type LayoutStateResult = SyncSimpleResult;
 
-export interface LayoutStateWriteOptions {
-  workspaceId: string;
-  surfaceId: string;
-  batchId?: string;
-  context?: RendererContextHandle;
-}
+export interface LayoutStateWriteOptions extends BaseSyncWriteOptions {}
 
 export interface ApplyLayoutSetInput {
   layout: unknown;

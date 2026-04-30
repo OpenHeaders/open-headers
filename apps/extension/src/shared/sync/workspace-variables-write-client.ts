@@ -17,7 +17,12 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import { applySyncPayload, resolveRendererContext, type SyncSimpleResult } from '@/shared/sync/apply-payload';
+import {
+  applySyncPayload,
+  type BaseSyncWriteOptions,
+  resolveRendererContext,
+  type SyncSimpleResult,
+} from '@/shared/sync/apply-payload';
 import {
   mintBatch,
   type MutationBody,
@@ -29,7 +34,6 @@ import {
   WORKSPACE_VARIABLES_PATH,
   workspaceVariablesInvalidateResolverIntent,
 } from '@openheaders/core/sync';
-import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import {
   createWorkspaceVariablesSyncMirror,
   getActiveWorkspaceVariablesSyncMirror,
@@ -47,12 +51,8 @@ export { createWorkspaceVariablesSyncMirror } from '@/context/workspace-variable
 
 export type WorkspaceVariablesSimpleResult = SyncSimpleResult;
 
-export interface WorkspaceVariablesWriteOptions {
-  workspaceId: string;
-  surfaceId: string;
-  batchId?: string;
+export interface WorkspaceVariablesWriteOptions extends BaseSyncWriteOptions {
   mirror?: WorkspaceVariablesSyncMirror;
-  context?: RendererContextHandle;
 }
 
 export interface ApplyWorkspaceVarSetInput {
