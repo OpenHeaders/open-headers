@@ -1,0 +1,163 @@
+/**
+ * Shared cache + persistence sink for flat-list entities.
+ *
+ * Eight per-entity caches (rule, request, template, environment,
+ * live-variable, live-workflow, request-collection, template-collection)
+ * shared the same broadcast → re-project → persist → notify pipeline,
+ * differing only in the entity-type tag, the projector + seeder pair,
+ * the storage key, and the logger tag. This module hosts the pipeline
+ * once; per-entity files become thin adapters that pass their config
+ * and rename the neutral methods (`getEntities`, `seedFromPersisted`)
+ * to entity-named methods (`getRules`, `seedFromPersistedRules`) that
+ * existing call sites already use.
+ *
+ * Singleton-shaped caches (vault, oauth-bundle, workspace-variables,
+ * layout-state, files, pause-markers, extension-workspace) keep their
+ * own factories — their projection paths fold to one record, not a
+ * sorted array, and the differences aren't worth genericizing.
+ */
+
+import {
+  type MaterializedEntity,
+  type MutationBatch,
+  type MutatorContext,
+} from '@openheaders/core/sync';
+import { logger } from '@utils/logger';
+import { extensionStorage, type StorageKey } from '@/shared/storage';
+import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';
+import type { EntityOracle } from './oracle';
+import type { SwMutatorContextFactory } from './sw-context';
+
+export interface FlatEntityCacheConfig<E extends { uid: string }, T extends string> {
+  entityType: T;
+  /** Logger tag — also used for the seed-failure log message. */
+  loggerTag: string;
+  /** Resolves the chrome.storage key the projection persists to. */
+  storageKey: (workspaceId: string) => StorageKey<E[]>;
+  /**
+   * Per-entity projector — returns null when the materialized entity
+   * doesn't shape into a valid `E` (tombstoned mid-batch; foreign
+   * fields the schema can't validate yet).
+   */
+  project: (materialized: MaterializedEntity) => E | null;
+  /**
+   * Per-entity seed-batch builder. Used during hydration to feed the
+   * oracle from `chrome.storage.local`-persisted snapshots.
+   */
+  seed: (entity: E, ctx: MutatorContext) => MutationBatch;
+  /**
+   * If `true` (default), the broadcast subscription only re-projects
+   * when the envelope's body type matches `entityType`. Set `false` for
+   * caches that historically re-projected on every event (request,
+   * rule) — re-projection is idempotent so the filter is the strict
+   * generalization, but keeping the legacy "re-project on every event"
+   * shape is safer than tightening the contract in a refactor commit.
+   */
+  filterBroadcastByType?: boolean;
+}
+
+export interface FlatEntityCacheCore<E> {
+  readonly workspaceId: string;
+  getEntities(): E[];
+  seedFromPersisted(entities: E[]): Promise<void>;
+  /** Force a re-project cycle. Used by tree-shaped caches that wrap
+   *  this core and want to invalidate after parent-linkage changes. */
+  refresh(): void;
+  onChange(listener: () => void): () => void;
+  dispose(): void;
+}
+
+export function createFlatEntityCache<E extends { uid: string }, T extends string>(
+  workspaceId: string,
+  oracle: EntityOracle,
+  broadcast: InMemoryBroadcast,
+  contextFactory: SwMutatorContextFactory,
+  config: FlatEntityCacheConfig<E, T>,
+): FlatEntityCacheCore<E> {
+  let entities: E[] = [];
+  const listeners = new Set<() => void>();
+  const filter = config.filterBroadcastByType ?? true;
+
+  const refreshFromOracle = (): void => {
+    entities = projectAll(oracle.materializeAll(), config);
+    void persist(workspaceId, entities, config);
+    for (const l of listeners) {
+      try {
+        l();
+      } catch (err) {
+        logger.info(config.loggerTag, 'listener threw:', (err as Error).message);
+      }
+    }
+  };
+
+  const unsubscribe = broadcast.subscribe((event: BroadcastEvent) => {
+    if (filter && event.envelope.body.type !== config.entityType) return;
+    refreshFromOracle();
+  });
+
+  return {
+    workspaceId,
+    getEntities: () => entities,
+
+    async seedFromPersisted(persisted: E[]): Promise<void> {
+      for (const entity of persisted) {
+        const batch = config.seed(entity, contextFactory());
+        const result = await oracle.apply(batch, []);
+        if (!result.ok) {
+          logger.info(
+            config.loggerTag,
+            `seed: ${entity.uid} failed (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
+          );
+        }
+      }
+      // Last-line refresh — guards the zero-entities case where no
+      // broadcast would fire to drive refreshFromOracle.
+      refreshFromOracle();
+      logger.info(config.loggerTag, `Seeded ${persisted.length} entities for ws=${workspaceId}`);
+    },
+
+    refresh: refreshFromOracle,
+
+    onChange(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+
+    dispose() {
+      unsubscribe();
+      listeners.clear();
+    },
+  };
+}
+
+function projectAll<E extends { uid: string }, T extends string>(
+  materialized: MaterializedEntity[],
+  config: FlatEntityCacheConfig<E, T>,
+): E[] {
+  const out: E[] = [];
+  for (const m of materialized) {
+    if (m.type !== config.entityType) continue;
+    const entity = config.project(m);
+    if (entity) out.push(entity);
+  }
+  // Stable order by uid so consumers (badge, exporter, tests)
+  // observe deterministic outputs across SW lifetimes.
+  out.sort((a, b) => (a.uid < b.uid ? -1 : a.uid > b.uid ? 1 : 0));
+  return out;
+}
+
+async function persist<E extends { uid: string }, T extends string>(
+  workspaceId: string,
+  entities: E[],
+  config: FlatEntityCacheConfig<E, T>,
+): Promise<void> {
+  try {
+    await extensionStorage.set(config.storageKey(workspaceId), entities);
+  } catch (err) {
+    // chrome.storage.local writes can fail under quota pressure or
+    // during extension reload teardown. Log but don't throw — the
+    // in-memory cache is still consistent; the next mutation will
+    // attempt another write.
+    logger.info(config.loggerTag, `persist failed (ws=${workspaceId}):`, (err as Error).message);
+  }
+}
