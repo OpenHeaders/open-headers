@@ -66,11 +66,7 @@ import type { TreeNode } from './types';
 // consumers (Sidebar.tsx, the helper test suite) keep one import
 // surface.
 export type { FolderDndParent } from './folder-dnd-ids';
-export {
-  computeMoveOrderKey,
-  computeSiblingInsertOrderKey,
-  isDescendantOf,
-} from './folder-dnd-helpers';
+export { computeSiblingInsertOrderKey, isDescendantOf } from './folder-dnd-helpers';
 
 export interface FolderDndConfig extends FolderDndIdConfig {
   /** Read the parent's live ordered child-folder slots. The dnd surface

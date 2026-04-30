@@ -1,9 +1,6 @@
 /**
  * folder-dnd-helpers — pure logic for the folder dnd surface.
  *
- *   - `computeMoveOrderKey` — fractional `keyBetween` for same-parent
- *     reorder, with the dnd-kit convention of placing AFTER `over` when
- *     dragging down and BEFORE when dragging up.
  *   - `isDescendantOf` — cycle guard for the cross-parent reparent
  *     gesture: rejects drops where the drop target sits inside the
  *     dragged folder's own subtree (catalog would accept the cyclic
@@ -14,9 +11,7 @@
  *     "drop AS SIBLING above/below over-row" gesture, given the over
  *     parent's live siblings, the dragged folder uid (which may be the
  *     same parent's child or a foreign-parent child), the over folder
- *     uid, and the drop side. Mirrors the same-parent placement math
- *     but commits to a side instead of inferring it from drag
- *     direction.
+ *     uid, and the drop side.
  */
 
 import { keyBetween, seedKey } from '@openheaders/core/sync';
@@ -37,24 +32,6 @@ export function isDescendantOf(
     cursor = byId.get(cursor.parentId);
   }
   return false;
-}
-
-export function computeMoveOrderKey(
-  siblings: ReadonlyArray<{ itemId: string; orderKey: string }>,
-  movingUid: string,
-  overUid: string,
-): string | null {
-  const fromIdx = siblings.findIndex((s) => s.itemId === movingUid);
-  const overIdx = siblings.findIndex((s) => s.itemId === overUid);
-  if (fromIdx < 0 || overIdx < 0) return seedKey();
-  if (fromIdx === overIdx) return null;
-
-  const without = siblings.filter((s) => s.itemId !== movingUid);
-  const overIdxInWithout = without.findIndex((s) => s.itemId === overUid);
-  const insertIdx = fromIdx < overIdx ? overIdxInWithout + 1 : overIdxInWithout;
-  const prev = without[insertIdx - 1]?.orderKey ?? null;
-  const next = without[insertIdx]?.orderKey ?? null;
-  return keyBetween(prev, next);
 }
 
 /**

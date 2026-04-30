@@ -30,11 +30,7 @@ import type { FolderDndIdConfig, FolderDndParent } from './folder-dnd-ids';
 import { parentFromId, stripPrefix } from './folder-dnd-ids';
 import type { TreeNode } from './types';
 import type { DropZone } from './folder-dnd-zone';
-import {
-  computeMoveOrderKey,
-  computeSiblingInsertOrderKey,
-  isDescendantOf,
-} from './folder-dnd-helpers';
+import { computeSiblingInsertOrderKey, isDescendantOf } from './folder-dnd-helpers';
 
 export interface DropPlacement {
   folderUid: string;
@@ -128,6 +124,4 @@ export function computeDropPlacement(input: DropPlacementInput): DropPlacement |
   return { folderUid, parent: overParent, oldParent, orderKey };
 }
 
-// Re-export the no-zone same-parent helper so the test suite + the dnd
-// surface keep one entry point per gesture variant.
-export { computeMoveOrderKey, isDescendantOf } from './folder-dnd-helpers';
+export { isDescendantOf } from './folder-dnd-helpers';

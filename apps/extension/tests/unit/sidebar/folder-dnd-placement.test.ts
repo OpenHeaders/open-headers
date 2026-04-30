@@ -7,7 +7,10 @@
 import { describe, expect, it } from 'vitest';
 import { computeDropPlacement } from '@/workbench/components/sidebar/folder-dnd-placement';
 import type { FolderDndParent } from '@/workbench/components/sidebar/folder-dnd-ids';
-import { computeSiblingInsertOrderKey } from '@/workbench/components/sidebar/folder-dnd-helpers';
+import {
+  computeSiblingInsertOrderKey,
+  isDescendantOf,
+} from '@/workbench/components/sidebar/folder-dnd-helpers';
 import type { TreeNode } from '@/workbench/components/sidebar/types';
 
 const CONFIG = { collectionIdPrefix: 'col-', folderIdPrefix: 'folder-' };
@@ -300,5 +303,50 @@ describe('computeSiblingInsertOrderKey', () => {
     const key = computeSiblingInsertOrderKey(siblings, 'a', 'c', 'before');
     expect(key).not.toBeNull();
     expect(key! > 'm' && key! < 's').toBe(true);
+  });
+});
+
+describe('isDescendantOf', () => {
+  const folderNode = (id: string, parentId?: string): TreeNode => ({
+    id,
+    parentId,
+    kind: 'folder',
+    label: id,
+    depth: 0,
+    expandable: true,
+    icon: null,
+    canRename: true,
+    canDelete: true,
+    canAddChild: true,
+  });
+
+  it('detects a direct child', () => {
+    const map = new Map<string, TreeNode>();
+    [folderNode('p'), folderNode('c', 'p')].forEach((n) => map.set(n.id, n));
+    expect(isDescendantOf('p', map.get('c')!, map)).toBe(true);
+  });
+
+  it('detects a deep descendant', () => {
+    const nodes = [folderNode('a'), folderNode('b', 'a'), folderNode('c', 'b'), folderNode('d', 'c')];
+    const map = new Map(nodes.map((n) => [n.id, n]));
+    expect(isDescendantOf('a', map.get('d')!, map)).toBe(true);
+  });
+
+  it('returns false for an unrelated subtree', () => {
+    const nodes = [folderNode('a'), folderNode('b'), folderNode('c-b', 'b')];
+    const map = new Map(nodes.map((n) => [n.id, n]));
+    expect(isDescendantOf('a', map.get('c-b')!, map)).toBe(false);
+  });
+
+  it('treats a node as its own descendant (same-id is the trivial case)', () => {
+    const map = new Map<string, TreeNode>();
+    map.set('a', folderNode('a'));
+    expect(isDescendantOf('a', map.get('a')!, map)).toBe(true);
+  });
+
+  it('terminates safely on a cycle in the parent chain', () => {
+    const nodes = [folderNode('a', 'b'), folderNode('b', 'a')];
+    const map = new Map(nodes.map((n) => [n.id, n]));
+    expect(isDescendantOf('unrelated', map.get('a')!, map)).toBe(false);
   });
 });
