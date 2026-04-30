@@ -38,6 +38,17 @@ vi.mock('@/shared/files/blob-store', () => ({
     return out;
   }),
   deleteBlob: vi.fn(async (workspaceId: string, fileId: string) => store.delete(`${workspaceId}:${fileId}`)),
+  renameBlob: vi.fn(async (workspaceId: string, fileId: string, next: { filename: string; mimeType?: string }) => {
+    const entry = store.get(`${workspaceId}:${fileId}`);
+    if (!entry) return null;
+    const updated: FileRef = {
+      ...entry.ref,
+      filename: next.filename,
+      mimeType: next.mimeType ?? entry.ref.mimeType,
+    };
+    store.set(`${workspaceId}:${fileId}`, { ...entry, ref: updated });
+    return updated;
+  }),
   clearWorkspaceBlobs: vi.fn(async (workspaceId: string) => {
     for (const [k, v] of store.entries()) {
       if (v.workspaceId === workspaceId) store.delete(k);
@@ -93,6 +104,36 @@ describe('files-store', () => {
     const ref = await filesStore.putFile({ blob: new Blob(['x']), filename: 'x.txt' });
     expect(await filesStore.deleteFile(ref.fileId)).toBe(true);
     expect(await filesStore.deleteFile(ref.fileId)).toBe(false);
+  });
+
+  it('renameFile rewrites filename + preserves hash, fileId, size', async () => {
+    const ref = await filesStore.putFile({ blob: new Blob(['x']), filename: 'old.txt' });
+    const renamed = await filesStore.renameFile({ fileId: ref.fileId, filename: 'new.txt' });
+    expect(renamed).toEqual({ ...ref, filename: 'new.txt' });
+    const list = await filesStore.listFiles();
+    expect(list).toHaveLength(1);
+    expect(list[0].filename).toBe('new.txt');
+  });
+
+  it('renameFile returns null when the fileId is unknown', async () => {
+    expect(await filesStore.renameFile({ fileId: 'file:gone', filename: 'x.txt' })).toBeNull();
+  });
+
+  it('renameFile fires the change listener on success', async () => {
+    const ref = await filesStore.putFile({ blob: new Blob(['x']), filename: 'old.txt' });
+    const spy = vi.fn();
+    const unsub = filesStore.onFilesStoreChange(spy);
+    await filesStore.renameFile({ fileId: ref.fileId, filename: 'new.txt' });
+    expect(spy).toHaveBeenCalled();
+    unsub();
+  });
+
+  it('renameFile does NOT fire the change listener when fileId is unknown', async () => {
+    const spy = vi.fn();
+    const unsub = filesStore.onFilesStoreChange(spy);
+    await filesStore.renameFile({ fileId: 'file:gone', filename: 'x.txt' });
+    expect(spy).not.toHaveBeenCalled();
+    unsub();
   });
 
   it('purgeFilesForWorkspace drops every blob for the workspace', async () => {

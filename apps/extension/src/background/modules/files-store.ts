@@ -23,18 +23,10 @@
  */
 
 import type { FileRef } from '@openheaders/core/files';
-import type {
-  FileRefSlot,
-  MutationBatch,
-  MutatorContext,
-  SideEffectIntent,
-} from '@openheaders/core/sync';
+import type { FileRefSlot, MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
 import { logger } from '@utils/logger';
 import * as BlobStore from '@/shared/files/blob-store';
-import {
-  buildAddFileRefBatch,
-  buildRemoveFileRefBatch,
-} from '@/shared/sync/files-mutations';
+import { buildAddFileRefBatch, buildRemoveFileRefBatch, buildRenameFileRefBatch } from '@/shared/sync/files-mutations';
 import { getActiveFilesCache } from '../sync/files-cache';
 import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
 import { getActiveWorkspaceId } from './workspace-store';
@@ -113,12 +105,40 @@ export async function putFile(input: { blob: Blob; filename: string; mimeType?: 
   const workspaceId = getActiveWorkspaceId();
   const ref = await BlobStore.putBlob(workspaceId, input);
   logger.debug('FilesStore', `Stored "${ref.filename}" (${ref.size}B, ${ref.hash.slice(0, 14)}…)`);
-  await applyFilesMutationOrThrow(
-    (ctx) => buildAddFileRefBatch({ ref: toSlot(ref) }, ctx),
-    'putFile',
-  );
+  await applyFilesMutationOrThrow((ctx) => buildAddFileRefBatch({ ref: toSlot(ref) }, ctx), 'putFile');
   notifyChange();
   return ref;
+}
+
+/**
+ * Rename a file's metadata in place. Two-step write that mirrors
+ * `putFile` / `deleteFile`:
+ *   1. {@link BlobStore.renameBlob} — durable update to the byte
+ *      record (bytes + hash unchanged; only filename + mimeType move).
+ *   2. Catalog `renameFileRef` envelope through the oracle so other
+ *      surfaces converge to the new metadata via per-(setPath, itemId)
+ *      LWW.
+ *
+ * Returns the updated `FileRef` shell on success, or `null` when the
+ * fileId isn't present in this workspace (rename target deleted between
+ * gesture and apply). Callers translate that into a structured RPC
+ * response.
+ */
+export async function renameFile(input: {
+  fileId: string;
+  filename: string;
+  mimeType?: string;
+}): Promise<FileRef | null> {
+  const workspaceId = getActiveWorkspaceId();
+  const updated = await BlobStore.renameBlob(workspaceId, input.fileId, {
+    filename: input.filename,
+    mimeType: input.mimeType,
+  });
+  if (!updated) return null;
+  logger.debug('FilesStore', `Renamed ${updated.fileId} → "${updated.filename}"`);
+  await applyFilesMutationOrThrow((ctx) => buildRenameFileRefBatch({ ref: toSlot(updated) }, ctx), 'renameFile');
+  notifyChange();
+  return updated;
 }
 
 /** Delete a file by `fileId`. Returns `true` iff an entry was removed. */
@@ -127,10 +147,7 @@ export async function deleteFile(fileId: string): Promise<boolean> {
   const removed = await BlobStore.deleteBlob(workspaceId, fileId);
   if (!removed) return false;
   logger.info('FilesStore', `Deleted file ${fileId}`);
-  await applyFilesMutationOrThrow(
-    (ctx) => buildRemoveFileRefBatch({ fileId }, ctx),
-    'deleteFile',
-  );
+  await applyFilesMutationOrThrow((ctx) => buildRemoveFileRefBatch({ fileId }, ctx), 'deleteFile');
   notifyChange();
   return true;
 }

@@ -15,6 +15,7 @@ import { buildWorkspaceExport, serializeWorkspaceExport } from '@openheaders/cor
 import { broadcast } from '@utils/bridge';
 import { runtime as browserRuntime, isChrome, isEdge, isFirefox, isSafari, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
+import { snapshotExtensionWorkspacePostStates } from '@/background/sync/global-service';
 import {
   applySyncRequest,
   publishAwareness,
@@ -22,6 +23,7 @@ import {
   snapshotCollectionPostStates,
   snapshotEnvironmentPostStates,
   snapshotFilesPostStates,
+  snapshotFolderPostStates,
   snapshotLayoutStatePostStates,
   snapshotLiveVariablePostStates,
   snapshotLiveWorkflowPostStates,
@@ -31,14 +33,12 @@ import {
   snapshotRequestFolderPostStates,
   snapshotRequestPostStates,
   snapshotRulePostStates,
-  snapshotFolderPostStates,
   snapshotTemplateCollectionPostStates,
   snapshotTemplateFolderPostStates,
   snapshotTemplatePostStates,
   snapshotVaultPostStates,
   snapshotWorkspaceVariablesPostStates,
 } from '@/background/sync/service';
-import { snapshotExtensionWorkspacePostStates } from '@/background/sync/global-service';
 import { getStatusSnapshot } from '@/shared/status';
 import type { MessageHandlerContext, SendResponse } from '@/types/browser';
 import type { PerfResourceEntry } from '@/types/perf';
@@ -60,7 +60,7 @@ import {
   setManualEnv,
   updateEnvironmentVariables,
 } from './environment-store';
-import { deleteFile, getFileBlob, listFiles, putFile } from './files-store';
+import { deleteFile, getFileBlob, listFiles, putFile, renameFile } from './files-store';
 import {
   clearImportReports,
   findImportReportBySourceHash,
@@ -1010,9 +1010,7 @@ export function handleGeneralMessage(
 
       const create = async (): Promise<V5.Template> => {
         if (parentPath) return addTemplate(templateData, parentPath);
-        const collection = collectionUid
-          ? { uid: collectionUid }
-          : await ensureDefaultTemplateCollection();
+        const collection = collectionUid ? { uid: collectionUid } : await ensureDefaultTemplateCollection();
         return addTemplateToCollection(templateData, collection.uid);
       };
       create()
@@ -1049,9 +1047,7 @@ export function handleGeneralMessage(
       return true;
     } else if (message.type === 'createTemplateFolder') {
       createTemplateFolder(message.name as string, message.parentPath as string)
-        .then((folder) =>
-          safeResponse(folder ? { success: true, folder } : { success: false }),
-        )
+        .then((folder) => safeResponse(folder ? { success: true, folder } : { success: false }))
         .catch((err: Error) => safeResponse({ success: false, error: err.message }));
       return true;
     } else if (message.type === 'renameTemplateFolder') {
@@ -1130,6 +1126,16 @@ export function handleGeneralMessage(
         .then((removed) => safeResponse({ success: true, removed }))
         .catch((err: Error) => safeResponse({ success: false, removed: false, error: err.message }));
       return true;
+    } else if (message.type === 'renameFile') {
+      const fileId = message.fileId as string;
+      const filename = message.filename as string;
+      const mimeType = message.mimeType as string | undefined;
+      renameFile({ fileId, filename, mimeType })
+        .then((fileRef) =>
+          safeResponse(fileRef ? { success: true, found: true, fileRef } : { success: true, found: false }),
+        )
+        .catch((err: Error) => safeResponse({ success: false, found: false, error: err.message }));
+      return true;
 
       // ── OAuth 2.0 / OIDC (Phase 13) ──────────────────────────────
     } else if (message.type === 'listOAuthTokens') {
@@ -1200,9 +1206,7 @@ export function handleGeneralMessage(
     } else if (message.type === 'updateLiveWorkflow') {
       const req = message as {
         uid: string;
-        updates: Partial<
-          Omit<import('@openheaders/core/types').V5.LiveWorkflow, 'uid' | 'path' | 'schemaVersion'>
-        >;
+        updates: Partial<Omit<import('@openheaders/core/types').V5.LiveWorkflow, 'uid' | 'path' | 'schemaVersion'>>;
       };
       updateLiveWorkflow(req.uid, req.updates)
         .then((result) => {
@@ -1214,9 +1218,7 @@ export function handleGeneralMessage(
             safeResponse({ success: false, reason: 'other', error: result.message });
           }
         })
-        .catch((err: Error) =>
-          safeResponse({ success: false, reason: 'other', error: err.message }),
-        );
+        .catch((err: Error) => safeResponse({ success: false, reason: 'other', error: err.message }));
       return true;
     } else if (message.type === 'deleteLiveWorkflow') {
       deleteLiveWorkflow(message.uid as string)
@@ -1258,9 +1260,7 @@ export function handleGeneralMessage(
     } else if (message.type === 'updateLiveVariable') {
       const req = message as {
         uid: string;
-        updates: Partial<
-          Omit<import('@openheaders/core/types').V5.LiveVariable, 'uid' | 'path' | 'schemaVersion'>
-        >;
+        updates: Partial<Omit<import('@openheaders/core/types').V5.LiveVariable, 'uid' | 'path' | 'schemaVersion'>>;
       };
       updateLiveVariable(req.uid, req.updates)
         .then((result) => {
@@ -1272,9 +1272,7 @@ export function handleGeneralMessage(
             safeResponse({ success: false, reason: 'other', error: result.message });
           }
         })
-        .catch((err: Error) =>
-          safeResponse({ success: false, reason: 'other', error: err.message }),
-        );
+        .catch((err: Error) => safeResponse({ success: false, reason: 'other', error: err.message }));
       return true;
     } else if (message.type === 'deleteLiveVariable') {
       deleteLiveVariable(message.uid as string)
@@ -1296,9 +1294,7 @@ export function handleGeneralMessage(
             safeResponse({ success: false, reason: 'other', error: result.message });
           }
         })
-        .catch((err: Error) =>
-          safeResponse({ success: false, reason: 'other', error: err.message }),
-        );
+        .catch((err: Error) => safeResponse({ success: false, reason: 'other', error: err.message }));
       return true;
     } else if (message.type === 'getLiveCacheForWorkflow') {
       listLiveCacheForWorkflow(message.workflowUid as string)

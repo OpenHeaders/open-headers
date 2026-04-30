@@ -3,7 +3,13 @@
  * arguments. Mirrors `pause-markers/envelope.ts`.
  */
 
-import { type MutationBatch, type MutationBody, type MutationEnvelope, newBatchId, newMutationId } from '../../envelope';
+import {
+  type MutationBatch,
+  type MutationBody,
+  type MutationEnvelope,
+  newBatchId,
+  newMutationId,
+} from '../../envelope';
 import type { MutatorContext } from '../types';
 
 /** Files mutator catalog version — bump on any wire-incompatible change (§13.4). */

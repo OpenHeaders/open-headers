@@ -15,22 +15,15 @@
  * place.
  */
 
-import { type FileRefSlot } from '@openheaders/core/sync';
-import {
-  createFilesSyncMirror,
-  getActiveFilesSyncMirror,
-  type FilesSyncMirror,
-} from '@/context/files-sync-mirror';
+import type { FileRefSlot } from '@openheaders/core/sync';
+import { createFilesSyncMirror, type FilesSyncMirror, getActiveFilesSyncMirror } from '@/context/files-sync-mirror';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
   resolveRendererContext,
   type SyncSimpleResult,
 } from '@/shared/sync/apply-payload';
-import {
-  buildAddFileRefBatch,
-  buildRemoveFileRefBatch,
-} from '@/shared/sync/files-mutations';
+import { buildAddFileRefBatch, buildRemoveFileRefBatch } from '@/shared/sync/files-mutations';
 
 // Re-exported so tests can construct a mirror without going through the singleton.
 export { createFilesSyncMirror } from '@/context/files-sync-mirror';
@@ -45,10 +38,7 @@ export interface ApplyFileAddInput {
   ref: FileRefSlot;
 }
 
-export async function applyFileAdd(
-  input: ApplyFileAddInput,
-  opts: FilesWriteOptions,
-): Promise<FilesResult> {
+export async function applyFileAdd(input: ApplyFileAddInput, opts: FilesWriteOptions): Promise<FilesResult> {
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildAddFileRefBatch(input, ctx));
 }
@@ -57,10 +47,7 @@ export interface ApplyFileRemoveInput {
   fileId: string;
 }
 
-export async function applyFileRemove(
-  input: ApplyFileRemoveInput,
-  opts: FilesWriteOptions,
-): Promise<FilesResult> {
+export async function applyFileRemove(input: ApplyFileRemoveInput, opts: FilesWriteOptions): Promise<FilesResult> {
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRemoveFileRefBatch(input, ctx));
 }

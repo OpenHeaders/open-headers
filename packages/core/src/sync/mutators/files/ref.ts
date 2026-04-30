@@ -1,13 +1,17 @@
 /**
  * FileRef intent factories.
  *
- * Two primitives keyed by `fileId`:
+ * Three primitives keyed by `fileId`:
  *   - `addFileRef(ref)` — addToSet on the singleton's `refs` path.
  *     Concurrent same-fileId adds converge under per-(setPath, itemId)
  *     LWW; the highest-HLC payload wins. In practice each upload mints
  *     a fresh fileId (see `@openheaders/core/files.newFileId`), so
- *     contention is bounded to the rare metadata-rewrite case (filename
- *     rename — not surfaced today).
+ *     contention is bounded to the metadata-rewrite case below.
+ *   - `renameFileRef(ref)` — same wire shape as `addFileRef`; named
+ *     factory for awareness/UI clarity (per Rule's `toggleEnabled`
+ *     vs generic `setField` precedent). Caller passes the full rewritten
+ *     `FileRefSlot` (fileId stays, filename/mimeType change); per-(setPath,
+ *     itemId) LWW guarantees the latest-HLC payload wins.
  *   - `removeFileRef(fileId)` — removeFromSet tombstone. The catalog
  *     drops the entry; the platform `BlobStore` deletion is the
  *     write-site's responsibility (catalog never owns bytes).
@@ -40,6 +44,12 @@ export function addFileRef(ctx: MutatorContext, args: AddFileRefArgs): MutatorIn
     ]),
     sideEffects: [],
   };
+}
+
+export type RenameFileRefArgs = AddFileRefArgs;
+
+export function renameFileRef(ctx: MutatorContext, args: RenameFileRefArgs): MutatorIntent {
+  return addFileRef(ctx, args);
 }
 
 export interface RemoveFileRefArgs {

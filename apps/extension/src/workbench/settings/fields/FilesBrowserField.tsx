@@ -2,22 +2,26 @@
  * FilesBrowserField — Phase 12.4b inline file browser.
  *
  * Lists every blob in the active workspace with filename / size /
- * mime / short hash + per-row download and delete buttons. Uses the
- * shared `useFiles` hook so inserts / deletes from any surface
- * (Upload File action, multipart editor's inline Upload button,
- * sibling tabs) show up live without reload.
+ * mime / short hash + per-row download, rename, and delete actions.
+ * Uses the shared `useFiles` hook so inserts / deletes / renames from
+ * any surface (Upload File action, multipart editor's inline Upload
+ * button, sibling tabs) show up live without reload.
  *
  * Downloads fetch bytes through the `getFile` bridge RPC (base64
  * transport → Blob reconstruction in the hook). Deletes route through
- * the SW `deleteFile` RPC so the lock discipline is honoured.
+ * the SW `deleteFile` RPC so the lock discipline is honoured. Rename
+ * is an inline editable cell that fires `useFiles.renameFile`, which
+ * routes through the SW `renameFile` RPC — durable BlobStore update
+ * first, catalog mutation through the oracle second (mirrors the
+ * put / delete two-step pattern).
  */
 
 import { DeleteOutlined, DownloadOutlined, FileOutlined } from '@ant-design/icons';
 import { useFiles } from '@hooks/useFiles';
-import { Button, Empty, Popconfirm, Space, Table, Tooltip, Typography, theme } from 'antd';
+import { App, Button, Empty, Popconfirm, Space, Table, Tooltip, Typography, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { SettingDef } from '../types';
 import FieldRow from './FieldRow';
 
@@ -38,7 +42,23 @@ interface Row {
 
 const FilesBrowserField: React.FC<FilesBrowserFieldProps> = ({ def }) => {
   const { token } = theme.useToken();
-  const { files, isReady, deleteFile, readFile } = useFiles();
+  const { files, isReady, deleteFile, renameFile, readFile } = useFiles();
+  const { message } = App.useApp();
+
+  const handleRename = useCallback(
+    async (fileId: string, current: string, next: string) => {
+      const trimmed = next.trim();
+      if (!trimmed || trimmed === current) return;
+      const result = await renameFile(fileId, trimmed);
+      if (result.ok) return;
+      if (result.reason === 'not-found') {
+        message.error('File no longer exists in this workspace');
+        return;
+      }
+      message.error(`Could not rename file${result.message ? `: ${result.message}` : ''}`);
+    },
+    [renameFile, message],
+  );
 
   const rows = useMemo<Row[]>(
     () =>
@@ -69,9 +89,20 @@ const FilesBrowserField: React.FC<FilesBrowserFieldProps> = ({ def }) => {
       title: 'Filename',
       dataIndex: 'filename',
       key: 'filename',
-      render: (name: string) => (
-        <span>
-          <FileOutlined /> <code style={{ fontSize: 12 }}>{name}</code>
+      render: (name: string, row: Row) => (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+          <FileOutlined />
+          <Text
+            editable={{
+              tooltip: 'Rename file',
+              onChange: (next) => void handleRename(row.fileId, name, next),
+              autoSize: { minRows: 1, maxRows: 1 },
+              triggerType: ['icon', 'text'],
+            }}
+            style={{ fontFamily: "'SF Mono', 'Fira Code', monospace", fontSize: 12, margin: 0 }}
+          >
+            {name}
+          </Text>
         </span>
       ),
     },

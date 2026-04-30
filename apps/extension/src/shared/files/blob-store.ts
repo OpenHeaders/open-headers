@@ -280,6 +280,51 @@ export async function deleteBlob(workspaceId: string, fileId: string): Promise<b
 }
 
 /**
+ * Rewrite the filename / mimeType for an existing blob in place.
+ * Returns the updated `FileRef` shell, or `null` if no such entry
+ * exists. Bytes + hash are untouched — content identity is preserved
+ * across rename. Caller is expected to hold the files-singleton lock so
+ * a concurrent rename and put/delete on the same fileId can't tear
+ * (matches the discipline put / delete already follow).
+ */
+export async function renameBlob(
+  workspaceId: string,
+  fileId: string,
+  next: { filename: string; mimeType?: string },
+): Promise<FileRef | null> {
+  const db = await openDb();
+  const id = compositeKey(workspaceId, fileId);
+  return new Promise<FileRef | null>((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    const get = store.get(id);
+    get.onsuccess = () => {
+      const existing = get.result as StoredBlob | undefined;
+      if (!existing) {
+        tx.oncomplete = () => resolve(null);
+        return;
+      }
+      const merged: StoredBlob = {
+        ...existing,
+        filename: next.filename,
+        mimeType: next.mimeType ?? existing.mimeType,
+      };
+      store.put(merged);
+      tx.oncomplete = () =>
+        resolve({
+          fileId: merged.fileId,
+          hash: merged.hash,
+          filename: merged.filename,
+          mimeType: merged.mimeType,
+          size: merged.size,
+        });
+    };
+    get.onerror = () => reject(get.error);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/**
  * Drop every blob owned by the given workspace. Used when a workspace
  * is deleted so the per-workspace-data-keys discipline stays honest
  * (see the orchestrator's `perWorkspaceDataKeys` list — this is the

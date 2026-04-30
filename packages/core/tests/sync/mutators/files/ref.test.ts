@@ -8,6 +8,7 @@ import {
   type FileRefSlot,
   type MutatorContext,
   removeFileRef,
+  renameFileRef,
 } from '../../../../src/sync';
 
 const ctx = (overrides: Partial<MutatorContext> = {}): MutatorContext => ({
@@ -66,6 +67,25 @@ describe('removeFileRef', () => {
       id: FILES_ID,
       path: FILES_REFS_PATH,
       itemId: 'file:gone',
+    });
+    expect(intent.sideEffects).toEqual([]);
+  });
+});
+
+describe('renameFileRef', () => {
+  it('emits one addToSet keyed by fileId carrying the rewritten slot', () => {
+    const renamed = slot({ filename: 'invoice-renamed.pdf' });
+    const intent = renameFileRef(ctx(), { ref: renamed });
+    expect(intent.batch.mutations).toHaveLength(1);
+    const env = intent.batch.mutations[0];
+    expect(env.mutatorVersion).toBe(FILES_MUTATOR_VERSION);
+    expect(env.body).toMatchObject({
+      kind: 'addToSet',
+      type: FILES_ENTITY_TYPE,
+      id: FILES_ID,
+      path: FILES_REFS_PATH,
+      itemId: 'file:abc',
+      item: renamed,
     });
     expect(intent.sideEffects).toEqual([]);
   });

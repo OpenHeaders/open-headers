@@ -47,6 +47,8 @@ export {
   type FileRefSlot,
   removeFileRef,
   type RemoveFileRefArgs,
+  renameFileRef,
+  type RenameFileRefArgs,
 } from './files';
 export {
   createFolder,

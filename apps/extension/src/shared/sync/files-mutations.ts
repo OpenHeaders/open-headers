@@ -13,6 +13,7 @@ import {
   type MutatorContext,
   type MutatorIntent,
   removeFileRef,
+  renameFileRef,
 } from '@openheaders/core/sync';
 
 export type FilesMutationPayload = MutatorIntent;
@@ -21,20 +22,22 @@ export interface AddFileRefInput {
   ref: FileRefSlot;
 }
 
-export function buildAddFileRefBatch(
-  input: AddFileRefInput,
-  ctx: MutatorContext,
-): FilesMutationPayload {
+export function buildAddFileRefBatch(input: AddFileRefInput, ctx: MutatorContext): FilesMutationPayload {
   return addFileRef(ctx, input);
+}
+
+export interface RenameFileRefInput {
+  ref: FileRefSlot;
+}
+
+export function buildRenameFileRefBatch(input: RenameFileRefInput, ctx: MutatorContext): FilesMutationPayload {
+  return renameFileRef(ctx, input);
 }
 
 export interface RemoveFileRefInput {
   fileId: string;
 }
 
-export function buildRemoveFileRefBatch(
-  input: RemoveFileRefInput,
-  ctx: MutatorContext,
-): FilesMutationPayload {
+export function buildRemoveFileRefBatch(input: RemoveFileRefInput, ctx: MutatorContext): FilesMutationPayload {
   return removeFileRef(ctx, input);
 }

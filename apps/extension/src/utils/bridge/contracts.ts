@@ -936,6 +936,19 @@ export interface BridgeRpcContract {
     req: { fileId: string };
     res: { success: boolean; removed: boolean; error?: string };
   };
+  /**
+   * Rename a file's metadata in place. Two-step write at the SW:
+   * `BlobStore.renameBlob` updates the durable byte record, then a
+   * `renameFileRef` envelope flows through the oracle so other surfaces
+   * converge under per-(setPath, itemId) LWW. Bytes + hash are
+   * preserved — only the `filename` (and optional `mimeType`) change.
+   * Returns the updated `FileRef` shell on success, or `found: false`
+   * when the fileId isn't present in this workspace.
+   */
+  renameFile: {
+    req: { fileId: string; filename: string; mimeType?: string };
+    res: { success: boolean; found: boolean; fileRef?: FileRef; error?: string };
+  };
 
   // ── OAuth 2.0 / OIDC (Phase 13 — ARCHITECTURE §18) ───────────────
   /**

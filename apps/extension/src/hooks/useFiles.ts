@@ -18,6 +18,11 @@ import type { FileRef } from '@openheaders/core/files';
 import { call, subscribe } from '@utils/bridge';
 import { useCallback, useEffect, useState } from 'react';
 
+export type RenameFileOutcome =
+  | { ok: true; fileRef: FileRef }
+  | { ok: false; reason: 'not-found' }
+  | { ok: false; reason: 'other'; message?: string };
+
 export interface UseFilesApi {
   files: FileRef[];
   isReady: boolean;
@@ -27,6 +32,13 @@ export interface UseFilesApi {
   uploadFile: (file: File | Blob, filename: string, mimeType?: string) => Promise<FileRef | null>;
   /** Delete a file by `fileId`. Returns `true` when an entry was removed. */
   deleteFile: (fileId: string) => Promise<boolean>;
+  /**
+   * Rename a file's metadata in place. Bytes + hash are unchanged.
+   * Returns `not-found` when the fileId isn't present in the active
+   * workspace (deleted between gesture and apply); `other` carries any
+   * transport-layer error message.
+   */
+  renameFile: (fileId: string, filename: string, mimeType?: string) => Promise<RenameFileOutcome>;
   /**
    * Pull the raw bytes for a file by `fileId`. Returns `null` when the
    * fileId isn't stored in the active workspace. Callers typically use
@@ -79,6 +91,18 @@ export function useFiles(): UseFilesApi {
     return Boolean(resp?.removed);
   }, []);
 
+  const renameFile = useCallback<UseFilesApi['renameFile']>(async (fileId, filename, mimeType) => {
+    try {
+      const resp = await call('renameFile', { fileId, filename, mimeType });
+      if (!resp.success) return { ok: false, reason: 'other', message: resp.error };
+      if (!resp.found) return { ok: false, reason: 'not-found' };
+      return { ok: true, fileRef: resp.fileRef as FileRef };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'unknown error';
+      return { ok: false, reason: 'other', message };
+    }
+  }, []);
+
   const readFile = useCallback<UseFilesApi['readFile']>(async (fileId) => {
     const resp = await call('getFile', { fileId }).catch(() => null);
     if (!resp?.found || typeof resp.bytesBase64 !== 'string') return null;
@@ -87,7 +111,7 @@ export function useFiles(): UseFilesApi {
     return { blob: new Blob([buf], { type: mimeType }), mimeType };
   }, []);
 
-  return { files, isReady, uploadFile, deleteFile, readFile };
+  return { files, isReady, uploadFile, deleteFile, renameFile, readFile };
 }
 
 // ── Base64 helpers — chunked to avoid stack overflow on large files ─
