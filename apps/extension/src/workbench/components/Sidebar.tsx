@@ -29,13 +29,24 @@ import {
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import { useEnvironments } from '@hooks/useEnvironments';
+import { useFolderMutator } from '@hooks/useFolderMutator';
 import { useAllLiveCaches } from '@hooks/useLiveCache';
 import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
+import { useRequestFolderMutator } from '@hooks/useRequestFolderMutator';
 import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
 import { useRuleMutator } from '@hooks/useRuleMutator';
+import { useTemplateFolderMutator } from '@hooks/useTemplateFolderMutator';
 import { useVariableResolver } from '@hooks/useVariableResolver';
+import {
+  COLLECTION_ENTITY_TYPE,
+  FOLDER_ENTITY_TYPE,
+  REQUEST_COLLECTION_ENTITY_TYPE,
+  REQUEST_FOLDER_ENTITY_TYPE,
+  TEMPLATE_COLLECTION_ENTITY_TYPE,
+  TEMPLATE_FOLDER_ENTITY_TYPE,
+} from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { isRuleResolvable } from '@openheaders/core/utils';
 import type { InputRef } from 'antd';
@@ -46,7 +57,13 @@ import { buildRuleTypeMenuItems } from '../rule-type-menu';
 import { useEnvSwitcher } from '../services/env-switcher';
 import { useSettingValue } from '../settings/hooks';
 import type { WorkbenchTab } from '../types';
-import { FolderDndTree } from './sidebar/FolderDndTree';
+import { getActiveCollectionSyncMirror } from '@/context/collection-sync-mirror';
+import { getActiveFolderSyncMirror } from '@/context/folder-sync-mirror';
+import { getActiveRequestCollectionSyncMirror } from '@/context/request-collection-sync-mirror';
+import { getActiveRequestFolderSyncMirror } from '@/context/request-folder-sync-mirror';
+import { getActiveTemplateCollectionSyncMirror } from '@/context/template-collection-sync-mirror';
+import { getActiveTemplateFolderSyncMirror } from '@/context/template-folder-sync-mirror';
+import { FolderDndTree, type FolderDndConfig } from './sidebar/FolderDndTree';
 import { SectionHeader } from './sidebar/SectionHeader';
 import { TreeNodeRow } from './sidebar/TreeNodeRow';
 import type { SidebarView, TreeNode } from './sidebar/types';
@@ -368,6 +385,92 @@ const Sidebar: React.FC<SidebarProps> = ({
       });
     },
     [message, ruleMutator],
+  );
+
+  // ── Folder reorder dnd configs (one per tree) ─────────────────────
+  const { moveFolder: moveRulesFolder } = useFolderMutator({
+    workspaceId: activeWorkspaceId,
+    surfaceId: 'workbench',
+  });
+  const { moveRequestFolder } = useRequestFolderMutator({
+    workspaceId: activeWorkspaceId,
+    surfaceId: 'workbench',
+  });
+  const { moveTemplateFolder } = useTemplateFolderMutator({
+    workspaceId: activeWorkspaceId,
+    surfaceId: 'workbench',
+  });
+
+  const rulesFolderDndConfig = useMemo<FolderDndConfig>(
+    () => ({
+      collectionIdPrefix: 'col-',
+      folderIdPrefix: 'folder-',
+      lookupSiblings: (parent) =>
+        parent.kind === 'collection'
+          ? getActiveCollectionSyncMirror().liveOrderedSetItems(parent.uid, 'folders')
+          : getActiveFolderSyncMirror().liveOrderedSetItems(parent.uid, 'folders'),
+      moveFolder: ({ folderUid, parent, orderKey }) => {
+        void moveRulesFolder({
+          folderUid,
+          newParent: {
+            type: parent.kind === 'collection' ? COLLECTION_ENTITY_TYPE : FOLDER_ENTITY_TYPE,
+            uid: parent.uid,
+          },
+          orderKey,
+        });
+      },
+    }),
+    [moveRulesFolder],
+  );
+
+  const requestFolderDndConfig = useMemo<FolderDndConfig>(
+    () => ({
+      collectionIdPrefix: 'req-col-',
+      folderIdPrefix: 'req-folder-',
+      lookupSiblings: (parent) =>
+        parent.kind === 'collection'
+          ? getActiveRequestCollectionSyncMirror().liveOrderedSetItems(parent.uid, 'folders')
+          : getActiveRequestFolderSyncMirror().liveOrderedSetItems(parent.uid, 'folders'),
+      moveFolder: ({ folderUid, parent, orderKey }) => {
+        void moveRequestFolder({
+          folderUid,
+          newParent: {
+            type:
+              parent.kind === 'collection'
+                ? REQUEST_COLLECTION_ENTITY_TYPE
+                : REQUEST_FOLDER_ENTITY_TYPE,
+            uid: parent.uid,
+          },
+          orderKey,
+        });
+      },
+    }),
+    [moveRequestFolder],
+  );
+
+  const templateFolderDndConfig = useMemo<FolderDndConfig>(
+    () => ({
+      collectionIdPrefix: 'tpl-col-',
+      folderIdPrefix: 'tpl-folder-',
+      lookupSiblings: (parent) =>
+        parent.kind === 'collection'
+          ? getActiveTemplateCollectionSyncMirror().liveOrderedSetItems(parent.uid, 'folders')
+          : getActiveTemplateFolderSyncMirror().liveOrderedSetItems(parent.uid, 'folders'),
+      moveFolder: ({ folderUid, parent, orderKey }) => {
+        void moveTemplateFolder({
+          folderUid,
+          newParent: {
+            type:
+              parent.kind === 'collection'
+                ? TEMPLATE_COLLECTION_ENTITY_TYPE
+                : TEMPLATE_FOLDER_ENTITY_TYPE,
+            uid: parent.uid,
+          },
+          orderKey,
+        });
+      },
+    }),
+    [moveTemplateFolder],
   );
 
   // ── Section nodes via hooks ────────────────────────────────────
@@ -881,12 +984,15 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   /** Variant of `renderNodes` that wraps folder rows in dnd-kit so
-   *  same-parent reorder gestures emit `moveFolder` mutations. Used
-   *  for the rules tree today; request + template trees pick this up
-   *  in a follow-up slice. */
-  const renderRulesNodes = (nodes: TreeNode[], emptyCreate?: () => void) => {
+   *  same-parent reorder gestures emit `moveFolder` mutations. The
+   *  per-tree config supplies the id prefixes + mutator binding. */
+  const renderFolderDndNodes = (
+    nodes: TreeNode[],
+    config: FolderDndConfig,
+    emptyCreate?: () => void,
+  ) => {
     if (nodes.length === 0) return renderEmptyState(emptyCreate);
-    return <FolderDndTree workspaceId={activeWorkspaceId} nodes={nodes} renderNode={renderTreeNodeRow} />;
+    return <FolderDndTree nodes={nodes} renderNode={renderTreeNodeRow} config={config} />;
   };
 
   return (
@@ -1113,7 +1219,11 @@ const Sidebar: React.FC<SidebarProps> = ({
             />
             {sectionsExpanded['api-requests'] && (
               <div style={{ flex: 1, overflowY: 'auto' }}>
-                {renderNodes(requestNodes, () => void createNewRequestCollection())}
+                {renderFolderDndNodes(
+                  requestNodes,
+                  requestFolderDndConfig,
+                  () => void createNewRequestCollection(),
+                )}
               </div>
             )}
           </>
@@ -1136,7 +1246,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             />
             {sectionsExpanded.rules && (
               <div style={{ flex: 1, overflowY: 'auto' }}>
-                {renderRulesNodes(rulesNodes, () => void createNewCollection())}
+                {renderFolderDndNodes(rulesNodes, rulesFolderDndConfig, () => void createNewCollection())}
               </div>
             )}
 
@@ -1164,7 +1274,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             {sectionsExpanded.templates && (
               <div style={{ flex: 1, overflowY: 'auto' }}>
                 {renderNodes(systemTemplateNodes)}
-                {renderNodes(templateNodes, () => {
+                {renderFolderDndNodes(templateNodes, templateFolderDndConfig, () => {
                   void createTemplateCollection('My Templates').then((col) => {
                     if (col) {
                       setSectionsExpanded((prev) => ({ ...prev, templates: true }));

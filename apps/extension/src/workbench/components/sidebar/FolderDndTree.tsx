@@ -1,7 +1,9 @@
 /**
  * FolderDndTree — wraps a flat sidebar `TreeNode[]` with dnd-kit so
- * folder rows in the rules tree can be dragged to reorder their
- * siblings under the same parent.
+ * folder rows can be dragged to reorder their siblings under the same
+ * parent. Tree-agnostic: the per-tree caller supplies the id prefixes,
+ * a sibling-lookup callback against the appropriate parent mirror, and
+ * a move callback that fires the entity-specific mutator.
  *
  * Slice 1 (same-parent only): cross-parent drops are rejected at
  * drop-time. The mutator catalog supports cross-parent moves; the
@@ -9,8 +11,7 @@
  *
  * Sibling order is parent-owned (§23.5). On drop, the new orderKey
  * is minted via `keyBetween(prev, next)` from the parent's live
- * `folders` ordered set on either the collection-sync-mirror or the
- * folder-sync-mirror, depending on parent kind.
+ * `folders` ordered set on the supplied mirror.
  */
 
 import type { DragEndEvent } from '@dnd-kit/core';
@@ -32,27 +33,40 @@ import { CSS } from '@dnd-kit/utilities';
 import { keyBetween, seedKey } from '@openheaders/core/sync';
 import type React from 'react';
 import { useCallback } from 'react';
-import { useFolderMutator } from '@/hooks/useFolderMutator';
-import { getActiveCollectionSyncMirror } from '@/context/collection-sync-mirror';
-import { getActiveFolderSyncMirror } from '@/context/folder-sync-mirror';
 import type { TreeNode } from './types';
 
-const FOLDERS_PATH = 'folders';
-const SURFACE_ID = 'workbench';
-
-interface FolderDndTreeProps {
-  workspaceId: string | null;
-  nodes: readonly TreeNode[];
-  renderNode: (node: TreeNode) => React.ReactNode;
+export interface FolderDndParent {
+  kind: 'collection' | 'folder';
+  uid: string;
 }
 
-/** Strip the conventional `folder-` / `col-` prefix from a tree-node id. */
+export interface FolderDndConfig {
+  /** Prefix for collection-row tree-node ids (e.g. `col-`, `req-col-`,
+   *  `tpl-col-`). When stripped, leaves the bare collection uid. */
+  collectionIdPrefix: string;
+  /** Prefix for folder-row tree-node ids (e.g. `folder-`, `req-folder-`,
+   *  `tpl-folder-`). When stripped, leaves the bare folder uid. */
+  folderIdPrefix: string;
+  /** Read the parent's live ordered child-folder slots. The dnd surface
+   *  consults this on drop to compute the new fractional orderKey. */
+  lookupSiblings(parent: FolderDndParent): Array<{ itemId: string; orderKey: string }>;
+  /** Fire the entity-specific move mutator. The caller-side hook owns
+   *  the parent-ref shape (`FolderParentRef` / `RequestFolderParentRef` /
+   *  `TemplateFolderParentRef`) and the mutator binding. */
+  moveFolder(input: { folderUid: string; parent: FolderDndParent; orderKey: string }): void;
+}
+
+interface FolderDndTreeProps {
+  nodes: readonly TreeNode[];
+  renderNode: (node: TreeNode) => React.ReactNode;
+  config: FolderDndConfig;
+}
+
 function stripPrefix(id: string, prefix: string): string | null {
   return id.startsWith(prefix) ? id.slice(prefix.length) : null;
 }
 
-export function FolderDndTree({ workspaceId, nodes, renderNode }: FolderDndTreeProps): React.ReactElement {
-  const { moveFolder } = useFolderMutator({ workspaceId, surfaceId: SURFACE_ID });
+export function FolderDndTree({ nodes, renderNode, config }: FolderDndTreeProps): React.ReactElement {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -61,10 +75,13 @@ export function FolderDndTree({ workspaceId, nodes, renderNode }: FolderDndTreeP
   // Map id → node for fast lookups in onDragEnd.
   const byId = new Map<string, TreeNode>(nodes.map((n) => [n.id, n]));
 
-  // Sortable participants: the folder rows. Non-folder rows pass through
-  // the renderer unchanged (group / placeholder / leaf — none of them
-  // participate in this gesture).
-  const sortableIds = nodes.filter((n) => n.kind === 'folder').map((n) => n.id);
+  // Sortable participants: folder rows whose id matches our prefix.
+  // Other folders that may appear in the same tree (e.g. system-template
+  // rows that share the kind: 'folder' tag but not the prefix) stay
+  // out of the sortable set, so they're never drop targets.
+  const sortableIds = nodes
+    .filter((n) => n.kind === 'folder' && n.id.startsWith(config.folderIdPrefix))
+    .map((n) => n.id);
 
   const handleDragEnd = useCallback(
     (e: DragEndEvent) => {
@@ -79,38 +96,33 @@ export function FolderDndTree({ workspaceId, nodes, renderNode }: FolderDndTreeP
       const parentId = activeNode.parentId;
       if (!parentId) return;
 
-      const folderUid = stripPrefix(activeNode.id, 'folder-');
-      const overFolderUid = stripPrefix(overNode.id, 'folder-');
+      const folderUid = stripPrefix(activeNode.id, config.folderIdPrefix);
+      const overFolderUid = stripPrefix(overNode.id, config.folderIdPrefix);
       if (!folderUid || !overFolderUid) return;
 
-      // Resolve parent kind + uid from the parent id prefix.
-      const collectionUid = stripPrefix(parentId, 'col-');
-      const parentFolderUid = stripPrefix(parentId, 'folder-');
-      let siblings: Array<{ itemId: string; orderKey: string }>;
-      let parent: { type: 'collection' | 'folder'; uid: string };
-      if (collectionUid) {
-        siblings = getActiveCollectionSyncMirror().liveOrderedSetItems(collectionUid, FOLDERS_PATH);
-        parent = { type: 'collection', uid: collectionUid };
-      } else if (parentFolderUid) {
-        siblings = getActiveFolderSyncMirror().liveOrderedSetItems(parentFolderUid, FOLDERS_PATH);
-        parent = { type: 'folder', uid: parentFolderUid };
-      } else {
-        return;
-      }
+      const collectionUid = stripPrefix(parentId, config.collectionIdPrefix);
+      const parentFolderUid = stripPrefix(parentId, config.folderIdPrefix);
+      const parent: FolderDndParent | null = collectionUid
+        ? { kind: 'collection', uid: collectionUid }
+        : parentFolderUid
+          ? { kind: 'folder', uid: parentFolderUid }
+          : null;
+      if (!parent) return;
 
+      const siblings = config.lookupSiblings(parent);
       const orderKey = computeMoveOrderKey(siblings, folderUid, overFolderUid);
       if (orderKey === null) return;
 
-      void moveFolder({ folderUid, newParent: parent, orderKey });
+      config.moveFolder({ folderUid, parent, orderKey });
     },
-    [byId, moveFolder],
+    [byId, config],
   );
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
         {nodes.map((node) =>
-          node.kind === 'folder' ? (
+          node.kind === 'folder' && node.id.startsWith(config.folderIdPrefix) ? (
             <SortableFolderRow key={node.id} id={node.id}>
               {renderNode(node)}
             </SortableFolderRow>
@@ -125,8 +137,8 @@ export function FolderDndTree({ workspaceId, nodes, renderNode }: FolderDndTreeP
 
 /**
  * Compute the orderKey for a same-parent move. Returns `null` when the
- * move is a no-op (active and over already adjacent in the target
- * direction — happens at drag-start jitter).
+ * move is a no-op (active and over are already in the same slot —
+ * happens at drag-start jitter).
  */
 function computeMoveOrderKey(
   siblings: ReadonlyArray<{ itemId: string; orderKey: string }>,
