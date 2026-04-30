@@ -201,8 +201,8 @@ export function FolderDndTree({ nodes, renderNode, config }: FolderDndTreeProps)
 /** Walk `over`'s parentId chain; return true if `activeId` appears.
  *  `activeId` IS a descendant of itself for the purpose of this guard
  *  (we never reparent a folder onto itself; the same-id check earlier
- *  already covers that). */
-function isDescendantOf(
+ *  already covers that). Exported for unit testing. */
+export function isDescendantOf(
   activeId: string,
   overNode: TreeNode,
   byId: Map<string, TreeNode>,
@@ -222,9 +222,9 @@ function isDescendantOf(
 /**
  * Compute the orderKey for a same-parent move. Returns `null` when the
  * move is a no-op (active and over are already in the same slot —
- * happens at drag-start jitter).
+ * happens at drag-start jitter). Exported for unit testing.
  */
-function computeMoveOrderKey(
+export function computeMoveOrderKey(
   siblings: ReadonlyArray<{ itemId: string; orderKey: string }>,
   movingUid: string,
   overUid: string,
