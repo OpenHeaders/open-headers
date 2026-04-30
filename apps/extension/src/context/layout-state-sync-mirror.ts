@@ -1,21 +1,18 @@
 /**
- * Renderer-side layout-state sync mirror (Phase B).
+ * Renderer-side layout-state sync mirror.
  *
- * Mirrors `pause-markers-sync-mirror.ts` for the singleton layout-state
- * entity. Subscribes once to the SW's `syncBroadcast` channel and folds
- * every `layoutStatePostState` payload into a single mutable blob.
- * Renderer write helpers don't actually need a snapshot for diffing
- * (layout is whole-blob LWW, not diffed against existing entries) but
- * the mirror gives the renderer a synchronous read path consistent with
- * every other entity. On construction the mirror fires
- * `oh.sync.snapshotLayoutState` so it has a starting view before any
- * broadcast arrives. The subscription is registered first so any
- * concurrent broadcast that lands mid-flight wins.
+ * Thin adapter over {@link createSingletonEntityMirror}. Layout is
+ * whole-blob LWW, not diffed against existing entries — the mirror
+ * exists so the renderer has a synchronous read path consistent with
+ * every other entity.
  */
 
 import { LAYOUT_STATE_ENTITY_TYPE } from '@openheaders/core/sync';
-import { call, subscribe } from '@utils/bridge';
-import { logger } from '@utils/logger';
+import { call } from '@utils/bridge';
+import {
+  createSingletonEntityMirror,
+  type CreateSingletonMirrorOptions,
+} from './singleton-entity-mirror';
 
 export interface LayoutStateMirrorEntry {
   layout: unknown;
@@ -25,83 +22,38 @@ export type LayoutStateMirrorListener = () => void;
 
 export interface LayoutStateSyncMirror {
   getMirror(): LayoutStateMirrorEntry | null;
-  /** Live opaque layout blob — `null` when uninitialized. */
   liveLayout(): unknown;
   subscribeMirror(listener: LayoutStateMirrorListener): () => void;
   dispose(): void;
 }
 
-export interface CreateLayoutStateSyncMirrorOptions {
-  bootstrap?: boolean;
-}
+export type CreateLayoutStateSyncMirrorOptions = CreateSingletonMirrorOptions;
 
 export function createLayoutStateSyncMirror(
   options: CreateLayoutStateSyncMirrorOptions = {},
 ): LayoutStateSyncMirror {
-  const { bootstrap = true } = options;
-  let entry: LayoutStateMirrorEntry | null = null;
-  const listeners = new Set<LayoutStateMirrorListener>();
-  let sawBroadcast = false;
-
-  const notify = (): void => {
-    for (const l of listeners) {
-      try {
-        l();
-      } catch {
-        // Listener errors must not tear down the broadcast pipe.
-      }
-    }
-  };
-
-  const unsubscribe = subscribe('syncBroadcast', (event) => {
-    const { envelope, layoutStatePostState } = event;
-    if (envelope.body.type !== LAYOUT_STATE_ENTITY_TYPE) return;
-    sawBroadcast = true;
-
-    if (!layoutStatePostState) {
-      if (entry !== null) {
-        entry = null;
-        notify();
-      }
-      return;
-    }
-
-    entry = { layout: layoutStatePostState.layout };
-    notify();
-  });
-
-  if (bootstrap) {
-    void call('oh.sync.snapshotLayoutState')
-      .then((resp) => {
-        if (sawBroadcast) return;
+  const core = createSingletonEntityMirror<LayoutStateMirrorEntry>(
+    {
+      loggerTag: 'LayoutStateSyncMirror',
+      extractFromBroadcast: (event) => {
+        const { envelope, layoutStatePostState } = event;
+        if (envelope.body.type !== LAYOUT_STATE_ENTITY_TYPE) return null;
+        if (!layoutStatePostState) return 'tombstone';
+        return { layout: layoutStatePostState.layout };
+      },
+      fetchSnapshot: async () => {
+        const resp = await call('oh.sync.snapshotLayoutState');
         const first = resp.entries[0];
-        if (!first) return;
-        entry = { layout: first.layout };
-        notify();
-      })
-      .catch((err: Error) => {
-        logger.info('LayoutStateSyncMirror', `bootstrap snapshot failed: ${err.message}`);
-      });
-  }
-
+        return first ? { layout: first.layout } : null;
+      },
+    },
+    options,
+  );
   return {
-    getMirror() {
-      return entry;
-    },
-    liveLayout() {
-      return entry?.layout ?? null;
-    },
-    subscribeMirror(listener) {
-      listeners.add(listener);
-      return () => {
-        listeners.delete(listener);
-      };
-    },
-    dispose() {
-      unsubscribe();
-      entry = null;
-      listeners.clear();
-    },
+    getMirror: core.get,
+    liveLayout: () => core.get()?.layout ?? null,
+    subscribeMirror: core.subscribe,
+    dispose: core.dispose,
   };
 }
 
