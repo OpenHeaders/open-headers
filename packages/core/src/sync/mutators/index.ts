@@ -21,6 +21,23 @@ export {
   setPinnedEnvironments,
 } from './collection';
 export {
+  EXTENSION_WORKSPACE_ACTIVE_ID_PATH,
+  EXTENSION_WORKSPACE_ENTITY_TYPE,
+  EXTENSION_WORKSPACE_GLOBAL_SCOPE,
+  EXTENSION_WORKSPACE_ID,
+  EXTENSION_WORKSPACE_MUTATOR_VERSION,
+  EXTENSION_WORKSPACES_SET_PATH,
+  type ExtensionWorkspaceSlot,
+  moveExtensionWorkspaceBefore,
+  type MoveExtensionWorkspaceBeforeArgs,
+  removeExtensionWorkspace,
+  type RemoveExtensionWorkspaceArgs,
+  setActiveExtensionWorkspace,
+  type SetActiveExtensionWorkspaceArgs,
+  setExtensionWorkspace,
+  type SetExtensionWorkspaceArgs,
+} from './extension-workspace';
+export {
   addFileRef,
   type AddFileRefArgs,
   FILES_ENTITY_TYPE,
