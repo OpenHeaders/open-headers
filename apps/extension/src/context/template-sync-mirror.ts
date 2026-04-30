@@ -26,6 +26,8 @@ export interface TemplateMirrorEntry {
   template: V5.Template;
   /** Map keyed by set path (e.g. `conditions`). */
   setItemIds: Record<string, string[]>;
+  /** Per-set ordered `(itemId, orderKey)` pairs for synthesizer-driven writes. */
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
 }
 
 export type TemplateMirrorListener = (uid: string) => void;
@@ -34,6 +36,11 @@ export interface TemplateSyncMirror {
   getTemplateMirror(uid: string): TemplateMirrorEntry | null;
   listTemplates(): V5.Template[];
   liveSetItems(uid: string, setPath: string): string[];
+  /** Live `(itemId, orderKey)` pairs at a set path on the template, in
+   *  canonical sort order. Returns `[]` when unknown. The renderer
+   *  write-client feeds these into `synthesizeSetDiff` so save-time
+   *  gestures emit the minimum envelope set. */
+  liveOrderedSetItems(uid: string, setPath: string): Array<{ itemId: string; orderKey: string }>;
   subscribeTemplateMirror(uid: string, listener: TemplateMirrorListener): () => void;
   subscribeAny(listener: TemplateMirrorListener): () => void;
   dispose(): void;
@@ -65,6 +72,7 @@ export function createTemplateSyncMirror(
     entries.set(uid, {
       template: templatePostState.template,
       setItemIds: templatePostState.setItemIds,
+      setOrderKeys: templatePostState.setOrderKeys,
     });
     notify(perUidListeners, anyListeners, uid);
   });
@@ -75,7 +83,11 @@ export function createTemplateSyncMirror(
         for (const entry of resp.entries) {
           const uid = entry.template.uid;
           if (seenSinceMount.has(uid)) continue;
-          entries.set(uid, { template: entry.template, setItemIds: entry.setItemIds });
+          entries.set(uid, {
+            template: entry.template,
+            setItemIds: entry.setItemIds,
+            setOrderKeys: entry.setOrderKeys,
+          });
           notify(perUidListeners, anyListeners, uid);
         }
       })
@@ -97,6 +109,11 @@ export function createTemplateSyncMirror(
       const entry = entries.get(uid);
       if (!entry) return [];
       return entry.setItemIds[setPath] ?? [];
+    },
+    liveOrderedSetItems(uid, setPath) {
+      const entry = entries.get(uid);
+      if (!entry) return [];
+      return entry.setOrderKeys[setPath] ?? [];
     },
     subscribeTemplateMirror(uid, listener) {
       let bucket = perUidListeners.get(uid);

@@ -374,8 +374,13 @@ export async function updateTemplate(
 
   // Stamp updatedAt on every update unless the caller explicitly set it.
   const stamped = updates.updatedAt ? updates : { ...updates, updatedAt: new Date().toISOString() };
+  // SW-side oracle exposes `(itemId, item, key)`; adapt to the
+  // `LiveSetEntries` shape (`orderKey` rename) so the synthesizer can
+  // detect content edits + reorders against fractional keys.
   const payload = buildUpdateBatch(uid, stamped, ctx, (templateUid, setPath) =>
-    oracle.liveSetItems(TEMPLATE_ENTITY_TYPE, templateUid, setPath).map((entry) => entry.itemId),
+    oracle
+      .liveOrderedSetItems(TEMPLATE_ENTITY_TYPE, templateUid, setPath)
+      .map((entry) => ({ itemId: entry.itemId, orderKey: entry.key, item: entry.item })),
   );
   if (payload.batch.mutations.length === 0) {
     return { ok: true, template: existing };

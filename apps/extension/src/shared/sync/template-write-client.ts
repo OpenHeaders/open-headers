@@ -1,11 +1,14 @@
 /**
  * Renderer-side imperative entry point for Template writes.
  *
- * Mirrors {@link request-write-client}: write sites build a
- * `MutationBatch` against the active template mirror and fire
- * `oh.sync.apply` directly — no SW round-trip per write. Set-modeled
- * `conditions` replacement is handled inside `buildUpdateBatch` via the
- * mirror's `liveSetItems`.
+ * Mirrors {@link request-write-client} / {@link rule-write-client}: write
+ * sites build a `MutationBatch` against the active template mirror and
+ * fire `oh.sync.apply` directly — no SW round-trip per write. Set-modeled
+ * `conditions` is routed through the shared {@link synthesizeSetDiff}
+ * inside `buildUpdateBatch`; the adapter below combines the mirror's
+ * `(itemId, orderKey)` pairs with the canonical template snapshot's
+ * row arrays so the synthesizer can distinguish pure-reorder from
+ * content edits.
  */
 
 import type { V5 } from '@openheaders/core/types';
@@ -78,9 +81,20 @@ export async function applyTemplateUpdate(
   const entry = mirror.getTemplateMirror(templateUid);
   if (!entry) return { ok: false, reason: 'not-found' };
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  const payload = buildUpdateBatch(templateUid, updates, ctx, (uid, path) =>
-    mirror.liveSetItems(uid, path),
-  );
+  // Renderer-side adapter: combine the mirror's order keys with the
+  // canonical template snapshot to find each row's content via uid
+  // lookup. The synthesizer needs `(itemId, orderKey, item)` triplets
+  // to distinguish pure-reorder from content edits.
+  const payload = buildUpdateBatch(templateUid, updates, ctx, (uid, path) => {
+    const orderKeys = mirror.liveOrderedSetItems(uid, path);
+    if (orderKeys.length === 0) return [];
+    const template = mirror.getTemplateMirror(uid)?.template;
+    const rows = resolveTemplateRows(template, path);
+    if (!rows) return orderKeys.map((e) => ({ itemId: e.itemId, orderKey: e.orderKey, item: undefined }));
+    const byUid = new Map<string, unknown>();
+    for (const row of rows) byUid.set(row.uid, row);
+    return orderKeys.map((e) => ({ itemId: e.itemId, orderKey: e.orderKey, item: byUid.get(e.itemId) }));
+  });
   const ack = await applyPayload(payload);
   if (ack.ok) {
     return { ok: true, template: { ...entry.template, ...updates } as V5.Template };
@@ -96,6 +110,22 @@ export async function applyTemplateCreate(
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildAddBatch(template, ctx);
   return applyPayload(payload);
+}
+
+/**
+ * Resolve the live row array on a template for a given set path.
+ * Templates carry `conditions: RuleCondition[]` (each row has a
+ * schema-required `uid`); other set paths don't exist on the template
+ * shape today, so the helper returns `null` for everything else and
+ * the synthesizer falls back to its content-unequal branch.
+ */
+function resolveTemplateRows(
+  template: V5.Template | undefined,
+  path: string,
+): ReadonlyArray<{ uid: string }> | null {
+  if (!template) return null;
+  if (path === 'conditions') return template.conditions;
+  return null;
 }
 
 export async function applyTemplateDelete(

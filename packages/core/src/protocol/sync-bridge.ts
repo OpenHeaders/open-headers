@@ -209,6 +209,16 @@ export interface SyncTemplatePostState {
   template: V5.Template;
   /** Map keyed by set path (`conditions`). */
   setItemIds: Record<string, string[]>;
+  /**
+   * Live `(itemId, orderKey)` pairs at each set-modeled path, in
+   * canonical sort order. Renderer write helpers feed these into
+   * `synthesizeSetDiff` so save-time gestures emit the minimum envelope
+   * set — `addToSet` (LWW supersede) for content edits, with no
+   * redundant `removeFromSet` (§7.2). Parallel to
+   * {@link SyncRulePostState.setOrderKeys} /
+   * {@link SyncRequestPostState.setOrderKeys}.
+   */
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
 }
 
 /**

@@ -31,7 +31,7 @@ describe('addHeaderMod', () => {
     const intent = addHeaderMod(ctx(), {
       ruleUid: 'rule-1',
       side: 'request',
-      mod: { operation: 'override', headerName: 'X-Trace', value: 'on' },
+      mod: { uid: 'hmd00001', operation: 'override', headerName: 'X-Trace', value: 'on' },
       itemId: 'item-1',
       orderKey: 'mz',
     });
@@ -52,7 +52,7 @@ describe('addHeaderMod', () => {
     const intent = addHeaderMod(ctx(), {
       ruleUid: 'rule-1',
       side: 'request',
-      mod: { operation: 'override', headerName: 'X-Trace' },
+      mod: { uid: 'hmd00002', operation: 'override', headerName: 'X-Trace' },
       itemId: 'item-1',
     });
     const body = intent.batch.mutations[0].body as { orderKey?: string };
@@ -63,7 +63,7 @@ describe('addHeaderMod', () => {
     const intent = addHeaderMod(ctx(), {
       ruleUid: 'rule-1',
       side: 'response',
-      mod: { operation: 'add', headerName: 'X-Out', value: '1' },
+      mod: { uid: 'hmd00003', operation: 'add', headerName: 'X-Out', value: '1' },
       itemId: 'item-2',
     });
     for (const env of intent.batch.mutations) {
@@ -76,7 +76,7 @@ describe('addHeaderMod', () => {
     const intent = addHeaderMod(ctx(), {
       ruleUid: 'rule-1',
       side: 'request',
-      mod: { operation: 'remove', headerName: 'Cookie' },
+      mod: { uid: 'hmd00004', operation: 'remove', headerName: 'Cookie' },
     });
     expect(intent.sideEffects).toHaveLength(1);
     expect(intent.sideEffects[0]).toMatchObject({ kind: RECOMPILE_DNR, key: 'rule-1' });
