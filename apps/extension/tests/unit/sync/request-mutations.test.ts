@@ -46,9 +46,9 @@ const onlyRemoves = (bodies: ReadonlyArray<MutationBody>) =>
 describe('buildUpdateBatch — request set replacement', () => {
   it('emits moveBefore for a pure reorder (same uids, same content, swapped positions)', () => {
     const live = [
-      { itemId: 'h1', orderKey: 'a', item: header('h1', 'X-A', 'a') },
-      { itemId: 'h2', orderKey: 'b', item: header('h2', 'X-B', 'b') },
-      { itemId: 'h3', orderKey: 'c', item: header('h3', 'X-C', 'c') },
+      { itemId: 'h1', orderKey: 'h', item: header('h1', 'X-A', 'a') },
+      { itemId: 'h2', orderKey: 'm', item: header('h2', 'X-B', 'b') },
+      { itemId: 'h3', orderKey: 't', item: header('h3', 'X-C', 'c') },
     ];
     const updates = {
       headers: [header('h2', 'X-B', 'b'), header('h1', 'X-A', 'a'), header('h3', 'X-C', 'c')],
@@ -64,8 +64,8 @@ describe('buildUpdateBatch — request set replacement', () => {
 
   it('emits zero envelopes when content + order are byte-identical', () => {
     const live = [
-      { itemId: 'h1', orderKey: 'a', item: header('h1', 'X-A', 'a') },
-      { itemId: 'h2', orderKey: 'b', item: header('h2', 'X-B', 'b') },
+      { itemId: 'h1', orderKey: 'h', item: header('h1', 'X-A', 'a') },
+      { itemId: 'h2', orderKey: 'm', item: header('h2', 'X-B', 'b') },
     ];
     const updates = {
       headers: [header('h1', 'X-A', 'a'), header('h2', 'X-B', 'b')],
@@ -76,8 +76,8 @@ describe('buildUpdateBatch — request set replacement', () => {
 
   it('emits exactly addToSet (no removeFromSet) for a content edit on an existing uid', () => {
     const live = [
-      { itemId: 'h1', orderKey: 'a', item: header('h1', 'X-A', 'a') },
-      { itemId: 'h2', orderKey: 'b', item: header('h2', 'X-B', 'b') },
+      { itemId: 'h1', orderKey: 'h', item: header('h1', 'X-A', 'a') },
+      { itemId: 'h2', orderKey: 'm', item: header('h2', 'X-B', 'b') },
     ];
     const updates = {
       headers: [header('h1', 'X-A', 'a'), header('h2', 'X-B', 'EDITED')],
@@ -90,14 +90,14 @@ describe('buildUpdateBatch — request set replacement', () => {
     const adds = onlyAdds(bodies);
     expect(adds).toHaveLength(1);
     expect(adds[0].itemId).toBe('h2');
-    expect(adds[0].orderKey).toBe('b'); // position preserved
+    expect(adds[0].orderKey).toBe('m'); // position preserved
     expect((adds[0].item as { value: string }).value).toBe('EDITED');
   });
 
   it('emits removeFromSet only for vanished uids and addToSet only for new uids', () => {
     const live = [
-      { itemId: 'h1', orderKey: 'a', item: header('h1', 'X-A', 'a') },
-      { itemId: 'h2', orderKey: 'b', item: header('h2', 'X-B', 'b') },
+      { itemId: 'h1', orderKey: 'h', item: header('h1', 'X-A', 'a') },
+      { itemId: 'h2', orderKey: 'm', item: header('h2', 'X-B', 'b') },
     ];
     const updates = {
       // h2 vanishes; h3 is new; h1 stays unchanged.
@@ -116,9 +116,9 @@ describe('buildUpdateBatch — request set replacement', () => {
 
   it('handles mixed gestures (reorder + content edit) without redundant removeFromSet', () => {
     const live = [
-      { itemId: 'h1', orderKey: 'a', item: header('h1', 'X-A', 'a') },
-      { itemId: 'h2', orderKey: 'b', item: header('h2', 'X-B', 'b') },
-      { itemId: 'h3', orderKey: 'c', item: header('h3', 'X-C', 'c') },
+      { itemId: 'h1', orderKey: 'h', item: header('h1', 'X-A', 'a') },
+      { itemId: 'h2', orderKey: 'm', item: header('h2', 'X-B', 'b') },
+      { itemId: 'h3', orderKey: 't', item: header('h3', 'X-C', 'c') },
     ];
     const updates = {
       // h3 moves to front, h2 content edit, h1 unchanged.
@@ -144,7 +144,7 @@ describe('buildUpdateBatch — request set replacement', () => {
   });
 
   it('addToSet always carries an explicit orderKey', () => {
-    const live = [{ itemId: 'h1', orderKey: 'a', item: header('h1', 'X-A', 'a') }];
+    const live = [{ itemId: 'h1', orderKey: 'h', item: header('h1', 'X-A', 'a') }];
     const updates = {
       headers: [header('h1', 'X-A', 'a'), header('h2', 'X-B', 'b')],
     };
@@ -155,21 +155,53 @@ describe('buildUpdateBatch — request set replacement', () => {
     }
   });
 
-  it('emits moveBefore that converges to the requested order (single-row drag-to-front)', () => {
+  it('emits exactly one moveBefore for drag-to-front of a 3-row list (LIS-optimal)', () => {
+    // Live keys h < m < t; new order [h3, h1, h2] preserves the relative
+    // order of h1, h2 (LIS = {h1, h2}). Only h3 needs to move; the
+    // engine should emit exactly 1 moveBefore, not 2.
     const live = [
-      { itemId: 'h1', orderKey: 'a', item: header('h1', 'X-A', 'a') },
+      { itemId: 'h1', orderKey: 'h', item: header('h1', 'X-A', 'a') },
       { itemId: 'h2', orderKey: 'm', item: header('h2', 'X-B', 'b') },
-      { itemId: 'h3', orderKey: 'z', item: header('h3', 'X-C', 'c') },
+      { itemId: 'h3', orderKey: 't', item: header('h3', 'X-C', 'c') },
     ];
     const updates = {
       headers: [header('h3', 'X-C', 'c'), header('h1', 'X-A', 'a'), header('h2', 'X-B', 'b')],
     };
     const { batch } = buildUpdateBatch('rq', updates, ctx, liveOf(live));
     const bodies = batch.mutations.map((m) => m.body);
-    expect(onlyMoves(bodies).length).toBe(bodies.length);
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0].kind).toBe('moveBefore');
+    expect((bodies[0] as MoveBeforeMutation).itemId).toBe('h3');
     expect(onlyRemoves(bodies)).toHaveLength(0);
     expect(onlyAdds(bodies)).toHaveLength(0);
     expectFinalOrderMatches(live, bodies, ['h3', 'h1', 'h2']);
+  });
+
+  it('emits exactly one moveBefore for drag-to-end of a long list (LIS-optimal)', () => {
+    // 5 rows; drag h1 (head) to the tail. LIS = {h2, h3, h4, h5}; only
+    // h1 needs to move.
+    const live = [
+      { itemId: 'h1', orderKey: 'h', item: header('h1', 'X-1', '1') },
+      { itemId: 'h2', orderKey: 'j', item: header('h2', 'X-2', '2') },
+      { itemId: 'h3', orderKey: 'm', item: header('h3', 'X-3', '3') },
+      { itemId: 'h4', orderKey: 'p', item: header('h4', 'X-4', '4') },
+      { itemId: 'h5', orderKey: 't', item: header('h5', 'X-5', '5') },
+    ];
+    const updates = {
+      headers: [
+        header('h2', 'X-2', '2'),
+        header('h3', 'X-3', '3'),
+        header('h4', 'X-4', '4'),
+        header('h5', 'X-5', '5'),
+        header('h1', 'X-1', '1'),
+      ],
+    };
+    const { batch } = buildUpdateBatch('rq', updates, ctx, liveOf(live));
+    const bodies = batch.mutations.map((m) => m.body);
+    expect(bodies).toHaveLength(1);
+    expect(bodies[0].kind).toBe('moveBefore');
+    expect((bodies[0] as MoveBeforeMutation).itemId).toBe('h1');
+    expectFinalOrderMatches(live, bodies, ['h2', 'h3', 'h4', 'h5', 'h1']);
   });
 });
 
