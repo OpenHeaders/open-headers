@@ -1,12 +1,9 @@
 /**
  * Per-envelope files post-state projection (Phase B).
  *
- * Same shape as `pause-markers-post-state.ts` for the singleton files
- * entity. Folds the live set at `refs` into a `FileRef[]` so renderer
- * + executor consumers see post-commit state without iterating arrays.
- *
- * Tombstoned (singleton deletion is a workspace-teardown gesture only)
- * and non-matching envelopes return `null`.
+ * Thin adapter over `flat-entity-post-state.ts` (singleton variant).
+ * Folds the live set at `refs` into a `FileRef[]` so renderer +
+ * executor consumers see post-commit state without iterating arrays.
  *
  * Bytes never appear in this payload — the projection carries only the
  * `(fileId, hash, filename, mimeType, size)` shell. Bytes are read
@@ -21,44 +18,29 @@ import {
   FILES_ID,
   FILES_REFS_PATH,
   type FileRefSlot,
-  type MutationEnvelope,
 } from '@openheaders/core/sync';
+import { makeSingletonEntityProjectors } from './flat-entity-post-state';
 import type { EntityOracle } from './oracle';
 
-/**
- * Build the files post-state for `envelope` using `oracle`. Returns
- * `null` for non-matching envelopes, deletes (entity tombstoned), and
- * any envelope whose materialized record fails to project.
- */
-export function projectFilesPostState(
-  oracle: Pick<EntityOracle, 'materializeOne' | 'liveSetItems'>,
-  envelope: MutationEnvelope,
-): SyncFilesPostState | null {
-  if (envelope.body.type !== FILES_ENTITY_TYPE) return null;
-  return projectFilesSingleton(oracle);
-}
+type Reads = Pick<EntityOracle, 'materializeOne' | 'liveSetItems'>;
 
-/**
- * Build the files post-state for the singleton entity. Used by the
- * snapshot RPC to seed freshly-mounted renderer mirrors before the
- * next live broadcast lands. Returns `null` when the singleton hasn't
- * been materialized yet (cold oracle prior to seed).
- */
-export function projectFilesSingleton(
-  oracle: Pick<EntityOracle, 'materializeOne' | 'liveSetItems'>,
-): SyncFilesPostState | null {
-  const materialized = oracle.materializeOne(FILES_ENTITY_TYPE, FILES_ID);
-  if (!materialized) return null;
+const projectors = makeSingletonEntityProjectors<Reads, SyncFilesPostState>({
+  entityType: FILES_ENTITY_TYPE,
+  entityId: FILES_ID,
+  compose: (_materialized, oracle) => {
+    const refs: FileRef[] = [];
+    for (const entry of oracle.liveSetItems(FILES_ENTITY_TYPE, FILES_ID, FILES_REFS_PATH)) {
+      if (!isFileRefSlot(entry.item)) continue;
+      refs.push(toFileRef(entry.item));
+    }
+    refs.sort((a, b) => (a.fileId < b.fileId ? -1 : a.fileId > b.fileId ? 1 : 0));
+    const fileIds = refs.map((r) => r.fileId);
+    return { refs, fileIds };
+  },
+});
 
-  const refs: FileRef[] = [];
-  for (const entry of oracle.liveSetItems(FILES_ENTITY_TYPE, FILES_ID, FILES_REFS_PATH)) {
-    if (!isFileRefSlot(entry.item)) continue;
-    refs.push(toFileRef(entry.item));
-  }
-  refs.sort((a, b) => (a.fileId < b.fileId ? -1 : a.fileId > b.fileId ? 1 : 0));
-  const fileIds = refs.map((r) => r.fileId);
-  return { refs, fileIds };
-}
+export const projectFilesPostState = projectors.projectPostState;
+export const projectFilesSingleton = projectors.projectSingleton;
 
 const isFileRefSlot = (v: unknown): v is FileRefSlot => {
   if (typeof v !== 'object' || v === null) return false;
