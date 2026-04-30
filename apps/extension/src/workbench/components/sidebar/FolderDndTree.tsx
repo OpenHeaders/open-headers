@@ -36,6 +36,7 @@
  * `folder-dnd-helpers.ts`. Each module is independently testable.
  */
 
+import { HolderOutlined } from '@ant-design/icons';
 import type { ClientRect, DragEndEvent, DragOverEvent } from '@dnd-kit/core';
 import {
   closestCenter,
@@ -258,7 +259,6 @@ function SortableFolderRow({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
 
   const wrapperStyle: React.CSSProperties = {
-    position: 'relative',
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.7 : 1,
@@ -266,11 +266,25 @@ function SortableFolderRow({
       indicator === 'into' && !isDragging ? 'var(--ant-color-primary-bg)' : undefined,
   };
 
+  // `listeners` go on the handle (not the wrapper) so clicks on the
+  // row body don't initiate a drag; `attributes` stay on the wrapper
+  // for ARIA + keyboard-sensor accessibility (the keyboard sensor
+  // pairs with the focused row, not the handle).
   return (
-    <div ref={setNodeRef} style={wrapperStyle} {...attributes} {...listeners}>
+    <div ref={setNodeRef} className="folder-dnd-row" style={wrapperStyle} {...attributes}>
       {indicator === 'before' && !isDragging && (
         <div style={{ ...INDICATOR_LINE_STYLE, top: -1 }} aria-hidden />
       )}
+      <button
+        type="button"
+        className="folder-dnd-handle"
+        aria-label="Drag to reorder folder"
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+        {...listeners}
+      >
+        <HolderOutlined />
+      </button>
       {children}
       {indicator === 'after' && !isDragging && (
         <div style={{ ...INDICATOR_LINE_STYLE, bottom: -1 }} aria-hidden />

@@ -524,6 +524,50 @@ html, body, #root {
   flex-shrink: 0;
 }
 
+// ── Sidebar folder drag-handle (FolderDndTree) ─────────────────────
+//
+// The wrapper hosts the dnd-kit attributes + drop indicator lines; the
+// handle button hosts the pointer listeners so clicks on the row body
+// don't initiate a drag. The handle is hidden until the wrapper is
+// hovered, then nudges into the gutter at the row's left edge.
+
+.folder-dnd-row {
+  position: relative;
+}
+
+.folder-dnd-handle {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: rgba(128, 128, 128, 0.85);
+  opacity: 0;
+  cursor: grab;
+  font-size: 11px;
+  outline: none;
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.folder-dnd-row:hover .folder-dnd-handle {
+  opacity: 0.55;
+}
+
+.folder-dnd-handle:hover {
+  opacity: 1 !important;
+}
+
 // ── Environment selector rows ────────────────────────────────────────
 // Mirrors .rules-sidebar-item pattern: raw <span> actions with opacity
 // toggled by parent :hover. No AntD Button/Space wrappers (their internal
