@@ -42,10 +42,13 @@ import { useVariableResolver } from '@hooks/useVariableResolver';
 import {
   COLLECTION_ENTITY_TYPE,
   FOLDER_ENTITY_TYPE,
+  type FolderParentRef,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_FOLDER_ENTITY_TYPE,
+  type RequestFolderParentRef,
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_FOLDER_ENTITY_TYPE,
+  type TemplateFolderParentRef,
 } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { isRuleResolvable } from '@openheaders/core/utils';
@@ -401,77 +404,76 @@ const Sidebar: React.FC<SidebarProps> = ({
     surfaceId: 'workbench',
   });
 
-  const rulesFolderDndConfig = useMemo<FolderDndConfig>(
-    () => ({
+  const rulesFolderDndConfig = useMemo<FolderDndConfig>(() => {
+    const toRef = (p: { kind: 'collection' | 'folder'; uid: string }): FolderParentRef => ({
+      type: p.kind === 'collection' ? COLLECTION_ENTITY_TYPE : FOLDER_ENTITY_TYPE,
+      uid: p.uid,
+    });
+    return {
       collectionIdPrefix: 'col-',
       folderIdPrefix: 'folder-',
       lookupSiblings: (parent) =>
         parent.kind === 'collection'
           ? getActiveCollectionSyncMirror().liveOrderedSetItems(parent.uid, 'folders')
           : getActiveFolderSyncMirror().liveOrderedSetItems(parent.uid, 'folders'),
-      moveFolder: ({ folderUid, parent, orderKey }) => {
+      moveFolder: ({ folderUid, parent, orderKey, oldParent }) => {
         void moveRulesFolder({
           folderUid,
-          newParent: {
-            type: parent.kind === 'collection' ? COLLECTION_ENTITY_TYPE : FOLDER_ENTITY_TYPE,
-            uid: parent.uid,
-          },
+          newParent: toRef(parent),
           orderKey,
+          ...(oldParent ? { oldParent: toRef(oldParent) } : {}),
         });
       },
-    }),
-    [moveRulesFolder],
-  );
+    };
+  }, [moveRulesFolder]);
 
-  const requestFolderDndConfig = useMemo<FolderDndConfig>(
-    () => ({
+  const requestFolderDndConfig = useMemo<FolderDndConfig>(() => {
+    const toRef = (p: { kind: 'collection' | 'folder'; uid: string }): RequestFolderParentRef => ({
+      type:
+        p.kind === 'collection' ? REQUEST_COLLECTION_ENTITY_TYPE : REQUEST_FOLDER_ENTITY_TYPE,
+      uid: p.uid,
+    });
+    return {
       collectionIdPrefix: 'req-col-',
       folderIdPrefix: 'req-folder-',
       lookupSiblings: (parent) =>
         parent.kind === 'collection'
           ? getActiveRequestCollectionSyncMirror().liveOrderedSetItems(parent.uid, 'folders')
           : getActiveRequestFolderSyncMirror().liveOrderedSetItems(parent.uid, 'folders'),
-      moveFolder: ({ folderUid, parent, orderKey }) => {
+      moveFolder: ({ folderUid, parent, orderKey, oldParent }) => {
         void moveRequestFolder({
           folderUid,
-          newParent: {
-            type:
-              parent.kind === 'collection'
-                ? REQUEST_COLLECTION_ENTITY_TYPE
-                : REQUEST_FOLDER_ENTITY_TYPE,
-            uid: parent.uid,
-          },
+          newParent: toRef(parent),
           orderKey,
+          ...(oldParent ? { oldParent: toRef(oldParent) } : {}),
         });
       },
-    }),
-    [moveRequestFolder],
-  );
+    };
+  }, [moveRequestFolder]);
 
-  const templateFolderDndConfig = useMemo<FolderDndConfig>(
-    () => ({
+  const templateFolderDndConfig = useMemo<FolderDndConfig>(() => {
+    const toRef = (p: { kind: 'collection' | 'folder'; uid: string }): TemplateFolderParentRef => ({
+      type:
+        p.kind === 'collection' ? TEMPLATE_COLLECTION_ENTITY_TYPE : TEMPLATE_FOLDER_ENTITY_TYPE,
+      uid: p.uid,
+    });
+    return {
       collectionIdPrefix: 'tpl-col-',
       folderIdPrefix: 'tpl-folder-',
       lookupSiblings: (parent) =>
         parent.kind === 'collection'
           ? getActiveTemplateCollectionSyncMirror().liveOrderedSetItems(parent.uid, 'folders')
           : getActiveTemplateFolderSyncMirror().liveOrderedSetItems(parent.uid, 'folders'),
-      moveFolder: ({ folderUid, parent, orderKey }) => {
+      moveFolder: ({ folderUid, parent, orderKey, oldParent }) => {
         void moveTemplateFolder({
           folderUid,
-          newParent: {
-            type:
-              parent.kind === 'collection'
-                ? TEMPLATE_COLLECTION_ENTITY_TYPE
-                : TEMPLATE_FOLDER_ENTITY_TYPE,
-            uid: parent.uid,
-          },
+          newParent: toRef(parent),
           orderKey,
+          ...(oldParent ? { oldParent: toRef(oldParent) } : {}),
         });
       },
-    }),
-    [moveTemplateFolder],
-  );
+    };
+  }, [moveTemplateFolder]);
 
   // ── Section nodes via hooks ────────────────────────────────────
 
