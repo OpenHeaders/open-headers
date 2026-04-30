@@ -66,33 +66,53 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
 
   // ── Form initialization ──────────────────────────────────────
 
+  const populateFormFromTemplate = useCallback(
+    (t: V5.Template) => {
+      const values: Record<string, unknown> = {
+        ruleType: t.ruleType,
+        templateName: t.name,
+        templateIcon: t.icon,
+        templateDescription: t.description,
+        includeConditions: t.includes.conditions,
+        includeFormValues: t.includes.formValues,
+        conditions: t.conditions ?? [],
+        ...(t.formValues ?? {}),
+      };
+      form.setFieldsValue(values);
+
+      if (t.ruleType === 'header' && t.formValues) {
+        const resH = t.formValues.responseHeaders as unknown[] | undefined;
+        const reqH = t.formValues.requestHeaders as unknown[] | undefined;
+        const reqLen = reqH?.length ?? 0;
+        const resLen = resH?.length ?? 0;
+        setHeaderReqCount(reqLen);
+        setHeaderResCount(resLen);
+        setHeaderActiveTab(resLen > 0 && reqLen === 0 ? 'response' : 'request');
+      }
+    },
+    [form],
+  );
+
   useEffect(() => {
     if (initializedRef.current || !template) return;
     initializedRef.current = true;
+    populateFormFromTemplate(template);
+  }, [template, populateFormFromTemplate]);
 
-    const values: Record<string, unknown> = {
-      ruleType: template.ruleType,
-      templateName: template.name,
-      templateIcon: template.icon,
-      templateDescription: template.description,
-      includeConditions: template.includes.conditions,
-      includeFormValues: template.includes.formValues,
-      conditions: template.conditions ?? [],
-      ...(template.formValues ?? {}),
-    };
-    form.setFieldsValue(values);
-
-    // Set header tab + counts based on content
-    if (template.ruleType === 'header' && template.formValues) {
-      const resH = template.formValues.responseHeaders as unknown[] | undefined;
-      const reqH = template.formValues.requestHeaders as unknown[] | undefined;
-      const reqLen = reqH?.length ?? 0;
-      const resLen = resH?.length ?? 0;
-      setHeaderReqCount(reqLen);
-      setHeaderResCount(resLen);
-      setHeaderActiveTab(resLen > 0 && reqLen === 0 ? 'response' : 'request');
-    }
-  }, [template, form]);
+  // Live-update reconciliation (sync engine §6.3 ergonomic delta).
+  // After init, `template` mutates whenever another surface commits a
+  // change. When this editor has no uncommitted edits, re-prime from
+  // the new live template — same shape as init. When dirty, leave the
+  // form alone: the LWW save resolves at oracle time per §6.3.
+  const templateSignature = template ? JSON.stringify(template) : null;
+  useEffect(() => {
+    if (!initializedRef.current) return;
+    if (!template) return;
+    if (isDirty) return;
+    populateFormFromTemplate(template);
+    // templateSignature is the change trigger; populate runs against
+    // the latest template object.
+  }, [templateSignature, template, populateFormFromTemplate, isDirty]);
 
   // ── Save ────────────────────────────────────────────────────
 

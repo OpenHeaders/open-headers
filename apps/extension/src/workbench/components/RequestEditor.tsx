@@ -32,6 +32,7 @@ import { App, Button, Dropdown, Select, Tabs, Tag, Tooltip, Typography, theme } 
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ExecutedRequestSnapshot } from '@/background/modules/request-executor';
+import { getActiveRequestSyncMirror } from '@/context/request-sync-mirror';
 import { ensureScheme, needsSchemeNormalization } from '@/shared/fetch/ensure-scheme';
 import EditorHeader from './EditorHeader';
 import { useRequestWorkflowStepContext } from './live/useRequestWorkflowStepContext';
@@ -441,6 +442,31 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   useEffect(() => {
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
+
+  // Live-update reconciliation (sync engine §6.3 ergonomic delta).
+  // After init, another surface's commit broadcasts a fresh
+  // `V5.Request` into the renderer mirror. When this editor has no
+  // uncommitted edits, re-prime the local draft from the new live
+  // request — matches RuleEditor's session-11 pattern. When dirty,
+  // we leave the form alone: the LWW save resolves the conflict at
+  // oracle time per §6.3. The subscription attaches only while clean
+  // so there's no stale-closure tracking on `isDirty`.
+  useEffect(() => {
+    if (isCreateMode || !requestUid) return;
+    if (initializedUidRef.current !== requestUid) return;
+    if (isDirty) return;
+    const mirror = getActiveRequestSyncMirror();
+    const reprime = () => {
+      const entry = mirror.getRequestMirror(requestUid);
+      if (!entry) return;
+      const next = draftFromRequest(entry.request);
+      setDraft(next);
+      setPersistedFp(fingerprint(next));
+    };
+    // Catch up: a broadcast may have landed while we were dirty.
+    reprime();
+    return mirror.subscribeRequestMirror(requestUid, reprime);
+  }, [isCreateMode, requestUid, isDirty]);
 
   // Awareness — declare the surface is editing this request. Create
   // mode has no entity uid yet, so presence stays unpublished until
