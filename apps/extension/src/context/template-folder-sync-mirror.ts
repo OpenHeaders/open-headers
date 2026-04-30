@@ -1,14 +1,17 @@
 /**
- * Renderer-side template-folder sync mirror (Phase B).
+ * Renderer-side template-folder sync mirror.
  *
- * Mirrors `request-folder-sync-mirror.ts` but routed through the
+ * Thin adapter over {@link createFlatEntityMirror} routed through the
  * template-folder entity type.
  */
 
-import { type MutationEnvelope, TEMPLATE_FOLDER_ENTITY_TYPE } from '@openheaders/core/sync';
+import { TEMPLATE_FOLDER_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
-import { call, subscribe } from '@utils/bridge';
-import { logger } from '@utils/logger';
+import { call } from '@utils/bridge';
+import {
+  createFlatEntityMirror,
+  type CreateFlatMirrorOptions,
+} from './flat-entity-mirror';
 
 export interface TemplateFolderMirrorEntry {
   folder: V5.Folder;
@@ -27,114 +30,40 @@ export interface TemplateFolderSyncMirror {
   dispose(): void;
 }
 
-export interface CreateTemplateFolderSyncMirrorOptions {
-  bootstrap?: boolean;
-}
+export type CreateTemplateFolderSyncMirrorOptions = CreateFlatMirrorOptions;
 
 export function createTemplateFolderSyncMirror(
   options: CreateTemplateFolderSyncMirrorOptions = {},
 ): TemplateFolderSyncMirror {
-  const { bootstrap = true } = options;
-  const entries = new Map<string, TemplateFolderMirrorEntry>();
-  const perUidListeners = new Map<string, Set<TemplateFolderMirrorListener>>();
-  const anyListeners = new Set<TemplateFolderMirrorListener>();
-  const seenSinceMount = new Set<string>();
-
-  const handleEnvelope = (envelope: MutationEnvelope, folder: V5.Folder | null): void => {
-    if (envelope.body.type !== TEMPLATE_FOLDER_ENTITY_TYPE) return;
-    const folderUid = envelope.body.id;
-    seenSinceMount.add(folderUid);
-    if (!folder) {
-      if (entries.delete(folderUid)) notify(perUidListeners, anyListeners, folderUid);
-      return;
-    }
-    entries.set(folderUid, { folder });
-    notify(perUidListeners, anyListeners, folderUid);
-  };
-
-  const unsubscribe = subscribe('syncBroadcast', (event) => {
-    const { envelope, templateFolderPostState } = event;
-    handleEnvelope(envelope, templateFolderPostState?.folder ?? null);
-  });
-
-  if (bootstrap) {
-    void call('oh.sync.snapshotTemplateFolders')
-      .then((resp) => {
-        for (const entry of resp.entries) {
-          const uid = entry.folder.uid;
-          if (seenSinceMount.has(uid)) continue;
-          entries.set(uid, { folder: entry.folder });
-          notify(perUidListeners, anyListeners, uid);
-        }
-      })
-      .catch((err: Error) => {
-        logger.info('TemplateFolderSyncMirror', `bootstrap snapshot failed: ${err.message}`);
-      });
-  }
-
+  const core = createFlatEntityMirror<TemplateFolderMirrorEntry>(
+    {
+      loggerTag: 'TemplateFolderSyncMirror',
+      extractFromBroadcast: (event) => {
+        const { envelope, templateFolderPostState } = event;
+        if (envelope.body.type !== TEMPLATE_FOLDER_ENTITY_TYPE) return null;
+        const uid = envelope.body.id;
+        if (!templateFolderPostState) return { uid, entry: null };
+        return { uid, entry: { folder: templateFolderPostState.folder } };
+      },
+      fetchSnapshot: async () => {
+        const resp = await call('oh.sync.snapshotTemplateFolders');
+        return resp.entries.map((e) => ({ uid: e.folder.uid, entry: { folder: e.folder } }));
+      },
+    },
+    options,
+  );
   return {
-    getTemplateFolderMirror(uid) {
-      return entries.get(uid) ?? null;
-    },
-    listTemplateFolders() {
-      return Array.from(entries.values())
+    getTemplateFolderMirror: core.get,
+    listTemplateFolders: () =>
+      core
+        .list()
         .map((e) => e.folder)
-        .sort((a, b) => (a.uid < b.uid ? -1 : a.uid > b.uid ? 1 : 0));
-    },
-    subscribeTemplateFolderMirror(uid, listener) {
-      let bucket = perUidListeners.get(uid);
-      if (!bucket) {
-        bucket = new Set();
-        perUidListeners.set(uid, bucket);
-      }
-      bucket.add(listener);
-      return () => {
-        const b = perUidListeners.get(uid);
-        if (!b) return;
-        b.delete(listener);
-        if (b.size === 0) perUidListeners.delete(uid);
-      };
-    },
-    subscribeAny(listener) {
-      anyListeners.add(listener);
-      return () => {
-        anyListeners.delete(listener);
-      };
-    },
-    dispose() {
-      unsubscribe();
-      entries.clear();
-      perUidListeners.clear();
-      anyListeners.clear();
-    },
+        .sort((a, b) => (a.uid < b.uid ? -1 : a.uid > b.uid ? 1 : 0)),
+    subscribeTemplateFolderMirror: core.subscribe,
+    subscribeAny: core.subscribeAny,
+    dispose: core.dispose,
   };
 }
-
-function notify(
-  perUid: Map<string, Set<TemplateFolderMirrorListener>>,
-  any: Set<TemplateFolderMirrorListener>,
-  folderUid: string,
-): void {
-  const bucket = perUid.get(folderUid);
-  if (bucket) {
-    for (const l of bucket) {
-      try {
-        l(folderUid);
-      } catch {
-        // Listener errors must not tear down the broadcast pipe.
-      }
-    }
-  }
-  for (const l of any) {
-    try {
-      l(folderUid);
-    } catch {
-      // Same.
-    }
-  }
-}
-
-// ── Module-level singleton ───────────────────────────────────────────
 
 let active: TemplateFolderSyncMirror | null = null;
 

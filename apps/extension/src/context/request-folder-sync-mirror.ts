@@ -1,18 +1,20 @@
 /**
- * Renderer-side request-folder sync mirror (Phase B).
+ * Renderer-side request-folder sync mirror.
  *
- * Mirrors `folder-sync-mirror.ts` but routed through the
- * request-folder entity type. Folder envelopes whose
- * `requestFolderPostState` is undefined indicate either a tombstoned
- * folder or a folder whose parent linkage hasn't resolved yet — drop
- * the entry; the next broadcast that does carry post-state restores
- * it.
+ * Thin adapter over {@link createFlatEntityMirror}. Folder envelopes
+ * whose `requestFolderPostState` is undefined indicate either a
+ * tombstoned folder or a folder whose parent linkage hasn't resolved
+ * yet — drop the entry; the next broadcast that does carry post-state
+ * restores it.
  */
 
-import { type MutationEnvelope, REQUEST_FOLDER_ENTITY_TYPE } from '@openheaders/core/sync';
+import { REQUEST_FOLDER_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
-import { call, subscribe } from '@utils/bridge';
-import { logger } from '@utils/logger';
+import { call } from '@utils/bridge';
+import {
+  createFlatEntityMirror,
+  type CreateFlatMirrorOptions,
+} from './flat-entity-mirror';
 
 export interface RequestFolderMirrorEntry {
   folder: V5.Folder;
@@ -31,114 +33,40 @@ export interface RequestFolderSyncMirror {
   dispose(): void;
 }
 
-export interface CreateRequestFolderSyncMirrorOptions {
-  bootstrap?: boolean;
-}
+export type CreateRequestFolderSyncMirrorOptions = CreateFlatMirrorOptions;
 
 export function createRequestFolderSyncMirror(
   options: CreateRequestFolderSyncMirrorOptions = {},
 ): RequestFolderSyncMirror {
-  const { bootstrap = true } = options;
-  const entries = new Map<string, RequestFolderMirrorEntry>();
-  const perUidListeners = new Map<string, Set<RequestFolderMirrorListener>>();
-  const anyListeners = new Set<RequestFolderMirrorListener>();
-  const seenSinceMount = new Set<string>();
-
-  const handleEnvelope = (envelope: MutationEnvelope, folder: V5.Folder | null): void => {
-    if (envelope.body.type !== REQUEST_FOLDER_ENTITY_TYPE) return;
-    const folderUid = envelope.body.id;
-    seenSinceMount.add(folderUid);
-    if (!folder) {
-      if (entries.delete(folderUid)) notify(perUidListeners, anyListeners, folderUid);
-      return;
-    }
-    entries.set(folderUid, { folder });
-    notify(perUidListeners, anyListeners, folderUid);
-  };
-
-  const unsubscribe = subscribe('syncBroadcast', (event) => {
-    const { envelope, requestFolderPostState } = event;
-    handleEnvelope(envelope, requestFolderPostState?.folder ?? null);
-  });
-
-  if (bootstrap) {
-    void call('oh.sync.snapshotRequestFolders')
-      .then((resp) => {
-        for (const entry of resp.entries) {
-          const uid = entry.folder.uid;
-          if (seenSinceMount.has(uid)) continue;
-          entries.set(uid, { folder: entry.folder });
-          notify(perUidListeners, anyListeners, uid);
-        }
-      })
-      .catch((err: Error) => {
-        logger.info('RequestFolderSyncMirror', `bootstrap snapshot failed: ${err.message}`);
-      });
-  }
-
+  const core = createFlatEntityMirror<RequestFolderMirrorEntry>(
+    {
+      loggerTag: 'RequestFolderSyncMirror',
+      extractFromBroadcast: (event) => {
+        const { envelope, requestFolderPostState } = event;
+        if (envelope.body.type !== REQUEST_FOLDER_ENTITY_TYPE) return null;
+        const uid = envelope.body.id;
+        if (!requestFolderPostState) return { uid, entry: null };
+        return { uid, entry: { folder: requestFolderPostState.folder } };
+      },
+      fetchSnapshot: async () => {
+        const resp = await call('oh.sync.snapshotRequestFolders');
+        return resp.entries.map((e) => ({ uid: e.folder.uid, entry: { folder: e.folder } }));
+      },
+    },
+    options,
+  );
   return {
-    getRequestFolderMirror(uid) {
-      return entries.get(uid) ?? null;
-    },
-    listRequestFolders() {
-      return Array.from(entries.values())
+    getRequestFolderMirror: core.get,
+    listRequestFolders: () =>
+      core
+        .list()
         .map((e) => e.folder)
-        .sort((a, b) => (a.uid < b.uid ? -1 : a.uid > b.uid ? 1 : 0));
-    },
-    subscribeRequestFolderMirror(uid, listener) {
-      let bucket = perUidListeners.get(uid);
-      if (!bucket) {
-        bucket = new Set();
-        perUidListeners.set(uid, bucket);
-      }
-      bucket.add(listener);
-      return () => {
-        const b = perUidListeners.get(uid);
-        if (!b) return;
-        b.delete(listener);
-        if (b.size === 0) perUidListeners.delete(uid);
-      };
-    },
-    subscribeAny(listener) {
-      anyListeners.add(listener);
-      return () => {
-        anyListeners.delete(listener);
-      };
-    },
-    dispose() {
-      unsubscribe();
-      entries.clear();
-      perUidListeners.clear();
-      anyListeners.clear();
-    },
+        .sort((a, b) => (a.uid < b.uid ? -1 : a.uid > b.uid ? 1 : 0)),
+    subscribeRequestFolderMirror: core.subscribe,
+    subscribeAny: core.subscribeAny,
+    dispose: core.dispose,
   };
 }
-
-function notify(
-  perUid: Map<string, Set<RequestFolderMirrorListener>>,
-  any: Set<RequestFolderMirrorListener>,
-  folderUid: string,
-): void {
-  const bucket = perUid.get(folderUid);
-  if (bucket) {
-    for (const l of bucket) {
-      try {
-        l(folderUid);
-      } catch {
-        // Listener errors must not tear down the broadcast pipe.
-      }
-    }
-  }
-  for (const l of any) {
-    try {
-      l(folderUid);
-    } catch {
-      // Same.
-    }
-  }
-}
-
-// ── Module-level singleton ───────────────────────────────────────────
 
 let active: RequestFolderSyncMirror | null = null;
 
