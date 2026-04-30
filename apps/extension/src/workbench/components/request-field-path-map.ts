@@ -29,3 +29,20 @@ export function tabKeyToRequestFieldPath(tab: RequestTabKey): string {
 
 export const REQUEST_URL_PATH = 'url';
 export const REQUEST_METHOD_PATH = 'method';
+
+/**
+ * Per-row path inside the headers / params tables — schema-aligned
+ * dotted form (`headers.0.value`, `params.2.key`).
+ *
+ * Index-based, not uid-based: the V5.Request schema persists each
+ * collection as an ordered array, so `headers[0]` is the first element
+ * regardless of which surface published the path. UID-based paths
+ * would be local to one editor session and would never converge with
+ * a future cross-surface inspector. The same posture session 33's
+ * `LIVE_WORKFLOW_FIELD.step(idx, leaf)` took for workflow steps.
+ */
+export type RequestRowSetPath = 'headers' | 'params';
+export type RequestRowLeaf = 'key' | 'value' | 'description';
+export function requestRowPath(setPath: RequestRowSetPath, index: number, leaf: RequestRowLeaf): string {
+  return `${setPath}.${index}.${leaf}`;
+}

@@ -35,6 +35,7 @@ import type { ExecutedRequestSnapshot } from '@/background/modules/request-execu
 import { getActiveRequestSyncMirror } from '@/context/request-sync-mirror';
 import { ensureScheme, needsSchemeNormalization } from '@/shared/fetch/ensure-scheme';
 import EditorHeader from './EditorHeader';
+import { readFieldPath } from '@/shared/awareness/field-path';
 import { REQUEST_METHOD_PATH, REQUEST_URL_PATH, tabKeyToRequestFieldPath } from './request-field-path-map';
 import { useRequestWorkflowStepContext } from './live/useRequestWorkflowStepContext';
 import AuthorizationTab from './request-editor/AuthorizationTab';
@@ -471,11 +472,25 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
 
   // Per-field focus path. RequestEditor uses controlled state (no
   // antd Form), so url + method publish through explicit focus
-  // handlers; everything else falls back to the active tab's
-  // canonical path. `inputFocus` overrides tab-derived path while
-  // either of the header inputs is focused.
+  // handlers; sub-row leaves inside Headers / Params (via
+  // `data-field-path` markers on the EditableGridTable cells) ride a
+  // focus-capture ancestor walk; everything else falls back to the
+  // active tab's canonical path. Order of precedence (most specific
+  // wins): subRowFocus > inputFocus > tab default — sub-row markers
+  // come from the focus target itself so they're load-bearing
+  // whenever set.
   const [inputFocus, setInputFocus] = useState<typeof REQUEST_URL_PATH | typeof REQUEST_METHOD_PATH | null>(null);
-  const fieldFocusPath = inputFocus ?? tabKeyToRequestFieldPath(activeTab);
+  const [subRowFocus, setSubRowFocus] = useState<string | null>(null);
+  const handleEditorFocusCapture = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
+    const path = readFieldPath(e.target);
+    setSubRowFocus(path);
+  }, []);
+  const handleEditorBlurCapture = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
+    const next = e.relatedTarget as HTMLElement | null;
+    if (next && e.currentTarget.contains(next)) return;
+    setSubRowFocus(null);
+  }, []);
+  const fieldFocusPath = subRowFocus ?? inputFocus ?? tabKeyToRequestFieldPath(activeTab);
 
   // Awareness — declare the surface is editing this request. Create
   // mode has no entity uid yet, so presence stays unpublished until
@@ -764,7 +779,11 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
 
   return (
     <SuggestionContextProvider value={suggestionContext}>
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+      <div
+        style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}
+        onFocusCapture={handleEditorFocusCapture}
+        onBlurCapture={handleEditorBlurCapture}
+      >
         <EditorHeader title={headerTitle} actions={headerActions} isDirty={isDirty} onSave={handleSaveSync} />
 
         {needsSchemeNormalization(draft.url) && (

@@ -20,6 +20,7 @@ import type { V5 } from '@openheaders/core/types';
 import { Button, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
+import { requestRowPath } from '../request-field-path-map';
 import KeyValueTable, { type KeyValueRow, makeKvRow, type SuggestionRow } from './KeyValueTable';
 
 function headerRowsToText(rows: KeyValueRow[]): string {
@@ -177,6 +178,7 @@ const HeadersTab: React.FC<HeadersTabProps> = ({ rows, onChange, body }) => {
           parse: headerTextToRows,
           placeholder: 'Content-Type: application/json\nAuthorization: Bearer {{token}} # auth\n//X-Disabled: value',
         }}
+        rowPath={(index, leaf) => requestRowPath('headers', index, leaf)}
       />
     </div>
   );

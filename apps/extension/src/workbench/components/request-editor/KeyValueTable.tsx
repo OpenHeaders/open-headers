@@ -48,6 +48,10 @@ interface KeyValueTableProps {
    *  pair — Params uses `key:value` lines, Headers uses `key: value`,
    *  form-urlencoded uses `key=value`. Absent → no Bulk Edit toggle. */
   bulkEdit?: BulkEditConfig<KeyValueRow>;
+  /** Optional per-cell awareness path (forwarded to
+   *  `EditableGridTable.rowPath`). Caller composes the canonical
+   *  schema-aligned path string per row index + leaf. */
+  rowPath?: (index: number, leaf: 'key' | 'value' | 'description') => string;
 }
 
 let ROW_ID_COUNTER = 0;
@@ -87,6 +91,7 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
   suggestionRows,
   hideEnabled = false,
   bulkEdit,
+  rowPath,
 }) => {
   const { token } = theme.useToken();
 
@@ -99,6 +104,7 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
       hideEnabled={hideEnabled}
       suggestionRows={suggestionRows}
       bulkEdit={bulkEdit}
+      rowPath={rowPath}
       renderValueCell={(row, update, ctx) => (
         <TemplateInput
           variant="borderless"
