@@ -24,6 +24,7 @@ import { useRules } from '@hooks/useRules';
 import { useRuleMutator } from '@hooks/useRuleMutator';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
+import { generateUid } from '@openheaders/core/utils';
 import type { MenuProps } from 'antd';
 import { Alert, App, Button, Dropdown, Form, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -461,7 +462,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       const defaults: Record<string, unknown> = {
         ruleType,
         conditions: [],
-        requestHeaders: [{ operation: 'override', headerName: '', value: '' }],
+        requestHeaders: [{ uid: generateUid(), operation: 'override', headerName: '', value: '' }],
         responseHeaders: [],
         redirectTo: '',
         injectType: 'script',
@@ -499,7 +500,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           const targetsRequest = !!initialDraft.requestHeaders?.length;
           defaults.requestHeaders =
             initialDraft.requestHeaders ??
-            (targetsResponse ? [] : [{ operation: 'override', headerName: '', value: '' }]);
+            (targetsResponse ? [] : [{ uid: generateUid(), operation: 'override', headerName: '', value: '' }]);
           defaults.responseHeaders = initialDraft.responseHeaders ?? (targetsRequest ? [] : []);
         } else if (initialDraft.type === 'redirect') {
           if (initialDraft.redirectTo) defaults.redirectTo = initialDraft.redirectTo;

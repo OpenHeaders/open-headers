@@ -42,7 +42,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { HeaderDirection } from '@openheaders/core/utils';
-import { getHeaderOperationCapability } from '@openheaders/core/utils';
+import { generateUid, getHeaderOperationCapability } from '@openheaders/core/utils';
 import { Alert, Badge, Button, Form, Input, Select, Tabs, Tooltip, Typography } from 'antd';
 import type React from 'react';
 import { ConflictDiffChip, FieldPresenceChip, RULE_FIELD } from '@/shared/awareness';
@@ -323,7 +323,7 @@ function ModificationList({ name, direction, ruleUid, surfaceId, conflicts }: Mo
             type="dashed"
             size="small"
             icon={<PlusOutlined />}
-            onClick={() => add({ operation: 'override', headerName: '', value: '' })}
+            onClick={() => add({ uid: generateUid(), operation: 'override', headerName: '', value: '' })}
           >
             Add Action
           </Button>
