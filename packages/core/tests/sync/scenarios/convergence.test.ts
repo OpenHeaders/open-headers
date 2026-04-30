@@ -18,6 +18,7 @@ import {
   genCollectionRename,
   genConcurrentRenames,
   genCreateDeleteHlcOrder,
+  genCrossEntityRuleEnv,
   genEnvRename,
   genFolderMove,
   genRequestEdit,
@@ -54,6 +55,7 @@ const BUCKETS: Bucket[] = [
   { name: 'request-edit', generate: genRequestEdit, count: 1500 },
   { name: 'request-folder-move', generate: genRequestFolderMove, count: 1500 },
   { name: 'template-folder-move', generate: genTemplateFolderMove, count: 1500 },
+  { name: 'cross-entity-rule-env', generate: genCrossEntityRuleEnv, count: 1500 },
   { name: 'uniform-random', generate: genUniformRandom, count: 2500 },
 ];
 
