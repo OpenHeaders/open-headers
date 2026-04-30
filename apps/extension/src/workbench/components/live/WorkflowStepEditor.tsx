@@ -37,6 +37,7 @@ import { scopeBadge } from '../shared/scope-colors';
 import { METHOD_COLORS } from '../sidebar/icons';
 import type { DependencyRow } from './dependencies-view';
 import ExtractorEditor from './ExtractorEditor';
+import { LIVE_WORKFLOW_FIELD } from './live-field-paths';
 import StepGateEditor from './StepGateEditor';
 
 const { Text } = Typography;
@@ -262,17 +263,19 @@ const WorkflowStepEditor: React.FC<Props> = ({
         <Text strong style={{ fontSize: 12 }}>
           Step {index + 1}
         </Text>
-        <Tooltip open={stepLevelError ? undefined : false} title={stepLevelError?.message}>
-          <Input
-            size="small"
-            style={{ width: 160 }}
-            prefix={<Text type="secondary">id</Text>}
-            value={step.id}
-            disabled={lockStepId}
-            status={stepLevelError?.issue === 'duplicate-step-id' ? 'error' : undefined}
-            onChange={(e) => onChange({ ...step, id: e.target.value })}
-          />
-        </Tooltip>
+        <span data-field-path={LIVE_WORKFLOW_FIELD.step(index, 'id')} style={{ display: 'contents' }}>
+          <Tooltip open={stepLevelError ? undefined : false} title={stepLevelError?.message}>
+            <Input
+              size="small"
+              style={{ width: 160 }}
+              prefix={<Text type="secondary">id</Text>}
+              value={step.id}
+              disabled={lockStepId}
+              status={stepLevelError?.issue === 'duplicate-step-id' ? 'error' : undefined}
+              onChange={(e) => onChange({ ...step, id: e.target.value })}
+            />
+          </Tooltip>
+        </span>
 
         {/* Disabled step-type selector — show-but-disable catalog. */}
         <Tooltip title="Step type — Foreach and Composite coming in a future release.">
@@ -338,6 +341,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
          *  the sidebar + tab-bar method tags. Search filters on the full
          *  text breadcrumb via `filterOption` against the option `title`. */}
         <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+          <span data-field-path={LIVE_WORKFLOW_FIELD.step(index, 'requestUid')} style={{ display: 'contents' }}>
           <Select
             size="small"
             style={{ flex: '1 1 60%', minWidth: 0 }}
@@ -396,6 +400,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
               };
             })}
           />
+          </span>
           <Input
             size="small"
             style={{ flex: '1 1 40%' }}
@@ -405,7 +410,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
           />
         </div>
 
-        <div>
+        <div data-field-path={LIVE_WORKFLOW_FIELD.step(index, 'captures')}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
             <Text type="secondary" style={{ fontSize: 11 }}>
               CAPTURES ({step.captures.length})
@@ -603,13 +608,15 @@ const WorkflowStepEditor: React.FC<Props> = ({
                 </span>
               ),
               children: (
-                <StepGateEditor
-                  value={step.runIf}
-                  onChange={handleRunIfChange}
-                  reachableSteps={reachableSteps}
-                  capturesByStepId={capturesByStepId}
-                  errors={gateErrors}
-                />
+                <div data-field-path={LIVE_WORKFLOW_FIELD.step(index, 'gate')}>
+                  <StepGateEditor
+                    value={step.runIf}
+                    onChange={handleRunIfChange}
+                    reachableSteps={reachableSteps}
+                    capturesByStepId={capturesByStepId}
+                    errors={gateErrors}
+                  />
+                </div>
               ),
             },
             {
