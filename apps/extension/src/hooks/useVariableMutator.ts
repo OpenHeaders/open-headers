@@ -2,12 +2,12 @@
  * useVariableMutator — single source of truth for variable writes
  * across every scope. Both the dedicated editors (Workspace / Env /
  * Collection / Vault) and the inline hover popover go through this
- * hook so the discriminated `MutationResult` shape (and its mapping
- * to the bridge's varying response shapes) lives in exactly one place.
+ * hook so the discriminated `MutationResult` shape lives in exactly
+ * one place.
  *
  * The API is intentionally **write-only**: callers pass the full
- * variables list (already spliced) plus the expected version, and the
- * hook persists it. Reads happen in the caller.
+ * variables list (already spliced) and the hook persists it. Reads
+ * happen in the caller.
  *
  * The reason for the write-only shape: each `useEnvironments()` call
  * is an INDEPENDENT React state instance that hydrates via its own
@@ -19,10 +19,11 @@
  * and pass the resulting list here, the read and the splice are
  * always against the same snapshot — no race.
  *
- * `MutationResult` is uniform: `{ ok: true; version }` on success,
- * `{ ok: false; reason: 'stale-draft' | 'duplicate-name' | 'not-found' | 'other'; message? }`
- * on failure. Callers branch on `reason`; bridge response shapes never
- * leak past this hook.
+ * `MutationResult` is uniform: `{ ok: true }` on success,
+ * `{ ok: false; reason: 'duplicate-name' | 'not-found' | 'other'; message? }`
+ * on failure. Callers branch on `reason`. Sync engine §24 retired the
+ * Phase 10 stale-draft contract; convergence is per-(field) LWW at the
+ * oracle. Per-batch all-or-nothing covers atomic replacement.
  */
 
 import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
@@ -38,12 +39,11 @@ import { applyWorkspaceVariablesReplacement } from '@/shared/sync/workspace-vari
 
 // ── Result shape ─────────────────────────────────────────────────────
 
-export type MutationFailureReason = 'stale-draft' | 'duplicate-name' | 'not-found' | 'other';
+export type MutationFailureReason = 'duplicate-name' | 'not-found' | 'other';
 
 export type MutationResult =
-  | { ok: true; version: number }
-  | { ok: false; reason: 'stale-draft'; serverVersion: number }
-  | { ok: false; reason: 'duplicate-name' | 'not-found' | 'other'; message?: string };
+  | { ok: true }
+  | { ok: false; reason: MutationFailureReason; message?: string };
 
 // ── Hook ─────────────────────────────────────────────────────────────
 
@@ -51,23 +51,13 @@ export interface UseVariableMutatorApi {
   /** Replace the workspace variables list. */
   replaceWorkspaceVariables(variables: V5.Variable[]): Promise<MutationResult>;
   /** Replace an environment's variables list. */
-  replaceEnvironmentVariables(
-    envUid: string,
-    variables: V5.Variable[],
-    expectedVersion?: number,
-  ): Promise<MutationResult>;
+  replaceEnvironmentVariables(envUid: string, variables: V5.Variable[]): Promise<MutationResult>;
   /** Replace a collection's variables list. */
-  replaceCollectionVariables(
-    collectionUid: string,
-    variables: V5.Variable[],
-  ): Promise<MutationResult>;
+  replaceCollectionVariables(collectionUid: string, variables: V5.Variable[]): Promise<MutationResult>;
   /** Replace the vault. */
   replaceVault(secrets: V5.VaultSecret[]): Promise<MutationResult>;
   /** Set or clear a live variable's manual override. */
-  setLiveOverride(
-    uid: string,
-    override: V5.LiveVariableOverride | null,
-  ): Promise<MutationResult>;
+  setLiveOverride(uid: string, override: V5.LiveVariableOverride | null): Promise<MutationResult>;
 }
 
 export function useVariableMutator(): UseVariableMutatorApi {
@@ -79,18 +69,11 @@ export function useVariableMutator(): UseVariableMutatorApi {
   const replaceWorkspaceVariables = useCallback<UseVariableMutatorApi['replaceWorkspaceVariables']>(
     async (variables) => {
       if (!workspaceId) return { ok: false, reason: 'other', message: 'no active workspace' };
-      const result = await applyWorkspaceVariablesReplacement(
-        variables,
-        currentWorkspaceVariables.variables,
-        { workspaceId, surfaceId: 'workbench' },
-      );
-      if (result.ok) {
-        // `version` is retired by Phase B (§24); the field is kept on
-        // the result shape until commit 4 sweeps every consumer of it.
-        // Synthetic 1 is honest — the LWW oracle decides convergence,
-        // not the counter.
-        return { ok: true, version: 1 };
-      }
+      const result = await applyWorkspaceVariablesReplacement(variables, currentWorkspaceVariables.variables, {
+        workspaceId,
+        surfaceId: 'workbench',
+      });
+      if (result.ok) return { ok: true };
       return { ok: false, reason: 'other', message: result.message };
     },
     [workspaceId, currentWorkspaceVariables],
@@ -105,13 +88,7 @@ export function useVariableMutator(): UseVariableMutatorApi {
         workspaceId,
         surfaceId: 'workbench',
       });
-      if (result.ok) {
-        // `version` is retired by Phase B (§24); the field is kept on
-        // the result shape until commit 5 sweeps every consumer of it.
-        // Synthetic 1 is honest — the LWW oracle decides convergence,
-        // not the counter.
-        return { ok: true, version: 1 };
-      }
+      if (result.ok) return { ok: true };
       if (result.reason === 'not-found') return { ok: false, reason: 'not-found' };
       return { ok: false, reason: 'other', message: result.message };
     },
@@ -123,13 +100,11 @@ export function useVariableMutator(): UseVariableMutatorApi {
       if (!workspaceId) return { ok: false, reason: 'other', message: 'no active workspace' };
       const collection = localCollections.find((c) => c.uid === collectionUid);
       if (!collection) return { ok: false, reason: 'not-found' };
-      const result = await applyCollectionVariablesReplacement(
-        collectionUid,
-        variables,
-        collection.variables,
-        { workspaceId, surfaceId: 'workbench' },
-      );
-      if (result.ok) return { ok: true, version: 1 };
+      const result = await applyCollectionVariablesReplacement(collectionUid, variables, collection.variables, {
+        workspaceId,
+        surfaceId: 'workbench',
+      });
+      if (result.ok) return { ok: true };
       if (result.reason === 'not-found') return { ok: false, reason: 'not-found' };
       return { ok: false, reason: 'other', message: result.message };
     },
@@ -143,13 +118,7 @@ export function useVariableMutator(): UseVariableMutatorApi {
         workspaceId,
         surfaceId: 'workbench',
       });
-      if (result.ok) {
-        // `version` is retired by Phase B (§24); the field is kept on
-        // the result shape until commit 4 sweeps every consumer of it.
-        // Synthetic 1 is honest — the LWW oracle decides convergence,
-        // not the counter.
-        return { ok: true, version: 1 };
-      }
+      if (result.ok) return { ok: true };
       return { ok: false, reason: 'other', message: result.message };
     },
     [workspaceId, vault],
@@ -161,9 +130,7 @@ export function useVariableMutator(): UseVariableMutatorApi {
       // Live variable RPCs use {success, reason} — distinct from the
       // {ok, reason} editor shape. Map both into MutationResult so
       // callers don't care which RPC family they hit.
-      if (r.success) {
-        return { ok: true, version: 1 };
-      }
+      if (r.success) return { ok: true };
       if (r.reason === 'not-found') return { ok: false, reason: 'not-found' };
       return { ok: false, reason: 'other' };
     },
@@ -177,23 +144,4 @@ export function useVariableMutator(): UseVariableMutatorApi {
     replaceVault,
     setLiveOverride,
   };
-}
-
-// ── Internal helpers ─────────────────────────────────────────────────
-
-interface BridgeWriteResult {
-  ok?: boolean;
-  reason?: string;
-  version?: number;
-  serverVersion?: number;
-  message?: string;
-}
-
-function mapWriteResult(r: BridgeWriteResult): MutationResult {
-  if (r.ok && typeof r.version === 'number') return { ok: true, version: r.version };
-  if (r.reason === 'stale-draft') {
-    return { ok: false, reason: 'stale-draft', serverVersion: r.serverVersion ?? 0 };
-  }
-  if (r.reason === 'not-found') return { ok: false, reason: 'not-found' };
-  return { ok: false, reason: 'other', message: r.message };
 }

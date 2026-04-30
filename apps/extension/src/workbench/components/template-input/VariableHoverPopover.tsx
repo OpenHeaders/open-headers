@@ -670,9 +670,6 @@ function surfaceResult(
     return;
   }
   switch (result.reason) {
-    case 'stale-draft':
-      message.warning('Variable changed elsewhere — close and reopen the popover.');
-      return;
     case 'duplicate-name':
       message.error('A variable with that name already exists in this scope.');
       return;
