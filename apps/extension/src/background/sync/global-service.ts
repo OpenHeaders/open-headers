@@ -12,17 +12,12 @@
  * SW eval, persists across workspace switches, and tears down only on
  * SW shutdown (or test cleanup).
  *
- * Reuses the same primitives as the per-workspace path:
- *   - `IdbMutationLog` + `IdbPendingIntents` — striped by the sentinel
- *     scope id, so the global stripe is disjoint from any user
- *     workspace's stripe.
- *   - `ruleOracleLockAcquirer` — entity locks are keyed by
- *     `(workspaceId, type, id)` already; the sentinel id is just
- *     another input.
- *   - `InMemoryBroadcast` + `wireBroadcastToSink` — broadcasts ride the
- *     same chrome.runtime `syncBroadcast` channel as the per-workspace
- *     oracle. Renderer-side mirrors filter by `envelope.body.type`, so
- *     the source-oracle is transparent to consumers.
+ * Reuses the same primitives + the same registry helpers as the
+ * per-workspace path. {@link GLOBAL_REGISTRY} declares the single
+ * `extensionWorkspace` registration; {@link attachCaches} +
+ * {@link buildProjectorPipeline} drive cache + projector wiring so
+ * adding a second cross-workspace entity later is one push to the
+ * registry, not a new wiring branch here.
  *
  * Out of scope this module (deferred):
  *   - DNR coalescer / resolver-invalidate runner — workspace-meta
@@ -31,24 +26,24 @@
  *     deferrable until a concrete UX gesture asks for it.
  */
 
+import type { SyncExtensionWorkspacePostState } from '@openheaders/core/protocol';
 import {
-  EXTENSION_WORKSPACE_GLOBAL_SCOPE,
   EXTENSION_WORKSPACE_ENTITY_TYPE,
+  EXTENSION_WORKSPACE_GLOBAL_SCOPE,
 } from '@openheaders/core/sync';
-import type { SyncBroadcastEvent, SyncExtensionWorkspacePostState } from '@openheaders/core/protocol';
 import { broadcast as bridgeBroadcast } from '@utils/bridge';
 import { logger } from '@utils/logger';
-import { type BroadcastProjector, wireBroadcastToSink } from './bridge';
+import { wireBroadcastToSink } from './bridge';
 import { InMemoryBroadcast } from './broadcast';
 import {
-  createExtensionWorkspaceCache,
-  type ExtensionWorkspaceCache,
-  setActiveExtensionWorkspaceCache,
-} from './extension-workspace-cache';
-import {
-  projectExtensionWorkspacePostState,
-  projectExtensionWorkspaceSingleton,
-} from './extension-workspace-post-state';
+  attachCaches,
+  buildProjectorPipeline,
+  detachCaches,
+  type EntityCacheLike,
+  EXTENSION_WORKSPACE_REGISTRATION,
+  GLOBAL_REGISTRY,
+  singletonSnapshot,
+} from './entity-registry';
 import { IdbMutationLog } from './idb-mutation-log';
 import { IdbPendingIntents } from './idb-pending-intents';
 import { ruleOracleLockAcquirer } from './lock-adapter';
@@ -60,7 +55,7 @@ import { createSwContextHandle, type SwContextHandle } from './sw-context';
 interface GlobalServiceState {
   oracle: EntityOracle;
   broadcast: InMemoryBroadcast;
-  cache: ExtensionWorkspaceCache;
+  caches: EntityCacheLike[];
   context: SwContextHandle;
   unsubscribeBroadcast: () => void;
 }
@@ -76,52 +71,15 @@ let state: GlobalServiceState | null = null;
  */
 export function initGlobalSyncService(): void {
   if (state) return;
-
-  const log = new IdbMutationLog(EXTENSION_WORKSPACE_GLOBAL_SCOPE);
-  const intents = new IdbPendingIntents(EXTENSION_WORKSPACE_GLOBAL_SCOPE);
-  const broadcast = new InMemoryBroadcast();
-  const context = createSwContextHandle(EXTENSION_WORKSPACE_GLOBAL_SCOPE);
-
-  const oracle = new EntityOracle({
-    workspaceId: EXTENSION_WORKSPACE_GLOBAL_SCOPE,
+  state = wire({
+    log: new IdbMutationLog(EXTENSION_WORKSPACE_GLOBAL_SCOPE),
+    intents: new IdbPendingIntents(EXTENSION_WORKSPACE_GLOBAL_SCOPE),
     lock: ruleOracleLockAcquirer,
-    log,
-    intents,
-    broadcast,
+    sink: (event) => bridgeBroadcast('syncBroadcast', event),
   });
-
-  const cache = createExtensionWorkspaceCache(
-    EXTENSION_WORKSPACE_GLOBAL_SCOPE,
-    oracle,
-    broadcast,
-    () => context.next(),
-  );
-  setActiveExtensionWorkspaceCache(cache);
-
-  const projector: BroadcastProjector = (envelope) => {
-    const extensionWorkspacePostState = projectExtensionWorkspacePostState(oracle, envelope);
-    return extensionWorkspacePostState ? { extensionWorkspacePostState } : null;
-  };
-
-  const unsubscribeBroadcast = wireBroadcastToSink(
-    broadcast,
-    (event: SyncBroadcastEvent) => {
-      bridgeBroadcast('syncBroadcast', {
-        envelope: event.envelope,
-        outcome: event.outcome,
-        batchId: event.batchId,
-        ...(event.extensionWorkspacePostState
-          ? { extensionWorkspacePostState: event.extensionWorkspacePostState }
-          : {}),
-      });
-    },
-    projector,
-  );
-
-  state = { oracle, broadcast, cache, context, unsubscribeBroadcast };
   logger.info(
     'GlobalSyncService',
-    `Initialized (entity=${EXTENSION_WORKSPACE_ENTITY_TYPE}, nodeId=${context.nodeId})`,
+    `Initialized (entity=${EXTENSION_WORKSPACE_ENTITY_TYPE}, nodeId=${state.context.nodeId})`,
   );
 }
 
@@ -129,8 +87,7 @@ export function initGlobalSyncService(): void {
 export function disposeGlobal(): void {
   if (!state) return;
   state.unsubscribeBroadcast();
-  state.cache.dispose();
-  setActiveExtensionWorkspaceCache(null);
+  detachCaches(GLOBAL_REGISTRY, state.caches);
   logger.info('GlobalSyncService', 'Disposed');
   state = null;
 }
@@ -162,53 +119,61 @@ export function nextGlobalSwContext(opts?: Parameters<SwContextHandle['next']>[0
  * broadcast-only seeding.
  */
 export function snapshotExtensionWorkspacePostStates(): SyncExtensionWorkspacePostState[] {
-  if (!state) return [];
-  const projection = projectExtensionWorkspaceSingleton(state.oracle);
-  return projection ? [projection] : [];
+  return state ? singletonSnapshot(state.oracle, EXTENSION_WORKSPACE_REGISTRATION) : [];
 }
 
-// ── test helpers ───────────────────────────────────────────────────
+// ── Test helpers ───────────────────────────────────────────────────
 
-/**
- * Test-only init helper — swaps the IDB-backed log + intents for the
- * in-memory references and reuses a sequential lock so unit tests
- * don't need fake-indexeddb. Mirrors `service.__initSyncServiceForTests`.
- */
 export interface GlobalSyncTestDeps {
   log?: MutationLog;
   intents?: PendingIntents;
   lock?: LockAcquirer;
 }
 
+/**
+ * Test-only init — swaps the IDB-backed log + intents for the
+ * in-memory references and reuses a sequential lock so unit tests
+ * don't need fake-indexeddb. Mirrors `service.__initSyncServiceForTests`.
+ */
 export function __initGlobalSyncServiceForTests(deps: GlobalSyncTestDeps = {}): void {
   if (state) disposeGlobal();
+  state = wire({
+    log: deps.log ?? new InMemoryMutationLog(),
+    intents: deps.intents ?? new InMemoryPendingIntents(),
+    lock: deps.lock ?? ((_ws, _type, _id, fn) => fn()),
+    // Tests don't drive chrome.runtime; the in-memory broadcast +
+    // cache subscription cover the SW-side observable surface.
+    sink: () => {},
+  });
+}
+
+// ── Internals ───────────────────────────────────────────────────────
+
+interface WireDeps {
+  log: MutationLog;
+  intents: PendingIntents;
+  lock: LockAcquirer;
+  sink: (event: import('@openheaders/core/protocol').SyncBroadcastEvent) => void;
+}
+
+function wire(deps: WireDeps): GlobalServiceState {
   const broadcast = new InMemoryBroadcast();
   const context = createSwContextHandle(EXTENSION_WORKSPACE_GLOBAL_SCOPE);
   const oracle = new EntityOracle({
     workspaceId: EXTENSION_WORKSPACE_GLOBAL_SCOPE,
-    lock: deps.lock ?? ((_ws, _type, _id, fn) => fn()),
-    log: deps.log ?? new InMemoryMutationLog(),
-    intents: deps.intents ?? new InMemoryPendingIntents(),
+    lock: deps.lock,
+    log: deps.log,
+    intents: deps.intents,
     broadcast,
   });
-  const cache = createExtensionWorkspaceCache(
+  const caches = attachCaches(
     EXTENSION_WORKSPACE_GLOBAL_SCOPE,
     oracle,
     broadcast,
-    () => context.next(),
+    context,
+    GLOBAL_REGISTRY,
   );
-  setActiveExtensionWorkspaceCache(cache);
-  const projector: BroadcastProjector = (envelope) => {
-    const extensionWorkspacePostState = projectExtensionWorkspacePostState(oracle, envelope);
-    return extensionWorkspacePostState ? { extensionWorkspacePostState } : null;
-  };
-  const unsubscribeBroadcast = wireBroadcastToSink(
-    broadcast,
-    () => {
-      // Tests don't drive chrome.runtime; the in-memory broadcast +
-      // cache subscription cover the SW-side observable surface.
-    },
-    projector,
-  );
-  state = { oracle, broadcast, cache, context, unsubscribeBroadcast };
+  const projector = buildProjectorPipeline(oracle, GLOBAL_REGISTRY);
+  const unsubscribeBroadcast = wireBroadcastToSink(broadcast, deps.sink, projector);
+  return { oracle, broadcast, caches, context, unsubscribeBroadcast };
 }

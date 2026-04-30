@@ -1,26 +1,28 @@
 /**
  * Sync service — singleton lifecycle around {@link EntityOracle} for the
- * SW background context (Phase A foundation).
+ * SW background context.
  *
- * Responsibilities (all per-workspace):
+ * Per-workspace responsibilities:
  *   1. Construct the {@link EntityOracle} with production-wired
  *      dependencies — IDB-backed mutation log + pending intents, the
  *      lock adapter that reuses the existing per-entity Web Lock, and
  *      an in-memory broadcast bus.
  *   2. Mint an SW-side HLC sequencer + `MutatorContext` factory
- *      ({@link sw-context.ts}) — every mutation emitted from the
- *      background context (boot-time hydration, SW-internal write
- *      paths) carries a context built from this factory.
- *   3. Construct the per-workspace {@link RuleCache} ({@link rule-cache.ts}),
- *      register it as the active cache so `rule-store.ts` reads route
- *      to it, and wire its broadcast subscription against the oracle's
- *      bus so every committed envelope re-projects + persists.
- *   4. Pipe oracle broadcasts onto the `chrome.runtime` `syncBroadcast`
- *      channel so renderer surfaces can ack + replay.
+ *      ({@link sw-context.ts}); SW-internal write paths (boot
+ *      hydration, alarm dispatch) emit through this factory.
+ *   3. Construct one cache per entity registered in
+ *      {@link WORKSPACE_REGISTRY} and register it as the per-entity
+ *      active singleton so legacy reads (`getActiveXCache`) route to
+ *      it.
+ *   4. Wire the oracle's broadcast bus to a single composed projector
+ *      derived from the registry, then onto the chrome.runtime
+ *      `syncBroadcast` channel so renderer surfaces can ack + replay.
+ *   5. Run the DNR coalescer + resolver-invalidate runners against
+ *      the same broadcast bus.
  *
- * Workspace switch: {@link reinitForWorkspace} disposes the current
- * cache (drops the broadcast subscription, clears active-cache
- * pointer), then re-runs init for the new workspace. The IDB stores
+ * Workspace switch: {@link reinitForWorkspace} disposes the active
+ * service (drops every subscription, clears each per-entity active
+ * singleton), then re-runs init for the new workspace. The IDB stores
  * are workspace-prefixed at the PK level so they can stay shared
  * across workspaces — only the in-memory state belongs to one
  * workspace at a time.
@@ -32,7 +34,6 @@ import type {
   AwarenessState,
   SyncApplyRequest,
   SyncApplyResponse,
-  SyncBroadcastEvent,
   SyncCollectionPostState,
   SyncEnvironmentPostState,
   SyncFilesPostState,
@@ -47,27 +48,19 @@ import type {
   SyncRequestPostState,
   SyncRulePostState,
   SyncTemplateCollectionPostState,
-  SyncTemplateFolderPostState,
   SyncTemplatePostState,
+  SyncTemplateFolderPostState,
   SyncVaultPostState,
   SyncWorkspaceVariablesPostState,
 } from '@openheaders/core/protocol';
 import {
   COLLECTION_ENTITY_TYPE,
   ENVIRONMENT_ENTITY_TYPE,
-  FILES_ENTITY_TYPE,
-  FOLDER_ENTITY_TYPE,
   LIVE_VARIABLE_ENTITY_TYPE,
   LIVE_WORKFLOW_ENTITY_TYPE,
   OAUTH_BUNDLE_ENTITY_TYPE,
   PAUSE_MARKERS_ENTITY_TYPE,
-  REQUEST_COLLECTION_ENTITY_TYPE,
-  REQUEST_ENTITY_TYPE,
-  REQUEST_FOLDER_ENTITY_TYPE,
   RULE_ENTITY_TYPE,
-  TEMPLATE_COLLECTION_ENTITY_TYPE,
-  TEMPLATE_ENTITY_TYPE,
-  TEMPLATE_FOLDER_ENTITY_TYPE,
   VAULT_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ENTITY_TYPE,
 } from '@openheaders/core/sync';
@@ -76,84 +69,39 @@ import { logger } from '@utils/logger';
 import { scheduleUpdate } from '@/background/modules/rule-engine';
 import { type AwarenessStore, createAwarenessStore } from './awareness';
 import { handleAwarenessPublish } from './awareness-bridge';
-import { type BroadcastProjector, composeProjectors, handleSyncApply, wireBroadcastToSink } from './bridge';
-import {
-  type CollectionCache,
-  createCollectionCache,
-  setActiveCollectionCache,
-} from './collection-cache';
-import { projectCollectionByUid, projectCollectionPostState } from './collection-post-state';
+import { handleSyncApply, wireBroadcastToSink } from './bridge';
 import { createDnrIntentRunner, type DnrIntentRunner } from './dnr-intent-runner';
-import { projectEnvironmentByUid, projectEnvironmentPostState } from './env-post-state';
 import {
-  createFilesCache,
-  type FilesCache,
-  setActiveFilesCache,
-} from './files-cache';
-import { projectFilesPostState, projectFilesSingleton } from './files-post-state';
-import { createFolderCache, type FolderCache, setActiveFolderCache } from './folder-cache';
-import { projectFolderByUid, projectFolderPostState } from './folder-post-state';
-import {
-  createLayoutStateCache,
-  type LayoutStateCache,
-  setActiveLayoutStateCache,
-} from './layout-state-cache';
-import { projectLayoutStatePostState, projectLayoutStateSingleton } from './layout-state-post-state';
-import {
-  createLiveVariableCache,
-  type LiveVariableCache,
-  setActiveLiveVariableCache,
-} from './live-variable-cache';
-import { projectLiveVariableByUid, projectLiveVariablePostState } from './live-variable-post-state';
-import {
-  createLiveWorkflowCache,
-  type LiveWorkflowCache,
-  setActiveLiveWorkflowCache,
-} from './live-workflow-cache';
-import { projectLiveWorkflowByUid, projectLiveWorkflowPostState } from './live-workflow-post-state';
-import {
-  createOAuthBundleCache,
-  type OAuthBundleCache,
-  setActiveOAuthBundleCache,
-} from './oauth-bundle-cache';
-import {
-  projectOAuthBundlePostState,
-  projectOAuthBundleSingleton,
-} from './oauth-bundle-post-state';
-import {
-  createPauseMarkersCache,
-  type PauseMarkersCache,
-  setActivePauseMarkersCache,
-} from './pause-markers-cache';
-import {
-  projectPauseMarkersPostState,
-  projectPauseMarkersSingleton,
-} from './pause-markers-post-state';
-import {
-  createEnvironmentCache,
-  type EnvironmentCache,
-  setActiveEnvironmentCache,
-} from './environment-cache';
+  attachCaches,
+  buildProjectorPipeline,
+  COLLECTION_REGISTRATION,
+  detachCaches,
+  type EntityCacheLike,
+  ENVIRONMENT_REGISTRATION,
+  FILES_REGISTRATION,
+  flatSnapshot,
+  FOLDER_REGISTRATION,
+  LAYOUT_STATE_REGISTRATION,
+  LIVE_VARIABLE_REGISTRATION,
+  LIVE_WORKFLOW_REGISTRATION,
+  OAUTH_BUNDLE_REGISTRATION,
+  PAUSE_MARKERS_REGISTRATION,
+  REQUEST_COLLECTION_REGISTRATION,
+  REQUEST_FOLDER_REGISTRATION,
+  REQUEST_REGISTRATION,
+  RULE_REGISTRATION,
+  singletonSnapshot,
+  TEMPLATE_COLLECTION_REGISTRATION,
+  TEMPLATE_FOLDER_REGISTRATION,
+  TEMPLATE_REGISTRATION,
+  VAULT_REGISTRATION,
+  WORKSPACE_REGISTRY,
+  WORKSPACE_VARIABLES_REGISTRATION,
+} from './entity-registry';
 import {
   createResolverInvalidateRunner,
   type ResolverInvalidateRunner,
 } from './resolver-invalidate-runner';
-import { projectRuleByUid, projectRulePostState } from './rule-post-state';
-import {
-  createVaultCache,
-  setActiveVaultCache,
-  type VaultCache,
-} from './vault-cache';
-import { projectVaultPostState, projectVaultSingleton } from './vault-post-state';
-import {
-  createWorkspaceVariablesCache,
-  setActiveWorkspaceVariablesCache,
-  type WorkspaceVariablesCache,
-} from './workspace-variables-cache';
-import {
-  projectWorkspaceVariablesPostState,
-  projectWorkspaceVariablesSingleton,
-} from './workspace-variables-post-state';
 import { InMemoryBroadcast } from './broadcast';
 import { IdbMutationLog } from './idb-mutation-log';
 import { IdbPendingIntents } from './idb-pending-intents';
@@ -161,75 +109,13 @@ import { ruleOracleLockAcquirer } from './lock-adapter';
 import { InMemoryMutationLog, type MutationLog } from './mutation-log';
 import { type LockAcquirer, EntityOracle } from './oracle';
 import { InMemoryPendingIntents, type PendingIntents } from './pending-intents';
-import { createRequestCache, type RequestCache, setActiveRequestCache } from './request-cache';
-import {
-  createRequestCollectionCache,
-  type RequestCollectionCache,
-  setActiveRequestCollectionCache,
-} from './request-collection-cache';
-import {
-  projectRequestCollectionByUid,
-  projectRequestCollectionPostState,
-} from './request-collection-post-state';
-import {
-  createRequestFolderCache,
-  type RequestFolderCache,
-  setActiveRequestFolderCache,
-} from './request-folder-cache';
-import {
-  projectRequestFolderByUid,
-  projectRequestFolderPostState,
-} from './request-folder-post-state';
-import { projectRequestByUid, projectRequestPostState } from './request-post-state';
-import { createRuleCache, type RuleCache, setActiveRuleCache } from './rule-cache';
 import { createSwContextHandle, type SwContextHandle } from './sw-context';
-import {
-  createTemplateCache,
-  setActiveTemplateCache,
-  type TemplateCache,
-} from './template-cache';
-import {
-  createTemplateCollectionCache,
-  setActiveTemplateCollectionCache,
-  type TemplateCollectionCache,
-} from './template-collection-cache';
-import {
-  projectTemplateCollectionByUid,
-  projectTemplateCollectionPostState,
-} from './template-collection-post-state';
-import {
-  createTemplateFolderCache,
-  setActiveTemplateFolderCache,
-  type TemplateFolderCache,
-} from './template-folder-cache';
-import {
-  projectTemplateFolderByUid,
-  projectTemplateFolderPostState,
-} from './template-folder-post-state';
-import { projectTemplateByUid, projectTemplatePostState } from './template-post-state';
 
 interface ServiceState {
   workspaceId: string;
   oracle: EntityOracle;
   broadcast: InMemoryBroadcast;
-  ruleCache: RuleCache;
-  envCache: EnvironmentCache;
-  collectionCache: CollectionCache;
-  folderCache: FolderCache;
-  workspaceVariablesCache: WorkspaceVariablesCache;
-  vaultCache: VaultCache;
-  requestCache: RequestCache;
-  requestCollectionCache: RequestCollectionCache;
-  requestFolderCache: RequestFolderCache;
-  templateCache: TemplateCache;
-  templateCollectionCache: TemplateCollectionCache;
-  templateFolderCache: TemplateFolderCache;
-  liveVariableCache: LiveVariableCache;
-  liveWorkflowCache: LiveWorkflowCache;
-  oauthBundleCache: OAuthBundleCache;
-  pauseMarkersCache: PauseMarkersCache;
-  layoutStateCache: LayoutStateCache;
-  filesCache: FilesCache;
+  caches: EntityCacheLike[];
   context: SwContextHandle;
   awareness: AwarenessStore;
   dnrRunner: DnrIntentRunner;
@@ -252,339 +138,18 @@ export function initSyncService(workspaceId: string): void {
 
   const log = new IdbMutationLog(workspaceId);
   const intents = new IdbPendingIntents(workspaceId);
-  const broadcast = new InMemoryBroadcast();
-  const context = createSwContextHandle(workspaceId);
-
-  const oracle = new EntityOracle({
+  state = wire({
     workspaceId,
-    lock: ruleOracleLockAcquirer,
     log,
     intents,
-    broadcast,
-  });
-
-  const ruleCache = createRuleCache(workspaceId, oracle, broadcast, () => context.next());
-  setActiveRuleCache(ruleCache);
-
-  const envCache = createEnvironmentCache(workspaceId, oracle, broadcast, () => context.next());
-  setActiveEnvironmentCache(envCache);
-
-  const collectionCache = createCollectionCache(workspaceId, oracle, broadcast, () => context.next());
-  setActiveCollectionCache(collectionCache);
-
-  const folderCache = createFolderCache(workspaceId, oracle, broadcast, () => context.next());
-  setActiveFolderCache(folderCache);
-
-  const workspaceVariablesCache = createWorkspaceVariablesCache(
-    workspaceId,
-    oracle,
-    broadcast,
-    () => context.next(),
-  );
-  setActiveWorkspaceVariablesCache(workspaceVariablesCache);
-
-  const vaultCache = createVaultCache(workspaceId, oracle, broadcast, () => context.next());
-  setActiveVaultCache(vaultCache);
-
-  const requestCache = createRequestCache(workspaceId, oracle, broadcast, () => context.next());
-  setActiveRequestCache(requestCache);
-
-  const requestCollectionCache = createRequestCollectionCache(
-    workspaceId,
-    oracle,
-    broadcast,
-    () => context.next(),
-  );
-  setActiveRequestCollectionCache(requestCollectionCache);
-
-  const requestFolderCache = createRequestFolderCache(
-    workspaceId,
-    oracle,
-    broadcast,
-    () => context.next(),
-  );
-  setActiveRequestFolderCache(requestFolderCache);
-
-  const templateCache = createTemplateCache(workspaceId, oracle, broadcast, () => context.next());
-  setActiveTemplateCache(templateCache);
-
-  const templateCollectionCache = createTemplateCollectionCache(
-    workspaceId,
-    oracle,
-    broadcast,
-    () => context.next(),
-  );
-  setActiveTemplateCollectionCache(templateCollectionCache);
-
-  const templateFolderCache = createTemplateFolderCache(
-    workspaceId,
-    oracle,
-    broadcast,
-    () => context.next(),
-  );
-  setActiveTemplateFolderCache(templateFolderCache);
-
-  const liveVariableCache = createLiveVariableCache(
-    workspaceId,
-    oracle,
-    broadcast,
-    () => context.next(),
-  );
-  setActiveLiveVariableCache(liveVariableCache);
-
-  const liveWorkflowCache = createLiveWorkflowCache(
-    workspaceId,
-    oracle,
-    broadcast,
-    () => context.next(),
-  );
-  setActiveLiveWorkflowCache(liveWorkflowCache);
-
-  const oauthBundleCache = createOAuthBundleCache(
-    workspaceId,
-    oracle,
-    broadcast,
-    () => context.next(),
-  );
-  setActiveOAuthBundleCache(oauthBundleCache);
-
-  const pauseMarkersCache = createPauseMarkersCache(
-    workspaceId,
-    oracle,
-    broadcast,
-    () => context.next(),
-  );
-  setActivePauseMarkersCache(pauseMarkersCache);
-
-  const layoutStateCache = createLayoutStateCache(
-    workspaceId,
-    oracle,
-    broadcast,
-    () => context.next(),
-  );
-  setActiveLayoutStateCache(layoutStateCache);
-
-  const filesCache = createFilesCache(workspaceId, oracle, broadcast, () => context.next());
-  setActiveFilesCache(filesCache);
-
-  // DNR intent runner — subscribes AFTER the rule + pause-markers
-  // caches so by the time the runner asks rule-engine to recompile,
-  // the relevant mirror already reflects post-commit state.
-  const dnrRunner = createDnrIntentRunner({
-    broadcast,
-    intents,
-    entityTypes: new Set([RULE_ENTITY_TYPE, PAUSE_MARKERS_ENTITY_TYPE]),
+    lock: ruleOracleLockAcquirer,
     recompile: (reason) => scheduleUpdate(reason, { immediate: false }),
+    sink: (event) => bridgeBroadcast('syncBroadcast', event),
+    awarenessSink: (presence) => bridgeBroadcast('awarenessBroadcast', { workspaceId, presence }),
   });
-
-  // Resolver-invalidation runner — fires on any variable-scope envelope
-  // (env, collection; workspace + vault join in later sessions).
-  // Subscribes AFTER the entity caches so the recompile sees post-commit
-  // state via `syncResolverFromStores`.
-  const resolverInvalidateRunner = createResolverInvalidateRunner({
-    broadcast,
-    intents,
-    entityTypes: new Set([
-      ENVIRONMENT_ENTITY_TYPE,
-      COLLECTION_ENTITY_TYPE,
-      WORKSPACE_VARIABLES_ENTITY_TYPE,
-      VAULT_ENTITY_TYPE,
-      LIVE_VARIABLE_ENTITY_TYPE,
-      LIVE_WORKFLOW_ENTITY_TYPE,
-    ]),
-    recompile: (reason) => scheduleUpdate(reason, { immediate: false }),
-  });
-
-  const awareness = createAwarenessStore({
-    workspaceId,
-    emit: (presence) => {
-      bridgeBroadcast('awarenessBroadcast', { workspaceId, presence });
-    },
-    // Vault + OAuth bundles are §12.1 schema-marked sensitive — entity-level
-    // awareness only; per-secret-name / per-credentialRef presence would
-    // leak the secret namespace and access patterns (§14.4).
-    sensitiveEntityTypes: new Set<string>([VAULT_ENTITY_TYPE, OAUTH_BUNDLE_ENTITY_TYPE]),
-  });
-
-  // Re-publish every committed `(envelope, outcome)` to subscribed
-  // surfaces via the existing chrome.runtime broadcast bus. The
-  // per-entity projectors read post-commit state so renderer mirrors
-  // stay in lockstep with the oracle without round-tripping; new
-  // entity types extend the registry by registering their own
-  // projector here.
-  const ruleProjector: BroadcastProjector = (envelope) => {
-    const rulePostState = projectRulePostState(oracle, envelope);
-    return rulePostState ? { rulePostState } : null;
-  };
-  const envProjector: BroadcastProjector = (envelope) => {
-    const environmentPostState = projectEnvironmentPostState(oracle, envelope);
-    return environmentPostState ? { environmentPostState } : null;
-  };
-  const collectionProjector: BroadcastProjector = (envelope) => {
-    const collectionPostState = projectCollectionPostState(oracle, envelope);
-    return collectionPostState ? { collectionPostState } : null;
-  };
-  const workspaceVariablesProjector: BroadcastProjector = (envelope) => {
-    const workspaceVariablesPostState = projectWorkspaceVariablesPostState(oracle, envelope);
-    return workspaceVariablesPostState ? { workspaceVariablesPostState } : null;
-  };
-  const vaultProjector: BroadcastProjector = (envelope) => {
-    const vaultPostState = projectVaultPostState(oracle, envelope);
-    return vaultPostState ? { vaultPostState } : null;
-  };
-  const folderProjector: BroadcastProjector = (envelope) => {
-    const folderPostState = projectFolderPostState(oracle, envelope);
-    return folderPostState ? { folderPostState } : null;
-  };
-  const requestProjector: BroadcastProjector = (envelope) => {
-    const requestPostState = projectRequestPostState(oracle, envelope);
-    return requestPostState ? { requestPostState } : null;
-  };
-  const requestCollectionProjector: BroadcastProjector = (envelope) => {
-    const requestCollectionPostState = projectRequestCollectionPostState(oracle, envelope);
-    return requestCollectionPostState ? { requestCollectionPostState } : null;
-  };
-  const requestFolderProjector: BroadcastProjector = (envelope) => {
-    const requestFolderPostState = projectRequestFolderPostState(oracle, envelope);
-    return requestFolderPostState ? { requestFolderPostState } : null;
-  };
-  const templateProjector: BroadcastProjector = (envelope) => {
-    const templatePostState = projectTemplatePostState(oracle, envelope);
-    return templatePostState ? { templatePostState } : null;
-  };
-  const templateCollectionProjector: BroadcastProjector = (envelope) => {
-    const templateCollectionPostState = projectTemplateCollectionPostState(oracle, envelope);
-    return templateCollectionPostState ? { templateCollectionPostState } : null;
-  };
-  const templateFolderProjector: BroadcastProjector = (envelope) => {
-    const templateFolderPostState = projectTemplateFolderPostState(oracle, envelope);
-    return templateFolderPostState ? { templateFolderPostState } : null;
-  };
-  const liveVariableProjector: BroadcastProjector = (envelope) => {
-    const liveVariablePostState = projectLiveVariablePostState(oracle, envelope);
-    return liveVariablePostState ? { liveVariablePostState } : null;
-  };
-  const liveWorkflowProjector: BroadcastProjector = (envelope) => {
-    const liveWorkflowPostState = projectLiveWorkflowPostState(oracle, envelope);
-    return liveWorkflowPostState ? { liveWorkflowPostState } : null;
-  };
-  const oauthBundleProjector: BroadcastProjector = (envelope) => {
-    const oauthBundlePostState = projectOAuthBundlePostState(oracle, envelope);
-    return oauthBundlePostState ? { oauthBundlePostState } : null;
-  };
-  const pauseMarkersProjector: BroadcastProjector = (envelope) => {
-    const pauseMarkersPostState = projectPauseMarkersPostState(oracle, envelope);
-    return pauseMarkersPostState ? { pauseMarkersPostState } : null;
-  };
-  const layoutStateProjector: BroadcastProjector = (envelope) => {
-    const layoutStatePostState = projectLayoutStatePostState(oracle, envelope);
-    return layoutStatePostState ? { layoutStatePostState } : null;
-  };
-  const filesProjector: BroadcastProjector = (envelope) => {
-    const filesPostState = projectFilesPostState(oracle, envelope);
-    return filesPostState ? { filesPostState } : null;
-  };
-  const projector = composeProjectors(
-    ruleProjector,
-    envProjector,
-    collectionProjector,
-    workspaceVariablesProjector,
-    vaultProjector,
-    folderProjector,
-    requestProjector,
-    requestCollectionProjector,
-    requestFolderProjector,
-    templateProjector,
-    templateCollectionProjector,
-    templateFolderProjector,
-    liveVariableProjector,
-    liveWorkflowProjector,
-    oauthBundleProjector,
-    pauseMarkersProjector,
-    layoutStateProjector,
-    filesProjector,
-  );
-  const unsubscribeBroadcast = wireBroadcastToSink(
-    broadcast,
-    (event: SyncBroadcastEvent) => {
-      bridgeBroadcast('syncBroadcast', {
-        envelope: event.envelope,
-        outcome: event.outcome,
-        batchId: event.batchId,
-        ...(event.rulePostState ? { rulePostState: event.rulePostState } : {}),
-        ...(event.environmentPostState ? { environmentPostState: event.environmentPostState } : {}),
-        ...(event.collectionPostState ? { collectionPostState: event.collectionPostState } : {}),
-        ...(event.workspaceVariablesPostState
-          ? { workspaceVariablesPostState: event.workspaceVariablesPostState }
-          : {}),
-        ...(event.vaultPostState ? { vaultPostState: event.vaultPostState } : {}),
-        ...(event.folderPostState ? { folderPostState: event.folderPostState } : {}),
-        ...(event.requestPostState ? { requestPostState: event.requestPostState } : {}),
-        ...(event.requestCollectionPostState
-          ? { requestCollectionPostState: event.requestCollectionPostState }
-          : {}),
-        ...(event.requestFolderPostState
-          ? { requestFolderPostState: event.requestFolderPostState }
-          : {}),
-        ...(event.templatePostState ? { templatePostState: event.templatePostState } : {}),
-        ...(event.templateCollectionPostState
-          ? { templateCollectionPostState: event.templateCollectionPostState }
-          : {}),
-        ...(event.templateFolderPostState
-          ? { templateFolderPostState: event.templateFolderPostState }
-          : {}),
-        ...(event.liveVariablePostState
-          ? { liveVariablePostState: event.liveVariablePostState }
-          : {}),
-        ...(event.liveWorkflowPostState
-          ? { liveWorkflowPostState: event.liveWorkflowPostState }
-          : {}),
-        ...(event.oauthBundlePostState
-          ? { oauthBundlePostState: event.oauthBundlePostState }
-          : {}),
-        ...(event.pauseMarkersPostState
-          ? { pauseMarkersPostState: event.pauseMarkersPostState }
-          : {}),
-        ...(event.layoutStatePostState
-          ? { layoutStatePostState: event.layoutStatePostState }
-          : {}),
-        ...(event.filesPostState ? { filesPostState: event.filesPostState } : {}),
-      });
-    },
-    projector,
-  );
-
-  state = {
-    workspaceId,
-    oracle,
-    broadcast,
-    ruleCache,
-    envCache,
-    collectionCache,
-    folderCache,
-    workspaceVariablesCache,
-    vaultCache,
-    requestCache,
-    requestCollectionCache,
-    requestFolderCache,
-    templateCache,
-    templateCollectionCache,
-    templateFolderCache,
-    liveVariableCache,
-    liveWorkflowCache,
-    oauthBundleCache,
-    pauseMarkersCache,
-    layoutStateCache,
-    filesCache,
-    context,
-    awareness,
-    dnrRunner,
-    resolverInvalidateRunner,
-    unsubscribeBroadcast,
-  };
   logger.info(
     'SyncService',
-    `Initialized for workspace ${workspaceId} (entity=${RULE_ENTITY_TYPE}, nodeId=${context.nodeId})`,
+    `Initialized for workspace ${workspaceId} (entity=${RULE_ENTITY_TYPE}, nodeId=${state.context.nodeId})`,
   );
 }
 
@@ -594,43 +159,8 @@ export function dispose(): void {
   state.unsubscribeBroadcast();
   state.dnrRunner.dispose();
   state.resolverInvalidateRunner.dispose();
-  state.ruleCache.dispose();
-  state.envCache.dispose();
-  state.collectionCache.dispose();
-  state.folderCache.dispose();
-  state.workspaceVariablesCache.dispose();
-  state.vaultCache.dispose();
-  state.requestCache.dispose();
-  state.requestCollectionCache.dispose();
-  state.requestFolderCache.dispose();
-  state.templateCache.dispose();
-  state.templateCollectionCache.dispose();
-  state.templateFolderCache.dispose();
-  state.liveVariableCache.dispose();
-  state.liveWorkflowCache.dispose();
-  state.oauthBundleCache.dispose();
-  state.pauseMarkersCache.dispose();
-  state.layoutStateCache.dispose();
-  state.filesCache.dispose();
+  detachCaches(WORKSPACE_REGISTRY, state.caches);
   state.awareness.dispose();
-  setActiveRuleCache(null);
-  setActiveEnvironmentCache(null);
-  setActiveCollectionCache(null);
-  setActiveFolderCache(null);
-  setActiveWorkspaceVariablesCache(null);
-  setActiveVaultCache(null);
-  setActiveRequestCache(null);
-  setActiveRequestCollectionCache(null);
-  setActiveRequestFolderCache(null);
-  setActiveTemplateCache(null);
-  setActiveTemplateCollectionCache(null);
-  setActiveTemplateFolderCache(null);
-  setActiveLiveVariableCache(null);
-  setActiveLiveWorkflowCache(null);
-  setActiveOAuthBundleCache(null);
-  setActivePauseMarkersCache(null);
-  setActiveLayoutStateCache(null);
-  setActiveFilesCache(null);
   logger.info('SyncService', `Disposed (workspace ${state.workspaceId})`);
   state = null;
 }
@@ -667,293 +197,83 @@ export function getOracleForCurrentWorkspace(): EntityOracle | null {
   return state?.oracle ?? null;
 }
 
-/**
- * Snapshot every Rule the active oracle holds — `(rule, setItemIds)`
- * per uid, the same shape `BroadcastProjector` attaches to live
- * envelopes. Renderer surfaces call this on mount via the
- * `oh.sync.snapshotRules` RPC so their local mirror has a starting
- * view before the next broadcast arrives. Returns `{ entries: [] }`
- * when the service isn't initialized — the renderer treats that as
- * "no snapshot yet" and falls back to broadcast-only seeding.
- */
+// ── Snapshot exports — consumed by `oh.sync.snapshotX` RPC handlers ──
+//
+// Each export returns the materialized post-state for the entity it
+// names; renderer mirrors call these on mount before subscribing to
+// the live broadcast. Returns `[]` when the service isn't initialized
+// (cold-wake race) — the renderer falls back to broadcast-only seeding.
+
 export function snapshotRulePostStates(): SyncRulePostState[] {
-  if (!state) return [];
-  const oracle = state.oracle;
-  const out: SyncRulePostState[] = [];
-  for (const materialized of oracle.materializeAll()) {
-    if (materialized.type !== RULE_ENTITY_TYPE) continue;
-    const projection = projectRuleByUid(oracle, materialized.id);
-    if (projection) out.push(projection);
-  }
-  return out;
+  return state ? flatSnapshot(state.oracle, RULE_REGISTRATION) : [];
 }
 
-/**
- * Snapshot every Environment the active oracle holds. Same shape the
- * `BroadcastProjector` attaches to live envelopes; consumed by the
- * `oh.sync.snapshotEnvironments` RPC for renderer mirror bootstrap.
- * Returns `[]` when the service isn't initialized.
- */
 export function snapshotEnvironmentPostStates(): SyncEnvironmentPostState[] {
-  if (!state) return [];
-  const oracle = state.oracle;
-  const out: SyncEnvironmentPostState[] = [];
-  for (const materialized of oracle.materializeAll()) {
-    if (materialized.type !== ENVIRONMENT_ENTITY_TYPE) continue;
-    const projection = projectEnvironmentByUid(oracle, materialized.id);
-    if (projection) out.push(projection);
-  }
-  return out;
+  return state ? flatSnapshot(state.oracle, ENVIRONMENT_REGISTRATION) : [];
 }
 
-/**
- * Snapshot every Collection the active oracle holds. Same shape the
- * `BroadcastProjector` attaches to live envelopes; consumed by the
- * `oh.sync.snapshotCollections` RPC for renderer mirror bootstrap.
- */
 export function snapshotCollectionPostStates(): SyncCollectionPostState[] {
-  if (!state) return [];
-  const oracle = state.oracle;
-  const out: SyncCollectionPostState[] = [];
-  for (const materialized of oracle.materializeAll()) {
-    if (materialized.type !== COLLECTION_ENTITY_TYPE) continue;
-    const projection = projectCollectionByUid(oracle, materialized.id);
-    if (projection) out.push(projection);
-  }
-  return out;
+  return state ? flatSnapshot(state.oracle, COLLECTION_REGISTRATION) : [];
 }
 
-/**
- * Snapshot the singleton workspace-variables record. Same shape the
- * `BroadcastProjector` attaches to live envelopes; consumed by the
- * `oh.sync.snapshotWorkspaceVariables` RPC for renderer mirror
- * bootstrap. Returns `[]` when the service isn't initialized or the
- * singleton hasn't been seeded yet.
- */
 export function snapshotWorkspaceVariablesPostStates(): SyncWorkspaceVariablesPostState[] {
-  if (!state) return [];
-  const projection = projectWorkspaceVariablesSingleton(state.oracle);
-  return projection ? [projection] : [];
+  return state ? singletonSnapshot(state.oracle, WORKSPACE_VARIABLES_REGISTRATION) : [];
 }
 
-/**
- * Snapshot the singleton vault record. Same shape the
- * `BroadcastProjector` attaches to live envelopes; consumed by the
- * `oh.sync.snapshotVault` RPC for renderer mirror bootstrap. Returns
- * `[]` when the service isn't initialized or the singleton hasn't been
- * seeded yet. Local-only by §12.3 — never crosses any sync transport.
- */
 export function snapshotVaultPostStates(): SyncVaultPostState[] {
-  if (!state) return [];
-  const projection = projectVaultSingleton(state.oracle);
-  return projection ? [projection] : [];
+  return state ? singletonSnapshot(state.oracle, VAULT_REGISTRATION) : [];
 }
 
-/**
- * Snapshot every Folder the active oracle holds — `(folder)` per uid,
- * the same shape `BroadcastProjector` attaches to live envelopes.
- * Renderer surfaces call this on mount via the `oh.sync.snapshotFolders`
- * RPC. Folders whose parent linkage isn't currently resolvable are
- * skipped — the next folder/parent broadcast republishes them.
- */
 export function snapshotFolderPostStates(): SyncFolderPostState[] {
-  if (!state) return [];
-  const oracle = state.oracle;
-  const out: SyncFolderPostState[] = [];
-  for (const materialized of oracle.materializeAll()) {
-    if (materialized.type !== FOLDER_ENTITY_TYPE) continue;
-    const projection = projectFolderByUid(oracle, materialized.id);
-    if (projection) out.push(projection);
-  }
-  return out;
+  return state ? flatSnapshot(state.oracle, FOLDER_REGISTRATION) : [];
 }
 
-/**
- * Snapshot every Request the active oracle holds — `(request, setItemIds)`
- * per uid, the same shape `BroadcastProjector` attaches to live
- * envelopes. Renderer surfaces call this on mount via the
- * `oh.sync.snapshotRequests` RPC.
- */
 export function snapshotRequestPostStates(): SyncRequestPostState[] {
-  if (!state) return [];
-  const oracle = state.oracle;
-  const out: SyncRequestPostState[] = [];
-  for (const materialized of oracle.materializeAll()) {
-    if (materialized.type !== REQUEST_ENTITY_TYPE) continue;
-    const projection = projectRequestByUid(oracle, materialized.id);
-    if (projection) out.push(projection);
-  }
-  return out;
+  return state ? flatSnapshot(state.oracle, REQUEST_REGISTRATION) : [];
 }
 
-/**
- * Snapshot every request-collection the active oracle holds.
- * Consumed by the `oh.sync.snapshotRequestCollections` RPC for
- * renderer mirror bootstrap.
- */
 export function snapshotRequestCollectionPostStates(): SyncRequestCollectionPostState[] {
-  if (!state) return [];
-  const oracle = state.oracle;
-  const out: SyncRequestCollectionPostState[] = [];
-  for (const materialized of oracle.materializeAll()) {
-    if (materialized.type !== REQUEST_COLLECTION_ENTITY_TYPE) continue;
-    const projection = projectRequestCollectionByUid(oracle, materialized.id);
-    if (projection) out.push(projection);
-  }
-  return out;
+  return state ? flatSnapshot(state.oracle, REQUEST_COLLECTION_REGISTRATION) : [];
 }
 
-/**
- * Snapshot every request-folder the active oracle holds. Folders
- * whose parent linkage isn't currently resolvable are skipped — the
- * next folder/parent broadcast republishes them.
- */
 export function snapshotRequestFolderPostStates(): SyncRequestFolderPostState[] {
-  if (!state) return [];
-  const oracle = state.oracle;
-  const out: SyncRequestFolderPostState[] = [];
-  for (const materialized of oracle.materializeAll()) {
-    if (materialized.type !== REQUEST_FOLDER_ENTITY_TYPE) continue;
-    const projection = projectRequestFolderByUid(oracle, materialized.id);
-    if (projection) out.push(projection);
-  }
-  return out;
+  return state ? flatSnapshot(state.oracle, REQUEST_FOLDER_REGISTRATION) : [];
 }
 
-/**
- * Snapshot every Template the active oracle holds — `(template, setItemIds)`
- * per uid, the same shape `BroadcastProjector` attaches to live
- * envelopes. Renderer surfaces call this on mount via the
- * `oh.sync.snapshotTemplates` RPC.
- */
 export function snapshotTemplatePostStates(): SyncTemplatePostState[] {
-  if (!state) return [];
-  const oracle = state.oracle;
-  const out: SyncTemplatePostState[] = [];
-  for (const materialized of oracle.materializeAll()) {
-    if (materialized.type !== TEMPLATE_ENTITY_TYPE) continue;
-    const projection = projectTemplateByUid(oracle, materialized.id);
-    if (projection) out.push(projection);
-  }
-  return out;
+  return state ? flatSnapshot(state.oracle, TEMPLATE_REGISTRATION) : [];
 }
 
-/**
- * Snapshot every template-collection the active oracle holds.
- * Consumed by the `oh.sync.snapshotTemplateCollections` RPC for
- * renderer mirror bootstrap.
- */
 export function snapshotTemplateCollectionPostStates(): SyncTemplateCollectionPostState[] {
-  if (!state) return [];
-  const oracle = state.oracle;
-  const out: SyncTemplateCollectionPostState[] = [];
-  for (const materialized of oracle.materializeAll()) {
-    if (materialized.type !== TEMPLATE_COLLECTION_ENTITY_TYPE) continue;
-    const projection = projectTemplateCollectionByUid(oracle, materialized.id);
-    if (projection) out.push(projection);
-  }
-  return out;
+  return state ? flatSnapshot(state.oracle, TEMPLATE_COLLECTION_REGISTRATION) : [];
 }
 
-/**
- * Snapshot every template-folder the active oracle holds. Folders
- * whose parent linkage isn't currently resolvable are skipped.
- */
 export function snapshotTemplateFolderPostStates(): SyncTemplateFolderPostState[] {
-  if (!state) return [];
-  const oracle = state.oracle;
-  const out: SyncTemplateFolderPostState[] = [];
-  for (const materialized of oracle.materializeAll()) {
-    if (materialized.type !== TEMPLATE_FOLDER_ENTITY_TYPE) continue;
-    const projection = projectTemplateFolderByUid(oracle, materialized.id);
-    if (projection) out.push(projection);
-  }
-  return out;
+  return state ? flatSnapshot(state.oracle, TEMPLATE_FOLDER_REGISTRATION) : [];
 }
 
-/**
- * Snapshot every Live-Variable the active oracle holds — `(liveVariable)`
- * per uid, the same shape `BroadcastProjector` attaches to live envelopes.
- */
 export function snapshotLiveVariablePostStates(): SyncLiveVariablePostState[] {
-  if (!state) return [];
-  const oracle = state.oracle;
-  const out: SyncLiveVariablePostState[] = [];
-  for (const materialized of oracle.materializeAll()) {
-    if (materialized.type !== LIVE_VARIABLE_ENTITY_TYPE) continue;
-    const projection = projectLiveVariableByUid(oracle, materialized.id);
-    if (projection) out.push(projection);
-  }
-  return out;
+  return state ? flatSnapshot(state.oracle, LIVE_VARIABLE_REGISTRATION) : [];
 }
 
-/**
- * Snapshot every Live-Workflow the active oracle holds — `(workflow)`
- * per uid, the same shape `BroadcastProjector` attaches to live envelopes.
- */
 export function snapshotLiveWorkflowPostStates(): SyncLiveWorkflowPostState[] {
-  if (!state) return [];
-  const oracle = state.oracle;
-  const out: SyncLiveWorkflowPostState[] = [];
-  for (const materialized of oracle.materializeAll()) {
-    if (materialized.type !== LIVE_WORKFLOW_ENTITY_TYPE) continue;
-    const projection = projectLiveWorkflowByUid(oracle, materialized.id);
-    if (projection) out.push(projection);
-  }
-  return out;
+  return state ? flatSnapshot(state.oracle, LIVE_WORKFLOW_REGISTRATION) : [];
 }
 
-/**
- * Snapshot the singleton oauth-bundle record. Same shape the
- * `BroadcastProjector` attaches to live envelopes; consumed by the
- * `oh.sync.snapshotOAuthBundle` RPC for renderer mirror bootstrap.
- * Returns `[]` when the service isn't initialized or the singleton
- * hasn't been seeded yet. Local-only by §12.3 — never crosses any sync
- * transport.
- */
 export function snapshotOAuthBundlePostStates(): SyncOAuthBundlePostState[] {
-  if (!state) return [];
-  const projection = projectOAuthBundleSingleton(state.oracle);
-  return projection ? [projection] : [];
+  return state ? singletonSnapshot(state.oracle, OAUTH_BUNDLE_REGISTRATION) : [];
 }
 
-/**
- * Snapshot the singleton pause-markers record. Same shape the
- * `BroadcastProjector` attaches to live envelopes; consumed by the
- * `oh.sync.snapshotPauseMarkers` RPC for renderer mirror bootstrap.
- * Returns `[]` when the service isn't initialized or the singleton
- * hasn't been seeded yet.
- */
 export function snapshotPauseMarkersPostStates(): SyncPauseMarkersPostState[] {
-  if (!state) return [];
-  const projection = projectPauseMarkersSingleton(state.oracle);
-  return projection ? [projection] : [];
+  return state ? singletonSnapshot(state.oracle, PAUSE_MARKERS_REGISTRATION) : [];
 }
 
-/**
- * Snapshot the singleton layout-state record. Same shape the
- * `BroadcastProjector` attaches to live envelopes; consumed by the
- * `oh.sync.snapshotLayoutState` RPC for renderer mirror bootstrap.
- * Returns `[]` when the service isn't initialized or the singleton
- * hasn't been seeded yet.
- */
 export function snapshotLayoutStatePostStates(): SyncLayoutStatePostState[] {
-  if (!state) return [];
-  const projection = projectLayoutStateSingleton(state.oracle);
-  return projection ? [projection] : [];
+  return state ? singletonSnapshot(state.oracle, LAYOUT_STATE_REGISTRATION) : [];
 }
 
-/**
- * Snapshot the singleton files record. Same shape the
- * `BroadcastProjector` attaches to live envelopes; consumed by the
- * `oh.sync.snapshotFiles` RPC for renderer mirror bootstrap. Returns
- * `[]` when the service isn't initialized or the singleton hasn't been
- * seeded yet.
- */
 export function snapshotFilesPostStates(): SyncFilesPostState[] {
-  if (!state) return [];
-  const projection = projectFilesSingleton(state.oracle);
-  return projection ? [projection] : [];
+  return state ? singletonSnapshot(state.oracle, FILES_REGISTRATION) : [];
 }
 
 /**
@@ -994,7 +314,9 @@ export function snapshotAwarenessPresence(): AwarenessState[] {
  * by SW-internal callers (rule-store, hydration) — surfaces hosted in
  * a renderer mint their own contexts with their own nodeId.
  */
-export function nextSwMutatorContext(opts?: Parameters<SwContextHandle['next']>[0]): import('@openheaders/core/sync').MutatorContext | null {
+export function nextSwMutatorContext(
+  opts?: Parameters<SwContextHandle['next']>[0],
+): import('@openheaders/core/sync').MutatorContext | null {
   return state?.context.next(opts) ?? null;
 }
 
@@ -1017,112 +339,73 @@ export interface SyncServiceTestDeps {
  * the real production classes — only the persistence + lock
  * adapters are swapped.
  */
-export function __initSyncServiceForTests(workspaceId: string, deps: SyncServiceTestDeps = {}): void {
+export function __initSyncServiceForTests(
+  workspaceId: string,
+  deps: SyncServiceTestDeps = {},
+): void {
   if (state) dispose();
+  state = wire({
+    workspaceId,
+    log: deps.log ?? new InMemoryMutationLog(),
+    intents: deps.intents ?? new InMemoryPendingIntents(),
+    lock: deps.lock ?? ((_ws, _t, _id, fn) => Promise.resolve().then(fn)),
+    recompile: deps.recompile ?? (() => {}),
+    // No chrome.runtime sink in tests — the in-memory broadcast +
+    // cache subscription cover the SW-side observable surface.
+    sink: () => {},
+    awarenessSink: () => {},
+  });
+}
 
-  const log = deps.log ?? new InMemoryMutationLog();
-  const intents = deps.intents ?? new InMemoryPendingIntents();
-  const lock: LockAcquirer = deps.lock ?? ((_ws, _t, _id, fn) => Promise.resolve().then(fn));
+// ── Internals ───────────────────────────────────────────────────────
+
+interface WireDeps {
+  workspaceId: string;
+  log: MutationLog;
+  intents: PendingIntents;
+  lock: LockAcquirer;
+  recompile: (reason: string) => void;
+  sink: (event: import('@openheaders/core/protocol').SyncBroadcastEvent) => void;
+  awarenessSink: (presence: AwarenessState[]) => void;
+}
+
+/**
+ * Build the full service state — production and test paths share this
+ * factory so the wiring can never drift between them. Side-effect
+ * runners and the awareness store are the only pieces with shape that
+ * changes between scopes; everything else is pulled from
+ * `WORKSPACE_REGISTRY`.
+ */
+function wire(deps: WireDeps): ServiceState {
   const broadcast = new InMemoryBroadcast();
-  const context = createSwContextHandle(workspaceId);
+  const context = createSwContextHandle(deps.workspaceId);
+  const oracle = new EntityOracle({
+    workspaceId: deps.workspaceId,
+    lock: deps.lock,
+    log: deps.log,
+    intents: deps.intents,
+    broadcast,
+  });
 
-  const oracle = new EntityOracle({ workspaceId, lock, log, intents, broadcast });
-  const ruleCache = createRuleCache(workspaceId, oracle, broadcast, () => context.next());
-  setActiveRuleCache(ruleCache);
-  const envCache = createEnvironmentCache(workspaceId, oracle, broadcast, () => context.next());
-  setActiveEnvironmentCache(envCache);
-  const collectionCache = createCollectionCache(workspaceId, oracle, broadcast, () => context.next());
-  setActiveCollectionCache(collectionCache);
-  const folderCache = createFolderCache(workspaceId, oracle, broadcast, () => context.next());
-  setActiveFolderCache(folderCache);
-  const workspaceVariablesCache = createWorkspaceVariablesCache(
-    workspaceId,
-    oracle,
-    broadcast,
-    () => context.next(),
-  );
-  setActiveWorkspaceVariablesCache(workspaceVariablesCache);
-  const vaultCache = createVaultCache(workspaceId, oracle, broadcast, () => context.next());
-  setActiveVaultCache(vaultCache);
-  const requestCache = createRequestCache(workspaceId, oracle, broadcast, () => context.next());
-  setActiveRequestCache(requestCache);
-  const requestCollectionCache = createRequestCollectionCache(
-    workspaceId,
-    oracle,
-    broadcast,
-    () => context.next(),
-  );
-  setActiveRequestCollectionCache(requestCollectionCache);
-  const requestFolderCache = createRequestFolderCache(
-    workspaceId,
-    oracle,
-    broadcast,
-    () => context.next(),
-  );
-  setActiveRequestFolderCache(requestFolderCache);
-  const templateCache = createTemplateCache(workspaceId, oracle, broadcast, () => context.next());
-  setActiveTemplateCache(templateCache);
-  const templateCollectionCache = createTemplateCollectionCache(
-    workspaceId,
-    oracle,
-    broadcast,
-    () => context.next(),
-  );
-  setActiveTemplateCollectionCache(templateCollectionCache);
-  const templateFolderCache = createTemplateFolderCache(
-    workspaceId,
-    oracle,
-    broadcast,
-    () => context.next(),
-  );
-  setActiveTemplateFolderCache(templateFolderCache);
-  const liveVariableCache = createLiveVariableCache(
-    workspaceId,
-    oracle,
-    broadcast,
-    () => context.next(),
-  );
-  setActiveLiveVariableCache(liveVariableCache);
-  const liveWorkflowCache = createLiveWorkflowCache(
-    workspaceId,
-    oracle,
-    broadcast,
-    () => context.next(),
-  );
-  setActiveLiveWorkflowCache(liveWorkflowCache);
-  const oauthBundleCache = createOAuthBundleCache(
-    workspaceId,
-    oracle,
-    broadcast,
-    () => context.next(),
-  );
-  setActiveOAuthBundleCache(oauthBundleCache);
-  const pauseMarkersCache = createPauseMarkersCache(
-    workspaceId,
-    oracle,
-    broadcast,
-    () => context.next(),
-  );
-  setActivePauseMarkersCache(pauseMarkersCache);
-  const layoutStateCache = createLayoutStateCache(
-    workspaceId,
-    oracle,
-    broadcast,
-    () => context.next(),
-  );
-  setActiveLayoutStateCache(layoutStateCache);
-  const filesCache = createFilesCache(workspaceId, oracle, broadcast, () => context.next());
-  setActiveFilesCache(filesCache);
+  const caches = attachCaches(deps.workspaceId, oracle, broadcast, context, WORKSPACE_REGISTRY);
 
+  // DNR intent runner — subscribes AFTER the rule + pause-markers
+  // caches so by the time the runner asks rule-engine to recompile,
+  // the relevant mirror already reflects post-commit state.
   const dnrRunner = createDnrIntentRunner({
     broadcast,
-    intents,
+    intents: deps.intents,
     entityTypes: new Set([RULE_ENTITY_TYPE, PAUSE_MARKERS_ENTITY_TYPE]),
-    recompile: deps.recompile ?? (() => {}),
+    recompile: deps.recompile,
   });
+
+  // Resolver-invalidation runner — fires on any variable-scope envelope
+  // (env, collection, workspace, vault, live-variable, live-workflow).
+  // Subscribes AFTER the entity caches so the recompile sees post-commit
+  // state via `syncResolverFromStores`.
   const resolverInvalidateRunner = createResolverInvalidateRunner({
     broadcast,
-    intents,
+    intents: deps.intents,
     entityTypes: new Set([
       ENVIRONMENT_ENTITY_TYPE,
       COLLECTION_ENTITY_TYPE,
@@ -1131,45 +414,30 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
       LIVE_VARIABLE_ENTITY_TYPE,
       LIVE_WORKFLOW_ENTITY_TYPE,
     ]),
-    recompile: deps.recompile ?? (() => {}),
+    recompile: deps.recompile,
   });
 
   const awareness = createAwarenessStore({
-    workspaceId,
-    emit: () => {
-      // No chrome.runtime sink in tests.
-    },
+    workspaceId: deps.workspaceId,
+    emit: deps.awarenessSink,
+    // Vault + OAuth bundles are §12.1 schema-marked sensitive — entity-level
+    // awareness only; per-secret-name / per-credentialRef presence would
+    // leak the secret namespace and access patterns (§14.4).
     sensitiveEntityTypes: new Set<string>([VAULT_ENTITY_TYPE, OAUTH_BUNDLE_ENTITY_TYPE]),
   });
 
-  state = {
-    workspaceId,
+  const projector = buildProjectorPipeline(oracle, WORKSPACE_REGISTRY);
+  const unsubscribeBroadcast = wireBroadcastToSink(broadcast, deps.sink, projector);
+
+  return {
+    workspaceId: deps.workspaceId,
     oracle,
     broadcast,
-    ruleCache,
-    envCache,
-    collectionCache,
-    folderCache,
-    workspaceVariablesCache,
-    vaultCache,
-    requestCache,
-    requestCollectionCache,
-    requestFolderCache,
-    templateCache,
-    templateCollectionCache,
-    templateFolderCache,
-    liveVariableCache,
-    liveWorkflowCache,
-    oauthBundleCache,
-    pauseMarkersCache,
-    layoutStateCache,
-    filesCache,
+    caches,
     context,
     awareness,
     dnrRunner,
     resolverInvalidateRunner,
-    unsubscribeBroadcast: () => {
-      // No chrome.runtime sink in tests.
-    },
+    unsubscribeBroadcast,
   };
 }
