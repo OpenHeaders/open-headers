@@ -21,11 +21,16 @@ export interface AddRequestParamArgs {
   requestUid: string;
   param: RequestParamRow;
   orderKey?: string;
+  /**
+   * Optional explicit itemId override. Defaults to `param.uid` so the
+   * persisted row identity and the oracle's set-member identity stay
+   * the same string (the synthesizer keys on this).
+   */
   itemId?: string;
 }
 
 export function addRequestParam(ctx: MutatorContext, args: AddRequestParamArgs): MutatorIntent {
-  const itemId = args.itemId ?? generateUid();
+  const itemId = args.itemId ?? args.param.uid ?? generateUid();
   const bodies: MutationBody[] = [
     {
       kind: 'addToSet',

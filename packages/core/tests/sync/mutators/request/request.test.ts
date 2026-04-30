@@ -28,7 +28,7 @@ describe('addRequestHeader', () => {
   it('emits one addToSet on the request entity at the headers path', () => {
     const intent = addRequestHeader(ctx(), {
       requestUid: 'rq-1',
-      header: { key: 'Authorization', value: 'Bearer abc' },
+      header: { uid: 'hdr00001', key: 'Authorization', value: 'Bearer abc' },
       orderKey: 'm',
       itemId: 'h-1',
     });
@@ -41,21 +41,20 @@ describe('addRequestHeader', () => {
       id: 'rq-1',
       path: REQUEST_HEADERS_PATH,
       itemId: 'h-1',
-      item: { key: 'Authorization', value: 'Bearer abc' },
+      item: { uid: 'hdr00001', key: 'Authorization', value: 'Bearer abc' },
       orderKey: 'm',
     });
     expect(intent.sideEffects).toEqual([]);
   });
 
-  it('mints an itemId when one is not supplied', () => {
+  it("defaults itemId to the header's persisted uid when not overridden", () => {
     const intent = addRequestHeader(ctx(), {
       requestUid: 'rq-1',
-      header: { key: 'X-Trace', value: 't1' },
+      header: { uid: 'hdr00077', key: 'X-Trace', value: 't1' },
     });
     const body = intent.batch.mutations[0].body;
     if (body.kind !== 'addToSet') throw new Error('expected addToSet');
-    expect(typeof body.itemId).toBe('string');
-    expect(body.itemId.length).toBeGreaterThan(0);
+    expect(body.itemId).toBe('hdr00077');
     expect(body.orderKey).toBeUndefined();
   });
 });
@@ -96,7 +95,7 @@ describe('param factories route to the params path', () => {
   it('addRequestParam', () => {
     const intent = addRequestParam(ctx(), {
       requestUid: 'rq-1',
-      param: { key: 'q', value: '1', hasEquals: true },
+      param: { uid: 'qpr00001', key: 'q', value: '1', hasEquals: true },
       itemId: 'p-1',
     });
     expect(intent.batch.mutations[0].body).toMatchObject({
@@ -104,7 +103,7 @@ describe('param factories route to the params path', () => {
       type: REQUEST_ENTITY_TYPE,
       path: REQUEST_PARAMS_PATH,
       itemId: 'p-1',
-      item: { key: 'q', value: '1', hasEquals: true },
+      item: { uid: 'qpr00001', key: 'q', value: '1', hasEquals: true },
     });
   });
 
@@ -211,7 +210,7 @@ describe('batch atomicity', () => {
   it('shares one batchId across emitted envelopes when ctx.batchId is supplied', () => {
     const intent = addRequestHeader(ctx({ batchId: 'b-add-header' }), {
       requestUid: 'rq-1',
-      header: { key: 'X', value: 'y' },
+      header: { uid: 'hdr00099', key: 'X', value: 'y' },
     });
     expect(intent.batch.batchId).toBe('b-add-header');
   });

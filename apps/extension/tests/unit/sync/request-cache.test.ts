@@ -81,7 +81,7 @@ describe('RequestCache', () => {
 
     const intent = addRequestHeader(ctxFactory(), {
       requestUid: 'rq',
-      header: { key: 'X-Trace', value: 't1' },
+      header: { uid: 'hdr00060', key: 'X-Trace', value: 't1' },
     });
     await oracle.apply(intent.batch, []);
 
@@ -95,10 +95,13 @@ describe('RequestCache', () => {
     const cache = createRequestCache('ws-1', oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedRequests([makeRequest('rq')]);
     await oracle.apply(
-      addRequestParam(ctxFactory(), { requestUid: 'rq', param: { key: 'q', value: '1' } }).batch,
+      addRequestParam(ctxFactory(), {
+        requestUid: 'rq',
+        param: { uid: 'qpr00060', key: 'q', value: '1' },
+      }).batch,
       [],
     );
-    expect(cache.getRequests()[0].params).toEqual([{ key: 'q', value: '1' }]);
+    expect(cache.getRequests()[0].params).toEqual([{ uid: 'qpr00060', key: 'q', value: '1' }]);
     cache.dispose();
   });
 

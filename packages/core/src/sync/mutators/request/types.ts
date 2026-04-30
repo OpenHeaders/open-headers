@@ -43,6 +43,12 @@ export const REQUEST_PARAMS_PATH = 'params';
  * their row shapes local).
  */
 export interface RequestHeaderRow {
+  /**
+   * Persisted per-row identity. Doubles as the sync engine's itemId so
+   * row identity round-trips through save/reload (parallel to
+   * `HeaderModification.uid` and `RuleConditionLike.uid`).
+   */
+  uid: string;
   key: string;
   value: string;
   description?: string;
@@ -55,6 +61,12 @@ export interface RequestHeaderRow {
  * round-trip persistence (see schema for the full rationale).
  */
 export interface RequestParamRow {
+  /**
+   * Persisted per-row identity. Doubles as the sync engine's itemId so
+   * row identity round-trips through save/reload — parallel to
+   * `RequestHeaderRow.uid`.
+   */
+  uid: string;
   key: string;
   value: string;
   description?: string;

@@ -65,7 +65,7 @@ describe('projectRequestPostState', () => {
 
     const intent = addRequestHeader(ctx(2), {
       requestUid: request.uid,
-      header: { key: 'X-Trace', value: 't1' },
+      header: { uid: 'hdr00050', key: 'X-Trace', value: 't1' },
       itemId: 'h-trace',
     });
     await oracle.apply(intent.batch, []);
@@ -144,7 +144,7 @@ describe('projectRequestPostState', () => {
     await oracle.apply(
       addRequestParam(ctx(2), {
         requestUid: 'rq-params',
-        param: { key: 'q', value: '1' },
+        param: { uid: 'qpr00050', key: 'q', value: '1' },
         itemId: 'p-q',
       }).batch,
       [],

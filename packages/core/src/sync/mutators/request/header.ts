@@ -28,12 +28,16 @@ export interface AddRequestHeaderArgs {
    * or when the caller doesn't care.
    */
   orderKey?: string;
-  /** Optional explicit itemId (replay / row-replacement). Otherwise minted. */
+  /**
+   * Optional explicit itemId override. Defaults to `header.uid` so the
+   * persisted row identity and the oracle's set-member identity stay
+   * the same string (the synthesizer keys on this).
+   */
   itemId?: string;
 }
 
 export function addRequestHeader(ctx: MutatorContext, args: AddRequestHeaderArgs): MutatorIntent {
-  const itemId = args.itemId ?? generateUid();
+  const itemId = args.itemId ?? args.header.uid ?? generateUid();
   const bodies: MutationBody[] = [
     {
       kind: 'addToSet',
