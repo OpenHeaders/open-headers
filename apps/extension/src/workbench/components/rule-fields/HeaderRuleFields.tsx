@@ -17,7 +17,29 @@
  * `isRuleComplete` so it can never leave stale DNR rules behind.
  */
 
-import { CloseOutlined, InfoCircleOutlined, PlusOutlined, WarningOutlined } from '@ant-design/icons';
+import {
+  CloseOutlined,
+  HolderOutlined,
+  InfoCircleOutlined,
+  PlusOutlined,
+  WarningOutlined,
+} from '@ant-design/icons';
+import type { DragEndEvent } from '@dnd-kit/core';
+import {
+  closestCenter,
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { HeaderDirection } from '@openheaders/core/utils';
 import { getHeaderOperationCapability } from '@openheaders/core/utils';
@@ -65,12 +87,28 @@ interface ModificationListProps {
 function ModificationList({ name, direction, ruleUid, surfaceId, conflicts }: ModificationListProps) {
   const { openDocs: openDocsInline } = useInspectorNav();
   const form = Form.useFormInstance();
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
   return (
     <Form.List name={name}>
-      {(fields, { add, remove }) => (
+      {(fields, { add, remove, move }) => {
+        const handleDragEnd = (e: DragEndEvent) => {
+          const { active, over } = e;
+          if (!over || active.id === over.id) return;
+          const from = fields.findIndex((f) => f.key === active.id);
+          const to = fields.findIndex((f) => f.key === over.id);
+          if (from < 0 || to < 0) return;
+          move(from, to);
+        };
+        const rowIds = fields.map((f) => f.key);
+        return (
         <>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={rowIds} strategy={verticalListSortingStrategy}>
           {fields.map((field) => (
-            <div key={field.key} style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 6 }}>
+            <SortableHeaderRow key={field.key} id={field.key}>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 <Form.Item
                   {...field}
@@ -277,8 +315,10 @@ function ModificationList({ name, direction, ruleUid, surfaceId, conflicts }: Mo
                   );
                 }}
               </Form.Item>
-            </div>
+            </SortableHeaderRow>
           ))}
+            </SortableContext>
+          </DndContext>
           <Button
             type="dashed"
             size="small"
@@ -288,8 +328,61 @@ function ModificationList({ name, direction, ruleUid, surfaceId, conflicts }: Mo
             Add Action
           </Button>
         </>
-      )}
+        );
+      }}
     </Form.List>
+  );
+}
+
+/**
+ * Sortable wrapper for one header-mod row. Provides the drag handle
+ * column on the left and forwards the rest of the row content as
+ * children. Uses dnd-kit's `useSortable` keyed by Form.List's stable
+ * `field.key` — Form.List's `move(from, to)` reorders the underlying
+ * `requestHeaders` / `responseHeaders` array, and the editor's save
+ * pipeline emits the minimum diff (`moveBefore` per row outside the
+ * LIS) via the unified set-diff synthesizer (session 40).
+ */
+function SortableHeaderRow({
+  id,
+  children,
+}: {
+  id: string | number;
+  children: React.ReactNode;
+}): React.ReactElement {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 4,
+    marginBottom: 6,
+    transform: CSS.Transform.toString(transform),
+    transition,
+    background: isDragging ? 'var(--ant-color-fill-tertiary)' : undefined,
+    opacity: isDragging ? 0.85 : 1,
+  };
+  return (
+    <div ref={setNodeRef} style={style}>
+      <span
+        {...attributes}
+        {...listeners}
+        aria-label="Drag to reorder"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          height: 24,
+          cursor: 'grab',
+          color: 'var(--ant-color-text-tertiary)',
+          fontSize: 12,
+          flexShrink: 0,
+        }}
+      >
+        <HolderOutlined />
+      </span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
+        {children}
+      </div>
+    </div>
   );
 }
 
