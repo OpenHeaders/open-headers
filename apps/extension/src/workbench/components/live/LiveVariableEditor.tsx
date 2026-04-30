@@ -15,9 +15,10 @@
  *
  * Edit mode covers: rename, rebind (different workflow / step /
  * capture), toggle `enabled`, toggle `requireFreshOnRuleBuild`, set a
- * manual override.
- *
- * Phase 10 stale-draft discipline matches every other editor tab.
+ * manual override. Writes route through the sync engine's per-(field)
+ * LWW oracle (sync engine §6.3). On external commit while the editor
+ * is clean, the draft re-primes from the new persisted state; while
+ * dirty the user's typing is preserved and LWW resolves at save time.
  */
 
 import {

@@ -78,7 +78,6 @@ async function rpc(page: Page, type: string, payload: Record<string, unknown> = 
 
 interface WorkflowSummary {
   uid: string;
-  version: number;
   steps: Array<{
     id: string;
     dependsOn?: string[];
@@ -206,7 +205,6 @@ test.describe('Phase I — DAG primitive round-trip', () => {
       const updated = (await rpc(caller, 'updateLiveWorkflow', {
         uid: created.workflow.uid,
         updates: { parallelExecution: false },
-        expectedVersion: created.workflow.version,
       })) as { success: true; workflow: WorkflowSummary };
 
       expect(updated.success).toBe(true);

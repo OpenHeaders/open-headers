@@ -3,11 +3,13 @@
  * a new one.
  *
  * Edit mode (`mode: 'edit'`):
- *   Controlled by a local draft; commits via `updateLiveWorkflow`. Same
- *   Phase 10 stale-draft discipline as every other editor: snapshots
- *   `version` on first arrival, sends it as `expectedVersion` on save,
- *   surfaces `StaleDraftBanner` on rejection. Shows a status bar with
- *   the last refresh / expiry / policy summary + a Refresh-now button.
+ *   Controlled by a local draft; commits via `updateLiveWorkflow`,
+ *   which routes through the sync engine's per-(field) LWW oracle
+ *   (sync engine §6.3). On external commit while the editor is clean,
+ *   the draft re-primes from the new persisted state; while dirty the
+ *   user's typing is preserved and LWW resolves at save time. Shows a
+ *   status bar with the last refresh / expiry / policy summary + a
+ *   Refresh-now button.
  *
  * Create mode (`mode: 'create'`):
  *   No `workflowUid` until save. Local-only draft; Save creates the

@@ -116,10 +116,6 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api }) => {
                 onIdentityChange={(identity) => {
                   // Coerce undefined icon → null so the backend's
                   // "clear" path runs instead of "leave unchanged".
-                  // No expectedVersion — color/icon pickers are
-                  // rapid UI updates; last-write-wins is the right
-                  // semantics. The per-workspace lock still
-                  // serializes the storage write.
                   void api.updateWorkspace(w.id, {
                     color: identity.color,
                     icon: identity.icon ?? null,
