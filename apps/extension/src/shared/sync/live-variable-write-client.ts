@@ -12,6 +12,7 @@ import type { V5 } from '@openheaders/core/types';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
+  resolveMirror,
   resolveRendererContext,
   type SyncSimpleResult,
 } from '@/shared/sync/apply-payload';
@@ -38,16 +39,12 @@ export interface LiveVariableWriteOptions extends BaseSyncWriteOptions {
   mirror?: LiveVariableSyncMirror;
 }
 
-function resolveMirror(opts: LiveVariableWriteOptions): LiveVariableSyncMirror {
-  return opts.mirror ?? getActiveLiveVariableSyncMirror();
-}
-
 export async function applyLiveVariableUpdate(
   liveVariableUid: string,
   updates: LiveVariableUpdates,
   opts: LiveVariableWriteOptions,
 ): Promise<LiveVariableMutationResult> {
-  const mirror = resolveMirror(opts);
+  const mirror = resolveMirror(opts, getActiveLiveVariableSyncMirror);
   const entry = mirror.getLiveVariableMirror(liveVariableUid);
   if (!entry) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
@@ -73,7 +70,7 @@ export async function applyLiveVariableDelete(
   liveVariableUid: string,
   opts: LiveVariableWriteOptions,
 ): Promise<LiveVariableSimpleResult> {
-  const mirror = resolveMirror(opts);
+  const mirror = resolveMirror(opts, getActiveLiveVariableSyncMirror);
   if (!mirror.getLiveVariableMirror(liveVariableUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildDeleteLiveVariableBatch(liveVariableUid, ctx);

@@ -38,6 +38,7 @@ vi.mock('@utils/bridge', () => ({
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
+  resolveMirror,
   resolveRendererContext,
 } from '@/shared/sync/apply-payload';
 import {
@@ -162,5 +163,21 @@ describe('resolveRendererContext', () => {
     const handle = ensureRendererContext({ workspaceId: 'ws-1', surfaceId: 'workbench' });
     const resolved = resolveRendererContext({ workspaceId: 'ws-1', surfaceId: 'workbench' });
     expect(resolved).toBe(handle);
+  });
+});
+
+describe('resolveMirror', () => {
+  it('returns opts.mirror verbatim when supplied', () => {
+    const mirror = { tag: 'injected' };
+    const getActive = vi.fn(() => ({ tag: 'singleton' }));
+    expect(resolveMirror({ mirror }, getActive)).toBe(mirror);
+    expect(getActive).not.toHaveBeenCalled();
+  });
+
+  it('falls back to getActive when opts.mirror is omitted', () => {
+    const singleton = { tag: 'singleton' };
+    const getActive = vi.fn(() => singleton);
+    expect(resolveMirror({}, getActive)).toBe(singleton);
+    expect(getActive).toHaveBeenCalledTimes(1);
   });
 });

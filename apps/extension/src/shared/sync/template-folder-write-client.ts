@@ -8,6 +8,7 @@
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
+  resolveMirror,
   resolveRendererContext,
   type SyncSimpleResult,
 } from '@/shared/sync/apply-payload';
@@ -31,10 +32,6 @@ export interface TemplateFolderWriteOptions extends BaseSyncWriteOptions {
   mirror?: TemplateFolderSyncMirror;
 }
 
-function resolveMirror(opts: TemplateFolderWriteOptions): TemplateFolderSyncMirror {
-  return opts.mirror ?? getActiveTemplateFolderSyncMirror();
-}
-
 export interface ApplyTemplateFolderRenameInput {
   folderUid: string;
   name: string;
@@ -44,7 +41,7 @@ export async function applyTemplateFolderRename(
   input: ApplyTemplateFolderRenameInput,
   opts: TemplateFolderWriteOptions,
 ): Promise<TemplateFolderSimpleResult> {
-  const mirror = resolveMirror(opts);
+  const mirror = resolveMirror(opts, getActiveTemplateFolderSyncMirror);
   if (!mirror.getTemplateFolderMirror(input.folderUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRenameTemplateFolderBatch(input, ctx));

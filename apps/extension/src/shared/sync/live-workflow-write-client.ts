@@ -10,6 +10,7 @@ import type { V5 } from '@openheaders/core/types';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
+  resolveMirror,
   resolveRendererContext,
   type SyncSimpleResult,
 } from '@/shared/sync/apply-payload';
@@ -36,16 +37,12 @@ export interface LiveWorkflowWriteOptions extends BaseSyncWriteOptions {
   mirror?: LiveWorkflowSyncMirror;
 }
 
-function resolveMirror(opts: LiveWorkflowWriteOptions): LiveWorkflowSyncMirror {
-  return opts.mirror ?? getActiveLiveWorkflowSyncMirror();
-}
-
 export async function applyLiveWorkflowUpdate(
   workflowUid: string,
   updates: LiveWorkflowUpdates,
   opts: LiveWorkflowWriteOptions,
 ): Promise<LiveWorkflowMutationResult> {
-  const mirror = resolveMirror(opts);
+  const mirror = resolveMirror(opts, getActiveLiveWorkflowSyncMirror);
   const entry = mirror.getLiveWorkflowMirror(workflowUid);
   if (!entry) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
@@ -71,7 +68,7 @@ export async function applyLiveWorkflowDelete(
   workflowUid: string,
   opts: LiveWorkflowWriteOptions,
 ): Promise<LiveWorkflowSimpleResult> {
-  const mirror = resolveMirror(opts);
+  const mirror = resolveMirror(opts, getActiveLiveWorkflowSyncMirror);
   if (!mirror.getLiveWorkflowMirror(workflowUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildDeleteLiveWorkflowBatch(workflowUid, ctx);

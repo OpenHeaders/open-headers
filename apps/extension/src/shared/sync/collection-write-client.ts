@@ -32,7 +32,6 @@ import {
 import {
   type CollectionSyncMirror,
   createCollectionSyncMirror,
-  getActiveCollectionSyncMirror,
 } from '@/context/collection-sync-mirror';
 import {
   buildRemoveCollectionVarBatch,
@@ -51,10 +50,6 @@ export type CollectionSimpleResult = SyncSimpleResult;
 
 export interface CollectionWriteOptions extends BaseSyncWriteOptions {
   mirror?: CollectionSyncMirror;
-}
-
-function resolveMirror(opts: CollectionWriteOptions): CollectionSyncMirror {
-  return opts.mirror ?? getActiveCollectionSyncMirror();
 }
 
 export interface ApplyCollectionSetVarInput {
@@ -230,8 +225,3 @@ export async function applyCollectionVariablesReplacement(
 }
 
 export type { MutationEnvelope };
-
-// `resolveMirror` is exposed for renderer surfaces that need to
-// guarantee the mirror is mounted before reads (e.g. the bootstrap
-// path in workspace-switch flows).
-export { resolveMirror };

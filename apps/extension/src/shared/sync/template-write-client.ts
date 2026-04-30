@@ -19,6 +19,7 @@ import {
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
+  resolveMirror,
   resolveRendererContext,
   type SyncSimpleResult,
 } from '@/shared/sync/apply-payload';
@@ -41,16 +42,12 @@ export interface TemplateWriteOptions extends BaseSyncWriteOptions {
   mirror?: TemplateSyncMirror;
 }
 
-function resolveMirror(opts: TemplateWriteOptions): TemplateSyncMirror {
-  return opts.mirror ?? getActiveTemplateSyncMirror();
-}
-
 export async function applyTemplateUpdate(
   templateUid: string,
   updates: TemplateUpdates,
   opts: TemplateWriteOptions,
 ): Promise<TemplateMutationResult> {
-  const mirror = resolveMirror(opts);
+  const mirror = resolveMirror(opts, getActiveTemplateSyncMirror);
   const entry = mirror.getTemplateMirror(templateUid);
   if (!entry) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
@@ -105,7 +102,7 @@ export async function applyTemplateDelete(
   templateUid: string,
   opts: TemplateWriteOptions,
 ): Promise<TemplateSimpleResult> {
-  const mirror = resolveMirror(opts);
+  const mirror = resolveMirror(opts, getActiveTemplateSyncMirror);
   if (!mirror.getTemplateMirror(templateUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildDeleteBatch(templateUid, ctx);

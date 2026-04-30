@@ -9,6 +9,7 @@
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
+  resolveMirror,
   resolveRendererContext,
   type SyncSimpleResult,
 } from '@/shared/sync/apply-payload';
@@ -30,10 +31,6 @@ export interface TemplateCollectionWriteOptions extends BaseSyncWriteOptions {
   mirror?: TemplateCollectionSyncMirror;
 }
 
-function resolveMirror(opts: TemplateCollectionWriteOptions): TemplateCollectionSyncMirror {
-  return opts.mirror ?? getActiveTemplateCollectionSyncMirror();
-}
-
 export interface ApplyTemplateCollectionRenameInput {
   collectionUid: string;
   name: string;
@@ -43,7 +40,7 @@ export async function applyTemplateCollectionRename(
   input: ApplyTemplateCollectionRenameInput,
   opts: TemplateCollectionWriteOptions,
 ): Promise<TemplateCollectionSimpleResult> {
-  const mirror = resolveMirror(opts);
+  const mirror = resolveMirror(opts, getActiveTemplateCollectionSyncMirror);
   if (!mirror.getTemplateCollectionMirror(input.collectionUid)) {
     return { ok: false, reason: 'not-found' };
   }

@@ -18,6 +18,7 @@
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
+  resolveMirror,
   resolveRendererContext,
   type SyncSimpleResult,
 } from '@/shared/sync/apply-payload';
@@ -43,10 +44,6 @@ export type PauseMarkersResult = SyncSimpleResult;
 
 export interface PauseMarkersWriteOptions extends BaseSyncWriteOptions {
   mirror?: PauseMarkersSyncMirror;
-}
-
-function resolveMirror(opts: PauseMarkersWriteOptions): PauseMarkersSyncMirror {
-  return opts.mirror ?? getActivePauseMarkersSyncMirror();
 }
 
 export interface ApplyPauseMarkerSetInput {
@@ -84,7 +81,7 @@ export async function applyPauseMarkersReplacement(
   next: ReadonlyMap<string, PauseMarkerKind> | Readonly<Record<string, PauseMarkerKind>>,
   opts: PauseMarkersWriteOptions,
 ): Promise<PauseMarkersResult> {
-  const mirror = resolveMirror(opts);
+  const mirror = resolveMirror(opts, getActivePauseMarkersSyncMirror);
   const existing = mirror.liveMarkers();
   const ctx = resolveRendererContext(opts).next({ batchId: opts.batchId ?? `pause-markers-replace` });
   return applySyncPayload(buildReplacePauseMarkersBatch({ existing, next }, ctx));

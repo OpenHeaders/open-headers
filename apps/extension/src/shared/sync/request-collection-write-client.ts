@@ -8,6 +8,7 @@
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
+  resolveMirror,
   resolveRendererContext,
   type SyncSimpleResult,
 } from '@/shared/sync/apply-payload';
@@ -29,10 +30,6 @@ export interface RequestCollectionWriteOptions extends BaseSyncWriteOptions {
   mirror?: RequestCollectionSyncMirror;
 }
 
-function resolveMirror(opts: RequestCollectionWriteOptions): RequestCollectionSyncMirror {
-  return opts.mirror ?? getActiveRequestCollectionSyncMirror();
-}
-
 export interface ApplyRequestCollectionRenameInput {
   collectionUid: string;
   name: string;
@@ -42,7 +39,7 @@ export async function applyRequestCollectionRename(
   input: ApplyRequestCollectionRenameInput,
   opts: RequestCollectionWriteOptions,
 ): Promise<RequestCollectionSimpleResult> {
-  const mirror = resolveMirror(opts);
+  const mirror = resolveMirror(opts, getActiveRequestCollectionSyncMirror);
   if (!mirror.getRequestCollectionMirror(input.collectionUid)) {
     return { ok: false, reason: 'not-found' };
   }

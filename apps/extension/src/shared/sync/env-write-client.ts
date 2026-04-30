@@ -38,7 +38,6 @@ import {
 import {
   createEnvSyncMirror,
   type EnvSyncMirror,
-  getActiveEnvSyncMirror,
 } from '@/context/env-sync-mirror';
 import {
   buildRemoveEnvVarBatch,
@@ -56,10 +55,6 @@ export type EnvSimpleResult = SyncSimpleResult;
 
 export interface EnvWriteOptions extends BaseSyncWriteOptions {
   mirror?: EnvSyncMirror;
-}
-
-function resolveMirror(opts: EnvWriteOptions): EnvSyncMirror {
-  return opts.mirror ?? getActiveEnvSyncMirror();
 }
 
 export interface ApplyEnvSetVarInput {

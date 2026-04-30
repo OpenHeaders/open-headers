@@ -11,6 +11,7 @@
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
+  resolveMirror,
   resolveRendererContext,
   type SyncSimpleResult,
 } from '@/shared/sync/apply-payload';
@@ -34,10 +35,6 @@ export interface RequestFolderWriteOptions extends BaseSyncWriteOptions {
   mirror?: RequestFolderSyncMirror;
 }
 
-function resolveMirror(opts: RequestFolderWriteOptions): RequestFolderSyncMirror {
-  return opts.mirror ?? getActiveRequestFolderSyncMirror();
-}
-
 export interface ApplyRequestFolderRenameInput {
   folderUid: string;
   name: string;
@@ -47,7 +44,7 @@ export async function applyRequestFolderRename(
   input: ApplyRequestFolderRenameInput,
   opts: RequestFolderWriteOptions,
 ): Promise<RequestFolderSimpleResult> {
-  const mirror = resolveMirror(opts);
+  const mirror = resolveMirror(opts, getActiveRequestFolderSyncMirror);
   if (!mirror.getRequestFolderMirror(input.folderUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRenameRequestFolderBatch(input, ctx));

@@ -41,10 +41,6 @@ export interface FilesWriteOptions extends BaseSyncWriteOptions {
   mirror?: FilesSyncMirror;
 }
 
-function resolveMirror(opts: FilesWriteOptions): FilesSyncMirror {
-  return opts.mirror ?? getActiveFilesSyncMirror();
-}
-
 export interface ApplyFileAddInput {
   ref: FileRefSlot;
 }

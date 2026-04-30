@@ -1,13 +1,13 @@
 /**
- * Shared `oh.sync.apply` invocation + ack-shape adapter for renderer-side
- * write-clients.
+ * Shared invocation + ack-shape adapter + context/mirror resolution for
+ * renderer-side write-clients.
  *
  * Every entity's write-client (rule, template, request, env, vault,
  * collection, folder, …) emits a `(batch, sideEffects)` pair and
- * collapses the bridge response into a uniform structured result. The
- * shape was duplicated verbatim across 17 write-clients before this
- * extraction; consolidating here keeps the `oh.sync.apply` contract in
- * one place and removes ~220 lines of pure copy-paste.
+ * collapses the bridge response into a uniform structured result.
+ * Context resolution (per-surface HLC sequencer) and mirror resolution
+ * (test-injectable singleton fallback) follow the same shape across
+ * every entity, so all three live here.
  *
  * Per-entity `MutationResult` shapes that extend the simple result with
  * an entity-specific success payload (e.g. `{ ok: true, rule: V5.Rule }`)
@@ -58,6 +58,16 @@ export interface BaseSyncWriteOptions {
 export function resolveRendererContext(opts: BaseSyncWriteOptions): RendererContextHandle {
   if (opts.context) return opts.context;
   return ensureRendererContext({ workspaceId: opts.workspaceId, surfaceId: opts.surfaceId });
+}
+
+/**
+ * Resolve a per-entity sync mirror: tests pass an explicit `mirror`;
+ * production reaches for the active singleton via `getActive`. Generic
+ * over the mirror type so each entity's write-client keeps its own
+ * structurally-narrowed mirror surface without re-declaring the helper.
+ */
+export function resolveMirror<M>(opts: { mirror?: M }, getActive: () => M): M {
+  return opts.mirror ?? getActive();
 }
 
 /**

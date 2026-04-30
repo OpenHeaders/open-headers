@@ -20,6 +20,7 @@ import {
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
+  resolveMirror,
   resolveRendererContext,
   type SyncSimpleResult,
 } from '@/shared/sync/apply-payload';
@@ -43,10 +44,6 @@ export interface RequestWriteOptions extends BaseSyncWriteOptions {
   mirror?: RequestSyncMirror;
 }
 
-function resolveMirror(opts: RequestWriteOptions): RequestSyncMirror {
-  return opts.mirror ?? getActiveRequestSyncMirror();
-}
-
 /**
  * Apply a partial Request patch through the local oracle. Returns
  * `{ ok: true, request }` with an optimistic merge of `updates` into
@@ -58,7 +55,7 @@ export async function applyRequestUpdate(
   updates: RequestUpdates,
   opts: RequestWriteOptions,
 ): Promise<RequestMutationResult> {
-  const mirror = resolveMirror(opts);
+  const mirror = resolveMirror(opts, getActiveRequestSyncMirror);
   const entry = mirror.getRequestMirror(requestUid);
   if (!entry) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
@@ -101,7 +98,7 @@ export async function applyRequestDelete(
   requestUid: string,
   opts: RequestWriteOptions,
 ): Promise<RequestSimpleResult> {
-  const mirror = resolveMirror(opts);
+  const mirror = resolveMirror(opts, getActiveRequestSyncMirror);
   if (!mirror.getRequestMirror(requestUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildDeleteBatch(requestUid, ctx);

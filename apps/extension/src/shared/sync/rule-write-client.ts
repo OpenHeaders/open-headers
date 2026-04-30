@@ -21,6 +21,7 @@ import {
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
+  resolveMirror,
   resolveRendererContext,
   type SyncSimpleResult,
 } from '@/shared/sync/apply-payload';
@@ -44,10 +45,6 @@ export interface RuleWriteOptions extends BaseSyncWriteOptions {
   mirror?: RuleSyncMirror;
 }
 
-function resolveMirror(opts: RuleWriteOptions): RuleSyncMirror {
-  return opts.mirror ?? getActiveRuleSyncMirror();
-}
-
 /**
  * Apply a partial Rule patch through the local oracle.
  *
@@ -62,7 +59,7 @@ export async function applyRuleUpdate(
   updates: RuleUpdates,
   opts: RuleWriteOptions,
 ): Promise<RuleMutationResult> {
-  const mirror = resolveMirror(opts);
+  const mirror = resolveMirror(opts, getActiveRuleSyncMirror);
   const entry = mirror.getRuleMirror(ruleUid);
   if (!entry) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
@@ -93,7 +90,7 @@ export async function applyRuleToggle(
   enabled: boolean,
   opts: RuleWriteOptions,
 ): Promise<RuleSimpleResult> {
-  const mirror = resolveMirror(opts);
+  const mirror = resolveMirror(opts, getActiveRuleSyncMirror);
   if (!mirror.getRuleMirror(ruleUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildToggleBatch(ruleUid, enabled, ctx);
@@ -104,7 +101,7 @@ export async function applyRuleDelete(
   ruleUid: string,
   opts: RuleWriteOptions,
 ): Promise<RuleSimpleResult> {
-  const mirror = resolveMirror(opts);
+  const mirror = resolveMirror(opts, getActiveRuleSyncMirror);
   if (!mirror.getRuleMirror(ruleUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildDeleteBatch(ruleUid, ctx);
