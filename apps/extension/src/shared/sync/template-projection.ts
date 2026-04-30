@@ -12,17 +12,21 @@
  * overwrites one — a real correctness hazard.
  *
  * `seedTemplate` therefore strips `conditions` off the create payload
- * and emits one `addToSet` per condition with a freshly-minted itemId.
- * `projectTemplate` is the inverse: read the oracle's MaterializedEntity
- * (which already carries the array form for set-modeled paths and
- * scalars elsewhere) and return a `V5.Template`.
+ * and emits one `addToSet` per condition, keying each set member by
+ * the row's persisted `uid` (schema-required on `RuleCondition` per
+ * session-40 schema bump). Identity preservation across save/reload is
+ * what lets the unified set-diff synthesizer take the LIS-optimal
+ * `moveBefore` fast path on the first save after a cold wake. Mirrors
+ * `seedRequest` (session 39). `projectTemplate` is the inverse: read
+ * the oracle's MaterializedEntity (which already carries the array
+ * form for set-modeled paths and scalars elsewhere) and return a
+ * `V5.Template`.
  *
  * `formValues` and `includes` ride the create payload as scalars per
  * the catalog's v1 trade-off (whole-object replacement; per-field LWW
  * within either would need branch-aware paths).
  */
 
-import { generateUid } from '@openheaders/core/utils';
 import type { V5 } from '@openheaders/core/types';
 import {
   type MaterializedEntity,
@@ -47,16 +51,32 @@ export function seedTemplate(template: V5.Template, ctx: MutatorContext): Mutati
     { kind: 'create', type: TEMPLATE_ENTITY_TYPE, id: template.uid, payload: scalarShell },
   ];
   for (const item of conditions) {
+    const itemId = readUid(item);
     bodies.push({
       kind: 'addToSet',
       type: TEMPLATE_ENTITY_TYPE,
       id: template.uid,
       path: TEMPLATE_CONDITIONS_PATH,
-      itemId: generateUid(),
+      itemId,
       item,
     });
   }
   return mintBatch(ctx, bodies);
+}
+
+/**
+ * Read the persisted `uid` off a template condition. RuleCondition
+ * carries `uid: UidSchema` (schema-required, session 40). Using the
+ * persisted uid as itemId — instead of minting fresh — is what lets
+ * the unified set-diff synthesizer take the LIS-optimal `moveBefore`
+ * fast path on the first save after a cold wake. Mirrors
+ * {@link seedRule.readUid} / {@link seedRequest}.
+ */
+function readUid(item: unknown): string {
+  if (isPlainObject(item) && typeof item.uid === 'string' && item.uid.length > 0) {
+    return item.uid;
+  }
+  throw new Error('seedTemplate: condition is missing required `uid` field');
 }
 
 /**

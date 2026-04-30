@@ -30,7 +30,7 @@ const makeTemplate = (uid: string, overrides: Partial<V5.Template> = {}): V5.Tem
     icon: '',
     description: '',
     includes: { conditions: true, formValues: true },
-    conditions: [{ type: 'urlContains', values: ['openheaders.io'] }],
+    conditions: [{ uid: 'cnd00001', type: 'urlContains', values: ['openheaders.io'] }],
     formValues: {},
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
@@ -70,7 +70,7 @@ describe('TemplateCache', () => {
     const templates = cache.getTemplates();
     expect(templates.map((t) => t.uid).sort()).toEqual(['a', 'b']);
     const a = templates.find((t) => t.uid === 'a');
-    expect(a?.conditions).toEqual([{ type: 'urlContains', values: ['openheaders.io'] }]);
+    expect(a?.conditions).toEqual([{ uid: 'cnd00001', type: 'urlContains', values: ['openheaders.io'] }]);
     cache.dispose();
   });
 

@@ -15,20 +15,22 @@
  * silently overwrites one with the other — a real correctness hazard.
  *
  * `seedRule` therefore strips the set-modeled fields off the create
- * payload and emits one `addToSet` per item with a freshly-minted
- * itemId. `projectRule` is the inverse: read the oracle's
- * MaterializedEntity (which already carries the array form for
- * set-modeled paths and scalars elsewhere) and return a V5.Rule.
+ * payload and emits one `addToSet` per item, keying each set member by
+ * the item's persisted `uid` field (schema-required on `RuleCondition`
+ * + `HeaderModification` per session-40 schema bump). `projectRule` is
+ * the inverse: read the oracle's MaterializedEntity (which already
+ * carries the array form for set-modeled paths and scalars elsewhere)
+ * and return a V5.Rule.
  *
- * Synthetic itemIds live only inside the oracle's in-memory state.
- * The persisted V5.Rule on chrome.storage.local has no itemId field,
- * matching the v5 schema as-shipped. Each SW cold-wake re-mints fresh
- * itemIds on hydration — fine for Phase A (single-device, in-process
- * convergence only). Cross-device stability would require persisting
- * the oracle's full state, which is Phase D scope.
+ * **Identity preservation across save/reload.** Using the persisted
+ * `uid` as itemId (instead of minting fresh via `generateUid()` on
+ * every hydrate) is what lets the unified set-diff synthesizer take
+ * the LIS-optimal `moveBefore` fast path on the first save after a
+ * cold wake — without it, every reorder gesture would degrade to the
+ * fallback `addToSet` rewrite because the live itemIds wouldn't match
+ * the saved row uids. Mirrors `seedRequest` (session 39).
  */
 
-import { generateUid } from '@openheaders/core/utils';
 import type { V5 } from '@openheaders/core/types';
 import {
   type MaterializedEntity,
@@ -63,16 +65,34 @@ export function seedRule(rule: V5.Rule, ctx: MutatorContext): MutationBatch {
     { kind: 'create', type: RULE_ENTITY_TYPE, id: rule.uid, payload: scalarShell },
   ];
   for (const { path, item } of setItems) {
+    const itemId = readUid(item);
     bodies.push({
       kind: 'addToSet',
       type: RULE_ENTITY_TYPE,
       id: rule.uid,
       path,
-      itemId: generateUid(),
+      itemId,
       item,
     });
   }
   return mintBatch(ctx, bodies);
+}
+
+/**
+ * Read the persisted `uid` off a set member. Conditions and header
+ * mods both carry `uid: UidSchema` (schema-required, session 40). The
+ * cast is honest at this point — the source array satisfies the V5
+ * schema and the schema requires `uid` first.
+ */
+function readUid(item: unknown): string {
+  if (isPlainObject(item) && typeof item.uid === 'string' && item.uid.length > 0) {
+    return item.uid;
+  }
+  // Defensive: a fixture or test bypass could ship a row missing uid.
+  // Refuse loudly rather than mint a fresh one and silently lose
+  // identity across reload — the synthesizer's correctness contract
+  // relies on this match.
+  throw new Error('seedRule: set-member is missing required `uid` field');
 }
 
 /**

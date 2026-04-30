@@ -37,9 +37,9 @@ const makeRule = (uid: string): V5.Rule =>
     type: 'header',
     name: 'r',
     enabled: true,
-    conditions: [{ kind: 'url-pattern', urlPattern: 'https://openheaders.io/*' }],
+    conditions: [{ uid: 'cnd00001', kind: 'url-pattern', urlPattern: 'https://openheaders.io/*' }],
     action: {
-      requestHeaders: [{ headerName: 'X-A', operation: 'set', value: '1' }],
+      requestHeaders: [{ uid: 'hmd00001', headerName: 'X-A', operation: 'set', value: '1' }],
       responseHeaders: [],
     },
   }) as unknown as V5.Rule;

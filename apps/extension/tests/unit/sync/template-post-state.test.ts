@@ -43,7 +43,7 @@ const makeTemplate = (uid: string): V5.Template =>
     icon: '',
     description: '',
     includes: { conditions: true, formValues: true },
-    conditions: [{ type: 'urlContains', values: ['openheaders.io'] }],
+    conditions: [{ uid: 'cnd00001', type: 'urlContains', values: ['openheaders.io'] }],
     formValues: {},
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
