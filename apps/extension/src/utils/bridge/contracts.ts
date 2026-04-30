@@ -30,6 +30,7 @@ import type {
   SyncApplyResponse,
   SyncCollectionPostState,
   SyncEnvironmentPostState,
+  SyncExtensionWorkspacePostState,
   SyncFilesPostState,
   SyncFolderPostState,
   SyncLayoutStatePostState,
@@ -1317,6 +1318,18 @@ export interface BridgeRpcContract {
     req: Record<string, never>;
     res: { entries: SyncFilesPostState[] };
   };
+  /**
+   * Snapshot the global-scope extensionWorkspace oracle's singleton
+   * record. Same semantics as `oh.sync.snapshotFiles` — singleton
+   * `entries` carries 0 or 1 element. Published by the global oracle
+   * (lives above the per-workspace oracle so workspace switches don't
+   * tear it down). Renderer mirrors call this on mount before the
+   * first broadcast lands.
+   */
+  'oh.sync.snapshotExtensionWorkspaces': {
+    req: Record<string, never>;
+    res: { entries: SyncExtensionWorkspacePostState[] };
+  };
 
   // ── Awareness (Phase A A1) ──────────────────────────────────────
   /**
@@ -1592,6 +1605,14 @@ export interface BridgeBroadcastContract {
      * and are read lazily on demand.
      */
     filesPostState?: SyncFilesPostState;
+    /**
+     * Post-commit projection for extensionWorkspace envelopes (Phase B).
+     * Singleton entity at the GLOBAL scope (lives above the per-workspace
+     * oracle). Published by the global-scope oracle, not the
+     * per-workspace one; renderer-side mirrors filter by `body.type` so
+     * source-of-broadcast is transparent.
+     */
+    extensionWorkspacePostState?: SyncExtensionWorkspacePostState;
   };
 
   /**

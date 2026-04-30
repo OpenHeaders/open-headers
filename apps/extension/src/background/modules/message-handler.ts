@@ -38,6 +38,7 @@ import {
   snapshotVaultPostStates,
   snapshotWorkspaceVariablesPostStates,
 } from '@/background/sync/service';
+import { snapshotExtensionWorkspacePostStates } from '@/background/sync/global-service';
 import { getStatusSnapshot } from '@/shared/status';
 import type { MessageHandlerContext, SendResponse } from '@/types/browser';
 import type { PerfResourceEntry } from '@/types/perf';
@@ -1403,6 +1404,8 @@ export function handleGeneralMessage(
       safeResponse({ entries: snapshotLayoutStatePostStates() });
     } else if (message.type === 'oh.sync.snapshotFiles') {
       safeResponse({ entries: snapshotFilesPostStates() });
+    } else if (message.type === 'oh.sync.snapshotExtensionWorkspaces') {
+      safeResponse({ entries: snapshotExtensionWorkspacePostStates() });
     } else if (message.type === 'oh.sync.apply') {
       // Wire shape: SyncApplyRequest from @openheaders/core/protocol.
       // The bridge layer flattens `{ type, ...payload }` onto the

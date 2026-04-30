@@ -321,6 +321,31 @@ export interface SyncFilesPostState {
   fileIds: string[];
 }
 
+/**
+ * Post-commit projection for an extensionWorkspace envelope. Singleton
+ * entity at the GLOBAL scope (lives above the per-workspace oracle, so
+ * its mutation-log + cache survive workspace-switch dispose+init). The
+ * catalog stores workspace records as set members at `workspaces` (set
+ * member identity = workspace id) plus the active-workspace pointer as
+ * a scalar at `activeId`; the projection folds them into a sorted
+ * `V5.ExtensionWorkspace[]` (re-emitting the per-entry orderKey via a
+ * synthetic `sortIndex` so legacy consumers stay byte-stable) plus the
+ * scalar pointer.
+ *
+ * Not sensitive — workspace names + colors are user-visible. Same
+ * broadcast posture as files.
+ */
+export interface SyncExtensionWorkspacePostState {
+  /** All currently-known workspaces, sorted by orderKey ascending then id. */
+  workspaces: V5.ExtensionWorkspace[];
+  /**
+   * Active-workspace pointer. `null` when no envelope has set it yet
+   * (cold oracle prior to seed). Consumers fall back to the first
+   * workspace in the list, matching the legacy hydration guard.
+   */
+  activeWorkspaceId: string | null;
+}
+
 /** Oracle → surfaces: a committed envelope, broadcast for ack + replay. */
 export interface SyncBroadcastEvent {
   type: 'oh.sync.broadcast';
@@ -442,6 +467,15 @@ export interface SyncBroadcastEvent {
    * teardown gesture only) and rolled-back batches leave it `undefined`.
    */
   filesPostState?: SyncFilesPostState;
+  /**
+   * Populated for extensionWorkspace envelopes whose batch left the
+   * global singleton in place. Tombstoned (singleton deletion is not a
+   * production gesture) and rolled-back batches leave it `undefined`.
+   * Published by the global-scope oracle, not the per-workspace one;
+   * the renderer-side mirror filters by `body.type` so source-of-broadcast
+   * is transparent to consumers.
+   */
+  extensionWorkspacePostState?: SyncExtensionWorkspacePostState;
 }
 
 /** Single union surface code can switch over without importing five types. */

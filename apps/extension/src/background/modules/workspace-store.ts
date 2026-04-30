@@ -31,6 +31,7 @@ import { generateUid } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 import { entityLockName, withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, OH } from '@/shared/storage';
+import { getActiveExtensionWorkspaceCache } from '@/background/sync/extension-workspace-cache';
 import { driftRecorder } from './storage-drift';
 
 const DEFAULT_WORKSPACE_NAME = 'Workspace';
@@ -383,6 +384,35 @@ export async function bootstrap(): Promise<void> {
   await persistWorkspaces();
   await persistActiveId();
   logger.info('WorkspaceStore', `Seeded default workspace ${defaultWorkspace.id}`);
+}
+
+// ── Sync engine bridge ────────────────────────────────────────────────
+
+/**
+ * Seed the global-scope `extensionWorkspace` oracle from the in-memory
+ * workspaces list + active id. Idempotent — re-running rebuilds the
+ * singleton's set against the current authoritative state. Call after
+ * `bootstrap()` resolves; commit 3 will additionally re-call this on
+ * any cross-cutting state change (workspace add/remove/reorder/rename
+ * via the SW path) so the cache stays in lockstep until the legacy
+ * direct-write path is removed.
+ *
+ * The cache it talks to is `getActiveExtensionWorkspaceCache()`, owned
+ * by `global-service.ts`. The global service must already be init'd
+ * (caller is `background.ts` at boot or `__initGlobalSyncServiceForTests`
+ * for test fixtures).
+ */
+export async function bridgeExtensionWorkspaceSyncEngine(): Promise<void> {
+  const cache = getActiveExtensionWorkspaceCache();
+  if (!cache) {
+    logger.info('WorkspaceStore', 'bridgeExtensionWorkspaceSyncEngine: no global cache; skipping seed');
+    return;
+  }
+  const currentActive = activeWorkspaceId;
+  await cache.seedFromPersistedState({
+    workspaces: listWorkspaces(),
+    activeWorkspaceId: currentActive,
+  });
 }
 
 // ── Test helpers ──────────────────────────────────────────────────────

@@ -53,6 +53,7 @@ export type EntityPostState = Partial<
     | 'pauseMarkersPostState'
     | 'layoutStatePostState'
     | 'filesPostState'
+    | 'extensionWorkspacePostState'
   >
 >;
 

@@ -87,6 +87,7 @@ import { handleRecordingMessage } from './modules/recording-handler';
 import { initRecordingSync } from './modules/recording-sync';
 import { setupRequestMonitoring } from './modules/request-monitor';
 import { markBootPhase } from './sync/boot-telemetry';
+import { initGlobalSyncService } from './sync/global-service';
 import { initSyncService, reinitForWorkspace } from './sync/service';
 import { applyExternalSnapshot as applyRequestScriptsReviewSnapshot } from './modules/request-scripts-review-store';
 import {
@@ -130,6 +131,7 @@ import { isHandoffSweepAlarm, sweepExpiredHandoffs } from './modules/workspace-e
 import { hydrateActiveWorkspaceStores } from './modules/workspace-orchestrator';
 import {
   bootstrap as bootstrapWorkspaces,
+  bridgeExtensionWorkspaceSyncEngine,
   getActiveWorkspaceId,
   listWorkspaces,
   onWorkspaceStoreChange,
@@ -549,6 +551,17 @@ async function initializeExtension(): Promise<void> {
   // Hydrate the active workspace's per-workspace stores from storage.
   await hydrateActiveWorkspaceStores();
   markBootPhase('hydration-done');
+
+  // Global-scope sync engine — the cross-workspace `extensionWorkspace`
+  // entity (workspaces list + active pointer) lives ABOVE the
+  // per-workspace oracle, so it gets its own one-time-init service.
+  // Booted before per-workspace `initSyncService` purely for
+  // dependency-graph cleanliness; no envelope coupling between the two
+  // scopes. The seed bridge sources from the in-memory workspace-store
+  // populated by `bootstrapWorkspaces()` (already resolved by the time
+  // hydration completes).
+  initGlobalSyncService();
+  await bridgeExtensionWorkspaceSyncEngine();
 
   // Sync engine (Phase A) — instantiate the local oracle for the
   // active workspace once hydration has resolved a workspace id. The
