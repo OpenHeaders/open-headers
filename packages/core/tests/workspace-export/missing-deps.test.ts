@@ -95,7 +95,7 @@ function makeRuleWithRef(
     name,
     type: 'header',
     enabled: true,
-    conditions: ref.valueWithRefs ? [{ type: 'request-domains' as const, values: [ref.valueWithRefs] }] : [],
+    conditions: ref.valueWithRefs ? [{ uid: 'cnd00001', type: 'request-domains' as const, values: [ref.valueWithRefs] }] : [],
     action: { requestHeaders: [], responseHeaders: [] },
   };
   if (ref.collectionId) (r as HeaderRule & { collectionId: string }).collectionId = ref.collectionId;

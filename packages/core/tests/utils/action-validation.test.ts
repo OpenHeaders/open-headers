@@ -19,7 +19,7 @@ const baseFields = {
   path: 'test/rule.json',
   name: 'test',
   enabled: true,
-  conditions: [{ type: 'request-domains', values: ['openheaders.io'] } satisfies RuleCondition],
+  conditions: [{ uid: 'cnd00001', type: 'request-domains', values: ['openheaders.io'] } satisfies RuleCondition],
   version: 1,
 };
 
@@ -60,7 +60,7 @@ describe('validateActionValues — header', () => {
     expect(
       validateActionValues(
         header({
-          requestHeaders: [{ operation: 'override', headerName: 'X-Custom', value: '1' }],
+          requestHeaders: [{ uid: 'hmd00001', operation: 'override', headerName: 'X-Custom', value: '1' }],
           responseHeaders: [],
         }),
       ),
@@ -70,7 +70,7 @@ describe('validateActionValues — header', () => {
   it('flags an invalid header name (RFC 7230 token violation)', () => {
     const issues = validateActionValues(
       header({
-        requestHeaders: [{ operation: 'override', headerName: 'Bad Name', value: '1' }],
+        requestHeaders: [{ uid: 'hmd00002', operation: 'override', headerName: 'Bad Name', value: '1' }],
         responseHeaders: [],
       }),
     );
@@ -80,7 +80,7 @@ describe('validateActionValues — header', () => {
   it('flags an invalid header value (CRLF injection attempt)', () => {
     const issues = validateActionValues(
       header({
-        requestHeaders: [{ operation: 'override', headerName: 'X-Custom', value: 'a\r\nInjected: yes' }],
+        requestHeaders: [{ uid: 'hmd00003', operation: 'override', headerName: 'X-Custom', value: 'a\r\nInjected: yes' }],
         responseHeaders: [],
       }),
     );
@@ -91,7 +91,7 @@ describe('validateActionValues — header', () => {
     // `append` on a non-allowlisted custom header is rejected by Chrome DNR.
     const issues = validateActionValues(
       header({
-        requestHeaders: [{ operation: 'add', headerName: 'X-Custom-Random', value: '1' }],
+        requestHeaders: [{ uid: 'hmd00004', operation: 'add', headerName: 'X-Custom-Random', value: '1' }],
         responseHeaders: [],
       }),
     );
@@ -102,7 +102,7 @@ describe('validateActionValues — header', () => {
     expect(
       validateActionValues(
         header({
-          requestHeaders: [{ operation: 'remove', headerName: 'X-Custom', value: undefined }],
+          requestHeaders: [{ uid: 'hmd00005', operation: 'remove', headerName: 'X-Custom', value: undefined }],
           responseHeaders: [],
         }),
       ),
@@ -113,7 +113,7 @@ describe('validateActionValues — header', () => {
     expect(
       validateActionValues(
         header({
-          requestHeaders: [{ operation: 'override', headerName: '{{HEADER_NAME}}', value: '{{HEADER_VALUE}}' }],
+          requestHeaders: [{ uid: 'hmd00006', operation: 'override', headerName: '{{HEADER_NAME}}', value: '{{HEADER_VALUE}}' }],
           responseHeaders: [],
         }),
       ),
@@ -124,8 +124,8 @@ describe('validateActionValues — header', () => {
     const issues = validateActionValues(
       header({
         requestHeaders: [
-          { operation: 'override', headerName: 'X-Custom', value: '1' },
-          { operation: 'override', headerName: 'Bad Name', value: '1' },
+          { uid: 'hmd00007', operation: 'override', headerName: 'X-Custom', value: '1' },
+          { uid: 'hmd00008', operation: 'override', headerName: 'Bad Name', value: '1' },
         ],
         responseHeaders: [],
       }),
@@ -157,7 +157,7 @@ describe('validateActionValues — redirect', () => {
 
   it('accepts a regex-substitution-style target when paired with url-regex condition', () => {
     const r = redirect({ redirectTo: 'https://api.openheaders.io/v2/\\1' }, [
-      { type: 'url-regex', values: ['^https://api\\.openheaders\\.io/v1/(.*)'] },
+      { uid: 'cnd00002', type: 'url-regex', values: ['^https://api\\.openheaders\\.io/v1/(.*)'] },
     ]);
     expect(validateActionValues(r)).toEqual([]);
   });

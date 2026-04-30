@@ -4,7 +4,8 @@ name: Redirect staging to local
 type: redirect
 enabled: true
 conditions:
-  - type: url-filter
+  - uid: cnd00008
+    type: url-filter
     values:
       - "||staging.openheaders.io/*"
 action:

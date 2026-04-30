@@ -39,7 +39,7 @@ import {
 // ── Helpers ──────────────────────────────────────────────────────────
 
 function hostConditions(domains: string[]): V5.RuleCondition[] {
-  return domains.length > 0 ? [{ type: 'request-domains', values: domains }] : [];
+  return domains.length > 0 ? [{ uid: 'tcd00041', type: 'request-domains', values: domains }] : [];
 }
 
 function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
@@ -52,7 +52,7 @@ function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
     enabled: true,
     conditions: hostConditions(['*.openheaders.io']),
     action: {
-      requestHeaders: [{ operation: 'override', headerName: 'X-Debug', value: 'test-value' }],
+      requestHeaders: [{ uid: 'thm00073', operation: 'override', headerName: 'X-Debug', value: 'test-value' }],
       responseHeaders: [],
     },
     ...overrides,
@@ -88,7 +88,7 @@ describe('getActiveRulesForTab', () => {
       makeHeaderRule({
         uid: 'rule-1',
         action: {
-          requestHeaders: [{ operation: 'override', headerName: 'X-Debug', value: 'test' }],
+          requestHeaders: [{ uid: 'thm00074', operation: 'override', headerName: 'X-Debug', value: 'test' }],
           responseHeaders: [],
         },
         conditions: hostConditions(['*.openheaders.io']),
@@ -113,7 +113,7 @@ describe('getActiveRulesForTab', () => {
       makeHeaderRule({
         uid: 'rule-2',
         action: {
-          requestHeaders: [{ operation: 'override', headerName: 'X-Disabled', value: 'test' }],
+          requestHeaders: [{ uid: 'thm00075', operation: 'override', headerName: 'X-Disabled', value: 'test' }],
           responseHeaders: [],
         },
         conditions: hostConditions(['*.openheaders.io']),
@@ -138,7 +138,7 @@ describe('getActiveRulesForTab', () => {
       makeHeaderRule({
         uid: 'rule-2',
         action: {
-          requestHeaders: [{ operation: 'override', headerName: 'X-Other', value: 'test' }],
+          requestHeaders: [{ uid: 'thm00076', operation: 'override', headerName: 'X-Other', value: 'test' }],
           responseHeaders: [],
         },
         conditions: hostConditions(['*.example.com']),
@@ -155,7 +155,7 @@ describe('getActiveRulesForTab', () => {
       makeHeaderRule({
         uid: 'rule-1',
         action: {
-          requestHeaders: [{ operation: 'override', headerName: 'X-Global', value: 'value' }],
+          requestHeaders: [{ uid: 'thm00077', operation: 'override', headerName: 'X-Global', value: 'value' }],
           responseHeaders: [],
         },
         conditions: hostConditions(['*']),
@@ -171,7 +171,7 @@ describe('getActiveRulesForTab', () => {
     seedRules([
       makeHeaderRule({
         uid: 'draft-rule',
-        action: { requestHeaders: [{ operation: 'override', headerName: '', value: 'test' }], responseHeaders: [] },
+        action: { requestHeaders: [{ uid: 'thm00078', operation: 'override', headerName: '', value: 'test' }], responseHeaders: [] },
         conditions: hostConditions([]),
       }),
     ]);
@@ -199,7 +199,7 @@ describe('getActiveRulesForTab', () => {
         uid: 'rule-1',
         action: {
           requestHeaders: [],
-          responseHeaders: [{ operation: 'override', headerName: 'X-Tagged', value: 'true' }],
+          responseHeaders: [{ uid: 'thm00079', operation: 'override', headerName: 'X-Tagged', value: 'true' }],
         },
         conditions: hostConditions(['*.openheaders.io']),
       }),
@@ -333,7 +333,7 @@ describe('matchRulesToRequest', () => {
         action: {
           requestHeaders: [
             {
-              operation: 'merge',
+              uid: 'thm00080', operation: 'merge',
               headerName: 'X-Stacked',
               value: 'a',
               mergeSeparator: ',',
@@ -356,7 +356,7 @@ describe('matchRulesToRequest', () => {
           requestHeaders: [],
           responseHeaders: [
             {
-              operation: 'merge',
+              uid: 'thm00081', operation: 'merge',
               headerName: 'X-Stacked',
               value: 'a',
               mergeSeparator: ',',

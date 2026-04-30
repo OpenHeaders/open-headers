@@ -119,8 +119,8 @@ describe('blockCompiler resource-type handling', () => {
     type: 'block',
     enabled: true,
     conditions: [
-      { type: 'request-domains', values: ['openheaders.io'] },
-      { type: 'exclude-resource-types', values: ['image'] },
+      { uid: 'tcd00016', type: 'request-domains', values: ['openheaders.io'] },
+      { uid: 'tcd00017', type: 'exclude-resource-types', values: ['image'] },
     ],
     action: {},
   };
@@ -139,8 +139,8 @@ describe('blockCompiler resource-type handling', () => {
       {
         ...rule,
         conditions: [
-          { type: 'request-domains', values: ['openheaders.io'] },
-          { type: 'exclude-resource-types', values: [...ALL_RESOURCE_TYPES] },
+          { uid: 'tcd00018', type: 'request-domains', values: ['openheaders.io'] },
+          { uid: 'tcd00019', type: 'exclude-resource-types', values: [...ALL_RESOURCE_TYPES] },
         ],
       },
       makeCtx(),
@@ -158,9 +158,9 @@ describe('redirectCompiler resource-type handling', () => {
     type: 'redirect',
     enabled: true,
     conditions: [
-      { type: 'url-filter', values: ['*://openheaders.io/*'] },
-      { type: 'resource-types', values: ['page', 'xhr'] },
-      { type: 'exclude-resource-types', values: ['xhr'] },
+      { uid: 'tcd00020', type: 'url-filter', values: ['*://openheaders.io/*'] },
+      { uid: 'tcd00021', type: 'resource-types', values: ['page', 'xhr'] },
+      { uid: 'tcd00022', type: 'exclude-resource-types', values: ['xhr'] },
     ],
     action: { redirectTo: 'https://test.openheaders.io/' },
   };
@@ -183,8 +183,8 @@ describe('queryParamCompiler resource-type handling', () => {
     type: 'query-param',
     enabled: true,
     conditions: [
-      { type: 'request-domains', values: ['openheaders.io'] },
-      { type: 'exclude-resource-types', values: ['stylesheet', 'font'] },
+      { uid: 'tcd00023', type: 'request-domains', values: ['openheaders.io'] },
+      { uid: 'tcd00024', type: 'exclude-resource-types', values: ['stylesheet', 'font'] },
     ],
     action: { params: [{ operation: 'add', param: 'utm_source', value: 'oh' }] },
   };
@@ -209,8 +209,8 @@ describe('injectCompiler resource-type handling', () => {
     type: 'inject',
     enabled: true,
     conditions: [
-      { type: 'url-filter', values: ['*://openheaders.io/*'] },
-      { type: 'exclude-resource-types', values: ['page'] },
+      { uid: 'tcd00025', type: 'url-filter', values: ['*://openheaders.io/*'] },
+      { uid: 'tcd00026', type: 'exclude-resource-types', values: ['page'] },
     ],
     action: {
       injectType: 'css',
@@ -240,9 +240,9 @@ describe('headerCompiler resource-type handling', () => {
       name: 'Header',
       type: 'header',
       enabled: true,
-      conditions: [{ type: 'request-domains', values: ['openheaders.io'] }],
+      conditions: [{ uid: 'tcd00027', type: 'request-domains', values: ['openheaders.io'] }],
       action: {
-        requestHeaders: [{ operation: 'override', headerName: 'X-Test', value: 'v' }],
+        requestHeaders: [{ uid: 'thm00015', operation: 'override', headerName: 'X-Test', value: 'v' }],
         responseHeaders: [],
       },
       ...overrides,
@@ -253,12 +253,12 @@ describe('headerCompiler resource-type handling', () => {
     const plan = headerCompiler.compile(
       makeRule({
         conditions: [
-          { type: 'request-domains', values: ['openheaders.io'] },
-          { type: 'exclude-resource-types', values: ['page'] },
+          { uid: 'tcd00028', type: 'request-domains', values: ['openheaders.io'] },
+          { uid: 'tcd00029', type: 'exclude-resource-types', values: ['page'] },
         ],
         action: {
           requestHeaders: [],
-          responseHeaders: [{ operation: 'override', headerName: 'X-Resp', value: 'r' }],
+          responseHeaders: [{ uid: 'thm00016', operation: 'override', headerName: 'X-Resp', value: 'r' }],
         },
       }),
       makeCtx(),
@@ -274,8 +274,8 @@ describe('headerCompiler resource-type handling', () => {
     const plan = headerCompiler.compile(
       makeRule({
         conditions: [
-          { type: 'request-domains', values: ['openheaders.io'] },
-          { type: 'exclude-resource-types', values: ['image', 'font'] },
+          { uid: 'tcd00030', type: 'request-domains', values: ['openheaders.io'] },
+          { uid: 'tcd00031', type: 'exclude-resource-types', values: ['image', 'font'] },
         ],
       }),
       makeCtx(),
@@ -292,12 +292,12 @@ describe('headerCompiler resource-type handling', () => {
     const plan = headerCompiler.compile(
       makeRule({
         conditions: [
-          { type: 'request-domains', values: ['openheaders.io'] },
-          { type: 'resource-types', values: ['xhr'] },
+          { uid: 'tcd00032', type: 'request-domains', values: ['openheaders.io'] },
+          { uid: 'tcd00033', type: 'resource-types', values: ['xhr'] },
         ],
         action: {
           requestHeaders: [],
-          responseHeaders: [{ operation: 'override', headerName: 'X-Resp', value: 'r' }],
+          responseHeaders: [{ uid: 'thm00017', operation: 'override', headerName: 'X-Resp', value: 'r' }],
         },
       }),
       makeCtx(),
@@ -321,8 +321,8 @@ describe('delayCompiler resource-type handling (regression sanity)', () => {
         type: 'delay',
         enabled: true,
         conditions: [
-          { type: 'url-filter', values: ['*://openheaders.io/*'] },
-          { type: 'exclude-resource-types', values: ['page'] },
+          { uid: 'tcd00034', type: 'url-filter', values: ['*://openheaders.io/*'] },
+          { uid: 'tcd00035', type: 'exclude-resource-types', values: ['page'] },
         ],
         action: { delayMs: 1000 },
       },

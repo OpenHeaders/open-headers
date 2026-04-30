@@ -36,7 +36,7 @@ function baseRule(action: V5.HeaderRule['action']): V5.HeaderRule {
     name: 'Rule',
     type: 'header',
     enabled: true,
-    conditions: [{ type: 'request-domains', values: ['openheaders.io'] }],
+    conditions: [{ uid: 'tcd00014', type: 'request-domains', values: ['openheaders.io'] }],
     action,
   };
 }
@@ -51,7 +51,7 @@ describe('header compiler — unresolved template guard', () => {
   it('skips a mod whose header-name template did not resolve', () => {
     const plan = headerCompiler.compile(
       baseRule({
-        requestHeaders: [{ operation: 'override', headerName: 'X-{{vault.TOTP_X}}', value: 'v' }],
+        requestHeaders: [{ uid: 'thm00007', operation: 'override', headerName: 'X-{{vault.TOTP_X}}', value: 'v' }],
         responseHeaders: [],
       }),
       makeCtx(),
@@ -62,7 +62,7 @@ describe('header compiler — unresolved template guard', () => {
   it('skips a mod whose value template did not resolve', () => {
     const plan = headerCompiler.compile(
       baseRule({
-        requestHeaders: [{ operation: 'override', headerName: 'X-Foo', value: '{{vault.TOTP_X}}' }],
+        requestHeaders: [{ uid: 'thm00008', operation: 'override', headerName: 'X-Foo', value: '{{vault.TOTP_X}}' }],
         responseHeaders: [],
       }),
       makeCtx(),
@@ -76,8 +76,8 @@ describe('header compiler — unresolved template guard', () => {
     const plan = headerCompiler.compile(
       baseRule({
         requestHeaders: [
-          { operation: 'override', headerName: 'X-Foo', value: 'v' },
-          { operation: 'override', headerName: '{{vault.TOTP_X}}', value: 'v' },
+          { uid: 'thm00009', operation: 'override', headerName: 'X-Foo', value: 'v' },
+          { uid: 'thm00010', operation: 'override', headerName: '{{vault.TOTP_X}}', value: 'v' },
         ],
         responseHeaders: [],
       }),
@@ -97,7 +97,7 @@ describe('header compiler — unresolved template guard', () => {
     // reach the page injection.
     const { __testExtractHeaderMergeEntry } = await import('@/background/inject-manager');
     const rule = baseRule({
-      requestHeaders: [{ operation: 'merge', headerName: 'Cookie', value: 'k=v', mergeSeparator: '{{vault.TOTP_X}}' }],
+      requestHeaders: [{ uid: 'thm00011', operation: 'merge', headerName: 'Cookie', value: 'k=v', mergeSeparator: '{{vault.TOTP_X}}' }],
       responseHeaders: [],
     });
     expect(__testExtractHeaderMergeEntry(rule)).toBeNull();
@@ -108,7 +108,7 @@ describe('header compiler — unresolved template guard', () => {
     // valid token — same guard applies.
     const plan = headerCompiler.compile(
       baseRule({
-        requestHeaders: [{ operation: 'remove', headerName: '{{vault.TOTP_X}}' }],
+        requestHeaders: [{ uid: 'thm00012', operation: 'remove', headerName: '{{vault.TOTP_X}}' }],
         responseHeaders: [],
       }),
       makeCtx(),

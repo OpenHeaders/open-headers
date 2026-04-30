@@ -7,8 +7,9 @@ import {
   validateDomainValues,
 } from '../../src/utils';
 
+let condCounter = 0;
 function cond(type: RuleCondition['type'], values: string[]): RuleCondition {
-  return { type, values };
+  return { uid: `tst${(++condCounter).toString().padStart(5, '0')}`, type, values };
 }
 
 describe('validateDomainValues', () => {
@@ -167,16 +168,16 @@ describe('validateConditionStructure', () => {
   it('treats two response-header rows for DIFFERENT names as independent slots', () => {
     expect(
       validateConditionStructure([
-        { type: 'response-header', values: ['application/json'], headerName: 'Content-Type' },
-        { type: 'response-header', values: ['nosniff'], headerName: 'X-Content-Type-Options' },
+        { uid: 'cnd00001', type: 'response-header', values: ['application/json'], headerName: 'Content-Type' },
+        { uid: 'cnd00002', type: 'response-header', values: ['nosniff'], headerName: 'X-Content-Type-Options' },
       ]),
     ).toEqual([]);
   });
 
   it('flags two response-header rows for the SAME name as duplicate-slot', () => {
     const issues = validateConditionStructure([
-      { type: 'response-header', values: ['application/json'], headerName: 'Content-Type' },
-      { type: 'response-header', values: ['text/html'], headerName: 'content-type' },
+      { uid: 'cnd00003', type: 'response-header', values: ['application/json'], headerName: 'Content-Type' },
+      { uid: 'cnd00004', type: 'response-header', values: ['text/html'], headerName: 'content-type' },
     ]);
     expect(issues).toHaveLength(1);
     expect(issues[0]).toMatchObject({ index: 0, winningIndex: 1, kind: 'duplicate-slot' });
@@ -186,8 +187,8 @@ describe('validateConditionStructure', () => {
   it('does not flag a header row with no header name — incomplete rows do not claim a slot', () => {
     expect(
       validateConditionStructure([
-        { type: 'response-header', values: ['v'], headerName: 'Content-Type' },
-        { type: 'response-header', values: ['v'], headerName: '' },
+        { uid: 'cnd00005', type: 'response-header', values: ['v'], headerName: 'Content-Type' },
+        { uid: 'cnd00006', type: 'response-header', values: ['v'], headerName: '' },
       ]),
     ).toEqual([]);
   });
@@ -330,7 +331,7 @@ describe('validateConditionValues', () => {
   // ── response-header conditions ────────────────────────────────
   describe('response-header / exclude-response-header', () => {
     function headerCond(headerName: string, values: string[]): RuleCondition {
-      return { type: 'response-header', values, headerName };
+      return { uid: 'cnd00007', type: 'response-header', values, headerName };
     }
 
     it('passes for a valid header name + any values', () => {

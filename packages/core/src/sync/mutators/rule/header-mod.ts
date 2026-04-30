@@ -32,6 +32,12 @@ export type HeaderSide = 'request' | 'response';
 const setPath = (side: HeaderSide): string => (side === 'request' ? 'action.requestHeaders' : 'action.responseHeaders');
 
 export interface HeaderModification {
+  /**
+   * Persisted per-row identity. Doubles as the sync engine's itemId so
+   * row identity round-trips through save/reload (parallel to
+   * `RequestHeader.uid` / `QueryParam.uid` from the request slice).
+   */
+  uid: string;
   operation: 'override' | 'add' | 'remove' | 'merge';
   headerName: string;
   value?: string;
@@ -48,12 +54,16 @@ export interface AddHeaderModArgs {
    * when the caller doesn't care.
    */
   orderKey?: string;
-  /** Optional explicit itemId (replay / import). Otherwise minted. */
+  /**
+   * Optional explicit itemId override. Defaults to `mod.uid` so the
+   * persisted row identity and the oracle's set-member identity stay
+   * the same string (the synthesizer keys on this).
+   */
   itemId?: string;
 }
 
 export function addHeaderMod(ctx: MutatorContext, args: AddHeaderModArgs): MutatorIntent {
-  const itemId = args.itemId ?? generateUid();
+  const itemId = args.itemId ?? args.mod.uid ?? generateUid();
   const path = setPath(args.side);
 
   const bodies: MutationBody[] = [

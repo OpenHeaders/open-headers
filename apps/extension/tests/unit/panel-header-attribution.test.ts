@@ -60,7 +60,7 @@ describe('attributeHeaders', () => {
     const rule = headerRule(
       'r1',
       'Force JSON',
-      [{ operation: 'override', headerName: 'Content-Type', value: 'application/json' }],
+      [{ uid: 'thm00037', operation: 'override', headerName: 'Content-Type', value: 'application/json' }],
       'response',
     );
     const result = attributeHeaders(
@@ -83,7 +83,7 @@ describe('attributeHeaders', () => {
     const rule = headerRule(
       'r1',
       'CORS',
-      [{ operation: 'override', headerName: 'Access-Control-Allow-Origin', value: '*' }],
+      [{ uid: 'thm00038', operation: 'override', headerName: 'Access-Control-Allow-Origin', value: '*' }],
       'response',
     );
     const result = attributeHeaders(
@@ -103,7 +103,7 @@ describe('attributeHeaders', () => {
     const rule = headerRule(
       'r1',
       'Strip CSP',
-      [{ operation: 'remove', headerName: 'Content-Security-Policy' }],
+      [{ uid: 'thm00039', operation: 'remove', headerName: 'Content-Security-Policy' }],
       'response',
     );
     const result = attributeHeaders(
@@ -125,7 +125,7 @@ describe('attributeHeaders', () => {
   });
 
   it('drops `remove` silently when the server did not send the named header', () => {
-    const rule = headerRule('r1', 'Strip', [{ operation: 'remove', headerName: 'X-Missing' }], 'response');
+    const rule = headerRule('r1', 'Strip', [{ uid: 'thm00040', operation: 'remove', headerName: 'X-Missing' }], 'response');
     const result = attributeHeaders(
       [{ name: 'Content-Type', value: 'text/html' }],
       [fire('r1')],
@@ -140,7 +140,7 @@ describe('attributeHeaders', () => {
     const rule = headerRule(
       'r1',
       'Dup',
-      [{ operation: 'add', headerName: 'Set-Cookie', value: 'extra=1' }],
+      [{ uid: 'thm00041', operation: 'add', headerName: 'Set-Cookie', value: 'extra=1' }],
       'response',
     );
     const result = attributeHeaders(
@@ -160,7 +160,7 @@ describe('attributeHeaders', () => {
     const rule = headerRule(
       'r1',
       'Override',
-      [{ operation: 'override', headerName: 'content-type', value: 'application/json' }],
+      [{ uid: 'thm00042', operation: 'override', headerName: 'content-type', value: 'application/json' }],
       'response',
     );
     const result = attributeHeaders(
@@ -177,13 +177,13 @@ describe('attributeHeaders', () => {
     const cookieRule = headerRule(
       'r1',
       'Merge cookie',
-      [{ operation: 'merge', headerName: 'Cookie', value: 'k=v' }],
+      [{ uid: 'thm00043', operation: 'merge', headerName: 'Cookie', value: 'k=v' }],
       'request',
     );
     const otherRule = headerRule(
       'r2',
       'Merge accept',
-      [{ operation: 'merge', headerName: 'Accept', value: 'text/html' }],
+      [{ uid: 'thm00044', operation: 'merge', headerName: 'Accept', value: 'text/html' }],
       'request',
     );
     const cookie = attributeHeaders([{ name: 'Cookie', value: 'a=b' }], [fire('r1')], 'request', byUid(cookieRule));
@@ -202,7 +202,7 @@ describe('attributeHeaders', () => {
     const rule = headerRule(
       'r1',
       'Merge pipe',
-      [{ operation: 'merge', headerName: 'X-Multi', value: 'b', mergeSeparator: ' | ' }],
+      [{ uid: 'thm00045', operation: 'merge', headerName: 'X-Multi', value: 'b', mergeSeparator: ' | ' }],
       'request',
     );
     const result = attributeHeaders([{ name: 'X-Multi', value: 'a' }], [fire('r1')], 'request', byUid(rule));
@@ -213,7 +213,7 @@ describe('attributeHeaders', () => {
     // The same rule often appears twice in `fires` — once from
     // Chrome's `onRuleMatchedDebug` (authoritative) and once from
     // URL-pattern inference. Treat as a single application.
-    const rule = headerRule('r1', 'Debug', [{ operation: 'override', headerName: 'X-Debug', value: 'on' }], 'response');
+    const rule = headerRule('r1', 'Debug', [{ uid: 'thm00046', operation: 'override', headerName: 'X-Debug', value: 'on' }], 'response');
     const result = attributeHeaders(
       [{ name: 'Content-Type', value: 'text/html' }],
       [
@@ -232,8 +232,8 @@ describe('attributeHeaders', () => {
     // Two rules both inject X-Foo with override. In DNR this is
     // "last registered / highest priority wins" — we show one row
     // attributed to the later fire, not two duplicates.
-    const a = headerRule('r1', 'A', [{ operation: 'override', headerName: 'X-Foo', value: 'a' }], 'response');
-    const b = headerRule('r2', 'B', [{ operation: 'override', headerName: 'X-Foo', value: 'b' }], 'response');
+    const a = headerRule('r1', 'A', [{ uid: 'thm00047', operation: 'override', headerName: 'X-Foo', value: 'a' }], 'response');
+    const b = headerRule('r2', 'B', [{ uid: 'thm00048', operation: 'override', headerName: 'X-Foo', value: 'b' }], 'response');
     const result = attributeHeaders([], [fire('r1'), fire('r2')], 'response', byUid(a, b));
     expect(result).toHaveLength(1);
     expect(result[0].value).toBe('b');
@@ -246,8 +246,8 @@ describe('attributeHeaders', () => {
     // Two rules both override an existing server header. The
     // `originalValue` must stay the *server* value — not whatever the
     // previous override wrote.
-    const a = headerRule('r1', 'A', [{ operation: 'override', headerName: 'X-Foo', value: 'a' }], 'response');
-    const b = headerRule('r2', 'B', [{ operation: 'override', headerName: 'X-Foo', value: 'b' }], 'response');
+    const a = headerRule('r1', 'A', [{ uid: 'thm00049', operation: 'override', headerName: 'X-Foo', value: 'a' }], 'response');
+    const b = headerRule('r2', 'B', [{ uid: 'thm00050', operation: 'override', headerName: 'X-Foo', value: 'b' }], 'response');
     const result = attributeHeaders(
       [{ name: 'X-Foo', value: 'server' }],
       [fire('r1'), fire('r2')],
@@ -266,8 +266,8 @@ describe('attributeHeaders', () => {
     // either rule fired. Attribution points at the remover (DNR's
     // winner); the injecting rule is recorded so the popover can
     // explain the chain.
-    const adder = headerRule('r1', 'Add', [{ operation: 'override', headerName: 'X-Foo', value: 'x' }], 'response');
-    const remover = headerRule('r2', 'Rm', [{ operation: 'remove', headerName: 'X-Foo' }], 'response');
+    const adder = headerRule('r1', 'Add', [{ uid: 'thm00051', operation: 'override', headerName: 'X-Foo', value: 'x' }], 'response');
+    const remover = headerRule('r2', 'Rm', [{ uid: 'thm00052', operation: 'remove', headerName: 'X-Foo' }], 'response');
     const result = attributeHeaders([], [fire('r1'), fire('r2')], 'response', byUid(adder, remover));
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe('X-Foo');
@@ -284,13 +284,13 @@ describe('attributeHeaders', () => {
     const first = headerRule(
       'r1',
       'First',
-      [{ operation: 'override', headerName: 'X-Foo', value: 'first' }],
+      [{ uid: 'thm00053', operation: 'override', headerName: 'X-Foo', value: 'first' }],
       'response',
     );
     const second = headerRule(
       'r2',
       'Second',
-      [{ operation: 'override', headerName: 'X-Foo', value: 'second' }],
+      [{ uid: 'thm00054', operation: 'override', headerName: 'X-Foo', value: 'second' }],
       'response',
     );
     const result = attributeHeaders(
@@ -480,14 +480,14 @@ describe('attributeHeaders', () => {
     const liveRule = headerRule(
       'r1',
       'X',
-      [{ operation: 'override', headerName: 'X-Foo', value: 'v2' }],
+      [{ uid: 'thm00055', operation: 'override', headerName: 'X-Foo', value: 'v2' }],
       'response',
     ) as V5.HeaderRule;
     const snapshot = snapshotOf({
       ...liveRule,
       action: {
         requestHeaders: [],
-        responseHeaders: [{ operation: 'override', headerName: 'X-Foo', value: 'v1' }],
+        responseHeaders: [{ uid: 'thm00056', operation: 'override', headerName: 'X-Foo', value: 'v1' }],
       },
     } as V5.HeaderRule);
     const result = attributeHeaders(
@@ -508,7 +508,7 @@ describe('attributeHeaders', () => {
     const liveRule = headerRule(
       'r1',
       'X',
-      [{ operation: 'override', headerName: 'X-Foo', value: 'v1' }],
+      [{ uid: 'thm00057', operation: 'override', headerName: 'X-Foo', value: 'v1' }],
       'response',
     ) as V5.HeaderRule;
     const snapshot = snapshotOf(liveRule);
@@ -554,7 +554,7 @@ describe('attributeHeaders', () => {
     const liveRule = headerRule(
       'r1',
       'X',
-      [{ operation: 'override', headerName: 'X-Foo', value: '{{env.foo}}' }],
+      [{ uid: 'thm00058', operation: 'override', headerName: 'X-Foo', value: '{{env.foo}}' }],
       'response',
     ) as V5.HeaderRule;
     const snapshot: RuleSnapshot = {
@@ -590,7 +590,7 @@ describe('attributeHeaders', () => {
     // `ruleSnapshot`. The attributor synthesizes one from the live rule
     // so the row still renders — but never marks it edited (no
     // baseline to compare against).
-    const rule = headerRule('r1', 'X', [{ operation: 'override', headerName: 'X-Foo', value: 'live' }], 'response');
+    const rule = headerRule('r1', 'X', [{ uid: 'thm00059', operation: 'override', headerName: 'X-Foo', value: 'live' }], 'response');
     const result = attributeHeaders([{ name: 'X-Foo', value: 'server' }], [fire('r1')], 'response', byUid(rule));
     expect(result[0].value).toBe('live');
     if (result[0].attribution.kind === 'modified') {
@@ -607,7 +607,7 @@ describe('attributeHeaders', () => {
       ...(headerRule(
         'r1',
         'Tpl name',
-        [{ operation: 'override', headerName: 'X-{{env.suffix}}', value: 'v' }],
+        [{ uid: 'thm00060', operation: 'override', headerName: 'X-{{env.suffix}}', value: 'v' }],
         'request',
       ) as object),
     } as V5.Rule;
@@ -653,8 +653,8 @@ describe('attributeHeaders', () => {
       'r1',
       'Multi',
       [
-        { operation: 'add', headerName: 'Set-Cookie', value: 'a=1' },
-        { operation: 'add', headerName: 'Set-Cookie', value: 'b=2' },
+        { uid: 'thm00061', operation: 'add', headerName: 'Set-Cookie', value: 'a=1' },
+        { uid: 'thm00062', operation: 'add', headerName: 'Set-Cookie', value: 'b=2' },
       ],
       'response',
     ) as V5.HeaderRule;
@@ -671,7 +671,7 @@ describe('attributeHeaders', () => {
     const rule = headerRule(
       'r1',
       'Auth',
-      [{ operation: 'override', headerName: 'Authorization', value: 'Bearer X' }],
+      [{ uid: 'thm00063', operation: 'override', headerName: 'Authorization', value: 'Bearer X' }],
       'request',
     );
     const response = attributeHeaders(

@@ -167,9 +167,9 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
       name: 'R',
       type: 'header',
       enabled: true,
-      conditions: [{ type: 'request-domains', values: ['*.openheaders.io'] }],
+      conditions: [{ uid: 'tcd00057', type: 'request-domains', values: ['*.openheaders.io'] }],
       action: {
-        requestHeaders: [{ operation: 'override', headerName: 'X-Token', value: 'abc' }],
+        requestHeaders: [{ uid: 'thm00093', operation: 'override', headerName: 'X-Token', value: 'abc' }],
         responseHeaders: [],
       },
     };
@@ -234,7 +234,7 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
       name: 'R',
       type: 'header',
       enabled: true,
-      conditions: [{ type: 'request-domains', values: ['*.openheaders.io'] }],
+      conditions: [{ uid: 'tcd00058', type: 'request-domains', values: ['*.openheaders.io'] }],
       action: { requestHeaders: [], responseHeaders: [] },
     };
     seedStorageMany({

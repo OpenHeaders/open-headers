@@ -69,9 +69,9 @@ function makeHeaderRule(value: string): V5.HeaderRule {
     name: 'Auth',
     type: 'header',
     enabled: true,
-    conditions: [{ type: 'request-domains', values: ['openheaders.io'] }],
+    conditions: [{ uid: 'tcd00039', type: 'request-domains', values: ['openheaders.io'] }],
     action: {
-      requestHeaders: [{ operation: 'override', headerName: 'Authorization', value }],
+      requestHeaders: [{ uid: 'thm00036', operation: 'override', headerName: 'Authorization', value }],
       responseHeaders: [],
     },
   };

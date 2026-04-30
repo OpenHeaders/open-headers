@@ -74,7 +74,7 @@ function bodyRule(opts: {
     name: 'Body',
     type: 'body',
     enabled: true,
-    conditions: [{ type: 'request-domains', values: ['openheaders.io'] }],
+    conditions: [{ uid: 'tcd00036', type: 'request-domains', values: ['openheaders.io'] }],
     action: {
       bodyType: opts.bodyType,
       body: opts.body,
@@ -97,7 +97,7 @@ function mockRule(opts: {
     name: 'Mock',
     type: 'mock',
     enabled: true,
-    conditions: [{ type: 'request-domains', values: ['openheaders.io'] }],
+    conditions: [{ uid: 'tcd00037', type: 'request-domains', values: ['openheaders.io'] }],
     action: {
       statusCode: 201,
       responseHeaders: {},

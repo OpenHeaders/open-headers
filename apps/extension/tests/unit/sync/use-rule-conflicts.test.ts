@@ -24,7 +24,7 @@ function makeHeaderRule(value: string, name = 'X-Test', uid = 'rule-1'): V5.Rule
     schemaVersion: 5,
     conditions: [],
     action: {
-      requestHeaders: [{ operation: 'override', headerName: name, value }],
+      requestHeaders: [{ uid: 'thm00097', operation: 'override', headerName: name, value }],
       responseHeaders: [],
     },
   } as unknown as V5.Rule;

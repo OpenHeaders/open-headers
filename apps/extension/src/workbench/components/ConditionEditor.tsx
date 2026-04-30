@@ -49,6 +49,7 @@ import {
   validateConditionStructure,
   validateConditionValues,
   validateDomainValues,
+  generateUid,
 } from '@openheaders/core/utils';
 import { Button, Select, Tag, Tooltip, theme } from 'antd';
 import type React from 'react';
@@ -290,7 +291,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
       })
       .sort((a, b) => a.pickerOrder - b.pickerOrder);
     const type: V5.ConditionType = candidates[0]?.type ?? 'request-domains';
-    const newCondition: V5.RuleCondition = { type, values: [] };
+    const newCondition: V5.RuleCondition = { uid: generateUid(), type, values: [] };
     if (CONDITION_META[type]?.perHeader) newCondition.headerName = '';
     onChange?.([...value, newCondition]);
   }, [value, onChange]);

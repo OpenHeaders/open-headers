@@ -125,7 +125,7 @@ describe('DnrIntentRunner', () => {
     const intent = addHeaderMod(ctx(1_000), {
       ruleUid: 'r1',
       side: 'request',
-      mod: { operation: 'override', headerName: 'X', value: 'y' },
+      mod: { uid: 'thm00094', operation: 'override', headerName: 'X', value: 'y' },
     });
     await h.oracle.apply(intent.batch, intent.sideEffects);
     await flush();

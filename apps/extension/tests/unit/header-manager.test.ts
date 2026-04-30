@@ -61,7 +61,7 @@ const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 /** Helper: build conditions from domain strings. */
 function hostConditions(domains: string[]): V5.RuleCondition[] {
-  return domains.length > 0 ? [{ type: 'request-domains', values: domains }] : [];
+  return domains.length > 0 ? [{ uid: 'tcd00038', type: 'request-domains', values: domains }] : [];
 }
 
 function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
@@ -74,7 +74,7 @@ function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
     enabled: true,
     conditions: hostConditions(['*.openheaders.io']),
     action: {
-      requestHeaders: [{ operation: 'override', headerName: 'Authorization', value: 'Bearer test-token' }],
+      requestHeaders: [{ uid: 'thm00018', operation: 'override', headerName: 'Authorization', value: 'Bearer test-token' }],
       responseHeaders: [],
     },
     ...overrides,
@@ -103,7 +103,7 @@ describe('header-manager', () => {
     it('injects header rule with static value', async () => {
       const rule = makeHeaderRule({
         action: {
-          requestHeaders: [{ operation: 'override', headerName: 'X-Custom', value: 'static-value' }],
+          requestHeaders: [{ uid: 'thm00019', operation: 'override', headerName: 'X-Custom', value: 'static-value' }],
           responseHeaders: [],
         },
         conditions: hostConditions(['openheaders.io']),
@@ -123,7 +123,7 @@ describe('header-manager', () => {
     it('skips rule with empty static value', async () => {
       const rule = makeHeaderRule({
         action: {
-          requestHeaders: [{ operation: 'override', headerName: 'Authorization', value: '   ' }],
+          requestHeaders: [{ uid: 'thm00020', operation: 'override', headerName: 'Authorization', value: '   ' }],
           responseHeaders: [],
         },
       });
@@ -137,7 +137,7 @@ describe('header-manager', () => {
 
     it('skips rule with no static value (undefined)', async () => {
       const rule = makeHeaderRule({
-        action: { requestHeaders: [{ operation: 'override', headerName: 'Authorization' }], responseHeaders: [] },
+        action: { requestHeaders: [{ uid: 'thm00021', operation: 'override', headerName: 'Authorization' }], responseHeaders: [] },
       });
 
       updateNetworkRules([rule]);
@@ -154,7 +154,7 @@ describe('header-manager', () => {
     it('uses "set" operation for override', async () => {
       const rule = makeHeaderRule({
         action: {
-          requestHeaders: [{ operation: 'override', headerName: 'X-Test', value: 'value' }],
+          requestHeaders: [{ uid: 'thm00022', operation: 'override', headerName: 'X-Test', value: 'value' }],
           responseHeaders: [],
         },
         conditions: hostConditions(['openheaders.io']),
@@ -175,7 +175,7 @@ describe('header-manager', () => {
       // are rejected, which makes the rule a draft — covered separately below.
       const rule = makeHeaderRule({
         action: {
-          requestHeaders: [{ operation: 'add', headerName: 'X-Forwarded-For', value: '10.0.0.1' }],
+          requestHeaders: [{ uid: 'thm00023', operation: 'add', headerName: 'X-Forwarded-For', value: '10.0.0.1' }],
           responseHeaders: [],
         },
         conditions: hostConditions(['openheaders.io']),
@@ -196,7 +196,7 @@ describe('header-manager', () => {
       // entirely and the rest of the ruleset still applies cleanly.
       const rule = makeHeaderRule({
         action: {
-          requestHeaders: [{ operation: 'add', headerName: 'X-OH-Stack', value: 'a' }],
+          requestHeaders: [{ uid: 'thm00024', operation: 'add', headerName: 'X-OH-Stack', value: 'a' }],
           responseHeaders: [],
         },
         conditions: hostConditions(['openheaders.io']),
@@ -211,7 +211,7 @@ describe('header-manager', () => {
 
     it('creates remove rules without needing a value', async () => {
       const rule = makeHeaderRule({
-        action: { requestHeaders: [{ operation: 'remove', headerName: 'X-Unwanted' }], responseHeaders: [] },
+        action: { requestHeaders: [{ uid: 'thm00025', operation: 'remove', headerName: 'X-Unwanted' }], responseHeaders: [] },
         conditions: hostConditions(['openheaders.io']),
       });
 
@@ -261,7 +261,7 @@ describe('header-manager', () => {
       const rule = makeHeaderRule({
         path: 'rules/api-collection/my-rule-a1b2',
         action: {
-          requestHeaders: [{ operation: 'override', headerName: 'X-Api', value: 'value' }],
+          requestHeaders: [{ uid: 'thm00026', operation: 'override', headerName: 'X-Api', value: 'value' }],
           responseHeaders: [],
         },
         conditions: hostConditions(['openheaders.io']),
@@ -279,7 +279,7 @@ describe('header-manager', () => {
       const rule = makeHeaderRule({
         path: 'rules/other-collection/my-rule-c3d4',
         action: {
-          requestHeaders: [{ operation: 'override', headerName: 'X-Other', value: 'value' }],
+          requestHeaders: [{ uid: 'thm00027', operation: 'override', headerName: 'X-Other', value: 'value' }],
           responseHeaders: [],
         },
         conditions: hostConditions(['openheaders.io']),
@@ -297,7 +297,7 @@ describe('header-manager', () => {
       const rule = makeHeaderRule({
         path: 'rules/my-collection/staging-folder/my-rule-e5f6',
         action: {
-          requestHeaders: [{ operation: 'override', headerName: 'X-Staged', value: 'value' }],
+          requestHeaders: [{ uid: 'thm00028', operation: 'override', headerName: 'X-Staged', value: 'value' }],
           responseHeaders: [],
         },
         conditions: hostConditions(['openheaders.io']),
@@ -315,7 +315,7 @@ describe('header-manager', () => {
       const rule = makeHeaderRule({
         path: 'rules/api-collection/my-rule-a1b2',
         action: {
-          requestHeaders: [{ operation: 'override', headerName: 'X-Api', value: 'value' }],
+          requestHeaders: [{ uid: 'thm00029', operation: 'override', headerName: 'X-Api', value: 'value' }],
           responseHeaders: [],
         },
         conditions: hostConditions(['openheaders.io']),
@@ -344,7 +344,7 @@ describe('header-manager', () => {
       const overriddenRule = makeHeaderRule({
         path: 'rules/api-collection/staging-folder/my-rule-x1y2',
         action: {
-          requestHeaders: [{ operation: 'override', headerName: 'X-Override', value: 'value' }],
+          requestHeaders: [{ uid: 'thm00030', operation: 'override', headerName: 'X-Override', value: 'value' }],
           responseHeaders: [],
         },
         conditions: hostConditions(['openheaders.io']),
@@ -352,7 +352,7 @@ describe('header-manager', () => {
       const stillPausedRule = makeHeaderRule({
         path: 'rules/api-collection/other-folder/my-rule-z3w4',
         action: {
-          requestHeaders: [{ operation: 'override', headerName: 'X-Other', value: 'value' }],
+          requestHeaders: [{ uid: 'thm00031', operation: 'override', headerName: 'X-Other', value: 'value' }],
           responseHeaders: [],
         },
         conditions: hostConditions(['openheaders.io']),
@@ -377,7 +377,7 @@ describe('header-manager', () => {
       const rule = makeHeaderRule({
         action: {
           requestHeaders: [],
-          responseHeaders: [{ operation: 'override', headerName: 'X-Frame-Options', value: 'DENY' }],
+          responseHeaders: [{ uid: 'thm00032', operation: 'override', headerName: 'X-Frame-Options', value: 'DENY' }],
         },
         conditions: hostConditions(['openheaders.io']),
       });
@@ -403,7 +403,7 @@ describe('header-manager', () => {
       // one rule whose `requestDomains` carries the OR'd hostname list.
       const rule = makeHeaderRule({
         action: {
-          requestHeaders: [{ operation: 'override', headerName: 'X-Test', value: 'value' }],
+          requestHeaders: [{ uid: 'thm00033', operation: 'override', headerName: 'X-Test', value: 'value' }],
           responseHeaders: [],
         },
         conditions: hostConditions(['openheaders.io', 'api.openheaders.io', 'cdn.openheaders.io']),
@@ -426,7 +426,7 @@ describe('header-manager', () => {
     it('skips empty domain strings inside the list', async () => {
       const rule = makeHeaderRule({
         action: {
-          requestHeaders: [{ operation: 'override', headerName: 'X-Test', value: 'value' }],
+          requestHeaders: [{ uid: 'thm00034', operation: 'override', headerName: 'X-Test', value: 'value' }],
           responseHeaders: [],
         },
         conditions: hostConditions(['openheaders.io', '', '  ']),
@@ -447,7 +447,7 @@ describe('header-manager', () => {
     it('skips rule with empty domains array', async () => {
       const rule = makeHeaderRule({
         action: {
-          requestHeaders: [{ operation: 'override', headerName: 'X-Test', value: 'value' }],
+          requestHeaders: [{ uid: 'thm00035', operation: 'override', headerName: 'X-Test', value: 'value' }],
           responseHeaders: [],
         },
         conditions: hostConditions([]),

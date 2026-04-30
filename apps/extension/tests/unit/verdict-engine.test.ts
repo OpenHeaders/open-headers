@@ -11,7 +11,7 @@ import { computeVerdict, registrableDomainOf } from '@/shared/verdict';
 import type { ObservationSource, TrackedResource } from '@/types/browser';
 
 function hostConditions(domains: string[]): V5.RuleCondition[] {
-  return domains.length > 0 ? [{ type: 'request-domains', values: domains }] : [];
+  return domains.length > 0 ? [{ uid: 'tcd00067', type: 'request-domains', values: domains }] : [];
 }
 
 function makeRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
@@ -24,7 +24,7 @@ function makeRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
     enabled: true,
     conditions: hostConditions(['*.openheaders.io']),
     action: {
-      requestHeaders: [{ operation: 'override', headerName: 'X-Debug', value: 'v' }],
+      requestHeaders: [{ uid: 'thm00107', operation: 'override', headerName: 'X-Debug', value: 'v' }],
       responseHeaders: [],
     },
     ...overrides,

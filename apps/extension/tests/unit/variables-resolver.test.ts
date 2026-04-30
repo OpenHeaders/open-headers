@@ -59,9 +59,9 @@ function makeHeaderRule(overrides: Partial<V5.HeaderRule> & { path: string; uid:
     name: 'R',
     type: 'header',
     enabled: true,
-    conditions: [{ type: 'request-domains', values: ['api.openheaders.io'] }],
+    conditions: [{ uid: 'tcd00062', type: 'request-domains', values: ['api.openheaders.io'] }],
     action: {
-      requestHeaders: [{ operation: 'override', headerName: 'Authorization', value: 'Bearer {{TOKEN}}' }],
+      requestHeaders: [{ uid: 'thm00105', operation: 'override', headerName: 'Authorization', value: 'Bearer {{TOKEN}}' }],
       responseHeaders: [],
     },
     ...overrides,
@@ -240,7 +240,7 @@ describe('VariablesResolver (extension)', () => {
     const rule = makeHeaderRule({
       uid: 'r1',
       path: 'rules/my-coll-abcd/r1',
-      conditions: [{ type: 'request-domains', values: ['{{HOST}}'] }],
+      conditions: [{ uid: 'tcd00063', type: 'request-domains', values: ['{{HOST}}'] }],
     });
 
     const [resolved] = resolveRulesForCompile([rule]);
@@ -257,7 +257,7 @@ describe('VariablesResolver (extension)', () => {
     const rule = makeHeaderRule({
       uid: 'r1',
       path: 'rules/my-coll-abcd/r1',
-      conditions: [{ type: 'request-domains', values: ['{{HOST}}'] }],
+      conditions: [{ uid: 'tcd00064', type: 'request-domains', values: ['{{HOST}}'] }],
     });
     mockStoreRules.mockReturnValue([rule]);
 
@@ -279,12 +279,12 @@ describe('VariablesResolver (extension)', () => {
     const r1 = makeHeaderRule({
       uid: 'r1',
       path: 'rules/my-coll-abcd/r1',
-      conditions: [{ type: 'request-domains', values: ['{{HOST}}'] }],
+      conditions: [{ uid: 'tcd00065', type: 'request-domains', values: ['{{HOST}}'] }],
     });
     const r2 = makeHeaderRule({
       uid: 'r2',
       path: 'rules/my-coll-abcd/r2',
-      conditions: [{ type: 'request-domains', values: ['other.openheaders.io'] }],
+      conditions: [{ uid: 'tcd00066', type: 'request-domains', values: ['other.openheaders.io'] }],
     });
     mockStoreRules.mockReturnValue([r1, r2]);
 
@@ -333,7 +333,7 @@ describe('VariablesResolver (extension)', () => {
         uid: 'r1',
         path: 'rules/test',
         action: {
-          requestHeaders: [{ operation: 'override', headerName: 'X-Ts', value: '{{dynamic.timestamp}}' }],
+          requestHeaders: [{ uid: 'thm00106', operation: 'override', headerName: 'X-Ts', value: '{{dynamic.timestamp}}' }],
           responseHeaders: [],
         },
       });

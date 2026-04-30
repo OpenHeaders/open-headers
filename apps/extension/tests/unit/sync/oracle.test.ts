@@ -83,7 +83,7 @@ describe('EntityOracle.apply', () => {
     const sharedBatch = newBatchId();
     const headerIntent = addHeaderMod(
       { ...ctx(1_000), batchId: sharedBatch },
-      { ruleUid: 'r1', side: 'request', mod: { operation: 'override', headerName: 'X-A', value: '1' }, itemId: 'h-1' },
+      { ruleUid: 'r1', side: 'request', mod: { uid: 'thm00095', operation: 'override', headerName: 'X-A', value: '1' }, itemId: 'h-1' },
     );
     const toggleIntent = toggleEnabled({ ...ctx(1_001), batchId: sharedBatch }, { ruleUid: 'r1', enabled: true });
 

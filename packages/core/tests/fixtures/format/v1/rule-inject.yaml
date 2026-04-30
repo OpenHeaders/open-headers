@@ -4,7 +4,8 @@ name: Inject console banner
 type: inject
 enabled: true
 conditions:
-  - type: request-domains
+  - uid: cnd00005
+    type: request-domains
     values:
       - app.openheaders.io
 action:

@@ -67,7 +67,7 @@ describe('extractRuleOrigins', () => {
   });
 
   it('extracts from request-domains (normalized via formatUrlPattern)', () => {
-    const r = rule([{ type: 'request-domains', values: ['api.openheaders.io'] }]);
+    const r = rule([{ uid: 'tcd00043', type: 'request-domains', values: ['api.openheaders.io'] }]);
     const result = extractRuleOrigins(r);
     expect(result.broad).toBe(false);
     expect(new Set(result.origins)).toEqual(new Set(['http://api.openheaders.io', 'https://api.openheaders.io']));
@@ -75,8 +75,8 @@ describe('extractRuleOrigins', () => {
 
   it('dedupes origins across multiple conditions', () => {
     const r = rule([
-      { type: 'request-domains', values: ['api.openheaders.io'] },
-      { type: 'url-filter', values: ['*://api.openheaders.io/v1/*'] },
+      { uid: 'tcd00044', type: 'request-domains', values: ['api.openheaders.io'] },
+      { uid: 'tcd00045', type: 'url-filter', values: ['*://api.openheaders.io/v1/*'] },
     ]);
     const result = extractRuleOrigins(r);
     expect(result.origins).toHaveLength(2);
@@ -85,8 +85,8 @@ describe('extractRuleOrigins', () => {
 
   it('sets broad when any single pattern is broad', () => {
     const r = rule([
-      { type: 'request-domains', values: ['api.openheaders.io'] },
-      { type: 'url-filter', values: ['*://*.demo.openheaders.io/*'] },
+      { uid: 'tcd00046', type: 'request-domains', values: ['api.openheaders.io'] },
+      { uid: 'tcd00047', type: 'url-filter', values: ['*://*.demo.openheaders.io/*'] },
     ]);
     const result = extractRuleOrigins(r);
     expect(result.broad).toBe(true);
@@ -95,14 +95,14 @@ describe('extractRuleOrigins', () => {
   });
 
   it('tries url-regex with a trivial literal host prefix', () => {
-    const r = rule([{ type: 'url-regex', values: ['^https://api\\.openheaders\\.io/v1/'] }]);
+    const r = rule([{ uid: 'tcd00048', type: 'url-regex', values: ['^https://api\\.openheaders\\.io/v1/'] }]);
     const result = extractRuleOrigins(r);
     expect(result.broad).toBe(false);
     expect(result.origins).toEqual(['https://api.openheaders.io']);
   });
 
   it('marks complex url-regex as broad', () => {
-    const r = rule([{ type: 'url-regex', values: ['^https?://(api|cdn)\\.openheaders\\.io/'] }]);
+    const r = rule([{ uid: 'tcd00049', type: 'url-regex', values: ['^https?://(api|cdn)\\.openheaders\\.io/'] }]);
     const result = extractRuleOrigins(r);
     expect(result.broad).toBe(true);
   });
@@ -111,9 +111,9 @@ describe('extractRuleOrigins', () => {
 describe('extractOriginsFromRules', () => {
   it('folds origins across multiple rules, dedupes', () => {
     const rules = [
-      rule([{ type: 'request-domains', values: ['api.openheaders.io'] }]),
-      rule([{ type: 'request-domains', values: ['cdn.openheaders.io'] }]),
-      rule([{ type: 'request-domains', values: ['api.openheaders.io'] }]), // duplicate
+      rule([{ uid: 'tcd00050', type: 'request-domains', values: ['api.openheaders.io'] }]),
+      rule([{ uid: 'tcd00051', type: 'request-domains', values: ['cdn.openheaders.io'] }]),
+      rule([{ uid: 'tcd00052', type: 'request-domains', values: ['api.openheaders.io'] }]), // duplicate
     ];
     const result = extractOriginsFromRules(rules);
     expect(result.broad).toBe(false);
@@ -129,8 +129,8 @@ describe('extractOriginsFromRules', () => {
 
   it('one broad rule promotes the whole batch to broad', () => {
     const rules = [
-      rule([{ type: 'request-domains', values: ['api.openheaders.io'] }]),
-      rule([{ type: 'url-filter', values: ['*'] }]),
+      rule([{ uid: 'tcd00053', type: 'request-domains', values: ['api.openheaders.io'] }]),
+      rule([{ uid: 'tcd00054', type: 'url-filter', values: ['*'] }]),
     ];
     const result = extractOriginsFromRules(rules);
     expect(result.broad).toBe(true);

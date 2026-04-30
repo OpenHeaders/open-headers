@@ -42,7 +42,7 @@ function baseRule(action: V5.HeaderRule['action']): V5.HeaderRule {
     name: 'Rule',
     type: 'header',
     enabled: true,
-    conditions: [{ type: 'request-domains', values: ['openheaders.io'] }],
+    conditions: [{ uid: 'tcd00013', type: 'request-domains', values: ['openheaders.io'] }],
     action,
   };
 }
@@ -56,7 +56,7 @@ describe('Live Rules Mode — Layer 1 injection', () => {
   it('prepends Cache-Control + Pragma on request-only rules', () => {
     const plan = headerCompiler.compile(
       baseRule({
-        requestHeaders: [{ operation: 'override', headerName: 'Authorization', value: 'Bearer xyz' }],
+        requestHeaders: [{ uid: 'thm00001', operation: 'override', headerName: 'Authorization', value: 'Bearer xyz' }],
         responseHeaders: [],
       }),
       makeCtx(),
@@ -79,7 +79,7 @@ describe('Live Rules Mode — Layer 1 injection', () => {
     const plan = headerCompiler.compile(
       baseRule({
         requestHeaders: [],
-        responseHeaders: [{ operation: 'override', headerName: 'X-Custom', value: 'yes' }],
+        responseHeaders: [{ uid: 'thm00002', operation: 'override', headerName: 'X-Custom', value: 'yes' }],
       }),
       makeCtx(),
     );
@@ -97,7 +97,7 @@ describe('Live Rules Mode — Layer 1 injection', () => {
   it("skips injection when user's rule sets Cache-Control explicitly", () => {
     const plan = headerCompiler.compile(
       baseRule({
-        requestHeaders: [{ operation: 'override', headerName: 'Cache-Control', value: 'max-age=300' }],
+        requestHeaders: [{ uid: 'thm00003', operation: 'override', headerName: 'Cache-Control', value: 'max-age=300' }],
         responseHeaders: [],
       }),
       makeCtx(),
@@ -111,7 +111,7 @@ describe('Live Rules Mode — Layer 1 injection', () => {
   it("skips injection when user's rule removes Cache-Control (presence, not truthy)", () => {
     const plan = headerCompiler.compile(
       baseRule({
-        requestHeaders: [{ operation: 'remove', headerName: 'Cache-Control' }],
+        requestHeaders: [{ uid: 'thm00004', operation: 'remove', headerName: 'Cache-Control' }],
         responseHeaders: [],
       }),
       makeCtx(),
@@ -125,7 +125,7 @@ describe('Live Rules Mode — Layer 1 injection', () => {
   it('case-insensitive precedence check — lowercase "cache-control" still wins', () => {
     const plan = headerCompiler.compile(
       baseRule({
-        requestHeaders: [{ operation: 'override', headerName: 'cache-control', value: 'max-age=60' }],
+        requestHeaders: [{ uid: 'thm00005', operation: 'override', headerName: 'cache-control', value: 'max-age=60' }],
         responseHeaders: [],
       }),
       makeCtx(),
@@ -141,7 +141,7 @@ describe('Live Rules Mode — Layer 1 injection', () => {
     setSetting('rulesEngine.liveRulesMode', false);
     const plan = headerCompiler.compile(
       baseRule({
-        requestHeaders: [{ operation: 'override', headerName: 'Authorization', value: 'Bearer xyz' }],
+        requestHeaders: [{ uid: 'thm00006', operation: 'override', headerName: 'Authorization', value: 'Bearer xyz' }],
         responseHeaders: [],
       }),
       makeCtx(),

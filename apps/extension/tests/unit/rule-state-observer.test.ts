@@ -31,7 +31,7 @@ function rule(uid: string, opts: { domain?: string; enabled?: boolean; path?: st
     name: uid,
     type: 'block',
     enabled: opts.enabled ?? true,
-    conditions: [{ type: 'request-domains', values: [domain] }],
+    conditions: [{ uid: 'tcd00055', type: 'request-domains', values: [domain] }],
     action: {},
   } as V5.Rule;
 }
@@ -348,7 +348,7 @@ describe('broad fallback', () => {
       name: 'r1',
       type: 'block',
       enabled: true,
-      conditions: [{ type: 'url-filter', values: ['*://*.openheaders.io/*'] }],
+      conditions: [{ uid: 'tcd00056', type: 'url-filter', values: ['*://*.openheaders.io/*'] }],
       action: {},
     } as unknown as V5.Rule;
 

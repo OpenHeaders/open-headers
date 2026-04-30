@@ -4,7 +4,8 @@ name: Force region to eu
 type: query-param
 enabled: true
 conditions:
-  - type: request-domains
+  - uid: cnd00007
+    type: request-domains
     values:
       - api.openheaders.io
 action:

@@ -88,14 +88,14 @@ const baseRule: Omit<HeaderRule, 'conditions'> = {
   name: 'T',
   type: 'header',
   enabled: true,
-  action: { requestHeaders: [{ operation: 'override', headerName: 'X', value: 'y' }], responseHeaders: [] },
+  action: { requestHeaders: [{ uid: 'hmd00001', operation: 'override', headerName: 'X', value: 'y' }], responseHeaders: [] },
 };
 
 describe('getRuleMatchPatterns', () => {
   it('normalizes request-domains to urlFilter form', () => {
     const rule: HeaderRule = {
       ...baseRule,
-      conditions: [{ type: 'request-domains', values: ['openheaders.io'] }],
+      conditions: [{ uid: 'cnd00001', type: 'request-domains', values: ['openheaders.io'] }],
     };
     const patterns = getRuleMatchPatterns(rule);
     expect(patterns).toEqual([{ pattern: '*://openheaders.io/*', kind: 'url-filter' }]);
@@ -104,7 +104,7 @@ describe('getRuleMatchPatterns', () => {
   it('takes url-filter patterns as authored', () => {
     const rule: HeaderRule = {
       ...baseRule,
-      conditions: [{ type: 'url-filter', values: ['*://openheaders.io/*'] }],
+      conditions: [{ uid: 'cnd00002', type: 'url-filter', values: ['*://openheaders.io/*'] }],
     };
     const patterns = getRuleMatchPatterns(rule);
     expect(patterns).toEqual([{ pattern: '*://openheaders.io/*', kind: 'url-filter' }]);
@@ -113,7 +113,7 @@ describe('getRuleMatchPatterns', () => {
   it('takes url-regex patterns as-authored', () => {
     const rule: HeaderRule = {
       ...baseRule,
-      conditions: [{ type: 'url-regex', values: ['^https://openheaders\\.io/api/.*$'] }],
+      conditions: [{ uid: 'cnd00003', type: 'url-regex', values: ['^https://openheaders\\.io/api/.*$'] }],
     };
     const patterns = getRuleMatchPatterns(rule);
     expect(patterns).toEqual([{ pattern: '^https://openheaders\\.io/api/.*$', kind: 'url-regex' }]);
@@ -123,8 +123,8 @@ describe('getRuleMatchPatterns', () => {
     const rule: HeaderRule = {
       ...baseRule,
       conditions: [
-        { type: 'request-methods', values: ['GET'] },
-        { type: 'resource-types', values: ['xmlhttprequest'] },
+        { uid: 'cnd00004', type: 'request-methods', values: ['GET'] },
+        { uid: 'cnd00005', type: 'resource-types', values: ['xmlhttprequest'] },
       ],
     };
     expect(getRuleMatchPatterns(rule)).toEqual([]);
@@ -134,8 +134,8 @@ describe('getRuleMatchPatterns', () => {
     const rule: HeaderRule = {
       ...baseRule,
       conditions: [
-        { type: 'request-domains', values: ['openheaders.io'] },
-        { type: 'url-filter', values: ['*://staging.openheaders.io/*'] },
+        { uid: 'cnd00006', type: 'request-domains', values: ['openheaders.io'] },
+        { uid: 'cnd00007', type: 'url-filter', values: ['*://staging.openheaders.io/*'] },
       ],
     };
     const patterns = getRuleMatchPatterns(rule);
@@ -147,7 +147,7 @@ describe('getRuleMatchPatterns', () => {
   it('skips empty / whitespace-only values', () => {
     const rule: HeaderRule = {
       ...baseRule,
-      conditions: [{ type: 'request-domains', values: ['', '   ', 'openheaders.io'] }],
+      conditions: [{ uid: 'cnd00008', type: 'request-domains', values: ['', '   ', 'openheaders.io'] }],
     };
     expect(getRuleMatchPatterns(rule)).toHaveLength(1);
   });
@@ -189,7 +189,7 @@ describe('doesUrlMatchRule', () => {
   it('returns true when any pattern matches', () => {
     const rule: HeaderRule = {
       ...baseRule,
-      conditions: [{ type: 'request-domains', values: ['openheaders.io'] }],
+      conditions: [{ uid: 'cnd00009', type: 'request-domains', values: ['openheaders.io'] }],
     };
     expect(doesUrlMatchRule('https://openheaders.io/api', rule)).toBe(true);
   });
@@ -197,7 +197,7 @@ describe('doesUrlMatchRule', () => {
   it('returns false when no patterns match', () => {
     const rule: HeaderRule = {
       ...baseRule,
-      conditions: [{ type: 'request-domains', values: ['openheaders.io'] }],
+      conditions: [{ uid: 'cnd00010', type: 'request-domains', values: ['openheaders.io'] }],
     };
     expect(doesUrlMatchRule('https://evil.com/', rule)).toBe(false);
   });
@@ -205,7 +205,7 @@ describe('doesUrlMatchRule', () => {
   it('returns false for rules with no URL conditions (drafts never match)', () => {
     const rule: HeaderRule = {
       ...baseRule,
-      conditions: [{ type: 'request-methods', values: ['GET'] }],
+      conditions: [{ uid: 'cnd00011', type: 'request-methods', values: ['GET'] }],
     };
     expect(doesUrlMatchRule('https://openheaders.io/', rule)).toBe(false);
   });
@@ -217,7 +217,7 @@ describe('compileRuleForInjection', () => {
   it('returns regex sources that match the authored URL', () => {
     const rule: HeaderRule = {
       ...baseRule,
-      conditions: [{ type: 'url-filter', values: ['*://openheaders.io/*'] }],
+      conditions: [{ uid: 'cnd00012', type: 'url-filter', values: ['*://openheaders.io/*'] }],
     };
     const sources = compileRuleForInjection(rule);
     expect(sources).toHaveLength(1);
@@ -228,7 +228,7 @@ describe('compileRuleForInjection', () => {
   it('returns empty array for rules without URL conditions (drafts)', () => {
     const rule: HeaderRule = {
       ...baseRule,
-      conditions: [{ type: 'request-methods', values: ['GET'] }],
+      conditions: [{ uid: 'cnd00013', type: 'request-methods', values: ['GET'] }],
     };
     expect(compileRuleForInjection(rule)).toEqual([]);
   });
@@ -236,7 +236,7 @@ describe('compileRuleForInjection', () => {
   it('passes url-regex through as-authored', () => {
     const rule: HeaderRule = {
       ...baseRule,
-      conditions: [{ type: 'url-regex', values: ['^https://openheaders\\.io/api/.*$'] }],
+      conditions: [{ uid: 'cnd00014', type: 'url-regex', values: ['^https://openheaders\\.io/api/.*$'] }],
     };
     const sources = compileRuleForInjection(rule);
     expect(sources).toEqual(['^https://openheaders\\.io/api/.*$']);
@@ -245,7 +245,7 @@ describe('compileRuleForInjection', () => {
   it('normalizes request-domains through formatUrlPattern before compiling', () => {
     const rule: HeaderRule = {
       ...baseRule,
-      conditions: [{ type: 'request-domains', values: ['openheaders.io'] }],
+      conditions: [{ uid: 'cnd00015', type: 'request-domains', values: ['openheaders.io'] }],
     };
     const sources = compileRuleForInjection(rule);
     expect(sources).toHaveLength(1);
@@ -257,7 +257,7 @@ describe('compileRuleForInjection', () => {
   it('uses ".*" as the regex source for match-all patterns', () => {
     const rule: HeaderRule = {
       ...baseRule,
-      conditions: [{ type: 'url-filter', values: ['*'] }],
+      conditions: [{ uid: 'cnd00016', type: 'url-filter', values: ['*'] }],
     };
     const sources = compileRuleForInjection(rule);
     expect(sources).toEqual(['.*']);
@@ -269,7 +269,7 @@ describe('compileRuleForInjection', () => {
     // patterns via the old extractPatterns → scripts never matched.
     const rule: HeaderRule = {
       ...baseRule,
-      conditions: [{ type: 'url-filter', values: ['*://github.com/*'] }],
+      conditions: [{ uid: 'cnd00017', type: 'url-filter', values: ['*://github.com/*'] }],
     };
     const sources = compileRuleForInjection(rule);
     expect(sources).toHaveLength(1);

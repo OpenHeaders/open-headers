@@ -9,7 +9,7 @@ import { debounce, generateRulesHash } from '@/background/modules/utils';
 // ---------------------------------------------------------------------------
 
 function hostConditions(domains: string[]): V5.RuleCondition[] {
-  return domains.length > 0 ? [{ type: 'request-domains', values: domains }] : [];
+  return domains.length > 0 ? [{ uid: 'tcd00060', type: 'request-domains', values: domains }] : [];
 }
 
 function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
@@ -24,7 +24,7 @@ function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
     action: {
       requestHeaders: [
         {
-          operation: 'override',
+          uid: 'thm00101', operation: 'override',
           headerName: 'Authorization',
           value: 'Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyQGFjbWUuY29tIn0.sig',
         },
@@ -118,7 +118,7 @@ describe('generateRulesHash', () => {
       makeHeaderRule({
         name: 'Name A',
         action: {
-          requestHeaders: [{ operation: 'override', headerName: 'Authorization', value: 'value-1' }],
+          requestHeaders: [{ uid: 'thm00102', operation: 'override', headerName: 'Authorization', value: 'value-1' }],
           responseHeaders: [],
         },
       }),
@@ -127,7 +127,7 @@ describe('generateRulesHash', () => {
       makeHeaderRule({
         name: 'Name B',
         action: {
-          requestHeaders: [{ operation: 'override', headerName: 'Authorization', value: 'value-2' }],
+          requestHeaders: [{ uid: 'thm00103', operation: 'override', headerName: 'Authorization', value: 'value-2' }],
           responseHeaders: [],
         },
       }),

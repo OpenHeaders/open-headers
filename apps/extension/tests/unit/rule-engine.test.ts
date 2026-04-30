@@ -34,7 +34,7 @@ const mockUpdateNetworkRules = updateNetworkRules as ReturnType<typeof vi.fn>;
 const mockGetRules = getRules as ReturnType<typeof vi.fn>;
 
 function hostConditions(domains: string[]): V5.RuleCondition[] {
-  return domains.length > 0 ? [{ type: 'request-domains', values: domains }] : [];
+  return domains.length > 0 ? [{ uid: 'tcd00042', type: 'request-domains', values: domains }] : [];
 }
 
 function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
@@ -47,7 +47,7 @@ function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
     enabled: true,
     conditions: hostConditions(['*.openheaders.io']),
     action: {
-      requestHeaders: [{ operation: 'override', headerName: 'Authorization', value: 'Bearer test-token' }],
+      requestHeaders: [{ uid: 'thm00082', operation: 'override', headerName: 'Authorization', value: 'Bearer test-token' }],
       responseHeaders: [],
     },
     ...overrides,

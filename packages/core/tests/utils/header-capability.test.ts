@@ -362,7 +362,7 @@ describe('isRuleComplete gate — header rule capability integration', () => {
     path: 'rules/col/rule-x1',
     name: 'Test',
     enabled: true,
-    conditions: [{ type: 'request-domains' as const, values: ['openheaders.io'] }],
+    conditions: [{ uid: 'cnd00001', type: 'request-domains' as const, values: ['openheaders.io'] }],
   };
 
   it('marks rule as draft when append is used on non-allowlisted header', () => {
@@ -370,7 +370,7 @@ describe('isRuleComplete gate — header rule capability integration', () => {
       ...baseRule,
       type: 'header' as const,
       action: {
-        requestHeaders: [{ operation: 'add' as const, headerName: 'X-OH-Stack', value: 'a' }],
+        requestHeaders: [{ uid: 'hmd00001', operation: 'add' as const, headerName: 'X-OH-Stack', value: 'a' }],
         responseHeaders: [],
       },
     };
@@ -382,7 +382,7 @@ describe('isRuleComplete gate — header rule capability integration', () => {
       ...baseRule,
       type: 'header' as const,
       action: {
-        requestHeaders: [{ operation: 'add' as const, headerName: 'X-Forwarded-For', value: '10.0.0.1' }],
+        requestHeaders: [{ uid: 'hmd00002', operation: 'add' as const, headerName: 'X-Forwarded-For', value: '10.0.0.1' }],
         responseHeaders: [],
       },
     };
@@ -395,8 +395,8 @@ describe('isRuleComplete gate — header rule capability integration', () => {
       type: 'header' as const,
       action: {
         requestHeaders: [
-          { operation: 'override' as const, headerName: 'X-API-Key', value: 'k' },
-          { operation: 'add' as const, headerName: 'X-Custom-Append', value: 'v' }, // invalid
+          { uid: 'hmd00003', operation: 'override' as const, headerName: 'X-API-Key', value: 'k' },
+          { uid: 'hmd00004', operation: 'add' as const, headerName: 'X-Custom-Append', value: 'v' }, // invalid
         ],
         responseHeaders: [],
       },
@@ -409,7 +409,7 @@ describe('isRuleComplete gate — header rule capability integration', () => {
       ...baseRule,
       type: 'header' as const,
       action: {
-        requestHeaders: [{ operation: 'override' as const, headerName: 'Host', value: 'evil.example' }],
+        requestHeaders: [{ uid: 'hmd00005', operation: 'override' as const, headerName: 'Host', value: 'evil.example' }],
         responseHeaders: [],
       },
     };
@@ -423,8 +423,8 @@ describe('isRuleComplete gate — header rule capability integration', () => {
       action: {
         requestHeaders: [],
         responseHeaders: [
-          { operation: 'override' as const, headerName: 'X-Frame-Options', value: 'DENY' },
-          { operation: 'remove' as const, headerName: 'X-Powered-By' },
+          { uid: 'hmd00006', operation: 'override' as const, headerName: 'X-Frame-Options', value: 'DENY' },
+          { uid: 'hmd00007', operation: 'remove' as const, headerName: 'X-Powered-By' },
         ],
       },
     };
@@ -436,7 +436,7 @@ describe('isRuleComplete gate — header rule capability integration', () => {
       ...baseRule,
       type: 'header' as const,
       action: {
-        requestHeaders: [{ operation: 'merge' as const, headerName: 'X-OH-Stack', value: 'a', mergeSeparator: '; ' }],
+        requestHeaders: [{ uid: 'hmd00008', operation: 'merge' as const, headerName: 'X-OH-Stack', value: 'a', mergeSeparator: '; ' }],
         responseHeaders: [],
       },
     };

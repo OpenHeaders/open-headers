@@ -22,9 +22,9 @@ function makeHeaderRule(overrides: Partial<HeaderRule> = {}): HeaderRule {
     name: 'Test',
     type: 'header',
     enabled: true,
-    conditions: [{ type: 'request-domains', values: ['{{HOST}}'] }],
+    conditions: [{ uid: 'cnd00001', type: 'request-domains', values: ['{{HOST}}'] }],
     action: {
-      requestHeaders: [{ operation: 'override', headerName: 'X-Token', value: '{{TOKEN}}' }],
+      requestHeaders: [{ uid: 'hmd00001', operation: 'override', headerName: 'X-Token', value: '{{TOKEN}}' }],
       responseHeaders: [],
     },
     ...overrides,
@@ -39,7 +39,7 @@ function makeRedirectRule(overrides: Partial<RedirectRule> = {}): RedirectRule {
     name: 'Redir',
     type: 'redirect',
     enabled: true,
-    conditions: [{ type: 'request-domains', values: ['{{HOST}}'] }],
+    conditions: [{ uid: 'cnd00002', type: 'request-domains', values: ['{{HOST}}'] }],
     action: {
       redirectTo: 'https://{{HOST}}/new',
     },
@@ -78,7 +78,7 @@ describe('resolveRuleWithDiagnostics', () => {
     );
     const rule = makeHeaderRule({
       action: {
-        requestHeaders: [{ operation: 'override', headerName: '{{HEADER}}', value: '{{TOKEN}}' }],
+        requestHeaders: [{ uid: 'hmd00002', operation: 'override', headerName: '{{HEADER}}', value: '{{TOKEN}}' }],
         responseHeaders: [],
       },
     });
@@ -98,7 +98,7 @@ describe('resolveRuleWithDiagnostics', () => {
     );
     const rule = makeHeaderRule({
       action: {
-        requestHeaders: [{ operation: 'override', headerName: 'X-{{SUFFIX}}', value: '{{TOKEN}}' }],
+        requestHeaders: [{ uid: 'hmd00003', operation: 'override', headerName: 'X-{{SUFFIX}}', value: '{{TOKEN}}' }],
         responseHeaders: [],
       },
     });
@@ -125,9 +125,9 @@ describe('resolveRuleWithDiagnostics', () => {
   it('distinguishes namespaced vs flat references', () => {
     // Two unresolved refs: {{env.MISSING}} and flat {{HOST}}
     const rule = makeHeaderRule({
-      conditions: [{ type: 'request-domains', values: ['{{HOST}}'] }],
+      conditions: [{ uid: 'cnd00003', type: 'request-domains', values: ['{{HOST}}'] }],
       action: {
-        requestHeaders: [{ operation: 'override', headerName: 'X-Env', value: '{{env.MISSING}}' }],
+        requestHeaders: [{ uid: 'hmd00004', operation: 'override', headerName: 'X-Env', value: '{{env.MISSING}}' }],
         responseHeaders: [],
       },
     });
@@ -139,7 +139,7 @@ describe('resolveRuleWithDiagnostics', () => {
   it('reserved-namespace references (dynamic) surface with reason reserved-namespace', () => {
     const rule = makeHeaderRule({
       action: {
-        requestHeaders: [{ operation: 'override', headerName: 'X-Ts', value: '{{dynamic.timestamp}}' }],
+        requestHeaders: [{ uid: 'hmd00005', operation: 'override', headerName: 'X-Ts', value: '{{dynamic.timestamp}}' }],
         responseHeaders: [],
       },
     });
@@ -151,7 +151,7 @@ describe('resolveRuleWithDiagnostics', () => {
   it('unregistered {{file.X}} surfaces as unset-in-scope (not reserved)', () => {
     const rule = makeHeaderRule({
       action: {
-        requestHeaders: [{ operation: 'override', headerName: 'X-File', value: '{{file.fixture}}' }],
+        requestHeaders: [{ uid: 'hmd00006', operation: 'override', headerName: 'X-File', value: '{{file.fixture}}' }],
         responseHeaders: [],
       },
     });
@@ -164,7 +164,7 @@ describe('resolveRuleWithDiagnostics', () => {
   it('unknown-namespace references surface with reason unknown-namespace', () => {
     const rule = makeHeaderRule({
       action: {
-        requestHeaders: [{ operation: 'override', headerName: 'X-Foo', value: '{{foo.X}}' }],
+        requestHeaders: [{ uid: 'hmd00007', operation: 'override', headerName: 'X-Foo', value: '{{foo.X}}' }],
         responseHeaders: [],
       },
     });
@@ -178,7 +178,7 @@ describe('resolveRuleWithDiagnostics', () => {
     resolver.setActiveEnvironmentId('env-staging');
     const rule = makeHeaderRule({
       action: {
-        requestHeaders: [{ operation: 'override', headerName: 'X-Token', value: '{{env.TOKEN}}' }],
+        requestHeaders: [{ uid: 'hmd00008', operation: 'override', headerName: 'X-Token', value: '{{env.TOKEN}}' }],
         responseHeaders: [],
       },
     });
@@ -204,9 +204,9 @@ describe('resolveRuleWithDiagnostics', () => {
       ]),
     );
     const rule = makeHeaderRule({
-      conditions: [{ type: 'request-domains', values: ['{{CORP_DOMAIN_LIST}}'] }],
+      conditions: [{ uid: 'cnd00004', type: 'request-domains', values: ['{{CORP_DOMAIN_LIST}}'] }],
       action: {
-        requestHeaders: [{ operation: 'override', headerName: 'X-Debug-True', value: 'true' }],
+        requestHeaders: [{ uid: 'hmd00009', operation: 'override', headerName: 'X-Debug-True', value: 'true' }],
         responseHeaders: [],
       },
     });
@@ -222,7 +222,7 @@ describe('resolveRuleWithDiagnostics', () => {
   it('list expansion handles whitespace + newlines + extra commas', () => {
     resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('HOSTS', '  foo.com ,bar.com\n , , baz.com\n ')]));
     const rule = makeHeaderRule({
-      conditions: [{ type: 'request-domains', values: ['{{HOSTS}}'] }],
+      conditions: [{ uid: 'cnd00005', type: 'request-domains', values: ['{{HOSTS}}'] }],
     });
     const { rule: resolved } = resolveRuleWithDiagnostics(rule, resolver);
     expect(resolved.conditions[0].values).toEqual(['foo.com', 'bar.com', 'baz.com']);
@@ -233,7 +233,7 @@ describe('resolveRuleWithDiagnostics', () => {
     // of the URL — splitting would silently corrupt user input.
     resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('PAT', 'https://a.com/path,with,commas')]));
     const rule = makeHeaderRule({
-      conditions: [{ type: 'url-filter', values: ['{{PAT}}'] }],
+      conditions: [{ uid: 'cnd00006', type: 'url-filter', values: ['{{PAT}}'] }],
     });
     const { rule: resolved } = resolveRuleWithDiagnostics(rule, resolver);
     expect(resolved.conditions[0].values).toEqual(['https://a.com/path,with,commas']);
@@ -244,7 +244,7 @@ describe('resolveRuleWithDiagnostics', () => {
     // a literal hostname; both flow through expansion.
     resolver.setWorkspaceVariables(makeWorkspaceVars([makeVariable('HOSTS', 'a.com,b.com')]));
     const rule = makeHeaderRule({
-      conditions: [{ type: 'request-domains', values: ['{{HOSTS}}', 'manual.com'] }],
+      conditions: [{ uid: 'cnd00007', type: 'request-domains', values: ['{{HOSTS}}', 'manual.com'] }],
     });
     const { rule: resolved } = resolveRuleWithDiagnostics(rule, resolver);
     expect(resolved.conditions[0].values).toEqual(['a.com', 'b.com', 'manual.com']);
@@ -258,7 +258,7 @@ describe('resolveRuleWithDiagnostics', () => {
       name: 'Delay',
       type: 'delay' as const,
       enabled: true,
-      conditions: [{ type: 'request-domains' as const, values: ['{{HOST}}'] }],
+      conditions: [{ uid: 'cnd00008', type: 'request-domains' as const, values: ['{{HOST}}'] }],
       action: { delayMs: 500 },
     };
     const { errors } = resolveRuleWithDiagnostics(rule, resolver);

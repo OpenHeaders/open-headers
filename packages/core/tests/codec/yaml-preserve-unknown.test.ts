@@ -68,12 +68,14 @@ name: Set Authorization header
 type: header
 enabled: true
 conditions:
-  - type: request-domains
+  - uid: cnd00020
+    type: request-domains
     values:
       - api.openheaders.io
 action:
   requestHeaders:
-    - operation: override
+    - uid: hmd00020
+      operation: override
       headerName: Authorization
       value: Bearer {{env.TOKEN}}
   responseHeaders: []

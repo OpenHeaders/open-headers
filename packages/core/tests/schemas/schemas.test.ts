@@ -273,9 +273,11 @@ describe('RuleSchema', () => {
         name: 'Bearer',
         type: 'header',
         enabled: true,
-        conditions: [{ type: 'request-domains', values: ['openheaders.io'] }],
+        conditions: [{ uid: 'cnd00010', type: 'request-domains', values: ['openheaders.io'] }],
         action: {
-          requestHeaders: [{ operation: 'override', headerName: 'Authorization', value: 'Bearer X' }],
+          requestHeaders: [
+            { uid: 'hmd00010', operation: 'override', headerName: 'Authorization', value: 'Bearer X' },
+          ],
           responseHeaders: [],
         },
       }),
@@ -291,7 +293,7 @@ describe('RuleSchema', () => {
         name: 'Block',
         type: 'block',
         enabled: true,
-        conditions: [{ type: 'request-domains', values: ['bad.io'] }],
+        conditions: [{ uid: 'cnd00011', type: 'request-domains', values: ['bad.io'] }],
         action: {},
       }),
     ).toBeTruthy();
@@ -306,7 +308,7 @@ describe('RuleSchema', () => {
         name: 'Add utm',
         type: 'query-param',
         enabled: true,
-        conditions: [{ type: 'request-domains', values: ['openheaders.io'] }],
+        conditions: [{ uid: 'cnd00012', type: 'request-domains', values: ['openheaders.io'] }],
         action: { params: [{ param: 'utm_source', value: 'oh', operation: 'add' }] },
       }),
     ).toBeTruthy();

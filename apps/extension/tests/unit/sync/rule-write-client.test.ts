@@ -130,7 +130,7 @@ describe('applyRuleUpdate', () => {
     const live = ['hm-old-1', 'hm-old-2'];
     const mirror = makeMirror(headerRule, { 'action.requestHeaders': live });
     const newHeaders: V5.HeaderModification[] = [
-      { operation: 'override', headerName: 'X-Foo', value: 'bar' },
+      { uid: 'thm00096', operation: 'override', headerName: 'X-Foo', value: 'bar' },
     ];
     await applyRuleUpdate(
       headerRule.uid,

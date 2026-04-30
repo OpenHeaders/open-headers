@@ -4,7 +4,8 @@ name: Mock /me endpoint
 type: mock
 enabled: true
 conditions:
-  - type: request-domains
+  - uid: cnd00006
+    type: request-domains
     values:
       - api.openheaders.io
 action:

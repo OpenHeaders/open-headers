@@ -3,7 +3,7 @@ import type { RuleCondition } from '../../src/types/v5/rule';
 import type { ResolvedVariable } from '../../src/types/v5/variable';
 import { isRuleComplete, isRuleResolvable } from '../../src/utils/rule-validation';
 
-const hostCondition: RuleCondition = { type: 'request-domains', values: ['openheaders.io'] };
+const hostCondition: RuleCondition = { uid: 'cnd00001', type: 'request-domains', values: ['openheaders.io'] };
 const base = {
   schemaVersion: 5,
   version: 1,
@@ -22,7 +22,7 @@ describe('isRuleComplete', () => {
   });
 
   it('returns false when all condition values are whitespace', () => {
-    const emptyCondition: RuleCondition = { type: 'request-domains', values: ['  ', ''] };
+    const emptyCondition: RuleCondition = { uid: 'cnd00002', type: 'request-domains', values: ['  ', ''] };
     expect(isRuleComplete({ ...base, conditions: [emptyCondition], type: 'block', action: {} })).toBe(false);
   });
 
@@ -31,7 +31,7 @@ describe('isRuleComplete', () => {
   });
 
   it('returns true with multiple conditions', () => {
-    const methodCondition: RuleCondition = { type: 'request-methods', values: ['GET', 'POST'] };
+    const methodCondition: RuleCondition = { uid: 'cnd00003', type: 'request-methods', values: ['GET', 'POST'] };
     expect(
       isRuleComplete({
         ...base,
@@ -43,7 +43,7 @@ describe('isRuleComplete', () => {
   });
 
   it('returns false when condition values array is empty', () => {
-    const noValues: RuleCondition = { type: 'request-domains', values: [] };
+    const noValues: RuleCondition = { uid: 'cnd00004', type: 'request-domains', values: [] };
     expect(isRuleComplete({ ...base, conditions: [noValues], type: 'block', action: {} })).toBe(false);
   });
 
@@ -55,7 +55,7 @@ describe('isRuleComplete', () => {
         ...base,
         type: 'header',
         action: {
-          requestHeaders: [{ operation: 'override', headerName: 'X-Debug', value: 'true' }],
+          requestHeaders: [{ uid: 'hmd00001', operation: 'override', headerName: 'X-Debug', value: 'true' }],
           responseHeaders: [],
         },
       }),
@@ -67,7 +67,7 @@ describe('isRuleComplete', () => {
       isRuleComplete({
         ...base,
         type: 'header',
-        action: { requestHeaders: [{ operation: 'override', headerName: '', value: 'true' }], responseHeaders: [] },
+        action: { requestHeaders: [{ uid: 'hmd00002', operation: 'override', headerName: '', value: 'true' }], responseHeaders: [] },
       }),
     ).toBe(false);
   });
@@ -77,7 +77,7 @@ describe('isRuleComplete', () => {
       isRuleComplete({
         ...base,
         type: 'header',
-        action: { requestHeaders: [{ operation: 'add', headerName: 'X-Debug', value: '' }], responseHeaders: [] },
+        action: { requestHeaders: [{ uid: 'hmd00003', operation: 'add', headerName: 'X-Debug', value: '' }], responseHeaders: [] },
       }),
     ).toBe(false);
   });
@@ -87,7 +87,7 @@ describe('isRuleComplete', () => {
       isRuleComplete({
         ...base,
         type: 'header',
-        action: { requestHeaders: [{ operation: 'remove', headerName: 'X-Debug' }], responseHeaders: [] },
+        action: { requestHeaders: [{ uid: 'hmd00004', operation: 'remove', headerName: 'X-Debug' }], responseHeaders: [] },
       }),
     ).toBe(true);
   });
@@ -166,7 +166,7 @@ describe('isRuleComplete', () => {
       enabled: true,
       conditions: [hostCondition],
       action: {
-        requestHeaders: [{ operation: 'override' as const, headerName: 'X-Test', value: 'val' }],
+        requestHeaders: [{ uid: 'hmd00005', operation: 'override' as const, headerName: 'X-Test', value: 'val' }],
         responseHeaders: [],
       },
     };
@@ -180,7 +180,7 @@ describe('isRuleComplete', () => {
       type: 'header' as const,
       enabled: true,
       conditions: [],
-      action: { requestHeaders: [{ operation: 'override' as const, headerName: '', value: '' }], responseHeaders: [] },
+      action: { requestHeaders: [{ uid: 'hmd00006', operation: 'override' as const, headerName: '', value: '' }], responseHeaders: [] },
     };
     expect(isRuleComplete(partial)).toBe(false);
   });
@@ -188,7 +188,7 @@ describe('isRuleComplete', () => {
   // ── Exclude conditions are valid ────────────────────────────────
 
   it('exclude condition with values is valid', () => {
-    const excludeCondition: RuleCondition = { type: 'exclude-request-domains', values: ['staging.openheaders.io'] };
+    const excludeCondition: RuleCondition = { uid: 'cnd00005', type: 'exclude-request-domains', values: ['staging.openheaders.io'] };
     // Exclude alone is not useful (matches nothing to exclude from), but it's structurally complete.
     // In practice you'd pair it with a non-exclude condition.
     expect(
@@ -205,7 +205,7 @@ describe('isRuleComplete', () => {
 
   it('response-header condition with headerName is valid', () => {
     const headerCondition: RuleCondition = {
-      type: 'response-header',
+      uid: 'cnd00006', type: 'response-header',
       values: ['application/json'],
       headerName: 'Content-Type',
     };
@@ -219,46 +219,46 @@ describe('isRuleComplete', () => {
   // updateDynamicRules batch atomically. Warnings stay advisory.
 
   it('rejects a request-domains row whose value contains regex syntax (non-ascii kind)', () => {
-    const c: RuleCondition = { type: 'request-domains', values: ['^example.org'] };
+    const c: RuleCondition = { uid: 'cnd00007', type: 'request-domains', values: ['^example.org'] };
     expect(isRuleComplete({ ...base, conditions: [c], type: 'block', action: {} })).toBe(false);
   });
 
   it('rejects a url-regex row that does not compile', () => {
-    const c: RuleCondition = { type: 'url-regex', values: ['^https://[unclosed'] };
+    const c: RuleCondition = { uid: 'cnd00008', type: 'url-regex', values: ['^https://[unclosed'] };
     expect(isRuleComplete({ ...base, conditions: [c], type: 'block', action: {} })).toBe(false);
   });
 
   it('rejects a url-filter row with whitespace inside the pattern', () => {
-    const c: RuleCondition = { type: 'url-filter', values: ['*://api openheaders io/*'] };
+    const c: RuleCondition = { uid: 'cnd00009', type: 'url-filter', values: ['*://api openheaders io/*'] };
     expect(isRuleComplete({ ...base, conditions: [c], type: 'block', action: {} })).toBe(false);
   });
 
   it('rejects a request-methods row with an unknown method', () => {
-    const c: RuleCondition = { type: 'request-methods', values: ['BREW'] };
+    const c: RuleCondition = { uid: 'cnd00010', type: 'request-methods', values: ['BREW'] };
     expect(isRuleComplete({ ...base, conditions: [c], type: 'block', action: {} })).toBe(false);
   });
 
   it('rejects a response-header row missing the header name', () => {
-    const c: RuleCondition = { type: 'response-header', values: ['application/json'], headerName: '' };
+    const c: RuleCondition = { uid: 'cnd00011', type: 'response-header', values: ['application/json'], headerName: '' };
     expect(isRuleComplete({ ...base, conditions: [c], type: 'block', action: {} })).toBe(false);
   });
 
   it('does NOT reject for advisory warnings — rule still compiles', () => {
     // url-filter with regex-looking syntax → warning, not error.
-    const c: RuleCondition = { type: 'url-filter', values: ['*://api+.openheaders.io/*'] };
+    const c: RuleCondition = { uid: 'cnd00012', type: 'url-filter', values: ['*://api+.openheaders.io/*'] };
     expect(isRuleComplete({ ...base, conditions: [c], type: 'block', action: {} })).toBe(true);
   });
 
   it('does NOT reject for auto-fixable domain mistakes — they have a clean-up path', () => {
     // `*.foo.com` is a wildcard mistake (auto-fixable to `foo.com`),
     // not a structurally-broken value. Stays complete; banner offers cleanup.
-    const c: RuleCondition = { type: 'request-domains', values: ['*.foo.com'] };
+    const c: RuleCondition = { uid: 'cnd00013', type: 'request-domains', values: ['*.foo.com'] };
     expect(isRuleComplete({ ...base, conditions: [c], type: 'block', action: {} })).toBe(true);
   });
 
   it('rejects when ANY of multiple conditions is invalid', () => {
-    const good: RuleCondition = { type: 'request-domains', values: ['openheaders.io'] };
-    const bad: RuleCondition = { type: 'request-methods', values: ['INVALID'] };
+    const good: RuleCondition = { uid: 'cnd00014', type: 'request-domains', values: ['openheaders.io'] };
+    const bad: RuleCondition = { uid: 'cnd00015', type: 'request-methods', values: ['INVALID'] };
     expect(isRuleComplete({ ...base, conditions: [good, bad], type: 'block', action: {} })).toBe(false);
   });
 });
@@ -280,7 +280,7 @@ describe('isRuleResolvable', () => {
     ...base,
     type: 'header' as const,
     action: {
-      requestHeaders: [{ operation: 'override' as const, headerName: 'X-Auth', value }],
+      requestHeaders: [{ uid: 'hmd00007', operation: 'override' as const, headerName: 'X-Auth', value }],
       responseHeaders: [],
     },
   });
@@ -337,10 +337,10 @@ describe('isRuleResolvable', () => {
   it('walks condition values + header rule action fields', () => {
     const rule = {
       ...base,
-      conditions: [{ type: 'request-domains' as const, values: ['{{HOST}}'] }],
+      conditions: [{ uid: 'cnd00016', type: 'request-domains' as const, values: ['{{HOST}}'] }],
       type: 'header' as const,
       action: {
-        requestHeaders: [{ operation: 'override' as const, headerName: 'X-Auth', value: '{{TOKEN}}' }],
+        requestHeaders: [{ uid: 'hmd00008', operation: 'override' as const, headerName: 'X-Auth', value: '{{TOKEN}}' }],
         responseHeaders: [],
       },
     };

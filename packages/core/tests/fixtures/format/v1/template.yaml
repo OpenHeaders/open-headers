@@ -8,7 +8,8 @@ includes:
   conditions: true
   formValues: true
 conditions:
-  - type: request-domains
+  - uid: cnd00009
+    type: request-domains
     values:
       - api.openheaders.io
 formValues:

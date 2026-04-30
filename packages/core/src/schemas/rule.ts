@@ -48,6 +48,7 @@ export const ConditionTypeSchema = v.picklist([
 ]);
 
 export const RuleConditionSchema = v.object({
+  uid: UidSchema,
   type: ConditionTypeSchema,
   values: v.array(v.string()),
   headerName: v.optional(v.string()),
@@ -87,6 +88,7 @@ const RuleBaseFields = RuleBaseSchema.entries;
 export const HeaderOperationSchema = v.picklist(['override', 'add', 'remove', 'merge']);
 
 export const HeaderModificationSchema = v.object({
+  uid: UidSchema,
   operation: HeaderOperationSchema,
   headerName: v.string(),
   value: v.optional(v.string()),

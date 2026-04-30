@@ -21,8 +21,9 @@ function base(): { uid: string; path: string; name: string; schemaVersion: 5; ve
   return { uid: 'rul00001', path: 'rules/col/rule', name: 'r', schemaVersion: 5, version: 1, enabled: true };
 }
 
+let condCounter = 0;
 function cond(type: RuleCondition['type'], values: string[]): RuleCondition {
-  return { type, values };
+  return { uid: `tst${(++condCounter).toString().padStart(5, '0')}`, type, values };
 }
 
 describe('summarizeRule', () => {
@@ -32,7 +33,7 @@ describe('summarizeRule', () => {
       type: 'header',
       conditions: [cond('request-domains', ['api.openheaders.io', 'auth.openheaders.io'])],
       action: {
-        requestHeaders: [{ operation: 'override', headerName: 'Authorization', value: 'Bearer xyz' }],
+        requestHeaders: [{ uid: 'hmd00001', operation: 'override', headerName: 'Authorization', value: 'Bearer xyz' }],
         responseHeaders: [],
       },
     };

@@ -13,9 +13,9 @@ function makeRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
     name: 'Test',
     enabled: true,
     path: 'collections/c1/rules',
-    conditions: [{ type: 'request-domains', values: ['example.com'] }],
+    conditions: [{ uid: 'tcd00040', type: 'request-domains', values: ['example.com'] }],
     action: {
-      requestHeaders: [{ operation: 'override', headerName: 'X-Foo', value: 'v1' }],
+      requestHeaders: [{ uid: 'thm00064', operation: 'override', headerName: 'X-Foo', value: 'v1' }],
       responseHeaders: [],
     },
     ...overrides,
@@ -97,11 +97,11 @@ describe('computeRuleApplicability', () => {
     const ctx = makeCtx({
       currentRule: makeRule({
         action: {
-          requestHeaders: [{ operation: 'override', headerName: '{{vault.TOTP_X}}', value: 'v1' }],
+          requestHeaders: [{ uid: 'thm00065', operation: 'override', headerName: '{{vault.TOTP_X}}', value: 'v1' }],
           responseHeaders: [],
         },
       }),
-      currentMod: { operation: 'override', headerName: '{{vault.TOTP_X}}', value: 'v1' },
+      currentMod: { uid: 'thm00066', operation: 'override', headerName: '{{vault.TOTP_X}}', value: 'v1' },
     });
     const verdict = computeRuleApplicability({ ctx, url: URL_MATCHING, resolver });
     expect(verdict.kind).toBe('name-template-unresolved');
@@ -112,11 +112,11 @@ describe('computeRuleApplicability', () => {
     const ctx = makeCtx({
       currentRule: makeRule({
         action: {
-          requestHeaders: [{ operation: 'override', headerName: 'X-Foo', value: '{{vault.TOTP_X}}' }],
+          requestHeaders: [{ uid: 'thm00067', operation: 'override', headerName: 'X-Foo', value: '{{vault.TOTP_X}}' }],
           responseHeaders: [],
         },
       }),
-      currentMod: { operation: 'override', headerName: 'X-Foo', value: '{{vault.TOTP_X}}' },
+      currentMod: { uid: 'thm00068', operation: 'override', headerName: 'X-Foo', value: '{{vault.TOTP_X}}' },
     });
     const verdict = computeRuleApplicability({ ctx, url: URL_MATCHING, resolver });
     expect(verdict.kind).toBe('value-template-unresolved');
@@ -127,12 +127,12 @@ describe('computeRuleApplicability', () => {
       currentRule: makeRule({
         action: {
           requestHeaders: [
-            { operation: 'merge', headerName: 'Cookie', value: 'k=v', mergeSeparator: '{{vault.TOTP_X}}' },
+            { uid: 'thm00069', operation: 'merge', headerName: 'Cookie', value: 'k=v', mergeSeparator: '{{vault.TOTP_X}}' },
           ],
           responseHeaders: [],
         },
       }),
-      currentMod: { operation: 'merge', headerName: 'Cookie', value: 'k=v', mergeSeparator: '{{vault.TOTP_X}}' },
+      currentMod: { uid: 'thm00070', operation: 'merge', headerName: 'Cookie', value: 'k=v', mergeSeparator: '{{vault.TOTP_X}}' },
     });
     const verdict = computeRuleApplicability({ ctx, url: URL_MATCHING, resolver });
     expect(verdict.kind).toBe('separator-template-unresolved');
@@ -163,11 +163,11 @@ describe('computeRuleApplicability', () => {
     const ctx = makeCtx({
       currentRule: makeRule({
         action: {
-          requestHeaders: [{ operation: 'override', headerName: 'X-Foo', value: '{{vault.TOTP_X}}' }],
+          requestHeaders: [{ uid: 'thm00071', operation: 'override', headerName: 'X-Foo', value: '{{vault.TOTP_X}}' }],
           responseHeaders: [],
         },
       }),
-      currentMod: { operation: 'override', headerName: 'X-Foo', value: '{{vault.TOTP_X}}' },
+      currentMod: { uid: 'thm00072', operation: 'override', headerName: 'X-Foo', value: '{{vault.TOTP_X}}' },
     });
     const verdict = computeRuleApplicability({ ctx, url: URL_MATCHING, resolver });
     expect(verdict.kind).toBe('value-template-unresolved');

@@ -18,13 +18,13 @@ export function buildDraftConditions(draft: V5.RuleDraftBase, strategy: DraftUrl
   const conditions: V5.RuleCondition[] = [];
   const resolvedFilter = draft.urlFilter ?? (draft.url ? deriveUrlFilter(draft.url, strategy) : undefined);
   if (resolvedFilter) {
-    conditions.push({ type: 'url-filter', values: [resolvedFilter] });
+    conditions.push({ uid: 'sct00027', type: 'url-filter', values: [resolvedFilter] });
   }
   if (draft.requestMethods && draft.requestMethods.length > 0) {
-    conditions.push({ type: 'request-methods', values: draft.requestMethods });
+    conditions.push({ uid: 'sct00028', type: 'request-methods', values: draft.requestMethods });
   }
   if (draft.resourceTypes && draft.resourceTypes.length > 0) {
-    conditions.push({ type: 'resource-types', values: draft.resourceTypes });
+    conditions.push({ uid: 'sct00029', type: 'resource-types', values: draft.resourceTypes });
   }
   return conditions;
 }

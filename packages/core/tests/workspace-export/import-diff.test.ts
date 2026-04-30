@@ -37,7 +37,7 @@ function makeRule(uid: string, name: string): HeaderRule {
     name,
     type: 'header',
     enabled: false,
-    conditions: [{ type: 'url-filter', values: ['*://api.openheaders.io/*'] }],
+    conditions: [{ uid: 'cnd00001', type: 'url-filter', values: ['*://api.openheaders.io/*'] }],
     action: { requestHeaders: [], responseHeaders: [] },
   } as HeaderRule;
 }

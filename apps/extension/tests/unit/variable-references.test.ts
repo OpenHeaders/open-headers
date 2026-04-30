@@ -34,9 +34,9 @@ describe('variable-references / collectTemplateStrings', () => {
 
   it('walks nested structures (rule-shaped input)', () => {
     const rule = {
-      conditions: [{ type: 'request-domains', values: ['{{HOST}}', 'static.example.com'] }],
+      conditions: [{ uid: 'tcd00061', type: 'request-domains', values: ['{{HOST}}', 'static.example.com'] }],
       action: {
-        requestHeaders: [{ operation: 'override', headerName: 'X-Token', value: 'Bearer {{TOKEN}}' }],
+        requestHeaders: [{ uid: 'thm00104', operation: 'override', headerName: 'X-Token', value: 'Bearer {{TOKEN}}' }],
       },
     };
     const out: string[] = [];

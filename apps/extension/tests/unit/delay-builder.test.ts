@@ -21,7 +21,7 @@ function makeDelayRule(overrides: Partial<V5.DelayRule> = {}): V5.DelayRule {
     name: 'Slow openheaders.io',
     type: 'delay',
     enabled: true,
-    conditions: [{ type: 'request-domains', values: ['openheaders.io'] }],
+    conditions: [{ uid: 'tcd00001', type: 'request-domains', values: ['openheaders.io'] }],
     action: { delayMs: 3000 },
     ...overrides,
   };
@@ -52,7 +52,7 @@ describe('delayCompiler', () => {
   it('wraps a url-regex condition with a full-URL capture', () => {
     const plan = delayCompiler.compile(
       makeDelayRule({
-        conditions: [{ type: 'url-regex', values: ['openheaders\\.io/api'] }],
+        conditions: [{ uid: 'tcd00002', type: 'url-regex', values: ['openheaders\\.io/api'] }],
       }),
       makeCtx(5),
     );
@@ -64,7 +64,7 @@ describe('delayCompiler', () => {
   it('converts a url-filter literal into an escaped regex', () => {
     const plan = delayCompiler.compile(
       makeDelayRule({
-        conditions: [{ type: 'url-filter', values: ['openheaders.io/a.b'] }],
+        conditions: [{ uid: 'tcd00003', type: 'url-filter', values: ['openheaders.io/a.b'] }],
       }),
       makeCtx(),
     );
@@ -74,7 +74,7 @@ describe('delayCompiler', () => {
   it('maps `*` wildcards and `|` anchors inside url-filter patterns', () => {
     const plan = delayCompiler.compile(
       makeDelayRule({
-        conditions: [{ type: 'url-filter', values: ['|https://*.openheaders.io/|'] }],
+        conditions: [{ uid: 'tcd00004', type: 'url-filter', values: ['|https://*.openheaders.io/|'] }],
       }),
       makeCtx(),
     );
@@ -109,8 +109,8 @@ describe('delayCompiler', () => {
       const plan = delayCompiler.compile(
         makeDelayRule({
           conditions: [
-            { type: 'url-filter', values: ['*://github.com/*'] },
-            { type: 'exclude-resource-types', values: ['page'] },
+            { uid: 'tcd00005', type: 'url-filter', values: ['*://github.com/*'] },
+            { uid: 'tcd00006', type: 'exclude-resource-types', values: ['page'] },
           ],
         }),
         makeCtx(),
@@ -126,8 +126,8 @@ describe('delayCompiler', () => {
       const plan = delayCompiler.compile(
         makeDelayRule({
           conditions: [
-            { type: 'url-filter', values: ['*://github.com/*'] },
-            { type: 'resource-types', values: ['page'] },
+            { uid: 'tcd00007', type: 'url-filter', values: ['*://github.com/*'] },
+            { uid: 'tcd00008', type: 'resource-types', values: ['page'] },
           ],
         }),
         makeCtx(),
@@ -143,8 +143,8 @@ describe('delayCompiler', () => {
       const plan = delayCompiler.compile(
         makeDelayRule({
           conditions: [
-            { type: 'url-filter', values: ['*://github.com/*'] },
-            { type: 'resource-types', values: ['xhr'] },
+            { uid: 'tcd00009', type: 'url-filter', values: ['*://github.com/*'] },
+            { uid: 'tcd00010', type: 'resource-types', values: ['xhr'] },
           ],
         }),
         makeCtx(),
@@ -156,8 +156,8 @@ describe('delayCompiler', () => {
       const plan = delayCompiler.compile(
         makeDelayRule({
           conditions: [
-            { type: 'url-filter', values: ['*://github.com/*'] },
-            { type: 'exclude-resource-types', values: ['page', 'sub_frame'] },
+            { uid: 'tcd00011', type: 'url-filter', values: ['*://github.com/*'] },
+            { uid: 'tcd00012', type: 'exclude-resource-types', values: ['page', 'sub_frame'] },
           ],
         }),
         makeCtx(),

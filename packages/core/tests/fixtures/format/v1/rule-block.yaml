@@ -4,7 +4,8 @@ name: Block analytics
 type: block
 enabled: true
 conditions:
-  - type: request-domains
+  - uid: cnd00001
+    type: request-domains
     values:
       - analytics.openheaders.io
 action: {}

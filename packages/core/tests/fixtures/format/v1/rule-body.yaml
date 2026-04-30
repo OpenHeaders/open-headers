@@ -4,7 +4,8 @@ name: Inject feature flag override
 type: body
 enabled: false
 conditions:
-  - type: request-domains
+  - uid: cnd00002
+    type: request-domains
     values:
       - api.openheaders.io
 action:

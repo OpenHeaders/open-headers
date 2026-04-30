@@ -75,9 +75,9 @@ function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
     name: 'Auth header',
     type: 'header',
     enabled: true,
-    conditions: [{ type: 'request-domains', values: ['*.openheaders.io'] }],
+    conditions: [{ uid: 'tcd00059', type: 'request-domains', values: ['*.openheaders.io'] }],
     action: {
-      requestHeaders: [{ operation: 'override', headerName: 'X-Test', value: 'v1' }],
+      requestHeaders: [{ uid: 'thm00098', operation: 'override', headerName: 'X-Test', value: 'v1' }],
       responseHeaders: [],
     },
     ...overrides,
@@ -183,7 +183,7 @@ describe('test-run-store', () => {
       mockGetRules.mockReturnValue([
         makeHeaderRule({
           action: {
-            requestHeaders: [{ operation: 'override', headerName: 'X-Test', value: 'changed' }],
+            requestHeaders: [{ uid: 'thm00099', operation: 'override', headerName: 'X-Test', value: 'changed' }],
             responseHeaders: [],
           },
         }),
@@ -297,7 +297,7 @@ describe('test-run-store', () => {
         makeHeaderRule({
           uid: 'rule-b',
           action: {
-            requestHeaders: [{ operation: 'override', headerName: 'X-Test', value: 'changed' }],
+            requestHeaders: [{ uid: 'thm00100', operation: 'override', headerName: 'X-Test', value: 'changed' }],
             responseHeaders: [],
           },
         }),

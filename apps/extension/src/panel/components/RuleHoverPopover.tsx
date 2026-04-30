@@ -446,16 +446,21 @@ export function RuleHoverPopover({
       }
       const next = list.slice();
       const isRemove = live.operation === 'remove';
+      // Preserve the row's persisted uid on edit — the synthesizer keys
+      // identity by it, so a fresh uid here would tombstone + re-add and
+      // lose the synchronized HLC chain.
+      const uid = currentMod.uid;
       next[idx] = isRemove
-        ? { operation: 'remove', headerName: live.headerName }
+        ? { uid, operation: 'remove', headerName: live.headerName }
         : live.operation === 'merge'
           ? {
+              uid,
               operation: 'merge',
               headerName: live.headerName,
               value: live.value,
               mergeSeparator: live.mergeSeparator,
             }
-          : { operation: live.operation, headerName: live.headerName, value: live.value };
+          : { uid, operation: live.operation, headerName: live.headerName, value: live.value };
       const updates: Partial<V5.HeaderRule> = {
         action: {
           requestHeaders: target.direction === 'request' ? next : headerRule.action.requestHeaders,
