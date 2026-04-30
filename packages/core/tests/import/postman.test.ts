@@ -8,6 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { PostmanParseError, parsePostman, parsePostmanEnvironment } from '../../src/import/postman';
+import { stripUids } from './_kv-utils';
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -229,7 +230,7 @@ describe('request mapping — method + URL', () => {
       }),
     );
     expect(result.requests[0]?.request.url).toBe('https://api.openheaders.io/things');
-    expect(result.requests[0]?.request.params).toEqual([{ key: 'a', value: '1' }]);
+    expect(stripUids(result.requests[0]!.request.params)).toEqual([{ key: 'a', value: '1' }]);
   });
 
   it('builds from structured parts when raw is missing', () => {
@@ -252,7 +253,7 @@ describe('request mapping — method + URL', () => {
       }),
     );
     expect(result.requests[0]?.request.url).toBe('https://api.openheaders.io/v1/things');
-    expect(result.requests[0]?.request.params).toEqual([{ key: 'k', value: 'v' }]);
+    expect(stripUids(result.requests[0]!.request.params)).toEqual([{ key: 'k', value: 'v' }]);
   });
 
   it('substitutes :path variables with url.variable values', () => {
@@ -287,7 +288,7 @@ describe('request mapping — method + URL', () => {
     const r = result.requests[0]!.request;
     expect(r.method).toBe('GET');
     expect(r.url).toBe('https://api.openheaders.io/ping');
-    expect(r.params).toEqual([{ key: 'q', value: '1' }]);
+    expect(stripUids(r.params)).toEqual([{ key: 'q', value: '1' }]);
   });
 });
 
@@ -310,7 +311,7 @@ describe('request mapping — headers', () => {
         ],
       }),
     );
-    const headers = result.requests[0]!.request.headers;
+    const headers = stripUids(result.requests[0]!.request.headers);
     expect(headers).toContainEqual({ key: 'X-Trace', value: 'abc' });
     expect(headers).toContainEqual({ key: 'X-Off', value: 'ignored', enabled: false });
   });
@@ -1036,7 +1037,7 @@ describe('edge cases', () => {
           ],
         }),
       );
-      const headers = result.requests[0]!.request.headers;
+      const headers = stripUids(result.requests[0]!.request.headers);
       expect(headers).toContainEqual({ key: 'X-Special', value: 'foo: bar; baz=qux' });
       expect(headers).toContainEqual({ key: 'X-Quoted', value: '"quoted-value"' });
     });
@@ -1194,7 +1195,7 @@ describe('edge cases', () => {
       );
       expect(result.requests[0]?.request.auth).toEqual({ type: 'none' });
       // Empty auth header stays in the list so the user can edit it.
-      expect(result.requests[0]?.request.headers).toContainEqual({ key: 'Authorization', value: '' });
+      expect(stripUids(result.requests[0]!.request.headers)).toContainEqual({ key: 'Authorization', value: '' });
     });
   });
 
@@ -1206,7 +1207,7 @@ describe('edge cases', () => {
         }),
       );
       expect(result.requests[0]?.request.url).toBe('https://api.openheaders.io');
-      expect(result.requests[0]?.request.params).toEqual([
+      expect(stripUids(result.requests[0]!.request.params)).toEqual([
         { key: 'q', value: '1' },
         { key: 'r', value: '2' },
       ]);
@@ -1224,7 +1225,7 @@ describe('edge cases', () => {
         }),
       );
       expect(result.requests[0]?.request.url).toBe('https://api.openheaders.io/x');
-      expect(result.requests[0]?.request.params).toEqual([{ key: 'q', value: '1' }]);
+      expect(stripUids(result.requests[0]!.request.params)).toEqual([{ key: 'q', value: '1' }]);
     });
 
     it('preserves {{var}} references in URL verbatim', () => {
@@ -1235,7 +1236,7 @@ describe('edge cases', () => {
       );
       // URL portion of raw stays as-is (flat {{var}} flows through).
       expect(result.requests[0]?.request.url).toBe('{{baseUrl}}/users');
-      expect(result.requests[0]?.request.params).toEqual([{ key: 'token', value: '{{token}}' }]);
+      expect(stripUids(result.requests[0]!.request.params)).toEqual([{ key: 'token', value: '{{token}}' }]);
     });
 
     it('does not substitute :xxx when no url.variable entry matches', () => {
@@ -1284,7 +1285,7 @@ describe('edge cases', () => {
           ],
         }),
       );
-      expect(result.requests[0]?.request.headers).toEqual([{ key: 'Valid', value: 'v' }]);
+      expect(stripUids(result.requests[0]!.request.headers)).toEqual([{ key: 'Valid', value: 'v' }]);
     });
 
     it('handles non-string body.raw by treating as none', () => {

@@ -8,10 +8,12 @@ description: |
 method: POST
 url: "{{API_URL}}/auth/login"
 headers:
-  - key: Content-Type
+  - uid: hdrct001
+    key: Content-Type
     value: application/json
 params:
-  - key: audit
+  - uid: prmaud01
+    key: audit
     value: dev
     enabled: false
 auth:

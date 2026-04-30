@@ -110,7 +110,7 @@ describe('RequestExecutor', () => {
     const req = makeRequest({
       path: 'requests/auth-coll/login-abcd',
       url: 'https://api.openheaders.io',
-      headers: [{ key: 'X-Token', value: '{{TOKEN}}' }],
+      headers: [{ uid: 'tokenhdr', key: 'X-Token', value: '{{TOKEN}}' }],
     });
     await executeRequestDraft(req);
     const [, init] = fetchMock.mock.calls[0];
@@ -123,9 +123,9 @@ describe('RequestExecutor', () => {
       makeRequest({
         url: 'https://api.openheaders.io/search',
         params: [
-          { key: 'q', value: 'hello' },
-          { key: 'disabled', value: 'x', enabled: false },
-          { key: 'lang', value: 'en' },
+          { uid: 'qparam01', key: 'q', value: 'hello' },
+          { uid: 'qparam02', key: 'disabled', value: 'x', enabled: false },
+          { uid: 'qparam03', key: 'lang', value: 'en' },
         ],
       }),
     );
@@ -187,7 +187,7 @@ describe('RequestExecutor', () => {
     await executeRequestDraft(
       makeRequest({
         method: 'POST',
-        headers: [{ key: 'Content-Type', value: 'application/vnd.custom+json' }],
+        headers: [{ uid: 'cthdr001', key: 'Content-Type', value: 'application/vnd.custom+json' }],
         body: { type: 'json', content: '{"a":1}' },
       }),
     );

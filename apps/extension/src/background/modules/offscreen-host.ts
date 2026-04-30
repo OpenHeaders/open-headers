@@ -38,6 +38,7 @@ import type {
   ScriptKind,
 } from '@openheaders/core/scripts';
 import type { V5 } from '@openheaders/core/types';
+import { generateUid } from '@openheaders/core/utils';
 import { resolveTemplate, VariableResolver } from '@openheaders/core/variables';
 import { logger } from '@utils/logger';
 import { recordLog } from './observability-log';
@@ -379,8 +380,8 @@ async function dispatchAdHocRequest(snapshot: RequestSnapshot): Promise<Response
     name: 'script ad-hoc',
     method: snapshot.method,
     url: snapshot.url,
-    headers: snapshot.headers.map((h) => ({ key: h.key, value: h.value, enabled: true })),
-    params: snapshot.params.map((p) => ({ key: p.key, value: p.value, enabled: true })),
+    headers: snapshot.headers.map((h) => ({ uid: generateUid(), key: h.key, value: h.value, enabled: true })),
+    params: snapshot.params.map((p) => ({ uid: generateUid(), key: p.key, value: p.value, enabled: true })),
     auth: { type: 'none' },
     body: snapshot.body,
   };

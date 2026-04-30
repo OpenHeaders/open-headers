@@ -159,8 +159,8 @@ describe('isRequestResolvable', () => {
   it('walks enabled headers (key + value) but skips disabled ones', () => {
     const req = makeRequest({
       headers: [
-        { key: 'X-Disabled', value: '{{NEVER}}', enabled: false },
-        { key: 'X-Auth', value: '{{TOKEN}}', enabled: true },
+        { uid: 'disabld1', key: 'X-Disabled', value: '{{NEVER}}', enabled: false },
+        { uid: 'enabledh', key: 'X-Auth', value: '{{TOKEN}}', enabled: true },
       ],
     });
     // Disabled header's unresolved ref doesn't block the request.
@@ -172,8 +172,8 @@ describe('isRequestResolvable', () => {
   it('walks enabled query params but skips disabled ones', () => {
     const req = makeRequest({
       params: [
-        { key: 'tz', value: '{{TZ}}', enabled: false },
-        { key: 'user', value: '{{USER}}', enabled: true },
+        { uid: 'tzparam1', key: 'tz', value: '{{TZ}}', enabled: false },
+        { uid: 'usrparam', key: 'user', value: '{{USER}}', enabled: true },
       ],
     });
     expect(isRequestResolvable(req, lookupFromMap({ USER: 'alice' }))).toBe(true);

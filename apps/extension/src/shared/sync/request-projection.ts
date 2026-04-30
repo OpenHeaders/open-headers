@@ -22,7 +22,6 @@
  * is Phase D scope.
  */
 
-import { generateUid } from '@openheaders/core/utils';
 import type { V5 } from '@openheaders/core/types';
 import {
   type MaterializedEntity,
@@ -45,25 +44,37 @@ import {
 const SET_PATHS = [REQUEST_HEADERS_PATH, REQUEST_PARAMS_PATH] as const;
 type SetPath = (typeof SET_PATHS)[number];
 
+interface SetMember {
+  path: SetPath;
+  itemId: string;
+  item: V5.RequestHeader | V5.QueryParam;
+}
+
 /**
  * Convert a persisted V5.Request into a `MutationBatch` of one `create`
  * for the scalar shell, plus one `addToSet` per member of every
- * set-modeled field. Per-batch all-or-nothing under the oracle's lock.
+ * set-modeled field. Each member's `uid` doubles as the sync engine's
+ * itemId — once persisted (commit `a` of the §7.3 reorder slice),
+ * RequestHeader / QueryParam carry stable identity that survives
+ * save/reload, so reorder gestures land as `moveBefore` over a known
+ * itemId set rather than wholesale `removeFromSet + addToSet`.
+ *
+ * Per-batch all-or-nothing under the oracle's lock.
  */
 export function seedRequest(request: V5.Request, ctx: MutatorContext): MutationBatch {
-  const setItems: Array<{ path: SetPath; item: unknown }> = [];
-  const scalarShell = stripSetFields(request, setItems);
+  const setMembers: SetMember[] = [];
+  const scalarShell = stripSetFields(request, setMembers);
 
   const bodies: MutationBody[] = [
     { kind: 'create', type: REQUEST_ENTITY_TYPE, id: request.uid, payload: scalarShell },
   ];
-  for (const { path, item } of setItems) {
+  for (const { path, itemId, item } of setMembers) {
     bodies.push({
       kind: 'addToSet',
       type: REQUEST_ENTITY_TYPE,
       id: request.uid,
       path,
-      itemId: generateUid(),
+      itemId,
       item,
     });
   }
@@ -89,21 +100,19 @@ export function projectRequest(materialized: MaterializedEntity): V5.Request | n
 
 // ── internals ─────────────────────────────────────────────────────
 
-function stripSetFields(request: V5.Request, out: Array<{ path: SetPath; item: unknown }>): unknown {
+function stripSetFields(request: V5.Request, out: SetMember[]): unknown {
   // Deep clone via JSON round-trip — V5.Request has no functions /
   // symbols / Dates; correct-by-construction for the persisted shape.
   // Not a hot path.
   const shell = JSON.parse(JSON.stringify(request)) as Record<string, unknown>;
 
-  const headers = shell[REQUEST_HEADERS_PATH];
-  if (Array.isArray(headers)) {
-    for (const h of headers) out.push({ path: REQUEST_HEADERS_PATH, item: h });
+  for (const h of request.headers) {
+    out.push({ path: REQUEST_HEADERS_PATH, itemId: h.uid, item: h });
   }
   delete shell[REQUEST_HEADERS_PATH];
 
-  const params = shell[REQUEST_PARAMS_PATH];
-  if (Array.isArray(params)) {
-    for (const p of params) out.push({ path: REQUEST_PARAMS_PATH, item: p });
+  for (const p of request.params) {
+    out.push({ path: REQUEST_PARAMS_PATH, itemId: p.uid, item: p });
   }
   delete shell[REQUEST_PARAMS_PATH];
 

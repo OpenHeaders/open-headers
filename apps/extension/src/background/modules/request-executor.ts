@@ -30,7 +30,7 @@ import { isExpired as isOAuthTokenExpired } from '@openheaders/core/oauth';
 import type { RequestMutation, RequestSnapshot, ResponseSnapshot, TestAssertion } from '@openheaders/core/scripts';
 import { generateTotp } from '@openheaders/core/totp';
 import type { V5 } from '@openheaders/core/types';
-import { appendQueryParams, isRequestResolvable } from '@openheaders/core/utils';
+import { appendQueryParams, generateUid, isRequestResolvable } from '@openheaders/core/utils';
 import { resolveTemplate, type TotpRegistry, VariableResolver } from '@openheaders/core/variables';
 import { logger } from '@utils/logger';
 import { ensureScheme } from '@/shared/fetch/ensure-scheme';
@@ -334,7 +334,12 @@ export async function executeForLiveChain(
     ...request,
     headers: [
       ...request.headers,
-      { key: LIVE_BYPASS_HEADER, value: liveBypassHeaderValue(options.workflowUid), enabled: true },
+      {
+        uid: generateUid(),
+        key: LIVE_BYPASS_HEADER,
+        value: liveBypassHeaderValue(options.workflowUid),
+        enabled: true,
+      },
     ],
   };
   return executeRequestDraft(stamped, {

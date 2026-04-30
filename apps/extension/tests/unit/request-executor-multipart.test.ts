@@ -60,7 +60,7 @@ function makeMultipartRequest(
     name: 'MP',
     method: 'POST',
     url: 'https://api.openheaders.io/upload',
-    headers,
+    headers: headers.map((h, i) => ({ uid: `hdrmp${String(i).padStart(3, '0')}`, key: h.key, value: h.value })),
     params: [],
     auth: { type: 'none' },
     body: { type: 'multipart', multipartParts: parts },

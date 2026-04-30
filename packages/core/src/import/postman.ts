@@ -47,6 +47,7 @@
  */
 
 import { placeholderFileRef } from '../files';
+import { generateUid } from '../utils/workspace';
 import type {
   AuthConfig,
   HttpMethod,
@@ -606,9 +607,13 @@ function splitUrl(raw: string): { base: string; params: QueryParam[] } {
     if (entry.length === 0) continue;
     const eq = entry.indexOf('=');
     if (eq < 0) {
-      params.push({ key: safeDecode(entry), value: '' });
+      params.push({ uid: generateUid(), key: safeDecode(entry), value: '' });
     } else {
-      params.push({ key: safeDecode(entry.slice(0, eq)), value: safeDecode(entry.slice(eq + 1)) });
+      params.push({
+        uid: generateUid(),
+        key: safeDecode(entry.slice(0, eq)),
+        value: safeDecode(entry.slice(eq + 1)),
+      });
     }
   }
   return { base, params };
@@ -638,9 +643,9 @@ function buildHeaders(raw: PostmanHeader[], _jsonPath: string, _report: ImportRe
     // editor can preserve the user's intent rather than silently
     // dropping the header.
     if (h.disabled) {
-      out.push({ key, value, enabled: false });
+      out.push({ uid: generateUid(), key, value, enabled: false });
     } else {
-      out.push({ key, value });
+      out.push({ uid: generateUid(), key, value });
     }
   }
   return out;

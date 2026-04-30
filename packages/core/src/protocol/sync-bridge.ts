@@ -135,6 +135,16 @@ export interface SyncRequestPostState {
   request: V5.Request;
   /** Map keyed by set path (`headers`, `params`). */
   setItemIds: Record<string, string[]>;
+  /**
+   * Live `(itemId, orderKey)` pairs at each set-modeled path, in
+   * canonical sort order. Renderer write helpers use these to detect
+   * pure-reorder gestures and emit `moveBefore` envelopes via
+   * `keyBetween(prev, next)` instead of a wholesale
+   * `removeFromSet + addToSet` rewrite — preserves itemIds and shrinks
+   * the diff to the moved row(s) only (§7.2 LWW per itemId, §7.3
+   * fractional indexing).
+   */
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
 }
 
 /**

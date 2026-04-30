@@ -27,6 +27,8 @@ export interface RequestMirrorEntry {
   request: V5.Request;
   /** Map keyed by set path (e.g. `headers`, `params`). */
   setItemIds: Record<string, string[]>;
+  /** Per-set ordered `(itemId, orderKey)` pairs for `moveBefore` writes. */
+  setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
 }
 
 export type RequestMirrorListener = (uid: string) => void;
@@ -40,6 +42,12 @@ export interface RequestSyncMirror {
    *  shape the SW oracle exposes via `liveSetItems`, so write helpers
    *  duck-type either. */
   liveSetItems(uid: string, setPath: string): string[];
+  /** Live `(itemId, orderKey)` pairs at a set path on the request, in
+   *  canonical sort order. Returns `[]` when the mirror has no entry
+   *  for `uid` or the path has no members. The write-client's
+   *  pure-reorder detector reads these to compute `keyBetween(prev,
+   *  next)` for `moveBefore` envelopes. */
+  liveOrderedSetItems(uid: string, setPath: string): Array<{ itemId: string; orderKey: string }>;
   subscribeRequestMirror(uid: string, listener: RequestMirrorListener): () => void;
   /** Subscribe to *any* request change — listener receives the uid that
    *  moved. Sidebar tree consumers want this signal. */
@@ -78,6 +86,7 @@ export function createRequestSyncMirror(
     entries.set(uid, {
       request: requestPostState.request,
       setItemIds: requestPostState.setItemIds,
+      setOrderKeys: requestPostState.setOrderKeys,
     });
     notify(perUidListeners, anyListeners, uid);
   });
@@ -88,7 +97,11 @@ export function createRequestSyncMirror(
         for (const entry of resp.entries) {
           const uid = entry.request.uid;
           if (seenSinceMount.has(uid)) continue;
-          entries.set(uid, { request: entry.request, setItemIds: entry.setItemIds });
+          entries.set(uid, {
+            request: entry.request,
+            setItemIds: entry.setItemIds,
+            setOrderKeys: entry.setOrderKeys,
+          });
           notify(perUidListeners, anyListeners, uid);
         }
       })
@@ -110,6 +123,11 @@ export function createRequestSyncMirror(
       const entry = entries.get(uid);
       if (!entry) return [];
       return entry.setItemIds[setPath] ?? [];
+    },
+    liveOrderedSetItems(uid, setPath) {
+      const entry = entries.get(uid);
+      if (!entry) return [];
+      return entry.setOrderKeys[setPath] ?? [];
     },
     subscribeRequestMirror(uid, listener) {
       let bucket = perUidListeners.get(uid);

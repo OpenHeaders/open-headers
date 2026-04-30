@@ -8,6 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { HarParseError, parseHar, selectHarEntries } from '../../src/import/har';
+import { stripUids } from './_kv-utils';
 
 /** Build a minimal valid HAR 1.2 file with the given entries. */
 function harFile(entries: unknown[]): string {
@@ -105,7 +106,7 @@ describe('parseHar — query params', () => {
         }),
       ]),
     );
-    expect(entries[0].request.params).toEqual([
+    expect(stripUids(entries[0].request.params)).toEqual([
       { key: 'q', value: 'hi' },
       { key: 'page', value: '2' },
     ]);
@@ -122,7 +123,7 @@ describe('parseHar — query params', () => {
         }),
       ]),
     );
-    expect(entries[0].request.params).toEqual([{ key: 'q', value: 'hi' }]);
+    expect(stripUids(entries[0].request.params)).toEqual([{ key: 'q', value: 'hi' }]);
   });
 
   it('logs a transform when structured entries contain keys the URL misses', () => {
@@ -157,7 +158,7 @@ describe('parseHar — headers', () => {
         }),
       ]),
     );
-    expect(entries[0].request.headers).toEqual([
+    expect(stripUids(entries[0].request.headers)).toEqual([
       { key: 'accept', value: 'application/json' },
       { key: 'x-client', value: 'oh' },
     ]);
@@ -179,7 +180,7 @@ describe('parseHar — headers', () => {
         }),
       ]),
     );
-    expect(entries[0].request.headers).toEqual([{ key: 'accept', value: 'application/json' }]);
+    expect(stripUids(entries[0].request.headers)).toEqual([{ key: 'accept', value: 'application/json' }]);
     expect(report.transforms.some((t) => t.from.includes('pseudo-header'))).toBe(true);
   });
 });
@@ -225,7 +226,7 @@ describe('parseHar — auth promotion', () => {
       ]),
     );
     expect(entries[0].request.auth).toEqual({ type: 'none' });
-    expect(entries[0].request.headers).toContainEqual({ key: 'Authorization', value: 'Custom xyz' });
+    expect(stripUids(entries[0].request.headers)).toContainEqual({ key: 'Authorization', value: 'Custom xyz' });
   });
 });
 
@@ -445,7 +446,7 @@ describe('parseHar — realistic shape', () => {
     const r = entries[0].request;
     expect(r.method).toBe('POST');
     expect(r.url).toBe('https://api.openheaders.io/v1/things');
-    expect(r.params).toEqual([{ key: 'page', value: '2' }]);
+    expect(stripUids(r.params)).toEqual([{ key: 'page', value: '2' }]);
     expect(r.auth).toEqual({ type: 'bearer', token: 'xyz.abc.123' });
     // Pseudo-headers stripped, Authorization promoted, content-type + accept remain.
     const keys = r.headers.map((h) => h.key.toLowerCase());

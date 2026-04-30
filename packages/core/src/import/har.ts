@@ -31,6 +31,7 @@
  */
 
 import { placeholderFileRef } from '../files';
+import { generateUid } from '../utils/workspace';
 import type {
   AuthConfig,
   HttpMethod,
@@ -188,7 +189,7 @@ function tryConvertEntry(req: HarRequest, index: number, report: ImportReport): 
   // exporters duplicate them. We prefer the URL-derived list (source
   // of truth) and log a transform if the arrays disagree in content.
   const structuredParams: QueryParam[] = Array.isArray(req.queryString)
-    ? req.queryString.map((p) => ({ key: String(p.name ?? ''), value: String(p.value ?? '') }))
+    ? req.queryString.map((p) => ({ uid: generateUid(), key: String(p.name ?? ''), value: String(p.value ?? '') }))
     : [];
   const params = pickAuthoritativeParams(urlParams, structuredParams, index, report);
 
@@ -279,9 +280,13 @@ function splitUrl(raw: string): { base: string; params: QueryParam[] } {
     if (entry.length === 0) continue;
     const eq = entry.indexOf('=');
     if (eq < 0) {
-      params.push({ key: safeDecode(entry), value: '' });
+      params.push({ uid: generateUid(), key: safeDecode(entry), value: '' });
     } else {
-      params.push({ key: safeDecode(entry.slice(0, eq)), value: safeDecode(entry.slice(eq + 1)) });
+      params.push({
+        uid: generateUid(),
+        key: safeDecode(entry.slice(0, eq)),
+        value: safeDecode(entry.slice(eq + 1)),
+      });
     }
   }
   return { base, params };
@@ -332,7 +337,7 @@ function stripPseudoHeaders(headers: Array<{ key: string; value: string }>): {
       stripped += 1;
       continue;
     }
-    kept.push({ key: h.key, value: h.value });
+    kept.push({ uid: generateUid(), key: h.key, value: h.value });
   }
   return { kept, stripped };
 }

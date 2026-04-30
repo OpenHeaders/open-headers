@@ -118,12 +118,19 @@ interface Draft {
 
 function headersFromV5(list: V5.RequestHeader[]): KeyValueRow[] {
   return list.map((h) =>
-    makeKvRow({ key: h.key, value: h.value, description: h.description, enabled: h.enabled !== false }),
+    makeKvRow({
+      uid: h.uid,
+      key: h.key,
+      value: h.value,
+      description: h.description,
+      enabled: h.enabled !== false,
+    }),
   );
 }
 function paramsFromV5(list: V5.QueryParam[]): KeyValueRow[] {
   return list.map((p) =>
     makeKvRow({
+      uid: p.uid,
       key: p.key,
       value: p.value,
       description: p.description,
@@ -136,6 +143,7 @@ function rowsToHeaders(rows: KeyValueRow[]): V5.RequestHeader[] {
   return rows
     .filter((r) => r.key.trim())
     .map((r) => ({
+      uid: r.uid,
       key: r.key,
       value: r.value,
       description: r.description?.trim() ? r.description : undefined,
@@ -146,6 +154,7 @@ function rowsToParams(rows: KeyValueRow[]): V5.QueryParam[] {
   return rows
     .filter((r) => r.key.trim())
     .map((r) => ({
+      uid: r.uid,
       key: r.key,
       value: r.value,
       description: r.description?.trim() ? r.description : undefined,

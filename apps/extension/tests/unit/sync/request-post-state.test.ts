@@ -41,7 +41,7 @@ const makeRequest = (uid: string): V5.Request =>
     name: `req-${uid}`,
     method: 'GET',
     url: 'https://api.openheaders.io/v1',
-    headers: [{ key: 'X-Default', value: 'd' }],
+    headers: [{ uid: 'hdrdflt1', key: 'X-Default', value: 'd' }],
     params: [],
     auth: { type: 'inherit' },
     body: { type: 'none' },
@@ -114,6 +114,27 @@ describe('projectRequestPostState', () => {
     expect(post).not.toBeNull();
     expect(post?.setItemIds[REQUEST_HEADERS_PATH]).toBeUndefined();
     expect(post?.setItemIds[REQUEST_PARAMS_PATH]).toBeUndefined();
+  });
+
+  it('exposes per-itemId order keys at every populated set path', async () => {
+    const oracle = await newOracle();
+    const request = makeRequest('rq-okeys');
+    request.headers = [
+      { uid: 'hdrdflt1', key: 'X-Default', value: 'd' },
+      { uid: 'hdrdflt2', key: 'X-Other', value: 'o' },
+    ];
+    request.params = [];
+    await oracle.apply(seedRequest(request, ctx(1)), []);
+    const post = projectRequestByUid(oracle, 'rq-okeys');
+    expect(post).not.toBeNull();
+    const headerOrder = post?.setOrderKeys[REQUEST_HEADERS_PATH];
+    expect(headerOrder?.length).toBe(2);
+    expect(headerOrder?.[0]?.itemId).toBe('hdrdflt1');
+    expect(headerOrder?.[1]?.itemId).toBe('hdrdflt2');
+    // Order keys are non-empty strings derived from fractional indexing.
+    expect(headerOrder?.[0]?.orderKey.length).toBeGreaterThan(0);
+    expect(headerOrder?.[1]?.orderKey.length).toBeGreaterThan(0);
+    expect(post?.setOrderKeys[REQUEST_PARAMS_PATH]).toBeUndefined();
   });
 
   it('reflects param adds at the params path', async () => {

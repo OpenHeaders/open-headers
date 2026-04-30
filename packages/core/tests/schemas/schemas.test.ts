@@ -217,7 +217,7 @@ describe('RequestSchema', () => {
         name: 'Login',
         method: 'POST',
         url: 'https://api.openheaders.io/login',
-        headers: [{ key: 'X-Client', value: 'oh' }],
+        headers: [{ uid: 'hdrxxxx1', key: 'X-Client', value: 'oh' }],
         params: [],
         auth: { type: 'bearer', token: 'x' },
         body: { type: 'json', content: '{}' },

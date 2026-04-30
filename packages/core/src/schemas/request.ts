@@ -171,6 +171,16 @@ export const AuthConfigSchema = v.variant('type', [
 ]);
 
 export const RequestHeaderSchema = v.object({
+  /**
+   * Stable per-row identity. Persisted alongside the row's `key` /
+   * `value` so reorder gestures preserve identity across save/reload —
+   * the sync engine's set-modeled paths key by this uid (§7.2 LWW per
+   * itemId, §7.3 moveBefore via fractional indexing on the parent's
+   * order array). Distinct from the row's `key` (HTTP header name) —
+   * two rows can carry the same `key` (`Set-Cookie`, repeated query
+   * params) but never the same `uid`.
+   */
+  uid: UidSchema,
   key: v.string(),
   value: v.string(),
   /** Optional free-form per-row note rendered in the Description column. */
@@ -179,6 +189,8 @@ export const RequestHeaderSchema = v.object({
 });
 
 export const QueryParamSchema = v.object({
+  /** See {@link RequestHeaderSchema.uid}. */
+  uid: UidSchema,
   key: v.string(),
   value: v.string(),
   /** Optional free-form per-row note rendered in the Description column. */

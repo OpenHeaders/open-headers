@@ -11,6 +11,7 @@
  * HeadersTab) don't have to change.
  */
 
+import { generateUid } from '@openheaders/core/utils';
 import { theme } from 'antd';
 import type React from 'react';
 import { TemplateInput } from '../template-input';
@@ -54,11 +55,16 @@ interface KeyValueTableProps {
   rowPath?: (index: number, leaf: 'key' | 'value' | 'description') => string;
 }
 
-let ROW_ID_COUNTER = 0;
-const nextUid = (): string => `kv-${++ROW_ID_COUNTER}`;
-
+/**
+ * Row uid is the persisted itemId in `RequestHeaderSchema` /
+ * `QueryParamSchema` — the sync engine keys set members by it for LWW
+ * (§7.2) and `moveBefore` (§7.3 fractional indexing). Minted via the
+ * shared 8-char-hex `generateUid()` so the editor and import pipelines
+ * agree on row identity from creation onward; round-tripping a row
+ * through save preserves it.
+ */
 export const makeKvRow = (overrides: Partial<KeyValueRow> = {}): KeyValueRow => ({
-  uid: nextUid(),
+  uid: generateUid(),
   key: '',
   value: '',
   description: '',

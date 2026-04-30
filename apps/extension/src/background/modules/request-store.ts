@@ -384,10 +384,13 @@ export async function updateRequest(
   const existing = requests.find((r) => r.uid === uid);
   if (!existing) return { ok: false, reason: 'not-found' };
 
-  // SW-side `liveSetItems` returns the richer `{itemId, item}` shape;
-  // adapt down to the `LiveSetItemIds` string-only contract.
+  // SW-side oracle exposes `(itemId, item, key)`; adapt to the
+  // `LiveSetEntries` shape (`orderKey` rename) so the diff-detect can
+  // compute `moveBefore` against fractional keys.
   const payload = buildUpdateBatch(uid, updates, ctx, (requestUid, setPath) =>
-    oracle.liveSetItems(REQUEST_ENTITY_TYPE, requestUid, setPath).map((entry) => entry.itemId),
+    oracle
+      .liveOrderedSetItems(REQUEST_ENTITY_TYPE, requestUid, setPath)
+      .map((entry) => ({ itemId: entry.itemId, orderKey: entry.key, item: entry.item })),
   );
   if (payload.batch.mutations.length === 0) {
     // No-op patch — return the canonical pre-image.

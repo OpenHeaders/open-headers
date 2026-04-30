@@ -8,6 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { CurlParseError, parseCurl, tokenize } from '../../src/import/curl';
+import { stripUid, stripUids } from './_kv-utils';
 
 describe('tokenize', () => {
   it('splits on whitespace', () => {
@@ -131,7 +132,7 @@ describe('parseCurl — query params', () => {
   it('extracts query params from the URL and drops them from url', () => {
     const { request } = parseCurl('curl https://api.openheaders.io/search?q=hello&lang=en');
     expect(request.url).toBe('https://api.openheaders.io/search');
-    expect(request.params).toEqual([
+    expect(stripUids(request.params)).toEqual([
       { key: 'q', value: 'hello' },
       { key: 'lang', value: 'en' },
     ]);
@@ -139,20 +140,20 @@ describe('parseCurl — query params', () => {
 
   it('decodes percent-encoded query values', () => {
     const { request } = parseCurl('curl https://api.openheaders.io/search?q=hello%20world');
-    expect(request.params[0]).toEqual({ key: 'q', value: 'hello world' });
+    expect(stripUid(request.params[0]!)).toEqual({ key: 'q', value: 'hello world' });
   });
 
   it('tolerates a fragment after the query', () => {
     const { request } = parseCurl('curl https://api.openheaders.io/x?a=1#section');
     expect(request.url).toBe('https://api.openheaders.io/x');
-    expect(request.params).toEqual([{ key: 'a', value: '1' }]);
+    expect(stripUids(request.params)).toEqual([{ key: 'a', value: '1' }]);
   });
 });
 
 describe('parseCurl — headers', () => {
   it('parses repeated -H flags', () => {
     const { request } = parseCurl("curl -H 'X-Client: oh' -H 'Accept: application/json' https://api.openheaders.io");
-    expect(request.headers).toEqual([
+    expect(stripUids(request.headers)).toEqual([
       { key: 'X-Client', value: 'oh' },
       { key: 'Accept', value: 'application/json' },
     ]);
@@ -238,7 +239,7 @@ describe('parseCurl — auth', () => {
   it('keeps an unparseable Authorization header as a raw header (no silent drop)', () => {
     const { request } = parseCurl("curl -H 'Authorization: Scheme xyz' https://api.openheaders.io");
     expect(request.auth).toEqual({ type: 'none' });
-    expect(request.headers).toEqual([{ key: 'Authorization', value: 'Scheme xyz' }]);
+    expect(stripUids(request.headers)).toEqual([{ key: 'Authorization', value: 'Scheme xyz' }]);
   });
 
   it('prefers -u over an Authorization header (explicit wins)', () => {
@@ -248,7 +249,7 @@ describe('parseCurl — auth', () => {
     expect(request.auth).toEqual({ type: 'basic', username: 'explicit', password: 'explicit-pw' });
     // The header stays on the request because -u took the auth slot —
     // transforming it anyway would silently drop an explicit header.
-    expect(request.headers).toEqual([{ key: 'Authorization', value: 'Bearer xyz' }]);
+    expect(stripUids(request.headers)).toEqual([{ key: 'Authorization', value: 'Bearer xyz' }]);
   });
 });
 
@@ -335,7 +336,7 @@ describe('parseCurl — realistic DevTools paste', () => {
     const { request, report } = parseCurl(input);
     expect(request.method).toBe('POST');
     expect(request.url).toBe('https://api.openheaders.io/v1/things');
-    expect(request.params).toEqual([{ key: 'page', value: '2' }]);
+    expect(stripUids(request.params)).toEqual([{ key: 'page', value: '2' }]);
     expect(request.auth).toEqual({ type: 'bearer', token: 'xyz.abc.123' });
     // Authorization was promoted, so the remaining headers carry
     // content-type + accept but NOT authorization.

@@ -28,7 +28,7 @@ const REQUEST_SET_PATHS = [REQUEST_HEADERS_PATH, REQUEST_PARAMS_PATH] as const;
  * still fires; just without the optional payload.
  */
 export function projectRequestPostState(
-  oracle: Pick<EntityOracle, 'materializeOne' | 'liveSetItems'>,
+  oracle: Pick<EntityOracle, 'materializeOne' | 'liveOrderedSetItems'>,
   envelope: MutationEnvelope,
 ): SyncRequestPostState | null {
   if (envelope.body.type !== REQUEST_ENTITY_TYPE) return null;
@@ -41,7 +41,7 @@ export function projectRequestPostState(
  * freshly-mounted renderer mirrors before the next live broadcast.
  */
 export function projectRequestByUid(
-  oracle: Pick<EntityOracle, 'materializeOne' | 'liveSetItems'>,
+  oracle: Pick<EntityOracle, 'materializeOne' | 'liveOrderedSetItems'>,
   requestUid: string,
 ): SyncRequestPostState | null {
   const materialized = oracle.materializeOne(REQUEST_ENTITY_TYPE, requestUid);
@@ -50,12 +50,19 @@ export function projectRequestByUid(
   const request = projectRequest(materialized);
   if (!request) return null;
 
+  // One ordered read per set path; the renderer's mirror needs both the
+  // bare itemId list (for `removeFromSet` enumeration on full replace)
+  // AND the per-itemId order keys (for `moveBefore` reorder via
+  // `keyBetween`). Computing both from the same ordered read keeps the
+  // two views byte-aligned.
   const setItemIds: Record<string, string[]> = {};
+  const setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>> = {};
   for (const path of REQUEST_SET_PATHS) {
-    const items = oracle.liveSetItems(REQUEST_ENTITY_TYPE, requestUid, path);
+    const items = oracle.liveOrderedSetItems(REQUEST_ENTITY_TYPE, requestUid, path);
     if (items.length === 0) continue;
     setItemIds[path] = items.map((entry) => entry.itemId);
+    setOrderKeys[path] = items.map((entry) => ({ itemId: entry.itemId, orderKey: entry.key }));
   }
 
-  return { request, setItemIds };
+  return { request, setItemIds, setOrderKeys };
 }

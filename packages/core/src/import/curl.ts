@@ -33,6 +33,7 @@
  */
 
 import { placeholderFileRef } from '../files';
+import { generateUid } from '../utils/workspace';
 import type {
   AuthConfig,
   HttpMethod,
@@ -467,7 +468,7 @@ function finalize(state: ParserState, report: ImportReport): CurlRequest {
         continue;
       }
     }
-    outHeaders.push({ key: h.key, value: h.value });
+    outHeaders.push({ uid: generateUid(), key: h.key, value: h.value });
   }
 
   // Body: `-F` overrides `-d` (curl itself rejects mixing them; we
@@ -522,9 +523,10 @@ function splitUrl(raw: string): { base: string; params: QueryParam[] } {
     if (entry.length === 0) continue;
     const eq = entry.indexOf('=');
     if (eq < 0) {
-      params.push({ key: safeDecode(entry), value: '' });
+      params.push({ uid: generateUid(), key: safeDecode(entry), value: '' });
     } else {
       params.push({
+        uid: generateUid(),
         key: safeDecode(entry.slice(0, eq)),
         value: safeDecode(entry.slice(eq + 1)),
       });
