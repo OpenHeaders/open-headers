@@ -228,10 +228,20 @@ export {
   type TemplateScalarPath,
 } from './template';
 export {
+  invalidateResolverIntent as templateCollectionInvalidateResolverIntent,
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_COLLECTION_MUTATOR_VERSION,
+  TEMPLATE_COLLECTION_VARS_PATH,
+  type RemoveTemplateCollectionVarArgs,
+  removeTemplateCollectionVar,
   type RenameTemplateCollectionArgs,
   renameTemplateCollection,
+  type RenameTemplateCollectionVarArgs,
+  renameTemplateCollectionVar,
+  type SetTemplateCollectionVarArgs,
+  setTemplateCollectionVar,
+  type SetTemplateCollectionVarTypeArgs,
+  setTemplateCollectionVarType,
 } from './template-collection';
 export {
   createTemplateFolder,

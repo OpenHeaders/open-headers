@@ -10,12 +10,13 @@
  * `template-store`). The sync engine's `(workspaceId, type, id)`
  * identity triple keeps the three namespaces formally independent.
  *
- * Renderer surfaces today don't expose collection-variable editing or
- * pinned-environment editing for template collections, so this catalog
- * ships only `renameTemplateCollection`. Adding variable / pinned
- * factories later is purely additive — copy the rule-collection shapes
- * with the routing constant swapped.
+ * Variable + name editing surfaces ship today; pinned-environment
+ * editing remains additive future work (copy the rule-collection
+ * shape with the routing constant swapped if/when it lands).
  */
 
 /** Routing key carried on every template-collection mutation envelope. */
 export const TEMPLATE_COLLECTION_ENTITY_TYPE = 'template-collection';
+
+/** Set path holding the variable list on a template-collection entity. */
+export const TEMPLATE_COLLECTION_VARS_PATH = 'variables';
