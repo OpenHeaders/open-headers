@@ -42,6 +42,9 @@ interface UseRequestTreeNodesParams {
   onExportEntity?: (entity: import('../../App').SidebarExportEntity) => void;
   /** Open the request-collection variables editor tab. */
   onOpenCollectionVariables?: (uid: string, name: string) => void;
+  /** Open the request-collection overview tab (matches the rule-collection
+   *  precedent: clicking the collection row opens its overview). */
+  onOpenRequestCollectionOverview?: (uid: string, name: string, autoRename?: boolean) => void;
 }
 
 export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
@@ -245,7 +248,10 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
         canDelete: true,
         canAddChild: true,
         ...exportNodeFields({ kind: 'collection', uid: collection.uid, name: collection.name }, p.onExportEntity),
-        onOpen: () => p.toggleExpand(colId),
+        onOpen: () => {
+          p.toggleExpand(colId);
+          p.onOpenRequestCollectionOverview?.(collection.uid, collection.name);
+        },
         onRename: async (name) => {
           void p.renameRequestCollectionRpc(collection.uid, name);
         },
@@ -327,5 +333,6 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
     p.setRenamingId,
     p.onExportEntity,
     p.onOpenCollectionVariables,
+    p.onOpenRequestCollectionOverview,
   ]);
 }

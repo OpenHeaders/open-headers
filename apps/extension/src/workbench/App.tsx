@@ -30,6 +30,8 @@ import { findCollectionByPath } from '@/shared/variables/collection-scope';
 import { computeBreadcrumbs, scratchLabelForMode } from './breadcrumbs';
 import BottomPanel from './components/BottomPanel';
 import CollectionOverview from './components/CollectionOverview';
+import RequestCollectionOverview from './components/RequestCollectionOverview';
+import TemplateCollectionOverview from './components/TemplateCollectionOverview';
 import CollectionVariablesEditor from './components/CollectionVariablesEditor';
 import CommandPalette from './components/CommandPalette';
 import EditorGroupRenderer, { type RenderLeafHeaderContext } from './components/EditorGroupRenderer';
@@ -641,6 +643,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     openEditTab,
     openCollectionOverview,
     openFolderOverview,
+    openRequestCollectionOverview,
     openTemplateEditTab,
     openTemplateCollectionOverview,
     openTemplateFolderOverview,
@@ -1182,6 +1185,31 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
         );
       }
       if (tab.mode === 'collection-overview' && tab.entityId) {
+        // Dispatch by family — uids never collide, so a single uid
+        // disambiguates which overview component to mount. Falls
+        // through to the rule-collection overview (matches pre-
+        // session-50 behavior + handles the still-loading case).
+        if (requestsApi.collections.some((c) => c.uid === tab.entityId)) {
+          return (
+            <RequestCollectionOverview
+              collectionUid={tab.entityId}
+              onSelectRequest={openRequestEditTab}
+              onCreateRequest={openCreateRequestTab}
+              onOpenFolderOverview={openFolderOverview}
+              onOpenCollectionVariables={openRequestCollectionVariables}
+            />
+          );
+        }
+        if (templateCollections.some((c) => c.uid === tab.entityId)) {
+          return (
+            <TemplateCollectionOverview
+              collectionUid={tab.entityId}
+              onSelectTemplate={openTemplateEditTab}
+              onOpenFolderOverview={openTemplateFolderOverview}
+              onOpenCollectionVariables={openTemplateCollectionVariables}
+            />
+          );
+        }
         return (
           <CollectionOverview
             collectionUid={tab.entityId}
@@ -1473,6 +1501,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
               }
               onOpenCollectionOverview={openCollectionOverview}
               onOpenFolderOverview={openFolderOverview}
+              onOpenRequestCollectionOverview={openRequestCollectionOverview}
               onSelectTemplate={openTemplateEditTab}
               onOpenTemplateCollectionOverview={openTemplateCollectionOverview}
               onOpenTemplateFolderOverview={openTemplateFolderOverview}

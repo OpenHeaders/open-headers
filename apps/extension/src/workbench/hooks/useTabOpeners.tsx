@@ -52,6 +52,13 @@ export interface UseTabOpenersApi {
   openEditTab: (uid: string) => void;
   openCollectionOverview: (uid: string, name: string, autoRename?: boolean) => void;
   openFolderOverview: (uid: string, name: string, autoRename?: boolean) => void;
+  /**
+   * Open the request-collection overview tab. Same `mode:
+   * 'collection-overview'` as the rule variant — the `entityId` uid
+   * disambiguates the family at render time via the shared lookup
+   * helper (uids never collide across families).
+   */
+  openRequestCollectionOverview: (uid: string, name: string, autoRename?: boolean) => void;
   openTemplateEditTab: (uid: string) => void;
   openTemplateCollectionOverview: (uid: string, name: string, autoRename?: boolean) => void;
   openTemplateFolderOverview: (uid: string, name: string, autoRename?: boolean) => void;
@@ -274,6 +281,19 @@ export function useTabOpeners({
   const openTemplateCollectionOverview = useCallback(
     (uid: string, name: string, autoRename = false) => {
       const id = `tpl-col-${uid}`;
+      if (allTabs.some((t) => t.id === id)) {
+        switchTab(id);
+        return;
+      }
+      addTab({ id, label: name, ruleType: '', dirty: false, mode: 'collection-overview', entityId: uid });
+      if (autoRename) setPendingRenameTabId(id);
+    },
+    [allTabs, addTab, switchTab],
+  );
+
+  const openRequestCollectionOverview = useCallback(
+    (uid: string, name: string, autoRename = false) => {
+      const id = `req-col-${uid}`;
       if (allTabs.some((t) => t.id === id)) {
         switchTab(id);
         return;
@@ -674,6 +694,7 @@ export function useTabOpeners({
     openEditTab,
     openCollectionOverview,
     openFolderOverview,
+    openRequestCollectionOverview,
     openTemplateEditTab,
     openTemplateCollectionOverview,
     openTemplateFolderOverview,

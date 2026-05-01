@@ -103,6 +103,7 @@ interface SidebarProps {
   onExportSelection?: (entities: import('../App').SidebarExportEntity[]) => void;
   onOpenCollectionOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   onOpenFolderOverview?: (uid: string, name: string, autoRename?: boolean) => void;
+  onOpenRequestCollectionOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   onSelectTemplate?: (uid: string) => void;
   onOpenTemplateCollectionOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   onOpenTemplateFolderOverview?: (uid: string, name: string, autoRename?: boolean) => void;
@@ -151,6 +152,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onExportSelection,
   onOpenCollectionOverview,
   onOpenFolderOverview,
+  onOpenRequestCollectionOverview,
   onSelectTemplate,
   onOpenTemplateCollectionOverview,
   onOpenTemplateFolderOverview,
@@ -578,6 +580,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     onCreateRequest,
     onExportEntity,
     onOpenCollectionVariables: onOpenRequestCollectionVariables,
+    onOpenRequestCollectionOverview,
   });
 
   const environmentNodes = useEnvironmentNodes({

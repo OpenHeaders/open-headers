@@ -96,7 +96,18 @@ export function computeBreadcrumbs(
   if (tab.mode === 'live-variable-create') return ['Live Variables', tab.draftName ?? tab.label];
   if (tab.mode === 'live-vars') return ['Live Variables'];
 
-  if (tab.mode === 'collection-overview') return ['Rules', tab.label];
+  if (tab.mode === 'collection-overview') {
+    // Family-disambiguate by entity uid — collection-overview is a
+    // single tab mode shared by rule / request / template collection
+    // openers. Pre-session-50 the breadcrumb hard-coded "Rules" which
+    // misled users on a request- or template-collection overview tab.
+    const uid = tab.entityId;
+    if (uid) {
+      if (requestCollectionTrees.some((c) => c.uid === uid)) return ['API Requests', tab.label];
+      if (templateCollectionTrees.some((c) => c.uid === uid)) return ['Templates', tab.label];
+    }
+    return ['Rules', tab.label];
+  }
 
   if (tab.mode === 'folder-overview' && tab.entityId) {
     for (const col of localCollectionTrees) {
