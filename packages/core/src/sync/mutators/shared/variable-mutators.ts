@@ -13,11 +13,10 @@
  * Per-catalog wrappers below preserve the existing named-arg shapes
  * (`SetCollectionVarArgs`, etc.) so call sites and tests don't churn.
  *
- * Singleton variable scopes (workspace-variables, vault) are NOT folded
- * in here: they target a fixed entity id (no `entityUid` arg) and their
- * side-effect intent has no key. Folding them would force a discriminated
- * config and erase the structural symmetry per-uid scopes share. They
- * stay parallel until a third singleton appears.
+ * Singleton variable scopes (workspace-variables) plug in by binding
+ * `entityUid` to a fixed constant in the wrapper and ignoring the uid
+ * arg in `makeSideEffects`. Vault-secrets stays parallel because the
+ * secret shape includes TOTP variants with non-`{name,value,type}` fields.
  */
 
 import type { HLC } from '../../hlc';
