@@ -9,10 +9,16 @@
  * present in the singleton's `workspaces` set. Out-of-range ids resolve
  * via the consumer's "active id missing → fall back to first" guard
  * the workspace-store already runs at hydration time.
+ *
+ * Side effect: `SWAP_PER_WORKSPACE_STORES`. Drives the SW-side per-
+ * workspace store swap + per-workspace sync engine reinit + DNR rebuild
+ * after every active flip. Singleton-keyed so concurrent flips collapse
+ * to a single drain whose target is the latest-HLC active id.
  */
 
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
+import { swapPerWorkspaceStoresIntent } from './side-effects';
 import {
   EXTENSION_WORKSPACE_ACTIVE_ID_PATH,
   EXTENSION_WORKSPACE_ENTITY_TYPE,
@@ -37,6 +43,6 @@ export function setActiveExtensionWorkspace(
         value: args.id,
       },
     ]),
-    sideEffects: [],
+    sideEffects: [swapPerWorkspaceStoresIntent(ctx.hlc)],
   };
 }

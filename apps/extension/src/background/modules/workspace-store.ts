@@ -3,37 +3,30 @@
  * active workspace id.
  *
  * Single responsibility: read access to `ExtensionWorkspace[]` + the
- * active pointer, plus cache-driven coordination of cross-store work
- * (per-workspace store swaps on active flip, per-workspace data purge
- * on removal). Per-workspace data (rules, templates, test runs, etc.)
- * stays owned by the respective stores.
+ * active pointer, plus mirror upkeep against the global oracle's
+ * `extensionWorkspace` cache. Per-workspace data (rules, templates,
+ * test runs, etc.) stays owned by the respective stores.
  *
- * Sync engine session 52: every renderer-driven workspace mutation now
- * goes directly to the global oracle via `extension-workspace-write-client`.
- * The legacy bridge-RPC writers (`createWorkspace` / `updateWorkspace` /
- * `renameWorkspace` / `deleteWorkspace` / `setActiveWorkspace` /
- * `reorderWorkspaces`) and their SW counterparts have been deleted —
- * only `createWorkspace` survives here as an SW-internal helper because
- * `workspace-orchestrator.duplicateWorkspace` and the import orchestrator
- * still mint workspaces from inside the SW.
- *
- * Cross-store side effects that used to live in the orchestrator (per-
- * workspace store swap on switch, per-workspace data purge on delete)
- * are wired through coordinator hooks the active cache subscription
- * invokes whenever it observes the relevant transition. Callers
- * (background.ts) register the coordinators at boot.
+ * Sync engine session 53: cross-store coordination (per-workspace store
+ * swap on active flip, per-workspace data purge on removal) is driven
+ * by `SWAP_PER_WORKSPACE_STORES` + `PURGE_WORKSPACE_DATA` side-effect
+ * intents emitted by the ExtensionWorkspace mutators. The
+ * `workspace-coord-runner` drains them on every `extensionWorkspace`
+ * broadcast and routes the work through the orchestrator. This module
+ * stays out of the coordination loop entirely; cache.onChange is just
+ * snapshot-mirroring + chrome.storage write + listener notify.
  *
  * Storage:
  *   - `oh.workspaces`         — ExtensionWorkspace[], sorted by sortIndex
  *   - `oh.activeWorkspaceId`  — string (always points at a live workspace)
  *
- * Invariants enforced at this boundary:
+ * Invariants:
  *   - list is non-empty after bootstrap (default workspace seeded)
- *   - list cannot shrink below 1 entry (the renderer write client's
+ *   - list cannot shrink below 1 entry (renderer's
  *     `applyDeleteWorkspace` rejects last-workspace deletes; UI gates
  *     the delete button when the mirror reports a single workspace)
- *   - activeWorkspaceId always matches some workspace in the list; on
- *     delete-of-active, the renderer composes the batch with the
+ *   - activeWorkspaceId always matches a workspace in the list — when
+ *     the active id is deleted, the renderer composes the batch with a
  *     neighbour-pointing setActive in the same all-or-nothing batch
  */
 
@@ -88,9 +81,9 @@ function notifyChange(): void {
  * `onWorkspaceStoreChange` because the latter fires on EVERY mutation
  * (workspace renames, list reorders, vault edits), and reactive
  * subscribers — the live-refresh scheduler's switch-warm pass in
- * particular — care only about the active-pointer flip. Subscribing
- * to the generic event would refresh on every keystroke that touches
- * a workspace name; this typed event fires once per real switch.
+ * particular — care only about the active-pointer flip. Subscribing to
+ * the generic event would refresh on every keystroke that touches a
+ * workspace name; this typed event fires once per real switch.
  *
  * Listener receives `(newId, prevId)` so a subscriber that needs to
  * unwind state for the outgoing workspace can do so with one
@@ -116,39 +109,6 @@ function notifyActiveChange(newId: string, prevId: string | null): void {
   }
 }
 
-// ── Cross-store coordinators ──────────────────────────────────────────
-
-/**
- * Coordinator hooks the cache subscription invokes when it observes a
- * transition that requires cross-store work the renderer can't drive
- * itself (per-workspace data lives in stores the renderer doesn't see).
- *
- *  - `ActiveSwitchCoordinator` runs when the active id flips. It MUST
- *    swap the per-workspace stores (rule / template / env / request /
- *    live-workflow / live-variable / request-scripts-review) BEFORE
- *    the generic `notifyChange` fires, since the
- *    `onWorkspaceStoreChange` listener in `background.ts` re-seeds the
- *    workspace-scoped sync engines from `getRules()` etc. and would
- *    otherwise observe the previous workspace's data.
- *  - `WorkspaceRemovedCoordinator` runs when one or more workspace ids
- *    leave the list. It owns the per-workspace storage key removal +
- *    encapsulated purges (env, vault, test runs, files, OAuth tokens,
- *    live cache, cooldowns) for each removed id.
- */
-export type ActiveSwitchCoordinator = (newId: string, prevId: string | null) => Promise<void>;
-export type WorkspaceRemovedCoordinator = (removedIds: readonly string[]) => Promise<void>;
-
-let activeSwitchCoordinator: ActiveSwitchCoordinator | null = null;
-let workspaceRemovedCoordinator: WorkspaceRemovedCoordinator | null = null;
-
-export function setActiveSwitchCoordinator(fn: ActiveSwitchCoordinator | null): void {
-  activeSwitchCoordinator = fn;
-}
-
-export function setWorkspaceRemovedCoordinator(fn: WorkspaceRemovedCoordinator | null): void {
-  workspaceRemovedCoordinator = fn;
-}
-
 // ── Reads ─────────────────────────────────────────────────────────────
 
 /** Current workspace list, sorted by sortIndex (ascending), then createdAt. */
@@ -160,6 +120,16 @@ export function getActiveWorkspaceId(): string {
   if (!activeWorkspaceId) {
     throw new Error('WorkspaceStore: read before bootstrap — activeWorkspaceId is null');
   }
+  return activeWorkspaceId;
+}
+
+/**
+ * Variant for callers (the workspace-coord runner) that need to read
+ * the active id during cold-wake races where the cache hasn't pushed
+ * its first snapshot yet — returns `null` instead of throwing so the
+ * caller can short-circuit and wait for the next broadcast.
+ */
+export function peekActiveWorkspaceId(): string | null {
   return activeWorkspaceId;
 }
 
@@ -325,10 +295,7 @@ let cacheUnsubscribe: (() => void) | null = null;
  *
  *   1. Install the cache.onChange subscription that mirrors the
  *      cache's snapshot back into the local `workspaces` /
- *      `activeWorkspaceId` arrays AND writes both chrome.storage keys
- *      (taking over from the legacy `persistWorkspaces` /
- *      `persistActiveId` direct-writes that were deleted in the same
- *      change).
+ *      `activeWorkspaceId` arrays AND writes both chrome.storage keys.
  *   2. Seed the global oracle from the in-memory state populated by
  *      `bootstrap()`. The seed fires a broadcast which fires the
  *      onChange listener, which writes back to chrome.storage —
@@ -357,8 +324,7 @@ export async function bridgeExtensionWorkspaceSyncEngine(): Promise<void> {
 function installCacheSink(cache: ExtensionWorkspaceCache): () => void {
   return cache.onChange(() => {
     const snap = cache.getSnapshot();
-    const prevWorkspaces = workspaces;
-    const prevActive = activeWorkspaceId;
+    const prev = activeWorkspaceId;
     workspaces = snap.workspaces;
     activeWorkspaceId = snap.activeWorkspaceId;
     // Persist to chrome.storage. Errors get logged but don't unwind
@@ -368,62 +334,11 @@ function installCacheSink(cache: ExtensionWorkspaceCache): () => void {
     void persistFromCache(snap).catch((err) => {
       logger.warn('WorkspaceStore', 'persistFromCache failed', err);
     });
-
-    const removed = computeRemovedIds(prevWorkspaces, snap.workspaces);
-    const activeFlipped = activeWorkspaceId !== null && activeWorkspaceId !== prevActive;
-
-    if (removed.length === 0 && !activeFlipped) {
-      notifyChange();
-      return;
+    notifyChange();
+    if (activeWorkspaceId && activeWorkspaceId !== prev) {
+      notifyActiveChange(activeWorkspaceId, prev);
     }
-
-    // Defer the broadcast until cross-store coordinators have run, so
-    // `bridgeXSyncEngine` re-seeds (kicked off by the
-    // `onWorkspaceStoreChange` listener in `background.ts`) observe
-    // already-swapped per-workspace stores. Plain metadata mutations
-    // (rename, color) take the synchronous fast path above and don't
-    // pay the IIFE cost.
-    const flipNewId = activeFlipped ? activeWorkspaceId : null;
-    void runCoordinators(removed, flipNewId, prevActive);
   });
-}
-
-async function runCoordinators(
-  removed: readonly string[],
-  flipNewId: string | null,
-  prevActive: string | null,
-): Promise<void> {
-  if (removed.length > 0 && workspaceRemovedCoordinator) {
-    try {
-      await workspaceRemovedCoordinator(removed);
-    } catch (err) {
-      logger.warn('WorkspaceStore', 'workspaceRemovedCoordinator failed', err);
-    }
-  }
-  if (flipNewId !== null && activeSwitchCoordinator) {
-    try {
-      await activeSwitchCoordinator(flipNewId, prevActive);
-    } catch (err) {
-      logger.warn('WorkspaceStore', 'activeSwitchCoordinator failed', err);
-    }
-  }
-  notifyChange();
-  if (flipNewId !== null) {
-    notifyActiveChange(flipNewId, prevActive);
-  }
-}
-
-function computeRemovedIds(
-  prev: readonly V5.ExtensionWorkspace[],
-  next: readonly V5.ExtensionWorkspace[],
-): string[] {
-  if (prev.length === 0) return [];
-  const liveIds = new Set(next.map((w) => w.id));
-  const removed: string[] = [];
-  for (const w of prev) {
-    if (!liveIds.has(w.id)) removed.push(w.id);
-  }
-  return removed;
 }
 
 async function persistFromCache(snap: {
@@ -445,8 +360,6 @@ export function __resetForTests(): void {
   activeWorkspaceId = null;
   listeners.clear();
   activeListeners.clear();
-  activeSwitchCoordinator = null;
-  workspaceRemovedCoordinator = null;
   if (cacheUnsubscribe) {
     cacheUnsubscribe();
     cacheUnsubscribe = null;

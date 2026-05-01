@@ -51,13 +51,16 @@ import { InMemoryMutationLog, type MutationLog } from './mutation-log';
 import { type LockAcquirer, EntityOracle } from './oracle';
 import { InMemoryPendingIntents, type PendingIntents } from './pending-intents';
 import { createSwContextHandle, type SwContextHandle } from './sw-context';
+import { createWorkspaceCoordRunner, type WorkspaceCoordRunner } from './workspace-coord-runner';
 
 interface GlobalServiceState {
   oracle: EntityOracle;
   broadcast: InMemoryBroadcast;
+  intents: PendingIntents;
   caches: EntityCacheLike[];
   context: SwContextHandle;
   unsubscribeBroadcast: () => void;
+  workspaceCoordRunner: WorkspaceCoordRunner | null;
 }
 
 let state: GlobalServiceState | null = null;
@@ -86,10 +89,37 @@ export function initGlobalSyncService(): void {
 /** Tear down the global service — used on SW shutdown + test cleanup. */
 export function disposeGlobal(): void {
   if (!state) return;
+  state.workspaceCoordRunner?.dispose();
   state.unsubscribeBroadcast();
   detachCaches(GLOBAL_REGISTRY, state.caches);
   logger.info('GlobalSyncService', 'Disposed');
   state = null;
+}
+
+/**
+ * Attach the workspace coordination runner. Production wires the swap
+ * + purge primitives (which depend on per-workspace stores +
+ * `reinitForWorkspace` + bridge re-seeds — out of `global-service`'s
+ * dependency reach by design) at boot time after every per-workspace
+ * sync engine has been initialized for the first time. Idempotent —
+ * a previous registration is disposed first.
+ */
+export function attachGlobalWorkspaceCoordRunner(deps: {
+  getActiveWorkspaceId: () => string | null;
+  swap: (newId: string) => Promise<void>;
+  purge: (workspaceId: string) => Promise<void>;
+}): void {
+  if (!state) {
+    throw new Error('GlobalSyncService.attachGlobalWorkspaceCoordRunner called before init');
+  }
+  state.workspaceCoordRunner?.dispose();
+  state.workspaceCoordRunner = createWorkspaceCoordRunner({
+    broadcast: state.broadcast,
+    intents: state.intents,
+    getActiveWorkspaceId: deps.getActiveWorkspaceId,
+    swap: deps.swap,
+    purge: deps.purge,
+  });
 }
 
 /**
@@ -175,5 +205,13 @@ function wire(deps: WireDeps): GlobalServiceState {
   );
   const projector = buildProjectorPipeline(oracle, GLOBAL_REGISTRY);
   const unsubscribeBroadcast = wireBroadcastToSink(broadcast, deps.sink, projector);
-  return { oracle, broadcast, caches, context, unsubscribeBroadcast };
+  return {
+    oracle,
+    broadcast,
+    intents: deps.intents,
+    caches,
+    context,
+    unsubscribeBroadcast,
+    workspaceCoordRunner: null,
+  };
 }

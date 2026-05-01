@@ -30,12 +30,16 @@ export {
   type ExtensionWorkspaceSlot,
   moveExtensionWorkspaceBefore,
   type MoveExtensionWorkspaceBeforeArgs,
+  PURGE_WORKSPACE_DATA,
+  purgeWorkspaceDataIntent,
   removeExtensionWorkspace,
   type RemoveExtensionWorkspaceArgs,
   setActiveExtensionWorkspace,
   type SetActiveExtensionWorkspaceArgs,
   setExtensionWorkspace,
   type SetExtensionWorkspaceArgs,
+  SWAP_PER_WORKSPACE_STORES,
+  swapPerWorkspaceStoresIntent,
 } from './extension-workspace';
 export {
   addFileRef,

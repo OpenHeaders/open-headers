@@ -87,7 +87,7 @@ import { handleRecordingMessage } from './modules/recording-handler';
 import { initRecordingSync } from './modules/recording-sync';
 import { setupRequestMonitoring } from './modules/request-monitor';
 import { markBootPhase } from './sync/boot-telemetry';
-import { initGlobalSyncService } from './sync/global-service';
+import { attachGlobalWorkspaceCoordRunner, initGlobalSyncService } from './sync/global-service';
 import { initSyncService, reinitForWorkspace } from './sync/service';
 import { applyExternalSnapshot as applyRequestScriptsReviewSnapshot } from './modules/request-scripts-review-store';
 import {
@@ -139,8 +139,7 @@ import {
   getActiveWorkspaceId,
   listWorkspaces,
   onWorkspaceStoreChange,
-  setActiveSwitchCoordinator,
-  setWorkspaceRemovedCoordinator,
+  peekActiveWorkspaceId,
 } from './modules/workspace-store';
 import { setupWorkspaceTabRegistry } from './modules/workspace-tab-registry';
 import {
@@ -182,6 +181,40 @@ const settingsReady = workspacesReady.then(bootstrapSettings).then(() => {
  * after every rule-store change so deletions cascade-clean orphan
  * test-run buckets.
  */
+/**
+ * Re-seed every per-workspace sync engine for the currently-active
+ * workspace. Used both at boot and by the workspace-coord runner after
+ * an active-flip swap. Bridges that depend on a parent (folders need
+ * their collection seeded first; templates depth-first; live workflows
+ * before live variables; requests → request-collections → request-
+ * folders) are awaited in order; independent bridges run in parallel.
+ */
+async function reseedAllPerWorkspaceBridges(): Promise<void> {
+  const log = (label: string) => (err: unknown) => {
+    logger.warn('Background', `${label} after workspace switch failed`, err);
+  };
+  await Promise.all([
+    bridgeToSyncEngine().catch(log('bridgeToSyncEngine')),
+    bridgeEnvironmentSyncEngine().catch(log('bridgeEnvironmentSyncEngine')),
+    bridgeCollectionSyncEngine().then(bridgeFolderSyncEngine).catch(log('bridgeCollectionSyncEngine/Folder')),
+    bridgeWorkspaceVariablesSyncEngine().catch(log('bridgeWorkspaceVariablesSyncEngine')),
+    bridgeVaultSyncEngine().catch(log('bridgeVaultSyncEngine')),
+    bridgeRequestSyncEngine()
+      .then(bridgeRequestCollectionSyncEngine)
+      .then(bridgeRequestFolderSyncEngine)
+      .catch(log('bridgeRequest/RequestCollection/RequestFolder')),
+    bridgeTemplateCollectionSyncEngine()
+      .then(bridgeTemplateFolderSyncEngine)
+      .then(bridgeTemplateSyncEngine)
+      .catch(log('bridgeTemplate/Collection/Folder')),
+    bridgeLiveWorkflowSyncEngine().then(bridgeLiveVariableSyncEngine).catch(log('bridgeLiveWorkflow/LiveVariable')),
+    bridgeOAuthSyncEngine().catch(log('bridgeOAuthSyncEngine')),
+    bridgePauseMarkersSyncEngine().catch(log('bridgePauseMarkersSyncEngine')),
+    bridgeLayoutStateSyncEngine().catch(log('bridgeLayoutStateSyncEngine')),
+    bridgeFilesSyncEngine().catch(log('bridgeFilesSyncEngine')),
+  ]);
+}
+
 function pruneOrphanTestRunOwnersFromStore(): void {
   const liveRules = new Set<string>();
   const liveEntities = new Set<string>();
@@ -363,88 +396,19 @@ async function initializeExtension(): Promise<void> {
     broadcast('requestsUpdated', { requests: getRequests() });
   });
 
-  // Broadcast workspace list changes (create/rename/delete/reorder).
-  // Active-workspace switches fire `workspaceChanged` explicitly from
-  // the orchestrator; this covers metadata mutations.
+  // Broadcast workspace list changes (every metadata mutation —
+  // create/rename/color/reorder, plus active-flip + delete). Cross-store
+  // follow-up work (per-workspace store swap on active flip,
+  // per-workspace data purge on removal) is driven by the
+  // SWAP_PER_WORKSPACE_STORES + PURGE_WORKSPACE_DATA side-effect intents
+  // emitted by the ExtensionWorkspace mutators; the `workspace-coord-
+  // runner` registered below drains them and runs the orchestrator's
+  // helpers + sync-engine reinit + bridge re-seeds. This listener stays
+  // metadata-broadcast-only so renames don't pay the reinit cost.
   onWorkspaceStoreChange(() => {
     broadcast('workspaceChanged', {
       workspaces: listWorkspaces(),
       activeWorkspaceId: getActiveWorkspaceId(),
-    });
-    // Sync service is workspace-scoped — IDB log + intents PKs are
-    // prefixed by `workspaceId`, and the in-memory oracle store
-    // belongs to one workspace at a time. Re-init swaps the oracle
-    // when the active workspace flips. No-op when the active
-    // workspace didn't change (rename / metadata-only mutations).
-    reinitForWorkspace(getActiveWorkspaceId());
-    // Re-seed the new workspace's oracle + cache from the freshly
-    // switched `rule-store.rules` array (the orchestrator's
-    // `switchRulesToWorkspace` ran before this listener fires).
-    void bridgeToSyncEngine().catch((err: unknown) => {
-      logger.warn('Background', 'bridgeToSyncEngine after workspace switch failed', err);
-    });
-    void bridgeEnvironmentSyncEngine().catch((err: unknown) => {
-      logger.warn('Background', 'bridgeEnvironmentSyncEngine after workspace switch failed', err);
-    });
-    void bridgeCollectionSyncEngine()
-      .then(() => bridgeFolderSyncEngine())
-      .catch((err: unknown) => {
-        logger.warn('Background', 'bridgeCollectionSyncEngine/Folder after workspace switch failed', err);
-      });
-    void bridgeWorkspaceVariablesSyncEngine().catch((err: unknown) => {
-      logger.warn('Background', 'bridgeWorkspaceVariablesSyncEngine after workspace switch failed', err);
-    });
-    void bridgeVaultSyncEngine().catch((err: unknown) => {
-      logger.warn('Background', 'bridgeVaultSyncEngine after workspace switch failed', err);
-    });
-    void bridgeRequestSyncEngine()
-      .then(() => bridgeRequestCollectionSyncEngine())
-      .then(() => bridgeRequestFolderSyncEngine())
-      .catch((err: unknown) => {
-        logger.warn(
-          'Background',
-          'bridgeRequest/RequestCollection/RequestFolder after workspace switch failed',
-          err,
-        );
-      });
-    // Templates: collection → folder → template (depth-first parent → child)
-    // so each layer's parent slots already exist when the next seeds.
-    void bridgeTemplateCollectionSyncEngine()
-      .then(() => bridgeTemplateFolderSyncEngine())
-      .then(() => bridgeTemplateSyncEngine())
-      .catch((err: unknown) => {
-        logger.warn(
-          'Background',
-          'bridgeTemplate/Collection/Folder after workspace switch failed',
-          err,
-        );
-      });
-    // Live: workflow → variable (parent → child) so workflows are in
-    // the oracle when LV bindings seed.
-    void bridgeLiveWorkflowSyncEngine()
-      .then(() => bridgeLiveVariableSyncEngine())
-      .catch((err: unknown) => {
-        logger.warn(
-          'Background',
-          'bridgeLiveWorkflow/LiveVariable after workspace switch failed',
-          err,
-        );
-      });
-    void bridgeOAuthSyncEngine().catch((err: unknown) => {
-      logger.warn('Background', 'bridgeOAuthSyncEngine after workspace switch failed', err);
-    });
-    void bridgePauseMarkersSyncEngine().catch((err: unknown) => {
-      logger.warn(
-        'Background',
-        'bridgePauseMarkersSyncEngine after workspace switch failed',
-        err,
-      );
-    });
-    void bridgeLayoutStateSyncEngine().catch((err: unknown) => {
-      logger.warn('Background', 'bridgeLayoutStateSyncEngine after workspace switch failed', err);
-    });
-    void bridgeFilesSyncEngine().catch((err: unknown) => {
-      logger.warn('Background', 'bridgeFilesSyncEngine after workspace switch failed', err);
     });
   });
 
@@ -567,16 +531,6 @@ async function initializeExtension(): Promise<void> {
   // populated by `bootstrapWorkspaces()` (already resolved by the time
   // hydration completes).
   initGlobalSyncService();
-  // Register cross-store coordinators BEFORE the cache subscription is
-  // installed so the very first observed transition (typically the
-  // seed-from-persisted broadcast) finds the coordinators in place.
-  // The active-flip coordinator runs the per-workspace store swaps so
-  // `bridgeXSyncEngine` re-seeds in `onWorkspaceStoreChange` observe
-  // already-swapped state. The removed coordinator clears every per-
-  // workspace storage key for ids that left the list — preserving the
-  // delete-with-data semantics the bridge handler used to enforce.
-  setActiveSwitchCoordinator(swapPerWorkspaceStores);
-  setWorkspaceRemovedCoordinator(purgeWorkspaceData);
   await bridgeExtensionWorkspaceSyncEngine();
 
   // Sync engine (Phase A) — instantiate the local oracle for the
@@ -614,6 +568,27 @@ async function initializeExtension(): Promise<void> {
   await bridgeLayoutStateSyncEngine();
   await bridgeFilesSyncEngine();
   markBootPhase('bridge-done');
+
+  // Workspace coordination runner — drains SWAP_PER_WORKSPACE_STORES +
+  // PURGE_WORKSPACE_DATA intents on every `extensionWorkspace`
+  // broadcast and routes them through the orchestrator + per-workspace
+  // sync engine reinit + bridge re-seed chain. Wired AFTER the initial
+  // per-workspace bridges so the runner doesn't fire its own
+  // (redundant) re-seed pass on the boot-time seed broadcast — the
+  // per-workspace bridges have already run by this point. Subsequent
+  // renderer-driven setActive / delete commits route entirely through
+  // the runner.
+  attachGlobalWorkspaceCoordRunner({
+    getActiveWorkspaceId: peekActiveWorkspaceId,
+    swap: async (newId) => {
+      await swapPerWorkspaceStores(newId);
+      reinitForWorkspace(newId);
+      await reseedAllPerWorkspaceBridges();
+    },
+    purge: async (workspaceId) => {
+      await purgeWorkspaceData([workspaceId]);
+    },
+  });
   // Release the hydration barrier — alarm handlers waiting on
   // `backgroundReady` can now safely read the in-memory workflow /
   // variable / rule stores. Fired here (rather than at end-of-init)

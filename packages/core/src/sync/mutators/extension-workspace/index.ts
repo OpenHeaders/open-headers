@@ -16,6 +16,12 @@ export {
   type ExtensionWorkspaceSlot,
 } from './types';
 export {
+  PURGE_WORKSPACE_DATA,
+  purgeWorkspaceDataIntent,
+  SWAP_PER_WORKSPACE_STORES,
+  swapPerWorkspaceStoresIntent,
+} from './side-effects';
+export {
   moveExtensionWorkspaceBefore,
   type MoveExtensionWorkspaceBeforeArgs,
   removeExtensionWorkspace,

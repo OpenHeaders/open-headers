@@ -16,12 +16,23 @@
  *     caller mints `keyBetween(predKey, anchorKey)` from its current
  *     mirror snapshot before emitting.
  *
- * No side effects. Workspace-meta changes don't recompile DNR or
- * invalidate the resolver — those scopes are per-workspace.
+ * Side effects:
+ *   - `setExtensionWorkspace` and `moveExtensionWorkspaceBefore` carry
+ *     no intents — workspace-meta create / rename / reorder don't
+ *     recompile DNR or invalidate the resolver (those scopes are
+ *     per-workspace).
+ *   - `removeExtensionWorkspace` emits `PURGE_WORKSPACE_DATA(id)` so
+ *     the SW-side per-workspace data purge runs after the commit
+ *     lands. Bundled-with-setActive deletes (renderer's
+ *     `applyDeleteWorkspace` for the active id) ride the same
+ *     all-or-nothing batch — the active flip's
+ *     `SWAP_PER_WORKSPACE_STORES` + this purge intent both persist
+ *     before broadcast.
  */
 
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
+import { purgeWorkspaceDataIntent } from './side-effects';
 import {
   EXTENSION_WORKSPACE_ENTITY_TYPE,
   EXTENSION_WORKSPACE_ID,
@@ -73,7 +84,7 @@ export function removeExtensionWorkspace(
         itemId: args.id,
       },
     ]),
-    sideEffects: [],
+    sideEffects: [purgeWorkspaceDataIntent(args.id, ctx.hlc)],
   };
 }
 

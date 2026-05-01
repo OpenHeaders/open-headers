@@ -56,6 +56,7 @@ import type {
 import {
   COLLECTION_ENTITY_TYPE,
   ENVIRONMENT_ENTITY_TYPE,
+  EXTENSION_WORKSPACE_ENTITY_TYPE,
   LIVE_VARIABLE_ENTITY_TYPE,
   LIVE_WORKFLOW_ENTITY_TYPE,
   OAUTH_BUNDLE_ENTITY_TYPE,
@@ -66,6 +67,7 @@ import {
   VAULT_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ENTITY_TYPE,
 } from '@openheaders/core/sync';
+import { getGlobalOracle } from './global-service';
 import { broadcast as bridgeBroadcast } from '@utils/bridge';
 import { logger } from '@utils/logger';
 import { scheduleUpdate } from '@/background/modules/rule-engine';
@@ -177,13 +179,46 @@ export function reinitForWorkspace(workspaceId: string): void {
 }
 
 /**
- * Apply a `SyncApplyRequest` against the active oracle. Throws if the
- * service hasn't been initialized — that would mean a renderer beat
- * boot, which `background.ts` orders to avoid.
+ * Apply a `SyncApplyRequest` against the appropriate oracle.
+ *
+ * Routing: `extensionWorkspace` envelopes target the GLOBAL oracle
+ * (workspace-list + active pointer live cross-workspace, scope is
+ * `EXTENSION_WORKSPACE_GLOBAL_SCOPE`). Every other entity type lives at
+ * per-workspace scope and routes to the active per-workspace oracle.
+ *
+ * Cross-scope batches are rejected — the per-batch all-or-nothing
+ * invariant requires a single lock domain, and global vs. per-workspace
+ * are deliberately separate domains so workspace-meta survives
+ * `reinitForWorkspace` cycles. Production code never builds such a
+ * mixed batch (renderer write-clients carry their target scope by
+ * construction); the guard below catches misuse rather than handling
+ * it.
+ *
+ * Throws if the service hasn't been initialized — that would mean a
+ * renderer beat boot, which `background.ts` orders to avoid.
  */
 export function applySyncRequest(request: SyncApplyRequest): Promise<SyncApplyResponse> {
   if (!state) {
     throw new Error('SyncService.applySyncRequest called before init');
+  }
+  if (request.batch.mutations.length === 0) {
+    return handleSyncApply(state.oracle, request);
+  }
+  const isGlobal = request.batch.mutations[0].body.type === EXTENSION_WORKSPACE_ENTITY_TYPE;
+  for (const env of request.batch.mutations) {
+    const envIsGlobal = env.body.type === EXTENSION_WORKSPACE_ENTITY_TYPE;
+    if (envIsGlobal !== isGlobal) {
+      throw new Error(
+        'SyncService.applySyncRequest: mixed-scope batch (global + per-workspace) — split into separate batches',
+      );
+    }
+  }
+  if (isGlobal) {
+    const globalOracle = getGlobalOracle();
+    if (!globalOracle) {
+      throw new Error('SyncService.applySyncRequest: global service not initialized');
+    }
+    return handleSyncApply(globalOracle, request);
   }
   return handleSyncApply(state.oracle, request);
 }

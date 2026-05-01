@@ -8,9 +8,11 @@ import {
   type ExtensionWorkspaceSlot,
   moveExtensionWorkspaceBefore,
   type MutatorContext,
+  PURGE_WORKSPACE_DATA,
   removeExtensionWorkspace,
   setActiveExtensionWorkspace,
   setExtensionWorkspace,
+  SWAP_PER_WORKSPACE_STORES,
 } from '../../../../src/sync';
 
 const ctx = (overrides: Partial<MutatorContext> = {}): MutatorContext => ({
@@ -57,8 +59,9 @@ describe('setExtensionWorkspace', () => {
 });
 
 describe('removeExtensionWorkspace', () => {
-  it('emits a single removeFromSet keyed by workspace id', () => {
-    const intent = removeExtensionWorkspace(ctx(), { id: 'ws-gone' });
+  it('emits a single removeFromSet keyed by workspace id and a PURGE_WORKSPACE_DATA intent', () => {
+    const c = ctx();
+    const intent = removeExtensionWorkspace(c, { id: 'ws-gone' });
     expect(intent.batch.mutations).toHaveLength(1);
     expect(intent.batch.mutations[0].body).toMatchObject({
       kind: 'removeFromSet',
@@ -67,7 +70,9 @@ describe('removeExtensionWorkspace', () => {
       path: EXTENSION_WORKSPACES_SET_PATH,
       itemId: 'ws-gone',
     });
-    expect(intent.sideEffects).toEqual([]);
+    expect(intent.sideEffects).toEqual([
+      { kind: PURGE_WORKSPACE_DATA, key: 'ws-gone', hlc: c.hlc },
+    ]);
   });
 });
 
@@ -88,8 +93,9 @@ describe('moveExtensionWorkspaceBefore', () => {
 });
 
 describe('setActiveExtensionWorkspace', () => {
-  it('emits a single setField on the activeId path', () => {
-    const intent = setActiveExtensionWorkspace(ctx(), { id: 'ws-active' });
+  it('emits a single setField on the activeId path and a SWAP_PER_WORKSPACE_STORES intent', () => {
+    const c = ctx();
+    const intent = setActiveExtensionWorkspace(c, { id: 'ws-active' });
     expect(intent.batch.mutations).toHaveLength(1);
     expect(intent.batch.mutations[0].body).toMatchObject({
       kind: 'setField',
@@ -98,7 +104,9 @@ describe('setActiveExtensionWorkspace', () => {
       path: EXTENSION_WORKSPACE_ACTIVE_ID_PATH,
       value: 'ws-active',
     });
-    expect(intent.sideEffects).toEqual([]);
+    expect(intent.sideEffects).toEqual([
+      { kind: SWAP_PER_WORKSPACE_STORES, key: EXTENSION_WORKSPACE_ID, hlc: c.hlc },
+    ]);
   });
 });
 
