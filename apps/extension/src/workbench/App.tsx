@@ -26,6 +26,7 @@ import type React from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import 'allotment/dist/style.css';
 import { createShellEventBus, ShellEventBusContext } from '@/shared/dock-layout';
+import { findCollectionByPath } from '@/shared/variables/collection-scope';
 import { computeBreadcrumbs, scratchLabelForMode } from './breadcrumbs';
 import BottomPanel from './components/BottomPanel';
 import CollectionOverview from './components/CollectionOverview';
@@ -286,6 +287,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     renameLocalCollection,
     renameLocalFolder,
     templates,
+    templateCollections,
     templateCollectionTrees,
   } = useRules();
   const workspacesApi = useWorkspaces();
@@ -892,27 +894,49 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     if (!activeTab) return null;
     const { mode } = activeTab;
     if (mode === 'collection-overview' || mode === 'folder-overview') return activeTab.entityId ?? null;
-    if (mode === 'collection-vars') return activeTab.collectionUid ?? null;
+    if (mode === 'collection-vars' || mode === 'request-collection-vars' || mode === 'template-collection-vars') {
+      return activeTab.collectionUid ?? null;
+    }
+    // Editor tabs: resolve the entity, then derive the owning
+    // collection by walking the right family's path prefix. The shared
+    // helper checks each family independently so a rule's path never
+    // matches a request collection (or vice versa).
+    const families = {
+      ruleCollections: localCollections,
+      requestCollections: requestsApi.collections,
+      templateCollections,
+    };
     if (mode === 'edit' && activeTab.ruleUid) {
       const rule = rules.find((r) => r.uid === activeTab.ruleUid);
-      if (!rule) return null;
-      return localCollections.find((c) => rule.path.startsWith(`${c.path}/`))?.uid ?? null;
+      return rule ? (findCollectionByPath(rule.path, families)?.uid ?? null) : null;
     }
-    if (mode === 'create' && activeTab.preferredCollectionId) return activeTab.preferredCollectionId;
     if (mode === 'request-edit' && activeTab.requestUid) {
       const req = requestsApi.requests.find((r) => r.uid === activeTab.requestUid);
-      if (!req) return null;
-      return requestsApi.collections.find((c) => req.path.startsWith(`${c.path}/`))?.uid ?? null;
+      return req ? (findCollectionByPath(req.path, families)?.uid ?? null) : null;
     }
-    if (mode === 'request-create' && activeTab.preferredCollectionId) return activeTab.preferredCollectionId;
+    if (mode === 'template-edit' && activeTab.templateUid) {
+      const tmpl = templates.find((t) => t.uid === activeTab.templateUid);
+      return tmpl ? (findCollectionByPath(tmpl.path, families)?.uid ?? null) : null;
+    }
+    if ((mode === 'create' || mode === 'request-create') && activeTab.preferredCollectionId) {
+      return activeTab.preferredCollectionId;
+    }
     return null;
-  }, [activeTab, rules, localCollections, requestsApi.requests, requestsApi.collections]);
+  }, [
+    activeTab,
+    rules,
+    templates,
+    localCollections,
+    templateCollections,
+    requestsApi.requests,
+    requestsApi.collections,
+  ]);
 
   const collectionEnvAutoSwitch = useSettingValue('general.collectionEnvAutoSwitch');
 
   const allCollectionsForEnv = useMemo(
-    () => [...localCollections, ...requestsApi.collections],
-    [localCollections, requestsApi.collections],
+    () => [...localCollections, ...requestsApi.collections, ...templateCollections],
+    [localCollections, requestsApi.collections, templateCollections],
   );
 
   // Track the active collection's default env separately so the env-
@@ -1582,15 +1606,26 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
             onOpenWorkspaceVariables={openWorkspaceVariables}
             onOpenCollectionVariables={() => {
               if (!activeTabCollectionId) return;
-              const col = [...localCollections, ...requestsApi.collections].find(
-                (c) => c.uid === activeTabCollectionId,
-              );
-              if (!col) return;
-              openCollectionVariables(col.uid, col.name);
+              // Dispatch to the right opener per family — the active
+              // tab's collectionId may belong to any of the three.
+              const ruleCol = localCollections.find((c) => c.uid === activeTabCollectionId);
+              if (ruleCol) {
+                openCollectionVariables(ruleCol.uid, ruleCol.name);
+                return;
+              }
+              const reqCol = requestsApi.collections.find((c) => c.uid === activeTabCollectionId);
+              if (reqCol) {
+                openRequestCollectionVariables(reqCol.uid, reqCol.name);
+                return;
+              }
+              const tmplCol = templateCollections.find((c) => c.uid === activeTabCollectionId);
+              if (tmplCol) {
+                openTemplateCollectionVariables(tmplCol.uid, tmplCol.name);
+              }
             }}
             onOpenVault={openVault}
             activeCollectionId={activeTabCollectionId}
-            allCollections={[...localCollections, ...requestsApi.collections]}
+            allCollections={allCollectionsForEnv}
             onSetCollectionPinnedEnvs={envApi.setCollectionPinnedEnvs}
           />
 

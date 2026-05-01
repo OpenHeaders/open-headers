@@ -13,11 +13,13 @@ import { useEnvironments } from '@hooks/useEnvironments';
 import { useAllLiveCaches } from '@hooks/useLiveCache';
 import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
+import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
 import { useVariableResolver } from '@hooks/useVariableResolver';
 import type { V5 } from '@openheaders/core/types';
 import { parseReference, parseStepRefName, type VariableNamespace } from '@openheaders/core/variables';
 import { useMemo } from 'react';
+import { findCollectionByUid } from '@/shared/variables/collection-scope';
 
 export type VariableCandidate =
   | {
@@ -82,7 +84,8 @@ export interface VariableLookupResult {
 
 export function useVariableLookup(reference: string, collectionId?: string): VariableLookupResult {
   const { environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault } = useEnvironments();
-  const { localCollections } = useRules();
+  const { localCollections, templateCollections } = useRules();
+  const { collections: requestCollections } = useRequests();
   const { variables: liveVariables } = useLiveVariables();
   const { workflows: liveWorkflows } = useLiveWorkflows();
   const liveWorkflowUids = useMemo(() => liveWorkflows.map((w) => w.uid), [liveWorkflows]);
@@ -156,9 +159,15 @@ export function useVariableLookup(reference: string, collectionId?: string): Var
     }
 
     // Collection — for flat or `{{collection.X}}`. Only the
-    // request/rule's owning collection participates in resolution.
+    // request/rule/template's owning collection participates in
+    // resolution. Look across all three families because the caller
+    // passes a uid that could come from any of them.
     if (wantNs('collection') && collectionId) {
-      const collection = localCollections.find((c) => c.uid === collectionId);
+      const collection = findCollectionByUid(collectionId, {
+        ruleCollections: localCollections,
+        requestCollections,
+        templateCollections,
+      });
       if (collection) {
         const variable = collection.variables?.find((v) => v.name === ref.name);
         if (variable) {
@@ -253,6 +262,8 @@ export function useVariableLookup(reference: string, collectionId?: string): Var
     defaultEnvironmentId,
     workspaceVariables,
     localCollections,
+    requestCollections,
+    templateCollections,
     liveVariables,
     liveCaches,
   ]);

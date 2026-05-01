@@ -19,13 +19,16 @@ import { useEnvironments } from '@hooks/useEnvironments';
 import { useAllLiveCaches } from '@hooks/useLiveCache';
 import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
+import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
 import { type ResolvedLiveValue, VariableResolver } from '@openheaders/core/variables';
 import { useMemo } from 'react';
+import { feedCollectionVariablesToResolver } from '@/shared/variables/collection-scope';
 
 export function useVariableResolver(): VariableResolver {
   const { environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault } = useEnvironments();
-  const { localCollections } = useRules();
+  const { localCollections, templateCollections } = useRules();
+  const { collections: requestCollections } = useRequests();
   const { variables: liveVariables } = useLiveVariables();
   const { workflows: liveWorkflows } = useLiveWorkflows();
 
@@ -69,7 +72,11 @@ export function useVariableResolver(): VariableResolver {
     r.setActiveEnvironmentId(activeEnvironmentId);
     r.setDefaultEnvironmentId(defaultEnvironmentId);
     r.setWorkspaceVariables(workspaceVariables);
-    for (const c of localCollections) r.setCollectionVariables(c.uid, c.variables ?? []);
+    feedCollectionVariablesToResolver(r, {
+      ruleCollections: localCollections,
+      requestCollections,
+      templateCollections,
+    });
     r.setLiveRegistry(liveRegistry);
     // Renderer surfaces (template-input syntax highlighting, Inspector)
     // only need to know whether a `{{vault.X}}` reference is resolvable;
@@ -88,6 +95,8 @@ export function useVariableResolver(): VariableResolver {
     defaultEnvironmentId,
     workspaceVariables,
     localCollections,
+    requestCollections,
+    templateCollections,
     liveRegistry,
   ]);
 }

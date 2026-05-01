@@ -43,6 +43,12 @@ import { Empty, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { PanelHeader } from '@/shared/dock-layout';
+import {
+  type CollectionFamilies,
+  feedCollectionVariablesToResolver,
+  findCollectionByPath,
+  findCollectionByUid,
+} from '@/shared/variables/collection-scope';
 import type { TabMode, WorkbenchTab } from '../../types';
 import { collectTemplateStrings } from '../../variable-references';
 import { SCOPE_COLORS, scopeBadge } from '../shared/scope-colors';
@@ -51,15 +57,17 @@ import TotpPreview from '../totp/TotpPreview';
 // ── Scope kind (context classification of the focused tab) ─────────
 
 /** What the focused tab references, if anything the Scope panel can filter to. */
-type ScopeKind = 'rule' | 'request' | 'none';
+type ScopeKind = 'rule' | 'request' | 'template' | 'none';
 
 const RULE_TAB_MODES: ReadonlySet<TabMode> = new Set(['edit', 'create']);
 const REQUEST_TAB_MODES: ReadonlySet<TabMode> = new Set(['request-edit', 'request-create']);
+const TEMPLATE_TAB_MODES: ReadonlySet<TabMode> = new Set(['template-edit']);
 
 function getScopeKind(tab: WorkbenchTab | null): ScopeKind {
   if (!tab) return 'none';
   if (RULE_TAB_MODES.has(tab.mode)) return 'rule';
   if (REQUEST_TAB_MODES.has(tab.mode)) return 'request';
+  if (TEMPLATE_TAB_MODES.has(tab.mode)) return 'template';
   return 'none';
 }
 
@@ -67,6 +75,7 @@ function getScopeKind(tab: WorkbenchTab | null): ScopeKind {
 function getContextLabel(kind: ScopeKind): string | null {
   if (kind === 'rule') return 'In Rule';
   if (kind === 'request') return 'In Request';
+  if (kind === 'template') return 'In Template';
   return null;
 }
 
@@ -124,8 +133,13 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
   );
 
   const { environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault } = useEnvironments();
-  const { rules, localCollections, localCollectionTrees } = useRules();
-  const { requests } = useRequests();
+  const { rules, templates, localCollections, localCollectionTrees, templateCollections, templateCollectionTrees } =
+    useRules();
+  const { requests, collections: requestCollections, collectionTrees: requestCollectionTrees } = useRequests();
+  const families = useMemo<CollectionFamilies>(
+    () => ({ ruleCollections: localCollections, requestCollections, templateCollections }),
+    [localCollections, requestCollections, templateCollections],
+  );
   const { variables: liveVariables } = useLiveVariables();
   const { workflows: liveWorkflows } = useLiveWorkflows();
   const liveWorkflowUids = useMemo(() => liveWorkflows.map((w) => w.uid), [liveWorkflows]);
@@ -134,56 +148,93 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
   const scopeKind = useMemo(() => getScopeKind(activeTab), [activeTab]);
   const contextLabel = getContextLabel(scopeKind);
 
-  // Identify the active rule / request / collection / folder for the
-  // current tab. Rule-editor and request-editor tabs carry a concrete
-  // entity whose templates the panel can walk; collection-overview,
-  // collection-vars, and folder-overview tabs only set collectionId
-  // (so the "All" view highlights the right collection's vars); other
-  // modes (landing, settings, run-report, etc.) contribute neither.
-  const { activeRule, activeRequest, activeCollectionId } = useMemo<{
+  // Identify the active rule / request / template / collection for the
+  // current tab. Editor tabs (rule / request / template) carry a
+  // concrete entity whose templates the panel can walk; the various
+  // *-collection-vars + collection-overview + folder-overview surfaces
+  // only carry a collection uid so the All view highlights the right
+  // collection's vars; other modes contribute neither.
+  //
+  // The collection lookup walks every family — rule, request, template
+  // — so the resolver's collection scope works regardless of which
+  // family the focused entity belongs to. Pre-session-49 only walked
+  // `localCollections` (rule-collections), which silently returned
+  // null for a request's `requests/...` path or a template's
+  // `templates/...` path.
+  const { activeRule, activeRequest, activeTemplate, activeCollectionId } = useMemo<{
     activeRule: V5.Rule | null;
     activeRequest: V5.Request | null;
+    activeTemplate: V5.Template | null;
     activeCollectionId: string | null;
   }>(() => {
-    if (!activeTab) return { activeRule: null, activeRequest: null, activeCollectionId: null };
+    if (!activeTab)
+      return { activeRule: null, activeRequest: null, activeTemplate: null, activeCollectionId: null };
     let rule: V5.Rule | null = null;
     let request: V5.Request | null = null;
+    let template: V5.Template | null = null;
     if (scopeKind === 'rule' && activeTab.ruleUid) {
       rule = rules.find((r) => r.uid === activeTab.ruleUid) ?? null;
     } else if (scopeKind === 'request' && activeTab.requestUid) {
       request = requests.find((r) => r.uid === activeTab.requestUid) ?? null;
+    } else if (scopeKind === 'template' && activeTab.templateUid) {
+      template = templates.find((t) => t.uid === activeTab.templateUid) ?? null;
     }
 
+    const entityForCollection: V5.Rule | V5.Request | V5.Template | null = rule ?? request ?? template;
     let collId: string | null = null;
-    if (activeTab.mode === 'collection-overview' && activeTab.entityId) {
-      collId = activeTab.entityId;
-    } else if (activeTab.mode === 'collection-vars' && activeTab.collectionUid) {
-      collId = activeTab.collectionUid;
-    } else if (rule) {
-      const hit = localCollections.find((c) => rule?.path.startsWith(`${c.path}/`));
-      collId = hit?.uid ?? null;
-    } else if (request) {
-      const hit = localCollections.find((c) => request?.path.startsWith(`${c.path}/`));
-      collId = hit?.uid ?? null;
-    } else if (activeTab.mode === 'folder-overview' && activeTab.entityId) {
-      for (const col of localCollectionTrees) {
-        const stack: V5.TreeNode[] = [...col.tree];
-        let found = false;
-        while (stack.length > 0) {
-          const node = stack.shift();
-          if (!node) break;
-          if (node.type === 'folder' && node.uid === activeTab.entityId) {
-            collId = col.uid;
-            found = true;
-            break;
+    if (
+      (activeTab.mode === 'collection-overview' || activeTab.mode === 'folder-overview') &&
+      activeTab.entityId
+    ) {
+      // Both overview surfaces stash the entity uid in `entityId`. For
+      // collection-overview the uid IS a collection uid; for folder-
+      // overview it's a folder uid that we resolve through the trees.
+      if (activeTab.mode === 'collection-overview') {
+        collId = activeTab.entityId;
+      } else {
+        const folderUid = activeTab.entityId;
+        const treeFamilies: ReadonlyArray<readonly V5.CollectionTree[]> = [
+          localCollectionTrees,
+          requestCollectionTrees,
+          templateCollectionTrees,
+        ];
+        outer: for (const trees of treeFamilies) {
+          for (const col of trees) {
+            const stack: V5.TreeNode[] = [...col.tree];
+            while (stack.length > 0) {
+              const node = stack.shift();
+              if (!node) break;
+              if (node.type === 'folder' && node.uid === folderUid) {
+                collId = col.uid;
+                break outer;
+              }
+              if (node.type === 'folder') stack.push(...node.children);
+            }
           }
-          if (node.type === 'folder') stack.push(...node.children);
         }
-        if (found) break;
       }
+    } else if (
+      (activeTab.mode === 'collection-vars' ||
+        activeTab.mode === 'request-collection-vars' ||
+        activeTab.mode === 'template-collection-vars') &&
+      activeTab.collectionUid
+    ) {
+      collId = activeTab.collectionUid;
+    } else if (entityForCollection) {
+      collId = findCollectionByPath(entityForCollection.path, families)?.uid ?? null;
     }
-    return { activeRule: rule, activeRequest: request, activeCollectionId: collId };
-  }, [scopeKind, activeTab, rules, requests, localCollections, localCollectionTrees]);
+    return { activeRule: rule, activeRequest: request, activeTemplate: template, activeCollectionId: collId };
+  }, [
+    scopeKind,
+    activeTab,
+    rules,
+    requests,
+    templates,
+    families,
+    localCollectionTrees,
+    requestCollectionTrees,
+    templateCollectionTrees,
+  ]);
 
   // Auto-apply the "natural" mode whenever the focused tab changes:
   // a rule/request tab starts in "In Rule" / "In Request" (because
@@ -206,8 +257,8 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
     if (scopeKind === 'none' && mode === 'in-context') setMode('all');
   }, [activeTab, scopeKind, mode]);
 
-  const contextEntity: V5.Rule | V5.Request | null = activeRule ?? activeRequest;
-  const contextEntityName = activeRule?.name ?? activeRequest?.name ?? null;
+  const contextEntity: V5.Rule | V5.Request | V5.Template | null = activeRule ?? activeRequest ?? activeTemplate;
+  const contextEntityName = activeRule?.name ?? activeRequest?.name ?? activeTemplate?.name ?? null;
 
   // LiveRegistry mirrors the SW's `buildLiveRegistry`: enabled LVs
   // only; filter cache rows to the active env; honor manual overrides.
@@ -256,7 +307,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
     r.setActiveEnvironmentId(activeEnvironmentId);
     r.setDefaultEnvironmentId(defaultEnvironmentId);
     r.setWorkspaceVariables(workspaceVariables);
-    for (const c of localCollections) r.setCollectionVariables(c.uid, c.variables ?? []);
+    feedCollectionVariablesToResolver(r, families);
     r.setLiveRegistry(liveRegistry);
     return r;
   }, [
@@ -265,7 +316,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
     activeEnvironmentId,
     defaultEnvironmentId,
     workspaceVariables,
-    localCollections,
+    families,
     liveRegistry,
   ]);
 
@@ -276,7 +327,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
     ? (environments.find((e) => e.uid === defaultEnvironmentId)?.name ?? null)
     : null;
   const activeCollectionName = activeCollectionId
-    ? (localCollections.find((c) => c.uid === activeCollectionId)?.name ?? null)
+    ? (findCollectionByUid(activeCollectionId, families)?.name ?? null)
     : null;
 
   // ── "In Rule" / "In Request" — variables referenced by the focused
@@ -371,7 +422,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
       resolved: v.value !== '',
     }));
     const collList: DisplayVariable[] = activeCollectionId
-      ? (localCollections.find((c) => c.uid === activeCollectionId)?.variables ?? []).map((v) => ({
+      ? (findCollectionByUid(activeCollectionId, families)?.variables ?? []).map((v) => ({
           name: v.name,
           value: v.value,
           scope: 'collection' as const,
@@ -411,7 +462,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
     environments,
     activeEnvironmentId,
     workspaceVariables,
-    localCollections,
+    families,
     activeCollectionId,
     liveVariables,
     liveRegistry,
@@ -443,7 +494,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
           <Text type="secondary" style={{ fontSize: 11 }}>
             {mode === 'in-context' && contextEntityName && scopeKind !== 'none' ? (
               <>
-                {scopeKind === 'rule' ? 'In rule: ' : 'In request: '}
+                {scopeKind === 'rule' ? 'In rule: ' : scopeKind === 'request' ? 'In request: ' : 'In template: '}
                 <Text strong style={{ fontSize: 11 }}>
                   {contextEntityName}
                 </Text>
@@ -532,7 +583,7 @@ function InContextView({
   hasContext: boolean;
 }) {
   const { token } = theme.useToken();
-  const noun = scopeKind === 'request' ? 'request' : 'rule';
+  const noun = scopeKind === 'request' ? 'request' : scopeKind === 'template' ? 'template' : 'rule';
   if (!hasContext) {
     return (
       <Empty

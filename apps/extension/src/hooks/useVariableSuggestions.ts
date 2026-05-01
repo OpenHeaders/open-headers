@@ -23,7 +23,9 @@ import { useEnvironments } from '@hooks/useEnvironments';
 import { useAllLiveCaches } from '@hooks/useLiveCache';
 import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
+import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
+import { iterateAllCollections } from '@/shared/variables/collection-scope';
 import {
   buildSuggestions,
   type LiveSuggestionEntry,
@@ -47,7 +49,8 @@ export function useVariableSuggestions(context: SuggestionContext): UseVariableS
     vault,
     isReady: envsReady,
   } = useEnvironments();
-  const { localCollections } = useRules();
+  const { localCollections, templateCollections } = useRules();
+  const { collections: requestCollections } = useRequests();
   const { variables: liveVariables, isReady: lvReady } = useLiveVariables();
   const { workflows: liveWorkflows, isReady: lwReady } = useLiveWorkflows();
 
@@ -95,7 +98,13 @@ export function useVariableSuggestions(context: SuggestionContext): UseVariableS
       environments: environments.map((e) => ({ uid: e.uid, name: e.name, variables: e.variables })),
       activeEnvironmentId,
       defaultEnvironmentId,
-      collections: localCollections.map((c) => ({ uid: c.uid, variables: c.variables ?? [] })),
+      collections: [
+        ...iterateAllCollections({
+          ruleCollections: localCollections,
+          requestCollections,
+          templateCollections,
+        }),
+      ].map((c) => ({ uid: c.uid, variables: c.variables ?? [] })),
       workspaceVariables: workspaceVariables.variables,
       liveRegistry,
     }),
@@ -105,6 +114,8 @@ export function useVariableSuggestions(context: SuggestionContext): UseVariableS
       activeEnvironmentId,
       defaultEnvironmentId,
       localCollections,
+      requestCollections,
+      templateCollections,
       workspaceVariables,
       liveRegistry,
     ],
