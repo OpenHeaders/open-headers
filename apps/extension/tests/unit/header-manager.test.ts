@@ -72,6 +72,7 @@ function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
     name: 'Test Rule',
     type: 'header',
     enabled: true,
+    published: true,
     conditions: hostConditions(['*.openheaders.io']),
     action: {
       requestHeaders: [{ uid: 'thm00018', operation: 'override', headerName: 'Authorization', value: 'Bearer test-token' }],
@@ -472,6 +473,7 @@ describe('header-manager', () => {
         name: 'Body Rule',
         type: 'body',
         enabled: true,
+        published: true,
         conditions: hostConditions(['openheaders.io']),
         action: { bodyType: 'static', body: '{"replaced": true}', resourceType: 'rest' },
       };

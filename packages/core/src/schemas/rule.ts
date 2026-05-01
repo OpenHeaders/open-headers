@@ -74,6 +74,30 @@ export const RuleBaseSchema = v.object({
   name: v.string(),
   type: RuleTypeSchema,
   enabled: v.boolean(),
+  /**
+   * Publication gate (sync engine §19.1 + product safety requirement).
+   *
+   * `enabled` is the user toggle ("turn this rule on/off"); `published`
+   * is "I've committed this draft to live state." Both must be true,
+   * the rule must be `isRuleComplete`, no parent path nor the engine
+   * may be paused — all five are AND-ed in `isRuleEffective`.
+   *
+   * Why a separate axis from `enabled`: a rule the user explicitly
+   * disabled and a rule the user is mid-drafting must look different
+   * in the UI and route differently in the side-effect runners. New
+   * rules from `+ New Rule` start `published: false` so per-keystroke
+   * mutations stream into a real entity without exposing half-typed
+   * values to live network traffic. The Save button flips this to
+   * true; editing a published rule auto-flips it back to false in the
+   * same batch as the first edit, re-flipping on next Save.
+   *
+   * Optional at the schema level so fixtures and YAML records that
+   * predate the field type-check without churn. Read sites treat
+   * `published !== true` (i.e. `false` or `undefined`) as "draft" —
+   * `isRuleEffective` AND-s on `=== true`, runners filter the same
+   * way. The single negation centralizes the contract.
+   */
+  published: v.optional(v.boolean()),
   conditions: v.array(RuleConditionSchema),
 });
 // `version: number` was the Phase 10 stale-draft counter — the sync

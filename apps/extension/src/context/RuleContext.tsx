@@ -18,7 +18,12 @@ import { call, subscribe } from '@utils/bridge';
 import type React from 'react';
 import { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { applyPauseMarkersReplacement } from '@/shared/sync/pause-markers-write-client';
-import { applyRuleDelete, applyRuleUpdate } from '@/shared/sync/rule-write-client';
+import {
+  applyRuleCreate,
+  applyRuleDelete,
+  applyRulePublish,
+  applyRuleUpdate,
+} from '@/shared/sync/rule-write-client';
 import { extensionStorage, UI, wsKeys } from '@/shared/storage';
 
 // ── Context shape ─────────────────────────────────────────────────
@@ -181,6 +186,24 @@ const defaultContextValue: RuleContextValue = {
 };
 
 export const RuleContext = createContext<RuleContextValue>(defaultContextValue);
+
+/**
+ * Strip the entity-managed keys (`uid` / `path` / `schemaVersion`) from
+ * a partial rule shape. The legacy bridge contract for `createLocalRule`
+ * accepted a value typed as `Omit<V5.Rule, 'uid' | 'path'>`, which leaves
+ * `schemaVersion` in scope; the renderer-direct write client mints
+ * schemaVersion itself, so strip it here defensively. `published` is
+ * also stripped — the create write client always emits `published: false`
+ * regardless of caller intent.
+ */
+function stripEntityKeys(
+  rule: Omit<V5.Rule, 'uid' | 'path'>,
+): Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'> {
+  const copy = { ...rule } as Record<string, unknown>;
+  delete copy.schemaVersion;
+  delete copy.published;
+  return copy as Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>;
+}
 
 // ── Provider ──────────────────────────────────────────────────────
 
@@ -447,20 +470,51 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId 
   // rules and collections. This is the single consistent pattern —
   // no per-function guessing about which subset to reload.
 
+  // Renderer-direct rule create. Routes through `oh.sync.apply` via the
+  // sync engine — no bridge RPC, no silent `.catch(() => null)` swallow
+  // path. Errors surface via the structured write-client result.
+  //
+  // Today's UX semantics (clicking Save on a draft tab makes the rule
+  // live) are preserved: this helper creates the entity then immediately
+  // publishes it (`published: false → true`). The `published` axis is
+  // already there as the architectural foundation; the next session
+  // collapses the deferred-create draft tab into a real entity from the
+  // `+ New Rule` click and turns Save into a standalone publish gesture
+  // (see `docs/SYNC_ENGINE_DESIGN.md` §19.1 + the table laid out in this
+  // session's transcript). For now, "create then publish in one batch
+  // chain" matches what existed before — minus the silent failure mode.
   const createLocalRule = useCallback(
     async (
       rule: Omit<V5.Rule, 'uid' | 'path'>,
       collectionUid?: string,
       parentPath?: string,
     ): Promise<V5.Rule | null> => {
-      const resp = await call('createLocalRule', { rule, collectionUid, parentPath }).catch(() => null);
-      if (resp?.success && resp.rule) {
-        refreshRules();
-        return resp.rule;
-      }
-      return null;
+      if (!activeWorkspaceId) return null;
+      // Resolve the parent path. `parentPath` (an explicit folder path)
+      // wins; otherwise we look up the collection's path. If neither
+      // resolves we fall back to the first local collection — preserves
+      // the legacy bridge handler's behavior for the "no preferred
+      // location" case (`addRuleToCollection(rule, ensureDefaultCollection())`).
+      const collection = collectionUid
+        ? localCollections.find((c) => c.uid === collectionUid)
+        : localCollections[0];
+      const resolvedParent = parentPath ?? collection?.path ?? null;
+      if (!resolvedParent) return null;
+      // The legacy contract took `Omit<V5.Rule, 'uid' | 'path'>` which
+      // can carry `schemaVersion`; the write-client mints schemaVersion
+      // itself, so strip it here defensively.
+      const ruleSeed = stripEntityKeys(rule);
+      const opts = { workspaceId: activeWorkspaceId, surfaceId };
+      const created = await applyRuleCreate({ rule: ruleSeed, parentPath: resolvedParent }, opts);
+      if (!created.ok) return null;
+      // Immediately publish — same UX as today's "Save creates a live
+      // rule." Decoupled into a separate gesture in the next-session
+      // editor refactor.
+      const published = await applyRulePublish(created.rule.uid, opts);
+      refreshRules();
+      return published.ok ? { ...created.rule, published: true } : created.rule;
     },
-    [refreshRules],
+    [activeWorkspaceId, localCollections, surfaceId, refreshRules],
   );
 
   const updateLocalRuleFn = useCallback(

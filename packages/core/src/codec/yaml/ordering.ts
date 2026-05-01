@@ -33,6 +33,7 @@ export const RULE_FIELD_ORDER = [
   'name',
   'type',
   'enabled',
+  'published',
   'conditions',
   'action',
 ] as const;

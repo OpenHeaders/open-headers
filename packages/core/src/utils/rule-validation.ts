@@ -182,11 +182,20 @@ export function isRuleResolvable(
 
 /**
  * Single source of truth for "will this rule actually fire on live
- * traffic right now?". Combines three independent axes:
+ * traffic right now?". Combines five independent axes:
  *
- *   - `rule.enabled === true`      — user's explicit toggle
- *   - `isRuleComplete(rule)`        — all required fields present; drafts
- *                                     never compile to DNR or fire as
+ *   - `rule.published === true`     — user committed this draft to live
+ *                                     state (Save button or equivalent
+ *                                     `setField('published', true)`).
+ *                                     New rules from `+ New Rule` start
+ *                                     `published: false` so per-keystroke
+ *                                     mutations stream into a real entity
+ *                                     without exposing half-typed values
+ *                                     to live network traffic.
+ *   - `rule.enabled === true`       — user's explicit on/off toggle
+ *   - `isRuleComplete(rule)`        — all required fields present; rules
+ *                                     missing structural pieces never
+ *                                     compile to DNR or fire as
  *                                     scriptable injections
  *   - `!resolvePauseState(path)`    — neither the rule nor any ancestor
  *                                     collection/folder is paused
@@ -196,8 +205,13 @@ export function isRuleResolvable(
  * Any place in the extension that needs "effective rule set" — DNR
  * compile loop, rule-state observer snapshot, badge filter, popup
  * display — should call this instead of reimplementing the check.
+ *
+ * `published` is read as `=== true` so the optional schema shape
+ * (`published?: boolean`) collapses to "draft" for both `false` and
+ * `undefined` — single contract, one negation site.
  */
 export function isRuleEffective(rule: Rule, pauseMarkers: PauseMarkers, enginePaused: boolean): boolean {
+  if (rule.published !== true) return false;
   if (rule.enabled !== true) return false;
   if (enginePaused) return false;
   if (resolvePauseState(rule.path, pauseMarkers)) return false;

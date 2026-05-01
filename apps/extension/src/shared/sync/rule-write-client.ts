@@ -13,7 +13,14 @@
  * call these functions directly with an explicit workspace id.
  */
 
+import {
+  mintBatch,
+  type MutationBody,
+  recompileDnrIntent,
+  RULE_ENTITY_TYPE,
+} from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
+import { generateUid, toFolderName } from '@openheaders/core/utils';
 import {
   getActiveRuleSyncMirror,
   type RuleSyncMirror,
@@ -26,6 +33,7 @@ import {
   type SyncSimpleResult,
 } from '@/shared/sync/apply-payload';
 import {
+  buildAddBatch,
   buildDeleteBatch,
   buildToggleBatch,
   buildUpdateBatch,
@@ -62,12 +70,23 @@ export async function applyRuleUpdate(
   const mirror = resolveMirror(opts, getActiveRuleSyncMirror);
   const entry = mirror.getRuleMirror(ruleUid);
   if (!entry) return { ok: false, reason: 'not-found' };
+  // Auto-unpublish on first edit of a published rule (the publication-
+  // gate symmetry). The single batch ensures the side-effect runners
+  // (DNR compile, inject) see the unpublish + edit atomically — they
+  // never observe a half-typed value while the rule is still flagged
+  // published. Subsequent keystrokes find `published === false` and
+  // skip the augmentation. Explicit `published` writes (the Save button
+  // routing through `applyRulePublish`) bypass `applyRuleUpdate` entirely.
+  const augmented: RuleUpdates =
+    entry.rule.published === true && updates.published === undefined
+      ? { ...updates, published: false }
+      : updates;
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   // Renderer-side adapter: combine the mirror's order keys with the
   // canonical rule snapshot to find each row's content via uid lookup.
   // The synthesizer needs `(itemId, orderKey, item)` triplets to
   // distinguish pure-reorder from content edits.
-  const payload = buildUpdateBatch(ruleUid, entry.rule.type, updates, ctx, (uid, path) => {
+  const payload = buildUpdateBatch(ruleUid, entry.rule.type, augmented, ctx, (uid, path) => {
     const orderKeys = mirror.liveOrderedSetItems(uid, path);
     if (orderKeys.length === 0) return [];
     const rule = mirror.getRuleMirror(uid)?.rule;
@@ -79,10 +98,65 @@ export async function applyRuleUpdate(
   });
   const ack = await applySyncPayload(payload);
   if (ack.ok) {
-    return { ok: true, rule: { ...entry.rule, ...updates } as V5.Rule };
+    return { ok: true, rule: { ...entry.rule, ...augmented } as V5.Rule };
   }
   if (ack.reason === 'not-found') return { ok: false, reason: 'not-found' };
   return { ok: false, reason: 'other', message: ack.message };
+}
+
+/**
+ * Renderer-direct rule create. Mints uid + path locally, builds the seed
+ * batch (one `create` + one `addToSet` per set-modeled item), and fires
+ * `oh.sync.apply`. The created rule starts `published: false` — per-keystroke
+ * edits stream into a real entity from this point; the explicit Save
+ * gesture flips publication via {@link applyRulePublish}.
+ *
+ * `request.rule` carries everything except the entity-managed fields
+ * (uid, path, schemaVersion). Passing `published` in the request payload
+ * is allowed but the write client always overrides to `false` — drafts
+ * must not arrive published.
+ */
+export async function applyRuleCreate(
+  request: { rule: Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>; parentPath: string },
+  opts: RuleWriteOptions,
+): Promise<RuleMutationResult> {
+  const uid = generateUid();
+  const folderName = toFolderName(request.rule.name, uid);
+  const created = {
+    ...request.rule,
+    schemaVersion: 5 as const,
+    uid,
+    path: `${request.parentPath}/${folderName}`,
+    published: false,
+  } as V5.Rule;
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const payload = buildAddBatch(created, ctx);
+  const ack = await applySyncPayload(payload);
+  if (ack.ok) return { ok: true, rule: created };
+  if (ack.reason === 'not-found') return { ok: false, reason: 'not-found' };
+  return { ok: false, reason: 'other', message: ack.message };
+}
+
+/**
+ * Promote a draft rule to live state. Single `setField('published', true)`
+ * mutation + DNR recompile intent. The Save button in `RuleEditor` /
+ * `EditorHeader` binds to this; per-keystroke edits go through
+ * {@link applyRuleUpdate} which auto-unpublishes on first edit.
+ */
+export async function applyRulePublish(
+  ruleUid: string,
+  opts: RuleWriteOptions,
+): Promise<RuleSimpleResult> {
+  const mirror = resolveMirror(opts, getActiveRuleSyncMirror);
+  if (!mirror.getRuleMirror(ruleUid)) return { ok: false, reason: 'not-found' };
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const bodies: MutationBody[] = [
+    { kind: 'setField', type: RULE_ENTITY_TYPE, id: ruleUid, path: 'published', value: true },
+  ];
+  return applySyncPayload({
+    batch: mintBatch(ctx, bodies),
+    sideEffects: [recompileDnrIntent(ruleUid, ctx.hlc)],
+  });
 }
 
 export async function applyRuleToggle(
