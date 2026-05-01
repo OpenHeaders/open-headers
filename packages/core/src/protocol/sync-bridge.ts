@@ -191,14 +191,15 @@ export interface SyncFolderPostState {
 
 /**
  * Post-commit projection for a request-collection envelope. Mirrors
- * {@link SyncCollectionPostState} but the catalog ships rename-only at
- * v1 — request collections don't expose collection-variable editing
- * today, so no live `varNames` are carried. If a future surface adds
- * variable-editing for request collections, copy the rule-collection
- * shape (catalog flatten + projector inverse + `varNames` payload).
+ * {@link SyncCollectionPostState}: carries the materialized
+ * {@link V5.Collection} plus live variable names (set member identity =
+ * name, same as env + rule-collection vars) and the parent-owned
+ * `folders` order keys.
  */
 export interface SyncRequestCollectionPostState {
   collection: V5.Collection;
+  /** Live variable names — the set-member identity for request-collection vars. */
+  varNames: string[];
   /** Live `(itemId, orderKey)` pairs at the parent-owned `folders` set
    *  (§23.5). Same shape as {@link SyncCollectionPostState.setOrderKeys}. */
   setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
@@ -244,14 +245,14 @@ export interface SyncTemplatePostState {
 
 /**
  * Post-commit projection for a template-collection envelope. Mirrors
- * {@link SyncRequestCollectionPostState} — the catalog ships rename-only
- * at v1, so each entry carries `{ collection }` only. If a future
- * surface adds variable-editing for template collections, copy the
- * rule-collection shape (catalog flatten + projector inverse +
- * `varNames` payload).
+ * {@link SyncRequestCollectionPostState}: carries the materialized
+ * {@link V5.Collection} plus live variable names and the parent-owned
+ * `folders` order keys.
  */
 export interface SyncTemplateCollectionPostState {
   collection: V5.Collection;
+  /** Live variable names — the set-member identity for template-collection vars. */
+  varNames: string[];
   /** Live `(itemId, orderKey)` pairs at the parent-owned `folders` set
    *  (§23.5). Same shape as {@link SyncCollectionPostState.setOrderKeys}. */
   setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
