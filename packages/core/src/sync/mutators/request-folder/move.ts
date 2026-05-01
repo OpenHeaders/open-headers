@@ -1,33 +1,27 @@
 /**
- * `moveRequestFolder` — sibling reorder + reparent.
- *
- * Two cases:
- *   1. Intra-parent reorder (`oldParent` undefined or matches `newParent`):
- *      a single `moveBefore` on the parent's `folders` path. LWW per
- *      (setPath, itemId).
- *   2. Reparent (`oldParent` differs from `newParent`): atomic
- *      `removeFromSet(oldParent.folders) + addToSet(newParent.folders)`
- *      with the new orderKey. Per-batch all-or-nothing keeps the folder
- *      from briefly disappearing during the move.
- *
- * Order keys are envelope-resident (§22.1): renderer mints
- * `keyBetween(predKey, anchorKey)` from its current sibling-mirror
- * snapshot before emitting.
+ * `moveRequestFolder` — thin adapter over the shared folder-mutator
+ * factory. See `shared/folder-mutators.ts` for the same-parent /
+ * reparent invariants.
  */
 
-import type { MutationBody } from '../../envelope';
+import { makeFolderMutators } from '../shared/folder-mutators';
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
 import {
   REQUEST_FOLDER_CHILDREN_PATH,
+  REQUEST_FOLDER_ENTITY_TYPE,
   type RequestFolderParentRef,
-  type RequestFolderSlot,
 } from './types';
+
+const factories = makeFolderMutators<RequestFolderParentRef>({
+  entityType: REQUEST_FOLDER_ENTITY_TYPE,
+  childrenPath: REQUEST_FOLDER_CHILDREN_PATH,
+  mintBatch,
+});
 
 export interface MoveRequestFolderArgs {
   folderUid: string;
   newParent: RequestFolderParentRef;
-  /** Fractional-indexing key for the new slot position. Required. */
   orderKey: string;
   /** Omit (or pass equal to `newParent`) for intra-parent reorder. */
   oldParent?: RequestFolderParentRef;
@@ -37,45 +31,5 @@ export function moveRequestFolder(
   ctx: MutatorContext,
   args: MoveRequestFolderArgs,
 ): MutatorIntent {
-  const sameParent =
-    !args.oldParent ||
-    (args.oldParent.type === args.newParent.type && args.oldParent.uid === args.newParent.uid);
-
-  if (sameParent) {
-    return {
-      batch: mintBatch(ctx, [
-        {
-          kind: 'moveBefore',
-          type: args.newParent.type,
-          id: args.newParent.uid,
-          path: REQUEST_FOLDER_CHILDREN_PATH,
-          itemId: args.folderUid,
-          orderKey: args.orderKey,
-        },
-      ]),
-      sideEffects: [],
-    };
-  }
-
-  const slot: RequestFolderSlot = { uid: args.folderUid };
-  const oldParent = args.oldParent as RequestFolderParentRef;
-  const bodies: MutationBody[] = [
-    {
-      kind: 'removeFromSet',
-      type: oldParent.type,
-      id: oldParent.uid,
-      path: REQUEST_FOLDER_CHILDREN_PATH,
-      itemId: args.folderUid,
-    },
-    {
-      kind: 'addToSet',
-      type: args.newParent.type,
-      id: args.newParent.uid,
-      path: REQUEST_FOLDER_CHILDREN_PATH,
-      itemId: args.folderUid,
-      item: slot,
-      orderKey: args.orderKey,
-    },
-  ];
-  return { batch: mintBatch(ctx, bodies), sideEffects: [] };
+  return factories.moveFolder(ctx, args);
 }

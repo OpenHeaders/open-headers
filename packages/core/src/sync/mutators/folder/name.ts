@@ -1,14 +1,18 @@
 /**
- * `renameFolder` — set the folder's display name.
- *
- * Semantically `setField('name', _)`; named for awareness/UI clarity
- * the same way `toggleEnabled` is on rules and `renameCollection` is on
- * collections.
+ * `renameFolder` — thin adapter over the shared folder-mutator factory.
+ * Semantically `setField('name', _)`; named for awareness/UI clarity.
  */
 
+import { makeFolderMutators } from '../shared/folder-mutators';
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
-import { FOLDER_ENTITY_TYPE } from './types';
+import { FOLDER_CHILDREN_PATH, FOLDER_ENTITY_TYPE, type FolderParentRef } from './types';
+
+const factories = makeFolderMutators<FolderParentRef>({
+  entityType: FOLDER_ENTITY_TYPE,
+  childrenPath: FOLDER_CHILDREN_PATH,
+  mintBatch,
+});
 
 export interface RenameFolderArgs {
   folderUid: string;
@@ -16,10 +20,5 @@ export interface RenameFolderArgs {
 }
 
 export function renameFolder(ctx: MutatorContext, args: RenameFolderArgs): MutatorIntent {
-  return {
-    batch: mintBatch(ctx, [
-      { kind: 'setField', type: FOLDER_ENTITY_TYPE, id: args.folderUid, path: 'name', value: args.name },
-    ]),
-    sideEffects: [],
-  };
+  return factories.renameFolder(ctx, args);
 }

@@ -1,13 +1,22 @@
 /**
- * `renameTemplateFolder` — set the template folder's display name.
- *
- * Semantically `setField('name', _)`; named for awareness/UI clarity
- * the same way `renameFolder` is on rule folders.
+ * `renameTemplateFolder` — thin adapter over the shared folder-mutator
+ * factory. Semantically `setField('name', _)`.
  */
 
+import { makeFolderMutators } from '../shared/folder-mutators';
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
-import { TEMPLATE_FOLDER_ENTITY_TYPE } from './types';
+import {
+  TEMPLATE_FOLDER_CHILDREN_PATH,
+  TEMPLATE_FOLDER_ENTITY_TYPE,
+  type TemplateFolderParentRef,
+} from './types';
+
+const factories = makeFolderMutators<TemplateFolderParentRef>({
+  entityType: TEMPLATE_FOLDER_ENTITY_TYPE,
+  childrenPath: TEMPLATE_FOLDER_CHILDREN_PATH,
+  mintBatch,
+});
 
 export interface RenameTemplateFolderArgs {
   folderUid: string;
@@ -18,16 +27,5 @@ export function renameTemplateFolder(
   ctx: MutatorContext,
   args: RenameTemplateFolderArgs,
 ): MutatorIntent {
-  return {
-    batch: mintBatch(ctx, [
-      {
-        kind: 'setField',
-        type: TEMPLATE_FOLDER_ENTITY_TYPE,
-        id: args.folderUid,
-        path: 'name',
-        value: args.name,
-      },
-    ]),
-    sideEffects: [],
-  };
+  return factories.renameFolder(ctx, args);
 }

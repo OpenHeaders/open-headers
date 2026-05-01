@@ -1,24 +1,20 @@
 /**
- * `createFolder` + `deleteFolder` — folder entity lifecycle.
- *
- * Each is a cross-entity batch: the folder entity itself carries the
- * `name` (and `schemaVersion`) scalars; the parent (collection or
- * folder) carries the child-slot in its `folders` set. Per-batch
- * all-or-nothing at the local oracle (§11.2) keeps observers from
- * seeing the half-and-half intermediate state.
- *
- * Cascading rule deletes when a folder is removed are NOT modelled
- * here — the side-effect of a folder-delete is the SW-side rule-store
- * cascade, which runs as separate `delete(rule, ...)` envelopes minted
- * by the rule catalog. Keeping that cross-entity orchestration outside
- * the folder catalog matches what session 14 did for collection-delete.
+ * `createFolder` + `deleteFolder` — thin adapters over the shared
+ * folder-mutator factory bound to the rule-side folder routing
+ * constants. See `shared/folder-mutators.ts` for the cross-entity
+ * lifecycle invariants.
  */
 
-import { toFolderName } from '../../../utils/workspace';
-import type { MutationBody } from '../../envelope';
+import { makeFolderMutators } from '../shared/folder-mutators';
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
-import { FOLDER_CHILDREN_PATH, FOLDER_ENTITY_TYPE, type FolderParentRef, type FolderSlot } from './types';
+import { FOLDER_CHILDREN_PATH, FOLDER_ENTITY_TYPE, type FolderParentRef } from './types';
+
+const factories = makeFolderMutators<FolderParentRef>({
+  entityType: FOLDER_ENTITY_TYPE,
+  childrenPath: FOLDER_CHILDREN_PATH,
+  mintBatch,
+});
 
 export interface CreateFolderArgs {
   folderUid: string;
@@ -26,43 +22,16 @@ export interface CreateFolderArgs {
   name: string;
   /**
    * Stable last path segment for the folder's filesystem-style path
-   * (e.g. `login-x7k2abcd`). Frozen at create time so the projected
-   * `V5.Folder.path` doesn't shift on rename — rule paths embed this
-   * segment, so a moving target would orphan every rule under the
-   * folder. Defaults to `toFolderName(name, folderUid)` when the
-   * caller omits it (the legacy invariant: slug derived from initial
-   * name).
+   * (e.g. `login-x7k2abcd`). Frozen at create time; defaults to
+   * `toFolderName(name, folderUid)` when the caller omits it.
    */
   pathSegment?: string;
-  /**
-   * Pre-computed fractional-indexing key for the new slot's position
-   * in the parent's `folders` set. Omit to let the seed key handle
-   * ordering — fine for first child or when the caller doesn't care.
-   */
+  /** Pre-computed fractional-indexing key for the new slot's position. */
   orderKey?: string;
 }
 
 export function createFolder(ctx: MutatorContext, args: CreateFolderArgs): MutatorIntent {
-  const slot: FolderSlot = { uid: args.folderUid };
-  const pathSegment = args.pathSegment ?? toFolderName(args.name, args.folderUid);
-  const bodies: MutationBody[] = [
-    {
-      kind: 'create',
-      type: FOLDER_ENTITY_TYPE,
-      id: args.folderUid,
-      payload: { schemaVersion: 5, name: args.name, pathSegment },
-    },
-    {
-      kind: 'addToSet',
-      type: args.parent.type,
-      id: args.parent.uid,
-      path: FOLDER_CHILDREN_PATH,
-      itemId: args.folderUid,
-      item: slot,
-      orderKey: args.orderKey,
-    },
-  ];
-  return { batch: mintBatch(ctx, bodies), sideEffects: [] };
+  return factories.createFolder(ctx, args);
 }
 
 export interface DeleteFolderArgs {
@@ -71,15 +40,5 @@ export interface DeleteFolderArgs {
 }
 
 export function deleteFolder(ctx: MutatorContext, args: DeleteFolderArgs): MutatorIntent {
-  const bodies: MutationBody[] = [
-    {
-      kind: 'removeFromSet',
-      type: args.parent.type,
-      id: args.parent.uid,
-      path: FOLDER_CHILDREN_PATH,
-      itemId: args.folderUid,
-    },
-    { kind: 'delete', type: FOLDER_ENTITY_TYPE, id: args.folderUid },
-  ];
-  return { batch: mintBatch(ctx, bodies), sideEffects: [] };
+  return factories.deleteFolder(ctx, args);
 }
