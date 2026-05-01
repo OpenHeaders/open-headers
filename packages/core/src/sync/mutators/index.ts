@@ -177,10 +177,20 @@ export {
   type SetRequestFieldArgs,
 } from './request';
 export {
+  invalidateResolverIntent as requestCollectionInvalidateResolverIntent,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_COLLECTION_MUTATOR_VERSION,
+  REQUEST_COLLECTION_VARS_PATH,
+  type RemoveRequestCollectionVarArgs,
+  removeRequestCollectionVar,
   type RenameRequestCollectionArgs,
   renameRequestCollection,
+  type RenameRequestCollectionVarArgs,
+  renameRequestCollectionVar,
+  type SetRequestCollectionVarArgs,
+  setRequestCollectionVar,
+  type SetRequestCollectionVarTypeArgs,
+  setRequestCollectionVarType,
 } from './request-collection';
 export {
   createRequestFolder,

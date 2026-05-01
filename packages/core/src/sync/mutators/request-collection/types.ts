@@ -12,12 +12,13 @@
  * routing key disambiguates them at every layer (oracle locks,
  * projector dispatch, snapshot RPCs, awareness).
  *
- * Renderer surfaces today don't expose collection-variable editing or
- * pinned-environment editing for request collections, so this catalog
- * ships only `renameRequestCollection`. Adding variable / pinned
- * factories later is purely additive — copy the rule-collection shapes
- * with the routing constant swapped.
+ * Variable + name editing surfaces ship today; pinned-environment
+ * editing remains additive future work (copy the rule-collection
+ * shape with the routing constant swapped if/when it lands).
  */
 
 /** Routing key carried on every request-collection mutation envelope. */
 export const REQUEST_COLLECTION_ENTITY_TYPE = 'request-collection';
+
+/** Set path holding the variable list on a request-collection entity. */
+export const REQUEST_COLLECTION_VARS_PATH = 'variables';
