@@ -45,6 +45,10 @@ interface UseRequestTreeNodesParams {
   /** Open the request-collection overview tab (matches the rule-collection
    *  precedent: clicking the collection row opens its overview). */
   onOpenRequestCollectionOverview?: (uid: string, name: string, autoRename?: boolean) => void;
+  /** Open the request-folder overview tab (matches the rule-folder + template-
+   *  folder precedent: clicking a folder row both expands the tree node AND
+   *  opens its overview tab). */
+  onOpenRequestFolderOverview?: (uid: string, name: string, autoRename?: boolean) => void;
 }
 
 export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
@@ -65,6 +69,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
                   next.add(fid);
                   return next;
                 });
+                p.onOpenRequestFolderOverview?.(f.uid, f.name, true);
               }
             });
           };
@@ -87,7 +92,10 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
             canRename: true,
             canDelete: true,
             canAddChild: true,
-            onOpen: () => p.toggleExpand(fid),
+            onOpen: () => {
+              p.toggleExpand(fid);
+              p.onOpenRequestFolderOverview?.(node.uid, node.name);
+            },
             onRename: async (name: string) => {
               void p.renameRequestFolderRpc(node.uid, name);
             },
@@ -201,6 +209,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
       p.setExpandedKeys,
       p.setRenamingId,
       p.onExportEntity,
+      p.onOpenRequestFolderOverview,
     ],
   );
 
@@ -233,6 +242,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
               next.add(colId);
               return next;
             });
+            p.onOpenRequestFolderOverview?.(f.uid, f.name, true);
           }
         });
       };
@@ -334,5 +344,6 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
     p.onExportEntity,
     p.onOpenCollectionVariables,
     p.onOpenRequestCollectionOverview,
+    p.onOpenRequestFolderOverview,
   ]);
 }

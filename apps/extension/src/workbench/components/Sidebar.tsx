@@ -104,6 +104,10 @@ interface SidebarProps {
   onOpenCollectionOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   onOpenFolderOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   onOpenRequestCollectionOverview?: (uid: string, name: string, autoRename?: boolean) => void;
+  /** Open the request-folder overview tab — companion to
+   *  {@link onOpenFolderOverview} (rule family) and
+   *  {@link onOpenTemplateFolderOverview}. */
+  onOpenRequestFolderOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   onSelectTemplate?: (uid: string) => void;
   onOpenTemplateCollectionOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   onOpenTemplateFolderOverview?: (uid: string, name: string, autoRename?: boolean) => void;
@@ -153,6 +157,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onOpenCollectionOverview,
   onOpenFolderOverview,
   onOpenRequestCollectionOverview,
+  onOpenRequestFolderOverview,
   onSelectTemplate,
   onOpenTemplateCollectionOverview,
   onOpenTemplateFolderOverview,
@@ -581,6 +586,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     onExportEntity,
     onOpenCollectionVariables: onOpenRequestCollectionVariables,
     onOpenRequestCollectionOverview,
+    onOpenRequestFolderOverview,
   });
 
   const environmentNodes = useEnvironmentNodes({

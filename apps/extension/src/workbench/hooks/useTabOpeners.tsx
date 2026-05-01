@@ -59,6 +59,10 @@ export interface UseTabOpenersApi {
    * helper (uids never collide across families).
    */
   openRequestCollectionOverview: (uid: string, name: string, autoRename?: boolean) => void;
+  /** Open the request-folder overview tab. Same `mode: 'folder-overview'`
+   *  as the rule + template variants; the `entityId` uid disambiguates
+   *  the family at render time via {@link findFolderByUid}. */
+  openRequestFolderOverview: (uid: string, name: string, autoRename?: boolean) => void;
   openTemplateEditTab: (uid: string) => void;
   openTemplateCollectionOverview: (uid: string, name: string, autoRename?: boolean) => void;
   openTemplateFolderOverview: (uid: string, name: string, autoRename?: boolean) => void;
@@ -299,6 +303,19 @@ export function useTabOpeners({
         return;
       }
       addTab({ id, label: name, ruleType: '', dirty: false, mode: 'collection-overview', entityId: uid });
+      if (autoRename) setPendingRenameTabId(id);
+    },
+    [allTabs, addTab, switchTab],
+  );
+
+  const openRequestFolderOverview = useCallback(
+    (uid: string, name: string, autoRename = false) => {
+      const id = `req-folder-${uid}`;
+      if (allTabs.some((t) => t.id === id)) {
+        switchTab(id);
+        return;
+      }
+      addTab({ id, label: name, ruleType: '', dirty: false, mode: 'folder-overview', entityId: uid });
       if (autoRename) setPendingRenameTabId(id);
     },
     [allTabs, addTab, switchTab],
@@ -695,6 +712,7 @@ export function useTabOpeners({
     openCollectionOverview,
     openFolderOverview,
     openRequestCollectionOverview,
+    openRequestFolderOverview,
     openTemplateEditTab,
     openTemplateCollectionOverview,
     openTemplateFolderOverview,

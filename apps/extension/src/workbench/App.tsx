@@ -26,12 +26,14 @@ import type React from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import 'allotment/dist/style.css';
 import { createShellEventBus, ShellEventBusContext } from '@/shared/dock-layout';
-import { findCollectionByPath } from '@/shared/variables/collection-scope';
+import { findCollectionByPath, findFolderByUid } from '@/shared/variables/collection-scope';
 import { computeBreadcrumbs, scratchLabelForMode } from './breadcrumbs';
 import BottomPanel from './components/BottomPanel';
 import CollectionOverview from './components/CollectionOverview';
 import RequestCollectionOverview from './components/RequestCollectionOverview';
+import RequestFolderOverview from './components/RequestFolderOverview';
 import TemplateCollectionOverview from './components/TemplateCollectionOverview';
+import TemplateFolderOverview from './components/TemplateFolderOverview';
 import CollectionVariablesEditor from './components/CollectionVariablesEditor';
 import CommandPalette from './components/CommandPalette';
 import EditorGroupRenderer, { type RenderLeafHeaderContext } from './components/EditorGroupRenderer';
@@ -644,6 +646,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     openCollectionOverview,
     openFolderOverview,
     openRequestCollectionOverview,
+    openRequestFolderOverview,
     openTemplateEditTab,
     openTemplateCollectionOverview,
     openTemplateFolderOverview,
@@ -1195,7 +1198,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
               collectionUid={tab.entityId}
               onSelectRequest={openRequestEditTab}
               onCreateRequest={openCreateRequestTab}
-              onOpenFolderOverview={openFolderOverview}
+              onOpenFolderOverview={openRequestFolderOverview}
               onOpenCollectionVariables={openRequestCollectionVariables}
             />
           );
@@ -1223,6 +1226,36 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
         );
       }
       if (tab.mode === 'folder-overview' && tab.entityId) {
+        // Family-dispatch by folder uid lookup. Folder uids — like
+        // collection uids — are globally unique, so a single uid picks
+        // the right component. Falls through to the rule-family
+        // FolderOverview for the still-loading case (no match in any
+        // family yet) so the user sees a brief "Folder not found" empty
+        // state instead of nothing.
+        const owner = findFolderByUid(tab.entityId, {
+          ruleTrees: localCollectionTrees,
+          requestTrees: requestsApi.collectionTrees,
+          templateTrees: templateCollectionTrees,
+        });
+        if (owner?.family === 'request') {
+          return (
+            <RequestFolderOverview
+              folderUid={tab.entityId}
+              onSelectRequest={openRequestEditTab}
+              onCreateRequest={openCreateRequestTab}
+              onOpenFolderOverview={openRequestFolderOverview}
+            />
+          );
+        }
+        if (owner?.family === 'template') {
+          return (
+            <TemplateFolderOverview
+              folderUid={tab.entityId}
+              onSelectTemplate={openTemplateEditTab}
+              onOpenFolderOverview={openTemplateFolderOverview}
+            />
+          );
+        }
         return (
           <FolderOverview
             folderUid={tab.entityId}
@@ -1451,6 +1484,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
       openCreateTab,
       openCollectionOverview,
       openFolderOverview,
+      openRequestFolderOverview,
+      openTemplateFolderOverview,
       openRuleFlow,
       openTestRunsPanel,
       openSettings,
@@ -1502,6 +1537,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
               onOpenCollectionOverview={openCollectionOverview}
               onOpenFolderOverview={openFolderOverview}
               onOpenRequestCollectionOverview={openRequestCollectionOverview}
+              onOpenRequestFolderOverview={openRequestFolderOverview}
               onSelectTemplate={openTemplateEditTab}
               onOpenTemplateCollectionOverview={openTemplateCollectionOverview}
               onOpenTemplateFolderOverview={openTemplateFolderOverview}
@@ -1579,6 +1615,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
       handleDeleteRule,
       openCollectionOverview,
       openFolderOverview,
+      openRequestCollectionOverview,
+      openRequestFolderOverview,
       openTemplateEditTab,
       openTemplateCollectionOverview,
       openTemplateFolderOverview,

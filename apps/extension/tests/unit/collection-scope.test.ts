@@ -2,9 +2,11 @@ import type { V5 } from '@openheaders/core/types';
 import { VariableResolver } from '@openheaders/core/variables';
 import {
   type CollectionFamilies,
+  type CollectionTreeFamilies,
   feedCollectionVariablesToResolver,
   findCollectionByPath,
   findCollectionByUid,
+  findFolderByUid,
   iterateAllCollections,
 } from '@/shared/variables/collection-scope';
 import { describe, expect, it } from 'vitest';
@@ -91,5 +93,57 @@ describe('iterateAllCollections', () => {
   it('yields all five collections in family order', () => {
     const uids = [...iterateAllCollections(FAMILIES)].map((c) => c.uid);
     expect(uids).toEqual(['rc-a', 'rc-b', 'qc-a', 'qc-n', 'tc-a']);
+  });
+});
+
+function folder(uid: string, name: string, path: string, children: V5.TreeNode[] = []): V5.FolderNode {
+  return { type: 'folder', uid, name, path, children };
+}
+
+function tree(col: V5.Collection, treeNodes: V5.TreeNode[]): V5.CollectionTree {
+  return { ...col, tree: treeNodes };
+}
+
+const RULE_FOLDER = folder('rf-1', 'Auth', 'rules/A/auth');
+const RULE_FOLDER_NESTED = folder('rf-2', 'OAuth', 'rules/A/auth/oauth');
+const RULE_TREE = tree(RULE_A, [
+  { ...RULE_FOLDER, children: [RULE_FOLDER_NESTED] } as V5.FolderNode,
+]);
+const REQ_FOLDER = folder('qf-1', 'Login', 'requests/A/login');
+const REQ_TREE = tree(REQ_A, [REQ_FOLDER]);
+const TPL_FOLDER = folder('tf-1', 'Headers', 'templates/A/headers');
+const TPL_TREE = tree(TEMPL_A, [TPL_FOLDER]);
+
+const TREE_FAMILIES: CollectionTreeFamilies = {
+  ruleTrees: [RULE_TREE],
+  requestTrees: [REQ_TREE],
+  templateTrees: [TPL_TREE],
+};
+
+describe('findFolderByUid', () => {
+  it('returns the rule family + correct collection metadata for a rule folder', () => {
+    const hit = findFolderByUid('rf-1', TREE_FAMILIES);
+    expect(hit).not.toBeNull();
+    expect(hit?.family).toBe('rule');
+    expect(hit?.folder.uid).toBe('rf-1');
+    expect(hit?.collectionUid).toBe('rc-a');
+    expect(hit?.collectionName).toBe('A');
+    expect(hit?.folderTrail).toEqual([]);
+  });
+
+  it('returns the parent trail for a nested folder', () => {
+    const hit = findFolderByUid('rf-2', TREE_FAMILIES);
+    expect(hit?.family).toBe('rule');
+    expect(hit?.folder.uid).toBe('rf-2');
+    expect(hit?.folderTrail).toEqual(['Auth']);
+  });
+
+  it('disambiguates request and template folders by uid', () => {
+    expect(findFolderByUid('qf-1', TREE_FAMILIES)?.family).toBe('request');
+    expect(findFolderByUid('tf-1', TREE_FAMILIES)?.family).toBe('template');
+  });
+
+  it('returns null for an unknown uid', () => {
+    expect(findFolderByUid('does-not-exist', TREE_FAMILIES)).toBeNull();
   });
 });

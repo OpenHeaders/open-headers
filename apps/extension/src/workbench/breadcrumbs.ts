@@ -110,21 +110,36 @@ export function computeBreadcrumbs(
   }
 
   if (tab.mode === 'folder-overview' && tab.entityId) {
-    for (const col of localCollectionTrees) {
-      const trail: string[] = [];
-      const findFolder = (nodes: V5.TreeNode[]): boolean => {
-        for (const n of nodes) {
-          if (n.type === 'folder' && n.uid === tab.entityId) return true;
-          if (n.type === 'folder') {
-            trail.push(n.name);
-            if (findFolder(n.children)) return true;
-            trail.pop();
+    // Family-disambiguate by folder uid lookup. Folder uids are
+    // globally unique; the walk visits rule → request → template
+    // trees and emits the family-prefixed breadcrumb. Falls through
+    // to "Rules" as the default when the uid hasn't loaded yet.
+    const findIn = (
+      trees: readonly V5.CollectionTree[],
+    ): { collectionName: string; trail: string[] } | null => {
+      for (const col of trees) {
+        const trail: string[] = [];
+        const walk = (nodes: V5.TreeNode[]): boolean => {
+          for (const n of nodes) {
+            if (n.type === 'folder' && n.uid === tab.entityId) return true;
+            if (n.type === 'folder') {
+              trail.push(n.name);
+              if (walk(n.children)) return true;
+              trail.pop();
+            }
           }
-        }
-        return false;
-      };
-      if (findFolder(col.tree)) return ['Rules', col.name, ...trail, tab.label];
-    }
+          return false;
+        };
+        if (walk(col.tree)) return { collectionName: col.name, trail };
+      }
+      return null;
+    };
+    const ruleHit = findIn(localCollectionTrees);
+    if (ruleHit) return ['Rules', ruleHit.collectionName, ...ruleHit.trail, tab.label];
+    const requestHit = findIn(requestCollectionTrees);
+    if (requestHit) return ['API Requests', requestHit.collectionName, ...requestHit.trail, tab.label];
+    const templateHit = findIn(templateCollectionTrees);
+    if (templateHit) return ['Templates', templateHit.collectionName, ...templateHit.trail, tab.label];
     return ['Rules', tab.label];
   }
 

@@ -108,3 +108,69 @@ export function* iterateAllCollections(families: CollectionFamilies): Generator<
   for (const c of families.requestCollections) yield c;
   for (const c of families.templateCollections) yield c;
 }
+
+/** Which collection family owns a given folder. */
+export type CollectionFamily = 'rule' | 'request' | 'template';
+
+/** Bundle of all three families' collection trees — the per-tree counterpart
+ * to {@link CollectionFamilies}. Folder lookup needs trees because folders
+ * live as `V5.FolderNode` entries inside `V5.CollectionTree.tree`, not on
+ * the flat `Collection` objects. */
+export interface CollectionTreeFamilies {
+  ruleTrees: readonly V5.CollectionTree[];
+  requestTrees: readonly V5.CollectionTree[];
+  templateTrees: readonly V5.CollectionTree[];
+}
+
+/**
+ * Find a folder by uid across all three families. Returns the family that
+ * owns it plus enough context (collection uid + name + folder trail) for
+ * a renderer to mount the right per-family overview component and show
+ * the right breadcrumb.
+ *
+ * Folder uids — like collection uids — are minted globally unique, so a
+ * single uid disambiguates the family. The walk visits families in a
+ * fixed order (rule → request → template) and returns the first match;
+ * a uid present in two families would be a minting bug, not a lookup
+ * concern, and the helper's tests cover the no-collision invariant.
+ */
+export function findFolderByUid(
+  folderUid: string,
+  families: CollectionTreeFamilies,
+): {
+  family: CollectionFamily;
+  folder: V5.FolderNode;
+  collectionUid: string;
+  collectionName: string;
+  /** Folder names from the owning collection root down to (but excluding)
+   *  the folder itself. Empty when the folder is a direct child of the
+   *  collection. Useful for breadcrumb construction. */
+  folderTrail: string[];
+} | null {
+  const FAMILIES: { family: CollectionFamily; trees: readonly V5.CollectionTree[] }[] = [
+    { family: 'rule', trees: families.ruleTrees },
+    { family: 'request', trees: families.requestTrees },
+    { family: 'template', trees: families.templateTrees },
+  ];
+  for (const { family, trees } of FAMILIES) {
+    for (const col of trees) {
+      const trail: string[] = [];
+      const walk = (nodes: V5.TreeNode[]): V5.FolderNode | null => {
+        for (const n of nodes) {
+          if (n.type !== 'folder') continue;
+          if (n.uid === folderUid) return n;
+          trail.push(n.name);
+          const found = walk(n.children);
+          if (found) return found;
+          trail.pop();
+        }
+        return null;
+      };
+      const folder = walk(col.tree);
+      if (folder) {
+        return { family, folder, collectionUid: col.uid, collectionName: col.name, folderTrail: trail };
+      }
+    }
+  }
+  return null;
+}
