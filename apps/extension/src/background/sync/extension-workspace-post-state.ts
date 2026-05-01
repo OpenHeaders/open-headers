@@ -26,28 +26,30 @@ import type { V5 } from '@openheaders/core/types';
 import { makeSingletonEntityProjectors } from './flat-entity-post-state';
 import type { EntityOracle } from './oracle';
 
-type Reads = Pick<EntityOracle, 'materializeOne' | 'liveSetItems'>;
+type Reads = Pick<EntityOracle, 'materializeOne' | 'liveOrderedSetItems'>;
 
 const projectors = makeSingletonEntityProjectors<Reads, SyncExtensionWorkspacePostState>({
   entityType: EXTENSION_WORKSPACE_ENTITY_TYPE,
   entityId: EXTENSION_WORKSPACE_ID,
   compose: (materialized, oracle) => {
-    const entries = oracle.liveSetItems(
+    const entries = oracle.liveOrderedSetItems(
       EXTENSION_WORKSPACE_ENTITY_TYPE,
       EXTENSION_WORKSPACE_ID,
       EXTENSION_WORKSPACES_SET_PATH,
     );
     const workspaces: V5.ExtensionWorkspace[] = [];
+    const orderKeys: Record<string, string> = {};
     let sortIndex = 0;
     for (const entry of entries) {
       if (!isExtensionWorkspaceSlot(entry.item)) continue;
       workspaces.push(toExtensionWorkspace(entry.item, sortIndex));
+      orderKeys[entry.item.id] = entry.key;
       sortIndex += 1;
     }
     const data = (materialized.data ?? {}) as Record<string, unknown>;
     const activeRaw = data[EXTENSION_WORKSPACE_ACTIVE_ID_PATH];
     const activeWorkspaceId = typeof activeRaw === 'string' ? activeRaw : null;
-    return { workspaces, activeWorkspaceId };
+    return { workspaces, activeWorkspaceId, orderKeys };
   },
 });
 

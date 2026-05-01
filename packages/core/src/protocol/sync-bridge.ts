@@ -402,6 +402,13 @@ export interface SyncExtensionWorkspacePostState {
    * workspace in the list, matching the legacy hydration guard.
    */
   activeWorkspaceId: string | null;
+  /**
+   * Per-workspace fractional-indexing keys, keyed by workspace id. The
+   * public `V5.ExtensionWorkspace` shape strips them (consumers see a
+   * sorted list); renderer-direct write paths need them to mint
+   * `keyBetween` between siblings on rename without touching position.
+   */
+  orderKeys: Record<string, string>;
 }
 
 /** Oracle → surfaces: a committed envelope, broadcast for ack + replay. */

@@ -104,3 +104,42 @@ export function ensureRendererContext(opts: CreateRendererContextOptions): Rende
   active = createRendererContextHandle(opts);
   return active;
 }
+
+// ── Global-scope per-surface singleton ───────────────────────────────
+//
+// Global-scope entities (ExtensionWorkspace) carry the sentinel
+// `EXTENSION_WORKSPACE_GLOBAL_SCOPE` as their `workspaceId`. Their
+// sequencer is independent of the per-workspace one — workspace
+// switches must not reset the global HLC stream, and global writes
+// must not interleave HLCs with per-workspace writes.
+
+import { EXTENSION_WORKSPACE_GLOBAL_SCOPE } from '@openheaders/core/sync';
+
+export interface CreateGlobalRendererContextOptions {
+  /** Surface attribution carried on every emitted envelope. Common
+   *  values: `'workbench'`, `'popup'`, `'devpanel'`. */
+  surfaceId: string;
+}
+
+let activeGlobal: RendererContextHandle | null = null;
+
+export function ensureGlobalRendererContext(
+  opts: CreateGlobalRendererContextOptions,
+): RendererContextHandle {
+  if (activeGlobal && activeGlobal.surfaceId === opts.surfaceId) {
+    return activeGlobal;
+  }
+  activeGlobal = createRendererContextHandle({
+    workspaceId: EXTENSION_WORKSPACE_GLOBAL_SCOPE,
+    surfaceId: opts.surfaceId,
+  });
+  return activeGlobal;
+}
+
+export function getActiveGlobalRendererContext(): RendererContextHandle | null {
+  return activeGlobal;
+}
+
+export function setActiveGlobalRendererContext(handle: RendererContextHandle | null): void {
+  activeGlobal = handle;
+}
