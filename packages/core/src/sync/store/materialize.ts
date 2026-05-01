@@ -14,6 +14,16 @@
  * the parent-owned fractional-indexing key (with itemId as tie-break)
  * so two structurally-equal stores produce byte-identical canonical
  * JSON. Order computation lives in `liveOrderedItemsAt`.
+ *
+ * Schema-aware empty-set canonicalization: when an
+ * {@link EntitySchema} is supplied, every declared set path is
+ * guaranteed to surface — as `[]` if no live entries exist, or as the
+ * ordered set otherwise. The function form of `setPaths` receives the
+ * field-value-only partial data so conditional schemas (Rule's
+ * `action.*` paths gated on `type: 'header'`) can branch on the
+ * discriminant. Without a schema, untouched set paths stay absent
+ * (legacy / catalog-blind tests). Convergence and HLC semantics are
+ * unchanged either way.
  */
 
 import type { EntityType } from '../envelope';
@@ -21,6 +31,7 @@ import { compareHlc } from '../hlc';
 import { type Leaf, unflattenLeaves } from '../mutators';
 import { liveOrderedItemsAt } from '../mutators/state';
 import type { EntityState } from '../mutators/types';
+import type { EntitySchema } from '../schema';
 
 export interface MaterializedEntity {
   type: EntityType;
@@ -28,26 +39,46 @@ export interface MaterializedEntity {
   data: unknown;
 }
 
-export function materializeEntity(state: EntityState): MaterializedEntity | null {
+export function materializeEntity(state: EntityState, schema?: EntitySchema): MaterializedEntity | null {
   if (state.tombstone) return null;
 
-  const leaves: Leaf[] = [];
-
+  const fieldLeaves: Leaf[] = [];
   for (const [path, entry] of state.fieldValues) {
     const tombstoneHlc = state.fieldTombstones.get(path);
     if (tombstoneHlc && compareHlc(tombstoneHlc, entry.hlc) >= 0) continue;
-    leaves.push({ path, value: entry.value });
+    fieldLeaves.push({ path, value: entry.value });
   }
 
-  for (const setPath of state.setItems.keys()) {
+  // Resolve schema-declared set paths. Function form gets the
+  // field-value-only partial so conditional schemas can branch on a
+  // discriminant. The double-unflatten cost is paid only when the
+  // schema actually uses the function form.
+  const declaredSetPaths: readonly string[] = (() => {
+    if (!schema) return [];
+    const resolver = schema.setPaths;
+    if (typeof resolver === 'function') {
+      const partial = unflattenLeaves(sortedLeaves(fieldLeaves));
+      return resolver(partial);
+    }
+    return resolver;
+  })();
+
+  // Union of paths that need to surface as arrays: every path the
+  // state knows about, plus every path the schema declared.
+  const setPaths = new Set<string>(state.setItems.keys());
+  for (const path of declaredSetPaths) setPaths.add(path);
+
+  const leaves: Leaf[] = fieldLeaves.slice();
+  for (const setPath of setPaths) {
     const live = liveOrderedItemsAt(state, setPath);
-    if (live.length === 0) continue;
     leaves.push({ path: setPath, value: live.map((l) => l.item) });
   }
 
-  // Sort leaves by path so unflattenLeaves builds containers in a
-  // deterministic shape regardless of insertion order.
-  leaves.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  return { type: state.type, id: state.id, data: unflattenLeaves(sortedLeaves(leaves)) };
+}
 
-  return { type: state.type, id: state.id, data: unflattenLeaves(leaves) };
+// Sort leaves by path so unflattenLeaves builds containers in a
+// deterministic shape regardless of insertion order.
+function sortedLeaves(leaves: Leaf[]): Leaf[] {
+  return leaves.slice().sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 }

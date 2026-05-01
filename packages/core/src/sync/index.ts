@@ -14,4 +14,5 @@ export * from './hlc';
 export * from './mutators';
 export * from './order';
 export * from './path';
+export * from './schema';
 export * from './store';

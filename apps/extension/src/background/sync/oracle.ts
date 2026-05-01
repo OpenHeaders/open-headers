@@ -30,6 +30,7 @@
  */
 
 import {
+  type EntitySchemaRegistry,
   InMemoryDocumentStore,
   type MutationBatch,
   type MutationEnvelope,
@@ -63,15 +64,20 @@ export interface OracleConfig {
   log: MutationLog;
   intents: PendingIntents;
   broadcast: MutationBroadcast;
-  /** Optional initial document store — defaults to a fresh in-memory one. */
+  /** Optional initial document store — defaults to a fresh in-memory one
+   *  configured with `schemas` if supplied. */
   store?: InMemoryDocumentStore;
+  /** Schema registry consulted by the materializer to canonicalize
+   *  empty set-modeled paths to `[]`. Optional; absent registry keeps
+   *  the legacy "untouched paths are absent" shape. */
+  schemas?: EntitySchemaRegistry;
 }
 
 export class EntityOracle {
   private readonly store: InMemoryDocumentStore;
 
   constructor(private readonly cfg: OracleConfig) {
-    this.store = cfg.store ?? new InMemoryDocumentStore();
+    this.store = cfg.store ?? new InMemoryDocumentStore(cfg.schemas);
   }
 
   /**

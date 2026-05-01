@@ -38,6 +38,7 @@ import { InMemoryBroadcast } from './broadcast';
 import {
   attachCaches,
   buildProjectorPipeline,
+  buildSchemaRegistry,
   detachCaches,
   type EntityCacheLike,
   EXTENSION_WORKSPACE_REGISTRATION,
@@ -195,6 +196,7 @@ function wire(deps: WireDeps): GlobalServiceState {
     log: deps.log,
     intents: deps.intents,
     broadcast,
+    schemas: buildSchemaRegistry(GLOBAL_REGISTRY),
   });
   const caches = attachCaches(
     EXTENSION_WORKSPACE_GLOBAL_SCOPE,

@@ -78,6 +78,7 @@ import { createDnrIntentRunner, type DnrIntentRunner } from './dnr-intent-runner
 import {
   attachCaches,
   buildProjectorPipeline,
+  buildSchemaRegistry,
   COLLECTION_REGISTRATION,
   detachCaches,
   type EntityCacheLike,
@@ -422,6 +423,7 @@ function wire(deps: WireDeps): ServiceState {
     log: deps.log,
     intents: deps.intents,
     broadcast,
+    schemas: buildSchemaRegistry(WORKSPACE_REGISTRY),
   });
 
   const caches = attachCaches(deps.workspaceId, oracle, broadcast, context, WORKSPACE_REGISTRY);

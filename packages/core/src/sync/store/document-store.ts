@@ -17,6 +17,7 @@ import type { EntityType, MutationEnvelope } from '../envelope';
 import { applyMutation } from '../mutators';
 import { liveOrderedItemsAt, newEntityState } from '../mutators/state';
 import type { EntityState, MutatorOutcome } from '../mutators/types';
+import { EMPTY_ENTITY_SCHEMA_REGISTRY, type EntitySchemaRegistry } from '../schema';
 import { canonicalJson } from './canonical';
 import { type MaterializedEntity, materializeEntity } from './materialize';
 
@@ -36,6 +37,11 @@ export interface DocumentStoreSnapshot {
 export class InMemoryDocumentStore {
   private readonly entities = new Map<string, EntityState>();
   private readonly appliedMutationIds = new Set<string>();
+  private readonly schemas: EntitySchemaRegistry;
+
+  constructor(schemas: EntitySchemaRegistry = EMPTY_ENTITY_SCHEMA_REGISTRY) {
+    this.schemas = schemas;
+  }
 
   apply(envelope: MutationEnvelope): MutatorOutcome {
     if (this.appliedMutationIds.has(envelope.mutationId)) {
@@ -100,14 +106,14 @@ export class InMemoryDocumentStore {
   materializeOne(type: EntityType, id: string): MaterializedEntity | null {
     const state = this.entities.get(entityKey(type, id));
     if (!state) return null;
-    return materializeEntity(state);
+    return materializeEntity(state, this.schemas.get(type));
   }
 
   /** Materialized, deletion-filtered snapshot list, sorted by (type, id). */
   materializeAll(): MaterializedEntity[] {
     const out: MaterializedEntity[] = [];
     for (const state of this.entities.values()) {
-      const m = materializeEntity(state);
+      const m = materializeEntity(state, this.schemas.get(state.type));
       if (m) out.push(m);
     }
     out.sort((a, b) => {

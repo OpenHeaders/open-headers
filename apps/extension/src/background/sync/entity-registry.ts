@@ -26,27 +26,47 @@
  * because the per-entity wiring differs.
  */
 
-import type { MutationEnvelope } from '@openheaders/core/sync';
+import type {
+  EntitySchema,
+  EntitySchemaRegistry,
+  MutationEnvelope,
+  SetPathsResolver,
+} from '@openheaders/core/sync';
 import {
   COLLECTION_ENTITY_TYPE,
+  COLLECTION_VARS_PATH,
+  ENV_VARS_PATH,
   ENVIRONMENT_ENTITY_TYPE,
   EXTENSION_WORKSPACE_ENTITY_TYPE,
+  EXTENSION_WORKSPACES_SET_PATH,
   FILES_ENTITY_TYPE,
+  FILES_REFS_PATH,
   FOLDER_ENTITY_TYPE,
   LAYOUT_STATE_ENTITY_TYPE,
   LIVE_VARIABLE_ENTITY_TYPE,
   LIVE_WORKFLOW_ENTITY_TYPE,
   OAUTH_BUNDLE_ENTITY_TYPE,
+  OAUTH_CONFIGS_PATH,
+  OAUTH_REFRESH_ERRORS_PATH,
+  OAUTH_TOKENS_PATH,
   PAUSE_MARKERS_ENTITY_TYPE,
+  PAUSE_MARKERS_PATH,
   REQUEST_COLLECTION_ENTITY_TYPE,
+  REQUEST_COLLECTION_VARS_PATH,
   REQUEST_ENTITY_TYPE,
   REQUEST_FOLDER_ENTITY_TYPE,
+  REQUEST_HEADERS_PATH,
+  REQUEST_PARAMS_PATH,
   RULE_ENTITY_TYPE,
   TEMPLATE_COLLECTION_ENTITY_TYPE,
+  TEMPLATE_COLLECTION_VARS_PATH,
+  TEMPLATE_CONDITIONS_PATH,
   TEMPLATE_ENTITY_TYPE,
   TEMPLATE_FOLDER_ENTITY_TYPE,
   VAULT_ENTITY_TYPE,
+  VAULT_PATH,
   WORKSPACE_VARIABLES_ENTITY_TYPE,
+  WORKSPACE_VARIABLES_PATH,
 } from '@openheaders/core/sync';
 import { type BroadcastProjector, composeProjectors, type EntityPostState } from './bridge';
 import type { InMemoryBroadcast } from './broadcast';
@@ -185,6 +205,12 @@ interface BaseRegistration<K extends PostStateKey> {
   setActive: SetActive;
   postStateKey: K;
   projectPostState: PostStateProjector<K>;
+  /** Set-modeled paths that must always materialize as arrays — `[]`
+   *  when no live entries exist, the ordered set otherwise. Drives the
+   *  schema-aware materializer in `core/sync/store/materialize.ts`.
+   *  Omit for entities with no set-modeled fields (folder, layout,
+   *  live-workflow, live-variable). */
+  setPaths?: SetPathsResolver;
 }
 
 export interface FlatRegistration<K extends PostStateKey = PostStateKey>
@@ -213,6 +239,7 @@ function flatEntity<K extends PostStateKey, C extends EntityCacheLike>(spec: {
   postStateKey: K;
   projectPostState: PostStateProjector<K>;
   projectByUid: ByUidProjector<K>;
+  setPaths?: SetPathsResolver;
 }): FlatRegistration<K> {
   return {
     kind: 'flat',
@@ -222,6 +249,7 @@ function flatEntity<K extends PostStateKey, C extends EntityCacheLike>(spec: {
     postStateKey: spec.postStateKey,
     projectPostState: spec.projectPostState,
     projectByUid: spec.projectByUid,
+    setPaths: spec.setPaths,
   };
 }
 
@@ -232,6 +260,7 @@ function singletonEntity<K extends PostStateKey, C extends EntityCacheLike>(spec
   postStateKey: K;
   projectPostState: PostStateProjector<K>;
   projectSingleton: SingletonProjector<K>;
+  setPaths?: SetPathsResolver;
 }): SingletonRegistration<K> {
   return {
     kind: 'singleton',
@@ -241,10 +270,27 @@ function singletonEntity<K extends PostStateKey, C extends EntityCacheLike>(spec
     postStateKey: spec.postStateKey,
     projectPostState: spec.projectPostState,
     projectSingleton: spec.projectSingleton,
+    setPaths: spec.setPaths,
   };
 }
 
 // ── Per-entity registrations ────────────────────────────────────────
+
+// `conditions` is universal across rule variants. `action.requestHeaders`
+// + `action.responseHeaders` exist only on `type: 'header'` rules — the
+// resolver branches on the discriminant so non-header rules don't grow
+// stray empty header arrays on their action shape.
+const ruleSetPaths: SetPathsResolver = (partial: unknown): readonly string[] => {
+  if (
+    typeof partial === 'object' &&
+    partial !== null &&
+    !Array.isArray(partial) &&
+    (partial as { type?: unknown }).type === 'header'
+  ) {
+    return ['conditions', 'action.requestHeaders', 'action.responseHeaders'];
+  }
+  return ['conditions'];
+};
 
 export const RULE_REGISTRATION = flatEntity({
   entityType: RULE_ENTITY_TYPE,
@@ -253,6 +299,7 @@ export const RULE_REGISTRATION = flatEntity({
   postStateKey: 'rulePostState',
   projectPostState: projectRulePostState,
   projectByUid: projectRuleByUid,
+  setPaths: ruleSetPaths,
 });
 
 export const ENVIRONMENT_REGISTRATION = flatEntity({
@@ -262,6 +309,7 @@ export const ENVIRONMENT_REGISTRATION = flatEntity({
   postStateKey: 'environmentPostState',
   projectPostState: projectEnvironmentPostState,
   projectByUid: projectEnvironmentByUid,
+  setPaths: [ENV_VARS_PATH],
 });
 
 export const COLLECTION_REGISTRATION = flatEntity({
@@ -271,6 +319,7 @@ export const COLLECTION_REGISTRATION = flatEntity({
   postStateKey: 'collectionPostState',
   projectPostState: projectCollectionPostState,
   projectByUid: projectCollectionByUid,
+  setPaths: [COLLECTION_VARS_PATH],
 });
 
 export const FOLDER_REGISTRATION = flatEntity({
@@ -289,6 +338,7 @@ export const WORKSPACE_VARIABLES_REGISTRATION = singletonEntity({
   postStateKey: 'workspaceVariablesPostState',
   projectPostState: projectWorkspaceVariablesPostState,
   projectSingleton: projectWorkspaceVariablesSingleton,
+  setPaths: [WORKSPACE_VARIABLES_PATH],
 });
 
 export const VAULT_REGISTRATION = singletonEntity({
@@ -298,6 +348,7 @@ export const VAULT_REGISTRATION = singletonEntity({
   postStateKey: 'vaultPostState',
   projectPostState: projectVaultPostState,
   projectSingleton: projectVaultSingleton,
+  setPaths: [VAULT_PATH],
 });
 
 export const REQUEST_REGISTRATION = flatEntity({
@@ -307,6 +358,7 @@ export const REQUEST_REGISTRATION = flatEntity({
   postStateKey: 'requestPostState',
   projectPostState: projectRequestPostState,
   projectByUid: projectRequestByUid,
+  setPaths: [REQUEST_HEADERS_PATH, REQUEST_PARAMS_PATH],
 });
 
 export const REQUEST_COLLECTION_REGISTRATION = flatEntity({
@@ -316,6 +368,7 @@ export const REQUEST_COLLECTION_REGISTRATION = flatEntity({
   postStateKey: 'requestCollectionPostState',
   projectPostState: projectRequestCollectionPostState,
   projectByUid: projectRequestCollectionByUid,
+  setPaths: [REQUEST_COLLECTION_VARS_PATH],
 });
 
 export const REQUEST_FOLDER_REGISTRATION = flatEntity({
@@ -334,6 +387,7 @@ export const TEMPLATE_REGISTRATION = flatEntity({
   postStateKey: 'templatePostState',
   projectPostState: projectTemplatePostState,
   projectByUid: projectTemplateByUid,
+  setPaths: [TEMPLATE_CONDITIONS_PATH],
 });
 
 export const TEMPLATE_COLLECTION_REGISTRATION = flatEntity({
@@ -343,6 +397,7 @@ export const TEMPLATE_COLLECTION_REGISTRATION = flatEntity({
   postStateKey: 'templateCollectionPostState',
   projectPostState: projectTemplateCollectionPostState,
   projectByUid: projectTemplateCollectionByUid,
+  setPaths: [TEMPLATE_COLLECTION_VARS_PATH],
 });
 
 export const TEMPLATE_FOLDER_REGISTRATION = flatEntity({
@@ -379,6 +434,7 @@ export const OAUTH_BUNDLE_REGISTRATION = singletonEntity({
   postStateKey: 'oauthBundlePostState',
   projectPostState: projectOAuthBundlePostState,
   projectSingleton: projectOAuthBundleSingleton,
+  setPaths: [OAUTH_TOKENS_PATH, OAUTH_CONFIGS_PATH, OAUTH_REFRESH_ERRORS_PATH],
 });
 
 export const PAUSE_MARKERS_REGISTRATION = singletonEntity({
@@ -388,6 +444,7 @@ export const PAUSE_MARKERS_REGISTRATION = singletonEntity({
   postStateKey: 'pauseMarkersPostState',
   projectPostState: projectPauseMarkersPostState,
   projectSingleton: projectPauseMarkersSingleton,
+  setPaths: [PAUSE_MARKERS_PATH],
 });
 
 export const LAYOUT_STATE_REGISTRATION = singletonEntity({
@@ -406,6 +463,7 @@ export const FILES_REGISTRATION = singletonEntity({
   postStateKey: 'filesPostState',
   projectPostState: projectFilesPostState,
   projectSingleton: projectFilesSingleton,
+  setPaths: [FILES_REFS_PATH],
 });
 
 export const EXTENSION_WORKSPACE_REGISTRATION = singletonEntity({
@@ -415,6 +473,7 @@ export const EXTENSION_WORKSPACE_REGISTRATION = singletonEntity({
   postStateKey: 'extensionWorkspacePostState',
   projectPostState: projectExtensionWorkspacePostState,
   projectSingleton: projectExtensionWorkspaceSingleton,
+  setPaths: [EXTENSION_WORKSPACES_SET_PATH],
 });
 
 /**
@@ -447,6 +506,24 @@ export const WORKSPACE_REGISTRY: EntityRegistration[] = [
 
 /** Cross-workspace metadata registry, hosted by `global-service.ts`. */
 export const GLOBAL_REGISTRY: EntityRegistration[] = [EXTENSION_WORKSPACE_REGISTRATION];
+
+/**
+ * Compose the schema-aware materializer registry for an oracle scope.
+ * The oracle hands this to `InMemoryDocumentStore`; `materializeEntity`
+ * looks up each entity's `EntitySchema` here to canonicalize empty
+ * set-modeled paths to `[]`. Registrations without `setPaths` are
+ * skipped — the legacy "untouched paths are absent" behaviour is
+ * the right fit for entities with zero set-modeled fields.
+ */
+export function buildSchemaRegistry(registry: EntityRegistration[]): EntitySchemaRegistry {
+  const out = new Map<string, EntitySchema>();
+  for (const reg of registry) {
+    if (reg.setPaths !== undefined) {
+      out.set(reg.entityType, { setPaths: reg.setPaths });
+    }
+  }
+  return out;
+}
 
 // ── Lifecycle helpers (scope-agnostic) ──────────────────────────────
 
