@@ -122,38 +122,6 @@ export interface BridgeRpcContract {
     req: Record<string, never>;
     res: { workspace: V5.ExtensionWorkspace };
   };
-  createWorkspace: {
-    req: { name: string; description?: string; color?: string; icon?: string };
-    res: { success: boolean; workspace?: V5.ExtensionWorkspace; error?: string };
-  };
-  renameWorkspace: {
-    req: { id: string; name: string };
-    res: { success: boolean };
-  };
-  updateWorkspace: {
-    req: {
-      id: string;
-      updates: {
-        name?: string;
-        description?: string;
-        color?: string;
-        /** `null` clears the icon (color-only mode); undefined leaves it untouched. */
-        icon?: string | null;
-      };
-    };
-    /**
-     * Sync engine §24 retired the Phase 10 stale-draft contract; the
-     * SW's per-workspace `withLock` still serializes concurrent puts.
-     */
-    res:
-      | { success: true; workspace: V5.ExtensionWorkspace }
-      | { success: false; reason: 'not-found' }
-      | { success: false; reason: 'other'; message: string };
-  };
-  deleteWorkspace: {
-    req: { id: string };
-    res: { success: boolean; activeWorkspaceId?: string; error?: string };
-  };
   duplicateWorkspace: {
     req: { id: string; name?: string };
     res: { success: boolean; workspace?: V5.ExtensionWorkspace; error?: string };
@@ -351,14 +319,6 @@ export interface BridgeRpcContract {
   getAllowedFetchHosts: {
     req: Record<string, never>;
     res: { hosts: string[] };
-  };
-  setActiveWorkspace: {
-    req: { id: string };
-    res: { success: boolean; error?: string };
-  };
-  reorderWorkspaces: {
-    req: { idOrder: string[] };
-    res: { success: boolean };
   };
   checkConnection: {
     req: Record<string, never>;

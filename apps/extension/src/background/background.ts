@@ -128,13 +128,19 @@ import { bootstrapTotpScheduler, handleTotpAlarm, isTotpAlarm } from './modules/
 import { __setSyncWarmRunner, getUnresolvableRuleUids, hydrateLiveCacheMirror } from './modules/variables-resolver';
 import { initializeViewMode } from './modules/view-mode';
 import { isHandoffSweepAlarm, sweepExpiredHandoffs } from './modules/workspace-export-handoff-store';
-import { hydrateActiveWorkspaceStores } from './modules/workspace-orchestrator';
+import {
+  hydrateActiveWorkspaceStores,
+  purgeWorkspaceData,
+  swapPerWorkspaceStores,
+} from './modules/workspace-orchestrator';
 import {
   bootstrap as bootstrapWorkspaces,
   bridgeExtensionWorkspaceSyncEngine,
   getActiveWorkspaceId,
   listWorkspaces,
   onWorkspaceStoreChange,
+  setActiveSwitchCoordinator,
+  setWorkspaceRemovedCoordinator,
 } from './modules/workspace-store';
 import { setupWorkspaceTabRegistry } from './modules/workspace-tab-registry';
 import {
@@ -561,6 +567,16 @@ async function initializeExtension(): Promise<void> {
   // populated by `bootstrapWorkspaces()` (already resolved by the time
   // hydration completes).
   initGlobalSyncService();
+  // Register cross-store coordinators BEFORE the cache subscription is
+  // installed so the very first observed transition (typically the
+  // seed-from-persisted broadcast) finds the coordinators in place.
+  // The active-flip coordinator runs the per-workspace store swaps so
+  // `bridgeXSyncEngine` re-seeds in `onWorkspaceStoreChange` observe
+  // already-swapped state. The removed coordinator clears every per-
+  // workspace storage key for ids that left the list — preserving the
+  // delete-with-data semantics the bridge handler used to enforce.
+  setActiveSwitchCoordinator(swapPerWorkspaceStores);
+  setWorkspaceRemovedCoordinator(purgeWorkspaceData);
   await bridgeExtensionWorkspaceSyncEngine();
 
   // Sync engine (Phase A) — instantiate the local oracle for the

@@ -173,19 +173,8 @@ import { consumeImportHandoff, registerImportHandoff } from './workspace-export-
 import { findExportImportMatches } from './workspace-import-dedup';
 import { importWorkspace as importWorkspaceFromExport, previewWorkspaceImport } from './workspace-import-orchestrator';
 import { openWorkspaceIntent } from './workspace-navigator';
-import {
-  deleteWorkspaceWithData,
-  duplicateWorkspace as duplicateWorkspaceData,
-  switchActiveWorkspace,
-} from './workspace-orchestrator';
-import {
-  createWorkspace as createWorkspaceMeta,
-  getActiveWorkspace,
-  getActiveWorkspaceId,
-  listWorkspaces,
-  reorderWorkspaces as reorderWorkspacesMeta,
-  updateWorkspace as updateWorkspaceMeta,
-} from './workspace-store';
+import { duplicateWorkspace as duplicateWorkspaceData } from './workspace-orchestrator';
+import { getActiveWorkspace, getActiveWorkspaceId, listWorkspaces } from './workspace-store';
 import { ordinalForTab, workspaceTabCount } from './workspace-tab-registry';
 
 // ── Orphan test-run sweep ──────────────────────────────────────────
@@ -305,41 +294,6 @@ export function handleGeneralMessage(
       safeResponse({ workspaces: listWorkspaces(), activeWorkspaceId: getActiveWorkspaceId() });
     } else if (message.type === 'getActiveWorkspace') {
       safeResponse({ workspace: getActiveWorkspace() });
-    } else if (message.type === 'createWorkspace') {
-      const name = message.name as string;
-      const description = message.description as string | undefined;
-      const color = message.color as string | undefined;
-      createWorkspaceMeta({ name, description, color })
-        .then((workspace) => safeResponse({ success: true, workspace }))
-        .catch((error: Error) => safeResponse({ success: false, error: error.message }));
-      return true;
-    } else if (message.type === 'renameWorkspace') {
-      updateWorkspaceMeta(message.id as string, { name: message.name as string })
-        .then((result) => safeResponse({ success: result.ok }))
-        .catch(() => safeResponse({ success: false }));
-      return true;
-    } else if (message.type === 'updateWorkspace') {
-      updateWorkspaceMeta(message.id as string, message.updates as Record<string, unknown>)
-        .then((result) => {
-          if (result.ok) {
-            safeResponse({ success: true, workspace: result.workspace });
-          } else {
-            safeResponse({ success: false, reason: 'not-found' });
-          }
-        })
-        .catch((err: Error) => safeResponse({ success: false, reason: 'other', message: err.message }));
-      return true;
-    } else if (message.type === 'deleteWorkspace') {
-      deleteWorkspaceWithData(message.id as string)
-        .then((newActive) => {
-          if (newActive === null) {
-            safeResponse({ success: false, error: 'Cannot delete the last workspace' });
-          } else {
-            safeResponse({ success: true, activeWorkspaceId: newActive });
-          }
-        })
-        .catch((error: Error) => safeResponse({ success: false, error: error.message }));
-      return true;
     } else if (message.type === 'duplicateWorkspace') {
       duplicateWorkspaceData(message.id as string, { name: message.name as string | undefined })
         .then((workspace) => {
@@ -492,17 +446,6 @@ export function handleGeneralMessage(
         .then((res) => safeResponse({ success: true, report: res.report, targetWorkspaceId: res.targetWorkspaceId }))
         .catch((error: Error) => safeResponse({ success: false, error: error.message }));
       return true;
-    } else if (message.type === 'setActiveWorkspace') {
-      switchActiveWorkspace(message.id as string)
-        .then((ok) => safeResponse({ success: ok, ...(ok ? {} : { error: 'Unknown workspace id' }) }))
-        .catch((error: Error) => safeResponse({ success: false, error: error.message }));
-      return true;
-    } else if (message.type === 'reorderWorkspaces') {
-      reorderWorkspacesMeta(message.idOrder as string[])
-        .then(() => safeResponse({ success: true }))
-        .catch(() => safeResponse({ success: false }));
-      return true;
-
       // ── Environments / Variables / Vault ─────────────────────────
     } else if (message.type === 'listEnvironments') {
       safeResponse({

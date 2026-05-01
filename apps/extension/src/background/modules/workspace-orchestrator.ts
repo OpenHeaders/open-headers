@@ -6,19 +6,24 @@
  * markers, test runs) each own their own CRUD + persistence. This file
  * sequences them together for operations that cut across concerns:
  *
- *   - `switchActiveWorkspace(id)` — flush outgoing, hydrate incoming,
- *     reseed cache-invalidation observer, rebuild DNR, broadcast.
+ *   - `hydrateActiveWorkspaceStores()` — initial-boot fan-out hydrate.
+ *   - `swapPerWorkspaceStores(targetId)` — wired into the workspace-
+ *     store's `ActiveSwitchCoordinator`; runs the per-workspace store
+ *     swaps + DNR rebuild whenever the cache observes an active flip.
+ *   - `purgeWorkspaceData(ids)` — wired into the workspace-store's
+ *     `WorkspaceRemovedCoordinator`; clears every per-workspace
+ *     storage key + encapsulated stores for each removed id.
  *   - `duplicateWorkspace(id, name)` — deep-copy all per-workspace data
  *     into a fresh workspace, regenerating uids and rewriting paths.
- *   - `deleteWorkspace(id)` — remove all per-workspace data keys for
- *     the deleted workspace (storage hygiene) after dropping it from
- *     the workspace list. If the deleted workspace was active, switch
- *     to the neighbour chosen by workspace-store first.
+ *     Stays bridge-exposed because the renderer can't touch SW-owned
+ *     per-workspace stores.
  *
- * Lives in modules/ so message-handler can import it without tripping
- * the dependency edge that would arise if the orchestration were
- * inlined in background.ts (modules/* → background/background.ts would
- * be circular).
+ * The renderer-direct workspace write path (`extension-workspace-write-
+ * client.ts`) drives create / update / rename / delete / setActive /
+ * reorder through the global oracle directly. The cache subscription in
+ * `workspace-store.installCacheSink` invokes the coordinators above so
+ * cross-store work (per-workspace store swaps, per-workspace data
+ * purge) follows every renderer-direct mutation that needs it.
  */
 
 import type { V5 } from '@openheaders/core/types';
@@ -71,10 +76,7 @@ import { purgeWorkspaceTestRuns } from './test-run-store';
 import { purgeWorkspaceCooldowns } from './totp-cooldown-store';
 import {
   createWorkspace as createWorkspaceMeta,
-  deleteWorkspace as deleteWorkspaceMeta,
-  getActiveWorkspaceId,
   getWorkspace,
-  setActiveWorkspaceId,
 } from './workspace-store';
 
 // ── Storage key helpers ─────────────────────────────────────────────
@@ -82,8 +84,8 @@ import {
 /**
  * Per-workspace keys the orchestrator clears on delete. Environments /
  * vault / testRuns / files / oauth / live-* each have their own purge
- * paths (called explicitly below in `deleteWorkspaceWithData`) so they
- * stay encapsulated and we don't list them here.
+ * paths (called explicitly below in `purgeWorkspaceData`) so they stay
+ * encapsulated and we don't list them here.
  */
 function perWorkspaceDataKeys(workspaceId: string): StorageKey<unknown>[] {
   const k = wsKeys(workspaceId);
@@ -129,25 +131,27 @@ export async function hydrateActiveWorkspaceStores(): Promise<void> {
   // through the sync oracle — the oracle isn't initialized yet.
 }
 
-// ── Switch ──────────────────────────────────────────────────────────
+// ── Active-flip coordinator ─────────────────────────────────────────
 
 /**
- * Atomically switch the active workspace. Callers (message-handler,
- * UI RPC) get a single promise that resolves once every store has
- * swapped and the DNR rebuild has fired.
+ * Wired into `workspace-store.setActiveSwitchCoordinator` at boot.
+ * Runs whenever the cache observes the active workspace pointer flip
+ * (renderer-direct setActive, or a delete-of-active that bundled the
+ * neighbour-pointing setActive in the same batch).
  *
- * Ordering matters — we swap per-workspace stores FIRST, then flip the
- * active pointer in workspace-store last. That guarantees the final
- * `workspaceChanged` broadcast (fired by workspace-store's notifyChange
- * via the listener in background.ts) sees stores that already return
- * the new workspace's data, so downstream refetches are coherent.
+ * Ordering invariant: this coordinator MUST complete before the
+ * generic `notifyChange` fires (the workspace-store enforces this by
+ * deferring `notifyChange` until the awaited coordinator chain
+ * resolves) — otherwise `bridgeXSyncEngine` re-seeds in the
+ * `onWorkspaceStoreChange` listener would observe the previous
+ * workspace's data still in `getRules()` etc.
  */
-export async function switchActiveWorkspace(targetId: string): Promise<boolean> {
-  const current = getActiveWorkspaceId();
-  if (current === targetId) return true;
+export async function swapPerWorkspaceStores(targetId: string): Promise<void> {
   const target = getWorkspace(targetId);
-  if (!target) return false;
-
+  if (!target) {
+    logger.warn('WorkspaceOrchestrator', `swapPerWorkspaceStores: unknown id ${targetId}`);
+    return;
+  }
   await Promise.all([
     switchRulesToWorkspace(targetId),
     switchTemplatesToWorkspace(targetId),
@@ -165,12 +169,6 @@ export async function switchActiveWorkspace(targetId: string): Promise<boolean> 
 
   scheduleUpdate('workspace', { immediate: true });
 
-  // Flip the active pointer last. workspace-store's listener in
-  // background.ts broadcasts `workspaceChanged` automatically; the
-  // typed `onActiveWorkspaceChange` event also fires here so reactive
-  // subscribers (live-refresh scheduler's switch-warm pass) reschedule
-  // without the orchestrator having to know about them.
-  await setActiveWorkspaceId(targetId);
   logger.info('WorkspaceOrchestrator', `Switched to workspace ${targetId}`);
   recordLog({
     subsystem: 'workspace',
@@ -179,7 +177,30 @@ export async function switchActiveWorkspace(targetId: string): Promise<boolean> 
     message: `Switched to workspace ${target.name}`,
     context: { workspaceId: targetId },
   });
-  return true;
+}
+
+// ── Removed-workspace coordinator ───────────────────────────────────
+
+/**
+ * Wired into `workspace-store.setWorkspaceRemovedCoordinator` at boot.
+ * Clears every per-workspace storage key + encapsulated store data
+ * for each removed workspace id. Independent of the active-flip
+ * coordinator — both run in sequence (remove first, then swap) when a
+ * delete-of-active batch lands.
+ */
+export async function purgeWorkspaceData(ids: readonly string[]): Promise<void> {
+  for (const id of ids) {
+    await extensionStorage.remove(perWorkspaceDataKeys(id));
+    await purgeWorkspaceEnvironmentData(id);
+    await purgeWorkspaceTestRuns(id);
+    await purgeFilesForWorkspace(id);
+    await purgeOAuthForWorkspace(id);
+    await purgeLiveWorkflowsForWorkspace(id);
+    await purgeLiveVariablesForWorkspace(id);
+    await purgeLiveCacheForWorkspace(id);
+    purgeWorkspaceCooldowns(id);
+    logger.info('WorkspaceOrchestrator', `Purged data for removed workspace ${id}`);
+  }
 }
 
 // ── Duplicate ───────────────────────────────────────────────────────
@@ -301,53 +322,6 @@ export async function duplicateWorkspace(
     `Duplicated ${sourceId} → ${newId}: ${remappedRules.length} rules, ${remappedRequests.length} requests, ${remappedTemplates.length} templates, ${newEnvironments.length} envs, ${remappedLiveWorkflows.length} live workflows, ${remappedLiveVariables.length} live variables`,
   );
   return newMeta;
-}
-
-// ── Delete ──────────────────────────────────────────────────────────
-
-/**
- * Delete a workspace and all its per-workspace data keys. Also handles
- * active-pointer reassignment (the workspace-store picks a neighbour).
- * Returns the new active workspace id after deletion, or `null` if the
- * delete was rejected (min-1 invariant).
- */
-export async function deleteWorkspaceWithData(id: string): Promise<string | null> {
-  const wasActive = getActiveWorkspaceId() === id;
-  const newActive = await deleteWorkspaceMeta(id);
-  if (newActive === null) return null;
-
-  // Remove every per-workspace storage key for the deleted workspace.
-  // Env / vault / testRuns each own their delete path (encapsulation),
-  // so we call those explicitly rather than listing the keys here.
-  await extensionStorage.remove(perWorkspaceDataKeys(id));
-  await purgeWorkspaceEnvironmentData(id);
-  await purgeWorkspaceTestRuns(id);
-  await purgeFilesForWorkspace(id);
-  await purgeOAuthForWorkspace(id);
-  await purgeLiveWorkflowsForWorkspace(id);
-  await purgeLiveVariablesForWorkspace(id);
-  await purgeLiveCacheForWorkspace(id);
-  purgeWorkspaceCooldowns(id);
-
-  // If we deleted the active workspace, swap the per-workspace stores
-  // to the new active now — workspace-store already flipped the pointer
-  // inside deleteWorkspace. The onWorkspaceStoreChange listener in
-  // background.ts fires the `workspaceChanged` broadcast for us.
-  if (wasActive && newActive) {
-    await Promise.all([
-      switchRulesToWorkspace(newActive),
-      switchTemplatesToWorkspace(newActive),
-      switchEnvToWorkspace(newActive),
-      switchRequestsToWorkspace(newActive),
-      switchLiveWorkflowsToWorkspace(newActive),
-      switchLiveVariablesToWorkspace(newActive),
-    ]);
-    seedFromWorkspaceSwitch(getRules(), getPauseMarkers(), getRulesPaused());
-    scheduleUpdate('workspace', { immediate: true });
-  }
-
-  logger.info('WorkspaceOrchestrator', `Deleted workspace ${id}, new active = ${newActive}`);
-  return newActive;
 }
 
 // ── Deep-copy helpers ───────────────────────────────────────────────
