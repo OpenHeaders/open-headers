@@ -270,6 +270,15 @@ export {
 export { flattenToLeaves, type Leaf, unflattenLeaves } from './flatten';
 export { applyMutation } from './generic';
 export * from './rule';
+export {
+  makeVariableMutators,
+  type RemoveVariableInput,
+  type RenameVariableInput,
+  type SetVariableInput,
+  type SetVariableTypeInput,
+  type VariableMutatorBindings,
+  type VariableMutators,
+} from './shared/variable-mutators';
 export { liveOrderedItemsAt, newEntityState, writeSetOrderIfNewer } from './state';
 export type {
   EntityState,
