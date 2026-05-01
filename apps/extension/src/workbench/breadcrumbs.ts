@@ -37,6 +37,7 @@ export function computeBreadcrumbs(
   localCollectionTrees: V5.CollectionTree[],
   requestCollectionTrees: readonly V5.CollectionTree[] = [],
   requests: readonly V5.Request[] = [],
+  templateCollectionTrees: readonly V5.CollectionTree[] = [],
 ): string[] {
   if (!tab) return [];
 
@@ -49,6 +50,14 @@ export function computeBreadcrumbs(
   if (tab.mode === 'collection-vars') {
     const col = tab.collectionUid ? localCollectionTrees.find((c) => c.uid === tab.collectionUid) : null;
     return col ? ['Rules', col.name, 'Variables'] : ['Variables'];
+  }
+  if (tab.mode === 'request-collection-vars') {
+    const col = tab.collectionUid ? requestCollectionTrees.find((c) => c.uid === tab.collectionUid) : null;
+    return col ? ['Requests', col.name, 'Variables'] : ['Variables'];
+  }
+  if (tab.mode === 'template-collection-vars') {
+    const col = tab.collectionUid ? templateCollectionTrees.find((c) => c.uid === tab.collectionUid) : null;
+    return col ? ['Templates', col.name, 'Variables'] : ['Variables'];
   }
   if (tab.mode === 'request-edit' && tab.requestUid) {
     const req = requests.find((r) => r.uid === tab.requestUid);

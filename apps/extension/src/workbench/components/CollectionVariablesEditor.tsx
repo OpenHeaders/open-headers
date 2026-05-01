@@ -2,18 +2,25 @@
  * CollectionVariablesEditor — tab body for editing a single collection's
  * scoped variables.
  *
- * Collection variables sit between workspace and environment scope in
- * priority; they apply only to rules inside the collection's subtree.
- * Secrets are NOT supported here — collection vars are synced via Git
- * in team workspaces (v2), and secrets must stay local-per-device.
- * The Vault is the only safe home for sensitive values.
+ * Polymorphic over `kind`: 'rule' (rule-collection / `useRules`),
+ * 'request' (`useRequests`), 'template' (template-collection /
+ * `useRules.templateCollections`). Three layers vary per kind:
+ *  - which hook list to read the collection from
+ *  - which `useVariableMutator` write method to invoke
+ *  - the scope-badge label / kind-specific copy
  *
- * Phase B — writes route through the sync oracle via
- * `useVariableMutator.replaceCollectionVariables` (which delegates to
- * `applyCollectionVariablesReplacement`). Convergence is per-(name)
- * LWW at the oracle; the legacy stale-draft contract is retired (§24).
+ * Everything else — dirty-tracking, fingerprint, save flow, draft
+ * shape, table — is identical across kinds.
+ *
+ * Collection variables sit between workspace and environment scope in
+ * priority; they apply only to entities (rules, requests, templates)
+ * inside the collection's subtree. Secrets are NOT supported here —
+ * collection vars are synced via Git in team workspaces (v2), and
+ * secrets must stay local-per-device. The Vault is the only safe home
+ * for sensitive values.
  */
 
+import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
 import { useVariableMutator } from '@hooks/useVariableMutator';
 import type { V5 } from '@openheaders/core/types';
@@ -27,7 +34,11 @@ import { scopeBadge } from './shared/scope-colors';
 
 const { Text, Title } = Typography;
 
+export type CollectionVariablesKind = 'rule' | 'request' | 'template';
+
 interface CollectionVariablesEditorProps {
+  /** Which collection family this editor targets. Defaults to 'rule' for back-compat with existing call sites. */
+  kind?: CollectionVariablesKind;
   collectionUid: string;
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (save: () => void) => void;
@@ -39,19 +50,37 @@ function fingerprint(vars: V5.Variable[]): string {
 const EMPTY_VARS: V5.Variable[] = [];
 
 const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
+  kind = 'rule',
   collectionUid,
   onDirtyChange,
   registerSaveRef,
 }) => {
   const { message } = App.useApp();
   const { token } = theme.useToken();
-  const { localCollections } = useRules();
-  const { replaceCollectionVariables } = useVariableMutator();
+  const { localCollections, templateCollections } = useRules();
+  const { collections: requestCollections } = useRequests();
+  const {
+    replaceCollectionVariables,
+    replaceRequestCollectionVariables,
+    replaceTemplateCollectionVariables,
+  } = useVariableMutator();
 
-  const collection = useMemo(
-    () => localCollections.find((c) => c.uid === collectionUid) ?? null,
-    [localCollections, collectionUid],
-  );
+  const collection = useMemo(() => {
+    const list =
+      kind === 'rule' ? localCollections : kind === 'request' ? requestCollections : templateCollections;
+    return list.find((c) => c.uid === collectionUid) ?? null;
+  }, [kind, localCollections, requestCollections, templateCollections, collectionUid]);
+
+  const replaceVariables = useMemo(() => {
+    switch (kind) {
+      case 'request':
+        return replaceRequestCollectionVariables;
+      case 'template':
+        return replaceTemplateCollectionVariables;
+      default:
+        return replaceCollectionVariables;
+    }
+  }, [kind, replaceCollectionVariables, replaceRequestCollectionVariables, replaceTemplateCollectionVariables]);
 
   const { draft, setDraft, isDirty, markPersisted } = useDirtyDraft<V5.Variable[]>({
     serverDraft: collection?.variables ?? null,
@@ -65,7 +94,7 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
 
   const handleSave = useCallback(() => {
     if (!collection || !isDirty) return;
-    void replaceCollectionVariables(collection.uid, draft).then((result) => {
+    void replaceVariables(collection.uid, draft).then((result) => {
       if (result.ok) {
         markPersisted(draft);
         onDirtyChange?.(false);
@@ -78,7 +107,7 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
       const detail = 'message' in result ? result.message : undefined;
       message.error(`Failed to save collection variables${detail ? `: ${detail}` : ''}`);
     });
-  }, [collection, isDirty, draft, replaceCollectionVariables, onDirtyChange, message, markPersisted]);
+  }, [collection, isDirty, draft, replaceVariables, onDirtyChange, message, markPersisted]);
 
   useEffect(() => {
     registerSaveRef?.(handleSave);
@@ -93,6 +122,8 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
   }
 
   const nonEmptyCount = draft.filter((v) => v.name.trim()).length;
+
+  const scopeNoun = kind === 'request' ? 'request' : kind === 'template' ? 'template' : 'rule';
 
   const headerTitle = (
     <>
@@ -109,7 +140,7 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
       <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
         <div style={{ maxWidth: 920, margin: '0 auto' }}>
           <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-            Variables available to every rule inside this collection. Overridden by environment and vault scopes;
+            Variables available to every {scopeNoun} inside this collection. Overridden by environment and vault scopes;
             overrides the workspace scope. Stored in plain text — use the Vault for secrets.
           </Text>
 

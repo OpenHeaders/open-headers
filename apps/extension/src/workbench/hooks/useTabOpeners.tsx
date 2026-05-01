@@ -69,6 +69,8 @@ export interface UseTabOpenersApi {
   openVault: () => void;
   openLiveVariables: () => void;
   openCollectionVariables: (uid: string, name: string) => void;
+  openRequestCollectionVariables: (uid: string, name: string) => void;
+  openTemplateCollectionVariables: (uid: string, name: string) => void;
   openRequestEditTab: (uid: string, name: string, method?: string, autoRename?: boolean) => void;
   /**
    * Open an unsaved request draft. Mirrors `openCreateTab` for rules —
@@ -487,6 +489,44 @@ export function useTabOpeners({
     [allTabs, addTab, switchTab],
   );
 
+  const openRequestCollectionVariables = useCallback(
+    (uid: string, name: string) => {
+      const id = `req-coll-vars-${uid}`;
+      if (allTabs.some((t) => t.id === id)) {
+        switchTab(id);
+        return;
+      }
+      addTab({
+        id,
+        label: `${name} · Variables`,
+        ruleType: '',
+        dirty: false,
+        mode: 'request-collection-vars',
+        collectionUid: uid,
+      });
+    },
+    [allTabs, addTab, switchTab],
+  );
+
+  const openTemplateCollectionVariables = useCallback(
+    (uid: string, name: string) => {
+      const id = `tpl-coll-vars-${uid}`;
+      if (allTabs.some((t) => t.id === id)) {
+        switchTab(id);
+        return;
+      }
+      addTab({
+        id,
+        label: `${name} · Variables`,
+        ruleType: '',
+        dirty: false,
+        mode: 'template-collection-vars',
+        collectionUid: uid,
+      });
+    },
+    [allTabs, addTab, switchTab],
+  );
+
   const openRequestEditTab = useCallback(
     (uid: string, name: string, method = 'GET', autoRename = false) => {
       const id = `request-${uid}`;
@@ -647,6 +687,8 @@ export function useTabOpeners({
     openVault,
     openLiveVariables,
     openCollectionVariables,
+    openRequestCollectionVariables,
+    openTemplateCollectionVariables,
     openRequestEditTab,
     openCreateRequestTab,
     openLiveVariableEdit,

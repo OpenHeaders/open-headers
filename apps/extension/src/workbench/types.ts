@@ -20,6 +20,8 @@ export type TabMode =
   | 'vault'
   | 'live-vars'
   | 'collection-vars'
+  | 'request-collection-vars'
+  | 'template-collection-vars'
   | 'request-edit'
   | 'request-create'
   | 'live-variable-edit'

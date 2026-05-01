@@ -130,7 +130,12 @@ export function tabIcon(
             : TAB_ICON_GRAY;
     return <SisternodeOutlined style={{ fontSize: 12, color }} />;
   }
-  if (tab.mode === 'collection-vars') return scopeBadge('collection');
+  if (
+    tab.mode === 'collection-vars' ||
+    tab.mode === 'request-collection-vars' ||
+    tab.mode === 'template-collection-vars'
+  )
+    return scopeBadge('collection');
   if (tab.mode === 'request-edit' || tab.mode === 'request-create') {
     // Request tabs carry the HTTP method as their "icon" — compact
     // color-coded marker readable at tab-strip density.

@@ -871,6 +871,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
       localCollectionTrees,
       requestsApi.collectionTrees,
       requestsApi.requests,
+      templateCollectionTrees,
     );
     const scratchLabel = scratchLabelForMode(activeTab.mode);
     if (scratchLabel && base.length >= 2) {
@@ -1251,6 +1252,27 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
       if (tab.mode === 'collection-vars' && tab.collectionUid) {
         return (
           <CollectionVariablesEditor
+            kind="rule"
+            collectionUid={tab.collectionUid}
+            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+          />
+        );
+      }
+      if (tab.mode === 'request-collection-vars' && tab.collectionUid) {
+        return (
+          <CollectionVariablesEditor
+            kind="request"
+            collectionUid={tab.collectionUid}
+            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+          />
+        );
+      }
+      if (tab.mode === 'template-collection-vars' && tab.collectionUid) {
+        return (
+          <CollectionVariablesEditor
+            kind="template"
             collectionUid={tab.collectionUid}
             onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
             registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
@@ -1589,6 +1611,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
                     localCollectionTrees,
                     requestsApi.collectionTrees,
                     requestsApi.requests,
+                    templateCollectionTrees,
                   )
                 }
                 renderEmpty={renderEmpty}
