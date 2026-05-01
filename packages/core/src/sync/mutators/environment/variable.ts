@@ -1,21 +1,32 @@
 /**
- * Variable intent factories — set/remove/rename/setType.
+ * Variable intent factories for environment-scoped variables.
  *
- * Variables live as set members at `variables` on the environment
- * entity. Set-member identity = variable name (see `types.ts`). The
- * generic mutator's per-(setPath, itemId) LWW handles concurrent edits
- * to the same variable. Concurrent diverging renames produce two new
- * entries — that's the convergent answer for "two surfaces independently
- * renamed the same variable to different names."
+ * Thin per-catalog adapter over {@link makeVariableMutators}: binds the
+ * shared factory to the environment routing constants + side-effect
+ * intent. Re-exports the four primitives under the historical
+ * `setEnvVar` / `removeEnvVar` / `renameEnvVar` / `setEnvVarType` names
+ * with `envId`-named args preserved for call-site clarity.
+ *
+ * Set-member identity = variable name (per `types.ts`). Per-(setPath,
+ * name) LWW handles concurrent same-name edits; concurrent diverging
+ * renames produce two new entries — the convergent answer for "two
+ * surfaces independently renamed the same variable to different names."
  */
 
-import type { MutationBody } from '../../envelope';
+import { makeVariableMutators, type VariableType } from '../shared/variable-mutators';
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
 import { invalidateResolverIntent } from './side-effects';
 import { ENV_VARS_PATH, ENVIRONMENT_ENTITY_TYPE } from './types';
 
-export type VariableType = 'default' | 'secret';
+export type { VariableType };
+
+const factories = makeVariableMutators({
+  entityType: ENVIRONMENT_ENTITY_TYPE,
+  varsPath: ENV_VARS_PATH,
+  mintBatch,
+  makeSideEffects: (uid, hlc) => [invalidateResolverIntent(uid, hlc)],
+});
 
 export interface SetEnvVarArgs {
   envId: string;
@@ -26,28 +37,14 @@ export interface SetEnvVarArgs {
   orderKey?: string;
 }
 
-/**
- * Add or update an environment variable. Idempotent on (name) — a
- * subsequent `setEnvVar` for the same name supersedes via per-itemId
- * LWW (§7.2). Whole-record replacement matches the rule header-mod
- * model.
- */
 export function setEnvVar(ctx: MutatorContext, args: SetEnvVarArgs): MutatorIntent {
-  const item = { name: args.name, value: args.value, type: args.type ?? 'default' };
-  return {
-    batch: mintBatch(ctx, [
-      {
-        kind: 'addToSet',
-        type: ENVIRONMENT_ENTITY_TYPE,
-        id: args.envId,
-        path: ENV_VARS_PATH,
-        itemId: args.name,
-        item,
-        orderKey: args.orderKey,
-      },
-    ]),
-    sideEffects: [invalidateResolverIntent(args.envId, ctx.hlc)],
-  };
+  return factories.setVariable(ctx, {
+    entityUid: args.envId,
+    name: args.name,
+    value: args.value,
+    type: args.type,
+    orderKey: args.orderKey,
+  });
 }
 
 export interface RemoveEnvVarArgs {
@@ -55,106 +52,44 @@ export interface RemoveEnvVarArgs {
   name: string;
 }
 
-/**
- * Tombstone an environment variable. The tombstone retains for the
- * configured TTL (§9.2) so reconnecting offline nodes don't resurrect
- * the entry via a stale `setEnvVar` at lower HLC.
- */
 export function removeEnvVar(ctx: MutatorContext, args: RemoveEnvVarArgs): MutatorIntent {
-  return {
-    batch: mintBatch(ctx, [
-      {
-        kind: 'removeFromSet',
-        type: ENVIRONMENT_ENTITY_TYPE,
-        id: args.envId,
-        path: ENV_VARS_PATH,
-        itemId: args.name,
-      },
-    ]),
-    sideEffects: [invalidateResolverIntent(args.envId, ctx.hlc)],
-  };
+  return factories.removeVariable(ctx, { entityUid: args.envId, name: args.name });
 }
 
 export interface RenameEnvVarArgs {
   envId: string;
   oldName: string;
   newName: string;
-  /**
-   * Carry the value through the rename so the new entry has the same
-   * value as the old. Caller reads it from its current view; the
-   * factory stays pure (no oracle access).
-   */
+  /** Carried through so the new entry has the same value. */
   value: string;
   type?: VariableType;
-  /** Optional orderKey for the new entry. */
   orderKey?: string;
 }
 
-/**
- * Atomic rename — emitted as a single batch so the local oracle's
- * per-batch all-or-nothing (§11.2) guarantees observers never see the
- * "old removed but new not yet added" intermediate state.
- *
- * Rename to the same name is a no-op (no batch emitted). Rename onto
- * an existing name is the caller's responsibility to prevent at the UI
- * layer — semantically it would replace the target via per-itemId LWW.
- */
 export function renameEnvVar(ctx: MutatorContext, args: RenameEnvVarArgs): MutatorIntent {
-  if (args.oldName === args.newName) {
-    return { batch: mintBatch(ctx, []), sideEffects: [] };
-  }
-  const item = { name: args.newName, value: args.value, type: args.type ?? 'default' };
-  const bodies: MutationBody[] = [
-    {
-      kind: 'removeFromSet',
-      type: ENVIRONMENT_ENTITY_TYPE,
-      id: args.envId,
-      path: ENV_VARS_PATH,
-      itemId: args.oldName,
-    },
-    {
-      kind: 'addToSet',
-      type: ENVIRONMENT_ENTITY_TYPE,
-      id: args.envId,
-      path: ENV_VARS_PATH,
-      itemId: args.newName,
-      item,
-      orderKey: args.orderKey,
-    },
-  ];
-  return {
-    batch: mintBatch(ctx, bodies),
-    sideEffects: [invalidateResolverIntent(args.envId, ctx.hlc)],
-  };
+  return factories.renameVariable(ctx, {
+    entityUid: args.envId,
+    oldName: args.oldName,
+    newName: args.newName,
+    value: args.value,
+    type: args.type,
+    orderKey: args.orderKey,
+  });
 }
 
 export interface SetEnvVarTypeArgs {
   envId: string;
   name: string;
-  /** Carry the current value through so the LWW replacement preserves it. */
+  /** Carried through so the LWW replacement preserves it. */
   value: string;
   type: VariableType;
 }
 
-/**
- * Toggle a variable's `type` (default ↔ secret). Re-emits the whole
- * record via `addToSet`; per-(setPath, itemId) LWW means the latest
- * type wins. Per-field-within-set LWW isn't a v1 generic primitive
- * (matches the rule-condition pattern in `rule/condition.ts`).
- */
 export function setEnvVarType(ctx: MutatorContext, args: SetEnvVarTypeArgs): MutatorIntent {
-  const item = { name: args.name, value: args.value, type: args.type };
-  return {
-    batch: mintBatch(ctx, [
-      {
-        kind: 'addToSet',
-        type: ENVIRONMENT_ENTITY_TYPE,
-        id: args.envId,
-        path: ENV_VARS_PATH,
-        itemId: args.name,
-        item,
-      },
-    ]),
-    sideEffects: [invalidateResolverIntent(args.envId, ctx.hlc)],
-  };
+  return factories.setVariableType(ctx, {
+    entityUid: args.envId,
+    name: args.name,
+    value: args.value,
+    type: args.type,
+  });
 }
