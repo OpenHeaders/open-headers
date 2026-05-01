@@ -40,6 +40,8 @@ interface UseRequestTreeNodesParams {
   onSelectRequest?: (uid: string, name: string, method?: string, autoRename?: boolean) => void;
   onCreateRequest?: (context?: { collectionId?: string; folderPath?: string }) => void;
   onExportEntity?: (entity: import('../../App').SidebarExportEntity) => void;
+  /** Open the request-collection variables editor tab. */
+  onOpenCollectionVariables?: (uid: string, name: string) => void;
 }
 
 export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
@@ -265,6 +267,9 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
           ...(p.onExportEntity
             ? { onExport: () => p.onExportEntity?.({ kind: 'collection', uid: collection.uid, name: collection.name }) }
             : {}),
+          ...(p.onOpenCollectionVariables
+            ? { onOpenVariables: () => p.onOpenCollectionVariables?.(collection.uid, collection.name) }
+            : {}),
         }),
       });
 
@@ -321,5 +326,6 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
     p.setExpandedKeys,
     p.setRenamingId,
     p.onExportEntity,
+    p.onOpenCollectionVariables,
   ]);
 }

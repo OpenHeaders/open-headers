@@ -61,6 +61,8 @@ interface UseWorkspaceIntentRouterOptions {
   openWorkspaceVariables: () => void;
   openVault: () => void;
   openCollectionVariables: (uid: string, name: string) => void;
+  openRequestCollectionVariables: (uid: string, name: string) => void;
+  openTemplateCollectionVariables: (uid: string, name: string) => void;
   openRequestEditTab: (uid: string, name: string, method?: string, autoRename?: boolean) => void;
   openLiveVariableEdit: (uid: string, name: string) => void;
   openLiveWorkflowEdit: (uid: string, name: string) => void;
@@ -263,6 +265,12 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
         case 'open-collection-vars':
           o.openCollectionVariables(intent.uid, 'Collection');
           return;
+        case 'open-request-collection-vars':
+          o.openRequestCollectionVariables(intent.uid, 'Collection');
+          return;
+        case 'open-template-collection-vars':
+          o.openTemplateCollectionVariables(intent.uid, 'Collection');
+          return;
         case 'open-request-editor':
           // Same placeholder rationale as `edit-environment`; the
           // request-store broadcast corrects the label + method.
@@ -377,6 +385,12 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
         return;
       case 'open-collection-vars':
         o.openCollectionVariables(pending.uid, 'Collection');
+        return;
+      case 'open-request-collection-vars':
+        o.openRequestCollectionVariables(pending.uid, 'Collection');
+        return;
+      case 'open-template-collection-vars':
+        o.openTemplateCollectionVariables(pending.uid, 'Collection');
         return;
       case 'open-request-editor':
         o.openRequestEditTab(pending.uid, 'Request', 'GET');

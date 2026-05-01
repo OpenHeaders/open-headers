@@ -82,6 +82,16 @@ export const OpenCollectionVarsIntentSchema = v.object({
   uid: UidSchema,
 });
 
+export const OpenRequestCollectionVarsIntentSchema = v.object({
+  kind: v.literal('open-request-collection-vars'),
+  uid: UidSchema,
+});
+
+export const OpenTemplateCollectionVarsIntentSchema = v.object({
+  kind: v.literal('open-template-collection-vars'),
+  uid: UidSchema,
+});
+
 export const OpenRequestEditorIntentSchema = v.object({
   kind: v.literal('open-request-editor'),
   uid: UidSchema,
@@ -223,6 +233,8 @@ export const WorkspaceIntentSchema = v.variant('kind', [
   CreateRuleIntentSchema,
   EditEnvironmentIntentSchema,
   OpenCollectionVarsIntentSchema,
+  OpenRequestCollectionVarsIntentSchema,
+  OpenTemplateCollectionVarsIntentSchema,
   OpenRequestEditorIntentSchema,
   OpenSettingsIntentSchema,
   OpenWorkspaceManagerIntentSchema,
@@ -252,6 +264,8 @@ export const WORKSPACE_INTENT_KINDS = [
   'create-rule',
   'edit-environment',
   'open-collection-vars',
+  'open-request-collection-vars',
+  'open-template-collection-vars',
   'open-request-editor',
   'open-settings',
   'open-workspace-manager',

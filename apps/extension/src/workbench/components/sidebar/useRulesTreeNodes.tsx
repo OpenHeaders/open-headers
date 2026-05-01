@@ -47,6 +47,8 @@ interface UseRulesTreeNodesParams {
   onExportEntity?: (entity: import('../../App').SidebarExportEntity) => void;
   onOpenCollectionOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   onOpenFolderOverview?: (uid: string, name: string, autoRename?: boolean) => void;
+  /** Open the rule-collection variables editor tab. */
+  onOpenCollectionVariables?: (uid: string, name: string) => void;
 }
 
 export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
@@ -325,6 +327,9 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
           ...(p.onExportEntity
             ? { onExport: () => p.onExportEntity?.({ kind: 'collection', uid: collection.uid, name: collection.name }) }
             : {}),
+          ...(p.onOpenCollectionVariables
+            ? { onOpenVariables: () => p.onOpenCollectionVariables?.(collection.uid, collection.name) }
+            : {}),
         }),
       });
 
@@ -388,5 +393,6 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
     p.setExpandedKeys,
     p.setRenamingId,
     p.onExportEntity,
+    p.onOpenCollectionVariables,
   ]);
 }

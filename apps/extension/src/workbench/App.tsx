@@ -652,6 +652,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     openVault,
     openLiveVariables,
     openCollectionVariables,
+    openRequestCollectionVariables,
+    openTemplateCollectionVariables,
     openRequestEditTab: openRequestEditTabRaw,
     openCreateRequestTab,
     openLiveVariableEdit,
@@ -810,6 +812,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     openWorkspaceVariables,
     openVault,
     openCollectionVariables,
+    openRequestCollectionVariables,
+    openTemplateCollectionVariables,
     openRequestEditTab,
     openLiveVariableEdit,
     openLiveWorkflowEdit,
@@ -1452,6 +1456,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
               onOpenWorkspaceVariables={openWorkspaceVariables}
               onOpenVault={openVault}
               onOpenLiveVariables={openLiveVariables}
+              onOpenCollectionVariables={openCollectionVariables}
+              onOpenRequestCollectionVariables={openRequestCollectionVariables}
+              onOpenTemplateCollectionVariables={openTemplateCollectionVariables}
               onSelectLiveWorkflow={openLiveWorkflowEdit}
               onCreateWorkflow={(seedStep) => openCreateLiveWorkflow(seedStep ? { seedStep } : undefined)}
               onSelectRequest={openRequestEditTab}

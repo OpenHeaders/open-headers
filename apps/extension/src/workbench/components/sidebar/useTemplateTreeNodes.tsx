@@ -42,6 +42,8 @@ interface UseTemplateTreeNodesParams {
   onOpenTemplateCollectionOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   onOpenTemplateFolderOverview?: (uid: string, name: string, autoRename?: boolean) => void;
   onExportEntity?: (entity: import('../../App').SidebarExportEntity) => void;
+  /** Open the template-collection variables editor tab. */
+  onOpenCollectionVariables?: (uid: string, name: string) => void;
 }
 
 export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
@@ -307,6 +309,9 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
           p.onExportEntity
             ? () => p.onExportEntity?.({ kind: 'collection', uid: collection.uid, name: collection.name })
             : undefined,
+          !isDefault && p.onOpenCollectionVariables
+            ? () => p.onOpenCollectionVariables?.(collection.uid, collection.name)
+            : undefined,
         ),
       });
 
@@ -348,6 +353,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
     p.setExpandedKeys,
     p.setRenamingId,
     p.onExportEntity,
+    p.onOpenCollectionVariables,
   ]);
 
   return { systemTemplateNodes, templateNodes };

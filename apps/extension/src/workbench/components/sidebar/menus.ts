@@ -1,5 +1,6 @@
 import {
   ClearOutlined,
+  CodeOutlined,
   DeleteOutlined,
   EditOutlined,
   ExportOutlined,
@@ -77,6 +78,10 @@ export interface ContainerActionMenuOptions {
   /** "Export…" entry on this container's `⋯`. Wired only when the
    *  caller hooks the workspace-export modal up to the sidebar. */
   onExport?: () => void;
+  /** "Edit Variables" entry — collection-kind only. Wired by callers
+   *  that have a variables editor for this collection family
+   *  (rule / request / template). */
+  onOpenVariables?: () => void;
 }
 
 export function containerActionMenuItems({
@@ -90,6 +95,7 @@ export function containerActionMenuItems({
   onClearOverride,
   onClearNested,
   onExport,
+  onOpenVariables,
 }: ContainerActionMenuOptions): ItemType[] {
   const noun = kind === 'collection' ? 'Collection' : 'Folder';
   const items: ItemType[] = [];
@@ -119,6 +125,14 @@ export function containerActionMenuItems({
     items.push({ type: 'divider' as const, key: 'div-pause' });
   }
   items.push({ key: 'rename', icon: createElement(EditOutlined), label: 'Rename', onClick: onRename });
+  if (kind === 'collection' && onOpenVariables) {
+    items.push({
+      key: 'edit-variables',
+      icon: createElement(CodeOutlined),
+      label: 'Edit Variables',
+      onClick: onOpenVariables,
+    });
+  }
   if (onExport) {
     items.push({ key: 'export', icon: createElement(ExportOutlined), label: 'Export…', onClick: onExport });
   }
@@ -138,6 +152,7 @@ export function templateCollectionMenuItems(
   onDelete: () => void,
   isDefault: boolean,
   onExport?: () => void,
+  onOpenVariables?: () => void,
 ): ItemType[] {
   const items: ItemType[] = [
     { key: 'add-folder', icon: createElement(FolderOutlined), label: 'Add Folder', onClick: onAddFolder },
@@ -145,6 +160,14 @@ export function templateCollectionMenuItems(
   if (!isDefault) {
     items.push({ type: 'divider' as const, key: 'div' });
     items.push({ key: 'rename', icon: createElement(EditOutlined), label: 'Rename', onClick: onRename });
+    if (onOpenVariables) {
+      items.push({
+        key: 'edit-variables',
+        icon: createElement(CodeOutlined),
+        label: 'Edit Variables',
+        onClick: onOpenVariables,
+      });
+    }
     if (onExport) {
       items.push({ key: 'export', icon: createElement(ExportOutlined), label: 'Export…', onClick: onExport });
     }

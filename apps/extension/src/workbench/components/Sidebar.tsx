@@ -110,6 +110,13 @@ interface SidebarProps {
   onOpenWorkspaceVariables?: () => void;
   onOpenVault?: () => void;
   onOpenLiveVariables?: () => void;
+  /** Open the variables editor for a rule-collection (`⋯` action on a
+   *  rule-collection sidebar row). */
+  onOpenCollectionVariables?: (uid: string, name: string) => void;
+  /** Open the variables editor for a request-collection. */
+  onOpenRequestCollectionVariables?: (uid: string, name: string) => void;
+  /** Open the variables editor for a template-collection. */
+  onOpenTemplateCollectionVariables?: (uid: string, name: string) => void;
   onSelectLiveWorkflow?: (uid: string, name: string) => void;
   /** Open a new unsaved Live Workflow draft — drives the Workflows sidebar's `+` buttons. */
   onCreateWorkflow?: (seedStep?: { requestUid: string; requestName: string; method: string }) => void;
@@ -151,6 +158,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   onOpenWorkspaceVariables,
   onOpenVault,
   onOpenLiveVariables,
+  onOpenCollectionVariables,
+  onOpenRequestCollectionVariables,
+  onOpenTemplateCollectionVariables,
   onSelectLiveWorkflow,
   onCreateWorkflow,
   onSelectRequest,
@@ -516,6 +526,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     onExportEntity,
     onOpenCollectionOverview,
     onOpenFolderOverview,
+    onOpenCollectionVariables,
   });
 
   const { systemTemplateNodes, templateNodes } = useTemplateTreeNodes({
@@ -538,6 +549,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     onOpenTemplateCollectionOverview,
     onOpenTemplateFolderOverview,
     onExportEntity,
+    onOpenCollectionVariables: onOpenTemplateCollectionVariables,
   });
 
   const requestNodes = useRequestTreeNodes({
@@ -565,6 +577,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     onSelectRequest,
     onCreateRequest,
     onExportEntity,
+    onOpenCollectionVariables: onOpenRequestCollectionVariables,
   });
 
   const environmentNodes = useEnvironmentNodes({

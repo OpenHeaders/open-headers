@@ -16,6 +16,8 @@
  *   #/create/<type>/draft-<n>→ create-rule with draftNonce
  *   #/environment/<uid>      → edit-environment
  *   #/collection-vars/<uid>  → open-collection-vars
+ *   #/request-collection-vars/<uid>  → open-request-collection-vars
+ *   #/template-collection-vars/<uid>  → open-template-collection-vars
  *   #/request/<uid>          → open-request-editor
  *   #/settings               → open-settings (no target)
  *   #/settings/<key>         → open-settings with settingKey
@@ -113,6 +115,14 @@ export function hashToIntent(rawHash: string): WorkspaceIntent | null {
     case 'collection-vars':
       if (!rest[0]) return null;
       return buildIntent({ kind: 'open-collection-vars', uid: rest[0] });
+
+    case 'request-collection-vars':
+      if (!rest[0]) return null;
+      return buildIntent({ kind: 'open-request-collection-vars', uid: rest[0] });
+
+    case 'template-collection-vars':
+      if (!rest[0]) return null;
+      return buildIntent({ kind: 'open-template-collection-vars', uid: rest[0] });
 
     case 'request':
       if (!rest[0]) return null;
@@ -242,6 +252,12 @@ export function intentToHash(intent: WorkspaceIntent): string {
 
     case 'open-collection-vars':
       return `#/collection-vars/${encodeSegment(intent.uid)}`;
+
+    case 'open-request-collection-vars':
+      return `#/request-collection-vars/${encodeSegment(intent.uid)}`;
+
+    case 'open-template-collection-vars':
+      return `#/template-collection-vars/${encodeSegment(intent.uid)}`;
 
     case 'open-request-editor':
       return `#/request/${encodeSegment(intent.uid)}`;
