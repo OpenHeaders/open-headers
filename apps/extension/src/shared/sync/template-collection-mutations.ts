@@ -1,11 +1,11 @@
 /**
  * Template-collection write-site → oracle helpers.
  *
- * Mirrors `request-collection-mutations.ts`. The catalog ships
- * rename-only at v1; `buildDeleteTemplateCollectionBatch` is the generic
- * delete envelope lifted here so the SW call site doesn't have to
- * assemble fields by hand — same shape as
- * `buildDeleteRequestCollectionBatch`.
+ * Mirrors `request-collection-mutations.ts`. Each helper produces a
+ * `(MutationBatch, SideEffectIntent[])` pair from the catalog factory
+ * in `@openheaders/core/sync` and a {@link MutatorContext}. Pure
+ * transforms — no oracle reads, no IO — used by both the SW
+ * (boot-time hydration) and the renderer (variable write client).
  */
 
 import {
@@ -14,9 +14,14 @@ import {
   type MutatorIntent,
   newBatchId,
   newMutationId,
+  removeTemplateCollectionVar,
+  renameTemplateCollection,
+  renameTemplateCollectionVar,
+  setTemplateCollectionVar,
+  setTemplateCollectionVarType,
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_COLLECTION_MUTATOR_VERSION,
-  renameTemplateCollection,
+  type VariableType,
 } from '@openheaders/core/sync';
 
 export type TemplateCollectionMutationPayload = MutatorIntent;
@@ -54,4 +59,61 @@ export function buildRenameTemplateCollectionBatch(
   ctx: MutatorContext,
 ): TemplateCollectionMutationPayload {
   return renameTemplateCollection(ctx, input);
+}
+
+export interface SetTemplateCollectionVarInput {
+  templateCollectionUid: string;
+  name: string;
+  value: string;
+  type?: VariableType;
+  orderKey?: string;
+}
+
+export function buildSetTemplateCollectionVarBatch(
+  input: SetTemplateCollectionVarInput,
+  ctx: MutatorContext,
+): TemplateCollectionMutationPayload {
+  return setTemplateCollectionVar(ctx, input);
+}
+
+export interface RemoveTemplateCollectionVarInput {
+  templateCollectionUid: string;
+  name: string;
+}
+
+export function buildRemoveTemplateCollectionVarBatch(
+  input: RemoveTemplateCollectionVarInput,
+  ctx: MutatorContext,
+): TemplateCollectionMutationPayload {
+  return removeTemplateCollectionVar(ctx, input);
+}
+
+export interface RenameTemplateCollectionVarInput {
+  templateCollectionUid: string;
+  oldName: string;
+  newName: string;
+  value: string;
+  type?: VariableType;
+  orderKey?: string;
+}
+
+export function buildRenameTemplateCollectionVarBatch(
+  input: RenameTemplateCollectionVarInput,
+  ctx: MutatorContext,
+): TemplateCollectionMutationPayload {
+  return renameTemplateCollectionVar(ctx, input);
+}
+
+export interface SetTemplateCollectionVarTypeInput {
+  templateCollectionUid: string;
+  name: string;
+  value: string;
+  type: VariableType;
+}
+
+export function buildSetTemplateCollectionVarTypeBatch(
+  input: SetTemplateCollectionVarTypeInput,
+  ctx: MutatorContext,
+): TemplateCollectionMutationPayload {
+  return setTemplateCollectionVarType(ctx, input);
 }

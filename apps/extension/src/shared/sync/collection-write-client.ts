@@ -22,7 +22,7 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from '@/shared/sync/apply-payload';
-import { mintBatch, type MutationBody, type MutationEnvelope, type SideEffectIntent } from '@openheaders/core/sync';
+import type { MutationEnvelope } from '@openheaders/core/sync';
 import {
   COLLECTION_ENTITY_TYPE,
   COLLECTION_VARS_PATH,
@@ -43,6 +43,7 @@ import {
   buildSetPinnedAndDefaultBatch,
   buildSetPinnedEnvironmentsBatch,
 } from '@/shared/sync/collection-mutations';
+import { buildVariablesReplacement } from '@/shared/sync/variables-replacement';
 
 export { createCollectionSyncMirror } from '@/context/collection-sync-mirror';
 
@@ -168,8 +169,10 @@ export async function applySetPinnedAndDefault(
 
 /**
  * Editor convenience: persist a complete variables list. Adds + value/
- * type changes emit `setCollectionVar`; deletions emit `removeCollectionVar`.
- * Empty input → empty batch.
+ * type changes emit `addToSet`; deletions emit `removeFromSet`. Diff
+ * shape lives in {@link buildVariablesReplacement} (shared across
+ * per-uid variable scopes); empty input → `{ ok: true }` short-circuit
+ * without firing.
  */
 export async function applyCollectionVariablesReplacement(
   collectionUid: string,
@@ -177,51 +180,18 @@ export async function applyCollectionVariablesReplacement(
   oldVars: readonly V5.Variable[],
   opts: CollectionWriteOptions,
 ): Promise<CollectionSimpleResult> {
-  const oldByName = new Map<string, V5.Variable>();
-  for (const v of oldVars) oldByName.set(v.name, v);
-  const newByName = new Map<string, V5.Variable>();
-  for (const v of newVars) {
-    if (!v.name.trim()) continue;
-    newByName.set(v.name, v);
-  }
-
   const ctx = resolveRendererContext(opts).next({ batchId: opts.batchId ?? `coll-replace-${collectionUid}` });
-
-  const bodies: MutationBody[] = [];
-  for (const [name] of oldByName) {
-    if (newByName.has(name)) continue;
-    bodies.push({
-      kind: 'removeFromSet',
-      type: COLLECTION_ENTITY_TYPE,
-      id: collectionUid,
-      path: COLLECTION_VARS_PATH,
-      itemId: name,
-    });
-  }
-  for (const [name, variable] of newByName) {
-    const prev = oldByName.get(name);
-    if (
-      prev &&
-      prev.value === variable.value &&
-      (prev.type ?? 'default') === (variable.type ?? 'default')
-    ) {
-      continue;
-    }
-    bodies.push({
-      kind: 'addToSet',
-      type: COLLECTION_ENTITY_TYPE,
-      id: collectionUid,
-      path: COLLECTION_VARS_PATH,
-      itemId: name,
-      item: { name, value: variable.value, type: variable.type ?? 'default' },
-    });
-  }
-
-  if (bodies.length === 0) return { ok: true };
-
-  const sideEffects: SideEffectIntent[] = [collectionInvalidateResolverIntent(collectionUid, ctx.hlc)];
-  const batch = mintBatch(ctx, bodies);
-  return applySyncPayload({ batch, sideEffects });
+  const payload = buildVariablesReplacement(
+    {
+      entityType: COLLECTION_ENTITY_TYPE,
+      varsPath: COLLECTION_VARS_PATH,
+      makeSideEffects: (uid, hlc) => [collectionInvalidateResolverIntent(uid, hlc)],
+    },
+    ctx,
+    { entityUid: collectionUid, newVars, oldVars },
+  );
+  if (!payload) return { ok: true };
+  return applySyncPayload(payload);
 }
 
 export type { MutationEnvelope };

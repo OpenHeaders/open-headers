@@ -1,11 +1,12 @@
 /**
  * Request-collection write-site → oracle helpers.
  *
- * Mirrors `collection-mutations.ts`. The catalog ships rename-only at
- * v1; `buildDeleteRequestCollectionBatch` is the generic delete envelope
- * lifted here so the SW call site doesn't have to assemble fields by
- * hand — same shape as `buildDeleteCollectionBatch` for rule
- * collections.
+ * Mirrors `collection-mutations.ts`. Each helper produces a
+ * `(MutationBatch, SideEffectIntent[])` pair from the catalog factory
+ * in `@openheaders/core/sync` and a {@link MutatorContext}. Pure
+ * transforms — no oracle reads, no IO — used by both the SW
+ * (boot-time hydration via the request-collection cache) and the
+ * renderer (`useRequestCollectionMutator` / variable write client).
  */
 
 import {
@@ -16,7 +17,12 @@ import {
   newMutationId,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_COLLECTION_MUTATOR_VERSION,
+  removeRequestCollectionVar,
   renameRequestCollection,
+  renameRequestCollectionVar,
+  setRequestCollectionVar,
+  setRequestCollectionVarType,
+  type VariableType,
 } from '@openheaders/core/sync';
 
 export type RequestCollectionMutationPayload = MutatorIntent;
@@ -54,4 +60,61 @@ export function buildRenameRequestCollectionBatch(
   ctx: MutatorContext,
 ): RequestCollectionMutationPayload {
   return renameRequestCollection(ctx, input);
+}
+
+export interface SetRequestCollectionVarInput {
+  requestCollectionUid: string;
+  name: string;
+  value: string;
+  type?: VariableType;
+  orderKey?: string;
+}
+
+export function buildSetRequestCollectionVarBatch(
+  input: SetRequestCollectionVarInput,
+  ctx: MutatorContext,
+): RequestCollectionMutationPayload {
+  return setRequestCollectionVar(ctx, input);
+}
+
+export interface RemoveRequestCollectionVarInput {
+  requestCollectionUid: string;
+  name: string;
+}
+
+export function buildRemoveRequestCollectionVarBatch(
+  input: RemoveRequestCollectionVarInput,
+  ctx: MutatorContext,
+): RequestCollectionMutationPayload {
+  return removeRequestCollectionVar(ctx, input);
+}
+
+export interface RenameRequestCollectionVarInput {
+  requestCollectionUid: string;
+  oldName: string;
+  newName: string;
+  value: string;
+  type?: VariableType;
+  orderKey?: string;
+}
+
+export function buildRenameRequestCollectionVarBatch(
+  input: RenameRequestCollectionVarInput,
+  ctx: MutatorContext,
+): RequestCollectionMutationPayload {
+  return renameRequestCollectionVar(ctx, input);
+}
+
+export interface SetRequestCollectionVarTypeInput {
+  requestCollectionUid: string;
+  name: string;
+  value: string;
+  type: VariableType;
+}
+
+export function buildSetRequestCollectionVarTypeBatch(
+  input: SetRequestCollectionVarTypeInput,
+  ctx: MutatorContext,
+): RequestCollectionMutationPayload {
+  return setRequestCollectionVarType(ctx, input);
 }

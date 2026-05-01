@@ -1226,8 +1226,8 @@ export interface BridgeRpcContract {
   /**
    * Snapshot the active workspace's full request-collection oracle
    * state. Mirror of `oh.sync.snapshotCollections` for the
-   * request-collection entity type. Catalog ships rename-only at v1
-   * so each entry carries `{ collection }` only — no `varNames`.
+   * request-collection entity type. Each entry carries the materialized
+   * `{ collection, varNames, setOrderKeys }` triple.
    */
   'oh.sync.snapshotRequestCollections': {
     req: Record<string, never>;
@@ -1256,8 +1256,8 @@ export interface BridgeRpcContract {
   /**
    * Snapshot the active workspace's full template-collection oracle
    * state. Mirror of `oh.sync.snapshotRequestCollections` for the
-   * template-collection entity type. Catalog ships rename-only at v1
-   * so each entry carries `{ collection }` only.
+   * template-collection entity type. Each entry carries the materialized
+   * `{ collection, varNames, setOrderKeys }` triple.
    */
   'oh.sync.snapshotTemplateCollections': {
     req: Record<string, never>;
