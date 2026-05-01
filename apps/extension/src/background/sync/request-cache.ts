@@ -37,9 +37,11 @@ export function createRequestCache(
       entityType: REQUEST_ENTITY_TYPE,
       loggerTag: 'RequestCache',
       storageKey: (ws) => wsKeys(ws).requests,
-      // Pre-extraction this cache re-projected on every broadcast
-      // event regardless of body type — preserved.
-      filterBroadcastByType: false,
+      // Re-project only on request envelopes — same architectural
+      // tightening applied to `rule-cache.ts`. The legacy
+      // "fire on every broadcast" stance produced redundant persists
+      // and widened the wipe surface to cross-entity broadcasts.
+      filterBroadcastByType: true,
       project: projectRequest,
       seed: seedRequest,
     },

@@ -3,8 +3,8 @@
  *
  * App.tsx is a thin wiring layer: data hooks (tabs, rules, templates)
  * flow into extracted module-hooks (useTabOpeners, useWorkspaceIntentRouter,
- * useTabSyncEffects, useCommandPaletteData, useSaveToCollectionFlow),
- * and the shell is rendered via ShellLayout + EditorGroupRenderer with
+ * useTabSyncEffects, useCommandPaletteData, useTabLifecycle), and the
+ * shell is rendered via ShellLayout + EditorGroupRenderer with
  * render-prop hooks for the editor body and tool-window content.
  */
 
@@ -30,10 +30,6 @@ import { findCollectionByPath, findFolderByUid } from '@/shared/variables/collec
 import { computeBreadcrumbs, scratchLabelForMode } from './breadcrumbs';
 import BottomPanel from './components/BottomPanel';
 import CollectionOverview from './components/CollectionOverview';
-import RequestCollectionOverview from './components/RequestCollectionOverview';
-import RequestFolderOverview from './components/RequestFolderOverview';
-import TemplateCollectionOverview from './components/TemplateCollectionOverview';
-import TemplateFolderOverview from './components/TemplateFolderOverview';
 import CollectionVariablesEditor from './components/CollectionVariablesEditor';
 import CommandPalette from './components/CommandPalette';
 import EditorGroupRenderer, { type RenderLeafHeaderContext } from './components/EditorGroupRenderer';
@@ -50,7 +46,9 @@ import LiveWorkflowEditor from './components/live/LiveWorkflowEditor';
 import WorkflowStatusPanel from './components/live/WorkflowStatusPanel';
 import DocsPanel from './components/panels/DocsPanel';
 import VariablesPanel from './components/panels/VariablesPanel';
+import RequestCollectionOverview from './components/RequestCollectionOverview';
 import RequestEditor from './components/RequestEditor';
+import RequestFolderOverview from './components/RequestFolderOverview';
 import RuleEditor from './components/RuleEditor';
 import RuleFlow from './components/RuleFlow';
 import RunReportView from './components/RunReportView';
@@ -59,7 +57,9 @@ import ShellLayout from './components/ShellLayout';
 import Sidebar from './components/Sidebar';
 import StatusBar from './components/StatusBar';
 import { renderTabLabel, tabIcon } from './components/TabBar';
+import TemplateCollectionOverview from './components/TemplateCollectionOverview';
 import TemplateEditor from './components/TemplateEditor';
+import TemplateFolderOverview from './components/TemplateFolderOverview';
 import TopBar from './components/TopBar';
 import { VariablePopoverProvider } from './components/template-input/VariablePopoverHost';
 import VaultEditor from './components/VaultEditor';
@@ -77,7 +77,6 @@ import { InspectorNavProvider, useInspectorNav } from './hooks/useInspectorNav';
 import { useRequestScriptsReviewPending } from './hooks/useRequestScriptsReviewPending';
 import { type ResponsiveLayout, useResponsiveLayout } from './hooks/useResponsiveLayout';
 import { useSaveRequestFlow } from './hooks/useSaveRequestFlow';
-import { useSaveToCollectionFlow } from './hooks/useSaveToCollectionFlow';
 import { useTabLifecycle } from './hooks/useTabLifecycle';
 import { useTabOpeners } from './hooks/useTabOpeners';
 import { useTabSyncEffects } from './hooks/useTabSyncEffects';
@@ -285,9 +284,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     localCollections,
     localCollectionTrees,
     pausedUids,
-    createLocalRule,
-    createLocalCollection,
-    createLocalFolder,
     renameLocalCollection,
     renameLocalFolder,
     templates,
@@ -420,6 +416,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     handleCloseToRight,
   } = useTabLifecycle({
     allTabs,
+    rules,
+    workspaceId: workspacesApi.activeWorkspaceId,
     getLeafTabs,
     getFocusedLeafTabs,
     closeTab: rawCloseTab,
@@ -634,6 +632,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
   const openers = useTabOpeners({
     rules,
     templates,
+    localCollections,
+    workspaceId: workspacesApi.activeWorkspaceId,
+    surfaceId: 'workbench',
     allTabs,
     addTab,
     switchTab,
@@ -756,7 +757,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
   );
 
   // ── Save-to-collection flow ────────────────────────────────────
-  const saveFlow = useSaveToCollectionFlow({ allTabs, createLocalRule, replaceTab });
+  // Rules now create the entity at + New Rule click time (renderer-direct
+  // via `applyRuleCreate`); the SaveToCollectionModal flow is kept only
+  // for request-create until the request editor adopts the same model.
   const requestSaveFlow = useSaveRequestFlow({
     allTabs,
     createRequest: requestsApi.createRequest,
@@ -924,7 +927,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
       const tmpl = templates.find((t) => t.uid === activeTab.templateUid);
       return tmpl ? (findCollectionByPath(tmpl.path, families)?.uid ?? null) : null;
     }
-    if ((mode === 'create' || mode === 'request-create') && activeTab.preferredCollectionId) {
+    if (mode === 'request-create' && activeTab.preferredCollectionId) {
       return activeTab.preferredCollectionId;
     }
     return null;
@@ -1000,8 +1003,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
       } else if (tab.mode === 'edit' && tab.ruleUid) {
         void updateLocalRule(tab.ruleUid, { name: newName });
         updateTab(tab.id, { label: newName });
-      } else if (tab.mode === 'create') {
-        updateTab(tab.id, { label: newName, draftName: newName });
       } else if (tab.mode === 'env-edit' && tab.environmentUid) {
         void envApi.renameEnvironment(tab.environmentUid, newName);
         updateTab(tab.id, { label: newName });
@@ -1169,18 +1170,14 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
   // ── Per-tab body renderer ─────────────────────────────────────
   const renderTabBody = useCallback(
     ({ tab }: { tab: WorkbenchTab }): React.ReactNode => {
-      if (tab.mode === 'create' || tab.mode === 'edit') {
+      if (tab.mode === 'edit' && tab.ruleUid) {
         return (
           <RuleEditor
-            mode={tab.mode}
-            ruleType={tab.createType}
             ruleUid={tab.ruleUid}
             tabId={tab.id}
-            draftName={tab.draftName}
             initialTemplateKey={tab.templateKey}
             initialDraft={tab.initialDraft}
             onSaved={(uid) => handleSaved(tab.id, uid)}
-            onSaveDraft={tab.mode === 'create' ? saveFlow.handleSaveDraft : undefined}
             onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
             registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
             registerSaveAsTemplateRef={(fn) => registerSaveAsTemplateRef(tab.id, fn)}
@@ -1476,7 +1473,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     },
     [
       handleSaved,
-      saveFlow.handleSaveDraft,
       handleDirtyChange,
       registerSaveRef,
       registerSaveAsTemplateRef,
@@ -1789,8 +1785,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
             segments={activeBreadcrumbSegments}
             onRename={
               activeTab &&
-              (activeTab.mode === 'create' ||
-                activeTab.mode === 'edit' ||
+              (activeTab.mode === 'edit' ||
                 activeTab.mode === 'collection-overview' ||
                 activeTab.mode === 'folder-overview' ||
                 activeTab.mode === 'env-edit' ||
@@ -1803,17 +1798,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
                 : undefined
             }
             autoRenameKey={activeTab && pendingRenameTabId === activeTab.id ? activeTab.id : null}
-          />
-
-          <SaveToCollectionModal
-            open={saveFlow.saveModalOpen}
-            entityName={saveFlow.saveModalEntityName}
-            collectionTrees={localCollectionTrees}
-            collections={localCollections}
-            onSave={(params) => void saveFlow.handleSaveModalConfirm(params)}
-            onCreateCollection={createLocalCollection}
-            onCreateFolder={createLocalFolder}
-            onCancel={saveFlow.closeSaveModal}
           />
 
           <SaveToCollectionModal

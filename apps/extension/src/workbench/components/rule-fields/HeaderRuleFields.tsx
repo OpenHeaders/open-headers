@@ -110,6 +110,20 @@ function ModificationList({ name, direction, ruleUid, surfaceId, conflicts }: Mo
           {fields.map((field) => (
             <SortableHeaderRow key={field.key} id={field.key}>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                {/* Hidden uid binding — preserves the row's persisted
+                 *  identity through `getFieldsValue` so reorders /
+                 *  edits don't churn itemIds on every save. Without
+                 *  this, antd Form.List drops unbound subkeys from
+                 *  its output, and the per-itemId LWW path on the
+                 *  oracle treats every save as "remove+add" instead
+                 *  of in-place edit. The schema-required `uid` is
+                 *  also re-injected at the persist boundary
+                 *  (`synthesizeSetDiff`) for defense in depth — that
+                 *  catches any future editor that ships without this
+                 *  hidden binding. */}
+                <Form.Item {...field} name={[field.name, 'uid']} hidden noStyle>
+                  <input type="hidden" />
+                </Form.Item>
                 <Form.Item
                   {...field}
                   name={[field.name, 'operation']}

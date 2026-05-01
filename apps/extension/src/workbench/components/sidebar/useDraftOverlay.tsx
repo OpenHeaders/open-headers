@@ -11,11 +11,16 @@ interface UseDraftOverlayParams {
 }
 
 /**
- * Index every `create` / `request-create` tab by its user-chosen
- * destination so the tree builders can splice draft rows in under the
- * right collection / folder. Key shape: `${collectionId}|${folderPath}` —
+ * Index every `request-create` tab by its user-chosen destination so
+ * the tree builders can splice draft rows in under the right
+ * collection / folder. Key shape: `${collectionId}|${folderPath}` —
  * `folderPath: ''` means collection root. Drafts without a
  * `preferredCollectionId` are skipped: there's nowhere to render them yet.
+ *
+ * Rule drafts no longer flow through here — `+ New Rule` mints a real
+ * entity at click time, so the rule itself appears in the sidebar tree
+ * via the standard rule node path. Its draft state is conveyed by the
+ * `row-draft` styling derived from `isRuleDraft(rule)`.
  *
  * Workflow drafts (`live-workflow-create`) are collected in a flat list
  * rather than a by-location map — the Sources view is a flat list of
@@ -30,11 +35,7 @@ export function useDraftOverlay({ allTabs, onSwitchTab, onCloseDraftTab }: UseDr
     for (const tab of allTabs) {
       if (!tab.preferredCollectionId) continue;
       const key = `${tab.preferredCollectionId}|${tab.preferredFolderPath ?? ''}`;
-      if (tab.mode === 'create') {
-        const list = rule.get(key);
-        if (list) list.push(tab);
-        else rule.set(key, [tab]);
-      } else if (tab.mode === 'request-create') {
+      if (tab.mode === 'request-create') {
         const list = request.get(key);
         if (list) list.push(tab);
         else request.set(key, [tab]);

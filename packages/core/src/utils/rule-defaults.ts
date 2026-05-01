@@ -1,16 +1,32 @@
 /**
  * Type-default rule builders.
  *
- * Every "create a rule" gesture in the product — workbench `+ New Rule`,
- * popup "This Page Rules" CTAs, devtools-panel inline create, command
- * palette, sidebar context menus, future CLI seeding — eventually flows
- * through one entry point (`openCreateTab` in
- * `apps/extension/src/workbench/hooks/useTabOpeners.tsx`, reached by
- * external surfaces via the `workbench.html#/create/<type>/draft-<nonce>`
- * deeplink + `useWorkspaceIntentRouter`). That entry point creates a
- * real entity from the click — Linear / Notion / Replicache pattern. To
- * do that it needs a structurally valid `V5.Rule` for each type before
- * the user has filled anything in: the action shape per variant, an
+ * Every "create a rule" gesture in the product creates a real entity
+ * from the click — Linear / Notion / Replicache pattern. The gesture
+ * surfaces are heterogeneous:
+ *
+ *   - workbench `+ New Rule` button + sidebar context menus
+ *   - popup "This Page Rules" CTAs + popup template picker
+ *   - devtools-panel inline create + "override this header" CTA
+ *   - command palette (Create Rule, New Header Rule, …)
+ *   - inspector handoff (URL → conditions, headers → action)
+ *   - future CLI seeding
+ *
+ * Heterogeneous in *origin*, but all funnel through the same renderer
+ * entry point: `openCreateTab` in
+ * `apps/extension/src/workbench/hooks/useTabOpeners.tsx`. Surfaces that
+ * live outside the workbench (popup, devpanel, deeplink) reach it by
+ * navigating to `workbench.html#/create/<type>/draft-<nonce>` —
+ * `useWorkspaceIntentRouter` decodes the hash + dispatches the same
+ * `openCreateTab(type, context, templateKey, initialDraft)` call.
+ *
+ * `openCreateTab` builds a structurally valid `V5.Rule` seed using this
+ * helper, applies any per-gesture overlays (template values, draft
+ * pre-fill), fires `applyRuleCreate` against the local oracle, and
+ * opens the resulting uid in an edit tab. The entity is real from the
+ * first render — `published: false` until the user clicks Save.
+ *
+ * A "structurally valid" seed means: the action shape per variant, an
  * empty conditions list, and a placeholder name the editor's auto-
  * rename gesture can replace.
  *

@@ -153,8 +153,17 @@ export function useRuleConflicts(args: UseRuleConflictsArgs): RuleConflictsApi {
       ruleSignature: rule.uid,
       paths: extractBaseline(rule),
     };
-    setDismissed(new Set());
-    setOverrides({});
+    // Functional updates with same-value bailout: only mint a new
+    // empty Set/{} when there's actually something to clear. Without
+    // this, every `setBaseline` call would change `dismissed` /
+    // `overrides` to a fresh-but-equivalent reference, which cascades:
+    // → state change → `getConflict` rebuilds (it depends on dismissed/
+    //   overrides) → `conflicts` memo rebuilds → any consumer that
+    //   depends on the whole `conflicts` object recomputes → effects
+    //   that depend on those consumers re-fire → setBaseline runs again
+    //   → loop. Idempotent reset breaks the cycle at the source.
+    setDismissed((prev) => (prev.size === 0 ? prev : new Set()));
+    setOverrides((prev) => (Object.keys(prev).length === 0 ? prev : {}));
   }, []);
 
   const acceptTheirs = useCallback((path: string, theirs: string) => {

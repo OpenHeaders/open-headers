@@ -6,13 +6,22 @@
  *   "Don't save" (discard) / "Cancel" / "Save changes" (red)
  */
 
+import type { V5 } from '@openheaders/core/types';
+import { isRuleDraft } from '@openheaders/core/utils';
 import { App as AntApp, Button } from 'antd';
 import { useCallback } from 'react';
+import { applyRuleDelete } from '@/shared/sync/rule-write-client';
 import type { WorkbenchTab } from '../types';
 
 interface UseTabLifecycleOptions {
   /** All tabs across every editor group. Used for "find by id" lookups. */
   allTabs: WorkbenchTab[];
+  /** Live rules — used to detect tabs whose rule is still in draft
+   *  (unpublished) state, which need the discard-or-keep prompt
+   *  rather than the legacy "save changes?" prompt. */
+  rules: V5.Rule[];
+  /** Active workspace id — required for `applyRuleDelete` on Discard. */
+  workspaceId: string | null;
   /** Returns the tabs in the same leaf as the anchor tab — batch close
    *  operations scope to the anchor's editor group. */
   getLeafTabs: (anchorTabId: string) => WorkbenchTab[];
@@ -24,8 +33,22 @@ interface UseTabLifecycleOptions {
   saveRefMap: React.MutableRefObject<Map<string, () => void>>;
 }
 
+/**
+ * Returns the unpublished rule whose tab the user is about to close,
+ * or `null` if the tab isn't a draft-rule edit. Centralized so both
+ * the single-close and batch-close paths agree on what counts as
+ * "still drafting."
+ */
+function tabDraftRule(tab: WorkbenchTab, rules: V5.Rule[]): V5.Rule | null {
+  if (tab.mode !== 'edit' || !tab.ruleUid) return null;
+  const rule = rules.find((r) => r.uid === tab.ruleUid);
+  return rule && isRuleDraft(rule) ? rule : null;
+}
+
 export function useTabLifecycle({
   allTabs,
+  rules,
+  workspaceId,
   getLeafTabs,
   getFocusedLeafTabs,
   closeTab,
@@ -98,6 +121,68 @@ export function useTabLifecycle({
     [modal],
   );
 
+  // Draft-rule discard prompt. The rule lives in storage from the
+  // moment of `+ New Rule`, so closing its tab raises the question
+  // "do you want to keep this draft for later, or throw it away?"
+  // Distinct from the legacy "save changes?" because there's nothing
+  // to save — the gesture is publish-or-toss, not commit-or-revert.
+  const confirmDiscardDraft = useCallback(
+    (tab: { id: string; label: string }): Promise<'discard' | 'keep' | 'cancel'> => {
+      return new Promise((resolve) => {
+        const instance = modal.confirm({
+          title: <span style={{ fontSize: 13, fontWeight: 600 }}>Discard draft?</span>,
+          width: 380,
+          content: (
+            <p style={{ fontSize: 12, margin: '4px 0 0', lineHeight: 1.5 }}>
+              <strong>{tab.label}</strong> hasn&apos;t been published yet. Discarding deletes the draft; keeping leaves
+              it in your sidebar to finish later.
+            </p>
+          ),
+          icon: null,
+          closable: true,
+          onCancel: () => {
+            instance.destroy();
+            resolve('cancel');
+          },
+          footer: (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '12px 0 4px' }}>
+              <Button
+                size="small"
+                danger
+                onClick={() => {
+                  instance.destroy();
+                  resolve('discard');
+                }}
+              >
+                Discard
+              </Button>
+              <Button
+                size="small"
+                onClick={() => {
+                  instance.destroy();
+                  resolve('cancel');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="small"
+                type="primary"
+                onClick={() => {
+                  instance.destroy();
+                  resolve('keep');
+                }}
+              >
+                Keep as draft
+              </Button>
+            </div>
+          ),
+        });
+      });
+    },
+    [modal],
+  );
+
   // ── Single tab close with confirmation ──────────────────────────
 
   const handleCloseTab = useCallback(
@@ -105,11 +190,25 @@ export function useTabLifecycle({
       const tab = allTabs.find((t) => t.id === tabId);
       if (!tab) return;
 
-      // Draft tabs are always treated as unsaved — rule-create +
-      // request-create share the "nothing persisted, Save transitions
-      // the tab" contract, so both need the save-flow branch rather
-      // than a direct close.
-      if (tab.mode === 'create' || tab.mode === 'request-create') {
+      // Draft (unpublished) rule tab — discard / keep / cancel.
+      // Takes precedence over the dirty-form prompt because the
+      // publication-gate question subsumes the form-edit question:
+      // discarding deletes the rule outright, so any pending form
+      // edits are moot.
+      const draftRule = tabDraftRule(tab, rules);
+      if (draftRule && workspaceId) {
+        const result = await confirmDiscardDraft(tab);
+        if (result === 'cancel') return;
+        if (result === 'discard') {
+          void applyRuleDelete(draftRule.uid, { workspaceId, surfaceId: 'workbench' });
+        }
+        closeTab(tabId, true);
+        return;
+      }
+
+      // Legacy request-create path stays intact until the request
+      // editor adopts the same publication-gate model.
+      if (tab.mode === 'request-create') {
         const result = await confirmUnsaved(tab);
         if (result === 'save') {
           switchTab(tabId);
@@ -138,26 +237,46 @@ export function useTabLifecycle({
       if (result === 'cancel') return;
       closeTab(tabId, true); // discard
     },
-    [allTabs, closeTab, switchTab, saveRefMap, confirmUnsaved],
+    [allTabs, rules, workspaceId, closeTab, switchTab, saveRefMap, confirmUnsaved, confirmDiscardDraft],
   );
 
   // ── Batch close with sequential confirmation ────────────────────
 
   const handleBatchClose = useCallback(
     async (tabIds: string[]) => {
-      // Separate clean from dirty/draft
+      // Separate clean / dirty / draft. Draft tabs go through the
+      // discard-or-keep flow rather than save-or-discard.
       const clean: string[] = [];
       const dirty: string[] = [];
+      const draft: string[] = [];
 
       for (const id of tabIds) {
         const tab = allTabs.find((t) => t.id === id);
         if (!tab) continue;
-        if (tab.dirty || tab.mode === 'create') dirty.push(id);
+        if (tabDraftRule(tab, rules)) draft.push(id);
+        else if (tab.dirty || tab.mode === 'request-create') dirty.push(id);
         else clean.push(id);
       }
 
       // Close all clean tabs immediately
       for (const id of clean) closeTab(id, true);
+
+      // Draft tabs — confirm one by one (discard / keep / cancel).
+      for (const id of draft) {
+        const tab = allTabs.find((t) => t.id === id);
+        if (!tab) continue;
+        const draftRule = tabDraftRule(tab, rules);
+        if (!draftRule) {
+          closeTab(id, true);
+          continue;
+        }
+        const result = await confirmDiscardDraft(tab);
+        if (result === 'cancel') return; // abort remaining
+        if (result === 'discard' && workspaceId) {
+          void applyRuleDelete(draftRule.uid, { workspaceId, surfaceId: 'workbench' });
+        }
+        closeTab(id, true);
+      }
 
       // Confirm dirty tabs one by one
       for (const id of dirty) {
@@ -167,7 +286,7 @@ export function useTabLifecycle({
         const result = await confirmUnsaved(tab);
         if (result === 'cancel') return; // abort remaining
         if (result === 'save') {
-          if (tab.mode === 'create') {
+          if (tab.mode === 'request-create') {
             switchTab(id);
             setTimeout(() => saveRefMap.current.get(id)?.(), 50);
             continue; // don't close — save flow handles it
@@ -177,7 +296,7 @@ export function useTabLifecycle({
         closeTab(id, true);
       }
     },
-    [allTabs, closeTab, switchTab, saveRefMap, confirmUnsaved],
+    [allTabs, rules, workspaceId, closeTab, switchTab, saveRefMap, confirmUnsaved, confirmDiscardDraft],
   );
 
   // ── Derived batch handlers (leaf-scoped) ──────────────────────
@@ -198,9 +317,9 @@ export function useTabLifecycle({
 
   const handleCloseUnmodified = useCallback(() => {
     for (const tab of getFocusedLeafTabs()) {
-      if (!tab.dirty && tab.mode !== 'create') closeTab(tab.id, true);
+      if (!tab.dirty && !tabDraftRule(tab, rules) && tab.mode !== 'request-create') closeTab(tab.id, true);
     }
-  }, [getFocusedLeafTabs, closeTab]);
+  }, [getFocusedLeafTabs, rules, closeTab]);
 
   const handleCloseToLeft = useCallback(
     (tabId: string) => {

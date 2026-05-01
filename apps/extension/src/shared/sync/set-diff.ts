@@ -75,15 +75,33 @@ interface ClassifiedRow {
 }
 
 export function synthesizeSetDiff(args: SetDiffArgs): MutationBody[] {
-  const { type, id, path, live, newItems } = args;
+  const { type, id, path, live, newItems: rawNewItems } = args;
   const bodies: MutationBody[] = [];
 
   const liveByUid = new Map<string, LiveSetEntry>();
   for (const entry of live) liveByUid.set(entry.itemId, entry);
 
   // Resolve uid per new item (mint defensively if missing).
-  const newUids: string[] = newItems.map((item) => (isUidCarrier(item) ? item.uid : generateUid()));
+  const newUids: string[] = rawNewItems.map((item) => (isUidCarrier(item) ? item.uid : generateUid()));
   const newUidSet = new Set(newUids);
+
+  // Inject uid into items that don't carry one. This is load-bearing for
+  // schema validation on hydrate: every set-modeled persisted item type
+  // (HeaderModification, RuleCondition, RequestHeader, …) declares `uid`
+  // as a required field, but renderer Form.List bindings often only
+  // register Form.Items for fields with visible inputs (operation,
+  // headerName, value) — `uid` set on `add()`'s initialValue gets
+  // dropped by `getFieldsValue` because it has no bound Form.Item.
+  // Without this rewrap, the persisted item shape is `{operation,
+  // headerName, value}`; on next reload, `parseEntityArray(RuleSchema)`
+  // rejects the rule for missing uid, the seed runs with 0 entries, and
+  // the cache writes `[]` over the storage. Wrapping at this boundary
+  // — instead of every editor adding hidden Form.Items — keeps the
+  // schema invariant centralized at the write-path choke point that
+  // every set-modeled mutation already passes through.
+  const newItems: ReadonlyArray<unknown> = rawNewItems.map((item, i) =>
+    isUidCarrier(item) ? item : { ...(item as Record<string, unknown>), uid: newUids[i] },
+  );
 
   // Vanished rows — emit removeFromSet for uids no longer present.
   for (const entry of live) {

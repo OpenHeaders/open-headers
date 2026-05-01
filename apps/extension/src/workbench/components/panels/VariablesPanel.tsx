@@ -64,7 +64,7 @@ import TotpPreview from '../totp/TotpPreview';
 /** What the focused tab references, if anything the Scope panel can filter to. */
 type ScopeKind = 'rule' | 'request' | 'template' | 'none';
 
-const RULE_TAB_MODES: ReadonlySet<TabMode> = new Set(['edit', 'create']);
+const RULE_TAB_MODES: ReadonlySet<TabMode> = new Set(['edit']);
 const REQUEST_TAB_MODES: ReadonlySet<TabMode> = new Set(['request-edit', 'request-create']);
 const TEMPLATE_TAB_MODES: ReadonlySet<TabMode> = new Set(['template-edit']);
 

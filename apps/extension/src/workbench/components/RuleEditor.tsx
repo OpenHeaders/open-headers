@@ -1,14 +1,20 @@
 /**
- * RuleEditor — mirrors the desktop "Add Header Rule" modal UX exactly.
+ * RuleEditor — single-mode (edit) editor bound to a real entity.
  *
- * Ownership model (separation of concerns):
- *   - **Form** owns content fields: domains and per-type fields (headerName, staticValue, etc.)
- *   - **Rule store** (via context) owns `enabled` and `name` for persisted rules
- *   - **Local state** owns `enabled` for draft (create) tabs
- *   - **Tab label** (via props) owns `name` for draft tabs
+ * Every "create rule" gesture in the product mints a real entity at click
+ * time (via `openCreateTab` → `applyRuleCreate`); this editor only ever
+ * sees a persisted rule. The `published` flag on the rule distinguishes
+ * "still drafting" from "live" — the Save button is the publication gate
+ * (see `memory/project_publication_gate_decision.md`).
  *
- * This means toggling enabled from the sidebar immediately reflects here,
- * and breadcrumb renames are never overwritten by a stale form value on save.
+ * Ownership model:
+ *   - **Form** owns content fields (domains, per-type fields).
+ *   - **Rule store** (via mutator) owns `enabled` and `name`.
+ *   - **`templateKey` / `initialDraft` props** pre-fill the form on mount
+ *     for unpublished rules — uncommitted overlay until Save.
+ *
+ * Toggling enabled from the sidebar reflects immediately; breadcrumb
+ * renames are never overwritten by a stale form value on save.
  */
 
 import {
@@ -20,18 +26,16 @@ import {
   InfoCircleOutlined,
 } from '@ant-design/icons';
 import { useAwareness } from '@hooks/useAwareness';
-import { useRules } from '@hooks/useRules';
 import { useRuleMutator } from '@hooks/useRuleMutator';
+import { useRules } from '@hooks/useRules';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
-import { generateUid } from '@openheaders/core/utils';
 import type { MenuProps } from 'antd';
 import { Alert, App, Button, Dropdown, Form, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PresenceBadge } from '@/shared/awareness';
-import { mapAntdIdToFieldPath } from './rule-fields/field-path-map';
-import { useRuleConflicts } from './rule-fields/use-rule-conflicts';
+import { applyRuleCreate, applyRulePublish } from '@/shared/sync/rule-write-client';
 import { buildDraftConditions } from '../draft-conditions';
 import { useInspectorNav } from '../hooks/useInspectorNav';
 import { formatString } from '../languages/prettier';
@@ -45,11 +49,13 @@ import { ActionValueBanner } from './rule-fields/ActionValueBanner';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
 import BodyRuleFields, { BODY_DYNAMIC_TEMPLATE } from './rule-fields/BodyRuleFields';
 import DelayRuleFields from './rule-fields/DelayRuleFields';
+import { mapAntdIdToFieldPath } from './rule-fields/field-path-map';
 import HeaderRuleFields from './rule-fields/HeaderRuleFields';
 import InjectRuleFields, { maybePrefillInjectCode } from './rule-fields/InjectRuleFields';
 import MockRuleFields, { MOCK_DYNAMIC_TEMPLATE } from './rule-fields/MockRuleFields';
 import QueryParamRuleFields from './rule-fields/QueryParamRuleFields';
 import RedirectRuleFields from './rule-fields/RedirectRuleFields';
+import { useRuleConflicts } from './rule-fields/use-rule-conflicts';
 import SaveAsTemplateModal from './SaveAsTemplateModal';
 import { buildRuleIcon } from './shared/rule-icon';
 import { renderTwoToneIcon } from './TwoToneIconPicker';
@@ -69,39 +75,29 @@ const RULE_TYPE_TITLE: Record<string, string> = {
 };
 
 interface RuleEditorProps {
-  mode: 'create' | 'edit';
-  ruleType?: string;
-  ruleUid?: string;
+  ruleUid: string;
   tabId: string;
-  /** Display name for drafts (from tab label, managed by breadcrumb). */
-  draftName?: string;
-  /** Template to pre-apply on mount (from tab identity, not URL state). */
+  /** Template to pre-apply on first mount (form-only overlay; commits
+   *  with the rest of the form on Save). Honored only for unpublished
+   *  rules — published rules ignore the prop. */
   initialTemplateKey?: string;
-  /**
-   * Pre-filled rule draft supplied by an external caller (e.g. the
-   * inspector panel's "override this header" CTA). Populates the form
-   * on mount when `mode === 'create'` so the user arrives at a
-   * ready-to-save rule — but the rule stays unsaved until they
-   * explicitly confirm via the Save modal.
-   */
+  /** Pre-filled rule draft supplied by an external caller (inspector
+   *  panel "override this header" CTA, future import/paste flows).
+   *  Same semantics as `initialTemplateKey` — first-mount form overlay
+   *  on unpublished rules only. */
   initialDraft?: V5.RuleDraft;
   onSaved: (uid: string) => void;
-  onSaveDraft?: (tabId: string, draftData: Record<string, unknown>) => void;
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (saveFn: () => void) => void;
   registerSaveAsTemplateRef?: (fn: () => void) => void;
 }
 
 const RuleEditor: React.FC<RuleEditorProps> = ({
-  mode,
-  ruleType,
   ruleUid,
-  tabId,
-  draftName,
+  tabId: _tabId,
   initialTemplateKey,
   initialDraft,
   onSaved,
-  onSaveDraft,
   onDirtyChange,
   registerSaveRef,
   registerSaveAsTemplateRef,
@@ -109,14 +105,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   const { message } = App.useApp();
   const { token } = theme.useToken();
   const { openDocs } = useInspectorNav();
-  const {
-    rules,
-    activeWorkspaceId,
-    createLocalRule,
-    localCollections,
-    templates: userTemplates,
-    templateCollectionTrees,
-  } = useRules();
+  const { rules, activeWorkspaceId, localCollections, templates: userTemplates, templateCollectionTrees } = useRules();
   const mutator = useRuleMutator({ workspaceId: activeWorkspaceId, surfaceId: 'workbench' });
   const [form] = Form.useForm();
   const [_saving, setSaving] = useState(false);
@@ -147,57 +136,43 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   // behavior on next draft open.
   const draftUrlStrategy = useSettingValue('rulesEngine.draftUrlStrategy');
 
-  // ── Enabled state: owned by rule store (edit) or local (create) ──
+  /** Live rule from context — always current. */
+  const liveRule = useMemo(() => rules.find((r) => r.uid === ruleUid), [ruleUid, rules]);
 
-  const [draftEnabled, setDraftEnabled] = useState(true);
-
-  /** Live rule from context — always current for edit mode. */
-  const liveRule = useMemo(
-    () => (mode === 'edit' && ruleUid ? rules.find((r) => r.uid === ruleUid) : undefined),
-    [mode, ruleUid, rules],
-  );
+  /** Whether the rule is published (live to DNR / runners). Drafts are
+   *  unpublished; Save flips `published: true`. */
+  const isPublished = liveRule?.published === true;
 
   // Phase A A5 — deletion handling.
   //
-  // When the live rule disappears in edit mode (delete tombstone landed
-  // from another surface), capture the last-known shape so the
-  // read-only "deleted by …" view can render and the Undelete button
-  // can re-emit a `create(...)` with a fresh id (§7.2 — re-creation
-  // MUST use a fresh id; there's no HLC escape hatch). The open tab
-  // hands off to the freshly-created rule via `onSaved(newUid)`.
+  // When the live rule disappears (delete tombstone landed from another
+  // surface), capture the last-known shape so the read-only "deleted
+  // by …" view can render and the Undelete button can re-emit a
+  // `create(...)` with a fresh id (§7.2 — re-creation MUST use a fresh
+  // id; there's no HLC escape hatch). The open tab hands off to the
+  // freshly-created rule via `onSaved(newUid)`.
   const lastSeenRuleRef = useRef<V5.Rule | null>(null);
   useEffect(() => {
-    if (mode === 'edit' && liveRule) {
+    if (liveRule) {
       lastSeenRuleRef.current = liveRule;
     }
-  }, [mode, liveRule]);
-  const isDeletedRemotely =
-    mode === 'edit' && !!ruleUid && initializedRef.current && !liveRule && lastSeenRuleRef.current !== null;
+  }, [liveRule]);
+  const isDeletedRemotely = initializedRef.current && !liveRule && lastSeenRuleRef.current !== null;
 
   // Stale-draft tracking is gone — the sync engine
   // (`docs/SYNC_ENGINE_DESIGN.md` §6.2) replaces the version-counter
   // OCC with HLC-stamped per-field LWW + an awareness ribbon. Saves
   // unconditionally apply; concurrent edits from another surface
-  // arrive on the broadcast channel and reconcile per-field. Until
-  // the awareness ribbon (A1–A6) lands, this editor just commits the
-  // user's draft on save and displays whatever liveRule reflects.
+  // arrive on the broadcast channel and reconcile per-field.
 
-  /**
-   * Rule type is immutable for a given tab — in create mode it comes from
-   * the `ruleType` prop, in edit mode from the live rule. There is no code
-   * path that changes `ruleType` inside the form, so this never needs a
-   * form subscription and the first render is already correct.
-   */
-  const selectedType =
-    mode === 'edit'
-      ? (liveRule?.type as V5.ExtensionRuleType | undefined)
-      : (ruleType as V5.ExtensionRuleType | undefined);
+  /** Rule type is immutable for the lifetime of the entity. */
+  const selectedType = liveRule?.type as V5.ExtensionRuleType | undefined;
 
   /** Single source of truth for enabled state. */
-  const isEnabled = mode === 'edit' ? (liveRule?.enabled ?? true) : draftEnabled;
+  const isEnabled = liveRule?.enabled ?? true;
 
   /** Single source of truth for name. */
-  const ruleName = mode === 'edit' ? (liveRule?.name ?? 'Rule') : (draftName ?? 'Untitled');
+  const ruleName = liveRule?.name ?? 'Rule';
 
   // ── Awareness publisher (Phase A A2) ─────────────────────────────
   // Workbench publishes entity-level presence so other surfaces (popup,
@@ -208,10 +183,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   // colliding with a longer-lived editor session). The single dirty
   // marker tells other surfaces this editor has unsaved edits without
   // committing to a per-leaf path catalogue mid-Phase-A.
-  const entityFocus = useMemo(
-    () => (mode === 'edit' && ruleUid ? { type: RULE_ENTITY_TYPE, id: ruleUid } : null),
-    [mode, ruleUid],
-  );
+  const entityFocus = useMemo(() => ({ type: RULE_ENTITY_TYPE, id: ruleUid }), [ruleUid]);
   const dirtyFields = useMemo<string[]>(() => (isDirty ? ['*'] : []), [isDirty]);
 
   // Per-field focus path. The DOM target's id (set by antd Form on every
@@ -235,11 +207,8 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     setFocusedFieldPath(null);
   }, []);
   const fieldFocus = useMemo(
-    () =>
-      mode === 'edit' && ruleUid && focusedFieldPath
-        ? { type: RULE_ENTITY_TYPE, id: ruleUid, path: focusedFieldPath }
-        : null,
-    [mode, ruleUid, focusedFieldPath],
+    () => (focusedFieldPath ? { type: RULE_ENTITY_TYPE, id: ruleUid, path: focusedFieldPath } : null),
+    [ruleUid, focusedFieldPath],
   );
 
   useAwareness({
@@ -248,36 +217,27 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     entityFocus,
     fieldFocus,
     dirtyFields,
-    enabled: mode === 'edit' && !!ruleUid,
+    enabled: true,
   });
 
   const conflicts = useRuleConflicts({
     liveRule: liveRule ?? null,
     isDirty,
-    enabled: mode === 'edit' && !!ruleUid,
+    enabled: true,
   });
 
-  // Bridge handed to per-type *RuleFields. `undefined` in create mode so
-  // chips never render against a draft (no live rule to conflict with).
   const conflictBridge = useMemo(
-    () =>
-      mode === 'edit'
-        ? {
-            getConflict: conflicts.getConflict,
-            onAcceptTheirs: conflicts.acceptTheirs,
-            onDismissConflict: conflicts.dismiss,
-          }
-        : undefined,
-    [mode, conflicts.getConflict, conflicts.acceptTheirs, conflicts.dismiss],
+    () => ({
+      getConflict: conflicts.getConflict,
+      onAcceptTheirs: conflicts.acceptTheirs,
+      onDismissConflict: conflicts.dismiss,
+    }),
+    [conflicts.getConflict, conflicts.acceptTheirs, conflicts.dismiss],
   );
 
   const handleToggleEnabled = useCallback(() => {
-    if (mode === 'edit' && ruleUid) {
-      void mutator.toggleRule(ruleUid, !isEnabled);
-    } else {
-      setDraftEnabled((prev) => !prev);
-    }
-  }, [mode, ruleUid, isEnabled, mutator]);
+    void mutator.toggleRule(ruleUid, !isEnabled);
+  }, [ruleUid, isEnabled, mutator]);
 
   // ── Template selector ─────────────────────────────────────────
   const [selectedTemplate, setSelectedTemplate] = useState<string>(initialTemplateKey ?? 'empty');
@@ -349,13 +309,20 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   // Populate form from a persisted rule. Pulled out of the init effect
   // so the live-update path (Phase A A4 — re-prime form on external
   // mutation while the editor is clean) can reuse the same shape.
+  //
+  // We depend only on `conflicts.setBaseline` (a stable `useCallback(_, [])`)
+  // — depending on the whole `conflicts` memo would loop: setBaseline
+  // calls `setDismissed(new Set())` which triggers `getConflict` to
+  // rebuild → `conflicts` rebuilds → `populateFormFromRule` rebuilds →
+  // re-prime effect re-fires → setBaseline → loop.
+  const setBaseline = conflicts.setBaseline;
   const populateFormFromRule = useCallback(
     (rule: V5.Rule) => {
       const baseValues = {
         ruleType: rule.type,
         conditions: rule.conditions,
       };
-      conflicts.setBaseline(rule);
+      setBaseline(rule);
       switch (rule.type) {
         case 'header': {
           const hr = rule as V5.HeaderRule;
@@ -441,88 +408,63 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         }
       }
     },
-    [form, conflicts],
+    [form, setBaseline],
   );
 
   useEffect(() => {
     if (initializedRef.current) return;
+    const rule = rules.find((r) => r.uid === ruleUid);
+    if (!rule) return;
+    initializedRef.current = true;
+    populateFormFromRule(rule);
 
-    if (mode === 'edit' && ruleUid) {
-      const rule = rules.find((r) => r.uid === ruleUid);
-      if (!rule) return;
-      initializedRef.current = true;
-      populateFormFromRule(rule);
-    } else if (mode === 'create' && ruleType) {
-      initializedRef.current = true;
+    // First-mount overlay for unpublished rules created via gestures
+    // that pre-fill the form (inspector "override this header" CTA,
+    // future import flows). Published rules ignore the overlay — the
+    // user already committed prior content.
+    //
+    // Conditions overlay: `buildDraftConditions` translates the draft's
+    // URL into a url-pattern condition with the current draft-url
+    // strategy.
+    if (rule.published !== true && initialDraft && initialDraft.type === rule.type) {
+      const overlay: Record<string, unknown> = {};
+      const conditions = buildDraftConditions(initialDraft, draftUrlStrategy);
+      if (conditions.length > 0) overlay.conditions = conditions;
 
-      // Type defaults applied first so every form field has a value.
-      // An `initialDraft` (inspector handoff, future import flows) or
-      // `initialTemplateKey` (user-picked template) overrides specific
-      // fields on top. Precedence: defaults → template → draft.
-      const defaults: Record<string, unknown> = {
-        ruleType,
-        conditions: [],
-        requestHeaders: [{ uid: generateUid(), operation: 'override', headerName: '', value: '' }],
-        responseHeaders: [],
-        redirectTo: '',
-        injectType: 'script',
-        injectSource: 'code',
-        injectCode: '',
-        injectSourceUrl: '',
-        injectPosition: 'body-end',
-        injectBypassCSP: false,
-        queryParams: [{ param: '', value: '', operation: 'add' }],
-        mockBodyType: 'static',
-        mockResourceType: 'rest',
-        mockGraphqlOperator: 'Equals',
-        mockContentType: 'application/json',
-        mockResponseHeaders: [],
-        bodyModType: 'static',
-        bodyResourceType: 'rest',
-        bodyGraphqlOperator: 'Equals',
-      };
-
-      // Apply `initialDraft` overlays for rule types the inspector /
-      // external callers target today. The conditions seed uses the
-      // same `buildDraftConditions` helper that the edit path used
-      // before — draft URL → url-pattern condition with the current
-      // draft-url strategy.
-      if (initialDraft && initialDraft.type === ruleType) {
-        const conditions = buildDraftConditions(initialDraft, draftUrlStrategy);
-        if (conditions.length > 0) defaults.conditions = conditions;
-
-        if (initialDraft.type === 'header') {
-          // Preserve the draft's direction intent: if the draft
-          // targets only response headers, leave requestHeaders
-          // empty so the editor's "jump to response tab" heuristic
-          // fires. The default placeholder would otherwise defeat it.
-          const targetsResponse = !!initialDraft.responseHeaders?.length;
-          const targetsRequest = !!initialDraft.requestHeaders?.length;
-          defaults.requestHeaders =
-            initialDraft.requestHeaders ??
-            (targetsResponse ? [] : [{ uid: generateUid(), operation: 'override', headerName: '', value: '' }]);
-          defaults.responseHeaders = initialDraft.responseHeaders ?? (targetsRequest ? [] : []);
-        } else if (initialDraft.type === 'redirect') {
-          if (initialDraft.redirectTo) defaults.redirectTo = initialDraft.redirectTo;
-        }
-        // Block has no editable action fields.
-        // Other rule types extend similarly as inspector CTAs grow.
+      if (initialDraft.type === 'header') {
+        // Preserve the draft's direction intent: if the draft targets
+        // only response headers, leave requestHeaders empty so the
+        // editor's "jump to response tab" heuristic fires. A default
+        // placeholder would otherwise defeat it.
+        const targetsResponse = !!initialDraft.responseHeaders?.length;
+        const targetsRequest = !!initialDraft.requestHeaders?.length;
+        if (initialDraft.requestHeaders) overlay.requestHeaders = initialDraft.requestHeaders;
+        else if (targetsResponse) overlay.requestHeaders = [];
+        if (initialDraft.responseHeaders) overlay.responseHeaders = initialDraft.responseHeaders;
+        else if (targetsRequest) overlay.responseHeaders = [];
+      } else if (initialDraft.type === 'redirect') {
+        if (initialDraft.redirectTo) overlay.redirectTo = initialDraft.redirectTo;
       }
+      // Block has no editable action fields.
+      // Other rule types extend similarly as inspector CTAs grow.
 
-      form.setFieldsValue(defaults);
-
-      // Header-direction badge counts + initial tab follow the same
-      // rule as the edit/template paths: if only one direction has
-      // entries, select it.
-      if (ruleType === 'header') {
-        const reqLen = Array.isArray(defaults.requestHeaders) ? (defaults.requestHeaders as unknown[]).length : 0;
-        const resLen = Array.isArray(defaults.responseHeaders) ? (defaults.responseHeaders as unknown[]).length : 0;
-        setHeaderReqCount(reqLen);
-        setHeaderResCount(resLen);
-        setHeaderActiveTab(resLen > 0 && reqLen === 0 ? 'response' : 'request');
+      if (Object.keys(overlay).length > 0) {
+        form.setFieldsValue(overlay);
+        notifyDirty(true);
+        if (rule.type === 'header') {
+          const reqLen = Array.isArray(overlay.requestHeaders)
+            ? (overlay.requestHeaders as unknown[]).length
+            : ((rule as V5.HeaderRule).action.requestHeaders?.length ?? 0);
+          const resLen = Array.isArray(overlay.responseHeaders)
+            ? (overlay.responseHeaders as unknown[]).length
+            : ((rule as V5.HeaderRule).action.responseHeaders?.length ?? 0);
+          setHeaderReqCount(reqLen);
+          setHeaderResCount(resLen);
+          setHeaderActiveTab(resLen > 0 && reqLen === 0 ? 'response' : 'request');
+        }
       }
     }
-  }, [mode, ruleType, ruleUid, rules, form, initialDraft, draftUrlStrategy, populateFormFromRule]);
+  }, [ruleUid, rules, form, initialDraft, draftUrlStrategy, populateFormFromRule, notifyDirty]);
 
   // Phase A A4 — live-update reconciliation.
   //
@@ -547,12 +489,12 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   }, [liveRule]);
   useEffect(() => {
     if (!initializedRef.current) return;
-    if (mode !== 'edit' || !liveRule) return;
+    if (!liveRule) return;
     if (isDirtyRef.current) return;
     populateFormFromRule(liveRule);
     // liveRuleSignature is the change trigger; the populate runs against
     // the latest liveRule.
-  }, [liveRuleSignature, mode, liveRule, populateFormFromRule]);
+  }, [liveRuleSignature, liveRule, populateFormFromRule]);
 
   // Apply initial template after form init (from tab identity, runs once).
   // Must wait for selectedType to resolve — applyTemplate looks up templates by type.
@@ -711,6 +653,13 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   );
 
   const handleSubmit = useCallback(async () => {
+    if (!liveRule) return;
+    // Publication-gate short-circuit. Mirrors `EditorHeader`'s Save
+    // disabled state: published rule + no uncommitted edits = nothing
+    // to do. Without this, Cmd+S keeps firing redundant publish
+    // batches even though the visible Save button is greyed out.
+    if (liveRule.published === true && !isDirtyRef.current) return;
+    const ruleType = liveRule.type;
     // Format-on-save. For every known code field on the current rule
     // type, resolve its language from a sibling form value and push
     // the formatted string back into the form before we read values.
@@ -755,51 +704,46 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         message.error('Unknown rule type');
         return;
       }
-
-      if (mode === 'create') {
-        if (onSaveDraft) {
-          onSaveDraft(tabId, { ...rule } as Record<string, unknown>);
-          return;
-        }
-        const created = await createLocalRule(rule, localCollections[0]?.uid);
-        if (created) {
-          message.success('Rule created');
-          notifyDirty(false);
-          onSaved(created.uid);
-        } else {
-          message.error('Failed to create rule');
-        }
-      } else if (ruleUid) {
-        const updates = rule as Partial<Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>>;
-        const result = await mutator.updateRule(ruleUid, updates);
-        if (result.ok) {
-          message.success('Rule updated');
-          notifyDirty(false);
-          conflicts.clearDismissed();
-          onSaved(ruleUid);
-        } else if (result.reason === 'not-found') {
-          message.error('Rule was deleted from another tab');
-        } else {
-          message.error(`Failed to update rule${result.message ? `: ${result.message}` : ''}`);
-        }
+      // Save = commit form values + flip publication gate. Two batches:
+      // the content commit fires DNR rebuild via the per-mutator side
+      // effects (header/redirect/etc. mutators emit recompile intents
+      // when their fields change); the publish call adds an explicit
+      // recompile + the `published` field flip. Per-keystroke streaming
+      // (§19.1) lands later — when it does, the content-commit step
+      // will be a no-op because every keystroke already streamed.
+      const updates = rule as Partial<Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>>;
+      const updated = await mutator.updateRule(ruleUid, updates);
+      if (!updated.ok) {
+        if (updated.reason === 'not-found') message.error('Rule was deleted from another tab');
+        else message.error(`Failed to update rule${updated.message ? `: ${updated.message}` : ''}`);
+        return;
       }
+      const published = await applyRulePublish(ruleUid, {
+        workspaceId: activeWorkspaceId ?? '',
+        surfaceId: 'workbench',
+      });
+      if (!published.ok) {
+        message.error('Rule saved but publication failed');
+        return;
+      }
+      message.success(isPublished ? 'Rule updated' : 'Rule published');
+      notifyDirty(false);
+      conflicts.clearDismissed();
+      onSaved(ruleUid);
     } finally {
       setSaving(false);
     }
   }, [
     form,
     buildRule,
-    mode,
+    liveRule,
     ruleUid,
-    ruleType,
-    tabId,
-    createLocalRule,
-    localCollections,
+    activeWorkspaceId,
+    isPublished,
     message,
     mutator,
     notifyDirty,
     onSaved,
-    onSaveDraft,
     conflicts,
   ]);
 
@@ -810,29 +754,40 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   // Phase A A5 — Undelete. The original entity is tombstoned (delete-
   // wins per §7.2); resurrection mints a fresh uid. The open tab swaps
   // its identity to the new uid via `onSaved`, so the editor remounts
-  // pointing at the live entity.
+  // pointing at the live entity. Re-published immediately so the
+  // restored rule lands live again — matching the user's expectation
+  // that "Restore" reverses the deletion.
   const handleUndelete = useCallback(async () => {
     const last = lastSeenRuleRef.current;
-    if (!last) return;
-    const { uid: _uid, path: _path, ...payload } = last;
+    if (!last || !activeWorkspaceId) return;
+    const collection = localCollections[0];
+    const parentPath = collection?.path;
+    if (!parentPath) {
+      message.error('No collection found');
+      return;
+    }
+    const { uid: _uid, path: _path, schemaVersion: _sv, ...payload } = last;
     void _uid;
     void _path;
-    const created = await createLocalRule(payload, localCollections[0]?.uid);
-    if (created) {
-      lastSeenRuleRef.current = null;
-      message.success('Rule restored');
-      onSaved(created.uid);
-    } else {
+    void _sv;
+    const opts = { workspaceId: activeWorkspaceId, surfaceId: 'workbench' };
+    const created = await applyRuleCreate({ rule: payload, parentPath }, opts);
+    if (!created.ok) {
       message.error('Failed to restore rule');
+      return;
     }
-  }, [createLocalRule, localCollections, message, onSaved]);
+    if (last.published === true) {
+      await applyRulePublish(created.rule.uid, opts);
+    }
+    lastSeenRuleRef.current = null;
+    message.success('Rule restored');
+    onSaved(created.rule.uid);
+  }, [activeWorkspaceId, localCollections, message, onSaved]);
 
   const openSaveAsTemplate = useCallback(() => setSaveAsTemplateOpen(true), []);
   useEffect(() => {
     registerSaveAsTemplateRef?.(openSaveAsTemplate);
   }, [registerSaveAsTemplateRef, openSaveAsTemplate]);
-
-  const isEdit = mode === 'edit';
 
   // ── Template selector menus ───────────────────────────────────
   // System Templates + User Templates render as hierarchical dropdowns:
@@ -941,17 +896,13 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     return null;
   }, [activeSystemTemplate, activeUserTemplate]);
 
-  // Collection a persisted rule belongs to — used by the resolution
-  // banner so collection-scoped `{{collection.X}}` references resolve
-  // correctly. Drafts (create mode) haven't been slotted yet, so
-  // collectionId is undefined and collection scope is unavailable.
+  // Collection the rule belongs to — used by the resolution banner so
+  // collection-scoped `{{collection.X}}` references resolve correctly.
   const bannerCollectionId = useMemo<string | undefined>(() => {
-    if (mode !== 'edit' || !ruleUid) return undefined;
-    const rule = rules.find((r) => r.uid === ruleUid);
-    if (!rule) return undefined;
-    const match = localCollections.find((c) => rule.path.startsWith(`${c.path}/`));
+    if (!liveRule) return undefined;
+    const match = localCollections.find((c) => liveRule.path.startsWith(`${c.path}/`));
     return match?.uid;
-  }, [mode, ruleUid, rules, localCollections]);
+  }, [liveRule, localCollections]);
 
   const headerTitle = (
     <>
@@ -963,16 +914,14 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         size: 14,
       })}
       <Typography.Text strong style={{ fontSize: 13 }}>
-        {isEdit ? 'Edit' : 'Add'} {RULE_TYPE_TITLE[selectedType ?? 'header'] ?? 'Rule'}
+        Edit {RULE_TYPE_TITLE[selectedType ?? 'header'] ?? 'Rule'}
       </Typography.Text>
-      {isEdit && ruleUid && (
-        <PresenceBadge
-          entityType={RULE_ENTITY_TYPE}
-          entityId={ruleUid}
-          excludeSurfaceId="workbench"
-          style={{ marginLeft: 6 }}
-        />
-      )}
+      <PresenceBadge
+        entityType={RULE_ENTITY_TYPE}
+        entityId={ruleUid}
+        excludeSurfaceId="workbench"
+        style={{ marginLeft: 6 }}
+      />
     </>
   );
   const headerActions = (
@@ -999,6 +948,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         title={headerTitle}
         actions={headerActions}
         isDirty={isDirty}
+        isPublished={isPublished}
         onSave={() => void handleSubmit()}
         overflowItems={overflowItems}
       />
@@ -1127,7 +1077,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                       onTabChange={setHeaderActiveTab}
                       reqCount={headerReqCount}
                       resCount={headerResCount}
-                      ruleUid={mode === 'edit' ? ruleUid : undefined}
+                      ruleUid={ruleUid}
                       surfaceId="workbench"
                       getConflict={conflicts.getConflict}
                       onAcceptTheirs={conflicts.acceptTheirs}
@@ -1166,9 +1116,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                       marginBottom: 10,
                     }}
                   >
-                    Each row targets one DNR field, so rows combine with <strong>AND</strong> — every row must match.
-                    To match any of several values, list them inside one row (the <strong>OR</strong> badge marks rows
-                    that accept multiple values; <strong>1 value</strong> rows take a single scalar). Add at least one
+                    Each row targets one DNR field, so rows combine with <strong>AND</strong> — every row must match. To
+                    match any of several values, list them inside one row (the <strong>OR</strong> badge marks rows that
+                    accept multiple values; <strong>1 value</strong> rows take a single scalar). Add at least one
                     condition.
                   </div>
                   <Form.Item name="conditions" style={{ marginBottom: 0 }}>

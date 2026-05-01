@@ -179,7 +179,19 @@ export function broadcast<K extends BridgeBroadcastType>(
 ): void {
   const payload = args[0] ?? ({} as BridgeBroadcastPayload<K>);
   const api = getBrowserAPI();
-  const message = { type, ...payload };
+  // `type` MUST appear after the spread so the bridge-level
+  // discriminator wins over any field with the same name embedded in
+  // `payload`. The `SyncBroadcastEvent` protocol carries its own
+  // `type: 'oh.sync.broadcast'` for code that switches on a wire union
+  // (`SyncBridgeMessage`), and prior to this fix that protocol type
+  // was overwriting `'syncBroadcast'` after the spread — every
+  // subscriber filters on the bridge type, so syncBroadcast events
+  // were silently dropped at the type-filter check. The renderer
+  // mirrors only ever saw the boot-time snapshot; entities created
+  // during the session never reached the mirror, which surfaced as
+  // "Rule was deleted from another tab" on the first save of any
+  // newly-created rule.
+  const message = { ...payload, type };
   try {
     // Go directly through the raw runtime API — the cross-browser wrapper
     // in `utils/browser-api` logs Firefox promise rejections via

@@ -15,7 +15,7 @@ import {
 } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
-import { isRuleComplete, resolvePauseState } from '@openheaders/core/utils';
+import { isRuleComplete, isRuleDraft, resolvePauseState } from '@openheaders/core/utils';
 import { Button, Dropdown, Empty, Space, Table, Tag, Tooltip, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
@@ -41,6 +41,10 @@ interface ContentRow {
   ruleType?: string;
   enabled?: boolean;
   complete?: boolean;
+  /** True for unpublished rules — derived from `isRuleDraft`. Drives
+   *  the gray "Draft" status tag + `row-draft` styling (publication
+   *  gate, distinct from `complete`'s data-shape signal). */
+  draft?: boolean;
   childCount?: number;
   /** Effective pause state for this specific row, after marker resolution. */
   effectivelyPaused: boolean;
@@ -112,8 +116,8 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
         } else if (n.type === 'rule') {
           total++;
           const fullRule = rules.find((r) => r.uid === n.uid);
-          const complete = fullRule ? isRuleComplete(fullRule) : true;
-          if (!complete) draft++;
+          if (fullRule && isRuleDraft(fullRule)) draft++;
+          else if (fullRule && !isRuleComplete(fullRule)) draft++;
           else if (!n.enabled) disabled++;
           else active++;
         }
@@ -150,6 +154,7 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
         ruleType: node.type === 'rule' ? node.ruleType : undefined,
         enabled: node.type === 'rule' ? node.enabled : undefined,
         complete: fullRule ? isRuleComplete(fullRule) : true,
+        draft: fullRule ? isRuleDraft(fullRule) : false,
         effectivelyPaused: rowPaused,
       };
     });
@@ -181,7 +186,8 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
               buildRuleIcon({
                 ruleType: row.ruleType ?? 'header',
                 rule: rules.find((r) => r.uid === row.uid),
-                isActive: (row.enabled ?? false) && (row.complete ?? false) && !row.effectivelyPaused,
+                isActive:
+                  (row.enabled ?? false) && (row.complete ?? false) && !(row.draft ?? false) && !row.effectivelyPaused,
                 paused: row.effectivelyPaused,
               })
             )}
@@ -210,7 +216,8 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
         width: 90,
         render: (_: unknown, row: ContentRow) => {
           if (row.kind === 'folder') return null;
-          if (!row.complete) return <Tag color="default">Draft</Tag>;
+          if (row.draft) return <Tag color="default">Draft</Tag>;
+          if (!row.complete) return <Tag color="default">Incomplete</Tag>;
           if (!row.enabled) return <Tag color="default">Disabled</Tag>;
           if (row.effectivelyPaused) return <Tag color="warning">Paused</Tag>;
           return <Tag color="success">Active</Tag>;
@@ -310,7 +317,7 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
             style: { cursor: 'pointer' },
           })}
           rowClassName={(row) => {
-            if (row.kind === 'rule' && !row.complete) return 'row-draft';
+            if (row.kind === 'rule' && row.draft) return 'row-draft';
             if (row.kind === 'rule' && !row.enabled) return 'row-disabled';
             return '';
           }}

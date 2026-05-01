@@ -11,12 +11,23 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
+import { buildEmptyRule } from '@openheaders/core/utils';
+import { App } from 'antd';
 import { useCallback, useState } from 'react';
+import { applyRuleCreate } from '@/shared/sync/rule-write-client';
 import type { ClosedTab, LandingView, RuleFlowScope, WorkbenchTab } from '../types';
 
 interface UseTabOpenersOptions {
   rules: V5.Rule[];
   templates: V5.Template[];
+  /** Local rule collections — used to resolve the parent path when a
+   *  create gesture didn't pin one explicitly. */
+  localCollections: V5.Collection[];
+  /** Active workspace id — required for renderer-direct rule create. */
+  workspaceId: string | null;
+  /** Surface attribution carried on every emitted envelope (always
+   *  `'workbench'` for this hook; threaded so tests can override). */
+  surfaceId: string;
   allTabs: WorkbenchTab[];
   addTab: (tab: WorkbenchTab) => void;
   switchTab: (tabId: string) => void;
@@ -123,10 +134,14 @@ export interface UseTabOpenersApi {
 export function useTabOpeners({
   rules,
   templates,
+  localCollections,
+  workspaceId,
+  surfaceId,
   allTabs,
   addTab,
   switchTab,
 }: UseTabOpenersOptions): UseTabOpenersApi {
+  const { message } = App.useApp();
   const [pendingRenameTabId, setPendingRenameTabId] = useState<string | null>(null);
 
   const generateDraftName = useCallback(
@@ -144,25 +159,32 @@ export function useTabOpeners({
   );
 
   /**
-   * Opens a rule-creation tab in `mode: 'create'` — an unsaved draft.
-   * The rule is **not** persisted to the user's ruleset until they
-   * explicitly Save via the editor. This contract is uniform across
-   * every entry point (sidebar "Add Rule", collection/folder overview,
-   * inspector-panel "override this header", keyboard shortcuts).
+   * Opens a rule-creation gesture by **minting a real entity** (per
+   * `docs/SYNC_ENGINE_DESIGN.md` §19.1 streaming-from-click) and
+   * opening the resulting uid in an edit tab. The entity starts
+   * `published: false` — the editor's Save button is the publication
+   * gate (see `memory/project_publication_gate_decision.md`).
    *
-   * Inputs the tab carries to the editor:
-   *   - `templateKey` — pre-apply a built-in or user template
-   *   - `initialDraft` — pre-fill from an `V5.RuleDraft` (inspector
-   *     handoff, future import/paste flows)
-   *   - `preferredCollectionId` / `preferredFolderPath` — if the user
-   *     invoked a contextual Add Rule affordance, the Save flow
-   *     writes directly to that location instead of re-asking
+   * Heterogeneous origins, single funnel: workbench `+ New Rule`,
+   * sidebar context menus, command palette, inspector "override this
+   * header" CTA, popup template/new-rule, devtools-panel inline
+   * create, and the `workbench.html#/create/<type>/draft-<nonce>`
+   * deeplink all flow through here.
    *
-   * Before this refactor the function wrote an empty enabled rule to
-   * the user's ruleset immediately and opened an edit tab on top —
-   * the draft layer was dead code. That behavior silently activated
-   * rules users hadn't confirmed, which was especially jarring from
-   * the inspector panel's "click to override" CTA.
+   * Inputs:
+   *   - `context` — pinned destination (sidebar Add Rule inside a
+   *     specific collection/folder). When absent we fall back to the
+   *     first local collection.
+   *   - `templateKey` — pre-apply a built-in or user template inside
+   *     the editor (form values applied on mount; commit happens on
+   *     Save like any other edit).
+   *   - `initialDraft` — inspector handoff payload. Editor merges it
+   *     into form state on mount; entity itself is born from the bare
+   *     `buildEmptyRule` shape so the persisted seed stays minimal.
+   *
+   * Fire-and-forget — the click handler returns synchronously; the
+   * sync apply runs in the background and the edit tab opens on
+   * success. On failure a toast surfaces; no tab is opened.
    */
   const openCreateTab = useCallback(
     (
@@ -171,29 +193,53 @@ export function useTabOpeners({
       templateKey?: string,
       initialDraft?: V5.RuleDraft,
     ) => {
+      if (!workspaceId) {
+        message.error('No active workspace');
+        return;
+      }
       const draftMatches = initialDraft && initialDraft.type === type ? initialDraft : undefined;
       const draftName = draftMatches?.name ?? generateDraftName(type);
-      const tabId = `create-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      addTab({
-        id: tabId,
-        label: draftName,
-        ruleType: type,
-        // A freshly-opened draft is "dirty" from the start — it has
-        // no saved form yet. The editor will flip it back to `false`
-        // if (and only if) the user cancels every field back to the
-        // type defaults, which is an edge case we're fine with.
-        dirty: true,
-        mode: 'create',
-        createType: type,
-        draftName,
-        templateKey,
-        initialDraft: draftMatches,
-        preferredCollectionId: context?.collectionId,
-        preferredFolderPath: context?.folderPath,
+
+      // Resolve parent path. Explicit folder path wins; otherwise the
+      // collection's path; otherwise the first local collection (matches
+      // the legacy "no preferred location" fallback).
+      const collection = context?.collectionId
+        ? localCollections.find((c) => c.uid === context.collectionId)
+        : localCollections[0];
+      const parentPath = context?.folderPath ?? collection?.path;
+      if (!parentPath) {
+        message.error('Create a collection first');
+        return;
+      }
+
+      const seed = buildEmptyRule(type as V5.RuleType, draftName);
+      void applyRuleCreate({ rule: seed, parentPath }, { workspaceId, surfaceId }).then((result) => {
+        if (!result.ok) {
+          message.error('Failed to create rule');
+          return;
+        }
+        const editId = `edit-${result.rule.uid}`;
+        addTab({
+          id: editId,
+          label: draftName,
+          ruleType: type,
+          // A freshly-minted unpublished rule is "dirty" insofar as its
+          // form has uncommitted overlays from `templateKey` /
+          // `initialDraft`. EditorHeader derives Save-button state from
+          // `!rule.published || isDirty` so this flag matters less than
+          // it did under the legacy mode-create model.
+          dirty: !!templateKey || !!draftMatches,
+          mode: 'edit',
+          ruleUid: result.rule.uid,
+          templateKey,
+          initialDraft: draftMatches,
+          testOwnerType: 'rule',
+          testOwnerId: result.rule.uid,
+        });
+        setPendingRenameTabId(editId);
       });
-      setPendingRenameTabId(tabId);
     },
-    [generateDraftName, addTab],
+    [workspaceId, surfaceId, localCollections, generateDraftName, addTab, message],
   );
 
   const openEditTab = useCallback(

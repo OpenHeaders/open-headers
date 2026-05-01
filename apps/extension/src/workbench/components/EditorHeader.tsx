@@ -25,6 +25,17 @@ export interface EditorHeaderProps {
   actions?: React.ReactNode;
   /** Whether the editor has unsaved changes — drives the Save button color. */
   isDirty?: boolean;
+  /**
+   * Publication state for entities with live runners (Rule, future
+   * LiveWorkflow / LiveVariable). When defined, drives the publish-gate
+   * Save semantics:
+   *   - `published === true && !isDirty` → button disabled, label "Saved"
+   *   - otherwise → button enabled, label "Save" (orange when dirty or
+   *     not yet published)
+   * When undefined the legacy "Save iff dirty" behavior applies — used
+   * by editors without a publication concept (Environment, Vault, etc.).
+   */
+  isPublished?: boolean;
   /** Save handler. Omit for read-only editors (RunReport, etc.); Save
    *  button is then hidden entirely. */
   onSave?: () => void;
@@ -32,11 +43,18 @@ export interface EditorHeaderProps {
   overflowItems?: MenuProps['items'];
 }
 
-const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, isDirty, onSave, overflowItems }) => {
+const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, isDirty, isPublished, onSave, overflowItems }) => {
   const { token } = theme.useToken();
   const saveLabel = useShortcutLabel('save');
   const hasOverflow = (overflowItems?.length ?? 0) > 0;
   const hasActions = actions != null || onSave || hasOverflow;
+  // Publication-gate semantics. When `isPublished` is undefined, fall
+  // back to the legacy "Save iff dirty" model so non-publication editors
+  // behave unchanged.
+  const hasPublishGate = isPublished !== undefined;
+  const saveDisabled = hasPublishGate ? isPublished === true && !isDirty : !isDirty;
+  const saveAccent = hasPublishGate ? !isPublished || isDirty : !!isDirty;
+  const saveLabelText = hasPublishGate && isPublished === true && !isDirty ? 'Saved' : 'Save';
 
   return (
     <div
@@ -54,19 +72,22 @@ const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, isDirty, on
             <Divider type="vertical" style={{ margin: '0 4px', height: 20 }} />
           )}
           {onSave && (
-            <Tooltip title={<ShortcutHintTitle label={saveLabel}>Save</ShortcutHintTitle>} placement="bottomRight">
+            <Tooltip
+              title={<ShortcutHintTitle label={saveLabel}>{saveLabelText}</ShortcutHintTitle>}
+              placement="bottomRight"
+            >
               <Button
                 size="small"
                 type="primary"
                 icon={<SaveOutlined />}
                 onClick={onSave}
-                disabled={!isDirty}
+                disabled={saveDisabled}
                 style={{
                   fontSize: 11,
-                  ...(isDirty ? { background: '#f5722d', borderColor: '#f5722d' } : {}),
+                  ...(saveAccent ? { background: '#f5722d', borderColor: '#f5722d' } : {}),
                 }}
               >
-                Save
+                {saveLabelText}
               </Button>
             </Tooltip>
           )}

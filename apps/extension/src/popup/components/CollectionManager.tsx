@@ -9,14 +9,14 @@ import {
   SortAscendingOutlined,
 } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
-import { useRules } from '@hooks/useRules';
 import { useRuleMutator } from '@hooks/useRuleMutator';
+import { useRules } from '@hooks/useRules';
 import { useVariableResolver } from '@hooks/useVariableResolver';
-import { resolveRule } from '@openheaders/core/variables';
-import type { VariableResolver } from '@openheaders/core/variables';
 import type { V5 } from '@openheaders/core/types';
 import type { PauseMarkers } from '@openheaders/core/utils';
-import { type ActionDetail, getActionDetail, isRuleComplete } from '@openheaders/core/utils';
+import { type ActionDetail, getActionDetail, isRuleComplete, isRuleDraft } from '@openheaders/core/utils';
+import type { VariableResolver } from '@openheaders/core/variables';
+import { resolveRule } from '@openheaders/core/variables';
 import { App, Button, Dropdown, Empty, Input, Space, Switch, Table, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
@@ -46,6 +46,10 @@ interface CollectionTreeRecord {
   conditions?: V5.RuleCondition[];
   isEnabled?: boolean;
   isComplete?: boolean;
+  /** True for unpublished rules — derived from `isRuleDraft(rule)`.
+   *  Drives the gray "draft" row styling (publication gate, separate
+   *  from `isComplete`'s data-shape validity signal). */
+  isDraft?: boolean;
   ruleCount?: number;
   enabledCount?: number;
   /** True if this node is effectively paused after marker resolution. */
@@ -112,11 +116,16 @@ function treeNodesToRecords(
         name: node.name,
         nodeType: 'rule' as const,
         ruleType: node.ruleType,
-        actionDetail: resolved ? getActionDetail(resolved) : { ruleType: node.ruleType, label: '', value: '', tooltip: '' },
-        domains: resolved ? resolved.conditions.filter((c) => c.type === 'request-domains').flatMap((c) => c.values) : [],
+        actionDetail: resolved
+          ? getActionDetail(resolved)
+          : { ruleType: node.ruleType, label: '', value: '', tooltip: '' },
+        domains: resolved
+          ? resolved.conditions.filter((c) => c.type === 'request-domains').flatMap((c) => c.values)
+          : [],
         conditions: resolved?.conditions ?? [],
         isEnabled: node.enabled,
         isComplete: rule ? isRuleComplete(rule) : true,
+        isDraft: rule ? isRuleDraft(rule) : false,
         effectivelyPaused: effective,
         hasOwnMarker: hasOwn,
       };
@@ -758,7 +767,7 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
             const classes: string[] = [];
             const paused = record.effectivelyPaused;
             if (paused) classes.push('row-group-paused');
-            if (record.nodeType === 'rule' && !record.isComplete && !paused) classes.push('row-draft');
+            if (record.nodeType === 'rule' && record.isDraft === true && !paused) classes.push('row-draft');
             if (record.nodeType === 'rule' && !record.isEnabled && record.isComplete && !paused)
               classes.push('row-disabled');
             // Find flat index for keyboard highlight

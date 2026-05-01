@@ -8,11 +8,11 @@ import {
   SortAscendingOutlined,
 } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
-import { useRules } from '@hooks/useRules';
 import { useRuleMutator } from '@hooks/useRuleMutator';
+import { useRules } from '@hooks/useRules';
 import { useVariableResolver } from '@hooks/useVariableResolver';
 import type { V5 } from '@openheaders/core/types';
-import { getActionDetail, isRuleComplete, resolvePauseState } from '@openheaders/core/utils';
+import { getActionDetail, isRuleComplete, isRuleDraft, resolvePauseState } from '@openheaders/core/utils';
 import { resolveRule } from '@openheaders/core/variables';
 import {
   App,
@@ -92,6 +92,10 @@ interface TableRecord {
   conditions: V5.RuleCondition[];
   isEnabled: boolean;
   isComplete: boolean;
+  /** True for unpublished rules — derived from `isRuleDraft(rule)`.
+   *  Drives the gray "draft" row styling (publication gate, distinct
+   *  from completeness). */
+  isDraft: boolean;
   statusRank: StatusRank;
 }
 
@@ -188,17 +192,23 @@ const RulesTable: React.FC<RulesTableProps> = ({
     .map((rule) => {
       const isEnabled = rule.enabled;
       const complete = isRuleComplete(rule);
+      const draft = isRuleDraft(rule);
       const groupPaused = resolvePauseState(rule.path, pauseMarkers);
       const resolved = resolveRule(rule, resolver);
 
+      // Status rank drives sort order: active first, then paused/disabled,
+      // drafts last. Unpublished rules are treated as "draft" regardless
+      // of completeness — they're not on the wire either way.
       let statusRank: StatusRank;
-      if (isEnabled && complete && !groupPaused)
+      if (draft)
+        statusRank = 3; // draft
+      else if (isEnabled && complete && !groupPaused)
         statusRank = 0; // active
       else if (isEnabled && complete && groupPaused)
         statusRank = 1; // paused
       else if (complete && !isEnabled)
         statusRank = 2; // disabled
-      else statusRank = 3; // draft
+      else statusRank = 3; // draft / incomplete
 
       return {
         key: rule.uid,
@@ -211,6 +221,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
         conditions: resolved.conditions,
         isEnabled,
         isComplete: complete,
+        isDraft: draft,
         statusRank,
       };
     })
@@ -693,7 +704,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
           })}
           rowClassName={(record: TableRecord, index: number) => {
             const classes: string[] = [];
-            if (!record.isComplete) classes.push('row-draft');
+            if (record.isDraft) classes.push('row-draft');
             else if (resolvePauseState(record.path, pauseMarkers)) classes.push('row-group-paused');
             else if (!record.isEnabled) classes.push('row-disabled');
             if (index === focusedRowIndex) classes.push('keyboard-focused-row');

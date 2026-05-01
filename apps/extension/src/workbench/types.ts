@@ -5,7 +5,6 @@
 import type { V5 } from '@openheaders/core/types';
 
 export type TabMode =
-  | 'create'
   | 'edit'
   | 'collection-overview'
   | 'folder-overview'
@@ -46,31 +45,32 @@ export interface WorkbenchTab {
   dirty: boolean;
   /** Tab mode. */
   mode: TabMode;
-  /** For create tabs: the rule type to create. */
-  createType?: string;
-  /** For create tabs: optional template key to pre-apply on mount. */
+  /** For rule edit tabs opened via a `+ New Rule` gesture: optional
+   *  template key to pre-apply on mount. Honored only while the rule
+   *  is unpublished — published rules ignore the prop. */
   templateKey?: string;
   /**
-   * For create tabs: pre-filled rule draft from an external caller
-   * (inspector-panel "override this header" CTA, future import/paste
-   * flows). The editor populates the form from it on mount instead
-   * of using type defaults. The rule stays unsaved until the user
-   * explicitly confirms — we never persist behind their back.
+   * Pre-filled rule draft from an external caller (inspector-panel
+   * "override this header" CTA, future import/paste flows). The editor
+   * overlays it on the form on first mount when the rule is still
+   * unpublished. After publish (or on subsequent mounts) the prop is
+   * inert.
    */
   initialDraft?: V5.RuleDraft;
   /**
-   * For create tabs opened from a specific collection/folder
-   * (sidebar "Add Rule", CollectionOverview, FolderOverview): the
+   * For request-create tabs opened from a specific collection/folder
+   * (sidebar "Add Request", CollectionOverview, FolderOverview): the
    * destination the user picked. When set, the Save flow skips the
-   * SaveToCollectionModal and persists directly to this location —
-   * the user already answered the "where" question by clicking the
-   * contextual Add Rule affordance.
+   * SaveToCollectionModal and persists directly to this location.
    */
   preferredCollectionId?: string;
   preferredFolderPath?: string;
   /** For edit tabs: the rule uid being edited. */
   ruleUid?: string;
-  /** Auto-generated draft name for create tabs (e.g. "New Header Rule (2)"). */
+  /** Auto-generated draft name for non-rule create tabs (request-create,
+   *  live-workflow-create, live-variable-create). Rule drafts no longer
+   *  use this — `+ New Rule` mints a real entity at click time and the
+   *  rule's own `name` field carries the placeholder. */
   draftName?: string;
   /** For collection/folder overview tabs: the entity uid. */
   entityId?: string;
@@ -123,9 +123,8 @@ export interface WorkbenchTab {
    * For request-create (draft) tabs opened from a specific collection
    * or folder in the sidebar. When set, Save persists directly there;
    * otherwise the SaveToCollectionModal prompts for a destination.
-   * Reuses `preferredCollectionId` / `preferredFolderPath` from the
-   * rule-create flow — the REQUEST collection uid happens to fit into
-   * the same field because they share the `V5.Collection` shape.
+   * Rule create no longer uses these fields — `+ New Rule` mints the
+   * entity directly via `applyRuleCreate(parentPath)` at click time.
    */
 }
 

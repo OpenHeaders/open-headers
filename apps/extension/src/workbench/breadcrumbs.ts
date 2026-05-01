@@ -18,8 +18,6 @@ import type { WorkbenchTab } from './types';
  */
 export function scratchLabelForMode(mode: WorkbenchTab['mode']): string | null {
   switch (mode) {
-    case 'create':
-      return 'Scratch Rule';
     case 'request-create':
       return 'Scratch Request';
     case 'live-variable-create':
@@ -114,9 +112,7 @@ export function computeBreadcrumbs(
     // globally unique; the walk visits rule → request → template
     // trees and emits the family-prefixed breadcrumb. Falls through
     // to "Rules" as the default when the uid hasn't loaded yet.
-    const findIn = (
-      trees: readonly V5.CollectionTree[],
-    ): { collectionName: string; trail: string[] } | null => {
+    const findIn = (trees: readonly V5.CollectionTree[]): { collectionName: string; trail: string[] } | null => {
       for (const col of trees) {
         const trail: string[] = [];
         const walk = (nodes: V5.TreeNode[]): boolean => {

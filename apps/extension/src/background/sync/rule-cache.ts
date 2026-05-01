@@ -61,10 +61,17 @@ export function createRuleCache(
       entityType: RULE_ENTITY_TYPE,
       loggerTag: 'RuleCache',
       storageKey: (ws) => wsKeys(ws).rules,
-      // Historically rule-cache re-projected on every broadcast event
-      // regardless of body type; preserved here so behaviour is
-      // bit-identical to pre-extraction.
-      filterBroadcastByType: false,
+      // Re-project only on rule envelopes. The legacy "fire on every
+      // broadcast" stance was load-bearing for nothing — `projectRule`
+      // is type-filtered, so cross-entity broadcasts (env, collection,
+      // template, …) just produced redundant `extensionStorage.set`
+      // calls with the same rule list. Worse, those redundant persists
+      // could WRITE OVER user data with `[]` if they fired during a
+      // narrow window where the oracle had been disposed but the cache
+      // was still subscribed (workspace switch / SW eviction races) —
+      // tightening to `true` shrinks the wipe surface to the genuine
+      // "rule changed" lane.
+      filterBroadcastByType: true,
       project: projectRule,
       seed: seedRule,
     },

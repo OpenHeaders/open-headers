@@ -405,14 +405,6 @@ export interface BridgeRpcContract {
     req: { ruleId: string };
     res: { success: boolean; error?: string };
   };
-  createLocalRule: {
-    req: {
-      rule: Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion' | 'version'>;
-      collectionUid?: string;
-      parentPath?: string;
-    };
-    res: { success: boolean; rule?: V5.Rule };
-  };
   createRuleDraft: {
     req: { draft: V5.RuleDraft };
     res: { success: boolean; nonce?: string; error?: string };

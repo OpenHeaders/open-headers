@@ -32,7 +32,7 @@ import { horizontalListSortingStrategy, SortableContext, useSortable } from '@dn
 import { CSS } from '@dnd-kit/utilities';
 import { isWorkflowComplete } from '@openheaders/core/live';
 import type { V5 } from '@openheaders/core/types';
-import { isRequestComplete, isRuleComplete } from '@openheaders/core/utils';
+import { isRequestComplete, isRuleComplete, isRuleDraft } from '@openheaders/core/utils';
 import type { InputRef } from 'antd';
 import { Dropdown, Input, Tooltip, theme } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
@@ -196,6 +196,19 @@ const REQUEST_METHOD_COLORS: Record<string, string> = {
 };
 
 const TAB_LABEL_MAX = 20;
+/**
+ * Whether a rule edit tab is showing a still-drafting (unpublished)
+ * rule — drives the gray pill on the tab strip + the italic label.
+ * Orthogonal to `tab.dirty` (which means "uncommitted form edits
+ * since last save"). The "what counts as a draft" semantic lives in
+ * core's {@link isRuleDraft} so every surface stays in lockstep.
+ */
+function isRuleDraftTab(tab: WorkbenchTab, rules: V5.Rule[]): boolean {
+  if (tab.mode !== 'edit' || !tab.ruleUid) return false;
+  const rule = rules.find((r) => r.uid === tab.ruleUid);
+  return rule !== undefined && isRuleDraft(rule);
+}
+
 function truncateMiddle(text: string, max: number): string {
   if (text.length <= max) return text;
   const half = Math.floor((max - 1) / 2);
@@ -358,11 +371,11 @@ const TabPillContent: React.FC<TabPillContentProps> = ({
           unresolvableWorkflowUids,
         )}
       </span>
-      <span className="rules-tab-label" style={tab.mode === 'create' ? { fontStyle: 'italic' } : undefined}>
+      <span className="rules-tab-label" style={isRuleDraftTab(tab, rules) ? { fontStyle: 'italic' } : undefined}>
         {renderTabLabel(tab)}
       </span>
-      {(tab.dirty || tab.mode === 'create') && (
-        <span className="rules-tab-unsaved" style={{ background: tab.mode === 'create' ? '#999' : '#ff7875' }} />
+      {(tab.dirty || isRuleDraftTab(tab, rules)) && (
+        <span className="rules-tab-unsaved" style={{ background: isRuleDraftTab(tab, rules) ? '#999' : '#ff7875' }} />
       )}
       {onClose && (
         <CloseOutlined
@@ -857,13 +870,13 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                     </span>
                   )}
                 </span>
-                {(tab.dirty || tab.mode === 'create') && (
+                {(tab.dirty || isRuleDraftTab(tab, rules)) && (
                   <span
                     style={{
                       width: 6,
                       height: 6,
                       borderRadius: '50%',
-                      background: tab.mode === 'create' ? '#999' : '#ff7875',
+                      background: isRuleDraftTab(tab, rules) ? '#999' : '#ff7875',
                       flexShrink: 0,
                     }}
                   />

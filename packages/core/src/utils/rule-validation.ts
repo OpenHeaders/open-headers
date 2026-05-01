@@ -181,6 +181,31 @@ export function isRuleResolvable(
 }
 
 /**
+ * Single source of truth for "is this rule a still-drafting,
+ * not-yet-published entity?". Drives every UI affordance that
+ * distinguishes drafts from live rules: gray pill on the tab strip,
+ * `row-draft` styling in the sidebar / overview tables, italic tab
+ * label, tab-close discard prompt.
+ *
+ * Distinct from `isRuleComplete` (data-shape validity) and
+ * `rule.enabled` (user toggle). A draft rule MAY be complete and
+ * enabled — it's just not on the wire yet because the user hasn't
+ * clicked Save (the publication gate). See
+ * `memory/project_publication_gate_decision.md`.
+ *
+ * Reads `published === true` so both `false` and `undefined` collapse
+ * to "draft" — matches `isRuleEffective`'s contract.
+ *
+ * Centralized so the meaning of "draft" can evolve in one place. Today
+ * it's a simple `!published`; future versions may layer in additional
+ * gating (e.g. unsigned local edits, schema quarantine) without
+ * touching any callsite.
+ */
+export function isRuleDraft(rule: Rule | Omit<Rule, 'uid' | 'path'>): boolean {
+  return rule.published !== true;
+}
+
+/**
  * Single source of truth for "will this rule actually fire on live
  * traffic right now?". Combines five independent axes:
  *

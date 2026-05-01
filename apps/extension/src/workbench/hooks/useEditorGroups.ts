@@ -328,7 +328,7 @@ export function useEditorGroups(): UseEditorGroupsApi {
         if (!tab) return prev;
 
         // Skip dirty close unless forced — lifecycle layer handles confirmation.
-        if (!force && (tab.dirty || tab.mode === 'create')) return prev;
+        if (!force && (tab.dirty || tab.mode === 'request-create')) return prev;
 
         if (!SKIP_RECENTLY_CLOSED.has(tab.mode)) {
           setRecentlyClosed((rc) =>
@@ -462,9 +462,9 @@ export function useEditorGroups(): UseEditorGroupsApi {
     transform((prev) => {
       const leaf = findLeaf(prev.root, prev.focusedLeafId);
       if (!leaf) return prev;
-      const keep = leaf.tabs.filter((t) => t.dirty || t.mode === 'create');
+      const keep = leaf.tabs.filter((t) => t.dirty || t.mode === 'request-create');
       for (const t of leaf.tabs) {
-        if (!t.dirty && t.mode !== 'create') {
+        if (!t.dirty && t.mode !== 'request-create') {
           dirtyMap.current.delete(t.id);
           saveRefMap.current.delete(t.id);
         }

@@ -121,14 +121,11 @@ import {
 import { getActiveRulesForTab, ingestPerfEntries } from './request-tracker';
 import { createRuleDraft, takeRuleDraft } from './rule-draft-store';
 import {
-  addRule,
-  addRuleToCollection,
   createCollection,
   createFolder,
   deleteCollection,
   deleteFolder,
   deleteRule,
-  ensureDefaultCollection,
   getCollections,
   getCollectionTrees,
   getFolders,
@@ -781,22 +778,6 @@ export function handleGeneralMessage(
       const handler = enabled ? enableCacheBypassForTab : disableCacheBypassForTab;
       handler(tabId)
         .then(() => safeResponse({ success: true }))
-        .catch((err: Error) => safeResponse({ success: false, error: err.message }));
-      return true;
-    } else if (message.type === 'createLocalRule') {
-      const ruleData = message.rule as Omit<V5.Rule, 'uid' | 'path'>;
-      const parentPath = message.parentPath as string | undefined;
-      const collectionUid = message.collectionUid as string | undefined;
-
-      const createPromise: Promise<V5.Rule> = parentPath
-        ? addRule(ruleData, parentPath)
-        : addRuleToCollection(ruleData, (collectionUid ? { uid: collectionUid } : ensureDefaultCollection()).uid);
-      createPromise
-        .then((created) => {
-          // DNR recompile via dnr-intent-runner; see deleteRule note above.
-          updateBadgeCallback();
-          safeResponse({ success: true, rule: created });
-        })
         .catch((err: Error) => safeResponse({ success: false, error: err.message }));
       return true;
     } else if (message.type === 'getLocalRules') {
