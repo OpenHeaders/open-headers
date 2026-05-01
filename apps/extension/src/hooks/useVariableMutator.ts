@@ -29,11 +29,14 @@
 import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useLiveVariables } from '@hooks/useLiveVariables';
+import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
 import type { V5 } from '@openheaders/core/types';
 import { useCallback } from 'react';
 import { applyCollectionVariablesReplacement } from '@/shared/sync/collection-write-client';
 import { applyEnvVariablesReplacement } from '@/shared/sync/env-write-client';
+import { applyRequestCollectionVariablesReplacement } from '@/shared/sync/request-collection-write-client';
+import { applyTemplateCollectionVariablesReplacement } from '@/shared/sync/template-collection-write-client';
 import { applyVaultReplacement } from '@/shared/sync/vault-write-client';
 import { applyWorkspaceVariablesReplacement } from '@/shared/sync/workspace-variables-write-client';
 
@@ -52,8 +55,12 @@ export interface UseVariableMutatorApi {
   replaceWorkspaceVariables(variables: V5.Variable[]): Promise<MutationResult>;
   /** Replace an environment's variables list. */
   replaceEnvironmentVariables(envUid: string, variables: V5.Variable[]): Promise<MutationResult>;
-  /** Replace a collection's variables list. */
+  /** Replace a rule-collection's variables list. */
   replaceCollectionVariables(collectionUid: string, variables: V5.Variable[]): Promise<MutationResult>;
+  /** Replace a request-collection's variables list. */
+  replaceRequestCollectionVariables(collectionUid: string, variables: V5.Variable[]): Promise<MutationResult>;
+  /** Replace a template-collection's variables list. */
+  replaceTemplateCollectionVariables(collectionUid: string, variables: V5.Variable[]): Promise<MutationResult>;
   /** Replace the vault. */
   replaceVault(secrets: V5.VaultSecret[]): Promise<MutationResult>;
   /** Set or clear a live variable's manual override. */
@@ -62,7 +69,8 @@ export interface UseVariableMutatorApi {
 
 export function useVariableMutator(): UseVariableMutatorApi {
   const { vault, environments, workspaceVariables: currentWorkspaceVariables } = useEnvironments();
-  const { localCollections } = useRules();
+  const { localCollections, templateCollections } = useRules();
+  const { collections: requestCollections } = useRequests();
   const { setOverride } = useLiveVariables();
   const workspaceId = useActiveWorkspaceId();
 
@@ -112,6 +120,38 @@ export function useVariableMutator(): UseVariableMutatorApi {
     [workspaceId, localCollections],
   );
 
+  const replaceRequestCollectionVariables = useCallback<UseVariableMutatorApi['replaceRequestCollectionVariables']>(
+    async (collectionUid, variables) => {
+      if (!workspaceId) return { ok: false, reason: 'other', message: 'no active workspace' };
+      const collection = requestCollections.find((c) => c.uid === collectionUid);
+      if (!collection) return { ok: false, reason: 'not-found' };
+      const result = await applyRequestCollectionVariablesReplacement(collectionUid, variables, collection.variables, {
+        workspaceId,
+        surfaceId: 'workbench',
+      });
+      if (result.ok) return { ok: true };
+      if (result.reason === 'not-found') return { ok: false, reason: 'not-found' };
+      return { ok: false, reason: 'other', message: result.message };
+    },
+    [workspaceId, requestCollections],
+  );
+
+  const replaceTemplateCollectionVariables = useCallback<UseVariableMutatorApi['replaceTemplateCollectionVariables']>(
+    async (collectionUid, variables) => {
+      if (!workspaceId) return { ok: false, reason: 'other', message: 'no active workspace' };
+      const collection = templateCollections.find((c) => c.uid === collectionUid);
+      if (!collection) return { ok: false, reason: 'not-found' };
+      const result = await applyTemplateCollectionVariablesReplacement(collectionUid, variables, collection.variables, {
+        workspaceId,
+        surfaceId: 'workbench',
+      });
+      if (result.ok) return { ok: true };
+      if (result.reason === 'not-found') return { ok: false, reason: 'not-found' };
+      return { ok: false, reason: 'other', message: result.message };
+    },
+    [workspaceId, templateCollections],
+  );
+
   const replaceVault = useCallback<UseVariableMutatorApi['replaceVault']>(
     async (secrets) => {
       if (!workspaceId) return { ok: false, reason: 'other', message: 'no active workspace' };
@@ -143,6 +183,8 @@ export function useVariableMutator(): UseVariableMutatorApi {
     replaceWorkspaceVariables,
     replaceEnvironmentVariables,
     replaceCollectionVariables,
+    replaceRequestCollectionVariables,
+    replaceTemplateCollectionVariables,
     replaceVault,
     setLiveOverride,
   };
