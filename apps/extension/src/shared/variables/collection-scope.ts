@@ -49,6 +49,29 @@ export function findCollectionByUid(uid: string, families: CollectionFamilies): 
 }
 
 /**
+ * Find a collection by uid AND identify which family it belongs to.
+ * Used by surfaces (e.g., the Inspector's Open-Editor CTA) that need to
+ * dispatch to the per-family variables-editor opener — the rule, request,
+ * and template variants are three distinct tab modes, so the family
+ * is the dispatch key.
+ */
+export function findCollectionWithFamily(
+  uid: string,
+  families: CollectionFamilies,
+): { family: CollectionFamily; collection: V5.Collection } | null {
+  const PAIRS: { family: CollectionFamily; list: readonly V5.Collection[] }[] = [
+    { family: 'rule', list: families.ruleCollections },
+    { family: 'request', list: families.requestCollections },
+    { family: 'template', list: families.templateCollections },
+  ];
+  for (const { family, list } of PAIRS) {
+    const collection = list.find((c) => c.uid === uid);
+    if (collection) return { family, collection };
+  }
+  return null;
+}
+
+/**
  * Find the collection whose `path/` is a prefix of `entityPath`. Each
  * family is checked independently so a request's `requests/X/...` path
  * never matches a rule collection at `rules/X/...` even if the names

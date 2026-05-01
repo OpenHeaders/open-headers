@@ -1589,7 +1589,19 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
         case 'docs':
           return <DocsPanel onClose={() => tl.toggleWindow('docs')} />;
         case 'var-scope':
-          return <VariablesPanel onClose={() => tl.toggleWindow('var-scope')} activeTab={activeTab ?? null} />;
+          return (
+            <VariablesPanel
+              onClose={() => tl.toggleWindow('var-scope')}
+              activeTab={activeTab ?? null}
+              onOpenVault={openVault}
+              onOpenWorkspaceVariables={openWorkspaceVariables}
+              onOpenLiveVariables={openLiveVariables}
+              onOpenEnvironmentEdit={openEnvironmentEdit}
+              onOpenRuleCollectionVariables={openCollectionVariables}
+              onOpenRequestCollectionVariables={openRequestCollectionVariables}
+              onOpenTemplateCollectionVariables={openTemplateCollectionVariables}
+            />
+          );
         case 'page-traffic':
         case 'test-runs':
           return (
@@ -1628,6 +1640,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
       openVault,
       openWorkspaceVariables,
       openLiveVariables,
+      openCollectionVariables,
+      openRequestCollectionVariables,
+      openTemplateCollectionVariables,
       openRequestEditTab,
       openCreateRequestTab,
       openLiveWorkflowEdit,

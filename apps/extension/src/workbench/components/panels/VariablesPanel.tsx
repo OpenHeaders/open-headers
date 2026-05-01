@@ -48,6 +48,7 @@ import {
   feedCollectionVariablesToResolver,
   findCollectionByPath,
   findCollectionByUid,
+  findCollectionWithFamily,
 } from '@/shared/variables/collection-scope';
 import type { TabMode, WorkbenchTab } from '../../types';
 import { collectTemplateStrings } from '../../variable-references';
@@ -85,6 +86,17 @@ interface VariablesPanelProps {
   onClose: () => void;
   /** Active tab so the panel can compute "in request" variables. */
   activeTab: WorkbenchTab | null;
+  /** Per-scope variables-editor openers. When present, each scope's
+   *  rows + section title surface a clickable "open editor" affordance
+   *  that routes to the right per-family / per-entity editor — the
+   *  Inspector ties its READ surface to the WRITE surface. */
+  onOpenVault?: () => void;
+  onOpenWorkspaceVariables?: () => void;
+  onOpenLiveVariables?: () => void;
+  onOpenEnvironmentEdit?: (uid: string, name: string) => void;
+  onOpenRuleCollectionVariables?: (uid: string, name: string) => void;
+  onOpenRequestCollectionVariables?: (uid: string, name: string) => void;
+  onOpenTemplateCollectionVariables?: (uid: string, name: string) => void;
 }
 
 // ── Scope config ────────────────────────────────────────────────────
@@ -121,7 +133,17 @@ interface DisplayVariable {
 
 // ── Panel ──────────────────────────────────────────────────────────
 
-const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) => {
+const VariablesPanel: React.FC<VariablesPanelProps> = ({
+  onClose,
+  activeTab,
+  onOpenVault,
+  onOpenWorkspaceVariables,
+  onOpenLiveVariables,
+  onOpenEnvironmentEdit,
+  onOpenRuleCollectionVariables,
+  onOpenRequestCollectionVariables,
+  onOpenTemplateCollectionVariables,
+}) => {
   const { token } = theme.useToken();
   // Initialize mode to match the currently-focused tab: if it
   // references variables (rule / request), start contextual so the
@@ -329,6 +351,66 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
   const activeCollectionName = activeCollectionId
     ? (findCollectionByUid(activeCollectionId, families)?.name ?? null)
     : null;
+
+  // Inspector → editor dispatcher. Resolves a `DisplayScope` to a
+  // concrete "open the editor for this scope" callback whenever the
+  // current state has enough information to identify the target entity:
+  //
+  //   - vault / workspace / live   — singletons; always available when
+  //                                  the corresponding opener is wired.
+  //   - environment                — needs the active environment uid;
+  //                                  null when "No environment".
+  //   - collection                 — needs `activeCollectionId` AND a
+  //                                  family lookup so we can route to
+  //                                  the rule / request / template
+  //                                  variant of the editor.
+  //
+  // Returns null when the click can't lead anywhere — the caller hides
+  // the affordance instead of opening a dead editor.
+  const openScopeEditor = useMemo(() => {
+    return (scope: DisplayScope): (() => void) | null => {
+      if (scope === 'vault') return onOpenVault ?? null;
+      if (scope === 'workspace') return onOpenWorkspaceVariables ?? null;
+      if (scope === 'live') return onOpenLiveVariables ?? null;
+      if (scope === 'environment') {
+        if (!onOpenEnvironmentEdit) return null;
+        const envId = activeEnvironmentId ?? defaultEnvironmentId;
+        if (!envId) return null;
+        const env = environments.find((e) => e.uid === envId);
+        if (!env) return null;
+        return () => onOpenEnvironmentEdit(env.uid, env.name);
+      }
+      if (scope === 'collection') {
+        if (!activeCollectionId) return null;
+        const hit = findCollectionWithFamily(activeCollectionId, families);
+        if (!hit) return null;
+        if (hit.family === 'rule' && onOpenRuleCollectionVariables) {
+          return () => onOpenRuleCollectionVariables(hit.collection.uid, hit.collection.name);
+        }
+        if (hit.family === 'request' && onOpenRequestCollectionVariables) {
+          return () => onOpenRequestCollectionVariables(hit.collection.uid, hit.collection.name);
+        }
+        if (hit.family === 'template' && onOpenTemplateCollectionVariables) {
+          return () => onOpenTemplateCollectionVariables(hit.collection.uid, hit.collection.name);
+        }
+        return null;
+      }
+      return null;
+    };
+  }, [
+    onOpenVault,
+    onOpenWorkspaceVariables,
+    onOpenLiveVariables,
+    onOpenEnvironmentEdit,
+    onOpenRuleCollectionVariables,
+    onOpenRequestCollectionVariables,
+    onOpenTemplateCollectionVariables,
+    activeEnvironmentId,
+    defaultEnvironmentId,
+    environments,
+    activeCollectionId,
+    families,
+  ]);
 
   // ── "In Rule" / "In Request" — variables referenced by the focused
   //    entity. Walks every template-containing string, resolves each
@@ -555,6 +637,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
             errors={inContextErrors}
             scopeKind={scopeKind}
             hasContext={contextEntity !== null}
+            openScopeEditor={openScopeEditor}
           />
         ) : (
           <AllScopesView
@@ -562,6 +645,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({ onClose, activeTab }) =
             activeEnvironmentName={activeEnvironment}
             defaultEnvironmentName={defaultEnvironment}
             activeCollectionName={activeCollectionName}
+            openScopeEditor={openScopeEditor}
           />
         )}
       </div>
@@ -576,11 +660,13 @@ function InContextView({
   errors,
   scopeKind,
   hasContext,
+  openScopeEditor,
 }: {
   vars: DisplayVariable[];
   errors: ResolutionError[];
   scopeKind: ScopeKind;
   hasContext: boolean;
+  openScopeEditor: (scope: DisplayScope) => (() => void) | null;
 }) {
   const { token } = theme.useToken();
   const noun = scopeKind === 'request' ? 'request' : scopeKind === 'template' ? 'template' : 'rule';
@@ -607,7 +693,7 @@ function InContextView({
   return (
     <>
       {vars.map((v) => (
-        <VariableRow key={v.name} variable={v} />
+        <VariableRow key={v.name} variable={v} onOpenEditor={openScopeEditor(v.scope)} />
       ))}
       <div style={{ marginTop: 10, fontSize: 11 }}>
         {resolvedCount === vars.length ? (
@@ -711,6 +797,7 @@ function AllScopesView({
   activeEnvironmentName,
   defaultEnvironmentName,
   activeCollectionName,
+  openScopeEditor,
 }: {
   allVars: {
     vault: DisplayVariable[];
@@ -722,6 +809,7 @@ function AllScopesView({
   activeEnvironmentName: string | null;
   defaultEnvironmentName: string | null;
   activeCollectionName: string | null;
+  openScopeEditor: (scope: DisplayScope) => (() => void) | null;
 }) {
   // If a default env is configured and differs from the active one, surface
   // it in the environment-scope subtitle so users understand why a value is
@@ -737,14 +825,20 @@ function AllScopesView({
 
   return (
     <>
-      <ScopeSection scope="vault" variables={allVars.vault} />
-      <ScopeSection scope="environment" variables={allVars.environment} subtitle={envSubtitle} />
+      <ScopeSection scope="vault" variables={allVars.vault} onOpenEditor={openScopeEditor('vault')} />
+      <ScopeSection
+        scope="environment"
+        variables={allVars.environment}
+        subtitle={envSubtitle}
+        onOpenEditor={openScopeEditor('environment')}
+      />
       <ScopeSection
         scope="collection"
         variables={allVars.collection}
         subtitle={activeCollectionName ?? 'No active collection'}
+        onOpenEditor={openScopeEditor('collection')}
       />
-      <ScopeSection scope="workspace" variables={allVars.workspace} />
+      <ScopeSection scope="workspace" variables={allVars.workspace} onOpenEditor={openScopeEditor('workspace')} />
       <ScopeSection
         scope="live"
         variables={allVars.live}
@@ -753,6 +847,7 @@ function AllScopesView({
             ? `${allVars.live.filter((v) => v.resolved).length}/${allVars.live.length} resolved`
             : 'no live variables defined'
         }
+        onOpenEditor={openScopeEditor('live')}
       />
     </>
   );
@@ -764,10 +859,16 @@ function ScopeSection({
   scope,
   variables,
   subtitle,
+  onOpenEditor,
 }: {
   scope: DisplayScope;
   variables: DisplayVariable[];
   subtitle?: string;
+  /** When non-null, the section title row exposes an "Edit" link that
+   *  opens this scope's editor. Null hides the affordance — used for
+   *  scopes with no editor available in the current context (e.g.,
+   *  Environment when no env is selected and there's no default). */
+  onOpenEditor?: (() => void) | null;
 }) {
   const { token } = theme.useToken();
   const config = SCOPE_CONFIG[scope];
@@ -783,9 +884,30 @@ function ScopeSection({
             : {subtitle}
           </Text>
         )}
-        <Text type="secondary" style={{ fontSize: 9, marginLeft: 'auto' }}>
-          {config.priority} priority
-        </Text>
+        <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+          {onOpenEditor ? (
+            <Tooltip title={`Open the ${config.label.toLowerCase()} variables editor`}>
+              <Text
+                role="button"
+                tabIndex={0}
+                onClick={onOpenEditor}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') onOpenEditor();
+                }}
+                style={{
+                  fontSize: 10,
+                  color: token.colorPrimary,
+                  cursor: 'pointer',
+                }}
+              >
+                Edit
+              </Text>
+            </Tooltip>
+          ) : null}
+          <Text type="secondary" style={{ fontSize: 9 }}>
+            {config.priority} priority
+          </Text>
+        </span>
       </div>
       {variables.length > 0 ? (
         variables.map((v) => <VariableRow key={`${scope}-${v.name}`} variable={v} compact />)
@@ -800,7 +922,20 @@ function ScopeSection({
 
 // ── Variable row ──────────────────────────────────────────────────
 
-function VariableRow({ variable, compact = false }: { variable: DisplayVariable; compact?: boolean }) {
+function VariableRow({
+  variable,
+  compact = false,
+  onOpenEditor,
+}: {
+  variable: DisplayVariable;
+  compact?: boolean;
+  /** When non-null, the row is clickable — clicking opens the
+   *  variable's owning-scope editor (Inspector → editor handoff). The
+   *  reveal-eye / TOTP-preview interactions stay within their own
+   *  click targets and stop propagation so they don't trigger the row
+   *  click. Null hides the affordance. */
+  onOpenEditor?: (() => void) | null;
+}) {
   const { token } = theme.useToken();
   const [revealed, setRevealed] = useState(false);
   const scopeConfig = SCOPE_CONFIG[variable.scope];
@@ -836,13 +971,26 @@ function VariableRow({ variable, compact = false }: { variable: DisplayVariable;
     );
   }
 
+  const clickable = onOpenEditor != null;
   return (
     <div
+      role={clickable ? 'button' : undefined}
+      tabIndex={clickable ? 0 : undefined}
+      onClick={clickable ? onOpenEditor : undefined}
+      onKeyDown={
+        clickable
+          ? (e) => {
+              if (e.key === 'Enter') onOpenEditor?.();
+            }
+          : undefined
+      }
+      title={clickable ? `Open the ${SCOPE_CONFIG[variable.scope].label.toLowerCase()} editor` : undefined}
       style={{
         border: `0.5px solid ${token.colorBorderSecondary}`,
         borderRadius: 4,
         padding: '6px 8px',
         marginBottom: 5,
+        cursor: clickable ? 'pointer' : undefined,
       }}
     >
       <div
@@ -882,9 +1030,15 @@ function VariableRow({ variable, compact = false }: { variable: DisplayVariable;
                 <span
                   role="button"
                   tabIndex={0}
-                  onClick={() => setRevealed((r) => !r)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setRevealed((r) => !r);
+                  }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') setRevealed((r) => !r);
+                    if (e.key === 'Enter') {
+                      e.stopPropagation();
+                      setRevealed((r) => !r);
+                    }
                   }}
                   style={{ cursor: 'pointer', fontSize: 10, color: token.colorTextTertiary }}
                 >

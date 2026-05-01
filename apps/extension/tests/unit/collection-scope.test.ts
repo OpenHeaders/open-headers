@@ -6,6 +6,7 @@ import {
   feedCollectionVariablesToResolver,
   findCollectionByPath,
   findCollectionByUid,
+  findCollectionWithFamily,
   findFolderByUid,
   iterateAllCollections,
 } from '@/shared/variables/collection-scope';
@@ -43,6 +44,17 @@ describe('findCollectionByUid', () => {
   });
   it('returns null for unknown uid', () => {
     expect(findCollectionByUid('does-not-exist', FAMILIES)).toBeNull();
+  });
+});
+
+describe('findCollectionWithFamily', () => {
+  it('tags rule, request, and template collections with the right family', () => {
+    expect(findCollectionWithFamily('rc-a', FAMILIES)?.family).toBe('rule');
+    expect(findCollectionWithFamily('qc-a', FAMILIES)?.family).toBe('request');
+    expect(findCollectionWithFamily('tc-a', FAMILIES)?.family).toBe('template');
+  });
+  it('returns null for unknown uid', () => {
+    expect(findCollectionWithFamily('does-not-exist', FAMILIES)).toBeNull();
   });
 });
 
