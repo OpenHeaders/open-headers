@@ -50,6 +50,8 @@ import { recordLog } from './observability-log';
 import { __setExecuteRequestDraft, isOffscreenSupported, runScript } from './offscreen-host';
 import { getRequest, getRequestCollections } from './request-store';
 import { getCollections as getRuleCollections } from './rule-store';
+import { getTemplateCollections } from './template-store';
+import { feedCollectionVariablesToResolver } from '@/shared/variables/collection-scope';
 import { checkCooldown as checkTotpCooldown, recordUsage as recordTotpUsage } from './totp-cooldown-store';
 import { getLiveRegistrySnapshot } from './variables-resolver';
 import { getActiveWorkspaceId } from './workspace-store';
@@ -407,16 +409,16 @@ async function buildResolver(
     // step's templates see prior steps' extracted values.
     resolver.setStepCaptures(stepCaptures);
   }
-  // Feed variables from BOTH collection trees. Their uids are generated
-  // from the same pool and never collide, so keying a single Map by uid
-  // is safe — the resolver just needs to know a variable set per uid,
-  // not which tree it came from.
-  for (const c of getRuleCollections()) {
-    resolver.setCollectionVariables(c.uid, c.variables ?? []);
-  }
-  for (const c of getRequestCollections()) {
-    resolver.setCollectionVariables(c.uid, c.variables ?? []);
-  }
+  // Feed variables from EVERY collection family — rule, request, AND
+  // template. Uids are minted from one pool and never collide, so the
+  // resolver's single Map keyed by uid carries them all. The shared
+  // helper centralizes this so renderer surfaces and the SW agree on
+  // the merged scope.
+  feedCollectionVariablesToResolver(resolver, {
+    ruleCollections: getRuleCollections(),
+    requestCollections: getRequestCollections(),
+    templateCollections: getTemplateCollections(),
+  });
   // File registry — powers `{{file.X}}` (ARCHITECTURE §6). Loading
   // the full workspace file list once per request is cheap (metadata
   // only, no blob bytes), and matches how other scopes are fed.
