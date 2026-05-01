@@ -48,8 +48,12 @@ import {
   feedCollectionVariablesToResolver,
   findCollectionByPath,
   findCollectionByUid,
-  findCollectionWithFamily,
 } from '@/shared/variables/collection-scope';
+import {
+  buildScopeEditorDispatch,
+  buildVariableEditorDispatch,
+  type DispatchVariable,
+} from './scope-editor-dispatch';
 import type { TabMode, WorkbenchTab } from '../../types';
 import { collectTemplateStrings } from '../../variable-references';
 import { SCOPE_COLORS, scopeBadge } from '../shared/scope-colors';
@@ -93,6 +97,11 @@ interface VariablesPanelProps {
   onOpenVault?: () => void;
   onOpenWorkspaceVariables?: () => void;
   onOpenLiveVariables?: () => void;
+  /** Open a specific live-variable's edit tab. When wired, an
+   *  In-Context row whose value came from a known LV uid routes here
+   *  instead of the LV list page — the user lands on the edit tab for
+   *  THIS variable. */
+  onOpenLiveVariableEdit?: (uid: string, name: string) => void;
   onOpenEnvironmentEdit?: (uid: string, name: string) => void;
   onOpenRuleCollectionVariables?: (uid: string, name: string) => void;
   onOpenRequestCollectionVariables?: (uid: string, name: string) => void;
@@ -126,6 +135,10 @@ interface DisplayVariable {
     digits: number;
     period: number;
   };
+  /** Present only on `live` rows — the LV uid the value came from. The
+   *  per-row dispatcher uses it to open the LV's edit tab directly
+   *  instead of falling back to the LiveVariables list page. */
+  liveVariableUid?: string;
 }
 
 // `TEMPLATE_RX` + `collectTemplateStrings` live in `../../variable-references`
@@ -139,6 +152,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({
   onOpenVault,
   onOpenWorkspaceVariables,
   onOpenLiveVariables,
+  onOpenLiveVariableEdit,
   onOpenEnvironmentEdit,
   onOpenRuleCollectionVariables,
   onOpenRequestCollectionVariables,
@@ -352,65 +366,78 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({
     ? (findCollectionByUid(activeCollectionId, families)?.name ?? null)
     : null;
 
-  // Inspector → editor dispatcher. Resolves a `DisplayScope` to a
-  // concrete "open the editor for this scope" callback whenever the
-  // current state has enough information to identify the target entity:
-  //
-  //   - vault / workspace / live   — singletons; always available when
-  //                                  the corresponding opener is wired.
-  //   - environment                — needs the active environment uid;
-  //                                  null when "No environment".
-  //   - collection                 — needs `activeCollectionId` AND a
-  //                                  family lookup so we can route to
-  //                                  the rule / request / template
-  //                                  variant of the editor.
-  //
-  // Returns null when the click can't lead anywhere — the caller hides
-  // the affordance instead of opening a dead editor.
-  const openScopeEditor = useMemo(() => {
-    return (scope: DisplayScope): (() => void) | null => {
-      if (scope === 'vault') return onOpenVault ?? null;
-      if (scope === 'workspace') return onOpenWorkspaceVariables ?? null;
-      if (scope === 'live') return onOpenLiveVariables ?? null;
-      if (scope === 'environment') {
-        if (!onOpenEnvironmentEdit) return null;
-        const envId = activeEnvironmentId ?? defaultEnvironmentId;
-        if (!envId) return null;
-        const env = environments.find((e) => e.uid === envId);
-        if (!env) return null;
-        return () => onOpenEnvironmentEdit(env.uid, env.name);
-      }
-      if (scope === 'collection') {
-        if (!activeCollectionId) return null;
-        const hit = findCollectionWithFamily(activeCollectionId, families);
-        if (!hit) return null;
-        if (hit.family === 'rule' && onOpenRuleCollectionVariables) {
-          return () => onOpenRuleCollectionVariables(hit.collection.uid, hit.collection.name);
-        }
-        if (hit.family === 'request' && onOpenRequestCollectionVariables) {
-          return () => onOpenRequestCollectionVariables(hit.collection.uid, hit.collection.name);
-        }
-        if (hit.family === 'template' && onOpenTemplateCollectionVariables) {
-          return () => onOpenTemplateCollectionVariables(hit.collection.uid, hit.collection.name);
-        }
-        return null;
-      }
-      return null;
-    };
-  }, [
-    onOpenVault,
-    onOpenWorkspaceVariables,
-    onOpenLiveVariables,
-    onOpenEnvironmentEdit,
-    onOpenRuleCollectionVariables,
-    onOpenRequestCollectionVariables,
-    onOpenTemplateCollectionVariables,
-    activeEnvironmentId,
-    defaultEnvironmentId,
-    environments,
-    activeCollectionId,
-    families,
-  ]);
+  // Inspector → editor dispatchers. Section-level uses scope only;
+  // row-level prefers per-entity openers when the row carries a uid
+  // (today: live rows). Both delegate to the same null-vs-callback
+  // contract so the consumer hides the affordance when null.
+  const openScopeEditor = useMemo(
+    () =>
+      buildScopeEditorDispatch(
+        {
+          onOpenVault,
+          onOpenWorkspaceVariables,
+          onOpenLiveVariables,
+          onOpenEnvironmentEdit,
+          onOpenRuleCollectionVariables,
+          onOpenRequestCollectionVariables,
+          onOpenTemplateCollectionVariables,
+        },
+        { activeCollectionId, families, activeEnvironmentId, defaultEnvironmentId, environments },
+      ),
+    [
+      onOpenVault,
+      onOpenWorkspaceVariables,
+      onOpenLiveVariables,
+      onOpenEnvironmentEdit,
+      onOpenRuleCollectionVariables,
+      onOpenRequestCollectionVariables,
+      onOpenTemplateCollectionVariables,
+      activeEnvironmentId,
+      defaultEnvironmentId,
+      environments,
+      activeCollectionId,
+      families,
+    ],
+  );
+  const openVariableEditor = useMemo(
+    () =>
+      buildVariableEditorDispatch(
+        {
+          onOpenVault,
+          onOpenWorkspaceVariables,
+          onOpenLiveVariables,
+          onOpenLiveVariableEdit,
+          onOpenEnvironmentEdit,
+          onOpenRuleCollectionVariables,
+          onOpenRequestCollectionVariables,
+          onOpenTemplateCollectionVariables,
+        },
+        {
+          activeCollectionId,
+          families,
+          activeEnvironmentId,
+          defaultEnvironmentId,
+          environments,
+          liveVariables,
+        },
+      ),
+    [
+      onOpenVault,
+      onOpenWorkspaceVariables,
+      onOpenLiveVariables,
+      onOpenLiveVariableEdit,
+      onOpenEnvironmentEdit,
+      onOpenRuleCollectionVariables,
+      onOpenRequestCollectionVariables,
+      onOpenTemplateCollectionVariables,
+      activeEnvironmentId,
+      defaultEnvironmentId,
+      environments,
+      activeCollectionId,
+      families,
+      liveVariables,
+    ],
+  );
 
   // ── "In Rule" / "In Request" — variables referenced by the focused
   //    entity. Walks every template-containing string, resolves each
@@ -437,12 +464,16 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({
       for (const v of variables) {
         if (seenVars.has(v.name)) continue;
         if (v.resolved) {
+          const scope = (v.scope ?? 'workspace') as DisplayScope;
           seenVars.set(v.name, {
             name: v.name,
             value: v.value ?? '',
-            scope: (v.scope ?? 'workspace') as DisplayScope,
+            scope,
             isSensitive: v.isSensitive ?? false,
             resolved: true,
+            ...(scope === 'live'
+              ? { liveVariableUid: liveVariables.find((lv) => lv.name === v.name)?.uid }
+              : {}),
           });
         } else {
           seenVars.set(v.name, {
@@ -465,7 +496,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({
       inContextVars: [...seenVars.values()],
       inContextErrors: [...seenErrors.values()],
     };
-  }, [contextEntity, activeCollectionId, resolver]);
+  }, [contextEntity, activeCollectionId, resolver, liveVariables]);
 
   // ── "All" — every scope's variables, whatever their referenced state
   const allVars = useMemo(() => {
@@ -530,6 +561,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({
           // Values can contain secrets (tokens) — mask by default.
           isSensitive: true,
           resolved: entry !== undefined,
+          liveVariableUid: lv.uid,
         };
       });
     return {
@@ -637,7 +669,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({
             errors={inContextErrors}
             scopeKind={scopeKind}
             hasContext={contextEntity !== null}
-            openScopeEditor={openScopeEditor}
+            openVariableEditor={openVariableEditor}
           />
         ) : (
           <AllScopesView
@@ -660,13 +692,13 @@ function InContextView({
   errors,
   scopeKind,
   hasContext,
-  openScopeEditor,
+  openVariableEditor,
 }: {
   vars: DisplayVariable[];
   errors: ResolutionError[];
   scopeKind: ScopeKind;
   hasContext: boolean;
-  openScopeEditor: (scope: DisplayScope) => (() => void) | null;
+  openVariableEditor: (variable: DispatchVariable, name: string) => (() => void) | null;
 }) {
   const { token } = theme.useToken();
   const noun = scopeKind === 'request' ? 'request' : scopeKind === 'template' ? 'template' : 'rule';
@@ -693,7 +725,7 @@ function InContextView({
   return (
     <>
       {vars.map((v) => (
-        <VariableRow key={v.name} variable={v} onOpenEditor={openScopeEditor(v.scope)} />
+        <VariableRow key={v.name} variable={v} onOpenEditor={openVariableEditor(v, v.name)} />
       ))}
       <div style={{ marginTop: 10, fontSize: 11 }}>
         {resolvedCount === vars.length ? (

@@ -1596,6 +1596,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
               onOpenVault={openVault}
               onOpenWorkspaceVariables={openWorkspaceVariables}
               onOpenLiveVariables={openLiveVariables}
+              onOpenLiveVariableEdit={openLiveVariableEdit}
               onOpenEnvironmentEdit={openEnvironmentEdit}
               onOpenRuleCollectionVariables={openCollectionVariables}
               onOpenRequestCollectionVariables={openRequestCollectionVariables}
