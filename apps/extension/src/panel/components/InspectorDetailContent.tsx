@@ -9,7 +9,12 @@ import { useVariableResolver } from '@hooks/useVariableResolver';
 import type { V5 } from '@openheaders/core/types';
 import { validateHeaderName } from '@openheaders/core/utils';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { type AnnotatedHeader, attributeHeaders } from '../data/header-attribution';
+import {
+  type AnnotatedHeader,
+  attributeHeaders,
+  findCurrentMod,
+  isAttributionEdited,
+} from '../data/header-attribution';
 import { formatHttpVersion } from '../data/http-version';
 import type { DetailSection } from '../data/inspector-tab';
 import { computeRuleApplicability, type RuleApplicability } from '../data/rule-applicability';
@@ -128,6 +133,11 @@ interface AttributedHeaderRowProps {
    *  popover can run the applicability matcher (does the live rule
    *  still match this URL?) without going through global state. */
   requestUrl: string;
+  /** Reactive registry — looked up by `attribution.ctx.ruleUid` so
+   *  the row reads the LIVE rule on every render. Attribution itself
+   *  is historical-only; live state must be derived from this map.
+   *  See `header-attribution.ts` for the architectural rule. */
+  rulesByUid: RulesByUid;
   onNameClick: (name: string, value: string) => void;
 }
 
@@ -140,6 +150,7 @@ function AttributedHeaderRow({
   searchHighlight,
   ruleCollectionId,
   requestUrl,
+  rulesByUid,
   onNameClick,
 }: AttributedHeaderRowProps) {
   const rulePopover = useRulePopover();
@@ -171,7 +182,13 @@ function AttributedHeaderRow({
   // current vs historical. Server rows still get a one-line title CTA
   // on the name button.
   const ruleCtx = kind === 'added' || kind === 'modified' || kind === 'removed' ? attribution.ctx : null;
-  const ruleForHover: V5.Rule | null = ruleCtx?.currentRule ?? null;
+  // Live rule + live mod — derived reactively from the rule registry on
+  // every render. The attribution context is historical-only; "what
+  // does the rule look like NOW" must always come from `rulesByUid`.
+  const liveRule: V5.Rule | null = ruleCtx ? (rulesByUid.get(ruleCtx.ruleUid) ?? null) : null;
+  const currentMod: V5.HeaderModification | null = ruleCtx ? findCurrentMod(liveRule, ruleCtx) : null;
+  const ruleEdited = ruleCtx ? isAttributionEdited(liveRule, ruleCtx) : false;
+  const ruleForHover: V5.Rule | null = liveRule;
   const operationForHover: V5.HeaderOperation | undefined =
     kind === 'added' || kind === 'modified' ? attribution.operation : kind === 'removed' ? 'remove' : undefined;
 
@@ -182,23 +199,29 @@ function AttributedHeaderRow({
   // workspace var renamed, etc.). Either signal yields the chip.
   const resolver = useVariableResolver();
   const currentResolvedValue = useMemo(() => {
-    if (!ruleCtx?.currentMod) return null;
-    if (ruleCtx.currentMod.operation === 'remove') return null;
-    const tpl = ruleCtx.currentMod.value;
+    if (!currentMod) return null;
+    if (currentMod.operation === 'remove') return null;
+    const tpl = currentMod.value;
     if (typeof tpl !== 'string') return null;
     return resolver.resolveTemplate(tpl, ruleCollectionId ? { collectionId: ruleCollectionId } : undefined).result;
-  }, [resolver, ruleCtx?.currentMod, ruleCollectionId]);
+  }, [resolver, currentMod, ruleCollectionId]);
   const currentResolvedName = useMemo(() => {
-    if (!ruleCtx?.currentMod) return null;
+    if (!currentMod) return null;
     return resolver.resolveTemplate(
-      ruleCtx.currentMod.headerName,
+      currentMod.headerName,
       ruleCollectionId ? { collectionId: ruleCollectionId } : undefined,
     ).result;
-  }, [resolver, ruleCtx?.currentMod, ruleCollectionId]);
+  }, [resolver, currentMod, ruleCollectionId]);
   const applicability = useMemo<RuleApplicability | null>(() => {
     if (!ruleCtx) return null;
-    return computeRuleApplicability({ ctx: ruleCtx, url: requestUrl, resolver, collectionId: ruleCollectionId });
-  }, [ruleCtx, requestUrl, resolver, ruleCollectionId]);
+    return computeRuleApplicability({
+      liveRule,
+      ctx: ruleCtx,
+      url: requestUrl,
+      resolver,
+      collectionId: ruleCollectionId,
+    });
+  }, [liveRule, ruleCtx, requestUrl, resolver, ruleCollectionId]);
   // Drift detection is only meaningful when the snapshot's resolved
   // value is a reliable baseline. Two cases where it isn't:
   //   - The template contains `{{vault.TOTP_*}}` — TOTP codes never
@@ -218,7 +241,7 @@ function AttributedHeaderRow({
     ruleCtx.snapshotMod.valueTemplate !== ruleCtx.snapshotMod.valueResolved;
   const valueDrifted =
     !!ruleCtx &&
-    !ruleCtx.edited &&
+    !ruleEdited &&
     snapshotResolutionReliable &&
     currentResolvedValue != null &&
     ruleCtx.snapshotMod.valueResolved != null &&
@@ -233,11 +256,11 @@ function AttributedHeaderRow({
   const snapshotNameReliable = !ruleCtx?.snapshotMod.headerName.includes('{{');
   const nameDrifted =
     !!ruleCtx &&
-    !ruleCtx.edited &&
+    !ruleEdited &&
     snapshotNameReliable &&
     currentResolvedName != null &&
     currentResolvedName !== ruleCtx.snapshotMod.headerName;
-  const editedSinceFire = (ruleCtx?.edited ?? false) || valueDrifted || nameDrifted;
+  const editedSinceFire = (ruleEdited ?? false) || valueDrifted || nameDrifted;
 
   const handleRowMouseOver = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!ruleCtx) return;
@@ -290,7 +313,7 @@ function AttributedHeaderRow({
       <span className="dt-kv-oh-value">
         : {showResolvedValue ? <ResolvedHeaderValue value={value} collectionId={ruleCollectionId} /> : value}
       </span>
-      {editedSinceFire && <EditedSinceFireChip kind={ruleCtx?.edited ? 'rule' : 'value'} />}
+      {editedSinceFire && <EditedSinceFireChip kind={ruleEdited ? 'rule' : 'value'} />}
     </div>
   );
 }
@@ -562,6 +585,7 @@ export function InspectorDetailContent({
                     searchHighlight={searchHighlight}
                     ruleCollectionId={collectionIdFor(h)}
                     requestUrl={request.url}
+                    rulesByUid={rulesByUid}
                     onNameClick={(name, value) => createHeaderRule('response', name, value)}
                   />
                 ))
@@ -594,6 +618,7 @@ export function InspectorDetailContent({
                     searchHighlight={searchHighlight}
                     ruleCollectionId={collectionIdFor(h)}
                     requestUrl={request.url}
+                    rulesByUid={rulesByUid}
                     onNameClick={(name, value) => createHeaderRule('request', name, value)}
                   />
                 ))

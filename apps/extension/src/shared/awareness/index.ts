@@ -8,9 +8,13 @@ export { default as PresenceBadge } from './PresenceBadge';
 export type { PresenceBadgeProps } from './PresenceBadge';
 export { default as FieldPresenceChip } from './FieldPresenceChip';
 export type { FieldPresenceChipProps } from './FieldPresenceChip';
+export { default as TabPresenceBadge } from './TabPresenceBadge';
+export type { TabPresenceBadgeProps } from './TabPresenceBadge';
+export { default as AwarenessPill } from './AwarenessPill';
+export type { AwarenessPillProps } from './AwarenessPill';
 export { default as ConflictDiffChip } from './ConflictDiffChip';
 export type { ConflictDiffChipProps } from './ConflictDiffChip';
-export { useEntityPresence, useFieldPresence } from './use-entity-presence';
+export { useEntityPresence, useFieldPresence, usePathPrefixPresence } from './use-entity-presence';
 export { RULE_FIELD } from './rule-paths';
 export { surfaceKindColor, surfaceKindInitial, surfaceKindLabel } from './surface-label';
 export {
@@ -32,9 +36,16 @@ export {
   useSetActiveFieldFocus,
 } from './ActiveFieldFocus';
 export type { ActiveFieldFocusValue } from './ActiveFieldFocus';
-export { ActiveTabEntityProvider, useActiveTabEntity } from './ActiveTabEntity';
+export { ActiveTabEntityProvider, useActiveTabEntity, useSetActiveTabEntity } from './ActiveTabEntity';
 export type { ActiveTabEntityValue } from './ActiveTabEntity';
+export {
+  ActiveEditorDirtyProvider,
+  useActiveEditorDirty,
+  useSetActiveEditorDirty,
+} from './ActiveEditorDirty';
+export type { ActiveEditorDirtyValue } from './ActiveEditorDirty';
+export { useEditorDirty } from './use-editor-dirty';
 export { EntityField } from './EntityField';
 export type { EntityFieldProps } from './EntityField';
-export { WorkbenchAwarenessSlot } from './WorkbenchAwarenessSlot';
-export type { WorkbenchAwarenessSlotProps } from './WorkbenchAwarenessSlot';
+export { SurfaceAwarenessPublisher } from './SurfaceAwarenessPublisher';
+export type { SurfaceAwarenessPublisherProps } from './SurfaceAwarenessPublisher';

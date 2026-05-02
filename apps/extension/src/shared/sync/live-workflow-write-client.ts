@@ -12,7 +12,7 @@
  *     until the user clicks Save.
  *   - `applyLiveWorkflowPublish` is the explicit Save gesture: a single
  *     `setField('published', true)` mutation + resolver invalidation.
- *   - `applyLiveWorkflowUpdate` auto-unpublishes any in-flight edit on
+ *   - `applyLiveWorkflowUpdate` auto-unpublishes any in-flight runtime edit on
  *     a previously-published workflow so the scheduler never observes a
  *     half-typed step or refresh policy still flagged published.
  */
@@ -24,7 +24,7 @@ import {
   type MutationBody,
 } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
-import { generateUid, toFolderName } from '@openheaders/core/utils';
+import { generateUid, shouldAutoUnpublishOnUpdate, toFolderName } from '@openheaders/core/utils';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
@@ -63,17 +63,15 @@ export async function applyLiveWorkflowUpdate(
   const mirror = resolveMirror(opts, getActiveLiveWorkflowSyncMirror);
   const entry = mirror.getLiveWorkflowMirror(workflowUid);
   if (!entry) return { ok: false, reason: 'not-found' };
-  // Auto-unpublish on first edit of a published workflow (same shape as
-  // `applyRuleUpdate` in `rule-write-client.ts`). The single batch
-  // ensures the scheduler / resolver-invalidate runners observe the
-  // unpublish + edit atomically — they never see a half-typed value
-  // while the workflow is still flagged published. Subsequent
-  // keystrokes find `published === false` and skip the augmentation.
-  // Explicit `published` writes (the Save button routing through
-  // `applyLiveWorkflowPublish`) bypass `applyLiveWorkflowUpdate`
-  // entirely.
+  // Auto-unpublish on first runtime-affecting edit of a published
+  // workflow (publication-gate symmetry with `applyRuleUpdate`). The
+  // single batch ensures the scheduler / resolver-invalidate runners
+  // observe the unpublish + edit atomically — they never see a
+  // half-typed value while the workflow is still flagged published.
+  // Metadata-only updates (rename, description) bypass the gate via
+  // `shouldAutoUnpublishOnUpdate`.
   const augmented: LiveWorkflowUpdates =
-    entry.workflow.published === true && updates.published === undefined
+    entry.workflow.published === true && shouldAutoUnpublishOnUpdate(updates as Record<string, unknown>)
       ? { ...updates, published: false }
       : updates;
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);

@@ -173,6 +173,68 @@ describe('applyRuleUpdate', () => {
   });
 });
 
+describe('applyRuleUpdate auto-unpublish', () => {
+  const publishedRule: V5.HeaderRule = { ...headerRule, published: true };
+
+  it('augments a published-rule runtime edit with published: false', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const mirror = makeMirror(publishedRule);
+    await applyRuleUpdate(
+      publishedRule.uid,
+      { conditions: [{ uid: 'cond0001', type: 'request-domains', values: ['example.test'] }] },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', mirror, context: makeContextHandle() },
+    );
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    const paths = batch.mutations.map((m) => (m.body as { path?: string }).path);
+    expect(paths).toContain('published');
+    const publishedSet = batch.mutations.find((m) => (m.body as { path?: string }).path === 'published');
+    expect((publishedSet?.body as { value?: unknown }).value).toBe(false);
+  });
+
+  it('does NOT auto-unpublish on a metadata-only rename', async () => {
+    // Regression: renaming a published rule in the sidebar /
+    // breadcrumb is cosmetic and must not drop it back to draft.
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const mirror = makeMirror(publishedRule);
+    await applyRuleUpdate(
+      publishedRule.uid,
+      { name: 'Renamed' },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', mirror, context: makeContextHandle() },
+    );
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    const paths = batch.mutations.map((m) => (m.body as { path?: string }).path);
+    expect(paths).toContain('name');
+    expect(paths).not.toContain('published');
+  });
+
+  it('skips augmentation when the rule is already a draft', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const mirror = makeMirror(headerRule); // published omitted = draft
+    await applyRuleUpdate(
+      headerRule.uid,
+      { conditions: [{ uid: 'cond0001', type: 'request-domains', values: ['example.test'] }] },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', mirror, context: makeContextHandle() },
+    );
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    const paths = batch.mutations.map((m) => (m.body as { path?: string }).path);
+    expect(paths).not.toContain('published');
+  });
+
+  it('respects an explicit published in updates (re-publish via update)', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const mirror = makeMirror(publishedRule);
+    await applyRuleUpdate(
+      publishedRule.uid,
+      { name: 'Renamed', published: true },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', mirror, context: makeContextHandle() },
+    );
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    const publishedSet = batch.mutations.find((m) => (m.body as { path?: string }).path === 'published');
+    // Caller passed published: true, no auto-flip to false.
+    expect((publishedSet?.body as { value?: unknown }).value).toBe(true);
+  });
+});
+
 describe('applyRuleToggle', () => {
   it('emits one setField on `enabled` + recompileDnr side-effect', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });

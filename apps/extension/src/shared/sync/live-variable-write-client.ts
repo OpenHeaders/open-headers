@@ -14,7 +14,7 @@
  *     surface the LV in `{{live.<name>}}` lookups until the user
  *     clicks Save.
  *   - `applyLiveVariablePublish` is the explicit Save gesture.
- *   - `applyLiveVariableUpdate` auto-unpublishes any in-flight edit on
+ *   - `applyLiveVariableUpdate` auto-unpublishes any in-flight runtime edit on
  *     a previously-published LV.
  */
 
@@ -25,7 +25,7 @@ import {
   type MutationBody,
 } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
-import { generateUid, toFolderName } from '@openheaders/core/utils';
+import { generateUid, shouldAutoUnpublishOnUpdate, toFolderName } from '@openheaders/core/utils';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
@@ -64,12 +64,14 @@ export async function applyLiveVariableUpdate(
   const mirror = resolveMirror(opts, getActiveLiveVariableSyncMirror);
   const entry = mirror.getLiveVariableMirror(liveVariableUid);
   if (!entry) return { ok: false, reason: 'not-found' };
-  // Auto-unpublish on first edit of a published LV — same shape as
-  // `applyLiveWorkflowUpdate` / `applyRuleUpdate`. Atomically batches
-  // the unpublish with the user's edit so the resolver never observes
-  // a half-typed binding still flagged published.
+  // Auto-unpublish on first runtime-affecting edit of a published LV —
+  // same shape as `applyLiveWorkflowUpdate` / `applyRuleUpdate`.
+  // Atomically batches the unpublish with the user's edit so the
+  // resolver never observes a half-typed binding still flagged
+  // published. Metadata-only updates (rename, description) bypass the
+  // gate via `shouldAutoUnpublishOnUpdate`.
   const augmented: LiveVariableUpdates =
-    entry.liveVariable.published === true && updates.published === undefined
+    entry.liveVariable.published === true && shouldAutoUnpublishOnUpdate(updates as Record<string, unknown>)
       ? { ...updates, published: false }
       : updates;
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);

@@ -8,8 +8,8 @@
  *   1. **Publish focus.** On focus inside the wrapper, write the
  *      canonical `{entityType, entityId, path}` triple to
  *      `ActiveFieldFocusContext`. The workspace-level
- *      `<WorkbenchAwarenessSlot>` reads from there and pushes it to the
- *      SW awareness store. On blur out, clear the focus.
+ *      `<SurfaceAwarenessPublisher>` reads from there and pushes it to
+ *      the SW awareness store. On blur out, clear the focus.
  *
  *   2. **Render the presence chip.** Mount `<FieldPresenceChip>` inline
  *      after the wrapped child, scoped to the same triple, so peers

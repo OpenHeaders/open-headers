@@ -50,6 +50,36 @@ export function useEntityPresence(ref: EntityRef | null, options: UseEntityPrese
 }
 
 /**
+ * Returns surfaces whose `fieldFocus.path` starts with `pathPrefix`
+ * inside the given entity. Used by per-tab / per-section badges that
+ * aggregate presence across a related group of leaf paths (e.g. all
+ * paths under `action.requestHeaders.`).
+ */
+export function usePathPrefixPresence(
+  ref: EntityRef | null,
+  pathPrefix: string,
+  options: UseEntityPresenceOptions = {},
+): AwarenessState[] {
+  const { excludeInstanceId, enabled = true } = options;
+  const [presence, setPresence] = useState<readonly AwarenessState[]>(EMPTY);
+
+  useEffect(() => {
+    if (!enabled || !ref) {
+      setPresence(EMPTY);
+      return;
+    }
+    const mirror = getActiveAwarenessMirror();
+    const recompute = () => {
+      setPresence(mirror.getPresenceForPathPrefix(ref, pathPrefix, { excludeInstanceId }));
+    };
+    recompute();
+    return mirror.subscribeEntity(ref, recompute);
+  }, [enabled, ref?.type, ref?.id, pathPrefix, excludeInstanceId]);
+
+  return presence as AwarenessState[];
+}
+
+/**
  * Returns surfaces with their `fieldFocus` exactly matching `ref`,
  * excluding the local surface.
  */

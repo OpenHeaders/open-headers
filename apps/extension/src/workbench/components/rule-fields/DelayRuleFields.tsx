@@ -5,10 +5,9 @@
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { Alert, Form, InputNumber, Typography } from 'antd';
 import type React from 'react';
-import { RULE_FIELD } from '@/shared/awareness';
+import { EntityField, RULE_FIELD } from '@/shared/awareness';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../InspectorDocs';
-import { RuleField } from './RuleField';
 import ScalarConflictChip from './ScalarConflictChip';
 import type { ConflictBridge } from './use-rule-conflicts';
 
@@ -42,14 +41,14 @@ const DelayRuleFields: React.FC<DelayRuleFieldsProps> = ({ conflicts }) => {
         <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
           Delay
         </Text>
-        <RuleField path={RULE_FIELD.delayMs}>
+        <EntityField path={RULE_FIELD.delayMs}>
           <Form.Item name="delayMs" style={{ marginBottom: 0 }}>
             {/* min={1}: a 0ms delay makes the rule a no-op (the compiler skips
                 `delayMs === 0`), so the rule would save but never fire. Forcing
                 >=1 keeps "saved" and "effective" aligned. */}
             <InputNumber min={1} max={30000} step={100} addonAfter="ms" style={{ width: 160 }} placeholder="1000" />
           </Form.Item>
-        </RuleField>
+        </EntityField>
         <ScalarConflictChip formName="delayMs" schemaPath={RULE_FIELD.delayMs} conflicts={conflicts} />
         <Text type="secondary" style={{ fontSize: 11 }}>
           Max 30,000 ms

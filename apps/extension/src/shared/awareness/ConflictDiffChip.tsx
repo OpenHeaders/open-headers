@@ -72,7 +72,11 @@ const ConflictDiffChip: React.FC<ConflictDiffChipProps> = ({ theirs, base, onTak
   );
 
   return (
-    <Popover content={content} trigger="click" placement="topRight">
+    // zIndex 1100 lifts the resolve popover above any host surface that
+    // mounts inside a stacking context (devpanel rule-hover popover at
+    // zIndex 1080, with its inner antd dropdowns at 1090). Matches the
+    // PresenceBadge / AwarenessPill convention.
+    <Popover content={content} trigger="click" placement="topRight" zIndex={1100}>
       <span
         role="button"
         tabIndex={0}
@@ -88,6 +92,7 @@ const ConflictDiffChip: React.FC<ConflictDiffChipProps> = ({ theirs, base, onTak
           color: '#fff',
           fontSize: 10,
           cursor: 'pointer',
+          flexShrink: 0,
           ...style,
         }}
       >

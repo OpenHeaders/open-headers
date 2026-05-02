@@ -52,6 +52,10 @@ export interface AwarenessMirror {
   getPresenceForEntity(ref: EntityRef, opts?: PresenceQueryOptions): AwarenessState[];
   /** Surfaces with `fieldFocus === ref` (matches type+id+path exactly). */
   getPresenceForField(ref: FieldRef, opts?: PresenceQueryOptions): AwarenessState[];
+  /** Surfaces with `fieldFocus.path` starting with `pathPrefix` for the
+   *  given `(type, id)`. Used by per-tab / per-section badges that
+   *  aggregate field focus across a related group of paths. */
+  getPresenceForPathPrefix(ref: EntityRef, pathPrefix: string, opts?: PresenceQueryOptions): AwarenessState[];
   /** Subscribe to ANY presence change. Cheap; called on every broadcast. */
   subscribe(listener: AwarenessListener): () => void;
   /** Subscribe to changes affecting one entity (entity-level + field-level). */
@@ -160,6 +164,21 @@ export function createAwarenessMirror(options: CreateAwarenessMirrorOptions = {}
     );
   }
 
+  function filterByPathPrefix(
+    ref: EntityRef,
+    pathPrefix: string,
+    opts?: PresenceQueryOptions,
+  ): AwarenessState[] {
+    return presence.filter(
+      (s) =>
+        s.fieldFocus !== null &&
+        s.fieldFocus.type === ref.type &&
+        s.fieldFocus.id === ref.id &&
+        s.fieldFocus.path.startsWith(pathPrefix) &&
+        s.identity.instanceId !== opts?.excludeInstanceId,
+    );
+  }
+
   return {
     getWorkspaceId() {
       return workspaceId;
@@ -169,6 +188,7 @@ export function createAwarenessMirror(options: CreateAwarenessMirrorOptions = {}
     },
     getPresenceForEntity: filterByEntity,
     getPresenceForField: filterByField,
+    getPresenceForPathPrefix: filterByPathPrefix,
     subscribe(listener) {
       allListeners.add(listener);
       return () => {

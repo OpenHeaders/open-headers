@@ -45,8 +45,18 @@ import type { InspectorFire } from './types';
 
 /**
  * Rule-attribution context shared by every non-`server`/`system` row.
- * Carries enough for the popover to render history (snapshot) AND
- * provide a "future requests" edit affordance (current).
+ *
+ * **Historical-only.** The context carries the snapshot data captured
+ * at fire time + identity (`ruleUid`, `ruleType`). It deliberately
+ * does NOT cache the live rule or live mod — those are derived at
+ * consume time from the renderer-side mirror via the exported
+ * `findCurrentMod` / `isAttributionEdited` helpers.
+ *
+ * Why: caching live state in a struct that's built once and reused
+ * across re-renders silently goes stale when the rule mutates. Every
+ * consumer that reads "live now" must derive it reactively against
+ * the current `liveRule`. Architectural separation: attribution =
+ * historical, live = derived.
  */
 export interface RuleAttributionContext {
   ruleUid: string;
@@ -55,19 +65,12 @@ export interface RuleAttributionContext {
   ruleType: V5.Rule['type'];
   /** The exact mod (frozen) that produced this row. */
   snapshotMod: RuleSnapshotHeaderMod;
-  /** Live rule, or `null` if it was deleted between fire and render. */
-  currentRule: V5.Rule | null;
   /**
-   * Live mod matching the snapshot mod, or `null` if the user has
-   * removed/renamed the mod. When `null`, `edited` is true.
+   * Full mod list at fire time. Needed by `findCurrentMod`'s
+   * positional sibling matching for the duplicate-name-and-operation
+   * case (two `Set-Cookie: add` mods on the same rule).
    */
-  currentMod: V5.HeaderModification | null;
-  /**
-   * True when the snapshot diverges from `currentMod` — different
-   * operation, header name, template, or merge separator. Also true
-   * when `currentMod` or `currentRule` is null.
-   */
-  edited: boolean;
+  snapshotMods: ReadonlyArray<RuleSnapshotHeaderMod>;
   /**
    * Other modifications on the same rule that fired on this same
    * request — i.e. all snapshot mods minus the row's own mod. Used
@@ -158,11 +161,27 @@ function snapshotValue(mod: RuleSnapshotHeaderMod): string {
  *      return null with `edited=true` — the row gets the "edited"
  *      marker and the popover offers the live rule for inspection.
  */
-function findCurrentMod(
-  liveRule: V5.HeaderRule,
-  snapshotMods: ReadonlyArray<RuleSnapshotHeaderMod>,
-  snapshotMod: RuleSnapshotHeaderMod,
+/**
+ * Locate the live mod corresponding to a `RuleAttributionContext`.
+ * **Pure** — every consumer that needs "what does this mod look like
+ * NOW" calls this against the current `liveRule` (which they already
+ * subscribe to via the rule mirror). Returns `null` when the rule was
+ * deleted, the rule type changed, or the user removed the matching
+ * mod from the rule's action list.
+ *
+ * Match policy:
+ *   1. Direction + lowercase headerName + operation + positional
+ *      sibling index (matters for multi-append rules where two
+ *      `add`s on `Set-Cookie` must each map to their own counterpart).
+ *   2. No fallback to fuzzy match — returning `null` lets the consumer
+ *      surface "mod gone" with a clear signal.
+ */
+export function findCurrentMod(
+  liveRule: V5.Rule | null,
+  ctx: RuleAttributionContext,
 ): V5.HeaderModification | null {
+  if (!liveRule || liveRule.type !== 'header') return null;
+  const { snapshotMod, snapshotMods } = ctx;
   const list = snapshotMod.direction === 'request' ? liveRule.action.requestHeaders : liveRule.action.responseHeaders;
   // Live mods carry the raw template (`X-{{env.x}}`), the snapshot
   // carries the resolved name (`X-Foo`). Match against the snapshot's
@@ -193,10 +212,21 @@ function findCurrentMod(
     liveSeen++;
   }
 
-  // Fallback: same direction + name, any operation. Returning null lets
-  // the caller mark `edited=true`; the popover still has the snapshot
-  // for read-only display.
   return null;
+}
+
+/**
+ * Reports whether the rule has been edited since fire — the live rule
+ * doesn't exist, its type changed, the matching mod is gone, or the
+ * mod's structural fields diverge from the snapshot. **Pure**, called
+ * by the popover + inspector against the current `liveRule`.
+ */
+export function isAttributionEdited(liveRule: V5.Rule | null, ctx: RuleAttributionContext): boolean {
+  if (!liveRule) return true;
+  if (liveRule.type !== ctx.ruleType) return true;
+  const currentMod = findCurrentMod(liveRule, ctx);
+  if (!currentMod) return true;
+  return modsDiverge(ctx.snapshotMod, currentMod);
 }
 
 function modsDiverge(a: RuleSnapshotHeaderMod, b: V5.HeaderModification): boolean {
@@ -219,28 +249,18 @@ function modsDiverge(a: RuleSnapshotHeaderMod, b: V5.HeaderModification): boolea
   return false;
 }
 
-function buildContext(
-  snapshot: RuleSnapshot,
-  snapshotMod: RuleSnapshotHeaderMod,
-  liveRule: V5.Rule | null,
-): RuleAttributionContext {
-  let currentMod: V5.HeaderModification | null = null;
-  let edited = liveRule == null;
-  if (liveRule && liveRule.type === 'header' && snapshot.headerMods) {
-    currentMod = findCurrentMod(liveRule, snapshot.headerMods, snapshotMod);
-    edited = currentMod == null || modsDiverge(snapshotMod, currentMod);
-  } else if (liveRule && liveRule.type !== snapshot.type) {
-    edited = true;
-  }
-  const siblingMods = snapshot.headerMods ? snapshot.headerMods.filter((m) => m !== snapshotMod) : [];
+function buildContext(snapshot: RuleSnapshot, snapshotMod: RuleSnapshotHeaderMod): RuleAttributionContext {
+  // Pure historical context — no live-rule reads. Consumers derive
+  // current state via `findCurrentMod` / `isAttributionEdited` against
+  // their own subscription to the rule mirror.
+  const snapshotMods = snapshot.headerMods ?? [];
+  const siblingMods = snapshotMods.filter((m) => m !== snapshotMod);
   return {
     ruleUid: snapshot.ruleUid,
     ruleName: snapshot.name,
     ruleType: snapshot.type,
     snapshotMod,
-    currentRule: liveRule,
-    currentMod,
-    edited,
+    snapshotMods,
     siblingMods,
   };
 }
@@ -255,9 +275,10 @@ function buildContext(
 function synthesizeSnapshot(rule: V5.HeaderRule): RuleSnapshot {
   // Legacy fires (predate the snapshotter) carry no resolved values.
   // Use the live rule's template literally for both `headerName` and
-  // `headerNameTemplate`/`valueTemplate`/`valueResolved`. `edited` is
-  // forced false in `buildContext` for this path so we don't claim
-  // drift we can't actually verify.
+  // `headerNameTemplate`/`valueTemplate`/`valueResolved`. Consumers
+  // that read `isAttributionEdited` will report `false` because the
+  // synthesized snapshot already matches the live mod structurally —
+  // a clean baseline ensures we don't claim drift we can't verify.
   const synthMod = (m: V5.HeaderModification, direction: 'request' | 'response'): RuleSnapshotHeaderMod => {
     const entry: RuleSnapshotHeaderMod = { direction, operation: m.operation, headerName: m.headerName };
     if (m.operation !== 'remove' && m.value !== undefined) {
@@ -337,7 +358,7 @@ export function attributeHeaders(
     for (const snapshotMod of directionMods) {
       const key = snapshotMod.headerName.toLowerCase();
       const serverIdx = serverIndex.get(key);
-      const ctx = buildContext(snapshot, snapshotMod, liveRule);
+      const ctx = buildContext(snapshot, snapshotMod);
       const appliedValue = snapshotValue(snapshotMod);
 
       if (snapshotMod.operation === 'remove') {

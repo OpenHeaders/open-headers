@@ -25,7 +25,6 @@ import {
   FolderOutlined,
   InfoCircleOutlined,
 } from '@ant-design/icons';
-import { useAwareness } from '@hooks/useAwareness';
 import { useRuleMutator } from '@hooks/useRuleMutator';
 import { useRules } from '@hooks/useRules';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
@@ -35,7 +34,9 @@ import type { MenuProps } from 'antd';
 import { Alert, App, Button, Dropdown, Form, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PresenceBadge, useLocalInstanceId, useSurfaceIdentity } from '@/shared/awareness';
+import { EntityScopeProvider, PresenceBadge, useLocalInstanceId } from '@/shared/awareness';
+import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
+import { stableStringify, useEntityReprime } from '@/shared/forms';
 import { applyRuleCreate, applyRulePublish } from '@/shared/sync/rule-write-client';
 import { buildDraftConditions } from '../draft-conditions';
 import { useInspectorNav } from '../hooks/useInspectorNav';
@@ -50,7 +51,6 @@ import { ActionValueBanner } from './rule-fields/ActionValueBanner';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
 import BodyRuleFields, { BODY_DYNAMIC_TEMPLATE } from './rule-fields/BodyRuleFields';
 import DelayRuleFields from './rule-fields/DelayRuleFields';
-import { FocusedFieldProvider, RuleAwarenessProvider } from './rule-fields/RuleField';
 import HeaderRuleFields from './rule-fields/HeaderRuleFields';
 import InjectRuleFields, { maybePrefillInjectCode } from './rule-fields/InjectRuleFields';
 import MockRuleFields, { MOCK_DYNAMIC_TEMPLATE } from './rule-fields/MockRuleFields';
@@ -108,31 +108,34 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   const { openDocs } = useInspectorNav();
   const { rules, activeWorkspaceId, localCollections, templates: userTemplates, templateCollectionTrees } = useRules();
   const mutator = useRuleMutator({ workspaceId: activeWorkspaceId, surfaceId: 'workbench' });
-  const identity = useSurfaceIdentity();
   const localInstanceId = useLocalInstanceId();
   const [form] = Form.useForm();
   const [_saving, setSaving] = useState(false);
   const [saveAsTemplateOpen, setSaveAsTemplateOpen] = useState(false);
   const initializedRef = useRef(false);
-  const isDirtyRef = useRef(false);
-  // Reactive mirror of isDirtyRef so the shared EditorHeader's Save
-  // button can toggle disabled/enabled. Updated alongside every
-  // `onDirtyChange?.(…)` via the helper below.
-  const [isDirty, setIsDirty] = useState(false);
-  const notifyDirty = useCallback(
-    (dirty: boolean) => {
-      isDirtyRef.current = dirty;
-      setIsDirty(dirty);
-      onDirtyChange?.(dirty);
-    },
-    [onDirtyChange],
-  );
-
+  // Reactive mirror of `initializedRef` for `useEntityReprime`'s
+  // `enabled` gate. `useRef` reads don't trigger renders so the hook
+  // would otherwise have no way to react to "init just completed".
+  // Set once, alongside the ref, by the init effect below.
+  const [isInitialized, setIsInitialized] = useState(false);
   // ── Header state (lifted from HeaderRuleFields for reliable timing) ──
   // useWatch has inherent first-render timing issues — parent owns the truth.
   const [headerActiveTab, setHeaderActiveTab] = useState('request');
   const [headerReqCount, setHeaderReqCount] = useState(0);
   const [headerResCount, setHeaderResCount] = useState(0);
+  // Once the user explicitly clicks Request/Response, their choice is
+  // sticky — incoming live-update re-primes never override it. Without
+  // this, a broadcast-driven re-prime (clean editor, peer commits an
+  // unrelated mutation) would snap back to the auto-default tab.
+  const userPickedHeaderTabRef = useRef(false);
+  const handleHeaderTabChange = useCallback((tab: string) => {
+    userPickedHeaderTabRef.current = true;
+    setHeaderActiveTab(tab);
+  }, []);
+  const setDefaultHeaderTab = useCallback((reqLen: number, resLen: number) => {
+    if (userPickedHeaderTabRef.current) return;
+    setHeaderActiveTab(resLen > 0 && reqLen === 0 ? 'response' : 'request');
+  }, []);
 
   // URL-derivation strategy for `initialDraft.url` → url-filter condition.
   // Read live so a user who changes the setting mid-session gets the new
@@ -177,48 +180,117 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   /** Single source of truth for name. */
   const ruleName = liveRule?.name ?? 'Rule';
 
-  // ── Awareness publisher (Phase A A2) ─────────────────────────────
-  // Workbench publishes entity-level presence so other surfaces (popup,
-  // devpanel) can show a badge when this surface has the rule open.
-  // Per-field focus tracking lands later — the workbench's antd Form
-  // doesn't expose a global focused-path stream, and the dominant
-  // collision lane today is devpanel→workbench (one-shot popover edits
-  // colliding with a longer-lived editor session). The single dirty
-  // marker tells other surfaces this editor has unsaved edits without
-  // committing to a per-leaf path catalogue mid-Phase-A.
-  const entityFocus = useMemo(() => ({ type: RULE_ENTITY_TYPE, id: ruleUid }), [ruleUid]);
-  const dirtyFields = useMemo<string[]>(() => (isDirty ? ['*'] : []), [isDirty]);
-
-  // Per-field focus path. Each `<RuleField path={...}>` wrapper inside
-  // the form publishes its canonical path into this state via context;
-  // RuleEditor turns it into the awareness `fieldFocus` reference. No
-  // DOM-id parsing — the wrapper owns the lifecycle and the path is the
-  // same string `useRuleConflicts` / `FieldPresenceChip` consume, so
-  // presence + conflict resolution align by construction.
-  const [focusedFieldPath, setFocusedFieldPath] = useState<string | null>(null);
-  const ruleAwarenessValue = useMemo(
-    () => ({ ruleUid, excludeInstanceId: localInstanceId }),
-    [ruleUid, localInstanceId],
+  // Awareness — RuleEditor contributes ONLY its dirty marker via the
+  // workspace-level `ActiveEditorDirty` context. The single
+  // `<SurfaceAwarenessPublisher>` mounted near the surface root is the
+  // sole `useAwareness` caller; it composes `entityFocus` from
+  // `ActiveTabEntity`, `fieldFocus` from `ActiveFieldFocus`, and the
+  // `dirtyFields` claim from `ActiveEditorDirty`. No per-editor
+  // awareness slot — no MRT-pick race against the workspace publisher.
+  // ── Derived dirty (see `shared/forms/index.ts` convention) ──────────
+  //
+  // Dirty is a structural projection of "form has untouched edits
+  // diverging from the synced baseline" — never an event log. Two
+  // distinct fingerprints, both refreshed reactively:
+  //
+  //   formFingerprint         — the form's canonical-shape projection,
+  //                             updates on every keystroke / setFieldsValue
+  //   liveRuleFingerprint     — the mirror's canonical right now,
+  //                             updates on every broadcast
+  //   lastPrimedFingerprint   — the canonical the form was LAST synced
+  //                             from. Initial-set on init; bumped only
+  //                             at known-clean moments
+  //
+  // `isDirty = formFingerprint !== lastPrimedFingerprint`. Comparing
+  // against `lastPrimedFingerprint` (NOT `liveRuleFingerprint`) is
+  // load-bearing — when an external broadcast lands while the user is
+  // clean, the form is briefly "stale-clean" (matches the previous
+  // canonical, not the new one). Comparing to live would falsely flag
+  // dirty, which would gate `useEntityReprime` and prevent the catch-up.
+  // The reprime hook reads `isDirty` to decide "is it safe to overwrite
+  // the form?"; only "user has actually touched it" gates that.
+  //
+  // Auto-rebase effect snaps `lastPrimedFingerprint` to the current
+  // canonical the moment `formFingerprint === liveRuleFingerprint`.
+  // That single line covers all the convergence paths uniformly:
+  //
+  //   - Manual revert ("01" → "02" → "01"): formFp re-aligns with
+  //     canonical → snap → dirty clears.
+  //   - Take Theirs (writes canonical theirs into the form): formFp
+  //     matches the just-arrived canonical → snap → dirty clears.
+  //   - Save commit: broadcast lands carrying the values we just
+  //     submitted; formFp == new canonical → snap → dirty clears.
+  //   - Drag-and-drop reorder back to canonical order: same path.
+  //
+  // `populateAndBaseline` updates `lastPrimedFingerprint` explicitly
+  // alongside `populateFormFromRule` so init / re-prime don't have to
+  // wait for the auto-rebase effect's next render — keeps `isDirty`
+  // false from the very first form-rendered tick.
+  const formValues = Form.useWatch([], form) as Record<string, unknown> | undefined;
+  const formFingerprint = useMemo(
+    () => (formValues ? stableStringify(buildRule(formValues, ruleName, isEnabled)) : null),
+    [formValues, ruleName, isEnabled],
   );
-  const fieldFocus = useMemo(
-    () => (focusedFieldPath ? { type: RULE_ENTITY_TYPE, id: ruleUid, path: focusedFieldPath } : null),
-    [ruleUid, focusedFieldPath],
+  const canonicalProjection = useCallback(
+    (rule: V5.Rule) =>
+      stableStringify({
+        name: rule.name,
+        enabled: rule.enabled,
+        conditions: rule.conditions,
+        type: rule.type,
+        action: (rule as { action?: unknown }).action ?? null,
+      }),
+    [],
   );
+  const liveRuleFingerprint = useMemo(
+    () => (liveRule ? canonicalProjection(liveRule) : null),
+    [liveRule, canonicalProjection],
+  );
+  const [lastPrimedFingerprint, setLastPrimedFingerprint] = useState<string | null>(null);
+  const isDirty =
+    isInitialized &&
+    formFingerprint !== null &&
+    lastPrimedFingerprint !== null &&
+    formFingerprint !== lastPrimedFingerprint;
 
-  useAwareness({
-    workspaceId: activeWorkspaceId,
-    identity,
-    entityFocus,
-    fieldFocus,
-    dirtyFields,
-    enabled: true,
-  });
+  // `onDirtyChange` callback — fire only on transitions, not on every
+  // render of the same value. App.tsx maintains a per-tab dirty map.
+  const lastReportedDirtyRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (lastReportedDirtyRef.current === isDirty) return;
+    lastReportedDirtyRef.current = isDirty;
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+
+  useEditorDirty({ entityType: RULE_ENTITY_TYPE, entityId: ruleUid }, isDirty);
 
   const conflicts = useRuleConflicts({
     liveRule: liveRule ?? null,
     isDirty,
     enabled: true,
   });
+  // `setConflictBaseline` is the stable `useCallback([])` setter from
+  // the conflict tracker — destructured once so multiple effects can
+  // call it without depending on `conflicts` (whose object identity
+  // changes when its internal state updates).
+  const setConflictBaseline = conflicts.setBaseline;
+
+  // Auto-rebase: as soon as the form converges with the current
+  // canonical (manual revert / take-theirs / save echo), snap BOTH
+  // the dirty-baseline (`lastPrimedFingerprint`) AND the conflict
+  // tracker's per-path baseline. Both signals represent "the form is
+  // in sync with canonical right now" — keeping them on the same
+  // trigger prevents a stale conflict baseline from surfacing a
+  // false "External change available" chip when the user, several
+  // edits later, types a value that doesn't match the original
+  // never-rebased baseline.
+  useEffect(() => {
+    if (formFingerprint === null || liveRuleFingerprint === null) return;
+    if (formFingerprint !== liveRuleFingerprint) return;
+    if (lastPrimedFingerprint === liveRuleFingerprint) return;
+    setLastPrimedFingerprint(liveRuleFingerprint);
+    if (liveRule) setConflictBaseline(liveRule);
+  }, [formFingerprint, liveRuleFingerprint, lastPrimedFingerprint, liveRule, setConflictBaseline]);
 
   const conflictBridge = useMemo(
     () => ({
@@ -262,7 +334,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         const resLen = Array.isArray(fv.responseHeaders) ? (fv.responseHeaders as unknown[]).length : 0;
         setHeaderReqCount(reqLen);
         setHeaderResCount(resLen);
-        setHeaderActiveTab(resLen > 0 && reqLen === 0 ? 'response' : 'request');
+        setDefaultHeaderTab(reqLen, resLen);
       };
 
       if (key === 'empty') {
@@ -293,9 +365,11 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         }
       }
 
-      if (!isDirtyRef.current) notifyDirty(true);
+      // Dirty derives from form vs canonical equality; setting form
+      // values via the template above causes the next render to compute
+      // a divergent fingerprint and report dirty automatically.
     },
-    [selectedType, form, notifyDirty, userTemplates],
+    [selectedType, form, userTemplates],
   );
 
   // ── Form initialization (content fields only — no name/enabled) ──
@@ -304,19 +378,19 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   // so the live-update path (Phase A A4 — re-prime form on external
   // mutation while the editor is clean) can reuse the same shape.
   //
-  // We depend only on `conflicts.setBaseline` (a stable `useCallback(_, [])`)
-  // — depending on the whole `conflicts` memo would loop: setBaseline
-  // calls `setDismissed(new Set())` which triggers `getConflict` to
-  // rebuild → `conflicts` rebuilds → `populateFormFromRule` rebuilds →
-  // re-prime effect re-fires → setBaseline → loop.
-  const setBaseline = conflicts.setBaseline;
+  // `setConflictBaseline` (destructured above near useRuleConflicts) is
+  // the stable `useCallback(_, [])` setter; depending on the whole
+  // `conflicts` memo would loop: setBaseline calls `setDismissed(new Set())`
+  // which triggers `getConflict` to rebuild → `conflicts` rebuilds →
+  // `populateFormFromRule` rebuilds → re-prime effect re-fires →
+  // setBaseline → loop. Stable identity breaks the cycle at the source.
   const populateFormFromRule = useCallback(
     (rule: V5.Rule) => {
       const baseValues = {
         ruleType: rule.type,
         conditions: rule.conditions,
       };
-      setBaseline(rule);
+      setConflictBaseline(rule);
       switch (rule.type) {
         case 'header': {
           const hr = rule as V5.HeaderRule;
@@ -325,7 +399,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           form.setFieldsValue({ ...baseValues, requestHeaders: reqH, responseHeaders: resH });
           setHeaderReqCount(reqH.length);
           setHeaderResCount(resH.length);
-          setHeaderActiveTab(resH.length > 0 && reqH.length === 0 ? 'response' : 'request');
+          setDefaultHeaderTab(reqH.length, resH.length);
           break;
         }
         case 'block':
@@ -403,15 +477,49 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         }
       }
     },
-    [form, setBaseline],
+    [form, setConflictBaseline, setDefaultHeaderTab],
   );
+
+  // `populateAndBaseline` is the canonical "sync the form from the
+  // mirror" entry point — it sets form values AND snaps
+  // `lastPrimedFingerprint` to the just-applied canonical so `isDirty`
+  // reads `false` from the very first form-rendered tick (the
+  // auto-rebase effect would catch up on the next render anyway, but
+  // explicit avoids a one-frame "false dirty" flash). Used by both
+  // the init effect (mount path) and `useEntityReprime` (broadcast
+  // catch-up path).
+  const populateAndBaseline = useCallback(
+    (rule: V5.Rule) => {
+      populateFormFromRule(rule);
+      setLastPrimedFingerprint(canonicalProjection(rule));
+    },
+    [populateFormFromRule, canonicalProjection],
+  );
+
+  // Phase A A4 — live-update reconciliation. After init, `liveRule`
+  // mutates whenever another surface commits a change. `useEntityReprime`
+  // owns the gating: skip while `isDirty`, while the user has a field
+  // of this rule focused (so we don't tear down `Form.List` rows under
+  // them mid-edit), and when the broadcast carries content we already
+  // populated (signature gate). Same hook every entity editor uses.
+  const ruleSignature = useCallback((r: V5.Rule) => JSON.stringify(r), []);
+  const reprime = useEntityReprime<V5.Rule>({
+    liveEntity: liveRule,
+    scope: { entityType: RULE_ENTITY_TYPE, entityId: ruleUid },
+    isDirty,
+    enabled: isInitialized,
+    signature: ruleSignature,
+    populate: populateAndBaseline,
+  });
 
   useEffect(() => {
     if (initializedRef.current) return;
     const rule = rules.find((r) => r.uid === ruleUid);
     if (!rule) return;
     initializedRef.current = true;
-    populateFormFromRule(rule);
+    setIsInitialized(true);
+    populateAndBaseline(rule);
+    reprime.markPopulated(rule);
 
     // First-mount overlay for unpublished rules created via gestures
     // that pre-fill the form (inspector "override this header" CTA,
@@ -445,7 +553,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 
       if (Object.keys(overlay).length > 0) {
         form.setFieldsValue(overlay);
-        notifyDirty(true);
+        // Dirty derives from form vs canonical — overlay applies user
+        // intent ON TOP of the persisted shell, so the next render's
+        // fingerprint diverges and reports dirty automatically.
         if (rule.type === 'header') {
           const reqLen = Array.isArray(overlay.requestHeaders)
             ? (overlay.requestHeaders as unknown[]).length
@@ -455,41 +565,15 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             : ((rule as V5.HeaderRule).action.responseHeaders?.length ?? 0);
           setHeaderReqCount(reqLen);
           setHeaderResCount(resLen);
-          setHeaderActiveTab(resLen > 0 && reqLen === 0 ? 'response' : 'request');
+          setDefaultHeaderTab(reqLen, resLen);
         }
       }
     }
-  }, [ruleUid, rules, form, initialDraft, draftUrlStrategy, populateFormFromRule, notifyDirty]);
-
-  // Phase A A4 — live-update reconciliation.
-  //
-  // After init, `liveRule` mutates whenever another surface commits a
-  // change. The §6.2 killer demo requires those edits to land in this
-  // editor without a banner. When the editor has no uncommitted changes
-  // (`isDirty === false`), the safe move is to re-prime the form from
-  // the new live rule — same shape as the init pass, just with a
-  // newer source. When the editor IS dirty, we leave the form alone:
-  // the user is mid-edit, and per §6.3 the LWW save resolves the
-  // conflict at oracle time. The inline diff chip (focused-field-with-
-  // local-uncommitted-text branch) is a follow-up; today the
-  // unconditional save semantics keep correctness even without the
-  // chip — the user's local HLC > the incoming HLC, so their edit
-  // wins on save.
-  const liveRuleSignature = useMemo(() => {
-    if (!liveRule) return null;
-    // Lightweight identity for "did the live rule change". Compares
-    // the JSON-serialized rule; cheap relative to the form re-prime
-    // which is the work this effect gates.
-    return JSON.stringify(liveRule);
-  }, [liveRule]);
-  useEffect(() => {
-    if (!initializedRef.current) return;
-    if (!liveRule) return;
-    if (isDirtyRef.current) return;
-    populateFormFromRule(liveRule);
-    // liveRuleSignature is the change trigger; the populate runs against
-    // the latest liveRule.
-  }, [liveRuleSignature, liveRule, populateFormFromRule]);
+    // populateAndBaseline / reprime captured at mount time via the
+    // initializedRef guard above; lint exhaustive-deps would suggest
+    // listing them here, but the effect is idempotent and runs once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ruleUid, rules, form, initialDraft, draftUrlStrategy, setDefaultHeaderTab]);
 
   // Apply initial template after form init (from tab identity, runs once).
   // Must wait for selectedType to resolve — applyTemplate looks up templates by type.
@@ -502,8 +586,10 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 
   const handleValuesChange = useCallback(
     (changedValues: Record<string, unknown>) => {
-      if (!isDirtyRef.current) notifyDirty(true);
-      // Sync header badge counts from live form state during editing
+      // Sync header badge counts from live form state during editing.
+      // Dirty derivation lives below — driven by `Form.useWatch` against
+      // the canonical `liveRule`, so revert / take-theirs auto-clear
+      // dirty without any imperative bookkeeping here.
       const reqH = form.getFieldValue('requestHeaders') as unknown[] | undefined;
       const resH = form.getFieldValue('responseHeaders') as unknown[] | undefined;
       setHeaderReqCount(reqH?.length ?? 0);
@@ -526,132 +612,14 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         maybePrefillInjectCode(form, changedValues.injectType);
       }
     },
-    [notifyDirty, form],
+    [form],
   );
 
-  // ── Build rule: merges form content with externally-owned name/enabled ──
-
-  const buildRule = useCallback(
-    (formValues: Record<string, unknown>): Omit<V5.Rule, 'uid' | 'path'> | null => {
-      const conditions = Array.isArray(formValues.conditions) ? (formValues.conditions as V5.RuleCondition[]) : [];
-      const base = { name: ruleName, enabled: isEnabled, conditions };
-
-      switch (formValues.ruleType) {
-        case 'header':
-          return {
-            ...base,
-            type: 'header',
-            action: {
-              requestHeaders: (formValues.requestHeaders as V5.HeaderModification[]) ?? [],
-              responseHeaders: (formValues.responseHeaders as V5.HeaderModification[]) ?? [],
-            },
-          } as Omit<V5.HeaderRule, 'uid' | 'path'>;
-        case 'block':
-          return { ...base, type: 'block', action: {} } as Omit<V5.BlockRule, 'uid' | 'path'>;
-        case 'redirect':
-          return {
-            ...base,
-            type: 'redirect',
-            action: { redirectTo: (formValues.redirectTo as string) ?? '' },
-          } as Omit<V5.RedirectRule, 'uid' | 'path'>;
-        case 'query-param':
-          return {
-            ...base,
-            type: 'query-param',
-            action: {
-              params: (
-                formValues.queryParams as Array<{ uid?: string; param: string; value: string; operation: string }>
-              ).map((p) => ({
-                // Mint when the row was added by the editor before the
-                // hidden uid Form.Item was bound (e.g. seed templates,
-                // freshly-cloned rows). Existing rows preserve their
-                // persisted uid so awareness paths remain stable across
-                // reorders.
-                uid: p.uid ?? generateUid(),
-                param: p.param,
-                value: p.operation === 'remove' ? undefined : p.value,
-                operation: p.operation as V5.QueryParamOperation,
-              })),
-            },
-          } as Omit<V5.QueryParamRule, 'uid' | 'path'>;
-        case 'inject':
-          return {
-            ...base,
-            type: 'inject',
-            action: {
-              injectType: formValues.injectType as V5.InjectType,
-              source: ((formValues.injectSource as string) || 'code') as V5.InjectSource,
-              code: (formValues.injectCode as string) ?? '',
-              sourceUrl: (formValues.injectSourceUrl as string) || undefined,
-              position: formValues.injectPosition as V5.InjectAction['position'],
-              bypassCSP: (formValues.injectBypassCSP as boolean) || false,
-            },
-          } as Omit<V5.InjectRule, 'uid' | 'path'>;
-        case 'delay':
-          return {
-            ...base,
-            type: 'delay',
-            action: { delayMs: (formValues.delayMs as number) || 0 },
-          } as Omit<V5.DelayRule, 'uid' | 'path'>;
-        case 'body':
-          return {
-            ...base,
-            type: 'body',
-            action: {
-              bodyType: ((formValues.bodyModType as string) ?? 'static') as V5.BodyModType,
-              body:
-                formValues.bodyModType === 'dynamic'
-                  ? ((formValues.bodyDynamicContent as string) ?? '')
-                  : ((formValues.bodyStaticContent as string) ?? ''),
-              resourceType: ((formValues.bodyResourceType as string) ?? 'rest') as V5.BodyResourceType,
-              graphqlFilter:
-                formValues.bodyResourceType === 'graphql' && (formValues.bodyGraphqlKey as string)?.trim()
-                  ? {
-                      key: (formValues.bodyGraphqlKey as string).trim(),
-                      operator: ((formValues.bodyGraphqlOperator as string) || 'Equals') as 'Equals' | 'Contains',
-                      value: (formValues.bodyGraphqlValue as string) || '',
-                    }
-                  : undefined,
-            },
-          } as Omit<V5.BodyRule, 'uid' | 'path'>;
-        case 'mock':
-          return {
-            ...base,
-            type: 'mock',
-            action: {
-              statusCode: (formValues.mockStatusCode as number) || 0,
-              responseBody:
-                formValues.mockBodyType === 'dynamic'
-                  ? ((formValues.mockDynamicBody as string) ?? '')
-                  : ((formValues.mockStaticBody as string) ?? ''),
-              contentType: (formValues.mockContentType as string) ?? 'application/json',
-              // Form.List rows → Record<string, string>. Drops empty
-              // names; later occurrences of the same name silently
-              // win (matches Object.fromEntries semantics — fine because
-              // duplicate response headers are nonsensical).
-              responseHeaders: Object.fromEntries(
-                ((formValues.mockResponseHeaders as Array<{ name?: string; value?: string }>) ?? [])
-                  .filter((h) => h.name?.trim())
-                  .map((h) => [h.name!.trim(), h.value ?? '']),
-              ),
-              bodyType: ((formValues.mockBodyType as string) ?? 'static') as V5.MockBodyType,
-              resourceType: ((formValues.mockResourceType as string) ?? 'rest') as V5.BodyResourceType,
-              graphqlFilter:
-                formValues.mockResourceType === 'graphql' && (formValues.mockGraphqlKey as string)?.trim()
-                  ? {
-                      key: (formValues.mockGraphqlKey as string).trim(),
-                      operator: ((formValues.mockGraphqlOperator as string) || 'Equals') as 'Equals' | 'Contains',
-                      value: (formValues.mockGraphqlValue as string) || '',
-                    }
-                  : undefined,
-            },
-          } as Omit<V5.MockRule, 'uid' | 'path'>;
-        default:
-          return null;
-      }
-    },
-    [ruleName, isEnabled],
-  );
+  // `buildRule` is a pure module-level function (defined below the
+  // component). Closures over `ruleName` / `isEnabled` are explicit
+  // function arguments — keeps it usable BOTH as the save-time
+  // projection AND the dirty-derivation projection without React
+  // hook-order constraints.
 
   const handleSubmit = useCallback(async () => {
     if (!liveRule) return;
@@ -659,7 +627,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     // disabled state: published rule + no uncommitted edits = nothing
     // to do. Without this, Cmd+S keeps firing redundant publish
     // batches even though the visible Save button is greyed out.
-    if (liveRule.published === true && !isDirtyRef.current) return;
+    if (liveRule.published === true && !isDirty) return;
     const ruleType = liveRule.type;
     // Format-on-save. For every known code field on the current rule
     // type, resolve its language from a sibling form value and push
@@ -700,7 +668,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     const values = form.getFieldsValue();
     setSaving(true);
     try {
-      const rule = buildRule(values);
+      const rule = buildRule(values, ruleName, isEnabled);
       if (!rule) {
         message.error('Unknown rule type');
         return;
@@ -728,7 +696,10 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         return;
       }
       message.success(isPublished ? 'Rule updated' : 'Rule published');
-      notifyDirty(false);
+      // Dirty derives from form vs canonical equality; once the
+      // commit broadcast lands and the mirror updates `liveRule` to
+      // match the form's values, the next render reports dirty=false
+      // automatically. No explicit reset needed.
       conflicts.clearDismissed();
       onSaved(ruleUid);
     } finally {
@@ -736,14 +707,15 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     }
   }, [
     form,
-    buildRule,
     liveRule,
     ruleUid,
+    ruleName,
+    isEnabled,
     activeWorkspaceId,
+    isDirty,
     isPublished,
     message,
     mutator,
-    notifyDirty,
     onSaved,
     conflicts,
   ]);
@@ -968,8 +940,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             }
           />
         )}
-        <FocusedFieldProvider value={setFocusedFieldPath}>
-        <RuleAwarenessProvider value={ruleAwarenessValue}>
+        <EntityScopeProvider entityType={RULE_ENTITY_TYPE} entityId={ruleUid}>
         <div
           className="rules-rule-editor"
           style={isDeletedRemotely ? { pointerEvents: 'none', opacity: 0.6 } : undefined}
@@ -1075,7 +1046,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                   {selectedType === 'header' && (
                     <HeaderRuleFields
                       activeTab={headerActiveTab}
-                      onTabChange={setHeaderActiveTab}
+                      onTabChange={handleHeaderTabChange}
                       reqCount={headerReqCount}
                       resCount={headerResCount}
                       ruleUid={ruleUid}
@@ -1147,11 +1118,147 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             />
           </SuggestionContextProvider>
         </div>
-        </RuleAwarenessProvider>
-        </FocusedFieldProvider>
+        </EntityScopeProvider>
       </div>
     </div>
   );
 };
 
 export default RuleEditor;
+
+// ── Pure projection: form values → V5.Rule shape ─────────────────────
+//
+// Used at save time (`handleSubmit` reads form values and projects to
+// the mutation payload) AND at dirty-derivation time (the same
+// projection is fingerprinted and compared to `liveRule`). One source
+// of truth, no React hook-order constraints — the function is module-
+// level pure so it can be referenced from anywhere in the component
+// without TDZ issues.
+//
+// `name` / `enabled` are externally-owned (sourced from `liveRule`
+// and updated via inline-rename / toggle paths, not the form). They
+// flow through here as parameters so the projected shape lines up
+// with what the mirror stores; the dirty fingerprint compares
+// like-for-like.
+function buildRule(
+  formValues: Record<string, unknown>,
+  ruleName: string,
+  isEnabled: boolean,
+): Omit<V5.Rule, 'uid' | 'path'> | null {
+  const conditions = Array.isArray(formValues.conditions) ? (formValues.conditions as V5.RuleCondition[]) : [];
+  const base = { name: ruleName, enabled: isEnabled, conditions };
+
+  switch (formValues.ruleType) {
+    case 'header':
+      return {
+        ...base,
+        type: 'header',
+        action: {
+          requestHeaders: (formValues.requestHeaders as V5.HeaderModification[]) ?? [],
+          responseHeaders: (formValues.responseHeaders as V5.HeaderModification[]) ?? [],
+        },
+      } as Omit<V5.HeaderRule, 'uid' | 'path'>;
+    case 'block':
+      return { ...base, type: 'block', action: {} } as Omit<V5.BlockRule, 'uid' | 'path'>;
+    case 'redirect':
+      return {
+        ...base,
+        type: 'redirect',
+        action: { redirectTo: (formValues.redirectTo as string) ?? '' },
+      } as Omit<V5.RedirectRule, 'uid' | 'path'>;
+    case 'query-param':
+      return {
+        ...base,
+        type: 'query-param',
+        action: {
+          params: (
+            formValues.queryParams as Array<{ uid?: string; param: string; value: string; operation: string }>
+          ).map((p) => ({
+            // Mint when the row was added by the editor before the
+            // hidden uid Form.Item was bound (e.g. seed templates,
+            // freshly-cloned rows). Existing rows preserve their
+            // persisted uid so awareness paths remain stable across
+            // reorders.
+            uid: p.uid ?? generateUid(),
+            param: p.param,
+            value: p.operation === 'remove' ? undefined : p.value,
+            operation: p.operation as V5.QueryParamOperation,
+          })),
+        },
+      } as Omit<V5.QueryParamRule, 'uid' | 'path'>;
+    case 'inject':
+      return {
+        ...base,
+        type: 'inject',
+        action: {
+          injectType: formValues.injectType as V5.InjectType,
+          source: ((formValues.injectSource as string) || 'code') as V5.InjectSource,
+          code: (formValues.injectCode as string) ?? '',
+          sourceUrl: (formValues.injectSourceUrl as string) || undefined,
+          position: formValues.injectPosition as V5.InjectAction['position'],
+          bypassCSP: (formValues.injectBypassCSP as boolean) || false,
+        },
+      } as Omit<V5.InjectRule, 'uid' | 'path'>;
+    case 'delay':
+      return {
+        ...base,
+        type: 'delay',
+        action: { delayMs: (formValues.delayMs as number) || 0 },
+      } as Omit<V5.DelayRule, 'uid' | 'path'>;
+    case 'body':
+      return {
+        ...base,
+        type: 'body',
+        action: {
+          bodyType: ((formValues.bodyModType as string) ?? 'static') as V5.BodyModType,
+          body:
+            formValues.bodyModType === 'dynamic'
+              ? ((formValues.bodyDynamicContent as string) ?? '')
+              : ((formValues.bodyStaticContent as string) ?? ''),
+          resourceType: ((formValues.bodyResourceType as string) ?? 'rest') as V5.BodyResourceType,
+          graphqlFilter:
+            formValues.bodyResourceType === 'graphql' && (formValues.bodyGraphqlKey as string)?.trim()
+              ? {
+                  key: (formValues.bodyGraphqlKey as string).trim(),
+                  operator: ((formValues.bodyGraphqlOperator as string) || 'Equals') as 'Equals' | 'Contains',
+                  value: (formValues.bodyGraphqlValue as string) || '',
+                }
+              : undefined,
+        },
+      } as Omit<V5.BodyRule, 'uid' | 'path'>;
+    case 'mock':
+      return {
+        ...base,
+        type: 'mock',
+        action: {
+          statusCode: (formValues.mockStatusCode as number) || 0,
+          responseBody:
+            formValues.mockBodyType === 'dynamic'
+              ? ((formValues.mockDynamicBody as string) ?? '')
+              : ((formValues.mockStaticBody as string) ?? ''),
+          contentType: (formValues.mockContentType as string) ?? 'application/json',
+          // Form.List rows → Record<string, string>. Drops empty
+          // names; later occurrences of the same name silently
+          // win (matches Object.fromEntries semantics — fine because
+          // duplicate response headers are nonsensical).
+          responseHeaders: Object.fromEntries(
+            ((formValues.mockResponseHeaders as Array<{ name?: string; value?: string }>) ?? [])
+              .filter((h) => h.name?.trim())
+              .map((h) => [h.name!.trim(), h.value ?? '']),
+          ),
+          bodyType: ((formValues.mockBodyType as string) ?? 'static') as V5.MockBodyType,
+          resourceType: ((formValues.mockResourceType as string) ?? 'rest') as V5.BodyResourceType,
+          graphqlFilter:
+            formValues.mockResourceType === 'graphql' && (formValues.mockGraphqlKey as string)?.trim()
+              ? {
+                  key: (formValues.mockGraphqlKey as string).trim(),
+                  operator: ((formValues.mockGraphqlOperator as string) || 'Equals') as 'Equals' | 'Contains',
+                  value: (formValues.mockGraphqlValue as string) || '',
+                }
+              : undefined,
+        },
+      } as Omit<V5.MockRule, 'uid' | 'path'>;
+    default:
+      return null;
+  }
+}

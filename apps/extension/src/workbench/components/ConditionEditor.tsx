@@ -54,10 +54,9 @@ import {
 import { Button, Select, Tag, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo } from 'react';
-import { RULE_FIELD } from '@/shared/awareness';
+import { EntityField, RULE_FIELD } from '@/shared/awareness';
 import { useInspectorNav } from '../hooks/useInspectorNav';
 import { getDocId } from './InspectorDocs';
-import { RuleField } from './rule-fields/RuleField';
 import { TemplateInput } from './template-input';
 
 // ── Condition type definitions ───────────────────────────────────
@@ -411,7 +410,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
               )}
 
               {/* Type selector + docs link */}
-              <RuleField path={RULE_FIELD.condition(condition.uid, 'field')}>
+              <EntityField path={RULE_FIELD.condition(condition.uid, 'field')}>
                 <Select
                   size="small"
                   value={condition.type}
@@ -420,7 +419,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
                   popupMatchSelectWidth={240}
                   options={buildTypeOptions(value, index)}
                 />
-              </RuleField>
+              </EntityField>
               <InfoCircleOutlined
                 style={{ fontSize: 10, color: token.colorTextQuaternary, cursor: 'pointer', flexShrink: 0 }}
                 onClick={() => openDocs(getDocId(condition.type, 'condition'))}
@@ -428,7 +427,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
 
               {/* Header name (before value for header types) */}
               {def?.inputType === 'header' && (
-                <RuleField path={RULE_FIELD.condition(condition.uid, 'headerName')}>
+                <EntityField path={RULE_FIELD.condition(condition.uid, 'headerName')}>
                   <TemplateInput
                     size="small"
                     placeholder="Header name equals..."
@@ -436,13 +435,13 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
                     onChange={(next) => updateCondition(index, { headerName: next })}
                     style={{ width: 180, flexShrink: 0 }}
                   />
-                </RuleField>
+                </EntityField>
               )}
 
               {/* Value input — varies by type. All variants wrap with
-                  RuleField so the per-condition `values` path publishes
+                  EntityField so the per-condition `values` path publishes
                   presence regardless of input shape. */}
-              <RuleField path={RULE_FIELD.condition(condition.uid, 'values')}>
+              <EntityField path={RULE_FIELD.condition(condition.uid, 'values')}>
                 {def?.inputType === 'multi-select-methods' ? (
                   <Select
                     size="small"
@@ -497,7 +496,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
                     );
                   })()
                 )}
-              </RuleField>
+              </EntityField>
 
               {/* Value-logic hint — explains how multiple values inside this row combine. */}
               <ValueLogicHint type={condition.type} />

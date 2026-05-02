@@ -14,9 +14,10 @@
  * `useVariableResolver` and `rulesByUid` hooks.
  */
 
+import type { V5 } from '@openheaders/core/types';
 import { doesUrlMatchRule, getRuleMatchPatterns } from '@openheaders/core/utils';
 import { resolveRuleConditions, type VariableResolver } from '@openheaders/core/variables';
-import type { RuleAttributionContext } from './header-attribution';
+import { findCurrentMod, type RuleAttributionContext } from './header-attribution';
 
 export type RuleApplicability =
   /** Rule + mod still exist, conditions match, name resolves cleanly.
@@ -47,6 +48,12 @@ export type RuleApplicability =
   | { kind: 'separator-template-unresolved'; template: string };
 
 export interface ApplicabilityInputs {
+  /**
+   * Live rule from the renderer-side mirror. Caller passes the freshest
+   * snapshot; the function never reaches into a cached struct (the
+   * attribution context is historical-only — see `header-attribution.ts`).
+   */
+  liveRule: V5.Rule | null;
   ctx: RuleAttributionContext;
   /** URL of the request whose row this popover anchors. */
   url: string;
@@ -60,13 +67,20 @@ export interface ApplicabilityInputs {
  * circuit later ones (e.g. don't bother running the conditions
  * matcher on a deleted rule).
  */
-export function computeRuleApplicability({ ctx, url, resolver, collectionId }: ApplicabilityInputs): RuleApplicability {
-  const liveRule = ctx.currentRule;
+export function computeRuleApplicability({
+  liveRule,
+  ctx,
+  url,
+  resolver,
+  collectionId,
+}: ApplicabilityInputs): RuleApplicability {
   if (!liveRule) return { kind: 'rule-deleted' };
 
   if (liveRule.enabled === false) return { kind: 'rule-disabled' };
 
-  if (liveRule.type !== 'header' || !ctx.currentMod) return { kind: 'mod-gone' };
+  if (liveRule.type !== 'header') return { kind: 'mod-gone' };
+  const currentMod = findCurrentMod(liveRule, ctx);
+  if (!currentMod) return { kind: 'mod-gone' };
 
   // Conditions matcher: resolve `{{var}}` templates inside the live
   // rule's conditions BEFORE testing the URL. The condition values may
@@ -91,18 +105,18 @@ export function computeRuleApplicability({ ctx, url, resolver, collectionId }: A
   // applies the same gate at compile time — we mirror it here so the
   // popover's Future preview matches what would actually happen.
   // (`ctxArg` is declared above for the conditions-resolution step.)
-  const nameTemplate = ctx.currentMod.headerName;
+  const nameTemplate = currentMod.headerName;
   if (containsUnresolvedRef(resolver, nameTemplate, ctxArg)) {
     return { kind: 'name-template-unresolved', template: nameTemplate };
   }
-  if (ctx.currentMod.operation !== 'remove' && typeof ctx.currentMod.value === 'string') {
-    if (containsUnresolvedRef(resolver, ctx.currentMod.value, ctxArg)) {
-      return { kind: 'value-template-unresolved', template: ctx.currentMod.value };
+  if (currentMod.operation !== 'remove' && typeof currentMod.value === 'string') {
+    if (containsUnresolvedRef(resolver, currentMod.value, ctxArg)) {
+      return { kind: 'value-template-unresolved', template: currentMod.value };
     }
   }
-  if (ctx.currentMod.operation === 'merge' && typeof ctx.currentMod.mergeSeparator === 'string') {
-    if (containsUnresolvedRef(resolver, ctx.currentMod.mergeSeparator, ctxArg)) {
-      return { kind: 'separator-template-unresolved', template: ctx.currentMod.mergeSeparator };
+  if (currentMod.operation === 'merge' && typeof currentMod.mergeSeparator === 'string') {
+    if (containsUnresolvedRef(resolver, currentMod.mergeSeparator, ctxArg)) {
+      return { kind: 'separator-template-unresolved', template: currentMod.mergeSeparator };
     }
   }
 

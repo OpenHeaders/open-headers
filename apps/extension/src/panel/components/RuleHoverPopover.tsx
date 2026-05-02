@@ -36,10 +36,10 @@
 import { SaveOutlined } from '@ant-design/icons';
 import { ShortcutHintTitle } from '@components/ShortcutKbd';
 import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
-import { useAwareness } from '@hooks/useAwareness';
 import { type RuleMutationResult, useRuleMutator } from '@hooks/useRuleMutator';
 
 import { useRules } from '@hooks/useRules';
+import { useLiveRule } from '@/context/rule-sync-mirror';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { getHeaderOperationCapability, validateHeaderName, validateHeaderValue } from '@openheaders/core/utils';
@@ -49,12 +49,28 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePopoverPlacement } from '@/shared/use-popover-placement';
 import { openWorkspace } from '@/shared/workspace-intent';
 import type { RuleSnapshotHeaderMod } from '@/types/telemetry';
-import { PresenceBadge, RULE_FIELD, useLocalInstanceId, useSurfaceIdentity } from '@/shared/awareness';
+import {
+  ConflictDiffChip,
+  EntityField,
+  EntityScopeProvider,
+  PresenceBadge,
+  RULE_FIELD,
+  useEditorDirty,
+  useLocalInstanceId,
+  useSetActiveTabEntity,
+} from '@/shared/awareness';
+import { stableStringify } from '@/shared/forms';
+import { useRuleConflicts } from '@/workbench/components/rule-fields/use-rule-conflicts';
 import { buildRuleIcon } from '@/workbench/components/shared/rule-icon';
 import { TemplateInput } from '@/workbench/components/template-input';
 import { buildChordsFromEvent, useShortcutLabel } from '@/workbench/hooks/useWorkspaceShortcuts';
 import { useSettingValue } from '@/workbench/settings/hooks';
-import type { HeaderAttribution, RuleAttributionContext } from '../data/header-attribution';
+import {
+  findCurrentMod,
+  type HeaderAttribution,
+  isAttributionEdited,
+  type RuleAttributionContext,
+} from '../data/header-attribution';
 import type { RuleApplicability } from '../data/rule-applicability';
 import { findRuleCollectionId } from '../data/rule-collection';
 import { ResolvedHeaderValue } from './ResolvedHeaderValue';
@@ -257,15 +273,16 @@ type FutureKind =
 
 function computeFutureKind(
   applicability: RuleApplicability | null,
-  ctx: RuleAttributionContext,
+  liveRule: V5.Rule | null,
+  currentMod: V5.HeaderModification | null,
   mod: RuleSnapshotHeaderMod,
   currentResolvedValue: string | null,
 ): FutureKind {
   // No applicability provided (e.g. legacy caller path) — fall back
-  // to the structural flags on `ctx` so the popover is still useful.
+  // to the live rule + current mod for a coarse structural verdict.
   if (!applicability) {
-    if (ctx.currentRule == null) return mod.operation === 'remove' ? { kind: 'none' } : { kind: 'rule-deleted' };
-    if (ctx.currentMod == null) return mod.operation === 'remove' ? { kind: 'none' } : { kind: 'mod-gone' };
+    if (liveRule == null) return mod.operation === 'remove' ? { kind: 'none' } : { kind: 'rule-deleted' };
+    if (currentMod == null) return mod.operation === 'remove' ? { kind: 'none' } : { kind: 'mod-gone' };
   }
   switch (applicability?.kind) {
     case 'rule-deleted':
@@ -285,7 +302,7 @@ function computeFutureKind(
     default: {
       // Live rule still fires — surface the drift cases relative to
       // the snapshot.
-      if (ctx.currentMod?.operation === 'remove' && mod.operation !== 'remove') {
+      if (currentMod?.operation === 'remove' && mod.operation !== 'remove') {
         return { kind: 'removed' };
       }
       if (
@@ -337,24 +354,28 @@ export function RuleHoverPopover({
 }: RuleHoverPopoverProps) {
   const { token } = theme.useToken();
   const { message } = App.useApp();
-  const { rules, localCollections } = useRules();
+  // The panel doesn't mount `<RuleProvider>` (it doesn't need the
+  // full CRUD surface), so `useRules()` returns its empty default for
+  // `localCollections` here. Pre-existing limitation for collection-
+  // scoped variable resolution inside the popover — addressed
+  // separately. The LIVE RULE itself must be reactive: pull it from
+  // the rule sync mirror via `useLiveRule(uid)` (works regardless of
+  // provider mount).
+  const { localCollections } = useRules();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
-  const identity = useSurfaceIdentity();
   const localInstanceId = useLocalInstanceId();
 
   const ctx = ruleCtxFromAttribution(attribution);
 
-  // Pull the live rule from THIS popover's snapshot of `useRules()` so
-  // the read + splice + write all happen against one baseline (same
-  // race-protection pattern as the variable popover). When the rule
-  // was deleted, both `rule` and the lookup return null — popover
-  // degrades to read-only.
-  const liveRule = useMemo<V5.Rule | null>(() => {
-    if (rule) return rules.find((r) => r.uid === rule.uid) ?? rule;
-    if (ctx) return rules.find((r) => r.uid === ctx.ruleUid) ?? null;
-    return null;
-  }, [rules, rule, ctx]);
+  // Reactive live rule — subscribes to the rule sync mirror for this
+  // uid. Updates the popover whenever ANY surface (workbench, popup,
+  // another devpanel) commits a change to this rule. Falls back to
+  // the static `rule` prop only when there's no uid to subscribe to
+  // (legacy hover paths without attribution).
+  const targetRuleUid = rule?.uid ?? ctx?.ruleUid ?? null;
+  const liveRuleFromMirror = useLiveRule(targetRuleUid);
+  const liveRule = liveRuleFromMirror ?? rule ?? null;
 
   const collectionId = useMemo(
     () => (liveRule ? findRuleCollectionId(liveRule, localCollections) : undefined),
@@ -366,12 +387,21 @@ export function RuleHoverPopover({
   const isHeader = ruleType === 'header' && !!target;
   const headerRule = isHeader && liveRule?.type === 'header' ? (liveRule as V5.HeaderRule) : null;
 
-  // Locate the live mod the editor binds to. Prefer `ctx.currentMod`
-  // (already resolved by header-attribution from the snapshot's mod
-  // identity); fall back to a direction+name+operation walk for the
-  // case where the row was opened from a path that didn't carry an
-  // attribution (e.g. legacy hover).
-  const currentMod: V5.HeaderModification | null = ctx?.currentMod ?? findFallbackMod(headerRule, target);
+  // Locate the live mod via the shared `findCurrentMod` helper. Pure,
+  // reactive against `liveRule` — when another surface commits a new
+  // value, `liveRule` updates, currentMod recomputes, and the re-prime
+  // effect catches up the form. Falls back to direction+name+operation
+  // when the row was opened without an attribution context (legacy
+  // hover paths).
+  const currentMod = useMemo<V5.HeaderModification | null>(() => {
+    if (ctx) return findCurrentMod(liveRule, ctx);
+    return findFallbackMod(headerRule, target);
+  }, [liveRule, ctx, headerRule, target]);
+  // "Has the rule been edited since fire?" — derived reactively against
+  // `liveRule` via the shared helper. Drives the "Rule edited" tag and
+  // suppresses var-drift signals (we only show drift when the structural
+  // template is unchanged).
+  const ruleEdited = useMemo(() => (ctx ? isAttributionEdited(liveRule, ctx) : false), [liveRule, ctx]);
 
   const [draft, setDraft] = useState<ModDraft>(() => ({
     operation: currentMod?.operation ?? target?.operation ?? 'override',
@@ -379,45 +409,120 @@ export function RuleHoverPopover({
     value: currentMod?.value ?? '',
     mergeSeparator: currentMod?.mergeSeparator,
   }));
-  const [draftDirty, setDraftDirty] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [focusedField, setFocusedField] = useState<'value' | 'headerName' | null>(null);
   const draftRef = useRef(draft);
   draftRef.current = draft;
 
-  // ── Awareness publisher (Phase A A2/A3) ─────────────────────────
-  // The popover's "entity in focus" is the live rule it's editing.
-  // The field it focuses is the header mod's value/name field at the
-  // mod's index inside the direction-specific set. Without an
-  // identifiable target the popover is read-only summary only — no
-  // awareness signal needed.
   const liveRuleUid = liveRule?.uid ?? null;
   // Devpanel popover edits one specific header mod. Identity is the mod's
   // persisted uid (stable through reorders / list mutations the user might
-  // make in the workbench at the same time). The path the popover
-  // publishes must match the path the workbench publishes for the same
-  // row — both consume the same `RULE_FIELD.headerMod(direction, uid, ...)`
-  // shape.
+  // make in the workbench at the same time). Used by the EntityField
+  // wrappers below — the path they publish must match the workbench's
+  // for the same row.
   const headerModUid = currentMod?.uid ?? null;
-  const fieldPath = useMemo<string | null>(() => {
-    if (focusedField === null || !headerModUid || !target) return null;
-    return RULE_FIELD.headerMod(target.direction, headerModUid, focusedField);
-  }, [focusedField, headerModUid, target]);
-  useAwareness({
-    workspaceId,
-    identity,
-    entityFocus: liveRuleUid ? { type: RULE_ENTITY_TYPE, id: liveRuleUid } : null,
-    fieldFocus: liveRuleUid && fieldPath ? { type: RULE_ENTITY_TYPE, id: liveRuleUid, path: fieldPath } : null,
-    dirtyFields: draftDirty && fieldPath ? [fieldPath] : [],
-    enabled: visible && !!liveRuleUid,
+
+  // ── Derived dirty (matches `shared/forms/index.ts` convention) ──
+  //
+  // Compare draft to currentMod via a stable fingerprint. Self-heals
+  // on every revert path:
+  //   - Manual revert (typed back to original): fingerprints align,
+  //     dirty clears.
+  //   - External save lands: currentMod refreshes via `useRules` →
+  //     fingerprints align (assuming user isn't editing) → dirty
+  //     clears. The re-prime effect below also catches this case
+  //     when the user happens to be editing (gate stays on isDirty).
+  //   - Save commit: broadcast lands carrying values we just submitted
+  //     → currentMod matches draft → dirty clears.
+  const draftFingerprint = useMemo(
+    () =>
+      stableStringify({
+        operation: draft.operation,
+        headerName: draft.headerName,
+        value: draft.value,
+        mergeSeparator: draft.mergeSeparator ?? null,
+      }),
+    [draft],
+  );
+  const currentModFingerprint = useMemo(
+    () =>
+      currentMod
+        ? stableStringify({
+            operation: currentMod.operation,
+            headerName: currentMod.headerName,
+            value: currentMod.value ?? '',
+            mergeSeparator: currentMod.mergeSeparator ?? null,
+          })
+        : null,
+    [currentMod],
+  );
+  // `lastPrimedFingerprint` is the baseline the draft was last synced
+  // from (init / re-prime / take-theirs / save echo). Comparing against
+  // it (NOT against the live `currentMod`) is what distinguishes "user
+  // has untouched edits" from "form is briefly stale because a
+  // broadcast just landed". Without this, an external save would flip
+  // `isDirty` true on a clean popover, gate the re-prime effect, and
+  // leave the draft stuck on the old value. Mirrors the workbench
+  // pattern (see `RuleEditor`).
+  const [lastPrimedFingerprint, setLastPrimedFingerprint] = useState<string | null>(null);
+  const isDirty =
+    lastPrimedFingerprint !== null &&
+    currentModFingerprint !== null &&
+    draftFingerprint !== lastPrimedFingerprint;
+
+  // ── Surface awareness wiring ────────────────────────────────────
+  //
+  // The single `<SurfaceAwarenessPublisher>` mounted at the devpanel
+  // root composes the surface's awareness claim from three workspace
+  // contexts. The popover contributes:
+  //   - `ActiveTabEntity` — set when visible+rule, cleared on unmount
+  //   - `ActiveFieldFocus` — published by `<EntityField>` wrappers
+  //     around the headerName/value inputs (below in JSX)
+  //   - `ActiveEditorDirty` — `useEditorDirty(scope, isDirty)` writes
+  //     when this popover IS the active tab entity
+  const setActiveTabEntity = useSetActiveTabEntity();
+  useEffect(() => {
+    if (!visible || !liveRuleUid) return;
+    setActiveTabEntity({ entityType: RULE_ENTITY_TYPE, entityId: liveRuleUid });
+    return () => {
+      setActiveTabEntity(null);
+    };
+  }, [visible, liveRuleUid, setActiveTabEntity]);
+  useEditorDirty({ entityType: RULE_ENTITY_TYPE, entityId: liveRuleUid }, isDirty);
+
+  // Conflict tracker — same hook the workbench uses, so a `<ConflictDiffChip>`
+  // ("External change available — base / theirs") shows up next to the
+  // headerName / value inputs whenever another surface commits a
+  // divergent value while the popover holds an unsaved edit. Re-seed
+  // the baseline whenever the rule changes structure (rule-signature
+  // dep inside the hook handles incremental seeding); user must
+  // explicitly Take Theirs / Keep Mine on each conflicted path.
+  const conflicts = useRuleConflicts({
+    liveRule: liveRule ?? null,
+    isDirty,
+    enabled: !!liveRuleUid,
   });
+  const { setBaseline: setConflictBaseline } = conflicts;
+  // Per-row chip data — recomputed against the current draft each
+  // render. Returns null when no peer divergence at that path.
+  const headerNamePath =
+    headerModUid && target ? RULE_FIELD.headerMod(target.direction, headerModUid, 'headerName') : null;
+  const valuePath =
+    headerModUid && target ? RULE_FIELD.headerMod(target.direction, headerModUid, 'value') : null;
+  const headerNameConflict = headerNamePath ? conflicts.getConflict(headerNamePath, draft.headerName) : null;
+  const valueConflict = valuePath ? conflicts.getConflict(valuePath, draft.value) : null;
 
   // Re-prime on rule version bump (another tab saved) only when the
-  // user hasn't started editing yet. Mirrors the variable popover's
-  // hydration race guard.
+  // user hasn't started editing yet. Gate is the derived `isDirty`
+  // (against `lastPrimedFingerprint`, NOT current canonical — see
+  // baseline state above for the architectural rationale). Re-prime
+  // also seeds the conflict tracker's baseline; doing it here (NOT on
+  // every `liveRule` change) keeps `getConflict`'s `base` pinned to
+  // the value the popover was last synced from, so when an external
+  // save lands while the user has unsaved typing, base != theirs and
+  // the diff chip renders correctly.
   // biome-ignore lint/correctness/useExhaustiveDependencies: prime only when the underlying entry changes.
   useEffect(() => {
-    if (draftDirty) return;
+    if (isDirty) return;
     if (!currentMod) return;
     setDraft({
       operation: currentMod.operation,
@@ -425,13 +530,29 @@ export function RuleHoverPopover({
       value: currentMod.value ?? '',
       mergeSeparator: currentMod.mergeSeparator,
     });
+    if (currentModFingerprint) setLastPrimedFingerprint(currentModFingerprint);
+    if (liveRule) setConflictBaseline(liveRule);
   }, [currentMod?.operation, currentMod?.headerName, currentMod?.value, currentMod?.mergeSeparator]);
+
+  // Auto-rebase: as soon as the draft converges with the current
+  // canonical (manual revert / take-theirs / save echo), snap the
+  // baseline so dirty clears without imperative bookkeeping. Same
+  // pattern as `RuleEditor`. The conflict baseline catches up here
+  // too — if the user took theirs / reverted, the chip should hide.
+  useEffect(() => {
+    if (currentModFingerprint === null) return;
+    if (draftFingerprint !== currentModFingerprint) return;
+    if (lastPrimedFingerprint === currentModFingerprint) return;
+    setLastPrimedFingerprint(currentModFingerprint);
+    if (liveRule) setConflictBaseline(liveRule);
+  }, [draftFingerprint, currentModFingerprint, lastPrimedFingerprint, liveRule, setConflictBaseline]);
 
   const { position, popoverRef, measured } = usePopoverPlacement(anchorEl, POPOVER_WIDTH);
 
   const updateDraft = (patch: Partial<ModDraft>) => {
     setDraft((prev) => ({ ...prev, ...patch }));
-    setDraftDirty(true);
+    // Dirty derives from draft vs currentMod equality — no imperative
+    // flag needed.
   };
 
   const handleSave = async () => {
@@ -471,7 +592,9 @@ export function RuleHoverPopover({
       };
       const result: RuleMutationResult = await mutator.updateRule(headerRule.uid, updates);
       surfaceResult(result, message, () => {
-        setDraftDirty(false);
+        // Dirty auto-clears when the broadcast lands and currentMod
+        // matches draft. No explicit reset needed.
+        conflicts.clearDismissed();
         onClose();
       });
     } finally {
@@ -522,7 +645,7 @@ export function RuleHoverPopover({
   // store.
   const canSave =
     editable &&
-    draftDirty &&
+    isDirty &&
     !saving &&
     trimmedName.length > 0 &&
     nameValidation.valid &&
@@ -590,13 +713,13 @@ export function RuleHoverPopover({
         {liveRuleUid && (
           <PresenceBadge entityType={RULE_ENTITY_TYPE} entityId={liveRuleUid} excludeInstanceId={localInstanceId} />
         )}
-        {!ruleDeleted && ctx?.edited && (
+        {!ruleDeleted && ruleEdited && (
           <Tag color="gold" style={{ marginInlineEnd: 0, fontSize: 10 }}>
             Rule edited
           </Tag>
         )}
         {!ruleDeleted &&
-          !ctx?.edited &&
+          !ruleEdited &&
           ctx &&
           ((isSnapshotResolutionReliable(ctx.snapshotMod) &&
             currentResolvedValue != null &&
@@ -629,6 +752,9 @@ export function RuleHoverPopover({
         <SnapshotBlock
           attribution={attribution}
           ctx={ctx}
+          liveRule={liveRule}
+          currentMod={currentMod}
+          ruleEdited={ruleEdited}
           collectionId={collectionId}
           currentResolvedValue={currentResolvedValue ?? null}
           currentResolvedName={currentResolvedName ?? null}
@@ -637,7 +763,11 @@ export function RuleHoverPopover({
       )}
 
       {editable ? (
-        <>
+        // EntityScope binds the inner EntityField wrappers to the
+        // popover's rule. headerModUid is the row's persisted uid;
+        // when null (rule deleted, or non-editable target), the
+        // EntityField wrappers stay silent on focus.
+        <EntityScopeProvider entityType={RULE_ENTITY_TYPE} entityId={liveRuleUid}>
           {/* Top row: operation + name + (merge sep). Editable VALUE moved
               below so a long token-style value gets a wide multiline
               surface and never pushes the operation/name into a wrap. */}
@@ -656,16 +786,37 @@ export function RuleHoverPopover({
               // explicitly so the menu floats above the popover.
               dropdownStyle={{ zIndex: 1090 }}
             />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <TemplateInput
-                size="small"
-                value={draft.headerName}
-                onChange={(v) => updateDraft({ headerName: v })}
-                onFocus={() => setFocusedField('headerName')}
-                onBlur={() => setFocusedField((f) => (f === 'headerName' ? null : f))}
-                placeholder="Header Name"
-                suggestionContext={{ collectionId }}
-              />
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
+              {headerModUid && target ? (
+                <EntityField path={RULE_FIELD.headerMod(target.direction, headerModUid, 'headerName')}>
+                  <TemplateInput
+                    size="small"
+                    value={draft.headerName}
+                    onChange={(v) => updateDraft({ headerName: v })}
+                    placeholder="Header Name"
+                    suggestionContext={{ collectionId }}
+                  />
+                </EntityField>
+              ) : (
+                <TemplateInput
+                  size="small"
+                  value={draft.headerName}
+                  onChange={(v) => updateDraft({ headerName: v })}
+                  placeholder="Header Name"
+                  suggestionContext={{ collectionId }}
+                />
+              )}
+              {headerNameConflict && headerNamePath && (
+                <ConflictDiffChip
+                  theirs={headerNameConflict.theirs}
+                  base={headerNameConflict.base}
+                  onTakeTheirs={() => {
+                    setDraft((prev) => ({ ...prev, headerName: headerNameConflict.theirs }));
+                    conflicts.acceptTheirs(headerNamePath, headerNameConflict.theirs);
+                  }}
+                  onKeepMine={() => conflicts.dismiss(headerNamePath)}
+                />
+              )}
             </div>
             {draft.operation === 'merge' && (
               <input
@@ -694,18 +845,41 @@ export function RuleHoverPopover({
             // and corrupted the {{ref}} highlight rendering. Cap the
             // visible area at ~4 lines and scroll vertically inside.
             // `--oh-multiline-cap` is declared in panel.css :root.
-            <div style={{ marginTop: 6, width: '100%', minWidth: 0 }}>
-              <TemplateInput
-                size="small"
-                multiline
-                value={draft.value}
-                onChange={(v) => updateDraft({ value: v })}
-                onFocus={() => setFocusedField('value')}
-                onBlur={() => setFocusedField((f) => (f === 'value' ? null : f))}
-                placeholder={draft.operation === 'merge' ? 'Value to append' : 'Header Value'}
-                suggestionContext={{ collectionId }}
-                style={{ width: '100%', maxHeight: 'var(--oh-multiline-cap, 96px)', minHeight: 32 }}
-              />
+            <div style={{ marginTop: 6, width: '100%', minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 4 }}>
+              {headerModUid && target ? (
+                <EntityField path={RULE_FIELD.headerMod(target.direction, headerModUid, 'value')}>
+                  <TemplateInput
+                    size="small"
+                    multiline
+                    value={draft.value}
+                    onChange={(v) => updateDraft({ value: v })}
+                    placeholder={draft.operation === 'merge' ? 'Value to append' : 'Header Value'}
+                    suggestionContext={{ collectionId }}
+                    style={{ width: '100%', maxHeight: 'var(--oh-multiline-cap, 96px)', minHeight: 32 }}
+                  />
+                </EntityField>
+              ) : (
+                <TemplateInput
+                  size="small"
+                  multiline
+                  value={draft.value}
+                  onChange={(v) => updateDraft({ value: v })}
+                  placeholder={draft.operation === 'merge' ? 'Value to append' : 'Header Value'}
+                  suggestionContext={{ collectionId }}
+                  style={{ width: '100%', maxHeight: 'var(--oh-multiline-cap, 96px)', minHeight: 32 }}
+                />
+              )}
+              {valueConflict && valuePath && (
+                <ConflictDiffChip
+                  theirs={valueConflict.theirs}
+                  base={valueConflict.base}
+                  onTakeTheirs={() => {
+                    setDraft((prev) => ({ ...prev, value: valueConflict.theirs }));
+                    conflicts.acceptTheirs(valuePath, valueConflict.theirs);
+                  }}
+                  onKeepMine={() => conflicts.dismiss(valuePath)}
+                />
+              )}
             </div>
           )}
           {/* Inline validation errors. Capability errors keep the
@@ -743,7 +917,7 @@ export function RuleHoverPopover({
               )}
             </div>
           )}
-        </>
+        </EntityScopeProvider>
       ) : (
         <div style={{ fontSize: 12, color: token.colorTextSecondary, lineHeight: 1.5 }}>
           {ruleDeleted
@@ -804,6 +978,16 @@ export function RuleHoverPopover({
 interface SnapshotBlockProps {
   attribution: HeaderAttribution;
   ctx: RuleAttributionContext;
+  /** Live rule from the renderer mirror — passed in so SnapshotBlock
+   *  shows the freshest "future" view without reaching into a stale
+   *  attribution-cached field. */
+  liveRule: V5.Rule | null;
+  /** Live mod (or null if removed) — derived once in the parent via
+   *  `findCurrentMod(liveRule, ctx)`. */
+  currentMod: V5.HeaderModification | null;
+  /** Whether the live rule diverges from the snapshot — derived once
+   *  in the parent via `isAttributionEdited(liveRule, ctx)`. */
+  ruleEdited: boolean;
   collectionId: string | undefined;
   /** Live resolution of the current rule's value template. Only
    *  rendered when it differs from the snapshot's `valueResolved`. */
@@ -831,6 +1015,9 @@ interface SnapshotBlockProps {
 function SnapshotBlock({
   attribution,
   ctx,
+  liveRule,
+  currentMod,
+  ruleEdited,
   collectionId,
   currentResolvedValue,
   currentResolvedName,
@@ -913,7 +1100,7 @@ function SnapshotBlock({
   // resolved-value preview with a specific reason (rule disabled,
   // conditions mismatch, unresolvable template). For `will-fire`,
   // we surface the value- or op-drift cases.
-  const futureKind = computeFutureKind(applicability, ctx, mod, currentResolvedValue);
+  const futureKind = computeFutureKind(applicability, liveRule, currentMod, mod, currentResolvedValue);
   const showFutureRow = futureKind.kind !== 'none';
 
   // Hide the `Original` row when it would be identical to `Now`. Common
@@ -927,7 +1114,7 @@ function SnapshotBlock({
   // fire time (TOTP in name, broken ref) and we have no honest
   // baseline to compare against. Skip the drift signal in that case.
   const nameDrifted =
-    !ctx.edited &&
+    !ruleEdited &&
     !mod.headerName.includes('{{') &&
     currentResolvedName != null &&
     currentResolvedName !== mod.headerName;

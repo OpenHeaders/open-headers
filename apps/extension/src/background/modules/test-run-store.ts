@@ -29,6 +29,7 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
+import { stableStringify } from '@/shared/forms/fingerprint';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 import { getCollectionTrees, getRules } from './rule-store';
 import type { ShadowAttribution } from './shadow-arbitration';
@@ -126,15 +127,6 @@ function hashableRuleContent(rule: V5.Rule): unknown {
     conditions: rule.conditions ?? [],
     action: (rule as { action?: unknown }).action ?? null,
   };
-}
-
-function stableStringify(value: unknown): string {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
-  const keys = Object.keys(value as Record<string, unknown>).sort();
-  return `{${keys
-    .map((k) => `${JSON.stringify(k)}:${stableStringify((value as Record<string, unknown>)[k])}`)
-    .join(',')}}`;
 }
 
 function djb2(str: string): string {

@@ -78,6 +78,7 @@ export {
   getRuleMatchPatterns,
 } from './rule-matcher';
 export { isRuleComplete, isRuleDraft, isRuleEffective, isRuleResolvable } from './rule-validation';
+export { shouldAutoUnpublishOnUpdate, UNIVERSAL_METADATA_KEYS } from './publication-gate';
 export type { TestTargetUrlResult } from './test-target-url';
 export { parseTestTargetUrl } from './test-target-url';
 export {

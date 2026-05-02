@@ -33,19 +33,27 @@ function makeMod(overrides: Partial<RuleSnapshotHeaderMod> = {}): RuleSnapshotHe
   };
 }
 
-function makeCtx(overrides: Partial<RuleAttributionContext> = {}): RuleAttributionContext {
-  const rule = overrides.currentRule === undefined ? makeRule() : overrides.currentRule;
-  return {
+interface FixtureOverrides {
+  /** Pass `null` to simulate a deleted rule. */
+  liveRule?: V5.Rule | null;
+  snapshotMod?: Partial<RuleSnapshotHeaderMod>;
+}
+
+function makeFixture(overrides: FixtureOverrides = {}): {
+  liveRule: V5.Rule | null;
+  ctx: RuleAttributionContext;
+} {
+  const liveRule = overrides.liveRule === undefined ? makeRule() : overrides.liveRule;
+  const snapshotMod = makeMod(overrides.snapshotMod ?? {});
+  const ctx: RuleAttributionContext = {
     ruleUid: 'r1',
     ruleName: 'Test',
     ruleType: 'header',
-    snapshotMod: makeMod(),
-    currentRule: rule,
-    currentMod: rule && rule.type === 'header' ? (rule.action.requestHeaders[0] ?? null) : null,
-    edited: false,
+    snapshotMod,
+    snapshotMods: [snapshotMod],
     siblingMods: [],
-    ...overrides,
   };
+  return { liveRule, ctx };
 }
 
 const URL_MATCHING = 'https://example.com/api';
@@ -58,83 +66,94 @@ describe('computeRuleApplicability', () => {
   });
 
   it('reports `will-fire` for an enabled, matching rule with resolvable templates', () => {
-    const ctx = makeCtx();
-    const verdict = computeRuleApplicability({ ctx, url: URL_MATCHING, resolver });
+    const { liveRule, ctx } = makeFixture();
+    const verdict = computeRuleApplicability({ liveRule, ctx, url: URL_MATCHING, resolver });
     expect(verdict.kind).toBe('will-fire');
   });
 
   it('reports `rule-deleted` when the live rule is null', () => {
-    const ctx = makeCtx({ currentRule: null, currentMod: null });
-    const verdict = computeRuleApplicability({ ctx, url: URL_MATCHING, resolver });
+    const { ctx } = makeFixture({ liveRule: null });
+    const verdict = computeRuleApplicability({ liveRule: null, ctx, url: URL_MATCHING, resolver });
     expect(verdict.kind).toBe('rule-deleted');
   });
 
   it('reports `rule-disabled` when enabled is false', () => {
-    const ctx = makeCtx({ currentRule: makeRule({ enabled: false }) });
-    const verdict = computeRuleApplicability({ ctx, url: URL_MATCHING, resolver });
+    const { liveRule, ctx } = makeFixture({ liveRule: makeRule({ enabled: false }) });
+    const verdict = computeRuleApplicability({ liveRule, ctx, url: URL_MATCHING, resolver });
     expect(verdict.kind).toBe('rule-disabled');
   });
 
   it('reports `mod-gone` when the matching mod is no longer on the rule', () => {
-    const ctx = makeCtx({ currentMod: null });
-    const verdict = computeRuleApplicability({ ctx, url: URL_MATCHING, resolver });
+    // Live rule has a different header name than the snapshot's, so
+    // findCurrentMod can't map the snapshot to a live mod.
+    const liveRule = makeRule({
+      action: {
+        requestHeaders: [{ uid: 'thm00064', operation: 'override', headerName: 'X-Other', value: 'v' }],
+        responseHeaders: [],
+      },
+    });
+    const { ctx } = makeFixture({ liveRule });
+    const verdict = computeRuleApplicability({ liveRule, ctx, url: URL_MATCHING, resolver });
     expect(verdict.kind).toBe('mod-gone');
   });
 
   it('reports `conditions-mismatch` when the URL no longer matches the rule', () => {
-    const ctx = makeCtx();
-    const verdict = computeRuleApplicability({ ctx, url: URL_NOT_MATCHING, resolver });
+    const { liveRule, ctx } = makeFixture();
+    const verdict = computeRuleApplicability({ liveRule, ctx, url: URL_NOT_MATCHING, resolver });
     expect(verdict.kind).toBe('conditions-mismatch');
   });
 
   it('reports `conditions-mismatch` when the rule has no conditions', () => {
-    const ctx = makeCtx({ currentRule: makeRule({ conditions: [] }) });
-    const verdict = computeRuleApplicability({ ctx, url: URL_MATCHING, resolver });
+    const { liveRule, ctx } = makeFixture({ liveRule: makeRule({ conditions: [] }) });
+    const verdict = computeRuleApplicability({ liveRule, ctx, url: URL_MATCHING, resolver });
     expect(verdict.kind).toBe('conditions-mismatch');
   });
 
   it('reports `name-template-unresolved` when the live name template references an unresolvable var', () => {
-    const ctx = makeCtx({
-      currentRule: makeRule({
-        action: {
-          requestHeaders: [{ uid: 'thm00065', operation: 'override', headerName: '{{vault.TOTP_X}}', value: 'v1' }],
-          responseHeaders: [],
-        },
-      }),
-      currentMod: { uid: 'thm00066', operation: 'override', headerName: '{{vault.TOTP_X}}', value: 'v1' },
+    const liveRule = makeRule({
+      action: {
+        requestHeaders: [{ uid: 'thm00065', operation: 'override', headerName: '{{vault.TOTP_X}}', value: 'v1' }],
+        responseHeaders: [],
+      },
     });
-    const verdict = computeRuleApplicability({ ctx, url: URL_MATCHING, resolver });
+    // Snapshot's headerName is the resolved value; headerNameTemplate is
+    // the raw template — needed for findCurrentMod to map snapshot → live
+    // when the live mod's name field IS the template.
+    const { ctx } = makeFixture({
+      liveRule,
+      snapshotMod: { headerName: 'resolved-x', headerNameTemplate: '{{vault.TOTP_X}}' },
+    });
+    const verdict = computeRuleApplicability({ liveRule, ctx, url: URL_MATCHING, resolver });
     expect(verdict.kind).toBe('name-template-unresolved');
     if (verdict.kind === 'name-template-unresolved') expect(verdict.template).toBe('{{vault.TOTP_X}}');
   });
 
   it('reports `value-template-unresolved` when the live value template references an unresolvable var', () => {
-    const ctx = makeCtx({
-      currentRule: makeRule({
-        action: {
-          requestHeaders: [{ uid: 'thm00067', operation: 'override', headerName: 'X-Foo', value: '{{vault.TOTP_X}}' }],
-          responseHeaders: [],
-        },
-      }),
-      currentMod: { uid: 'thm00068', operation: 'override', headerName: 'X-Foo', value: '{{vault.TOTP_X}}' },
+    const liveRule = makeRule({
+      action: {
+        requestHeaders: [{ uid: 'thm00067', operation: 'override', headerName: 'X-Foo', value: '{{vault.TOTP_X}}' }],
+        responseHeaders: [],
+      },
     });
-    const verdict = computeRuleApplicability({ ctx, url: URL_MATCHING, resolver });
+    const { ctx } = makeFixture({ liveRule });
+    const verdict = computeRuleApplicability({ liveRule, ctx, url: URL_MATCHING, resolver });
     expect(verdict.kind).toBe('value-template-unresolved');
   });
 
   it('reports `separator-template-unresolved` when the live mergeSeparator references an unresolvable var', () => {
-    const ctx = makeCtx({
-      currentRule: makeRule({
-        action: {
-          requestHeaders: [
-            { uid: 'thm00069', operation: 'merge', headerName: 'Cookie', value: 'k=v', mergeSeparator: '{{vault.TOTP_X}}' },
-          ],
-          responseHeaders: [],
-        },
-      }),
-      currentMod: { uid: 'thm00070', operation: 'merge', headerName: 'Cookie', value: 'k=v', mergeSeparator: '{{vault.TOTP_X}}' },
+    const liveRule = makeRule({
+      action: {
+        requestHeaders: [
+          { uid: 'thm00069', operation: 'merge', headerName: 'Cookie', value: 'k=v', mergeSeparator: '{{vault.TOTP_X}}' },
+        ],
+        responseHeaders: [],
+      },
     });
-    const verdict = computeRuleApplicability({ ctx, url: URL_MATCHING, resolver });
+    const { ctx } = makeFixture({
+      liveRule,
+      snapshotMod: { operation: 'merge', headerName: 'Cookie', valueTemplate: 'k=v', valueResolved: 'k=v' },
+    });
+    const verdict = computeRuleApplicability({ liveRule, ctx, url: URL_MATCHING, resolver });
     expect(verdict.kind).toBe('separator-template-unresolved');
   });
 
@@ -160,16 +179,14 @@ describe('computeRuleApplicability', () => {
         },
       ],
     });
-    const ctx = makeCtx({
-      currentRule: makeRule({
-        action: {
-          requestHeaders: [{ uid: 'thm00071', operation: 'override', headerName: 'X-Foo', value: '{{vault.TOTP_X}}' }],
-          responseHeaders: [],
-        },
-      }),
-      currentMod: { uid: 'thm00072', operation: 'override', headerName: 'X-Foo', value: '{{vault.TOTP_X}}' },
+    const liveRule = makeRule({
+      action: {
+        requestHeaders: [{ uid: 'thm00071', operation: 'override', headerName: 'X-Foo', value: '{{vault.TOTP_X}}' }],
+        responseHeaders: [],
+      },
     });
-    const verdict = computeRuleApplicability({ ctx, url: URL_MATCHING, resolver });
+    const { ctx } = makeFixture({ liveRule });
+    const verdict = computeRuleApplicability({ liveRule, ctx, url: URL_MATCHING, resolver });
     expect(verdict.kind).toBe('value-template-unresolved');
   });
 });

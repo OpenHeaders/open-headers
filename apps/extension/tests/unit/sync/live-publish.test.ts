@@ -178,7 +178,25 @@ describe('applyLiveWorkflowPublish', () => {
 });
 
 describe('applyLiveWorkflowUpdate auto-unpublish', () => {
-  it('augments a published-workflow edit with published: false in the same batch', async () => {
+  it('augments a published-workflow runtime edit with published: false in the same batch', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const mirror = makeWorkflowMirror({ ...baseWorkflow, published: true });
+    await applyLiveWorkflowUpdate(
+      'wflow001',
+      { enabled: false },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', mirror, context: makeContextHandle() },
+    );
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    const paths = batch.mutations.map((m) => (m.body as { path?: string }).path);
+    expect(paths).toContain('enabled');
+    expect(paths).toContain('published');
+    const publishedSet = batch.mutations.find((m) => (m.body as { path?: string }).path === 'published');
+    expect((publishedSet?.body as { value?: unknown }).value).toBe(false);
+  });
+
+  it('does NOT auto-unpublish on a metadata-only rename', async () => {
+    // Regression: renaming a published workflow in the sidebar /
+    // breadcrumb is cosmetic and must not drop it back to draft.
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const mirror = makeWorkflowMirror({ ...baseWorkflow, published: true });
     await applyLiveWorkflowUpdate(
@@ -189,9 +207,7 @@ describe('applyLiveWorkflowUpdate auto-unpublish', () => {
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
     const paths = batch.mutations.map((m) => (m.body as { path?: string }).path);
     expect(paths).toContain('name');
-    expect(paths).toContain('published');
-    const publishedSet = batch.mutations.find((m) => (m.body as { path?: string }).path === 'published');
-    expect((publishedSet?.body as { value?: unknown }).value).toBe(false);
+    expect(paths).not.toContain('published');
   });
 
   it('skips augmentation when the workflow is already a draft', async () => {
@@ -199,7 +215,7 @@ describe('applyLiveWorkflowUpdate auto-unpublish', () => {
     const mirror = makeWorkflowMirror({ ...baseWorkflow, published: false });
     await applyLiveWorkflowUpdate(
       'wflow001',
-      { name: 'Renamed' },
+      { enabled: false },
       { workspaceId: 'ws-1', surfaceId: 'workbench', mirror, context: makeContextHandle() },
     );
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
@@ -260,7 +276,25 @@ describe('applyLiveVariablePublish', () => {
 });
 
 describe('applyLiveVariableUpdate auto-unpublish', () => {
-  it('augments a published-LV edit with published: false', async () => {
+  it('augments a published-LV runtime edit with published: false', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const mirror = makeVariableMirror({ ...baseLv, published: true });
+    await applyLiveVariableUpdate(
+      'lvxxxxx1',
+      { enabled: false },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', mirror, context: makeContextHandle() },
+    );
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    const paths = batch.mutations.map((m) => (m.body as { path?: string }).path);
+    expect(paths).toContain('enabled');
+    expect(paths).toContain('published');
+    const publishedSet = batch.mutations.find((m) => (m.body as { path?: string }).path === 'published');
+    expect((publishedSet?.body as { value?: unknown }).value).toBe(false);
+  });
+
+  it('does NOT auto-unpublish on a metadata-only rename', async () => {
+    // Regression: renaming a published LV is cosmetic and must not
+    // drop it back to draft state.
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const mirror = makeVariableMirror({ ...baseLv, published: true });
     await applyLiveVariableUpdate(
@@ -271,9 +305,7 @@ describe('applyLiveVariableUpdate auto-unpublish', () => {
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
     const paths = batch.mutations.map((m) => (m.body as { path?: string }).path);
     expect(paths).toContain('name');
-    expect(paths).toContain('published');
-    const publishedSet = batch.mutations.find((m) => (m.body as { path?: string }).path === 'published');
-    expect((publishedSet?.body as { value?: unknown }).value).toBe(false);
+    expect(paths).not.toContain('published');
   });
 
   it('skips augmentation when the LV is already a draft', async () => {
@@ -281,7 +313,7 @@ describe('applyLiveVariableUpdate auto-unpublish', () => {
     const mirror = makeVariableMirror({ ...baseLv, published: false });
     await applyLiveVariableUpdate(
       'lvxxxxx1',
-      { name: 'newname' },
+      { enabled: false },
       { workspaceId: 'ws-1', surfaceId: 'workbench', mirror, context: makeContextHandle() },
     );
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;

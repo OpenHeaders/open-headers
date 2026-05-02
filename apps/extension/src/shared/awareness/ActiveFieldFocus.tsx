@@ -3,7 +3,7 @@
  *
  * Single source of truth for which `(entity, fieldPath)` the user is
  * actively editing right now. Set by `<EntityField>`'s focus capture;
- * read by `<WorkbenchAwarenessSlot>` to publish presence; surfaces other
+ * read by `<SurfaceAwarenessPublisher>` to publish presence; surfaces other
  * than the focused one render their `<FieldPresenceChip>` against the
  * SW's published view.
  *

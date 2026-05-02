@@ -1,6 +1,6 @@
 import type { V5 } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
-import { attributeHeaders } from '@/panel/data/header-attribution';
+import { attributeHeaders, findCurrentMod, isAttributionEdited } from '@/panel/data/header-attribution';
 import type { InspectorFire } from '@/panel/data/types';
 import type { RuleSnapshot, RuleSnapshotHeaderMod } from '@/types/telemetry';
 
@@ -498,9 +498,10 @@ describe('attributeHeaders', () => {
     );
     expect(result[0].value).toBe('v1');
     if (result[0].attribution.kind === 'modified') {
-      expect(result[0].attribution.ctx.edited).toBe(true);
-      expect(result[0].attribution.ctx.snapshotMod.valueResolved).toBe('v1');
-      expect(result[0].attribution.ctx.currentMod?.value).toBe('v2');
+      const ctx = result[0].attribution.ctx;
+      expect(isAttributionEdited(liveRule, ctx)).toBe(true);
+      expect(ctx.snapshotMod.valueResolved).toBe('v1');
+      expect(findCurrentMod(liveRule, ctx)?.value).toBe('v2');
     }
   });
 
@@ -519,7 +520,7 @@ describe('attributeHeaders', () => {
       byUid(liveRule),
     );
     if (result[0].attribution.kind === 'modified') {
-      expect(result[0].attribution.ctx.edited).toBe(false);
+      expect(isAttributionEdited(liveRule, result[0].attribution.ctx)).toBe(false);
     }
   });
 
@@ -541,10 +542,12 @@ describe('attributeHeaders', () => {
     );
     expect(result[0].value).toBe('v1');
     if (result[0].attribution.kind === 'modified') {
-      expect(result[0].attribution.ctx.currentRule).toBeNull();
-      expect(result[0].attribution.ctx.currentMod).toBeNull();
-      expect(result[0].attribution.ctx.edited).toBe(true);
-      expect(result[0].attribution.ctx.ruleName).toBe('Deleted');
+      const ctx = result[0].attribution.ctx;
+      // Rule deleted → consumers passing `liveRule = null` see no
+      // current mod and `isAttributionEdited` returns true.
+      expect(findCurrentMod(null, ctx)).toBeNull();
+      expect(isAttributionEdited(null, ctx)).toBe(true);
+      expect(ctx.ruleName).toBe('Deleted');
     }
   });
 
@@ -594,7 +597,7 @@ describe('attributeHeaders', () => {
     const result = attributeHeaders([{ name: 'X-Foo', value: 'server' }], [fire('r1')], 'response', byUid(rule));
     expect(result[0].value).toBe('live');
     if (result[0].attribution.kind === 'modified') {
-      expect(result[0].attribution.ctx.edited).toBe(false);
+      expect(isAttributionEdited(rule, result[0].attribution.ctx)).toBe(false);
     }
   });
 
@@ -638,10 +641,11 @@ describe('attributeHeaders', () => {
     expect(result[0].value).toBe('v');
     expect(result[0].attribution.kind).toBe('modified');
     if (result[0].attribution.kind === 'modified') {
-      expect(result[0].attribution.ctx.edited).toBe(false);
-      expect(result[0].attribution.ctx.snapshotMod.headerName).toBe('X-Debug');
-      expect(result[0].attribution.ctx.snapshotMod.headerNameTemplate).toBe('X-{{env.suffix}}');
-      expect(result[0].attribution.ctx.currentMod?.headerName).toBe('X-{{env.suffix}}');
+      const ctx = result[0].attribution.ctx;
+      expect(isAttributionEdited(liveRule, ctx)).toBe(false);
+      expect(ctx.snapshotMod.headerName).toBe('X-Debug');
+      expect(ctx.snapshotMod.headerNameTemplate).toBe('X-{{env.suffix}}');
+      expect(findCurrentMod(liveRule, ctx)?.headerName).toBe('X-{{env.suffix}}');
     }
   });
 
@@ -662,8 +666,8 @@ describe('attributeHeaders', () => {
     const result = attributeHeaders([], [fireWithSnapshot(snapshot)], 'response', byUid(rule));
     expect(result).toHaveLength(2);
     if (result[0].attribution.kind === 'added' && result[1].attribution.kind === 'added') {
-      expect(result[0].attribution.ctx.currentMod?.value).toBe('a=1');
-      expect(result[1].attribution.ctx.currentMod?.value).toBe('b=2');
+      expect(findCurrentMod(rule, result[0].attribution.ctx)?.value).toBe('a=1');
+      expect(findCurrentMod(rule, result[1].attribution.ctx)?.value).toBe('b=2');
     }
   });
 

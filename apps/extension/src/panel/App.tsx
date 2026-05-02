@@ -1,7 +1,16 @@
 import 'allotment/dist/style.css';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { AwarenessIdentityProvider, resolveDevPanelIdentity } from '@/shared/awareness';
+import {
+  ActiveEditorDirtyProvider,
+  ActiveFieldFocusProvider,
+  ActiveTabEntityProvider,
+  AwarenessIdentityProvider,
+  resolveDevPanelIdentity,
+  SurfaceAwarenessPublisher,
+} from '@/shared/awareness';
+import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
+import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { BottomPanelAlignment, DockSlot, SidebarLayoutVariant } from '@/shared/dock-layout';
 import {
   createShellEventBus,
@@ -118,16 +127,44 @@ const devPanelIdentity = resolveDevPanelIdentity();
 export default function App() {
   return (
     <AwarenessIdentityProvider value={devPanelIdentity}>
-      <ShellEventBusContext.Provider value={busHandle.bus}>
-        <EnvSwitcherProvider>
-          <VariablePopoverProvider>
-            <RulePopoverProvider>
-              <PanelContent />
-            </RulePopoverProvider>
-          </VariablePopoverProvider>
-        </EnvSwitcherProvider>
-      </ShellEventBusContext.Provider>
+      {/*
+       * Devpanel awareness foundation — same shape as the workbench
+       * (Session 1+):
+       *   - `ActiveTabEntity`     ← `RuleHoverPopover` writes when
+       *                             visible+rule, clears on unmount
+       *   - `ActiveFieldFocus`    ← `<EntityField>` focus capture in
+       *                             popover inputs
+       *   - `ActiveEditorDirty`   ← `useEditorDirty` from the popover
+       *
+       * `<SurfaceAwarenessPublisher>` is the sole `useAwareness` caller
+       * for this surface — drops the popover's per-component publish.
+       */}
+      <ActiveFieldFocusProvider>
+        <ActiveEditorDirtyProvider>
+          <ActiveTabEntityProvider>
+            <DevPanelAwarenessPublisher />
+            <ShellEventBusContext.Provider value={busHandle.bus}>
+              <EnvSwitcherProvider>
+                <VariablePopoverProvider>
+                  <RulePopoverProvider>
+                    <PanelContent />
+                  </RulePopoverProvider>
+                </VariablePopoverProvider>
+              </EnvSwitcherProvider>
+            </ShellEventBusContext.Provider>
+          </ActiveTabEntityProvider>
+        </ActiveEditorDirtyProvider>
+      </ActiveFieldFocusProvider>
     </AwarenessIdentityProvider>
+  );
+}
+
+// Pulls the active workspace id from the same hook the popover uses,
+// so the publisher's `workspaceId` follows the panel's environment.
+function DevPanelAwarenessPublisher(): React.ReactElement {
+  const workspaceId = useActiveWorkspaceId();
+  return (
+    <SurfaceAwarenessPublisher workspaceId={workspaceId} migratedEntityTypes={[RULE_ENTITY_TYPE]} />
   );
 }
 

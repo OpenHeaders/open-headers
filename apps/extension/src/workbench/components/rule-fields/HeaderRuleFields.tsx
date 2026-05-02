@@ -42,11 +42,11 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import type { HeaderDirection } from '@openheaders/core/utils';
 import { generateUid, getHeaderOperationCapability } from '@openheaders/core/utils';
-import { Alert, Badge, Button, Form, Input, Select, Tabs, Tooltip, Typography } from 'antd';
+import { Alert, Button, Form, Input, Select, Tabs, Tooltip, Typography } from 'antd';
 import type React from 'react';
-import { ConflictDiffChip, RULE_FIELD } from '@/shared/awareness';
+import { ConflictDiffChip, EntityField, RULE_FIELD, TabPresenceBadge } from '@/shared/awareness';
+import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { PathConflict } from './use-rule-conflicts';
-import { RuleField } from './RuleField';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../InspectorDocs';
 import { TemplateInput } from '../template-input';
@@ -89,7 +89,7 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, conflic
   const form = Form.useFormInstance();
   // Subscribe to the parent list so each row's persisted uid is available
   // when computing canonical RULE_FIELD paths for the per-leaf
-  // `<RuleField>` wrappers. The hidden `uid` Form.Item binds it; useWatch
+  // `<EntityField>` wrappers. The hidden `uid` Form.Item binds it; useWatch
   // surfaces it reactively without a per-row sub-component.
   const rowsWatch = Form.useWatch(name, form) as Array<{ uid?: string }> | undefined;
   const rowUidAt = (index: number): string | undefined => rowsWatch?.[index]?.uid;
@@ -121,7 +121,7 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, conflic
             // means the input still renders; presence chips light up
             // on the next tick once the hidden uid binding flushes.
             const wrap = (leaf: 'headerName' | 'value' | 'operation' | 'mergeSeparator', child: React.ReactNode) =>
-              rowUid ? <RuleField path={RULE_FIELD.headerMod(direction, rowUid, leaf)}>{child}</RuleField> : child;
+              rowUid ? <EntityField path={RULE_FIELD.headerMod(direction, rowUid, leaf)}>{child}</EntityField> : child;
             return (
             <SortableHeaderRow key={field.key} id={field.key}>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -444,6 +444,33 @@ function SortableHeaderRow({
   );
 }
 
+/**
+ * Neutral count chip — replaces antd's red `<Badge count={…} />` for
+ * tab labels. Communicates "N items" without screaming "N alerts" at
+ * the user, and matches the visual weight of `<AwarenessPill>` so the
+ * count + presence badge sit side-by-side as a coherent unit.
+ */
+function CountChip({ count }: { count: number }): React.ReactElement {
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        height: 16,
+        padding: '0 6px',
+        borderRadius: 8,
+        background: 'rgba(0,0,0,0.06)',
+        color: 'var(--ant-color-text-secondary)',
+        fontSize: 10,
+        fontWeight: 600,
+        lineHeight: 1,
+      }}
+    >
+      {count}
+    </span>
+  );
+}
+
 interface HeaderRuleFieldsProps {
   /** Controlled active tab — parent (RuleEditor) owns this state. */
   activeTab: string;
@@ -511,8 +538,17 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
           {
             key: 'request',
             label: (
-              <span>
-                Request Headers {reqCount > 0 && <Badge count={reqCount} size="small" style={{ marginLeft: 4 }} />}
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                Request Headers
+                {reqCount > 0 && <CountChip count={reqCount} />}
+                {ruleUid && excludeInstanceId !== undefined && (
+                  <TabPresenceBadge
+                    entityType={RULE_ENTITY_TYPE}
+                    entityId={ruleUid}
+                    pathPrefix="action.requestHeaders."
+                    excludeInstanceId={excludeInstanceId}
+                  />
+                )}
               </span>
             ),
             children: (
@@ -528,8 +564,17 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
           {
             key: 'response',
             label: (
-              <span>
-                Response Headers {resCount > 0 && <Badge count={resCount} size="small" style={{ marginLeft: 4 }} />}
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                Response Headers
+                {resCount > 0 && <CountChip count={resCount} />}
+                {ruleUid && excludeInstanceId !== undefined && (
+                  <TabPresenceBadge
+                    entityType={RULE_ENTITY_TYPE}
+                    entityId={ruleUid}
+                    pathPrefix="action.responseHeaders."
+                    excludeInstanceId={excludeInstanceId}
+                  />
+                )}
               </span>
             ),
             children: (

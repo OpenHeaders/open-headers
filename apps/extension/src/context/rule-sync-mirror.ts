@@ -99,3 +99,40 @@ export function disposeActiveRuleSyncMirror(): void {
   active.dispose();
   active = null;
 }
+
+// ── React hook ────────────────────────────────────────────────────────
+
+import { useEffect, useState } from 'react';
+
+/**
+ * Reactive live-rule subscription for any surface (workbench, popup,
+ * panel) — works regardless of whether `<RuleProvider>` is mounted.
+ * Reads from the per-surface rule sync mirror singleton (initialized
+ * eagerly at boot via `eagerInitRendererMirrors`) and re-renders the
+ * caller whenever a broadcast lands for the given uid.
+ *
+ * The panel surface deliberately doesn't mount `<RuleProvider>` — it
+ * doesn't need the full CRUD / templates / folders surface that
+ * provider exposes for the workbench + popup. Panel-side consumers
+ * that want a reactive rule MUST use this hook (which talks to the
+ * mirror directly), not `useRules()` (which would return the empty
+ * default and never update).
+ */
+export function useLiveRule(uid: string | null | undefined): V5.Rule | null {
+  const [rule, setRule] = useState<V5.Rule | null>(() => {
+    if (!uid) return null;
+    return getActiveRuleSyncMirror().getRuleMirror(uid)?.rule ?? null;
+  });
+  useEffect(() => {
+    if (!uid) {
+      setRule(null);
+      return;
+    }
+    const mirror = getActiveRuleSyncMirror();
+    setRule(mirror.getRuleMirror(uid)?.rule ?? null);
+    return mirror.subscribeRuleMirror(uid, () => {
+      setRule(mirror.getRuleMirror(uid)?.rule ?? null);
+    });
+  }, [uid]);
+  return rule;
+}

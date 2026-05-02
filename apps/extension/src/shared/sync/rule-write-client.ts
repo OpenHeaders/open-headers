@@ -20,7 +20,7 @@ import {
   RULE_ENTITY_TYPE,
 } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
-import { generateUid, toFolderName } from '@openheaders/core/utils';
+import { generateUid, shouldAutoUnpublishOnUpdate, toFolderName } from '@openheaders/core/utils';
 import {
   getActiveRuleSyncMirror,
   type RuleSyncMirror,
@@ -70,15 +70,16 @@ export async function applyRuleUpdate(
   const mirror = resolveMirror(opts, getActiveRuleSyncMirror);
   const entry = mirror.getRuleMirror(ruleUid);
   if (!entry) return { ok: false, reason: 'not-found' };
-  // Auto-unpublish on first edit of a published rule (the publication-
-  // gate symmetry). The single batch ensures the side-effect runners
-  // (DNR compile, inject) see the unpublish + edit atomically — they
-  // never observe a half-typed value while the rule is still flagged
-  // published. Subsequent keystrokes find `published === false` and
-  // skip the augmentation. Explicit `published` writes (the Save button
-  // routing through `applyRulePublish`) bypass `applyRuleUpdate` entirely.
+  // Auto-unpublish on first runtime-affecting edit of a published rule
+  // (publication-gate symmetry). The single batch ensures side-effect
+  // runners (DNR compile, inject) see the unpublish + edit atomically —
+  // they never observe a half-typed runtime value while the rule is
+  // still flagged published. Subsequent keystrokes find `published === false`
+  // and skip the augmentation. Metadata-only updates (rename, description)
+  // bypass the gate via `shouldAutoUnpublishOnUpdate` so cosmetic edits
+  // don't drop a live rule back to draft state.
   const augmented: RuleUpdates =
-    entry.rule.published === true && updates.published === undefined
+    entry.rule.published === true && shouldAutoUnpublishOnUpdate(updates as Record<string, unknown>)
       ? { ...updates, published: false }
       : updates;
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
@@ -141,7 +142,8 @@ export async function applyRuleCreate(
  * Promote a draft rule to live state. Single `setField('published', true)`
  * mutation + DNR recompile intent. The Save button in `RuleEditor` /
  * `EditorHeader` binds to this; per-keystroke edits go through
- * {@link applyRuleUpdate} which auto-unpublishes on first edit.
+ * {@link applyRuleUpdate} which auto-unpublishes on the first
+ * runtime-affecting edit (per `shouldAutoUnpublishOnUpdate`).
  */
 export async function applyRulePublish(
   ruleUid: string,

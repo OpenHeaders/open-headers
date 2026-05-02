@@ -10,11 +10,13 @@
 
 import { RuleProvider } from '@context/RuleContext';
 import {
+  ActiveEditorDirtyProvider,
   ActiveFieldFocusProvider,
   ActiveTabEntityProvider,
   AwarenessIdentityProvider,
   resolveWorkbenchIdentity,
-  WorkbenchAwarenessSlot,
+  SurfaceAwarenessPublisher,
+  useSetActiveTabEntity,
 } from '@/shared/awareness';
 import {
   ENVIRONMENT_ENTITY_TYPE,
@@ -1714,8 +1716,11 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
   return (
     <EnvSwitcherProvider collectionContext={envSwitcherCollectionContext}>
       <VariablePopoverProvider>
-        <ActiveTabEntityProvider value={activeTabEntity}>
-          <WorkbenchAwarenessSlot workspaceId={workspacesApi.activeWorkspaceId} />
+        <ActiveTabEntityWriter value={activeTabEntity} />
+        <SurfaceAwarenessPublisher
+          workspaceId={workspacesApi.activeWorkspaceId}
+          migratedEntityTypes={[RULE_ENTITY_TYPE]}
+        />
           <div
             ref={shellRef}
             className="rules-shell"
@@ -2025,11 +2030,23 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
             />
           </ConnectionProvider>
         </div>
-        </ActiveTabEntityProvider>
       </VariablePopoverProvider>
     </EnvSwitcherProvider>
   );
 };
+
+// Push the workbench's computed active-tab entity into the shared
+// `ActiveTabEntity` context. Lives as a tiny child component so the
+// setter is consumed inside the Provider boundary mounted in
+// `Workbench` (the top-level), without WorkbenchInner having to
+// thread the setter call through its main return tree.
+function ActiveTabEntityWriter({ value }: { value: { entityType: string; entityId: string } | null }): null {
+  const setActiveTabEntity = useSetActiveTabEntity();
+  useEffect(() => {
+    setActiveTabEntity(value);
+  }, [value, setActiveTabEntity]);
+  return null;
+}
 
 // Per-tab identity — each workbench tab opens a fresh React realm, so
 // resolving once at the root is exactly per-tab.
@@ -2042,15 +2059,23 @@ const Workbench: React.FC = () => (
      * state above every workbench surface (editor body, sidebar
      * inline-rename, breadcrumb inline-rename) so any of them can
      * publish presence on the same wire. The matching
-     * `<WorkbenchAwarenessSlot>` mounts inside `WorkbenchInner` because
-     * it needs the active workspace id, which lives in the rule store.
+     * `<SurfaceAwarenessPublisher>` mounts inside `WorkbenchInner`
+     * because it needs the active workspace id, which lives in the
+     * rule store. `<ActiveEditorDirtyProvider>` is the third workspace
+     * context the publisher composes from (alongside `ActiveTabEntity`
+     * and `ActiveFieldFocus`); editors call `useEditorDirty` to
+     * contribute their dirty marker when they are the active tab.
      */}
     <ActiveFieldFocusProvider>
-      <RuleProvider surfaceId="workbench">
-        <InspectorNavProvider>
-          <WorkbenchInner />
-        </InspectorNavProvider>
-      </RuleProvider>
+      <ActiveEditorDirtyProvider>
+        <ActiveTabEntityProvider>
+        <RuleProvider surfaceId="workbench">
+          <InspectorNavProvider>
+            <WorkbenchInner />
+          </InspectorNavProvider>
+        </RuleProvider>
+        </ActiveTabEntityProvider>
+      </ActiveEditorDirtyProvider>
     </ActiveFieldFocusProvider>
   </AwarenessIdentityProvider>
 );
