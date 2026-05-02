@@ -21,6 +21,7 @@ import type { V5 } from '@openheaders/core/types';
 import { App, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect } from 'react';
+import { useSurfaceIdentity } from '@/shared/awareness';
 import { useDirtyDraft } from '../hooks/useDirtyDraft';
 import EditorHeader from './EditorHeader';
 import VariableTable from './panels/VariableTable';
@@ -46,6 +47,7 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
   const { workspaceVariables } = useEnvironments();
   const { replaceWorkspaceVariables } = useVariableMutator();
   const workspaceId = useActiveWorkspaceId();
+  const identity = useSurfaceIdentity();
 
   const { draft, setDraft, isDirty, markPersisted } = useDirtyDraft<V5.Variable[]>({
     serverDraft: workspaceVariables.variables,
@@ -56,7 +58,7 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
   // Awareness — declare the surface is editing the singleton entity.
   useAwareness({
     workspaceId,
-    surfaceId: SURFACE_ID,
+    identity,
     entityFocus: { type: WORKSPACE_VARIABLES_ENTITY_TYPE, id: WORKSPACE_VARIABLES_ID },
     fieldFocus: null,
     dirtyFields: isDirty ? ['*'] : [],

@@ -3,7 +3,8 @@
  * (`apps/extension/src/context/awareness-mirror.ts`).
  *
  * `useEntityPresence` returns the surfaces with `entityFocus === ref`,
- * filtering out the local surface so a tab never sees itself.
+ * filtering out the local surface (by instanceId) so a tab never sees
+ * itself.
  *
  * `useFieldPresence` does the same for `fieldFocus`. Both hooks subscribe
  * to the mirror's entity bucket and recompute the filtered list on each
@@ -16,8 +17,8 @@ import { useEffect, useState } from 'react';
 import { type EntityRef, type FieldRef, getActiveAwarenessMirror } from '@/context/awareness-mirror';
 
 export interface UseEntityPresenceOptions {
-  /** Local surface id — filtered out so the tab doesn't see itself. */
-  excludeSurfaceId?: string;
+  /** Local instance id — filtered out so the tab doesn't see itself. */
+  excludeInstanceId?: string;
   /** Skip the subscription entirely when false (e.g. ref id not yet known). */
   enabled?: boolean;
 }
@@ -29,7 +30,7 @@ const EMPTY: readonly AwarenessState[] = Object.freeze([]);
  * local surface. Empty array when the entity is unknown / disabled.
  */
 export function useEntityPresence(ref: EntityRef | null, options: UseEntityPresenceOptions = {}): AwarenessState[] {
-  const { excludeSurfaceId, enabled = true } = options;
+  const { excludeInstanceId, enabled = true } = options;
   const [presence, setPresence] = useState<readonly AwarenessState[]>(EMPTY);
 
   useEffect(() => {
@@ -39,11 +40,11 @@ export function useEntityPresence(ref: EntityRef | null, options: UseEntityPrese
     }
     const mirror = getActiveAwarenessMirror();
     const recompute = () => {
-      setPresence(mirror.getPresenceForEntity(ref, { excludeSurfaceId }));
+      setPresence(mirror.getPresenceForEntity(ref, { excludeInstanceId }));
     };
     recompute();
     return mirror.subscribeEntity(ref, recompute);
-  }, [enabled, ref?.type, ref?.id, excludeSurfaceId]);
+  }, [enabled, ref?.type, ref?.id, excludeInstanceId]);
 
   return presence as AwarenessState[];
 }
@@ -53,7 +54,7 @@ export function useEntityPresence(ref: EntityRef | null, options: UseEntityPrese
  * excluding the local surface.
  */
 export function useFieldPresence(ref: FieldRef | null, options: UseEntityPresenceOptions = {}): AwarenessState[] {
-  const { excludeSurfaceId, enabled = true } = options;
+  const { excludeInstanceId, enabled = true } = options;
   const [presence, setPresence] = useState<readonly AwarenessState[]>(EMPTY);
 
   useEffect(() => {
@@ -63,11 +64,11 @@ export function useFieldPresence(ref: FieldRef | null, options: UseEntityPresenc
     }
     const mirror = getActiveAwarenessMirror();
     const recompute = () => {
-      setPresence(mirror.getPresenceForField(ref, { excludeSurfaceId }));
+      setPresence(mirror.getPresenceForField(ref, { excludeInstanceId }));
     };
     recompute();
     return mirror.subscribeEntity({ type: ref.type, id: ref.id }, recompute);
-  }, [enabled, ref?.type, ref?.id, ref?.path, excludeSurfaceId]);
+  }, [enabled, ref?.type, ref?.id, ref?.path, excludeInstanceId]);
 
   return presence as AwarenessState[];
 }

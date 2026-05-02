@@ -348,6 +348,15 @@ export function snapshotAwarenessPresence(): AwarenessState[] {
 }
 
 /**
+ * Drop a presence row by `instanceId`. Called by the lifeline port
+ * handler on `onDisconnect`, which fires whenever a surface unmounts
+ * or the tab closes — connection-bound liveness instead of polling.
+ */
+export function removeAwarenessByInstanceId(instanceId: string): void {
+  state?.awareness.remove(instanceId);
+}
+
+/**
  * Mint a fresh `MutatorContext` from the SW's HLC sequencer. Used
  * by SW-internal callers (rule-store, hydration) — surfaces hosted in
  * a renderer mint their own contexts with their own nodeId.

@@ -1,33 +1,47 @@
 /**
- * Display labels for surface ids. Surfaces register a stable string id
- * (`workbench`, `popup`, `devpanel`); presence tooltips render them as
- * human-readable names.
+ * Surface-kind presentation primitives.
+ *
+ * Surfaces report their `surfaceKind` (`workbench` / `popup` /
+ * `devpanel` / `sidepanel`) and a free-form `label` that already
+ * embeds entity context (e.g. "Workbench — Rule X"). The label is
+ * authored at the source — UI consumers display it verbatim.
+ *
+ * Color and one-letter initial fall out of the kind so badges stay
+ * visually consistent across surfaces without each surface having to
+ * agree on a palette.
  */
 
-const LABELS: Record<string, string> = {
-  workbench: 'Workbench',
-  popup: 'Popup',
-  devpanel: 'DevPanel',
-  sidepanel: 'Side Panel',
-};
+import type { SurfaceKind } from '@openheaders/core/protocol';
 
-export function surfaceLabel(surfaceId: string): string {
-  return LABELS[surfaceId] ?? surfaceId;
-}
-
-/** Stable color per surface id, used as the chip background. */
-const COLORS: Record<string, string> = {
+const KIND_COLORS: Record<SurfaceKind, string> = {
   workbench: '#1677ff',
   popup: '#52c41a',
   devpanel: '#722ed1',
   sidepanel: '#fa8c16',
 };
 
-export function surfaceColor(surfaceId: string): string {
-  return COLORS[surfaceId] ?? '#8c8c8c';
+const KIND_INITIALS: Record<SurfaceKind, string> = {
+  workbench: 'W',
+  popup: 'P',
+  devpanel: 'D',
+  sidepanel: 'S',
+};
+
+const KIND_LABELS: Record<SurfaceKind, string> = {
+  workbench: 'Workbench',
+  popup: 'Popup',
+  devpanel: 'DevTools panel',
+  sidepanel: 'Side panel',
+};
+
+export function surfaceKindColor(kind: SurfaceKind): string {
+  return KIND_COLORS[kind];
 }
 
-export function surfaceInitial(surfaceId: string): string {
-  const label = surfaceLabel(surfaceId);
-  return label.charAt(0).toUpperCase();
+export function surfaceKindInitial(kind: SurfaceKind): string {
+  return KIND_INITIALS[kind];
+}
+
+export function surfaceKindLabel(kind: SurfaceKind): string {
+  return KIND_LABELS[kind];
 }

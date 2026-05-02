@@ -20,6 +20,7 @@ import type { V5 } from '@openheaders/core/types';
 import { App, Button, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo } from 'react';
+import { useSurfaceIdentity } from '@/shared/awareness';
 import { useDirtyDraft } from '../hooks/useDirtyDraft';
 import { useEnvSwitcher } from '../services/env-switcher';
 import EditorHeader from './EditorHeader';
@@ -51,6 +52,7 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
   const { pickActiveEnvironment } = useEnvSwitcher();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useEnvironmentMutator({ workspaceId, surfaceId: SURFACE_ID });
+  const identity = useSurfaceIdentity();
 
   const env = useMemo(() => environments.find((e) => e.uid === environmentUid) ?? null, [environments, environmentUid]);
 
@@ -63,7 +65,7 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
   // Awareness — declare the surface is editing this environment.
   useAwareness({
     workspaceId,
-    surfaceId: SURFACE_ID,
+    identity,
     entityFocus: env ? { type: ENVIRONMENT_ENTITY_TYPE, id: env.uid } : null,
     fieldFocus: null,
     dirtyFields: isDirty ? ['*'] : [],

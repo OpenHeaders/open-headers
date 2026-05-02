@@ -80,11 +80,11 @@ interface ModificationListProps {
    *  rows another surface is currently editing. Both undefined for
    *  drafts (create mode) — chips are entity-bound, drafts have no uid. */
   ruleUid?: string;
-  surfaceId?: string;
+  excludeInstanceId?: string;
   conflicts?: ConflictHandlers;
 }
 
-function ModificationList({ name, direction, ruleUid, surfaceId, conflicts }: ModificationListProps) {
+function ModificationList({ name, direction, ruleUid, excludeInstanceId, conflicts }: ModificationListProps) {
   const { openDocs: openDocsInline } = useInspectorNav();
   const form = Form.useFormInstance();
   const sensors = useSensors(
@@ -236,12 +236,12 @@ function ModificationList({ name, direction, ruleUid, surfaceId, conflicts }: Mo
                     );
                   }}
                 </Form.Item>
-                {ruleUid && surfaceId && (
+                {ruleUid && excludeInstanceId && (
                   <FieldPresenceChip
                     entityType={RULE_ENTITY_TYPE}
                     entityId={ruleUid}
                     fieldPath={RULE_FIELD.headerMod(direction, field.name, 'value')}
-                    excludeSurfaceId={surfaceId}
+                    excludeInstanceId={excludeInstanceId}
                   />
                 )}
                 {ruleUid && conflicts && (
@@ -412,7 +412,7 @@ interface HeaderRuleFieldsProps {
   /** Live rule uid; passed to per-row presence chips. Undefined for drafts. */
   ruleUid?: string;
   /** Local surface id ('workbench'), so per-row chips don't render this surface. */
-  surfaceId?: string;
+  excludeInstanceId?: string;
   /** Conflict-tracker bridge — diff chip is rendered when getConflict
    *  returns a non-null entry for a row's value path. Undefined in
    *  draft mode (no live rule to conflict with). */
@@ -427,7 +427,7 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
   reqCount,
   resCount,
   ruleUid,
-  surfaceId,
+  excludeInstanceId,
   getConflict,
   onAcceptTheirs,
   onDismissConflict,
@@ -476,7 +476,7 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
                 name="requestHeaders"
                 direction="request"
                 ruleUid={ruleUid}
-                surfaceId={surfaceId}
+                excludeInstanceId={excludeInstanceId}
                 conflicts={conflictBridge}
               />
             ),
@@ -493,7 +493,7 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
                 name="responseHeaders"
                 direction="response"
                 ruleUid={ruleUid}
-                surfaceId={surfaceId}
+                excludeInstanceId={excludeInstanceId}
                 conflicts={conflictBridge}
               />
             ),

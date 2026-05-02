@@ -1,11 +1,16 @@
 /**
- * SW awareness store (Phase A A1).
+ * SW awareness store.
  *
- * Per-workspace map of `surfaceId → AwarenessState`. The local oracle
- * is the **single GC authority** (`docs/SYNC_ENGINE_DESIGN.md` §14.2):
- * surfaces report their state, the store prunes by `lastActivityHlc`
- * physical-time TTL on every publish, and a canonical presence list
- * is emitted whenever the visible set changes.
+ * Per-workspace map of `identity.instanceId → AwarenessState`. Keying
+ * on `instanceId` (not `surfaceKind`) lets two workbench tabs — or two
+ * open DevTools panels — coexist as distinct presence rows; each
+ * surface mint its own instanceId at construction.
+ *
+ * The local oracle is the **single GC authority**
+ * (`docs/SYNC_ENGINE_DESIGN.md` §14.2): surfaces report their state, the
+ * store prunes by `lastActivityHlc` physical-time TTL on every publish,
+ * and a canonical presence list is emitted whenever the visible set
+ * changes.
  *
  * Awareness rides its own broadcast — it is ephemeral, never persisted,
  * and high-frequency. Coupling it to `syncBroadcast` would entangle
@@ -46,8 +51,8 @@ export interface AwarenessStore {
   readonly workspaceId: string;
   /** Upsert state, run GC, emit on change. Returns the post-GC presence. */
   publish(state: AwarenessState): AwarenessState[];
-  /** Drop a surface immediately (e.g. on explicit unmount). */
-  remove(surfaceId: string): void;
+  /** Drop a presence row immediately (e.g. on explicit unmount). */
+  remove(instanceId: string): void;
   /** Snapshot — read-only. */
   list(): AwarenessState[];
   /** Cancel any future emission and clear state. */
@@ -60,6 +65,8 @@ export function createAwarenessStore(options: AwarenessStoreOptions): AwarenessS
   const ttl = options.ttlMs ?? DEFAULT_TTL_MS;
   const now = options.now ?? Date.now;
   const sensitive = options.sensitiveEntityTypes ?? new Set<string>();
+  // Keyed by identity.instanceId — multiple instances of the same
+  // surfaceKind coexist.
   const states = new Map<string, AwarenessState>();
   let disposed = false;
   let lastEmitted: string | null = null;
@@ -72,14 +79,14 @@ export function createAwarenessStore(options: AwarenessStoreOptions): AwarenessS
 
   function pruneExpired(): void {
     const cutoff = now() - ttl;
-    for (const [surfaceId, s] of states) {
-      if (s.lastActivityHlc.physicalMs < cutoff) states.delete(surfaceId);
+    for (const [instanceId, s] of states) {
+      if (s.lastActivityHlc.physicalMs < cutoff) states.delete(instanceId);
     }
   }
 
   function snapshot(): AwarenessState[] {
-    // Stable order keyed by surfaceId so equal sets serialize the same.
-    return [...states.values()].sort((a, b) => a.surfaceId.localeCompare(b.surfaceId));
+    // Stable order keyed by instanceId so equal sets serialize the same.
+    return [...states.values()].sort((a, b) => a.identity.instanceId.localeCompare(b.identity.instanceId));
   }
 
   function emitIfChanged(): AwarenessState[] {
@@ -97,13 +104,13 @@ export function createAwarenessStore(options: AwarenessStoreOptions): AwarenessS
     publish(state) {
       if (disposed) return [];
       const sanitized = sanitize(state);
-      states.set(sanitized.surfaceId, sanitized);
+      states.set(sanitized.identity.instanceId, sanitized);
       pruneExpired();
       return emitIfChanged();
     },
-    remove(surfaceId) {
+    remove(instanceId) {
       if (disposed) return;
-      if (states.delete(surfaceId)) emitIfChanged();
+      if (states.delete(instanceId)) emitIfChanged();
     },
     list() {
       return snapshot();

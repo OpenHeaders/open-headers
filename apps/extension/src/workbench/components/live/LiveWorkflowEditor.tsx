@@ -49,6 +49,7 @@ import {
   validateWorkflowShape,
 } from '@openheaders/core/live';
 import { LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
+import { useSurfaceIdentity } from '@/shared/awareness';
 import type { V5 } from '@openheaders/core/types';
 import { Alert, App, Button, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -159,6 +160,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
   const workspaceId = useActiveWorkspaceId();
 
   const workflow = useMemo(() => workflows.find((w) => w.uid === workflowUid) ?? null, [workflows, workflowUid]);
+  const identity = useSurfaceIdentity();
   const boundVars = useMemo(() => variables.filter((v) => v.workflowUid === workflowUid), [variables, workflowUid]);
 
   const [draft, setDraft] = useState<Draft | null>(() => (workflow ? draftFromWorkflow(workflow, variables) : null));
@@ -232,7 +234,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
   // Awareness — declare the surface is editing this live workflow.
   useAwareness({
     workspaceId,
-    surfaceId: 'workbench',
+    identity,
     entityFocus: workflow ? { type: LIVE_WORKFLOW_ENTITY_TYPE, id: workflow.uid } : null,
     fieldFocus:
       workflow && focusedFieldPath

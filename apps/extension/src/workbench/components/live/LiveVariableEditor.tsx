@@ -35,6 +35,7 @@ import { useLiveWorkflowCache } from '@hooks/useLiveCache';
 import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { LIVE_VARIABLE_ENTITY_TYPE } from '@openheaders/core/sync';
+import { useSurfaceIdentity } from '@/shared/awareness';
 import type { V5 } from '@openheaders/core/types';
 import { App, Button, Input, InputNumber, Select, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -342,6 +343,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
   const workspaceId = useActiveWorkspaceId();
 
   const lv = useMemo(() => variables.find((v) => v.uid === variableUid) ?? null, [variables, variableUid]);
+  const identity = useSurfaceIdentity();
   const workflow = useMemo(
     () => (lv ? (workflows.find((w) => w.uid === lv.workflowUid) ?? null) : null),
     [workflows, lv],
@@ -401,7 +403,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
   // Awareness — declare the surface is editing this live variable.
   useAwareness({
     workspaceId,
-    surfaceId: 'workbench',
+    identity,
     entityFocus: lv ? { type: LIVE_VARIABLE_ENTITY_TYPE, id: lv.uid } : null,
     fieldFocus: lv && focusedFieldPath ? { type: LIVE_VARIABLE_ENTITY_TYPE, id: lv.uid, path: focusedFieldPath } : null,
     dirtyFields: isDirty ? ['*'] : [],

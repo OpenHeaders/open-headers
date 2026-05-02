@@ -6,8 +6,9 @@ import { call, presence } from '@utils/bridge';
 import { logger } from '@utils/logger';
 import { Layout } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { extensionStorage, UI } from '@/shared/storage';
+import { AwarenessIdentityProvider, resolvePopupIdentity, resolveSidePanelIdentity } from '@/shared/awareness';
 import { useSurface } from '@/shared/surface';
 import { VariablePopoverProvider } from '@/workbench/components/template-input/VariablePopoverHost';
 import { EnvSwitcherProvider } from '@/workbench/services/env-switcher';
@@ -101,23 +102,34 @@ const AppContent: React.FC = () => {
     return disposePresence;
   }, [surface]);
 
+  // Identity is per-mount: the popup and side panel share this App
+  // module but each entry mounts it in its own JS realm, so the
+  // resolver runs exactly once per surface lifetime.
+  const identity = useMemo(
+    () => (surface.mode === 'sidepanel' ? resolveSidePanelIdentity() : resolvePopupIdentity()),
+    [surface.mode],
+  );
+  const ruleSurfaceId = surface.mode === 'sidepanel' ? 'sidepanel' : 'popup';
+
   return (
     <ErrorBoundary>
-      <RuleProvider surfaceId="popup">
-        <KeyboardNavProvider
-          activeTab={activeTab}
-          onTabChange={handleTabChange}
-          onCycleTheme={cycleTheme}
-          onToggleCompactMode={toggleCompactMode}
-          onOpenTour={handleOpenTour}
-        >
-          <EnvSwitcherProvider>
-            <VariablePopoverProvider>
-              <AppInner tourOpen={tourOpen} onTourClose={handleTourClose} />
-            </VariablePopoverProvider>
-          </EnvSwitcherProvider>
-        </KeyboardNavProvider>
-      </RuleProvider>
+      <AwarenessIdentityProvider value={identity}>
+        <RuleProvider surfaceId={ruleSurfaceId}>
+          <KeyboardNavProvider
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+            onCycleTheme={cycleTheme}
+            onToggleCompactMode={toggleCompactMode}
+            onOpenTour={handleOpenTour}
+          >
+            <EnvSwitcherProvider>
+              <VariablePopoverProvider>
+                <AppInner tourOpen={tourOpen} onTourClose={handleTourClose} />
+              </VariablePopoverProvider>
+            </EnvSwitcherProvider>
+          </KeyboardNavProvider>
+        </RuleProvider>
+      </AwarenessIdentityProvider>
     </ErrorBoundary>
   );
 };

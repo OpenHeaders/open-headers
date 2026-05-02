@@ -1,5 +1,5 @@
 /**
- * Renderer-side awareness mirror (Phase A A1).
+ * Renderer-side awareness mirror.
  *
  * Subscribes once to the SW's `awarenessBroadcast` channel and holds
  * the canonical per-workspace presence list. UI consumers (editor tab
@@ -11,6 +11,10 @@
  * `rule-sync-mirror.ts`. They consume different broadcast channels and
  * have different lifecycles (presence is ephemeral; rules are
  * canonical entity state).
+ *
+ * Identity-keyed: filters and `excludeInstanceId` operate on
+ * `identity.instanceId` so two instances of the same surface kind
+ * (two workbench tabs, two DevTools panels) coexist as distinct rows.
  *
  * Workspace switch: the mirror tracks `workspaceId` from the most
  * recent broadcast and clears local state on a switch. Consumers that
@@ -34,8 +38,8 @@ export interface FieldRef extends EntityRef {
 }
 
 export interface PresenceQueryOptions {
-  /** Filter out the local surface so a tab doesn't see itself. */
-  excludeSurfaceId?: string;
+  /** Filter out the local surface (by instanceId) so a tab doesn't see itself. */
+  excludeInstanceId?: string;
 }
 
 export interface AwarenessMirror {
@@ -141,7 +145,7 @@ export function createAwarenessMirror(options: CreateAwarenessMirrorOptions = {}
         s.entityFocus !== null &&
         s.entityFocus.type === ref.type &&
         s.entityFocus.id === ref.id &&
-        s.surfaceId !== opts?.excludeSurfaceId,
+        s.identity.instanceId !== opts?.excludeInstanceId,
     );
   }
 
@@ -152,7 +156,7 @@ export function createAwarenessMirror(options: CreateAwarenessMirrorOptions = {}
         s.fieldFocus.type === ref.type &&
         s.fieldFocus.id === ref.id &&
         s.fieldFocus.path === ref.path &&
-        s.surfaceId !== opts?.excludeSurfaceId,
+        s.identity.instanceId !== opts?.excludeInstanceId,
     );
   }
 

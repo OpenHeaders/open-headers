@@ -9,6 +9,7 @@
  */
 
 import { RuleProvider } from '@context/RuleContext';
+import { AwarenessIdentityProvider, resolveWorkbenchIdentity } from '@/shared/awareness';
 import { useTheme } from '@context/ThemeContext';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useLiveVariables } from '@hooks/useLiveVariables';
@@ -1973,12 +1974,18 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
   );
 };
 
+// Per-tab identity — each workbench tab opens a fresh React realm, so
+// resolving once at the root is exactly per-tab.
+const workbenchIdentity = resolveWorkbenchIdentity();
+
 const Workbench: React.FC = () => (
-  <RuleProvider surfaceId="workbench">
-    <InspectorNavProvider>
-      <WorkbenchInner />
-    </InspectorNavProvider>
-  </RuleProvider>
+  <AwarenessIdentityProvider value={workbenchIdentity}>
+    <RuleProvider surfaceId="workbench">
+      <InspectorNavProvider>
+        <WorkbenchInner />
+      </InspectorNavProvider>
+    </RuleProvider>
+  </AwarenessIdentityProvider>
 );
 
 export default Workbench;

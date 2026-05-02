@@ -14,6 +14,7 @@ import { useDndMonitor } from '@dnd-kit/core';
 import { Allotment } from 'allotment';
 import type React from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { TabActiveProvider } from '@/shared/awareness/TabActiveContext';
 import { type DragIntent, DragIntentContext } from '../data/drag-intent';
 import { allLeaves, type EditorLeaf, type EditorNode, findLeaf, findParentSplitLink } from '../data/editor-groups';
 import type { ClosedTab, InspectorTab } from '../data/inspector-tab';
@@ -101,16 +102,18 @@ const TabPanel: React.FC<TabPanelProps> = ({ isActive, children }) => {
   }, []);
 
   return (
-    <div
-      ref={panelRef}
-      className="dt-editor-tab-panel"
-      style={isActive ? undefined : { display: 'none' }}
-      onScroll={handleScroll}
-      aria-hidden={isActive ? undefined : true}
-      inert={!isActive}
-    >
-      {children}
-    </div>
+    <TabActiveProvider value={isActive}>
+      <div
+        ref={panelRef}
+        className="dt-editor-tab-panel"
+        style={isActive ? undefined : { display: 'none' }}
+        onScroll={handleScroll}
+        aria-hidden={isActive ? undefined : true}
+        inert={!isActive}
+      >
+        {children}
+      </div>
+    </TabActiveProvider>
   );
 };
 

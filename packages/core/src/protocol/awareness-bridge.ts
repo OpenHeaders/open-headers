@@ -13,6 +13,13 @@
  * persisted mutation log lifecycle. Keep them on different broadcast
  * names so each can evolve, throttle, and GC independently.
  *
+ * Identity model — the wire carries a {@link PresenceIdentity} envelope
+ * rather than a flat `surfaceId` string. Every layer is optional except
+ * `instanceId` + `surfaceKind`; richer layers (`userId`, `browserContext`,
+ * navigation handles) light up incrementally as deployment topology
+ * grows from Mode 1 (single browser) to Mode 2 (multi-device daemon) to
+ * Mode 3 (team cloud) — see `.notes/oracle-arc.md`.
+ *
  * Sensitive-entity rule (§14.4): for entities the schema marks
  * sensitive (Vault, OAuth client_secret, …) the `fieldFocus` slot MUST
  * be `null` on the wire. Publishers strip it; the SW oracle is the
@@ -20,19 +27,79 @@
  */
 import type { HLC } from '../sync/hlc';
 
+/** Surface taxonomy. New surfaces must register here so renderers can
+ *  type-narrow on `surfaceKind` instead of pattern-matching free strings. */
+export type SurfaceKind = 'workbench' | 'popup' | 'devpanel' | 'sidepanel';
+
+/** Application carrying the surface. `extension` today; `desktop` and
+ *  `cli` arrive with multi-device topologies. */
+export type AppKind = 'extension' | 'desktop' | 'cli';
+
+/** Browser identifier — populated only when the surface lives inside a
+ *  browser (`appId === 'extension'`). `profile` is best-effort: Chrome's
+ *  extension API doesn't expose the active profile name without `identity`
+ *  permissions, so callers may leave it undefined. */
+export interface BrowserContext {
+  browser: 'chrome' | 'firefox' | 'edge' | 'safari' | 'other';
+  profile?: string;
+}
+
 /**
- * Per-surface presence record. The SW oracle keeps one of these per
- * `(workspaceId, surfaceId)` and prunes by `lastActivityHlc` TTL on
- * each publish.
+ * Navigation handle — describes how a peer surface can be focused from
+ * another surface ("click to switch to that tab"). Tagged by `kind` so
+ * the receiving renderer dispatches to the right `chrome.*` API.
  *
- * `surfaceId` identifies a specific renderer surface (workbench tab,
- * popup, devpanel) and is stable across that surface's lifetime.
- * `deviceId` identifies the physical box; in v1 we have one device per
- * SW, but Phase C will need to disambiguate localhost-WS peers.
+ * Surfaces that aren't peer-addressable (popups dismiss on focus loss;
+ * a popup pointer would be a lie) omit `navigation` entirely on their
+ * identity record — the consuming UI renders a non-clickable row.
+ */
+export type NavigationHandle =
+  | { kind: 'chrome-tab'; tabId: number; windowId: number; url?: string; route?: string }
+  | { kind: 'devtools-inspected-tab'; inspectedTabId: number; inspectedUrl?: string }
+  | { kind: 'side-panel'; windowId: number; tabId?: number }
+  | { kind: 'desktop-window'; windowId: string };
+
+/**
+ * Identity envelope for one connected presence. Replaces the flat
+ * `surfaceId`/`deviceId` pair so multiple instances of the same surface
+ * kind (two workbench tabs, two open DevTools panels) coexist as
+ * distinct rows instead of clobbering each other in the SW store.
+ *
+ * `instanceId` is THE primary key. Stable for the lifetime of the
+ * surface mount, regenerated when the surface remounts. This is what
+ * the SW awareness store keys on; surface-level disambiguation falls
+ * out of it for free.
+ */
+export interface PresenceIdentity {
+  /** Stable per-mount id. Acts as the SW awareness store key. */
+  instanceId: string;
+  /** What kind of surface is this. Drives badge color + grouping. */
+  surfaceKind: SurfaceKind;
+  /** Application carrying the surface. */
+  appId: AppKind;
+  /** Physical device. One per box; populated for Mode 2/3 transports. */
+  deviceId?: string;
+  /** Authenticated user. Populated only for Mode 3 cloud topology. */
+  userId?: string;
+  /** Browser context — present iff `appId === 'extension'`. */
+  browserContext?: BrowserContext;
+  /** Human-readable summary of what this surface is doing right now,
+   *  used directly as tooltip text. Surfaces refresh it on
+   *  entity-focus changes. Examples: `"Workbench — Rule X"`,
+   *  `"DevTools on staging.example.com"`, `"Popup"`. */
+  label: string;
+  /** Peer-addressable handle for click-to-switch. Optional: surfaces
+   *  that can't be focused programmatically (popup) omit this. */
+  navigation?: NavigationHandle;
+}
+
+/**
+ * Per-surface presence record. The SW oracle keeps one per
+ * `(workspaceId, identity.instanceId)` and prunes by `lastActivityHlc`
+ * TTL on each publish.
  */
 export interface AwarenessState {
-  surfaceId: string;
-  deviceId: string;
+  identity: PresenceIdentity;
   /**
    * `(type, id)` of the entity currently in focus on this surface. For
    * sensitive entities the publisher emits `entityFocus` only — see
@@ -74,9 +141,12 @@ export const AWARENESS_PUBLISH_TYPE = 'oh.awareness.publish' as const;
 export const AWARENESS_BROADCAST_TYPE = 'oh.awareness.broadcast' as const;
 
 /**
- * Default TTL — surfaces older than this without a heartbeat are
- * pruned. Tuned to the §14 spec (~30s) and the 10s heartbeat cadence
- * the renderer publisher uses, leaving room for a couple of missed
- * heartbeats over a flaky bridge before a surface drops off.
+ * Defensive TTL — backstop for cases where a lifeline port's
+ * `onDisconnect` is missed (extremely rare; can happen across SW
+ * eviction edges or browser bugs). Liveness is determined primarily
+ * by the connection-bound lifeline port (see `awareness-lifeline.ts`
+ * on both renderer and SW sides), so this TTL is set generously to
+ * five minutes — long enough that a normally-functioning surface
+ * never trips it, short enough that a leaked entry self-heals.
  */
-export const AWARENESS_TTL_MS = 30_000;
+export const AWARENESS_TTL_MS = 5 * 60_000;

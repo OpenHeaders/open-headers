@@ -36,6 +36,7 @@ import { getActiveRequestSyncMirror } from '@/context/request-sync-mirror';
 import { ensureScheme, needsSchemeNormalization } from '@/shared/fetch/ensure-scheme';
 import EditorHeader from './EditorHeader';
 import { readFieldPath } from '@/shared/awareness/field-path';
+import { useSurfaceIdentity } from '@/shared/awareness';
 import { REQUEST_METHOD_PATH, REQUEST_URL_PATH, tabKeyToRequestFieldPath } from './request-field-path-map';
 import { useRequestWorkflowStepContext } from './live/useRequestWorkflowStepContext';
 import AuthorizationTab from './request-editor/AuthorizationTab';
@@ -289,6 +290,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     () => (requestUid ? (requests.find((r) => r.uid === requestUid) ?? null) : null),
     [requests, requestUid],
   );
+  const identity = useSurfaceIdentity();
 
   const [draft, setDraft] = useState<Draft>(() => emptyDraft());
   const [loading, setLoading] = useState(!isCreateMode);
@@ -506,7 +508,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   // the first save assigns one.
   useAwareness({
     workspaceId,
-    surfaceId: 'workbench',
+    identity,
     entityFocus: !isCreateMode && requestUid ? { type: REQUEST_ENTITY_TYPE, id: requestUid } : null,
     fieldFocus:
       !isCreateMode && requestUid

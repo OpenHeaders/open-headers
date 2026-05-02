@@ -45,10 +45,15 @@ export {
   AWARENESS_TTL_MS,
 } from './awareness-bridge';
 export type {
+  AppKind,
   AwarenessBroadcastEvent,
   AwarenessPublishRequest,
   AwarenessPublishResponse,
   AwarenessState,
+  BrowserContext,
+  NavigationHandle,
+  PresenceIdentity,
+  SurfaceKind,
 } from './awareness-bridge';
 
 export type {

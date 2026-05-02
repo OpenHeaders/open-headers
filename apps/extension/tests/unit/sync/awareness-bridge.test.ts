@@ -1,18 +1,25 @@
 /**
- * Phase A A1 — awareness bridge handler.
- *
- * Pure adapter; verifies request → store dispatch and the response shape.
+ * Awareness bridge handler — pure adapter; verifies request → store
+ * dispatch and the response shape.
  */
 
-import type { AwarenessPublishRequest, AwarenessState } from '@openheaders/core/protocol';
+import type { AwarenessPublishRequest, AwarenessState, PresenceIdentity } from '@openheaders/core/protocol';
 import { describe, expect, it, vi } from 'vitest';
 import { type AwarenessStore, createAwarenessStore } from '@/background/sync/awareness';
 import { handleAwarenessPublish } from '@/background/sync/awareness-bridge';
 
+function identity(): PresenceIdentity {
+  return {
+    instanceId: 'workbench-1',
+    surfaceKind: 'workbench',
+    appId: 'extension',
+    label: 'Workbench',
+  };
+}
+
 function state(): AwarenessState {
   return {
-    surfaceId: 'workbench',
-    deviceId: 'd1',
+    identity: identity(),
     entityFocus: { type: 'rule', id: 'r1' },
     fieldFocus: null,
     dirtyFields: [],

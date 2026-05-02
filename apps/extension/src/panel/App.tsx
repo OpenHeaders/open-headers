@@ -1,6 +1,7 @@
 import 'allotment/dist/style.css';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { AwarenessIdentityProvider, resolveDevPanelIdentity } from '@/shared/awareness';
 import type { BottomPanelAlignment, DockSlot, SidebarLayoutVariant } from '@/shared/dock-layout';
 import {
   createShellEventBus,
@@ -108,17 +109,25 @@ function getPanelSizes() {
 
 // ── App (provides the event bus context) ─────────────────────────────
 
+// Per-panel identity. Each DevTools panel page is its own JS realm, so
+// the resolver runs once per panel lifetime. Navigation handle resolves
+// the inspected tab so other surfaces can switch the user back to the
+// page whose DevTools hosts this panel.
+const devPanelIdentity = resolveDevPanelIdentity();
+
 export default function App() {
   return (
-    <ShellEventBusContext.Provider value={busHandle.bus}>
-      <EnvSwitcherProvider>
-        <VariablePopoverProvider>
-          <RulePopoverProvider>
-            <PanelContent />
-          </RulePopoverProvider>
-        </VariablePopoverProvider>
-      </EnvSwitcherProvider>
-    </ShellEventBusContext.Provider>
+    <AwarenessIdentityProvider value={devPanelIdentity}>
+      <ShellEventBusContext.Provider value={busHandle.bus}>
+        <EnvSwitcherProvider>
+          <VariablePopoverProvider>
+            <RulePopoverProvider>
+              <PanelContent />
+            </RulePopoverProvider>
+          </VariablePopoverProvider>
+        </EnvSwitcherProvider>
+      </ShellEventBusContext.Provider>
+    </AwarenessIdentityProvider>
   );
 }
 

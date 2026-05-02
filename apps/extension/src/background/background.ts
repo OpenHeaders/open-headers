@@ -88,7 +88,8 @@ import { initRecordingSync } from './modules/recording-sync';
 import { setupRequestMonitoring } from './modules/request-monitor';
 import { markBootPhase } from './sync/boot-telemetry';
 import { attachGlobalWorkspaceCoordRunner, initGlobalSyncService } from './sync/global-service';
-import { initSyncService, reinitForWorkspace } from './sync/service';
+import { setupAwarenessLifelinePorts } from './sync/awareness-lifeline';
+import { initSyncService, reinitForWorkspace, removeAwarenessByInstanceId } from './sync/service';
 import { applyExternalSnapshot as applyRequestScriptsReviewSnapshot } from './modules/request-scripts-review-store';
 import {
   bridgeRequestCollectionSyncEngine,
@@ -374,6 +375,7 @@ async function initializeExtension(): Promise<void> {
   setupDelayBypassCleanup();
   setupTestRunnerPorts();
   setupDevtoolsInspectorPorts();
+  setupAwarenessLifelinePorts(removeAwarenessByInstanceId);
   setupOnRuleMatchedDebugBridge();
 
   // Broadcast rule changes to all open extension pages (popup, workspace)

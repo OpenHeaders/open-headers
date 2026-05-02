@@ -1,127 +1,117 @@
 /**
- * Awareness publisher hook (Phase A A1).
+ * Awareness publisher hook — surface-coordinated.
  *
- * Renderer surfaces report `(entityFocus, fieldFocus, dirtyFields)` to
- * the SW awareness store; the SW prunes by HLC TTL and re-broadcasts
- * canonical presence. This hook owns publish-on-change + a heartbeat
- * timer (~10s) so a focused surface keeps its slot alive even when the
- * user is reading rather than typing.
+ * This hook does NOT publish to the SW directly and does NOT own any
+ * port. It registers a slot with the surface's
+ * {@link AwarenessCoordinator} (lives next to the identity in the
+ * provider) and updates that slot whenever the editor's focus / dirty
+ * state changes. The coordinator picks the most-recently-active slot
+ * across all editors mounted in the surface and is the sole publisher
+ * to the SW.
  *
- * The hook does NOT consume the broadcast — that's
- * {@link awareness-mirror.ts}. Splitting publisher and reader keeps a
- * single source of truth for the SW round-trip and prevents loops.
+ * Why coordinator-mediated: a surface's awareness row in the SW is a
+ * single record. Multiple editors mounted concurrently in one
+ * workbench page (dock layout) would race on last-write-wins if they
+ * each published independently, and an unmounting editor would leave
+ * its stale claim behind (other surfaces' badges would keep counting
+ * it). The coordinator gives the surface a single voice.
  *
- * Sensitive entities (§14.4): the hook trusts the SW to scrub
- * `fieldFocus` for sensitive types. Surfaces don't need to special-case
- * Vault / OAuth themselves.
+ * Sensitive entities (§14.4): the SW scrubs `fieldFocus` for sensitive
+ * types at the boundary, so surfaces don't need to special-case Vault
+ * / OAuth themselves.
  */
 
-import { type HLC } from '@openheaders/core/sync';
 import { useEffect, useRef } from 'react';
-import { call } from '@utils/bridge';
-import { logger } from '@utils/logger';
-import { ensureRendererContext } from '@/context/renderer-mutator-context';
+import { useAwarenessCoordinator } from '@/shared/awareness/IdentityContext';
+import type { SurfaceIdentityHandle } from '@/shared/awareness/surface-identity';
+import { useTabActive } from '@/shared/awareness/TabActiveContext';
 
 export interface UseAwarenessOptions {
   workspaceId: string | null;
-  /** Stable per-surface id (`workbench`, `popup`, `devpanel`). */
-  surfaceId: string;
+  /** Identity envelope for this surface — built once at mount via the
+   *  per-surface resolver. */
+  identity: SurfaceIdentityHandle;
   entityFocus: { type: string; id: string } | null;
   fieldFocus: { type: string; id: string; path: string } | null;
   dirtyFields: string[];
   /**
    * Pause the publisher (the surface is unmounted / hidden / paused).
-   * Defaults to true. When false the hook neither publishes nor
-   * heartbeats; the SW's TTL prunes the surface naturally.
+   * Defaults to true. When false the hook neither registers a slot
+   * nor updates it; the coordinator advertises whatever the other
+   * (still-enabled) editors are claiming.
    */
   enabled?: boolean;
-  /** Heartbeat cadence in ms. Default 10s; SW TTL is 30s. */
-  heartbeatMs?: number;
-}
-
-const DEFAULT_HEARTBEAT_MS = 10_000;
-
-function snapshotKey(opts: UseAwarenessOptions): string {
-  return JSON.stringify({
-    e: opts.entityFocus,
-    f: opts.fieldFocus,
-    d: [...opts.dirtyFields].sort(),
-  });
+  /**
+   * Descriptive label this surface should advertise. Surfaces compose
+   * it with entity context — e.g. `"Workbench — Rule X"`. Updates
+   * propagate via the coordinator's label-change subscription.
+   * Optional: omitted leaves whatever the resolver minted in place
+   * (typically `document.title`).
+   */
+  label?: string;
 }
 
 export function useAwareness(opts: UseAwarenessOptions): void {
-  const lastSentRef = useRef<string | null>(null);
-  const lastWorkspaceRef = useRef<string | null>(null);
-  const enabled = opts.enabled !== false;
+  // The surface should claim presence on an entity ONLY when the
+  // user is actively viewing that editor — i.e. when this part of
+  // the React tree sits in the dock-layout's active tab. Inside a
+  // hidden tab pane (`display: none`), the editor is mounted but the
+  // user has switched away; its claim should not contribute to other
+  // surfaces' badge counts. The `useTabActive()` context defaults to
+  // `true` outside any TabPanel ancestor, which is the right default
+  // for surfaces without inner tabs (popup, sidepanel, devpanel).
+  const tabActive = useTabActive();
+  const enabled = opts.enabled !== false && tabActive;
+  const coordinator = useAwarenessCoordinator();
 
-  // Stash the latest options on a ref so the heartbeat closure picks
-  // up the freshest values without a re-bind on every render.
-  const liveRef = useRef(opts);
-  liveRef.current = opts;
+  // Optional manual label override. The default label source is live
+  // (document.title for own-tab surfaces, chrome.tabs.get for the
+  // inspected tab in DevTools panels).
+  if (opts.label !== undefined) {
+    opts.identity.setLabel(opts.label);
+  }
+
+  // Track the slot across renders; we only register/unregister on
+  // mount-or-disable changes, and just `update()` on field changes.
+  const slotRef = useRef<ReturnType<typeof coordinator.register> | null>(null);
 
   useEffect(() => {
-    if (!enabled) return;
-    const { workspaceId, surfaceId } = opts;
-    if (!workspaceId) return;
-
-    // Workspace switch resets the cache so the first publish on the
-    // new workspace always lands.
-    if (lastWorkspaceRef.current !== workspaceId) {
-      lastSentRef.current = null;
-      lastWorkspaceRef.current = workspaceId;
+    if (!enabled || !opts.workspaceId) {
+      slotRef.current?.unregister();
+      slotRef.current = null;
+      return;
     }
-
-    const ctx = ensureRendererContext({ workspaceId, surfaceId });
-
-    const publish = (): void => {
-      const live = liveRef.current;
-      if (live.workspaceId !== workspaceId) return;
-      const key = snapshotKey(live);
-      // Always re-issue on heartbeat (lastActivityHlc moves), but skip
-      // intermediate same-value publishes that fire in dense renders.
-      // The heartbeat path resets `lastSentRef` to null so it never
-      // dedups a heartbeat against the previous publish.
-      if (lastSentRef.current === key) return;
-      lastSentRef.current = key;
-
-      const hlc: HLC = ctx.next().hlc;
-      void call('oh.awareness.publish', {
-        workspaceId,
-        state: {
-          surfaceId,
-          deviceId: ctx.nodeId,
-          entityFocus: live.entityFocus,
-          fieldFocus: live.fieldFocus,
-          dirtyFields: [...live.dirtyFields],
-          lastActivityHlc: hlc,
-        },
-      }).catch((err: Error) => {
-        logger.info('useAwareness', `publish failed: ${err.message}`);
-      });
-    };
-
-    publish();
-
-    const heartbeat = window.setInterval(() => {
-      lastSentRef.current = null;
-      publish();
-    }, opts.heartbeatMs ?? DEFAULT_HEARTBEAT_MS);
-
+    const slot = coordinator.register({
+      workspaceId: opts.workspaceId,
+      entityFocus: opts.entityFocus,
+      fieldFocus: opts.fieldFocus,
+      dirtyFields: opts.dirtyFields,
+    });
+    slotRef.current = slot;
     return () => {
-      window.clearInterval(heartbeat);
+      slot.unregister();
+      slotRef.current = null;
     };
+    // Register/unregister on enable + workspace boundary; field
+    // changes flow through the separate `update()` effect below.
+  }, [enabled, opts.workspaceId, coordinator]);
+
+  useEffect(() => {
+    if (!enabled || !opts.workspaceId) return;
+    slotRef.current?.update({
+      workspaceId: opts.workspaceId,
+      entityFocus: opts.entityFocus,
+      fieldFocus: opts.fieldFocus,
+      dirtyFields: opts.dirtyFields,
+    });
   }, [
     enabled,
     opts.workspaceId,
-    opts.surfaceId,
     opts.entityFocus?.type,
     opts.entityFocus?.id,
     opts.fieldFocus?.type,
     opts.fieldFocus?.id,
     opts.fieldFocus?.path,
     opts.dirtyFields.join('\x1f'),
-    opts.heartbeatMs,
-    // `opts` reference itself isn't a dep — we mirror the relevant
-    // fields. `liveRef` always carries the latest copy for callbacks.
   ]);
 }

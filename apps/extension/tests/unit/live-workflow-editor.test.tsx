@@ -85,6 +85,8 @@ vi.mock('@hooks/useLiveCache', () => ({
 
 // Importing after vi.mock so the mocked hook modules resolve first.
 const { default: LiveWorkflowEditor } = await import('@/workbench/components/live/LiveWorkflowEditor');
+const { AwarenessIdentityProvider, resolveWorkbenchIdentity } = await import('@/shared/awareness');
+const testIdentity = resolveWorkbenchIdentity();
 
 afterEach(() => {
   cleanup();
@@ -94,7 +96,9 @@ describe('LiveWorkflowEditor — show-but-disable', () => {
   it('renders the "Run independent steps in parallel" Switch as disabled + unchecked', () => {
     render(
       <App>
-        <LiveWorkflowEditor mode="edit" workflowUid={workflowFixture.uid} />
+        <AwarenessIdentityProvider value={testIdentity}>
+          <LiveWorkflowEditor mode="edit" workflowUid={workflowFixture.uid} />
+        </AwarenessIdentityProvider>
       </App>,
     );
 

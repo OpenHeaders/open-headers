@@ -29,6 +29,7 @@ import type { V5 } from '@openheaders/core/types';
 import { Alert, App, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo } from 'react';
+import { useSurfaceIdentity } from '@/shared/awareness';
 import { useDirtyDraft } from '../hooks/useDirtyDraft';
 import EditorHeader from './EditorHeader';
 import VariableTable from './panels/VariableTable';
@@ -62,6 +63,7 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
   const { vault } = useEnvironments();
   const { replaceVault } = useVariableMutator();
   const workspaceId = useActiveWorkspaceId();
+  const identity = useSurfaceIdentity();
 
   const serverDraft = useMemo<V5.VaultSecret[]>(() => [...vault.secrets], [vault]);
   const { draft, setDraft, isDirty, markPersisted } = useDirtyDraft<V5.VaultSecret[]>({
@@ -75,7 +77,7 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
   // entity type even if a surface tries to publish it.
   useAwareness({
     workspaceId,
-    surfaceId: SURFACE_ID,
+    identity,
     entityFocus: { type: VAULT_ENTITY_TYPE, id: VAULT_ID },
     fieldFocus: null,
     dirtyFields: isDirty ? ['*'] : [],

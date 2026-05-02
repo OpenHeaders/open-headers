@@ -49,7 +49,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePopoverPlacement } from '@/shared/use-popover-placement';
 import { openWorkspace } from '@/shared/workspace-intent';
 import type { RuleSnapshotHeaderMod } from '@/types/telemetry';
-import { FieldPresenceChip, PresenceBadge, RULE_FIELD } from '@/shared/awareness';
+import { PresenceBadge, RULE_FIELD, useLocalInstanceId, useSurfaceIdentity } from '@/shared/awareness';
 import { buildRuleIcon } from '@/workbench/components/shared/rule-icon';
 import { TemplateInput } from '@/workbench/components/template-input';
 import { buildChordsFromEvent, useShortcutLabel } from '@/workbench/hooks/useWorkspaceShortcuts';
@@ -340,6 +340,8 @@ export function RuleHoverPopover({
   const { rules, localCollections } = useRules();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useRuleMutator({ workspaceId, surfaceId: 'devpanel' });
+  const identity = useSurfaceIdentity();
+  const localInstanceId = useLocalInstanceId();
 
   const ctx = ruleCtxFromAttribution(attribution);
 
@@ -403,7 +405,7 @@ export function RuleHoverPopover({
   }, [focusedField, headerModIndex, target]);
   useAwareness({
     workspaceId,
-    surfaceId: 'devpanel',
+    identity,
     entityFocus: liveRuleUid ? { type: RULE_ENTITY_TYPE, id: liveRuleUid } : null,
     fieldFocus: liveRuleUid && fieldPath ? { type: RULE_ENTITY_TYPE, id: liveRuleUid, path: fieldPath } : null,
     dirtyFields: draftDirty && fieldPath ? [fieldPath] : [],
@@ -586,7 +588,7 @@ export function RuleHoverPopover({
           {ruleName}
         </span>
         {liveRuleUid && (
-          <PresenceBadge entityType={RULE_ENTITY_TYPE} entityId={liveRuleUid} excludeSurfaceId="devpanel" />
+          <PresenceBadge entityType={RULE_ENTITY_TYPE} entityId={liveRuleUid} excludeInstanceId={localInstanceId} />
         )}
         {!ruleDeleted && ctx?.edited && (
           <Tag color="gold" style={{ marginInlineEnd: 0, fontSize: 10 }}>

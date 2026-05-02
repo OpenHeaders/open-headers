@@ -34,7 +34,7 @@ import type { MenuProps } from 'antd';
 import { Alert, App, Button, Dropdown, Form, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PresenceBadge } from '@/shared/awareness';
+import { PresenceBadge, useLocalInstanceId, useSurfaceIdentity } from '@/shared/awareness';
 import { applyRuleCreate, applyRulePublish } from '@/shared/sync/rule-write-client';
 import { buildDraftConditions } from '../draft-conditions';
 import { useInspectorNav } from '../hooks/useInspectorNav';
@@ -107,6 +107,8 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   const { openDocs } = useInspectorNav();
   const { rules, activeWorkspaceId, localCollections, templates: userTemplates, templateCollectionTrees } = useRules();
   const mutator = useRuleMutator({ workspaceId: activeWorkspaceId, surfaceId: 'workbench' });
+  const identity = useSurfaceIdentity();
+  const localInstanceId = useLocalInstanceId();
   const [form] = Form.useForm();
   const [_saving, setSaving] = useState(false);
   const [saveAsTemplateOpen, setSaveAsTemplateOpen] = useState(false);
@@ -213,7 +215,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 
   useAwareness({
     workspaceId: activeWorkspaceId,
-    surfaceId: 'workbench',
+    identity,
     entityFocus,
     fieldFocus,
     dirtyFields,
@@ -919,7 +921,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       <PresenceBadge
         entityType={RULE_ENTITY_TYPE}
         entityId={ruleUid}
-        excludeSurfaceId="workbench"
+        excludeInstanceId={localInstanceId}
         style={{ marginLeft: 6 }}
       />
     </>
@@ -1078,7 +1080,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                       reqCount={headerReqCount}
                       resCount={headerResCount}
                       ruleUid={ruleUid}
-                      surfaceId="workbench"
+                      excludeInstanceId={localInstanceId}
                       getConflict={conflicts.getConflict}
                       onAcceptTheirs={conflicts.acceptTheirs}
                       onDismissConflict={conflicts.dismiss}

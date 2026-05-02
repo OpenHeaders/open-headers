@@ -14,6 +14,7 @@ import type { V5 } from '@openheaders/core/types';
 import { App, Checkbox, Form, Input, Select, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSurfaceIdentity } from '@/shared/awareness';
 import ConditionEditor from './ConditionEditor';
 import { mapAntdIdToTemplateFieldPath } from './template-field-path-map';
 import { ActionValueBanner } from './rule-fields/ActionValueBanner';
@@ -60,6 +61,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
   const [headerResCount, setHeaderResCount] = useState(0);
 
   const template = templates.find((t) => t.uid === templateUid);
+  const identity = useSurfaceIdentity();
   // Template rule type is fixed at creation — the Select is rendered
   // disabled below, and there's no code path that changes it. Derive
   // straight from the template record so the first render is correct.
@@ -185,7 +187,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
 
   useAwareness({
     workspaceId,
-    surfaceId: 'workbench',
+    identity,
     entityFocus: template ? { type: TEMPLATE_ENTITY_TYPE, id: template.uid } : null,
     fieldFocus,
     dirtyFields: isDirty ? ['*'] : [],
