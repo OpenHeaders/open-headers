@@ -30,6 +30,7 @@ import { useEnvironments } from '@hooks/useEnvironments';
 import { useAllLiveCaches } from '@hooks/useLiveCache';
 import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
+import { isLiveVariableDraft } from '@openheaders/core/live';
 import { App, Button, Empty, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
@@ -226,6 +227,9 @@ const LiveVariablesEditor: React.FC<LiveVariablesEditorProps> = ({
                       >
                         {lv.name}
                       </span>
+                      {isLiveVariableDraft(lv) && (
+                        <span style={{ fontSize: 9, color: token.colorTextTertiary }}>draft</span>
+                      )}
                       {!lv.enabled && <span style={{ fontSize: 9, color: token.colorTextTertiary }}>off</span>}
                       {overrideActive && <span style={{ fontSize: 9, color: token.colorWarning }}>override</span>}
                     </div>

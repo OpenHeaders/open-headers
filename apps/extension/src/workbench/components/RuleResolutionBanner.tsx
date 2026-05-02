@@ -28,6 +28,7 @@ import { useAllLiveCaches } from '@hooks/useLiveCache';
 import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { useRules } from '@hooks/useRules';
+import { isLiveVariableDraft, isLiveVariableEffective } from '@openheaders/core/live';
 import type { ResolutionError } from '@openheaders/core/variables';
 import { VariableResolver } from '@openheaders/core/variables';
 import { Alert, Form, Space, Tag, Typography } from 'antd';
@@ -76,7 +77,7 @@ const RuleResolutionBanner: React.FC<RuleResolutionBannerProps> = ({ collectionI
       { value: string; expiresAt: number | null; stale: boolean; workflowUid: string }
     >();
     for (const lv of liveVariables) {
-      if (!lv.enabled) continue;
+      if (!isLiveVariableEffective(lv)) continue;
       if (lv.manualOverride) {
         const activeOverride = lv.manualOverride.until === undefined || lv.manualOverride.until > nowMs;
         if (activeOverride) {
@@ -118,7 +119,10 @@ const RuleResolutionBanner: React.FC<RuleResolutionBannerProps> = ({ collectionI
    * hint doesn't tell them which lever to pull.
    */
   const liveDiagnostics = useMemo(() => {
-    const out = new Map<string, { kind: 'no-cache-for-env' | 'unknown-lv' | 'disabled-lv'; envName: string }>();
+    const out = new Map<
+      string,
+      { kind: 'no-cache-for-env' | 'unknown-lv' | 'disabled-lv' | 'draft-lv'; envName: string }
+    >();
     const envName =
       activeEnvironmentId === null
         ? 'No environment'
@@ -126,12 +130,16 @@ const RuleResolutionBanner: React.FC<RuleResolutionBannerProps> = ({ collectionI
     for (const lv of liveVariables) {
       const runs = liveCaches[lv.workflowUid] ?? [];
       const hasActiveEnvRun = runs.some((r) => r.environmentId === activeEnvironmentId);
-      if (hasActiveEnvRun) continue; // resolves cleanly
+      if (hasActiveEnvRun && isLiveVariableEffective(lv)) continue; // resolves cleanly
+      if (isLiveVariableDraft(lv)) {
+        out.set(lv.name, { kind: 'draft-lv', envName });
+        continue;
+      }
       if (!lv.enabled) {
         out.set(lv.name, { kind: 'disabled-lv', envName });
         continue;
       }
-      // LV is enabled, no row for active env — actionable refresh hint.
+      // LV is effective, no row for active env — actionable refresh hint.
       out.set(lv.name, { kind: 'no-cache-for-env', envName });
     }
     return out;
@@ -205,7 +213,9 @@ const RuleResolutionBanner: React.FC<RuleResolutionBannerProps> = ({ collectionI
                 ? `no cached run for env "${liveDx.envName}" — open the workflow and click Refresh under this env to populate`
                 : liveDx?.kind === 'disabled-lv'
                   ? `live variable is disabled — enable it in the Live Variables editor`
-                  : err.hint;
+                  : liveDx?.kind === 'draft-lv'
+                    ? `live variable is a draft — open it and click Save to publish`
+                    : err.hint;
             return (
               <div key={err.reference} style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
                 <Tag color="warning" style={{ fontSize: 10, marginTop: 2, minWidth: 88, textAlign: 'center' }}>

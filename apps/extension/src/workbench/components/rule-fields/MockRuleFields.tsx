@@ -21,10 +21,12 @@
 import { CloseOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { Alert, AutoComplete, Button, Form, Input, Radio, Select, Typography } from 'antd';
 import type React from 'react';
+import { RULE_FIELD } from '@/shared/awareness';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import CodeEditor from '../CodeEditor';
 import { getDocId } from '../InspectorDocs';
 import { TemplateInput } from '../template-input';
+import { RuleField } from './RuleField';
 import ScalarConflictChip from './ScalarConflictChip';
 import type { ConflictBridge } from './use-rule-conflicts';
 
@@ -178,12 +180,14 @@ const MockRuleFields: React.FC<MockRuleFieldsProps> = ({ conflicts }) => {
         <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
           Select Resource Type
         </Text>
-        <Form.Item name="mockResourceType" style={{ marginBottom: 0 }}>
-          <Radio.Group>
-            <Radio value="rest">REST API</Radio>
-            <Radio value="graphql">GraphQL API</Radio>
-          </Radio.Group>
-        </Form.Item>
+        <RuleField path={RULE_FIELD.bodyResourceType}>
+          <Form.Item name="mockResourceType" style={{ marginBottom: 0 }}>
+            <Radio.Group>
+              <Radio value="rest">REST API</Radio>
+              <Radio value="graphql">GraphQL API</Radio>
+            </Radio.Group>
+          </Form.Item>
+        </RuleField>
       </div>
 
       {/* GraphQL Operation filter — shown only when resourceType === 'graphql'. */}
@@ -202,21 +206,27 @@ const MockRuleFields: React.FC<MockRuleFieldsProps> = ({ conflicts }) => {
                 />
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <Form.Item name="mockGraphqlKey" style={{ marginBottom: 0, flex: 1 }}>
-                  <Input size="small" placeholder="Key e.g. operationName" />
-                </Form.Item>
-                <Form.Item name="mockGraphqlOperator" style={{ marginBottom: 0, width: 120 }}>
-                  <Select
-                    size="small"
-                    options={[
-                      { value: 'Equals', label: 'Equals' },
-                      { value: 'Contains', label: 'Contains' },
-                    ]}
-                  />
-                </Form.Item>
-                <Form.Item name="mockGraphqlValue" style={{ marginBottom: 0, flex: 1 }}>
-                  <Input size="small" placeholder="value e.g. getUsers" />
-                </Form.Item>
+                <RuleField path={RULE_FIELD.graphqlKey}>
+                  <Form.Item name="mockGraphqlKey" style={{ marginBottom: 0, flex: 1 }}>
+                    <Input size="small" placeholder="Key e.g. operationName" />
+                  </Form.Item>
+                </RuleField>
+                <RuleField path={RULE_FIELD.graphqlOperator}>
+                  <Form.Item name="mockGraphqlOperator" style={{ marginBottom: 0, width: 120 }}>
+                    <Select
+                      size="small"
+                      options={[
+                        { value: 'Equals', label: 'Equals' },
+                        { value: 'Contains', label: 'Contains' },
+                      ]}
+                    />
+                  </Form.Item>
+                </RuleField>
+                <RuleField path={RULE_FIELD.graphqlValue}>
+                  <Form.Item name="mockGraphqlValue" style={{ marginBottom: 0, flex: 1 }}>
+                    <Input size="small" placeholder="value e.g. getUsers" />
+                  </Form.Item>
+                </RuleField>
                 <Button
                   type="link"
                   size="small"
@@ -241,20 +251,22 @@ const MockRuleFields: React.FC<MockRuleFieldsProps> = ({ conflicts }) => {
           Response Status Code
         </Text>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Form.Item name="mockStatusCode" style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
-            <Select
-              allowClear={{ clearIcon: <span style={{ fontSize: 12, padding: '0 4px' }}>✕</span> }}
-              showSearch
-              placeholder="Keep original status code"
-              options={[{ value: 0, label: 'Keep original status code' }, ...STATUS_CODES]}
-              style={{ width: '100%' }}
-              filterOption={(input, option) => {
-                const label = String(option?.label ?? '');
-                return label.toLowerCase().includes(input.toLowerCase());
-              }}
-            />
-          </Form.Item>
-          <ScalarConflictChip formName="mockStatusCode" schemaPath="action.statusCode" conflicts={conflicts} />
+          <RuleField path={RULE_FIELD.mockStatusCode}>
+            <Form.Item name="mockStatusCode" style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
+              <Select
+                allowClear={{ clearIcon: <span style={{ fontSize: 12, padding: '0 4px' }}>✕</span> }}
+                showSearch
+                placeholder="Keep original status code"
+                options={[{ value: 0, label: 'Keep original status code' }, ...STATUS_CODES]}
+                style={{ width: '100%' }}
+                filterOption={(input, option) => {
+                  const label = String(option?.label ?? '');
+                  return label.toLowerCase().includes(input.toLowerCase());
+                }}
+              />
+            </Form.Item>
+          </RuleField>
+          <ScalarConflictChip formName="mockStatusCode" schemaPath={RULE_FIELD.mockStatusCode} conflicts={conflicts} />
         </div>
       </div>
 
@@ -266,17 +278,19 @@ const MockRuleFields: React.FC<MockRuleFieldsProps> = ({ conflicts }) => {
         <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
           Content-Type
         </Text>
-        <Form.Item name="mockContentType" style={{ marginBottom: 0 }}>
-          <AutoComplete
-            options={CONTENT_TYPE_OPTIONS}
-            placeholder="application/json"
-            style={{ width: '100%' }}
-            filterOption={(input, option) => {
-              const value = String(option?.value ?? '');
-              return value.toLowerCase().includes(input.toLowerCase());
-            }}
-          />
-        </Form.Item>
+        <RuleField path={RULE_FIELD.mockContentType}>
+          <Form.Item name="mockContentType" style={{ marginBottom: 0 }}>
+            <AutoComplete
+              options={CONTENT_TYPE_OPTIONS}
+              placeholder="application/json"
+              style={{ width: '100%' }}
+              filterOption={(input, option) => {
+                const value = String(option?.value ?? '');
+                return value.toLowerCase().includes(input.toLowerCase());
+              }}
+            />
+          </Form.Item>
+        </RuleField>
       </div>
 
       {/* Response Headers — additional headers applied alongside Content-Type.
@@ -297,21 +311,55 @@ const MockRuleFields: React.FC<MockRuleFieldsProps> = ({ conflicts }) => {
           {(fields, { add, remove }) => (
             <>
               {fields.map((field) => (
-                <div key={field.key} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
-                  <Form.Item {...field} name={[field.name, 'name']} style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
-                    <Input size="small" placeholder="Header name (e.g. X-Custom)" />
-                  </Form.Item>
-                  <Form.Item {...field} name={[field.name, 'value']} style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
-                    <TemplateInput size="small" placeholder="Header value" />
-                  </Form.Item>
-                  <Button
-                    type="text"
-                    size="small"
-                    icon={<CloseOutlined style={{ fontSize: 10 }} />}
-                    onClick={() => remove(field.name)}
-                    style={{ color: 'var(--ant-color-text-tertiary)', flexShrink: 0 }}
-                  />
-                </div>
+                <Form.Item
+                  noStyle
+                  key={field.key}
+                  shouldUpdate={(prev, cur) =>
+                    prev.mockResponseHeaders?.[field.name]?.name !== cur.mockResponseHeaders?.[field.name]?.name
+                  }
+                >
+                  {({ getFieldValue }) => {
+                    // Mock response headers are schema-keyed by header name
+                    // (`Record<string,string>`), so the current `name`
+                    // value IS the row identity. Two surfaces editing
+                    // "X-Foo" agree on the path; a half-typed "X-Fo"
+                    // produces a transient path until the names converge.
+                    const headerName = String(getFieldValue(['mockResponseHeaders', field.name, 'name']) ?? '');
+                    const wrap = (leaf: 'name' | 'value', child: React.ReactNode) =>
+                      headerName ? <RuleField path={RULE_FIELD.mockHeader(headerName, leaf)}>{child}</RuleField> : child;
+                    return (
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+                        {wrap(
+                          'name',
+                          <Form.Item
+                            {...field}
+                            name={[field.name, 'name']}
+                            style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
+                          >
+                            <Input size="small" placeholder="Header name (e.g. X-Custom)" />
+                          </Form.Item>,
+                        )}
+                        {wrap(
+                          'value',
+                          <Form.Item
+                            {...field}
+                            name={[field.name, 'value']}
+                            style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
+                          >
+                            <TemplateInput size="small" placeholder="Header value" />
+                          </Form.Item>,
+                        )}
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<CloseOutlined style={{ fontSize: 10 }} />}
+                          onClick={() => remove(field.name)}
+                          style={{ color: 'var(--ant-color-text-tertiary)', flexShrink: 0 }}
+                        />
+                      </div>
+                    );
+                  }}
+                </Form.Item>
               ))}
               <Button type="dashed" size="small" icon={<PlusOutlined />} onClick={() => add({ name: '', value: '' })}>
                 Add Header
@@ -326,21 +374,23 @@ const MockRuleFields: React.FC<MockRuleFieldsProps> = ({ conflicts }) => {
           <Text strong style={{ fontSize: 12 }}>
             Response Body
           </Text>
-          <Form.Item name="mockBodyType" style={{ marginBottom: 0 }}>
-            <Radio.Group size="small">
-              <Radio.Button value="static">Static Data</Radio.Button>
-              <Radio.Button value="dynamic">
-                Dynamic (JavaScript){' '}
-                <InfoCircleOutlined
-                  style={{ fontSize: 11, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openDocs(getDocId('mock-dynamic', 'action'));
-                  }}
-                />
-              </Radio.Button>
-            </Radio.Group>
-          </Form.Item>
+          <RuleField path={RULE_FIELD.mockBodyType}>
+            <Form.Item name="mockBodyType" style={{ marginBottom: 0 }}>
+              <Radio.Group size="small">
+                <Radio.Button value="static">Static Data</Radio.Button>
+                <Radio.Button value="dynamic">
+                  Dynamic (JavaScript){' '}
+                  <InfoCircleOutlined
+                    style={{ fontSize: 11, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openDocs(getDocId('mock-dynamic', 'action'));
+                    }}
+                  />
+                </Radio.Button>
+              </Radio.Group>
+            </Form.Item>
+          </RuleField>
         </div>
 
         {/* Dynamic info banner + the static/dynamic CodeEditor swap — both
@@ -371,30 +421,34 @@ const MockRuleFields: React.FC<MockRuleFieldsProps> = ({ conflicts }) => {
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
                       <ScalarConflictChip
                         formName="mockDynamicBody"
-                        schemaPath="action.responseBody"
+                        schemaPath={RULE_FIELD.mockResponseBody}
                         conflicts={conflicts}
                       />
                     </div>
-                    <Form.Item name="mockDynamicBody" style={{ marginBottom: 0 }}>
-                      <CodeEditor language="javascript" minHeight={240} />
-                    </Form.Item>
+                    <RuleField path={RULE_FIELD.mockResponseBody}>
+                      <Form.Item name="mockDynamicBody" style={{ marginBottom: 0 }}>
+                        <CodeEditor language="javascript" minHeight={240} />
+                      </Form.Item>
+                    </RuleField>
                   </>
                 ) : (
                   <>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
                       <ScalarConflictChip
                         formName="mockStaticBody"
-                        schemaPath="action.responseBody"
+                        schemaPath={RULE_FIELD.mockResponseBody}
                         conflicts={conflicts}
                       />
                     </div>
-                    <Form.Item name="mockStaticBody" style={{ marginBottom: 0 }}>
-                      <CodeEditor
-                        language="json"
-                        placeholder={'{"message": "custom response", "data": []}'}
-                        minHeight={160}
-                      />
-                    </Form.Item>
+                    <RuleField path={RULE_FIELD.mockResponseBody}>
+                      <Form.Item name="mockStaticBody" style={{ marginBottom: 0 }}>
+                        <CodeEditor
+                          language="json"
+                          placeholder={'{"message": "custom response", "data": []}'}
+                          minHeight={160}
+                        />
+                      </Form.Item>
+                    </RuleField>
                   </>
                 )}
               </>

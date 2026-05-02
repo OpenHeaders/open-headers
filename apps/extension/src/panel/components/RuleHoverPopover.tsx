@@ -392,17 +392,17 @@ export function RuleHoverPopover({
   // identifiable target the popover is read-only summary only — no
   // awareness signal needed.
   const liveRuleUid = liveRule?.uid ?? null;
-  const headerModIndex = useMemo<number | null>(() => {
-    if (!headerRule || !target || !currentMod) return null;
-    const list =
-      target.direction === 'request' ? headerRule.action.requestHeaders : headerRule.action.responseHeaders;
-    const idx = list.indexOf(currentMod);
-    return idx === -1 ? null : idx;
-  }, [headerRule, target, currentMod]);
+  // Devpanel popover edits one specific header mod. Identity is the mod's
+  // persisted uid (stable through reorders / list mutations the user might
+  // make in the workbench at the same time). The path the popover
+  // publishes must match the path the workbench publishes for the same
+  // row — both consume the same `RULE_FIELD.headerMod(direction, uid, ...)`
+  // shape.
+  const headerModUid = currentMod?.uid ?? null;
   const fieldPath = useMemo<string | null>(() => {
-    if (focusedField === null || headerModIndex === null || !target) return null;
-    return RULE_FIELD.headerMod(target.direction, headerModIndex, focusedField);
-  }, [focusedField, headerModIndex, target]);
+    if (focusedField === null || !headerModUid || !target) return null;
+    return RULE_FIELD.headerMod(target.direction, headerModUid, focusedField);
+  }, [focusedField, headerModUid, target]);
   useAwareness({
     workspaceId,
     identity,

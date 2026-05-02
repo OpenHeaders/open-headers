@@ -30,6 +30,7 @@ export type LiveWorkflowScalarPath =
   | 'steps'
   | 'refresh'
   | 'enabled'
+  | 'published'
   | 'parallelExecution';
 
 export interface SetLiveWorkflowFieldArgs {

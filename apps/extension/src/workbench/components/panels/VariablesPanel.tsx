@@ -36,6 +36,7 @@ import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
+import { isLiveVariableEffective } from '@openheaders/core/live';
 import type { V5 } from '@openheaders/core/types';
 import type { ResolutionError } from '@openheaders/core/variables';
 import { VariableResolver } from '@openheaders/core/variables';
@@ -305,7 +306,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({
       { value: string; expiresAt: number | null; stale: boolean; workflowUid: string }
     >();
     for (const lv of liveVariables) {
-      if (!lv.enabled) continue;
+      if (!isLiveVariableEffective(lv)) continue;
       if (lv.manualOverride) {
         const activeOverride = lv.manualOverride.until === undefined || lv.manualOverride.until > nowMs;
         if (activeOverride) {
@@ -551,7 +552,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({
       resolved: v.value !== '',
     }));
     const liveList: DisplayVariable[] = liveVariables
-      .filter((lv) => lv.enabled)
+      .filter((lv) => isLiveVariableEffective(lv))
       .map((lv) => {
         const entry = liveRegistry.get(lv.name);
         return {

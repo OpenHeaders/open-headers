@@ -1,4 +1,5 @@
 import { CheckCircleOutlined, FolderOpenOutlined, FolderOutlined, PlusOutlined, StopOutlined } from '@ant-design/icons';
+import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { hasNestedPauseMarkers, isRuleComplete, type PauseMarkers } from '@openheaders/core/utils';
 import { useCallback, useMemo } from 'react';
@@ -217,6 +218,13 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
               p.confirmDelete(node.name, () => {
                 p.onDeleteRule?.(node.uid);
               }),
+            // Awareness identity for the rule leaf — TreeNodeRow wraps
+            // the inline-rename input with `<EntityField path="name">`
+            // when present, so renaming a rule from the sidebar
+            // publishes presence on the same path the editor / breadcrumb
+            // consume. Future entity types populate this in their
+            // respective `useXTreeNodes` hooks.
+            awareness: { entityType: RULE_ENTITY_TYPE, entityId: node.uid },
             ...exportNodeFields({ kind: 'rule', uid: node.uid, name: node.name }, p.onExportEntity),
           });
         }

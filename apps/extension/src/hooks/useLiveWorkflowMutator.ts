@@ -9,6 +9,7 @@ import type { V5 } from '@openheaders/core/types';
 import {
   applyLiveWorkflowCreate,
   applyLiveWorkflowDelete,
+  applyLiveWorkflowPublish,
   applyLiveWorkflowUpdate,
   type LiveWorkflowMutationResult,
   type LiveWorkflowSimpleResult,
@@ -23,12 +24,18 @@ export interface UseLiveWorkflowMutatorOptions {
   surfaceId: string;
 }
 
+export type LiveWorkflowSeed = Omit<V5.LiveWorkflow, 'uid' | 'path' | 'schemaVersion'>;
+
 export interface UseLiveWorkflowMutatorApi {
   updateLiveWorkflow(
     workflowUid: string,
     updates: LiveWorkflowUpdates,
   ): Promise<LiveWorkflowMutationResult>;
-  createLiveWorkflow(workflow: V5.LiveWorkflow): Promise<LiveWorkflowSimpleResult>;
+  createLiveWorkflow(request: {
+    workflow: LiveWorkflowSeed;
+    parentPath: string;
+  }): Promise<LiveWorkflowMutationResult>;
+  publishLiveWorkflow(workflowUid: string): Promise<LiveWorkflowSimpleResult>;
   deleteLiveWorkflow(workflowUid: string): Promise<LiveWorkflowSimpleResult>;
 }
 
@@ -47,7 +54,14 @@ export function useLiveWorkflowMutator(
   const createLiveWorkflow = useGuardedMutation(
     workspaceId,
     surfaceId,
-    (writeOpts, workflow: V5.LiveWorkflow) => applyLiveWorkflowCreate(workflow, writeOpts),
+    (writeOpts, request: { workflow: LiveWorkflowSeed; parentPath: string }) =>
+      applyLiveWorkflowCreate(request, writeOpts),
+  );
+
+  const publishLiveWorkflow = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, uid: string) => applyLiveWorkflowPublish(uid, writeOpts),
   );
 
   const deleteLiveWorkflow = useGuardedMutation(workspaceId, surfaceId, (writeOpts, uid: string) =>
@@ -55,7 +69,7 @@ export function useLiveWorkflowMutator(
   );
 
   return useMemo(
-    () => ({ updateLiveWorkflow, createLiveWorkflow, deleteLiveWorkflow }),
-    [updateLiveWorkflow, createLiveWorkflow, deleteLiveWorkflow],
+    () => ({ updateLiveWorkflow, createLiveWorkflow, publishLiveWorkflow, deleteLiveWorkflow }),
+    [updateLiveWorkflow, createLiveWorkflow, publishLiveWorkflow, deleteLiveWorkflow],
   );
 }

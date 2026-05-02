@@ -24,6 +24,23 @@ export interface TreeNode {
   depth: number;
   expandable: boolean;
   parentId?: string;
+  /**
+   * Awareness identity for the entity this node represents — drives the
+   * per-field presence chip beside the inline-rename input (and any
+   * future per-row awareness affordances). Tree builders for entity
+   * leaves (rules, requests, templates, workflows, live variables, envs)
+   * populate this; container nodes (collections, folders, groups) leave
+   * it absent.
+   *
+   * `entityType` strings come from `@openheaders/core/sync` (e.g.
+   * `RULE_ENTITY_TYPE`, `REQUEST_ENTITY_TYPE`, …). Adding a new entity
+   * type means populating this in the relevant `useXTreeNodes` hook —
+   * no infrastructure changes here or in `TreeNodeRow`.
+   */
+  awareness?: {
+    entityType: string;
+    entityId: string;
+  };
 
   // Rendering
   icon: React.ReactNode;

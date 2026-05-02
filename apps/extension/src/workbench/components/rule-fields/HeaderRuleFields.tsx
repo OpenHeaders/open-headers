@@ -40,13 +40,13 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { HeaderDirection } from '@openheaders/core/utils';
 import { generateUid, getHeaderOperationCapability } from '@openheaders/core/utils';
 import { Alert, Badge, Button, Form, Input, Select, Tabs, Tooltip, Typography } from 'antd';
 import type React from 'react';
-import { ConflictDiffChip, FieldPresenceChip, RULE_FIELD } from '@/shared/awareness';
+import { ConflictDiffChip, RULE_FIELD } from '@/shared/awareness';
 import type { PathConflict } from './use-rule-conflicts';
+import { RuleField } from './RuleField';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../InspectorDocs';
 import { TemplateInput } from '../template-input';
@@ -87,6 +87,12 @@ interface ModificationListProps {
 function ModificationList({ name, direction, ruleUid, excludeInstanceId, conflicts }: ModificationListProps) {
   const { openDocs: openDocsInline } = useInspectorNav();
   const form = Form.useFormInstance();
+  // Subscribe to the parent list so each row's persisted uid is available
+  // when computing canonical RULE_FIELD paths for the per-leaf
+  // `<RuleField>` wrappers. The hidden `uid` Form.Item binds it; useWatch
+  // surfaces it reactively without a per-row sub-component.
+  const rowsWatch = Form.useWatch(name, form) as Array<{ uid?: string }> | undefined;
+  const rowUidAt = (index: number): string | undefined => rowsWatch?.[index]?.uid;
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -107,7 +113,16 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, conflic
         <>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={rowIds} strategy={verticalListSortingStrategy}>
-          {fields.map((field) => (
+          {fields.map((field) => {
+            const rowUid = rowUidAt(field.name);
+            // `wrap` short-circuits to the children directly when the
+            // row's persisted uid hasn't propagated through the form
+            // yet (one-tick race during a fresh `add()`). The fallback
+            // means the input still renders; presence chips light up
+            // on the next tick once the hidden uid binding flushes.
+            const wrap = (leaf: 'headerName' | 'value' | 'operation' | 'mergeSeparator', child: React.ReactNode) =>
+              rowUid ? <RuleField path={RULE_FIELD.headerMod(direction, rowUid, leaf)}>{child}</RuleField> : child;
+            return (
             <SortableHeaderRow key={field.key} id={field.key}>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                 {/* Hidden uid binding — preserves the row's persisted
@@ -124,13 +139,16 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, conflic
                 <Form.Item {...field} name={[field.name, 'uid']} hidden noStyle>
                   <input type="hidden" />
                 </Form.Item>
-                <Form.Item
-                  {...field}
-                  name={[field.name, 'operation']}
-                  style={{ marginBottom: 0, width: 125, flexShrink: 0 }}
-                >
-                  <Select size="small" options={OPERATIONS} />
-                </Form.Item>
+                {wrap(
+                  'operation',
+                  <Form.Item
+                    {...field}
+                    name={[field.name, 'operation']}
+                    style={{ marginBottom: 0, width: 125, flexShrink: 0 }}
+                  >
+                    <Select size="small" options={OPERATIONS} />
+                  </Form.Item>,
+                )}
                 <Form.Item
                   noStyle
                   shouldUpdate={(prev, cur) =>
@@ -172,7 +190,8 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, conflic
                     // the same input was the worse UX, and template
                     // support for header names is the more frequently
                     // useful primitive.
-                    return (
+                    return wrap(
+                      'headerName',
                       <Form.Item
                         {...field}
                         name={[field.name, 'headerName']}
@@ -180,7 +199,7 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, conflic
                         validateStatus={showWarning ? 'warning' : undefined}
                       >
                         <TemplateInput size="small" placeholder="Header Name" />
-                      </Form.Item>
+                      </Form.Item>,
                     );
                   }}
                 </Form.Item>
@@ -204,68 +223,92 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, conflic
                             value="existing value"
                             style={{ marginBottom: 0, width: 105, flexShrink: 0, fontStyle: 'italic', opacity: 0.5 }}
                           />
-                          <Form.Item
-                            {...field}
-                            name={[field.name, 'mergeSeparator']}
-                            style={{ marginBottom: 0, width: 50, flexShrink: 0 }}
-                          >
-                            <Input
-                              size="small"
-                              placeholder="; "
-                              style={{ textAlign: 'center', fontFamily: 'monospace' }}
-                            />
-                          </Form.Item>
-                          <Form.Item
-                            {...field}
-                            name={[field.name, 'value']}
-                            style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
-                          >
-                            <TemplateInput size="small" placeholder="Value to append" />
-                          </Form.Item>
+                          {wrap(
+                            'mergeSeparator',
+                            <Form.Item
+                              {...field}
+                              name={[field.name, 'mergeSeparator']}
+                              style={{ marginBottom: 0, width: 50, flexShrink: 0 }}
+                            >
+                              <Input
+                                size="small"
+                                placeholder="; "
+                                style={{ textAlign: 'center', fontFamily: 'monospace' }}
+                              />
+                            </Form.Item>,
+                          )}
+                          {wrap(
+                            'value',
+                            <Form.Item
+                              {...field}
+                              name={[field.name, 'value']}
+                              style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
+                            >
+                              <TemplateInput size="small" placeholder="Value to append" />
+                            </Form.Item>,
+                          )}
                         </>
                       );
                     }
-                    return (
+                    return wrap(
+                      'value',
                       <Form.Item
                         {...field}
                         name={[field.name, 'value']}
                         style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
                       >
                         <TemplateInput size="small" placeholder="Header Value" />
-                      </Form.Item>
+                      </Form.Item>,
                     );
                   }}
                 </Form.Item>
-                {ruleUid && excludeInstanceId && (
-                  <FieldPresenceChip
-                    entityType={RULE_ENTITY_TYPE}
-                    entityId={ruleUid}
-                    fieldPath={RULE_FIELD.headerMod(direction, field.name, 'value')}
-                    excludeInstanceId={excludeInstanceId}
-                  />
-                )}
-                {ruleUid && conflicts && (
+                {/* ConflictDiffChip — free-text leaves only. The chip
+                    consumes the same RULE_FIELD path the wrapper publishes,
+                    so peer presence + diff resolution align by construction.
+                    Headed name + value get diffs; operation + mergeSeparator
+                    are short typed scalars where a banner-style "they
+                    changed it" doesn't add value beyond presence. */}
+                {ruleUid && conflicts && rowUid && (
                   <Form.Item
                     noStyle
                     shouldUpdate={(prev, cur) =>
-                      prev[name]?.[field.name]?.value !== cur[name]?.[field.name]?.value
+                      prev[name]?.[field.name]?.value !== cur[name]?.[field.name]?.value ||
+                      prev[name]?.[field.name]?.headerName !== cur[name]?.[field.name]?.headerName
                     }
                   >
                     {({ getFieldValue }) => {
+                      const valuePath = RULE_FIELD.headerMod(direction, rowUid, 'value');
+                      const namePath = RULE_FIELD.headerMod(direction, rowUid, 'headerName');
                       const localValue = String(getFieldValue([name, field.name, 'value']) ?? '');
-                      const path = RULE_FIELD.headerMod(direction, field.name, 'value');
-                      const conflict = conflicts.getConflict(path, localValue);
-                      if (!conflict) return null;
+                      const localName = String(getFieldValue([name, field.name, 'headerName']) ?? '');
+                      const valueConflict = conflicts.getConflict(valuePath, localValue);
+                      const nameConflict = conflicts.getConflict(namePath, localName);
+                      if (!valueConflict && !nameConflict) return null;
                       return (
-                        <ConflictDiffChip
-                          theirs={conflict.theirs}
-                          base={conflict.base}
-                          onTakeTheirs={() => {
-                            form.setFieldValue([name, field.name, 'value'], conflict.theirs);
-                            conflicts.onAcceptTheirs(path, conflict.theirs);
-                          }}
-                          onKeepMine={() => conflicts.onDismissConflict(path)}
-                        />
+                        <>
+                          {valueConflict && (
+                            <ConflictDiffChip
+                              theirs={valueConflict.theirs}
+                              base={valueConflict.base}
+                              onTakeTheirs={() => {
+                                form.setFieldValue([name, field.name, 'value'], valueConflict.theirs);
+                                conflicts.onAcceptTheirs(valuePath, valueConflict.theirs);
+                              }}
+                              onKeepMine={() => conflicts.onDismissConflict(valuePath)}
+                            />
+                          )}
+                          {nameConflict && (
+                            <ConflictDiffChip
+                              theirs={nameConflict.theirs}
+                              base={nameConflict.base}
+                              onTakeTheirs={() => {
+                                form.setFieldValue([name, field.name, 'headerName'], nameConflict.theirs);
+                                conflicts.onAcceptTheirs(namePath, nameConflict.theirs);
+                              }}
+                              onKeepMine={() => conflicts.onDismissConflict(namePath)}
+                            />
+                          )}
+                        </>
                       );
                     }}
                   </Form.Item>
@@ -330,7 +373,8 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, conflic
                 }}
               </Form.Item>
             </SortableHeaderRow>
-          ))}
+            );
+          })}
             </SortableContext>
           </DndContext>
           <Button

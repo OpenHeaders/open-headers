@@ -6,9 +6,26 @@
  * — no SW round-trip per write. LV is fully flat-scalar so set
  * replacement is not in scope; updates are a flat per-key `setField`
  * loop.
+ *
+ * Publication-gate symmetry with `rule-write-client`:
+ *   - `applyLiveVariableCreate` mints uid + path locally and forces
+ *     `published: false`; the binding is real from the first render
+ *     but the resolver (gated on `isLiveVariableEffective`) won't
+ *     surface the LV in `{{live.<name>}}` lookups until the user
+ *     clicks Save.
+ *   - `applyLiveVariablePublish` is the explicit Save gesture.
+ *   - `applyLiveVariableUpdate` auto-unpublishes any in-flight edit on
+ *     a previously-published LV.
  */
 
+import {
+  liveVariableInvalidateResolverIntent,
+  LIVE_VARIABLE_ENTITY_TYPE,
+  mintBatch,
+  type MutationBody,
+} from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
+import { generateUid, toFolderName } from '@openheaders/core/utils';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
@@ -47,23 +64,69 @@ export async function applyLiveVariableUpdate(
   const mirror = resolveMirror(opts, getActiveLiveVariableSyncMirror);
   const entry = mirror.getLiveVariableMirror(liveVariableUid);
   if (!entry) return { ok: false, reason: 'not-found' };
+  // Auto-unpublish on first edit of a published LV — same shape as
+  // `applyLiveWorkflowUpdate` / `applyRuleUpdate`. Atomically batches
+  // the unpublish with the user's edit so the resolver never observes
+  // a half-typed binding still flagged published.
+  const augmented: LiveVariableUpdates =
+    entry.liveVariable.published === true && updates.published === undefined
+      ? { ...updates, published: false }
+      : updates;
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  const payload = buildUpdateLiveVariableBatch(liveVariableUid, updates, ctx);
+  const payload = buildUpdateLiveVariableBatch(liveVariableUid, augmented, ctx);
   const ack = await applySyncPayload(payload);
   if (ack.ok) {
-    return { ok: true, liveVariable: { ...entry.liveVariable, ...updates } as V5.LiveVariable };
+    return { ok: true, liveVariable: { ...entry.liveVariable, ...augmented } as V5.LiveVariable };
   }
   if (ack.reason === 'not-found') return { ok: false, reason: 'not-found' };
   return { ok: false, reason: 'other', message: ack.message };
 }
 
+/**
+ * Renderer-direct LV create. Mints uid + path locally, forces
+ * `published: false`, fires the seed batch. Per-keystroke binding edits
+ * stream into a real entity from this point; explicit Save flips
+ * publication via {@link applyLiveVariablePublish}.
+ */
 export async function applyLiveVariableCreate(
-  liveVariable: V5.LiveVariable,
+  request: { liveVariable: Omit<V5.LiveVariable, 'uid' | 'path' | 'schemaVersion'>; parentPath: string },
+  opts: LiveVariableWriteOptions,
+): Promise<LiveVariableMutationResult> {
+  const uid = generateUid();
+  const folderName = toFolderName(request.liveVariable.name, uid);
+  const created: V5.LiveVariable = {
+    ...request.liveVariable,
+    schemaVersion: 5 as const,
+    uid,
+    path: `${request.parentPath}/${folderName}`,
+    published: false,
+  };
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const payload = buildAddLiveVariableBatch(created, ctx);
+  const ack = await applySyncPayload(payload);
+  if (ack.ok) return { ok: true, liveVariable: created };
+  if (ack.reason === 'not-found') return { ok: false, reason: 'not-found' };
+  return { ok: false, reason: 'other', message: ack.message };
+}
+
+/**
+ * Promote a draft LV to live state. Single
+ * `setField('published', true)` mutation + resolver invalidation.
+ */
+export async function applyLiveVariablePublish(
+  liveVariableUid: string,
   opts: LiveVariableWriteOptions,
 ): Promise<LiveVariableSimpleResult> {
+  const mirror = resolveMirror(opts, getActiveLiveVariableSyncMirror);
+  if (!mirror.getLiveVariableMirror(liveVariableUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  const payload = buildAddLiveVariableBatch(liveVariable, ctx);
-  return applySyncPayload(payload);
+  const bodies: MutationBody[] = [
+    { kind: 'setField', type: LIVE_VARIABLE_ENTITY_TYPE, id: liveVariableUid, path: 'published', value: true },
+  ];
+  return applySyncPayload({
+    batch: mintBatch(ctx, bodies),
+    sideEffects: [liveVariableInvalidateResolverIntent(liveVariableUid, ctx.hlc)],
+  });
 }
 
 export async function applyLiveVariableDelete(

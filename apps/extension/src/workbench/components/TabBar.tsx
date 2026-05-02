@@ -30,7 +30,7 @@ import {
 } from '@ant-design/icons';
 import { horizontalListSortingStrategy, SortableContext, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { isWorkflowComplete } from '@openheaders/core/live';
+import { isWorkflowComplete, isWorkflowDraft } from '@openheaders/core/live';
 import type { V5 } from '@openheaders/core/types';
 import { isRequestComplete, isRuleComplete, isRuleDraft } from '@openheaders/core/utils';
 import type { InputRef } from 'antd';
@@ -120,8 +120,12 @@ export function tabIcon(
     const workflow = tab.liveWorkflowUid ? liveWorkflows.find((w) => w.uid === tab.liveWorkflowUid) : undefined;
     const unresolved = tab.liveWorkflowUid ? unresolvableWorkflowUids.has(tab.liveWorkflowUid) : false;
     const complete = workflow ? isWorkflowComplete(workflow) : false;
+    // Draft = unpublished but otherwise complete. Greyed so the user
+    // sees at a glance the workflow isn't yet on the wire — same UX
+    // contract as `isRuleDraft` in the Rule sidebar / tab strip.
+    const draft = workflow ? isWorkflowDraft(workflow) : true;
     const color =
-      tab.mode === 'live-workflow-create'
+      tab.mode === 'live-workflow-create' || draft
         ? TAB_ICON_GRAY
         : unresolved
           ? TAB_ICON_YELLOW

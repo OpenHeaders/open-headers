@@ -82,6 +82,7 @@ function makeLv(overrides: Partial<V5.LiveVariable>): V5.LiveVariable {
     stepId: 'login',
     captureName: 'access',
     enabled: true,
+    published: true,
     ...overrides,
   };
 }

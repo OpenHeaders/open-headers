@@ -186,7 +186,7 @@ describe('queryParamCompiler resource-type handling', () => {
       { uid: 'tcd00023', type: 'request-domains', values: ['openheaders.io'] },
       { uid: 'tcd00024', type: 'exclude-resource-types', values: ['stylesheet', 'font'] },
     ],
-    action: { params: [{ operation: 'add', param: 'utm_source', value: 'oh' }] },
+    action: { params: [{ uid: 'qp000001', operation: 'add', param: 'utm_source', value: 'oh' }] },
   };
 
   it('honors user resource-type filters and never emits excludedResourceTypes', () => {

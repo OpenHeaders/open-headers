@@ -115,7 +115,7 @@ describe('isRuleComplete', () => {
       isRuleComplete({
         ...base,
         type: 'query-param',
-        action: { params: [{ param: 'debug', value: '1', operation: 'add' as const }] },
+        action: { params: [{ uid: 'qp000001', param: 'debug', value: '1', operation: 'add' as const }] },
       }),
     ).toBe(true);
   });
@@ -129,7 +129,7 @@ describe('isRuleComplete', () => {
       isRuleComplete({
         ...base,
         type: 'query-param',
-        action: { params: [{ param: '', value: '1', operation: 'add' as const }] },
+        action: { params: [{ uid: 'qp000002', param: '', value: '1', operation: 'add' as const }] },
       }),
     ).toBe(false);
   });

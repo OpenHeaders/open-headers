@@ -48,6 +48,7 @@ const LV_A: V5.LiveVariable = {
   stepId: 'login',
   captureName: 'access',
   enabled: true,
+  published: true,
 };
 
 const LV_B_DISABLED: V5.LiveVariable = {
@@ -59,6 +60,7 @@ const LV_B_DISABLED: V5.LiveVariable = {
   stepId: 'setup',
   captureName: 'token',
   enabled: false,
+  published: true,
 };
 
 function makeHeaderRule(value: string): V5.HeaderRule {
@@ -150,17 +152,33 @@ describe('computeRuleLiveBypass', () => {
     vi.restoreAllMocks();
   });
 
-  it('returns the workflow uid for a rule referencing an enabled LV', async () => {
+  it('returns the workflow uid for a rule referencing an effective LV (published + enabled)', async () => {
+    const created = await liveVarStore.createLiveVariable({
+      name: LV_A.name,
+      workflowUid: LV_A.workflowUid,
+      stepId: LV_A.stepId,
+      captureName: LV_A.captureName,
+    });
+    await liveVarStore.updateLiveVariable(created.uid, { published: true });
+
+    const rule = makeHeaderRule('Bearer {{live.token}}');
+    const result = computeRuleLiveBypass(rule);
+    expect([...result]).toEqual([LV_A.workflowUid]);
+  });
+
+  it('ignores draft (unpublished) LVs even when enabled', async () => {
+    // SW createLiveVariable produces a draft (published omitted); the
+    // resolver gate filters it out so a draft binding never adds to the
+    // bypass set even before the user clicks Save.
     await liveVarStore.createLiveVariable({
       name: LV_A.name,
       workflowUid: LV_A.workflowUid,
       stepId: LV_A.stepId,
       captureName: LV_A.captureName,
     });
-
     const rule = makeHeaderRule('Bearer {{live.token}}');
     const result = computeRuleLiveBypass(rule);
-    expect([...result]).toEqual([LV_A.workflowUid]);
+    expect(result.size).toBe(0);
   });
 
   it('ignores references to disabled LVs (no feedback-loop risk)', async () => {
@@ -177,19 +195,21 @@ describe('computeRuleLiveBypass', () => {
     expect(result.size).toBe(0);
   });
 
-  it('collects multiple distinct workflow uids for a rule touching several LVs', async () => {
-    await liveVarStore.createLiveVariable({
+  it('collects multiple distinct workflow uids for a rule touching several effective LVs', async () => {
+    const a = await liveVarStore.createLiveVariable({
       name: LV_A.name,
       workflowUid: LV_A.workflowUid,
       stepId: LV_A.stepId,
       captureName: LV_A.captureName,
     });
-    await liveVarStore.createLiveVariable({
+    await liveVarStore.updateLiveVariable(a.uid, { published: true });
+    const b = await liveVarStore.createLiveVariable({
       name: 'csrf',
       workflowUid: 'wflowbb2',
       stepId: 'setup',
       captureName: 'token',
     });
+    await liveVarStore.updateLiveVariable(b.uid, { published: true });
 
     const rule = makeHeaderRule('Bearer {{live.token}} / {{live.csrf}}');
     const result = computeRuleLiveBypass(rule);
@@ -197,12 +217,13 @@ describe('computeRuleLiveBypass', () => {
   });
 
   it('returns an empty set for a rule with no live references', async () => {
-    await liveVarStore.createLiveVariable({
+    const created = await liveVarStore.createLiveVariable({
       name: LV_A.name,
       workflowUid: LV_A.workflowUid,
       stepId: LV_A.stepId,
       captureName: LV_A.captureName,
     });
+    await liveVarStore.updateLiveVariable(created.uid, { published: true });
 
     const rule = makeHeaderRule('Bearer {{env.API_TOKEN}}');
     const result = computeRuleLiveBypass(rule);

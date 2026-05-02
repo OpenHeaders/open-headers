@@ -261,6 +261,7 @@ export const MockRuleSchema = v.object({
 export const QueryParamOperationSchema = v.picklist(['add', 'override', 'remove', 'remove-all']);
 
 export const QueryParamEntrySchema = v.object({
+  uid: UidSchema,
   param: v.string(),
   value: v.optional(v.string()),
   operation: QueryParamOperationSchema,

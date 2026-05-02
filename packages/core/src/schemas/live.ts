@@ -284,6 +284,17 @@ export const LiveWorkflowSchema = v.object({
   refresh: RefreshPolicySchema,
   enabled: v.boolean(),
   /**
+   * Publication gate (CMS pattern). The refresh scheduler + every
+   * downstream consumer (LV resolver, sync-warm path) filter on
+   * `isWorkflowEffective`, which gates on `published === true`. New
+   * workflows from `+ New Live Workflow` start `published: false` so
+   * per-keystroke edits stream into a real entity without firing
+   * scheduled requests against the user's network. Type-level
+   * `published?: boolean`; runtime contract is "anything not `=== true`
+   * is draft." See `memory/project_publication_gate_decision.md`.
+   */
+  published: v.optional(v.boolean()),
+  /**
    * Phase I — reserved for a future parallel-execution runner.
    * Accepted in the schema so UI-side YAML edits round-trip, but the
    * v1 validator (`validateWorkflowShape`) rejects `true` with a
@@ -327,4 +338,13 @@ export const LiveVariableSchema = v.object({
   requireFreshOnRuleBuild: v.optional(v.boolean()),
   manualOverride: v.optional(LiveVariableOverrideSchema),
   enabled: v.boolean(),
+  /**
+   * Publication gate (CMS pattern). Variable resolvers (rule compile,
+   * inspector chain) filter on `isLiveVariableEffective`, which gates
+   * on `published === true`. New variables from `+ New Live Variable`
+   * start `published: false` so per-keystroke edits don't expose
+   * half-typed bindings to live `{{live.<name>}}` resolution. Same
+   * contract as the workflow gate above.
+   */
+  published: v.optional(v.boolean()),
 });

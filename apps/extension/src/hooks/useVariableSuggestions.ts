@@ -26,6 +26,7 @@ import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
 import { iterateAllCollections } from '@/shared/variables/collection-scope';
+import { isLiveVariableEffective } from '@openheaders/core/live';
 import {
   buildSuggestions,
   type LiveSuggestionEntry,
@@ -58,14 +59,14 @@ export function useVariableSuggestions(context: SuggestionContext): UseVariableS
   const { byWorkflowUid: liveCaches, isReady: cacheReady } = useAllLiveCaches(liveWorkflowUids);
 
   // LiveRegistry mirrors the SW's `buildLiveRegistry` + VariablesPanel's
-  // snapshot: enabled LVs only, active-env cache row wins over null-env,
-  // manual override (still within `until`) short-circuits. Keep parallel
-  // to those two sites.
+  // snapshot: effective LVs (published + enabled) only, active-env cache
+  // row wins over null-env, manual override (still within `until`)
+  // short-circuits. Keep parallel to those two sites.
   const liveRegistry = useMemo<ReadonlyMap<string, LiveSuggestionEntry>>(() => {
     const nowMs = Date.now();
     const registry = new Map<string, LiveSuggestionEntry>();
     for (const lv of liveVariables) {
-      if (!lv.enabled) continue;
+      if (!isLiveVariableEffective(lv)) continue;
       if (lv.manualOverride) {
         const activeOverride = lv.manualOverride.until === undefined || lv.manualOverride.until > nowMs;
         if (activeOverride) {

@@ -64,6 +64,7 @@ function makeLV(overrides: Partial<V5.LiveVariable> = {}): V5.LiveVariable {
     stepId: overrides.stepId ?? 'login',
     captureName: overrides.captureName ?? 'token',
     enabled: overrides.enabled ?? true,
+    published: overrides.published ?? true,
     ...overrides,
   };
 }

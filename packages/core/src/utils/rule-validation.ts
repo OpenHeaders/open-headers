@@ -236,7 +236,7 @@ export function isRuleDraft(rule: Rule | Omit<Rule, 'uid' | 'path'>): boolean {
  * `undefined` — single contract, one negation site.
  */
 export function isRuleEffective(rule: Rule, pauseMarkers: PauseMarkers, enginePaused: boolean): boolean {
-  if (rule.published !== true) return false;
+  if (isRuleDraft(rule)) return false;
   if (rule.enabled !== true) return false;
   if (enginePaused) return false;
   if (resolvePauseState(rule.path, pauseMarkers)) return false;

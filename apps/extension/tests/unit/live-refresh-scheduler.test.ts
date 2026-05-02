@@ -161,6 +161,7 @@ function makeWorkflow(overrides: Partial<V5.LiveWorkflow> = {}): V5.LiveWorkflow
     path: 'live-workflows/demo-wflow001',
     name: 'Demo',
     enabled: true,
+    published: true,
     refresh: { kind: 'interval', seconds: 300 },
     steps: [
       {
@@ -183,6 +184,7 @@ function makeVariable(overrides: Partial<V5.LiveVariable> = {}): V5.LiveVariable
     stepId: 'fetch',
     captureName: 'v',
     enabled: true,
+    published: true,
     ...overrides,
   };
 }

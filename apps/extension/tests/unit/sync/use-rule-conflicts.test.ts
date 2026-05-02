@@ -30,7 +30,10 @@ function makeHeaderRule(value: string, name = 'X-Test', uid = 'rule-1'): V5.Rule
   } as unknown as V5.Rule;
 }
 
-const PATH = 'action.requestHeaders.0.value';
+// Path is itemId-keyed (`action.requestHeaders.<uid>.value`) so reorders
+// don't churn the conflict baseline. The fixture uid `thm00097` is the
+// canonical identity for the row across base + theirs snapshots.
+const PATH = 'action.requestHeaders.thm00097.value';
 
 function mount(rule: V5.Rule | null, isDirty: boolean) {
   return renderHook(

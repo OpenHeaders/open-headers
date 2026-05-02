@@ -143,9 +143,9 @@ describe('summarizeRule', () => {
       conditions: [],
       action: {
         params: [
-          { param: 'a', value: '1', operation: 'add' },
-          { param: 'b', operation: 'remove' },
-          { param: 'c', operation: 'remove-all' },
+          { uid: 'qp000001', param: 'a', value: '1', operation: 'add' },
+          { uid: 'qp000002', param: 'b', operation: 'remove' },
+          { uid: 'qp000003', param: 'c', operation: 'remove-all' },
         ],
       },
     };

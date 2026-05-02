@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isWorkflowComplete, isWorkflowEffective } from '../../src/live/workflow-state';
+import { isWorkflowComplete, isWorkflowDraft, isWorkflowEffective } from '../../src/live/workflow-state';
 import type { LiveWorkflow, WorkflowStep } from '../../src/types/v5/live';
 
 function wf(overrides: Partial<LiveWorkflow> = {}): LiveWorkflow {
@@ -9,6 +9,7 @@ function wf(overrides: Partial<LiveWorkflow> = {}): LiveWorkflow {
     path: 'live-workflows/wf',
     name: 'wf',
     enabled: true,
+    published: true,
     refresh: { kind: 'manual' },
     steps: [step('step1', 'reqxxxxx')],
     ...overrides,
@@ -53,16 +54,38 @@ describe('isWorkflowComplete', () => {
   });
 });
 
+describe('isWorkflowDraft', () => {
+  it('returns false when published === true', () => {
+    expect(isWorkflowDraft(wf())).toBe(false);
+  });
+
+  it('returns true when published is false', () => {
+    expect(isWorkflowDraft(wf({ published: false }))).toBe(true);
+  });
+
+  it('returns true when published is undefined', () => {
+    expect(isWorkflowDraft(wf({ published: undefined }))).toBe(true);
+  });
+});
+
 describe('isWorkflowEffective', () => {
-  it('returns true when enabled + complete', () => {
+  it('returns true when published + enabled + complete', () => {
     expect(isWorkflowEffective(wf())).toBe(true);
   });
 
-  it('returns false when disabled, even if complete', () => {
+  it('returns false when published is false, even if enabled + complete', () => {
+    expect(isWorkflowEffective(wf({ published: false }))).toBe(false);
+  });
+
+  it('returns false when published is undefined (draft), even if enabled + complete', () => {
+    expect(isWorkflowEffective(wf({ published: undefined }))).toBe(false);
+  });
+
+  it('returns false when disabled, even if published + complete', () => {
     expect(isWorkflowEffective(wf({ enabled: false }))).toBe(false);
   });
 
-  it('returns false when incomplete, even if enabled', () => {
+  it('returns false when incomplete, even if published + enabled', () => {
     expect(isWorkflowEffective(wf({ steps: [] }))).toBe(false);
   });
 });

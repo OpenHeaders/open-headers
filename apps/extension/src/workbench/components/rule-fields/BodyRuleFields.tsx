@@ -27,9 +27,11 @@
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { Alert, Button, Form, Input, Radio, Select, Typography } from 'antd';
 import type React from 'react';
+import { RULE_FIELD } from '@/shared/awareness';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import CodeEditor from '../CodeEditor';
 import { getDocId } from '../InspectorDocs';
+import { RuleField } from './RuleField';
 import ScalarConflictChip from './ScalarConflictChip';
 import type { ConflictBridge } from './use-rule-conflicts';
 
@@ -76,12 +78,14 @@ const BodyRuleFields: React.FC<BodyRuleFieldsProps> = ({ conflicts }) => {
         <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
           Select Resource Type
         </Text>
-        <Form.Item name="bodyResourceType" style={{ marginBottom: 0 }}>
-          <Radio.Group>
-            <Radio value="rest">REST API</Radio>
-            <Radio value="graphql">GraphQL API</Radio>
-          </Radio.Group>
-        </Form.Item>
+        <RuleField path={RULE_FIELD.bodyResourceType}>
+          <Form.Item name="bodyResourceType" style={{ marginBottom: 0 }}>
+            <Radio.Group>
+              <Radio value="rest">REST API</Radio>
+              <Radio value="graphql">GraphQL API</Radio>
+            </Radio.Group>
+          </Form.Item>
+        </RuleField>
       </div>
 
       {/* GraphQL Operation filter — shown only when resourceType === 'graphql'. */}
@@ -100,21 +104,27 @@ const BodyRuleFields: React.FC<BodyRuleFieldsProps> = ({ conflicts }) => {
                 />
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <Form.Item name="bodyGraphqlKey" style={{ marginBottom: 0, flex: 1 }}>
-                  <Input size="small" placeholder="Key e.g. operationName" />
-                </Form.Item>
-                <Form.Item name="bodyGraphqlOperator" style={{ marginBottom: 0, width: 120 }}>
-                  <Select
-                    size="small"
-                    options={[
-                      { value: 'Equals', label: 'Equals' },
-                      { value: 'Contains', label: 'Contains' },
-                    ]}
-                  />
-                </Form.Item>
-                <Form.Item name="bodyGraphqlValue" style={{ marginBottom: 0, flex: 1 }}>
-                  <Input size="small" placeholder="value e.g. getUsers" />
-                </Form.Item>
+                <RuleField path={RULE_FIELD.graphqlKey}>
+                  <Form.Item name="bodyGraphqlKey" style={{ marginBottom: 0, flex: 1 }}>
+                    <Input size="small" placeholder="Key e.g. operationName" />
+                  </Form.Item>
+                </RuleField>
+                <RuleField path={RULE_FIELD.graphqlOperator}>
+                  <Form.Item name="bodyGraphqlOperator" style={{ marginBottom: 0, width: 120 }}>
+                    <Select
+                      size="small"
+                      options={[
+                        { value: 'Equals', label: 'Equals' },
+                        { value: 'Contains', label: 'Contains' },
+                      ]}
+                    />
+                  </Form.Item>
+                </RuleField>
+                <RuleField path={RULE_FIELD.graphqlValue}>
+                  <Form.Item name="bodyGraphqlValue" style={{ marginBottom: 0, flex: 1 }}>
+                    <Input size="small" placeholder="value e.g. getUsers" />
+                  </Form.Item>
+                </RuleField>
                 <Button
                   type="link"
                   size="small"
@@ -140,21 +150,23 @@ const BodyRuleFields: React.FC<BodyRuleFieldsProps> = ({ conflicts }) => {
           <Text strong style={{ fontSize: 12 }}>
             Request Body
           </Text>
-          <Form.Item name="bodyModType" style={{ marginBottom: 0 }}>
-            <Radio.Group size="small">
-              <Radio.Button value="static">Static Data</Radio.Button>
-              <Radio.Button value="dynamic">
-                Dynamic (JavaScript){' '}
-                <InfoCircleOutlined
-                  style={{ fontSize: 11, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openDocs(getDocId('body-dynamic', 'action'));
-                  }}
-                />
-              </Radio.Button>
-            </Radio.Group>
-          </Form.Item>
+          <RuleField path={RULE_FIELD.bodyType}>
+            <Form.Item name="bodyModType" style={{ marginBottom: 0 }}>
+              <Radio.Group size="small">
+                <Radio.Button value="static">Static Data</Radio.Button>
+                <Radio.Button value="dynamic">
+                  Dynamic (JavaScript){' '}
+                  <InfoCircleOutlined
+                    style={{ fontSize: 11, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openDocs(getDocId('body-dynamic', 'action'));
+                    }}
+                  />
+                </Radio.Button>
+              </Radio.Group>
+            </Form.Item>
+          </RuleField>
         </div>
 
         {/* Dynamic info banner + the static/dynamic CodeEditor swap — both
@@ -185,26 +197,30 @@ const BodyRuleFields: React.FC<BodyRuleFieldsProps> = ({ conflicts }) => {
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
                       <ScalarConflictChip
                         formName="bodyDynamicContent"
-                        schemaPath="action.body"
+                        schemaPath={RULE_FIELD.body}
                         conflicts={conflicts}
                       />
                     </div>
-                    <Form.Item name="bodyDynamicContent" style={{ marginBottom: 0 }}>
-                      <CodeEditor language="javascript" minHeight={240} />
-                    </Form.Item>
+                    <RuleField path={RULE_FIELD.body}>
+                      <Form.Item name="bodyDynamicContent" style={{ marginBottom: 0 }}>
+                        <CodeEditor language="javascript" minHeight={240} />
+                      </Form.Item>
+                    </RuleField>
                   </>
                 ) : (
                   <>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
                       <ScalarConflictChip
                         formName="bodyStaticContent"
-                        schemaPath="action.body"
+                        schemaPath={RULE_FIELD.body}
                         conflicts={conflicts}
                       />
                     </div>
-                    <Form.Item name="bodyStaticContent" style={{ marginBottom: 0 }}>
-                      <CodeEditor language="json" placeholder={'{"key": "value"}'} minHeight={160} />
-                    </Form.Item>
+                    <RuleField path={RULE_FIELD.body}>
+                      <Form.Item name="bodyStaticContent" style={{ marginBottom: 0 }}>
+                        <CodeEditor language="json" placeholder={'{"key": "value"}'} minHeight={160} />
+                      </Form.Item>
+                    </RuleField>
                   </>
                 )}
               </>

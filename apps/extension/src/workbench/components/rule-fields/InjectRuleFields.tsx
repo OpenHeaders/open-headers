@@ -17,9 +17,11 @@
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { Checkbox, Form, type FormInstance, Input, Select, Typography } from 'antd';
 import type React from 'react';
+import { RULE_FIELD } from '@/shared/awareness';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import CodeEditor from '../CodeEditor';
 import { getDocId } from '../InspectorDocs';
+import { RuleField } from './RuleField';
 import ScalarConflictChip from './ScalarConflictChip';
 import type { ConflictBridge } from './use-rule-conflicts';
 
@@ -77,33 +79,37 @@ const InjectRuleFields: React.FC<InjectRuleFieldsProps> = ({ conflicts }) => {
           <Text type="secondary" style={{ fontSize: 11 }}>
             Language:
           </Text>
-          <Form.Item name="injectType" style={{ marginBottom: 0 }}>
-            <Select
-              size="small"
-              style={{ width: 90 }}
-              options={[
-                { value: 'script', label: 'JS' },
-                { value: 'css', label: 'CSS' },
-              ]}
-            />
-          </Form.Item>
+          <RuleField path={RULE_FIELD.injectType}>
+            <Form.Item name="injectType" style={{ marginBottom: 0 }}>
+              <Select
+                size="small"
+                style={{ width: 90 }}
+                options={[
+                  { value: 'script', label: 'JS' },
+                  { value: 'css', label: 'CSS' },
+                ]}
+              />
+            </Form.Item>
+          </RuleField>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Text type="secondary" style={{ fontSize: 11 }}>
             Code Source:
           </Text>
-          <Form.Item name="injectSource" style={{ marginBottom: 0 }}>
-            <Select
-              size="small"
-              style={{ width: 90 }}
-              options={[
-                // TitleCase to match Header/QueryParam editor convention.
-                { value: 'code', label: 'Code' },
-                { value: 'url', label: 'URL' },
-              ]}
-            />
-          </Form.Item>
+          <RuleField path={RULE_FIELD.injectSource}>
+            <Form.Item name="injectSource" style={{ marginBottom: 0 }}>
+              <Select
+                size="small"
+                style={{ width: 90 }}
+                options={[
+                  // TitleCase to match Header/QueryParam editor convention.
+                  { value: 'code', label: 'Code' },
+                  { value: 'url', label: 'URL' },
+                ]}
+              />
+            </Form.Item>
+          </RuleField>
         </div>
 
         <Form.Item noStyle shouldUpdate={(prev, cur) => prev.injectType !== cur.injectType}>
@@ -114,16 +120,18 @@ const InjectRuleFields: React.FC<InjectRuleFieldsProps> = ({ conflicts }) => {
                 <Text type="secondary" style={{ fontSize: 11 }}>
                   Insert:
                 </Text>
-                <Form.Item name="injectPosition" style={{ marginBottom: 0 }}>
-                  <Select
-                    size="small"
-                    style={{ width: 170 }}
-                    options={[
-                      { value: 'body-end', label: 'After Page Load' },
-                      { value: 'head', label: 'As Soon As Possible' },
-                    ]}
-                  />
-                </Form.Item>
+                <RuleField path={RULE_FIELD.injectPosition}>
+                  <Form.Item name="injectPosition" style={{ marginBottom: 0 }}>
+                    <Select
+                      size="small"
+                      style={{ width: 170 }}
+                      options={[
+                        { value: 'body-end', label: 'After Page Load' },
+                        { value: 'head', label: 'As Soon As Possible' },
+                      ]}
+                    />
+                  </Form.Item>
+                </RuleField>
               </div>
             );
           }}
@@ -147,12 +155,14 @@ const InjectRuleFields: React.FC<InjectRuleFieldsProps> = ({ conflicts }) => {
                   Source
                 </Text>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                  <Form.Item name="injectSourceUrl" style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
-                    <Input size="small" placeholder="Enter Source URL (relative or absolute)" />
-                  </Form.Item>
+                  <RuleField path={RULE_FIELD.injectSourceUrl}>
+                    <Form.Item name="injectSourceUrl" style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
+                      <Input size="small" placeholder="Enter Source URL (relative or absolute)" />
+                    </Form.Item>
+                  </RuleField>
                   <ScalarConflictChip
                     formName="injectSourceUrl"
-                    schemaPath="action.sourceUrl"
+                    schemaPath={RULE_FIELD.injectSourceUrl}
                     conflicts={conflicts}
                   />
                 </div>
@@ -169,11 +179,13 @@ const InjectRuleFields: React.FC<InjectRuleFieldsProps> = ({ conflicts }) => {
                 <Text type="secondary" style={{ fontSize: 11 }}>
                   Code
                 </Text>
-                <ScalarConflictChip formName="injectCode" schemaPath="action.code" conflicts={conflicts} />
+                <ScalarConflictChip formName="injectCode" schemaPath={RULE_FIELD.injectCode} conflicts={conflicts} />
               </div>
-              <Form.Item name="injectCode" style={{ marginBottom: 0 }}>
-                <CodeEditor language={language} minHeight={180} />
-              </Form.Item>
+              <RuleField path={RULE_FIELD.injectCode}>
+                <Form.Item name="injectCode" style={{ marginBottom: 0 }}>
+                  <CodeEditor language={language} minHeight={180} />
+                </Form.Item>
+              </RuleField>
             </div>
           );
         }}

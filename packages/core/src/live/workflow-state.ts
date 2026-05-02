@@ -38,17 +38,39 @@ export function isWorkflowComplete(wf: LiveWorkflow): boolean {
 }
 
 /**
+ * Single source of truth for "is this workflow a still-drafting,
+ * not-yet-published entity?". Drives every UI affordance that
+ * distinguishes drafts from live workflows: gray pill on the tab strip,
+ * `row-draft` styling in the sidebar, italic tab label, tab-close
+ * discard prompt. Mirrors `isRuleDraft` in
+ * `packages/core/src/utils/rule-validation.ts`.
+ *
+ * Reads `published === true` so both `false` and `undefined` collapse
+ * to "draft" — matches `isWorkflowEffective`'s contract.
+ */
+export function isWorkflowDraft(wf: LiveWorkflow): boolean {
+  return wf.published !== true;
+}
+
+/**
  * Single source of truth for "will this workflow's refresh scheduler
  * actually fire?". Combines:
  *
- *   - `wf.enabled === true`  — user's explicit toggle
- *   - `isWorkflowComplete`   — incomplete workflows don't schedule
+ *   - `wf.published === true` — user committed this draft to live state
+ *                               (Save = publish). New workflows from
+ *                               `+ New Live Workflow` start
+ *                               `published: false` so per-keystroke
+ *                               edits don't fire scheduled requests
+ *                               against the user's network.
+ *   - `wf.enabled === true`   — user's explicit toggle
+ *   - `isWorkflowComplete`    — incomplete workflows don't schedule
  *
  * Every call site that needs "effective workflow set" — scheduler
  * enumeration, sidebar badge filter, DNR compile-time sync-warm
  * targeting — should use this instead of re-deriving the predicate.
  */
 export function isWorkflowEffective(wf: LiveWorkflow): boolean {
+  if (isWorkflowDraft(wf)) return false;
   if (wf.enabled !== true) return false;
   return isWorkflowComplete(wf);
 }

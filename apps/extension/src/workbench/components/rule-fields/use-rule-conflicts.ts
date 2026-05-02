@@ -88,19 +88,55 @@ const SCALAR_PATHS_BY_TYPE: Record<V5.Rule['type'], readonly string[]> = {
 
 function readPath(rule: V5.Rule, path: string): string | null {
   if (path === 'name') return String(rule.name ?? '');
+  if (path.startsWith('conditions.')) {
+    // `conditions.<uid>.<leaf>` — set-row identity is the persisted uid.
+    const m = /^conditions\.([a-z0-9]{8})\.(values|field|headerName)$/.exec(path);
+    if (!m) return null;
+    const uid = m[1];
+    const leaf = m[2] as 'values' | 'field' | 'headerName';
+    const c = rule.conditions.find((c) => c.uid === uid);
+    if (!c) return null;
+    if (leaf === 'values') return (c.values ?? []).join(', ');
+    if (leaf === 'field') return String(c.type);
+    if (leaf === 'headerName') return String(c.headerName ?? '');
+    return null;
+  }
   if (!path.startsWith('action.')) return null;
   const tail = path.slice('action.'.length);
-  // Header-mod set paths: `requestHeaders|responseHeaders.<idx>.<leaf>`.
-  const headerMod = /^(requestHeaders|responseHeaders)\.(\d+)\.(value|headerName)$/.exec(tail);
+  // Header-mod set paths: `requestHeaders|responseHeaders.<uid>.<leaf>`.
+  const headerMod = /^(requestHeaders|responseHeaders)\.([a-z0-9]{8})\.(value|headerName|operation|mergeSeparator)$/.exec(tail);
   if (headerMod) {
     if (rule.type !== 'header') return null;
     const set = headerMod[1] as 'requestHeaders' | 'responseHeaders';
-    const idx = Number(headerMod[2]);
-    const leaf = headerMod[3] as 'value' | 'headerName';
+    const uid = headerMod[2];
+    const leaf = headerMod[3] as 'value' | 'headerName' | 'operation' | 'mergeSeparator';
     const arr = set === 'requestHeaders' ? rule.action.requestHeaders : rule.action.responseHeaders;
-    const item = (arr ?? [])[idx];
+    const item = (arr ?? []).find((h) => h.uid === uid);
     if (!item) return null;
     return String((item[leaf] as string | undefined) ?? '');
+  }
+  // Query-param set paths: `params.<uid>.<leaf>`.
+  const queryParam = /^params\.([a-z0-9]{8})\.(param|value|operation)$/.exec(tail);
+  if (queryParam) {
+    if (rule.type !== 'query-param') return null;
+    const uid = queryParam[1];
+    const leaf = queryParam[2] as 'param' | 'value' | 'operation';
+    const item = (rule.action.params ?? []).find((p) => p.uid === uid);
+    if (!item) return null;
+    return String((item[leaf] as string | undefined) ?? '');
+  }
+  // Mock response-header rows: `responseHeaders.<headerName>.<leaf>`.
+  // Schema is `Record<string,string>` keyed by header name, so the name
+  // is the row identity.
+  const mockHeader = /^responseHeaders\.([^.]+)\.(name|value)$/.exec(tail);
+  if (mockHeader) {
+    if (rule.type !== 'mock') return null;
+    const headerName = mockHeader[1];
+    const leaf = mockHeader[2] as 'name' | 'value';
+    const map = rule.action.responseHeaders ?? {};
+    if (!(headerName in map)) return null;
+    if (leaf === 'name') return headerName;
+    return String(map[headerName] ?? '');
   }
   // Scalar action fields: `action.<field>`.
   const action = (rule as { action?: Record<string, unknown> }).action;
@@ -113,14 +149,34 @@ function readPath(rule: V5.Rule, path: string): string | null {
 function extractBaseline(rule: V5.Rule): PathMap {
   const paths: PathMap = {};
   paths.name = String(rule.name ?? '');
+  // Conditions — itemId-keyed by `c.uid` so reorders don't shift the
+  // baseline. `values` collapses the multi-value array to a comma-joined
+  // string for the diff chip; granular per-value diffs are deferred until
+  // the editor surfaces them as separate inputs.
+  for (const c of rule.conditions ?? []) {
+    paths[RULE_FIELD.condition(c.uid, 'values')] = (c.values ?? []).join(', ');
+    paths[RULE_FIELD.condition(c.uid, 'field')] = String(c.type);
+  }
   if (rule.type === 'header') {
     const dirs: Array<'request' | 'response'> = ['request', 'response'];
     for (const dir of dirs) {
       const list = dir === 'request' ? rule.action.requestHeaders : rule.action.responseHeaders;
-      (list ?? []).forEach((h, i) => {
-        paths[RULE_FIELD.headerMod(dir, i, 'value')] = String(h.value ?? '');
-        paths[RULE_FIELD.headerMod(dir, i, 'headerName')] = String(h.headerName ?? '');
-      });
+      for (const h of list ?? []) {
+        paths[RULE_FIELD.headerMod(dir, h.uid, 'value')] = String(h.value ?? '');
+        paths[RULE_FIELD.headerMod(dir, h.uid, 'headerName')] = String(h.headerName ?? '');
+      }
+    }
+  }
+  if (rule.type === 'query-param') {
+    for (const p of rule.action.params ?? []) {
+      paths[RULE_FIELD.queryParam(p.uid, 'param')] = String(p.param ?? '');
+      paths[RULE_FIELD.queryParam(p.uid, 'value')] = String(p.value ?? '');
+    }
+  }
+  if (rule.type === 'mock') {
+    for (const [headerName, headerValue] of Object.entries(rule.action.responseHeaders ?? {})) {
+      paths[RULE_FIELD.mockHeader(headerName, 'name')] = headerName;
+      paths[RULE_FIELD.mockHeader(headerName, 'value')] = String(headerValue ?? '');
     }
   }
   for (const path of SCALAR_PATHS_BY_TYPE[rule.type] ?? []) {

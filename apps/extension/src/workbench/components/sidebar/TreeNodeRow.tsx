@@ -20,6 +20,7 @@ import {
 import { Dropdown, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
+import { EntityField } from '@/shared/awareness';
 import type { TreeNode } from './types';
 
 interface TreeNodeRowProps {
@@ -179,13 +180,32 @@ export function TreeNodeRow({
           node is part of the active export selection set. */}
       {isExportSelected ? <CheckSquareFilled style={{ color: token.colorPrimary, fontSize: 12 }} /> : node.icon}
 
-      {/* Label or rename input */}
+      {/* Label or rename input. The rename input is wrapped in
+          `<EntityField path="name">` when the node carries an
+          `awareness` payload — focusing the input publishes presence
+          on the entity's `name` field, so peers see this user's chip
+          beside the rule (or other entity) name in their breadcrumb,
+          editor headers, and other surfaces consuming the same path. */}
       {isRenaming && node.onRename ? (
-        <InlineRenameInput
-          value={node.label}
-          onCommit={(name) => node.onRename!(name)}
-          onCancel={() => onStartRename()}
-        />
+        node.awareness ? (
+          <EntityField
+            entityType={node.awareness.entityType}
+            entityId={node.awareness.entityId}
+            path="name"
+          >
+            <InlineRenameInput
+              value={node.label}
+              onCommit={(name) => node.onRename!(name)}
+              onCancel={() => onStartRename()}
+            />
+          </EntityField>
+        ) : (
+          <InlineRenameInput
+            value={node.label}
+            onCommit={(name) => node.onRename!(name)}
+            onCancel={() => onStartRename()}
+          />
+        )
       ) : (
         <>
           <span className="rules-sidebar-item-label">{node.label}</span>

@@ -30,6 +30,7 @@ import { useRuleMutator } from '@hooks/useRuleMutator';
 import { useRules } from '@hooks/useRules';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
+import { generateUid } from '@openheaders/core/utils';
 import type { MenuProps } from 'antd';
 import { Alert, App, Button, Dropdown, Form, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -49,7 +50,7 @@ import { ActionValueBanner } from './rule-fields/ActionValueBanner';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
 import BodyRuleFields, { BODY_DYNAMIC_TEMPLATE } from './rule-fields/BodyRuleFields';
 import DelayRuleFields from './rule-fields/DelayRuleFields';
-import { mapAntdIdToFieldPath } from './rule-fields/field-path-map';
+import { FocusedFieldProvider, RuleAwarenessProvider } from './rule-fields/RuleField';
 import HeaderRuleFields from './rule-fields/HeaderRuleFields';
 import InjectRuleFields, { maybePrefillInjectCode } from './rule-fields/InjectRuleFields';
 import MockRuleFields, { MOCK_DYNAMIC_TEMPLATE } from './rule-fields/MockRuleFields';
@@ -188,26 +189,17 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   const entityFocus = useMemo(() => ({ type: RULE_ENTITY_TYPE, id: ruleUid }), [ruleUid]);
   const dirtyFields = useMemo<string[]>(() => (isDirty ? ['*'] : []), [isDirty]);
 
-  // Per-field focus path. The DOM target's id (set by antd Form on every
-  // bound input) is the load-bearing signal — focus events from inputs
-  // bubble through capture so a single listener on the Form root catches
-  // every field swap. The map handles header-mod / condition /
-  // query-param / mock-header indexed paths plus scalar field ids.
+  // Per-field focus path. Each `<RuleField path={...}>` wrapper inside
+  // the form publishes its canonical path into this state via context;
+  // RuleEditor turns it into the awareness `fieldFocus` reference. No
+  // DOM-id parsing — the wrapper owns the lifecycle and the path is the
+  // same string `useRuleConflicts` / `FieldPresenceChip` consume, so
+  // presence + conflict resolution align by construction.
   const [focusedFieldPath, setFocusedFieldPath] = useState<string | null>(null);
-  const handleFocusCapture = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
-    const target = e.target as HTMLElement | null;
-    const id = target?.getAttribute?.('id') ?? null;
-    const path = mapAntdIdToFieldPath(id);
-    if (path) setFocusedFieldPath(path);
-  }, []);
-  const handleBlurCapture = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
-    // relatedTarget is the next focus recipient. If it's another bound
-    // input still inside the form, the next focusCapture will replace
-    // the path; only clear when focus actually leaves the form.
-    const next = e.relatedTarget as HTMLElement | null;
-    if (next && e.currentTarget.contains(next)) return;
-    setFocusedFieldPath(null);
-  }, []);
+  const ruleAwarenessValue = useMemo(
+    () => ({ ruleUid, excludeInstanceId: localInstanceId }),
+    [ruleUid, localInstanceId],
+  );
   const fieldFocus = useMemo(
     () => (focusedFieldPath ? { type: RULE_ENTITY_TYPE, id: ruleUid, path: focusedFieldPath } : null),
     [ruleUid, focusedFieldPath],
@@ -349,6 +341,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           form.setFieldsValue({
             ...baseValues,
             queryParams: qr.action.params.map((p) => ({
+              uid: p.uid,
               param: p.param,
               value: p.value ?? '',
               operation: p.operation,
@@ -566,13 +559,19 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             ...base,
             type: 'query-param',
             action: {
-              params: (formValues.queryParams as Array<{ param: string; value: string; operation: string }>).map(
-                (p) => ({
-                  param: p.param,
-                  value: p.operation === 'remove' ? undefined : p.value,
-                  operation: p.operation as V5.QueryParamOperation,
-                }),
-              ),
+              params: (
+                formValues.queryParams as Array<{ uid?: string; param: string; value: string; operation: string }>
+              ).map((p) => ({
+                // Mint when the row was added by the editor before the
+                // hidden uid Form.Item was bound (e.g. seed templates,
+                // freshly-cloned rows). Existing rows preserve their
+                // persisted uid so awareness paths remain stable across
+                // reorders.
+                uid: p.uid ?? generateUid(),
+                param: p.param,
+                value: p.operation === 'remove' ? undefined : p.value,
+                operation: p.operation as V5.QueryParamOperation,
+              })),
             },
           } as Omit<V5.QueryParamRule, 'uid' | 'path'>;
         case 'inject':
@@ -969,11 +968,11 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             }
           />
         )}
+        <FocusedFieldProvider value={setFocusedFieldPath}>
+        <RuleAwarenessProvider value={ruleAwarenessValue}>
         <div
           className="rules-rule-editor"
           style={isDeletedRemotely ? { pointerEvents: 'none', opacity: 0.6 } : undefined}
-          onFocusCapture={handleFocusCapture}
-          onBlurCapture={handleBlurCapture}
         >
           <SuggestionContextProvider value={{ collectionId: bannerCollectionId }}>
             <Form
@@ -1148,6 +1147,8 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             />
           </SuggestionContextProvider>
         </div>
+        </RuleAwarenessProvider>
+        </FocusedFieldProvider>
       </div>
     </div>
   );

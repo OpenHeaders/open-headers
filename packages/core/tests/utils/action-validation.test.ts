@@ -363,9 +363,9 @@ describe('validateActionValues — query-param', () => {
       validateActionValues(
         queryParam({
           params: [
-            { param: 'utm_source', operation: 'add', value: 'demo' },
-            { param: 'region', operation: 'override', value: 'eu' },
-            { param: 'tracking', operation: 'remove' },
+            { uid: 'qp000010', param: 'utm_source', operation: 'add', value: 'demo' },
+            { uid: 'qp000011', param: 'region', operation: 'override', value: 'eu' },
+            { uid: 'qp000012', param: 'tracking', operation: 'remove' },
           ],
         }),
       ),
@@ -374,31 +374,37 @@ describe('validateActionValues — query-param', () => {
 
   it('flags reserved characters on override too (param-name rules apply to all op types)', () => {
     const issues = validateActionValues(
-      queryParam({ params: [{ param: 'has space', operation: 'override', value: 'x' }] }),
+      queryParam({ params: [{ uid: 'qp000020', param: 'has space', operation: 'override', value: 'x' }] }),
     );
     expect(issues[0]).toMatchObject({ kind: 'invalid-param-name', severity: 'error' });
   });
 
   it('flags param names with reserved characters', () => {
     const issues = validateActionValues(
-      queryParam({ params: [{ param: 'has=equals', operation: 'add', value: 'x' }] }),
+      queryParam({ params: [{ uid: 'qp000001', param: 'has=equals', operation: 'add', value: 'x' }] }),
     );
     expect(issues[0]).toMatchObject({ kind: 'invalid-param-name', severity: 'error' });
   });
 
   it('flags param names with whitespace', () => {
-    const issues = validateActionValues(queryParam({ params: [{ param: 'has space', operation: 'add', value: 'x' }] }));
+    const issues = validateActionValues(
+      queryParam({ params: [{ uid: 'qp000002', param: 'has space', operation: 'add', value: 'x' }] }),
+    );
     expect(issues[0]).toMatchObject({ kind: 'invalid-param-name', severity: 'error' });
   });
 
   it('skips remove-all entries (no key)', () => {
-    expect(validateActionValues(queryParam({ params: [{ param: '', operation: 'remove-all' }] }))).toEqual([]);
+    expect(
+      validateActionValues(queryParam({ params: [{ uid: 'qp000003', param: '', operation: 'remove-all' }] })),
+    ).toEqual([]);
   });
 
   it('skips template param names', () => {
-    expect(validateActionValues(queryParam({ params: [{ param: '{{KEY}}', operation: 'add', value: 'x' }] }))).toEqual(
-      [],
-    );
+    expect(
+      validateActionValues(
+        queryParam({ params: [{ uid: 'qp000004', param: '{{KEY}}', operation: 'add', value: 'x' }] }),
+      ),
+    ).toEqual([]);
   });
 });
 

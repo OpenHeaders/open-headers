@@ -9,6 +9,7 @@ import type { V5 } from '@openheaders/core/types';
 import {
   applyLiveVariableCreate,
   applyLiveVariableDelete,
+  applyLiveVariablePublish,
   applyLiveVariableUpdate,
   type LiveVariableMutationResult,
   type LiveVariableSimpleResult,
@@ -23,12 +24,18 @@ export interface UseLiveVariableMutatorOptions {
   surfaceId: string;
 }
 
+export type LiveVariableSeed = Omit<V5.LiveVariable, 'uid' | 'path' | 'schemaVersion'>;
+
 export interface UseLiveVariableMutatorApi {
   updateLiveVariable(
     liveVariableUid: string,
     updates: LiveVariableUpdates,
   ): Promise<LiveVariableMutationResult>;
-  createLiveVariable(liveVariable: V5.LiveVariable): Promise<LiveVariableSimpleResult>;
+  createLiveVariable(request: {
+    liveVariable: LiveVariableSeed;
+    parentPath: string;
+  }): Promise<LiveVariableMutationResult>;
+  publishLiveVariable(liveVariableUid: string): Promise<LiveVariableSimpleResult>;
   deleteLiveVariable(liveVariableUid: string): Promise<LiveVariableSimpleResult>;
 }
 
@@ -47,8 +54,14 @@ export function useLiveVariableMutator(
   const createLiveVariable = useGuardedMutation(
     workspaceId,
     surfaceId,
-    (writeOpts, liveVariable: V5.LiveVariable) =>
-      applyLiveVariableCreate(liveVariable, writeOpts),
+    (writeOpts, request: { liveVariable: LiveVariableSeed; parentPath: string }) =>
+      applyLiveVariableCreate(request, writeOpts),
+  );
+
+  const publishLiveVariable = useGuardedMutation(
+    workspaceId,
+    surfaceId,
+    (writeOpts, uid: string) => applyLiveVariablePublish(uid, writeOpts),
   );
 
   const deleteLiveVariable = useGuardedMutation(
@@ -58,7 +71,7 @@ export function useLiveVariableMutator(
   );
 
   return useMemo(
-    () => ({ updateLiveVariable, createLiveVariable, deleteLiveVariable }),
-    [updateLiveVariable, createLiveVariable, deleteLiveVariable],
+    () => ({ updateLiveVariable, createLiveVariable, publishLiveVariable, deleteLiveVariable }),
+    [updateLiveVariable, createLiveVariable, publishLiveVariable, deleteLiveVariable],
   );
 }

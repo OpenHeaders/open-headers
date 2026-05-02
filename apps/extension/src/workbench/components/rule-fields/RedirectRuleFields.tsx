@@ -5,9 +5,11 @@
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { Form, Radio, Tooltip, Typography } from 'antd';
 import type React from 'react';
+import { RULE_FIELD } from '@/shared/awareness';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../InspectorDocs';
 import { TemplateInput } from '../template-input';
+import { RuleField } from './RuleField';
 import ScalarConflictChip from './ScalarConflictChip';
 import type { ConflictBridge } from './use-rule-conflicts';
 
@@ -54,10 +56,12 @@ const RedirectRuleFields: React.FC<RedirectRuleFieldsProps> = ({ conflicts }) =>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <Form.Item name="redirectTo" style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
-          <TemplateInput placeholder="e.g. https://openheaders.io/redirected — use \1, \2 with URL Regex conditions" />
-        </Form.Item>
-        <ScalarConflictChip formName="redirectTo" schemaPath="action.redirectTo" conflicts={conflicts} />
+        <RuleField path={RULE_FIELD.redirectTo}>
+          <Form.Item name="redirectTo" style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
+            <TemplateInput placeholder="e.g. https://openheaders.io/redirected — use \1, \2 with URL Regex conditions" />
+          </Form.Item>
+        </RuleField>
+        <ScalarConflictChip formName="redirectTo" schemaPath={RULE_FIELD.redirectTo} conflicts={conflicts} />
       </div>
     </div>
   );

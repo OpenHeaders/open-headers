@@ -309,7 +309,7 @@ describe('RuleSchema', () => {
         type: 'query-param',
         enabled: true,
         conditions: [{ uid: 'cnd00012', type: 'request-domains', values: ['openheaders.io'] }],
-        action: { params: [{ param: 'utm_source', value: 'oh', operation: 'add' }] },
+        action: { params: [{ uid: 'qp000001', param: 'utm_source', value: 'oh', operation: 'add' }] },
       }),
     ).toBeTruthy();
   });

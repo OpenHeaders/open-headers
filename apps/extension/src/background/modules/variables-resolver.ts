@@ -22,7 +22,7 @@
  * should have one) resolve without a collection scope.
  */
 
-import { scanTemplateReferencesMany } from '@openheaders/core/live';
+import { isLiveVariableEffective, scanTemplateReferencesMany } from '@openheaders/core/live';
 import type { V5 } from '@openheaders/core/types';
 import {
   collectRuleTemplateStrings,
@@ -215,7 +215,7 @@ export function computeRuleLiveBypass(rule: V5.Rule): ReadonlySet<string> {
   if (live.length === 0) return EMPTY_STRING_SET;
   const lvByName = new Map<string, V5.LiveVariable>();
   for (const lv of getLiveVariables()) {
-    if (lv.enabled) lvByName.set(lv.name, lv);
+    if (isLiveVariableEffective(lv)) lvByName.set(lv.name, lv);
   }
   const out = new Set<string>();
   for (const name of live) {
@@ -282,7 +282,7 @@ export function __setSyncWarmRunner(runner: SyncWarmRunner | null): void {
  * one refresh, not two.
  */
 function collectSyncWarmTargets(activeEnv: string | null, now: number): SyncWarmTarget[] {
-  const lvs = getLiveVariables().filter((v) => v.enabled && v.requireFreshOnRuleBuild === true);
+  const lvs = getLiveVariables().filter((v) => isLiveVariableEffective(v) && v.requireFreshOnRuleBuild === true);
   if (lvs.length === 0) return [];
 
   const runByWorkflow = new Map<string, WorkflowRunCache>();
@@ -370,7 +370,10 @@ export async function kickSyncWarmRefreshes(): Promise<void> {
  *     for the `live` subsystem yellow-threshold.
  */
 function buildLiveRegistry(): LiveRegistry {
-  const lvs = getLiveVariables().filter((v) => v.enabled);
+  // Effective LVs only (published + enabled). Mirrors the renderer-side
+  // `useVariableResolver` + `VariablesPanel.liveRegistry` filters so the
+  // SW compile path agrees with what the user sees in the editor.
+  const lvs = getLiveVariables().filter((v) => isLiveVariableEffective(v));
   if (lvs.length === 0) return EMPTY_LIVE_REGISTRY;
 
   const activeEnv = getActiveEnvironmentId();

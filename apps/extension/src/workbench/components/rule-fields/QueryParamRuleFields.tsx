@@ -6,11 +6,14 @@
  */
 
 import { CloseOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { generateUid } from '@openheaders/core/utils';
 import { Alert, Button, Form, Input, Select, Typography } from 'antd';
 import type React from 'react';
+import { RULE_FIELD } from '@/shared/awareness';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../InspectorDocs';
 import { TemplateInput } from '../template-input';
+import { RuleField } from './RuleField';
 
 const { Text } = Typography;
 
@@ -44,32 +47,57 @@ const QueryParamRuleFields: React.FC = () => {
           );
         }}
       </Form.Item>
-      <Form.List name="queryParams" initialValue={[{ param: '', value: '', operation: 'add' }]}>
+      <Form.List name="queryParams" initialValue={[{ uid: generateUid(), param: '', value: '', operation: 'add' }]}>
         {(fields, { add, remove }) => (
           <>
             {fields.map((field) => (
-              <div key={field.key} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
-                <Form.Item
-                  {...field}
-                  name={[field.name, 'operation']}
-                  style={{ marginBottom: 0, width: 125, flexShrink: 0 }}
-                >
-                  <Select
-                    size="small"
-                    options={[
-                      // Same casing + same "Add / Replace" wording as
-                      // header rules so the cross-rule UX stays consistent.
-                      // "Replace Only" disambiguates from header "Add / Replace"
-                      // — query-param's `'override'` skips URLs that don't
-                      // already carry the param, while header `'override'`
-                      // always sets.
-                      { value: 'add', label: 'Add / Replace' },
-                      { value: 'override', label: 'Replace Only' },
-                      { value: 'remove', label: 'Remove' },
-                      { value: 'remove-all', label: 'Remove All' },
-                    ]}
-                  />
+              <Form.Item
+                noStyle
+                key={field.key}
+                shouldUpdate={(prev, cur) =>
+                  prev.queryParams?.[field.name]?.uid !== cur.queryParams?.[field.name]?.uid
+                }
+              >
+                {({ getFieldValue }) => {
+                  const rowUid = getFieldValue(['queryParams', field.name, 'uid']) as string | undefined;
+                  const wrap = (leaf: 'param' | 'value' | 'operation', child: React.ReactNode) =>
+                    rowUid ? <RuleField path={RULE_FIELD.queryParam(rowUid, leaf)}>{child}</RuleField> : child;
+                  return (
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+                {/*
+                  Hidden Form.Item binds the row's persisted uid into the
+                  form output (mirrors session 55 fix #4 for header mods).
+                  Without it, antd's getFieldsValue would strip uid from
+                  rows whose only bound inputs are param / value /
+                  operation, churning awareness paths on every save.
+                */}
+                <Form.Item {...field} name={[field.name, 'uid']} hidden>
+                  <Input type="hidden" />
                 </Form.Item>
+                {wrap(
+                  'operation',
+                  <Form.Item
+                    {...field}
+                    name={[field.name, 'operation']}
+                    style={{ marginBottom: 0, width: 125, flexShrink: 0 }}
+                  >
+                    <Select
+                      size="small"
+                      options={[
+                        // Same casing + same "Add / Replace" wording as
+                        // header rules so the cross-rule UX stays consistent.
+                        // "Replace Only" disambiguates from header "Add / Replace"
+                        // — query-param's `'override'` skips URLs that don't
+                        // already carry the param, while header `'override'`
+                        // always sets.
+                        { value: 'add', label: 'Add / Replace' },
+                        { value: 'override', label: 'Replace Only' },
+                        { value: 'remove', label: 'Remove' },
+                        { value: 'remove-all', label: 'Remove All' },
+                      ]}
+                    />
+                  </Form.Item>,
+                )}
                 <Form.Item
                   noStyle
                   shouldUpdate={(prev, cur) =>
@@ -122,14 +150,19 @@ const QueryParamRuleFields: React.FC = () => {
                     }
                     return (
                       <>
-                        <Form.Item {...field} name={[field.name, 'param']} style={{ marginBottom: 0, flex: 1 }}>
-                          <Input size="small" placeholder="Param Name" />
-                        </Form.Item>
-                        {op !== 'remove' && (
-                          <Form.Item {...field} name={[field.name, 'value']} style={{ marginBottom: 0, flex: 1 }}>
-                            <TemplateInput size="small" placeholder="Param Value" />
-                          </Form.Item>
+                        {wrap(
+                          'param',
+                          <Form.Item {...field} name={[field.name, 'param']} style={{ marginBottom: 0, flex: 1 }}>
+                            <Input size="small" placeholder="Param Name" />
+                          </Form.Item>,
                         )}
+                        {op !== 'remove' &&
+                          wrap(
+                            'value',
+                            <Form.Item {...field} name={[field.name, 'value']} style={{ marginBottom: 0, flex: 1 }}>
+                              <TemplateInput size="small" placeholder="Param Value" />
+                            </Form.Item>,
+                          )}
                       </>
                     );
                   }}
@@ -143,10 +176,13 @@ const QueryParamRuleFields: React.FC = () => {
                   style={{ color: 'var(--ant-color-text-tertiary)', flexShrink: 0 }}
                 />
               </div>
+                  );
+                }}
+              </Form.Item>
             ))}
             <Button
               type="dashed"
-              onClick={() => add({ param: '', value: '', operation: 'add' })}
+              onClick={() => add({ uid: generateUid(), param: '', value: '', operation: 'add' })}
               icon={<PlusOutlined />}
               size="small"
             >

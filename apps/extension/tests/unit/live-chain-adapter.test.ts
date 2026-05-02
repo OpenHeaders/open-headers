@@ -79,6 +79,7 @@ function makeWorkflow(overrides: Partial<V5.LiveWorkflow> = {}): V5.LiveWorkflow
     path: 'live-workflows/demo-wflowxxx',
     name: 'Demo',
     enabled: true,
+    published: true,
     refresh: { kind: 'interval', seconds: 300 },
     steps: [makeStep()],
     ...overrides,

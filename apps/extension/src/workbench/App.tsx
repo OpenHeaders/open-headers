@@ -9,7 +9,21 @@
  */
 
 import { RuleProvider } from '@context/RuleContext';
-import { AwarenessIdentityProvider, resolveWorkbenchIdentity } from '@/shared/awareness';
+import {
+  ActiveFieldFocusProvider,
+  ActiveTabEntityProvider,
+  AwarenessIdentityProvider,
+  resolveWorkbenchIdentity,
+  WorkbenchAwarenessSlot,
+} from '@/shared/awareness';
+import {
+  ENVIRONMENT_ENTITY_TYPE,
+  LIVE_VARIABLE_ENTITY_TYPE,
+  LIVE_WORKFLOW_ENTITY_TYPE,
+  REQUEST_ENTITY_TYPE,
+  RULE_ENTITY_TYPE,
+  TEMPLATE_ENTITY_TYPE,
+} from '@openheaders/core/sync';
 import { useTheme } from '@context/ThemeContext';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useLiveVariables } from '@hooks/useLiveVariables';
@@ -871,6 +885,46 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     [groups.focusedLeaf],
   );
 
+  // The active tab's backing entity, expressed as a generic
+  // `(entityType, entityId)` pair the breadcrumb wraps its inline-rename
+  // input with. Returns null for tab modes that don't represent a single
+  // entity (settings, landing, multi-vars views) — the breadcrumb skips
+  // the `<EntityField>` wrap in those cases. Adding a new editable tab
+  // mode means adding its branch here; no infrastructure changes.
+  const activeTabEntity = useMemo<{ entityType: string; entityId: string } | null>(() => {
+    if (!activeTab) return null;
+    switch (activeTab.mode) {
+      case 'edit':
+        return activeTab.ruleUid ? { entityType: RULE_ENTITY_TYPE, entityId: activeTab.ruleUid } : null;
+      case 'request-edit':
+        return activeTab.requestUid
+          ? { entityType: REQUEST_ENTITY_TYPE, entityId: activeTab.requestUid }
+          : null;
+      case 'template-edit':
+        return activeTab.templateUid
+          ? { entityType: TEMPLATE_ENTITY_TYPE, entityId: activeTab.templateUid }
+          : null;
+      case 'live-variable-edit':
+        return activeTab.liveVariableUid
+          ? { entityType: LIVE_VARIABLE_ENTITY_TYPE, entityId: activeTab.liveVariableUid }
+          : null;
+      case 'live-workflow-edit':
+        return activeTab.liveWorkflowUid
+          ? { entityType: LIVE_WORKFLOW_ENTITY_TYPE, entityId: activeTab.liveWorkflowUid }
+          : null;
+      case 'env-edit':
+        return activeTab.entityId
+          ? { entityType: ENVIRONMENT_ENTITY_TYPE, entityId: activeTab.entityId }
+          : null;
+      // Singleton entities (vault, workspace-vars) and create-mode tabs
+      // (no minted uid yet) deliberately return null — the breadcrumb
+      // shows their name segment but presence on `name` makes no sense
+      // there.
+      default:
+        return null;
+    }
+  }, [activeTab]);
+
   // Breadcrumb for the focused-leaf active tab — rendered in the footer
   // (split editors still each have their own floating action cluster,
   // but the footer breadcrumb is single-valued and follows focus).
@@ -1660,12 +1714,14 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
   return (
     <EnvSwitcherProvider collectionContext={envSwitcherCollectionContext}>
       <VariablePopoverProvider>
-        <div
-          ref={shellRef}
-          className="rules-shell"
-          data-theme={isDarkMode ? 'dark' : 'light'}
-          style={{ background: token.colorBgLayout }}
-        >
+        <ActiveTabEntityProvider value={activeTabEntity}>
+          <WorkbenchAwarenessSlot workspaceId={workspacesApi.activeWorkspaceId} />
+          <div
+            ref={shellRef}
+            className="rules-shell"
+            data-theme={isDarkMode ? 'dark' : 'light'}
+            style={{ background: token.colorBgLayout }}
+          >
           <TopBar
             tl={tl}
             onCommandPalette={() => setCommandPaletteOpen(true)}
@@ -1969,6 +2025,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
             />
           </ConnectionProvider>
         </div>
+        </ActiveTabEntityProvider>
       </VariablePopoverProvider>
     </EnvSwitcherProvider>
   );
@@ -1980,11 +2037,21 @@ const workbenchIdentity = resolveWorkbenchIdentity();
 
 const Workbench: React.FC = () => (
   <AwarenessIdentityProvider value={workbenchIdentity}>
-    <RuleProvider surfaceId="workbench">
-      <InspectorNavProvider>
-        <WorkbenchInner />
-      </InspectorNavProvider>
-    </RuleProvider>
+    {/*
+     * `ActiveFieldFocusProvider` lifts the "currently focused field"
+     * state above every workbench surface (editor body, sidebar
+     * inline-rename, breadcrumb inline-rename) so any of them can
+     * publish presence on the same wire. The matching
+     * `<WorkbenchAwarenessSlot>` mounts inside `WorkbenchInner` because
+     * it needs the active workspace id, which lives in the rule store.
+     */}
+    <ActiveFieldFocusProvider>
+      <RuleProvider surfaceId="workbench">
+        <InspectorNavProvider>
+          <WorkbenchInner />
+        </InspectorNavProvider>
+      </RuleProvider>
+    </ActiveFieldFocusProvider>
   </AwarenessIdentityProvider>
 );
 

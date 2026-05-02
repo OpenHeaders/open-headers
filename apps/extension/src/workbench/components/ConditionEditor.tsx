@@ -54,8 +54,10 @@ import {
 import { Button, Select, Tag, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo } from 'react';
+import { RULE_FIELD } from '@/shared/awareness';
 import { useInspectorNav } from '../hooks/useInspectorNav';
 import { getDocId } from './InspectorDocs';
+import { RuleField } from './rule-fields/RuleField';
 import { TemplateInput } from './template-input';
 
 // ── Condition type definitions ───────────────────────────────────
@@ -409,14 +411,16 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
               )}
 
               {/* Type selector + docs link */}
-              <Select
-                size="small"
-                value={condition.type}
-                onChange={(type) => handleTypeChange(index, type)}
-                style={{ width: 160, flexShrink: 0 }}
-                popupMatchSelectWidth={240}
-                options={buildTypeOptions(value, index)}
-              />
+              <RuleField path={RULE_FIELD.condition(condition.uid, 'field')}>
+                <Select
+                  size="small"
+                  value={condition.type}
+                  onChange={(type) => handleTypeChange(index, type)}
+                  style={{ width: 160, flexShrink: 0 }}
+                  popupMatchSelectWidth={240}
+                  options={buildTypeOptions(value, index)}
+                />
+              </RuleField>
               <InfoCircleOutlined
                 style={{ fontSize: 10, color: token.colorTextQuaternary, cursor: 'pointer', flexShrink: 0 }}
                 onClick={() => openDocs(getDocId(condition.type, 'condition'))}
@@ -424,70 +428,76 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
 
               {/* Header name (before value for header types) */}
               {def?.inputType === 'header' && (
-                <TemplateInput
-                  size="small"
-                  placeholder="Header name equals..."
-                  value={condition.headerName ?? ''}
-                  onChange={(next) => updateCondition(index, { headerName: next })}
-                  style={{ width: 180, flexShrink: 0 }}
-                />
+                <RuleField path={RULE_FIELD.condition(condition.uid, 'headerName')}>
+                  <TemplateInput
+                    size="small"
+                    placeholder="Header name equals..."
+                    value={condition.headerName ?? ''}
+                    onChange={(next) => updateCondition(index, { headerName: next })}
+                    style={{ width: 180, flexShrink: 0 }}
+                  />
+                </RuleField>
               )}
 
-              {/* Value input — varies by type */}
-              {def?.inputType === 'multi-select-methods' ? (
-                <Select
-                  size="small"
-                  mode="multiple"
-                  value={condition.values}
-                  onChange={(vals) => updateCondition(index, { values: vals })}
-                  style={{ flex: 1, minWidth: 0 }}
-                  options={HTTP_METHODS.map((v) => ({ value: v, label: v }))}
-                  placeholder="Select methods"
-                  maxTagCount="responsive"
-                />
-              ) : def?.inputType === 'multi-select-resources' ? (
-                <Select
-                  size="small"
-                  mode="multiple"
-                  value={condition.values}
-                  onChange={(vals) => updateCondition(index, { values: vals })}
-                  style={{ flex: 1, minWidth: 0 }}
-                  options={RESOURCE_TYPES.map((v) => ({ value: v, label: v }))}
-                  placeholder="Select types"
-                  maxTagCount="responsive"
-                />
-              ) : def?.inputType === 'single-select-domain-type' ? (
-                <Select
-                  size="small"
-                  value={condition.values[0]}
-                  onChange={(val) => updateCondition(index, { values: [val] })}
-                  style={{ width: 140, flexShrink: 0 }}
-                  options={DOMAIN_TYPES}
-                  placeholder="Select type"
-                />
-              ) : (
-                (() => {
-                  const isDomainList = isDomainListConditionType(condition.type);
-                  // Domain-list rows: textarea with a 4-line visible cap and
-                  // inner scroll. The line-height/font-size match
-                  // TemplateInput's small-size defaults. `--oh-multiline-cap`
-                  // is declared in `workbench/styles/rules.less` (:root) so
-                  // the same cap applies wherever the editor is mounted.
-                  const valueStyle: React.CSSProperties = isDomainList
-                    ? { flex: 1, minWidth: 0, maxHeight: 'var(--oh-multiline-cap, 96px)', minHeight: 32 }
-                    : { flex: 1, minWidth: 0 };
-                  return (
-                    <TemplateInput
-                      size="small"
-                      multiline={isDomainList}
-                      placeholder={def?.placeholder ?? 'value'}
-                      value={condition.values.join(isDomainList ? ', ' : ', ')}
-                      onChange={(next) => handleValuesText(index, next)}
-                      style={valueStyle}
-                    />
-                  );
-                })()
-              )}
+              {/* Value input — varies by type. All variants wrap with
+                  RuleField so the per-condition `values` path publishes
+                  presence regardless of input shape. */}
+              <RuleField path={RULE_FIELD.condition(condition.uid, 'values')}>
+                {def?.inputType === 'multi-select-methods' ? (
+                  <Select
+                    size="small"
+                    mode="multiple"
+                    value={condition.values}
+                    onChange={(vals) => updateCondition(index, { values: vals })}
+                    style={{ flex: 1, minWidth: 0 }}
+                    options={HTTP_METHODS.map((v) => ({ value: v, label: v }))}
+                    placeholder="Select methods"
+                    maxTagCount="responsive"
+                  />
+                ) : def?.inputType === 'multi-select-resources' ? (
+                  <Select
+                    size="small"
+                    mode="multiple"
+                    value={condition.values}
+                    onChange={(vals) => updateCondition(index, { values: vals })}
+                    style={{ flex: 1, minWidth: 0 }}
+                    options={RESOURCE_TYPES.map((v) => ({ value: v, label: v }))}
+                    placeholder="Select types"
+                    maxTagCount="responsive"
+                  />
+                ) : def?.inputType === 'single-select-domain-type' ? (
+                  <Select
+                    size="small"
+                    value={condition.values[0]}
+                    onChange={(val) => updateCondition(index, { values: [val] })}
+                    style={{ width: 140, flexShrink: 0 }}
+                    options={DOMAIN_TYPES}
+                    placeholder="Select type"
+                  />
+                ) : (
+                  (() => {
+                    const isDomainList = isDomainListConditionType(condition.type);
+                    // Domain-list rows: textarea with a 4-line visible cap and
+                    // inner scroll. The line-height/font-size match
+                    // TemplateInput's small-size defaults. `--oh-multiline-cap`
+                    // is declared in `workbench/styles/rules.less` (:root) so
+                    // the same cap applies wherever the editor is mounted.
+                    const valueStyle: React.CSSProperties = isDomainList
+                      ? { flex: 1, minWidth: 0, maxHeight: 'var(--oh-multiline-cap, 96px)', minHeight: 32 }
+                      : { flex: 1, minWidth: 0 };
+                    return (
+                      <TemplateInput
+                        size="small"
+                        multiline={isDomainList}
+                        placeholder={def?.placeholder ?? 'value'}
+                        value={condition.values.join(isDomainList ? ', ' : ', ')}
+                        onChange={(next) => handleValuesText(index, next)}
+                        style={valueStyle}
+                      />
+                    );
+                  })()
+                )}
+              </RuleField>
 
               {/* Value-logic hint — explains how multiple values inside this row combine. */}
               <ValueLogicHint type={condition.type} />

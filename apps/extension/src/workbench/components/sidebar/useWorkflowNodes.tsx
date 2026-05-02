@@ -1,4 +1,4 @@
-import { isWorkflowComplete } from '@openheaders/core/live';
+import { isWorkflowComplete, isWorkflowDraft } from '@openheaders/core/live';
 import type { V5 } from '@openheaders/core/types';
 import { createElement, useMemo } from 'react';
 import type { WorkbenchTab } from '../../types';
@@ -94,13 +94,20 @@ export function useWorkflowNodes(p: UseWorkflowNodesParams): TreeNode[] {
               : 'var(--ant-color-text-tertiary, #999)';
 
       // Configuration-state badge, precedence matches rules.
+      // Draft (publication gate) and incomplete (data-shape) are
+      // orthogonal — same model as session 55's Rule sidebar tags.
+      // Precedence: incomplete > unresolved > draft > off, so the most
+      // actionable issue wins the single badge slot.
       const complete = isWorkflowComplete(wf);
+      const draft = isWorkflowDraft(wf);
       const isUnresolved = complete && (p.unresolvableWorkflowUids?.has(wf.uid) ?? false);
       let textBadge: { label: string; color: string } | null = null;
       if (!complete) {
-        textBadge = { label: 'draft', color: 'var(--ant-color-text-tertiary, #999)' };
+        textBadge = { label: 'incomplete', color: 'var(--ant-color-text-tertiary, #999)' };
       } else if (isUnresolved) {
         textBadge = { label: 'unresolved', color: 'var(--ant-color-error, #ff4d4f)' };
+      } else if (draft) {
+        textBadge = { label: 'draft', color: 'var(--ant-color-text-tertiary, #999)' };
       } else if (!wf.enabled) {
         textBadge = { label: 'off', color: 'var(--ant-color-text-tertiary, #999)' };
       }

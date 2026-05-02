@@ -24,3 +24,17 @@ export { isHandleCoLocated, isPeerNavigable, peerNavigate } from './peer-navigat
 export { openAwarenessLifeline, type AwarenessLifelineHandle } from './awareness-lifeline';
 export { TabActiveProvider, useTabActive } from './TabActiveContext';
 export { AwarenessIdentityProvider, useLocalInstanceId, useSurfaceIdentity } from './IdentityContext';
+export { EntityScopeProvider, useEntityScope } from './EntityScope';
+export type { EntityScopeValue } from './EntityScope';
+export {
+  ActiveFieldFocusProvider,
+  useActiveFieldFocus,
+  useSetActiveFieldFocus,
+} from './ActiveFieldFocus';
+export type { ActiveFieldFocusValue } from './ActiveFieldFocus';
+export { ActiveTabEntityProvider, useActiveTabEntity } from './ActiveTabEntity';
+export type { ActiveTabEntityValue } from './ActiveTabEntity';
+export { EntityField } from './EntityField';
+export type { EntityFieldProps } from './EntityField';
+export { WorkbenchAwarenessSlot } from './WorkbenchAwarenessSlot';
+export type { WorkbenchAwarenessSlotProps } from './WorkbenchAwarenessSlot';

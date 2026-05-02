@@ -21,6 +21,7 @@ import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
+import { isLiveVariableEffective } from '@openheaders/core/live';
 import { type ResolvedLiveValue, VariableResolver } from '@openheaders/core/variables';
 import { useMemo } from 'react';
 import { feedCollectionVariablesToResolver } from '@/shared/variables/collection-scope';
@@ -39,7 +40,7 @@ export function useVariableResolver(): VariableResolver {
     const nowMs = Date.now();
     const registry = new Map<string, ResolvedLiveValue>();
     for (const lv of liveVariables) {
-      if (!lv.enabled) continue;
+      if (!isLiveVariableEffective(lv)) continue;
       if (lv.manualOverride) {
         const activeOverride = lv.manualOverride.until === undefined || lv.manualOverride.until > nowMs;
         if (activeOverride) {

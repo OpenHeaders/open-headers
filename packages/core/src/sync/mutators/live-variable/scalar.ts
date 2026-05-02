@@ -34,7 +34,8 @@ export type LiveVariableScalarPath =
   | 'captureName'
   | 'requireFreshOnRuleBuild'
   | 'manualOverride'
-  | 'enabled';
+  | 'enabled'
+  | 'published';
 
 export interface SetLiveVariableFieldArgs {
   liveVariableUid: string;

@@ -44,6 +44,8 @@ import {
   collectRequestTemplateStrings,
   computeNextFireAt as computeNextFireAtCore,
   initialCircuitSnapshot,
+  isLiveVariableEffective,
+  isWorkflowEffective,
   MAX_BACKOFF_SECONDS,
   MIN_ALARM_DELAY_MS,
   scanTemplateReferencesMany,
@@ -173,9 +175,9 @@ export function __setLiveRefreshAdapter(adapter: LiveRefreshAdapter | null): voi
  * alarm through `cancelLiveWorkflowRefresh`.
  */
 export function canScheduleWorkflow(workflow: V5.LiveWorkflow, boundVariables: V5.LiveVariable[]): boolean {
-  if (!workflow.enabled) return false;
-  const hasEnabledBinding = boundVariables.some((v) => v.enabled);
-  if (!hasEnabledBinding) return false;
+  if (!isWorkflowEffective(workflow)) return false;
+  const hasEffectiveBinding = boundVariables.some((v) => isLiveVariableEffective(v));
+  if (!hasEffectiveBinding) return false;
   return true;
 }
 
@@ -279,12 +281,12 @@ function computeWorkflowDependencies(entries: LiveEntry[]): Map<string, string[]
   if (entries.length === 0) return out;
 
   // Build an LV-name → workflow-uid index ONCE per reconcile. Only
-  // enabled LVs produce values that would trigger a rebuild of the
-  // consuming rule set, so a disabled binding doesn't warrant a dep
-  // edge.
+  // effective LVs (published + enabled) produce values that would
+  // trigger a rebuild of the consuming rule set, so a draft / disabled
+  // binding doesn't warrant a dep edge.
   const lvNameToWorkflow = new Map<string, string>();
   for (const lv of getLiveVariables()) {
-    if (lv.enabled) lvNameToWorkflow.set(lv.name, lv.workflowUid);
+    if (isLiveVariableEffective(lv)) lvNameToWorkflow.set(lv.name, lv.workflowUid);
   }
   if (lvNameToWorkflow.size === 0) return out;
 
@@ -678,7 +680,9 @@ export async function kickActiveContextRefresh(
 ): Promise<void> {
   const workflows = getLiveWorkflows();
   if (workflows.length === 0) return;
-  const lvs = getLiveVariables().filter((v) => v.enabled);
+  // Only effective bindings (published + enabled) trigger a warm pass —
+  // a draft / disabled LV's workflow has nothing to satisfy.
+  const lvs = getLiveVariables().filter((v) => isLiveVariableEffective(v));
   if (lvs.length === 0) return;
 
   // De-dupe targets: many LVs may bind the same workflow, but one
