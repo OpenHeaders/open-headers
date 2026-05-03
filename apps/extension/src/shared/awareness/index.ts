@@ -25,6 +25,12 @@ export {
   TEMPLATE_ACTION_PATHS,
   createActionPaths,
 } from './rule-paths';
+export {
+  type RequestPathBundle,
+  type RequestTabKey,
+  REQUEST_PATHS,
+  tabKeyToRequestFieldPath,
+} from './request-paths';
 export { ActionPathsProvider, useActionPaths } from './ActionPathsContext';
 export type { ActionPathsProviderProps } from './ActionPathsContext';
 export { surfaceKindColor, surfaceKindInitial, surfaceKindLabel } from './surface-label';

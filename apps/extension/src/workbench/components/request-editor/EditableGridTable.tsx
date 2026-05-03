@@ -123,11 +123,13 @@ export interface EditableGridTableProps<Row> {
   /** Optional per-cell awareness path. When provided, the Key / Value
    *  / Description cells of each row are wrapped with a layout-neutral
    *  `data-field-path` span so a focus-capture ancestor walk resolves
-   *  to the canonical schema path (`headers.0.value`,
-   *  `params.2.key`). The trailing placeholder ghost shares the same
-   *  scheme — once the user types into it the row materializes at
-   *  the same index. */
-  rowPath?: (index: number, leaf: 'key' | 'value' | 'description') => string;
+   *  to the canonical schema path (`headers.<uid>.value`,
+   *  `params.<uid>.key`). Receives the row's stable id (per
+   *  `adapter.getId`) so callers can build uid-keyed paths that
+   *  survive reorders + cross-surface joins. The trailing placeholder
+   *  ghost reuses its synthesized id; once the user types into it the
+   *  row materializes with that same id. */
+  rowPath?: (rowId: string, leaf: 'key' | 'value' | 'description') => string;
 }
 
 const DEFAULT_COLUMN_WIDTH = 'minmax(180px, 1fr)';
@@ -450,7 +452,6 @@ export function EditableGridTable<Row>({
                   <SortableEditableRow
                     key={adapter.getId(r)}
                     row={r}
-                    rowIndex={i}
                     adapter={adapter}
                     isPlaceholder={isPlaceholder}
                     gridTemplate={gridTemplate}
@@ -475,7 +476,6 @@ export function EditableGridTable<Row>({
 
 interface SortableEditableRowProps<Row> {
   row: Row;
-  rowIndex: number;
   adapter: EditableRowAdapter<Row>;
   isPlaceholder: boolean;
   gridTemplate: string;
@@ -491,7 +491,6 @@ interface SortableEditableRowProps<Row> {
 
 function SortableEditableRow<Row>({
   row,
-  rowIndex,
   adapter,
   isPlaceholder,
   gridTemplate,
@@ -554,7 +553,7 @@ function SortableEditableRow<Row>({
         </span>
       )}
       <span
-        data-field-path={rowPath ? rowPath(rowIndex, 'key') : undefined}
+        data-field-path={rowPath ? rowPath(id, 'key') : undefined}
         style={{ display: 'contents' }}
       >
         <Input
@@ -567,7 +566,7 @@ function SortableEditableRow<Row>({
       </span>
       {showValueColumn && (
         <div
-          data-field-path={rowPath ? rowPath(rowIndex, 'value') : undefined}
+          data-field-path={rowPath ? rowPath(id, 'value') : undefined}
           style={{
             borderLeft: `1px solid ${token.colorBorderSecondary}`,
             padding: '0 4px',
@@ -581,7 +580,7 @@ function SortableEditableRow<Row>({
       )}
       {showDescriptionColumn && (
         <span
-          data-field-path={rowPath ? rowPath(rowIndex, 'description') : undefined}
+          data-field-path={rowPath ? rowPath(id, 'description') : undefined}
           style={{ display: 'contents' }}
         >
           <Input

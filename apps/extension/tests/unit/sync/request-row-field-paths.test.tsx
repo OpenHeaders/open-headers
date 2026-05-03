@@ -6,10 +6,11 @@
  * The shared `EditableGridTable` shell wraps every Key / Value /
  * Description cell with a layout-neutral `data-field-path` span when
  * the caller passes a `rowPath` callback. ParamsTab + HeadersTab pass
- * `requestRowPath('headers' | 'params', index, leaf)` so awareness
- * surfaces collide on the canonical schema-aligned path string
- * (`headers.0.value`, `params.2.key`) — the same path a future
- * cross-surface request inspector publishes.
+ * `REQUEST_PATHS.header(uid, leaf)` / `REQUEST_PATHS.param(uid, leaf)`
+ * — set rows are uid-keyed (RequestHeaderSchema + QueryParamSchema
+ * persist a stable per-row uid), so paths survive reorder + cross-
+ * surface joins. The placeholder ghost reuses the synthesized makeKvRow
+ * uid; once the user types it materializes with that same id.
  */
 
 import { readFieldPath } from '@/shared/awareness/field-path';
@@ -40,6 +41,8 @@ afterEach(() => {
   cleanup();
 });
 
+// 8-hex-char uids so the regex in request-conflict-adapter accepts them
+// and the assertions read like the wire format.
 function row(uid: string, key: string, value: string): KeyValueRow {
   return { uid, key, value, description: '', enabled: true };
 }
@@ -47,62 +50,68 @@ function row(uid: string, key: string, value: string): KeyValueRow {
 const NO_BODY: V5.RequestBody = { type: 'none' };
 
 describe('ParamsTab — per-row data-field-path', () => {
-  it('wraps each cell with params.{index}.{leaf}', () => {
-    const rows: KeyValueRow[] = [row('p-0', 'q', '1'), row('p-1', 'r', '2')];
+  it('wraps each cell with params.<uid>.<leaf>', () => {
+    const rows: KeyValueRow[] = [row('aaaaaaaa', 'q', '1'), row('bbbbbbbb', 'r', '2')];
     const { container } = render(<ParamsTab rows={rows} onChange={vi.fn()} />);
-    // Probe the value cells — they're the dominant collision target
-    // (template variables flow through them) so verifying both rows
-    // covers the index-shape claim.
-    const valueWrappers = container.querySelectorAll<HTMLElement>('[data-field-path^="params."]');
-    const paths = Array.from(valueWrappers).map((el) => el.dataset.fieldPath ?? '');
-    expect(paths).toContain('params.0.key');
-    expect(paths).toContain('params.0.value');
-    expect(paths).toContain('params.0.description');
-    expect(paths).toContain('params.1.key');
-    expect(paths).toContain('params.1.value');
+    const wrappers = container.querySelectorAll<HTMLElement>('[data-field-path^="params."]');
+    const paths = Array.from(wrappers).map((el) => el.dataset.fieldPath ?? '');
+    expect(paths).toContain('params.aaaaaaaa.key');
+    expect(paths).toContain('params.aaaaaaaa.value');
+    expect(paths).toContain('params.aaaaaaaa.description');
+    expect(paths).toContain('params.bbbbbbbb.key');
+    expect(paths).toContain('params.bbbbbbbb.value');
   });
 
-  it('focus-capture target inside a value cell resolves to params.{index}.value', () => {
-    const rows: KeyValueRow[] = [row('p-0', 'q', '1')];
+  it('focus-capture target inside a value cell resolves to params.<uid>.value', () => {
+    const rows: KeyValueRow[] = [row('aaaaaaaa', 'q', '1')];
     const { container } = render(<ParamsTab rows={rows} onChange={vi.fn()} />);
-    const wrapper = container.querySelector<HTMLElement>('[data-field-path="params.0.value"]');
+    const wrapper = container.querySelector<HTMLElement>('[data-field-path="params.aaaaaaaa.value"]');
     expect(wrapper).not.toBeNull();
-    // Value cells render a TemplateInput (contentEditable div), not a
-    // plain input — query for any focusable descendant.
     const innerFocusable = wrapper?.querySelector<HTMLElement>('[contenteditable],input,textarea');
     expect(innerFocusable).not.toBeNull();
-    expect(readFieldPath(innerFocusable ?? null)).toBe('params.0.value');
+    expect(readFieldPath(innerFocusable ?? null)).toBe('params.aaaaaaaa.value');
   });
 });
 
 describe('HeadersTab — per-row data-field-path', () => {
-  it('wraps each cell with headers.{index}.{leaf}', () => {
-    const rows: KeyValueRow[] = [row('h-0', 'X-Token', 'abc'), row('h-1', 'X-Trace', 'xyz')];
+  it('wraps each cell with headers.<uid>.<leaf>', () => {
+    const rows: KeyValueRow[] = [row('cccccccc', 'X-Token', 'abc'), row('dddddddd', 'X-Trace', 'xyz')];
     const { container } = render(<HeadersTab rows={rows} onChange={vi.fn()} body={NO_BODY} />);
     const wrappers = container.querySelectorAll<HTMLElement>('[data-field-path^="headers."]');
     const paths = Array.from(wrappers).map((el) => el.dataset.fieldPath ?? '');
-    expect(paths).toContain('headers.0.key');
-    expect(paths).toContain('headers.0.value');
-    expect(paths).toContain('headers.1.key');
-    expect(paths).toContain('headers.1.value');
+    expect(paths).toContain('headers.cccccccc.key');
+    expect(paths).toContain('headers.cccccccc.value');
+    expect(paths).toContain('headers.dddddddd.key');
+    expect(paths).toContain('headers.dddddddd.value');
   });
 
-  it('focus on the key cell resolves to headers.{index}.key', () => {
-    const rows: KeyValueRow[] = [row('h-0', 'X-Token', 'abc')];
+  it('focus on the key cell resolves to headers.<uid>.key', () => {
+    const rows: KeyValueRow[] = [row('cccccccc', 'X-Token', 'abc')];
     const { container } = render(<HeadersTab rows={rows} onChange={vi.fn()} body={NO_BODY} />);
-    const wrapper = container.querySelector<HTMLElement>('[data-field-path="headers.0.key"]');
+    const wrapper = container.querySelector<HTMLElement>('[data-field-path="headers.cccccccc.key"]');
     expect(wrapper).not.toBeNull();
     const innerInput = wrapper?.querySelector<HTMLInputElement>('input');
-    expect(readFieldPath(innerInput ?? null)).toBe('headers.0.key');
+    expect(readFieldPath(innerInput ?? null)).toBe('headers.cccccccc.key');
   });
 
-  it('placeholder ghost row gets the next index path', () => {
-    // ParamsTab / HeadersTab append a placeholder ghost as the
-    // (rows.length)-th row. Its cells share the same scheme — once
-    // the user types into them the row materializes at the same index.
-    const rows: KeyValueRow[] = [row('h-0', 'X-Token', 'abc')];
+  it('placeholder ghost row gets its own uid-keyed path', () => {
+    // EditableGridTable appends a placeholder ghost as the
+    // (rows.length)-th row using the adapter's `makeEmpty()` — for
+    // KeyValueTable that calls `makeKvRow()` which mints a fresh uid.
+    // The cell wrappers tag the ghost with paths against that synthetic
+    // uid; once the user types the ghost materializes with the same uid.
+    const rows: KeyValueRow[] = [row('cccccccc', 'X-Token', 'abc')];
     const { container } = render(<HeadersTab rows={rows} onChange={vi.fn()} body={NO_BODY} />);
-    const ghostKeyWrapper = container.querySelector<HTMLElement>('[data-field-path="headers.1.key"]');
-    expect(ghostKeyWrapper).not.toBeNull();
+    const allHeaderPaths = Array.from(
+      container.querySelectorAll<HTMLElement>('[data-field-path^="headers."]'),
+    ).map((el) => el.dataset.fieldPath ?? '');
+    // First-row cells: 3 (key + value + description)
+    // Ghost-row cells: 3 (key + value + description) under a fresh uid
+    const ghostKeyPaths = allHeaderPaths.filter(
+      (p) => p.endsWith('.key') && p !== 'headers.cccccccc.key',
+    );
+    expect(ghostKeyPaths.length).toBe(1);
+    // Ghost uid is 8-char lowercase-alphanumeric per generateUid().
+    expect(/^headers\.[a-z0-9]{8}\.key$/.test(ghostKeyPaths[0])).toBe(true);
   });
 });

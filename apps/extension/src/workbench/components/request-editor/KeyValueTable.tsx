@@ -52,7 +52,7 @@ interface KeyValueTableProps {
   /** Optional per-cell awareness path (forwarded to
    *  `EditableGridTable.rowPath`). Caller composes the canonical
    *  schema-aligned path string per row index + leaf. */
-  rowPath?: (index: number, leaf: 'key' | 'value' | 'description') => string;
+  rowPath?: (rowId: string, leaf: 'key' | 'value' | 'description') => string;
 }
 
 /**

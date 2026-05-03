@@ -1,29 +1,34 @@
 /**
  * RequestEditor — V5 HTTP request editor tab.
  *
- * Full-fidelity editor that matches what the SW's `executeRequest`
- * runner can actually send. The tab layout:
- *   - Docs (reserved — free-form description)
- *   - Params (query params with description column)
- *   - Authorization (auth-type picker + OAuth 2.0 configure-new-token)
- *   - Headers (key/value/description, with auto-generated browser-
- *     controlled headers surfaced behind a Show/Hide toggle)
- *   - Body (none / form-data / x-www-form-urlencoded / raw / GraphQL)
- *   - Scripts (Pre-request + Post-response — left-rail selector)
- *   - Settings (per-request HTTP knobs)
+ * Full-fidelity editor for the request shape the SW's `executeRequest`
+ * runner can ship. Tab layout: Docs · Params · Authorization · Headers
+ * · Body · Scripts · Settings.
  *
- * Unsaved changes are tracked via a structural fingerprint — clicking
- * Save commits the whole request shape to the store. Send operates on
- * the LOCAL draft, so users can test-fire without persisting first
- * (matches the industry-standard API-client tab UX).
+ * Sync engine alignment (matches RuleEditor + TemplateEditor):
+ *
+ *   - `<EntityScopeProvider>` declares this surface's `(entityType,
+ *     entityId)` so `<EntityField>` consumers + the per-row
+ *     `data-field-path` markers all publish the same `(entity, path)`
+ *     triple to `<SurfaceAwarenessPublisher>`.
+ *   - `useEditorDirty` contributes the dirty marker (no per-editor
+ *     `useAwareness`).
+ *   - Dirty derives structurally from form-projection vs live-request
+ *     equality (no imperative `setPersistedFp(…)` flags).
+ *   - `useEntityReprime` reconciles broadcast updates while clean.
+ *   - `useRequestConflicts` + `<EntityConflictBanner>` +
+ *     `<EntityConflictDialog>` surface concurrent-edit divergence.
+ *
+ * Send operates on the LOCAL draft so users can test-fire without
+ * persisting first.
  */
 
 import { CaretRightOutlined, DownOutlined, LoadingOutlined, ThunderboltOutlined } from '@ant-design/icons';
-import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
-import { useAwareness } from '@hooks/useAwareness';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { useRequests } from '@hooks/useRequests';
 import { useVariableResolver } from '@hooks/useVariableResolver';
+import { serializeRequest } from '@openheaders/core/codec/yaml';
+import { freshDocument } from '@openheaders/core/schemas';
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { buildUrlDisplay, parseUrlQuery } from '@openheaders/core/utils';
@@ -35,9 +40,24 @@ import type { ExecutedRequestSnapshot } from '@/background/modules/request-execu
 import { getActiveRequestSyncMirror } from '@/context/request-sync-mirror';
 import { ensureScheme, needsSchemeNormalization } from '@/shared/fetch/ensure-scheme';
 import EditorHeader from './EditorHeader';
+import {
+  EntityField,
+  EntityScopeProvider,
+  REQUEST_PATHS,
+  useSetActiveFieldFocus,
+} from '@/shared/awareness';
 import { readFieldPath } from '@/shared/awareness/field-path';
-import { useSurfaceIdentity } from '@/shared/awareness';
-import { REQUEST_METHOD_PATH, REQUEST_URL_PATH, tabKeyToRequestFieldPath } from './request-field-path-map';
+import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
+import {
+  EntityConflictBanner,
+  EntityConflictDialog,
+  prettyPathMap,
+  type ConflictResolution,
+  type PathConflict,
+} from '@/shared/conflicts';
+import { stableStringify, useEntityReprime } from '@/shared/forms';
+import { requestResolveAdapter } from './request-conflict-adapter';
+import { useRequestConflicts } from './use-request-conflicts';
 import { useRequestWorkflowStepContext } from './live/useRequestWorkflowStepContext';
 import AuthorizationTab from './request-editor/AuthorizationTab';
 import BodyTab from './request-editor/BodyTab';
@@ -237,30 +257,41 @@ function emptyDraft(): Draft {
   };
 }
 
-function fingerprint(d: Draft): string {
-  return JSON.stringify({
-    method: d.method,
-    url: d.url,
-    description: d.description ?? '',
-    // Every row contributes, including key-less drafts: typing a
-    // value without a key (or a bare `?`, which produces an empty
-    // placeholder pair) is still a change the user made and Save
-    // must register it. Save's downstream strip of empty-key rows
-    // is fine — it snapshots the pre-strip draft into `persistedFp`,
-    // so typing ⇒ dirty, save ⇒ clean even though the placeholder
-    // may disappear from the stored shape.
-    headers: d.headers.map((h) => [h.key, h.value, h.description ?? '', h.enabled]),
-    // `hasEquals` as a 5th tuple slot preserves the `?ok` vs `?ok=`
-    // distinction through the fingerprint so adding `=` after an
-    // existing key is detected as dirty on its own.
-    params: d.params.map((p) => [p.key, p.value, p.description ?? '', p.enabled, !!p.hasEquals]),
-    auth: d.auth,
-    body: d.body,
-    credentialsMode: d.credentialsMode ?? 'omit',
-    followRedirects: d.followRedirects ?? true,
-    preRequestScript: d.preRequestScript ?? '',
-    postResponseScript: d.postResponseScript ?? '',
-  });
+/** Pure projection: Draft → updateRequest payload. Used at save time
+ *  AND for derived dirty / conflict baseline + form projection. One
+ *  source of truth so dirty / save / conflict tracker all agree. */
+function buildRequestUpdates(draft: Draft): {
+  description: string | undefined;
+  method: V5.HttpMethod;
+  url: string;
+  headers: V5.RequestHeader[];
+  params: V5.QueryParam[];
+  auth: V5.AuthConfig;
+  body: V5.RequestBody;
+  credentialsMode: V5.CredentialsMode | undefined;
+  followRedirects: boolean | undefined;
+  preRequestScript: string | undefined;
+  postResponseScript: string | undefined;
+} {
+  return {
+    description: draft.description.trim() ? draft.description : undefined,
+    method: draft.method,
+    url: draft.url,
+    headers: rowsToHeaders(draft.headers),
+    params: rowsToParams(draft.params),
+    auth: draft.auth,
+    body: draft.body,
+    credentialsMode: draft.credentialsMode,
+    followRedirects: draft.followRedirects,
+    preRequestScript: draft.preRequestScript,
+    postResponseScript: draft.postResponseScript,
+  };
+}
+
+/** Project a live `V5.Request` into the same shape `buildRequestUpdates`
+ *  emits — fingerprint comparison stays apples-to-apples. */
+function canonicalRequestProjection(req: V5.Request): ReturnType<typeof buildRequestUpdates> {
+  return buildRequestUpdates(draftFromRequest(req));
 }
 
 type TabKey = 'docs' | 'params' | 'authorization' | 'headers' | 'body' | 'scripts' | 'settings';
@@ -281,7 +312,6 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   const { token } = theme.useToken();
   const { message } = App.useApp();
   const { requests, collections: requestCollections, getRequest, updateRequest, execute } = useRequests();
-  const workspaceId = useActiveWorkspaceId();
 
   const isCreateMode = mode === 'request-create';
   const [activeTab, setActiveTab] = useState<TabKey>('params');
@@ -290,19 +320,30 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     () => (requestUid ? (requests.find((r) => r.uid === requestUid) ?? null) : null),
     [requests, requestUid],
   );
-  const identity = useSurfaceIdentity();
 
   const [draft, setDraft] = useState<Draft>(() => emptyDraft());
   const [loading, setLoading] = useState(!isCreateMode);
-  // State, not a ref — the `isDirty` memo reads this as a dep, so the
-  // memo recomputes when a save snapshots a new baseline. A `useRef`
-  // here would leave the memo returning its stale cached `true` on the
-  // next render and the tab dot would snap back. See the parallel fix
-  // in `useDirtyDraft` (its file-header comment documents the trap).
-  const [persistedFp, setPersistedFp] = useState<string>(() => (isCreateMode ? '' : fingerprint(emptyDraft())));
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [liveRequest, setLiveRequest] = useState<V5.Request | null>(null);
 
   const [sending, setSending] = useState(false);
   const [response, setResponse] = useState<ExecutedRequestSnapshot | null>(null);
+
+  // ── Live mirror integration ───────────────────────────────────
+  //
+  // Subscribe to broadcasts so concurrent commits land in `liveRequest`.
+  // The reprime hook below replays into the draft when clean; conflicts
+  // surface against the live snapshot when dirty.
+  useEffect(() => {
+    if (isCreateMode || !requestUid) return;
+    const mirror = getActiveRequestSyncMirror();
+    const sync = () => {
+      const entry = mirror.getRequestMirror(requestUid);
+      setLiveRequest(entry?.request ?? null);
+    };
+    sync();
+    return mirror.subscribeRequestMirror(requestUid, sync);
+  }, [isCreateMode, requestUid]);
 
   // Resolvability gate for the Send button — mirrors the DNR compile
   // gate for rules. The executor ALSO enforces this (returns an error
@@ -433,90 +474,248 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
 
   // Edit mode: load full request from SW. Create mode: nothing to load.
   const initializedUidRef = useRef<string | null>(null);
+
+  // ── Derived dirty (form-projection vs live-request) ──────────
+  //
+  // Same convention as TemplateEditor: dirty is a structural projection,
+  // never an imperative event log. `formFingerprint` (current draft
+  // projected to save-shape) vs `lastPrimedFingerprint` (canonical the
+  // draft was last seeded from). Auto-rebase snaps the latter as soon
+  // as the form converges with canonical so the post-save echo clears
+  // dirty without an explicit reset.
+  const formFingerprint = useMemo(
+    () => (isInitialized ? stableStringify(buildRequestUpdates(draft)) : null),
+    [draft, isInitialized],
+  );
+  const liveFingerprint = useMemo(
+    () => (liveRequest ? stableStringify(canonicalRequestProjection(liveRequest)) : null),
+    [liveRequest],
+  );
+  const [lastPrimedFingerprint, setLastPrimedFingerprint] = useState<string | null>(null);
+  const isDirty = isCreateMode
+    ? true
+    : isInitialized &&
+      formFingerprint !== null &&
+      lastPrimedFingerprint !== null &&
+      formFingerprint !== lastPrimedFingerprint;
+
+  // Fire `onDirtyChange` only on transitions, not every render.
+  const lastReportedDirtyRef = useRef<boolean | null>(null);
   useEffect(() => {
-    if (isCreateMode) return;
+    if (lastReportedDirtyRef.current === isDirty) return;
+    lastReportedDirtyRef.current = isDirty;
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+
+  useEditorDirty(
+    { entityType: REQUEST_ENTITY_TYPE, entityId: requestUid ?? null },
+    isDirty,
+  );
+
+  // ── Conflict tracking ────────────────────────────────────────
+  const conflicts = useRequestConflicts({
+    liveRequest,
+    isDirty,
+    enabled: !isCreateMode,
+  });
+  const setConflictBaseline = conflicts.setBaseline;
+
+  // Auto-rebase: snap both dirty-baseline AND conflict baseline as
+  // soon as the form converges with canonical (post-save echo +
+  // remote-mirrors-our-edit cases).
+  useEffect(() => {
+    if (formFingerprint === null || liveFingerprint === null) return;
+    if (formFingerprint !== liveFingerprint) return;
+    if (lastPrimedFingerprint === liveFingerprint) return;
+    setLastPrimedFingerprint(liveFingerprint);
+    if (liveRequest) setConflictBaseline(liveRequest);
+  }, [formFingerprint, liveFingerprint, lastPrimedFingerprint, liveRequest, setConflictBaseline]);
+
+  const formProjection = useMemo(() => {
+    if (!liveRequest || !isInitialized) return null;
+    const transient: V5.Request = { ...liveRequest, ...buildRequestUpdates(draft) };
+    return conflicts.projectEntity(transient);
+  }, [draft, liveRequest, isInitialized, conflicts]);
+
+  const formSetOrders = useMemo(() => {
+    const out = new Map<string, string[]>();
+    out.set(
+      REQUEST_PATHS.headerSet,
+      draft.headers.map((h) => h.uid).filter((u): u is string => !!u),
+    );
+    out.set(
+      REQUEST_PATHS.paramSet,
+      draft.params.map((p) => p.uid).filter((u): u is string => !!u),
+    );
+    return out;
+  }, [draft.headers, draft.params]);
+
+  const allConflicts = useMemo(
+    () =>
+      formProjection
+        ? conflicts.getAllConflicts(formProjection, formSetOrders)
+        : new Map<string, PathConflict>(),
+    [formProjection, formSetOrders, conflicts],
+  );
+
+  const [isConflictDialogOpen, setConflictDialogOpen] = useState(false);
+
+  // Shared helper: clone the live request, fold in current draft +
+  // optional resolutions, then return both the projected request and
+  // the corresponding draft. One source of truth for the "use saved"
+  // affordances and for the dialog's right-pane preview text.
+  const projectWithResolutions = useCallback(
+    (resolutions: ReadonlyMap<string, ConflictResolution>): { req: V5.Request; draft: Draft } | null => {
+      if (!liveRequest) return null;
+      const merged = JSON.parse(
+        JSON.stringify({ ...liveRequest, ...buildRequestUpdates(draft) }),
+      ) as V5.Request;
+      for (const [path, choice] of resolutions) {
+        if (choice !== 'theirs') continue;
+        const conflict = allConflicts.get(path);
+        if (!conflict) continue;
+        requestResolveAdapter.applyResolutionToEntity(merged, path, conflict);
+      }
+      return { req: merged, draft: draftFromRequest(merged) };
+    },
+    [liveRequest, draft, allConflicts],
+  );
+
+  const handleKeepAllMine = useCallback(() => {
+    for (const path of allConflicts.keys()) conflicts.dismiss(path);
+  }, [allConflicts, conflicts]);
+
+  const handleUseAllSaved = useCallback(() => {
+    if (!liveRequest) return;
+    const all = new Map<string, ConflictResolution>();
+    for (const path of allConflicts.keys()) all.set(path, 'theirs');
+    const projected = projectWithResolutions(all);
+    if (!projected) return;
+    setDraft(projected.draft);
+    for (const [path, conflict] of allConflicts) conflicts.acceptTheirs(path, conflict.theirs);
+  }, [allConflicts, conflicts, liveRequest, projectWithResolutions]);
+
+  const applyResolutions = useCallback(
+    (resolutions: Map<string, ConflictResolution>) => {
+      if (!liveRequest) return;
+      const projected = projectWithResolutions(resolutions);
+      if (projected) setDraft(projected.draft);
+      for (const [path, choice] of resolutions) {
+        const conflict = allConflicts.get(path);
+        if (!conflict) continue;
+        if (choice === 'theirs') conflicts.acceptTheirs(path, conflict.theirs);
+        else conflicts.dismiss(path);
+      }
+    },
+    [allConflicts, conflicts, liveRequest, projectWithResolutions],
+  );
+
+  const savedYaml = useMemo(() => {
+    if (!isConflictDialogOpen || !liveRequest) return '';
+    try {
+      return serializeRequest(freshDocument(liveRequest)).requestYaml;
+    } catch {
+      return '';
+    }
+  }, [isConflictDialogOpen, liveRequest]);
+
+  const buildLocalText = useCallback(
+    (resolutions: ReadonlyMap<string, ConflictResolution>): string => {
+      const projected = projectWithResolutions(resolutions);
+      if (!projected) return '';
+      try {
+        return serializeRequest(freshDocument(projected.req)).requestYaml;
+      } catch {
+        return '';
+      }
+    },
+    [projectWithResolutions],
+  );
+
+  const conflictPathLabels = useMemo(
+    () =>
+      liveRequest ? prettyPathMap(requestResolveAdapter, liveRequest, allConflicts.keys()) : new Map<string, string>(),
+    [liveRequest, allConflicts],
+  );
+
+  // Canonical seed: replace draft + snap both fingerprints + conflict baseline.
+  const populateAndBaseline = useCallback(
+    (req: V5.Request) => {
+      const next = draftFromRequest(req);
+      setDraft(next);
+      setConflictBaseline(req);
+      setLastPrimedFingerprint(stableStringify(canonicalRequestProjection(req)));
+    },
+    [setConflictBaseline],
+  );
+
+  // Init: load full request from SW; populate draft + baselines.
+  useEffect(() => {
+    if (isCreateMode) {
+      setIsInitialized(true);
+      return;
+    }
     if (!summary || !requestUid || initializedUidRef.current === requestUid) return;
     initializedUidRef.current = requestUid;
     setLoading(true);
     void getRequest(requestUid).then((full) => {
       if (full) {
-        const d = draftFromRequest(full);
-        setDraft(d);
-        setPersistedFp(fingerprint(d));
+        populateAndBaseline(full);
+        setLiveRequest(full);
       }
       setLoading(false);
+      setIsInitialized(true);
     });
-  }, [isCreateMode, requestUid, summary, getRequest]);
+  }, [isCreateMode, requestUid, summary, getRequest, populateAndBaseline]);
 
-  const isDirty = useMemo(() => {
-    if (isCreateMode) return true;
-    return fingerprint(draft) !== persistedFp;
-  }, [isCreateMode, draft, persistedFp]);
-  useEffect(() => {
-    onDirtyChange?.(isDirty);
-  }, [isDirty, onDirtyChange]);
-
-  // Live-update reconciliation (sync engine §6.3 ergonomic delta).
-  // After init, another surface's commit broadcasts a fresh
-  // `V5.Request` into the renderer mirror. When this editor has no
-  // uncommitted edits, re-prime the local draft from the new live
-  // request — matches RuleEditor's session-11 pattern. When dirty,
-  // we leave the form alone: the LWW save resolves the conflict at
-  // oracle time per §6.3. The subscription attaches only while clean
-  // so there's no stale-closure tracking on `isDirty`.
-  useEffect(() => {
-    if (isCreateMode || !requestUid) return;
-    if (initializedUidRef.current !== requestUid) return;
-    if (isDirty) return;
-    const mirror = getActiveRequestSyncMirror();
-    const reprime = () => {
-      const entry = mirror.getRequestMirror(requestUid);
-      if (!entry) return;
-      const next = draftFromRequest(entry.request);
-      setDraft(next);
-      setPersistedFp(fingerprint(next));
-    };
-    // Catch up: a broadcast may have landed while we were dirty.
-    reprime();
-    return mirror.subscribeRequestMirror(requestUid, reprime);
-  }, [isCreateMode, requestUid, isDirty]);
-
-  // Per-field focus path. RequestEditor uses controlled state (no
-  // antd Form), so url + method publish through explicit focus
-  // handlers; sub-row leaves inside Headers / Params (via
-  // `data-field-path` markers on the EditableGridTable cells) ride a
-  // focus-capture ancestor walk; everything else falls back to the
-  // active tab's canonical path. Order of precedence (most specific
-  // wins): subRowFocus > inputFocus > tab default — sub-row markers
-  // come from the focus target itself so they're load-bearing
-  // whenever set.
-  const [inputFocus, setInputFocus] = useState<typeof REQUEST_URL_PATH | typeof REQUEST_METHOD_PATH | null>(null);
-  const [subRowFocus, setSubRowFocus] = useState<string | null>(null);
-  const handleEditorFocusCapture = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
-    const path = readFieldPath(e.target);
-    setSubRowFocus(path);
-  }, []);
-  const handleEditorBlurCapture = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
-    const next = e.relatedTarget as HTMLElement | null;
-    if (next && e.currentTarget.contains(next)) return;
-    setSubRowFocus(null);
-  }, []);
-  const fieldFocusPath = subRowFocus ?? inputFocus ?? tabKeyToRequestFieldPath(activeTab);
-
-  // Awareness — declare the surface is editing this request. Create
-  // mode has no entity uid yet, so presence stays unpublished until
-  // the first save assigns one.
-  useAwareness({
-    workspaceId,
-    identity,
-    entityFocus: !isCreateMode && requestUid ? { type: REQUEST_ENTITY_TYPE, id: requestUid } : null,
-    fieldFocus:
-      !isCreateMode && requestUid
-        ? { type: REQUEST_ENTITY_TYPE, id: requestUid, path: fieldFocusPath }
-        : null,
-    dirtyFields: isDirty ? ['*'] : [],
-    enabled: !isCreateMode && !!requestUid,
+  const requestSignature = useCallback((r: V5.Request) => JSON.stringify(r), []);
+  const reprime = useEntityReprime<V5.Request>({
+    liveEntity: liveRequest,
+    scope: { entityType: REQUEST_ENTITY_TYPE, entityId: requestUid ?? null },
+    isDirty,
+    enabled: isInitialized && !isCreateMode,
+    signature: requestSignature,
+    populate: populateAndBaseline,
   });
+
+  // Seed the reprime signature on the very first init so the post-init
+  // broadcast carrying identical content doesn't trigger redundant
+  // re-prime.
+  useEffect(() => {
+    if (!isInitialized || isCreateMode || !liveRequest) return;
+    reprime.markPopulated(liveRequest);
+    // markPopulated is identity-stable across renders; only seed once
+    // per entity init pass.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInitialized, isCreateMode, requestUid]);
+
+  // ── Field focus publishing ───────────────────────────────────
+  //
+  // EntityField wraps the URL + method inputs and publishes through
+  // `useSetActiveFieldFocus` directly. Per-row cells (Headers / Params)
+  // use the existing `data-field-path` ancestor scheme — the
+  // EditableGridTable shell tags each cell with the canonical schema
+  // path; this editor's onFocusCapture reads the path off the focused
+  // element and routes it through the same context. Order of
+  // precedence: EntityField (innermost capture wins) > sub-row marker.
+  const setActiveFieldFocus = useSetActiveFieldFocus();
+  const handleEditorFocusCapture = useCallback(
+    (e: React.FocusEvent<HTMLDivElement>) => {
+      if (isCreateMode || !requestUid) return;
+      const path = readFieldPath(e.target);
+      if (!path) return;
+      setActiveFieldFocus({ entityType: REQUEST_ENTITY_TYPE, entityId: requestUid, path });
+    },
+    [isCreateMode, requestUid, setActiveFieldFocus],
+  );
+  const handleEditorBlurCapture = useCallback(
+    (e: React.FocusEvent<HTMLDivElement>) => {
+      const next = e.relatedTarget as HTMLElement | null;
+      if (next && e.currentTarget.contains(next)) return;
+      setActiveFieldFocus(null);
+    },
+    [setActiveFieldFocus],
+  );
 
   const handleSave = useCallback(async () => {
     if (isCreateMode) {
@@ -537,23 +736,12 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       return;
     }
     if (!requestUid || !isDirty) return;
-    const updates = {
-      description: draft.description.trim() ? draft.description : undefined,
-      method: draft.method,
-      url: draft.url,
-      headers: rowsToHeaders(draft.headers),
-      params: rowsToParams(draft.params),
-      auth: draft.auth,
-      body: draft.body,
-      credentialsMode: draft.credentialsMode,
-      followRedirects: draft.followRedirects,
-      preRequestScript: draft.preRequestScript,
-      postResponseScript: draft.postResponseScript,
-    };
+    const updates = buildRequestUpdates(draft);
     const result = await updateRequest(requestUid, updates);
     if (result.ok) {
-      setPersistedFp(fingerprint(draft));
-      onDirtyChange?.(false);
+      conflicts.clearDismissed();
+      // Dirty derives from form-vs-canonical equality; the broadcast
+      // echo brings live in line with form, auto-rebase clears.
     } else if (result.reason === 'not-found') {
       message.error('Request was deleted from another tab');
     } else {
@@ -567,7 +755,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     isDirty,
     updateRequest,
     onSaveDraft,
-    onDirtyChange,
+    conflicts,
     message,
   ]);
 
@@ -718,53 +906,53 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   // the tab pill already carries that identity).
   const headerTitle = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-      <Select
-        value={draft.method}
-        onChange={(method) => setDraft((d) => ({ ...d, method }))}
-        options={METHOD_OPTIONS}
-        size="small"
-        style={{ width: 96, flexShrink: 0 }}
-        popupMatchSelectWidth={false}
-        onFocus={() => setInputFocus(REQUEST_METHOD_PATH)}
-        onBlur={() => setInputFocus((prev) => (prev === REQUEST_METHOD_PATH ? null : prev))}
-        labelRender={({ label }) => <span style={{ fontWeight: 700, color: methodColor, fontSize: 12 }}>{label}</span>}
-      />
-      <TemplateInput
-        value={buildUrlDisplay(draft.url, draftParamsToQueryParams(draft.params))}
-        onChange={(next) => {
-          const parsed = parseUrlQuery(next);
-          setDraft((d) => ({
-            ...d,
-            url: parsed.base,
-            params: mergeParamsFromUrl(parsed.params, d.params),
-          }));
-        }}
-        placeholder="Enter URL or paste text"
-        size="small"
-        status={sectionUnresolved.url ? 'error' : undefined}
-        style={{
-          flex: 1,
-          minWidth: 0,
-          fontFamily: "'SF Mono', monospace",
-          fontSize: 12,
-          // Fill the 24px min-height so the text sits on the vertical
-          // center. The component's default `lineHeight: 1.5714` combined
-          // with monospace metrics pushes glyphs slightly above center.
-          lineHeight: '22px',
-        }}
-        onPressEnter={() => void handleSend()}
-        onFocus={() => setInputFocus(REQUEST_URL_PATH)}
-        onBlur={() => {
-          setInputFocus((prev) => (prev === REQUEST_URL_PATH ? null : prev));
-          const trimmed = draft.url.trim();
-          if (trimmed.length > 0 && needsSchemeNormalization(trimmed)) {
-            const normalized = ensureScheme(trimmed);
-            if (normalized !== draft.url) {
-              setDraft((d) => ({ ...d, url: normalized }));
+      <EntityField path={REQUEST_PATHS.method}>
+        <Select
+          value={draft.method}
+          onChange={(method) => setDraft((d) => ({ ...d, method }))}
+          options={METHOD_OPTIONS}
+          size="small"
+          style={{ width: 96, flexShrink: 0 }}
+          popupMatchSelectWidth={false}
+          labelRender={({ label }) => <span style={{ fontWeight: 700, color: methodColor, fontSize: 12 }}>{label}</span>}
+        />
+      </EntityField>
+      <EntityField path={REQUEST_PATHS.url}>
+        <TemplateInput
+          value={buildUrlDisplay(draft.url, draftParamsToQueryParams(draft.params))}
+          onChange={(next) => {
+            const parsed = parseUrlQuery(next);
+            setDraft((d) => ({
+              ...d,
+              url: parsed.base,
+              params: mergeParamsFromUrl(parsed.params, d.params),
+            }));
+          }}
+          placeholder="Enter URL or paste text"
+          size="small"
+          status={sectionUnresolved.url ? 'error' : undefined}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            fontFamily: "'SF Mono', monospace",
+            fontSize: 12,
+            // Fill the 24px min-height so the text sits on the vertical
+            // center. The component's default `lineHeight: 1.5714` combined
+            // with monospace metrics pushes glyphs slightly above center.
+            lineHeight: '22px',
+          }}
+          onPressEnter={() => void handleSend()}
+          onBlur={() => {
+            const trimmed = draft.url.trim();
+            if (trimmed.length > 0 && needsSchemeNormalization(trimmed)) {
+              const normalized = ensureScheme(trimmed);
+              if (normalized !== draft.url) {
+                setDraft((d) => ({ ...d, url: normalized }));
+              }
             }
-          }
-        }}
-      />
+          }}
+        />
+      </EntityField>
     </div>
   );
 
@@ -789,82 +977,102 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   );
 
   return (
-    <SuggestionContextProvider value={suggestionContext}>
-      <div
-        style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}
-        onFocusCapture={handleEditorFocusCapture}
-        onBlurCapture={handleEditorBlurCapture}
-      >
-        <EditorHeader title={headerTitle} actions={headerActions} isDirty={isDirty} onSave={handleSaveSync} />
+    <EntityScopeProvider entityType={REQUEST_ENTITY_TYPE} entityId={requestUid ?? null}>
+      <SuggestionContextProvider value={suggestionContext}>
+        <div
+          style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}
+          onFocusCapture={handleEditorFocusCapture}
+          onBlurCapture={handleEditorBlurCapture}
+        >
+          <EditorHeader title={headerTitle} actions={headerActions} isDirty={isDirty} onSave={handleSaveSync} />
 
-        {needsSchemeNormalization(draft.url) && (
-          <div
-            style={{
-              padding: '4px 16px',
-              borderBottom: `1px solid ${token.colorBorderSecondary}`,
-            }}
-          >
-            <Tooltip
-              title="Your URL has no scheme. It will be sent as https:// — click the URL bar and press Tab or Enter to lock it in."
-              placement="bottomLeft"
+          <EntityConflictBanner
+            count={allConflicts.size}
+            onReview={() => setConflictDialogOpen(true)}
+            onKeepAllMine={handleKeepAllMine}
+            onUseAllSaved={handleUseAllSaved}
+          />
+
+          {needsSchemeNormalization(draft.url) && (
+            <div
+              style={{
+                padding: '4px 16px',
+                borderBottom: `1px solid ${token.colorBorderSecondary}`,
+              }}
             >
-              <span
-                style={{
-                  fontSize: 11,
-                  color: token.colorTextTertiary,
-                  fontFamily: "'SF Mono', monospace",
-                  cursor: 'help',
-                }}
+              <Tooltip
+                title="Your URL has no scheme. It will be sent as https:// — click the URL bar and press Tab or Enter to lock it in."
+                placement="bottomLeft"
               >
-                → {ensureScheme(draft.url.trim())}
-              </span>
-            </Tooltip>
-          </div>
-        )}
-
-        {/* Editor / response split. The sub-tab bar (Docs · Params · …)
-          renders OUTSIDE the scroll container so it never participates
-          in scrolling — simpler + more robust than `position: sticky`,
-          and leaves child panes free to mount their own sticky rails
-          (e.g. the Authorization tab's auth-type picker) without
-          colliding with an outer sticky header. We pass empty `items`
-          to AntD Tabs so only the bar renders; the active pane is
-          rendered manually below inside its own scroller. */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-          <div style={{ flex: response ? '0 0 55%' : 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            <div style={{ padding: '8px 16px 0' }}>
-              <Tabs
-                size="small"
-                activeKey={activeTab}
-                onChange={(k) => setActiveTab(k as TabKey)}
-                items={tabItems.map((item) => ({ key: item.key, label: item.label }))}
-                className="rules-request-tabs"
-                tabBarStyle={{ marginBottom: 0 }}
-              />
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: token.colorTextTertiary,
+                    fontFamily: "'SF Mono', monospace",
+                    cursor: 'help',
+                  }}
+                >
+                  → {ensureScheme(draft.url.trim())}
+                </span>
+              </Tooltip>
             </div>
-            <div style={{ flex: 1, overflow: 'auto', padding: '10px 16px' }}>
-              <TabContent tab={activeTab} draft={draft} setDraft={setDraft} settingsValue={settingsValue} />
-            </div>
-          </div>
-          {response && (
-            <ResponsePanel
-              response={response}
-              onClear={() => setResponse(null)}
-              onExtractToWorkflow={
-                mode === 'request-edit' && requestUid && onExtractToWorkflow
-                  ? (target) =>
-                      onExtractToWorkflow(target, {
-                        requestUid,
-                        requestName: summary?.name ?? 'Request',
-                        method: draft.method,
-                      })
-                  : undefined
-              }
-            />
           )}
+
+          {/* Editor / response split. The sub-tab bar (Docs · Params · …)
+            renders OUTSIDE the scroll container so it never participates
+            in scrolling — simpler + more robust than `position: sticky`,
+            and leaves child panes free to mount their own sticky rails
+            (e.g. the Authorization tab's auth-type picker) without
+            colliding with an outer sticky header. We pass empty `items`
+            to AntD Tabs so only the bar renders; the active pane is
+            rendered manually below inside its own scroller. */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+            <div style={{ flex: response ? '0 0 55%' : 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+              <div style={{ padding: '8px 16px 0' }}>
+                <Tabs
+                  size="small"
+                  activeKey={activeTab}
+                  onChange={(k) => setActiveTab(k as TabKey)}
+                  items={tabItems.map((item) => ({ key: item.key, label: item.label }))}
+                  className="rules-request-tabs"
+                  tabBarStyle={{ marginBottom: 0 }}
+                />
+              </div>
+              <div style={{ flex: 1, overflow: 'auto', padding: '10px 16px' }}>
+                <TabContent tab={activeTab} draft={draft} setDraft={setDraft} settingsValue={settingsValue} />
+              </div>
+            </div>
+            {response && (
+              <ResponsePanel
+                response={response}
+                onClear={() => setResponse(null)}
+                onExtractToWorkflow={
+                  mode === 'request-edit' && requestUid && onExtractToWorkflow
+                    ? (target) =>
+                        onExtractToWorkflow(target, {
+                          requestUid,
+                          requestName: summary?.name ?? 'Request',
+                          method: draft.method,
+                        })
+                    : undefined
+                }
+              />
+            )}
+          </div>
+
+          <EntityConflictDialog
+            open={isConflictDialogOpen}
+            savedText={savedYaml}
+            buildLocalText={buildLocalText}
+            conflicts={allConflicts}
+            localValuesByPath={formProjection ? new Map(Object.entries(formProjection)) : undefined}
+            pathLabels={conflictPathLabels}
+            onResolve={applyResolutions}
+            onClose={() => setConflictDialogOpen(false)}
+          />
         </div>
-      </div>
-    </SuggestionContextProvider>
+      </SuggestionContextProvider>
+    </EntityScopeProvider>
   );
 };
 

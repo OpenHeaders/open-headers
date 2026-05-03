@@ -10,7 +10,7 @@
 
 import { Typography } from 'antd';
 import type React from 'react';
-import { requestRowPath } from '../request-field-path-map';
+import { REQUEST_PATHS } from '@/shared/awareness';
 import KeyValueTable, { type KeyValueRow, makeKvRow } from './KeyValueTable';
 
 const { Text } = Typography;
@@ -74,7 +74,7 @@ const ParamsTab: React.FC<ParamsTabProps> = ({ rows, onChange }) => {
           parse: textToRows,
           placeholder: PARAMS_BULK_PLACEHOLDER,
         }}
-        rowPath={(index, leaf) => requestRowPath('params', index, leaf)}
+        rowPath={(uid, leaf) => REQUEST_PATHS.param(uid, leaf)}
       />
     </div>
   );
