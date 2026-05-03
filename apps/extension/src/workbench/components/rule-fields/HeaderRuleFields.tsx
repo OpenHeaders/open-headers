@@ -44,7 +44,7 @@ import type { HeaderDirection } from '@openheaders/core/utils';
 import { generateUid, getHeaderOperationCapability } from '@openheaders/core/utils';
 import { Alert, Button, Form, Input, Select, Tabs, Tooltip, Typography } from 'antd';
 import type React from 'react';
-import { ConflictDiffChip, EntityField, RULE_FIELD, TabPresenceBadge } from '@/shared/awareness';
+import { ConflictDiffChip, EntityField, RULE_FIELD, SetRowConflictChip, TabPresenceBadge } from '@/shared/awareness';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { PathConflict } from './use-rule-conflicts';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
@@ -68,6 +68,10 @@ type HeaderOp = 'override' | 'add' | 'remove' | 'merge';
 
 interface ConflictHandlers {
   getConflict: (path: string, localValue: string) => PathConflict | null;
+  /** Optional row-level lookup: returns a `set-remove` conflict when the
+   *  saved version dropped this row but the form still has it. Renders
+   *  the inline `<SetRowConflictChip>`. */
+  getSetConflict?: (setPath: string, uid: string, formContainsUid: boolean) => PathConflict | null;
   onAcceptTheirs: (path: string, theirs: string) => void;
   onDismissConflict: (path: string) => void;
 }
@@ -268,6 +272,27 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, conflic
                     Headed name + value get diffs; operation + mergeSeparator
                     are short typed scalars where a banner-style "they
                     changed it" doesn't add value beyond presence. */}
+                {/* Per-row "saved version removed this row" chip — surfaces
+                    set-level conflicts inline, parallel to the leaf
+                    conflict chip below. The form still owns the row;
+                    user picks "Use saved (remove)" to drop it or
+                    "Keep mine" to dismiss. */}
+                {ruleUid && conflicts?.getSetConflict && rowUid && (() => {
+                  const setPath = `action.${name}` as const;
+                  const setRemove = conflicts.getSetConflict(setPath, rowUid, true);
+                  if (!setRemove || setRemove.kind !== 'set-remove') return null;
+                  return (
+                    <SetRowConflictChip
+                      baseSummary={setRemove.base}
+                      remote={setRemove.remote}
+                      onUseSaved={() => {
+                        remove(field.name);
+                        conflicts.onAcceptTheirs(`set:${setPath}.${rowUid}`, '');
+                      }}
+                      onKeepMine={() => conflicts.onDismissConflict(`set:${setPath}.${rowUid}`)}
+                    />
+                  );
+                })()}
                 {ruleUid && conflicts && rowUid && (
                   <Form.Item
                     noStyle
@@ -290,6 +315,8 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, conflic
                             <ConflictDiffChip
                               theirs={valueConflict.theirs}
                               base={valueConflict.base}
+                              local={localValue}
+                              remote={valueConflict.remote}
                               onTakeTheirs={() => {
                                 form.setFieldValue([name, field.name, 'value'], valueConflict.theirs);
                                 conflicts.onAcceptTheirs(valuePath, valueConflict.theirs);
@@ -301,6 +328,8 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, conflic
                             <ConflictDiffChip
                               theirs={nameConflict.theirs}
                               base={nameConflict.base}
+                              local={localName}
+                              remote={nameConflict.remote}
                               onTakeTheirs={() => {
                                 form.setFieldValue([name, field.name, 'headerName'], nameConflict.theirs);
                                 conflicts.onAcceptTheirs(namePath, nameConflict.theirs);
@@ -488,6 +517,7 @@ interface HeaderRuleFieldsProps {
    *  returns a non-null entry for a row's value path. Undefined in
    *  draft mode (no live rule to conflict with). */
   getConflict?: (path: string, localValue: string) => PathConflict | null;
+  getSetConflict?: (setPath: string, uid: string, formContainsUid: boolean) => PathConflict | null;
   onAcceptTheirs?: (path: string, theirs: string) => void;
   onDismissConflict?: (path: string) => void;
 }
@@ -500,13 +530,16 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
   ruleUid,
   excludeInstanceId,
   getConflict,
+  getSetConflict,
   onAcceptTheirs,
   onDismissConflict,
 }) => {
   const { openDocs } = useInspectorNav();
   const hasResponse = resCount > 0;
   const conflictBridge =
-    getConflict && onAcceptTheirs && onDismissConflict ? { getConflict, onAcceptTheirs, onDismissConflict } : undefined;
+    getConflict && onAcceptTheirs && onDismissConflict
+      ? { getConflict, getSetConflict, onAcceptTheirs, onDismissConflict }
+      : undefined;
 
   return (
     <div style={{ marginBottom: 16 }}>

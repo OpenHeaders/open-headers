@@ -1,81 +1,125 @@
 /**
- * Inline diff chip (Phase A A4).
+ * Inline diff chip for one field with an external concurrent edit.
  *
- * Renders next to a form field when an external commit has produced
- * a value at the same path that differs from both the user's current
- * uncommitted draft AND the value the form was last seeded with.
+ * Pure UI primitive — entity-agnostic. The popover surfaces three
+ * values in plain language:
  *
- * Affordances:
- *   - Take Theirs   — overwrite the local field with the external value.
- *   - Keep Mine     — dismiss the chip; local edit stands. The §6.3 LWW
- *                     save still applies — the user's later HLC wins on
- *                     save regardless of the chip's state.
- *   - Show diff     — disclose `base → theirs` (where `base` is the value
- *                     the form was originally seeded with). The user's
- *                     local draft sits in the field itself; surfacing it
- *                     a third time would just clutter.
+ *   - "Saved value" — what another surface committed (with attribution
+ *     via `<SurfaceChip>` when awareness can identify the peer).
+ *   - "Your edit"   — what the user is currently typing locally.
+ *   - "Last synced value" (collapsed) — the value the form was
+ *     originally seeded with; kept for the curious, hidden by default.
  *
- * Pure presentational — all rule-specific lookup happens in the caller's
- * tracker hook.
+ * Buttons name the outcome: "Keep mine" (dismiss) and "Use saved"
+ * (overwrite the local field with the saved value). Save semantics
+ * still apply regardless of dismissal — a later HLC wins on save —
+ * but that's a sync-engine detail; the user's mental model is "the
+ * other surface saved this value, what do I want my field to be?".
  */
 
 import { ThunderboltOutlined } from '@ant-design/icons';
 import { Button, Popover, Typography } from 'antd';
 import type React from 'react';
+import { useState } from 'react';
+import type { ConflictRemoteInfo } from '@/shared/conflicts/types';
+import SurfaceChip from './SurfaceChip';
 
 const { Text } = Typography;
 
 export interface ConflictDiffChipProps {
-  /** The committed value from another surface. Replaces local on Take Theirs. */
+  /** The committed value from another surface. Replaces local on Use saved. */
   theirs: string;
-  /** Snapshot the form was seeded with (last init / last accepted Theirs). */
+  /** Snapshot the form was seeded with (last init / last accepted). */
   base: string;
+  /** Local form value the user is typing right now. Surfaced explicitly
+   *  so all three values in the conflict are visible side-by-side. */
+  local: string;
+  /** Optional attribution. Omitted when no peer can be identified;
+   *  chip then drops the dot+kind line and shows just the values. */
+  remote?: ConflictRemoteInfo;
   onTakeTheirs: () => void;
   onKeepMine: () => void;
   style?: React.CSSProperties;
 }
 
-const ConflictDiffChip: React.FC<ConflictDiffChipProps> = ({ theirs, base, onTakeTheirs, onKeepMine, style }) => {
+const monoBlock: React.CSSProperties = {
+  background: 'var(--ant-color-fill-quaternary)',
+  padding: 6,
+  borderRadius: 4,
+  fontFamily: 'monospace',
+  fontSize: 11,
+  whiteSpace: 'pre-wrap',
+  wordBreak: 'break-all',
+};
+
+const ConflictDiffChip: React.FC<ConflictDiffChipProps> = ({
+  theirs,
+  base,
+  local,
+  remote,
+  onTakeTheirs,
+  onKeepMine,
+  style,
+}) => {
+  const [showBase, setShowBase] = useState(false);
+
   const content = (
-    <div style={{ minWidth: 240, maxWidth: 360, fontSize: 12 }}>
-      <Text strong style={{ display: 'block', marginBottom: 6 }}>
-        External change available
+    <div style={{ minWidth: 260, maxWidth: 360, fontSize: 12 }}>
+      <Text strong style={{ display: 'block', marginBottom: remote ? 4 : 8 }}>
+        External change
       </Text>
-      <div style={{ marginBottom: 8, lineHeight: 1.5 }}>
-        Another surface committed a value here while you were editing. Your local edit is preserved on save (§6.3 LWW),
-        but you can switch to theirs explicitly.
+      {remote && (
+        <div style={{ marginBottom: 8 }}>
+          <SurfaceChip
+            kind={remote.surfaceKind}
+            label={remote.surfaceLabel}
+            agoMs={remote.agoMs}
+            size="small"
+          />
+        </div>
+      )}
+      <div style={{ marginBottom: 6 }}>
+        <Text strong style={{ fontSize: 11, display: 'block', marginBottom: 2 }}>
+          Saved value
+        </Text>
+        <div style={monoBlock}>{theirs || '(empty)'}</div>
       </div>
-      <div
-        style={{
-          background: 'var(--ant-color-fill-quaternary)',
-          padding: 6,
-          borderRadius: 4,
-          fontFamily: 'monospace',
-          fontSize: 11,
-          marginBottom: 8,
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-all',
-        }}
-      >
-        <div style={{ opacity: 0.7 }}>base: {base || '(empty)'}</div>
-        <div>theirs: {theirs || '(empty)'}</div>
+      <div style={{ marginBottom: 10 }}>
+        <Text strong style={{ fontSize: 11, display: 'block', marginBottom: 2 }}>
+          Your edit
+        </Text>
+        <div style={monoBlock}>{local || '(empty)'}</div>
       </div>
-      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', marginBottom: 6 }}>
         <Button size="small" onClick={onKeepMine}>
-          Keep Mine
+          Keep mine
         </Button>
         <Button size="small" type="primary" onClick={onTakeTheirs}>
-          Take Theirs
+          Use saved
         </Button>
       </div>
+      <button
+        type="button"
+        onClick={() => setShowBase((v) => !v)}
+        style={{
+          background: 'transparent',
+          border: 'none',
+          padding: 0,
+          color: 'var(--ant-color-text-tertiary)',
+          fontSize: 11,
+          cursor: 'pointer',
+        }}
+      >
+        {showBase ? '▾' : '▸'} Last synced value
+      </button>
+      {showBase && <div style={{ ...monoBlock, marginTop: 4, opacity: 0.85 }}>{base || '(empty)'}</div>}
     </div>
   );
 
   return (
     // zIndex 1100 lifts the resolve popover above any host surface that
     // mounts inside a stacking context (devpanel rule-hover popover at
-    // zIndex 1080, with its inner antd dropdowns at 1090). Matches the
-    // PresenceBadge / AwarenessPill convention.
+    // 1080, with its inner antd dropdowns at 1090).
     <Popover content={content} trigger="click" placement="topRight" zIndex={1100}>
       <span
         role="button"

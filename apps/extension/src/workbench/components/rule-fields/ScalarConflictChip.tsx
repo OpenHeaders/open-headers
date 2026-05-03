@@ -37,6 +37,8 @@ const ScalarConflictChip: React.FC<ScalarConflictChipProps> = ({ formName, schem
           <ConflictDiffChip
             theirs={conflict.theirs}
             base={conflict.base}
+            local={localValue}
+            remote={conflict.remote}
             onTakeTheirs={() => {
               form.setFieldValue(formName, conflict.theirs);
               conflicts.onAcceptTheirs(schemaPath, conflict.theirs);

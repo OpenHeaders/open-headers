@@ -56,7 +56,14 @@ import InjectRuleFields, { maybePrefillInjectCode } from './rule-fields/InjectRu
 import MockRuleFields, { MOCK_DYNAMIC_TEMPLATE } from './rule-fields/MockRuleFields';
 import QueryParamRuleFields from './rule-fields/QueryParamRuleFields';
 import RedirectRuleFields from './rule-fields/RedirectRuleFields';
+import { serializeRule } from '@openheaders/core/codec/yaml';
+import { freshDocument } from '@openheaders/core/schemas';
+import { applyResolutionToForm, applyResolutionToRule } from './rule-fields/rule-form-resolver';
+import { prettyRulePathMap } from './rule-fields/pretty-path';
 import { useRuleConflicts } from './rule-fields/use-rule-conflicts';
+import type { PathConflict } from './rule-fields/use-rule-conflicts';
+import { EntityConflictBanner, EntityConflictDialog } from '@/shared/conflicts';
+import type { ConflictResolution } from '@/shared/conflicts';
 import SaveAsTemplateModal from './SaveAsTemplateModal';
 import { buildRuleIcon } from './shared/rule-icon';
 import { renderTwoToneIcon } from './TwoToneIconPicker';
@@ -295,10 +302,141 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   const conflictBridge = useMemo(
     () => ({
       getConflict: conflicts.getConflict,
+      getSetConflict: conflicts.getSetConflict,
       onAcceptTheirs: conflicts.acceptTheirs,
       onDismissConflict: conflicts.dismiss,
     }),
-    [conflicts.getConflict, conflicts.acceptTheirs, conflicts.dismiss],
+    [conflicts.getConflict, conflicts.getSetConflict, conflicts.acceptTheirs, conflicts.dismiss],
+  );
+
+  // Entity-level conflict aggregation. The banner + diff dialog read
+  // through the same `getAllConflicts` projection — same source of
+  // truth as the per-field chips, so any resolution path keeps all
+  // three surfaces in sync.
+  const formProjection = useMemo(() => {
+    if (!formValues) return null;
+    const built = buildRule(formValues, ruleName, isEnabled);
+    if (!built || !liveRule) return null;
+    // `extractBaseline` keys by `uid` and reads from a full V5.Rule
+    // shape — splice the live rule's uid + path onto the built form
+    // projection so the path-keyed projection lines up with baseline.
+    return conflicts.projectRule({ ...built, uid: liveRule.uid, path: liveRule.path } as V5.Rule);
+  }, [formValues, ruleName, isEnabled, liveRule, conflicts]);
+
+  // Form-side ordered uid arrays per set-modeled path. The conflict
+  // tracker uses these for `set-reorder` detection — order is lost
+  // when the form gets projected to a path map.
+  const formSetOrders = useMemo(() => {
+    const out = new Map<string, string[]>();
+    if (!formValues) return out;
+    const collect = (key: string, setPath: string) => {
+      const arr = formValues[key] as Array<{ uid?: string }> | undefined;
+      if (!Array.isArray(arr)) return;
+      const order = arr.map((r) => r?.uid).filter((u): u is string => typeof u === 'string');
+      if (order.length > 0) out.set(setPath, order);
+    };
+    collect('requestHeaders', 'action.requestHeaders');
+    collect('responseHeaders', 'action.responseHeaders');
+    collect('params', 'action.params');
+    collect('queryParams', 'action.params');
+    collect('conditions', 'conditions');
+    return out;
+  }, [formValues]);
+
+  const allConflicts = useMemo(
+    () =>
+      formProjection
+        ? conflicts.getAllConflicts(formProjection, formSetOrders)
+        : new Map<string, PathConflict>(),
+    [formProjection, formSetOrders, conflicts],
+  );
+
+  const [isConflictDialogOpen, setConflictDialogOpen] = useState(false);
+
+  const handleKeepAllMine = useCallback(() => {
+    for (const path of allConflicts.keys()) {
+      conflicts.dismiss(path);
+    }
+  }, [allConflicts, conflicts]);
+
+  const handleUseAllSaved = useCallback(() => {
+    if (!liveRule) return;
+    for (const [path, conflict] of allConflicts) {
+      applyResolutionToForm(form, liveRule, path, conflict);
+      conflicts.acceptTheirs(path, conflict.theirs);
+    }
+  }, [allConflicts, conflicts, form, liveRule]);
+
+  const applyResolutions = useCallback(
+    (resolutions: Map<string, ConflictResolution>) => {
+      if (!liveRule) return;
+      for (const [path, choice] of resolutions) {
+        const conflict = allConflicts.get(path);
+        if (!conflict) continue;
+        if (choice === 'theirs') {
+          applyResolutionToForm(form, liveRule, path, conflict);
+          conflicts.acceptTheirs(path, conflict.theirs);
+        } else {
+          conflicts.dismiss(path);
+        }
+      }
+    },
+    [allConflicts, conflicts, form, liveRule],
+  );
+
+  // Diff dialog payloads. Saved (left pane) is the canonical rule
+  // serialized via the YAML codec — same shape teammates see in `git
+  // diff` / PR review (Phase D forward). Local (right pane) is built
+  // from the form values with the user's pending per-row picks applied,
+  // so the diff updates as soon as the user clicks "Use saved" /
+  // "Keep mine" — same model IDE merge tools use.
+  const savedYaml = useMemo(() => {
+    if (!isConflictDialogOpen || !liveRule) return '';
+    try {
+      return serializeRule(freshDocument(liveRule));
+    } catch {
+      return '';
+    }
+  }, [isConflictDialogOpen, liveRule]);
+
+  const buildLocalText = useCallback(
+    (resolutions: ReadonlyMap<string, ConflictResolution>): string => {
+      if (!liveRule || !formValues) return '';
+      const localBuilt = buildRule(formValues, ruleName, isEnabled);
+      if (!localBuilt) return '';
+      // Deep-clone before mutating so the caller's form / live data
+      // doesn't drift via shared sub-objects (action arrays especially).
+      // Splice entity-managed metadata (schemaVersion, published) from
+      // the live rule onto the projection — `buildRule` only knows the
+      // form-owned fields, so without this the diff would falsely
+      // remove `schemaVersion`/`published` lines on the local side.
+      const localRule = JSON.parse(
+        JSON.stringify({
+          ...localBuilt,
+          uid: liveRule.uid,
+          path: liveRule.path,
+          schemaVersion: liveRule.schemaVersion,
+          published: liveRule.published,
+        }),
+      ) as V5.Rule;
+      for (const [path, choice] of resolutions) {
+        if (choice !== 'theirs') continue;
+        const conflict = allConflicts.get(path);
+        if (!conflict) continue;
+        applyResolutionToRule(localRule, path, conflict);
+      }
+      try {
+        return serializeRule(freshDocument(localRule));
+      } catch {
+        return '';
+      }
+    },
+    [liveRule, formValues, ruleName, isEnabled, allConflicts],
+  );
+
+  const conflictPathLabels = useMemo(
+    () => (liveRule ? prettyRulePathMap(liveRule, allConflicts.keys()) : new Map<string, string>()),
+    [liveRule, allConflicts],
   );
 
   const handleToggleEnabled = useCallback(() => {
@@ -958,6 +1096,13 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                 <input type="hidden" />
               </Form.Item>
 
+              <EntityConflictBanner
+                count={allConflicts.size}
+                onReview={() => setConflictDialogOpen(true)}
+                onKeepAllMine={handleKeepAllMine}
+                onUseAllSaved={handleUseAllSaved}
+              />
+
               {/* Unresolved-variable feedback lives in the inline mirror
                *  (red-dashed `{{ref}}` at the source) + the Variables
                *  panel's "Resolution issues" section, both of which show
@@ -1052,6 +1197,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                       ruleUid={ruleUid}
                       excludeInstanceId={localInstanceId}
                       getConflict={conflicts.getConflict}
+                      getSetConflict={conflicts.getSetConflict}
                       onAcceptTheirs={conflicts.acceptTheirs}
                       onDismissConflict={conflicts.dismiss}
                     />
@@ -1099,6 +1245,17 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                 </div>
               </div>
             </Form>
+
+            <EntityConflictDialog
+              open={isConflictDialogOpen}
+              savedText={savedYaml}
+              buildLocalText={buildLocalText}
+              conflicts={allConflicts}
+              localValuesByPath={formProjection ? new Map(Object.entries(formProjection)) : undefined}
+              pathLabels={conflictPathLabels}
+              onResolve={applyResolutions}
+              onClose={() => setConflictDialogOpen(false)}
+            />
 
             <SaveAsTemplateModal
               open={saveAsTemplateOpen}

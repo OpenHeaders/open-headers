@@ -14,9 +14,14 @@ export { default as AwarenessPill } from './AwarenessPill';
 export type { AwarenessPillProps } from './AwarenessPill';
 export { default as ConflictDiffChip } from './ConflictDiffChip';
 export type { ConflictDiffChipProps } from './ConflictDiffChip';
+export { default as SetRowConflictChip } from './SetRowConflictChip';
+export type { SetRowConflictChipProps } from './SetRowConflictChip';
 export { useEntityPresence, useFieldPresence, usePathPrefixPresence } from './use-entity-presence';
 export { RULE_FIELD } from './rule-paths';
 export { surfaceKindColor, surfaceKindInitial, surfaceKindLabel } from './surface-label';
+export { default as SurfaceChip, SurfaceDot } from './SurfaceChip';
+export type { SurfaceChipProps, SurfaceDotProps } from './SurfaceChip';
+export { formatAgo } from './format-ago';
 export {
   resolveDevPanelIdentity,
   resolvePopupIdentity,
@@ -27,7 +32,12 @@ export {
 export { isHandleCoLocated, isPeerNavigable, peerNavigate } from './peer-navigate';
 export { openAwarenessLifeline, type AwarenessLifelineHandle } from './awareness-lifeline';
 export { TabActiveProvider, useTabActive } from './TabActiveContext';
-export { AwarenessIdentityProvider, useLocalInstanceId, useSurfaceIdentity } from './IdentityContext';
+export {
+  AwarenessIdentityProvider,
+  useLocalInstanceId,
+  useOptionalLocalInstanceId,
+  useSurfaceIdentity,
+} from './IdentityContext';
 export { EntityScopeProvider, useEntityScope } from './EntityScope';
 export type { EntityScopeValue } from './EntityScope';
 export {

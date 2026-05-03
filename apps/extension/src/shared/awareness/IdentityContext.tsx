@@ -101,3 +101,12 @@ export function useAwarenessCoordinator(): AwarenessCoordinator {
 export function useLocalInstanceId(): string {
   return requireCtx().identity.current().instanceId;
 }
+
+/** Same as {@link useLocalInstanceId} but returns `undefined` when no
+ *  provider is mounted. Used by tracker hooks that want to opt into
+ *  awareness-driven attribution when available without coupling
+ *  themselves to the provider being mounted in every test setup. */
+export function useOptionalLocalInstanceId(): string | undefined {
+  const ctx = useContext(IdentityContext);
+  return ctx?.identity.current().instanceId;
+}

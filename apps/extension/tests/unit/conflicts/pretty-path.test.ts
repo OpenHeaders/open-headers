@@ -1,0 +1,54 @@
+import type { V5 } from '@openheaders/core/types';
+import { describe, expect, it } from 'vitest';
+import { prettyRulePath } from '@/workbench/components/rule-fields/pretty-path';
+
+const RULE: V5.Rule = {
+  uid: 'r-1',
+  path: 'rules/r-1.yaml',
+  name: 'h',
+  enabled: true,
+  type: 'header',
+  schemaVersion: 5,
+  conditions: [],
+  action: {
+    requestHeaders: [{ uid: 'aaaaaaaa', operation: 'override', headerName: 'X-Auth', value: '' }],
+    responseHeaders: [{ uid: 'cccccccc', operation: 'override', headerName: 'X-Cache', value: '' }],
+  },
+} as unknown as V5.Rule;
+
+describe('prettyRulePath', () => {
+  it('renders top-level name + scalar fields', () => {
+    expect(prettyRulePath(RULE, 'name')).toBe('Name');
+    const redirect = { ...RULE, type: 'redirect', action: { redirectTo: '' } } as unknown as V5.Rule;
+    expect(prettyRulePath(redirect, 'action.redirectTo')).toBe('Redirect URL');
+    const delay = { ...RULE, type: 'delay', action: { delayMs: 100 } } as unknown as V5.Rule;
+    expect(prettyRulePath(delay, 'action.delayMs')).toBe('Delay (ms)');
+  });
+
+  it('substitutes header name when the row resolves', () => {
+    expect(prettyRulePath(RULE, 'action.requestHeaders.aaaaaaaa.value')).toBe('Request header X-Auth (value)');
+    expect(prettyRulePath(RULE, 'action.responseHeaders.cccccccc.headerName')).toBe('Response header X-Cache (name)');
+  });
+
+  it('falls back gracefully when the row uid is unknown', () => {
+    expect(prettyRulePath(RULE, 'action.requestHeaders.deadbeef.value')).toBe('Request header (value)');
+  });
+
+  it('renders mock + query-param + condition shapes', () => {
+    const mock = { ...RULE, type: 'mock', action: { responseHeaders: { 'X-Foo': 'bar' } } } as unknown as V5.Rule;
+    expect(prettyRulePath(mock, 'action.responseHeaders.X-Foo.value')).toBe('Mock response header X-Foo (value)');
+
+    const qp = {
+      ...RULE,
+      type: 'query-param',
+      action: { params: [{ uid: 'bbbbbbbb', operation: 'override', param: 'foo', value: '1' }] },
+    } as unknown as V5.Rule;
+    expect(prettyRulePath(qp, 'action.params.bbbbbbbb.param')).toBe('Query param foo (name)');
+
+    expect(prettyRulePath(RULE, 'conditions.aaaaaaaa.values')).toBe('Condition values');
+  });
+
+  it('returns the raw path when the structure is not recognized', () => {
+    expect(prettyRulePath(RULE, 'totally.unknown.path')).toBe('totally.unknown.path');
+  });
+});

@@ -810,6 +810,8 @@ export function RuleHoverPopover({
                 <ConflictDiffChip
                   theirs={headerNameConflict.theirs}
                   base={headerNameConflict.base}
+                  local={draft.headerName ?? ''}
+                  remote={headerNameConflict.remote}
                   onTakeTheirs={() => {
                     setDraft((prev) => ({ ...prev, headerName: headerNameConflict.theirs }));
                     conflicts.acceptTheirs(headerNamePath, headerNameConflict.theirs);
@@ -873,6 +875,8 @@ export function RuleHoverPopover({
                 <ConflictDiffChip
                   theirs={valueConflict.theirs}
                   base={valueConflict.base}
+                  local={draft.value ?? ''}
+                  remote={valueConflict.remote}
                   onTakeTheirs={() => {
                     setDraft((prev) => ({ ...prev, value: valueConflict.theirs }));
                     conflicts.acceptTheirs(valuePath, valueConflict.theirs);
