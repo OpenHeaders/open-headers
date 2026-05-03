@@ -54,7 +54,7 @@ import {
 import { Button, Select, Tag, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo } from 'react';
-import { EntityField, RULE_FIELD } from '@/shared/awareness';
+import { EntityField, useActionPaths } from '@/shared/awareness';
 import { useInspectorNav } from '../hooks/useInspectorNav';
 import { getDocId } from './InspectorDocs';
 import { TemplateInput } from './template-input';
@@ -238,6 +238,7 @@ interface ConditionEditorProps {
 // ── Component ────────────────────────────────────────────────────
 
 const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange }) => {
+  const paths = useActionPaths();
   const { token } = theme.useToken();
   const { openDocs } = useInspectorNav();
 
@@ -410,7 +411,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
               )}
 
               {/* Type selector + docs link */}
-              <EntityField path={RULE_FIELD.condition(condition.uid, 'field')}>
+              <EntityField path={paths.condition(condition.uid, 'field')}>
                 <Select
                   size="small"
                   value={condition.type}
@@ -427,7 +428,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
 
               {/* Header name (before value for header types) */}
               {def?.inputType === 'header' && (
-                <EntityField path={RULE_FIELD.condition(condition.uid, 'headerName')}>
+                <EntityField path={paths.condition(condition.uid, 'headerName')}>
                   <TemplateInput
                     size="small"
                     placeholder="Header name equals..."
@@ -441,7 +442,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
               {/* Value input — varies by type. All variants wrap with
                   EntityField so the per-condition `values` path publishes
                   presence regardless of input shape. */}
-              <EntityField path={RULE_FIELD.condition(condition.uid, 'values')}>
+              <EntityField path={paths.condition(condition.uid, 'values')}>
                 {def?.inputType === 'multi-select-methods' ? (
                   <Select
                     size="small"

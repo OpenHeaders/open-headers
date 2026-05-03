@@ -34,7 +34,13 @@ import type { MenuProps } from 'antd';
 import { Alert, App, Button, Dropdown, Form, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { EntityScopeProvider, PresenceBadge, useLocalInstanceId } from '@/shared/awareness';
+import {
+  ActionPathsProvider,
+  EntityScopeProvider,
+  PresenceBadge,
+  RULE_ACTION_PATHS,
+  useLocalInstanceId,
+} from '@/shared/awareness';
 import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
 import { stableStringify, useEntityReprime } from '@/shared/forms';
 import { applyRuleCreate, applyRulePublish } from '@/shared/sync/rule-write-client';
@@ -1079,6 +1085,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           />
         )}
         <EntityScopeProvider entityType={RULE_ENTITY_TYPE} entityId={ruleUid}>
+        <ActionPathsProvider value={RULE_ACTION_PATHS}>
         <div
           className="rules-rule-editor"
           style={isDeletedRemotely ? { pointerEvents: 'none', opacity: 0.6 } : undefined}
@@ -1275,6 +1282,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             />
           </SuggestionContextProvider>
         </div>
+        </ActionPathsProvider>
         </EntityScopeProvider>
       </div>
     </div>

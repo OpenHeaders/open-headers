@@ -17,12 +17,12 @@
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { Checkbox, Form, type FormInstance, Input, Select, Typography } from 'antd';
 import type React from 'react';
-import { EntityField, RULE_FIELD } from '@/shared/awareness';
+import { EntityField, useActionPaths } from '@/shared/awareness';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import CodeEditor from '../CodeEditor';
 import { getDocId } from '../InspectorDocs';
-import ScalarConflictChip from './ScalarConflictChip';
-import type { ConflictBridge } from './use-rule-conflicts';
+import ScalarConflictChip from '@/shared/conflicts/ScalarConflictChip';
+import type { ConflictBridge } from '@/shared/conflicts/types';
 
 const { Text } = Typography;
 
@@ -58,6 +58,7 @@ interface InjectRuleFieldsProps {
 const InjectRuleFields: React.FC<InjectRuleFieldsProps> = ({ conflicts }) => {
   const { openDocs } = useInspectorNav();
   const form = Form.useFormInstance();
+  const paths = useActionPaths();
 
   return (
     <div style={{ marginBottom: 16 }}>
@@ -78,7 +79,7 @@ const InjectRuleFields: React.FC<InjectRuleFieldsProps> = ({ conflicts }) => {
           <Text type="secondary" style={{ fontSize: 11 }}>
             Language:
           </Text>
-          <EntityField path={RULE_FIELD.injectType}>
+          <EntityField path={paths.injectType}>
             <Form.Item name="injectType" style={{ marginBottom: 0 }}>
               <Select
                 size="small"
@@ -96,7 +97,7 @@ const InjectRuleFields: React.FC<InjectRuleFieldsProps> = ({ conflicts }) => {
           <Text type="secondary" style={{ fontSize: 11 }}>
             Code Source:
           </Text>
-          <EntityField path={RULE_FIELD.injectSource}>
+          <EntityField path={paths.injectSource}>
             <Form.Item name="injectSource" style={{ marginBottom: 0 }}>
               <Select
                 size="small"
@@ -119,7 +120,7 @@ const InjectRuleFields: React.FC<InjectRuleFieldsProps> = ({ conflicts }) => {
                 <Text type="secondary" style={{ fontSize: 11 }}>
                   Insert:
                 </Text>
-                <EntityField path={RULE_FIELD.injectPosition}>
+                <EntityField path={paths.injectPosition}>
                   <Form.Item name="injectPosition" style={{ marginBottom: 0 }}>
                     <Select
                       size="small"
@@ -154,14 +155,14 @@ const InjectRuleFields: React.FC<InjectRuleFieldsProps> = ({ conflicts }) => {
                   Source
                 </Text>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                  <EntityField path={RULE_FIELD.injectSourceUrl}>
+                  <EntityField path={paths.injectSourceUrl}>
                     <Form.Item name="injectSourceUrl" style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
                       <Input size="small" placeholder="Enter Source URL (relative or absolute)" />
                     </Form.Item>
                   </EntityField>
                   <ScalarConflictChip
                     formName="injectSourceUrl"
-                    schemaPath={RULE_FIELD.injectSourceUrl}
+                    schemaPath={paths.injectSourceUrl}
                     conflicts={conflicts}
                   />
                 </div>
@@ -178,9 +179,9 @@ const InjectRuleFields: React.FC<InjectRuleFieldsProps> = ({ conflicts }) => {
                 <Text type="secondary" style={{ fontSize: 11 }}>
                   Code
                 </Text>
-                <ScalarConflictChip formName="injectCode" schemaPath={RULE_FIELD.injectCode} conflicts={conflicts} />
+                <ScalarConflictChip formName="injectCode" schemaPath={paths.injectCode} conflicts={conflicts} />
               </div>
-              <EntityField path={RULE_FIELD.injectCode}>
+              <EntityField path={paths.injectCode}>
                 <Form.Item name="injectCode" style={{ marginBottom: 0 }}>
                   <CodeEditor language={language} minHeight={180} />
                 </Form.Item>

@@ -21,13 +21,13 @@
 import { CloseOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { Alert, AutoComplete, Button, Form, Input, Radio, Select, Typography } from 'antd';
 import type React from 'react';
-import { EntityField, RULE_FIELD } from '@/shared/awareness';
+import { EntityField, useActionPaths } from '@/shared/awareness';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import CodeEditor from '../CodeEditor';
 import { getDocId } from '../InspectorDocs';
 import { TemplateInput } from '../template-input';
-import ScalarConflictChip from './ScalarConflictChip';
-import type { ConflictBridge } from './use-rule-conflicts';
+import ScalarConflictChip from '@/shared/conflicts/ScalarConflictChip';
+import type { ConflictBridge } from '@/shared/conflicts/types';
 
 const { Text } = Typography;
 
@@ -152,6 +152,7 @@ interface MockRuleFieldsProps {
 const MockRuleFields: React.FC<MockRuleFieldsProps> = ({ conflicts }) => {
   const { openDocs } = useInspectorNav();
   const form = Form.useFormInstance();
+  const paths = useActionPaths();
 
   return (
     <div style={{ marginBottom: 16 }}>
@@ -179,7 +180,7 @@ const MockRuleFields: React.FC<MockRuleFieldsProps> = ({ conflicts }) => {
         <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
           Select Resource Type
         </Text>
-        <EntityField path={RULE_FIELD.bodyResourceType}>
+        <EntityField path={paths.bodyResourceType}>
           <Form.Item name="mockResourceType" style={{ marginBottom: 0 }}>
             <Radio.Group>
               <Radio value="rest">REST API</Radio>
@@ -205,12 +206,12 @@ const MockRuleFields: React.FC<MockRuleFieldsProps> = ({ conflicts }) => {
                 />
               </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <EntityField path={RULE_FIELD.graphqlKey}>
+                <EntityField path={paths.graphqlKey}>
                   <Form.Item name="mockGraphqlKey" style={{ marginBottom: 0, flex: 1 }}>
                     <Input size="small" placeholder="Key e.g. operationName" />
                   </Form.Item>
                 </EntityField>
-                <EntityField path={RULE_FIELD.graphqlOperator}>
+                <EntityField path={paths.graphqlOperator}>
                   <Form.Item name="mockGraphqlOperator" style={{ marginBottom: 0, width: 120 }}>
                     <Select
                       size="small"
@@ -221,7 +222,7 @@ const MockRuleFields: React.FC<MockRuleFieldsProps> = ({ conflicts }) => {
                     />
                   </Form.Item>
                 </EntityField>
-                <EntityField path={RULE_FIELD.graphqlValue}>
+                <EntityField path={paths.graphqlValue}>
                   <Form.Item name="mockGraphqlValue" style={{ marginBottom: 0, flex: 1 }}>
                     <Input size="small" placeholder="value e.g. getUsers" />
                   </Form.Item>
@@ -250,7 +251,7 @@ const MockRuleFields: React.FC<MockRuleFieldsProps> = ({ conflicts }) => {
           Response Status Code
         </Text>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <EntityField path={RULE_FIELD.mockStatusCode}>
+          <EntityField path={paths.mockStatusCode}>
             <Form.Item name="mockStatusCode" style={{ marginBottom: 0, flex: 1, minWidth: 0 }}>
               <Select
                 allowClear={{ clearIcon: <span style={{ fontSize: 12, padding: '0 4px' }}>✕</span> }}
@@ -265,7 +266,7 @@ const MockRuleFields: React.FC<MockRuleFieldsProps> = ({ conflicts }) => {
               />
             </Form.Item>
           </EntityField>
-          <ScalarConflictChip formName="mockStatusCode" schemaPath={RULE_FIELD.mockStatusCode} conflicts={conflicts} />
+          <ScalarConflictChip formName="mockStatusCode" schemaPath={paths.mockStatusCode} conflicts={conflicts} />
         </div>
       </div>
 
@@ -277,7 +278,7 @@ const MockRuleFields: React.FC<MockRuleFieldsProps> = ({ conflicts }) => {
         <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
           Content-Type
         </Text>
-        <EntityField path={RULE_FIELD.mockContentType}>
+        <EntityField path={paths.mockContentType}>
           <Form.Item name="mockContentType" style={{ marginBottom: 0 }}>
             <AutoComplete
               options={CONTENT_TYPE_OPTIONS}
@@ -325,7 +326,7 @@ const MockRuleFields: React.FC<MockRuleFieldsProps> = ({ conflicts }) => {
                     // produces a transient path until the names converge.
                     const headerName = String(getFieldValue(['mockResponseHeaders', field.name, 'name']) ?? '');
                     const wrap = (leaf: 'name' | 'value', child: React.ReactNode) =>
-                      headerName ? <EntityField path={RULE_FIELD.mockHeader(headerName, leaf)}>{child}</EntityField> : child;
+                      headerName ? <EntityField path={paths.mockHeader(headerName, leaf)}>{child}</EntityField> : child;
                     return (
                       <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
                         {wrap(
@@ -373,7 +374,7 @@ const MockRuleFields: React.FC<MockRuleFieldsProps> = ({ conflicts }) => {
           <Text strong style={{ fontSize: 12 }}>
             Response Body
           </Text>
-          <EntityField path={RULE_FIELD.mockBodyType}>
+          <EntityField path={paths.mockBodyType}>
             <Form.Item name="mockBodyType" style={{ marginBottom: 0 }}>
               <Radio.Group size="small">
                 <Radio.Button value="static">Static Data</Radio.Button>
@@ -420,11 +421,11 @@ const MockRuleFields: React.FC<MockRuleFieldsProps> = ({ conflicts }) => {
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
                       <ScalarConflictChip
                         formName="mockDynamicBody"
-                        schemaPath={RULE_FIELD.mockResponseBody}
+                        schemaPath={paths.mockResponseBody}
                         conflicts={conflicts}
                       />
                     </div>
-                    <EntityField path={RULE_FIELD.mockResponseBody}>
+                    <EntityField path={paths.mockResponseBody}>
                       <Form.Item name="mockDynamicBody" style={{ marginBottom: 0 }}>
                         <CodeEditor language="javascript" minHeight={240} />
                       </Form.Item>
@@ -435,11 +436,11 @@ const MockRuleFields: React.FC<MockRuleFieldsProps> = ({ conflicts }) => {
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
                       <ScalarConflictChip
                         formName="mockStaticBody"
-                        schemaPath={RULE_FIELD.mockResponseBody}
+                        schemaPath={paths.mockResponseBody}
                         conflicts={conflicts}
                       />
                     </div>
-                    <EntityField path={RULE_FIELD.mockResponseBody}>
+                    <EntityField path={paths.mockResponseBody}>
                       <Form.Item name="mockStaticBody" style={{ marginBottom: 0 }}>
                         <CodeEditor
                           language="json"

@@ -5,11 +5,11 @@
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { Alert, Form, InputNumber, Typography } from 'antd';
 import type React from 'react';
-import { EntityField, RULE_FIELD } from '@/shared/awareness';
+import { EntityField, useActionPaths } from '@/shared/awareness';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../InspectorDocs';
-import ScalarConflictChip from './ScalarConflictChip';
-import type { ConflictBridge } from './use-rule-conflicts';
+import ScalarConflictChip from '@/shared/conflicts/ScalarConflictChip';
+import type { ConflictBridge } from '@/shared/conflicts/types';
 
 const { Text } = Typography;
 
@@ -19,6 +19,7 @@ interface DelayRuleFieldsProps {
 
 const DelayRuleFields: React.FC<DelayRuleFieldsProps> = ({ conflicts }) => {
   const { openDocs } = useInspectorNav();
+  const paths = useActionPaths();
 
   return (
     <div style={{ marginBottom: 16 }}>
@@ -41,7 +42,7 @@ const DelayRuleFields: React.FC<DelayRuleFieldsProps> = ({ conflicts }) => {
         <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
           Delay
         </Text>
-        <EntityField path={RULE_FIELD.delayMs}>
+        <EntityField path={paths.delayMs}>
           <Form.Item name="delayMs" style={{ marginBottom: 0 }}>
             {/* min={1}: a 0ms delay makes the rule a no-op (the compiler skips
                 `delayMs === 0`), so the rule would save but never fire. Forcing
@@ -49,7 +50,7 @@ const DelayRuleFields: React.FC<DelayRuleFieldsProps> = ({ conflicts }) => {
             <InputNumber min={1} max={30000} step={100} addonAfter="ms" style={{ width: 160 }} placeholder="1000" />
           </Form.Item>
         </EntityField>
-        <ScalarConflictChip formName="delayMs" schemaPath={RULE_FIELD.delayMs} conflicts={conflicts} />
+        <ScalarConflictChip formName="delayMs" schemaPath={paths.delayMs} conflicts={conflicts} />
         <Text type="secondary" style={{ fontSize: 11 }}>
           Max 30,000 ms
         </Text>

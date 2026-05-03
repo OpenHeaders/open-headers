@@ -9,7 +9,7 @@ import { CloseOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/ico
 import { generateUid } from '@openheaders/core/utils';
 import { Alert, Button, Form, Input, Select, Typography } from 'antd';
 import type React from 'react';
-import { EntityField, RULE_FIELD } from '@/shared/awareness';
+import { EntityField, useActionPaths } from '@/shared/awareness';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../InspectorDocs';
 import { TemplateInput } from '../template-input';
@@ -18,6 +18,7 @@ const { Text } = Typography;
 
 const QueryParamRuleFields: React.FC = () => {
   const { openDocs } = useInspectorNav();
+  const paths = useActionPaths();
 
   return (
     <div style={{ marginBottom: 16 }}>
@@ -60,7 +61,7 @@ const QueryParamRuleFields: React.FC = () => {
                 {({ getFieldValue }) => {
                   const rowUid = getFieldValue(['queryParams', field.name, 'uid']) as string | undefined;
                   const wrap = (leaf: 'param' | 'value' | 'operation', child: React.ReactNode) =>
-                    rowUid ? <EntityField path={RULE_FIELD.queryParam(rowUid, leaf)}>{child}</EntityField> : child;
+                    rowUid ? <EntityField path={paths.queryParam(rowUid, leaf)}>{child}</EntityField> : child;
                   return (
               <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
                 {/*

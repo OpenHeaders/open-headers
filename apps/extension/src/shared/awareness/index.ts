@@ -17,7 +17,16 @@ export type { ConflictDiffChipProps } from './ConflictDiffChip';
 export { default as SetRowConflictChip } from './SetRowConflictChip';
 export type { SetRowConflictChipProps } from './SetRowConflictChip';
 export { useEntityPresence, useFieldPresence, usePathPrefixPresence } from './use-entity-presence';
-export { RULE_FIELD } from './rule-paths';
+export {
+  type ActionPathBundle,
+  type ActionPathsOptions,
+  RULE_ACTION_PATHS,
+  RULE_FIELD,
+  TEMPLATE_ACTION_PATHS,
+  createActionPaths,
+} from './rule-paths';
+export { ActionPathsProvider, useActionPaths } from './ActionPathsContext';
+export type { ActionPathsProviderProps } from './ActionPathsContext';
 export { surfaceKindColor, surfaceKindInitial, surfaceKindLabel } from './surface-label';
 export { default as SurfaceChip, SurfaceDot } from './SurfaceChip';
 export type { SurfaceChipProps, SurfaceDotProps } from './SurfaceChip';

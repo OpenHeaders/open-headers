@@ -1,20 +1,22 @@
 /**
- * Inline diff chip for a scalar rule field (Phase A A4 — scalar widening).
+ * Inline diff chip for a scalar form field — entity-agnostic.
  *
- * Header-mod rows render their own chip inline (per-row Form.Item already
- * tracks the value). Scalar fields are simpler: one form name, one
- * schema path, one bridge. This wraps the shouldUpdate boilerplate so
- * each scalar Form.Item pairs with one `<ScalarConflictChip>`.
+ * Wraps the antd `Form.Item shouldUpdate` boilerplate so each scalar
+ * field pairs with one `<ScalarConflictChip>`. Set-row leaves render
+ * their own chip per row (the row component already tracks the value
+ * via Form.useWatch); scalar fields just need form name + schema path
+ * + a `ConflictBridge`.
  *
- * Lives next to use-rule-conflicts.ts so the rule-fields/ folder owns
- * both the tracker and the renderer; the awareness layer's
- * `ConflictDiffChip` stays pure UI / rule-shape-agnostic.
+ * Used by every editor that pairs scalar inputs with a conflict
+ * tracker, regardless of entity (rule, template, request body, etc.) —
+ * the chip is pure UI built on `ConflictDiffChip` from
+ * `@/shared/awareness`.
  */
 
 import { Form } from 'antd';
 import type React from 'react';
 import { ConflictDiffChip } from '@/shared/awareness';
-import type { ConflictBridge } from './use-rule-conflicts';
+import type { ConflictBridge } from './types';
 
 export interface ScalarConflictChipProps {
   /** antd Form.Item `name` for the scalar (e.g. "redirectTo"). */

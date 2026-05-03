@@ -44,9 +44,15 @@ import type { HeaderDirection } from '@openheaders/core/utils';
 import { generateUid, getHeaderOperationCapability } from '@openheaders/core/utils';
 import { Alert, Button, Form, Input, Select, Tabs, Tooltip, Typography } from 'antd';
 import type React from 'react';
-import { ConflictDiffChip, EntityField, RULE_FIELD, SetRowConflictChip, TabPresenceBadge } from '@/shared/awareness';
-import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { PathConflict } from './use-rule-conflicts';
+import {
+  ConflictDiffChip,
+  EntityField,
+  SetRowConflictChip,
+  TabPresenceBadge,
+  useActionPaths,
+  useEntityScope,
+} from '@/shared/awareness';
+import type { PathConflict } from '@/shared/conflicts/types';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../InspectorDocs';
 import { TemplateInput } from '../template-input';
@@ -90,6 +96,7 @@ interface ModificationListProps {
 
 function ModificationList({ name, direction, ruleUid, excludeInstanceId, conflicts }: ModificationListProps) {
   const { openDocs: openDocsInline } = useInspectorNav();
+  const paths = useActionPaths();
   const form = Form.useFormInstance();
   // Subscribe to the parent list so each row's persisted uid is available
   // when computing canonical RULE_FIELD paths for the per-leaf
@@ -125,7 +132,7 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, conflic
             // means the input still renders; presence chips light up
             // on the next tick once the hidden uid binding flushes.
             const wrap = (leaf: 'headerName' | 'value' | 'operation' | 'mergeSeparator', child: React.ReactNode) =>
-              rowUid ? <EntityField path={RULE_FIELD.headerMod(direction, rowUid, leaf)}>{child}</EntityField> : child;
+              rowUid ? <EntityField path={paths.headerMod(direction, rowUid, leaf)}>{child}</EntityField> : child;
             return (
             <SortableHeaderRow key={field.key} id={field.key}>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -278,7 +285,7 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, conflic
                     user picks "Use saved (remove)" to drop it or
                     "Keep mine" to dismiss. */}
                 {ruleUid && conflicts?.getSetConflict && rowUid && (() => {
-                  const setPath = `action.${name}` as const;
+                  const setPath = paths.headerSet(direction);
                   const setRemove = conflicts.getSetConflict(setPath, rowUid, true);
                   if (!setRemove || setRemove.kind !== 'set-remove') return null;
                   return (
@@ -302,8 +309,8 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, conflic
                     }
                   >
                     {({ getFieldValue }) => {
-                      const valuePath = RULE_FIELD.headerMod(direction, rowUid, 'value');
-                      const namePath = RULE_FIELD.headerMod(direction, rowUid, 'headerName');
+                      const valuePath = paths.headerMod(direction, rowUid, 'value');
+                      const namePath = paths.headerMod(direction, rowUid, 'headerName');
                       const localValue = String(getFieldValue([name, field.name, 'value']) ?? '');
                       const localName = String(getFieldValue([name, field.name, 'headerName']) ?? '');
                       const valueConflict = conflicts.getConflict(valuePath, localValue);
@@ -535,6 +542,9 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
   onDismissConflict,
 }) => {
   const { openDocs } = useInspectorNav();
+  const paths = useActionPaths();
+  const scope = useEntityScope();
+  const entityType = scope.entityType;
   const hasResponse = resCount > 0;
   const conflictBridge =
     getConflict && onAcceptTheirs && onDismissConflict
@@ -574,11 +584,11 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 Request Headers
                 {reqCount > 0 && <CountChip count={reqCount} />}
-                {ruleUid && excludeInstanceId !== undefined && (
+                {ruleUid && entityType && excludeInstanceId !== undefined && (
                   <TabPresenceBadge
-                    entityType={RULE_ENTITY_TYPE}
+                    entityType={entityType}
                     entityId={ruleUid}
-                    pathPrefix="action.requestHeaders."
+                    pathPrefix={`${paths.headerSet('request')}.`}
                     excludeInstanceId={excludeInstanceId}
                   />
                 )}
@@ -600,11 +610,11 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 Response Headers
                 {resCount > 0 && <CountChip count={resCount} />}
-                {ruleUid && excludeInstanceId !== undefined && (
+                {ruleUid && entityType && excludeInstanceId !== undefined && (
                   <TabPresenceBadge
-                    entityType={RULE_ENTITY_TYPE}
+                    entityType={entityType}
                     entityId={ruleUid}
-                    pathPrefix="action.responseHeaders."
+                    pathPrefix={`${paths.headerSet('response')}.`}
                     excludeInstanceId={excludeInstanceId}
                   />
                 )}
