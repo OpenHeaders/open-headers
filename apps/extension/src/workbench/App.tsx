@@ -1719,7 +1719,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
         <ActiveTabEntityWriter value={activeTabEntity} />
         <SurfaceAwarenessPublisher
           workspaceId={workspacesApi.activeWorkspaceId}
-          migratedEntityTypes={[RULE_ENTITY_TYPE]}
+          migratedEntityTypes={[RULE_ENTITY_TYPE, TEMPLATE_ENTITY_TYPE]}
         />
           <div
             ref={shellRef}

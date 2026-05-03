@@ -1,22 +1,47 @@
 /**
  * TemplateEditor — edit or view a user-defined template.
  *
- * Reuses the same per-type field components as RuleEditor.
- * Templates store form field values + conditions, not live rule actions.
+ * Reuses the same per-rule-type field components as RuleEditor via the
+ * shared `ActionPathsProvider` (templates persist action data under
+ * `formValues.*` rather than `action.*`). The editor follows the same
+ * sync-engine playbook every entity editor uses:
+ *
+ *   - `<EntityScopeProvider>` declares this surface's `(entityType,
+ *     entityId)` scope for `<EntityField>` consumers.
+ *   - `useEditorDirty` contributes the dirty marker to the surface's
+ *     `<SurfaceAwarenessPublisher>` (no per-editor `useAwareness`).
+ *   - Dirty derives structurally from form-projection vs live-template
+ *     equality (no imperative `setIsDirty(true)` flags).
+ *   - `useEntityReprime` reconciles broadcast updates while clean.
+ *   - `useTemplateConflicts` + `<EntityConflictBanner>` +
+ *     `<EntityConflictDialog>` cover concurrent-edit divergence.
  */
 
 import { InfoCircleOutlined } from '@ant-design/icons';
-import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
-import { useAwareness } from '@hooks/useAwareness';
 import { useRules } from '@hooks/useRules';
+import { serializeTemplate } from '@openheaders/core/codec/yaml';
+import { freshDocument } from '@openheaders/core/schemas';
 import { TEMPLATE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { App, Checkbox, Form, Input, Select, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSurfaceIdentity } from '@/shared/awareness';
+import {
+  ActionPathsProvider,
+  EntityField,
+  EntityScopeProvider,
+  TEMPLATE_ACTION_PATHS,
+} from '@/shared/awareness';
+import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
+import {
+  EntityConflictBanner,
+  EntityConflictDialog,
+  prettyPathMap,
+  type ConflictResolution,
+  type PathConflict,
+} from '@/shared/conflicts';
+import { stableStringify, useEntityReprime } from '@/shared/forms';
 import ConditionEditor from './ConditionEditor';
-import { mapAntdIdToTemplateFieldPath } from './template-field-path-map';
 import { ActionValueBanner } from './rule-fields/ActionValueBanner';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
 import BodyRuleFields, { BODY_DYNAMIC_TEMPLATE } from './rule-fields/BodyRuleFields';
@@ -26,7 +51,9 @@ import InjectRuleFields, { maybePrefillInjectCode } from './rule-fields/InjectRu
 import MockRuleFields, { MOCK_DYNAMIC_TEMPLATE } from './rule-fields/MockRuleFields';
 import QueryParamRuleFields from './rule-fields/QueryParamRuleFields';
 import RedirectRuleFields from './rule-fields/RedirectRuleFields';
+import { templateResolveAdapter } from './template-conflict-adapter';
 import TwoToneIconPicker from './TwoToneIconPicker';
+import { useTemplateConflicts } from './use-template-conflicts';
 
 const { Text } = Typography;
 const { TextArea } = Input;
@@ -42,6 +69,16 @@ const RULE_TYPE_OPTIONS = [
   { value: 'mock', label: 'API Response Rule' },
 ];
 
+const META_KEYS = new Set([
+  'ruleType',
+  'templateName',
+  'templateIcon',
+  'templateDescription',
+  'includeConditions',
+  'includeFormValues',
+  'conditions',
+]);
+
 interface TemplateEditorProps {
   templateUid: string;
   onDirtyChange?: (dirty: boolean) => void;
@@ -52,20 +89,15 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
   const { message } = App.useApp();
   const { token } = theme.useToken();
   const { templates, updateTemplate } = useRules();
-  const workspaceId = useActiveWorkspaceId();
   const [form] = Form.useForm();
   const initializedRef = useRef(false);
-  const [isDirty, setIsDirty] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [headerActiveTab, setHeaderActiveTab] = useState('request');
   const [headerReqCount, setHeaderReqCount] = useState(0);
   const [headerResCount, setHeaderResCount] = useState(0);
 
-  const template = templates.find((t) => t.uid === templateUid);
-  const identity = useSurfaceIdentity();
-  // Template rule type is fixed at creation — the Select is rendered
-  // disabled below, and there's no code path that changes it. Derive
-  // straight from the template record so the first render is correct.
-  const selectedType = template?.ruleType;
+  const liveTemplate = useMemo(() => templates.find((t) => t.uid === templateUid), [templates, templateUid]);
+  const selectedType = liveTemplate?.ruleType;
 
   // ── Form initialization ──────────────────────────────────────
 
@@ -84,8 +116,8 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
       form.setFieldsValue(values);
 
       if (t.ruleType === 'header' && t.formValues) {
-        const resH = t.formValues.responseHeaders as unknown[] | undefined;
         const reqH = t.formValues.requestHeaders as unknown[] | undefined;
+        const resH = t.formValues.responseHeaders as unknown[] | undefined;
         const reqLen = reqH?.length ?? 0;
         const resLen = resH?.length ?? 0;
         setHeaderReqCount(reqLen);
@@ -96,117 +128,240 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
     [form],
   );
 
-  useEffect(() => {
-    if (initializedRef.current || !template) return;
-    initializedRef.current = true;
-    populateFormFromTemplate(template);
-  }, [template, populateFormFromTemplate]);
+  // ── Derived dirty (form-projection vs live-template) ──────────
+  //
+  // Same convention as RuleEditor: dirty is a structural projection,
+  // never an imperative event log. Two fingerprints — `formFingerprint`
+  // (live form values projected to save-shape) and `lastPrimedFingerprint`
+  // (canonical the form was last seeded from). Auto-rebase snaps the
+  // latter as soon as form converges with canonical.
+  const formValues = Form.useWatch([], form) as Record<string, unknown> | undefined;
+  const formFingerprint = useMemo(
+    () => (formValues ? stableStringify(buildTemplateUpdates(formValues)) : null),
+    [formValues],
+  );
+  const liveTemplateFingerprint = useMemo(
+    () =>
+      liveTemplate
+        ? stableStringify({
+            name: liveTemplate.name,
+            icon: liveTemplate.icon,
+            description: liveTemplate.description,
+            includes: liveTemplate.includes,
+            conditions: liveTemplate.includes.conditions ? liveTemplate.conditions : [],
+            formValues: liveTemplate.includes.formValues ? liveTemplate.formValues : {},
+          })
+        : null,
+    [liveTemplate],
+  );
+  const [lastPrimedFingerprint, setLastPrimedFingerprint] = useState<string | null>(null);
+  const isDirty =
+    isInitialized &&
+    formFingerprint !== null &&
+    lastPrimedFingerprint !== null &&
+    formFingerprint !== lastPrimedFingerprint;
 
-  // Live-update reconciliation (sync engine §6.3 ergonomic delta).
-  // After init, `template` mutates whenever another surface commits a
-  // change. When this editor has no uncommitted edits, re-prime from
-  // the new live template — same shape as init. When dirty, leave the
-  // form alone: the LWW save resolves at oracle time per §6.3.
-  const templateSignature = template ? JSON.stringify(template) : null;
+  // Fire `onDirtyChange` only on transitions, not every render.
+  const lastReportedDirtyRef = useRef<boolean | null>(null);
   useEffect(() => {
-    if (!initializedRef.current) return;
-    if (!template) return;
-    if (isDirty) return;
-    populateFormFromTemplate(template);
-    // templateSignature is the change trigger; populate runs against
-    // the latest template object.
-  }, [templateSignature, template, populateFormFromTemplate, isDirty]);
+    if (lastReportedDirtyRef.current === isDirty) return;
+    lastReportedDirtyRef.current = isDirty;
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+
+  useEditorDirty({ entityType: TEMPLATE_ENTITY_TYPE, entityId: templateUid }, isDirty);
+
+  const conflicts = useTemplateConflicts({
+    liveTemplate: liveTemplate ?? null,
+    isDirty,
+    enabled: true,
+  });
+  const setConflictBaseline = conflicts.setBaseline;
+
+  // Auto-rebase: as soon as form converges with canonical, snap both
+  // dirty-baseline AND the conflict tracker's per-path baseline.
+  useEffect(() => {
+    if (formFingerprint === null || liveTemplateFingerprint === null) return;
+    if (formFingerprint !== liveTemplateFingerprint) return;
+    if (lastPrimedFingerprint === liveTemplateFingerprint) return;
+    setLastPrimedFingerprint(liveTemplateFingerprint);
+    if (liveTemplate) setConflictBaseline(liveTemplate);
+  }, [formFingerprint, liveTemplateFingerprint, lastPrimedFingerprint, liveTemplate, setConflictBaseline]);
+
+  // Conflict aggregation. Project current form values into a transient
+  // V5.Template-shaped object so the path-keyed projection lines up
+  // with baseline.
+  const formProjection = useMemo(() => {
+    if (!formValues || !liveTemplate) return null;
+    const transient: V5.Template = {
+      ...liveTemplate,
+      ...buildTemplateUpdates(formValues),
+    };
+    return conflicts.projectEntity(transient);
+  }, [formValues, liveTemplate, conflicts]);
+
+  const formSetOrders = useMemo(() => {
+    const out = new Map<string, string[]>();
+    if (!formValues) return out;
+    const collect = (key: string, setPath: string) => {
+      const arr = formValues[key] as Array<{ uid?: string }> | undefined;
+      if (!Array.isArray(arr)) return;
+      const order = arr.map((r) => r?.uid).filter((u): u is string => typeof u === 'string');
+      if (order.length > 0) out.set(setPath, order);
+    };
+    collect('requestHeaders', TEMPLATE_ACTION_PATHS.headerSet('request'));
+    collect('responseHeaders', TEMPLATE_ACTION_PATHS.headerSet('response'));
+    collect('queryParams', TEMPLATE_ACTION_PATHS.queryParamSet);
+    collect('conditions', 'conditions');
+    return out;
+  }, [formValues]);
+
+  const allConflicts = useMemo(
+    () =>
+      formProjection
+        ? conflicts.getAllConflicts(formProjection, formSetOrders)
+        : new Map<string, PathConflict>(),
+    [formProjection, formSetOrders, conflicts],
+  );
+
+  const [isConflictDialogOpen, setConflictDialogOpen] = useState(false);
+
+  const handleKeepAllMine = useCallback(() => {
+    for (const path of allConflicts.keys()) conflicts.dismiss(path);
+  }, [allConflicts, conflicts]);
+
+  const handleUseAllSaved = useCallback(() => {
+    if (!liveTemplate) return;
+    for (const [path, conflict] of allConflicts) {
+      templateResolveAdapter.applyResolutionToForm(form, liveTemplate, path, conflict);
+      conflicts.acceptTheirs(path, conflict.theirs);
+    }
+  }, [allConflicts, conflicts, form, liveTemplate]);
+
+  const applyResolutions = useCallback(
+    (resolutions: Map<string, ConflictResolution>) => {
+      if (!liveTemplate) return;
+      for (const [path, choice] of resolutions) {
+        const conflict = allConflicts.get(path);
+        if (!conflict) continue;
+        if (choice === 'theirs') {
+          templateResolveAdapter.applyResolutionToForm(form, liveTemplate, path, conflict);
+          conflicts.acceptTheirs(path, conflict.theirs);
+        } else {
+          conflicts.dismiss(path);
+        }
+      }
+    },
+    [allConflicts, conflicts, form, liveTemplate],
+  );
+
+  const savedYaml = useMemo(() => {
+    if (!isConflictDialogOpen || !liveTemplate) return '';
+    try {
+      return serializeTemplate(freshDocument(liveTemplate));
+    } catch {
+      return '';
+    }
+  }, [isConflictDialogOpen, liveTemplate]);
+
+  const buildLocalText = useCallback(
+    (resolutions: ReadonlyMap<string, ConflictResolution>): string => {
+      if (!liveTemplate || !formValues) return '';
+      const projected = buildTemplateUpdates(formValues);
+      const local = JSON.parse(
+        JSON.stringify({ ...liveTemplate, ...projected }),
+      ) as V5.Template;
+      for (const [path, choice] of resolutions) {
+        if (choice !== 'theirs') continue;
+        const conflict = allConflicts.get(path);
+        if (!conflict) continue;
+        templateResolveAdapter.applyResolutionToEntity(local, path, conflict);
+      }
+      try {
+        return serializeTemplate(freshDocument(local));
+      } catch {
+        return '';
+      }
+    },
+    [liveTemplate, formValues, allConflicts],
+  );
+
+  const conflictPathLabels = useMemo(
+    () =>
+      liveTemplate ? prettyPathMap(templateResolveAdapter, liveTemplate, allConflicts.keys()) : new Map<string, string>(),
+    [liveTemplate, allConflicts],
+  );
+
+  // `populateAndBaseline` is the canonical "sync the form from the
+  // mirror" entry point — sets form values + snaps both fingerprints.
+  const populateAndBaseline = useCallback(
+    (t: V5.Template) => {
+      populateFormFromTemplate(t);
+      setConflictBaseline(t);
+      setLastPrimedFingerprint(
+        stableStringify({
+          name: t.name,
+          icon: t.icon,
+          description: t.description,
+          includes: t.includes,
+          conditions: t.includes.conditions ? t.conditions : [],
+          formValues: t.includes.formValues ? t.formValues : {},
+        }),
+      );
+    },
+    [populateFormFromTemplate, setConflictBaseline],
+  );
+
+  const templateSignature = useCallback((t: V5.Template) => JSON.stringify(t), []);
+  const reprime = useEntityReprime<V5.Template>({
+    liveEntity: liveTemplate,
+    scope: { entityType: TEMPLATE_ENTITY_TYPE, entityId: templateUid },
+    isDirty,
+    enabled: isInitialized,
+    signature: templateSignature,
+    populate: populateAndBaseline,
+  });
+
+  useEffect(() => {
+    if (initializedRef.current || !liveTemplate) return;
+    initializedRef.current = true;
+    setIsInitialized(true);
+    populateAndBaseline(liveTemplate);
+    reprime.markPopulated(liveTemplate);
+    // populateAndBaseline / reprime captured via the initializedRef
+    // guard above; the effect is idempotent and runs once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveTemplate]);
 
   // ── Save ────────────────────────────────────────────────────
 
   const handleSave = useCallback(async () => {
-    if (!template) return;
+    if (!liveTemplate) return;
     const values = form.getFieldsValue();
-
-    const includeConditions = values.includeConditions !== false;
-    const includeFormValues = values.includeFormValues !== false;
-
-    // Extract form values (exclude template metadata fields)
-    const metaKeys = new Set([
-      'ruleType',
-      'templateName',
-      'templateIcon',
-      'templateDescription',
-      'includeConditions',
-      'includeFormValues',
-      'conditions',
-    ]);
-    const formValues: Record<string, unknown> = {};
-    for (const [key, val] of Object.entries(values)) {
-      if (!metaKeys.has(key)) formValues[key] = val;
-    }
-
-    const updates: Partial<Omit<V5.Template, 'uid' | 'path'>> = {
-      name: values.templateName || template.name,
-      icon: values.templateIcon || template.icon,
-      description: values.templateDescription || '',
-      includes: { conditions: includeConditions, formValues: includeFormValues },
-      conditions: includeConditions ? (values.conditions ?? []) : [],
-      formValues: includeFormValues ? formValues : {},
-    };
-
-    const success = await updateTemplate(template.uid, updates);
+    const updates = buildTemplateUpdates(values);
+    const success = await updateTemplate(liveTemplate.uid, updates);
     if (success) {
       message.success('Template saved');
-      setIsDirty(false);
-      onDirtyChange?.(false);
+      conflicts.clearDismissed();
+      // Dirty derives from form-vs-canonical equality; broadcast echo
+      // brings live template in line with form, auto-rebase clears.
     } else {
       message.error('Failed to save template');
     }
-  }, [template, form, updateTemplate, message, onDirtyChange]);
+  }, [liveTemplate, form, updateTemplate, message, conflicts]);
 
   useEffect(() => {
     registerSaveRef?.(handleSave);
   }, [registerSaveRef, handleSave]);
 
-  // Per-field focus path — same posture as RuleEditor session 12.
-  const [focusedFieldPath, setFocusedFieldPath] = useState<string | null>(null);
-  const handleFocusCapture = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
-    const target = e.target as HTMLElement | null;
-    const id = target?.getAttribute?.('id') ?? null;
-    const path = mapAntdIdToTemplateFieldPath(id);
-    if (path) setFocusedFieldPath(path);
-  }, []);
-  const handleBlurCapture = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
-    const next = e.relatedTarget as HTMLElement | null;
-    if (next && e.currentTarget.contains(next)) return;
-    setFocusedFieldPath(null);
-  }, []);
-  const fieldFocus = useMemo(
-    () =>
-      template && focusedFieldPath
-        ? { type: TEMPLATE_ENTITY_TYPE, id: template.uid, path: focusedFieldPath }
-        : null,
-    [template, focusedFieldPath],
-  );
-
-  useAwareness({
-    workspaceId,
-    identity,
-    entityFocus: template ? { type: TEMPLATE_ENTITY_TYPE, id: template.uid } : null,
-    fieldFocus,
-    dirtyFields: isDirty ? ['*'] : [],
-    enabled: !!template,
-  });
-
   const handleValuesChange = useCallback(
     (changedValues: Record<string, unknown>) => {
-      setIsDirty((prev) => {
-        if (!prev) onDirtyChange?.(true);
-        return true;
-      });
       const reqH = form.getFieldValue('requestHeaders') as unknown[] | undefined;
       const resH = form.getFieldValue('responseHeaders') as unknown[] | undefined;
       setHeaderReqCount(reqH?.length ?? 0);
       setHeaderResCount(resH?.length ?? 0);
 
-      // Same dynamic-template prefill as RuleEditor — side effects live at
-      // the form parent so Body/Mock field components stay pure-render.
+      // Dynamic-template prefill — same posture as RuleEditor.
       if (changedValues.bodyModType === 'dynamic') {
         const dyn = form.getFieldValue('bodyDynamicContent') as string | undefined;
         if (!dyn?.trim()) form.setFieldValue('bodyDynamicContent', BODY_DYNAMIC_TEMPLATE);
@@ -219,10 +374,10 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
         maybePrefillInjectCode(form, changedValues.injectType);
       }
     },
-    [onDirtyChange, form],
+    [form],
   );
 
-  if (!template) {
+  if (!liveTemplate) {
     return (
       <div style={{ padding: 40, textAlign: 'center' }}>
         <Text type="secondary">Template not found</Text>
@@ -231,86 +386,144 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
   }
 
   return (
-    <div className="rules-rule-editor" onFocusCapture={handleFocusCapture} onBlurCapture={handleBlurCapture}>
-      <Form form={form} layout="vertical" onFinish={handleSave} onValuesChange={handleValuesChange} size="small">
-        <Form.Item name="ruleType" hidden>
-          <input type="hidden" />
-        </Form.Item>
+    <EntityScopeProvider entityType={TEMPLATE_ENTITY_TYPE} entityId={templateUid}>
+      <ActionPathsProvider value={TEMPLATE_ACTION_PATHS}>
+        <div className="rules-rule-editor">
+          <Form form={form} layout="vertical" onFinish={handleSave} onValuesChange={handleValuesChange} size="small">
+            <Form.Item name="ruleType" hidden>
+              <input type="hidden" />
+            </Form.Item>
 
-        {/* ── Template metadata ── */}
-        <Text strong style={{ fontSize: 15, display: 'block', marginBottom: 16 }}>
-          Edit Template
-        </Text>
+            <EntityConflictBanner
+              count={allConflicts.size}
+              onReview={() => setConflictDialogOpen(true)}
+              onKeepAllMine={handleKeepAllMine}
+              onUseAllSaved={handleUseAllSaved}
+            />
 
-        <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'flex-end' }}>
-          <Form.Item name="templateIcon" style={{ marginBottom: 0 }}>
-            <TwoToneIconPicker />
-          </Form.Item>
-          <Form.Item name="templateName" style={{ marginBottom: 0, flex: 1 }}>
-            <Input size="small" placeholder="Template name" />
-          </Form.Item>
-          <Form.Item name="ruleType" style={{ marginBottom: 0, width: 160 }}>
-            <Select size="small" options={RULE_TYPE_OPTIONS} disabled />
-          </Form.Item>
-        </div>
-
-        <Form.Item name="templateDescription" style={{ marginBottom: 16 }}>
-          <TextArea size="small" placeholder="Description (optional)" autoSize={{ minRows: 1, maxRows: 3 }} />
-        </Form.Item>
-
-        {/* ── Include toggles ── */}
-        <div
-          style={{
-            display: 'flex',
-            gap: 16,
-            marginBottom: 20,
-            padding: '8px 12px',
-            background: token.colorFillQuaternary,
-            borderRadius: 6,
-          }}
-        >
-          <Form.Item name="includeConditions" valuePropName="checked" style={{ marginBottom: 0 }}>
-            <Checkbox>Include conditions</Checkbox>
-          </Form.Item>
-          <Form.Item name="includeFormValues" valuePropName="checked" style={{ marginBottom: 0 }}>
-            <Checkbox>Include actions</Checkbox>
-          </Form.Item>
-        </div>
-
-        {/* ── Per-type fields ── */}
-        {selectedType === 'header' && (
-          <HeaderRuleFields
-            activeTab={headerActiveTab}
-            onTabChange={setHeaderActiveTab}
-            reqCount={headerReqCount}
-            resCount={headerResCount}
-          />
-        )}
-        {selectedType === 'block' && <BlockRuleFields />}
-        {selectedType === 'redirect' && <RedirectRuleFields />}
-        {selectedType === 'query-param' && <QueryParamRuleFields />}
-        {selectedType === 'inject' && <InjectRuleFields />}
-        {selectedType === 'delay' && <DelayRuleFields />}
-        {selectedType === 'body' && <BodyRuleFields />}
-        {selectedType === 'mock' && <MockRuleFields />}
-        {/* Inline action validation — same single-mount pattern as RuleEditor. */}
-        {selectedType && <ActionValueBanner ruleType={selectedType} />}
-
-        {/* ── Conditions ── */}
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-            <Text strong style={{ fontSize: 13 }}>
-              Conditions
+            {/* ── Template metadata ── */}
+            <Text strong style={{ fontSize: 15, display: 'block', marginBottom: 16 }}>
+              Edit Template
             </Text>
-            <InfoCircleOutlined style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }} />
-          </div>
-          <Form.Item name="conditions" style={{ marginBottom: 0 }}>
-            <ConditionEditor />
-          </Form.Item>
+
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'flex-end' }}>
+              <Form.Item name="templateIcon" style={{ marginBottom: 0 }}>
+                <TwoToneIconPicker />
+              </Form.Item>
+              <Form.Item name="templateName" style={{ marginBottom: 0, flex: 1 }}>
+                <EntityField path={TEMPLATE_ACTION_PATHS.name}>
+                  <Input size="small" placeholder="Template name" />
+                </EntityField>
+              </Form.Item>
+              <Form.Item name="ruleType" style={{ marginBottom: 0, width: 160 }}>
+                <Select size="small" options={RULE_TYPE_OPTIONS} disabled />
+              </Form.Item>
+            </div>
+
+            <Form.Item name="templateDescription" style={{ marginBottom: 16 }}>
+              <EntityField path="description">
+                <TextArea size="small" placeholder="Description (optional)" autoSize={{ minRows: 1, maxRows: 3 }} />
+              </EntityField>
+            </Form.Item>
+
+            {/* ── Include toggles ── */}
+            <div
+              style={{
+                display: 'flex',
+                gap: 16,
+                marginBottom: 20,
+                padding: '8px 12px',
+                background: token.colorFillQuaternary,
+                borderRadius: 6,
+              }}
+            >
+              <Form.Item name="includeConditions" valuePropName="checked" style={{ marginBottom: 0 }}>
+                <Checkbox>Include conditions</Checkbox>
+              </Form.Item>
+              <Form.Item name="includeFormValues" valuePropName="checked" style={{ marginBottom: 0 }}>
+                <Checkbox>Include actions</Checkbox>
+              </Form.Item>
+            </div>
+
+            {/* ── Per-type fields ── */}
+            {selectedType === 'header' && (
+              <HeaderRuleFields
+                activeTab={headerActiveTab}
+                onTabChange={setHeaderActiveTab}
+                reqCount={headerReqCount}
+                resCount={headerResCount}
+              />
+            )}
+            {selectedType === 'block' && <BlockRuleFields />}
+            {selectedType === 'redirect' && <RedirectRuleFields />}
+            {selectedType === 'query-param' && <QueryParamRuleFields />}
+            {selectedType === 'inject' && <InjectRuleFields />}
+            {selectedType === 'delay' && <DelayRuleFields />}
+            {selectedType === 'body' && <BodyRuleFields />}
+            {selectedType === 'mock' && <MockRuleFields />}
+            {selectedType && <ActionValueBanner ruleType={selectedType} />}
+
+            {/* ── Conditions ── */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <Text strong style={{ fontSize: 13 }}>
+                  Conditions
+                </Text>
+                <InfoCircleOutlined
+                  style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
+                />
+              </div>
+              <Form.Item name="conditions" style={{ marginBottom: 0 }}>
+                <ConditionEditor />
+              </Form.Item>
+            </div>
+          </Form>
+
+          <EntityConflictDialog
+            open={isConflictDialogOpen}
+            savedText={savedYaml}
+            buildLocalText={buildLocalText}
+            conflicts={allConflicts}
+            localValuesByPath={formProjection ? new Map(Object.entries(formProjection)) : undefined}
+            pathLabels={conflictPathLabels}
+            onResolve={applyResolutions}
+            onClose={() => setConflictDialogOpen(false)}
+          />
         </div>
-      </Form>
-    </div>
+      </ActionPathsProvider>
+    </EntityScopeProvider>
   );
 };
 
 export default TemplateEditor;
+
+// ── Pure projection: form values → V5.Template update shape ──────────
+//
+// Used both at save time and as the dirty-derivation projection. The
+// `name`, `icon`, `description`, `includes`, `conditions`, `formValues`
+// shape exactly mirrors what `updateTemplate` writes, so dirty
+// detection compares like-for-like against the live template.
+
+function buildTemplateUpdates(values: Record<string, unknown>): {
+  name: string;
+  icon: string;
+  description: string;
+  includes: { conditions: boolean; formValues: boolean };
+  conditions: V5.RuleCondition[];
+  formValues: Record<string, unknown>;
+} {
+  const includeConditions = values.includeConditions !== false;
+  const includeFormValues = values.includeFormValues !== false;
+  const formValues: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(values)) {
+    if (!META_KEYS.has(key)) formValues[key] = val;
+  }
+  return {
+    name: (values.templateName as string) ?? '',
+    icon: (values.templateIcon as string) ?? '',
+    description: (values.templateDescription as string) ?? '',
+    includes: { conditions: includeConditions, formValues: includeFormValues },
+    conditions: includeConditions ? ((values.conditions as V5.RuleCondition[]) ?? []) : [],
+    formValues: includeFormValues ? formValues : {},
+  };
+}

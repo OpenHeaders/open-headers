@@ -26,6 +26,14 @@
  */
 
 export interface ActionPathBundle {
+  /** Top-level schema key under which action data lives — the same
+   *  string the bundle was constructed with. Exposed so adapters that
+   *  parse paths (conflict tracking, resolution) can detect membership
+   *  in the action subtree without re-parsing the bundle. */
+  actionRoot: string;
+  /** Schema key for query params under the action root — same shape
+   *  as `actionRoot`. */
+  queryParamKey: string;
   // Entity-root scalars (identical between rule + template).
   name: string;
   enabled: string;
@@ -79,6 +87,8 @@ export function createActionPaths(opts: ActionPathsOptions): ActionPathBundle {
   const headerSet = (direction: 'request' | 'response'): string =>
     direction === 'request' ? `${a}.requestHeaders` : `${a}.responseHeaders`;
   return {
+    actionRoot: a,
+    queryParamKey: qp,
     name: 'name',
     enabled: 'enabled',
     conditions: 'conditions',
