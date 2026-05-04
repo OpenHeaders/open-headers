@@ -125,9 +125,8 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
       getLeafConflict: (path, local) => conflicts.getConflict(path, local),
       onAcceptTheirs: (path, theirs) => {
         const transient: VariableEntity = { uid: WORKSPACE_VARIABLES_ID, variables: [...draft] };
-        if (variableResolveAdapter.applyResolutionToEntity(transient, path, { base: '', theirs })) {
-          setDraft(transient.variables);
-        }
+        if (!variableResolveAdapter.applyResolutionToEntity(transient, path, { base: '', theirs })) return;
+        setDraft(transient.variables);
         conflicts.acceptTheirs(path, theirs);
       },
       onDismiss: (path) => conflicts.dismiss(path),

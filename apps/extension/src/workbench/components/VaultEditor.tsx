@@ -118,9 +118,13 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
         const transient = { uid: VAULT_ID, schemaVersion: vault.schemaVersion, secrets: [...draft] } as V5.Vault & {
           uid: string;
         };
-        if (vaultResolveAdapter.applyResolutionToEntity(transient, path, { base: '', theirs })) {
-          setDraft(transient.secrets);
-        }
+        // Only dismiss the chip when the apply succeeded. Kind-transition leaf
+        // writes (`secrets.<uid>.kind`) reject inline — the user must resolve
+        // those via the dialog's row-level Use Saved which carries the full
+        // payload. Dismissing on a no-op apply would hide the conflict
+        // without changing the data.
+        if (!vaultResolveAdapter.applyResolutionToEntity(transient, path, { base: '', theirs })) return;
+        setDraft(transient.secrets);
         conflicts.acceptTheirs(path, theirs);
       },
       onDismiss: (path) => conflicts.dismiss(path),

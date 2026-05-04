@@ -163,11 +163,13 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
       getLeafConflict: (path, local) => conflicts.getConflict(path, local),
       onAcceptTheirs: (path, theirs) => {
         // Apply the saved value into the local draft, then ack the
-        // tracker so the chip dismisses + baseline catches up.
+        // tracker so the chip dismisses + baseline catches up. Gate the
+        // ack on apply success: if the resolver rejected the write
+        // (kind transition, missing row), keep the chip so the user
+        // can resolve via the dialog.
         const transient: VariableEntity = { uid: env?.uid ?? '', variables: [...draft] };
-        if (variableResolveAdapter.applyResolutionToEntity(transient, path, { base: '', theirs })) {
-          setDraft(transient.variables);
-        }
+        if (!variableResolveAdapter.applyResolutionToEntity(transient, path, { base: '', theirs })) return;
+        setDraft(transient.variables);
         conflicts.acceptTheirs(path, theirs);
       },
       onDismiss: (path) => conflicts.dismiss(path),
