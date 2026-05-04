@@ -38,6 +38,7 @@ import { CSS } from '@dnd-kit/utilities';
 import type { V5 } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { Collapse, Input, InputNumber, Select, Tooltip, theme } from 'antd';
+import type { GetRef } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { EntityField } from '@/shared/awareness';
@@ -235,15 +236,29 @@ interface ValueCellProps {
 function ValueCell({ value, masked, onChange, onReveal }: ValueCellProps) {
   const { token } = theme.useToken();
   const [editing, setEditing] = useState(false);
+  const taRef = useRef<GetRef<typeof Input.TextArea>>(null);
 
   const startEditing = () => {
     onReveal?.();
     setEditing(true);
   };
 
+  // Place caret at end of text when the textarea mounts. Ant's `autoFocus`
+  // focuses the element but leaves the selection at position 0 — clicking
+  // a populated cell would otherwise drop the user at the start of the
+  // string instead of the end.
+  useEffect(() => {
+    if (!editing) return;
+    const node = taRef.current?.resizableTextArea?.textArea;
+    if (!node) return;
+    const end = node.value.length;
+    node.setSelectionRange(end, end);
+  }, [editing]);
+
   if (editing) {
     return (
       <Input.TextArea
+        ref={taRef}
         value={value}
         autoFocus
         variant="borderless"
