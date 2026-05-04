@@ -6,13 +6,17 @@
  * primitives (`setEnvVar` for adds/changes, `removeEnvVar` for
  * deletions) and emits one all-or-nothing batch through `oh.sync.apply`.
  * Concurrent edits reconcile per-(env, name) via HLC LWW + the
- * awareness ribbon — the legacy `version` / `expectedVersion` /
- * `StaleDraftBanner` branch is retired by Phase B (§24).
+ * awareness ribbon.
+ *
+ * Awareness: contributes through `useEditorDirty` + `<EntityScopeProvider>`;
+ * the surface's `<SurfaceAwarenessPublisher>` composes the published claim.
+ * Variable rows are name-keyed and dynamic — field-level paths defer
+ * until set-modeled paths land for the env entity; the entity-level
+ * presence chip suffices.
  */
 
 import { CheckCircleTwoTone, StarFilled, StarOutlined } from '@ant-design/icons';
 import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
-import { useAwareness } from '@hooks/useAwareness';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useEnvironmentMutator } from '@hooks/useEnvironmentMutator';
 import { ENVIRONMENT_ENTITY_TYPE } from '@openheaders/core/sync';
@@ -20,7 +24,8 @@ import type { V5 } from '@openheaders/core/types';
 import { App, Button, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo } from 'react';
-import { useSurfaceIdentity } from '@/shared/awareness';
+import { EntityScopeProvider } from '@/shared/awareness';
+import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
 import { useDirtyDraft } from '../hooks/useDirtyDraft';
 import { useEnvSwitcher } from '../services/env-switcher';
 import EditorHeader from './EditorHeader';
@@ -52,7 +57,6 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
   const { pickActiveEnvironment } = useEnvSwitcher();
   const workspaceId = useActiveWorkspaceId();
   const mutator = useEnvironmentMutator({ workspaceId, surfaceId: SURFACE_ID });
-  const identity = useSurfaceIdentity();
 
   const env = useMemo(() => environments.find((e) => e.uid === environmentUid) ?? null, [environments, environmentUid]);
 
@@ -62,15 +66,10 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
     empty: EMPTY_VARS,
   });
 
-  // Awareness — declare the surface is editing this environment.
-  useAwareness({
-    workspaceId,
-    identity,
-    entityFocus: env ? { type: ENVIRONMENT_ENTITY_TYPE, id: env.uid } : null,
-    fieldFocus: null,
-    dirtyFields: isDirty ? ['*'] : [],
-    enabled: env !== null,
-  });
+  useEditorDirty(
+    { entityType: ENVIRONMENT_ENTITY_TYPE, entityId: env?.uid ?? null },
+    isDirty,
+  );
 
   useEffect(() => {
     onDirtyChange?.(isDirty);
@@ -154,18 +153,20 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
-      <EditorHeader title={headerTitle} actions={headerActions} isDirty={isDirty} onSave={handleSaveSync} />
-      <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
-        <div style={{ maxWidth: 920, margin: '0 auto' }}>
-          <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 600 }}>
-            VARIABLES ({nonEmptyCount})
-          </Text>
+    <EntityScopeProvider entityType={ENVIRONMENT_ENTITY_TYPE} entityId={env.uid}>
+      <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
+        <EditorHeader title={headerTitle} actions={headerActions} isDirty={isDirty} onSave={handleSaveSync} />
+        <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
+          <div style={{ maxWidth: 920, margin: '0 auto' }}>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 600 }}>
+              VARIABLES ({nonEmptyCount})
+            </Text>
 
-          <VariableTable variables={draft} onChange={setDraft} allowSecrets />
+            <VariableTable variables={draft} onChange={setDraft} allowSecrets />
+          </div>
         </div>
       </div>
-    </div>
+    </EntityScopeProvider>
   );
 };
 

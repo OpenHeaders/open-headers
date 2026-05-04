@@ -25,6 +25,8 @@ import {
   REQUEST_ENTITY_TYPE,
   RULE_ENTITY_TYPE,
   TEMPLATE_ENTITY_TYPE,
+  WORKSPACE_VARIABLES_ENTITY_TYPE,
+  WORKSPACE_VARIABLES_ID,
 } from '@openheaders/core/sync';
 import { useTheme } from '@context/ThemeContext';
 import { useEnvironments } from '@hooks/useEnvironments';
@@ -915,13 +917,15 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
           ? { entityType: LIVE_WORKFLOW_ENTITY_TYPE, entityId: activeTab.liveWorkflowUid }
           : null;
       case 'env-edit':
-        return activeTab.entityId
-          ? { entityType: ENVIRONMENT_ENTITY_TYPE, entityId: activeTab.entityId }
+        return activeTab.environmentUid
+          ? { entityType: ENVIRONMENT_ENTITY_TYPE, entityId: activeTab.environmentUid }
           : null;
-      // Singleton entities (vault, workspace-vars) and create-mode tabs
-      // (no minted uid yet) deliberately return null — the breadcrumb
-      // shows their name segment but presence on `name` makes no sense
-      // there.
+      case 'workspace-vars':
+        // Singleton entity — fixed id; the publisher composes presence
+        // from the editor's `useEditorDirty` + `EntityScopeProvider`.
+        return { entityType: WORKSPACE_VARIABLES_ENTITY_TYPE, entityId: WORKSPACE_VARIABLES_ID };
+      // Other singleton entities (vault) and create-mode tabs (no minted
+      // uid yet) deliberately return null until their editors migrate.
       default:
         return null;
     }
@@ -1719,7 +1723,13 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
         <ActiveTabEntityWriter value={activeTabEntity} />
         <SurfaceAwarenessPublisher
           workspaceId={workspacesApi.activeWorkspaceId}
-          migratedEntityTypes={[RULE_ENTITY_TYPE, TEMPLATE_ENTITY_TYPE, REQUEST_ENTITY_TYPE]}
+          migratedEntityTypes={[
+            RULE_ENTITY_TYPE,
+            TEMPLATE_ENTITY_TYPE,
+            REQUEST_ENTITY_TYPE,
+            ENVIRONMENT_ENTITY_TYPE,
+            WORKSPACE_VARIABLES_ENTITY_TYPE,
+          ]}
         />
           <div
             ref={shellRef}

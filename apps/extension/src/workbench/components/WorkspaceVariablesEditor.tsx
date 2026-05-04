@@ -7,10 +7,14 @@
  * delegates to the sync engine (`applyWorkspaceVariablesReplacement` →
  * `oh.sync.apply`); dirty state is tracked locally by comparing the
  * draft's fingerprint against the broadcast-driven canonical view.
+ *
+ * Awareness: contributes through `useEditorDirty` + `<EntityScopeProvider>`
+ * pinned to the singleton id (`WORKSPACE_VARIABLES_ID`). The surface's
+ * `<SurfaceAwarenessPublisher>` composes the published claim. Variable
+ * rows are name-keyed and dynamic — field-level paths defer; the
+ * entity-level presence chip suffices.
  */
 
-import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
-import { useAwareness } from '@hooks/useAwareness';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useVariableMutator } from '@hooks/useVariableMutator';
 import {
@@ -21,14 +25,14 @@ import type { V5 } from '@openheaders/core/types';
 import { App, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect } from 'react';
-import { useSurfaceIdentity } from '@/shared/awareness';
+import { EntityScopeProvider } from '@/shared/awareness';
+import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
 import { useDirtyDraft } from '../hooks/useDirtyDraft';
 import EditorHeader from './EditorHeader';
 import VariableTable from './panels/VariableTable';
 import { scopeBadge } from './shared/scope-colors';
 
 const { Text, Title } = Typography;
-const SURFACE_ID = 'workbench';
 
 interface WorkspaceVariablesEditorProps {
   onDirtyChange?: (dirty: boolean) => void;
@@ -46,8 +50,6 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
   const { message } = App.useApp();
   const { workspaceVariables } = useEnvironments();
   const { replaceWorkspaceVariables } = useVariableMutator();
-  const workspaceId = useActiveWorkspaceId();
-  const identity = useSurfaceIdentity();
 
   const { draft, setDraft, isDirty, markPersisted } = useDirtyDraft<V5.Variable[]>({
     serverDraft: workspaceVariables.variables,
@@ -55,14 +57,10 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
     empty: EMPTY_VARS,
   });
 
-  // Awareness — declare the surface is editing the singleton entity.
-  useAwareness({
-    workspaceId,
-    identity,
-    entityFocus: { type: WORKSPACE_VARIABLES_ENTITY_TYPE, id: WORKSPACE_VARIABLES_ID },
-    fieldFocus: null,
-    dirtyFields: isDirty ? ['*'] : [],
-  });
+  useEditorDirty(
+    { entityType: WORKSPACE_VARIABLES_ENTITY_TYPE, entityId: WORKSPACE_VARIABLES_ID },
+    isDirty,
+  );
 
   useEffect(() => {
     onDirtyChange?.(isDirty);
@@ -100,23 +98,25 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
-      <EditorHeader title={headerTitle} isDirty={isDirty} onSave={handleSaveSync} />
-      <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
-        <div style={{ maxWidth: 920, margin: '0 auto' }}>
-          <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-            Shared across every environment in this workspace. Lowest priority — overridden by collection, environment,
-            and vault scopes.
-          </Text>
+    <EntityScopeProvider entityType={WORKSPACE_VARIABLES_ENTITY_TYPE} entityId={WORKSPACE_VARIABLES_ID}>
+      <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
+        <EditorHeader title={headerTitle} isDirty={isDirty} onSave={handleSaveSync} />
+        <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
+          <div style={{ maxWidth: 920, margin: '0 auto' }}>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
+              Shared across every environment in this workspace. Lowest priority — overridden by collection,
+              environment, and vault scopes.
+            </Text>
 
-          <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 600 }}>
-            VARIABLES ({nonEmptyCount})
-          </Text>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 600 }}>
+              VARIABLES ({nonEmptyCount})
+            </Text>
 
-          <VariableTable variables={draft} onChange={setDraft} allowSecrets />
+            <VariableTable variables={draft} onChange={setDraft} allowSecrets />
+          </div>
         </div>
       </div>
-    </div>
+    </EntityScopeProvider>
   );
 };
 
