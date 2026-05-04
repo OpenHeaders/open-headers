@@ -114,6 +114,7 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
   const conflictBridge = useMemo<VariableTableConflictBridge>(
     () => ({
       getLeafConflict: (path, local) => conflicts.getConflict(path, local),
+      getSetConflict: (setPath, uid, formContainsUid) => conflicts.getSetConflict(setPath, uid, formContainsUid),
       onAcceptTheirs: (path, theirs) => {
         const transient = { uid: VAULT_ID, schemaVersion: vault.schemaVersion, secrets: [...draft] } as V5.Vault & {
           uid: string;

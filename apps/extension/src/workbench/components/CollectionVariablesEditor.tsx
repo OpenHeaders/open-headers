@@ -173,6 +173,7 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
   const conflictBridge = useMemo<VariableTableConflictBridge>(
     () => ({
       getLeafConflict: (path, local) => conflicts.getConflict(path, local),
+      getSetConflict: (setPath, uid, formContainsUid) => conflicts.getSetConflict(setPath, uid, formContainsUid),
       onAcceptTheirs: (path, theirs) => {
         const transient: VariableEntity = { uid: collectionUid, variables: [...draft] };
         if (!variableResolveAdapter.applyResolutionToEntity(transient, path, { base: '', theirs })) return;

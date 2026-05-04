@@ -161,6 +161,7 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
   const conflictBridge = useMemo<VariableTableConflictBridge>(
     () => ({
       getLeafConflict: (path, local) => conflicts.getConflict(path, local),
+      getSetConflict: (setPath, uid, formContainsUid) => conflicts.getSetConflict(setPath, uid, formContainsUid),
       onAcceptTheirs: (path, theirs) => {
         // Apply the saved value into the local draft, then ack the
         // tracker so the chip dismisses + baseline catches up. Gate the

@@ -123,6 +123,7 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
   const conflictBridge = useMemo<VariableTableConflictBridge>(
     () => ({
       getLeafConflict: (path, local) => conflicts.getConflict(path, local),
+      getSetConflict: (setPath, uid, formContainsUid) => conflicts.getSetConflict(setPath, uid, formContainsUid),
       onAcceptTheirs: (path, theirs) => {
         const transient: VariableEntity = { uid: WORKSPACE_VARIABLES_ID, variables: [...draft] };
         if (!variableResolveAdapter.applyResolutionToEntity(transient, path, { base: '', theirs })) return;

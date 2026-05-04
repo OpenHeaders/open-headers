@@ -40,7 +40,7 @@ import { generateUid } from '@openheaders/core/utils';
 import { Collapse, Input, InputNumber, Select, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ConflictDiffChip, EntityField } from '@/shared/awareness';
+import { ConflictDiffChip, EntityField, SetRowConflictChip } from '@/shared/awareness';
 import type { PathConflict } from '@/shared/conflicts/types';
 import TotpPreview from '../totp/TotpPreview';
 
@@ -61,6 +61,12 @@ export type VariableRowPath = (uid: string, leaf: 'name' | 'value' | 'type') => 
  *  via `vaultRowPath`. */
 export interface VariableTableConflictBridge {
   getLeafConflict(path: string, local: string): PathConflict | null;
+  /** Optional row-level lookup: returns a `set-remove` conflict when the
+   *  saved version dropped this row but the form still has it. Renders
+   *  the inline `<SetRowConflictChip>` beside the row name. Mirrors the
+   *  HeaderRuleFields surface — set-level conflicts surface inline next
+   *  to the row identity, parallel to the leaf chip on the value side. */
+  getSetConflict?(setPath: string, uid: string, formContainsUid: boolean): PathConflict | null;
   onAcceptTheirs(path: string, theirs: string): void;
   onDismiss(path: string): void;
 }
@@ -357,6 +363,15 @@ function SortableRow({
     !row.isPlaceholder && conflictBridge && !isTotp
       ? conflictBridge.getLeafConflict(conflictPathFor('value'), row.value)
       : null;
+  // Set-level conflict: this row was removed externally while still in
+  // the local form. Surfaces inline beside the row name; "Use saved"
+  // drops the row + acks the conflict, "Keep mine" dismisses (the next
+  // save will recreate the row in canonical state via LWW).
+  const setRemoveConflict =
+    !row.isPlaceholder && conflictBridge?.getSetConflict
+      ? conflictBridge.getSetConflict(setPathPrefix, row.uid, true)
+      : null;
+  const setRemove = setRemoveConflict?.kind === 'set-remove' ? setRemoveConflict : null;
 
   const style: React.CSSProperties = {
     display: 'grid',
@@ -427,6 +442,17 @@ function SortableRow({
             remote={nameConflict.remote}
             onTakeTheirs={() => conflictBridge.onAcceptTheirs(conflictPathFor('name'), nameConflict.theirs)}
             onKeepMine={() => conflictBridge.onDismiss(conflictPathFor('name'))}
+          />
+        )}
+        {setRemove && conflictBridge && (
+          <SetRowConflictChip
+            baseSummary={setRemove.base}
+            remote={setRemove.remote}
+            onUseSaved={() => {
+              remove(index);
+              conflictBridge.onAcceptTheirs(`set:${setPathPrefix}.${row.uid}`, '');
+            }}
+            onKeepMine={() => conflictBridge.onDismiss(`set:${setPathPrefix}.${row.uid}`)}
           />
         )}
         {!isVault && allowSecrets && !row.isPlaceholder && (
