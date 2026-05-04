@@ -8,6 +8,6 @@
  * once the spike verdict is PROCEED.
  */
 
-export { useEditorShell, type EditorMode, type UseEditorShellInput, type UseEditorShellOutput, type EditorShellReprime, type EditorShellFieldProps } from './use-editor-shell';
+export { useEditorShell, type UseEditorShellInput, type UseEditorShellOutput, type EditorShellFieldProps } from './use-editor-shell';
 export { useReprime, type UseReprimeInput, type UseReprimeOutput } from './use-reprime';
 export type { EditorShellHeaderWiring, EditorShellScopeWiring, EditorHeaderContentProps } from './types';

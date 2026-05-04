@@ -26,40 +26,23 @@
 import { useEffect, useMemo } from 'react';
 import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
 import type { EntityFieldProps } from '@/shared/awareness/EntityField';
-
-export type EditorShellFieldProps = Omit<EntityFieldProps, 'children'>;
 import {
   brandHeaderWiring,
   brandScopeWiring,
   type EditorShellHeaderWiring,
   type EditorShellScopeWiring,
 } from './types';
-import { useReprime, type UseReprimeOutput } from './use-reprime';
 
-export type EditorMode = 'edit' | 'create';
+export type EditorShellFieldProps = Omit<EntityFieldProps, 'children'>;
 
-export interface EditorShellReprime<E> {
-  liveEntity: E | null | undefined;
-  formFingerprint: string;
-  signature: (entity: E) => string;
-  populate: (entity: E) => void;
-  /** Caller's "ready to reconcile" gate — typically a state mirror of
-   *  the editor's init-completed flag. */
-  enabled: boolean;
-  /** Fires after reprime AND auto-rebase. Editors use this to advance
-   *  per-editor baselines (e.g. conflict tracker baseline). */
-  onPrimed?: (entity: E) => void;
-}
-
-export interface UseEditorShellInput<E> {
+export interface UseEditorShellInput {
   entityType: string;
   /** May be `null` while in `create` mode (no entity minted yet). */
   entityId: string | null;
-  mode: EditorMode;
-  /** Required when `mode === 'edit'`. Drives reprime + dirty derivation. */
-  reprime?: EditorShellReprime<E>;
-  /** Required when `mode === 'create'`. Editor-supplied dirty value. */
-  isDirty?: boolean;
+  /** Caller derives this — for `edit` mode pass `useReprime(...).isDirty`;
+   *  for `create` mode pass an editor-supplied flag. The hook itself
+   *  doesn't care which mode produced it. */
+  isDirty: boolean;
   /** Publication state for entities with live runners. Drives the
    *  publish-gate Save semantics on `<EditorHeader>`. */
   isPublished?: boolean;
@@ -76,50 +59,23 @@ export interface UseEditorShellInput<E> {
 
 export interface UseEditorShellOutput {
   isDirty: boolean;
-  primedFingerprint: string | null;
   headerProps: EditorShellHeaderWiring;
   scopeProps: EditorShellScopeWiring;
   /** Per-field props builder. `null` when `options.disableFieldFocus`. */
   field: ((path: string) => EditorShellFieldProps) | null;
 }
 
-const NO_REPRIME: UseReprimeOutput = { isDirty: false, primedFingerprint: null };
-
-export function useEditorShell<E>(input: UseEditorShellInput<E>): UseEditorShellOutput {
+export function useEditorShell(input: UseEditorShellInput): UseEditorShellOutput {
   const {
     entityType,
     entityId,
-    mode,
-    reprime,
-    isDirty: createDirty,
+    isDirty,
     isPublished,
     onSave,
     onDirtyChange,
     registerSaveRef,
     options,
   } = input;
-
-  if (mode === 'edit' && !reprime) {
-    throw new Error('useEditorShell: mode="edit" requires `reprime` input.');
-  }
-  if (mode === 'create' && createDirty === undefined) {
-    throw new Error('useEditorShell: mode="create" requires `isDirty` input.');
-  }
-
-  // useReprime is hooked unconditionally to keep hook order stable.
-  // In create mode we feed it a no-op reprime so it short-circuits via
-  // `enabled: false`.
-  const reprimeOutput = useReprime<E>({
-    liveEntity: reprime?.liveEntity ?? null,
-    scope: { entityType, entityId },
-    enabled: mode === 'edit' && (reprime?.enabled ?? false),
-    formFingerprint: reprime?.formFingerprint ?? '',
-    signature: reprime?.signature ?? ((_e: E) => ''),
-    populate: reprime?.populate ?? (() => undefined),
-    onPrimed: reprime?.onPrimed,
-  });
-
-  const isDirty = mode === 'edit' ? reprimeOutput.isDirty : (createDirty ?? false);
 
   // BC7 — dirty publishing into surface awareness, bundled.
   useEditorDirty({ entityType, entityId }, isDirty);
@@ -157,7 +113,6 @@ export function useEditorShell<E>(input: UseEditorShellInput<E>): UseEditorShell
 
   return {
     isDirty,
-    primedFingerprint: reprimeOutput.primedFingerprint,
     headerProps,
     scopeProps,
     field,

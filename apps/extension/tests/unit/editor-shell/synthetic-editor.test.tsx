@@ -164,17 +164,10 @@ describe('editor-shell — BC6 (header wiring brand)', () => {
   it('hook output supplies the branded wiring', () => {
     const { result } = renderHook(
       () =>
-        useEditorShell<Env>({
+        useEditorShell({
           entityType: 'environment',
           entityId: baseEnv.uid,
-          mode: 'edit',
-          reprime: {
-            liveEntity: baseEnv,
-            formFingerprint: envSig(baseEnv),
-            signature: envSig,
-            populate: () => undefined,
-            enabled: true,
-          },
+          isDirty: false,
           onSave: () => undefined,
         }),
       { wrapper: ({ children }) => <Wrapper>{children}</Wrapper> },
@@ -192,42 +185,35 @@ describe('editor-shell — BC6 (header wiring brand)', () => {
 describe('editor-shell — BC7 (dirty publishing bundled)', () => {
   it('publishes the dirty marker into ActiveEditorDirty without a separate useEditorDirty call', () => {
     const harness = renderHook(
-      ({ formFp }: { formFp: string }) => {
-        const shell = useEditorShell<Env>({
+      ({ dirty }: { dirty: boolean }) => {
+        const shell = useEditorShell({
           entityType: 'environment',
           entityId: baseEnv.uid,
-          mode: 'edit',
-          reprime: {
-            liveEntity: baseEnv,
-            formFingerprint: formFp,
-            signature: envSig,
-            populate: () => undefined,
-            enabled: true,
-          },
+          isDirty: dirty,
           onSave: () => undefined,
         });
-        const dirty = useActiveEditorDirty();
-        return { shell, dirty };
+        const published = useActiveEditorDirty();
+        return { shell, published };
       },
       {
         wrapper: ({ children }) => (
           <Wrapper activeTab={{ entityType: 'environment', entityId: baseEnv.uid }}>{children}</Wrapper>
         ),
-        initialProps: { formFp: envSig(baseEnv) },
+        initialProps: { dirty: false },
       },
     );
 
     expect(harness.result.current.shell.isDirty).toBe(false);
-    expect(harness.result.current.dirty).toBeNull();
+    expect(harness.result.current.published).toBeNull();
 
     act(() => {
-      harness.rerender({ formFp: 'user-typed' });
+      harness.rerender({ dirty: true });
     });
 
     expect(harness.result.current.shell.isDirty).toBe(true);
-    expect(harness.result.current.dirty).not.toBeNull();
-    expect(harness.result.current.dirty?.entityType).toBe('environment');
-    expect(harness.result.current.dirty?.entityId).toBe(baseEnv.uid);
+    expect(harness.result.current.published).not.toBeNull();
+    expect(harness.result.current.published?.entityType).toBe('environment');
+    expect(harness.result.current.published?.entityId).toBe(baseEnv.uid);
   });
 });
 
@@ -237,17 +223,10 @@ describe('editor-shell — BC8 (scope entityType single-source)', () => {
   it('scopeProps re-emit the same entityType the hook was given; editor cannot mismatch', () => {
     const { result } = renderHook(
       () =>
-        useEditorShell<Env>({
+        useEditorShell({
           entityType: 'environment',
           entityId: baseEnv.uid,
-          mode: 'edit',
-          reprime: {
-            liveEntity: baseEnv,
-            formFingerprint: envSig(baseEnv),
-            signature: envSig,
-            populate: () => undefined,
-            enabled: true,
-          },
+          isDirty: false,
           onSave: () => undefined,
         }),
       { wrapper: ({ children }) => <Wrapper>{children}</Wrapper> },
@@ -271,17 +250,10 @@ describe('editor-shell — sensitive-entity carve-out', () => {
   it('disableFieldFocus=true returns field=null', () => {
     const { result } = renderHook(
       () =>
-        useEditorShell<Env>({
+        useEditorShell({
           entityType: 'vault',
           entityId: 'vault-1',
-          mode: 'edit',
-          reprime: {
-            liveEntity: baseEnv,
-            formFingerprint: envSig(baseEnv),
-            signature: envSig,
-            populate: () => undefined,
-            enabled: true,
-          },
+          isDirty: false,
           onSave: () => undefined,
           options: { disableFieldFocus: true },
         }),
@@ -293,17 +265,10 @@ describe('editor-shell — sensitive-entity carve-out', () => {
   it('default (non-sensitive) returns a callable field builder', () => {
     const { result } = renderHook(
       () =>
-        useEditorShell<Env>({
+        useEditorShell({
           entityType: 'environment',
           entityId: baseEnv.uid,
-          mode: 'edit',
-          reprime: {
-            liveEntity: baseEnv,
-            formFingerprint: envSig(baseEnv),
-            signature: envSig,
-            populate: () => undefined,
-            enabled: true,
-          },
+          isDirty: false,
           onSave: () => undefined,
         }),
       { wrapper: ({ children }) => <Wrapper>{children}</Wrapper> },
@@ -318,31 +283,15 @@ describe('editor-shell — sensitive-entity carve-out', () => {
   });
 });
 
-// ── Mode invariants ─────────────────────────────────────────────────
+// ── Create-mode + null entityId ─────────────────────────────────────
 
-describe('editor-shell — mode invariants', () => {
-  it('throws when mode=edit is supplied without reprime input', () => {
-    function HarnessEdit() {
-      return useEditorShell<Env>({
-        entityType: 'environment',
-        entityId: baseEnv.uid,
-        mode: 'edit',
-        onSave: () => undefined,
-      });
-    }
-    // The hook throws synchronously inside render.
-    expect(() =>
-      renderHook(HarnessEdit, { wrapper: ({ children }) => <Wrapper>{children}</Wrapper> }),
-    ).toThrow(/mode="edit" requires/);
-  });
-
-  it('mode=create accepts an editor-supplied isDirty', () => {
+describe('editor-shell — create mode', () => {
+  it('accepts entityId=null (create mode) and reflects editor-supplied isDirty', () => {
     const { result, rerender } = renderHook(
       ({ dirty }: { dirty: boolean }) =>
-        useEditorShell<Env>({
+        useEditorShell({
           entityType: 'environment',
           entityId: null,
-          mode: 'create',
           isDirty: dirty,
           onSave: () => undefined,
         }),
@@ -359,5 +308,5 @@ describe('editor-shell — mode invariants', () => {
   });
 });
 
-// Suppress unused-import warning for useState in some test setups.
+// Suppress unused-import warning.
 void useState;

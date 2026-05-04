@@ -24,16 +24,16 @@ import { ENVIRONMENT_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { App, Button, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EntityScopeProvider, PresenceBadge, useLocalInstanceId, VARIABLE_PATHS } from '@/shared/awareness';
-import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
 import {
   type ConflictResolution,
   EntityConflictBanner,
   EntityConflictDialog,
   prettyPathMap,
 } from '@/shared/conflicts';
-import { stableStringify, useEntityReprime } from '@/shared/forms';
+import { useEditorShell, useReprime } from '@/shared/editor-shell';
+import { stableStringify } from '@/shared/forms';
 import { useEnvSwitcher } from '../services/env-switcher';
 import EditorHeader from './EditorHeader';
 import VariableTable, { type VariableTableConflictBridge } from './panels/VariableTable';
@@ -73,79 +73,43 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
   const env = useMemo(() => environments.find((e) => e.uid === environmentUid) ?? null, [environments, environmentUid]);
   const localInstanceId = useLocalInstanceId();
 
-  // Derived dirty (universal contract — `feedback_derived_dirty.md`).
-  //
-  // Two fingerprints, two roles:
-  //   - `formSig`         — the draft as the user has typed it
-  //   - `lastPrimedSig`   — the canonical signature the form was last
-  //                         seeded with (initial mount + reprime on
-  //                         clean rebroadcast + auto-rebase when form
-  //                         converges with canonical)
-  //
-  // `isDirty = formSig !== lastPrimedSig` — i.e. "user typed edits the
-  // form hasn't been re-seeded past." This is the right gate for the
-  // Save button + the reprime hook's "is it safe to overwrite".
-  //
-  // Comparing against `liveSig` directly (form-vs-canonical) is wrong:
-  // when a peer commits and the user is clean, `liveSig` jumps but
-  // `formSig` doesn't — naive derivation would report dirty even
-  // though the user never typed, blocking the reprime hook from
-  // catching the form up to the new canonical.
-  //
-  // Auto-rebase: when `formSig === liveSig` (form catches up to
-  // canonical via Use Saved, post-save echo, or peer-mirrors-our-edit),
-  // advance `lastPrimedSig` so dirty drops to false on the next render.
   const [draft, setDraft] = useState<V5.Variable[]>(() => env?.variables ?? EMPTY_VARS);
-  const [lastPrimedSig, setLastPrimedSig] = useState<string | null>(null);
-
-  const formSig = useMemo(() => variablesSignature(draft), [draft]);
-  const liveSig = useMemo(() => (env ? variablesSignature(env.variables) : null), [env]);
-  const isDirty = lastPrimedSig !== null && formSig !== lastPrimedSig;
-
-  useEditorDirty(
-    { entityType: ENVIRONMENT_ENTITY_TYPE, entityId: env?.uid ?? null },
-    isDirty,
-  );
+  const formFingerprint = useMemo(() => variablesSignature(draft), [draft]);
 
   // ── Conflict tracking ──────────────────────────────────────────
   const liveEntity: VariableEntity | null = useMemo(
     () => (env ? { uid: env.uid, variables: env.variables } : null),
     [env],
   );
+
+  // Conflict tracker is a hook order earlier than reprime by necessity:
+  // reprime's `onPrimed` callback advances the conflict baseline, and
+  // we want a live reference. We pass an `isDirty` placeholder of
+  // `false` here — the tracker only reads it inside its own effects on
+  // a later render, by which time `reprime.isDirty` has propagated up
+  // through the loop below via `useEffect`.
+  const setBaselineRef = useRef<(e: VariableEntity) => void>(() => undefined);
+
+  // Reprime: hook-owned comparison + populate sequencing. Editor never
+  // reads both fingerprints simultaneously — the hook IS the comparison.
+  const reprime = useReprime<V5.Environment>({
+    liveEntity: env,
+    scope: { entityType: ENVIRONMENT_ENTITY_TYPE, entityId: env?.uid ?? null },
+    enabled: env !== null,
+    formFingerprint,
+    signature: (e) => variablesSignature(e.variables),
+    populate: (e) => setDraft(e.variables),
+    onPrimed: (e) => setBaselineRef.current({ uid: e.uid, variables: e.variables }),
+  });
+  const isDirty = reprime.isDirty;
+
   const conflicts = useVariableConflicts({
     liveEntity,
     isDirty,
     enabled: !!env,
     entityType: ENVIRONMENT_ENTITY_TYPE,
   });
-  const setConflictBaseline = conflicts.setBaseline;
-
-  // Reprime: "user clean, peer just committed" — pull canonical into
-  // the form + advance primed-fingerprint + advance conflict baseline.
-  useEntityReprime<V5.Environment>({
-    liveEntity: env,
-    scope: { entityType: ENVIRONMENT_ENTITY_TYPE, entityId: env?.uid ?? null },
-    isDirty,
-    enabled: env !== null,
-    signature: (e) => variablesSignature(e.variables),
-    populate: (e) => {
-      setDraft(e.variables);
-      setLastPrimedSig(variablesSignature(e.variables));
-      setConflictBaseline({ uid: e.uid, variables: e.variables });
-    },
-  });
-
-  // Auto-rebase: form converged with canonical (Use Saved sweep,
-  // post-save echo, etc). Advance primed-fingerprint + baseline so
-  // dirty drops to false naturally + future peer divergence shows up
-  // against the just-converged state.
-  useEffect(() => {
-    if (formSig === null || liveSig === null) return;
-    if (formSig !== liveSig) return;
-    if (lastPrimedSig === liveSig) return;
-    setLastPrimedSig(liveSig);
-    if (liveEntity) setConflictBaseline(liveEntity);
-  }, [formSig, liveSig, lastPrimedSig, liveEntity, setConflictBaseline]);
+  setBaselineRef.current = conflicts.setBaseline;
 
   const formProjection = useMemo(() => projectVariablesToForm(draft), [draft]);
   const formSetOrders = useMemo(
@@ -244,10 +208,6 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
     [projectWithResolutions],
   );
 
-  useEffect(() => {
-    onDirtyChange?.(isDirty);
-  }, [isDirty, onDirtyChange]);
-
   const handleSave = useCallback(async () => {
     if (!env || !isDirty) return;
     const result = await mutator.replaceVariables(env.uid, draft, env.variables);
@@ -266,15 +226,18 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
     }
   }, [env, isDirty, draft, mutator, message, conflicts]);
 
-  // registerSaveRef takes a sync callback; wrap our async handler so
-  // the breadcrumb Save button kicks off the save without awaiting.
   const handleSaveSync = useCallback(() => {
     void handleSave();
   }, [handleSave]);
 
-  useEffect(() => {
-    registerSaveRef?.(handleSaveSync);
-  }, [registerSaveRef, handleSaveSync]);
+  const shell = useEditorShell({
+    entityType: ENVIRONMENT_ENTITY_TYPE,
+    entityId: env?.uid ?? null,
+    isDirty,
+    onSave: handleSaveSync,
+    onDirtyChange,
+    registerSaveRef,
+  });
 
   if (!env) {
     return (
@@ -337,9 +300,9 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
   );
 
   return (
-    <EntityScopeProvider entityType={ENVIRONMENT_ENTITY_TYPE} entityId={env.uid}>
+    <EntityScopeProvider shell={shell.scopeProps}>
       <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
-        <EditorHeader title={headerTitle} actions={headerActions} isDirty={isDirty} onSave={handleSaveSync} />
+        <EditorHeader title={headerTitle} actions={headerActions} shell={shell.headerProps} />
         <EntityConflictBanner
           count={allConflicts.size}
           onReview={() => setConflictDialogOpen(true)}
