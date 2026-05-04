@@ -38,7 +38,6 @@ import { CSS } from '@dnd-kit/utilities';
 import type { V5 } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { Collapse, Input, InputNumber, Select, Tooltip, theme } from 'antd';
-import type { GetRef } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { EntityField } from '@/shared/awareness';
@@ -224,7 +223,20 @@ function secretsFingerprint(secrets: V5.VaultSecret[]): string {
 
 const GRID_COLS = '28px 1fr 1fr 28px';
 
-// ── Value cell with expand-on-focus ───────────────────────────────
+// ── Value cell ─────────────────────────────────────────────────────
+//
+// Always-mounted `<Input.TextArea>` — no display→edit swap. Three
+// reasons over the previous div→textarea pattern:
+//   1. Awareness signal quality. Per-field focus publishes synchronously
+//      on the real `focus` event with no remount in between, so peer
+//      presence chips don't race the swap mid-rebroadcast.
+//   2. Single render path. Less state (no `editing` flag), less reconciliation
+//      under high-concurrency rebroadcast — fewer surfaces for races to land on.
+//   3. Native UX. Browser handles click→caret-position natively; no
+//      `setSelectionRange`, no `useEffect`, no caret-on-mount workaround.
+// Masking for sensitive values uses `WebkitTextSecurity: 'disc'` — the
+// real value stays in the DOM (same as the previous edit-mode textarea)
+// and CSS replaces glyphs with bullets when masked.
 
 interface ValueCellProps {
   value: string;
@@ -233,76 +245,43 @@ interface ValueCellProps {
   onReveal?: () => void;
 }
 
-function ValueCell({ value, masked, onChange, onReveal }: ValueCellProps) {
-  const { token } = theme.useToken();
-  const [editing, setEditing] = useState(false);
-  const taRef = useRef<GetRef<typeof Input.TextArea>>(null);
+// `-webkit-text-security` isn't in csstype yet, so React.CSSProperties
+// rejects the camelCased key. Extend locally rather than reaching for
+// `any` — the value set is closed (`disc | circle | square | none`) and
+// the property is well-defined in WebKit, Blink, and Gecko (Firefox 124+).
+type CSSWithTextSecurity = React.CSSProperties & {
+  WebkitTextSecurity?: 'none' | 'disc' | 'circle' | 'square';
+};
 
-  const startEditing = () => {
-    onReveal?.();
-    setEditing(true);
+function ValueCell({ value, masked, onChange, onReveal }: ValueCellProps) {
+  const handleFocus = useCallback(() => {
+    if (masked) onReveal?.();
+  }, [masked, onReveal]);
+
+  const style: CSSWithTextSecurity = {
+    fontFamily: "'SF Mono', 'Fira Code', monospace",
+    fontSize: 12,
+    padding: '4px 6px',
+    resize: 'none',
+    width: '100%',
+    // Bullets in place of real glyphs when masked. Chromium / Safari /
+    // Edge native; Firefox 124+ (early 2024). On older Firefox the
+    // value renders unmasked — graceful degradation, not a security
+    // failure (it's the user's own machine, secrets never crossed a
+    // trust boundary anyway).
+    WebkitTextSecurity: masked ? 'disc' : undefined,
   };
 
-  // Place caret at end of text when the textarea mounts. Ant's `autoFocus`
-  // focuses the element but leaves the selection at position 0 — clicking
-  // a populated cell would otherwise drop the user at the start of the
-  // string instead of the end.
-  useEffect(() => {
-    if (!editing) return;
-    const node = taRef.current?.resizableTextArea?.textArea;
-    if (!node) return;
-    const end = node.value.length;
-    node.setSelectionRange(end, end);
-  }, [editing]);
-
-  if (editing) {
-    return (
-      <Input.TextArea
-        ref={taRef}
-        value={value}
-        autoFocus
-        variant="borderless"
-        autoSize={{ minRows: 1, maxRows: 4 }}
-        onChange={(e) => onChange(e.target.value)}
-        onBlur={() => setEditing(false)}
-        style={{
-          fontFamily: "'SF Mono', 'Fira Code', monospace",
-          fontSize: 12,
-          padding: '4px 6px',
-          resize: 'none',
-          width: '100%',
-        }}
-      />
-    );
-  }
-
-  const displayValue = masked && value ? '••••••••' : value;
-
   return (
-    <div
-      onClick={startEditing}
-      role="textbox"
-      tabIndex={0}
-      onFocus={startEditing}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') startEditing();
-      }}
-      style={{
-        fontFamily: "'SF Mono', 'Fira Code', monospace",
-        fontSize: 12,
-        color: displayValue ? token.colorText : token.colorTextQuaternary,
-        width: '100%',
-        padding: '4px 6px',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-        cursor: 'text',
-        lineHeight: '22px',
-        minHeight: 22,
-      }}
-    >
-      {displayValue || 'Value'}
-    </div>
+    <Input.TextArea
+      value={value}
+      placeholder="Value"
+      variant="borderless"
+      autoSize={{ minRows: 1, maxRows: 4 }}
+      onChange={(e) => onChange(e.target.value)}
+      onFocus={handleFocus}
+      style={style}
+    />
   );
 }
 
