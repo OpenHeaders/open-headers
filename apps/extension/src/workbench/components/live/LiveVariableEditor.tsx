@@ -28,14 +28,13 @@ import {
   ReloadOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
-import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
-import { useAwareness } from '@hooks/useAwareness';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useLiveWorkflowCache } from '@hooks/useLiveCache';
 import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { LIVE_VARIABLE_ENTITY_TYPE } from '@openheaders/core/sync';
-import { useSurfaceIdentity } from '@/shared/awareness';
+import { EntityScopeProvider, useSetActiveFieldFocus } from '@/shared/awareness';
+import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
 import type { V5 } from '@openheaders/core/types';
 import { App, Button, Input, InputNumber, Select, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -340,10 +339,8 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
   const { variables, updateVariable, setOverride } = useLiveVariables();
   const { workflows, refreshNow } = useLiveWorkflows();
   const { activeEnvironmentId } = useEnvironments();
-  const workspaceId = useActiveWorkspaceId();
 
   const lv = useMemo(() => variables.find((v) => v.uid === variableUid) ?? null, [variables, variableUid]);
-  const identity = useSurfaceIdentity();
   const workflow = useMemo(
     () => (lv ? (workflows.find((w) => w.uid === lv.workflowUid) ?? null) : null),
     [workflows, lv],
@@ -388,27 +385,34 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
   }, [isDirty, onDirtyChange]);
 
   // Per-field focus path. Live editors don't use antd Form, so focus
-  // mapping rides `data-field-path` attributes on FieldRow wrappers.
-  const [focusedFieldPath, setFocusedFieldPath] = useState<string | null>(null);
-  const handleFocusCapture = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
-    const path = readFieldPath(e.target);
-    if (path) setFocusedFieldPath(path);
-  }, []);
-  const handleBlurCapture = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
-    const next = e.relatedTarget as HTMLElement | null;
-    if (next && e.currentTarget.contains(next)) return;
-    setFocusedFieldPath(null);
-  }, []);
+  // mapping rides `data-field-path` attributes on FieldRow wrappers;
+  // a focus-capture ancestor walk reads the path off the focused
+  // element and routes it through `useSetActiveFieldFocus` — the same
+  // central context the workspace-level publisher reads. Same pattern
+  // RequestEditor uses.
+  const setActiveFieldFocus = useSetActiveFieldFocus();
+  const handleFocusCapture = useCallback(
+    (e: React.FocusEvent<HTMLDivElement>) => {
+      if (!lv) return;
+      const path = readFieldPath(e.target);
+      if (!path) return;
+      setActiveFieldFocus({ entityType: LIVE_VARIABLE_ENTITY_TYPE, entityId: lv.uid, path });
+    },
+    [lv, setActiveFieldFocus],
+  );
+  const handleBlurCapture = useCallback(
+    (e: React.FocusEvent<HTMLDivElement>) => {
+      const next = e.relatedTarget as HTMLElement | null;
+      if (next && e.currentTarget.contains(next)) return;
+      setActiveFieldFocus(null);
+    },
+    [setActiveFieldFocus],
+  );
 
-  // Awareness — declare the surface is editing this live variable.
-  useAwareness({
-    workspaceId,
-    identity,
-    entityFocus: lv ? { type: LIVE_VARIABLE_ENTITY_TYPE, id: lv.uid } : null,
-    fieldFocus: lv && focusedFieldPath ? { type: LIVE_VARIABLE_ENTITY_TYPE, id: lv.uid, path: focusedFieldPath } : null,
-    dirtyFields: isDirty ? ['*'] : [],
-    enabled: !!lv,
-  });
+  // Editor's contribution to the surface's awareness publish — entity
+  // scope + dirty marker. The workspace-level `<SurfaceAwarenessPublisher>`
+  // composes this with `<ActiveTabEntity>` + `<ActiveFieldFocus>`.
+  useEditorDirty({ entityType: LIVE_VARIABLE_ENTITY_TYPE, entityId: lv?.uid ?? null }, isDirty);
 
   const handleSave = useCallback(async () => {
     if (!lv || !draft) return;
@@ -511,12 +515,13 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
   );
 
   return (
-    <div
-      style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}
-      onFocusCapture={handleFocusCapture}
-      onBlurCapture={handleBlurCapture}
-    >
-      <EditorHeader title={editHeaderTitle} actions={editHeaderActions} isDirty={isDirty} onSave={handleSaveSync} />
+    <EntityScopeProvider entityType={LIVE_VARIABLE_ENTITY_TYPE} entityId={lv.uid}>
+      <div
+        style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}
+        onFocusCapture={handleFocusCapture}
+        onBlurCapture={handleBlurCapture}
+      >
+        <EditorHeader title={editHeaderTitle} actions={editHeaderActions} isDirty={isDirty} onSave={handleSaveSync} />
       <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
           {/* Current value — single compact row */}
@@ -770,5 +775,6 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
         </div>
       </div>
     </div>
+    </EntityScopeProvider>
   );
 };

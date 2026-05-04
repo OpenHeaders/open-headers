@@ -32,8 +32,6 @@
  */
 
 import { InfoCircleOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
-import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
-import { useAwareness } from '@hooks/useAwareness';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useLiveWorkflowCache } from '@hooks/useLiveCache';
 import { useLiveVariables } from '@hooks/useLiveVariables';
@@ -49,7 +47,8 @@ import {
   validateWorkflowShape,
 } from '@openheaders/core/live';
 import { LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
-import { useSurfaceIdentity } from '@/shared/awareness';
+import { EntityScopeProvider, useSetActiveFieldFocus } from '@/shared/awareness';
+import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
 import type { V5 } from '@openheaders/core/types';
 import { Alert, App, Button, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -157,10 +156,8 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
   const { variables, createVariable, updateVariable, deleteVariable } = useLiveVariables();
   const { environments, activeEnvironmentId } = useEnvironments();
   const { runs } = useLiveWorkflowCache(workflowUid);
-  const workspaceId = useActiveWorkspaceId();
 
   const workflow = useMemo(() => workflows.find((w) => w.uid === workflowUid) ?? null, [workflows, workflowUid]);
-  const identity = useSurfaceIdentity();
   const boundVars = useMemo(() => variables.filter((v) => v.workflowUid === workflowUid), [variables, workflowUid]);
 
   const [draft, setDraft] = useState<Draft | null>(() => (workflow ? draftFromWorkflow(workflow, variables) : null));
@@ -219,30 +216,33 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
 
   // Per-field focus path. Live editors don't use antd Form, so focus
   // mapping rides `data-field-path` attributes on field-section
-  // wrappers (within `WorkflowFormBody`).
-  const [focusedFieldPath, setFocusedFieldPath] = useState<string | null>(null);
-  const handleFocusCapture = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
-    const path = readFieldPath(e.target);
-    if (path) setFocusedFieldPath(path);
-  }, []);
-  const handleBlurCapture = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
-    const next = e.relatedTarget as HTMLElement | null;
-    if (next && e.currentTarget.contains(next)) return;
-    setFocusedFieldPath(null);
-  }, []);
+  // wrappers (within `WorkflowFormBody`); a focus-capture ancestor
+  // walk reads the path off the focused element and routes it through
+  // `useSetActiveFieldFocus` — the same central context the
+  // workspace-level publisher reads.
+  const setActiveFieldFocus = useSetActiveFieldFocus();
+  const handleFocusCapture = useCallback(
+    (e: React.FocusEvent<HTMLDivElement>) => {
+      if (!workflow) return;
+      const path = readFieldPath(e.target);
+      if (!path) return;
+      setActiveFieldFocus({ entityType: LIVE_WORKFLOW_ENTITY_TYPE, entityId: workflow.uid, path });
+    },
+    [workflow, setActiveFieldFocus],
+  );
+  const handleBlurCapture = useCallback(
+    (e: React.FocusEvent<HTMLDivElement>) => {
+      const next = e.relatedTarget as HTMLElement | null;
+      if (next && e.currentTarget.contains(next)) return;
+      setActiveFieldFocus(null);
+    },
+    [setActiveFieldFocus],
+  );
 
-  // Awareness — declare the surface is editing this live workflow.
-  useAwareness({
-    workspaceId,
-    identity,
-    entityFocus: workflow ? { type: LIVE_WORKFLOW_ENTITY_TYPE, id: workflow.uid } : null,
-    fieldFocus:
-      workflow && focusedFieldPath
-        ? { type: LIVE_WORKFLOW_ENTITY_TYPE, id: workflow.uid, path: focusedFieldPath }
-        : null,
-    dirtyFields: isDirty ? ['*'] : [],
-    enabled: !!workflow,
-  });
+  // Editor's contribution to the surface's awareness publish — entity
+  // scope + dirty marker. The workspace-level `<SurfaceAwarenessPublisher>`
+  // composes this with `<ActiveTabEntity>` + `<ActiveFieldFocus>`.
+  useEditorDirty({ entityType: LIVE_WORKFLOW_ENTITY_TYPE, entityId: workflow?.uid ?? null }, isDirty);
 
   const handleSave = useCallback(async () => {
     if (!workflow || !draft) return;
@@ -369,6 +369,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
   );
 
   return (
+    <EntityScopeProvider entityType={LIVE_WORKFLOW_ENTITY_TYPE} entityId={workflow.uid}>
     <div
       style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}
       onFocusCapture={handleFocusCapture}
@@ -474,6 +475,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
         </div>
       </div>
     </div>
+    </EntityScopeProvider>
   );
 };
 

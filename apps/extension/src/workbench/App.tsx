@@ -1751,6 +1751,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
             COLLECTION_ENTITY_TYPE,
             REQUEST_COLLECTION_ENTITY_TYPE,
             TEMPLATE_COLLECTION_ENTITY_TYPE,
+            LIVE_VARIABLE_ENTITY_TYPE,
+            LIVE_WORKFLOW_ENTITY_TYPE,
           ]}
         />
           <div
