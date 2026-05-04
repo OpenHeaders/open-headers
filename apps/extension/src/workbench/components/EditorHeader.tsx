@@ -24,47 +24,24 @@ export interface EditorHeaderProps {
   title: React.ReactNode;
   /** Panel-specific inline actions (e.g. Set active, Send, Run). */
   actions?: React.ReactNode;
-  /** Whether the editor has unsaved changes — drives the Save button color. */
-  isDirty?: boolean;
-  /**
-   * Publication state for entities with live runners (Rule, future
-   * LiveWorkflow / LiveVariable). When defined, drives the publish-gate
-   * Save semantics:
-   *   - `published === true && !isDirty` → button disabled, label "Saved"
-   *   - otherwise → button enabled, label "Save" (orange when dirty or
-   *     not yet published)
-   * When undefined the legacy "Save iff dirty" behavior applies — used
-   * by editors without a publication concept (Environment, Vault, etc.).
-   */
-  isPublished?: boolean;
-  /** Save handler. Omit for read-only editors (RunReport, etc.); Save
-   *  button is then hidden entirely. */
-  onSave?: () => void;
   /** Overflow menu items. Rule editors pass Save-as-Template here. */
   overflowItems?: MenuProps['items'];
-  /** Shell-produced wiring bundle. When supplied, overrides the
-   *  individual `isDirty` / `isPublished` / `onSave` props — those
-   *  remain accepted for editors that haven't migrated to
-   *  `useEditorShell` yet. */
+  /** Shell-produced wiring bundle. Save semantics:
+   *   - `isPublished === true && !isDirty` → button disabled, "Saved"
+   *   - otherwise → enabled "Save" (orange when dirty or unpublished)
+   *  When undefined the Save button is hidden — used for non-editor
+   *  surfaces (entity list pages) that mount the header for layout
+   *  parity but have nothing to save. */
   shell?: EditorShellHeaderWiring;
 }
 
-const EditorHeader: React.FC<EditorHeaderProps> = ({
-  title,
-  actions,
-  isDirty: legacyIsDirty,
-  isPublished: legacyIsPublished,
-  onSave: legacyOnSave,
-  overflowItems,
-  shell,
-}) => {
-  // Shell wiring takes precedence over legacy individual props.
+const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, overflowItems, shell }) => {
   const wiring = shell as unknown as
     | { isDirty: boolean; isPublished?: boolean; onSave: () => void }
     | undefined;
-  const isDirty = wiring ? wiring.isDirty : legacyIsDirty;
-  const isPublished = wiring ? wiring.isPublished : legacyIsPublished;
-  const onSave = wiring ? wiring.onSave : legacyOnSave;
+  const isDirty = wiring?.isDirty;
+  const isPublished = wiring?.isPublished;
+  const onSave = wiring?.onSave;
   const { token } = theme.useToken();
   const saveLabel = useShortcutLabel('save');
   const hasOverflow = (overflowItems?.length ?? 0) > 0;
