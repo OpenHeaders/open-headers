@@ -7,15 +7,14 @@
  *
  * Sync engine alignment (matches RuleEditor + TemplateEditor):
  *
- *   - `<EntityScopeProvider>` declares this surface's `(entityType,
- *     entityId)` so `<EntityField>` consumers + the per-row
- *     `data-field-path` markers all publish the same `(entity, path)`
- *     triple to `<SurfaceAwarenessPublisher>`.
- *   - `useEditorDirty` contributes the dirty marker (no per-editor
- *     `useAwareness`).
- *   - Dirty derives structurally from form-projection vs live-request
- *     equality (no imperative `setPersistedFp(…)` flags).
- *   - `useEntityReprime` reconciles broadcast updates while clean.
+ *   - `useEditorShell` returns branded `headerProps` + `scopeProps`
+ *     mounted into `<EditorHeader>` + `<EntityScopeProvider>`; the
+ *     scope drives `<EntityField>` + per-row `data-field-path` markers
+ *     so all publishers contribute the same `(entity, path)` triple
+ *     to `<SurfaceAwarenessPublisher>`. Also bundles dirty-publishing.
+ *   - `useReprime` owns the form-vs-canonical comparison (BC1 by
+ *     construction); dirty derives structurally. Create-mode dirty is
+ *     `isCreateMode ? true : reprime.isDirty` at the editor surface.
  *   - `useRequestConflicts` + `<EntityConflictBanner>` +
  *     `<EntityConflictDialog>` surface concurrent-edit divergence.
  *

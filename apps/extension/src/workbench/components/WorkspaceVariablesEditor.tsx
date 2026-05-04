@@ -8,8 +8,9 @@
  * `oh.sync.apply`); dirty state is tracked locally by comparing the
  * draft's fingerprint against the broadcast-driven canonical view.
  *
- * Awareness: contributes through `useEditorDirty` + `<EntityScopeProvider>`
- * pinned to the singleton id (`WORKSPACE_VARIABLES_ID`). The surface's
+ * Awareness: contributes through `useEditorShell` (which bundles
+ * `useEditorDirty` + branded `<EntityScopeProvider>` wiring) pinned to
+ * the singleton id (`WORKSPACE_VARIABLES_ID`). The surface's
  * `<SurfaceAwarenessPublisher>` composes the published claim. Variable
  * rows are uid-keyed (post-session-66): `VARIABLE_PATHS.row` threads
  * through `VariableTable`'s `rowPath` so each row's name + value input

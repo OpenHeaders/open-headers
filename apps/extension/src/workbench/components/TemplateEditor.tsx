@@ -6,13 +6,12 @@
  * `formValues.*` rather than `action.*`). The editor follows the same
  * sync-engine playbook every entity editor uses:
  *
- *   - `<EntityScopeProvider>` declares this surface's `(entityType,
- *     entityId)` scope for `<EntityField>` consumers.
- *   - `useEditorDirty` contributes the dirty marker to the surface's
- *     `<SurfaceAwarenessPublisher>` (no per-editor `useAwareness`).
- *   - Dirty derives structurally from form-projection vs live-template
- *     equality (no imperative `setIsDirty(true)` flags).
- *   - `useEntityReprime` reconciles broadcast updates while clean.
+ *   - `useEditorShell` returns branded `headerProps` + `scopeProps`
+ *     mounted into `<EditorHeader>` + `<EntityScopeProvider>`; bundles
+ *     dirty-publishing into the surface's `<SurfaceAwarenessPublisher>`.
+ *   - `useReprime` owns the form-vs-canonical comparison; dirty derives
+ *     structurally (no imperative `setIsDirty(true)` flags). `onPrimed`
+ *     advances the conflict-tracker baseline via `setBaselineRef`.
  *   - `useTemplateConflicts` + `<EntityConflictBanner>` +
  *     `<EntityConflictDialog>` cover concurrent-edit divergence.
  */

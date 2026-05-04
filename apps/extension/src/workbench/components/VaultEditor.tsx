@@ -15,11 +15,12 @@
  * state is tracked locally by comparing the draft's fingerprint
  * against the broadcast-driven canonical view.
  *
- * Awareness: contributes through `useEditorDirty` + `<EntityScopeProvider>`
- * pinned to the singleton id (`VAULT_ID`). Sensitive entity per §14.4 —
- * NO per-secret field paths are published; the SW awareness store also
- * scrubs `fieldFocus` for this entity type defensively. The entity-level
- * presence chip is the only signal.
+ * Awareness: contributes through `useEditorShell` (which bundles
+ * `useEditorDirty` + branded `<EntityScopeProvider>` wiring) pinned to
+ * the singleton id (`VAULT_ID`). Sensitive entity per §14.4 — passes
+ * `options.disableFieldFocus: true` so `shell.field === null`; the SW
+ * awareness store also scrubs `fieldFocus` for this entity type
+ * defensively. The entity-level presence chip is the only signal.
  */
 
 import { useEnvironments } from '@hooks/useEnvironments';

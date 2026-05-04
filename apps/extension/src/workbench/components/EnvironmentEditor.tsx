@@ -8,7 +8,8 @@
  * Concurrent edits reconcile per-(env, name) via HLC LWW + the
  * awareness ribbon.
  *
- * Awareness: contributes through `useEditorDirty` + `<EntityScopeProvider>`;
+ * Awareness: contributes through `useEditorShell` (which bundles
+ * `useEditorDirty` + branded `<EntityScopeProvider>` wiring);
  * the surface's `<SurfaceAwarenessPublisher>` composes the published claim.
  * Variable rows are uid-keyed (post-session-66): `VARIABLE_PATHS.row(uid, leaf)`
  * threads through `VariableTable`'s `rowPath` so each row's name + value
