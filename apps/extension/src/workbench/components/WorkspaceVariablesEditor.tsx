@@ -26,16 +26,16 @@ import {
 import type { V5 } from '@openheaders/core/types';
 import { App, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { EntityScopeProvider, PresenceBadge, useLocalInstanceId, VARIABLE_PATHS } from '@/shared/awareness';
-import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
 import {
   type ConflictResolution,
   EntityConflictBanner,
   EntityConflictDialog,
   prettyPathMap,
 } from '@/shared/conflicts';
-import { stableStringify, useEntityReprime } from '@/shared/forms';
+import { useEditorShell, useReprime } from '@/shared/editor-shell';
+import { stableStringify } from '@/shared/forms';
 import EditorHeader from './EditorHeader';
 import VariableTable, { type VariableTableConflictBridge } from './panels/VariableTable';
 import { scopeBadge } from './shared/scope-colors';
@@ -61,53 +61,35 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
   const { workspaceVariables } = useEnvironments();
   const { replaceWorkspaceVariables } = useVariableMutator();
 
-  // Derived dirty (universal contract — `feedback_derived_dirty.md`).
-  // See EnvironmentEditor for the lastPrimedSig rationale; same shape.
   const [draft, setDraft] = useState<V5.Variable[]>(() => workspaceVariables.variables ?? EMPTY_VARS);
-  const [lastPrimedSig, setLastPrimedSig] = useState<string | null>(null);
+  const formFingerprint = useMemo(() => variablesSignature(draft), [draft]);
 
-  const formSig = useMemo(() => variablesSignature(draft), [draft]);
-  const liveSig = useMemo(() => variablesSignature(workspaceVariables.variables), [workspaceVariables.variables]);
-  const isDirty = lastPrimedSig !== null && formSig !== lastPrimedSig;
-
-  useEditorDirty(
-    { entityType: WORKSPACE_VARIABLES_ENTITY_TYPE, entityId: WORKSPACE_VARIABLES_ID },
-    isDirty,
-  );
-
-  // ── Conflict tracking ──────────────────────────────────────────
   const liveEntity: VariableEntity = useMemo(
     () => ({ uid: WORKSPACE_VARIABLES_ID, variables: workspaceVariables.variables }),
     [workspaceVariables.variables],
   );
+
+  // Conflict-baseline ref pattern (canonical recipe).
+  const setBaselineRef = useRef<(e: VariableEntity) => void>(() => undefined);
+
+  const reprime = useReprime<V5.WorkspaceVariables>({
+    liveEntity: workspaceVariables,
+    scope: { entityType: WORKSPACE_VARIABLES_ENTITY_TYPE, entityId: WORKSPACE_VARIABLES_ID },
+    enabled: true,
+    formFingerprint,
+    signature: (e) => variablesSignature(e.variables),
+    populate: (e) => setDraft(e.variables),
+    onPrimed: (e) => setBaselineRef.current({ uid: WORKSPACE_VARIABLES_ID, variables: e.variables }),
+  });
+  const isDirty = reprime.isDirty;
+
   const conflicts = useVariableConflicts({
     liveEntity,
     isDirty,
     enabled: true,
     entityType: WORKSPACE_VARIABLES_ENTITY_TYPE,
   });
-  const setConflictBaseline = conflicts.setBaseline;
-
-  useEntityReprime<V5.WorkspaceVariables>({
-    liveEntity: workspaceVariables,
-    scope: { entityType: WORKSPACE_VARIABLES_ENTITY_TYPE, entityId: WORKSPACE_VARIABLES_ID },
-    isDirty,
-    enabled: true,
-    signature: (e) => variablesSignature(e.variables),
-    populate: (e) => {
-      setDraft(e.variables);
-      setLastPrimedSig(variablesSignature(e.variables));
-      setConflictBaseline({ uid: WORKSPACE_VARIABLES_ID, variables: e.variables });
-    },
-  });
-
-  useEffect(() => {
-    if (formSig === null || liveSig === null) return;
-    if (formSig !== liveSig) return;
-    if (lastPrimedSig === liveSig) return;
-    setLastPrimedSig(liveSig);
-    setConflictBaseline(liveEntity);
-  }, [formSig, liveSig, lastPrimedSig, liveEntity, setConflictBaseline]);
+  setBaselineRef.current = conflicts.setBaseline;
 
   const formProjection = useMemo(() => projectVariablesToForm(draft), [draft]);
   const formSetOrders = useMemo(
@@ -193,10 +175,6 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
     [projectWithResolutions],
   );
 
-  useEffect(() => {
-    onDirtyChange?.(isDirty);
-  }, [isDirty, onDirtyChange]);
-
   const handleSave = useCallback(async () => {
     if (!isDirty) return;
     const result = await replaceWorkspaceVariables(draft);
@@ -214,9 +192,14 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
     void handleSave();
   }, [handleSave]);
 
-  useEffect(() => {
-    registerSaveRef?.(handleSaveSync);
-  }, [registerSaveRef, handleSaveSync]);
+  const shell = useEditorShell({
+    entityType: WORKSPACE_VARIABLES_ENTITY_TYPE,
+    entityId: WORKSPACE_VARIABLES_ID,
+    isDirty,
+    onSave: handleSaveSync,
+    onDirtyChange,
+    registerSaveRef,
+  });
 
   const nonEmptyCount = draft.filter((v) => v.name.trim()).length;
   const localInstanceId = useLocalInstanceId();
@@ -237,9 +220,9 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
   );
 
   return (
-    <EntityScopeProvider entityType={WORKSPACE_VARIABLES_ENTITY_TYPE} entityId={WORKSPACE_VARIABLES_ID}>
+    <EntityScopeProvider shell={shell.scopeProps}>
       <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
-        <EditorHeader title={headerTitle} isDirty={isDirty} onSave={handleSaveSync} />
+        <EditorHeader title={headerTitle} shell={shell.headerProps} />
         <EntityConflictBanner
           count={allConflicts.size}
           onReview={() => setConflictDialogOpen(true)}
