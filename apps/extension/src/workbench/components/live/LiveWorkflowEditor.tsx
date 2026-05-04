@@ -48,11 +48,11 @@ import {
 } from '@openheaders/core/live';
 import { LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
 import { EntityScopeProvider, useSetActiveFieldFocus } from '@/shared/awareness';
-import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
+import { useEditorShell, useReprime } from '@/shared/editor-shell';
 import type { V5 } from '@openheaders/core/types';
 import { Alert, App, Button, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { computeRequestTrail } from '../../breadcrumbs';
 import EditorHeader from '../EditorHeader';
 import { buildDependencyRows } from './dependencies-view';
@@ -162,58 +162,43 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
   const boundVars = useMemo(() => variables.filter((v) => v.workflowUid === workflowUid), [variables, workflowUid]);
 
   const [draft, setDraft] = useState<Draft | null>(() => (workflow ? draftFromWorkflow(workflow, variables) : null));
-  // State, not a ref — `isDirty` reads it as a memo dep so save's new
-  // baseline invalidates the cached value. Ref version left isDirty
-  // stuck at `true` when the parent re-rendered with a fresh inline
-  // `onDirtyChange` arrow.
-  const [persistedFp, setPersistedFp] = useState<string>(
-    workflow ? fingerprint(draftFromWorkflow(workflow, variables)) : '',
-  );
 
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (!workflow) return;
-    if (draft === null) {
-      const pristine = draftFromWorkflow(workflow, variables);
-      // Persisted fingerprint always reflects the unmodified workflow
-      // so an appended seed step flips `isDirty` immediately.
-      setPersistedFp(fingerprint(pristine));
-      if (seedStep) {
-        const existingIds = new Set(pristine.steps.map((s) => s.id));
-        let candidate = `step${pristine.steps.length + 1}`;
-        let n = pristine.steps.length + 1;
+  const formFingerprint = useMemo(() => (draft ? fingerprint(draft) : ''), [draft]);
+
+  // One-shot gate for the optional seedStep — applied after first
+  // populate so the appended step flips `isDirty` immediately.
+  // `seedAppliedRef` survives auto-rebase + clean-state reseeds.
+  const seedAppliedRef = useRef(false);
+
+  const reprime = useReprime<V5.LiveWorkflow>({
+    liveEntity: workflow,
+    scope: { entityType: LIVE_WORKFLOW_ENTITY_TYPE, entityId: workflow?.uid ?? null },
+    enabled: workflow != null,
+    formFingerprint,
+    signature: (e) => fingerprint(draftFromWorkflow(e, variables)),
+    populate: (e) => setDraft(draftFromWorkflow(e, variables)),
+    onPrimed: () => {
+      if (!seedStep || seedAppliedRef.current) return;
+      seedAppliedRef.current = true;
+      setDraft((d) => {
+        if (!d) return d;
+        const existingIds = new Set(d.steps.map((s) => s.id));
+        let candidate = `step${d.steps.length + 1}`;
+        let n = d.steps.length + 1;
         while (existingIds.has(candidate)) {
           n += 1;
           candidate = `step${n}`;
         }
-        setDraft({
-          ...pristine,
-          steps: [...pristine.steps, { id: candidate, requestUid: seedStep.requestUid, captures: [] }],
-        });
-      } else {
-        setDraft(pristine);
-      }
-      return;
-    }
-    const persisted = draftFromWorkflow(workflow, variables);
-    const fp = fingerprint(persisted);
-    if (fp === persistedFp) return;
-    // Sync engine §6.3 — re-prime only while clean. When the editor
-    // has uncommitted edits, leave the draft alone; the LWW save
-    // resolves the conflict at oracle time. Without this gate an
-    // external commit would silently clobber the user's typing.
-    const dirty = fingerprint(draft) !== persistedFp;
-    if (dirty) return;
-    setPersistedFp(fp);
-    setDraft(persisted);
-  }, [workflow, variables, draft, persistedFp, seedStep]);
-
-  const isDirty = useMemo(() => (draft ? fingerprint(draft) !== persistedFp : false), [draft, persistedFp]);
-
-  useEffect(() => {
-    onDirtyChange?.(isDirty);
-  }, [isDirty, onDirtyChange]);
+        return {
+          ...d,
+          steps: [...d.steps, { id: candidate, requestUid: seedStep.requestUid, captures: [] }],
+        };
+      });
+    },
+  });
+  const isDirty = reprime.isDirty;
 
   // Per-field focus path. Live editors don't use antd Form, so focus
   // mapping rides `data-field-path` attributes on field-section
@@ -239,11 +224,6 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
     },
     [setActiveFieldFocus],
   );
-
-  // Editor's contribution to the surface's awareness publish — entity
-  // scope + dirty marker. The workspace-level `<SurfaceAwarenessPublisher>`
-  // composes this with `<ActiveTabEntity>` + `<ActiveFieldFocus>`.
-  useEditorDirty({ entityType: LIVE_WORKFLOW_ENTITY_TYPE, entityId: workflow?.uid ?? null }, isDirty);
 
   const handleSave = useCallback(async () => {
     if (!workflow || !draft) return;
@@ -283,8 +263,8 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
       for (const uid of plan.deletes) {
         await deleteVariable(uid);
       }
-      setPersistedFp(fingerprint(draft));
-      onDirtyChange?.(false);
+      // Dirty derives from form-vs-canonical equality; broadcast echo
+      // brings live in line with form, useReprime auto-rebase clears.
       return;
     }
     if (result.reason === 'not-found') {
@@ -296,7 +276,6 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
     workflow,
     draft,
     updateWorkflow,
-    onDirtyChange,
     message,
     variables,
     createVariable,
@@ -305,9 +284,15 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
   ]);
 
   const handleSaveSync = useCallback(() => void handleSave(), [handleSave]);
-  useEffect(() => {
-    registerSaveRef?.(handleSaveSync);
-  }, [registerSaveRef, handleSaveSync]);
+
+  const shell = useEditorShell({
+    entityType: LIVE_WORKFLOW_ENTITY_TYPE,
+    entityId: workflow?.uid ?? null,
+    isDirty,
+    onSave: handleSaveSync,
+    onDirtyChange,
+    registerSaveRef,
+  });
 
   const handleRefreshNow = useCallback(async () => {
     if (!workflow) return;
@@ -370,13 +355,13 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
   );
 
   return (
-    <EntityScopeProvider entityType={LIVE_WORKFLOW_ENTITY_TYPE} entityId={workflow.uid}>
+    <EntityScopeProvider shell={shell.scopeProps}>
     <div
       style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}
       onFocusCapture={handleFocusCapture}
       onBlurCapture={handleBlurCapture}
     >
-      <EditorHeader title={editHeaderTitle} actions={editHeaderActions} isDirty={isDirty} onSave={handleSaveSync} />
+      <EditorHeader title={editHeaderTitle} actions={editHeaderActions} shell={shell.headerProps} />
       <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
         <div style={{ maxWidth: 920, margin: '0 auto' }}>
           <div
@@ -496,10 +481,6 @@ const CreateMode: React.FC<CreateProps> = ({ draftName, seedStep, onDirtyChange,
   const seedFp = useMemo(() => fingerprint(emptyDraft(seedStep)), [seedStep]);
   const isDirty = useMemo(() => fingerprint(draft) !== seedFp, [draft, seedFp]);
 
-  useEffect(() => {
-    onDirtyChange?.(isDirty);
-  }, [isDirty, onDirtyChange]);
-
   const handleSave = useCallback(async () => {
     const name = draft.name.trim() || draftName?.trim() || 'Workflow';
     const wf = await createWorkflow({
@@ -531,9 +512,15 @@ const CreateMode: React.FC<CreateProps> = ({ draftName, seedStep, onDirtyChange,
   }, [draft, draftName, createWorkflow, createVariable, message, onCreated]);
 
   const handleSaveSync = useCallback(() => void handleSave(), [handleSave]);
-  useEffect(() => {
-    registerSaveRef?.(handleSaveSync);
-  }, [registerSaveRef, handleSaveSync]);
+
+  const shell = useEditorShell({
+    entityType: LIVE_WORKFLOW_ENTITY_TYPE,
+    entityId: null,
+    isDirty,
+    onSave: handleSaveSync,
+    onDirtyChange,
+    registerSaveRef,
+  });
 
   const displayName = draft.name.trim() || draftName || 'New Workflow';
 
@@ -559,14 +546,16 @@ const CreateMode: React.FC<CreateProps> = ({ draftName, seedStep, onDirtyChange,
   );
 
   return (
+    <EntityScopeProvider shell={shell.scopeProps}>
     <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
-      <EditorHeader title={createHeaderTitle} isDirty={isDirty} onSave={handleSaveSync} />
+      <EditorHeader title={createHeaderTitle} shell={shell.headerProps} />
       <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
         <div style={{ maxWidth: 920, margin: '0 auto' }}>
           <WorkflowFormBody draft={draft} setDraft={setDraft} />
         </div>
       </div>
     </div>
+    </EntityScopeProvider>
   );
 };
 
