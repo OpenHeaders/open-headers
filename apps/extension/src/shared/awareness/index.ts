@@ -25,17 +25,12 @@ export {
   TEMPLATE_ACTION_PATHS,
   createActionPaths,
 } from './rule-paths';
-export {
-  type RequestPathBundle,
-  type RequestTabKey,
-  REQUEST_PATHS,
-  tabKeyToRequestFieldPath,
-} from './request-paths';
+export { type RequestPathBundle, type RequestTabKey, REQUEST_PATHS } from './request-paths';
 export { LIVE_VARIABLE_FIELD, LIVE_WORKFLOW_FIELD } from './live-paths';
 export { type VariableLeaf, type VariablePathBundle, VARIABLE_PATHS } from './variable-paths';
 export { ActionPathsProvider, useActionPaths } from './ActionPathsContext';
 export type { ActionPathsProviderProps } from './ActionPathsContext';
-export { surfaceKindColor, surfaceKindInitial, surfaceKindLabel } from './surface-label';
+export { surfaceKindColor, surfaceKindLabel } from './surface-label';
 export { default as SurfaceChip, SurfaceDot } from './SurfaceChip';
 export type { SurfaceChipProps, SurfaceDotProps } from './SurfaceChip';
 export { formatAgo } from './format-ago';

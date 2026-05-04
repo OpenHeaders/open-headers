@@ -20,13 +20,6 @@ const KIND_COLORS: Record<SurfaceKind, string> = {
   sidepanel: '#fa8c16',
 };
 
-const KIND_INITIALS: Record<SurfaceKind, string> = {
-  workbench: 'W',
-  popup: 'P',
-  devpanel: 'D',
-  sidepanel: 'S',
-};
-
 const KIND_LABELS: Record<SurfaceKind, string> = {
   workbench: 'Workbench',
   popup: 'Popup',
@@ -36,10 +29,6 @@ const KIND_LABELS: Record<SurfaceKind, string> = {
 
 export function surfaceKindColor(kind: SurfaceKind): string {
   return KIND_COLORS[kind];
-}
-
-export function surfaceKindInitial(kind: SurfaceKind): string {
-  return KIND_INITIALS[kind];
 }
 
 export function surfaceKindLabel(kind: SurfaceKind): string {

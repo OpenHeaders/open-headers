@@ -63,16 +63,3 @@ export type RequestTabKey =
   | 'scripts'
   | 'settings';
 
-const TAB_PATHS: Record<RequestTabKey, string> = {
-  docs: REQUEST_PATHS.description,
-  params: REQUEST_PATHS.paramSet,
-  authorization: REQUEST_PATHS.auth,
-  headers: REQUEST_PATHS.headerSet,
-  body: REQUEST_PATHS.body,
-  scripts: REQUEST_PATHS.preRequestScript,
-  settings: REQUEST_PATHS.credentialsMode,
-};
-
-export function tabKeyToRequestFieldPath(tab: RequestTabKey): string {
-  return TAB_PATHS[tab];
-}
