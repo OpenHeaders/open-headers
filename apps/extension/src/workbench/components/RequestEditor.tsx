@@ -47,7 +47,6 @@ import {
   useSetActiveFieldFocus,
 } from '@/shared/awareness';
 import { readFieldPath } from '@/shared/awareness/field-path';
-import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
 import {
   EntityConflictBanner,
   EntityConflictDialog,
@@ -55,7 +54,8 @@ import {
   type ConflictResolution,
   type PathConflict,
 } from '@/shared/conflicts';
-import { stableStringify, useEntityReprime } from '@/shared/forms';
+import { useEditorShell, useReprime } from '@/shared/editor-shell';
+import { stableStringify } from '@/shared/forms';
 import { requestResolveAdapter } from './request-conflict-adapter';
 import { useRequestConflicts } from './use-request-conflicts';
 import { useRequestWorkflowStepContext } from './live/useRequestWorkflowStepContext';
@@ -475,61 +475,37 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   // Edit mode: load full request from SW. Create mode: nothing to load.
   const initializedUidRef = useRef<string | null>(null);
 
-  // ── Derived dirty (form-projection vs live-request) ──────────
-  //
-  // Same convention as TemplateEditor: dirty is a structural projection,
-  // never an imperative event log. `formFingerprint` (current draft
-  // projected to save-shape) vs `lastPrimedFingerprint` (canonical the
-  // draft was last seeded from). Auto-rebase snaps the latter as soon
-  // as the form converges with canonical so the post-save echo clears
-  // dirty without an explicit reset.
+  // Form-fingerprint: structural projection of the draft. Empty string
+  // pre-init so useReprime has a stable input; `enabled` gates seeding
+  // until the SW load completes.
   const formFingerprint = useMemo(
-    () => (isInitialized ? stableStringify(buildRequestUpdates(draft)) : null),
+    () => (isInitialized ? stableStringify(buildRequestUpdates(draft)) : ''),
     [draft, isInitialized],
   );
-  const liveFingerprint = useMemo(
-    () => (liveRequest ? stableStringify(canonicalRequestProjection(liveRequest)) : null),
-    [liveRequest],
-  );
-  const [lastPrimedFingerprint, setLastPrimedFingerprint] = useState<string | null>(null);
-  const isDirty = isCreateMode
-    ? true
-    : isInitialized &&
-      formFingerprint !== null &&
-      lastPrimedFingerprint !== null &&
-      formFingerprint !== lastPrimedFingerprint;
 
-  // Fire `onDirtyChange` only on transitions, not every render.
-  const lastReportedDirtyRef = useRef<boolean | null>(null);
-  useEffect(() => {
-    if (lastReportedDirtyRef.current === isDirty) return;
-    lastReportedDirtyRef.current = isDirty;
-    onDirtyChange?.(isDirty);
-  }, [isDirty, onDirtyChange]);
+  // Conflict-baseline ref pattern (canonical recipe — see RuleEditor /
+  // EnvironmentEditor / VaultEditor).
+  const setBaselineRef = useRef<(e: V5.Request) => void>(() => undefined);
 
-  useEditorDirty(
-    { entityType: REQUEST_ENTITY_TYPE, entityId: requestUid ?? null },
-    isDirty,
-  );
+  const reprime = useReprime<V5.Request>({
+    liveEntity: liveRequest,
+    scope: { entityType: REQUEST_ENTITY_TYPE, entityId: requestUid ?? null },
+    enabled: isInitialized && !isCreateMode,
+    formFingerprint,
+    signature: (e) => stableStringify(canonicalRequestProjection(e)),
+    populate: (e) => setDraft(draftFromRequest(e)),
+    onPrimed: (e) => setBaselineRef.current(e),
+  });
+  // Create mode: dirty until Save mints the entity. Edit mode: hook owns
+  // the `formFp !== primedFp` comparison (BC1 by construction).
+  const isDirty = isCreateMode ? true : reprime.isDirty;
 
-  // ── Conflict tracking ────────────────────────────────────────
   const conflicts = useRequestConflicts({
     liveRequest,
     isDirty,
     enabled: !isCreateMode,
   });
-  const setConflictBaseline = conflicts.setBaseline;
-
-  // Auto-rebase: snap both dirty-baseline AND conflict baseline as
-  // soon as the form converges with canonical (post-save echo +
-  // remote-mirrors-our-edit cases).
-  useEffect(() => {
-    if (formFingerprint === null || liveFingerprint === null) return;
-    if (formFingerprint !== liveFingerprint) return;
-    if (lastPrimedFingerprint === liveFingerprint) return;
-    setLastPrimedFingerprint(liveFingerprint);
-    if (liveRequest) setConflictBaseline(liveRequest);
-  }, [formFingerprint, liveFingerprint, lastPrimedFingerprint, liveRequest, setConflictBaseline]);
+  setBaselineRef.current = conflicts.setBaseline;
 
   const formProjection = useMemo(() => {
     if (!liveRequest || !isInitialized) return null;
@@ -638,18 +614,10 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     [liveRequest, allConflicts],
   );
 
-  // Canonical seed: replace draft + snap both fingerprints + conflict baseline.
-  const populateAndBaseline = useCallback(
-    (req: V5.Request) => {
-      const next = draftFromRequest(req);
-      setDraft(next);
-      setConflictBaseline(req);
-      setLastPrimedFingerprint(stableStringify(canonicalRequestProjection(req)));
-    },
-    [setConflictBaseline],
-  );
-
-  // Init: load full request from SW; populate draft + baselines.
+  // Init: load full request from SW. The seed flow is:
+  //   setLiveRequest → useReprime sees liveEntity → onPrimed advances
+  //   the conflict baseline + primedFingerprint via auto-rebase
+  //   (formFp === liveFp after populate). No manual baseline plumbing.
   useEffect(() => {
     if (isCreateMode) {
       setIsInitialized(true);
@@ -660,34 +628,13 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     setLoading(true);
     void getRequest(requestUid).then((full) => {
       if (full) {
-        populateAndBaseline(full);
+        setDraft(draftFromRequest(full));
         setLiveRequest(full);
       }
       setLoading(false);
       setIsInitialized(true);
     });
-  }, [isCreateMode, requestUid, summary, getRequest, populateAndBaseline]);
-
-  const requestSignature = useCallback((r: V5.Request) => JSON.stringify(r), []);
-  const reprime = useEntityReprime<V5.Request>({
-    liveEntity: liveRequest,
-    scope: { entityType: REQUEST_ENTITY_TYPE, entityId: requestUid ?? null },
-    isDirty,
-    enabled: isInitialized && !isCreateMode,
-    signature: requestSignature,
-    populate: populateAndBaseline,
-  });
-
-  // Seed the reprime signature on the very first init so the post-init
-  // broadcast carrying identical content doesn't trigger redundant
-  // re-prime.
-  useEffect(() => {
-    if (!isInitialized || isCreateMode || !liveRequest) return;
-    reprime.markPopulated(liveRequest);
-    // markPopulated is identity-stable across renders; only seed once
-    // per entity init pass.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isInitialized, isCreateMode, requestUid]);
+  }, [isCreateMode, requestUid, summary, getRequest]);
 
   // ── Field focus publishing ───────────────────────────────────
   //
@@ -763,9 +710,14 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     void handleSave();
   }, [handleSave]);
 
-  useEffect(() => {
-    registerSaveRef?.(handleSaveSync);
-  }, [registerSaveRef, handleSaveSync]);
+  const shell = useEditorShell({
+    entityType: REQUEST_ENTITY_TYPE,
+    entityId: requestUid ?? null,
+    isDirty,
+    onSave: handleSaveSync,
+    onDirtyChange,
+    registerSaveRef,
+  });
 
   const handleSend = useCallback(async () => {
     if (sending) return;
@@ -977,14 +929,14 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   );
 
   return (
-    <EntityScopeProvider entityType={REQUEST_ENTITY_TYPE} entityId={requestUid ?? null}>
+    <EntityScopeProvider shell={shell.scopeProps}>
       <SuggestionContextProvider value={suggestionContext}>
         <div
           style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}
           onFocusCapture={handleEditorFocusCapture}
           onBlurCapture={handleEditorBlurCapture}
         >
-          <EditorHeader title={headerTitle} actions={headerActions} isDirty={isDirty} onSave={handleSaveSync} />
+          <EditorHeader title={headerTitle} actions={headerActions} shell={shell.headerProps} />
 
           <EntityConflictBanner
             count={allConflicts.size}
