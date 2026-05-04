@@ -39,6 +39,7 @@ import {
   parsePostmanEnvironment,
 } from '@openheaders/core/import';
 import type { V5 } from '@openheaders/core/types';
+import { generateUid } from '@openheaders/core/utils';
 import { Alert, App as AntApp, Button, Divider, Input, Modal, Space, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
@@ -229,6 +230,7 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
       let environmentUid: string | null = null;
       if (envFile) {
         const variables: V5.Variable[] = envFile.result.variables.map((v) => ({
+          uid: generateUid(),
           name: v.name,
           value: v.value,
           type: v.type,

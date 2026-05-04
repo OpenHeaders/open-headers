@@ -1,25 +1,24 @@
 /**
  * useEnvironmentMutator — write-only API for environment edits.
  *
- * Thin React adapter over `env-write-client.ts`.
+ * Thin React adapter over `env-write-client.ts`. Identity for variable
+ * rows is `variable.uid`; `setVariable` upserts the whole record
+ * (handles add, edit, rename, type-toggle uniformly), `removeVariable`
+ * keys by uid.
  *
  * The result discriminator is uniform with the Rule mutator family
  * (`{ ok: true } | { ok: false; reason: 'not-found' | 'other' }`).
- * The legacy stale-draft branch is retired by Phase B (§24).
  */
 
 import type { V5 } from '@openheaders/core/types';
 import { useMemo } from 'react';
 import {
   applyEnvRemoveVar,
-  applyEnvRenameVar,
   applyEnvSetVar,
-  applyEnvSetVarType,
   applyEnvVariablesReplacement,
   applyRenameEnvironment,
   type EnvSimpleResult,
 } from '@/shared/sync/env-write-client';
-import type { VariableType } from '@openheaders/core/sync';
 import { useGuardedMutation } from './use-guarded-mutation';
 
 export type { EnvSimpleResult };
@@ -30,26 +29,10 @@ export interface UseEnvironmentMutatorOptions {
 }
 
 export interface UseEnvironmentMutatorApi {
-  setVariable(
-    envId: string,
-    name: string,
-    value: string,
-    type?: VariableType,
-  ): Promise<EnvSimpleResult>;
-  removeVariable(envId: string, name: string): Promise<EnvSimpleResult>;
-  renameVariable(
-    envId: string,
-    oldName: string,
-    newName: string,
-    value: string,
-    type?: VariableType,
-  ): Promise<EnvSimpleResult>;
-  setVariableType(
-    envId: string,
-    name: string,
-    value: string,
-    type: VariableType,
-  ): Promise<EnvSimpleResult>;
+  /** Upsert a variable row — handles add, edit, rename, type-toggle. */
+  setVariable(envId: string, variable: V5.Variable): Promise<EnvSimpleResult>;
+  /** Remove a variable row by its persisted uid. */
+  removeVariable(envId: string, uid: string): Promise<EnvSimpleResult>;
   renameEnvironment(envId: string, name: string): Promise<EnvSimpleResult>;
   /** Replace the full variables list — see `applyEnvVariablesReplacement`. */
   replaceVariables(
@@ -67,34 +50,14 @@ export function useEnvironmentMutator(
   const setVariable = useGuardedMutation(
     workspaceId,
     surfaceId,
-    (writeOpts, envId: string, name: string, value: string, type?: VariableType) =>
-      applyEnvSetVar({ envId, name, value, type }, writeOpts),
+    (writeOpts, envId: string, variable: V5.Variable) =>
+      applyEnvSetVar({ envId, variable }, writeOpts),
   );
 
   const removeVariable = useGuardedMutation(
     workspaceId,
     surfaceId,
-    (writeOpts, envId: string, name: string) => applyEnvRemoveVar({ envId, name }, writeOpts),
-  );
-
-  const renameVariable = useGuardedMutation(
-    workspaceId,
-    surfaceId,
-    (
-      writeOpts,
-      envId: string,
-      oldName: string,
-      newName: string,
-      value: string,
-      type?: VariableType,
-    ) => applyEnvRenameVar({ envId, oldName, newName, value, type }, writeOpts),
-  );
-
-  const setVariableType = useGuardedMutation(
-    workspaceId,
-    surfaceId,
-    (writeOpts, envId: string, name: string, value: string, type: VariableType) =>
-      applyEnvSetVarType({ envId, name, value, type }, writeOpts),
+    (writeOpts, envId: string, uid: string) => applyEnvRemoveVar({ envId, uid }, writeOpts),
   );
 
   const renameEnv = useGuardedMutation(
@@ -118,11 +81,9 @@ export function useEnvironmentMutator(
     () => ({
       setVariable,
       removeVariable,
-      renameVariable,
-      setVariableType,
       renameEnvironment: renameEnv,
       replaceVariables,
     }),
-    [setVariable, removeVariable, renameVariable, setVariableType, renameEnv, replaceVariables],
+    [setVariable, removeVariable, renameEnv, replaceVariables],
   );
 }

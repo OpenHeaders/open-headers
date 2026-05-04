@@ -29,6 +29,7 @@ import * as YAML from 'yaml';
 import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../schemas/document';
 import { EnvironmentSchema } from '../../schemas/variable';
 import type { Environment, Variable } from '../../types/v5/variable';
+import { generateUid } from '../../utils/workspace';
 import { CANONICAL_STRINGIFY_OPTIONS } from './canonical';
 import { buildFreshDocument, mergeKnownFields } from './merge';
 import { ENVIRONMENT_FIELD_ORDER } from './ordering';
@@ -58,6 +59,10 @@ const SecretEnvelope = v.object({
   schemaVersion: v.pipe(v.number(), v.integer(), v.minValue(5)),
   variables: v.array(
     v.object({
+      // Optional at the YAML boundary so hand-edited secret files don't
+      // break; minted at parse time when absent. The persisted shape
+      // (after parse) always carries one.
+      uid: v.optional(v.string()),
       name: v.string(),
       value: v.string(),
       type: v.picklist(['secret']),
@@ -67,14 +72,15 @@ const SecretEnvelope = v.object({
 
 export function parseEnvironment(input: EnvironmentCodecInput): ParsedDocument<Environment> {
   const defaultDoc = YAML.parseDocument(input.default);
-  const defaultRaw = defaultDoc.toJS() as { variables?: Variable[] } & Record<string, unknown>;
-  const defaultVars = Array.isArray(defaultRaw.variables) ? defaultRaw.variables : [];
+  const defaultRaw = defaultDoc.toJS() as { variables?: Array<Partial<Variable>> } & Record<string, unknown>;
+  const defaultVarsRaw = Array.isArray(defaultRaw.variables) ? defaultRaw.variables : [];
+  const defaultVars: Variable[] = defaultVarsRaw.map(mintUidIfMissing);
 
   let secretVars: Variable[] = [];
   if (input.secret !== undefined && input.secret.trim().length > 0) {
     const secretDoc = YAML.parseDocument(input.secret);
     const secretRaw = v.parse(SecretEnvelope, secretDoc.toJS());
-    secretVars = secretRaw.variables;
+    secretVars = secretRaw.variables.map(mintUidIfMissing);
   }
 
   const merged = {
@@ -83,6 +89,20 @@ export function parseEnvironment(input: EnvironmentCodecInput): ParsedDocument<E
   };
   const value = v.parse(EnvironmentSchema, merged);
   return makeParsed(value, defaultDoc);
+}
+
+/**
+ * Hand-edited YAML files may omit `uid` on a variable row. Mint one at
+ * parse time so the rest of the pipeline always sees a stable identity;
+ * the next save round-trips the minted value back to disk.
+ */
+function mintUidIfMissing(raw: Partial<Variable>): Variable {
+  return {
+    uid: raw.uid ?? generateUid(),
+    name: raw.name ?? '',
+    value: raw.value ?? '',
+    type: raw.type ?? 'default',
+  };
 }
 
 export function serializeEnvironment(write: WriteableDocument<Environment>): EnvironmentSerializeOutput {
@@ -105,10 +125,12 @@ export function serializeEnvironment(write: WriteableDocument<Environment>): Env
   });
   const secretYaml = secretDoc.toString(CANONICAL_STRINGIFY_OPTIONS);
 
-  // Template file: same secret shape, values blanked.
+  // Template file: same secret shape, values blanked. Uid round-trips
+  // (identity, not content) so committing the template doesn't churn
+  // identity on every secret value rotation.
   const templateDoc = new YAML.Document({
     schemaVersion: write.value.schemaVersion,
-    variables: secret.map((entry) => ({ name: entry.name, value: '', type: entry.type })),
+    variables: secret.map((entry) => ({ uid: entry.uid, name: entry.name, value: '', type: entry.type })),
   });
   const templateYaml = templateDoc.toString(CANONICAL_STRINGIFY_OPTIONS);
 

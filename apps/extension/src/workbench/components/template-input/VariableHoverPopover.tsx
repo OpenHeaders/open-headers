@@ -16,6 +16,7 @@ import { useRules } from '@hooks/useRules';
 import { useVariableLookup, type VariableCandidate, type VariableLookupResult } from '@hooks/useVariableLookup';
 import { type MutationResult, useVariableMutator } from '@hooks/useVariableMutator';
 import type { V5 } from '@openheaders/core/types';
+import { generateUid } from '@openheaders/core/utils';
 import { App, Button, Dropdown, Input, type MenuProps, Tag, Tooltip, theme } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePopoverPlacement } from '@/shared/use-popover-placement';
@@ -624,14 +625,20 @@ async function runCreate(
       if (snap.workspaceVariables.variables.some((v) => v.name === name)) {
         return { ok: false, reason: 'duplicate-name' };
       }
-      const next: V5.Variable[] = [...snap.workspaceVariables.variables, { name, value, type: 'default' }];
+      const next: V5.Variable[] = [
+        ...snap.workspaceVariables.variables,
+        { uid: generateUid(), name, value, type: 'default' },
+      ];
       return mutator.replaceWorkspaceVariables(next);
     }
     case 'vault': {
       if (snap.vault.secrets.some((s) => s.name === name)) {
         return { ok: false, reason: 'duplicate-name' };
       }
-      const next: V5.VaultSecret[] = [...snap.vault.secrets, { kind: 'string', name, value }];
+      const next: V5.VaultSecret[] = [
+        ...snap.vault.secrets,
+        { uid: generateUid(), kind: 'string', name, value },
+      ];
       return mutator.replaceVault(next);
     }
     case 'environment': {
@@ -640,7 +647,10 @@ async function runCreate(
       if (env.variables.some((v) => v.name === name)) {
         return { ok: false, reason: 'duplicate-name' };
       }
-      const next: V5.Variable[] = [...env.variables, { name, value, type: 'default' }];
+      const next: V5.Variable[] = [
+        ...env.variables,
+        { uid: generateUid(), name, value, type: 'default' },
+      ];
       return mutator.replaceEnvironmentVariables(env.uid, next);
     }
     case 'collection': {
@@ -651,7 +661,10 @@ async function runCreate(
       if (variables.some((v) => v.name === name)) {
         return { ok: false, reason: 'duplicate-name' };
       }
-      const next: V5.Variable[] = [...variables, { name, value, type: 'default' }];
+      const next: V5.Variable[] = [
+        ...variables,
+        { uid: generateUid(), name, value, type: 'default' },
+      ];
       return mutator.replaceCollectionVariables(collection.uid, next);
     }
   }

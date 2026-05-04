@@ -1,17 +1,17 @@
 /**
  * useCollectionMutator — write-only API for collection edits.
  *
- * Thin React adapter over `collection-write-client.ts`.
+ * Thin React adapter over `collection-write-client.ts`. Identity for
+ * variable rows is `variable.uid`; `setVariable` upserts the whole
+ * record (handles add, edit, rename, type-toggle uniformly),
+ * `removeVariable` keys by uid.
  */
 
 import type { V5 } from '@openheaders/core/types';
-import type { VariableType } from '@openheaders/core/sync';
 import { useMemo } from 'react';
 import {
   applyCollectionRemoveVar,
-  applyCollectionRenameVar,
   applyCollectionSetVar,
-  applyCollectionSetVarType,
   applyCollectionVariablesReplacement,
   applyRenameCollection,
   applySetDefaultEnvironmentId,
@@ -29,26 +29,10 @@ export interface UseCollectionMutatorOptions {
 }
 
 export interface UseCollectionMutatorApi {
-  setVariable(
-    collectionUid: string,
-    name: string,
-    value: string,
-    type?: VariableType,
-  ): Promise<CollectionSimpleResult>;
-  removeVariable(collectionUid: string, name: string): Promise<CollectionSimpleResult>;
-  renameVariable(
-    collectionUid: string,
-    oldName: string,
-    newName: string,
-    value: string,
-    type?: VariableType,
-  ): Promise<CollectionSimpleResult>;
-  setVariableType(
-    collectionUid: string,
-    name: string,
-    value: string,
-    type: VariableType,
-  ): Promise<CollectionSimpleResult>;
+  /** Upsert a variable row — handles add, edit, rename, type-toggle. */
+  setVariable(collectionUid: string, variable: V5.Variable): Promise<CollectionSimpleResult>;
+  /** Remove a variable row by its persisted uid. */
+  removeVariable(collectionUid: string, uid: string): Promise<CollectionSimpleResult>;
   renameCollection(collectionUid: string, name: string): Promise<CollectionSimpleResult>;
   setPinnedEnvironments(
     collectionUid: string,
@@ -76,35 +60,15 @@ export function useCollectionMutator(opts: UseCollectionMutatorOptions): UseColl
   const setVariable = useGuardedMutation(
     workspaceId,
     surfaceId,
-    (writeOpts, collectionUid: string, name: string, value: string, type?: VariableType) =>
-      applyCollectionSetVar({ collectionUid, name, value, type }, writeOpts),
+    (writeOpts, collectionUid: string, variable: V5.Variable) =>
+      applyCollectionSetVar({ collectionUid, variable }, writeOpts),
   );
 
   const removeVariable = useGuardedMutation(
     workspaceId,
     surfaceId,
-    (writeOpts, collectionUid: string, name: string) =>
-      applyCollectionRemoveVar({ collectionUid, name }, writeOpts),
-  );
-
-  const renameVariable = useGuardedMutation(
-    workspaceId,
-    surfaceId,
-    (
-      writeOpts,
-      collectionUid: string,
-      oldName: string,
-      newName: string,
-      value: string,
-      type?: VariableType,
-    ) => applyCollectionRenameVar({ collectionUid, oldName, newName, value, type }, writeOpts),
-  );
-
-  const setVariableType = useGuardedMutation(
-    workspaceId,
-    surfaceId,
-    (writeOpts, collectionUid: string, name: string, value: string, type: VariableType) =>
-      applyCollectionSetVarType({ collectionUid, name, value, type }, writeOpts),
+    (writeOpts, collectionUid: string, uid: string) =>
+      applyCollectionRemoveVar({ collectionUid, uid }, writeOpts),
   );
 
   const renameCollection = useGuardedMutation(
@@ -158,8 +122,6 @@ export function useCollectionMutator(opts: UseCollectionMutatorOptions): UseColl
     () => ({
       setVariable,
       removeVariable,
-      renameVariable,
-      setVariableType,
       renameCollection,
       setPinnedEnvironments,
       setDefaultEnvironmentId,
@@ -169,8 +131,6 @@ export function useCollectionMutator(opts: UseCollectionMutatorOptions): UseColl
     [
       setVariable,
       removeVariable,
-      renameVariable,
-      setVariableType,
       renameCollection,
       setPinnedEnvironments,
       setDefaultEnvironmentId,

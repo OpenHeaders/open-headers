@@ -2,7 +2,9 @@
  * useVaultMutator — write-only API for vault edits.
  *
  * Thin React adapter over `vault-write-client.ts`. Singleton entity —
- * none of the helpers take an entity id.
+ * none of the helpers take an entity id. Identity for secret rows is
+ * `secret.uid`; `setSecret` upserts the whole record (handles add,
+ * edit, rename, kind-transition uniformly), `removeSecret` keys by uid.
  */
 
 import type { V5 } from '@openheaders/core/types';
@@ -10,7 +12,6 @@ import { useMemo } from 'react';
 import {
   applyVaultReplacement,
   applyVaultSecretRemove,
-  applyVaultSecretRename,
   applyVaultSecretSet,
   type VaultSimpleResult,
 } from '@/shared/sync/vault-write-client';
@@ -24,9 +25,10 @@ export interface UseVaultMutatorOptions {
 }
 
 export interface UseVaultMutatorApi {
+  /** Upsert a secret — handles add, edit, rename, kind-transition. */
   setSecret(secret: V5.VaultSecret): Promise<VaultSimpleResult>;
-  removeSecret(name: string): Promise<VaultSimpleResult>;
-  renameSecret(oldName: string, newSecret: V5.VaultSecret): Promise<VaultSimpleResult>;
+  /** Remove a secret by its persisted uid. */
+  removeSecret(uid: string): Promise<VaultSimpleResult>;
   /** Replace the full secrets list — see `applyVaultReplacement`. */
   replaceSecrets(
     newSecrets: readonly V5.VaultSecret[],
@@ -43,15 +45,8 @@ export function useVaultMutator(opts: UseVaultMutatorOptions): UseVaultMutatorAp
     (writeOpts, secret: V5.VaultSecret) => applyVaultSecretSet({ secret }, writeOpts),
   );
 
-  const removeSecret = useGuardedMutation(workspaceId, surfaceId, (writeOpts, name: string) =>
-    applyVaultSecretRemove({ name }, writeOpts),
-  );
-
-  const renameSecret = useGuardedMutation(
-    workspaceId,
-    surfaceId,
-    (writeOpts, oldName: string, newSecret: V5.VaultSecret) =>
-      applyVaultSecretRename({ oldName, newSecret }, writeOpts),
+  const removeSecret = useGuardedMutation(workspaceId, surfaceId, (writeOpts, uid: string) =>
+    applyVaultSecretRemove({ uid }, writeOpts),
   );
 
   const replaceSecrets = useGuardedMutation(
@@ -62,7 +57,7 @@ export function useVaultMutator(opts: UseVaultMutatorOptions): UseVaultMutatorAp
   );
 
   return useMemo(
-    () => ({ setSecret, removeSecret, renameSecret, replaceSecrets }),
-    [setSecret, removeSecret, renameSecret, replaceSecrets],
+    () => ({ setSecret, removeSecret, replaceSecrets }),
+    [setSecret, removeSecret, replaceSecrets],
   );
 }

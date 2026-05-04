@@ -36,6 +36,7 @@ import { DndContext } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { V5 } from '@openheaders/core/types';
+import { generateUid } from '@openheaders/core/utils';
 import { Collapse, Input, InputNumber, Select, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -87,9 +88,11 @@ type VariableTableProps =
       onChange: (next: V5.VaultSecret[]) => void;
     };
 
-let nextUid = 1;
+// Local row uid doubles as the persisted schema uid — same shape (8-char
+// lowercase-alphanumeric per `UidSchema`) so dnd-kit and the sync-engine
+// itemId are the same string. Survives reorders and persists across save.
 function genUid(): string {
-  return `vt-${nextUid++}`;
+  return generateUid();
 }
 
 // Pin the drag to vertical only; our row layout is a spreadsheet and
@@ -116,6 +119,7 @@ function emptyRow(isPlaceholder: boolean): LocalRow {
 function variablesToLocal(variables: V5.Variable[]): LocalRow[] {
   const rows: LocalRow[] = variables.map((v) => ({
     ...emptyRow(false),
+    uid: v.uid,
     name: v.name,
     value: v.value,
     isSensitive: v.type === 'secret',
@@ -128,13 +132,18 @@ function variablesFromLocal(rows: LocalRow[]): V5.Variable[] {
   const out: V5.Variable[] = [];
   for (const row of rows) {
     if (row.isPlaceholder || !row.name.trim()) continue;
-    out.push({ name: row.name.trim(), value: row.value, type: row.isSensitive ? 'secret' : 'default' });
+    out.push({
+      uid: row.uid,
+      name: row.name.trim(),
+      value: row.value,
+      type: row.isSensitive ? 'secret' : 'default',
+    });
   }
   return out;
 }
 
 function variablesFingerprint(vars: V5.Variable[]): string {
-  return JSON.stringify(vars.map((v) => [v.name, v.value, v.type]));
+  return JSON.stringify(vars.map((v) => [v.uid, v.name, v.value, v.type]));
 }
 
 function secretsToLocal(secrets: V5.VaultSecret[]): LocalRow[] {
@@ -142,6 +151,7 @@ function secretsToLocal(secrets: V5.VaultSecret[]): LocalRow[] {
     s.kind === 'totp'
       ? {
           ...emptyRow(false),
+          uid: s.uid,
           kind: 'totp',
           name: s.name,
           isSensitive: true,
@@ -151,7 +161,14 @@ function secretsToLocal(secrets: V5.VaultSecret[]): LocalRow[] {
           period: s.period,
           ...(s.issuer ? { issuer: s.issuer } : {}),
         }
-      : { ...emptyRow(false), kind: 'string', name: s.name, value: s.value, isSensitive: true },
+      : {
+          ...emptyRow(false),
+          uid: s.uid,
+          kind: 'string',
+          name: s.name,
+          value: s.value,
+          isSensitive: true,
+        },
   );
   rows.push(emptyRow(true));
   return rows;
@@ -164,6 +181,7 @@ function secretsFromLocal(rows: LocalRow[]): V5.VaultSecret[] {
     const name = row.name.trim();
     if (row.kind === 'totp') {
       out.push({
+        uid: row.uid,
         kind: 'totp',
         name,
         seed: row.seed,
@@ -173,7 +191,7 @@ function secretsFromLocal(rows: LocalRow[]): V5.VaultSecret[] {
         ...(row.issuer ? { issuer: row.issuer } : {}),
       });
     } else {
-      out.push({ kind: 'string', name, value: row.value });
+      out.push({ uid: row.uid, kind: 'string', name, value: row.value });
     }
   }
   return out;
@@ -183,8 +201,8 @@ function secretsFingerprint(secrets: V5.VaultSecret[]): string {
   return JSON.stringify(
     secrets.map((s) =>
       s.kind === 'totp'
-        ? ['totp', s.name, s.seed, s.algorithm, s.digits, s.period, s.issuer ?? '']
-        : ['string', s.name, s.value],
+        ? ['totp', s.uid, s.name, s.seed, s.algorithm, s.digits, s.period, s.issuer ?? '']
+        : ['string', s.uid, s.name, s.value],
     ),
   );
 }

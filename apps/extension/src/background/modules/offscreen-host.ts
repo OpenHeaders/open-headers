@@ -343,7 +343,14 @@ async function writeWorkspaceVariable(name: string, value: string): Promise<void
   }
   const existing = getWorkspaceVariables().variables.find((v) => v.name === trimmed);
   const { batch, sideEffects } = buildSetWorkspaceVarBatch(
-    { name: trimmed, value, type: existing?.type ?? 'default' },
+    {
+      variable: {
+        uid: existing?.uid ?? generateUid(),
+        name: trimmed,
+        value,
+        type: existing?.type ?? 'default',
+      },
+    },
     ctx,
   );
   const result = await oracle.apply(batch, sideEffects);
