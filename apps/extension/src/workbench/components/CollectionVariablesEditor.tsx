@@ -110,16 +110,18 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
   }, [kind, replaceCollectionVariables, replaceRequestCollectionVariables, replaceTemplateCollectionVariables]);
 
   const [draft, setDraft] = useState<V5.Variable[]>(() => collection?.variables ?? EMPTY_VARS);
+  const [lastPrimedSig, setLastPrimedSig] = useState<string | null>(null);
 
   const entityType = entityTypeFor(kind);
 
-  // Derived dirty (universal contract).
+  // Derived dirty (universal contract). See EnvironmentEditor for the
+  // lastPrimedSig rationale.
   const formSig = useMemo(() => variablesSignature(draft), [draft]);
   const liveSig = useMemo(
     () => (collection ? variablesSignature(collection.variables) : null),
     [collection],
   );
-  const isDirty = liveSig !== null && formSig !== liveSig;
+  const isDirty = lastPrimedSig !== null && formSig !== lastPrimedSig;
 
   useEditorDirty({ entityType, entityId: collectionUid }, isDirty);
 
@@ -144,13 +146,18 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
     signature: (e) => variablesSignature(e.variables),
     populate: (e) => {
       setDraft(e.variables);
+      setLastPrimedSig(variablesSignature(e.variables));
       setConflictBaseline({ uid: e.uid, variables: e.variables });
     },
   });
+
   useEffect(() => {
-    if (!liveEntity || isDirty) return;
-    setConflictBaseline(liveEntity);
-  }, [liveEntity, isDirty, setConflictBaseline]);
+    if (formSig === null || liveSig === null) return;
+    if (formSig !== liveSig) return;
+    if (lastPrimedSig === liveSig) return;
+    setLastPrimedSig(liveSig);
+    if (liveEntity) setConflictBaseline(liveEntity);
+  }, [formSig, liveSig, lastPrimedSig, liveEntity, setConflictBaseline]);
 
   const formProjection = useMemo(() => projectVariablesToForm(draft), [draft]);
   const formSetOrders = useMemo(

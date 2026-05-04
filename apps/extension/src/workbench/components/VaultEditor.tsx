@@ -63,12 +63,14 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
   const { vault } = useEnvironments();
   const { replaceVault } = useVariableMutator();
 
-  // Derived dirty (universal contract).
+  // Derived dirty (universal contract). See EnvironmentEditor for the
+  // lastPrimedSig rationale.
   const [draft, setDraft] = useState<V5.VaultSecret[]>(() => vault.secrets ?? EMPTY_SECRETS);
+  const [lastPrimedSig, setLastPrimedSig] = useState<string | null>(null);
 
   const formSig = useMemo(() => secretsSignature(draft), [draft]);
   const liveSig = useMemo(() => secretsSignature(vault.secrets), [vault.secrets]);
-  const isDirty = formSig !== liveSig;
+  const isDirty = lastPrimedSig !== null && formSig !== lastPrimedSig;
 
   useEditorDirty({ entityType: VAULT_ENTITY_TYPE, entityId: VAULT_ID }, isDirty);
 
@@ -85,13 +87,18 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
     signature: (e) => secretsSignature(e.secrets),
     populate: (e) => {
       setDraft(e.secrets);
+      setLastPrimedSig(secretsSignature(e.secrets));
       setConflictBaseline({ ...e, uid: VAULT_ID });
     },
   });
+
   useEffect(() => {
-    if (isDirty) return;
+    if (formSig === null || liveSig === null) return;
+    if (formSig !== liveSig) return;
+    if (lastPrimedSig === liveSig) return;
+    setLastPrimedSig(liveSig);
     setConflictBaseline(liveVaultWithUid);
-  }, [liveVaultWithUid, isDirty, setConflictBaseline]);
+  }, [formSig, liveSig, lastPrimedSig, liveVaultWithUid, setConflictBaseline]);
 
   const formProjection = useMemo(() => projectSecretsToForm(draft), [draft]);
   const formSetOrders = useMemo(

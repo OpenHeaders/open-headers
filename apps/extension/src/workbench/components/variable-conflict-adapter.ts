@@ -175,9 +175,10 @@ function findRowName(entity: VariableEntity, uid: string): string | null {
 }
 
 export const variableResolveAdapter: ConflictResolveAdapter<VariableEntity> = {
-  // Variable editors all use controlled state (useDirtyDraft<V5.Variable[]>),
-  // not antd Form. Resolution writes go through `applyResolutionToEntity`
-  // against a clone; the editor projects back into its draft array.
+  // Variable editors all use controlled `useState<V5.Variable[]>` draft
+  // state, not antd Form. Resolution writes go through
+  // `applyResolutionToEntity` against a clone; the editor projects back
+  // into its draft array.
   applyResolutionToForm: () => false,
   applyResolutionToEntity(entity, path, conflict) {
     const reorderKey = decodeReorderConflictKey(path);

@@ -73,17 +73,34 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
   const env = useMemo(() => environments.find((e) => e.uid === environmentUid) ?? null, [environments, environmentUid]);
   const localInstanceId = useLocalInstanceId();
 
-  // Derived dirty (universal contract — `feedback_derived_dirty.md`):
-  // compare the draft signature against the canonical signature each
-  // render. When the form converges with canonical (post-save echo,
-  // user-resolves-all-conflicts via Use Saved, peer-mirrors-our-edit),
-  // the next render naturally reports `isDirty=false`. No persistedFp
-  // dance, no markPersisted callback.
+  // Derived dirty (universal contract — `feedback_derived_dirty.md`).
+  //
+  // Two fingerprints, two roles:
+  //   - `formSig`         — the draft as the user has typed it
+  //   - `lastPrimedSig`   — the canonical signature the form was last
+  //                         seeded with (initial mount + reprime on
+  //                         clean rebroadcast + auto-rebase when form
+  //                         converges with canonical)
+  //
+  // `isDirty = formSig !== lastPrimedSig` — i.e. "user typed edits the
+  // form hasn't been re-seeded past." This is the right gate for the
+  // Save button + the reprime hook's "is it safe to overwrite".
+  //
+  // Comparing against `liveSig` directly (form-vs-canonical) is wrong:
+  // when a peer commits and the user is clean, `liveSig` jumps but
+  // `formSig` doesn't — naive derivation would report dirty even
+  // though the user never typed, blocking the reprime hook from
+  // catching the form up to the new canonical.
+  //
+  // Auto-rebase: when `formSig === liveSig` (form catches up to
+  // canonical via Use Saved, post-save echo, or peer-mirrors-our-edit),
+  // advance `lastPrimedSig` so dirty drops to false on the next render.
   const [draft, setDraft] = useState<V5.Variable[]>(() => env?.variables ?? EMPTY_VARS);
+  const [lastPrimedSig, setLastPrimedSig] = useState<string | null>(null);
 
   const formSig = useMemo(() => variablesSignature(draft), [draft]);
   const liveSig = useMemo(() => (env ? variablesSignature(env.variables) : null), [env]);
-  const isDirty = liveSig !== null && formSig !== liveSig;
+  const isDirty = lastPrimedSig !== null && formSig !== lastPrimedSig;
 
   useEditorDirty(
     { entityType: ENVIRONMENT_ENTITY_TYPE, entityId: env?.uid ?? null },
@@ -103,10 +120,8 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
   });
   const setConflictBaseline = conflicts.setBaseline;
 
-  // Auto-rebase: when form converges with canonical, snap the conflict
-  // baseline. `useEntityReprime` covers the "user is clean, peer
-  // commits" case below; this effect fires AFTER a Use Saved sweep
-  // brings form into alignment with canonical too.
+  // Reprime: "user clean, peer just committed" — pull canonical into
+  // the form + advance primed-fingerprint + advance conflict baseline.
   useEntityReprime<V5.Environment>({
     liveEntity: env,
     scope: { entityType: ENVIRONMENT_ENTITY_TYPE, entityId: env?.uid ?? null },
@@ -115,13 +130,22 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
     signature: (e) => variablesSignature(e.variables),
     populate: (e) => {
       setDraft(e.variables);
+      setLastPrimedSig(variablesSignature(e.variables));
       setConflictBaseline({ uid: e.uid, variables: e.variables });
     },
   });
+
+  // Auto-rebase: form converged with canonical (Use Saved sweep,
+  // post-save echo, etc). Advance primed-fingerprint + baseline so
+  // dirty drops to false naturally + future peer divergence shows up
+  // against the just-converged state.
   useEffect(() => {
-    if (!liveEntity || isDirty) return;
-    setConflictBaseline(liveEntity);
-  }, [liveEntity, isDirty, setConflictBaseline]);
+    if (formSig === null || liveSig === null) return;
+    if (formSig !== liveSig) return;
+    if (lastPrimedSig === liveSig) return;
+    setLastPrimedSig(liveSig);
+    if (liveEntity) setConflictBaseline(liveEntity);
+  }, [formSig, liveSig, lastPrimedSig, liveEntity, setConflictBaseline]);
 
   const formProjection = useMemo(() => projectVariablesToForm(draft), [draft]);
   const formSetOrders = useMemo(

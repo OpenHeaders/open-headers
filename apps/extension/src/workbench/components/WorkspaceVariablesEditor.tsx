@@ -62,14 +62,13 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
   const { replaceWorkspaceVariables } = useVariableMutator();
 
   // Derived dirty (universal contract — `feedback_derived_dirty.md`).
-  // Compared against the canonical workspace-variables list each render;
-  // Use Saved sweeps + post-save echoes naturally drop dirty when the
-  // form converges with canonical.
+  // See EnvironmentEditor for the lastPrimedSig rationale; same shape.
   const [draft, setDraft] = useState<V5.Variable[]>(() => workspaceVariables.variables ?? EMPTY_VARS);
+  const [lastPrimedSig, setLastPrimedSig] = useState<string | null>(null);
 
   const formSig = useMemo(() => variablesSignature(draft), [draft]);
   const liveSig = useMemo(() => variablesSignature(workspaceVariables.variables), [workspaceVariables.variables]);
-  const isDirty = formSig !== liveSig;
+  const isDirty = lastPrimedSig !== null && formSig !== lastPrimedSig;
 
   useEditorDirty(
     { entityType: WORKSPACE_VARIABLES_ENTITY_TYPE, entityId: WORKSPACE_VARIABLES_ID },
@@ -97,13 +96,18 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
     signature: (e) => variablesSignature(e.variables),
     populate: (e) => {
       setDraft(e.variables);
+      setLastPrimedSig(variablesSignature(e.variables));
       setConflictBaseline({ uid: WORKSPACE_VARIABLES_ID, variables: e.variables });
     },
   });
+
   useEffect(() => {
-    if (isDirty) return;
+    if (formSig === null || liveSig === null) return;
+    if (formSig !== liveSig) return;
+    if (lastPrimedSig === liveSig) return;
+    setLastPrimedSig(liveSig);
     setConflictBaseline(liveEntity);
-  }, [liveEntity, isDirty, setConflictBaseline]);
+  }, [formSig, liveSig, lastPrimedSig, liveEntity, setConflictBaseline]);
 
   const formProjection = useMemo(() => projectVariablesToForm(draft), [draft]);
   const formSetOrders = useMemo(
