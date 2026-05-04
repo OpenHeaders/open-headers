@@ -220,6 +220,10 @@ export interface EditorGroupRendererProps {
   /** Returns the breadcrumb segments (without workspace) for a tab —
    *  forwarded to TabBar so hover tooltips can show the tab's path. */
   getTabPath?: (tab: WorkbenchTab) => string[];
+  /** Live-derived display label per tab — forwarded to TabBar so
+   *  renames in any surface land in the tab strip without an
+   *  imperative sync hook. See `tab-display.ts`. */
+  getDisplayLabel?: (tab: WorkbenchTab) => string;
   onCreateRule: (type: string) => void;
   createMenuOpen?: boolean;
   onCreateMenuOpenChange?: (open: boolean) => void;
@@ -251,6 +255,7 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
   renderLeafHeader,
   renderEmpty,
   getTabPath,
+  getDisplayLabel,
   onCreateRule,
   createMenuOpen,
   onCreateMenuOpenChange,
@@ -457,6 +462,7 @@ export const EditorGroupRenderer: React.FC<EditorGroupRendererProps> = ({
           liveWorkflows={liveWorkflows}
           unresolvableWorkflowUids={unresolvableWorkflowUids}
           getTabPath={getTabPath}
+          getDisplayLabel={getDisplayLabel}
           onSwitch={groups.switchTab}
           onClose={onCloseTab}
           onTabDoubleClick={onTabDoubleClick}

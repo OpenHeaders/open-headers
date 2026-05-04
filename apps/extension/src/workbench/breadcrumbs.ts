@@ -4,6 +4,12 @@
  * having to render only one breadcrumb tied to the globally-focused
  * tab. The logic is identical to what lived inline as a useMemo;
  * moving it into a pure function keeps each leaf independent.
+ *
+ * The leaf segment (the entity's own label) is supplied by the caller
+ * as `displayLabel` — typically `tabDisplayLabel(tab, lookups)` from
+ * `tab-display.ts`. SoC: this module only computes the parent trail;
+ * the leaf-name source of truth lives in one place, used by both the
+ * tab strip and the breadcrumb so they can never disagree.
  */
 
 import type { V5 } from '@openheaders/core/types';
@@ -31,6 +37,7 @@ export function scratchLabelForMode(mode: WorkbenchTab['mode']): string | null {
 
 export function computeBreadcrumbs(
   tab: WorkbenchTab | undefined,
+  displayLabel: string,
   rules: V5.Rule[],
   localCollectionTrees: V5.CollectionTree[],
   requestCollectionTrees: readonly V5.CollectionTree[] = [],
@@ -42,7 +49,7 @@ export function computeBreadcrumbs(
   if (tab.mode === 'settings') return ['Settings'];
 
   if (tab.mode === 'workspace-manager') return ['Workspaces'];
-  if (tab.mode === 'env-edit') return ['Environments', tab.label];
+  if (tab.mode === 'env-edit') return ['Environments', displayLabel];
   if (tab.mode === 'workspace-vars') return ['Workspace Variables'];
   if (tab.mode === 'vault') return ['Vault'];
   if (tab.mode === 'collection-vars') {
@@ -73,10 +80,10 @@ export function computeBreadcrumbs(
           }
           return false;
         };
-        if (findRequest(col.tree)) return ['API Requests', col.name, ...trail, tab.label];
+        if (findRequest(col.tree)) return ['API Requests', col.name, ...trail, displayLabel];
       }
     }
-    return ['API Requests', tab.label];
+    return ['API Requests', displayLabel];
   }
   if (tab.mode === 'request-create') {
     const colId = tab.preferredCollectionId;
@@ -84,14 +91,14 @@ export function computeBreadcrumbs(
     const folderTrail = tab.preferredFolderPath
       ? tab.preferredFolderPath.split('/').filter((seg) => seg.length > 0)
       : [];
-    if (col) return ['API Requests', col.name, ...folderTrail, tab.draftName ?? tab.label];
-    return ['API Requests', tab.draftName ?? tab.label];
+    if (col) return ['API Requests', col.name, ...folderTrail, displayLabel];
+    return ['API Requests', displayLabel];
   }
 
-  if (tab.mode === 'live-workflow-edit') return ['Workflows', tab.label];
-  if (tab.mode === 'live-workflow-create') return ['Workflows', tab.draftName ?? tab.label];
-  if (tab.mode === 'live-variable-edit') return ['Live Variables', tab.label];
-  if (tab.mode === 'live-variable-create') return ['Live Variables', tab.draftName ?? tab.label];
+  if (tab.mode === 'live-workflow-edit') return ['Workflows', displayLabel];
+  if (tab.mode === 'live-workflow-create') return ['Workflows', displayLabel];
+  if (tab.mode === 'live-variable-edit') return ['Live Variables', displayLabel];
+  if (tab.mode === 'live-variable-create') return ['Live Variables', displayLabel];
   if (tab.mode === 'live-vars') return ['Live Variables'];
 
   if (tab.mode === 'collection-overview') {
@@ -101,10 +108,10 @@ export function computeBreadcrumbs(
     // misled users on a request- or template-collection overview tab.
     const uid = tab.entityId;
     if (uid) {
-      if (requestCollectionTrees.some((c) => c.uid === uid)) return ['API Requests', tab.label];
-      if (templateCollectionTrees.some((c) => c.uid === uid)) return ['Templates', tab.label];
+      if (requestCollectionTrees.some((c) => c.uid === uid)) return ['API Requests', displayLabel];
+      if (templateCollectionTrees.some((c) => c.uid === uid)) return ['Templates', displayLabel];
     }
-    return ['Rules', tab.label];
+    return ['Rules', displayLabel];
   }
 
   if (tab.mode === 'folder-overview' && tab.entityId) {
@@ -131,12 +138,12 @@ export function computeBreadcrumbs(
       return null;
     };
     const ruleHit = findIn(localCollectionTrees);
-    if (ruleHit) return ['Rules', ruleHit.collectionName, ...ruleHit.trail, tab.label];
+    if (ruleHit) return ['Rules', ruleHit.collectionName, ...ruleHit.trail, displayLabel];
     const requestHit = findIn(requestCollectionTrees);
-    if (requestHit) return ['API Requests', requestHit.collectionName, ...requestHit.trail, tab.label];
+    if (requestHit) return ['API Requests', requestHit.collectionName, ...requestHit.trail, displayLabel];
     const templateHit = findIn(templateCollectionTrees);
-    if (templateHit) return ['Templates', templateHit.collectionName, ...templateHit.trail, tab.label];
-    return ['Rules', tab.label];
+    if (templateHit) return ['Templates', templateHit.collectionName, ...templateHit.trail, displayLabel];
+    return ['Rules', displayLabel];
   }
 
   if (tab.mode === 'edit' && tab.ruleUid) {
@@ -155,10 +162,10 @@ export function computeBreadcrumbs(
           }
           return false;
         };
-        if (findRule(col.tree)) return ['Rules', col.name, ...trail, tab.label];
+        if (findRule(col.tree)) return ['Rules', col.name, ...trail, displayLabel];
       }
     }
-    return ['Rules', tab.label];
+    return ['Rules', displayLabel];
   }
 
   if (tab.mode === 'run-report') {
@@ -238,10 +245,10 @@ export function computeBreadcrumbs(
         if (findFolder(col.tree)) return ['Rules', col.name, ...trail, 'Flow'];
       }
     }
-    return ['Rules', tab.label];
+    return ['Rules', displayLabel];
   }
 
-  return ['Rules', tab.label];
+  return ['Rules', displayLabel];
 }
 
 /**

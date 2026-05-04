@@ -52,6 +52,7 @@ import 'allotment/dist/style.css';
 import { createShellEventBus, ShellEventBusContext } from '@/shared/dock-layout';
 import { findCollectionByPath, findFolderByUid } from '@/shared/variables/collection-scope';
 import { computeBreadcrumbs, scratchLabelForMode } from './breadcrumbs';
+import { tabDisplayLabel, type TabDisplayLookups } from './tab-display';
 import BottomPanel from './components/BottomPanel';
 import CollectionOverview from './components/CollectionOverview';
 import CollectionVariablesEditor from './components/CollectionVariablesEditor';
@@ -879,6 +880,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
     environments: envApi.environments,
     requests: requestsApi.requests,
     requestCollectionTrees: requestsApi.collectionTrees,
+    templateCollectionTrees,
     liveVariables: liveVarsApi.variables,
     liveWorkflows: liveWorkflowsApi.workflows,
     allTabs,
@@ -957,10 +959,46 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
   // the entity label so the footer matches the tab-tooltip treatment.
   // "Scratch" is chosen over "Draft" because persisted entities can also
   // hold a draft state, and the two concepts would collide.
+  // Live-derived display label lookups — single source of truth for
+  // every surface that wants to show an entity's current name. Used by
+  // the breadcrumb (footer) and threaded into `<TabBar>` via
+  // `getDisplayLabel`. Replaces the imperative `tab.label` mirror that
+  // used to live in `useTabSyncEffects`; renames now flow through
+  // entity-cache subscriptions and re-render the consumer.
+  const tabDisplayLookups = useMemo<TabDisplayLookups>(
+    () => ({
+      rules,
+      templates,
+      environments: envApi.environments,
+      requests: requestsApi.requests,
+      localCollectionTrees,
+      requestCollectionTrees: requestsApi.collectionTrees,
+      templateCollectionTrees,
+      liveVariables: liveVarsApi.variables,
+      liveWorkflows: liveWorkflowsApi.workflows,
+    }),
+    [
+      rules,
+      templates,
+      envApi.environments,
+      requestsApi.requests,
+      localCollectionTrees,
+      requestsApi.collectionTrees,
+      templateCollectionTrees,
+      liveVarsApi.variables,
+      liveWorkflowsApi.workflows,
+    ],
+  );
+  const getTabDisplayLabel = useCallback(
+    (tab: WorkbenchTab) => tabDisplayLabel(tab, tabDisplayLookups),
+    [tabDisplayLookups],
+  );
+
   const activeBreadcrumbSegments = useMemo(() => {
     if (!activeTab) return [];
     const base = computeBreadcrumbs(
       activeTab,
+      getTabDisplayLabel(activeTab),
       rules,
       localCollectionTrees,
       requestsApi.collectionTrees,
@@ -972,7 +1010,15 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
       return [...base.slice(0, -1), scratchLabel, base[base.length - 1]];
     }
     return base;
-  }, [activeTab, rules, localCollectionTrees, requestsApi.collectionTrees, requestsApi.requests]);
+  }, [
+    activeTab,
+    getTabDisplayLabel,
+    rules,
+    localCollectionTrees,
+    requestsApi.collectionTrees,
+    requestsApi.requests,
+    templateCollectionTrees,
+  ]);
   const activeWorkspace = useMemo(
     () => workspacesApi.workspaces.find((w) => w.id === workspacesApi.activeWorkspaceId),
     [workspacesApi.workspaces, workspacesApi.activeWorkspaceId],
@@ -1824,6 +1870,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
                 getTabPath={(tab) =>
                   computeBreadcrumbs(
                     tab,
+                    getTabDisplayLabel(tab),
                     rules,
                     localCollectionTrees,
                     requestsApi.collectionTrees,
@@ -1831,6 +1878,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
                     templateCollectionTrees,
                   )
                 }
+                getDisplayLabel={getTabDisplayLabel}
                 renderEmpty={renderEmpty}
                 onCreateRule={openCreateTab}
                 createMenuOpen={createMenuOpen}
@@ -1866,7 +1914,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
                       unresolvableWorkflowUids,
                     )}
                   </span>
-                  <span className="rules-drag-preview-label">{renderTabLabel(tab)}</span>
+                  <span className="rules-drag-preview-label">{renderTabLabel(tab, getTabDisplayLabel(tab))}</span>
                 </div>
               );
             }}

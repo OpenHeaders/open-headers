@@ -234,9 +234,9 @@ function truncateLabelWithPrefix(text: string, prefix: string, max: number): str
   return `${prefix}${suffix.slice(0, budget)}\u2026`;
 }
 
-export function renderTabLabel(tab: WorkbenchTab): string {
-  if (tab.mode === 'run-report') return truncateLabelWithPrefix(tab.label, 'Test Run · ', TAB_LABEL_MAX);
-  return truncateMiddle(tab.label, TAB_LABEL_MAX);
+export function renderTabLabel(tab: WorkbenchTab, displayLabel: string): string {
+  if (tab.mode === 'run-report') return truncateLabelWithPrefix(displayLabel, 'Test Run · ', TAB_LABEL_MAX);
+  return truncateMiddle(displayLabel, TAB_LABEL_MAX);
 }
 
 // ── Props ────────────────────────────────────────────────────────
@@ -273,6 +273,12 @@ interface TabBarProps {
   /** Breadcrumb path for a tab (workspace excluded) — drives the hover
    *  tooltip so users see where a tab lives without opening it. */
   getTabPath?: (tab: WorkbenchTab) => string[];
+  /** Live-derived display label for a tab. Replaces direct reads of
+   *  `tab.label` so renames in another surface land here without an
+   *  imperative sync hook. Caller wires this to `tabDisplayLabel(tab,
+   *  lookups)` from `tab-display.ts`. Falls back to `tab.label` if
+   *  unwired (older callers that don't pass it remain source-compatible). */
+  getDisplayLabel?: (tab: WorkbenchTab) => string;
   onSwitch: (tabId: string) => void;
   onClose: (tabId: string) => void;
   /** Double-click on any tab — App wires this to zen-mode toggle. */
@@ -333,6 +339,10 @@ interface TabBarProps {
 
 interface TabPillContentProps {
   tab: WorkbenchTab;
+  /** Live-derived display label — pre-computed by the parent via
+   *  `tabDisplayLabel(tab, lookups)`. Reads here instead of `tab.label`
+   *  so a rename in any surface lands without an imperative sync hook. */
+  displayLabel: string;
   rules: V5.Rule[];
   templates: V5.Template[];
   requests: V5.Request[];
@@ -348,6 +358,7 @@ interface TabPillContentProps {
 
 const TabPillContent: React.FC<TabPillContentProps> = ({
   tab,
+  displayLabel,
   rules,
   templates,
   requests,
@@ -376,7 +387,7 @@ const TabPillContent: React.FC<TabPillContentProps> = ({
         )}
       </span>
       <span className="rules-tab-label" style={isRuleDraftTab(tab, rules) ? { fontStyle: 'italic' } : undefined}>
-        {renderTabLabel(tab)}
+        {renderTabLabel(tab, displayLabel)}
       </span>
       {(tab.dirty || isRuleDraftTab(tab, rules)) && (
         <span className="rules-tab-unsaved" style={{ background: isRuleDraftTab(tab, rules) ? '#999' : '#ff7875' }} />
@@ -428,6 +439,7 @@ function emptyPlaceholderStyle(token: ReturnType<typeof theme.useToken>['token']
 
 interface CrossLeafInsertionMarkerProps {
   tab: WorkbenchTab;
+  displayLabel: string;
   rules: V5.Rule[];
   templates: V5.Template[];
   requests: V5.Request[];
@@ -441,6 +453,7 @@ interface CrossLeafInsertionMarkerProps {
 
 const CrossLeafInsertionMarker: React.FC<CrossLeafInsertionMarkerProps> = ({
   tab,
+  displayLabel,
   rules,
   templates,
   requests,
@@ -458,6 +471,7 @@ const CrossLeafInsertionMarker: React.FC<CrossLeafInsertionMarkerProps> = ({
   >
     <TabPillContent
       tab={tab}
+      displayLabel={displayLabel}
       rules={rules}
       templates={templates}
       requests={requests}
@@ -478,6 +492,7 @@ interface SortableTabProps {
   leafId: string;
   isFocusedLeaf: boolean;
   tab: WorkbenchTab;
+  displayLabel: string;
   isActive: boolean;
   rules: V5.Rule[];
   templates: V5.Template[];
@@ -498,6 +513,7 @@ const SortableTab: React.FC<SortableTabProps> = ({
   leafId,
   isFocusedLeaf,
   tab,
+  displayLabel,
   isActive,
   rules,
   templates,
@@ -577,6 +593,7 @@ const SortableTab: React.FC<SortableTabProps> = ({
     >
       <TabPillContent
         tab={tab}
+        displayLabel={displayLabel}
         rules={rules}
         templates={templates}
         requests={requests}
@@ -658,7 +675,7 @@ const SortableTab: React.FC<SortableTabProps> = ({
         })}
       </span>
     ) : (
-      tab.label
+      displayLabel
     );
 
   return (
@@ -705,6 +722,10 @@ interface TabSearchProps {
   /** Breadcrumb path for a tab (workspace excluded) — rendered as muted
    *  secondary line so users can disambiguate rows with the same name. */
   getTabPath?: (tab: WorkbenchTab) => string[];
+  /** Live-derived display label per tab. Search filters and row labels
+   *  read from this so renames in any surface land here without an
+   *  imperative sync. */
+  getDisplayLabel: (tab: WorkbenchTab) => string;
   onSwitch: (tabId: string) => void;
   recentlyClosed: ClosedTab[];
   onReopen: (closed: ClosedTab) => void;
@@ -724,6 +745,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
   liveWorkflows,
   unresolvableWorkflowUids,
   getTabPath,
+  getDisplayLabel,
   onSwitch,
   recentlyClosed,
   onReopen,
@@ -746,8 +768,8 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
   if (!open) return null;
 
   const lowerSearch = search.toLowerCase();
-  const filteredTabs = tabs.filter((t) => t.label.toLowerCase().includes(lowerSearch));
-  const filteredClosed = recentlyClosed.filter((c) => c.tab.label.toLowerCase().includes(lowerSearch));
+  const filteredTabs = tabs.filter((t) => getDisplayLabel(t).toLowerCase().includes(lowerSearch));
+  const filteredClosed = recentlyClosed.filter((c) => getDisplayLabel(c.tab).toLowerCase().includes(lowerSearch));
   const totalItems = filteredTabs.length + (closedExpanded ? filteredClosed.length : 0);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -849,7 +871,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                 </span>
                 <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12 }}>
-                    {tab.label}
+                    {getDisplayLabel(tab)}
                   </span>
                   {secondarySegments.length > 0 && (
                     <span
@@ -955,7 +977,7 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                             fontSize: 12,
                           }}
                         >
-                          {closed.tab.label}
+                          {getDisplayLabel(closed.tab)}
                         </span>
                         {secondarySegments.length > 0 && (
                           <span
@@ -1012,6 +1034,7 @@ const TabBar: React.FC<TabBarProps> = ({
   liveWorkflows = [],
   unresolvableWorkflowUids = EMPTY_SET,
   getTabPath,
+  getDisplayLabel,
   onSwitch,
   onClose,
   onTabDoubleClick,
@@ -1042,6 +1065,14 @@ const TabBar: React.FC<TabBarProps> = ({
   const { token } = theme.useToken();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [tabSearchOpen, setTabSearchOpen] = useState(false);
+
+  // Stable lookup for the live display label. Older callers that don't
+  // wire `getDisplayLabel` fall back to the seed `tab.label`, keeping
+  // the source-compatibility contract spelled out on the prop.
+  const resolveDisplayLabel = useCallback(
+    (tab: WorkbenchTab) => getDisplayLabel?.(tab) ?? tab.label,
+    [getDisplayLabel],
+  );
 
   // ── Auto-scroll active tab into view ───────────────────────────
   // When the last tab is active, scroll to the end so the "+" button is also visible.
@@ -1266,6 +1297,7 @@ const TabBar: React.FC<TabBarProps> = ({
               {insertionIndex === index && insertionTab && (
                 <CrossLeafInsertionMarker
                   tab={insertionTab}
+                  displayLabel={resolveDisplayLabel(insertionTab)}
                   rules={rules}
                   templates={templates}
                   requests={requests}
@@ -1281,6 +1313,7 @@ const TabBar: React.FC<TabBarProps> = ({
                 leafId={leafId}
                 isFocusedLeaf={isFocusedLeaf}
                 tab={tab}
+                displayLabel={resolveDisplayLabel(tab)}
                 isActive={tab.id === activeTabId}
                 rules={rules}
                 templates={templates}
@@ -1301,6 +1334,7 @@ const TabBar: React.FC<TabBarProps> = ({
           {insertionIndex === tabs.length && insertionTab && (
             <CrossLeafInsertionMarker
               tab={insertionTab}
+              displayLabel={resolveDisplayLabel(insertionTab)}
               rules={rules}
               templates={templates}
               requests={requests}
@@ -1368,6 +1402,7 @@ const TabBar: React.FC<TabBarProps> = ({
           liveWorkflows={liveWorkflows}
           unresolvableWorkflowUids={unresolvableWorkflowUids}
           getTabPath={getTabPath}
+          getDisplayLabel={resolveDisplayLabel}
           onSwitch={onSwitch}
           recentlyClosed={recentlyClosed}
           onReopen={onReopenTab}

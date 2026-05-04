@@ -1,21 +1,32 @@
 /**
  * useTabSyncEffects — keeps open tabs in sync with the underlying
- * entities they reference. Two effects:
+ * entities they reference.
  *
- *   1) Label/type mirroring — when a rule or template is renamed or
- *      retyped, update the corresponding tab's displayed label/type.
+ *   - **Display label** is NOT mirrored here. Tab labels are derived at
+ *     render time via `tabDisplayLabel(tab, lookups)` in `tab-display.ts`.
+ *     `tab.label` lives on the struct only as the seed value set at
+ *     open time + a fallback for the brief race window before the
+ *     entity cache catches up. SoC: tab struct = identity + mode +
+ *     entity reference; label = projection.
  *
- *   2) Deletion cleanup — when a rule, collection, folder, request,
- *      etc. disappears between two snapshots, force-close every tab
- *      whose backing id was present last render and is absent now.
- *      The check is a TRANSITION (prev had it, current doesn't), not a
- *      snapshot absence, because entity-list caches are briefly stale
- *      after a creation in another code path: a just-created entity's
- *      uid is in a tab (via replaceTab's draft→edit swap) but may not
- *      yet be in the cache that this hook subscribes to, and closing a
- *      tab for an entity-that-was-just-created-but-not-yet-reloaded
- *      would be a data-destroying user-facing bug. Transition-based
- *      close only fires for actual disappearances.
+ *   - **Rule type** (the `ruleType` discriminator on edit tabs) IS
+ *     mirrored: it drives the type-specific tab icon and the rule-type
+ *     menu. Unlike a name, a rule's type is bounded enum and rarely
+ *     changes — the mirror is cheap and decoupling it from the icon
+ *     pipeline would be more code than value.
+ *
+ *   - **Request method** is mirrored for the same reason — the method
+ *     tag in the tab strip needs the live value, and the icon pipeline
+ *     reads `tab.ruleType` to render it.
+ *
+ *   - **Deletion cleanup** — when an entity disappears between two
+ *     snapshots, force-close every tab whose backing id was present
+ *     last render and is absent now. The check is a TRANSITION (prev
+ *     had it, current doesn't), not a snapshot absence: entity-list
+ *     caches are briefly stale after a creation, and closing a tab for
+ *     an entity-that-was-just-created-but-not-yet-reloaded would be a
+ *     data-destroying user-facing bug. Transition-based close only
+ *     fires for actual disappearances.
  */
 
 import type { V5 } from '@openheaders/core/types';
@@ -24,11 +35,12 @@ import type { WorkbenchTab } from '../types';
 
 interface UseTabSyncEffectsOptions {
   rules: V5.Rule[];
-  templates: V5.Template[];
   localCollectionTrees: V5.CollectionTree[];
   environments: V5.Environment[];
   requests: V5.Request[];
   requestCollectionTrees: V5.CollectionTree[];
+  templates: V5.Template[];
+  templateCollectionTrees: V5.CollectionTree[];
   liveVariables: V5.LiveVariable[];
   liveWorkflows: V5.LiveWorkflow[];
   allTabs: WorkbenchTab[];
@@ -38,44 +50,32 @@ interface UseTabSyncEffectsOptions {
 
 export function useTabSyncEffects({
   rules,
-  templates,
   localCollectionTrees,
   environments,
   requests,
   requestCollectionTrees,
+  templates,
+  templateCollectionTrees,
   liveVariables,
   liveWorkflows,
   allTabs,
   updateTab,
   closeTab,
 }: UseTabSyncEffectsOptions): void {
-  // Label/type mirror.
+  // Type/method mirror — narrow projection: only the icon-driving
+  // discriminators ride here. The display label derives at render time
+  // (see file header).
   useEffect(() => {
     for (const tab of allTabs) {
       if (tab.mode === 'edit' && tab.ruleUid) {
         const rule = rules.find((r) => r.uid === tab.ruleUid);
-        if (rule && rule.name !== tab.label) updateTab(tab.id, { label: rule.name, ruleType: rule.type });
-      } else if (tab.mode === 'template-edit' && tab.templateUid) {
-        const tpl = templates.find((t) => t.uid === tab.templateUid);
-        if (tpl && tpl.name !== tab.label) updateTab(tab.id, { label: tpl.name });
-      } else if (tab.mode === 'env-edit' && tab.environmentUid) {
-        const env = environments.find((e) => e.uid === tab.environmentUid);
-        if (env && env.name !== tab.label) updateTab(tab.id, { label: env.name });
+        if (rule && rule.type !== tab.ruleType) updateTab(tab.id, { ruleType: rule.type });
       } else if (tab.mode === 'request-edit' && tab.requestUid) {
         const req = requests.find((r) => r.uid === tab.requestUid);
-        if (req && (req.name !== tab.label || req.method !== tab.ruleType)) {
-          updateTab(tab.id, { label: req.name, ruleType: req.method });
-        }
-      } else if (tab.mode === 'live-variable-edit' && tab.liveVariableUid) {
-        const lv = liveVariables.find((v) => v.uid === tab.liveVariableUid);
-        if (lv && lv.name !== tab.label) updateTab(tab.id, { label: lv.name });
-      } else if (tab.mode === 'live-workflow-edit' && tab.liveWorkflowUid) {
-        const wf = liveWorkflows.find((w) => w.uid === tab.liveWorkflowUid);
-        const expected = wf ? wf.name : null;
-        if (expected && expected !== tab.label) updateTab(tab.id, { label: expected });
+        if (req && req.method !== tab.ruleType) updateTab(tab.id, { ruleType: req.method });
       }
     }
-  }, [rules, templates, environments, requests, liveVariables, liveWorkflows, allTabs, updateTab]);
+  }, [rules, requests, allTabs, updateTab]);
 
   // Close tabs whose backing entity was deleted.
   const prevEntityIds = useRef<Set<string>>(new Set());
@@ -95,6 +95,17 @@ export function useTabSyncEffects({
     for (const env of environments) currentIds.add(env.uid);
     for (const req of requests) currentIds.add(req.uid);
     for (const col of requestCollectionTrees) {
+      currentIds.add(col.uid);
+      const walk = (nodes: V5.TreeNode[]) => {
+        for (const n of nodes) {
+          currentIds.add(n.uid);
+          if (n.type === 'folder') walk(n.children);
+        }
+      };
+      walk(col.tree);
+    }
+    for (const tpl of templates) currentIds.add(tpl.uid);
+    for (const col of templateCollectionTrees) {
       currentIds.add(col.uid);
       const walk = (nodes: V5.TreeNode[]) => {
         for (const n of nodes) {
@@ -138,6 +149,8 @@ export function useTabSyncEffects({
     environments,
     requests,
     requestCollectionTrees,
+    templates,
+    templateCollectionTrees,
     liveVariables,
     liveWorkflows,
     allTabs,

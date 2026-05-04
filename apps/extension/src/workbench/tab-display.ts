@@ -1,0 +1,124 @@
+/**
+ * Live-derived display label for a workbench tab.
+ *
+ * Tab labels are a projection of entity state. Caching them on the tab
+ * struct (the historical `tab.label` shape) means imperative sync at
+ * mutation time, which grows linearly with entity types — every new
+ * mode adds a new branch to a label-mirror effect. This helper collapses
+ * the per-mode logic into one pure function: callers (TabBar,
+ * breadcrumbs, command palette) read the label by `(tab, lookups) →
+ * string` at consume time. Same pattern as the dirty (structural
+ * projection) and attribution (pure helpers, never cache live state)
+ * conventions.
+ *
+ * `tab.label` survives on the struct only as the seed value (set when
+ * the opener mints the tab) plus the fallback for two cases the helper
+ * can't resolve:
+ *   - The entity hasn't loaded yet — brief race window between tab open
+ *     and the entity-cache subscription firing.
+ *   - The tab is for a draft / create-mode that has no backing entity
+ *     yet — `draftName ?? label` is the legitimate seed.
+ *
+ * Adding a new entity-backed tab mode means adding one branch here. The
+ * imperative `useTabSyncEffects` label-mirror is gone; only deletion
+ * cleanup remains there.
+ */
+
+import type { V5 } from '@openheaders/core/types';
+import type { WorkbenchTab } from './types';
+
+export interface TabDisplayLookups {
+  rules: readonly V5.Rule[];
+  templates: readonly V5.Template[];
+  environments: readonly V5.Environment[];
+  requests: readonly V5.Request[];
+  localCollectionTrees: readonly V5.CollectionTree[];
+  requestCollectionTrees: readonly V5.CollectionTree[];
+  templateCollectionTrees: readonly V5.CollectionTree[];
+  liveVariables: readonly V5.LiveVariable[];
+  liveWorkflows: readonly V5.LiveWorkflow[];
+}
+
+function findFolderNameInTrees(trees: readonly V5.CollectionTree[], uid: string): string | null {
+  for (const col of trees) {
+    const stack: V5.TreeNode[] = [...col.tree];
+    while (stack.length > 0) {
+      const node = stack.pop()!;
+      if (node.type !== 'folder') continue;
+      if (node.uid === uid) return node.name;
+      stack.push(...node.children);
+    }
+  }
+  return null;
+}
+
+export function tabDisplayLabel(tab: WorkbenchTab, lookups: TabDisplayLookups): string {
+  switch (tab.mode) {
+    case 'edit': {
+      if (!tab.ruleUid) return tab.label;
+      const rule = lookups.rules.find((r) => r.uid === tab.ruleUid);
+      return rule ? rule.name : tab.label;
+    }
+    case 'template-edit': {
+      if (!tab.templateUid) return tab.label;
+      const tpl = lookups.templates.find((t) => t.uid === tab.templateUid);
+      return tpl ? tpl.name : tab.label;
+    }
+    case 'env-edit': {
+      if (!tab.environmentUid) return tab.label;
+      const env = lookups.environments.find((e) => e.uid === tab.environmentUid);
+      return env ? env.name : tab.label;
+    }
+    case 'request-edit': {
+      if (!tab.requestUid) return tab.label;
+      const req = lookups.requests.find((r) => r.uid === tab.requestUid);
+      return req ? req.name : tab.label;
+    }
+    case 'live-variable-edit': {
+      if (!tab.liveVariableUid) return tab.label;
+      const lv = lookups.liveVariables.find((v) => v.uid === tab.liveVariableUid);
+      return lv ? lv.name : tab.label;
+    }
+    case 'live-workflow-edit': {
+      if (!tab.liveWorkflowUid) return tab.label;
+      const wf = lookups.liveWorkflows.find((w) => w.uid === tab.liveWorkflowUid);
+      return wf ? wf.name : tab.label;
+    }
+    case 'collection-overview': {
+      if (!tab.entityId) return tab.label;
+      const col =
+        lookups.localCollectionTrees.find((c) => c.uid === tab.entityId) ??
+        lookups.requestCollectionTrees.find((c) => c.uid === tab.entityId) ??
+        lookups.templateCollectionTrees.find((c) => c.uid === tab.entityId);
+      return col ? col.name : tab.label;
+    }
+    case 'folder-overview': {
+      if (!tab.entityId) return tab.label;
+      const name =
+        findFolderNameInTrees(lookups.localCollectionTrees, tab.entityId) ??
+        findFolderNameInTrees(lookups.requestCollectionTrees, tab.entityId) ??
+        findFolderNameInTrees(lookups.templateCollectionTrees, tab.entityId);
+      return name ?? tab.label;
+    }
+    case 'collection-vars':
+    case 'request-collection-vars':
+    case 'template-collection-vars': {
+      if (!tab.collectionUid) return tab.label;
+      const trees =
+        tab.mode === 'collection-vars'
+          ? lookups.localCollectionTrees
+          : tab.mode === 'request-collection-vars'
+            ? lookups.requestCollectionTrees
+            : lookups.templateCollectionTrees;
+      const col = trees.find((c) => c.uid === tab.collectionUid);
+      return col ? `${col.name} · Variables` : tab.label;
+    }
+    // Drafts (`*-create`), singletons (`vault`, `workspace-vars`,
+    // `settings`, `workspace-manager`, `live-vars`, `landing`), and
+    // one-off tabs (`run-report`, `rule-flow`) keep their seed label —
+    // either the user-typed `draftName` or the static `label` set at
+    // open time. No entity to look up.
+    default:
+      return tab.draftName ?? tab.label;
+  }
+}
