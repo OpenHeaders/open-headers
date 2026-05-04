@@ -2,25 +2,41 @@
  * Shared variable-mutator factory.
  *
  * Variable scopes (collection, request-collection, template-collection,
- * etc.) all materialize variables as set members at a fixed `varsPath`
- * on the entity, with set-member identity = variable name. The four
- * primitives — set / remove / rename / setType — have identical wire
- * shape across every per-uid scope. Per-(setPath, name) LWW handles
- * concurrent same-name edits; concurrent diverging renames produce two
- * entries (the convergent answer for "two surfaces independently
- * renamed the same variable to different names").
+ * environment, workspace-variables) all materialize variables as set
+ * members at a fixed `varsPath` on the entity. Set-member identity =
+ * the variable's stable `uid` (NOT the user-mutable `name` field).
+ *
+ * Identity model. The four legacy primitives (set / remove / rename /
+ * setType) collapse to two: `setVariable` (upsert by uid; handles add,
+ * edit, rename, and type-toggle uniformly) and `removeVariable` (by uid).
+ * Per-itemId LWW handles convergence — same uid + later HLC supersedes
+ * the earlier whole-record. Rename is just `setVariable` with the same
+ * uid and a new `name`. Concurrent same-row renames converge on the
+ * later-HLC name (one row, latest-name-wins). Concurrent ADDS of
+ * same-named rows produce two distinct uids → two rows visible in the
+ * editor for manual merge (no silent data loss either way).
+ *
+ * Parallel to the rule + request slices from session 39
+ * (`HeaderModification.uid`, `RequestHeader.uid`). Earlier comments in
+ * this codebase describing "concurrent diverging renames produce two
+ * new entries" reflect the pre-uid model and are wrong under this
+ * factory.
  *
  * Per-catalog wrappers below preserve the existing named-arg shapes
- * (`SetCollectionVarArgs`, etc.) so call sites and tests don't churn.
+ * (`SetCollectionVarArgs`, etc.) so call sites and tests don't churn
+ * structurally — the args carry a `variable: V5.Variable` payload now
+ * instead of separate name/value/type fields.
  *
- * Singleton variable scopes (workspace-variables) plug in by binding
- * `entityUid` to a fixed constant in the wrapper and ignoring the uid
- * arg in `makeSideEffects`. Vault-secrets stays parallel because the
- * secret shape includes TOTP variants with non-`{name,value,type}` fields.
+ * Singleton variable scopes (workspace-variables, vault) plug in by
+ * binding `entityUid` to a fixed constant in the wrapper and ignoring
+ * the uid arg in `makeSideEffects`. Vault-secrets stays parallel because
+ * the secret shape includes TOTP variants with non-`{name,value,type}`
+ * fields; vault uses its own concrete factory in `vault/secret.ts`.
  */
 
 import type { HLC } from '../../hlc';
 import type { MutationBatch, MutationBody } from '../../envelope';
+import type { Variable } from '../../../types/v5/variable';
 import type { MutatorContext, MutatorIntent, SideEffectIntent } from '../types';
 
 export type VariableType = 'default' | 'secret';
@@ -41,103 +57,57 @@ export interface VariableMutatorBindings {
 
 export interface SetVariableInput {
   entityUid: string;
-  name: string;
-  value: string;
-  type?: VariableType;
+  /** Whole variable record. `variable.uid` is the set-member itemId. */
+  variable: Variable;
   /** Optional explicit orderKey — defaults to seed-key when omitted. */
   orderKey?: string;
 }
 
 export interface RemoveVariableInput {
   entityUid: string;
-  name: string;
-}
-
-export interface RenameVariableInput {
-  entityUid: string;
-  oldName: string;
-  newName: string;
-  /** Carried through so the new entry has the same value. */
-  value: string;
-  type?: VariableType;
-  orderKey?: string;
-}
-
-export interface SetVariableTypeInput {
-  entityUid: string;
-  name: string;
-  /** Carried through so the LWW replacement preserves it. */
-  value: string;
-  type: VariableType;
+  /** The row's persisted uid — NOT its name. */
+  uid: string;
 }
 
 export interface VariableMutators {
+  /**
+   * Upsert a variable row. Used uniformly for add / edit (value, type,
+   * name) / reorder-companion. Per-(setPath, uid) LWW means the latest
+   * record for the same uid wins; renames converge on the later-HLC name.
+   */
   setVariable(ctx: MutatorContext, input: SetVariableInput): MutatorIntent;
   removeVariable(ctx: MutatorContext, input: RemoveVariableInput): MutatorIntent;
-  /** Atomic rename — single batch so observers never see "old removed,
-   *  new not yet added" intermediate state. Same-name input → empty batch. */
-  renameVariable(ctx: MutatorContext, input: RenameVariableInput): MutatorIntent;
-  /** Toggle a variable's `type`. Re-emits the whole record via `addToSet`;
-   *  per-(setPath, itemId) LWW means the latest type wins. */
-  setVariableType(ctx: MutatorContext, input: SetVariableTypeInput): MutatorIntent;
 }
 
 export function makeVariableMutators(bindings: VariableMutatorBindings): VariableMutators {
   const { entityType, varsPath, mintBatch, makeSideEffects } = bindings;
 
-  const buildItem = (name: string, value: string, type: VariableType | undefined): { name: string; value: string; type: VariableType } => ({
-    name,
-    value,
-    type: type ?? 'default',
-  });
-
-  const addBody = (entityUid: string, name: string, item: unknown, orderKey?: string): MutationBody => ({
-    kind: 'addToSet',
-    type: entityType,
-    id: entityUid,
-    path: varsPath,
-    itemId: name,
-    item,
-    orderKey,
-  });
-
-  const removeBody = (entityUid: string, name: string): MutationBody => ({
-    kind: 'removeFromSet',
-    type: entityType,
-    id: entityUid,
-    path: varsPath,
-    itemId: name,
-  });
-
   return {
     setVariable(ctx, input) {
+      const body: MutationBody = {
+        kind: 'addToSet',
+        type: entityType,
+        id: input.entityUid,
+        path: varsPath,
+        itemId: input.variable.uid,
+        item: input.variable,
+        orderKey: input.orderKey,
+      };
       return {
-        batch: mintBatch(ctx, [addBody(input.entityUid, input.name, buildItem(input.name, input.value, input.type), input.orderKey)]),
+        batch: mintBatch(ctx, [body]),
         sideEffects: makeSideEffects(input.entityUid, ctx.hlc),
       };
     },
     removeVariable(ctx, input) {
-      return {
-        batch: mintBatch(ctx, [removeBody(input.entityUid, input.name)]),
-        sideEffects: makeSideEffects(input.entityUid, ctx.hlc),
+      const body: MutationBody = {
+        kind: 'removeFromSet',
+        type: entityType,
+        id: input.entityUid,
+        path: varsPath,
+        itemId: input.uid,
       };
-    },
-    renameVariable(ctx, input) {
-      if (input.oldName === input.newName) {
-        return { batch: mintBatch(ctx, []), sideEffects: [] };
-      }
-      const bodies: MutationBody[] = [
-        removeBody(input.entityUid, input.oldName),
-        addBody(input.entityUid, input.newName, buildItem(input.newName, input.value, input.type), input.orderKey),
-      ];
       return {
-        batch: mintBatch(ctx, bodies),
-        sideEffects: makeSideEffects(input.entityUid, ctx.hlc),
-      };
-    },
-    setVariableType(ctx, input) {
-      return {
-        batch: mintBatch(ctx, [addBody(input.entityUid, input.name, buildItem(input.name, input.value, input.type))]),
+        batch: mintBatch(ctx, [body]),
         sideEffects: makeSideEffects(input.entityUid, ctx.hlc),
       };
     },

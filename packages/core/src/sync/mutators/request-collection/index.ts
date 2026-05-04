@@ -5,11 +5,7 @@ export { REQUEST_COLLECTION_ENTITY_TYPE, REQUEST_COLLECTION_VARS_PATH } from './
 export {
   removeRequestCollectionVar,
   type RemoveRequestCollectionVarArgs,
-  renameRequestCollectionVar,
-  type RenameRequestCollectionVarArgs,
   setRequestCollectionVar,
   type SetRequestCollectionVarArgs,
-  setRequestCollectionVarType,
-  type SetRequestCollectionVarTypeArgs,
   type VariableType,
 } from './variable';

@@ -3,10 +3,13 @@
  *
  * Thin per-catalog adapter over {@link makeVariableMutators}: binds the
  * shared factory to the collection routing constants + side-effect
- * intent, then re-exports the four primitives under the historical
- * `setCollectionVar` / `removeCollectionVar` / `renameCollectionVar` /
- * `setCollectionVarType` names with their named-arg shapes preserved
- * for callers + tests.
+ * intent, then re-exports the two primitives under the historical
+ * `setCollectionVar` / `removeCollectionVar` names with their named-arg
+ * shapes preserved for callers + tests.
+ *
+ * Set-member identity = `variable.uid`. Per-(setPath, uid) LWW handles
+ * concurrent same-row edits; concurrent same-row renames converge on
+ * the later-HLC name.
  *
  * Collection vars do NOT support `secret` semantically — only Vault
  * holds secrets (§12.3). The catalog still types `VariableType` as
@@ -14,6 +17,7 @@
  * the UI layer + schema enforcement reject secret on collection scope.
  */
 
+import type { Variable } from '../../../types/v5/variable';
 import type { MutatorContext, MutatorIntent } from '../types';
 import { makeVariableMutators, type VariableType } from '../shared/variable-mutators';
 import { mintBatch } from './envelope';
@@ -31,55 +35,26 @@ const factories = makeVariableMutators({
 
 export interface SetCollectionVarArgs {
   collectionUid: string;
-  name: string;
-  value: string;
-  type?: VariableType;
+  /** Whole variable record. `variable.uid` is the set-member itemId. */
+  variable: Variable;
   /** Optional explicit orderKey — defaults to seed-key when omitted. */
   orderKey?: string;
 }
 
 export function setCollectionVar(ctx: MutatorContext, args: SetCollectionVarArgs): MutatorIntent {
-  return factories.setVariable(ctx, { entityUid: args.collectionUid, name: args.name, value: args.value, type: args.type, orderKey: args.orderKey });
-}
-
-export interface RemoveCollectionVarArgs {
-  collectionUid: string;
-  name: string;
-}
-
-export function removeCollectionVar(ctx: MutatorContext, args: RemoveCollectionVarArgs): MutatorIntent {
-  return factories.removeVariable(ctx, { entityUid: args.collectionUid, name: args.name });
-}
-
-export interface RenameCollectionVarArgs {
-  collectionUid: string;
-  oldName: string;
-  newName: string;
-  /** Carried through so the new entry has the same value. */
-  value: string;
-  type?: VariableType;
-  orderKey?: string;
-}
-
-export function renameCollectionVar(ctx: MutatorContext, args: RenameCollectionVarArgs): MutatorIntent {
-  return factories.renameVariable(ctx, {
+  return factories.setVariable(ctx, {
     entityUid: args.collectionUid,
-    oldName: args.oldName,
-    newName: args.newName,
-    value: args.value,
-    type: args.type,
+    variable: args.variable,
     orderKey: args.orderKey,
   });
 }
 
-export interface SetCollectionVarTypeArgs {
+export interface RemoveCollectionVarArgs {
   collectionUid: string;
-  name: string;
-  /** Carried through so the LWW replacement preserves it. */
-  value: string;
-  type: VariableType;
+  /** The row's persisted uid — NOT its name. */
+  uid: string;
 }
 
-export function setCollectionVarType(ctx: MutatorContext, args: SetCollectionVarTypeArgs): MutatorIntent {
-  return factories.setVariableType(ctx, { entityUid: args.collectionUid, name: args.name, value: args.value, type: args.type });
+export function removeCollectionVar(ctx: MutatorContext, args: RemoveCollectionVarArgs): MutatorIntent {
+  return factories.removeVariable(ctx, { entityUid: args.collectionUid, uid: args.uid });
 }

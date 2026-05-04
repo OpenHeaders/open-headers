@@ -3,8 +3,6 @@ export { INVALIDATE_RESOLVER, invalidateResolverIntent } from './side-effects';
 export {
   removeVaultSecret,
   type RemoveVaultSecretArgs,
-  renameVaultSecret,
-  type RenameVaultSecretArgs,
   setVaultSecret,
   type SetVaultSecretArgs,
 } from './secret';

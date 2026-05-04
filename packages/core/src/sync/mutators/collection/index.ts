@@ -13,11 +13,7 @@ export { COLLECTION_ENTITY_TYPE, COLLECTION_VARS_PATH } from './types';
 export {
   removeCollectionVar,
   type RemoveCollectionVarArgs,
-  renameCollectionVar,
-  type RenameCollectionVarArgs,
   setCollectionVar,
   type SetCollectionVarArgs,
-  setCollectionVarType,
-  type SetCollectionVarTypeArgs,
   type VariableType,
 } from './variable';

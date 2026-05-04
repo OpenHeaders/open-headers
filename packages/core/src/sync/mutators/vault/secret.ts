@@ -1,10 +1,13 @@
 /**
  * Secret intent factories for vault.
  *
- * Mirrors `workspace-variables/variable.ts` — singleton entity, no id
- * arg on the factories. Set-member identity = secret name. Concurrent
- * same-name edits converge under per-(setPath, name) LWW; concurrent
- * diverging renames produce two new entries.
+ * Mirrors the shared variable mutator factory: singleton entity, no id
+ * arg on the factories. Set-member identity = the secret's stable
+ * `uid`. Concurrent same-row edits converge under per-(setPath, uid)
+ * LWW; concurrent renames on the same uid converge on the later-HLC
+ * name (one row, latest-name-wins). Earlier comments describing
+ * "concurrent diverging renames produce two new entries" reflected the
+ * pre-uid name-as-identity model and are wrong under this factory.
  *
  * Vault items diverge from `Variable`: `VaultSecret` is a discriminated
  * union over `kind: 'string' | 'totp'`, with TOTP entries carrying RFC
@@ -29,17 +32,18 @@ import { invalidateResolverIntent } from './side-effects';
 import { VAULT_ENTITY_TYPE, VAULT_ID, VAULT_PATH } from './types';
 
 export interface SetVaultSecretArgs {
+  /** Whole secret record. `secret.uid` is the set-member itemId. */
   secret: V5.VaultSecret;
   /** Optional explicit orderKey — defaults to seed-key when omitted. */
   orderKey?: string;
 }
 
 /**
- * Add or update a vault secret. Idempotent on (name) — a subsequent
- * `setVaultSecret` for the same name supersedes via per-itemId LWW
- * (§7.2). Whole-record replacement matches the env / collection /
- * workspace-var model; kind transitions (string → totp or vice versa)
- * fall out for free since the union is the item.
+ * Add or update a vault secret. Used uniformly for add / edit (value,
+ * kind transition, name). Per-(setPath, uid) LWW means the latest
+ * record for the same uid supersedes (§7.2). Whole-record replacement
+ * matches the variable model; kind transitions (string → totp or vice
+ * versa) fall out for free since the union is the item.
  */
 export function setVaultSecret(ctx: MutatorContext, args: SetVaultSecretArgs): MutatorIntent {
   return {
@@ -49,7 +53,7 @@ export function setVaultSecret(ctx: MutatorContext, args: SetVaultSecretArgs): M
         type: VAULT_ENTITY_TYPE,
         id: VAULT_ID,
         path: VAULT_PATH,
-        itemId: args.secret.name,
+        itemId: args.secret.uid,
         item: args.secret,
         orderKey: args.orderKey,
       },
@@ -59,7 +63,8 @@ export function setVaultSecret(ctx: MutatorContext, args: SetVaultSecretArgs): M
 }
 
 export interface RemoveVaultSecretArgs {
-  name: string;
+  /** The row's persisted uid — NOT its name. */
+  uid: string;
 }
 
 /**
@@ -75,51 +80,9 @@ export function removeVaultSecret(ctx: MutatorContext, args: RemoveVaultSecretAr
         type: VAULT_ENTITY_TYPE,
         id: VAULT_ID,
         path: VAULT_PATH,
-        itemId: args.name,
+        itemId: args.uid,
       },
     ]),
-    sideEffects: [invalidateResolverIntent(ctx.hlc)],
-  };
-}
-
-export interface RenameVaultSecretArgs {
-  oldName: string;
-  /** Carries the full secret payload (with the new name) so the new entry
-   *  preserves the value/kind/TOTP parameters across the rename. */
-  newSecret: V5.VaultSecret;
-  orderKey?: string;
-}
-
-/**
- * Atomic rename — emitted as a single batch so the local oracle's
- * per-batch all-or-nothing (§11.2) guarantees observers never see the
- * "old removed but new not yet added" intermediate state. Rename to
- * the same name returns an empty batch (no broadcast, no recompile).
- */
-export function renameVaultSecret(ctx: MutatorContext, args: RenameVaultSecretArgs): MutatorIntent {
-  if (args.oldName === args.newSecret.name) {
-    return { batch: mintBatch(ctx, []), sideEffects: [] };
-  }
-  const bodies: MutationBody[] = [
-    {
-      kind: 'removeFromSet',
-      type: VAULT_ENTITY_TYPE,
-      id: VAULT_ID,
-      path: VAULT_PATH,
-      itemId: args.oldName,
-    },
-    {
-      kind: 'addToSet',
-      type: VAULT_ENTITY_TYPE,
-      id: VAULT_ID,
-      path: VAULT_PATH,
-      itemId: args.newSecret.name,
-      item: args.newSecret,
-      orderKey: args.orderKey,
-    },
-  ];
-  return {
-    batch: mintBatch(ctx, bodies),
     sideEffects: [invalidateResolverIntent(ctx.hlc)],
   };
 }

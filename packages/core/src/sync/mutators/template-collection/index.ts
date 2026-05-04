@@ -5,11 +5,7 @@ export { TEMPLATE_COLLECTION_ENTITY_TYPE, TEMPLATE_COLLECTION_VARS_PATH } from '
 export {
   removeTemplateCollectionVar,
   type RemoveTemplateCollectionVarArgs,
-  renameTemplateCollectionVar,
-  type RenameTemplateCollectionVarArgs,
   setTemplateCollectionVar,
   type SetTemplateCollectionVarArgs,
-  setTemplateCollectionVarType,
-  type SetTemplateCollectionVarTypeArgs,
   type VariableType,
 } from './variable';

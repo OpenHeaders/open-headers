@@ -3,16 +3,17 @@
  *
  * Thin per-catalog adapter over {@link makeVariableMutators}: binds the
  * shared factory to the environment routing constants + side-effect
- * intent. Re-exports the four primitives under the historical
- * `setEnvVar` / `removeEnvVar` / `renameEnvVar` / `setEnvVarType` names
- * with `envId`-named args preserved for call-site clarity.
+ * intent. Re-exports the two primitives under the historical
+ * `setEnvVar` / `removeEnvVar` names with `envId`-named args preserved.
  *
- * Set-member identity = variable name (per `types.ts`). Per-(setPath,
- * name) LWW handles concurrent same-name edits; concurrent diverging
- * renames produce two new entries — the convergent answer for "two
- * surfaces independently renamed the same variable to different names."
+ * Set-member identity = `variable.uid` (per `types.ts`). Per-(setPath,
+ * uid) LWW handles concurrent same-row edits; concurrent same-row
+ * renames converge on the later-HLC name. Two surfaces independently
+ * adding same-named rows produce two distinct uids → two rows for
+ * manual merge.
  */
 
+import type { Variable } from '../../../types/v5/variable';
 import { makeVariableMutators, type VariableType } from '../shared/variable-mutators';
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
@@ -30,9 +31,8 @@ const factories = makeVariableMutators({
 
 export interface SetEnvVarArgs {
   envId: string;
-  name: string;
-  value: string;
-  type?: VariableType;
+  /** Whole variable record. `variable.uid` is the set-member itemId. */
+  variable: Variable;
   /** Optional explicit orderKey — defaults to seed-key when omitted. */
   orderKey?: string;
 }
@@ -40,56 +40,17 @@ export interface SetEnvVarArgs {
 export function setEnvVar(ctx: MutatorContext, args: SetEnvVarArgs): MutatorIntent {
   return factories.setVariable(ctx, {
     entityUid: args.envId,
-    name: args.name,
-    value: args.value,
-    type: args.type,
+    variable: args.variable,
     orderKey: args.orderKey,
   });
 }
 
 export interface RemoveEnvVarArgs {
   envId: string;
-  name: string;
+  /** The row's persisted uid — NOT its name. */
+  uid: string;
 }
 
 export function removeEnvVar(ctx: MutatorContext, args: RemoveEnvVarArgs): MutatorIntent {
-  return factories.removeVariable(ctx, { entityUid: args.envId, name: args.name });
-}
-
-export interface RenameEnvVarArgs {
-  envId: string;
-  oldName: string;
-  newName: string;
-  /** Carried through so the new entry has the same value. */
-  value: string;
-  type?: VariableType;
-  orderKey?: string;
-}
-
-export function renameEnvVar(ctx: MutatorContext, args: RenameEnvVarArgs): MutatorIntent {
-  return factories.renameVariable(ctx, {
-    entityUid: args.envId,
-    oldName: args.oldName,
-    newName: args.newName,
-    value: args.value,
-    type: args.type,
-    orderKey: args.orderKey,
-  });
-}
-
-export interface SetEnvVarTypeArgs {
-  envId: string;
-  name: string;
-  /** Carried through so the LWW replacement preserves it. */
-  value: string;
-  type: VariableType;
-}
-
-export function setEnvVarType(ctx: MutatorContext, args: SetEnvVarTypeArgs): MutatorIntent {
-  return factories.setVariableType(ctx, {
-    entityUid: args.envId,
-    name: args.name,
-    value: args.value,
-    type: args.type,
-  });
+  return factories.removeVariable(ctx, { entityUid: args.envId, uid: args.uid });
 }

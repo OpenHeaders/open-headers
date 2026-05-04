@@ -3,10 +3,13 @@
  *
  * Thin per-catalog adapter over {@link makeVariableMutators}: binds the
  * shared factory to the template-collection routing constants +
- * side-effect intent. Re-exports the four primitives under the
- * `setTemplateCollectionVar` / `removeTemplateCollectionVar` /
- * `renameTemplateCollectionVar` / `setTemplateCollectionVarType` names
- * with `templateCollectionUid`-named args for call-site clarity.
+ * side-effect intent. Re-exports the two primitives under the
+ * `setTemplateCollectionVar` / `removeTemplateCollectionVar` names with
+ * `templateCollectionUid`-named args for call-site clarity.
+ *
+ * Set-member identity = `variable.uid`. Per-(setPath, uid) LWW handles
+ * concurrent same-row edits; concurrent same-row renames converge on
+ * the later-HLC name.
  *
  * Like rule-collection vars (§12.3), template-collection vars do NOT
  * support `secret` semantically — only Vault holds secrets. The catalog
@@ -14,6 +17,7 @@
  * is uniform across scopes; the UI layer rejects secret on this scope.
  */
 
+import type { Variable } from '../../../types/v5/variable';
 import { makeVariableMutators, type VariableType } from '../shared/variable-mutators';
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
@@ -31,9 +35,8 @@ const factories = makeVariableMutators({
 
 export interface SetTemplateCollectionVarArgs {
   templateCollectionUid: string;
-  name: string;
-  value: string;
-  type?: VariableType;
+  /** Whole variable record. `variable.uid` is the set-member itemId. */
+  variable: Variable;
   /** Optional explicit orderKey — defaults to seed-key when omitted. */
   orderKey?: string;
 }
@@ -44,65 +47,20 @@ export function setTemplateCollectionVar(
 ): MutatorIntent {
   return factories.setVariable(ctx, {
     entityUid: args.templateCollectionUid,
-    name: args.name,
-    value: args.value,
-    type: args.type,
+    variable: args.variable,
     orderKey: args.orderKey,
   });
 }
 
 export interface RemoveTemplateCollectionVarArgs {
   templateCollectionUid: string;
-  name: string;
+  /** The row's persisted uid — NOT its name. */
+  uid: string;
 }
 
 export function removeTemplateCollectionVar(
   ctx: MutatorContext,
   args: RemoveTemplateCollectionVarArgs,
 ): MutatorIntent {
-  return factories.removeVariable(ctx, { entityUid: args.templateCollectionUid, name: args.name });
-}
-
-export interface RenameTemplateCollectionVarArgs {
-  templateCollectionUid: string;
-  oldName: string;
-  newName: string;
-  /** Carried through so the new entry has the same value. */
-  value: string;
-  type?: VariableType;
-  orderKey?: string;
-}
-
-export function renameTemplateCollectionVar(
-  ctx: MutatorContext,
-  args: RenameTemplateCollectionVarArgs,
-): MutatorIntent {
-  return factories.renameVariable(ctx, {
-    entityUid: args.templateCollectionUid,
-    oldName: args.oldName,
-    newName: args.newName,
-    value: args.value,
-    type: args.type,
-    orderKey: args.orderKey,
-  });
-}
-
-export interface SetTemplateCollectionVarTypeArgs {
-  templateCollectionUid: string;
-  name: string;
-  /** Carried through so the LWW replacement preserves it. */
-  value: string;
-  type: VariableType;
-}
-
-export function setTemplateCollectionVarType(
-  ctx: MutatorContext,
-  args: SetTemplateCollectionVarTypeArgs,
-): MutatorIntent {
-  return factories.setVariableType(ctx, {
-    entityUid: args.templateCollectionUid,
-    name: args.name,
-    value: args.value,
-    type: args.type,
-  });
+  return factories.removeVariable(ctx, { entityUid: args.templateCollectionUid, uid: args.uid });
 }

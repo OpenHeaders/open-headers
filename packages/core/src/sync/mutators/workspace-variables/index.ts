@@ -8,11 +8,7 @@ export {
 export {
   removeWorkspaceVar,
   type RemoveWorkspaceVarArgs,
-  renameWorkspaceVar,
-  type RenameWorkspaceVarArgs,
   setWorkspaceVar,
   type SetWorkspaceVarArgs,
-  setWorkspaceVarType,
-  type SetWorkspaceVarTypeArgs,
   type VariableType,
 } from './variable';

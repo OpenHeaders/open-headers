@@ -8,12 +8,13 @@
  * `makeSideEffects` ignores the uid arg since the resolver-invalidate
  * intent for workspace-vars carries no key.
  *
- * Set-member identity = variable name. Per-(setPath, name) LWW handles
- * concurrent same-name edits; concurrent diverging renames produce two
- * new entries — the convergent answer for "two surfaces independently
- * renamed the same variable to different names."
+ * Set-member identity = `variable.uid`. Per-(setPath, uid) LWW handles
+ * concurrent same-row edits; concurrent same-row renames converge on
+ * the later-HLC name. Two surfaces independently adding same-named rows
+ * produce two distinct uids → two rows for manual merge.
  */
 
+import type { Variable } from '../../../types/v5/variable';
 import { makeVariableMutators, type VariableType } from '../shared/variable-mutators';
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
@@ -34,9 +35,8 @@ const factories = makeVariableMutators({
 });
 
 export interface SetWorkspaceVarArgs {
-  name: string;
-  value: string;
-  type?: VariableType;
+  /** Whole variable record. `variable.uid` is the set-member itemId. */
+  variable: Variable;
   /** Optional explicit orderKey — defaults to seed-key when omitted. */
   orderKey?: string;
 }
@@ -44,62 +44,19 @@ export interface SetWorkspaceVarArgs {
 export function setWorkspaceVar(ctx: MutatorContext, args: SetWorkspaceVarArgs): MutatorIntent {
   return factories.setVariable(ctx, {
     entityUid: WORKSPACE_VARIABLES_ID,
-    name: args.name,
-    value: args.value,
-    type: args.type,
+    variable: args.variable,
     orderKey: args.orderKey,
   });
 }
 
 export interface RemoveWorkspaceVarArgs {
-  name: string;
+  /** The row's persisted uid — NOT its name. */
+  uid: string;
 }
 
 export function removeWorkspaceVar(
   ctx: MutatorContext,
   args: RemoveWorkspaceVarArgs,
 ): MutatorIntent {
-  return factories.removeVariable(ctx, { entityUid: WORKSPACE_VARIABLES_ID, name: args.name });
-}
-
-export interface RenameWorkspaceVarArgs {
-  oldName: string;
-  newName: string;
-  /** Carried through so the new entry has the same value. */
-  value: string;
-  type?: VariableType;
-  orderKey?: string;
-}
-
-export function renameWorkspaceVar(
-  ctx: MutatorContext,
-  args: RenameWorkspaceVarArgs,
-): MutatorIntent {
-  return factories.renameVariable(ctx, {
-    entityUid: WORKSPACE_VARIABLES_ID,
-    oldName: args.oldName,
-    newName: args.newName,
-    value: args.value,
-    type: args.type,
-    orderKey: args.orderKey,
-  });
-}
-
-export interface SetWorkspaceVarTypeArgs {
-  name: string;
-  /** Carried through so the LWW replacement preserves it. */
-  value: string;
-  type: VariableType;
-}
-
-export function setWorkspaceVarType(
-  ctx: MutatorContext,
-  args: SetWorkspaceVarTypeArgs,
-): MutatorIntent {
-  return factories.setVariableType(ctx, {
-    entityUid: WORKSPACE_VARIABLES_ID,
-    name: args.name,
-    value: args.value,
-    type: args.type,
-  });
+  return factories.removeVariable(ctx, { entityUid: WORKSPACE_VARIABLES_ID, uid: args.uid });
 }
