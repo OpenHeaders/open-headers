@@ -35,7 +35,7 @@ import {
   EntityConflictDialog,
   prettyPathMap,
 } from '@/shared/conflicts';
-import { useDirtyDraft } from '../hooks/useDirtyDraft';
+import { stableStringify, useEntityReprime } from '@/shared/forms';
 import EditorHeader from './EditorHeader';
 import VariableTable, { type VariableTableConflictBridge } from './panels/VariableTable';
 import { scopeBadge } from './shared/scope-colors';
@@ -49,11 +49,11 @@ interface WorkspaceVariablesEditorProps {
   registerSaveRef?: (save: () => void) => void;
 }
 
-// Module-level — `useDirtyDraft` requires a stable fingerprint reference.
-function fingerprint(vars: V5.Variable[]): string {
-  return JSON.stringify(vars.map((v) => [v.name, v.value, v.type]));
-}
 const EMPTY_VARS: V5.Variable[] = [];
+
+function variablesSignature(vars: readonly V5.Variable[]): string {
+  return stableStringify(vars);
+}
 
 const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onDirtyChange, registerSaveRef }) => {
   const { token } = theme.useToken();
@@ -61,11 +61,15 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
   const { workspaceVariables } = useEnvironments();
   const { replaceWorkspaceVariables } = useVariableMutator();
 
-  const { draft, setDraft, isDirty, markPersisted } = useDirtyDraft<V5.Variable[]>({
-    serverDraft: workspaceVariables.variables,
-    fingerprint,
-    empty: EMPTY_VARS,
-  });
+  // Derived dirty (universal contract — `feedback_derived_dirty.md`).
+  // Compared against the canonical workspace-variables list each render;
+  // Use Saved sweeps + post-save echoes naturally drop dirty when the
+  // form converges with canonical.
+  const [draft, setDraft] = useState<V5.Variable[]>(() => workspaceVariables.variables ?? EMPTY_VARS);
+
+  const formSig = useMemo(() => variablesSignature(draft), [draft]);
+  const liveSig = useMemo(() => variablesSignature(workspaceVariables.variables), [workspaceVariables.variables]);
+  const isDirty = formSig !== liveSig;
 
   useEditorDirty(
     { entityType: WORKSPACE_VARIABLES_ENTITY_TYPE, entityId: WORKSPACE_VARIABLES_ID },
@@ -83,12 +87,23 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
     enabled: true,
     entityType: WORKSPACE_VARIABLES_ENTITY_TYPE,
   });
-  const setBaseline = conflicts.setBaseline;
+  const setConflictBaseline = conflicts.setBaseline;
 
+  useEntityReprime<V5.WorkspaceVariables>({
+    liveEntity: workspaceVariables,
+    scope: { entityType: WORKSPACE_VARIABLES_ENTITY_TYPE, entityId: WORKSPACE_VARIABLES_ID },
+    isDirty,
+    enabled: true,
+    signature: (e) => variablesSignature(e.variables),
+    populate: (e) => {
+      setDraft(e.variables);
+      setConflictBaseline({ uid: WORKSPACE_VARIABLES_ID, variables: e.variables });
+    },
+  });
   useEffect(() => {
     if (isDirty) return;
-    setBaseline(liveEntity);
-  }, [liveEntity, isDirty, setBaseline]);
+    setConflictBaseline(liveEntity);
+  }, [liveEntity, isDirty, setConflictBaseline]);
 
   const formProjection = useMemo(() => projectVariablesToForm(draft), [draft]);
   const formSetOrders = useMemo(
@@ -182,13 +197,14 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
     if (!isDirty) return;
     const result = await replaceWorkspaceVariables(draft);
     if (result.ok) {
-      markPersisted(draft);
-      onDirtyChange?.(false);
+      // Dirty derives from form-vs-canonical equality; the post-save
+      // broadcast brings them into alignment automatically.
+      conflicts.clearDismissed();
     } else {
       const detail = 'message' in result && result.message ? `: ${result.message}` : '';
       message.error(`Failed to save workspace variables${detail}`);
     }
-  }, [isDirty, draft, replaceWorkspaceVariables, onDirtyChange, message, markPersisted]);
+  }, [isDirty, draft, replaceWorkspaceVariables, message, conflicts]);
 
   const handleSaveSync = useCallback(() => {
     void handleSave();

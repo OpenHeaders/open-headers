@@ -40,7 +40,7 @@ import {
   EntityConflictDialog,
   prettyPathMap,
 } from '@/shared/conflicts';
-import { useDirtyDraft } from '../hooks/useDirtyDraft';
+import { stableStringify, useEntityReprime } from '@/shared/forms';
 import EditorHeader from './EditorHeader';
 import VariableTable, { type VariableTableConflictBridge } from './panels/VariableTable';
 import { scopeBadge } from './shared/scope-colors';
@@ -70,10 +70,11 @@ interface CollectionVariablesEditorProps {
   registerSaveRef?: (save: () => void) => void;
 }
 
-function fingerprint(vars: V5.Variable[]): string {
-  return JSON.stringify(vars.map((v) => [v.name, v.value, v.type]));
-}
 const EMPTY_VARS: V5.Variable[] = [];
+
+function variablesSignature(vars: readonly V5.Variable[]): string {
+  return stableStringify(vars);
+}
 
 const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
   kind = 'rule',
@@ -108,13 +109,17 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
     }
   }, [kind, replaceCollectionVariables, replaceRequestCollectionVariables, replaceTemplateCollectionVariables]);
 
-  const { draft, setDraft, isDirty, markPersisted } = useDirtyDraft<V5.Variable[]>({
-    serverDraft: collection?.variables ?? null,
-    fingerprint,
-    empty: EMPTY_VARS,
-  });
+  const [draft, setDraft] = useState<V5.Variable[]>(() => collection?.variables ?? EMPTY_VARS);
 
   const entityType = entityTypeFor(kind);
+
+  // Derived dirty (universal contract).
+  const formSig = useMemo(() => variablesSignature(draft), [draft]);
+  const liveSig = useMemo(
+    () => (collection ? variablesSignature(collection.variables) : null),
+    [collection],
+  );
+  const isDirty = liveSig !== null && formSig !== liveSig;
 
   useEditorDirty({ entityType, entityId: collectionUid }, isDirty);
 
@@ -129,12 +134,23 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
     enabled: !!collection,
     entityType,
   });
-  const setBaseline = conflicts.setBaseline;
+  const setConflictBaseline = conflicts.setBaseline;
 
+  useEntityReprime<V5.Collection>({
+    liveEntity: collection,
+    scope: { entityType, entityId: collectionUid },
+    isDirty,
+    enabled: collection !== null,
+    signature: (e) => variablesSignature(e.variables),
+    populate: (e) => {
+      setDraft(e.variables);
+      setConflictBaseline({ uid: e.uid, variables: e.variables });
+    },
+  });
   useEffect(() => {
     if (!liveEntity || isDirty) return;
-    setBaseline(liveEntity);
-  }, [liveEntity, isDirty, setBaseline]);
+    setConflictBaseline(liveEntity);
+  }, [liveEntity, isDirty, setConflictBaseline]);
 
   const formProjection = useMemo(() => projectVariablesToForm(draft), [draft]);
   const formSetOrders = useMemo(
@@ -231,8 +247,9 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
     if (!collection || !isDirty) return;
     void replaceVariables(collection.uid, draft).then((result) => {
       if (result.ok) {
-        markPersisted(draft);
-        onDirtyChange?.(false);
+        // Dirty derives from form-vs-canonical equality; the post-save
+        // broadcast brings them into alignment automatically.
+        conflicts.clearDismissed();
         return;
       }
       if (result.reason === 'not-found') {
@@ -242,7 +259,7 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
       const detail = 'message' in result ? result.message : undefined;
       message.error(`Failed to save collection variables${detail ? `: ${detail}` : ''}`);
     });
-  }, [collection, isDirty, draft, replaceVariables, onDirtyChange, message, markPersisted]);
+  }, [collection, isDirty, draft, replaceVariables, message, conflicts]);
 
   useEffect(() => {
     registerSaveRef?.(handleSave);

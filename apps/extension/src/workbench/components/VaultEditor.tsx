@@ -37,7 +37,7 @@ import {
   EntityConflictDialog,
   prettyPathMap,
 } from '@/shared/conflicts';
-import { useDirtyDraft } from '../hooks/useDirtyDraft';
+import { stableStringify, useEntityReprime } from '@/shared/forms';
 import EditorHeader from './EditorHeader';
 import VariableTable, { type VariableTableConflictBridge } from './panels/VariableTable';
 import { scopeBadge } from './shared/scope-colors';
@@ -53,16 +53,8 @@ interface VaultEditorProps {
 
 const EMPTY_SECRETS: V5.VaultSecret[] = [];
 
-function fingerprintSecrets(secrets: V5.VaultSecret[]): string {
-  return JSON.stringify(
-    secrets
-      .filter((s) => s.name.trim())
-      .map((s) =>
-        s.kind === 'totp'
-          ? ['totp', s.name, s.seed, s.algorithm, s.digits, s.period, s.issuer ?? '']
-          : ['string', s.name, s.value],
-      ),
-  );
+function secretsSignature(secrets: readonly V5.VaultSecret[]): string {
+  return stableStringify(secrets);
 }
 
 const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRef }) => {
@@ -71,24 +63,35 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
   const { vault } = useEnvironments();
   const { replaceVault } = useVariableMutator();
 
-  const serverDraft = useMemo<V5.VaultSecret[]>(() => [...vault.secrets], [vault]);
-  const { draft, setDraft, isDirty, markPersisted } = useDirtyDraft<V5.VaultSecret[]>({
-    serverDraft,
-    fingerprint: fingerprintSecrets,
-    empty: EMPTY_SECRETS,
-  });
+  // Derived dirty (universal contract).
+  const [draft, setDraft] = useState<V5.VaultSecret[]>(() => vault.secrets ?? EMPTY_SECRETS);
+
+  const formSig = useMemo(() => secretsSignature(draft), [draft]);
+  const liveSig = useMemo(() => secretsSignature(vault.secrets), [vault.secrets]);
+  const isDirty = formSig !== liveSig;
 
   useEditorDirty({ entityType: VAULT_ENTITY_TYPE, entityId: VAULT_ID }, isDirty);
 
   // ── Conflict tracking ──────────────────────────────────────────
   const conflicts = useVaultConflicts({ liveVault: vault, isDirty, enabled: true });
-  const setBaseline = conflicts.setBaseline;
+  const setConflictBaseline = conflicts.setBaseline;
   const liveVaultWithUid = useMemo(() => ({ ...vault, uid: VAULT_ID }), [vault]);
 
+  useEntityReprime<V5.Vault>({
+    liveEntity: vault,
+    scope: { entityType: VAULT_ENTITY_TYPE, entityId: VAULT_ID },
+    isDirty,
+    enabled: true,
+    signature: (e) => secretsSignature(e.secrets),
+    populate: (e) => {
+      setDraft(e.secrets);
+      setConflictBaseline({ ...e, uid: VAULT_ID });
+    },
+  });
   useEffect(() => {
     if (isDirty) return;
-    setBaseline(liveVaultWithUid);
-  }, [liveVaultWithUid, isDirty, setBaseline]);
+    setConflictBaseline(liveVaultWithUid);
+  }, [liveVaultWithUid, isDirty, setConflictBaseline]);
 
   const formProjection = useMemo(() => projectSecretsToForm(draft), [draft]);
   const formSetOrders = useMemo(
@@ -186,13 +189,14 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
     if (!isDirty) return;
     const result = await replaceVault(draft);
     if (result.ok) {
-      markPersisted([...draft]);
-      onDirtyChange?.(false);
+      // Dirty derives from form-vs-canonical equality; the post-save
+      // broadcast brings them into alignment automatically.
+      conflicts.clearDismissed();
     } else {
       const detail = 'message' in result && result.message ? `: ${result.message}` : '';
       message.error(`Failed to save vault${detail}`);
     }
-  }, [isDirty, draft, replaceVault, onDirtyChange, message, markPersisted]);
+  }, [isDirty, draft, replaceVault, message, conflicts]);
 
   const handleSaveSync = useCallback(() => {
     void handleSave();

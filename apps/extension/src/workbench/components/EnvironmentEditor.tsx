@@ -33,7 +33,7 @@ import {
   EntityConflictDialog,
   prettyPathMap,
 } from '@/shared/conflicts';
-import { useDirtyDraft } from '../hooks/useDirtyDraft';
+import { stableStringify, useEntityReprime } from '@/shared/forms';
 import { useEnvSwitcher } from '../services/env-switcher';
 import EditorHeader from './EditorHeader';
 import VariableTable, { type VariableTableConflictBridge } from './panels/VariableTable';
@@ -49,15 +49,18 @@ interface EnvironmentEditorProps {
   registerSaveRef?: (save: () => void) => void;
 }
 
-// Module-level — `useDirtyDraft` requires a stable fingerprint reference.
-function fingerprint(vars: V5.Variable[]): string {
-  return JSON.stringify(vars.map((v) => [v.name, v.value, v.type]));
-}
-// Shared empty-fallback — ensures identity stability so the hook's
-// initial-state factory never sees a fresh `[]` per render.
 const EMPTY_VARS: V5.Variable[] = [];
 
 const SURFACE_ID = 'workbench';
+
+// Order-sensitive signature — `stableStringify` preserves array order
+// while sorting object keys, so reorder shows up as a real edit (it's a
+// user-visible change you'd save). Reorder convergence is tracked
+// separately by the conflict adapter via `formSetOrders` for the
+// set-reorder kind.
+function variablesSignature(vars: readonly V5.Variable[]): string {
+  return stableStringify(vars);
+}
 
 const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, onDirtyChange, registerSaveRef }) => {
   const { token } = theme.useToken();
@@ -70,11 +73,17 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
   const env = useMemo(() => environments.find((e) => e.uid === environmentUid) ?? null, [environments, environmentUid]);
   const localInstanceId = useLocalInstanceId();
 
-  const { draft, setDraft, isDirty, markPersisted } = useDirtyDraft<V5.Variable[]>({
-    serverDraft: env?.variables ?? null,
-    fingerprint,
-    empty: EMPTY_VARS,
-  });
+  // Derived dirty (universal contract — `feedback_derived_dirty.md`):
+  // compare the draft signature against the canonical signature each
+  // render. When the form converges with canonical (post-save echo,
+  // user-resolves-all-conflicts via Use Saved, peer-mirrors-our-edit),
+  // the next render naturally reports `isDirty=false`. No persistedFp
+  // dance, no markPersisted callback.
+  const [draft, setDraft] = useState<V5.Variable[]>(() => env?.variables ?? EMPTY_VARS);
+
+  const formSig = useMemo(() => variablesSignature(draft), [draft]);
+  const liveSig = useMemo(() => (env ? variablesSignature(env.variables) : null), [env]);
+  const isDirty = liveSig !== null && formSig !== liveSig;
 
   useEditorDirty(
     { entityType: ENVIRONMENT_ENTITY_TYPE, entityId: env?.uid ?? null },
@@ -92,17 +101,27 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
     enabled: !!env,
     entityType: ENVIRONMENT_ENTITY_TYPE,
   });
-  const setBaseline = conflicts.setBaseline;
+  const setConflictBaseline = conflicts.setBaseline;
 
-  // Snap conflict baseline whenever the editor is clean against the
-  // canonical entity — initial seed + post-save echo + clean-state
-  // rebroadcasts. `useDirtyDraft`'s resync already keeps `draft` aligned
-  // with `env.variables` while clean; this effect keeps the conflict
-  // baseline aligned with the same fingerprint.
+  // Auto-rebase: when form converges with canonical, snap the conflict
+  // baseline. `useEntityReprime` covers the "user is clean, peer
+  // commits" case below; this effect fires AFTER a Use Saved sweep
+  // brings form into alignment with canonical too.
+  useEntityReprime<V5.Environment>({
+    liveEntity: env,
+    scope: { entityType: ENVIRONMENT_ENTITY_TYPE, entityId: env?.uid ?? null },
+    isDirty,
+    enabled: env !== null,
+    signature: (e) => variablesSignature(e.variables),
+    populate: (e) => {
+      setDraft(e.variables);
+      setConflictBaseline({ uid: e.uid, variables: e.variables });
+    },
+  });
   useEffect(() => {
     if (!liveEntity || isDirty) return;
-    setBaseline(liveEntity);
-  }, [liveEntity, isDirty, setBaseline]);
+    setConflictBaseline(liveEntity);
+  }, [liveEntity, isDirty, setConflictBaseline]);
 
   const formProjection = useMemo(() => projectVariablesToForm(draft), [draft]);
   const formSetOrders = useMemo(
@@ -206,14 +225,19 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
     if (!env || !isDirty) return;
     const result = await mutator.replaceVariables(env.uid, draft, env.variables);
     if (result.ok) {
-      markPersisted(draft);
-      onDirtyChange?.(false);
+      // Dirty derives from form-vs-canonical equality (universal
+      // contract). Once the commit broadcast lands and the mirror
+      // updates `env.variables` to match the just-saved draft, the
+      // next render reports `isDirty=false` automatically. Clear
+      // dismissed conflict paths so a future peer edit on a
+      // previously-dismissed field surfaces a fresh chip.
+      conflicts.clearDismissed();
     } else if (result.reason === 'not-found') {
       message.error('Environment was deleted from another tab');
     } else {
       message.error(`Failed to update environment${result.message ? `: ${result.message}` : ''}`);
     }
-  }, [env, isDirty, draft, mutator, onDirtyChange, message, markPersisted]);
+  }, [env, isDirty, draft, mutator, message, conflicts]);
 
   // registerSaveRef takes a sync callback; wrap our async handler so
   // the breadcrumb Save button kicks off the save without awaiting.
