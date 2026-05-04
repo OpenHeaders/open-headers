@@ -10,9 +10,10 @@
  *
  * Awareness: contributes through `useEditorDirty` + `<EntityScopeProvider>`;
  * the surface's `<SurfaceAwarenessPublisher>` composes the published claim.
- * Variable rows are name-keyed and dynamic — field-level paths defer
- * until set-modeled paths land for the env entity; the entity-level
- * presence chip suffices.
+ * Variable rows are uid-keyed (post-session-66): `VARIABLE_PATHS.row(uid, leaf)`
+ * threads through `VariableTable`'s `rowPath` so each row's name + value
+ * input publishes per-field focus + renders presence chips that survive
+ * reorder + rename.
  */
 
 import { CheckCircleTwoTone, StarFilled, StarOutlined } from '@ant-design/icons';
@@ -24,7 +25,7 @@ import type { V5 } from '@openheaders/core/types';
 import { App, Button, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo } from 'react';
-import { EntityScopeProvider } from '@/shared/awareness';
+import { EntityScopeProvider, VARIABLE_PATHS } from '@/shared/awareness';
 import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
 import { useDirtyDraft } from '../hooks/useDirtyDraft';
 import { useEnvSwitcher } from '../services/env-switcher';
@@ -162,7 +163,7 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
               VARIABLES ({nonEmptyCount})
             </Text>
 
-            <VariableTable variables={draft} onChange={setDraft} allowSecrets />
+            <VariableTable variables={draft} onChange={setDraft} allowSecrets rowPath={VARIABLE_PATHS.row} />
           </div>
         </div>
       </div>

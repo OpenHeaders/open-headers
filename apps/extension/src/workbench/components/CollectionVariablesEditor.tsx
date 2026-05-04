@@ -32,7 +32,7 @@ import type { V5 } from '@openheaders/core/types';
 import { App, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo } from 'react';
-import { EntityScopeProvider } from '@/shared/awareness';
+import { EntityScopeProvider, VARIABLE_PATHS } from '@/shared/awareness';
 import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
 import { useDirtyDraft } from '../hooks/useDirtyDraft';
 import EditorHeader from './EditorHeader';
@@ -171,7 +171,7 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
               VARIABLES ({nonEmptyCount})
             </Text>
 
-            <VariableTable variables={draft} onChange={setDraft} allowSecrets={false} />
+            <VariableTable variables={draft} onChange={setDraft} allowSecrets={false} rowPath={VARIABLE_PATHS.row} />
           </div>
         </div>
       </div>

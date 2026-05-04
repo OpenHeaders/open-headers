@@ -32,6 +32,7 @@ export {
   tabKeyToRequestFieldPath,
 } from './request-paths';
 export { LIVE_VARIABLE_FIELD, LIVE_WORKFLOW_FIELD } from './live-paths';
+export { type VariableLeaf, type VariablePathBundle, VARIABLE_PATHS } from './variable-paths';
 export { ActionPathsProvider, useActionPaths } from './ActionPathsContext';
 export type { ActionPathsProviderProps } from './ActionPathsContext';
 export { surfaceKindColor, surfaceKindInitial, surfaceKindLabel } from './surface-label';

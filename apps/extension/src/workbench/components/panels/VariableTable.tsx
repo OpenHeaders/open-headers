@@ -40,7 +40,14 @@ import { generateUid } from '@openheaders/core/utils';
 import { Collapse, Input, InputNumber, Select, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { EntityField } from '@/shared/awareness';
 import TotpPreview from '../totp/TotpPreview';
+
+/** Per-row awareness path generator. Editors pass `VARIABLE_PATHS.row`
+ *  (or a curried equivalent) when they want per-row presence chips +
+ *  field-focus publishing. Vault mode skips per §14.4 of the sync
+ *  design (sensitive entities use entity-level-only awareness). */
+export type VariableRowPath = (uid: string, leaf: 'name' | 'value' | 'type') => string;
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -81,6 +88,11 @@ type VariableTableProps =
       /** Disallow marking rows as secret (used for the collection-vars
        *  editor — collection vars are synced via Git and never encrypted). */
       allowSecrets?: boolean;
+      /** Per-row awareness path generator. When provided, name + value
+       *  inputs publish focus + render presence chips against
+       *  `(entityType, entityId, rowPath(uid, leaf))`. Editors must mount
+       *  an `<EntityScopeProvider>` upstream so the entity context is set. */
+      rowPath?: VariableRowPath;
     }
   | {
       mode: 'vault';
@@ -289,6 +301,7 @@ interface SortableRowProps {
   isSeedRevealed: boolean;
   mode: 'variable' | 'vault';
   allowSecrets: boolean;
+  rowPath?: VariableRowPath;
   update: (i: number, patch: Partial<LocalRow>) => void;
   remove: (i: number) => void;
   toggleReveal: (uid: string) => void;
@@ -303,6 +316,7 @@ function SortableRow({
   isSeedRevealed,
   mode,
   allowSecrets,
+  rowPath,
   update,
   remove,
   toggleReveal,
@@ -347,23 +361,32 @@ function SortableRow({
           minHeight: 30,
         }}
       >
-        <input
-          value={row.name}
-          placeholder={row.isPlaceholder ? (isVault ? 'Add secret…' : 'Add variable…') : 'Name'}
-          onChange={(e) => update(index, { name: e.target.value, isPlaceholder: false })}
-          style={{
-            fontFamily: "'SF Mono', 'Fira Code', monospace",
-            fontSize: 12,
-            fontWeight: row.isPlaceholder ? 400 : 500,
-            color: row.isPlaceholder ? token.colorTextQuaternary : token.colorText,
-            background: 'transparent',
-            border: 'none',
-            outline: 'none',
-            flex: 1,
-            minWidth: 0,
-            padding: '6px',
-          }}
-        />
+        {(() => {
+          const nameInput = (
+            <input
+              value={row.name}
+              placeholder={row.isPlaceholder ? (isVault ? 'Add secret…' : 'Add variable…') : 'Name'}
+              onChange={(e) => update(index, { name: e.target.value, isPlaceholder: false })}
+              style={{
+                fontFamily: "'SF Mono', 'Fira Code', monospace",
+                fontSize: 12,
+                fontWeight: row.isPlaceholder ? 400 : 500,
+                color: row.isPlaceholder ? token.colorTextQuaternary : token.colorText,
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                flex: 1,
+                minWidth: 0,
+                padding: '6px',
+              }}
+            />
+          );
+          // Skip awareness on placeholder + vault rows. Placeholder has no
+          // persisted uid yet; vault rows skip per §14.4.
+          return rowPath && !row.isPlaceholder
+            ? <EntityField path={rowPath(row.uid, 'name')}>{nameInput}</EntityField>
+            : nameInput;
+        })()}
         {!isVault && allowSecrets && !row.isPlaceholder && (
           <Tooltip title={row.isSensitive ? 'Unmark as sensitive' : 'Mark as sensitive'}>
             {row.isSensitive ? (
@@ -456,14 +479,21 @@ function SortableRow({
           ) : (
             <>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <ValueCell
-                  value={row.value}
-                  masked={row.isSensitive && !isRevealed && !row.isPlaceholder}
-                  onChange={(v) => update(index, { value: v, isPlaceholder: false })}
-                  onReveal={() => {
-                    if (row.isSensitive && !isRevealed) toggleReveal(row.uid);
-                  }}
-                />
+                {(() => {
+                  const cell = (
+                    <ValueCell
+                      value={row.value}
+                      masked={row.isSensitive && !isRevealed && !row.isPlaceholder}
+                      onChange={(v) => update(index, { value: v, isPlaceholder: false })}
+                      onReveal={() => {
+                        if (row.isSensitive && !isRevealed) toggleReveal(row.uid);
+                      }}
+                    />
+                  );
+                  return rowPath && !row.isPlaceholder
+                    ? <EntityField path={rowPath(row.uid, 'value')}>{cell}</EntityField>
+                    : cell;
+                })()}
               </div>
               {row.isSensitive && !row.isPlaceholder && (
                 <Tooltip title={isRevealed ? 'Hide value' : 'Show value'}>
@@ -701,6 +731,7 @@ const VariableTable: React.FC<VariableTableProps> = (props) => {
   const allowSecrets = !isVaultMode && (props.allowSecrets ?? true);
   const nameHeader = isVaultMode ? 'Secret' : 'Variable';
   const mode: 'variable' | 'vault' = isVaultMode ? 'vault' : 'variable';
+  const rowPath = isVaultMode ? undefined : props.rowPath;
 
   return (
     <div
@@ -756,6 +787,7 @@ const VariableTable: React.FC<VariableTableProps> = (props) => {
               isSeedRevealed={seedRevealed.has(row.uid)}
               mode={mode}
               allowSecrets={allowSecrets}
+              rowPath={rowPath}
               update={update}
               remove={remove}
               toggleReveal={toggleReveal}

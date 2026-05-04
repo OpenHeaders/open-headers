@@ -11,8 +11,10 @@
  * Awareness: contributes through `useEditorDirty` + `<EntityScopeProvider>`
  * pinned to the singleton id (`WORKSPACE_VARIABLES_ID`). The surface's
  * `<SurfaceAwarenessPublisher>` composes the published claim. Variable
- * rows are name-keyed and dynamic — field-level paths defer; the
- * entity-level presence chip suffices.
+ * rows are uid-keyed (post-session-66): `VARIABLE_PATHS.row` threads
+ * through `VariableTable`'s `rowPath` so each row's name + value input
+ * publishes per-field focus + renders presence chips that survive
+ * reorder + rename.
  */
 
 import { useEnvironments } from '@hooks/useEnvironments';
@@ -25,7 +27,7 @@ import type { V5 } from '@openheaders/core/types';
 import { App, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect } from 'react';
-import { EntityScopeProvider } from '@/shared/awareness';
+import { EntityScopeProvider, VARIABLE_PATHS } from '@/shared/awareness';
 import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
 import { useDirtyDraft } from '../hooks/useDirtyDraft';
 import EditorHeader from './EditorHeader';
@@ -112,7 +114,7 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
               VARIABLES ({nonEmptyCount})
             </Text>
 
-            <VariableTable variables={draft} onChange={setDraft} allowSecrets />
+            <VariableTable variables={draft} onChange={setDraft} allowSecrets rowPath={VARIABLE_PATHS.row} />
           </div>
         </div>
       </div>
