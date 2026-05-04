@@ -27,13 +27,16 @@ export interface TreeNode {
   /**
    * Awareness identity for the entity this node represents — drives the
    * per-field presence chip beside the inline-rename input (and any
-   * future per-row awareness affordances). Tree builders for entity
-   * leaves (rules, requests, templates, workflows, live variables, envs)
-   * populate this; container nodes (collections, folders, groups) leave
-   * it absent.
+   * future per-row awareness affordances). Populated for any node whose
+   * inline-rename writes through to a real entity: leaves (rules,
+   * requests, templates, workflows, environments) AND containers
+   * (collections, folders) whose name is also persisted entity state.
+   * Purely structural / read-only nodes — placeholders, the System
+   * Templates group, the default-templates collection, vault /
+   * workspace-vars singletons (no rename surface) — leave it absent.
    *
    * `entityType` strings come from `@openheaders/core/sync` (e.g.
-   * `RULE_ENTITY_TYPE`, `REQUEST_ENTITY_TYPE`, …). Adding a new entity
+   * `RULE_ENTITY_TYPE`, `FOLDER_ENTITY_TYPE`, …). Adding a new entity
    * type means populating this in the relevant `useXTreeNodes` hook —
    * no infrastructure changes here or in `TreeNodeRow`.
    */

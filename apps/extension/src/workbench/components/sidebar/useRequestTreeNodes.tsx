@@ -1,5 +1,10 @@
 import { FolderOpenOutlined, FolderOutlined, PlusOutlined } from '@ant-design/icons';
 import type { useVariableResolver } from '@hooks/useVariableResolver';
+import {
+  REQUEST_COLLECTION_ENTITY_TYPE,
+  REQUEST_ENTITY_TYPE,
+  REQUEST_FOLDER_ENTITY_TYPE,
+} from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { isRequestComplete, isRequestResolvable } from '@openheaders/core/utils';
 import { useCallback, useMemo } from 'react';
@@ -119,6 +124,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
                 : {}),
             }),
             ...exportNodeFields({ kind: 'folder', uid: node.uid, name: node.name }, p.onExportEntity),
+            awareness: { entityType: REQUEST_FOLDER_ENTITY_TYPE, entityId: node.uid },
           });
           if (isExpanded) {
             const children = walkRequestTree(node.children, depth + 1, fid, collectionId);
@@ -182,6 +188,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
                 void p.deleteRequest(node.uid);
               }),
             ...exportNodeFields({ kind: 'request', uid: node.uid, name: node.name }, p.onExportEntity),
+            awareness: { entityType: REQUEST_ENTITY_TYPE, entityId: node.uid },
           });
         }
       }
@@ -287,6 +294,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
             ? { onOpenVariables: () => p.onOpenCollectionVariables?.(collection.uid, collection.name) }
             : {}),
         }),
+        awareness: { entityType: REQUEST_COLLECTION_ENTITY_TYPE, entityId: collection.uid },
       });
 
       if (isExpanded) {

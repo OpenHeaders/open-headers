@@ -1,4 +1,5 @@
 import { isWorkflowComplete, isWorkflowDraft } from '@openheaders/core/live';
+import { LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { createElement, useMemo } from 'react';
 import type { WorkbenchTab } from '../../types';
@@ -175,6 +176,7 @@ export function useWorkflowNodes(p: UseWorkflowNodesParams): TreeNode[] {
             void p.deleteWorkflow(wf.uid);
           }),
         ...exportNodeFields({ kind: 'liveWorkflow', uid: wf.uid, name: wf.name }, p.onExportEntity),
+        awareness: { entityType: LIVE_WORKFLOW_ENTITY_TYPE, entityId: wf.uid },
       });
     }
     return items;

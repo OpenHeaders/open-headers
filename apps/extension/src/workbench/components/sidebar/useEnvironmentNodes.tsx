@@ -6,6 +6,7 @@ import {
   StarFilled,
   StarOutlined,
 } from '@ant-design/icons';
+import { ENVIRONMENT_ENTITY_TYPE } from '@openheaders/core/sync';
 import { createElement, useMemo } from 'react';
 import { scopeBadge } from '../shared/scope-colors';
 import { exportNodeFields } from './export-fields';
@@ -98,6 +99,7 @@ export function useEnvironmentNodes(p: UseEnvironmentNodesParams): TreeNode[] {
               }),
           },
         ],
+        awareness: { entityType: ENVIRONMENT_ENTITY_TYPE, entityId: env.uid },
       });
     }
     return items;

@@ -1,5 +1,5 @@
 import { CheckCircleOutlined, FolderOpenOutlined, FolderOutlined, PlusOutlined, StopOutlined } from '@ant-design/icons';
-import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
+import { COLLECTION_ENTITY_TYPE, FOLDER_ENTITY_TYPE, RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { hasNestedPauseMarkers, isRuleComplete, type PauseMarkers } from '@openheaders/core/utils';
 import { useCallback, useMemo } from 'react';
@@ -127,6 +127,7 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
                 ? { onExport: () => p.onExportEntity?.({ kind: 'folder', uid: node.uid, name: node.name }) }
                 : {}),
             }),
+            awareness: { entityType: FOLDER_ENTITY_TYPE, entityId: node.uid },
           });
           if (isExpanded) {
             const children = walkV5Tree(node.children, depth + 1, fid, collectionId);
@@ -339,6 +340,7 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
             ? { onOpenVariables: () => p.onOpenCollectionVariables?.(collection.uid, collection.name) }
             : {}),
         }),
+        awareness: { entityType: COLLECTION_ENTITY_TYPE, entityId: collection.uid },
       });
 
       if (isExpanded) {

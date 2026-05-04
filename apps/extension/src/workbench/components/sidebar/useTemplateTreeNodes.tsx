@@ -1,4 +1,9 @@
 import { FileTextOutlined, FolderOpenOutlined, FolderOutlined } from '@ant-design/icons';
+import {
+  TEMPLATE_COLLECTION_ENTITY_TYPE,
+  TEMPLATE_ENTITY_TYPE,
+  TEMPLATE_FOLDER_ENTITY_TYPE,
+} from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { createElement, useCallback, useMemo } from 'react';
 import { TEMPLATES_BY_TYPE } from '../../rule-templates';
@@ -107,6 +112,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
                 ? () => p.onExportEntity?.({ kind: 'folder', uid: node.uid, name: node.name })
                 : undefined,
             ),
+            awareness: { entityType: TEMPLATE_FOLDER_ENTITY_TYPE, entityId: node.uid },
           });
           if (isExpanded) {
             const children = walkTemplateTree(node.children, depth + 1, fid, collectionId);
@@ -155,6 +161,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
                 void p.deleteTemplate(node.uid);
               }),
             ...exportNodeFields({ kind: 'template', uid: node.uid, name: node.name }, p.onExportEntity),
+            awareness: { entityType: TEMPLATE_ENTITY_TYPE, entityId: node.uid },
           });
         }
       }
@@ -313,6 +320,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
             ? () => p.onOpenCollectionVariables?.(collection.uid, collection.name)
             : undefined,
         ),
+        ...(isDefault ? {} : { awareness: { entityType: TEMPLATE_COLLECTION_ENTITY_TYPE, entityId: collection.uid } }),
       });
 
       if (isExpanded) {
