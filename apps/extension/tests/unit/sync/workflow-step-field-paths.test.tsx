@@ -3,7 +3,7 @@
  * Per-step `data-field-path` propagation in WorkflowStepEditor.
  *
  * Awareness publishing inside `LiveWorkflowEditor` rides
- * `data-field-path` ancestor walks (see `live-field-paths.ts`). The
+ * `data-field-path` ancestor walks (see `shared/awareness/live-paths.ts`). The
  * step editor wraps four leaves declared by `LIVE_WORKFLOW_FIELD.step`:
  * `id`, `requestUid`, `gate`, `captures`. These tests verify the
  * attribute is present at the right leaves and that `readFieldPath`
@@ -13,7 +13,8 @@
 import type { DraftStep } from '@openheaders/core/live';
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { LIVE_WORKFLOW_FIELD, readFieldPath } from '@/workbench/components/live/live-field-paths';
+import { readFieldPath } from '@/shared/awareness/field-path';
+import { LIVE_WORKFLOW_FIELD } from '@/shared/awareness/live-paths';
 import WorkflowStepEditor from '@/workbench/components/live/WorkflowStepEditor';
 
 beforeAll(() => {

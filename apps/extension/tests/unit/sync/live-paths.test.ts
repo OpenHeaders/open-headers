@@ -1,10 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import {
-  LIVE_VARIABLE_FIELD,
-  LIVE_WORKFLOW_FIELD,
-  readFieldPath,
-} from '@/workbench/components/live/live-field-paths';
+import { readFieldPath } from '@/shared/awareness/field-path';
+import { LIVE_VARIABLE_FIELD, LIVE_WORKFLOW_FIELD } from '@/shared/awareness/live-paths';
 
 describe('LIVE_VARIABLE_FIELD constants', () => {
   it('exposes canonical schema-aligned paths', () => {

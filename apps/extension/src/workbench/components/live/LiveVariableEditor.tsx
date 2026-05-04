@@ -33,7 +33,8 @@ import { useLiveWorkflowCache } from '@hooks/useLiveCache';
 import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { LIVE_VARIABLE_ENTITY_TYPE } from '@openheaders/core/sync';
-import { EntityScopeProvider, useSetActiveFieldFocus } from '@/shared/awareness';
+import { EntityScopeProvider, LIVE_VARIABLE_FIELD, useSetActiveFieldFocus } from '@/shared/awareness';
+import { readFieldPath } from '@/shared/awareness/field-path';
 import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
 import type { V5 } from '@openheaders/core/types';
 import { App, Button, Input, InputNumber, Select, Switch, Tag, Tooltip, Typography, theme } from 'antd';
@@ -41,7 +42,6 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import EditorHeader from '../EditorHeader';
 import { FieldRow, InlineNameDescription, LIVE_ROW_GAP, LIVE_ROW_LABEL_WIDTH, Section } from './layout';
-import { LIVE_VARIABLE_FIELD, readFieldPath } from './live-field-paths';
 import {
   classifyRun,
   describeRefreshPolicy,

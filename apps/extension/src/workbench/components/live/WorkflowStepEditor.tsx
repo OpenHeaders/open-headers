@@ -37,7 +37,7 @@ import { scopeBadge } from '../shared/scope-colors';
 import { METHOD_COLORS } from '../sidebar/icons';
 import type { DependencyRow } from './dependencies-view';
 import ExtractorEditor from './ExtractorEditor';
-import { LIVE_WORKFLOW_FIELD } from './live-field-paths';
+import { LIVE_WORKFLOW_FIELD } from '@/shared/awareness/live-paths';
 import StepGateEditor from './StepGateEditor';
 
 const { Text } = Typography;

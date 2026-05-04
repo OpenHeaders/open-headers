@@ -57,7 +57,8 @@ import { computeRequestTrail } from '../../breadcrumbs';
 import EditorHeader from '../EditorHeader';
 import { buildDependencyRows } from './dependencies-view';
 import { InlineNameDescription, Section } from './layout';
-import { LIVE_WORKFLOW_FIELD, readFieldPath } from './live-field-paths';
+import { LIVE_WORKFLOW_FIELD } from '@/shared/awareness/live-paths';
+import { readFieldPath } from '@/shared/awareness/field-path';
 import {
   classifyRun,
   describeCircuit,
