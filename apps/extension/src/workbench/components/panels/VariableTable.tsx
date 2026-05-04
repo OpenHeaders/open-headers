@@ -381,9 +381,14 @@ function SortableRow({
               }}
             />
           );
-          // Skip awareness on placeholder + vault rows. Placeholder has no
-          // persisted uid yet; vault rows skip per §14.4.
-          return rowPath && !row.isPlaceholder
+          // Wrap unconditionally when rowPath is set (vault skips because
+          // it doesn't pass rowPath, per §14.4). Conditioning on
+          // `!row.isPlaceholder` would remount the input on first
+          // keystroke (placeholder→real transition flips the wrapper),
+          // dropping focus mid-type. The placeholder uid is already
+          // generateUid()-shaped and is the same uid that persists once
+          // the row materializes — publishing focus from it is harmless.
+          return rowPath
             ? <EntityField path={rowPath(row.uid, 'name')}>{nameInput}</EntityField>
             : nameInput;
         })()}
@@ -490,7 +495,7 @@ function SortableRow({
                       }}
                     />
                   );
-                  return rowPath && !row.isPlaceholder
+                  return rowPath
                     ? <EntityField path={rowPath(row.uid, 'value')}>{cell}</EntityField>
                     : cell;
                 })()}
