@@ -25,6 +25,8 @@ import {
   REQUEST_ENTITY_TYPE,
   RULE_ENTITY_TYPE,
   TEMPLATE_ENTITY_TYPE,
+  VAULT_ENTITY_TYPE,
+  VAULT_ID,
   WORKSPACE_VARIABLES_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ID,
 } from '@openheaders/core/sync';
@@ -924,8 +926,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
         // Singleton entity — fixed id; the publisher composes presence
         // from the editor's `useEditorDirty` + `EntityScopeProvider`.
         return { entityType: WORKSPACE_VARIABLES_ENTITY_TYPE, entityId: WORKSPACE_VARIABLES_ID };
-      // Other singleton entities (vault) and create-mode tabs (no minted
-      // uid yet) deliberately return null until their editors migrate.
+      case 'vault':
+        return { entityType: VAULT_ENTITY_TYPE, entityId: VAULT_ID };
+      // Create-mode tabs (no minted uid yet) deliberately return null.
       default:
         return null;
     }
@@ -1729,6 +1732,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
             REQUEST_ENTITY_TYPE,
             ENVIRONMENT_ENTITY_TYPE,
             WORKSPACE_VARIABLES_ENTITY_TYPE,
+            VAULT_ENTITY_TYPE,
           ]}
         />
           <div

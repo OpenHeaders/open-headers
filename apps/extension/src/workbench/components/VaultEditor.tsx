@@ -15,13 +15,13 @@
  * state is tracked locally by comparing the draft's fingerprint
  * against the broadcast-driven canonical view.
  *
- * Awareness publishes only `entityFocus = { type: VAULT_ENTITY_TYPE }`
- * — the SW awareness store scrubs `fieldFocus` for this entity (§14.4)
- * so per-secret-name presence never leaks the secret namespace.
+ * Awareness: contributes through `useEditorDirty` + `<EntityScopeProvider>`
+ * pinned to the singleton id (`VAULT_ID`). Sensitive entity per §14.4 —
+ * NO per-secret field paths are published; the SW awareness store also
+ * scrubs `fieldFocus` for this entity type defensively. The entity-level
+ * presence chip is the only signal.
  */
 
-import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
-import { useAwareness } from '@hooks/useAwareness';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useVariableMutator } from '@hooks/useVariableMutator';
 import { VAULT_ENTITY_TYPE, VAULT_ID } from '@openheaders/core/sync';
@@ -29,14 +29,14 @@ import type { V5 } from '@openheaders/core/types';
 import { Alert, App, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo } from 'react';
-import { useSurfaceIdentity } from '@/shared/awareness';
+import { EntityScopeProvider } from '@/shared/awareness';
+import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
 import { useDirtyDraft } from '../hooks/useDirtyDraft';
 import EditorHeader from './EditorHeader';
 import VariableTable from './panels/VariableTable';
 import { scopeBadge } from './shared/scope-colors';
 
 const { Text, Title } = Typography;
-const SURFACE_ID = 'workbench';
 
 interface VaultEditorProps {
   onDirtyChange?: (dirty: boolean) => void;
@@ -62,8 +62,6 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
   const { message } = App.useApp();
   const { vault } = useEnvironments();
   const { replaceVault } = useVariableMutator();
-  const workspaceId = useActiveWorkspaceId();
-  const identity = useSurfaceIdentity();
 
   const serverDraft = useMemo<V5.VaultSecret[]>(() => [...vault.secrets], [vault]);
   const { draft, setDraft, isDirty, markPersisted } = useDirtyDraft<V5.VaultSecret[]>({
@@ -72,16 +70,7 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
     empty: EMPTY_SECRETS,
   });
 
-  // Awareness — entity-level only. Vault is §12.1 schema-marked
-  // sensitive; the SW awareness store drops `fieldFocus` for this
-  // entity type even if a surface tries to publish it.
-  useAwareness({
-    workspaceId,
-    identity,
-    entityFocus: { type: VAULT_ENTITY_TYPE, id: VAULT_ID },
-    fieldFocus: null,
-    dirtyFields: isDirty ? ['*'] : [],
-  });
+  useEditorDirty({ entityType: VAULT_ENTITY_TYPE, entityId: VAULT_ID }, isDirty);
 
   useEffect(() => {
     onDirtyChange?.(isDirty);
@@ -127,26 +116,28 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
-      <EditorHeader title={headerTitle} isDirty={isDirty} onSave={handleSaveSync} />
-      <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
-        <div style={{ maxWidth: 920, margin: '0 auto' }}>
-          <Alert
-            type="warning"
-            showIcon
-            style={{ marginBottom: 16 }}
-            message="Local-per-device"
-            description="Vault secrets are stored only in this browser profile. They take priority over every other scope. They are never synced — not via Git, not via the desktop WebSocket. Add a TOTP entry to reference its current 6-digit code as {{vault.NAME}} from any request."
-          />
+    <EntityScopeProvider entityType={VAULT_ENTITY_TYPE} entityId={VAULT_ID}>
+      <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
+        <EditorHeader title={headerTitle} isDirty={isDirty} onSave={handleSaveSync} />
+        <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
+          <div style={{ maxWidth: 920, margin: '0 auto' }}>
+            <Alert
+              type="warning"
+              showIcon
+              style={{ marginBottom: 16 }}
+              message="Local-per-device"
+              description="Vault secrets are stored only in this browser profile. They take priority over every other scope. They are never synced — not via Git, not via the desktop WebSocket. Add a TOTP entry to reference its current 6-digit code as {{vault.NAME}} from any request."
+            />
 
-          <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 600 }}>
-            SECRETS ({counts.strings} string · {counts.totps} TOTP)
-          </Text>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 600 }}>
+              SECRETS ({counts.strings} string · {counts.totps} TOTP)
+            </Text>
 
-          <VariableTable mode="vault" secrets={draft} onChange={setDraft} />
+            <VariableTable mode="vault" secrets={draft} onChange={setDraft} />
+          </div>
         </div>
       </div>
-    </div>
+    </EntityScopeProvider>
   );
 };
 
