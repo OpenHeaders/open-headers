@@ -520,9 +520,17 @@ function SortableRow({
             </>
           ) : (
             <>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                {(() => {
-                  const cell = (
+              {(() => {
+                // Wrap the flex-1 value container in EntityField (not the
+                // inner ValueCell). EntityField uses `display: contents`,
+                // so its FieldPresenceChip lands as a flex sibling of the
+                // wrapper div in the row's value-column flex container —
+                // inline with the input on the same row, matching the
+                // rule editor's UX. Wrapping the inner cell instead would
+                // put the chip inside the wrapper div (block layout) and
+                // it would stack BELOW the textarea.
+                const valueWrapper = (
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <ValueCell
                       value={row.value}
                       masked={row.isSensitive && !isRevealed && !row.isPlaceholder}
@@ -531,12 +539,12 @@ function SortableRow({
                         if (row.isSensitive && !isRevealed) toggleReveal(row.uid);
                       }}
                     />
-                  );
-                  return rowPath
-                    ? <EntityField path={rowPath(row.uid, 'value')}>{cell}</EntityField>
-                    : cell;
-                })()}
-              </div>
+                  </div>
+                );
+                return rowPath
+                  ? <EntityField path={rowPath(row.uid, 'value')}>{valueWrapper}</EntityField>
+                  : valueWrapper;
+              })()}
               {row.isSensitive && !row.isPlaceholder && (
                 <Tooltip title={isRevealed ? 'Hide value' : 'Show value'}>
                   <span
