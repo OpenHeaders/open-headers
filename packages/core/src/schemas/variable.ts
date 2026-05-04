@@ -6,6 +6,15 @@
  * `types/v5/variable.ts` — the type system enforces structural
  * agreement; these schemas enforce runtime validation at the storage
  * boundary. See `document.ts` for the preserve-unknown discipline.
+ *
+ * Identity model. Variable + VaultSecret rows carry a stable `uid` that
+ * doubles as the sync engine's set-member itemId. The user-mutable
+ * `name` is just another field — renames are LWW within a stable uid
+ * (one row, latest name wins). Parallel to the rule + request slice
+ * from session 39 (HeaderModification.uid, RequestHeader.uid). Earlier
+ * comments throughout this codebase describing "concurrent diverging
+ * renames produce two new entries" reflect the pre-uid name-as-identity
+ * model and are wrong under this schema.
  */
 
 import * as v from 'valibot';
@@ -13,7 +22,18 @@ import { SchemaVersionSchema, UidSchema } from './common';
 
 export const VariableTypeSchema = v.picklist(['default', 'secret']);
 
+/**
+ * Per-row identity for variable entries. Doubles as the sync engine's
+ * itemId so set-member identity round-trips through save/reload without
+ * depending on the user-mutable `name` field. Concurrent renames on the
+ * same row converge under per-itemId LWW (one row, latest name wins);
+ * two surfaces independently adding same-named rows produce two distinct
+ * uids (no silent data loss — duplicate visible in the editor for manual
+ * merge). Parallel to `RequestHeader.uid` / `HeaderModification.uid`
+ * from session 39.
+ */
 export const VariableSchema = v.object({
+  uid: UidSchema,
   name: v.string(),
   value: v.string(),
   type: VariableTypeSchema,
@@ -33,12 +53,14 @@ export const VaultSecretKindSchema = v.picklist(['string', 'totp']);
 export const TotpAlgorithmSchema = v.picklist(['SHA1', 'SHA256', 'SHA512']);
 
 export const VaultSecretStringSchema = v.object({
+  uid: UidSchema,
   kind: v.literal('string'),
   name: v.string(),
   value: v.string(),
 });
 
 export const VaultSecretTotpSchema = v.object({
+  uid: UidSchema,
   kind: v.literal('totp'),
   name: v.string(),
   seed: v.string(),
