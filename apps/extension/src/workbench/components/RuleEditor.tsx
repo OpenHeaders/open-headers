@@ -27,6 +27,8 @@ import {
 } from '@ant-design/icons';
 import { useRuleMutator } from '@hooks/useRuleMutator';
 import { useRules } from '@hooks/useRules';
+import { serializeRule } from '@openheaders/core/codec/yaml';
+import { freshDocument } from '@openheaders/core/schemas';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
@@ -41,8 +43,10 @@ import {
   RULE_ACTION_PATHS,
   useLocalInstanceId,
 } from '@/shared/awareness';
-import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
-import { stableStringify, useEntityReprime } from '@/shared/forms';
+import type { ConflictResolution } from '@/shared/conflicts';
+import { EntityConflictBanner, EntityConflictDialog } from '@/shared/conflicts';
+import { useEditorShell, useReprime } from '@/shared/editor-shell';
+import { stableStringify } from '@/shared/forms';
 import { applyRuleCreate, applyRulePublish } from '@/shared/sync/rule-write-client';
 import { buildDraftConditions } from '../draft-conditions';
 import { useInspectorNav } from '../hooks/useInspectorNav';
@@ -60,16 +64,12 @@ import DelayRuleFields from './rule-fields/DelayRuleFields';
 import HeaderRuleFields from './rule-fields/HeaderRuleFields';
 import InjectRuleFields, { maybePrefillInjectCode } from './rule-fields/InjectRuleFields';
 import MockRuleFields, { MOCK_DYNAMIC_TEMPLATE } from './rule-fields/MockRuleFields';
+import { prettyRulePathMap } from './rule-fields/pretty-path';
 import QueryParamRuleFields from './rule-fields/QueryParamRuleFields';
 import RedirectRuleFields from './rule-fields/RedirectRuleFields';
-import { serializeRule } from '@openheaders/core/codec/yaml';
-import { freshDocument } from '@openheaders/core/schemas';
 import { applyResolutionToForm, applyResolutionToRule } from './rule-fields/rule-form-resolver';
-import { prettyRulePathMap } from './rule-fields/pretty-path';
-import { useRuleConflicts } from './rule-fields/use-rule-conflicts';
 import type { PathConflict } from './rule-fields/use-rule-conflicts';
-import { EntityConflictBanner, EntityConflictDialog } from '@/shared/conflicts';
-import type { ConflictResolution } from '@/shared/conflicts';
+import { useRuleConflicts } from './rule-fields/use-rule-conflicts';
 import SaveAsTemplateModal from './SaveAsTemplateModal';
 import { buildRuleIcon } from './shared/rule-icon';
 import { renderTwoToneIcon } from './TwoToneIconPicker';
@@ -125,12 +125,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   const [form] = Form.useForm();
   const [_saving, setSaving] = useState(false);
   const [saveAsTemplateOpen, setSaveAsTemplateOpen] = useState(false);
-  const initializedRef = useRef(false);
-  // Reactive mirror of `initializedRef` for `useEntityReprime`'s
-  // `enabled` gate. `useRef` reads don't trigger renders so the hook
-  // would otherwise have no way to react to "init just completed".
-  // Set once, alongside the ref, by the init effect below.
-  const [isInitialized, setIsInitialized] = useState(false);
   // ── Header state (lifted from HeaderRuleFields for reliable timing) ──
   // useWatch has inherent first-render timing issues — parent owns the truth.
   const [headerActiveTab, setHeaderActiveTab] = useState('request');
@@ -176,7 +170,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       lastSeenRuleRef.current = liveRule;
     }
   }, [liveRule]);
-  const isDeletedRemotely = initializedRef.current && !liveRule && lastSeenRuleRef.current !== null;
+  const isDeletedRemotely = !liveRule && lastSeenRuleRef.current !== null;
 
   // Stale-draft tracking is gone — the sync engine
   // (`docs/SYNC_ENGINE_DESIGN.md` §6.2) replaces the version-counter
@@ -193,55 +187,13 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   /** Single source of truth for name. */
   const ruleName = liveRule?.name ?? 'Rule';
 
-  // Awareness — RuleEditor contributes ONLY its dirty marker via the
-  // workspace-level `ActiveEditorDirty` context. The single
-  // `<SurfaceAwarenessPublisher>` mounted near the surface root is the
-  // sole `useAwareness` caller; it composes `entityFocus` from
-  // `ActiveTabEntity`, `fieldFocus` from `ActiveFieldFocus`, and the
-  // `dirtyFields` claim from `ActiveEditorDirty`. No per-editor
-  // awareness slot — no MRT-pick race against the workspace publisher.
-  // ── Derived dirty (see `shared/forms/index.ts` convention) ──────────
-  //
-  // Dirty is a structural projection of "form has untouched edits
-  // diverging from the synced baseline" — never an event log. Two
-  // distinct fingerprints, both refreshed reactively:
-  //
-  //   formFingerprint         — the form's canonical-shape projection,
-  //                             updates on every keystroke / setFieldsValue
-  //   liveRuleFingerprint     — the mirror's canonical right now,
-  //                             updates on every broadcast
-  //   lastPrimedFingerprint   — the canonical the form was LAST synced
-  //                             from. Initial-set on init; bumped only
-  //                             at known-clean moments
-  //
-  // `isDirty = formFingerprint !== lastPrimedFingerprint`. Comparing
-  // against `lastPrimedFingerprint` (NOT `liveRuleFingerprint`) is
-  // load-bearing — when an external broadcast lands while the user is
-  // clean, the form is briefly "stale-clean" (matches the previous
-  // canonical, not the new one). Comparing to live would falsely flag
-  // dirty, which would gate `useEntityReprime` and prevent the catch-up.
-  // The reprime hook reads `isDirty` to decide "is it safe to overwrite
-  // the form?"; only "user has actually touched it" gates that.
-  //
-  // Auto-rebase effect snaps `lastPrimedFingerprint` to the current
-  // canonical the moment `formFingerprint === liveRuleFingerprint`.
-  // That single line covers all the convergence paths uniformly:
-  //
-  //   - Manual revert ("01" → "02" → "01"): formFp re-aligns with
-  //     canonical → snap → dirty clears.
-  //   - Take Theirs (writes canonical theirs into the form): formFp
-  //     matches the just-arrived canonical → snap → dirty clears.
-  //   - Save commit: broadcast lands carrying the values we just
-  //     submitted; formFp == new canonical → snap → dirty clears.
-  //   - Drag-and-drop reorder back to canonical order: same path.
-  //
-  // `populateAndBaseline` updates `lastPrimedFingerprint` explicitly
-  // alongside `populateFormFromRule` so init / re-prime don't have to
-  // wait for the auto-rebase effect's next render — keeps `isDirty`
-  // false from the very first form-rendered tick.
+  // ── Form fingerprint inputs to `useReprime` ──────────────────────
+  // Dirty + auto-rebase + comparison shape are owned by the shell
+  // hook; the editor only supplies the form's canonical-shape
+  // projection plus a matching `signature` over the live entity.
   const formValues = Form.useWatch([], form) as Record<string, unknown> | undefined;
   const formFingerprint = useMemo(
-    () => (formValues ? stableStringify(buildRule(formValues, ruleName, isEnabled)) : null),
+    () => (formValues ? stableStringify(buildRule(formValues, ruleName, isEnabled)) : ''),
     [formValues, ruleName, isEnabled],
   );
   const canonicalProjection = useCallback(
@@ -255,55 +207,180 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       }),
     [],
   );
-  const liveRuleFingerprint = useMemo(
-    () => (liveRule ? canonicalProjection(liveRule) : null),
-    [liveRule, canonicalProjection],
+
+  // Refs threaded into `useReprime`'s `onPrimed` so the conflict
+  // tracker (defined below — needs `isDirty` from reprime) can wire
+  // its baseline setter without a forward declaration, and so the
+  // first-mount overlay / template-apply runs once across the
+  // populate + auto-rebase lifecycle.
+  const setBaselineRef = useRef<(r: V5.Rule) => void>(() => undefined);
+  const overlayAppliedRef = useRef(false);
+
+  // Populate the form from a persisted rule. `useReprime` calls this
+  // on initial seed and broadcast catch-up; conflict-tracker baseline
+  // advancement happens in `onPrimed`, not here.
+  const populateFormFromRule = useCallback(
+    (rule: V5.Rule) => {
+      const baseValues = {
+        ruleType: rule.type,
+        conditions: rule.conditions,
+      };
+      switch (rule.type) {
+        case 'header': {
+          const hr = rule as V5.HeaderRule;
+          const reqH = hr.action.requestHeaders ?? [];
+          const resH = hr.action.responseHeaders ?? [];
+          form.setFieldsValue({ ...baseValues, requestHeaders: reqH, responseHeaders: resH });
+          setHeaderReqCount(reqH.length);
+          setHeaderResCount(resH.length);
+          setDefaultHeaderTab(reqH.length, resH.length);
+          break;
+        }
+        case 'block':
+          form.setFieldsValue(baseValues);
+          break;
+        case 'redirect': {
+          const rr = rule as V5.RedirectRule;
+          form.setFieldsValue({ ...baseValues, redirectTo: rr.action.redirectTo });
+          break;
+        }
+        case 'query-param': {
+          const qr = rule as V5.QueryParamRule;
+          form.setFieldsValue({
+            ...baseValues,
+            queryParams: qr.action.params.map((p) => ({
+              uid: p.uid,
+              param: p.param,
+              value: p.value ?? '',
+              operation: p.operation,
+            })),
+          });
+          break;
+        }
+        case 'inject': {
+          const ir = rule as V5.InjectRule;
+          form.setFieldsValue({
+            ...baseValues,
+            injectType: ir.action.injectType,
+            injectSource: ir.action.source || 'code',
+            injectCode: ir.action.code,
+            injectSourceUrl: ir.action.sourceUrl || '',
+            injectPosition: ir.action.position,
+            injectBypassCSP: ir.action.bypassCSP ?? false,
+          });
+          break;
+        }
+        case 'delay': {
+          const dr = rule as V5.DelayRule;
+          form.setFieldsValue({ ...baseValues, delayMs: dr.action.delayMs });
+          break;
+        }
+        case 'body': {
+          const br = rule as V5.BodyRule;
+          form.setFieldsValue({
+            ...baseValues,
+            bodyModType: br.action.bodyType || 'static',
+            bodyStaticContent: br.action.bodyType === 'dynamic' ? '' : br.action.body,
+            bodyDynamicContent: br.action.bodyType === 'dynamic' ? br.action.body : '',
+            bodyResourceType: br.action.resourceType || 'rest',
+            bodyGraphqlKey: br.action.graphqlFilter?.key || '',
+            bodyGraphqlOperator: br.action.graphqlFilter?.operator || 'Equals',
+            bodyGraphqlValue: br.action.graphqlFilter?.value || '',
+          });
+          break;
+        }
+        case 'mock': {
+          const mr = rule as V5.MockRule;
+          form.setFieldsValue({
+            ...baseValues,
+            mockStatusCode: mr.action.statusCode || undefined,
+            mockContentType: mr.action.contentType,
+            mockStaticBody: mr.action.bodyType === 'dynamic' ? '' : mr.action.responseBody,
+            mockDynamicBody: mr.action.bodyType === 'dynamic' ? mr.action.responseBody : '',
+            mockBodyType: mr.action.bodyType || 'static',
+            mockResourceType: mr.action.resourceType || 'rest',
+            mockGraphqlKey: mr.action.graphqlFilter?.key || '',
+            mockGraphqlOperator: mr.action.graphqlFilter?.operator || 'Equals',
+            mockGraphqlValue: mr.action.graphqlFilter?.value || '',
+            mockResponseHeaders: Object.entries(mr.action.responseHeaders ?? {}).map(([name, value]) => ({
+              name,
+              value,
+            })),
+          });
+          break;
+        }
+      }
+    },
+    [form, setDefaultHeaderTab],
   );
-  const [lastPrimedFingerprint, setLastPrimedFingerprint] = useState<string | null>(null);
-  const isDirty =
-    isInitialized &&
-    formFingerprint !== null &&
-    lastPrimedFingerprint !== null &&
-    formFingerprint !== lastPrimedFingerprint;
 
-  // `onDirtyChange` callback — fire only on transitions, not on every
-  // render of the same value. App.tsx maintains a per-tab dirty map.
-  const lastReportedDirtyRef = useRef<boolean | null>(null);
-  useEffect(() => {
-    if (lastReportedDirtyRef.current === isDirty) return;
-    lastReportedDirtyRef.current = isDirty;
-    onDirtyChange?.(isDirty);
-  }, [isDirty, onDirtyChange]);
+  // Reprime owns dirty derivation, comparison shape (BC1), populate
+  // gating, and auto-rebase. `onPrimed` runs after every populate /
+  // auto-rebase: advances the conflict tracker baseline (via ref so
+  // the tracker, defined below, can wire its setter without a forward
+  // reference), and on the first invocation applies the inspector-CTA
+  // `initialDraft` overlay or `initialTemplateKey` template.
+  const reprime = useReprime<V5.Rule>({
+    liveEntity: liveRule,
+    scope: { entityType: RULE_ENTITY_TYPE, entityId: ruleUid },
+    enabled: liveRule != null,
+    formFingerprint,
+    signature: canonicalProjection,
+    populate: populateFormFromRule,
+    onPrimed: (rule) => {
+      setBaselineRef.current(rule);
+      if (overlayAppliedRef.current) return;
+      overlayAppliedRef.current = true;
 
-  useEditorDirty({ entityType: RULE_ENTITY_TYPE, entityId: ruleUid }, isDirty);
+      if (initialTemplateKey) {
+        applyTemplate(initialTemplateKey);
+        return;
+      }
+
+      if (rule.published === true || !initialDraft || initialDraft.type !== rule.type) return;
+
+      const overlay: Record<string, unknown> = {};
+      const conditions = buildDraftConditions(initialDraft, draftUrlStrategy);
+      if (conditions.length > 0) overlay.conditions = conditions;
+
+      if (initialDraft.type === 'header') {
+        // Preserve the draft's direction intent: if the draft targets
+        // only response headers, leave requestHeaders empty so the
+        // editor's "jump to response tab" heuristic fires.
+        const targetsResponse = !!initialDraft.responseHeaders?.length;
+        const targetsRequest = !!initialDraft.requestHeaders?.length;
+        if (initialDraft.requestHeaders) overlay.requestHeaders = initialDraft.requestHeaders;
+        else if (targetsResponse) overlay.requestHeaders = [];
+        if (initialDraft.responseHeaders) overlay.responseHeaders = initialDraft.responseHeaders;
+        else if (targetsRequest) overlay.responseHeaders = [];
+      } else if (initialDraft.type === 'redirect') {
+        if (initialDraft.redirectTo) overlay.redirectTo = initialDraft.redirectTo;
+      }
+
+      if (Object.keys(overlay).length > 0) {
+        form.setFieldsValue(overlay);
+        if (rule.type === 'header') {
+          const reqLen = Array.isArray(overlay.requestHeaders)
+            ? (overlay.requestHeaders as unknown[]).length
+            : ((rule as V5.HeaderRule).action.requestHeaders?.length ?? 0);
+          const resLen = Array.isArray(overlay.responseHeaders)
+            ? (overlay.responseHeaders as unknown[]).length
+            : ((rule as V5.HeaderRule).action.responseHeaders?.length ?? 0);
+          setHeaderReqCount(reqLen);
+          setHeaderResCount(resLen);
+          setDefaultHeaderTab(reqLen, resLen);
+        }
+      }
+    },
+  });
+  const isDirty = reprime.isDirty;
 
   const conflicts = useRuleConflicts({
     liveRule: liveRule ?? null,
     isDirty,
     enabled: true,
   });
-  // `setConflictBaseline` is the stable `useCallback([])` setter from
-  // the conflict tracker — destructured once so multiple effects can
-  // call it without depending on `conflicts` (whose object identity
-  // changes when its internal state updates).
-  const setConflictBaseline = conflicts.setBaseline;
-
-  // Auto-rebase: as soon as the form converges with the current
-  // canonical (manual revert / take-theirs / save echo), snap BOTH
-  // the dirty-baseline (`lastPrimedFingerprint`) AND the conflict
-  // tracker's per-path baseline. Both signals represent "the form is
-  // in sync with canonical right now" — keeping them on the same
-  // trigger prevents a stale conflict baseline from surfacing a
-  // false "External change available" chip when the user, several
-  // edits later, types a value that doesn't match the original
-  // never-rebased baseline.
-  useEffect(() => {
-    if (formFingerprint === null || liveRuleFingerprint === null) return;
-    if (formFingerprint !== liveRuleFingerprint) return;
-    if (lastPrimedFingerprint === liveRuleFingerprint) return;
-    setLastPrimedFingerprint(liveRuleFingerprint);
-    if (liveRule) setConflictBaseline(liveRule);
-  }, [formFingerprint, liveRuleFingerprint, lastPrimedFingerprint, liveRule, setConflictBaseline]);
+  setBaselineRef.current = conflicts.setBaseline;
 
   const conflictBridge = useMemo(
     () => ({
@@ -350,10 +427,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   }, [formValues]);
 
   const allConflicts = useMemo(
-    () =>
-      formProjection
-        ? conflicts.getAllConflicts(formProjection, formSetOrders)
-        : new Map<string, PathConflict>(),
+    () => (formProjection ? conflicts.getAllConflicts(formProjection, formSetOrders) : new Map<string, PathConflict>()),
     [formProjection, formSetOrders, conflicts],
   );
 
@@ -487,14 +561,13 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         return;
       }
 
-      // Try built-in templates first
       const builtins = TEMPLATES_BY_TYPE[type] ?? [];
       const builtin = builtins.find((t) => t.key === key);
       if (builtin) {
         form.setFieldsValue({ ruleType: type, conditions: builtin.conditions, ...builtin.formValues });
         updateHeaderState(builtin.formValues);
       } else {
-        // Try user templates (key is the uid)
+        // User templates (key is the uid)
         const userTpl = userTemplates.find((t) => t.uid === key);
         if (userTpl) {
           const values: Record<string, unknown> = { ruleType: type };
@@ -508,225 +581,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           updateHeaderState(userTpl.formValues ?? {});
         }
       }
-
-      // Dirty derives from form vs canonical equality; setting form
-      // values via the template above causes the next render to compute
-      // a divergent fingerprint and report dirty automatically.
     },
-    [selectedType, form, userTemplates],
+    [selectedType, form, userTemplates, setDefaultHeaderTab],
   );
-
-  // ── Form initialization (content fields only — no name/enabled) ──
-
-  // Populate form from a persisted rule. Pulled out of the init effect
-  // so the live-update path (Phase A A4 — re-prime form on external
-  // mutation while the editor is clean) can reuse the same shape.
-  //
-  // `setConflictBaseline` (destructured above near useRuleConflicts) is
-  // the stable `useCallback(_, [])` setter; depending on the whole
-  // `conflicts` memo would loop: setBaseline calls `setDismissed(new Set())`
-  // which triggers `getConflict` to rebuild → `conflicts` rebuilds →
-  // `populateFormFromRule` rebuilds → re-prime effect re-fires →
-  // setBaseline → loop. Stable identity breaks the cycle at the source.
-  const populateFormFromRule = useCallback(
-    (rule: V5.Rule) => {
-      const baseValues = {
-        ruleType: rule.type,
-        conditions: rule.conditions,
-      };
-      setConflictBaseline(rule);
-      switch (rule.type) {
-        case 'header': {
-          const hr = rule as V5.HeaderRule;
-          const reqH = hr.action.requestHeaders ?? [];
-          const resH = hr.action.responseHeaders ?? [];
-          form.setFieldsValue({ ...baseValues, requestHeaders: reqH, responseHeaders: resH });
-          setHeaderReqCount(reqH.length);
-          setHeaderResCount(resH.length);
-          setDefaultHeaderTab(reqH.length, resH.length);
-          break;
-        }
-        case 'block':
-          form.setFieldsValue(baseValues);
-          break;
-        case 'redirect': {
-          const rr = rule as V5.RedirectRule;
-          form.setFieldsValue({ ...baseValues, redirectTo: rr.action.redirectTo });
-          break;
-        }
-        case 'query-param': {
-          const qr = rule as V5.QueryParamRule;
-          form.setFieldsValue({
-            ...baseValues,
-            queryParams: qr.action.params.map((p) => ({
-              uid: p.uid,
-              param: p.param,
-              value: p.value ?? '',
-              operation: p.operation,
-            })),
-          });
-          break;
-        }
-        case 'inject': {
-          const ir = rule as V5.InjectRule;
-          form.setFieldsValue({
-            ...baseValues,
-            injectType: ir.action.injectType,
-            injectSource: ir.action.source || 'code',
-            injectCode: ir.action.code,
-            injectSourceUrl: ir.action.sourceUrl || '',
-            injectPosition: ir.action.position,
-            injectBypassCSP: ir.action.bypassCSP ?? false,
-          });
-          break;
-        }
-        case 'delay': {
-          const dr = rule as V5.DelayRule;
-          form.setFieldsValue({ ...baseValues, delayMs: dr.action.delayMs });
-          break;
-        }
-        case 'body': {
-          const br = rule as V5.BodyRule;
-          form.setFieldsValue({
-            ...baseValues,
-            bodyModType: br.action.bodyType || 'static',
-            bodyStaticContent: br.action.bodyType === 'dynamic' ? '' : br.action.body,
-            bodyDynamicContent: br.action.bodyType === 'dynamic' ? br.action.body : '',
-            bodyResourceType: br.action.resourceType || 'rest',
-            bodyGraphqlKey: br.action.graphqlFilter?.key || '',
-            bodyGraphqlOperator: br.action.graphqlFilter?.operator || 'Equals',
-            bodyGraphqlValue: br.action.graphqlFilter?.value || '',
-          });
-          break;
-        }
-        case 'mock': {
-          const mr = rule as V5.MockRule;
-          form.setFieldsValue({
-            ...baseValues,
-            mockStatusCode: mr.action.statusCode || undefined,
-            mockContentType: mr.action.contentType,
-            mockStaticBody: mr.action.bodyType === 'dynamic' ? '' : mr.action.responseBody,
-            mockDynamicBody: mr.action.bodyType === 'dynamic' ? mr.action.responseBody : '',
-            mockBodyType: mr.action.bodyType || 'static',
-            mockResourceType: mr.action.resourceType || 'rest',
-            mockGraphqlKey: mr.action.graphqlFilter?.key || '',
-            mockGraphqlOperator: mr.action.graphqlFilter?.operator || 'Equals',
-            mockGraphqlValue: mr.action.graphqlFilter?.value || '',
-            mockResponseHeaders: Object.entries(mr.action.responseHeaders ?? {}).map(([name, value]) => ({
-              name,
-              value,
-            })),
-          });
-          break;
-        }
-      }
-    },
-    [form, setConflictBaseline, setDefaultHeaderTab],
-  );
-
-  // `populateAndBaseline` is the canonical "sync the form from the
-  // mirror" entry point — it sets form values AND snaps
-  // `lastPrimedFingerprint` to the just-applied canonical so `isDirty`
-  // reads `false` from the very first form-rendered tick (the
-  // auto-rebase effect would catch up on the next render anyway, but
-  // explicit avoids a one-frame "false dirty" flash). Used by both
-  // the init effect (mount path) and `useEntityReprime` (broadcast
-  // catch-up path).
-  const populateAndBaseline = useCallback(
-    (rule: V5.Rule) => {
-      populateFormFromRule(rule);
-      setLastPrimedFingerprint(canonicalProjection(rule));
-    },
-    [populateFormFromRule, canonicalProjection],
-  );
-
-  // Phase A A4 — live-update reconciliation. After init, `liveRule`
-  // mutates whenever another surface commits a change. `useEntityReprime`
-  // owns the gating: skip while `isDirty`, while the user has a field
-  // of this rule focused (so we don't tear down `Form.List` rows under
-  // them mid-edit), and when the broadcast carries content we already
-  // populated (signature gate). Same hook every entity editor uses.
-  const ruleSignature = useCallback((r: V5.Rule) => JSON.stringify(r), []);
-  const reprime = useEntityReprime<V5.Rule>({
-    liveEntity: liveRule,
-    scope: { entityType: RULE_ENTITY_TYPE, entityId: ruleUid },
-    isDirty,
-    enabled: isInitialized,
-    signature: ruleSignature,
-    populate: populateAndBaseline,
-  });
-
-  useEffect(() => {
-    if (initializedRef.current) return;
-    const rule = rules.find((r) => r.uid === ruleUid);
-    if (!rule) return;
-    initializedRef.current = true;
-    setIsInitialized(true);
-    populateAndBaseline(rule);
-    reprime.markPopulated(rule);
-
-    // First-mount overlay for unpublished rules created via gestures
-    // that pre-fill the form (inspector "override this header" CTA,
-    // future import flows). Published rules ignore the overlay — the
-    // user already committed prior content.
-    //
-    // Conditions overlay: `buildDraftConditions` translates the draft's
-    // URL into a url-pattern condition with the current draft-url
-    // strategy.
-    if (rule.published !== true && initialDraft && initialDraft.type === rule.type) {
-      const overlay: Record<string, unknown> = {};
-      const conditions = buildDraftConditions(initialDraft, draftUrlStrategy);
-      if (conditions.length > 0) overlay.conditions = conditions;
-
-      if (initialDraft.type === 'header') {
-        // Preserve the draft's direction intent: if the draft targets
-        // only response headers, leave requestHeaders empty so the
-        // editor's "jump to response tab" heuristic fires. A default
-        // placeholder would otherwise defeat it.
-        const targetsResponse = !!initialDraft.responseHeaders?.length;
-        const targetsRequest = !!initialDraft.requestHeaders?.length;
-        if (initialDraft.requestHeaders) overlay.requestHeaders = initialDraft.requestHeaders;
-        else if (targetsResponse) overlay.requestHeaders = [];
-        if (initialDraft.responseHeaders) overlay.responseHeaders = initialDraft.responseHeaders;
-        else if (targetsRequest) overlay.responseHeaders = [];
-      } else if (initialDraft.type === 'redirect') {
-        if (initialDraft.redirectTo) overlay.redirectTo = initialDraft.redirectTo;
-      }
-      // Block has no editable action fields.
-      // Other rule types extend similarly as inspector CTAs grow.
-
-      if (Object.keys(overlay).length > 0) {
-        form.setFieldsValue(overlay);
-        // Dirty derives from form vs canonical — overlay applies user
-        // intent ON TOP of the persisted shell, so the next render's
-        // fingerprint diverges and reports dirty automatically.
-        if (rule.type === 'header') {
-          const reqLen = Array.isArray(overlay.requestHeaders)
-            ? (overlay.requestHeaders as unknown[]).length
-            : ((rule as V5.HeaderRule).action.requestHeaders?.length ?? 0);
-          const resLen = Array.isArray(overlay.responseHeaders)
-            ? (overlay.responseHeaders as unknown[]).length
-            : ((rule as V5.HeaderRule).action.responseHeaders?.length ?? 0);
-          setHeaderReqCount(reqLen);
-          setHeaderResCount(resLen);
-          setDefaultHeaderTab(reqLen, resLen);
-        }
-      }
-    }
-    // populateAndBaseline / reprime captured at mount time via the
-    // initializedRef guard above; lint exhaustive-deps would suggest
-    // listing them here, but the effect is idempotent and runs once.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ruleUid, rules, form, initialDraft, draftUrlStrategy, setDefaultHeaderTab]);
-
-  // Apply initial template after form init (from tab identity, runs once).
-  // Must wait for selectedType to resolve — applyTemplate looks up templates by type.
-  const templateAppliedRef = useRef(false);
-  useEffect(() => {
-    if (!initialTemplateKey || templateAppliedRef.current || !initializedRef.current || !selectedType) return;
-    templateAppliedRef.current = true;
-    applyTemplate(initialTemplateKey);
-  }, [initialTemplateKey, applyTemplate, selectedType]);
 
   const handleValuesChange = useCallback(
     (changedValues: Record<string, unknown>) => {
@@ -864,9 +721,19 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     conflicts,
   ]);
 
-  useEffect(() => {
-    registerSaveRef?.(handleSubmit);
-  }, [registerSaveRef, handleSubmit]);
+  const handleSaveSync = useCallback(() => {
+    void handleSubmit();
+  }, [handleSubmit]);
+
+  const shell = useEditorShell({
+    entityType: RULE_ENTITY_TYPE,
+    entityId: ruleUid,
+    isDirty,
+    isPublished,
+    onSave: handleSaveSync,
+    onDirtyChange,
+    registerSaveRef,
+  });
 
   // Phase A A5 — Undelete. The original entity is tombstoned (delete-
   // wins per §7.2); resurrection mints a fresh uid. The open tab swaps
@@ -1064,9 +931,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       <EditorHeader
         title={headerTitle}
         actions={headerActions}
-        isDirty={isDirty}
-        isPublished={isPublished}
-        onSave={() => void handleSubmit()}
+        shell={shell.headerProps}
         overflowItems={overflowItems}
       />
       <div style={{ flex: 1, overflow: 'auto' }}>
@@ -1084,205 +949,209 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
             }
           />
         )}
-        <EntityScopeProvider entityType={RULE_ENTITY_TYPE} entityId={ruleUid}>
-        <ActionPathsProvider value={RULE_ACTION_PATHS}>
-        <div
-          className="rules-rule-editor"
-          style={isDeletedRemotely ? { pointerEvents: 'none', opacity: 0.6 } : undefined}
-        >
-          <SuggestionContextProvider value={{ collectionId: bannerCollectionId }}>
-            <Form
-              form={form}
-              layout="vertical"
-              onFinish={handleSubmit}
-              onValuesChange={handleValuesChange}
-              size="small"
+        <EntityScopeProvider shell={shell.scopeProps}>
+          <ActionPathsProvider value={RULE_ACTION_PATHS}>
+            <div
+              className="rules-rule-editor"
+              style={isDeletedRemotely ? { pointerEvents: 'none', opacity: 0.6 } : undefined}
             >
-              {/* Hidden: rule type (set at creation, can't change) */}
-              <Form.Item name="ruleType" hidden>
-                <input type="hidden" />
-              </Form.Item>
-
-              <EntityConflictBanner
-                count={allConflicts.size}
-                onReview={() => setConflictDialogOpen(true)}
-                onKeepAllMine={handleKeepAllMine}
-                onUseAllSaved={handleUseAllSaved}
-              />
-
-              {/* Unresolved-variable feedback lives in the inline mirror
-               *  (red-dashed `{{ref}}` at the source) + the Variables
-               *  panel's "Resolution issues" section, both of which show
-               *  the same state without reflowing the editor on every
-               *  keystroke. An always-on banner here duplicated that
-               *  information and nudged scroll as counts changed. */}
-              {/* ── Templates ── */}
-              <div style={{ marginBottom: 16 }}>
-                <div
-                  style={{
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    gap: 8,
-                    alignItems: 'center',
-                  }}
+              <SuggestionContextProvider value={{ collectionId: bannerCollectionId }}>
+                <Form
+                  form={form}
+                  layout="vertical"
+                  onFinish={handleSubmit}
+                  onValuesChange={handleValuesChange}
+                  size="small"
                 >
-                  <Button
-                    size="small"
-                    type={activeSource === 'blank' ? 'primary' : 'default'}
-                    icon={<FileOutlined />}
-                    onClick={() => applyTemplate('empty')}
-                  >
-                    Blank
-                  </Button>
+                  {/* Hidden: rule type (set at creation, can't change) */}
+                  <Form.Item name="ruleType" hidden>
+                    <input type="hidden" />
+                  </Form.Item>
 
-                  <Dropdown
-                    menu={{ items: systemMenuItems }}
-                    trigger={['click']}
-                    disabled={systemMenuItems.length === 0}
-                  >
-                    <Button size="small" type={activeSource === 'system' ? 'primary' : 'default'}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        <FolderOpenOutlined style={{ fontSize: 13 }} />
-                        <span>System Templates</span>
-                        {activeSystemTemplate && (
-                          <span
-                            style={{
-                              fontWeight: 400,
-                              opacity: 0.85,
-                            }}
-                          >
-                            : {activeSystemTemplate.icon} {activeSystemTemplate.name}
-                          </span>
-                        )}
-                        <DownOutlined style={{ fontSize: 9 }} />
-                      </span>
-                    </Button>
-                  </Dropdown>
+                  <EntityConflictBanner
+                    count={allConflicts.size}
+                    onReview={() => setConflictDialogOpen(true)}
+                    onKeepAllMine={handleKeepAllMine}
+                    onUseAllSaved={handleUseAllSaved}
+                  />
 
-                  <Tooltip
-                    title={
-                      userMenuItems.length === 0
-                        ? 'No user templates yet for this rule type — save one first'
-                        : undefined
-                    }
-                  >
-                    <Dropdown menu={{ items: userMenuItems }} trigger={['click']} disabled={userMenuItems.length === 0}>
-                      <Button size="small" type={activeSource === 'user' ? 'primary' : 'default'}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                          <FolderOpenTwoTone style={{ fontSize: 13 }} />
-                          <span>User Templates</span>
-                          {activeUserTemplate && (
-                            <span style={{ fontWeight: 400, opacity: 0.85, display: 'inline-flex', gap: 4 }}>
-                              :{renderTwoToneIcon(activeUserTemplate.icon, { fontSize: 12 })}
-                              {activeUserTemplate.name}
-                            </span>
-                          )}
-                          <DownOutlined style={{ fontSize: 9 }} />
-                        </span>
+                  {/* Unresolved-variable feedback lives in the inline mirror
+                   *  (red-dashed `{{ref}}` at the source) + the Variables
+                   *  panel's "Resolution issues" section, both of which show
+                   *  the same state without reflowing the editor on every
+                   *  keystroke. An always-on banner here duplicated that
+                   *  information and nudged scroll as counts changed. */}
+                  {/* ── Templates ── */}
+                  <div style={{ marginBottom: 16 }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 8,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Button
+                        size="small"
+                        type={activeSource === 'blank' ? 'primary' : 'default'}
+                        icon={<FileOutlined />}
+                        onClick={() => applyTemplate('empty')}
+                      >
+                        Blank
                       </Button>
-                    </Dropdown>
-                  </Tooltip>
-                </div>
 
-                {selectedDescription && (
-                  <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary }}>
-                    {selectedDescription}
+                      <Dropdown
+                        menu={{ items: systemMenuItems }}
+                        trigger={['click']}
+                        disabled={systemMenuItems.length === 0}
+                      >
+                        <Button size="small" type={activeSource === 'system' ? 'primary' : 'default'}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <FolderOpenOutlined style={{ fontSize: 13 }} />
+                            <span>System Templates</span>
+                            {activeSystemTemplate && (
+                              <span
+                                style={{
+                                  fontWeight: 400,
+                                  opacity: 0.85,
+                                }}
+                              >
+                                : {activeSystemTemplate.icon} {activeSystemTemplate.name}
+                              </span>
+                            )}
+                            <DownOutlined style={{ fontSize: 9 }} />
+                          </span>
+                        </Button>
+                      </Dropdown>
+
+                      <Tooltip
+                        title={
+                          userMenuItems.length === 0
+                            ? 'No user templates yet for this rule type — save one first'
+                            : undefined
+                        }
+                      >
+                        <Dropdown
+                          menu={{ items: userMenuItems }}
+                          trigger={['click']}
+                          disabled={userMenuItems.length === 0}
+                        >
+                          <Button size="small" type={activeSource === 'user' ? 'primary' : 'default'}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                              <FolderOpenTwoTone style={{ fontSize: 13 }} />
+                              <span>User Templates</span>
+                              {activeUserTemplate && (
+                                <span style={{ fontWeight: 400, opacity: 0.85, display: 'inline-flex', gap: 4 }}>
+                                  :{renderTwoToneIcon(activeUserTemplate.icon, { fontSize: 12 })}
+                                  {activeUserTemplate.name}
+                                </span>
+                              )}
+                              <DownOutlined style={{ fontSize: 9 }} />
+                            </span>
+                          </Button>
+                        </Dropdown>
+                      </Tooltip>
+                    </div>
+
+                    {selectedDescription && (
+                      <div style={{ marginTop: 6, fontSize: 11, color: token.colorTextTertiary }}>
+                        {selectedDescription}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
 
-              {/* ── Two-column grid: fields left, conditions right (on wide screens) ── */}
-              <div className="rules-rule-editor-columns">
-                {/* ── Per-type fields ── */}
-                <div>
-                  {selectedType === 'header' && (
-                    <HeaderRuleFields
-                      activeTab={headerActiveTab}
-                      onTabChange={handleHeaderTabChange}
-                      reqCount={headerReqCount}
-                      resCount={headerResCount}
-                      ruleUid={ruleUid}
-                      excludeInstanceId={localInstanceId}
-                      getConflict={conflicts.getConflict}
-                      getSetConflict={conflicts.getSetConflict}
-                      onAcceptTheirs={conflicts.acceptTheirs}
-                      onDismissConflict={conflicts.dismiss}
-                    />
-                  )}
-                  {selectedType === 'block' && <BlockRuleFields />}
-                  {selectedType === 'redirect' && <RedirectRuleFields conflicts={conflictBridge} />}
-                  {selectedType === 'query-param' && <QueryParamRuleFields />}
-                  {selectedType === 'inject' && <InjectRuleFields conflicts={conflictBridge} />}
-                  {selectedType === 'delay' && <DelayRuleFields conflicts={conflictBridge} />}
-                  {selectedType === 'body' && <BodyRuleFields conflicts={conflictBridge} />}
-                  {selectedType === 'mock' && <MockRuleFields conflicts={conflictBridge} />}
-                  {/* Single-mount inline action validation. The validator
+                  {/* ── Two-column grid: fields left, conditions right (on wide screens) ── */}
+                  <div className="rules-rule-editor-columns">
+                    {/* ── Per-type fields ── */}
+                    <div>
+                      {selectedType === 'header' && (
+                        <HeaderRuleFields
+                          activeTab={headerActiveTab}
+                          onTabChange={handleHeaderTabChange}
+                          reqCount={headerReqCount}
+                          resCount={headerResCount}
+                          ruleUid={ruleUid}
+                          excludeInstanceId={localInstanceId}
+                          getConflict={conflicts.getConflict}
+                          getSetConflict={conflicts.getSetConflict}
+                          onAcceptTheirs={conflicts.acceptTheirs}
+                          onDismissConflict={conflicts.dismiss}
+                        />
+                      )}
+                      {selectedType === 'block' && <BlockRuleFields />}
+                      {selectedType === 'redirect' && <RedirectRuleFields conflicts={conflictBridge} />}
+                      {selectedType === 'query-param' && <QueryParamRuleFields />}
+                      {selectedType === 'inject' && <InjectRuleFields conflicts={conflictBridge} />}
+                      {selectedType === 'delay' && <DelayRuleFields conflicts={conflictBridge} />}
+                      {selectedType === 'body' && <BodyRuleFields conflicts={conflictBridge} />}
+                      {selectedType === 'mock' && <MockRuleFields conflicts={conflictBridge} />}
+                      {/* Single-mount inline action validation. The validator
                       lives in core; new rule types pick the banner up
                       automatically when their case is added there. */}
-                  {selectedType && <ActionValueBanner ruleType={selectedType} />}
-                </div>
+                      {selectedType && <ActionValueBanner ruleType={selectedType} />}
+                    </div>
 
-                {/* ── Conditions section ── */}
-                <div style={{ marginBottom: 20 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                    <Text strong style={{ fontSize: 13 }}>
-                      Conditions
-                    </Text>
-                    <InfoCircleOutlined
-                      style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-                      onClick={() => openDocs('conditions')}
-                    />
+                    {/* ── Conditions section ── */}
+                    <div style={{ marginBottom: 20 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                        <Text strong style={{ fontSize: 13 }}>
+                          Conditions
+                        </Text>
+                        <InfoCircleOutlined
+                          style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
+                          onClick={() => openDocs('conditions')}
+                        />
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: 'var(--ant-color-text-secondary)',
+                          lineHeight: 1.5,
+                          marginBottom: 10,
+                        }}
+                      >
+                        Each row targets one DNR field, so rows combine with <strong>AND</strong> — every row must
+                        match. To match any of several values, list them inside one row (the <strong>OR</strong> badge
+                        marks rows that accept multiple values; <strong>1 value</strong> rows take a single scalar). Add
+                        at least one condition.
+                      </div>
+                      <Form.Item name="conditions" style={{ marginBottom: 0 }}>
+                        <ConditionEditor />
+                      </Form.Item>
+                    </div>
                   </div>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      color: 'var(--ant-color-text-secondary)',
-                      lineHeight: 1.5,
-                      marginBottom: 10,
-                    }}
-                  >
-                    Each row targets one DNR field, so rows combine with <strong>AND</strong> — every row must match. To
-                    match any of several values, list them inside one row (the <strong>OR</strong> badge marks rows that
-                    accept multiple values; <strong>1 value</strong> rows take a single scalar). Add at least one
-                    condition.
-                  </div>
-                  <Form.Item name="conditions" style={{ marginBottom: 0 }}>
-                    <ConditionEditor />
-                  </Form.Item>
-                </div>
-              </div>
-            </Form>
+                </Form>
 
-            <EntityConflictDialog
-              open={isConflictDialogOpen}
-              savedText={savedYaml}
-              buildLocalText={buildLocalText}
-              conflicts={allConflicts}
-              localValuesByPath={formProjection ? new Map(Object.entries(formProjection)) : undefined}
-              pathLabels={conflictPathLabels}
-              onResolve={applyResolutions}
-              onClose={() => setConflictDialogOpen(false)}
-            />
+                <EntityConflictDialog
+                  open={isConflictDialogOpen}
+                  savedText={savedYaml}
+                  buildLocalText={buildLocalText}
+                  conflicts={allConflicts}
+                  localValuesByPath={formProjection ? new Map(Object.entries(formProjection)) : undefined}
+                  pathLabels={conflictPathLabels}
+                  onResolve={applyResolutions}
+                  onClose={() => setConflictDialogOpen(false)}
+                />
 
-            <SaveAsTemplateModal
-              open={saveAsTemplateOpen}
-              ruleType={selectedType ?? 'header'}
-              conditions={form.getFieldValue('conditions') ?? []}
-              formValues={(() => {
-                if (!saveAsTemplateOpen) return {};
-                const all = form.getFieldsValue();
-                const metaKeys = new Set(['ruleType', 'conditions']);
-                const fv: Record<string, unknown> = {};
-                for (const [k, v] of Object.entries(all)) {
-                  if (!metaKeys.has(k)) fv[k] = v;
-                }
-                return fv;
-              })()}
-              onCancel={() => setSaveAsTemplateOpen(false)}
-            />
-          </SuggestionContextProvider>
-        </div>
-        </ActionPathsProvider>
+                <SaveAsTemplateModal
+                  open={saveAsTemplateOpen}
+                  ruleType={selectedType ?? 'header'}
+                  conditions={form.getFieldValue('conditions') ?? []}
+                  formValues={(() => {
+                    if (!saveAsTemplateOpen) return {};
+                    const all = form.getFieldsValue();
+                    const metaKeys = new Set(['ruleType', 'conditions']);
+                    const fv: Record<string, unknown> = {};
+                    for (const [k, v] of Object.entries(all)) {
+                      if (!metaKeys.has(k)) fv[k] = v;
+                    }
+                    return fv;
+                  })()}
+                  onCancel={() => setSaveAsTemplateOpen(false)}
+                />
+              </SuggestionContextProvider>
+            </div>
+          </ActionPathsProvider>
         </EntityScopeProvider>
       </div>
     </div>
