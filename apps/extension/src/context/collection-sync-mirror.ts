@@ -2,7 +2,7 @@
  * Renderer-side collection sync mirror.
  *
  * Thin adapter over {@link createFlatEntityMirror}: extracts
- * `(collectionUid, { collection, varNames })` from each
+ * `(collectionUid, { collection, varUids })` from each
  * `collectionPostState` payload, hydrates from
  * `oh.sync.snapshotCollections` on construction.
  */
@@ -16,9 +16,9 @@ import {
 
 export interface CollectionMirrorEntry {
   collection: V5.Collection;
-  /** Live variable names. Set member identity is `variable.uid`; this
+  /** Live variable uids. Set member identity is `variable.uid`; this
    *  array is the projected names list. */
-  varNames: string[];
+  varUids: string[];
   /** Per-set ordered `(itemId, orderKey)` pairs. Carries the parent's
    *  `folders` set today; readers consume via `liveOrderedSetItems`. */
   setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
@@ -54,7 +54,7 @@ export function createCollectionSyncMirror(
           uid,
           entry: {
             collection: collectionPostState.collection,
-            varNames: collectionPostState.varNames,
+            varUids: collectionPostState.varUids,
             setOrderKeys: collectionPostState.setOrderKeys,
           },
         };
@@ -63,7 +63,7 @@ export function createCollectionSyncMirror(
         const resp = await call('oh.sync.snapshotCollections');
         return resp.entries.map((e) => ({
           uid: e.collection.uid,
-          entry: { collection: e.collection, varNames: e.varNames, setOrderKeys: e.setOrderKeys },
+          entry: { collection: e.collection, varUids: e.varUids, setOrderKeys: e.setOrderKeys },
         }));
       },
     },
@@ -71,7 +71,7 @@ export function createCollectionSyncMirror(
   );
   return {
     getCollectionMirror: core.get,
-    liveVarNames: (uid) => core.get(uid)?.varNames ?? [],
+    liveVarNames: (uid) => core.get(uid)?.varUids ?? [],
     liveOrderedSetItems: (uid, setPath) => core.get(uid)?.setOrderKeys[setPath] ?? [],
     subscribeCollectionMirror: core.subscribe,
     dispose: core.dispose,

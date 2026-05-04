@@ -67,9 +67,9 @@ describe('projectVaultPostState', () => {
     const post = projectVaultPostState(oracle, envelope);
     expect(post).not.toBeNull();
     expect(post?.vault.secrets.map((s) => s.name).sort()).toEqual(['API_KEY', 'NEW']);
-    // Set-member identity is the secret uid (post-session-66); `secretNames`
+    // Set-member identity is the secret uid (post-session-66); `secretUids`
     // is the protocol field name but carries itemIds = uids.
-    expect(post?.secretNames.sort()).toEqual(['scapikey1', 'scnewxxxx']);
+    expect(post?.secretUids.sort()).toEqual(['scapikey1', 'scnewxxxx']);
   });
 
   it('preserves TOTP discriminator through projection', async () => {
@@ -117,7 +117,7 @@ describe('projectVaultPostState', () => {
     expect(projectVaultSingleton(oracle)).toBeNull();
   });
 
-  it('reports secretNames matching VAULT_PATH itemIds', async () => {
+  it('reports secretUids matching VAULT_PATH itemIds', async () => {
     const oracle = newOracle();
     await oracle.apply(
       seedVault(
@@ -131,6 +131,6 @@ describe('projectVaultPostState', () => {
     );
     const live = oracle.liveSetItems(VAULT_ENTITY_TYPE, VAULT_ID, VAULT_PATH);
     const projected = projectVaultSingleton(oracle);
-    expect(projected?.secretNames.sort()).toEqual(live.map((e) => e.itemId).sort());
+    expect(projected?.secretUids.sort()).toEqual(live.map((e) => e.itemId).sort());
   });
 });

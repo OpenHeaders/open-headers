@@ -2,7 +2,7 @@
  * Renderer-side template-collection sync mirror.
  *
  * Thin adapter over {@link createFlatEntityMirror}. Each entry carries
- * the materialized `V5.Collection`, the live `varNames` (set-member
+ * the materialized `V5.Collection`, the live `varUids` (set-member
  * identity for template-collection vars), and the parent-owned `folders`
  * set order keys.
  */
@@ -17,8 +17,8 @@ import {
 
 export interface TemplateCollectionMirrorEntry {
   collection: V5.Collection;
-  /** Live variable names — set-member identity for template-collection vars. */
-  varNames: string[];
+  /** Live variable uids — set-member identity for template-collection vars. */
+  varUids: string[];
   /** Per-set ordered `(itemId, orderKey)` pairs. Carries the parent's
    *  `folders` set; read via `liveOrderedSetItems`. */
   setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
@@ -58,7 +58,7 @@ export function createTemplateCollectionSyncMirror(
           uid,
           entry: {
             collection: templateCollectionPostState.collection,
-            varNames: templateCollectionPostState.varNames,
+            varUids: templateCollectionPostState.varUids,
             setOrderKeys: templateCollectionPostState.setOrderKeys,
           },
         };
@@ -67,7 +67,7 @@ export function createTemplateCollectionSyncMirror(
         const resp = await call('oh.sync.snapshotTemplateCollections');
         return resp.entries.map((e) => ({
           uid: e.collection.uid,
-          entry: { collection: e.collection, varNames: e.varNames, setOrderKeys: e.setOrderKeys },
+          entry: { collection: e.collection, varUids: e.varUids, setOrderKeys: e.setOrderKeys },
         }));
       },
     },

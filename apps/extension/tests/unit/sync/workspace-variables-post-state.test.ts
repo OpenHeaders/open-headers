@@ -72,9 +72,9 @@ describe('projectWorkspaceVariablesPostState', () => {
       'API_BASE',
       'NEW',
     ]);
-    // Set-member identity is the variable uid (post-session-66); `varNames`
+    // Set-member identity is the variable uid (post-session-66); `varUids`
     // is the protocol field name but carries itemIds = uids.
-    expect(post?.varNames.sort()).toEqual(['8f3cff23', 'vrwsvarnw']);
+    expect(post?.varUids.sort()).toEqual(['8f3cff23', 'vrwsvarnw']);
   });
 
   it('returns null for non-matching envelopes', () => {
@@ -95,7 +95,7 @@ describe('projectWorkspaceVariablesPostState', () => {
     expect(projectWorkspaceVariablesSingleton(oracle)).toBeNull();
   });
 
-  it('reports varNames matching WORKSPACE_VARIABLES_PATH itemIds', async () => {
+  it('reports varUids matching WORKSPACE_VARIABLES_PATH itemIds', async () => {
     const oracle = newOracle();
     await oracle.apply(
       seedWorkspaceVariables(
@@ -113,6 +113,6 @@ describe('projectWorkspaceVariablesPostState', () => {
       WORKSPACE_VARIABLES_PATH,
     );
     const projected = projectWorkspaceVariablesSingleton(oracle);
-    expect(projected?.varNames.sort()).toEqual(live.map((e) => e.itemId).sort());
+    expect(projected?.varUids.sort()).toEqual(live.map((e) => e.itemId).sort());
   });
 });

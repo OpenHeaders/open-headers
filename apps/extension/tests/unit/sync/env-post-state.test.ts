@@ -70,9 +70,9 @@ describe('projectEnvironmentPostState', () => {
     const post = projectEnvironmentPostState(oracle, envelope);
     expect(post).not.toBeNull();
     expect(post?.environment.uid).toBe('env-1');
-    // Set-member identity is the variable uid (post-session-66); `varNames`
+    // Set-member identity is the variable uid (post-session-66); `varUids`
     // is the protocol field name but carries itemIds = uids.
-    expect(post?.varNames.sort()).toEqual(['04861989', 'ccd4ee5b', 'vrenvnew1']);
+    expect(post?.varUids.sort()).toEqual(['04861989', 'ccd4ee5b', 'vrenvnew1']);
   });
 
   it('returns null for non-Environment envelopes', () => {
@@ -104,12 +104,12 @@ describe('projectEnvironmentPostState', () => {
     expect(projectEnvironmentByUid(oracle, env.uid)).toBeNull();
   });
 
-  it('reports varNames matching ENV_VARS_PATH itemIds', async () => {
+  it('reports varUids matching ENV_VARS_PATH itemIds', async () => {
     const oracle = newOracle();
     const env = makeEnv('env-3');
     await oracle.apply(seedEnvironment(env, ctx(1)), []);
     const live = oracle.liveSetItems(ENVIRONMENT_ENTITY_TYPE, env.uid, ENV_VARS_PATH);
     const projected = projectEnvironmentByUid(oracle, env.uid);
-    expect(projected?.varNames.sort()).toEqual(live.map((e) => e.itemId).sort());
+    expect(projected?.varUids.sort()).toEqual(live.map((e) => e.itemId).sort());
   });
 });

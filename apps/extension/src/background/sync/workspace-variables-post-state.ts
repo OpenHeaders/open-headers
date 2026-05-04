@@ -2,7 +2,7 @@
  * Per-envelope workspace-variables post-state projection (Phase B).
  *
  * Thin adapter over `flat-entity-post-state.ts` (singleton variant).
- * Renderer-side write helpers need the live variable names before they
+ * Renderer-side write helpers need the live variable uids before they
  * can emit matching `removeFromSet` envelopes (variable identity = name).
  */
 
@@ -24,10 +24,10 @@ const projectors = makeSingletonEntityProjectors<Reads, SyncWorkspaceVariablesPo
   compose: (materialized, oracle) => {
     const workspaceVariables = projectWorkspaceVariables(materialized);
     if (!workspaceVariables) return null;
-    const varNames = oracle
+    const varUids = oracle
       .liveSetItems(WORKSPACE_VARIABLES_ENTITY_TYPE, WORKSPACE_VARIABLES_ID, WORKSPACE_VARIABLES_PATH)
       .map((entry) => entry.itemId);
-    return { workspaceVariables, varNames };
+    return { workspaceVariables, varUids };
   },
 });
 

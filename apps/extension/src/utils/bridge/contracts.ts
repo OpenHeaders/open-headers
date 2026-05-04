@@ -1116,7 +1116,7 @@ export interface BridgeRpcContract {
   /**
    * Snapshot the active workspace's full Environment oracle state.
    * Same semantics as `oh.sync.snapshotRules` for the Environment
-   * entity — `(environment, varNames)` per envId, matching the
+   * entity — `(environment, varUids)` per envId, matching the
    * broadcast `environmentPostState` payload. Renderer-side env
    * mirrors call this on construction.
    */
@@ -1127,7 +1127,7 @@ export interface BridgeRpcContract {
   /**
    * Snapshot the active workspace's full Collection oracle state.
    * Same semantics as `oh.sync.snapshotEnvironments` —
-   * `(collection, varNames)` per uid, matching the broadcast
+   * `(collection, varUids)` per uid, matching the broadcast
    * `collectionPostState` payload.
    */
   'oh.sync.snapshotCollections': {
@@ -1179,7 +1179,7 @@ export interface BridgeRpcContract {
    * Snapshot the active workspace's full request-collection oracle
    * state. Mirror of `oh.sync.snapshotCollections` for the
    * request-collection entity type. Each entry carries the materialized
-   * `{ collection, varNames, setOrderKeys }` triple.
+   * `{ collection, varUids, setOrderKeys }` triple.
    */
   'oh.sync.snapshotRequestCollections': {
     req: Record<string, never>;
@@ -1209,7 +1209,7 @@ export interface BridgeRpcContract {
    * Snapshot the active workspace's full template-collection oracle
    * state. Mirror of `oh.sync.snapshotRequestCollections` for the
    * template-collection entity type. Each entry carries the materialized
-   * `{ collection, varNames, setOrderKeys }` triple.
+   * `{ collection, varUids, setOrderKeys }` triple.
    */
   'oh.sync.snapshotTemplateCollections': {
     req: Record<string, never>;

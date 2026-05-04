@@ -16,9 +16,9 @@ import {
 
 export interface WorkspaceVariablesMirrorEntry {
   workspaceVariables: V5.WorkspaceVariables;
-  /** Live variable names. Set member identity is `variable.uid`; this
+  /** Live variable uids. Set member identity is `variable.uid`; this
    *  array is the projected names list. */
-  varNames: string[];
+  varUids: string[];
 }
 
 export type WorkspaceVariablesMirrorListener = () => void;
@@ -44,14 +44,14 @@ export function createWorkspaceVariablesSyncMirror(
         if (!workspaceVariablesPostState) return 'tombstone';
         return {
           workspaceVariables: workspaceVariablesPostState.workspaceVariables,
-          varNames: workspaceVariablesPostState.varNames,
+          varUids: workspaceVariablesPostState.varUids,
         };
       },
       fetchSnapshot: async () => {
         const resp = await call('oh.sync.snapshotWorkspaceVariables');
         const first = resp.entries[0];
         return first
-          ? { workspaceVariables: first.workspaceVariables, varNames: first.varNames }
+          ? { workspaceVariables: first.workspaceVariables, varUids: first.varUids }
           : null;
       },
     },
@@ -59,7 +59,7 @@ export function createWorkspaceVariablesSyncMirror(
   );
   return {
     getMirror: core.get,
-    liveVarNames: () => core.get()?.varNames ?? [],
+    liveVarNames: () => core.get()?.varUids ?? [],
     subscribeMirror: core.subscribe,
     dispose: core.dispose,
   };

@@ -76,9 +76,9 @@ describe('projectCollectionPostState', () => {
     const post = projectCollectionPostState(oracle, envelope);
     expect(post).not.toBeNull();
     expect(post?.collection.uid).toBe('coll-1');
-    // Set-member identity is the variable uid (post-session-66); `varNames`
+    // Set-member identity is the variable uid (post-session-66); `varUids`
     // is the protocol field name but carries itemIds = uids.
-    expect(post?.varNames.sort()).toEqual(['5a1f3cb6', 'bfdb4aeb', 'vrcollnew']);
+    expect(post?.varUids.sort()).toEqual(['5a1f3cb6', 'bfdb4aeb', 'vrcollnew']);
   });
 
   it('returns null for non-Collection envelopes', () => {
@@ -110,13 +110,13 @@ describe('projectCollectionPostState', () => {
     expect(projectCollectionByUid(oracle, coll.uid)).toBeNull();
   });
 
-  it('reports varNames matching COLLECTION_VARS_PATH itemIds', async () => {
+  it('reports varUids matching COLLECTION_VARS_PATH itemIds', async () => {
     const oracle = newOracle();
     const coll = makeCollection('coll-3');
     await oracle.apply(seedCollection(coll, ctx(1)), []);
     const live = oracle.liveSetItems(COLLECTION_ENTITY_TYPE, coll.uid, COLLECTION_VARS_PATH);
     const projected = projectCollectionByUid(oracle, coll.uid);
-    expect(projected?.varNames.sort()).toEqual(live.map((e) => e.itemId).sort());
+    expect(projected?.varUids.sort()).toEqual(live.map((e) => e.itemId).sort());
   });
 
   it('carries setOrderKeys.folders matching the parent-set order, reflecting moveFolder', async () => {

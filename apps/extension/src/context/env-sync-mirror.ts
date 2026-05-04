@@ -2,7 +2,7 @@
  * Renderer-side environment sync mirror.
  *
  * Thin adapter over {@link createFlatEntityMirror}: extracts
- * `(envId, { environment, varNames })` from each `environmentPostState`
+ * `(envId, { environment, varUids })` from each `environmentPostState`
  * payload, hydrates from `oh.sync.snapshotEnvironments` on construction.
  * Renderer write helpers read this mirror to build env mutation batches
  * synchronously without a SW round-trip per write (§19.4).
@@ -17,17 +17,17 @@ import {
 
 export interface EnvironmentMirrorEntry {
   environment: V5.Environment;
-  /** Live variable names. Set member identity is `variable.uid`; this
+  /** Live variable uids. Set member identity is `variable.uid`; this
    *  array is the projected names list (used by the resolver + DNR
    *  recompile dependency tracking). */
-  varNames: string[];
+  varUids: string[];
 }
 
 export type EnvironmentMirrorListener = (envId: string) => void;
 
 export interface EnvSyncMirror {
   getEnvironmentMirror(envId: string): EnvironmentMirrorEntry | null;
-  /** Live variable names at the env, `[]` when unknown. */
+  /** Live variable uids at the env, `[]` when unknown. */
   liveVarNames(envId: string): string[];
   subscribeEnvironmentMirror(envId: string, listener: EnvironmentMirrorListener): () => void;
   dispose(): void;
@@ -48,7 +48,7 @@ export function createEnvSyncMirror(options: CreateEnvSyncMirrorOptions = {}): E
           uid,
           entry: {
             environment: environmentPostState.environment,
-            varNames: environmentPostState.varNames,
+            varUids: environmentPostState.varUids,
           },
         };
       },
@@ -56,7 +56,7 @@ export function createEnvSyncMirror(options: CreateEnvSyncMirrorOptions = {}): E
         const resp = await call('oh.sync.snapshotEnvironments');
         return resp.entries.map((e) => ({
           uid: e.environment.uid,
-          entry: { environment: e.environment, varNames: e.varNames },
+          entry: { environment: e.environment, varUids: e.varUids },
         }));
       },
     },
@@ -64,7 +64,7 @@ export function createEnvSyncMirror(options: CreateEnvSyncMirrorOptions = {}): E
   );
   return {
     getEnvironmentMirror: core.get,
-    liveVarNames: (envId) => core.get(envId)?.varNames ?? [],
+    liveVarNames: (envId) => core.get(envId)?.varUids ?? [],
     subscribeEnvironmentMirror: core.subscribe,
     dispose: core.dispose,
   };

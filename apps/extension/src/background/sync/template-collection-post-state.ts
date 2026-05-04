@@ -2,7 +2,7 @@
  * Per-envelope template-collection post-state projection.
  *
  * Thin adapter over `flat-entity-post-state.ts`. Carries the
- * materialized `V5.Collection`, the live variable names (set-member
+ * materialized `V5.Collection`, the live variable uids (set-member
  * identity for template-collection vars), and the parent-owned `folders`
  * set order keys.
  */

@@ -15,9 +15,9 @@ import {
 
 export interface VaultMirrorEntry {
   vault: V5.Vault;
-  /** Live secret names. Set member identity is `secret.uid`; this
+  /** Live secret uids. Set member identity is `secret.uid`; this
    *  array is the projected names list. */
-  secretNames: string[];
+  secretUids: string[];
 }
 
 export type VaultMirrorListener = () => void;
@@ -39,19 +39,19 @@ export function createVaultSyncMirror(options: CreateVaultSyncMirrorOptions = {}
         const { envelope, vaultPostState } = event;
         if (envelope.body.type !== VAULT_ENTITY_TYPE) return null;
         if (!vaultPostState) return 'tombstone';
-        return { vault: vaultPostState.vault, secretNames: vaultPostState.secretNames };
+        return { vault: vaultPostState.vault, secretUids: vaultPostState.secretUids };
       },
       fetchSnapshot: async () => {
         const resp = await call('oh.sync.snapshotVault');
         const first = resp.entries[0];
-        return first ? { vault: first.vault, secretNames: first.secretNames } : null;
+        return first ? { vault: first.vault, secretUids: first.secretUids } : null;
       },
     },
     options,
   );
   return {
     getMirror: core.get,
-    liveSecretNames: () => core.get()?.secretNames ?? [],
+    liveSecretNames: () => core.get()?.secretUids ?? [],
     subscribeMirror: core.subscribe,
     dispose: core.dispose,
   };

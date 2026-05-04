@@ -15,7 +15,7 @@
  *   - whether the result carries set-derived extras and which shape:
  *       * `{ setItemIds, setOrderKeys }` for ordered-set entities
  *         (rule, request, template — synthesizer-driven write paths)
- *       * `{ varNames }` for identity-by-name set entities
+ *       * `{ varUids }` for identity-by-name set entities
  *         (env, collection — variable identity = name)
  *       * none for catalog-rename-only entities (live-variable,
  *         live-workflow, request-collection, template-collection)
@@ -69,7 +69,7 @@ export function buildSetMembersExtras(
   return { setItemIds, setOrderKeys };
 }
 
-/** Build the `{ varNames }` shape used by env / collection /
+/** Build the `{ varUids }` shape used by env / collection /
  *  workspace-vars post-states. Variable identity is the variable name
  *  (see `mutators/environment/types.ts`), so the oracle's set-item
  *  itemIds are the canonical name list. */
@@ -78,9 +78,9 @@ export function buildVarNamesExtras(
   entityType: string,
   uid: string,
   varsPath: string,
-): { varNames: string[] } {
+): { varUids: string[] } {
   return {
-    varNames: oracle
+    varUids: oracle
       .liveSetItems(entityType, uid, varsPath)
       .map((entry) => entry.itemId),
   };
@@ -123,7 +123,7 @@ export interface SingletonEntityProjectorConfig<O extends FlatProjectorReads, R>
   /** Fixed id of the singleton record (`VAULT_ID`, `LAYOUT_STATE_ID`, …). */
   entityId: string;
   /** Compose the post-state from the materialized record + oracle.
-   *  Adapters pull set-derived extras (varNames, secretNames, refs, …)
+   *  Adapters pull set-derived extras (varUids, secretUids, refs, …)
    *  via direct `liveSetItems` calls inside this callback because the
    *  shape varies per entity (typed slot validation, sort + sortIndex
    *  synthesis, multiple paths into one Record). */

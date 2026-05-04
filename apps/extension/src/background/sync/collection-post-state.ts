@@ -2,7 +2,7 @@
  * Per-envelope collection post-state projection (Phase B).
  *
  * Thin adapter over `flat-entity-post-state.ts`. Renderer-side write
- * helpers need the live variable names before they can emit matching
+ * helpers need the live variable uids before they can emit matching
  * `removeFromSet` envelopes (variable identity = name).
  */
 

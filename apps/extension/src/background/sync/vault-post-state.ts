@@ -2,7 +2,7 @@
  * Per-envelope vault post-state projection (Phase B).
  *
  * Thin adapter over `flat-entity-post-state.ts` (singleton variant).
- * Renderer-side write helpers need the live secret names before they
+ * Renderer-side write helpers need the live secret uids before they
  * can emit matching `removeFromSet` envelopes (secret identity = name).
  *
  * The vault is §12.1 schema-marked sensitive in full; this projection
@@ -25,10 +25,10 @@ const projectors = makeSingletonEntityProjectors<Reads, SyncVaultPostState>({
   compose: (materialized, oracle) => {
     const vault = projectVault(materialized);
     if (!vault) return null;
-    const secretNames = oracle
+    const secretUids = oracle
       .liveSetItems(VAULT_ENTITY_TYPE, VAULT_ID, VAULT_PATH)
       .map((entry) => entry.itemId);
-    return { vault, secretNames };
+    return { vault, secretUids };
   },
 });
 

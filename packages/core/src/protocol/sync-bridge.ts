@@ -73,28 +73,28 @@ export interface SyncRulePostState {
 
 /**
  * Post-commit projection for an Environment envelope. Carries the
- * materialized {@link V5.Environment} plus the live variable names
- * (set member identity = name, see env mutators). Renderer-side
+ * materialized {@link V5.Environment} plus the live variable uids
+ * (set member identity = uid, see env mutators). Renderer-side
  * mirrors fold this in lockstep with the SW oracle so they can read
  * post-commit state without a round-trip.
  */
 export interface SyncEnvironmentPostState {
   environment: V5.Environment;
-  /** Live variable names — the set-member identity for env vars. */
-  varNames: string[];
+  /** Live variable uids — the set-member identity (uid) for env vars. */
+  varUids: string[];
 }
 
 /**
  * Post-commit projection for a Collection envelope. Carries the
- * materialized {@link V5.Collection} plus the live variable names
- * (set member identity = name, same as env vars). Renderer-side
+ * materialized {@link V5.Collection} plus the live variable uids
+ * (set member identity = uid, same as env vars). Renderer-side
  * mirrors fold this so collection-vars editing surfaces can read
  * post-commit state without a round-trip.
  */
 export interface SyncCollectionPostState {
   collection: V5.Collection;
-  /** Live variable names — the set-member identity for collection vars. */
-  varNames: string[];
+  /** Live variable uids — the set-member identity (uid) for collection vars. */
+  varUids: string[];
   /**
    * Live `(itemId, orderKey)` pairs at the parent-owned `folders` set
    * (§23.5). Renderer-side mirrors fold this into a per-collection
@@ -109,22 +109,22 @@ export interface SyncCollectionPostState {
  * Post-commit projection for a workspace-variables envelope. Singleton
  * entity per workspace — there is exactly one materialized record at
  * the fixed id `workspace-vars`. Carries the materialized
- * {@link V5.WorkspaceVariables} plus the live variable names (set
+ * {@link V5.WorkspaceVariables} plus the live variable uids (set
  * member identity = name, same as env + collection vars). Renderer
  * mirrors fold this so the workspace-vars editing surface reads
  * post-commit state without a round-trip.
  */
 export interface SyncWorkspaceVariablesPostState {
   workspaceVariables: V5.WorkspaceVariables;
-  /** Live variable names — the set-member identity for workspace vars. */
-  varNames: string[];
+  /** Live variable uids — the set-member identity (uid) for workspace vars. */
+  varUids: string[];
 }
 
 /**
  * Post-commit projection for a vault envelope. Singleton entity per
  * workspace — there is exactly one materialized record at the fixed
  * id `vault`. Carries the materialized {@link V5.Vault} plus the live
- * secret names (set member identity = name, same shape as the other
+ * secret names (set member identity = uid, same shape as the other
  * variable scopes). Renderer mirrors fold this so the vault editing
  * surface reads post-commit state without a round-trip.
  *
@@ -136,8 +136,8 @@ export interface SyncWorkspaceVariablesPostState {
  */
 export interface SyncVaultPostState {
   vault: V5.Vault;
-  /** Live secret names — the set-member identity for vault entries. */
-  secretNames: string[];
+  /** Live secret uids — the set-member identity (uid) for vault entries. */
+  secretUids: string[];
 }
 
 /**
@@ -192,14 +192,14 @@ export interface SyncFolderPostState {
 /**
  * Post-commit projection for a request-collection envelope. Mirrors
  * {@link SyncCollectionPostState}: carries the materialized
- * {@link V5.Collection} plus live variable names (set member identity =
+ * {@link V5.Collection} plus live variable uids (set member identity =
  * name, same as env + rule-collection vars) and the parent-owned
  * `folders` order keys.
  */
 export interface SyncRequestCollectionPostState {
   collection: V5.Collection;
-  /** Live variable names — the set-member identity for request-collection vars. */
-  varNames: string[];
+  /** Live variable uids — the set-member identity (uid) for request-collection vars. */
+  varUids: string[];
   /** Live `(itemId, orderKey)` pairs at the parent-owned `folders` set
    *  (§23.5). Same shape as {@link SyncCollectionPostState.setOrderKeys}. */
   setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
@@ -246,13 +246,13 @@ export interface SyncTemplatePostState {
 /**
  * Post-commit projection for a template-collection envelope. Mirrors
  * {@link SyncRequestCollectionPostState}: carries the materialized
- * {@link V5.Collection} plus live variable names and the parent-owned
+ * {@link V5.Collection} plus live variable uids and the parent-owned
  * `folders` order keys.
  */
 export interface SyncTemplateCollectionPostState {
   collection: V5.Collection;
-  /** Live variable names — the set-member identity for template-collection vars. */
-  varNames: string[];
+  /** Live variable uids — the set-member identity (uid) for template-collection vars. */
+  varUids: string[];
   /** Live `(itemId, orderKey)` pairs at the parent-owned `folders` set
    *  (§23.5). Same shape as {@link SyncCollectionPostState.setOrderKeys}. */
   setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;

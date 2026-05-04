@@ -2,7 +2,7 @@
  * Renderer-side request-collection sync mirror.
  *
  * Thin adapter over {@link createFlatEntityMirror}. Each entry carries
- * the materialized `V5.Collection`, the live `varNames` (set-member
+ * the materialized `V5.Collection`, the live `varUids` (set-member
  * identity for request-collection vars; consumed by the
  * variables-replacement diff helper to enumerate `removeFromSet`
  * itemIds), and the parent-owned `folders` set order keys.
@@ -18,8 +18,8 @@ import {
 
 export interface RequestCollectionMirrorEntry {
   collection: V5.Collection;
-  /** Live variable names — set-member identity for request-collection vars. */
-  varNames: string[];
+  /** Live variable uids — set-member identity for request-collection vars. */
+  varUids: string[];
   /** Per-set ordered `(itemId, orderKey)` pairs. Carries the parent's
    *  `folders` set; read via `liveOrderedSetItems`. */
   setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
@@ -59,7 +59,7 @@ export function createRequestCollectionSyncMirror(
           uid,
           entry: {
             collection: requestCollectionPostState.collection,
-            varNames: requestCollectionPostState.varNames,
+            varUids: requestCollectionPostState.varUids,
             setOrderKeys: requestCollectionPostState.setOrderKeys,
           },
         };
@@ -68,7 +68,7 @@ export function createRequestCollectionSyncMirror(
         const resp = await call('oh.sync.snapshotRequestCollections');
         return resp.entries.map((e) => ({
           uid: e.collection.uid,
-          entry: { collection: e.collection, varNames: e.varNames, setOrderKeys: e.setOrderKeys },
+          entry: { collection: e.collection, varUids: e.varUids, setOrderKeys: e.setOrderKeys },
         }));
       },
     },
