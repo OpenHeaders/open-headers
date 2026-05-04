@@ -18,6 +18,7 @@
  */
 
 import { createContext, type ReactNode, useContext, useMemo } from 'react';
+import type { EditorShellScopeWiring } from '@/shared/editor-shell';
 
 export interface EntityScopeValue {
   entityType: string;
@@ -28,13 +29,19 @@ export interface EntityScopeValue {
 const Ctx = createContext<EntityScopeValue>({ entityType: '', entityId: null });
 
 export interface EntityScopeProviderProps {
-  entityType: string;
-  entityId: string | null;
+  entityType?: string;
+  entityId?: string | null;
+  /** Shell-produced wiring bundle. When supplied, overrides the
+   *  individual `entityType` / `entityId` props. */
+  shell?: EditorShellScopeWiring;
   children: ReactNode;
 }
 
-export function EntityScopeProvider({ entityType, entityId, children }: EntityScopeProviderProps): ReactNode {
-  const value = useMemo<EntityScopeValue>(() => ({ entityType, entityId }), [entityType, entityId]);
+export function EntityScopeProvider({ entityType, entityId, shell, children }: EntityScopeProviderProps): ReactNode {
+  const wiring = shell as unknown as { entityType: string; entityId: string | null } | undefined;
+  const eType = (wiring ? wiring.entityType : entityType) ?? '';
+  const eId = wiring ? wiring.entityId : (entityId ?? null);
+  const value = useMemo<EntityScopeValue>(() => ({ entityType: eType, entityId: eId ?? null }), [eType, eId]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

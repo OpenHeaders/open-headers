@@ -16,6 +16,7 @@ import { MoreOutlined, SaveOutlined } from '@ant-design/icons';
 import { Button, Divider, Dropdown, type MenuProps, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
+import type { EditorShellHeaderWiring } from '@/shared/editor-shell';
 import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
 
 export interface EditorHeaderProps {
@@ -41,9 +42,29 @@ export interface EditorHeaderProps {
   onSave?: () => void;
   /** Overflow menu items. Rule editors pass Save-as-Template here. */
   overflowItems?: MenuProps['items'];
+  /** Shell-produced wiring bundle. When supplied, overrides the
+   *  individual `isDirty` / `isPublished` / `onSave` props — those
+   *  remain accepted for editors that haven't migrated to
+   *  `useEditorShell` yet. */
+  shell?: EditorShellHeaderWiring;
 }
 
-const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, isDirty, isPublished, onSave, overflowItems }) => {
+const EditorHeader: React.FC<EditorHeaderProps> = ({
+  title,
+  actions,
+  isDirty: legacyIsDirty,
+  isPublished: legacyIsPublished,
+  onSave: legacyOnSave,
+  overflowItems,
+  shell,
+}) => {
+  // Shell wiring takes precedence over legacy individual props.
+  const wiring = shell as unknown as
+    | { isDirty: boolean; isPublished?: boolean; onSave: () => void }
+    | undefined;
+  const isDirty = wiring ? wiring.isDirty : legacyIsDirty;
+  const isPublished = wiring ? wiring.isPublished : legacyIsPublished;
+  const onSave = wiring ? wiring.onSave : legacyOnSave;
   const { token } = theme.useToken();
   const saveLabel = useShortcutLabel('save');
   const hasOverflow = (overflowItems?.length ?? 0) > 0;
