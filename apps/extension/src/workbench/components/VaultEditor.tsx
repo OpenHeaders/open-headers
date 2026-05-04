@@ -28,13 +28,21 @@ import { VAULT_ENTITY_TYPE, VAULT_ID } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { Alert, App, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { EntityScopeProvider, PresenceBadge, useLocalInstanceId } from '@/shared/awareness';
 import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
+import {
+  type ConflictResolution,
+  EntityConflictBanner,
+  EntityConflictDialog,
+  prettyPathMap,
+} from '@/shared/conflicts';
 import { useDirtyDraft } from '../hooks/useDirtyDraft';
 import EditorHeader from './EditorHeader';
-import VariableTable from './panels/VariableTable';
+import VariableTable, { type VariableTableConflictBridge } from './panels/VariableTable';
 import { scopeBadge } from './shared/scope-colors';
+import { vaultResolveAdapter } from './vault-conflict-adapter';
+import { projectSecretsToForm, useVaultConflicts } from './use-vault-conflicts';
 
 const { Text } = Typography;
 
@@ -71,6 +79,104 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
   });
 
   useEditorDirty({ entityType: VAULT_ENTITY_TYPE, entityId: VAULT_ID }, isDirty);
+
+  // ── Conflict tracking ──────────────────────────────────────────
+  const conflicts = useVaultConflicts({ liveVault: vault, isDirty, enabled: true });
+  const setBaseline = conflicts.setBaseline;
+  const liveVaultWithUid = useMemo(() => ({ ...vault, uid: VAULT_ID }), [vault]);
+
+  useEffect(() => {
+    if (isDirty) return;
+    setBaseline(liveVaultWithUid);
+  }, [liveVaultWithUid, isDirty, setBaseline]);
+
+  const formProjection = useMemo(() => projectSecretsToForm(draft), [draft]);
+  const formSetOrders = useMemo(
+    () => new Map<string, readonly string[]>([['secrets', draft.map((s) => s.uid)]]),
+    [draft],
+  );
+  const allConflicts = useMemo(
+    () => conflicts.getAllConflicts(formProjection, formSetOrders),
+    [conflicts, formProjection, formSetOrders],
+  );
+  const [isConflictDialogOpen, setConflictDialogOpen] = useState(false);
+
+  const conflictBridge = useMemo<VariableTableConflictBridge>(
+    () => ({
+      getLeafConflict: (path, local) => conflicts.getConflict(path, local),
+      onAcceptTheirs: (path, theirs) => {
+        const transient = { uid: VAULT_ID, schemaVersion: vault.schemaVersion, secrets: [...draft] } as V5.Vault & {
+          uid: string;
+        };
+        if (vaultResolveAdapter.applyResolutionToEntity(transient, path, { base: '', theirs })) {
+          setDraft(transient.secrets);
+        }
+        conflicts.acceptTheirs(path, theirs);
+      },
+      onDismiss: (path) => conflicts.dismiss(path),
+    }),
+    [conflicts, draft, vault.schemaVersion, setDraft],
+  );
+
+  const projectWithResolutions = useCallback(
+    (resolutions: ReadonlyMap<string, ConflictResolution>): V5.Vault & { uid: string } => {
+      const transient = { uid: VAULT_ID, schemaVersion: vault.schemaVersion, secrets: [...draft] } as V5.Vault & {
+        uid: string;
+      };
+      for (const [path, choice] of resolutions) {
+        if (choice !== 'theirs') continue;
+        const conflict = allConflicts.get(path);
+        if (!conflict) continue;
+        vaultResolveAdapter.applyResolutionToEntity(transient, path, conflict);
+      }
+      return transient;
+    },
+    [allConflicts, draft, vault.schemaVersion],
+  );
+
+  const handleKeepAllMine = useCallback(() => {
+    for (const path of allConflicts.keys()) conflicts.dismiss(path);
+  }, [allConflicts, conflicts]);
+
+  const handleUseAllSaved = useCallback(() => {
+    const all = new Map<string, ConflictResolution>();
+    for (const path of allConflicts.keys()) all.set(path, 'theirs');
+    const projected = projectWithResolutions(all);
+    setDraft(projected.secrets);
+    for (const [path, conflict] of allConflicts) conflicts.acceptTheirs(path, conflict.theirs);
+  }, [allConflicts, conflicts, projectWithResolutions, setDraft]);
+
+  const applyResolutions = useCallback(
+    (resolutions: Map<string, ConflictResolution>) => {
+      const projected = projectWithResolutions(resolutions);
+      setDraft(projected.secrets);
+      for (const [path, choice] of resolutions) {
+        const conflict = allConflicts.get(path);
+        if (!conflict) continue;
+        if (choice === 'theirs') conflicts.acceptTheirs(path, conflict.theirs);
+        else conflicts.dismiss(path);
+      }
+    },
+    [allConflicts, conflicts, projectWithResolutions, setDraft],
+  );
+
+  const conflictPathLabels = useMemo(
+    () => prettyPathMap(vaultResolveAdapter, liveVaultWithUid, allConflicts.keys()),
+    [liveVaultWithUid, allConflicts],
+  );
+
+  const savedText = useMemo(() => {
+    if (!isConflictDialogOpen) return '';
+    return JSON.stringify(vault.secrets, null, 2);
+  }, [isConflictDialogOpen, vault.secrets]);
+
+  const buildLocalText = useCallback(
+    (resolutions: ReadonlyMap<string, ConflictResolution>): string => {
+      const projected = projectWithResolutions(resolutions);
+      return JSON.stringify(projected.secrets, null, 2);
+    },
+    [projectWithResolutions],
+  );
 
   useEffect(() => {
     onDirtyChange?.(isDirty);
@@ -127,6 +233,12 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
     <EntityScopeProvider entityType={VAULT_ENTITY_TYPE} entityId={VAULT_ID}>
       <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
         <EditorHeader title={headerTitle} isDirty={isDirty} onSave={handleSaveSync} />
+        <EntityConflictBanner
+          count={allConflicts.size}
+          onReview={() => setConflictDialogOpen(true)}
+          onKeepAllMine={handleKeepAllMine}
+          onUseAllSaved={handleUseAllSaved}
+        />
         <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
           <div style={{ maxWidth: 920, margin: '0 auto' }}>
             <Alert
@@ -141,9 +253,19 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
               SECRETS ({counts.strings} string · {counts.totps} TOTP)
             </Text>
 
-            <VariableTable mode="vault" secrets={draft} onChange={setDraft} />
+            <VariableTable mode="vault" secrets={draft} onChange={setDraft} conflictBridge={conflictBridge} />
           </div>
         </div>
+        <EntityConflictDialog
+          open={isConflictDialogOpen}
+          savedText={savedText}
+          buildLocalText={buildLocalText}
+          conflicts={allConflicts}
+          localValuesByPath={new Map(Object.entries(formProjection))}
+          pathLabels={conflictPathLabels}
+          onResolve={applyResolutions}
+          onClose={() => setConflictDialogOpen(false)}
+        />
       </div>
     </EntityScopeProvider>
   );

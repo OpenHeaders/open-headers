@@ -40,7 +40,8 @@ import { generateUid } from '@openheaders/core/utils';
 import { Collapse, Input, InputNumber, Select, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { EntityField } from '@/shared/awareness';
+import { ConflictDiffChip, EntityField } from '@/shared/awareness';
+import type { PathConflict } from '@/shared/conflicts/types';
 import TotpPreview from '../totp/TotpPreview';
 
 /** Per-row awareness path generator. Editors pass `VARIABLE_PATHS.row`
@@ -48,6 +49,21 @@ import TotpPreview from '../totp/TotpPreview';
  *  field-focus publishing. Vault mode skips per §14.4 of the sync
  *  design (sensitive entities use entity-level-only awareness). */
 export type VariableRowPath = (uid: string, leaf: 'name' | 'value' | 'type') => string;
+
+/** Bridge into the entity-level conflict tracker. Editors expose the
+ *  three operations the inline `<ConflictDiffChip>` needs:
+ *
+ *    - `getLeafConflict(uid, leaf, local)` — null when no conflict.
+ *    - `onAcceptTheirs(path, theirs)`     — write into the draft + ack tracker.
+ *    - `onDismiss(path)`                  — keep mine, dismiss the chip.
+ *
+ *  Vault mode passes its own bridge with `secrets.<uid>.<leaf>` paths
+ *  via `vaultRowPath`. */
+export interface VariableTableConflictBridge {
+  getLeafConflict(path: string, local: string): PathConflict | null;
+  onAcceptTheirs(path: string, theirs: string): void;
+  onDismiss(path: string): void;
+}
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -93,11 +109,16 @@ type VariableTableProps =
        *  `(entityType, entityId, rowPath(uid, leaf))`. Editors must mount
        *  an `<EntityScopeProvider>` upstream so the entity context is set. */
       rowPath?: VariableRowPath;
+      /** Per-leaf conflict bridge into the entity tracker. Optional. */
+      conflictBridge?: VariableTableConflictBridge;
     }
   | {
       mode: 'vault';
       secrets: V5.VaultSecret[];
       onChange: (next: V5.VaultSecret[]) => void;
+      /** Per-leaf conflict bridge for vault. Path encoding is
+       *  `secrets.<uid>.<leaf>` — name + (kind-specific leaves). */
+      conflictBridge?: VariableTableConflictBridge;
     };
 
 // Local row uid doubles as the persisted schema uid — same shape (8-char
@@ -296,6 +317,7 @@ interface SortableRowProps {
   mode: 'variable' | 'vault';
   allowSecrets: boolean;
   rowPath?: VariableRowPath;
+  conflictBridge?: VariableTableConflictBridge;
   update: (i: number, patch: Partial<LocalRow>) => void;
   remove: (i: number) => void;
   toggleReveal: (uid: string) => void;
@@ -311,6 +333,7 @@ function SortableRow({
   mode,
   allowSecrets,
   rowPath,
+  conflictBridge,
   update,
   remove,
   toggleReveal,
@@ -324,6 +347,16 @@ function SortableRow({
 
   const isVault = mode === 'vault';
   const isTotp = isVault && row.kind === 'totp' && !row.isPlaceholder;
+  const setPathPrefix = isVault ? 'secrets' : 'variables';
+  const conflictPathFor = (leaf: string) => `${setPathPrefix}.${row.uid}.${leaf}`;
+  const nameConflict =
+    !row.isPlaceholder && conflictBridge
+      ? conflictBridge.getLeafConflict(conflictPathFor('name'), row.name)
+      : null;
+  const valueConflict =
+    !row.isPlaceholder && conflictBridge && !isTotp
+      ? conflictBridge.getLeafConflict(conflictPathFor('value'), row.value)
+      : null;
 
   const style: React.CSSProperties = {
     display: 'grid',
@@ -386,6 +419,16 @@ function SortableRow({
             ? <EntityField path={rowPath(row.uid, 'name')}>{nameInput}</EntityField>
             : nameInput;
         })()}
+        {nameConflict && conflictBridge && (
+          <ConflictDiffChip
+            theirs={nameConflict.theirs}
+            base={nameConflict.base}
+            local={row.name}
+            remote={nameConflict.remote}
+            onTakeTheirs={() => conflictBridge.onAcceptTheirs(conflictPathFor('name'), nameConflict.theirs)}
+            onKeepMine={() => conflictBridge.onDismiss(conflictPathFor('name'))}
+          />
+        )}
         {!isVault && allowSecrets && !row.isPlaceholder && (
           <Tooltip title={row.isSensitive ? 'Unmark as sensitive' : 'Mark as sensitive'}>
             {row.isSensitive ? (
@@ -508,6 +551,16 @@ function SortableRow({
                     {isRevealed ? <EyeInvisibleOutlined /> : <EyeOutlined />}
                   </span>
                 </Tooltip>
+              )}
+              {valueConflict && conflictBridge && (
+                <ConflictDiffChip
+                  theirs={valueConflict.theirs}
+                  base={valueConflict.base}
+                  local={row.value}
+                  remote={valueConflict.remote}
+                  onTakeTheirs={() => conflictBridge.onAcceptTheirs(conflictPathFor('value'), valueConflict.theirs)}
+                  onKeepMine={() => conflictBridge.onDismiss(conflictPathFor('value'))}
+                />
               )}
             </>
           )}
@@ -731,6 +784,7 @@ const VariableTable: React.FC<VariableTableProps> = (props) => {
   const nameHeader = isVaultMode ? 'Secret' : 'Variable';
   const mode: 'variable' | 'vault' = isVaultMode ? 'vault' : 'variable';
   const rowPath = isVaultMode ? undefined : props.rowPath;
+  const conflictBridge = props.conflictBridge;
 
   return (
     <div
@@ -787,6 +841,7 @@ const VariableTable: React.FC<VariableTableProps> = (props) => {
               mode={mode}
               allowSecrets={allowSecrets}
               rowPath={rowPath}
+              conflictBridge={conflictBridge}
               update={update}
               remove={remove}
               toggleReveal={toggleReveal}

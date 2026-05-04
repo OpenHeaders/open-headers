@@ -26,13 +26,21 @@ import {
 import type { V5 } from '@openheaders/core/types';
 import { App, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { EntityScopeProvider, PresenceBadge, useLocalInstanceId, VARIABLE_PATHS } from '@/shared/awareness';
 import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
+import {
+  type ConflictResolution,
+  EntityConflictBanner,
+  EntityConflictDialog,
+  prettyPathMap,
+} from '@/shared/conflicts';
 import { useDirtyDraft } from '../hooks/useDirtyDraft';
 import EditorHeader from './EditorHeader';
-import VariableTable from './panels/VariableTable';
+import VariableTable, { type VariableTableConflictBridge } from './panels/VariableTable';
 import { scopeBadge } from './shared/scope-colors';
+import { type VariableEntity, variableResolveAdapter } from './variable-conflict-adapter';
+import { projectVariablesToForm, useVariableConflicts } from './use-variable-conflicts';
 
 const { Text } = Typography;
 
@@ -62,6 +70,108 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
   useEditorDirty(
     { entityType: WORKSPACE_VARIABLES_ENTITY_TYPE, entityId: WORKSPACE_VARIABLES_ID },
     isDirty,
+  );
+
+  // ── Conflict tracking ──────────────────────────────────────────
+  const liveEntity: VariableEntity = useMemo(
+    () => ({ uid: WORKSPACE_VARIABLES_ID, variables: workspaceVariables.variables }),
+    [workspaceVariables.variables],
+  );
+  const conflicts = useVariableConflicts({
+    liveEntity,
+    isDirty,
+    enabled: true,
+    entityType: WORKSPACE_VARIABLES_ENTITY_TYPE,
+  });
+  const setBaseline = conflicts.setBaseline;
+
+  useEffect(() => {
+    if (isDirty) return;
+    setBaseline(liveEntity);
+  }, [liveEntity, isDirty, setBaseline]);
+
+  const formProjection = useMemo(() => projectVariablesToForm(draft), [draft]);
+  const formSetOrders = useMemo(
+    () => new Map<string, readonly string[]>([['variables', draft.map((v) => v.uid)]]),
+    [draft],
+  );
+  const allConflicts = useMemo(
+    () => conflicts.getAllConflicts(formProjection, formSetOrders),
+    [conflicts, formProjection, formSetOrders],
+  );
+  const [isConflictDialogOpen, setConflictDialogOpen] = useState(false);
+
+  const conflictBridge = useMemo<VariableTableConflictBridge>(
+    () => ({
+      getLeafConflict: (path, local) => conflicts.getConflict(path, local),
+      onAcceptTheirs: (path, theirs) => {
+        const transient: VariableEntity = { uid: WORKSPACE_VARIABLES_ID, variables: [...draft] };
+        if (variableResolveAdapter.applyResolutionToEntity(transient, path, { base: '', theirs })) {
+          setDraft(transient.variables);
+        }
+        conflicts.acceptTheirs(path, theirs);
+      },
+      onDismiss: (path) => conflicts.dismiss(path),
+    }),
+    [conflicts, draft, setDraft],
+  );
+
+  const projectWithResolutions = useCallback(
+    (resolutions: ReadonlyMap<string, ConflictResolution>): VariableEntity => {
+      const transient: VariableEntity = { uid: WORKSPACE_VARIABLES_ID, variables: [...draft] };
+      for (const [path, choice] of resolutions) {
+        if (choice !== 'theirs') continue;
+        const conflict = allConflicts.get(path);
+        if (!conflict) continue;
+        variableResolveAdapter.applyResolutionToEntity(transient, path, conflict);
+      }
+      return transient;
+    },
+    [allConflicts, draft],
+  );
+
+  const handleKeepAllMine = useCallback(() => {
+    for (const path of allConflicts.keys()) conflicts.dismiss(path);
+  }, [allConflicts, conflicts]);
+
+  const handleUseAllSaved = useCallback(() => {
+    const all = new Map<string, ConflictResolution>();
+    for (const path of allConflicts.keys()) all.set(path, 'theirs');
+    const projected = projectWithResolutions(all);
+    setDraft(projected.variables);
+    for (const [path, conflict] of allConflicts) conflicts.acceptTheirs(path, conflict.theirs);
+  }, [allConflicts, conflicts, projectWithResolutions, setDraft]);
+
+  const applyResolutions = useCallback(
+    (resolutions: Map<string, ConflictResolution>) => {
+      const projected = projectWithResolutions(resolutions);
+      setDraft(projected.variables);
+      for (const [path, choice] of resolutions) {
+        const conflict = allConflicts.get(path);
+        if (!conflict) continue;
+        if (choice === 'theirs') conflicts.acceptTheirs(path, conflict.theirs);
+        else conflicts.dismiss(path);
+      }
+    },
+    [allConflicts, conflicts, projectWithResolutions, setDraft],
+  );
+
+  const conflictPathLabels = useMemo(
+    () => prettyPathMap(variableResolveAdapter, liveEntity, allConflicts.keys()),
+    [liveEntity, allConflicts],
+  );
+
+  const savedText = useMemo(() => {
+    if (!isConflictDialogOpen) return '';
+    return JSON.stringify(workspaceVariables.variables, null, 2);
+  }, [isConflictDialogOpen, workspaceVariables.variables]);
+
+  const buildLocalText = useCallback(
+    (resolutions: ReadonlyMap<string, ConflictResolution>): string => {
+      const projected = projectWithResolutions(resolutions);
+      return JSON.stringify(projected.variables, null, 2);
+    },
+    [projectWithResolutions],
   );
 
   useEffect(() => {
@@ -110,6 +220,12 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
     <EntityScopeProvider entityType={WORKSPACE_VARIABLES_ENTITY_TYPE} entityId={WORKSPACE_VARIABLES_ID}>
       <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
         <EditorHeader title={headerTitle} isDirty={isDirty} onSave={handleSaveSync} />
+        <EntityConflictBanner
+          count={allConflicts.size}
+          onReview={() => setConflictDialogOpen(true)}
+          onKeepAllMine={handleKeepAllMine}
+          onUseAllSaved={handleUseAllSaved}
+        />
         <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
           <div style={{ maxWidth: 920, margin: '0 auto' }}>
             <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
@@ -121,9 +237,25 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
               VARIABLES ({nonEmptyCount})
             </Text>
 
-            <VariableTable variables={draft} onChange={setDraft} allowSecrets rowPath={VARIABLE_PATHS.row} />
+            <VariableTable
+              variables={draft}
+              onChange={setDraft}
+              allowSecrets
+              rowPath={VARIABLE_PATHS.row}
+              conflictBridge={conflictBridge}
+            />
           </div>
         </div>
+        <EntityConflictDialog
+          open={isConflictDialogOpen}
+          savedText={savedText}
+          buildLocalText={buildLocalText}
+          conflicts={allConflicts}
+          localValuesByPath={new Map(Object.entries(formProjection))}
+          pathLabels={conflictPathLabels}
+          onResolve={applyResolutions}
+          onClose={() => setConflictDialogOpen(false)}
+        />
       </div>
     </EntityScopeProvider>
   );

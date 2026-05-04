@@ -24,14 +24,22 @@ import { ENVIRONMENT_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { App, Button, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { EntityScopeProvider, PresenceBadge, useLocalInstanceId, VARIABLE_PATHS } from '@/shared/awareness';
 import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
+import {
+  type ConflictResolution,
+  EntityConflictBanner,
+  EntityConflictDialog,
+  prettyPathMap,
+} from '@/shared/conflicts';
 import { useDirtyDraft } from '../hooks/useDirtyDraft';
 import { useEnvSwitcher } from '../services/env-switcher';
 import EditorHeader from './EditorHeader';
-import VariableTable from './panels/VariableTable';
+import VariableTable, { type VariableTableConflictBridge } from './panels/VariableTable';
 import { scopeBadge } from './shared/scope-colors';
+import { type VariableEntity, variableResolveAdapter } from './variable-conflict-adapter';
+import { projectVariablesToForm, useVariableConflicts } from './use-variable-conflicts';
 
 const { Text } = Typography;
 
@@ -71,6 +79,123 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
   useEditorDirty(
     { entityType: ENVIRONMENT_ENTITY_TYPE, entityId: env?.uid ?? null },
     isDirty,
+  );
+
+  // ── Conflict tracking ──────────────────────────────────────────
+  const liveEntity: VariableEntity | null = useMemo(
+    () => (env ? { uid: env.uid, variables: env.variables } : null),
+    [env],
+  );
+  const conflicts = useVariableConflicts({
+    liveEntity,
+    isDirty,
+    enabled: !!env,
+    entityType: ENVIRONMENT_ENTITY_TYPE,
+  });
+  const setBaseline = conflicts.setBaseline;
+
+  // Snap conflict baseline whenever the editor is clean against the
+  // canonical entity — initial seed + post-save echo + clean-state
+  // rebroadcasts. `useDirtyDraft`'s resync already keeps `draft` aligned
+  // with `env.variables` while clean; this effect keeps the conflict
+  // baseline aligned with the same fingerprint.
+  useEffect(() => {
+    if (!liveEntity || isDirty) return;
+    setBaseline(liveEntity);
+  }, [liveEntity, isDirty, setBaseline]);
+
+  const formProjection = useMemo(() => projectVariablesToForm(draft), [draft]);
+  const formSetOrders = useMemo(
+    () => new Map<string, readonly string[]>([['variables', draft.map((v) => v.uid)]]),
+    [draft],
+  );
+  const allConflicts = useMemo(
+    () => conflicts.getAllConflicts(formProjection, formSetOrders),
+    [conflicts, formProjection, formSetOrders],
+  );
+  const [isConflictDialogOpen, setConflictDialogOpen] = useState(false);
+
+  const conflictBridge = useMemo<VariableTableConflictBridge>(
+    () => ({
+      getLeafConflict: (path, local) => conflicts.getConflict(path, local),
+      onAcceptTheirs: (path, theirs) => {
+        // Apply the saved value into the local draft, then ack the
+        // tracker so the chip dismisses + baseline catches up.
+        const transient: VariableEntity = { uid: env?.uid ?? '', variables: [...draft] };
+        if (variableResolveAdapter.applyResolutionToEntity(transient, path, { base: '', theirs })) {
+          setDraft(transient.variables);
+        }
+        conflicts.acceptTheirs(path, theirs);
+      },
+      onDismiss: (path) => conflicts.dismiss(path),
+    }),
+    [conflicts, draft, env?.uid, setDraft],
+  );
+
+  const projectWithResolutions = useCallback(
+    (resolutions: ReadonlyMap<string, ConflictResolution>): VariableEntity | null => {
+      if (!env) return null;
+      const transient: VariableEntity = { uid: env.uid, variables: [...draft] };
+      for (const [path, choice] of resolutions) {
+        if (choice !== 'theirs') continue;
+        const conflict = allConflicts.get(path);
+        if (!conflict) continue;
+        variableResolveAdapter.applyResolutionToEntity(transient, path, conflict);
+      }
+      return transient;
+    },
+    [allConflicts, draft, env],
+  );
+
+  const handleKeepAllMine = useCallback(() => {
+    for (const path of allConflicts.keys()) conflicts.dismiss(path);
+  }, [allConflicts, conflicts]);
+
+  const handleUseAllSaved = useCallback(() => {
+    if (!env) return;
+    const all = new Map<string, ConflictResolution>();
+    for (const path of allConflicts.keys()) all.set(path, 'theirs');
+    const projected = projectWithResolutions(all);
+    if (!projected) return;
+    setDraft(projected.variables);
+    for (const [path, conflict] of allConflicts) conflicts.acceptTheirs(path, conflict.theirs);
+  }, [allConflicts, conflicts, env, projectWithResolutions, setDraft]);
+
+  const applyResolutions = useCallback(
+    (resolutions: Map<string, ConflictResolution>) => {
+      if (!env) return;
+      const projected = projectWithResolutions(resolutions);
+      if (projected) setDraft(projected.variables);
+      for (const [path, choice] of resolutions) {
+        const conflict = allConflicts.get(path);
+        if (!conflict) continue;
+        if (choice === 'theirs') conflicts.acceptTheirs(path, conflict.theirs);
+        else conflicts.dismiss(path);
+      }
+    },
+    [allConflicts, conflicts, env, projectWithResolutions, setDraft],
+  );
+
+  const conflictPathLabels = useMemo(
+    () =>
+      liveEntity
+        ? prettyPathMap(variableResolveAdapter, liveEntity, allConflicts.keys())
+        : new Map<string, string>(),
+    [liveEntity, allConflicts],
+  );
+
+  const savedText = useMemo(() => {
+    if (!isConflictDialogOpen || !env) return '';
+    return JSON.stringify(env.variables, null, 2);
+  }, [isConflictDialogOpen, env]);
+
+  const buildLocalText = useCallback(
+    (resolutions: ReadonlyMap<string, ConflictResolution>): string => {
+      const projected = projectWithResolutions(resolutions);
+      if (!projected) return '';
+      return JSON.stringify(projected.variables, null, 2);
+    },
+    [projectWithResolutions],
   );
 
   useEffect(() => {
@@ -164,15 +289,37 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
     <EntityScopeProvider entityType={ENVIRONMENT_ENTITY_TYPE} entityId={env.uid}>
       <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
         <EditorHeader title={headerTitle} actions={headerActions} isDirty={isDirty} onSave={handleSaveSync} />
+        <EntityConflictBanner
+          count={allConflicts.size}
+          onReview={() => setConflictDialogOpen(true)}
+          onKeepAllMine={handleKeepAllMine}
+          onUseAllSaved={handleUseAllSaved}
+        />
         <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
           <div style={{ maxWidth: 920, margin: '0 auto' }}>
             <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 600 }}>
               VARIABLES ({nonEmptyCount})
             </Text>
 
-            <VariableTable variables={draft} onChange={setDraft} allowSecrets rowPath={VARIABLE_PATHS.row} />
+            <VariableTable
+              variables={draft}
+              onChange={setDraft}
+              allowSecrets
+              rowPath={VARIABLE_PATHS.row}
+              conflictBridge={conflictBridge}
+            />
           </div>
         </div>
+        <EntityConflictDialog
+          open={isConflictDialogOpen}
+          savedText={savedText}
+          buildLocalText={buildLocalText}
+          conflicts={allConflicts}
+          localValuesByPath={new Map(Object.entries(formProjection))}
+          pathLabels={conflictPathLabels}
+          onResolve={applyResolutions}
+          onClose={() => setConflictDialogOpen(false)}
+        />
       </div>
     </EntityScopeProvider>
   );
