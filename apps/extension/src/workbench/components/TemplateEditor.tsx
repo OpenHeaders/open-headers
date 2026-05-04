@@ -30,9 +30,10 @@ import {
   ActionPathsProvider,
   EntityField,
   EntityScopeProvider,
+  PresenceBadge,
   TEMPLATE_ACTION_PATHS,
+  useLocalInstanceId,
 } from '@/shared/awareness';
-import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
 import {
   EntityConflictBanner,
   EntityConflictDialog,
@@ -40,8 +41,10 @@ import {
   type ConflictResolution,
   type PathConflict,
 } from '@/shared/conflicts';
-import { stableStringify, useEntityReprime } from '@/shared/forms';
+import { useEditorShell, useReprime } from '@/shared/editor-shell';
+import { stableStringify } from '@/shared/forms';
 import ConditionEditor from './ConditionEditor';
+import EditorHeader from './EditorHeader';
 import { ActionValueBanner } from './rule-fields/ActionValueBanner';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
 import BodyRuleFields, { BODY_DYNAMIC_TEMPLATE } from './rule-fields/BodyRuleFields';
@@ -128,65 +131,40 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
     [form],
   );
 
-  // ── Derived dirty (form-projection vs live-template) ──────────
-  //
-  // Same convention as RuleEditor: dirty is a structural projection,
-  // never an imperative event log. Two fingerprints — `formFingerprint`
-  // (live form values projected to save-shape) and `lastPrimedFingerprint`
-  // (canonical the form was last seeded from). Auto-rebase snaps the
-  // latter as soon as form converges with canonical.
   const formValues = Form.useWatch([], form) as Record<string, unknown> | undefined;
   const formFingerprint = useMemo(
-    () => (formValues ? stableStringify(buildTemplateUpdates(formValues)) : null),
+    () => (formValues ? stableStringify(buildTemplateUpdates(formValues)) : ''),
     [formValues],
   );
-  const liveTemplateFingerprint = useMemo(
-    () =>
-      liveTemplate
-        ? stableStringify({
-            name: liveTemplate.name,
-            icon: liveTemplate.icon,
-            description: liveTemplate.description,
-            includes: liveTemplate.includes,
-            conditions: liveTemplate.includes.conditions ? liveTemplate.conditions : [],
-            formValues: liveTemplate.includes.formValues ? liveTemplate.formValues : {},
-          })
-        : null,
-    [liveTemplate],
-  );
-  const [lastPrimedFingerprint, setLastPrimedFingerprint] = useState<string | null>(null);
-  const isDirty =
-    isInitialized &&
-    formFingerprint !== null &&
-    lastPrimedFingerprint !== null &&
-    formFingerprint !== lastPrimedFingerprint;
 
-  // Fire `onDirtyChange` only on transitions, not every render.
-  const lastReportedDirtyRef = useRef<boolean | null>(null);
-  useEffect(() => {
-    if (lastReportedDirtyRef.current === isDirty) return;
-    lastReportedDirtyRef.current = isDirty;
-    onDirtyChange?.(isDirty);
-  }, [isDirty, onDirtyChange]);
+  // Conflict-baseline ref pattern (canonical recipe).
+  const setBaselineRef = useRef<(t: V5.Template) => void>(() => undefined);
 
-  useEditorDirty({ entityType: TEMPLATE_ENTITY_TYPE, entityId: templateUid }, isDirty);
+  const reprime = useReprime<V5.Template>({
+    liveEntity: liveTemplate,
+    scope: { entityType: TEMPLATE_ENTITY_TYPE, entityId: templateUid },
+    enabled: isInitialized && liveTemplate != null,
+    formFingerprint,
+    signature: (t) =>
+      stableStringify({
+        name: t.name,
+        icon: t.icon,
+        description: t.description,
+        includes: t.includes,
+        conditions: t.includes.conditions ? t.conditions : [],
+        formValues: t.includes.formValues ? t.formValues : {},
+      }),
+    populate: (t) => populateFormFromTemplate(t),
+    onPrimed: (t) => setBaselineRef.current(t),
+  });
+  const isDirty = reprime.isDirty;
 
   const conflicts = useTemplateConflicts({
     liveTemplate: liveTemplate ?? null,
     isDirty,
     enabled: true,
   });
-  const setConflictBaseline = conflicts.setBaseline;
-
-  // Auto-rebase: as soon as form converges with canonical, snap both
-  // dirty-baseline AND the conflict tracker's per-path baseline.
-  useEffect(() => {
-    if (formFingerprint === null || liveTemplateFingerprint === null) return;
-    if (formFingerprint !== liveTemplateFingerprint) return;
-    if (lastPrimedFingerprint === liveTemplateFingerprint) return;
-    setLastPrimedFingerprint(liveTemplateFingerprint);
-    if (liveTemplate) setConflictBaseline(liveTemplate);
-  }, [formFingerprint, liveTemplateFingerprint, lastPrimedFingerprint, liveTemplate, setConflictBaseline]);
+  setBaselineRef.current = conflicts.setBaseline;
 
   // Conflict aggregation. Project current form values into a transient
   // V5.Template-shaped object so the path-keyed projection lines up
@@ -292,46 +270,14 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
     [liveTemplate, allConflicts],
   );
 
-  // `populateAndBaseline` is the canonical "sync the form from the
-  // mirror" entry point — sets form values + snaps both fingerprints.
-  const populateAndBaseline = useCallback(
-    (t: V5.Template) => {
-      populateFormFromTemplate(t);
-      setConflictBaseline(t);
-      setLastPrimedFingerprint(
-        stableStringify({
-          name: t.name,
-          icon: t.icon,
-          description: t.description,
-          includes: t.includes,
-          conditions: t.includes.conditions ? t.conditions : [],
-          formValues: t.includes.formValues ? t.formValues : {},
-        }),
-      );
-    },
-    [populateFormFromTemplate, setConflictBaseline],
-  );
-
-  const templateSignature = useCallback((t: V5.Template) => JSON.stringify(t), []);
-  const reprime = useEntityReprime<V5.Template>({
-    liveEntity: liveTemplate,
-    scope: { entityType: TEMPLATE_ENTITY_TYPE, entityId: templateUid },
-    isDirty,
-    enabled: isInitialized,
-    signature: templateSignature,
-    populate: populateAndBaseline,
-  });
-
+  // Init: populate form from the live template once, then let useReprime's
+  // auto-rebase advance primedFingerprint + conflict baseline.
   useEffect(() => {
     if (initializedRef.current || !liveTemplate) return;
     initializedRef.current = true;
+    populateFormFromTemplate(liveTemplate);
     setIsInitialized(true);
-    populateAndBaseline(liveTemplate);
-    reprime.markPopulated(liveTemplate);
-    // populateAndBaseline / reprime captured via the initializedRef
-    // guard above; the effect is idempotent and runs once.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveTemplate]);
+  }, [liveTemplate, populateFormFromTemplate]);
 
   // ── Save ────────────────────────────────────────────────────
 
@@ -350,9 +296,14 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
     }
   }, [liveTemplate, form, updateTemplate, message, conflicts]);
 
-  useEffect(() => {
-    registerSaveRef?.(handleSave);
-  }, [registerSaveRef, handleSave]);
+  const shell = useEditorShell({
+    entityType: TEMPLATE_ENTITY_TYPE,
+    entityId: templateUid,
+    isDirty,
+    onSave: handleSave,
+    onDirtyChange,
+    registerSaveRef,
+  });
 
   const handleValuesChange = useCallback(
     (changedValues: Record<string, unknown>) => {
@@ -377,6 +328,8 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
     [form],
   );
 
+  const localInstanceId = useLocalInstanceId();
+
   if (!liveTemplate) {
     return (
       <div style={{ padding: 40, textAlign: 'center' }}>
@@ -385,10 +338,25 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
     );
   }
 
+  const headerTitle = (
+    <>
+      <Typography.Text strong style={{ fontSize: 13 }}>
+        {liveTemplate.name || 'Template'}
+      </Typography.Text>
+      <PresenceBadge
+        entityType={TEMPLATE_ENTITY_TYPE}
+        entityId={templateUid}
+        excludeInstanceId={localInstanceId}
+        style={{ marginLeft: 6 }}
+      />
+    </>
+  );
+
   return (
-    <EntityScopeProvider entityType={TEMPLATE_ENTITY_TYPE} entityId={templateUid}>
+    <EntityScopeProvider shell={shell.scopeProps}>
       <ActionPathsProvider value={TEMPLATE_ACTION_PATHS}>
         <div className="rules-rule-editor">
+          <EditorHeader title={headerTitle} shell={shell.headerProps} />
           <Form form={form} layout="vertical" onFinish={handleSave} onValuesChange={handleValuesChange} size="small">
             <Form.Item name="ruleType" hidden>
               <input type="hidden" />
@@ -401,12 +369,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
               onUseAllSaved={handleUseAllSaved}
             />
 
-            {/* ── Template metadata ── */}
-            <Text strong style={{ fontSize: 15, display: 'block', marginBottom: 16 }}>
-              Edit Template
-            </Text>
-
-            <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'flex-end' }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'flex-end', marginTop: 16 }}>
               <Form.Item name="templateIcon" style={{ marginBottom: 0 }}>
                 <TwoToneIconPicker />
               </Form.Item>
