@@ -31,16 +31,16 @@ import {
 import type { V5 } from '@openheaders/core/types';
 import { App, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { EntityScopeProvider, PresenceBadge, useLocalInstanceId, VARIABLE_PATHS } from '@/shared/awareness';
-import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
 import {
   type ConflictResolution,
   EntityConflictBanner,
   EntityConflictDialog,
   prettyPathMap,
 } from '@/shared/conflicts';
-import { stableStringify, useEntityReprime } from '@/shared/forms';
+import { useEditorShell, useReprime } from '@/shared/editor-shell';
+import { stableStringify } from '@/shared/forms';
 import EditorHeader from './EditorHeader';
 import VariableTable, { type VariableTableConflictBridge } from './panels/VariableTable';
 import { scopeBadge } from './shared/scope-colors';
@@ -110,54 +110,36 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
   }, [kind, replaceCollectionVariables, replaceRequestCollectionVariables, replaceTemplateCollectionVariables]);
 
   const [draft, setDraft] = useState<V5.Variable[]>(() => collection?.variables ?? EMPTY_VARS);
-  const [lastPrimedSig, setLastPrimedSig] = useState<string | null>(null);
+  const formFingerprint = useMemo(() => variablesSignature(draft), [draft]);
 
   const entityType = entityTypeFor(kind);
 
-  // Derived dirty (universal contract). See EnvironmentEditor for the
-  // lastPrimedSig rationale.
-  const formSig = useMemo(() => variablesSignature(draft), [draft]);
-  const liveSig = useMemo(
-    () => (collection ? variablesSignature(collection.variables) : null),
-    [collection],
-  );
-  const isDirty = lastPrimedSig !== null && formSig !== lastPrimedSig;
-
-  useEditorDirty({ entityType, entityId: collectionUid }, isDirty);
-
-  // ── Conflict tracking ──────────────────────────────────────────
   const liveEntity: VariableEntity | null = useMemo(
     () => (collection ? { uid: collection.uid, variables: collection.variables } : null),
     [collection],
   );
+
+  // Conflict-baseline ref pattern (canonical recipe).
+  const setBaselineRef = useRef<(e: VariableEntity) => void>(() => undefined);
+
+  const reprime = useReprime<V5.Collection>({
+    liveEntity: collection,
+    scope: { entityType, entityId: collectionUid },
+    enabled: collection !== null,
+    formFingerprint,
+    signature: (e) => variablesSignature(e.variables),
+    populate: (e) => setDraft(e.variables),
+    onPrimed: (e) => setBaselineRef.current({ uid: e.uid, variables: e.variables }),
+  });
+  const isDirty = reprime.isDirty;
+
   const conflicts = useVariableConflicts({
     liveEntity,
     isDirty,
     enabled: !!collection,
     entityType,
   });
-  const setConflictBaseline = conflicts.setBaseline;
-
-  useEntityReprime<V5.Collection>({
-    liveEntity: collection,
-    scope: { entityType, entityId: collectionUid },
-    isDirty,
-    enabled: collection !== null,
-    signature: (e) => variablesSignature(e.variables),
-    populate: (e) => {
-      setDraft(e.variables);
-      setLastPrimedSig(variablesSignature(e.variables));
-      setConflictBaseline({ uid: e.uid, variables: e.variables });
-    },
-  });
-
-  useEffect(() => {
-    if (formSig === null || liveSig === null) return;
-    if (formSig !== liveSig) return;
-    if (lastPrimedSig === liveSig) return;
-    setLastPrimedSig(liveSig);
-    if (liveEntity) setConflictBaseline(liveEntity);
-  }, [formSig, liveSig, lastPrimedSig, liveEntity, setConflictBaseline]);
+  setBaselineRef.current = conflicts.setBaseline;
 
   const formProjection = useMemo(() => projectVariablesToForm(draft), [draft]);
   const formSetOrders = useMemo(
@@ -246,10 +228,6 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
     [projectWithResolutions],
   );
 
-  useEffect(() => {
-    onDirtyChange?.(isDirty);
-  }, [isDirty, onDirtyChange]);
-
   const handleSave = useCallback(() => {
     if (!collection || !isDirty) return;
     void replaceVariables(collection.uid, draft).then((result) => {
@@ -268,9 +246,14 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
     });
   }, [collection, isDirty, draft, replaceVariables, message, conflicts]);
 
-  useEffect(() => {
-    registerSaveRef?.(handleSave);
-  }, [registerSaveRef, handleSave]);
+  const shell = useEditorShell({
+    entityType,
+    entityId: collectionUid,
+    isDirty,
+    onSave: handleSave,
+    onDirtyChange,
+    registerSaveRef,
+  });
 
   if (!collection) {
     return (
@@ -301,9 +284,9 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
   );
 
   return (
-    <EntityScopeProvider entityType={entityType} entityId={collectionUid}>
+    <EntityScopeProvider shell={shell.scopeProps}>
       <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
-        <EditorHeader title={headerTitle} isDirty={isDirty} onSave={handleSave} />
+        <EditorHeader title={headerTitle} shell={shell.headerProps} />
         <EntityConflictBanner
           count={allConflicts.size}
           onReview={() => setConflictDialogOpen(true)}
