@@ -10,6 +10,8 @@ export type { LayoutMenuIconKind } from './LayoutMenuIcon';
 export { default as LayoutMenuIcon } from './LayoutMenuIcon';
 export type { PanelHeaderProps } from './PanelHeader';
 export { default as PanelHeader } from './PanelHeader';
+export type { CreatePanelHeaderWiringInput, PanelHeaderWiring } from './panel-header-wiring';
+export { createPanelHeaderWiring } from './panel-header-wiring';
 export { default as RegionToggle } from './RegionToggle';
 export type { ShellLayoutProps } from './ShellLayout';
 export { default as ShellLayout } from './ShellLayout';

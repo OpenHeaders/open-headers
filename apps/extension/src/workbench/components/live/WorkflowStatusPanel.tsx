@@ -29,14 +29,14 @@ import { call } from '@utils/bridge';
 import { App, Badge, Button, Empty, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { PanelHeader } from '@/shared/dock-layout';
+import { createPanelHeaderWiring, PanelHeader } from '@/shared/dock-layout';
 import { classifyRun, describeCircuit, describeRunSchedule, formatCountdown, statusColor } from './live-display';
 
 const { Text } = Typography;
 
 interface Props {
   /** Close handler wired by the shell so the X button toggles the tool window. */
-  onClose?: () => void;
+  onClose: () => void;
   /** Double-click handler → open the matching Live Workflow editor tab. */
   onOpenWorkflow?: (workflowUid: string) => void;
 }
@@ -149,15 +149,16 @@ const WorkflowStatusPanel: React.FC<Props> = ({ onClose, onOpenWorkflow }) => {
   );
 
   // ── Shared panel header (title + summary chip, hide on right) ──
+  const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide: onClose }), [onClose]);
   const header = (
     <PanelHeader
+      wiring={headerWiring}
       title={
         <>
           <strong>WF Status</strong>
           <OverallSummary rows={rows} />
         </>
       }
-      onHide={onClose}
     />
   );
 
@@ -203,6 +204,7 @@ const WorkflowStatusPanel: React.FC<Props> = ({ onClose, onOpenWorkflow }) => {
 
   return (
     <div
+      className="rules-bottom-panel rules-bottom-panel--workflow-status"
       style={{
         display: 'flex',
         flexDirection: 'column',

@@ -1,22 +1,15 @@
-import { BookOutlined } from '@ant-design/icons';
-import { PanelHeader } from '@/shared/dock-layout';
+import { useMemo } from 'react';
+import { createPanelHeaderWiring, PanelHeader } from '@/shared/dock-layout';
 
 interface FilterDocsProps {
   onClose: () => void;
 }
 
 export function FilterDocs({ onClose }: FilterDocsProps) {
+  const wiring = useMemo(() => createPanelHeaderWiring({ onHide: onClose }), [onClose]);
   return (
     <div className="dt-panel">
-      <PanelHeader
-        title={
-          <>
-            <BookOutlined />
-            <strong>Filter Syntax</strong>
-          </>
-        }
-        onHide={onClose}
-      />
+      <PanelHeader wiring={wiring} title={<strong>Filter Syntax</strong>} />
       <div className="dt-panel-body dt-filter-docs">
         <details className="dt-section" open>
           <summary>Text Filters</summary>

@@ -384,36 +384,17 @@ html, body, #root {
   overflow: hidden;
 }
 
-.rules-sidebar-toolbar {
+// Sidebar filter row — sits below the standardized PanelHeader. 32px
+// matches the PanelHeader height so the two stacked rows total the
+// 64px sidebar header band; the border-bottom inside this row lines
+// up with the editor tab-bar grid below.
+.rules-sidebar-filter-row {
   display: flex;
   align-items: center;
   gap: 2px;
   padding: 0 6px;
   flex-shrink: 0;
-  // Match the editor-leaf tab-bar height so the border-bottom inside the
-  // sidebar cards lands at the same y as the tab-bar's border in the
-  // editor card — reads as one continuous horizontal divider across the
-  // shell.
   height: 32px;
-}
-
-.rules-sidebar-toolbar-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  flex-shrink: 0;
-  opacity: 0.6;
-  transition: opacity 0.12s, background 0.12s;
-
-  &:hover {
-    opacity: 1;
-    background: rgba(128, 128, 128, 0.1);
-  }
 }
 
 .rules-sidebar-content {

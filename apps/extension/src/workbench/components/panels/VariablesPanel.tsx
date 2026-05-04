@@ -24,7 +24,6 @@
  */
 
 import {
-  CodeOutlined,
   ExclamationCircleOutlined,
   EyeInvisibleOutlined,
   EyeOutlined,
@@ -43,7 +42,7 @@ import { VariableResolver } from '@openheaders/core/variables';
 import { Empty, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { PanelHeader } from '@/shared/dock-layout';
+import { createPanelHeaderWiring, PanelHeader } from '@/shared/dock-layout';
 import {
   type CollectionFamilies,
   feedCollectionVariablesToResolver,
@@ -160,6 +159,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({
   onOpenTemplateCollectionVariables,
 }) => {
   const { token } = theme.useToken();
+  const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide: onClose }), [onClose]);
   // Initialize mode to match the currently-focused tab: if it
   // references variables (rule / request), start contextual so the
   // first thing the user sees is their rule/request's own variables;
@@ -592,15 +592,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({
         height: '100%',
       }}
     >
-      <PanelHeader
-        title={
-          <>
-            <CodeOutlined />
-            <strong>Scope</strong>
-          </>
-        }
-        onHide={onClose}
-      />
+      <PanelHeader wiring={headerWiring} title={<strong>Scope</strong>} />
 
       <div style={{ padding: '8px 12px', flex: 1, overflowY: 'auto' }}>
         {/* Mode summary + toggle — toggle only appears when the focused

@@ -10,9 +10,9 @@
  *     case it only shows up here.
  */
 
-import { ThunderboltOutlined } from '@ant-design/icons';
+import { useMemo } from 'react';
 import type { V5 } from '@openheaders/core/types';
-import { PanelHeader } from '@/shared/dock-layout';
+import { createPanelHeaderWiring, PanelHeader } from '@/shared/dock-layout';
 import { type InspectorFire, type InspectorRequest, isAppliedFire } from '../data/types';
 import type { RulesByUid } from '../data/use-rules-lookup';
 import { useRulePopover } from './RulePopoverHost';
@@ -167,17 +167,17 @@ function FireRow({ fire, rule }: FireRowProps) {
 }
 
 export function MatchedRulesPanel({ request, rulesByUid, onClose }: MatchedRulesPanelProps) {
+  const wiring = useMemo(() => createPanelHeaderWiring({ onHide: onClose }), [onClose]);
   return (
     <div className="dt-panel dt-matched-rules-panel">
       <PanelHeader
+        wiring={wiring}
         title={
           <>
-            <ThunderboltOutlined />
             <strong>Matched Rules</strong>
             {request && <span className="dt-panel-title-sub">· {request.method}</span>}
           </>
         }
-        onHide={onClose}
       />
       <div className="dt-matched-rules-panel-body">
         {!request && (

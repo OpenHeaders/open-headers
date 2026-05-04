@@ -1,6 +1,5 @@
-import { GlobalOutlined } from '@ant-design/icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PanelHeader } from '@/shared/dock-layout';
+import { createPanelHeaderWiring, PanelHeader } from '@/shared/dock-layout';
 import type { FilterConfig, FilterToken } from '../data/filter-engine';
 import { matchesUrlFilter, passesRowFilters } from '../data/filter-engine';
 import { classifyRequestState, type RequestState, rowStateClass, statusText } from '../data/request-state';
@@ -57,7 +56,7 @@ interface TrafficListProps {
   onSaveAsHar: (entry: InspectorRequest) => void;
   onSaveAllAsHar: () => void;
   onCopyAllAsHar: () => void;
-  onHide?: () => void;
+  onHide: () => void;
 }
 
 interface NetworkPanelHeaderProps {
@@ -75,19 +74,20 @@ interface NetworkPanelHeaderProps {
    *  header falls back to a quiet "Network" title. Toggled by the
    *  filter icon on the top toolbar. */
   showFilter: boolean;
-  onHide?: () => void;
+  onHide: () => void;
 }
 
 /**
  * Network panel's header row — lives on the card itself (not the
  * top-level toolbar) so the filter input + resource pills travel with
  * the panel when it's hidden/shown. Giving the whole 32px band to
- * the filter controls saves vertical real estate. Actions are pinned
- * visible (`pinActions`) because the filter is primary UI on this
- * panel. When the user toggles the filter off on the top toolbar, we
- * collapse the header to a neutral "Network" title so the card stays
- * identifiable without occupying the row with controls the user just
- * chose to hide.
+ * the filter controls saves vertical real estate. The filter row
+ * mounts in the `title` slot rather than `actions`: the title slot
+ * already has `flex: 1` baked into the shared stylesheet, so a
+ * flex-grow input inside it expands predictably. When the user toggles
+ * the filter off on the top toolbar, we collapse the header to a
+ * neutral "Network" title so the card stays identifiable without
+ * occupying the row with controls the user just chose to hide.
  */
 function NetworkPanelHeader({
   urlFilter,
@@ -102,26 +102,14 @@ function NetworkPanelHeader({
   showFilter,
   onHide,
 }: NetworkPanelHeaderProps) {
+  const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
   if (!showFilter) {
-    return (
-      <PanelHeader
-        title={
-          <>
-            <GlobalOutlined />
-            <strong>Network</strong>
-          </>
-        }
-        onHide={onHide}
-      />
-    );
+    return <PanelHeader wiring={headerWiring} title={<strong>Network</strong>} />;
   }
 
-  // Render the filter row in the `title` slot rather than the `actions`
-  // slot: the title slot already has `flex: 1` baked into the shared
-  // stylesheet, so a flex-grow input inside it expands predictably.
-  // The actions slot is still used by PanelHeader for the minus button.
   return (
     <PanelHeader
+      wiring={headerWiring}
       title={
         <div className="dt-network-filter-row">
           <FilterInput
@@ -158,7 +146,6 @@ function NetworkPanelHeader({
           <ResourceFilter value={filter} onChange={onFilterChange} compact />
         </div>
       }
-      onHide={onHide}
     />
   );
 }

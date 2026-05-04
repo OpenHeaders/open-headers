@@ -1,27 +1,17 @@
-import { AuditOutlined } from '@ant-design/icons';
 import { useMemo } from 'react';
-import { PanelHeader } from '@/shared/dock-layout';
+import { createPanelHeaderWiring, PanelHeader } from '@/shared/dock-layout';
 import { type DanglingFire, type InspectorRequest, isAppliedFire } from '../data/types';
 
 interface RuleExecutionsProps {
   entries: readonly InspectorRequest[];
   danglingFires: readonly DanglingFire[];
   onRequestClick: (id: string) => void;
-  onHide?: () => void;
+  onHide: () => void;
 }
 
-function RuleActivityHeader({ onHide }: { onHide?: () => void }) {
-  return (
-    <PanelHeader
-      title={
-        <>
-          <AuditOutlined />
-          <strong>Rule Activity</strong>
-        </>
-      }
-      onHide={onHide}
-    />
-  );
+function RuleActivityHeader({ onHide }: { onHide: () => void }) {
+  const wiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
+  return <PanelHeader wiring={wiring} title={<strong>Rule Activity</strong>} />;
 }
 
 interface RuleGroup {

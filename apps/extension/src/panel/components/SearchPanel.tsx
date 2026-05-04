@@ -1,6 +1,5 @@
-import { SearchOutlined } from '@ant-design/icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PanelHeader } from '@/shared/dock-layout';
+import { createPanelHeaderWiring, PanelHeader } from '@/shared/dock-layout';
 import type { FilterConfig } from '../data/filter-engine';
 import { buildResultView, type DisplayRow } from '../data/search-display';
 import { type SearchGroup, sectionHasLineColumn } from '../data/search-engine';
@@ -177,6 +176,7 @@ function ResultGroup({ group, rows, query, config, onResultClick, firstFlatIndex
 }
 
 export function SearchPanel({ session, onClose, onResultClick, docsActive, onToggleDocs }: SearchPanelProps) {
+  const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide: onClose }), [onClose]);
   const {
     search: { state, run, cancel },
     draftQuery,
@@ -284,15 +284,7 @@ export function SearchPanel({ session, onClose, onResultClick, docsActive, onTog
 
   return (
     <div className="dt-panel dt-search-panel">
-      <PanelHeader
-        title={
-          <>
-            <SearchOutlined />
-            <strong>Search</strong>
-          </>
-        }
-        onHide={onClose}
-      />
+      <PanelHeader wiring={headerWiring} title={<strong>Search</strong>} />
       <div className="dt-search-panel-input-row">
         <FilterInput
           value={draftQuery}

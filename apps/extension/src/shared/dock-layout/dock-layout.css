@@ -513,20 +513,6 @@
   opacity: 1;
 }
 
-/* Pin actions — always visible and grow to fill the header so the
-   slot can host a full-width control strip (filter input + pills).
-   Used by panels where the action row IS the panel's primary UI, so
-   the default fade-on-hover pattern would hide critical controls.
-   The base `display: inline-flex` is swapped to `display: flex` here:
-   inline-flex shrinks the element to its content, which collapses the
-   inner filter input even with `flex: 1` applied. */
-.rules-panel-header--pin-actions .rules-panel-header-actions {
-  display: flex;
-  opacity: 1;
-  flex: 1;
-  min-width: 0;
-}
-
 .rules-panel-header-action {
   display: inline-flex;
   align-items: center;

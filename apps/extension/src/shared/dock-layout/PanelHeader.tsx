@@ -12,13 +12,22 @@
  * Visibility is driven entirely by CSS selectors (`.rules-dock-body:hover`
  * and `.rules-dock-body:focus-within`) — the header doesn't track its
  * own hover/focus state, keeping the component pure.
+ *
+ * The `wiring` prop is branded (`PanelHeaderWiring`) and produced only
+ * by `createPanelHeaderWiring(...)`. Combined with the AST lint test,
+ * this closes BC-D1 (forgot to mount) + BC-D2 (literal-bypass) by
+ * construction. See `docs/DOCK_LAYOUT_SPIKE.md` § 2.
  */
 
 import { EllipsisOutlined, MinusOutlined } from '@ant-design/icons';
 import { Dropdown, type MenuProps, theme } from 'antd';
 import type React from 'react';
+import type { PanelHeaderWiring } from './panel-header-wiring';
 
 export interface PanelHeaderProps {
+  /** Shell-produced wiring bundle. Carries the brand + `onHide`.
+   *  Required so the header always has a working hide affordance. */
+  wiring: PanelHeaderWiring;
   /** Left slot — typically the panel title, but can be any ReactNode
       (e.g. a Filter input for narrow sidebars). Omit to leave empty. */
   title?: React.ReactNode;
@@ -26,22 +35,18 @@ export interface PanelHeaderProps {
   actions?: React.ReactNode;
   /** Items for the ⋯ Options dropdown. Omit to hide the ⋯ button. */
   optionsMenuItems?: MenuProps['items'];
-  /** Handler for the − Hide button. Omit to hide the − button. */
-  onHide?: () => void;
-  /** Keep the actions slot permanently visible (skip the default
-      hover/focus-within fade). Reserved for panels whose actions are
-      primary surface — e.g. the Network panel's filter bar. The
-      actions also grow (flex: 1) so they can host a full-width
-      filter row instead of being pushed to the right of a title. */
-  pinActions?: boolean;
 }
 
-const PanelHeader: React.FC<PanelHeaderProps> = ({ title, actions, optionsMenuItems, onHide, pinActions }) => {
+const PanelHeader: React.FC<PanelHeaderProps> = ({ wiring, title, actions, optionsMenuItems }) => {
   const { token } = theme.useToken();
+  // The brand carries `onHide` only; un-brand at the consume site via
+  // the canonical `as unknown as` pattern. Same shape as EditorHeader's
+  // un-brand.
+  const onHide = (wiring as unknown as { onHide: () => void }).onHide;
 
   return (
     <div
-      className={`rules-panel-header${pinActions ? ' rules-panel-header--pin-actions' : ''}`}
+      className="rules-panel-header"
       style={{ borderBottom: `1px solid ${token.colorBorderSecondary}` }}
     >
       {title !== undefined && (
@@ -65,21 +70,19 @@ const PanelHeader: React.FC<PanelHeaderProps> = ({ title, actions, optionsMenuIt
             </span>
           </Dropdown>
         )}
-        {onHide && (
-          <span
-            role="button"
-            tabIndex={0}
-            aria-label="Hide panel"
-            className="rules-panel-header-action"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={onHide}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') onHide();
-            }}
-          >
-            <MinusOutlined />
-          </span>
-        )}
+        <span
+          role="button"
+          tabIndex={0}
+          aria-label="Hide panel"
+          className="rules-panel-header-action"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={onHide}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') onHide();
+          }}
+        >
+          <MinusOutlined />
+        </span>
       </div>
     </div>
   );
