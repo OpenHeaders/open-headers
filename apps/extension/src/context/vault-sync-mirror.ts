@@ -15,7 +15,8 @@ import {
 
 export interface VaultMirrorEntry {
   vault: V5.Vault;
-  /** Live secret names (set member identity = secret name). */
+  /** Live secret names. Set member identity is `secret.uid`; this
+   *  array is the projected names list. */
   secretNames: string[];
 }
 

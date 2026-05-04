@@ -8,11 +8,10 @@
  * discipline lives in the editor; this module is what the editor
  * reaches for once the user commits.
  *
- * `applyVaultReplacement` is the editor convenience: take the editor's
- * pre-image (`oldSecrets`) + post-image (`newSecrets`) and fold them
- * into the catalog primitives — `setVaultSecret` for adds/changes and
- * `removeVaultSecret` for deletions, all bundled under one `batchId`
- * so the oracle's per-batch all-or-nothing kicks in.
+ * Identity is `secret.uid`. `applyVaultSecretSet` upserts the whole
+ * record (handles add, edit, rename, kind-transition uniformly);
+ * `applyVaultSecretRemove` keys by uid; `applyVaultReplacement` diffs
+ * two lists by uid.
  *
  * Vault is non-syncing in v1 (§12.3); the apply pipe is local-only and
  * the schema-marked-sensitive payload never crosses any sync transport.
@@ -42,7 +41,6 @@ import {
 } from '@/context/vault-sync-mirror';
 import {
   buildRemoveVaultSecretBatch,
-  buildRenameVaultSecretBatch,
   buildSetVaultSecretBatch,
 } from '@/shared/sync/vault-mutations';
 
@@ -56,6 +54,7 @@ export interface VaultWriteOptions extends BaseSyncWriteOptions {
 }
 
 export interface ApplyVaultSecretSetInput {
+  /** Whole secret record. `secret.uid` is the set-member itemId. */
   secret: V5.VaultSecret;
 }
 
@@ -68,7 +67,8 @@ export async function applyVaultSecretSet(
 }
 
 export interface ApplyVaultSecretRemoveInput {
-  name: string;
+  /** The row's persisted uid — NOT its name. */
+  uid: string;
 }
 
 export async function applyVaultSecretRemove(
@@ -76,66 +76,50 @@ export async function applyVaultSecretRemove(
   opts: VaultWriteOptions,
 ): Promise<VaultSimpleResult> {
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applySyncPayload(buildRemoveVaultSecretBatch({ name: input.name }, ctx));
-}
-
-export interface ApplyVaultSecretRenameInput {
-  oldName: string;
-  newSecret: V5.VaultSecret;
-}
-
-export async function applyVaultSecretRename(
-  input: ApplyVaultSecretRenameInput,
-  opts: VaultWriteOptions,
-): Promise<VaultSimpleResult> {
-  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applySyncPayload(buildRenameVaultSecretBatch(input, ctx));
+  return applySyncPayload(buildRemoveVaultSecretBatch({ uid: input.uid }, ctx));
 }
 
 /**
- * Editor convenience: persist a complete secrets list. The caller
- * passes the editor's pre-image (`oldSecrets`) so the helper computes
- * the diff. Adds + value/kind/totp-field changes emit `addToSet`;
- * deletions emit `removeFromSet`. Empty diff → empty batch (no
- * broadcast, no recompile). VaultSecret records are compared by deep
- * fingerprint so kind transitions (string ↔ totp) and TOTP-field edits
- * both land as a single replacement under per-(setPath, name) LWW.
+ * Editor convenience: persist a complete secrets list. Identity is
+ * `secret.uid`. Adds + edits (rename / value / kind-transition / totp
+ * fields) emit `addToSet` against the same uid; deletions emit
+ * `removeFromSet` by uid. Empty diff → empty batch.
  */
 export async function applyVaultReplacement(
   newSecrets: readonly V5.VaultSecret[],
   oldSecrets: readonly V5.VaultSecret[],
   opts: VaultWriteOptions,
 ): Promise<VaultSimpleResult> {
-  const oldByName = new Map<string, V5.VaultSecret>();
-  for (const s of oldSecrets) oldByName.set(s.name, s);
-  const newByName = new Map<string, V5.VaultSecret>();
+  const oldByUid = new Map<string, V5.VaultSecret>();
+  for (const s of oldSecrets) oldByUid.set(s.uid, s);
+  const newByUid = new Map<string, V5.VaultSecret>();
   for (const s of newSecrets) {
     if (!s.name.trim()) continue;
-    newByName.set(s.name, s);
+    newByUid.set(s.uid, s);
   }
 
   const ctx = resolveRendererContext(opts).next({ batchId: opts.batchId ?? `vault-replace` });
 
   const bodies: MutationBody[] = [];
-  for (const [name] of oldByName) {
-    if (newByName.has(name)) continue;
+  for (const [uid] of oldByUid) {
+    if (newByUid.has(uid)) continue;
     bodies.push({
       kind: 'removeFromSet',
       type: VAULT_ENTITY_TYPE,
       id: VAULT_ID,
       path: VAULT_PATH,
-      itemId: name,
+      itemId: uid,
     });
   }
-  for (const [name, secret] of newByName) {
-    const prev = oldByName.get(name);
+  for (const [uid, secret] of newByUid) {
+    const prev = oldByUid.get(uid);
     if (prev && fingerprintSecret(prev) === fingerprintSecret(secret)) continue;
     bodies.push({
       kind: 'addToSet',
       type: VAULT_ENTITY_TYPE,
       id: VAULT_ID,
       path: VAULT_PATH,
-      itemId: name,
+      itemId: uid,
       item: secret,
     });
   }

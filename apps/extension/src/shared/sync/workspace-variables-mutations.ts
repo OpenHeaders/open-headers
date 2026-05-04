@@ -10,25 +10,26 @@
  *
  * The singleton entity has no id arg on the catalog factories — every
  * call targets the fixed id internally, so these wrappers don't carry
- * one either.
+ * one either. Variable rows carry a stable `uid` that doubles as the
+ * sync engine's itemId; `buildSetWorkspaceVarBatch` upserts the whole
+ * record (handles add, edit, rename, type-toggle uniformly);
+ * `buildRemoveWorkspaceVarBatch` keys by uid.
  */
 
+import type { V5 } from '@openheaders/core/types';
+type Variable = V5.Variable;
 import {
   type MutatorContext,
   type MutatorIntent,
   removeWorkspaceVar,
-  renameWorkspaceVar,
   setWorkspaceVar,
-  setWorkspaceVarType,
-  type VariableType,
 } from '@openheaders/core/sync';
 
 export type WorkspaceVariablesMutationPayload = MutatorIntent;
 
 export interface SetWorkspaceVarInput {
-  name: string;
-  value: string;
-  type?: VariableType;
+  /** Whole variable record. `variable.uid` is the set-member itemId. */
+  variable: Variable;
   orderKey?: string;
 }
 
@@ -40,7 +41,8 @@ export function buildSetWorkspaceVarBatch(
 }
 
 export interface RemoveWorkspaceVarInput {
-  name: string;
+  /** The row's persisted uid — NOT its name. */
+  uid: string;
 }
 
 export function buildRemoveWorkspaceVarBatch(
@@ -48,32 +50,4 @@ export function buildRemoveWorkspaceVarBatch(
   ctx: MutatorContext,
 ): WorkspaceVariablesMutationPayload {
   return removeWorkspaceVar(ctx, input);
-}
-
-export interface RenameWorkspaceVarInput {
-  oldName: string;
-  newName: string;
-  value: string;
-  type?: VariableType;
-  orderKey?: string;
-}
-
-export function buildRenameWorkspaceVarBatch(
-  input: RenameWorkspaceVarInput,
-  ctx: MutatorContext,
-): WorkspaceVariablesMutationPayload {
-  return renameWorkspaceVar(ctx, input);
-}
-
-export interface SetWorkspaceVarTypeInput {
-  name: string;
-  value: string;
-  type: VariableType;
-}
-
-export function buildSetWorkspaceVarTypeBatch(
-  input: SetWorkspaceVarTypeInput,
-  ctx: MutatorContext,
-): WorkspaceVariablesMutationPayload {
-  return setWorkspaceVarType(ctx, input);
 }

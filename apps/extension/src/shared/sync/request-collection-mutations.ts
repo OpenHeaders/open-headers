@@ -9,6 +9,8 @@
  * renderer (`useRequestCollectionMutator` / variable write client).
  */
 
+import type { V5 } from '@openheaders/core/types';
+type Variable = V5.Variable;
 import {
   type MutationBatch,
   type MutatorContext,
@@ -19,10 +21,7 @@ import {
   REQUEST_COLLECTION_MUTATOR_VERSION,
   removeRequestCollectionVar,
   renameRequestCollection,
-  renameRequestCollectionVar,
   setRequestCollectionVar,
-  setRequestCollectionVarType,
-  type VariableType,
 } from '@openheaders/core/sync';
 
 export type RequestCollectionMutationPayload = MutatorIntent;
@@ -64,9 +63,8 @@ export function buildRenameRequestCollectionBatch(
 
 export interface SetRequestCollectionVarInput {
   requestCollectionUid: string;
-  name: string;
-  value: string;
-  type?: VariableType;
+  /** Whole variable record. `variable.uid` is the set-member itemId. */
+  variable: Variable;
   orderKey?: string;
 }
 
@@ -79,7 +77,8 @@ export function buildSetRequestCollectionVarBatch(
 
 export interface RemoveRequestCollectionVarInput {
   requestCollectionUid: string;
-  name: string;
+  /** The row's persisted uid — NOT its name. */
+  uid: string;
 }
 
 export function buildRemoveRequestCollectionVarBatch(
@@ -87,34 +86,4 @@ export function buildRemoveRequestCollectionVarBatch(
   ctx: MutatorContext,
 ): RequestCollectionMutationPayload {
   return removeRequestCollectionVar(ctx, input);
-}
-
-export interface RenameRequestCollectionVarInput {
-  requestCollectionUid: string;
-  oldName: string;
-  newName: string;
-  value: string;
-  type?: VariableType;
-  orderKey?: string;
-}
-
-export function buildRenameRequestCollectionVarBatch(
-  input: RenameRequestCollectionVarInput,
-  ctx: MutatorContext,
-): RequestCollectionMutationPayload {
-  return renameRequestCollectionVar(ctx, input);
-}
-
-export interface SetRequestCollectionVarTypeInput {
-  requestCollectionUid: string;
-  name: string;
-  value: string;
-  type: VariableType;
-}
-
-export function buildSetRequestCollectionVarTypeBatch(
-  input: SetRequestCollectionVarTypeInput,
-  ctx: MutatorContext,
-): RequestCollectionMutationPayload {
-  return setRequestCollectionVarType(ctx, input);
 }

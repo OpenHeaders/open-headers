@@ -17,7 +17,9 @@ import {
 
 export interface EnvironmentMirrorEntry {
   environment: V5.Environment;
-  /** Live variable names (set member identity = variable name). */
+  /** Live variable names. Set member identity is `variable.uid`; this
+   *  array is the projected names list (used by the resolver + DNR
+   *  recompile dependency tracking). */
   varNames: string[];
 }
 

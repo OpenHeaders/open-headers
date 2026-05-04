@@ -8,6 +8,8 @@
  * (boot-time hydration) and the renderer (variable write client).
  */
 
+import type { V5 } from '@openheaders/core/types';
+type Variable = V5.Variable;
 import {
   type MutationBatch,
   type MutatorContext,
@@ -16,12 +18,9 @@ import {
   newMutationId,
   removeTemplateCollectionVar,
   renameTemplateCollection,
-  renameTemplateCollectionVar,
   setTemplateCollectionVar,
-  setTemplateCollectionVarType,
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_COLLECTION_MUTATOR_VERSION,
-  type VariableType,
 } from '@openheaders/core/sync';
 
 export type TemplateCollectionMutationPayload = MutatorIntent;
@@ -63,9 +62,8 @@ export function buildRenameTemplateCollectionBatch(
 
 export interface SetTemplateCollectionVarInput {
   templateCollectionUid: string;
-  name: string;
-  value: string;
-  type?: VariableType;
+  /** Whole variable record. `variable.uid` is the set-member itemId. */
+  variable: Variable;
   orderKey?: string;
 }
 
@@ -78,7 +76,8 @@ export function buildSetTemplateCollectionVarBatch(
 
 export interface RemoveTemplateCollectionVarInput {
   templateCollectionUid: string;
-  name: string;
+  /** The row's persisted uid — NOT its name. */
+  uid: string;
 }
 
 export function buildRemoveTemplateCollectionVarBatch(
@@ -86,34 +85,4 @@ export function buildRemoveTemplateCollectionVarBatch(
   ctx: MutatorContext,
 ): TemplateCollectionMutationPayload {
   return removeTemplateCollectionVar(ctx, input);
-}
-
-export interface RenameTemplateCollectionVarInput {
-  templateCollectionUid: string;
-  oldName: string;
-  newName: string;
-  value: string;
-  type?: VariableType;
-  orderKey?: string;
-}
-
-export function buildRenameTemplateCollectionVarBatch(
-  input: RenameTemplateCollectionVarInput,
-  ctx: MutatorContext,
-): TemplateCollectionMutationPayload {
-  return renameTemplateCollectionVar(ctx, input);
-}
-
-export interface SetTemplateCollectionVarTypeInput {
-  templateCollectionUid: string;
-  name: string;
-  value: string;
-  type: VariableType;
-}
-
-export function buildSetTemplateCollectionVarTypeBatch(
-  input: SetTemplateCollectionVarTypeInput,
-  ctx: MutatorContext,
-): TemplateCollectionMutationPayload {
-  return setTemplateCollectionVarType(ctx, input);
 }

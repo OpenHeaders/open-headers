@@ -9,6 +9,8 @@
  * (`useCollectionMutator` write client).
  */
 
+import type { V5 } from '@openheaders/core/types';
+type Variable = V5.Variable;
 import {
   COLLECTION_ENTITY_TYPE,
   COLLECTION_MUTATOR_VERSION,
@@ -19,13 +21,10 @@ import {
   newMutationId,
   removeCollectionVar,
   renameCollection,
-  renameCollectionVar,
   setCollectionVar,
-  setCollectionVarType,
   setDefaultEnvironmentId,
   setPinnedAndDefault,
   setPinnedEnvironments,
-  type VariableType,
 } from '@openheaders/core/sync';
 
 export type CollectionMutationPayload = MutatorIntent;
@@ -54,9 +53,8 @@ export function buildDeleteCollectionBatch(collectionUid: string, ctx: MutatorCo
 
 export interface SetCollectionVarInput {
   collectionUid: string;
-  name: string;
-  value: string;
-  type?: VariableType;
+  /** Whole variable record. `variable.uid` is the set-member itemId. */
+  variable: Variable;
   orderKey?: string;
 }
 
@@ -69,7 +67,8 @@ export function buildSetCollectionVarBatch(
 
 export interface RemoveCollectionVarInput {
   collectionUid: string;
-  name: string;
+  /** The row's persisted uid — NOT its name. */
+  uid: string;
 }
 
 export function buildRemoveCollectionVarBatch(
@@ -77,22 +76,6 @@ export function buildRemoveCollectionVarBatch(
   ctx: MutatorContext,
 ): CollectionMutationPayload {
   return removeCollectionVar(ctx, input);
-}
-
-export interface RenameCollectionVarInput {
-  collectionUid: string;
-  oldName: string;
-  newName: string;
-  value: string;
-  type?: VariableType;
-  orderKey?: string;
-}
-
-export function buildRenameCollectionVarBatch(
-  input: RenameCollectionVarInput,
-  ctx: MutatorContext,
-): CollectionMutationPayload {
-  return renameCollectionVar(ctx, input);
 }
 
 export interface RenameCollectionInput {
@@ -105,20 +88,6 @@ export function buildRenameCollectionBatch(
   ctx: MutatorContext,
 ): CollectionMutationPayload {
   return renameCollection(ctx, input);
-}
-
-export interface SetCollectionVarTypeInput {
-  collectionUid: string;
-  name: string;
-  value: string;
-  type: VariableType;
-}
-
-export function buildSetCollectionVarTypeBatch(
-  input: SetCollectionVarTypeInput,
-  ctx: MutatorContext,
-): CollectionMutationPayload {
-  return setCollectionVarType(ctx, input);
 }
 
 export interface SetPinnedEnvironmentsInput {

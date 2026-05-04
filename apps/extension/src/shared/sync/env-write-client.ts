@@ -10,15 +10,14 @@
  *
  * `applyEnvVariablesReplacement` is the editor convenience: take the
  * editor's pre-image (`oldVars`) + post-image (`newVars`) and fold
- * them into the catalog primitives — the diff is `setEnvVar` for
- * adds/changes and `removeEnvVar` for deletions, all bundled under
+ * them into the catalog primitives. Identity is `variable.uid` — the
+ * diff is `setEnvVar` for adds + edits (rename / value / type — all on
+ * the same uid) and `removeEnvVar` for deletions, all bundled under
  * one `batchId` so the oracle's per-batch all-or-nothing kicks in.
  *
- * In-place renames (the user changed a row's `name` field) read as
- * `delete old + add new` from a list-replacement standpoint — that's
- * the correct convergent answer (§7.2). The dedicated `renameEnvVar`
- * factory is reachable via `applyEnvRenameVar` for the few surfaces
- * that have explicit "rename" intent (e.g. inline rename gestures).
+ * In-place rename collapses to a single `addToSet` against the existing
+ * uid (per-itemId LWW handles convergence) — no remove+add pair, no
+ * presence flicker mid-edit.
  */
 
 import type { V5 } from '@openheaders/core/types';
@@ -33,7 +32,6 @@ import {
   ENV_VARS_PATH,
   ENVIRONMENT_ENTITY_TYPE,
   invalidateResolverIntent,
-  type VariableType,
 } from '@openheaders/core/sync';
 import {
   createEnvSyncMirror,
@@ -42,9 +40,7 @@ import {
 import {
   buildRemoveEnvVarBatch,
   buildRenameEnvironmentBatch,
-  buildRenameEnvVarBatch,
   buildSetEnvVarBatch,
-  buildSetEnvVarTypeBatch,
 } from '@/shared/sync/env-mutations';
 
 // `createEnvSyncMirror` is re-exported so tests can construct a mirror
@@ -59,9 +55,8 @@ export interface EnvWriteOptions extends BaseSyncWriteOptions {
 
 export interface ApplyEnvSetVarInput {
   envId: string;
-  name: string;
-  value: string;
-  type?: VariableType;
+  /** Whole variable record. `variable.uid` is the set-member itemId. */
+  variable: V5.Variable;
 }
 
 export async function applyEnvSetVar(input: ApplyEnvSetVarInput, opts: EnvWriteOptions): Promise<EnvSimpleResult> {
@@ -71,7 +66,8 @@ export async function applyEnvSetVar(input: ApplyEnvSetVarInput, opts: EnvWriteO
 
 export interface ApplyEnvRemoveVarInput {
   envId: string;
-  name: string;
+  /** The row's persisted uid — NOT its name. */
+  uid: string;
 }
 
 export async function applyEnvRemoveVar(
@@ -80,37 +76,6 @@ export async function applyEnvRemoveVar(
 ): Promise<EnvSimpleResult> {
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRemoveEnvVarBatch(input, ctx));
-}
-
-export interface ApplyEnvRenameVarInput {
-  envId: string;
-  oldName: string;
-  newName: string;
-  value: string;
-  type?: VariableType;
-}
-
-export async function applyEnvRenameVar(
-  input: ApplyEnvRenameVarInput,
-  opts: EnvWriteOptions,
-): Promise<EnvSimpleResult> {
-  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applySyncPayload(buildRenameEnvVarBatch(input, ctx));
-}
-
-export interface ApplyEnvSetVarTypeInput {
-  envId: string;
-  name: string;
-  value: string;
-  type: VariableType;
-}
-
-export async function applyEnvSetVarType(
-  input: ApplyEnvSetVarTypeInput,
-  opts: EnvWriteOptions,
-): Promise<EnvSimpleResult> {
-  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applySyncPayload(buildSetEnvVarTypeBatch(input, ctx));
 }
 
 export interface ApplyRenameEnvironmentInput {
@@ -127,13 +92,11 @@ export async function applyRenameEnvironment(
 }
 
 /**
- * Editor convenience: persist a complete variables list. The caller
- * is responsible for passing the editor's pre-image (`oldVars`) so
- * the helper can compute the diff. Adds + value/type changes emit
- * `setEnvVar`; deletions emit `removeEnvVar`. Empty input → empty
- * batch (no broadcast, no recompile) — the catalog short-circuits the
- * `setEnvVar/removeEnvVar` factory calls before they reach this
- * function via the same-name fast-path.
+ * Editor convenience: persist a complete variables list. Identity is
+ * `variable.uid` — the diff finds same-uid pairs to detect edits
+ * (rename / value / type all on the same uid), uid-only-in-old to
+ * detect deletions, and uid-only-in-new to detect adds. Empty diff →
+ * empty batch (no broadcast, no recompile).
  */
 export async function applyEnvVariablesReplacement(
   envId: string,
@@ -141,33 +104,34 @@ export async function applyEnvVariablesReplacement(
   oldVars: readonly V5.Variable[],
   opts: EnvWriteOptions,
 ): Promise<EnvSimpleResult> {
-  const oldByName = new Map<string, V5.Variable>();
-  for (const v of oldVars) oldByName.set(v.name, v);
-  const newByName = new Map<string, V5.Variable>();
+  const oldByUid = new Map<string, V5.Variable>();
+  for (const v of oldVars) oldByUid.set(v.uid, v);
+  const newByUid = new Map<string, V5.Variable>();
   for (const v of newVars) {
     if (!v.name.trim()) continue;
-    newByName.set(v.name, v);
+    newByUid.set(v.uid, v);
   }
 
   const ctx = resolveRendererContext(opts).next({ batchId: opts.batchId ?? `env-replace-${envId}` });
 
   const bodies: MutationBody[] = [];
-  // Removals: anything in old but not in new.
-  for (const [name] of oldByName) {
-    if (newByName.has(name)) continue;
+  // Removals: any uid in old but not in new.
+  for (const [uid] of oldByUid) {
+    if (newByUid.has(uid)) continue;
     bodies.push({
       kind: 'removeFromSet',
       type: ENVIRONMENT_ENTITY_TYPE,
       id: envId,
       path: ENV_VARS_PATH,
-      itemId: name,
+      itemId: uid,
     });
   }
-  // Adds + value/type changes: replace via addToSet (per-itemId LWW).
-  for (const [name, variable] of newByName) {
-    const prev = oldByName.get(name);
+  // Adds + edits (rename / value / type): replace via addToSet (per-uid LWW).
+  for (const [uid, variable] of newByUid) {
+    const prev = oldByUid.get(uid);
     if (
       prev &&
+      prev.name === variable.name &&
       prev.value === variable.value &&
       (prev.type ?? 'default') === (variable.type ?? 'default')
     ) {
@@ -178,8 +142,8 @@ export async function applyEnvVariablesReplacement(
       type: ENVIRONMENT_ENTITY_TYPE,
       id: envId,
       path: ENV_VARS_PATH,
-      itemId: name,
-      item: { name, value: variable.value, type: variable.type ?? 'default' },
+      itemId: uid,
+      item: variable,
     });
   }
 

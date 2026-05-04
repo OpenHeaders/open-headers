@@ -3,10 +3,10 @@
  *
  * Mirrors `workspace-variables-projection.ts` for the singleton vault
  * entity. The oracle stores secrets as set members at `secrets` (set
- * member identity = secret name); persisted `V5.Vault.secrets` is a
+ * member identity = `secret.uid`); persisted `V5.Vault.secrets` is a
  * plain array of `VaultSecret` (kind: 'string' | 'totp').
  * `seedVault` strips the `secrets` array off the create payload and
- * emits one `addToSet` per secret (itemId = name); `projectVault` is
+ * emits one `addToSet` per secret (itemId = uid); `projectVault` is
  * the inverse.
  *
  * There is exactly one materialized record per workspace at the fixed
@@ -48,7 +48,7 @@ export function seedVault(vault: V5.Vault, ctx: MutatorContext): MutationBatch {
       type: VAULT_ENTITY_TYPE,
       id: VAULT_ID,
       path: VAULT_PATH,
-      itemId: secret.name,
+      itemId: secret.uid,
       item: secret,
     });
   }

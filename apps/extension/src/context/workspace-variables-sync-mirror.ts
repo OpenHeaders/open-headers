@@ -16,7 +16,8 @@ import {
 
 export interface WorkspaceVariablesMirrorEntry {
   workspaceVariables: V5.WorkspaceVariables;
-  /** Live variable names (set member identity = variable name). */
+  /** Live variable names. Set member identity is `variable.uid`; this
+   *  array is the projected names list. */
   varNames: string[];
 }
 

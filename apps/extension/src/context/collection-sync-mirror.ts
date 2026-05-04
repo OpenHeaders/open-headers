@@ -16,7 +16,8 @@ import {
 
 export interface CollectionMirrorEntry {
   collection: V5.Collection;
-  /** Live variable names (set member identity = variable name). */
+  /** Live variable names. Set member identity is `variable.uid`; this
+   *  array is the projected names list. */
   varNames: string[];
   /** Per-set ordered `(itemId, orderKey)` pairs. Carries the parent's
    *  `folders` set today; readers consume via `liveOrderedSetItems`. */

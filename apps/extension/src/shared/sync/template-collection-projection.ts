@@ -4,9 +4,9 @@
  *
  * Mirrors `request-collection-projection.ts`. The oracle stores
  * variables as set members at `variables` (set member identity =
- * variable name); persisted `V5.Collection.variables` is a plain array.
+ * `variable.uid`); persisted `V5.Collection.variables` is a plain array.
  * `seedTemplateCollection` strips the `variables` array off the create
- * payload and emits one `addToSet` per variable (itemId = name);
+ * payload and emits one `addToSet` per variable (itemId = uid);
  * `projectTemplateCollection` is the inverse via the materialized
  * `data` blob the oracle composes back from set members at materialize
  * time.
@@ -49,7 +49,7 @@ export function seedTemplateCollection(
       type: TEMPLATE_COLLECTION_ENTITY_TYPE,
       id: collection.uid,
       path: TEMPLATE_COLLECTION_VARS_PATH,
-      itemId: variable.name,
+      itemId: variable.uid,
       item: variable,
     });
   }

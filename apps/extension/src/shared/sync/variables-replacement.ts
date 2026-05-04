@@ -1,12 +1,14 @@
 /**
  * Shared variables-replacement diff helper.
  *
- * Editor convenience: persist a complete variables list. Adds + value/
- * type changes emit `addToSet`; deletions emit `removeFromSet`. Empty
- * input → null (caller short-circuits to `{ ok: true }` without firing).
+ * Editor convenience: persist a complete variables list. Identity is
+ * `variable.uid` — the diff finds same-uid pairs to detect edits
+ * (rename / value / type all on the same uid), uid-only-in-old to
+ * detect deletions, and uid-only-in-new to detect adds. Empty diff →
+ * null (caller short-circuits to `{ ok: true }` without firing).
  *
  * Lives at the renderer-side write-client tier because the diff math
- * (compare pre-image to post-image, fold into per-(name) primitives,
+ * (compare pre-image to post-image, fold into per-uid primitives,
  * bundle under one batchId) is identical across every per-uid variable
  * scope (rule-collection, request-collection, template-collection). The
  * per-scope write client wraps this helper with its own `entityType`,
@@ -30,6 +32,7 @@ import {
 export type VariableType = 'default' | 'secret';
 
 export interface VariableLike {
+  uid: string;
   name: string;
   value: string;
   type?: VariableType;
@@ -51,8 +54,9 @@ export interface VariablesReplacementInput {
 
 /**
  * Build the `(MutationBatch, SideEffectIntent[])` pair that converges
- * the entity's variables list to `newVars`. Returns `null` when the
- * input has no semantic diff (no envelopes to fire).
+ * the entity's variables list to `newVars`. Identity = `variable.uid`.
+ * Returns `null` when the input has no semantic diff (no envelopes to
+ * fire).
  */
 export function buildVariablesReplacement(
   bindings: VariablesReplacementBindings,
@@ -62,30 +66,31 @@ export function buildVariablesReplacement(
   const { entityType, varsPath, makeSideEffects } = bindings;
   const { entityUid, newVars, oldVars } = input;
 
-  const oldByName = new Map<string, VariableLike>();
-  for (const v of oldVars) oldByName.set(v.name, v);
+  const oldByUid = new Map<string, VariableLike>();
+  for (const v of oldVars) oldByUid.set(v.uid, v);
 
-  const newByName = new Map<string, VariableLike>();
+  const newByUid = new Map<string, VariableLike>();
   for (const v of newVars) {
     if (!v.name.trim()) continue;
-    newByName.set(v.name, v);
+    newByUid.set(v.uid, v);
   }
 
   const bodies: MutationBody[] = [];
-  for (const [name] of oldByName) {
-    if (newByName.has(name)) continue;
+  for (const [uid] of oldByUid) {
+    if (newByUid.has(uid)) continue;
     bodies.push({
       kind: 'removeFromSet',
       type: entityType,
       id: entityUid,
       path: varsPath,
-      itemId: name,
+      itemId: uid,
     });
   }
-  for (const [name, variable] of newByName) {
-    const prev = oldByName.get(name);
+  for (const [uid, variable] of newByUid) {
+    const prev = oldByUid.get(uid);
     if (
       prev &&
+      prev.name === variable.name &&
       prev.value === variable.value &&
       (prev.type ?? 'default') === (variable.type ?? 'default')
     ) {
@@ -96,8 +101,8 @@ export function buildVariablesReplacement(
       type: entityType,
       id: entityUid,
       path: varsPath,
-      itemId: name,
-      item: { name, value: variable.value, type: variable.type ?? 'default' },
+      itemId: uid,
+      item: { uid, name: variable.name, value: variable.value, type: variable.type ?? 'default' },
     });
   }
 

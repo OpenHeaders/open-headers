@@ -4,11 +4,11 @@
  *
  * Mirrors `env-projection.ts` / `collection-projection.ts` for the
  * singleton workspace-variables entity. The oracle stores variables as
- * set members at `variables` (set member identity = variable name,
+ * set members at `variables` (set member identity = `variable.uid`,
  * see `mutators/workspace-variables/types.ts`); persisted
  * `V5.WorkspaceVariables.variables` is a plain array. `seedWorkspaceVariables`
  * therefore strips the `variables` array off the create payload and
- * emits one `addToSet` per variable (itemId = name);
+ * emits one `addToSet` per variable (itemId = uid);
  * `projectWorkspaceVariables` is the inverse.
  *
  * There is exactly one materialized record per workspace at the fixed
@@ -53,7 +53,7 @@ export function seedWorkspaceVariables(
       type: WORKSPACE_VARIABLES_ENTITY_TYPE,
       id: WORKSPACE_VARIABLES_ID,
       path: WORKSPACE_VARIABLES_PATH,
-      itemId: variable.name,
+      itemId: variable.uid,
       item: variable,
     });
   }

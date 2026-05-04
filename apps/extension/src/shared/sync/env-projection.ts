@@ -3,17 +3,15 @@
  *
  * Mirrors `rule-projection.ts` for the Environment entity. The oracle
  * stores variables as set members at `variables` (set member identity =
- * variable name, see `mutators/environment/types.ts`); persisted
+ * `variable.uid`, see `mutators/environment/types.ts`); persisted
  * `V5.Environment.variables` is a plain array. `seedEnvironment`
  * therefore strips the `variables` array off the create payload and
- * emits one `addToSet` per variable (itemId = name); `projectEnvironment`
+ * emits one `addToSet` per variable (itemId = uid); `projectEnvironment`
  * is the inverse.
  *
- * Variable identity is stable across cold wakes because the itemId IS
- * the variable name — unlike Rule's synthetic itemIds which the oracle
- * re-mints on hydration. That's the §8 "renameEnvVar = remove + add"
- * invariant in physical form: the only durable identity on a variable
- * is its name.
+ * Variable identity is stable across cold wakes because the itemId is
+ * the persisted `uid` — survives renames intact (the user-mutable
+ * `name` is just another field on the LWW item body).
  */
 
 import type { V5 } from '@openheaders/core/types';
@@ -45,7 +43,7 @@ export function seedEnvironment(env: V5.Environment, ctx: MutatorContext): Mutat
       type: ENVIRONMENT_ENTITY_TYPE,
       id: env.uid,
       path: ENV_VARS_PATH,
-      itemId: variable.name,
+      itemId: variable.uid,
       item: variable,
     });
   }

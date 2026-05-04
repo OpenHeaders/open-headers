@@ -8,11 +8,11 @@
  * discipline lives in the editor; this module is what the editor
  * reaches for once the user commits.
  *
- * `applyCollectionVariablesReplacement` is the editor convenience:
- * take the editor's pre-image (`oldVars`) + post-image (`newVars`)
- * and fold them into the catalog primitives — diff is `setCollectionVar`
- * for adds/changes and `removeCollectionVar` for deletions, all
- * bundled under one `batchId`.
+ * Identity for variable rows is `variable.uid`. `applyCollectionSetVar`
+ * upserts the whole record (handles add, edit, rename, type-toggle
+ * uniformly); `applyCollectionRemoveVar` keys by uid;
+ * `applyCollectionVariablesReplacement` diffs two lists by uid via the
+ * shared helper.
  */
 
 import type { V5 } from '@openheaders/core/types';
@@ -27,7 +27,6 @@ import {
   COLLECTION_ENTITY_TYPE,
   COLLECTION_VARS_PATH,
   collectionInvalidateResolverIntent,
-  type VariableType,
 } from '@openheaders/core/sync';
 import {
   type CollectionSyncMirror,
@@ -36,9 +35,7 @@ import {
 import {
   buildRemoveCollectionVarBatch,
   buildRenameCollectionBatch,
-  buildRenameCollectionVarBatch,
   buildSetCollectionVarBatch,
-  buildSetCollectionVarTypeBatch,
   buildSetDefaultEnvironmentIdBatch,
   buildSetPinnedAndDefaultBatch,
   buildSetPinnedEnvironmentsBatch,
@@ -55,9 +52,8 @@ export interface CollectionWriteOptions extends BaseSyncWriteOptions {
 
 export interface ApplyCollectionSetVarInput {
   collectionUid: string;
-  name: string;
-  value: string;
-  type?: VariableType;
+  /** Whole variable record. `variable.uid` is the set-member itemId. */
+  variable: V5.Variable;
 }
 
 export async function applyCollectionSetVar(
@@ -70,7 +66,8 @@ export async function applyCollectionSetVar(
 
 export interface ApplyCollectionRemoveVarInput {
   collectionUid: string;
-  name: string;
+  /** The row's persisted uid — NOT its name. */
+  uid: string;
 }
 
 export async function applyCollectionRemoveVar(
@@ -79,37 +76,6 @@ export async function applyCollectionRemoveVar(
 ): Promise<CollectionSimpleResult> {
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRemoveCollectionVarBatch(input, ctx));
-}
-
-export interface ApplyCollectionRenameVarInput {
-  collectionUid: string;
-  oldName: string;
-  newName: string;
-  value: string;
-  type?: VariableType;
-}
-
-export async function applyCollectionRenameVar(
-  input: ApplyCollectionRenameVarInput,
-  opts: CollectionWriteOptions,
-): Promise<CollectionSimpleResult> {
-  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applySyncPayload(buildRenameCollectionVarBatch(input, ctx));
-}
-
-export interface ApplyCollectionSetVarTypeInput {
-  collectionUid: string;
-  name: string;
-  value: string;
-  type: VariableType;
-}
-
-export async function applyCollectionSetVarType(
-  input: ApplyCollectionSetVarTypeInput,
-  opts: CollectionWriteOptions,
-): Promise<CollectionSimpleResult> {
-  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applySyncPayload(buildSetCollectionVarTypeBatch(input, ctx));
 }
 
 export interface ApplyRenameCollectionInput {
@@ -168,11 +134,9 @@ export async function applySetPinnedAndDefault(
 }
 
 /**
- * Editor convenience: persist a complete variables list. Adds + value/
- * type changes emit `addToSet`; deletions emit `removeFromSet`. Diff
- * shape lives in {@link buildVariablesReplacement} (shared across
- * per-uid variable scopes); empty input → `{ ok: true }` short-circuit
- * without firing.
+ * Editor convenience: persist a complete variables list keyed by uid.
+ * Diff shape lives in {@link buildVariablesReplacement}; empty input →
+ * `{ ok: true }` short-circuit without firing.
  */
 export async function applyCollectionVariablesReplacement(
   collectionUid: string,

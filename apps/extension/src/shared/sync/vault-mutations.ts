@@ -10,14 +10,16 @@
  *
  * The singleton entity has no id arg on the catalog factories — every
  * call targets the fixed id internally, so these wrappers don't carry
- * one either.
+ * one either. Vault secrets carry a stable `uid` that doubles as the
+ * sync engine's itemId; `buildSetVaultSecretBatch` upserts the whole
+ * record (handles add, edit, rename, kind-transition uniformly);
+ * `buildRemoveVaultSecretBatch` keys by uid.
  */
 
 import {
   type MutatorContext,
   type MutatorIntent,
   removeVaultSecret,
-  renameVaultSecret,
   setVaultSecret,
 } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
@@ -25,6 +27,7 @@ import type { V5 } from '@openheaders/core/types';
 export type VaultMutationPayload = MutatorIntent;
 
 export interface SetVaultSecretInput {
+  /** Whole secret record. `secret.uid` is the set-member itemId. */
   secret: V5.VaultSecret;
   orderKey?: string;
 }
@@ -37,7 +40,8 @@ export function buildSetVaultSecretBatch(
 }
 
 export interface RemoveVaultSecretInput {
-  name: string;
+  /** The row's persisted uid — NOT its name. */
+  uid: string;
 }
 
 export function buildRemoveVaultSecretBatch(
@@ -45,17 +49,4 @@ export function buildRemoveVaultSecretBatch(
   ctx: MutatorContext,
 ): VaultMutationPayload {
   return removeVaultSecret(ctx, input);
-}
-
-export interface RenameVaultSecretInput {
-  oldName: string;
-  newSecret: V5.VaultSecret;
-  orderKey?: string;
-}
-
-export function buildRenameVaultSecretBatch(
-  input: RenameVaultSecretInput,
-  ctx: MutatorContext,
-): VaultMutationPayload {
-  return renameVaultSecret(ctx, input);
 }

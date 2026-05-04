@@ -3,9 +3,9 @@
  *
  * Mirrors `env-projection.ts` for the Collection entity. The oracle
  * stores variables as set members at `variables` (set member identity =
- * variable name); persisted `V5.Collection.variables` is a plain array.
+ * `variable.uid`); persisted `V5.Collection.variables` is a plain array.
  * `seedCollection` strips the `variables` array off the create payload
- * and emits one `addToSet` per variable (itemId = name); `projectCollection`
+ * and emits one `addToSet` per variable (itemId = uid); `projectCollection`
  * is the inverse.
  */
 
@@ -37,7 +37,7 @@ export function seedCollection(collection: V5.Collection, ctx: MutatorContext): 
       type: COLLECTION_ENTITY_TYPE,
       id: collection.uid,
       path: COLLECTION_VARS_PATH,
-      itemId: variable.name,
+      itemId: variable.uid,
       item: variable,
     });
   }

@@ -2,9 +2,9 @@
  * Renderer-side imperative entry point for request-collection writes.
  *
  * Mirrors `collection-write-client.ts` but routed through the
- * request-collection entity type. Variables-replacement folds through
- * the shared {@link buildVariablesReplacement} helper so the diff math
- * lives in one place across every per-uid variable scope.
+ * request-collection entity type. Identity for variable rows is
+ * `variable.uid`; variables-replacement folds through the shared
+ * {@link buildVariablesReplacement} helper.
  */
 
 import {
@@ -19,7 +19,6 @@ import {
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_COLLECTION_VARS_PATH,
   requestCollectionInvalidateResolverIntent,
-  type VariableType,
 } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import {
@@ -30,9 +29,7 @@ import {
   buildDeleteRequestCollectionBatch,
   buildRemoveRequestCollectionVarBatch,
   buildRenameRequestCollectionBatch,
-  buildRenameRequestCollectionVarBatch,
   buildSetRequestCollectionVarBatch,
-  buildSetRequestCollectionVarTypeBatch,
 } from '@/shared/sync/request-collection-mutations';
 import { buildVariablesReplacement } from '@/shared/sync/variables-replacement';
 
@@ -82,9 +79,8 @@ export async function applyRequestCollectionDelete(
 
 export interface ApplyRequestCollectionSetVarInput {
   requestCollectionUid: string;
-  name: string;
-  value: string;
-  type?: VariableType;
+  /** Whole variable record. `variable.uid` is the set-member itemId. */
+  variable: V5.Variable;
 }
 
 export async function applyRequestCollectionSetVar(
@@ -97,7 +93,8 @@ export async function applyRequestCollectionSetVar(
 
 export interface ApplyRequestCollectionRemoveVarInput {
   requestCollectionUid: string;
-  name: string;
+  /** The row's persisted uid — NOT its name. */
+  uid: string;
 }
 
 export async function applyRequestCollectionRemoveVar(
@@ -108,42 +105,10 @@ export async function applyRequestCollectionRemoveVar(
   return applySyncPayload(buildRemoveRequestCollectionVarBatch(input, ctx));
 }
 
-export interface ApplyRequestCollectionRenameVarInput {
-  requestCollectionUid: string;
-  oldName: string;
-  newName: string;
-  value: string;
-  type?: VariableType;
-}
-
-export async function applyRequestCollectionRenameVar(
-  input: ApplyRequestCollectionRenameVarInput,
-  opts: RequestCollectionWriteOptions,
-): Promise<RequestCollectionSimpleResult> {
-  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applySyncPayload(buildRenameRequestCollectionVarBatch(input, ctx));
-}
-
-export interface ApplyRequestCollectionSetVarTypeInput {
-  requestCollectionUid: string;
-  name: string;
-  value: string;
-  type: VariableType;
-}
-
-export async function applyRequestCollectionSetVarType(
-  input: ApplyRequestCollectionSetVarTypeInput,
-  opts: RequestCollectionWriteOptions,
-): Promise<RequestCollectionSimpleResult> {
-  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applySyncPayload(buildSetRequestCollectionVarTypeBatch(input, ctx));
-}
-
 /**
- * Editor convenience: persist a complete variables list. Adds + value/
- * type changes emit `addToSet`; deletions emit `removeFromSet`. Diff
- * shape lives in {@link buildVariablesReplacement} (shared across
- * per-uid variable scopes); empty input → `{ ok: true }` short-circuit.
+ * Editor convenience: persist a complete variables list keyed by uid.
+ * Diff shape lives in {@link buildVariablesReplacement}; empty input →
+ * `{ ok: true }` short-circuit.
  */
 export async function applyRequestCollectionVariablesReplacement(
   collectionUid: string,
