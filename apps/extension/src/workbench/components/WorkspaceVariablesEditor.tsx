@@ -27,14 +27,14 @@ import type { V5 } from '@openheaders/core/types';
 import { App, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect } from 'react';
-import { EntityScopeProvider, VARIABLE_PATHS } from '@/shared/awareness';
+import { EntityScopeProvider, PresenceBadge, useLocalInstanceId, VARIABLE_PATHS } from '@/shared/awareness';
 import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
 import { useDirtyDraft } from '../hooks/useDirtyDraft';
 import EditorHeader from './EditorHeader';
 import VariableTable from './panels/VariableTable';
 import { scopeBadge } from './shared/scope-colors';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 interface WorkspaceVariablesEditorProps {
   onDirtyChange?: (dirty: boolean) => void;
@@ -89,13 +89,20 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
   }, [registerSaveRef, handleSaveSync]);
 
   const nonEmptyCount = draft.filter((v) => v.name.trim()).length;
+  const localInstanceId = useLocalInstanceId();
 
   const headerTitle = (
     <>
-      {scopeBadge('workspace', 20)}
-      <Title level={5} style={{ margin: 0 }}>
+      {scopeBadge('workspace', 14)}
+      <Typography.Text strong style={{ fontSize: 13 }}>
         Workspace Variables
-      </Title>
+      </Typography.Text>
+      <PresenceBadge
+        entityType={WORKSPACE_VARIABLES_ENTITY_TYPE}
+        entityId={WORKSPACE_VARIABLES_ID}
+        excludeInstanceId={localInstanceId}
+        style={{ marginLeft: 6 }}
+      />
     </>
   );
 

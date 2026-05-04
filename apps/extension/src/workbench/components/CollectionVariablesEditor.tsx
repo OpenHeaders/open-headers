@@ -32,14 +32,14 @@ import type { V5 } from '@openheaders/core/types';
 import { App, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo } from 'react';
-import { EntityScopeProvider, VARIABLE_PATHS } from '@/shared/awareness';
+import { EntityScopeProvider, PresenceBadge, useLocalInstanceId, VARIABLE_PATHS } from '@/shared/awareness';
 import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
 import { useDirtyDraft } from '../hooks/useDirtyDraft';
 import EditorHeader from './EditorHeader';
 import VariableTable from './panels/VariableTable';
 import { scopeBadge } from './shared/scope-colors';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 export type CollectionVariablesKind = 'rule' | 'request' | 'template';
 
@@ -144,15 +144,22 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
   }
 
   const nonEmptyCount = draft.filter((v) => v.name.trim()).length;
+  const localInstanceId = useLocalInstanceId();
 
   const scopeNoun = kind === 'request' ? 'request' : kind === 'template' ? 'template' : 'rule';
 
   const headerTitle = (
     <>
-      {scopeBadge('collection', 20)}
-      <Title level={5} style={{ margin: 0 }}>
+      {scopeBadge('collection', 14)}
+      <Typography.Text strong style={{ fontSize: 13 }}>
         {collection.name} · Variables
-      </Title>
+      </Typography.Text>
+      <PresenceBadge
+        entityType={entityType}
+        entityId={collectionUid}
+        excludeInstanceId={localInstanceId}
+        style={{ marginLeft: 6 }}
+      />
     </>
   );
 

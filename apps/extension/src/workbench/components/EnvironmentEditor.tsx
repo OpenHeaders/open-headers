@@ -25,7 +25,7 @@ import type { V5 } from '@openheaders/core/types';
 import { App, Button, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo } from 'react';
-import { EntityScopeProvider, VARIABLE_PATHS } from '@/shared/awareness';
+import { EntityScopeProvider, PresenceBadge, useLocalInstanceId, VARIABLE_PATHS } from '@/shared/awareness';
 import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
 import { useDirtyDraft } from '../hooks/useDirtyDraft';
 import { useEnvSwitcher } from '../services/env-switcher';
@@ -33,7 +33,7 @@ import EditorHeader from './EditorHeader';
 import VariableTable from './panels/VariableTable';
 import { scopeBadge } from './shared/scope-colors';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 interface EnvironmentEditorProps {
   environmentUid: string;
@@ -60,6 +60,7 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
   const mutator = useEnvironmentMutator({ workspaceId, surfaceId: SURFACE_ID });
 
   const env = useMemo(() => environments.find((e) => e.uid === environmentUid) ?? null, [environments, environmentUid]);
+  const localInstanceId = useLocalInstanceId();
 
   const { draft, setDraft, isDirty, markPersisted } = useDirtyDraft<V5.Variable[]>({
     serverDraft: env?.variables ?? null,
@@ -113,10 +114,16 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
 
   const headerTitle = (
     <>
-      {scopeBadge('environment', 20)}
-      <Title level={5} style={{ margin: 0 }}>
+      {scopeBadge('environment', 14)}
+      <Typography.Text strong style={{ fontSize: 13 }}>
         {env.name}
-      </Title>
+      </Typography.Text>
+      <PresenceBadge
+        entityType={ENVIRONMENT_ENTITY_TYPE}
+        entityId={env.uid}
+        excludeInstanceId={localInstanceId}
+        style={{ marginLeft: 6 }}
+      />
       {isActive && <Tag color="blue">Active</Tag>}
       {isDefault && (
         <Tooltip title="Resolver falls back here when the active env is missing a variable.">

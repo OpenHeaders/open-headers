@@ -29,14 +29,14 @@ import type { V5 } from '@openheaders/core/types';
 import { Alert, App, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo } from 'react';
-import { EntityScopeProvider } from '@/shared/awareness';
+import { EntityScopeProvider, PresenceBadge, useLocalInstanceId } from '@/shared/awareness';
 import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
 import { useDirtyDraft } from '../hooks/useDirtyDraft';
 import EditorHeader from './EditorHeader';
 import VariableTable from './panels/VariableTable';
 import { scopeBadge } from './shared/scope-colors';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 interface VaultEditorProps {
   onDirtyChange?: (dirty: boolean) => void;
@@ -106,12 +106,20 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
     return { strings, totps };
   }, [draft]);
 
+  const localInstanceId = useLocalInstanceId();
+
   const headerTitle = (
     <>
-      {scopeBadge('vault', 20)}
-      <Title level={5} style={{ margin: 0 }}>
+      {scopeBadge('vault', 14)}
+      <Typography.Text strong style={{ fontSize: 13 }}>
         Vault
-      </Title>
+      </Typography.Text>
+      <PresenceBadge
+        entityType={VAULT_ENTITY_TYPE}
+        entityId={VAULT_ID}
+        excludeInstanceId={localInstanceId}
+        style={{ marginLeft: 6 }}
+      />
     </>
   );
 
