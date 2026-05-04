@@ -35,11 +35,11 @@ import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { LIVE_VARIABLE_ENTITY_TYPE } from '@openheaders/core/sync';
 import { EntityScopeProvider, LIVE_VARIABLE_FIELD, useSetActiveFieldFocus } from '@/shared/awareness';
 import { readFieldPath } from '@/shared/awareness/field-path';
-import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
+import { useEditorShell, useReprime } from '@/shared/editor-shell';
 import type { V5 } from '@openheaders/core/types';
 import { App, Button, Input, InputNumber, Select, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import EditorHeader from '../EditorHeader';
 import { FieldRow, InlineNameDescription, LIVE_ROW_GAP, LIVE_ROW_LABEL_WIDTH, Section } from './layout';
 import {
@@ -174,10 +174,6 @@ const CreateMode: React.FC<CreateProps> = ({ onDirtyChange, registerSaveRef, onC
     );
   }, [draft]);
 
-  useEffect(() => {
-    onDirtyChange?.(isDirty);
-  }, [isDirty, onDirtyChange]);
-
   const handleSave = useCallback(async () => {
     const name = draft.name.trim();
     if (!name) {
@@ -205,9 +201,15 @@ const CreateMode: React.FC<CreateProps> = ({ onDirtyChange, registerSaveRef, onC
   }, [draft, createVariable, message, onCreated]);
 
   const handleSaveSync = useCallback(() => void handleSave(), [handleSave]);
-  useEffect(() => {
-    registerSaveRef?.(handleSaveSync);
-  }, [registerSaveRef, handleSaveSync]);
+
+  const shell = useEditorShell({
+    entityType: LIVE_VARIABLE_ENTITY_TYPE,
+    entityId: null,
+    isDirty,
+    onSave: handleSaveSync,
+    onDirtyChange,
+    registerSaveRef,
+  });
 
   const selectedWorkflow = workflows.find((w) => w.uid === draft.workflowUid) ?? null;
   const selectedSteps = selectedWorkflow?.steps ?? [];
@@ -224,8 +226,9 @@ const CreateMode: React.FC<CreateProps> = ({ onDirtyChange, registerSaveRef, onC
   );
 
   return (
+    <EntityScopeProvider shell={shell.scopeProps}>
     <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
-      <EditorHeader title={createHeaderTitle} isDirty={isDirty} onSave={handleSaveSync} />
+      <EditorHeader title={createHeaderTitle} shell={shell.headerProps} />
       <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -328,6 +331,7 @@ const CreateMode: React.FC<CreateProps> = ({ onDirtyChange, registerSaveRef, onC
         </div>
       </div>
     </div>
+    </EntityScopeProvider>
   );
 };
 
@@ -348,41 +352,21 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
   const { runs } = useLiveWorkflowCache(lv?.workflowUid);
 
   const [draft, setDraft] = useState<EditDraft | null>(() => (lv ? editDraftFromVariable(lv) : null));
-  // State, not a ref — `isDirty` reads it as a memo dep so save's new
-  // baseline invalidates the cached value. Ref version left `isDirty`
-  // stuck at `true` when the parent re-rendered with a fresh inline
-  // `onDirtyChange` arrow. Same fix as RequestEditor; the
-  // `useDirtyDraft` hook file-header comment documents the trap.
-  const [persistedFp, setPersistedFp] = useState<string>(lv ? fingerprintEdit(editDraftFromVariable(lv)) : '');
 
   const [revealValue, setRevealValue] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (!lv) return;
-    if (draft === null) {
-      const seeded = editDraftFromVariable(lv);
-      setDraft(seeded);
-      setPersistedFp(fingerprintEdit(seeded));
-      return;
-    }
-    const persisted = editDraftFromVariable(lv);
-    const fp = fingerprintEdit(persisted);
-    if (fp === persistedFp) return;
-    // Sync engine §6.3 — re-prime only while clean. When the editor
-    // has uncommitted edits, leave the draft alone; the LWW save
-    // resolves the conflict at oracle time. Without this gate an
-    // external commit would silently clobber the user's typing.
-    const dirty = fingerprintEdit(draft) !== persistedFp;
-    if (dirty) return;
-    setPersistedFp(fp);
-    setDraft(persisted);
-  }, [lv, draft, persistedFp]);
+  const formFingerprint = useMemo(() => (draft ? fingerprintEdit(draft) : ''), [draft]);
 
-  const isDirty = useMemo(() => (draft ? fingerprintEdit(draft) !== persistedFp : false), [draft, persistedFp]);
-  useEffect(() => {
-    onDirtyChange?.(isDirty);
-  }, [isDirty, onDirtyChange]);
+  const reprime = useReprime<V5.LiveVariable>({
+    liveEntity: lv,
+    scope: { entityType: LIVE_VARIABLE_ENTITY_TYPE, entityId: lv?.uid ?? null },
+    enabled: lv != null,
+    formFingerprint,
+    signature: (e) => fingerprintEdit(editDraftFromVariable(e)),
+    populate: (e) => setDraft(editDraftFromVariable(e)),
+  });
+  const isDirty = reprime.isDirty;
 
   // Per-field focus path. Live editors don't use antd Form, so focus
   // mapping rides `data-field-path` attributes on FieldRow wrappers;
@@ -409,11 +393,6 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
     [setActiveFieldFocus],
   );
 
-  // Editor's contribution to the surface's awareness publish — entity
-  // scope + dirty marker. The workspace-level `<SurfaceAwarenessPublisher>`
-  // composes this with `<ActiveTabEntity>` + `<ActiveFieldFocus>`.
-  useEditorDirty({ entityType: LIVE_VARIABLE_ENTITY_TYPE, entityId: lv?.uid ?? null }, isDirty);
-
   const handleSave = useCallback(async () => {
     if (!lv || !draft) return;
     const result = await updateVariable(lv.uid, {
@@ -426,8 +405,8 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
       captureName: draft.captureName,
     });
     if (result.success) {
-      setPersistedFp(fingerprintEdit(draft));
-      onDirtyChange?.(false);
+      // Dirty derives from form-vs-canonical equality; broadcast echo
+      // brings live in line with form, useReprime auto-rebase clears.
       return;
     }
     if (result.reason === 'not-found') {
@@ -435,12 +414,18 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
       return;
     }
     message.error('Failed to save live variable');
-  }, [lv, draft, updateVariable, onDirtyChange, message]);
+  }, [lv, draft, updateVariable, message]);
 
   const handleSaveSync = useCallback(() => void handleSave(), [handleSave]);
-  useEffect(() => {
-    registerSaveRef?.(handleSaveSync);
-  }, [registerSaveRef, handleSaveSync]);
+
+  const shell = useEditorShell({
+    entityType: LIVE_VARIABLE_ENTITY_TYPE,
+    entityId: lv?.uid ?? null,
+    isDirty,
+    onSave: handleSaveSync,
+    onDirtyChange,
+    registerSaveRef,
+  });
 
   const handleRefreshNow = useCallback(async () => {
     if (!lv) return;
@@ -515,13 +500,13 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
   );
 
   return (
-    <EntityScopeProvider entityType={LIVE_VARIABLE_ENTITY_TYPE} entityId={lv.uid}>
+    <EntityScopeProvider shell={shell.scopeProps}>
       <div
         style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}
         onFocusCapture={handleFocusCapture}
         onBlurCapture={handleBlurCapture}
       >
-        <EditorHeader title={editHeaderTitle} actions={editHeaderActions} isDirty={isDirty} onSave={handleSaveSync} />
+        <EditorHeader title={editHeaderTitle} actions={editHeaderActions} shell={shell.headerProps} />
       <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
           {/* Current value — single compact row */}
