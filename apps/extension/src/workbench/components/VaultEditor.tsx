@@ -28,16 +28,16 @@ import { VAULT_ENTITY_TYPE, VAULT_ID } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { Alert, App, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { EntityScopeProvider, PresenceBadge, useLocalInstanceId } from '@/shared/awareness';
-import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
 import {
   type ConflictResolution,
   EntityConflictBanner,
   EntityConflictDialog,
   prettyPathMap,
 } from '@/shared/conflicts';
-import { stableStringify, useEntityReprime } from '@/shared/forms';
+import { useEditorShell, useReprime } from '@/shared/editor-shell';
+import { stableStringify } from '@/shared/forms';
 import EditorHeader from './EditorHeader';
 import VariableTable, { type VariableTableConflictBridge } from './panels/VariableTable';
 import { scopeBadge } from './shared/scope-colors';
@@ -63,42 +63,29 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
   const { vault } = useEnvironments();
   const { replaceVault } = useVariableMutator();
 
-  // Derived dirty (universal contract). See EnvironmentEditor for the
-  // lastPrimedSig rationale.
   const [draft, setDraft] = useState<V5.VaultSecret[]>(() => vault.secrets ?? EMPTY_SECRETS);
-  const [lastPrimedSig, setLastPrimedSig] = useState<string | null>(null);
-
-  const formSig = useMemo(() => secretsSignature(draft), [draft]);
-  const liveSig = useMemo(() => secretsSignature(vault.secrets), [vault.secrets]);
-  const isDirty = lastPrimedSig !== null && formSig !== lastPrimedSig;
-
-  useEditorDirty({ entityType: VAULT_ENTITY_TYPE, entityId: VAULT_ID }, isDirty);
-
-  // ── Conflict tracking ──────────────────────────────────────────
-  const conflicts = useVaultConflicts({ liveVault: vault, isDirty, enabled: true });
-  const setConflictBaseline = conflicts.setBaseline;
+  const formFingerprint = useMemo(() => secretsSignature(draft), [draft]);
   const liveVaultWithUid = useMemo(() => ({ ...vault, uid: VAULT_ID }), [vault]);
 
-  useEntityReprime<V5.Vault>({
+  // Conflict-baseline ref pattern (canonical recipe — see RuleEditor /
+  // EnvironmentEditor): conflict tracker reads `isDirty` from reprime,
+  // reprime's `onPrimed` advances the tracker's baseline. Break the
+  // ordering cycle with a ref.
+  const setBaselineRef = useRef<(e: V5.Vault & { uid: string }) => void>(() => undefined);
+
+  const reprime = useReprime<V5.Vault>({
     liveEntity: vault,
     scope: { entityType: VAULT_ENTITY_TYPE, entityId: VAULT_ID },
-    isDirty,
     enabled: true,
+    formFingerprint,
     signature: (e) => secretsSignature(e.secrets),
-    populate: (e) => {
-      setDraft(e.secrets);
-      setLastPrimedSig(secretsSignature(e.secrets));
-      setConflictBaseline({ ...e, uid: VAULT_ID });
-    },
+    populate: (e) => setDraft(e.secrets),
+    onPrimed: (e) => setBaselineRef.current({ ...e, uid: VAULT_ID }),
   });
+  const isDirty = reprime.isDirty;
 
-  useEffect(() => {
-    if (formSig === null || liveSig === null) return;
-    if (formSig !== liveSig) return;
-    if (lastPrimedSig === liveSig) return;
-    setLastPrimedSig(liveSig);
-    setConflictBaseline(liveVaultWithUid);
-  }, [formSig, liveSig, lastPrimedSig, liveVaultWithUid, setConflictBaseline]);
+  const conflicts = useVaultConflicts({ liveVault: vault, isDirty, enabled: true });
+  setBaselineRef.current = conflicts.setBaseline;
 
   const formProjection = useMemo(() => projectSecretsToForm(draft), [draft]);
   const formSetOrders = useMemo(
@@ -193,10 +180,6 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
     [projectWithResolutions],
   );
 
-  useEffect(() => {
-    onDirtyChange?.(isDirty);
-  }, [isDirty, onDirtyChange]);
-
   const handleSave = useCallback(async () => {
     if (!isDirty) return;
     const result = await replaceVault(draft);
@@ -214,9 +197,15 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
     void handleSave();
   }, [handleSave]);
 
-  useEffect(() => {
-    registerSaveRef?.(handleSaveSync);
-  }, [registerSaveRef, handleSaveSync]);
+  const shell = useEditorShell({
+    entityType: VAULT_ENTITY_TYPE,
+    entityId: VAULT_ID,
+    isDirty,
+    onSave: handleSaveSync,
+    onDirtyChange,
+    registerSaveRef,
+    options: { disableFieldFocus: true },
+  });
 
   const counts = useMemo(() => {
     let strings = 0;
@@ -246,9 +235,9 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
   );
 
   return (
-    <EntityScopeProvider entityType={VAULT_ENTITY_TYPE} entityId={VAULT_ID}>
+    <EntityScopeProvider shell={shell.scopeProps}>
       <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
-        <EditorHeader title={headerTitle} isDirty={isDirty} onSave={handleSaveSync} />
+        <EditorHeader title={headerTitle} shell={shell.headerProps} />
         <EntityConflictBanner
           count={allConflicts.size}
           onReview={() => setConflictDialogOpen(true)}
