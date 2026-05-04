@@ -57,8 +57,8 @@ describe('WorkspaceVariablesCache', () => {
     const cache = createWorkspaceVariablesCache('ws-1', oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedWorkspaceVariables(
       makeWorkspaceVars([
-        { name: 'API_BASE', value: 'https://openheaders.io', type: 'default' },
-        { name: 'TOKEN', value: 't', type: 'secret' },
+        { uid: 'c129d2e8', name: 'API_BASE', value: 'https://openheaders.io', type: 'default' },
+        { uid: 'e8c4cbf0', name: 'TOKEN', value: 't', type: 'secret' },
       ]),
     );
     const snap = cache.getWorkspaceVariables();
@@ -69,9 +69,9 @@ describe('WorkspaceVariablesCache', () => {
   it('updates the cache when a new var is set via the catalog', async () => {
     const cache = createWorkspaceVariablesCache('ws-1', oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedWorkspaceVariables(
-      makeWorkspaceVars([{ name: 'A', value: '1', type: 'default' }]),
+      makeWorkspaceVars([{ uid: '0956e8ce', name: 'A', value: '1', type: 'default' }]),
     );
-    const intent = setWorkspaceVar(ctxFactory(), { name: 'B', value: '2' });
+    const intent = setWorkspaceVar(ctxFactory(), { variable: { uid: 'vrwsvarb2', name: 'B', value: '2', type: 'default' } });
     await oracle.apply(intent.batch, []);
     const snap = cache.getWorkspaceVariables();
     expect(snap.variables.map((v) => v.name).sort()).toEqual(['A', 'B']);
@@ -102,10 +102,10 @@ describe('WorkspaceVariablesCache', () => {
   it('dispose drops the broadcast subscription', async () => {
     const cache = createWorkspaceVariablesCache('ws-1', oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedWorkspaceVariables(
-      makeWorkspaceVars([{ name: 'A', value: '1', type: 'default' }]),
+      makeWorkspaceVars([{ uid: '527219e0', name: 'A', value: '1', type: 'default' }]),
     );
     cache.dispose();
-    const intent = setWorkspaceVar(ctxFactory(), { name: 'B', value: '2' });
+    const intent = setWorkspaceVar(ctxFactory(), { variable: { uid: 'vrwsvarb2', name: 'B', value: '2', type: 'default' } });
     await oracle.apply(intent.batch, []);
     expect(cache.getWorkspaceVariables().variables.map((v) => v.name)).toEqual(['A']);
   });

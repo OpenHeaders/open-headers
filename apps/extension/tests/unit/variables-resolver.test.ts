@@ -89,7 +89,7 @@ describe('VariablesResolver (extension)', () => {
     mockWsVars.mockReturnValue({
       schemaVersion: 5,
       version: 1,
-      variables: [{ name: 'TOKEN', value: 'ws-token', type: 'default' }],
+      variables: [{ uid: '9cdd8c2b', name: 'TOKEN', value: 'ws-token', type: 'default' }],
     });
 
     const rule = makeHeaderRule({ uid: 'r1', path: 'rules/my-coll-abcd/r1' });
@@ -102,10 +102,10 @@ describe('VariablesResolver (extension)', () => {
     mockWsVars.mockReturnValue({
       schemaVersion: 5,
       version: 1,
-      variables: [{ name: 'TOKEN', value: 'ws-token', type: 'default' }],
+      variables: [{ uid: '3e440f9f', name: 'TOKEN', value: 'ws-token', type: 'default' }],
     });
     mockEnvs.mockReturnValue([
-      env('staging', [{ name: 'TOKEN', value: 'staging-token', type: 'default' }], 'e-staging'),
+      env('staging', [{ uid: '3b5f8511', name: 'TOKEN', value: 'staging-token', type: 'default' }], 'e-staging'),
     ]);
     mockActiveEnvId.mockReturnValue('e-staging');
 
@@ -116,12 +116,12 @@ describe('VariablesResolver (extension)', () => {
   });
 
   it('lets vault secret override environment scope', () => {
-    mockEnvs.mockReturnValue([env('prod', [{ name: 'TOKEN', value: 'env-token', type: 'default' }], 'e-prod')]);
+    mockEnvs.mockReturnValue([env('prod', [{ uid: 'ae67a31b', name: 'TOKEN', value: 'env-token', type: 'default' }], 'e-prod')]);
     mockActiveEnvId.mockReturnValue('e-prod');
     mockVault.mockReturnValue({
       schemaVersion: 5,
       
-      secrets: [{ kind: 'string', name: 'TOKEN', value: 'vault-token' }],
+      secrets: [{ uid: '16f5bde2', kind: 'string', name: 'TOKEN', value: 'vault-token' }],
     });
 
     const rule = makeHeaderRule({ uid: 'r1', path: 'rules/my-coll-abcd/r1' });
@@ -136,7 +136,7 @@ describe('VariablesResolver (extension)', () => {
       uid: 'c-1',
       path: 'rules/my-coll-abcd',
       name: 'My Coll',
-      variables: [{ name: 'TOKEN', value: 'coll-token', type: 'default' }],
+      variables: [{ uid: '3f066e26', name: 'TOKEN', value: 'coll-token', type: 'default' }],
       pinnedEnvironmentIds: [],
       defaultEnvironmentId: null,
     };
@@ -144,7 +144,7 @@ describe('VariablesResolver (extension)', () => {
     mockWsVars.mockReturnValue({
       schemaVersion: 5,
       version: 1,
-      variables: [{ name: 'TOKEN', value: 'ws-token', type: 'default' }],
+      variables: [{ uid: 'd35930ff', name: 'TOKEN', value: 'ws-token', type: 'default' }],
     });
 
     const rule = makeHeaderRule({ uid: 'r1', path: 'rules/my-coll-abcd/r1' });
@@ -159,7 +159,7 @@ describe('VariablesResolver (extension)', () => {
       uid: 'c-1',
       path: 'rules/my-coll-abcd',
       name: 'My Coll',
-      variables: [{ name: 'TOKEN', value: 'coll-token', type: 'default' }],
+      variables: [{ uid: '3a87a72f', name: 'TOKEN', value: 'coll-token', type: 'default' }],
       pinnedEnvironmentIds: [],
       defaultEnvironmentId: null,
     };
@@ -167,7 +167,7 @@ describe('VariablesResolver (extension)', () => {
     mockWsVars.mockReturnValue({
       schemaVersion: 5,
       version: 1,
-      variables: [{ name: 'TOKEN', value: 'ws-token', type: 'default' }],
+      variables: [{ uid: 'a9c960e1', name: 'TOKEN', value: 'ws-token', type: 'default' }],
     });
 
     const orphan = makeHeaderRule({ uid: 'r1', path: 'rules/other-coll-wxyz/r1' });
@@ -178,13 +178,13 @@ describe('VariablesResolver (extension)', () => {
 
   it('treats null activeEnvironmentId as "no environment" (Postman semantics)', () => {
     mockEnvs.mockReturnValue([
-      env('staging', [{ name: 'TOKEN', value: 'staging-token', type: 'default' }], 'e-staging'),
+      env('staging', [{ uid: '66aa1c7d', name: 'TOKEN', value: 'staging-token', type: 'default' }], 'e-staging'),
     ]);
     mockActiveEnvId.mockReturnValue(null);
     mockWsVars.mockReturnValue({
       schemaVersion: 5,
       version: 1,
-      variables: [{ name: 'TOKEN', value: 'ws-token', type: 'default' }],
+      variables: [{ uid: '8fc7f0da', name: 'TOKEN', value: 'ws-token', type: 'default' }],
     });
 
     const rule = makeHeaderRule({ uid: 'r1', path: 'rules/my-coll-abcd/r1' });
@@ -204,7 +204,7 @@ describe('VariablesResolver (extension)', () => {
     mockWsVars.mockReturnValue({
       schemaVersion: 5,
       version: 1,
-      variables: [{ name: 'TOKEN', value: 'ws', type: 'default' }],
+      variables: [{ uid: 'deb417d2', name: 'TOKEN', value: 'ws', type: 'default' }],
     });
     const rule = makeHeaderRule({ uid: 'r1', path: 'rules/my-coll-abcd/r1' });
     const originalValue = rule.action.requestHeaders?.[0].value;
@@ -215,8 +215,8 @@ describe('VariablesResolver (extension)', () => {
   });
 
   it('reflects env switch across sequential compile calls', () => {
-    const stagingEnv = env('staging', [{ name: 'TOKEN', value: 'staging', type: 'default' }], 'e-staging');
-    const prodEnv = env('prod', [{ name: 'TOKEN', value: 'prod', type: 'default' }], 'e-prod');
+    const stagingEnv = env('staging', [{ uid: '0c34ad14', name: 'TOKEN', value: 'staging', type: 'default' }], 'e-staging');
+    const prodEnv = env('prod', [{ uid: '431b4c8b', name: 'TOKEN', value: 'prod', type: 'default' }], 'e-prod');
     mockEnvs.mockReturnValue([stagingEnv, prodEnv]);
 
     const rule = makeHeaderRule({ uid: 'r1', path: 'rules/my-coll-abcd/r1' });
@@ -234,7 +234,7 @@ describe('VariablesResolver (extension)', () => {
     mockWsVars.mockReturnValue({
       schemaVersion: 5,
       version: 1,
-      variables: [{ name: 'HOST', value: 'api.openheaders.io', type: 'default' }],
+      variables: [{ uid: 'cb3b2211', name: 'HOST', value: 'api.openheaders.io', type: 'default' }],
     });
 
     const rule = makeHeaderRule({
@@ -252,7 +252,7 @@ describe('VariablesResolver (extension)', () => {
     mockWsVars.mockReturnValue({
       schemaVersion: 5,
       version: 1,
-      variables: [{ name: 'HOST', value: 'api.openheaders.io', type: 'default' }],
+      variables: [{ uid: '39ce96b2', name: 'HOST', value: 'api.openheaders.io', type: 'default' }],
     });
     const rule = makeHeaderRule({
       uid: 'r1',
@@ -274,7 +274,7 @@ describe('VariablesResolver (extension)', () => {
     mockWsVars.mockReturnValue({
       schemaVersion: 5,
       version: 1,
-      variables: [{ name: 'HOST', value: 'api.openheaders.io', type: 'default' }],
+      variables: [{ uid: 'd9e946c8', name: 'HOST', value: 'api.openheaders.io', type: 'default' }],
     });
     const r1 = makeHeaderRule({
       uid: 'r1',
@@ -311,7 +311,7 @@ describe('VariablesResolver (extension)', () => {
       mockWsVars.mockReturnValue({
         schemaVersion: 5,
         version: 1,
-        variables: [{ name: 'TOKEN', value: 'x', type: 'default' }],
+        variables: [{ uid: '23ceaffa', name: 'TOKEN', value: 'x', type: 'default' }],
       });
       const rule = makeHeaderRule({ uid: 'r1', path: 'rules/test' });
       mockStoreRules.mockReturnValue([rule]);

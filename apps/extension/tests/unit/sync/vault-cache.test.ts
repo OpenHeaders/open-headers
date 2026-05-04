@@ -57,8 +57,9 @@ describe('VaultCache', () => {
     const cache = createVaultCache('ws-1', oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedVault(
       makeVault([
-        { kind: 'string', name: 'API_KEY', value: 'sek' },
+        { uid: 'scapikey1', kind: 'string', name: 'API_KEY', value: 'sek' },
         {
+          uid: 'scotpaaaa',
           kind: 'totp',
           name: 'OTP',
           seed: 'JBSWY3DPEHPK3PXP',
@@ -76,10 +77,10 @@ describe('VaultCache', () => {
   it('updates the cache when a new secret is set via the catalog', async () => {
     const cache = createVaultCache('ws-1', oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedVault(
-      makeVault([{ kind: 'string', name: 'A', value: '1' }]),
+      makeVault([{ uid: 'scaxxxxxx', kind: 'string', name: 'A', value: '1' }]),
     );
     const intent = setVaultSecret(ctxFactory(), {
-      secret: { kind: 'string', name: 'B', value: '2' },
+      secret: { uid: 'scbxxxxxx', kind: 'string', name: 'B', value: '2' },
     });
     await oracle.apply(intent.batch, []);
     const snap = cache.getVault();
@@ -111,11 +112,11 @@ describe('VaultCache', () => {
   it('dispose drops the broadcast subscription', async () => {
     const cache = createVaultCache('ws-1', oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedVault(
-      makeVault([{ kind: 'string', name: 'A', value: '1' }]),
+      makeVault([{ uid: 'scaxxxxxx', kind: 'string', name: 'A', value: '1' }]),
     );
     cache.dispose();
     const intent = setVaultSecret(ctxFactory(), {
-      secret: { kind: 'string', name: 'B', value: '2' },
+      secret: { uid: 'scbxxxxxx', kind: 'string', name: 'B', value: '2' },
     });
     await oracle.apply(intent.batch, []);
     expect(cache.getVault().secrets.map((s) => s.name)).toEqual(['A']);

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { Variable } from '../../../../src/types/v5/variable';
 import {
   ENV_VARS_PATH,
   ENVIRONMENT_ENTITY_TYPE,
@@ -6,9 +7,7 @@ import {
   INVALIDATE_RESOLVER,
   type MutatorContext,
   removeEnvVar,
-  renameEnvVar,
   setEnvVar,
-  setEnvVarType,
 } from '../../../../src/sync';
 
 const ctx = (overrides: Partial<MutatorContext> = {}): MutatorContext => ({
@@ -19,9 +18,18 @@ const ctx = (overrides: Partial<MutatorContext> = {}): MutatorContext => ({
   ...overrides,
 });
 
+const v = (overrides: Partial<Variable> = {}): Variable => ({
+  uid: 'var-aaaa',
+  name: 'API_URL',
+  value: 'https://openheaders.io',
+  type: 'default',
+  ...overrides,
+});
+
 describe('setEnvVar', () => {
-  it('emits an addToSet at variables with itemId = name', () => {
-    const intent = setEnvVar(ctx(), { envId: 'env-prod', name: 'API_URL', value: 'https://openheaders.io' });
+  it('emits an addToSet at variables with itemId = variable.uid', () => {
+    const variable = v();
+    const intent = setEnvVar(ctx(), { envId: 'env-prod', variable });
     expect(intent.batch.mutations).toHaveLength(1);
     const env = intent.batch.mutations[0];
     expect(env.mutatorVersion).toBe(ENVIRONMENT_MUTATOR_VERSION);
@@ -30,87 +38,52 @@ describe('setEnvVar', () => {
       type: ENVIRONMENT_ENTITY_TYPE,
       id: 'env-prod',
       path: ENV_VARS_PATH,
-      itemId: 'API_URL',
-      item: { name: 'API_URL', value: 'https://openheaders.io', type: 'default' },
+      itemId: 'var-aaaa',
+      item: variable,
     });
     expect(intent.sideEffects).toEqual([
       { kind: INVALIDATE_RESOLVER, key: 'env-prod', hlc: ctx().hlc },
     ]);
   });
 
-  it('honors explicit type + orderKey when provided', () => {
-    const intent = setEnvVar(ctx(), {
-      envId: 'env-prod',
-      name: 'API_KEY',
-      value: 'k',
-      type: 'secret',
-      orderKey: 'm',
-    });
+  it('honors explicit orderKey when provided + carries the full variable record', () => {
+    const variable = v({ uid: 'var-bbbb', name: 'API_KEY', value: 'k', type: 'secret' });
+    const intent = setEnvVar(ctx(), { envId: 'env-prod', variable, orderKey: 'm' });
     expect(intent.batch.mutations[0].body).toMatchObject({
-      itemId: 'API_KEY',
-      item: { name: 'API_KEY', value: 'k', type: 'secret' },
+      itemId: 'var-bbbb',
+      item: variable,
       orderKey: 'm',
     });
   });
 
   it('shares a batchId across multiple mutations when ctx.batchId is set', () => {
     const c = ctx({ batchId: 'batch-shared' });
-    const a = setEnvVar(c, { envId: 'e', name: 'A', value: '1' });
+    const a = setEnvVar(c, { envId: 'e', variable: v() });
     expect(a.batch.batchId).toBe('batch-shared');
+  });
+
+  it('rename is a re-emit at the same uid with a new name (no separate primitive)', () => {
+    const renamed = v({ name: 'BASE_URL' });
+    const intent = setEnvVar(ctx(), { envId: 'env-prod', variable: renamed });
+    expect(intent.batch.mutations).toHaveLength(1);
+    expect(intent.batch.mutations[0].body).toMatchObject({
+      kind: 'addToSet',
+      itemId: 'var-aaaa',
+      item: { uid: 'var-aaaa', name: 'BASE_URL' },
+    });
   });
 });
 
 describe('removeEnvVar', () => {
-  it('emits removeFromSet with itemId = name', () => {
-    const intent = removeEnvVar(ctx(), { envId: 'env-prod', name: 'API_URL' });
+  it('emits removeFromSet with itemId = uid', () => {
+    const intent = removeEnvVar(ctx(), { envId: 'env-prod', uid: 'var-aaaa' });
     expect(intent.batch.mutations).toHaveLength(1);
     expect(intent.batch.mutations[0].body).toMatchObject({
       kind: 'removeFromSet',
       type: ENVIRONMENT_ENTITY_TYPE,
       id: 'env-prod',
       path: ENV_VARS_PATH,
-      itemId: 'API_URL',
-    });
-  });
-});
-
-describe('renameEnvVar', () => {
-  it('emits an atomic batch — removeFromSet(old) + addToSet(new) under one batchId', () => {
-    const intent = renameEnvVar(ctx(), {
-      envId: 'env-prod',
-      oldName: 'API_URL',
-      newName: 'BASE_URL',
-      value: 'https://openheaders.io',
-    });
-    expect(intent.batch.mutations).toHaveLength(2);
-    // Both envelopes share the same batchId — per-batch all-or-nothing depends on this.
-    expect(intent.batch.mutations[0].mutationId).not.toBe(intent.batch.mutations[1].mutationId);
-    expect(intent.batch.mutations[0].body).toMatchObject({
-      kind: 'removeFromSet',
-      itemId: 'API_URL',
-      path: ENV_VARS_PATH,
-    });
-    expect(intent.batch.mutations[1].body).toMatchObject({
-      kind: 'addToSet',
-      itemId: 'BASE_URL',
-      path: ENV_VARS_PATH,
-      item: { name: 'BASE_URL', value: 'https://openheaders.io', type: 'default' },
-    });
-  });
-
-  it('is a no-op (empty batch) when oldName === newName', () => {
-    const intent = renameEnvVar(ctx(), { envId: 'e', oldName: 'X', newName: 'X', value: 'v' });
-    expect(intent.batch.mutations).toHaveLength(0);
-  });
-});
-
-describe('setEnvVarType', () => {
-  it('replaces the whole record via addToSet (LWW per itemId)', () => {
-    const intent = setEnvVarType(ctx(), { envId: 'e', name: 'TOKEN', value: 'abc', type: 'secret' });
-    expect(intent.batch.mutations[0].body).toMatchObject({
-      kind: 'addToSet',
-      itemId: 'TOKEN',
-      item: { name: 'TOKEN', value: 'abc', type: 'secret' },
+      itemId: 'var-aaaa',
     });
   });
 });

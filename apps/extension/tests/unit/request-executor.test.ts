@@ -87,7 +87,7 @@ describe('RequestExecutor', () => {
   it('resolves workspace variables in URL', async () => {
     mockWsVars.mockReturnValue({
       schemaVersion: 5,
-      variables: [{ name: 'HOST', value: 'api.openheaders.io', type: 'default' }],
+      variables: [{ uid: '1abc6d8c', name: 'HOST', value: 'api.openheaders.io', type: 'default' }],
     });
     await executeRequestDraft(makeRequest({ url: 'https://{{HOST}}/v1/ping' }));
     expect(fetchMock).toHaveBeenCalledWith('https://api.openheaders.io/v1/ping', expect.any(Object));
@@ -102,7 +102,7 @@ describe('RequestExecutor', () => {
         uid: 'rc-1',
         path: 'requests/auth-coll',
         name: 'Auth',
-        variables: [{ name: 'TOKEN', value: 'coll-token', type: 'default' }],
+        variables: [{ uid: '9d864e7f', name: 'TOKEN', value: 'coll-token', type: 'default' }],
         pinnedEnvironmentIds: [],
         defaultEnvironmentId: null,
       } satisfies V5.Collection,

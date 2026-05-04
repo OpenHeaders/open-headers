@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { Environment, HeaderRule, RedirectRule, Variable, WorkspaceVariables } from '../../src/types/v5';
 import { resolveRule, resolveRuleWithDiagnostics, VariableResolver } from '../../src/variables';
 
+let varCounter = 0;
 function makeVariable(name: string, value: string, type: 'default' | 'secret' = 'default'): Variable {
-  return { name, value, type };
+  varCounter += 1;
+  return { uid: `var-${varCounter.toString().padStart(4, '0')}`, name, value, type };
 }
 
 function makeWorkspaceVars(vars: Variable[]): WorkspaceVariables {

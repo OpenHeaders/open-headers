@@ -24,11 +24,11 @@ function coll(uid: string, path: string, vars: V5.Variable[] = []): V5.Collectio
   } as V5.Collection;
 }
 
-const RULE_A = coll('rc-a', 'rules/A', [{ name: 'X', value: 'rule', type: 'default' }]);
+const RULE_A = coll('rc-a', 'rules/A', [{ uid: '0b02d0ac', name: 'X', value: 'rule', type: 'default' }]);
 const RULE_B = coll('rc-b', 'rules/B');
-const REQ_A = coll('qc-a', 'requests/A', [{ name: 'X', value: 'request', type: 'default' }]);
+const REQ_A = coll('qc-a', 'requests/A', [{ uid: 'f044b24a', name: 'X', value: 'request', type: 'default' }]);
 const REQ_NESTED = coll('qc-n', 'requests/A/nested');
-const TEMPL_A = coll('tc-a', 'templates/A', [{ name: 'X', value: 'template', type: 'default' }]);
+const TEMPL_A = coll('tc-a', 'templates/A', [{ uid: '60c01e79', name: 'X', value: 'template', type: 'default' }]);
 
 const FAMILIES: CollectionFamilies = {
   ruleCollections: [RULE_A, RULE_B],

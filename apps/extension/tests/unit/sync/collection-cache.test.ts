@@ -21,7 +21,7 @@ const makeCollection = (uid: string): V5.Collection =>
     uid,
     name: `coll-${uid}`,
     path: `rules/${uid}`,
-    variables: [{ name: 'A', value: '1', type: 'default' }],
+    variables: [{ uid: 'e272a24f', name: 'A', value: '1', type: 'default' }],
     pinnedEnvironmentIds: [],
     defaultEnvironmentId: null,
     version: 1,
@@ -65,7 +65,7 @@ describe('CollectionCache', () => {
   it('updates the cache when a new var is set via the catalog', async () => {
     const cache = createCollectionCache('ws-1', oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedCollections([makeCollection('a')]);
-    const intent = setCollectionVar(ctxFactory(), { collectionUid: 'a', name: 'B', value: '2' });
+    const intent = setCollectionVar(ctxFactory(), { collectionUid: 'a', variable: { uid: 'vrcollvb1', name: 'B', value: '2', type: 'default' } });
     await oracle.apply(intent.batch, []);
     const colls = cache.getCollections();
     expect(colls[0].variables.map((v) => v.name).sort()).toEqual(['A', 'B']);
@@ -98,7 +98,7 @@ describe('CollectionCache', () => {
     const cache = createCollectionCache('ws-1', oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedCollections([makeCollection('a')]);
     cache.dispose();
-    const intent = setCollectionVar(ctxFactory(), { collectionUid: 'a', name: 'B', value: '2' });
+    const intent = setCollectionVar(ctxFactory(), { collectionUid: 'a', variable: { uid: 'vrcollvb1', name: 'B', value: '2', type: 'default' } });
     await oracle.apply(intent.batch, []);
     expect(cache.getCollections()[0].variables.map((v) => v.name)).toEqual(['A']);
   });

@@ -60,7 +60,7 @@ const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 describe('ResolverInvalidateRunner', () => {
   it('recompiles after a setEnvVar mutation lands', async () => {
     const h = makeHarness();
-    const intent = setEnvVar(ctx(1_000), { envId: 'e1', name: 'API_KEY', value: 'k' });
+    const intent = setEnvVar(ctx(1_000), { envId: 'e1', variable: { uid: 'vrenvkey1', name: 'API_KEY', value: 'k', type: 'default' } });
     await h.oracle.apply(intent.batch, intent.sideEffects);
     await flush();
     expect(h.recompileCalls).toEqual(['rules']);
@@ -104,8 +104,7 @@ describe('ResolverInvalidateRunner', () => {
     const h = makeHarness();
     const intent = setCollectionVar(ctx(2_000), {
       collectionUid: 'c1',
-      name: 'TOKEN',
-      value: 'tok',
+      variable: { uid: 'vrcoltok1', name: 'TOKEN', value: 'tok', type: 'default' },
     });
     await h.oracle.apply(intent.batch, intent.sideEffects);
     await flush();
@@ -119,7 +118,7 @@ describe('ResolverInvalidateRunner', () => {
       key: 'e1',
       hlc: { physicalMs: 0, logical: 0, nodeId: 'n' },
     });
-    const intent = setEnvVar(ctx(1_000), { envId: 'e1', name: 'API_KEY', value: 'k' });
+    const intent = setEnvVar(ctx(1_000), { envId: 'e1', variable: { uid: 'vrenvkey1', name: 'API_KEY', value: 'k', type: 'default' } });
     await h.oracle.apply(intent.batch, intent.sideEffects);
     await flush();
     expect(h.recompileCalls).toEqual(['rules']);
@@ -129,7 +128,7 @@ describe('ResolverInvalidateRunner', () => {
   it('dispose stops further recompile calls', async () => {
     const h = makeHarness();
     h.dispose();
-    const intent = setEnvVar(ctx(1_000), { envId: 'e1', name: 'API_KEY', value: 'k' });
+    const intent = setEnvVar(ctx(1_000), { envId: 'e1', variable: { uid: 'vrenvkey1', name: 'API_KEY', value: 'k', type: 'default' } });
     await h.oracle.apply(intent.batch, intent.sideEffects);
     await flush();
     expect(h.recompileCalls).toHaveLength(0);

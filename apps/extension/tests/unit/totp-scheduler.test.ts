@@ -44,8 +44,11 @@ import {
 const REF_SEED = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
 const REF_T_MS = 59 * 1000;
 
+let totpUidCounter = 0;
 function totpEntry(name: string, overrides: Partial<V5.VaultSecretTotp> = {}): V5.VaultSecretTotp {
+  totpUidCounter += 1;
   return {
+    uid: `sctotp${totpUidCounter.toString().padStart(2, '0')}`,
     kind: 'totp',
     name,
     seed: REF_SEED,
@@ -56,8 +59,10 @@ function totpEntry(name: string, overrides: Partial<V5.VaultSecretTotp> = {}): V
   };
 }
 
+let stringUidCounter = 0;
 function stringEntry(name: string, value: string): V5.VaultSecretString {
-  return { kind: 'string', name, value };
+  stringUidCounter += 1;
+  return { uid: `scstrx${stringUidCounter.toString().padStart(2, '0')}`, kind: 'string', name, value };
 }
 
 beforeEach(() => {

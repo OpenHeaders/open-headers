@@ -170,6 +170,7 @@ describe('computeRuleApplicability', () => {
       
       secrets: [
         {
+          uid: 'sctotpxxx',
           kind: 'totp',
           name: 'TOTP_X',
           seed: 'JBSWY3DPEHPK3PXP',

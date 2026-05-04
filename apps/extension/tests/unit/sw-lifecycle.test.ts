@@ -127,12 +127,12 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
       [`oh.ws.${activeWs}.workspaceVars`]: {
         schemaVersion: 5,
         version: 1,
-        variables: [{ name: 'API_URL', value: 'https://api.openheaders.io', type: 'default' }],
+        variables: [{ uid: 'b2fb4b0b', name: 'API_URL', value: 'https://api.openheaders.io', type: 'default' }],
       },
       [`oh.ws.${activeWs}.vault`]: {
         schemaVersion: 5,
         
-        secrets: [{ kind: 'string', name: 'TOKEN', value: 'abc' }],
+        secrets: [{ uid: '32209dbc', kind: 'string', name: 'TOKEN', value: 'abc' }],
       },
     });
 

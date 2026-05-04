@@ -16,5 +16,6 @@ export { genSameFieldSameHlc } from './same-field-same-hlc';
 export { genSetDeleteRace } from './set-delete-race';
 export { genTemplateFolderMove } from './template-folder-move';
 export { genUniformRandom } from './uniform-random';
+export { genVariableRenameSameUid } from './variable-rename-uid';
 export { genVaultRename } from './vault-rename';
 export { genWorkspaceVarsRename } from './workspace-vars-rename';

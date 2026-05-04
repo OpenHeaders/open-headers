@@ -32,6 +32,7 @@ import {
   genSetDeleteRace,
   genTemplateFolderMove,
   genUniformRandom,
+  genVariableRenameSameUid,
   genVaultRename,
   genWorkspaceVarsRename,
 } from '../harness/scenarios';
@@ -54,6 +55,7 @@ const BUCKETS: Bucket[] = [
   { name: 'collection-rename', generate: genCollectionRename, count: 1500 },
   { name: 'workspace-vars-rename', generate: genWorkspaceVarsRename, count: 1500 },
   { name: 'vault-rename', generate: genVaultRename, count: 1500 },
+  { name: 'variable-rename-same-uid', generate: genVariableRenameSameUid, count: 1500 },
   { name: 'rule-reorder', generate: genRuleReorder, count: 1500 },
   { name: 'folder-move', generate: genFolderMove, count: 1500 },
   { name: 'request-edit', generate: genRequestEdit, count: 1500 },

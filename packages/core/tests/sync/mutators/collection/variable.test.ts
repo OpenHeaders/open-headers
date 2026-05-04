@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { Variable } from '../../../../src/types/v5/variable';
 import {
   COLLECTION_ENTITY_TYPE,
   COLLECTION_MUTATOR_VERSION,
@@ -6,9 +7,7 @@ import {
   INVALIDATE_RESOLVER,
   type MutatorContext,
   removeCollectionVar,
-  renameCollectionVar,
   setCollectionVar,
-  setCollectionVarType,
 } from '../../../../src/sync';
 
 const ctx = (overrides: Partial<MutatorContext> = {}): MutatorContext => ({
@@ -19,13 +18,18 @@ const ctx = (overrides: Partial<MutatorContext> = {}): MutatorContext => ({
   ...overrides,
 });
 
+const v = (overrides: Partial<Variable> = {}): Variable => ({
+  uid: 'var-aaaa',
+  name: 'API_URL',
+  value: 'https://openheaders.io',
+  type: 'default',
+  ...overrides,
+});
+
 describe('setCollectionVar', () => {
-  it('emits an addToSet at variables with itemId = name', () => {
-    const intent = setCollectionVar(ctx(), {
-      collectionUid: 'coll-prod',
-      name: 'API_URL',
-      value: 'https://openheaders.io',
-    });
+  it('emits an addToSet at variables with itemId = variable.uid', () => {
+    const variable = v();
+    const intent = setCollectionVar(ctx(), { collectionUid: 'coll-prod', variable });
     expect(intent.batch.mutations).toHaveLength(1);
     const env = intent.batch.mutations[0];
     expect(env.mutatorVersion).toBe(COLLECTION_MUTATOR_VERSION);
@@ -34,84 +38,49 @@ describe('setCollectionVar', () => {
       type: COLLECTION_ENTITY_TYPE,
       id: 'coll-prod',
       path: COLLECTION_VARS_PATH,
-      itemId: 'API_URL',
-      item: { name: 'API_URL', value: 'https://openheaders.io', type: 'default' },
+      itemId: 'var-aaaa',
+      item: variable,
     });
     expect(intent.sideEffects).toEqual([{ kind: INVALIDATE_RESOLVER, key: 'coll-prod', hlc: ctx().hlc }]);
   });
 
-  it('honors explicit type + orderKey when provided', () => {
-    const intent = setCollectionVar(ctx(), {
-      collectionUid: 'coll-prod',
-      name: 'API_KEY',
-      value: 'k',
-      type: 'secret',
-      orderKey: 'm',
-    });
+  it('honors explicit orderKey when provided', () => {
+    const variable = v({ uid: 'var-bbbb', name: 'API_KEY', value: 'k', type: 'secret' });
+    const intent = setCollectionVar(ctx(), { collectionUid: 'coll-prod', variable, orderKey: 'm' });
     expect(intent.batch.mutations[0].body).toMatchObject({
-      itemId: 'API_KEY',
-      item: { name: 'API_KEY', value: 'k', type: 'secret' },
+      itemId: 'var-bbbb',
+      item: variable,
       orderKey: 'm',
     });
   });
 
   it('shares a batchId across multiple mutations when ctx.batchId is set', () => {
     const c = ctx({ batchId: 'batch-shared' });
-    const a = setCollectionVar(c, { collectionUid: 'c', name: 'A', value: '1' });
+    const a = setCollectionVar(c, { collectionUid: 'c', variable: v() });
     expect(a.batch.batchId).toBe('batch-shared');
+  });
+
+  it('rename is a re-emit at the same uid with a new name', () => {
+    const renamed = v({ name: 'BASE_URL' });
+    const intent = setCollectionVar(ctx(), { collectionUid: 'coll-prod', variable: renamed });
+    expect(intent.batch.mutations[0].body).toMatchObject({
+      kind: 'addToSet',
+      itemId: 'var-aaaa',
+      item: { uid: 'var-aaaa', name: 'BASE_URL' },
+    });
   });
 });
 
 describe('removeCollectionVar', () => {
-  it('emits removeFromSet with itemId = name', () => {
-    const intent = removeCollectionVar(ctx(), { collectionUid: 'coll-prod', name: 'API_URL' });
+  it('emits removeFromSet with itemId = uid', () => {
+    const intent = removeCollectionVar(ctx(), { collectionUid: 'coll-prod', uid: 'var-aaaa' });
     expect(intent.batch.mutations).toHaveLength(1);
     expect(intent.batch.mutations[0].body).toMatchObject({
       kind: 'removeFromSet',
       type: COLLECTION_ENTITY_TYPE,
       id: 'coll-prod',
       path: COLLECTION_VARS_PATH,
-      itemId: 'API_URL',
-    });
-  });
-});
-
-describe('renameCollectionVar', () => {
-  it('emits an atomic batch — removeFromSet(old) + addToSet(new) under one batchId', () => {
-    const intent = renameCollectionVar(ctx(), {
-      collectionUid: 'coll-prod',
-      oldName: 'API_URL',
-      newName: 'BASE_URL',
-      value: 'https://openheaders.io',
-    });
-    expect(intent.batch.mutations).toHaveLength(2);
-    expect(intent.batch.mutations[0].mutationId).not.toBe(intent.batch.mutations[1].mutationId);
-    expect(intent.batch.mutations[0].body).toMatchObject({
-      kind: 'removeFromSet',
-      itemId: 'API_URL',
-      path: COLLECTION_VARS_PATH,
-    });
-    expect(intent.batch.mutations[1].body).toMatchObject({
-      kind: 'addToSet',
-      itemId: 'BASE_URL',
-      path: COLLECTION_VARS_PATH,
-      item: { name: 'BASE_URL', value: 'https://openheaders.io', type: 'default' },
-    });
-  });
-
-  it('is a no-op (empty batch) when oldName === newName', () => {
-    const intent = renameCollectionVar(ctx(), { collectionUid: 'c', oldName: 'X', newName: 'X', value: 'v' });
-    expect(intent.batch.mutations).toHaveLength(0);
-  });
-});
-
-describe('setCollectionVarType', () => {
-  it('replaces the whole record via addToSet (LWW per itemId)', () => {
-    const intent = setCollectionVarType(ctx(), { collectionUid: 'c', name: 'TOKEN', value: 'abc', type: 'secret' });
-    expect(intent.batch.mutations[0].body).toMatchObject({
-      kind: 'addToSet',
-      itemId: 'TOKEN',
-      item: { name: 'TOKEN', value: 'abc', type: 'secret' },
+      itemId: 'var-aaaa',
     });
   });
 });

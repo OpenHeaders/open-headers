@@ -44,13 +44,13 @@ describe('extensionStorage.getValidated', () => {
     await extensionStorage.set(spec, {
       schemaVersion: 5,
       
-      secrets: [{ kind: 'string', name: 'TOKEN', value: 'abc' }],
+      secrets: [{ uid: '9297abac', kind: 'string', name: 'TOKEN', value: 'abc' }],
     });
     const parsed = await extensionStorage.getValidated(spec, VaultSchema);
     expect(parsed).toEqual({
       schemaVersion: 5,
-      
-      secrets: [{ kind: 'string', name: 'TOKEN', value: 'abc' }],
+
+      secrets: [{ uid: '9297abac', kind: 'string', name: 'TOKEN', value: 'abc' }],
     });
   });
 
@@ -86,15 +86,15 @@ describe('extensionStorage.getValidatedArray', () => {
   it('drops individual bad entries but keeps the valid ones', async () => {
     const spec = storageKey<V5.Variable[]>('oh.ws.test.vars');
     localStore['oh.ws.test.vars'] = [
-      { name: 'OK', value: 'yes', type: 'default' },
+      { uid: '143137ab', name: 'OK', value: 'yes', type: 'default' },
       { name: 'BAD', value: 'no', type: 'not-a-valid-type' },
-      { name: 'TWO', value: '2', type: 'secret' },
+      { uid: '459b3bf8', name: 'TWO', value: '2', type: 'secret' },
     ];
     const onError = vi.fn();
     const parsed = await extensionStorage.getValidatedArray(spec, VariableSchema, { onError });
     expect(parsed).toEqual([
-      { name: 'OK', value: 'yes', type: 'default' },
-      { name: 'TWO', value: '2', type: 'secret' },
+      { uid: '143137ab', name: 'OK', value: 'yes', type: 'default' },
+      { uid: '459b3bf8', name: 'TWO', value: '2', type: 'secret' },
     ]);
     expect(onError).toHaveBeenCalledTimes(1);
   });

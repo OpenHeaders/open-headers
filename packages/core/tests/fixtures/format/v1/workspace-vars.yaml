@@ -1,8 +1,10 @@
 schemaVersion: 5
 variables:
-  - name: API_URL
+  - uid: vrwsapiu
+    name: API_URL
     value: https://api.openheaders.io
     type: default
-  - name: TENANT_ID
+  - uid: vrwstent
+    name: TENANT_ID
     value: acme
     type: default

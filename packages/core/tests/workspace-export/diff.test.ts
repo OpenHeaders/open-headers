@@ -168,7 +168,10 @@ describe('diffWorkspaceExport — Environment (workspace-wide match)', () => {
 describe('diffWorkspaceExport — Singletons', () => {
   it('reports workspaceVars collision when target has any variables', () => {
     const target = emptyTarget();
-    target.workspaceVars = { schemaVersion: 5, variables: [{ name: 'X', value: 'y', type: 'default' }] };
+    target.workspaceVars = {
+      schemaVersion: 5,
+      variables: [{ uid: 'var-x', name: 'X', value: 'y', type: 'default' }],
+    };
     const exp = buildWorkspaceExport(baseInput());
     const diff = diffWorkspaceExport(exp, target);
     expect(diff.workspaceVars.state).toBe('collision-name');

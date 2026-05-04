@@ -67,7 +67,13 @@ function makeCollection(
     uid,
     path,
     name,
-    variables: vars.map((v) => ({ schemaVersion: 5, name: v.name, value: v.value, type: 'default' as const })),
+    variables: vars.map((v, i) => ({
+      uid: `var-${uid}-${i}`,
+      schemaVersion: 5,
+      name: v.name,
+      value: v.value,
+      type: 'default' as const,
+    })),
     pinnedEnvironmentIds: [],
     defaultEnvironmentId: null,
   };
@@ -79,7 +85,13 @@ function makeEnv(uid: string, name: string, vars: string[] = []): Environment {
     uid,
     path: `environments/${name}-${uid}`,
     name,
-    variables: vars.map((n) => ({ schemaVersion: 5, name: n, value: 'x', type: 'default' as const })),
+    variables: vars.map((n, i) => ({
+      uid: `var-${uid}-${i}`,
+      schemaVersion: 5,
+      name: n,
+      value: 'x',
+      type: 'default' as const,
+    })),
   };
 }
 
@@ -283,7 +295,7 @@ describe('walkMissingDeps — variable references', () => {
     const target = emptyTarget();
     const vault: Vault = {
       schemaVersion: 5,
-      secrets: [{ kind: 'string', name: 'API_KEY', value: 'shh' }],
+      secrets: [{ uid: 'sec-api-key', kind: 'string', name: 'API_KEY', value: 'shh' }],
     };
     target.vault = vault;
     const deps = walkMissingDeps(exp, target);

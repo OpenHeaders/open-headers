@@ -20,7 +20,7 @@ const makeEnv = (uid: string): V5.Environment =>
     schemaVersion: 5,
     uid,
     name: `env-${uid}`,
-    variables: [{ name: 'A', value: '1', type: 'default' }],
+    variables: [{ uid: '624adb9a', name: 'A', value: '1', type: 'default' }],
     version: 1,
   }) as unknown as V5.Environment;
 
@@ -62,7 +62,7 @@ describe('EnvironmentCache', () => {
   it('updates the cache when a new var is set via the catalog', async () => {
     const cache = createEnvironmentCache('ws-1', oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedEnvironments([makeEnv('a')]);
-    const intent = setEnvVar(ctxFactory(), { envId: 'a', name: 'B', value: '2' });
+    const intent = setEnvVar(ctxFactory(), { envId: 'a', variable: { uid: 'vrenvvb12', name: 'B', value: '2', type: 'default' } });
     await oracle.apply(intent.batch, []);
     const envs = cache.getEnvironments();
     expect(envs[0].variables.map((v) => v.name).sort()).toEqual(['A', 'B']);
@@ -96,7 +96,7 @@ describe('EnvironmentCache', () => {
     const cache = createEnvironmentCache('ws-1', oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedEnvironments([makeEnv('a')]);
     cache.dispose();
-    const intent = setEnvVar(ctxFactory(), { envId: 'a', name: 'B', value: '2' });
+    const intent = setEnvVar(ctxFactory(), { envId: 'a', variable: { uid: 'vrenvvb12', name: 'B', value: '2', type: 'default' } });
     await oracle.apply(intent.batch, []);
     // Cache stays at the pre-dispose state.
     expect(cache.getEnvironments()[0].variables.map((v) => v.name)).toEqual(['A']);

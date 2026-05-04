@@ -18,19 +18,29 @@ import {
 
 describe('VariableSchema', () => {
   it('accepts a default variable', () => {
-    expect(v.parse(VariableSchema, { name: 'API_URL', value: 'https://x', type: 'default' })).toBeTruthy();
+    expect(
+      v.parse(VariableSchema, { uid: 'vrapiurl', name: 'API_URL', value: 'https://x', type: 'default' }),
+    ).toBeTruthy();
   });
 
   it('accepts a secret variable', () => {
-    expect(v.parse(VariableSchema, { name: 'TOKEN', value: 'abc', type: 'secret' })).toBeTruthy();
+    expect(
+      v.parse(VariableSchema, { uid: 'vrtokenx', name: 'TOKEN', value: 'abc', type: 'secret' }),
+    ).toBeTruthy();
   });
 
   it('rejects an unknown type', () => {
-    expect(v.safeParse(VariableSchema, { name: 'X', value: 'y', type: 'unknown' }).success).toBe(false);
+    expect(
+      v.safeParse(VariableSchema, { uid: 'vrxxxxxx', name: 'X', value: 'y', type: 'unknown' }).success,
+    ).toBe(false);
   });
 
   it('rejects missing fields', () => {
-    expect(v.safeParse(VariableSchema, { name: 'X', value: 'y' }).success).toBe(false);
+    expect(v.safeParse(VariableSchema, { uid: 'vrxxxxxx', name: 'X', value: 'y' }).success).toBe(false);
+  });
+
+  it('rejects missing uid', () => {
+    expect(v.safeParse(VariableSchema, { name: 'X', value: 'y', type: 'default' }).success).toBe(false);
   });
 });
 
@@ -67,7 +77,7 @@ describe('EnvironmentSchema', () => {
         version: 1,
         uid: 'abcd1234',
         name: 'staging',
-        variables: [{ name: 'API_URL', value: 'x', type: 'default' }],
+        variables: [{ uid: 'vrapiurl', name: 'API_URL', value: 'x', type: 'default' }],
       }),
     ).toBeTruthy();
   });
@@ -367,8 +377,8 @@ describe('WorkspaceVariablesSchema', () => {
 
 describe('parseEntity', () => {
   it('returns the parsed value on success', () => {
-    const parsed = parseEntity(VariableSchema, { name: 'X', value: '1', type: 'default' });
-    expect(parsed).toEqual({ name: 'X', value: '1', type: 'default' });
+    const parsed = parseEntity(VariableSchema, { uid: 'vrxxxxxx', name: 'X', value: '1', type: 'default' });
+    expect(parsed).toEqual({ uid: 'vrxxxxxx', name: 'X', value: '1', type: 'default' });
   });
 
   it('returns null on failure without throwing', () => {
@@ -379,7 +389,7 @@ describe('parseEntity', () => {
     let captured: { raw: unknown; issueCount: number } | null = null;
     parseEntity(
       VariableSchema,
-      { name: 'X', value: 1, type: 'default' },
+      { uid: 'vrxxxxxx', name: 'X', value: 1, type: 'default' },
       {
         onError: (raw, issues) => {
           captured = { raw, issueCount: issues.length };
@@ -398,9 +408,9 @@ describe('parseEntityArray', () => {
 
   it('drops invalid entries but keeps valid ones', () => {
     const out = parseEntityArray(VariableSchema, [
-      { name: 'A', value: '1', type: 'default' },
-      { name: 'B' }, // invalid
-      { name: 'C', value: '3', type: 'secret' },
+      { uid: 'vraaaaaa', name: 'A', value: '1', type: 'default' },
+      { name: 'B' }, // invalid (missing uid + value + type)
+      { uid: 'vrcccccc', name: 'C', value: '3', type: 'secret' },
     ]);
     expect(out).toHaveLength(2);
     expect(out.map((x) => x.name)).toEqual(['A', 'C']);

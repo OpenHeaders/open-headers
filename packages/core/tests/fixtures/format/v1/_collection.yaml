@@ -6,9 +6,11 @@ order:
   - login-x7k2abcd
   - refresh-m9p1qwer
 variables:
-  - name: API_URL
+  - uid: vrcoliap
+    name: API_URL
     value: https://api.openheaders.io
     type: default
-  - name: TENANT_ID
+  - uid: vrcolitn
+    name: TENANT_ID
     value: acme
     type: default

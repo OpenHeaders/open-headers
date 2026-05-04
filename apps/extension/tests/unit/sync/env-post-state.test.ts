@@ -37,8 +37,8 @@ const makeEnv = (uid: string): V5.Environment =>
     uid,
     name: 'staging',
     variables: [
-      { name: 'API_BASE', value: 'https://staging.openheaders.io', type: 'default' },
-      { name: 'API_KEY', value: 'k', type: 'secret' },
+      { uid: 'ccd4ee5b', name: 'API_BASE', value: 'https://staging.openheaders.io', type: 'default' },
+      { uid: '04861989', name: 'API_KEY', value: 'k', type: 'secret' },
     ],
     version: 1,
   }) as unknown as V5.Environment;
@@ -59,7 +59,10 @@ describe('projectEnvironmentPostState', () => {
     const env = makeEnv('env-1');
     const seedBatch = seedEnvironment(env, ctx(1));
     await oracle.apply(seedBatch, []);
-    const setIntent = setEnvVar(ctx(2), { envId: env.uid, name: 'NEW_VAR', value: 'v' });
+    const setIntent = setEnvVar(ctx(2), {
+      envId: env.uid,
+      variable: { uid: 'vrenvnew1', name: 'NEW_VAR', value: 'v', type: 'default' },
+    });
     const setResult = await oracle.apply(setIntent.batch, []);
     expect(setResult.ok).toBe(true);
 
@@ -67,7 +70,9 @@ describe('projectEnvironmentPostState', () => {
     const post = projectEnvironmentPostState(oracle, envelope);
     expect(post).not.toBeNull();
     expect(post?.environment.uid).toBe('env-1');
-    expect(post?.varNames.sort()).toEqual(['API_BASE', 'API_KEY', 'NEW_VAR']);
+    // Set-member identity is the variable uid (post-session-66); `varNames`
+    // is the protocol field name but carries itemIds = uids.
+    expect(post?.varNames.sort()).toEqual(['04861989', 'ccd4ee5b', 'vrenvnew1']);
   });
 
   it('returns null for non-Environment envelopes', () => {

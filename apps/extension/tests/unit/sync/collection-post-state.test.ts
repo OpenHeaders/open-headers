@@ -42,8 +42,8 @@ const makeCollection = (uid: string): V5.Collection =>
     name: 'staging',
     path: `rules/staging-${uid}`,
     variables: [
-      { name: 'API_BASE', value: 'https://staging.openheaders.io', type: 'default' },
-      { name: 'TIMEOUT', value: '10', type: 'default' },
+      { uid: 'bfdb4aeb', name: 'API_BASE', value: 'https://staging.openheaders.io', type: 'default' },
+      { uid: '5a1f3cb6', name: 'TIMEOUT', value: '10', type: 'default' },
     ],
     pinnedEnvironmentIds: [],
     defaultEnvironmentId: null,
@@ -65,7 +65,10 @@ describe('projectCollectionPostState', () => {
     const oracle = newOracle();
     const coll = makeCollection('coll-1');
     await oracle.apply(seedCollection(coll, ctx(1)), []);
-    const setIntent = setCollectionVar(ctx(2), { collectionUid: coll.uid, name: 'NEW', value: 'v' });
+    const setIntent = setCollectionVar(ctx(2), {
+      collectionUid: coll.uid,
+      variable: { uid: 'vrcollnew', name: 'NEW', value: 'v', type: 'default' },
+    });
     const setResult = await oracle.apply(setIntent.batch, []);
     expect(setResult.ok).toBe(true);
 
@@ -73,7 +76,9 @@ describe('projectCollectionPostState', () => {
     const post = projectCollectionPostState(oracle, envelope);
     expect(post).not.toBeNull();
     expect(post?.collection.uid).toBe('coll-1');
-    expect(post?.varNames.sort()).toEqual(['API_BASE', 'NEW', 'TIMEOUT']);
+    // Set-member identity is the variable uid (post-session-66); `varNames`
+    // is the protocol field name but carries itemIds = uids.
+    expect(post?.varNames.sort()).toEqual(['5a1f3cb6', 'bfdb4aeb', 'vrcollnew']);
   });
 
   it('returns null for non-Collection envelopes', () => {

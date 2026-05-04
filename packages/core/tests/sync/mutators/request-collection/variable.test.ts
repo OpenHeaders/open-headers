@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { Variable } from '../../../../src/types/v5/variable';
 import {
   INVALIDATE_RESOLVER,
   type MutatorContext,
@@ -6,9 +7,7 @@ import {
   REQUEST_COLLECTION_MUTATOR_VERSION,
   REQUEST_COLLECTION_VARS_PATH,
   removeRequestCollectionVar,
-  renameRequestCollectionVar,
   setRequestCollectionVar,
-  setRequestCollectionVarType,
 } from '../../../../src/sync';
 
 const ctx = (overrides: Partial<MutatorContext> = {}): MutatorContext => ({
@@ -19,13 +18,18 @@ const ctx = (overrides: Partial<MutatorContext> = {}): MutatorContext => ({
   ...overrides,
 });
 
+const v = (overrides: Partial<Variable> = {}): Variable => ({
+  uid: 'var-aaaa',
+  name: 'BASE_URL',
+  value: 'https://api.openheaders.io',
+  type: 'default',
+  ...overrides,
+});
+
 describe('setRequestCollectionVar', () => {
-  it('emits an addToSet at the request-collection variables path', () => {
-    const intent = setRequestCollectionVar(ctx(), {
-      requestCollectionUid: 'rcol-prod',
-      name: 'BASE_URL',
-      value: 'https://api.openheaders.io',
-    });
+  it('emits an addToSet at the request-collection variables path with itemId = uid', () => {
+    const variable = v();
+    const intent = setRequestCollectionVar(ctx(), { requestCollectionUid: 'rcol-prod', variable });
     expect(intent.batch.mutations).toHaveLength(1);
     const env = intent.batch.mutations[0];
     expect(env.mutatorVersion).toBe(REQUEST_COLLECTION_MUTATOR_VERSION);
@@ -34,66 +38,33 @@ describe('setRequestCollectionVar', () => {
       type: REQUEST_COLLECTION_ENTITY_TYPE,
       id: 'rcol-prod',
       path: REQUEST_COLLECTION_VARS_PATH,
-      itemId: 'BASE_URL',
-      item: { name: 'BASE_URL', value: 'https://api.openheaders.io', type: 'default' },
+      itemId: 'var-aaaa',
+      item: variable,
     });
     expect(intent.sideEffects).toEqual([
       { kind: INVALIDATE_RESOLVER, key: 'rcol-prod', hlc: ctx().hlc },
     ]);
   });
+
+  it('rename is a re-emit at the same uid with a new name', () => {
+    const renamed = v({ name: 'API_BASE' });
+    const intent = setRequestCollectionVar(ctx(), { requestCollectionUid: 'rcol-prod', variable: renamed });
+    expect(intent.batch.mutations[0].body).toMatchObject({
+      kind: 'addToSet',
+      itemId: 'var-aaaa',
+      item: { uid: 'var-aaaa', name: 'API_BASE' },
+    });
+  });
 });
 
 describe('removeRequestCollectionVar', () => {
-  it('emits a removeFromSet with itemId = name', () => {
-    const intent = removeRequestCollectionVar(ctx(), {
-      requestCollectionUid: 'rcol-prod',
-      name: 'BASE_URL',
-    });
+  it('emits a removeFromSet with itemId = uid', () => {
+    const intent = removeRequestCollectionVar(ctx(), { requestCollectionUid: 'rcol-prod', uid: 'var-aaaa' });
     expect(intent.batch.mutations[0].body).toMatchObject({
       kind: 'removeFromSet',
       type: REQUEST_COLLECTION_ENTITY_TYPE,
       path: REQUEST_COLLECTION_VARS_PATH,
-      itemId: 'BASE_URL',
-    });
-  });
-});
-
-describe('renameRequestCollectionVar', () => {
-  it('emits a 2-mutation batch (remove old + add new)', () => {
-    const intent = renameRequestCollectionVar(ctx(), {
-      requestCollectionUid: 'rcol-1',
-      oldName: 'A',
-      newName: 'B',
-      value: 'v',
-    });
-    expect(intent.batch.mutations).toHaveLength(2);
-    expect(intent.batch.mutations[0].body).toMatchObject({ kind: 'removeFromSet', itemId: 'A' });
-    expect(intent.batch.mutations[1].body).toMatchObject({ kind: 'addToSet', itemId: 'B' });
-  });
-
-  it('returns an empty batch when oldName === newName', () => {
-    const intent = renameRequestCollectionVar(ctx(), {
-      requestCollectionUid: 'rcol-1',
-      oldName: 'X',
-      newName: 'X',
-      value: 'v',
-    });
-    expect(intent.batch.mutations).toHaveLength(0);
-  });
-});
-
-describe('setRequestCollectionVarType', () => {
-  it('replaces the whole record via addToSet (LWW per itemId)', () => {
-    const intent = setRequestCollectionVarType(ctx(), {
-      requestCollectionUid: 'rcol-1',
-      name: 'TOKEN',
-      value: 'abc',
-      type: 'secret',
-    });
-    expect(intent.batch.mutations[0].body).toMatchObject({
-      kind: 'addToSet',
-      itemId: 'TOKEN',
-      item: { name: 'TOKEN', value: 'abc', type: 'secret' },
+      itemId: 'var-aaaa',
     });
   });
 });

@@ -343,8 +343,8 @@ describe('buildImportPlan — singleton resolution', () => {
     input.entities.workspaceVars = {
       schemaVersion: 5,
       variables: [
-        { name: 'A', value: 'incoming-a', type: 'default' },
-        { name: 'C', value: 'incoming-c', type: 'default' },
+        { uid: 'var-in-a', name: 'A', value: 'incoming-a', type: 'default' },
+        { uid: 'var-in-c', name: 'C', value: 'incoming-c', type: 'default' },
       ],
     };
     const exp = buildWorkspaceExport(input);
@@ -352,8 +352,8 @@ describe('buildImportPlan — singleton resolution', () => {
     target.workspaceVars = {
       schemaVersion: 5,
       variables: [
-        { name: 'A', value: 'target-a', type: 'default' },
-        { name: 'B', value: 'target-b', type: 'default' },
+        { uid: 'var-tgt-a', name: 'A', value: 'target-a', type: 'default' },
+        { uid: 'var-tgt-b', name: 'B', value: 'target-b', type: 'default' },
       ],
     };
     const diff = diffWorkspaceExport(exp, target);
@@ -369,42 +369,46 @@ describe('buildImportPlan — singleton resolution', () => {
     const input = baseInput();
     input.entities.workspaceVars = {
       schemaVersion: 5,
-      variables: [{ name: 'X', value: 'incoming', type: 'default' }],
+      variables: [{ uid: 'var-in-x', name: 'X', value: 'incoming', type: 'default' }],
     };
     const exp = buildWorkspaceExport(input);
     const target = emptyTarget();
     target.workspaceVars = {
       schemaVersion: 5,
-      variables: [{ name: 'Y', value: 'target', type: 'default' }],
+      variables: [{ uid: 'var-tgt-y', name: 'Y', value: 'target', type: 'default' }],
     };
     const diff = diffWorkspaceExport(exp, target);
     const plan = buildImportPlan(exp, diff, target, { workspaceVars: 'replace' });
     expect(plan.workspaceVars.action).toBe('replace');
-    expect(plan.workspaceVars.variables).toEqual([{ name: 'X', value: 'incoming', type: 'default' }]);
+    expect(plan.workspaceVars.variables).toEqual([
+      { uid: 'var-in-x', name: 'X', value: 'incoming', type: 'default' },
+    ]);
   });
 
   it('skip preserves the target workspace variables verbatim', () => {
     const input = baseInput();
     input.entities.workspaceVars = {
       schemaVersion: 5,
-      variables: [{ name: 'X', value: 'incoming', type: 'default' }],
+      variables: [{ uid: 'var-in-x2', name: 'X', value: 'incoming', type: 'default' }],
     };
     const exp = buildWorkspaceExport(input);
     const target = emptyTarget();
     target.workspaceVars = {
       schemaVersion: 5,
-      variables: [{ name: 'Y', value: 'target', type: 'default' }],
+      variables: [{ uid: 'var-tgt-y2', name: 'Y', value: 'target', type: 'default' }],
     };
     const diff = diffWorkspaceExport(exp, target);
     const plan = buildImportPlan(exp, diff, target, { workspaceVars: 'skip' });
     expect(plan.workspaceVars.action).toBe('skip');
-    expect(plan.workspaceVars.variables).toEqual([{ name: 'Y', value: 'target', type: 'default' }]);
+    expect(plan.workspaceVars.variables).toEqual([
+      { uid: 'var-tgt-y2', name: 'Y', value: 'target', type: 'default' },
+    ]);
   });
 
   it('vault stays skipped when the incoming export has no vault block', () => {
     const exp = buildWorkspaceExport(baseInput());
     const target = emptyTarget();
-    target.vault = { schemaVersion: 5, secrets: [{ kind: 'string', name: 'X', value: 'y' }] };
+    target.vault = { schemaVersion: 5, secrets: [{ uid: 'sec-x', kind: 'string', name: 'X', value: 'y' }] };
     const diff = diffWorkspaceExport(exp, target);
     const plan = buildImportPlan(exp, diff, target);
     expect(plan.vault.action).toBe('skip');

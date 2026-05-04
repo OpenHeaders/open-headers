@@ -111,7 +111,7 @@ describe('gatherWorkspaceExport — selection scope transitive deps', () => {
       version: 1,
       uid: 'env00001',
       name: 'Prod',
-      variables: [{ name: 'token', value: 'abc', type: 'default' }],
+      variables: [{ uid: '970ccc1a', name: 'token', value: 'abc', type: 'default' }],
     } as V5.Environment;
     seedWorkspace({ rules: [rule], environments: [env] });
 
@@ -137,8 +137,8 @@ describe('gatherWorkspaceExport — selection scope transitive deps', () => {
       workspaceVars: {
         schemaVersion: 5,
         variables: [
-          { name: 'region', value: 'us-east', type: 'default' },
-          { name: 'unrelated', value: 'leak-me', type: 'default' },
+          { uid: 'd96baa6e', name: 'region', value: 'us-east', type: 'default' },
+          { uid: 'e026f217', name: 'unrelated', value: 'leak-me', type: 'default' },
         ],
       },
     });
@@ -207,14 +207,14 @@ describe('gatherWorkspaceExport — selection scope transitive deps', () => {
       version: 1,
       uid: 'env00001',
       name: 'Prod',
-      variables: [{ name: 'token', value: 'abc', type: 'default' }],
+      variables: [{ uid: 'ebc450f3', name: 'token', value: 'abc', type: 'default' }],
     } as V5.Environment;
     seedWorkspace({
       rules: [rule],
       environments: [env],
       workspaceVars: {
         schemaVersion: 5,
-        variables: [{ name: 'region', value: 'us-east', type: 'default' }],
+        variables: [{ uid: '5bbe29b6', name: 'region', value: 'us-east', type: 'default' }],
       },
     });
 
@@ -235,8 +235,8 @@ describe('gatherWorkspaceExport — selection scope transitive deps', () => {
       workspaceVars: {
         schemaVersion: 5,
         variables: [
-          { name: 'a', value: '1', type: 'default' },
-          { name: 'b', value: '2', type: 'default' },
+          { uid: 'ab9da5f0', name: 'a', value: '1', type: 'default' },
+          { uid: 'b6bad7d1', name: 'b', value: '2', type: 'default' },
         ],
       },
     });

@@ -51,11 +51,14 @@ describe('projectVaultPostState', () => {
   it('returns post-state after seed + setVaultSecret', async () => {
     const oracle = newOracle();
     await oracle.apply(
-      seedVault(makeVault([{ kind: 'string', name: 'API_KEY', value: 'v' }]), ctx(1)),
+      seedVault(
+        makeVault([{ uid: 'scapikey1', kind: 'string', name: 'API_KEY', value: 'v' }]),
+        ctx(1),
+      ),
       [],
     );
     const setIntent = setVaultSecret(ctx(2), {
-      secret: { kind: 'string', name: 'NEW', value: 'v' },
+      secret: { uid: 'scnewxxxx', kind: 'string', name: 'NEW', value: 'v' },
     });
     const setResult = await oracle.apply(setIntent.batch, []);
     expect(setResult.ok).toBe(true);
@@ -64,7 +67,9 @@ describe('projectVaultPostState', () => {
     const post = projectVaultPostState(oracle, envelope);
     expect(post).not.toBeNull();
     expect(post?.vault.secrets.map((s) => s.name).sort()).toEqual(['API_KEY', 'NEW']);
-    expect(post?.secretNames.sort()).toEqual(['API_KEY', 'NEW']);
+    // Set-member identity is the secret uid (post-session-66); `secretNames`
+    // is the protocol field name but carries itemIds = uids.
+    expect(post?.secretNames.sort()).toEqual(['scapikey1', 'scnewxxxx']);
   });
 
   it('preserves TOTP discriminator through projection', async () => {
@@ -73,6 +78,7 @@ describe('projectVaultPostState', () => {
       seedVault(
         makeVault([
           {
+            uid: 'scotpaaaa',
             kind: 'totp',
             name: 'OTP',
             seed: 'JBSWY3DPEHPK3PXP',
@@ -116,8 +122,8 @@ describe('projectVaultPostState', () => {
     await oracle.apply(
       seedVault(
         makeVault([
-          { kind: 'string', name: 'A', value: '1' },
-          { kind: 'string', name: 'B', value: '2' },
+          { uid: 'scaxxxxxx', kind: 'string', name: 'A', value: '1' },
+          { uid: 'scbxxxxxx', kind: 'string', name: 'B', value: '2' },
         ]),
         ctx(1),
       ),

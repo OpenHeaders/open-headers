@@ -9,7 +9,7 @@ function vaultWith(secrets: Vault['secrets']): Vault {
 describe('VariableResolver — vault `kind` discriminator', () => {
   it('string-kind vault entries resolve to their stored value', () => {
     const r = new VariableResolver();
-    r.setVault(vaultWith([{ kind: 'string', name: 'TOKEN', value: 'plain-token' }]));
+    r.setVault(vaultWith([{ uid: 'sec-001', kind: 'string', name: 'TOKEN', value: 'plain-token' }]));
     const out = r.resolve('TOKEN');
     expect(out?.value).toBe('plain-token');
     expect(out?.scope).toBe('vault');
@@ -23,7 +23,7 @@ describe('VariableResolver — vault `kind` discriminator', () => {
     const r = new VariableResolver();
     r.setVault(
       vaultWith([
-        { kind: 'totp', name: 'GitHubTOTP', seed: 'JBSWY3DPEHPK3PXP', algorithm: 'SHA1', digits: 6, period: 30 },
+        { uid: 'sec-002', kind: 'totp', name: 'GitHubTOTP', seed: 'JBSWY3DPEHPK3PXP', algorithm: 'SHA1', digits: 6, period: 30 },
       ]),
     );
     expect(r.resolve('GitHubTOTP')).toBeNull();
@@ -33,7 +33,7 @@ describe('VariableResolver — vault `kind` discriminator', () => {
     const r = new VariableResolver();
     r.setVault(
       vaultWith([
-        { kind: 'totp', name: 'GitHubTOTP', seed: 'JBSWY3DPEHPK3PXP', algorithm: 'SHA1', digits: 6, period: 30 },
+        { uid: 'sec-003', kind: 'totp', name: 'GitHubTOTP', seed: 'JBSWY3DPEHPK3PXP', algorithm: 'SHA1', digits: 6, period: 30 },
       ]),
     );
     r.setTotpRegistry(new Map([['GitHubTOTP', '123456']]));
@@ -47,8 +47,8 @@ describe('VariableResolver — vault `kind` discriminator', () => {
     const r = new VariableResolver();
     r.setVault(
       vaultWith([
-        { kind: 'totp', name: 'A', seed: 'JBSWY3DPEHPK3PXP', algorithm: 'SHA1', digits: 6, period: 30 },
-        { kind: 'totp', name: 'B', seed: 'JBSWY3DPEHPK3PXP', algorithm: 'SHA1', digits: 6, period: 30 },
+        { uid: 'sec-004', kind: 'totp', name: 'A', seed: 'JBSWY3DPEHPK3PXP', algorithm: 'SHA1', digits: 6, period: 30 },
+        { uid: 'sec-005', kind: 'totp', name: 'B', seed: 'JBSWY3DPEHPK3PXP', algorithm: 'SHA1', digits: 6, period: 30 },
       ]),
     );
     // Only A's code was precomputed. B falls through (e.g. seed
@@ -62,7 +62,7 @@ describe('VariableResolver — vault `kind` discriminator', () => {
     const r = new VariableResolver();
     r.setVault(
       vaultWith([
-        { kind: 'totp', name: 'GitHubTOTP', seed: 'JBSWY3DPEHPK3PXP', algorithm: 'SHA1', digits: 6, period: 30 },
+        { uid: 'sec-006', kind: 'totp', name: 'GitHubTOTP', seed: 'JBSWY3DPEHPK3PXP', algorithm: 'SHA1', digits: 6, period: 30 },
       ]),
     );
     r.setTotpRegistry(new Map([['GitHubTOTP', '123456']]));
@@ -75,8 +75,8 @@ describe('VariableResolver — vault `kind` discriminator', () => {
     const r = new VariableResolver();
     r.setVault(
       vaultWith([
-        { kind: 'string', name: 'StrKey', value: 'literal' },
-        { kind: 'totp', name: 'TotpKey', seed: 'JBSWY3DPEHPK3PXP', algorithm: 'SHA1', digits: 6, period: 30 },
+        { uid: 'sec-007', kind: 'string', name: 'StrKey', value: 'literal' },
+        { uid: 'sec-008', kind: 'totp', name: 'TotpKey', seed: 'JBSWY3DPEHPK3PXP', algorithm: 'SHA1', digits: 6, period: 30 },
       ]),
     );
     r.setTotpRegistry(new Map([['TotpKey', '987654']]));
@@ -89,7 +89,7 @@ describe('VariableResolver — vault `kind` discriminator', () => {
     const r = new VariableResolver();
     r.setVault(
       vaultWith([
-        { kind: 'totp', name: 'TotpKey', seed: 'JBSWY3DPEHPK3PXP', algorithm: 'SHA1', digits: 6, period: 30 },
+        { uid: 'sec-009', kind: 'totp', name: 'TotpKey', seed: 'JBSWY3DPEHPK3PXP', algorithm: 'SHA1', digits: 6, period: 30 },
       ]),
     );
     const tplStr = r.resolveTemplate('Bearer {{vault.TotpKey}}');

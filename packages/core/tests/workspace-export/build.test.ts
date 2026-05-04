@@ -295,7 +295,7 @@ describe('buildWorkspaceExport — vault include modes', () => {
     const input = baseInput();
     input.entities.vault = {
       schemaVersion: 5,
-      secrets: [{ name: 'API_KEY', kind: 'string', value: 'sekret' }],
+      secrets: [{ uid: 'scapikey', name: 'API_KEY', kind: 'string', value: 'sekret' }],
     };
     const exp = buildWorkspaceExport(input, { vaultMode: 'plaintext' });
     expect(exp.entities.vault?.secrets).toHaveLength(1);
@@ -328,8 +328,8 @@ describe('buildWorkspaceExport — vault include modes', () => {
     input.entities.vault = {
       schemaVersion: 5,
       secrets: [
-        { name: 'API_KEY', kind: 'string', value: 'sekret' },
-        { name: 'DB_URL', kind: 'string', value: 'postgres://x' },
+        { uid: 'scapikey', name: 'API_KEY', kind: 'string', value: 'sekret' },
+        { uid: 'scdburlx', name: 'DB_URL', kind: 'string', value: 'postgres://x' },
       ],
     };
     const fakeBlock = {
@@ -347,7 +347,7 @@ describe('buildWorkspaceExport — vault include modes', () => {
 describe('encryptVaultBlock + decryptVaultBlock', () => {
   it('round-trips a vault under a passphrase', async () => {
     const { encryptVaultBlock, decryptVaultBlock } = await import('../../src/workspace-export/index');
-    const secrets = [{ name: 'API_KEY', kind: 'string' as const, value: 's' }];
+    const secrets = [{ uid: 'scapikey', name: 'API_KEY', kind: 'string' as const, value: 's' }];
     const enc = await encryptVaultBlock(secrets, 'correct horse battery staple', { iterations: 100_000 });
     expect(enc.block.encryption.kind).toBe('pbkdf2-aes-gcm');
     expect(enc.ciphertextFingerprint).toMatch(/^[0-9a-f]{2}(:[0-9a-f]{2}){7}$/);

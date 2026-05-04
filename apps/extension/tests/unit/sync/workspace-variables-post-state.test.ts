@@ -54,12 +54,14 @@ describe('projectWorkspaceVariablesPostState', () => {
     const oracle = newOracle();
     await oracle.apply(
       seedWorkspaceVariables(
-        makeWorkspaceVars([{ name: 'API_BASE', value: 'v', type: 'default' }]),
+        makeWorkspaceVars([{ uid: '8f3cff23', name: 'API_BASE', value: 'v', type: 'default' }]),
         ctx(1),
       ),
       [],
     );
-    const setIntent = setWorkspaceVar(ctx(2), { name: 'NEW', value: 'v' });
+    const setIntent = setWorkspaceVar(ctx(2), {
+      variable: { uid: 'vrwsvarnw', name: 'NEW', value: 'v', type: 'default' },
+    });
     const setResult = await oracle.apply(setIntent.batch, []);
     expect(setResult.ok).toBe(true);
 
@@ -70,7 +72,9 @@ describe('projectWorkspaceVariablesPostState', () => {
       'API_BASE',
       'NEW',
     ]);
-    expect(post?.varNames.sort()).toEqual(['API_BASE', 'NEW']);
+    // Set-member identity is the variable uid (post-session-66); `varNames`
+    // is the protocol field name but carries itemIds = uids.
+    expect(post?.varNames.sort()).toEqual(['8f3cff23', 'vrwsvarnw']);
   });
 
   it('returns null for non-matching envelopes', () => {
@@ -96,8 +100,8 @@ describe('projectWorkspaceVariablesPostState', () => {
     await oracle.apply(
       seedWorkspaceVariables(
         makeWorkspaceVars([
-          { name: 'API_BASE', value: '1', type: 'default' },
-          { name: 'TOKEN', value: '2', type: 'secret' },
+          { uid: '468ea243', name: 'API_BASE', value: '1', type: 'default' },
+          { uid: '20f69dd4', name: 'TOKEN', value: '2', type: 'secret' },
         ]),
         ctx(1),
       ),

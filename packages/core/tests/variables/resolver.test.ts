@@ -4,8 +4,10 @@ import { type ResolvedLiveValue, resolveTemplate, VariableResolver } from '../..
 
 // ── Factories ──────────────────────────────────────────────────────
 
+let varCounter = 0;
 function makeVariable(name: string, value: string, type: 'default' | 'secret' = 'default'): Variable {
-  return { name, value, type };
+  varCounter += 1;
+  return { uid: `var-${varCounter.toString().padStart(4, '0')}`, name, value, type };
 }
 
 let envCounter = 0;
@@ -14,10 +16,19 @@ function makeEnvironment(name: string, vars: Variable[]): Environment {
   return { schemaVersion: 5, uid: `env-${envCounter}`, name, variables: vars };
 }
 
+let secretCounter = 0;
 function makeVault(secrets: Array<{ name: string; value: string }>): Vault {
   return {
     schemaVersion: 5,
-    secrets: secrets.map((s) => ({ kind: 'string' as const, name: s.name, value: s.value })),
+    secrets: secrets.map((s) => {
+      secretCounter += 1;
+      return {
+        uid: `sec-${secretCounter.toString().padStart(4, '0')}`,
+        kind: 'string' as const,
+        name: s.name,
+        value: s.value,
+      };
+    }),
   };
 }
 
@@ -285,22 +296,24 @@ describe('VariableResolver — explicit namespaces', () => {
     resolver = new VariableResolver();
     resolver.setVault({
       schemaVersion: 5,
-      secrets: [{ kind: 'string', name: 'TOKEN', value: 'vault-token' }],
+      secrets: [{ uid: 'sec-token', kind: 'string', name: 'TOKEN', value: 'vault-token' }],
     });
     resolver.setEnvironments([
       {
         schemaVersion: 5,
         uid: 'e-staging',
         name: 'staging',
-        variables: [{ name: 'API_URL', value: 'https://api.staging', type: 'default' }],
+        variables: [{ uid: 'var-api-url', name: 'API_URL', value: 'https://api.staging', type: 'default' }],
       },
     ]);
     resolver.setActiveEnvironmentId('e-staging');
     resolver.setWorkspaceVariables({
       schemaVersion: 5,
-      variables: [{ name: 'TOKEN', value: 'ws-token', type: 'default' }],
+      variables: [{ uid: 'var-ws-token', name: 'TOKEN', value: 'ws-token', type: 'default' }],
     });
-    resolver.setCollectionVariables('coll-1', [{ name: 'REGION', value: 'eu-west-1', type: 'default' }]);
+    resolver.setCollectionVariables('coll-1', [
+      { uid: 'var-region', name: 'REGION', value: 'eu-west-1', type: 'default' },
+    ]);
   });
 
   it('{{vault.X}} resolves only from the vault', () => {
@@ -358,11 +371,15 @@ describe('VariableResolver — explicit namespaces', () => {
 describe('VariableResolver — default environment fallback', () => {
   let resolver: VariableResolver;
 
+  let envVarCounter = 0;
   const makeEnv = (uid: string, name: string, vars: Array<[string, string]>): Environment => ({
     schemaVersion: 5,
     uid,
     name,
-    variables: vars.map(([n, v]) => ({ name: n, value: v, type: 'default' as const })),
+    variables: vars.map(([n, v]) => {
+      envVarCounter += 1;
+      return { uid: `var-env-${envVarCounter}`, name: n, value: v, type: 'default' as const };
+    }),
   });
 
   beforeEach(() => {
@@ -441,7 +458,7 @@ describe('VariableResolver — structured resolution errors', () => {
     resolver = new VariableResolver();
     resolver.setWorkspaceVariables({
       schemaVersion: 5,
-      variables: [{ name: 'KNOWN', value: 'v', type: 'default' }],
+      variables: [{ uid: 'var-known', name: 'KNOWN', value: 'v', type: 'default' }],
     });
     resolver.setActiveEnvironmentId('e-staging');
     resolver.setDefaultEnvironmentId('e-default');

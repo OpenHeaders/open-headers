@@ -326,8 +326,8 @@ describe('executor — multipart templating (Phase 12.4b)', () => {
     (getWorkspaceVariables as ReturnType<typeof vi.fn>).mockReturnValue({
       schemaVersion: 5,
       variables: [
-        { name: 'USER', value: 'alice', type: 'default' },
-        { name: 'ROLE', value: 'admin', type: 'default' },
+        { uid: 'b643106b', name: 'USER', value: 'alice', type: 'default' },
+        { uid: '400ea01b', name: 'ROLE', value: 'admin', type: 'default' },
       ],
     } as V5.WorkspaceVariables);
 
@@ -347,7 +347,7 @@ describe('executor — multipart templating (Phase 12.4b)', () => {
     const { getWorkspaceVariables } = await import('@/background/modules/environment-store');
     (getWorkspaceVariables as ReturnType<typeof vi.fn>).mockReturnValue({
       schemaVersion: 5,
-      variables: [{ name: 'FIELD', value: 'upload', type: 'default' }],
+      variables: [{ uid: 'b0e41848', name: 'FIELD', value: 'upload', type: 'default' }],
     } as V5.WorkspaceVariables);
 
     await executeRequestDraft(

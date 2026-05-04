@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import type { Variable } from '../../../../src/types/v5/variable';
 import {
   INVALIDATE_RESOLVER,
   type MutatorContext,
   removeWorkspaceVar,
-  renameWorkspaceVar,
   setWorkspaceVar,
-  setWorkspaceVarType,
   WORKSPACE_VARIABLES_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ID,
   WORKSPACE_VARIABLES_MUTATOR_VERSION,
@@ -20,9 +19,18 @@ const ctx = (overrides: Partial<MutatorContext> = {}): MutatorContext => ({
   ...overrides,
 });
 
+const v = (overrides: Partial<Variable> = {}): Variable => ({
+  uid: 'var-aaaa',
+  name: 'API_URL',
+  value: 'https://openheaders.io',
+  type: 'default',
+  ...overrides,
+});
+
 describe('setWorkspaceVar', () => {
-  it('emits an addToSet on the singleton id with itemId = name', () => {
-    const intent = setWorkspaceVar(ctx(), { name: 'API_URL', value: 'https://openheaders.io' });
+  it('emits an addToSet on the singleton id with itemId = uid', () => {
+    const variable = v();
+    const intent = setWorkspaceVar(ctx(), { variable });
     expect(intent.batch.mutations).toHaveLength(1);
     const env = intent.batch.mutations[0];
     expect(env.mutatorVersion).toBe(WORKSPACE_VARIABLES_MUTATOR_VERSION);
@@ -31,79 +39,51 @@ describe('setWorkspaceVar', () => {
       type: WORKSPACE_VARIABLES_ENTITY_TYPE,
       id: WORKSPACE_VARIABLES_ID,
       path: WORKSPACE_VARIABLES_PATH,
-      itemId: 'API_URL',
-      item: { name: 'API_URL', value: 'https://openheaders.io', type: 'default' },
+      itemId: 'var-aaaa',
+      item: variable,
     });
     expect(intent.sideEffects).toEqual([
       { kind: INVALIDATE_RESOLVER, key: WORKSPACE_VARIABLES_ID, hlc: ctx().hlc },
     ]);
   });
 
-  it('honors explicit type + orderKey', () => {
-    const intent = setWorkspaceVar(ctx(), { name: 'TOKEN', value: 'abc', type: 'secret', orderKey: 'm' });
+  it('honors explicit orderKey', () => {
+    const variable = v({ uid: 'var-bbbb', name: 'TOKEN', value: 'abc', type: 'secret' });
+    const intent = setWorkspaceVar(ctx(), { variable, orderKey: 'm' });
     expect(intent.batch.mutations[0].body).toMatchObject({
-      itemId: 'TOKEN',
-      item: { name: 'TOKEN', value: 'abc', type: 'secret' },
+      itemId: 'var-bbbb',
+      item: variable,
       orderKey: 'm',
     });
   });
 
   it('shares a batchId across mutations when ctx.batchId is set', () => {
     const c = ctx({ batchId: 'batch-shared' });
-    const a = setWorkspaceVar(c, { name: 'A', value: '1' });
+    const a = setWorkspaceVar(c, { variable: v() });
     expect(a.batch.batchId).toBe('batch-shared');
+  });
+
+  it('rename is a re-emit at the same uid with a new name', () => {
+    const renamed = v({ name: 'BASE_URL' });
+    const intent = setWorkspaceVar(ctx(), { variable: renamed });
+    expect(intent.batch.mutations[0].body).toMatchObject({
+      kind: 'addToSet',
+      itemId: 'var-aaaa',
+      item: { uid: 'var-aaaa', name: 'BASE_URL' },
+    });
   });
 });
 
 describe('removeWorkspaceVar', () => {
-  it('emits removeFromSet with itemId = name', () => {
-    const intent = removeWorkspaceVar(ctx(), { name: 'API_URL' });
+  it('emits removeFromSet with itemId = uid', () => {
+    const intent = removeWorkspaceVar(ctx(), { uid: 'var-aaaa' });
     expect(intent.batch.mutations).toHaveLength(1);
     expect(intent.batch.mutations[0].body).toMatchObject({
       kind: 'removeFromSet',
       type: WORKSPACE_VARIABLES_ENTITY_TYPE,
       id: WORKSPACE_VARIABLES_ID,
       path: WORKSPACE_VARIABLES_PATH,
-      itemId: 'API_URL',
-    });
-  });
-});
-
-describe('renameWorkspaceVar', () => {
-  it('emits an atomic batch — removeFromSet(old) + addToSet(new) under one batchId', () => {
-    const intent = renameWorkspaceVar(ctx(), {
-      oldName: 'API_URL',
-      newName: 'BASE_URL',
-      value: 'https://openheaders.io',
-    });
-    expect(intent.batch.mutations).toHaveLength(2);
-    expect(intent.batch.mutations[0].body).toMatchObject({
-      kind: 'removeFromSet',
-      itemId: 'API_URL',
-      path: WORKSPACE_VARIABLES_PATH,
-    });
-    expect(intent.batch.mutations[1].body).toMatchObject({
-      kind: 'addToSet',
-      itemId: 'BASE_URL',
-      path: WORKSPACE_VARIABLES_PATH,
-      item: { name: 'BASE_URL', value: 'https://openheaders.io', type: 'default' },
-    });
-  });
-
-  it('is a no-op (empty batch) when oldName === newName', () => {
-    const intent = renameWorkspaceVar(ctx(), { oldName: 'X', newName: 'X', value: 'v' });
-    expect(intent.batch.mutations).toHaveLength(0);
-    expect(intent.sideEffects).toEqual([]);
-  });
-});
-
-describe('setWorkspaceVarType', () => {
-  it('replaces the whole record via addToSet (LWW per itemId)', () => {
-    const intent = setWorkspaceVarType(ctx(), { name: 'TOKEN', value: 'abc', type: 'secret' });
-    expect(intent.batch.mutations[0].body).toMatchObject({
-      kind: 'addToSet',
-      itemId: 'TOKEN',
-      item: { name: 'TOKEN', value: 'abc', type: 'secret' },
+      itemId: 'var-aaaa',
     });
   });
 });

@@ -3,7 +3,6 @@ import {
   INVALIDATE_RESOLVER,
   type MutatorContext,
   removeVaultSecret,
-  renameVaultSecret,
   setVaultSecret,
   VAULT_ENTITY_TYPE,
   VAULT_ID,
@@ -20,13 +19,15 @@ const ctx = (overrides: Partial<MutatorContext> = {}): MutatorContext => ({
   ...overrides,
 });
 
-const stringSecret = (name: string, value = 'sek'): V5.VaultSecret => ({
+const stringSecret = (uid: string, name: string, value = 'sek'): V5.VaultSecret => ({
+  uid,
   kind: 'string',
   name,
   value,
 });
 
-const totpSecret = (name: string): V5.VaultSecret => ({
+const totpSecret = (uid: string, name: string): V5.VaultSecret => ({
+  uid,
   kind: 'totp',
   name,
   seed: 'JBSWY3DPEHPK3PXP',
@@ -36,8 +37,9 @@ const totpSecret = (name: string): V5.VaultSecret => ({
 });
 
 describe('setVaultSecret', () => {
-  it('emits addToSet on the singleton id with itemId = secret name', () => {
-    const intent = setVaultSecret(ctx(), { secret: stringSecret('API_KEY') });
+  it('emits addToSet on the singleton id with itemId = secret.uid', () => {
+    const secret = stringSecret('sec-aaaa', 'API_KEY');
+    const intent = setVaultSecret(ctx(), { secret });
     expect(intent.batch.mutations).toHaveLength(1);
     const env = intent.batch.mutations[0];
     expect(env.mutatorVersion).toBe(VAULT_MUTATOR_VERSION);
@@ -46,8 +48,8 @@ describe('setVaultSecret', () => {
       type: VAULT_ENTITY_TYPE,
       id: VAULT_ID,
       path: VAULT_PATH,
-      itemId: 'API_KEY',
-      item: { kind: 'string', name: 'API_KEY', value: 'sek' },
+      itemId: 'sec-aaaa',
+      item: secret,
     });
     expect(intent.sideEffects).toEqual([
       { kind: INVALIDATE_RESOLVER, key: VAULT_ID, hlc: ctx().hlc },
@@ -55,82 +57,56 @@ describe('setVaultSecret', () => {
   });
 
   it('carries a TOTP secret through unchanged', () => {
-    const intent = setVaultSecret(ctx(), { secret: totpSecret('OTP') });
+    const secret = totpSecret('sec-bbbb', 'OTP');
+    const intent = setVaultSecret(ctx(), { secret });
     expect(intent.batch.mutations[0].body).toMatchObject({
-      itemId: 'OTP',
-      item: {
-        kind: 'totp',
-        name: 'OTP',
-        seed: 'JBSWY3DPEHPK3PXP',
-        algorithm: 'SHA1',
-        digits: 6,
-        period: 30,
-      },
+      itemId: 'sec-bbbb',
+      item: secret,
     });
   });
 
   it('honors explicit orderKey', () => {
-    const intent = setVaultSecret(ctx(), { secret: stringSecret('A'), orderKey: 'm' });
+    const intent = setVaultSecret(ctx(), { secret: stringSecret('sec-cccc', 'A'), orderKey: 'm' });
     expect(intent.batch.mutations[0].body).toMatchObject({ orderKey: 'm' });
   });
 
   it('shares a batchId across mutations when ctx.batchId is set', () => {
     const c = ctx({ batchId: 'batch-shared' });
-    const a = setVaultSecret(c, { secret: stringSecret('A') });
+    const a = setVaultSecret(c, { secret: stringSecret('sec-dddd', 'A') });
     expect(a.batch.batchId).toBe('batch-shared');
+  });
+
+  it('rename is a re-emit at the same uid with a new name', () => {
+    const renamed = stringSecret('sec-aaaa', 'BASE_KEY');
+    const intent = setVaultSecret(ctx(), { secret: renamed });
+    expect(intent.batch.mutations[0].body).toMatchObject({
+      kind: 'addToSet',
+      itemId: 'sec-aaaa',
+      item: { uid: 'sec-aaaa', name: 'BASE_KEY' },
+    });
+  });
+
+  it('kind transition (string ↔ totp) is a re-emit at the same uid (whole-record LWW)', () => {
+    const transitioned = totpSecret('sec-aaaa', 'API_KEY');
+    const intent = setVaultSecret(ctx(), { secret: transitioned });
+    expect(intent.batch.mutations[0].body).toMatchObject({
+      kind: 'addToSet',
+      itemId: 'sec-aaaa',
+      item: { uid: 'sec-aaaa', kind: 'totp', name: 'API_KEY' },
+    });
   });
 });
 
 describe('removeVaultSecret', () => {
-  it('emits removeFromSet with itemId = name', () => {
-    const intent = removeVaultSecret(ctx(), { name: 'API_KEY' });
+  it('emits removeFromSet with itemId = uid', () => {
+    const intent = removeVaultSecret(ctx(), { uid: 'sec-aaaa' });
     expect(intent.batch.mutations).toHaveLength(1);
     expect(intent.batch.mutations[0].body).toMatchObject({
       kind: 'removeFromSet',
       type: VAULT_ENTITY_TYPE,
       id: VAULT_ID,
       path: VAULT_PATH,
-      itemId: 'API_KEY',
+      itemId: 'sec-aaaa',
     });
-  });
-});
-
-describe('renameVaultSecret', () => {
-  it('emits an atomic batch — removeFromSet(old) + addToSet(new) under one batchId', () => {
-    const intent = renameVaultSecret(ctx(), {
-      oldName: 'API_KEY',
-      newSecret: stringSecret('BASE_KEY', 'sek'),
-    });
-    expect(intent.batch.mutations).toHaveLength(2);
-    expect(intent.batch.mutations[0].body).toMatchObject({
-      kind: 'removeFromSet',
-      itemId: 'API_KEY',
-      path: VAULT_PATH,
-    });
-    expect(intent.batch.mutations[1].body).toMatchObject({
-      kind: 'addToSet',
-      itemId: 'BASE_KEY',
-      path: VAULT_PATH,
-      item: { kind: 'string', name: 'BASE_KEY', value: 'sek' },
-    });
-  });
-
-  it('preserves TOTP fields across rename', () => {
-    const intent = renameVaultSecret(ctx(), {
-      oldName: 'OTP',
-      newSecret: totpSecret('NEW_OTP'),
-    });
-    expect(intent.batch.mutations[1].body).toMatchObject({
-      item: { kind: 'totp', name: 'NEW_OTP', seed: 'JBSWY3DPEHPK3PXP' },
-    });
-  });
-
-  it('is a no-op when oldName equals newSecret.name', () => {
-    const intent = renameVaultSecret(ctx(), {
-      oldName: 'X',
-      newSecret: stringSecret('X'),
-    });
-    expect(intent.batch.mutations).toHaveLength(0);
-    expect(intent.sideEffects).toEqual([]);
   });
 });
