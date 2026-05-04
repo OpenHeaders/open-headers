@@ -19,11 +19,14 @@ import {
   useSetActiveTabEntity,
 } from '@/shared/awareness';
 import {
+  COLLECTION_ENTITY_TYPE,
   ENVIRONMENT_ENTITY_TYPE,
   LIVE_VARIABLE_ENTITY_TYPE,
   LIVE_WORKFLOW_ENTITY_TYPE,
+  REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,
   RULE_ENTITY_TYPE,
+  TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_ENTITY_TYPE,
   VAULT_ENTITY_TYPE,
   VAULT_ID,
@@ -928,6 +931,18 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
         return { entityType: WORKSPACE_VARIABLES_ENTITY_TYPE, entityId: WORKSPACE_VARIABLES_ID };
       case 'vault':
         return { entityType: VAULT_ENTITY_TYPE, entityId: VAULT_ID };
+      case 'collection-vars':
+        return activeTab.collectionUid
+          ? { entityType: COLLECTION_ENTITY_TYPE, entityId: activeTab.collectionUid }
+          : null;
+      case 'request-collection-vars':
+        return activeTab.collectionUid
+          ? { entityType: REQUEST_COLLECTION_ENTITY_TYPE, entityId: activeTab.collectionUid }
+          : null;
+      case 'template-collection-vars':
+        return activeTab.collectionUid
+          ? { entityType: TEMPLATE_COLLECTION_ENTITY_TYPE, entityId: activeTab.collectionUid }
+          : null;
       // Create-mode tabs (no minted uid yet) deliberately return null.
       default:
         return null;
@@ -1733,6 +1748,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
             ENVIRONMENT_ENTITY_TYPE,
             WORKSPACE_VARIABLES_ENTITY_TYPE,
             VAULT_ENTITY_TYPE,
+            COLLECTION_ENTITY_TYPE,
+            REQUEST_COLLECTION_ENTITY_TYPE,
+            TEMPLATE_COLLECTION_ENTITY_TYPE,
           ]}
         />
           <div

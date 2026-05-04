@@ -23,10 +23,17 @@
 import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
 import { useVariableMutator } from '@hooks/useVariableMutator';
+import {
+  COLLECTION_ENTITY_TYPE,
+  REQUEST_COLLECTION_ENTITY_TYPE,
+  TEMPLATE_COLLECTION_ENTITY_TYPE,
+} from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { App, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo } from 'react';
+import { EntityScopeProvider } from '@/shared/awareness';
+import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
 import { useDirtyDraft } from '../hooks/useDirtyDraft';
 import EditorHeader from './EditorHeader';
 import VariableTable from './panels/VariableTable';
@@ -35,6 +42,17 @@ import { scopeBadge } from './shared/scope-colors';
 const { Text, Title } = Typography;
 
 export type CollectionVariablesKind = 'rule' | 'request' | 'template';
+
+function entityTypeFor(kind: CollectionVariablesKind): string {
+  switch (kind) {
+    case 'request':
+      return REQUEST_COLLECTION_ENTITY_TYPE;
+    case 'template':
+      return TEMPLATE_COLLECTION_ENTITY_TYPE;
+    default:
+      return COLLECTION_ENTITY_TYPE;
+  }
+}
 
 interface CollectionVariablesEditorProps {
   /** Which collection family this editor targets. Defaults to 'rule' for back-compat with existing call sites. */
@@ -88,6 +106,10 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
     empty: EMPTY_VARS,
   });
 
+  const entityType = entityTypeFor(kind);
+
+  useEditorDirty({ entityType, entityId: collectionUid }, isDirty);
+
   useEffect(() => {
     onDirtyChange?.(isDirty);
   }, [isDirty, onDirtyChange]);
@@ -135,23 +157,25 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
-      <EditorHeader title={headerTitle} isDirty={isDirty} onSave={handleSave} />
-      <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
-        <div style={{ maxWidth: 920, margin: '0 auto' }}>
-          <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-            Variables available to every {scopeNoun} inside this collection. Overridden by environment and vault scopes;
-            overrides the workspace scope. Stored in plain text — use the Vault for secrets.
-          </Text>
+    <EntityScopeProvider entityType={entityType} entityId={collectionUid}>
+      <div style={{ display: 'flex', flexDirection: 'column', background: token.colorBgContainer, height: '100%' }}>
+        <EditorHeader title={headerTitle} isDirty={isDirty} onSave={handleSave} />
+        <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
+          <div style={{ maxWidth: 920, margin: '0 auto' }}>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
+              Variables available to every {scopeNoun} inside this collection. Overridden by environment and vault scopes;
+              overrides the workspace scope. Stored in plain text — use the Vault for secrets.
+            </Text>
 
-          <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 600 }}>
-            VARIABLES ({nonEmptyCount})
-          </Text>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 11, fontWeight: 600 }}>
+              VARIABLES ({nonEmptyCount})
+            </Text>
 
-          <VariableTable variables={draft} onChange={setDraft} allowSecrets={false} />
+            <VariableTable variables={draft} onChange={setDraft} allowSecrets={false} />
+          </div>
         </div>
       </div>
-    </div>
+    </EntityScopeProvider>
   );
 };
 
