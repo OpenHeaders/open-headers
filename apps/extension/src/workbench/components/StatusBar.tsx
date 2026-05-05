@@ -38,6 +38,8 @@ interface StatusBarProps {
   workspaces: V5.ExtensionWorkspace[];
   /** Promote the tab's workspace to the new global default (divergence-pill action). */
   setActiveWorkspace: (id: string) => Promise<boolean>;
+  /** Open the Settings page — the workspace divergence pill jumps to the per-tab setting. */
+  openSettings: (target?: { settingKey?: string; categoryId?: string }) => void;
 }
 
 const THEME_DISPLAY: Record<ThemeMode, { icon: React.ReactNode; text: string; color: string }> = {
@@ -54,6 +56,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
   perTab,
   workspaces,
   setActiveWorkspace,
+  openSettings,
 }) => {
   const { token } = theme.useToken();
   const { themeMode, setThemeMode } = useTheme();
@@ -108,6 +111,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
           perTab={perTab}
           workspaces={workspaces}
           setActiveWorkspace={setActiveWorkspace}
+          openSettings={openSettings}
         />
         <FooterDonorPill perTab={perTab} />
         <div className="rules-statusbar-divider" style={{ background: token.colorBorder }} />

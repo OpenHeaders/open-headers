@@ -1957,6 +1957,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             perTab={perTab}
             workspaces={workspacesApi.workspaces}
             setActiveWorkspace={workspacesApi.setActiveWorkspace}
+            openSettings={openSettings}
             workspace={
               activeWorkspace
                 ? { name: activeWorkspace.name, icon: activeWorkspace.icon, color: activeWorkspace.color }

@@ -1,15 +1,21 @@
 /**
- * WorkspaceDivergencePill — status-bar pill that surfaces per-tab
- * workspace divergence in MWPT per-tab mode.
+ * WorkspaceDivergencePill — status-bar pill for the per-tab workspace
+ * mode.
  *
- * Hidden in global mode OR when the tab's workspace matches the global
- * default. Click opens a popover with two actions:
+ * Three states:
  *
- *   1. **Re-bind tab to default workspace** — slice-only write; only
- *      affects this tab. Single click.
- *   2. **Make this tab's workspace the new global default** — confirms
- *      first (the gesture re-binds every tab + popup + side-panel +
- *      DNR rule set).
+ *   - **Global mode** (`general.workspaceSwitchScope === 'global'`,
+ *     default) — neutral/dim pill: "Workspace synced across tabs". The
+ *     tooltip teaches the per-tab option. Clicking opens Settings to
+ *     the `general.workspaceSwitchScope` row. Surfaced in global mode
+ *     so users can discover the per-tab feature without hunting through
+ *     Settings.
+ *   - **Per-tab mode + bound** (tab matches global default) — neutral
+ *     pill: "Per-tab on · bound to default". Clicking opens Settings.
+ *   - **Per-tab mode + diverged** (tab ≠ global default) — warning
+ *     pill: "<tab name> · default <default name>". Clicking opens a
+ *     popover with two actions: re-bind to default (single click), or
+ *     promote tab's workspace to global default (confirms first).
  *
  * Composable with `FooterDonorPill` — same surface, same shape, no
  * coupling between the two.
@@ -17,7 +23,7 @@
  * See `MULTI_WORKSPACE_PER_TAB_DESIGN.md` § 7.
  */
 
-import { ApartmentOutlined } from '@ant-design/icons';
+import { ApartmentOutlined, LinkOutlined } from '@ant-design/icons';
 import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
 import type { V5 } from '@openheaders/core/types';
 import { App, Button, Popover, Space, Tooltip, Typography, theme } from 'antd';
@@ -33,15 +39,23 @@ interface WorkspaceDivergencePillProps {
   perTab: PerTabStateApi<WorkbenchViewState>;
   workspaces: V5.ExtensionWorkspace[];
   setActiveWorkspace: (id: string) => Promise<boolean>;
+  openSettings: (target?: { settingKey?: string; categoryId?: string }) => void;
 }
 
-const TOOLTIP =
+const TOOLTIP_GLOBAL =
+  'Switching workspace updates every tab. Click to change to per-tab mode in Settings.';
+const TOOLTIP_BOUND =
+  'Per-tab workspace mode is on. This tab is on the default workspace. Switching workspace here will only affect this tab.';
+const TOOLTIP_DIVERGED =
   'Per-tab workspace mode is on. Other tabs, the popup, and network rules use the default workspace.';
+
+const SETTING_TARGET = { settingKey: 'general.workspaceSwitchScope', categoryId: 'general' };
 
 const WorkspaceDivergencePill: React.FC<WorkspaceDivergencePillProps> = ({
   perTab,
   workspaces,
   setActiveWorkspace,
+  openSettings,
 }) => {
   const { token } = theme.useToken();
   const { modal, message } = App.useApp();
@@ -77,62 +91,129 @@ const WorkspaceDivergencePill: React.FC<WorkspaceDivergencePillProps> = ({
     });
   }, [tabBoundId, tabWorkspace, modal, message, setActiveWorkspace]);
 
-  if (mode !== 'per-tab') return null;
-  if (!tabBoundId || !globalActiveId) return null;
-  if (tabBoundId === globalActiveId) return null;
+  const onOpenSettings = useCallback(() => openSettings(SETTING_TARGET), [openSettings]);
 
-  const popoverContent = (
-    <div style={{ minWidth: 260, maxWidth: 360 }}>
-      <Typography.Paragraph style={{ marginBottom: 8, fontSize: 12 }}>
-        This tab is editing <strong>{tabWorkspace?.name ?? 'unknown'}</strong>. The default workspace is{' '}
-        <strong>{defaultWorkspace?.name ?? 'unknown'}</strong>. Network rules, the popup, and the side-panel always use
-        the default.
-      </Typography.Paragraph>
-      <Space direction="vertical" size={4} style={{ width: '100%' }}>
-        <Button size="small" block onClick={onRebindToDefault}>
-          Re-bind tab to default workspace
-        </Button>
-        <Button size="small" block onClick={onPromoteToGlobal}>
-          Make this tab’s workspace the new default…
-        </Button>
-      </Space>
-    </div>
+  // ── Visual state machine ────────────────────────────────────────────
+
+  const isPerTab = mode === 'per-tab';
+  const isDiverged = isPerTab && !!tabBoundId && !!globalActiveId && tabBoundId !== globalActiveId;
+
+  const dimStyle: React.CSSProperties = {
+    background: 'transparent',
+    color: token.colorTextTertiary,
+    borderColor: token.colorBorderSecondary,
+  };
+  const litStyle: React.CSSProperties = {
+    background: token.colorPrimaryBg,
+    color: token.colorPrimary,
+    borderColor: token.colorPrimaryBorder,
+  };
+  const warnStyle: React.CSSProperties = {
+    background: token.colorWarningBg,
+    color: token.colorWarning,
+    borderColor: token.colorWarningBorder,
+  };
+
+  let label: React.ReactNode;
+  let tooltip: string;
+  let style: React.CSSProperties;
+  let icon: React.ReactNode;
+  let ariaLabel: string;
+
+  if (isDiverged) {
+    icon = <ApartmentOutlined style={{ fontSize: 10 }} />;
+    label = (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        {tabWorkspace
+          ? renderWorkspacePrefix({ icon: tabWorkspace.icon, color: tabWorkspace.color }, token, { size: 12 })
+          : null}
+        <span>
+          {tabWorkspace?.name ?? 'tab'} · default {defaultWorkspace?.name ?? 'unknown'}
+        </span>
+      </span>
+    );
+    tooltip = TOOLTIP_DIVERGED;
+    style = warnStyle;
+    ariaLabel = `Tab is editing ${tabWorkspace?.name ?? 'tab'}; default workspace is ${defaultWorkspace?.name ?? 'default'}`;
+  } else if (isPerTab) {
+    icon = <ApartmentOutlined style={{ fontSize: 10 }} />;
+    label = <span>Per-tab · bound to default</span>;
+    tooltip = TOOLTIP_BOUND;
+    style = litStyle;
+    ariaLabel = 'Per-tab workspace mode on; tab bound to the default workspace';
+  } else {
+    icon = <LinkOutlined style={{ fontSize: 10 }} />;
+    label = <span>Workspace synced</span>;
+    tooltip = TOOLTIP_GLOBAL;
+    style = dimStyle;
+    ariaLabel = 'Workspace synced across tabs (global mode); click to change in Settings';
+  }
+
+  // ── Render ──────────────────────────────────────────────────────────
+
+  const Pill = (
+    <span
+      className="rules-statusbar-item"
+      role="button"
+      tabIndex={0}
+      aria-label={ariaLabel}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        padding: '0 6px',
+        height: 18,
+        border: '1px solid',
+        borderRadius: 9,
+        cursor: 'pointer',
+        fontSize: 10,
+        ...style,
+      }}
+    >
+      {icon}
+      {label}
+    </span>
   );
 
-  const tabName = tabWorkspace?.name ?? 'tab';
-  const defaultName = defaultWorkspace?.name ?? 'default';
+  // Diverged: clickable popover with the two actions.
+  if (isDiverged) {
+    const popoverContent = (
+      <div style={{ minWidth: 260, maxWidth: 360 }}>
+        <Typography.Paragraph style={{ marginBottom: 8, fontSize: 12 }}>
+          This tab is editing <strong>{tabWorkspace?.name ?? 'unknown'}</strong>. The default workspace is{' '}
+          <strong>{defaultWorkspace?.name ?? 'unknown'}</strong>. Network rules, the popup, and the side-panel always
+          use the default.
+        </Typography.Paragraph>
+        <Space direction="vertical" size={4} style={{ width: '100%' }}>
+          <Button size="small" block onClick={onRebindToDefault}>
+            Re-bind tab to default workspace
+          </Button>
+          <Button size="small" block onClick={onPromoteToGlobal}>
+            Make this tab’s workspace the new default…
+          </Button>
+          <Button size="small" type="link" block onClick={onOpenSettings}>
+            Workspace switch scope settings…
+          </Button>
+        </Space>
+      </div>
+    );
+    return (
+      <Popover content={popoverContent} placement="topRight" trigger={['click']}>
+        <Tooltip title={tooltip} placement="top">
+          {Pill}
+        </Tooltip>
+      </Popover>
+    );
+  }
 
+  // Global / bound: click opens Settings directly. Tooltip carries the
+  // discoverability copy.
   return (
-    <Popover content={popoverContent} placement="topRight" trigger={['click']}>
-      <Tooltip title={TOOLTIP} placement="top">
-        <span
-          className="rules-statusbar-item"
-          role="button"
-          tabIndex={0}
-          aria-label={`Tab is editing ${tabName}; default workspace is ${defaultName}`}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 4,
-            padding: '0 6px',
-            height: 18,
-            border: '1px solid',
-            borderRadius: 9,
-            cursor: 'pointer',
-            fontSize: 10,
-            background: token.colorWarningBg,
-            color: token.colorWarning,
-            borderColor: token.colorWarningBorder,
-          }}
-        >
-          <ApartmentOutlined style={{ fontSize: 10 }} />
-          {tabWorkspace ? renderWorkspacePrefix({ icon: tabWorkspace.icon, color: tabWorkspace.color }, token, { size: 12 }) : null}
-          <span>
-            {tabName} · default {defaultName}
-          </span>
-        </span>
-      </Tooltip>
-    </Popover>
+    <Tooltip title={tooltip} placement="top">
+      <span onClick={onOpenSettings} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onOpenSettings()}>
+        {Pill}
+      </span>
+    </Tooltip>
   );
 };
 
