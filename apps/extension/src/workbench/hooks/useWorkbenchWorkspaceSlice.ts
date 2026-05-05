@@ -40,7 +40,7 @@ export function useWorkbenchWorkspaceSlice(perTab: EditingScopeViewStateApi<Work
       // mid-session mode flip; the lint pins the inside-callback shape.
       // In per-tab mode the global oracle changing does NOT auto-rebind
       // this tab — diverged tabs stay on their slice's workspace.
-      if (getSetting('general.workspaceSwitchScope') === 'per-window-or-tab') return;
+      if (getSetting('general.workspaceSwitchScope') === 'only-this-tab') return;
       const nextId = payload.activeWorkspaceId;
       void readWorkspaceFallThrough(nextId).then((data) => {
         onPersist((prev) => {

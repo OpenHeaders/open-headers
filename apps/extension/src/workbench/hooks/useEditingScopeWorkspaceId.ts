@@ -24,6 +24,6 @@ export function useEditingScopeWorkspaceId(perTab: EditingScopeViewStateApi<Work
   const mode = useSettingValue('general.workspaceSwitchScope');
   const globalActive = useActiveWorkspaceId();
   const tabBound = perTab.initial.workspace?.workspaceId ?? null;
-  if (mode === 'per-window-or-tab') return tabBound ?? globalActive;
+  if (mode === 'only-this-tab') return tabBound ?? globalActive;
   return globalActive;
 }

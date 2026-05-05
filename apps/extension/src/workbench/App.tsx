@@ -806,7 +806,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         // owners on other tabs are unaffected. Read mode inside the
         // callback so a mid-gesture flip takes effect immediately.
         const mode = getSetting('general.workspaceSwitchScope');
-        if (mode === 'per-window-or-tab') {
+        if (mode === 'only-this-tab') {
           if (targetId === perTab.initial.workspace?.workspaceId) return;
           const data = await readWorkspaceFallThrough(targetId);
           perTab.onPersist((prev) => ({ ...prev, workspace: { workspaceId: targetId, data } }));
@@ -1901,6 +1901,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             workspaces={workspacesApi.workspaces}
             activeWorkspaceId={editingScopeWorkspaceId}
             onSwitchWorkspace={handleSwitchWorkspace}
+            onSetActiveWorkspace={workspacesApi.setActiveWorkspace}
             onOpenWorkspaceManager={openWorkspaceManager}
             onExportWorkspace={() => setExportModalState({ open: true, scope: { kind: 'workspace' } })}
             onImportWorkspace={openImportFilePicker}

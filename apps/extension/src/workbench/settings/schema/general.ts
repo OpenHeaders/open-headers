@@ -12,7 +12,7 @@ const openToSchema = v.picklist(['last', 'home', 'rules', 'collections']);
 const languageSchema = v.picklist(['auto', 'en']);
 const settingsOpenModeSchema = v.picklist(['modal', 'modal-maximized', 'tab']);
 const collectionEnvAutoSwitchSchema = v.picklist(['keep-selection', 'apply-defaults', 'follow-collection']);
-const workspaceSwitchScopeSchema = v.picklist(['global', 'per-window-or-tab']);
+const workspaceSwitchScopeSchema = v.picklist(['global', 'only-this-tab']);
 
 export type OpenTo = v.InferOutput<typeof openToSchema>;
 export type Language = v.InferOutput<typeof languageSchema>;
@@ -141,23 +141,23 @@ registerSetting({
   type: 'enum',
   default: 'global',
   schema: workspaceSwitchScopeSchema,
-  label: 'Workspace Switch Scope',
+  label: 'When switching workspaces',
   description:
-    `Switch workspaces globally (every ${instanceLabel()}, default) or only in the current ${instanceLabel()}. ` +
-    'Network rules and the popup always use the global workspace.',
+    `Whether a workspace switch syncs every ${instanceLabel()} (default) or stays only in the current ${instanceLabel()}. ` +
+    'Network rules and the popup always use the default workspace.',
   category: 'general',
   tags: ['workspace', 'tabs', 'multi-workspace'],
   scope: 'user',
   enumOptions: [
     {
       value: 'global',
-      label: 'Global',
-      description: `Switching a workspace updates every ${instanceLabel()} and surface (default).`,
+      label: `Sync all ${instanceLabelPlural()}`,
+      description: `Switching workspace updates every ${instanceLabel()} and surface (default).`,
     },
     {
-      value: 'per-window-or-tab',
-      label: `Per ${instanceLabel()}`,
-      description: `Switching a workspace in one ${instanceLabel()} leaves other ${instanceLabelPlural()} alone.`,
+      value: 'only-this-tab',
+      label: `Only this ${instanceLabel()}`,
+      description: `Switching workspace stays in this ${instanceLabel()}. Other ${instanceLabelPlural()}, the popup, and network rules keep using the default workspace.`,
     },
   ],
 });

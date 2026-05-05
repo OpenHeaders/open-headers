@@ -1,13 +1,15 @@
 /**
  * WorkspaceSwitcher — TopBar dropdown for switching the active workspace,
- * surfacing the workspace-switch-scope mode inline (global vs
- * per-window-or-tab). Layout mirrors `EnvironmentSelector`: first row is
+ * surfacing the workspace-switch-scope mode inline (sync-all-tabs vs
+ * only-this-tab). Layout mirrors `EnvironmentSelector`: first row is
  * search + mode label + settings icon, then the workspace list, then the
  * footer actions (export / import / manage).
  *
- * Divergence (editing-scope ≠ global default in per-window-or-tab mode)
- * is surfaced by a DEFAULT badge on the global default's row; the active
- * editing-scope workspace carries the checkmark.
+ * Divergence (editing-scope ≠ global default in only-this-tab mode) is
+ * surfaced by a DEFAULT badge on the global default's row; the active
+ * editing-scope workspace carries the checkmark. When diverged, an
+ * imperative "Make this workspace the default" action appears below the
+ * list — separates "preference" (the mode) from "promotion" (one-shot).
  */
 
 import {
@@ -15,14 +17,27 @@ import {
   DownOutlined,
   ExportOutlined,
   ImportOutlined,
+  PushpinOutlined,
   SettingOutlined,
 } from '@ant-design/icons';
 import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
 import type { V5 } from '@openheaders/core/types';
 import type { InputRef } from 'antd';
-import { Button, Divider, Dropdown, Input, Popover, Radio, Space, Tooltip, Typography, theme } from 'antd';
+import {
+  App,
+  Button,
+  Divider,
+  Dropdown,
+  Input,
+  Popover,
+  Radio,
+  Space,
+  Tooltip,
+  Typography,
+  theme,
+} from 'antd';
 import type React from 'react';
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { instanceLabel, instanceLabelPlural } from '@/shared/host-vocabulary';
 import { useSetting } from '../settings/hooks';
 import { renderWorkspacePrefix } from './workspace-prefix';
@@ -37,6 +52,12 @@ interface WorkspaceSwitcherProps {
   onOpenManager: () => void;
   onExport: () => void;
   onImport: () => void;
+  /**
+   * Promote a workspace id to the global default — writes the oracle
+   * directly. Used by the imperative "Make this workspace the default"
+   * action when the surface is diverged in only-this-tab mode.
+   */
+  setActiveWorkspace: (id: string) => Promise<boolean>;
 }
 
 const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
@@ -46,8 +67,10 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
   onOpenManager,
   onExport,
   onImport,
+  setActiveWorkspace,
 }) => {
   const { token } = theme.useToken();
+  const { modal, message } = App.useApp();
   const [open, setOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -59,6 +82,22 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
   const globalDefaultId = useActiveWorkspaceId();
 
   const active = workspaces.find((w) => w.id === activeWorkspaceId) ?? null;
+  const isDiverged =
+    mode === 'only-this-tab' && !!activeWorkspaceId && !!globalDefaultId && activeWorkspaceId !== globalDefaultId;
+
+  const onPromoteToDefault = useCallback(() => {
+    if (!active || !activeWorkspaceId) return;
+    modal.confirm({
+      title: `Make "${active.name}" the default workspace?`,
+      content: `Every ${instanceLabel()}, the popup, the side-panel, and network rules will switch to "${active.name}".`,
+      okText: 'Make default',
+      cancelText: 'Cancel',
+      onOk: async () => {
+        const ok = await setActiveWorkspace(activeWorkspaceId);
+        if (ok) message.success(`"${active.name}" is now the default workspace`);
+      },
+    });
+  }, [active, activeWorkspaceId, modal, message, setActiveWorkspace]);
 
   const filtered = useMemo(() => {
     const q = searchText.toLowerCase().trim();
@@ -81,7 +120,7 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
     setSearchText('');
   };
 
-  const modeLabel = mode === 'global' ? 'Global' : `Per ${instanceLabel()}`;
+  const modeLabel = mode === 'global' ? `Sync all ${instanceLabelPlural()}` : `Only this ${instanceLabel()}`;
 
   const dropdownContent = (
     <div
@@ -117,7 +156,7 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
           arrow={false}
           getPopupContainer={(trigger) => trigger.parentElement ?? document.body}
           content={
-            <div style={{ padding: 2, width: 320 }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ padding: 2, width: 340 }} onClick={(e) => e.stopPropagation()}>
               <Text strong style={{ display: 'block', padding: '4px 8px 6px', fontSize: 12 }}>
                 When switching workspaces
               </Text>
@@ -137,7 +176,7 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
               >
                 <Radio checked={mode === 'global'} style={{ marginRight: 0, pointerEvents: 'none' }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, lineHeight: 1.3 }}>Global</div>
+                  <div style={{ fontSize: 13, lineHeight: 1.3 }}>Sync all {instanceLabelPlural()}</div>
                   <Text type="secondary" style={{ fontSize: 11, lineHeight: 1.3, display: 'block', marginTop: 2 }}>
                     Switching workspace updates every {instanceLabel()} and surface (default).
                   </Text>
@@ -153,19 +192,19 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
                   borderRadius: token.borderRadiusSM,
                 }}
                 onClick={() => {
-                  setMode('per-window-or-tab');
+                  setMode('only-this-tab');
                   setSettingsOpen(false);
                 }}
               >
                 <Radio
-                  checked={mode === 'per-window-or-tab'}
+                  checked={mode === 'only-this-tab'}
                   style={{ marginRight: 0, pointerEvents: 'none' }}
                 />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, lineHeight: 1.3 }}>Per {instanceLabel()}</div>
+                  <div style={{ fontSize: 13, lineHeight: 1.3 }}>Only this {instanceLabel()}</div>
                   <Text type="secondary" style={{ fontSize: 11, lineHeight: 1.3, display: 'block', marginTop: 2 }}>
-                    Switching workspace in one {instanceLabel()} leaves other {instanceLabelPlural()} alone. Network
-                    rules and the popup always use the default workspace.
+                    Switching workspace stays in this {instanceLabel()}. Other {instanceLabelPlural()}, the popup, and
+                    network rules keep using the default workspace.
                   </Text>
                 </div>
               </div>
@@ -206,7 +245,7 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
             <Text style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13 }}>
               {w.name}
             </Text>
-            {isDefault && mode === 'per-window-or-tab' && (
+            {isDefault && mode === 'only-this-tab' && (
               <Tooltip
                 title={`Default workspace — used by the popup, side-panel, and network rules. Other ${instanceLabelPlural()} can edit a different workspace.`}
                 placement="top"
@@ -226,6 +265,26 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
           </div>
         );
       })}
+
+      {isDiverged && active && (
+        <>
+          <Divider style={{ margin: '4px 0' }} />
+          <div
+            role="menuitem"
+            className="oh-env-row"
+            style={{ ...rowStyle, color: token.colorPrimary }}
+            onClick={() => {
+              onPromoteToDefault();
+              handleClose();
+            }}
+          >
+            <PushpinOutlined style={{ fontSize: 12 }} />
+            <Text style={{ flex: 1, fontSize: 13, color: token.colorPrimary }}>
+              Make “{active.name}” the default workspace
+            </Text>
+          </div>
+        </>
+      )}
 
       <Divider style={{ margin: '4px 0' }} />
 
