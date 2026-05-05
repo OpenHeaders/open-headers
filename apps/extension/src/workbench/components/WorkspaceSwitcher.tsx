@@ -17,6 +17,7 @@ import {
   DownOutlined,
   ExportOutlined,
   ImportOutlined,
+  PushpinFilled,
   PushpinOutlined,
   SettingOutlined,
 } from '@ant-design/icons';
@@ -82,22 +83,22 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
   const globalDefaultId = useActiveWorkspaceId();
 
   const active = workspaces.find((w) => w.id === activeWorkspaceId) ?? null;
-  const isDiverged =
-    mode === 'only-this-tab' && !!activeWorkspaceId && !!globalDefaultId && activeWorkspaceId !== globalDefaultId;
 
-  const onPromoteToDefault = useCallback(() => {
-    if (!active || !activeWorkspaceId) return;
-    modal.confirm({
-      title: `Make "${active.name}" the default workspace?`,
-      content: `Every ${instanceLabel()}, the popup, the side-panel, and network rules will switch to "${active.name}".`,
-      okText: 'Make default',
-      cancelText: 'Cancel',
-      onOk: async () => {
-        const ok = await setActiveWorkspace(activeWorkspaceId);
-        if (ok) message.success(`"${active.name}" is now the default workspace`);
-      },
-    });
-  }, [active, activeWorkspaceId, modal, message, setActiveWorkspace]);
+  const promoteWorkspaceToDefault = useCallback(
+    (target: V5.ExtensionWorkspace) => {
+      modal.confirm({
+        title: `Make "${target.name}" the default workspace?`,
+        content: `Every ${instanceLabel()}, the popup, the side-panel, and network rules will switch to "${target.name}".`,
+        okText: 'Make default',
+        cancelText: 'Cancel',
+        onOk: async () => {
+          const ok = await setActiveWorkspace(target.id);
+          if (ok) message.success(`"${target.name}" is now the default workspace`);
+        },
+      });
+    },
+    [modal, message, setActiveWorkspace],
+  );
 
   const filtered = useMemo(() => {
     const q = searchText.toLowerCase().trim();
@@ -227,6 +228,7 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
       {filtered.map((w) => {
         const isActive = w.id === activeWorkspaceId;
         const isDefault = w.id === globalDefaultId;
+        const showDefaultAction = mode === 'only-this-tab';
         return (
           <div
             key={w.id}
@@ -245,7 +247,7 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
             <Text style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13 }}>
               {w.name}
             </Text>
-            {isDefault && mode === 'only-this-tab' && (
+            {isDefault && showDefaultAction && (
               <Tooltip
                 title={`Default workspace — used by the popup, side-panel, and network rules. Other ${instanceLabelPlural()} can edit a different workspace.`}
                 placement="top"
@@ -262,29 +264,38 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
                 </Text>
               </Tooltip>
             )}
+            {showDefaultAction && (
+              <div className="oh-env-row-actions">
+                <Tooltip
+                  title={isDefault ? 'This is the default workspace' : 'Set as default workspace'}
+                  placement="top"
+                  mouseEnterDelay={0.3}
+                >
+                  <span
+                    role="button"
+                    tabIndex={-1}
+                    aria-label={isDefault ? 'Default workspace' : `Set "${w.name}" as the default workspace`}
+                    className="oh-env-row-action"
+                    style={isDefault ? { opacity: 1 } : undefined}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isDefault) return;
+                      promoteWorkspaceToDefault(w);
+                      handleClose();
+                    }}
+                  >
+                    {isDefault ? (
+                      <PushpinFilled style={{ fontSize: 12, color: token.colorPrimary }} />
+                    ) : (
+                      <PushpinOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />
+                    )}
+                  </span>
+                </Tooltip>
+              </div>
+            )}
           </div>
         );
       })}
-
-      {isDiverged && active && (
-        <>
-          <Divider style={{ margin: '4px 0' }} />
-          <div
-            role="menuitem"
-            className="oh-env-row"
-            style={{ ...rowStyle, color: token.colorPrimary }}
-            onClick={() => {
-              onPromoteToDefault();
-              handleClose();
-            }}
-          >
-            <PushpinOutlined style={{ fontSize: 12 }} />
-            <Text style={{ flex: 1, fontSize: 13, color: token.colorPrimary }}>
-              Make “{active.name}” the default workspace
-            </Text>
-          </div>
-        </>
-      )}
 
       <Divider style={{ margin: '4px 0' }} />
 
