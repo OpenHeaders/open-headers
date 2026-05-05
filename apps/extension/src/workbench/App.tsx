@@ -9,15 +9,14 @@
  */
 
 import { RuleProvider } from '@context/RuleContext';
-import {
-  ActiveEditorDirtyProvider,
-  ActiveFieldFocusProvider,
-  ActiveTabEntityProvider,
-  AwarenessIdentityProvider,
-  resolveWorkbenchIdentity,
-  SurfaceAwarenessPublisher,
-  useSetActiveTabEntity,
-} from '@/shared/awareness';
+import { useTheme } from '@context/ThemeContext';
+import { useEnvironments } from '@hooks/useEnvironments';
+import { useLiveVariables } from '@hooks/useLiveVariables';
+import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
+import { useRequests } from '@hooks/useRequests';
+import { useRules } from '@hooks/useRules';
+import { useVariableResolver } from '@hooks/useVariableResolver';
+import { useWorkspaces } from '@hooks/useWorkspaces';
 import {
   COLLECTION_ENTITY_TYPE,
   ENVIRONMENT_ENTITY_TYPE,
@@ -33,14 +32,6 @@ import {
   WORKSPACE_VARIABLES_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ID,
 } from '@openheaders/core/sync';
-import { useTheme } from '@context/ThemeContext';
-import { useEnvironments } from '@hooks/useEnvironments';
-import { useLiveVariables } from '@hooks/useLiveVariables';
-import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
-import { useRequests } from '@hooks/useRequests';
-import { useRules } from '@hooks/useRules';
-import { useVariableResolver } from '@hooks/useVariableResolver';
-import { useWorkspaces } from '@hooks/useWorkspaces';
 import { isRequestResolvable, isRuleResolvable, slugify } from '@openheaders/core/utils';
 import { call } from '@utils/bridge';
 import { focusFirstDropdownItem } from '@utils/focus-dropdown-item';
@@ -48,11 +39,20 @@ import type { InputRef } from 'antd';
 import { App as AntApp, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActiveEditorDirtyProvider,
+  ActiveFieldFocusProvider,
+  ActiveTabEntityProvider,
+  AwarenessIdentityProvider,
+  resolveWorkbenchIdentity,
+  SurfaceAwarenessPublisher,
+  useSetActiveTabEntity,
+} from '@/shared/awareness';
 import 'allotment/dist/style.css';
 import { createShellEventBus, ShellEventBusContext } from '@/shared/dock-layout';
+import type { PerTabStateApi } from '@/shared/per-tab-state';
 import { findCollectionByPath, findFolderByUid } from '@/shared/variables/collection-scope';
 import { computeBreadcrumbs, scratchLabelForMode } from './breadcrumbs';
-import { tabDisplayLabel, type TabDisplayLookups } from './tab-display';
 import BottomPanel from './components/BottomPanel';
 import CollectionOverview from './components/CollectionOverview';
 import CollectionVariablesEditor from './components/CollectionVariablesEditor';
@@ -105,7 +105,7 @@ import { useSaveRequestFlow } from './hooks/useSaveRequestFlow';
 import { useTabLifecycle } from './hooks/useTabLifecycle';
 import { useTabOpeners } from './hooks/useTabOpeners';
 import { useTabSyncEffects } from './hooks/useTabSyncEffects';
-import { useToolLayout } from './hooks/useToolLayout';
+import { useToolLayout, useWorkbenchPerTabState, type WorkbenchViewState } from './hooks/useToolLayout';
 import { useWorkspaceIntentRouter } from './hooks/useWorkspaceIntentRouter';
 import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
 import { useWorkspaceTabTitle } from './hooks/useWorkspaceTabTitle';
@@ -115,6 +115,7 @@ import { useSettingValue } from './settings/hooks';
 import { get as getSetting } from './settings/store';
 import { SettingsModal, SettingsTab } from './settings/ui';
 import { getFocusedRegion } from './stores/focus-region-store';
+import { type TabDisplayLookups, tabDisplayLabel } from './tab-display';
 import type { DockSlot, ToolWindowId, WorkbenchTab } from './types';
 
 // ── Sidebar "Export…" — single callback shape for every entity type ─
@@ -255,8 +256,9 @@ const WorkbenchInner: React.FC = () => {
   const { isDarkMode } = useTheme();
   const { token } = theme.useToken();
   const layout = useResponsiveLayout();
+  const perTab = useWorkbenchPerTabState();
 
-  if (!layout.ready) {
+  if (!layout.ready || !perTab.ready) {
     return (
       <div
         className="rules-shell rules-shell-loading"
@@ -266,13 +268,14 @@ const WorkbenchInner: React.FC = () => {
     );
   }
 
-  return <WorkbenchShell layout={layout} />;
+  return <WorkbenchShell layout={layout} perTab={perTab} />;
 };
 
 // ── Workspace component (needs RuleContext + loaded layout) ─────────
 
 interface WorkbenchShellProps {
   layout: ResponsiveLayout;
+  perTab: PerTabStateApi<WorkbenchViewState>;
 }
 
 /**
@@ -282,22 +285,23 @@ interface WorkbenchShellProps {
  * DOM themselves. The attach side effect lives inside the content component
  * because that's where `shellRef` is populated on first paint.
  */
-const WorkbenchShell: React.FC<WorkbenchShellProps> = ({ layout }) => {
+const WorkbenchShell: React.FC<WorkbenchShellProps> = ({ layout, perTab }) => {
   const busHandleRef = useRef<ReturnType<typeof createShellEventBus> | null>(null);
   if (!busHandleRef.current) busHandleRef.current = createShellEventBus();
   return (
     <ShellEventBusContext.Provider value={busHandleRef.current.bus}>
-      <WorkbenchContent layout={layout} attachBus={busHandleRef.current.attach} />
+      <WorkbenchContent layout={layout} perTab={perTab} attachBus={busHandleRef.current.attach} />
     </ShellEventBusContext.Provider>
   );
 };
 
 interface WorkbenchContentProps {
   layout: ResponsiveLayout;
+  perTab: PerTabStateApi<WorkbenchViewState>;
   attachBus: (root: HTMLElement | null) => () => void;
 }
 
-const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }) => {
+const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, attachBus }) => {
   const { isDarkMode } = useTheme();
   const { token } = theme.useToken();
   const {
@@ -451,10 +455,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
   });
 
   // ── Tool-window layout state machine ───────────────────────────
-  const tl = useToolLayout({
-    initial: layout.persistedToolLayout ?? undefined,
-    onPersist: layout.persistToolLayout,
-  });
+  const tl = useToolLayout(perTab);
 
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
@@ -908,13 +909,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
       case 'edit':
         return activeTab.ruleUid ? { entityType: RULE_ENTITY_TYPE, entityId: activeTab.ruleUid } : null;
       case 'request-edit':
-        return activeTab.requestUid
-          ? { entityType: REQUEST_ENTITY_TYPE, entityId: activeTab.requestUid }
-          : null;
+        return activeTab.requestUid ? { entityType: REQUEST_ENTITY_TYPE, entityId: activeTab.requestUid } : null;
       case 'template-edit':
-        return activeTab.templateUid
-          ? { entityType: TEMPLATE_ENTITY_TYPE, entityId: activeTab.templateUid }
-          : null;
+        return activeTab.templateUid ? { entityType: TEMPLATE_ENTITY_TYPE, entityId: activeTab.templateUid } : null;
       case 'live-variable-edit':
         return activeTab.liveVariableUid
           ? { entityType: LIVE_VARIABLE_ENTITY_TYPE, entityId: activeTab.liveVariableUid }
@@ -1801,12 +1798,12 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
             LIVE_WORKFLOW_ENTITY_TYPE,
           ]}
         />
-          <div
-            ref={shellRef}
-            className="rules-shell"
-            data-theme={isDarkMode ? 'dark' : 'light'}
-            style={{ background: token.colorBgLayout }}
-          >
+        <div
+          ref={shellRef}
+          className="rules-shell"
+          data-theme={isDarkMode ? 'dark' : 'light'}
+          style={{ background: token.colorBgLayout }}
+        >
           <TopBar
             tl={tl}
             onCommandPalette={() => setCommandPaletteOpen(true)}
@@ -1921,6 +1918,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, attachBus }
           />
 
           <StatusBar
+            perTab={perTab}
             workspace={
               activeWorkspace
                 ? { name: activeWorkspace.name, icon: activeWorkspace.icon, color: activeWorkspace.color }
@@ -2151,11 +2149,11 @@ const Workbench: React.FC = () => (
     <ActiveFieldFocusProvider>
       <ActiveEditorDirtyProvider>
         <ActiveTabEntityProvider>
-        <RuleProvider surfaceId="workbench">
-          <InspectorNavProvider>
-            <WorkbenchInner />
-          </InspectorNavProvider>
-        </RuleProvider>
+          <RuleProvider surfaceId="workbench">
+            <InspectorNavProvider>
+              <WorkbenchInner />
+            </InspectorNavProvider>
+          </RuleProvider>
         </ActiveTabEntityProvider>
       </ActiveEditorDirtyProvider>
     </ActiveFieldFocusProvider>

@@ -38,7 +38,5 @@ export type {
 } from './types';
 export type { DockLayoutApi, UseDockLayoutOptions } from './use-dock-layout';
 export { makeDefaultDocks, normalizeDockLayout, useDockLayout } from './use-dock-layout';
-export type { DockLayoutStorageResult } from './use-dock-layout-storage';
-export { useDockLayoutStorage } from './use-dock-layout-storage';
 export type { FocusRegionApi, UseFocusRegionOptions } from './use-focus-region';
 export { useFocusRegion } from './use-focus-region';

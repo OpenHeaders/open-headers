@@ -1,0 +1,19 @@
+{
+  "donorTabUid": "fixture-tab-panel-v1",
+  "schemaVersion": 1,
+  "publishedAt": 0,
+  "snapshot": {
+    "dockLayout": {
+      "docks": {
+        "left-top": { "windows": ["network"], "active": "network" },
+        "left-bottom": { "windows": [], "active": null },
+        "right-top": { "windows": [], "active": null },
+        "right-bottom": { "windows": [], "active": null },
+        "bottom-left": { "windows": [], "active": null },
+        "bottom-right": { "windows": [], "active": null }
+      },
+      "hidden": [],
+      "zenSnapshot": null
+    }
+  }
+}

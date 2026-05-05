@@ -9,8 +9,10 @@ import { BulbFilled, BulbOutlined } from '@ant-design/icons';
 import { useTheme } from '@context/ThemeContext';
 import { Dropdown, type MenuProps, Space, theme } from 'antd';
 import type React from 'react';
+import { FooterDonorPill, type PerTabStateApi } from '@/shared/per-tab-state';
 import { productStatusExtras, StatusPill } from '@/shared/status';
 import { useSettingValue } from '@/workbench/settings/hooks';
+import type { PanelViewState } from '../data/use-panel-tool-layout';
 
 declare const __APP_VERSION__: string;
 
@@ -30,6 +32,7 @@ interface PanelStatusBarProps {
   dclMs?: number;
   loadMs?: number;
   tabCount: number;
+  perTab: PerTabStateApi<PanelViewState>;
 }
 
 function formatTiming(ms: number | undefined): string {
@@ -46,6 +49,7 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
   dclMs,
   loadMs,
   tabCount,
+  perTab,
 }) => {
   const { token } = theme.useToken();
   const { themeMode, setThemeMode } = useTheme();
@@ -89,6 +93,8 @@ const PanelStatusBar: React.FC<PanelStatusBarProps> = ({
       </div>
 
       <div className="rules-statusbar-right">
+        <FooterDonorPill perTab={perTab} />
+        <div className="rules-statusbar-divider" style={{ background: token.colorBorderSecondary }} />
         <StatusPill density="full" label="System status" renderSubsystemExtras={productStatusExtras} />
         {showThemeSwitcher && (
           <>

@@ -12,9 +12,8 @@
 import { subscribe } from '@utils/bridge';
 import { scheduleFrame } from '@utils/frame-scheduler';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { applyLayoutSet } from '@/shared/sync/layout-state-write-client';
 import { extensionStorage, OH, type PersistedPanelLayout, wsKeys } from '@/shared/storage';
-import type { ToolLayoutState } from '../types';
+import { applyLayoutSet } from '@/shared/sync/layout-state-write-client';
 
 // ── Breakpoints (CSS pixels, accounts for browser zoom) ───────────
 
@@ -40,13 +39,6 @@ interface PersistedLayout {
   inspectorRatio: number;
   /** Bottom panel height as ratio of viewport height (0–1) */
   bottomRatio: number;
-  /**
-   * Dockable tool-window layout. Owns dock assignments and the
-   * hidden list. Normalized on load so stale records never leave a
-   * tool window orphaned. Layout behaviors (bottom full-width, label
-   * visibility, sidebar layout) now live in the settings store.
-   */
-  toolLayout?: Partial<ToolLayoutState>;
 }
 
 export interface ResponsiveLayoutSizes {
@@ -68,10 +60,6 @@ export interface ResponsiveLayout {
   getCoordinatedSidebarSize: (inspectorVisible: boolean) => number | null;
   /** Whether persisted layout has been loaded (avoid flash of default sizes) */
   ready: boolean;
-  /** Previously-persisted tool-window layout, or null on fresh profiles. */
-  persistedToolLayout: Partial<ToolLayoutState> | null;
-  /** Persist the tool-window layout — debounced through the same write. */
-  persistToolLayout: (state: ToolLayoutState) => void;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -146,7 +134,6 @@ function computeSizes(vw: number, vh: number, persisted: PersistedLayout | null)
 
 export function useResponsiveLayout(): ResponsiveLayout {
   const [persisted, setPersisted] = useState<PersistedLayout | null>(null);
-  const [persistedToolLayout, setPersistedToolLayout] = useState<Partial<ToolLayoutState> | null>(null);
   const [ready, setReady] = useState(false);
   const [shouldCollapse, setShouldCollapse] = useState(() => getViewportWidth() < BP_SIDEBAR_COLLAPSE);
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -158,11 +145,9 @@ export function useResponsiveLayout(): ResponsiveLayout {
     if (saved?.sidebarRatio != null && saved?.inspectorRatio != null && saved?.bottomRatio != null) {
       setPersisted(saved);
       latestPersistedRef.current = saved;
-      setPersistedToolLayout(saved.toolLayout ?? null);
     } else {
       setPersisted(null);
       latestPersistedRef.current = null;
-      setPersistedToolLayout(null);
     }
     setReady(true);
   }, []);
@@ -234,10 +219,9 @@ export function useResponsiveLayout(): ResponsiveLayout {
     // debounced write.
     const workspaceId = activeWorkspaceIdRef.current;
     if (!workspaceId) return;
-    void applyLayoutSet(
-      { layout: ratios as PersistedPanelLayout },
-      { workspaceId, surfaceId: 'workbench' },
-    ).catch(() => undefined);
+    void applyLayoutSet({ layout: ratios as PersistedPanelLayout }, { workspaceId, surfaceId: 'workbench' }).catch(
+      () => undefined,
+    );
   }, []);
 
   const schedulePersist = useCallback(
@@ -263,26 +247,6 @@ export function useResponsiveLayout(): ResponsiveLayout {
       persistTimerRef.current = setTimeout(() => flushPersist(record), 500);
     },
     [flushPersist],
-  );
-
-  // ── Tool-window layout persistence ─────────────────────────────
-
-  const persistToolLayout = useCallback(
-    (next: ToolLayoutState) => {
-      const prev = latestPersistedRef.current ?? {
-        sidebarRatio: 0.17,
-        inspectorRatio: 0.2,
-        bottomRatio: 0.25,
-      };
-      schedulePersist({
-        ...prev,
-        toolLayout: {
-          docks: next.docks,
-          hidden: next.hidden,
-        },
-      });
-    },
-    [schedulePersist],
   );
 
   // ── onPanelResize: horizontal allotment (sidebar | editor+bottom | inspector) ──
@@ -334,7 +298,5 @@ export function useResponsiveLayout(): ResponsiveLayout {
     onVerticalResize,
     getCoordinatedSidebarSize,
     ready,
-    persistedToolLayout,
-    persistToolLayout,
   };
 }

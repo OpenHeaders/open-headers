@@ -75,8 +75,6 @@ export interface PersistedPanelLayout {
   inspectorRatio: number;
   /** Bottom panel height as ratio of viewport height (0–1). */
   bottomRatio: number;
-  /** Dockable tool-window state. Opaque at storage layer. */
-  toolLayout?: unknown;
 }
 
 export interface PersistedLocalFolder {
@@ -133,8 +131,6 @@ export const UI = {
   activePopupTab: storageKey<string>('activePopupTab'),
   /** Boolean flag set once the onboarding tour has been completed. */
   onboardingCompleted: storageKey<boolean>('onboardingCompleted'),
-  /** Dock layout for the devtools panel — kept global; devtools is a single surface. */
-  panelDockLayout: storageKey<unknown>('panelDockLayout'),
   /** Transient hotkey signal consumed + cleared by the background SW. */
   hotkeyCommand: storageKey<HotkeyCommandSignal>('hotkeyCommand'),
 } as const;

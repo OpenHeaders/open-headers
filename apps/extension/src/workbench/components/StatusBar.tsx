@@ -11,8 +11,10 @@ import { BulbFilled, BulbOutlined } from '@ant-design/icons';
 import { useTheme } from '@context/ThemeContext';
 import { Dropdown, type MenuProps, Space, theme } from 'antd';
 import type React from 'react';
+import { FooterDonorPill, type PerTabStateApi } from '@/shared/per-tab-state';
 import { productStatusExtras, StatusPill } from '@/shared/status';
 import { useInspectorNav } from '../hooks/useInspectorNav';
+import type { WorkbenchViewState } from '../hooks/useToolLayout';
 import { useSettingValue } from '../settings/hooks';
 import BreadcrumbBar from './BreadcrumbBar';
 import { renderWorkspacePrefix } from './workspace-prefix';
@@ -28,6 +30,8 @@ interface StatusBarProps {
   segments: string[];
   onRename?: (newName: string) => void;
   autoRenameKey?: string | null;
+  /** Per-tab view state — drives the donor pill in the status bar. */
+  perTab: PerTabStateApi<WorkbenchViewState>;
 }
 
 const THEME_DISPLAY: Record<ThemeMode, { icon: React.ReactNode; text: string; color: string }> = {
@@ -36,7 +40,7 @@ const THEME_DISPLAY: Record<ThemeMode, { icon: React.ReactNode; text: string; co
   auto: { icon: <span style={{ fontSize: 12 }}>&#x25D0;</span>, text: 'Auto', color: '#1890ff' },
 };
 
-const StatusBar: React.FC<StatusBarProps> = ({ workspace, segments, onRename, autoRenameKey }) => {
+const StatusBar: React.FC<StatusBarProps> = ({ workspace, segments, onRename, autoRenameKey, perTab }) => {
   const { token } = theme.useToken();
   const { themeMode, setThemeMode } = useTheme();
   // Mirror TopBar: the footer's left padding expands/contracts with the
@@ -86,6 +90,8 @@ const StatusBar: React.FC<StatusBarProps> = ({ workspace, segments, onRename, au
       </div>
 
       <div className="rules-statusbar-right">
+        <FooterDonorPill perTab={perTab} />
+        <div className="rules-statusbar-divider" style={{ background: token.colorBorder }} />
         <StatusPill
           density="full"
           label="System status"

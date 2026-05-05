@@ -1,5 +1,7 @@
 import 'allotment/dist/style.css';
+import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
 import { useEnvironments } from '@hooks/useEnvironments';
+import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ActiveEditorDirtyProvider,
@@ -9,8 +11,6 @@ import {
   resolveDevPanelIdentity,
   SurfaceAwarenessPublisher,
 } from '@/shared/awareness';
-import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
-import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { BottomPanelAlignment, DockSlot, SidebarLayoutVariant } from '@/shared/dock-layout';
 import {
   createShellEventBus,
@@ -19,6 +19,7 @@ import {
   ShellLayout,
   useFocusRegion,
 } from '@/shared/dock-layout';
+import type { PerTabStateApi } from '@/shared/per-tab-state';
 import { VariablePopoverProvider } from '@/workbench/components/template-input/VariablePopoverHost';
 import { EnvSwitcherProvider, useEnvSwitcher } from '@/workbench/services/env-switcher';
 import { useSetting } from '@/workbench/settings/hooks';
@@ -45,7 +46,7 @@ import type { InspectorRequest } from './data/types';
 import { useCacheBypass } from './data/use-cache-bypass';
 import { useInspector } from './data/use-inspector';
 import { useInspectorEditorGroups } from './data/use-inspector-editor-groups';
-import { usePanelToolLayout } from './data/use-panel-tool-layout';
+import { type PanelViewState, usePanelPerTabState, usePanelToolLayout } from './data/use-panel-tool-layout';
 import { useRulesLookup } from './data/use-rules-lookup';
 import { useSearchSession } from './data/use-search-session';
 
@@ -163,14 +164,20 @@ export default function App() {
 // so the publisher's `workspaceId` follows the panel's environment.
 function DevPanelAwarenessPublisher(): React.ReactElement {
   const workspaceId = useActiveWorkspaceId();
-  return (
-    <SurfaceAwarenessPublisher workspaceId={workspaceId} migratedEntityTypes={[RULE_ENTITY_TYPE]} />
-  );
+  return <SurfaceAwarenessPublisher workspaceId={workspaceId} migratedEntityTypes={[RULE_ENTITY_TYPE]} />;
 }
 
 // ── PanelContent (consumes the event bus via useFocusRegion) ─────────
 
 function PanelContent() {
+  const perTab = usePanelPerTabState();
+  if (!perTab.ready) {
+    return <div className="rules-shell rules-shell-loading" />;
+  }
+  return <PanelContentReady perTab={perTab} />;
+}
+
+function PanelContentReady({ perTab }: { perTab: PerTabStateApi<PanelViewState> }) {
   const {
     entries,
     danglingFires,
@@ -182,7 +189,7 @@ function PanelContent() {
     setRecording,
   } = useInspector();
   const groups = useInspectorEditorGroups();
-  const tl = usePanelToolLayout();
+  const tl = usePanelToolLayout(perTab);
   const panelSizes = useMemo(getPanelSizes, []);
   // Search session lives at the panel level — SearchPanel itself
   // mounts/unmounts as the user toggles the Search tool window, and
@@ -583,6 +590,7 @@ function PanelContent() {
       />
 
       <PanelStatusBar
+        perTab={perTab}
         requestCount={entries.length}
         transferredSize={transferredSize}
         resourceSize={resourceSize}
