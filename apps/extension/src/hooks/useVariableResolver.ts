@@ -15,7 +15,7 @@
  * directly.
  */
 
-import { useEnvironments } from '@hooks/useEnvironments';
+import { useEnvVarVault } from '@hooks/useEnvVarVault';
 import { useAllLiveCaches } from '@hooks/useLiveCache';
 import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
@@ -27,7 +27,7 @@ import { useMemo } from 'react';
 import { feedCollectionVariablesToResolver } from '@/shared/variables/collection-scope';
 
 export function useVariableResolver(): VariableResolver {
-  const { environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault } = useEnvironments();
+  const { environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault } = useEnvVarVault();
   const { localCollections, templateCollections } = useRules();
   const { collections: requestCollections } = useRequests();
   const { variables: liveVariables } = useLiveVariables();

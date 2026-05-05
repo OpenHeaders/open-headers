@@ -18,7 +18,7 @@
  * reorder + rename.
  */
 
-import { useEnvironments } from '@hooks/useEnvironments';
+import { useWorkspaceVariables } from '@hooks/useWorkspaceVariables';
 import { useVariableMutator } from '@hooks/useVariableMutator';
 import {
   WORKSPACE_VARIABLES_ENTITY_TYPE,
@@ -59,7 +59,7 @@ function variablesSignature(vars: readonly V5.Variable[]): string {
 const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onDirtyChange, registerSaveRef }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
-  const { workspaceVariables } = useEnvironments();
+  const { workspaceVariables } = useWorkspaceVariables();
   const { replaceWorkspaceVariables } = useVariableMutator();
 
   const [draft, setDraft] = useState<V5.Variable[]>(() => workspaceVariables.variables ?? EMPTY_VARS);

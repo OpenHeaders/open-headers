@@ -29,7 +29,7 @@ import {
   EyeOutlined,
   LockOutlined,
 } from '@ant-design/icons';
-import { useEnvironments } from '@hooks/useEnvironments';
+import { useEnvVarVault } from '@hooks/useEnvVarVault';
 import { useAllLiveCaches } from '@hooks/useLiveCache';
 import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
@@ -169,7 +169,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({
     getScopeKind(activeTab) === 'none' ? 'all' : 'in-context',
   );
 
-  const { environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault } = useEnvironments();
+  const { environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault } = useEnvVarVault();
   const { rules, templates, localCollections, localCollectionTrees, templateCollections, templateCollectionTrees } =
     useRules();
   const { requests, collections: requestCollections, collectionTrees: requestCollectionTrees } = useRequests();

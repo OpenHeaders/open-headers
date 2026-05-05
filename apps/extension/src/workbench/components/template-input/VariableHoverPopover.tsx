@@ -11,7 +11,7 @@
 
 import { SaveOutlined } from '@ant-design/icons';
 import { ShortcutHintTitle } from '@components/ShortcutKbd';
-import { useEnvironments } from '@hooks/useEnvironments';
+import { useEnvVarVault } from '@hooks/useEnvVarVault';
 import { useRules } from '@hooks/useRules';
 import { useVariableLookup, type VariableCandidate, type VariableLookupResult } from '@hooks/useVariableLookup';
 import { type MutationResult, useVariableMutator } from '@hooks/useVariableMutator';
@@ -74,7 +74,7 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
   // popover passes the FULL list it sees to the mutator's
   // `replace*` methods (which are pure write wrappers) so there's
   // exactly one source of truth for the read-modify-write.
-  const { activeEnvironmentId, activeEnvironment, environments, workspaceVariables, vault } = useEnvironments();
+  const { activeEnvironmentId, activeEnvironment, environments, workspaceVariables, vault } = useEnvVarVault();
   const { pickActiveEnvironment } = useEnvSwitcher();
   const { localCollections } = useRules();
   const mutator = useVariableMutator();

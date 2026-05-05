@@ -23,7 +23,7 @@
  * corresponding feature.
  */
 
-import { useEnvironments } from '@hooks/useEnvironments';
+import { useEnvVarVault } from '@hooks/useEnvVarVault';
 import { useAllLiveCaches } from '@hooks/useLiveCache';
 import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
@@ -63,7 +63,7 @@ interface RuleResolutionBannerProps {
  */
 const RuleResolutionBanner: React.FC<RuleResolutionBannerProps> = ({ collectionId }) => {
   const values = Form.useWatch<Record<string, unknown>>([], { preserve: true });
-  const { environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault } = useEnvironments();
+  const { environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault } = useEnvVarVault();
   const { localCollections } = useRules();
   const { variables: liveVariables } = useLiveVariables();
   const { workflows: liveWorkflows } = useLiveWorkflows();

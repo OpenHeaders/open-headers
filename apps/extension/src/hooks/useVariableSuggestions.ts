@@ -19,7 +19,7 @@
  * See `docs/VARIABLE_AUTOCOMPLETE_PLAN.md` Phase B.
  */
 
-import { useEnvironments } from '@hooks/useEnvironments';
+import { useEnvVarVault } from '@hooks/useEnvVarVault';
 import { useAllLiveCaches } from '@hooks/useLiveCache';
 import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
@@ -49,7 +49,7 @@ export function useVariableSuggestions(context: SuggestionContext): UseVariableS
     workspaceVariables,
     vault,
     isReady: envsReady,
-  } = useEnvironments();
+  } = useEnvVarVault();
   const { localCollections, templateCollections } = useRules();
   const { collections: requestCollections } = useRequests();
   const { variables: liveVariables, isReady: lvReady } = useLiveVariables();

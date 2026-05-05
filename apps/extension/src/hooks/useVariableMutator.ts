@@ -27,7 +27,7 @@
  */
 
 import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
-import { useEnvironments } from '@hooks/useEnvironments';
+import { useEnvVarVault } from '@hooks/useEnvVarVault';
 import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
@@ -68,7 +68,7 @@ export interface UseVariableMutatorApi {
 }
 
 export function useVariableMutator(): UseVariableMutatorApi {
-  const { vault, environments, workspaceVariables: currentWorkspaceVariables } = useEnvironments();
+  const { vault, environments, workspaceVariables: currentWorkspaceVariables } = useEnvVarVault();
   const { localCollections, templateCollections } = useRules();
   const { collections: requestCollections } = useRequests();
   const { setOverride } = useLiveVariables();

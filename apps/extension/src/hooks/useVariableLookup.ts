@@ -9,7 +9,7 @@
  * don't parse (callers render a "Not defined" affordance themselves).
  */
 
-import { useEnvironments } from '@hooks/useEnvironments';
+import { useEnvVarVault } from '@hooks/useEnvVarVault';
 import { useAllLiveCaches } from '@hooks/useLiveCache';
 import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
@@ -83,7 +83,7 @@ export interface VariableLookupResult {
 }
 
 export function useVariableLookup(reference: string, collectionId?: string): VariableLookupResult {
-  const { environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault } = useEnvironments();
+  const { environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault } = useEnvVarVault();
   const { localCollections, templateCollections } = useRules();
   const { collections: requestCollections } = useRequests();
   const { variables: liveVariables } = useLiveVariables();

@@ -23,7 +23,7 @@
  * defensively. The entity-level presence chip is the only signal.
  */
 
-import { useEnvironments } from '@hooks/useEnvironments';
+import { useVault } from '@hooks/useVault';
 import { useVariableMutator } from '@hooks/useVariableMutator';
 import { VAULT_ENTITY_TYPE, VAULT_ID } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
@@ -61,7 +61,7 @@ function secretsSignature(secrets: readonly V5.VaultSecret[]): string {
 const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRef }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
-  const { vault } = useEnvironments();
+  const { vault } = useVault();
   const { replaceVault } = useVariableMutator();
 
   const [draft, setDraft] = useState<V5.VaultSecret[]>(() => vault.secrets ?? EMPTY_SECRETS);
