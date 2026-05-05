@@ -1,6 +1,6 @@
 /**
  * Lint test for the multi-workspace-per-tab spike. Maps to the bug-class
- * predictions table in `docs/MULTI_WORKSPACE_PER_TAB_DESIGN.md` § 11.2.
+ * predictions table in `docs/MULTI_WORKSPACE_PER_WINDOW_OR_TAB_DESIGN.md` § 11.2.
  *
  * Asserted bug classes:
  *

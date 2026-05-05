@@ -10,7 +10,7 @@
  * differ from the global default if the user has switched workspaces in
  * this tab without affecting other tabs.
  *
- * See `MULTI_WORKSPACE_PER_TAB_DESIGN.md` § 6.2. Workbench-only — popup,
+ * See `MULTI_WORKSPACE_PER_WINDOW_OR_TAB_DESIGN.md` § 6.2. Workbench-only — popup,
  * side-panel, and devtools-panel surfaces continue to use
  * `useActiveWorkspaceId()` (system-scoped per design § 5.2 + § 5.4).
  */

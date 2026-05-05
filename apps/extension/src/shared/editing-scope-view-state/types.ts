@@ -1,7 +1,7 @@
 /**
  * Per-tab view state — type vocabulary.
  *
- * See `docs/PER_TAB_VIEW_STATE_DESIGN.md` § 5 (vocabulary) and § 8
+ * See `docs/PER_WINDOW_OR_TAB_VIEW_STATE_DESIGN.md` § 5 (vocabulary) and § 8
  * (storage shape). The hook is generic over the surface's snapshot
  * type; v1 ships with `WorkbenchViewState` / `PanelViewState` thin
  * wrappers around `ToolLayoutState`.

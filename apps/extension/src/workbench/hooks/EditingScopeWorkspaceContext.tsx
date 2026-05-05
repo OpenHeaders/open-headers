@@ -9,7 +9,7 @@
  * provider — the consumer hook falls back to `useActiveWorkspaceId()`,
  * preserving the system-scoped read for browser-global UI.
  *
- * See `MULTI_WORKSPACE_PER_TAB_DESIGN.md` § 5.2 + § 6.2.
+ * See `MULTI_WORKSPACE_PER_WINDOW_OR_TAB_DESIGN.md` § 5.2 + § 6.2.
  */
 
 import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';

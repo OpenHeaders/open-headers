@@ -1,7 +1,7 @@
 /**
  * Mount-time fast-path reads of oracle-owned identity, wrapped so the
  * lint test (KNOWN_BOOT_COUPLING_READS, see
- * `MULTI_WORKSPACE_PER_TAB_DESIGN.md` § 9.1) has a single import target
+ * `MULTI_WORKSPACE_PER_WINDOW_OR_TAB_DESIGN.md` § 9.1) has a single import target
  * to enumerate.
  *
  * The renderer-projection rule is: post-boot reads of oracle-owned

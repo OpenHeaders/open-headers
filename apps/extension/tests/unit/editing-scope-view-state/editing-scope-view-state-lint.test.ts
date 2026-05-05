@@ -3,7 +3,7 @@
  * convention violations without requiring custom Biome plugin support.
  *
  * Three rules, mapping to bug-class predictions in
- * `docs/PER_TAB_VIEW_STATE_DESIGN.md` § 16:
+ * `docs/PER_WINDOW_OR_TAB_VIEW_STATE_DESIGN.md` § 16:
  *
  *   1. **Publisher gates on the claim predicate (BC-V1).** The
  *      donor-record publish path inside `use-editing-scope-view-state.ts` must

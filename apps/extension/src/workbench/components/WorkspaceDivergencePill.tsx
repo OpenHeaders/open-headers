@@ -20,7 +20,7 @@
  * Composable with `FooterDonorPill` — same surface, same shape, no
  * coupling between the two.
  *
- * See `MULTI_WORKSPACE_PER_TAB_DESIGN.md` § 7.
+ * See `MULTI_WORKSPACE_PER_WINDOW_OR_TAB_DESIGN.md` § 7.
  */
 
 import { ApartmentOutlined, LinkOutlined } from '@ant-design/icons';
