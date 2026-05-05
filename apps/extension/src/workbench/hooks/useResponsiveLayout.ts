@@ -133,11 +133,10 @@ function computeSizes(vw: number, vh: number, persisted: PersistedLayout | null)
 /**
  * Per-workspace panel ratios. The `workspaceId` argument is the
  * editing-scope workspace — global default in global mode, the tab's
- * slice binding in per-tab mode (BC-MWPT-10). Pre-MWPT this hook read
- * `OH.activeWorkspaceId` directly + subscribed to `workspaceChanged`;
- * routing through the prop turns it into a single-source-of-truth
- * consumer of the seam, which makes diverged tabs use the diverged
- * workspace's saved ratios.
+ * slice binding in per-tab mode (BC-MWPT-10). Routing through the prop
+ * turns this hook into a single-source-of-truth consumer of the per-tab
+ * seam, which makes diverged tabs use the diverged workspace's saved
+ * ratios instead of always loading the global default's.
  */
 export function useResponsiveLayout(workspaceId: string | null): ResponsiveLayout {
   const [persisted, setPersisted] = useState<PersistedLayout | null>(null);

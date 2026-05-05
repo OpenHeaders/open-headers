@@ -30,6 +30,7 @@ const SLICE_OWNER = join(WORKBENCH_ROOT, 'hooks', 'useWorkbenchWorkspaceSlice.ts
 const APP_TSX = join(WORKBENCH_ROOT, 'App.tsx');
 const SEAM_FILE = join(WORKBENCH_ROOT, 'hooks', 'useTabWorkspaceId.ts');
 const BOOT_UTIL_FILE = join(WORKBENCH_ROOT, 'hooks', 'readBootIdentity.ts');
+const RESPONSIVE_LAYOUT = join(WORKBENCH_ROOT, 'hooks', 'useResponsiveLayout.ts');
 
 /**
  * Files under `src/workbench/` that are still permitted to import
@@ -142,5 +143,44 @@ describe('multi-workspace-per-tab lint', () => {
   it('the seam file exists and exports useTabWorkspaceId', () => {
     const text = readFileSync(SEAM_FILE, 'utf8');
     expect(text).toMatch(/export function useTabWorkspaceId/);
+  });
+
+  it('BC-MWPT-5 — RuleProvider mount in App.tsx threads activeWorkspaceIdOverride from the tab seam', () => {
+    // The workbench surface mounts `<RuleProvider>` with the per-tab
+    // workspace id as the override. Mutator-options builders consume
+    // `useRules().activeWorkspaceId`, which mirrors the override —
+    // diverged tab edits land in `wsKeys(tabWorkspace).rules`, not
+    // `wsKeys(globalDefault).rules`. The sibling popup / sidepanel
+    // RuleProvider mounts NEVER pass the override.
+    const text = readFileSync(APP_TSX, 'utf8');
+    expect(text).toMatch(
+      /<RuleProvider\s+surfaceId=["']workbench["']\s+activeWorkspaceIdOverride=\{tabWorkspaceId\}/,
+    );
+  });
+
+  it('BC-MWPT-10 — useResponsiveLayout takes a workspaceId argument and does not read the global oracle', () => {
+    const text = readFileSync(RESPONSIVE_LAYOUT, 'utf8');
+    // Signature accepts the editing-scope workspace id from the caller.
+    expect(text).toMatch(/export function useResponsiveLayout\(\s*workspaceId:\s*string\s*\|\s*null\s*\)/);
+    // No raw `OH.activeWorkspaceId` read — the hook stops being a
+    // KNOWN_BOOT_COUPLING_READS site post-MWPT.
+    expect(text).not.toMatch(/OH\.activeWorkspaceId/);
+    // No standalone `workspaceChanged` subscription either; the prop
+    // change drives the rebind.
+    expect(text).not.toMatch(/subscribe\(\s*['"]workspaceChanged['"]/);
+  });
+
+  it('BC-MWPT-11 — SurfaceAwarenessPublisher mount in App.tsx publishes the tab workspace id', () => {
+    // Awareness is editing-scope (design § 4.1 v1.1 commitment): peers
+    // see what the user is *editing* in this tab, not the tab's host
+    // browser default. The lint pins the prop wiring; the publisher
+    // itself receives `workspaceId` and forwards it opaquely to
+    // `useAwareness`, so mount-site verification is the right axis.
+    const text = readFileSync(APP_TSX, 'utf8');
+    const idx = text.indexOf('<SurfaceAwarenessPublisher');
+    expect(idx).toBeGreaterThan(-1);
+    const block = text.slice(idx, idx + 600);
+    expect(block).toMatch(/workspaceId=\{tabWorkspaceId\}/);
+    expect(block).not.toMatch(/workspaceId=\{workspacesApi\.activeWorkspaceId\}/);
   });
 });
