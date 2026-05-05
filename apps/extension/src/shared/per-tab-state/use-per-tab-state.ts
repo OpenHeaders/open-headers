@@ -26,7 +26,7 @@ import type { DonorRecord, PerTabStateApi, UsePerTabStateOptions } from './types
 const PUBLISH_DEBOUNCE_MS = 500;
 
 export function usePerTabState<T>(opts: UsePerTabStateOptions<T>): PerTabStateApi<T> {
-  const { surface, schemaVersion, factoryDefault, normalize } = opts;
+  const { surface, schemaVersion, factoryDefault, normalize, resolveSnapshot } = opts;
 
   // Snapshot of the synchronous sessionStorage read. Captured once on
   // first render so the initial `useState` and the donor-record async
@@ -43,8 +43,15 @@ export function usePerTabState<T>(opts: UsePerTabStateOptions<T>): PerTabStateAp
     return normalize ? normalize(sessionSnap.snapshot) : sessionSnap.snapshot;
   }, [sessionSnap, normalize]);
 
+  // When a workspace-aware `resolveSnapshot` is provided, every load
+  // path is async (resolver hits storage to read the active workspace
+  // id), so the ready gate stays closed until the resolver returns —
+  // even when sessionStorage hits. Without the resolver, the sync
+  // sessionStorage path keeps its v1 fast-init behaviour.
+  const hasResolver = resolveSnapshot !== undefined;
+
   const [snapshot, setSnapshot] = useState<T>(initialFromSession ?? factoryDefault);
-  const [ready, setReady] = useState<boolean>(initialFromSession !== null);
+  const [ready, setReady] = useState<boolean>(!hasResolver && initialFromSession !== null);
   const [isDonor, setIsDonor] = useState<boolean>(false);
 
   // Live ref so `onPersist` always sees the freshest snapshot — the
@@ -52,35 +59,41 @@ export function usePerTabState<T>(opts: UsePerTabStateOptions<T>): PerTabStateAp
   const snapshotRef = useRef<T>(snapshot);
   snapshotRef.current = snapshot;
 
-  // ── Async donor-record load on cold start ───────────────────────
+  // ── Async load + workspace-aware resolution ─────────────────────
+  // Single effect handles three load paths (sessionStorage hit / donor
+  // record / factoryDefault) and pipes each through the optional async
+  // resolver. The `cancelled` guard absorbs unmount during the await.
   useEffect(() => {
-    if (initialFromSession !== null) {
-      // sessionStorage already provided the snapshot; no donor-load needed.
-      // We still ensure the envelope is written (handles the edge case of
-      // sessionStorage being readable but the JSON we re-emit being slightly
-      // different post-normalize).
-      writePerTabState(surface, schemaVersion, tabUidRef.current, snapshotRef.current);
-      return;
-    }
     let cancelled = false;
-    void readDonorRecord<T>(surface, schemaVersion).then((rec) => {
-      if (cancelled) return;
-      if (rec) {
-        const next = normalize ? normalize(rec.snapshot) : rec.snapshot;
-        snapshotRef.current = next;
-        setSnapshot(next);
-        writePerTabState(surface, schemaVersion, tabUidRef.current, next);
+
+    async function loadAndResolve() {
+      let raw: T;
+      if (initialFromSession !== null) {
+        raw = initialFromSession;
       } else {
-        // Cold start with no donor — seed sessionStorage with factory
-        // default so subsequent reloads survive.
-        writePerTabState(surface, schemaVersion, tabUidRef.current, snapshotRef.current);
+        const rec = await readDonorRecord<T>(surface, schemaVersion);
+        if (cancelled) return;
+        if (rec) {
+          raw = normalize ? normalize(rec.snapshot) : rec.snapshot;
+        } else {
+          raw = snapshotRef.current; // factoryDefault from useState init
+        }
       }
+
+      const resolved = resolveSnapshot ? await resolveSnapshot(raw) : raw;
+      if (cancelled) return;
+
+      snapshotRef.current = resolved;
+      setSnapshot(resolved);
+      writePerTabState(surface, schemaVersion, tabUidRef.current, resolved);
       setReady(true);
-    });
+    }
+
+    void loadAndResolve();
     return () => {
       cancelled = true;
     };
-  }, [initialFromSession, surface, schemaVersion, normalize]);
+  }, [initialFromSession, surface, schemaVersion, normalize, resolveSnapshot]);
 
   // ── Donor election: publish helper (BC-V1 guard) ────────────────
   const publishDonor = useCallback(

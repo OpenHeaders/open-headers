@@ -366,7 +366,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   }, [requestsApi.requests, requestsApi.collections, variableResolver]);
 
   // ── Editor groups (recursive split tree) ──────────────────────
-  const groups = useEditorGroups();
+  const groups = useEditorGroups({ perTab });
   const {
     activeTabId,
     allTabs,

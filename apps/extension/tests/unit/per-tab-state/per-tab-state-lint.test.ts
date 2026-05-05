@@ -90,6 +90,37 @@ describe('per-tab-state lint', () => {
     expect(source).toMatch(/usePerTabState</);
   });
 
+  it('BC-V21-1 + BC-V21-3: workbench wires createWorkspaceAwareResolver with fallThrough builder', () => {
+    const source = readFile('workbench/hooks/useToolLayout.ts');
+    expect(source).toMatch(/createWorkspaceAwareResolver</);
+    expect(source).toMatch(/fallThrough\s*:/);
+    // Fall-through reads `wsKeys(workspaceId).tabSession` — the
+    // workspaceId argument MUST come from the resolver, not a closed-
+    // over variable (BC-V21-3 — wrong-workspace fall-through).
+    expect(source).toMatch(/wsKeys\(\s*workspaceId\s*\)\.tabSession/);
+  });
+
+  it('BC-V21-4: WorkbenchViewState carries a workspace slice with workspaceId', () => {
+    const source = readFile('workbench/hooks/useToolLayout.ts');
+    // Slice shape: workspace: WorkspaceSlice<WorkbenchWorkspaceData> | null
+    expect(source).toMatch(/workspace\s*:\s*WorkspaceSlice<WorkbenchWorkspaceData>\s*\|\s*null/);
+  });
+
+  it('BC-V21-6: useEditorGroups shadow-write reads workspaceId at fire time, not closed over', () => {
+    const source = readFile('workbench/hooks/useEditorGroups.ts');
+    // The shadow write site reads `activeWorkspaceIdRef.current` (or
+    // similar fire-time read) inside the timer callback — not from a
+    // captured closure variable.
+    expect(source).toMatch(/activeWorkspaceIdRef\.current/);
+    expect(source).toMatch(/wsKeys\(\s*workspaceId\s*\)\.tabSession/);
+  });
+
+  it('BC-V21-3: useEditorGroups workspaceChanged handler routes via the new workspace id', () => {
+    const source = readFile('workbench/hooks/useEditorGroups.ts');
+    expect(source).toMatch(/workspaceChanged/);
+    expect(source).toMatch(/readWorkspaceFallThroughTabSession\s*\(\s*nextId\s*\)/);
+  });
+
   it('usePanelToolLayout takes a PerTabStateApi<PanelViewState> argument', () => {
     const source = readFile('panel/data/use-panel-tool-layout.ts');
     expect(source).toMatch(/PerTabStateApi<PanelViewState>/);

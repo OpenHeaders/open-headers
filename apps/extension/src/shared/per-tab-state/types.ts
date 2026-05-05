@@ -30,6 +30,14 @@ export interface UsePerTabStateOptions<T> {
   factoryDefault: T;
   /** Optional normalizer — drops orphan ids etc. Run on every load. */
   normalize?: (raw: T) => T;
+  /**
+   * Optional async resolver — runs on every loaded snapshot
+   * (sessionStorage, donor record, factoryDefault) AFTER `normalize`,
+   * BEFORE exposing through `initial`. Use this to drop or replace
+   * workspace-scoped fields whose stored workspace doesn't match the
+   * current workspace. See `workspace-aware-loader.ts`.
+   */
+  resolveSnapshot?: (raw: T) => Promise<T>;
 }
 
 export interface PerTabStateApi<T> {

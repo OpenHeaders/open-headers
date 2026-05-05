@@ -201,6 +201,83 @@ describe('usePerTabState', () => {
     }
   });
 
+  it('BC-V21: resolveSnapshot rebuilds workspace slice on cross-workspace inheritance', async () => {
+    interface WS {
+      dockLayout: { foo: string };
+      workspace: { workspaceId: string; data: { editorTabs: { tabs: string[]; activeTabId: string | null } } } | null;
+    }
+    const factory: WS = { dockLayout: { foo: 'factory' }, workspace: null };
+    // Donor was captured in workspace 'other'.
+    mockGet.mockResolvedValueOnce({
+      donorTabUid: 'donor-tab',
+      schemaVersion: 1,
+      publishedAt: 0,
+      snapshot: {
+        dockLayout: { foo: 'inherited' },
+        workspace: { workspaceId: 'other', data: { editorTabs: { tabs: ['leak-from-other'], activeTabId: 'leak' } } },
+      } satisfies WS,
+    });
+    const fallThrough = vi.fn(async (id: string) => ({ editorTabs: { tabs: [`from-${id}`], activeTabId: `from-${id}` } }));
+    const resolveSnapshot = async (raw: WS): Promise<WS> => {
+      const activeId = 'active';
+      if (raw.workspace?.workspaceId === activeId) return raw;
+      const data = await fallThrough(activeId);
+      return { ...raw, workspace: { workspaceId: activeId, data } };
+    };
+    const hook = renderHook(() =>
+      usePerTabState<WS>({
+        surface: 'workbench',
+        schemaVersion: 1,
+        factoryDefault: factory,
+        resolveSnapshot,
+      }),
+    );
+    await waitFor(() => expect(hook.result.current.ready).toBe(true));
+    // Donor's dockLayout (universal field) is inherited.
+    expect(hook.result.current.initial.dockLayout).toEqual({ foo: 'inherited' });
+    // Foreign workspace slice was REPLACED — not inherited.
+    expect(hook.result.current.initial.workspace).toEqual({
+      workspaceId: 'active',
+      data: { editorTabs: { tabs: ['from-active'], activeTabId: 'from-active' } },
+    });
+    expect(fallThrough).toHaveBeenCalledWith('active');
+  });
+
+  it('BC-V21: resolveSnapshot keeps slice when donor workspaceId matches active', async () => {
+    interface WS {
+      dockLayout: { foo: string };
+      workspace: { workspaceId: string; data: { editorTabs: { tabs: string[]; activeTabId: string | null } } } | null;
+    }
+    const factory: WS = { dockLayout: { foo: 'factory' }, workspace: null };
+    mockGet.mockResolvedValueOnce({
+      donorTabUid: 'donor-tab',
+      schemaVersion: 1,
+      publishedAt: 0,
+      snapshot: {
+        dockLayout: { foo: 'd' },
+        workspace: { workspaceId: 'active', data: { editorTabs: { tabs: ['preserved'], activeTabId: 'preserved' } } },
+      } satisfies WS,
+    });
+    const fallThrough = vi.fn(async () => ({ editorTabs: { tabs: ['SHOULD-NOT-BE-USED'], activeTabId: null } }));
+    const resolveSnapshot = async (raw: WS): Promise<WS> => {
+      const activeId = 'active';
+      if (raw.workspace?.workspaceId === activeId) return raw;
+      const data = await fallThrough();
+      return { ...raw, workspace: { workspaceId: activeId, data } };
+    };
+    const hook = renderHook(() =>
+      usePerTabState<WS>({
+        surface: 'workbench',
+        schemaVersion: 1,
+        factoryDefault: factory,
+        resolveSnapshot,
+      }),
+    );
+    await waitFor(() => expect(hook.result.current.ready).toBe(true));
+    expect(hook.result.current.initial.workspace?.data.editorTabs.tabs).toEqual(['preserved']);
+    expect(fallThrough).not.toHaveBeenCalled();
+  });
+
   it('resetToDefaults clears donor record and reloads the page', async () => {
     sessionStorage.setItem(
       'oh.viewState.workbench',

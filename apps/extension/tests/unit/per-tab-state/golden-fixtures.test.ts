@@ -39,7 +39,7 @@ import type { SurfaceType } from '@/shared/per-tab-state/types';
 const FIXTURE_ROOT = path.resolve(__dirname, '../../__fixtures__/per-tab-state');
 
 const CURRENT_VERSION_BY_SURFACE: Record<SurfaceType, number> = {
-  workbench: 1,
+  workbench: 2,
   panel: 1,
 };
 

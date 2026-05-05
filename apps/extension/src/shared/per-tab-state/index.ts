@@ -7,3 +7,4 @@ export type {
   UsePerTabStateOptions,
 } from './types';
 export { usePerTabState } from './use-per-tab-state';
+export { createWorkspaceAwareResolver, type WorkspaceAwareConfig, type WorkspaceSlice } from './workspace-aware-loader';
