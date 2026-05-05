@@ -105,12 +105,14 @@ import { useSaveRequestFlow } from './hooks/useSaveRequestFlow';
 import { useTabLifecycle } from './hooks/useTabLifecycle';
 import { useTabOpeners } from './hooks/useTabOpeners';
 import { useTabSyncEffects } from './hooks/useTabSyncEffects';
+import { TabWorkspaceProvider } from './hooks/TabWorkspaceContext';
 import {
   readWorkspaceFallThrough,
   useToolLayout,
   useWorkbenchPerTabState,
   type WorkbenchViewState,
 } from './hooks/useToolLayout';
+import { useTabWorkspaceId } from './hooks/useTabWorkspaceId';
 import { useWorkbenchSidebarState } from './hooks/useWorkbenchSidebarState';
 import { useWorkbenchWorkspaceSlice } from './hooks/useWorkbenchWorkspaceSlice';
 import { useWorkspaceIntentRouter } from './hooks/useWorkspaceIntentRouter';
@@ -376,6 +378,9 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // Single subscriber for workspaceChanged → emits new slice atomically.
   // Sub-hooks below re-derive from the slice; they do NOT subscribe.
   useWorkbenchWorkspaceSlice(perTab);
+  // Editing-scope workspace id — equals global default in global mode,
+  // tab's slice binding in per-tab mode (MWPT § 6.2).
+  const tabWorkspaceId = useTabWorkspaceId(perTab);
   // ── Editor groups (recursive split tree) ──────────────────────
   const groups = useEditorGroups({ perTab });
   // ── Sidebar tree-expansion state (lifted into the per-tab snapshot) ─
@@ -1809,6 +1814,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   );
 
   return (
+    <TabWorkspaceProvider workspaceId={tabWorkspaceId}>
     <EnvSwitcherProvider collectionContext={envSwitcherCollectionContext}>
       <VariablePopoverProvider>
         <ActiveTabEntityWriter value={activeTabEntity} />
@@ -2142,6 +2148,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         </div>
       </VariablePopoverProvider>
     </EnvSwitcherProvider>
+    </TabWorkspaceProvider>
   );
 };
 

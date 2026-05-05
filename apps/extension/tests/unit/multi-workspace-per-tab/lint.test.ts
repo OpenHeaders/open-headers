@@ -40,8 +40,9 @@ const BOOT_UTIL_FILE = join(WORKBENCH_ROOT, 'hooks', 'readBootIdentity.ts');
 const BC_MWPT_3_ALLOWLIST: readonly string[] = [
   // The seam itself reads the global active id as the global-mode return value.
   'hooks/useTabWorkspaceId.ts',
-  // Pending migration — design § 5.1.
-  'components/EnvironmentEditor.tsx',
+  // The TabWorkspaceContext consumer hook falls back to the global read
+  // for surfaces that don't mount the provider (popup, side-panel, panel).
+  'hooks/TabWorkspaceContext.tsx',
 ];
 
 /**
