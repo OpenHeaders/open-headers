@@ -60,27 +60,42 @@ export function useEditingScopeViewState<T>(opts: UseEditingScopeViewStateOption
   snapshotRef.current = snapshot;
 
   // ── Async load + workspace-aware resolution ─────────────────────
-  // Single effect handles three load paths (sessionStorage hit / donor
-  // record / factoryDefault) and pipes each through the optional async
-  // resolver. The `cancelled` guard absorbs unmount during the await.
+  // ONE-SHOT mount-time effect. Three load paths (sessionStorage hit /
+  // donor record / factoryDefault) piped through the optional async
+  // resolver. After this resolves, `onPersist` is the single writer to
+  // `snapshot` — re-running the resolver on later renders would
+  // re-read the frozen mount-time sessionStorage snapshot and overwrite
+  // any post-mount onPersist updates (visible in MWPT per-window-or-tab
+  // mode as a "flash then revert" when the user switches the slice).
+  // We capture the surface inputs in refs and gate the effect on a
+  // single-fire ref so re-renders never re-load.
+  const didResolveRef = useRef(false);
+  const initialFromSessionRef = useRef(initialFromSession);
+  const normalizeRef = useRef(normalize);
+  const resolveSnapshotRef = useRef(resolveSnapshot);
   useEffect(() => {
+    if (didResolveRef.current) return;
+    didResolveRef.current = true;
     let cancelled = false;
 
     async function loadAndResolve() {
       let raw: T;
-      if (initialFromSession !== null) {
-        raw = initialFromSession;
+      const initial = initialFromSessionRef.current;
+      const normalizeFn = normalizeRef.current;
+      const resolveFn = resolveSnapshotRef.current;
+      if (initial !== null) {
+        raw = initial;
       } else {
         const rec = await readDonorRecord<T>(surface, schemaVersion);
         if (cancelled) return;
         if (rec) {
-          raw = normalize ? normalize(rec.snapshot) : rec.snapshot;
+          raw = normalizeFn ? normalizeFn(rec.snapshot) : rec.snapshot;
         } else {
           raw = snapshotRef.current; // factoryDefault from useState init
         }
       }
 
-      const resolved = resolveSnapshot ? await resolveSnapshot(raw) : raw;
+      const resolved = resolveFn ? await resolveFn(raw) : raw;
       if (cancelled) return;
 
       snapshotRef.current = resolved;
@@ -93,7 +108,7 @@ export function useEditingScopeViewState<T>(opts: UseEditingScopeViewStateOption
     return () => {
       cancelled = true;
     };
-  }, [initialFromSession, surface, schemaVersion, normalize, resolveSnapshot]);
+  }, [surface, schemaVersion]);
 
   // ── Donor election: publish helper (BC-V1 guard) ────────────────
   const publishDonor = useCallback(

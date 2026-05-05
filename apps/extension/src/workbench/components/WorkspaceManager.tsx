@@ -32,9 +32,22 @@ const { Title, Text } = Typography;
 
 interface WorkspaceManagerProps {
   api: UseWorkspacesApi;
+  /**
+   * Editing-scope workspace id — what the active surface considers
+   * "active" right now. In global mode this equals the oracle's active
+   * workspace id; in per-window-or-tab mode it's the surface's bound
+   * workspace, which may differ from the oracle.
+   */
+  activeWorkspaceId: string | null;
+  /**
+   * Mode-aware switch gesture. In global mode it writes the oracle; in
+   * per-window-or-tab mode it writes only the surface's slice. Sourced
+   * from the App-level handler so the dirty-draft confirmation runs.
+   */
+  onSwitch: (id: string) => void;
 }
 
-const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api }) => {
+const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspaceId, onSwitch }) => {
   const { token } = theme.useToken();
   const { message, modal } = AntApp.useApp();
   const [createOpen, setCreateOpen] = useState(false);
@@ -107,12 +120,12 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api }) => {
               <SortableRow
                 key={w.id}
                 workspace={w}
-                isActive={w.id === api.activeWorkspaceId}
+                isActive={w.id === activeWorkspaceId}
                 canDelete={canDelete}
                 onEdit={() => setEditTarget(w)}
                 onDelete={() => handleDelete(w)}
                 onDuplicate={() => void handleDuplicate(w)}
-                onSwitch={() => void api.setActiveWorkspace(w.id)}
+                onSwitch={() => onSwitch(w.id)}
                 onIdentityChange={(identity) => {
                   // Coerce undefined icon → null so the backend's
                   // "clear" path runs instead of "leave unchanged".

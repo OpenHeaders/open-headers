@@ -1,14 +1,13 @@
 /**
  * WorkspaceSwitcher — TopBar dropdown for switching the active workspace,
  * surfacing the workspace-switch-scope mode inline (global vs
- * per-window-or-tab). The mode indicator + settings popover replaces the
- * old footer divergence pill.
+ * per-window-or-tab). Layout mirrors `EnvironmentSelector`: first row is
+ * search + mode label + settings icon, then the workspace list, then the
+ * footer actions (export / import / manage).
  *
  * Divergence (editing-scope ≠ global default in per-window-or-tab mode)
  * is surfaced by a DEFAULT badge on the global default's row; the active
- * editing-scope workspace carries the checkmark. Clicking the default's
- * row in per-window-or-tab mode re-binds this surface to the default;
- * the tab-only-affecting nature of the click is implicit in the mode.
+ * editing-scope workspace carries the checkmark.
  */
 
 import {
@@ -20,9 +19,10 @@ import {
 } from '@ant-design/icons';
 import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
 import type { V5 } from '@openheaders/core/types';
-import { Button, Divider, Dropdown, Popover, Radio, Space, Tooltip, Typography, theme } from 'antd';
+import type { InputRef } from 'antd';
+import { Button, Divider, Dropdown, Input, Popover, Radio, Space, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { instanceLabel, instanceLabelPlural } from '@/shared/host-vocabulary';
 import { useSetting } from '../settings/hooks';
 import { renderWorkspacePrefix } from './workspace-prefix';
@@ -49,17 +49,22 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
 }) => {
   const { token } = theme.useToken();
   const [open, setOpen] = useState(false);
+  const [searchText, setSearchText] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const searchRef = useRef<InputRef>(null);
   const [mode, setMode] = useSetting('general.workspaceSwitchScope');
   // Global-default id read directly: the switcher is the per-tab seam's
   // sibling — the divergence rendering is the whole reason it knows the
-  // default. (BC-MWPT-3 allowlist entry mirrors what WorkspaceDivergencePill
-  // used to need.)
+  // default. (BC-MWPT-3 allowlist entry covers this read.)
   const globalDefaultId = useActiveWorkspaceId();
 
   const active = workspaces.find((w) => w.id === activeWorkspaceId) ?? null;
-  const isPerWindowOrTab = mode === 'per-window-or-tab';
-  const isDiverged = isPerWindowOrTab && !!activeWorkspaceId && !!globalDefaultId && activeWorkspaceId !== globalDefaultId;
+
+  const filtered = useMemo(() => {
+    const q = searchText.toLowerCase().trim();
+    if (!q) return workspaces;
+    return workspaces.filter((w) => w.name.toLowerCase().includes(q));
+  }, [workspaces, searchText]);
 
   const rowStyle: React.CSSProperties = {
     display: 'flex',
@@ -71,7 +76,12 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
     minWidth: 240,
   };
 
-  const handleClose = (): void => setOpen(false);
+  const handleClose = (): void => {
+    setOpen(false);
+    setSearchText('');
+  };
+
+  const modeLabel = mode === 'global' ? 'Global' : `Per ${instanceLabel()}`;
 
   const dropdownContent = (
     <div
@@ -80,69 +90,24 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
         borderRadius: token.borderRadiusLG,
         boxShadow: token.boxShadowSecondary,
         padding: '6px 4px',
-        minWidth: 280,
+        minWidth: 320,
+        maxWidth: 460,
       }}
       onClick={(e) => e.stopPropagation()}
     >
-      {workspaces.map((w) => {
-        const isActive = w.id === activeWorkspaceId;
-        const isDefault = w.id === globalDefaultId;
-        return (
-          <div
-            key={w.id}
-            role="menuitem"
-            className="oh-env-row"
-            style={rowStyle}
-            onClick={() => {
-              if (!isActive) onSwitch(w.id);
-              handleClose();
-            }}
-          >
-            <span style={{ width: 14, flexShrink: 0 }}>
-              {isActive && <CheckOutlined style={{ fontSize: 12, color: token.colorPrimary }} />}
-            </span>
-            {renderWorkspacePrefix({ icon: w.icon, color: w.color }, token, { size: 16 })}
-            <Text style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13 }}>
-              {w.name}
-            </Text>
-            {isDefault && isPerWindowOrTab && (
-              <Tooltip
-                title={`Default workspace — used by the popup, side-panel, and network rules. Other ${instanceLabelPlural()} can edit a different workspace.`}
-                placement="top"
-              >
-                <Text
-                  style={{
-                    fontSize: 10,
-                    color: token.colorTextTertiary,
-                    flexShrink: 0,
-                    cursor: 'help',
-                  }}
-                >
-                  DEFAULT
-                </Text>
-              </Tooltip>
-            )}
-          </div>
-        );
-      })}
-
-      <Divider style={{ margin: '4px 0' }} />
-
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 4,
-          padding: '4px 8px',
-        }}
-      >
-        <Text type="secondary" style={{ fontSize: 11, flex: 1, userSelect: 'none' }}>
-          Mode: {mode === 'global' ? 'Global' : `Per ${instanceLabel()}`}
-          {isDiverged && (
-            <Text type="warning" style={{ fontSize: 11, marginLeft: 6 }}>
-              · diverged
-            </Text>
-          )}
+      <div style={{ padding: '0 4px 6px', display: 'flex', alignItems: 'center', gap: 4 }}>
+        <Input
+          ref={searchRef}
+          size="small"
+          placeholder="Search workspaces…"
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          allowClear
+          style={{ fontSize: 12, flex: 1 }}
+          autoFocus
+        />
+        <Text type="secondary" style={{ fontSize: 11, userSelect: 'none' }}>
+          Mode: {modeLabel}
         </Text>
         <Popover
           open={settingsOpen}
@@ -218,6 +183,50 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
         </Popover>
       </div>
 
+      {filtered.length > 0 && <Divider style={{ margin: '4px 0' }} />}
+
+      {filtered.map((w) => {
+        const isActive = w.id === activeWorkspaceId;
+        const isDefault = w.id === globalDefaultId;
+        return (
+          <div
+            key={w.id}
+            role="menuitem"
+            className="oh-env-row"
+            style={rowStyle}
+            onClick={() => {
+              if (!isActive) onSwitch(w.id);
+              handleClose();
+            }}
+          >
+            <span style={{ width: 14, flexShrink: 0 }}>
+              {isActive && <CheckOutlined style={{ fontSize: 12, color: token.colorPrimary }} />}
+            </span>
+            {renderWorkspacePrefix({ icon: w.icon, color: w.color }, token, { size: 16 })}
+            <Text style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13 }}>
+              {w.name}
+            </Text>
+            {isDefault && mode === 'per-window-or-tab' && (
+              <Tooltip
+                title={`Default workspace — used by the popup, side-panel, and network rules. Other ${instanceLabelPlural()} can edit a different workspace.`}
+                placement="top"
+              >
+                <Text
+                  style={{
+                    fontSize: 10,
+                    color: token.colorTextTertiary,
+                    flexShrink: 0,
+                    cursor: 'help',
+                  }}
+                >
+                  DEFAULT
+                </Text>
+              </Tooltip>
+            )}
+          </div>
+        );
+      })}
+
       <Divider style={{ margin: '4px 0' }} />
 
       <div
@@ -264,7 +273,10 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
   return (
     <Dropdown
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setSearchText('');
+      }}
       popupRender={() => dropdownContent}
       trigger={['click']}
       placement="bottomLeft"

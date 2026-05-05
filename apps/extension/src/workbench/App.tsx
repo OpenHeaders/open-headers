@@ -1496,7 +1496,13 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         );
       }
       if (tab.mode === 'workspace-manager') {
-        return <WorkspaceManager api={workspacesApi} />;
+        return (
+          <WorkspaceManager
+            api={workspacesApi}
+            activeWorkspaceId={editingScopeWorkspaceId}
+            onSwitch={handleSwitchWorkspace}
+          />
+        );
       }
       if (tab.mode === 'env-edit' && tab.environmentUid) {
         return (
