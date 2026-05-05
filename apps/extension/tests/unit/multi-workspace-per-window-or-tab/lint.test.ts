@@ -34,9 +34,6 @@ const RESPONSIVE_LAYOUT = join(WORKBENCH_ROOT, 'hooks', 'useResponsiveLayout.ts'
 const PEER_NAVIGATE = join(REPO_ROOT, 'src', 'shared', 'awareness', 'peer-navigate.ts');
 const RULE_CONTEXT = join(REPO_ROOT, 'src', 'context', 'RuleContext.tsx');
 const TREE_BUILDER = join(REPO_ROOT, 'src', 'shared', 'local-tree-builder.ts');
-const ENVIRONMENT_CONTEXT = join(REPO_ROOT, 'src', 'context', 'EnvironmentContext.tsx');
-const POPUP_APP_TSX = join(REPO_ROOT, 'src', 'popup', 'App.tsx');
-const PANEL_APP_TSX = join(REPO_ROOT, 'src', 'panel', 'App.tsx');
 
 /**
  * Files under `src/workbench/` that are still permitted to import
@@ -244,84 +241,6 @@ describe('multi-workspace-per-tab lint', () => {
     expect(text).toMatch(
       /const unsubTemplates = isOverridden\s*\?\s*\(\)\s*=>\s*undefined\s*:\s*subscribe\(\s*'templatesUpdated'/,
     );
-  });
-
-  // ── MWPT-FULL session #1 (environments) ─────────────────────────
-
-  it('BC-MWPT-FULL-1 (env) — workbench App.tsx mounts EnvironmentProvider with activeWorkspaceIdOverride from the seam', () => {
-    const text = readFileSync(APP_TSX, 'utf8');
-    expect(text).toMatch(
-      /<EnvironmentProvider\s+surfaceId=["']workbench["']\s+activeWorkspaceIdOverride=\{editingScopeWorkspaceId\}/,
-    );
-  });
-
-  it('BC-MWPT-FULL-2 (env) — EnvironmentContext non-override branch is the ONLY one that subscribes to environmentsChanged', () => {
-    // The bridge broadcast carries global-default data; consuming it
-    // in override mode would re-corrupt a diverged tab. Pattern parallel
-    // to RuleContext's BC-MWPT-5-READ short-circuit.
-    const text = readFileSync(ENVIRONMENT_CONTEXT, 'utf8');
-    const subIdx = text.indexOf("subscribe('environmentsChanged'");
-    expect(subIdx).toBeGreaterThan(-1);
-    // The subscription must live inside an effect that bails out on
-    // override mode. We assert by walking back from the subscribe call
-    // and finding the enclosing `if (isOverridden) return;` guard.
-    const upTo = text.slice(0, subIdx);
-    const guardIdx = upTo.lastIndexOf('if (isOverridden) return;');
-    const effectIdx = upTo.lastIndexOf('useEffect(');
-    expect(guardIdx).toBeGreaterThan(-1);
-    expect(effectIdx).toBeGreaterThan(-1);
-    expect(guardIdx).toBeGreaterThan(effectIdx);
-  });
-
-  it('BC-MWPT-FULL-3 (env) — EnvironmentContext routes override-mode mutations through env-write-client (not legacy SW handlers)', () => {
-    const text = readFileSync(ENVIRONMENT_CONTEXT, 'utf8');
-    // The override branch of every env-list mutator must reach for the
-    // Phase B write-client. Lint by import-presence — the file imports
-    // every per-workspace mutation entry point.
-    expect(text).toMatch(/applyEnvironmentCreate/);
-    expect(text).toMatch(/applyEnvironmentDelete/);
-    expect(text).toMatch(/applyRenameEnvironment/);
-    expect(text).toMatch(/applyEnvVariablesReplacement/);
-    expect(text).toMatch(/from '@\/shared\/sync\/env-write-client'/);
-  });
-
-  it('BC-MWPT-FULL-4 (env) — popup + devpanel surfaces mount EnvironmentProvider WITHOUT activeWorkspaceIdOverride', () => {
-    // System surfaces always read the global default. The override prop
-    // belongs to workbench surfaces only — passing it to a system
-    // surface would smuggle editing-scope state into runtime-scope code.
-    const popupText = readFileSync(POPUP_APP_TSX, 'utf8');
-    const panelText = readFileSync(PANEL_APP_TSX, 'utf8');
-    // EnvironmentProvider must be mounted but never with the override prop.
-    expect(popupText).toMatch(/<EnvironmentProvider\b/);
-    expect(panelText).toMatch(/<EnvironmentProvider\b/);
-    expect(popupText).not.toMatch(/<EnvironmentProvider[^>]*activeWorkspaceIdOverride/);
-    expect(panelText).not.toMatch(/<EnvironmentProvider[^>]*activeWorkspaceIdOverride/);
-  });
-
-  it('BC-MWPT-FULL-7 (env) — env-write-client call sites read workspaceId reactively (prop in callback deps)', () => {
-    // Each useCallback that fires a Phase B env mutation must list
-    // `activeWorkspaceIdOverride` in its dep array — otherwise a
-    // mode-flip mid-batch could write to a stale workspace id.
-    const text = readFileSync(ENVIRONMENT_CONTEXT, 'utf8');
-    const writeClientFns = [
-      'applyEnvironmentCreate',
-      'applyEnvironmentDelete',
-      'applyRenameEnvironment',
-      'applyEnvVariablesReplacement',
-    ] as const;
-    for (const fn of writeClientFns) {
-      // Locate the callback that calls this mutation, then walk to its
-      // closing `[...]` deps array and assert `activeWorkspaceIdOverride`
-      // is listed.
-      const callIdx = text.indexOf(`${fn}(`);
-      expect(callIdx).toBeGreaterThan(-1);
-      const tail = text.slice(callIdx);
-      // useCallback dep arrays end with `], deps)` close — match a
-      // bounded window so the assertion stays local to this callback.
-      const depsMatch = tail.match(/\},\s*\[([^\]]*)\]\s*,?\s*\)/);
-      expect(depsMatch).not.toBeNull();
-      expect(depsMatch?.[1] ?? '').toContain('activeWorkspaceIdOverride');
-    }
   });
 
   it('BC-MWPT-11 — SurfaceAwarenessPublisher mount in App.tsx publishes the tab workspace id', () => {

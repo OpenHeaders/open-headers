@@ -38,10 +38,8 @@ import {
   type EnvSyncMirror,
 } from '@/context/env-sync-mirror';
 import {
-  buildDeleteEnvironmentBatch,
   buildRemoveEnvVarBatch,
   buildRenameEnvironmentBatch,
-  buildSeedEnvironmentBatch,
   buildSetEnvVarBatch,
 } from '@/shared/sync/env-mutations';
 
@@ -91,26 +89,6 @@ export async function applyRenameEnvironment(
 ): Promise<EnvSimpleResult> {
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRenameEnvironmentBatch(input, ctx));
-}
-
-/**
- * Seed a brand-new environment in the workspace identified by
- * `opts.workspaceId`. Sync-engine routing handles per-workspace storage —
- * the SW cache + persistence land in `wsKeys(opts.workspaceId).envs`.
- * Mirrors `applyRuleCreate` in `rule-write-client.ts`.
- */
-export async function applyEnvironmentCreate(env: V5.Environment, opts: EnvWriteOptions): Promise<EnvSimpleResult> {
-  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applySyncPayload(buildSeedEnvironmentBatch(env, ctx));
-}
-
-/**
- * Tombstone an environment in the workspace identified by
- * `opts.workspaceId`. Mirrors `applyRuleDelete` in `rule-write-client.ts`.
- */
-export async function applyEnvironmentDelete(envId: string, opts: EnvWriteOptions): Promise<EnvSimpleResult> {
-  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
-  return applySyncPayload(buildDeleteEnvironmentBatch(envId, ctx));
 }
 
 /**

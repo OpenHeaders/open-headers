@@ -8,7 +8,6 @@
  * render-prop hooks for the editor body and tool-window content.
  */
 
-import { EnvironmentProvider } from '@context/EnvironmentContext';
 import { RuleProvider } from '@context/RuleContext';
 import { useTheme } from '@context/ThemeContext';
 import { useEnvironments } from '@hooks/useEnvironments';
@@ -309,11 +308,9 @@ const WorkbenchTabAware: React.FC<{ perTab: EditingScopeViewStateApi<WorkbenchVi
   return (
     <EditingScopeWorkspaceProvider workspaceId={editingScopeWorkspaceId}>
       <RuleProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
-        <EnvironmentProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
-          <InspectorNavProvider>
-            <WorkbenchShell layout={layout} perTab={perTab} />
-          </InspectorNavProvider>
-        </EnvironmentProvider>
+        <InspectorNavProvider>
+          <WorkbenchShell layout={layout} perTab={perTab} />
+        </InspectorNavProvider>
       </RuleProvider>
     </EditingScopeWorkspaceProvider>
   );

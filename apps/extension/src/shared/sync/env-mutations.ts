@@ -17,16 +17,12 @@
 import type { V5 } from '@openheaders/core/types';
 type Variable = V5.Variable;
 import {
-  ENVIRONMENT_ENTITY_TYPE,
-  mintBatch,
-  type MutationBody,
   type MutatorContext,
   type MutatorIntent,
   removeEnvVar,
   renameEnvironment,
   setEnvVar,
 } from '@openheaders/core/sync';
-import { seedEnvironment } from './env-projection';
 
 export type EnvMutationPayload = MutatorIntent;
 
@@ -61,24 +57,4 @@ export function buildRenameEnvironmentBatch(
   ctx: MutatorContext,
 ): EnvMutationPayload {
   return renameEnvironment(ctx, input);
-}
-
-/**
- * Seed a brand-new environment entity. Wraps `seedEnvironment` from the
- * projection module — emits a `create` body for the scalar shell plus
- * one `addToSet` per variable. All-or-nothing under the oracle's
- * per-entity lock. Mirrors `buildAddBatch` in `rule-mutations.ts`.
- */
-export function buildSeedEnvironmentBatch(env: V5.Environment, ctx: MutatorContext): EnvMutationPayload {
-  return { batch: seedEnvironment(env, ctx), sideEffects: [] };
-}
-
-/**
- * Tombstone an environment. Mirrors `buildDeleteBatch` in
- * `rule-mutations.ts`. Tombstones are permanent under §7.2 delete-wins;
- * variable-set members ride along under the entity-id deletion.
- */
-export function buildDeleteEnvironmentBatch(envId: string, ctx: MutatorContext): EnvMutationPayload {
-  const bodies: MutationBody[] = [{ kind: 'delete', type: ENVIRONMENT_ENTITY_TYPE, id: envId }];
-  return { batch: mintBatch(ctx, bodies), sideEffects: [] };
 }
