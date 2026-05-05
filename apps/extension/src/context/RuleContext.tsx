@@ -17,7 +17,8 @@ import { computePausedUids, resolvePauseState } from '@openheaders/core/utils';
 import { call, subscribe } from '@utils/bridge';
 import type React from 'react';
 import { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { extensionStorage, UI, wsKeys } from '@/shared/storage';
+import { buildLocalCollectionTrees, buildTemplateCollectionTrees } from '@/shared/local-tree-builder';
+import { extensionStorage, type PersistedLocalFolder, UI, wsKeys } from '@/shared/storage';
 import { applyPauseMarkersReplacement } from '@/shared/sync/pause-markers-write-client';
 import { applyRuleDelete, applyRuleUpdate } from '@/shared/sync/rule-write-client';
 
@@ -223,17 +224,104 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
 
   // ── Load active workspace snapshot ────────────────────────────
+  //
+  // Two read paths, picked by `isOverridden`:
+  //
+  // 1. **Non-override (popup / sidepanel — system surfaces).** Bootstraps
+  //    `rules` + connection from `popupOpen`; collections / folders /
+  //    templates from `getLocalCollections` / `getTemplates` family RPCs.
+  //    The SW computes these against the global default workspace.
+  //    `rulesUpdated` / `templatesUpdated` broadcasts drive live updates.
+  //    Unchanged from pre-MWPT.
+  //
+  // 2. **Override (workbench surface).** Reads workspace-scoped data
+  //    directly from `chrome.storage.local` under `wsKeys(override).*` —
+  //    `rules`, `collections`, `folders`, `templates`, `templateCollections`,
+  //    `templateFolders`. Trees are composed in the renderer via
+  //    `buildLocalCollectionTrees` / `buildTemplateCollectionTrees` (pure
+  //    functions over the persisted arrays — same shape as the SW's
+  //    boot-fallback path in `rule-store.buildTreeForParent`). The SW
+  //    `popupOpen` path returns global-default-scoped data (correct for
+  //    system surfaces) so it can't satisfy a diverged tab; reading the
+  //    materialized snapshots directly is the discipline-conforming
+  //    shape per `SYNC_ENGINE_DESIGN.md` § 9.1 ("Snapshots are the read
+  //    path"). Same pattern pause-markers already use.
+  //    `extensionStorage.subscribe` rebinds when the override id changes;
+  //    cross-process / cross-workspace mutations land via chrome.storage
+  //    `onChanged` regardless of which oracle is currently running.
+  //    Connection status still comes from the bridge (system-scoped).
+
+  const loadConnection = useCallback(() => {
+    call('popupOpen')
+      .then((resp) => {
+        setIsConnected(resp.connected ?? false);
+      })
+      .catch(() => {
+        setIsConnected(false);
+      });
+  }, []);
+
+  const loadFromStorage = useCallback(async (workspaceId: string) => {
+    const [
+      rulesRecord,
+      collectionsRecord,
+      foldersRecord,
+      templatesRecord,
+      templateCollectionsRecord,
+      templateFoldersRecord,
+      pauseMarkersRecord,
+    ] = await Promise.all([
+      extensionStorage.get(wsKeys(workspaceId).rules),
+      extensionStorage.get(wsKeys(workspaceId).collections),
+      extensionStorage.get(wsKeys(workspaceId).folders),
+      extensionStorage.get(wsKeys(workspaceId).templates),
+      extensionStorage.get(wsKeys(workspaceId).templateCollections),
+      extensionStorage.get(wsKeys(workspaceId).templateFolders),
+      extensionStorage.get(wsKeys(workspaceId).pauseMarkers),
+    ]);
+    const rulesArr = rulesRecord ?? [];
+    const collectionsArr = collectionsRecord ?? [];
+    const foldersArr = foldersRecord ?? [];
+    const templatesArr = templatesRecord ?? [];
+    const templateCollectionsArr = templateCollectionsRecord ?? [];
+    const templateFoldersArr = templateFoldersRecord ?? [];
+    setRules(rulesArr);
+    setLocalCollections(collectionsArr);
+    setLocalCollectionTrees(buildLocalCollectionTrees(collectionsArr, foldersArr, rulesArr));
+    setTemplates(templatesArr);
+    setTemplateCollections(templateCollectionsArr);
+    setTemplateCollectionTrees(
+      buildTemplateCollectionTrees(templateCollectionsArr, templateFoldersArr, templatesArr),
+    );
+    setPauseMarkers(pauseMarkersRecord ? new Map(Object.entries(pauseMarkersRecord)) : new Map());
+  }, []);
 
   const loadRules = useCallback(() => {
+    if (isOverridden) {
+      const effectiveId = activeWorkspaceIdOverride ?? null;
+      activeWorkspaceIdRef.current = effectiveId;
+      setActiveWorkspaceId(effectiveId);
+      setIsStatusLoaded(true);
+      loadConnection();
+      if (effectiveId) {
+        void loadFromStorage(effectiveId);
+      } else {
+        setRules([]);
+        setLocalCollections([]);
+        setLocalCollectionTrees([]);
+        setTemplates([]);
+        setTemplateCollections([]);
+        setTemplateCollectionTrees([]);
+        setPauseMarkers(new Map());
+      }
+      return;
+    }
     call('popupOpen')
       .then(async (resp) => {
         setRules(resp.rules ?? []);
         setIsConnected(resp.connected ?? false);
         setIsStatusLoaded(true);
-        // Workbench mounts pass `activeWorkspaceIdOverride` (the tab's
-        // editing scope). The popup / sidepanel pass nothing — they
-        // track the oracle, so `resp.activeWorkspaceId` is the source.
-        const effectiveId = isOverridden ? (activeWorkspaceIdOverride ?? null) : resp.activeWorkspaceId;
+        const effectiveId = resp.activeWorkspaceId;
         activeWorkspaceIdRef.current = effectiveId;
         setActiveWorkspaceId(effectiveId);
         if (effectiveId) {
@@ -245,18 +333,20 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
         setIsConnected(false);
         setIsStatusLoaded(true);
       });
-  }, [isOverridden, activeWorkspaceIdOverride]);
+  }, [isOverridden, activeWorkspaceIdOverride, loadConnection, loadFromStorage]);
 
   const loadLocalCollections = useCallback(() => {
+    if (isOverridden) return; // override branch reads from storage
     call('getLocalCollections')
       .then((resp) => setLocalCollections(resp.collections ?? []))
       .catch(() => undefined);
     call('getLocalCollectionTrees')
       .then((resp) => setLocalCollectionTrees(resp.collectionTrees ?? []))
       .catch(() => undefined);
-  }, []);
+  }, [isOverridden]);
 
   const loadTemplateData = useCallback(() => {
+    if (isOverridden) return; // override branch reads from storage
     call('getTemplates')
       .then((resp) => setTemplates(resp.templates ?? []))
       .catch(() => undefined);
@@ -266,7 +356,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
     call('getTemplateCollectionTrees')
       .then((resp) => setTemplateCollectionTrees(resp.collectionTrees ?? []))
       .catch(() => undefined);
-  }, []);
+  }, [isOverridden]);
 
   const refreshRules = useCallback(() => {
     loadRules();
@@ -281,17 +371,24 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
     loadLocalCollections();
     loadTemplateData();
 
-    // Listen for rule/template updates from background (pushed on any
-    // store mutation). Active-workspace switches come through
-    // `workspaceChanged` and trigger a full refresh.
-    const unsubRules = subscribe('rulesUpdated', (payload) => {
-      if (Array.isArray(payload.rules)) setRules(payload.rules);
-      loadLocalCollections();
-    });
-    const unsubTemplates = subscribe('templatesUpdated', (payload) => {
-      if (Array.isArray(payload.templates)) setTemplates(payload.templates);
-      loadTemplateData();
-    });
+    // `rulesUpdated` / `templatesUpdated` broadcasts carry the SW's
+    // active-workspace data. The popup / sidepanel branch consumes them
+    // directly. The workbench override branch ignores them and instead
+    // subscribes to `wsKeys(override).*` storage keys (see the
+    // override-storage effect below) — global-default broadcasts must
+    // never leak into a diverged tab's display.
+    const unsubRules = isOverridden
+      ? () => undefined
+      : subscribe('rulesUpdated', (payload) => {
+          if (Array.isArray(payload.rules)) setRules(payload.rules);
+          loadLocalCollections();
+        });
+    const unsubTemplates = isOverridden
+      ? () => undefined
+      : subscribe('templatesUpdated', (payload) => {
+          if (Array.isArray(payload.templates)) setTemplates(payload.templates);
+          loadTemplateData();
+        });
     // Workbench surface (override mode) ignores `workspaceChanged` — the
     // tab's editing scope follows its slice binding, which is fed in
     // through the override prop. The override-change effect below
@@ -310,8 +407,10 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       setIsConnected(payload.connected ?? false);
     });
 
-    // Periodic refresh (connection status can change)
-    const intervalId = setInterval(loadRules, 5000);
+    // Periodic refresh (connection status can change). Override branch
+    // only refetches the connection state — workspace data flows through
+    // the per-key subscriptions, no polling needed.
+    const intervalId = setInterval(isOverridden ? loadConnection : loadRules, 5000);
 
     return () => {
       unsubRules();
@@ -320,7 +419,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       unsubConnection();
       clearInterval(intervalId);
     };
-  }, [loadRules, loadLocalCollections, loadTemplateData, refreshRules, isOverridden]);
+  }, [loadRules, loadLocalCollections, loadTemplateData, refreshRules, isOverridden, loadConnection]);
 
   // Override-change effect (workbench surface only). When the tab's
   // workspace binding changes — switch in per-tab mode, mode flip,
@@ -346,6 +445,104 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
     });
     return unsub;
   }, [activeWorkspaceId]);
+
+  // Override-mode storage subscriptions (workbench surface only). The
+  // popup / sidepanel branch reads workspace data via `popupOpen` +
+  // `rulesUpdated` / `templatesUpdated` broadcasts (always global
+  // default). The workbench branch reads materialized snapshots
+  // directly from `wsKeys(override).*` so a diverged tab editing
+  // workspace X sees X's rules / collections / templates — not the
+  // global default's. Mirror writes by the cache layer drive
+  // `chrome.storage.local.onChanged`; the resulting hook fires
+  // regardless of whether the SW oracle for X is the currently-loaded
+  // one. SYNC_ENGINE_DESIGN.md § 9.1 — snapshots are the read path.
+  // Pause-markers already use this pattern; this extension generalizes
+  // it to the rest of the editing-scope data RuleProvider owns.
+  //
+  // Tree composition: pure functions over the persisted arrays. Same
+  // shape as the SW's boot-fallback path in `rule-store.ts` /
+  // `template-store.ts` (when the oracle's orderedSet projection isn't
+  // hydrated yet); the persisted folder/collection arrays already
+  // carry orderedSet-projected order because the cache layer writes
+  // them on every oracle broadcast.
+  useEffect(() => {
+    if (!isOverridden) return;
+    if (!activeWorkspaceId) return;
+    const wsId = activeWorkspaceId;
+    let currentRules: V5.Rule[] = rules;
+    let currentCollections: V5.Collection[] = localCollections;
+    let currentFolders: PersistedLocalFolder[] = [];
+    let currentTemplates: V5.Template[] = templates;
+    let currentTemplateCollections: V5.Collection[] = templateCollections;
+    let currentTemplateFolders: PersistedLocalFolder[] = [];
+
+    const recomputeRulesTree = () => {
+      setLocalCollectionTrees(buildLocalCollectionTrees(currentCollections, currentFolders, currentRules));
+    };
+    const recomputeTemplatesTree = () => {
+      setTemplateCollectionTrees(
+        buildTemplateCollectionTrees(currentTemplateCollections, currentTemplateFolders, currentTemplates),
+      );
+    };
+
+    const unsubRules = extensionStorage.subscribe(wsKeys(wsId).rules, (record) => {
+      currentRules = record ?? [];
+      setRules(currentRules);
+      recomputeRulesTree();
+    });
+    const unsubCollections = extensionStorage.subscribe(wsKeys(wsId).collections, (record) => {
+      currentCollections = record ?? [];
+      setLocalCollections(currentCollections);
+      recomputeRulesTree();
+    });
+    const unsubFolders = extensionStorage.subscribe(wsKeys(wsId).folders, (record) => {
+      currentFolders = record ?? [];
+      recomputeRulesTree();
+    });
+    const unsubTemplates = extensionStorage.subscribe(wsKeys(wsId).templates, (record) => {
+      currentTemplates = record ?? [];
+      setTemplates(currentTemplates);
+      recomputeTemplatesTree();
+    });
+    const unsubTemplateCollections = extensionStorage.subscribe(
+      wsKeys(wsId).templateCollections,
+      (record) => {
+        currentTemplateCollections = record ?? [];
+        setTemplateCollections(currentTemplateCollections);
+        recomputeTemplatesTree();
+      },
+    );
+    const unsubTemplateFolders = extensionStorage.subscribe(wsKeys(wsId).templateFolders, (record) => {
+      currentTemplateFolders = record ?? [];
+      recomputeTemplatesTree();
+    });
+
+    // Prime the local snapshots-of-snapshots so subsequent partial-key
+    // updates have a coherent tree to recompose against.
+    void Promise.all([
+      extensionStorage.get(wsKeys(wsId).folders),
+      extensionStorage.get(wsKeys(wsId).templateFolders),
+    ]).then(([foldersRecord, templateFoldersRecord]) => {
+      currentFolders = foldersRecord ?? [];
+      currentTemplateFolders = templateFoldersRecord ?? [];
+      recomputeRulesTree();
+      recomputeTemplatesTree();
+    });
+
+    return () => {
+      unsubRules();
+      unsubCollections();
+      unsubFolders();
+      unsubTemplates();
+      unsubTemplateCollections();
+      unsubTemplateFolders();
+    };
+    // Intentionally narrow deps: this effect rebinds only when the
+    // override workspace id flips. Local-cache initial values are
+    // captured once at effect-setup time and updated by the per-key
+    // listeners thereafter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOverridden, activeWorkspaceId]);
 
   // ── UI state persistence ──────────────────────────────────────
 

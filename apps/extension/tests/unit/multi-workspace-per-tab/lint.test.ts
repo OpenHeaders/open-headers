@@ -32,6 +32,8 @@ const SEAM_FILE = join(WORKBENCH_ROOT, 'hooks', 'useTabWorkspaceId.ts');
 const BOOT_UTIL_FILE = join(WORKBENCH_ROOT, 'hooks', 'readBootIdentity.ts');
 const RESPONSIVE_LAYOUT = join(WORKBENCH_ROOT, 'hooks', 'useResponsiveLayout.ts');
 const PEER_NAVIGATE = join(REPO_ROOT, 'src', 'shared', 'awareness', 'peer-navigate.ts');
+const RULE_CONTEXT = join(REPO_ROOT, 'src', 'context', 'RuleContext.tsx');
+const TREE_BUILDER = join(REPO_ROOT, 'src', 'shared', 'local-tree-builder.ts');
 
 /**
  * Files under `src/workbench/` that are still permitted to import
@@ -184,6 +186,60 @@ describe('multi-workspace-per-tab lint', () => {
     expect(text).not.toMatch(/setActiveWorkspace/);
     expect(text).not.toMatch(/workspacesApi/);
     expect(text).not.toMatch(/perTab\.onPersist/);
+  });
+
+  it('BC-MWPT-5-READ — RuleProvider override branch subscribes wsKeys(override).{rules,collections,folders,templates,templateCollections,templateFolders} directly', () => {
+    // BC-MWPT-5 in v1.1 of the spike validated WRITE-path correctness
+    // (diverged edits land in `wsKeys(tabWorkspace).rules`). The READ
+    // path was a known follow-up beyond the spike's table — popup-RPC
+    // returns global-default-scoped rules, so an override-mode tree
+    // would render the wrong workspace's data even though writes were
+    // routed correctly. This lint pins the read-path fix: in override
+    // mode the provider reads materialized snapshots directly per
+    // SYNC_ENGINE_DESIGN.md § 9.1, the same shape pause-markers
+    // already used.
+    const text = readFileSync(RULE_CONTEXT, 'utf8');
+    const required = ['rules', 'collections', 'folders', 'templates', 'templateCollections', 'templateFolders'] as const;
+    for (const key of required) {
+      // Tolerant of line-wrapped argument lists.
+      const re = new RegExp(`extensionStorage\\.subscribe\\(\\s*wsKeys\\(wsId\\)\\.${key}\\b`);
+      expect(text).toMatch(re);
+    }
+    // The override branch must NOT take rules from the popupOpen response
+    // (that path is reserved for popup / sidepanel — system surfaces).
+    // We assert this structurally by walking the `if (isOverridden)` arm
+    // and proving it never references `resp.rules`.
+    const overrideArmStart = text.indexOf('if (isOverridden) {');
+    expect(overrideArmStart).toBeGreaterThan(-1);
+    // Take a generous window of the override arm; the system arm
+    // begins after `return;`.
+    const armEnd = text.indexOf('call(\'popupOpen\')', overrideArmStart);
+    expect(armEnd).toBeGreaterThan(overrideArmStart);
+    const armText = text.slice(overrideArmStart, armEnd);
+    expect(armText).not.toMatch(/resp\.rules/);
+    expect(armText).not.toMatch(/resp\.activeWorkspaceId/);
+  });
+
+  it('BC-MWPT-5-READ — local tree builder exports the two pure composition functions', () => {
+    const text = readFileSync(TREE_BUILDER, 'utf8');
+    expect(text).toMatch(/export function buildLocalCollectionTrees\(/);
+    expect(text).toMatch(/export function buildTemplateCollectionTrees\(/);
+  });
+
+  it('BC-MWPT-5-READ — RuleProvider override branch ignores rulesUpdated / templatesUpdated broadcasts', () => {
+    // Bridge broadcasts (`rulesUpdated` / `templatesUpdated`) carry the
+    // SW oracle's active-workspace data — i.e. the global default. A
+    // diverged tab MUST NOT consume them; otherwise a global-default
+    // mutation overwrites the diverged tab's `rules` state with the
+    // wrong workspace's rules. The override branch routes through
+    // chrome.storage.local.onChanged via `extensionStorage.subscribe`
+    // on the override workspace's keys instead.
+    const text = readFileSync(RULE_CONTEXT, 'utf8');
+    // Both subscribe sites must short-circuit on isOverridden.
+    expect(text).toMatch(/const unsubRules = isOverridden\s*\?\s*\(\)\s*=>\s*undefined\s*:\s*subscribe\(\s*'rulesUpdated'/);
+    expect(text).toMatch(
+      /const unsubTemplates = isOverridden\s*\?\s*\(\)\s*=>\s*undefined\s*:\s*subscribe\(\s*'templatesUpdated'/,
+    );
   });
 
   it('BC-MWPT-11 — SurfaceAwarenessPublisher mount in App.tsx publishes the tab workspace id', () => {
