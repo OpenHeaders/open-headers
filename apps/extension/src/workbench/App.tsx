@@ -105,7 +105,7 @@ import { useSaveRequestFlow } from './hooks/useSaveRequestFlow';
 import { useTabLifecycle } from './hooks/useTabLifecycle';
 import { useTabOpeners } from './hooks/useTabOpeners';
 import { useTabSyncEffects } from './hooks/useTabSyncEffects';
-import { TabWorkspaceProvider } from './hooks/TabWorkspaceContext';
+import { TabWorkspaceProvider, useWorkbenchTabWorkspaceId } from './hooks/TabWorkspaceContext';
 import {
   readWorkspaceFallThrough,
   useToolLayout,
@@ -264,10 +264,9 @@ function buildSelectionExportScope(entities: SidebarExportEntity[]): ExportModal
 const WorkbenchInner: React.FC = () => {
   const { isDarkMode } = useTheme();
   const { token } = theme.useToken();
-  const layout = useResponsiveLayout();
   const perTab = useWorkbenchPerTabState();
 
-  if (!layout.ready || !perTab.ready) {
+  if (!perTab.ready) {
     return (
       <div
         className="rules-shell rules-shell-loading"
@@ -277,7 +276,44 @@ const WorkbenchInner: React.FC = () => {
     );
   }
 
-  return <WorkbenchShell layout={layout} perTab={perTab} />;
+  return <WorkbenchTabAware perTab={perTab} />;
+};
+
+/**
+ * Tab-workspace-aware shell layer. Owns the slice owner (single
+ * `workspaceChanged` subscriber per tab), the per-tab seam
+ * (`useTabWorkspaceId`), and the per-workspace panel-ratio loader
+ * (BC-MWPT-10). Mounting the layer inside-out — slice owner → tab
+ * workspace id → layout → providers → RuleProvider with override —
+ * gives every descendant a per-tab-correct view of "which workspace
+ * is this tab editing right now" before the rule data binds.
+ */
+const WorkbenchTabAware: React.FC<{ perTab: PerTabStateApi<WorkbenchViewState> }> = ({ perTab }) => {
+  const { isDarkMode } = useTheme();
+  const { token } = theme.useToken();
+  useWorkbenchWorkspaceSlice(perTab);
+  const tabWorkspaceId = useTabWorkspaceId(perTab);
+  const layout = useResponsiveLayout(tabWorkspaceId);
+
+  if (!layout.ready) {
+    return (
+      <div
+        className="rules-shell rules-shell-loading"
+        data-theme={isDarkMode ? 'dark' : 'light'}
+        style={{ background: token.colorBgLayout }}
+      />
+    );
+  }
+
+  return (
+    <TabWorkspaceProvider workspaceId={tabWorkspaceId}>
+      <RuleProvider surfaceId="workbench" activeWorkspaceIdOverride={tabWorkspaceId}>
+        <InspectorNavProvider>
+          <WorkbenchShell layout={layout} perTab={perTab} />
+        </InspectorNavProvider>
+      </RuleProvider>
+    </TabWorkspaceProvider>
+  );
 };
 
 // ── Workspace component (needs RuleContext + loaded layout) ─────────
@@ -374,13 +410,12 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     return out;
   }, [requestsApi.requests, requestsApi.collections, variableResolver]);
 
-  // ── Workspace slice owner (handles in-tab workspace switch) ───
-  // Single subscriber for workspaceChanged → emits new slice atomically.
-  // Sub-hooks below re-derive from the slice; they do NOT subscribe.
-  useWorkbenchWorkspaceSlice(perTab);
-  // Editing-scope workspace id — equals global default in global mode,
-  // tab's slice binding in per-tab mode (MWPT § 6.2).
-  const tabWorkspaceId = useTabWorkspaceId(perTab);
+  // Editing-scope workspace id — owned by `WorkbenchTabAware` above;
+  // mirrored into context by `TabWorkspaceProvider` so every consumer
+  // (here, child editors, mutator-options builders) reads from the
+  // same seam. Equals the global default in global mode; the tab's
+  // slice binding in per-tab mode (MWPT § 6.2).
+  const tabWorkspaceId = useWorkbenchTabWorkspaceId();
   // ── Editor groups (recursive split tree) ──────────────────────
   const groups = useEditorGroups({ perTab });
   // ── Sidebar tree-expansion state (lifted into the per-tab snapshot) ─
@@ -427,7 +462,10 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     }
     return out;
   }, [allTabs]);
-  const scriptsReviewPendingUids = useRequestScriptsReviewPending(workspacesApi.activeWorkspaceId);
+  // Editing-scope: pending-script reminders are workspace-scoped state
+  // the user clears by opening tabs. Diverged tab on X reads X's
+  // pending list, not the global default's.
+  const scriptsReviewPendingUids = useRequestScriptsReviewPending(tabWorkspaceId);
   const dirtyWorkflowUids = useMemo(() => {
     const out = new Set<string>();
     for (const tab of allTabs) {
@@ -464,7 +502,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   } = useTabLifecycle({
     allTabs,
     rules,
-    workspaceId: workspacesApi.activeWorkspaceId,
+    workspaceId: tabWorkspaceId,
     getLeafTabs,
     getFocusedLeafTabs,
     closeTab: rawCloseTab,
@@ -677,7 +715,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     rules,
     templates,
     localCollections,
-    workspaceId: workspacesApi.activeWorkspaceId,
+    workspaceId: tabWorkspaceId,
     surfaceId: 'workbench',
     allTabs,
     addTab,
@@ -1046,9 +1084,13 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     requestsApi.requests,
     templateCollectionTrees,
   ]);
+  // Editing-scope: the StatusBar workspace pill describes what this
+  // tab is editing, not what the global oracle thinks. The divergence
+  // pill (separate component in the same StatusBar) carries the
+  // tab-vs-default delta.
   const activeWorkspace = useMemo(
-    () => workspacesApi.workspaces.find((w) => w.id === workspacesApi.activeWorkspaceId),
-    [workspacesApi.workspaces, workspacesApi.activeWorkspaceId],
+    () => workspacesApi.workspaces.find((w) => w.id === tabWorkspaceId),
+    [workspacesApi.workspaces, tabWorkspaceId],
   );
 
   const activeTabCollectionId = useMemo((): string | null => {
@@ -1120,14 +1162,17 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       allCollectionsForEnv,
       collectionEnvAutoSwitch,
       activeCollectionDefaultEnvId,
-      activeWorkspaceId: workspacesApi.activeWorkspaceId,
+      // Editing-scope: env-switcher session overrides clear on tab
+      // workspace change (diverged tab on X clears X's overrides), not
+      // on global oracle change.
+      activeWorkspaceId: tabWorkspaceId,
     }),
     [
       activeTabCollectionId,
       allCollectionsForEnv,
       collectionEnvAutoSwitch,
       activeCollectionDefaultEnvId,
-      workspacesApi.activeWorkspaceId,
+      tabWorkspaceId,
     ],
   );
 
@@ -1814,12 +1859,15 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   );
 
   return (
-    <TabWorkspaceProvider workspaceId={tabWorkspaceId}>
     <EnvSwitcherProvider collectionContext={envSwitcherCollectionContext}>
       <VariablePopoverProvider>
         <ActiveTabEntityWriter value={activeTabEntity} />
+        {/* BC-MWPT-11 — awareness publishes editing-scope so peers see
+            "B is editing X" when B's tab is bound to X. SW continues
+            to forward the renderer-stamped payload as opaque bytes;
+            no SW code change. */}
         <SurfaceAwarenessPublisher
-          workspaceId={workspacesApi.activeWorkspaceId}
+          workspaceId={tabWorkspaceId}
           migratedEntityTypes={[
             RULE_ENTITY_TYPE,
             TEMPLATE_ENTITY_TYPE,
@@ -1845,7 +1893,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             onCommandPalette={() => setCommandPaletteOpen(true)}
             onOpenSettings={openSettings}
             workspaces={workspacesApi.workspaces}
-            activeWorkspaceId={workspacesApi.activeWorkspaceId}
+            activeWorkspaceId={tabWorkspaceId}
             onSwitchWorkspace={handleSwitchWorkspace}
             onOpenWorkspaceManager={openWorkspaceManager}
             onExportWorkspace={() => setExportModalState({ open: true, scope: { kind: 'workspace' } })}
@@ -2125,14 +2173,16 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             initialError={importPreviewState.open ? importPreviewState.initialError : undefined}
             source={importPreviewState.open ? importPreviewState.source : undefined}
             workspaces={workspacesApi.workspaces}
-            activeWorkspaceId={workspacesApi.activeWorkspaceId}
+            activeWorkspaceId={tabWorkspaceId}
             onCancel={() => advanceImportQueue()}
             onImported={({ targetWorkspaceId, importedCount, sourceLabel }) => {
               const summary = `Imported ${importedCount} entit${importedCount === 1 ? 'y' : 'ies'} from "${sourceLabel}"`;
               message.success(summary);
               advanceImportQueue();
-              // If the target isn't the active workspace, offer to switch.
-              if (targetWorkspaceId !== workspacesApi.activeWorkspaceId) {
+              // If the target isn't the editing-scope workspace, offer
+              // to switch — `handleSwitchWorkspace` is mode-aware so the
+              // jump lands per-tab in per-tab mode and globally otherwise.
+              if (targetWorkspaceId !== tabWorkspaceId) {
                 void handleSwitchWorkspace(targetWorkspaceId);
               }
             }}
@@ -2151,7 +2201,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         </div>
       </VariablePopoverProvider>
     </EnvSwitcherProvider>
-    </TabWorkspaceProvider>
   );
 };
 
@@ -2189,11 +2238,12 @@ const Workbench: React.FC = () => (
     <ActiveFieldFocusProvider>
       <ActiveEditorDirtyProvider>
         <ActiveTabEntityProvider>
-          <RuleProvider surfaceId="workbench">
-            <InspectorNavProvider>
-              <WorkbenchInner />
-            </InspectorNavProvider>
-          </RuleProvider>
+          {/* RuleProvider mounts inside `WorkbenchTabAware` (called via
+              `WorkbenchInner`) so it can take the tab's editing-scope
+              workspace id as a prop (BC-MWPT-5). The `InspectorNavProvider`
+              followed it down for the same reason — a per-tab-correct
+              tree start at the seam. */}
+          <WorkbenchInner />
         </ActiveTabEntityProvider>
       </ActiveEditorDirtyProvider>
     </ActiveFieldFocusProvider>

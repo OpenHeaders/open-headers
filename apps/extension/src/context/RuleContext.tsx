@@ -184,9 +184,26 @@ interface RuleProviderProps {
    * mutation logs.
    */
   surfaceId: string;
+  /**
+   * Editing-scope workspace id override (workbench surface only).
+   *
+   * When `undefined`, the provider follows the global oracle: bootstraps
+   * `activeWorkspaceId` from `popupOpen` and re-binds on
+   * `workspaceChanged` broadcasts. This is the popup / sidepanel path —
+   * system-scoped surfaces always show the global default.
+   *
+   * When defined (workbench mounts it from `useWorkbenchTabWorkspaceId()`),
+   * the provider treats the prop as authoritative for `activeWorkspaceId`,
+   * skips the `workspaceChanged` subscription, and routes mutator
+   * `workspaceId` writes through the prop. In per-tab mode the prop
+   * follows the tab's slice binding (BC-MWPT-5 — diverged tab edits write
+   * to `wsKeys(tabWorkspace).rules`, not `wsKeys(globalDefault).rules`).
+   */
+  activeWorkspaceIdOverride?: string | null;
 }
 
-export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId }) => {
+export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId, activeWorkspaceIdOverride }) => {
+  const isOverridden = activeWorkspaceIdOverride !== undefined;
   const [rules, setRules] = useState<V5.Rule[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [isStatusLoaded, setIsStatusLoaded] = useState(false);
@@ -213,17 +230,22 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId 
         setRules(resp.rules ?? []);
         setIsConnected(resp.connected ?? false);
         setIsStatusLoaded(true);
-        activeWorkspaceIdRef.current = resp.activeWorkspaceId;
-        setActiveWorkspaceId(resp.activeWorkspaceId);
-        // Load workspace-scoped pause markers for the active workspace.
-        const record = await extensionStorage.get(wsKeys(resp.activeWorkspaceId).pauseMarkers);
-        setPauseMarkers(record ? new Map(Object.entries(record)) : new Map());
+        // Workbench mounts pass `activeWorkspaceIdOverride` (the tab's
+        // editing scope). The popup / sidepanel pass nothing — they
+        // track the oracle, so `resp.activeWorkspaceId` is the source.
+        const effectiveId = isOverridden ? (activeWorkspaceIdOverride ?? null) : resp.activeWorkspaceId;
+        activeWorkspaceIdRef.current = effectiveId;
+        setActiveWorkspaceId(effectiveId);
+        if (effectiveId) {
+          const record = await extensionStorage.get(wsKeys(effectiveId).pauseMarkers);
+          setPauseMarkers(record ? new Map(Object.entries(record)) : new Map());
+        }
       })
       .catch(() => {
         setIsConnected(false);
         setIsStatusLoaded(true);
       });
-  }, []);
+  }, [isOverridden, activeWorkspaceIdOverride]);
 
   const loadLocalCollections = useCallback(() => {
     call('getLocalCollections')
@@ -270,13 +292,20 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId 
       if (Array.isArray(payload.templates)) setTemplates(payload.templates);
       loadTemplateData();
     });
-    const unsubWorkspace = subscribe('workspaceChanged', (payload) => {
-      activeWorkspaceIdRef.current = payload.activeWorkspaceId;
-      setActiveWorkspaceId(payload.activeWorkspaceId);
-      // Full refetch — rules/collections/templates/pauseMarkers all
-      // change atomically on workspace switch.
-      refreshRules();
-    });
+    // Workbench surface (override mode) ignores `workspaceChanged` — the
+    // tab's editing scope follows its slice binding, which is fed in
+    // through the override prop. The override-change effect below
+    // handles the rebind path. BC-MWPT-5 / BC-MWPT-8 — global broadcasts
+    // do not pull the rug from a diverged tab.
+    const unsubWorkspace = isOverridden
+      ? () => undefined
+      : subscribe('workspaceChanged', (payload) => {
+          activeWorkspaceIdRef.current = payload.activeWorkspaceId;
+          setActiveWorkspaceId(payload.activeWorkspaceId);
+          // Full refetch — rules/collections/templates/pauseMarkers all
+          // change atomically on workspace switch.
+          refreshRules();
+        });
     const unsubConnection = subscribe('connectionStatus', (payload) => {
       setIsConnected(payload.connected ?? false);
     });
@@ -291,7 +320,21 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId 
       unsubConnection();
       clearInterval(intervalId);
     };
-  }, [loadRules, loadLocalCollections, loadTemplateData, refreshRules]);
+  }, [loadRules, loadLocalCollections, loadTemplateData, refreshRules, isOverridden]);
+
+  // Override-change effect (workbench surface only). When the tab's
+  // workspace binding changes — switch in per-tab mode, mode flip,
+  // mount-time inheritance — the override prop ticks. Mirror it into
+  // state and refetch the workspace-scoped data atomically. The popup
+  // / sidepanel path takes the no-op branch (override is undefined).
+  useEffect(() => {
+    if (!isOverridden) return;
+    const next = activeWorkspaceIdOverride ?? null;
+    if (activeWorkspaceIdRef.current === next) return;
+    activeWorkspaceIdRef.current = next;
+    setActiveWorkspaceId(next);
+    refreshRules();
+  }, [isOverridden, activeWorkspaceIdOverride, refreshRules]);
 
   // Pause-marker storage subscription — rebinds when the active
   // workspace id changes so every switch picks up the new workspace's

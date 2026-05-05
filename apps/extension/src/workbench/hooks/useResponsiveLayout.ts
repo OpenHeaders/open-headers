@@ -9,10 +9,8 @@
  *   5. Guard against degenerate viewport values (browser restore, 0-width)
  */
 
-import { subscribe } from '@utils/bridge';
-import { scheduleFrame } from '@utils/frame-scheduler';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { extensionStorage, OH, type PersistedPanelLayout, wsKeys } from '@/shared/storage';
+import { extensionStorage, type PersistedPanelLayout, wsKeys } from '@/shared/storage';
 import { applyLayoutSet } from '@/shared/sync/layout-state-write-client';
 
 // ── Breakpoints (CSS pixels, accounts for browser zoom) ───────────
@@ -132,7 +130,16 @@ function computeSizes(vw: number, vh: number, persisted: PersistedLayout | null)
 
 // ── Hook ───────────────────────────────────────────────────────────
 
-export function useResponsiveLayout(): ResponsiveLayout {
+/**
+ * Per-workspace panel ratios. The `workspaceId` argument is the
+ * editing-scope workspace — global default in global mode, the tab's
+ * slice binding in per-tab mode (BC-MWPT-10). Pre-MWPT this hook read
+ * `OH.activeWorkspaceId` directly + subscribed to `workspaceChanged`;
+ * routing through the prop turns it into a single-source-of-truth
+ * consumer of the seam, which makes diverged tabs use the diverged
+ * workspace's saved ratios.
+ */
+export function useResponsiveLayout(workspaceId: string | null): ResponsiveLayout {
   const [persisted, setPersisted] = useState<PersistedLayout | null>(null);
   const [ready, setReady] = useState(false);
   const [shouldCollapse, setShouldCollapse] = useState(() => getViewportWidth() < BP_SIDEBAR_COLLAPSE);
@@ -140,8 +147,8 @@ export function useResponsiveLayout(): ResponsiveLayout {
   const latestPersistedRef = useRef<PersistedLayout | null>(null);
   const activeWorkspaceIdRef = useRef<string | null>(null);
 
-  const loadLayoutFor = useCallback(async (workspaceId: string) => {
-    const saved = (await extensionStorage.get(wsKeys(workspaceId).panelLayout)) as PersistedLayout | undefined;
+  const loadLayoutFor = useCallback(async (id: string) => {
+    const saved = (await extensionStorage.get(wsKeys(id).panelLayout)) as PersistedLayout | undefined;
     if (saved?.sidebarRatio != null && saved?.inspectorRatio != null && saved?.bottomRatio != null) {
       setPersisted(saved);
       latestPersistedRef.current = saved;
@@ -152,44 +159,27 @@ export function useResponsiveLayout(): ResponsiveLayout {
     setReady(true);
   }, []);
 
-  // ── Load persisted layout on mount (for active workspace) ──────
+  // ── Load + resync on workspace id change ──────────────────────
   //
-  // Read the active workspace id directly through extensionStorage —
-  // no SW RPC. `layout.ready` gates the entire workspace shell, so any
-  // async hop here delays first paint by a cold-SW round-trip.
+  // Caller passes the editing-scope workspace id. When it changes —
+  // mount, global switch, per-tab divergence — we cancel any pending
+  // persist (would write to the wrong workspace) and reload ratios for
+  // the new binding.
   useEffect(() => {
-    // Defer one frame so the browser's window-restore measurements
-    // land before we read persisted ratios back into layout state.
-    scheduleFrame(() => {
-      void extensionStorage.get(OH.activeWorkspaceId).then((id) => {
-        if (typeof id === 'string' && id.length > 0) {
-          activeWorkspaceIdRef.current = id;
-          void loadLayoutFor(id);
-        } else {
-          // Background bootstrap hasn't stamped the active id yet —
-          // render with defaults; the `workspaceChanged` broadcast
-          // below will rehydrate once bootstrap completes.
-          setReady(true);
-        }
-      });
-    });
-  }, [loadLayoutFor]);
-
-  // ── Resync on workspace switch ─────────────────────────────────
-
-  useEffect(() => {
-    const unsub = subscribe('workspaceChanged', (payload) => {
-      const nextId = payload.activeWorkspaceId;
-      if (activeWorkspaceIdRef.current === nextId) return;
-      activeWorkspaceIdRef.current = nextId;
-      if (persistTimerRef.current) {
-        clearTimeout(persistTimerRef.current);
-        persistTimerRef.current = null;
-      }
-      void loadLayoutFor(nextId);
-    });
-    return unsub;
-  }, [loadLayoutFor]);
+    if (!workspaceId) {
+      // Caller hasn't resolved a workspace yet — render with defaults.
+      activeWorkspaceIdRef.current = null;
+      setReady(true);
+      return;
+    }
+    if (activeWorkspaceIdRef.current === workspaceId) return;
+    activeWorkspaceIdRef.current = workspaceId;
+    if (persistTimerRef.current) {
+      clearTimeout(persistTimerRef.current);
+      persistTimerRef.current = null;
+    }
+    void loadLayoutFor(workspaceId);
+  }, [workspaceId, loadLayoutFor]);
 
   // ── matchMedia breakpoint listener ─────────────────────────────
 
