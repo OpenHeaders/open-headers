@@ -13,7 +13,7 @@
  * drop the toolLayout portion from its PersistedLayout record.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, type StorageKey, storageKey } from '@/shared/storage';
 import type { ToolLayoutState } from './types';
@@ -36,8 +36,10 @@ export function useDockLayoutStorage<T extends string>(keyName: string): DockLay
 
   // Derive a typed spec from the caller-provided string. The surface
   // chooses its own key so we keep the spec local instead of pinning
-  // it in the shared registry.
-  const spec: StorageKey<Partial<ToolLayoutState<T>>> = storageKey(keyName);
+  // it in the shared registry. Memoized so the load effect's dependency
+  // is referentially stable across renders — without this, every parent
+  // re-render produces a fresh spec object, re-firing the storage read.
+  const spec = useMemo<StorageKey<Partial<ToolLayoutState<T>>>>(() => storageKey(keyName), [keyName]);
 
   useEffect(() => {
     void extensionStorage.get(spec).then((saved) => {

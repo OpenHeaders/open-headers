@@ -60,7 +60,7 @@ describe('useDockLayoutStorage', () => {
 
     await waitFor(() => expect(hook.result.current.ready).toBe(true));
     expect(hook.result.current.initial).toBeNull();
-    expect(mockGet).toHaveBeenCalled();
+    expect(mockGet).toHaveBeenCalledOnce();
   });
 
   it('exposes persisted state via initial when storage returns a layout with docks', async () => {
