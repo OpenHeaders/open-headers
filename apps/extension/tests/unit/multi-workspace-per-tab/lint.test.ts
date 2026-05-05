@@ -31,6 +31,7 @@ const APP_TSX = join(WORKBENCH_ROOT, 'App.tsx');
 const SEAM_FILE = join(WORKBENCH_ROOT, 'hooks', 'useTabWorkspaceId.ts');
 const BOOT_UTIL_FILE = join(WORKBENCH_ROOT, 'hooks', 'readBootIdentity.ts');
 const RESPONSIVE_LAYOUT = join(WORKBENCH_ROOT, 'hooks', 'useResponsiveLayout.ts');
+const PEER_NAVIGATE = join(REPO_ROOT, 'src', 'shared', 'awareness', 'peer-navigate.ts');
 
 /**
  * Files under `src/workbench/` that are still permitted to import
@@ -168,6 +169,21 @@ describe('multi-workspace-per-tab lint', () => {
     // No standalone `workspaceChanged` subscription either; the prop
     // change drives the rebind.
     expect(text).not.toMatch(/subscribe\(\s*['"]workspaceChanged['"]/);
+  });
+
+  it('BC-MWPT-9 — peer-navigate never touches workspace-switching primitives', () => {
+    // The actual gesture only focuses an existing browser tab. The
+    // target tab's workbench is already bound to whatever workspace
+    // its slice owner stamped — by virtue of being that tab. No new
+    // tab is opened, so "fresh tab boots on global default instead of
+    // target workspace" can't fire. T-elimination by construction
+    // (the v1.1 prediction filed this as HN against an imagined
+    // navigation handler that never landed).
+    const text = readFileSync(PEER_NAVIGATE, 'utf8');
+    expect(text).not.toMatch(/applySetActiveWorkspace/);
+    expect(text).not.toMatch(/setActiveWorkspace/);
+    expect(text).not.toMatch(/workspacesApi/);
+    expect(text).not.toMatch(/perTab\.onPersist/);
   });
 
   it('BC-MWPT-11 — SurfaceAwarenessPublisher mount in App.tsx publishes the tab workspace id', () => {
