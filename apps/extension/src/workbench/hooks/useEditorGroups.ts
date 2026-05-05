@@ -12,7 +12,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { PerTabStateApi } from '@/shared/per-tab-state';
+import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
 import { extensionStorage, type PersistedTabSession, wsKeys } from '@/shared/storage';
 import {
   activateTabInLeaf,
@@ -179,7 +179,7 @@ export interface UseEditorGroupsApi {
 }
 
 export interface UseEditorGroupsArgs {
-  perTab: PerTabStateApi<WorkbenchViewState>;
+  perTab: EditingScopeViewStateApi<WorkbenchViewState>;
 }
 
 export function useEditorGroups({ perTab }: UseEditorGroupsArgs): UseEditorGroupsApi {

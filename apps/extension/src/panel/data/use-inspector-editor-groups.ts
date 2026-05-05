@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { PerTabStateApi } from '@/shared/per-tab-state';
+import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
 import {
   activateTabInLeaf,
   type EditorLeaf,
@@ -122,7 +122,7 @@ export interface UseInspectorEditorGroupsApi {
 }
 
 export interface UseInspectorEditorGroupsArgs {
-  perTab: PerTabStateApi<PanelViewState>;
+  perTab: EditingScopeViewStateApi<PanelViewState>;
 }
 
 export function useInspectorEditorGroups({ perTab }: UseInspectorEditorGroupsArgs): UseInspectorEditorGroupsApi {

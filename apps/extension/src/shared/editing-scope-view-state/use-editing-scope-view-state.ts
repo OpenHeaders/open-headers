@@ -1,5 +1,5 @@
 /**
- * usePerTabState — per-tab view state with default-donor inheritance.
+ * useEditingScopeViewState — per-tab view state with default-donor inheritance.
  *
  * See `docs/PER_TAB_VIEW_STATE_DESIGN.md` § 6 (protocol), § 7 (focus
  * tracking + claim predicate), § 9 (hook contract). This is the only
@@ -21,11 +21,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { clearDonorRecord, readDonorRecord, subscribeDonorRecord, writeDonorRecord } from './donor-record';
 import { isFocusedAndVisible, subscribeFocus } from './focus-tracker';
 import { clearPerTabState, mintTabUid, readPerTabState, writePerTabState } from './tab-uid';
-import type { DonorRecord, PerTabStateApi, UsePerTabStateOptions } from './types';
+import type { DonorRecord, EditingScopeViewStateApi, UseEditingScopeViewStateOptions } from './types';
 
 const PUBLISH_DEBOUNCE_MS = 500;
 
-export function usePerTabState<T>(opts: UsePerTabStateOptions<T>): PerTabStateApi<T> {
+export function useEditingScopeViewState<T>(opts: UseEditingScopeViewStateOptions<T>): EditingScopeViewStateApi<T> {
   const { surface, schemaVersion, factoryDefault, normalize, resolveSnapshot } = opts;
 
   // Snapshot of the synchronous sessionStorage read. Captured once on

@@ -9,7 +9,7 @@ import { BulbFilled, BulbOutlined } from '@ant-design/icons';
 import { useTheme } from '@context/ThemeContext';
 import { Dropdown, type MenuProps, Space, theme } from 'antd';
 import type React from 'react';
-import { FooterDonorPill, type PerTabStateApi } from '@/shared/per-tab-state';
+import { FooterDonorPill, type EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
 import { productStatusExtras, StatusPill } from '@/shared/status';
 import { useSettingValue } from '@/workbench/settings/hooks';
 import type { PanelViewState } from '../data/use-panel-tool-layout';
@@ -32,7 +32,7 @@ interface PanelStatusBarProps {
   dclMs?: number;
   loadMs?: number;
   tabCount: number;
-  perTab: PerTabStateApi<PanelViewState>;
+  perTab: EditingScopeViewStateApi<PanelViewState>;
 }
 
 function formatTiming(ms: number | undefined): string {

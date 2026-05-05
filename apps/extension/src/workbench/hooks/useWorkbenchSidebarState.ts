@@ -15,7 +15,7 @@
 
 import type { Dispatch, SetStateAction } from 'react';
 import { useEffect, useRef, useState } from 'react';
-import type { PerTabStateApi } from '@/shared/per-tab-state';
+import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
 import { FACTORY_SIDEBAR_EXPANSIONS, type WorkbenchViewState, type WorkbenchWorkspaceData } from './useToolLayout';
 
 export interface UseWorkbenchSidebarStateApi {
@@ -25,12 +25,12 @@ export interface UseWorkbenchSidebarStateApi {
   setSectionsExpanded: Dispatch<SetStateAction<Record<string, boolean>>>;
 }
 
-function readSliceData(perTab: PerTabStateApi<WorkbenchViewState>): WorkbenchWorkspaceData['sidebarExpansions'] {
+function readSliceData(perTab: EditingScopeViewStateApi<WorkbenchViewState>): WorkbenchWorkspaceData['sidebarExpansions'] {
   return perTab.initial.workspace?.data.sidebarExpansions ?? FACTORY_SIDEBAR_EXPANSIONS;
 }
 
 export function useWorkbenchSidebarState(
-  perTab: PerTabStateApi<WorkbenchViewState>,
+  perTab: EditingScopeViewStateApi<WorkbenchViewState>,
 ): UseWorkbenchSidebarStateApi {
   const seed = readSliceData(perTab);
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => new Set(seed.expandedKeys));

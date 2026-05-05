@@ -50,7 +50,7 @@ import {
 } from '@/shared/awareness';
 import 'allotment/dist/style.css';
 import { createShellEventBus, ShellEventBusContext } from '@/shared/dock-layout';
-import type { PerTabStateApi } from '@/shared/per-tab-state';
+import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
 import { findCollectionByPath, findFolderByUid } from '@/shared/variables/collection-scope';
 import { computeBreadcrumbs, scratchLabelForMode } from './breadcrumbs';
 import BottomPanel from './components/BottomPanel';
@@ -105,14 +105,14 @@ import { useSaveRequestFlow } from './hooks/useSaveRequestFlow';
 import { useTabLifecycle } from './hooks/useTabLifecycle';
 import { useTabOpeners } from './hooks/useTabOpeners';
 import { useTabSyncEffects } from './hooks/useTabSyncEffects';
-import { TabWorkspaceProvider, useWorkbenchTabWorkspaceId } from './hooks/TabWorkspaceContext';
+import { EditingScopeWorkspaceProvider, useWorkbenchEditingScopeWorkspaceId } from './hooks/EditingScopeWorkspaceContext';
 import {
   readWorkspaceFallThrough,
   useToolLayout,
-  useWorkbenchPerTabState,
+  useWorkbenchEditingScopeViewState,
   type WorkbenchViewState,
 } from './hooks/useToolLayout';
-import { useTabWorkspaceId } from './hooks/useTabWorkspaceId';
+import { useEditingScopeWorkspaceId } from './hooks/useEditingScopeWorkspaceId';
 import { useWorkbenchSidebarState } from './hooks/useWorkbenchSidebarState';
 import { useWorkbenchWorkspaceSlice } from './hooks/useWorkbenchWorkspaceSlice';
 import { useWorkspaceIntentRouter } from './hooks/useWorkspaceIntentRouter';
@@ -264,7 +264,7 @@ function buildSelectionExportScope(entities: SidebarExportEntity[]): ExportModal
 const WorkbenchInner: React.FC = () => {
   const { isDarkMode } = useTheme();
   const { token } = theme.useToken();
-  const perTab = useWorkbenchPerTabState();
+  const perTab = useWorkbenchEditingScopeViewState();
 
   if (!perTab.ready) {
     return (
@@ -282,18 +282,18 @@ const WorkbenchInner: React.FC = () => {
 /**
  * Tab-workspace-aware shell layer. Owns the slice owner (single
  * `workspaceChanged` subscriber per tab), the per-tab seam
- * (`useTabWorkspaceId`), and the per-workspace panel-ratio loader
+ * (`useEditingScopeWorkspaceId`), and the per-workspace panel-ratio loader
  * (BC-MWPT-10). Mounting the layer inside-out — slice owner → tab
  * workspace id → layout → providers → RuleProvider with override —
  * gives every descendant a per-tab-correct view of "which workspace
  * is this tab editing right now" before the rule data binds.
  */
-const WorkbenchTabAware: React.FC<{ perTab: PerTabStateApi<WorkbenchViewState> }> = ({ perTab }) => {
+const WorkbenchTabAware: React.FC<{ perTab: EditingScopeViewStateApi<WorkbenchViewState> }> = ({ perTab }) => {
   const { isDarkMode } = useTheme();
   const { token } = theme.useToken();
   useWorkbenchWorkspaceSlice(perTab);
-  const tabWorkspaceId = useTabWorkspaceId(perTab);
-  const layout = useResponsiveLayout(tabWorkspaceId);
+  const editingScopeWorkspaceId = useEditingScopeWorkspaceId(perTab);
+  const layout = useResponsiveLayout(editingScopeWorkspaceId);
 
   if (!layout.ready) {
     return (
@@ -306,13 +306,13 @@ const WorkbenchTabAware: React.FC<{ perTab: PerTabStateApi<WorkbenchViewState> }
   }
 
   return (
-    <TabWorkspaceProvider workspaceId={tabWorkspaceId}>
-      <RuleProvider surfaceId="workbench" activeWorkspaceIdOverride={tabWorkspaceId}>
+    <EditingScopeWorkspaceProvider workspaceId={editingScopeWorkspaceId}>
+      <RuleProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
         <InspectorNavProvider>
           <WorkbenchShell layout={layout} perTab={perTab} />
         </InspectorNavProvider>
       </RuleProvider>
-    </TabWorkspaceProvider>
+    </EditingScopeWorkspaceProvider>
   );
 };
 
@@ -320,7 +320,7 @@ const WorkbenchTabAware: React.FC<{ perTab: PerTabStateApi<WorkbenchViewState> }
 
 interface WorkbenchShellProps {
   layout: ResponsiveLayout;
-  perTab: PerTabStateApi<WorkbenchViewState>;
+  perTab: EditingScopeViewStateApi<WorkbenchViewState>;
 }
 
 /**
@@ -342,7 +342,7 @@ const WorkbenchShell: React.FC<WorkbenchShellProps> = ({ layout, perTab }) => {
 
 interface WorkbenchContentProps {
   layout: ResponsiveLayout;
-  perTab: PerTabStateApi<WorkbenchViewState>;
+  perTab: EditingScopeViewStateApi<WorkbenchViewState>;
   attachBus: (root: HTMLElement | null) => () => void;
 }
 
@@ -411,11 +411,11 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   }, [requestsApi.requests, requestsApi.collections, variableResolver]);
 
   // Editing-scope workspace id — owned by `WorkbenchTabAware` above;
-  // mirrored into context by `TabWorkspaceProvider` so every consumer
+  // mirrored into context by `EditingScopeWorkspaceProvider` so every consumer
   // (here, child editors, mutator-options builders) reads from the
   // same seam. Equals the global default in global mode; the tab's
   // slice binding in per-tab mode (MWPT § 6.2).
-  const tabWorkspaceId = useWorkbenchTabWorkspaceId();
+  const editingScopeWorkspaceId = useWorkbenchEditingScopeWorkspaceId();
   // ── Editor groups (recursive split tree) ──────────────────────
   const groups = useEditorGroups({ perTab });
   // ── Sidebar tree-expansion state (lifted into the per-tab snapshot) ─
@@ -465,7 +465,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // Editing-scope: pending-script reminders are workspace-scoped state
   // the user clears by opening tabs. Diverged tab on X reads X's
   // pending list, not the global default's.
-  const scriptsReviewPendingUids = useRequestScriptsReviewPending(tabWorkspaceId);
+  const scriptsReviewPendingUids = useRequestScriptsReviewPending(editingScopeWorkspaceId);
   const dirtyWorkflowUids = useMemo(() => {
     const out = new Set<string>();
     for (const tab of allTabs) {
@@ -502,7 +502,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   } = useTabLifecycle({
     allTabs,
     rules,
-    workspaceId: tabWorkspaceId,
+    workspaceId: editingScopeWorkspaceId,
     getLeafTabs,
     getFocusedLeafTabs,
     closeTab: rawCloseTab,
@@ -715,7 +715,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     rules,
     templates,
     localCollections,
-    workspaceId: tabWorkspaceId,
+    workspaceId: editingScopeWorkspaceId,
     surfaceId: 'workbench',
     allTabs,
     addTab,
@@ -806,7 +806,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         // owners on other tabs are unaffected. Read mode inside the
         // callback so a mid-gesture flip takes effect immediately.
         const mode = getSetting('general.workspaceSwitchScope');
-        if (mode === 'per-tab') {
+        if (mode === 'per-window-or-tab') {
           if (targetId === perTab.initial.workspace?.workspaceId) return;
           const data = await readWorkspaceFallThrough(targetId);
           perTab.onPersist((prev) => ({ ...prev, workspace: { workspaceId: targetId, data } }));
@@ -1089,8 +1089,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // pill (separate component in the same StatusBar) carries the
   // tab-vs-default delta.
   const activeWorkspace = useMemo(
-    () => workspacesApi.workspaces.find((w) => w.id === tabWorkspaceId),
-    [workspacesApi.workspaces, tabWorkspaceId],
+    () => workspacesApi.workspaces.find((w) => w.id === editingScopeWorkspaceId),
+    [workspacesApi.workspaces, editingScopeWorkspaceId],
   );
 
   const activeTabCollectionId = useMemo((): string | null => {
@@ -1165,14 +1165,14 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       // Editing-scope: env-switcher session overrides clear on tab
       // workspace change (diverged tab on X clears X's overrides), not
       // on global oracle change.
-      activeWorkspaceId: tabWorkspaceId,
+      activeWorkspaceId: editingScopeWorkspaceId,
     }),
     [
       activeTabCollectionId,
       allCollectionsForEnv,
       collectionEnvAutoSwitch,
       activeCollectionDefaultEnvId,
-      tabWorkspaceId,
+      editingScopeWorkspaceId,
     ],
   );
 
@@ -1867,7 +1867,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             to forward the renderer-stamped payload as opaque bytes;
             no SW code change. */}
         <SurfaceAwarenessPublisher
-          workspaceId={tabWorkspaceId}
+          workspaceId={editingScopeWorkspaceId}
           migratedEntityTypes={[
             RULE_ENTITY_TYPE,
             TEMPLATE_ENTITY_TYPE,
@@ -1893,7 +1893,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             onCommandPalette={() => setCommandPaletteOpen(true)}
             onOpenSettings={openSettings}
             workspaces={workspacesApi.workspaces}
-            activeWorkspaceId={tabWorkspaceId}
+            activeWorkspaceId={editingScopeWorkspaceId}
             onSwitchWorkspace={handleSwitchWorkspace}
             onOpenWorkspaceManager={openWorkspaceManager}
             onExportWorkspace={() => setExportModalState({ open: true, scope: { kind: 'workspace' } })}
@@ -2173,7 +2173,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             initialError={importPreviewState.open ? importPreviewState.initialError : undefined}
             source={importPreviewState.open ? importPreviewState.source : undefined}
             workspaces={workspacesApi.workspaces}
-            activeWorkspaceId={tabWorkspaceId}
+            activeWorkspaceId={editingScopeWorkspaceId}
             onCancel={() => advanceImportQueue()}
             onImported={({ targetWorkspaceId, importedCount, sourceLabel }) => {
               const summary = `Imported ${importedCount} entit${importedCount === 1 ? 'y' : 'ies'} from "${sourceLabel}"`;
@@ -2182,7 +2182,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
               // If the target isn't the editing-scope workspace, offer
               // to switch — `handleSwitchWorkspace` is mode-aware so the
               // jump lands per-tab in per-tab mode and globally otherwise.
-              if (targetWorkspaceId !== tabWorkspaceId) {
+              if (targetWorkspaceId !== editingScopeWorkspaceId) {
                 void handleSwitchWorkspace(targetWorkspaceId);
               }
             }}

@@ -29,14 +29,14 @@ import type { V5 } from '@openheaders/core/types';
 import { App, Button, Popover, Space, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback } from 'react';
-import type { PerTabStateApi } from '@/shared/per-tab-state';
+import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
 import type { WorkbenchViewState } from '../hooks/useToolLayout';
 import { readWorkspaceFallThrough } from '../hooks/useToolLayout';
 import { useSettingValue } from '../settings/hooks';
 import { renderWorkspacePrefix } from './workspace-prefix';
 
 interface WorkspaceDivergencePillProps {
-  perTab: PerTabStateApi<WorkbenchViewState>;
+  perTab: EditingScopeViewStateApi<WorkbenchViewState>;
   workspaces: V5.ExtensionWorkspace[];
   setActiveWorkspace: (id: string) => Promise<boolean>;
   openSettings: (target?: { settingKey?: string; categoryId?: string }) => void;
@@ -61,7 +61,7 @@ const WorkspaceDivergencePill: React.FC<WorkspaceDivergencePillProps> = ({
   const { modal, message } = App.useApp();
   const mode = useSettingValue('general.workspaceSwitchScope');
   const globalActiveId = useActiveWorkspaceId();
-  const tabBoundId = perTab.initial.workspace?.workspaceId ?? null;
+  const editingScopeBoundId = perTab.initial.workspace?.workspaceId ?? null;
 
   const onRebindToDefault = useCallback(async () => {
     if (!globalActiveId) return;
@@ -69,11 +69,11 @@ const WorkspaceDivergencePill: React.FC<WorkspaceDivergencePillProps> = ({
     perTab.onPersist((prev) => ({ ...prev, workspace: { workspaceId: globalActiveId, data } }));
   }, [perTab, globalActiveId]);
 
-  const tabWorkspace = workspaces.find((w) => w.id === tabBoundId) ?? null;
+  const tabWorkspace = workspaces.find((w) => w.id === editingScopeBoundId) ?? null;
   const defaultWorkspace = workspaces.find((w) => w.id === globalActiveId) ?? null;
 
   const onPromoteToGlobal = useCallback(() => {
-    if (!tabBoundId || !tabWorkspace) return;
+    if (!editingScopeBoundId || !tabWorkspace) return;
     modal.confirm({
       title: 'Make this tab’s workspace the new default?',
       content: (
@@ -85,18 +85,18 @@ const WorkspaceDivergencePill: React.FC<WorkspaceDivergencePillProps> = ({
       okText: 'Make default',
       cancelText: 'Cancel',
       onOk: async () => {
-        const ok = await setActiveWorkspace(tabBoundId);
+        const ok = await setActiveWorkspace(editingScopeBoundId);
         if (ok) message.success(`${tabWorkspace.name} is now the default workspace`);
       },
     });
-  }, [tabBoundId, tabWorkspace, modal, message, setActiveWorkspace]);
+  }, [editingScopeBoundId, tabWorkspace, modal, message, setActiveWorkspace]);
 
   const onOpenSettings = useCallback(() => openSettings(SETTING_TARGET), [openSettings]);
 
   // ── Visual state machine ────────────────────────────────────────────
 
-  const isPerTab = mode === 'per-tab';
-  const isDiverged = isPerTab && !!tabBoundId && !!globalActiveId && tabBoundId !== globalActiveId;
+  const isPerTab = mode === 'per-window-or-tab';
+  const isDiverged = isPerTab && !!editingScopeBoundId && !!globalActiveId && editingScopeBoundId !== globalActiveId;
 
   const dimStyle: React.CSSProperties = {
     background: 'transparent',

@@ -12,7 +12,7 @@ import { useTheme } from '@context/ThemeContext';
 import type { V5 } from '@openheaders/core/types';
 import { Dropdown, type MenuProps, Space, theme } from 'antd';
 import type React from 'react';
-import { FooterDonorPill, type PerTabStateApi } from '@/shared/per-tab-state';
+import { FooterDonorPill, type EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
 import { productStatusExtras, StatusPill } from '@/shared/status';
 import { useInspectorNav } from '../hooks/useInspectorNav';
 import type { WorkbenchViewState } from '../hooks/useToolLayout';
@@ -33,7 +33,7 @@ interface StatusBarProps {
   onRename?: (newName: string) => void;
   autoRenameKey?: string | null;
   /** Per-tab view state — drives the donor + divergence pills in the status bar. */
-  perTab: PerTabStateApi<WorkbenchViewState>;
+  perTab: EditingScopeViewStateApi<WorkbenchViewState>;
   /** Workspace list — fed to the divergence pill for per-workspace metadata. */
   workspaces: V5.ExtensionWorkspace[];
   /** Promote the tab's workspace to the new global default (divergence-pill action). */

@@ -1,18 +1,18 @@
 /**
  * usePanelToolLayout — DevTools Inspector tool-window state machine.
  *
- * Per-tab view state lives in `usePerTabState` (see
+ * Per-tab view state lives in `useEditingScopeViewState` (see
  * `docs/PER_TAB_VIEW_STATE_DESIGN.md`); this hook adapts the perTab
  * snapshot to `useDockLayout`'s `initial` + `onPersist`.
  *
- * The host calls `usePanelPerTabState` first (gate on `ready`), then
+ * The host calls `usePanelEditingScopeViewState` first (gate on `ready`), then
  * passes the resolved `perTab` into `usePanelToolLayout`.
  */
 
 import type { DockLayoutApi, DockState, ToolLayoutState } from '@/shared/dock-layout';
 import { normalizeDockLayout, useDockLayout } from '@/shared/dock-layout';
-import type { PerTabStateApi } from '@/shared/per-tab-state';
-import { usePerTabState } from '@/shared/per-tab-state';
+import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
+import { useEditingScopeViewState } from '@/shared/editing-scope-view-state';
 import type { PersistedTabSession } from '@/shared/storage';
 import { focusStore } from './focus-store';
 import type { InspectorTab } from './inspector-tab';
@@ -57,8 +57,8 @@ const PANEL_FACTORY_DEFAULT: PanelViewState = {
 
 const PANEL_SCHEMA_VERSION = 2;
 
-export function usePanelPerTabState(): PerTabStateApi<PanelViewState> {
-  return usePerTabState<PanelViewState>({
+export function usePanelEditingScopeViewState(): EditingScopeViewStateApi<PanelViewState> {
+  return useEditingScopeViewState<PanelViewState>({
     surface: 'panel',
     schemaVersion: PANEL_SCHEMA_VERSION,
     factoryDefault: PANEL_FACTORY_DEFAULT,
@@ -70,7 +70,7 @@ export function usePanelPerTabState(): PerTabStateApi<PanelViewState> {
   });
 }
 
-export function usePanelToolLayout(perTab: PerTabStateApi<PanelViewState>): PanelToolLayoutApi {
+export function usePanelToolLayout(perTab: EditingScopeViewStateApi<PanelViewState>): PanelToolLayoutApi {
   return useDockLayout<PanelToolWindowId>({
     windowDefs: PANEL_TOOL_WINDOWS,
     windowMap: PANEL_TOOL_WINDOW_MAP,

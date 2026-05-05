@@ -193,7 +193,7 @@ interface RuleProviderProps {
    * `workspaceChanged` broadcasts. This is the popup / sidepanel path —
    * system-scoped surfaces always show the global default.
    *
-   * When defined (workbench mounts it from `useWorkbenchTabWorkspaceId()`),
+   * When defined (workbench mounts it from `useWorkbenchEditingScopeWorkspaceId()`),
    * the provider treats the prop as authoritative for `activeWorkspaceId`,
    * skips the `workspaceChanged` subscription, and routes mutator
    * `workspaceId` writes through the prop. In per-tab mode the prop

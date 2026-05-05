@@ -10,7 +10,7 @@
 export type SurfaceType = 'workbench' | 'panel';
 
 /** sessionStorage payload — dies with the tab. */
-export interface PerTabViewState<T> {
+export interface EditingScopeViewStateEnvelope<T> {
   tabUid: string;
   schemaVersion: number;
   snapshot: T;
@@ -24,7 +24,7 @@ export interface DonorRecord<T> {
   publishedAt: number;
 }
 
-export interface UsePerTabStateOptions<T> {
+export interface UseEditingScopeViewStateOptions<T> {
   surface: SurfaceType;
   schemaVersion: number;
   factoryDefault: T;
@@ -40,7 +40,7 @@ export interface UsePerTabStateOptions<T> {
   resolveSnapshot?: (raw: T) => Promise<T>;
 }
 
-export interface PerTabStateApi<T> {
+export interface EditingScopeViewStateApi<T> {
   /** Resolved snapshot to feed downstream hooks. Stable once `ready === true`. */
   initial: T;
   /**

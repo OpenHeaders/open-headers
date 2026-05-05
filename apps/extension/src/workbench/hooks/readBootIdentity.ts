@@ -6,7 +6,7 @@
  *
  * The renderer-projection rule is: post-boot reads of oracle-owned
  * identity (`OH.activeWorkspaceId`, per-workspace shadows) MUST go
- * through projections (`useActiveWorkspaceId`, `useTabWorkspaceId`,
+ * through projections (`useActiveWorkspaceId`, `useEditingScopeWorkspaceId`,
  * `useWorkspaces`, the live mirror). The narrow exception is the boot
  * window — before the bridge has fired and the projection would
  * resolve `null`. Those reads route through this helper.

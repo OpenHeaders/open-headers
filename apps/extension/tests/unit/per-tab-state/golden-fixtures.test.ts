@@ -33,8 +33,8 @@ vi.mock('@/shared/storage', async () => {
   };
 });
 
-import { readDonorRecord } from '@/shared/per-tab-state/donor-record';
-import type { SurfaceType } from '@/shared/per-tab-state/types';
+import { readDonorRecord } from '@/shared/editing-scope-view-state/donor-record';
+import type { SurfaceType } from '@/shared/editing-scope-view-state/types';
 
 const FIXTURE_ROOT = path.resolve(__dirname, '../../__fixtures__/per-tab-state');
 

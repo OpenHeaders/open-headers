@@ -1,25 +1,25 @@
 /**
  * useToolLayout — workbench tool-window state machine.
  *
- * Per-tab view state lives in `usePerTabState` (see
+ * Per-tab view state lives in `useEditingScopeViewState` (see
  * `docs/PER_TAB_VIEW_STATE_DESIGN.md`); `useToolLayout` is the surface
  * wrapper that adapts the perTab snapshot to `useDockLayout`'s
  * `initial` + `onPersist` API.
  *
- * The host calls `useWorkbenchPerTabState` first (gate on `ready`),
+ * The host calls `useWorkbenchEditingScopeViewState` first (gate on `ready`),
  * then passes the resolved `perTab` into `useToolLayout`.
  *
  * v2.1 carve-out (design § 2.2): the snapshot now also carries a
  * workspace-scoped slice for editor tabs (and, in a follow-up,
  * sidebar expansions). The slice is rebuilt via `fallThrough` when
  * the donor record was captured in a different workspace — this
- * file wires the workspace-aware resolver into `usePerTabState`.
+ * file wires the workspace-aware resolver into `useEditingScopeViewState`.
  */
 
 import type { DockLayoutApi, ToolLayoutState } from '@/shared/dock-layout';
 import { normalizeDockLayout, useDockLayout } from '@/shared/dock-layout';
-import type { PerTabStateApi, WorkspaceSlice } from '@/shared/per-tab-state';
-import { createWorkspaceAwareResolver, usePerTabState } from '@/shared/per-tab-state';
+import type { EditingScopeViewStateApi, WorkspaceSlice } from '@/shared/editing-scope-view-state';
+import { createWorkspaceAwareResolver, useEditingScopeViewState } from '@/shared/editing-scope-view-state';
 import { extensionStorage, type PersistedTabSession, wsKeys } from '@/shared/storage';
 import { get as getSetting } from '../settings/store';
 import { focusStore } from '../stores/focus-region-store';
@@ -56,7 +56,7 @@ export interface WorkbenchWorkspaceData {
 }
 
 /**
- * View-state snapshot owned by `usePerTabState<WorkbenchViewState>`.
+ * View-state snapshot owned by `useEditingScopeViewState<WorkbenchViewState>`.
  *
  * The shape is split into:
  *   - **`dockLayout`** — universal across workspaces (registry ids
@@ -175,8 +175,8 @@ const workbenchResolveSnapshot = createWorkspaceAwareResolver<WorkbenchViewState
  * shell only when `perTab.ready === true` so `useDockLayout`
  * initializes from the resolved snapshot, not factory defaults.
  */
-export function useWorkbenchPerTabState(): PerTabStateApi<WorkbenchViewState> {
-  return usePerTabState<WorkbenchViewState>({
+export function useWorkbenchEditingScopeViewState(): EditingScopeViewStateApi<WorkbenchViewState> {
+  return useEditingScopeViewState<WorkbenchViewState>({
     surface: 'workbench',
     schemaVersion: WORKBENCH_SCHEMA_VERSION,
     factoryDefault: WORKBENCH_FACTORY_DEFAULT,
@@ -188,7 +188,7 @@ export function useWorkbenchPerTabState(): PerTabStateApi<WorkbenchViewState> {
   });
 }
 
-export function useToolLayout(perTab: PerTabStateApi<WorkbenchViewState>): ToolLayoutApi {
+export function useToolLayout(perTab: EditingScopeViewStateApi<WorkbenchViewState>): ToolLayoutApi {
   return useDockLayout<ToolWindowId>({
     windowDefs: TOOL_WINDOWS,
     windowMap: TOOL_WINDOW_MAP,

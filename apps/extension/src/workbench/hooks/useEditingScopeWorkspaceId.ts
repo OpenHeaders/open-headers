@@ -1,5 +1,5 @@
 /**
- * useTabWorkspaceId — single seam for "which workspace is this workbench
+ * useEditingScopeWorkspaceId — single seam for "which workspace is this workbench
  * tab editing right now?"
  *
  * In **global mode** (`general.workspaceSwitchScope === 'global'`,
@@ -16,14 +16,14 @@
  */
 
 import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
-import type { PerTabStateApi } from '@/shared/per-tab-state';
+import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
 import { useSettingValue } from '../settings/hooks';
 import type { WorkbenchViewState } from './useToolLayout';
 
-export function useTabWorkspaceId(perTab: PerTabStateApi<WorkbenchViewState>): string | null {
+export function useEditingScopeWorkspaceId(perTab: EditingScopeViewStateApi<WorkbenchViewState>): string | null {
   const mode = useSettingValue('general.workspaceSwitchScope');
   const globalActive = useActiveWorkspaceId();
   const tabBound = perTab.initial.workspace?.workspaceId ?? null;
-  if (mode === 'per-tab') return tabBound ?? globalActive;
+  if (mode === 'per-window-or-tab') return tabBound ?? globalActive;
   return globalActive;
 }

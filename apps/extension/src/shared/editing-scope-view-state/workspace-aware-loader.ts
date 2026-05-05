@@ -12,7 +12,7 @@
  * Design § 2.2. The loader is a generic factory: surfaces declare the
  * shape of their workspace slice, the read of `getActiveWorkspaceId`,
  * and the fall-through builder. The factory composes these into the
- * `resolveSnapshot` async hook that `usePerTabState` consumes.
+ * `resolveSnapshot` async hook that `useEditingScopeViewState` consumes.
  */
 
 /**
@@ -56,7 +56,7 @@ export interface WorkspaceAwareConfig<T, S> {
 }
 
 /**
- * Build the `resolveSnapshot` async hook for `usePerTabState`.
+ * Build the `resolveSnapshot` async hook for `useEditingScopeViewState`.
  *
  * Decision tree:
  *
@@ -66,7 +66,7 @@ export interface WorkspaceAwareConfig<T, S> {
  *   slice.workspaceId !== activeId      ⇒ replace slice via fallThrough(activeId)
  *
  * The resolver runs on every load path (sessionStorage hit, donor
- * record, factoryDefault) — see `usePerTabState`'s mount lifecycle.
+ * record, factoryDefault) — see `useEditingScopeViewState`'s mount lifecycle.
  */
 export function createWorkspaceAwareResolver<T, S>(
   cfg: WorkspaceAwareConfig<T, S>,

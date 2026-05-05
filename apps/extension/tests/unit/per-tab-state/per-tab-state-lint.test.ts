@@ -6,7 +6,7 @@
  * `docs/PER_TAB_VIEW_STATE_DESIGN.md` § 16:
  *
  *   1. **Publisher gates on the claim predicate (BC-V1).** The
- *      donor-record publish path inside `use-per-tab-state.ts` must
+ *      donor-record publish path inside `use-editing-scope-view-state.ts` must
  *      gate on `isFocusedAndVisible()` AND have a debounce timer that
  *      re-checks at fire time — i.e. the predicate appears at *both*
  *      the schedule site and the publish site.
@@ -16,11 +16,11 @@
  *      `oh.viewState.*` directly — every read/write goes through the
  *      hook.
  *
- *   3. **Adopters call `usePerTabState` (or the surface-wrapped hook)
+ *   3. **Adopters call `useEditingScopeViewState` (or the surface-wrapped hook)
  *      somewhere in the surface entry.** Workbench's `useToolLayout`
- *      and panel's `usePanelToolLayout` must take a `PerTabStateApi`
+ *      and panel's `usePanelToolLayout` must take a `EditingScopeViewStateApi`
  *      argument; the entry components (`App.tsx` for both surfaces)
- *      must mount `useWorkbenchPerTabState` / `usePanelPerTabState`.
+ *      must mount `useWorkbenchEditingScopeViewState` / `usePanelEditingScopeViewState`.
  *
  * Implementation is regex-based — sufficient for the spike measurement
  * and matches the dock-layout lint's shape (BC-D4 narrowed-by-design).
@@ -31,7 +31,7 @@ import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const SRC_ROOT = path.resolve(__dirname, '../../../src');
-const PER_TAB_MODULE = path.resolve(SRC_ROOT, 'shared/per-tab-state');
+const PER_TAB_MODULE = path.resolve(SRC_ROOT, 'shared/editing-scope-view-state');
 
 function readFile(rel: string): string {
   return readFileSync(path.resolve(SRC_ROOT, rel), 'utf8');
@@ -52,20 +52,20 @@ function walk(dir: string, out: string[] = []): string[] {
 
 describe('per-tab-state lint', () => {
   it('BC-V1: schedulePublish gates on isFocusedAndVisible() at the schedule site', () => {
-    const source = readFileSync(path.join(PER_TAB_MODULE, 'use-per-tab-state.ts'), 'utf8');
+    const source = readFileSync(path.join(PER_TAB_MODULE, 'use-editing-scope-view-state.ts'), 'utf8');
     // Schedule site: `if (isFocusedAndVisible()) schedulePublish(next);`
     expect(source).toMatch(/if\s*\(\s*isFocusedAndVisible\s*\(\s*\)\s*\)\s*schedulePublish/);
   });
 
   it('BC-V1: publishDonor re-checks isFocusedAndVisible() at fire time', () => {
-    const source = readFileSync(path.join(PER_TAB_MODULE, 'use-per-tab-state.ts'), 'utf8');
+    const source = readFileSync(path.join(PER_TAB_MODULE, 'use-editing-scope-view-state.ts'), 'utf8');
     // Publish site: must early-return when not focused+visible.
     // Match shape: `if (!isFocusedAndVisible()) return;`
     expect(source).toMatch(/if\s*\(\s*!\s*isFocusedAndVisible\s*\(\s*\)\s*\)\s*return\b/);
   });
 
   it('BC-V1: schemaVersion bootstrap-vs-mutation logic — readDonorRecord is consulted before publish during bootstrap', () => {
-    const source = readFileSync(path.join(PER_TAB_MODULE, 'use-per-tab-state.ts'), 'utf8');
+    const source = readFileSync(path.join(PER_TAB_MODULE, 'use-editing-scope-view-state.ts'), 'utf8');
     expect(source).toMatch(/readDonorRecord\s*\(/);
     // Bootstrap path publishes only when no record exists.
     expect(source).toMatch(/if\s*\(\s*!\s*existing\s*\)/);
@@ -84,10 +84,10 @@ describe('per-tab-state lint', () => {
     expect(violations).toEqual([]);
   });
 
-  it('useToolLayout takes a PerTabStateApi<WorkbenchViewState> argument', () => {
+  it('useToolLayout takes a EditingScopeViewStateApi<WorkbenchViewState> argument', () => {
     const source = readFile('workbench/hooks/useToolLayout.ts');
-    expect(source).toMatch(/PerTabStateApi<WorkbenchViewState>/);
-    expect(source).toMatch(/usePerTabState</);
+    expect(source).toMatch(/EditingScopeViewStateApi<WorkbenchViewState>/);
+    expect(source).toMatch(/useEditingScopeViewState</);
   });
 
   it('BC-V21-1 + BC-V21-3: workbench wires createWorkspaceAwareResolver with fallThrough builder', () => {
@@ -122,7 +122,7 @@ describe('per-tab-state lint', () => {
 
   it('v3: useWorkbenchSidebarState routes setters through perTab.onPersist', () => {
     const source = readFile('workbench/hooks/useWorkbenchSidebarState.ts');
-    expect(source).toMatch(/PerTabStateApi<WorkbenchViewState>/);
+    expect(source).toMatch(/EditingScopeViewStateApi<WorkbenchViewState>/);
     expect(source).toMatch(/perTab\.onPersist/);
     expect(source).toMatch(/sidebarExpansions/);
   });
@@ -180,10 +180,10 @@ describe('per-tab-state lint', () => {
     expect(source).toMatch(/useWorkbenchWorkspaceSlice\s*\(\s*perTab\s*\)/);
   });
 
-  it('usePanelToolLayout takes a PerTabStateApi<PanelViewState> argument', () => {
+  it('usePanelToolLayout takes a EditingScopeViewStateApi<PanelViewState> argument', () => {
     const source = readFile('panel/data/use-panel-tool-layout.ts');
-    expect(source).toMatch(/PerTabStateApi<PanelViewState>/);
-    expect(source).toMatch(/usePerTabState</);
+    expect(source).toMatch(/EditingScopeViewStateApi<PanelViewState>/);
+    expect(source).toMatch(/useEditingScopeViewState</);
   });
 
   it('v2 (panel): PanelViewState carries a flat editorTabs field (no workspace concept on panel)', () => {
@@ -199,21 +199,21 @@ describe('per-tab-state lint', () => {
     expect(source).toMatch(/PANEL_SCHEMA_VERSION\s*=\s*2/);
   });
 
-  it('v2 (panel): useInspectorEditorGroups takes a PerTabStateApi<PanelViewState> argument', () => {
+  it('v2 (panel): useInspectorEditorGroups takes a EditingScopeViewStateApi<PanelViewState> argument', () => {
     const source = readFile('panel/data/use-inspector-editor-groups.ts');
-    expect(source).toMatch(/PerTabStateApi<PanelViewState>/);
+    expect(source).toMatch(/EditingScopeViewStateApi<PanelViewState>/);
     expect(source).toMatch(/perTab\.onPersist/);
     expect(source).toMatch(/perTab\.initial\.editorTabs/);
   });
 
-  it('workbench App.tsx mounts useWorkbenchPerTabState before rendering the shell', () => {
+  it('workbench App.tsx mounts useWorkbenchEditingScopeViewState before rendering the shell', () => {
     const source = readFile('workbench/App.tsx');
-    expect(source).toMatch(/useWorkbenchPerTabState\s*\(\s*\)/);
+    expect(source).toMatch(/useWorkbenchEditingScopeViewState\s*\(\s*\)/);
   });
 
-  it('panel App.tsx mounts usePanelPerTabState and gates on ready', () => {
+  it('panel App.tsx mounts usePanelEditingScopeViewState and gates on ready', () => {
     const source = readFile('panel/App.tsx');
-    expect(source).toMatch(/usePanelPerTabState\s*\(\s*\)/);
+    expect(source).toMatch(/usePanelEditingScopeViewState\s*\(\s*\)/);
     expect(source).toMatch(/perTab\.ready/);
   });
 });

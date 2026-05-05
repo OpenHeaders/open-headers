@@ -1,10 +1,10 @@
 /**
- * TabWorkspaceContext — surface-scoped wrapper for the per-tab workspace
+ * EditingScopeWorkspaceContext — surface-scoped wrapper for the per-tab workspace
  * seam.
  *
  * Mounted at the workbench surface (App.tsx, alongside the slice owner)
- * with the value computed via `useTabWorkspaceId(perTab)`. Components
- * inside the workbench tree consume via `useWorkbenchTabWorkspaceId()`.
+ * with the value computed via `useEditingScopeWorkspaceId(perTab)`. Components
+ * inside the workbench tree consume via `useWorkbenchEditingScopeWorkspaceId()`.
  * Other surfaces (popup, side-panel, devtools panel) do NOT mount the
  * provider — the consumer hook falls back to `useActiveWorkspaceId()`,
  * preserving the system-scoped read for browser-global UI.
@@ -16,13 +16,13 @@ import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
 import { createContext, useContext } from 'react';
 import type React from 'react';
 
-const TabWorkspaceContext = createContext<string | null | undefined>(undefined);
+const EditingScopeWorkspaceContext = createContext<string | null | undefined>(undefined);
 
-export const TabWorkspaceProvider: React.FC<{
+export const EditingScopeWorkspaceProvider: React.FC<{
   workspaceId: string | null;
   children: React.ReactNode;
 }> = ({ workspaceId, children }) => (
-  <TabWorkspaceContext.Provider value={workspaceId}>{children}</TabWorkspaceContext.Provider>
+  <EditingScopeWorkspaceContext.Provider value={workspaceId}>{children}</EditingScopeWorkspaceContext.Provider>
 );
 
 /**
@@ -31,8 +31,8 @@ export const TabWorkspaceProvider: React.FC<{
  * the global default (global mode). Other surfaces: falls back to
  * `useActiveWorkspaceId` — the global default.
  */
-export function useWorkbenchTabWorkspaceId(): string | null {
-  const fromContext = useContext(TabWorkspaceContext);
+export function useWorkbenchEditingScopeWorkspaceId(): string | null {
+  const fromContext = useContext(EditingScopeWorkspaceContext);
   const fromGlobal = useActiveWorkspaceId();
   if (fromContext === undefined) return fromGlobal;
   return fromContext;

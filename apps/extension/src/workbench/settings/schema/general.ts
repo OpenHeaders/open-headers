@@ -11,7 +11,7 @@ const openToSchema = v.picklist(['last', 'home', 'rules', 'collections']);
 const languageSchema = v.picklist(['auto', 'en']);
 const settingsOpenModeSchema = v.picklist(['modal', 'modal-maximized', 'tab']);
 const collectionEnvAutoSwitchSchema = v.picklist(['keep-selection', 'apply-defaults', 'follow-collection']);
-const workspaceSwitchScopeSchema = v.picklist(['global', 'per-tab']);
+const workspaceSwitchScopeSchema = v.picklist(['global', 'per-window-or-tab']);
 
 export type OpenTo = v.InferOutput<typeof openToSchema>;
 export type Language = v.InferOutput<typeof languageSchema>;
@@ -149,7 +149,7 @@ registerSetting({
   scope: 'user',
   enumOptions: [
     { value: 'global', label: 'Global', description: 'Switching a workspace updates every tab and surface (default).' },
-    { value: 'per-tab', label: 'Per tab', description: 'Switching a workspace in one tab leaves other tabs alone.' },
+    { value: 'per-window-or-tab', label: 'Per tab', description: 'Switching a workspace in one tab leaves other tabs alone.' },
   ],
 });
 

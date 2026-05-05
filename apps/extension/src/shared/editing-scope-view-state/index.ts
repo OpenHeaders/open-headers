@@ -1,10 +1,10 @@
 export { default as FooterDonorPill } from './FooterDonorPill';
 export type {
   DonorRecord,
-  PerTabStateApi,
-  PerTabViewState,
+  EditingScopeViewStateApi,
+  EditingScopeViewStateEnvelope,
   SurfaceType,
-  UsePerTabStateOptions,
+  UseEditingScopeViewStateOptions,
 } from './types';
-export { usePerTabState } from './use-per-tab-state';
+export { useEditingScopeViewState } from './use-editing-scope-view-state';
 export { createWorkspaceAwareResolver, type WorkspaceAwareConfig, type WorkspaceSlice } from './workspace-aware-loader';

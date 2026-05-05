@@ -9,10 +9,10 @@
 import { ReloadOutlined, ShareAltOutlined } from '@ant-design/icons';
 import { Button, Popover, Space, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import type { PerTabStateApi } from './types';
+import type { EditingScopeViewStateApi } from './types';
 
 interface FooterDonorPillProps<T> {
-  perTab: PerTabStateApi<T>;
+  perTab: EditingScopeViewStateApi<T>;
 }
 
 const TOOLTIP_DONOR = 'Default tab — new tabs inherit layout from here.';

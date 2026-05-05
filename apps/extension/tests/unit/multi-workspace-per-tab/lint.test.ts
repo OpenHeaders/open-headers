@@ -28,7 +28,7 @@ const REPO_ROOT = join(__dirname, '..', '..', '..');
 const WORKBENCH_ROOT = join(REPO_ROOT, 'src', 'workbench');
 const SLICE_OWNER = join(WORKBENCH_ROOT, 'hooks', 'useWorkbenchWorkspaceSlice.ts');
 const APP_TSX = join(WORKBENCH_ROOT, 'App.tsx');
-const SEAM_FILE = join(WORKBENCH_ROOT, 'hooks', 'useTabWorkspaceId.ts');
+const SEAM_FILE = join(WORKBENCH_ROOT, 'hooks', 'useEditingScopeWorkspaceId.ts');
 const BOOT_UTIL_FILE = join(WORKBENCH_ROOT, 'hooks', 'readBootIdentity.ts');
 const RESPONSIVE_LAYOUT = join(WORKBENCH_ROOT, 'hooks', 'useResponsiveLayout.ts');
 const PEER_NAVIGATE = join(REPO_ROOT, 'src', 'shared', 'awareness', 'peer-navigate.ts');
@@ -38,15 +38,15 @@ const TREE_BUILDER = join(REPO_ROOT, 'src', 'shared', 'local-tree-builder.ts');
 /**
  * Files under `src/workbench/` that are still permitted to import
  * `useActiveWorkspaceId` directly. Each entry is a temporary migration
- * deferral — when the consumer is migrated to `useTabWorkspaceId`, drop
+ * deferral — when the consumer is migrated to `useEditingScopeWorkspaceId`, drop
  * the entry and the lint becomes the progress meter.
  */
 const BC_MWPT_3_ALLOWLIST: readonly string[] = [
   // The seam itself reads the global active id as the global-mode return value.
-  'hooks/useTabWorkspaceId.ts',
-  // The TabWorkspaceContext consumer hook falls back to the global read
+  'hooks/useEditingScopeWorkspaceId.ts',
+  // The EditingScopeWorkspaceContext consumer hook falls back to the global read
   // for surfaces that don't mount the provider (popup, side-panel, panel).
-  'hooks/TabWorkspaceContext.tsx',
+  'hooks/EditingScopeWorkspaceContext.tsx',
   // The divergence pill reads the global default explicitly to compute
   // the diff — that's the whole point of the component.
   'components/WorkspaceDivergencePill.tsx',
@@ -89,7 +89,7 @@ describe('multi-workspace-per-tab lint', () => {
     expect(startIdx).toBeGreaterThan(-1);
     const slice = text.slice(startIdx, startIdx + 4000);
     expect(slice).toMatch(/getSetting\(\s*['"]general\.workspaceSwitchScope['"]\s*\)/);
-    expect(slice).toMatch(/===\s*['"]per-tab['"]/);
+    expect(slice).toMatch(/===\s*['"]per-window-or-tab['"]/);
     // Per-tab branch must hit perTab.onPersist (slice write) — not the oracle.
     expect(slice).toMatch(/perTab\.onPersist/);
   });
@@ -110,8 +110,8 @@ describe('multi-workspace-per-tab lint', () => {
     expect(persistIdx).toBeGreaterThan(-1);
     expect(modeIdx).toBeLessThan(fallThroughIdx);
     expect(modeIdx).toBeLessThan(persistIdx);
-    // The early-return line must mention 'per-tab' near the mode read.
-    expect(body.slice(modeIdx, modeIdx + 200)).toMatch(/per-tab/);
+    // The early-return line must mention 'per-window-or-tab' near the mode read.
+    expect(body.slice(modeIdx, modeIdx + 200)).toMatch(/per-window-or-tab/);
   });
 
   it('BC-MWPT-3 — workbench tree imports useActiveWorkspaceId only via the seam or allowlist', () => {
@@ -143,9 +143,9 @@ describe('multi-workspace-per-tab lint', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('the seam file exists and exports useTabWorkspaceId', () => {
+  it('the seam file exists and exports useEditingScopeWorkspaceId', () => {
     const text = readFileSync(SEAM_FILE, 'utf8');
-    expect(text).toMatch(/export function useTabWorkspaceId/);
+    expect(text).toMatch(/export function useEditingScopeWorkspaceId/);
   });
 
   it('BC-MWPT-5 — RuleProvider mount in App.tsx threads activeWorkspaceIdOverride from the tab seam', () => {
@@ -157,7 +157,7 @@ describe('multi-workspace-per-tab lint', () => {
     // RuleProvider mounts NEVER pass the override.
     const text = readFileSync(APP_TSX, 'utf8');
     expect(text).toMatch(
-      /<RuleProvider\s+surfaceId=["']workbench["']\s+activeWorkspaceIdOverride=\{tabWorkspaceId\}/,
+      /<RuleProvider\s+surfaceId=["']workbench["']\s+activeWorkspaceIdOverride=\{editingScopeWorkspaceId\}/,
     );
   });
 
@@ -252,7 +252,7 @@ describe('multi-workspace-per-tab lint', () => {
     const idx = text.indexOf('<SurfaceAwarenessPublisher');
     expect(idx).toBeGreaterThan(-1);
     const block = text.slice(idx, idx + 600);
-    expect(block).toMatch(/workspaceId=\{tabWorkspaceId\}/);
+    expect(block).toMatch(/workspaceId=\{editingScopeWorkspaceId\}/);
     expect(block).not.toMatch(/workspaceId=\{workspacesApi\.activeWorkspaceId\}/);
   });
 });

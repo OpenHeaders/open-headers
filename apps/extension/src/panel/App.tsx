@@ -19,7 +19,7 @@ import {
   ShellLayout,
   useFocusRegion,
 } from '@/shared/dock-layout';
-import type { PerTabStateApi } from '@/shared/per-tab-state';
+import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
 import { VariablePopoverProvider } from '@/workbench/components/template-input/VariablePopoverHost';
 import { EnvSwitcherProvider, useEnvSwitcher } from '@/workbench/services/env-switcher';
 import { useSetting } from '@/workbench/settings/hooks';
@@ -46,7 +46,7 @@ import type { InspectorRequest } from './data/types';
 import { useCacheBypass } from './data/use-cache-bypass';
 import { useInspector } from './data/use-inspector';
 import { useInspectorEditorGroups } from './data/use-inspector-editor-groups';
-import { type PanelViewState, usePanelPerTabState, usePanelToolLayout } from './data/use-panel-tool-layout';
+import { type PanelViewState, usePanelEditingScopeViewState, usePanelToolLayout } from './data/use-panel-tool-layout';
 import { useRulesLookup } from './data/use-rules-lookup';
 import { useSearchSession } from './data/use-search-session';
 
@@ -170,14 +170,14 @@ function DevPanelAwarenessPublisher(): React.ReactElement {
 // ── PanelContent (consumes the event bus via useFocusRegion) ─────────
 
 function PanelContent() {
-  const perTab = usePanelPerTabState();
+  const perTab = usePanelEditingScopeViewState();
   if (!perTab.ready) {
     return <div className="rules-shell rules-shell-loading" />;
   }
   return <PanelContentReady perTab={perTab} />;
 }
 
-function PanelContentReady({ perTab }: { perTab: PerTabStateApi<PanelViewState> }) {
+function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelViewState> }) {
   const {
     entries,
     danglingFires,

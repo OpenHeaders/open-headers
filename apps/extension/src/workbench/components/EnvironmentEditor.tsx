@@ -34,7 +34,7 @@ import {
 } from '@/shared/conflicts';
 import { useEditorShell, useReprime } from '@/shared/editor-shell';
 import { stableStringify } from '@/shared/forms';
-import { useWorkbenchTabWorkspaceId } from '../hooks/TabWorkspaceContext';
+import { useWorkbenchEditingScopeWorkspaceId } from '../hooks/EditingScopeWorkspaceContext';
 import { useEnvSwitcher } from '../services/env-switcher';
 import EditorHeader from './EditorHeader';
 import VariableTable, { type VariableTableConflictBridge } from './panels/VariableTable';
@@ -68,7 +68,7 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
   const { message } = App.useApp();
   const { environments, activeEnvironmentId, defaultEnvironmentId, setDefaultEnvironment } = useEnvironments();
   const { pickActiveEnvironment } = useEnvSwitcher();
-  const workspaceId = useWorkbenchTabWorkspaceId();
+  const workspaceId = useWorkbenchEditingScopeWorkspaceId();
   const mutator = useEnvironmentMutator({ workspaceId, surfaceId: SURFACE_ID });
 
   const env = useMemo(() => environments.find((e) => e.uid === environmentUid) ?? null, [environments, environmentUid]);

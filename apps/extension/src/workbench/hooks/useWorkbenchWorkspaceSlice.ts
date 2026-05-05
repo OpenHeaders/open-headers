@@ -27,11 +27,11 @@
 
 import { subscribe } from '@utils/bridge';
 import { useEffect } from 'react';
-import type { PerTabStateApi } from '@/shared/per-tab-state';
+import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
 import { get as getSetting } from '../settings/store';
 import { readWorkspaceFallThrough, type WorkbenchViewState } from './useToolLayout';
 
-export function useWorkbenchWorkspaceSlice(perTab: PerTabStateApi<WorkbenchViewState>): void {
+export function useWorkbenchWorkspaceSlice(perTab: EditingScopeViewStateApi<WorkbenchViewState>): void {
   const onPersist = perTab.onPersist;
   useEffect(() => {
     const unsub = subscribe('workspaceChanged', (payload) => {
@@ -40,7 +40,7 @@ export function useWorkbenchWorkspaceSlice(perTab: PerTabStateApi<WorkbenchViewS
       // mid-session mode flip; the lint pins the inside-callback shape.
       // In per-tab mode the global oracle changing does NOT auto-rebind
       // this tab — diverged tabs stay on their slice's workspace.
-      if (getSetting('general.workspaceSwitchScope') === 'per-tab') return;
+      if (getSetting('general.workspaceSwitchScope') === 'per-window-or-tab') return;
       const nextId = payload.activeWorkspaceId;
       void readWorkspaceFallThrough(nextId).then((data) => {
         onPersist((prev) => {

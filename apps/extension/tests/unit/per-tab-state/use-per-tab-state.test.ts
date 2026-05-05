@@ -1,5 +1,5 @@
 /**
- * usePerTabState — unit tests covering the bug-class predictions in
+ * useEditingScopeViewState — unit tests covering the bug-class predictions in
  * `docs/PER_TAB_VIEW_STATE_DESIGN.md` § 16:
  *   - BC-V2 — schema-mismatched payloads silently fall through.
  *   - BC-V4 — sessionStorage survives reload (re-mount uses persisted snapshot).
@@ -29,7 +29,7 @@ vi.mock('@/shared/storage', async () => {
   };
 });
 
-import { usePerTabState } from '@/shared/per-tab-state/use-per-tab-state';
+import { useEditingScopeViewState } from '@/shared/editing-scope-view-state/use-editing-scope-view-state';
 
 interface ViewState {
   dockLayout: { foo: string };
@@ -51,10 +51,10 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('usePerTabState', () => {
+describe('useEditingScopeViewState', () => {
   it('uses factoryDefault when both sessionStorage and donor record are empty', async () => {
     const hook = renderHook(() =>
-      usePerTabState<ViewState>({
+      useEditingScopeViewState<ViewState>({
         surface: 'workbench',
         schemaVersion: 1,
         factoryDefault: FACTORY,
@@ -74,7 +74,7 @@ describe('usePerTabState', () => {
     });
 
     const hook = renderHook(() =>
-      usePerTabState<ViewState>({
+      useEditingScopeViewState<ViewState>({
         surface: 'workbench',
         schemaVersion: 1,
         factoryDefault: FACTORY,
@@ -92,7 +92,7 @@ describe('usePerTabState', () => {
     );
 
     const hook = renderHook(() =>
-      usePerTabState<ViewState>({
+      useEditingScopeViewState<ViewState>({
         surface: 'workbench',
         schemaVersion: 1,
         factoryDefault: FACTORY,
@@ -110,7 +110,7 @@ describe('usePerTabState', () => {
       JSON.stringify({ tabUid: 't', schemaVersion: 99, snapshot: { dockLayout: { foo: 'old' } } }),
     );
     const hook = renderHook(() =>
-      usePerTabState<ViewState>({
+      useEditingScopeViewState<ViewState>({
         surface: 'workbench',
         schemaVersion: 1,
         factoryDefault: FACTORY,
@@ -128,7 +128,7 @@ describe('usePerTabState', () => {
       snapshot: { dockLayout: { foo: 'old' } },
     });
     const hook = renderHook(() =>
-      usePerTabState<ViewState>({
+      useEditingScopeViewState<ViewState>({
         surface: 'workbench',
         schemaVersion: 1,
         factoryDefault: FACTORY,
@@ -140,7 +140,7 @@ describe('usePerTabState', () => {
 
   it('onPersist updates sessionStorage synchronously via the setter form', async () => {
     const hook = renderHook(() =>
-      usePerTabState<ViewState>({
+      useEditingScopeViewState<ViewState>({
         surface: 'workbench',
         schemaVersion: 1,
         factoryDefault: FACTORY,
@@ -166,7 +166,7 @@ describe('usePerTabState', () => {
       snapshot: { dockLayout: { foo: 'donor' } },
     });
     const hook = renderHook(() =>
-      usePerTabState<ViewState>({
+      useEditingScopeViewState<ViewState>({
         surface: 'workbench',
         schemaVersion: 1,
         factoryDefault: FACTORY,
@@ -183,7 +183,7 @@ describe('usePerTabState', () => {
     });
     try {
       const hook = renderHook(() =>
-        usePerTabState<ViewState>({
+        useEditingScopeViewState<ViewState>({
           surface: 'workbench',
           schemaVersion: 1,
           factoryDefault: FACTORY,
@@ -225,7 +225,7 @@ describe('usePerTabState', () => {
       return { ...raw, workspace: { workspaceId: activeId, data } };
     };
     const hook = renderHook(() =>
-      usePerTabState<WS>({
+      useEditingScopeViewState<WS>({
         surface: 'workbench',
         schemaVersion: 1,
         factoryDefault: factory,
@@ -266,7 +266,7 @@ describe('usePerTabState', () => {
       return { ...raw, workspace: { workspaceId: activeId, data } };
     };
     const hook = renderHook(() =>
-      usePerTabState<WS>({
+      useEditingScopeViewState<WS>({
         surface: 'workbench',
         schemaVersion: 1,
         factoryDefault: factory,
@@ -290,7 +290,7 @@ describe('usePerTabState', () => {
     });
 
     const hook = renderHook(() =>
-      usePerTabState<ViewState>({
+      useEditingScopeViewState<ViewState>({
         surface: 'workbench',
         schemaVersion: 1,
         factoryDefault: FACTORY,
