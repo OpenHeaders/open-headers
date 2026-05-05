@@ -9,6 +9,7 @@
 
 import { BulbFilled, BulbOutlined } from '@ant-design/icons';
 import { useTheme } from '@context/ThemeContext';
+import type { V5 } from '@openheaders/core/types';
 import { Dropdown, type MenuProps, Space, theme } from 'antd';
 import type React from 'react';
 import { FooterDonorPill, type PerTabStateApi } from '@/shared/per-tab-state';
@@ -17,6 +18,7 @@ import { useInspectorNav } from '../hooks/useInspectorNav';
 import type { WorkbenchViewState } from '../hooks/useToolLayout';
 import { useSettingValue } from '../settings/hooks';
 import BreadcrumbBar from './BreadcrumbBar';
+import WorkspaceDivergencePill from './WorkspaceDivergencePill';
 import { renderWorkspacePrefix } from './workspace-prefix';
 
 type ThemeMode = 'light' | 'dark' | 'auto';
@@ -30,8 +32,12 @@ interface StatusBarProps {
   segments: string[];
   onRename?: (newName: string) => void;
   autoRenameKey?: string | null;
-  /** Per-tab view state — drives the donor pill in the status bar. */
+  /** Per-tab view state — drives the donor + divergence pills in the status bar. */
   perTab: PerTabStateApi<WorkbenchViewState>;
+  /** Workspace list — fed to the divergence pill for per-workspace metadata. */
+  workspaces: V5.ExtensionWorkspace[];
+  /** Promote the tab's workspace to the new global default (divergence-pill action). */
+  setActiveWorkspace: (id: string) => Promise<boolean>;
 }
 
 const THEME_DISPLAY: Record<ThemeMode, { icon: React.ReactNode; text: string; color: string }> = {
@@ -40,7 +46,15 @@ const THEME_DISPLAY: Record<ThemeMode, { icon: React.ReactNode; text: string; co
   auto: { icon: <span style={{ fontSize: 12 }}>&#x25D0;</span>, text: 'Auto', color: '#1890ff' },
 };
 
-const StatusBar: React.FC<StatusBarProps> = ({ workspace, segments, onRename, autoRenameKey, perTab }) => {
+const StatusBar: React.FC<StatusBarProps> = ({
+  workspace,
+  segments,
+  onRename,
+  autoRenameKey,
+  perTab,
+  workspaces,
+  setActiveWorkspace,
+}) => {
   const { token } = theme.useToken();
   const { themeMode, setThemeMode } = useTheme();
   // Mirror TopBar: the footer's left padding expands/contracts with the
@@ -90,6 +104,11 @@ const StatusBar: React.FC<StatusBarProps> = ({ workspace, segments, onRename, au
       </div>
 
       <div className="rules-statusbar-right">
+        <WorkspaceDivergencePill
+          perTab={perTab}
+          workspaces={workspaces}
+          setActiveWorkspace={setActiveWorkspace}
+        />
         <FooterDonorPill perTab={perTab} />
         <div className="rules-statusbar-divider" style={{ background: token.colorBorder }} />
         <StatusPill

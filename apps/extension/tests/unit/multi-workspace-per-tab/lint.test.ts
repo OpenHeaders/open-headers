@@ -43,6 +43,9 @@ const BC_MWPT_3_ALLOWLIST: readonly string[] = [
   // The TabWorkspaceContext consumer hook falls back to the global read
   // for surfaces that don't mount the provider (popup, side-panel, panel).
   'hooks/TabWorkspaceContext.tsx',
+  // The divergence pill reads the global default explicitly to compute
+  // the diff — that's the whole point of the component.
+  'components/WorkspaceDivergencePill.tsx',
 ];
 
 /**
