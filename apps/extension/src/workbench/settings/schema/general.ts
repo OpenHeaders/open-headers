@@ -5,6 +5,7 @@
  */
 
 import * as v from 'valibot';
+import { instanceLabel, instanceLabelPlural } from '@/shared/host-vocabulary';
 import { registerSetting } from '../registry';
 
 const openToSchema = v.picklist(['last', 'home', 'rules', 'collections']);
@@ -142,14 +143,22 @@ registerSetting({
   schema: workspaceSwitchScopeSchema,
   label: 'Workspace Switch Scope',
   description:
-    'Switch workspaces globally (every tab, default) or only in the current tab. ' +
+    `Switch workspaces globally (every ${instanceLabel()}, default) or only in the current ${instanceLabel()}. ` +
     'Network rules and the popup always use the global workspace.',
   category: 'general',
   tags: ['workspace', 'tabs', 'multi-workspace'],
   scope: 'user',
   enumOptions: [
-    { value: 'global', label: 'Global', description: 'Switching a workspace updates every tab and surface (default).' },
-    { value: 'per-window-or-tab', label: 'Per tab', description: 'Switching a workspace in one tab leaves other tabs alone.' },
+    {
+      value: 'global',
+      label: 'Global',
+      description: `Switching a workspace updates every ${instanceLabel()} and surface (default).`,
+    },
+    {
+      value: 'per-window-or-tab',
+      label: `Per ${instanceLabel()}`,
+      description: `Switching a workspace in one ${instanceLabel()} leaves other ${instanceLabelPlural()} alone.`,
+    },
   ],
 });
 

@@ -9,14 +9,15 @@
 import { ReloadOutlined, ShareAltOutlined } from '@ant-design/icons';
 import { Button, Popover, Space, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
+import { instanceLabel, instanceLabelPlural } from '../host-vocabulary';
 import type { EditingScopeViewStateApi } from './types';
 
 interface FooterDonorPillProps<T> {
   perTab: EditingScopeViewStateApi<T>;
 }
 
-const TOOLTIP_DONOR = 'Default tab — new tabs inherit layout from here.';
-const TOOLTIP_NON_DONOR = 'Another tab is the default donor — new tabs inherit from there.';
+const TOOLTIP_DONOR = `Default ${instanceLabel()} — new ${instanceLabelPlural()} inherit layout from here.`;
+const TOOLTIP_NON_DONOR = `Another ${instanceLabel()} is the default donor — new ${instanceLabelPlural()} inherit from there.`;
 
 export function FooterDonorPill<T>({ perTab }: FooterDonorPillProps<T>): React.ReactElement {
   const { token } = theme.useToken();
@@ -37,8 +38,8 @@ export function FooterDonorPill<T>({ perTab }: FooterDonorPillProps<T>): React.R
     <div style={{ minWidth: 240, maxWidth: 320 }}>
       <Typography.Paragraph style={{ marginBottom: 8, fontSize: 12 }}>
         {isDonor
-          ? 'This tab is the current default. New tabs inherit this layout.'
-          : 'Another tab is the current default. New tabs inherit that tab’s layout.'}
+          ? `This ${instanceLabel()} is the current default. New ${instanceLabelPlural()} inherit this layout.`
+          : `Another ${instanceLabel()} is the current default. New ${instanceLabelPlural()} inherit that ${instanceLabel()}’s layout.`}
       </Typography.Paragraph>
       <Space size={4}>
         <Button size="small" icon={<ReloadOutlined />} onClick={perTab.resetToDefaults}>
@@ -55,7 +56,11 @@ export function FooterDonorPill<T>({ perTab }: FooterDonorPillProps<T>): React.R
           className="rules-statusbar-item"
           role="button"
           tabIndex={0}
-          aria-label={isDonor ? 'Default tab for new-tab inheritance' : 'Not the default tab for new-tab inheritance'}
+          aria-label={
+            isDonor
+              ? `Default ${instanceLabel()} for new-${instanceLabel()} inheritance`
+              : `Not the default ${instanceLabel()} for new-${instanceLabel()} inheritance`
+          }
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -70,7 +75,7 @@ export function FooterDonorPill<T>({ perTab }: FooterDonorPillProps<T>): React.R
           }}
         >
           <ShareAltOutlined style={{ fontSize: 10 }} />
-          <span>{isDonor ? 'Default tab' : 'Inherits layout'}</span>
+          <span>{isDonor ? `Default ${instanceLabel()}` : 'Inherits layout'}</span>
         </span>
       </Tooltip>
     </Popover>

@@ -30,6 +30,7 @@ import { App, Button, Popover, Space, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback } from 'react';
 import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
+import { instanceLabel, instanceLabelPlural, instanceLabelTitleCase } from '@/shared/host-vocabulary';
 import type { WorkbenchViewState } from '../hooks/useToolLayout';
 import { readWorkspaceFallThrough } from '../hooks/useToolLayout';
 import { useSettingValue } from '../settings/hooks';
@@ -43,11 +44,11 @@ interface WorkspaceDivergencePillProps {
 }
 
 const TOOLTIP_GLOBAL =
-  'Switching workspace updates every tab. Click to change to per-tab mode in Settings.';
+  `Switching workspace updates every ${instanceLabel()}. Click to change to per-${instanceLabel()} mode in Settings.`;
 const TOOLTIP_BOUND =
-  'Per-tab workspace mode is on. This tab is on the default workspace. Switching workspace here will only affect this tab.';
+  `Per-${instanceLabel()} workspace mode is on. This ${instanceLabel()} is on the default workspace. Switching workspace here will only affect this ${instanceLabel()}.`;
 const TOOLTIP_DIVERGED =
-  'Per-tab workspace mode is on. Other tabs, the popup, and network rules use the default workspace.';
+  `Per-${instanceLabel()} workspace mode is on. Other ${instanceLabelPlural()}, the popup, and network rules use the default workspace.`;
 
 const SETTING_TARGET = { settingKey: 'general.workspaceSwitchScope', categoryId: 'general' };
 
@@ -75,10 +76,10 @@ const WorkspaceDivergencePill: React.FC<WorkspaceDivergencePillProps> = ({
   const onPromoteToGlobal = useCallback(() => {
     if (!editingScopeBoundId || !tabWorkspace) return;
     modal.confirm({
-      title: 'Make this tab’s workspace the new default?',
+      title: `Make this ${instanceLabel()}’s workspace the new default?`,
       content: (
         <Typography.Paragraph style={{ marginBottom: 0 }}>
-          Every tab, the popup, the side-panel, and network rules will switch to{' '}
+          Every {instanceLabel()}, the popup, the side-panel, and network rules will switch to{' '}
           <strong>{tabWorkspace.name}</strong>.
         </Typography.Paragraph>
       ),
@@ -128,25 +129,25 @@ const WorkspaceDivergencePill: React.FC<WorkspaceDivergencePillProps> = ({
           ? renderWorkspacePrefix({ icon: tabWorkspace.icon, color: tabWorkspace.color }, token, { size: 12 })
           : null}
         <span>
-          {tabWorkspace?.name ?? 'tab'} · default {defaultWorkspace?.name ?? 'unknown'}
+          {tabWorkspace?.name ?? instanceLabel()} · default {defaultWorkspace?.name ?? 'unknown'}
         </span>
       </span>
     );
     tooltip = TOOLTIP_DIVERGED;
     style = warnStyle;
-    ariaLabel = `Tab is editing ${tabWorkspace?.name ?? 'tab'}; default workspace is ${defaultWorkspace?.name ?? 'default'}`;
+    ariaLabel = `${instanceLabelTitleCase()} is editing ${tabWorkspace?.name ?? instanceLabel()}; default workspace is ${defaultWorkspace?.name ?? 'default'}`;
   } else if (isPerTab) {
     icon = <ApartmentOutlined style={{ fontSize: 10 }} />;
-    label = <span>Per-tab · bound to default</span>;
+    label = <span>Per-{instanceLabel()} · bound to default</span>;
     tooltip = TOOLTIP_BOUND;
     style = litStyle;
-    ariaLabel = 'Per-tab workspace mode on; tab bound to the default workspace';
+    ariaLabel = `Per-${instanceLabel()} workspace mode on; ${instanceLabel()} bound to the default workspace`;
   } else {
     icon = <LinkOutlined style={{ fontSize: 10 }} />;
     label = <span>Workspace synced</span>;
     tooltip = TOOLTIP_GLOBAL;
     style = dimStyle;
-    ariaLabel = 'Workspace synced across tabs (global mode); click to change in Settings';
+    ariaLabel = `Workspace synced across ${instanceLabelPlural()} (global mode); click to change in Settings`;
   }
 
   // ── Render ──────────────────────────────────────────────────────────
@@ -180,16 +181,16 @@ const WorkspaceDivergencePill: React.FC<WorkspaceDivergencePillProps> = ({
     const popoverContent = (
       <div style={{ minWidth: 260, maxWidth: 360 }}>
         <Typography.Paragraph style={{ marginBottom: 8, fontSize: 12 }}>
-          This tab is editing <strong>{tabWorkspace?.name ?? 'unknown'}</strong>. The default workspace is{' '}
+          This {instanceLabel()} is editing <strong>{tabWorkspace?.name ?? 'unknown'}</strong>. The default workspace is{' '}
           <strong>{defaultWorkspace?.name ?? 'unknown'}</strong>. Network rules, the popup, and the side-panel always
           use the default.
         </Typography.Paragraph>
         <Space direction="vertical" size={4} style={{ width: '100%' }}>
           <Button size="small" block onClick={onRebindToDefault}>
-            Re-bind tab to default workspace
+            Re-bind {instanceLabel()} to default workspace
           </Button>
           <Button size="small" block onClick={onPromoteToGlobal}>
-            Make this tab’s workspace the new default…
+            Make this {instanceLabel()}’s workspace the new default…
           </Button>
           <Button size="small" type="link" block onClick={onOpenSettings}>
             Workspace switch scope settings…
