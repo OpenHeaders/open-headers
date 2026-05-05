@@ -105,7 +105,12 @@ import { useSaveRequestFlow } from './hooks/useSaveRequestFlow';
 import { useTabLifecycle } from './hooks/useTabLifecycle';
 import { useTabOpeners } from './hooks/useTabOpeners';
 import { useTabSyncEffects } from './hooks/useTabSyncEffects';
-import { useToolLayout, useWorkbenchPerTabState, type WorkbenchViewState } from './hooks/useToolLayout';
+import {
+  readWorkspaceFallThrough,
+  useToolLayout,
+  useWorkbenchPerTabState,
+  type WorkbenchViewState,
+} from './hooks/useToolLayout';
 import { useWorkbenchSidebarState } from './hooks/useWorkbenchSidebarState';
 import { useWorkbenchWorkspaceSlice } from './hooks/useWorkbenchWorkspaceSlice';
 import { useWorkspaceIntentRouter } from './hooks/useWorkspaceIntentRouter';
@@ -745,7 +750,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // reuse it rather than threading a second source of truth.
   const handleSwitchWorkspace = useCallback(
     (targetId: string) => {
-      if (targetId === workspacesApi.activeWorkspaceId) return;
       // Source of truth is the LIVE tab list — `dirtyMap` accumulates
       // historical entries (it's never pruned on tab close), so reading
       // it gives false positives for closed tabs and triggers the
@@ -754,6 +758,19 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       const hasDirty = allTabs.some((t) => t.dirty);
       const targetName = workspacesApi.workspaces.find((w) => w.id === targetId)?.name;
       const doSwitch = async (): Promise<void> => {
+        // BC-MWPT-1 / BC-MWPT-8 — mode-aware switch. Per-tab mode skips
+        // the oracle write (no `workspaceChanged` broadcast); slice
+        // owners on other tabs are unaffected. Read mode inside the
+        // callback so a mid-gesture flip takes effect immediately.
+        const mode = getSetting('general.workspaceSwitchScope');
+        if (mode === 'per-tab') {
+          if (targetId === perTab.initial.workspace?.workspaceId) return;
+          const data = await readWorkspaceFallThrough(targetId);
+          perTab.onPersist((prev) => ({ ...prev, workspace: { workspaceId: targetId, data } }));
+          if (targetName) message.success(`Switched this tab to ${targetName}`);
+          return;
+        }
+        if (targetId === workspacesApi.activeWorkspaceId) return;
         const ok = await workspacesApi.setActiveWorkspace(targetId);
         // Mirror the import flow's "Imported N entities from <ws>" toast
         // pattern so every workspace state change has the same feedback
@@ -773,7 +790,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       }
       void doSwitch();
     },
-    [workspacesApi, modal, message, allTabs],
+    [workspacesApi, modal, message, allTabs, perTab],
   );
 
   const openSettings = useCallback(

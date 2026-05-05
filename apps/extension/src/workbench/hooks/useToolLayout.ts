@@ -20,11 +20,12 @@ import type { DockLayoutApi, ToolLayoutState } from '@/shared/dock-layout';
 import { normalizeDockLayout, useDockLayout } from '@/shared/dock-layout';
 import type { PerTabStateApi, WorkspaceSlice } from '@/shared/per-tab-state';
 import { createWorkspaceAwareResolver, usePerTabState } from '@/shared/per-tab-state';
-import { extensionStorage, OH, type PersistedTabSession, wsKeys } from '@/shared/storage';
+import { extensionStorage, type PersistedTabSession, wsKeys } from '@/shared/storage';
 import { get as getSetting } from '../settings/store';
 import { focusStore } from '../stores/focus-region-store';
 import { TOOL_WINDOW_MAP, TOOL_WINDOWS } from '../tool-windows';
 import type { ToolWindowId, WorkbenchTab } from '../types';
+import { readGlobalActiveWorkspaceId } from './readBootIdentity';
 
 export type ToolLayoutApi = DockLayoutApi<ToolWindowId>;
 
@@ -158,14 +159,11 @@ export async function readWorkspaceFallThrough(workspaceId: string): Promise<Wor
 }
 
 const workbenchResolveSnapshot = createWorkspaceAwareResolver<WorkbenchViewState, WorkbenchWorkspaceData>({
-  getActiveWorkspaceId: async () => {
-    try {
-      const id = (await extensionStorage.get(OH.activeWorkspaceId)) as string | undefined;
-      return typeof id === 'string' && id.length > 0 ? id : null;
-    } catch {
-      return null;
-    }
-  },
+  // Mount-time read of oracle-owned identity — wrapped via
+  // `readGlobalActiveWorkspaceId` so KNOWN_BOOT_COUPLING_READS has a
+  // single import target to enumerate (design § 9.1). New tabs always
+  // boot on the global default even in MWPT per-tab mode (R4).
+  getActiveWorkspaceId: readGlobalActiveWorkspaceId,
   getSlice: (snap) => snap.workspace,
   withSlice: (snap, slice) => ({ ...snap, workspace: slice }),
   fallThrough: readWorkspaceFallThrough,

@@ -11,11 +11,13 @@ const openToSchema = v.picklist(['last', 'home', 'rules', 'collections']);
 const languageSchema = v.picklist(['auto', 'en']);
 const settingsOpenModeSchema = v.picklist(['modal', 'modal-maximized', 'tab']);
 const collectionEnvAutoSwitchSchema = v.picklist(['keep-selection', 'apply-defaults', 'follow-collection']);
+const workspaceSwitchScopeSchema = v.picklist(['global', 'per-tab']);
 
 export type OpenTo = v.InferOutput<typeof openToSchema>;
 export type Language = v.InferOutput<typeof languageSchema>;
 export type SettingsOpenMode = v.InferOutput<typeof settingsOpenModeSchema>;
 export type CollectionEnvAutoSwitch = v.InferOutput<typeof collectionEnvAutoSwitchSchema>;
+export type WorkspaceSwitchScope = v.InferOutput<typeof workspaceSwitchScopeSchema>;
 
 declare module '../types' {
   interface SettingsMap {
@@ -26,6 +28,7 @@ declare module '../types' {
     'general.restoreTabsOnStartup': boolean;
     'general.settingsOpenMode': SettingsOpenMode;
     'general.collectionEnvAutoSwitch': CollectionEnvAutoSwitch;
+    'general.workspaceSwitchScope': WorkspaceSwitchScope;
   }
 }
 
@@ -129,6 +132,24 @@ registerSetting({
       description:
         "Opening a collection (or any subfolder, rule, or request inside it) with a default environment switches to that default. Picks you make inside a collection are remembered for that collection. Collections without a default don't auto-switch.",
     },
+  ],
+});
+
+registerSetting({
+  key: 'general.workspaceSwitchScope',
+  type: 'enum',
+  default: 'global',
+  schema: workspaceSwitchScopeSchema,
+  label: 'Workspace Switch Scope',
+  description:
+    'Switch workspaces globally (every tab, default) or only in the current tab. ' +
+    'Network rules and the popup always use the global workspace.',
+  category: 'general',
+  tags: ['workspace', 'tabs', 'multi-workspace'],
+  scope: 'user',
+  enumOptions: [
+    { value: 'global', label: 'Global', description: 'Switching a workspace updates every tab and surface (default).' },
+    { value: 'per-tab', label: 'Per tab', description: 'Switching a workspace in one tab leaves other tabs alone.' },
   ],
 });
 
