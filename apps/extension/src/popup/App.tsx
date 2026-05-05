@@ -1,5 +1,6 @@
 import ErrorBoundary from '@components/ErrorBoundary';
 import { KeyboardNavProvider, useKeyboardNav } from '@context/KeyboardNavContext';
+import { EnvironmentProvider } from '@context/EnvironmentContext';
 import { RuleProvider } from '@context/RuleContext';
 import { useTheme } from '@context/ThemeContext';
 import { call, presence } from '@utils/bridge';
@@ -115,7 +116,8 @@ const AppContent: React.FC = () => {
     <ErrorBoundary>
       <AwarenessIdentityProvider value={identity}>
         <RuleProvider surfaceId={ruleSurfaceId}>
-          <KeyboardNavProvider
+          <EnvironmentProvider surfaceId={ruleSurfaceId}>
+            <KeyboardNavProvider
             activeTab={activeTab}
             onTabChange={handleTabChange}
             onCycleTheme={cycleTheme}
@@ -127,7 +129,8 @@ const AppContent: React.FC = () => {
                 <AppInner tourOpen={tourOpen} onTourClose={handleTourClose} />
               </VariablePopoverProvider>
             </EnvSwitcherProvider>
-          </KeyboardNavProvider>
+            </KeyboardNavProvider>
+          </EnvironmentProvider>
         </RuleProvider>
       </AwarenessIdentityProvider>
     </ErrorBoundary>
