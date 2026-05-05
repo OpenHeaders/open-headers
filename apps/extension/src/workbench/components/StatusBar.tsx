@@ -9,7 +9,6 @@
 
 import { BulbFilled, BulbOutlined } from '@ant-design/icons';
 import { useTheme } from '@context/ThemeContext';
-import type { V5 } from '@openheaders/core/types';
 import { Dropdown, type MenuProps, Space, theme } from 'antd';
 import type React from 'react';
 import { FooterDonorPill, type EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
@@ -18,7 +17,6 @@ import { useInspectorNav } from '../hooks/useInspectorNav';
 import type { WorkbenchViewState } from '../hooks/useToolLayout';
 import { useSettingValue } from '../settings/hooks';
 import BreadcrumbBar from './BreadcrumbBar';
-import WorkspaceDivergencePill from './WorkspaceDivergencePill';
 import { renderWorkspacePrefix } from './workspace-prefix';
 
 type ThemeMode = 'light' | 'dark' | 'auto';
@@ -32,14 +30,8 @@ interface StatusBarProps {
   segments: string[];
   onRename?: (newName: string) => void;
   autoRenameKey?: string | null;
-  /** Per-tab view state — drives the donor + divergence pills in the status bar. */
+  /** Per-tab view state — drives the footer donor pill. */
   perTab: EditingScopeViewStateApi<WorkbenchViewState>;
-  /** Workspace list — fed to the divergence pill for per-workspace metadata. */
-  workspaces: V5.ExtensionWorkspace[];
-  /** Promote the tab's workspace to the new global default (divergence-pill action). */
-  setActiveWorkspace: (id: string) => Promise<boolean>;
-  /** Open the Settings page — the workspace divergence pill jumps to the per-tab setting. */
-  openSettings: (target?: { settingKey?: string; categoryId?: string }) => void;
 }
 
 const THEME_DISPLAY: Record<ThemeMode, { icon: React.ReactNode; text: string; color: string }> = {
@@ -54,9 +46,6 @@ const StatusBar: React.FC<StatusBarProps> = ({
   onRename,
   autoRenameKey,
   perTab,
-  workspaces,
-  setActiveWorkspace,
-  openSettings,
 }) => {
   const { token } = theme.useToken();
   const { themeMode, setThemeMode } = useTheme();
@@ -107,12 +96,6 @@ const StatusBar: React.FC<StatusBarProps> = ({
       </div>
 
       <div className="rules-statusbar-right">
-        <WorkspaceDivergencePill
-          perTab={perTab}
-          workspaces={workspaces}
-          setActiveWorkspace={setActiveWorkspace}
-          openSettings={openSettings}
-        />
         <FooterDonorPill perTab={perTab} />
         <div className="rules-statusbar-divider" style={{ background: token.colorBorder }} />
         <StatusPill

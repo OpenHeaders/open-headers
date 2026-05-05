@@ -47,9 +47,10 @@ const BC_MWPT_3_ALLOWLIST: readonly string[] = [
   // The EditingScopeWorkspaceContext consumer hook falls back to the global read
   // for surfaces that don't mount the provider (popup, side-panel, panel).
   'hooks/EditingScopeWorkspaceContext.tsx',
-  // The divergence pill reads the global default explicitly to compute
-  // the diff — that's the whole point of the component.
-  'components/WorkspaceDivergencePill.tsx',
+  // The workspace switcher renders the DEFAULT badge on the global default's
+  // row in per-window-or-tab mode — it needs both the editing-scope id (prop)
+  // and the global default (this read) to compute the divergence axis.
+  'components/WorkspaceSwitcher.tsx',
 ];
 
 /**
