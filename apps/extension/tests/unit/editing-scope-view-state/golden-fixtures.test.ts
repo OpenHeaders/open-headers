@@ -1,7 +1,7 @@
 /**
  * Golden snapshot fixtures (design § 8.3 + R4 enforcement).
  *
- * Walks `tests/__fixtures__/per-tab-state/<surface>/v<N>.json` per
+ * Walks `tests/__fixtures__/editing-scope-view-state/<surface>/v<N>.json` per
  * surface; current version's fixture must round-trip through the
  * donor-record loader (returns the validated record), and every older
  * version's fixture must be rejected with version-mismatch and fall
@@ -36,7 +36,7 @@ vi.mock('@/shared/storage', async () => {
 import { readDonorRecord } from '@/shared/editing-scope-view-state/donor-record';
 import type { SurfaceType } from '@/shared/editing-scope-view-state/types';
 
-const FIXTURE_ROOT = path.resolve(__dirname, '../../__fixtures__/per-tab-state');
+const FIXTURE_ROOT = path.resolve(__dirname, '../../__fixtures__/editing-scope-view-state');
 
 const CURRENT_VERSION_BY_SURFACE: Record<SurfaceType, number> = {
   workbench: 3,
