@@ -102,8 +102,8 @@ function perWorkspaceDataKeys(workspaceId: string): StorageKey<unknown>[] {
     k.pauseMarkers,
     k.tabSession,
     k.panelLayout,
-    k.settingsWorkspace,
-    k.settingsCollection,
+    k.settingsWorkspaceTaste,
+    k.settingsWorkspaceBehavioral,
     k.importReports,
     k.requestScriptsReviewPending,
   ];

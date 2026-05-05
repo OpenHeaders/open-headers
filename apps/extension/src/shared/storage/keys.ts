@@ -157,8 +157,10 @@ export interface WorkspaceKeys {
   testRuns: StorageKey<Record<string, unknown>>;
   tabSession: StorageKey<PersistedTabSession>;
   panelLayout: StorageKey<PersistedPanelLayout>;
-  settingsWorkspace: StorageKey<Record<string, unknown>>;
-  settingsCollection: StorageKey<Record<string, unknown>>;
+  /** R2a — taste-scoped workspace settings. Always reads from the global active workspace. */
+  settingsWorkspaceTaste: StorageKey<Record<string, unknown>>;
+  /** R2b — behavioral-scoped workspace settings. Reads via the per-tab seam in MWPT per-tab mode. */
+  settingsWorkspaceBehavioral: StorageKey<Record<string, unknown>>;
   /**
    * Ring of recent import reports (curl / HAR / Postman / Insomnia /
    * OpenAPI) for this workspace. Per ARCHITECTURE.md §23 every import
@@ -243,8 +245,8 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     testRuns: storageKey<Record<string, unknown>>(`${p}.testRuns`),
     tabSession: storageKey<PersistedTabSession>(`${p}.tabSession`),
     panelLayout: storageKey<PersistedPanelLayout>(`${p}.panelLayout`),
-    settingsWorkspace: storageKey<Record<string, unknown>>(`${p}.settings.workspace`),
-    settingsCollection: storageKey<Record<string, unknown>>(`${p}.settings.collection`),
+    settingsWorkspaceTaste: storageKey<Record<string, unknown>>(`${p}.settings.workspaceTaste`),
+    settingsWorkspaceBehavioral: storageKey<Record<string, unknown>>(`${p}.settings.workspaceBehavioral`),
     importReports: storageKey<unknown[]>(`${p}.importReports`),
     oauth: storageKey<unknown>(`${p}.oauth`),
     liveWorkflows: storageKey<V5.LiveWorkflow[]>(`${p}.liveWorkflows`),

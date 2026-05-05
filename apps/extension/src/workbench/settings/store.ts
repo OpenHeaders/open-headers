@@ -33,7 +33,7 @@ import { ChromeDictStorage } from './storage/chrome-storage';
 import type { SettingDef, SettingKey, SettingsMap } from './types';
 
 const DEBOUNCE_MS = 150;
-const SCOPES: readonly SettingScope[] = ['user', 'workspace', 'collection'];
+const SCOPES: readonly SettingScope[] = ['user', 'workspace-taste', 'workspace-behavioral'];
 
 // ── Types ────────────────────────────────────────────────────────────
 

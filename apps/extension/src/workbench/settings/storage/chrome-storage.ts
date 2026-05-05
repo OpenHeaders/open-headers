@@ -6,19 +6,20 @@
  * `chrome.storage.*` directly.
  *
  * Scope mapping:
- *   - user       → `OH.settingsUser`                   (always global)
- *   - workspace  → `wsKeys(activeId).settingsWorkspace`
- *   - collection → `wsKeys(activeId).settingsCollection`
- *
- * `workspace` and `collection` scopes resolve the active workspace id
- * at call time from `OH.activeWorkspaceId`. That key is seeded during
- * background bootstrap before any surface mounts, so reads after first
- * paint always resolve a non-null id.
+ *   - user                  → `OH.settingsUser`                                (always global)
+ *   - workspace-taste       → `wsKeys(globalActiveId).settingsWorkspaceTaste`  (R2a — taste settings stay on the global default even in MWPT per-tab mode)
+ *   - workspace-behavioral  → `wsKeys(tabActiveId).settingsWorkspaceBehavioral` (R2b — behavioral settings follow the per-tab seam; pre-MWPT the seam == global active)
  *
  * Workspace-scoped subscriptions rebind automatically: when the active
  * workspace id changes, the old key listener stops forwarding and a
  * new listener is attached to the new key. The store's per-key
  * subscribers are re-notified so hooks pick up the new values.
+ *
+ * Forward-declared seam (`resolveTabWorkspaceId`) — today it returns
+ * the global active id, identical to `resolveGlobalWorkspaceId`. MWPT
+ * P1 swaps it for a per-tab read so a diverged tab editing workspace X
+ * sees X's behavioral settings, not the global default's. This file is
+ * the single call site the MWPT seam needs to touch.
  */
 
 import { logger } from '@utils/logger';
@@ -27,11 +28,35 @@ import type { DictStorage, SettingScope, StorageUnsubscribe } from './adapter';
 
 type ScopeDict = Record<string, unknown>;
 
+async function resolveGlobalWorkspaceId(): Promise<string | null> {
+  return (await extensionStorage.get(OH.activeWorkspaceId)) ?? null;
+}
+
+/**
+ * Forward-declared per-tab workspace seam (MWPT P1 will route this
+ * through the slice's `workspaceId` when the user has opted into
+ * per-tab mode). Today it returns the global active id — identical
+ * behavior to `resolveGlobalWorkspaceId`. Keeping the call site
+ * separate gives MWPT a single seam to migrate without churning the
+ * surrounding subscription logic.
+ */
+async function resolveTabWorkspaceId(): Promise<string | null> {
+  return resolveGlobalWorkspaceId();
+}
+
 async function resolveKey(scope: SettingScope): Promise<StorageKey<ScopeDict> | null> {
   if (scope === 'user') return OH.settingsUser;
-  const id = await extensionStorage.get(OH.activeWorkspaceId);
-  if (!id) return null;
-  return scope === 'workspace' ? wsKeys(id).settingsWorkspace : wsKeys(id).settingsCollection;
+  if (scope === 'workspace-taste') {
+    const id = await resolveGlobalWorkspaceId();
+    return id ? wsKeys(id).settingsWorkspaceTaste : null;
+  }
+  // 'workspace-behavioral'
+  const id = await resolveTabWorkspaceId();
+  return id ? wsKeys(id).settingsWorkspaceBehavioral : null;
+}
+
+function workspaceKeyFor(scope: 'workspace-taste' | 'workspace-behavioral', id: string): StorageKey<ScopeDict> {
+  return scope === 'workspace-taste' ? wsKeys(id).settingsWorkspaceTaste : wsKeys(id).settingsWorkspaceBehavioral;
 }
 
 export class ChromeDictStorage implements DictStorage {
@@ -55,16 +80,15 @@ export class ChromeDictStorage implements DictStorage {
       return extensionStorage.subscribe(OH.settingsUser, (next) => fn(next ?? {}));
     }
 
-    // Workspace / collection scope — rebind when the active workspace
-    // id changes. We track the current scope-key subscription and
-    // swap it on every active-id update; subscribers see a synthetic
-    // update with the new workspace's values so the store re-notifies
-    // key listeners.
+    // Workspace-taste / workspace-behavioral — rebind when the relevant
+    // workspace id changes. Both rebind on `OH.activeWorkspaceId` today;
+    // when MWPT P1 lands, `'workspace-behavioral'` will rebind on the
+    // per-tab seam's id stream instead.
     let scopeUnsub: StorageUnsubscribe | null = null;
 
     const bindForWorkspace = async (id: string): Promise<void> => {
       scopeUnsub?.();
-      const spec = scope === 'workspace' ? wsKeys(id).settingsWorkspace : wsKeys(id).settingsCollection;
+      const spec = workspaceKeyFor(scope, id);
       scopeUnsub = extensionStorage.subscribe(spec, (next) => fn(next ?? {}));
       const current = (await extensionStorage.get(spec)) ?? {};
       fn(current);
