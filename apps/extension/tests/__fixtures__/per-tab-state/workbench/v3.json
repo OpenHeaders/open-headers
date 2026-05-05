@@ -1,0 +1,36 @@
+{
+  "donorTabUid": "fixture-tab-workbench-v3",
+  "schemaVersion": 3,
+  "publishedAt": 0,
+  "snapshot": {
+    "dockLayout": {
+      "docks": {
+        "left-top": { "windows": ["http-rules"], "active": "http-rules" },
+        "left-bottom": { "windows": ["api-requests"], "active": "api-requests" },
+        "right-top": { "windows": ["var-scope"], "active": "var-scope" },
+        "right-bottom": { "windows": [], "active": null },
+        "bottom-left": { "windows": [], "active": null },
+        "bottom-right": { "windows": [], "active": null }
+      },
+      "hidden": [],
+      "zenSnapshot": null
+    },
+    "workspace": {
+      "workspaceId": "fixture-workspace-id",
+      "data": {
+        "editorTabs": {
+          "tabs": [],
+          "activeTabId": null
+        },
+        "sidebarExpansions": {
+          "sectionsExpanded": {
+            "rules": true,
+            "templates": true,
+            "environments": false
+          },
+          "expandedKeys": ["sys-tpl-col", "sys-tpl-header"]
+        }
+      }
+    }
+  }
+}

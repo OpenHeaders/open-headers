@@ -106,6 +106,8 @@ import { useTabLifecycle } from './hooks/useTabLifecycle';
 import { useTabOpeners } from './hooks/useTabOpeners';
 import { useTabSyncEffects } from './hooks/useTabSyncEffects';
 import { useToolLayout, useWorkbenchPerTabState, type WorkbenchViewState } from './hooks/useToolLayout';
+import { useWorkbenchSidebarState } from './hooks/useWorkbenchSidebarState';
+import { useWorkbenchWorkspaceSlice } from './hooks/useWorkbenchWorkspaceSlice';
 import { useWorkspaceIntentRouter } from './hooks/useWorkspaceIntentRouter';
 import { useWorkspaceShortcuts } from './hooks/useWorkspaceShortcuts';
 import { useWorkspaceTabTitle } from './hooks/useWorkspaceTabTitle';
@@ -365,8 +367,14 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     return out;
   }, [requestsApi.requests, requestsApi.collections, variableResolver]);
 
+  // ── Workspace slice owner (handles in-tab workspace switch) ───
+  // Single subscriber for workspaceChanged → emits new slice atomically.
+  // Sub-hooks below re-derive from the slice; they do NOT subscribe.
+  useWorkbenchWorkspaceSlice(perTab);
   // ── Editor groups (recursive split tree) ──────────────────────
   const groups = useEditorGroups({ perTab });
+  // ── Sidebar tree-expansion state (lifted into the per-tab snapshot) ─
+  const sidebarState = useWorkbenchSidebarState(perTab);
   const {
     activeTabId,
     allTabs,
@@ -1689,6 +1697,10 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
               onSwitchTab={switchTab}
               onCloseDraftTab={handleCloseTab}
               onHide={() => tl.closeDock(slot)}
+              expandedKeys={sidebarState.expandedKeys}
+              setExpandedKeys={sidebarState.setExpandedKeys}
+              sectionsExpanded={sidebarState.sectionsExpanded}
+              setSectionsExpanded={sidebarState.setSectionsExpanded}
             />
           );
         case 'workflow-status':
@@ -1775,6 +1787,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       allTabs,
       switchTab,
       handleCloseTab,
+      sidebarState,
     ],
   );
 

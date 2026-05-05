@@ -29,12 +29,29 @@ import type { ToolWindowId, WorkbenchTab } from '../types';
 export type ToolLayoutApi = DockLayoutApi<ToolWindowId>;
 
 /**
- * Workspace-scoped slice payload. v2.1 carries editor tabs only;
- * sidebar expansions land in v2.1.1 alongside the Sidebar.tsx state
- * lift.
+ * Sidebar tree expansions slice — keys for expanded sections (rules /
+ * templates / environments / …) and expanded entity rows (collection
+ * uids, folder uids). Set<string> is serialized as string[] so the
+ * snapshot is JSON-safe; component callers convert at the edge.
+ *
+ * No workspace-keyed shadow exists for sidebar expansions (design § 2.2):
+ * cross-workspace fall-through restores factory defaults rather than
+ * the workspace's last-known expansions. Re-expanding a folder is a
+ * second-cost operation; v2.2 may revisit.
+ */
+export interface SidebarExpansionsState {
+  sectionsExpanded: Record<string, boolean>;
+  expandedKeys: string[];
+}
+
+/**
+ * Workspace-scoped slice payload. v3 carries editor tabs + sidebar
+ * expansions; both reference workspace-scoped entity uids and must be
+ * rebuilt on cross-workspace inheritance.
  */
 export interface WorkbenchWorkspaceData {
   editorTabs: PersistedTabSession<WorkbenchTab>;
+  sidebarExpansions: SidebarExpansionsState;
 }
 
 /**
@@ -81,29 +98,62 @@ const WORKBENCH_FACTORY_DEFAULT: WorkbenchViewState = {
   workspace: null,
 };
 
-const WORKBENCH_SCHEMA_VERSION = 2;
+const WORKBENCH_SCHEMA_VERSION = 3;
 
 const FACTORY_EDITOR_TABS: PersistedTabSession<WorkbenchTab> = { tabs: [], activeTabId: null };
+
+/**
+ * Factory defaults for sidebar expansions. Dense across every view's
+ * section keys so the lifted state covers any Sidebar mount without a
+ * second-mount initialization step. The `sys-tpl-*` row keys keep the
+ * built-in template collection visually expanded on the http-rules
+ * view's first open — matches v1 component-local `useState` defaults.
+ */
+export const FACTORY_SIDEBAR_EXPANSIONS: SidebarExpansionsState = {
+  sectionsExpanded: {
+    rules: true,
+    templates: true,
+    'api-requests': true,
+    vault: true,
+    'workspace-vars': true,
+    'live-variables': true,
+    workflows: true,
+    environments: false,
+  },
+  expandedKeys: ['sys-tpl-col', 'sys-tpl-header'],
+};
 
 /** Read the workspace's legacy `tabSession` shadow as the fall-through
  *  for editor tabs. Settings gate (`general.openTo === 'last' &&
  *  general.restoreTabsOnStartup`) carries from v1's useEditorGroups
- *  cold-start logic — disabling restore yields an empty session. */
-async function readWorkspaceFallThrough(workspaceId: string): Promise<WorkbenchWorkspaceData> {
+ *  cold-start logic — disabling restore yields an empty session.
+ *  Sidebar expansions return factory defaults (no workspace-keyed
+ *  shadow per design § 2.2).
+ *
+ *  Exported so `useWorkbenchWorkspaceSlice` (the in-tab workspace-
+ *  binding owner) shares the same builder as the resolver — single
+ *  source of truth for "rebuild the slice for workspace X" across
+ *  cross-workspace inheritance AND in-tab workspace switch. */
+export async function readWorkspaceFallThrough(workspaceId: string): Promise<WorkbenchWorkspaceData> {
   let shouldRestore = false;
   try {
     shouldRestore = getSetting('general.openTo') === 'last' && getSetting('general.restoreTabsOnStartup');
   } catch {
     shouldRestore = false;
   }
-  if (!shouldRestore) return { editorTabs: FACTORY_EDITOR_TABS };
+  if (!shouldRestore) {
+    return { editorTabs: FACTORY_EDITOR_TABS, sidebarExpansions: FACTORY_SIDEBAR_EXPANSIONS };
+  }
   try {
     const session = (await extensionStorage.get(wsKeys(workspaceId).tabSession)) as
       | PersistedTabSession<WorkbenchTab>
       | undefined;
-    return { editorTabs: session ?? FACTORY_EDITOR_TABS };
+    return {
+      editorTabs: session ?? FACTORY_EDITOR_TABS,
+      sidebarExpansions: FACTORY_SIDEBAR_EXPANSIONS,
+    };
   } catch {
-    return { editorTabs: FACTORY_EDITOR_TABS };
+    return { editorTabs: FACTORY_EDITOR_TABS, sidebarExpansions: FACTORY_SIDEBAR_EXPANSIONS };
   }
 }
 

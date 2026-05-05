@@ -106,6 +106,44 @@ describe('per-tab-state lint', () => {
     expect(source).toMatch(/workspace\s*:\s*WorkspaceSlice<WorkbenchWorkspaceData>\s*\|\s*null/);
   });
 
+  it('v3: WorkbenchWorkspaceData carries both editorTabs and sidebarExpansions', () => {
+    const source = readFile('workbench/hooks/useToolLayout.ts');
+    // Both fields land on the workspace-scoped slice — sidebar expansions
+    // hold workspace-scoped entity uids (collection / folder uids), so
+    // the carve-out covers them too (no new BC predictions per § 16-v2.1).
+    expect(source).toMatch(/editorTabs\s*:\s*PersistedTabSession<WorkbenchTab>/);
+    expect(source).toMatch(/sidebarExpansions\s*:\s*SidebarExpansionsState/);
+  });
+
+  it('v3: workbench schema version is 3', () => {
+    const source = readFile('workbench/hooks/useToolLayout.ts');
+    expect(source).toMatch(/WORKBENCH_SCHEMA_VERSION\s*=\s*3/);
+  });
+
+  it('v3: useWorkbenchSidebarState routes setters through perTab.onPersist', () => {
+    const source = readFile('workbench/hooks/useWorkbenchSidebarState.ts');
+    expect(source).toMatch(/PerTabStateApi<WorkbenchViewState>/);
+    expect(source).toMatch(/perTab\.onPersist/);
+    expect(source).toMatch(/sidebarExpansions/);
+  });
+
+  it('v3: workbench App.tsx mounts useWorkbenchSidebarState and threads setters into Sidebar', () => {
+    const source = readFile('workbench/App.tsx');
+    expect(source).toMatch(/useWorkbenchSidebarState\s*\(\s*perTab\s*\)/);
+    expect(source).toMatch(/setExpandedKeys=\{sidebarState\.setExpandedKeys\}/);
+    expect(source).toMatch(/setSectionsExpanded=\{sidebarState\.setSectionsExpanded\}/);
+  });
+
+  it('v3: Sidebar.tsx receives expandedKeys + sectionsExpanded as props (no internal useState for them)', () => {
+    const source = readFile('workbench/components/Sidebar.tsx');
+    expect(source).toMatch(/expandedKeys\s*:\s*Set<string>/);
+    expect(source).toMatch(/setExpandedKeys\s*:\s*React\.Dispatch<React\.SetStateAction<Set<string>>>/);
+    expect(source).toMatch(/sectionsExpanded\s*:\s*Record<string,\s*boolean>/);
+    // Confirm the legacy component-local useState is gone.
+    expect(source).not.toMatch(/const\s+\[expandedKeys,\s*setExpandedKeys\]\s*=\s*useState/);
+    expect(source).not.toMatch(/const\s+\[sectionsExpanded,\s*setSectionsExpanded\]\s*=\s*useState/);
+  });
+
   it('BC-V21-6: useEditorGroups shadow-write reads workspaceId at fire time, not closed over', () => {
     const source = readFile('workbench/hooks/useEditorGroups.ts');
     // The shadow write site reads `activeWorkspaceIdRef.current` (or
@@ -115,16 +153,57 @@ describe('per-tab-state lint', () => {
     expect(source).toMatch(/wsKeys\(\s*workspaceId\s*\)\.tabSession/);
   });
 
-  it('BC-V21-3: useEditorGroups workspaceChanged handler routes via the new workspace id', () => {
-    const source = readFile('workbench/hooks/useEditorGroups.ts');
-    expect(source).toMatch(/workspaceChanged/);
-    expect(source).toMatch(/readWorkspaceFallThroughTabSession\s*\(\s*nextId\s*\)/);
+  it('BC-V21-3: workspace slice owner is the single workspaceChanged subscriber', () => {
+    const ownerSource = readFile('workbench/hooks/useWorkbenchWorkspaceSlice.ts');
+    expect(ownerSource).toMatch(/subscribe\(\s*'workspaceChanged'/);
+    expect(ownerSource).toMatch(/readWorkspaceFallThrough\s*\(\s*nextId\s*\)/);
+    // Sub-hooks must NOT subscribe to workspaceChanged — single-owner
+    // write path. Re-init via `perTab.initial.workspace?.workspaceId`
+    // useEffect dep instead.
+    const editorSource = readFile('workbench/hooks/useEditorGroups.ts');
+    expect(editorSource).not.toMatch(/subscribe\(\s*'workspaceChanged'/);
+    const sidebarSource = readFile('workbench/hooks/useWorkbenchSidebarState.ts');
+    expect(sidebarSource).not.toMatch(/subscribe\(\s*'workspaceChanged'/);
+  });
+
+  it('post-v3: sub-hooks re-derive on slice workspaceId change', () => {
+    // Each sub-hook watches the slice's workspaceId as a useEffect dep
+    // and re-initializes its local state from the slice's data field.
+    const editorSource = readFile('workbench/hooks/useEditorGroups.ts');
+    expect(editorSource).toMatch(/perTab\.initial\.workspace\?\.workspaceId/);
+    const sidebarSource = readFile('workbench/hooks/useWorkbenchSidebarState.ts');
+    expect(sidebarSource).toMatch(/perTab\.initial\.workspace\?\.workspaceId/);
+  });
+
+  it('post-v3: workbench App.tsx mounts the slice owner alongside per-tab state', () => {
+    const source = readFile('workbench/App.tsx');
+    expect(source).toMatch(/useWorkbenchWorkspaceSlice\s*\(\s*perTab\s*\)/);
   });
 
   it('usePanelToolLayout takes a PerTabStateApi<PanelViewState> argument', () => {
     const source = readFile('panel/data/use-panel-tool-layout.ts');
     expect(source).toMatch(/PerTabStateApi<PanelViewState>/);
     expect(source).toMatch(/usePerTabState</);
+  });
+
+  it('v2 (panel): PanelViewState carries a flat editorTabs field (no workspace concept on panel)', () => {
+    const source = readFile('panel/data/use-panel-tool-layout.ts');
+    expect(source).toMatch(/editorTabs\s*:\s*PersistedInspectorTabSession/);
+    // Panel has no workspace context — must NOT use the workspace
+    // resolver wiring (kept exclusively to the workbench surface).
+    expect(source).not.toMatch(/createWorkspaceAwareResolver/);
+  });
+
+  it('v2 (panel): panel schema version is 2', () => {
+    const source = readFile('panel/data/use-panel-tool-layout.ts');
+    expect(source).toMatch(/PANEL_SCHEMA_VERSION\s*=\s*2/);
+  });
+
+  it('v2 (panel): useInspectorEditorGroups takes a PerTabStateApi<PanelViewState> argument', () => {
+    const source = readFile('panel/data/use-inspector-editor-groups.ts');
+    expect(source).toMatch(/PerTabStateApi<PanelViewState>/);
+    expect(source).toMatch(/perTab\.onPersist/);
+    expect(source).toMatch(/perTab\.initial\.editorTabs/);
   });
 
   it('workbench App.tsx mounts useWorkbenchPerTabState before rendering the shell', () => {

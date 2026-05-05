@@ -188,7 +188,7 @@ function PanelContentReady({ perTab }: { perTab: PerTabStateApi<PanelViewState> 
     recording,
     setRecording,
   } = useInspector();
-  const groups = useInspectorEditorGroups();
+  const groups = useInspectorEditorGroups({ perTab });
   const tl = usePanelToolLayout(perTab);
   const panelSizes = useMemo(getPanelSizes, []);
   // Search session lives at the panel level — SearchPanel itself

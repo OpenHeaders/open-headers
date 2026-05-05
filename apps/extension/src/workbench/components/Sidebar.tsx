@@ -155,6 +155,13 @@ interface SidebarProps {
   /** Hide the sidebar dock — bound to the trailing − button in the
       toolbar. Calls `tl.closeDock(slot)` from the shell wrapper. */
   onHide: () => void;
+  /** Lifted tree-expansion state — owned by the host's
+   *  `useWorkbenchSidebarState` so values survive tab close/reopen via
+   *  the per-tab snapshot's workspace slice (design § 2.2 / v3). */
+  expandedKeys: Set<string>;
+  setExpandedKeys: React.Dispatch<React.SetStateAction<Set<string>>>;
+  sectionsExpanded: Record<string, boolean>;
+  setSectionsExpanded: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -196,6 +203,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   onSwitchTab,
   onCloseDraftTab,
   onHide,
+  expandedKeys,
+  setExpandedKeys,
+  sectionsExpanded,
+  setSectionsExpanded,
 }) => {
   const { token } = theme.useToken();
   const {
@@ -281,26 +292,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [filterText, setFilterText] = useState('');
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [focusedId, setFocusedId] = useState<string | null>(null);
-  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() =>
-    view === 'http-rules' ? new Set(['sys-tpl-col', 'sys-tpl-header']) : new Set(),
-  );
-  const [sectionsExpanded, setSectionsExpanded] = useState<Record<string, boolean>>(() => {
-    const base: Record<string, boolean> = { environments: false };
-    if (view === 'api-requests') {
-      base['api-requests'] = true;
-    } else if (view === 'variables') {
-      base.vault = true;
-      base['workspace-vars'] = true;
-      base.environments = true;
-      base['live-variables'] = true;
-    } else if (view === 'workflows') {
-      base.workflows = true;
-    } else {
-      base.rules = true;
-      base.templates = true;
-    }
-    return base;
-  });
 
   // Multi-select export selection state. Distinct from `focusedId` /
   // `isSelected` (which track active-tab navigation) — these track which
@@ -317,18 +308,24 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [alwaysSelectOpened, setAlwaysSelectOpened] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const toggleSection = useCallback((key: string) => {
-    setSectionsExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
-  }, []);
+  const toggleSection = useCallback(
+    (key: string) => {
+      setSectionsExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
+    },
+    [setSectionsExpanded],
+  );
 
-  const toggleExpand = useCallback((key: string) => {
-    setExpandedKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }, []);
+  const toggleExpand = useCallback(
+    (key: string) => {
+      setExpandedKeys((prev) => {
+        const next = new Set(prev);
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+        return next;
+      });
+    },
+    [setExpandedKeys],
+  );
 
   const expandAll = useCallback(() => {
     if (view === 'api-requests') {
@@ -363,7 +360,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       collectKeys(col.tree);
     }
     setExpandedKeys(allKeys);
-  }, [view, localCollectionTrees, templateCollectionTrees]);
+  }, [view, localCollectionTrees, templateCollectionTrees, setSectionsExpanded, setExpandedKeys]);
 
   const collapseAll = useCallback(() => {
     if (view === 'api-requests') {
@@ -381,7 +378,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       setSectionsExpanded({ rules: false, templates: false, environments: false });
     }
     setExpandedKeys(new Set());
-  }, [view]);
+  }, [view, setSectionsExpanded, setExpandedKeys]);
 
   const confirmOnDelete = useSettingValue('general.confirmOnDelete');
   const confirmDelete = useCallback(

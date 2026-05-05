@@ -13,13 +13,24 @@ import type { DockLayoutApi, DockState, ToolLayoutState } from '@/shared/dock-la
 import { normalizeDockLayout, useDockLayout } from '@/shared/dock-layout';
 import type { PerTabStateApi } from '@/shared/per-tab-state';
 import { usePerTabState } from '@/shared/per-tab-state';
+import type { PersistedTabSession } from '@/shared/storage';
 import { focusStore } from './focus-store';
+import type { InspectorTab } from './inspector-tab';
 import { PANEL_TOOL_WINDOW_MAP, PANEL_TOOL_WINDOWS, type PanelToolWindowId } from './tool-windows';
 
 export type PanelToolLayoutApi = DockLayoutApi<PanelToolWindowId>;
 
+/**
+ * Per-tab inspector tab session — flat (no workspace concept on the
+ * panel surface). Inspector tab ids are panel-local strings tied to
+ * captured network requests, not workspace-scoped entity uids, so the
+ * v2.1 cross-workspace carve-out doesn't apply here.
+ */
+export type PersistedInspectorTabSession = PersistedTabSession<InspectorTab>;
+
 export interface PanelViewState {
   dockLayout: ToolLayoutState<PanelToolWindowId>;
+  editorTabs: PersistedInspectorTabSession;
 }
 
 const PANEL_FRESH_DOCK_LAYOUT: ToolLayoutState<PanelToolWindowId> = normalizeDockLayout(
@@ -37,11 +48,14 @@ const PANEL_FRESH_DOCK_LAYOUT: ToolLayoutState<PanelToolWindowId> = normalizeDoc
   PANEL_TOOL_WINDOW_MAP,
 );
 
+export const FACTORY_INSPECTOR_TABS: PersistedInspectorTabSession = { tabs: [], activeTabId: null };
+
 const PANEL_FACTORY_DEFAULT: PanelViewState = {
   dockLayout: PANEL_FRESH_DOCK_LAYOUT,
+  editorTabs: FACTORY_INSPECTOR_TABS,
 };
 
-const PANEL_SCHEMA_VERSION = 1;
+const PANEL_SCHEMA_VERSION = 2;
 
 export function usePanelPerTabState(): PerTabStateApi<PanelViewState> {
   return usePerTabState<PanelViewState>({
@@ -49,7 +63,9 @@ export function usePanelPerTabState(): PerTabStateApi<PanelViewState> {
     schemaVersion: PANEL_SCHEMA_VERSION,
     factoryDefault: PANEL_FACTORY_DEFAULT,
     normalize: (raw) => ({
+      ...raw,
       dockLayout: normalizeDockLayout(raw.dockLayout, PANEL_TOOL_WINDOWS, PANEL_TOOL_WINDOW_MAP),
+      editorTabs: raw.editorTabs ?? FACTORY_INSPECTOR_TABS,
     }),
   });
 }

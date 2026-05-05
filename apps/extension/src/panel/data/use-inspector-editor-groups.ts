@@ -5,7 +5,8 @@
  * settings dependency.
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { PerTabStateApi } from '@/shared/per-tab-state';
 import {
   activateTabInLeaf,
   type EditorLeaf,
@@ -29,6 +30,9 @@ import {
   updateTabInLeaf,
 } from './editor-groups';
 import type { ClosedTab, InspectorTab } from './inspector-tab';
+import type { PanelViewState, PersistedInspectorTabSession } from './use-panel-tool-layout';
+
+const SESSION_DEBOUNCE_MS = 500;
 
 const MAX_RECENTLY_CLOSED = 20;
 const ROOT_LEAF_ID = 'leaf-root';
@@ -45,6 +49,18 @@ function initialState(): EditorGroupsState {
     focusedLeafId: ROOT_LEAF_ID,
     nextId: 1,
   };
+}
+
+function stateFromTabSession(session: PersistedInspectorTabSession): EditorGroupsState {
+  if (session.tabs.length === 0) return initialState();
+  const rootLeaf = makeLeaf(ROOT_LEAF_ID);
+  const filled = session.tabs.reduce<EditorNode>((acc, tab) => insertTabIntoLeaf(acc, ROOT_LEAF_ID, tab), rootLeaf);
+  const activeId =
+    session.activeTabId && session.tabs.some((t) => t.id === session.activeTabId)
+      ? session.activeTabId
+      : (session.tabs[0]?.id ?? null);
+  const root = activeId ? activateTabInLeaf(filled, ROOT_LEAF_ID, activeId) : filled;
+  return { root, focusedLeafId: ROOT_LEAF_ID, nextId: 1 };
 }
 
 function locateTab(root: EditorNode, tabId: string): EditorLeaf | null {
@@ -105,9 +121,38 @@ export interface UseInspectorEditorGroupsApi {
   ) => void;
 }
 
-export function useInspectorEditorGroups(): UseInspectorEditorGroupsApi {
-  const [state, setState] = useState<EditorGroupsState>(initialState);
+export interface UseInspectorEditorGroupsArgs {
+  perTab: PerTabStateApi<PanelViewState>;
+}
+
+export function useInspectorEditorGroups({ perTab }: UseInspectorEditorGroupsArgs): UseInspectorEditorGroupsApi {
+  const initialEditorTabsRef = useRef(perTab.initial.editorTabs);
+  const [state, setState] = useState<EditorGroupsState>(() => stateFromTabSession(initialEditorTabsRef.current));
   const [recentlyClosed, setRecentlyClosed] = useState<ClosedTab[]>([]);
+
+  const onPersist = perTab.onPersist;
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // First effect run reads the resolved snapshot — skip the persist
+  // write-back so we don't echo it through chrome.storage on mount.
+  const skipNextPersistRef = useRef<boolean>(true);
+
+  useEffect(() => {
+    if (skipNextPersistRef.current) {
+      skipNextPersistRef.current = false;
+      return;
+    }
+    if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    persistTimerRef.current = setTimeout(() => {
+      const projection: PersistedInspectorTabSession = {
+        tabs: treeAllTabs(state.root),
+        activeTabId: findLeaf(state.root, state.focusedLeafId)?.activeTabId ?? null,
+      };
+      onPersist((prev) => ({ ...prev, editorTabs: projection }));
+    }, SESSION_DEBOUNCE_MS);
+    return () => {
+      if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    };
+  }, [state, onPersist]);
 
   const transform = useCallback((fn: (prev: EditorGroupsState) => EditorGroupsState) => {
     setState((prev) => {

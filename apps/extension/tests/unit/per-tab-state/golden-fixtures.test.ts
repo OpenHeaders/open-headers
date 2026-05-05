@@ -39,8 +39,8 @@ import type { SurfaceType } from '@/shared/per-tab-state/types';
 const FIXTURE_ROOT = path.resolve(__dirname, '../../__fixtures__/per-tab-state');
 
 const CURRENT_VERSION_BY_SURFACE: Record<SurfaceType, number> = {
-  workbench: 2,
-  panel: 1,
+  workbench: 3,
+  panel: 2,
 };
 
 interface FixtureEntry {

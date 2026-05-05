@@ -11,7 +11,6 @@
  * context menu.
  */
 
-import { subscribe } from '@utils/bridge';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PerTabStateApi } from '@/shared/per-tab-state';
 import { extensionStorage, type PersistedTabSession, wsKeys } from '@/shared/storage';
@@ -37,9 +36,8 @@ import {
   unsplitLeaf,
   updateTabInLeaf,
 } from '../editor-groups';
-import { get as getSetting } from '../settings/store';
 import type { ClosedTab, WorkbenchTab } from '../types';
-import type { WorkbenchViewState, WorkbenchWorkspaceData } from './useToolLayout';
+import { FACTORY_SIDEBAR_EXPANSIONS, type WorkbenchViewState, type WorkbenchWorkspaceData } from './useToolLayout';
 
 const MAX_RECENTLY_CLOSED = 20;
 const SKIP_RECENTLY_CLOSED: Set<string> = new Set(['create', 'collection-overview', 'folder-overview']);
@@ -53,6 +51,14 @@ const ROOT_LEAF_ID = 'leaf-root';
 // reads when a new tab opens whose donor was captured in a different
 // workspace. The shadow is a fall-through cache, not authoritative
 // state — only the snapshot drives the open tab's editor groups.
+//
+// In-tab workspace switches are handled by `useWorkbenchWorkspaceSlice`
+// (the slice owner). When that hook stamps a new `workspace` slice,
+// `perTab.initial.workspace?.workspaceId` changes; the effect below
+// observes the change and re-derives the editor tree from the new
+// slice's `editorTabs`. This hook does NOT subscribe to
+// `workspaceChanged` directly — single-owner write path keeps the
+// slice's `workspaceId` invariant honest (BC-V21-4).
 //
 // The split tree itself is intentionally NOT persisted — rehydrating
 // a multi-leaf layout across viewport sizes is a usability trap. We
@@ -83,24 +89,6 @@ function stateFromTabSession(session: PersistedTabSession<WorkbenchTab>): Editor
       : (clean[0]?.id ?? null);
   const root = activeId ? activateTabInLeaf(filled, ROOT_LEAF_ID, activeId) : filled;
   return { root, focusedLeafId: ROOT_LEAF_ID, nextId: 1 };
-}
-
-async function readWorkspaceFallThroughTabSession(workspaceId: string): Promise<PersistedTabSession<WorkbenchTab>> {
-  let shouldRestore = false;
-  try {
-    shouldRestore = getSetting('general.openTo') === 'last' && getSetting('general.restoreTabsOnStartup');
-  } catch {
-    shouldRestore = false;
-  }
-  if (!shouldRestore) return { tabs: [], activeTabId: null };
-  try {
-    const session = (await extensionStorage.get(wsKeys(workspaceId).tabSession)) as
-      | PersistedTabSession<WorkbenchTab>
-      | undefined;
-    return session ?? { tabs: [], activeTabId: null };
-  } catch {
-    return { tabs: [], activeTabId: null };
-  }
 }
 
 function locateTab(root: EditorNode, tabId: string): EditorLeaf | null {
@@ -222,30 +210,28 @@ export function useEditorGroups({ perTab }: UseEditorGroupsArgs): UseEditorGroup
   const onPersist = perTab.onPersist;
 
   // ── Resync on workspace switch ──────────────────────────────────
+  // The slice owner (`useWorkbenchWorkspaceSlice`) is the only writer
+  // of new `workspace` slices on workspaceChanged events. We observe
+  // the slice's `workspaceId` here and re-derive the tree from the
+  // new `editorTabs` data — without reading any shadow ourselves and
+  // without racing onPersist with the owner.
+  const sliceWorkspaceId = perTab.initial.workspace?.workspaceId ?? null;
+  const sliceEditorTabs = perTab.initial.workspace?.data.editorTabs;
   useEffect(() => {
-    const unsub = subscribe('workspaceChanged', (payload) => {
-      const nextId = payload.activeWorkspaceId;
-      if (activeWorkspaceIdRef.current === nextId) return;
-      activeWorkspaceIdRef.current = nextId;
-      if (persistTimerRef.current) {
-        clearTimeout(persistTimerRef.current);
-        persistTimerRef.current = null;
-      }
-      void readWorkspaceFallThroughTabSession(nextId).then((newSession) => {
-        // Reset the editor groups state from the new workspace's
-        // shadow — same logic as the resolver's fall-through builder
-        // (kept inline here rather than duplicating the resolver
-        // module's plumbing for a single in-tab switch path).
-        skipNextPersistRef.current = true;
-        setState(stateFromTabSession(newSession));
-        onPersist((prev) => ({
-          ...prev,
-          workspace: { workspaceId: nextId, data: { editorTabs: newSession } },
-        }));
-      });
-    });
-    return unsub;
-  }, [onPersist]);
+    if (activeWorkspaceIdRef.current === sliceWorkspaceId) return;
+    activeWorkspaceIdRef.current = sliceWorkspaceId;
+    if (persistTimerRef.current) {
+      clearTimeout(persistTimerRef.current);
+      persistTimerRef.current = null;
+    }
+    // Drop transient per-tab editor metadata that's bound to the
+    // outgoing workspace — dirtiness tracking and save callbacks
+    // reference uids that don't exist in the new workspace.
+    dirtyMap.current.clear();
+    saveRefMap.current.clear();
+    skipNextPersistRef.current = true;
+    setState(stateFromTabSession(sliceEditorTabs ?? { tabs: [], activeTabId: null }));
+  }, [sliceWorkspaceId, sliceEditorTabs]);
 
   // ── Persist tab session on every state change (debounced) ───────
   useEffect(() => {
@@ -261,13 +247,22 @@ export function useEditorGroups({ perTab }: UseEditorGroupsArgs): UseEditorGroup
         tabs: treeAllTabs(state.root),
         activeTabId: findLeaf(state.root, state.focusedLeafId)?.activeTabId ?? null,
       };
-      const sliceData: WorkbenchWorkspaceData = { editorTabs: projection };
-      onPersist((prev) => ({
-        ...prev,
-        workspace: prev.workspace
-          ? { ...prev.workspace, data: { ...prev.workspace.data, ...sliceData } }
-          : { workspaceId, data: sliceData },
-      }));
+      onPersist((prev) => {
+        if (prev.workspace) {
+          return {
+            ...prev,
+            workspace: {
+              ...prev.workspace,
+              data: { ...prev.workspace.data, editorTabs: projection },
+            },
+          };
+        }
+        const sliceData: WorkbenchWorkspaceData = {
+          editorTabs: projection,
+          sidebarExpansions: FACTORY_SIDEBAR_EXPANSIONS,
+        };
+        return { ...prev, workspace: { workspaceId, data: sliceData } };
+      });
       // Shadow-write to the workspace's `tabSession` so a future tab
       // opening in this workspace whose donor was captured elsewhere
       // can fall through to this layout (design § 2.2).
