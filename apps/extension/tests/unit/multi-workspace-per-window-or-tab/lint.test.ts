@@ -90,7 +90,7 @@ describe('multi-workspace-per-tab lint', () => {
     expect(startIdx).toBeGreaterThan(-1);
     const slice = text.slice(startIdx, startIdx + 4000);
     expect(slice).toMatch(/getSetting\(\s*['"]general\.workspaceSwitchScope['"]\s*\)/);
-    expect(slice).toMatch(/===\s*['"]only-this-tab['"]/);
+    expect(slice).toMatch(/===\s*['"]per-window-or-tab['"]/);
     // Per-tab branch must hit perTab.onPersist (slice write) — not the oracle.
     expect(slice).toMatch(/perTab\.onPersist/);
   });
@@ -111,8 +111,8 @@ describe('multi-workspace-per-tab lint', () => {
     expect(persistIdx).toBeGreaterThan(-1);
     expect(modeIdx).toBeLessThan(fallThroughIdx);
     expect(modeIdx).toBeLessThan(persistIdx);
-    // The early-return line must mention 'only-this-tab' near the mode read.
-    expect(body.slice(modeIdx, modeIdx + 200)).toMatch(/only-this-tab/);
+    // The early-return line must mention 'per-window-or-tab' near the mode read.
+    expect(body.slice(modeIdx, modeIdx + 200)).toMatch(/per-window-or-tab/);
   });
 
   it('BC-MWPT-3 — workbench tree imports useActiveWorkspaceId only via the seam or allowlist', () => {

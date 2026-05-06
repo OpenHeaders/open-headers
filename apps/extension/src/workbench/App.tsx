@@ -51,6 +51,7 @@ import {
 import 'allotment/dist/style.css';
 import { createShellEventBus, ShellEventBusContext } from '@/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
+import { instanceLabel } from '@/shared/host-vocabulary';
 import { findCollectionByPath, findFolderByUid } from '@/shared/variables/collection-scope';
 import { computeBreadcrumbs, scratchLabelForMode } from './breadcrumbs';
 import BottomPanel from './components/BottomPanel';
@@ -792,7 +793,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   // `dirtyMap` (populated by RuleEditor via onDirtyChange), so we
   // reuse it rather than threading a second source of truth.
   const handleSwitchWorkspace = useCallback(
-    (targetId: string) => {
+    (targetId: string, opts?: { makeActive?: boolean }) => {
       // Source of truth is the LIVE tab list — `dirtyMap` accumulates
       // historical entries (it's never pruned on tab close), so reading
       // it gives false positives for closed tabs and triggers the
@@ -801,16 +802,27 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       const hasDirty = allTabs.some((t) => t.dirty);
       const targetName = workspacesApi.workspaces.find((w) => w.id === targetId)?.name;
       const doSwitch = async (): Promise<void> => {
-        // BC-MWPT-1 / BC-MWPT-8 — mode-aware switch. Per-tab mode skips
-        // the oracle write (no `workspaceChanged` broadcast); slice
-        // owners on other tabs are unaffected. Read mode inside the
+        // BC-MWPT-1 / BC-MWPT-8 — mode-aware switch. Per-window-or-tab
+        // mode skips the oracle write (no `workspaceChanged` broadcast);
+        // slice owners on other tabs are unaffected. Read mode inside the
         // callback so a mid-gesture flip takes effect immediately.
         const mode = getSetting('general.workspaceSwitchScope');
-        if (mode === 'only-this-tab') {
-          if (targetId === perTab.initial.workspace?.workspaceId) return;
-          const data = await readWorkspaceFallThrough(targetId);
-          perTab.onPersist((prev) => ({ ...prev, workspace: { workspaceId: targetId, data } }));
-          if (targetName) message.success(`Switched this tab to ${targetName}`);
+        if (mode === 'per-window-or-tab') {
+          const sameBinding = targetId === perTab.initial.workspace?.workspaceId;
+          if (!sameBinding) {
+            const data = await readWorkspaceFallThrough(targetId);
+            perTab.onPersist((prev) => ({ ...prev, workspace: { workspaceId: targetId, data } }));
+          }
+          // MWPT-FULL v1.3 § 4.0.3 — when the user opted in via the
+          // dropdown checkbox, also write Active so DNR/popup follow.
+          if (opts?.makeActive && targetId !== workspacesApi.activeWorkspaceId) {
+            const ok = await workspacesApi.setActiveWorkspace(targetId);
+            if (ok && targetName) {
+              message.success(`Switched this ${instanceLabel()} to ${targetName} and made it active`);
+              return;
+            }
+          }
+          if (!sameBinding && targetName) message.success(`Switched this ${instanceLabel()} to ${targetName}`);
           return;
         }
         if (targetId === workspacesApi.activeWorkspaceId) return;

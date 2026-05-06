@@ -10,7 +10,7 @@
  * **Foundation gap (MWPT-FULL v1.2 § 4.0).** This hook today follows the
  * SW's runtime-active workspace by construction — the SW oracle is
  * singleton-per-active-workspace. Cross-workspace correctness in
- * only-this-tab mode requires the foundation refactor (per-workspace
+ * per-window-or-tab mode requires the foundation refactor (per-workspace
  * SW services + per-workspace renderer mirrors). After foundation, this
  * hook is replaced by `EnvironmentProvider` mirroring `RuleProvider`,
  * with an `activeWorkspaceIdOverride` prop on the workbench surface.

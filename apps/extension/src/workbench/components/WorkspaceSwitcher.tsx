@@ -1,11 +1,11 @@
 /**
  * WorkspaceSwitcher — TopBar dropdown for switching the active workspace,
  * surfacing the workspace-switch-scope mode inline (sync-all-tabs vs
- * only-this-tab). Layout mirrors `EnvironmentSelector`: first row is
+ * per-window-or-tab). Layout mirrors `EnvironmentSelector`: first row is
  * search + mode label + settings icon, then the workspace list, then the
  * footer actions (export / import / manage).
  *
- * Divergence (editing-scope ≠ global default in only-this-tab mode) is
+ * Divergence (editing-scope ≠ global default in per-window-or-tab mode) is
  * surfaced by a DEFAULT badge on the global default's row; the active
  * editing-scope workspace carries the checkmark. When diverged, an
  * imperative "Make this workspace the default" action appears below the
@@ -27,6 +27,7 @@ import type { InputRef } from 'antd';
 import {
   App,
   Button,
+  Checkbox,
   Divider,
   Dropdown,
   Input,
@@ -49,14 +50,19 @@ interface WorkspaceSwitcherProps {
   workspaces: V5.ExtensionWorkspace[];
   /** The editing-scope workspace id — what THIS surface is editing. */
   activeWorkspaceId: string | null;
-  onSwitch: (id: string) => void;
+  /**
+   * Switch the editing-scope workspace for this surface. In
+   * per-window-or-tab mode the caller may also write Active when
+   * `opts.makeActive` is true (driven by the in-dropdown checkbox).
+   */
+  onSwitch: (id: string, opts?: { makeActive?: boolean }) => void;
   onOpenManager: () => void;
   onExport: () => void;
   onImport: () => void;
   /**
    * Promote a workspace id to the global default — writes the oracle
    * directly. Used by the imperative "Make this workspace the default"
-   * action when the surface is diverged in only-this-tab mode.
+   * action when the surface is diverged in per-window-or-tab mode.
    */
   setActiveWorkspace: (id: string) => Promise<boolean>;
 }
@@ -75,6 +81,11 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
   const [open, setOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Per-window-or-tab gesture extension (MWPT-FULL v1.3 § 4.0.3): when
+  // checked, the next workspace pick also writes Active so the network
+  // rules / popup follow the diverged surface. Resets on dropdown close
+  // — the gesture is one-shot, not a sticky preference.
+  const [makeActive, setMakeActive] = useState(false);
   const searchRef = useRef<InputRef>(null);
   const [mode, setMode] = useSetting('general.workspaceSwitchScope');
   // Global-default id read directly: the switcher is the per-tab seam's
@@ -119,6 +130,7 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
   const handleClose = (): void => {
     setOpen(false);
     setSearchText('');
+    setMakeActive(false);
   };
 
   const modeLabel = mode === 'global' ? `Sync all ${instanceLabelPlural()}` : `Only this ${instanceLabel()}`;
@@ -193,12 +205,12 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
                   borderRadius: token.borderRadiusSM,
                 }}
                 onClick={() => {
-                  setMode('only-this-tab');
+                  setMode('per-window-or-tab');
                   setSettingsOpen(false);
                 }}
               >
                 <Radio
-                  checked={mode === 'only-this-tab'}
+                  checked={mode === 'per-window-or-tab'}
                   style={{ marginRight: 0, pointerEvents: 'none' }}
                 />
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -223,12 +235,33 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
         </Popover>
       </div>
 
+      {mode === 'per-window-or-tab' && (
+        <div style={{ padding: '2px 8px 4px' }}>
+          <Checkbox
+            checked={makeActive}
+            onChange={(e) => setMakeActive(e.target.checked)}
+            style={{ fontSize: 12 }}
+          >
+            <Text style={{ fontSize: 12 }}>Also make active</Text>
+            <Tooltip
+              title={`Makes the picked workspace the active one — the popup, side-panel, and network rules switch to it as well as this ${instanceLabel()}.`}
+              placement="top"
+              mouseEnterDelay={0.3}
+            >
+              <Text type="secondary" style={{ fontSize: 11, marginLeft: 6 }}>
+                (?)
+              </Text>
+            </Tooltip>
+          </Checkbox>
+        </div>
+      )}
+
       {filtered.length > 0 && <Divider style={{ margin: '4px 0' }} />}
 
       {filtered.map((w) => {
         const isActive = w.id === activeWorkspaceId;
         const isDefault = w.id === globalDefaultId;
-        const showDefaultAction = mode === 'only-this-tab';
+        const showDefaultAction = mode === 'per-window-or-tab';
         return (
           <div
             key={w.id}
@@ -236,7 +269,7 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
             className="oh-env-row"
             style={rowStyle}
             onClick={() => {
-              if (!isActive) onSwitch(w.id);
+              if (!isActive) onSwitch(w.id, mode === 'per-window-or-tab' ? { makeActive } : undefined);
               handleClose();
             }}
           >

@@ -83,7 +83,7 @@ describe('useWorkbenchWorkspaceSlice — mode gate', () => {
   });
 
   it('per-tab mode skips fall-through + onPersist on workspaceChanged (BC-MWPT-8)', async () => {
-    mockGetSetting.mockReturnValue('only-this-tab');
+    mockGetSetting.mockReturnValue('per-window-or-tab');
     renderHook(() => useWorkbenchWorkspaceSlice(perTab));
 
     await act(async () => {
@@ -111,7 +111,7 @@ describe('useWorkbenchWorkspaceSlice — mode gate', () => {
     // Flip to per-tab (the user toggles the setting). The slice owner
     // MUST read the new mode on the next event; closure-captured mode
     // would still rebind here and break per-tab divergence.
-    mockGetSetting.mockReturnValue('only-this-tab');
+    mockGetSetting.mockReturnValue('per-window-or-tab');
     await act(async () => {
       workspaceChangedHandler?.({ activeWorkspaceId: 'ws-b' });
       await Promise.resolve();

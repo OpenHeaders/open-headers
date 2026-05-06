@@ -12,7 +12,7 @@ const openToSchema = v.picklist(['last', 'home', 'rules', 'collections']);
 const languageSchema = v.picklist(['auto', 'en']);
 const settingsOpenModeSchema = v.picklist(['modal', 'modal-maximized', 'tab']);
 const collectionEnvAutoSwitchSchema = v.picklist(['keep-selection', 'apply-defaults', 'follow-collection']);
-const workspaceSwitchScopeSchema = v.picklist(['global', 'only-this-tab']);
+const workspaceSwitchScopeSchema = v.picklist(['global', 'per-window-or-tab']);
 
 export type OpenTo = v.InferOutput<typeof openToSchema>;
 export type Language = v.InferOutput<typeof languageSchema>;
@@ -155,7 +155,7 @@ registerSetting({
       description: `Switching workspace updates every ${instanceLabel()} and surface (default).`,
     },
     {
-      value: 'only-this-tab',
+      value: 'per-window-or-tab',
       label: `Only this ${instanceLabel()}`,
       description: `Switching workspace stays in this ${instanceLabel()}. Other ${instanceLabelPlural()}, the popup, and network rules keep using the default workspace.`,
     },

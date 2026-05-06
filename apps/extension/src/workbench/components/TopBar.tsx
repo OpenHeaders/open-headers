@@ -29,7 +29,7 @@ interface TopBarProps {
   onOpenSettings?: () => void;
   workspaces: V5.ExtensionWorkspace[];
   activeWorkspaceId: string | null;
-  onSwitchWorkspace: (id: string) => void;
+  onSwitchWorkspace: (id: string, opts?: { makeActive?: boolean }) => void;
   onSetActiveWorkspace: (id: string) => Promise<boolean>;
   onOpenWorkspaceManager: () => void;
   onExportWorkspace: () => void;

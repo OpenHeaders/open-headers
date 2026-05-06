@@ -10,7 +10,7 @@
  * The scopes a setting may belong to. Discriminated union — every
  * workspace-scoped setting must pick a sub-scope:
  *
- *   - `'user'`                  — per-app-install user preference. Same
+ *   - `'user'`                  — per-app-instance user preference. Same
  *                                 value across every workspace and tab.
  *   - `'workspace-taste'`       — per-workspace presentation (compact
  *                                 mode, sidebar variant, etc.). Reads
