@@ -595,12 +595,13 @@ const WORKSPACE_VARIABLES_CONTEXT = join(REPO_ROOT, 'src', 'context', 'Workspace
 const VAULT_CONTEXT = join(REPO_ROOT, 'src', 'context', 'VaultContext.tsx');
 const LIVE_VARIABLES_CONTEXT = join(REPO_ROOT, 'src', 'context', 'LiveVariablesContext.tsx');
 const LIVE_WORKFLOWS_CONTEXT = join(REPO_ROOT, 'src', 'context', 'LiveWorkflowsContext.tsx');
+const REQUESTS_CONTEXT = join(REPO_ROOT, 'src', 'context', 'RequestsContext.tsx');
 const POPUP_APP = join(REPO_ROOT, 'src', 'popup', 'App.tsx');
 const PANEL_APP = join(REPO_ROOT, 'src', 'panel', 'App.tsx');
 
 const VARIABLE_MUTATOR_HOOK = join(REPO_ROOT, 'src', 'hooks', 'useVariableMutator.ts');
 
-describe('MWPT-FULL session #1+#2+#3+#4+#5+#6 — Environments + workspace variables + vault + collection variables + live variables + live workflows lint gates', () => {
+describe('MWPT-FULL session #1+#2+#3+#4+#5+#6+#7 — Environments + workspace variables + vault + collection variables + live variables + live workflows + requests lint gates', () => {
   it('BC-MWPT-FULL-1-env — workbench App.tsx mounts EnvironmentProvider with editingScopeWorkspaceId override', () => {
     const text = readFileSync(APP_TSX, 'utf8');
     expect(text).toMatch(
@@ -858,5 +859,63 @@ describe('MWPT-FULL session #1+#2+#3+#4+#5+#6 — Environments + workspace varia
       expect(m[1]).not.toMatch(/call\(\s*['"]updateLiveWorkflow['"]/);
       expect(m[1]).not.toMatch(/call\(\s*['"]deleteLiveWorkflow['"]/);
     }
+  });
+
+  // ── Session #7 — Requests + request collections + request folders ─
+  // Bundled provider mirroring RuleProvider's shape (per § 8.3.7).
+  // RequestsProvider owns wsKeys.requests + wsKeys.requestCollections +
+  // wsKeys.requestFolders + composes requestCollectionTrees in the
+  // renderer via buildRequestCollectionTrees. Override branch routes
+  // request entity CRUD through Phase B; collection rename + delete +
+  // folder rename also Phase B; collection create + folder
+  // create/delete stay on legacy RPC in BOTH branches (BC-MWPT-FULL-10
+  // residuals — mirrors RuleProvider's collection/folder create paths).
+
+  it('BC-MWPT-FULL-1-requests — workbench App.tsx mounts RequestsProvider with editingScopeWorkspaceId override', () => {
+    const text = readFileSync(APP_TSX, 'utf8');
+    expect(text).toMatch(
+      /<RequestsProvider\s+surfaceId=["']workbench["']\s+activeWorkspaceIdOverride=\{editingScopeWorkspaceId\}/,
+    );
+  });
+
+  it('BC-MWPT-FULL-1-requests — system surfaces (popup / panel) mount RequestsProvider WITHOUT override', () => {
+    for (const file of [POPUP_APP, PANEL_APP]) {
+      const text = readFileSync(file, 'utf8');
+      expect(text).toMatch(/<RequestsProvider\b/);
+      expect(text).not.toMatch(/<RequestsProvider[^>]*activeWorkspaceIdOverride=/);
+    }
+  });
+
+  it('BC-MWPT-FULL-2-requests — RequestsProvider override branch subscribes wsKeys(workspaceId).requests + .requestCollections + .requestFolders directly', () => {
+    const text = readFileSync(REQUESTS_CONTEXT, 'utf8');
+    expect(text).toMatch(/extensionStorage\.subscribe\(\s*wsKeys\(\s*\w+\s*\)\.requests\b/);
+    expect(text).toMatch(/extensionStorage\.subscribe\(\s*wsKeys\(\s*\w+\s*\)\.requestCollections\b/);
+    expect(text).toMatch(/extensionStorage\.subscribe\(\s*wsKeys\(\s*\w+\s*\)\.requestFolders\b/);
+  });
+
+  it('BC-MWPT-FULL-2-requests — RequestsProvider override branch ignores requestsUpdated broadcast (legacy branch only)', () => {
+    // The bridge broadcast still fires (legacy branch consumes it on
+    // system surfaces). The override branch MUST gate broadcast-driven
+    // reload behind `if (!isOverridden)` — workspace-scoped storage
+    // subscribes own the override branch's read path.
+    const text = readFileSync(REQUESTS_CONTEXT, 'utf8');
+    expect(text).toMatch(/if\s*\(!isOverridden\)\s*void\s+reloadLegacy\(\)/);
+  });
+
+  it('BC-MWPT-FULL-3-requests — RequestsProvider routes request entity CRUD through request-write-client (no legacy call shim in override branch)', () => {
+    const text = readFileSync(REQUESTS_CONTEXT, 'utf8');
+    expect(text).toMatch(/applyRequestCreate\(/);
+    expect(text).toMatch(/applyRequestUpdate\(/);
+    expect(text).toMatch(/applyRequestDelete\(/);
+    // Inside `if (isOverridden)` arms in the createRequest /
+    // updateRequest / deleteRequest mutators, the legacy
+    // `call('createLocalRequest' | 'updateLocalRequest' | 'deleteLocalRequest')`
+    // is allowed only as the no-parent-path edge fallback in
+    // createRequest (BC-MWPT-FULL-10 residual edge — accepted), and the
+    // primary write path threads the workspaceId through Phase B.
+    // Negative shape: updateRequest + deleteRequest override arms must
+    // never call the legacy update/delete RPC.
+    expect(text).toMatch(/applyRequestUpdate\(\s*requestUid,\s*updates,\s*\{\s*workspaceId:\s*wsId,\s*surfaceId\s*\}/);
+    expect(text).toMatch(/applyRequestDelete\(\s*requestUid,\s*\{\s*workspaceId:\s*wsId,\s*surfaceId\s*\}/);
   });
 });

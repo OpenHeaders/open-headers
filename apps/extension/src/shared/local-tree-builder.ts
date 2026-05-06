@@ -66,6 +66,23 @@ export function buildLocalCollectionTrees(
   }));
 }
 
+export function buildRequestCollectionTrees(
+  collections: V5.Collection[],
+  folders: PersistedLocalFolder[],
+  requests: V5.Request[],
+): V5.CollectionTree[] {
+  return collections.map((collection) => ({
+    ...collection,
+    tree: buildFolderChildren(
+      collection.path,
+      folders,
+      requests,
+      (r) => r.path,
+      (r) => ({ type: 'request', uid: r.uid, name: r.name, path: r.path, method: r.method }),
+    ),
+  }));
+}
+
 export function buildTemplateCollectionTrees(
   templateCollections: V5.Collection[],
   templateFolders: PersistedLocalFolder[],

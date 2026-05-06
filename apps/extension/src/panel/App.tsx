@@ -2,6 +2,7 @@ import 'allotment/dist/style.css';
 import { EnvironmentProvider } from '@context/EnvironmentContext';
 import { LiveVariablesProvider } from '@context/LiveVariablesContext';
 import { LiveWorkflowsProvider } from '@context/LiveWorkflowsContext';
+import { RequestsProvider } from '@context/RequestsContext';
 import { VaultProvider } from '@context/VaultContext';
 import { WorkspaceVariablesProvider } from '@context/WorkspaceVariablesContext';
 import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
@@ -160,13 +161,15 @@ export default function App() {
                   <VaultProvider surfaceId="panel">
                     <LiveVariablesProvider surfaceId="panel">
                       <LiveWorkflowsProvider surfaceId="panel">
-                        <EnvSwitcherProvider>
-                          <VariablePopoverProvider>
-                            <RulePopoverProvider>
-                              <PanelContent />
-                            </RulePopoverProvider>
-                          </VariablePopoverProvider>
-                        </EnvSwitcherProvider>
+                        <RequestsProvider surfaceId="panel">
+                          <EnvSwitcherProvider>
+                            <VariablePopoverProvider>
+                              <RulePopoverProvider>
+                                <PanelContent />
+                              </RulePopoverProvider>
+                            </VariablePopoverProvider>
+                          </EnvSwitcherProvider>
+                        </RequestsProvider>
                       </LiveWorkflowsProvider>
                     </LiveVariablesProvider>
                   </VaultProvider>

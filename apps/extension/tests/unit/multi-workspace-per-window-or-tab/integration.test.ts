@@ -95,6 +95,7 @@ import {
   snapshotEnvironmentPostStates,
   snapshotLiveVariablePostStates,
   snapshotLiveWorkflowPostStates,
+  snapshotRequestPostStates,
   snapshotRulePostStates,
   snapshotVaultPostStates,
   snapshotWorkspaceVariablesPostStates,
@@ -110,6 +111,7 @@ import {
   getLiveWorkflowSyncMirrorForWorkspace,
 } from '@/context/live-workflow-sync-mirror';
 import { setActiveRendererContext } from '@/context/renderer-mutator-context';
+import { disposeAllRequestSyncMirrors, getRequestSyncMirrorForWorkspace } from '@/context/request-sync-mirror';
 import { disposeAllRuleSyncMirrors, getRuleSyncMirrorForWorkspace } from '@/context/rule-sync-mirror';
 import { disposeAllVaultSyncMirrors, getVaultSyncMirrorForWorkspace } from '@/context/vault-sync-mirror';
 import {
@@ -122,6 +124,7 @@ import { applyCollectionSetVar, applyCollectionVariablesReplacement } from '@/sh
 import { applyEnvironmentCreate, applyEnvironmentDelete } from '@/shared/sync/env-write-client';
 import { applyLiveVariableCreate, applyLiveVariableUpdate } from '@/shared/sync/live-variable-write-client';
 import { applyLiveWorkflowCreate, applyLiveWorkflowUpdate } from '@/shared/sync/live-workflow-write-client';
+import { applyRequestCreate, applyRequestDelete, applyRequestUpdate } from '@/shared/sync/request-write-client';
 import { applyRuleCreate, applyRuleDelete } from '@/shared/sync/rule-write-client';
 import { applyVaultSecretRemove, applyVaultSecretSet } from '@/shared/sync/vault-write-client';
 import { applyWorkspaceVarRemove, applyWorkspaceVarSet } from '@/shared/sync/workspace-variables-write-client';
@@ -185,6 +188,10 @@ function setupHarness(): void {
     const wsId = (req as { workspaceId?: string }).workspaceId;
     return { entries: snapshotLiveWorkflowPostStates(wsId) };
   });
+  mockBridge._setCallHandler('oh.sync.snapshotRequests', (req) => {
+    const wsId = (req as { workspaceId?: string }).workspaceId;
+    return { entries: snapshotRequestPostStates(wsId) };
+  });
 
   // Reset renderer registries.
   disposeAllRuleSyncMirrors();
@@ -194,6 +201,7 @@ function setupHarness(): void {
   disposeAllCollectionSyncMirrors();
   disposeAllLiveVariableSyncMirrors();
   disposeAllLiveWorkflowSyncMirrors();
+  disposeAllRequestSyncMirrors();
   setActiveRendererContext(null);
 
   // Reset SW state. __init clears every resident service synchronously
@@ -254,6 +262,7 @@ afterEach(() => {
   disposeAllCollectionSyncMirrors();
   disposeAllLiveVariableSyncMirrors();
   disposeAllLiveWorkflowSyncMirrors();
+  disposeAllRequestSyncMirrors();
   setActiveRendererContext(null);
   vi.useRealTimers();
 });
@@ -863,6 +872,92 @@ describe('I-1-liveworkflows / I-2-liveworkflows — Live workflows per-family mi
     const w1EntriesAfter = w1Logs ? await collectLogEntries(w1Logs) : [];
     expect(w1EntriesAfter.find((e) => e.body.type === 'live-workflow')).toBeUndefined();
     expect(snapshotLiveWorkflowPostStates('w1')).toEqual([]);
+
+    releaseWorkspaceService('w2');
+  });
+});
+
+describe('I-1-requests / I-2-requests — Requests per-family migration session #7', () => {
+  function buildRequestSeed(name: string, parentPath: string): V5.Request {
+    return {
+      schemaVersion: 5,
+      uid: `req-${name}`,
+      path: `${parentPath}/${name}-req-uid`,
+      name,
+      method: 'GET',
+      url: 'https://api.openheaders.io/test',
+      headers: [],
+      params: [],
+      auth: { type: 'inherit' },
+      body: { type: 'none' },
+    };
+  }
+
+  it('I-1-requests: request mirror state == oracle request projection per workspace', async () => {
+    await setActiveAwaited('w1');
+    const w1Mirror = getRequestSyncMirrorForWorkspace('w1');
+    const w2Mirror = getRequestSyncMirrorForWorkspace('w2');
+    getOrCreateWorkspaceService('w2');
+
+    const seed = buildRequestSeed('w2-only', 'requests/w2-coll');
+    const result = await applyRequestCreate(seed, { workspaceId: 'w2', surfaceId: 'workbench-tab' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('applyRequestCreate failed');
+    await flush();
+
+    expect(w2Mirror.getRequestMirror(seed.uid)?.request.name).toBe('w2-only');
+    expect(w1Mirror.getRequestMirror(seed.uid)).toBeNull();
+
+    const w2Snapshot = snapshotRequestPostStates('w2');
+    expect(w2Snapshot.find((s) => s.request.uid === seed.uid)).toBeDefined();
+    expect(snapshotRequestPostStates('w1')).toEqual([]);
+
+    releaseWorkspaceService('w2');
+  });
+
+  it('I-2-requests: w2 request create + update + delete from a tab whose Active is w1 lands in w2 only', async () => {
+    // Active=w1 throughout; tab2 lifeline acquires w2. The diverged-tab
+    // pattern: a request mutated in tab2 must land in w2's MutationLog
+    // and never touch w1's projection. Closes the user-reported critical
+    // bug for the request entity family.
+    await setActiveAwaited('w1');
+    getOrCreateWorkspaceService('w2');
+    // Pre-mount the w2 mirror so the update path's pre-image lookup
+    // finds the post-create entry.
+    getRequestSyncMirrorForWorkspace('w2');
+
+    const seed = buildRequestSeed('tab2-w2-req', 'requests/w2-coll');
+    const result = await applyRequestCreate(seed, {
+      workspaceId: 'w2',
+      surfaceId: 'workbench-tab-2',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('applyRequestCreate failed');
+    await flush();
+
+    const w1Logs = harness.logs.get('w1') as InMemoryMutationLog | undefined;
+    const w2Logs = harness.logs.get('w2') as InMemoryMutationLog | undefined;
+    expect(w2Logs).toBeDefined();
+    const w1Entries = w1Logs ? await collectLogEntries(w1Logs) : [];
+    const w2Entries = w2Logs ? await collectLogEntries(w2Logs) : [];
+    expect(w1Entries.find((e) => e.body.type === 'request')).toBeUndefined();
+    expect(w2Entries.find((e) => e.body.type === 'request')).toBeDefined();
+
+    const upd = await applyRequestUpdate(
+      seed.uid,
+      { url: 'https://api.openheaders.io/edited' },
+      { workspaceId: 'w2', surfaceId: 'workbench-tab-2' },
+    );
+    expect(upd.ok).toBe(true);
+    await flush();
+    expect(snapshotRequestPostStates('w1')).toEqual([]);
+
+    const del = await applyRequestDelete(seed.uid, { workspaceId: 'w2', surfaceId: 'workbench-tab-2' });
+    expect(del.ok).toBe(true);
+    await flush();
+    const w1EntriesAfter = w1Logs ? await collectLogEntries(w1Logs) : [];
+    expect(w1EntriesAfter.find((e) => e.body.type === 'request')).toBeUndefined();
+    expect(snapshotRequestPostStates('w1')).toEqual([]);
 
     releaseWorkspaceService('w2');
   });
