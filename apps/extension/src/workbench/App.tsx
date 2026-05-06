@@ -262,7 +262,22 @@ function buildSelectionExportScope(entities: SidebarExportEntity[]): ExportModal
 
 // ── Shell loader ────────────────────────────────────────────────────
 
-const WorkbenchInner: React.FC = () => {
+interface WorkbenchInnerProps {
+  /**
+   * Lifts the tab's editing-scope workspaceId up to {@link Workbench}'s
+   * awareness identity provider mount so the lifeline `bind` message
+   * carries the correct workspace ref. Resolved deep inside
+   * {@link WorkbenchTabAware} (after `useWorkbenchWorkspaceSlice` has
+   * corrected stale bindings) and propagated upward via this setter
+   * (design § 4.0.7 lifeline trust contract). Lint #14 — slice resolver
+   * before lifeline — stays satisfied because the slice still fires
+   * lexically before the provider; the lifeline opens with `null` on
+   * cold mount and re-binds when this setter fires.
+   */
+  onLifelineWorkspaceIdChange: (workspaceId: string | null) => void;
+}
+
+const WorkbenchInner: React.FC<WorkbenchInnerProps> = ({ onLifelineWorkspaceIdChange }) => {
   const { isDarkMode } = useTheme();
   const { token } = theme.useToken();
   const perTab = useWorkbenchEditingScopeViewState();
@@ -277,7 +292,7 @@ const WorkbenchInner: React.FC = () => {
     );
   }
 
-  return <WorkbenchTabAware perTab={perTab} />;
+  return <WorkbenchTabAware perTab={perTab} onLifelineWorkspaceIdChange={onLifelineWorkspaceIdChange} />;
 };
 
 /**
@@ -289,12 +304,24 @@ const WorkbenchInner: React.FC = () => {
  * gives every descendant a per-tab-correct view of "which workspace
  * is this tab editing right now" before the rule data binds.
  */
-const WorkbenchTabAware: React.FC<{ perTab: EditingScopeViewStateApi<WorkbenchViewState> }> = ({ perTab }) => {
+const WorkbenchTabAware: React.FC<{
+  perTab: EditingScopeViewStateApi<WorkbenchViewState>;
+  onLifelineWorkspaceIdChange: (workspaceId: string | null) => void;
+}> = ({ perTab, onLifelineWorkspaceIdChange }) => {
   const { isDarkMode } = useTheme();
   const { token } = theme.useToken();
   useWorkbenchWorkspaceSlice(perTab);
   const editingScopeWorkspaceId = useEditingScopeWorkspaceId(perTab);
   const layout = useResponsiveLayout(editingScopeWorkspaceId);
+
+  // Push the editing-scope workspaceId up to {@link Workbench}'s
+  // awareness identity provider so the lifeline binds (and rebinds on
+  // tab-workspace divergence) to the right WorkspaceServiceState. The
+  // slice resolver above has already corrected stale bindings, so the
+  // lifeline trust contract (§ 4.0.7) holds.
+  useEffect(() => {
+    onLifelineWorkspaceIdChange(editingScopeWorkspaceId);
+  }, [editingScopeWorkspaceId, onLifelineWorkspaceIdChange]);
 
   if (!layout.ready) {
     return (
@@ -2237,33 +2264,42 @@ function ActiveTabEntityWriter({ value }: { value: { entityType: string; entityI
 // resolving once at the root is exactly per-tab.
 const workbenchIdentity = resolveWorkbenchIdentity();
 
-const Workbench: React.FC = () => (
-  <AwarenessIdentityProvider value={workbenchIdentity}>
-    {/*
-     * `ActiveFieldFocusProvider` lifts the "currently focused field"
-     * state above every workbench surface (editor body, sidebar
-     * inline-rename, breadcrumb inline-rename) so any of them can
-     * publish presence on the same wire. The matching
-     * `<SurfaceAwarenessPublisher>` mounts inside `WorkbenchInner`
-     * because it needs the active workspace id, which lives in the
-     * rule store. `<ActiveEditorDirtyProvider>` is the third workspace
-     * context the publisher composes from (alongside `ActiveTabEntity`
-     * and `ActiveFieldFocus`); editors call `useEditorDirty` to
-     * contribute their dirty marker when they are the active tab.
-     */}
-    <ActiveFieldFocusProvider>
-      <ActiveEditorDirtyProvider>
-        <ActiveTabEntityProvider>
-          {/* RuleProvider mounts inside `WorkbenchTabAware` (called via
-              `WorkbenchInner`) so it can take the tab's editing-scope
-              workspace id as a prop (BC-MWPT-5). The `InspectorNavProvider`
-              followed it down for the same reason — a per-tab-correct
-              tree start at the seam. */}
-          <WorkbenchInner />
-        </ActiveTabEntityProvider>
-      </ActiveEditorDirtyProvider>
-    </ActiveFieldFocusProvider>
-  </AwarenessIdentityProvider>
-);
+const Workbench: React.FC = () => {
+  // Lifeline workspaceId — driven by {@link WorkbenchTabAware}'s
+  // editing-scope read once `useWorkbenchWorkspaceSlice` has finished
+  // correcting stale bindings. Starts `null` so the cold-mount lifeline
+  // opens liveness-only (SW skips refcount acquire); flips to the
+  // editing-scope id on first effect, which dispatches a clean
+  // bind-then-acquire on the SW side. Per § 4.0.7 trust contract.
+  const [lifelineWorkspaceId, setLifelineWorkspaceId] = useState<string | null>(null);
+  return (
+    <AwarenessIdentityProvider value={workbenchIdentity} workspaceId={lifelineWorkspaceId}>
+      {/*
+       * `ActiveFieldFocusProvider` lifts the "currently focused field"
+       * state above every workbench surface (editor body, sidebar
+       * inline-rename, breadcrumb inline-rename) so any of them can
+       * publish presence on the same wire. The matching
+       * `<SurfaceAwarenessPublisher>` mounts inside `WorkbenchInner`
+       * because it needs the active workspace id, which lives in the
+       * rule store. `<ActiveEditorDirtyProvider>` is the third workspace
+       * context the publisher composes from (alongside `ActiveTabEntity`
+       * and `ActiveFieldFocus`); editors call `useEditorDirty` to
+       * contribute their dirty marker when they are the active tab.
+       */}
+      <ActiveFieldFocusProvider>
+        <ActiveEditorDirtyProvider>
+          <ActiveTabEntityProvider>
+            {/* RuleProvider mounts inside `WorkbenchTabAware` (called via
+                `WorkbenchInner`) so it can take the tab's editing-scope
+                workspace id as a prop (BC-MWPT-5). The `InspectorNavProvider`
+                followed it down for the same reason — a per-tab-correct
+                tree start at the seam. */}
+            <WorkbenchInner onLifelineWorkspaceIdChange={setLifelineWorkspaceId} />
+          </ActiveTabEntityProvider>
+        </ActiveEditorDirtyProvider>
+      </ActiveFieldFocusProvider>
+    </AwarenessIdentityProvider>
+  );
+};
 
 export default Workbench;
