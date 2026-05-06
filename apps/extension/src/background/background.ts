@@ -138,7 +138,12 @@ import { setupWorkspaceTabRegistry } from './modules/workspace-tab-registry';
 import { setupAwarenessLifelinePorts } from './sync/awareness-lifeline';
 import { markBootPhase } from './sync/boot-telemetry';
 import { attachGlobalWorkspaceCoordRunner, initGlobalSyncService } from './sync/global-service';
-import { removeAwarenessByInstanceId, setRuntimeActive } from './sync/service';
+import {
+  getOrCreateWorkspaceService,
+  releaseWorkspaceService,
+  removeAwarenessByInstanceId,
+  setRuntimeActive,
+} from './sync/service';
 import {
   connectWebSocket,
   getReconnectAttempts,
@@ -371,7 +376,20 @@ async function initializeExtension(): Promise<void> {
   setupDelayBypassCleanup();
   setupTestRunnerPorts();
   setupDevtoolsInspectorPorts();
-  setupAwarenessLifelinePorts(removeAwarenessByInstanceId);
+  setupAwarenessLifelinePorts({
+    removeByInstanceId: removeAwarenessByInstanceId,
+    acquireWorkspace: (workspaceId) => {
+      // Lifelines are refcount handles per design § 4.0.7. The acquire
+      // bumps the workspace's service refcount; the matching release
+      // fires from `port.onDisconnect` (or on a rebind). The acquire's
+      // return value is intentionally ignored — we keep no per-port
+      // service handle on the SW side beyond the refcount itself.
+      getOrCreateWorkspaceService(workspaceId);
+    },
+    releaseWorkspace: (workspaceId) => {
+      releaseWorkspaceService(workspaceId);
+    },
+  });
   setupOnRuleMatchedDebugBridge();
 
   // Broadcast rule changes to all open extension pages (popup, workspace)

@@ -20,7 +20,7 @@
  *     touch this enumeration.
  */
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -60,10 +60,7 @@ const BC_MWPT_3_ALLOWLIST: readonly string[] = [
  * `readWorkspaceTabSession`. Adding a new boot-coupling read site means
  * extending this list AND the comment in `readBootIdentity.ts`.
  */
-const KNOWN_BOOT_COUPLING_READS: readonly string[] = [
-  'hooks/useToolLayout.ts',
-  'hooks/readBootIdentity.ts',
-];
+const KNOWN_BOOT_COUPLING_READS: readonly string[] = ['hooks/useToolLayout.ts', 'hooks/readBootIdentity.ts'];
 
 function walk(dir: string, files: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
@@ -200,7 +197,14 @@ describe('multi-workspace-per-tab lint', () => {
     // SYNC_ENGINE_DESIGN.md § 9.1, the same shape pause-markers
     // already used.
     const text = readFileSync(RULE_CONTEXT, 'utf8');
-    const required = ['rules', 'collections', 'folders', 'templates', 'templateCollections', 'templateFolders'] as const;
+    const required = [
+      'rules',
+      'collections',
+      'folders',
+      'templates',
+      'templateCollections',
+      'templateFolders',
+    ] as const;
     for (const key of required) {
       // Tolerant of line-wrapped argument lists.
       const re = new RegExp(`extensionStorage\\.subscribe\\(\\s*wsKeys\\(wsId\\)\\.${key}\\b`);
@@ -214,7 +218,7 @@ describe('multi-workspace-per-tab lint', () => {
     expect(overrideArmStart).toBeGreaterThan(-1);
     // Take a generous window of the override arm; the system arm
     // begins after `return;`.
-    const armEnd = text.indexOf('call(\'popupOpen\')', overrideArmStart);
+    const armEnd = text.indexOf("call('popupOpen')", overrideArmStart);
     expect(armEnd).toBeGreaterThan(overrideArmStart);
     const armText = text.slice(overrideArmStart, armEnd);
     expect(armText).not.toMatch(/resp\.rules/);
@@ -237,7 +241,9 @@ describe('multi-workspace-per-tab lint', () => {
     // on the override workspace's keys instead.
     const text = readFileSync(RULE_CONTEXT, 'utf8');
     // Both subscribe sites must short-circuit on isOverridden.
-    expect(text).toMatch(/const unsubRules = isOverridden\s*\?\s*\(\)\s*=>\s*undefined\s*:\s*subscribe\(\s*'rulesUpdated'/);
+    expect(text).toMatch(
+      /const unsubRules = isOverridden\s*\?\s*\(\)\s*=>\s*undefined\s*:\s*subscribe\(\s*'rulesUpdated'/,
+    );
     expect(text).toMatch(
       /const unsubTemplates = isOverridden\s*\?\s*\(\)\s*=>\s*undefined\s*:\s*subscribe\(\s*'templatesUpdated'/,
     );
@@ -418,6 +424,25 @@ describe('MWPT-FULL foundation lint gates (sub-commit 1e)', () => {
     const text = readFileSync(SYNC_SERVICE_FILE, 'utf8');
     expect(text).not.toMatch(/createOutgoingWsRunner/);
     expect(text).not.toMatch(/\boutgoingWsSubscription\s*:/);
+  });
+
+  it('lint F-16 — variables-resolver state lives on a per-workspace map, not module-level singletons', () => {
+    const file = join(REPO_ROOT, 'src', 'background', 'modules', 'variables-resolver.ts');
+    const text = readFileSync(file, 'utf8');
+    // Per-workspace state map exists.
+    expect(text).toMatch(/const\s+states\s*=\s*new\s+Map<string,\s*ResolverState>/);
+    // Public dispose hook called from `service.ts` finalizeDisposal.
+    expect(text).toMatch(/export function disposeResolverStateForWorkspace/);
+    // Forbid the legacy module-level mutable singletons. If a future
+    // refactor reintroduces them, this lint catches the regression that
+    // would let one workspace's resolver memo leak into another's.
+    expect(text).not.toMatch(/^let\s+lastResolvedRules\s*:/m);
+    expect(text).not.toMatch(/^let\s+lastResolutionErrors\s*:/m);
+    expect(text).not.toMatch(/^let\s+cachedLiveRuns\s*:/m);
+    expect(text).not.toMatch(/^let\s+lastKnownCollectionUids\s*:/m);
+    // The legacy `const resolver = new VariableResolver()` singleton is
+    // gone too — each ResolverState owns its own resolver instance.
+    expect(text).not.toMatch(/^const\s+resolver\s*=\s*new\s+VariableResolver\(\)/m);
   });
 
   it('lint F-15 — popup / side-panel / devtools surfaces never import lifeline state or workbench sessionStorage', () => {

@@ -77,6 +77,7 @@ import {
 import { broadcast as bridgeBroadcast } from '@utils/bridge';
 import { logger } from '@utils/logger';
 import { scheduleUpdate } from '@/background/modules/rule-engine';
+import { disposeResolverStateForWorkspace } from '@/background/modules/variables-resolver';
 import { type AwarenessStore, createAwarenessStore } from './awareness';
 import { handleAwarenessPublish } from './awareness-bridge';
 import { handleSyncApply, wireBroadcastToSink } from './bridge';
@@ -931,6 +932,10 @@ function finalizeDisposal(svc: WorkspaceServiceState): void {
   svc.unsubscribeBroadcast();
   disposeCaches(svc.caches);
   svc.awareness.dispose();
+  // Drop the per-workspace variables-resolver state alongside the
+  // service teardown so the resolver memo + live-cache mirror don't
+  // outlive their owning workspace (F-16).
+  disposeResolverStateForWorkspace(svc.workspaceId);
   services.delete(svc.workspaceId);
   logger.info('SyncService', `Disposed workspace ${svc.workspaceId}`);
 }

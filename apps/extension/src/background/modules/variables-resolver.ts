@@ -46,43 +46,122 @@ import { getLiveVariables } from './live-variable-store';
 import { recordLog } from './observability-log';
 import { getCollections, getRules } from './rule-store';
 import { getCachedTotpCodes } from './totp-scheduler';
-import { getActiveWorkspaceId } from './workspace-store';
+import { peekActiveWorkspaceId } from './workspace-store';
 
-// ── Singleton resolver + last resolved snapshot ────────────────────
+// ── Per-workspace resolver state ───────────────────────────────────
+//
+// Each resident workspace gets its own `ResolverState` — its own
+// `VariableResolver` (env/vars/vault scopes are workspace-scoped), its
+// own last-resolved memo, its own live-cache mirror, and its own
+// collection-uid bookkeeping. The state map is lazily populated and
+// cleared on `disposeResolverStateForWorkspace` (called from the SW
+// service's `finalizeDisposal` so a torn-down workspace's resolver
+// state goes with it). MWPT-FULL F-16 lint backstop: no module-level
+// resolver state remains; per-workspace warmup misses no resident
+// workspace because each workspace owns its own slot.
+//
+// Sentinel key for the "no active workspace" path — used by tests that
+// exercise the resolver without bootstrapping `workspace-store`, and
+// by SW-internal callers that race ahead of the bootstrap broadcast.
+// Production lookups that resolve through `peekActiveWorkspaceId()`
+// only see this sentinel during the cold-wake window before the first
+// active broadcast lands.
 
-const resolver = new VariableResolver();
+interface ResolverState {
+  workspaceId: string;
+  resolver: VariableResolver;
+  /**
+   * Cached snapshot of the most recently resolved rule set for THIS
+   * workspace. Downstream consumers (request-tracker pattern match,
+   * badge verdicts, Inspector panel telemetry) need to see the SAME
+   * resolved strings the DNR layer saw — otherwise a rule with
+   * `{{API_HOST}}` in its domain condition would fire in DNR but the
+   * tracker would match the raw token and fail to attribute the
+   * request.
+   *
+   * Populated on every `resolveRulesForCompile` call. Empty before the
+   * first compile.
+   */
+  lastResolvedRules: V5.Rule[];
+  /**
+   * Per-rule resolution errors collected during the most recent
+   * `resolveRulesForCompile` for THIS workspace. Keyed by rule uid so
+   * callers can line up errors against specific rules without
+   * re-walking the set. Errors for a rule with no unresolved
+   * references are not stored — `has` → false.
+   *
+   * Cleared (reset to an empty map) at the start of every resolve pass
+   * so the snapshot always matches `lastResolvedRules`.
+   */
+  lastResolutionErrors: Map<string, ResolutionError[]>;
+  /**
+   * Warm mirror of THIS workspace's live cache rows. Populated by the
+   * `onLiveCacheStoreChange` listener (filtered to events tagged with
+   * this workspaceId) so `buildLiveRegistry` stays synchronous.
+   */
+  cachedLiveRuns: WorkflowRunCache[];
+  /**
+   * Sentinel set used by `syncResolverFromStores` to detect collections
+   * that were dropped between sync passes — the resolver's internal
+   * collection-variable map needs explicit removes for collections that
+   * no longer exist.
+   */
+  lastKnownCollectionUids: Set<string>;
+}
+
+const NO_WORKSPACE_KEY = '__no-workspace__';
+
+const states = new Map<string, ResolverState>();
+
+function createState(workspaceId: string): ResolverState {
+  return {
+    workspaceId,
+    resolver: new VariableResolver(),
+    lastResolvedRules: [],
+    lastResolutionErrors: new Map(),
+    cachedLiveRuns: [],
+    lastKnownCollectionUids: new Set(),
+  };
+}
+
+function getOrCreateState(workspaceId: string): ResolverState {
+  let state = states.get(workspaceId);
+  if (!state) {
+    state = createState(workspaceId);
+    states.set(workspaceId, state);
+  }
+  return state;
+}
+
+function activeKey(): string {
+  return peekActiveWorkspaceId() ?? NO_WORKSPACE_KEY;
+}
 
 /**
- * Cached snapshot of the most recently resolved rule set. Downstream
- * consumers (request-tracker pattern match, badge verdicts, Inspector
- * panel telemetry) need to see the SAME resolved strings the DNR layer
- * saw — otherwise a rule with `{{API_HOST}}` in its domain condition
- * would fire in DNR but the tracker would match the raw token and fail
- * to attribute the request.
- *
- * Populated on every `resolveRulesForCompile` call. Empty before the
- * first compile — fallback callers should tolerate that and drop back
- * to `getRules()` from rule-store (raw view).
+ * Lookup the runtime-Active workspace's resolver state, lazily
+ * materializing it on first reach. Public reads (e.g.
+ * {@link getResolvedRules}) route through here so the state map stays
+ * the single source of truth.
  */
-let lastResolvedRules: V5.Rule[] = [];
+function activeState(): ResolverState {
+  return getOrCreateState(activeKey());
+}
 
 /**
- * Per-rule resolution errors collected during the most recent
- * `resolveRulesForCompile`. Keyed by rule uid so callers can line up
- * errors against specific rules without re-walking the set. Errors for
- * a rule with no unresolved references are not stored — `has` → false.
- *
- * Cleared (reset to an empty map) at the start of every resolve pass
- * so the snapshot always matches `lastResolvedRules`.
+ * Drop a workspace's resolver state. Called from the SW service's
+ * `finalizeDisposal` so a torn-down workspace's resolver memo + live-
+ * cache mirror don't outlive their owning service. Idempotent.
  */
-let lastResolutionErrors: Map<string, ResolutionError[]> = new Map();
+export function disposeResolverStateForWorkspace(workspaceId: string): void {
+  states.delete(workspaceId);
+}
 
 /**
- * Current resolved-rule snapshot. Returns an empty array until the
- * first DNR compile runs.
+ * Current resolved-rule snapshot for the runtime-Active workspace.
+ * Returns an empty array until the first DNR compile runs.
  */
 export function getResolvedRules(): V5.Rule[] {
-  return lastResolvedRules;
+  return activeState().lastResolvedRules;
 }
 
 /**
@@ -95,7 +174,7 @@ export function getResolvedRules(): V5.Rule[] {
  * snapshot is read by Status reporting, Inspector surfaces, and tests.
  */
 export function getLastResolutionErrors(): ReadonlyMap<string, readonly ResolutionError[]> {
-  return lastResolutionErrors;
+  return activeState().lastResolutionErrors;
 }
 
 /**
@@ -110,7 +189,7 @@ export function getLastResolutionErrors(): ReadonlyMap<string, readonly Resoluti
 export function getLastAggregatedResolutionErrors(): ResolutionError[] {
   const seen = new Set<string>();
   const out: ResolutionError[] = [];
-  for (const errors of lastResolutionErrors.values()) {
+  for (const errors of activeState().lastResolutionErrors.values()) {
     for (const err of errors) {
       if (err.reason === 'reserved-namespace') continue;
       if (seen.has(err.reference)) continue;
@@ -134,7 +213,7 @@ export function getLastAggregatedResolutionErrors(): ResolutionError[] {
  */
 export function getUnresolvableRuleUids(): ReadonlySet<string> {
   const out = new Set<string>();
-  for (const [uid, errors] of lastResolutionErrors) {
+  for (const [uid, errors] of activeState().lastResolutionErrors) {
     const hasBlocker = errors.some((e) => e.reason !== 'reserved-namespace');
     if (hasBlocker) out.add(uid);
   }
@@ -145,43 +224,36 @@ export function getUnresolvableRuleUids(): ReadonlySet<string> {
 //
 // The resolver's `live` scope needs a sync snapshot of
 // `WorkflowRunCache[]` at compile time, but the authoritative store
-// reads through `chrome.storage.local` (async). Keeping a module-
-// level mirror hydrated by `onLiveCacheStoreChange` + `onLiveVariable
-// StoreChange` means `syncResolverFromStores` stays synchronous and
-// callers (DNR compile pipeline, test runner scope resolver) don't
-// need to restructure.
+// reads through `chrome.storage.local` (async). Each workspace owns
+// its own mirror in {@link ResolverState.cachedLiveRuns}; the
+// `onLiveCacheStoreChange` listener routes events to the matching
+// workspace's state so non-Active workspaces stay warm in tandem.
 //
 // The mirror is deliberately best-effort: an uninitialized mirror
 // resolves `{{live.X}}` as unset, which surfaces a structured error
 // via the existing `unset-in-scope` path (the same behavior a missing
 // LV would produce). `hydrateLiveCacheMirror` is called once at SW
-// wake from `background.ts`.
-
-let cachedLiveRuns: WorkflowRunCache[] = [];
+// wake from `background.ts` to prime the runtime-Active workspace's
+// mirror before the first DNR compile.
 
 export async function hydrateLiveCacheMirror(): Promise<void> {
   try {
-    cachedLiveRuns = await listWorkflowRunCaches();
+    const runs = await listWorkflowRunCaches();
+    activeState().cachedLiveRuns = runs;
   } catch (err) {
     logger.info('VariablesResolver', `Initial live-cache mirror hydrate failed: ${(err as Error).message}`);
-    cachedLiveRuns = [];
+    activeState().cachedLiveRuns = [];
   }
 }
 
-// Keep the mirror warm. The store's notify now carries the post-write
-// run list so the mirror update is synchronous — landing before any
-// other listener on the same event can read `cachedLiveRuns`. An
-// earlier revision re-read `chrome.storage.local` here via
-// `listWorkflowRunCaches()`, which raced against background.ts's
-// `scheduleUpdate('live-cache')` listener; the DNR rebuild usually
-// won the race and shipped the pre-edit capture value even after the
-// workflow refresh had landed fresh captures in storage.
+// Keep each resident workspace's mirror warm. The store's notify
+// carries the post-write run list so the mirror update is synchronous
+// — landing before any other listener on the same event can read the
+// state. Per-workspace routing means a non-Active workspace's runner
+// (post-1f) sees its own fresh captures rather than waiting for an
+// Active flip.
 onLiveCacheStoreChange((workspaceId, _workflowUid, runs) => {
-  // Runs from a non-active workspace can't feed the active resolver —
-  // ignore them so switching workspaces mid-refresh doesn't leak
-  // foreign captures into the mirror.
-  if (workspaceId !== getActiveWorkspaceId()) return;
-  cachedLiveRuns = [...runs];
+  getOrCreateState(workspaceId).cachedLiveRuns = [...runs];
 });
 
 /**
@@ -191,7 +263,7 @@ onLiveCacheStoreChange((workspaceId, _workflowUid, runs) => {
  * the mirror on every call to stay cheap + honest about staleness.
  */
 export function getLiveRegistrySnapshot(): LiveRegistry {
-  return buildLiveRegistry();
+  return buildLiveRegistry(activeState());
 }
 
 /**
@@ -281,12 +353,12 @@ export function __setSyncWarmRunner(runner: SyncWarmRunner | null): void {
  * workflow targets so two LVs pointing at the same workflow drive
  * one refresh, not two.
  */
-function collectSyncWarmTargets(activeEnv: string | null, now: number): SyncWarmTarget[] {
+function collectSyncWarmTargets(state: ResolverState, activeEnv: string | null, now: number): SyncWarmTarget[] {
   const lvs = getLiveVariables().filter((v) => isLiveVariableEffective(v) && v.requireFreshOnRuleBuild === true);
   if (lvs.length === 0) return [];
 
   const runByWorkflow = new Map<string, WorkflowRunCache>();
-  for (const run of cachedLiveRuns) {
+  for (const run of state.cachedLiveRuns) {
     if (run.environmentId === activeEnv) runByWorkflow.set(run.workflowUid, run);
   }
 
@@ -318,11 +390,13 @@ function collectSyncWarmTargets(activeEnv: string | null, now: number): SyncWarm
  */
 export async function kickSyncWarmRefreshes(): Promise<void> {
   if (!syncWarmRunner) return; // scheduler not attached — SW boot order or test environment
-  const targets = collectSyncWarmTargets(getActiveEnvironmentId(), Date.now());
+  const workspaceId = peekActiveWorkspaceId();
+  if (!workspaceId) return; // no Active workspace; nothing to warm against
+  const state = getOrCreateState(workspaceId);
+  const targets = collectSyncWarmTargets(state, getActiveEnvironmentId(), Date.now());
   if (targets.length === 0) return;
 
   const runner = syncWarmRunner;
-  const workspaceId = getActiveWorkspaceId();
   const deadline = new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), SYNC_WARM_TIMEOUT_MS));
 
   const refreshes = targets.map(async (t) => {
@@ -369,7 +443,7 @@ export async function kickSyncWarmRefreshes(): Promise<void> {
  *     the LV in the picker/inspector; Phase G's Status pill uses it
  *     for the `live` subsystem yellow-threshold.
  */
-function buildLiveRegistry(): LiveRegistry {
+function buildLiveRegistry(state: ResolverState): LiveRegistry {
   // Effective LVs only (published + enabled). Mirrors the renderer-side
   // `useVariableResolver` + `VariablesPanel.liveRegistry` filters so the
   // SW compile path agrees with what the user sees in the editor.
@@ -383,7 +457,7 @@ function buildLiveRegistry(): LiveRegistry {
   // row per workflow for the env. Skipping runs keyed to other envs
   // is critical: otherwise env-switching would cross-contaminate.
   const runByWorkflow = new Map<string, WorkflowRunCache>();
-  for (const run of cachedLiveRuns) {
+  for (const run of state.cachedLiveRuns) {
     if (run.environmentId === activeEnv) runByWorkflow.set(run.workflowUid, run);
   }
 
@@ -419,21 +493,22 @@ function buildLiveRegistry(): LiveRegistry {
  * switch or variable edit. Idempotent — re-running is a no-op if nothing
  * changed, and cheap if it did.
  */
-function syncResolverFromStores(): void {
-  resolver.setVault(getVault());
-  resolver.setEnvironments(getEnvironments());
-  resolver.setActiveEnvironmentId(getActiveEnvironmentId());
-  resolver.setDefaultEnvironmentId(getDefaultEnvironmentId());
-  resolver.setWorkspaceVariables(getWorkspaceVariables());
+function syncResolverFromStores(state: ResolverState): void {
+  const r = state.resolver;
+  r.setVault(getVault());
+  r.setEnvironments(getEnvironments());
+  r.setActiveEnvironmentId(getActiveEnvironmentId());
+  r.setDefaultEnvironmentId(getDefaultEnvironmentId());
+  r.setWorkspaceVariables(getWorkspaceVariables());
   // Live scope — see `buildLiveRegistry` for the resolution order
   // (manual override > cached capture; skips disabled LVs + envs that
   // don't match the current active env's cache row).
-  resolver.setLiveRegistry(buildLiveRegistry());
+  r.setLiveRegistry(buildLiveRegistry(state));
   // TOTP scope — `totp-scheduler` keeps a mirror of currently-valid
   // codes warm by ticking on each window-flip and refreshing on vault
   // edits. Reading the mirror is sync; the actual crypto runs on the
   // scheduler's tick so the compile path stays fast.
-  resolver.setTotpRegistry(getCachedTotpCodes());
+  r.setTotpRegistry(getCachedTotpCodes());
 
   // Collection scope: reset then re-populate from rule-store. Using
   // set/remove on a Map inside VariableResolver means we don't need to
@@ -442,18 +517,17 @@ function syncResolverFromStores(): void {
   const collections = getCollections();
   const liveUids = new Set<string>(collections.map((c) => c.uid));
   for (const c of collections) {
-    resolver.setCollectionVariables(c.uid, c.variables ?? []);
+    r.setCollectionVariables(c.uid, c.variables ?? []);
   }
   // Drop stale entries (collections that were deleted between syncs).
-  // VariableResolver exposes `removeCollectionVariables`; we can iterate
-  // by tracking what we've seen via a sentinel registry on the module.
-  for (const uid of lastKnownCollectionUids) {
-    if (!liveUids.has(uid)) resolver.removeCollectionVariables(uid);
+  // VariableResolver exposes `removeCollectionVariables`; the per-state
+  // `lastKnownCollectionUids` tracks what we've seen so we can issue
+  // explicit removes for vanished collections.
+  for (const uid of state.lastKnownCollectionUids) {
+    if (!liveUids.has(uid)) r.removeCollectionVariables(uid);
   }
-  lastKnownCollectionUids = liveUids;
+  state.lastKnownCollectionUids = liveUids;
 }
-
-let lastKnownCollectionUids: Set<string> = new Set();
 
 // ── Rule → collection uid mapping ───────────────────────────────────
 
@@ -487,7 +561,8 @@ function buildRuleToCollectionContext(collections: readonly V5.Collection[]) {
  * of rules.
  */
 export function resolveRulesForCompile(rules: V5.Rule[]): V5.Rule[] {
-  syncResolverFromStores();
+  const state = activeState();
+  syncResolverFromStores(state);
   const collections = getCollections();
   const collectionOf = buildRuleToCollectionContext(collections);
 
@@ -496,7 +571,7 @@ export function resolveRulesForCompile(rules: V5.Rule[]): V5.Rule[] {
     const collectionId = collectionOf(rule.path);
     const { rule: resolvedRule, errors } = resolveRuleWithDiagnostics(
       rule,
-      resolver,
+      state.resolver,
       collectionId ? { collectionId } : undefined,
     );
     if (errors.length > 0) perRuleErrors.set(rule.uid, errors);
@@ -509,43 +584,38 @@ export function resolveRulesForCompile(rules: V5.Rule[]): V5.Rule[] {
   // a strict subset of the store's rule list, so a length check against
   // the live store count is a cheap discriminator.
   if (rules.length >= getRules().length) {
-    lastResolvedRules = resolved;
-    lastResolutionErrors = perRuleErrors;
+    state.lastResolvedRules = resolved;
+    state.lastResolutionErrors = perRuleErrors;
   }
   return resolved;
 }
 
 /**
  * Exposed for tests + future UI surfaces (Inspector "Variables in this
- * request" view). Returns the shared singleton; callers MUST call
- * `syncResolverFromStores` first if they want a current snapshot.
+ * request" view). Returns the runtime-Active workspace's resolver;
+ * callers MUST call {@link syncResolver} first if they want a current
+ * snapshot.
  */
 export function getResolver(): VariableResolver {
-  return resolver;
+  return activeState().resolver;
 }
 
 /**
- * Ensure the resolver is up to date before a direct `getResolver()`
- * consumer reads from it. Kept separate from `resolveRulesForCompile`
- * so UI code can call it without triggering a rule map rebuild.
+ * Ensure the runtime-Active workspace's resolver is up to date before a
+ * direct {@link getResolver} consumer reads from it. Kept separate from
+ * {@link resolveRulesForCompile} so UI code can call it without
+ * triggering a rule map rebuild.
  */
 export function syncResolver(): void {
-  syncResolverFromStores();
+  syncResolverFromStores(activeState());
 }
 
 // ── Test helpers ────────────────────────────────────────────────────
 
-/** Test-only: reset the module so each test starts from a clean slate. */
+/** Test-only: drop every workspace's resolver state so each test starts
+ *  from a clean slate. The sync-warm runner registration is also
+ *  cleared so a stale scheduler hook from a prior test can't leak. */
 export function __resetForTests(): void {
-  lastKnownCollectionUids = new Set();
-  lastResolvedRules = [];
-  lastResolutionErrors = new Map();
-  cachedLiveRuns = [];
+  states.clear();
   syncWarmRunner = null;
-  resolver.setVault({ schemaVersion: 5, secrets: [] });
-  resolver.setEnvironments([]);
-  resolver.setActiveEnvironmentId(null);
-  resolver.setDefaultEnvironmentId(null);
-  resolver.setWorkspaceVariables({ schemaVersion: 5, variables: [] });
-  resolver.setLiveRegistry(EMPTY_LIVE_REGISTRY);
 }

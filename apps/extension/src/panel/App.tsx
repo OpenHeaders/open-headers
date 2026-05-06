@@ -126,8 +126,13 @@ function getPanelSizes() {
 const devPanelIdentity = resolveDevPanelIdentity();
 
 export default function App() {
+  // Active workspace drives the lifeline `bind` message so the SW
+  // refcount-acquires this surface's `WorkspaceServiceState` while the
+  // DevTools panel is open (design § 4.0.7). DevPanel always reads
+  // Active per § 4.0.3 — no per-tab editing scope here.
+  const workspaceId = useActiveWorkspaceId();
   return (
-    <AwarenessIdentityProvider value={devPanelIdentity}>
+    <AwarenessIdentityProvider value={devPanelIdentity} workspaceId={workspaceId}>
       {/*
        * Devpanel awareness foundation — same shape as the workbench
        * (Session 1+):

@@ -38,13 +38,56 @@ function parseInstanceId(portName: string): string | null {
 }
 
 /**
+ * Bind message published by the renderer-side lifeline immediately
+ * after `chrome.runtime.connect` resolves. The SW trusts the
+ * `workspaceId` field per the lifeline trust contract (design
+ * § 4.0.7): workbench's slice resolver corrects stale bindings BEFORE
+ * the lifeline fires (lint #14 pins the mount-time ordering); system
+ * surfaces send their runtime-Active workspaceId. SW-side validation
+ * would duplicate work the renderer already performed.
+ */
+export interface LifelineBindMessage {
+  /** Discriminator so future port-message types can land alongside. */
+  kind: 'bind';
+  /** Workspace the surface is currently editing or rendering for. */
+  workspaceId: string;
+}
+
+function isBindMessage(m: unknown): m is LifelineBindMessage {
+  if (!m || typeof m !== 'object') return false;
+  const obj = m as { kind?: unknown; workspaceId?: unknown };
+  return obj.kind === 'bind' && typeof obj.workspaceId === 'string' && obj.workspaceId.length > 0;
+}
+
+export interface LifelinePortHooks {
+  /** Awareness presence cleanup — runs unconditionally on disconnect. */
+  removeByInstanceId: (instanceId: string) => void;
+  /**
+   * Workspace-service refcount acquire — invoked on the first `bind`
+   * message a port sends. Subsequent `bind` messages on the same port
+   * (rebinds) release the previous workspace before acquiring the new
+   * one, so the refcount stays balanced across in-flight rebinds.
+   */
+  acquireWorkspace: (workspaceId: string) => void;
+  /** Workspace-service refcount release — invoked on rebind + on disconnect. */
+  releaseWorkspace: (workspaceId: string) => void;
+}
+
+/**
  * Register the lifeline port handler. Idempotent — safe to call
  * multiple times (no-ops on subsequent calls). Wire once at SW boot
- * from `background.ts`, passing the awareness-service mutator that
- * removes a presence row by instanceId.
+ * from `background.ts`, passing the awareness-service mutator and the
+ * workspace-service refcount hooks.
+ *
+ * Lifelines do double duty per design § 4.0.7: liveness (presence
+ * cleanup on disconnect) AND `WorkspaceServiceState` refcount handles
+ * (acquire on `bind`, release on disconnect or rebind). One port ↔ at
+ * most one workspace ref outstanding; the per-port `boundWorkspaceId`
+ * makes the bracketing structural — no duplicate-acquire / mismatched-
+ * release windows.
  */
 let setupDone = false;
-export function setupAwarenessLifelinePorts(removeByInstanceId: (instanceId: string) => void): void {
+export function setupAwarenessLifelinePorts(hooks: LifelinePortHooks): void {
   if (setupDone) return;
   setupDone = true;
   if (!chrome?.runtime?.onConnect?.addListener) {
@@ -55,13 +98,50 @@ export function setupAwarenessLifelinePorts(removeByInstanceId: (instanceId: str
     const instanceId = parseInstanceId(port.name);
     if (!instanceId) return; // Not an awareness lifeline port — pass through.
 
+    let boundWorkspaceId: string | null = null;
+
+    port.onMessage.addListener((raw) => {
+      if (!isBindMessage(raw)) return;
+      // Rebind: release prior workspace BEFORE acquiring the new one
+      // so the refcount on the old workspace can drop to 0 and start
+      // its grace timer cleanly. Same workspaceId is a no-op (acquire
+      // would just bump-then-release on next message; cheaper to skip).
+      if (boundWorkspaceId === raw.workspaceId) return;
+      if (boundWorkspaceId !== null) {
+        try {
+          hooks.releaseWorkspace(boundWorkspaceId);
+        } catch (err) {
+          logger.info('AwarenessLifeline', `releaseWorkspace(rebind) failed: ${(err as Error).message}`);
+        }
+      }
+      boundWorkspaceId = raw.workspaceId;
+      try {
+        hooks.acquireWorkspace(raw.workspaceId);
+      } catch (err) {
+        // If acquire throws (workspace deleted mid-message), zero the
+        // bound id so onDisconnect doesn't double-release. The presence
+        // sweep on disconnect still runs.
+        boundWorkspaceId = null;
+        logger.info('AwarenessLifeline', `acquireWorkspace failed: ${(err as Error).message}`);
+      }
+    });
+
     port.onDisconnect.addListener(() => {
       const lastError = chrome.runtime.lastError;
       if (lastError) {
         logger.info('AwarenessLifeline', `lifeline disconnect error: ${lastError.message}`);
       }
+      if (boundWorkspaceId !== null) {
+        const id = boundWorkspaceId;
+        boundWorkspaceId = null;
+        try {
+          hooks.releaseWorkspace(id);
+        } catch (err) {
+          logger.info('AwarenessLifeline', `releaseWorkspace failed: ${(err as Error).message}`);
+        }
+      }
       try {
-        removeByInstanceId(instanceId);
+        hooks.removeByInstanceId(instanceId);
       } catch (err) {
         logger.info('AwarenessLifeline', `removeByInstanceId failed: ${(err as Error).message}`);
       }

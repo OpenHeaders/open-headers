@@ -2,13 +2,14 @@ import ErrorBoundary from '@components/ErrorBoundary';
 import { KeyboardNavProvider, useKeyboardNav } from '@context/KeyboardNavContext';
 import { RuleProvider } from '@context/RuleContext';
 import { useTheme } from '@context/ThemeContext';
+import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
 import { call, presence } from '@utils/bridge';
 import { logger } from '@utils/logger';
 import { Layout } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { extensionStorage, UI } from '@/shared/storage';
 import { AwarenessIdentityProvider, resolvePopupIdentity, resolveSidePanelIdentity } from '@/shared/awareness';
+import { extensionStorage, UI } from '@/shared/storage';
 import { useSurface } from '@/shared/surface';
 import { VariablePopoverProvider } from '@/workbench/components/template-input/VariablePopoverHost';
 import { EnvSwitcherProvider } from '@/workbench/services/env-switcher';
@@ -110,10 +111,15 @@ const AppContent: React.FC = () => {
     [surface.mode],
   );
   const ruleSurfaceId = surface.mode === 'sidepanel' ? 'sidepanel' : 'popup';
+  // Active workspace drives the lifeline `bind` message so the SW
+  // refcount-acquires this surface's `WorkspaceServiceState` while the
+  // popup / side panel is open (design § 4.0.7). Both surfaces always
+  // read Active per § 4.0.3 — no per-tab editing scope here.
+  const lifelineWorkspaceId = useActiveWorkspaceId();
 
   return (
     <ErrorBoundary>
-      <AwarenessIdentityProvider value={identity}>
+      <AwarenessIdentityProvider value={identity} workspaceId={lifelineWorkspaceId}>
         <RuleProvider surfaceId={ruleSurfaceId}>
           <KeyboardNavProvider
             activeTab={activeTab}

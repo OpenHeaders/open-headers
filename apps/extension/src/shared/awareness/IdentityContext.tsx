@@ -41,34 +41,63 @@ const IdentityContext = createContext<IdentityContextValue | null>(null);
 
 export interface AwarenessIdentityProviderProps {
   value: SurfaceIdentityHandle;
+  /**
+   * Workspace the surface is currently editing or rendering for.
+   * Carried in the lifeline `bind` message so the SW refcount-acquires
+   * the workspace's `WorkspaceServiceState` while this surface is live
+   * (design § 4.0.7). Workbench passes its editing-scope workspaceId;
+   * popup / side-panel / devtools panel pass the runtime-Active id.
+   * `null` is allowed for cold-mount frames where the surface hasn't
+   * resolved its workspace yet — the lifeline opens liveness-only and
+   * the SW skips refcount acquire until the next non-null value.
+   *
+   * On change the lifeline disposes + reopens (one port ↔ one
+   * workspace ref); the SW sees a clean release-then-acquire pair
+   * across the rebind.
+   */
+  workspaceId?: string | null;
   children: React.ReactNode;
 }
 
-export const AwarenessIdentityProvider: React.FC<AwarenessIdentityProviderProps> = ({ value, children }) => {
+export const AwarenessIdentityProvider: React.FC<AwarenessIdentityProviderProps> = ({
+  value,
+  workspaceId = null,
+  children,
+}) => {
   const coordinator = useMemo<AwarenessCoordinator>(
     () =>
       createAwarenessCoordinator({
         identity: value,
-        resolveContext: (workspaceId): RendererContextHandle =>
-          ensureRendererContext({ workspaceId, surfaceId: value.current().surfaceKind }),
+        resolveContext: (resolveWorkspaceId): RendererContextHandle =>
+          ensureRendererContext({ workspaceId: resolveWorkspaceId, surfaceId: value.current().surfaceKind }),
       }),
     [value],
   );
 
-  // One lifeline per identity. Opens on first render, disposes on
-  // provider unmount (page unload / surface tear-down). Reconnects
-  // transparently across SW eviction; the coordinator re-publishes
-  // its winning claim into the freshly-rebuilt SW store.
+  // One lifeline per (identity, workspaceId) pair. Opens on first
+  // render, disposes on provider unmount AND on workspaceId change
+  // (per § 4.0.7's "one port ↔ one workspace ref" framing). Reconnects
+  // transparently across SW eviction; the coordinator re-publishes its
+  // winning claim into the freshly-rebuilt SW store, and the lifeline
+  // re-sends the `bind` message so the SW re-acquires the workspace
+  // ref before the awareness state lands.
   useEffect(() => {
     const lifeline = openAwarenessLifeline({
       instanceId: value.current().instanceId,
+      workspaceId,
       onReconnect: () => coordinator.republish(),
     });
     return () => {
       lifeline.dispose();
-      coordinator.dispose();
     };
-  }, [value, coordinator]);
+  }, [value, coordinator, workspaceId]);
+
+  // Coordinator dispose is decoupled from lifeline dispose so a
+  // workspaceId change doesn't tear down the coordinator's pending
+  // claims — only the SW-side refcount handle rebinds.
+  useEffect(() => {
+    return () => coordinator.dispose();
+  }, [coordinator]);
 
   const ctxValue = useMemo<IdentityContextValue>(() => ({ identity: value, coordinator }), [value, coordinator]);
 

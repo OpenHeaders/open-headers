@@ -53,6 +53,7 @@ vi.mock('@/background/modules/rule-store', () => ({
 
 vi.mock('@/background/modules/workspace-store', () => ({
   getActiveWorkspaceId: () => 'ws-test',
+  peekActiveWorkspaceId: () => 'ws-test',
 }));
 
 const activeEnv: { id: string | null } = { id: 'env-prod' };

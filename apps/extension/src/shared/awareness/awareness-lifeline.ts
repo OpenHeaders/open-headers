@@ -34,6 +34,21 @@ export interface AwarenessLifelineHandle {
 export interface OpenAwarenessLifelineOptions {
   instanceId: string;
   /**
+   * Workspace the surface is currently editing or rendering for. Sent
+   * to the SW as a `bind` message immediately after each connect so the
+   * SW can refcount-acquire the workspace's `WorkspaceServiceState`
+   * (design § 4.0.7). When `null`, no `bind` message is sent and the
+   * lifeline stays liveness-only — used by surfaces that haven't
+   * resolved their workspace yet (cold mount during workspace-store
+   * bootstrap).
+   *
+   * When the workspaceId changes, the surface should dispose this
+   * handle and open a fresh one (one port ↔ one workspace ref);
+   * `IdentityContext` does this automatically by including the
+   * workspaceId in the lifeline `useEffect` deps.
+   */
+  workspaceId?: string | null;
+  /**
    * Called when the SW disconnected the port unexpectedly (typically
    * SW eviction) and the lifeline reconnected. Consumers re-publish
    * their current awareness state so the SW's freshly-rebuilt store
@@ -58,13 +73,22 @@ function delay(ms: number): Promise<void> {
 }
 
 export function openAwarenessLifeline(opts: OpenAwarenessLifelineOptions): AwarenessLifelineHandle {
-  const { instanceId, onReconnect, maxReconnects = DEFAULT_MAX_RECONNECTS } = opts;
+  const { instanceId, workspaceId = null, onReconnect, maxReconnects = DEFAULT_MAX_RECONNECTS } = opts;
   const portName = `${LIFELINE_PREFIX}${instanceId}`;
 
   let disposed = false;
   let port: chrome.runtime.Port | null = null;
   let reconnectAttempt = 0;
   let firstConnect = true;
+
+  const sendBind = (target: chrome.runtime.Port): void => {
+    if (workspaceId == null) return;
+    try {
+      target.postMessage({ kind: 'bind', workspaceId });
+    } catch (err) {
+      logger.info('AwarenessLifeline', `bind postMessage failed: ${(err as Error).message}`);
+    }
+  };
 
   const connect = (): void => {
     if (disposed) return;
@@ -79,6 +103,11 @@ export function openAwarenessLifeline(opts: OpenAwarenessLifelineOptions): Aware
     const reactivated = !firstConnect;
     firstConnect = false;
     reconnectAttempt = 0;
+
+    // Send the bind message before any reconnect republish so the SW
+    // re-acquires the workspace ref BEFORE awareness state replays
+    // through the freshly-rebuilt store.
+    sendBind(port);
 
     port.onDisconnect.addListener(() => {
       const lastError = chrome.runtime.lastError;
