@@ -9,10 +9,11 @@
  */
 
 import { EnvironmentProvider } from '@context/EnvironmentContext';
-import { VaultProvider } from '@context/VaultContext';
-import { WorkspaceVariablesProvider } from '@context/WorkspaceVariablesContext';
+import { LiveVariablesProvider } from '@context/LiveVariablesContext';
 import { RuleProvider } from '@context/RuleContext';
 import { useTheme } from '@context/ThemeContext';
+import { VaultProvider } from '@context/VaultContext';
+import { WorkspaceVariablesProvider } from '@context/WorkspaceVariablesContext';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
@@ -345,9 +346,11 @@ const WorkbenchTabAware: React.FC<{
         <EnvironmentProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
           <WorkspaceVariablesProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
             <VaultProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
-              <InspectorNavProvider>
-                <WorkbenchShell layout={layout} perTab={perTab} />
-              </InspectorNavProvider>
+              <LiveVariablesProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
+                <InspectorNavProvider>
+                  <WorkbenchShell layout={layout} perTab={perTab} />
+                </InspectorNavProvider>
+              </LiveVariablesProvider>
             </VaultProvider>
           </WorkspaceVariablesProvider>
         </EnvironmentProvider>

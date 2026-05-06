@@ -593,12 +593,13 @@ describe('MWPT-FULL foundation lint gates (sub-commit 1e)', () => {
 const ENV_CONTEXT = join(REPO_ROOT, 'src', 'context', 'EnvironmentContext.tsx');
 const WORKSPACE_VARIABLES_CONTEXT = join(REPO_ROOT, 'src', 'context', 'WorkspaceVariablesContext.tsx');
 const VAULT_CONTEXT = join(REPO_ROOT, 'src', 'context', 'VaultContext.tsx');
+const LIVE_VARIABLES_CONTEXT = join(REPO_ROOT, 'src', 'context', 'LiveVariablesContext.tsx');
 const POPUP_APP = join(REPO_ROOT, 'src', 'popup', 'App.tsx');
 const PANEL_APP = join(REPO_ROOT, 'src', 'panel', 'App.tsx');
 
 const VARIABLE_MUTATOR_HOOK = join(REPO_ROOT, 'src', 'hooks', 'useVariableMutator.ts');
 
-describe('MWPT-FULL session #1+#2+#3+#4 — Environments + workspace variables + vault + collection variables lint gates', () => {
+describe('MWPT-FULL session #1+#2+#3+#4+#5 — Environments + workspace variables + vault + collection variables + live variables lint gates', () => {
   it('BC-MWPT-FULL-1-env — workbench App.tsx mounts EnvironmentProvider with editingScopeWorkspaceId override', () => {
     const text = readFileSync(APP_TSX, 'utf8');
     expect(text).toMatch(
@@ -755,5 +756,60 @@ describe('MWPT-FULL session #1+#2+#3+#4 — Environments + workspace variables +
     // collection variables. The legacy SW handler stays live for
     // non-renderer callers until session #11 cleanup.
     expect(text).not.toMatch(/call\(\s*['"]updateCollectionVariables['"]/);
+  });
+
+  // ── Session #5 — Live variables ───────────────────────────────────
+  // Independent module with its own storage key (`wsKeys.liveVariables`)
+  // and Phase B write-client (`live-variable-write-client.ts`). Flat-
+  // entity shape, so the Provider mirrors EnvironmentProvider modulo
+  // the entity name. No § 4.1.c residual: live variables have no
+  // active/default pointer concept — manualOverride is a regular
+  // setField write, identical to the SW's setLiveVariableOverride shim
+  // shape.
+
+  it('BC-MWPT-FULL-1-livevars — workbench App.tsx mounts LiveVariablesProvider with editingScopeWorkspaceId override', () => {
+    const text = readFileSync(APP_TSX, 'utf8');
+    expect(text).toMatch(
+      /<LiveVariablesProvider\s+surfaceId=["']workbench["']\s+activeWorkspaceIdOverride=\{editingScopeWorkspaceId\}/,
+    );
+  });
+
+  it('BC-MWPT-FULL-1-livevars — system surfaces (popup / panel) mount LiveVariablesProvider WITHOUT override', () => {
+    for (const file of [POPUP_APP, PANEL_APP]) {
+      const text = readFileSync(file, 'utf8');
+      expect(text).toMatch(/<LiveVariablesProvider\b/);
+      expect(text).not.toMatch(/<LiveVariablesProvider[^>]*activeWorkspaceIdOverride=/);
+    }
+  });
+
+  it('BC-MWPT-FULL-2-livevars — LiveVariablesProvider override branch subscribes wsKeys(workspaceId).liveVariables directly', () => {
+    const text = readFileSync(LIVE_VARIABLES_CONTEXT, 'utf8');
+    expect(text).toMatch(/extensionStorage\.subscribe\(\s*wsKeys\(\s*\w+\s*\)\.liveVariables\b/);
+  });
+
+  it('BC-MWPT-FULL-2-livevars — LiveVariablesProvider override branch ignores liveVariablesChanged broadcast', () => {
+    // The bridge broadcast still fires (legacy branch consumes it on
+    // system surfaces). The override branch MUST NOT overwrite the
+    // workspace-scoped list with the global broadcast payload.
+    const text = readFileSync(LIVE_VARIABLES_CONTEXT, 'utf8');
+    expect(text).toMatch(/if\s*\(!isOverridden\)\s*setVariables\(payload\.variables\)/);
+  });
+
+  it('BC-MWPT-FULL-3-livevars — LiveVariablesProvider routes mutations through live-variable-write-client (no legacy call shim in override branch)', () => {
+    const text = readFileSync(LIVE_VARIABLES_CONTEXT, 'utf8');
+    expect(text).toMatch(/applyLiveVariableCreate\(/);
+    expect(text).toMatch(/applyLiveVariableUpdate\(/);
+    expect(text).toMatch(/applyLiveVariableDelete\(/);
+    // The legacy SW handlers stay reachable on the legacy branch
+    // (system surfaces). The override branch (inside `if (isOverridden)`)
+    // MUST NOT call any of them.
+    const overrideArms = [...text.matchAll(/if\s*\(isOverridden\)\s*\{([\s\S]*?)\n\s{6}\}/g)];
+    expect(overrideArms.length).toBeGreaterThan(0);
+    for (const m of overrideArms) {
+      expect(m[1]).not.toMatch(/call\(\s*['"]createLiveVariable['"]/);
+      expect(m[1]).not.toMatch(/call\(\s*['"]updateLiveVariable['"]/);
+      expect(m[1]).not.toMatch(/call\(\s*['"]deleteLiveVariable['"]/);
+      expect(m[1]).not.toMatch(/call\(\s*['"]setLiveVariableOverride['"]/);
+    }
   });
 });

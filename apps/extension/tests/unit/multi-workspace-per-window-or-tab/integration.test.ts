@@ -93,12 +93,17 @@ import {
   setRuntimeActive,
   snapshotCollectionPostStates,
   snapshotEnvironmentPostStates,
+  snapshotLiveVariablePostStates,
   snapshotRulePostStates,
   snapshotVaultPostStates,
   snapshotWorkspaceVariablesPostStates,
 } from '@/background/sync/service';
 import { disposeAllCollectionSyncMirrors, getCollectionSyncMirrorForWorkspace } from '@/context/collection-sync-mirror';
 import { disposeAllEnvSyncMirrors, getEnvSyncMirrorForWorkspace } from '@/context/env-sync-mirror';
+import {
+  disposeAllLiveVariableSyncMirrors,
+  getLiveVariableSyncMirrorForWorkspace,
+} from '@/context/live-variable-sync-mirror';
 import { setActiveRendererContext } from '@/context/renderer-mutator-context';
 import { disposeAllRuleSyncMirrors, getRuleSyncMirrorForWorkspace } from '@/context/rule-sync-mirror';
 import { disposeAllVaultSyncMirrors, getVaultSyncMirrorForWorkspace } from '@/context/vault-sync-mirror';
@@ -110,6 +115,7 @@ import { applySyncPayload, resolveRendererContext } from '@/shared/sync/apply-pa
 import { seedCollection } from '@/shared/sync/collection-projection';
 import { applyCollectionSetVar, applyCollectionVariablesReplacement } from '@/shared/sync/collection-write-client';
 import { applyEnvironmentCreate, applyEnvironmentDelete } from '@/shared/sync/env-write-client';
+import { applyLiveVariableCreate, applyLiveVariableUpdate } from '@/shared/sync/live-variable-write-client';
 import { applyRuleCreate, applyRuleDelete } from '@/shared/sync/rule-write-client';
 import { applyVaultSecretRemove, applyVaultSecretSet } from '@/shared/sync/vault-write-client';
 import { applyWorkspaceVarRemove, applyWorkspaceVarSet } from '@/shared/sync/workspace-variables-write-client';
@@ -165,6 +171,10 @@ function setupHarness(): void {
     const wsId = (req as { workspaceId?: string }).workspaceId;
     return { entries: snapshotCollectionPostStates(wsId) };
   });
+  mockBridge._setCallHandler('oh.sync.snapshotLiveVariables', (req) => {
+    const wsId = (req as { workspaceId?: string }).workspaceId;
+    return { entries: snapshotLiveVariablePostStates(wsId) };
+  });
 
   // Reset renderer registries.
   disposeAllRuleSyncMirrors();
@@ -172,6 +182,7 @@ function setupHarness(): void {
   disposeAllWorkspaceVariablesSyncMirrors();
   disposeAllVaultSyncMirrors();
   disposeAllCollectionSyncMirrors();
+  disposeAllLiveVariableSyncMirrors();
   setActiveRendererContext(null);
 
   // Reset SW state. __init clears every resident service synchronously
@@ -230,6 +241,7 @@ afterEach(() => {
   disposeAllWorkspaceVariablesSyncMirrors();
   disposeAllVaultSyncMirrors();
   disposeAllCollectionSyncMirrors();
+  disposeAllLiveVariableSyncMirrors();
   setActiveRendererContext(null);
   vi.useRealTimers();
 });
@@ -671,6 +683,96 @@ describe('I-1-collvars / I-2-collvars — Collection variables per-family migrat
     await flush();
     const w1EntriesAfter = w1Logs ? await collectLogEntries(w1Logs) : [];
     expect(w1EntriesAfter.find((e) => e.body.type === 'collection' && e.body.id === collectionB.uid)).toBeUndefined();
+
+    releaseWorkspaceService('w2');
+  });
+});
+
+describe('I-1-livevars / I-2-livevars — Live variables per-family migration session #5', () => {
+  it('I-1-livevars: live-variable mirror state == oracle live-variable projection per workspace', async () => {
+    await setActiveAwaited('w1');
+    const w1Mirror = getLiveVariableSyncMirrorForWorkspace('w1');
+    const w2Mirror = getLiveVariableSyncMirrorForWorkspace('w2');
+    getOrCreateWorkspaceService('w2');
+
+    const seed: Omit<V5.LiveVariable, 'uid' | 'path' | 'schemaVersion'> = {
+      name: 'TOKEN',
+      workflowUid: 'wf-1',
+      stepId: 'step-1',
+      captureName: 'token',
+      enabled: true,
+    };
+    const result = await applyLiveVariableCreate(
+      { liveVariable: seed, parentPath: 'live-variables' },
+      { workspaceId: 'w2', surfaceId: 'workbench-tab' },
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('applyLiveVariableCreate failed');
+    await flush();
+
+    expect(w2Mirror.getLiveVariableMirror(result.liveVariable.uid)?.liveVariable.name).toBe(seed.name);
+    expect(w1Mirror.getLiveVariableMirror(result.liveVariable.uid)).toBeNull();
+
+    const w2Snapshot = snapshotLiveVariablePostStates('w2');
+    expect(w2Snapshot.find((s) => s.liveVariable.uid === result.liveVariable.uid)).toBeDefined();
+    expect(snapshotLiveVariablePostStates('w1')).toEqual([]);
+
+    releaseWorkspaceService('w2');
+  });
+
+  it('I-2-livevars: w2 live-variable create + manualOverride update from a tab whose Active is w1 lands in w2 only', async () => {
+    // Active=w1 throughout; tab2 lifeline acquires w2. Reproduces the
+    // diverged-tab pattern: a live-variable mutated in tab2 must land
+    // in w2's MutationLog and never touch w1's projection.
+    // Pre-session-#5 the bug surfaced because useLiveVariables RPC'd
+    // through the legacy SW path (= runtime-Active = w1) instead of
+    // routing through the LiveVariablesProvider override branch's
+    // Phase B write-client (= editing-scope = w2).
+    await setActiveAwaited('w1');
+    getOrCreateWorkspaceService('w2');
+    // Mount the w2 mirror up-front so the update path's pre-image
+    // lookup (`mirror.getLiveVariableMirror(uid)`) sees the post-create
+    // entry — same shape as I-1-livevars's pre-mount.
+    getLiveVariableSyncMirrorForWorkspace('w2');
+
+    const seed: Omit<V5.LiveVariable, 'uid' | 'path' | 'schemaVersion'> = {
+      name: 'TENANT',
+      workflowUid: 'wf-tab2',
+      stepId: 'step-1',
+      captureName: 'tenant',
+      enabled: true,
+    };
+    const result = await applyLiveVariableCreate(
+      { liveVariable: seed, parentPath: 'live-variables' },
+      { workspaceId: 'w2', surfaceId: 'workbench-tab-2' },
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('applyLiveVariableCreate failed');
+    await flush();
+
+    const w1Logs = harness.logs.get('w1') as InMemoryMutationLog | undefined;
+    const w2Logs = harness.logs.get('w2') as InMemoryMutationLog | undefined;
+    expect(w2Logs).toBeDefined();
+    const w1Entries = w1Logs ? await collectLogEntries(w1Logs) : [];
+    const w2Entries = w2Logs ? await collectLogEntries(w2Logs) : [];
+    expect(w1Entries.find((e) => e.body.type === 'live-variable')).toBeUndefined();
+    expect(w2Entries.find((e) => e.body.type === 'live-variable')).toBeDefined();
+
+    // Sanity: setOverride (manualOverride setField) from tab2 also
+    // routes to w2 only — closes the editor seam for
+    // useVariableMutator.setLiveOverride since useLiveVariables() now
+    // reads from the Provider's editing-scope-aware mutator.
+    const override: V5.LiveVariableOverride = { value: 'pinned-tab2' };
+    const upd = await applyLiveVariableUpdate(
+      result.liveVariable.uid,
+      { manualOverride: override },
+      { workspaceId: 'w2', surfaceId: 'workbench-tab-2' },
+    );
+    expect(upd.ok).toBe(true);
+    await flush();
+    const w1EntriesAfter = w1Logs ? await collectLogEntries(w1Logs) : [];
+    expect(w1EntriesAfter.find((e) => e.body.type === 'live-variable')).toBeUndefined();
+    expect(snapshotLiveVariablePostStates('w1')).toEqual([]);
 
     releaseWorkspaceService('w2');
   });

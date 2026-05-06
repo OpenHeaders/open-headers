@@ -1,5 +1,6 @@
 import 'allotment/dist/style.css';
 import { EnvironmentProvider } from '@context/EnvironmentContext';
+import { LiveVariablesProvider } from '@context/LiveVariablesContext';
 import { VaultProvider } from '@context/VaultContext';
 import { WorkspaceVariablesProvider } from '@context/WorkspaceVariablesContext';
 import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
@@ -156,13 +157,15 @@ export default function App() {
               <EnvironmentProvider surfaceId="panel">
                 <WorkspaceVariablesProvider surfaceId="panel">
                   <VaultProvider surfaceId="panel">
-                    <EnvSwitcherProvider>
-                      <VariablePopoverProvider>
-                        <RulePopoverProvider>
-                          <PanelContent />
-                        </RulePopoverProvider>
-                      </VariablePopoverProvider>
-                    </EnvSwitcherProvider>
+                    <LiveVariablesProvider surfaceId="panel">
+                      <EnvSwitcherProvider>
+                        <VariablePopoverProvider>
+                          <RulePopoverProvider>
+                            <PanelContent />
+                          </RulePopoverProvider>
+                        </VariablePopoverProvider>
+                      </EnvSwitcherProvider>
+                    </LiveVariablesProvider>
                   </VaultProvider>
                 </WorkspaceVariablesProvider>
               </EnvironmentProvider>

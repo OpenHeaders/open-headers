@@ -1,10 +1,11 @@
 import ErrorBoundary from '@components/ErrorBoundary';
 import { EnvironmentProvider } from '@context/EnvironmentContext';
-import { VaultProvider } from '@context/VaultContext';
-import { WorkspaceVariablesProvider } from '@context/WorkspaceVariablesContext';
 import { KeyboardNavProvider, useKeyboardNav } from '@context/KeyboardNavContext';
+import { LiveVariablesProvider } from '@context/LiveVariablesContext';
 import { RuleProvider } from '@context/RuleContext';
 import { useTheme } from '@context/ThemeContext';
+import { VaultProvider } from '@context/VaultContext';
+import { WorkspaceVariablesProvider } from '@context/WorkspaceVariablesContext';
 import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
 import { call, presence } from '@utils/bridge';
 import { logger } from '@utils/logger';
@@ -127,19 +128,21 @@ const AppContent: React.FC = () => {
           <EnvironmentProvider surfaceId={ruleSurfaceId}>
             <WorkspaceVariablesProvider surfaceId={ruleSurfaceId}>
               <VaultProvider surfaceId={ruleSurfaceId}>
-                <KeyboardNavProvider
-                  activeTab={activeTab}
-                  onTabChange={handleTabChange}
-                  onCycleTheme={cycleTheme}
-                  onToggleCompactMode={toggleCompactMode}
-                  onOpenTour={handleOpenTour}
-                >
-                  <EnvSwitcherProvider>
-                    <VariablePopoverProvider>
-                      <AppInner tourOpen={tourOpen} onTourClose={handleTourClose} />
-                    </VariablePopoverProvider>
-                  </EnvSwitcherProvider>
-                </KeyboardNavProvider>
+                <LiveVariablesProvider surfaceId={ruleSurfaceId}>
+                  <KeyboardNavProvider
+                    activeTab={activeTab}
+                    onTabChange={handleTabChange}
+                    onCycleTheme={cycleTheme}
+                    onToggleCompactMode={toggleCompactMode}
+                    onOpenTour={handleOpenTour}
+                  >
+                    <EnvSwitcherProvider>
+                      <VariablePopoverProvider>
+                        <AppInner tourOpen={tourOpen} onTourClose={handleTourClose} />
+                      </VariablePopoverProvider>
+                    </EnvSwitcherProvider>
+                  </KeyboardNavProvider>
+                </LiveVariablesProvider>
               </VaultProvider>
             </WorkspaceVariablesProvider>
           </EnvironmentProvider>
