@@ -300,7 +300,7 @@ registerSetting({
   action: {
     label: 'Export manifest',
     run: async () => {
-      const resp = await call('listFiles').catch(() => null);
+      const resp = await call('listFiles', {}).catch(() => null);
       const files = resp?.files ?? [];
       downloadJson(`openheaders-files-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`, {
         exportedAt: new Date().toISOString(),
@@ -340,7 +340,7 @@ registerSetting({
     run: async () => {
       if (!window.confirm('Delete every file in this workspace? Multipart parts referencing them will error on send.'))
         return;
-      const resp = await call('listFiles').catch(() => null);
+      const resp = await call('listFiles', {}).catch(() => null);
       const files = resp?.files ?? [];
       for (const f of files) {
         await call('deleteFile', { fileId: f.fileId }).catch(() => null);

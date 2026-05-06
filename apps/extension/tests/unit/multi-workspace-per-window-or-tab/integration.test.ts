@@ -93,6 +93,7 @@ import {
   setRuntimeActive,
   snapshotCollectionPostStates,
   snapshotEnvironmentPostStates,
+  snapshotFilesPostStates,
   snapshotLiveVariablePostStates,
   snapshotLiveWorkflowPostStates,
   snapshotRequestPostStates,
@@ -102,6 +103,7 @@ import {
 } from '@/background/sync/service';
 import { disposeAllCollectionSyncMirrors, getCollectionSyncMirrorForWorkspace } from '@/context/collection-sync-mirror';
 import { disposeAllEnvSyncMirrors, getEnvSyncMirrorForWorkspace } from '@/context/env-sync-mirror';
+import { disposeAllFilesSyncMirrors, getFilesSyncMirrorForWorkspace } from '@/context/files-sync-mirror';
 import {
   disposeAllLiveVariableSyncMirrors,
   getLiveVariableSyncMirrorForWorkspace,
@@ -122,6 +124,7 @@ import { applySyncPayload, resolveRendererContext } from '@/shared/sync/apply-pa
 import { seedCollection } from '@/shared/sync/collection-projection';
 import { applyCollectionSetVar, applyCollectionVariablesReplacement } from '@/shared/sync/collection-write-client';
 import { applyEnvironmentCreate, applyEnvironmentDelete } from '@/shared/sync/env-write-client';
+import { applyFileAdd, applyFileRemove } from '@/shared/sync/files-write-client';
 import { applyLiveVariableCreate, applyLiveVariableUpdate } from '@/shared/sync/live-variable-write-client';
 import { applyLiveWorkflowCreate, applyLiveWorkflowUpdate } from '@/shared/sync/live-workflow-write-client';
 import { applyRequestCreate, applyRequestDelete, applyRequestUpdate } from '@/shared/sync/request-write-client';
@@ -192,6 +195,10 @@ function setupHarness(): void {
     const wsId = (req as { workspaceId?: string }).workspaceId;
     return { entries: snapshotRequestPostStates(wsId) };
   });
+  mockBridge._setCallHandler('oh.sync.snapshotFiles', (req) => {
+    const wsId = (req as { workspaceId?: string }).workspaceId;
+    return { entries: snapshotFilesPostStates(wsId) };
+  });
 
   // Reset renderer registries.
   disposeAllRuleSyncMirrors();
@@ -202,6 +209,7 @@ function setupHarness(): void {
   disposeAllLiveVariableSyncMirrors();
   disposeAllLiveWorkflowSyncMirrors();
   disposeAllRequestSyncMirrors();
+  disposeAllFilesSyncMirrors();
   setActiveRendererContext(null);
 
   // Reset SW state. __init clears every resident service synchronously
@@ -263,6 +271,7 @@ afterEach(() => {
   disposeAllLiveVariableSyncMirrors();
   disposeAllLiveWorkflowSyncMirrors();
   disposeAllRequestSyncMirrors();
+  disposeAllFilesSyncMirrors();
   setActiveRendererContext(null);
   vi.useRealTimers();
 });
@@ -958,6 +967,81 @@ describe('I-1-requests / I-2-requests — Requests per-family migration session 
     const w1EntriesAfter = w1Logs ? await collectLogEntries(w1Logs) : [];
     expect(w1EntriesAfter.find((e) => e.body.type === 'request')).toBeUndefined();
     expect(snapshotRequestPostStates('w1')).toEqual([]);
+
+    releaseWorkspaceService('w2');
+  });
+});
+
+describe('I-1-files / I-2-files — Files per-family migration session #8', () => {
+  function buildFileRefSlot(name: string): {
+    fileId: string;
+    hash: string;
+    filename: string;
+    mimeType: string;
+    size: number;
+  } {
+    return {
+      fileId: `file-${name}`,
+      hash: `hash-${name}`,
+      filename: `${name}.bin`,
+      mimeType: 'application/octet-stream',
+      size: 16,
+    };
+  }
+
+  it('I-1-files: files mirror state == oracle files projection per workspace', async () => {
+    await setActiveAwaited('w1');
+    const w1Mirror = getFilesSyncMirrorForWorkspace('w1');
+    const w2Mirror = getFilesSyncMirrorForWorkspace('w2');
+    getOrCreateWorkspaceService('w2');
+
+    const ref = buildFileRefSlot('w2-only');
+    const result = await applyFileAdd({ ref }, { workspaceId: 'w2', surfaceId: 'workbench-tab' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('applyFileAdd failed');
+    await flush();
+
+    expect(w2Mirror.getMirror()?.fileIds).toContain(ref.fileId);
+    expect(w1Mirror.getMirror()).toBeNull();
+
+    const w2Snapshot = snapshotFilesPostStates('w2');
+    expect(w2Snapshot[0]?.fileIds).toContain(ref.fileId);
+    expect(snapshotFilesPostStates('w1')).toEqual([]);
+
+    releaseWorkspaceService('w2');
+  });
+
+  it('I-2-files: w2 file catalog mutation from a tab whose Active is w1 lands in w2 only', async () => {
+    // Active=w1 throughout; tab2 lifeline acquires w2. The diverged-tab
+    // pattern: a file catalog mutation fired with the editing-scope
+    // workspaceId must land in w2's MutationLog and never touch w1's
+    // projection. Closes the user-reported critical bug for the file
+    // entity family.
+    await setActiveAwaited('w1');
+    getOrCreateWorkspaceService('w2');
+    getFilesSyncMirrorForWorkspace('w2');
+
+    const ref = buildFileRefSlot('tab2-w2-file');
+    const result = await applyFileAdd({ ref }, { workspaceId: 'w2', surfaceId: 'workbench-tab-2' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('applyFileAdd failed');
+    await flush();
+
+    const w1Logs = harness.logs.get('w1') as InMemoryMutationLog | undefined;
+    const w2Logs = harness.logs.get('w2') as InMemoryMutationLog | undefined;
+    expect(w2Logs).toBeDefined();
+    const w1Entries = w1Logs ? await collectLogEntries(w1Logs) : [];
+    const w2Entries = w2Logs ? await collectLogEntries(w2Logs) : [];
+    expect(w1Entries.find((e) => e.body.type === 'files')).toBeUndefined();
+    expect(w2Entries.find((e) => e.body.type === 'files')).toBeDefined();
+
+    // Sanity: removing the same fileId from tab2 also routes to w2 only.
+    const rm = await applyFileRemove({ fileId: ref.fileId }, { workspaceId: 'w2', surfaceId: 'workbench-tab-2' });
+    expect(rm.ok).toBe(true);
+    await flush();
+    const w1EntriesAfter = w1Logs ? await collectLogEntries(w1Logs) : [];
+    expect(w1EntriesAfter.find((e) => e.body.type === 'files')).toBeUndefined();
+    expect(snapshotFilesPostStates('w1')).toEqual([]);
 
     releaseWorkspaceService('w2');
   });

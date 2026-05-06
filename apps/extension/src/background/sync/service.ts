@@ -517,6 +517,18 @@ export function getOracleForCurrentWorkspace(): EntityOracle | null {
 }
 
 /**
+ * Direct oracle access scoped to an explicit workspace. Returns null
+ * when no service is materialized for the requested id. Used by SW
+ * stores that route mutations through a tab's editing-scope workspace
+ * rather than the runtime-Active one (MWPT-FULL session #8 + Session 14
+ * — closes the same-class bug that lands renderer mutations on the
+ * runtime-Active workspace when the gesture origin is a diverged tab).
+ */
+export function getOracleForWorkspace(workspaceId: string): EntityOracle | null {
+  return services.get(workspaceId)?.oracle ?? null;
+}
+
+/**
  * Resolve a per-entity cache for the runtime-Active workspace. Returns
  * null when no Active workspace is set or the workspace's service
  * hasn't been materialized yet. SW-internal consumers in
@@ -579,9 +591,7 @@ export function snapshotCollectionPostStates(workspaceId?: string): SyncCollecti
   return o ? flatSnapshot(o, COLLECTION_REGISTRATION) : [];
 }
 
-export function snapshotWorkspaceVariablesPostStates(
-  workspaceId?: string,
-): SyncWorkspaceVariablesPostState[] {
+export function snapshotWorkspaceVariablesPostStates(workspaceId?: string): SyncWorkspaceVariablesPostState[] {
   const o = oracleForWorkspace(workspaceId);
   return o ? singletonSnapshot(o, WORKSPACE_VARIABLES_REGISTRATION) : [];
 }
@@ -601,9 +611,7 @@ export function snapshotRequestPostStates(workspaceId?: string): SyncRequestPost
   return o ? flatSnapshot(o, REQUEST_REGISTRATION) : [];
 }
 
-export function snapshotRequestCollectionPostStates(
-  workspaceId?: string,
-): SyncRequestCollectionPostState[] {
+export function snapshotRequestCollectionPostStates(workspaceId?: string): SyncRequestCollectionPostState[] {
   const o = oracleForWorkspace(workspaceId);
   return o ? flatSnapshot(o, REQUEST_COLLECTION_REGISTRATION) : [];
 }
@@ -618,16 +626,12 @@ export function snapshotTemplatePostStates(workspaceId?: string): SyncTemplatePo
   return o ? flatSnapshot(o, TEMPLATE_REGISTRATION) : [];
 }
 
-export function snapshotTemplateCollectionPostStates(
-  workspaceId?: string,
-): SyncTemplateCollectionPostState[] {
+export function snapshotTemplateCollectionPostStates(workspaceId?: string): SyncTemplateCollectionPostState[] {
   const o = oracleForWorkspace(workspaceId);
   return o ? flatSnapshot(o, TEMPLATE_COLLECTION_REGISTRATION) : [];
 }
 
-export function snapshotTemplateFolderPostStates(
-  workspaceId?: string,
-): SyncTemplateFolderPostState[] {
+export function snapshotTemplateFolderPostStates(workspaceId?: string): SyncTemplateFolderPostState[] {
   const o = oracleForWorkspace(workspaceId);
   return o ? flatSnapshot(o, TEMPLATE_FOLDER_REGISTRATION) : [];
 }
@@ -723,6 +727,21 @@ export function nextSwMutatorContext(
 ): import('@openheaders/core/sync').MutatorContext | null {
   if (currentActive === null) return null;
   return services.get(currentActive)?.context.next(opts) ?? null;
+}
+
+/**
+ * Workspace-scoped variant of {@link nextSwMutatorContext}. Returns null
+ * when no service is materialized for the requested id. Mirrors
+ * {@link getOracleForWorkspace} — both are needed together when a SW
+ * store routes a mutation against an explicit workspace's oracle
+ * (Session #8 files-store + Session 14 collection/folder/template
+ * routing).
+ */
+export function nextSwMutatorContextForWorkspace(
+  workspaceId: string,
+  opts?: Parameters<SwContextHandle['next']>[0],
+): import('@openheaders/core/sync').MutatorContext | null {
+  return services.get(workspaceId)?.context.next(opts) ?? null;
 }
 
 // ── Test-only entry point ────────────────────────────────────────────

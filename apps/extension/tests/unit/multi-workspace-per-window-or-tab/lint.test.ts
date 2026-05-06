@@ -596,12 +596,14 @@ const VAULT_CONTEXT = join(REPO_ROOT, 'src', 'context', 'VaultContext.tsx');
 const LIVE_VARIABLES_CONTEXT = join(REPO_ROOT, 'src', 'context', 'LiveVariablesContext.tsx');
 const LIVE_WORKFLOWS_CONTEXT = join(REPO_ROOT, 'src', 'context', 'LiveWorkflowsContext.tsx');
 const REQUESTS_CONTEXT = join(REPO_ROOT, 'src', 'context', 'RequestsContext.tsx');
+const FILES_CONTEXT = join(REPO_ROOT, 'src', 'context', 'FilesContext.tsx');
+const FILES_STORE = join(REPO_ROOT, 'src', 'background', 'modules', 'files-store.ts');
 const POPUP_APP = join(REPO_ROOT, 'src', 'popup', 'App.tsx');
 const PANEL_APP = join(REPO_ROOT, 'src', 'panel', 'App.tsx');
 
 const VARIABLE_MUTATOR_HOOK = join(REPO_ROOT, 'src', 'hooks', 'useVariableMutator.ts');
 
-describe('MWPT-FULL session #1+#2+#3+#4+#5+#6+#7 — Environments + workspace variables + vault + collection variables + live variables + live workflows + requests lint gates', () => {
+describe('MWPT-FULL session #1+#2+#3+#4+#5+#6+#7+#8 — Environments + workspace variables + vault + collection variables + live variables + live workflows + requests + files lint gates', () => {
   it('BC-MWPT-FULL-1-env — workbench App.tsx mounts EnvironmentProvider with editingScopeWorkspaceId override', () => {
     const text = readFileSync(APP_TSX, 'utf8');
     expect(text).toMatch(
@@ -917,5 +919,83 @@ describe('MWPT-FULL session #1+#2+#3+#4+#5+#6+#7 — Environments + workspace va
     // never call the legacy update/delete RPC.
     expect(text).toMatch(/applyRequestUpdate\(\s*requestUid,\s*updates,\s*\{\s*workspaceId:\s*wsId,\s*surfaceId\s*\}/);
     expect(text).toMatch(/applyRequestDelete\(\s*requestUid,\s*\{\s*workspaceId:\s*wsId,\s*surfaceId\s*\}/);
+  });
+
+  // ── Session #8 — Files ────────────────────────────────────────────
+  // Structurally distinct from prior sessions: files have no
+  // `wsKeys.files` storage key (catalog lives in the sync engine; bytes
+  // live in BlobStore IDB). Override branch reads via the per-workspace
+  // mirror; writes thread `workspaceId` through the SW message handlers
+  // so both BlobStore IDB and oracle catalog land on the editing-scope
+  // workspace (BC-MWPT-FULL-3-files closes the same-class bug from
+  // Session 14 for the file entity family).
+
+  it('BC-MWPT-FULL-1-files — workbench App.tsx mounts FilesProvider with editingScopeWorkspaceId override', () => {
+    const text = readFileSync(APP_TSX, 'utf8');
+    expect(text).toMatch(/<FilesProvider\s+activeWorkspaceIdOverride=\{editingScopeWorkspaceId\}/);
+  });
+
+  it('BC-MWPT-FULL-1-files — system surfaces (popup / panel) mount FilesProvider WITHOUT override', () => {
+    for (const file of [POPUP_APP, PANEL_APP]) {
+      const text = readFileSync(file, 'utf8');
+      expect(text).toMatch(/<FilesProvider\b/);
+      expect(text).not.toMatch(/<FilesProvider[^>]*activeWorkspaceIdOverride=/);
+    }
+  });
+
+  it('BC-MWPT-FULL-2-files — FilesProvider override branch reads via per-workspace mirror, NOT via wsKeys storage subscribe', () => {
+    // Files have no `wsKeys.files` storage key — catalog lives in the
+    // sync engine. Override branch consumes
+    // `getFilesSyncMirrorForWorkspace(wsId).subscribeMirror` and seeds
+    // initial state via `oh.sync.snapshotFiles({ workspaceId })`.
+    const text = readFileSync(FILES_CONTEXT, 'utf8');
+    expect(text).toMatch(/getFilesSyncMirrorForWorkspace\(\s*\w+\s*\)/);
+    expect(text).toMatch(/\.subscribeMirror\(/);
+    expect(text).toMatch(/call\(\s*['"]oh\.sync\.snapshotFiles['"]\s*,\s*\{\s*workspaceId:/);
+    // Negative: there is no wsKeys.files storage subscribe — catalog
+    // lives in the sync engine, not chrome.storage.
+    expect(text).not.toMatch(/extensionStorage\.subscribe\(\s*wsKeys\(\s*\w+\s*\)\.files\b/);
+  });
+
+  it('BC-MWPT-FULL-2-files — FilesProvider override branch ignores filesChanged broadcast (legacy branch only)', () => {
+    // The bridge broadcast still fires (legacy branch consumes it on
+    // system surfaces). The override branch MUST NOT overwrite the
+    // per-workspace mirror state with the global broadcast payload.
+    const text = readFileSync(FILES_CONTEXT, 'utf8');
+    expect(text).toMatch(/if\s*\(!isOverridden\)\s*setFiles\(payload\.files\)/);
+  });
+
+  it('BC-MWPT-FULL-3-files — FilesProvider override branch threads workspaceId through every SW message handler', () => {
+    // Bytes cannot bypass the SW (BlobStore IDB lives in the SW only),
+    // so both branches dispatch to `putFile` / `getFile` / `deleteFile`
+    // / `renameFile`. The override branch threads the editing-scope
+    // workspaceId so the SW routes both BlobStore IDB and oracle
+    // catalog to the correct workspace (closes the same-class bug from
+    // Session 14 for the file entity family).
+    const text = readFileSync(FILES_CONTEXT, 'utf8');
+    expect(text).toMatch(/call\(\s*['"]putFile['"]\s*,\s*\{[^}]*\.\.\.wsArg/);
+    expect(text).toMatch(/call\(\s*['"]deleteFile['"]\s*,\s*\{[^}]*\.\.\.wsArg/);
+    expect(text).toMatch(/call\(\s*['"]renameFile['"]\s*,\s*\{[^}]*\.\.\.wsArg/);
+    expect(text).toMatch(/call\(\s*['"]getFile['"]\s*,\s*\{[^}]*\.\.\.wsArg/);
+    // The wsArg construction guards on (isOverridden && writeWorkspaceId).
+    expect(text).toMatch(
+      /wsArg\s*=\s*isOverridden\s*&&\s*writeWorkspaceId\s*\?\s*\{\s*workspaceId:\s*writeWorkspaceId\s*\}/,
+    );
+  });
+
+  it('BC-MWPT-FULL-3-files — files-store mutation paths route via getOracleForWorkspace, not getActiveWorkspaceId in mutation paths', () => {
+    // SW-side correctness: every files-store mutation path takes a
+    // workspaceId argument (defaulting to runtime-Active for legacy
+    // callers) and routes its oracle.apply via
+    // getOracleForWorkspace(workspaceId), never via
+    // getOracleForCurrentWorkspace inside the mutation helper.
+    const text = readFileSync(FILES_STORE, 'utf8');
+    // Phase B helper takes an explicit workspaceId arg.
+    expect(text).toMatch(/async\s+function\s+applyFilesMutationOrThrow\s*\(\s*workspaceId:\s*string\s*,/);
+    expect(text).toMatch(/getOracleForWorkspace\(workspaceId\)/);
+    expect(text).toMatch(/nextSwMutatorContextForWorkspace\(workspaceId\b/);
+    // Negative: the legacy active-only oracle helper isn't reachable
+    // from the mutation helper any more.
+    expect(text).not.toMatch(/getOracleForCurrentWorkspace\(/);
   });
 });

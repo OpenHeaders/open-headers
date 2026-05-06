@@ -16,14 +16,18 @@
  */
 
 import type { FileRefSlot } from '@openheaders/core/sync';
-import { createFilesSyncMirror, type FilesSyncMirror, getFilesSyncMirrorForWorkspace } from '@/context/files-sync-mirror';
+import {
+  createFilesSyncMirror,
+  type FilesSyncMirror,
+  getFilesSyncMirrorForWorkspace,
+} from '@/context/files-sync-mirror';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
   resolveRendererContext,
   type SyncSimpleResult,
 } from '@/shared/sync/apply-payload';
-import { buildAddFileRefBatch, buildRemoveFileRefBatch } from '@/shared/sync/files-mutations';
+import { buildAddFileRefBatch, buildRemoveFileRefBatch, buildRenameFileRefBatch } from '@/shared/sync/files-mutations';
 
 // Re-exported so tests can construct a mirror without going through the singleton.
 export { createFilesSyncMirror } from '@/context/files-sync-mirror';
@@ -50,6 +54,15 @@ export interface ApplyFileRemoveInput {
 export async function applyFileRemove(input: ApplyFileRemoveInput, opts: FilesWriteOptions): Promise<FilesResult> {
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRemoveFileRefBatch(input, ctx));
+}
+
+export interface ApplyFileRenameInput {
+  ref: FileRefSlot;
+}
+
+export async function applyFileRename(input: ApplyFileRenameInput, opts: FilesWriteOptions): Promise<FilesResult> {
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  return applySyncPayload(buildRenameFileRefBatch(input, ctx));
 }
 
 export function activeMirror(workspaceId: string): FilesSyncMirror {

@@ -1,5 +1,6 @@
 import ErrorBoundary from '@components/ErrorBoundary';
 import { EnvironmentProvider } from '@context/EnvironmentContext';
+import { FilesProvider } from '@context/FilesContext';
 import { KeyboardNavProvider, useKeyboardNav } from '@context/KeyboardNavContext';
 import { LiveVariablesProvider } from '@context/LiveVariablesContext';
 import { LiveWorkflowsProvider } from '@context/LiveWorkflowsContext';
@@ -133,19 +134,21 @@ const AppContent: React.FC = () => {
                 <LiveVariablesProvider surfaceId={ruleSurfaceId}>
                   <LiveWorkflowsProvider surfaceId={ruleSurfaceId}>
                     <RequestsProvider surfaceId={ruleSurfaceId}>
-                      <KeyboardNavProvider
-                        activeTab={activeTab}
-                        onTabChange={handleTabChange}
-                        onCycleTheme={cycleTheme}
-                        onToggleCompactMode={toggleCompactMode}
-                        onOpenTour={handleOpenTour}
-                      >
-                        <EnvSwitcherProvider>
-                          <VariablePopoverProvider>
-                            <AppInner tourOpen={tourOpen} onTourClose={handleTourClose} />
-                          </VariablePopoverProvider>
-                        </EnvSwitcherProvider>
-                      </KeyboardNavProvider>
+                      <FilesProvider>
+                        <KeyboardNavProvider
+                          activeTab={activeTab}
+                          onTabChange={handleTabChange}
+                          onCycleTheme={cycleTheme}
+                          onToggleCompactMode={toggleCompactMode}
+                          onOpenTour={handleOpenTour}
+                        >
+                          <EnvSwitcherProvider>
+                            <VariablePopoverProvider>
+                              <AppInner tourOpen={tourOpen} onTourClose={handleTourClose} />
+                            </VariablePopoverProvider>
+                          </EnvSwitcherProvider>
+                        </KeyboardNavProvider>
+                      </FilesProvider>
                     </RequestsProvider>
                   </LiveWorkflowsProvider>
                 </LiveVariablesProvider>

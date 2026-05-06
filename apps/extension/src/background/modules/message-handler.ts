@@ -1018,7 +1018,8 @@ export function handleGeneralMessage(
 
       // ── Files (Phase 12 — content-addressed blobs) ──────────────
     } else if (message.type === 'listFiles') {
-      listFiles()
+      const workspaceId = typeof message.workspaceId === 'string' ? (message.workspaceId as string) : undefined;
+      listFiles(workspaceId)
         .then((files) => safeResponse({ files }))
         .catch((err: Error) => safeResponse({ files: [], error: err.message }));
       return true;
@@ -1026,14 +1027,16 @@ export function handleGeneralMessage(
       const filename = message.filename as string;
       const mimeType = message.mimeType as string | undefined;
       const bytesBase64 = message.bytesBase64 as string;
+      const workspaceId = typeof message.workspaceId === 'string' ? (message.workspaceId as string) : undefined;
       const blob = base64ToBlob(bytesBase64, mimeType);
-      putFile({ blob, filename, mimeType })
+      putFile({ blob, filename, mimeType, workspaceId })
         .then((fileRef) => safeResponse({ success: true, fileRef }))
         .catch((err: Error) => safeResponse({ success: false, error: err.message }));
       return true;
     } else if (message.type === 'getFile') {
       const fileId = message.fileId as string;
-      getFileBlob(fileId)
+      const workspaceId = typeof message.workspaceId === 'string' ? (message.workspaceId as string) : undefined;
+      getFileBlob(fileId, workspaceId)
         .then(async (blob) => {
           if (!blob) {
             safeResponse({ found: false });
@@ -1046,7 +1049,8 @@ export function handleGeneralMessage(
       return true;
     } else if (message.type === 'deleteFile') {
       const fileId = message.fileId as string;
-      deleteFile(fileId)
+      const workspaceId = typeof message.workspaceId === 'string' ? (message.workspaceId as string) : undefined;
+      deleteFile(fileId, workspaceId)
         .then((removed) => safeResponse({ success: true, removed }))
         .catch((err: Error) => safeResponse({ success: false, removed: false, error: err.message }));
       return true;
@@ -1054,7 +1058,8 @@ export function handleGeneralMessage(
       const fileId = message.fileId as string;
       const filename = message.filename as string;
       const mimeType = message.mimeType as string | undefined;
-      renameFile({ fileId, filename, mimeType })
+      const workspaceId = typeof message.workspaceId === 'string' ? (message.workspaceId as string) : undefined;
+      renameFile({ fileId, filename, mimeType, workspaceId })
         .then((fileRef) =>
           safeResponse(fileRef ? { success: true, found: true, fileRef } : { success: true, found: false }),
         )

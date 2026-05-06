@@ -855,7 +855,7 @@ export interface BridgeRpcContract {
    * the executor builds a multipart body.
    */
   listFiles: {
-    req: Record<string, never>;
+    req: { workspaceId?: string };
     res: { files: FileRef[] };
   };
   /**
@@ -864,9 +864,14 @@ export interface BridgeRpcContract {
    * bytes as a base64 string and decode them on the SW side. The SW
    * reconstitutes a Blob and writes to IDB. Every upload produces a
    * fresh `fileId` — two uploads of the same bytes are two entries.
+   *
+   * Optional `workspaceId` overrides the SW's runtime-Active workspace
+   * (workbench tabs in per-window-or-tab mode pass their editing-scope
+   * workspaceId so bytes + catalog mutation land on the correct
+   * workspace). Omitted = falls back to the SW's runtime-Active.
    */
   putFile: {
-    req: { filename: string; mimeType?: string; bytesBase64: string };
+    req: { filename: string; mimeType?: string; bytesBase64: string; workspaceId?: string };
     res: { success: boolean; fileRef?: FileRef; error?: string };
   };
   /**
@@ -876,7 +881,7 @@ export interface BridgeRpcContract {
    * `found: false` when the fileId isn't stored in this workspace.
    */
   getFile: {
-    req: { fileId: string };
+    req: { fileId: string; workspaceId?: string };
     res: { found: boolean; bytesBase64?: string; mimeType?: string };
   };
   /**
@@ -885,7 +890,7 @@ export interface BridgeRpcContract {
    * not cascade.
    */
   deleteFile: {
-    req: { fileId: string };
+    req: { fileId: string; workspaceId?: string };
     res: { success: boolean; removed: boolean; error?: string };
   };
   /**
@@ -898,7 +903,7 @@ export interface BridgeRpcContract {
    * when the fileId isn't present in this workspace.
    */
   renameFile: {
-    req: { fileId: string; filename: string; mimeType?: string };
+    req: { fileId: string; filename: string; mimeType?: string; workspaceId?: string };
     res: { success: boolean; found: boolean; fileRef?: FileRef; error?: string };
   };
 

@@ -1,5 +1,6 @@
 import 'allotment/dist/style.css';
 import { EnvironmentProvider } from '@context/EnvironmentContext';
+import { FilesProvider } from '@context/FilesContext';
 import { LiveVariablesProvider } from '@context/LiveVariablesContext';
 import { LiveWorkflowsProvider } from '@context/LiveWorkflowsContext';
 import { RequestsProvider } from '@context/RequestsContext';
@@ -162,13 +163,15 @@ export default function App() {
                     <LiveVariablesProvider surfaceId="panel">
                       <LiveWorkflowsProvider surfaceId="panel">
                         <RequestsProvider surfaceId="panel">
-                          <EnvSwitcherProvider>
-                            <VariablePopoverProvider>
-                              <RulePopoverProvider>
-                                <PanelContent />
-                              </RulePopoverProvider>
-                            </VariablePopoverProvider>
-                          </EnvSwitcherProvider>
+                          <FilesProvider>
+                            <EnvSwitcherProvider>
+                              <VariablePopoverProvider>
+                                <RulePopoverProvider>
+                                  <PanelContent />
+                                </RulePopoverProvider>
+                              </VariablePopoverProvider>
+                            </EnvSwitcherProvider>
+                          </FilesProvider>
                         </RequestsProvider>
                       </LiveWorkflowsProvider>
                     </LiveVariablesProvider>
