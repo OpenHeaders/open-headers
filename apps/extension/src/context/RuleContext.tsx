@@ -22,10 +22,11 @@ import {
 } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
-import { computePausedUids, generateUid, resolvePauseState, toFolderName } from '@openheaders/core/utils';
+import { computePausedUids, generateUid, toFolderName } from '@openheaders/core/utils';
 import { call, subscribe } from '@utils/bridge';
 import type React from 'react';
 import { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { usePauseMarkersContext } from '@/context/PauseMarkersContext';
 import { buildLocalCollectionTrees, buildTemplateCollectionTrees } from '@/shared/local-tree-builder';
 import { extensionStorage, type PersistedLocalFolder, UI, wsKeys } from '@/shared/storage';
 import {
@@ -34,7 +35,6 @@ import {
   applyRenameCollection,
 } from '@/shared/sync/collection-write-client';
 import { applyFolderCreate, applyFolderDelete, applyFolderRename } from '@/shared/sync/folder-write-client';
-import { applyPauseMarkersReplacement } from '@/shared/sync/pause-markers-write-client';
 import { applyRuleDelete, applyRuleUpdate } from '@/shared/sync/rule-write-client';
 import {
   applyTemplateCollectionCreate,
@@ -237,7 +237,8 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
   const [uiState, setUiState] = useState<UiState>({
     tableState: { searchText: '', sortMode: 'status', filteredInfo: {}, sortedInfo: {} },
   });
-  const [pauseMarkers, setPauseMarkers] = useState<Map<string, PauseMarker>>(() => new Map());
+  const { pauseMarkers, togglePause, clearPauseOverride, clearNestedPauseOverrides, replaceMarkers } =
+    usePauseMarkersContext();
   const [localCollections, setLocalCollections] = useState<V5.Collection[]>([]);
   const [localCollectionTrees, setLocalCollectionTrees] = useState<V5.CollectionTree[]>([]);
   const [templates, setTemplates] = useState<V5.Template[]>([]);
@@ -300,7 +301,6 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       templatesRecord,
       templateCollectionsRecord,
       templateFoldersRecord,
-      pauseMarkersRecord,
     ] = await Promise.all([
       extensionStorage.get(wsKeys(workspaceId).rules),
       extensionStorage.get(wsKeys(workspaceId).collections),
@@ -308,7 +308,6 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       extensionStorage.get(wsKeys(workspaceId).templates),
       extensionStorage.get(wsKeys(workspaceId).templateCollections),
       extensionStorage.get(wsKeys(workspaceId).templateFolders),
-      extensionStorage.get(wsKeys(workspaceId).pauseMarkers),
     ]);
     const rulesArr = rulesRecord ?? [];
     const collectionsArr = collectionsRecord ?? [];
@@ -324,7 +323,6 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
     setTemplates(templatesArr);
     setTemplateCollections(templateCollectionsArr);
     setTemplateCollectionTrees(buildTemplateCollectionTrees(templateCollectionsArr, templateFoldersArr, templatesArr));
-    setPauseMarkers(pauseMarkersRecord ? new Map(Object.entries(pauseMarkersRecord)) : new Map());
   }, []);
 
   const loadRules = useCallback(() => {
@@ -343,22 +341,17 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
         setTemplates([]);
         setTemplateCollections([]);
         setTemplateCollectionTrees([]);
-        setPauseMarkers(new Map());
       }
       return;
     }
     call('popupOpen')
-      .then(async (resp) => {
+      .then((resp) => {
         setRules(resp.rules ?? []);
         setIsConnected(resp.connected ?? false);
         setIsStatusLoaded(true);
         const effectiveId = resp.activeWorkspaceId;
         activeWorkspaceIdRef.current = effectiveId;
         setActiveWorkspaceId(effectiveId);
-        if (effectiveId) {
-          const record = await extensionStorage.get(wsKeys(effectiveId).pauseMarkers);
-          setPauseMarkers(record ? new Map(Object.entries(record)) : new Map());
-        }
       })
       .catch(() => {
         setIsConnected(false);
@@ -465,17 +458,6 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
     setActiveWorkspaceId(next);
     refreshRules();
   }, [isOverridden, activeWorkspaceIdOverride, refreshRules]);
-
-  // Pause-marker storage subscription — rebinds when the active
-  // workspace id changes so every switch picks up the new workspace's
-  // persisted markers without a polling round-trip.
-  useEffect(() => {
-    if (!activeWorkspaceId) return;
-    const unsub = extensionStorage.subscribe(wsKeys(activeWorkspaceId).pauseMarkers, (record) => {
-      setPauseMarkers(record ? new Map(Object.entries(record)) : new Map());
-    });
-    return unsub;
-  }, [activeWorkspaceId]);
 
   // Override-mode storage subscriptions (workbench surface only). The
   // popup / sidepanel branch reads workspace data via `popupOpen` +
@@ -599,41 +581,14 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
     setUiState((prev) => ({ ...prev, ...updates }));
   }, []);
 
-  // ── Pause marker management ───────────────────────────────────
+  // ── Pause marker pruning ──────────────────────────────────────
   //
-  // Single mutator: every action funnels through `mutatePauseMarkers`,
-  // which produces the next Map, persists it to storage, and updates
-  // local state in one shot. Keeps the storage write co-located with
-  // the state transition so the two never drift.
-
-  const mutatePauseMarkers = useCallback(
-    (mutator: (prev: ReadonlyMap<string, PauseMarker>) => Map<string, PauseMarker>) => {
-      const wsId = activeWorkspaceIdRef.current;
-      setPauseMarkers((prev) => {
-        const next = mutator(prev);
-        // Route every pause-marker write through the sync oracle —
-        // concurrent tab toggles serialize through the same
-        // `entityLockName(ws, 'pause-markers', 'pause-markers')` lock
-        // every other Phase B entity uses. The cache broadcasts via
-        // `chrome.storage.local`'s onChanged so other tabs'
-        // `extensionStorage.subscribe` listener picks up the canonical
-        // state; we don't have to care about the round-trip here —
-        // local state is optimistic and the broadcast corrects any
-        // divergence.
-        if (wsId) {
-          void applyPauseMarkersReplacement(next, {
-            workspaceId: wsId,
-            surfaceId: 'rule-context',
-          }).catch(() => undefined);
-        }
-        return next;
-      });
-    },
-    [],
-  );
-
-  // Prune stale marker paths when collections change. A marker is stale
-  // when its path no longer corresponds to any known collection or folder.
+  // Drop marker paths that no longer correspond to any known
+  // collection/folder. Pause-marker state + mutators live in
+  // `PauseMarkersProvider` (per § 8.3.9); this effect keeps them
+  // consistent with the tree by calling `replaceMarkers` on the
+  // provider when stale paths appear. The pruning depends on
+  // `localCollectionTrees` so it stays here.
   useEffect(() => {
     if (pauseMarkers.size === 0) return;
     const activePaths = new Set<string>();
@@ -649,60 +604,15 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       };
       addFolderPaths(tree.tree);
     }
-    const stale: string[] = [];
-    for (const key of pauseMarkers.keys()) {
-      if (!activePaths.has(key)) stale.push(key);
+    let hasStale = false;
+    const next = new Map<string, PauseMarker>();
+    for (const [key, value] of pauseMarkers) {
+      if (activePaths.has(key)) next.set(key, value);
+      else hasStale = true;
     }
-    if (stale.length === 0) return;
-    mutatePauseMarkers((prev) => {
-      const next = new Map(prev);
-      for (const k of stale) next.delete(k);
-      return next;
-    });
-  }, [localCollectionTrees, pauseMarkers, mutatePauseMarkers]);
-
-  const togglePause = useCallback(
-    (path: string) => {
-      mutatePauseMarkers((prev) => {
-        const next = new Map(prev);
-        const currentlyPaused = resolvePauseState(path, prev);
-        // Smart toggle: if any explicit marker matches the *opposite* of
-        // the current effective state would already be a no-op, so we set
-        // the marker that flips the state. Setting the marker even when
-        // it matches the inherited default is intentional — it pins the
-        // state so a parent toggle can't silently flip it back.
-        next.set(path, currentlyPaused ? 'unpaused' : 'paused');
-        return next;
-      });
-    },
-    [mutatePauseMarkers],
-  );
-
-  const clearPauseOverride = useCallback(
-    (path: string) => {
-      mutatePauseMarkers((prev) => {
-        if (!prev.has(path)) return new Map(prev);
-        const next = new Map(prev);
-        next.delete(path);
-        return next;
-      });
-    },
-    [mutatePauseMarkers],
-  );
-
-  const clearNestedPauseOverrides = useCallback(
-    (path: string) => {
-      mutatePauseMarkers((prev) => {
-        const prefix = `${path}/`;
-        const next = new Map<string, PauseMarker>();
-        for (const [key, value] of prev) {
-          if (!key.startsWith(prefix)) next.set(key, value);
-        }
-        return next;
-      });
-    },
-    [mutatePauseMarkers],
-  );
+    if (!hasStale) return;
+    replaceMarkers(next);
+  }, [localCollectionTrees, pauseMarkers, replaceMarkers]);
 
   // ── Local rule CRUD ───────────────────────────────────────────
   //

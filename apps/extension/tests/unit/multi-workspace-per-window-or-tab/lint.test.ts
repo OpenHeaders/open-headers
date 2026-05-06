@@ -598,12 +598,14 @@ const LIVE_WORKFLOWS_CONTEXT = join(REPO_ROOT, 'src', 'context', 'LiveWorkflowsC
 const REQUESTS_CONTEXT = join(REPO_ROOT, 'src', 'context', 'RequestsContext.tsx');
 const FILES_CONTEXT = join(REPO_ROOT, 'src', 'context', 'FilesContext.tsx');
 const FILES_STORE = join(REPO_ROOT, 'src', 'background', 'modules', 'files-store.ts');
+const PAUSE_MARKERS_CONTEXT = join(REPO_ROOT, 'src', 'context', 'PauseMarkersContext.tsx');
+const PAUSE_MARKERS_STORE = join(REPO_ROOT, 'src', 'background', 'modules', 'pause-markers-store.ts');
 const POPUP_APP = join(REPO_ROOT, 'src', 'popup', 'App.tsx');
 const PANEL_APP = join(REPO_ROOT, 'src', 'panel', 'App.tsx');
 
 const VARIABLE_MUTATOR_HOOK = join(REPO_ROOT, 'src', 'hooks', 'useVariableMutator.ts');
 
-describe('MWPT-FULL session #1+#2+#3+#4+#5+#6+#7+#8 — Environments + workspace variables + vault + collection variables + live variables + live workflows + requests + files lint gates', () => {
+describe('MWPT-FULL session #1+#2+#3+#4+#5+#6+#7+#8+#9 — Environments + workspace variables + vault + collection variables + live variables + live workflows + requests + files + pause markers lint gates', () => {
   it('BC-MWPT-FULL-1-env — workbench App.tsx mounts EnvironmentProvider with editingScopeWorkspaceId override', () => {
     const text = readFileSync(APP_TSX, 'utf8');
     expect(text).toMatch(
@@ -996,6 +998,54 @@ describe('MWPT-FULL session #1+#2+#3+#4+#5+#6+#7+#8 — Environments + workspace
     expect(text).toMatch(/nextSwMutatorContextForWorkspace\(workspaceId\b/);
     // Negative: the legacy active-only oracle helper isn't reachable
     // from the mutation helper any more.
+    expect(text).not.toMatch(/getOracleForCurrentWorkspace\(/);
+  });
+
+  // ── Session #9 — Pause markers ────────────────────────────────────
+  // Singleton-with-storage-key shape (closest baseline VaultContext):
+  // pause markers project to `wsKeys.pauseMarkers` AND live as a
+  // sync-engine singleton entity. Renderer-direct Phase B is the only
+  // write path. The SW-side `setMarker` / `clearMarker` /
+  // `replaceMarkers` helpers were dead exports post-Session 7 and are
+  // deleted in Session #9 — closing the same-class bug from Session 14
+  // for this entity family by removing the surface entirely.
+
+  it('BC-MWPT-FULL-1-pausemarkers — workbench App.tsx mounts PauseMarkersProvider with editingScopeWorkspaceId override', () => {
+    const text = readFileSync(APP_TSX, 'utf8');
+    expect(text).toMatch(
+      /<PauseMarkersProvider\s+surfaceId=["']workbench["']\s+activeWorkspaceIdOverride=\{editingScopeWorkspaceId\}/,
+    );
+  });
+
+  it('BC-MWPT-FULL-1-pausemarkers — system surfaces (popup / panel) mount PauseMarkersProvider WITHOUT override', () => {
+    for (const file of [POPUP_APP, PANEL_APP]) {
+      const text = readFileSync(file, 'utf8');
+      expect(text).toMatch(/<PauseMarkersProvider\b/);
+      expect(text).not.toMatch(/<PauseMarkersProvider[^>]*activeWorkspaceIdOverride=/);
+    }
+  });
+
+  it('BC-MWPT-FULL-2-pausemarkers — PauseMarkersProvider subscribes wsKeys(workspaceId).pauseMarkers directly', () => {
+    const text = readFileSync(PAUSE_MARKERS_CONTEXT, 'utf8');
+    expect(text).toMatch(/extensionStorage\.subscribe\(\s*wsKeys\(\s*\w+\s*\)\.pauseMarkers\b/);
+  });
+
+  it('BC-MWPT-FULL-3-pausemarkers — PauseMarkersProvider routes mutations through pause-markers-write-client (no legacy call shim)', () => {
+    const text = readFileSync(PAUSE_MARKERS_CONTEXT, 'utf8');
+    expect(text).toMatch(/applyPauseMarkerSet\(/);
+    expect(text).toMatch(/applyPauseMarkerClear\(/);
+    expect(text).toMatch(/applyPauseMarkersReplacement\(/);
+    // Phase B is the only write path — no legacy SW RPC shim.
+    expect(text).not.toMatch(/call\(\s*['"]setPauseMarkers['"]/);
+  });
+
+  it('BC-MWPT-FULL-3-pausemarkers — pause-markers-store no longer exports setMarker / clearMarker / replaceMarkers (dead-export same-class-bug surface deleted)', () => {
+    const text = readFileSync(PAUSE_MARKERS_STORE, 'utf8');
+    expect(text).not.toMatch(/export\s+async\s+function\s+setMarker\b/);
+    expect(text).not.toMatch(/export\s+async\s+function\s+clearMarker\b/);
+    expect(text).not.toMatch(/export\s+async\s+function\s+replaceMarkers\b/);
+    // Negative: the legacy active-only oracle helper isn't referenced
+    // anywhere in the file once the dead-export mutation surface is gone.
     expect(text).not.toMatch(/getOracleForCurrentWorkspace\(/);
   });
 });

@@ -4,6 +4,7 @@ import { FilesProvider } from '@context/FilesContext';
 import { KeyboardNavProvider, useKeyboardNav } from '@context/KeyboardNavContext';
 import { LiveVariablesProvider } from '@context/LiveVariablesContext';
 import { LiveWorkflowsProvider } from '@context/LiveWorkflowsContext';
+import { PauseMarkersProvider } from '@context/PauseMarkersContext';
 import { RequestsProvider } from '@context/RequestsContext';
 import { RuleProvider } from '@context/RuleContext';
 import { useTheme } from '@context/ThemeContext';
@@ -127,35 +128,37 @@ const AppContent: React.FC = () => {
   return (
     <ErrorBoundary>
       <AwarenessIdentityProvider value={identity} workspaceId={lifelineWorkspaceId}>
-        <RuleProvider surfaceId={ruleSurfaceId}>
-          <EnvironmentProvider surfaceId={ruleSurfaceId}>
-            <WorkspaceVariablesProvider surfaceId={ruleSurfaceId}>
-              <VaultProvider surfaceId={ruleSurfaceId}>
-                <LiveVariablesProvider surfaceId={ruleSurfaceId}>
-                  <LiveWorkflowsProvider surfaceId={ruleSurfaceId}>
-                    <RequestsProvider surfaceId={ruleSurfaceId}>
-                      <FilesProvider>
-                        <KeyboardNavProvider
-                          activeTab={activeTab}
-                          onTabChange={handleTabChange}
-                          onCycleTheme={cycleTheme}
-                          onToggleCompactMode={toggleCompactMode}
-                          onOpenTour={handleOpenTour}
-                        >
-                          <EnvSwitcherProvider>
-                            <VariablePopoverProvider>
-                              <AppInner tourOpen={tourOpen} onTourClose={handleTourClose} />
-                            </VariablePopoverProvider>
-                          </EnvSwitcherProvider>
-                        </KeyboardNavProvider>
-                      </FilesProvider>
-                    </RequestsProvider>
-                  </LiveWorkflowsProvider>
-                </LiveVariablesProvider>
-              </VaultProvider>
-            </WorkspaceVariablesProvider>
-          </EnvironmentProvider>
-        </RuleProvider>
+        <PauseMarkersProvider surfaceId={ruleSurfaceId}>
+          <RuleProvider surfaceId={ruleSurfaceId}>
+            <EnvironmentProvider surfaceId={ruleSurfaceId}>
+              <WorkspaceVariablesProvider surfaceId={ruleSurfaceId}>
+                <VaultProvider surfaceId={ruleSurfaceId}>
+                  <LiveVariablesProvider surfaceId={ruleSurfaceId}>
+                    <LiveWorkflowsProvider surfaceId={ruleSurfaceId}>
+                      <RequestsProvider surfaceId={ruleSurfaceId}>
+                        <FilesProvider>
+                          <KeyboardNavProvider
+                            activeTab={activeTab}
+                            onTabChange={handleTabChange}
+                            onCycleTheme={cycleTheme}
+                            onToggleCompactMode={toggleCompactMode}
+                            onOpenTour={handleOpenTour}
+                          >
+                            <EnvSwitcherProvider>
+                              <VariablePopoverProvider>
+                                <AppInner tourOpen={tourOpen} onTourClose={handleTourClose} />
+                              </VariablePopoverProvider>
+                            </EnvSwitcherProvider>
+                          </KeyboardNavProvider>
+                        </FilesProvider>
+                      </RequestsProvider>
+                    </LiveWorkflowsProvider>
+                  </LiveVariablesProvider>
+                </VaultProvider>
+              </WorkspaceVariablesProvider>
+            </EnvironmentProvider>
+          </RuleProvider>
+        </PauseMarkersProvider>
       </AwarenessIdentityProvider>
     </ErrorBoundary>
   );

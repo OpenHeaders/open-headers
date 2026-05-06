@@ -94,6 +94,7 @@ import {
   snapshotCollectionPostStates,
   snapshotEnvironmentPostStates,
   snapshotFilesPostStates,
+  snapshotPauseMarkersPostStates,
   snapshotLiveVariablePostStates,
   snapshotLiveWorkflowPostStates,
   snapshotRequestPostStates,
@@ -104,6 +105,10 @@ import {
 import { disposeAllCollectionSyncMirrors, getCollectionSyncMirrorForWorkspace } from '@/context/collection-sync-mirror';
 import { disposeAllEnvSyncMirrors, getEnvSyncMirrorForWorkspace } from '@/context/env-sync-mirror';
 import { disposeAllFilesSyncMirrors, getFilesSyncMirrorForWorkspace } from '@/context/files-sync-mirror';
+import {
+  disposeAllPauseMarkersSyncMirrors,
+  getPauseMarkersSyncMirrorForWorkspace,
+} from '@/context/pause-markers-sync-mirror';
 import {
   disposeAllLiveVariableSyncMirrors,
   getLiveVariableSyncMirrorForWorkspace,
@@ -125,6 +130,10 @@ import { seedCollection } from '@/shared/sync/collection-projection';
 import { applyCollectionSetVar, applyCollectionVariablesReplacement } from '@/shared/sync/collection-write-client';
 import { applyEnvironmentCreate, applyEnvironmentDelete } from '@/shared/sync/env-write-client';
 import { applyFileAdd, applyFileRemove } from '@/shared/sync/files-write-client';
+import {
+  applyPauseMarkerClear,
+  applyPauseMarkerSet,
+} from '@/shared/sync/pause-markers-write-client';
 import { applyLiveVariableCreate, applyLiveVariableUpdate } from '@/shared/sync/live-variable-write-client';
 import { applyLiveWorkflowCreate, applyLiveWorkflowUpdate } from '@/shared/sync/live-workflow-write-client';
 import { applyRequestCreate, applyRequestDelete, applyRequestUpdate } from '@/shared/sync/request-write-client';
@@ -199,6 +208,10 @@ function setupHarness(): void {
     const wsId = (req as { workspaceId?: string }).workspaceId;
     return { entries: snapshotFilesPostStates(wsId) };
   });
+  mockBridge._setCallHandler('oh.sync.snapshotPauseMarkers', (req) => {
+    const wsId = (req as { workspaceId?: string }).workspaceId;
+    return { entries: snapshotPauseMarkersPostStates(wsId) };
+  });
 
   // Reset renderer registries.
   disposeAllRuleSyncMirrors();
@@ -210,6 +223,7 @@ function setupHarness(): void {
   disposeAllLiveWorkflowSyncMirrors();
   disposeAllRequestSyncMirrors();
   disposeAllFilesSyncMirrors();
+  disposeAllPauseMarkersSyncMirrors();
   setActiveRendererContext(null);
 
   // Reset SW state. __init clears every resident service synchronously
@@ -272,6 +286,7 @@ afterEach(() => {
   disposeAllLiveWorkflowSyncMirrors();
   disposeAllRequestSyncMirrors();
   disposeAllFilesSyncMirrors();
+  disposeAllPauseMarkersSyncMirrors();
   setActiveRendererContext(null);
   vi.useRealTimers();
 });
@@ -1042,6 +1057,63 @@ describe('I-1-files / I-2-files — Files per-family migration session #8', () =
     const w1EntriesAfter = w1Logs ? await collectLogEntries(w1Logs) : [];
     expect(w1EntriesAfter.find((e) => e.body.type === 'files')).toBeUndefined();
     expect(snapshotFilesPostStates('w1')).toEqual([]);
+
+    releaseWorkspaceService('w2');
+  });
+});
+
+describe('I-1-pausemarkers / I-2-pausemarkers — Pause markers per-family migration session #9', () => {
+  it('I-1-pausemarkers: pause-markers mirror state == oracle pause-markers projection per workspace', async () => {
+    await setActiveAwaited('w1');
+    const w1Mirror = getPauseMarkersSyncMirrorForWorkspace('w1');
+    const w2Mirror = getPauseMarkersSyncMirrorForWorkspace('w2');
+    getOrCreateWorkspaceService('w2');
+
+    const path = 'rules/openheaders-staging';
+    const result = await applyPauseMarkerSet(
+      { path, marker: 'paused' },
+      { workspaceId: 'w2', surfaceId: 'workbench-tab' },
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('applyPauseMarkerSet failed');
+    await flush();
+
+    expect(w2Mirror.liveMarkers()[path]).toBe('paused');
+    expect(w1Mirror.getMirror()).toBeNull();
+
+    const w2Snapshot = snapshotPauseMarkersPostStates('w2');
+    expect(w2Snapshot[0]?.markers[path]).toBe('paused');
+    expect(snapshotPauseMarkersPostStates('w1')).toEqual([]);
+
+    releaseWorkspaceService('w2');
+  });
+
+  it('I-2-pausemarkers: w2 pause-marker set from a tab whose Active is w1 lands in w2 only', async () => {
+    await setActiveAwaited('w1');
+    getOrCreateWorkspaceService('w2');
+    getPauseMarkersSyncMirrorForWorkspace('w2');
+
+    const path = 'rules/openheaders-tab2';
+    const result = await applyPauseMarkerSet(
+      { path, marker: 'paused' },
+      { workspaceId: 'w2', surfaceId: 'workbench-tab-2' },
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('applyPauseMarkerSet failed');
+    await flush();
+
+    const w1Logs = harness.logs.get('w1') as InMemoryMutationLog | undefined;
+    const w2Logs = harness.logs.get('w2') as InMemoryMutationLog | undefined;
+    expect(w2Logs).toBeDefined();
+    const w1Entries = w1Logs ? await collectLogEntries(w1Logs) : [];
+    const w2Entries = w2Logs ? await collectLogEntries(w2Logs) : [];
+    expect(w1Entries.find((e) => e.body.type === 'pause-markers')).toBeUndefined();
+    expect(w2Entries.find((e) => e.body.type === 'pause-markers')).toBeDefined();
+
+    const clr = await applyPauseMarkerClear({ path }, { workspaceId: 'w2', surfaceId: 'workbench-tab-2' });
+    expect(clr.ok).toBe(true);
+    await flush();
+    expect(snapshotPauseMarkersPostStates('w1')).toEqual([]);
 
     releaseWorkspaceService('w2');
   });

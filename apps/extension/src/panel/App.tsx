@@ -3,6 +3,7 @@ import { EnvironmentProvider } from '@context/EnvironmentContext';
 import { FilesProvider } from '@context/FilesContext';
 import { LiveVariablesProvider } from '@context/LiveVariablesContext';
 import { LiveWorkflowsProvider } from '@context/LiveWorkflowsContext';
+import { PauseMarkersProvider } from '@context/PauseMarkersContext';
 import { RequestsProvider } from '@context/RequestsContext';
 import { VaultProvider } from '@context/VaultContext';
 import { WorkspaceVariablesProvider } from '@context/WorkspaceVariablesContext';
@@ -157,27 +158,29 @@ export default function App() {
           <ActiveTabEntityProvider>
             <DevPanelAwarenessPublisher />
             <ShellEventBusContext.Provider value={busHandle.bus}>
-              <EnvironmentProvider surfaceId="panel">
-                <WorkspaceVariablesProvider surfaceId="panel">
-                  <VaultProvider surfaceId="panel">
-                    <LiveVariablesProvider surfaceId="panel">
-                      <LiveWorkflowsProvider surfaceId="panel">
-                        <RequestsProvider surfaceId="panel">
-                          <FilesProvider>
-                            <EnvSwitcherProvider>
-                              <VariablePopoverProvider>
-                                <RulePopoverProvider>
-                                  <PanelContent />
-                                </RulePopoverProvider>
-                              </VariablePopoverProvider>
-                            </EnvSwitcherProvider>
-                          </FilesProvider>
-                        </RequestsProvider>
-                      </LiveWorkflowsProvider>
-                    </LiveVariablesProvider>
-                  </VaultProvider>
-                </WorkspaceVariablesProvider>
-              </EnvironmentProvider>
+              <PauseMarkersProvider surfaceId="panel">
+                <EnvironmentProvider surfaceId="panel">
+                  <WorkspaceVariablesProvider surfaceId="panel">
+                    <VaultProvider surfaceId="panel">
+                      <LiveVariablesProvider surfaceId="panel">
+                        <LiveWorkflowsProvider surfaceId="panel">
+                          <RequestsProvider surfaceId="panel">
+                            <FilesProvider>
+                              <EnvSwitcherProvider>
+                                <VariablePopoverProvider>
+                                  <RulePopoverProvider>
+                                    <PanelContent />
+                                  </RulePopoverProvider>
+                                </VariablePopoverProvider>
+                              </EnvSwitcherProvider>
+                            </FilesProvider>
+                          </RequestsProvider>
+                        </LiveWorkflowsProvider>
+                      </LiveVariablesProvider>
+                    </VaultProvider>
+                  </WorkspaceVariablesProvider>
+                </EnvironmentProvider>
+              </PauseMarkersProvider>
             </ShellEventBusContext.Provider>
           </ActiveTabEntityProvider>
         </ActiveEditorDirtyProvider>

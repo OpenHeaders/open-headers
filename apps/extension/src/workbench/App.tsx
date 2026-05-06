@@ -12,6 +12,7 @@ import { EnvironmentProvider } from '@context/EnvironmentContext';
 import { FilesProvider } from '@context/FilesContext';
 import { LiveVariablesProvider } from '@context/LiveVariablesContext';
 import { LiveWorkflowsProvider } from '@context/LiveWorkflowsContext';
+import { PauseMarkersProvider } from '@context/PauseMarkersContext';
 import { RequestsProvider } from '@context/RequestsContext';
 import { RuleProvider } from '@context/RuleContext';
 import { useTheme } from '@context/ThemeContext';
@@ -345,25 +346,27 @@ const WorkbenchTabAware: React.FC<{
 
   return (
     <EditingScopeWorkspaceProvider workspaceId={editingScopeWorkspaceId}>
-      <RuleProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
-        <EnvironmentProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
-          <WorkspaceVariablesProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
-            <VaultProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
-              <LiveVariablesProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
-                <LiveWorkflowsProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
-                  <RequestsProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
-                    <FilesProvider activeWorkspaceIdOverride={editingScopeWorkspaceId}>
-                      <InspectorNavProvider>
-                        <WorkbenchShell layout={layout} perTab={perTab} />
-                      </InspectorNavProvider>
-                    </FilesProvider>
-                  </RequestsProvider>
-                </LiveWorkflowsProvider>
-              </LiveVariablesProvider>
-            </VaultProvider>
-          </WorkspaceVariablesProvider>
-        </EnvironmentProvider>
-      </RuleProvider>
+      <PauseMarkersProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
+        <RuleProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
+          <EnvironmentProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
+            <WorkspaceVariablesProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
+              <VaultProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
+                <LiveVariablesProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
+                  <LiveWorkflowsProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
+                    <RequestsProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
+                      <FilesProvider activeWorkspaceIdOverride={editingScopeWorkspaceId}>
+                        <InspectorNavProvider>
+                          <WorkbenchShell layout={layout} perTab={perTab} />
+                        </InspectorNavProvider>
+                      </FilesProvider>
+                    </RequestsProvider>
+                  </LiveWorkflowsProvider>
+                </LiveVariablesProvider>
+              </VaultProvider>
+            </WorkspaceVariablesProvider>
+          </EnvironmentProvider>
+        </RuleProvider>
+      </PauseMarkersProvider>
     </EditingScopeWorkspaceProvider>
   );
 };
