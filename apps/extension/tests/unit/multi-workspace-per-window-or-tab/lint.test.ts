@@ -54,7 +54,7 @@ const BC_MWPT_3_ALLOWLIST: readonly string[] = [
 ];
 
 /**
- * Mount-time direct reads of oracle-owned identity (`OH.activeWorkspaceId`
+ * Mount-time direct reads of oracle-owned identity (`OH.runtimeActive`
  * / `wsKeys(...)` shadows) — design § 9.1 + design § 11.2 BC-MWPT-10.
  * Only files in this set may import `readGlobalActiveWorkspaceId` or
  * `readWorkspaceTabSession`. Adding a new boot-coupling read site means
@@ -166,7 +166,7 @@ describe('multi-workspace-per-tab lint', () => {
     const text = readFileSync(RESPONSIVE_LAYOUT, 'utf8');
     // Signature accepts the editing-scope workspace id from the caller.
     expect(text).toMatch(/export function useResponsiveLayout\(\s*workspaceId:\s*string\s*\|\s*null\s*\)/);
-    // No raw `OH.activeWorkspaceId` read — the hook stops being a
+    // No raw `OH.runtimeActive` read — the hook stops being a
     // KNOWN_BOOT_COUPLING_READS site post-MWPT.
     expect(text).not.toMatch(/OH\.activeWorkspaceId/);
     // No standalone `workspaceChanged` subscription either; the prop

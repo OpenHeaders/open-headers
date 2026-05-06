@@ -47,6 +47,7 @@ import { bridgeFilesSyncEngine, listFiles, onFilesStoreChange } from './modules/
 // adapter port is filled at eval time so the first alarm fires
 // against a real chain runner rather than the Phase-C stub.
 import './modules/live-chain-adapter';
+import { bridgeLayoutStateSyncEngine } from './modules/layout-store';
 import { onLiveCacheStoreChange } from './modules/live-cache-store';
 import {
   handleLiveAlarm,
@@ -73,23 +74,14 @@ import {
   reconcileOAuthSchedules,
   startOAuthScheduler,
 } from './modules/oauth-refresh-scheduler';
-import {
-  bridgeOAuthSyncEngine,
-  listTokenBundles,
-  onOAuthStoreChange,
-} from './modules/oauth-token-store';
+import { bridgeOAuthSyncEngine, listTokenBundles, onOAuthStoreChange } from './modules/oauth-token-store';
 import { hydrateObservabilityLog, recordLog } from './modules/observability-log';
 import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
-import { bridgeLayoutStateSyncEngine } from './modules/layout-store';
 import { bridgePauseMarkersSyncEngine, getPauseMarkers } from './modules/pause-markers-store';
 import { auditHostPermissions } from './modules/permissions-audit';
 import { handleRecordingMessage } from './modules/recording-handler';
 import { initRecordingSync } from './modules/recording-sync';
 import { setupRequestMonitoring } from './modules/request-monitor';
-import { markBootPhase } from './sync/boot-telemetry';
-import { attachGlobalWorkspaceCoordRunner, initGlobalSyncService } from './sync/global-service';
-import { setupAwarenessLifelinePorts } from './sync/awareness-lifeline';
-import { initSyncService, reinitForWorkspace, removeAwarenessByInstanceId } from './sync/service';
 import { applyExternalSnapshot as applyRequestScriptsReviewSnapshot } from './modules/request-scripts-review-store';
 import {
   bridgeRequestCollectionSyncEngine,
@@ -143,6 +135,10 @@ import {
   peekActiveWorkspaceId,
 } from './modules/workspace-store';
 import { setupWorkspaceTabRegistry } from './modules/workspace-tab-registry';
+import { setupAwarenessLifelinePorts } from './sync/awareness-lifeline';
+import { markBootPhase } from './sync/boot-telemetry';
+import { attachGlobalWorkspaceCoordRunner, initGlobalSyncService } from './sync/global-service';
+import { removeAwarenessByInstanceId, setRuntimeActive } from './sync/service';
 import {
   connectWebSocket,
   getReconnectAttempts,
@@ -544,7 +540,19 @@ async function initializeExtension(): Promise<void> {
   // routes mutations through the service, so the oracle stays inert
   // — but the IDB connections + bridge handler are live so W1 has
   // nothing to bootstrap.
-  initSyncService(getActiveWorkspaceId());
+  // Boot is the atomicity backstop: same code path as a runtime Active
+  // flip. workspace-store.bootstrap already walked Active → Default →
+  // first valid workspace, so `getActiveWorkspaceId()` returns a
+  // resolved id by this point.
+  const bootSetActive = await setRuntimeActive(getActiveWorkspaceId());
+  if (!bootSetActive.ok) {
+    // Boot failure is rare but recoverable — the next extensionWorkspace
+    // mutation routes through the workspace-coord runner which will
+    // re-attempt setRuntimeActive. Log and continue so the rest of
+    // bridge wiring proceeds (bridge handlers tolerate a null Active
+    // briefly via the snapshot fallback in service.ts).
+    logger.warn('Background', `boot setRuntimeActive failed: ${bootSetActive.reason}`);
+  }
   markBootPhase('sync-init-done');
   // Bridge the rule-store to the sync engine: seed the oracle from
   // the hydrated `V5.Rule[]` and subscribe to the cache so subsequent
@@ -584,7 +592,10 @@ async function initializeExtension(): Promise<void> {
     getActiveWorkspaceId: peekActiveWorkspaceId,
     swap: async (newId) => {
       await swapPerWorkspaceStores(newId);
-      reinitForWorkspace(newId);
+      const result = await setRuntimeActive(newId);
+      if (!result.ok) {
+        logger.warn('Background', `workspace-coord setRuntimeActive(${newId}) failed: ${result.reason}`);
+      }
       await reseedAllPerWorkspaceBridges();
     },
     purge: async (workspaceId) => {

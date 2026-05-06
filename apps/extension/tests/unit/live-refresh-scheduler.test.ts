@@ -145,7 +145,7 @@ vi.mock('@/background/modules/environment-store', () => ({
   },
 }));
 
-// Storage shim for OH.workspaces / OH.activeWorkspaceId + wsKeys reads
+// Storage shim for OH.workspaces / OH.runtimeActive + wsKeys reads
 // on inactive workspaces. Using `installBackingStorage` from the shared
 // helper keeps the semantics identical to the real `extensionStorage`.
 import { installBackingStorage, seedStorageMany } from '../helpers/chrome-storage-backing';
@@ -216,7 +216,7 @@ beforeEach(async () => {
   // in-memory path.
   seedStorageMany({
     'oh.workspaces': [{ id: 'ws-live', name: 'Live', color: '#000', iconMode: 'emoji' }],
-    'oh.activeWorkspaceId': 'ws-live',
+    'oh.runtimeActive.active': 'ws-live',
   });
   scheduler = await import('@/background/modules/live-refresh-scheduler');
   scheduler.__setLiveRefreshAdapter(null);
@@ -609,7 +609,7 @@ describe('active-workspace-only', () => {
         { id: 'ws-live', name: 'Live', color: '#000', iconMode: 'emoji' },
         { id: 'ws-other', name: 'Other', color: '#000', iconMode: 'emoji' },
       ],
-      'oh.activeWorkspaceId': 'ws-live',
+      'oh.runtimeActive.active': 'ws-live',
     });
     await scheduler.reconcileLiveSchedules(NOW);
     // One alarm for the (active) workspace's single workflow + null env

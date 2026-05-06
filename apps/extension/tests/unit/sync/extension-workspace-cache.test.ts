@@ -2,7 +2,7 @@
  * Phase B — extensionWorkspace cache subscribes to broadcast, re-projects
  * to the `(workspaces, activeWorkspaceId)` shape, and exposes a
  * synchronous mirror. Lives at the GLOBAL scope so the durable record
- * shape (legacy `oh.workspaces` + `oh.activeWorkspaceId`) is owned by
+ * shape (legacy `oh.workspaces` + `oh.runtimeActive.active`) is owned by
  * the legacy direct-write path until commit 3 — the cache is in-memory
  * only here.
  */

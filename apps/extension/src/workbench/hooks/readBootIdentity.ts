@@ -5,7 +5,7 @@
  * to enumerate.
  *
  * The renderer-projection rule is: post-boot reads of oracle-owned
- * identity (`OH.activeWorkspaceId`, per-workspace shadows) MUST go
+ * identity (`OH.runtimeActive`, per-workspace shadows) MUST go
  * through projections (`useActiveWorkspaceId`, `useEditingScopeWorkspaceId`,
  * `useWorkspaces`, the live mirror). The narrow exception is the boot
  * window — before the bridge has fired and the projection would
@@ -24,7 +24,7 @@ import { extensionStorage, OH } from '@/shared/storage';
 
 export async function readGlobalActiveWorkspaceId(): Promise<string | null> {
   try {
-    const id = (await extensionStorage.get(OH.activeWorkspaceId)) as string | undefined;
+    const id = (await extensionStorage.get(OH.runtimeActive)) as string | undefined;
     return typeof id === 'string' && id.length > 0 ? id : null;
   } catch {
     return null;

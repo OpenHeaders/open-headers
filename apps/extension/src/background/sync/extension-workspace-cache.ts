@@ -12,7 +12,7 @@
  *      dispose+init cycles.
  *   2. **No persistence sink yet.** Until commit 3 flips the legacy
  *      `workspace-store.ts` writers, the durable record at the
- *      `oh.workspaces` + `oh.activeWorkspaceId` chrome storage keys is
+ *      `oh.workspaces` + `oh.runtimeActive.active` chrome storage keys is
  *      owned by the legacy direct-write path. The cache mirrors the
  *      post-broadcast projection in memory only.
  *

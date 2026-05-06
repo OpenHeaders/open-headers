@@ -97,7 +97,7 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
   it('workspace-store: bootstrap restores list + active id from storage', async () => {
     seedStorageMany({
       'oh.workspaces': [workspace('ws-a', { name: 'Home' }), workspace('ws-b', { name: 'Work', sortIndex: 1 })],
-      'oh.activeWorkspaceId': 'ws-b',
+      'oh.runtimeActive.active': 'ws-b',
     });
 
     const first = await import('@/background/modules/workspace-store');
@@ -118,7 +118,7 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
     const activeWs = 'ws-env';
     seedStorageMany({
       'oh.workspaces': [workspace(activeWs)],
-      'oh.activeWorkspaceId': activeWs,
+      'oh.runtimeActive.active': activeWs,
       [`oh.ws.${activeWs}.environments`]: [
         { schemaVersion: 5, version: 1, uid: makeUid('envstage'), name: 'staging', variables: [] },
         { schemaVersion: 5, version: 1, uid: makeUid('envprod0'), name: 'prod', variables: [] },
@@ -183,7 +183,7 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
     };
     seedStorageMany({
       'oh.workspaces': [workspace(activeWs)],
-      'oh.activeWorkspaceId': activeWs,
+      'oh.runtimeActive.active': activeWs,
       [`oh.ws.${activeWs}.rules`]: [rule],
       [`oh.ws.${activeWs}.collections`]: [coll],
       [`oh.ws.${activeWs}.folders`]: [],
@@ -239,7 +239,7 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
     };
     seedStorageMany({
       'oh.workspaces': [workspace(activeWs)],
-      'oh.activeWorkspaceId': activeWs,
+      'oh.runtimeActive.active': activeWs,
       [`oh.ws.${activeWs}.rules`]: [rule],
       [`oh.ws.${activeWs}.collections`]: [coll],
       [`oh.ws.${activeWs}.folders`]: [],

@@ -17,8 +17,9 @@
  * snapshot-mirroring + chrome.storage write + listener notify.
  *
  * Storage:
- *   - `oh.workspaces`         — ExtensionWorkspace[], sorted by sortIndex
- *   - `oh.activeWorkspaceId`  — string (always points at a live workspace)
+ *   - `oh.workspaces`              — ExtensionWorkspace[], sorted by sortIndex
+ *   - `oh.runtimeActive.active`    — string (always points at a live workspace)
+ *   - `oh.preferences.defaultWorkspace` — user preference for new-tab seed (independent)
  *
  * Invariants:
  *   - list is non-empty after bootstrap (default workspace seeded)
@@ -45,13 +46,13 @@ import {
 import type { V5 } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
-import { extensionStorage, OH } from '@/shared/storage';
-import { buildSetExtensionWorkspaceBatch } from '@/shared/sync/extension-workspace-mutations';
 import {
   type ExtensionWorkspaceCache,
   getActiveExtensionWorkspaceCache,
 } from '@/background/sync/extension-workspace-cache';
 import { getGlobalOracle, nextGlobalSwContext } from '@/background/sync/global-service';
+import { extensionStorage, OH } from '@/shared/storage';
+import { buildSetExtensionWorkspaceBatch } from '@/shared/sync/extension-workspace-mutations';
 import { driftRecorder } from './storage-drift';
 
 const DEFAULT_WORKSPACE_NAME = 'Workspace';
@@ -243,25 +244,30 @@ function nextOrderKey(): string {
  *
  * Storage writes are deferred to {@link bridgeExtensionWorkspaceSyncEngine}
  * — the cache subscription it installs is the single writer of
- * `oh.workspaces` + `oh.activeWorkspaceId`. Bootstrap stages the
+ * `oh.workspaces` + `oh.runtimeActive.active`. Bootstrap stages the
  * authoritative state in memory; bridge replays it through the global
  * oracle, and the cache.onChange listener writes back.
  */
 export async function bootstrap(): Promise<void> {
-  const [storedList, storedActive] = await Promise.all([
+  const [storedList, storedActive, storedDefault] = await Promise.all([
     extensionStorage.getValidatedArray(OH.workspaces, ExtensionWorkspaceSchema, {
       onError: driftRecorder({ subsystem: 'workspace', storageKey: OH.workspaces.key }),
     }),
-    extensionStorage.get(OH.activeWorkspaceId),
+    extensionStorage.get(OH.runtimeActive),
+    extensionStorage.get(OH.preferencesDefaultWorkspace),
   ]);
 
   if (storedList.length > 0) {
     workspaces = storedList;
-    const activeCandidate = typeof storedActive === 'string' ? storedActive : null;
+    // Stale-Active boot fallback: walk Active → Default → first valid
+    // workspace. `OH.runtimeActive` may point at a deleted workspace
+    // after unclean SW shutdown; `OH.preferencesDefaultWorkspace` is
+    // the user-preference fallback before falling through to the first
+    // workspace in sort order.
+    const validFor = (candidate: unknown): string | null =>
+      typeof candidate === 'string' && workspaces.some((w) => w.id === candidate) ? candidate : null;
     activeWorkspaceId =
-      activeCandidate && workspaces.some((w) => w.id === activeCandidate)
-        ? activeCandidate
-        : [...workspaces].sort(compareWorkspaces)[0].id;
+      validFor(storedActive) ?? validFor(storedDefault) ?? [...workspaces].sort(compareWorkspaces)[0].id;
     logger.info('WorkspaceStore', `Loaded ${workspaces.length} workspace(s), active=${activeWorkspaceId}`);
     return;
   }
@@ -347,7 +353,7 @@ async function persistFromCache(snap: {
 }): Promise<void> {
   const tasks: Array<Promise<void>> = [extensionStorage.set(OH.workspaces, snap.workspaces)];
   if (snap.activeWorkspaceId) {
-    tasks.push(extensionStorage.set(OH.activeWorkspaceId, snap.activeWorkspaceId));
+    tasks.push(extensionStorage.set(OH.runtimeActive, snap.activeWorkspaceId));
   }
   await Promise.all(tasks);
 }

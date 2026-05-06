@@ -192,24 +192,107 @@ let depsFactory: WireDepsFactory = productionDepsFactory;
 // ── Public API: legacy active-flip shims ─────────────────────────────
 
 /**
- * Make `workspaceId` the Active workspace. Idempotent for the same id.
- * If a different workspace was Active, its cache singletons are
- * detached and the Active ref is released (which schedules grace-
- * period disposal unless another ref holds it).
+ * Structured outcome of {@link setRuntimeActive}. The five `ok: false`
+ * reasons let callers respond differently — silent retry on
+ * `workspace-disposed`, "rate-limited" toast on `runner-attach-failed`,
+ * workspace-list refresh on `workspace-not-found`, etc.
+ */
+export type SetActiveResult =
+  | { ok: true }
+  | { ok: false; reason: 'workspace-disposed' }
+  | { ok: false; reason: 'workspace-not-found' }
+  | { ok: false; reason: 'hydration-failed'; error: unknown }
+  | { ok: false; reason: 'runner-attach-failed'; error: unknown }
+  | { ok: false; reason: 'storage-failed'; error: unknown };
+
+/**
+ * Single-flight chain for {@link setRuntimeActive}. Each call queues
+ * onto the previous one's settle (success OR failure — chained via
+ * `.catch(() => undefined)` so a transient failure does not poison
+ * subsequent flips). Rapid `setRuntimeActive(W2) → setRuntimeActive(W3)`
+ * preserves arrival order; W3 is never observable before W2's flip
+ * settles.
+ */
+let activeFlipChain: Promise<unknown> = Promise.resolve();
+
+/**
+ * Make `workspaceId` the Active workspace. Single-flight: serializes
+ * with prior calls to avoid split-brain (two flips interleaving their
+ * detach/attach steps). Returns a {@link SetActiveResult} so callers
+ * can distinguish transient failures (hydration / attach / storage)
+ * from terminal ones (workspace deleted mid-flight).
  *
- * Lazy creation: the new workspace's service is materialized on demand
- * via {@link getOrCreateWorkspaceService}; the Active pointer holds
- * one refcount on it.
+ * Boot is the atomicity backstop. `bootSyncSubsystem` calls
+ * `setRuntimeActive(persistedActive)` — same code path. Eviction
+ * recovery is structurally identical to cold boot. Rigorous mid-flip
+ * rollback is NOT specified — torn flips heal at next SW eviction.
+ */
+export function setRuntimeActive(workspaceId: string): Promise<SetActiveResult> {
+  const next = activeFlipChain.catch(() => undefined).then(() => doSetActive(workspaceId));
+  activeFlipChain = next.then(
+    () => undefined,
+    () => undefined,
+  );
+  return next;
+}
+
+/**
+ * Make `workspaceId` the Active workspace synchronously. Legacy entry
+ * point — fire-and-forget; bypasses the single-flight queue's structured
+ * result. Prefer {@link setRuntimeActive} for new call sites.
+ *
+ * Today this delegates to {@link setRuntimeActive} (which executes
+ * synchronously when no flip is in flight). Kept on the public surface
+ * because background.ts boot + workspace-coord callers already invoke
+ * it; sub-commit 1b doesn't sweep those call sites.
  */
 export function initSyncService(workspaceId: string): void {
-  if (currentActive === workspaceId) return;
+  void setRuntimeActive(workspaceId);
+}
+
+async function doSetActive(workspaceId: string): Promise<SetActiveResult> {
+  // 1. Lazy-acquire (refcount++). Today this never throws — the slot
+  //    is always synthesizable. Future commits may surface
+  //    `workspace-not-found` from a registry check before the acquire.
+  let newSvc: WorkspaceServiceState;
+  try {
+    newSvc = getOrCreateWorkspaceService(workspaceId);
+  } catch (error) {
+    logger.warn('SyncService', `setRuntimeActive(${workspaceId}): workspace-not-found`, error);
+    return { ok: false, reason: 'workspace-not-found' };
+  }
+
+  // 2. Hydration gate. Resolves synchronously today; the contract is in
+  //    place for a future async seed-from-storage step.
+  try {
+    await newSvc.hydrated;
+  } catch (error) {
+    releaseWorkspaceService(workspaceId);
+    logger.warn('SyncService', `setRuntimeActive(${workspaceId}): hydration-failed`, error);
+    return { ok: false, reason: 'hydration-failed', error };
+  }
+
+  // 3. Disposed mid-flight (forced disposal happened between acquire
+  //    and hydrate)? Release the ref we got and report the structured
+  //    failure so the caller can refresh its workspace list.
+  if (newSvc.disposing) {
+    releaseWorkspaceService(workspaceId);
+    return { ok: false, reason: 'workspace-disposed' };
+  }
+
+  // 4. Same-as-current short-circuit. Release the extra ref the
+  //    acquire above gave us; the existing Active pointer ref is the
+  //    one that stays.
+  if (currentActive === workspaceId) {
+    releaseWorkspaceService(workspaceId);
+    return { ok: true };
+  }
+
   const oldActive = currentActive;
 
-  // Acquire the new service first (refcount++ via Active pointer).
-  const newSvc = getOrCreateWorkspaceService(workspaceId);
-
-  // Detach old singletons before attaching new — single-active invariant
-  // is structural here because cache singletons are module-level slots.
+  // 5. Detach old singletons before attaching new. Single-active
+  //    invariant on cache singletons is structural — module-level slots
+  //    can hold exactly one cache at a time.
   if (oldActive !== null) {
     const oldSvc = services.get(oldActive);
     if (oldSvc?.isActive) {
@@ -218,23 +301,27 @@ export function initSyncService(workspaceId: string): void {
     }
   }
 
-  // Attach new singletons. Caches were built fresh inside
-  // `buildService` (see wire) but not yet registered as singletons —
-  // do that now.
-  for (let i = 0; i < WORKSPACE_REGISTRY.length; i++) {
-    const reg = WORKSPACE_REGISTRY[i];
-    const cache = newSvc.caches[i];
-    // Cast is sound: caches[i] was produced by reg.createCache earlier
-    // in `wire`, and `setActive`'s contract accepts the cache type it
-    // owns.
-    reg.setActive(cache as never);
+  // 6. Attach new singletons. Active-bound runner attach (dnr-manager
+  //    + outgoing-WS subscription swap) lands in sub-commit 1c on top
+  //    of this hook.
+  try {
+    for (let i = 0; i < WORKSPACE_REGISTRY.length; i++) {
+      const reg = WORKSPACE_REGISTRY[i];
+      const cache = newSvc.caches[i];
+      // Cast is sound: caches[i] was produced by reg.createCache in
+      // `buildService`; setActive accepts the cache type it owns.
+      reg.setActive(cache as never);
+    }
+    newSvc.isActive = true;
+  } catch (error) {
+    releaseWorkspaceService(workspaceId);
+    logger.warn('SyncService', `setRuntimeActive(${workspaceId}): runner-attach-failed`, error);
+    return { ok: false, reason: 'runner-attach-failed', error };
   }
-  newSvc.isActive = true;
-  currentActive = workspaceId;
 
-  // Release the old Active ref now that the new one is live. This may
-  // schedule grace-period disposal if no other refs hold the old
-  // workspace.
+  // 7. Update Active pointer; release old's Active ref (may schedule
+  //    grace-period disposal if no other refs hold it).
+  currentActive = workspaceId;
   if (oldActive !== null) {
     releaseWorkspaceService(oldActive);
   }
@@ -243,6 +330,7 @@ export function initSyncService(workspaceId: string): void {
     'SyncService',
     `Active workspace = ${workspaceId} (entity=${RULE_ENTITY_TYPE}, nodeId=${newSvc.context.nodeId})`,
   );
+  return { ok: true };
 }
 
 /**

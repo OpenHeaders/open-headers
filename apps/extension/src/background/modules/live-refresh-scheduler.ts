@@ -240,7 +240,7 @@ interface LiveEntry {
 
 async function collectEntries(): Promise<LiveEntry[]> {
   const activeWorkflows = getLiveWorkflows();
-  const activeId = (await extensionStorage.get(OH.activeWorkspaceId)) ?? '';
+  const activeId = (await extensionStorage.get(OH.runtimeActive)) ?? '';
   if (activeWorkflows.length === 0 || typeof activeId !== 'string' || activeId.length === 0) return [];
 
   const out: LiveEntry[] = [];
@@ -341,7 +341,7 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
     // which is the right behavior on a workspace switch (alarms
     // scheduled under the previous workspace get garbage-collected
     // on the next reconcile).
-    const activeId = (await extensionStorage.get(OH.activeWorkspaceId)) ?? '';
+    const activeId = (await extensionStorage.get(OH.runtimeActive)) ?? '';
     if (payload.w !== activeId) return null;
     const workflow = getLiveWorkflows().find((w) => w.uid === payload.u);
     if (!workflow) return null;

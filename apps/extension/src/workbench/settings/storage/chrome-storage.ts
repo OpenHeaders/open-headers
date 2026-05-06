@@ -29,7 +29,7 @@ import type { DictStorage, SettingScope, StorageUnsubscribe } from './adapter';
 type ScopeDict = Record<string, unknown>;
 
 async function resolveGlobalWorkspaceId(): Promise<string | null> {
-  return (await extensionStorage.get(OH.activeWorkspaceId)) ?? null;
+  return (await extensionStorage.get(OH.runtimeActive)) ?? null;
 }
 
 /**
@@ -81,7 +81,7 @@ export class ChromeDictStorage implements DictStorage {
     }
 
     // Workspace-taste / workspace-behavioral — rebind when the relevant
-    // workspace id changes. Both rebind on `OH.activeWorkspaceId` today;
+    // workspace id changes. Both rebind on `OH.runtimeActive` today;
     // when MWPT P1 lands, `'workspace-behavioral'` will rebind on the
     // per-tab seam's id stream instead.
     let scopeUnsub: StorageUnsubscribe | null = null;
@@ -94,11 +94,11 @@ export class ChromeDictStorage implements DictStorage {
       fn(current);
     };
 
-    void extensionStorage.get(OH.activeWorkspaceId).then((id) => {
+    void extensionStorage.get(OH.runtimeActive).then((id) => {
       if (id) void bindForWorkspace(id);
     });
 
-    const activeIdUnsub = extensionStorage.subscribe(OH.activeWorkspaceId, (nextId) => {
+    const activeIdUnsub = extensionStorage.subscribe(OH.runtimeActive, (nextId) => {
       if (nextId) {
         void bindForWorkspace(nextId);
       } else {

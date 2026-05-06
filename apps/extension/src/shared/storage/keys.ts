@@ -96,8 +96,24 @@ export interface HotkeyCommandSignal {
 export const OH = {
   /** Full list of extension workspaces. */
   workspaces: storageKey<V5.ExtensionWorkspace[]>('oh.workspaces'),
-  /** Id of the currently active workspace — points at a workspace in `OH.workspaces`. */
-  activeWorkspaceId: storageKey<string>('oh.activeWorkspaceId'),
+  /**
+   * Runtime-Active workspace pointer — singular, browser-platform-bound.
+   * The workspace whose rules are currently applied via DNR; read by
+   * `dnr-manager`, `outgoing-ws-handler`, popup, side-panel, devpanel.
+   * Distinct from {@link OH.preferencesDefaultWorkspace} (the user
+   * preference for new-tab seed) — the two are independent storage
+   * keys with independent gestures.
+   */
+  runtimeActive: storageKey<string>('oh.runtimeActive.active'),
+  /**
+   * Default workspace user preference — seed for new workbench tabs
+   * that don't inherit a tab binding, and the second link in the
+   * stale-Active boot fallback chain (Active → Default → first
+   * workspace). Independent of {@link OH.runtimeActive}; rarely
+   * changed once set. Null means "no explicit default; fall through
+   * to the first workspace in the list."
+   */
+  preferencesDefaultWorkspace: storageKey<string | null>('oh.preferences.defaultWorkspace'),
   /** Toolbar-action view mode (popup vs sidepanel). Synced across devices. */
   viewMode: storageKey<ViewMode>('oh.viewMode', 'sync'),
   /** User-scope settings dict (global — never per-workspace). */
