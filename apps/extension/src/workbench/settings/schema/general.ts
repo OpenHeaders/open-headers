@@ -30,6 +30,7 @@ declare module '../types' {
     'general.settingsOpenMode': SettingsOpenMode;
     'general.collectionEnvAutoSwitch': CollectionEnvAutoSwitch;
     'general.workspaceSwitchScope': WorkspaceSwitchScope;
+    'general.workspaceServiceGracePeriodMs': number;
   }
 }
 
@@ -160,6 +161,19 @@ registerSetting({
       description: `Switching workspace stays in this ${instanceLabel()}. Other ${instanceLabelPlural()}, the popup, and network rules keep using the default workspace.`,
     },
   ],
+});
+
+registerSetting({
+  key: 'general.workspaceServiceGracePeriodMs',
+  type: 'number',
+  default: 30_000,
+  schema: v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(600_000)),
+  label: 'Background Workspace Retention',
+  description:
+    'How long (in milliseconds) the background keeps a non-active workspace resident after the last surface stops referencing it. Higher values speed up rapid workspace switching at the cost of memory; lower values free resources sooner.',
+  category: 'general',
+  tags: ['workspace', 'background', 'memory', 'lifecycle'],
+  scope: 'user',
 });
 
 registerSetting({

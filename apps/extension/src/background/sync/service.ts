@@ -1,31 +1,37 @@
 /**
- * Sync service — singleton lifecycle around {@link EntityOracle} for the
- * SW background context.
+ * Sync service — per-workspace `WorkspaceServiceState` map.
  *
- * Per-workspace responsibilities:
- *   1. Construct the {@link EntityOracle} with production-wired
- *      dependencies — IDB-backed mutation log + pending intents, the
- *      lock adapter that reuses the existing per-entity Web Lock, and
- *      an in-memory broadcast bus.
- *   2. Mint an SW-side HLC sequencer + `MutatorContext` factory
- *      ({@link sw-context.ts}); SW-internal write paths (boot
- *      hydration, alarm dispatch) emit through this factory.
- *   3. Construct one cache per entity registered in
- *      {@link WORKSPACE_REGISTRY} and register it as the per-entity
- *      active singleton so legacy reads (`getActiveXCache`) route to
- *      it.
- *   4. Wire the oracle's broadcast bus to a single composed projector
- *      derived from the registry, then onto the chrome.runtime
- *      `syncBroadcast` channel so renderer surfaces can ack + replay.
- *   5. Run the DNR coalescer + resolver-invalidate runners against
- *      the same broadcast bus.
+ * Foundation for MWPT-FULL: every resident workspace has its own
+ * oracle, IDB log, broadcast bus, caches, HLC sequencer, and awareness
+ * store. Services are created lazily on first reference, kept alive by
+ * a refcount, and disposed after a grace period when refcount reaches
+ * zero. `applySyncRequest` routes batches by `batch.workspaceId` so
+ * cross-workspace concurrent writes stay structurally partitioned.
  *
- * Workspace switch: {@link reinitForWorkspace} disposes the active
- * service (drops every subscription, clears each per-entity active
- * singleton), then re-runs init for the new workspace. The IDB stores
- * are workspace-prefixed at the PK level so they can stay shared
- * across workspaces — only the in-memory state belongs to one
- * workspace at a time.
+ * One workspace at a time is the *Active* workspace — its caches are
+ * registered as the per-entity singletons (legacy `getActiveXCache`
+ * accessor surface) and its broadcast feeds DNR + outgoing-WS. Other
+ * resident workspaces hold caches scoped to their own service state
+ * but do not register them as singletons. The Active flip detaches the
+ * old singletons + attaches the new in `initSyncService`.
+ *
+ * Lifecycle helpers (1a-scope):
+ *   - `getOrCreateWorkspaceService(id)` — lazy + refcount++; returns slot.
+ *   - `releaseWorkspaceService(id)` — refcount--; schedules disposal
+ *     after `graceMs` if refcount reaches 0; cancellable on re-acquire.
+ *   - `disposeWorkspace(id)` — forced disposal (workspace deletion).
+ *
+ * Refcount sources in 1a:
+ *   - Active pointer holds one ref while pointing at the workspace.
+ *   - In-flight `applySyncRequest` brackets a ref via `try/finally`.
+ *   Lifeline-driven refs and per-workspace runners arrive in later
+ *   foundation commits.
+ *
+ * Hydration gate. Each service exposes a `hydrated: Promise<void>` that
+ * `applySyncRequest` awaits before calling `oracle.apply`. Today the
+ * oracle is constructed synchronously, so the promise resolves
+ * immediately; the contract is in place so a future async seed-from-
+ * storage step can extend it without callers changing.
  */
 
 import type {
@@ -48,8 +54,8 @@ import type {
   SyncRequestPostState,
   SyncRulePostState,
   SyncTemplateCollectionPostState,
-  SyncTemplatePostState,
   SyncTemplateFolderPostState,
+  SyncTemplatePostState,
   SyncVaultPostState,
   SyncWorkspaceVariablesPostState,
 } from '@openheaders/core/protocol';
@@ -67,25 +73,24 @@ import {
   VAULT_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ENTITY_TYPE,
 } from '@openheaders/core/sync';
-import { getGlobalOracle } from './global-service';
 import { broadcast as bridgeBroadcast } from '@utils/bridge';
 import { logger } from '@utils/logger';
 import { scheduleUpdate } from '@/background/modules/rule-engine';
 import { type AwarenessStore, createAwarenessStore } from './awareness';
 import { handleAwarenessPublish } from './awareness-bridge';
 import { handleSyncApply, wireBroadcastToSink } from './bridge';
+import { InMemoryBroadcast } from './broadcast';
 import { createDnrIntentRunner, type DnrIntentRunner } from './dnr-intent-runner';
 import {
-  attachCaches,
   buildProjectorPipeline,
   buildSchemaRegistry,
   COLLECTION_REGISTRATION,
   detachCaches,
-  type EntityCacheLike,
   ENVIRONMENT_REGISTRATION,
+  type EntityCacheLike,
   FILES_REGISTRATION,
-  flatSnapshot,
   FOLDER_REGISTRATION,
+  flatSnapshot,
   LAYOUT_STATE_REGISTRATION,
   LIVE_VARIABLE_REGISTRATION,
   LIVE_WORKFLOW_REGISTRATION,
@@ -103,22 +108,35 @@ import {
   WORKSPACE_REGISTRY,
   WORKSPACE_VARIABLES_REGISTRATION,
 } from './entity-registry';
-import {
-  createResolverInvalidateRunner,
-  type ResolverInvalidateRunner,
-} from './resolver-invalidate-runner';
-import { InMemoryBroadcast } from './broadcast';
+import { getGlobalOracle } from './global-service';
 import { IdbMutationLog } from './idb-mutation-log';
 import { IdbPendingIntents } from './idb-pending-intents';
 import { ruleOracleLockAcquirer } from './lock-adapter';
 import { InMemoryMutationLog, type MutationLog } from './mutation-log';
-import { type LockAcquirer, EntityOracle } from './oracle';
+import { EntityOracle, type LockAcquirer } from './oracle';
 import { InMemoryPendingIntents, type PendingIntents } from './pending-intents';
+import { createResolverInvalidateRunner, type ResolverInvalidateRunner } from './resolver-invalidate-runner';
 import { createSwContextHandle, type SwContextHandle } from './sw-context';
 
-interface ServiceState {
+// ── Types ────────────────────────────────────────────────────────────
+
+/**
+ * Per-workspace service state. Each resident workspace has exactly one
+ * of these in {@link services}; non-resident workspaces have none.
+ */
+export interface WorkspaceServiceState {
   workspaceId: string;
+  /**
+   * Resolves once the service is ready to accept `oracle.apply` calls.
+   * Awaited by {@link applySyncRequest} before routing to the oracle —
+   * closes the cold-oracle race without eager pre-create. Today the
+   * oracle is synchronously ready; the promise contract is in place
+   * for a future async seed-from-storage step.
+   */
+  hydrated: Promise<void>;
   oracle: EntityOracle;
+  log: MutationLog;
+  intents: PendingIntents;
   broadcast: InMemoryBroadcast;
   caches: EntityCacheLike[];
   context: SwContextHandle;
@@ -126,85 +144,228 @@ interface ServiceState {
   dnrRunner: DnrIntentRunner;
   resolverInvalidateRunner: ResolverInvalidateRunner;
   unsubscribeBroadcast: () => void;
+  /** Number of live references — Active pointer + in-flight applies + (later) lifelines. */
+  refcount: number;
+  /** Pending grace-period disposal timer; cancelled if refcount returns to ≥1 within grace. */
+  disposalTimer: ReturnType<typeof setTimeout> | null;
+  /** Set true once teardown begins; new acquires must rebuild a fresh service. */
+  disposing: boolean;
+  /** True while this is the runtime-Active workspace (caches registered as singletons). */
+  isActive: boolean;
 }
 
-let state: ServiceState | null = null;
+interface WireDeps {
+  workspaceId: string;
+  log: MutationLog;
+  intents: PendingIntents;
+  lock: LockAcquirer;
+  recompile: (reason: string) => void;
+  sink: (event: import('@openheaders/core/protocol').SyncBroadcastEvent) => void;
+  awarenessSink: (presence: AwarenessState[]) => void;
+}
+
+type WireDepsFactory = (workspaceId: string) => WireDeps;
+
+// ── Module state ─────────────────────────────────────────────────────
+
+const services = new Map<string, WorkspaceServiceState>();
+
+/** Workspace whose caches are currently registered as the per-entity singletons. */
+let currentActive: string | null = null;
 
 /**
- * Initialize the sync service for `workspaceId`. Idempotent for the
- * same workspace; switching workspaces should call {@link dispose}
- * first (or use {@link reinitForWorkspace}). Safe to call before any
- * UI surface is open — the IDB connections it opens are lazy and the
- * broadcast subscription is a no-op until something publishes.
+ * Disposal grace period for {@link releaseWorkspaceService}. Production
+ * default mirrors the design's 30s window; tests set this to 0 via
+ * {@link __initSyncServiceForTests} so disposal is synchronous and
+ * teardown assertions remain straightforward. Surfaced to users as the
+ * `general.workspaceServiceGracePeriodMs` setting (registered in the
+ * workbench schema; SW reads through a future settings-bridge step).
+ */
+let graceMs = 30_000;
+
+/**
+ * Active dependency factory. Production initializes at module load;
+ * {@link __initSyncServiceForTests} swaps it for in-memory deps.
+ */
+let depsFactory: WireDepsFactory = productionDepsFactory;
+
+// ── Public API: legacy active-flip shims ─────────────────────────────
+
+/**
+ * Make `workspaceId` the Active workspace. Idempotent for the same id.
+ * If a different workspace was Active, its cache singletons are
+ * detached and the Active ref is released (which schedules grace-
+ * period disposal unless another ref holds it).
+ *
+ * Lazy creation: the new workspace's service is materialized on demand
+ * via {@link getOrCreateWorkspaceService}; the Active pointer holds
+ * one refcount on it.
  */
 export function initSyncService(workspaceId: string): void {
-  if (state?.workspaceId === workspaceId) return;
-  if (state) dispose();
+  if (currentActive === workspaceId) return;
+  const oldActive = currentActive;
 
-  const log = new IdbMutationLog(workspaceId);
-  const intents = new IdbPendingIntents(workspaceId);
-  state = wire({
-    workspaceId,
-    log,
-    intents,
-    lock: ruleOracleLockAcquirer,
-    recompile: (reason) => scheduleUpdate(reason, { immediate: false }),
-    sink: (event) => bridgeBroadcast('syncBroadcast', event),
-    awarenessSink: (presence) => bridgeBroadcast('awarenessBroadcast', { workspaceId, presence }),
-  });
+  // Acquire the new service first (refcount++ via Active pointer).
+  const newSvc = getOrCreateWorkspaceService(workspaceId);
+
+  // Detach old singletons before attaching new — single-active invariant
+  // is structural here because cache singletons are module-level slots.
+  if (oldActive !== null) {
+    const oldSvc = services.get(oldActive);
+    if (oldSvc?.isActive) {
+      detachCaches(WORKSPACE_REGISTRY, oldSvc.caches);
+      oldSvc.isActive = false;
+    }
+  }
+
+  // Attach new singletons. Caches were built fresh inside
+  // `buildService` (see wire) but not yet registered as singletons —
+  // do that now.
+  for (let i = 0; i < WORKSPACE_REGISTRY.length; i++) {
+    const reg = WORKSPACE_REGISTRY[i];
+    const cache = newSvc.caches[i];
+    // Cast is sound: caches[i] was produced by reg.createCache earlier
+    // in `wire`, and `setActive`'s contract accepts the cache type it
+    // owns.
+    reg.setActive(cache as never);
+  }
+  newSvc.isActive = true;
+  currentActive = workspaceId;
+
+  // Release the old Active ref now that the new one is live. This may
+  // schedule grace-period disposal if no other refs hold the old
+  // workspace.
+  if (oldActive !== null) {
+    releaseWorkspaceService(oldActive);
+  }
+
   logger.info(
     'SyncService',
-    `Initialized for workspace ${workspaceId} (entity=${RULE_ENTITY_TYPE}, nodeId=${state.context.nodeId})`,
+    `Active workspace = ${workspaceId} (entity=${RULE_ENTITY_TYPE}, nodeId=${newSvc.context.nodeId})`,
   );
 }
 
-/** Tear down the active service — used on workspace switch + on shutdown. */
+/**
+ * Drop the Active pointer. The Active workspace's cache singletons are
+ * detached; its service may be torn down after grace if no other refs
+ * hold it. Used at SW shutdown and by the test harness.
+ */
 export function dispose(): void {
-  if (!state) return;
-  state.unsubscribeBroadcast();
-  state.dnrRunner.dispose();
-  state.resolverInvalidateRunner.dispose();
-  detachCaches(WORKSPACE_REGISTRY, state.caches);
-  state.awareness.dispose();
-  logger.info('SyncService', `Disposed (workspace ${state.workspaceId})`);
-  state = null;
+  if (currentActive === null) return;
+  const svc = services.get(currentActive);
+  if (svc?.isActive) {
+    detachCaches(WORKSPACE_REGISTRY, svc.caches);
+    svc.isActive = false;
+  }
+  const oldActive = currentActive;
+  currentActive = null;
+  releaseWorkspaceService(oldActive);
 }
 
-/**
- * Re-initialize for a new workspace in one call. Wraps the dispose +
- * init pair so background.ts doesn't need to reach into both.
- */
+/** Re-initialize for a new workspace in one call. */
 export function reinitForWorkspace(workspaceId: string): void {
-  dispose();
   initSyncService(workspaceId);
 }
 
+// ── Public API: per-workspace lifecycle (foundation for later commits) ──
+
 /**
- * Apply a `SyncApplyRequest` against the appropriate oracle.
+ * Lazy + refcount-incrementing accessor for a workspace's service
+ * state. Idempotent: subsequent calls return the same slot and bump
+ * its refcount. Cancels any pending grace-period disposal timer so
+ * a service with refcount=0 inside its grace window can be re-acquired
+ * cleanly.
  *
- * Routing: `extensionWorkspace` envelopes target the GLOBAL oracle
- * (workspace-list + active pointer live cross-workspace, scope is
- * `EXTENSION_WORKSPACE_GLOBAL_SCOPE`). Every other entity type lives at
- * per-workspace scope and routes to the active per-workspace oracle.
+ * The caller MUST pair every successful acquisition with exactly one
+ * {@link releaseWorkspaceService} call (or {@link disposeWorkspace} if
+ * the workspace is being deleted).
+ */
+export function getOrCreateWorkspaceService(workspaceId: string): WorkspaceServiceState {
+  let svc = services.get(workspaceId);
+  if (svc?.disposing) {
+    // A teardown is mid-flight; rebuild a fresh service. Should be
+    // unreachable today (teardown is synchronous) but the contract
+    // matters once seed-from-storage becomes async in later commits.
+    svc = undefined;
+  }
+  if (!svc) {
+    svc = buildService(depsFactory(workspaceId));
+    services.set(workspaceId, svc);
+  }
+  if (svc.disposalTimer !== null) {
+    clearTimeout(svc.disposalTimer);
+    svc.disposalTimer = null;
+  }
+  svc.refcount++;
+  return svc;
+}
+
+/**
+ * Decrement a workspace service's refcount. When refcount reaches 0 the
+ * service is scheduled for disposal after `graceMs`; the timer is
+ * cancellable by a subsequent {@link getOrCreateWorkspaceService}
+ * within the window. Already-disposing services are ignored.
+ */
+export function releaseWorkspaceService(workspaceId: string): void {
+  const svc = services.get(workspaceId);
+  if (!svc || svc.disposing) return;
+  svc.refcount = Math.max(0, svc.refcount - 1);
+  if (svc.refcount > 0) return;
+  if (svc.disposalTimer !== null) return; // already scheduled
+  if (graceMs <= 0) {
+    finalizeDisposal(svc);
+    return;
+  }
+  svc.disposalTimer = setTimeout(() => {
+    svc.disposalTimer = null;
+    if (svc.refcount === 0 && !svc.disposing) finalizeDisposal(svc);
+  }, graceMs);
+}
+
+/**
+ * Forced disposal — used on workspace deletion. Tears down the service
+ * regardless of refcount and removes it from the map immediately.
+ * In-flight applies that hold a refcount will see the next operation
+ * fail because the oracle's underlying resources are released; future
+ * commits add an explicit `disposing` short-circuit on the apply path.
+ */
+export function disposeWorkspace(workspaceId: string): void {
+  const svc = services.get(workspaceId);
+  if (!svc) return;
+  if (svc.disposalTimer !== null) {
+    clearTimeout(svc.disposalTimer);
+    svc.disposalTimer = null;
+  }
+  finalizeDisposal(svc);
+}
+
+/**
+ * Apply a `SyncApplyRequest` against the oracle indicated by
+ * `request.batch.workspaceId`. Lazily materializes the workspace's
+ * service if it isn't resident, brackets a refcount around the apply,
+ * and awaits `service.hydrated` before touching the oracle.
  *
- * Cross-scope batches are rejected — the per-batch all-or-nothing
- * invariant requires a single lock domain, and global vs. per-workspace
- * are deliberately separate domains so workspace-meta survives
- * `reinitForWorkspace` cycles. Production code never builds such a
- * mixed batch (renderer write-clients carry their target scope by
- * construction); the guard below catches misuse rather than handling
- * it.
- *
- * Throws if the service hasn't been initialized — that would mean a
- * renderer beat boot, which `background.ts` orders to avoid.
+ * Routing rules:
+ *   - Empty batches use the runtime-Active oracle (no workspaceId in
+ *     payload to dispatch on; legacy invariant preserved).
+ *   - Mixed-scope batches (global + per-workspace) are rejected — the
+ *     all-or-nothing per-batch contract requires a single lock domain.
+ *   - `extensionWorkspace` envelopes target the GLOBAL oracle.
+ *   - Every other entity type routes to the per-workspace oracle named
+ *     by `batch.workspaceId`.
  */
 export function applySyncRequest(request: SyncApplyRequest): Promise<SyncApplyResponse> {
-  if (!state) {
-    throw new Error('SyncService.applySyncRequest called before init');
-  }
   if (request.batch.mutations.length === 0) {
-    return handleSyncApply(state.oracle, request);
+    if (currentActive === null) {
+      throw new Error('SyncService.applySyncRequest called before init');
+    }
+    const svc = services.get(currentActive);
+    if (!svc) {
+      throw new Error('SyncService.applySyncRequest: Active workspace has no resident service');
+    }
+    return svc.hydrated.then(() => handleSyncApply(svc.oracle, request));
   }
+
   const isGlobal = request.batch.mutations[0].body.type === EXTENSION_WORKSPACE_ENTITY_TYPE;
   for (const env of request.batch.mutations) {
     const envIsGlobal = env.body.type === EXTENSION_WORKSPACE_ENTITY_TYPE;
@@ -214,6 +375,7 @@ export function applySyncRequest(request: SyncApplyRequest): Promise<SyncApplyRe
       );
     }
   }
+
   if (isGlobal) {
     const globalOracle = getGlobalOracle();
     if (!globalOracle) {
@@ -221,150 +383,197 @@ export function applySyncRequest(request: SyncApplyRequest): Promise<SyncApplyRe
     }
     return handleSyncApply(globalOracle, request);
   }
-  return handleSyncApply(state.oracle, request);
+
+  // Per-workspace path: dispatch on the first mutation's workspaceId.
+  // The all-or-nothing per-batch contract requires a single lock domain;
+  // mixed-workspace batches are rejected for the same reason mixed-scope
+  // ones are.
+  const wsId = request.batch.mutations[0].workspaceId;
+  for (const env of request.batch.mutations) {
+    if (env.workspaceId !== wsId) {
+      throw new Error(
+        'SyncService.applySyncRequest: mixed-workspace batch — split into separate batches per workspace',
+      );
+    }
+  }
+  const svc = getOrCreateWorkspaceService(wsId);
+  return svc.hydrated.then(() => handleSyncApply(svc.oracle, request)).finally(() => releaseWorkspaceService(wsId));
 }
 
 /**
  * Direct oracle access for SW-internal consumers (rule-store's write
  * path emits mutations through this rather than the bridge layer —
- * they're already in-process). Returns null when the service hasn't
- * been initialized so alarm dispatch paths don't crash on cold-wake
- * races.
+ * they're already in-process). Returns null when no Active workspace
+ * is set so alarm dispatch paths don't crash on cold-wake races.
  */
 export function getOracleForCurrentWorkspace(): EntityOracle | null {
-  return state?.oracle ?? null;
+  if (currentActive === null) return null;
+  return services.get(currentActive)?.oracle ?? null;
 }
 
 // ── Snapshot exports — consumed by `oh.sync.snapshotX` RPC handlers ──
 //
 // Each export returns the materialized post-state for the entity it
 // names; renderer mirrors call these on mount before subscribing to
-// the live broadcast. Returns `[]` when the service isn't initialized
-// (cold-wake race) — the renderer falls back to broadcast-only seeding.
+// the live broadcast. Returns `[]` when no Active workspace is set —
+// the renderer falls back to broadcast-only seeding.
+
+function activeOracle(): EntityOracle | null {
+  if (currentActive === null) return null;
+  return services.get(currentActive)?.oracle ?? null;
+}
 
 export function snapshotRulePostStates(): SyncRulePostState[] {
-  return state ? flatSnapshot(state.oracle, RULE_REGISTRATION) : [];
+  const o = activeOracle();
+  return o ? flatSnapshot(o, RULE_REGISTRATION) : [];
 }
 
 export function snapshotEnvironmentPostStates(): SyncEnvironmentPostState[] {
-  return state ? flatSnapshot(state.oracle, ENVIRONMENT_REGISTRATION) : [];
+  const o = activeOracle();
+  return o ? flatSnapshot(o, ENVIRONMENT_REGISTRATION) : [];
 }
 
 export function snapshotCollectionPostStates(): SyncCollectionPostState[] {
-  return state ? flatSnapshot(state.oracle, COLLECTION_REGISTRATION) : [];
+  const o = activeOracle();
+  return o ? flatSnapshot(o, COLLECTION_REGISTRATION) : [];
 }
 
 export function snapshotWorkspaceVariablesPostStates(): SyncWorkspaceVariablesPostState[] {
-  return state ? singletonSnapshot(state.oracle, WORKSPACE_VARIABLES_REGISTRATION) : [];
+  const o = activeOracle();
+  return o ? singletonSnapshot(o, WORKSPACE_VARIABLES_REGISTRATION) : [];
 }
 
 export function snapshotVaultPostStates(): SyncVaultPostState[] {
-  return state ? singletonSnapshot(state.oracle, VAULT_REGISTRATION) : [];
+  const o = activeOracle();
+  return o ? singletonSnapshot(o, VAULT_REGISTRATION) : [];
 }
 
 export function snapshotFolderPostStates(): SyncFolderPostState[] {
-  return state ? flatSnapshot(state.oracle, FOLDER_REGISTRATION) : [];
+  const o = activeOracle();
+  return o ? flatSnapshot(o, FOLDER_REGISTRATION) : [];
 }
 
 export function snapshotRequestPostStates(): SyncRequestPostState[] {
-  return state ? flatSnapshot(state.oracle, REQUEST_REGISTRATION) : [];
+  const o = activeOracle();
+  return o ? flatSnapshot(o, REQUEST_REGISTRATION) : [];
 }
 
 export function snapshotRequestCollectionPostStates(): SyncRequestCollectionPostState[] {
-  return state ? flatSnapshot(state.oracle, REQUEST_COLLECTION_REGISTRATION) : [];
+  const o = activeOracle();
+  return o ? flatSnapshot(o, REQUEST_COLLECTION_REGISTRATION) : [];
 }
 
 export function snapshotRequestFolderPostStates(): SyncRequestFolderPostState[] {
-  return state ? flatSnapshot(state.oracle, REQUEST_FOLDER_REGISTRATION) : [];
+  const o = activeOracle();
+  return o ? flatSnapshot(o, REQUEST_FOLDER_REGISTRATION) : [];
 }
 
 export function snapshotTemplatePostStates(): SyncTemplatePostState[] {
-  return state ? flatSnapshot(state.oracle, TEMPLATE_REGISTRATION) : [];
+  const o = activeOracle();
+  return o ? flatSnapshot(o, TEMPLATE_REGISTRATION) : [];
 }
 
 export function snapshotTemplateCollectionPostStates(): SyncTemplateCollectionPostState[] {
-  return state ? flatSnapshot(state.oracle, TEMPLATE_COLLECTION_REGISTRATION) : [];
+  const o = activeOracle();
+  return o ? flatSnapshot(o, TEMPLATE_COLLECTION_REGISTRATION) : [];
 }
 
 export function snapshotTemplateFolderPostStates(): SyncTemplateFolderPostState[] {
-  return state ? flatSnapshot(state.oracle, TEMPLATE_FOLDER_REGISTRATION) : [];
+  const o = activeOracle();
+  return o ? flatSnapshot(o, TEMPLATE_FOLDER_REGISTRATION) : [];
 }
 
 export function snapshotLiveVariablePostStates(): SyncLiveVariablePostState[] {
-  return state ? flatSnapshot(state.oracle, LIVE_VARIABLE_REGISTRATION) : [];
+  const o = activeOracle();
+  return o ? flatSnapshot(o, LIVE_VARIABLE_REGISTRATION) : [];
 }
 
 export function snapshotLiveWorkflowPostStates(): SyncLiveWorkflowPostState[] {
-  return state ? flatSnapshot(state.oracle, LIVE_WORKFLOW_REGISTRATION) : [];
+  const o = activeOracle();
+  return o ? flatSnapshot(o, LIVE_WORKFLOW_REGISTRATION) : [];
 }
 
 export function snapshotOAuthBundlePostStates(): SyncOAuthBundlePostState[] {
-  return state ? singletonSnapshot(state.oracle, OAUTH_BUNDLE_REGISTRATION) : [];
+  const o = activeOracle();
+  return o ? singletonSnapshot(o, OAUTH_BUNDLE_REGISTRATION) : [];
 }
 
 export function snapshotPauseMarkersPostStates(): SyncPauseMarkersPostState[] {
-  return state ? singletonSnapshot(state.oracle, PAUSE_MARKERS_REGISTRATION) : [];
+  const o = activeOracle();
+  return o ? singletonSnapshot(o, PAUSE_MARKERS_REGISTRATION) : [];
 }
 
 export function snapshotLayoutStatePostStates(): SyncLayoutStatePostState[] {
-  return state ? singletonSnapshot(state.oracle, LAYOUT_STATE_REGISTRATION) : [];
+  const o = activeOracle();
+  return o ? singletonSnapshot(o, LAYOUT_STATE_REGISTRATION) : [];
 }
 
 export function snapshotFilesPostStates(): SyncFilesPostState[] {
-  return state ? singletonSnapshot(state.oracle, FILES_REGISTRATION) : [];
+  const o = activeOracle();
+  return o ? singletonSnapshot(o, FILES_REGISTRATION) : [];
 }
+
+// ── Awareness ────────────────────────────────────────────────────────
 
 /**
  * Apply an awareness publish from a renderer surface. Returns the
  * post-GC presence so the caller's local mirror has an immediate
  * synchronous answer; the subsequent `awarenessBroadcast` carries the
  * same shape to every other surface. Cross-workspace publishes (a
- * renderer that hasn't observed an active-workspace switch yet) drop
+ * renderer that hasn't observed an Active workspace switch yet) drop
  * to an empty presence list rather than throwing — the renderer's
  * mirror clears the entry.
  */
 export function publishAwareness(request: AwarenessPublishRequest): AwarenessPublishResponse {
-  return handleAwarenessPublish(
-    (workspaceId) => (state && state.workspaceId === workspaceId ? state.awareness : null),
-    request,
-  );
+  return handleAwarenessPublish((workspaceId) => services.get(workspaceId)?.awareness ?? null, request);
 }
 
 /**
- * Direct accessor for SW-internal consumers (e.g. tests). Returns null
- * when the service isn't initialized or the requested workspace isn't
- * the active one.
+ * Direct accessor for SW-internal consumers (e.g. tests). Returns the
+ * Active workspace's awareness store, or null when no Active workspace
+ * is set.
  */
 export function getAwarenessStoreForCurrentWorkspace(): AwarenessStore | null {
-  return state?.awareness ?? null;
+  if (currentActive === null) return null;
+  return services.get(currentActive)?.awareness ?? null;
 }
 
 /**
- * Snapshot the canonical presence list — used by renderer surfaces on
- * mount so they have a starting view before the next publish/broadcast.
+ * Snapshot the canonical presence list for the Active workspace — used
+ * by renderer surfaces on mount so they have a starting view before
+ * the next publish/broadcast.
  */
 export function snapshotAwarenessPresence(): AwarenessState[] {
-  return state?.awareness.list() ?? [];
+  if (currentActive === null) return [];
+  return services.get(currentActive)?.awareness.list() ?? [];
 }
 
 /**
- * Drop a presence row by `instanceId`. Called by the lifeline port
- * handler on `onDisconnect`, which fires whenever a surface unmounts
- * or the tab closes — connection-bound liveness instead of polling.
+ * Drop a presence row by `instanceId` across every resident workspace.
+ * Called by the lifeline port handler on `onDisconnect`, which fires
+ * whenever a surface unmounts or the tab closes — connection-bound
+ * liveness instead of polling. The lifeline doesn't know which
+ * workspace the surface was attached to (a surface may have rebound
+ * during its lifetime), so the sweep clears the row from every
+ * resident workspace; missing rows are silent no-ops.
  */
 export function removeAwarenessByInstanceId(instanceId: string): void {
-  state?.awareness.remove(instanceId);
+  for (const svc of services.values()) {
+    svc.awareness.remove(instanceId);
+  }
 }
 
 /**
- * Mint a fresh `MutatorContext` from the SW's HLC sequencer. Used
- * by SW-internal callers (rule-store, hydration) — surfaces hosted in
- * a renderer mint their own contexts with their own nodeId.
+ * Mint a fresh `MutatorContext` from the Active workspace's HLC
+ * sequencer. Used by SW-internal callers (rule-store, hydration) —
+ * surfaces hosted in a renderer mint their own contexts with their
+ * own nodeId.
  */
 export function nextSwMutatorContext(
   opts?: Parameters<SwContextHandle['next']>[0],
 ): import('@openheaders/core/sync').MutatorContext | null {
-  return state?.context.next(opts) ?? null;
+  if (currentActive === null) return null;
+  return services.get(currentActive)?.context.next(opts) ?? null;
 }
 
 // ── Test-only entry point ────────────────────────────────────────────
@@ -380,40 +589,74 @@ export interface SyncServiceTestDeps {
 }
 
 /**
- * Initialize the service with in-memory dependencies. Skips IDB +
- * chrome.runtime broadcast wiring so tests don't need fake-indexeddb
- * or a chrome bridge fixture. The cache + oracle + broadcast bus are
- * the real production classes — only the persistence + lock
- * adapters are swapped.
+ * Initialize the service with in-memory dependencies. Disposes any
+ * resident services synchronously (`graceMs = 0` for the duration of
+ * the test) so each test starts from a clean slate. The cache + oracle
+ * + broadcast bus are the real production classes — only persistence
+ * + lock adapters are swapped.
  */
-export function __initSyncServiceForTests(
-  workspaceId: string,
-  deps: SyncServiceTestDeps = {},
-): void {
-  if (state) dispose();
-  state = wire({
-    workspaceId,
+export function __initSyncServiceForTests(workspaceId: string, deps: SyncServiceTestDeps = {}): void {
+  graceMs = 0;
+  // Reset Active + tear down every resident service synchronously.
+  if (currentActive !== null) {
+    const svc = services.get(currentActive);
+    if (svc?.isActive) {
+      detachCaches(WORKSPACE_REGISTRY, svc.caches);
+      svc.isActive = false;
+    }
+    currentActive = null;
+  }
+  for (const id of Array.from(services.keys())) {
+    disposeWorkspace(id);
+  }
+
+  // Swap the deps factory so subsequent lazy materializations use the
+  // injected log/intents/lock/recompile. The factory captures the deps
+  // closure once; every workspace built in this test session reuses
+  // the same instances. Tests that assert cross-workspace behavior
+  // override the factory directly via {@link __setWireDepsFactoryForTests}.
+  depsFactory = (id) => ({
+    workspaceId: id,
     log: deps.log ?? new InMemoryMutationLog(),
     intents: deps.intents ?? new InMemoryPendingIntents(),
     lock: deps.lock ?? ((_ws, _t, _id, fn) => Promise.resolve().then(fn)),
     recompile: deps.recompile ?? (() => {}),
-    // No chrome.runtime sink in tests — the in-memory broadcast +
-    // cache subscription cover the SW-side observable surface.
     sink: () => {},
     awarenessSink: () => {},
   });
+
+  initSyncService(workspaceId);
+}
+
+/**
+ * Override the dependency factory directly. Used by integration tests
+ * that need each per-workspace service to receive its own log/intents
+ * (cross-workspace isolation tests in commit 3). Callers should call
+ * this BEFORE any `getOrCreateWorkspaceService` so the factory is in
+ * place when materialization fires.
+ */
+export function __setWireDepsFactoryForTests(factory: WireDepsFactory): void {
+  depsFactory = factory;
+}
+
+/** Override the disposal grace window — used by tests that exercise
+ *  the grace + cancellation lifecycle directly. */
+export function __setGracePeriodMsForTests(ms: number): void {
+  graceMs = ms;
 }
 
 // ── Internals ───────────────────────────────────────────────────────
 
-interface WireDeps {
-  workspaceId: string;
-  log: MutationLog;
-  intents: PendingIntents;
-  lock: LockAcquirer;
-  recompile: (reason: string) => void;
-  sink: (event: import('@openheaders/core/protocol').SyncBroadcastEvent) => void;
-  awarenessSink: (presence: AwarenessState[]) => void;
+function productionDepsFactory(workspaceId: string): WireDeps {
+  return {
+    workspaceId,
+    log: new IdbMutationLog(workspaceId),
+    intents: new IdbPendingIntents(workspaceId),
+    lock: ruleOracleLockAcquirer,
+    recompile: (reason) => scheduleUpdate(reason, { immediate: false }),
+    sink: (event) => bridgeBroadcast('syncBroadcast', event),
+    awarenessSink: (presence) => bridgeBroadcast('awarenessBroadcast', { workspaceId, presence }),
+  };
 }
 
 /**
@@ -422,8 +665,14 @@ interface WireDeps {
  * runners and the awareness store are the only pieces with shape that
  * changes between scopes; everything else is pulled from
  * `WORKSPACE_REGISTRY`.
+ *
+ * Caches are constructed and subscribed to the workspace's broadcast
+ * bus, but NOT yet registered as the per-entity active singletons —
+ * that happens in {@link initSyncService} when this workspace becomes
+ * Active. Non-Active resident workspaces hold caches scoped to their
+ * own service state without affecting `getActiveXCache` consumers.
  */
-function wire(deps: WireDeps): ServiceState {
+function buildService(deps: WireDeps): WorkspaceServiceState {
   const broadcast = new InMemoryBroadcast();
   const context = createSwContextHandle(deps.workspaceId);
   const oracle = new EntityOracle({
@@ -435,7 +684,13 @@ function wire(deps: WireDeps): ServiceState {
     schemas: buildSchemaRegistry(WORKSPACE_REGISTRY),
   });
 
-  const caches = attachCaches(deps.workspaceId, oracle, broadcast, context, WORKSPACE_REGISTRY);
+  // Build caches via the registry's createCache; do NOT register as
+  // singletons here. The Active flip in `initSyncService` registers
+  // the singletons for the Active workspace and detaches the previous
+  // owner.
+  const caches: EntityCacheLike[] = WORKSPACE_REGISTRY.map((reg) =>
+    reg.createCache(deps.workspaceId, oracle, broadcast, () => context.next()),
+  );
 
   // DNR intent runner — subscribes AFTER the rule + pause-markers
   // caches so by the time the runner asks rule-engine to recompile,
@@ -481,7 +736,10 @@ function wire(deps: WireDeps): ServiceState {
 
   return {
     workspaceId: deps.workspaceId,
+    hydrated: Promise.resolve(),
     oracle,
+    log: deps.log,
+    intents: deps.intents,
     broadcast,
     caches,
     context,
@@ -489,5 +747,35 @@ function wire(deps: WireDeps): ServiceState {
     dnrRunner,
     resolverInvalidateRunner,
     unsubscribeBroadcast,
+    refcount: 0,
+    disposalTimer: null,
+    disposing: false,
+    isActive: false,
   };
+}
+
+/**
+ * Tear down a workspace service unconditionally and remove it from
+ * the map. Idempotent — repeat calls on an already-disposed service
+ * are no-ops.
+ */
+function finalizeDisposal(svc: WorkspaceServiceState): void {
+  if (svc.disposing) return;
+  svc.disposing = true;
+  if (svc.disposalTimer !== null) {
+    clearTimeout(svc.disposalTimer);
+    svc.disposalTimer = null;
+  }
+  svc.unsubscribeBroadcast();
+  svc.dnrRunner.dispose();
+  svc.resolverInvalidateRunner.dispose();
+  if (svc.isActive) {
+    detachCaches(WORKSPACE_REGISTRY, svc.caches);
+    svc.isActive = false;
+  } else {
+    for (const cache of svc.caches) cache.dispose();
+  }
+  svc.awareness.dispose();
+  services.delete(svc.workspaceId);
+  logger.info('SyncService', `Disposed workspace ${svc.workspaceId}`);
 }
