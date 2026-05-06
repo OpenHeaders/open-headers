@@ -257,3 +257,199 @@ describe('multi-workspace-per-tab lint', () => {
     expect(block).not.toMatch(/workspaceId=\{workspacesApi\.activeWorkspaceId\}/);
   });
 });
+
+// ────────────────────────────────────────────────────────────────────────
+// MWPT-FULL foundation lint gates (sub-commit 1e)
+//
+// CI gates for the seventeen-invariant contract from
+// `docs/MWPT_FULL_ENTITY_MIGRATION_DESIGN.md` § 0.1. Twelve invariants
+// are lint-asserted (this block); four are runtime-tested in commit 3
+// I-* rows; five are doc-only reading discipline. The lints below pin
+// already-shipped 1a–1d state so future refactors can't quietly regress
+// the contract.
+// ────────────────────────────────────────────────────────────────────────
+
+const SYNC_SERVICE_FILE = join(REPO_ROOT, 'src', 'background', 'sync', 'service.ts');
+const STORAGE_KEYS_FILE = join(REPO_ROOT, 'src', 'shared', 'storage', 'keys.ts');
+const WORKSPACE_STORE_FILE = join(REPO_ROOT, 'src', 'background', 'modules', 'workspace-store.ts');
+const GENERAL_SCHEMA_FILE = join(REPO_ROOT, 'src', 'workbench', 'settings', 'schema', 'general.ts');
+const BACKGROUND_FILE = join(REPO_ROOT, 'src', 'background', 'background.ts');
+const POPUP_DIR = join(REPO_ROOT, 'src', 'popup');
+const SIDEPANEL_DIR = join(REPO_ROOT, 'src', 'sidepanel');
+const DEVTOOLS_DIR = join(REPO_ROOT, 'src', 'devtools');
+
+describe('MWPT-FULL foundation lint gates (sub-commit 1e)', () => {
+  it('lint #2 — applySyncRequest brackets the per-workspace ref via .finally(releaseWorkspaceService)', () => {
+    const text = readFileSync(SYNC_SERVICE_FILE, 'utf8');
+    const fnIdx = text.indexOf('export function applySyncRequest');
+    expect(fnIdx).toBeGreaterThan(-1);
+    const body = text.slice(fnIdx, fnIdx + 4000);
+    // Lazy acquire, then a `.finally(() => releaseWorkspaceService(<id>))`
+    // on the same Promise chain — structural refcount bracketing.
+    const acquireIdx = body.indexOf('getOrCreateWorkspaceService(');
+    expect(acquireIdx).toBeGreaterThan(-1);
+    const tail = body.slice(acquireIdx);
+    expect(tail).toMatch(/\.finally\(\s*\(\)\s*=>\s*releaseWorkspaceService\(/);
+  });
+
+  it('lint #3 — OH.tabBindings does NOT live in the chrome.storage.local namespace', () => {
+    const text = readFileSync(STORAGE_KEYS_FILE, 'utf8');
+    // Per design § 4.0.3 / § 4.0.7 the per-tab binding map is workbench
+    // sessionStorage canonical + SW in-memory derived from lifelines.
+    // No persisted chrome.storage.local key may exist for tabBindings.
+    expect(text).not.toMatch(/['"]oh\.tabBindings['"]/);
+    expect(text).not.toMatch(/\btabBindings\s*:\s*storageKey/);
+  });
+
+  it('lint #6 — TopBar workspace-switcher in global mode unconditionally writes Active', () => {
+    const text = readFileSync(APP_TSX, 'utf8');
+    const startIdx = text.indexOf('handleSwitchWorkspace');
+    expect(startIdx).toBeGreaterThan(-1);
+    const slice = text.slice(startIdx, startIdx + 4000);
+    // The non-per-window-or-tab branch (global mode) reaches
+    // `setActiveWorkspace` unconditionally — no checkbox guard, no
+    // additional mode branch. The per-window-or-tab early return is the
+    // only structural exit before the global write.
+    const perTabReturnIdx = slice.indexOf("if (mode === 'per-window-or-tab')");
+    expect(perTabReturnIdx).toBeGreaterThan(-1);
+    const globalArm = slice.slice(perTabReturnIdx);
+    expect(globalArm).toMatch(/setActiveWorkspace\(targetId\)/);
+  });
+
+  it('lint #8 — stale-Active boot fallback walks Active → Default → first', () => {
+    const text = readFileSync(WORKSPACE_STORE_FILE, 'utf8');
+    // The `validFor` helper composes the three-link fallback chain:
+    // storedActive ?? storedDefault ?? sorted-first.
+    expect(text).toMatch(/const\s+validFor\s*=\s*\(/);
+    expect(text).toMatch(
+      /validFor\(storedActive\)\s*\?\?\s*validFor\(storedDefault\)\s*\?\?\s*\[\.\.\.workspaces\]\.sort\(/,
+    );
+  });
+
+  it('lint #10 — general.workspaceServiceGracePeriodMs registered as a tunable setting', () => {
+    const text = readFileSync(GENERAL_SCHEMA_FILE, 'utf8');
+    expect(text).toMatch(/key:\s*['"]general\.workspaceServiceGracePeriodMs['"]/);
+    // Range pinned to a sensible band (0..600_000ms) so the production
+    // 30s default isn't accidentally widened to a value that defeats
+    // refcount disposal.
+    expect(text).toMatch(/v\.minValue\(0\)/);
+    expect(text).toMatch(/v\.maxValue\(600_000\)/);
+  });
+
+  it('lint #12 — setRuntimeActive single-flight chain swallows prior failures with .catch(() => undefined)', () => {
+    const text = readFileSync(SYNC_SERVICE_FILE, 'utf8');
+    const fnIdx = text.indexOf('export function setRuntimeActive');
+    expect(fnIdx).toBeGreaterThan(-1);
+    const body = text.slice(fnIdx, fnIdx + 1000);
+    // The chain MUST start with `.catch(() => undefined)` so a transient
+    // failure on the prior flip can't poison the subsequent flip.
+    expect(body).toMatch(/activeFlipChain\.catch\(\s*\(\)\s*=>\s*undefined\s*\)\.then\(/);
+    // And the chain handle MUST be re-anchored on settle (success OR
+    // failure), not just on resolve — otherwise a rejected flip leaves
+    // the chain stuck and the next call wedges.
+    expect(body).toMatch(/activeFlipChain\s*=\s*next\.then\(\s*\(\)\s*=>\s*undefined,\s*\(\)\s*=>\s*undefined,?\s*\)/);
+  });
+
+  it('lint #13 — boot calls setRuntimeActive(persistedActive); does not reimplement runner-attach', () => {
+    const text = readFileSync(BACKGROUND_FILE, 'utf8');
+    expect(text).toMatch(/await\s+setRuntimeActive\(\s*getActiveWorkspaceId\(\)\s*\)/);
+    // The boot path must NOT directly call attachActiveBoundRunners or
+    // attach DNR/resolver subscriptions inline — those live behind
+    // setRuntimeActive's atomicity contract.
+    expect(text).not.toMatch(/attachActiveBoundRunners/);
+    expect(text).not.toMatch(/createDnrIntentRunner/);
+    expect(text).not.toMatch(/createResolverInvalidateRunner/);
+  });
+
+  it('lint #14 — workbench mount order: workspace slice resolver fires BEFORE awareness lifeline', () => {
+    const text = readFileSync(APP_TSX, 'utf8');
+    // useWorkbenchWorkspaceSlice corrects a stale per-tab binding (deleted
+    // workspace → fall through to Default → first) BEFORE the lifeline
+    // would carry the wrong workspaceId payload to the SW. Pin the
+    // textual mount order; if a refactor inverts these the lint catches
+    // the regression that would invalidate the lifeline trust contract
+    // (design § 4.0.7).
+    const sliceIdx = text.indexOf('useWorkbenchWorkspaceSlice(');
+    const lifelineIdx = text.indexOf('<AwarenessIdentityProvider');
+    expect(sliceIdx).toBeGreaterThan(-1);
+    expect(lifelineIdx).toBeGreaterThan(-1);
+    expect(sliceIdx).toBeLessThan(lifelineIdx);
+  });
+
+  it('lint #15 — SetActiveResult is the 5-reason structured union', () => {
+    const text = readFileSync(SYNC_SERVICE_FILE, 'utf8');
+    const typeIdx = text.indexOf('export type SetActiveResult');
+    expect(typeIdx).toBeGreaterThan(-1);
+    const decl = text.slice(typeIdx, typeIdx + 1000);
+    expect(decl).toMatch(/\|\s*\{\s*ok:\s*true\s*\}/);
+    for (const reason of [
+      'workspace-disposed',
+      'workspace-not-found',
+      'hydration-failed',
+      'runner-attach-failed',
+      'storage-failed',
+    ]) {
+      expect(decl).toMatch(new RegExp(`reason:\\s*['"]${reason}['"]`));
+    }
+  });
+
+  it('lint #17a — exactly one dnrSubscription bookkeeping slot on WorkspaceServiceState', () => {
+    const text = readFileSync(SYNC_SERVICE_FILE, 'utf8');
+    // Exactly one declaration site on the interface; runner attach/detach
+    // is the single mutation surface (attachActiveBoundRunners /
+    // detachActiveBoundRunners). The "≤1 DNR-writing runner at a time"
+    // invariant becomes structural: there's only one slot to populate.
+    const decls = text.match(/\bdnrSubscription:\s*\{\s*dispose\(\):\s*void\s*\}\s*\|\s*null/g) ?? [];
+    expect(decls).toHaveLength(1);
+    // Mutation sites: exactly the attach/detach pair.
+    expect(text).toMatch(/svc\.dnrSubscription\s*=\s*createDnrIntentRunner/);
+    expect(text).toMatch(/svc\.dnrSubscription\?\.dispose\(\)/);
+    expect(text).toMatch(/svc\.dnrSubscription\s*=\s*null/);
+  });
+
+  it('lint #17b — outgoing-WS subscription path does not exist as a discrete runner module yet (sub-commit 1c framing)', () => {
+    // Per status doc Session 1: outgoing-ws-handler is not a separate
+    // subscription-bearing module today — the websocket out-path uses
+    // imperative `sendViaWebSocket`. The `outgoingWsSubscription` slot
+    // stays implicit until that path becomes broadcast-driven.
+    // Lint: there must be NO outgoing-ws runner factory + NO slot named
+    // outgoingWsSubscription on WorkspaceServiceState. When the path
+    // lands, this lint flips to mirror #17a.
+    const text = readFileSync(SYNC_SERVICE_FILE, 'utf8');
+    expect(text).not.toMatch(/createOutgoingWsRunner/);
+    expect(text).not.toMatch(/\boutgoingWsSubscription\s*:/);
+  });
+
+  it('lint F-15 — popup / side-panel / devtools surfaces never import lifeline state or workbench sessionStorage', () => {
+    const offenders: string[] = [];
+    for (const dir of [POPUP_DIR, SIDEPANEL_DIR, DEVTOOLS_DIR]) {
+      let files: string[];
+      try {
+        files = walk(dir);
+      } catch {
+        // Directory may not exist (e.g. devtools is a single index.ts file).
+        const st = (() => {
+          try {
+            return statSync(dir);
+          } catch {
+            return null;
+          }
+        })();
+        if (st?.isFile()) files = [dir];
+        else continue;
+      }
+      for (const file of files) {
+        const text = readFileSync(file, 'utf8');
+        // Lifeline server payload + workbench tab-session sessionStorage
+        // are both workbench-canonical surfaces. System surfaces read
+        // Active via standard storage subscriptions; reading lifeline
+        // bookkeeping or workbench's per-tab slice would couple system
+        // surfaces to workbench internals.
+        if (/buildLifelinePortName|oh\.awareness\.lifeline|readWorkspaceTabSession/.test(text)) {
+          offenders.push(relative(REPO_ROOT, file));
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+});
