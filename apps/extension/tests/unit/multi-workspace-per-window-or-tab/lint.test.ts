@@ -596,7 +596,9 @@ const VAULT_CONTEXT = join(REPO_ROOT, 'src', 'context', 'VaultContext.tsx');
 const POPUP_APP = join(REPO_ROOT, 'src', 'popup', 'App.tsx');
 const PANEL_APP = join(REPO_ROOT, 'src', 'panel', 'App.tsx');
 
-describe('MWPT-FULL session #1+#2+#3 — Environments + workspace variables + vault lint gates', () => {
+const VARIABLE_MUTATOR_HOOK = join(REPO_ROOT, 'src', 'hooks', 'useVariableMutator.ts');
+
+describe('MWPT-FULL session #1+#2+#3+#4 — Environments + workspace variables + vault + collection variables lint gates', () => {
   it('BC-MWPT-FULL-1-env — workbench App.tsx mounts EnvironmentProvider with editingScopeWorkspaceId override', () => {
     const text = readFileSync(APP_TSX, 'utf8');
     expect(text).toMatch(
@@ -705,5 +707,53 @@ describe('MWPT-FULL session #1+#2+#3 — Environments + workspace variables + va
     // No legacy `call('setVault', ...)` shim exists or survives — Phase B
     // is the only write path for this entity family (no § 4.1.c residual).
     expect(text).not.toMatch(/call\(\s*['"]setVault['"]/);
+  });
+
+  // ── Session #4 — Collection variables ─────────────────────────────
+  // Collection variables aren't a separate entity family (no Provider);
+  // they're a slice of the collection record. The seam is the mutator
+  // hook itself: useVariableMutator must read its workspaceId from
+  // useRules().activeWorkspaceId (which RuleProvider threads through
+  // activeWorkspaceIdOverride on the workbench surface), NOT from
+  // useActiveWorkspaceId() (= runtime-Active = bug under per-tab mode).
+
+  it('BC-MWPT-FULL-1-collvars — useVariableMutator reads workspaceId from useRules().activeWorkspaceId, not useActiveWorkspaceId()', () => {
+    const text = readFileSync(VARIABLE_MUTATOR_HOOK, 'utf8');
+    // Positive: workspaceId destructured from useRules() under the
+    // `activeWorkspaceId` alias.
+    expect(text).toMatch(/activeWorkspaceId\s*:\s*workspaceId/);
+    expect(text).toMatch(/=\s*useRules\(\)/);
+    // Negative: useActiveWorkspaceId() is not imported or called.
+    expect(text).not.toMatch(/useActiveWorkspaceId/);
+  });
+
+  it('BC-MWPT-FULL-2-collvars — useVariableMutator reads collection-list source via useRules() / useRequests()', () => {
+    // The collection records (and the variables slice within them) are
+    // already migrated to the per-workspace storage subscribe by the
+    // parent MWPT spike via RuleProvider's override branch. The mutator
+    // hook reads its source-of-truth lists through useRules() +
+    // useRequests() rather than reaching into chrome.storage directly
+    // or calling a list RPC.
+    const text = readFileSync(VARIABLE_MUTATOR_HOOK, 'utf8');
+    expect(text).toMatch(/localCollections\b/);
+    expect(text).toMatch(/templateCollections\b/);
+    expect(text).toMatch(/collections:\s*requestCollections\b/);
+    expect(text).toMatch(/useRequests\(\)/);
+    // Negative: no direct chrome.storage / extensionStorage reads, no
+    // legacy listCollections RPC.
+    expect(text).not.toMatch(/extensionStorage\./);
+    expect(text).not.toMatch(/call\(\s*['"]listCollections['"]/);
+  });
+
+  it('BC-MWPT-FULL-3-collvars — useVariableMutator routes collection-variable replacements through Phase B write-clients (no legacy call shim)', () => {
+    const text = readFileSync(VARIABLE_MUTATOR_HOOK, 'utf8');
+    expect(text).toMatch(/applyCollectionVariablesReplacement\(/);
+    expect(text).toMatch(/applyRequestCollectionVariablesReplacement\(/);
+    expect(text).toMatch(/applyTemplateCollectionVariablesReplacement\(/);
+    // No legacy `call('updateCollectionVariables', ...)` shim survives
+    // in the renderer mutator hook — Phase B is the only write path for
+    // collection variables. The legacy SW handler stays live for
+    // non-renderer callers until session #11 cleanup.
+    expect(text).not.toMatch(/call\(\s*['"]updateCollectionVariables['"]/);
   });
 });

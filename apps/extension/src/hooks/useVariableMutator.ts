@@ -26,7 +26,6 @@
  * oracle. Per-batch all-or-nothing covers atomic replacement.
  */
 
-import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
 import { useEnvVarVault } from '@hooks/useEnvVarVault';
 import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useRequests } from '@hooks/useRequests';
@@ -44,9 +43,7 @@ import { applyWorkspaceVariablesReplacement } from '@/shared/sync/workspace-vari
 
 export type MutationFailureReason = 'duplicate-name' | 'not-found' | 'other';
 
-export type MutationResult =
-  | { ok: true }
-  | { ok: false; reason: MutationFailureReason; message?: string };
+export type MutationResult = { ok: true } | { ok: false; reason: MutationFailureReason; message?: string };
 
 // ── Hook ─────────────────────────────────────────────────────────────
 
@@ -69,10 +66,9 @@ export interface UseVariableMutatorApi {
 
 export function useVariableMutator(): UseVariableMutatorApi {
   const { vault, environments, workspaceVariables: currentWorkspaceVariables } = useEnvVarVault();
-  const { localCollections, templateCollections } = useRules();
+  const { localCollections, templateCollections, activeWorkspaceId: workspaceId } = useRules();
   const { collections: requestCollections } = useRequests();
   const { setOverride } = useLiveVariables();
-  const workspaceId = useActiveWorkspaceId();
 
   const replaceWorkspaceVariables = useCallback<UseVariableMutatorApi['replaceWorkspaceVariables']>(
     async (variables) => {

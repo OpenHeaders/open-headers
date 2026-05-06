@@ -91,11 +91,13 @@ import {
   releaseWorkspaceService,
   type SetActiveResult,
   setRuntimeActive,
+  snapshotCollectionPostStates,
   snapshotEnvironmentPostStates,
   snapshotRulePostStates,
   snapshotVaultPostStates,
   snapshotWorkspaceVariablesPostStates,
 } from '@/background/sync/service';
+import { disposeAllCollectionSyncMirrors, getCollectionSyncMirrorForWorkspace } from '@/context/collection-sync-mirror';
 import { disposeAllEnvSyncMirrors, getEnvSyncMirrorForWorkspace } from '@/context/env-sync-mirror';
 import { setActiveRendererContext } from '@/context/renderer-mutator-context';
 import { disposeAllRuleSyncMirrors, getRuleSyncMirrorForWorkspace } from '@/context/rule-sync-mirror';
@@ -104,13 +106,13 @@ import {
   disposeAllWorkspaceVariablesSyncMirrors,
   getWorkspaceVariablesSyncMirrorForWorkspace,
 } from '@/context/workspace-variables-sync-mirror';
+import { applySyncPayload, resolveRendererContext } from '@/shared/sync/apply-payload';
+import { seedCollection } from '@/shared/sync/collection-projection';
+import { applyCollectionSetVar, applyCollectionVariablesReplacement } from '@/shared/sync/collection-write-client';
 import { applyEnvironmentCreate, applyEnvironmentDelete } from '@/shared/sync/env-write-client';
 import { applyRuleCreate, applyRuleDelete } from '@/shared/sync/rule-write-client';
 import { applyVaultSecretRemove, applyVaultSecretSet } from '@/shared/sync/vault-write-client';
-import {
-  applyWorkspaceVarRemove,
-  applyWorkspaceVarSet,
-} from '@/shared/sync/workspace-variables-write-client';
+import { applyWorkspaceVarRemove, applyWorkspaceVarSet } from '@/shared/sync/workspace-variables-write-client';
 
 type LockFn = <T>(wsId: string, type: string, id: string, fn: () => Promise<T>) => Promise<T>;
 
@@ -159,12 +161,17 @@ function setupHarness(): void {
     const wsId = (req as { workspaceId?: string }).workspaceId;
     return { entries: snapshotVaultPostStates(wsId) };
   });
+  mockBridge._setCallHandler('oh.sync.snapshotCollections', (req) => {
+    const wsId = (req as { workspaceId?: string }).workspaceId;
+    return { entries: snapshotCollectionPostStates(wsId) };
+  });
 
   // Reset renderer registries.
   disposeAllRuleSyncMirrors();
   disposeAllEnvSyncMirrors();
   disposeAllWorkspaceVariablesSyncMirrors();
   disposeAllVaultSyncMirrors();
+  disposeAllCollectionSyncMirrors();
   setActiveRendererContext(null);
 
   // Reset SW state. __init clears every resident service synchronously
@@ -222,6 +229,7 @@ afterEach(() => {
   disposeAllEnvSyncMirrors();
   disposeAllWorkspaceVariablesSyncMirrors();
   disposeAllVaultSyncMirrors();
+  disposeAllCollectionSyncMirrors();
   setActiveRendererContext(null);
   vi.useRealTimers();
 });
@@ -456,12 +464,8 @@ describe('I-1-wsvars / I-2-wsvars — Workspace variables per-family migration s
     expect(w2Logs).toBeDefined();
     const w1Entries = w1Logs ? await collectLogEntries(w1Logs) : [];
     const w2Entries = w2Logs ? await collectLogEntries(w2Logs) : [];
-    expect(
-      w1Entries.find((e) => e.body.type === 'workspace-variables'),
-    ).toBeUndefined();
-    expect(
-      w2Entries.find((e) => e.body.type === 'workspace-variables'),
-    ).toBeDefined();
+    expect(w1Entries.find((e) => e.body.type === 'workspace-variables')).toBeUndefined();
+    expect(w2Entries.find((e) => e.body.type === 'workspace-variables')).toBeDefined();
 
     // Sanity: a remove from tab2 also lands in w2 only — w1's
     // projection stays empty.
@@ -528,13 +532,145 @@ describe('I-1-vault / I-2-vault — Vault per-family migration session #3', () =
     expect(w1Entries.find((e) => e.body.type === 'vault')).toBeUndefined();
     expect(w2Entries.find((e) => e.body.type === 'vault')).toBeDefined();
 
-    const del = await applyVaultSecretRemove(
-      { uid: secret.uid },
-      { workspaceId: 'w2', surfaceId: 'workbench-tab-2' },
-    );
+    const del = await applyVaultSecretRemove({ uid: secret.uid }, { workspaceId: 'w2', surfaceId: 'workbench-tab-2' });
     expect(del.ok).toBe(true);
     await flush();
     expect(snapshotVaultPostStates('w1')).toEqual([]);
+
+    releaseWorkspaceService('w2');
+  });
+});
+
+async function seedCollectionShell(workspaceId: string, surfaceId: string, collection: V5.Collection): Promise<void> {
+  const ctx = resolveRendererContext({ workspaceId, surfaceId }).next({
+    batchId: `seed-${collection.uid}`,
+  });
+  const batch = seedCollection(collection, ctx);
+  const result = await applySyncPayload({ batch, sideEffects: [] });
+  if (!result.ok) throw new Error(`seedCollection failed: ${result.reason}`);
+}
+
+describe('I-1-collvars / I-2-collvars — Collection variables per-family migration session #4', () => {
+  it('I-1-collvars: collection mirror state == oracle collection projection per workspace', async () => {
+    await setActiveAwaited('w1');
+    const w1Mirror = getCollectionSyncMirrorForWorkspace('w1');
+    const w2Mirror = getCollectionSyncMirrorForWorkspace('w2');
+    getOrCreateWorkspaceService('w2');
+
+    const collectionUid = 'coll-uid-1';
+    const collection: V5.Collection = {
+      schemaVersion: 5,
+      uid: collectionUid,
+      path: 'rules/w2-coll',
+      name: 'w2-coll',
+      variables: [],
+      pinnedEnvironmentIds: [],
+      defaultEnvironmentId: null,
+    };
+    await seedCollectionShell('w2', 'workbench-tab', collection);
+    await flush();
+
+    const variable: V5.Variable = {
+      uid: 'cv-uid-1',
+      name: 'API_KEY',
+      value: 'w2-key',
+      type: 'default',
+    };
+    const result = await applyCollectionVariablesReplacement(collectionUid, [variable], [], {
+      workspaceId: 'w2',
+      surfaceId: 'workbench-tab',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('applyCollectionVariablesReplacement failed');
+    await flush();
+
+    expect(
+      w2Mirror.getCollectionMirror(collectionUid)?.collection.variables.find((v) => v.uid === variable.uid)?.value,
+    ).toBe(variable.value);
+    expect(w1Mirror.getCollectionMirror(collectionUid)).toBeNull();
+
+    const w2Snapshot = snapshotCollectionPostStates('w2');
+    expect(
+      w2Snapshot
+        .find((s) => s.collection.uid === collectionUid)
+        ?.collection.variables.find((v) => v.uid === variable.uid),
+    ).toBeDefined();
+    expect(snapshotCollectionPostStates('w1')).toEqual([]);
+
+    releaseWorkspaceService('w2');
+  });
+
+  it('I-2-collvars: w2 collection-variable replacement from a tab whose Active is w1 lands in w2 only', async () => {
+    // Active=w1 throughout; tab2 lifeline acquires w2. Reproduces the
+    // diverged-tab pattern: a collection-variable replacement mutated
+    // in tab2 must land in w2's MutationLog and never touch w1's
+    // projection. Pre-session-#4 the bug surfaced because
+    // useVariableMutator read its workspaceId from useActiveWorkspaceId()
+    // (= runtime-Active = w1) instead of useRules().activeWorkspaceId
+    // (= editing-scope = w2 via RuleProvider's override prop).
+    await setActiveAwaited('w1');
+    getOrCreateWorkspaceService('w2');
+
+    const collectionUid = 'coll-uid-tab2';
+    const collection: V5.Collection = {
+      schemaVersion: 5,
+      uid: collectionUid,
+      path: 'rules/tab2-coll',
+      name: 'tab2-coll',
+      variables: [],
+      pinnedEnvironmentIds: [],
+      defaultEnvironmentId: null,
+    };
+    await seedCollectionShell('w2', 'workbench-tab-2', collection);
+    await flush();
+
+    const variable: V5.Variable = {
+      uid: 'cv-uid-tab2',
+      name: 'TENANT',
+      value: 'tab2-tenant',
+      type: 'default',
+    };
+    const result = await applyCollectionVariablesReplacement(collectionUid, [variable], [], {
+      workspaceId: 'w2',
+      surfaceId: 'workbench-tab-2',
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('applyCollectionVariablesReplacement failed');
+    await flush();
+
+    const w1Logs = harness.logs.get('w1') as InMemoryMutationLog | undefined;
+    const w2Logs = harness.logs.get('w2') as InMemoryMutationLog | undefined;
+    expect(w2Logs).toBeDefined();
+    const w1Entries = w1Logs ? await collectLogEntries(w1Logs) : [];
+    const w2Entries = w2Logs ? await collectLogEntries(w2Logs) : [];
+    expect(w1Entries.find((e) => e.body.type === 'collection' && e.body.id === collectionUid)).toBeUndefined();
+    expect(w2Entries.find((e) => e.body.type === 'collection' && e.body.id === collectionUid)).toBeDefined();
+
+    // Sanity: a single-var upsert via applyCollectionSetVar from tab2
+    // also routes to w2 only (a second collectionUid keeps the assertion
+    // independent of the replacement above).
+    const collectionB: V5.Collection = {
+      schemaVersion: 5,
+      uid: 'coll-uid-tab2-b',
+      path: 'rules/tab2-coll-b',
+      name: 'tab2-coll-b',
+      variables: [],
+      pinnedEnvironmentIds: [],
+      defaultEnvironmentId: null,
+    };
+    await seedCollectionShell('w2', 'workbench-tab-2', collectionB);
+    await flush();
+    const setResult = await applyCollectionSetVar(
+      {
+        collectionUid: collectionB.uid,
+        variable: { uid: 'cv-uid-tab2-b', name: 'OTHER', value: 'other-w2', type: 'default' },
+      },
+      { workspaceId: 'w2', surfaceId: 'workbench-tab-2' },
+    );
+    expect(setResult.ok).toBe(true);
+    await flush();
+    const w1EntriesAfter = w1Logs ? await collectLogEntries(w1Logs) : [];
+    expect(w1EntriesAfter.find((e) => e.body.type === 'collection' && e.body.id === collectionB.uid)).toBeUndefined();
 
     releaseWorkspaceService('w2');
   });
