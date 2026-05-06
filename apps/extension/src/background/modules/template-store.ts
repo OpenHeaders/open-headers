@@ -38,15 +38,16 @@ import {
   buildDeleteTemplateFolderEntityBatch,
   buildRenameTemplateFolderBatch,
 } from '@/shared/sync/template-folder-mutations';
+import { buildAddBatch, buildDeleteBatch, buildUpdateBatch } from '@/shared/sync/template-mutations';
 import {
-  buildAddBatch,
-  buildDeleteBatch,
-  buildUpdateBatch,
-} from '@/shared/sync/template-mutations';
-import { getActiveTemplateCache } from '../sync/template-cache';
-import { getActiveTemplateCollectionCache } from '../sync/template-collection-cache';
-import { getActiveTemplateFolderCache } from '../sync/template-folder-cache';
-import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
+  TEMPLATE_COLLECTION_REGISTRATION,
+  TEMPLATE_FOLDER_REGISTRATION,
+  TEMPLATE_REGISTRATION,
+} from '../sync/entity-registry';
+import { getActiveCacheForRegistration, getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
+import type { TemplateCache } from '../sync/template-cache';
+import type { TemplateCollectionCache } from '../sync/template-collection-cache';
+import type { TemplateFolderCache } from '../sync/template-folder-cache';
 import type { LocalFolder } from './rule-store';
 import { driftRecorder } from './storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
@@ -108,16 +109,12 @@ function buildTreeForParent(
   const nodes: V5.TreeNode[] = [];
 
   const oracle = getOracleForCurrentWorkspace();
-  const slots = oracle
-    ? oracle.liveOrderedSetItems(parentType, parentUid, TEMPLATE_FOLDER_CHILDREN_PATH)
-    : [];
+  const slots = oracle ? oracle.liveOrderedSetItems(parentType, parentUid, TEMPLATE_FOLDER_CHILDREN_PATH) : [];
 
   let childFolders: LocalFolder[];
   if (slots.length > 0) {
     const byUid = new Map(templateFolders.map((f) => [f.uid, f]));
-    childFolders = slots
-      .map((slot) => byUid.get(slot.itemId))
-      .filter((f): f is LocalFolder => Boolean(f));
+    childFolders = slots.map((slot) => byUid.get(slot.itemId)).filter((f): f is LocalFolder => Boolean(f));
   } else {
     childFolders = templateFolders.filter((f) => {
       const parent = f.path.substring(0, f.path.lastIndexOf('/'));
@@ -233,17 +230,10 @@ export async function deleteTemplateCollection(uid: string): Promise<boolean> {
   // Cascade descendant template + template-folder deletes through the
   // oracle. The collection's tombstone covers its own parent slot for
   // top-level folders; nested folders/templates are deleted by uid.
-  const cascadingTemplateUids = templates
-    .filter((t) => t.path.startsWith(collection.path))
-    .map((t) => t.uid);
-  const cascadingFolderUids = templateFolders
-    .filter((f) => f.path.startsWith(collection.path))
-    .map((f) => f.uid);
+  const cascadingTemplateUids = templates.filter((t) => t.path.startsWith(collection.path)).map((t) => t.uid);
+  const cascadingFolderUids = templateFolders.filter((f) => f.path.startsWith(collection.path)).map((f) => f.uid);
   for (const templateUid of cascadingTemplateUids) {
-    await applyTemplateMutationOrThrow(
-      (ctx) => buildDeleteBatch(templateUid, ctx),
-      'deleteTemplateCollection-cascade',
-    );
+    await applyTemplateMutationOrThrow((ctx) => buildDeleteBatch(templateUid, ctx), 'deleteTemplateCollection-cascade');
   }
   for (const folderUid of cascadingFolderUids) {
     await applyTemplateFolderMutationOrThrow(
@@ -273,10 +263,7 @@ function resolveTemplateFolderParent(parentPath: string): TemplateFolderParentRe
   return null;
 }
 
-export async function createTemplateFolder(
-  name: string,
-  parentPath: string,
-): Promise<LocalFolder | null> {
+export async function createTemplateFolder(name: string, parentPath: string): Promise<LocalFolder | null> {
   assertLoaded();
   const parent = resolveTemplateFolderParent(parentPath);
   if (!parent) return null;
@@ -312,9 +299,7 @@ export async function deleteTemplateFolder(uid: string): Promise<boolean> {
 
   // Cascade descendant template + template-folder deletes through the
   // oracle.
-  const cascadingTemplateUids = templates
-    .filter((t) => t.path.startsWith(`${folder.path}/`))
-    .map((t) => t.uid);
+  const cascadingTemplateUids = templates.filter((t) => t.path.startsWith(`${folder.path}/`)).map((t) => t.uid);
   const cascadingNestedFolderUids = templateFolders
     .filter((f) => f.uid !== uid && f.path.startsWith(`${folder.path}/`))
     .map((f) => f.uid);
@@ -571,7 +556,7 @@ let folderCacheUnsubscribe: (() => void) | null = null;
  * first.
  */
 export async function bridgeTemplateSyncEngine(): Promise<void> {
-  const cache = getActiveTemplateCache();
+  const cache = getActiveCacheForRegistration<TemplateCache>(TEMPLATE_REGISTRATION);
   if (!cache) return;
   if (cacheUnsubscribe) {
     cacheUnsubscribe();
@@ -590,7 +575,7 @@ export async function bridgeTemplateSyncEngine(): Promise<void> {
  * template-collection cache.
  */
 export async function bridgeTemplateCollectionSyncEngine(): Promise<void> {
-  const cache = getActiveTemplateCollectionCache();
+  const cache = getActiveCacheForRegistration<TemplateCollectionCache>(TEMPLATE_COLLECTION_REGISTRATION);
   if (!cache) return;
   if (collectionCacheUnsubscribe) {
     collectionCacheUnsubscribe();
@@ -611,7 +596,7 @@ export async function bridgeTemplateCollectionSyncEngine(): Promise<void> {
  * folder seeds.
  */
 export async function bridgeTemplateFolderSyncEngine(): Promise<void> {
-  const cache = getActiveTemplateFolderCache();
+  const cache = getActiveCacheForRegistration<TemplateFolderCache>(TEMPLATE_FOLDER_REGISTRATION);
   if (!cache) return;
   if (folderCacheUnsubscribe) {
     folderCacheUnsubscribe();

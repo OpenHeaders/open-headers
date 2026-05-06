@@ -26,10 +26,7 @@ import { seedExtensionWorkspaces } from '@/shared/sync/extension-workspace-proje
 import type { InMemoryBroadcast } from './broadcast';
 import { projectExtensionWorkspaceSingleton } from './extension-workspace-post-state';
 import type { EntityOracle } from './oracle';
-import {
-  createSingletonEntityCache,
-  type SingletonEntityCache,
-} from './singleton-entity-cache';
+import { createSingletonEntityCache, type SingletonEntityCache } from './singleton-entity-cache';
 import type { SwMutatorContextFactory } from './sw-context';
 
 export interface ExtensionWorkspaceSnapshot {
@@ -59,8 +56,12 @@ export function createExtensionWorkspaceCache(
   broadcast: InMemoryBroadcast,
   contextFactory: SwMutatorContextFactory,
 ): ExtensionWorkspaceCache {
-  const core: SingletonEntityCache<ExtensionWorkspaceSnapshot, ExtensionWorkspaceSnapshot> =
-    createSingletonEntityCache(scope, oracle, broadcast, contextFactory, {
+  const core: SingletonEntityCache<ExtensionWorkspaceSnapshot, ExtensionWorkspaceSnapshot> = createSingletonEntityCache(
+    scope,
+    oracle,
+    broadcast,
+    contextFactory,
+    {
       entityType: EXTENSION_WORKSPACE_ENTITY_TYPE,
       loggerTag: 'ExtensionWorkspaceCache',
       emptySnapshot: EMPTY_EXTENSION_WORKSPACE,
@@ -70,9 +71,9 @@ export function createExtensionWorkspaceCache(
           ? { workspaces: projection.workspaces, activeWorkspaceId: projection.activeWorkspaceId }
           : null;
       },
-      buildSeedBatch: (input, ctx) =>
-        seedExtensionWorkspaces(input.workspaces, input.activeWorkspaceId, ctx),
-    });
+      buildSeedBatch: (input, ctx) => seedExtensionWorkspaces(input.workspaces, input.activeWorkspaceId, ctx),
+    },
+  );
 
   return {
     scope: core.scope,

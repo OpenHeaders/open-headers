@@ -27,8 +27,9 @@ import type { FileRefSlot, MutationBatch, MutatorContext, SideEffectIntent } fro
 import { logger } from '@utils/logger';
 import * as BlobStore from '@/shared/files/blob-store';
 import { buildAddFileRefBatch, buildRemoveFileRefBatch, buildRenameFileRefBatch } from '@/shared/sync/files-mutations';
-import { getActiveFilesCache } from '../sync/files-cache';
-import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
+import { FILES_REGISTRATION } from '../sync/entity-registry';
+import type { FilesCache } from '../sync/files-cache';
+import { getActiveCacheForRegistration, getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
 import { getActiveWorkspaceId } from './workspace-store';
 
 // ── Change listeners ────────────────────────────────────────────────
@@ -210,7 +211,7 @@ let cacheUnsubscribe: (() => void) | null = null;
  * record).
  */
 export async function bridgeFilesSyncEngine(): Promise<void> {
-  const cache = getActiveFilesCache();
+  const cache = getActiveCacheForRegistration<FilesCache>(FILES_REGISTRATION);
   if (!cache) return;
   if (cacheUnsubscribe) {
     cacheUnsubscribe();

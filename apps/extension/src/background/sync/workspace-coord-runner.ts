@@ -91,9 +91,7 @@ export interface WorkspaceCoordRunner {
   dispose(): void;
 }
 
-export function createWorkspaceCoordRunner(
-  config: WorkspaceCoordRunnerConfig,
-): WorkspaceCoordRunner {
+export function createWorkspaceCoordRunner(config: WorkspaceCoordRunnerConfig): WorkspaceCoordRunner {
   const { broadcast, intents, getActiveWorkspaceId, swap, purge } = config;
   let queue: Promise<void> = Promise.resolve();
 

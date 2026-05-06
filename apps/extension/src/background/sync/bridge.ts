@@ -14,11 +14,7 @@
  * Phase A's W-series consumes that.
  */
 
-import type {
-  SyncApplyRequest,
-  SyncApplyResponse,
-  SyncBroadcastEvent,
-} from '@openheaders/core/protocol';
+import type { SyncApplyRequest, SyncApplyResponse, SyncBroadcastEvent } from '@openheaders/core/protocol';
 import { SYNC_BROADCAST_TYPE } from '@openheaders/core/protocol';
 import type { MutationEnvelope } from '@openheaders/core/sync';
 import type { BroadcastEvent, MutationBroadcast } from './broadcast';
@@ -88,10 +84,7 @@ export function composeProjectors(...projectors: BroadcastProjector[]): Broadcas
 }
 
 /** Glue: oracle apply result → on-the-wire {@link SyncApplyResponse}. */
-export async function handleSyncApply(
-  oracle: EntityOracle,
-  request: SyncApplyRequest,
-): Promise<SyncApplyResponse> {
+export async function handleSyncApply(oracle: EntityOracle, request: SyncApplyRequest): Promise<SyncApplyResponse> {
   const result = await oracle.apply(request.batch, request.sideEffects);
   if (result.ok) {
     return { ok: true, outcomes: result.outcomes };

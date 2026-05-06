@@ -17,11 +17,7 @@
  * sorted array, and the differences aren't worth genericizing.
  */
 
-import {
-  type MaterializedEntity,
-  type MutationBatch,
-  type MutatorContext,
-} from '@openheaders/core/sync';
+import type { MaterializedEntity, MutationBatch, MutatorContext } from '@openheaders/core/sync';
 import { logger } from '@utils/logger';
 import { extensionStorage, type StorageKey } from '@/shared/storage';
 import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';

@@ -25,8 +25,8 @@ import {
   FOLDER_CHILDREN_PATH,
   FOLDER_ENTITY_TYPE,
   type FolderParentRef,
-  mintBatch as mintCollectionBatch,
   type MutationBody,
+  mintBatch as mintCollectionBatch,
 } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
@@ -46,10 +46,11 @@ import {
   buildRenameFolderBatch,
 } from '@/shared/sync/folder-mutations';
 import { buildAddBatch, buildDeleteBatch } from '@/shared/sync/rule-mutations';
-import { getActiveCollectionCache } from '../sync/collection-cache';
-import { getActiveFolderCache } from '../sync/folder-cache';
-import { getActiveRuleCache } from '../sync/rule-cache';
-import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
+import type { CollectionCache } from '../sync/collection-cache';
+import { COLLECTION_REGISTRATION, FOLDER_REGISTRATION, RULE_REGISTRATION } from '../sync/entity-registry';
+import type { FolderCache } from '../sync/folder-cache';
+import type { RuleCache } from '../sync/rule-cache';
+import { getActiveCacheForRegistration, getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
 import { driftRecorder } from './storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
 
@@ -137,9 +138,7 @@ function buildTreeForParent(
   let childFolders: LocalFolder[];
   if (slots.length > 0) {
     const byUid = new Map(folders.map((f) => [f.uid, f]));
-    childFolders = slots
-      .map((slot) => byUid.get(slot.itemId))
-      .filter((f): f is LocalFolder => Boolean(f));
+    childFolders = slots.map((slot) => byUid.get(slot.itemId)).filter((f): f is LocalFolder => Boolean(f));
   } else {
     childFolders = folders.filter((f) => {
       const parent = f.path.substring(0, f.path.lastIndexOf('/'));
@@ -247,9 +246,7 @@ export function createCollection(name: string): V5.Collection {
  * retired in Phase B — convergence is per-(field) LWW at the oracle,
  * not a versioned compare-and-set.
  */
-export type CollectionWriteResult =
-  | { ok: true; collection: V5.Collection }
-  | { ok: false; reason: 'not-found' };
+export type CollectionWriteResult = { ok: true; collection: V5.Collection } | { ok: false; reason: 'not-found' };
 
 export async function renameCollection(uid: string, name: string): Promise<CollectionWriteResult> {
   assertLoaded();
@@ -307,10 +304,7 @@ export async function deleteCollection(uid: string): Promise<boolean> {
  * `useVariableMutator` / `useCollectionMutator`. Both paths converge
  * through the same oracle.
  */
-export async function updateCollectionVariables(
-  uid: string,
-  variables: V5.Variable[],
-): Promise<CollectionWriteResult> {
+export async function updateCollectionVariables(uid: string, variables: V5.Variable[]): Promise<CollectionWriteResult> {
   assertLoaded();
   const existing = collections.find((c) => c.uid === uid);
   if (!existing) return { ok: false, reason: 'not-found' };
@@ -337,10 +331,13 @@ export async function updateCollectionPinnedEnvs(
   if (!collections.some((c) => c.uid === collectionUid)) return false;
   await applyCollectionMutationOrThrow(
     (ctx) =>
-      buildSetPinnedAndDefaultBatch({ collectionUid, pinnedEnvironmentIds, defaultEnvironmentId }, {
-        ...ctx,
-        batchId: ctx.batchId ?? `coll-pinned-${collectionUid}`,
-      }),
+      buildSetPinnedAndDefaultBatch(
+        { collectionUid, pinnedEnvironmentIds, defaultEnvironmentId },
+        {
+          ...ctx,
+          batchId: ctx.batchId ?? `coll-pinned-${collectionUid}`,
+        },
+      ),
     'updateCollectionPinnedEnvs',
   );
   return true;
@@ -372,11 +369,7 @@ function buildVariableReplacementBodies(
   }
   for (const [name, variable] of newByName) {
     const prev = oldByName.get(name);
-    if (
-      prev &&
-      prev.value === variable.value &&
-      (prev.type ?? 'default') === (variable.type ?? 'default')
-    ) {
+    if (prev && prev.value === variable.value && (prev.type ?? 'default') === (variable.type ?? 'default')) {
       continue;
     }
     bodies.push({
@@ -438,10 +431,7 @@ export async function createFolder(name: string, parentPath: string): Promise<Lo
 export async function renameFolder(uid: string, name: string): Promise<boolean> {
   assertLoaded();
   if (!folders.some((f) => f.uid === uid)) return false;
-  await applyFolderMutationOrThrow(
-    (ctx) => buildRenameFolderBatch({ folderUid: uid, name }, ctx),
-    'renameFolder',
-  );
+  await applyFolderMutationOrThrow((ctx) => buildRenameFolderBatch({ folderUid: uid, name }, ctx), 'renameFolder');
   return true;
 }
 
@@ -473,10 +463,7 @@ export async function deleteFolder(uid: string): Promise<boolean> {
   // to the bare entity tombstone — the parent's tombstone covers slot
   // cleanup.
   if (parent) {
-    await applyFolderMutationOrThrow(
-      (ctx) => buildDeleteFolderBatch({ folderUid: uid, parent }, ctx),
-      'deleteFolder',
-    );
+    await applyFolderMutationOrThrow((ctx) => buildDeleteFolderBatch({ folderUid: uid, parent }, ctx), 'deleteFolder');
   } else {
     await applyFolderMutationOrThrow(
       (ctx) => ({ batch: buildDeleteFolderEntityBatch(uid, ctx), sideEffects: [] }),
@@ -716,7 +703,7 @@ let folderCacheUnsubscribe: (() => void) | null = null;
  * the prior cache subscription is dropped first.
  */
 export async function bridgeToSyncEngine(): Promise<void> {
-  const cache = getActiveRuleCache();
+  const cache = getActiveCacheForRegistration<RuleCache>(RULE_REGISTRATION);
   if (!cache) {
     logger.info('RuleStore', 'bridgeToSyncEngine: no active cache; skipping');
     return;
@@ -747,7 +734,7 @@ export async function bridgeToSyncEngine(): Promise<void> {
  * `initSyncService(workspaceId)` AND AFTER hydration / switch.
  */
 export async function bridgeCollectionSyncEngine(): Promise<void> {
-  const cache = getActiveCollectionCache();
+  const cache = getActiveCacheForRegistration<CollectionCache>(COLLECTION_REGISTRATION);
   if (!cache) {
     logger.info('RuleStore', 'bridgeCollectionSyncEngine: no active cache; skipping');
     return;
@@ -774,7 +761,7 @@ export async function bridgeCollectionSyncEngine(): Promise<void> {
  * exist in the oracle when each folder seeds.
  */
 export async function bridgeFolderSyncEngine(): Promise<void> {
-  const cache = getActiveFolderCache();
+  const cache = getActiveCacheForRegistration<FolderCache>(FOLDER_REGISTRATION);
   if (!cache) {
     logger.info('RuleStore', 'bridgeFolderSyncEngine: no active cache; skipping');
     return;

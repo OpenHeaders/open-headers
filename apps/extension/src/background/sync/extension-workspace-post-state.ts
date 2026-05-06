@@ -14,14 +14,14 @@
  * stay byte-stable.
  */
 
+import type { SyncExtensionWorkspacePostState } from '@openheaders/core/protocol';
 import {
-  type ExtensionWorkspaceSlot,
   EXTENSION_WORKSPACE_ACTIVE_ID_PATH,
   EXTENSION_WORKSPACE_ENTITY_TYPE,
   EXTENSION_WORKSPACE_ID,
   EXTENSION_WORKSPACES_SET_PATH,
+  type ExtensionWorkspaceSlot,
 } from '@openheaders/core/sync';
-import type { SyncExtensionWorkspacePostState } from '@openheaders/core/protocol';
 import type { V5 } from '@openheaders/core/types';
 import { makeSingletonEntityProjectors } from './flat-entity-post-state';
 import type { EntityOracle } from './oracle';
@@ -68,10 +68,7 @@ const isExtensionWorkspaceSlot = (v: unknown): v is ExtensionWorkspaceSlot => {
   );
 };
 
-function toExtensionWorkspace(
-  slot: ExtensionWorkspaceSlot,
-  sortIndex: number,
-): V5.ExtensionWorkspace {
+function toExtensionWorkspace(slot: ExtensionWorkspaceSlot, sortIndex: number): V5.ExtensionWorkspace {
   return {
     schemaVersion: 5,
     id: slot.id,

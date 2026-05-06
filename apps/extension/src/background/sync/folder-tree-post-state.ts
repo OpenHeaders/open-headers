@@ -16,18 +16,12 @@
  * one document store.
  */
 
-import {
-  type MaterializedEntity,
-  type MutationEnvelope,
-} from '@openheaders/core/sync';
+import type { MaterializedEntity, MutationEnvelope } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { buildFolderChildrenOrderKeys } from './folder-children-order-keys';
 import type { EntityOracle } from './oracle';
 
-type Reads = Pick<
-  EntityOracle,
-  'materializeOne' | 'materializeAll' | 'liveSetItems' | 'liveOrderedSetItems'
->;
+type Reads = Pick<EntityOracle, 'materializeOne' | 'materializeAll' | 'liveSetItems' | 'liveOrderedSetItems'>;
 
 /**
  * Per-tree configuration. The two entity-type constants + the children
@@ -35,10 +29,7 @@ type Reads = Pick<
  * pair lifts each materialized entity into its `V5.Collection` /
  * `V5.Folder` shape.
  */
-export interface FolderTreeKinds<
-  C extends string = string,
-  F extends string = string,
-> {
+export interface FolderTreeKinds<C extends string = string, F extends string = string> {
   collectionType: C;
   folderType: F;
   childrenPath: string;

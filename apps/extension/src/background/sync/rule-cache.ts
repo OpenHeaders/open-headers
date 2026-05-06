@@ -21,10 +21,10 @@
  * write-back to `chrome.storage.local` is byte-identical and
  * idempotent.
  *
- * Workspace switch contract: the sync service constructs one cache per
- * workspace and disposes the previous one. `getActiveRuleCache()`
- * returns null between dispose and re-init so reads during the
- * transient window fall through to the legacy paths.
+ * Per-workspace ownership: each `WorkspaceServiceState` owns exactly one
+ * `RuleCache` for its workspace; consumers in `background/modules/` read
+ * the runtime-Active workspace's cache via
+ * `getActiveCacheForRegistration(RULE_REGISTRATION)` from `service.ts`.
  */
 
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
@@ -52,30 +52,24 @@ export function createRuleCache(
   broadcast: InMemoryBroadcast,
   contextFactory: SwMutatorContextFactory,
 ): RuleCache {
-  const core = createFlatEntityCache<V5.Rule, typeof RULE_ENTITY_TYPE>(
-    workspaceId,
-    oracle,
-    broadcast,
-    contextFactory,
-    {
-      entityType: RULE_ENTITY_TYPE,
-      loggerTag: 'RuleCache',
-      storageKey: (ws) => wsKeys(ws).rules,
-      // Re-project only on rule envelopes. The legacy "fire on every
-      // broadcast" stance was load-bearing for nothing — `projectRule`
-      // is type-filtered, so cross-entity broadcasts (env, collection,
-      // template, …) just produced redundant `extensionStorage.set`
-      // calls with the same rule list. Worse, those redundant persists
-      // could WRITE OVER user data with `[]` if they fired during a
-      // narrow window where the oracle had been disposed but the cache
-      // was still subscribed (workspace switch / SW eviction races) —
-      // tightening to `true` shrinks the wipe surface to the genuine
-      // "rule changed" lane.
-      filterBroadcastByType: true,
-      project: projectRule,
-      seed: seedRule,
-    },
-  );
+  const core = createFlatEntityCache<V5.Rule, typeof RULE_ENTITY_TYPE>(workspaceId, oracle, broadcast, contextFactory, {
+    entityType: RULE_ENTITY_TYPE,
+    loggerTag: 'RuleCache',
+    storageKey: (ws) => wsKeys(ws).rules,
+    // Re-project only on rule envelopes. The legacy "fire on every
+    // broadcast" stance was load-bearing for nothing — `projectRule`
+    // is type-filtered, so cross-entity broadcasts (env, collection,
+    // template, …) just produced redundant `extensionStorage.set`
+    // calls with the same rule list. Worse, those redundant persists
+    // could WRITE OVER user data with `[]` if they fired during a
+    // narrow window where the oracle had been disposed but the cache
+    // was still subscribed (workspace switch / SW eviction races) —
+    // tightening to `true` shrinks the wipe surface to the genuine
+    // "rule changed" lane.
+    filterBroadcastByType: true,
+    project: projectRule,
+    seed: seedRule,
+  });
   return {
     workspaceId: core.workspaceId,
     getRules: core.getEntities,
@@ -83,14 +77,4 @@ export function createRuleCache(
     onChange: core.onChange,
     dispose: core.dispose,
   };
-}
-
-let active: RuleCache | null = null;
-
-export function setActiveRuleCache(cache: RuleCache | null): void {
-  active = cache;
-}
-
-export function getActiveRuleCache(): RuleCache | null {
-  return active;
 }

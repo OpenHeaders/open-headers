@@ -13,12 +13,7 @@
  * mirror so the DNR engine + rule-state-observer don't have to await.
  */
 
-import type {
-  MutationBatch,
-  MutatorContext,
-  PauseMarkerKind,
-  SideEffectIntent,
-} from '@openheaders/core/sync';
+import type { MutationBatch, MutatorContext, PauseMarkerKind, SideEffectIntent } from '@openheaders/core/sync';
 import { logger } from '@utils/logger';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 import {
@@ -26,8 +21,9 @@ import {
   buildReplacePauseMarkersBatch,
   buildSetPauseMarkerBatch,
 } from '@/shared/sync/pause-markers-mutations';
-import { getActivePauseMarkersCache } from '../sync/pause-markers-cache';
-import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
+import { PAUSE_MARKERS_REGISTRATION } from '../sync/entity-registry';
+import type { PauseMarkersCache } from '../sync/pause-markers-cache';
+import { getActiveCacheForRegistration, getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
 import { getActiveWorkspaceId } from './workspace-store';
 
 // ── Type re-export (legacy callers use the local name) ────────────
@@ -59,17 +55,11 @@ export function getPauseMarkers(): ReadonlyMap<string, PauseMarker> {
 // ── Writes ─────────────────────────────────────────────────────────
 
 export async function setMarker(path: string, marker: PauseMarker): Promise<void> {
-  await applyPauseMarkersMutationOrThrow(
-    (ctx) => buildSetPauseMarkerBatch({ path, marker }, ctx),
-    'setMarker',
-  );
+  await applyPauseMarkersMutationOrThrow((ctx) => buildSetPauseMarkerBatch({ path, marker }, ctx), 'setMarker');
 }
 
 export async function clearMarker(path: string): Promise<void> {
-  await applyPauseMarkersMutationOrThrow(
-    (ctx) => buildClearPauseMarkerBatch({ path }, ctx),
-    'clearMarker',
-  );
+  await applyPauseMarkersMutationOrThrow((ctx) => buildClearPauseMarkerBatch({ path }, ctx), 'clearMarker');
 }
 
 /**
@@ -130,7 +120,7 @@ async function readMarkersFor(workspaceId: string): Promise<Record<string, Pause
  * dropped first. Seeds the oracle from the current persisted record.
  */
 export async function bridgePauseMarkersSyncEngine(): Promise<void> {
-  const cache = getActivePauseMarkersCache();
+  const cache = getActiveCacheForRegistration<PauseMarkersCache>(PAUSE_MARKERS_REGISTRATION);
   if (!cache) return;
   if (cacheUnsubscribe) {
     cacheUnsubscribe();
@@ -144,10 +134,7 @@ export async function bridgePauseMarkersSyncEngine(): Promise<void> {
   const persisted = await readMarkersFor(workspaceId);
   await cache.seedFromPersistedPauseMarkers(persisted);
   markers = new Map(Object.entries(cache.getSnapshot().markers));
-  logger.info(
-    'PauseMarkersStore',
-    `Bridged ws=${workspaceId}: ${markers.size} markers`,
-  );
+  logger.info('PauseMarkersStore', `Bridged ws=${workspaceId}: ${markers.size} markers`);
 }
 
 // ── Test helpers ──────────────────────────────────────────────────

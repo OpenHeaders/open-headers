@@ -36,6 +36,7 @@ import { logger } from '@utils/logger';
 import { ensureScheme } from '@/shared/fetch/ensure-scheme';
 import { withHostAccess } from '@/shared/fetch/with-host-access';
 import { report as reportStatus } from '@/shared/status';
+import { feedCollectionVariablesToResolver } from '@/shared/variables/collection-scope';
 import {
   getActiveEnvironmentId,
   getDefaultEnvironmentId,
@@ -51,7 +52,6 @@ import { __setExecuteRequestDraft, isOffscreenSupported, runScript } from './off
 import { getRequest, getRequestCollections } from './request-store';
 import { getCollections as getRuleCollections } from './rule-store';
 import { getTemplateCollections } from './template-store';
-import { feedCollectionVariablesToResolver } from '@/shared/variables/collection-scope';
 import { checkCooldown as checkTotpCooldown, recordUsage as recordTotpUsage } from './totp-cooldown-store';
 import { getLiveRegistrySnapshot } from './variables-resolver';
 import { getActiveWorkspaceId } from './workspace-store';

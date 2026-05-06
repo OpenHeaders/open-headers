@@ -13,10 +13,7 @@ import type { V5 } from '@openheaders/core/types';
 import { type PersistedLocalFolder, wsKeys } from '@/shared/storage';
 import { buildCreateRequestFolderBatch } from '@/shared/sync/request-folder-mutations';
 import type { InMemoryBroadcast } from './broadcast';
-import {
-  createFolderTreeCache,
-  type FolderTreeCacheConfig,
-} from './folder-tree-cache';
+import { createFolderTreeCache, type FolderTreeCacheConfig } from './folder-tree-cache';
 import type { EntityOracle } from './oracle';
 import { projectAllRequestFolders } from './request-folder-post-state';
 import type { SwMutatorContextFactory } from './sw-context';
@@ -26,10 +23,7 @@ export type RequestFolderCacheListener = () => void;
 export interface RequestFolderCache {
   readonly workspaceId: string;
   getRequestFolders(): V5.Folder[];
-  seedFromPersistedRequestFolders(
-    folders: PersistedLocalFolder[],
-    collections: V5.Collection[],
-  ): Promise<void>;
+  seedFromPersistedRequestFolders(folders: PersistedLocalFolder[], collections: V5.Collection[]): Promise<void>;
   onChange(listener: RequestFolderCacheListener): () => void;
   dispose(): void;
 }
@@ -60,14 +54,4 @@ export function createRequestFolderCache(
     onChange: core.onChange,
     dispose: core.dispose,
   };
-}
-
-let active: RequestFolderCache | null = null;
-
-export function setActiveRequestFolderCache(cache: RequestFolderCache | null): void {
-  active = cache;
-}
-
-export function getActiveRequestFolderCache(): RequestFolderCache | null {
-  return active;
 }

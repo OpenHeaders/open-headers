@@ -100,18 +100,6 @@ export function createCollectionCache(
   };
 }
 
-// ── module-level singleton glue ───────────────────────────────────
-
-let active: CollectionCache | null = null;
-
-export function setActiveCollectionCache(cache: CollectionCache | null): void {
-  active = cache;
-}
-
-export function getActiveCollectionCache(): CollectionCache | null {
-  return active;
-}
-
 // ── helpers ───────────────────────────────────────────────────────
 
 function projectAllCollections(materialized: MaterializedEntity[]): V5.Collection[] {

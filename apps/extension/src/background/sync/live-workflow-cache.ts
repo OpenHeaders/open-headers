@@ -6,10 +6,7 @@
 import { LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { wsKeys } from '@/shared/storage';
-import {
-  projectLiveWorkflow,
-  seedLiveWorkflow,
-} from '@/shared/sync/live-workflow-projection';
+import { projectLiveWorkflow, seedLiveWorkflow } from '@/shared/sync/live-workflow-projection';
 import type { InMemoryBroadcast } from './broadcast';
 import { createFlatEntityCache } from './flat-entity-cache';
 import type { EntityOracle } from './oracle';
@@ -51,14 +48,4 @@ export function createLiveWorkflowCache(
     onChange: core.onChange,
     dispose: core.dispose,
   };
-}
-
-let active: LiveWorkflowCache | null = null;
-
-export function setActiveLiveWorkflowCache(cache: LiveWorkflowCache | null): void {
-  active = cache;
-}
-
-export function getActiveLiveWorkflowCache(): LiveWorkflowCache | null {
-  return active;
 }

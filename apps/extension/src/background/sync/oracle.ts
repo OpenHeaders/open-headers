@@ -134,10 +134,7 @@ export class EntityOracle {
 
   // ── internals ────────────────────────────────────────────────────
 
-  private async applyUnderLock(
-    batch: MutationBatch,
-    sideEffects: SideEffectIntent[],
-  ): Promise<OracleApplyResult> {
+  private async applyUnderLock(batch: MutationBatch, sideEffects: SideEffectIntent[]): Promise<OracleApplyResult> {
     const snapshot = this.store.snapshot();
     const outcomes: Array<{ envelope: MutationEnvelope; outcome: MutatorOutcome }> = [];
 
@@ -165,10 +162,7 @@ export class EntityOracle {
     return { ok: true, outcomes };
   }
 
-  private async lockChain<T>(
-    targets: ReadonlyArray<{ type: string; id: string }>,
-    fn: () => Promise<T>,
-  ): Promise<T> {
+  private async lockChain<T>(targets: ReadonlyArray<{ type: string; id: string }>, fn: () => Promise<T>): Promise<T> {
     if (targets.length === 0) return fn();
     const [head, ...rest] = targets;
     return this.cfg.lock(this.cfg.workspaceId, head.type, head.id, () => this.lockChain(rest, fn));
@@ -189,4 +183,3 @@ function collectEntityTargets(batch: MutationBatch): Array<{ type: string; id: s
   out.sort((a, b) => (a.type === b.type ? (a.id < b.id ? -1 : 1) : a.type < b.type ? -1 : 1));
   return out;
 }
-

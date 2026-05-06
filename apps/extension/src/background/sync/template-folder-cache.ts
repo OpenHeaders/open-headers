@@ -13,23 +13,17 @@ import type { V5 } from '@openheaders/core/types';
 import { type PersistedLocalFolder, wsKeys } from '@/shared/storage';
 import { buildCreateTemplateFolderBatch } from '@/shared/sync/template-folder-mutations';
 import type { InMemoryBroadcast } from './broadcast';
-import {
-  createFolderTreeCache,
-  type FolderTreeCacheConfig,
-} from './folder-tree-cache';
+import { createFolderTreeCache, type FolderTreeCacheConfig } from './folder-tree-cache';
 import type { EntityOracle } from './oracle';
-import { projectAllTemplateFolders } from './template-folder-post-state';
 import type { SwMutatorContextFactory } from './sw-context';
+import { projectAllTemplateFolders } from './template-folder-post-state';
 
 export type TemplateFolderCacheListener = () => void;
 
 export interface TemplateFolderCache {
   readonly workspaceId: string;
   getTemplateFolders(): V5.Folder[];
-  seedFromPersistedTemplateFolders(
-    folders: PersistedLocalFolder[],
-    collections: V5.Collection[],
-  ): Promise<void>;
+  seedFromPersistedTemplateFolders(folders: PersistedLocalFolder[], collections: V5.Collection[]): Promise<void>;
   onChange(listener: TemplateFolderCacheListener): () => void;
   dispose(): void;
 }
@@ -60,14 +54,4 @@ export function createTemplateFolderCache(
     onChange: core.onChange,
     dispose: core.dispose,
   };
-}
-
-let active: TemplateFolderCache | null = null;
-
-export function setActiveTemplateFolderCache(cache: TemplateFolderCache | null): void {
-  active = cache;
-}
-
-export function getActiveTemplateFolderCache(): TemplateFolderCache | null {
-  return active;
 }

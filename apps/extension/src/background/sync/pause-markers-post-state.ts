@@ -27,11 +27,7 @@ const projectors = makeSingletonEntityProjectors<Reads, SyncPauseMarkersPostStat
   entityId: PAUSE_MARKERS_ID,
   compose: (_materialized, oracle) => {
     const markers: Record<string, PauseMarkerKind> = {};
-    for (const entry of oracle.liveSetItems(
-      PAUSE_MARKERS_ENTITY_TYPE,
-      PAUSE_MARKERS_ID,
-      PAUSE_MARKERS_PATH,
-    )) {
+    for (const entry of oracle.liveSetItems(PAUSE_MARKERS_ENTITY_TYPE, PAUSE_MARKERS_ID, PAUSE_MARKERS_PATH)) {
       if (!isPauseMarkerSlot(entry.item)) continue;
       markers[entry.itemId] = entry.item.marker;
     }

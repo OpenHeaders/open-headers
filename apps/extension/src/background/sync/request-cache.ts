@@ -54,13 +54,3 @@ export function createRequestCache(
     dispose: core.dispose,
   };
 }
-
-let active: RequestCache | null = null;
-
-export function setActiveRequestCache(cache: RequestCache | null): void {
-  active = cache;
-}
-
-export function getActiveRequestCache(): RequestCache | null {
-  return active;
-}

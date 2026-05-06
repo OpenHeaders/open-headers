@@ -6,10 +6,7 @@
 import { LIVE_VARIABLE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { wsKeys } from '@/shared/storage';
-import {
-  projectLiveVariable,
-  seedLiveVariable,
-} from '@/shared/sync/live-variable-projection';
+import { projectLiveVariable, seedLiveVariable } from '@/shared/sync/live-variable-projection';
 import type { InMemoryBroadcast } from './broadcast';
 import { createFlatEntityCache } from './flat-entity-cache';
 import type { EntityOracle } from './oracle';
@@ -51,14 +48,4 @@ export function createLiveVariableCache(
     onChange: core.onChange,
     dispose: core.dispose,
   };
-}
-
-let active: LiveVariableCache | null = null;
-
-export function setActiveLiveVariableCache(cache: LiveVariableCache | null): void {
-  active = cache;
-}
-
-export function getActiveLiveVariableCache(): LiveVariableCache | null {
-  return active;
 }

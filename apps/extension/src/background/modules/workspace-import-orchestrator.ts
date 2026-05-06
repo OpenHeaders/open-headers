@@ -54,13 +54,16 @@ import {
 import { logger } from '@utils/logger';
 import { entityLockName, withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, type PersistedLocalFolder, type StorageKey, wsKeys } from '@/shared/storage';
+import { reinitForWorkspace } from '../sync/service';
 import {
   bridgeEnvironmentSyncEngine,
   bridgeVaultSyncEngine,
   bridgeWorkspaceVariablesSyncEngine,
   hydrateEnvironmentsFromStorage,
 } from './environment-store';
+import { bridgeFilesSyncEngine } from './files-store';
 import { recordImportReport } from './import-reports-store';
+import { bridgeLayoutStateSyncEngine } from './layout-store';
 import {
   bridgeLiveVariableSyncEngine,
   hydrateFromStorage as hydrateLiveVariablesFromStorage,
@@ -69,10 +72,8 @@ import {
   bridgeLiveWorkflowSyncEngine,
   hydrateFromStorage as hydrateLiveWorkflowsFromStorage,
 } from './live-workflow-store';
-import { recordLog } from './observability-log';
-import { bridgeFilesSyncEngine } from './files-store';
 import { bridgeOAuthSyncEngine } from './oauth-token-store';
-import { bridgeLayoutStateSyncEngine } from './layout-store';
+import { recordLog } from './observability-log';
 import { bridgePauseMarkersSyncEngine } from './pause-markers-store';
 import { markPendingScriptsReview, markPendingScriptsReviewForWorkspace } from './request-scripts-review-store';
 import {
@@ -82,7 +83,6 @@ import {
   hydrateFromStorage as hydrateRequestsFromStorage,
 } from './request-store';
 import { scheduleUpdate } from './rule-engine';
-import { reinitForWorkspace } from '../sync/service';
 import {
   bridgeCollectionSyncEngine,
   bridgeFolderSyncEngine,

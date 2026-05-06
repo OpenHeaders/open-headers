@@ -24,11 +24,7 @@
  */
 
 import { LiveVariableSchema } from '@openheaders/core/schemas';
-import type {
-  MutationBatch,
-  MutatorContext,
-  SideEffectIntent,
-} from '@openheaders/core/sync';
+import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
@@ -38,8 +34,9 @@ import {
   buildDeleteLiveVariableBatch,
   buildUpdateLiveVariableBatch,
 } from '@/shared/sync/live-variable-mutations';
-import { getActiveLiveVariableCache } from '../sync/live-variable-cache';
-import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
+import { LIVE_VARIABLE_REGISTRATION } from '../sync/entity-registry';
+import type { LiveVariableCache } from '../sync/live-variable-cache';
+import { getActiveCacheForRegistration, getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
 import { driftRecorder } from './storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
 
@@ -99,9 +96,7 @@ export interface CreateLiveVariableInput {
   enabled?: boolean;
 }
 
-export async function createLiveVariable(
-  input: CreateLiveVariableInput,
-): Promise<V5.LiveVariable> {
+export async function createLiveVariable(input: CreateLiveVariableInput): Promise<V5.LiveVariable> {
   assertLoaded();
   const uid = generateUid();
   const folderName = toFolderName(input.name, uid);
@@ -117,10 +112,7 @@ export async function createLiveVariable(
     ...(input.requireFreshOnRuleBuild ? { requireFreshOnRuleBuild: true } : {}),
     enabled: input.enabled ?? true,
   };
-  await applyLiveVariableMutationOrThrow(
-    (ctx) => buildAddLiveVariableBatch(created, ctx),
-    'createLiveVariable',
-  );
+  await applyLiveVariableMutationOrThrow((ctx) => buildAddLiveVariableBatch(created, ctx), 'createLiveVariable');
   return created;
 }
 
@@ -165,10 +157,7 @@ export async function updateLiveVariable(
 export async function deleteLiveVariable(uid: string): Promise<boolean> {
   assertLoaded();
   if (!variables.some((v) => v.uid === uid)) return false;
-  await applyLiveVariableMutationOrThrow(
-    (ctx) => buildDeleteLiveVariableBatch(uid, ctx),
-    'deleteLiveVariable',
-  );
+  await applyLiveVariableMutationOrThrow((ctx) => buildDeleteLiveVariableBatch(uid, ctx), 'deleteLiveVariable');
   return true;
 }
 
@@ -249,7 +238,7 @@ let cacheUnsubscribe: (() => void) | null = null;
  * dropped first.
  */
 export async function bridgeLiveVariableSyncEngine(): Promise<void> {
-  const cache = getActiveLiveVariableCache();
+  const cache = getActiveCacheForRegistration<LiveVariableCache>(LIVE_VARIABLE_REGISTRATION);
   if (!cache) return;
   if (cacheUnsubscribe) {
     cacheUnsubscribe();

@@ -31,6 +31,7 @@ import type { V5 } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 import type { PersistedLocalFolder } from '@/shared/storage';
+import { extensionStorage, wsKeys } from '@/shared/storage';
 import {
   buildDeleteRequestCollectionBatch,
   buildRenameRequestCollectionBatch,
@@ -43,11 +44,15 @@ import {
   buildRenameRequestFolderBatch,
 } from '@/shared/sync/request-folder-mutations';
 import { buildAddBatch, buildDeleteBatch, buildUpdateBatch } from '@/shared/sync/request-mutations';
-import { getActiveRequestCache } from '../sync/request-cache';
-import { getActiveRequestCollectionCache } from '../sync/request-collection-cache';
-import { getActiveRequestFolderCache } from '../sync/request-folder-cache';
-import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
-import { extensionStorage, wsKeys } from '@/shared/storage';
+import {
+  REQUEST_COLLECTION_REGISTRATION,
+  REQUEST_FOLDER_REGISTRATION,
+  REQUEST_REGISTRATION,
+} from '../sync/entity-registry';
+import type { RequestCache } from '../sync/request-cache';
+import type { RequestCollectionCache } from '../sync/request-collection-cache';
+import type { RequestFolderCache } from '../sync/request-folder-cache';
+import { getActiveCacheForRegistration, getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
 import { driftRecorder } from './storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
 
@@ -112,16 +117,12 @@ function buildTreeForParent(
   const nodes: V5.TreeNode[] = [];
 
   const oracle = getOracleForCurrentWorkspace();
-  const slots = oracle
-    ? oracle.liveOrderedSetItems(parentType, parentUid, REQUEST_FOLDER_CHILDREN_PATH)
-    : [];
+  const slots = oracle ? oracle.liveOrderedSetItems(parentType, parentUid, REQUEST_FOLDER_CHILDREN_PATH) : [];
 
   let childFolders: PersistedLocalFolder[];
   if (slots.length > 0) {
     const byUid = new Map(folders.map((f) => [f.uid, f]));
-    childFolders = slots
-      .map((slot) => byUid.get(slot.itemId))
-      .filter((f): f is PersistedLocalFolder => Boolean(f));
+    childFolders = slots.map((slot) => byUid.get(slot.itemId)).filter((f): f is PersistedLocalFolder => Boolean(f));
   } else {
     childFolders = folders.filter((f) => f.path.substring(0, f.path.lastIndexOf('/')) === parentPath);
   }
@@ -226,17 +227,10 @@ export async function deleteRequestCollection(uid: string): Promise<boolean> {
   // oracle so every cache stays consistent. The collection's tombstone
   // covers its parent slot for top-level folders; nested folders/requests
   // are deleted by uid through the oracle.
-  const cascadingRequestUids = requests
-    .filter((r) => r.path.startsWith(collection.path))
-    .map((r) => r.uid);
-  const cascadingFolderUids = folders
-    .filter((f) => f.path.startsWith(collection.path))
-    .map((f) => f.uid);
+  const cascadingRequestUids = requests.filter((r) => r.path.startsWith(collection.path)).map((r) => r.uid);
+  const cascadingFolderUids = folders.filter((f) => f.path.startsWith(collection.path)).map((f) => f.uid);
   for (const reqUid of cascadingRequestUids) {
-    await applyRequestMutationOrThrow(
-      (ctx) => buildDeleteBatch(reqUid, ctx),
-      'deleteRequestCollection-cascade',
-    );
+    await applyRequestMutationOrThrow((ctx) => buildDeleteBatch(reqUid, ctx), 'deleteRequestCollection-cascade');
   }
   for (const folderUid of cascadingFolderUids) {
     await applyRequestFolderMutationOrThrow(
@@ -268,10 +262,7 @@ function resolveRequestFolderParent(parentPath: string): RequestFolderParentRef 
   return null;
 }
 
-export async function createRequestFolder(
-  name: string,
-  parentPath: string,
-): Promise<LocalFolder | null> {
+export async function createRequestFolder(name: string, parentPath: string): Promise<LocalFolder | null> {
   assertLoaded();
   const parent = resolveRequestFolderParent(parentPath);
   if (!parent) return null;
@@ -307,17 +298,12 @@ export async function deleteRequestFolder(uid: string): Promise<boolean> {
 
   // Cascade descendant request + request-folder deletes through the
   // oracle. Same pattern as rule-folder cascades.
-  const cascadingRequestUids = requests
-    .filter((r) => r.path.startsWith(`${folder.path}/`))
-    .map((r) => r.uid);
+  const cascadingRequestUids = requests.filter((r) => r.path.startsWith(`${folder.path}/`)).map((r) => r.uid);
   const cascadingNestedFolderUids = folders
     .filter((f) => f.uid !== uid && f.path.startsWith(`${folder.path}/`))
     .map((f) => f.uid);
   for (const reqUid of cascadingRequestUids) {
-    await applyRequestMutationOrThrow(
-      (ctx) => buildDeleteBatch(reqUid, ctx),
-      'deleteRequestFolder-cascade-request',
-    );
+    await applyRequestMutationOrThrow((ctx) => buildDeleteBatch(reqUid, ctx), 'deleteRequestFolder-cascade-request');
   }
   for (const nestedUid of cascadingNestedFolderUids) {
     await applyRequestFolderMutationOrThrow(
@@ -589,7 +575,7 @@ let folderCacheUnsubscribe: (() => void) | null = null;
  * cache subscription is dropped first.
  */
 export async function bridgeRequestSyncEngine(): Promise<void> {
-  const cache = getActiveRequestCache();
+  const cache = getActiveCacheForRegistration<RequestCache>(REQUEST_REGISTRATION);
   if (!cache) return;
   if (cacheUnsubscribe) {
     cacheUnsubscribe();
@@ -608,7 +594,7 @@ export async function bridgeRequestSyncEngine(): Promise<void> {
  * request-collection cache. Same shape as `bridgeRequestSyncEngine`.
  */
 export async function bridgeRequestCollectionSyncEngine(): Promise<void> {
-  const cache = getActiveRequestCollectionCache();
+  const cache = getActiveCacheForRegistration<RequestCollectionCache>(REQUEST_COLLECTION_REGISTRATION);
   if (!cache) return;
   if (collectionCacheUnsubscribe) {
     collectionCacheUnsubscribe();
@@ -629,7 +615,7 @@ export async function bridgeRequestCollectionSyncEngine(): Promise<void> {
  * folder seeds.
  */
 export async function bridgeRequestFolderSyncEngine(): Promise<void> {
-  const cache = getActiveRequestFolderCache();
+  const cache = getActiveCacheForRegistration<RequestFolderCache>(REQUEST_FOLDER_REGISTRATION);
   if (!cache) return;
   if (folderCacheUnsubscribe) {
     folderCacheUnsubscribe();

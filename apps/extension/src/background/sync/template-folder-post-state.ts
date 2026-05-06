@@ -22,15 +22,9 @@ import {
 } from './folder-tree-post-state';
 import type { EntityOracle } from './oracle';
 
-type Reads = Pick<
-  EntityOracle,
-  'materializeOne' | 'materializeAll' | 'liveSetItems' | 'liveOrderedSetItems'
->;
+type Reads = Pick<EntityOracle, 'materializeOne' | 'materializeAll' | 'liveSetItems' | 'liveOrderedSetItems'>;
 
-const KINDS: FolderTreeKinds<
-  typeof TEMPLATE_COLLECTION_ENTITY_TYPE,
-  typeof TEMPLATE_FOLDER_ENTITY_TYPE
-> = {
+const KINDS: FolderTreeKinds<typeof TEMPLATE_COLLECTION_ENTITY_TYPE, typeof TEMPLATE_FOLDER_ENTITY_TYPE> = {
   collectionType: TEMPLATE_COLLECTION_ENTITY_TYPE,
   folderType: TEMPLATE_FOLDER_ENTITY_TYPE,
   childrenPath: TEMPLATE_FOLDER_CHILDREN_PATH,
@@ -45,10 +39,7 @@ export function projectTemplateFolderPostState(
   return projectFolderPostStateGeneric(oracle, envelope, KINDS);
 }
 
-export function projectTemplateFolderByUid(
-  oracle: Reads,
-  folderUid: string,
-): SyncTemplateFolderPostState | null {
+export function projectTemplateFolderByUid(oracle: Reads, folderUid: string): SyncTemplateFolderPostState | null {
   return projectFolderByUidGeneric(oracle, folderUid, KINDS);
 }
 

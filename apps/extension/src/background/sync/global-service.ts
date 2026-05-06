@@ -27,29 +27,27 @@
  */
 
 import type { SyncExtensionWorkspacePostState } from '@openheaders/core/protocol';
-import {
-  EXTENSION_WORKSPACE_ENTITY_TYPE,
-  EXTENSION_WORKSPACE_GLOBAL_SCOPE,
-} from '@openheaders/core/sync';
+import { EXTENSION_WORKSPACE_ENTITY_TYPE, EXTENSION_WORKSPACE_GLOBAL_SCOPE } from '@openheaders/core/sync';
 import { broadcast as bridgeBroadcast } from '@utils/bridge';
 import { logger } from '@utils/logger';
 import { wireBroadcastToSink } from './bridge';
 import { InMemoryBroadcast } from './broadcast';
 import {
-  attachCaches,
+  buildCaches,
   buildProjectorPipeline,
   buildSchemaRegistry,
-  detachCaches,
+  disposeCaches,
   type EntityCacheLike,
   EXTENSION_WORKSPACE_REGISTRATION,
   GLOBAL_REGISTRY,
   singletonSnapshot,
 } from './entity-registry';
+import { type ExtensionWorkspaceCache, setActiveExtensionWorkspaceCache } from './extension-workspace-cache';
 import { IdbMutationLog } from './idb-mutation-log';
 import { IdbPendingIntents } from './idb-pending-intents';
 import { ruleOracleLockAcquirer } from './lock-adapter';
 import { InMemoryMutationLog, type MutationLog } from './mutation-log';
-import { type LockAcquirer, EntityOracle } from './oracle';
+import { EntityOracle, type LockAcquirer } from './oracle';
 import { InMemoryPendingIntents, type PendingIntents } from './pending-intents';
 import { createSwContextHandle, type SwContextHandle } from './sw-context';
 import { createWorkspaceCoordRunner, type WorkspaceCoordRunner } from './workspace-coord-runner';
@@ -92,7 +90,8 @@ export function disposeGlobal(): void {
   if (!state) return;
   state.workspaceCoordRunner?.dispose();
   state.unsubscribeBroadcast();
-  detachCaches(GLOBAL_REGISTRY, state.caches);
+  setActiveExtensionWorkspaceCache(null);
+  disposeCaches(state.caches);
   logger.info('GlobalSyncService', 'Disposed');
   state = null;
 }
@@ -198,13 +197,13 @@ function wire(deps: WireDeps): GlobalServiceState {
     broadcast,
     schemas: buildSchemaRegistry(GLOBAL_REGISTRY),
   });
-  const caches = attachCaches(
-    EXTENSION_WORKSPACE_GLOBAL_SCOPE,
-    oracle,
-    broadcast,
-    context,
-    GLOBAL_REGISTRY,
-  );
+  const caches = buildCaches(EXTENSION_WORKSPACE_GLOBAL_SCOPE, oracle, broadcast, context, GLOBAL_REGISTRY);
+  // GLOBAL_REGISTRY only contains EXTENSION_WORKSPACE_REGISTRATION today;
+  // the extension-workspace cache is the one true cross-workspace
+  // singleton (workspace-store reads it directly via
+  // `getActiveExtensionWorkspaceCache`). Per-workspace caches are no
+  // longer module-level singletons (1d) — only this global one is.
+  setActiveExtensionWorkspaceCache(caches[0] as ExtensionWorkspaceCache);
   const projector = buildProjectorPipeline(oracle, GLOBAL_REGISTRY);
   const unsubscribeBroadcast = wireBroadcastToSink(broadcast, deps.sink, projector);
   return {

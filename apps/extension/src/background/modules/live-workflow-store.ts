@@ -19,11 +19,7 @@
  */
 
 import { LiveWorkflowSchema } from '@openheaders/core/schemas';
-import type {
-  MutationBatch,
-  MutatorContext,
-  SideEffectIntent,
-} from '@openheaders/core/sync';
+import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
@@ -33,8 +29,9 @@ import {
   buildDeleteLiveWorkflowBatch,
   buildUpdateLiveWorkflowBatch,
 } from '@/shared/sync/live-workflow-mutations';
-import { getActiveLiveWorkflowCache } from '../sync/live-workflow-cache';
-import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
+import { LIVE_WORKFLOW_REGISTRATION } from '../sync/entity-registry';
+import type { LiveWorkflowCache } from '../sync/live-workflow-cache';
+import { getActiveCacheForRegistration, getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
 import { driftRecorder } from './storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
 
@@ -90,9 +87,7 @@ export interface CreateLiveWorkflowInput {
   enabled?: boolean;
 }
 
-export async function createLiveWorkflow(
-  input: CreateLiveWorkflowInput,
-): Promise<V5.LiveWorkflow> {
+export async function createLiveWorkflow(input: CreateLiveWorkflowInput): Promise<V5.LiveWorkflow> {
   assertLoaded();
   const uid = generateUid();
   const folderName = toFolderName(input.name, uid);
@@ -106,10 +101,7 @@ export async function createLiveWorkflow(
     refresh: input.refresh ?? DEFAULT_REFRESH,
     enabled: input.enabled ?? true,
   };
-  await applyLiveWorkflowMutationOrThrow(
-    (ctx) => buildAddLiveWorkflowBatch(created, ctx),
-    'createLiveWorkflow',
-  );
+  await applyLiveWorkflowMutationOrThrow((ctx) => buildAddLiveWorkflowBatch(created, ctx), 'createLiveWorkflow');
   return created;
 }
 
@@ -149,10 +141,7 @@ export async function updateLiveWorkflow(
 export async function deleteLiveWorkflow(uid: string): Promise<boolean> {
   assertLoaded();
   if (!workflows.some((w) => w.uid === uid)) return false;
-  await applyLiveWorkflowMutationOrThrow(
-    (ctx) => buildDeleteLiveWorkflowBatch(uid, ctx),
-    'deleteLiveWorkflow',
-  );
+  await applyLiveWorkflowMutationOrThrow((ctx) => buildDeleteLiveWorkflowBatch(uid, ctx), 'deleteLiveWorkflow');
   return true;
 }
 
@@ -224,7 +213,7 @@ let cacheUnsubscribe: (() => void) | null = null;
  * seed.
  */
 export async function bridgeLiveWorkflowSyncEngine(): Promise<void> {
-  const cache = getActiveLiveWorkflowCache();
+  const cache = getActiveCacheForRegistration<LiveWorkflowCache>(LIVE_WORKFLOW_REGISTRATION);
   if (!cache) return;
   if (cacheUnsubscribe) {
     cacheUnsubscribe();

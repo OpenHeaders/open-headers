@@ -19,10 +19,7 @@ import {
 import type { InMemoryBroadcast } from './broadcast';
 import type { EntityOracle } from './oracle';
 import { projectPauseMarkersSingleton } from './pause-markers-post-state';
-import {
-  createSingletonEntityCache,
-  type SingletonEntityCache,
-} from './singleton-entity-cache';
+import { createSingletonEntityCache, type SingletonEntityCache } from './singleton-entity-cache';
 import type { SwMutatorContextFactory } from './sw-context';
 
 export type PauseMarkersCacheListener = () => void;
@@ -30,9 +27,7 @@ export type PauseMarkersCacheListener = () => void;
 export interface PauseMarkersCache {
   readonly workspaceId: string;
   getSnapshot(): PauseMarkersSnapshot;
-  seedFromPersistedPauseMarkers(
-    record: Readonly<Record<string, 'paused' | 'unpaused'>>,
-  ): Promise<void>;
+  seedFromPersistedPauseMarkers(record: Readonly<Record<string, 'paused' | 'unpaused'>>): Promise<void>;
   onChange(listener: PauseMarkersCacheListener): () => void;
   dispose(): void;
 }
@@ -65,16 +60,4 @@ export function createPauseMarkersCache(
     onChange: core.onChange,
     dispose: core.dispose,
   };
-}
-
-// ── module-level singleton glue ───────────────────────────────────
-
-let active: PauseMarkersCache | null = null;
-
-export function setActivePauseMarkersCache(cache: PauseMarkersCache | null): void {
-  active = cache;
-}
-
-export function getActivePauseMarkersCache(): PauseMarkersCache | null {
-  return active;
 }

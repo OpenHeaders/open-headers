@@ -8,11 +8,7 @@
  */
 
 import type { SyncLayoutStatePostState } from '@openheaders/core/protocol';
-import {
-  LAYOUT_STATE_ENTITY_TYPE,
-  LAYOUT_STATE_ID,
-  LAYOUT_STATE_PATH,
-} from '@openheaders/core/sync';
+import { LAYOUT_STATE_ENTITY_TYPE, LAYOUT_STATE_ID, LAYOUT_STATE_PATH } from '@openheaders/core/sync';
 import { makeSingletonEntityProjectors } from './flat-entity-post-state';
 import type { EntityOracle } from './oracle';
 

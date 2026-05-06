@@ -15,10 +15,7 @@ import {
 } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { projectRequestCollection } from '@/shared/sync/request-collection-projection';
-import {
-  buildVarNamesExtras,
-  makeFlatEntityProjectors,
-} from './flat-entity-post-state';
+import { buildVarNamesExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
 import { buildFolderChildrenOrderKeys } from './folder-children-order-keys';
 import type { EntityOracle } from './oracle';
 

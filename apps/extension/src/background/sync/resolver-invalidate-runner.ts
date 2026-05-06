@@ -26,7 +26,7 @@
  * cache.
  */
 
-import { INVALIDATE_RESOLVER, type EntityType } from '@openheaders/core/sync';
+import { type EntityType, INVALIDATE_RESOLVER } from '@openheaders/core/sync';
 import { logger } from '@utils/logger';
 import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';
 import type { PendingIntents } from './pending-intents';
@@ -49,9 +49,7 @@ export interface ResolverInvalidateRunner {
   dispose(): void;
 }
 
-export function createResolverInvalidateRunner(
-  config: ResolverInvalidateRunnerConfig,
-): ResolverInvalidateRunner {
+export function createResolverInvalidateRunner(config: ResolverInvalidateRunnerConfig): ResolverInvalidateRunner {
   const { broadcast, intents, entityTypes, recompile } = config;
 
   const handle = async (event: BroadcastEvent): Promise<void> => {
@@ -74,4 +72,3 @@ export function createResolverInvalidateRunner(
     },
   };
 }
-

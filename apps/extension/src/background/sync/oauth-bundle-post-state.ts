@@ -33,11 +33,7 @@ const projectors = makeSingletonEntityProjectors<Reads, SyncOAuthBundlePostState
     const tokens = recordFromLiveSet(oracle, OAUTH_TOKENS_PATH);
     const configs = recordFromLiveSet(oracle, OAUTH_CONFIGS_PATH);
     const refreshErrors = recordFromLiveSet(oracle, OAUTH_REFRESH_ERRORS_PATH);
-    const refs = new Set<string>([
-      ...Object.keys(tokens),
-      ...Object.keys(configs),
-      ...Object.keys(refreshErrors),
-    ]);
+    const refs = new Set<string>([...Object.keys(tokens), ...Object.keys(configs), ...Object.keys(refreshErrors)]);
     const credentialRefs = Array.from(refs).sort();
     return { tokens, configs, refreshErrors, credentialRefs };
   },
@@ -46,10 +42,7 @@ const projectors = makeSingletonEntityProjectors<Reads, SyncOAuthBundlePostState
 export const projectOAuthBundlePostState = projectors.projectPostState;
 export const projectOAuthBundleSingleton = projectors.projectSingleton;
 
-function recordFromLiveSet(
-  oracle: Pick<EntityOracle, 'liveSetItems'>,
-  path: string,
-): Record<string, unknown> {
+function recordFromLiveSet(oracle: Pick<EntityOracle, 'liveSetItems'>, path: string): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const entry of oracle.liveSetItems(OAUTH_BUNDLE_ENTITY_TYPE, OAUTH_BUNDLE_ID, path)) {
     out[entry.itemId] = entry.item;

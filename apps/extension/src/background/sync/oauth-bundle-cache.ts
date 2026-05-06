@@ -17,17 +17,11 @@
 
 import { OAUTH_BUNDLE_ENTITY_TYPE } from '@openheaders/core/sync';
 import { extensionStorage, wsKeys } from '@/shared/storage';
-import {
-  type OAuthBundleSnapshot,
-  seedOAuthBundle,
-} from '@/shared/sync/oauth-bundle-projection';
+import { type OAuthBundleSnapshot, seedOAuthBundle } from '@/shared/sync/oauth-bundle-projection';
 import type { InMemoryBroadcast } from './broadcast';
 import { projectOAuthBundleSingleton } from './oauth-bundle-post-state';
 import type { EntityOracle } from './oracle';
-import {
-  createSingletonEntityCache,
-  type SingletonEntityCache,
-} from './singleton-entity-cache';
+import { createSingletonEntityCache, type SingletonEntityCache } from './singleton-entity-cache';
 import type { SwMutatorContextFactory } from './sw-context';
 
 const EMPTY_SNAPSHOT: OAuthBundleSnapshot = {
@@ -53,8 +47,12 @@ export function createOAuthBundleCache(
   broadcast: InMemoryBroadcast,
   contextFactory: SwMutatorContextFactory,
 ): OAuthBundleCache {
-  const core: SingletonEntityCache<OAuthBundleSnapshot, OAuthBundleSnapshot> =
-    createSingletonEntityCache(workspaceId, oracle, broadcast, contextFactory, {
+  const core: SingletonEntityCache<OAuthBundleSnapshot, OAuthBundleSnapshot> = createSingletonEntityCache(
+    workspaceId,
+    oracle,
+    broadcast,
+    contextFactory,
+    {
       entityType: OAUTH_BUNDLE_ENTITY_TYPE,
       loggerTag: 'OAuthBundleCache',
       emptySnapshot: EMPTY_SNAPSHOT,
@@ -71,7 +69,8 @@ export function createOAuthBundleCache(
       buildSeedBatch: (input, ctx) => seedOAuthBundle(input, ctx),
       persist: (scope, snap) => extensionStorage.set(wsKeys(scope).oauth, snap),
       beforeSeed: (input) => input,
-    });
+    },
+  );
 
   return {
     workspaceId: core.scope,
@@ -80,16 +79,4 @@ export function createOAuthBundleCache(
     onChange: core.onChange,
     dispose: core.dispose,
   };
-}
-
-// ── module-level singleton glue ───────────────────────────────────
-
-let active: OAuthBundleCache | null = null;
-
-export function setActiveOAuthBundleCache(cache: OAuthBundleCache | null): void {
-  active = cache;
-}
-
-export function getActiveOAuthBundleCache(): OAuthBundleCache | null {
-  return active;
 }

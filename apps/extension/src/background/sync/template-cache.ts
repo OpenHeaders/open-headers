@@ -49,13 +49,3 @@ export function createTemplateCache(
     dispose: core.dispose,
   };
 }
-
-let active: TemplateCache | null = null;
-
-export function setActiveTemplateCache(cache: TemplateCache | null): void {
-  active = cache;
-}
-
-export function getActiveTemplateCache(): TemplateCache | null {
-  return active;
-}

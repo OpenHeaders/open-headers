@@ -14,10 +14,7 @@ import { type PersistedLocalFolder, wsKeys } from '@/shared/storage';
 import { buildCreateFolderBatch } from '@/shared/sync/folder-mutations';
 import type { InMemoryBroadcast } from './broadcast';
 import { projectAllFolders } from './folder-post-state';
-import {
-  createFolderTreeCache,
-  type FolderTreeCacheConfig,
-} from './folder-tree-cache';
+import { createFolderTreeCache, type FolderTreeCacheConfig } from './folder-tree-cache';
 import type { EntityOracle } from './oracle';
 import type { SwMutatorContextFactory } from './sw-context';
 
@@ -26,10 +23,7 @@ export type FolderCacheListener = () => void;
 export interface FolderCache {
   readonly workspaceId: string;
   getFolders(): V5.Folder[];
-  seedFromPersistedFolders(
-    folders: PersistedLocalFolder[],
-    collections: V5.Collection[],
-  ): Promise<void>;
+  seedFromPersistedFolders(folders: PersistedLocalFolder[], collections: V5.Collection[]): Promise<void>;
   onChange(listener: FolderCacheListener): () => void;
   dispose(): void;
 }
@@ -60,14 +54,4 @@ export function createFolderCache(
     onChange: core.onChange,
     dispose: core.dispose,
   };
-}
-
-let active: FolderCache | null = null;
-
-export function setActiveFolderCache(cache: FolderCache | null): void {
-  active = cache;
-}
-
-export function getActiveFolderCache(): FolderCache | null {
-  return active;
 }

@@ -8,12 +8,13 @@
  * zero. `applySyncRequest` routes batches by `batch.workspaceId` so
  * cross-workspace concurrent writes stay structurally partitioned.
  *
- * One workspace at a time is the *Active* workspace — its caches are
- * registered as the per-entity singletons (legacy `getActiveXCache`
- * accessor surface) and its broadcast feeds DNR + outgoing-WS. Other
- * resident workspaces hold caches scoped to their own service state
- * but do not register them as singletons. The Active flip detaches the
- * old singletons + attaches the new in `initSyncService`.
+ * One workspace at a time is the *Active* workspace — its broadcast
+ * feeds the Active-bound DNR + resolver-invalidate runners, and
+ * SW-internal consumers in `background/modules/` reach for its caches
+ * through {@link getActiveCacheForRegistration}. Caches themselves are
+ * owned by the workspace's {@link WorkspaceServiceState.caches} array
+ * for the workspace's whole residency window, regardless of whether it
+ * is currently Active.
  *
  * Lifecycle helpers (1a-scope):
  *   - `getOrCreateWorkspaceService(id)` — lazy + refcount++; returns slot.
@@ -85,9 +86,10 @@ import {
   buildProjectorPipeline,
   buildSchemaRegistry,
   COLLECTION_REGISTRATION,
-  detachCaches,
+  disposeCaches,
   ENVIRONMENT_REGISTRATION,
   type EntityCacheLike,
+  type EntityRegistration,
   FILES_REGISTRATION,
   FOLDER_REGISTRATION,
   flatSnapshot,
@@ -174,8 +176,6 @@ export interface WorkspaceServiceState {
   disposalTimer: ReturnType<typeof setTimeout> | null;
   /** Set true once teardown begins; new acquires must rebuild a fresh service. */
   disposing: boolean;
-  /** True while this is the runtime-Active workspace (caches registered as singletons). */
-  isActive: boolean;
 }
 
 interface WireDeps {
@@ -314,41 +314,25 @@ async function doSetActive(workspaceId: string): Promise<SetActiveResult> {
 
   const oldActive = currentActive;
 
-  // 5. Detach old. Single-active invariant on cache singletons + DNR
-  //    runner subscriptions is structural — module-level slots can hold
-  //    exactly one cache / subscription at a time. Detach order matters:
-  //    runner subscriptions before caches so the old workspace's
-  //    in-flight intent drains don't fire against detached caches.
+  // 5. Detach Active-bound runners on the old service. Cache singletons
+  //    no longer exist (1d) — caches are per-workspace and stay alive
+  //    for the workspace's full residency, so there's nothing to detach
+  //    on that axis. Runner detach must precede new-runner attach so
+  //    `recompile` (browser-singular DNR rebuild) is never doubly
+  //    subscribed across the swap point.
   if (oldActive !== null) {
     const oldSvc = services.get(oldActive);
-    if (oldSvc?.isActive) {
-      detachActiveBoundRunners(oldSvc);
-      detachCaches(WORKSPACE_REGISTRY, oldSvc.caches);
-      oldSvc.isActive = false;
-    }
+    if (oldSvc) detachActiveBoundRunners(oldSvc);
   }
 
-  // 6. Attach new. Cache singletons first so by the time the Active-
-  //    bound runners subscribe, the cache mirror is already populated
-  //    and a stale-enqueue race window is closed. The runners fire
-  //    `recompile` (= browser-singular DNR rebuild); attaching them
-  //    last makes the swap point — and therefore the "≤1 DNR-writing
-  //    runner at a time" invariant — observable as one structural step.
+  // 6. Attach Active-bound runners on the new service. Runner attach is
+  //    the swap point — at exactly this moment the new workspace's
+  //    intent envelopes start driving `recompile`. The "≤1 DNR-writing
+  //    runner at a time" invariant is therefore one structural step.
   try {
-    for (let i = 0; i < WORKSPACE_REGISTRY.length; i++) {
-      const reg = WORKSPACE_REGISTRY[i];
-      const cache = newSvc.caches[i];
-      // Cast is sound: caches[i] was produced by reg.createCache in
-      // `buildService`; setActive accepts the cache type it owns.
-      reg.setActive(cache as never);
-    }
     attachActiveBoundRunners(newSvc);
-    newSvc.isActive = true;
   } catch (error) {
-    // Roll back what attached so far. Boot wiring is the atomicity
-    // backstop per § 4.0.5 — torn flips heal at next eviction.
     detachActiveBoundRunners(newSvc);
-    for (const reg of WORKSPACE_REGISTRY) reg.setActive(null);
     releaseWorkspaceService(workspaceId);
     logger.warn('SyncService', `setRuntimeActive(${workspaceId}): runner-attach-failed`, error);
     return { ok: false, reason: 'runner-attach-failed', error };
@@ -369,18 +353,14 @@ async function doSetActive(workspaceId: string): Promise<SetActiveResult> {
 }
 
 /**
- * Drop the Active pointer. The Active workspace's cache singletons are
- * detached; its service may be torn down after grace if no other refs
- * hold it. Used at SW shutdown and by the test harness.
+ * Drop the Active pointer. The Active workspace's Active-bound runner
+ * subscriptions are disposed; its service may be torn down after grace
+ * if no other refs hold it. Used at SW shutdown and by the test harness.
  */
 export function dispose(): void {
   if (currentActive === null) return;
   const svc = services.get(currentActive);
-  if (svc?.isActive) {
-    detachActiveBoundRunners(svc);
-    detachCaches(WORKSPACE_REGISTRY, svc.caches);
-    svc.isActive = false;
-  }
+  if (svc) detachActiveBoundRunners(svc);
   const oldActive = currentActive;
   currentActive = null;
   releaseWorkspaceService(oldActive);
@@ -533,6 +513,30 @@ export function applySyncRequest(request: SyncApplyRequest): Promise<SyncApplyRe
 export function getOracleForCurrentWorkspace(): EntityOracle | null {
   if (currentActive === null) return null;
   return services.get(currentActive)?.oracle ?? null;
+}
+
+/**
+ * Resolve a per-entity cache for the runtime-Active workspace. Returns
+ * null when no Active workspace is set or the workspace's service
+ * hasn't been materialized yet. SW-internal consumers in
+ * `background/modules/` use this in place of the legacy
+ * `getActiveXCache()` accessors — the helper enforces "Active
+ * workspace's cache" by construction. Callers that need a specific
+ * workspace's cache use `getOrCreateWorkspaceService(id)` and index
+ * `caches` by registry position directly.
+ *
+ * The generic parameter is the cache type the registration owns; the
+ * cast is sound because `caches[i]` was produced by
+ * `registry[i].createCache` in {@link buildService}.
+ */
+export function getActiveCacheForRegistration<C extends EntityCacheLike>(reg: EntityRegistration): C | null {
+  if (currentActive === null) return null;
+  const svc = services.get(currentActive);
+  if (!svc) return null;
+  const idx = WORKSPACE_REGISTRY.indexOf(reg);
+  if (idx === -1) return null;
+  const cache = svc.caches[idx];
+  return (cache as C | undefined) ?? null;
 }
 
 // ── Snapshot exports — consumed by `oh.sync.snapshotX` RPC handlers ──
@@ -724,10 +728,7 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
   // Reset Active + tear down every resident service synchronously.
   if (currentActive !== null) {
     const svc = services.get(currentActive);
-    if (svc?.isActive) {
-      detachCaches(WORKSPACE_REGISTRY, svc.caches);
-      svc.isActive = false;
-    }
+    if (svc) detachActiveBoundRunners(svc);
     currentActive = null;
   }
   for (const id of Array.from(services.keys())) {
@@ -791,10 +792,12 @@ function productionDepsFactory(workspaceId: string): WireDeps {
  * `WORKSPACE_REGISTRY`.
  *
  * Caches are constructed and subscribed to the workspace's broadcast
- * bus, but NOT yet registered as the per-entity active singletons —
- * that happens in {@link initSyncService} when this workspace becomes
- * Active. Non-Active resident workspaces hold caches scoped to their
- * own service state without affecting `getActiveXCache` consumers.
+ * bus and live on {@link WorkspaceServiceState.caches} for the full
+ * residency of the workspace. SW-internal consumers reach for the
+ * runtime-Active workspace's cache through
+ * {@link getActiveCacheForRegistration}; non-Active workspaces still
+ * keep their caches warm so per-workspace persistence keeps flowing
+ * through every workspace's broadcast bus.
  */
 function buildService(deps: WireDeps): WorkspaceServiceState {
   const broadcast = new InMemoryBroadcast();
@@ -808,10 +811,9 @@ function buildService(deps: WireDeps): WorkspaceServiceState {
     schemas: buildSchemaRegistry(WORKSPACE_REGISTRY),
   });
 
-  // Build caches via the registry's createCache; do NOT register as
-  // singletons here. The Active flip in `setRuntimeActive` registers
-  // the singletons for the Active workspace and detaches the previous
-  // owner.
+  // Build caches via the registry's createCache. Each cache is owned
+  // exclusively by this service state; lookups for the runtime-Active
+  // workspace's cache go through `getActiveCacheForRegistration`.
   const caches: EntityCacheLike[] = WORKSPACE_REGISTRY.map((reg) =>
     reg.createCache(deps.workspaceId, oracle, broadcast, () => context.next()),
   );
@@ -856,7 +858,6 @@ function buildService(deps: WireDeps): WorkspaceServiceState {
     refcount: 0,
     disposalTimer: null,
     disposing: false,
-    isActive: false,
   };
 }
 
@@ -928,12 +929,7 @@ function finalizeDisposal(svc: WorkspaceServiceState): void {
   // anyway, but explicit detach surfaces the invariant.
   detachActiveBoundRunners(svc);
   svc.unsubscribeBroadcast();
-  if (svc.isActive) {
-    detachCaches(WORKSPACE_REGISTRY, svc.caches);
-    svc.isActive = false;
-  } else {
-    for (const cache of svc.caches) cache.dispose();
-  }
+  disposeCaches(svc.caches);
   svc.awareness.dispose();
   services.delete(svc.workspaceId);
   logger.info('SyncService', `Disposed workspace ${svc.workspaceId}`);

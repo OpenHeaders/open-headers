@@ -25,11 +25,7 @@
  */
 
 import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
-import type {
-  MutationBatch,
-  MutatorContext,
-  SideEffectIntent,
-} from '@openheaders/core/sync';
+import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import { entityLockName, withLock } from '@/shared/coordination/with-lock';
@@ -40,8 +36,9 @@ import {
   buildSetOAuthTokenBatch,
 } from '@/shared/sync/oauth-bundle-mutations';
 import type { OAuthBundleSnapshot } from '@/shared/sync/oauth-bundle-projection';
-import { getActiveOAuthBundleCache } from '../sync/oauth-bundle-cache';
-import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
+import { OAUTH_BUNDLE_REGISTRATION } from '../sync/entity-registry';
+import type { OAuthBundleCache } from '../sync/oauth-bundle-cache';
+import { getActiveCacheForRegistration, getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
 import { getActiveWorkspaceId } from './workspace-store';
 
 // ── Storage shape ─────────────────────────────────────────────────
@@ -83,10 +80,7 @@ function notifyChange(workspaceId: string): void {
 
 // ── Reads ──────────────────────────────────────────────────────────
 
-export async function getTokenBundle(
-  credentialRef: string,
-  workspaceId?: string,
-): Promise<OAuth2TokenBundle | null> {
+export async function getTokenBundle(credentialRef: string, workspaceId?: string): Promise<OAuth2TokenBundle | null> {
   const wsId = workspaceId ?? getActiveWorkspaceId();
   if (wsId === mirrorWorkspaceId) {
     return (mirror.tokens[credentialRef] as OAuth2TokenBundle | undefined) ?? null;
@@ -98,10 +92,7 @@ export async function getTokenBundle(
   return (blob.tokens[credentialRef] as OAuth2TokenBundle | undefined) ?? null;
 }
 
-export async function getRefreshConfig(
-  credentialRef: string,
-  workspaceId?: string,
-): Promise<V5.OAuth2Auth | null> {
+export async function getRefreshConfig(credentialRef: string, workspaceId?: string): Promise<V5.OAuth2Auth | null> {
   const wsId = workspaceId ?? getActiveWorkspaceId();
   if (wsId === mirrorWorkspaceId) {
     return (mirror.configs[credentialRef] as V5.OAuth2Auth | undefined) ?? null;
@@ -110,9 +101,7 @@ export async function getRefreshConfig(
   return (blob.configs[credentialRef] as V5.OAuth2Auth | undefined) ?? null;
 }
 
-export async function listTokenBundles(
-  workspaceId?: string,
-): Promise<Record<string, OAuth2TokenBundle>> {
+export async function listTokenBundles(workspaceId?: string): Promise<Record<string, OAuth2TokenBundle>> {
   const wsId = workspaceId ?? getActiveWorkspaceId();
   if (wsId === mirrorWorkspaceId) {
     return { ...(mirror.tokens as Record<string, OAuth2TokenBundle>) };
@@ -144,8 +133,7 @@ export async function listAllWorkspaceCredentials(): Promise<WorkspaceCredential
         credentialRef,
         bundle: bundle as OAuth2TokenBundle,
         config: (blob.configs[credentialRef] as V5.OAuth2Auth | undefined) ?? null,
-        errorState:
-          (blob.refreshErrors[credentialRef] as OAuthRefreshErrorState | undefined) ?? null,
+        errorState: (blob.refreshErrors[credentialRef] as OAuthRefreshErrorState | undefined) ?? null,
       });
     }
   }
@@ -185,11 +173,7 @@ export async function putTokenBundle(
   }
 
   await applyOAuthMutationOrThrow(
-    (ctx) =>
-      buildSetOAuthTokenBatch(
-        { credentialRef, bundle, ...(config !== undefined ? { config } : {}) },
-        ctx,
-      ),
+    (ctx) => buildSetOAuthTokenBatch({ credentialRef, bundle, ...(config !== undefined ? { config } : {}) }, ctx),
     'putTokenBundle',
   );
   logger.debug('OAuthStore', `Stored token for ${credentialRef} (expiresAt=${bundle.expiresAt ?? 'none'})`);
@@ -218,10 +202,7 @@ export async function deleteTokenBundle(credentialRef: string, workspaceId?: str
   }
 
   if (!(credentialRef in mirror.tokens)) return false;
-  await applyOAuthMutationOrThrow(
-    (ctx) => buildDeleteOAuthTokenBatch({ credentialRef }, ctx),
-    'deleteTokenBundle',
-  );
+  await applyOAuthMutationOrThrow((ctx) => buildDeleteOAuthTokenBatch({ credentialRef }, ctx), 'deleteTokenBundle');
   logger.info('OAuthStore', `Deleted token for ${credentialRef}`);
   notifyChange(wsId);
   return true;
@@ -322,9 +303,10 @@ function normalizeBlob(raw: unknown): OAuthBundleSnapshot {
     schemaVersion: typeof blob.schemaVersion === 'number' ? blob.schemaVersion : 5,
     tokens: (blob.tokens && typeof blob.tokens === 'object' ? blob.tokens : {}) as Record<string, unknown>,
     configs: (blob.configs && typeof blob.configs === 'object' ? blob.configs : {}) as Record<string, unknown>,
-    refreshErrors: (blob.refreshErrors && typeof blob.refreshErrors === 'object'
-      ? blob.refreshErrors
-      : {}) as Record<string, unknown>,
+    refreshErrors: (blob.refreshErrors && typeof blob.refreshErrors === 'object' ? blob.refreshErrors : {}) as Record<
+      string,
+      unknown
+    >,
   };
 }
 
@@ -357,7 +339,7 @@ let cacheUnsubscribe: (() => void) | null = null;
  * dropped first. Seeds the oracle from the current persisted blob.
  */
 export async function bridgeOAuthSyncEngine(): Promise<void> {
-  const cache = getActiveOAuthBundleCache();
+  const cache = getActiveCacheForRegistration<OAuthBundleCache>(OAUTH_BUNDLE_REGISTRATION);
   if (!cache) return;
   if (cacheUnsubscribe) {
     cacheUnsubscribe();

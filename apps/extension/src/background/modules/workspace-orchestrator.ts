@@ -68,16 +68,10 @@ import {
   type LocalFolder,
   switchToWorkspace as switchRulesToWorkspace,
 } from './rule-store';
-import {
-  hydrateTemplatesFromStorage,
-  switchToWorkspace as switchTemplatesToWorkspace,
-} from './template-store';
+import { hydrateTemplatesFromStorage, switchToWorkspace as switchTemplatesToWorkspace } from './template-store';
 import { purgeWorkspaceTestRuns } from './test-run-store';
 import { purgeWorkspaceCooldowns } from './totp-cooldown-store';
-import {
-  createWorkspace as createWorkspaceMeta,
-  getWorkspace,
-} from './workspace-store';
+import { createWorkspace as createWorkspaceMeta, getWorkspace } from './workspace-store';
 
 // ── Storage key helpers ─────────────────────────────────────────────
 

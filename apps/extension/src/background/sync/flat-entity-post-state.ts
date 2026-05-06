@@ -31,10 +31,7 @@
  * assembly that doesn't fit the flat-uid model.
  */
 
-import type {
-  MaterializedEntity,
-  MutationEnvelope,
-} from '@openheaders/core/sync';
+import type { MaterializedEntity, MutationEnvelope } from '@openheaders/core/sync';
 import type { EntityOracle } from './oracle';
 
 /** Minimum oracle surface every flat-entity projector needs. Extras
@@ -80,9 +77,7 @@ export function buildVarNamesExtras(
   varsPath: string,
 ): { varUids: string[] } {
   return {
-    varUids: oracle
-      .liveSetItems(entityType, uid, varsPath)
-      .map((entry) => entry.itemId),
+    varUids: oracle.liveSetItems(entityType, uid, varsPath).map((entry) => entry.itemId),
   };
 }
 

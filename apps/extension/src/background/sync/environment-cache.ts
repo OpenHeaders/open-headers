@@ -49,13 +49,3 @@ export function createEnvironmentCache(
     dispose: core.dispose,
   };
 }
-
-let active: EnvironmentCache | null = null;
-
-export function setActiveEnvironmentCache(cache: EnvironmentCache | null): void {
-  active = cache;
-}
-
-export function getActiveEnvironmentCache(): EnvironmentCache | null {
-  return active;
-}

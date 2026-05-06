@@ -13,10 +13,7 @@ import { extensionStorage, wsKeys } from '@/shared/storage';
 import { seedWorkspaceVariables } from '@/shared/sync/workspace-variables-projection';
 import type { InMemoryBroadcast } from './broadcast';
 import type { EntityOracle } from './oracle';
-import {
-  createSingletonEntityCache,
-  type SingletonEntityCache,
-} from './singleton-entity-cache';
+import { createSingletonEntityCache, type SingletonEntityCache } from './singleton-entity-cache';
 import type { SwMutatorContextFactory } from './sw-context';
 import { projectWorkspaceVariablesSingleton } from './workspace-variables-post-state';
 
@@ -41,15 +38,20 @@ export function createWorkspaceVariablesCache(
   broadcast: InMemoryBroadcast,
   contextFactory: SwMutatorContextFactory,
 ): WorkspaceVariablesCache {
-  const core: SingletonEntityCache<V5.WorkspaceVariables, V5.WorkspaceVariables> =
-    createSingletonEntityCache(workspaceId, oracle, broadcast, contextFactory, {
+  const core: SingletonEntityCache<V5.WorkspaceVariables, V5.WorkspaceVariables> = createSingletonEntityCache(
+    workspaceId,
+    oracle,
+    broadcast,
+    contextFactory,
+    {
       entityType: WORKSPACE_VARIABLES_ENTITY_TYPE,
       loggerTag: 'WorkspaceVariablesCache',
       emptySnapshot: EMPTY_WORKSPACE_VARIABLES,
       project: (o) => projectWorkspaceVariablesSingleton(o)?.workspaceVariables ?? null,
       buildSeedBatch: (input, ctx) => seedWorkspaceVariables(input, ctx),
       persist: (scope, vars) => extensionStorage.set(wsKeys(scope).workspaceVars, vars),
-    });
+    },
+  );
 
   return {
     workspaceId: core.scope,
@@ -58,16 +60,4 @@ export function createWorkspaceVariablesCache(
     onChange: core.onChange,
     dispose: core.dispose,
   };
-}
-
-// ── module-level singleton glue ───────────────────────────────────
-
-let active: WorkspaceVariablesCache | null = null;
-
-export function setActiveWorkspaceVariablesCache(cache: WorkspaceVariablesCache | null): void {
-  active = cache;
-}
-
-export function getActiveWorkspaceVariablesCache(): WorkspaceVariablesCache | null {
-  return active;
 }

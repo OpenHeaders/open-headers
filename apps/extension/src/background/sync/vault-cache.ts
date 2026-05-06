@@ -16,10 +16,7 @@ import { extensionStorage, wsKeys } from '@/shared/storage';
 import { seedVault } from '@/shared/sync/vault-projection';
 import type { InMemoryBroadcast } from './broadcast';
 import type { EntityOracle } from './oracle';
-import {
-  createSingletonEntityCache,
-  type SingletonEntityCache,
-} from './singleton-entity-cache';
+import { createSingletonEntityCache, type SingletonEntityCache } from './singleton-entity-cache';
 import type { SwMutatorContextFactory } from './sw-context';
 import { projectVaultSingleton } from './vault-post-state';
 
@@ -66,16 +63,4 @@ export function createVaultCache(
     onChange: core.onChange,
     dispose: core.dispose,
   };
-}
-
-// ── module-level singleton glue ───────────────────────────────────
-
-let active: VaultCache | null = null;
-
-export function setActiveVaultCache(cache: VaultCache | null): void {
-  active = cache;
-}
-
-export function getActiveVaultCache(): VaultCache | null {
-  return active;
 }

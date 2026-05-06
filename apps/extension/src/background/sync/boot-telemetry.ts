@@ -28,8 +28,8 @@
  * baseline.
  */
 
-import { recordLog } from '@/background/modules/observability-log';
 import { logger } from '@utils/logger';
+import { recordLog } from '@/background/modules/observability-log';
 
 const SW_BOOT_AT = Date.now();
 

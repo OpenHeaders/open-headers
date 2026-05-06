@@ -15,7 +15,9 @@
 
 import { logger } from '@utils/logger';
 import { extensionStorage, type PersistedPanelLayout, wsKeys } from '@/shared/storage';
-import { getActiveLayoutStateCache } from '../sync/layout-state-cache';
+import { LAYOUT_STATE_REGISTRATION } from '../sync/entity-registry';
+import type { LayoutStateCache } from '../sync/layout-state-cache';
+import { getActiveCacheForRegistration } from '../sync/service';
 import { getActiveWorkspaceId } from './workspace-store';
 
 // ── Hydration / bridge ────────────────────────────────────────────
@@ -32,13 +34,10 @@ async function readLayoutFor(workspaceId: string): Promise<PersistedPanelLayout 
  * the same batch through the oracle, which dedups by mutationId.
  */
 export async function bridgeLayoutStateSyncEngine(): Promise<void> {
-  const cache = getActiveLayoutStateCache();
+  const cache = getActiveCacheForRegistration<LayoutStateCache>(LAYOUT_STATE_REGISTRATION);
   if (!cache) return;
   const workspaceId = getActiveWorkspaceId();
   const persisted = await readLayoutFor(workspaceId);
   await cache.seedFromPersistedLayout(persisted);
-  logger.info(
-    'LayoutStore',
-    `Bridged ws=${workspaceId}: ${persisted ? 'seeded' : 'empty'}`,
-  );
+  logger.info('LayoutStore', `Bridged ws=${workspaceId}: ${persisted ? 'seeded' : 'empty'}`);
 }

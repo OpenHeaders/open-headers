@@ -24,9 +24,15 @@ import { EnvironmentSchema, VaultSchema, WorkspaceVariablesSchema } from '@openh
 import type { V5 } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
-import { getActiveEnvironmentCache } from '@/background/sync/environment-cache';
-import { getActiveVaultCache } from '@/background/sync/vault-cache';
-import { getActiveWorkspaceVariablesCache } from '@/background/sync/workspace-variables-cache';
+import {
+  ENVIRONMENT_REGISTRATION,
+  VAULT_REGISTRATION,
+  WORKSPACE_VARIABLES_REGISTRATION,
+} from '@/background/sync/entity-registry';
+import type { EnvironmentCache } from '@/background/sync/environment-cache';
+import { getActiveCacheForRegistration } from '@/background/sync/service';
+import type { VaultCache } from '@/background/sync/vault-cache';
+import type { WorkspaceVariablesCache } from '@/background/sync/workspace-variables-cache';
 import { entityLockName, withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 import { driftRecorder } from './storage-drift';
@@ -153,9 +159,7 @@ export function createEnvironment(name: string, variables: V5.Variable[] = []): 
  * Outcome of an environment write. Phase B retired the stale-draft
  * branch (§24) — concurrent edits reconcile via HLC LWW at the oracle.
  */
-export type EnvironmentWriteResult =
-  | { ok: true; environment: V5.Environment }
-  | { ok: false; reason: 'not-found' };
+export type EnvironmentWriteResult = { ok: true; environment: V5.Environment } | { ok: false; reason: 'not-found' };
 
 export async function renameEnvironment(uid: string, name: string): Promise<EnvironmentWriteResult> {
   const workspaceId = assertLoaded();
@@ -469,7 +473,7 @@ let envCacheUnsubscribe: (() => void) | null = null;
  * Re-runs are safe — the prior cache subscription is dropped first.
  */
 export async function bridgeEnvironmentSyncEngine(): Promise<void> {
-  const cache = getActiveEnvironmentCache();
+  const cache = getActiveCacheForRegistration<EnvironmentCache>(ENVIRONMENT_REGISTRATION);
   if (!cache) {
     logger.info('EnvironmentStore', 'bridgeEnvironmentSyncEngine: no active cache; skipping');
     return;
@@ -501,12 +505,9 @@ let workspaceVarsCacheUnsubscribe: (() => void) | null = null;
  * `bridgeEnvironmentSyncEngine`.
  */
 export async function bridgeWorkspaceVariablesSyncEngine(): Promise<void> {
-  const cache = getActiveWorkspaceVariablesCache();
+  const cache = getActiveCacheForRegistration<WorkspaceVariablesCache>(WORKSPACE_VARIABLES_REGISTRATION);
   if (!cache) {
-    logger.info(
-      'EnvironmentStore',
-      'bridgeWorkspaceVariablesSyncEngine: no active cache; skipping',
-    );
+    logger.info('EnvironmentStore', 'bridgeWorkspaceVariablesSyncEngine: no active cache; skipping');
     return;
   }
   if (workspaceVarsCacheUnsubscribe) {
@@ -537,7 +538,7 @@ let vaultCacheUnsubscribe: (() => void) | null = null;
  * `chrome.storage.local`.
  */
 export async function bridgeVaultSyncEngine(): Promise<void> {
-  const cache = getActiveVaultCache();
+  const cache = getActiveCacheForRegistration<VaultCache>(VAULT_REGISTRATION);
   if (!cache) {
     logger.info('EnvironmentStore', 'bridgeVaultSyncEngine: no active cache; skipping');
     return;

@@ -24,10 +24,7 @@ import { seedFiles } from '@/shared/sync/files-projection';
 import type { InMemoryBroadcast } from './broadcast';
 import { projectFilesSingleton } from './files-post-state';
 import type { EntityOracle } from './oracle';
-import {
-  createSingletonEntityCache,
-  type SingletonEntityCache,
-} from './singleton-entity-cache';
+import { createSingletonEntityCache, type SingletonEntityCache } from './singleton-entity-cache';
 import type { SwMutatorContextFactory } from './sw-context';
 
 export interface FilesSnapshot {
@@ -77,16 +74,4 @@ export function createFilesCache(
     onChange: core.onChange,
     dispose: core.dispose,
   };
-}
-
-// ── module-level singleton glue ───────────────────────────────────
-
-let active: FilesCache | null = null;
-
-export function setActiveFilesCache(cache: FilesCache | null): void {
-  active = cache;
-}
-
-export function getActiveFilesCache(): FilesCache | null {
-  return active;
 }

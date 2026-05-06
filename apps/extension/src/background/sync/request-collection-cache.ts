@@ -6,10 +6,7 @@
 import { REQUEST_COLLECTION_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { wsKeys } from '@/shared/storage';
-import {
-  projectRequestCollection,
-  seedRequestCollection,
-} from '@/shared/sync/request-collection-projection';
+import { projectRequestCollection, seedRequestCollection } from '@/shared/sync/request-collection-projection';
 import type { InMemoryBroadcast } from './broadcast';
 import { createFlatEntityCache } from './flat-entity-cache';
 import type { EntityOracle } from './oracle';
@@ -51,14 +48,4 @@ export function createRequestCollectionCache(
     onChange: core.onChange,
     dispose: core.dispose,
   };
-}
-
-let active: RequestCollectionCache | null = null;
-
-export function setActiveRequestCollectionCache(cache: RequestCollectionCache | null): void {
-  active = cache;
-}
-
-export function getActiveRequestCollectionCache(): RequestCollectionCache | null {
-  return active;
 }

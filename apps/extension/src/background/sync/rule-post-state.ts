@@ -14,10 +14,7 @@ import type { SyncRulePostState } from '@openheaders/core/protocol';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { projectRule } from '@/shared/sync/rule-projection';
-import {
-  buildSetMembersExtras,
-  makeFlatEntityProjectors,
-} from './flat-entity-post-state';
+import { buildSetMembersExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
 import type { EntityOracle } from './oracle';
 
 /** Set-modeled paths on a Rule — mirrors {@link rule-projection.SET_PATHS}. */
