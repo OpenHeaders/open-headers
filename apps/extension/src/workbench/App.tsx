@@ -9,6 +9,7 @@
  */
 
 import { EnvironmentProvider } from '@context/EnvironmentContext';
+import { VaultProvider } from '@context/VaultContext';
 import { WorkspaceVariablesProvider } from '@context/WorkspaceVariablesContext';
 import { RuleProvider } from '@context/RuleContext';
 import { useTheme } from '@context/ThemeContext';
@@ -343,9 +344,11 @@ const WorkbenchTabAware: React.FC<{
       <RuleProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
         <EnvironmentProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
           <WorkspaceVariablesProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
-            <InspectorNavProvider>
-              <WorkbenchShell layout={layout} perTab={perTab} />
-            </InspectorNavProvider>
+            <VaultProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
+              <InspectorNavProvider>
+                <WorkbenchShell layout={layout} perTab={perTab} />
+              </InspectorNavProvider>
+            </VaultProvider>
           </WorkspaceVariablesProvider>
         </EnvironmentProvider>
       </RuleProvider>

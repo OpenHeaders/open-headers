@@ -579,23 +579,24 @@ describe('MWPT-FULL foundation lint gates (sub-commit 1e)', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// MWPT-FULL per-family migration sessions #1 + #2 — Environments + workspace variables
+// MWPT-FULL per-family migration sessions #1 + #2 + #3
 //
 // Generalizes the BC-MWPT-5 lint shape from `RuleProvider` to
-// `EnvironmentProvider` (session #1) and `WorkspaceVariablesProvider`
-// (session #2). Workbench mounts the override prop reading
-// `editingScopeWorkspaceId`; system surfaces (popup / sidepanel / panel)
-// mount the providers with no override prop. Override branch reads from
-// the per-workspace storage key directly and routes mutations through
-// the entity-family Phase B write-client.
+// `EnvironmentProvider` (session #1), `WorkspaceVariablesProvider`
+// (session #2), and `VaultProvider` (session #3). Workbench mounts each
+// provider with the editing-scope override; system surfaces mount with
+// no override. Override branch reads from the per-workspace storage key
+// directly and routes mutations through the entity-family Phase B
+// write-client.
 // ────────────────────────────────────────────────────────────────────────
 
 const ENV_CONTEXT = join(REPO_ROOT, 'src', 'context', 'EnvironmentContext.tsx');
 const WORKSPACE_VARIABLES_CONTEXT = join(REPO_ROOT, 'src', 'context', 'WorkspaceVariablesContext.tsx');
+const VAULT_CONTEXT = join(REPO_ROOT, 'src', 'context', 'VaultContext.tsx');
 const POPUP_APP = join(REPO_ROOT, 'src', 'popup', 'App.tsx');
 const PANEL_APP = join(REPO_ROOT, 'src', 'panel', 'App.tsx');
 
-describe('MWPT-FULL session #1+#2 — Environments + workspace variables lint gates', () => {
+describe('MWPT-FULL session #1+#2+#3 — Environments + workspace variables + vault lint gates', () => {
   it('BC-MWPT-FULL-1-env — workbench App.tsx mounts EnvironmentProvider with editingScopeWorkspaceId override', () => {
     const text = readFileSync(APP_TSX, 'utf8');
     expect(text).toMatch(
@@ -674,5 +675,35 @@ describe('MWPT-FULL session #1+#2 — Environments + workspace variables lint ga
     // No legacy `call('setWorkspaceVariables', ...)` shim survives — Phase B
     // is the only write path for this entity family (no § 4.1.c residual).
     expect(text).not.toMatch(/call\(\s*['"]setWorkspaceVariables['"]/);
+  });
+
+  it('BC-MWPT-FULL-1-vault — workbench App.tsx mounts VaultProvider with editingScopeWorkspaceId override', () => {
+    const text = readFileSync(APP_TSX, 'utf8');
+    expect(text).toMatch(
+      /<VaultProvider\s+surfaceId=["']workbench["']\s+activeWorkspaceIdOverride=\{editingScopeWorkspaceId\}/,
+    );
+  });
+
+  it('BC-MWPT-FULL-1-vault — system surfaces (popup / panel) mount VaultProvider WITHOUT override', () => {
+    for (const file of [POPUP_APP, PANEL_APP]) {
+      const text = readFileSync(file, 'utf8');
+      expect(text).toMatch(/<VaultProvider\b/);
+      expect(text).not.toMatch(/<VaultProvider[^>]*activeWorkspaceIdOverride=/);
+    }
+  });
+
+  it('BC-MWPT-FULL-2-vault — VaultProvider override branch subscribes wsKeys(workspaceId).vault directly', () => {
+    const text = readFileSync(VAULT_CONTEXT, 'utf8');
+    expect(text).toMatch(/extensionStorage\.subscribe\(\s*wsKeys\(\s*\w+\s*\)\.vault\b/);
+  });
+
+  it('BC-MWPT-FULL-3-vault — VaultProvider routes mutations through vault-write-client (no legacy call shim)', () => {
+    const text = readFileSync(VAULT_CONTEXT, 'utf8');
+    expect(text).toMatch(/applyVaultSecretSet\(/);
+    expect(text).toMatch(/applyVaultSecretRemove\(/);
+    expect(text).toMatch(/applyVaultReplacement\(/);
+    // No legacy `call('setVault', ...)` shim exists or survives — Phase B
+    // is the only write path for this entity family (no § 4.1.c residual).
+    expect(text).not.toMatch(/call\(\s*['"]setVault['"]/);
   });
 });

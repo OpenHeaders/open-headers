@@ -1,5 +1,6 @@
 import ErrorBoundary from '@components/ErrorBoundary';
 import { EnvironmentProvider } from '@context/EnvironmentContext';
+import { VaultProvider } from '@context/VaultContext';
 import { WorkspaceVariablesProvider } from '@context/WorkspaceVariablesContext';
 import { KeyboardNavProvider, useKeyboardNav } from '@context/KeyboardNavContext';
 import { RuleProvider } from '@context/RuleContext';
@@ -125,19 +126,21 @@ const AppContent: React.FC = () => {
         <RuleProvider surfaceId={ruleSurfaceId}>
           <EnvironmentProvider surfaceId={ruleSurfaceId}>
             <WorkspaceVariablesProvider surfaceId={ruleSurfaceId}>
-              <KeyboardNavProvider
-                activeTab={activeTab}
-                onTabChange={handleTabChange}
-                onCycleTheme={cycleTheme}
-                onToggleCompactMode={toggleCompactMode}
-                onOpenTour={handleOpenTour}
-              >
-                <EnvSwitcherProvider>
-                  <VariablePopoverProvider>
-                    <AppInner tourOpen={tourOpen} onTourClose={handleTourClose} />
-                  </VariablePopoverProvider>
-                </EnvSwitcherProvider>
-              </KeyboardNavProvider>
+              <VaultProvider surfaceId={ruleSurfaceId}>
+                <KeyboardNavProvider
+                  activeTab={activeTab}
+                  onTabChange={handleTabChange}
+                  onCycleTheme={cycleTheme}
+                  onToggleCompactMode={toggleCompactMode}
+                  onOpenTour={handleOpenTour}
+                >
+                  <EnvSwitcherProvider>
+                    <VariablePopoverProvider>
+                      <AppInner tourOpen={tourOpen} onTourClose={handleTourClose} />
+                    </VariablePopoverProvider>
+                  </EnvSwitcherProvider>
+                </KeyboardNavProvider>
+              </VaultProvider>
             </WorkspaceVariablesProvider>
           </EnvironmentProvider>
         </RuleProvider>

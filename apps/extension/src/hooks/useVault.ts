@@ -1,58 +1,21 @@
 /**
- * useVault — interim slice hook.
+ * useVault — vault slice hook.
  *
- * Reads the vault via the legacy `getVault` RPC + `environmentsChanged`
- * broadcast. Session #3 of the MWPT-FULL epic replaces this with a
- * `VaultProvider` mirroring `EnvironmentProvider` (per-workspace
- * storage subscribe + Phase B `vault-write-client`). Until then this
- * hook follows the global default.
+ * Reads from `VaultContext` (mounted by `<VaultProvider>` on every
+ * surface, nested innermost in the three-sibling stack per § 4.1.b:
+ * Environment → WorkspaceVariables → Vault). Workbench mounts the
+ * provider with `activeWorkspaceIdOverride={editingScopeWorkspaceId}`
+ * so diverged tabs editing W2 see and write to W2's vault.
+ *
+ * Slice surface preserves the original `{ vault, isReady }` reader
+ * shape; mutators live on the context for callers that prefer the
+ * in-context API.
  */
 
-import type { V5 } from '@openheaders/core/types';
-import { call, subscribe } from '@utils/bridge';
-import { useEffect, useState } from 'react';
+import { type VaultContextValue, useVaultContext } from '@context/VaultContext';
 
-const EMPTY_VAULT: V5.Vault = { schemaVersion: 5, secrets: [] };
-
-export interface UseVaultApi {
-  vault: V5.Vault;
-  isReady: boolean;
-}
+export type UseVaultApi = VaultContextValue;
 
 export function useVault(): UseVaultApi {
-  const [vault, setVault] = useState<V5.Vault>(EMPTY_VAULT);
-  const [isReady, setIsReady] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const reload = () =>
-      call('getVault')
-        .then((resp) => {
-          if (cancelled) return;
-          setVault(resp.vault);
-          setIsReady(true);
-        })
-        .catch(() => {
-          if (cancelled) return;
-          setIsReady(true);
-        });
-
-    void reload();
-
-    const unsub = subscribe('environmentsChanged', (payload) => {
-      setVault(payload.vault);
-    });
-    const unsubWs = subscribe('workspaceChanged', () => {
-      void reload();
-    });
-
-    return () => {
-      cancelled = true;
-      unsub();
-      unsubWs();
-    };
-  }, []);
-
-  return { vault, isReady };
+  return useVaultContext();
 }

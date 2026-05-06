@@ -6,6 +6,7 @@ export {
 export { KeyboardNavProvider, useKeyboardNav } from './KeyboardNavContext';
 export { RuleContext, RuleProvider } from './RuleContext';
 export { ThemeContext, ThemeProvider, useTheme } from './ThemeContext';
+export { VaultContext, VaultProvider, useVaultContext } from './VaultContext';
 export {
   WorkspaceVariablesContext,
   WorkspaceVariablesProvider,

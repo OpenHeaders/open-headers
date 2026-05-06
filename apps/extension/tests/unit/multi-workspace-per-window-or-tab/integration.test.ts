@@ -93,17 +93,20 @@ import {
   setRuntimeActive,
   snapshotEnvironmentPostStates,
   snapshotRulePostStates,
+  snapshotVaultPostStates,
   snapshotWorkspaceVariablesPostStates,
 } from '@/background/sync/service';
 import { disposeAllEnvSyncMirrors, getEnvSyncMirrorForWorkspace } from '@/context/env-sync-mirror';
 import { setActiveRendererContext } from '@/context/renderer-mutator-context';
 import { disposeAllRuleSyncMirrors, getRuleSyncMirrorForWorkspace } from '@/context/rule-sync-mirror';
+import { disposeAllVaultSyncMirrors, getVaultSyncMirrorForWorkspace } from '@/context/vault-sync-mirror';
 import {
   disposeAllWorkspaceVariablesSyncMirrors,
   getWorkspaceVariablesSyncMirrorForWorkspace,
 } from '@/context/workspace-variables-sync-mirror';
 import { applyEnvironmentCreate, applyEnvironmentDelete } from '@/shared/sync/env-write-client';
 import { applyRuleCreate, applyRuleDelete } from '@/shared/sync/rule-write-client';
+import { applyVaultSecretRemove, applyVaultSecretSet } from '@/shared/sync/vault-write-client';
 import {
   applyWorkspaceVarRemove,
   applyWorkspaceVarSet,
@@ -152,11 +155,16 @@ function setupHarness(): void {
     const wsId = (req as { workspaceId?: string }).workspaceId;
     return { entries: snapshotWorkspaceVariablesPostStates(wsId) };
   });
+  mockBridge._setCallHandler('oh.sync.snapshotVault', (req) => {
+    const wsId = (req as { workspaceId?: string }).workspaceId;
+    return { entries: snapshotVaultPostStates(wsId) };
+  });
 
   // Reset renderer registries.
   disposeAllRuleSyncMirrors();
   disposeAllEnvSyncMirrors();
   disposeAllWorkspaceVariablesSyncMirrors();
+  disposeAllVaultSyncMirrors();
   setActiveRendererContext(null);
 
   // Reset SW state. __init clears every resident service synchronously
@@ -213,6 +221,7 @@ afterEach(() => {
   disposeAllRuleSyncMirrors();
   disposeAllEnvSyncMirrors();
   disposeAllWorkspaceVariablesSyncMirrors();
+  disposeAllVaultSyncMirrors();
   setActiveRendererContext(null);
   vi.useRealTimers();
 });
@@ -463,6 +472,69 @@ describe('I-1-wsvars / I-2-wsvars — Workspace variables per-family migration s
     expect(del.ok).toBe(true);
     await flush();
     expect(snapshotWorkspaceVariablesPostStates('w1')).toEqual([]);
+
+    releaseWorkspaceService('w2');
+  });
+});
+
+describe('I-1-vault / I-2-vault — Vault per-family migration session #3', () => {
+  it('I-1-vault: vault mirror state == oracle vault projection per workspace', async () => {
+    await setActiveAwaited('w1');
+    const w1Mirror = getVaultSyncMirrorForWorkspace('w1');
+    const w2Mirror = getVaultSyncMirrorForWorkspace('w2');
+    getOrCreateWorkspaceService('w2');
+
+    const secret: V5.VaultSecret = {
+      uid: 'vault-uid-1',
+      kind: 'string',
+      name: 'API_TOKEN',
+      value: 'token-w2',
+    };
+    const result = await applyVaultSecretSet({ secret }, { workspaceId: 'w2', surfaceId: 'workbench-tab' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('applyVaultSecretSet failed');
+    await flush();
+
+    expect(w2Mirror.getMirror()?.vault.secrets.find((s) => s.uid === secret.uid)?.name).toBe(secret.name);
+    expect(w1Mirror.getMirror()?.vault.secrets.find((s) => s.uid === secret.uid)).toBeUndefined();
+
+    const w2Snapshot = snapshotVaultPostStates('w2');
+    expect(w2Snapshot[0]?.vault.secrets.find((s) => s.uid === secret.uid)).toBeDefined();
+    expect(snapshotVaultPostStates('w1')).toEqual([]);
+
+    releaseWorkspaceService('w2');
+  });
+
+  it('I-2-vault: w2 vault secret set from a tab whose Active is w1 lands in w2 only', async () => {
+    await setActiveAwaited('w1');
+    getOrCreateWorkspaceService('w2');
+
+    const secret: V5.VaultSecret = {
+      uid: 'vault-uid-tab2',
+      kind: 'string',
+      name: 'TENANT_KEY',
+      value: 'tab2-vault',
+    };
+    const result = await applyVaultSecretSet({ secret }, { workspaceId: 'w2', surfaceId: 'workbench-tab-2' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('applyVaultSecretSet failed');
+    await flush();
+
+    const w1Logs = harness.logs.get('w1') as InMemoryMutationLog | undefined;
+    const w2Logs = harness.logs.get('w2') as InMemoryMutationLog | undefined;
+    expect(w2Logs).toBeDefined();
+    const w1Entries = w1Logs ? await collectLogEntries(w1Logs) : [];
+    const w2Entries = w2Logs ? await collectLogEntries(w2Logs) : [];
+    expect(w1Entries.find((e) => e.body.type === 'vault')).toBeUndefined();
+    expect(w2Entries.find((e) => e.body.type === 'vault')).toBeDefined();
+
+    const del = await applyVaultSecretRemove(
+      { uid: secret.uid },
+      { workspaceId: 'w2', surfaceId: 'workbench-tab-2' },
+    );
+    expect(del.ok).toBe(true);
+    await flush();
+    expect(snapshotVaultPostStates('w1')).toEqual([]);
 
     releaseWorkspaceService('w2');
   });
