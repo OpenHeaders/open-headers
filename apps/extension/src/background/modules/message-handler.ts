@@ -95,7 +95,7 @@ import {
   performClientCredentialsFlow,
   performRefresh,
 } from './oauth-flow';
-import { deleteTokenBundle, listTokenBundles } from './oauth-token-store';
+import { deleteTokenBundle } from './oauth-token-store';
 import { clearObservabilityLog, getObservabilityLog } from './observability-log';
 import { handleScriptHostRequest } from './offscreen-host';
 import { executeRequest, executeRequestDraft } from './request-executor';
@@ -1067,14 +1067,12 @@ export function handleGeneralMessage(
       return true;
 
       // ── OAuth 2.0 / OIDC (Phase 13) ──────────────────────────────
-    } else if (message.type === 'listOAuthTokens') {
-      listTokenBundles()
-        .then((tokens) => safeResponse({ tokens }))
-        .catch((err: Error) => safeResponse({ tokens: {}, error: err.message }));
-      return true;
+      // Renderer reads via `extensionStorage.subscribe(wsKeys(ws).oauth)` (MWPT-FULL § 8.3.10);
+      // the former `listOAuthTokens` RPC + `oauthTokensChanged` broadcast were deleted.
     } else if (message.type === 'oauthAuthorize') {
       const config = message.config as import('@openheaders/core/types').V5.OAuth2Auth;
-      launchAuthorizationCodeFlow(config)
+      const workspaceId = typeof message.workspaceId === 'string' ? (message.workspaceId as string) : undefined;
+      launchAuthorizationCodeFlow(config, workspaceId)
         .then((result) => safeResponse({ success: true, bundle: result.bundle, redirectUri: result.redirectUri }))
         .catch((err: Error) => {
           const msg = err instanceof OAuth2FlowError ? `${err.step}: ${err.message}` : err.message;
@@ -1083,7 +1081,8 @@ export function handleGeneralMessage(
       return true;
     } else if (message.type === 'oauthClientCredentials') {
       const config = message.config as import('@openheaders/core/types').V5.OAuth2Auth;
-      performClientCredentialsFlow(config)
+      const workspaceId = typeof message.workspaceId === 'string' ? (message.workspaceId as string) : undefined;
+      performClientCredentialsFlow(config, workspaceId)
         .then((bundle) => safeResponse({ success: true, bundle }))
         .catch((err: Error) => {
           const msg = err instanceof OAuth2FlowError ? `${err.step}: ${err.message}` : err.message;
@@ -1092,7 +1091,8 @@ export function handleGeneralMessage(
       return true;
     } else if (message.type === 'oauthRefresh') {
       const config = message.config as import('@openheaders/core/types').V5.OAuth2Auth;
-      performRefresh(config)
+      const workspaceId = typeof message.workspaceId === 'string' ? (message.workspaceId as string) : undefined;
+      performRefresh(config, workspaceId)
         .then((bundle) => safeResponse({ success: true, bundle }))
         .catch((err: Error) => {
           const msg = err instanceof OAuth2FlowError ? `${err.step}: ${err.message}` : err.message;
@@ -1101,7 +1101,8 @@ export function handleGeneralMessage(
       return true;
     } else if (message.type === 'oauthRevoke') {
       const credentialRef = message.credentialRef as string;
-      deleteTokenBundle(credentialRef)
+      const workspaceId = typeof message.workspaceId === 'string' ? (message.workspaceId as string) : undefined;
+      deleteTokenBundle(credentialRef, workspaceId)
         .then((removed) => safeResponse({ success: true, removed }))
         .catch((err: Error) => safeResponse({ success: false, removed: false, error: err.message }));
       return true;

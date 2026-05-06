@@ -36,6 +36,9 @@ import { identity } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { withHostAccess } from '@/shared/fetch/with-host-access';
 import { getTokenBundle, putTokenBundle } from './oauth-token-store';
+// `workspaceId?` threads the editing-scope workspace through the
+// browser-mediated OAuth flow so a diverged tab's authorize lands the
+// resulting bundle in its own workspace's oracle (MWPT-FULL § 8.3.10).
 import { withRefreshRateLimit } from './refresh-scheduler';
 
 export class OAuth2FlowError extends Error {
@@ -92,7 +95,10 @@ export interface AuthorizationCodeResult {
  * Returns the bundle so UI surfaces can show "connected" state
  * immediately without a follow-up read.
  */
-export async function launchAuthorizationCodeFlow(config: OAuth2Auth): Promise<AuthorizationCodeResult> {
+export async function launchAuthorizationCodeFlow(
+  config: OAuth2Auth,
+  workspaceId?: string,
+): Promise<AuthorizationCodeResult> {
   if (config.flow !== 'authorization-code-pkce') {
     throw new OAuth2FlowError(
       'precondition',
@@ -153,7 +159,7 @@ export async function launchAuthorizationCodeFlow(config: OAuth2Auth): Promise<A
     'authorization_code',
     buildClientAuthHeader(config),
   );
-  await putTokenBundle(config.credentialRef, bundle, config);
+  await putTokenBundle(config.credentialRef, bundle, config, workspaceId);
   return { bundle, redirectUri };
 }
 

@@ -908,20 +908,15 @@ export interface BridgeRpcContract {
   };
 
   // ── OAuth 2.0 / OIDC (Phase 13 — ARCHITECTURE §18) ───────────────
-  /**
-   * List every stored OAuth token bundle for the active workspace.
-   * Keyed by `credentialRef`. Used by the AuthEditor to show
-   * "Connected" badges and by the upcoming OAuth management pane in
-   * Settings → Data.
-   *
-   * Access tokens are returned verbatim — any surface that displays
-   * them to the user should mask them. Consumers that only need
-   * expiry metadata should treat `accessToken` as opaque.
-   */
-  listOAuthTokens: {
-    req: Record<string, never>;
-    res: { tokens: Record<string, OAuth2TokenBundle> };
-  };
+  // Reads: renderer subscribes `wsKeys(workspaceId).oauth` directly (singleton-with-storage-key,
+  // matches Vault / PauseMarkers). The legacy `listOAuthTokens` RPC + `oauthTokensChanged`
+  // broadcast were deleted in Session 17 (MWPT-FULL § 8.3.10) — chrome.storage.local.onChanged
+  // is per-workspace correct by construction.
+  //
+  // Writes: catalog-only revoke goes renderer-direct via `applyOAuthRevoke` (Phase B).
+  // Browser-mediated flows (authorize / clientCredentials / refresh) stay on bridge RPCs
+  // because they need SW-resident chrome.identity / fetch. Each carries `workspaceId?: string`
+  // so the editing-scope workspace surfaces through to `putTokenBundle` (MWPT-FULL § 4.3).
   /**
    * Run the full Authorization Code + PKCE flow for the given OAuth
    * config. On success the token bundle is persisted and the returned
@@ -930,7 +925,7 @@ export interface BridgeRpcContract {
    * misconfigured redirect, user cancelled, etc.).
    */
   oauthAuthorize: {
-    req: { config: V5.OAuth2Auth };
+    req: { config: V5.OAuth2Auth; workspaceId?: string };
     res: { success: boolean; bundle?: OAuth2TokenBundle; redirectUri?: string; error?: string };
   };
   /**
@@ -939,7 +934,7 @@ export interface BridgeRpcContract {
    * interaction is required.
    */
   oauthClientCredentials: {
-    req: { config: V5.OAuth2Auth };
+    req: { config: V5.OAuth2Auth; workspaceId?: string };
     res: { success: boolean; bundle?: OAuth2TokenBundle; error?: string };
   };
   /**
@@ -948,12 +943,12 @@ export interface BridgeRpcContract {
    * diagnose refresh failures from the editor.
    */
   oauthRefresh: {
-    req: { config: V5.OAuth2Auth };
+    req: { config: V5.OAuth2Auth; workspaceId?: string };
     res: { success: boolean; bundle?: OAuth2TokenBundle; error?: string };
   };
   /** Delete the stored token bundle for `credentialRef`. "Disconnect" flow. */
   oauthRevoke: {
-    req: { credentialRef: string };
+    req: { credentialRef: string; workspaceId?: string };
     res: { success: boolean; removed: boolean };
   };
   /**
@@ -1426,14 +1421,6 @@ export interface BridgeBroadcastContract {
    * Bytes are NOT included — hooks fetch them on demand via `getFile`.
    */
   filesChanged: { files: FileRef[] };
-
-  /**
-   * Fires on every OAuth token-store mutation (authorize / refresh /
-   * revoke / purge). Carries the full map keyed by credentialRef so
-   * consumers (AuthEditor's "Connected" badge, OAuth management UI)
-   * stay in lockstep without per-credential subscriptions.
-   */
-  oauthTokensChanged: { tokens: Record<string, OAuth2TokenBundle> };
 
   /**
    * Fires on every Live Workflow definition mutation. Carries the full

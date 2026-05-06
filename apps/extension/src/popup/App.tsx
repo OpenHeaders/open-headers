@@ -4,6 +4,7 @@ import { FilesProvider } from '@context/FilesContext';
 import { KeyboardNavProvider, useKeyboardNav } from '@context/KeyboardNavContext';
 import { LiveVariablesProvider } from '@context/LiveVariablesContext';
 import { LiveWorkflowsProvider } from '@context/LiveWorkflowsContext';
+import { OAuthBundlesProvider } from '@context/OAuthBundlesContext';
 import { PauseMarkersProvider } from '@context/PauseMarkersContext';
 import { RequestsProvider } from '@context/RequestsContext';
 import { RuleProvider } from '@context/RuleContext';
@@ -137,19 +138,21 @@ const AppContent: React.FC = () => {
                     <LiveWorkflowsProvider surfaceId={ruleSurfaceId}>
                       <RequestsProvider surfaceId={ruleSurfaceId}>
                         <FilesProvider>
-                          <KeyboardNavProvider
-                            activeTab={activeTab}
-                            onTabChange={handleTabChange}
-                            onCycleTheme={cycleTheme}
-                            onToggleCompactMode={toggleCompactMode}
-                            onOpenTour={handleOpenTour}
-                          >
-                            <EnvSwitcherProvider>
-                              <VariablePopoverProvider>
-                                <AppInner tourOpen={tourOpen} onTourClose={handleTourClose} />
-                              </VariablePopoverProvider>
-                            </EnvSwitcherProvider>
-                          </KeyboardNavProvider>
+                          <OAuthBundlesProvider surfaceId={ruleSurfaceId}>
+                            <KeyboardNavProvider
+                              activeTab={activeTab}
+                              onTabChange={handleTabChange}
+                              onCycleTheme={cycleTheme}
+                              onToggleCompactMode={toggleCompactMode}
+                              onOpenTour={handleOpenTour}
+                            >
+                              <EnvSwitcherProvider>
+                                <VariablePopoverProvider>
+                                  <AppInner tourOpen={tourOpen} onTourClose={handleTourClose} />
+                                </VariablePopoverProvider>
+                              </EnvSwitcherProvider>
+                            </KeyboardNavProvider>
+                          </OAuthBundlesProvider>
                         </FilesProvider>
                       </RequestsProvider>
                     </LiveWorkflowsProvider>

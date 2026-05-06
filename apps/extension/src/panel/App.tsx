@@ -3,6 +3,7 @@ import { EnvironmentProvider } from '@context/EnvironmentContext';
 import { FilesProvider } from '@context/FilesContext';
 import { LiveVariablesProvider } from '@context/LiveVariablesContext';
 import { LiveWorkflowsProvider } from '@context/LiveWorkflowsContext';
+import { OAuthBundlesProvider } from '@context/OAuthBundlesContext';
 import { PauseMarkersProvider } from '@context/PauseMarkersContext';
 import { RequestsProvider } from '@context/RequestsContext';
 import { VaultProvider } from '@context/VaultContext';
@@ -166,13 +167,15 @@ export default function App() {
                         <LiveWorkflowsProvider surfaceId="panel">
                           <RequestsProvider surfaceId="panel">
                             <FilesProvider>
-                              <EnvSwitcherProvider>
-                                <VariablePopoverProvider>
-                                  <RulePopoverProvider>
-                                    <PanelContent />
-                                  </RulePopoverProvider>
-                                </VariablePopoverProvider>
-                              </EnvSwitcherProvider>
+                              <OAuthBundlesProvider surfaceId="panel">
+                                <EnvSwitcherProvider>
+                                  <VariablePopoverProvider>
+                                    <RulePopoverProvider>
+                                      <PanelContent />
+                                    </RulePopoverProvider>
+                                  </VariablePopoverProvider>
+                                </EnvSwitcherProvider>
+                              </OAuthBundlesProvider>
                             </FilesProvider>
                           </RequestsProvider>
                         </LiveWorkflowsProvider>

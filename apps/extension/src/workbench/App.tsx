@@ -12,6 +12,7 @@ import { EnvironmentProvider } from '@context/EnvironmentContext';
 import { FilesProvider } from '@context/FilesContext';
 import { LiveVariablesProvider } from '@context/LiveVariablesContext';
 import { LiveWorkflowsProvider } from '@context/LiveWorkflowsContext';
+import { OAuthBundlesProvider } from '@context/OAuthBundlesContext';
 import { PauseMarkersProvider } from '@context/PauseMarkersContext';
 import { RequestsProvider } from '@context/RequestsContext';
 import { RuleProvider } from '@context/RuleContext';
@@ -355,9 +356,11 @@ const WorkbenchTabAware: React.FC<{
                   <LiveWorkflowsProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
                     <RequestsProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
                       <FilesProvider activeWorkspaceIdOverride={editingScopeWorkspaceId}>
-                        <InspectorNavProvider>
-                          <WorkbenchShell layout={layout} perTab={perTab} />
-                        </InspectorNavProvider>
+                        <OAuthBundlesProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
+                          <InspectorNavProvider>
+                            <WorkbenchShell layout={layout} perTab={perTab} />
+                          </InspectorNavProvider>
+                        </OAuthBundlesProvider>
                       </FilesProvider>
                     </RequestsProvider>
                   </LiveWorkflowsProvider>

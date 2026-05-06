@@ -25,7 +25,7 @@
  */
 
 import { CopyOutlined, DownOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons';
-import { useOAuth } from '@hooks/useOAuth';
+import { useOAuthBundlesContext } from '@context/OAuthBundlesContext';
 import { isExpired, secondsUntilExpiry } from '@openheaders/core/oauth';
 import type { V5 } from '@openheaders/core/types';
 import { Alert, App, Button, Checkbox, Input, Select, Tooltip, Typography, theme } from 'antd';
@@ -175,7 +175,7 @@ interface OAuth2AuthEditorProps {
 const OAuth2AuthEditor: React.FC<OAuth2AuthEditorProps> = ({ auth, onChange }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
-  const { tokens, redirectUri, authorize, clientCredentials, refresh, revoke } = useOAuth();
+  const { tokens, redirectUri, authorize, clientCredentials, refresh, revoke } = useOAuthBundlesContext();
   const [busy, setBusy] = useState<null | 'authorize' | 'refresh' | 'revoke'>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
 

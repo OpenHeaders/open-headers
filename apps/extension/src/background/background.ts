@@ -74,7 +74,7 @@ import {
   reconcileOAuthSchedules,
   startOAuthScheduler,
 } from './modules/oauth-refresh-scheduler';
-import { bridgeOAuthSyncEngine, listTokenBundles, onOAuthStoreChange } from './modules/oauth-token-store';
+import { bridgeOAuthSyncEngine } from './modules/oauth-token-store';
 import { hydrateObservabilityLog, recordLog } from './modules/observability-log';
 import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
 import { bridgePauseMarkersSyncEngine, getPauseMarkers } from './modules/pause-markers-store';
@@ -460,15 +460,9 @@ async function initializeExtension(): Promise<void> {
     })();
   });
 
-  // OAuth tokens (Phase 13) — broadcast after every authorize /
-  // refresh / revoke so the AuthEditor's "Connected" badge updates
-  // live across surfaces.
-  onOAuthStoreChange(() => {
-    void (async () => {
-      const tokens = await listTokenBundles().catch(() => ({}));
-      broadcast('oauthTokensChanged', { tokens });
-    })();
-  });
+  // OAuth tokens (Phase 13) — renderer subscribes `wsKeys(ws).oauth` directly
+  // (MWPT-FULL § 8.3.10); chrome.storage.local.onChanged is per-workspace correct
+  // by construction, so no broadcast plumbing is required.
 
   // Live Variables + Workflows (Phase B) — broadcast after every
   // definition mutation so the sidebar + editors + rule-editor variable

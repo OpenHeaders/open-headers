@@ -600,12 +600,16 @@ const FILES_CONTEXT = join(REPO_ROOT, 'src', 'context', 'FilesContext.tsx');
 const FILES_STORE = join(REPO_ROOT, 'src', 'background', 'modules', 'files-store.ts');
 const PAUSE_MARKERS_CONTEXT = join(REPO_ROOT, 'src', 'context', 'PauseMarkersContext.tsx');
 const PAUSE_MARKERS_STORE = join(REPO_ROOT, 'src', 'background', 'modules', 'pause-markers-store.ts');
+const OAUTH_BUNDLES_CONTEXT = join(REPO_ROOT, 'src', 'context', 'OAuthBundlesContext.tsx');
+const OAUTH_FLOW = join(REPO_ROOT, 'src', 'background', 'modules', 'oauth-flow.ts');
+const MESSAGE_HANDLER = join(REPO_ROOT, 'src', 'background', 'modules', 'message-handler.ts');
+const BRIDGE_CONTRACTS = join(REPO_ROOT, 'src', 'utils', 'bridge', 'contracts.ts');
 const POPUP_APP = join(REPO_ROOT, 'src', 'popup', 'App.tsx');
 const PANEL_APP = join(REPO_ROOT, 'src', 'panel', 'App.tsx');
 
 const VARIABLE_MUTATOR_HOOK = join(REPO_ROOT, 'src', 'hooks', 'useVariableMutator.ts');
 
-describe('MWPT-FULL session #1+#2+#3+#4+#5+#6+#7+#8+#9 — Environments + workspace variables + vault + collection variables + live variables + live workflows + requests + files + pause markers lint gates', () => {
+describe('MWPT-FULL session #1+#2+#3+#4+#5+#6+#7+#8+#9+#10 — Environments + workspace variables + vault + collection variables + live variables + live workflows + requests + files + pause markers + oauth bundles lint gates', () => {
   it('BC-MWPT-FULL-1-env — workbench App.tsx mounts EnvironmentProvider with editingScopeWorkspaceId override', () => {
     const text = readFileSync(APP_TSX, 'utf8');
     expect(text).toMatch(
@@ -1047,5 +1051,73 @@ describe('MWPT-FULL session #1+#2+#3+#4+#5+#6+#7+#8+#9 — Environments + worksp
     // Negative: the legacy active-only oracle helper isn't referenced
     // anywhere in the file once the dead-export mutation surface is gone.
     expect(text).not.toMatch(/getOracleForCurrentWorkspace\(/);
+  });
+
+  // ── Session #10 — OAuth bundles ──────────────────────────────────
+  // Singleton-with-storage-key shape (closest baselines VaultContext +
+  // PauseMarkersContext): OAuth blob projects to `wsKeys.oauth` AND
+  // lives as a sync-engine singleton entity. The legacy `listOAuthTokens`
+  // RPC + `oauthTokensChanged` broadcast are deleted — renderer reads
+  // via `extensionStorage.subscribe(wsKeys.oauth)` directly. Catalog-only
+  // revoke goes renderer-direct via Phase B; browser-mediated flows
+  // (authorize / clientCredentials / refresh) stay on bridge RPCs but
+  // carry `workspaceId?: string` end-to-end. Closes the same-class bug
+  // from Session 14 for the OAuth entity family.
+
+  it('BC-MWPT-FULL-1-oauth — workbench App.tsx mounts OAuthBundlesProvider with editingScopeWorkspaceId override', () => {
+    const text = readFileSync(APP_TSX, 'utf8');
+    expect(text).toMatch(
+      /<OAuthBundlesProvider\s+surfaceId=["']workbench["']\s+activeWorkspaceIdOverride=\{editingScopeWorkspaceId\}/,
+    );
+  });
+
+  it('BC-MWPT-FULL-1-oauth — system surfaces (popup / panel) mount OAuthBundlesProvider WITHOUT override', () => {
+    for (const file of [POPUP_APP, PANEL_APP]) {
+      const text = readFileSync(file, 'utf8');
+      expect(text).toMatch(/<OAuthBundlesProvider\b/);
+      expect(text).not.toMatch(/<OAuthBundlesProvider[^>]*activeWorkspaceIdOverride=/);
+    }
+  });
+
+  it('BC-MWPT-FULL-2-oauth — OAuthBundlesProvider subscribes wsKeys(workspaceId).oauth directly (no oauthTokensChanged broadcast)', () => {
+    const text = readFileSync(OAUTH_BUNDLES_CONTEXT, 'utf8');
+    expect(text).toMatch(/extensionStorage\.subscribe\(\s*wsKeys\(\s*\w+\s*\)\.oauth\b/);
+    // Negative: the legacy broadcast subscription is gone — storage
+    // onChanged is per-workspace correct by construction.
+    expect(text).not.toMatch(/subscribe\(\s*['"]oauthTokensChanged['"]/);
+    // Negative: no listOAuthTokens RPC fallback either — storage is the
+    // only read path.
+    expect(text).not.toMatch(/call\(\s*['"]listOAuthTokens['"]/);
+  });
+
+  it('BC-MWPT-FULL-3-oauth — OAuthBundlesProvider routes revoke through oauth-bundle-write-client; flow RPCs thread workspaceId', () => {
+    const ctxText = readFileSync(OAUTH_BUNDLES_CONTEXT, 'utf8');
+    expect(ctxText).toMatch(/applyOAuthRevoke\(/);
+    // Browser-mediated flow RPCs surface `workspaceId` to the SW.
+    expect(ctxText).toMatch(/call\(\s*['"]oauthAuthorize['"][^)]*workspaceId/);
+    expect(ctxText).toMatch(/call\(\s*['"]oauthClientCredentials['"][^)]*workspaceId/);
+    expect(ctxText).toMatch(/call\(\s*['"]oauthRefresh['"][^)]*workspaceId/);
+
+    // Bridge contracts carry `workspaceId?: string` on every flow RPC.
+    const contractsText = readFileSync(BRIDGE_CONTRACTS, 'utf8');
+    expect(contractsText).toMatch(/oauthAuthorize:\s*{[^}]*req:\s*{[^}]*workspaceId\?:\s*string/s);
+    expect(contractsText).toMatch(/oauthClientCredentials:\s*{[^}]*req:\s*{[^}]*workspaceId\?:\s*string/s);
+    expect(contractsText).toMatch(/oauthRefresh:\s*{[^}]*req:\s*{[^}]*workspaceId\?:\s*string/s);
+    expect(contractsText).toMatch(/oauthRevoke:\s*{[^}]*req:\s*{[^}]*workspaceId\?:\s*string/s);
+    // Legacy `listOAuthTokens` RPC + `oauthTokensChanged` broadcast were deleted.
+    expect(contractsText).not.toMatch(/^\s*listOAuthTokens:/m);
+    expect(contractsText).not.toMatch(/^\s*oauthTokensChanged:/m);
+
+    // Message-handler extracts and forwards workspaceId for each flow.
+    const handlerText = readFileSync(MESSAGE_HANDLER, 'utf8');
+    expect(handlerText).toMatch(/launchAuthorizationCodeFlow\(\s*config\s*,\s*workspaceId\s*\)/);
+    expect(handlerText).toMatch(/performClientCredentialsFlow\(\s*config\s*,\s*workspaceId\s*\)/);
+    expect(handlerText).toMatch(/performRefresh\(\s*config\s*,\s*workspaceId\s*\)/);
+    expect(handlerText).toMatch(/deleteTokenBundle\(\s*credentialRef\s*,\s*workspaceId\s*\)/);
+
+    // launchAuthorizationCodeFlow takes workspaceId? and threads it to putTokenBundle.
+    const flowText = readFileSync(OAUTH_FLOW, 'utf8');
+    expect(flowText).toMatch(/launchAuthorizationCodeFlow\([^)]*workspaceId\?:\s*string/s);
+    expect(flowText).toMatch(/putTokenBundle\([^)]*workspaceId\s*\)/s);
   });
 });

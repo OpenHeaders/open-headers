@@ -109,6 +109,7 @@ describe('launchAuthorizationCodeFlow', () => {
       'oauth2-cred-test',
       expect.objectContaining({ accessToken: 'at-new' }),
       expect.objectContaining({ type: 'oauth2', credentialRef: 'oauth2-cred-test' }),
+      undefined,
     );
 
     // Verify the token-endpoint POST carried the PKCE verifier.
