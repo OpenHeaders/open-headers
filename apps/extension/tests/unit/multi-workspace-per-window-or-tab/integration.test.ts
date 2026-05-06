@@ -24,6 +24,7 @@
  */
 
 import type { SyncBroadcastEvent } from '@openheaders/core/protocol';
+import type { V5 } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockBridge } = vi.hoisted(() => {
@@ -92,12 +93,21 @@ import {
   setRuntimeActive,
   snapshotEnvironmentPostStates,
   snapshotRulePostStates,
+  snapshotWorkspaceVariablesPostStates,
 } from '@/background/sync/service';
 import { disposeAllEnvSyncMirrors, getEnvSyncMirrorForWorkspace } from '@/context/env-sync-mirror';
 import { setActiveRendererContext } from '@/context/renderer-mutator-context';
 import { disposeAllRuleSyncMirrors, getRuleSyncMirrorForWorkspace } from '@/context/rule-sync-mirror';
+import {
+  disposeAllWorkspaceVariablesSyncMirrors,
+  getWorkspaceVariablesSyncMirrorForWorkspace,
+} from '@/context/workspace-variables-sync-mirror';
 import { applyEnvironmentCreate, applyEnvironmentDelete } from '@/shared/sync/env-write-client';
 import { applyRuleCreate, applyRuleDelete } from '@/shared/sync/rule-write-client';
+import {
+  applyWorkspaceVarRemove,
+  applyWorkspaceVarSet,
+} from '@/shared/sync/workspace-variables-write-client';
 
 type LockFn = <T>(wsId: string, type: string, id: string, fn: () => Promise<T>) => Promise<T>;
 
@@ -138,10 +148,15 @@ function setupHarness(): void {
     const wsId = (req as { workspaceId?: string }).workspaceId;
     return { entries: snapshotEnvironmentPostStates(wsId) };
   });
+  mockBridge._setCallHandler('oh.sync.snapshotWorkspaceVariables', (req) => {
+    const wsId = (req as { workspaceId?: string }).workspaceId;
+    return { entries: snapshotWorkspaceVariablesPostStates(wsId) };
+  });
 
   // Reset renderer registries.
   disposeAllRuleSyncMirrors();
   disposeAllEnvSyncMirrors();
+  disposeAllWorkspaceVariablesSyncMirrors();
   setActiveRendererContext(null);
 
   // Reset SW state. __init clears every resident service synchronously
@@ -197,6 +212,7 @@ beforeEach(() => {
 afterEach(() => {
   disposeAllRuleSyncMirrors();
   disposeAllEnvSyncMirrors();
+  disposeAllWorkspaceVariablesSyncMirrors();
   setActiveRendererContext(null);
   vi.useRealTimers();
 });
@@ -371,6 +387,82 @@ describe('I-1-env / I-2-env — Environments per-family migration session #1', (
     expect(del.ok).toBe(true);
     await flush();
     expect(snapshotEnvironmentPostStates('w1')).toEqual([]);
+
+    releaseWorkspaceService('w2');
+  });
+});
+
+describe('I-1-wsvars / I-2-wsvars — Workspace variables per-family migration session #2', () => {
+  it('I-1-wsvars: ws-vars mirror state == oracle workspace-variables projection per workspace', async () => {
+    await setActiveAwaited('w1');
+    const w1Mirror = getWorkspaceVariablesSyncMirrorForWorkspace('w1');
+    const w2Mirror = getWorkspaceVariablesSyncMirrorForWorkspace('w2');
+    getOrCreateWorkspaceService('w2');
+
+    const variable: V5.Variable = {
+      uid: 'wv-uid-1',
+      name: 'API_BASE',
+      value: 'https://api.openheaders.io',
+      type: 'default',
+    };
+    const result = await applyWorkspaceVarSet({ variable }, { workspaceId: 'w2', surfaceId: 'workbench-tab' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('applyWorkspaceVarSet failed');
+    await flush();
+
+    // Mirror equality: w2 sees the new var; w1 does not.
+    expect(w2Mirror.getMirror()?.workspaceVariables.variables.find((v) => v.uid === variable.uid)?.value).toBe(
+      variable.value,
+    );
+    expect(w1Mirror.getMirror()?.workspaceVariables.variables.find((v) => v.uid === variable.uid)).toBeUndefined();
+
+    // Oracle projection equality: w2 carries the var; w1 is empty.
+    const w2Snapshot = snapshotWorkspaceVariablesPostStates('w2');
+    expect(w2Snapshot[0]?.workspaceVariables.variables.find((v) => v.uid === variable.uid)).toBeDefined();
+    expect(snapshotWorkspaceVariablesPostStates('w1')).toEqual([]);
+
+    releaseWorkspaceService('w2');
+  });
+
+  it('I-2-wsvars: w2 ws-var set from a tab whose Active is w1 lands in w2 only', async () => {
+    // Active=w1 throughout; tab2 lifeline acquires w2. Reproduces the
+    // diverged-tab pattern: ws-var mutated in tab2 must land in w2's
+    // MutationLog and never touch w1's projection.
+    await setActiveAwaited('w1');
+    getOrCreateWorkspaceService('w2');
+
+    const variable: V5.Variable = {
+      uid: 'wv-uid-tab2',
+      name: 'TENANT',
+      value: 'tab2-tenant',
+      type: 'default',
+    };
+    const result = await applyWorkspaceVarSet({ variable }, { workspaceId: 'w2', surfaceId: 'workbench-tab-2' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('applyWorkspaceVarSet failed');
+    await flush();
+
+    const w1Logs = harness.logs.get('w1') as InMemoryMutationLog | undefined;
+    const w2Logs = harness.logs.get('w2') as InMemoryMutationLog | undefined;
+    expect(w2Logs).toBeDefined();
+    const w1Entries = w1Logs ? await collectLogEntries(w1Logs) : [];
+    const w2Entries = w2Logs ? await collectLogEntries(w2Logs) : [];
+    expect(
+      w1Entries.find((e) => e.body.type === 'workspace-variables'),
+    ).toBeUndefined();
+    expect(
+      w2Entries.find((e) => e.body.type === 'workspace-variables'),
+    ).toBeDefined();
+
+    // Sanity: a remove from tab2 also lands in w2 only — w1's
+    // projection stays empty.
+    const del = await applyWorkspaceVarRemove(
+      { uid: variable.uid },
+      { workspaceId: 'w2', surfaceId: 'workbench-tab-2' },
+    );
+    expect(del.ok).toBe(true);
+    await flush();
+    expect(snapshotWorkspaceVariablesPostStates('w1')).toEqual([]);
 
     releaseWorkspaceService('w2');
   });

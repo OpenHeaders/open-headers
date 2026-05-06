@@ -1,5 +1,6 @@
 import 'allotment/dist/style.css';
 import { EnvironmentProvider } from '@context/EnvironmentContext';
+import { WorkspaceVariablesProvider } from '@context/WorkspaceVariablesContext';
 import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
@@ -152,13 +153,15 @@ export default function App() {
             <DevPanelAwarenessPublisher />
             <ShellEventBusContext.Provider value={busHandle.bus}>
               <EnvironmentProvider surfaceId="panel">
-                <EnvSwitcherProvider>
-                  <VariablePopoverProvider>
-                    <RulePopoverProvider>
-                      <PanelContent />
-                    </RulePopoverProvider>
-                  </VariablePopoverProvider>
-                </EnvSwitcherProvider>
+                <WorkspaceVariablesProvider surfaceId="panel">
+                  <EnvSwitcherProvider>
+                    <VariablePopoverProvider>
+                      <RulePopoverProvider>
+                        <PanelContent />
+                      </RulePopoverProvider>
+                    </VariablePopoverProvider>
+                  </EnvSwitcherProvider>
+                </WorkspaceVariablesProvider>
               </EnvironmentProvider>
             </ShellEventBusContext.Provider>
           </ActiveTabEntityProvider>

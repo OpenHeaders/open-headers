@@ -579,22 +579,23 @@ describe('MWPT-FULL foundation lint gates (sub-commit 1e)', () => {
 });
 
 // ────────────────────────────────────────────────────────────────────────
-// MWPT-FULL per-family migration session #1 — Environments
+// MWPT-FULL per-family migration sessions #1 + #2 — Environments + workspace variables
 //
 // Generalizes the BC-MWPT-5 lint shape from `RuleProvider` to
-// `EnvironmentProvider`. Workbench mounts the override prop reading
+// `EnvironmentProvider` (session #1) and `WorkspaceVariablesProvider`
+// (session #2). Workbench mounts the override prop reading
 // `editingScopeWorkspaceId`; system surfaces (popup / sidepanel / panel)
-// mount `<EnvironmentProvider>` with no override prop. Override branch
-// reads from `wsKeys(workspaceId).environments` directly and routes
-// entity CRUD through `env-write-client`'s `applyEnvironmentCreate` /
-// `applyEnvironmentDelete` (BC-MWPT-FULL-1-env / -2-env / -3-env).
+// mount the providers with no override prop. Override branch reads from
+// the per-workspace storage key directly and routes mutations through
+// the entity-family Phase B write-client.
 // ────────────────────────────────────────────────────────────────────────
 
 const ENV_CONTEXT = join(REPO_ROOT, 'src', 'context', 'EnvironmentContext.tsx');
+const WORKSPACE_VARIABLES_CONTEXT = join(REPO_ROOT, 'src', 'context', 'WorkspaceVariablesContext.tsx');
 const POPUP_APP = join(REPO_ROOT, 'src', 'popup', 'App.tsx');
 const PANEL_APP = join(REPO_ROOT, 'src', 'panel', 'App.tsx');
 
-describe('MWPT-FULL session #1 — Environments lint gates', () => {
+describe('MWPT-FULL session #1+#2 — Environments + workspace variables lint gates', () => {
   it('BC-MWPT-FULL-1-env — workbench App.tsx mounts EnvironmentProvider with editingScopeWorkspaceId override', () => {
     const text = readFileSync(APP_TSX, 'utf8');
     expect(text).toMatch(
@@ -641,5 +642,37 @@ describe('MWPT-FULL session #1 — Environments lint gates', () => {
       expect(m[1]).not.toMatch(/call\('createEnvironment'/);
       expect(m[1]).not.toMatch(/call\('deleteEnvironment'/);
     }
+  });
+
+  it('BC-MWPT-FULL-1-wsvars — workbench App.tsx mounts WorkspaceVariablesProvider with editingScopeWorkspaceId override', () => {
+    const text = readFileSync(APP_TSX, 'utf8');
+    expect(text).toMatch(
+      /<WorkspaceVariablesProvider\s+surfaceId=["']workbench["']\s+activeWorkspaceIdOverride=\{editingScopeWorkspaceId\}/,
+    );
+  });
+
+  it('BC-MWPT-FULL-1-wsvars — system surfaces (popup / panel) mount WorkspaceVariablesProvider WITHOUT override', () => {
+    for (const file of [POPUP_APP, PANEL_APP]) {
+      const text = readFileSync(file, 'utf8');
+      expect(text).toMatch(/<WorkspaceVariablesProvider\b/);
+      // No `activeWorkspaceIdOverride=` reference anywhere on a system
+      // surface — by construction the legacy global-default path applies.
+      expect(text).not.toMatch(/<WorkspaceVariablesProvider[^>]*activeWorkspaceIdOverride=/);
+    }
+  });
+
+  it('BC-MWPT-FULL-2-wsvars — WorkspaceVariablesProvider override branch subscribes wsKeys(workspaceId).workspaceVars directly', () => {
+    const text = readFileSync(WORKSPACE_VARIABLES_CONTEXT, 'utf8');
+    expect(text).toMatch(/extensionStorage\.subscribe\(\s*wsKeys\(\s*\w+\s*\)\.workspaceVars\b/);
+  });
+
+  it('BC-MWPT-FULL-3-wsvars — WorkspaceVariablesProvider routes mutations through workspace-variables-write-client (no legacy call shim)', () => {
+    const text = readFileSync(WORKSPACE_VARIABLES_CONTEXT, 'utf8');
+    expect(text).toMatch(/applyWorkspaceVarSet\(/);
+    expect(text).toMatch(/applyWorkspaceVarRemove\(/);
+    expect(text).toMatch(/applyWorkspaceVariablesReplacement\(/);
+    // No legacy `call('setWorkspaceVariables', ...)` shim survives — Phase B
+    // is the only write path for this entity family (no § 4.1.c residual).
+    expect(text).not.toMatch(/call\(\s*['"]setWorkspaceVariables['"]/);
   });
 });
