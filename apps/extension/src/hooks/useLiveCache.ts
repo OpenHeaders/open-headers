@@ -11,8 +11,15 @@
  *     (or null, signalling workspace-wide purge) and on workspace switch.
  *   - `useAllLiveCaches()` — union across every workflow. Used by the
  *     sidebar's Live Variables section to render a status dot per row.
+ *
+ * Workspace seam (MWPT-FULL session #11). Both hooks accept an optional
+ * `workspaceId` so a diverged workbench tab editing W2 reads W2's cache
+ * even when runtime-Active is W1. Omit ⇒ SW falls back to runtime-Active
+ * (system surfaces, legacy callers). Pass `useRules().activeWorkspaceId`
+ * (RuleProvider's editing-scope-aware seam) at the workbench surface.
  */
 
+import { useRules } from '@hooks/useRules';
 import type { LiveWorkflowRunSnapshot } from '@utils/bridge';
 import { call, subscribe } from '@utils/bridge';
 import { useEffect, useRef, useState } from 'react';
@@ -22,6 +29,8 @@ export function useLiveWorkflowCache(workflowUid: string | null | undefined): {
   isReady: boolean;
   reload: () => Promise<void>;
 } {
+  const { activeWorkspaceId } = useRules();
+  const wsId = activeWorkspaceId ?? undefined;
   const [runs, setRuns] = useState<LiveWorkflowRunSnapshot[]>([]);
   const [isReady, setIsReady] = useState(false);
 
@@ -36,7 +45,7 @@ export function useLiveWorkflowCache(workflowUid: string | null | undefined): {
     }
 
     const load = async () => {
-      const resp = await call('getLiveCacheForWorkflow', { workflowUid }).catch(() => null);
+      const resp = await call('getLiveCacheForWorkflow', { workflowUid, workspaceId: wsId }).catch(() => null);
       if (cancelled) return;
       setRuns(resp?.runs ?? []);
       setIsReady(true);
@@ -54,20 +63,22 @@ export function useLiveWorkflowCache(workflowUid: string | null | undefined): {
       unsubCache();
       unsubWs();
     };
-  }, [workflowUid]);
+  }, [workflowUid, wsId]);
 
   return { runs, isReady, reload: () => reloadRef.current() };
 }
 
 /**
- * Union of every workflow's run snapshots for the active workspace.
- * `byWorkflowUid` is keyed by workflow uid; each value is the array of
- * per-environment run snapshots for that workflow.
+ * Union of every workflow's run snapshots for the editing-scope
+ * workspace. `byWorkflowUid` is keyed by workflow uid; each value is
+ * the array of per-environment run snapshots for that workflow.
  */
 export function useAllLiveCaches(workflowUids: string[]): {
   byWorkflowUid: Record<string, LiveWorkflowRunSnapshot[]>;
   isReady: boolean;
 } {
+  const { activeWorkspaceId } = useRules();
+  const wsId = activeWorkspaceId ?? undefined;
   const [byWorkflowUid, setByWorkflowUid] = useState<Record<string, LiveWorkflowRunSnapshot[]>>({});
   const [isReady, setIsReady] = useState(false);
 
@@ -83,7 +94,9 @@ export function useAllLiveCaches(workflowUids: string[]): {
     const loadAll = async () => {
       const entries = await Promise.all(
         uids.map(async (uid) => {
-          const resp = await call('getLiveCacheForWorkflow', { workflowUid: uid }).catch(() => null);
+          const resp = await call('getLiveCacheForWorkflow', { workflowUid: uid, workspaceId: wsId }).catch(
+            () => null,
+          );
           return [uid, resp?.runs ?? []] as const;
         }),
       );
@@ -103,7 +116,7 @@ export function useAllLiveCaches(workflowUids: string[]): {
       unsubCache();
       unsubWs();
     };
-  }, [signature]);
+  }, [signature, wsId]);
 
   return { byWorkflowUid, isReady };
 }

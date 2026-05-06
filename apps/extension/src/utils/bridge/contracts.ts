@@ -1054,7 +1054,7 @@ export interface BridgeRpcContract {
    * countdown + last-error state in the LV editor.
    */
   getLiveCacheForWorkflow: {
-    req: { workflowUid: string };
+    req: { workflowUid: string; workspaceId?: string };
     res: { runs: LiveWorkflowRunSnapshot[] };
   };
   /**
@@ -1062,9 +1062,14 @@ export interface BridgeRpcContract {
    * returns a `scheduler-not-ready` error — Phase C wires it to the
    * chain runner. Signature is stable across both phases so UI can
    * plumb it today.
+   *
+   * `workspaceId?` — workbench gestures from a diverged tab pass the
+   * editing-scope id so the SW resolves the workflow + cache against
+   * that workspace's projection (MWPT-FULL session #11). Omit ⇒
+   * runtime-Active fallback (system surfaces, legacy callers).
    */
   refreshLiveWorkflowNow: {
-    req: { workflowUid: string; environmentId?: string | null };
+    req: { workflowUid: string; environmentId?: string | null; workspaceId?: string };
     res: { success: true; run: LiveWorkflowRunSnapshot } | { success: false; error: string };
   };
 
@@ -1074,9 +1079,12 @@ export interface BridgeRpcContract {
    * manual refresh starts from a CLOSED circuit. Does not run a probe;
    * the user can click Refresh next. Surfaced on the Workflow Status
    * sidebar per-row action menu.
+   *
+   * `workspaceId?` — same threading contract as
+   * {@link refreshLiveWorkflowNow}.
    */
   resetLiveWorkflowCircuit: {
-    req: { workflowUid: string; environmentId?: string | null };
+    req: { workflowUid: string; environmentId?: string | null; workspaceId?: string };
     res: { success: true } | { success: false; error: string };
   };
 

@@ -1227,7 +1227,11 @@ export function handleGeneralMessage(
         .catch((err: Error) => safeResponse({ success: false, reason: 'other', error: err.message }));
       return true;
     } else if (message.type === 'getLiveCacheForWorkflow') {
-      listLiveCacheForWorkflow(message.workflowUid as string)
+      // Workbench tab editing W2 reads W2's cache; system surfaces +
+      // legacy callers omit workspaceId and fall back to runtime-Active
+      // inside `listCachesForWorkflow` (MWPT-FULL session #11).
+      const wsArg = typeof message.workspaceId === 'string' ? message.workspaceId : undefined;
+      listLiveCacheForWorkflow(message.workflowUid as string, wsArg)
         .then((runs) => safeResponse({ runs }))
         .catch((err: Error) => safeResponse({ runs: [], error: err.message }));
       return true;
@@ -1237,9 +1241,13 @@ export function handleGeneralMessage(
       // on the target (workflow, env) pair so the next scheduled or
       // manual refresh starts from a clean slate. Does NOT run a probe
       // — the user may want to reset + then navigate elsewhere.
-      const req = message as { workflowUid: string; environmentId?: string | null };
+      const req = message as { workflowUid: string; environmentId?: string | null; workspaceId?: string };
       void (async () => {
-        const wsId = getActiveWorkspaceId();
+        // Workbench tab editing W2 resets W2's circuit; system surfaces
+        // omit workspaceId and fall back to runtime-Active (MWPT-FULL
+        // session #11 — closes the same-class bug for the Workflow
+        // Status sidebar's per-row reset action).
+        const wsId = req.workspaceId ?? getActiveWorkspaceId();
         const envId = req.environmentId ?? null;
         try {
           await resetCircuitForWorkflow(wsId, req.workflowUid, envId);
@@ -1259,9 +1267,12 @@ export function handleGeneralMessage(
       // Thrown errors are the source of truth for success/failure;
       // the cache row carries extra context (step uid on chain
       // failures) when available.
-      const req = message as { workflowUid: string; environmentId?: string | null };
+      const req = message as { workflowUid: string; environmentId?: string | null; workspaceId?: string };
       void (async () => {
-        const wsId = getActiveWorkspaceId();
+        // Same threading contract as `resetLiveWorkflowCircuit` —
+        // workbench gestures from a diverged tab pass the editing-scope
+        // workspaceId; system surfaces fall back to runtime-Active.
+        const wsId = req.workspaceId ?? getActiveWorkspaceId();
         const envId = req.environmentId ?? null;
         try {
           await refreshLiveWorkflowByUser(wsId, req.workflowUid, envId);

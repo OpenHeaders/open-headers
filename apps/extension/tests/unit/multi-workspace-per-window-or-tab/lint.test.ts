@@ -1121,3 +1121,117 @@ describe('MWPT-FULL session #1+#2+#3+#4+#5+#6+#7+#8+#9+#10 — Environments + wo
     expect(flowText).toMatch(/putTokenBundle\([^)]*workspaceId\s*\)/s);
   });
 });
+
+// ── Session #11 — SW cleanup pass ────────────────────────────────────
+//
+// Sessions #1..#10 closed the renderer + Phase B mutation seam for ten
+// entity families. This session audits the surviving SW-side
+// `getActiveWorkspaceId()` reads and closes the same-class bug for the
+// three live-workflow RPCs that mutate per-workspace state but were
+// still falling back to runtime-Active.
+//
+// Same-class bug closures (this session):
+//   • `getLiveCacheForWorkflow`  — RPC reads cached runs; was reading
+//     runtime-Active's cache, ignoring the workbench tab's editing
+//     scope. Now threads `workspaceId?: string`.
+//   • `refreshLiveWorkflowNow`   — manual "refresh now" gesture from
+//     `WorkflowStatusPanel.tsx`. Was running against runtime-Active's
+//     workflow + cache. Now threads editing-scope workspaceId.
+//   • `resetLiveWorkflowCircuit` — per-row "reset circuit" gesture from
+//     the same panel. Same shape, same fix.
+//
+// Allowlist (ACTIVE-BOUND-CORRECT). Several SW modules read
+// `getActiveWorkspaceId()` legitimately because their consumers act on
+// the runtime-Active workspace by design (DNR, request-tracker,
+// rule-state-observer, network monitoring, hydrate paths,
+// import-history UI, layout/test-run state). The Section 4.1.c pointer
+// ops residual (env active/default/manual) and the legacy SW handler
+// dispatches that route via Active for system surfaces are also
+// retained intentionally — see § 8.3.11 reconciliation table for the
+// classification per file/site.
+
+const USE_LIVE_CACHE_HOOK = join(REPO_ROOT, 'src', 'hooks', 'useLiveCache.ts');
+const WORKFLOW_STATUS_PANEL = join(
+  REPO_ROOT,
+  'src',
+  'workbench',
+  'components',
+  'live',
+  'WorkflowStatusPanel.tsx',
+);
+
+describe('MWPT-FULL session #11 — SW cleanup pass lint gates', () => {
+  it('BC-MWPT-FULL-1-swcleanup — bridge contracts: live-workflow RPCs carry workspaceId?: string', () => {
+    const text = readFileSync(BRIDGE_CONTRACTS, 'utf8');
+    expect(text).toMatch(/getLiveCacheForWorkflow:\s*{[^}]*req:\s*{[^}]*workspaceId\?:\s*string/s);
+    expect(text).toMatch(/refreshLiveWorkflowNow:\s*{[^}]*req:\s*{[^}]*workspaceId\?:\s*string/s);
+    expect(text).toMatch(/resetLiveWorkflowCircuit:\s*{[^}]*req:\s*{[^}]*workspaceId\?:\s*string/s);
+  });
+
+  it('BC-MWPT-FULL-2-swcleanup — message-handler extracts and forwards workspaceId for the three live-workflow RPCs', () => {
+    const text = readFileSync(MESSAGE_HANDLER, 'utf8');
+    // getLiveCacheForWorkflow: passes wsArg through to listLiveCacheForWorkflow.
+    expect(text).toMatch(
+      /message\.type === ['"]getLiveCacheForWorkflow['"][\s\S]*?listLiveCacheForWorkflow\(\s*message\.workflowUid[^)]*,\s*wsArg\s*\)/,
+    );
+    // refresh + reset both extract `req.workspaceId ?? getActiveWorkspaceId()`.
+    expect(text).toMatch(
+      /message\.type === ['"]refreshLiveWorkflowNow['"][\s\S]*?req\.workspaceId\s*\?\?\s*getActiveWorkspaceId\(\)/,
+    );
+    expect(text).toMatch(
+      /message\.type === ['"]resetLiveWorkflowCircuit['"][\s\S]*?req\.workspaceId\s*\?\?\s*getActiveWorkspaceId\(\)/,
+    );
+  });
+
+  it('BC-MWPT-FULL-3-swcleanup — renderer call sites thread the editing-scope workspaceId', () => {
+    // useLiveCache.ts threads workspaceId from useRules() (editing-scope-aware).
+    const cacheText = readFileSync(USE_LIVE_CACHE_HOOK, 'utf8');
+    expect(cacheText).toMatch(/from\s+['"]@hooks\/useRules['"]/);
+    expect(cacheText).toMatch(/useRules\(\)/);
+    expect(cacheText).toMatch(/call\(\s*['"]getLiveCacheForWorkflow['"][^)]*workspaceId/);
+
+    // WorkflowStatusPanel reads useRules().activeWorkspaceId and threads
+    // it on both refresh + reset gestures.
+    const panelText = readFileSync(WORKFLOW_STATUS_PANEL, 'utf8');
+    expect(panelText).toMatch(/from\s+['"]@hooks\/useRules['"]/);
+    expect(panelText).toMatch(/useRules\(\)/);
+    expect(panelText).toMatch(/call\(\s*['"]refreshLiveWorkflowNow['"][\s\S]*?workspaceId:\s*editingWorkspaceId/);
+    expect(panelText).toMatch(/call\(\s*['"]resetLiveWorkflowCircuit['"][\s\S]*?workspaceId:\s*editingWorkspaceId/);
+
+    // LiveWorkflowsContext.refreshNow threads workspaceId in the override branch.
+    const ctxText = readFileSync(LIVE_WORKFLOWS_CONTEXT, 'utf8');
+    expect(ctxText).toMatch(/call\(\s*['"]refreshLiveWorkflowNow['"][\s\S]*?workspaceId:\s*wsId/);
+  });
+
+  it('BC-MWPT-FULL-4-swcleanup — SW *-store.ts mutation paths route through getOracleForWorkspace (workspaceId-keyed) or getOracleForCurrentWorkspace (allowlisted Active-bound)', () => {
+    // Files + OAuth (sessions 8 + 10) thread workspaceId end-to-end on
+    // every mutator: caller passes workspaceId, store helpers route
+    // via `getOracleForWorkspace(workspaceId)` for renderer-direct
+    // gestures + `getOracleForCurrentWorkspace()` only for the
+    // Active-bound legacy branches (system surfaces / SW-internal
+    // hydrate paths). Lint pins the seam exists.
+    const syncServiceText = readFileSync(SYNC_SERVICE_FILE, 'utf8');
+    expect(syncServiceText).toMatch(/export function getOracleForWorkspace\(workspaceId:\s*string\)/);
+    expect(syncServiceText).toMatch(/export function getOracleForCurrentWorkspace\(\)/);
+
+    // Files store accepts workspaceId on every renderer-reachable
+    // mutator (Session 15 closure carried forward — re-asserted here as
+    // a regression backstop for the broader cleanup pass).
+    const filesText = readFileSync(FILES_STORE, 'utf8');
+    expect(filesText).toMatch(/export async function putFile\([\s\S]*?workspaceId\?:/);
+    expect(filesText).toMatch(/export async function deleteFile\([^)]*workspaceId\?:\s*string/);
+  });
+
+  it('BC-MWPT-FULL-5-swcleanup — pause-markers-store stays free of dead Phase-B-style mutation exports (Session 16 closure carried forward)', () => {
+    // The dead-export deletion from Session 16 is the structural
+    // backstop for the same-class bug shape on the pause-markers
+    // family. Re-asserted under the cleanup-pass describe block so a
+    // regression that re-introduces these exports fails CI under the
+    // session-11 banner rather than the session-9 one.
+    const text = readFileSync(PAUSE_MARKERS_STORE, 'utf8');
+    expect(text).not.toMatch(/export\s+async\s+function\s+setMarker\b/);
+    expect(text).not.toMatch(/export\s+async\s+function\s+clearMarker\b/);
+    expect(text).not.toMatch(/export\s+async\s+function\s+replaceMarkers\b/);
+    expect(text).not.toMatch(/getOracleForCurrentWorkspace\(/);
+  });
+});

@@ -21,6 +21,7 @@
 
 import { ReloadOutlined, UndoOutlined } from '@ant-design/icons';
 import { useEnvironments } from '@hooks/useEnvironments';
+import { useRules } from '@hooks/useRules';
 import { useAllLiveCaches } from '@hooks/useLiveCache';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import type { V5 } from '@openheaders/core/types';
@@ -59,6 +60,13 @@ const WorkflowStatusPanel: React.FC<Props> = ({ onClose, onOpenWorkflow }) => {
   const { token } = theme.useToken();
   const { message } = App.useApp();
   const { workflows } = useLiveWorkflows();
+  // Editing-scope workspace: in workbench per-tab mode this is the
+  // tab's workspace (RuleProvider's override prop); otherwise it's
+  // runtime-Active. Threaded into the SW so refresh + circuit-reset
+  // act on the workspace the user is looking at, not runtime-Active
+  // (MWPT-FULL session #11).
+  const { activeWorkspaceId } = useRules();
+  const editingWorkspaceId = activeWorkspaceId ?? undefined;
   const { environments, activeEnvironmentId } = useEnvironments();
   const workflowUids = useMemo(() => workflows.map((w) => w.uid), [workflows]);
   const { byWorkflowUid, isReady } = useAllLiveCaches(workflowUids);
@@ -126,26 +134,34 @@ const WorkflowStatusPanel: React.FC<Props> = ({ onClose, onOpenWorkflow }) => {
 
   const handleRefresh = useCallback(
     async (workflowUid: string, environmentId: string | null) => {
-      const resp = await call('refreshLiveWorkflowNow', { workflowUid, environmentId });
+      const resp = await call('refreshLiveWorkflowNow', {
+        workflowUid,
+        environmentId,
+        workspaceId: editingWorkspaceId,
+      });
       if (resp.success) {
         message.success('Refreshed');
       } else {
         message.error(`Refresh failed: ${resp.error}`);
       }
     },
-    [message],
+    [message, editingWorkspaceId],
   );
 
   const handleResetCircuit = useCallback(
     async (workflowUid: string, environmentId: string | null) => {
-      const resp = await call('resetLiveWorkflowCircuit', { workflowUid, environmentId });
+      const resp = await call('resetLiveWorkflowCircuit', {
+        workflowUid,
+        environmentId,
+        workspaceId: editingWorkspaceId,
+      });
       if (resp.success) {
         message.success('Circuit reset');
       } else {
         message.error(`Reset failed: ${resp.error}`);
       }
     },
-    [message],
+    [message, editingWorkspaceId],
   );
 
   // ── Shared panel header (title + summary chip, hide on right) ──

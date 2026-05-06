@@ -219,11 +219,19 @@ export const LiveWorkflowsProvider: React.FC<LiveWorkflowsProviderProps> = ({
     [isOverridden, activeWorkspaceIdOverride, surfaceId],
   );
 
-  const refreshNow = useCallback<LiveWorkflowsContextValue['refreshNow']>(async (workflowUid, environmentId) => {
-    return call('refreshLiveWorkflowNow', { workflowUid, environmentId }).catch(
-      (err: Error) => ({ success: false, error: err.message }) as BridgeRpcResponse<'refreshLiveWorkflowNow'>,
-    );
-  }, []);
+  // Workbench/diverged-tab gestures thread the editing-scope workspace
+  // so the SW resolves the workflow against the tab's projection
+  // (MWPT-FULL session #11). System surfaces leave it undefined and the
+  // SW falls back to runtime-Active.
+  const refreshNow = useCallback<LiveWorkflowsContextValue['refreshNow']>(
+    async (workflowUid, environmentId) => {
+      const wsId = isOverridden ? (activeWorkspaceIdOverride ?? undefined) : undefined;
+      return call('refreshLiveWorkflowNow', { workflowUid, environmentId, workspaceId: wsId }).catch(
+        (err: Error) => ({ success: false, error: err.message }) as BridgeRpcResponse<'refreshLiveWorkflowNow'>,
+      );
+    },
+    [isOverridden, activeWorkspaceIdOverride],
+  );
 
   const value = useMemo<LiveWorkflowsContextValue>(
     () => ({ workflows, isReady, createWorkflow, updateWorkflow, deleteWorkflow, refreshNow }),
