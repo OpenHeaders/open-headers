@@ -80,7 +80,7 @@ import { type AwarenessStore, createAwarenessStore } from './awareness';
 import { handleAwarenessPublish } from './awareness-bridge';
 import { handleSyncApply, wireBroadcastToSink } from './bridge';
 import { InMemoryBroadcast } from './broadcast';
-import { createDnrIntentRunner, type DnrIntentRunner } from './dnr-intent-runner';
+import { createDnrIntentRunner } from './dnr-intent-runner';
 import {
   buildProjectorPipeline,
   buildSchemaRegistry,
@@ -115,7 +115,7 @@ import { ruleOracleLockAcquirer } from './lock-adapter';
 import { InMemoryMutationLog, type MutationLog } from './mutation-log';
 import { EntityOracle, type LockAcquirer } from './oracle';
 import { InMemoryPendingIntents, type PendingIntents } from './pending-intents';
-import { createResolverInvalidateRunner, type ResolverInvalidateRunner } from './resolver-invalidate-runner';
+import { createResolverInvalidateRunner } from './resolver-invalidate-runner';
 import { createSwContextHandle, type SwContextHandle } from './sw-context';
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -141,8 +141,32 @@ export interface WorkspaceServiceState {
   caches: EntityCacheLike[];
   context: SwContextHandle;
   awareness: AwarenessStore;
-  dnrRunner: DnrIntentRunner;
-  resolverInvalidateRunner: ResolverInvalidateRunner;
+  /**
+   * Active-bound DNR runner subscription bookkeeping. Non-null only
+   * when this service is the runtime-Active workspace. The runner is
+   * a singleton in spirit (browser DNR is platform-singular) — at any
+   * moment exactly one resident service has this slot populated. The
+   * Active flip in {@link setRuntimeActive} disposes the old slot
+   * before attaching the new, making "≤1 DNR-writing runner" structural
+   * by construction. (Lint #17a in commit 1e pins this invariant.)
+   */
+  dnrSubscription: { dispose(): void } | null;
+  /**
+   * Active-bound resolver-invalidate runner subscription bookkeeping.
+   * Same structural framing as {@link dnrSubscription}: triggers
+   * `recompile` on Active's variable-scope mutations (env / collection
+   * vars / vault / live-vars / live-workflows / workspace-vars). Only
+   * the Active workspace drives recompile because `recompile` =
+   * `rule-engine.scheduleUpdate` is browser-singular.
+   */
+  resolverInvalidateSubscription: { dispose(): void } | null;
+  /**
+   * Stored deps used to (re)build Active-bound runner subscriptions on
+   * Active flip. All resident workspaces share the same `recompile`
+   * function in production (it's `rule-engine.scheduleUpdate`); kept
+   * per-service so test-injected recompiles still flow through cleanly.
+   */
+  recompile: (reason: string) => void;
   unsubscribeBroadcast: () => void;
   /** Number of live references — Active pointer + in-flight applies + (later) lifelines. */
   refcount: number;
@@ -290,20 +314,26 @@ async function doSetActive(workspaceId: string): Promise<SetActiveResult> {
 
   const oldActive = currentActive;
 
-  // 5. Detach old singletons before attaching new. Single-active
-  //    invariant on cache singletons is structural — module-level slots
-  //    can hold exactly one cache at a time.
+  // 5. Detach old. Single-active invariant on cache singletons + DNR
+  //    runner subscriptions is structural — module-level slots can hold
+  //    exactly one cache / subscription at a time. Detach order matters:
+  //    runner subscriptions before caches so the old workspace's
+  //    in-flight intent drains don't fire against detached caches.
   if (oldActive !== null) {
     const oldSvc = services.get(oldActive);
     if (oldSvc?.isActive) {
+      detachActiveBoundRunners(oldSvc);
       detachCaches(WORKSPACE_REGISTRY, oldSvc.caches);
       oldSvc.isActive = false;
     }
   }
 
-  // 6. Attach new singletons. Active-bound runner attach (dnr-manager
-  //    + outgoing-WS subscription swap) lands in sub-commit 1c on top
-  //    of this hook.
+  // 6. Attach new. Cache singletons first so by the time the Active-
+  //    bound runners subscribe, the cache mirror is already populated
+  //    and a stale-enqueue race window is closed. The runners fire
+  //    `recompile` (= browser-singular DNR rebuild); attaching them
+  //    last makes the swap point — and therefore the "≤1 DNR-writing
+  //    runner at a time" invariant — observable as one structural step.
   try {
     for (let i = 0; i < WORKSPACE_REGISTRY.length; i++) {
       const reg = WORKSPACE_REGISTRY[i];
@@ -312,8 +342,13 @@ async function doSetActive(workspaceId: string): Promise<SetActiveResult> {
       // `buildService`; setActive accepts the cache type it owns.
       reg.setActive(cache as never);
     }
+    attachActiveBoundRunners(newSvc);
     newSvc.isActive = true;
   } catch (error) {
+    // Roll back what attached so far. Boot wiring is the atomicity
+    // backstop per § 4.0.5 — torn flips heal at next eviction.
+    detachActiveBoundRunners(newSvc);
+    for (const reg of WORKSPACE_REGISTRY) reg.setActive(null);
     releaseWorkspaceService(workspaceId);
     logger.warn('SyncService', `setRuntimeActive(${workspaceId}): runner-attach-failed`, error);
     return { ok: false, reason: 'runner-attach-failed', error };
@@ -342,6 +377,7 @@ export function dispose(): void {
   if (currentActive === null) return;
   const svc = services.get(currentActive);
   if (svc?.isActive) {
+    detachActiveBoundRunners(svc);
     detachCaches(WORKSPACE_REGISTRY, svc.caches);
     svc.isActive = false;
   }
@@ -773,42 +809,12 @@ function buildService(deps: WireDeps): WorkspaceServiceState {
   });
 
   // Build caches via the registry's createCache; do NOT register as
-  // singletons here. The Active flip in `initSyncService` registers
+  // singletons here. The Active flip in `setRuntimeActive` registers
   // the singletons for the Active workspace and detaches the previous
   // owner.
   const caches: EntityCacheLike[] = WORKSPACE_REGISTRY.map((reg) =>
     reg.createCache(deps.workspaceId, oracle, broadcast, () => context.next()),
   );
-
-  // DNR intent runner — subscribes AFTER the rule + pause-markers
-  // caches so by the time the runner asks rule-engine to recompile,
-  // the relevant mirror already reflects post-commit state.
-  const dnrRunner = createDnrIntentRunner({
-    broadcast,
-    intents: deps.intents,
-    entityTypes: new Set([RULE_ENTITY_TYPE, PAUSE_MARKERS_ENTITY_TYPE]),
-    recompile: deps.recompile,
-  });
-
-  // Resolver-invalidation runner — fires on any variable-scope envelope
-  // (env, collection, workspace, vault, live-variable, live-workflow).
-  // Subscribes AFTER the entity caches so the recompile sees post-commit
-  // state via `syncResolverFromStores`.
-  const resolverInvalidateRunner = createResolverInvalidateRunner({
-    broadcast,
-    intents: deps.intents,
-    entityTypes: new Set([
-      ENVIRONMENT_ENTITY_TYPE,
-      COLLECTION_ENTITY_TYPE,
-      REQUEST_COLLECTION_ENTITY_TYPE,
-      TEMPLATE_COLLECTION_ENTITY_TYPE,
-      WORKSPACE_VARIABLES_ENTITY_TYPE,
-      VAULT_ENTITY_TYPE,
-      LIVE_VARIABLE_ENTITY_TYPE,
-      LIVE_WORKFLOW_ENTITY_TYPE,
-    ]),
-    recompile: deps.recompile,
-  });
 
   const awareness = createAwarenessStore({
     workspaceId: deps.workspaceId,
@@ -819,9 +825,20 @@ function buildService(deps: WireDeps): WorkspaceServiceState {
     sensitiveEntityTypes: new Set<string>([VAULT_ENTITY_TYPE, OAUTH_BUNDLE_ENTITY_TYPE]),
   });
 
+  // Bridge multi-broadcast aggregator: every resident workspace's
+  // broadcast bus feeds chrome.runtime via its own subscription. The
+  // aggregator IS the per-service `wireBroadcastToSink` call below —
+  // there's no separate aggregator module because each service holds
+  // its own subscription bookkeeping. Renderer mirrors filter by
+  // `event.workspaceId` (commit 2) to dispatch to the right mirror.
   const projector = buildProjectorPipeline(oracle, WORKSPACE_REGISTRY);
   const unsubscribeBroadcast = wireBroadcastToSink(broadcast, deps.sink, projector);
 
+  // Active-bound runners (DNR + resolver-invalidate) are NOT subscribed
+  // here. They're built + subscribed by `setRuntimeActive` when this
+  // workspace becomes Active and disposed when it stops being Active.
+  // Both runners trigger `recompile` (= browser-singular DNR rebuild),
+  // so only the Active workspace should drive them.
   return {
     workspaceId: deps.workspaceId,
     hydrated: Promise.resolve(),
@@ -832,14 +849,66 @@ function buildService(deps: WireDeps): WorkspaceServiceState {
     caches,
     context,
     awareness,
-    dnrRunner,
-    resolverInvalidateRunner,
+    dnrSubscription: null,
+    resolverInvalidateSubscription: null,
+    recompile: deps.recompile,
     unsubscribeBroadcast,
     refcount: 0,
     disposalTimer: null,
     disposing: false,
     isActive: false,
   };
+}
+
+// ── Active-bound runner attach/detach ────────────────────────────────
+
+/**
+ * Entity types that drive DNR recompile via the dnr-intent runner.
+ * Module-level so the singleton-in-spirit constraint is structural —
+ * one set definition, one consumer site (`attachActiveBoundRunners`).
+ */
+const DNR_INTENT_ENTITY_TYPES: ReadonlySet<string> = new Set([RULE_ENTITY_TYPE, PAUSE_MARKERS_ENTITY_TYPE]);
+
+/**
+ * Entity types that invalidate the variables resolver — every variable-
+ * scope envelope. Same singleton-in-spirit framing as
+ * {@link DNR_INTENT_ENTITY_TYPES}.
+ */
+const RESOLVER_INVALIDATE_ENTITY_TYPES: ReadonlySet<string> = new Set([
+  ENVIRONMENT_ENTITY_TYPE,
+  COLLECTION_ENTITY_TYPE,
+  REQUEST_COLLECTION_ENTITY_TYPE,
+  TEMPLATE_COLLECTION_ENTITY_TYPE,
+  WORKSPACE_VARIABLES_ENTITY_TYPE,
+  VAULT_ENTITY_TYPE,
+  LIVE_VARIABLE_ENTITY_TYPE,
+  LIVE_WORKFLOW_ENTITY_TYPE,
+]);
+
+function attachActiveBoundRunners(svc: WorkspaceServiceState): void {
+  if (svc.dnrSubscription !== null || svc.resolverInvalidateSubscription !== null) {
+    // Idempotent: already attached.
+    return;
+  }
+  svc.dnrSubscription = createDnrIntentRunner({
+    broadcast: svc.broadcast,
+    intents: svc.intents,
+    entityTypes: DNR_INTENT_ENTITY_TYPES,
+    recompile: svc.recompile,
+  });
+  svc.resolverInvalidateSubscription = createResolverInvalidateRunner({
+    broadcast: svc.broadcast,
+    intents: svc.intents,
+    entityTypes: RESOLVER_INVALIDATE_ENTITY_TYPES,
+    recompile: svc.recompile,
+  });
+}
+
+function detachActiveBoundRunners(svc: WorkspaceServiceState): void {
+  svc.dnrSubscription?.dispose();
+  svc.dnrSubscription = null;
+  svc.resolverInvalidateSubscription?.dispose();
+  svc.resolverInvalidateSubscription = null;
 }
 
 /**
@@ -854,9 +923,11 @@ function finalizeDisposal(svc: WorkspaceServiceState): void {
     clearTimeout(svc.disposalTimer);
     svc.disposalTimer = null;
   }
+  // Detach Active-bound runners first if this was the Active service —
+  // the broadcast unsubscribe below would prevent late event delivery
+  // anyway, but explicit detach surfaces the invariant.
+  detachActiveBoundRunners(svc);
   svc.unsubscribeBroadcast();
-  svc.dnrRunner.dispose();
-  svc.resolverInvalidateRunner.dispose();
   if (svc.isActive) {
     detachCaches(WORKSPACE_REGISTRY, svc.caches);
     svc.isActive = false;
