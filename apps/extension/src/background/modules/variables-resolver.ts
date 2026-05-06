@@ -42,7 +42,7 @@ import {
   getWorkspaceVariables,
 } from './environment-store';
 import { listWorkflowRunCaches, onLiveCacheStoreChange, type WorkflowRunCache } from './live-cache-store';
-import { getLiveVariables } from './live-variable-store';
+import { getLiveVariables, getLiveVariablesForWorkspace } from './live-variable-store';
 import { recordLog } from './observability-log';
 import { getCollections, getRules } from './rule-store';
 import { getCachedTotpCodes } from './totp-scheduler';
@@ -267,6 +267,31 @@ export function getLiveRegistrySnapshot(): LiveRegistry {
 }
 
 /**
+ * Per-workspace `LiveRegistry` snapshot — used by the live-refresh
+ * chain executor when refreshing a workflow whose owning workspace is
+ * NOT runtime-Active (MWPT-FULL session #19). Routes through the
+ * per-workspace `ResolverState.cachedLiveRuns` mirror (already kept
+ * warm by the workspace-routed `onLiveCacheStoreChange` listener) and
+ * the per-workspace LV cache, so the chain step's `{{live.X}}`
+ * references resolve against the SAME captures the renderer mirror
+ * would see for that workspace — never the Active workspace's.
+ *
+ * The `activeEnvironmentId` argument is passed in explicitly because
+ * the chain dispatch is keyed on a specific `(workspaceId, envId)`
+ * pair (each env owns a distinct cache row). For a chain refresh
+ * scheduled under env "staging", the registry consults the staging
+ * row; the Active env pointer for that workspace is irrelevant to
+ * this dispatch.
+ */
+export function getLiveRegistrySnapshotForWorkspace(
+  workspaceId: string,
+  activeEnvironmentId: string | null,
+): LiveRegistry {
+  const state = getOrCreateState(workspaceId);
+  return buildLiveRegistryFor(state, getLiveVariablesForWorkspace(workspaceId), activeEnvironmentId);
+}
+
+/**
  * Collect the set of workflow uids this rule "touches" — i.e., every
  * workflow whose LV bindings appear in any of the rule's templatable
  * strings. Driven from the RAW rule (pre-resolve) because the template
@@ -444,13 +469,26 @@ export async function kickSyncWarmRefreshes(): Promise<void> {
  *     for the `live` subsystem yellow-threshold.
  */
 function buildLiveRegistry(state: ResolverState): LiveRegistry {
+  return buildLiveRegistryFor(state, getLiveVariables(), getActiveEnvironmentId());
+}
+
+/**
+ * Parameterized variant of {@link buildLiveRegistry}. Used by
+ * {@link getLiveRegistrySnapshotForWorkspace} so non-Active workspace
+ * dispatches consult per-workspace LVs + an explicit env, not the
+ * Active-bound module-level reads.
+ */
+function buildLiveRegistryFor(
+  state: ResolverState,
+  liveVariables: readonly V5.LiveVariable[],
+  activeEnv: string | null,
+): LiveRegistry {
   // Effective LVs only (published + enabled). Mirrors the renderer-side
   // `useVariableResolver` + `VariablesPanel.liveRegistry` filters so the
   // SW compile path agrees with what the user sees in the editor.
-  const lvs = getLiveVariables().filter((v) => isLiveVariableEffective(v));
+  const lvs = liveVariables.filter((v) => isLiveVariableEffective(v));
   if (lvs.length === 0) return EMPTY_LIVE_REGISTRY;
 
-  const activeEnv = getActiveEnvironmentId();
   const now = Date.now();
 
   // Index cache runs by workflowUid for the active env — at most one

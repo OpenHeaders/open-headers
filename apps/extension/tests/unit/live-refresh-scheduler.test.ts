@@ -78,6 +78,12 @@ let storeState: {
 
 vi.mock('@/background/modules/live-workflow-store', () => ({
   getLiveWorkflows: () => storeState.workflows,
+  // Per-workspace lookup (MWPT-FULL session #19): the test harness keeps
+  // a single `storeState.workflows` list — return matches by uid
+  // regardless of workspaceId so the existing single-workspace cases
+  // continue to assert the same shape.
+  getLiveWorkflowInWorkspace: (uid: string) => storeState.workflows.find((w) => w.uid === uid) ?? null,
+  getLiveWorkflowsForWorkspace: () => storeState.workflows.slice(),
   onLiveWorkflowStoreChange: (fn: () => void) => {
     storeState.listeners.workflow.add(fn);
     return () => storeState.listeners.workflow.delete(fn);
@@ -87,6 +93,9 @@ vi.mock('@/background/modules/live-workflow-store', () => ({
 vi.mock('@/background/modules/live-variable-store', () => ({
   getLiveVariables: () => storeState.variables.slice(),
   getLiveVariablesForWorkflow: (workflowUid: string) =>
+    storeState.variables.filter((v) => v.workflowUid === workflowUid),
+  getLiveVariablesForWorkspace: () => storeState.variables.slice(),
+  getLiveVariablesForWorkflowInWorkspace: (workflowUid: string) =>
     storeState.variables.filter((v) => v.workflowUid === workflowUid),
   onLiveVariableStoreChange: (fn: () => void) => {
     storeState.listeners.variable.add(fn);
@@ -619,17 +628,21 @@ describe('active-workspace-only', () => {
     expect(name.startsWith('live-refresh:')).toBe(true);
   });
 
-  it('handleAlarm cancels alarms whose workspace id no longer matches active', async () => {
-    storeState.workflows = [makeWorkflow()];
-    storeState.variables = [makeVariable()];
-    // Active is ws-live; the alarm payload references ws-other.
+  it('handleAlarm cancels alarms whose workflow is missing from the per-workspace cache', async () => {
+    // MWPT-FULL session #19: the v1.3 "workspace-mismatch → cancel"
+    // guard is replaced with a per-workspace lookup. An alarm whose
+    // payload references a workflow uid that doesn't exist in the
+    // workspace's `LiveWorkflowCache` (workspace deleted, workflow
+    // deleted, or never seeded) returns null from `getByAlarm` and the
+    // shared scheduler still cancels — same orphan-cleanup contract,
+    // just keyed on cache presence rather than Active matching.
+    storeState.workflows = []; // workspace has no workflows for this uid
+    storeState.variables = [];
     const orphanName = scheduler.buildAlarmName('ws-other', 'wflow001', null);
     await scheduler.handleLiveAlarm({
       name: orphanName,
       scheduledTime: Date.now(),
     } as chrome.alarms.Alarm);
-    // Provider returned null (workspace mismatch) → shared scheduler
-    // routes to alarm cancellation. Adapter never runs.
     expect(alarmsClearMock).toHaveBeenCalledWith(orphanName);
   });
 });

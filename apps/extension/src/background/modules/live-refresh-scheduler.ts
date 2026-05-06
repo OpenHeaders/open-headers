@@ -65,8 +65,13 @@ import {
   resetCircuitForRun,
   type WorkflowRunCache,
 } from './live-cache-store';
-import { getLiveVariables, getLiveVariablesForWorkflow, onLiveVariableStoreChange } from './live-variable-store';
-import { getLiveWorkflows, onLiveWorkflowStoreChange } from './live-workflow-store';
+import {
+  getLiveVariables,
+  getLiveVariablesForWorkflow,
+  getLiveVariablesForWorkflowInWorkspace,
+  onLiveVariableStoreChange,
+} from './live-variable-store';
+import { getLiveWorkflowInWorkspace, getLiveWorkflows, onLiveWorkflowStoreChange } from './live-workflow-store';
 import { recordLog } from './observability-log';
 import { createAlarmNameCodec, type RefreshProvider, RefreshScheduler } from './refresh-scheduler';
 import { getRequest } from './request-store';
@@ -335,17 +340,25 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
   encodeAlarmFromPayload: (payload) => codec.encode(payload),
   listAll: () => collectEntries(),
   async getByAlarm(payload) {
-    // Active-workspace-only: an alarm whose workspace id no longer
-    // matches the active workspace returns null. The shared
-    // RefreshScheduler treats null as "orphan — cancel this alarm",
-    // which is the right behavior on a workspace switch (alarms
-    // scheduled under the previous workspace get garbage-collected
-    // on the next reconcile).
-    const activeId = (await extensionStorage.get(OH.runtimeActive)) ?? '';
-    if (payload.w !== activeId) return null;
-    const workflow = getLiveWorkflows().find((w) => w.uid === payload.u);
+    // Per-workspace lookup (MWPT-FULL session #19). The previous
+    // implementation rejected when `payload.w !== runtime-Active` —
+    // documented as "orphan alarm: cancel" — but that conflated two
+    // distinct conditions:
+    //   1. The workspace is GONE (deleted) — the per-workspace cache
+    //      lookup below returns null, which the shared RefreshScheduler
+    //      correctly interprets as "orphan — cancel."
+    //   2. The workspace is ALIVE but not currently runtime-Active —
+    //      legitimate target for cross-workspace dispatch (the user is
+    //      on workspace-2 in per-tab mode and clicked "Refresh now"
+    //      against a workspace-2 workflow). Cancelling this alarm under
+    //      the v1.3 framing produced "Workflow X not found in workspace
+    //      Y" for every cross-workspace gesture.
+    // Reading via the per-workspace {@link LiveWorkflowCache} +
+    // {@link LiveVariableCache} preserves the (1) behavior (cache
+    // missing → null → cancel) while unblocking (2) cleanly.
+    const workflow = getLiveWorkflowInWorkspace(payload.u, payload.w);
     if (!workflow) return null;
-    const boundVariables = getLiveVariablesForWorkflow(payload.u);
+    const boundVariables = getLiveVariablesForWorkflowInWorkspace(payload.u, payload.w);
     const runs = await listCachesForWorkflow(payload.u, payload.w);
     const cache = runs.find((r) => r.environmentId === payload.e) ?? null;
     return {

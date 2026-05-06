@@ -36,7 +36,12 @@ import {
 } from '@/shared/sync/live-variable-mutations';
 import { LIVE_VARIABLE_REGISTRATION } from '../sync/entity-registry';
 import type { LiveVariableCache } from '../sync/live-variable-cache';
-import { getActiveCacheForRegistration, getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
+import {
+  getActiveCacheForRegistration,
+  getCacheForWorkspace,
+  getOracleForCurrentWorkspace,
+  nextSwMutatorContext,
+} from '../sync/service';
 import { driftRecorder } from './storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
 
@@ -75,6 +80,29 @@ export function getLiveVariableByName(name: string): V5.LiveVariable | null {
 
 export function getLiveVariablesForWorkflow(workflowUid: string): V5.LiveVariable[] {
   return variables.filter((v) => v.workflowUid === workflowUid);
+}
+
+/**
+ * Snapshot every live variable in an explicit workspace via its
+ * {@link LiveVariableCache}. Returns `[]` when no service is
+ * materialized for the workspace. SW-internal consumers operating on a
+ * non-Active workspace (live-refresh scheduler, chain adapter, resolver
+ * live-registry build) read through here instead of {@link
+ * getLiveVariables}, which is Active-bound by design (renderer/popup).
+ */
+export function getLiveVariablesForWorkspace(workspaceId: string): V5.LiveVariable[] {
+  const cache = getCacheForWorkspace<LiveVariableCache>(LIVE_VARIABLE_REGISTRATION, workspaceId);
+  return cache ? cache.getLiveVariables() : [];
+}
+
+/**
+ * Filter a non-Active workspace's live variables down to those bound to
+ * a specific workflow uid. Same shape as {@link
+ * getLiveVariablesForWorkflow} but reads the per-workspace cache rather
+ * than the Active-bound in-memory mirror.
+ */
+export function getLiveVariablesForWorkflowInWorkspace(workflowUid: string, workspaceId: string): V5.LiveVariable[] {
+  return getLiveVariablesForWorkspace(workspaceId).filter((v) => v.workflowUid === workflowUid);
 }
 
 // ── Writes ──────────────────────────────────────────────────────────

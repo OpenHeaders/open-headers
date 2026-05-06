@@ -52,7 +52,12 @@ import {
 import type { RequestCache } from '../sync/request-cache';
 import type { RequestCollectionCache } from '../sync/request-collection-cache';
 import type { RequestFolderCache } from '../sync/request-folder-cache';
-import { getActiveCacheForRegistration, getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
+import {
+  getActiveCacheForRegistration,
+  getCacheForWorkspace,
+  getOracleForCurrentWorkspace,
+  nextSwMutatorContext,
+} from '../sync/service';
 import { driftRecorder } from './storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
 
@@ -371,6 +376,33 @@ export function addRequestToCollection(
 
 export function getRequest(uid: string): V5.Request | null {
   return requests.find((r) => r.uid === uid) ?? null;
+}
+
+/**
+ * Look up a request scoped to an explicit workspace via its
+ * {@link RequestCache}. Returns null when no service is materialized
+ * for the workspace OR no request with that uid exists in it. Used by
+ * the live-refresh chain executor when refreshing workflows in a
+ * non-Active workspace under MWPT-FULL session #19 — the Active-bound
+ * {@link getRequest} would silently miss requests that live in a per-
+ * tab editing-scope workspace.
+ */
+export function getRequestInWorkspace(uid: string, workspaceId: string): V5.Request | null {
+  const cache = getCacheForWorkspace<RequestCache>(REQUEST_REGISTRATION, workspaceId);
+  if (!cache) return null;
+  return cache.getRequests().find((r) => r.uid === uid) ?? null;
+}
+
+/**
+ * Snapshot every request collection in an explicit workspace via its
+ * {@link RequestCollectionCache}. Returns `[]` when no service is
+ * materialized for the workspace. Drives the per-workspace variable
+ * scope feed (collection-vars) for chain refresh executions targeting
+ * a non-Active workspace.
+ */
+export function getRequestCollectionsForWorkspace(workspaceId: string): V5.Collection[] {
+  const cache = getCacheForWorkspace<RequestCollectionCache>(REQUEST_COLLECTION_REGISTRATION, workspaceId);
+  return cache ? cache.getRequestCollections() : [];
 }
 
 /**

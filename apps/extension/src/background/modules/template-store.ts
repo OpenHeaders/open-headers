@@ -44,7 +44,12 @@ import {
   TEMPLATE_FOLDER_REGISTRATION,
   TEMPLATE_REGISTRATION,
 } from '../sync/entity-registry';
-import { getActiveCacheForRegistration, getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
+import {
+  getActiveCacheForRegistration,
+  getCacheForWorkspace,
+  getOracleForCurrentWorkspace,
+  nextSwMutatorContext,
+} from '../sync/service';
 import type { TemplateCache } from '../sync/template-cache';
 import type { TemplateCollectionCache } from '../sync/template-collection-cache';
 import type { TemplateFolderCache } from '../sync/template-folder-cache';
@@ -81,6 +86,19 @@ export function getTemplates(): V5.Template[] {
 
 export function getTemplateCollections(): V5.Collection[] {
   return templateCollections;
+}
+
+/**
+ * Snapshot every template collection in an explicit workspace via its
+ * {@link TemplateCollectionCache}. Returns `[]` when no service is
+ * materialized for the workspace. SW-internal consumers operating on a
+ * non-Active workspace (live-refresh chain executor's variable scope
+ * feed) read through here instead of {@link getTemplateCollections},
+ * which is Active-bound by design (renderer/popup).
+ */
+export function getTemplateCollectionsForWorkspace(workspaceId: string): V5.Collection[] {
+  const cache = getCacheForWorkspace<TemplateCollectionCache>(TEMPLATE_COLLECTION_REGISTRATION, workspaceId);
+  return cache ? cache.getTemplateCollections() : [];
 }
 
 export function getTemplateFolders(): LocalFolder[] {

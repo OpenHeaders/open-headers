@@ -1151,14 +1151,7 @@ describe('MWPT-FULL session #1+#2+#3+#4+#5+#6+#7+#8+#9+#10 — Environments + wo
 // classification per file/site.
 
 const USE_LIVE_CACHE_HOOK = join(REPO_ROOT, 'src', 'hooks', 'useLiveCache.ts');
-const WORKFLOW_STATUS_PANEL = join(
-  REPO_ROOT,
-  'src',
-  'workbench',
-  'components',
-  'live',
-  'WorkflowStatusPanel.tsx',
-);
+const WORKFLOW_STATUS_PANEL = join(REPO_ROOT, 'src', 'workbench', 'components', 'live', 'WorkflowStatusPanel.tsx');
 
 describe('MWPT-FULL session #11 — SW cleanup pass lint gates', () => {
   it('BC-MWPT-FULL-1-swcleanup — bridge contracts: live-workflow RPCs carry workspaceId?: string', () => {
@@ -1222,6 +1215,13 @@ describe('MWPT-FULL session #11 — SW cleanup pass lint gates', () => {
     expect(filesText).toMatch(/export async function deleteFile\([^)]*workspaceId\?:\s*string/);
   });
 
+  it('BC-MWPT-FULL-Session19 — placeholder: see "MWPT-FULL session #19 — per-workspace live-refresh execution gates" describe block below', () => {
+    // The session-19 lint cluster lives in its own describe block so a
+    // regression on the F-12 / F-13 execution-side fix fails CI under
+    // its own banner rather than the cleanup-pass banner.
+    expect(true).toBe(true);
+  });
+
   it('BC-MWPT-FULL-5-swcleanup — pause-markers-store stays free of dead Phase-B-style mutation exports (Session 16 closure carried forward)', () => {
     // The dead-export deletion from Session 16 is the structural
     // backstop for the same-class bug shape on the pause-markers
@@ -1233,5 +1233,114 @@ describe('MWPT-FULL session #11 — SW cleanup pass lint gates', () => {
     expect(text).not.toMatch(/export\s+async\s+function\s+clearMarker\b/);
     expect(text).not.toMatch(/export\s+async\s+function\s+replaceMarkers\b/);
     expect(text).not.toMatch(/getOracleForCurrentWorkspace\(/);
+  });
+});
+
+// ── MWPT-FULL session #19 — per-workspace live-refresh execution ──
+//
+// F-12 / F-13 prerequisite consumers were Active-bound through Session
+// 18 — the storage/cache projections shipped in sessions #5 + #6, but
+// the execution path (lookup + chain adapter + request executor +
+// variables resolver) still routed through `getActiveWorkspaceId()` /
+// `getLiveWorkflows()` / `getEnvironments()` / `getVault()` /
+// `getCollections()`. Session 19 lifts those guards. These lint gates
+// pin the structural seam so a future regression that re-introduces an
+// Active-bound read on the execution path fails CI.
+
+const LIVE_REFRESH_SCHEDULER = join(REPO_ROOT, 'src', 'background', 'modules', 'live-refresh-scheduler.ts');
+const LIVE_CHAIN_ADAPTER = join(REPO_ROOT, 'src', 'background', 'modules', 'live-chain-adapter.ts');
+const REQUEST_EXECUTOR = join(REPO_ROOT, 'src', 'background', 'modules', 'request-executor.ts');
+const VARIABLES_RESOLVER = join(REPO_ROOT, 'src', 'background', 'modules', 'variables-resolver.ts');
+const LIVE_WORKFLOW_STORE = join(REPO_ROOT, 'src', 'background', 'modules', 'live-workflow-store.ts');
+const LIVE_VARIABLE_STORE = join(REPO_ROOT, 'src', 'background', 'modules', 'live-variable-store.ts');
+const REQUEST_STORE = join(REPO_ROOT, 'src', 'background', 'modules', 'request-store.ts');
+const ENVIRONMENT_STORE = join(REPO_ROOT, 'src', 'background', 'modules', 'environment-store.ts');
+const RULE_STORE_FILE = join(REPO_ROOT, 'src', 'background', 'modules', 'rule-store.ts');
+const TEMPLATE_STORE = join(REPO_ROOT, 'src', 'background', 'modules', 'template-store.ts');
+
+describe('MWPT-FULL session #19 — per-workspace live-refresh execution gates', () => {
+  it('BC-19-1 — sync/service.ts exports `getCacheForWorkspace<C>(reg, workspaceId)` (parallel to getActiveCacheForRegistration)', () => {
+    const text = readFileSync(SYNC_SERVICE_FILE, 'utf8');
+    expect(text).toMatch(
+      /export function getCacheForWorkspace<C extends EntityCacheLike>\(\s*reg:\s*EntityRegistration,\s*workspaceId:\s*string,?\s*\):\s*C \| null/,
+    );
+  });
+
+  it('BC-19-2 — live-refresh-scheduler.ts `provider.getByAlarm` consults the per-workspace cache + drops the Active-workspace guard', () => {
+    const text = readFileSync(LIVE_REFRESH_SCHEDULER, 'utf8');
+    // Per-workspace lookup wired in.
+    expect(text).toMatch(/getLiveWorkflowInWorkspace\(payload\.u,\s*payload\.w\)/);
+    expect(text).toMatch(/getLiveVariablesForWorkflowInWorkspace\(payload\.u,\s*payload\.w\)/);
+    // The v1.3 Active-workspace guard is gone — `payload.w !== activeId`
+    // no longer appears anywhere in the file.
+    expect(text).not.toMatch(/payload\.w\s*!==\s*activeId/);
+  });
+
+  it('BC-19-3 — live-chain-adapter.ts threads workspaceId into the FetchAdapter + drops the Active-workspace guard', () => {
+    const text = readFileSync(LIVE_CHAIN_ADAPTER, 'utf8');
+    // `buildFetchAdapter` takes workspaceId as the first argument; the
+    // closure passes it into `executeForLiveChain` and routes the per-
+    // step request lookup through `getRequestInWorkspace`.
+    expect(text).toMatch(/function buildFetchAdapter\(\s*workspaceId:\s*string/);
+    expect(text).toMatch(/executeForLiveChain\([^)]*\{[\s\S]*?workspaceId,/);
+    expect(text).toMatch(/getRequestInWorkspace\(step\.requestUid,\s*workspaceId\)/);
+    // The Active-workspace skip+throw branch is removed.
+    expect(text).not.toMatch(/Skipping refresh for workflow[^"]*workspace .* is not active/);
+    expect(text).not.toMatch(/getActiveWorkspaceId\(/);
+  });
+
+  it('BC-19-4 — request-executor.ts threads `workspaceId` through `executeRequestDraft` → `buildResolver` → per-workspace store reads', () => {
+    const text = readFileSync(REQUEST_EXECUTOR, 'utf8');
+    // ExecuteRequestOptions accepts workspaceId.
+    expect(text).toMatch(/export interface ExecuteRequestOptions\s*\{[\s\S]*?workspaceId\?:\s*string/);
+    // LiveChainExecuteOptions makes workspaceId required.
+    expect(text).toMatch(/export interface LiveChainExecuteOptions\s*\{[\s\S]*?workspaceId:\s*string/);
+    // buildResolver branches on workspaceId for per-workspace scope.
+    expect(text).toMatch(/async function buildResolver\(\s*workspaceId:\s*string \| undefined/);
+    expect(text).toMatch(/readPerWorkspaceScope\(workspaceId\)/);
+    // executeRequest's persisted-request lookup honors options.workspaceId.
+    expect(text).toMatch(/options\.workspaceId\s*\?\s*getRequestInWorkspace\(/);
+    // Live registry path branches on workspaceId.
+    expect(text).toMatch(/getLiveRegistrySnapshotForWorkspace\(workspaceId,\s*scope\.activeEnvironmentId\)/);
+  });
+
+  it('BC-19-5 — per-workspace store accessors exported by the SW stores that the chain executor consumes', () => {
+    expect(readFileSync(LIVE_WORKFLOW_STORE, 'utf8')).toMatch(
+      /export function getLiveWorkflowInWorkspace\(uid:\s*string,\s*workspaceId:\s*string\)/,
+    );
+    expect(readFileSync(LIVE_VARIABLE_STORE, 'utf8')).toMatch(
+      /export function getLiveVariablesForWorkflowInWorkspace\(workflowUid:\s*string,\s*workspaceId:\s*string\)/,
+    );
+    expect(readFileSync(REQUEST_STORE, 'utf8')).toMatch(
+      /export function getRequestInWorkspace\(uid:\s*string,\s*workspaceId:\s*string\)/,
+    );
+    expect(readFileSync(REQUEST_STORE, 'utf8')).toMatch(
+      /export function getRequestCollectionsForWorkspace\(workspaceId:\s*string\)/,
+    );
+    expect(readFileSync(ENVIRONMENT_STORE, 'utf8')).toMatch(
+      /export function getEnvironmentsForWorkspace\(workspaceId:\s*string\)/,
+    );
+    expect(readFileSync(ENVIRONMENT_STORE, 'utf8')).toMatch(
+      /export function getVaultForWorkspace\(workspaceId:\s*string\)/,
+    );
+    expect(readFileSync(ENVIRONMENT_STORE, 'utf8')).toMatch(
+      /export function getWorkspaceVariablesForWorkspace\(workspaceId:\s*string\)/,
+    );
+    expect(readFileSync(ENVIRONMENT_STORE, 'utf8')).toMatch(
+      /export async function getDefaultEnvironmentIdForWorkspace\(workspaceId:\s*string\)/,
+    );
+    expect(readFileSync(RULE_STORE_FILE, 'utf8')).toMatch(
+      /export function getCollectionsForWorkspace\(workspaceId:\s*string\)/,
+    );
+    expect(readFileSync(TEMPLATE_STORE, 'utf8')).toMatch(
+      /export function getTemplateCollectionsForWorkspace\(workspaceId:\s*string\)/,
+    );
+  });
+
+  it('BC-19-6 — variables-resolver exports a per-workspace LiveRegistry snapshot keyed on (workspaceId, envId)', () => {
+    const text = readFileSync(VARIABLES_RESOLVER, 'utf8');
+    expect(text).toMatch(
+      /export function getLiveRegistrySnapshotForWorkspace\(\s*workspaceId:\s*string,\s*activeEnvironmentId:\s*string \| null,?\s*\):\s*LiveRegistry/,
+    );
   });
 });

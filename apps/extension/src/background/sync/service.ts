@@ -552,6 +552,30 @@ export function getActiveCacheForRegistration<C extends EntityCacheLike>(reg: En
   return (cache as C | undefined) ?? null;
 }
 
+/**
+ * Resolve a per-entity cache for an explicit workspace. Mirrors
+ * {@link getActiveCacheForRegistration} but reads from the workspace's
+ * service slot directly instead of routing through `currentActive` —
+ * the load-bearing accessor for SW-internal consumers (live-refresh
+ * scheduler, chain adapter, request executor) that operate on workflows
+ * scoped to a non-Active workspace under MWPT-FULL session #19.
+ *
+ * Returns null when no service is materialized for the requested
+ * workspace (which is also the right shape for "orphan alarm: cancel"
+ * in the scheduler's reconcile path).
+ */
+export function getCacheForWorkspace<C extends EntityCacheLike>(
+  reg: EntityRegistration,
+  workspaceId: string,
+): C | null {
+  const svc = services.get(workspaceId);
+  if (!svc) return null;
+  const idx = WORKSPACE_REGISTRY.indexOf(reg);
+  if (idx === -1) return null;
+  const cache = svc.caches[idx];
+  return (cache as C | undefined) ?? null;
+}
+
 // ── Snapshot exports — consumed by `oh.sync.snapshotX` RPC handlers ──
 //
 // Each export returns the materialized post-state for the entity it

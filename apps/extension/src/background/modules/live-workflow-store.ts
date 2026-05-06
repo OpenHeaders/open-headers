@@ -31,7 +31,12 @@ import {
 } from '@/shared/sync/live-workflow-mutations';
 import { LIVE_WORKFLOW_REGISTRATION } from '../sync/entity-registry';
 import type { LiveWorkflowCache } from '../sync/live-workflow-cache';
-import { getActiveCacheForRegistration, getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
+import {
+  getActiveCacheForRegistration,
+  getCacheForWorkspace,
+  getOracleForCurrentWorkspace,
+  nextSwMutatorContext,
+} from '../sync/service';
 import { driftRecorder } from './storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
 
@@ -62,6 +67,33 @@ export function getLiveWorkflows(): V5.LiveWorkflow[] {
 
 export function getLiveWorkflow(uid: string): V5.LiveWorkflow | null {
   return workflows.find((w) => w.uid === uid) ?? null;
+}
+
+/**
+ * Read a workflow scoped to an explicit workspace. Routes through the
+ * per-workspace {@link LiveWorkflowCache} so non-Active workspaces (e.g.
+ * a per-tab MWPT-FULL editing-scope) resolve their own definitions
+ * rather than the runtime-Active workspace's. Returns null when no
+ * service is materialized for the workspace OR no workflow with that
+ * uid exists in it.
+ */
+export function getLiveWorkflowInWorkspace(uid: string, workspaceId: string): V5.LiveWorkflow | null {
+  const cache = getCacheForWorkspace<LiveWorkflowCache>(LIVE_WORKFLOW_REGISTRATION, workspaceId);
+  if (!cache) return null;
+  return cache.getLiveWorkflows().find((w) => w.uid === uid) ?? null;
+}
+
+/**
+ * Snapshot every workflow in an explicit workspace via its
+ * {@link LiveWorkflowCache}. Returns `[]` when no service is
+ * materialized for the workspace. Callers (live-refresh scheduler,
+ * chain adapter, dependency-graph resolver) use this when their
+ * dispatch is keyed by an explicit workspaceId rather than the
+ * runtime-Active one.
+ */
+export function getLiveWorkflowsForWorkspace(workspaceId: string): V5.LiveWorkflow[] {
+  const cache = getCacheForWorkspace<LiveWorkflowCache>(LIVE_WORKFLOW_REGISTRATION, workspaceId);
+  return cache ? cache.getLiveWorkflows() : [];
 }
 
 // ── Writes ──────────────────────────────────────────────────────────

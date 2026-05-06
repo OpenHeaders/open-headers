@@ -40,20 +40,32 @@ import { feedCollectionVariablesToResolver } from '@/shared/variables/collection
 import {
   getActiveEnvironmentId,
   getDefaultEnvironmentId,
+  getDefaultEnvironmentIdForWorkspace,
   getEnvironments,
+  getEnvironmentsForWorkspace,
   getVault,
+  getVaultForWorkspace,
   getWorkspaceVariables,
+  getWorkspaceVariablesForWorkspace,
 } from './environment-store';
 import { getFileBlob, listFiles } from './files-store';
 import { OAuth2FlowError, performRefresh as performOAuthRefresh } from './oauth-flow';
 import { getTokenBundle as getOAuthTokenBundle } from './oauth-token-store';
 import { recordLog } from './observability-log';
 import { __setExecuteRequestDraft, isOffscreenSupported, runScript } from './offscreen-host';
-import { getRequest, getRequestCollections } from './request-store';
-import { getCollections as getRuleCollections } from './rule-store';
-import { getTemplateCollections } from './template-store';
+import {
+  getRequest,
+  getRequestCollections,
+  getRequestCollectionsForWorkspace,
+  getRequestInWorkspace,
+} from './request-store';
+import {
+  getCollections as getRuleCollections,
+  getCollectionsForWorkspace as getRuleCollectionsForWorkspace,
+} from './rule-store';
+import { getTemplateCollections, getTemplateCollectionsForWorkspace } from './template-store';
 import { checkCooldown as checkTotpCooldown, recordUsage as recordTotpUsage } from './totp-cooldown-store';
-import { getLiveRegistrySnapshot } from './variables-resolver';
+import { getLiveRegistrySnapshot, getLiveRegistrySnapshotForWorkspace } from './variables-resolver';
 import { getActiveWorkspaceId } from './workspace-store';
 
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
@@ -108,6 +120,18 @@ export interface ExecutedRequestSnapshot {
 }
 
 export interface ExecuteRequestOptions {
+  /**
+   * Pin the workspace this execution resolves against. When omitted,
+   * every store read defaults to the runtime-Active workspace's mirror
+   * (the user-initiated `Send` path inside the workbench). When set,
+   * the resolver pulls vault / environments / vars / collections / live-
+   * registry / files via per-workspace caches keyed on this id —
+   * required for live-refresh chain dispatches against a non-Active
+   * workspace (MWPT-FULL session #19). Resolving against the wrong
+   * workspace would silently substitute a different workspace's
+   * variable values and capture garbage.
+   */
+  workspaceId?: string;
   /** Pin a specific environment for this execution — leave undefined
    *  to use the workspace's active environment. */
   environmentId?: string;
@@ -141,7 +165,7 @@ export async function executeRequest(
   requestUid: string,
   options: ExecuteRequestOptions = {},
 ): Promise<ExecutedRequestSnapshot> {
-  const request = getRequest(requestUid);
+  const request = options.workspaceId ? getRequestInWorkspace(requestUid, options.workspaceId) : getRequest(requestUid);
   if (!request) {
     return errorSnapshot(`Request ${requestUid} not found`);
   }
@@ -172,7 +196,7 @@ export async function executeRequestDraft(
   // actionable message ("wait Ns") instead of a confusing provider
   // error after a wasted round-trip.
   if (outcome.totpUsed.length > 0) {
-    const workspaceId = getActiveWorkspaceId();
+    const workspaceId = options.workspaceId ?? getActiveWorkspaceId();
     for (const usage of outcome.totpUsed) {
       const status = checkTotpCooldown(workspaceId, usage.name, usage.code);
       if (status.inCooldown) {
@@ -219,7 +243,7 @@ export async function executeRequestDraft(
   // burn the code with the provider. Recording too eagerly would
   // turn a transient network blip into an avoidable Ns wait.
   if (wireResult.error == null && outcome.totpUsed.length > 0) {
-    const workspaceId = getActiveWorkspaceId();
+    const workspaceId = options.workspaceId ?? getActiveWorkspaceId();
     for (const usage of outcome.totpUsed) {
       recordTotpUsage(workspaceId, usage.name, usage.code, usage.period);
     }
@@ -296,6 +320,14 @@ export function liveBypassHeaderValue(workflowUid: string): string {
 }
 
 export interface LiveChainExecuteOptions {
+  /**
+   * Workspace owning the workflow. Threaded through so every store read
+   * (request, env, vault, vars, collection-vars, live-registry, files)
+   * resolves against the per-workspace cache rather than the runtime-
+   * Active mirror — required for cross-workspace chain refresh under
+   * MWPT-FULL session #19.
+   */
+  workspaceId: string;
   /** Active env the chain was scheduled under. `null` = "No environment". */
   environmentId: string | null;
   /** Parent workflow uid — stamped into the bypass header. */
@@ -345,6 +377,7 @@ export async function executeForLiveChain(
     ],
   };
   return executeRequestDraft(stamped, {
+    workspaceId: options.workspaceId,
     environmentId: options.environmentId ?? undefined,
     stepCaptures: options.stepCaptures,
     skipScripts: true,
@@ -378,16 +411,37 @@ function applyMutation(target: ResolvedRequest, mutation: RequestMutation): void
 
 // ── Variable resolution ────────────────────────────────────────────
 
+interface ResolverContext {
+  workspaceId: string | null;
+  environmentId: string | null;
+  vault: V5.Vault;
+}
+
+/**
+ * Build the resolver and capture the per-execution scope used for
+ * {{ref}} resolution. Returns the vault snapshot alongside so the
+ * caller can index TOTP entries by name without re-reading a store
+ * that may have rotated between calls.
+ *
+ * When `workspaceId` is supplied, every store read routes through the
+ * per-workspace cache for that workspace — required when the dispatch
+ * is keyed on a non-runtime-Active workspace (live-refresh chain
+ * executor for a per-tab MWPT workspace, MWPT-FULL session #19).
+ * Otherwise the resolver pulls from the Active-bound module mirrors,
+ * the Send-from-workbench path the user-initiated executor has always
+ * used.
+ */
 async function buildResolver(
+  workspaceId: string | undefined,
   stepCaptures?: ReadonlyMap<string, ReadonlyMap<string, string>>,
-): Promise<VariableResolver> {
+): Promise<{ resolver: VariableResolver; context: ResolverContext }> {
   const resolver = new VariableResolver();
-  const vault = getVault();
-  resolver.setVault(vault);
-  resolver.setEnvironments(getEnvironments());
-  resolver.setActiveEnvironmentId(getActiveEnvironmentId());
-  resolver.setDefaultEnvironmentId(getDefaultEnvironmentId());
-  resolver.setWorkspaceVariables(getWorkspaceVariables());
+  const scope = workspaceId ? await readPerWorkspaceScope(workspaceId) : readActiveScope();
+  resolver.setVault(scope.vault);
+  resolver.setEnvironments(scope.environments);
+  resolver.setActiveEnvironmentId(scope.activeEnvironmentId);
+  resolver.setDefaultEnvironmentId(scope.defaultEnvironmentId);
+  resolver.setWorkspaceVariables(scope.workspaceVariables);
   // TOTP scope — precompute the current code for every kind:'totp'
   // vault entry so the resolver's `vault` arm can return them
   // synchronously. Codes have ~30s lifetime; we compute fresh on every
@@ -396,13 +450,17 @@ async function buildResolver(
   // there) — TOTP-kind entries surface as unresolved at compile time
   // and the rule is dropped, which is the architectural gate keeping
   // 30s-codes out of static rule values.
-  resolver.setTotpRegistry(await buildTotpRegistry(vault));
-  // Live scope — same snapshot the DNR compile pipeline uses, so a
-  // request that references `{{live.token}}` sees the same value as
-  // a DNR rule would. Empty until the first workflow refresh lands;
-  // the warm mirror in `variables-resolver` updates via
-  // `onLiveCacheStoreChange` between calls.
-  resolver.setLiveRegistry(getLiveRegistrySnapshot());
+  resolver.setTotpRegistry(await buildTotpRegistry(scope.vault));
+  // Live scope — for an Active-workspace dispatch we read the snapshot
+  // that backs the DNR compile pipeline (same mirror the rule engine
+  // uses). For a per-workspace dispatch we read the workspace's own
+  // mirror keyed on the explicit envId (Active-env pointer is irrelevant
+  // for chain execution, which is keyed on (workspaceId, envId)).
+  resolver.setLiveRegistry(
+    workspaceId
+      ? getLiveRegistrySnapshotForWorkspace(workspaceId, scope.activeEnvironmentId)
+      : getLiveRegistrySnapshot(),
+  );
   if (stepCaptures) {
     // Step-capture context — only present during Live Workflow chain
     // runs. Installed here so `{{step.<id>.<name>}}` references in a
@@ -414,23 +472,77 @@ async function buildResolver(
   // resolver's single Map keyed by uid carries them all. The shared
   // helper centralizes this so renderer surfaces and the SW agree on
   // the merged scope.
-  feedCollectionVariablesToResolver(resolver, {
-    ruleCollections: getRuleCollections(),
-    requestCollections: getRequestCollections(),
-    templateCollections: getTemplateCollections(),
-  });
+  feedCollectionVariablesToResolver(resolver, scope.collections);
   // File registry — powers `{{file.X}}` (ARCHITECTURE §6). Loading
   // the full workspace file list once per request is cheap (metadata
   // only, no blob bytes), and matches how other scopes are fed.
   try {
-    const files = await listFiles();
+    const files = await listFiles(workspaceId);
     resolver.setFileRegistry(files);
   } catch {
     // If IDB is briefly unavailable (SW restart race) we proceed
     // without a registry; `{{file.X}}` surfaces `unset-in-scope` on
     // the error channel rather than breaking the request entirely.
   }
-  return resolver;
+  return {
+    resolver,
+    context: {
+      workspaceId: workspaceId ?? null,
+      environmentId: null,
+      vault: scope.vault,
+    },
+  };
+}
+
+interface ExecutionScope {
+  vault: V5.Vault;
+  environments: V5.Environment[];
+  activeEnvironmentId: string | null;
+  defaultEnvironmentId: string | null;
+  workspaceVariables: V5.WorkspaceVariables;
+  collections: {
+    ruleCollections: V5.Collection[];
+    requestCollections: V5.Collection[];
+    templateCollections: V5.Collection[];
+  };
+}
+
+function readActiveScope(): ExecutionScope {
+  return {
+    vault: getVault(),
+    environments: getEnvironments(),
+    activeEnvironmentId: getActiveEnvironmentId(),
+    defaultEnvironmentId: getDefaultEnvironmentId(),
+    workspaceVariables: getWorkspaceVariables(),
+    collections: {
+      ruleCollections: getRuleCollections(),
+      requestCollections: getRequestCollections(),
+      templateCollections: getTemplateCollections(),
+    },
+  };
+}
+
+async function readPerWorkspaceScope(workspaceId: string): Promise<ExecutionScope> {
+  // The default-env pointer is the only scope value not tracked by an
+  // entity cache (it's a singleton scalar persisted as `oh.ws.<id>
+  // .defaultEnvironmentId`); read it via storage. Active-env pointer is
+  // irrelevant for chain execution — the chain is dispatched against an
+  // explicit env, so we leave activeEnvironmentId null and rely on the
+  // `ResolutionContext.environmentId` override the executor threads
+  // through. Other scopes route through their workspace caches.
+  const defaultEnvironmentId = await getDefaultEnvironmentIdForWorkspace(workspaceId);
+  return {
+    vault: getVaultForWorkspace(workspaceId),
+    environments: getEnvironmentsForWorkspace(workspaceId),
+    activeEnvironmentId: null,
+    defaultEnvironmentId,
+    workspaceVariables: getWorkspaceVariablesForWorkspace(workspaceId),
+    collections: {
+      ruleCollections: getRuleCollectionsForWorkspace(workspaceId),
+      requestCollections: getRequestCollectionsForWorkspace(workspaceId),
+      templateCollections: getTemplateCollectionsForWorkspace(workspaceId),
+    },
+  };
 }
 
 /**
@@ -439,9 +551,15 @@ async function buildResolver(
  * tree — not the rule tree (paths under `rules/` never prefix a
  * request path). Returns `undefined` for orphaned requests (defensive —
  * every persisted request should have an owning collection).
+ *
+ * `workspaceId` routes the lookup through the per-workspace request-
+ * collection cache when supplied — required for cross-workspace chain
+ * dispatches where the runtime-Active workspace's collections aren't
+ * the right namespace.
  */
-function collectionIdForRequest(request: V5.Request): string | undefined {
-  const hit = getRequestCollections().find((c) => request.path.startsWith(`${c.path}/`));
+function collectionIdForRequest(request: V5.Request, workspaceId: string | null): string | undefined {
+  const collections = workspaceId ? getRequestCollectionsForWorkspace(workspaceId) : getRequestCollections();
+  const hit = collections.find((c) => request.path.startsWith(`${c.path}/`));
   return hit?.uid;
 }
 
@@ -496,9 +614,9 @@ interface ResolvedRequestOutcome {
 }
 
 async function resolveRequest(request: V5.Request, options: ExecuteRequestOptions): Promise<ResolvedRequestOutcome> {
-  const resolver = await buildResolver(options.stepCaptures);
+  const { resolver, context: scope } = await buildResolver(options.workspaceId, options.stepCaptures);
   const context = {
-    collectionId: collectionIdForRequest(request),
+    collectionId: collectionIdForRequest(request, scope.workspaceId),
     environmentId: options.environmentId,
   };
 
@@ -521,8 +639,11 @@ async function resolveRequest(request: V5.Request, options: ExecuteRequestOption
 
   // Track every kind:'totp' vault entry referenced during this resolve.
   // Index TOTP entries by name once so the per-template scan is O(1).
+  // `scope.vault` is the per-workspace snapshot when `options.workspaceId`
+  // is set — guards against a vault rotation between buildResolver and
+  // here, and keeps cross-workspace dispatches honest.
   const totpEntries = new Map<string, V5.VaultSecretTotp>();
-  for (const s of getVault().secrets) {
+  for (const s of scope.vault.secrets) {
     if (s.kind === 'totp') totpEntries.set(s.name, s);
   }
   const totpUsed = new Map<string, TotpUsage>();

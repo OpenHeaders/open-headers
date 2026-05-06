@@ -30,7 +30,7 @@ import {
   WORKSPACE_VARIABLES_REGISTRATION,
 } from '@/background/sync/entity-registry';
 import type { EnvironmentCache } from '@/background/sync/environment-cache';
-import { getActiveCacheForRegistration } from '@/background/sync/service';
+import { getActiveCacheForRegistration, getCacheForWorkspace } from '@/background/sync/service';
 import type { VaultCache } from '@/background/sync/vault-cache';
 import type { WorkspaceVariablesCache } from '@/background/sync/workspace-variables-cache';
 import { entityLockName, withLock } from '@/shared/coordination/with-lock';
@@ -132,6 +132,42 @@ export function getWorkspaceVariables(): V5.WorkspaceVariables {
 
 export function getVault(): V5.Vault {
   return vault;
+}
+
+// ── Per-workspace accessors (MWPT-FULL session #19) ────────────────
+//
+// SW-internal consumers operating on a non-Active workspace (live-
+// refresh chain executor, scheduler) read through the per-workspace
+// caches rather than the Active-bound module-level mirror. Returns
+// empty / null when no service is materialized for the workspace —
+// the chain dispatch fails cleanly upstream.
+
+export function getEnvironmentsForWorkspace(workspaceId: string): V5.Environment[] {
+  const cache = getCacheForWorkspace<EnvironmentCache>(ENVIRONMENT_REGISTRATION, workspaceId);
+  return cache ? cache.getEnvironments() : [];
+}
+
+export function getVaultForWorkspace(workspaceId: string): V5.Vault {
+  const cache = getCacheForWorkspace<VaultCache>(VAULT_REGISTRATION, workspaceId);
+  return cache ? cache.getVault() : { schemaVersion: 5, secrets: [] };
+}
+
+export function getWorkspaceVariablesForWorkspace(workspaceId: string): V5.WorkspaceVariables {
+  const cache = getCacheForWorkspace<WorkspaceVariablesCache>(WORKSPACE_VARIABLES_REGISTRATION, workspaceId);
+  return cache ? cache.getWorkspaceVariables() : { schemaVersion: 5, variables: [] };
+}
+
+/**
+ * Read the persisted default-environment pointer for an explicit
+ * workspace. Falls back to a one-shot `chrome.storage.local` read for
+ * non-Active workspaces — neither EnvironmentCache nor any other cache
+ * tracks the pointer (it's a singleton scalar, not an entity slot).
+ * Returns null on read failure or when the persisted value isn't a
+ * string.
+ */
+export async function getDefaultEnvironmentIdForWorkspace(workspaceId: string): Promise<string | null> {
+  const v = await extensionStorage.get(wsKeys(workspaceId).defaultEnvironmentId);
+  return typeof v === 'string' ? v : null;
 }
 
 // ── Environments CRUD ──────────────────────────────────────────────

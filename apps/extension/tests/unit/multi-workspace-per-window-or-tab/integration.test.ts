@@ -78,6 +78,11 @@ vi.mock('@utils/logger', () => ({
 }));
 
 import { buildEmptyRule } from '@openheaders/core/utils';
+import { getLiveVariablesForWorkflowInWorkspace } from '@/background/modules/live-variable-store';
+import { getLiveWorkflowInWorkspace } from '@/background/modules/live-workflow-store';
+import { LIVE_VARIABLE_REGISTRATION, LIVE_WORKFLOW_REGISTRATION } from '@/background/sync/entity-registry';
+import type { LiveVariableCache } from '@/background/sync/live-variable-cache';
+import type { LiveWorkflowCache } from '@/background/sync/live-workflow-cache';
 import { InMemoryMutationLog, type MutationLog } from '@/background/sync/mutation-log';
 import { InMemoryPendingIntents, type PendingIntents } from '@/background/sync/pending-intents';
 import {
@@ -87,6 +92,7 @@ import {
   applySyncRequest,
   dispose as disposeActive,
   disposeWorkspace,
+  getCacheForWorkspace,
   getOrCreateWorkspaceService,
   releaseWorkspaceService,
   type SetActiveResult,
@@ -94,9 +100,9 @@ import {
   snapshotCollectionPostStates,
   snapshotEnvironmentPostStates,
   snapshotFilesPostStates,
-  snapshotPauseMarkersPostStates,
   snapshotLiveVariablePostStates,
   snapshotLiveWorkflowPostStates,
+  snapshotPauseMarkersPostStates,
   snapshotRequestPostStates,
   snapshotRulePostStates,
   snapshotVaultPostStates,
@@ -106,10 +112,6 @@ import { disposeAllCollectionSyncMirrors, getCollectionSyncMirrorForWorkspace } 
 import { disposeAllEnvSyncMirrors, getEnvSyncMirrorForWorkspace } from '@/context/env-sync-mirror';
 import { disposeAllFilesSyncMirrors, getFilesSyncMirrorForWorkspace } from '@/context/files-sync-mirror';
 import {
-  disposeAllPauseMarkersSyncMirrors,
-  getPauseMarkersSyncMirrorForWorkspace,
-} from '@/context/pause-markers-sync-mirror';
-import {
   disposeAllLiveVariableSyncMirrors,
   getLiveVariableSyncMirrorForWorkspace,
 } from '@/context/live-variable-sync-mirror';
@@ -117,6 +119,10 @@ import {
   disposeAllLiveWorkflowSyncMirrors,
   getLiveWorkflowSyncMirrorForWorkspace,
 } from '@/context/live-workflow-sync-mirror';
+import {
+  disposeAllPauseMarkersSyncMirrors,
+  getPauseMarkersSyncMirrorForWorkspace,
+} from '@/context/pause-markers-sync-mirror';
 import { setActiveRendererContext } from '@/context/renderer-mutator-context';
 import { disposeAllRequestSyncMirrors, getRequestSyncMirrorForWorkspace } from '@/context/request-sync-mirror';
 import { disposeAllRuleSyncMirrors, getRuleSyncMirrorForWorkspace } from '@/context/rule-sync-mirror';
@@ -130,12 +136,9 @@ import { seedCollection } from '@/shared/sync/collection-projection';
 import { applyCollectionSetVar, applyCollectionVariablesReplacement } from '@/shared/sync/collection-write-client';
 import { applyEnvironmentCreate, applyEnvironmentDelete } from '@/shared/sync/env-write-client';
 import { applyFileAdd, applyFileRemove } from '@/shared/sync/files-write-client';
-import {
-  applyPauseMarkerClear,
-  applyPauseMarkerSet,
-} from '@/shared/sync/pause-markers-write-client';
 import { applyLiveVariableCreate, applyLiveVariableUpdate } from '@/shared/sync/live-variable-write-client';
 import { applyLiveWorkflowCreate, applyLiveWorkflowUpdate } from '@/shared/sync/live-workflow-write-client';
+import { applyPauseMarkerClear, applyPauseMarkerSet } from '@/shared/sync/pause-markers-write-client';
 import { applyRequestCreate, applyRequestDelete, applyRequestUpdate } from '@/shared/sync/request-write-client';
 import { applyRuleCreate, applyRuleDelete } from '@/shared/sync/rule-write-client';
 import { applyVaultSecretRemove, applyVaultSecretSet } from '@/shared/sync/vault-write-client';
@@ -1351,5 +1354,85 @@ describe('I-10 — workspace deletion → forced disposal regardless of refcount
     disposeWorkspace('w1');
     // Snapshot under no-Active falls back to null oracle; returns [].
     expect(snapshotRulePostStates()).toEqual([]);
+  });
+});
+
+// ── MWPT-FULL session #19 — per-workspace live-refresh execution ──
+//
+// Runtime backstop for the F-12 / F-13 prerequisite consumers. The
+// data-plane prerequisite (per-workspace storage projections) shipped
+// in sessions #5 + #6; Session 19 lifts the execution-side guards in
+// `provider.getByAlarm` + `liveChainAdapter.refreshWorkflow`. The full
+// fake-timer / fake-fetch test pair stays deferred for harness-
+// observability infrastructure reasons (chrome.alarms is mocked at the
+// harness boundary; the chain adapter's outgoing fetch isn't yet
+// mockable in vitest), but the LOAD-BEARING data-plane invariant — the
+// workspaceId-keyed cache lookup the new code path consumes — is
+// runtime-testable here without that infrastructure: materialize a
+// non-Active workspace's service, register a workflow + LV, then
+// assert `getCacheForWorkspace` returns the right cache containing
+// them. That's what the `provider.getByAlarm` + chain adapter rely
+// on; if this passes, the cross-workspace dispatch's storage seam is
+// honest.
+
+describe('I-19 — per-workspace cache lookup for live-refresh execution path', () => {
+  it('getCacheForWorkspace returns the live-workflow cache for a non-Active workspace; getLiveWorkflowInWorkspace + getLiveVariablesForWorkflowInWorkspace consult it', async () => {
+    await setActiveAwaited('w1');
+    getOrCreateWorkspaceService('w2');
+
+    const wfSeed: Omit<V5.LiveWorkflow, 'uid' | 'path' | 'schemaVersion'> = {
+      name: 'wf-w2',
+      enabled: true,
+      steps: [],
+      refresh: { kind: 'manual' },
+    };
+    const wfResult = await applyLiveWorkflowCreate(
+      { workflow: wfSeed, parentPath: 'live-workflows' },
+      { workspaceId: 'w2', surfaceId: 'workbench-tab' },
+    );
+    expect(wfResult.ok).toBe(true);
+    if (!wfResult.ok) throw new Error('applyLiveWorkflowCreate failed');
+
+    const lvSeed: Omit<V5.LiveVariable, 'uid' | 'path' | 'schemaVersion'> = {
+      name: 'TOK',
+      workflowUid: wfResult.workflow.uid,
+      stepId: 'login',
+      captureName: 'token',
+      enabled: true,
+    };
+    const lvResult = await applyLiveVariableCreate(
+      { liveVariable: lvSeed, parentPath: 'live-variables' },
+      { workspaceId: 'w2', surfaceId: 'workbench-tab' },
+    );
+    expect(lvResult.ok).toBe(true);
+    if (!lvResult.ok) throw new Error('applyLiveVariableCreate failed');
+
+    await flush();
+
+    // The new accessor returns a non-null cache for the materialized
+    // workspace and routes through to the per-workspace data the chain
+    // dispatch consumes.
+    const wfCache = getCacheForWorkspace<LiveWorkflowCache>(LIVE_WORKFLOW_REGISTRATION, 'w2');
+    expect(wfCache).not.toBeNull();
+    expect(wfCache?.getLiveWorkflows().some((w) => w.uid === wfResult.workflow.uid)).toBe(true);
+    expect(getLiveWorkflowInWorkspace(wfResult.workflow.uid, 'w2')?.uid).toBe(wfResult.workflow.uid);
+
+    const lvCache = getCacheForWorkspace<LiveVariableCache>(LIVE_VARIABLE_REGISTRATION, 'w2');
+    expect(lvCache).not.toBeNull();
+    expect(getLiveVariablesForWorkflowInWorkspace(wfResult.workflow.uid, 'w2')).toHaveLength(1);
+
+    // Active workspace's caches stay empty — the diverged-tab create
+    // landed only in w2, never in w1.
+    expect(getLiveWorkflowInWorkspace(wfResult.workflow.uid, 'w1')).toBeNull();
+    expect(getLiveVariablesForWorkflowInWorkspace(wfResult.workflow.uid, 'w1')).toEqual([]);
+
+    releaseWorkspaceService('w2');
+  });
+
+  it('getCacheForWorkspace returns null when no service is materialized for the workspace (orphan-alarm cancellation contract)', async () => {
+    await setActiveAwaited('w1');
+    // w-deleted has never been acquired — no service in the map. The
+    // shared scheduler interprets a null cache as "orphan — cancel."
+    expect(getCacheForWorkspace(LIVE_WORKFLOW_REGISTRATION, 'w-deleted')).toBeNull();
   });
 });

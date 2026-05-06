@@ -42,6 +42,7 @@ vi.mock('@/background/modules/request-executor', () => ({
 
 vi.mock('@/background/modules/request-store', () => ({
   getRequest: (uid: string) => getRequestMock(uid),
+  getRequestInWorkspace: (uid: string, _workspaceId: string) => getRequestMock(uid),
 }));
 
 vi.mock('@/background/modules/live-cache-store', () => ({
@@ -358,25 +359,34 @@ describe('extract-phase failures', () => {
   });
 });
 
-// ── 7. Active-workspace guard ────────────────────────────────────
+// ── 7. Cross-workspace dispatch (MWPT-FULL session #19) ──────────
+//
+// The previous Active-workspace guard refused to run the chain when
+// `workspaceId !== getActiveWorkspaceId()`. Session 19 lifts that
+// limit: chain dispatches thread `workspaceId` end-to-end so a per-tab
+// MWPT workspace's workflow refreshes correctly even when a different
+// workspace is runtime-Active. This test asserts the new behavior.
 
-describe('inactive-workspace guard', () => {
-  it('records error + throws without running chain when workspaceId ≠ active', async () => {
+describe('cross-workspace dispatch', () => {
+  it('runs the chain against the dispatch workspace, threading workspaceId into executeForLiveChain', async () => {
     getActiveWorkspaceIdMock.mockReturnValue('ws-other');
     getRequestMock.mockReturnValue(makeRequest());
+    executeForLiveChainMock.mockResolvedValue(makeSnapshot('{"access_token":"abc"}'));
 
-    await expect(
-      adapterModule.liveChainAdapter.refreshWorkflow({
-        workspaceId: 'ws-1',
-        workflow: makeWorkflow(),
-        environmentId: null,
-      }),
-    ).rejects.toBeInstanceOf(adapterModule.ChainRefreshError);
+    await adapterModule.liveChainAdapter.refreshWorkflow({
+      workspaceId: 'ws-1',
+      workflow: makeWorkflow(),
+      environmentId: null,
+    });
 
-    expect(executeForLiveChainMock).not.toHaveBeenCalled();
-    expect(putWorkflowRunCacheMock).not.toHaveBeenCalled();
-    expect(recordRefreshErrorMock).toHaveBeenCalledTimes(1);
-    expect(recordRefreshErrorMock.mock.calls[0][0].message).toContain('inactive');
+    expect(executeForLiveChainMock).toHaveBeenCalledTimes(1);
+    const [, options] = executeForLiveChainMock.mock.calls[0];
+    expect(options.workspaceId).toBe('ws-1');
+    // Capture write lands against the dispatch workspace, not the
+    // runtime-Active one — the cache row belongs to ws-1.
+    expect(putWorkflowRunCacheMock).toHaveBeenCalledTimes(1);
+    expect(putWorkflowRunCacheMock.mock.calls[0][1]).toBe('ws-1');
+    expect(recordRefreshErrorMock).not.toHaveBeenCalled();
   });
 });
 

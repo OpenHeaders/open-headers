@@ -55,24 +55,24 @@ import { __setLiveRefreshAdapter, type LiveRefreshAdapter } from './live-refresh
 import { recordLog } from './observability-log';
 import { withRefreshRateLimit } from './refresh-scheduler';
 import { type ExecutedRequestSnapshot, executeForLiveChain } from './request-executor';
-import { getRequest } from './request-store';
-import { getActiveWorkspaceId } from './workspace-store';
+import { getRequestInWorkspace } from './request-store';
 
 // ── FetchAdapter — translates runChain hops into executor calls ────
 
 /**
  * Build the `FetchAdapter` a single `runChain` invocation consumes.
- * The adapter is closured over `(workflowUid, envId)` so each step
- * fetch carries that context without crossing the core module
- * boundary. `workspaceId` isn't threaded here because the request
- * executor reads from the ACTIVE workspace's stores — the caller
- * (`refreshWorkflow` below) guards against dispatching a refresh for
- * a non-active workspace.
+ * The adapter is closured over `(workspaceId, workflowUid, envId)` so
+ * each step fetch resolves its request, variables, vault, environment,
+ * and collection scopes against the SAME workspace the chain dispatch
+ * was scheduled under — never the runtime-Active workspace's stores.
+ * Cross-workspace dispatches (a per-tab MWPT workspace's chain firing
+ * while a different workspace is runtime-Active) require this so the
+ * captures land against the correct workspace's variable scope.
  */
-function buildFetchAdapter(workflowUid: string, environmentId: string | null): FetchAdapter {
+function buildFetchAdapter(workspaceId: string, workflowUid: string, environmentId: string | null): FetchAdapter {
   return {
     async executeStep(step, stepCaptures, _context) {
-      const request = getRequest(step.requestUid);
+      const request = getRequestInWorkspace(step.requestUid, workspaceId);
       if (!request) {
         // Treated as a fetch-phase failure by the core runner. The
         // workflow is structurally broken (referencing a deleted
@@ -90,6 +90,7 @@ function buildFetchAdapter(workflowUid: string, environmentId: string | null): F
       // via `withRefreshRateLimit`'s safeOrigin.
       const snapshot = await withRefreshRateLimit(request.url, () =>
         executeForLiveChain(request, {
+          workspaceId,
           environmentId,
           workflowUid,
           stepId: step.id,
@@ -134,39 +135,16 @@ function buildFetchAdapter(workflowUid: string, environmentId: string | null): F
  */
 export const liveChainAdapter: LiveRefreshAdapter = {
   async refreshWorkflow({ workspaceId, workflow, environmentId, bypass = false }) {
-    // Active-workspace guard. The request executor reads from in-memory
-    // stores scoped to `getActiveWorkspaceId()`; firing a chain for an
-    // inactive workspace would use the wrong env/vault/collection
-    // snapshot and quietly produce garbage captures. The scheduler
-    // schedules across workspaces by design (reads inactive-workspace
-    // definitions directly from storage), but execution requires the
-    // active slice. When the workspaces mismatch we skip + record an
-    // error so the backoff widens and the scheduler reconciles when
-    // the user switches workspaces.
-    const active = getActiveWorkspaceId();
-    if (workspaceId !== active) {
-      logger.info(
-        'LiveChainAdapter',
-        `Skipping refresh for workflow ${workflow.uid} — workspace ${workspaceId} is not active (active=${active})`,
-      );
-      await recordRefreshError(
-        {
-          workflowUid: workflow.uid,
-          environmentId,
-          message: `Skipped: workspace ${workspaceId} inactive`,
-          extractorOk: true,
-        },
-        workspaceId,
-      );
-      throw new ChainRefreshError(`Workspace ${workspaceId} inactive`, {
-        failedStepId: workflow.steps[0]?.id ?? '',
-        failedPhase: 'fetch',
-      });
-    }
-
+    // No Active-workspace guard (MWPT-FULL session #19). The chain
+    // executor now threads `workspaceId` end-to-end: every store read
+    // (request, env, vault, workspace-vars, vault TOTP, collection-vars,
+    // live-registry) resolves against the per-workspace cache for the
+    // dispatch's workspaceId rather than the runtime-Active mirror. A
+    // per-tab MWPT workspace's chain therefore fires correctly even
+    // when a different workspace is runtime-Active in DNR.
     const outcome: ChainRunOutcome = await runChain({
       workflow,
-      adapter: buildFetchAdapter(workflow.uid, environmentId),
+      adapter: buildFetchAdapter(workspaceId, workflow.uid, environmentId),
       context: { workflowUid: workflow.uid, workspaceId, environmentId },
     });
 

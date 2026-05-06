@@ -50,7 +50,12 @@ import type { CollectionCache } from '../sync/collection-cache';
 import { COLLECTION_REGISTRATION, FOLDER_REGISTRATION, RULE_REGISTRATION } from '../sync/entity-registry';
 import type { FolderCache } from '../sync/folder-cache';
 import type { RuleCache } from '../sync/rule-cache';
-import { getActiveCacheForRegistration, getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
+import {
+  getActiveCacheForRegistration,
+  getCacheForWorkspace,
+  getOracleForCurrentWorkspace,
+  nextSwMutatorContext,
+} from '../sync/service';
 import { driftRecorder } from './storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
 
@@ -96,6 +101,19 @@ export function getRules(): V5.Rule[] {
 
 export function getCollections(): V5.Collection[] {
   return collections;
+}
+
+/**
+ * Snapshot every rule collection in an explicit workspace via its
+ * {@link CollectionCache}. Returns `[]` when no service is materialized
+ * for the workspace. SW-internal consumers operating on a non-Active
+ * workspace (live-refresh chain executor's variable scope feed) read
+ * through here instead of {@link getCollections}, which is Active-bound
+ * by design (renderer/popup).
+ */
+export function getCollectionsForWorkspace(workspaceId: string): V5.Collection[] {
+  const cache = getCacheForWorkspace<CollectionCache>(COLLECTION_REGISTRATION, workspaceId);
+  return cache ? cache.getCollections() : [];
 }
 
 export function getFolders(): LocalFolder[] {
