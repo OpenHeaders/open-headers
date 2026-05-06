@@ -17,7 +17,10 @@
  * coexists with the bridge-RPC path and is harmless overhead.
  */
 
-import { EXTENSION_WORKSPACE_ENTITY_TYPE } from '@openheaders/core/sync';
+import {
+  EXTENSION_WORKSPACE_ENTITY_TYPE,
+  EXTENSION_WORKSPACE_GLOBAL_SCOPE,
+} from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { call } from '@utils/bridge';
 import {
@@ -54,6 +57,12 @@ export function createExtensionWorkspaceSyncMirror(
   const core = createSingletonEntityMirror<ExtensionWorkspaceMirrorEntry>(
     {
       loggerTag: 'ExtensionWorkspaceSyncMirror',
+      // Global-scope entity — published by `global-service.ts`'s global
+      // oracle (lives above the per-workspace oracle so workspace
+      // switches don't tear it down). The mirror filters broadcasts by
+      // `EXTENSION_WORKSPACE_GLOBAL_SCOPE`, the same envelope.workspaceId
+      // the global oracle stamps on its emissions.
+      workspaceId: EXTENSION_WORKSPACE_GLOBAL_SCOPE,
       extractFromBroadcast: (event) => {
         const { envelope, extensionWorkspacePostState } = event;
         if (envelope.body.type !== EXTENSION_WORKSPACE_ENTITY_TYPE) return null;

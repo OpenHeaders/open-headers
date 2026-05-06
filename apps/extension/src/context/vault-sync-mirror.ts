@@ -12,6 +12,7 @@ import {
   createSingletonEntityMirror,
   type CreateSingletonMirrorOptions,
 } from './singleton-entity-mirror';
+import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 
 export interface VaultMirrorEntry {
   vault: V5.Vault;
@@ -31,10 +32,14 @@ export interface VaultSyncMirror {
 
 export type CreateVaultSyncMirrorOptions = CreateSingletonMirrorOptions;
 
-export function createVaultSyncMirror(options: CreateVaultSyncMirrorOptions = {}): VaultSyncMirror {
+export function createVaultSyncMirror(
+  workspaceId: string,
+  options: CreateVaultSyncMirrorOptions = {},
+): VaultSyncMirror {
   const core = createSingletonEntityMirror<VaultMirrorEntry>(
     {
       loggerTag: 'VaultSyncMirror',
+      workspaceId,
       extractFromBroadcast: (event) => {
         const { envelope, vaultPostState } = event;
         if (envelope.body.type !== VAULT_ENTITY_TYPE) return null;
@@ -42,7 +47,7 @@ export function createVaultSyncMirror(options: CreateVaultSyncMirrorOptions = {}
         return { vault: vaultPostState.vault, secretUids: vaultPostState.secretUids };
       },
       fetchSnapshot: async () => {
-        const resp = await call('oh.sync.snapshotVault');
+        const resp = await call('oh.sync.snapshotVault', { workspaceId });
         const first = resp.entries[0];
         return first ? { vault: first.vault, secretUids: first.secretUids } : null;
       },
@@ -57,17 +62,28 @@ export function createVaultSyncMirror(options: CreateVaultSyncMirrorOptions = {}
   };
 }
 
-// ── Module-level singleton ───────────────────────────────────────────
+// ── Per-workspace registry ───────────────────────────────────────────
+//
+// Symmetric to the SW data plane's `services: Map<workspaceId,
+// WorkspaceServiceState>` (commit 1, sub-commit 1a). Each workspace's
+// mirror is independent: its bridge subscription filters by
+// `event.envelope.workspaceId` at the shared mirror core (M-2), and
+// its bootstrap snapshot is fetched scoped to the workspace via
+// `oh.sync.snapshotX, { workspaceId }` (M-1). Cross-workspace
+// contamination is structurally inexpressible.
 
-let active: VaultSyncMirror | null = null;
+const vaultSyncMirrorRegistry = createWorkspaceMirrorRegistry<VaultSyncMirror>(
+  (workspaceId) => createVaultSyncMirror(workspaceId),
+);
 
-export function getActiveVaultSyncMirror(): VaultSyncMirror {
-  if (!active) active = createVaultSyncMirror();
-  return active;
+export function getVaultSyncMirrorForWorkspace(workspaceId: string): VaultSyncMirror {
+  return vaultSyncMirrorRegistry.getOrCreate(workspaceId);
 }
 
-export function disposeActiveVaultSyncMirror(): void {
-  if (!active) return;
-  active.dispose();
-  active = null;
+export function disposeVaultSyncMirrorForWorkspace(workspaceId: string): void {
+  vaultSyncMirrorRegistry.dispose(workspaceId);
+}
+
+export function disposeAllVaultSyncMirrors(): void {
+  vaultSyncMirrorRegistry.disposeAll();
 }

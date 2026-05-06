@@ -14,6 +14,7 @@ import {
   createFlatEntityMirror,
   type CreateFlatMirrorOptions,
 } from './flat-entity-mirror';
+import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 
 export interface EnvironmentMirrorEntry {
   environment: V5.Environment;
@@ -35,10 +36,14 @@ export interface EnvSyncMirror {
 
 export type CreateEnvSyncMirrorOptions = CreateFlatMirrorOptions;
 
-export function createEnvSyncMirror(options: CreateEnvSyncMirrorOptions = {}): EnvSyncMirror {
+export function createEnvSyncMirror(
+  workspaceId: string,
+  options: CreateEnvSyncMirrorOptions = {},
+): EnvSyncMirror {
   const core = createFlatEntityMirror<EnvironmentMirrorEntry>(
     {
       loggerTag: 'EnvSyncMirror',
+      workspaceId,
       extractFromBroadcast: (event) => {
         const { envelope, environmentPostState } = event;
         if (envelope.body.type !== 'environment') return null;
@@ -53,7 +58,7 @@ export function createEnvSyncMirror(options: CreateEnvSyncMirrorOptions = {}): E
         };
       },
       fetchSnapshot: async () => {
-        const resp = await call('oh.sync.snapshotEnvironments');
+        const resp = await call('oh.sync.snapshotEnvironments', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.environment.uid,
           entry: { environment: e.environment, varUids: e.varUids },
@@ -70,17 +75,28 @@ export function createEnvSyncMirror(options: CreateEnvSyncMirrorOptions = {}): E
   };
 }
 
-// ── Module-level singleton ───────────────────────────────────────────
+// ── Per-workspace registry ───────────────────────────────────────────
+//
+// Symmetric to the SW data plane's `services: Map<workspaceId,
+// WorkspaceServiceState>` (commit 1, sub-commit 1a). Each workspace's
+// mirror is independent: its bridge subscription filters by
+// `event.envelope.workspaceId` at the shared mirror core (M-2), and
+// its bootstrap snapshot is fetched scoped to the workspace via
+// `oh.sync.snapshotX, { workspaceId }` (M-1). Cross-workspace
+// contamination is structurally inexpressible.
 
-let active: EnvSyncMirror | null = null;
+const envSyncMirrorRegistry = createWorkspaceMirrorRegistry<EnvSyncMirror>(
+  (workspaceId) => createEnvSyncMirror(workspaceId),
+);
 
-export function getActiveEnvSyncMirror(): EnvSyncMirror {
-  if (!active) active = createEnvSyncMirror();
-  return active;
+export function getEnvSyncMirrorForWorkspace(workspaceId: string): EnvSyncMirror {
+  return envSyncMirrorRegistry.getOrCreate(workspaceId);
 }
 
-export function disposeActiveEnvSyncMirror(): void {
-  if (!active) return;
-  active.dispose();
-  active = null;
+export function disposeEnvSyncMirrorForWorkspace(workspaceId: string): void {
+  envSyncMirrorRegistry.dispose(workspaceId);
+}
+
+export function disposeAllEnvSyncMirrors(): void {
+  envSyncMirrorRegistry.disposeAll();
 }

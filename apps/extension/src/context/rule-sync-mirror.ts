@@ -18,6 +18,7 @@ import {
   createFlatEntityMirror,
   type CreateFlatMirrorOptions,
 } from './flat-entity-mirror';
+import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 
 export interface RuleMirrorEntry {
   rule: V5.Rule;
@@ -39,10 +40,14 @@ export interface RuleSyncMirror {
 
 export type CreateRuleSyncMirrorOptions = CreateFlatMirrorOptions;
 
-export function createRuleSyncMirror(options: CreateRuleSyncMirrorOptions = {}): RuleSyncMirror {
+export function createRuleSyncMirror(
+  workspaceId: string,
+  options: CreateRuleSyncMirrorOptions = {},
+): RuleSyncMirror {
   const core = createFlatEntityMirror<RuleMirrorEntry>(
     {
       loggerTag: 'RuleSyncMirror',
+      workspaceId,
       extractFromBroadcast: (event) => {
         // Pre-extraction, rule-mirror processed every broadcast (added
         // every uid to seenSinceMount, treated absent rulePostState as
@@ -63,7 +68,7 @@ export function createRuleSyncMirror(options: CreateRuleSyncMirrorOptions = {}):
         };
       },
       fetchSnapshot: async () => {
-        const resp = await call('oh.sync.snapshotRules');
+        const resp = await call('oh.sync.snapshotRules', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.rule.uid,
           entry: {
@@ -85,21 +90,31 @@ export function createRuleSyncMirror(options: CreateRuleSyncMirrorOptions = {}):
   };
 }
 
-// ── Module-level singleton ───────────────────────────────────────────
+// ── Per-workspace registry ───────────────────────────────────────────
+//
+// Symmetric to the SW data plane's `services: Map<workspaceId,
+// WorkspaceServiceState>` (commit 1, sub-commit 1a). Each workspace's
+// mirror is independent: its bridge subscription filters by
+// `event.envelope.workspaceId` at the shared mirror core (M-2), and
+// its bootstrap snapshot is fetched scoped to the workspace via
+// `oh.sync.snapshotX, { workspaceId }` (M-1). Cross-workspace
+// contamination is structurally inexpressible.
 
-let active: RuleSyncMirror | null = null;
+const ruleSyncMirrorRegistry = createWorkspaceMirrorRegistry<RuleSyncMirror>(
+  (workspaceId) => createRuleSyncMirror(workspaceId),
+);
 
-export function getActiveRuleSyncMirror(): RuleSyncMirror {
-  if (!active) active = createRuleSyncMirror();
-  return active;
+export function getRuleSyncMirrorForWorkspace(workspaceId: string): RuleSyncMirror {
+  return ruleSyncMirrorRegistry.getOrCreate(workspaceId);
 }
 
-export function disposeActiveRuleSyncMirror(): void {
-  if (!active) return;
-  active.dispose();
-  active = null;
+export function disposeRuleSyncMirrorForWorkspace(workspaceId: string): void {
+  ruleSyncMirrorRegistry.dispose(workspaceId);
 }
 
+export function disposeAllRuleSyncMirrors(): void {
+  ruleSyncMirrorRegistry.disposeAll();
+}
 // ── React hook ────────────────────────────────────────────────────────
 
 import { useEffect, useState } from 'react';
@@ -107,9 +122,16 @@ import { useEffect, useState } from 'react';
 /**
  * Reactive live-rule subscription for any surface (workbench, popup,
  * panel) — works regardless of whether `<RuleProvider>` is mounted.
- * Reads from the per-surface rule sync mirror singleton (initialized
- * eagerly at boot via `eagerInitRendererMirrors`) and re-renders the
- * caller whenever a broadcast lands for the given uid.
+ * Reads from the per-workspace rule sync mirror selected by
+ * `workspaceId` and re-renders the caller whenever a broadcast lands
+ * for the given uid.
+ *
+ * `workspaceId` MUST be the workspace whose rules the surface is
+ * displaying. System surfaces (popup, side-panel, devtools panel) pass
+ * the runtime-Active workspaceId via `useActiveWorkspaceId()`; the
+ * workbench passes its per-tab editing-scope workspaceId. Resubscribing
+ * on `workspaceId` change cleanly switches the underlying mirror
+ * subscription.
  *
  * The panel surface deliberately doesn't mount `<RuleProvider>` — it
  * doesn't need the full CRUD / templates / folders surface that
@@ -118,21 +140,24 @@ import { useEffect, useState } from 'react';
  * mirror directly), not `useRules()` (which would return the empty
  * default and never update).
  */
-export function useLiveRule(uid: string | null | undefined): V5.Rule | null {
+export function useLiveRule(
+  uid: string | null | undefined,
+  workspaceId: string | null,
+): V5.Rule | null {
   const [rule, setRule] = useState<V5.Rule | null>(() => {
-    if (!uid) return null;
-    return getActiveRuleSyncMirror().getRuleMirror(uid)?.rule ?? null;
+    if (!uid || !workspaceId) return null;
+    return getRuleSyncMirrorForWorkspace(workspaceId).getRuleMirror(uid)?.rule ?? null;
   });
   useEffect(() => {
-    if (!uid) {
+    if (!uid || !workspaceId) {
       setRule(null);
       return;
     }
-    const mirror = getActiveRuleSyncMirror();
+    const mirror = getRuleSyncMirrorForWorkspace(workspaceId);
     setRule(mirror.getRuleMirror(uid)?.rule ?? null);
     return mirror.subscribeRuleMirror(uid, () => {
       setRule(mirror.getRuleMirror(uid)?.rule ?? null);
     });
-  }, [uid]);
+  }, [uid, workspaceId]);
   return rule;
 }

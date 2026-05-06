@@ -36,7 +36,7 @@ import {
 import type { V5 } from '@openheaders/core/types';
 import {
   createVaultSyncMirror,
-  getActiveVaultSyncMirror,
+  getVaultSyncMirrorForWorkspace,
   type VaultSyncMirror,
 } from '@/context/vault-sync-mirror';
 import {
@@ -133,8 +133,8 @@ export async function applyVaultReplacement(
 
 export type { MutationEnvelope };
 
-export function activeMirror(): VaultSyncMirror {
-  return getActiveVaultSyncMirror();
+export function activeMirror(workspaceId: string): VaultSyncMirror {
+  return getVaultSyncMirrorForWorkspace(workspaceId);
 }
 
 // ── Internals ─────────────────────────────────────────────────────

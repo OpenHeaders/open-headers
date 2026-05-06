@@ -41,13 +41,21 @@ export type SingletonExtractResult<E> = E | 'tombstone' | null;
 
 export interface SingletonMirrorConfig<E> {
   loggerTag: string;
+  /**
+   * The workspace this mirror projects. The core short-circuits any
+   * `syncBroadcast` event whose `envelope.workspaceId` does not match,
+   * BEFORE calling the adapter's `extractFromBroadcast` — cross-workspace
+   * dispatch is structurally inexpressible at the core layer (M-2).
+   */
+  workspaceId: string;
   /** Pure extraction from a wire event into the singleton's entry shape. */
   extractFromBroadcast: (event: SyncBroadcastPayload) => SingletonExtractResult<E>;
   /**
-   * Fetch the bootstrap snapshot. Adapters wrap `call('oh.sync.snapshotX')`
-   * here so the typed bridge contract is preserved at the boundary. Returns
-   * the entry directly (or `null` when the singleton hasn't been seeded
-   * yet) — the core skips applying when `sawBroadcast` already won the race.
+   * Fetch the bootstrap snapshot. Adapters wrap `call('oh.sync.snapshotX',
+   * { workspaceId })` here so the typed bridge contract is preserved at
+   * the boundary. Returns the entry directly (or `null` when the
+   * singleton hasn't been seeded yet) — the core skips applying when
+   * `sawBroadcast` already won the race.
    */
   fetchSnapshot: () => Promise<E | null>;
 }
@@ -88,6 +96,7 @@ export function createSingletonEntityMirror<E>(
   };
 
   const unsubscribe = subscribe('syncBroadcast', (event) => {
+    if (event.envelope.workspaceId !== config.workspaceId) return;
     const result = config.extractFromBroadcast(event);
     if (result === null) return;
     sawBroadcast = true;

@@ -24,7 +24,7 @@ import type { FolderParentRef } from '@openheaders/core/sync';
 import {
   createFolderSyncMirror,
   type FolderSyncMirror,
-  getActiveFolderSyncMirror,
+  getFolderSyncMirrorForWorkspace,
 } from '@/context/folder-sync-mirror';
 import {
   buildCreateFolderBatch,
@@ -53,7 +53,7 @@ export async function applyFolderRename(
   // Mirror lookup gates "not-found" — a rename against a folder the
   // mirror doesn't know about would still apply at the oracle if the
   // entity exists, but the editor UX wants the early fail signal.
-  const mirror = resolveMirror(opts, getActiveFolderSyncMirror);
+  const mirror = resolveMirror(opts, getFolderSyncMirrorForWorkspace);
   if (!mirror.getFolderMirror(input.folderUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRenameFolderBatch(input, ctx));

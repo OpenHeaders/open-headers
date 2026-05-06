@@ -22,7 +22,7 @@ import {
 } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import {
-  getActiveRequestCollectionSyncMirror,
+  getRequestCollectionSyncMirrorForWorkspace,
   type RequestCollectionSyncMirror,
 } from '@/context/request-collection-sync-mirror';
 import {
@@ -50,7 +50,7 @@ export async function applyRequestCollectionRename(
   input: ApplyRequestCollectionRenameInput,
   opts: RequestCollectionWriteOptions,
 ): Promise<RequestCollectionSimpleResult> {
-  const mirror = resolveMirror(opts, getActiveRequestCollectionSyncMirror);
+  const mirror = resolveMirror(opts, getRequestCollectionSyncMirrorForWorkspace);
   if (!mirror.getRequestCollectionMirror(input.collectionUid)) {
     return { ok: false, reason: 'not-found' };
   }

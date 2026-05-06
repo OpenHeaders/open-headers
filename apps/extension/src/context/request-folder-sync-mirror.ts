@@ -15,6 +15,7 @@ import {
   createFlatEntityMirror,
   type CreateFlatMirrorOptions,
 } from './flat-entity-mirror';
+import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 
 export interface RequestFolderMirrorEntry {
   folder: V5.Folder;
@@ -43,11 +44,13 @@ export interface RequestFolderSyncMirror {
 export type CreateRequestFolderSyncMirrorOptions = CreateFlatMirrorOptions;
 
 export function createRequestFolderSyncMirror(
+  workspaceId: string,
   options: CreateRequestFolderSyncMirrorOptions = {},
 ): RequestFolderSyncMirror {
   const core = createFlatEntityMirror<RequestFolderMirrorEntry>(
     {
       loggerTag: 'RequestFolderSyncMirror',
+      workspaceId,
       extractFromBroadcast: (event) => {
         const { envelope, requestFolderPostState } = event;
         if (envelope.body.type !== REQUEST_FOLDER_ENTITY_TYPE) return null;
@@ -62,7 +65,7 @@ export function createRequestFolderSyncMirror(
         };
       },
       fetchSnapshot: async () => {
-        const resp = await call('oh.sync.snapshotRequestFolders');
+        const resp = await call('oh.sync.snapshotRequestFolders', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.folder.uid,
           entry: { folder: e.folder, setOrderKeys: e.setOrderKeys },
@@ -85,15 +88,28 @@ export function createRequestFolderSyncMirror(
   };
 }
 
-let active: RequestFolderSyncMirror | null = null;
+// ── Per-workspace registry ───────────────────────────────────────────
+//
+// Symmetric to the SW data plane's `services: Map<workspaceId,
+// WorkspaceServiceState>` (commit 1, sub-commit 1a). Each workspace's
+// mirror is independent: its bridge subscription filters by
+// `event.envelope.workspaceId` at the shared mirror core (M-2), and
+// its bootstrap snapshot is fetched scoped to the workspace via
+// `oh.sync.snapshotX, { workspaceId }` (M-1). Cross-workspace
+// contamination is structurally inexpressible.
 
-export function getActiveRequestFolderSyncMirror(): RequestFolderSyncMirror {
-  if (!active) active = createRequestFolderSyncMirror();
-  return active;
+const requestFolderSyncMirrorRegistry = createWorkspaceMirrorRegistry<RequestFolderSyncMirror>(
+  (workspaceId) => createRequestFolderSyncMirror(workspaceId),
+);
+
+export function getRequestFolderSyncMirrorForWorkspace(workspaceId: string): RequestFolderSyncMirror {
+  return requestFolderSyncMirrorRegistry.getOrCreate(workspaceId);
 }
 
-export function disposeActiveRequestFolderSyncMirror(): void {
-  if (!active) return;
-  active.dispose();
-  active = null;
+export function disposeRequestFolderSyncMirrorForWorkspace(workspaceId: string): void {
+  requestFolderSyncMirrorRegistry.dispose(workspaceId);
+}
+
+export function disposeAllRequestFolderSyncMirrors(): void {
+  requestFolderSyncMirrorRegistry.disposeAll();
 }

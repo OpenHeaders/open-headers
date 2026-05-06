@@ -13,7 +13,7 @@
 
 import type { V5 } from '@openheaders/core/types';
 import {
-  getActiveTemplateSyncMirror,
+  getTemplateSyncMirrorForWorkspace,
   type TemplateSyncMirror,
 } from '@/context/template-sync-mirror';
 import {
@@ -47,7 +47,7 @@ export async function applyTemplateUpdate(
   updates: TemplateUpdates,
   opts: TemplateWriteOptions,
 ): Promise<TemplateMutationResult> {
-  const mirror = resolveMirror(opts, getActiveTemplateSyncMirror);
+  const mirror = resolveMirror(opts, getTemplateSyncMirrorForWorkspace);
   const entry = mirror.getTemplateMirror(templateUid);
   if (!entry) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
@@ -102,7 +102,7 @@ export async function applyTemplateDelete(
   templateUid: string,
   opts: TemplateWriteOptions,
 ): Promise<TemplateSimpleResult> {
-  const mirror = resolveMirror(opts, getActiveTemplateSyncMirror);
+  const mirror = resolveMirror(opts, getTemplateSyncMirrorForWorkspace);
   if (!mirror.getTemplateMirror(templateUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildDeleteBatch(templateUid, ctx);

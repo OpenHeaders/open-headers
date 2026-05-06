@@ -167,17 +167,18 @@ describe('resolveRendererContext', () => {
 });
 
 describe('resolveMirror', () => {
-  it('returns opts.mirror verbatim when supplied', () => {
+  it('returns opts.mirror verbatim when supplied (workspaceId still required for shape)', () => {
     const mirror = { tag: 'injected' };
-    const getActive = vi.fn(() => ({ tag: 'singleton' }));
-    expect(resolveMirror({ mirror }, getActive)).toBe(mirror);
-    expect(getActive).not.toHaveBeenCalled();
+    const getForWorkspace = vi.fn((_id: string) => ({ tag: 'lookup' }));
+    expect(resolveMirror({ mirror, workspaceId: 'ws-1' }, getForWorkspace)).toBe(mirror);
+    expect(getForWorkspace).not.toHaveBeenCalled();
   });
 
-  it('falls back to getActive when opts.mirror is omitted', () => {
-    const singleton = { tag: 'singleton' };
-    const getActive = vi.fn(() => singleton);
-    expect(resolveMirror({}, getActive)).toBe(singleton);
-    expect(getActive).toHaveBeenCalledTimes(1);
+  it('falls back to getForWorkspace(opts.workspaceId) when opts.mirror is omitted', () => {
+    const lookup = { tag: 'lookup' };
+    const getForWorkspace = vi.fn((_id: string) => lookup);
+    expect(resolveMirror({ workspaceId: 'ws-2' }, getForWorkspace)).toBe(lookup);
+    expect(getForWorkspace).toHaveBeenCalledTimes(1);
+    expect(getForWorkspace).toHaveBeenCalledWith('ws-2');
   });
 });

@@ -16,6 +16,7 @@ import {
   createFlatEntityMirror,
   type CreateFlatMirrorOptions,
 } from './flat-entity-mirror';
+import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 
 export interface FolderMirrorEntry {
   folder: V5.Folder;
@@ -44,11 +45,13 @@ export interface FolderSyncMirror {
 export type CreateFolderSyncMirrorOptions = CreateFlatMirrorOptions;
 
 export function createFolderSyncMirror(
+  workspaceId: string,
   options: CreateFolderSyncMirrorOptions = {},
 ): FolderSyncMirror {
   const core = createFlatEntityMirror<FolderMirrorEntry>(
     {
       loggerTag: 'FolderSyncMirror',
+      workspaceId,
       extractFromBroadcast: (event) => {
         const { envelope, folderPostState } = event;
         if (envelope.body.type !== FOLDER_ENTITY_TYPE) return null;
@@ -60,7 +63,7 @@ export function createFolderSyncMirror(
         };
       },
       fetchSnapshot: async () => {
-        const resp = await call('oh.sync.snapshotFolders');
+        const resp = await call('oh.sync.snapshotFolders', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.folder.uid,
           entry: { folder: e.folder, setOrderKeys: e.setOrderKeys },
@@ -83,17 +86,28 @@ export function createFolderSyncMirror(
   };
 }
 
-// ── Module-level singleton ───────────────────────────────────────────
+// ── Per-workspace registry ───────────────────────────────────────────
+//
+// Symmetric to the SW data plane's `services: Map<workspaceId,
+// WorkspaceServiceState>` (commit 1, sub-commit 1a). Each workspace's
+// mirror is independent: its bridge subscription filters by
+// `event.envelope.workspaceId` at the shared mirror core (M-2), and
+// its bootstrap snapshot is fetched scoped to the workspace via
+// `oh.sync.snapshotX, { workspaceId }` (M-1). Cross-workspace
+// contamination is structurally inexpressible.
 
-let active: FolderSyncMirror | null = null;
+const folderSyncMirrorRegistry = createWorkspaceMirrorRegistry<FolderSyncMirror>(
+  (workspaceId) => createFolderSyncMirror(workspaceId),
+);
 
-export function getActiveFolderSyncMirror(): FolderSyncMirror {
-  if (!active) active = createFolderSyncMirror();
-  return active;
+export function getFolderSyncMirrorForWorkspace(workspaceId: string): FolderSyncMirror {
+  return folderSyncMirrorRegistry.getOrCreate(workspaceId);
 }
 
-export function disposeActiveFolderSyncMirror(): void {
-  if (!active) return;
-  active.dispose();
-  active = null;
+export function disposeFolderSyncMirrorForWorkspace(workspaceId: string): void {
+  folderSyncMirrorRegistry.dispose(workspaceId);
+}
+
+export function disposeAllFolderSyncMirrors(): void {
+  folderSyncMirrorRegistry.disposeAll();
 }

@@ -28,7 +28,7 @@ import {
 } from '@openheaders/core/sync';
 import {
   createPauseMarkersSyncMirror,
-  getActivePauseMarkersSyncMirror,
+  getPauseMarkersSyncMirrorForWorkspace,
   type PauseMarkersSyncMirror,
 } from '@/context/pause-markers-sync-mirror';
 import {
@@ -81,12 +81,12 @@ export async function applyPauseMarkersReplacement(
   next: ReadonlyMap<string, PauseMarkerKind> | Readonly<Record<string, PauseMarkerKind>>,
   opts: PauseMarkersWriteOptions,
 ): Promise<PauseMarkersResult> {
-  const mirror = resolveMirror(opts, getActivePauseMarkersSyncMirror);
+  const mirror = resolveMirror(opts, getPauseMarkersSyncMirrorForWorkspace);
   const existing = mirror.liveMarkers();
   const ctx = resolveRendererContext(opts).next({ batchId: opts.batchId ?? `pause-markers-replace` });
   return applySyncPayload(buildReplacePauseMarkersBatch({ existing, next }, ctx));
 }
 
-export function activeMirror(): PauseMarkersSyncMirror {
-  return getActivePauseMarkersSyncMirror();
+export function activeMirror(workspaceId: string): PauseMarkersSyncMirror {
+  return getPauseMarkersSyncMirrorForWorkspace(workspaceId);
 }

@@ -1288,42 +1288,53 @@ export function handleGeneralMessage(
         presence: snapshotAwarenessPresence(),
       });
       // ── Sync engine (Phase A) ──────────────────────────────────
-    } else if (message.type === 'oh.sync.snapshotRules') {
-      safeResponse({ entries: snapshotRulePostStates() });
-    } else if (message.type === 'oh.sync.snapshotEnvironments') {
-      safeResponse({ entries: snapshotEnvironmentPostStates() });
-    } else if (message.type === 'oh.sync.snapshotCollections') {
-      safeResponse({ entries: snapshotCollectionPostStates() });
-    } else if (message.type === 'oh.sync.snapshotWorkspaceVariables') {
-      safeResponse({ entries: snapshotWorkspaceVariablesPostStates() });
-    } else if (message.type === 'oh.sync.snapshotVault') {
-      safeResponse({ entries: snapshotVaultPostStates() });
-    } else if (message.type === 'oh.sync.snapshotFolders') {
-      safeResponse({ entries: snapshotFolderPostStates() });
-    } else if (message.type === 'oh.sync.snapshotRequests') {
-      safeResponse({ entries: snapshotRequestPostStates() });
-    } else if (message.type === 'oh.sync.snapshotRequestCollections') {
-      safeResponse({ entries: snapshotRequestCollectionPostStates() });
-    } else if (message.type === 'oh.sync.snapshotRequestFolders') {
-      safeResponse({ entries: snapshotRequestFolderPostStates() });
-    } else if (message.type === 'oh.sync.snapshotTemplates') {
-      safeResponse({ entries: snapshotTemplatePostStates() });
-    } else if (message.type === 'oh.sync.snapshotTemplateCollections') {
-      safeResponse({ entries: snapshotTemplateCollectionPostStates() });
-    } else if (message.type === 'oh.sync.snapshotTemplateFolders') {
-      safeResponse({ entries: snapshotTemplateFolderPostStates() });
-    } else if (message.type === 'oh.sync.snapshotLiveVariables') {
-      safeResponse({ entries: snapshotLiveVariablePostStates() });
-    } else if (message.type === 'oh.sync.snapshotLiveWorkflows') {
-      safeResponse({ entries: snapshotLiveWorkflowPostStates() });
-    } else if (message.type === 'oh.sync.snapshotOAuthBundle') {
-      safeResponse({ entries: snapshotOAuthBundlePostStates() });
-    } else if (message.type === 'oh.sync.snapshotPauseMarkers') {
-      safeResponse({ entries: snapshotPauseMarkersPostStates() });
-    } else if (message.type === 'oh.sync.snapshotLayoutState') {
-      safeResponse({ entries: snapshotLayoutStatePostStates() });
-    } else if (message.type === 'oh.sync.snapshotFiles') {
-      safeResponse({ entries: snapshotFilesPostStates() });
+      // The renderer passes `workspaceId` on every per-workspace
+      // snapshot RPC (commit 2 — renderer mirror plane). Legacy /
+      // unbounded callers omit it; the SW falls back to the runtime-
+      // Active workspace inside `oracleForWorkspace(workspaceId)`.
+    } else if (
+      typeof message.type === 'string' &&
+      message.type.startsWith('oh.sync.snapshot') &&
+      message.type !== 'oh.sync.snapshotExtensionWorkspaces'
+    ) {
+      const wsArg = typeof message.workspaceId === 'string' ? message.workspaceId : undefined;
+      if (message.type === 'oh.sync.snapshotRules') {
+        safeResponse({ entries: snapshotRulePostStates(wsArg) });
+      } else if (message.type === 'oh.sync.snapshotEnvironments') {
+        safeResponse({ entries: snapshotEnvironmentPostStates(wsArg) });
+      } else if (message.type === 'oh.sync.snapshotCollections') {
+        safeResponse({ entries: snapshotCollectionPostStates(wsArg) });
+      } else if (message.type === 'oh.sync.snapshotWorkspaceVariables') {
+        safeResponse({ entries: snapshotWorkspaceVariablesPostStates(wsArg) });
+      } else if (message.type === 'oh.sync.snapshotVault') {
+        safeResponse({ entries: snapshotVaultPostStates(wsArg) });
+      } else if (message.type === 'oh.sync.snapshotFolders') {
+        safeResponse({ entries: snapshotFolderPostStates(wsArg) });
+      } else if (message.type === 'oh.sync.snapshotRequests') {
+        safeResponse({ entries: snapshotRequestPostStates(wsArg) });
+      } else if (message.type === 'oh.sync.snapshotRequestCollections') {
+        safeResponse({ entries: snapshotRequestCollectionPostStates(wsArg) });
+      } else if (message.type === 'oh.sync.snapshotRequestFolders') {
+        safeResponse({ entries: snapshotRequestFolderPostStates(wsArg) });
+      } else if (message.type === 'oh.sync.snapshotTemplates') {
+        safeResponse({ entries: snapshotTemplatePostStates(wsArg) });
+      } else if (message.type === 'oh.sync.snapshotTemplateCollections') {
+        safeResponse({ entries: snapshotTemplateCollectionPostStates(wsArg) });
+      } else if (message.type === 'oh.sync.snapshotTemplateFolders') {
+        safeResponse({ entries: snapshotTemplateFolderPostStates(wsArg) });
+      } else if (message.type === 'oh.sync.snapshotLiveVariables') {
+        safeResponse({ entries: snapshotLiveVariablePostStates(wsArg) });
+      } else if (message.type === 'oh.sync.snapshotLiveWorkflows') {
+        safeResponse({ entries: snapshotLiveWorkflowPostStates(wsArg) });
+      } else if (message.type === 'oh.sync.snapshotOAuthBundle') {
+        safeResponse({ entries: snapshotOAuthBundlePostStates(wsArg) });
+      } else if (message.type === 'oh.sync.snapshotPauseMarkers') {
+        safeResponse({ entries: snapshotPauseMarkersPostStates(wsArg) });
+      } else if (message.type === 'oh.sync.snapshotLayoutState') {
+        safeResponse({ entries: snapshotLayoutStatePostStates(wsArg) });
+      } else if (message.type === 'oh.sync.snapshotFiles') {
+        safeResponse({ entries: snapshotFilesPostStates(wsArg) });
+      }
     } else if (message.type === 'oh.sync.snapshotExtensionWorkspaces') {
       safeResponse({ entries: snapshotExtensionWorkspacePostStates() });
     } else if (message.type === 'oh.sync.apply') {

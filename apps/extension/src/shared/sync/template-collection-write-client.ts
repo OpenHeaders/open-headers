@@ -21,7 +21,7 @@ import {
 } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import {
-  getActiveTemplateCollectionSyncMirror,
+  getTemplateCollectionSyncMirrorForWorkspace,
   type TemplateCollectionSyncMirror,
 } from '@/context/template-collection-sync-mirror';
 import {
@@ -49,7 +49,7 @@ export async function applyTemplateCollectionRename(
   input: ApplyTemplateCollectionRenameInput,
   opts: TemplateCollectionWriteOptions,
 ): Promise<TemplateCollectionSimpleResult> {
-  const mirror = resolveMirror(opts, getActiveTemplateCollectionSyncMirror);
+  const mirror = resolveMirror(opts, getTemplateCollectionSyncMirrorForWorkspace);
   if (!mirror.getTemplateCollectionMirror(input.collectionUid)) {
     return { ok: false, reason: 'not-found' };
   }

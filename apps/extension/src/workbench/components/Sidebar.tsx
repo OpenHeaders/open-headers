@@ -60,12 +60,12 @@ import { buildRuleTypeMenuItems } from '../rule-type-menu';
 import { useEnvSwitcher } from '../services/env-switcher';
 import { useSettingValue } from '../settings/hooks';
 import type { WorkbenchTab } from '../types';
-import { getActiveCollectionSyncMirror } from '@/context/collection-sync-mirror';
-import { getActiveFolderSyncMirror } from '@/context/folder-sync-mirror';
-import { getActiveRequestCollectionSyncMirror } from '@/context/request-collection-sync-mirror';
-import { getActiveRequestFolderSyncMirror } from '@/context/request-folder-sync-mirror';
-import { getActiveTemplateCollectionSyncMirror } from '@/context/template-collection-sync-mirror';
-import { getActiveTemplateFolderSyncMirror } from '@/context/template-folder-sync-mirror';
+import { getCollectionSyncMirrorForWorkspace } from '@/context/collection-sync-mirror';
+import { getFolderSyncMirrorForWorkspace } from '@/context/folder-sync-mirror';
+import { getRequestCollectionSyncMirrorForWorkspace } from '@/context/request-collection-sync-mirror';
+import { getRequestFolderSyncMirrorForWorkspace } from '@/context/request-folder-sync-mirror';
+import { getTemplateCollectionSyncMirrorForWorkspace } from '@/context/template-collection-sync-mirror';
+import { getTemplateFolderSyncMirrorForWorkspace } from '@/context/template-folder-sync-mirror';
 import { FolderDndTree, type FolderDndConfig } from './sidebar/FolderDndTree';
 import { SectionHeader } from './sidebar/SectionHeader';
 import { TreeNodeRow } from './sidebar/TreeNodeRow';
@@ -436,10 +436,18 @@ const Sidebar: React.FC<SidebarProps> = ({
     return {
       collectionIdPrefix: 'col-',
       folderIdPrefix: 'folder-',
-      lookupSiblings: (parent) =>
-        parent.kind === 'collection'
-          ? getActiveCollectionSyncMirror().liveOrderedSetItems(parent.uid, 'folders')
-          : getActiveFolderSyncMirror().liveOrderedSetItems(parent.uid, 'folders'),
+      lookupSiblings: (parent) => {
+        if (!activeWorkspaceId) return [];
+        return parent.kind === 'collection'
+          ? getCollectionSyncMirrorForWorkspace(activeWorkspaceId).liveOrderedSetItems(
+              parent.uid,
+              'folders',
+            )
+          : getFolderSyncMirrorForWorkspace(activeWorkspaceId).liveOrderedSetItems(
+              parent.uid,
+              'folders',
+            );
+      },
       moveFolder: ({ folderUid, parent, orderKey, oldParent }) => {
         void moveRulesFolder({
           folderUid,
@@ -449,7 +457,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         });
       },
     };
-  }, [moveRulesFolder]);
+  }, [moveRulesFolder, activeWorkspaceId]);
 
   const requestFolderDndConfig = useMemo<FolderDndConfig>(() => {
     const toRef = (p: { kind: 'collection' | 'folder'; uid: string }): RequestFolderParentRef => ({
@@ -460,10 +468,18 @@ const Sidebar: React.FC<SidebarProps> = ({
     return {
       collectionIdPrefix: 'req-col-',
       folderIdPrefix: 'req-folder-',
-      lookupSiblings: (parent) =>
-        parent.kind === 'collection'
-          ? getActiveRequestCollectionSyncMirror().liveOrderedSetItems(parent.uid, 'folders')
-          : getActiveRequestFolderSyncMirror().liveOrderedSetItems(parent.uid, 'folders'),
+      lookupSiblings: (parent) => {
+        if (!activeWorkspaceId) return [];
+        return parent.kind === 'collection'
+          ? getRequestCollectionSyncMirrorForWorkspace(activeWorkspaceId).liveOrderedSetItems(
+              parent.uid,
+              'folders',
+            )
+          : getRequestFolderSyncMirrorForWorkspace(activeWorkspaceId).liveOrderedSetItems(
+              parent.uid,
+              'folders',
+            );
+      },
       moveFolder: ({ folderUid, parent, orderKey, oldParent }) => {
         void moveRequestFolder({
           folderUid,
@@ -473,7 +489,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         });
       },
     };
-  }, [moveRequestFolder]);
+  }, [moveRequestFolder, activeWorkspaceId]);
 
   const templateFolderDndConfig = useMemo<FolderDndConfig>(() => {
     const toRef = (p: { kind: 'collection' | 'folder'; uid: string }): TemplateFolderParentRef => ({
@@ -484,10 +500,18 @@ const Sidebar: React.FC<SidebarProps> = ({
     return {
       collectionIdPrefix: 'tpl-col-',
       folderIdPrefix: 'tpl-folder-',
-      lookupSiblings: (parent) =>
-        parent.kind === 'collection'
-          ? getActiveTemplateCollectionSyncMirror().liveOrderedSetItems(parent.uid, 'folders')
-          : getActiveTemplateFolderSyncMirror().liveOrderedSetItems(parent.uid, 'folders'),
+      lookupSiblings: (parent) => {
+        if (!activeWorkspaceId) return [];
+        return parent.kind === 'collection'
+          ? getTemplateCollectionSyncMirrorForWorkspace(activeWorkspaceId).liveOrderedSetItems(
+              parent.uid,
+              'folders',
+            )
+          : getTemplateFolderSyncMirrorForWorkspace(activeWorkspaceId).liveOrderedSetItems(
+              parent.uid,
+              'folders',
+            );
+      },
       moveFolder: ({ folderUid, parent, orderKey, oldParent }) => {
         void moveTemplateFolder({
           folderUid,
@@ -497,7 +521,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         });
       },
     };
-  }, [moveTemplateFolder]);
+  }, [moveTemplateFolder, activeWorkspaceId]);
 
   // ── Section nodes via hooks ────────────────────────────────────
 

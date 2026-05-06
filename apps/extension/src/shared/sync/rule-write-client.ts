@@ -22,7 +22,7 @@ import {
 import type { V5 } from '@openheaders/core/types';
 import { generateUid, shouldAutoUnpublishOnUpdate, toFolderName } from '@openheaders/core/utils';
 import {
-  getActiveRuleSyncMirror,
+  getRuleSyncMirrorForWorkspace,
   type RuleSyncMirror,
 } from '@/context/rule-sync-mirror';
 import {
@@ -67,7 +67,7 @@ export async function applyRuleUpdate(
   updates: RuleUpdates,
   opts: RuleWriteOptions,
 ): Promise<RuleMutationResult> {
-  const mirror = resolveMirror(opts, getActiveRuleSyncMirror);
+  const mirror = resolveMirror(opts, getRuleSyncMirrorForWorkspace);
   const entry = mirror.getRuleMirror(ruleUid);
   if (!entry) return { ok: false, reason: 'not-found' };
   // Auto-unpublish on first runtime-affecting edit of a published rule
@@ -149,7 +149,7 @@ export async function applyRulePublish(
   ruleUid: string,
   opts: RuleWriteOptions,
 ): Promise<RuleSimpleResult> {
-  const mirror = resolveMirror(opts, getActiveRuleSyncMirror);
+  const mirror = resolveMirror(opts, getRuleSyncMirrorForWorkspace);
   if (!mirror.getRuleMirror(ruleUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const bodies: MutationBody[] = [
@@ -166,7 +166,7 @@ export async function applyRuleToggle(
   enabled: boolean,
   opts: RuleWriteOptions,
 ): Promise<RuleSimpleResult> {
-  const mirror = resolveMirror(opts, getActiveRuleSyncMirror);
+  const mirror = resolveMirror(opts, getRuleSyncMirrorForWorkspace);
   if (!mirror.getRuleMirror(ruleUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildToggleBatch(ruleUid, enabled, ctx);
@@ -177,7 +177,7 @@ export async function applyRuleDelete(
   ruleUid: string,
   opts: RuleWriteOptions,
 ): Promise<RuleSimpleResult> {
-  const mirror = resolveMirror(opts, getActiveRuleSyncMirror);
+  const mirror = resolveMirror(opts, getRuleSyncMirrorForWorkspace);
   if (!mirror.getRuleMirror(ruleUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildDeleteBatch(ruleUid, ctx);

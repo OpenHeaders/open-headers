@@ -14,7 +14,7 @@ import {
 } from '@/shared/sync/apply-payload';
 import { type MutationEnvelope, type TemplateFolderParentRef } from '@openheaders/core/sync';
 import {
-  getActiveTemplateFolderSyncMirror,
+  getTemplateFolderSyncMirrorForWorkspace,
   type TemplateFolderSyncMirror,
 } from '@/context/template-folder-sync-mirror';
 import {
@@ -41,7 +41,7 @@ export async function applyTemplateFolderRename(
   input: ApplyTemplateFolderRenameInput,
   opts: TemplateFolderWriteOptions,
 ): Promise<TemplateFolderSimpleResult> {
-  const mirror = resolveMirror(opts, getActiveTemplateFolderSyncMirror);
+  const mirror = resolveMirror(opts, getTemplateFolderSyncMirrorForWorkspace);
   if (!mirror.getTemplateFolderMirror(input.folderUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRenameTemplateFolderBatch(input, ctx));

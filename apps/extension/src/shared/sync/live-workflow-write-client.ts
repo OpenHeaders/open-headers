@@ -33,7 +33,7 @@ import {
   type SyncSimpleResult,
 } from '@/shared/sync/apply-payload';
 import {
-  getActiveLiveWorkflowSyncMirror,
+  getLiveWorkflowSyncMirrorForWorkspace,
   type LiveWorkflowSyncMirror,
 } from '@/context/live-workflow-sync-mirror';
 import {
@@ -60,7 +60,7 @@ export async function applyLiveWorkflowUpdate(
   updates: LiveWorkflowUpdates,
   opts: LiveWorkflowWriteOptions,
 ): Promise<LiveWorkflowMutationResult> {
-  const mirror = resolveMirror(opts, getActiveLiveWorkflowSyncMirror);
+  const mirror = resolveMirror(opts, getLiveWorkflowSyncMirrorForWorkspace);
   const entry = mirror.getLiveWorkflowMirror(workflowUid);
   if (!entry) return { ok: false, reason: 'not-found' };
   // Auto-unpublish on first runtime-affecting edit of a published
@@ -126,7 +126,7 @@ export async function applyLiveWorkflowPublish(
   workflowUid: string,
   opts: LiveWorkflowWriteOptions,
 ): Promise<LiveWorkflowSimpleResult> {
-  const mirror = resolveMirror(opts, getActiveLiveWorkflowSyncMirror);
+  const mirror = resolveMirror(opts, getLiveWorkflowSyncMirrorForWorkspace);
   if (!mirror.getLiveWorkflowMirror(workflowUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const bodies: MutationBody[] = [
@@ -142,7 +142,7 @@ export async function applyLiveWorkflowDelete(
   workflowUid: string,
   opts: LiveWorkflowWriteOptions,
 ): Promise<LiveWorkflowSimpleResult> {
-  const mirror = resolveMirror(opts, getActiveLiveWorkflowSyncMirror);
+  const mirror = resolveMirror(opts, getLiveWorkflowSyncMirrorForWorkspace);
   if (!mirror.getLiveWorkflowMirror(workflowUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildDeleteLiveWorkflowBatch(workflowUid, ctx);

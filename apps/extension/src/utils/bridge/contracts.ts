@@ -1110,7 +1110,7 @@ export interface BridgeRpcContract {
    * since the surface mounted.
    */
   'oh.sync.snapshotRules': {
-    req: Record<string, never>;
+    req: { workspaceId?: string };
     res: { entries: SyncRulePostState[] };
   };
   /**
@@ -1121,7 +1121,7 @@ export interface BridgeRpcContract {
    * mirrors call this on construction.
    */
   'oh.sync.snapshotEnvironments': {
-    req: Record<string, never>;
+    req: { workspaceId?: string };
     res: { entries: SyncEnvironmentPostState[] };
   };
   /**
@@ -1131,7 +1131,7 @@ export interface BridgeRpcContract {
    * `collectionPostState` payload.
    */
   'oh.sync.snapshotCollections': {
-    req: Record<string, never>;
+    req: { workspaceId?: string };
     res: { entries: SyncCollectionPostState[] };
   };
   /**
@@ -1141,7 +1141,7 @@ export interface BridgeRpcContract {
    * absent on a cold oracle prior to the first seed).
    */
   'oh.sync.snapshotWorkspaceVariables': {
-    req: Record<string, never>;
+    req: { workspaceId?: string };
     res: { entries: SyncWorkspaceVariablesPostState[] };
   };
   /**
@@ -1151,7 +1151,7 @@ export interface BridgeRpcContract {
    * payload never crosses any sync transport.
    */
   'oh.sync.snapshotVault': {
-    req: Record<string, never>;
+    req: { workspaceId?: string };
     res: { entries: SyncVaultPostState[] };
   };
   /**
@@ -1163,7 +1163,7 @@ export interface BridgeRpcContract {
    * chain.
    */
   'oh.sync.snapshotFolders': {
-    req: Record<string, never>;
+    req: { workspaceId?: string };
     res: { entries: SyncFolderPostState[] };
   };
   /**
@@ -1172,7 +1172,7 @@ export interface BridgeRpcContract {
    * uid, matching the broadcast `requestPostState` payload.
    */
   'oh.sync.snapshotRequests': {
-    req: Record<string, never>;
+    req: { workspaceId?: string };
     res: { entries: SyncRequestPostState[] };
   };
   /**
@@ -1182,7 +1182,7 @@ export interface BridgeRpcContract {
    * `{ collection, varUids, setOrderKeys }` triple.
    */
   'oh.sync.snapshotRequestCollections': {
-    req: Record<string, never>;
+    req: { workspaceId?: string };
     res: { entries: SyncRequestCollectionPostState[] };
   };
   /**
@@ -1193,7 +1193,7 @@ export interface BridgeRpcContract {
    * resolves the chain.
    */
   'oh.sync.snapshotRequestFolders': {
-    req: Record<string, never>;
+    req: { workspaceId?: string };
     res: { entries: SyncRequestFolderPostState[] };
   };
   /**
@@ -1202,7 +1202,7 @@ export interface BridgeRpcContract {
    * per uid, matching the broadcast `templatePostState` payload.
    */
   'oh.sync.snapshotTemplates': {
-    req: Record<string, never>;
+    req: { workspaceId?: string };
     res: { entries: SyncTemplatePostState[] };
   };
   /**
@@ -1212,7 +1212,7 @@ export interface BridgeRpcContract {
    * `{ collection, varUids, setOrderKeys }` triple.
    */
   'oh.sync.snapshotTemplateCollections': {
-    req: Record<string, never>;
+    req: { workspaceId?: string };
     res: { entries: SyncTemplateCollectionPostState[] };
   };
   /**
@@ -1222,7 +1222,7 @@ export interface BridgeRpcContract {
    * resolvable are skipped.
    */
   'oh.sync.snapshotTemplateFolders': {
-    req: Record<string, never>;
+    req: { workspaceId?: string };
     res: { entries: SyncTemplateFolderPostState[] };
   };
   /**
@@ -1231,7 +1231,7 @@ export interface BridgeRpcContract {
    * no itemId map rides along.
    */
   'oh.sync.snapshotLiveVariables': {
-    req: Record<string, never>;
+    req: { workspaceId?: string };
     res: { entries: SyncLiveVariablePostState[] };
   };
   /**
@@ -1240,7 +1240,7 @@ export interface BridgeRpcContract {
    * so no itemId map rides along.
    */
   'oh.sync.snapshotLiveWorkflows': {
-    req: Record<string, never>;
+    req: { workspaceId?: string };
     res: { entries: SyncLiveWorkflowPostState[] };
   };
   /**
@@ -1250,7 +1250,7 @@ export interface BridgeRpcContract {
    * payload (token + secret material) never crosses any sync transport.
    */
   'oh.sync.snapshotOAuthBundle': {
-    req: Record<string, never>;
+    req: { workspaceId?: string };
     res: { entries: SyncOAuthBundlePostState[] };
   };
   /**
@@ -1260,7 +1260,7 @@ export interface BridgeRpcContract {
    * secrets.
    */
   'oh.sync.snapshotPauseMarkers': {
-    req: Record<string, never>;
+    req: { workspaceId?: string };
     res: { entries: SyncPauseMarkersPostState[] };
   };
   /**
@@ -1269,7 +1269,7 @@ export interface BridgeRpcContract {
    * `entries` carries 0 or 1 element. Pure UX state, not secrets.
    */
   'oh.sync.snapshotLayoutState': {
-    req: Record<string, never>;
+    req: { workspaceId?: string };
     res: { entries: SyncLayoutStatePostState[] };
   };
   /**
@@ -1280,7 +1280,7 @@ export interface BridgeRpcContract {
    * the platform `BlobStore` IDB and are read lazily on demand.
    */
   'oh.sync.snapshotFiles': {
-    req: Record<string, never>;
+    req: { workspaceId?: string };
     res: { entries: SyncFilesPostState[] };
   };
   /**

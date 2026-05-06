@@ -14,7 +14,7 @@
 
 import type { V5 } from '@openheaders/core/types';
 import {
-  getActiveRequestSyncMirror,
+  getRequestSyncMirrorForWorkspace,
   type RequestSyncMirror,
 } from '@/context/request-sync-mirror';
 import {
@@ -55,7 +55,7 @@ export async function applyRequestUpdate(
   updates: RequestUpdates,
   opts: RequestWriteOptions,
 ): Promise<RequestMutationResult> {
-  const mirror = resolveMirror(opts, getActiveRequestSyncMirror);
+  const mirror = resolveMirror(opts, getRequestSyncMirrorForWorkspace);
   const entry = mirror.getRequestMirror(requestUid);
   if (!entry) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
@@ -98,7 +98,7 @@ export async function applyRequestDelete(
   requestUid: string,
   opts: RequestWriteOptions,
 ): Promise<RequestSimpleResult> {
-  const mirror = resolveMirror(opts, getActiveRequestSyncMirror);
+  const mirror = resolveMirror(opts, getRequestSyncMirrorForWorkspace);
   if (!mirror.getRequestMirror(requestUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildDeleteBatch(requestUid, ctx);

@@ -445,6 +445,108 @@ describe('MWPT-FULL foundation lint gates (sub-commit 1e)', () => {
     expect(text).not.toMatch(/^const\s+resolver\s*=\s*new\s+VariableResolver\(\)/m);
   });
 
+  // ── Renderer mirror plane (commit 2 — M-* contract) ──────────────
+  //
+  // M-1 / M-3 are lint-shaped (structural). M-2 is structural in
+  // `flat-entity-mirror.ts` + `singleton-entity-mirror.ts` (the mirror
+  // cores filter on `event.envelope.workspaceId !== config.workspaceId`
+  // BEFORE invoking the adapter's extractor — cross-workspace dispatch
+  // is inexpressible at the core layer). M-4 re-asserts the
+  // subscribe-before-snapshot ordering that survives the per-workspace
+  // refactor (the lazy-init race resolution stays intact).
+
+  it('lint M-1 — every per-workspace *-sync-mirror.ts module exposes a workspace-keyed registry, not a `let active` singleton', () => {
+    const CONTEXT_DIR = join(REPO_ROOT, 'src', 'context');
+    // Only the global-scope extension-workspace mirror is exempt — its
+    // entity is published by the global oracle (`global-service.ts`)
+    // with `workspaceId: EXTENSION_WORKSPACE_GLOBAL_SCOPE`, so a single
+    // mirror serves every renderer surface by construction.
+    const M1_EXEMPT = new Set(['extension-workspace-sync-mirror.ts']);
+    const offenders: string[] = [];
+    for (const f of readdirSync(CONTEXT_DIR)) {
+      if (!f.endsWith('-sync-mirror.ts')) continue;
+      if (M1_EXEMPT.has(f)) continue;
+      const text = readFileSync(join(CONTEXT_DIR, f), 'utf8');
+      // Forbid the legacy `let active: XSyncMirror | null = null`
+      // module-level mutable singleton. If a future refactor
+      // reintroduces it, the v1.1 runtime bug ("env created in tab2/w2
+      // in only-this-tab mode lands in wsKeys(w1).environments")
+      // becomes possible again.
+      if (/^let\s+active\s*:\s*\w+SyncMirror\s*\|\s*null\s*=\s*null;/m.test(text)) {
+        offenders.push(`${f}: legacy 'let active' singleton survives`);
+        continue;
+      }
+      // Require the per-workspace registry handle.
+      if (!/createWorkspaceMirrorRegistry</.test(text)) {
+        offenders.push(`${f}: no createWorkspaceMirrorRegistry call`);
+        continue;
+      }
+      // Require the workspace-keyed accessor.
+      if (!/export function get\w+SyncMirrorForWorkspace\(workspaceId: string\)/.test(text)) {
+        offenders.push(`${f}: no getXSyncMirrorForWorkspace(workspaceId) export`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('lint M-2 — flat + singleton mirror cores filter syncBroadcast events by envelope.workspaceId BEFORE invoking the adapter', () => {
+    const FLAT = join(REPO_ROOT, 'src', 'context', 'flat-entity-mirror.ts');
+    const SINGLE = join(REPO_ROOT, 'src', 'context', 'singleton-entity-mirror.ts');
+    for (const file of [FLAT, SINGLE]) {
+      const text = readFileSync(file, 'utf8');
+      // Config carries the workspace this mirror projects.
+      expect(text).toMatch(/workspaceId:\s*string;/);
+      // The subscribe handler short-circuits on a workspaceId mismatch
+      // BEFORE calling extractFromBroadcast.
+      const subIdx = text.indexOf("subscribe('syncBroadcast'");
+      expect(subIdx).toBeGreaterThan(-1);
+      const filterIdx = text.indexOf(
+        'event.envelope.workspaceId !== config.workspaceId',
+        subIdx,
+      );
+      const extractIdx = text.indexOf('config.extractFromBroadcast(event)', subIdx);
+      expect(filterIdx).toBeGreaterThan(-1);
+      expect(extractIdx).toBeGreaterThan(-1);
+      expect(filterIdx).toBeLessThan(extractIdx);
+    }
+  });
+
+  it('lint M-3 — every renderer write-client resolves its mirror via getXSyncMirrorForWorkspace, never via a getActive*SyncMirror singleton', () => {
+    const SHARED_SYNC = join(REPO_ROOT, 'src', 'shared', 'sync');
+    // Only the global-scope extension-workspace write-client is exempt
+    // (its mirror has no per-workspace dimension). Every other
+    // *-write-client.ts MUST route by opts.workspaceId so the renderer
+    // pre-image diff reads the correct workspace's mirror (M-3).
+    const M3_EXEMPT = new Set(['extension-workspace-write-client.ts']);
+    const offenders: string[] = [];
+    for (const f of readdirSync(SHARED_SYNC)) {
+      if (!f.endsWith('-write-client.ts')) continue;
+      if (M3_EXEMPT.has(f)) continue;
+      const text = readFileSync(join(SHARED_SYNC, f), 'utf8');
+      const legacy = text.match(/getActive\w+SyncMirror/);
+      if (legacy) {
+        offenders.push(`${f}: legacy ${legacy[0]} reference survives`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('lint M-4 — flat + singleton mirror cores subscribe before fetchSnapshot (lazy-init race resolution preserved)', () => {
+    const FLAT = join(REPO_ROOT, 'src', 'context', 'flat-entity-mirror.ts');
+    const SINGLE = join(REPO_ROOT, 'src', 'context', 'singleton-entity-mirror.ts');
+    for (const file of [FLAT, SINGLE]) {
+      const text = readFileSync(file, 'utf8');
+      const subIdx = text.indexOf("subscribe('syncBroadcast'");
+      const fetchIdx = text.indexOf('.fetchSnapshot()');
+      expect(subIdx).toBeGreaterThan(-1);
+      expect(fetchIdx).toBeGreaterThan(-1);
+      // Subscription opens BEFORE the snapshot RPC fires; broadcasts
+      // that land mid-flight win the race via the seenSinceMount /
+      // sawBroadcast flag in each core.
+      expect(subIdx).toBeLessThan(fetchIdx);
+    }
+  });
+
   it('lint F-15 — popup / side-panel / devtools surfaces never import lifeline state or workbench sessionStorage', () => {
     const offenders: string[] = [];
     for (const dir of [POPUP_DIR, SIDEPANEL_DIR, DEVTOOLS_DIR]) {

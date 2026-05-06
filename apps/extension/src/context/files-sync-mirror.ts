@@ -13,6 +13,7 @@ import {
   createSingletonEntityMirror,
   type CreateSingletonMirrorOptions,
 } from './singleton-entity-mirror';
+import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 
 export interface FilesMirrorEntry {
   refs: FileRef[];
@@ -32,11 +33,13 @@ export interface FilesSyncMirror {
 export type CreateFilesSyncMirrorOptions = CreateSingletonMirrorOptions;
 
 export function createFilesSyncMirror(
+  workspaceId: string,
   options: CreateFilesSyncMirrorOptions = {},
 ): FilesSyncMirror {
   const core = createSingletonEntityMirror<FilesMirrorEntry>(
     {
       loggerTag: 'FilesSyncMirror',
+      workspaceId,
       extractFromBroadcast: (event) => {
         const { envelope, filesPostState } = event;
         if (envelope.body.type !== FILES_ENTITY_TYPE) return null;
@@ -44,7 +47,7 @@ export function createFilesSyncMirror(
         return { refs: filesPostState.refs, fileIds: filesPostState.fileIds };
       },
       fetchSnapshot: async () => {
-        const resp = await call('oh.sync.snapshotFiles');
+        const resp = await call('oh.sync.snapshotFiles', { workspaceId });
         const first = resp.entries[0];
         return first ? { refs: first.refs, fileIds: first.fileIds } : null;
       },
@@ -60,17 +63,28 @@ export function createFilesSyncMirror(
   };
 }
 
-// ── Module-level singleton ───────────────────────────────────────────
+// ── Per-workspace registry ───────────────────────────────────────────
+//
+// Symmetric to the SW data plane's `services: Map<workspaceId,
+// WorkspaceServiceState>` (commit 1, sub-commit 1a). Each workspace's
+// mirror is independent: its bridge subscription filters by
+// `event.envelope.workspaceId` at the shared mirror core (M-2), and
+// its bootstrap snapshot is fetched scoped to the workspace via
+// `oh.sync.snapshotX, { workspaceId }` (M-1). Cross-workspace
+// contamination is structurally inexpressible.
 
-let active: FilesSyncMirror | null = null;
+const filesSyncMirrorRegistry = createWorkspaceMirrorRegistry<FilesSyncMirror>(
+  (workspaceId) => createFilesSyncMirror(workspaceId),
+);
 
-export function getActiveFilesSyncMirror(): FilesSyncMirror {
-  if (!active) active = createFilesSyncMirror();
-  return active;
+export function getFilesSyncMirrorForWorkspace(workspaceId: string): FilesSyncMirror {
+  return filesSyncMirrorRegistry.getOrCreate(workspaceId);
 }
 
-export function disposeActiveFilesSyncMirror(): void {
-  if (!active) return;
-  active.dispose();
-  active = null;
+export function disposeFilesSyncMirrorForWorkspace(workspaceId: string): void {
+  filesSyncMirrorRegistry.dispose(workspaceId);
+}
+
+export function disposeAllFilesSyncMirrors(): void {
+  filesSyncMirrorRegistry.disposeAll();
 }

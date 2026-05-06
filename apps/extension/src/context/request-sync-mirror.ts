@@ -17,6 +17,7 @@ import {
   createFlatEntityMirror,
   type CreateFlatMirrorOptions,
 } from './flat-entity-mirror';
+import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 
 export interface RequestMirrorEntry {
   request: V5.Request;
@@ -41,11 +42,13 @@ export interface RequestSyncMirror {
 export type CreateRequestSyncMirrorOptions = CreateFlatMirrorOptions;
 
 export function createRequestSyncMirror(
+  workspaceId: string,
   options: CreateRequestSyncMirrorOptions = {},
 ): RequestSyncMirror {
   const core = createFlatEntityMirror<RequestMirrorEntry>(
     {
       loggerTag: 'RequestSyncMirror',
+      workspaceId,
       extractFromBroadcast: (event) => {
         const { envelope, requestPostState } = event;
         // A non-Request broadcast arrives with `requestPostState`
@@ -65,7 +68,7 @@ export function createRequestSyncMirror(
         };
       },
       fetchSnapshot: async () => {
-        const resp = await call('oh.sync.snapshotRequests');
+        const resp = await call('oh.sync.snapshotRequests', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.request.uid,
           entry: {
@@ -93,15 +96,28 @@ export function createRequestSyncMirror(
   };
 }
 
-let active: RequestSyncMirror | null = null;
+// ── Per-workspace registry ───────────────────────────────────────────
+//
+// Symmetric to the SW data plane's `services: Map<workspaceId,
+// WorkspaceServiceState>` (commit 1, sub-commit 1a). Each workspace's
+// mirror is independent: its bridge subscription filters by
+// `event.envelope.workspaceId` at the shared mirror core (M-2), and
+// its bootstrap snapshot is fetched scoped to the workspace via
+// `oh.sync.snapshotX, { workspaceId }` (M-1). Cross-workspace
+// contamination is structurally inexpressible.
 
-export function getActiveRequestSyncMirror(): RequestSyncMirror {
-  if (!active) active = createRequestSyncMirror();
-  return active;
+const requestSyncMirrorRegistry = createWorkspaceMirrorRegistry<RequestSyncMirror>(
+  (workspaceId) => createRequestSyncMirror(workspaceId),
+);
+
+export function getRequestSyncMirrorForWorkspace(workspaceId: string): RequestSyncMirror {
+  return requestSyncMirrorRegistry.getOrCreate(workspaceId);
 }
 
-export function disposeActiveRequestSyncMirror(): void {
-  if (!active) return;
-  active.dispose();
-  active = null;
+export function disposeRequestSyncMirrorForWorkspace(workspaceId: string): void {
+  requestSyncMirrorRegistry.dispose(workspaceId);
+}
+
+export function disposeAllRequestSyncMirrors(): void {
+  requestSyncMirrorRegistry.disposeAll();
 }

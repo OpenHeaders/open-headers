@@ -15,6 +15,7 @@ import {
   createFlatEntityMirror,
   type CreateFlatMirrorOptions,
 } from './flat-entity-mirror';
+import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 
 export interface RequestCollectionMirrorEntry {
   collection: V5.Collection;
@@ -45,11 +46,13 @@ export interface RequestCollectionSyncMirror {
 export type CreateRequestCollectionSyncMirrorOptions = CreateFlatMirrorOptions;
 
 export function createRequestCollectionSyncMirror(
+  workspaceId: string,
   options: CreateRequestCollectionSyncMirrorOptions = {},
 ): RequestCollectionSyncMirror {
   const core = createFlatEntityMirror<RequestCollectionMirrorEntry>(
     {
       loggerTag: 'RequestCollectionSyncMirror',
+      workspaceId,
       extractFromBroadcast: (event) => {
         const { envelope, requestCollectionPostState } = event;
         if (envelope.body.type !== REQUEST_COLLECTION_ENTITY_TYPE) return null;
@@ -65,7 +68,7 @@ export function createRequestCollectionSyncMirror(
         };
       },
       fetchSnapshot: async () => {
-        const resp = await call('oh.sync.snapshotRequestCollections');
+        const resp = await call('oh.sync.snapshotRequestCollections', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.collection.uid,
           entry: { collection: e.collection, varUids: e.varUids, setOrderKeys: e.setOrderKeys },
@@ -88,15 +91,28 @@ export function createRequestCollectionSyncMirror(
   };
 }
 
-let active: RequestCollectionSyncMirror | null = null;
+// ── Per-workspace registry ───────────────────────────────────────────
+//
+// Symmetric to the SW data plane's `services: Map<workspaceId,
+// WorkspaceServiceState>` (commit 1, sub-commit 1a). Each workspace's
+// mirror is independent: its bridge subscription filters by
+// `event.envelope.workspaceId` at the shared mirror core (M-2), and
+// its bootstrap snapshot is fetched scoped to the workspace via
+// `oh.sync.snapshotX, { workspaceId }` (M-1). Cross-workspace
+// contamination is structurally inexpressible.
 
-export function getActiveRequestCollectionSyncMirror(): RequestCollectionSyncMirror {
-  if (!active) active = createRequestCollectionSyncMirror();
-  return active;
+const requestCollectionSyncMirrorRegistry = createWorkspaceMirrorRegistry<RequestCollectionSyncMirror>(
+  (workspaceId) => createRequestCollectionSyncMirror(workspaceId),
+);
+
+export function getRequestCollectionSyncMirrorForWorkspace(workspaceId: string): RequestCollectionSyncMirror {
+  return requestCollectionSyncMirrorRegistry.getOrCreate(workspaceId);
 }
 
-export function disposeActiveRequestCollectionSyncMirror(): void {
-  if (!active) return;
-  active.dispose();
-  active = null;
+export function disposeRequestCollectionSyncMirrorForWorkspace(workspaceId: string): void {
+  requestCollectionSyncMirrorRegistry.dispose(workspaceId);
+}
+
+export function disposeAllRequestCollectionSyncMirrors(): void {
+  requestCollectionSyncMirrorRegistry.disposeAll();
 }

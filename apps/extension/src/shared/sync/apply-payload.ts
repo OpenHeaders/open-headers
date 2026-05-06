@@ -62,12 +62,20 @@ export function resolveRendererContext(opts: BaseSyncWriteOptions): RendererCont
 
 /**
  * Resolve a per-entity sync mirror: tests pass an explicit `mirror`;
- * production reaches for the active singleton via `getActive`. Generic
- * over the mirror type so each entity's write-client keeps its own
- * structurally-narrowed mirror surface without re-declaring the helper.
+ * production reaches for the per-workspace mirror via
+ * `getXSyncMirrorForWorkspace(opts.workspaceId)` (M-3 — every renderer
+ * write-client routes by the workspaceId carried on `opts`, never via
+ * a `getActiveXSyncMirror` singleton).
+ *
+ * Generic over the mirror type so each entity's write-client keeps its
+ * own structurally-narrowed mirror surface without re-declaring the
+ * helper.
  */
-export function resolveMirror<M>(opts: { mirror?: M }, getActive: () => M): M {
-  return opts.mirror ?? getActive();
+export function resolveMirror<M>(
+  opts: { mirror?: M; workspaceId: string },
+  getForWorkspace: (workspaceId: string) => M,
+): M {
+  return opts.mirror ?? getForWorkspace(opts.workspaceId);
 }
 
 /**

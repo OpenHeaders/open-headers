@@ -49,14 +49,22 @@ export type ExtractResult<E> = { uid: string; entry: E | null } | null;
 export interface FlatMirrorConfig<E> {
   loggerTag: string;
   /**
+   * The workspace this mirror projects. The core short-circuits any
+   * `syncBroadcast` event whose `envelope.workspaceId` does not match,
+   * BEFORE calling the adapter's `extractFromBroadcast` — cross-workspace
+   * dispatch is structurally inexpressible at the core layer (M-2).
+   */
+  workspaceId: string;
+  /**
    * Pure extraction from a wire event. Adapters reach into the
    * post-state field they own and shape it into the mirror's `Entry`
-   * type.
+   * type. The core has already filtered by `workspaceId`.
    */
   extractFromBroadcast: (event: SyncBroadcastPayload) => ExtractResult<E>;
   /**
-   * Fetch the bootstrap snapshot. Adapters wrap `call('oh.sync.snapshotX')`
-   * here so the typed bridge contract is preserved at the boundary.
+   * Fetch the bootstrap snapshot. Adapters wrap `call('oh.sync.snapshotX',
+   * { workspaceId })` here so the typed bridge contract is preserved at
+   * the boundary.
    */
   fetchSnapshot: () => Promise<Array<{ uid: string; entry: E }>>;
 }
@@ -91,6 +99,7 @@ export function createFlatEntityMirror<E>(
   const seenSinceMount = new Set<string>();
 
   const unsubscribe = subscribe('syncBroadcast', (event) => {
+    if (event.envelope.workspaceId !== config.workspaceId) return;
     const result = config.extractFromBroadcast(event);
     if (!result) return;
     const { uid, entry } = result;

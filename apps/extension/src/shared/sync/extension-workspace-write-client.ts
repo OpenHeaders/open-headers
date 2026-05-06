@@ -24,7 +24,6 @@
 
 import {
   applySyncPayload,
-  resolveMirror,
   type SyncMutationPayload,
   type SyncSimpleResult,
 } from '@/shared/sync/apply-payload';
@@ -114,7 +113,7 @@ export async function applyCreateWorkspace(
   input: ApplyCreateWorkspaceInput,
   opts: ExtensionWorkspaceWriteOptions,
 ): Promise<ApplyCreateWorkspaceResult> {
-  const mirror = resolveMirror({ mirror: opts.mirror }, getActiveExtensionWorkspaceSyncMirror);
+  const mirror = opts.mirror ?? getActiveExtensionWorkspaceSyncMirror();
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const now = new Date().toISOString();
   const id = generateUid();
@@ -177,7 +176,7 @@ export async function applyUpdateWorkspace(
   input: ApplyUpdateWorkspaceInput,
   opts: ExtensionWorkspaceWriteOptions,
 ): Promise<ApplyUpdateWorkspaceResult> {
-  const mirror = resolveMirror({ mirror: opts.mirror }, getActiveExtensionWorkspaceSyncMirror);
+  const mirror = opts.mirror ?? getActiveExtensionWorkspaceSyncMirror();
   const prev = mirror.liveWorkspaces().find((w) => w.id === input.id);
   if (!prev) return { ok: false, reason: 'not-found' };
 
@@ -254,7 +253,7 @@ export async function applyDeleteWorkspace(
   input: ApplyDeleteWorkspaceInput,
   opts: ExtensionWorkspaceWriteOptions,
 ): Promise<ApplyDeleteWorkspaceResult> {
-  const mirror = resolveMirror({ mirror: opts.mirror }, getActiveExtensionWorkspaceSyncMirror);
+  const mirror = opts.mirror ?? getActiveExtensionWorkspaceSyncMirror();
   const list = mirror.liveWorkspaces();
   if (list.length <= 1) return { ok: false, reason: 'last-workspace' };
 
@@ -309,7 +308,7 @@ export async function applySetActiveWorkspace(
   input: ApplySetActiveWorkspaceInput,
   opts: ExtensionWorkspaceWriteOptions,
 ): Promise<ApplySetActiveWorkspaceResult> {
-  const mirror = resolveMirror({ mirror: opts.mirror }, getActiveExtensionWorkspaceSyncMirror);
+  const mirror = opts.mirror ?? getActiveExtensionWorkspaceSyncMirror();
   if (!mirror.liveWorkspaces().some((w) => w.id === input.id)) {
     return { ok: false, reason: 'not-found' };
   }
@@ -340,7 +339,7 @@ export async function applyReorderWorkspaces(
   input: ApplyReorderWorkspacesInput,
   opts: ExtensionWorkspaceWriteOptions,
 ): Promise<ExtensionWorkspaceSimpleResult> {
-  const mirror = resolveMirror({ mirror: opts.mirror }, getActiveExtensionWorkspaceSyncMirror);
+  const mirror = opts.mirror ?? getActiveExtensionWorkspaceSyncMirror();
   const list = mirror.liveWorkspaces();
   const byId = new Map(list.map((w) => [w.id, w] as const));
   const seen = new Set<string>();

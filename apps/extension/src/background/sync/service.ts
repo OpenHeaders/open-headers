@@ -544,101 +544,121 @@ export function getActiveCacheForRegistration<C extends EntityCacheLike>(reg: En
 //
 // Each export returns the materialized post-state for the entity it
 // names; renderer mirrors call these on mount before subscribing to
-// the live broadcast. Returns `[]` when no Active workspace is set —
-// the renderer falls back to broadcast-only seeding.
+// the live broadcast. Per-workspace mirrors pass an explicit
+// `workspaceId`; legacy callers omit it and fall back to the runtime-
+// Active workspace. Returns `[]` when no oracle is materialized for
+// the requested workspace — the renderer falls back to broadcast-only
+// seeding (and the next `setRuntimeActive` flips the picture once the
+// service hydrates).
+//
+// Per-workspace dispatch is the renderer-mirror-plane symmetry to
+// commit 1's per-workspace SW data plane: each `services.get(id)?.oracle`
+// projects exactly the workspace the renderer asked for, so cross-
+// workspace contamination is structurally impossible at the snapshot
+// layer (M-2 supports the broadcast layer; this enforces the cold-mount
+// snapshot layer the same way).
 
-function activeOracle(): EntityOracle | null {
-  if (currentActive === null) return null;
-  return services.get(currentActive)?.oracle ?? null;
+function oracleForWorkspace(workspaceId: string | undefined): EntityOracle | null {
+  const id = workspaceId ?? currentActive;
+  if (id === null) return null;
+  return services.get(id)?.oracle ?? null;
 }
 
-export function snapshotRulePostStates(): SyncRulePostState[] {
-  const o = activeOracle();
+export function snapshotRulePostStates(workspaceId?: string): SyncRulePostState[] {
+  const o = oracleForWorkspace(workspaceId);
   return o ? flatSnapshot(o, RULE_REGISTRATION) : [];
 }
 
-export function snapshotEnvironmentPostStates(): SyncEnvironmentPostState[] {
-  const o = activeOracle();
+export function snapshotEnvironmentPostStates(workspaceId?: string): SyncEnvironmentPostState[] {
+  const o = oracleForWorkspace(workspaceId);
   return o ? flatSnapshot(o, ENVIRONMENT_REGISTRATION) : [];
 }
 
-export function snapshotCollectionPostStates(): SyncCollectionPostState[] {
-  const o = activeOracle();
+export function snapshotCollectionPostStates(workspaceId?: string): SyncCollectionPostState[] {
+  const o = oracleForWorkspace(workspaceId);
   return o ? flatSnapshot(o, COLLECTION_REGISTRATION) : [];
 }
 
-export function snapshotWorkspaceVariablesPostStates(): SyncWorkspaceVariablesPostState[] {
-  const o = activeOracle();
+export function snapshotWorkspaceVariablesPostStates(
+  workspaceId?: string,
+): SyncWorkspaceVariablesPostState[] {
+  const o = oracleForWorkspace(workspaceId);
   return o ? singletonSnapshot(o, WORKSPACE_VARIABLES_REGISTRATION) : [];
 }
 
-export function snapshotVaultPostStates(): SyncVaultPostState[] {
-  const o = activeOracle();
+export function snapshotVaultPostStates(workspaceId?: string): SyncVaultPostState[] {
+  const o = oracleForWorkspace(workspaceId);
   return o ? singletonSnapshot(o, VAULT_REGISTRATION) : [];
 }
 
-export function snapshotFolderPostStates(): SyncFolderPostState[] {
-  const o = activeOracle();
+export function snapshotFolderPostStates(workspaceId?: string): SyncFolderPostState[] {
+  const o = oracleForWorkspace(workspaceId);
   return o ? flatSnapshot(o, FOLDER_REGISTRATION) : [];
 }
 
-export function snapshotRequestPostStates(): SyncRequestPostState[] {
-  const o = activeOracle();
+export function snapshotRequestPostStates(workspaceId?: string): SyncRequestPostState[] {
+  const o = oracleForWorkspace(workspaceId);
   return o ? flatSnapshot(o, REQUEST_REGISTRATION) : [];
 }
 
-export function snapshotRequestCollectionPostStates(): SyncRequestCollectionPostState[] {
-  const o = activeOracle();
+export function snapshotRequestCollectionPostStates(
+  workspaceId?: string,
+): SyncRequestCollectionPostState[] {
+  const o = oracleForWorkspace(workspaceId);
   return o ? flatSnapshot(o, REQUEST_COLLECTION_REGISTRATION) : [];
 }
 
-export function snapshotRequestFolderPostStates(): SyncRequestFolderPostState[] {
-  const o = activeOracle();
+export function snapshotRequestFolderPostStates(workspaceId?: string): SyncRequestFolderPostState[] {
+  const o = oracleForWorkspace(workspaceId);
   return o ? flatSnapshot(o, REQUEST_FOLDER_REGISTRATION) : [];
 }
 
-export function snapshotTemplatePostStates(): SyncTemplatePostState[] {
-  const o = activeOracle();
+export function snapshotTemplatePostStates(workspaceId?: string): SyncTemplatePostState[] {
+  const o = oracleForWorkspace(workspaceId);
   return o ? flatSnapshot(o, TEMPLATE_REGISTRATION) : [];
 }
 
-export function snapshotTemplateCollectionPostStates(): SyncTemplateCollectionPostState[] {
-  const o = activeOracle();
+export function snapshotTemplateCollectionPostStates(
+  workspaceId?: string,
+): SyncTemplateCollectionPostState[] {
+  const o = oracleForWorkspace(workspaceId);
   return o ? flatSnapshot(o, TEMPLATE_COLLECTION_REGISTRATION) : [];
 }
 
-export function snapshotTemplateFolderPostStates(): SyncTemplateFolderPostState[] {
-  const o = activeOracle();
+export function snapshotTemplateFolderPostStates(
+  workspaceId?: string,
+): SyncTemplateFolderPostState[] {
+  const o = oracleForWorkspace(workspaceId);
   return o ? flatSnapshot(o, TEMPLATE_FOLDER_REGISTRATION) : [];
 }
 
-export function snapshotLiveVariablePostStates(): SyncLiveVariablePostState[] {
-  const o = activeOracle();
+export function snapshotLiveVariablePostStates(workspaceId?: string): SyncLiveVariablePostState[] {
+  const o = oracleForWorkspace(workspaceId);
   return o ? flatSnapshot(o, LIVE_VARIABLE_REGISTRATION) : [];
 }
 
-export function snapshotLiveWorkflowPostStates(): SyncLiveWorkflowPostState[] {
-  const o = activeOracle();
+export function snapshotLiveWorkflowPostStates(workspaceId?: string): SyncLiveWorkflowPostState[] {
+  const o = oracleForWorkspace(workspaceId);
   return o ? flatSnapshot(o, LIVE_WORKFLOW_REGISTRATION) : [];
 }
 
-export function snapshotOAuthBundlePostStates(): SyncOAuthBundlePostState[] {
-  const o = activeOracle();
+export function snapshotOAuthBundlePostStates(workspaceId?: string): SyncOAuthBundlePostState[] {
+  const o = oracleForWorkspace(workspaceId);
   return o ? singletonSnapshot(o, OAUTH_BUNDLE_REGISTRATION) : [];
 }
 
-export function snapshotPauseMarkersPostStates(): SyncPauseMarkersPostState[] {
-  const o = activeOracle();
+export function snapshotPauseMarkersPostStates(workspaceId?: string): SyncPauseMarkersPostState[] {
+  const o = oracleForWorkspace(workspaceId);
   return o ? singletonSnapshot(o, PAUSE_MARKERS_REGISTRATION) : [];
 }
 
-export function snapshotLayoutStatePostStates(): SyncLayoutStatePostState[] {
-  const o = activeOracle();
+export function snapshotLayoutStatePostStates(workspaceId?: string): SyncLayoutStatePostState[] {
+  const o = oracleForWorkspace(workspaceId);
   return o ? singletonSnapshot(o, LAYOUT_STATE_REGISTRATION) : [];
 }
 
-export function snapshotFilesPostStates(): SyncFilesPostState[] {
-  const o = activeOracle();
+export function snapshotFilesPostStates(workspaceId?: string): SyncFilesPostState[] {
+  const o = oracleForWorkspace(workspaceId);
   return o ? singletonSnapshot(o, FILES_REGISTRATION) : [];
 }
 

@@ -34,7 +34,7 @@ import {
 } from '@openheaders/core/sync';
 import {
   createWorkspaceVariablesSyncMirror,
-  getActiveWorkspaceVariablesSyncMirror,
+  getWorkspaceVariablesSyncMirrorForWorkspace,
   type WorkspaceVariablesSyncMirror,
 } from '@/context/workspace-variables-sync-mirror';
 import {
@@ -139,6 +139,6 @@ export async function applyWorkspaceVariablesReplacement(
 export type { MutationEnvelope };
 
 // Pull the active singleton mirror in if a caller wants to read live state.
-export function activeMirror(): WorkspaceVariablesSyncMirror {
-  return getActiveWorkspaceVariablesSyncMirror();
+export function activeMirror(workspaceId: string): WorkspaceVariablesSyncMirror {
+  return getWorkspaceVariablesSyncMirrorForWorkspace(workspaceId);
 }

@@ -17,7 +17,7 @@ import {
 } from '@/shared/sync/apply-payload';
 import { type MutationEnvelope, type RequestFolderParentRef } from '@openheaders/core/sync';
 import {
-  getActiveRequestFolderSyncMirror,
+  getRequestFolderSyncMirrorForWorkspace,
   type RequestFolderSyncMirror,
 } from '@/context/request-folder-sync-mirror';
 import {
@@ -44,7 +44,7 @@ export async function applyRequestFolderRename(
   input: ApplyRequestFolderRenameInput,
   opts: RequestFolderWriteOptions,
 ): Promise<RequestFolderSimpleResult> {
-  const mirror = resolveMirror(opts, getActiveRequestFolderSyncMirror);
+  const mirror = resolveMirror(opts, getRequestFolderSyncMirrorForWorkspace);
   if (!mirror.getRequestFolderMirror(input.folderUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRenameRequestFolderBatch(input, ctx));

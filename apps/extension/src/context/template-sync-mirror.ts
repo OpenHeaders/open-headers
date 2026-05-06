@@ -15,6 +15,7 @@ import {
   createFlatEntityMirror,
   type CreateFlatMirrorOptions,
 } from './flat-entity-mirror';
+import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 
 export interface TemplateMirrorEntry {
   template: V5.Template;
@@ -39,11 +40,13 @@ export interface TemplateSyncMirror {
 export type CreateTemplateSyncMirrorOptions = CreateFlatMirrorOptions;
 
 export function createTemplateSyncMirror(
+  workspaceId: string,
   options: CreateTemplateSyncMirrorOptions = {},
 ): TemplateSyncMirror {
   const core = createFlatEntityMirror<TemplateMirrorEntry>(
     {
       loggerTag: 'TemplateSyncMirror',
+      workspaceId,
       extractFromBroadcast: (event) => {
         const { envelope, templatePostState } = event;
         if (!templatePostState && envelope.body.type !== TEMPLATE_ENTITY_TYPE) return null;
@@ -59,7 +62,7 @@ export function createTemplateSyncMirror(
         };
       },
       fetchSnapshot: async () => {
-        const resp = await call('oh.sync.snapshotTemplates');
+        const resp = await call('oh.sync.snapshotTemplates', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.template.uid,
           entry: {
@@ -87,15 +90,28 @@ export function createTemplateSyncMirror(
   };
 }
 
-let active: TemplateSyncMirror | null = null;
+// ── Per-workspace registry ───────────────────────────────────────────
+//
+// Symmetric to the SW data plane's `services: Map<workspaceId,
+// WorkspaceServiceState>` (commit 1, sub-commit 1a). Each workspace's
+// mirror is independent: its bridge subscription filters by
+// `event.envelope.workspaceId` at the shared mirror core (M-2), and
+// its bootstrap snapshot is fetched scoped to the workspace via
+// `oh.sync.snapshotX, { workspaceId }` (M-1). Cross-workspace
+// contamination is structurally inexpressible.
 
-export function getActiveTemplateSyncMirror(): TemplateSyncMirror {
-  if (!active) active = createTemplateSyncMirror();
-  return active;
+const templateSyncMirrorRegistry = createWorkspaceMirrorRegistry<TemplateSyncMirror>(
+  (workspaceId) => createTemplateSyncMirror(workspaceId),
+);
+
+export function getTemplateSyncMirrorForWorkspace(workspaceId: string): TemplateSyncMirror {
+  return templateSyncMirrorRegistry.getOrCreate(workspaceId);
 }
 
-export function disposeActiveTemplateSyncMirror(): void {
-  if (!active) return;
-  active.dispose();
-  active = null;
+export function disposeTemplateSyncMirrorForWorkspace(workspaceId: string): void {
+  templateSyncMirrorRegistry.dispose(workspaceId);
+}
+
+export function disposeAllTemplateSyncMirrors(): void {
+  templateSyncMirrorRegistry.disposeAll();
 }

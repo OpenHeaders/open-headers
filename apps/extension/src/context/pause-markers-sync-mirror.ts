@@ -13,6 +13,7 @@ import {
   createSingletonEntityMirror,
   type CreateSingletonMirrorOptions,
 } from './singleton-entity-mirror';
+import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 
 export interface PauseMarkersMirrorEntry {
   markers: Record<string, PauseMarkerKind>;
@@ -32,11 +33,13 @@ export interface PauseMarkersSyncMirror {
 export type CreatePauseMarkersSyncMirrorOptions = CreateSingletonMirrorOptions;
 
 export function createPauseMarkersSyncMirror(
+  workspaceId: string,
   options: CreatePauseMarkersSyncMirrorOptions = {},
 ): PauseMarkersSyncMirror {
   const core = createSingletonEntityMirror<PauseMarkersMirrorEntry>(
     {
       loggerTag: 'PauseMarkersSyncMirror',
+      workspaceId,
       extractFromBroadcast: (event) => {
         const { envelope, pauseMarkersPostState } = event;
         if (envelope.body.type !== PAUSE_MARKERS_ENTITY_TYPE) return null;
@@ -44,7 +47,7 @@ export function createPauseMarkersSyncMirror(
         return { markers: pauseMarkersPostState.markers, paths: pauseMarkersPostState.paths };
       },
       fetchSnapshot: async () => {
-        const resp = await call('oh.sync.snapshotPauseMarkers');
+        const resp = await call('oh.sync.snapshotPauseMarkers', { workspaceId });
         const first = resp.entries[0];
         return first ? { markers: first.markers, paths: first.paths } : null;
       },
@@ -60,17 +63,28 @@ export function createPauseMarkersSyncMirror(
   };
 }
 
-// ── Module-level singleton ───────────────────────────────────────────
+// ── Per-workspace registry ───────────────────────────────────────────
+//
+// Symmetric to the SW data plane's `services: Map<workspaceId,
+// WorkspaceServiceState>` (commit 1, sub-commit 1a). Each workspace's
+// mirror is independent: its bridge subscription filters by
+// `event.envelope.workspaceId` at the shared mirror core (M-2), and
+// its bootstrap snapshot is fetched scoped to the workspace via
+// `oh.sync.snapshotX, { workspaceId }` (M-1). Cross-workspace
+// contamination is structurally inexpressible.
 
-let active: PauseMarkersSyncMirror | null = null;
+const pauseMarkersSyncMirrorRegistry = createWorkspaceMirrorRegistry<PauseMarkersSyncMirror>(
+  (workspaceId) => createPauseMarkersSyncMirror(workspaceId),
+);
 
-export function getActivePauseMarkersSyncMirror(): PauseMarkersSyncMirror {
-  if (!active) active = createPauseMarkersSyncMirror();
-  return active;
+export function getPauseMarkersSyncMirrorForWorkspace(workspaceId: string): PauseMarkersSyncMirror {
+  return pauseMarkersSyncMirrorRegistry.getOrCreate(workspaceId);
 }
 
-export function disposeActivePauseMarkersSyncMirror(): void {
-  if (!active) return;
-  active.dispose();
-  active = null;
+export function disposePauseMarkersSyncMirrorForWorkspace(workspaceId: string): void {
+  pauseMarkersSyncMirrorRegistry.dispose(workspaceId);
+}
+
+export function disposeAllPauseMarkersSyncMirrors(): void {
+  pauseMarkersSyncMirrorRegistry.disposeAll();
 }

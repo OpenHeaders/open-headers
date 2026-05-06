@@ -36,7 +36,8 @@ import { App, Button, Dropdown, Select, Tabs, Tag, Tooltip, Typography, theme } 
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ExecutedRequestSnapshot } from '@/background/modules/request-executor';
-import { getActiveRequestSyncMirror } from '@/context/request-sync-mirror';
+import { getRequestSyncMirrorForWorkspace } from '@/context/request-sync-mirror';
+import { useWorkbenchEditingScopeWorkspaceId } from '../hooks/EditingScopeWorkspaceContext';
 import { ensureScheme, needsSchemeNormalization } from '@/shared/fetch/ensure-scheme';
 import EditorHeader from './EditorHeader';
 import {
@@ -333,16 +334,17 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   // Subscribe to broadcasts so concurrent commits land in `liveRequest`.
   // The reprime hook below replays into the draft when clean; conflicts
   // surface against the live snapshot when dirty.
+  const editingScopeWorkspaceId = useWorkbenchEditingScopeWorkspaceId();
   useEffect(() => {
-    if (isCreateMode || !requestUid) return;
-    const mirror = getActiveRequestSyncMirror();
+    if (isCreateMode || !requestUid || !editingScopeWorkspaceId) return;
+    const mirror = getRequestSyncMirrorForWorkspace(editingScopeWorkspaceId);
     const sync = () => {
       const entry = mirror.getRequestMirror(requestUid);
       setLiveRequest(entry?.request ?? null);
     };
     sync();
     return mirror.subscribeRequestMirror(requestUid, sync);
-  }, [isCreateMode, requestUid]);
+  }, [isCreateMode, requestUid, editingScopeWorkspaceId]);
 
   // Resolvability gate for the Send button — mirrors the DNR compile
   // gate for rules. The executor ALSO enforces this (returns an error

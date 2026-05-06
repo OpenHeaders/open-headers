@@ -13,6 +13,7 @@ import {
   createFlatEntityMirror,
   type CreateFlatMirrorOptions,
 } from './flat-entity-mirror';
+import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 
 export interface LiveWorkflowMirrorEntry {
   workflow: V5.LiveWorkflow;
@@ -31,11 +32,13 @@ export interface LiveWorkflowSyncMirror {
 export type CreateLiveWorkflowSyncMirrorOptions = CreateFlatMirrorOptions;
 
 export function createLiveWorkflowSyncMirror(
+  workspaceId: string,
   options: CreateLiveWorkflowSyncMirrorOptions = {},
 ): LiveWorkflowSyncMirror {
   const core = createFlatEntityMirror<LiveWorkflowMirrorEntry>(
     {
       loggerTag: 'LiveWorkflowSyncMirror',
+      workspaceId,
       extractFromBroadcast: (event) => {
         const { envelope, liveWorkflowPostState } = event;
         if (!liveWorkflowPostState && envelope.body.type !== LIVE_WORKFLOW_ENTITY_TYPE) return null;
@@ -44,7 +47,7 @@ export function createLiveWorkflowSyncMirror(
         return { uid, entry: { workflow: liveWorkflowPostState.workflow } };
       },
       fetchSnapshot: async () => {
-        const resp = await call('oh.sync.snapshotLiveWorkflows');
+        const resp = await call('oh.sync.snapshotLiveWorkflows', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.workflow.uid,
           entry: { workflow: e.workflow },
@@ -66,15 +69,28 @@ export function createLiveWorkflowSyncMirror(
   };
 }
 
-let active: LiveWorkflowSyncMirror | null = null;
+// ── Per-workspace registry ───────────────────────────────────────────
+//
+// Symmetric to the SW data plane's `services: Map<workspaceId,
+// WorkspaceServiceState>` (commit 1, sub-commit 1a). Each workspace's
+// mirror is independent: its bridge subscription filters by
+// `event.envelope.workspaceId` at the shared mirror core (M-2), and
+// its bootstrap snapshot is fetched scoped to the workspace via
+// `oh.sync.snapshotX, { workspaceId }` (M-1). Cross-workspace
+// contamination is structurally inexpressible.
 
-export function getActiveLiveWorkflowSyncMirror(): LiveWorkflowSyncMirror {
-  if (!active) active = createLiveWorkflowSyncMirror();
-  return active;
+const liveWorkflowSyncMirrorRegistry = createWorkspaceMirrorRegistry<LiveWorkflowSyncMirror>(
+  (workspaceId) => createLiveWorkflowSyncMirror(workspaceId),
+);
+
+export function getLiveWorkflowSyncMirrorForWorkspace(workspaceId: string): LiveWorkflowSyncMirror {
+  return liveWorkflowSyncMirrorRegistry.getOrCreate(workspaceId);
 }
 
-export function disposeActiveLiveWorkflowSyncMirror(): void {
-  if (!active) return;
-  active.dispose();
-  active = null;
+export function disposeLiveWorkflowSyncMirrorForWorkspace(workspaceId: string): void {
+  liveWorkflowSyncMirrorRegistry.dispose(workspaceId);
+}
+
+export function disposeAllLiveWorkflowSyncMirrors(): void {
+  liveWorkflowSyncMirrorRegistry.disposeAll();
 }

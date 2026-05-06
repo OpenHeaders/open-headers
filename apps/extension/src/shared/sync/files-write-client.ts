@@ -16,7 +16,7 @@
  */
 
 import type { FileRefSlot } from '@openheaders/core/sync';
-import { createFilesSyncMirror, type FilesSyncMirror, getActiveFilesSyncMirror } from '@/context/files-sync-mirror';
+import { createFilesSyncMirror, type FilesSyncMirror, getFilesSyncMirrorForWorkspace } from '@/context/files-sync-mirror';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
@@ -52,6 +52,6 @@ export async function applyFileRemove(input: ApplyFileRemoveInput, opts: FilesWr
   return applySyncPayload(buildRemoveFileRefBatch(input, ctx));
 }
 
-export function activeMirror(): FilesSyncMirror {
-  return getActiveFilesSyncMirror();
+export function activeMirror(workspaceId: string): FilesSyncMirror {
+  return getFilesSyncMirrorForWorkspace(workspaceId);
 }

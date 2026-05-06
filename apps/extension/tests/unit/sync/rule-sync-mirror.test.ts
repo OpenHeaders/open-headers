@@ -34,8 +34,8 @@ vi.mock('@utils/logger', () => ({
 
 import {
   createRuleSyncMirror,
-  disposeActiveRuleSyncMirror,
-  getActiveRuleSyncMirror,
+  disposeAllRuleSyncMirrors,
+  getRuleSyncMirrorForWorkspace,
 } from '@/context/rule-sync-mirror';
 
 type Handler = (event: {
@@ -61,7 +61,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  disposeActiveRuleSyncMirror();
+  disposeAllRuleSyncMirrors();
 });
 
 const env = (uid: string): MutationEnvelope => ({
@@ -79,7 +79,7 @@ const outcome: MutatorOutcome = { status: 'applied' };
 
 describe('rule sync mirror', () => {
   it('folds rulePostState payloads into a per-uid view', () => {
-    const mirror = createRuleSyncMirror({ bootstrap: false });
+    const mirror = createRuleSyncMirror('ws-1', { bootstrap: false });
     expect(mirror.getRuleMirror('r1')).toBeNull();
 
     lastHandler?.({
@@ -95,7 +95,7 @@ describe('rule sync mirror', () => {
   });
 
   it('notifies subscribers on every touching broadcast', () => {
-    const mirror = createRuleSyncMirror({ bootstrap: false });
+    const mirror = createRuleSyncMirror('ws-1', { bootstrap: false });
     const seen: string[] = [];
     const off = mirror.subscribeRuleMirror('r1', (uid) => seen.push(uid));
 
@@ -126,7 +126,7 @@ describe('rule sync mirror', () => {
   });
 
   it('drops the entry on tombstone (no rulePostState)', () => {
-    const mirror = createRuleSyncMirror({ bootstrap: false });
+    const mirror = createRuleSyncMirror('ws-1', { bootstrap: false });
     const seen: string[] = [];
     mirror.subscribeRuleMirror('r1', (uid) => seen.push(uid));
     lastHandler?.({
@@ -140,11 +140,14 @@ describe('rule sync mirror', () => {
     expect(seen).toEqual(['r1', 'r1']);
   });
 
-  it('singleton getActiveRuleSyncMirror reuses one bridge subscription', () => {
-    const a = getActiveRuleSyncMirror();
-    const b = getActiveRuleSyncMirror();
+  it('per-workspace registry reuses one bridge subscription per workspace', () => {
+    const a = getRuleSyncMirrorForWorkspace('ws-1');
+    const b = getRuleSyncMirrorForWorkspace('ws-1');
     expect(a).toBe(b);
     expect(mockSubscribe).toHaveBeenCalledTimes(1);
+    const c = getRuleSyncMirrorForWorkspace('ws-2');
+    expect(c).not.toBe(a);
+    expect(mockSubscribe).toHaveBeenCalledTimes(2);
   });
 
   it('bootstrap seeds entries from oh.sync.snapshotRules', async () => {
@@ -154,8 +157,8 @@ describe('rule sync mirror', () => {
         { rule: rule('rB', 'B'), setItemIds: {} },
       ],
     });
-    const mirror = createRuleSyncMirror();
-    expect(mockCall).toHaveBeenCalledWith('oh.sync.snapshotRules');
+    const mirror = createRuleSyncMirror('ws-1');
+    expect(mockCall).toHaveBeenCalledWith('oh.sync.snapshotRules', { workspaceId: 'ws-1' });
     await Promise.resolve();
     await Promise.resolve();
     expect(mirror.getRuleMirror('rA')?.rule.name).toBe('A');
@@ -166,7 +169,7 @@ describe('rule sync mirror', () => {
   it('bootstrap defers to broadcasts that landed first', async () => {
     let resolveSnap!: (v: { entries: Array<{ rule: V5.Rule; setItemIds: Record<string, string[]> }> }) => void;
     mockCall.mockReturnValueOnce(new Promise((res) => { resolveSnap = res; }));
-    const mirror = createRuleSyncMirror();
+    const mirror = createRuleSyncMirror('ws-1');
     // Broadcast lands while snapshot in flight.
     lastHandler?.({
       envelope: env('rA'),
@@ -181,7 +184,7 @@ describe('rule sync mirror', () => {
   });
 
   it('dispose drops the bridge subscription and clears state', () => {
-    const mirror = createRuleSyncMirror({ bootstrap: false });
+    const mirror = createRuleSyncMirror('ws-1', { bootstrap: false });
     lastHandler?.({
       envelope: env('r1'),
       outcome,

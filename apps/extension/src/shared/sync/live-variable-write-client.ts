@@ -34,7 +34,7 @@ import {
   type SyncSimpleResult,
 } from '@/shared/sync/apply-payload';
 import {
-  getActiveLiveVariableSyncMirror,
+  getLiveVariableSyncMirrorForWorkspace,
   type LiveVariableSyncMirror,
 } from '@/context/live-variable-sync-mirror';
 import {
@@ -61,7 +61,7 @@ export async function applyLiveVariableUpdate(
   updates: LiveVariableUpdates,
   opts: LiveVariableWriteOptions,
 ): Promise<LiveVariableMutationResult> {
-  const mirror = resolveMirror(opts, getActiveLiveVariableSyncMirror);
+  const mirror = resolveMirror(opts, getLiveVariableSyncMirrorForWorkspace);
   const entry = mirror.getLiveVariableMirror(liveVariableUid);
   if (!entry) return { ok: false, reason: 'not-found' };
   // Auto-unpublish on first runtime-affecting edit of a published LV —
@@ -119,7 +119,7 @@ export async function applyLiveVariablePublish(
   liveVariableUid: string,
   opts: LiveVariableWriteOptions,
 ): Promise<LiveVariableSimpleResult> {
-  const mirror = resolveMirror(opts, getActiveLiveVariableSyncMirror);
+  const mirror = resolveMirror(opts, getLiveVariableSyncMirrorForWorkspace);
   if (!mirror.getLiveVariableMirror(liveVariableUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const bodies: MutationBody[] = [
@@ -135,7 +135,7 @@ export async function applyLiveVariableDelete(
   liveVariableUid: string,
   opts: LiveVariableWriteOptions,
 ): Promise<LiveVariableSimpleResult> {
-  const mirror = resolveMirror(opts, getActiveLiveVariableSyncMirror);
+  const mirror = resolveMirror(opts, getLiveVariableSyncMirrorForWorkspace);
   if (!mirror.getLiveVariableMirror(liveVariableUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildDeleteLiveVariableBatch(liveVariableUid, ctx);

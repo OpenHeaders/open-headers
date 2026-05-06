@@ -14,6 +14,7 @@ import {
   createFlatEntityMirror,
   type CreateFlatMirrorOptions,
 } from './flat-entity-mirror';
+import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 
 export interface TemplateCollectionMirrorEntry {
   collection: V5.Collection;
@@ -44,11 +45,13 @@ export interface TemplateCollectionSyncMirror {
 export type CreateTemplateCollectionSyncMirrorOptions = CreateFlatMirrorOptions;
 
 export function createTemplateCollectionSyncMirror(
+  workspaceId: string,
   options: CreateTemplateCollectionSyncMirrorOptions = {},
 ): TemplateCollectionSyncMirror {
   const core = createFlatEntityMirror<TemplateCollectionMirrorEntry>(
     {
       loggerTag: 'TemplateCollectionSyncMirror',
+      workspaceId,
       extractFromBroadcast: (event) => {
         const { envelope, templateCollectionPostState } = event;
         if (envelope.body.type !== TEMPLATE_COLLECTION_ENTITY_TYPE) return null;
@@ -64,7 +67,7 @@ export function createTemplateCollectionSyncMirror(
         };
       },
       fetchSnapshot: async () => {
-        const resp = await call('oh.sync.snapshotTemplateCollections');
+        const resp = await call('oh.sync.snapshotTemplateCollections', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.collection.uid,
           entry: { collection: e.collection, varUids: e.varUids, setOrderKeys: e.setOrderKeys },
@@ -87,15 +90,28 @@ export function createTemplateCollectionSyncMirror(
   };
 }
 
-let active: TemplateCollectionSyncMirror | null = null;
+// ── Per-workspace registry ───────────────────────────────────────────
+//
+// Symmetric to the SW data plane's `services: Map<workspaceId,
+// WorkspaceServiceState>` (commit 1, sub-commit 1a). Each workspace's
+// mirror is independent: its bridge subscription filters by
+// `event.envelope.workspaceId` at the shared mirror core (M-2), and
+// its bootstrap snapshot is fetched scoped to the workspace via
+// `oh.sync.snapshotX, { workspaceId }` (M-1). Cross-workspace
+// contamination is structurally inexpressible.
 
-export function getActiveTemplateCollectionSyncMirror(): TemplateCollectionSyncMirror {
-  if (!active) active = createTemplateCollectionSyncMirror();
-  return active;
+const templateCollectionSyncMirrorRegistry = createWorkspaceMirrorRegistry<TemplateCollectionSyncMirror>(
+  (workspaceId) => createTemplateCollectionSyncMirror(workspaceId),
+);
+
+export function getTemplateCollectionSyncMirrorForWorkspace(workspaceId: string): TemplateCollectionSyncMirror {
+  return templateCollectionSyncMirrorRegistry.getOrCreate(workspaceId);
 }
 
-export function disposeActiveTemplateCollectionSyncMirror(): void {
-  if (!active) return;
-  active.dispose();
-  active = null;
+export function disposeTemplateCollectionSyncMirrorForWorkspace(workspaceId: string): void {
+  templateCollectionSyncMirrorRegistry.dispose(workspaceId);
+}
+
+export function disposeAllTemplateCollectionSyncMirrors(): void {
+  templateCollectionSyncMirrorRegistry.disposeAll();
 }

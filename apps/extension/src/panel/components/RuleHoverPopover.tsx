@@ -374,7 +374,7 @@ export function RuleHoverPopover({
   // the static `rule` prop only when there's no uid to subscribe to
   // (legacy hover paths without attribution).
   const targetRuleUid = rule?.uid ?? ctx?.ruleUid ?? null;
-  const liveRuleFromMirror = useLiveRule(targetRuleUid);
+  const liveRuleFromMirror = useLiveRule(targetRuleUid, workspaceId);
   const liveRule = liveRuleFromMirror ?? rule ?? null;
 
   const collectionId = useMemo(

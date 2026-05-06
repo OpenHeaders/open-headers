@@ -13,6 +13,7 @@ import {
   createSingletonEntityMirror,
   type CreateSingletonMirrorOptions,
 } from './singleton-entity-mirror';
+import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 
 export interface WorkspaceVariablesMirrorEntry {
   workspaceVariables: V5.WorkspaceVariables;
@@ -33,11 +34,13 @@ export interface WorkspaceVariablesSyncMirror {
 export type CreateWorkspaceVariablesSyncMirrorOptions = CreateSingletonMirrorOptions;
 
 export function createWorkspaceVariablesSyncMirror(
+  workspaceId: string,
   options: CreateWorkspaceVariablesSyncMirrorOptions = {},
 ): WorkspaceVariablesSyncMirror {
   const core = createSingletonEntityMirror<WorkspaceVariablesMirrorEntry>(
     {
       loggerTag: 'WorkspaceVariablesSyncMirror',
+      workspaceId,
       extractFromBroadcast: (event) => {
         const { envelope, workspaceVariablesPostState } = event;
         if (envelope.body.type !== WORKSPACE_VARIABLES_ENTITY_TYPE) return null;
@@ -48,7 +51,7 @@ export function createWorkspaceVariablesSyncMirror(
         };
       },
       fetchSnapshot: async () => {
-        const resp = await call('oh.sync.snapshotWorkspaceVariables');
+        const resp = await call('oh.sync.snapshotWorkspaceVariables', { workspaceId });
         const first = resp.entries[0];
         return first
           ? { workspaceVariables: first.workspaceVariables, varUids: first.varUids }
@@ -65,17 +68,28 @@ export function createWorkspaceVariablesSyncMirror(
   };
 }
 
-// ── Module-level singleton ───────────────────────────────────────────
+// ── Per-workspace registry ───────────────────────────────────────────
+//
+// Symmetric to the SW data plane's `services: Map<workspaceId,
+// WorkspaceServiceState>` (commit 1, sub-commit 1a). Each workspace's
+// mirror is independent: its bridge subscription filters by
+// `event.envelope.workspaceId` at the shared mirror core (M-2), and
+// its bootstrap snapshot is fetched scoped to the workspace via
+// `oh.sync.snapshotX, { workspaceId }` (M-1). Cross-workspace
+// contamination is structurally inexpressible.
 
-let active: WorkspaceVariablesSyncMirror | null = null;
+const workspaceVariablesSyncMirrorRegistry = createWorkspaceMirrorRegistry<WorkspaceVariablesSyncMirror>(
+  (workspaceId) => createWorkspaceVariablesSyncMirror(workspaceId),
+);
 
-export function getActiveWorkspaceVariablesSyncMirror(): WorkspaceVariablesSyncMirror {
-  if (!active) active = createWorkspaceVariablesSyncMirror();
-  return active;
+export function getWorkspaceVariablesSyncMirrorForWorkspace(workspaceId: string): WorkspaceVariablesSyncMirror {
+  return workspaceVariablesSyncMirrorRegistry.getOrCreate(workspaceId);
 }
 
-export function disposeActiveWorkspaceVariablesSyncMirror(): void {
-  if (!active) return;
-  active.dispose();
-  active = null;
+export function disposeWorkspaceVariablesSyncMirrorForWorkspace(workspaceId: string): void {
+  workspaceVariablesSyncMirrorRegistry.dispose(workspaceId);
+}
+
+export function disposeAllWorkspaceVariablesSyncMirrors(): void {
+  workspaceVariablesSyncMirrorRegistry.disposeAll();
 }
