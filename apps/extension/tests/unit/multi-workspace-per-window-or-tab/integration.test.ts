@@ -94,6 +94,7 @@ import {
   snapshotCollectionPostStates,
   snapshotEnvironmentPostStates,
   snapshotLiveVariablePostStates,
+  snapshotLiveWorkflowPostStates,
   snapshotRulePostStates,
   snapshotVaultPostStates,
   snapshotWorkspaceVariablesPostStates,
@@ -104,6 +105,10 @@ import {
   disposeAllLiveVariableSyncMirrors,
   getLiveVariableSyncMirrorForWorkspace,
 } from '@/context/live-variable-sync-mirror';
+import {
+  disposeAllLiveWorkflowSyncMirrors,
+  getLiveWorkflowSyncMirrorForWorkspace,
+} from '@/context/live-workflow-sync-mirror';
 import { setActiveRendererContext } from '@/context/renderer-mutator-context';
 import { disposeAllRuleSyncMirrors, getRuleSyncMirrorForWorkspace } from '@/context/rule-sync-mirror';
 import { disposeAllVaultSyncMirrors, getVaultSyncMirrorForWorkspace } from '@/context/vault-sync-mirror';
@@ -116,6 +121,7 @@ import { seedCollection } from '@/shared/sync/collection-projection';
 import { applyCollectionSetVar, applyCollectionVariablesReplacement } from '@/shared/sync/collection-write-client';
 import { applyEnvironmentCreate, applyEnvironmentDelete } from '@/shared/sync/env-write-client';
 import { applyLiveVariableCreate, applyLiveVariableUpdate } from '@/shared/sync/live-variable-write-client';
+import { applyLiveWorkflowCreate, applyLiveWorkflowUpdate } from '@/shared/sync/live-workflow-write-client';
 import { applyRuleCreate, applyRuleDelete } from '@/shared/sync/rule-write-client';
 import { applyVaultSecretRemove, applyVaultSecretSet } from '@/shared/sync/vault-write-client';
 import { applyWorkspaceVarRemove, applyWorkspaceVarSet } from '@/shared/sync/workspace-variables-write-client';
@@ -175,6 +181,10 @@ function setupHarness(): void {
     const wsId = (req as { workspaceId?: string }).workspaceId;
     return { entries: snapshotLiveVariablePostStates(wsId) };
   });
+  mockBridge._setCallHandler('oh.sync.snapshotLiveWorkflows', (req) => {
+    const wsId = (req as { workspaceId?: string }).workspaceId;
+    return { entries: snapshotLiveWorkflowPostStates(wsId) };
+  });
 
   // Reset renderer registries.
   disposeAllRuleSyncMirrors();
@@ -183,6 +193,7 @@ function setupHarness(): void {
   disposeAllVaultSyncMirrors();
   disposeAllCollectionSyncMirrors();
   disposeAllLiveVariableSyncMirrors();
+  disposeAllLiveWorkflowSyncMirrors();
   setActiveRendererContext(null);
 
   // Reset SW state. __init clears every resident service synchronously
@@ -242,6 +253,7 @@ afterEach(() => {
   disposeAllVaultSyncMirrors();
   disposeAllCollectionSyncMirrors();
   disposeAllLiveVariableSyncMirrors();
+  disposeAllLiveWorkflowSyncMirrors();
   setActiveRendererContext(null);
   vi.useRealTimers();
 });
@@ -773,6 +785,84 @@ describe('I-1-livevars / I-2-livevars — Live variables per-family migration se
     const w1EntriesAfter = w1Logs ? await collectLogEntries(w1Logs) : [];
     expect(w1EntriesAfter.find((e) => e.body.type === 'live-variable')).toBeUndefined();
     expect(snapshotLiveVariablePostStates('w1')).toEqual([]);
+
+    releaseWorkspaceService('w2');
+  });
+});
+
+describe('I-1-liveworkflows / I-2-liveworkflows — Live workflows per-family migration session #6', () => {
+  it('I-1-liveworkflows: live-workflow mirror state == oracle live-workflow projection per workspace', async () => {
+    await setActiveAwaited('w1');
+    const w1Mirror = getLiveWorkflowSyncMirrorForWorkspace('w1');
+    const w2Mirror = getLiveWorkflowSyncMirrorForWorkspace('w2');
+    getOrCreateWorkspaceService('w2');
+
+    const seed: Omit<V5.LiveWorkflow, 'uid' | 'path' | 'schemaVersion'> = {
+      name: 'wf-w2',
+      enabled: true,
+      steps: [],
+      refresh: { kind: 'manual' },
+    };
+    const result = await applyLiveWorkflowCreate(
+      { workflow: seed, parentPath: 'live-workflows' },
+      { workspaceId: 'w2', surfaceId: 'workbench-tab' },
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('applyLiveWorkflowCreate failed');
+    await flush();
+
+    expect(w2Mirror.getLiveWorkflowMirror(result.workflow.uid)?.workflow.name).toBe(seed.name);
+    expect(w1Mirror.getLiveWorkflowMirror(result.workflow.uid)).toBeNull();
+
+    const w2Snapshot = snapshotLiveWorkflowPostStates('w2');
+    expect(w2Snapshot.find((s) => s.workflow.uid === result.workflow.uid)).toBeDefined();
+    expect(snapshotLiveWorkflowPostStates('w1')).toEqual([]);
+
+    releaseWorkspaceService('w2');
+  });
+
+  it('I-2-liveworkflows: w2 live-workflow create + update from a tab whose Active is w1 lands in w2 only', async () => {
+    // Active=w1 throughout; tab2 lifeline acquires w2. The diverged-tab
+    // pattern: a workflow mutated in tab2 must land in w2's MutationLog
+    // and never touch w1's projection.
+    await setActiveAwaited('w1');
+    getOrCreateWorkspaceService('w2');
+    // Pre-mount the w2 mirror so the update path's pre-image lookup
+    // finds the post-create entry.
+    getLiveWorkflowSyncMirrorForWorkspace('w2');
+
+    const seed: Omit<V5.LiveWorkflow, 'uid' | 'path' | 'schemaVersion'> = {
+      name: 'wf-tab2',
+      enabled: true,
+      steps: [],
+      refresh: { kind: 'manual' },
+    };
+    const result = await applyLiveWorkflowCreate(
+      { workflow: seed, parentPath: 'live-workflows' },
+      { workspaceId: 'w2', surfaceId: 'workbench-tab-2' },
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('applyLiveWorkflowCreate failed');
+    await flush();
+
+    const w1Logs = harness.logs.get('w1') as InMemoryMutationLog | undefined;
+    const w2Logs = harness.logs.get('w2') as InMemoryMutationLog | undefined;
+    expect(w2Logs).toBeDefined();
+    const w1Entries = w1Logs ? await collectLogEntries(w1Logs) : [];
+    const w2Entries = w2Logs ? await collectLogEntries(w2Logs) : [];
+    expect(w1Entries.find((e) => e.body.type === 'live-workflow')).toBeUndefined();
+    expect(w2Entries.find((e) => e.body.type === 'live-workflow')).toBeDefined();
+
+    const upd = await applyLiveWorkflowUpdate(
+      result.workflow.uid,
+      { description: 'edited-tab2' },
+      { workspaceId: 'w2', surfaceId: 'workbench-tab-2' },
+    );
+    expect(upd.ok).toBe(true);
+    await flush();
+    const w1EntriesAfter = w1Logs ? await collectLogEntries(w1Logs) : [];
+    expect(w1EntriesAfter.find((e) => e.body.type === 'live-workflow')).toBeUndefined();
+    expect(snapshotLiveWorkflowPostStates('w1')).toEqual([]);
 
     releaseWorkspaceService('w2');
   });

@@ -2,6 +2,7 @@ import ErrorBoundary from '@components/ErrorBoundary';
 import { EnvironmentProvider } from '@context/EnvironmentContext';
 import { KeyboardNavProvider, useKeyboardNav } from '@context/KeyboardNavContext';
 import { LiveVariablesProvider } from '@context/LiveVariablesContext';
+import { LiveWorkflowsProvider } from '@context/LiveWorkflowsContext';
 import { RuleProvider } from '@context/RuleContext';
 import { useTheme } from '@context/ThemeContext';
 import { VaultProvider } from '@context/VaultContext';
@@ -129,19 +130,21 @@ const AppContent: React.FC = () => {
             <WorkspaceVariablesProvider surfaceId={ruleSurfaceId}>
               <VaultProvider surfaceId={ruleSurfaceId}>
                 <LiveVariablesProvider surfaceId={ruleSurfaceId}>
-                  <KeyboardNavProvider
-                    activeTab={activeTab}
-                    onTabChange={handleTabChange}
-                    onCycleTheme={cycleTheme}
-                    onToggleCompactMode={toggleCompactMode}
-                    onOpenTour={handleOpenTour}
-                  >
-                    <EnvSwitcherProvider>
-                      <VariablePopoverProvider>
-                        <AppInner tourOpen={tourOpen} onTourClose={handleTourClose} />
-                      </VariablePopoverProvider>
-                    </EnvSwitcherProvider>
-                  </KeyboardNavProvider>
+                  <LiveWorkflowsProvider surfaceId={ruleSurfaceId}>
+                    <KeyboardNavProvider
+                      activeTab={activeTab}
+                      onTabChange={handleTabChange}
+                      onCycleTheme={cycleTheme}
+                      onToggleCompactMode={toggleCompactMode}
+                      onOpenTour={handleOpenTour}
+                    >
+                      <EnvSwitcherProvider>
+                        <VariablePopoverProvider>
+                          <AppInner tourOpen={tourOpen} onTourClose={handleTourClose} />
+                        </VariablePopoverProvider>
+                      </EnvSwitcherProvider>
+                    </KeyboardNavProvider>
+                  </LiveWorkflowsProvider>
                 </LiveVariablesProvider>
               </VaultProvider>
             </WorkspaceVariablesProvider>

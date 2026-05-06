@@ -594,12 +594,13 @@ const ENV_CONTEXT = join(REPO_ROOT, 'src', 'context', 'EnvironmentContext.tsx');
 const WORKSPACE_VARIABLES_CONTEXT = join(REPO_ROOT, 'src', 'context', 'WorkspaceVariablesContext.tsx');
 const VAULT_CONTEXT = join(REPO_ROOT, 'src', 'context', 'VaultContext.tsx');
 const LIVE_VARIABLES_CONTEXT = join(REPO_ROOT, 'src', 'context', 'LiveVariablesContext.tsx');
+const LIVE_WORKFLOWS_CONTEXT = join(REPO_ROOT, 'src', 'context', 'LiveWorkflowsContext.tsx');
 const POPUP_APP = join(REPO_ROOT, 'src', 'popup', 'App.tsx');
 const PANEL_APP = join(REPO_ROOT, 'src', 'panel', 'App.tsx');
 
 const VARIABLE_MUTATOR_HOOK = join(REPO_ROOT, 'src', 'hooks', 'useVariableMutator.ts');
 
-describe('MWPT-FULL session #1+#2+#3+#4+#5 — Environments + workspace variables + vault + collection variables + live variables lint gates', () => {
+describe('MWPT-FULL session #1+#2+#3+#4+#5+#6 — Environments + workspace variables + vault + collection variables + live variables + live workflows lint gates', () => {
   it('BC-MWPT-FULL-1-env — workbench App.tsx mounts EnvironmentProvider with editingScopeWorkspaceId override', () => {
     const text = readFileSync(APP_TSX, 'utf8');
     expect(text).toMatch(
@@ -810,6 +811,52 @@ describe('MWPT-FULL session #1+#2+#3+#4+#5 — Environments + workspace variable
       expect(m[1]).not.toMatch(/call\(\s*['"]updateLiveVariable['"]/);
       expect(m[1]).not.toMatch(/call\(\s*['"]deleteLiveVariable['"]/);
       expect(m[1]).not.toMatch(/call\(\s*['"]setLiveVariableOverride['"]/);
+    }
+  });
+
+  // ── Session #6 — Live workflows ───────────────────────────────────
+  // Independent module with its own storage key (`wsKeys.liveWorkflows`)
+  // and Phase B write-client (`live-workflow-write-client.ts`). Flat-
+  // entity shape, mirrors LiveVariablesProvider exactly. No § 4.1.c
+  // residual. `refreshNow` stays on the legacy RPC in BOTH branches —
+  // it's a runtime-scope manual gesture, not an editing-scope one.
+
+  it('BC-MWPT-FULL-1-liveworkflows — workbench App.tsx mounts LiveWorkflowsProvider with editingScopeWorkspaceId override', () => {
+    const text = readFileSync(APP_TSX, 'utf8');
+    expect(text).toMatch(
+      /<LiveWorkflowsProvider\s+surfaceId=["']workbench["']\s+activeWorkspaceIdOverride=\{editingScopeWorkspaceId\}/,
+    );
+  });
+
+  it('BC-MWPT-FULL-1-liveworkflows — system surfaces (popup / panel) mount LiveWorkflowsProvider WITHOUT override', () => {
+    for (const file of [POPUP_APP, PANEL_APP]) {
+      const text = readFileSync(file, 'utf8');
+      expect(text).toMatch(/<LiveWorkflowsProvider\b/);
+      expect(text).not.toMatch(/<LiveWorkflowsProvider[^>]*activeWorkspaceIdOverride=/);
+    }
+  });
+
+  it('BC-MWPT-FULL-2-liveworkflows — LiveWorkflowsProvider override branch subscribes wsKeys(workspaceId).liveWorkflows directly', () => {
+    const text = readFileSync(LIVE_WORKFLOWS_CONTEXT, 'utf8');
+    expect(text).toMatch(/extensionStorage\.subscribe\(\s*wsKeys\(\s*\w+\s*\)\.liveWorkflows\b/);
+  });
+
+  it('BC-MWPT-FULL-2-liveworkflows — LiveWorkflowsProvider override branch ignores liveWorkflowsChanged broadcast', () => {
+    const text = readFileSync(LIVE_WORKFLOWS_CONTEXT, 'utf8');
+    expect(text).toMatch(/if\s*\(!isOverridden\)\s*setWorkflows\(payload\.workflows\)/);
+  });
+
+  it('BC-MWPT-FULL-3-liveworkflows — LiveWorkflowsProvider routes mutations through live-workflow-write-client (no legacy call shim in override branch)', () => {
+    const text = readFileSync(LIVE_WORKFLOWS_CONTEXT, 'utf8');
+    expect(text).toMatch(/applyLiveWorkflowCreate\(/);
+    expect(text).toMatch(/applyLiveWorkflowUpdate\(/);
+    expect(text).toMatch(/applyLiveWorkflowDelete\(/);
+    const overrideArms = [...text.matchAll(/if\s*\(isOverridden\)\s*\{([\s\S]*?)\n\s{6}\}/g)];
+    expect(overrideArms.length).toBeGreaterThan(0);
+    for (const m of overrideArms) {
+      expect(m[1]).not.toMatch(/call\(\s*['"]createLiveWorkflow['"]/);
+      expect(m[1]).not.toMatch(/call\(\s*['"]updateLiveWorkflow['"]/);
+      expect(m[1]).not.toMatch(/call\(\s*['"]deleteLiveWorkflow['"]/);
     }
   });
 });
