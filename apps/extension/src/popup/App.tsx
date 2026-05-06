@@ -1,4 +1,5 @@
 import ErrorBoundary from '@components/ErrorBoundary';
+import { EnvironmentProvider } from '@context/EnvironmentContext';
 import { KeyboardNavProvider, useKeyboardNav } from '@context/KeyboardNavContext';
 import { RuleProvider } from '@context/RuleContext';
 import { useTheme } from '@context/ThemeContext';
@@ -121,19 +122,21 @@ const AppContent: React.FC = () => {
     <ErrorBoundary>
       <AwarenessIdentityProvider value={identity} workspaceId={lifelineWorkspaceId}>
         <RuleProvider surfaceId={ruleSurfaceId}>
-          <KeyboardNavProvider
-            activeTab={activeTab}
-            onTabChange={handleTabChange}
-            onCycleTheme={cycleTheme}
-            onToggleCompactMode={toggleCompactMode}
-            onOpenTour={handleOpenTour}
-          >
-            <EnvSwitcherProvider>
-              <VariablePopoverProvider>
-                <AppInner tourOpen={tourOpen} onTourClose={handleTourClose} />
-              </VariablePopoverProvider>
-            </EnvSwitcherProvider>
-          </KeyboardNavProvider>
+          <EnvironmentProvider surfaceId={ruleSurfaceId}>
+            <KeyboardNavProvider
+              activeTab={activeTab}
+              onTabChange={handleTabChange}
+              onCycleTheme={cycleTheme}
+              onToggleCompactMode={toggleCompactMode}
+              onOpenTour={handleOpenTour}
+            >
+              <EnvSwitcherProvider>
+                <VariablePopoverProvider>
+                  <AppInner tourOpen={tourOpen} onTourClose={handleTourClose} />
+                </VariablePopoverProvider>
+              </EnvSwitcherProvider>
+            </KeyboardNavProvider>
+          </EnvironmentProvider>
         </RuleProvider>
       </AwarenessIdentityProvider>
     </ErrorBoundary>

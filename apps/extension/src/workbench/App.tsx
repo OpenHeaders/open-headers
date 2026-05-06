@@ -8,6 +8,7 @@
  * render-prop hooks for the editor body and tool-window content.
  */
 
+import { EnvironmentProvider } from '@context/EnvironmentContext';
 import { RuleProvider } from '@context/RuleContext';
 import { useTheme } from '@context/ThemeContext';
 import { useEnvironments } from '@hooks/useEnvironments';
@@ -95,7 +96,12 @@ import ExportModal, { type ExportModalScope } from './components/workspace-expor
 import ImportPreviewModal, { type ImportPreviewSource } from './components/workspace-export/ImportPreviewModal';
 import ImportSourceModal from './components/workspace-export/ImportSourceModal';
 import { findLeaf } from './editor-groups';
+import {
+  EditingScopeWorkspaceProvider,
+  useWorkbenchEditingScopeWorkspaceId,
+} from './hooks/EditingScopeWorkspaceContext';
 import { useCommandPaletteData } from './hooks/useCommandPaletteData';
+import { useEditingScopeWorkspaceId } from './hooks/useEditingScopeWorkspaceId';
 import { useEditorGroups } from './hooks/useEditorGroups';
 import { useFocusRegion } from './hooks/useFocusRegion';
 import { useInitialLanding } from './hooks/useInitialLanding';
@@ -106,14 +112,12 @@ import { useSaveRequestFlow } from './hooks/useSaveRequestFlow';
 import { useTabLifecycle } from './hooks/useTabLifecycle';
 import { useTabOpeners } from './hooks/useTabOpeners';
 import { useTabSyncEffects } from './hooks/useTabSyncEffects';
-import { EditingScopeWorkspaceProvider, useWorkbenchEditingScopeWorkspaceId } from './hooks/EditingScopeWorkspaceContext';
 import {
   readWorkspaceFallThrough,
   useToolLayout,
   useWorkbenchEditingScopeViewState,
   type WorkbenchViewState,
 } from './hooks/useToolLayout';
-import { useEditingScopeWorkspaceId } from './hooks/useEditingScopeWorkspaceId';
 import { useWorkbenchSidebarState } from './hooks/useWorkbenchSidebarState';
 import { useWorkbenchWorkspaceSlice } from './hooks/useWorkbenchWorkspaceSlice';
 import { useWorkspaceIntentRouter } from './hooks/useWorkspaceIntentRouter';
@@ -336,9 +340,11 @@ const WorkbenchTabAware: React.FC<{
   return (
     <EditingScopeWorkspaceProvider workspaceId={editingScopeWorkspaceId}>
       <RuleProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
-        <InspectorNavProvider>
-          <WorkbenchShell layout={layout} perTab={perTab} />
-        </InspectorNavProvider>
+        <EnvironmentProvider surfaceId="workbench" activeWorkspaceIdOverride={editingScopeWorkspaceId}>
+          <InspectorNavProvider>
+            <WorkbenchShell layout={layout} perTab={perTab} />
+          </InspectorNavProvider>
+        </EnvironmentProvider>
       </RuleProvider>
     </EditingScopeWorkspaceProvider>
   );
@@ -1737,6 +1743,18 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       openCreateLiveWorkflow,
       liveWorkflowsApi.workflows,
       replaceTab,
+      editingScopeWorkspaceId,
+      handleSwitchWorkspace,
+      localCollectionTrees,
+      openCreateRequestTab,
+      openRequestCollectionVariables,
+      openRequestEditTab,
+      openTemplateCollectionVariables,
+      openTemplateEditTab,
+      requestsApi.collectionTrees,
+      requestsApi.collections.some,
+      templateCollectionTrees,
+      templateCollections.some,
     ],
   );
 
@@ -1900,6 +1918,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       switchTab,
       handleCloseTab,
       sidebarState,
+      openLiveVariableEdit,
     ],
   );
 

@@ -77,6 +77,8 @@ vi.mock('@utils/logger', () => ({
 }));
 
 import { buildEmptyRule } from '@openheaders/core/utils';
+import { InMemoryMutationLog, type MutationLog } from '@/background/sync/mutation-log';
+import { InMemoryPendingIntents, type PendingIntents } from '@/background/sync/pending-intents';
 import {
   __initSyncServiceForTests,
   __setGracePeriodMsForTests,
@@ -86,17 +88,15 @@ import {
   disposeWorkspace,
   getOrCreateWorkspaceService,
   releaseWorkspaceService,
-  setRuntimeActive,
-  snapshotRulePostStates,
   type SetActiveResult,
+  setRuntimeActive,
+  snapshotEnvironmentPostStates,
+  snapshotRulePostStates,
 } from '@/background/sync/service';
-import { InMemoryMutationLog, type MutationLog } from '@/background/sync/mutation-log';
-import { InMemoryPendingIntents, type PendingIntents } from '@/background/sync/pending-intents';
+import { disposeAllEnvSyncMirrors, getEnvSyncMirrorForWorkspace } from '@/context/env-sync-mirror';
 import { setActiveRendererContext } from '@/context/renderer-mutator-context';
-import {
-  disposeAllRuleSyncMirrors,
-  getRuleSyncMirrorForWorkspace,
-} from '@/context/rule-sync-mirror';
+import { disposeAllRuleSyncMirrors, getRuleSyncMirrorForWorkspace } from '@/context/rule-sync-mirror';
+import { applyEnvironmentCreate, applyEnvironmentDelete } from '@/shared/sync/env-write-client';
 import { applyRuleCreate, applyRuleDelete } from '@/shared/sync/rule-write-client';
 
 type LockFn = <T>(wsId: string, type: string, id: string, fn: () => Promise<T>) => Promise<T>;
@@ -134,9 +134,14 @@ function setupHarness(): void {
     const wsId = (req as { workspaceId?: string }).workspaceId;
     return { entries: snapshotRulePostStates(wsId) };
   });
+  mockBridge._setCallHandler('oh.sync.snapshotEnvironments', (req) => {
+    const wsId = (req as { workspaceId?: string }).workspaceId;
+    return { entries: snapshotEnvironmentPostStates(wsId) };
+  });
 
   // Reset renderer registries.
   disposeAllRuleSyncMirrors();
+  disposeAllEnvSyncMirrors();
   setActiveRendererContext(null);
 
   // Reset SW state. __init clears every resident service synchronously
@@ -191,6 +196,7 @@ beforeEach(() => {
 
 afterEach(() => {
   disposeAllRuleSyncMirrors();
+  disposeAllEnvSyncMirrors();
   setActiveRendererContext(null);
   vi.useRealTimers();
 });
@@ -303,6 +309,73 @@ async function collectLogEntries(log: MutationLog): Promise<Array<{ body: { type
   return out;
 }
 
+describe('I-1-env / I-2-env — Environments per-family migration session #1', () => {
+  it('I-1-env: env mirror state == oracle env projection per workspace', async () => {
+    await setActiveAwaited('w1');
+    const w1Mirror = getEnvSyncMirrorForWorkspace('w1');
+    const w2Mirror = getEnvSyncMirrorForWorkspace('w2');
+    getOrCreateWorkspaceService('w2');
+
+    const result = await applyEnvironmentCreate(
+      { name: 'w2-staging' },
+      { workspaceId: 'w2', surfaceId: 'workbench-tab' },
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('applyEnvironmentCreate failed');
+    await flush();
+
+    // Mirror equality: w2's mirror sees the new env; w1's does not.
+    expect(w2Mirror.getEnvironmentMirror(result.environment.uid)?.environment.name).toBe('w2-staging');
+    expect(w1Mirror.getEnvironmentMirror(result.environment.uid)).toBeNull();
+
+    // Oracle projection equality: w2 carries the env; w1 does not.
+    const w2Snapshot = snapshotEnvironmentPostStates('w2');
+    expect(w2Snapshot.find((s) => s.environment.uid === result.environment.uid)).toBeDefined();
+    expect(snapshotEnvironmentPostStates('w1')).toEqual([]);
+
+    releaseWorkspaceService('w2');
+  });
+
+  it('I-2-env: w2 env create from a tab whose Active is w1 lands in w2 only', async () => {
+    // Active workspace = w1 throughout; tab2 lifeline acquires w2.
+    // Reproduces the user-reported critical bug: env created in tab2/w2
+    // lands in wsKeys(w1).environments. Post-foundation + post-session-#1
+    // the bug is structurally inexpressible.
+    await setActiveAwaited('w1');
+    getOrCreateWorkspaceService('w2'); // tab2 lifeline residency
+
+    const result = await applyEnvironmentCreate(
+      { name: 'tab2-env' },
+      { workspaceId: 'w2', surfaceId: 'workbench-tab-2' },
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('applyEnvironmentCreate failed');
+    await flush();
+
+    const w1Logs = harness.logs.get('w1') as InMemoryMutationLog | undefined;
+    const w2Logs = harness.logs.get('w2') as InMemoryMutationLog | undefined;
+    expect(w2Logs).toBeDefined();
+    const w1Entries = w1Logs ? await collectLogEntries(w1Logs) : [];
+    const w2Entries = w2Logs ? await collectLogEntries(w2Logs) : [];
+    expect(
+      w1Entries.find((e) => e.body.type === 'environment' && e.body.id === result.environment.uid),
+    ).toBeUndefined();
+    expect(w2Entries.find((e) => e.body.type === 'environment' && e.body.id === result.environment.uid)).toBeDefined();
+
+    // Sanity: a delete from tab2 also lands in w2 only — idempotent
+    // tombstone, w1 still untouched.
+    const del = await applyEnvironmentDelete(
+      { envId: result.environment.uid },
+      { workspaceId: 'w2', surfaceId: 'workbench-tab-2' },
+    );
+    expect(del.ok).toBe(true);
+    await flush();
+    expect(snapshotEnvironmentPostStates('w1')).toEqual([]);
+
+    releaseWorkspaceService('w2');
+  });
+});
+
 describe('I-3 — Active flip does not dispose other workspaces (refcount + grace)', () => {
   it('mid-flight w2 write completes after Active flips w1 → w3', async () => {
     await setActiveAwaited('w1');
@@ -386,9 +459,7 @@ describe('I-4 — SW restart rehydration (Mode 1 storage-projection invariant)',
     }
 
     const afterRehydrate = snapshotRulePostStates('w2');
-    expect(afterRehydrate.map((s) => s.rule.uid).sort()).toEqual(
-      beforeDisposal.map((s) => s.rule.uid).sort(),
-    );
+    expect(afterRehydrate.map((s) => s.rule.uid).sort()).toEqual(beforeDisposal.map((s) => s.rule.uid).sort());
 
     releaseWorkspaceService('w2');
   });

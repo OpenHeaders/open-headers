@@ -500,10 +500,7 @@ describe('MWPT-FULL foundation lint gates (sub-commit 1e)', () => {
       // BEFORE calling extractFromBroadcast.
       const subIdx = text.indexOf("subscribe('syncBroadcast'");
       expect(subIdx).toBeGreaterThan(-1);
-      const filterIdx = text.indexOf(
-        'event.envelope.workspaceId !== config.workspaceId',
-        subIdx,
-      );
+      const filterIdx = text.indexOf('event.envelope.workspaceId !== config.workspaceId', subIdx);
       const extractIdx = text.indexOf('config.extractFromBroadcast(event)', subIdx);
       expect(filterIdx).toBeGreaterThan(-1);
       expect(extractIdx).toBeGreaterThan(-1);
@@ -578,5 +575,71 @@ describe('MWPT-FULL foundation lint gates (sub-commit 1e)', () => {
       }
     }
     expect(offenders).toEqual([]);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────
+// MWPT-FULL per-family migration session #1 — Environments
+//
+// Generalizes the BC-MWPT-5 lint shape from `RuleProvider` to
+// `EnvironmentProvider`. Workbench mounts the override prop reading
+// `editingScopeWorkspaceId`; system surfaces (popup / sidepanel / panel)
+// mount `<EnvironmentProvider>` with no override prop. Override branch
+// reads from `wsKeys(workspaceId).environments` directly and routes
+// entity CRUD through `env-write-client`'s `applyEnvironmentCreate` /
+// `applyEnvironmentDelete` (BC-MWPT-FULL-1-env / -2-env / -3-env).
+// ────────────────────────────────────────────────────────────────────────
+
+const ENV_CONTEXT = join(REPO_ROOT, 'src', 'context', 'EnvironmentContext.tsx');
+const POPUP_APP = join(REPO_ROOT, 'src', 'popup', 'App.tsx');
+const PANEL_APP = join(REPO_ROOT, 'src', 'panel', 'App.tsx');
+
+describe('MWPT-FULL session #1 — Environments lint gates', () => {
+  it('BC-MWPT-FULL-1-env — workbench App.tsx mounts EnvironmentProvider with editingScopeWorkspaceId override', () => {
+    const text = readFileSync(APP_TSX, 'utf8');
+    expect(text).toMatch(
+      /<EnvironmentProvider\s+surfaceId=["']workbench["']\s+activeWorkspaceIdOverride=\{editingScopeWorkspaceId\}/,
+    );
+  });
+
+  it('BC-MWPT-FULL-1-env — system surfaces (popup / panel) mount EnvironmentProvider WITHOUT override', () => {
+    for (const file of [POPUP_APP, PANEL_APP]) {
+      const text = readFileSync(file, 'utf8');
+      expect(text).toMatch(/<EnvironmentProvider\b/);
+      // No `activeWorkspaceIdOverride=` reference anywhere on a system
+      // surface — by construction the legacy global-default path applies.
+      expect(text).not.toMatch(/<EnvironmentProvider[^>]*activeWorkspaceIdOverride=/);
+    }
+  });
+
+  it('BC-MWPT-FULL-2-env — EnvironmentProvider override branch subscribes wsKeys(workspaceId).environments directly', () => {
+    const text = readFileSync(ENV_CONTEXT, 'utf8');
+    expect(text).toMatch(/extensionStorage\.subscribe\(\s*wsKeys\(\s*\w+\s*\)\.environments\b/);
+  });
+
+  it('BC-MWPT-FULL-2-env — EnvironmentProvider override branch ignores environmentsChanged broadcast for env list', () => {
+    // The bridge broadcast still fires (legacy branch consumes it +
+    // pointer ops are still global per § 4.1.c). The override branch
+    // MUST NOT overwrite the env list with the broadcast payload —
+    // only pointers (active/default/manual) follow the broadcast.
+    const text = readFileSync(ENV_CONTEXT, 'utf8');
+    expect(text).toMatch(/if\s*\(!isOverridden\)\s*setEnvironments\(payload\.environments\)/);
+  });
+
+  it('BC-MWPT-FULL-3-env — EnvironmentProvider override branch routes entity CRUD through env-write-client', () => {
+    const text = readFileSync(ENV_CONTEXT, 'utf8');
+    expect(text).toMatch(/applyEnvironmentCreate\(/);
+    expect(text).toMatch(/applyEnvironmentDelete\(/);
+    // The legacy SW handler calls (`call('createEnvironment'`, `call('deleteEnvironment'`)
+    // remain reachable for the legacy branch but must not be the only
+    // path — the override branch threads the workspaceId through Phase B.
+    // Negative shape: the override branch (inside `if (isOverridden)`)
+    // doesn't call the legacy create/delete RPC.
+    const overrideArms = [...text.matchAll(/if\s*\(isOverridden\)\s*\{([^}]+)\}/g)];
+    expect(overrideArms.length).toBeGreaterThan(0);
+    for (const m of overrideArms) {
+      expect(m[1]).not.toMatch(/call\('createEnvironment'/);
+      expect(m[1]).not.toMatch(/call\('deleteEnvironment'/);
+    }
   });
 });

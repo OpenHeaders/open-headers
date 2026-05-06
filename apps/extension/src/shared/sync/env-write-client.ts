@@ -20,24 +20,27 @@
  * presence flicker mid-edit.
  */
 
+import {
+  ENV_VARS_PATH,
+  ENVIRONMENT_ENTITY_TYPE,
+  invalidateResolverIntent,
+  type MutationBody,
+  type MutationEnvelope,
+  mintBatch,
+  type SideEffectIntent,
+} from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
+import { generateUid } from '@openheaders/core/utils';
+import type { EnvSyncMirror } from '@/context/env-sync-mirror';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
   resolveRendererContext,
   type SyncSimpleResult,
 } from '@/shared/sync/apply-payload';
-import { mintBatch, type MutationBody, type MutationEnvelope, type SideEffectIntent } from '@openheaders/core/sync';
 import {
-  ENV_VARS_PATH,
-  ENVIRONMENT_ENTITY_TYPE,
-  invalidateResolverIntent,
-} from '@openheaders/core/sync';
-import {
-  createEnvSyncMirror,
-  type EnvSyncMirror,
-} from '@/context/env-sync-mirror';
-import {
+  buildAddEnvironmentBatch,
+  buildDeleteEnvironmentBatch,
   buildRemoveEnvVarBatch,
   buildRenameEnvironmentBatch,
   buildSetEnvVarBatch,
@@ -155,6 +158,54 @@ export async function applyEnvVariablesReplacement(
   const sideEffects: SideEffectIntent[] = [invalidateResolverIntent(envId, ctx.hlc)];
   const batch = mintBatch(ctx, bodies);
   return applySyncPayload({ batch, sideEffects });
+}
+
+/**
+ * Renderer-direct env create. Mints uid locally, builds the seed batch
+ * (one `create` for the scalar shell + one `addToSet` per variable) plus
+ * an `INVALIDATE_RESOLVER` side-effect, and fires `oh.sync.apply` against
+ * the workspace carried on `opts`. Mirrors `applyRuleCreate`. The
+ * legacy SW handler (`createEnvironment`) operates on the runtime-Active
+ * workspace and is bypassed here — workbench surfaces emit applies with
+ * the editing-scope workspaceId, fixing BC-MWPT-FULL-1.
+ */
+export type EnvironmentMutationResult =
+  | { ok: true; environment: V5.Environment }
+  | { ok: false; reason: 'not-found' }
+  | { ok: false; reason: 'other'; message?: string };
+
+export interface ApplyEnvironmentCreateInput {
+  name: string;
+  variables?: V5.Variable[];
+}
+
+export async function applyEnvironmentCreate(
+  input: ApplyEnvironmentCreateInput,
+  opts: EnvWriteOptions,
+): Promise<EnvironmentMutationResult> {
+  const environment: V5.Environment = {
+    schemaVersion: 5,
+    uid: generateUid(),
+    name: input.name.trim() || 'Untitled Environment',
+    variables: input.variables ?? [],
+  };
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ack = await applySyncPayload(buildAddEnvironmentBatch({ environment }, ctx));
+  if (ack.ok) return { ok: true, environment };
+  if (ack.reason === 'not-found') return { ok: false, reason: 'not-found' };
+  return { ok: false, reason: 'other', message: ack.message };
+}
+
+export interface ApplyEnvironmentDeleteInput {
+  envId: string;
+}
+
+export async function applyEnvironmentDelete(
+  input: ApplyEnvironmentDeleteInput,
+  opts: EnvWriteOptions,
+): Promise<EnvSimpleResult> {
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  return applySyncPayload(buildDeleteEnvironmentBatch({ envId: input.envId }, ctx));
 }
 
 /**

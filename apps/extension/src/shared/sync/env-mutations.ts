@@ -15,14 +15,23 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
+
 type Variable = V5.Variable;
+
 import {
+  ENVIRONMENT_ENTITY_TYPE,
+  invalidateResolverIntent,
+  type MutationBatch,
+  type MutationBody,
   type MutatorContext,
   type MutatorIntent,
+  mintBatch,
   removeEnvVar,
   renameEnvironment,
+  type SideEffectIntent,
   setEnvVar,
 } from '@openheaders/core/sync';
+import { seedEnvironment } from './env-projection';
 
 export type EnvMutationPayload = MutatorIntent;
 
@@ -52,9 +61,47 @@ export interface RenameEnvironmentInput {
   name: string;
 }
 
-export function buildRenameEnvironmentBatch(
-  input: RenameEnvironmentInput,
-  ctx: MutatorContext,
-): EnvMutationPayload {
+export function buildRenameEnvironmentBatch(input: RenameEnvironmentInput, ctx: MutatorContext): EnvMutationPayload {
   return renameEnvironment(ctx, input);
+}
+
+/**
+ * New environment → seed batch (`create` for the scalar shell + one
+ * `addToSet` per variable, keyed by `variable.uid`) plus a single
+ * `INVALIDATE_RESOLVER` side-effect so the runtime resolver picks up
+ * the env on the SW side. Mirrors `buildAddBatch` in `rule-mutations.ts`.
+ */
+export interface AddEnvironmentInput {
+  environment: V5.Environment;
+}
+
+export interface EnvMutationBatchPayload {
+  batch: MutationBatch;
+  sideEffects: SideEffectIntent[];
+}
+
+export function buildAddEnvironmentBatch(input: AddEnvironmentInput, ctx: MutatorContext): EnvMutationBatchPayload {
+  const batch = seedEnvironment(input.environment, ctx);
+  return {
+    batch,
+    sideEffects: [invalidateResolverIntent(input.environment.uid, ctx.hlc)],
+  };
+}
+
+export interface DeleteEnvironmentInput {
+  envId: string;
+}
+
+/**
+ * Delete an environment. Tombstone is permanent under §7.2 delete-wins.
+ */
+export function buildDeleteEnvironmentBatch(
+  input: DeleteEnvironmentInput,
+  ctx: MutatorContext,
+): EnvMutationBatchPayload {
+  const bodies: MutationBody[] = [{ kind: 'delete', type: ENVIRONMENT_ENTITY_TYPE, id: input.envId }];
+  return {
+    batch: mintBatch(ctx, bodies),
+    sideEffects: [invalidateResolverIntent(input.envId, ctx.hlc)],
+  };
 }
