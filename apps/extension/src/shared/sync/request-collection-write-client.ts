@@ -7,6 +7,19 @@
  * {@link buildVariablesReplacement} helper.
  */
 
+import { MIN_SCHEMA_VERSION } from '@openheaders/core/schemas';
+import {
+  type MutationEnvelope,
+  REQUEST_COLLECTION_ENTITY_TYPE,
+  REQUEST_COLLECTION_VARS_PATH,
+  requestCollectionInvalidateResolverIntent,
+} from '@openheaders/core/sync';
+import type { V5 } from '@openheaders/core/types';
+import { generateUid, toFolderName } from '@openheaders/core/utils';
+import {
+  getRequestCollectionSyncMirrorForWorkspace,
+  type RequestCollectionSyncMirror,
+} from '@/context/request-collection-sync-mirror';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
@@ -14,23 +27,13 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from '@/shared/sync/apply-payload';
-import { type MutationEnvelope } from '@openheaders/core/sync';
-import {
-  REQUEST_COLLECTION_ENTITY_TYPE,
-  REQUEST_COLLECTION_VARS_PATH,
-  requestCollectionInvalidateResolverIntent,
-} from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
-import {
-  getRequestCollectionSyncMirrorForWorkspace,
-  type RequestCollectionSyncMirror,
-} from '@/context/request-collection-sync-mirror';
 import {
   buildDeleteRequestCollectionBatch,
   buildRemoveRequestCollectionVarBatch,
   buildRenameRequestCollectionBatch,
   buildSetRequestCollectionVarBatch,
 } from '@/shared/sync/request-collection-mutations';
+import { seedRequestCollection } from '@/shared/sync/request-collection-projection';
 import { buildVariablesReplacement } from '@/shared/sync/variables-replacement';
 
 export { createRequestCollectionSyncMirror } from '@/context/request-collection-sync-mirror';
@@ -39,6 +42,42 @@ export type RequestCollectionSimpleResult = SyncSimpleResult;
 
 export interface RequestCollectionWriteOptions extends BaseSyncWriteOptions {
   mirror?: RequestCollectionSyncMirror;
+}
+
+/**
+ * Renderer-direct request-collection create. Mints uid + path locally,
+ * builds the seed batch, and fires `oh.sync.apply` against the workspace
+ * carried on `opts`. Mirrors `applyCollectionCreate`.
+ */
+export type RequestCollectionMutationResult =
+  | { ok: true; collection: V5.Collection }
+  | { ok: false; reason: 'not-found' }
+  | { ok: false; reason: 'other'; message?: string };
+
+export interface ApplyRequestCollectionCreateInput {
+  name: string;
+}
+
+export async function applyRequestCollectionCreate(
+  input: ApplyRequestCollectionCreateInput,
+  opts: RequestCollectionWriteOptions,
+): Promise<RequestCollectionMutationResult> {
+  const uid = generateUid();
+  const folderName = toFolderName(input.name, uid);
+  const collection: V5.Collection = {
+    schemaVersion: MIN_SCHEMA_VERSION,
+    uid,
+    path: `requests/${folderName}`,
+    name: input.name,
+    variables: [],
+    pinnedEnvironmentIds: [],
+    defaultEnvironmentId: null,
+  };
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ack = await applySyncPayload({ batch: seedRequestCollection(collection, ctx), sideEffects: [] });
+  if (ack.ok) return { ok: true, collection };
+  if (ack.reason === 'not-found') return { ok: false, reason: 'not-found' };
+  return { ok: false, reason: 'other', message: ack.message };
 }
 
 export interface ApplyRequestCollectionRenameInput {
@@ -67,9 +106,7 @@ export async function applyRequestCollectionDelete(
   opts: RequestCollectionWriteOptions,
 ): Promise<RequestCollectionSimpleResult> {
   const ctx = resolveRendererContext(opts).next(
-    opts.batchId
-      ? { batchId: opts.batchId }
-      : { batchId: `request-collection-delete-${input.collectionUid}` },
+    opts.batchId ? { batchId: opts.batchId } : { batchId: `request-collection-delete-${input.collectionUid}` },
   );
   return applySyncPayload({
     batch: buildDeleteRequestCollectionBatch(input.collectionUid, ctx),

@@ -19,15 +19,19 @@
  *     broadcast; CRUD via the legacy `call('createLocalRequest'|...)`
  *     handlers.
  *
- * § 4.1.c residuals (BC-MWPT-FULL-10-requestcoll / -requestfolder):
- * collection create + folder create/delete/move stay on the legacy SW
- * handlers in BOTH branches — `applyRequestCollectionCreate` does not
- * exist (no Phase B coverage), and folder create/delete renderer-side
- * minting is out of session 7's scope. Mirrors RuleProvider's shape
- * exactly. Collection rename + delete + folder rename DO route through
- * Phase B in the override branch.
+ * Override-branch coverage: collection + folder CRUD (create / rename /
+ * delete) all route through Phase B helpers with the explicit
+ * editing-scope workspaceId. Folder parent-ref resolution walks the
+ * override-branch's local `collections` + `foldersRef` snapshots to
+ * mirror the SW's `resolveRequestFolderParent`. Folder reorder/move is
+ * not yet wired (no UI gesture in v1; deferred to a separate pass).
  */
 
+import {
+  REQUEST_COLLECTION_ENTITY_TYPE,
+  REQUEST_FOLDER_ENTITY_TYPE,
+  type RequestFolderParentRef,
+} from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import type { BridgeRpcResponse } from '@utils/bridge';
@@ -38,10 +42,15 @@ import type { ExecutedRequestSnapshot } from '@/background/modules/request-execu
 import { buildRequestCollectionTrees } from '@/shared/local-tree-builder';
 import { extensionStorage, type PersistedLocalFolder, wsKeys } from '@/shared/storage';
 import {
+  applyRequestCollectionCreate,
   applyRequestCollectionDelete,
   applyRequestCollectionRename,
 } from '@/shared/sync/request-collection-write-client';
-import { applyRequestFolderRename } from '@/shared/sync/request-folder-write-client';
+import {
+  applyRequestFolderCreate,
+  applyRequestFolderDelete,
+  applyRequestFolderRename,
+} from '@/shared/sync/request-folder-write-client';
 import { applyRequestCreate, applyRequestDelete, applyRequestUpdate } from '@/shared/sync/request-write-client';
 
 export type RequestWriteResult = BridgeRpcResponse<'updateLocalRequest'>;
@@ -124,6 +133,11 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
   const [collectionTrees, setCollectionTrees] = useState<V5.CollectionTree[]>([]);
   const [isReady, setIsReady] = useState(false);
   const overrideIdRef = useRef<string | null>(null);
+  // Folder list isn't rendered directly — the trees view is — so keep it
+  // in a ref instead of state so override-branch mutators (createFolder,
+  // deleteFolder) can resolve `RequestFolderParentRef` synchronously
+  // from the latest snapshot without forcing re-renders.
+  const foldersRef = useRef<PersistedLocalFolder[]>([]);
 
   // ── Read path (legacy branch) ──────────────────────────────────
   //
@@ -207,6 +221,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     });
     const unsubFolders = extensionStorage.subscribe(wsKeys(wsId).requestFolders, (record) => {
       currentFolders = record ?? [];
+      foldersRef.current = currentFolders;
       recomputeTrees();
     });
 
@@ -219,6 +234,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       currentRequests = reqRecord ?? [];
       currentCollections = colRecord ?? [];
       currentFolders = foldersRecord ?? [];
+      foldersRef.current = currentFolders;
       setRequests(currentRequests);
       setCollections(currentCollections);
       recomputeTrees();
@@ -234,11 +250,8 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
 
   // ── Mutators ──────────────────────────────────────────────────
   //
-  // Override branch: request entity CRUD routes through
-  // `request-write-client.ts` (Phase B); collection rename/delete +
-  // folder rename also Phase B. Collection create + folder
-  // create/delete/move stay on legacy RPCs (BC-MWPT-FULL-10
-  // residuals — mirrors RuleProvider's shape).
+  // Override branch: every CRUD path routes through the Phase B
+  // *-write-client modules with the explicit editing-scope workspaceId.
   // Legacy branch: every gesture against the SW's runtime-Active
   // workspace via `call(...)`.
 
@@ -326,12 +339,19 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     [isOverridden, activeWorkspaceIdOverride, surfaceId],
   );
 
-  // Collection create stays on the legacy RPC in BOTH branches —
-  // BC-MWPT-FULL-10-requestcoll residual (no `applyRequestCollectionCreate`).
-  const createCollection = useCallback<RequestsContextValue['createCollection']>(async (name) => {
-    const resp = await call('createLocalRequestCollection', { name }).catch(() => null);
-    return resp?.success ? (resp.collection ?? null) : null;
-  }, []);
+  const createCollection = useCallback<RequestsContextValue['createCollection']>(
+    async (name) => {
+      if (isOverridden) {
+        const wsId = activeWorkspaceIdOverride ?? null;
+        if (!wsId) return null;
+        const result = await applyRequestCollectionCreate({ name }, { workspaceId: wsId, surfaceId });
+        return result.ok ? result.collection : null;
+      }
+      const resp = await call('createLocalRequestCollection', { name }).catch(() => null);
+      return resp?.success ? (resp.collection ?? null) : null;
+    },
+    [isOverridden, activeWorkspaceIdOverride, surfaceId],
+  );
 
   const renameCollection = useCallback<RequestsContextValue['renameCollection']>(
     async (collectionUid, name) => {
@@ -361,14 +381,40 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     [isOverridden, activeWorkspaceIdOverride, surfaceId],
   );
 
-  // Folder create + delete stay on legacy RPC in BOTH branches —
-  // BC-MWPT-FULL-10-requestfolder residual (Phase B exists but
-  // renderer-side parent-ref + orderKey computation is out of
-  // session 7's scope).
-  const createFolder = useCallback<RequestsContextValue['createFolder']>(async (name, parentPath) => {
-    const resp = await call('createLocalRequestFolder', { name, parentPath }).catch(() => null);
-    return resp?.success ? (resp.folder ?? null) : null;
-  }, []);
+  // Resolve `parentPath` to a {@link RequestFolderParentRef} via the
+  // override branch's local snapshots. Mirrors `resolveRequestFolderParent`
+  // in `request-store.ts`. Returns null when the path matches neither a
+  // collection nor a folder — caller falls back to legacy RPC, which is
+  // the runtime-Active-workspace path.
+  const resolveOverrideFolderParent = useCallback(
+    (parentPath: string): RequestFolderParentRef | null => {
+      const collection = collections.find((c) => c.path === parentPath);
+      if (collection) return { type: REQUEST_COLLECTION_ENTITY_TYPE, uid: collection.uid };
+      const folder = foldersRef.current.find((f) => f.path === parentPath);
+      if (folder) return { type: REQUEST_FOLDER_ENTITY_TYPE, uid: folder.uid };
+      return null;
+    },
+    [collections],
+  );
+
+  const createFolder = useCallback<RequestsContextValue['createFolder']>(
+    async (name, parentPath) => {
+      if (isOverridden) {
+        const wsId = activeWorkspaceIdOverride ?? null;
+        if (!wsId) return null;
+        const parent = resolveOverrideFolderParent(parentPath);
+        if (!parent) return null;
+        const folderUid = generateUid();
+        const folderName = toFolderName(name, folderUid);
+        const result = await applyRequestFolderCreate({ folderUid, parent, name }, { workspaceId: wsId, surfaceId });
+        if (!result.ok) return null;
+        return { uid: folderUid, path: `${parentPath}/${folderName}`, name };
+      }
+      const resp = await call('createLocalRequestFolder', { name, parentPath }).catch(() => null);
+      return resp?.success ? (resp.folder ?? null) : null;
+    },
+    [isOverridden, activeWorkspaceIdOverride, surfaceId, resolveOverrideFolderParent],
+  );
 
   const renameFolder = useCallback<RequestsContextValue['renameFolder']>(
     async (folderUid, name) => {
@@ -384,10 +430,24 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     [isOverridden, activeWorkspaceIdOverride, surfaceId],
   );
 
-  const deleteFolder = useCallback<RequestsContextValue['deleteFolder']>(async (folderUid) => {
-    const resp = await call('deleteLocalRequestFolder', { folderUid }).catch(() => null);
-    return Boolean(resp?.success);
-  }, []);
+  const deleteFolder = useCallback<RequestsContextValue['deleteFolder']>(
+    async (folderUid) => {
+      if (isOverridden) {
+        const wsId = activeWorkspaceIdOverride ?? null;
+        if (!wsId) return false;
+        const folder = foldersRef.current.find((f) => f.uid === folderUid);
+        if (!folder) return false;
+        const parentPath = folder.path.substring(0, folder.path.lastIndexOf('/'));
+        const parent = resolveOverrideFolderParent(parentPath);
+        if (!parent) return false;
+        const result = await applyRequestFolderDelete({ folderUid, parent }, { workspaceId: wsId, surfaceId });
+        return result.ok;
+      }
+      const resp = await call('deleteLocalRequestFolder', { folderUid }).catch(() => null);
+      return Boolean(resp?.success);
+    },
+    [isOverridden, activeWorkspaceIdOverride, surfaceId, resolveOverrideFolderParent],
+  );
 
   const execute = useCallback<RequestsContextValue['execute']>(async (input) => {
     const resp = await call('executeRequest', input).catch(() => null);

@@ -6,6 +6,19 @@
  * shared {@link buildVariablesReplacement} helper.
  */
 
+import { MIN_SCHEMA_VERSION } from '@openheaders/core/schemas';
+import {
+  type MutationEnvelope,
+  TEMPLATE_COLLECTION_ENTITY_TYPE,
+  TEMPLATE_COLLECTION_VARS_PATH,
+  templateCollectionInvalidateResolverIntent,
+} from '@openheaders/core/sync';
+import type { V5 } from '@openheaders/core/types';
+import { generateUid, toFolderName } from '@openheaders/core/utils';
+import {
+  getTemplateCollectionSyncMirrorForWorkspace,
+  type TemplateCollectionSyncMirror,
+} from '@/context/template-collection-sync-mirror';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
@@ -13,23 +26,13 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from '@/shared/sync/apply-payload';
-import { type MutationEnvelope } from '@openheaders/core/sync';
-import {
-  TEMPLATE_COLLECTION_ENTITY_TYPE,
-  TEMPLATE_COLLECTION_VARS_PATH,
-  templateCollectionInvalidateResolverIntent,
-} from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
-import {
-  getTemplateCollectionSyncMirrorForWorkspace,
-  type TemplateCollectionSyncMirror,
-} from '@/context/template-collection-sync-mirror';
 import {
   buildDeleteTemplateCollectionBatch,
   buildRemoveTemplateCollectionVarBatch,
   buildRenameTemplateCollectionBatch,
   buildSetTemplateCollectionVarBatch,
 } from '@/shared/sync/template-collection-mutations';
+import { seedTemplateCollection } from '@/shared/sync/template-collection-projection';
 import { buildVariablesReplacement } from '@/shared/sync/variables-replacement';
 
 export { createTemplateCollectionSyncMirror } from '@/context/template-collection-sync-mirror';
@@ -38,6 +41,42 @@ export type TemplateCollectionSimpleResult = SyncSimpleResult;
 
 export interface TemplateCollectionWriteOptions extends BaseSyncWriteOptions {
   mirror?: TemplateCollectionSyncMirror;
+}
+
+/**
+ * Renderer-direct template-collection create. Mints uid + path locally,
+ * builds the seed batch, and fires `oh.sync.apply` against the workspace
+ * carried on `opts`. Mirrors `applyCollectionCreate`.
+ */
+export type TemplateCollectionMutationResult =
+  | { ok: true; collection: V5.Collection }
+  | { ok: false; reason: 'not-found' }
+  | { ok: false; reason: 'other'; message?: string };
+
+export interface ApplyTemplateCollectionCreateInput {
+  name: string;
+}
+
+export async function applyTemplateCollectionCreate(
+  input: ApplyTemplateCollectionCreateInput,
+  opts: TemplateCollectionWriteOptions,
+): Promise<TemplateCollectionMutationResult> {
+  const uid = generateUid();
+  const folderName = toFolderName(input.name, uid);
+  const collection: V5.Collection = {
+    schemaVersion: MIN_SCHEMA_VERSION,
+    uid,
+    path: `templates/${folderName}`,
+    name: input.name,
+    variables: [],
+    pinnedEnvironmentIds: [],
+    defaultEnvironmentId: null,
+  };
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ack = await applySyncPayload({ batch: seedTemplateCollection(collection, ctx), sideEffects: [] });
+  if (ack.ok) return { ok: true, collection };
+  if (ack.reason === 'not-found') return { ok: false, reason: 'not-found' };
+  return { ok: false, reason: 'other', message: ack.message };
 }
 
 export interface ApplyTemplateCollectionRenameInput {
@@ -66,9 +105,7 @@ export async function applyTemplateCollectionDelete(
   opts: TemplateCollectionWriteOptions,
 ): Promise<TemplateCollectionSimpleResult> {
   const ctx = resolveRendererContext(opts).next(
-    opts.batchId
-      ? { batchId: opts.batchId }
-      : { batchId: `template-collection-delete-${input.collectionUid}` },
+    opts.batchId ? { batchId: opts.batchId } : { batchId: `template-collection-delete-${input.collectionUid}` },
   );
   return applySyncPayload({
     batch: buildDeleteTemplateCollectionBatch(input.collectionUid, ctx),

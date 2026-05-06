@@ -15,24 +15,24 @@
  * shared helper.
  */
 
-import type { V5 } from '@openheaders/core/types';
-import {
-  applySyncPayload,
-  type BaseSyncWriteOptions,
-  resolveRendererContext,
-  type SyncSimpleResult,
-} from '@/shared/sync/apply-payload';
+import { MIN_SCHEMA_VERSION } from '@openheaders/core/schemas';
 import type { MutationEnvelope } from '@openheaders/core/sync';
 import {
   COLLECTION_ENTITY_TYPE,
   COLLECTION_VARS_PATH,
   collectionInvalidateResolverIntent,
 } from '@openheaders/core/sync';
+import type { V5 } from '@openheaders/core/types';
+import { generateUid, toFolderName } from '@openheaders/core/utils';
+import type { CollectionSyncMirror } from '@/context/collection-sync-mirror';
 import {
-  type CollectionSyncMirror,
-  createCollectionSyncMirror,
-} from '@/context/collection-sync-mirror';
+  applySyncPayload,
+  type BaseSyncWriteOptions,
+  resolveRendererContext,
+  type SyncSimpleResult,
+} from '@/shared/sync/apply-payload';
 import {
+  buildDeleteCollectionBatch,
   buildRemoveCollectionVarBatch,
   buildRenameCollectionBatch,
   buildSetCollectionVarBatch,
@@ -40,6 +40,7 @@ import {
   buildSetPinnedAndDefaultBatch,
   buildSetPinnedEnvironmentsBatch,
 } from '@/shared/sync/collection-mutations';
+import { seedCollection } from '@/shared/sync/collection-projection';
 import { buildVariablesReplacement } from '@/shared/sync/variables-replacement';
 
 export { createCollectionSyncMirror } from '@/context/collection-sync-mirror';
@@ -76,6 +77,63 @@ export async function applyCollectionRemoveVar(
 ): Promise<CollectionSimpleResult> {
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRemoveCollectionVarBatch(input, ctx));
+}
+
+/**
+ * Renderer-direct collection create. Mints uid + path locally, builds the
+ * seed batch (one `create` for the scalar shell + one `addToSet` per
+ * variable), and fires `oh.sync.apply` against the workspace carried on
+ * `opts`. Mirrors `applyEnvironmentCreate`. The legacy SW handler
+ * (`createLocalCollection`) operates on the runtime-Active workspace and
+ * is bypassed here — workbench surfaces emit applies with the
+ * editing-scope workspaceId.
+ */
+export type CollectionMutationResult =
+  | { ok: true; collection: V5.Collection }
+  | { ok: false; reason: 'not-found' }
+  | { ok: false; reason: 'other'; message?: string };
+
+export interface ApplyCollectionCreateInput {
+  name: string;
+}
+
+export async function applyCollectionCreate(
+  input: ApplyCollectionCreateInput,
+  opts: CollectionWriteOptions,
+): Promise<CollectionMutationResult> {
+  const uid = generateUid();
+  const folderName = toFolderName(input.name, uid);
+  const collection: V5.Collection = {
+    schemaVersion: MIN_SCHEMA_VERSION,
+    uid,
+    path: `rules/${folderName}`,
+    name: input.name,
+    variables: [],
+    pinnedEnvironmentIds: [],
+    defaultEnvironmentId: null,
+  };
+  const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
+  const ack = await applySyncPayload({ batch: seedCollection(collection, ctx), sideEffects: [] });
+  if (ack.ok) return { ok: true, collection };
+  if (ack.reason === 'not-found') return { ok: false, reason: 'not-found' };
+  return { ok: false, reason: 'other', message: ack.message };
+}
+
+export interface ApplyCollectionDeleteInput {
+  collectionUid: string;
+}
+
+export async function applyCollectionDelete(
+  input: ApplyCollectionDeleteInput,
+  opts: CollectionWriteOptions,
+): Promise<CollectionSimpleResult> {
+  const ctx = resolveRendererContext(opts).next(
+    opts.batchId ? { batchId: opts.batchId } : { batchId: `collection-delete-${input.collectionUid}` },
+  );
+  return applySyncPayload({
+    batch: buildDeleteCollectionBatch(input.collectionUid, ctx),
+    sideEffects: [],
+  });
 }
 
 export interface ApplyRenameCollectionInput {

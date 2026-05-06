@@ -11,16 +11,42 @@
  *      id's key when the active workspace changes.
  */
 
+import { MIN_SCHEMA_VERSION } from '@openheaders/core/schemas';
+import {
+  COLLECTION_ENTITY_TYPE,
+  FOLDER_ENTITY_TYPE,
+  type FolderParentRef,
+  TEMPLATE_COLLECTION_ENTITY_TYPE,
+  TEMPLATE_FOLDER_ENTITY_TYPE,
+  type TemplateFolderParentRef,
+} from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
-import { computePausedUids, resolvePauseState } from '@openheaders/core/utils';
+import { computePausedUids, generateUid, resolvePauseState, toFolderName } from '@openheaders/core/utils';
 import { call, subscribe } from '@utils/bridge';
 import type React from 'react';
 import { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildLocalCollectionTrees, buildTemplateCollectionTrees } from '@/shared/local-tree-builder';
 import { extensionStorage, type PersistedLocalFolder, UI, wsKeys } from '@/shared/storage';
+import {
+  applyCollectionCreate,
+  applyCollectionDelete,
+  applyRenameCollection,
+} from '@/shared/sync/collection-write-client';
+import { applyFolderCreate, applyFolderDelete, applyFolderRename } from '@/shared/sync/folder-write-client';
 import { applyPauseMarkersReplacement } from '@/shared/sync/pause-markers-write-client';
 import { applyRuleDelete, applyRuleUpdate } from '@/shared/sync/rule-write-client';
+import {
+  applyTemplateCollectionCreate,
+  applyTemplateCollectionDelete,
+  applyTemplateCollectionRename,
+} from '@/shared/sync/template-collection-write-client';
+import {
+  applyTemplateFolderCreate,
+  applyTemplateFolderDelete,
+  applyTemplateFolderRename,
+} from '@/shared/sync/template-folder-write-client';
+import { applyTemplateCreate, applyTemplateDelete, applyTemplateUpdate } from '@/shared/sync/template-write-client';
 
 // ── Context shape ─────────────────────────────────────────────────
 
@@ -222,6 +248,11 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
   // subscription rebind on workspace switch).
   const activeWorkspaceIdRef = useRef<string | null>(null);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
+  // Folder lists aren't rendered directly — the trees view is — so they
+  // live in refs instead of state, exposed to override-branch mutators
+  // that need synchronous parent-ref resolution at write time.
+  const foldersRef = useRef<PersistedLocalFolder[]>([]);
+  const templateFoldersRef = useRef<PersistedLocalFolder[]>([]);
 
   // ── Load active workspace snapshot ────────────────────────────
   //
@@ -285,14 +316,14 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
     const templatesArr = templatesRecord ?? [];
     const templateCollectionsArr = templateCollectionsRecord ?? [];
     const templateFoldersArr = templateFoldersRecord ?? [];
+    foldersRef.current = foldersArr;
+    templateFoldersRef.current = templateFoldersArr;
     setRules(rulesArr);
     setLocalCollections(collectionsArr);
     setLocalCollectionTrees(buildLocalCollectionTrees(collectionsArr, foldersArr, rulesArr));
     setTemplates(templatesArr);
     setTemplateCollections(templateCollectionsArr);
-    setTemplateCollectionTrees(
-      buildTemplateCollectionTrees(templateCollectionsArr, templateFoldersArr, templatesArr),
-    );
+    setTemplateCollectionTrees(buildTemplateCollectionTrees(templateCollectionsArr, templateFoldersArr, templatesArr));
     setPauseMarkers(pauseMarkersRecord ? new Map(Object.entries(pauseMarkersRecord)) : new Map());
   }, []);
 
@@ -465,6 +496,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
   // hydrated yet); the persisted folder/collection arrays already
   // carry orderedSet-projected order because the cache layer writes
   // them on every oracle broadcast.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: see comment at end of effect
   useEffect(() => {
     if (!isOverridden) return;
     if (!activeWorkspaceId) return;
@@ -497,6 +529,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
     });
     const unsubFolders = extensionStorage.subscribe(wsKeys(wsId).folders, (record) => {
       currentFolders = record ?? [];
+      foldersRef.current = currentFolders;
       recomputeRulesTree();
     });
     const unsubTemplates = extensionStorage.subscribe(wsKeys(wsId).templates, (record) => {
@@ -504,16 +537,14 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       setTemplates(currentTemplates);
       recomputeTemplatesTree();
     });
-    const unsubTemplateCollections = extensionStorage.subscribe(
-      wsKeys(wsId).templateCollections,
-      (record) => {
-        currentTemplateCollections = record ?? [];
-        setTemplateCollections(currentTemplateCollections);
-        recomputeTemplatesTree();
-      },
-    );
+    const unsubTemplateCollections = extensionStorage.subscribe(wsKeys(wsId).templateCollections, (record) => {
+      currentTemplateCollections = record ?? [];
+      setTemplateCollections(currentTemplateCollections);
+      recomputeTemplatesTree();
+    });
     const unsubTemplateFolders = extensionStorage.subscribe(wsKeys(wsId).templateFolders, (record) => {
       currentTemplateFolders = record ?? [];
+      templateFoldersRef.current = currentTemplateFolders;
       recomputeTemplatesTree();
     });
 
@@ -525,6 +556,8 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
     ]).then(([foldersRecord, templateFoldersRecord]) => {
       currentFolders = foldersRecord ?? [];
       currentTemplateFolders = templateFoldersRecord ?? [];
+      foldersRef.current = currentFolders;
+      templateFoldersRef.current = currentTemplateFolders;
       recomputeRulesTree();
       recomputeTemplatesTree();
     });
@@ -541,7 +574,6 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
     // override workspace id flips. Local-cache initial values are
     // captured once at effect-setup time and updated by the per-key
     // listeners thereafter.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOverridden, activeWorkspaceId]);
 
   // ── UI state persistence ──────────────────────────────────────
@@ -705,8 +737,48 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
     [activeWorkspaceId, surfaceId, refreshRules],
   );
 
+  // ── Override-branch parent-path resolvers ─────────────────────
+  //
+  // Mirror the SW's `resolveFolderParent` / `resolveTemplateFolderParent`
+  // by walking the per-workspace storage snapshots already cached in
+  // `localCollections` / `templateCollections` state and the
+  // `foldersRef` / `templateFoldersRef` refs. Pure synchronous lookups
+  // — no IO, no oracle reads — so override-branch mutators can compute
+  // the parent ref at gesture time.
+  const resolveOverrideRuleFolderParent = useCallback(
+    (parentPath: string): FolderParentRef | null => {
+      const collection = localCollections.find((c) => c.path === parentPath);
+      if (collection) return { type: COLLECTION_ENTITY_TYPE, uid: collection.uid };
+      const folder = foldersRef.current.find((f) => f.path === parentPath);
+      if (folder) return { type: FOLDER_ENTITY_TYPE, uid: folder.uid };
+      return null;
+    },
+    [localCollections],
+  );
+
+  const resolveOverrideTemplateFolderParent = useCallback(
+    (parentPath: string): TemplateFolderParentRef | null => {
+      const collection = templateCollections.find((c) => c.path === parentPath);
+      if (collection) return { type: TEMPLATE_COLLECTION_ENTITY_TYPE, uid: collection.uid };
+      const folder = templateFoldersRef.current.find((f) => f.path === parentPath);
+      if (folder) return { type: TEMPLATE_FOLDER_ENTITY_TYPE, uid: folder.uid };
+      return null;
+    },
+    [templateCollections],
+  );
+
   const createLocalCollectionFn = useCallback(
     async (name: string): Promise<V5.Collection | null> => {
+      if (isOverridden) {
+        const wsId = activeWorkspaceIdRef.current;
+        if (!wsId) return null;
+        const result = await applyCollectionCreate({ name }, { workspaceId: wsId, surfaceId });
+        if (result.ok) {
+          refreshRules();
+          return result.collection;
+        }
+        return null;
+      }
       const resp = await call('createLocalCollection', { name }).catch(() => null);
       if (resp?.success && resp.collection) {
         refreshRules();
@@ -714,11 +786,21 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       }
       return null;
     },
-    [refreshRules],
+    [isOverridden, surfaceId, refreshRules],
   );
 
   const renameLocalCollectionFn = useCallback(
     async (uid: string, name: string): Promise<boolean> => {
+      if (isOverridden) {
+        const wsId = activeWorkspaceIdRef.current;
+        if (!wsId) return false;
+        const result = await applyRenameCollection({ collectionUid: uid, name }, { workspaceId: wsId, surfaceId });
+        if (result.ok) {
+          refreshRules();
+          return true;
+        }
+        return false;
+      }
       const resp = await call('renameLocalCollection', { collectionUid: uid, name }).catch(() => null);
       if (resp?.success) {
         refreshRules();
@@ -726,11 +808,21 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       }
       return false;
     },
-    [refreshRules],
+    [isOverridden, surfaceId, refreshRules],
   );
 
   const deleteLocalCollectionFn = useCallback(
     async (uid: string): Promise<boolean> => {
+      if (isOverridden) {
+        const wsId = activeWorkspaceIdRef.current;
+        if (!wsId) return false;
+        const result = await applyCollectionDelete({ collectionUid: uid }, { workspaceId: wsId, surfaceId });
+        if (result.ok) {
+          refreshRules();
+          return true;
+        }
+        return false;
+      }
       const resp = await call('deleteLocalCollection', { collectionUid: uid }).catch(() => null);
       if (resp?.success) {
         refreshRules();
@@ -738,11 +830,23 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       }
       return false;
     },
-    [refreshRules],
+    [isOverridden, surfaceId, refreshRules],
   );
 
   const createLocalFolderFn = useCallback(
     async (name: string, parentPath: string): Promise<{ uid: string; path: string; name: string } | null> => {
+      if (isOverridden) {
+        const wsId = activeWorkspaceIdRef.current;
+        if (!wsId) return null;
+        const parent = resolveOverrideRuleFolderParent(parentPath);
+        if (!parent) return null;
+        const folderUid = generateUid();
+        const folderName = toFolderName(name, folderUid);
+        const result = await applyFolderCreate({ folderUid, parent, name }, { workspaceId: wsId, surfaceId });
+        if (!result.ok) return null;
+        refreshRules();
+        return { uid: folderUid, path: `${parentPath}/${folderName}`, name };
+      }
       const resp = await call('createLocalFolder', { name, parentPath }).catch(() => null);
       if (resp?.success && resp.folder) {
         refreshRules();
@@ -750,11 +854,21 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       }
       return null;
     },
-    [refreshRules],
+    [isOverridden, surfaceId, refreshRules, resolveOverrideRuleFolderParent],
   );
 
   const renameLocalFolderFn = useCallback(
     async (uid: string, name: string): Promise<boolean> => {
+      if (isOverridden) {
+        const wsId = activeWorkspaceIdRef.current;
+        if (!wsId) return false;
+        const result = await applyFolderRename({ folderUid: uid, name }, { workspaceId: wsId, surfaceId });
+        if (result.ok) {
+          refreshRules();
+          return true;
+        }
+        return false;
+      }
       const resp = await call('renameLocalFolder', { folderUid: uid, name }).catch(() => null);
       if (resp?.success) {
         refreshRules();
@@ -762,11 +876,26 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       }
       return false;
     },
-    [refreshRules],
+    [isOverridden, surfaceId, refreshRules],
   );
 
   const deleteLocalFolderFn = useCallback(
     async (uid: string): Promise<boolean> => {
+      if (isOverridden) {
+        const wsId = activeWorkspaceIdRef.current;
+        if (!wsId) return false;
+        const folder = foldersRef.current.find((f) => f.uid === uid);
+        if (!folder) return false;
+        const parentPath = folder.path.substring(0, folder.path.lastIndexOf('/'));
+        const parent = resolveOverrideRuleFolderParent(parentPath);
+        if (!parent) return false;
+        const result = await applyFolderDelete({ folderUid: uid, parent }, { workspaceId: wsId, surfaceId });
+        if (result.ok) {
+          refreshRules();
+          return true;
+        }
+        return false;
+      }
       const resp = await call('deleteLocalFolder', { folderUid: uid }).catch(() => null);
       if (resp?.success) {
         refreshRules();
@@ -774,7 +903,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       }
       return false;
     },
-    [refreshRules],
+    [isOverridden, surfaceId, refreshRules, resolveOverrideRuleFolderParent],
   );
 
   // ── Template CRUD ─────────────────────────────────────────────
@@ -785,6 +914,28 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       collectionUid?: string,
       parentPath?: string,
     ): Promise<V5.Template | null> => {
+      if (isOverridden) {
+        const wsId = activeWorkspaceIdRef.current;
+        if (!wsId) return null;
+        const resolvedParent =
+          parentPath ?? (collectionUid ? templateCollections.find((c) => c.uid === collectionUid)?.path : undefined);
+        if (!resolvedParent) return null;
+        const uid = generateUid();
+        const folderName = toFolderName(template.name, uid);
+        const now = new Date().toISOString();
+        const created: V5.Template = {
+          schemaVersion: MIN_SCHEMA_VERSION,
+          ...template,
+          uid,
+          path: `${resolvedParent}/${folderName}`,
+          createdAt: template.createdAt || now,
+          updatedAt: template.updatedAt || now,
+        };
+        const ack = await applyTemplateCreate(created, { workspaceId: wsId, surfaceId });
+        if (!ack.ok) return null;
+        refreshRules();
+        return created;
+      }
       const resp = await call('createTemplate', { template, collectionUid, parentPath }).catch(() => null);
       if (resp?.success && resp.template) {
         refreshRules();
@@ -792,7 +943,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       }
       return null;
     },
-    [refreshRules],
+    [isOverridden, surfaceId, refreshRules, templateCollections],
   );
 
   const updateTemplateFn = useCallback(
@@ -800,6 +951,16 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       uid: string,
       updates: Partial<Omit<V5.Template, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
     ): Promise<boolean> => {
+      if (isOverridden) {
+        const wsId = activeWorkspaceIdRef.current;
+        if (!wsId) return false;
+        const result = await applyTemplateUpdate(uid, updates, { workspaceId: wsId, surfaceId });
+        if (result.ok) {
+          refreshRules();
+          return true;
+        }
+        return false;
+      }
       const resp = await call('updateTemplate', { templateUid: uid, updates }).catch(() => null);
       if (resp?.ok) {
         refreshRules();
@@ -807,11 +968,21 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       }
       return false;
     },
-    [refreshRules],
+    [isOverridden, surfaceId, refreshRules],
   );
 
   const deleteTemplateFn = useCallback(
     async (uid: string): Promise<boolean> => {
+      if (isOverridden) {
+        const wsId = activeWorkspaceIdRef.current;
+        if (!wsId) return false;
+        const result = await applyTemplateDelete(uid, { workspaceId: wsId, surfaceId });
+        if (result.ok) {
+          refreshRules();
+          return true;
+        }
+        return false;
+      }
       const resp = await call('deleteTemplate', { templateUid: uid }).catch(() => null);
       if (resp?.success) {
         refreshRules();
@@ -819,11 +990,21 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       }
       return false;
     },
-    [refreshRules],
+    [isOverridden, surfaceId, refreshRules],
   );
 
   const createTemplateCollectionFn = useCallback(
     async (name: string): Promise<V5.Collection | null> => {
+      if (isOverridden) {
+        const wsId = activeWorkspaceIdRef.current;
+        if (!wsId) return null;
+        const result = await applyTemplateCollectionCreate({ name }, { workspaceId: wsId, surfaceId });
+        if (result.ok) {
+          refreshRules();
+          return result.collection;
+        }
+        return null;
+      }
       const resp = await call('createTemplateCollection', { name }).catch(() => null);
       if (resp?.success && resp.collection) {
         refreshRules();
@@ -831,11 +1012,24 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       }
       return null;
     },
-    [refreshRules],
+    [isOverridden, surfaceId, refreshRules],
   );
 
   const renameTemplateCollectionFn = useCallback(
     async (uid: string, name: string): Promise<boolean> => {
+      if (isOverridden) {
+        const wsId = activeWorkspaceIdRef.current;
+        if (!wsId) return false;
+        const result = await applyTemplateCollectionRename(
+          { collectionUid: uid, name },
+          { workspaceId: wsId, surfaceId },
+        );
+        if (result.ok) {
+          refreshRules();
+          return true;
+        }
+        return false;
+      }
       const resp = await call('renameTemplateCollection', { collectionUid: uid, name }).catch(() => null);
       if (resp?.success) {
         refreshRules();
@@ -843,11 +1037,21 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       }
       return false;
     },
-    [refreshRules],
+    [isOverridden, surfaceId, refreshRules],
   );
 
   const deleteTemplateCollectionFn = useCallback(
     async (uid: string): Promise<boolean> => {
+      if (isOverridden) {
+        const wsId = activeWorkspaceIdRef.current;
+        if (!wsId) return false;
+        const result = await applyTemplateCollectionDelete({ collectionUid: uid }, { workspaceId: wsId, surfaceId });
+        if (result.ok) {
+          refreshRules();
+          return true;
+        }
+        return false;
+      }
       const resp = await call('deleteTemplateCollection', { collectionUid: uid }).catch(() => null);
       if (resp?.success) {
         refreshRules();
@@ -855,11 +1059,23 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       }
       return false;
     },
-    [refreshRules],
+    [isOverridden, surfaceId, refreshRules],
   );
 
   const createTemplateFolderFn = useCallback(
     async (name: string, parentPath: string): Promise<{ uid: string; path: string; name: string } | null> => {
+      if (isOverridden) {
+        const wsId = activeWorkspaceIdRef.current;
+        if (!wsId) return null;
+        const parent = resolveOverrideTemplateFolderParent(parentPath);
+        if (!parent) return null;
+        const folderUid = generateUid();
+        const folderName = toFolderName(name, folderUid);
+        const result = await applyTemplateFolderCreate({ folderUid, parent, name }, { workspaceId: wsId, surfaceId });
+        if (!result.ok) return null;
+        refreshRules();
+        return { uid: folderUid, path: `${parentPath}/${folderName}`, name };
+      }
       const resp = await call('createTemplateFolder', { name, parentPath }).catch(() => null);
       if (resp?.success && resp.folder) {
         refreshRules();
@@ -867,11 +1083,21 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       }
       return null;
     },
-    [refreshRules],
+    [isOverridden, surfaceId, refreshRules, resolveOverrideTemplateFolderParent],
   );
 
   const renameTemplateFolderFn = useCallback(
     async (uid: string, name: string): Promise<boolean> => {
+      if (isOverridden) {
+        const wsId = activeWorkspaceIdRef.current;
+        if (!wsId) return false;
+        const result = await applyTemplateFolderRename({ folderUid: uid, name }, { workspaceId: wsId, surfaceId });
+        if (result.ok) {
+          refreshRules();
+          return true;
+        }
+        return false;
+      }
       const resp = await call('renameTemplateFolder', { folderUid: uid, name }).catch(() => null);
       if (resp?.success) {
         refreshRules();
@@ -879,11 +1105,26 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       }
       return false;
     },
-    [refreshRules],
+    [isOverridden, surfaceId, refreshRules],
   );
 
   const deleteTemplateFolderFn = useCallback(
     async (uid: string): Promise<boolean> => {
+      if (isOverridden) {
+        const wsId = activeWorkspaceIdRef.current;
+        if (!wsId) return false;
+        const folder = templateFoldersRef.current.find((f) => f.uid === uid);
+        if (!folder) return false;
+        const parentPath = folder.path.substring(0, folder.path.lastIndexOf('/'));
+        const parent = resolveOverrideTemplateFolderParent(parentPath);
+        if (!parent) return false;
+        const result = await applyTemplateFolderDelete({ folderUid: uid, parent }, { workspaceId: wsId, surfaceId });
+        if (result.ok) {
+          refreshRules();
+          return true;
+        }
+        return false;
+      }
       const resp = await call('deleteTemplateFolder', { folderUid: uid }).catch(() => null);
       if (resp?.success) {
         refreshRules();
@@ -891,7 +1132,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       }
       return false;
     },
-    [refreshRules],
+    [isOverridden, surfaceId, refreshRules, resolveOverrideTemplateFolderParent],
   );
 
   // ── Render ────────────────────────────────────────────────────
