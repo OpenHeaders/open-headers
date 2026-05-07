@@ -27,6 +27,7 @@ import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { useRequests } from '@hooks/useRequests';
 import { useVariableResolver } from '@hooks/useVariableResolver';
 import { canonicalizeRequest, serializeRequest } from '@openheaders/core/codec/yaml';
+import { mergeRequestForSave } from './merge-request-for-save';
 import { freshDocument } from '@openheaders/core/schemas';
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
@@ -488,6 +489,10 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   // Conflict-baseline ref pattern (canonical recipe — see RuleEditor /
   // EnvironmentEditor / VaultEditor).
   const setBaselineRef = useRef<(e: V5.Request) => void>(() => undefined);
+  // Save-time merge baseline: snapshot of the request at the most
+  // recent re-prime — feeds `mergeRequestForSave` so the save batch
+  // only carries leaves the user actually edited.
+  const baselineRequestRef = useRef<V5.Request | null>(null);
 
   const reprime = useReprime<V5.Request>({
     liveEntity: liveRequest,
@@ -496,7 +501,10 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     formFingerprint,
     signature: (e) => stableStringify(canonicalRequestProjection(e)),
     populate: (e) => setDraft(draftFromRequest(e)),
-    onPrimed: (e) => setBaselineRef.current(e),
+    onPrimed: (e) => {
+      setBaselineRef.current(e);
+      baselineRequestRef.current = e;
+    },
   });
   // Create mode: dirty until Save mints the entity. Edit mode: hook owns
   // the `formFp !== primedFp` comparison (BC1 by construction).
@@ -703,7 +711,11 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       return;
     }
     if (!requestUid || !isDirty) return;
-    const updates = buildRequestUpdates(draft);
+    // Save-time per-field merge: rebases the form against the latest
+    // canonical so the batch only carries leaves the user actually
+    // edited. Closes the race window where a peer commit broadcasts
+    // between the auto-merge effect's previous tick and this save.
+    const updates = mergeRequestForSave(buildRequestUpdates(draft), baselineRequestRef.current, liveRequest);
     const result = await updateRequest(requestUid, updates);
     if (result.ok) {
       conflicts.clearDismissed();
@@ -720,6 +732,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     draft,
     draftName,
     isDirty,
+    liveRequest,
     updateRequest,
     onSaveDraft,
     conflicts,

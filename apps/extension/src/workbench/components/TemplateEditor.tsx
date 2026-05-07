@@ -19,6 +19,7 @@
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
 import { canonicalizeTemplate, serializeTemplate } from '@openheaders/core/codec/yaml';
+import { mergeTemplateForSave } from './merge-template-for-save';
 import { freshDocument } from '@openheaders/core/schemas';
 import { TEMPLATE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
@@ -139,6 +140,10 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
 
   // Conflict-baseline ref pattern (canonical recipe).
   const setBaselineRef = useRef<(t: V5.Template) => void>(() => undefined);
+  // Save-time merge baseline: snapshot of the template at the most
+  // recent re-prime — feeds `mergeTemplateForSave` so the save batch
+  // only carries leaves the user actually edited.
+  const baselineTemplateRef = useRef<V5.Template | null>(null);
 
   const reprime = useReprime<V5.Template>({
     liveEntity: liveTemplate,
@@ -155,7 +160,10 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
         formValues: t.includes.formValues ? t.formValues : {},
       }),
     populate: (t) => populateFormFromTemplate(t),
-    onPrimed: (t) => setBaselineRef.current(t),
+    onPrimed: (t) => {
+      setBaselineRef.current(t);
+      baselineTemplateRef.current = t;
+    },
   });
   const isDirty = reprime.isDirty;
 
@@ -294,7 +302,10 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
   const handleSave = useCallback(async () => {
     if (!liveTemplate) return;
     const values = form.getFieldsValue();
-    const updates = buildTemplateUpdates(values);
+    // Save-time per-field merge: rebases the form against the latest
+    // canonical so the save batch only carries leaves the user
+    // actually edited.
+    const updates = mergeTemplateForSave(buildTemplateUpdates(values), baselineTemplateRef.current, liveTemplate);
     const success = await updateTemplate(liveTemplate.uid, updates);
     if (success) {
       message.success('Template saved');

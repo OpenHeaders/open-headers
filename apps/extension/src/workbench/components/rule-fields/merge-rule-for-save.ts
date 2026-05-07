@@ -35,113 +35,25 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
+import { mergeRowsByIdentity, mergeScalarLeaves } from '@/shared/forms/per-field-merge';
 
 type RuleFormShape = Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>;
 
-function deepEqual(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
-  if (typeof a !== typeof b) return false;
-  if (a === null || b === null) return false;
-  if (typeof a !== 'object') return false;
-  if (Array.isArray(a) !== Array.isArray(b)) return false;
-  if (Array.isArray(a)) {
-    const bArr = b as unknown[];
-    if (a.length !== bArr.length) return false;
-    for (let i = 0; i < a.length; i++) {
-      if (!deepEqual(a[i], bArr[i])) return false;
-    }
-    return true;
-  }
-  const aRec = a as Record<string, unknown>;
-  const bRec = b as Record<string, unknown>;
-  const aKeys = Object.keys(aRec);
-  const bKeys = Object.keys(bRec);
-  if (aKeys.length !== bKeys.length) return false;
-  for (const k of aKeys) {
-    if (!deepEqual(aRec[k], bRec[k])) return false;
-  }
-  return true;
-}
-
-/**
- * Per-field merge of a single row that exists in form, baseline, AND live.
- * Walks the union of leaf keys and picks form's value when the user
- * actually edited that leaf (form !== baseline), live's otherwise. The
- * `uid` is preserved verbatim from the form row.
- */
-function mergeRowFields<T extends { uid: string }>(formRow: T, baselineRow: T, liveRow: T): T {
-  const out: Record<string, unknown> = {};
-  const f = formRow as unknown as Record<string, unknown>;
-  const b = baselineRow as unknown as Record<string, unknown>;
-  const l = liveRow as unknown as Record<string, unknown>;
-  const keys = new Set<string>([...Object.keys(f), ...Object.keys(b), ...Object.keys(l)]);
-  for (const k of keys) {
-    if (k === 'uid') continue;
-    if (deepEqual(f[k], b[k])) {
-      // User didn't touch this leaf in this tab — adopt live (preserves a
-      // peer's edit; if the peer dropped the leaf, the leaf disappears).
-      if (k in l) out[k] = l[k];
-      else if (k in f) out[k] = f[k];
-    } else {
-      // Local leaf edit — keep ours.
-      out[k] = f[k];
-    }
-  }
-  out.uid = formRow.uid;
-  return out as T;
-}
-
+/** Convenience wrapper — uid-keyed rows are the dominant set shape. */
 export function mergeRowsByUid<T extends { uid: string }>(
   formRows: readonly T[],
   baselineRows: readonly T[],
   liveRows: readonly T[],
 ): T[] {
-  const baselineByUid = new Map(baselineRows.map((r) => [r.uid, r]));
-  const liveByUid = new Map(liveRows.map((r) => [r.uid, r]));
-  const formUids = new Set(formRows.map((r) => r.uid));
-  const result: T[] = [];
-  for (const formRow of formRows) {
-    const baselineRow = baselineByUid.get(formRow.uid);
-    if (!baselineRow) {
-      // Local add — uid wasn't present at form-seed time.
-      result.push(formRow);
-      continue;
-    }
-    const liveRow = liveByUid.get(formRow.uid);
-    if (!liveRow) {
-      // Peer deleted this row. Delete-wins UNLESS the user has local edits
-      // on it — resurrect with our values so an in-flight save isn't lost.
-      if (!deepEqual(formRow, baselineRow)) result.push(formRow);
-      continue;
-    }
-    result.push(mergeRowFields(formRow, baselineRow, liveRow));
-  }
-  // Peer-added rows we never saw — append at end (form ordering wins for
-  // the rows the user is touching; the existing conflict tracker handles
-  // cross-tab order divergence via the per-set-reorder conflict kind).
-  for (const liveRow of liveRows) {
-    if (formUids.has(liveRow.uid)) continue;
-    if (baselineByUid.has(liveRow.uid)) continue;
-    result.push(liveRow);
-  }
-  return result;
+  return mergeRowsByIdentity(
+    formRows as readonly (T & Record<string, unknown>)[],
+    baselineRows as readonly (T & Record<string, unknown>)[],
+    liveRows as readonly (T & Record<string, unknown>)[],
+    'uid',
+  ) as T[];
 }
 
-export function mergeScalarLeaves<T extends Record<string, unknown>>(form: T, baseline: T, live: T): T {
-  const result: Record<string, unknown> = {};
-  const keys = new Set<string>([...Object.keys(form), ...Object.keys(live)]);
-  for (const key of keys) {
-    if (deepEqual(form[key], baseline[key])) {
-      // Field untouched in this tab — adopt live (preserves peer edits;
-      // also handles the case where the peer added a brand-new key).
-      if (key in live) result[key] = live[key];
-      else if (key in form) result[key] = form[key];
-    } else {
-      result[key] = form[key];
-    }
-  }
-  return result as T;
-}
+export { mergeScalarLeaves };
 
 /**
  * Merge a form-projected rule shape against the live canonical using the
