@@ -293,55 +293,21 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       });
   }, []);
 
-  const loadFromStorage = useCallback(async (workspaceId: string) => {
-    const [
-      rulesRecord,
-      collectionsRecord,
-      foldersRecord,
-      templatesRecord,
-      templateCollectionsRecord,
-      templateFoldersRecord,
-    ] = await Promise.all([
-      extensionStorage.get(wsKeys(workspaceId).rules),
-      extensionStorage.get(wsKeys(workspaceId).collections),
-      extensionStorage.get(wsKeys(workspaceId).folders),
-      extensionStorage.get(wsKeys(workspaceId).templates),
-      extensionStorage.get(wsKeys(workspaceId).templateCollections),
-      extensionStorage.get(wsKeys(workspaceId).templateFolders),
-    ]);
-    const rulesArr = rulesRecord ?? [];
-    const collectionsArr = collectionsRecord ?? [];
-    const foldersArr = foldersRecord ?? [];
-    const templatesArr = templatesRecord ?? [];
-    const templateCollectionsArr = templateCollectionsRecord ?? [];
-    const templateFoldersArr = templateFoldersRecord ?? [];
-    foldersRef.current = foldersArr;
-    templateFoldersRef.current = templateFoldersArr;
-    setRules(rulesArr);
-    setLocalCollections(collectionsArr);
-    setLocalCollectionTrees(buildLocalCollectionTrees(collectionsArr, foldersArr, rulesArr));
-    setTemplates(templatesArr);
-    setTemplateCollections(templateCollectionsArr);
-    setTemplateCollectionTrees(buildTemplateCollectionTrees(templateCollectionsArr, templateFoldersArr, templatesArr));
-  }, []);
-
   const loadRules = useCallback(() => {
     if (isOverridden) {
+      // Override branch: per-key storage subscriptions own the full
+      // workspace-scoped data load (see effect below). loadRules only
+      // mirrors the override id into state and surfaces the connection
+      // status — the prior split between this method and the storage
+      // effect raced on cold reload (Session 24): two parallel
+      // Promise.all paths wrote setLocalCollectionTrees against
+      // different snapshot ages, and the loser's empty trees stomped
+      // the winner's real ones until the first storage onChanged.
       const effectiveId = activeWorkspaceIdOverride ?? null;
       activeWorkspaceIdRef.current = effectiveId;
       setActiveWorkspaceId(effectiveId);
       setIsStatusLoaded(true);
       loadConnection();
-      if (effectiveId) {
-        void loadFromStorage(effectiveId);
-      } else {
-        setRules([]);
-        setLocalCollections([]);
-        setLocalCollectionTrees([]);
-        setTemplates([]);
-        setTemplateCollections([]);
-        setTemplateCollectionTrees([]);
-      }
       return;
     }
     call('popupOpen')
@@ -357,7 +323,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
         setIsConnected(false);
         setIsStatusLoaded(true);
       });
-  }, [isOverridden, activeWorkspaceIdOverride, loadConnection, loadFromStorage]);
+  }, [isOverridden, activeWorkspaceIdOverride, loadConnection]);
 
   const loadLocalCollections = useCallback(() => {
     if (isOverridden) return; // override branch reads from storage
@@ -478,16 +444,25 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
   // hydrated yet); the persisted folder/collection arrays already
   // carry orderedSet-projected order because the cache layer writes
   // them on every oracle broadcast.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: see comment at end of effect
   useEffect(() => {
     if (!isOverridden) return;
-    if (!activeWorkspaceId) return;
+    if (!activeWorkspaceId) {
+      setRules([]);
+      setLocalCollections([]);
+      setLocalCollectionTrees([]);
+      setTemplates([]);
+      setTemplateCollections([]);
+      setTemplateCollectionTrees([]);
+      foldersRef.current = [];
+      templateFoldersRef.current = [];
+      return;
+    }
     const wsId = activeWorkspaceId;
-    let currentRules: V5.Rule[] = rules;
-    let currentCollections: V5.Collection[] = localCollections;
+    let currentRules: V5.Rule[] = [];
+    let currentCollections: V5.Collection[] = [];
     let currentFolders: PersistedLocalFolder[] = [];
-    let currentTemplates: V5.Template[] = templates;
-    let currentTemplateCollections: V5.Collection[] = templateCollections;
+    let currentTemplates: V5.Template[] = [];
+    let currentTemplateCollections: V5.Collection[] = [];
     let currentTemplateFolders: PersistedLocalFolder[] = [];
 
     const recomputeRulesTree = () => {
@@ -530,19 +505,44 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       recomputeTemplatesTree();
     });
 
-    // Prime the local snapshots-of-snapshots so subsequent partial-key
-    // updates have a coherent tree to recompose against.
+    // Prime all six arrays in one Promise.all so the cold-reload tree
+    // composition has a complete snapshot. Earlier shape primed only the
+    // folder arrays here and relied on a sibling loadFromStorage to
+    // populate rules/collections/templates — the two async chains raced
+    // and the empty-trees recompute could stomp the populated one
+    // (Session 24 cold-reload empty-state regression).
     void Promise.all([
+      extensionStorage.get(wsKeys(wsId).rules),
+      extensionStorage.get(wsKeys(wsId).collections),
       extensionStorage.get(wsKeys(wsId).folders),
+      extensionStorage.get(wsKeys(wsId).templates),
+      extensionStorage.get(wsKeys(wsId).templateCollections),
       extensionStorage.get(wsKeys(wsId).templateFolders),
-    ]).then(([foldersRecord, templateFoldersRecord]) => {
-      currentFolders = foldersRecord ?? [];
-      currentTemplateFolders = templateFoldersRecord ?? [];
-      foldersRef.current = currentFolders;
-      templateFoldersRef.current = currentTemplateFolders;
-      recomputeRulesTree();
-      recomputeTemplatesTree();
-    });
+    ]).then(
+      ([
+        rulesRecord,
+        collectionsRecord,
+        foldersRecord,
+        templatesRecord,
+        templateCollectionsRecord,
+        templateFoldersRecord,
+      ]) => {
+        currentRules = rulesRecord ?? [];
+        currentCollections = collectionsRecord ?? [];
+        currentFolders = foldersRecord ?? [];
+        currentTemplates = templatesRecord ?? [];
+        currentTemplateCollections = templateCollectionsRecord ?? [];
+        currentTemplateFolders = templateFoldersRecord ?? [];
+        foldersRef.current = currentFolders;
+        templateFoldersRef.current = currentTemplateFolders;
+        setRules(currentRules);
+        setLocalCollections(currentCollections);
+        setTemplates(currentTemplates);
+        setTemplateCollections(currentTemplateCollections);
+        recomputeRulesTree();
+        recomputeTemplatesTree();
+      },
+    );
 
     return () => {
       unsubRules();
@@ -552,10 +552,6 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       unsubTemplateCollections();
       unsubTemplateFolders();
     };
-    // Intentionally narrow deps: this effect rebinds only when the
-    // override workspace id flips. Local-cache initial values are
-    // captured once at effect-setup time and updated by the per-key
-    // listeners thereafter.
   }, [isOverridden, activeWorkspaceId]);
 
   // ── UI state persistence ──────────────────────────────────────
