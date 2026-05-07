@@ -117,6 +117,7 @@ import { InspectorNavProvider, useInspectorNav } from './hooks/useInspectorNav';
 import { useRequestScriptsReviewPending } from './hooks/useRequestScriptsReviewPending';
 import { type ResponsiveLayout, useResponsiveLayout } from './hooks/useResponsiveLayout';
 import { useSaveRequestFlow } from './hooks/useSaveRequestFlow';
+import { useSaveRuleFlow } from './hooks/useSaveRuleFlow';
 import { useTabLifecycle } from './hooks/useTabLifecycle';
 import { useTabOpeners } from './hooks/useTabOpeners';
 import { useTabSyncEffects } from './hooks/useTabSyncEffects';
@@ -415,6 +416,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     updateLocalRule,
     localCollections,
     localCollectionTrees,
+    createLocalCollection,
+    createLocalFolder,
     pausedUids,
     renameLocalCollection,
     renameLocalFolder,
@@ -921,12 +924,20 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   );
 
   // ── Save-to-collection flow ────────────────────────────────────
-  // Rules now create the entity at + New Rule click time (renderer-direct
-  // via `applyRuleCreate`); the SaveToCollectionModal flow is kept only
-  // for request-create until the request editor adopts the same model.
+  // Both rule-create and request-create scratch tabs hand their form
+  // values to a save-flow hook that fast-paths to a preferred
+  // destination or opens SaveToCollectionModal. Rule context-create
+  // bypasses this entirely (immediate persist via `applyRuleCreate`).
   const requestSaveFlow = useSaveRequestFlow({
     allTabs,
     createRequest: requestsApi.createRequest,
+    replaceTab,
+  });
+  const ruleSaveFlow = useSaveRuleFlow({
+    allTabs,
+    workspaceId: editingScopeWorkspaceId,
+    surfaceId: 'workbench',
+    localCollections,
     replaceTab,
   });
 
@@ -2125,6 +2136,17 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             onCreateCollection={requestsApi.createCollection}
             onCreateFolder={requestsApi.createFolder}
             onCancel={requestSaveFlow.closeSaveModal}
+          />
+
+          <SaveToCollectionModal
+            open={ruleSaveFlow.saveModalOpen}
+            entityName={ruleSaveFlow.saveModalEntityName}
+            collectionTrees={localCollectionTrees}
+            collections={localCollections}
+            onSave={(params) => void ruleSaveFlow.handleSaveModalConfirm(params)}
+            onCreateCollection={createLocalCollection}
+            onCreateFolder={createLocalFolder}
+            onCancel={ruleSaveFlow.closeSaveModal}
           />
 
           <CommandPalette
