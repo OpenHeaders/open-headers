@@ -74,7 +74,7 @@ const STATUS_STYLE: Record<StatusKey, StatusStyle> = {
     fg: '#7a7a7a',
     border: '#bfbfbf',
     bg: 'rgba(140,140,140,0.10)',
-    body: 'Saved but not yet published / live.',
+    body: 'Saved but not Live yet — missing required fields, or not yet published.',
   },
   live: {
     label: 'Live',

@@ -47,6 +47,12 @@ export interface UseEditorShellInput {
   /** Publication state for entities with live runners. Drives the
    *  publish-gate Save semantics on `<EditorHeader>`. */
   isPublished?: boolean;
+  /** Whether the entity has all required fields filled in with valid
+   *  values. Same `isXComplete()` predicate the tab prefix icon +
+   *  sidebar consume. When false (and the entity is minted), the
+   *  chip shows `'draft'` — the user still has work to do before
+   *  the entity can be Live. */
+  isComplete?: boolean;
   /** Whether the entity has unresolved `{{ref}}`s in the active scope.
    *  Mirrors `unresolvableXUids.has(uid)` — same source as the sidebar's
    *  `unresolved` badge and the tab's yellow icon. */
@@ -76,6 +82,7 @@ export function useEditorShell(input: UseEditorShellInput): UseEditorShellOutput
     entityId,
     isDirty,
     isPublished,
+    isComplete,
     isUnresolved,
     onSave,
     onDirtyChange,
@@ -98,21 +105,24 @@ export function useEditorShell(input: UseEditorShellInput): UseEditorShellOutput
     registerSaveRef?.(onSave);
   }, [registerSaveRef, onSave]);
 
-  // Lifecycle status — narrates persistence + publication. Per-field
-  // validation has its own inline affordances; the Enabled toggle is
-  // its own visible control; so the chip stays focused on the axis
-  // those surfaces don't already cover.
+  // Lifecycle status — Draft means "not Live yet", whether that's
+  // because the entity is missing required fields OR is complete-
+  // but-unpublished. Live = complete + published + resolved refs.
   //
-  //   create-mode (no entity yet)         → 'scratch'
-  //   complete + unresolved               → 'unresolved'
-  //   !published                          → 'draft'
-  //   published (or no gate)              → null (Live)
+  //   create-mode (no entity yet)              → 'scratch'
+  //   !complete                                → 'draft'
+  //   complete + unresolved                    → 'unresolved'
+  //   complete + resolved + !published         → 'draft'
+  //   complete + resolved + published (or no gate) → null (Live)
   //
-  // Unresolved beats publication state: a published rule with broken
-  // refs can't fire — same yellow tab icon treatment, same chip.
+  // Precedence: scratch → !complete-as-draft → unresolved → draft → null.
+  // Same predicates the tab prefix icon + sidebar consume; the chip
+  // never disagrees with the row icon.
   let status: EditorLifecycleStatus;
   if (entityId === null) {
     status = 'scratch';
+  } else if (isComplete === false) {
+    status = 'draft';
   } else if (isUnresolved === true) {
     status = 'unresolved';
   } else if (isPublished === false) {
