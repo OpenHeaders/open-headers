@@ -44,7 +44,6 @@ declare module '../types' {
     'keyboard.popup.copyValue': string;
     'keyboard.popup.deleteRow': string;
     'keyboard.popup.addRule': string;
-    'keyboard.popup.toggleRecording': string;
     'keyboard.popup.toggleRulesPause': string;
     'keyboard.popup.togglePauseFocused': string;
     'keyboard.popup.cycleTheme': string;
@@ -75,7 +74,6 @@ interface PopupKeySpec {
     | 'keyboard.popup.copyValue'
     | 'keyboard.popup.deleteRow'
     | 'keyboard.popup.addRule'
-    | 'keyboard.popup.toggleRecording'
     | 'keyboard.popup.toggleRulesPause'
     | 'keyboard.popup.togglePauseFocused'
     | 'keyboard.popup.cycleTheme'
@@ -200,13 +198,6 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     label: 'Popup — Add Rule',
     description: 'Create a new rule from the popup.',
     tags: ['popup', 'new', 'create'],
-  },
-  {
-    key: 'keyboard.popup.toggleRecording',
-    default: 'r',
-    label: 'Popup — Toggle Recording',
-    description: 'Start or stop the current recording session.',
-    tags: ['popup', 'recording'],
   },
   {
     key: 'keyboard.popup.toggleRulesPause',

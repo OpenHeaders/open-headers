@@ -14,7 +14,6 @@
 import { logger } from '@utils/logger';
 import type { BadgeState } from '@/types/browser';
 import { getBrowserAPI } from '@/types/browser';
-import type { IRecordingService } from '@/types/recording';
 import { get as getSetting } from '@/workbench/settings/store';
 
 const browserAPI = getBrowserAPI();
@@ -29,7 +28,6 @@ let lastBadgeState: string | null = null;
 export interface BadgeUpdateInput {
   connected: boolean;
   isPaused: boolean;
-  recordingService: IRecordingService | null;
   reconnectAttempts?: number;
   /** Currently-active rules that have matched at least one request on
    *  the current page. Drives the badge number. */
@@ -44,7 +42,7 @@ export interface BadgeUpdateInput {
  * and placeholder usage.
  */
 export async function updateExtensionBadge(input: BadgeUpdateInput): Promise<void> {
-  const { connected, isPaused, recordingService, reconnectAttempts = 0, matchedRuleCount, configuredRuleCount } = input;
+  const { connected, isPaused, reconnectAttempts = 0, matchedRuleCount, configuredRuleCount } = input;
   // Get the appropriate API (chrome.action for MV3, chrome.browserAction for MV2/Firefox)
   const actionAPI =
     browserAPI.action || (browserAPI as unknown as { browserAction?: typeof chrome.action }).browserAction;
@@ -52,23 +50,6 @@ export async function updateExtensionBadge(input: BadgeUpdateInput): Promise<voi
   if (!actionAPI) {
     logger.debug('BadgeManager', 'Badge API not available');
     return;
-  }
-
-  // Check if recording is active for ANY tab (not just the current active tab)
-  if (recordingService) {
-    // Get all tabs
-    const allTabs = await new Promise<chrome.tabs.Tab[]>((resolve) => {
-      browserAPI.tabs.query({}, resolve);
-    });
-
-    // Check if any tab is recording
-    const anyTabRecording = allTabs.some((tab) => tab.id !== undefined && recordingService.isRecording(tab.id));
-
-    if (anyTabRecording) {
-      // Skip badge update if any tab is recording
-      logger.info('BadgeManager', 'Skipping badge update - recording is active on some tab');
-      return;
-    }
   }
 
   // Determine badge state and count

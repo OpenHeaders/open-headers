@@ -30,7 +30,7 @@ per-request.
 | `tabs` | Read tab URLs + titles to: (a) match rules against the current tab for the popup's "This Page" view, (b) compute per-tab request tracker state, (c) target session-scoped DNR rules at a specific tab during test runs. We do not read tab contents. |
 | `webRequest` | `onBeforeRequest` / `onCompleted` / `onErrorOccurred` listeners for request tracking + the verdict engine. Used only to observe whether requests matched user rules — no blocking on Chrome (MV3 DNR handles modification). |
 | `webNavigation` | `onCommitted` events drive our MAIN-world script/CSS injection on navigation: we wait for the commit, then ask `chrome.scripting` to inject the user's inject-rule code at the right lifecycle point. |
-| `activeTab` | User-gesture access to the current tab for: DevTools panel's "Save this request to workspace" handoff, recording flows the user explicitly starts from the popup. We never invoke tab access without a user gesture. |
+| `activeTab` | User-gesture access to the current tab for the DevTools panel's "Save this request to workspace" handoff. We never invoke tab access without a user gesture. |
 | `scripting` | `chrome.scripting.executeScript` + `registerContentScripts` run the user's own inject-rule code (MAIN-world or ISOLATED world per user choice) and attach the delay-simulation shim. Only runs when an enabled, matching rule triggers. |
 | `downloads` | `chrome.downloads.download` for the "Export to .har", "Export rules", "Export logs" flows. User-initiated; nothing is saved without a click. |
 | `cookies` | Read-only `chrome.cookies.getAll` in the DevTools panel's cookie inspector — users can see which cookies were in scope for a captured request. We never write cookies or upload them anywhere. |
@@ -73,7 +73,6 @@ Injected at `document_start` on every page, via `matches: ["<all_urls>"]`, in th
 
 | Script | When it runs |
 |---|---|
-| `workflow-recorder` | Only while the user has an active recording session (rrweb session capture). Explicitly started + stopped by the user via the popup. Recordings stay in `chrome.storage.local` on this machine; we never upload them. |
 | User inject-rule code | Only when the user created an inject-rule and a matching URL loads. Runs in whichever world (ISOLATED or MAIN) the user's rule specifies. |
 
 ---

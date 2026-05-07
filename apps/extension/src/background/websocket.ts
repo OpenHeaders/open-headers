@@ -3,13 +3,11 @@
  * and receives V5 resolved rules.
  */
 
-import type { WorkflowRecordingPayload } from '@openheaders/core/protocol';
 import { broadcast } from '@utils/bridge';
-import { isChrome, isEdge, isFirefox, isSafari, runtime, storage } from '@utils/browser-api';
+import { isChrome, isEdge, isFirefox, isSafari, runtime } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { report as reportStatus } from '@/shared/status';
 import { get as getSetting, subscribeKey } from '@/workbench/settings/store';
-import { handleRecordingInboundMessage, requestInitialRecordingSync } from './modules/recording-sync';
 import { adaptWebSocketUrl, safariPreCheck } from './safari-websocket-adapter';
 
 // ── Configuration (live from settings store) ─────────────────────
@@ -155,27 +153,15 @@ function reportSyncStatus(): void {
 
 // ── Message handling ──────────────────────────────────────────────
 //
-// Inbound messages today are limited to recording sync and recording
-// hotkey signals. Team-workspace data sync (rules/collections/vars)
-// lands in v2 — when it does, it'll go through a workspace-scoped
-// channel that writes to the per-workspace stores, not a global
-// rules-push like the pre-v5 "desktop pushes rules" flow.
-
-function handleOtherMessages(parsed: Record<string, unknown>): void {
-  if (handleRecordingInboundMessage(parsed)) return;
-
-  if (parsed.type === 'recordingHotkeyPressed') {
-    storage.local.set({
-      hotkeyCommand: { type: 'TOGGLE_RECORDING', timestamp: Date.now() },
-    });
-  }
-}
+// Team-workspace data sync (rules/collections/vars) lands in v2 — when
+// it does, it'll go through a workspace-scoped channel that writes to
+// the per-workspace stores, not a global rules-push like the pre-v5
+// "desktop pushes rules" flow.
 
 function createMessageHandler(): (event: MessageEvent) => void {
   return (event: MessageEvent) => {
     try {
-      const parsed = JSON.parse(event.data as string);
-      handleOtherMessages(parsed);
+      JSON.parse(event.data as string);
     } catch (err) {
       logger.warn('WebSocket', 'Error parsing message:', err);
     }
@@ -259,7 +245,6 @@ function connectStandardWebSocket(url: string): void {
         reportSyncStatus();
         sendBrowserInfo();
         startPingTimer();
-        requestInitialRecordingSync();
       };
 
       socket.onmessage = createMessageHandler();
@@ -384,13 +369,3 @@ export function sendViaWebSocket(data: Record<string, unknown>): boolean {
   return false;
 }
 
-export function sendRecordingViaWebSocket(recording: WorkflowRecordingPayload): boolean {
-  if (!socket || socket.readyState !== WebSocket.OPEN) return false;
-  try {
-    socket.send(JSON.stringify({ type: 'saveWorkflow', recording }));
-    return true;
-  } catch (error) {
-    logger.error('WebSocket', 'Error sending recording:', error);
-    return false;
-  }
-}

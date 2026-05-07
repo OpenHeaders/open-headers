@@ -16,7 +16,6 @@ import './workspace-layout';
 import './devpanel-layout';
 import './editor';
 import './rules-engine';
-import './recording';
 import './desktop-connection';
 import './keyboard';
 import './keyboard-popup';

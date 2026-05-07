@@ -20,7 +20,6 @@ vi.mock('@/workbench/settings/store', () => ({
 
 import type { BadgeUpdateInput } from '@/background/modules/badge-manager';
 import { resetBadgeState, updateExtensionBadge } from '@/background/modules/badge-manager';
-import type { IRecordingService } from '@/types/recording';
 
 // ---------------------------------------------------------------------------
 //  Helpers
@@ -43,26 +42,11 @@ function makeInput(overrides: Partial<BadgeUpdateInput> = {}): BadgeUpdateInput 
   return {
     connected: true,
     isPaused: false,
-    recordingService: null,
     reconnectAttempts: 0,
     matchedRuleCount: 0,
     configuredRuleCount: 0,
     ...overrides,
   };
-}
-
-function makeRecordingService(overrides: Partial<IRecordingService> = {}): IRecordingService {
-  return {
-    isRecording: vi.fn().mockReturnValue(false),
-    getRecordingState: vi.fn().mockReturnValue({}),
-    startRecording: vi.fn().mockResolvedValue({ id: 'rec-001' }),
-    stopRecording: vi.fn().mockResolvedValue(null),
-    cleanupTab: vi.fn(),
-    handleNavigation: vi.fn().mockResolvedValue(undefined),
-    addEvent: vi.fn(),
-    handleContentScriptReady: vi.fn().mockResolvedValue(undefined),
-    ...overrides,
-  } as IRecordingService;
 }
 
 // ---------------------------------------------------------------------------
@@ -185,72 +169,6 @@ describe('updateExtensionBadge', () => {
       );
 
       expect(action.setBadgeText).toHaveBeenCalledWith({ text: '!' }, expect.any(Function));
-    });
-  });
-
-  // ── Recording active skips badge update ──
-
-  describe('recording active skips badge update', () => {
-    it('skips badge update when a tab is recording', async () => {
-      const action = getActionMock();
-      const recordingService = makeRecordingService({
-        isRecording: vi.fn().mockReturnValue(true),
-      });
-
-      (chrome.tabs.query as ReturnType<typeof vi.fn>).mockImplementation(
-        (_q: chrome.tabs.QueryInfo, cb: (tabs: chrome.tabs.Tab[]) => void) =>
-          cb([
-            {
-              id: 42,
-              index: 0,
-              pinned: false,
-              highlighted: false,
-              windowId: 1,
-              active: true,
-              incognito: false,
-              selected: false,
-              discarded: false,
-              autoDiscardable: true,
-              groupId: -1,
-            } as chrome.tabs.Tab,
-          ]),
-      );
-
-      await updateExtensionBadge(makeInput({ recordingService, matchedRuleCount: 5, configuredRuleCount: 5 }));
-
-      expect(action.setBadgeText).not.toHaveBeenCalled();
-      expect(action.setBadgeBackgroundColor).not.toHaveBeenCalled();
-      expect(action.setTitle).not.toHaveBeenCalled();
-    });
-
-    it('does not skip badge update when recording service exists but no tab is recording', async () => {
-      const action = getActionMock();
-      const recordingService = makeRecordingService({
-        isRecording: vi.fn().mockReturnValue(false),
-      });
-
-      (chrome.tabs.query as ReturnType<typeof vi.fn>).mockImplementation(
-        (_q: chrome.tabs.QueryInfo, cb: (tabs: chrome.tabs.Tab[]) => void) =>
-          cb([
-            {
-              id: 42,
-              index: 0,
-              pinned: false,
-              highlighted: false,
-              windowId: 1,
-              active: true,
-              incognito: false,
-              selected: false,
-              discarded: false,
-              autoDiscardable: true,
-              groupId: -1,
-            } as chrome.tabs.Tab,
-          ]),
-      );
-
-      await updateExtensionBadge(makeInput({ recordingService, matchedRuleCount: 3, configuredRuleCount: 3 }));
-
-      expect(action.setBadgeText).toHaveBeenCalledWith({ text: '3' }, expect.any(Function));
     });
   });
 

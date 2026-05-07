@@ -15,7 +15,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**'],
-      exclude: ['src/assets/lib/**', 'src/assets/recording/inject/**', 'src/assets/recording/content/**'],
+      exclude: [],
       reporter: ['text', 'text-summary', 'html'],
       reportsDirectory: 'coverage',
     },

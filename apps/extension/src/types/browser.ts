@@ -196,8 +196,3 @@ export interface MessageHandlerContext {
   updateBadgeCallback: () => void;
 }
 
-/** Hotkey command stored in local storage */
-export interface HotkeyCommand {
-  type: 'TOGGLE_RECORDING';
-  timestamp: number;
-}

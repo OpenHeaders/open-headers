@@ -166,9 +166,9 @@ describe('AppLauncher', () => {
       });
       (chrome.tabs as Record<string, unknown>).remove = vi.fn(() => Promise.resolve());
 
-      await launcher.launchOrFocus({ tab: 'recordings', action: 'view' });
+      await launcher.launchOrFocus({ tab: 'workspaces', action: 'view' });
 
-      expect(capturedUrl).toBe('openheaders://launch?tab=recordings&action=view');
+      expect(capturedUrl).toBe('openheaders://launch?tab=workspaces&action=view');
     });
   });
 

@@ -43,7 +43,6 @@ export type PopupShortcutId =
   | 'copy-value'
   | 'delete-row'
   | 'add-rule'
-  | 'toggle-recording'
   | 'toggle-rules-pause'
   | 'toggle-pause-focused'
   | 'cycle-theme'
@@ -134,12 +133,6 @@ export const POPUP_SHORTCUTS: readonly PopupShortcutDef[] = [
     id: 'toggle-surface',
     settingKey: 'keyboard.popup.toggleSurface',
     description: 'Toggle popup / side panel',
-    group: 'actions',
-  },
-  {
-    id: 'toggle-recording',
-    settingKey: 'keyboard.popup.toggleRecording',
-    description: 'Toggle recording',
     group: 'actions',
   },
   {

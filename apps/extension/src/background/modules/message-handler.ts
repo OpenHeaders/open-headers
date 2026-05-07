@@ -1,5 +1,5 @@
 /**
- * Message Handler — handles non-recording RPCs from every extension
+ * Message Handler — handles non-rule-CRUD RPCs from every extension
  * surface (popup, sidepanel, workbench.html, devtools panel).
  *
  * Every handler is a pure dispatch: parse the request, delegate to the
@@ -686,32 +686,6 @@ export function handleGeneralMessage(
         safeResponse({ success: sent });
       } else {
         safeResponse({ success: false });
-      }
-
-      // ── Recording settings (WebSocket passthrough) ────────────
-    } else if (message.type === 'toggleVideoRecording') {
-      if (isWebSocketConnected()) {
-        safeResponse({ success: sendViaWebSocket({ type: 'toggleVideoRecording', enabled: !!message.enabled }) });
-      } else {
-        safeResponse({ success: false, error: 'App not connected' });
-      }
-    } else if (message.type === 'toggleRecordingHotkey') {
-      if (isWebSocketConnected()) {
-        safeResponse({ success: sendViaWebSocket({ type: 'toggleRecordingHotkey', enabled: !!message.enabled }) });
-      } else {
-        safeResponse({ success: false, error: 'App not connected' });
-      }
-    } else if (message.type === 'getVideoRecordingState') {
-      if (isWebSocketConnected()) {
-        safeResponse({ success: sendViaWebSocket({ type: 'getVideoRecordingState' }) });
-      } else {
-        safeResponse({ success: true, enabled: false });
-      }
-    } else if (message.type === 'getRecordingHotkey') {
-      if (isWebSocketConnected()) {
-        safeResponse({ success: sendViaWebSocket({ type: 'getRecordingHotkey' }) });
-      } else {
-        safeResponse({ success: true, hotkey: 'CommandOrControl+Shift+E' });
       }
 
       // ── Rule CRUD (active workspace) ──────────────────────────

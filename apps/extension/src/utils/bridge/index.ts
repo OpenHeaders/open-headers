@@ -24,8 +24,8 @@
 
 import { getBrowserAPI } from '@/types/browser';
 // Import `runtime` from the content-safe module — NOT `../browser-api`.
-// The fire-bridge + workflow-recorder content scripts pull this module
-// in transitively, and `browser-api.ts` has background-only top-level
+// The fire-bridge content script pulls this module in transitively,
+// and `browser-api.ts` has background-only top-level
 // reads (tabs event hooks, dnr, alarms) that crash in a content-script
 // realm where those Chrome namespaces are undefined.
 import { runtime } from '../browser-runtime';
@@ -102,7 +102,7 @@ export function tabCall<K extends BridgeTabType>(
   type: K,
   ...args: BridgeTabRequest<K> extends Record<string, never> ? [] : [payload: BridgeTabRequest<K>]
 ): Promise<BridgeTabResponse<K>> {
-  const payload = args[0] ?? ({} as BridgeTabRequest<K>);
+  const payload = ((args as unknown[])[0] ?? {}) as Record<string, unknown>;
   const message = { type, ...payload };
   return new Promise((resolve, reject) => {
     const api = getBrowserAPI();

@@ -50,17 +50,6 @@ function copyAssetsPlugin() {
     // (see the relative url() in popup.less / rules.less). Only the
     // license file needs an explicit copy.
     { from: 'src/assets/fonts/OFL.txt', to: 'fonts/OFL.txt' },
-    // Recording
-    { from: 'src/assets/recording/inject/recorder-rrweb.js', to: 'js/recording/inject/recorder.js' },
-    { from: 'src/assets/recording/inject/recording-widget.js', to: 'js/recording/inject/recording-widget.js' },
-    // Vendored libs
-    { from: 'src/assets/lib/rrweb.js', to: 'js/lib/rrweb.js' },
-    { from: 'src/assets/lib/rrweb-player.js', to: 'js/lib/rrweb-player.js' },
-    { from: 'src/assets/lib/rrweb-player.css', to: 'css/rrweb-player.css' },
-    {
-      from: 'src/assets/lib/assets/image-bitmap-data-url-worker-IJpC7g_b.js',
-      to: 'js/lib/assets/image-bitmap-data-url-worker-IJpC7g_b.js',
-    },
   ];
 
   // Safari-specific
@@ -92,57 +81,6 @@ function copyAssetsPlugin() {
 }
 
 /**
- * Plugin to build the content script as a separate self-contained IIFE bundle.
- * Content scripts injected via chrome.scripting.executeScript cannot use
- * ES module imports, so they must be bundled into a single file.
- */
-function buildContentScriptPlugin() {
-  return {
-    name: 'build-content-script',
-    async writeBundle() {
-      await viteBuild({
-        configFile: false,
-        // Standalone sub-build must not re-copy the main app's publicDir
-        // into its own nested outDir — doing so would shove every asset
-        // (including the pre-mount theme initializer) inside the content
-        // script's JS output directory for no reason.
-        publicDir: false,
-        // Match the main build's path aliases so this standalone bundle
-        // can import shared modules (e.g. @utils/bridge) by name instead
-        // of reaching through brittle relative paths.
-        resolve: {
-          alias: {
-            '@': path.resolve(__dirname, 'src'),
-            '@components': path.resolve(__dirname, 'src/components'),
-            '@assets': path.resolve(__dirname, 'src/assets'),
-            '@styles': path.resolve(__dirname, 'src/assets/styles'),
-            '@utils': path.resolve(__dirname, 'src/utils'),
-            '@context': path.resolve(__dirname, 'src/context'),
-            '@hooks': path.resolve(__dirname, 'src/hooks'),
-          },
-        },
-        build: {
-          outDir: `dist/${browser}/js/content/workflow-recorder`,
-          emptyOutDir: false,
-          minify: isDev ? false : 'terser',
-          sourcemap: browser === 'firefox' ? 'inline' : false,
-          lib: {
-            entry: path.resolve(__dirname, 'src/assets/recording/content/workflow-recorder.js'),
-            formats: ['iife'],
-            name: 'WorkflowRecorder',
-            fileName: () => 'index.js',
-          },
-          rollupOptions: {},
-        },
-        define: {
-          globalThis: 'globalThis',
-        },
-      });
-    },
-  };
-}
-
-/**
  * Build the always-on ISOLATED-world fire bridge content script as a
  * self-contained IIFE. Registered via manifest.json content_scripts for
  * `<all_urls>` at document_start, so it runs on every page the extension
@@ -157,8 +95,9 @@ function buildFireBridgePlugin() {
       await viteBuild({
         configFile: false,
         // Standalone sub-build must not re-copy the main app's publicDir
-        // into its own nested outDir — see the workflow-recorder plugin
-        // for the same rationale.
+        // into its own nested outDir — doing so would shove every asset
+        // (including the pre-mount theme initializer) inside the content
+        // script's JS output directory for no reason.
         publicDir: false,
         // Match the main build's aliases so this standalone bundle can
         // import shared modules (e.g. @utils/bridge) by name.
@@ -247,7 +186,6 @@ export default defineConfig({
     react(),
     chromeSafePlugin(),
     copyAssetsPlugin(),
-    buildContentScriptPlugin(),
     buildFireBridgePlugin(),
     buildPerfObserverPlugin(),
   ],

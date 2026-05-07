@@ -37,8 +37,8 @@ type MessageListener = (
  * Cross-browser `runtime` wrapper. Every method is lazy — it only
  * touches `chrome.runtime.*` when called — so importing this module
  * has no side-effects beyond the `isFirefox` detection above. That
- * makes it safe to pull into the fire-bridge / workflow-recorder
- * content scripts via `@utils/bridge`.
+ * makes it safe to pull into the fire-bridge content script via
+ * `@utils/bridge`.
  */
 export const runtime = {
   getURL: (path: string): string => browserAPI.runtime.getURL(path),

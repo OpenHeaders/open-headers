@@ -85,12 +85,6 @@ export interface PersistedLocalFolder {
   name: string;
 }
 
-/** On-disk shape of `oh.hotkeyCommand` — transient signal the SW clears. */
-export interface HotkeyCommandSignal {
-  type: 'TOGGLE_RECORDING';
-  timestamp: number;
-}
-
 // ── Global keys ──────────────────────────────────────────────────────
 
 export const OH = {
@@ -147,8 +141,6 @@ export const UI = {
   activePopupTab: storageKey<string>('activePopupTab'),
   /** Boolean flag set once the onboarding tour has been completed. */
   onboardingCompleted: storageKey<boolean>('onboardingCompleted'),
-  /** Transient hotkey signal consumed + cleared by the background SW. */
-  hotkeyCommand: storageKey<HotkeyCommandSignal>('hotkeyCommand'),
 } as const;
 
 // ── Workspace-scoped keys ────────────────────────────────────────────

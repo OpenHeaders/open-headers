@@ -18,7 +18,7 @@
  *   3. Call it with `bridge.call(...)` / `bridge.broadcast(...)`.
  */
 
-import type { AppNavigationIntent, WorkflowRecordingPayload } from '@openheaders/core';
+import type { AppNavigationIntent } from '@openheaders/core';
 import type { FileRef } from '@openheaders/core/files';
 import type { ImportReport } from '@openheaders/core/import';
 import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
@@ -59,7 +59,6 @@ import type { LogEntry as ObservabilityLogEntry } from '@/shared/observability/t
 import type { StatusSnapshot } from '@/shared/status/types';
 import type { ActiveRule } from '@/types/browser';
 import type { PerfResourceEntry } from '@/types/perf';
-import type { RecordingData, RecordingStateInfo } from '@/types/recording';
 
 // ── Workspace ────────────────────────────────────────────────────
 
@@ -382,24 +381,6 @@ export interface BridgeRpcContract {
     res: { ordinal: number | null; count: number };
   };
 
-  // ── Recording settings (WebSocket passthrough) ─────────────────
-  toggleVideoRecording: {
-    req: { enabled: boolean };
-    res: { success: boolean; error?: string };
-  };
-  toggleRecordingHotkey: {
-    req: { enabled: boolean };
-    res: { success: boolean; error?: string };
-  };
-  getVideoRecordingState: {
-    req: Record<string, never>;
-    res: { success: boolean; enabled?: boolean };
-  };
-  getRecordingHotkey: {
-    req: Record<string, never>;
-    res: { success: boolean; hotkey?: string };
-  };
-
   // ── Rule CRUD (local + desktop-routed) ─────────────────────────
   deleteRule: {
     req: { ruleId: string };
@@ -717,60 +698,6 @@ export interface BridgeRpcContract {
     res: { ok: boolean };
   };
 
-  // ── Recording ──────────────────────────────────────────────────
-  //
-  // Every recording-flow message goes through this bridge. Uses
-  // uppercase names to preserve the established handler discriminator
-  // (the background's message-handler switches on `message.type`).
-
-  START_RECORDING: {
-    req: { tabId: number; useWidget?: boolean };
-    res: { success: boolean; recordId?: string; isPreNav?: boolean; error?: string };
-  };
-  START_PRE_NAV_RECORDING: {
-    req: { tabId: number; recordId?: string; targetUrl?: string | null; useWidget?: boolean };
-    res: { success: boolean; recordId?: string; error?: string };
-  };
-  STOP_RECORDING: {
-    req: { tabId: number };
-    res: { success: boolean; recording?: RecordingData | null; error?: string };
-  };
-  STOP_RECORDING_FROM_WIDGET: {
-    req: Record<string, never>;
-    res: { success: boolean; recording?: RecordingData | null; error?: string };
-  };
-  CANCEL_RECORDING: {
-    req: { tabId?: number };
-    res: { success: boolean; error?: string };
-  };
-  GET_RECORDING_STATE: {
-    req: { tabId?: number };
-    res: RecordingStateInfo & { isRecording: boolean; recordId?: string };
-  };
-  GET_TAB_RECORDING_STATE: {
-    req: { tabId?: number; fromContentScript?: boolean };
-    res: (RecordingStateInfo & { isRecording: boolean; recordId?: string }) | { isRecording: false };
-  };
-  CONTENT_SCRIPT_READY: {
-    req: { payload: { url: string } };
-    res: { shouldStartRecording?: boolean; state?: RecordingStateInfo; [key: string]: unknown };
-  };
-  QUERY_RECORDING_STATE: {
-    req: { payload: { tabId?: number } };
-    res: RecordingStateInfo | { success: false; error: string };
-  };
-  RECORDING_DATA: {
-    req: { payload: { timestamp: number; type: string; url: string; data?: Record<string, unknown> } };
-    res: { success: boolean; error?: string };
-  };
-  DOWNLOAD_WORKFLOW: {
-    req: { url: string; filename: string };
-    res: { success: boolean };
-  };
-  SEND_WORKFLOW_TO_APP: {
-    req: { recording: WorkflowRecordingPayload };
-    res: { success: boolean; error?: string | null };
-  };
   GET_ALL_COOKIES: {
     req: { tabId?: number };
     res: { success: boolean; cookies?: chrome.cookies.Cookie[]; error?: string };
@@ -1318,22 +1245,7 @@ export interface BridgeRpcContract {
  * (tab id), not the background's runtime.onMessage router — so tab types
  * live in a separate namespace to keep the RPC contract narrow.
  */
-export interface BridgeTabContract {
-  recordingStateChanged: {
-    req: {
-      state: string;
-      isRecording: boolean;
-      isPreNav: boolean;
-      recordingId?: string;
-      startTime?: number;
-    };
-    res: { success: boolean };
-  };
-  stopRecording: {
-    req: Record<string, never>;
-    res: { success: boolean };
-  };
-}
+export type BridgeTabContract = Record<string, never>;
 
 /**
  * Broadcast contract: map of message-type → payload shape (without `type`).

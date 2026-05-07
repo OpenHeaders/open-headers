@@ -1096,7 +1096,7 @@ const InspectorDocs: React.FC = () => {
           </strong>
           <DocParagraph>
             The v5 desktop app is in development and will ship after the v5 extension stabilizes. Workspaces, variables,
-            team sync, and workflow recordings that integrate with the desktop app will unlock once it's released. The
+            and team sync that integrate with the desktop app will unlock once it's released. The
             <code>Sync</code> subsystem will flip from "disabled" to "connecting" automatically on first launch of the
             new desktop app — no reinstall required.
           </DocParagraph>

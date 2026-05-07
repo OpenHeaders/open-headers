@@ -2,12 +2,11 @@
 
 ![Open Headers Logo](./src/assets/images/icon128.png)
 
-Browser development toolkit for recording workflows, modifying HTTP traffic, and team collaboration.
+Browser development toolkit for modifying HTTP traffic and team collaboration.
 
 ## What it does
 
 Open Headers is a privacy-focused desktop app that works with browser extensions to:
-- Record and replay browser workflows
 - Modify HTTP headers and requests in real-time
 - Share configurations with your team via Git
 - Inject dynamic values into HTTP headers from files, environment variables, and HTTP endpoints

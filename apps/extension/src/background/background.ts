@@ -9,7 +9,6 @@
 
 declare const browser: typeof chrome | undefined;
 
-import { RecordingService } from '@assets/recording/background/recording-service';
 import type { V5 } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
 import { isRuleEffective } from '@openheaders/core/utils';
@@ -18,9 +17,6 @@ import { alarms, isChrome, isEdge, isFirefox, isSafari, runtime, storage, tabs }
 import { logger } from '@utils/logger';
 import { bootstrapSettings } from '@utils/settings-bootstrap';
 import { subscribe as subscribeStatus } from '@/shared/status';
-import { extensionStorage, UI } from '@/shared/storage';
-import type { HotkeyCommand } from '@/types/browser';
-import type { IRecordingService } from '@/types/recording';
 import { get as getSetting, subscribeKey } from '@/workbench/settings/store';
 import { forgetDelayBypassForTab, markTabForDelayBypass, resolveDelayBypass, setRulesPaused } from './dnr-manager';
 import { setupInjectListener } from './inject-manager';
@@ -79,8 +75,6 @@ import { hydrateObservabilityLog, recordLog } from './modules/observability-log'
 import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
 import { bridgePauseMarkersSyncEngine, getPauseMarkers } from './modules/pause-markers-store';
 import { auditHostPermissions } from './modules/permissions-audit';
-import { handleRecordingMessage } from './modules/recording-handler';
-import { initRecordingSync } from './modules/recording-sync';
 import { setupRequestMonitoring } from './modules/request-monitor';
 import { applyExternalSnapshot as applyRequestScriptsReviewSnapshot } from './modules/request-scripts-review-store';
 import {
@@ -149,7 +143,6 @@ import {
   getReconnectAttempts,
   isWebSocketConnected,
   isWebSocketConnecting,
-  sendRecordingViaWebSocket,
   sendViaWebSocket,
 } from './websocket';
 
@@ -169,7 +162,6 @@ const settingsReady = workspacesReady.then(bootstrapSettings).then(() => {
     scheduleUpdate('pause', { immediate: true });
     debouncedUpdateBadge();
   });
-  initRecordingSync();
   // Engine knobs that affect the DNR compile force a full rebuild so
   // changes go live immediately.
   const rebuildOnPrefChange = (): void => scheduleUpdate('prefs', { immediate: true });
@@ -236,8 +228,6 @@ function pruneOrphanTestRunOwnersFromStore(): void {
   void pruneOrphanOwners(liveRules, liveEntities);
 }
 
-const recordingService: IRecordingService = new RecordingService();
-
 // ── Badge update ──────────────────────────────────────────────────
 
 async function updateBadgeForCurrentTab(): Promise<void> {
@@ -247,8 +237,6 @@ async function updateBadgeForCurrentTab(): Promise<void> {
 
   tabs.query({ active: true, currentWindow: true }, async (tabList: chrome.tabs.Tab[]) => {
     const currentTab = tabList[0];
-
-    if (currentTab?.id && recordingService.isRecording(currentTab.id)) return;
 
     const markers = getPauseMarkers();
     // Currently-effective rules: enabled + complete + not paused at any
@@ -287,7 +275,6 @@ async function updateBadgeForCurrentTab(): Promise<void> {
     await updateExtensionBadge({
       connected: isConnected,
       isPaused,
-      recordingService,
       reconnectAttempts: attempts,
       matchedRuleCount,
       configuredRuleCount: effectiveRules.length,
@@ -357,13 +344,12 @@ async function initializeExtension(): Promise<void> {
   await updateExtensionBadge({
     connected: false,
     isPaused: false,
-    recordingService,
     reconnectAttempts: 0,
     matchedRuleCount: 0,
     configuredRuleCount: 0,
   });
   setupRequestMonitoring(debouncedUpdateBadge);
-  setupTabListeners(debouncedUpdateBadge, recordingService);
+  setupTabListeners(debouncedUpdateBadge);
   setupPeriodicCleanup();
   initializeActiveTabTracking();
   // Workspace tab ordinals must be live before the first intent
@@ -856,38 +842,6 @@ storage.onChanged.addListener((changes: { [key: string]: chrome.storage.StorageC
     }
   }
 
-  // Hotkey commands
-  if (area === 'local' && changes.hotkeyCommand) {
-    const command = changes.hotkeyCommand.newValue as HotkeyCommand | undefined;
-    if (!command || command.type !== 'TOGGLE_RECORDING') return;
-
-    tabs.query({ active: true, currentWindow: true }, (tabList: chrome.tabs.Tab[]) => {
-      if (!tabList?.[0]) return;
-      const tabId = tabList[0].id!;
-
-      if (recordingService.isRecording(tabId)) {
-        recordingService
-          .stopRecording(tabId)
-          .catch((e: Error) => logger.error('Background', 'Stop recording failed:', e));
-      } else {
-        tabs.query({}, (allTabs: chrome.tabs.Tab[]) => {
-          for (const tab of allTabs) {
-            if (tab.id && recordingService.isRecording(tab.id)) {
-              recordingService
-                .stopRecording(tab.id)
-                .catch((e: Error) => logger.error('Background', 'Stop recording failed:', e));
-              return;
-            }
-          }
-          recordingService
-            .startRecording(tabId, { useWidget: true })
-            .catch((e: Error) => logger.error('Background', 'Start recording failed:', e));
-        });
-      }
-    });
-
-    void extensionStorage.remove(UI.hotkeyCommand);
-  }
 });
 
 // ── Message listener ──────────────────────────────────────────────
@@ -932,15 +886,6 @@ runtime.onMessage.addListener(
       }
       return false;
     }
-
-    const recordingHandled = handleRecordingMessage(
-      msg,
-      sender,
-      sendResponse,
-      recordingService,
-      sendRecordingViaWebSocket,
-    );
-    if (recordingHandled) return recordingHandled;
 
     return handleGeneralMessage(msg, sender, sendResponse, {
       isWebSocketConnected,

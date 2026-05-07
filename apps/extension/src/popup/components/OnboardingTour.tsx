@@ -12,7 +12,6 @@ import {
   SmileTwoTone,
   StarTwoTone,
   ThunderboltTwoTone,
-  VideoCameraTwoTone,
 } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { Space, Tour, type TourProps, Typography } from 'antd';
@@ -27,7 +26,7 @@ const logoUrl = getBrowserAPI().runtime.getURL('images/logo-pixel.svg');
 
 const { Text } = Typography;
 
-const TOTAL_STEPS = 8;
+const TOTAL_STEPS = 7;
 
 interface OnboardingTourProps {
   open: boolean | null;
@@ -251,50 +250,6 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
       {
         title: (
           <Space size={8}>
-            <DashboardTwoTone />
-            <span>System Status</span>
-          </Space>
-        ),
-        description: (
-          <StepDescription>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              Click the dot for a health breakdown across Sync, Rules, Requests, Permissions, Secrets, and Live.
-            </Text>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span
-                  style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#52c41a' }}
-                />
-                <Text style={{ fontSize: 12 }}>
-                  <Text strong>Green</Text> — everything is healthy
-                </Text>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span
-                  style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#faad14' }}
-                />
-                <Text style={{ fontSize: 12 }}>
-                  <Text strong>Yellow</Text> — a subsystem is reporting a warning
-                </Text>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span
-                  style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#ff4d4f' }}
-                />
-                <Text style={{ fontSize: 12 }}>
-                  <Text strong>Red</Text> — a subsystem has failed
-                </Text>
-              </div>
-            </div>
-          </StepDescription>
-        ),
-        target: () => getTarget('.header-system-status')!,
-        placement: 'bottom' as const,
-        ...sharedStepProps,
-      },
-      {
-        title: (
-          <Space size={8}>
             <LayoutTwoTone />
             <span>Switch Between Tabs</span>
           </Space>
@@ -379,29 +334,6 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
         target: () => getTarget('.ant-tabs-tabpane-active .header-rules-table')!,
         placement: 'top' as const,
         scrollIntoViewOptions: false,
-        ...sharedStepProps,
-      },
-      {
-        title: (
-          <Space size={8}>
-            <VideoCameraTwoTone />
-            <span>Record Browser Activity</span>
-          </Space>
-        ),
-        description: (
-          <StepDescription>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              Capture browser activity for debugging or demos.
-            </Text>
-            <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Text style={{ fontSize: 12 }}>Press</Text>
-              <Kbd>r</Kbd>
-              <Text style={{ fontSize: 12 }}>to start/stop recording from the keyboard</Text>
-            </div>
-          </StepDescription>
-        ),
-        target: () => getTarget('.recording-button')!,
-        placement: 'top' as const,
         ...sharedStepProps,
       },
       {
@@ -528,6 +460,50 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
           </StepDescription>
         ),
         target: () => getTarget('.footer .kbd-key')!,
+        placement: 'top' as const,
+        ...sharedStepProps,
+      },
+      {
+        title: (
+          <Space size={8}>
+            <DashboardTwoTone />
+            <span>System Status</span>
+          </Space>
+        ),
+        description: (
+          <StepDescription>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              Click the dot for a health breakdown across Sync, Rules, Requests, Permissions, Secrets, and Live.
+            </Text>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span
+                  style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#52c41a' }}
+                />
+                <Text style={{ fontSize: 12 }}>
+                  <Text strong>Green</Text> — everything is healthy
+                </Text>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span
+                  style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#faad14' }}
+                />
+                <Text style={{ fontSize: 12 }}>
+                  <Text strong>Yellow</Text> — a subsystem is reporting a warning
+                </Text>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span
+                  style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#ff4d4f' }}
+                />
+                <Text style={{ fontSize: 12 }}>
+                  <Text strong>Red</Text> — a subsystem has failed
+                </Text>
+              </div>
+            </div>
+          </StepDescription>
+        ),
+        target: () => getTarget('.footer-system-status')!,
         placement: 'top' as const,
         ...sharedStepProps,
       },

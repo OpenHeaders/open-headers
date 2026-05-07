@@ -533,6 +533,23 @@ body {
   box-sizing: border-box;
 }
 
+/* StatusPill (full density) — mirrors the workbench footer styling so
+ * the popup/sidepanel "System status" pill reads identically: small
+ * colored dot before the label, gap and alignment from the workbench. */
+.rules-statusbar-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.rules-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
 /* Tag hover effects */
 .domain-tag {
   position: relative;

@@ -2,7 +2,7 @@
  * E2E Tests for OpenHeaders Browser Extension (standalone — no desktop app required)
  *
  * Tests popup UI structure, disconnected state, theme, and static pages.
- * For connected-state tests (rules sync, recording, sources), see extension-connected.spec.ts.
+ * For connected-state tests (rules sync, sources), see extension-connected.spec.ts.
  */
 
 import path from 'node:path';
@@ -129,20 +129,6 @@ test.describe('Footer', () => {
     expect(text).toMatch(/v\d+\.\d+\.\d+/);
   });
 
-  test('has recording button', async () => {
-    const footer = page.locator('.footer');
-    const firstButton = footer.locator('button').first();
-    await expect(firstButton).toBeVisible();
-  });
-
-  test('has "View Workflows" button', async () => {
-    await expect(page.getByText('View Workflows')).toBeVisible();
-  });
-
-  test('has "Options" button', async () => {
-    await expect(page.getByText('Options')).toBeVisible();
-  });
-
   test('has website link (globe icon)', async () => {
     const globeIcon = page.locator('.footer .anticon-global').first();
     await expect(globeIcon).toBeVisible();
@@ -165,52 +151,6 @@ test.describe('Disconnected State', () => {
     await expect(entriesList).toBeVisible();
   });
 
-  test('"View Workflows" button reflects connection state', async () => {
-    const btn = page.getByRole('button', { name: /View Workflows/i });
-    await expect(btn).toBeVisible();
-    // When the desktop app is not running, this button is disabled.
-    // When connected, it's enabled. Both states are valid.
-    const isDisabled = await btn.isDisabled();
-    const connectionBadge = page.locator('.header .ant-badge-status-success');
-    const isConnected = await connectionBadge.isVisible().catch(() => false);
-    expect(isDisabled).toBe(!isConnected);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Options Dropdown
-// ---------------------------------------------------------------------------
-test.describe('Options Dropdown', () => {
-  test('opens and shows recording options', async () => {
-    await page.getByText('Options').click();
-    await page.waitForTimeout(300);
-
-    const dropdown = page.locator('.ant-dropdown:not(.ant-dropdown-hidden)');
-    await expect(dropdown).toBeVisible({ timeout: 3000 });
-
-    // Should have multiple menu items
-    const items = await dropdown.locator('.ant-dropdown-menu-item').count();
-    expect(items).toBeGreaterThanOrEqual(3);
-
-    // Verify key options are present
-    await expect(dropdown.getByText('Show Widget')).toBeVisible();
-    await expect(dropdown.getByText('Session')).toBeVisible();
-    await expect(dropdown.getByText('Video')).toBeVisible();
-
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(200);
-  });
-
-  test('hotkey info is displayed', async () => {
-    await page.getByRole('button', { name: /Options/i }).click();
-    await page.waitForTimeout(300);
-
-    const dropdown = page.locator('.ant-dropdown:not(.ant-dropdown-hidden)');
-    await expect(dropdown.getByText('Hotkey')).toBeVisible();
-
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(200);
-  });
 });
 
 // ---------------------------------------------------------------------------

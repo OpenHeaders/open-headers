@@ -26,8 +26,6 @@
   ],
   "exclude": [
     "node_modules",
-    "dist",
-    "src/assets/lib/**",
-    "src/assets/recording/inject/**"
+    "dist"
   ]
 }

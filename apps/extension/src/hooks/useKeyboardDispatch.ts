@@ -4,7 +4,6 @@ import { matchesPopupShortcut } from '@/popup/shortcuts/popup-shortcuts';
 import type { RowActions } from '@/popup/utils/table-shared';
 
 export interface FooterActions {
-  onToggleRecording?: () => void;
   onToggleRulesPause?: () => void;
   onToggleOptions?: () => void;
   onOpenWorkspace?: () => void;
@@ -94,7 +93,7 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
   const { onToggleRow, onEditRow, onCopyRow, onDeleteRow, onAddRule, onExpandRow, onCollapseRow, onPauseRow } =
     rowActions;
 
-  const { onToggleRecording, onToggleRulesPause, onToggleOptions, onOpenWorkspace, onOpenSettings } = footerActions;
+  const { onToggleRulesPause, onToggleOptions, onOpenWorkspace, onOpenSettings } = footerActions;
   const { onToggleSurface } = headerActions;
 
   const handleKeyDown = useCallback(
@@ -420,11 +419,6 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
         onAddRule();
         return;
       }
-      if (onToggleRecording && matchesPopupShortcut(e, 'toggle-recording')) {
-        e.preventDefault();
-        onToggleRecording();
-        return;
-      }
       if (onToggleRulesPause && matchesPopupShortcut(e, 'toggle-rules-pause')) {
         e.preventDefault();
         onToggleRulesPause();
@@ -468,7 +462,6 @@ export function useKeyboardDispatch(options: UseKeyboardDispatchOptions): void {
       onAddRule,
       onExpandRow,
       onCollapseRow,
-      onToggleRecording,
       onToggleRulesPause,
       onToggleOptions,
       onOpenWorkspace,

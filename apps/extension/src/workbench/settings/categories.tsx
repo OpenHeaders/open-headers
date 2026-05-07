@@ -19,7 +19,6 @@ import {
   KeyOutlined,
   LayoutOutlined,
   SettingOutlined,
-  VideoCameraOutlined,
 } from '@ant-design/icons';
 import { registerCategory } from './registry';
 
@@ -69,14 +68,6 @@ registerCategory({
   icon: <FunctionOutlined />,
   order: 30,
   description: 'How rules are evaluated, compiled, and arbitrated.',
-});
-
-registerCategory({
-  id: 'recording',
-  label: 'Recording',
-  icon: <VideoCameraOutlined />,
-  order: 55,
-  description: 'Session recording, video capture, and hotkey bindings.',
 });
 
 registerCategory({

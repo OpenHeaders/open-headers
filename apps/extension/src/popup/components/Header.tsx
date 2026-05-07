@@ -4,8 +4,6 @@ import { App, Button, Space, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect } from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
-import type { StatusPillProps } from '@/shared/status';
-import { productStatusExtras, StatusPill } from '@/shared/status';
 import { useSurface } from '@/shared/surface';
 import { switchViewMode } from '@/shared/view-mode';
 import { openWorkspace } from '@/shared/workspace-intent';
@@ -76,19 +74,9 @@ const Header: React.FC = () => {
   // Sidepanel is narrower than the popup. Drop the logo + brand
   // wordmark there so the workspace pill and right-side controls
   // (surface switch, pause toggle, settings) keep their breathing
-  // room. The StatusPill's `sync` subsystem is the single source of
-  // truth for desktop-app connection state on both surfaces.
+  // room. The StatusPill (rendered in the footer) is the single
+  // source of truth for desktop-app connection state on both surfaces.
   const isSidepanel = surface.mode === 'sidepanel';
-
-  // Popup/sidepanel don't host the Docs panel — opening it there
-  // would require round-tripping through a workspace-managed state
-  // machine that isn't mounted. The navigator reuses an existing
-  // workspace tab when one is open (same-window preference) and
-  // creates a fresh one otherwise; the tab's intent router picks
-  // up the docs section either way.
-  const handleOpenDocs: StatusPillProps['onOpenDocs'] = (sectionId) => {
-    void openWorkspace({ kind: 'open-docs', section: sectionId }, surface.mode);
-  };
 
   return (
     <div className="header">
@@ -105,13 +93,6 @@ const Header: React.FC = () => {
             </Title>
           </>
         )}
-        <StatusPill
-          className="header-system-status"
-          density="compact"
-          placement={isSidepanel ? 'right' : 'bottom'}
-          renderSubsystemExtras={productStatusExtras}
-          onOpenDocs={handleOpenDocs}
-        />
         <WorkspacePill />
       </Space>
       <Space align="center" size={12}>

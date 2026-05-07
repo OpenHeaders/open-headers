@@ -5,7 +5,6 @@
 import { runtime, tabs, webNavigation, windows } from '@utils/browser-api.js';
 import { logger } from '@utils/logger';
 import type { ObservationSource } from '@/types/browser';
-import type { IRecordingService } from '@/types/recording';
 import { checkIfUrlMatchesAnyRule, tabsWithActiveRules } from './request-tracker';
 import {
   clearTab as tabTelemetryClearTab,
@@ -87,7 +86,7 @@ export function initializeActiveTabTracking(): void {
 /**
  * Set up all tab-related listeners
  */
-export function setupTabListeners(updateBadgeCallback: () => void, recordingService: IRecordingService): void {
+export function setupTabListeners(updateBadgeCallback: () => void): void {
   // Listen for tab updates and activations
   tabs.onActivated?.addListener((activeInfo: { tabId: number; windowId: number }) => {
     // Hand telemetry tracking to the newly-active tab in this window.
@@ -196,9 +195,6 @@ export function setupTabListeners(updateBadgeCallback: () => void, recordingServ
     lastMainFrameUrlByTab.delete(tabId);
     releaseIfActive(tabId);
     tabTelemetryClearTab(tabId);
-    if (recordingService) {
-      recordingService.cleanupTab(tabId);
-    }
     // If a test session was watching this tab, finish it so DNR session rules
     // clear and the pending promise resolves instead of waiting for ceiling.
     testRunnerOnTabRemoved(tabId);
@@ -302,11 +298,10 @@ export function setupTabListeners(updateBadgeCallback: () => void, recordingServ
     });
   });
 
-  // Handle navigation for recording
-  if (webNavigation && recordingService) {
+  if (webNavigation) {
     logger.info('TabListeners', 'Setting up webNavigation listener');
     webNavigation.onCommitted?.addListener(
-      async (details: chrome.webNavigation.WebNavigationTransitionCallbackDetails) => {
+      (details: chrome.webNavigation.WebNavigationTransitionCallbackDetails) => {
         if (details.frameId !== 0) {
           logger.debug(
             'TabListeners',
@@ -338,19 +333,10 @@ export function setupTabListeners(updateBadgeCallback: () => void, recordingServ
         // about:blank, not delay.html), the test-runner mounts its in-page
         // widget here. No-op for non-test tabs and for internal commits.
         testRunnerOnTabCommit(details.tabId, details.url);
-
-        await recordingService.handleNavigation(details.tabId, details.url);
       },
     );
   } else {
-    logger.error(
-      'TabListeners',
-      'webNavigation or recordingService not available!',
-      'webNavigation:',
-      !!webNavigation,
-      'recordingService:',
-      !!recordingService,
-    );
+    logger.error('TabListeners', 'webNavigation not available!');
   }
 
   // Handle back/forward navigation by monitoring webNavigation API if available
