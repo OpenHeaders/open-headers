@@ -1288,7 +1288,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       } else if (tab.mode === 'request-edit' && tab.requestUid) {
         void requestsApi.updateRequest(tab.requestUid, { name: newName });
         updateTab(tab.id, { label: newName });
-      } else if (tab.mode === 'request-create' || tab.mode === 'rule-create') {
+      } else if (tab.mode === 'request-create' || tab.mode === 'rule-create' || tab.mode === 'live-workflow-create') {
         // Draft name change — no persistence until Save. Update both
         // the tab label and the `draftName` field so the editor's
         // Save handler picks up the renamed value.
@@ -1792,6 +1792,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       workspacesApi,
       openCollectionVariables,
       requestSaveFlow.handleSaveDraft,
+      ruleSaveFlow.handleSaveDraft,
       openLiveWorkflowEdit,
       openLiveVariableEdit,
       openCreateLiveVariable,

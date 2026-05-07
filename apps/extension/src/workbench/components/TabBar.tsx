@@ -115,7 +115,7 @@ export function tabIcon(
   if (tab.mode === 'workspace-vars') return scopeBadge('workspace');
   if (tab.mode === 'vault') return scopeBadge('vault');
   if (tab.mode === 'live-vars' || tab.mode === 'live-variable-edit' || tab.mode === 'live-variable-create')
-    return scopeBadge('live');
+    return scopeBadge('live', 14, tab.mode === 'live-variable-create');
   if (tab.mode === 'live-workflow-edit' || tab.mode === 'live-workflow-create') {
     const workflow = tab.liveWorkflowUid ? liveWorkflows.find((w) => w.uid === tab.liveWorkflowUid) : undefined;
     const unresolved = tab.liveWorkflowUid ? unresolvableWorkflowUids.has(tab.liveWorkflowUid) : false;
@@ -216,7 +216,12 @@ function isRuleDraftTab(tab: WorkbenchTab, rules: V5.Rule[]): boolean {
  * the regular 'edit' / 'request-edit' mode, so they bypass this.
  */
 function isCreateDraftMode(tab: WorkbenchTab): boolean {
-  return tab.mode === 'request-create' || tab.mode === 'rule-create';
+  return (
+    tab.mode === 'request-create' ||
+    tab.mode === 'rule-create' ||
+    tab.mode === 'live-variable-create' ||
+    tab.mode === 'live-workflow-create'
+  );
 }
 
 function truncateMiddle(text: string, max: number): string {
@@ -400,10 +405,7 @@ const TabPillContent: React.FC<TabPillContentProps> = ({
           regardless of dirty edits). Orange dot only fires on a
           persisted entity whose form has uncommitted edits. */}
       {(isCreateDraftMode(tab) || tab.dirty) && (
-        <span
-          className="rules-tab-unsaved"
-          style={{ background: isCreateDraftMode(tab) ? '#999' : '#ff7875' }}
-        />
+        <span className="rules-tab-unsaved" style={{ background: isCreateDraftMode(tab) ? '#999' : '#ff7875' }} />
       )}
       {onClose && (
         <CloseOutlined

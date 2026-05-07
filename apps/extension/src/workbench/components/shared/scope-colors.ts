@@ -36,8 +36,10 @@ export function namespaceToScopeKey(ns: string): ScopeKey | null {
 }
 
 /** Colored letter badge — light tinted background with dark foreground letter.
- *  Colors are driven by CSS variables so light/dark theme switches automatically. */
-export function scopeBadge(scope: ScopeKey, size = 14): React.ReactNode {
+ *  Colors are driven by CSS variables so light/dark theme switches automatically.
+ *  When `muted` is true, the badge renders in neutral gray (used for scratch
+ *  /unsaved tabs to match the gray dot + gray prefix-icon convention). */
+export function scopeBadge(scope: ScopeKey, size = 14, muted = false): React.ReactNode {
   const { letter } = SCOPE_COLORS[scope];
   return createElement(
     'span',
@@ -51,8 +53,9 @@ export function scopeBadge(scope: ScopeKey, size = 14): React.ReactNode {
         justifyContent: 'center',
         fontSize: size * 0.65,
         fontWeight: 700,
-        color: `var(--scope-${scope}-color)`,
-        background: `var(--scope-${scope}-bg)`,
+        color: muted ? '#999' : `var(--scope-${scope}-color)`,
+        background: muted ? 'transparent' : `var(--scope-${scope}-bg)`,
+        border: muted ? '1px solid #999' : 'none',
         flexShrink: 0,
         lineHeight: 1,
       },
