@@ -31,7 +31,7 @@
 
 import type { V5 } from '@openheaders/core/types';
 import { decodeWorkspaceExportDeepLink } from '@openheaders/core/workspace-export';
-import { hashToIntent, type WorkspaceIntent } from '@openheaders/core/workspace-intent';
+import { hashToBoundIntent, type WorkspaceIntent } from '@openheaders/core/workspace-intent';
 import { call, subscribe } from '@utils/bridge';
 import { useEffect, useRef } from 'react';
 import type { RuleFlowScope } from '../types';
@@ -330,11 +330,14 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
       pendingIntentRef.current = intent;
     };
 
-    // Cold-path parse on mount.
+    // Cold-path parse on mount. Use `hashToBoundIntent` so the optional
+    // `/ws/<wsId>/` workspace-binding prefix is stripped before the
+    // inner intent is dispatched — the binding itself is consumed by
+    // the resolver + mirror, not by the intent router.
     if (!coldProcessedRef.current) {
       coldProcessedRef.current = true;
-      const intent = hashToIntent(window.location.hash);
-      if (intent) applyIntent(intent);
+      const bound = hashToBoundIntent(window.location.hash);
+      if (bound) applyIntent(bound.intent);
     }
 
     // Warm-path subscription for the lifetime of this workspace tab.

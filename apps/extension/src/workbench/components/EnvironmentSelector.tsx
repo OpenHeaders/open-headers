@@ -5,7 +5,7 @@
  */
 
 import {
-  CheckOutlined,
+  CheckCircleFilled,
   DownOutlined,
   EditOutlined,
   FolderOpenFilled,
@@ -59,6 +59,7 @@ const EnvRow: React.FC<EnvRowProps> = ({
   return (
     <div
       role="menuitem"
+      aria-current={isActive ? 'true' : undefined}
       className="oh-env-row"
       style={{
         display: 'flex',
@@ -68,24 +69,41 @@ const EnvRow: React.FC<EnvRowProps> = ({
         cursor: 'pointer',
         borderRadius: token.borderRadiusSM,
         minWidth: 220,
+        ...(isActive
+          ? {
+              background: token.colorPrimaryBg,
+              color: token.colorPrimaryText,
+            }
+          : null),
       }}
       onClick={onSelect}
     >
-      <span style={{ width: 14, flexShrink: 0 }}>
-        {isActive && <CheckOutlined style={{ fontSize: 12, color: token.colorPrimary }} />}
-      </span>
       {scopeBadge('environment', 14)}
-      <Text style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 13 }}>
+      <Text
+        style={{
+          flex: 1,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          fontSize: 13,
+          color: 'inherit',
+          fontWeight: isActive ? 500 : 400,
+        }}
+      >
         {env.name}
       </Text>
+      {isActive && (
+        <CheckCircleFilled style={{ fontSize: 14, color: token.colorPrimary, flexShrink: 0 }} />
+      )}
       {isDefault && (
         <Tooltip title="Default environment is auto-selected while working with the collection." placement="top">
           <Text
             style={{
               fontSize: 10,
-              color: token.colorTextTertiary,
+              color: isActive ? token.colorPrimaryText : token.colorTextTertiary,
               flexShrink: 0,
               cursor: 'help',
+              letterSpacing: 0.5,
             }}
           >
             DEFAULT
@@ -175,6 +193,7 @@ const NoEnvRow: React.FC<NoEnvRowProps> = ({ activeEnvironmentId, onSelect }) =>
   return (
     <div
       role="menuitem"
+      aria-current={isActive ? 'true' : undefined}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -183,17 +202,33 @@ const NoEnvRow: React.FC<NoEnvRowProps> = ({ activeEnvironmentId, onSelect }) =>
         cursor: 'pointer',
         borderRadius: token.borderRadiusSM,
         minWidth: 220,
-        background: hovered ? token.colorBgTextHover : 'transparent',
+        ...(isActive
+          ? {
+              background: token.colorPrimaryBg,
+              color: token.colorPrimaryText,
+            }
+          : { background: hovered ? token.colorBgTextHover : 'transparent' }),
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={onSelect}
     >
-      <span style={{ width: 14, flexShrink: 0 }}>
-        {isActive && <CheckOutlined style={{ fontSize: 12, color: token.colorPrimary }} />}
-      </span>
-      <GlobalOutlined style={{ fontSize: 14, color: token.colorTextQuaternary }} />
-      <Text style={{ flex: 1, color: token.colorTextSecondary, fontSize: 13 }}>No environment</Text>
+      <GlobalOutlined
+        style={{ fontSize: 14, color: isActive ? token.colorPrimaryText : token.colorTextQuaternary }}
+      />
+      <Text
+        style={{
+          flex: 1,
+          color: isActive ? 'inherit' : token.colorTextSecondary,
+          fontSize: 13,
+          fontWeight: isActive ? 500 : 400,
+        }}
+      >
+        No environment
+      </Text>
+      {isActive && (
+        <CheckCircleFilled style={{ fontSize: 14, color: token.colorPrimary, flexShrink: 0 }} />
+      )}
     </div>
   );
 };
@@ -442,76 +477,84 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
         <>
           <Divider style={{ margin: '4px 0' }} />
           <div style={sectionLabelStyle}>Pinned to this collection</div>
-          {pinnedEnvs.map((env) => (
-            <EnvRow
-              key={env.uid}
-              env={env}
-              pinned={true}
-              activeEnvironmentId={activeEnvironmentId}
-              activeCollectionId={activeCollectionId}
-              activeCollectionDefaultEnvId={activeCollectionDefaultEnvId}
-              onSelect={() => {
-                onSwitch(env.uid);
-                handleClose();
-              }}
-              onOpen={() => {
-                onOpenEnvironment(env.uid);
-                handleClose();
-              }}
-              onTogglePin={() => handleTogglePin(env, true)}
-              onSetDefault={() => handleSetDefault(env)}
-            />
-          ))}
+          {/* Cap each section at ~3 rows; taller lists scroll. Each row
+           *  is ~32px (5px padding × 2 + 22px content). */}
+          <div style={{ maxHeight: 108, overflowY: 'auto' }}>
+            {pinnedEnvs.map((env) => (
+              <EnvRow
+                key={env.uid}
+                env={env}
+                pinned={true}
+                activeEnvironmentId={activeEnvironmentId}
+                activeCollectionId={activeCollectionId}
+                activeCollectionDefaultEnvId={activeCollectionDefaultEnvId}
+                onSelect={() => {
+                  onSwitch(env.uid);
+                  handleClose();
+                }}
+                onOpen={() => {
+                  onOpenEnvironment(env.uid);
+                  handleClose();
+                }}
+                onTogglePin={() => handleTogglePin(env, true)}
+                onSetDefault={() => handleSetDefault(env)}
+              />
+            ))}
+          </div>
           {otherEnvs.length > 0 && (
             <>
               <Divider style={{ margin: '4px 0' }} />
               <div style={sectionLabelStyle}>Other environments</div>
-              {otherEnvs.map((env) => (
-                <EnvRow
-                  key={env.uid}
-                  env={env}
-                  pinned={false}
-                  activeEnvironmentId={activeEnvironmentId}
-                  activeCollectionId={activeCollectionId}
-                  activeCollectionDefaultEnvId={activeCollectionDefaultEnvId}
-                  onSelect={() => {
-                    onSwitch(env.uid);
-                    handleClose();
-                  }}
-                  onOpen={() => {
-                    onOpenEnvironment(env.uid);
-                    handleClose();
-                  }}
-                  onTogglePin={() => handleTogglePin(env, false)}
-                  onSetDefault={() => handleSetDefault(env)}
-                />
-              ))}
+              <div style={{ maxHeight: 108, overflowY: 'auto' }}>
+                {otherEnvs.map((env) => (
+                  <EnvRow
+                    key={env.uid}
+                    env={env}
+                    pinned={false}
+                    activeEnvironmentId={activeEnvironmentId}
+                    activeCollectionId={activeCollectionId}
+                    activeCollectionDefaultEnvId={activeCollectionDefaultEnvId}
+                    onSelect={() => {
+                      onSwitch(env.uid);
+                      handleClose();
+                    }}
+                    onOpen={() => {
+                      onOpenEnvironment(env.uid);
+                      handleClose();
+                    }}
+                    onTogglePin={() => handleTogglePin(env, false)}
+                    onSetDefault={() => handleSetDefault(env)}
+                  />
+                ))}
+              </div>
             </>
           )}
         </>
       ) : (
         <>
           {filteredEnvs.length > 0 && <Divider style={{ margin: '4px 0' }} />}
-          {filteredEnvs.map((env) => (
-            <EnvRow
-              key={env.uid}
-              env={env}
-              pinned={false}
-              activeEnvironmentId={activeEnvironmentId}
-              activeCollectionId={activeCollectionId}
-              activeCollectionDefaultEnvId={activeCollectionDefaultEnvId}
-              onSelect={() => {
-                onSwitch(env.uid);
-                handleClose();
-              }}
-              onOpen={() => {
-                onOpenEnvironment(env.uid);
-                handleClose();
-              }}
-              onTogglePin={() => handleTogglePin(env, false)}
-              onSetDefault={() => handleSetDefault(env)}
-            />
-          ))}
+          <div style={{ maxHeight: 108, overflowY: 'auto' }}>
+            {filteredEnvs.map((env) => (
+              <EnvRow
+                key={env.uid}
+                env={env}
+                pinned={false}
+                activeEnvironmentId={activeEnvironmentId}
+                activeCollectionId={activeCollectionId}
+                activeCollectionDefaultEnvId={activeCollectionDefaultEnvId}
+                onSelect={() => {
+                  onSwitch(env.uid);
+                  handleClose();
+                }}
+                onOpen={() => {
+                  onOpenEnvironment(env.uid);
+                  handleClose();
+                }}
+                onTogglePin={() => handleTogglePin(env, false)}
+                onSetDefault={() => handleSetDefault(env)}
+              />
+            ))}
+          </div>
         </>
       )}
 

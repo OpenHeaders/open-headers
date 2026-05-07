@@ -153,13 +153,15 @@ describe('per-tab-state lint', () => {
     expect(source).toMatch(/wsKeys\(\s*workspaceId\s*\)\.tabSession/);
   });
 
-  it('BC-V21-3: workspace slice owner is the single workspaceChanged subscriber', () => {
+  it('workbench tabs are URL-pinned: no workspaceChanged subscribers downstream', () => {
+    // Workbench tabs are pinned by their URL hash (`/ws/<wsId>/...`) and
+    // do NOT auto-rebind on runtime-Active changes — popup / sidepanel
+    // gestures that flip ACTIVE leave open workbench tabs alone. So
+    // none of the per-tab hooks should subscribe to `workspaceChanged`.
+    // Re-init on slice workspaceId change uses the
+    // `perTab.initial.workspace?.workspaceId` useEffect dep pattern.
     const ownerSource = readFile('workbench/hooks/useWorkbenchWorkspaceSlice.ts');
-    expect(ownerSource).toMatch(/subscribe\(\s*'workspaceChanged'/);
-    expect(ownerSource).toMatch(/readWorkspaceFallThrough\s*\(\s*nextId\s*\)/);
-    // Sub-hooks must NOT subscribe to workspaceChanged — single-owner
-    // write path. Re-init via `perTab.initial.workspace?.workspaceId`
-    // useEffect dep instead.
+    expect(ownerSource).not.toMatch(/subscribe\(\s*'workspaceChanged'/);
     const editorSource = readFile('workbench/hooks/useEditorGroups.ts');
     expect(editorSource).not.toMatch(/subscribe\(\s*'workspaceChanged'/);
     const sidebarSource = readFile('workbench/hooks/useWorkbenchSidebarState.ts');

@@ -25,7 +25,7 @@
  */
 
 import type { IntentCallerContext, WorkspaceIntent } from '@openheaders/core/workspace-intent';
-import { intentToHash, parseIntent } from '@openheaders/core/workspace-intent';
+import { boundIntentToHash, hashToBoundIntent, parseIntent } from '@openheaders/core/workspace-intent';
 import { getBrowserAPI } from '@/types/browser';
 import { recordLog } from './observability-log';
 import { ordinalForTab } from './workspace-tab-registry';
@@ -44,10 +44,23 @@ export type NavigatorResult =
 
 /**
  * Pure selector — picks the best target tab from a candidate list.
- * Cross-window tabs are deliberately ignored: if the caller's window
- * has no workspace tab, we return null so the dispatcher opens a new
- * one in the caller's window instead of yanking focus to another
- * Chrome window.
+ *
+ * Filtering applies in this order:
+ *   1. **Workspace match.** When `callerWorkspaceId` is set, drop tabs
+ *      whose URL hash binds them to a different workspace. Tabs without
+ *      a `/ws/<wsId>/` prefix (legacy bookmarks) are kept — they bind
+ *      to whatever the workbench resolves on mount, and rebinding via
+ *      a warm-path intent dispatch is an acceptable UX (the tab gets
+ *      "claimed" by the popup's active workspace). Tabs whose `/ws/<wsId>/`
+ *      prefix points at a different workspace are dropped — sending an
+ *      intent there would either cross-bind the tab or get rejected by
+ *      the renderer's per-tab guard.
+ *   2. **Same-window preference.** Cross-window tabs are deliberately
+ *      ignored: if the caller's window has no workspace tab matching
+ *      the workspace filter, we return null so the dispatcher opens a
+ *      new one in the caller's window instead of yanking focus to
+ *      another Chrome window.
+ *   3. **Active tab > recency > id.** Within the caller's window.
  *
  * Exported for unit testing — the full dispatcher is harder to cover
  * without mocking every chrome.* API, but this selector is the piece
@@ -60,16 +73,26 @@ export function selectTargetTab(
   if (tabs.length === 0) return null;
 
   const callerWindowId = context.callerWindowId;
+  const callerWorkspaceId = context.callerWorkspaceId;
+
+  const workspaceMatched = callerWorkspaceId
+    ? tabs.filter((t) => {
+        const bound = boundWorkspaceForTab(t);
+        // Keep legacy (no binding) and exact-match tabs; drop mismatches.
+        return bound === undefined || bound === callerWorkspaceId;
+      })
+    : tabs;
+  if (workspaceMatched.length === 0) return null;
 
   // Caller window unknown — fall back to a deterministic pick across
   // all workspace tabs. This path is rare; in practice surfaces should
   // always pass a callerWindowId via `windows.getCurrent()`.
   if (callerWindowId === undefined) {
-    return pickByRecencyThenId(tabs);
+    return pickByRecencyThenId(workspaceMatched);
   }
 
   // Same-window preference.
-  const sameWindow = tabs.filter((t) => t.windowId === callerWindowId);
+  const sameWindow = workspaceMatched.filter((t) => t.windowId === callerWindowId);
   if (sameWindow.length === 0) return null;
 
   // Within the caller's window: prefer the active tab first (user is
@@ -77,6 +100,21 @@ export function selectTargetTab(
   const active = sameWindow.find((t) => t.active);
   if (active) return active;
   return pickByRecencyThenId(sameWindow);
+}
+
+/**
+ * Extract the `/ws/<wsId>/` binding from a tab's URL hash, or undefined
+ * if the tab has no such prefix (legacy bookmark / freshly-created bare
+ * `workbench.html`). Returns undefined on parse failure rather than
+ * throwing — the navigator's filter treats undefined as "no opinion."
+ */
+function boundWorkspaceForTab(tab: chrome.tabs.Tab): string | undefined {
+  const url = tab.url;
+  if (typeof url !== 'string') return undefined;
+  const hashStart = url.indexOf('#');
+  if (hashStart === -1) return undefined;
+  const bound = hashToBoundIntent(url.slice(hashStart));
+  return bound?.workspaceId;
 }
 
 function pickByRecencyThenId(tabs: readonly chrome.tabs.Tab[]): chrome.tabs.Tab {
@@ -141,15 +179,16 @@ export async function openWorkspaceIntent(raw: unknown, context: IntentCallerCon
 
   const target = selectTargetTab(candidates, context);
   if (target === null || typeof target.id !== 'number') {
-    return coldPath(intent, workspaceUrl);
+    return coldPath(intent, workspaceUrl, context.callerWorkspaceId);
   }
-  return warmPath(intent, target, workspaceUrl);
+  return warmPath(intent, target, workspaceUrl, context.callerWorkspaceId);
 }
 
 async function warmPath(
   intent: WorkspaceIntent,
   target: chrome.tabs.Tab,
   workspaceUrl: string,
+  callerWorkspaceId: string | undefined,
 ): Promise<NavigatorResult> {
   const tabId = target.id as number; // narrowed by caller
   const windowId = target.windowId;
@@ -190,7 +229,7 @@ async function warmPath(
   }
 
   try {
-    await updateTab(tabId, { url: workspaceUrl + intentToHash(intent) });
+    await updateTab(tabId, { url: workspaceUrl + boundIntentToHash({ workspaceId: callerWorkspaceId, intent }) });
   } catch (err) {
     return failLogged(intent, 'fallback-failed', err);
   }
@@ -204,8 +243,12 @@ async function warmPath(
   return { ok: true, tabId, windowId, path: 'warm-fallback' };
 }
 
-async function coldPath(intent: WorkspaceIntent, workspaceUrl: string): Promise<NavigatorResult> {
-  const url = workspaceUrl + intentToHash(intent);
+async function coldPath(
+  intent: WorkspaceIntent,
+  workspaceUrl: string,
+  callerWorkspaceId: string | undefined,
+): Promise<NavigatorResult> {
+  const url = workspaceUrl + boundIntentToHash({ workspaceId: callerWorkspaceId, intent });
   let tab: chrome.tabs.Tab;
   try {
     tab = await createTab({ url, active: true });

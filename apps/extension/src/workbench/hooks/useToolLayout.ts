@@ -25,7 +25,7 @@ import { get as getSetting } from '../settings/store';
 import { focusStore } from '../stores/focus-region-store';
 import { TOOL_WINDOW_MAP, TOOL_WINDOWS } from '../tool-windows';
 import type { ToolWindowId, WorkbenchTab } from '../types';
-import { readGlobalActiveWorkspaceId } from './readBootIdentity';
+import { readGlobalActiveWorkspaceId, readUrlWorkspaceId } from './readBootIdentity';
 
 export type ToolLayoutApi = DockLayoutApi<ToolWindowId>;
 
@@ -163,7 +163,18 @@ const workbenchResolveSnapshot = createWorkspaceAwareResolver<WorkbenchViewState
   // `readGlobalActiveWorkspaceId` so KNOWN_BOOT_COUPLING_READS has a
   // single import target to enumerate (design § 9.1). New tabs always
   // boot on the global default even in MWPT per-tab mode (R4).
-  getActiveWorkspaceId: readGlobalActiveWorkspaceId,
+  //
+  // URL precedence: when the tab's URL hash carries a `/ws/<wsId>/`
+  // binding (every freshly-opened tab from the navigator does, plus
+  // every restored bookmark in the new format), trust it as the boot
+  // identity. The mirror effect downstream validates against the
+  // workspace list and replaceStates+reseeds if the URL points at a
+  // deleted workspace, so we don't pay a sync existence-check here.
+  getActiveWorkspaceId: async () => {
+    const fromUrl = readUrlWorkspaceId();
+    if (fromUrl) return fromUrl;
+    return readGlobalActiveWorkspaceId();
+  },
   getSlice: (snap) => snap.workspace,
   withSlice: (snap, slice) => ({ ...snap, workspace: slice }),
   fallThrough: readWorkspaceFallThrough,

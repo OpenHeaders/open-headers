@@ -1,18 +1,15 @@
 /**
- * WorkspacePill — popup / sidepanel workspace indicator + switcher.
+ * PanelWorkspaceSelector — slim workspace switcher for the DevTools
+ * panel. System surface (always reflects ACTIVE), so row click promotes
+ * the workspace to ACTIVE — same semantics as the popup pill.
  *
- * System surfaces (popup, sidepanel, devpanel) always reflect the
- * ACTIVE workspace, so picking a workspace here promotes it to ACTIVE.
- * No separate "make active" gesture — row click is the make-active
- * gesture (selected ≡ active in these surfaces).
- *
- * Renders the same `WorkspaceDropdownBody` as workbench's
- * `WorkspaceSwitcher`, just in `mode='system'`. Trigger is the compact
- * pill button — popup is too narrow for a full TopBar treatment.
+ * Trigger styling matches `PanelEnvironmentSelector` (24px height,
+ * subtle border) so the toolbar reads as a paired control: workspace
+ * on the left, environment on the right.
  */
 
 import { DownOutlined } from '@ant-design/icons';
-import { Dropdown, theme } from 'antd';
+import { Button, Dropdown, Space, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { useWorkspaces } from '@/hooks/useWorkspaces';
@@ -21,7 +18,9 @@ import { openWorkspace } from '@/shared/workspace-intent';
 import { WorkspaceDropdownBody } from '@/shared/workspace-dropdown/WorkspaceDropdownBody';
 import { renderWorkspacePrefix } from '@/workbench/components/workspace-prefix';
 
-const WorkspacePill: React.FC = () => {
+const { Text } = Typography;
+
+export const PanelWorkspaceSelector: React.FC = () => {
   const { token } = theme.useToken();
   const surface = useSurface();
   const { workspaces, activeWorkspaceId, activeWorkspace, setActiveWorkspace } = useWorkspaces();
@@ -57,38 +56,36 @@ const WorkspacePill: React.FC = () => {
       trigger={['click']}
       placement="bottomLeft"
     >
-      <button
-        type="button"
+      <Button
+        type="text"
+        size="small"
         aria-label={`Active workspace: ${activeWorkspace.name}`}
         style={{
+          padding: '0 8px',
+          height: 24,
           display: 'inline-flex',
           alignItems: 'center',
-          gap: 6,
-          padding: '2px 8px',
-          height: 22,
-          borderRadius: 4,
           border: `1px solid ${token.colorBorderSecondary}`,
           background: token.colorBgContainer,
-          cursor: 'pointer',
-          fontSize: 12,
-          color: token.colorText,
         }}
       >
-        {renderWorkspacePrefix({ icon: activeWorkspace.icon, color: activeWorkspace.color }, token, { size: 14 })}
-        <span
-          style={{
-            maxWidth: 120,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {activeWorkspace.name}
-        </span>
-        <DownOutlined style={{ fontSize: 8, color: token.colorTextTertiary }} />
-      </button>
+        <Space size={4}>
+          {renderWorkspacePrefix({ icon: activeWorkspace.icon, color: activeWorkspace.color }, token, { size: 12 })}
+          <Text
+            style={{
+              maxWidth: 120,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              color: token.colorText,
+              fontSize: 12,
+            }}
+          >
+            {activeWorkspace.name}
+          </Text>
+          <DownOutlined style={{ fontSize: 9, color: token.colorTextTertiary }} />
+        </Space>
+      </Button>
     </Dropdown>
   );
 };
-
-export default WorkspacePill;

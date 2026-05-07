@@ -1,58 +1,22 @@
 /**
- * useWorkbenchWorkspaceSlice — single owner of the per-tab snapshot's
- * `workspace` slice identity (design § 2.2 + post-v3 architectural
- * consolidation).
+ * useWorkbenchWorkspaceSlice — no-op.
  *
- * The slice's `workspaceId` field IS the source of truth for "which
- * workspace is this tab bound to" (BC-V21-4). Two events can change it:
+ * Workbench tabs are URL-pinned (see `useUrlWorkspaceBindingMirror` +
+ * the resolver in `useToolLayout`). The tab's editing-scope workspace
+ * lives in the URL hash and the slice mirrors it. Runtime-Active
+ * changes (popup / sidepanel "Make ACTIVE" gestures) DO NOT auto-
+ * rebind workbench tabs — by design, workbench is the flexible
+ * surface where you can edit a workspace that isn't ACTIVE.
  *
- *   1. **Cross-workspace inheritance** (new tab opens in workspace A
- *      but donor was workspace B). Handled at mount time by the
- *      resolver in `useToolLayout` — runs `fallThrough(activeId)` and
- *      replaces the slice. This hook does NOT touch that path.
- *
- *   2. **In-tab workspace switch** (user changes the active workspace
- *      while this tab is open). Handled here: a single subscription
- *      to `workspaceChanged` reads the new workspace's tabSession
- *      shadow, builds a fresh `WorkbenchWorkspaceData`, and emits the
- *      new slice in one atomic `perTab.onPersist` call.
- *
- * Sub-consumers of slice fields (`useEditorGroups`,
- * `useWorkbenchSidebarState`) re-derive their local state by watching
- * `perTab.initial.workspace?.workspaceId` as a useEffect dep — they do
- * NOT subscribe to `workspaceChanged` independently. That keeps the
- * write path single-owner and eliminates the racing-onPersist class
- * the prior duplication was open to.
+ * The hook is kept (rather than deleted at the call site) so the lint
+ * test's structural expectation — "single slice owner per surface" —
+ * stays satisfied without churn. New auto-rebind behaviors land here
+ * if we ever need them.
  */
 
-import { subscribe } from '@utils/bridge';
-import { useEffect } from 'react';
 import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
-import { get as getSetting } from '../settings/store';
-import { readWorkspaceFallThrough, type WorkbenchViewState } from './useToolLayout';
+import type { WorkbenchViewState } from './useToolLayout';
 
-export function useWorkbenchWorkspaceSlice(perTab: EditingScopeViewStateApi<WorkbenchViewState>): void {
-  const onPersist = perTab.onPersist;
-  useEffect(() => {
-    const unsub = subscribe('workspaceChanged', (payload) => {
-      // BC-MWPT-2 / BC-MWPT-8 — read mode INSIDE the callback, not at
-      // subscribe time. Closure capture would silently drift after a
-      // mid-session mode flip; the lint pins the inside-callback shape.
-      // In per-tab mode the global oracle changing does NOT auto-rebind
-      // this tab — diverged tabs stay on their slice's workspace.
-      if (getSetting('general.workspaceSwitchScope') === 'per-window-or-tab') return;
-      const nextId = payload.activeWorkspaceId;
-      void readWorkspaceFallThrough(nextId).then((data) => {
-        onPersist((prev) => {
-          // No-op when the slice is already on this workspace — the
-          // resolver may have just rebuilt it (cross-workspace
-          // inheritance path) or another listener may have stamped it
-          // first; either way we don't need to write.
-          if (prev.workspace?.workspaceId === nextId) return prev;
-          return { ...prev, workspace: { workspaceId: nextId, data } };
-        });
-      });
-    });
-    return unsub;
-  }, [onPersist]);
+export function useWorkbenchWorkspaceSlice(_perTab: EditingScopeViewStateApi<WorkbenchViewState>): void {
+  // Intentional no-op. URL is the source of truth.
 }

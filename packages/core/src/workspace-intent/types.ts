@@ -28,4 +28,13 @@ export interface IntentCallerContext {
   surface?: IntentCallerSurface;
   /** Window id the caller is anchored to, if determinable. */
   callerWindowId?: number;
+  /**
+   * Workspace id the caller wants to land in. When set, the navigator
+   * filters candidate workbench tabs to those bound to this workspace
+   * (parsed from each tab's `/ws/<wsId>/` URL prefix); cold-path tabs
+   * are minted with the workspace pinned in the URL. Undefined means
+   * "no preference" — every candidate matches, cold path mints a bare
+   * hash (legacy bookmark form).
+   */
+  callerWorkspaceId?: string;
 }

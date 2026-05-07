@@ -100,6 +100,42 @@ describe('selectTargetTab', () => {
     ];
     expect(selectTargetTab(tabs, {})?.id).toBe(20);
   });
+
+  // Workspace-binding filter (URL-pinned `/ws/<wsId>/` prefix). A tab
+  // bound to workspace W cannot receive an intent destined for V — the
+  // navigator either picks a different candidate or falls through to
+  // the cold path so a fresh tab is minted with the right binding.
+
+  it('drops tabs bound to a different workspace', () => {
+    const tabs = [
+      makeTab({ id: 10, windowId: 5, url: 'chrome-extension://x/workbench.html#/ws/wsA/edit/abcd1234' }),
+      makeTab({ id: 11, windowId: 5, url: 'chrome-extension://x/workbench.html#/ws/wsB/edit/abcd1234' }),
+    ];
+    expect(selectTargetTab(tabs, { callerWindowId: 5, callerWorkspaceId: 'wsB' })?.id).toBe(11);
+  });
+
+  it('keeps unbound (legacy) tabs as candidates regardless of workspace filter', () => {
+    const tabs = [
+      makeTab({ id: 10, windowId: 5, url: 'chrome-extension://x/workbench.html' }),
+      makeTab({ id: 11, windowId: 5, url: 'chrome-extension://x/workbench.html#/ws/wsB/edit/abcd1234' }),
+    ];
+    // wsA caller — wsB tab dropped, legacy unbound tab kept.
+    expect(selectTargetTab(tabs, { callerWindowId: 5, callerWorkspaceId: 'wsA' })?.id).toBe(10);
+  });
+
+  it('returns null when every same-window tab is bound to a different workspace', () => {
+    const tabs = [
+      makeTab({ id: 10, windowId: 5, url: 'chrome-extension://x/workbench.html#/ws/wsA/edit/abcd1234' }),
+    ];
+    expect(selectTargetTab(tabs, { callerWindowId: 5, callerWorkspaceId: 'wsB' })).toBeNull();
+  });
+
+  it('ignores the workspace filter when callerWorkspaceId is undefined', () => {
+    const tabs = [
+      makeTab({ id: 10, windowId: 5, url: 'chrome-extension://x/workbench.html#/ws/wsA/edit/abcd1234' }),
+    ];
+    expect(selectTargetTab(tabs, { callerWindowId: 5 })?.id).toBe(10);
+  });
 });
 
 // ── openWorkspaceIntent — full dispatch paths ───────────────────────

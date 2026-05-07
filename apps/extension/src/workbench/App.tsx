@@ -111,6 +111,7 @@ import {
 } from './hooks/EditingScopeWorkspaceContext';
 import { useCommandPaletteData } from './hooks/useCommandPaletteData';
 import { useEditingScopeWorkspaceId } from './hooks/useEditingScopeWorkspaceId';
+import { useUrlWorkspaceBindingMirror } from './hooks/useUrlWorkspaceBindingMirror';
 import { useEditorGroups } from './hooks/useEditorGroups';
 import { useFocusRegion } from './hooks/useFocusRegion';
 import { useInitialLanding } from './hooks/useInitialLanding';
@@ -326,6 +327,13 @@ const WorkbenchTabAware: React.FC<{
   const { token } = theme.useToken();
   useWorkbenchWorkspaceSlice(perTab);
   const editingScopeWorkspaceId = useEditingScopeWorkspaceId(perTab);
+  // Mirror the editing-scope workspace into the URL hash via
+  // history.replaceState. Cold mount: resolver already boots from
+  // `/ws/<wsId>/` if present. Warm gestures (in-tab switcher,
+  // cross-workspace inheritance, runtime deletion fallback): URL
+  // catches up here so address bar / bookmarks / tab-restore always
+  // reflect the actual binding.
+  useUrlWorkspaceBindingMirror(editingScopeWorkspaceId);
   const layout = useResponsiveLayout(editingScopeWorkspaceId);
 
   // Push the editing-scope workspaceId up to {@link Workbench}'s
@@ -864,35 +872,24 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       const hasDirty = allTabs.some((t) => t.dirty);
       const targetName = workspacesApi.workspaces.find((w) => w.id === targetId)?.name;
       const doSwitch = async (): Promise<void> => {
-        // BC-MWPT-1 / BC-MWPT-8 — mode-aware switch. Per-window-or-tab
-        // mode skips the oracle write (no `workspaceChanged` broadcast);
-        // slice owners on other tabs are unaffected. Read mode inside the
-        // callback so a mid-gesture flip takes effect immediately.
-        const mode = getSetting('general.workspaceSwitchScope');
-        if (mode === 'per-window-or-tab') {
-          const sameBinding = targetId === perTab.initial.workspace?.workspaceId;
-          if (!sameBinding) {
-            const data = await readWorkspaceFallThrough(targetId);
-            perTab.onPersist((prev) => ({ ...prev, workspace: { workspaceId: targetId, data } }));
-          }
-          // MWPT-FULL v1.3 § 4.0.3 — when the user opted in via the
-          // dropdown checkbox, also write Active so DNR/popup follow.
-          if (opts?.makeActive && targetId !== workspacesApi.activeWorkspaceId) {
-            const ok = await workspacesApi.setActiveWorkspace(targetId);
-            if (ok && targetName) {
-              message.success(`Switched this ${instanceLabel()} to ${targetName} and made it active`);
-              return;
-            }
-          }
-          if (!sameBinding && targetName) message.success(`Switched this ${instanceLabel()} to ${targetName}`);
-          return;
+        // Switch this tab's binding — the slice update flows through to
+        // the URL via `useUrlWorkspaceBindingMirror`. ACTIVE is a
+        // separate axis: only written when the caller opts in via
+        // `opts.makeActive` (the dropdown's pin gesture or its
+        // "switch + make active" combined affordance).
+        const sameBinding = targetId === perTab.initial.workspace?.workspaceId;
+        if (!sameBinding) {
+          const data = await readWorkspaceFallThrough(targetId);
+          perTab.onPersist((prev) => ({ ...prev, workspace: { workspaceId: targetId, data } }));
         }
-        if (targetId === workspacesApi.activeWorkspaceId) return;
-        const ok = await workspacesApi.setActiveWorkspace(targetId);
-        // Mirror the import flow's "Imported N entities from <ws>" toast
-        // pattern so every workspace state change has the same feedback
-        // shape — silent state shifts feel like a stuck UI on slow IO.
-        if (ok && targetName) message.success(`Switched to ${targetName}`);
+        if (opts?.makeActive && targetId !== workspacesApi.activeWorkspaceId) {
+          const ok = await workspacesApi.setActiveWorkspace(targetId);
+          if (ok && targetName) {
+            message.success(`Switched this ${instanceLabel()} to ${targetName} and made it active`);
+            return;
+          }
+        }
+        if (!sameBinding && targetName) message.success(`Switched this ${instanceLabel()} to ${targetName}`);
       };
       if (hasDirty) {
         modal.confirm({

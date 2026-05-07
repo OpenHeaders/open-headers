@@ -21,23 +21,52 @@ export type { WorkspaceIntent };
  * want to know whether the warm path or cold path ran (e.g. to emit a
  * surface-level toast only when a new tab was created).
  *
- * The `surface` parameter is purely observability metadata for now; the
- * navigator threads it through its log entries so "which surface opened
- * this tab" is visible in exported diagnostic logs.
+ * `surface` is observability metadata threaded through navigator log
+ * entries so "which surface opened this tab" is visible in exported
+ * logs. Optional `workspaceId` pins the editing-scope binding the
+ * caller wants to land in: the navigator filters candidate workbench
+ * tabs to those bound to this workspace, and cold-path tabs encode the
+ * binding in the URL (`#/ws/<wsId>/<intent>`) so the workbench resolves
+ * its scope synchronously on first render — no cold-mount race. When
+ * omitted, the client resolves the caller's runtime-Active workspace
+ * via `listWorkspaces` so popup/sidepanel/devpanel surfaces always land
+ * in the workspace the user is currently looking at.
  */
 export async function openWorkspace(
   intent: WorkspaceIntent,
   surface: IntentCallerSurface,
+  options?: { workspaceId?: string },
 ): Promise<{ ok: true; tabId: number; path: string } | { ok: false; reason: string }> {
   const callerContext: IntentCallerContext = { surface };
-  const windowId = await resolveCallerWindowId();
+  const [windowId, workspaceId] = await Promise.all([
+    resolveCallerWindowId(),
+    options?.workspaceId !== undefined ? Promise.resolve(options.workspaceId) : resolveCallerWorkspaceId(),
+  ]);
   if (typeof windowId === 'number') callerContext.callerWindowId = windowId;
+  if (typeof workspaceId === 'string') callerContext.callerWorkspaceId = workspaceId;
 
   const result = await call('openWorkspaceIntent', { intent, callerContext });
   if (result.ok) {
     return { ok: true, tabId: result.tabId, path: result.path };
   }
   return { ok: false, reason: result.reason };
+}
+
+/**
+ * Resolve the caller's editing-scope workspace via the SW. System
+ * surfaces (popup / sidepanel / devpanel) always reflect the
+ * runtime-Active workspace, so this is the right answer for them.
+ * Workbench-to-workbench dispatches should pass an explicit
+ * `options.workspaceId` to override (the source tab's bound id, not
+ * runtime-Active — diverged tabs may differ).
+ */
+async function resolveCallerWorkspaceId(): Promise<string | undefined> {
+  try {
+    const resp = await call('listWorkspaces');
+    return resp.activeWorkspaceId;
+  } catch {
+    return undefined;
+  }
 }
 
 /**

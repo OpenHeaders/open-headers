@@ -631,7 +631,11 @@ export function handleGeneralMessage(
       // at the boundary); we just forward the raw fields here.
       const payload = message as unknown as {
         intent?: unknown;
-        callerContext?: { surface?: 'popup' | 'sidepanel' | 'devpanel' | 'workspace'; callerWindowId?: number };
+        callerContext?: {
+          surface?: 'popup' | 'sidepanel' | 'devpanel' | 'workspace';
+          callerWindowId?: number;
+          callerWorkspaceId?: string;
+        };
       };
       openWorkspaceIntent(payload.intent, payload.callerContext ?? {})
         .then((result) => safeResponse(result))

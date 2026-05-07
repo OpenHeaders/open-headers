@@ -9,7 +9,9 @@ import { getBrowserAPI } from '@/types/browser';
 import { useSetting, useSettingValue } from '@/workbench/settings/hooks';
 import type { FilterConfig } from '../data/filter-engine';
 import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from '../data/tool-windows';
-import { PanelEnvironmentSelector } from './PanelEnvironmentSelector';
+import { openWorkspace } from '@/shared/workspace-intent';
+import EnvironmentSelector from '@/workbench/components/EnvironmentSelector';
+import { PanelWorkspaceSelector } from './PanelWorkspaceSelector';
 import { RuleExecutionsHint } from './RuleExecutions';
 
 type SidebarLayoutVariantSetting = 'proportional' | 'compact' | 'stacked' | 'dynamic';
@@ -483,10 +485,37 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
             </>
           )}
           <div className="dt-toolbar-spacer" />
-          <PanelEnvironmentSelector
+          <PanelWorkspaceSelector />
+          <EnvironmentSelector
             environments={environments}
             activeEnvironmentId={activeEnvironmentId}
             onSwitch={onSwitchEnvironment}
+            // Devpanel is a viewer surface — it has no collection
+            // context, so the pinned/default-collection affordances
+            // collapse to no-ops. Editing actions route to the
+            // workbench via WorkspaceIntent so the user lands on the
+            // right page; the navigator handles focus-or-create.
+            activeCollectionId={null}
+            activeCollectionPinnedEnvIds={[]}
+            activeCollectionDefaultEnvId={null}
+            onSetCollectionPinnedEnvs={() => Promise.resolve(true)}
+            onCreateEnvironment={() => {
+              void openWorkspace({ kind: 'open-workspace-vars' }, 'devpanel');
+            }}
+            onOpenEnvironment={(uid) => {
+              void openWorkspace({ kind: 'edit-environment', uid }, 'devpanel');
+            }}
+            onOpenWorkspaceVariables={() => {
+              void openWorkspace({ kind: 'open-workspace-vars' }, 'devpanel');
+            }}
+            onOpenCollectionVariables={() => {
+              // No collection context in the devpanel — no-op. The
+              // selector hides the "Collection variables" footer when
+              // `activeCollectionId === null`.
+            }}
+            onOpenVault={() => {
+              void openWorkspace({ kind: 'open-vault' }, 'devpanel');
+            }}
           />
           {showPanelToggles && (
             <>

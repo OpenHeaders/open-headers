@@ -342,3 +342,63 @@ export function parseIntent(candidate: unknown): WorkspaceIntent | null {
   const result = v.safeParse(WorkspaceIntentSchema, candidate);
   return result.success ? result.output : null;
 }
+
+/**
+ * Workspace-bound intent — the URL-pinned binding form. The `/ws/<wsId>/`
+ * prefix lets a workbench tab encode its editing-scope workspace in the
+ * hash, so cold mount can resolve the binding synchronously, the SW
+ * navigator can match candidate tabs by parsing their URL, and tab
+ * restore / bookmarks preserve the binding without runtime state.
+ *
+ * `workspaceId` is optional — bare hashes (legacy, no binding) parse to
+ * `{ intent }` with no workspaceId, and the workbench falls back to the
+ * global active workspace. Same fallback applies when the wsId in the
+ * URL no longer corresponds to an existing workspace (deleted while
+ * bookmarked).
+ */
+export interface BoundIntent {
+  workspaceId?: string;
+  intent: WorkspaceIntent;
+}
+
+// Workspace ids match the hex-uid convention enforced by the schema's
+// uid validators; we keep this regex permissive here (any URL-safe
+// non-empty segment) and let the consuming workbench validate against
+// the actual workspace list. The codec's job is shape, not existence.
+const WS_PREFIX_PATTERN = /^ws$/;
+
+/**
+ * Parse a URL hash into a {@link BoundIntent}. Recognizes the optional
+ * `/ws/<wsId>/` prefix; if absent, returns `{ intent }` with no
+ * workspaceId (legacy bookmark compat). Returns null when the inner
+ * intent fails to parse.
+ */
+export function hashToBoundIntent(rawHash: string): BoundIntent | null {
+  const segments = parseHashSegments(rawHash);
+  if (segments.length >= 2 && WS_PREFIX_PATTERN.test(segments[0])) {
+    const workspaceId = segments[1];
+    const remainder = segments.slice(2);
+    const innerHash = remainder.length === 0 ? '' : `#/${remainder.map(encodeSegment).join('/')}`;
+    const intent = hashToIntent(innerHash);
+    if (!intent) return null;
+    return { workspaceId, intent };
+  }
+  // No `/ws/` prefix — fall back to the bare-intent parse.
+  const intent = hashToIntent(rawHash);
+  if (!intent) return null;
+  return { intent };
+}
+
+/**
+ * Encode a {@link BoundIntent} as a URL hash, including the leading `#`.
+ * `workspaceId` undefined → bare intent hash (legacy form). Defined →
+ * `#/ws/<wsId>/<intent-tail>`, which round-trips through
+ * {@link hashToBoundIntent}.
+ */
+export function boundIntentToHash(bound: BoundIntent): string {
+  const innerHash = intentToHash(bound.intent);
+  if (bound.workspaceId === undefined) return innerHash;
+  // innerHash is either '' (open-workspace) or starts with '#/'.
+  const tail = innerHash === '' ? '' : `/${innerHash.slice(2)}`;
+  return `#/ws/${encodeSegment(bound.workspaceId)}${tail}`;
+}

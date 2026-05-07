@@ -13,6 +13,8 @@
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 import {
+  boundIntentToHash,
+  hashToBoundIntent,
   hashToIntent,
   IMPORT_INLINE_PAYLOAD_MAX_BYTES,
   intentToHash,
@@ -396,5 +398,60 @@ describe('parseIntent', () => {
     expect(parseIntent({ kind: 'edit-rule' })).toBeNull();
     expect(parseIntent(null)).toBeNull();
     expect(parseIntent('not an object')).toBeNull();
+  });
+});
+
+// ── boundIntentToHash / hashToBoundIntent — workspace-pinned hash ──
+
+describe('boundIntentToHash / hashToBoundIntent', () => {
+  const WS_ID = 'ws-abc123';
+
+  it('encodes a bound open-workspace as #/ws/<wsId>', () => {
+    expect(boundIntentToHash({ workspaceId: WS_ID, intent: { kind: 'open-workspace' } })).toBe(`#/ws/${WS_ID}`);
+  });
+
+  it('prepends /ws/<wsId>/ to a non-empty intent hash', () => {
+    expect(boundIntentToHash({ workspaceId: WS_ID, intent: { kind: 'edit-rule', uid: UID_A } })).toBe(
+      `#/ws/${WS_ID}/edit/${UID_A}`,
+    );
+  });
+
+  it('returns the bare intent hash when workspaceId is omitted', () => {
+    expect(boundIntentToHash({ intent: { kind: 'edit-rule', uid: UID_A } })).toBe(`#/edit/${UID_A}`);
+    expect(boundIntentToHash({ intent: { kind: 'open-workspace' } })).toBe('');
+  });
+
+  it('round-trips with workspaceId', () => {
+    const bound = { workspaceId: WS_ID, intent: { kind: 'edit-rule', uid: UID_A } as WorkspaceIntent };
+    expect(hashToBoundIntent(boundIntentToHash(bound))).toEqual(bound);
+  });
+
+  it('round-trips a bare hash (no workspace prefix) into { intent } only', () => {
+    const intent: WorkspaceIntent = { kind: 'edit-rule', uid: UID_A };
+    expect(hashToBoundIntent(intentToHash(intent))).toEqual({ intent });
+  });
+
+  it('parses the workspace-only #/ws/<wsId> form as bound open-workspace', () => {
+    expect(hashToBoundIntent(`#/ws/${WS_ID}`)).toEqual({
+      workspaceId: WS_ID,
+      intent: { kind: 'open-workspace' },
+    });
+  });
+
+  it('parses #/ws/<wsId>/<intent> back into both halves', () => {
+    expect(hashToBoundIntent(`#/ws/${WS_ID}/environment/${UID_B}`)).toEqual({
+      workspaceId: WS_ID,
+      intent: { kind: 'edit-environment', uid: UID_B },
+    });
+  });
+
+  it('returns null when the inner intent fails to parse', () => {
+    expect(hashToBoundIntent(`#/ws/${WS_ID}/not-a-route`)).toBeNull();
+  });
+
+  it('treats a hash with /ws/ but no id as a bare unknown route (null)', () => {
+    // `#/ws` is a bare unknown route — only one segment, doesn't trip
+    // the prefix matcher (which requires a wsId after the `ws` head).
+    expect(hashToBoundIntent('#/ws')).toBeNull();
   });
 });

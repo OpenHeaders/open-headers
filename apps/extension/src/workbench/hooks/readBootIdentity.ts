@@ -20,12 +20,36 @@
  * lint-allowlisted call site" rather than regex.
  */
 
+import { hashToBoundIntent } from '@openheaders/core/workspace-intent';
 import { extensionStorage, OH } from '@/shared/storage';
 
 export async function readGlobalActiveWorkspaceId(): Promise<string | null> {
   try {
     const id = (await extensionStorage.get(OH.runtimeActive)) as string | undefined;
     return typeof id === 'string' && id.length > 0 ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Mount-time read of the URL-pinned workspace binding (`/ws/<wsId>/`
+ * prefix in `window.location.hash`). Returns null when the prefix is
+ * absent, malformed, or the runtime exposes no `window` (SW context).
+ *
+ * Existence of the workspace is NOT validated here — that costs an
+ * async read and would block the resolver's fast path. The mirror
+ * effect (`useUrlWorkspaceBindingMirror`) corrects an unknown id once
+ * the workspace list resolves: replaceState to the actual binding +
+ * seed the slice with global active.
+ */
+export function readUrlWorkspaceId(): string | null {
+  if (typeof window === 'undefined') return null;
+  const hash = window.location.hash;
+  if (!hash) return null;
+  try {
+    const bound = hashToBoundIntent(hash);
+    return bound?.workspaceId ?? null;
   } catch {
     return null;
   }

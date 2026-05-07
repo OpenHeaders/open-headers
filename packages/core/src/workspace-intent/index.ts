@@ -1,4 +1,11 @@
-export { hashToIntent, intentToHash, parseIntent } from './codec';
+export {
+  type BoundIntent,
+  boundIntentToHash,
+  hashToBoundIntent,
+  hashToIntent,
+  intentToHash,
+  parseIntent,
+} from './codec';
 export type { RuleFlowScope, WorkspaceIntent, WorkspaceIntentKind } from './schema';
 export {
   CreateRuleIntentSchema,

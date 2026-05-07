@@ -1,19 +1,24 @@
 /**
  * UI surface abstraction. Tells shared components which host they're
- * rendering inside (action popup, side panel) so they can adapt
- * lifecycle and chrome — width is handled by container queries, not
- * this enum.
+ * rendering inside (action popup, side panel, DevTools panel) so they
+ * can adapt lifecycle and chrome — width is handled by container
+ * queries, not this enum.
  */
-export type SurfaceMode = 'popup' | 'sidepanel';
+export type SurfaceMode = 'popup' | 'sidepanel' | 'devpanel';
 
 /**
- * Aggregated surface info threaded through React via context. `presenceName`
- * matches the port name the background's tab-listeners switch on (`'popup'`
- * vs `'sidepanel'`) so badge refresh can react to either context closing.
+ * Aggregated surface info threaded through React via context.
+ * `presenceName` matches the port name the background's tab-listeners
+ * switch on (`'popup'` / `'sidepanel'` / `'devpanel'`) so badge refresh
+ * can react to either context closing.
  */
 export interface SurfaceInfo {
   mode: SurfaceMode;
   presenceName: string;
-  /** True for hosts whose blur dismisses them (popup); false for persistent panels. */
+  /**
+   * True for hosts whose blur dismisses them (popup); false for
+   * persistent panels (sidepanel, devpanel — long-lived DevTools tab
+   * that survives blur).
+   */
   dismissesOnBlur: boolean;
 }

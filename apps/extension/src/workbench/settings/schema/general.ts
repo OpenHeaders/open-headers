@@ -5,20 +5,17 @@
  */
 
 import * as v from 'valibot';
-import { instanceLabel, instanceLabelPlural } from '@/shared/host-vocabulary';
 import { registerSetting } from '../registry';
 
 const openToSchema = v.picklist(['last', 'home', 'rules', 'collections']);
 const languageSchema = v.picklist(['auto', 'en']);
 const settingsOpenModeSchema = v.picklist(['modal', 'modal-maximized', 'tab']);
 const collectionEnvAutoSwitchSchema = v.picklist(['keep-selection', 'apply-defaults', 'follow-collection']);
-const workspaceSwitchScopeSchema = v.picklist(['global', 'per-window-or-tab']);
 
 export type OpenTo = v.InferOutput<typeof openToSchema>;
 export type Language = v.InferOutput<typeof languageSchema>;
 export type SettingsOpenMode = v.InferOutput<typeof settingsOpenModeSchema>;
 export type CollectionEnvAutoSwitch = v.InferOutput<typeof collectionEnvAutoSwitchSchema>;
-export type WorkspaceSwitchScope = v.InferOutput<typeof workspaceSwitchScopeSchema>;
 
 declare module '../types' {
   interface SettingsMap {
@@ -29,7 +26,6 @@ declare module '../types' {
     'general.restoreTabsOnStartup': boolean;
     'general.settingsOpenMode': SettingsOpenMode;
     'general.collectionEnvAutoSwitch': CollectionEnvAutoSwitch;
-    'general.workspaceSwitchScope': WorkspaceSwitchScope;
     'general.workspaceServiceGracePeriodMs': number;
   }
 }
@@ -133,32 +129,6 @@ registerSetting({
       label: 'Follow each collection',
       description:
         "Opening a collection (or any subfolder, rule, or request inside it) with a default environment switches to that default. Picks you make inside a collection are remembered for that collection. Collections without a default don't auto-switch.",
-    },
-  ],
-});
-
-registerSetting({
-  key: 'general.workspaceSwitchScope',
-  type: 'enum',
-  default: 'global',
-  schema: workspaceSwitchScopeSchema,
-  label: 'When switching workspaces',
-  description:
-    `Whether a workspace switch syncs every ${instanceLabel()} (default) or stays only in the current ${instanceLabel()}. ` +
-    'Network rules and the popup always use the default workspace.',
-  category: 'general',
-  tags: ['workspace', 'tabs', 'multi-workspace'],
-  scope: 'user',
-  enumOptions: [
-    {
-      value: 'global',
-      label: `Sync all ${instanceLabelPlural()}`,
-      description: `Switching workspace updates every ${instanceLabel()} and surface (default).`,
-    },
-    {
-      value: 'per-window-or-tab',
-      label: `Only this ${instanceLabel()}`,
-      description: `Switching workspace stays in this ${instanceLabel()}. Other ${instanceLabelPlural()}, the popup, and network rules keep using the default workspace.`,
     },
   ],
 });

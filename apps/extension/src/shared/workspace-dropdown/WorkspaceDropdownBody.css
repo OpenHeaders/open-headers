@@ -1,0 +1,51 @@
+/* Shared dropdown row hover affordance. Colocated with
+ * `WorkspaceDropdownBody` so every consuming surface (workbench, popup,
+ * sidepanel, devpanel) picks up the hover state without each one
+ * re-declaring the rule. The `.oh-env-row` class is reused by the
+ * environment dropdowns, which import their own copy of this rule
+ * from workbench/devpanel CSS — those declarations remain idempotent. */
+
+.oh-env-row {
+  transition: background 0.12s ease;
+}
+
+.oh-env-row:hover {
+  background: rgba(128, 128, 128, 0.08);
+}
+
+/* Active-row affordance: the selected row carries an inline
+ * background already (via inline style — see WorkspaceDropdownBody.tsx),
+ * so the hover rule must NOT clobber it. CSS specificity: inline
+ * style wins over class hover, so this is a no-op safety note. */
+
+/* Per-row action buttons (e.g. "Set active" check icon) start hidden
+ * and fade in on row hover. Actions that should always be visible
+ * (the active row's filled check) override `opacity: 1` inline. */
+
+.oh-env-row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.oh-env-row-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, background 0.12s ease;
+}
+
+.oh-env-row:hover .oh-env-row-action {
+  opacity: 0.7;
+}
+
+.oh-env-row-action:hover {
+  background: rgba(128, 128, 128, 0.12);
+  opacity: 1;
+}
