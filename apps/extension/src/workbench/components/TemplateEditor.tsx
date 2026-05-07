@@ -39,6 +39,7 @@ import {
   prettyPathMap,
   type ConflictResolution,
   type PathConflict,
+  useAutoMergeForm,
 } from '@/shared/conflicts';
 import { useEditorShell, useReprime } from '@/shared/editor-shell';
 import { stableStringify } from '@/shared/forms';
@@ -202,6 +203,16 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
   );
 
   const [isConflictDialogOpen, setConflictDialogOpen] = useState(false);
+
+  // Per-leaf auto-rebase — see EnvironmentEditor for the discipline.
+  const applyAutoMerge = useCallback(
+    (path: string, theirs: string) => {
+      if (!liveTemplate) return;
+      templateResolveAdapter.applyResolutionToForm(form, liveTemplate, path, { base: '', theirs });
+    },
+    [form, liveTemplate],
+  );
+  useAutoMergeForm({ conflicts, formProjection: formProjection ?? undefined, applyToForm: applyAutoMerge });
 
   const handleKeepAllMine = useCallback(() => {
     for (const path of allConflicts.keys()) conflicts.dismiss(path);

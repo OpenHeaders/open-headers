@@ -38,6 +38,7 @@ import {
   EntityConflictBanner,
   EntityConflictDialog,
   prettyPathMap,
+  useAutoMergeForm,
 } from '@/shared/conflicts';
 import { useEditorShell, useReprime } from '@/shared/editor-shell';
 import { stableStringify } from '@/shared/forms';
@@ -151,6 +152,17 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
     [conflicts, formProjection, formSetOrders],
   );
   const [isConflictDialogOpen, setConflictDialogOpen] = useState(false);
+
+  // Per-leaf auto-rebase — see EnvironmentEditor for the full discipline.
+  const applyAutoMerge = useCallback(
+    (path: string, theirs: string) => {
+      const transient: VariableEntity = { uid: collectionUid, variables: [...draft] };
+      if (!variableResolveAdapter.applyResolutionToEntity(transient, path, { base: '', theirs })) return;
+      setDraft(transient.variables);
+    },
+    [collectionUid, draft],
+  );
+  useAutoMergeForm({ conflicts, formProjection, applyToForm: applyAutoMerge });
 
   const conflictBridge = useMemo<VariableTableConflictBridge>(
     () => ({

@@ -34,6 +34,7 @@ import {
   EntityConflictBanner,
   EntityConflictDialog,
   prettyPathMap,
+  useAutoMergeForm,
 } from '@/shared/conflicts';
 import { useEditorShell, useReprime } from '@/shared/editor-shell';
 import { stableStringify } from '@/shared/forms';
@@ -97,6 +98,17 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
     () => new Map<string, readonly string[]>([['variables', draft.map((v) => v.uid)]]),
     [draft],
   );
+
+  // Per-leaf auto-rebase — see EnvironmentEditor for the full discipline.
+  const applyAutoMerge = useCallback(
+    (path: string, theirs: string) => {
+      const transient: VariableEntity = { uid: WORKSPACE_VARIABLES_ID, variables: [...draft] };
+      if (!variableResolveAdapter.applyResolutionToEntity(transient, path, { base: '', theirs })) return;
+      setDraft(transient.variables);
+    },
+    [draft],
+  );
+  useAutoMergeForm({ conflicts, formProjection, applyToForm: applyAutoMerge });
   const allConflicts = useMemo(
     () => conflicts.getAllConflicts(formProjection, formSetOrders),
     [conflicts, formProjection, formSetOrders],

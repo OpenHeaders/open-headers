@@ -53,6 +53,7 @@ import {
   prettyPathMap,
   type ConflictResolution,
   type PathConflict,
+  useAutoMergeForm,
 } from '@/shared/conflicts';
 import { useEditorShell, useReprime } from '@/shared/editor-shell';
 import { stableStringify } from '@/shared/forms';
@@ -536,6 +537,24 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   );
 
   const [isConflictDialogOpen, setConflictDialogOpen] = useState(false);
+
+  // Per-leaf auto-rebase — see EnvironmentEditor for the discipline.
+  const applyAutoMerge = useCallback(
+    (path: string, theirs: string) => {
+      if (!liveRequest) return;
+      const merged = JSON.parse(
+        JSON.stringify({ ...liveRequest, ...buildRequestUpdates(draft) }),
+      ) as V5.Request;
+      if (!requestResolveAdapter.applyResolutionToEntity(merged, path, { base: '', theirs })) return;
+      setDraft(draftFromRequest(merged));
+    },
+    [liveRequest, draft],
+  );
+  useAutoMergeForm({
+    conflicts,
+    formProjection: formProjection ?? undefined,
+    applyToForm: applyAutoMerge,
+  });
 
   // Shared helper: clone the live request, fold in current draft +
   // optional resolutions, then return both the projected request and

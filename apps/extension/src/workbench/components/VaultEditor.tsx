@@ -36,6 +36,7 @@ import {
   EntityConflictBanner,
   EntityConflictDialog,
   prettyPathMap,
+  useAutoMergeForm,
 } from '@/shared/conflicts';
 import { useEditorShell, useReprime } from '@/shared/editor-shell';
 import { stableStringify } from '@/shared/forms';
@@ -93,6 +94,23 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
     () => new Map<string, readonly string[]>([['secrets', draft.map((s) => s.uid)]]),
     [draft],
   );
+
+  // Per-leaf auto-rebase — see EnvironmentEditor for the full discipline.
+  // For Vault: kind-transition leaves (`kind` flips) are not auto-merged
+  // because `vaultResolveAdapter.applyResolutionToEntity` rejects partial
+  // kind writes; user must resolve those via the dialog. `getAutoMergeable`
+  // still surfaces them — the apply returning false leaves the chip up.
+  const applyAutoMerge = useCallback(
+    (path: string, theirs: string) => {
+      const transient = { uid: VAULT_ID, schemaVersion: vault.schemaVersion, secrets: [...draft] } as V5.Vault & {
+        uid: string;
+      };
+      if (!vaultResolveAdapter.applyResolutionToEntity(transient, path, { base: '', theirs })) return;
+      setDraft(transient.secrets);
+    },
+    [draft, vault.schemaVersion],
+  );
+  useAutoMergeForm({ conflicts, formProjection, applyToForm: applyAutoMerge });
   const allConflicts = useMemo(
     () => conflicts.getAllConflicts(formProjection, formSetOrders),
     [conflicts, formProjection, formSetOrders],

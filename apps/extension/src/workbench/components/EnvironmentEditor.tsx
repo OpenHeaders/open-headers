@@ -31,6 +31,7 @@ import {
   EntityConflictBanner,
   EntityConflictDialog,
   prettyPathMap,
+  useAutoMergeForm,
 } from '@/shared/conflicts';
 import { useEditorShell, useReprime } from '@/shared/editor-shell';
 import { stableStringify } from '@/shared/forms';
@@ -113,6 +114,23 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
   setBaselineRef.current = conflicts.setBaseline;
 
   const formProjection = useMemo(() => projectVariablesToForm(draft), [draft]);
+
+  // Per-leaf auto-rebase: when a peer commits to a variable leaf the user
+  // hasn't touched, silently catch the draft up. Whole-form `useReprime`
+  // gates on every leaf clean and stops at the first dirty leaf; this
+  // complements it for the partial-dirty case (§6.2 killer demo). Real
+  // conflicts (same leaf in both tabs) are filtered out by
+  // `getAutoMergeable` and continue surfacing as chips.
+  const applyAutoMerge = useCallback(
+    (path: string, theirs: string) => {
+      if (!env) return;
+      const transient: VariableEntity = { uid: env.uid, variables: [...draft] };
+      if (!variableResolveAdapter.applyResolutionToEntity(transient, path, { base: '', theirs })) return;
+      setDraft(transient.variables);
+    },
+    [env, draft],
+  );
+  useAutoMergeForm({ conflicts, formProjection, applyToForm: applyAutoMerge });
   const formSetOrders = useMemo(
     () => new Map<string, readonly string[]>([['variables', draft.map((v) => v.uid)]]),
     [draft],
