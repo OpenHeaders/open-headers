@@ -279,54 +279,20 @@ export async function deleteEnvironment(uid: string): Promise<boolean> {
   );
 }
 
-/**
- * Set the active environment, or clear it (null = "No environment",
- * Postman semantics). No-op if the id is invalid.
- */
-export async function setActiveEnvironment(uid: string | null): Promise<boolean> {
-  if (uid !== null && !environments.some((e) => e.uid === uid)) return false;
-  if (activeEnvironmentId === uid) return true;
-  const prevId = activeEnvironmentId;
-  activeEnvironmentId = uid;
-  await persistActiveEnvironment();
-  notifyActiveChange(uid, prevId);
-  return true;
-}
-
-/**
- * Pick the workspace's default environment. Resolution falls back to
- * this env when the active env is missing a variable (or when there's
- * no active env). Pass `null` to clear — resolution behaves flat again.
- * No-op if the uid doesn't match an existing environment.
- */
-export async function setDefaultEnvironment(uid: string | null): Promise<boolean> {
-  if (uid !== null && !environments.some((e) => e.uid === uid)) return false;
-  if (defaultEnvironmentId === uid) return true;
-  defaultEnvironmentId = uid;
-  await persistDefaultEnvironment();
-  return true;
-}
-
-export async function setManualEnv(uid: string | null): Promise<boolean> {
-  if (uid !== null && !environments.some((e) => e.uid === uid)) return false;
-  if (manualEnvId === uid) return true;
-  manualEnvId = uid;
-  await persistManualEnvId();
-  return true;
-}
-
-export async function setCollectionEnvOverride(collectionId: string, envId: string | null | undefined): Promise<void> {
-  const workspaceId = assertLoaded();
-  const next = { ...collectionEnvOverrides };
-  if (envId === undefined) {
-    delete next[collectionId];
-  } else {
-    next[collectionId] = envId;
-  }
-  collectionEnvOverrides = next;
-  await extensionStorage.set(wsKeys(workspaceId).collectionEnvOverrides, collectionEnvOverrides);
-  notifyChange();
-}
+// Pointer setters were retired with BC-MWPT-FULL-10: pointer state
+// (active / default / manual env, collection-env-overrides) is now
+// per-workspace, written directly to `wsKeys(ws).<key>` by every
+// surface (workbench tab + system surfaces alike). The SW's
+// `bindActivePointerSubscriptions` watches the runtime-Active
+// workspace's pointer keys and applies side-effects (DNR recompile,
+// resolver invalidate, live-refresh switch-warm) on every write —
+// regardless of which surface authored it. Stale ids are reconciled
+// SW-side and written back so the stored value never drifts.
+//
+// `deleteEnvironment` (legacy SW handler) handles its own pointer
+// cascade inline because the env-list mutation and pointer clears
+// must be atomic against the in-memory copy; the storage subscription
+// then no-ops the persist (`reconciled === activeEnvironmentId`).
 
 function reconcileOverrides(
   overrides: Record<string, string | null>,
@@ -338,6 +304,110 @@ function reconcileOverrides(
     if (envId === null || known.has(envId)) result[cid] = envId;
   }
   return result;
+}
+
+function overridesEqual(
+  a: Record<string, string | null>,
+  b: Record<string, string | null>,
+): boolean {
+  const ak = Object.keys(a);
+  const bk = Object.keys(b);
+  if (ak.length !== bk.length) return false;
+  for (const k of ak) {
+    if (!(k in b)) return false;
+    if (a[k] !== b[k]) return false;
+  }
+  return true;
+}
+
+// ── External pointer-write subscription ─────────────────────────────
+//
+// The runtime-Active workspace's pointer keys
+// (`wsKeys(ws).{activeEnvironmentId, defaultEnvironmentId, manualEnvId,
+// collectionEnvOverrides}`) are written directly by workbench surfaces
+// editing this workspace — both the legacy (no-override) branch and
+// the override branch use `extensionStorage.set` as the canonical
+// writer. The SW must observe those external writes and apply the
+// same in-memory + side-effect cascade it would for an internal call,
+// so DNR / resolver / live-refresh stay coherent. Stale ids are
+// reconciled against the current env list and written back so the
+// stored value never drifts.
+//
+// Re-bound on hydrate / switch — the subscription always tracks the
+// SW's loaded workspace, never a non-active one.
+
+let pointerSubscriptionsUnsubscribe: (() => void) | null = null;
+
+function bindActivePointerSubscriptions(workspaceId: string): void {
+  if (pointerSubscriptionsUnsubscribe) {
+    pointerSubscriptionsUnsubscribe();
+    pointerSubscriptionsUnsubscribe = null;
+  }
+  const keys = wsKeys(workspaceId);
+  const disposers: Array<() => void> = [];
+
+  disposers.push(
+    extensionStorage.subscribe(keys.activeEnvironmentId, (next) => {
+      const incoming = typeof next === 'string' ? next : null;
+      const reconciled = reconcilePointer(incoming, environments);
+      if (reconciled === activeEnvironmentId) return;
+      const prev = activeEnvironmentId;
+      activeEnvironmentId = reconciled;
+      if (reconciled !== incoming) {
+        // Caller wrote a stale id; correct the stored value so the
+        // workbench surface sees the reconciliation in its mirror.
+        void extensionStorage.set(keys.activeEnvironmentId, reconciled);
+      }
+      notifyActiveChange(reconciled, prev);
+      notifyChange();
+    }),
+  );
+
+  disposers.push(
+    extensionStorage.subscribe(keys.defaultEnvironmentId, (next) => {
+      const incoming = typeof next === 'string' ? next : null;
+      const reconciled = reconcilePointer(incoming, environments);
+      if (reconciled === defaultEnvironmentId) return;
+      defaultEnvironmentId = reconciled;
+      if (reconciled !== incoming) {
+        void extensionStorage.set(keys.defaultEnvironmentId, reconciled);
+      }
+      notifyChange();
+    }),
+  );
+
+  disposers.push(
+    extensionStorage.subscribe(keys.manualEnvId, (next) => {
+      const incoming = typeof next === 'string' ? next : null;
+      const reconciled = reconcilePointer(incoming, environments);
+      if (reconciled === manualEnvId) return;
+      manualEnvId = reconciled;
+      if (reconciled !== incoming) {
+        void extensionStorage.set(keys.manualEnvId, reconciled);
+      }
+      notifyChange();
+    }),
+  );
+
+  disposers.push(
+    extensionStorage.subscribe(keys.collectionEnvOverrides, (next) => {
+      const incoming: Record<string, string | null> =
+        next !== null && next !== undefined && typeof next === 'object' && !Array.isArray(next)
+          ? (next as Record<string, string | null>)
+          : {};
+      const reconciled = reconcileOverrides(incoming, environments);
+      if (overridesEqual(reconciled, collectionEnvOverrides)) return;
+      collectionEnvOverrides = reconciled;
+      if (!overridesEqual(reconciled, incoming)) {
+        void extensionStorage.set(keys.collectionEnvOverrides, reconciled);
+      }
+      notifyChange();
+    }),
+  );
+
+  pointerSubscriptionsUnsubscribe = () => {
+    for (const d of disposers) d();
+  };
 }
 
 // ── Persistence ─────────────────────────────────────────────────────
@@ -452,6 +522,7 @@ export async function hydrateEnvironmentsFromStorage(): Promise<void> {
   collectionEnvOverrides = reconcileOverrides(snapshot.collectionEnvOverrides, environments);
   manualEnvId = reconcilePointer(snapshot.manualEnvId, environments);
   loadedWorkspaceId = workspaceId;
+  bindActivePointerSubscriptions(workspaceId);
   logger.info(
     'EnvironmentStore',
     `Hydrated ws=${workspaceId}: ${environments.length} envs, active=${activeEnvironmentId ?? 'none'}, default=${defaultEnvironmentId ?? 'none'}`,
@@ -469,6 +540,7 @@ export async function switchToWorkspace(workspaceId: string): Promise<void> {
   collectionEnvOverrides = reconcileOverrides(snapshot.collectionEnvOverrides, environments);
   manualEnvId = reconcilePointer(snapshot.manualEnvId, environments);
   loadedWorkspaceId = workspaceId;
+  bindActivePointerSubscriptions(workspaceId);
   logger.info(
     'EnvironmentStore',
     `Switched to ws=${workspaceId}: ${environments.length} envs, active=${activeEnvironmentId ?? 'none'}, default=${defaultEnvironmentId ?? 'none'}`,
@@ -603,4 +675,8 @@ export function __resetForTests(): void {
   vault = { schemaVersion: 5, secrets: [] };
   loadedWorkspaceId = null;
   listeners.clear();
+  if (pointerSubscriptionsUnsubscribe) {
+    pointerSubscriptionsUnsubscribe();
+    pointerSubscriptionsUnsubscribe = null;
+  }
 }

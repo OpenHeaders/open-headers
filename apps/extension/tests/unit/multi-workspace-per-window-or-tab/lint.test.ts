@@ -632,13 +632,50 @@ describe('MWPT-FULL session #1+#2+#3+#4+#5+#6+#7+#8+#9+#10 — Environments + wo
     expect(text).toMatch(/extensionStorage\.subscribe\(\s*wsKeys\(\s*\w+\s*\)\.environments\b/);
   });
 
-  it('BC-MWPT-FULL-2-env — EnvironmentProvider override branch ignores environmentsChanged broadcast for env list', () => {
-    // The bridge broadcast still fires (legacy branch consumes it +
-    // pointer ops are still global per § 4.1.c). The override branch
-    // MUST NOT overwrite the env list with the broadcast payload —
-    // only pointers (active/default/manual) follow the broadcast.
+  it('BC-MWPT-FULL-2-env — EnvironmentProvider does not consume environmentsChanged broadcast', () => {
+    // BC-MWPT-FULL-10 fix: pointer state is per-workspace and lives in
+    // chrome.storage; both override and legacy branches read env list
+    // + pointers via `extensionStorage.subscribe(wsKeys(ws).<key>)`,
+    // not the SW's `environmentsChanged` broadcast. The broadcast
+    // still fires for downstream consumers (Vault /
+    // WorkspaceVariables / scheduleUpdate) but never reaches
+    // EnvironmentContext directly.
     const text = readFileSync(ENV_CONTEXT, 'utf8');
-    expect(text).toMatch(/if\s*\(!isOverridden\)\s*setEnvironments\(payload\.environments\)/);
+    expect(text).not.toMatch(/subscribe\(['"]environmentsChanged['"]/);
+  });
+
+  it('BC-MWPT-FULL-2-env — EnvironmentProvider reads pointers from per-workspace storage on both branches', () => {
+    const text = readFileSync(ENV_CONTEXT, 'utf8');
+    expect(text).toMatch(/extensionStorage\.subscribe\(\s*keys\.activeEnvironmentId\b/);
+    expect(text).toMatch(/extensionStorage\.subscribe\(\s*keys\.defaultEnvironmentId\b/);
+    expect(text).toMatch(/extensionStorage\.subscribe\(\s*keys\.manualEnvId\b/);
+    expect(text).toMatch(/extensionStorage\.subscribe\(\s*keys\.collectionEnvOverrides\b/);
+  });
+
+  it('BC-MWPT-FULL-2-env — EnvironmentProvider writes pointers to per-workspace storage directly (not bridge calls)', () => {
+    const text = readFileSync(ENV_CONTEXT, 'utf8');
+    expect(text).not.toMatch(/call\(['"]setActiveEnvironment['"]/);
+    expect(text).not.toMatch(/call\(['"]setDefaultEnvironment['"]/);
+    expect(text).not.toMatch(/call\(['"]setManualEnv['"]/);
+    expect(text).not.toMatch(/call\(['"]setCollectionEnvOverride['"]/);
+    expect(text).toMatch(/extensionStorage\.set\(\s*wsKeys\(\s*wsId\s*\)\.activeEnvironmentId\b/);
+    expect(text).toMatch(/extensionStorage\.set\(\s*wsKeys\(\s*wsId\s*\)\.defaultEnvironmentId\b/);
+    expect(text).toMatch(/extensionStorage\.set\(\s*wsKeys\(\s*wsId\s*\)\.manualEnvId\b/);
+    expect(text).toMatch(/extensionStorage\.set\(\s*wsKeys\(\s*wsId\s*\)\.collectionEnvOverrides\b/);
+  });
+
+  it('BC-MWPT-FULL-2-env — SW environment-store binds active-pointer subscriptions on hydrate / switch', () => {
+    const text = readFileSync(
+      join(REPO_ROOT, 'src', 'background', 'modules', 'environment-store.ts'),
+      'utf8',
+    );
+    expect(text).toMatch(/bindActivePointerSubscriptions\(workspaceId\)/);
+    // Both hydrate + switch paths must rebind so the SW reacts to
+    // external pointer writes for whichever workspace it's running.
+    const hydrateBlock = text.match(/hydrateEnvironmentsFromStorage[\s\S]*?\n\}/)?.[0] ?? '';
+    const switchBlock = text.match(/switchToWorkspace[\s\S]*?\n\}/)?.[0] ?? '';
+    expect(hydrateBlock).toMatch(/bindActivePointerSubscriptions/);
+    expect(switchBlock).toMatch(/bindActivePointerSubscriptions/);
   });
 
   it('BC-MWPT-FULL-3-env — EnvironmentProvider override branch routes entity CRUD through env-write-client', () => {

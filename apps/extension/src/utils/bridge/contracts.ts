@@ -606,22 +606,6 @@ export interface BridgeRpcContract {
     req: { uid: string };
     res: { success: boolean };
   };
-  setActiveEnvironment: {
-    req: { uid: string | null };
-    res: { success: boolean };
-  };
-  setDefaultEnvironment: {
-    req: { uid: string | null };
-    res: { success: boolean };
-  };
-  setCollectionEnvOverride: {
-    req: { collectionId: string; envId: string | null | undefined };
-    res: { success: boolean };
-  };
-  setManualEnv: {
-    req: { uid: string | null };
-    res: { success: boolean };
-  };
   setCollectionPinnedEnvs: {
     req: { collectionUid: string; pinnedEnvironmentIds: string[]; defaultEnvironmentId: string | null };
     res: { success: boolean };

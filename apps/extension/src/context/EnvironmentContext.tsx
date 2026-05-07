@@ -2,21 +2,34 @@
  * EnvironmentContext — env-list slice provider for popup, sidepanel,
  * panel, and workbench surfaces.
  *
- * Mirrors `RuleContext` exactly (per MWPT-FULL § 4.1):
- *   - One state instance per surface; consumer hooks read from context.
- *   - `activeWorkspaceIdOverride` set ⇒ workbench (override) branch:
- *     reads `wsKeys(workspaceId).environments` via storage subscribe;
- *     entity CRUD routes through `env-write-client` with the explicit
- *     workspaceId. Diverged tabs editing workspace W2 see and write to
- *     W2's data, regardless of the runtime-Active workspace.
- *   - `activeWorkspaceIdOverride` unset ⇒ legacy (system surface)
- *     branch: reads via `listEnvironments` RPC + `environmentsChanged`
- *     broadcast on the SW's runtime-Active workspace; CRUD via the
- *     legacy `call('createEnvironment'|...)` handlers.
- *   - Pointer ops (active/default/manual env, collection-env-overrides,
- *     collection-pinned-envs) stay on the legacy SW handler call —
- *     documented N residual per § 4.1.c (BC-MWPT-FULL-10). Per-tab
- *     pointer divergence deferred to v2 epic.
+ * Per-workspace pointer model (post BC-MWPT-FULL-10 fix):
+ *
+ *   - Pointer state (active / default / manual env, collection env
+ *     overrides) lives in `wsKeys(workspaceId).<key>` chrome.storage
+ *     keys, scoped to the workspace the surface is editing. Both the
+ *     override branch (workbench tab pinned to a workspace via
+ *     `activeWorkspaceIdOverride`) and the legacy branch (system
+ *     surfaces editing the runtime-active workspace) read and write
+ *     the same per-workspace keys — no global pointer state, no
+ *     cross-tab cross-talk.
+ *
+ *   - Reads: `extensionStorage.subscribe` on each pointer key, scoped
+ *     to the resolved workspaceId. The SW's `environmentsChanged`
+ *     broadcast carries env-list re-projections for the legacy
+ *     branch but NO LONGER drives pointer state.
+ *
+ *   - Writes: `extensionStorage.set` directly on the per-workspace
+ *     pointer keys. The SW environment-store subscribes to its
+ *     runtime-Active workspace's pointer keys and reacts (DNR
+ *     recompile, resolver invalidate, live-refresh switch-warm) when
+ *     a write lands. Stale ids are reconciled SW-side and written
+ *     back so the storage value never drifts.
+ *
+ *   - `setCollectionPinnedEnvs` is an entity-level write on the
+ *     collection itself (not a pointer scalar). Override branch goes
+ *     through `applySetPinnedAndDefault` with explicit workspaceId;
+ *     legacy branch keeps the SW handler (system surfaces always edit
+ *     the runtime-Active workspace's collections).
  */
 
 import type { V5 } from '@openheaders/core/types';
@@ -31,6 +44,7 @@ import {
   applyEnvVariablesReplacement,
   applyRenameEnvironment,
 } from '@/shared/sync/env-write-client';
+import { applySetPinnedAndDefault } from '@/shared/sync/collection-write-client';
 
 export type EnvironmentWriteResult = BridgeRpcResponse<'updateEnvironmentVariables'>;
 
@@ -83,11 +97,27 @@ interface EnvironmentProviderProps {
   surfaceId: string;
   /**
    * Editing-scope workspace id override (workbench surface only).
-   * See `RuleProvider` for the full discipline contract; same shape
-   * here for the env-list slice (BC-MWPT-FULL-1-env / BC-MWPT-FULL-2-env).
-   * System surfaces (popup / sidepanel / panel) MUST NOT pass this prop.
+   * Override branch: pinned to the prop value, never tracks runtime-
+   * active changes. System surfaces (popup / sidepanel / panel) MUST
+   * NOT pass this prop — they auto-track the runtime-active workspace
+   * via the `workspaceChanged` broadcast.
    */
   activeWorkspaceIdOverride?: string | null;
+}
+
+const isStringOrNull = (v: unknown): v is string | null => v === null || typeof v === 'string';
+
+function readPointer(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
+}
+
+function readOverrides(value: unknown): Record<string, string | null> {
+  if (value === null || value === undefined || typeof value !== 'object' || Array.isArray(value)) return {};
+  const out: Record<string, string | null> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (isStringOrNull(v)) out[k] = v;
+  }
+  return out;
 }
 
 export const EnvironmentProvider: React.FC<EnvironmentProviderProps> = ({
@@ -102,97 +132,126 @@ export const EnvironmentProvider: React.FC<EnvironmentProviderProps> = ({
   const [manualEnvId, setManualEnvIdState] = useState<string | null>(null);
   const [collectionEnvOverrides, setCollectionEnvOverrides] = useState<Record<string, string | null>>({});
   const [isReady, setIsReady] = useState(false);
-  const overrideIdRef = useRef<string | null>(null);
+  // Legacy branch: tracks the SW's runtime-active workspace, learned
+  // from `listWorkspaces` bootstrap + `workspaceChanged` broadcast.
+  // Override branch: this state stays null — the override prop is the
+  // authoritative source.
+  const [legacyWorkspaceId, setLegacyWorkspaceId] = useState<string | null>(null);
 
-  // ── Read path ─────────────────────────────────────────────────
-  //
-  // Legacy branch: `listEnvironments` RPC + `environmentsChanged`
-  // broadcast — global-default-scoped data for system surfaces.
-  //
-  // Override branch: `wsKeys(workspaceId).environments` direct storage
-  // subscribe — workspace-scoped data for diverged workbench tabs.
-  // Pointer ops still flow through the legacy `listEnvironments` RPC
-  // (active/default/manual envs are still global per § 4.1.c) so the
-  // legacy reload runs in BOTH branches; the override branch overwrites
-  // the env list with the workspace-scoped read after the RPC returns.
+  const effectiveWorkspaceId = isOverridden ? (activeWorkspaceIdOverride ?? null) : legacyWorkspaceId;
+  const workspaceIdRef = useRef<string | null>(null);
+  workspaceIdRef.current = effectiveWorkspaceId;
 
-  const reloadLegacyPointers = useCallback(async () => {
-    const resp = await call('listEnvironments').catch(() => null);
-    if (!resp) return null;
-    setActiveEnvironmentIdState(resp.activeEnvironmentId ?? null);
-    setDefaultEnvironmentIdState(resp.defaultEnvironmentId ?? null);
-    setCollectionEnvOverrides(resp.collectionEnvOverrides ?? {});
-    setManualEnvIdState(resp.manualEnvId ?? null);
-    return resp;
-  }, []);
+  // ── Legacy-branch active workspace tracking ───────────────────────
+  //
+  // System surfaces follow whichever workspace the SW is currently
+  // bound to. Override branch skips this entirely.
 
   useEffect(() => {
+    if (isOverridden) return;
     let cancelled = false;
-
-    const initialLoad = async () => {
-      const resp = await reloadLegacyPointers();
-      if (cancelled) return;
-      if (isOverridden) {
-        // Override branch reads env list from storage; pointers came from RPC above.
-        setIsReady(true);
-        return;
-      }
-      if (resp) setEnvironments(resp.environments ?? []);
-      setIsReady(true);
-    };
-    void initialLoad();
-
-    const unsub = subscribe('environmentsChanged', (payload) => {
-      // Legacy branch consumes the bridge broadcast directly. Override
-      // branch updates pointers from the broadcast (still global per
-      // § 4.1.c) but ignores the env list (workspace-scoped storage
-      // subscribe owns it).
-      setActiveEnvironmentIdState(payload.activeEnvironmentId);
-      setDefaultEnvironmentIdState(payload.defaultEnvironmentId);
-      setCollectionEnvOverrides(payload.collectionEnvOverrides);
-      setManualEnvIdState(payload.manualEnvId);
-      if (!isOverridden) setEnvironments(payload.environments);
+    void call('listWorkspaces')
+      .then((resp) => {
+        if (cancelled) return;
+        setLegacyWorkspaceId(resp.activeWorkspaceId ?? null);
+      })
+      .catch(() => {
+        // Bootstrap failure: nothing to read until a workspaceChanged
+        // broadcast carries an id.
+      });
+    const unsubWs = subscribe('workspaceChanged', (payload) => {
+      setLegacyWorkspaceId(payload.activeWorkspaceId ?? null);
     });
-    const unsubWs = subscribe('workspaceChanged', () => {
-      void reloadLegacyPointers();
-    });
-
     return () => {
       cancelled = true;
-      unsub();
       unsubWs();
     };
-  }, [isOverridden, reloadLegacyPointers]);
+  }, [isOverridden]);
 
-  // Override-mode storage subscription — rebinds when the editing-scope
-  // workspaceId changes. Diverged workbench tab editing workspace W2
-  // reads W2's env array directly; chrome.storage's onChanged fires
-  // regardless of which oracle the SW is currently running.
+  // ── Env list subscription ─────────────────────────────────────────
+  //
+  // Both branches read `wsKeys(ws).environments` directly. Legacy
+  // surfaces previously consumed `environmentsChanged` for the env
+  // list — the broadcast still fires for downstream consumers
+  // (Vault / WorkspaceVariables / scheduleUpdate) but env-list
+  // updates here come from the storage subscription.
+
   useEffect(() => {
-    if (!isOverridden) return;
-    const wsId = activeWorkspaceIdOverride ?? null;
-    overrideIdRef.current = wsId;
+    const wsId = effectiveWorkspaceId;
     if (!wsId) {
       setEnvironments([]);
       return;
     }
     void extensionStorage.get(wsKeys(wsId).environments).then((record) => {
-      if (overrideIdRef.current !== wsId) return;
+      if (workspaceIdRef.current !== wsId) return;
       setEnvironments(record ?? []);
     });
     return extensionStorage.subscribe(wsKeys(wsId).environments, (record) => {
+      if (workspaceIdRef.current !== wsId) return;
       setEnvironments(record ?? []);
     });
-  }, [isOverridden, activeWorkspaceIdOverride]);
+  }, [effectiveWorkspaceId]);
 
-  // ── Mutators ──────────────────────────────────────────────────
+  // ── Pointer subscriptions ────────────────────────────────────────
+
+  useEffect(() => {
+    const wsId = effectiveWorkspaceId;
+    if (!wsId) {
+      setActiveEnvironmentIdState(null);
+      setDefaultEnvironmentIdState(null);
+      setManualEnvIdState(null);
+      setCollectionEnvOverrides({});
+      setIsReady(!isOverridden ? false : true);
+      return;
+    }
+    const keys = wsKeys(wsId);
+    let cancelled = false;
+
+    void Promise.all([
+      extensionStorage.get(keys.activeEnvironmentId),
+      extensionStorage.get(keys.defaultEnvironmentId),
+      extensionStorage.get(keys.manualEnvId),
+      extensionStorage.get(keys.collectionEnvOverrides),
+    ]).then(([active, def, manual, overrides]) => {
+      if (cancelled || workspaceIdRef.current !== wsId) return;
+      setActiveEnvironmentIdState(readPointer(active));
+      setDefaultEnvironmentIdState(readPointer(def));
+      setManualEnvIdState(readPointer(manual));
+      setCollectionEnvOverrides(readOverrides(overrides));
+      setIsReady(true);
+    });
+
+    const disposers = [
+      extensionStorage.subscribe(keys.activeEnvironmentId, (next) => {
+        if (workspaceIdRef.current !== wsId) return;
+        setActiveEnvironmentIdState(readPointer(next));
+      }),
+      extensionStorage.subscribe(keys.defaultEnvironmentId, (next) => {
+        if (workspaceIdRef.current !== wsId) return;
+        setDefaultEnvironmentIdState(readPointer(next));
+      }),
+      extensionStorage.subscribe(keys.manualEnvId, (next) => {
+        if (workspaceIdRef.current !== wsId) return;
+        setManualEnvIdState(readPointer(next));
+      }),
+      extensionStorage.subscribe(keys.collectionEnvOverrides, (next) => {
+        if (workspaceIdRef.current !== wsId) return;
+        setCollectionEnvOverrides(readOverrides(next));
+      }),
+    ];
+
+    return () => {
+      cancelled = true;
+      for (const d of disposers) d();
+    };
+  }, [effectiveWorkspaceId, isOverridden]);
+
+  // ── Mutators ──────────────────────────────────────────────────────
   //
-  // Override branch: entity CRUD routes through `env-write-client` with
-  // an explicit `workspaceId`. Pointer ops stay on the legacy SW call
-  // path per § 4.1.c (documented N residual; v2 epic).
-  //
-  // Legacy branch: identical to the pre-foundation hook — `call(...)`
-  // against the SW's runtime-Active workspace.
+  // Entity CRUD routes through the env write-client with explicit
+  // workspaceId on the override branch, and the legacy SW handler on
+  // the legacy branch (which operates on the runtime-active workspace
+  // — equivalent to writing the legacy branch's workspaceId).
 
   const createEnvironment = useCallback<EnvironmentContextValue['createEnvironment']>(
     async (name, variables) => {
@@ -258,33 +317,68 @@ export const EnvironmentProvider: React.FC<EnvironmentProviderProps> = ({
     [isOverridden, activeWorkspaceIdOverride, surfaceId],
   );
 
-  // Pointer ops — always legacy SW handler call (no workspaceId).
-  // Per § 4.1.c, per-tab pointer divergence deferred to v2.
+  // Pointer ops — both branches write per-workspace storage directly.
+  // The SW environment-store subscribes to its runtime-Active
+  // workspace's pointer keys and applies side-effects (DNR recompile,
+  // resolver invalidate, live-refresh switch-warm) when a write
+  // lands. Stale ids reconcile SW-side.
 
-  const setActiveEnvironment = useCallback<EnvironmentContextValue['setActiveEnvironment']>(async (uid) => {
-    const resp = await call('setActiveEnvironment', { uid }).catch(() => null);
-    return Boolean(resp?.success);
-  }, []);
-
-  const setDefaultEnvironment = useCallback<EnvironmentContextValue['setDefaultEnvironment']>(async (uid) => {
-    const resp = await call('setDefaultEnvironment', { uid }).catch(() => null);
-    return Boolean(resp?.success);
-  }, []);
-
-  const setManualEnv = useCallback<EnvironmentContextValue['setManualEnv']>(async (uid) => {
-    const resp = await call('setManualEnv', { uid }).catch(() => null);
-    return Boolean(resp?.success);
-  }, []);
-
-  const setCollectionEnvOverride = useCallback<EnvironmentContextValue['setCollectionEnvOverride']>(
-    async (collectionId, envId) => {
-      await call('setCollectionEnvOverride', { collectionId, envId }).catch(() => null);
+  const setActiveEnvironment = useCallback<EnvironmentContextValue['setActiveEnvironment']>(
+    async (uid) => {
+      const wsId = workspaceIdRef.current;
+      if (!wsId) return false;
+      await extensionStorage.set(wsKeys(wsId).activeEnvironmentId, uid);
+      return true;
     },
     [],
   );
 
+  const setDefaultEnvironment = useCallback<EnvironmentContextValue['setDefaultEnvironment']>(
+    async (uid) => {
+      const wsId = workspaceIdRef.current;
+      if (!wsId) return false;
+      await extensionStorage.set(wsKeys(wsId).defaultEnvironmentId, uid);
+      return true;
+    },
+    [],
+  );
+
+  const setManualEnv = useCallback<EnvironmentContextValue['setManualEnv']>(
+    async (uid) => {
+      const wsId = workspaceIdRef.current;
+      if (!wsId) return false;
+      await extensionStorage.set(wsKeys(wsId).manualEnvId, uid);
+      return true;
+    },
+    [],
+  );
+
+  const setCollectionEnvOverride = useCallback<EnvironmentContextValue['setCollectionEnvOverride']>(
+    async (collectionId, envId) => {
+      const wsId = workspaceIdRef.current;
+      if (!wsId) return;
+      const next = { ...collectionEnvOverrides };
+      if (envId === undefined) {
+        delete next[collectionId];
+      } else {
+        next[collectionId] = envId;
+      }
+      await extensionStorage.set(wsKeys(wsId).collectionEnvOverrides, next);
+    },
+    [collectionEnvOverrides],
+  );
+
   const setCollectionPinnedEnvs = useCallback<EnvironmentContextValue['setCollectionPinnedEnvs']>(
     async (collectionUid, pinnedIds, defaultId) => {
+      if (isOverridden) {
+        const wsId = activeWorkspaceIdOverride ?? null;
+        if (!wsId) return false;
+        const result = await applySetPinnedAndDefault(
+          { collectionUid, pinnedEnvironmentIds: pinnedIds, defaultEnvironmentId: defaultId },
+          { workspaceId: wsId, surfaceId },
+        );
+        return result.ok;
+      }
       const resp = await call('setCollectionPinnedEnvs', {
         collectionUid,
         pinnedEnvironmentIds: pinnedIds,
@@ -292,7 +386,7 @@ export const EnvironmentProvider: React.FC<EnvironmentProviderProps> = ({
       }).catch(() => null);
       return Boolean(resp?.success);
     },
-    [],
+    [isOverridden, activeWorkspaceIdOverride, surfaceId],
   );
 
   const activeEnvironment = useMemo(

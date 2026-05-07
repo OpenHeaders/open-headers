@@ -54,10 +54,6 @@ import {
   getVault,
   getWorkspaceVariables,
   renameEnvironment,
-  setActiveEnvironment,
-  setCollectionEnvOverride,
-  setDefaultEnvironment,
-  setManualEnv,
   updateEnvironmentVariables,
 } from './environment-store';
 import { deleteFile, getFileBlob, listFiles, putFile, renameFile } from './files-store';
@@ -471,31 +467,6 @@ export function handleGeneralMessage(
       deleteEnvironment(message.uid as string)
         .then((success) => safeResponse({ success }))
         .catch((err: Error) => safeResponse({ success: false, error: err.message }));
-      return true;
-    } else if (message.type === 'setActiveEnvironment') {
-      const uid = message.uid as string | null;
-      setActiveEnvironment(uid)
-        .then((ok) => safeResponse({ success: ok }))
-        .catch((error: Error) => safeResponse({ success: false, error: error.message }));
-      return true;
-    } else if (message.type === 'setDefaultEnvironment') {
-      const uid = message.uid as string | null;
-      setDefaultEnvironment(uid)
-        .then((ok) => safeResponse({ success: ok }))
-        .catch((error: Error) => safeResponse({ success: false, error: error.message }));
-      return true;
-    } else if (message.type === 'setManualEnv') {
-      const uid = message.uid as string | null;
-      setManualEnv(uid)
-        .then((ok) => safeResponse({ success: ok }))
-        .catch((error: Error) => safeResponse({ success: false, error: error.message }));
-      return true;
-    } else if (message.type === 'setCollectionEnvOverride') {
-      const collectionId = message.collectionId as string;
-      const envId = message.envId as string | null | undefined;
-      setCollectionEnvOverride(collectionId, envId)
-        .then(() => safeResponse({ success: true }))
-        .catch((error: Error) => safeResponse({ success: false, error: error.message }));
       return true;
     } else if (message.type === 'setCollectionPinnedEnvs') {
       const collectionUid = message.collectionUid as string;
