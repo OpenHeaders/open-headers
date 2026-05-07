@@ -50,6 +50,8 @@ import {
 import { LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
 import { EntityScopeProvider, useSetActiveFieldFocus } from '@/shared/awareness';
 import { useEditorShell, useReprime } from '@/shared/editor-shell';
+import { applyLiveWorkflowPublish } from '@/shared/sync/live-workflow-write-client';
+import { useWorkbenchEditingScopeWorkspaceId } from '../../hooks/EditingScopeWorkspaceContext';
 import type { V5 } from '@openheaders/core/types';
 import { Alert, App, Button, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -155,6 +157,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
   const { token } = theme.useToken();
   const { message } = App.useApp();
   const { workflows, updateWorkflow, refreshNow } = useLiveWorkflows();
+  const editingWorkspaceId = useWorkbenchEditingScopeWorkspaceId();
   const { variables, createVariable, updateVariable, deleteVariable } = useLiveVariables();
   const { environments, activeEnvironmentId } = useEnvironments();
   const { runs } = useLiveWorkflowCache(workflowUid);
@@ -264,6 +267,16 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
       for (const uid of plan.deletes) {
         await deleteVariable(uid);
       }
+      // Save = publish: flip the publication gate so the SW scheduler
+      // activates the workflow. Mirrors RuleEditor's Save = update +
+      // publish flow. Without this, `workflow.published` stays false
+      // forever and the chip / sidebar permanently report `Draft`.
+      if (editingWorkspaceId) {
+        await applyLiveWorkflowPublish(workflow.uid, {
+          workspaceId: editingWorkspaceId,
+          surfaceId: 'workbench',
+        });
+      }
       // Dirty derives from form-vs-canonical equality; broadcast echo
       // brings live in line with form, useReprime auto-rebase clears.
       return;
@@ -277,6 +290,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
     workflow,
     draft,
     updateWorkflow,
+    editingWorkspaceId,
     message,
     variables,
     createVariable,
