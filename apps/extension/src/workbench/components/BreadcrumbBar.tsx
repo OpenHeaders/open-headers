@@ -12,9 +12,19 @@ interface BreadcrumbBarProps {
   onRename?: (newName: string) => void;
   /** Setting to a unique value auto-enters rename mode; changing the value re-triggers. */
   autoRenameKey?: string | null;
+  /** Optional trailing node — rendered inline immediately after the last
+   *  segment (the entity name) so badges describing the active entity
+   *  read as adjacent to its label, not the whole breadcrumb. */
+  trailingNode?: React.ReactNode;
 }
 
-const BreadcrumbBar: React.FC<BreadcrumbBarProps> = ({ leadingNode, segments, onRename, autoRenameKey }) => {
+const BreadcrumbBar: React.FC<BreadcrumbBarProps> = ({
+  leadingNode,
+  segments,
+  onRename,
+  autoRenameKey,
+  trailingNode,
+}) => {
   const { token } = theme.useToken();
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState('');
@@ -126,13 +136,18 @@ const BreadcrumbBar: React.FC<BreadcrumbBarProps> = ({ leadingNode, segments, on
         return (
           <span key={`${seg}-${i}`} style={{ display: 'inline-flex', alignItems: 'center', minWidth: 0 }}>
             {isLast ? (
-              tabEntity ? (
-                <EntityField entityType={tabEntity.entityType} entityId={tabEntity.entityId} path="name">
-                  {lastSegmentNode}
-                </EntityField>
-              ) : (
-                lastSegmentNode
-              )
+              <>
+                {tabEntity ? (
+                  <EntityField entityType={tabEntity.entityType} entityId={tabEntity.entityId} path="name">
+                    {lastSegmentNode}
+                  </EntityField>
+                ) : (
+                  lastSegmentNode
+                )}
+                {trailingNode && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', marginLeft: 6 }}>{trailingNode}</span>
+                )}
+              </>
             ) : (
               <span
                 className="rules-breadcrumb"

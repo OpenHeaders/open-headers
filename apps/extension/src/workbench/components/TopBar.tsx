@@ -6,15 +6,17 @@
  * Layout: [Logo] [Title + Workspace] | [⌘K Search] | [Env] [Layout cluster] [Settings]
  */
 
-import { LayoutOutlined, SearchOutlined, SettingOutlined } from '@ant-design/icons';
+import { LayoutOutlined, ReloadOutlined, SearchOutlined, SettingOutlined, ShareAltOutlined } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
 import { Button, Dropdown, type MenuProps, Space, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import { LayoutMenuIcon, RegionToggle, SidebarLayoutIcon } from '@/shared/dock-layout';
+import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
+import { instanceLabel, instanceLabelPlural } from '@/shared/host-vocabulary';
 import { getBrowserAPI } from '@/types/browser';
-import type { ToolLayoutApi } from '../hooks/useToolLayout';
+import type { ToolLayoutApi, WorkbenchViewState } from '../hooks/useToolLayout';
 import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
 import { useEnvSwitcher } from '../services/env-switcher';
 import { useSetting, useSettingValue } from '../settings/hooks';
@@ -25,6 +27,7 @@ import WorkspaceSwitcher from './WorkspaceSwitcher';
 
 interface TopBarProps {
   tl: ToolLayoutApi;
+  perTab: EditingScopeViewStateApi<WorkbenchViewState>;
   onCommandPalette?: () => void;
   onOpenSettings?: () => void;
   workspaces: V5.ExtensionWorkspace[];
@@ -48,6 +51,7 @@ interface TopBarProps {
 
 const TopBar: React.FC<TopBarProps> = ({
   tl,
+  perTab,
   onCommandPalette,
   onOpenSettings,
   workspaces,
@@ -188,6 +192,25 @@ const TopBar: React.FC<TopBarProps> = ({
         label: menuLabel(sidebarLayout === opt.key, opt.label),
         onClick: () => setSidebarLayout(opt.key),
       })),
+    },
+    { type: 'divider' },
+    {
+      key: 'inheritance-info',
+      icon: menuIconWrap(<ShareAltOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />),
+      label: (
+        <span style={{ fontSize: 11, color: token.colorTextSecondary, whiteSpace: 'normal', lineHeight: 1.4 }}>
+          {perTab.isDonor
+            ? `This ${instanceLabel()} is the default — new ${instanceLabelPlural()} inherit this layout.`
+            : `Another ${instanceLabel()} is the default — new ${instanceLabelPlural()} inherit from there.`}
+        </span>
+      ),
+      disabled: true,
+    },
+    {
+      key: 'reset-layout',
+      icon: menuIconWrap(<ReloadOutlined style={{ fontSize: 12 }} />),
+      label: 'Reset layout to defaults',
+      onClick: () => perTab.resetToDefaults(),
     },
     { type: 'divider' },
     {

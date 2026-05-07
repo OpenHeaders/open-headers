@@ -11,10 +11,10 @@ import { BulbFilled, BulbOutlined } from '@ant-design/icons';
 import { useTheme } from '@context/ThemeContext';
 import { Dropdown, type MenuProps, Space, theme } from 'antd';
 import type React from 'react';
-import { FooterDonorPill, type EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
+import { useActiveEditorLifecycle } from '@/shared/awareness';
+import { LifecyclePill } from '@/shared/editor-shell';
 import { productStatusExtras, StatusPill } from '@/shared/status';
 import { useInspectorNav } from '../hooks/useInspectorNav';
-import type { WorkbenchViewState } from '../hooks/useToolLayout';
 import { useSettingValue } from '../settings/hooks';
 import BreadcrumbBar from './BreadcrumbBar';
 import { renderWorkspacePrefix } from './workspace-prefix';
@@ -30,8 +30,6 @@ interface StatusBarProps {
   segments: string[];
   onRename?: (newName: string) => void;
   autoRenameKey?: string | null;
-  /** Per-tab view state — drives the footer donor pill. */
-  perTab: EditingScopeViewStateApi<WorkbenchViewState>;
 }
 
 const THEME_DISPLAY: Record<ThemeMode, { icon: React.ReactNode; text: string; color: string }> = {
@@ -45,7 +43,6 @@ const StatusBar: React.FC<StatusBarProps> = ({
   segments,
   onRename,
   autoRenameKey,
-  perTab,
 }) => {
   const { token } = theme.useToken();
   const { themeMode, setThemeMode } = useTheme();
@@ -58,6 +55,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
 
   const showVersion = useSettingValue('workspaceLayout.footerShowVersion');
   const showThemeSwitcher = useSettingValue('workspaceLayout.footerShowThemeSwitcher');
+  const lifecycle = useActiveEditorLifecycle();
 
   return (
     <div
@@ -92,12 +90,11 @@ const StatusBar: React.FC<StatusBarProps> = ({
           segments={segments}
           onRename={onRename}
           autoRenameKey={autoRenameKey}
+          trailingNode={lifecycle?.status ? <LifecyclePill status={lifecycle.status} placement="top" /> : null}
         />
       </div>
 
       <div className="rules-statusbar-right">
-        <FooterDonorPill perTab={perTab} />
-        <div className="rules-statusbar-divider" style={{ background: token.colorBorder }} />
         <StatusPill
           density="full"
           label="System status"

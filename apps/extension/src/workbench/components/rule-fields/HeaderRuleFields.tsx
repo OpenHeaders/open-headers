@@ -47,7 +47,6 @@ import type React from 'react';
 import {
   ConflictDiffChip,
   EntityField,
-  InputFieldPresenceSlot,
   SetRowConflictChip,
   TabPresenceBadge,
   useActionPaths,
@@ -98,7 +97,6 @@ interface ModificationListProps {
 function ModificationList({ name, direction, ruleUid, excludeInstanceId, conflicts }: ModificationListProps) {
   const { openDocs: openDocsInline } = useInspectorNav();
   const paths = useActionPaths();
-  const scope = useEntityScope();
   const form = Form.useFormInstance();
   // Subscribe to the parent list so each row's persisted uid is available
   // when computing canonical RULE_FIELD paths for the per-leaf
@@ -133,39 +131,8 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, conflic
             // yet (one-tick race during a fresh `add()`). The fallback
             // means the input still renders; presence chips light up
             // on the next tick once the hidden uid binding flushes.
-            // EntityField publishes focus on the wrapped input. The
-            // chip itself is overlaid INSIDE the input's border via
-            // `<InputFieldPresenceSlot>` (see fieldPresenceWrap below)
-            // for headerName/value where the user expects to see
-            // "someone else here too" flush against the field they're
-            // touching — same visual idiom as the variable table.
-            const wrap = (leaf: 'headerName' | 'value' | 'operation' | 'mergeSeparator', child: React.ReactNode) => {
-              if (!rowUid) return child;
-              return (
-                <EntityField path={paths.headerMod(direction, rowUid, leaf)} hideChip>
-                  {child}
-                </EntityField>
-              );
-            };
-            // Wraps an input in a relative-positioned slot with the
-            // presence chip absolutely overlaid at the right edge
-            // INSIDE the input border. Falls back to the bare input
-            // when we don't yet have a row uid or surface instance id
-            // (chip can't compute presence without them).
-            const fieldPresenceWrap = (leaf: 'headerName' | 'value', child: React.ReactNode) => {
-              if (!rowUid || !excludeInstanceId) return child;
-              return (
-                <InputFieldPresenceSlot
-                  entityType={scope.entityType}
-                  entityId={ruleUid ?? null}
-                  fieldPath={paths.headerMod(direction, rowUid, leaf)}
-                  excludeInstanceId={excludeInstanceId}
-                  style={{ flex: 1, minWidth: 0 }}
-                >
-                  {child}
-                </InputFieldPresenceSlot>
-              );
-            };
+            const wrap = (leaf: 'headerName' | 'value' | 'operation' | 'mergeSeparator', child: React.ReactNode) =>
+              rowUid ? <EntityField path={paths.headerMod(direction, rowUid, leaf)}>{child}</EntityField> : child;
             return (
             <SortableHeaderRow key={field.key} id={field.key}>
               <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -234,19 +201,16 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, conflic
                     // the same input was the worse UX, and template
                     // support for header names is the more frequently
                     // useful primitive.
-                    return fieldPresenceWrap(
+                    return wrap(
                       'headerName',
-                      wrap(
-                        'headerName',
-                        <Form.Item
-                          {...field}
-                          name={[field.name, 'headerName']}
-                          style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
-                          validateStatus={showWarning ? 'warning' : undefined}
-                        >
-                          <TemplateInput size="small" placeholder="Header Name" />
-                        </Form.Item>,
-                      ),
+                      <Form.Item
+                        {...field}
+                        name={[field.name, 'headerName']}
+                        style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
+                        validateStatus={showWarning ? 'warning' : undefined}
+                      >
+                        <TemplateInput size="small" placeholder="Header Name" />
+                      </Form.Item>,
                     );
                   }}
                 </Form.Item>
@@ -297,18 +261,15 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, conflic
                         </>
                       );
                     }
-                    return fieldPresenceWrap(
+                    return wrap(
                       'value',
-                      wrap(
-                        'value',
-                        <Form.Item
-                          {...field}
-                          name={[field.name, 'value']}
-                          style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
-                        >
-                          <TemplateInput size="small" placeholder="Header Value" />
-                        </Form.Item>,
-                      ),
+                      <Form.Item
+                        {...field}
+                        name={[field.name, 'value']}
+                        style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
+                      >
+                        <TemplateInput size="small" placeholder="Header Value" />
+                      </Form.Item>,
                     );
                   }}
                 </Form.Item>

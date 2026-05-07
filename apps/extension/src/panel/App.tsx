@@ -599,6 +599,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
         onToggleCacheBypass={cacheBypass.toggle}
         showToolWindowLabels={activityLabels}
         tl={tl}
+        perTab={perTab}
         environments={envApi.environments}
         activeEnvironmentId={envApi.activeEnvironmentId}
         onSwitchEnvironment={handlePanelSwitchEnv}
@@ -622,7 +623,6 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       />
 
       <PanelStatusBar
-        perTab={perTab}
         requestCount={entries.length}
         transferredSize={transferredSize}
         resourceSize={resourceSize}

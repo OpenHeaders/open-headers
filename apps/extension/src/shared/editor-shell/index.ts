@@ -17,3 +17,5 @@ export type {
   EditorShellScopeWiring,
   EditorHeaderContentProps,
 } from './types';
+export { LifecyclePill } from './LifecyclePill';
+export type { LifecyclePillProps } from './LifecyclePill';

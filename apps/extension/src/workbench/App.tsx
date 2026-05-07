@@ -51,6 +51,7 @@ import type React from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ActiveEditorDirtyProvider,
+  ActiveEditorLifecycleProvider,
   ActiveFieldFocusProvider,
   ActiveTabEntityProvider,
   AwarenessIdentityProvider,
@@ -2007,6 +2008,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         >
           <TopBar
             tl={tl}
+            perTab={perTab}
             onCommandPalette={() => setCommandPaletteOpen(true)}
             onOpenSettings={openSettings}
             workspaces={workspacesApi.workspaces}
@@ -2120,7 +2122,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
           />
 
           <StatusBar
-            perTab={perTab}
             workspace={
               activeWorkspace
                 ? { name: activeWorkspace.name, icon: activeWorkspace.icon, color: activeWorkspace.color }
@@ -2372,6 +2373,7 @@ const Workbench: React.FC = () => {
        */}
       <ActiveFieldFocusProvider>
         <ActiveEditorDirtyProvider>
+          <ActiveEditorLifecycleProvider>
           <ActiveTabEntityProvider>
             {/* RuleProvider mounts inside `WorkbenchTabAware` (called via
                 `WorkbenchInner`) so it can take the tab's editing-scope
@@ -2380,6 +2382,7 @@ const Workbench: React.FC = () => {
                 tree start at the seam. */}
             <WorkbenchInner onLifelineWorkspaceIdChange={setLifelineWorkspaceId} />
           </ActiveTabEntityProvider>
+          </ActiveEditorLifecycleProvider>
         </ActiveEditorDirtyProvider>
       </ActiveFieldFocusProvider>
     </AwarenessIdentityProvider>

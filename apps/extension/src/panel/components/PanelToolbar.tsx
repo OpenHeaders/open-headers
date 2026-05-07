@@ -1,11 +1,14 @@
-import { LayoutOutlined, SettingOutlined } from '@ant-design/icons';
+import { LayoutOutlined, ReloadOutlined, SettingOutlined, ShareAltOutlined } from '@ant-design/icons';
 import type { V5 } from '@openheaders/core/types';
-import { Dropdown, type MenuProps, Popover, Space, Tooltip } from 'antd';
+import { Dropdown, type MenuProps, Popover, Space, theme, Tooltip } from 'antd';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import type { DockLayoutApi } from '@/shared/dock-layout';
 import { DOCK_LABELS, DockSlotIcon, LayoutMenuIcon, RegionToggle, SidebarLayoutIcon } from '@/shared/dock-layout';
+import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
+import { instanceLabel, instanceLabelPlural } from '@/shared/host-vocabulary';
 import { getBrowserAPI } from '@/types/browser';
+import type { PanelViewState } from '../data/use-panel-tool-layout';
 import { useSetting, useSettingValue } from '@/workbench/settings/hooks';
 import type { FilterConfig } from '../data/filter-engine';
 import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from '../data/tool-windows';
@@ -264,6 +267,7 @@ export interface PanelToolbarProps {
    *  region toggles + layout menu). Mirrors the workspace top bar so
    *  layout chrome lives at the top across both surfaces. */
   tl: DockLayoutApi<PanelToolWindowId>;
+  perTab: EditingScopeViewStateApi<PanelViewState>;
   /** Environment list + active uid + switch handler for the slim
    *  env-switcher dropdown. Mirrors the workspace env selector. */
   environments: V5.Environment[];
@@ -291,10 +295,12 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
   onToggleCacheBypass,
   showToolWindowLabels,
   tl,
+  perTab,
   environments,
   activeEnvironmentId,
   onSwitchEnvironment,
 }) => {
+  const { token } = theme.useToken();
   const showPanelToggles = useSettingValue('devpanelLayout.topbarShowPanelToggles');
   const showLayoutMenu = useSettingValue('devpanelLayout.topbarShowLayoutMenu');
   const [bottomPanelAlignment, setBottomPanelAlignment] = useSetting('devpanelLayout.bottomPanelAlignment');
@@ -391,6 +397,25 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
         label: menuLabel(sidebarLayout === opt.key, opt.label),
         onClick: () => setSidebarLayout(opt.key),
       })),
+    },
+    { type: 'divider' },
+    {
+      key: 'inheritance-info',
+      icon: menuIconWrap(<ShareAltOutlined style={{ fontSize: 12, color: token.colorTextTertiary }} />),
+      label: (
+        <span style={{ fontSize: 11, color: token.colorTextSecondary, whiteSpace: 'normal', lineHeight: 1.4 }}>
+          {perTab.isDonor
+            ? `This ${instanceLabel()} is the default — new ${instanceLabelPlural()} inherit this layout.`
+            : `Another ${instanceLabel()} is the default — new ${instanceLabelPlural()} inherit from there.`}
+        </span>
+      ),
+      disabled: true,
+    },
+    {
+      key: 'reset-layout',
+      icon: menuIconWrap(<ReloadOutlined style={{ fontSize: 12 }} />),
+      label: 'Reset layout to defaults',
+      onClick: () => perTab.resetToDefaults(),
     },
     { type: 'divider' },
     {

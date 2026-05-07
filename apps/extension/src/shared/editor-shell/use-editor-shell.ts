@@ -25,6 +25,7 @@
 
 import { useEffect, useMemo } from 'react';
 import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
+import { useEditorLifecycle } from '@/shared/awareness/use-editor-lifecycle';
 import type { EntityFieldProps } from '@/shared/awareness/EntityField';
 import {
   brandHeaderWiring,
@@ -130,6 +131,10 @@ export function useEditorShell(input: UseEditorShellInput): UseEditorShellOutput
   } else {
     status = null;
   }
+
+  // Lifecycle publishing — mirrors useEditorDirty. The footer renders
+  // one chip for whichever editor's tab is active.
+  useEditorLifecycle({ entityType, entityId }, status);
 
   const headerProps = useMemo(
     () => brandHeaderWiring({ isDirty, isPublished, status, onSave }),

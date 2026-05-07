@@ -8,8 +8,6 @@ export { default as PresenceBadge } from './PresenceBadge';
 export type { PresenceBadgeProps } from './PresenceBadge';
 export { default as FieldPresenceChip } from './FieldPresenceChip';
 export type { FieldPresenceChipProps } from './FieldPresenceChip';
-export { default as InputFieldPresenceSlot } from './InputFieldPresenceSlot';
-export type { InputFieldPresenceSlotProps } from './InputFieldPresenceSlot';
 export { default as TabPresenceBadge } from './TabPresenceBadge';
 export type { TabPresenceBadgeProps } from './TabPresenceBadge';
 export { default as AwarenessPill } from './AwarenessPill';
@@ -68,7 +66,14 @@ export {
   useSetActiveEditorDirty,
 } from './ActiveEditorDirty';
 export type { ActiveEditorDirtyValue } from './ActiveEditorDirty';
+export {
+  ActiveEditorLifecycleProvider,
+  useActiveEditorLifecycle,
+  useSetActiveEditorLifecycle,
+} from './ActiveEditorLifecycle';
+export type { ActiveEditorLifecycleValue } from './ActiveEditorLifecycle';
 export { useEditorDirty } from './use-editor-dirty';
+export { useEditorLifecycle } from './use-editor-lifecycle';
 export { EntityField } from './EntityField';
 export type { EntityFieldProps } from './EntityField';
 export { SurfaceAwarenessPublisher } from './SurfaceAwarenessPublisher';
