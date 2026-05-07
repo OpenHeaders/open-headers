@@ -26,6 +26,8 @@ export function scratchLabelForMode(mode: WorkbenchTab['mode']): string | null {
   switch (mode) {
     case 'request-create':
       return 'Scratch Request';
+    case 'rule-create':
+      return 'Scratch Rule';
     case 'live-variable-create':
       return 'Scratch Variable';
     case 'live-workflow-create':
@@ -93,6 +95,15 @@ export function computeBreadcrumbs(
       : [];
     if (col) return ['API Requests', col.name, ...folderTrail, displayLabel];
     return ['API Requests', displayLabel];
+  }
+  if (tab.mode === 'rule-create') {
+    const colId = tab.preferredCollectionId;
+    const col = colId ? localCollectionTrees.find((c) => c.uid === colId) : null;
+    const folderTrail = tab.preferredFolderPath
+      ? tab.preferredFolderPath.split('/').filter((seg) => seg.length > 0)
+      : [];
+    if (col) return ['Rules', col.name, ...folderTrail, displayLabel];
+    return ['Rules', displayLabel];
   }
 
   if (tab.mode === 'live-workflow-edit') return ['Workflows', displayLabel];

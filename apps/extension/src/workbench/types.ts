@@ -23,6 +23,7 @@ export type TabMode =
   | 'template-collection-vars'
   | 'request-edit'
   | 'request-create'
+  | 'rule-create'
   | 'live-variable-edit'
   | 'live-variable-create'
   | 'live-workflow-edit'

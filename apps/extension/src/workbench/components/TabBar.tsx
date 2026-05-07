@@ -216,9 +216,7 @@ function isRuleDraftTab(tab: WorkbenchTab, rules: V5.Rule[]): boolean {
  * the regular 'edit' / 'request-edit' mode, so they bypass this.
  */
 function isCreateDraftMode(tab: WorkbenchTab): boolean {
-  // 'rule-create' lands in Commit C alongside the rule global-create
-  // refactor; the helper is the future-symmetric extension point.
-  return tab.mode === 'request-create';
+  return tab.mode === 'request-create' || tab.mode === 'rule-create';
 }
 
 function truncateMiddle(text: string, max: number): string {

@@ -206,9 +206,10 @@ export function useTabLifecycle({
         return;
       }
 
-      // Legacy request-create path stays intact until the request
-      // editor adopts the same publication-gate model.
-      if (tab.mode === 'request-create') {
+      // Scratch (*-create) tabs always confirm — closing discards
+      // unpersisted form values; saving routes through the where-to-save
+      // modal which transitions the tab to *-edit on success.
+      if (tab.mode === 'request-create' || tab.mode === 'rule-create') {
         const result = await confirmUnsaved(tab);
         if (result === 'save') {
           switchTab(tabId);
@@ -254,7 +255,7 @@ export function useTabLifecycle({
         const tab = allTabs.find((t) => t.id === id);
         if (!tab) continue;
         if (tabDraftRule(tab, rules)) draft.push(id);
-        else if (tab.dirty || tab.mode === 'request-create') dirty.push(id);
+        else if (tab.dirty || tab.mode === 'request-create' || tab.mode === 'rule-create') dirty.push(id);
         else clean.push(id);
       }
 
@@ -286,7 +287,7 @@ export function useTabLifecycle({
         const result = await confirmUnsaved(tab);
         if (result === 'cancel') return; // abort remaining
         if (result === 'save') {
-          if (tab.mode === 'request-create') {
+          if (tab.mode === 'request-create' || tab.mode === 'rule-create') {
             switchTab(id);
             setTimeout(() => saveRefMap.current.get(id)?.(), 50);
             continue; // don't close — save flow handles it
@@ -317,7 +318,8 @@ export function useTabLifecycle({
 
   const handleCloseUnmodified = useCallback(() => {
     for (const tab of getFocusedLeafTabs()) {
-      if (!tab.dirty && !tabDraftRule(tab, rules) && tab.mode !== 'request-create') closeTab(tab.id, true);
+      if (!tab.dirty && !tabDraftRule(tab, rules) && tab.mode !== 'request-create' && tab.mode !== 'rule-create')
+        closeTab(tab.id, true);
     }
   }, [getFocusedLeafTabs, rules, closeTab]);
 
