@@ -92,9 +92,17 @@ export function useEditorShell(input: UseEditorShellInput): UseEditorShellOutput
     registerSaveRef?.(onSave);
   }, [registerSaveRef, onSave]);
 
+  // Lifecycle status — `'scratch'` when no entity exists yet (create
+  // mode), `'draft'` when the entity exists but the publication gate
+  // hasn't flipped (rules today; any entity that opts in later). The
+  // editor surface uses this for a small chip next to Save so the
+  // sidebar / tab / editor all narrate the same lifecycle.
+  const status: 'scratch' | 'draft' | null =
+    entityId === null ? 'scratch' : isPublished === false ? 'draft' : null;
+
   const headerProps = useMemo(
-    () => brandHeaderWiring({ isDirty, isPublished, onSave }),
-    [isDirty, isPublished, onSave],
+    () => brandHeaderWiring({ isDirty, isPublished, status, onSave }),
+    [isDirty, isPublished, status, onSave],
   );
 
   const scopeProps = useMemo(

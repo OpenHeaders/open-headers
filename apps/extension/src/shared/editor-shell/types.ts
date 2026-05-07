@@ -12,10 +12,23 @@ import type React from 'react';
 declare const SHELL_HEADER_BRAND: unique symbol;
 declare const SHELL_SCOPE_BRAND: unique symbol;
 
+/**
+ * Lifecycle status surfaced next to the Save button so the user gets
+ * the same "where am I?" feedback in the editor that the tab strip
+ * (gray dot) and sidebar (italic / draft pill) already show.
+ *
+ *   - `'scratch'` — entity not yet minted (create-mode draft tab).
+ *   - `'draft'` — entity exists but `published === false` (rules only,
+ *     today; any entity with a publication gate later).
+ *   - `null` — clean / published / no publication gate.
+ */
+export type EditorLifecycleStatus = 'scratch' | 'draft' | null;
+
 export interface EditorShellHeaderWiring {
   readonly [SHELL_HEADER_BRAND]: never;
   isDirty: boolean;
   isPublished?: boolean;
+  status: EditorLifecycleStatus;
   onSave: () => void;
 }
 
@@ -32,6 +45,7 @@ export interface EditorShellScopeWiring {
 export function brandHeaderWiring(value: {
   isDirty: boolean;
   isPublished?: boolean;
+  status: EditorLifecycleStatus;
   onSave: () => void;
 }): EditorShellHeaderWiring {
   return value as unknown as EditorShellHeaderWiring;

@@ -11,4 +11,9 @@
 
 export { useEditorShell, type UseEditorShellInput, type UseEditorShellOutput, type EditorShellFieldProps } from './use-editor-shell';
 export { useReprime, type UseReprimeInput, type UseReprimeOutput } from './use-reprime';
-export type { EditorShellHeaderWiring, EditorShellScopeWiring, EditorHeaderContentProps } from './types';
+export type {
+  EditorLifecycleStatus,
+  EditorShellHeaderWiring,
+  EditorShellScopeWiring,
+  EditorHeaderContentProps,
+} from './types';

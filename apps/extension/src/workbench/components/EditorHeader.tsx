@@ -13,10 +13,10 @@
  */
 
 import { MoreOutlined, SaveOutlined } from '@ant-design/icons';
-import { Button, Divider, Dropdown, type MenuProps, Tooltip, theme } from 'antd';
+import { Button, Divider, Dropdown, type MenuProps, Tag, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
-import type { EditorShellHeaderWiring } from '@/shared/editor-shell';
+import type { EditorLifecycleStatus, EditorShellHeaderWiring } from '@/shared/editor-shell';
 import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
 
 export interface EditorHeaderProps {
@@ -39,11 +39,60 @@ export interface EditorHeaderProps {
   shell?: EditorShellHeaderWiring;
 }
 
+/**
+ * Tooltip body for the lifecycle chip. Shows ALL states (with the
+ * current one underlined) so the user learns the vocabulary the same
+ * way the sidebar / tab strip use it.
+ */
+function LifecycleTooltip({ current }: { current: EditorLifecycleStatus }) {
+  const row = (key: 'scratch' | 'draft' | 'live', label: string, body: string) => (
+    <div style={{ marginTop: key === 'scratch' ? 0 : 4 }}>
+      <strong style={{ textDecoration: current === key || (current === null && key === 'live') ? 'underline' : 'none' }}>
+        {label}
+      </strong>{' '}
+      — {body}
+    </div>
+  );
+  return (
+    <div style={{ fontSize: 11, lineHeight: 1.5, maxWidth: 280 }}>
+      {row('scratch', 'Scratch', 'unsaved draft. Nothing is persisted until you click Save.')}
+      {row('draft', 'Draft', 'saved but not yet published. Not active in rules / requests.')}
+      {row('live', 'Live', 'published and active.')}
+    </div>
+  );
+}
+
+function LifecycleChip({ status }: { status: EditorLifecycleStatus }) {
+  if (status === null) return null;
+  const label = status === 'scratch' ? 'Scratch' : 'Draft';
+  return (
+    <Tooltip title={<LifecycleTooltip current={status} />} placement="bottom">
+      <Tag
+        style={{
+          fontSize: 10,
+          fontWeight: 500,
+          margin: 0,
+          padding: '0 6px',
+          lineHeight: '18px',
+          borderStyle: 'dashed',
+          color: '#999',
+          borderColor: '#999',
+          background: 'transparent',
+          cursor: 'help',
+        }}
+      >
+        {label}
+      </Tag>
+    </Tooltip>
+  );
+}
+
 const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, overflowItems, shell }) => {
   const wiring = shell as unknown as
-    | { isDirty: boolean; isPublished?: boolean; onSave: () => void }
+    | { isDirty: boolean; isPublished?: boolean; status: EditorLifecycleStatus; onSave: () => void }
     | undefined;
   const isDirty = !!wiring?.isDirty;
+  const status = wiring?.status ?? null;
   const onSave = wiring?.onSave;
   const { token } = theme.useToken();
   const saveLabel = useShortcutLabel('save');
@@ -68,6 +117,7 @@ const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, overflowIte
           {actions != null && (onSave || hasOverflow) && (
             <Divider type="vertical" style={{ margin: '0 4px', height: 20 }} />
           )}
+          <LifecycleChip status={status} />
           {onSave && (
             <Tooltip
               title={<ShortcutHintTitle label={saveLabel}>{saveLabelText}</ShortcutHintTitle>}
