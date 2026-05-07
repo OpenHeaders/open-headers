@@ -773,6 +773,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     rules,
     templates,
     localCollections,
+    requestCollections: requestsApi.collections,
     workspaceId: editingScopeWorkspaceId,
     surfaceId: 'workbench',
     allTabs,

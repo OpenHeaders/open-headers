@@ -14,8 +14,26 @@ import type { V5 } from '@openheaders/core/types';
 import { buildEmptyRule } from '@openheaders/core/utils';
 import { App } from 'antd';
 import { useCallback, useState } from 'react';
+import { applyRequestCreate } from '@/shared/sync/request-write-client';
 import { applyRuleCreate } from '@/shared/sync/rule-write-client';
+import { buildEmptyRequest, generateUid, toFolderName } from '@openheaders/core/utils';
 import type { ClosedTab, LandingView, RuleFlowScope, WorkbenchTab } from '../types';
+
+/**
+ * Resolve the parent path for a context-create gesture: explicit
+ * `folderPath` wins; otherwise look up the collection's path. Returns
+ * `undefined` when context is missing OR the collectionId doesn't
+ * resolve. Callers add their own fallback (e.g. "first collection")
+ * outside this helper to keep its semantic narrow.
+ */
+function resolveContextParentPath(
+  context: { collectionId?: string; folderPath?: string } | undefined,
+  collections: readonly V5.Collection[],
+): string | undefined {
+  if (context?.folderPath) return context.folderPath;
+  if (!context?.collectionId) return undefined;
+  return collections.find((c) => c.uid === context.collectionId)?.path;
+}
 
 interface UseTabOpenersOptions {
   rules: V5.Rule[];
@@ -23,6 +41,9 @@ interface UseTabOpenersOptions {
   /** Local rule collections — used to resolve the parent path when a
    *  create gesture didn't pin one explicitly. */
   localCollections: V5.Collection[];
+  /** Request collections — used to resolve the parent path for
+   *  request context-create gestures. */
+  requestCollections: V5.Collection[];
   /** Active workspace id — required for renderer-direct rule create. */
   workspaceId: string | null;
   /** Surface attribution carried on every emitted envelope (always
@@ -135,6 +156,7 @@ export function useTabOpeners({
   rules,
   templates,
   localCollections,
+  requestCollections,
   workspaceId,
   surfaceId,
   allTabs,
@@ -200,13 +222,11 @@ export function useTabOpeners({
       const draftMatches = initialDraft && initialDraft.type === type ? initialDraft : undefined;
       const draftName = draftMatches?.name ?? generateDraftName(type);
 
-      // Resolve parent path. Explicit folder path wins; otherwise the
-      // collection's path; otherwise the first local collection (matches
-      // the legacy "no preferred location" fallback).
-      const collection = context?.collectionId
-        ? localCollections.find((c) => c.uid === context.collectionId)
-        : localCollections[0];
-      const parentPath = context?.folderPath ?? collection?.path;
+      // Resolve parent path: context first, falling back to the first
+      // local collection (legacy "no preferred location" path; Commit C
+      // replaces this fallback with the where-to-save modal flow).
+      const parentPath =
+        resolveContextParentPath(context, localCollections) ?? localCollections[0]?.path;
       if (!parentPath) {
         message.error('Create a collection first');
         return;
@@ -702,6 +722,28 @@ export function useTabOpeners({
         draftName = `${baseName} (${counter++})`;
       }
 
+      // Context-create: persist immediately and open as 'request-edit'
+      // (mirrors the rule context-create path). The tab is born clean
+      // — dirty=false, no orange dot, Save labeled "Saved" disabled.
+      // Without context the gesture lands in the draft 'request-create'
+      // mode below, whose Save click runs the where-to-save modal.
+      const parentPath = resolveContextParentPath(context, requestCollections);
+      if (workspaceId && parentPath) {
+        const uid = generateUid();
+        const seed = buildEmptyRequest({
+          uid,
+          name: draftName,
+          path: `${parentPath}/${toFolderName(draftName, uid)}`,
+        });
+        const tabId = `request-${uid}`;
+        void applyRequestCreate(seed, { workspaceId, surfaceId }).then((result) => {
+          if (!result.ok) return;
+          addTab({ id: tabId, label: draftName, ruleType: 'GET', dirty: false, mode: 'request-edit', requestUid: uid });
+          setPendingRenameTabId(tabId);
+        });
+        return;
+      }
+
       const tabId = `req-create-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       addTab({
         id: tabId,
@@ -717,7 +759,7 @@ export function useTabOpeners({
       });
       setPendingRenameTabId(tabId);
     },
-    [allTabs, addTab],
+    [allTabs, addTab, requestCollections, workspaceId, surfaceId],
   );
 
   const openCreateLiveWorkflow = useCallback(

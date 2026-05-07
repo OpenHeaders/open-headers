@@ -66,6 +66,8 @@ export type { DraftUrlStrategy } from './rule-draft';
 export { DRAFT_URL_STRATEGIES, deriveUrlFilter } from './rule-draft';
 export type { BuildEmptyLiveVariableArgs, LiveVariableSeed, LiveWorkflowSeed } from './live-defaults';
 export { buildEmptyLiveVariable, buildEmptyLiveWorkflow } from './live-defaults';
+export type { BuildEmptyRequestInput } from './request-defaults';
+export { buildEmptyRequest } from './request-defaults';
 export type { RuleSeed } from './rule-defaults';
 export { buildEmptyRule } from './rule-defaults';
 export type { MatchPattern, MatchPatternKind } from './rule-matcher';
