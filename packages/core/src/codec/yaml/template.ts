@@ -46,8 +46,9 @@ export function parseTemplate(yaml: string, context: TemplateCodecContext): Pars
 }
 
 export function serializeTemplate(write: WriteableDocument<Template>): string {
-  const doc = write.raw ? (write.raw as YAML.Document) : buildFreshDocument(write.value, TEMPLATE_FIELD_ORDER);
-  if (write.raw) mergeKnownFields(doc, write.value, TEMPLATE_FIELD_ORDER);
+  const value = canonicalizeTemplate(write.value);
+  const doc = write.raw ? (write.raw as YAML.Document) : buildFreshDocument(value, TEMPLATE_FIELD_ORDER);
+  if (write.raw) mergeKnownFields(doc, value, TEMPLATE_FIELD_ORDER);
   return doc.toString(CANONICAL_STRINGIFY_OPTIONS);
 }
 
@@ -61,8 +62,8 @@ export function serializeTemplate(write: WriteableDocument<Template>): string {
  * oracle-projected materialize pipeline. Without this, the diff dialog
  * would render every row as removed+added on a partial-leaf change.
  *
- * Currently used by the template conflict-diff dialog only; persist
- * boundary canonicalization is a follow-up (wider blast radius).
+ * Wired into `serializeTemplate` so the persist boundary emits canonical
+ * YAML — design §23.3 "byte-identical YAML for byte-identical state".
  */
 export function canonicalizeTemplate(template: Template): Template {
   const conditions = template.conditions.map(canonicalCondition);

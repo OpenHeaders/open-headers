@@ -45,8 +45,9 @@ export function parseRule(yaml: string, context: RuleCodecContext): ParsedDocume
 }
 
 export function serializeRule(write: WriteableDocument<Rule>): string {
-  const doc = write.raw ? (write.raw as YAML.Document) : buildFreshDocument(write.value, RULE_FIELD_ORDER);
-  if (write.raw) mergeKnownFields(doc, write.value, RULE_FIELD_ORDER);
+  const value = canonicalizeRule(write.value);
+  const doc = write.raw ? (write.raw as YAML.Document) : buildFreshDocument(value, RULE_FIELD_ORDER);
+  if (write.raw) mergeKnownFields(doc, value, RULE_FIELD_ORDER);
   return doc.toString(CANONICAL_STRINGIFY_OPTIONS);
 }
 
@@ -65,12 +66,8 @@ export function serializeRule(write: WriteableDocument<Rule>): string {
  * removed/added in a line-diff even when only one leaf actually
  * differs.
  *
- * Currently used by the rule conflict-diff dialog. Per design §23.3
- * ("byte-identical YAML for byte-identical state") the persist
- * boundary should also adopt this — left as a follow-up because
- * flipping `serializeRule` to call it has wider blast radius
- * (rewrites every desktop-side rule.yaml on next write). Tracked as
- * an architectural gap; not a regression vs. prior behavior.
+ * Wired into `serializeRule` so the persist boundary emits canonical
+ * YAML — design §23.3 "byte-identical YAML for byte-identical state".
  */
 export function canonicalizeRule(rule: Rule): Rule {
   const conditions = rule.conditions.map(canonicalCondition);

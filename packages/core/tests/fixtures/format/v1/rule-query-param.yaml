@@ -12,8 +12,8 @@ action:
   params:
     - uid: qp000001
       param: region
-      value: eu-central-1
       operation: override
+      value: eu-central-1
     - uid: qp000002
       param: tracking
       operation: remove-all

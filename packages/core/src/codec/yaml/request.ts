@@ -197,10 +197,11 @@ export function serializeRequest(write: WriteableDocument<Request>): RequestSeri
   // / GraphQL body string) and graphql variables fan out into sibling
   // files so a code reviewer reads them with native syntax highlighting
   // and the manifest stays scannable.
-  const body = write.value.body;
+  const value = canonicalizeRequest(write.value);
+  const body = value.body;
   const manifestBody = manifestBodyOf(body);
   const manifestView = {
-    ...write.value,
+    ...value,
     body: manifestBody,
     preRequestScript: undefined,
     postResponseScript: undefined,
@@ -221,13 +222,13 @@ export function serializeRequest(write: WriteableDocument<Request>): RequestSeri
       : null;
 
   const preRequestScript: RequestSiblingFile | null =
-    write.value.preRequestScript !== undefined
-      ? { fileName: 'pre-request.js', content: write.value.preRequestScript }
+    value.preRequestScript !== undefined
+      ? { fileName: 'pre-request.js', content: value.preRequestScript }
       : null;
 
   const postResponseScript: RequestSiblingFile | null =
-    write.value.postResponseScript !== undefined
-      ? { fileName: 'post-response.js', content: write.value.postResponseScript }
+    value.postResponseScript !== undefined
+      ? { fileName: 'post-response.js', content: value.postResponseScript }
       : null;
 
   return { requestYaml, bodyFile, variablesFile, preRequestScript, postResponseScript };
@@ -294,9 +295,8 @@ function bodyContentOf(body: RequestBody): string | undefined {
  * diff dialog would show every row as removed+added on a partial-leaf
  * change.
  *
- * Currently used by the request conflict-diff dialog only; persist
- * boundary canonicalization is a follow-up (wider blast radius —
- * rewrites every desktop-side request.yaml on next write).
+ * Wired into `serializeRequest` so the persist boundary emits canonical
+ * YAML — design §23.3 "byte-identical YAML for byte-identical state".
  */
 export function canonicalizeRequest(request: Request): Request {
   const headers = request.headers.map(canonicalRequestHeader);
