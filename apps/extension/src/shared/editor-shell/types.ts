@@ -18,11 +18,13 @@ declare const SHELL_SCOPE_BRAND: unique symbol;
  * (gray dot) and sidebar (italic / draft pill) already show.
  *
  *   - `'scratch'` — entity not yet minted (create-mode draft tab).
- *   - `'draft'` — entity exists but `published === false` (rules only,
- *     today; any entity with a publication gate later).
- *   - `null` — clean / published / no publication gate.
+ *   - `'incomplete'` — entity exists but is missing required fields
+ *     or has invalid values; can't be published yet.
+ *   - `'draft'` — entity exists, has all required fields with valid
+ *     values, but `published !== true`. Ready to publish.
+ *   - `null` — clean / published / no publication gate (no chip).
  */
-export type EditorLifecycleStatus = 'scratch' | 'draft' | null;
+export type EditorLifecycleStatus = 'scratch' | 'incomplete' | 'draft' | null;
 
 export interface EditorShellHeaderWiring {
   readonly [SHELL_HEADER_BRAND]: never;

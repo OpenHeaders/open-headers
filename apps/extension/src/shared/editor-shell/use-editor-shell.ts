@@ -46,6 +46,12 @@ export interface UseEditorShellInput {
   /** Publication state for entities with live runners. Drives the
    *  publish-gate Save semantics on `<EditorHeader>`. */
   isPublished?: boolean;
+  /** Whether the entity has all required fields with valid values.
+   *  Drives the `'incomplete'` vs `'draft'` distinction in the
+   *  lifecycle chip — only complete-and-unpublished entities get
+   *  promoted to `'draft'`. Editors that don't model completeness
+   *  separately can leave this undefined (treated as complete). */
+  isComplete?: boolean;
   onSave: () => void;
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (saveFn: () => void) => void;
@@ -71,6 +77,7 @@ export function useEditorShell(input: UseEditorShellInput): UseEditorShellOutput
     entityId,
     isDirty,
     isPublished,
+    isComplete,
     onSave,
     onDirtyChange,
     registerSaveRef,
@@ -92,13 +99,26 @@ export function useEditorShell(input: UseEditorShellInput): UseEditorShellOutput
     registerSaveRef?.(onSave);
   }, [registerSaveRef, onSave]);
 
-  // Lifecycle status — `'scratch'` when no entity exists yet (create
-  // mode), `'draft'` when the entity exists but the publication gate
-  // hasn't flipped (rules today; any entity that opts in later). The
-  // editor surface uses this for a small chip next to Save so the
-  // sidebar / tab / editor all narrate the same lifecycle.
-  const status: 'scratch' | 'draft' | null =
-    entityId === null ? 'scratch' : isPublished === false ? 'draft' : null;
+  // Lifecycle status — drives the chip next to Save so the sidebar /
+  // tab strip / editor all narrate the same vocabulary.
+  //
+  //   create-mode (no entity yet)        → 'scratch'
+  //   unpublished + incomplete           → 'incomplete'
+  //   unpublished + complete             → 'draft' (ready to publish)
+  //   published OR no publication gate   → null (no chip)
+  //
+  // `isComplete` undefined means the editor doesn't model completeness;
+  // we default to "complete enough" so it falls into 'draft' rather
+  // than 'incomplete'. Rules + Live Workflows opt in by passing the
+  // flag explicitly.
+  const status: 'scratch' | 'incomplete' | 'draft' | null =
+    entityId === null
+      ? 'scratch'
+      : isPublished === false
+        ? isComplete === false
+          ? 'incomplete'
+          : 'draft'
+        : null;
 
   const headerProps = useMemo(
     () => brandHeaderWiring({ isDirty, isPublished, status, onSave }),

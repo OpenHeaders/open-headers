@@ -45,26 +45,39 @@ export interface EditorHeaderProps {
  * way the sidebar / tab strip use it.
  */
 function LifecycleTooltip({ current }: { current: EditorLifecycleStatus }) {
-  const row = (key: 'scratch' | 'draft' | 'live', label: string, body: string) => (
-    <div style={{ marginTop: key === 'scratch' ? 0 : 4 }}>
-      <strong style={{ textDecoration: current === key || (current === null && key === 'live') ? 'underline' : 'none' }}>
-        {label}
-      </strong>{' '}
-      — {body}
-    </div>
-  );
+  const row = (key: 'scratch' | 'incomplete' | 'draft' | 'live', label: string, body: string) => {
+    const active = current === key || (current === null && key === 'live');
+    return (
+      <div style={{ marginTop: key === 'scratch' ? 0 : 4 }}>
+        <strong style={{ textDecoration: active ? 'underline' : 'none' }}>{label}</strong> — {body}
+      </div>
+    );
+  };
   return (
-    <div style={{ fontSize: 11, lineHeight: 1.5, maxWidth: 280 }}>
+    <div style={{ fontSize: 11, lineHeight: 1.5, maxWidth: 300 }}>
       {row('scratch', 'Scratch', 'unsaved draft. Nothing is persisted until you click Save.')}
-      {row('draft', 'Draft', 'saved but not yet published. Not active in rules / requests.')}
+      {row('incomplete', 'Incomplete', 'saved but missing required fields. Cannot publish yet.')}
+      {row('draft', 'Draft', 'saved with all required fields filled in. Not yet published / live.')}
       {row('live', 'Live', 'published and active.')}
     </div>
   );
 }
 
+const STATUS_LABEL: Record<Exclude<EditorLifecycleStatus, null>, string> = {
+  scratch: 'Scratch',
+  incomplete: 'Incomplete',
+  draft: 'Draft',
+};
+
+const STATUS_COLOR: Record<Exclude<EditorLifecycleStatus, null>, { fg: string; border: string }> = {
+  scratch: { fg: '#999', border: '#999' },
+  incomplete: { fg: 'var(--ant-color-warning, #faad14)', border: 'var(--ant-color-warning, #faad14)' },
+  draft: { fg: '#999', border: '#999' },
+};
+
 function LifecycleChip({ status }: { status: EditorLifecycleStatus }) {
   if (status === null) return null;
-  const label = status === 'scratch' ? 'Scratch' : 'Draft';
+  const { fg, border } = STATUS_COLOR[status];
   return (
     <Tooltip title={<LifecycleTooltip current={status} />} placement="bottom">
       <Tag
@@ -75,13 +88,13 @@ function LifecycleChip({ status }: { status: EditorLifecycleStatus }) {
           padding: '0 6px',
           lineHeight: '18px',
           borderStyle: 'dashed',
-          color: '#999',
-          borderColor: '#999',
+          color: fg,
+          borderColor: border,
           background: 'transparent',
           cursor: 'help',
         }}
       >
-        {label}
+        {STATUS_LABEL[status]}
       </Tag>
     </Tooltip>
   );
