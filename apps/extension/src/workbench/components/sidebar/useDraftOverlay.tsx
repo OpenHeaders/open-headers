@@ -58,7 +58,10 @@ export function useDraftOverlay({ allTabs, onSwitchTab, onCloseDraftTab }: UseDr
       expandable: false,
       parentId,
       icon: buildRuleIcon({ ruleType: tab.ruleType, isActive: false, paused: false }),
-      badge: composeBadge({ label: 'draft', color: 'var(--ant-color-text-tertiary, #999)' }, true),
+      // Scratch (never persisted) — no dirty dot; the "scratch" badge
+      // itself communicates "unsaved", same vocabulary as the editor's
+      // lifecycle chip + tab strip's gray dot.
+      badge: composeBadge({ label: 'scratch', color: 'var(--ant-color-text-tertiary, #999)' }, false),
       canRename: false,
       canDelete: true,
       canAddChild: false,
@@ -77,7 +80,10 @@ export function useDraftOverlay({ allTabs, onSwitchTab, onCloseDraftTab }: UseDr
       expandable: false,
       parentId,
       icon: methodTag(tab.ruleType, true),
-      badge: composeBadge({ label: 'draft', color: 'var(--ant-color-text-tertiary, #999)' }, true),
+      // Scratch (never persisted) — no dirty dot; the "scratch" badge
+      // itself communicates "unsaved", same vocabulary as the editor's
+      // lifecycle chip + tab strip's gray dot.
+      badge: composeBadge({ label: 'scratch', color: 'var(--ant-color-text-tertiary, #999)' }, false),
       canRename: false,
       canDelete: true,
       canAddChild: false,
@@ -107,7 +113,10 @@ export function useDraftOverlay({ allTabs, onSwitchTab, onCloseDraftTab }: UseDr
           marginRight: 2,
         },
       }),
-      badge: composeBadge({ label: 'draft', color: 'var(--ant-color-text-tertiary, #999)' }, true),
+      // Scratch (never persisted) — no dirty dot; the "scratch" badge
+      // itself communicates "unsaved", same vocabulary as the editor's
+      // lifecycle chip + tab strip's gray dot.
+      badge: composeBadge({ label: 'scratch', color: 'var(--ant-color-text-tertiary, #999)' }, false),
       canRename: false,
       canDelete: true,
       canAddChild: false,

@@ -15,16 +15,27 @@ declare const SHELL_SCOPE_BRAND: unique symbol;
 /**
  * Lifecycle status surfaced next to the Save button so the user gets
  * the same "where am I?" feedback in the editor that the tab strip
- * (gray dot) and sidebar (italic / draft pill) already show.
+ * (gray dot) and sidebar (`incomplete` / `unresolved` / `draft` / `off`
+ * badges) already show. Same predicates, same precedence.
  *
- *   - `'scratch'` — entity not yet minted (create-mode draft tab).
- *   - `'incomplete'` — entity exists but is missing required fields
- *     or has invalid values; can't be published yet.
- *   - `'draft'` — entity exists, has all required fields with valid
- *     values, but `published !== true`. Ready to publish.
- *   - `null` — clean / published / no publication gate (no chip).
+ *   - `'scratch'`     — entity not yet minted (create-mode draft tab).
+ *   - `'incomplete'`  — saved but missing required fields. Can't publish.
+ *   - `'unresolved'`  — complete shape but `{{ref}}`s don't resolve in
+ *     the active scope. Won't activate until the references are defined.
+ *   - `'draft'`       — complete + resolved, but not yet published.
+ *   - `'off'`         — published but `enabled === false`.
+ *   - `null`          — published + enabled (Live), or no lifecycle gate.
+ *
+ * Precedence (matches `useWorkflowNodes` in the sidebar):
+ *   scratch → incomplete → unresolved → draft → off → null.
  */
-export type EditorLifecycleStatus = 'scratch' | 'incomplete' | 'draft' | null;
+export type EditorLifecycleStatus =
+  | 'scratch'
+  | 'incomplete'
+  | 'unresolved'
+  | 'draft'
+  | 'off'
+  | null;
 
 export interface EditorShellHeaderWiring {
   readonly [SHELL_HEADER_BRAND]: never;

@@ -29,6 +29,7 @@ import type { EntityFieldProps } from '@/shared/awareness/EntityField';
 import {
   brandHeaderWiring,
   brandScopeWiring,
+  type EditorLifecycleStatus,
   type EditorShellHeaderWiring,
   type EditorShellScopeWiring,
 } from './types';
@@ -47,11 +48,17 @@ export interface UseEditorShellInput {
    *  publish-gate Save semantics on `<EditorHeader>`. */
   isPublished?: boolean;
   /** Whether the entity has all required fields with valid values.
-   *  Drives the `'incomplete'` vs `'draft'` distinction in the
-   *  lifecycle chip — only complete-and-unpublished entities get
-   *  promoted to `'draft'`. Editors that don't model completeness
-   *  separately can leave this undefined (treated as complete). */
+   *  Mirrors the same `isXComplete()` predicate the sidebar + tab
+   *  prefix-icon use, so the chip flips on the same threshold. */
   isComplete?: boolean;
+  /** Whether the entity has unresolved `{{ref}}`s in the active scope.
+   *  Mirrors `unresolvableXUids.has(uid)` — same source as the sidebar's
+   *  `unresolved` badge and the tab's yellow icon. */
+  isUnresolved?: boolean;
+  /** Whether the user's enabled toggle is on. Only meaningful for
+   *  entities that have one (rules, workflows). Drives the `'off'`
+   *  status when the entity is published but toggled off. */
+  isEnabled?: boolean;
   onSave: () => void;
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (saveFn: () => void) => void;
@@ -78,6 +85,8 @@ export function useEditorShell(input: UseEditorShellInput): UseEditorShellOutput
     isDirty,
     isPublished,
     isComplete,
+    isUnresolved,
+    isEnabled,
     onSave,
     onDirtyChange,
     registerSaveRef,
@@ -99,26 +108,34 @@ export function useEditorShell(input: UseEditorShellInput): UseEditorShellOutput
     registerSaveRef?.(onSave);
   }, [registerSaveRef, onSave]);
 
-  // Lifecycle status — drives the chip next to Save so the sidebar /
-  // tab strip / editor all narrate the same vocabulary.
+  // Lifecycle status — same precedence as `useWorkflowNodes` in the
+  // sidebar so the chip / sidebar badge / tab prefix icon never
+  // disagree. Each editor passes the SAME predicates the sidebar /
+  // tab use (`isXComplete`, `unresolvableXUids.has(uid)`, `entity.enabled`,
+  // `entity.published`) — no separate completeness logic anywhere.
   //
-  //   create-mode (no entity yet)        → 'scratch'
-  //   unpublished + incomplete           → 'incomplete'
-  //   unpublished + complete             → 'draft' (ready to publish)
-  //   published OR no publication gate   → null (no chip)
+  //   create-mode (no entity yet)              → 'scratch'
+  //   unpublished + !complete                  → 'incomplete'
+  //   unpublished + complete + unresolved      → 'unresolved'
+  //   unpublished + complete + resolved        → 'draft'
+  //   published + !enabled                     → 'off'
+  //   published + enabled (or no gate)         → null (Live)
   //
-  // `isComplete` undefined means the editor doesn't model completeness;
-  // we default to "complete enough" so it falls into 'draft' rather
-  // than 'incomplete'. Rules + Live Workflows opt in by passing the
-  // flag explicitly.
-  const status: 'scratch' | 'incomplete' | 'draft' | null =
-    entityId === null
-      ? 'scratch'
-      : isPublished === false
-        ? isComplete === false
-          ? 'incomplete'
-          : 'draft'
-        : null;
+  // `isComplete` / `isUnresolved` / `isEnabled` undefined ⇒ that axis
+  // is treated as "fine" so the editor doesn't have to opt into every
+  // axis. Editors with no publication gate land in `null`.
+  let status: EditorLifecycleStatus;
+  if (entityId === null) {
+    status = 'scratch';
+  } else if (isPublished === false) {
+    if (isComplete === false) status = 'incomplete';
+    else if (isUnresolved === true) status = 'unresolved';
+    else status = 'draft';
+  } else if (isEnabled === false) {
+    status = 'off';
+  } else {
+    status = null;
+  }
 
   const headerProps = useMemo(
     () => brandHeaderWiring({ isDirty, isPublished, status, onSave }),

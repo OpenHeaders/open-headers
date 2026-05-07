@@ -12,8 +12,8 @@
  * standardized on the right so the layout is consistent across editors.
  */
 
-import { MoreOutlined, SaveOutlined } from '@ant-design/icons';
-import { Button, Divider, Dropdown, type MenuProps, Tag, Tooltip, theme } from 'antd';
+import { CheckCircleFilled, ExclamationCircleFilled, MoreOutlined, SaveOutlined } from '@ant-design/icons';
+import { Button, Divider, Dropdown, type MenuProps, Popover, Tag, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import type { EditorLifecycleStatus, EditorShellHeaderWiring } from '@/shared/editor-shell';
@@ -39,64 +39,150 @@ export interface EditorHeaderProps {
   shell?: EditorShellHeaderWiring;
 }
 
-/**
- * Tooltip body for the lifecycle chip. Shows ALL states (with the
- * current one underlined) so the user learns the vocabulary the same
- * way the sidebar / tab strip use it.
- */
-function LifecycleTooltip({ current }: { current: EditorLifecycleStatus }) {
-  const row = (key: 'scratch' | 'incomplete' | 'draft' | 'live', label: string, body: string) => {
-    const active = current === key || (current === null && key === 'live');
-    return (
-      <div style={{ marginTop: key === 'scratch' ? 0 : 4 }}>
-        <strong style={{ textDecoration: active ? 'underline' : 'none' }}>{label}</strong> — {body}
-      </div>
-    );
-  };
+// ── Lifecycle chip ────────────────────────────────────────────────
+//
+// Single visual vocabulary across editor / sidebar / tab strip. Same
+// predicates feed each surface (see `useEditorShell`).
+
+type StatusKey = Exclude<EditorLifecycleStatus, null> | 'live';
+
+interface StatusStyle {
+  label: string;
+  fg: string;
+  border: string;
+  bg: string;
+  body: string;
+}
+
+const STATUS_STYLE: Record<StatusKey, StatusStyle> = {
+  scratch: {
+    label: 'Scratch',
+    fg: '#7a7a7a',
+    border: '#bfbfbf',
+    bg: 'rgba(140,140,140,0.10)',
+    body: 'Unsaved draft. Nothing is persisted until you Save.',
+  },
+  incomplete: {
+    label: 'Incomplete',
+    fg: '#d48806',
+    border: '#ffd591',
+    bg: 'rgba(250,173,20,0.12)',
+    body: 'Missing required fields. Cannot publish yet.',
+  },
+  unresolved: {
+    label: 'Unresolved',
+    fg: '#cf1322',
+    border: '#ffa39e',
+    bg: 'rgba(255,77,79,0.10)',
+    body: 'Has {{ref}}s that don’t resolve in the active scope.',
+  },
+  draft: {
+    label: 'Draft',
+    fg: '#7a7a7a',
+    border: '#bfbfbf',
+    bg: 'rgba(140,140,140,0.10)',
+    body: 'Saved and complete. Not yet published / live.',
+  },
+  off: {
+    label: 'Off',
+    fg: '#7a7a7a',
+    border: '#bfbfbf',
+    bg: 'rgba(140,140,140,0.10)',
+    body: 'Published but disabled. The Enabled toggle is off.',
+  },
+  live: {
+    label: 'Live',
+    fg: '#389e0d',
+    border: '#b7eb8f',
+    bg: 'rgba(82,196,26,0.12)',
+    body: 'Published and active.',
+  },
+};
+
+const STATUS_ORDER: StatusKey[] = ['scratch', 'incomplete', 'unresolved', 'draft', 'off', 'live'];
+
+function StatusPill({ s, active }: { s: StatusStyle; active: boolean }) {
   return (
-    <div style={{ fontSize: 11, lineHeight: 1.5, maxWidth: 300 }}>
-      {row('scratch', 'Scratch', 'unsaved draft. Nothing is persisted until you click Save.')}
-      {row('incomplete', 'Incomplete', 'saved but missing required fields. Cannot publish yet.')}
-      {row('draft', 'Draft', 'saved with all required fields filled in. Not yet published / live.')}
-      {row('live', 'Live', 'published and active.')}
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        padding: '1px 8px',
+        fontSize: 10,
+        fontWeight: 600,
+        color: s.fg,
+        background: s.bg,
+        border: `1px solid ${s.border}`,
+        borderRadius: 999,
+        flexShrink: 0,
+        boxShadow: active ? `0 0 0 2px ${s.bg}` : undefined,
+      }}
+    >
+      {active && <CheckCircleFilled style={{ fontSize: 9, color: s.fg }} />}
+      {!active && <ExclamationCircleFilled style={{ fontSize: 9, opacity: 0.35, color: s.fg }} />}
+      {s.label}
+    </span>
+  );
+}
+
+function LifecyclePopoverContent({ current }: { current: StatusKey }) {
+  return (
+    <div style={{ minWidth: 280, maxWidth: 320 }}>
+      <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 8, color: 'var(--ant-color-text-secondary)' }}>
+        Lifecycle states
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {STATUS_ORDER.map((key) => {
+          const style = STATUS_STYLE[key];
+          const active = key === current;
+          return (
+            <div
+              key={key}
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 8,
+                padding: active ? '4px 6px' : '4px 6px',
+                background: active ? style.bg : 'transparent',
+                border: `1px solid ${active ? style.border : 'transparent'}`,
+                borderRadius: 6,
+              }}
+            >
+              <StatusPill s={style} active={active} />
+              <span
+                style={{
+                  fontSize: 11,
+                  lineHeight: 1.45,
+                  color: active ? 'var(--ant-color-text)' : 'var(--ant-color-text-secondary)',
+                  fontWeight: active ? 500 : 400,
+                }}
+              >
+                {style.body}
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-const STATUS_LABEL: Record<Exclude<EditorLifecycleStatus, null>, string> = {
-  scratch: 'Scratch',
-  incomplete: 'Incomplete',
-  draft: 'Draft',
-};
-
-const STATUS_COLOR: Record<Exclude<EditorLifecycleStatus, null>, { fg: string; border: string }> = {
-  scratch: { fg: '#999', border: '#999' },
-  incomplete: { fg: 'var(--ant-color-warning, #faad14)', border: 'var(--ant-color-warning, #faad14)' },
-  draft: { fg: '#999', border: '#999' },
-};
-
 function LifecycleChip({ status }: { status: EditorLifecycleStatus }) {
   if (status === null) return null;
-  const { fg, border } = STATUS_COLOR[status];
+  const style = STATUS_STYLE[status];
   return (
-    <Tooltip title={<LifecycleTooltip current={status} />} placement="bottom">
-      <Tag
-        style={{
-          fontSize: 10,
-          fontWeight: 500,
-          margin: 0,
-          padding: '0 6px',
-          lineHeight: '18px',
-          borderStyle: 'dashed',
-          color: fg,
-          borderColor: border,
-          background: 'transparent',
-          cursor: 'help',
-        }}
-      >
-        {STATUS_LABEL[status]}
-      </Tag>
-    </Tooltip>
+    <Popover
+      content={<LifecyclePopoverContent current={status} />}
+      placement="bottom"
+      trigger={['hover', 'focus']}
+      arrow={false}
+      mouseEnterDelay={0.1}
+    >
+      <span style={{ display: 'inline-flex', cursor: 'help' }}>
+        <StatusPill s={style} active />
+      </span>
+    </Popover>
   );
 }
 
