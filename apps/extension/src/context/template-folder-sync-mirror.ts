@@ -35,6 +35,7 @@ export interface TemplateFolderSyncMirror {
     listener: TemplateFolderMirrorListener,
   ): () => void;
   subscribeAny(listener: TemplateFolderMirrorListener): () => void;
+  hydrated: Promise<void>;
   dispose(): void;
 }
 
@@ -81,6 +82,7 @@ export function createTemplateFolderSyncMirror(
     liveOrderedSetItems: (uid, setPath) => core.get(uid)?.setOrderKeys[setPath] ?? [],
     subscribeTemplateFolderMirror: core.subscribe,
     subscribeAny: core.subscribeAny,
+    hydrated: core.hydrated,
     dispose: core.dispose,
   };
 }

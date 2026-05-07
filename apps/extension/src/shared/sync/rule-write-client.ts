@@ -69,6 +69,7 @@ export async function applyRuleUpdate(
 ): Promise<RuleMutationResult> {
   const mirror = resolveMirror(opts, getRuleSyncMirrorForWorkspace);
   const entry = mirror.getRuleMirror(ruleUid);
+  await mirror.hydrated;
   if (!entry) return { ok: false, reason: 'not-found' };
   // Auto-unpublish on first runtime-affecting edit of a published rule
   // (publication-gate symmetry). The single batch ensures side-effect
@@ -150,6 +151,7 @@ export async function applyRulePublish(
   opts: RuleWriteOptions,
 ): Promise<RuleSimpleResult> {
   const mirror = resolveMirror(opts, getRuleSyncMirrorForWorkspace);
+  await mirror.hydrated;
   if (!mirror.getRuleMirror(ruleUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const bodies: MutationBody[] = [
@@ -167,6 +169,7 @@ export async function applyRuleToggle(
   opts: RuleWriteOptions,
 ): Promise<RuleSimpleResult> {
   const mirror = resolveMirror(opts, getRuleSyncMirrorForWorkspace);
+  await mirror.hydrated;
   if (!mirror.getRuleMirror(ruleUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildToggleBatch(ruleUid, enabled, ctx);
@@ -178,6 +181,7 @@ export async function applyRuleDelete(
   opts: RuleWriteOptions,
 ): Promise<RuleSimpleResult> {
   const mirror = resolveMirror(opts, getRuleSyncMirrorForWorkspace);
+  await mirror.hydrated;
   if (!mirror.getRuleMirror(ruleUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildDeleteBatch(ruleUid, ctx);

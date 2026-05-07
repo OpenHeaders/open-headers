@@ -37,8 +37,23 @@ export interface OAuthBundleCache {
   readonly workspaceId: string;
   getSnapshot(): OAuthBundleSnapshot;
   seedFromPersistedOAuthBundle(snapshot: OAuthBundleSnapshot): Promise<void>;
+  hydrateFromStorage(): Promise<void>;
   onChange(listener: OAuthBundleCacheListener): () => void;
   dispose(): void;
+}
+
+function normalizeBlob(raw: unknown): OAuthBundleSnapshot {
+  if (!raw || typeof raw !== 'object') return EMPTY_SNAPSHOT;
+  const blob = raw as Partial<OAuthBundleSnapshot>;
+  return {
+    schemaVersion: typeof blob.schemaVersion === 'number' ? blob.schemaVersion : 5,
+    tokens: (blob.tokens && typeof blob.tokens === 'object' ? blob.tokens : {}) as Record<string, unknown>,
+    configs: (blob.configs && typeof blob.configs === 'object' ? blob.configs : {}) as Record<string, unknown>,
+    refreshErrors: (blob.refreshErrors && typeof blob.refreshErrors === 'object' ? blob.refreshErrors : {}) as Record<
+      string,
+      unknown
+    >,
+  };
 }
 
 export function createOAuthBundleCache(
@@ -69,6 +84,11 @@ export function createOAuthBundleCache(
       buildSeedBatch: (input, ctx) => seedOAuthBundle(input, ctx),
       persist: (scope, snap) => extensionStorage.set(wsKeys(scope).oauth, snap),
       beforeSeed: (input) => input,
+      loadFromStorage: async (scope) => {
+        const raw = await extensionStorage.get(wsKeys(scope).oauth);
+        if (!raw) return null;
+        return normalizeBlob(raw);
+      },
     },
   );
 
@@ -76,6 +96,7 @@ export function createOAuthBundleCache(
     workspaceId: core.scope,
     getSnapshot: core.getSnapshot,
     seedFromPersistedOAuthBundle: core.seedFromPersisted,
+    hydrateFromStorage: core.hydrateFromStorage,
     onChange: core.onChange,
     dispose: core.dispose,
   };

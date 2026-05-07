@@ -49,6 +49,7 @@ export async function applyTemplateUpdate(
 ): Promise<TemplateMutationResult> {
   const mirror = resolveMirror(opts, getTemplateSyncMirrorForWorkspace);
   const entry = mirror.getTemplateMirror(templateUid);
+  await mirror.hydrated;
   if (!entry) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   // Renderer-side adapter: combine the mirror's order keys with the
@@ -103,6 +104,7 @@ export async function applyTemplateDelete(
   opts: TemplateWriteOptions,
 ): Promise<TemplateSimpleResult> {
   const mirror = resolveMirror(opts, getTemplateSyncMirrorForWorkspace);
+  await mirror.hydrated;
   if (!mirror.getTemplateMirror(templateUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildDeleteBatch(templateUid, ctx);

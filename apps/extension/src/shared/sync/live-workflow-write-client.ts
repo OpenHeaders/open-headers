@@ -61,6 +61,12 @@ export async function applyLiveWorkflowUpdate(
   opts: LiveWorkflowWriteOptions,
 ): Promise<LiveWorkflowMutationResult> {
   const mirror = resolveMirror(opts, getLiveWorkflowSyncMirrorForWorkspace);
+  // Await the mirror's bootstrap snapshot before the existence check —
+  // a workspace-switch race (user saves between mirror instantiation
+  // and `oh.sync.snapshotLiveWorkflows` resolving) would otherwise
+  // surface as a spurious `not-found` even though the entity exists
+  // in the SW oracle.
+  await mirror.hydrated;
   const entry = mirror.getLiveWorkflowMirror(workflowUid);
   if (!entry) return { ok: false, reason: 'not-found' };
   // Auto-unpublish on first runtime-affecting edit of a published
@@ -127,6 +133,7 @@ export async function applyLiveWorkflowPublish(
   opts: LiveWorkflowWriteOptions,
 ): Promise<LiveWorkflowSimpleResult> {
   const mirror = resolveMirror(opts, getLiveWorkflowSyncMirrorForWorkspace);
+  await mirror.hydrated;
   if (!mirror.getLiveWorkflowMirror(workflowUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const bodies: MutationBody[] = [
@@ -143,6 +150,7 @@ export async function applyLiveWorkflowDelete(
   opts: LiveWorkflowWriteOptions,
 ): Promise<LiveWorkflowSimpleResult> {
   const mirror = resolveMirror(opts, getLiveWorkflowSyncMirrorForWorkspace);
+  await mirror.hydrated;
   if (!mirror.getLiveWorkflowMirror(workflowUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildDeleteLiveWorkflowBatch(workflowUid, ctx);

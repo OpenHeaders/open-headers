@@ -34,6 +34,7 @@ export interface TemplateSyncMirror {
   liveOrderedSetItems(uid: string, setPath: string): Array<{ itemId: string; orderKey: string }>;
   subscribeTemplateMirror(uid: string, listener: TemplateMirrorListener): () => void;
   subscribeAny(listener: TemplateMirrorListener): () => void;
+  hydrated: Promise<void>;
   dispose(): void;
 }
 
@@ -86,6 +87,7 @@ export function createTemplateSyncMirror(
     liveOrderedSetItems: (uid, setPath) => core.get(uid)?.setOrderKeys[setPath] ?? [],
     subscribeTemplateMirror: core.subscribe,
     subscribeAny: core.subscribeAny,
+    hydrated: core.hydrated,
     dispose: core.dispose,
   };
 }

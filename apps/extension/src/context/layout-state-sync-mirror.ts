@@ -25,6 +25,7 @@ export interface LayoutStateSyncMirror {
   getMirror(): LayoutStateMirrorEntry | null;
   liveLayout(): unknown;
   subscribeMirror(listener: LayoutStateMirrorListener): () => void;
+  hydrated: Promise<void>;
   dispose(): void;
 }
 
@@ -56,6 +57,7 @@ export function createLayoutStateSyncMirror(
     getMirror: core.get,
     liveLayout: () => core.get()?.layout ?? null,
     subscribeMirror: core.subscribe,
+    hydrated: core.hydrated,
     dispose: core.dispose,
   };
 }

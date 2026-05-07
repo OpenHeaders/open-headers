@@ -3,10 +3,12 @@
  * `flat-entity-cache.ts`.
  */
 
+import { CollectionSchema } from '@openheaders/core/schemas';
 import { REQUEST_COLLECTION_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
-import { wsKeys } from '@/shared/storage';
+import { extensionStorage, wsKeys } from '@/shared/storage';
 import { projectRequestCollection, seedRequestCollection } from '@/shared/sync/request-collection-projection';
+import { driftRecorder } from '../modules/storage-drift';
 import type { InMemoryBroadcast } from './broadcast';
 import { createFlatEntityCache } from './flat-entity-cache';
 import type { EntityOracle } from './oracle';
@@ -18,6 +20,7 @@ export interface RequestCollectionCache {
   readonly workspaceId: string;
   getRequestCollections(): V5.Collection[];
   seedFromPersistedRequestCollections(colls: V5.Collection[]): Promise<void>;
+  hydrateFromStorage(): Promise<void>;
   onChange(listener: RequestCollectionCacheListener): () => void;
   dispose(): void;
 }
@@ -39,12 +42,21 @@ export function createRequestCollectionCache(
       storageKey: (ws) => wsKeys(ws).requestCollections,
       project: projectRequestCollection,
       seed: seedRequestCollection,
+      loadFromStorage: (ws) =>
+        extensionStorage.getValidatedArray(wsKeys(ws).requestCollections, CollectionSchema, {
+          onError: driftRecorder({
+            subsystem: 'request-executor',
+            storageKey: wsKeys(ws).requestCollections.key,
+            workspaceId: ws,
+          }),
+        }),
     },
   );
   return {
     workspaceId: core.workspaceId,
     getRequestCollections: core.getEntities,
     seedFromPersistedRequestCollections: core.seedFromPersisted,
+    hydrateFromStorage: core.hydrateFromStorage,
     onChange: core.onChange,
     dispose: core.dispose,
   };

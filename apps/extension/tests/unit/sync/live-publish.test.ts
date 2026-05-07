@@ -78,6 +78,7 @@ function makeWorkflowMirror(workflow: V5.LiveWorkflow | null): LiveWorkflowSyncM
     getLiveWorkflowMirror: (uid: string) =>
       workflow && workflow.uid === uid ? { workflow } : null,
     subscribeLiveWorkflowMirror: () => () => undefined,
+    hydrated: Promise.resolve(),
     dispose: () => undefined,
   } as unknown as LiveWorkflowSyncMirror;
 }
@@ -87,6 +88,7 @@ function makeVariableMirror(lv: V5.LiveVariable | null): LiveVariableSyncMirror 
     getLiveVariableMirror: (uid: string) =>
       lv && lv.uid === uid ? { liveVariable: lv } : null,
     subscribeLiveVariableMirror: () => () => undefined,
+    hydrated: Promise.resolve(),
     dispose: () => undefined,
   } as unknown as LiveVariableSyncMirror;
 }

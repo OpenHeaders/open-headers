@@ -24,6 +24,7 @@ export interface RequestFolderCache {
   readonly workspaceId: string;
   getRequestFolders(): V5.Folder[];
   seedFromPersistedRequestFolders(folders: PersistedLocalFolder[], collections: V5.Collection[]): Promise<void>;
+  hydrateFromStorage(): Promise<void>;
   onChange(listener: RequestFolderCacheListener): () => void;
   dispose(): void;
 }
@@ -34,6 +35,7 @@ const KINDS: FolderTreeCacheConfig<RequestFolderParentRef> = {
   childrenPath: REQUEST_FOLDER_CHILDREN_PATH,
   loggerTag: 'RequestFolderCache',
   storageKey: (ws) => wsKeys(ws).requestFolders,
+  collectionStorageKey: (ws) => wsKeys(ws).requestCollections,
   hydrationBatchPrefix: 'boot-request-folders',
   projectAllFolders: projectAllRequestFolders,
   buildCreateBatch: buildCreateRequestFolderBatch,
@@ -51,6 +53,7 @@ export function createRequestFolderCache(
     workspaceId: core.workspaceId,
     getRequestFolders: core.getFolders,
     seedFromPersistedRequestFolders: core.seedFromPersisted,
+    hydrateFromStorage: core.hydrateFromStorage,
     onChange: core.onChange,
     dispose: core.dispose,
   };

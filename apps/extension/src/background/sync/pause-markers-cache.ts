@@ -28,6 +28,7 @@ export interface PauseMarkersCache {
   readonly workspaceId: string;
   getSnapshot(): PauseMarkersSnapshot;
   seedFromPersistedPauseMarkers(record: Readonly<Record<string, 'paused' | 'unpaused'>>): Promise<void>;
+  hydrateFromStorage(): Promise<void>;
   onChange(listener: PauseMarkersCacheListener): () => void;
   dispose(): void;
 }
@@ -51,12 +52,17 @@ export function createPauseMarkersCache(
     },
     buildSeedBatch: (input, ctx) => seedPauseMarkers(input, ctx),
     persist: (scope, snap) => extensionStorage.set(wsKeys(scope).pauseMarkers, snap.markers),
+    loadFromStorage: async (scope) => {
+      const raw = await extensionStorage.get(wsKeys(scope).pauseMarkers);
+      return raw ?? null;
+    },
   });
 
   return {
     workspaceId: core.scope,
     getSnapshot: core.getSnapshot,
     seedFromPersistedPauseMarkers: core.seedFromPersisted,
+    hydrateFromStorage: core.hydrateFromStorage,
     onChange: core.onChange,
     dispose: core.dispose,
   };

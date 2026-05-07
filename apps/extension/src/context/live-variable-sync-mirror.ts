@@ -25,6 +25,7 @@ export interface LiveVariableSyncMirror {
   listLiveVariables(): V5.LiveVariable[];
   subscribeLiveVariableMirror(uid: string, listener: LiveVariableMirrorListener): () => void;
   subscribeAny(listener: LiveVariableMirrorListener): () => void;
+  hydrated: Promise<void>;
   dispose(): void;
 }
 
@@ -64,6 +65,7 @@ export function createLiveVariableSyncMirror(
         .sort((a, b) => (a.uid < b.uid ? -1 : a.uid > b.uid ? 1 : 0)),
     subscribeLiveVariableMirror: core.subscribe,
     subscribeAny: core.subscribeAny,
+    hydrated: core.hydrated,
     dispose: core.dispose,
   };
 }

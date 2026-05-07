@@ -26,6 +26,7 @@ export interface LiveWorkflowSyncMirror {
   listLiveWorkflows(): V5.LiveWorkflow[];
   subscribeLiveWorkflowMirror(uid: string, listener: LiveWorkflowMirrorListener): () => void;
   subscribeAny(listener: LiveWorkflowMirrorListener): () => void;
+  hydrated: Promise<void>;
   dispose(): void;
 }
 
@@ -65,6 +66,7 @@ export function createLiveWorkflowSyncMirror(
         .sort((a, b) => (a.uid < b.uid ? -1 : a.uid > b.uid ? 1 : 0)),
     subscribeLiveWorkflowMirror: core.subscribe,
     subscribeAny: core.subscribeAny,
+    hydrated: core.hydrated,
     dispose: core.dispose,
   };
 }

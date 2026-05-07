@@ -116,6 +116,19 @@ import {
 
 /** Structural minimum the registry needs from any entity cache. */
 export interface EntityCacheLike {
+  /**
+   * Read this entity's persisted projection from `chrome.storage.local`
+   * and seed the oracle. No-op for caches without a chrome.storage
+   * projection (e.g. files — bytes live in BlobStore IDB, the catalog
+   * is sync-engine-singleton without a wsKeys projection). Awaited by
+   * {@link buildService}'s `hydrated` promise so per-workspace services
+   * start with their caches populated regardless of Active state — the
+   * fix for the cross-workspace residency bug where lazy re-materialized
+   * non-Active services would otherwise project an empty oracle and
+   * report `Workflow X not found in workspace Y` for entities that
+   * exist in storage.
+   */
+  hydrateFromStorage(): Promise<void>;
   dispose(): void;
 }
 

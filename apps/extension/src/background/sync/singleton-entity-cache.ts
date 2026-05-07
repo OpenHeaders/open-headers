@@ -59,6 +59,16 @@ export interface SingletonEntityCacheConfig<T, I> {
    *  persisted `schemaVersion` across the immediately-following
    *  refresh; the post-state projection doesn't carry it. */
   beforeSeed?: (input: I) => T | null;
+  /**
+   * Read this singleton's persisted projection for `scope` from
+   * `chrome.storage.local`. Symmetric to {@link persist}. Used by
+   * {@link SingletonEntityCache.hydrateFromStorage} to re-seed the
+   * oracle when a per-workspace service is materialized lazily —
+   * without this, a freshly built oracle starts blank even though
+   * `wsKeys(scope).<key>` has the data on disk. Returns `null` when
+   * nothing is persisted (the cache stays at `emptySnapshot`).
+   */
+  loadFromStorage?: (scope: string) => Promise<I | null>;
 }
 
 export interface SingletonEntityCache<T, I> {
@@ -67,6 +77,15 @@ export interface SingletonEntityCache<T, I> {
   readonly scope: string;
   getSnapshot(): T;
   seedFromPersisted(input: I): Promise<void>;
+  /**
+   * Read this singleton's persisted projection from
+   * `chrome.storage.local` (via the configured `loadFromStorage`) and
+   * seed the oracle. No-op when no `loadFromStorage` is configured or
+   * the load returns `null`. Called by {@link buildService}'s
+   * `hydrated` promise so a freshly materialized per-workspace service
+   * starts with this cache populated regardless of Active state.
+   */
+  hydrateFromStorage(): Promise<void>;
   onChange(listener: () => void): () => void;
   dispose(): void;
 }
@@ -103,28 +122,44 @@ export function createSingletonEntityCache<T, I>(
     refreshFromOracle();
   });
 
+  const seedFromPersisted = async (input: I): Promise<void> => {
+    const batch = config.buildSeedBatch(input, contextFactory());
+    if (!batch) return;
+    if (config.beforeSeed) {
+      const override = config.beforeSeed(input);
+      if (override !== null && override !== undefined) {
+        snapshot = override;
+      }
+    }
+    const result = await oracle.apply(batch, []);
+    if (!result.ok) {
+      logger.info(
+        config.loggerTag,
+        `seedFromPersisted failed (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
+      );
+    }
+    refreshFromOracle();
+    logger.info(config.loggerTag, `Seeded singleton for scope=${scope}`);
+  };
+
   return {
     scope,
     getSnapshot: () => snapshot,
 
-    async seedFromPersisted(input: I): Promise<void> {
-      const batch = config.buildSeedBatch(input, contextFactory());
-      if (!batch) return;
-      if (config.beforeSeed) {
-        const override = config.beforeSeed(input);
-        if (override !== null && override !== undefined) {
-          snapshot = override;
-        }
-      }
-      const result = await oracle.apply(batch, []);
-      if (!result.ok) {
+    seedFromPersisted: (input) => seedFromPersisted(input),
+
+    async hydrateFromStorage(): Promise<void> {
+      if (!config.loadFromStorage) return;
+      try {
+        const persisted = await config.loadFromStorage(scope);
+        if (persisted === null) return;
+        await seedFromPersisted(persisted);
+      } catch (err) {
         logger.info(
           config.loggerTag,
-          `seedFromPersisted failed (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
+          `hydrateFromStorage(scope=${scope}) failed: ${(err as Error).message}`,
         );
       }
-      refreshFromOracle();
-      logger.info(config.loggerTag, `Seeded singleton for scope=${scope}`);
     },
 
     onChange(listener) {

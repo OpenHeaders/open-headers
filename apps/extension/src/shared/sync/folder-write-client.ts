@@ -54,6 +54,7 @@ export async function applyFolderRename(
   // mirror doesn't know about would still apply at the oracle if the
   // entity exists, but the editor UX wants the early fail signal.
   const mirror = resolveMirror(opts, getFolderSyncMirrorForWorkspace);
+  await mirror.hydrated;
   if (!mirror.getFolderMirror(input.folderUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRenameFolderBatch(input, ctx));

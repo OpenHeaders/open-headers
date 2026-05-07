@@ -814,7 +814,15 @@ export function __initSyncServiceForTests(workspaceId: string, deps: SyncService
     awarenessSink: () => {},
   });
 
-  initSyncService(workspaceId);
+  // Synchronously materialize + Active-bind the workspace so tests
+  // that read `getOracleForCurrentWorkspace()` immediately after this
+  // call (before any awaited microtask) see the oracle. Production's
+  // `setRuntimeActive` runs the full async dance (single-flight queue,
+  // hydration await, runner attach); for tests the deterministic
+  // synchronous shape preserves the pre-existing contract.
+  const svc = getOrCreateWorkspaceService(workspaceId);
+  attachActiveBoundRunners(svc);
+  currentActive = workspaceId;
 }
 
 /**
@@ -900,6 +908,35 @@ function buildService(deps: WireDeps): WorkspaceServiceState {
   const projector = buildProjectorPipeline(oracle, WORKSPACE_REGISTRY);
   const unsubscribeBroadcast = wireBroadcastToSink(broadcast, deps.sink, projector);
 
+  // Hydrate every cache from `chrome.storage.local` (or BlobStore for
+  // files; no-op for caches without a durable projection). Folders seed
+  // entries that reference collection parents in the oracle, so
+  // collection caches must finish hydrating before folder caches start.
+  // Two-phase: non-folder caches in parallel, then folder caches in
+  // parallel. The `hydrated` promise resolves after both phases finish.
+  //
+  // Without this, a freshly materialized non-Active workspace service
+  // starts with empty caches even though `wsKeys(workspaceId).<key>` has
+  // the data on disk — bridge*SyncEngine seeds only the runtime-Active
+  // workspace, leaving cross-workspace gestures (manual refresh on a
+  // workspace whose tab is open in per-tab mode but is not Active)
+  // unable to find their entities. See § 8.7 Session 20 disposition.
+  const folderRegistrations = new Set<EntityRegistration>([
+    FOLDER_REGISTRATION,
+    REQUEST_FOLDER_REGISTRATION,
+    TEMPLATE_FOLDER_REGISTRATION,
+  ]);
+  const nonFolderCaches: EntityCacheLike[] = [];
+  const folderCaches: EntityCacheLike[] = [];
+  WORKSPACE_REGISTRY.forEach((reg, idx) => {
+    if (folderRegistrations.has(reg)) folderCaches.push(caches[idx]);
+    else nonFolderCaches.push(caches[idx]);
+  });
+  const hydrated = (async () => {
+    await Promise.all(nonFolderCaches.map((c) => c.hydrateFromStorage()));
+    await Promise.all(folderCaches.map((c) => c.hydrateFromStorage()));
+  })();
+
   // Active-bound runners (DNR + resolver-invalidate) are NOT subscribed
   // here. They're built + subscribed by `setRuntimeActive` when this
   // workspace becomes Active and disposed when it stops being Active.
@@ -907,7 +944,7 @@ function buildService(deps: WireDeps): WorkspaceServiceState {
   // so only the Active workspace should drive them.
   return {
     workspaceId: deps.workspaceId,
-    hydrated: Promise.resolve(),
+    hydrated,
     oracle,
     log: deps.log,
     intents: deps.intents,

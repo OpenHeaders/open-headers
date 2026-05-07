@@ -57,6 +57,7 @@ export async function applyRequestUpdate(
 ): Promise<RequestMutationResult> {
   const mirror = resolveMirror(opts, getRequestSyncMirrorForWorkspace);
   const entry = mirror.getRequestMirror(requestUid);
+  await mirror.hydrated;
   if (!entry) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   // Renderer-side adapter: combine the mirror's order keys with the
@@ -99,6 +100,7 @@ export async function applyRequestDelete(
   opts: RequestWriteOptions,
 ): Promise<RequestSimpleResult> {
   const mirror = resolveMirror(opts, getRequestSyncMirrorForWorkspace);
+  await mirror.hydrated;
   if (!mirror.getRequestMirror(requestUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildDeleteBatch(requestUid, ctx);

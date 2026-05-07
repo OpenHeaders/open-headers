@@ -27,6 +27,7 @@ export interface FilesSyncMirror {
   liveFileIds(): string[];
   liveRefs(): FileRef[];
   subscribeMirror(listener: FilesMirrorListener): () => void;
+  hydrated: Promise<void>;
   dispose(): void;
 }
 
@@ -59,6 +60,7 @@ export function createFilesSyncMirror(
     liveFileIds: () => core.get()?.fileIds ?? [],
     liveRefs: () => core.get()?.refs ?? [],
     subscribeMirror: core.subscribe,
+    hydrated: core.hydrated,
     dispose: core.dispose,
   };
 }

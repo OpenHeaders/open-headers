@@ -35,6 +35,7 @@ export interface CollectionSyncMirror {
     setPath: string,
   ): Array<{ itemId: string; orderKey: string }>;
   subscribeCollectionMirror(collectionUid: string, listener: CollectionMirrorListener): () => void;
+  hydrated: Promise<void>;
   dispose(): void;
 }
 
@@ -77,6 +78,7 @@ export function createCollectionSyncMirror(
     liveVarNames: (uid) => core.get(uid)?.varUids ?? [],
     liveOrderedSetItems: (uid, setPath) => core.get(uid)?.setOrderKeys[setPath] ?? [],
     subscribeCollectionMirror: core.subscribe,
+    hydrated: core.hydrated,
     dispose: core.dispose,
   };
 }

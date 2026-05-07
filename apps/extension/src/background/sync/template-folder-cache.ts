@@ -24,6 +24,7 @@ export interface TemplateFolderCache {
   readonly workspaceId: string;
   getTemplateFolders(): V5.Folder[];
   seedFromPersistedTemplateFolders(folders: PersistedLocalFolder[], collections: V5.Collection[]): Promise<void>;
+  hydrateFromStorage(): Promise<void>;
   onChange(listener: TemplateFolderCacheListener): () => void;
   dispose(): void;
 }
@@ -34,6 +35,7 @@ const KINDS: FolderTreeCacheConfig<TemplateFolderParentRef> = {
   childrenPath: TEMPLATE_FOLDER_CHILDREN_PATH,
   loggerTag: 'TemplateFolderCache',
   storageKey: (ws) => wsKeys(ws).templateFolders,
+  collectionStorageKey: (ws) => wsKeys(ws).templateCollections,
   hydrationBatchPrefix: 'boot-template-folders',
   projectAllFolders: projectAllTemplateFolders,
   buildCreateBatch: buildCreateTemplateFolderBatch,
@@ -51,6 +53,7 @@ export function createTemplateFolderCache(
     workspaceId: core.workspaceId,
     getTemplateFolders: core.getFolders,
     seedFromPersistedTemplateFolders: core.seedFromPersisted,
+    hydrateFromStorage: core.hydrateFromStorage,
     onChange: core.onChange,
     dispose: core.dispose,
   };

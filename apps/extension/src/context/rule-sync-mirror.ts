@@ -35,6 +35,7 @@ export interface RuleSyncMirror {
   liveSetItems(uid: string, setPath: string): string[];
   liveOrderedSetItems(uid: string, setPath: string): Array<{ itemId: string; orderKey: string }>;
   subscribeRuleMirror(uid: string, listener: RuleMirrorListener): () => void;
+  hydrated: Promise<void>;
   dispose(): void;
 }
 
@@ -86,6 +87,7 @@ export function createRuleSyncMirror(
     liveSetItems: (uid, setPath) => core.get(uid)?.setItemIds[setPath] ?? [],
     liveOrderedSetItems: (uid, setPath) => core.get(uid)?.setOrderKeys[setPath] ?? [],
     subscribeRuleMirror: core.subscribe,
+    hydrated: core.hydrated,
     dispose: core.dispose,
   };
 }

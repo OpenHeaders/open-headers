@@ -24,6 +24,7 @@ export interface FolderCache {
   readonly workspaceId: string;
   getFolders(): V5.Folder[];
   seedFromPersistedFolders(folders: PersistedLocalFolder[], collections: V5.Collection[]): Promise<void>;
+  hydrateFromStorage(): Promise<void>;
   onChange(listener: FolderCacheListener): () => void;
   dispose(): void;
 }
@@ -34,6 +35,7 @@ const KINDS: FolderTreeCacheConfig<FolderParentRef> = {
   childrenPath: FOLDER_CHILDREN_PATH,
   loggerTag: 'FolderCache',
   storageKey: (ws) => wsKeys(ws).folders,
+  collectionStorageKey: (ws) => wsKeys(ws).collections,
   hydrationBatchPrefix: 'boot-folders',
   projectAllFolders,
   buildCreateBatch: buildCreateFolderBatch,
@@ -51,6 +53,7 @@ export function createFolderCache(
     workspaceId: core.workspaceId,
     getFolders: core.getFolders,
     seedFromPersistedFolders: core.seedFromPersisted,
+    hydrateFromStorage: core.hydrateFromStorage,
     onChange: core.onChange,
     dispose: core.dispose,
   };

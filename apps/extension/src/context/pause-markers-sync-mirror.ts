@@ -27,6 +27,7 @@ export interface PauseMarkersSyncMirror {
   livePaths(): string[];
   liveMarkers(): Record<string, PauseMarkerKind>;
   subscribeMirror(listener: PauseMarkersMirrorListener): () => void;
+  hydrated: Promise<void>;
   dispose(): void;
 }
 
@@ -59,6 +60,7 @@ export function createPauseMarkersSyncMirror(
     livePaths: () => core.get()?.paths ?? [],
     liveMarkers: () => core.get()?.markers ?? {},
     subscribeMirror: core.subscribe,
+    hydrated: core.hydrated,
     dispose: core.dispose,
   };
 }

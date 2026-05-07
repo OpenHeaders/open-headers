@@ -85,6 +85,7 @@ function makeMirror(
       template && template.uid === uid ? (resolvedOrderKeys[path] ?? []) : [],
     subscribeTemplateMirror: () => () => undefined,
     subscribeAny: () => () => undefined,
+    hydrated: Promise.resolve(),
     dispose: () => undefined,
   };
 }

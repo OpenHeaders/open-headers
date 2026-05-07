@@ -7,10 +7,12 @@
  * mirror, exporter, variables-resolver) stay unchanged.
  */
 
+import { WorkspaceVariablesSchema } from '@openheaders/core/schemas';
 import { WORKSPACE_VARIABLES_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 import { seedWorkspaceVariables } from '@/shared/sync/workspace-variables-projection';
+import { driftRecorder } from '../modules/storage-drift';
 import type { InMemoryBroadcast } from './broadcast';
 import type { EntityOracle } from './oracle';
 import { createSingletonEntityCache, type SingletonEntityCache } from './singleton-entity-cache';
@@ -28,6 +30,7 @@ export interface WorkspaceVariablesCache {
   readonly workspaceId: string;
   getWorkspaceVariables(): V5.WorkspaceVariables;
   seedFromPersistedWorkspaceVariables(workspaceVars: V5.WorkspaceVariables): Promise<void>;
+  hydrateFromStorage(): Promise<void>;
   onChange(listener: WorkspaceVariablesCacheListener): () => void;
   dispose(): void;
 }
@@ -50,6 +53,14 @@ export function createWorkspaceVariablesCache(
       project: (o) => projectWorkspaceVariablesSingleton(o)?.workspaceVariables ?? null,
       buildSeedBatch: (input, ctx) => seedWorkspaceVariables(input, ctx),
       persist: (scope, vars) => extensionStorage.set(wsKeys(scope).workspaceVars, vars),
+      loadFromStorage: (scope) =>
+        extensionStorage.getValidated(wsKeys(scope).workspaceVars, WorkspaceVariablesSchema, {
+          onError: driftRecorder({
+            subsystem: 'environment',
+            storageKey: wsKeys(scope).workspaceVars.key,
+            workspaceId: scope,
+          }),
+        }),
     },
   );
 
@@ -57,6 +68,7 @@ export function createWorkspaceVariablesCache(
     workspaceId: core.scope,
     getWorkspaceVariables: core.getSnapshot,
     seedFromPersistedWorkspaceVariables: core.seedFromPersisted,
+    hydrateFromStorage: core.hydrateFromStorage,
     onChange: core.onChange,
     dispose: core.dispose,
   };

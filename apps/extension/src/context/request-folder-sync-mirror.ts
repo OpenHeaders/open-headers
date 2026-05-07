@@ -38,6 +38,7 @@ export interface RequestFolderSyncMirror {
     listener: RequestFolderMirrorListener,
   ): () => void;
   subscribeAny(listener: RequestFolderMirrorListener): () => void;
+  hydrated: Promise<void>;
   dispose(): void;
 }
 
@@ -84,6 +85,7 @@ export function createRequestFolderSyncMirror(
     liveOrderedSetItems: (uid, setPath) => core.get(uid)?.setOrderKeys[setPath] ?? [],
     subscribeRequestFolderMirror: core.subscribe,
     subscribeAny: core.subscribeAny,
+    hydrated: core.hydrated,
     dispose: core.dispose,
   };
 }

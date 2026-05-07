@@ -3,10 +3,12 @@
  * `flat-entity-cache.ts`.
  */
 
+import { LiveVariableSchema } from '@openheaders/core/schemas';
 import { LIVE_VARIABLE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
-import { wsKeys } from '@/shared/storage';
+import { extensionStorage, wsKeys } from '@/shared/storage';
 import { projectLiveVariable, seedLiveVariable } from '@/shared/sync/live-variable-projection';
+import { driftRecorder } from '../modules/storage-drift';
 import type { InMemoryBroadcast } from './broadcast';
 import { createFlatEntityCache } from './flat-entity-cache';
 import type { EntityOracle } from './oracle';
@@ -18,6 +20,7 @@ export interface LiveVariableCache {
   readonly workspaceId: string;
   getLiveVariables(): V5.LiveVariable[];
   seedFromPersistedLiveVariables(items: V5.LiveVariable[]): Promise<void>;
+  hydrateFromStorage(): Promise<void>;
   onChange(listener: LiveVariableCacheListener): () => void;
   dispose(): void;
 }
@@ -39,12 +42,21 @@ export function createLiveVariableCache(
       storageKey: (ws) => wsKeys(ws).liveVariables,
       project: projectLiveVariable,
       seed: seedLiveVariable,
+      loadFromStorage: (ws) =>
+        extensionStorage.getValidatedArray(wsKeys(ws).liveVariables, LiveVariableSchema, {
+          onError: driftRecorder({
+            subsystem: 'live',
+            storageKey: wsKeys(ws).liveVariables.key,
+            workspaceId: ws,
+          }),
+        }),
     },
   );
   return {
     workspaceId: core.workspaceId,
     getLiveVariables: core.getEntities,
     seedFromPersistedLiveVariables: core.seedFromPersisted,
+    hydrateFromStorage: core.hydrateFromStorage,
     onChange: core.onChange,
     dispose: core.dispose,
   };

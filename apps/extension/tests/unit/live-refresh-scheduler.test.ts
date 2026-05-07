@@ -32,6 +32,18 @@ vi.mock('@/background/modules/observability-log', () => ({
   recordLog: (...args: unknown[]) => recordLogMock(...args),
 }));
 
+// Stub the workspace-service refcount bracket the scheduler now uses
+// for cross-workspace residency. The real implementation pulls in
+// `service.ts` (and transitively `variables-resolver`, which registers
+// a module-level `onLiveCacheStoreChange` listener at import time —
+// would skew the listener-count assertions below). Tests don't need
+// the bracket's behavior; they exercise the scheduler with the active
+// workspace already wired by the mocked stores.
+vi.mock('@/background/sync/service', () => ({
+  getOrCreateWorkspaceService: () => ({ hydrated: Promise.resolve() }),
+  releaseWorkspaceService: () => {},
+}));
+
 // Stores — hand-rolled stubs so the scheduler is exercised in isolation.
 // The mocked `live-cache-store` surface returns a superset of
 // WorkflowRunCache — tests don't need to set `circuit` explicitly

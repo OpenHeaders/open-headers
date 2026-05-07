@@ -40,6 +40,7 @@ export interface RequestCollectionSyncMirror {
     listener: RequestCollectionMirrorListener,
   ): () => void;
   subscribeAny(listener: RequestCollectionMirrorListener): () => void;
+  hydrated: Promise<void>;
   dispose(): void;
 }
 
@@ -87,6 +88,7 @@ export function createRequestCollectionSyncMirror(
     liveOrderedSetItems: (uid, setPath) => core.get(uid)?.setOrderKeys[setPath] ?? [],
     subscribeRequestCollectionMirror: core.subscribe,
     subscribeAny: core.subscribeAny,
+    hydrated: core.hydrated,
     dispose: core.dispose,
   };
 }

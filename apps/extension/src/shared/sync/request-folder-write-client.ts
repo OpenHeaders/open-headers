@@ -45,6 +45,7 @@ export async function applyRequestFolderRename(
   opts: RequestFolderWriteOptions,
 ): Promise<RequestFolderSimpleResult> {
   const mirror = resolveMirror(opts, getRequestFolderSyncMirrorForWorkspace);
+  await mirror.hydrated;
   if (!mirror.getRequestFolderMirror(input.folderUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRenameRequestFolderBatch(input, ctx));

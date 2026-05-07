@@ -75,7 +75,28 @@ import { getLiveWorkflowInWorkspace, getLiveWorkflows, onLiveWorkflowStoreChange
 import { recordLog } from './observability-log';
 import { createAlarmNameCodec, type RefreshProvider, RefreshScheduler } from './refresh-scheduler';
 import { getRequest } from './request-store';
+import { getOrCreateWorkspaceService, releaseWorkspaceService } from '../sync/service';
 import { getActiveWorkspaceId, onActiveWorkspaceChange } from './workspace-store';
+
+/**
+ * Defensive workspace-service bracket for refresh entry points
+ * (manual + alarm + sync-warm). Materializes the workspace's service
+ * if it isn't already resident, awaits its `hydrated` promise so the
+ * caches are populated from chrome.storage, runs the operation, and
+ * releases the refcount in `finally`. This guarantees the F-12/F-13
+ * "workflow not found in workspace" failure cannot reproduce when the
+ * workspace's lifeline-driven refcount has dropped (e.g. during the
+ * 30s grace window) — the operation re-acquires for its duration.
+ */
+async function withWorkspaceResident<T>(workspaceId: string, fn: () => Promise<T>): Promise<T> {
+  const svc = getOrCreateWorkspaceService(workspaceId);
+  try {
+    await svc.hydrated;
+    return await fn();
+  } finally {
+    releaseWorkspaceService(workspaceId);
+  }
+}
 
 // ── Constants ──────────────────────────────────────────────────────
 
@@ -633,10 +654,17 @@ export async function reconcileLiveSchedules(nowMs: number = Date.now()): Promis
 /**
  * Handle a `live-refresh:*` alarm. Delegates to the shared scheduler,
  * which decodes + loads + gates + delegates to the adapter + routes
- * observability + records failure.
+ * observability + records failure. Brackets the dispatch with a
+ * workspace-service refcount so a workspace whose lifeline-driven
+ * refcount dropped between alarm scheduling and alarm fire (typical
+ * MV3 SW-eviction or a closed workbench tab) re-materializes for the
+ * duration of the operation rather than failing with "workflow not
+ * found in workspace".
  */
 export async function handleLiveAlarm(alarm: chrome.alarms.Alarm): Promise<void> {
-  return scheduler.handleAlarm(alarm);
+  const decoded = codec.decode(alarm.name);
+  if (!decoded) return scheduler.handleAlarm(alarm);
+  return withWorkspaceResident(decoded.w, () => scheduler.handleAlarm(alarm));
 }
 
 /**
@@ -659,10 +687,12 @@ export async function refreshLiveWorkflowSynchronously(
   workflowUid: string,
   environmentId: string | null,
 ): Promise<void> {
-  return scheduler.handleAlarm({
-    name: buildAlarmName(workspaceId, workflowUid, environmentId),
-    scheduledTime: Date.now(),
-  } as chrome.alarms.Alarm);
+  return withWorkspaceResident(workspaceId, () =>
+    scheduler.handleAlarm({
+      name: buildAlarmName(workspaceId, workflowUid, environmentId),
+      scheduledTime: Date.now(),
+    } as chrome.alarms.Alarm),
+  );
 }
 
 /**
@@ -767,6 +797,16 @@ export async function kickActiveContextRefresh(
  * message to the user instead of the `scheduler-not-ready` fallback.
  */
 export async function refreshLiveWorkflowByUser(
+  workspaceId: string,
+  workflowUid: string,
+  environmentId: string | null,
+): Promise<void> {
+  return withWorkspaceResident(workspaceId, () =>
+    refreshLiveWorkflowByUserInner(workspaceId, workflowUid, environmentId),
+  );
+}
+
+async function refreshLiveWorkflowByUserInner(
   workspaceId: string,
   workflowUid: string,
   environmentId: string | null,

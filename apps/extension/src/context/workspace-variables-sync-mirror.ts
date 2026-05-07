@@ -28,6 +28,7 @@ export interface WorkspaceVariablesSyncMirror {
   getMirror(): WorkspaceVariablesMirrorEntry | null;
   liveVarNames(): string[];
   subscribeMirror(listener: WorkspaceVariablesMirrorListener): () => void;
+  hydrated: Promise<void>;
   dispose(): void;
 }
 
@@ -64,6 +65,7 @@ export function createWorkspaceVariablesSyncMirror(
     getMirror: core.get,
     liveVarNames: () => core.get()?.varUids ?? [],
     subscribeMirror: core.subscribe,
+    hydrated: core.hydrated,
     dispose: core.dispose,
   };
 }

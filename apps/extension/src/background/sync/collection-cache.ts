@@ -15,12 +15,14 @@
  * idempotent and byte-stable.
  */
 
+import { CollectionSchema } from '@openheaders/core/schemas';
 import type { MaterializedEntity } from '@openheaders/core/sync';
 import { COLLECTION_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 import { projectCollection, seedCollection } from '@/shared/sync/collection-projection';
+import { driftRecorder } from '../modules/storage-drift';
 import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';
 import type { EntityOracle } from './oracle';
 import type { SwMutatorContextFactory } from './sw-context';
@@ -35,6 +37,11 @@ export interface CollectionCache {
    *  the oracle. Drives boot-time hydration and the workspace-switch
    *  path. */
   seedFromPersistedCollections(colls: V5.Collection[]): Promise<void>;
+  /** Read the persisted collection list for this workspace and seed the
+   *  oracle. No-op when nothing is persisted. Called by `buildService`'s
+   *  `hydrated` promise so a freshly materialized non-Active workspace
+   *  service starts populated. */
+  hydrateFromStorage(): Promise<void>;
   /** Subscribe to cache changes — fires after every broadcast-driven
    *  re-projection. */
   onChange(listener: CollectionCacheListener): () => void;
@@ -69,23 +76,44 @@ export function createCollectionCache(
     refreshFromOracle();
   });
 
+  const seedFromPersistedCollections = async (persisted: V5.Collection[]): Promise<void> => {
+    for (const coll of persisted) {
+      const batch = seedCollection(coll, contextFactory());
+      const result = await oracle.apply(batch, []);
+      if (!result.ok) {
+        logger.info(
+          'CollectionCache',
+          `seedFromPersistedCollections: collection ${coll.uid} failed (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
+        );
+      }
+    }
+    refreshFromOracle();
+    logger.info('CollectionCache', `Seeded ${persisted.length} collections for ws=${workspaceId}`);
+  };
+
   return {
     workspaceId,
     getCollections: () => collections,
 
-    async seedFromPersistedCollections(persisted: V5.Collection[]): Promise<void> {
-      for (const coll of persisted) {
-        const batch = seedCollection(coll, contextFactory());
-        const result = await oracle.apply(batch, []);
-        if (!result.ok) {
-          logger.info(
-            'CollectionCache',
-            `seedFromPersistedCollections: collection ${coll.uid} failed (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
-          );
+    seedFromPersistedCollections,
+
+    async hydrateFromStorage(): Promise<void> {
+      try {
+        const persisted = await extensionStorage.getValidatedArray(wsKeys(workspaceId).collections, CollectionSchema, {
+          onError: driftRecorder({
+            subsystem: 'rule-engine',
+            storageKey: wsKeys(workspaceId).collections.key,
+            workspaceId,
+          }),
+        });
+        if (persisted.length === 0) {
+          refreshFromOracle();
+          return;
         }
+        await seedFromPersistedCollections(persisted);
+      } catch (err) {
+        logger.info('CollectionCache', `hydrateFromStorage failed (ws=${workspaceId}):`, (err as Error).message);
       }
-      refreshFromOracle();
-      logger.info('CollectionCache', `Seeded ${persisted.length} collections for ws=${workspaceId}`);
     },
 
     onChange(listener) {

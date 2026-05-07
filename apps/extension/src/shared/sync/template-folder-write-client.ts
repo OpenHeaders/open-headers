@@ -42,6 +42,7 @@ export async function applyTemplateFolderRename(
   opts: TemplateFolderWriteOptions,
 ): Promise<TemplateFolderSimpleResult> {
   const mirror = resolveMirror(opts, getTemplateFolderSyncMirrorForWorkspace);
+  await mirror.hydrated;
   if (!mirror.getTemplateFolderMirror(input.folderUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   return applySyncPayload(buildRenameTemplateFolderBatch(input, ctx));

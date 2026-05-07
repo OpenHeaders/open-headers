@@ -46,6 +46,14 @@ export interface ExtensionWorkspaceCache {
   readonly scope: string;
   getSnapshot(): ExtensionWorkspaceSnapshot;
   seedFromPersistedState(input: ExtensionWorkspaceSnapshot): Promise<void>;
+  /**
+   * Per the cache's "no persistence sink yet" carve-out (workspace-store
+   * still owns the durable chrome.storage record), this is a no-op
+   * today — the seed is driven explicitly by boot's
+   * `bootstrapExtensionWorkspaceSyncEngine`. Kept on the surface so the
+   * cache satisfies the {@link EntityCacheLike} contract uniformly.
+   */
+  hydrateFromStorage(): Promise<void>;
   onChange(listener: ExtensionWorkspaceCacheListener): () => void;
   dispose(): void;
 }
@@ -79,6 +87,7 @@ export function createExtensionWorkspaceCache(
     scope: core.scope,
     getSnapshot: core.getSnapshot,
     seedFromPersistedState: core.seedFromPersisted,
+    hydrateFromStorage: core.hydrateFromStorage,
     onChange: core.onChange,
     dispose: core.dispose,
   };

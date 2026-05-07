@@ -3,10 +3,12 @@
  * `flat-entity-cache.ts`.
  */
 
+import { RequestSchema } from '@openheaders/core/schemas';
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
-import { wsKeys } from '@/shared/storage';
+import { extensionStorage, wsKeys } from '@/shared/storage';
 import { projectRequest, seedRequest } from '@/shared/sync/request-projection';
+import { driftRecorder } from '../modules/storage-drift';
 import type { InMemoryBroadcast } from './broadcast';
 import { createFlatEntityCache } from './flat-entity-cache';
 import type { EntityOracle } from './oracle';
@@ -18,6 +20,7 @@ export interface RequestCache {
   readonly workspaceId: string;
   getRequests(): V5.Request[];
   seedFromPersistedRequests(requests: V5.Request[]): Promise<void>;
+  hydrateFromStorage(): Promise<void>;
   onChange(listener: RequestCacheListener): () => void;
   dispose(): void;
 }
@@ -44,12 +47,21 @@ export function createRequestCache(
       filterBroadcastByType: true,
       project: projectRequest,
       seed: seedRequest,
+      loadFromStorage: (ws) =>
+        extensionStorage.getValidatedArray(wsKeys(ws).requests, RequestSchema, {
+          onError: driftRecorder({
+            subsystem: 'request-executor',
+            storageKey: wsKeys(ws).requests.key,
+            workspaceId: ws,
+          }),
+        }),
     },
   );
   return {
     workspaceId: core.workspaceId,
     getRequests: core.getEntities,
     seedFromPersistedRequests: core.seedFromPersisted,
+    hydrateFromStorage: core.hydrateFromStorage,
     onChange: core.onChange,
     dispose: core.dispose,
   };

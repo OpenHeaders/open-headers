@@ -10,10 +10,12 @@
  * Schema-marked sensitive payload never leaves the device.
  */
 
+import { VaultSchema } from '@openheaders/core/schemas';
 import { VAULT_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 import { seedVault } from '@/shared/sync/vault-projection';
+import { driftRecorder } from '../modules/storage-drift';
 import type { InMemoryBroadcast } from './broadcast';
 import type { EntityOracle } from './oracle';
 import { createSingletonEntityCache, type SingletonEntityCache } from './singleton-entity-cache';
@@ -31,6 +33,7 @@ export interface VaultCache {
   readonly workspaceId: string;
   getVault(): V5.Vault;
   seedFromPersistedVault(vault: V5.Vault): Promise<void>;
+  hydrateFromStorage(): Promise<void>;
   onChange(listener: VaultCacheListener): () => void;
   dispose(): void;
 }
@@ -53,6 +56,14 @@ export function createVaultCache(
       project: (o) => projectVaultSingleton(o)?.vault ?? null,
       buildSeedBatch: (vault, ctx) => seedVault(vault, ctx),
       persist: (scope, vault) => extensionStorage.set(wsKeys(scope).vault, vault),
+      loadFromStorage: (scope) =>
+        extensionStorage.getValidated(wsKeys(scope).vault, VaultSchema, {
+          onError: driftRecorder({
+            subsystem: 'vault',
+            storageKey: wsKeys(scope).vault.key,
+            workspaceId: scope,
+          }),
+        }),
     },
   );
 
@@ -60,6 +71,7 @@ export function createVaultCache(
     workspaceId: core.scope,
     getVault: core.getSnapshot,
     seedFromPersistedVault: core.seedFromPersisted,
+    hydrateFromStorage: core.hydrateFromStorage,
     onChange: core.onChange,
     dispose: core.dispose,
   };

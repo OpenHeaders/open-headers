@@ -70,6 +70,7 @@ function makeMirror(
     liveOrderedSetItems: (uid, path) =>
       rule && rule.uid === uid ? (resolvedOrderKeys[path] ?? []) : [],
     subscribeRuleMirror: () => () => undefined,
+    hydrated: Promise.resolve(),
     dispose: () => undefined,
   };
 }

@@ -25,6 +25,7 @@ export interface LayoutStateCache {
   readonly workspaceId: string;
   getSnapshot(): LayoutStateSnapshot;
   seedFromPersistedLayout(layout: PersistedPanelLayout | null | undefined): Promise<void>;
+  hydrateFromStorage(): Promise<void>;
   onChange(listener: LayoutStateCacheListener): () => void;
   dispose(): void;
 }
@@ -51,12 +52,17 @@ export function createLayoutStateCache(
         if (snap.layout === null || snap.layout === undefined) return;
         await extensionStorage.set(wsKeys(scope).panelLayout, snap.layout as PersistedPanelLayout);
       },
+      loadFromStorage: async (scope) => {
+        const raw = await extensionStorage.get(wsKeys(scope).panelLayout);
+        return raw ?? null;
+      },
     });
 
   return {
     workspaceId: core.scope,
     getSnapshot: core.getSnapshot,
     seedFromPersistedLayout: core.seedFromPersisted,
+    hydrateFromStorage: core.hydrateFromStorage,
     onChange: core.onChange,
     dispose: core.dispose,
   };

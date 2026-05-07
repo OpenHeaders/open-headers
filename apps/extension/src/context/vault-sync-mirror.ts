@@ -27,6 +27,7 @@ export interface VaultSyncMirror {
   getMirror(): VaultMirrorEntry | null;
   liveSecretNames(): string[];
   subscribeMirror(listener: VaultMirrorListener): () => void;
+  hydrated: Promise<void>;
   dispose(): void;
 }
 
@@ -58,6 +59,7 @@ export function createVaultSyncMirror(
     getMirror: core.get,
     liveSecretNames: () => core.get()?.secretUids ?? [],
     subscribeMirror: core.subscribe,
+    hydrated: core.hydrated,
     dispose: core.dispose,
   };
 }

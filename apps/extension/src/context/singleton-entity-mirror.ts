@@ -65,6 +65,13 @@ export type SingletonMirrorListener = () => void;
 export interface SingletonMirrorCore<E> {
   get(): E | null;
   subscribe(listener: SingletonMirrorListener): () => void;
+  /**
+   * Resolves once the bootstrap snapshot fetch has settled (success or
+   * failure). Awaited by write-clients before pre-flight reads so a
+   * workspace-switch race does not surface as spurious `not-found`.
+   * Resolves immediately when `bootstrap: false`.
+   */
+  hydrated: Promise<void>;
   dispose(): void;
 }
 
@@ -111,21 +118,21 @@ export function createSingletonEntityMirror<E>(
     notify();
   });
 
-  if (bootstrap) {
-    void config
-      .fetchSnapshot()
-      .then((snapshot) => {
-        // A broadcast that landed mid-flight already won the race —
-        // it carries fresher post-commit state, so skip the snapshot.
-        if (sawBroadcast) return;
-        if (!snapshot) return;
-        entry = snapshot;
-        notify();
-      })
-      .catch((err: Error) => {
-        logger.info(config.loggerTag, `bootstrap snapshot failed: ${err.message}`);
-      });
-  }
+  const hydrated: Promise<void> = bootstrap
+    ? config
+        .fetchSnapshot()
+        .then((snapshot) => {
+          // A broadcast that landed mid-flight already won the race —
+          // it carries fresher post-commit state, so skip the snapshot.
+          if (sawBroadcast) return;
+          if (!snapshot) return;
+          entry = snapshot;
+          notify();
+        })
+        .catch((err: Error) => {
+          logger.info(config.loggerTag, `bootstrap snapshot failed: ${err.message}`);
+        })
+    : Promise.resolve();
 
   return {
     get() {
@@ -137,6 +144,7 @@ export function createSingletonEntityMirror<E>(
         listeners.delete(listener);
       };
     },
+    hydrated,
     dispose() {
       unsubscribe();
       entry = null;

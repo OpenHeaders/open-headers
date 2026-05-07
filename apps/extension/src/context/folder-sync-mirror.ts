@@ -39,6 +39,7 @@ export interface FolderSyncMirror {
   subscribeFolderMirror(folderUid: string, listener: FolderMirrorListener): () => void;
   /** Subscribe to *any* folder change. */
   subscribeAny(listener: FolderMirrorListener): () => void;
+  hydrated: Promise<void>;
   dispose(): void;
 }
 
@@ -82,6 +83,7 @@ export function createFolderSyncMirror(
     liveOrderedSetItems: (uid, setPath) => core.get(uid)?.setOrderKeys[setPath] ?? [],
     subscribeFolderMirror: core.subscribe,
     subscribeAny: core.subscribeAny,
+    hydrated: core.hydrated,
     dispose: core.dispose,
   };
 }

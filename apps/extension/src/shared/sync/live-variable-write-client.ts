@@ -62,6 +62,7 @@ export async function applyLiveVariableUpdate(
   opts: LiveVariableWriteOptions,
 ): Promise<LiveVariableMutationResult> {
   const mirror = resolveMirror(opts, getLiveVariableSyncMirrorForWorkspace);
+  await mirror.hydrated;
   const entry = mirror.getLiveVariableMirror(liveVariableUid);
   if (!entry) return { ok: false, reason: 'not-found' };
   // Auto-unpublish on first runtime-affecting edit of a published LV —
@@ -120,6 +121,7 @@ export async function applyLiveVariablePublish(
   opts: LiveVariableWriteOptions,
 ): Promise<LiveVariableSimpleResult> {
   const mirror = resolveMirror(opts, getLiveVariableSyncMirrorForWorkspace);
+  await mirror.hydrated;
   if (!mirror.getLiveVariableMirror(liveVariableUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const bodies: MutationBody[] = [
@@ -136,6 +138,7 @@ export async function applyLiveVariableDelete(
   opts: LiveVariableWriteOptions,
 ): Promise<LiveVariableSimpleResult> {
   const mirror = resolveMirror(opts, getLiveVariableSyncMirrorForWorkspace);
+  await mirror.hydrated;
   if (!mirror.getLiveVariableMirror(liveVariableUid)) return { ok: false, reason: 'not-found' };
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildDeleteLiveVariableBatch(liveVariableUid, ctx);

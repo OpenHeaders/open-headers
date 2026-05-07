@@ -39,6 +39,7 @@ export interface TemplateCollectionSyncMirror {
     listener: TemplateCollectionMirrorListener,
   ): () => void;
   subscribeAny(listener: TemplateCollectionMirrorListener): () => void;
+  hydrated: Promise<void>;
   dispose(): void;
 }
 
@@ -86,6 +87,7 @@ export function createTemplateCollectionSyncMirror(
     liveOrderedSetItems: (uid, setPath) => core.get(uid)?.setOrderKeys[setPath] ?? [],
     subscribeTemplateCollectionMirror: core.subscribe,
     subscribeAny: core.subscribeAny,
+    hydrated: core.hydrated,
     dispose: core.dispose,
   };
 }

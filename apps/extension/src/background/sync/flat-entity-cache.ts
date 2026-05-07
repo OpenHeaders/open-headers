@@ -50,12 +50,33 @@ export interface FlatEntityCacheConfig<E extends { uid: string }, T extends stri
    * shape is safer than tightening the contract in a refactor commit.
    */
   filterBroadcastByType?: boolean;
+  /**
+   * Read this entity's persisted projection for `scope` from
+   * `chrome.storage.local`. Symmetric to the implicit persist-on-refresh
+   * write (callers wire it via the per-entity cache adapter, not this
+   * core). Used by {@link FlatEntityCacheCore.hydrateFromStorage} to
+   * re-seed the oracle when a per-workspace service is materialized
+   * lazily — without this, a freshly built oracle starts blank even
+   * though `wsKeys(scope).<key>` has the data on disk. Returns `[]`
+   * when nothing is persisted.
+   */
+  loadFromStorage?: (scope: string) => Promise<readonly E[]>;
 }
 
 export interface FlatEntityCacheCore<E> {
   readonly workspaceId: string;
   getEntities(): E[];
   seedFromPersisted(entities: E[]): Promise<void>;
+  /**
+   * Read this entity's persisted projection from `chrome.storage.local`
+   * (via the configured `loadFromStorage`) and seed the oracle. No-op
+   * when no `loadFromStorage` is configured — the cache stays whatever
+   * the broadcast pipeline produces. Called by
+   * {@link buildService}'s `hydrated` promise so a freshly materialized
+   * per-workspace service starts with its caches populated, regardless
+   * of whether it is the runtime-Active workspace.
+   */
+  hydrateFromStorage(): Promise<void>;
   /** Force a re-project cycle. Used by tree-shaped caches that wrap
    *  this core and want to invalidate after parent-linkage changes. */
   refresh(): void;
@@ -91,25 +112,50 @@ export function createFlatEntityCache<E extends { uid: string }, T extends strin
     refreshFromOracle();
   });
 
+  const seedFromPersisted = async (persisted: readonly E[]): Promise<void> => {
+    for (const entity of persisted) {
+      const batch = config.seed(entity, contextFactory());
+      const result = await oracle.apply(batch, []);
+      if (!result.ok) {
+        logger.info(
+          config.loggerTag,
+          `seed: ${entity.uid} failed (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
+        );
+      }
+    }
+    // Last-line refresh — guards the zero-entities case where no
+    // broadcast would fire to drive refreshFromOracle.
+    refreshFromOracle();
+    logger.info(config.loggerTag, `Seeded ${persisted.length} entities for ws=${workspaceId}`);
+  };
+
   return {
     workspaceId,
     getEntities: () => entities,
 
-    async seedFromPersisted(persisted: E[]): Promise<void> {
-      for (const entity of persisted) {
-        const batch = config.seed(entity, contextFactory());
-        const result = await oracle.apply(batch, []);
-        if (!result.ok) {
-          logger.info(
-            config.loggerTag,
-            `seed: ${entity.uid} failed (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
-          );
+    seedFromPersisted: (persisted) => seedFromPersisted(persisted),
+
+    async hydrateFromStorage(): Promise<void> {
+      if (!config.loadFromStorage) return;
+      try {
+        const persisted = await config.loadFromStorage(workspaceId);
+        if (persisted.length === 0) {
+          // Still refresh once so consumers see an empty (not stale)
+          // snapshot — the listener-driven path only fires on broadcasts.
+          refreshFromOracle();
+          return;
         }
+        await seedFromPersisted(persisted);
+      } catch (err) {
+        // Storage read failures (quota, schema drift) must not block
+        // service materialization. The cache stays empty; the next
+        // mutation broadcast will populate it. Drift recorders inside
+        // `loadFromStorage` already log the structured failure.
+        logger.info(
+          config.loggerTag,
+          `hydrateFromStorage(ws=${workspaceId}) failed: ${(err as Error).message}`,
+        );
       }
-      // Last-line refresh — guards the zero-entities case where no
-      // broadcast would fire to drive refreshFromOracle.
-      refreshFromOracle();
-      logger.info(config.loggerTag, `Seeded ${persisted.length} entities for ws=${workspaceId}`);
     },
 
     refresh: refreshFromOracle,

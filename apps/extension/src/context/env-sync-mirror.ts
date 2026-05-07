@@ -31,6 +31,7 @@ export interface EnvSyncMirror {
   /** Live variable uids at the env, `[]` when unknown. */
   liveVarNames(envId: string): string[];
   subscribeEnvironmentMirror(envId: string, listener: EnvironmentMirrorListener): () => void;
+  hydrated: Promise<void>;
   dispose(): void;
 }
 
@@ -71,6 +72,7 @@ export function createEnvSyncMirror(
     getEnvironmentMirror: core.get,
     liveVarNames: (envId) => core.get(envId)?.varUids ?? [],
     subscribeEnvironmentMirror: core.subscribe,
+    hydrated: core.hydrated,
     dispose: core.dispose,
   };
 }

@@ -77,6 +77,17 @@ export interface FlatMirrorCore<E> {
   list(): E[];
   subscribe(uid: string, listener: FlatMirrorListener): () => void;
   subscribeAny(listener: FlatMirrorListener): () => void;
+  /**
+   * Resolves once the bootstrap snapshot fetch has settled (success or
+   * failure — failure leaves the mirror empty until broadcasts populate
+   * it). Write-clients await this before the existence pre-flight
+   * (`mirror.get(uid)`) so a workspace-switch race — where the user
+   * saves an edit between the renderer mirror's first instantiation
+   * and the snapshot RPC's resolution — does not surface as a spurious
+   * `not-found` (which the editor renders as "Workflow was deleted from
+   * another tab"). Resolves immediately when `bootstrap: false`.
+   */
+  hydrated: Promise<void>;
   dispose(): void;
 }
 
@@ -112,22 +123,22 @@ export function createFlatEntityMirror<E>(
     notify(perUidListeners, anyListeners, uid);
   });
 
-  if (bootstrap) {
-    void config
-      .fetchSnapshot()
-      .then((rows) => {
-        for (const { uid, entry } of rows) {
-          // A broadcast that landed mid-flight carries fresher
-          // post-commit state — defer to it instead of overwriting.
-          if (seenSinceMount.has(uid)) continue;
-          entries.set(uid, entry);
-          notify(perUidListeners, anyListeners, uid);
-        }
-      })
-      .catch((err: Error) => {
-        logger.info(config.loggerTag, `bootstrap snapshot failed: ${err.message}`);
-      });
-  }
+  const hydrated: Promise<void> = bootstrap
+    ? config
+        .fetchSnapshot()
+        .then((rows) => {
+          for (const { uid, entry } of rows) {
+            // A broadcast that landed mid-flight carries fresher
+            // post-commit state — defer to it instead of overwriting.
+            if (seenSinceMount.has(uid)) continue;
+            entries.set(uid, entry);
+            notify(perUidListeners, anyListeners, uid);
+          }
+        })
+        .catch((err: Error) => {
+          logger.info(config.loggerTag, `bootstrap snapshot failed: ${err.message}`);
+        })
+    : Promise.resolve();
 
   return {
     get(uid) {
@@ -156,6 +167,7 @@ export function createFlatEntityMirror<E>(
         anyListeners.delete(listener);
       };
     },
+    hydrated,
     dispose() {
       unsubscribe();
       entries.clear();

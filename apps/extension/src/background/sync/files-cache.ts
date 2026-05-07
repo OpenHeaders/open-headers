@@ -20,6 +20,7 @@
 
 import type { FileRef } from '@openheaders/core/files';
 import { FILES_ENTITY_TYPE } from '@openheaders/core/sync';
+import * as BlobStore from '@/shared/files/blob-store';
 import { seedFiles } from '@/shared/sync/files-projection';
 import type { InMemoryBroadcast } from './broadcast';
 import { projectFilesSingleton } from './files-post-state';
@@ -40,6 +41,7 @@ export interface FilesCache {
   readonly workspaceId: string;
   getSnapshot(): FilesSnapshot;
   seedFromPersistedFiles(refs: readonly FileRef[]): Promise<void>;
+  hydrateFromStorage(): Promise<void>;
   onChange(listener: FilesCacheListener): () => void;
   dispose(): void;
 }
@@ -64,6 +66,13 @@ export function createFilesCache(
         return projection ? { refs: projection.refs } : null;
       },
       buildSeedBatch: (input, ctx) => seedFiles(input, ctx),
+      // Files have no chrome.storage projection — the durable record
+      // for the catalog lives in BlobStore IDB. Reading from BlobStore
+      // here is the symmetric source for `hydrateFromStorage`.
+      loadFromStorage: async (scope) => {
+        const refs = await BlobStore.listBlobs(scope);
+        return refs.length > 0 ? refs : null;
+      },
     },
   );
 
@@ -71,6 +80,7 @@ export function createFilesCache(
     workspaceId: core.scope,
     getSnapshot: core.getSnapshot,
     seedFromPersistedFiles: core.seedFromPersisted,
+    hydrateFromStorage: core.hydrateFromStorage,
     onChange: core.onChange,
     dispose: core.dispose,
   };

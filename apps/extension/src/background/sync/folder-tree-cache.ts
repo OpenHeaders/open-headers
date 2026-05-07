@@ -16,10 +16,12 @@
  * adapters.
  */
 
+import { CollectionSchema } from '@openheaders/core/schemas';
 import { type MutationBatch, type MutatorContext, newBatchId, type SideEffectIntent } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import { extensionStorage, type PersistedLocalFolder, type StorageKey } from '@/shared/storage';
+import { driftRecorder } from '../modules/storage-drift';
 import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';
 import type { EntityOracle } from './oracle';
 import type { SwMutatorContextFactory } from './sw-context';
@@ -42,6 +44,15 @@ export interface FolderTreeCacheConfig<P> {
   loggerTag: string;
   /** Resolves the chrome.storage key the projection persists to. */
   storageKey: (workspaceId: string) => StorageKey<PersistedLocalFolder[]>;
+  /**
+   * Resolves the chrome.storage key for the collection list this folder
+   * tree's parents are anchored against (rules-collections /
+   * request-collections / template-collections). Used by
+   * {@link FolderTreeCacheCore.hydrateFromStorage} to read the
+   * collection list as a peer projection alongside the folder list,
+   * since folder hydration needs collections to compute parent refs.
+   */
+  collectionStorageKey: (workspaceId: string) => StorageKey<V5.Collection[]>;
   /** Prefix for the boot-time hydration batch id (e.g. "boot-folders"). */
   hydrationBatchPrefix: string;
   /** Project every folder under this tree off the oracle. */
@@ -59,6 +70,7 @@ export interface FolderTreeCacheCore {
   readonly workspaceId: string;
   getFolders(): V5.Folder[];
   seedFromPersisted(folders: PersistedLocalFolder[], collections: V5.Collection[]): Promise<void>;
+  hydrateFromStorage(): Promise<void>;
   onChange(listener: () => void): () => void;
   dispose(): void;
 }
@@ -90,49 +102,78 @@ export function createFolderTreeCache<P>(
     refreshFromOracle();
   });
 
+  const seedFromPersisted = async (
+    persistedFolders: PersistedLocalFolder[],
+    collections: V5.Collection[],
+  ): Promise<void> => {
+    // Sort folders so a parent always seeds before any of its
+    // descendants. Depth derived from `/` separators is total-ordered
+    // with parents-before-children — cheaper than a full topo sort.
+    const ordered = sortByDepth(persistedFolders);
+    const parentByPath = buildParentLookup(collections, persistedFolders, config);
+    const batchId = `${config.hydrationBatchPrefix}-${newBatchId()}`;
+
+    for (const folder of ordered) {
+      const parentPath = parentPathOf(folder.path);
+      const parent = parentPath ? parentByPath.get(parentPath) : undefined;
+      if (!parent) {
+        logger.info(
+          config.loggerTag,
+          `seed: skipping folder ${folder.uid} — parent for path ${folder.path} not resolvable`,
+        );
+        continue;
+      }
+      const segment = lastSegmentOf(folder.path);
+      const ctx = { ...contextFactory(), batchId };
+      const intent = config.buildCreateBatch(
+        {
+          folderUid: folder.uid,
+          parent,
+          name: folder.name,
+          ...(segment ? { pathSegment: segment } : {}),
+        },
+        ctx,
+      );
+      const result = await oracle.apply(intent.batch, intent.sideEffects);
+      if (!result.ok) {
+        logger.info(
+          config.loggerTag,
+          `seed: folder ${folder.uid} failed (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
+        );
+      }
+    }
+    refreshFromOracle();
+    logger.info(config.loggerTag, `Seeded ${persistedFolders.length} folders for ws=${workspaceId}`);
+  };
+
   return {
     workspaceId,
     getFolders: () => folders,
+    seedFromPersisted,
 
-    async seedFromPersisted(persistedFolders: PersistedLocalFolder[], collections: V5.Collection[]): Promise<void> {
-      // Sort folders so a parent always seeds before any of its
-      // descendants. Depth derived from `/` separators is total-ordered
-      // with parents-before-children — cheaper than a full topo sort.
-      const ordered = sortByDepth(persistedFolders);
-      const parentByPath = buildParentLookup(collections, persistedFolders, config);
-      const batchId = `${config.hydrationBatchPrefix}-${newBatchId()}`;
-
-      for (const folder of ordered) {
-        const parentPath = parentPathOf(folder.path);
-        const parent = parentPath ? parentByPath.get(parentPath) : undefined;
-        if (!parent) {
-          logger.info(
-            config.loggerTag,
-            `seed: skipping folder ${folder.uid} — parent for path ${folder.path} not resolvable`,
-          );
-          continue;
+    async hydrateFromStorage(): Promise<void> {
+      try {
+        const collectionStorage = config.collectionStorageKey(workspaceId);
+        const folderStorage = config.storageKey(workspaceId);
+        const [collections, persistedFolders] = await Promise.all([
+          extensionStorage.getValidatedArray(collectionStorage, CollectionSchema, {
+            onError: driftRecorder({
+              subsystem: 'rule-engine',
+              storageKey: collectionStorage.key,
+              workspaceId,
+            }),
+          }),
+          extensionStorage.get(folderStorage),
+        ]);
+        const folderList = persistedFolders ?? [];
+        if (folderList.length === 0) {
+          refreshFromOracle();
+          return;
         }
-        const segment = lastSegmentOf(folder.path);
-        const ctx = { ...contextFactory(), batchId };
-        const intent = config.buildCreateBatch(
-          {
-            folderUid: folder.uid,
-            parent,
-            name: folder.name,
-            ...(segment ? { pathSegment: segment } : {}),
-          },
-          ctx,
-        );
-        const result = await oracle.apply(intent.batch, intent.sideEffects);
-        if (!result.ok) {
-          logger.info(
-            config.loggerTag,
-            `seed: folder ${folder.uid} failed (${result.failure?.status} — ${result.failure?.detail ?? 'no detail'})`,
-          );
-        }
+        await seedFromPersisted(folderList, [...collections]);
+      } catch (err) {
+        logger.info(config.loggerTag, `hydrateFromStorage failed (ws=${workspaceId}):`, (err as Error).message);
       }
-      refreshFromOracle();
-      logger.info(config.loggerTag, `Seeded ${persistedFolders.length} folders for ws=${workspaceId}`);
     },
 
     onChange(listener) {

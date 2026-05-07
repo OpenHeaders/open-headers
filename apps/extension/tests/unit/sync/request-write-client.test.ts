@@ -59,6 +59,7 @@ function makeMirror(request: V5.Request, ordered: Record<string, LiveOrdered>): 
     liveOrderedSetItems: (uid, path) => (uid === request.uid ? (ordered[path] ?? []) : []),
     subscribeRequestMirror: () => () => undefined,
     subscribeAny: () => () => undefined,
+    hydrated: Promise.resolve(),
     dispose: () => undefined,
   };
 }

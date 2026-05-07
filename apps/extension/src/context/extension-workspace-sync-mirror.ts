@@ -46,6 +46,7 @@ export interface ExtensionWorkspaceSyncMirror {
   /** Lookup the live order key for a given workspace id, or `undefined`. */
   liveOrderKey(id: string): string | undefined;
   subscribeMirror(listener: ExtensionWorkspaceMirrorListener): () => void;
+  hydrated: Promise<void>;
   dispose(): void;
 }
 
@@ -93,6 +94,7 @@ export function createExtensionWorkspaceSyncMirror(
     liveActiveWorkspaceId: () => core.get()?.activeWorkspaceId ?? null,
     liveOrderKey: (id) => core.get()?.orderKeys[id],
     subscribeMirror: core.subscribe,
+    hydrated: core.hydrated,
     dispose: core.dispose,
   };
 }

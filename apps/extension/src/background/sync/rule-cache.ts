@@ -27,10 +27,12 @@
  * `getActiveCacheForRegistration(RULE_REGISTRATION)` from `service.ts`.
  */
 
+import { RuleSchema } from '@openheaders/core/schemas';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
-import { wsKeys } from '@/shared/storage';
+import { extensionStorage, wsKeys } from '@/shared/storage';
 import { projectRule, seedRule } from '@/shared/sync/rule-projection';
+import { driftRecorder } from '../modules/storage-drift';
 import type { InMemoryBroadcast } from './broadcast';
 import { createFlatEntityCache } from './flat-entity-cache';
 import type { EntityOracle } from './oracle';
@@ -42,6 +44,7 @@ export interface RuleCache {
   readonly workspaceId: string;
   getRules(): V5.Rule[];
   seedFromPersistedRules(rules: V5.Rule[]): Promise<void>;
+  hydrateFromStorage(): Promise<void>;
   onChange(listener: RuleCacheListener): () => void;
   dispose(): void;
 }
@@ -69,11 +72,21 @@ export function createRuleCache(
     filterBroadcastByType: true,
     project: projectRule,
     seed: seedRule,
+    loadFromStorage: (ws) =>
+      extensionStorage.getValidatedArray(wsKeys(ws).rules, RuleSchema, {
+        onError: driftRecorder({
+          subsystem: 'rule-engine',
+          statusSubsystem: 'rules',
+          storageKey: wsKeys(ws).rules.key,
+          workspaceId: ws,
+        }),
+      }),
   });
   return {
     workspaceId: core.workspaceId,
     getRules: core.getEntities,
     seedFromPersistedRules: core.seedFromPersisted,
+    hydrateFromStorage: core.hydrateFromStorage,
     onChange: core.onChange,
     dispose: core.dispose,
   };
