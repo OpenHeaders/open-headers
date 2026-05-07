@@ -41,6 +41,7 @@ import {
   WORKSPACE_VARIABLES_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ID,
 } from '@openheaders/core/sync';
+import type { V5 } from '@openheaders/core/types';
 import { isRequestResolvable, isRuleResolvable, slugify } from '@openheaders/core/utils';
 import { call } from '@utils/bridge';
 import { focusFirstDropdownItem } from '@utils/focus-dropdown-item';
@@ -1287,7 +1288,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       } else if (tab.mode === 'request-edit' && tab.requestUid) {
         void requestsApi.updateRequest(tab.requestUid, { name: newName });
         updateTab(tab.id, { label: newName });
-      } else if (tab.mode === 'request-create') {
+      } else if (tab.mode === 'request-create' || tab.mode === 'rule-create') {
         // Draft name change — no persistence until Save. Update both
         // the tab label and the `draftName` field so the editor's
         // Save handler picks up the renamed value.
@@ -1664,6 +1665,24 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
               const wf = liveWorkflowsApi.workflows.find((w) => w.uid === target.workflowUid);
               openLiveWorkflowEdit(target.workflowUid, wf?.name ?? 'Workflow', seedStep);
             }}
+          />
+        );
+      }
+      if (tab.mode === 'rule-create') {
+        return (
+          <RuleEditor
+            mode="rule-create"
+            tabId={tab.id}
+            seedRuleType={tab.ruleType as V5.ExtensionRuleType}
+            seedDraftName={tab.draftName ?? tab.label}
+            initialTemplateKey={tab.templateKey}
+            initialDraft={tab.initialDraft}
+            preferredCollectionId={tab.preferredCollectionId}
+            preferredFolderPath={tab.preferredFolderPath}
+            onDirtyChange={(dirty) => handleDirtyChange(tab.id, dirty)}
+            registerSaveRef={(saveFn) => registerSaveRef(tab.id, saveFn)}
+            registerSaveAsTemplateRef={(fn) => registerSaveAsTemplateRef(tab.id, fn)}
+            onSaveDraft={(d) => ruleSaveFlow.handleSaveDraft(tab.id, d)}
           />
         );
       }
@@ -2118,6 +2137,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
                 activeTab.mode === 'env-edit' ||
                 activeTab.mode === 'request-edit' ||
                 activeTab.mode === 'request-create' ||
+                activeTab.mode === 'rule-create' ||
                 activeTab.mode === 'live-variable-edit' ||
                 activeTab.mode === 'live-workflow-edit' ||
                 activeTab.mode === 'live-workflow-create')

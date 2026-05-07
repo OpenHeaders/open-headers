@@ -222,42 +222,55 @@ export function useTabOpeners({
       const draftMatches = initialDraft && initialDraft.type === type ? initialDraft : undefined;
       const draftName = draftMatches?.name ?? generateDraftName(type);
 
-      // Resolve parent path: context first, falling back to the first
-      // local collection (legacy "no preferred location" path; Commit C
-      // replaces this fallback with the where-to-save modal flow).
-      const parentPath =
-        resolveContextParentPath(context, localCollections) ?? localCollections[0]?.path;
-      if (!parentPath) {
-        message.error('Create a collection first');
+      // Context-create: persist immediately as 'edit' (sidebar Add Rule
+      // inside a folder/collection pinned the destination). No
+      // SaveToCollectionModal needed.
+      const parentPath = resolveContextParentPath(context, localCollections);
+      if (parentPath) {
+        const seed = buildEmptyRule(type as V5.RuleType, draftName);
+        void applyRuleCreate({ rule: seed, parentPath }, { workspaceId, surfaceId }).then((result) => {
+          if (!result.ok) {
+            message.error('Failed to create rule');
+            return;
+          }
+          const editId = `edit-${result.rule.uid}`;
+          addTab({
+            id: editId,
+            label: draftName,
+            ruleType: type,
+            // Freshly-minted entity carries the template / inspector-CTA
+            // overlays as form-only state until Save commits them.
+            dirty: !!templateKey || !!draftMatches,
+            mode: 'edit',
+            ruleUid: result.rule.uid,
+            templateKey,
+            initialDraft: draftMatches,
+            testOwnerType: 'rule',
+            testOwnerId: result.rule.uid,
+          });
+          setPendingRenameTabId(editId);
+        });
         return;
       }
 
-      const seed = buildEmptyRule(type as V5.RuleType, draftName);
-      void applyRuleCreate({ rule: seed, parentPath }, { workspaceId, surfaceId }).then((result) => {
-        if (!result.ok) {
-          message.error('Failed to create rule');
-          return;
-        }
-        const editId = `edit-${result.rule.uid}`;
-        addTab({
-          id: editId,
-          label: draftName,
-          ruleType: type,
-          // A freshly-minted unpublished rule is "dirty" insofar as its
-          // form has uncommitted overlays from `templateKey` /
-          // `initialDraft`. EditorHeader derives Save-button state from
-          // `!rule.published || isDirty` so this flag matters less than
-          // it did under the legacy mode-create model.
-          dirty: !!templateKey || !!draftMatches,
-          mode: 'edit',
-          ruleUid: result.rule.uid,
-          templateKey,
-          initialDraft: draftMatches,
-          testOwnerType: 'rule',
-          testOwnerId: result.rule.uid,
-        });
-        setPendingRenameTabId(editId);
+      // No context: open an unsaved 'rule-create' draft tab. The
+      // editor's Save button hands form values to `useSaveRuleFlow`,
+      // which opens the SaveToCollectionModal so the user picks a
+      // destination. Mirrors `openCreateRequestTab`.
+      const tabId = `rule-create-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      addTab({
+        id: tabId,
+        label: draftName,
+        ruleType: type,
+        dirty: true,
+        mode: 'rule-create',
+        draftName,
+        templateKey,
+        initialDraft: draftMatches,
+        preferredCollectionId: context?.collectionId,
+        preferredFolderPath: context?.folderPath,
       });
+      setPendingRenameTabId(tabId);
     },
     [workspaceId, surfaceId, localCollections, generateDraftName, addTab, message],
   );
