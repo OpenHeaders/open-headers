@@ -24,10 +24,16 @@ import {
 } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
-import type { CollectionSyncMirror } from '@/context/collection-sync-mirror';
+import {
+  type CollectionSyncMirror,
+  getCollectionSyncMirrorForWorkspace,
+} from '@/context/collection-sync-mirror';
+import { getFolderSyncMirrorForWorkspace } from '@/context/folder-sync-mirror';
+import { getRuleSyncMirrorForWorkspace } from '@/context/rule-sync-mirror';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
+  resolveMirror,
   resolveRendererContext,
   type SyncSimpleResult,
 } from '@/shared/sync/apply-payload';
@@ -41,6 +47,8 @@ import {
   buildSetPinnedEnvironmentsBatch,
 } from '@/shared/sync/collection-mutations';
 import { seedCollection } from '@/shared/sync/collection-projection';
+import { buildDeleteFolderEntityBatch } from '@/shared/sync/folder-mutations';
+import { buildDeleteBatch as buildDeleteRuleBatch } from '@/shared/sync/rule-mutations';
 import { buildVariablesReplacement } from '@/shared/sync/variables-replacement';
 
 export { createCollectionSyncMirror } from '@/context/collection-sync-mirror';
@@ -123,11 +131,50 @@ export interface ApplyCollectionDeleteInput {
   collectionUid: string;
 }
 
+/**
+ * Delete a (rules) collection and cascade-delete every descendant rule
+ * + folder. Mirrors `rule-store.deleteCollection` (legacy SW handler)
+ * so cascade is consistent across surfaces.
+ */
 export async function applyCollectionDelete(
   input: ApplyCollectionDeleteInput,
   opts: CollectionWriteOptions,
 ): Promise<CollectionSimpleResult> {
-  const ctx = resolveRendererContext(opts).next(
+  const collectionMirror = resolveMirror(opts, getCollectionSyncMirrorForWorkspace);
+  await collectionMirror.hydrated;
+  const collectionEntry = collectionMirror.getCollectionMirror(input.collectionUid);
+  if (!collectionEntry) return { ok: false, reason: 'not-found' };
+  const childPathPrefix = `${collectionEntry.collection.path}/`;
+
+  const ruleMirror = getRuleSyncMirrorForWorkspace(opts.workspaceId);
+  const folderMirror = getFolderSyncMirrorForWorkspace(opts.workspaceId);
+  await Promise.all([ruleMirror.hydrated, folderMirror.hydrated]);
+
+  const cascadingRuleUids = ruleMirror
+    .listRules()
+    .filter((r) => r.path?.startsWith(childPathPrefix))
+    .map((r) => r.uid);
+  const cascadingFolderUids = folderMirror
+    .listFolders()
+    .filter((f) => f.path.startsWith(childPathPrefix))
+    .map((f) => f.uid);
+
+  const baseCtx = resolveRendererContext(opts);
+  for (const ruleUid of cascadingRuleUids) {
+    const ctx = baseCtx.next({ batchId: `collection-delete-cascade-rule-${ruleUid}` });
+    const ack = await applySyncPayload(buildDeleteRuleBatch(ruleUid, ctx));
+    if (!ack.ok) return ack;
+  }
+  for (const folderUid of cascadingFolderUids) {
+    const ctx = baseCtx.next({ batchId: `collection-delete-cascade-folder-${folderUid}` });
+    const ack = await applySyncPayload({
+      batch: buildDeleteFolderEntityBatch(folderUid, ctx),
+      sideEffects: [],
+    });
+    if (!ack.ok) return ack;
+  }
+
+  const ctx = baseCtx.next(
     opts.batchId ? { batchId: opts.batchId } : { batchId: `collection-delete-${input.collectionUid}` },
   );
   return applySyncPayload({

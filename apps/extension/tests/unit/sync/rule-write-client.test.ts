@@ -66,6 +66,7 @@ function makeMirror(
   return {
     getRuleMirror: (uid) =>
       rule && rule.uid === uid ? { rule, setItemIds, setOrderKeys: resolvedOrderKeys } : null,
+    listRules: () => (rule ? [rule] : []),
     liveSetItems: (uid, path) => (rule && rule.uid === uid ? (setItemIds[path] ?? []) : []),
     liveOrderedSetItems: (uid, path) =>
       rule && rule.uid === uid ? (resolvedOrderKeys[path] ?? []) : [],

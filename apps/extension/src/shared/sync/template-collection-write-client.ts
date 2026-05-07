@@ -19,6 +19,8 @@ import {
   getTemplateCollectionSyncMirrorForWorkspace,
   type TemplateCollectionSyncMirror,
 } from '@/context/template-collection-sync-mirror';
+import { getTemplateFolderSyncMirrorForWorkspace } from '@/context/template-folder-sync-mirror';
+import { getTemplateSyncMirrorForWorkspace } from '@/context/template-sync-mirror';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
@@ -33,6 +35,8 @@ import {
   buildSetTemplateCollectionVarBatch,
 } from '@/shared/sync/template-collection-mutations';
 import { seedTemplateCollection } from '@/shared/sync/template-collection-projection';
+import { buildDeleteTemplateFolderEntityBatch } from '@/shared/sync/template-folder-mutations';
+import { buildDeleteBatch as buildDeleteTemplateBatch } from '@/shared/sync/template-mutations';
 import { buildVariablesReplacement } from '@/shared/sync/variables-replacement';
 
 export { createTemplateCollectionSyncMirror } from '@/context/template-collection-sync-mirror';
@@ -100,11 +104,50 @@ export interface ApplyTemplateCollectionDeleteInput {
   collectionUid: string;
 }
 
+/**
+ * Delete a template-collection and cascade-delete every descendant
+ * template + template-folder. Mirrors `template-store.deleteTemplateCollection`
+ * (legacy SW handler) so cascade is consistent across surfaces.
+ */
 export async function applyTemplateCollectionDelete(
   input: ApplyTemplateCollectionDeleteInput,
   opts: TemplateCollectionWriteOptions,
 ): Promise<TemplateCollectionSimpleResult> {
-  const ctx = resolveRendererContext(opts).next(
+  const collectionMirror = resolveMirror(opts, getTemplateCollectionSyncMirrorForWorkspace);
+  await collectionMirror.hydrated;
+  const collectionEntry = collectionMirror.getTemplateCollectionMirror(input.collectionUid);
+  if (!collectionEntry) return { ok: false, reason: 'not-found' };
+  const childPathPrefix = `${collectionEntry.collection.path}/`;
+
+  const templateMirror = getTemplateSyncMirrorForWorkspace(opts.workspaceId);
+  const templateFolderMirror = getTemplateFolderSyncMirrorForWorkspace(opts.workspaceId);
+  await Promise.all([templateMirror.hydrated, templateFolderMirror.hydrated]);
+
+  const cascadingTemplateUids = templateMirror
+    .listTemplates()
+    .filter((t) => t.path?.startsWith(childPathPrefix))
+    .map((t) => t.uid);
+  const cascadingFolderUids = templateFolderMirror
+    .listTemplateFolders()
+    .filter((f) => f.path.startsWith(childPathPrefix))
+    .map((f) => f.uid);
+
+  const baseCtx = resolveRendererContext(opts);
+  for (const tplUid of cascadingTemplateUids) {
+    const ctx = baseCtx.next({ batchId: `template-collection-delete-cascade-tpl-${tplUid}` });
+    const ack = await applySyncPayload(buildDeleteTemplateBatch(tplUid, ctx));
+    if (!ack.ok) return ack;
+  }
+  for (const folderUid of cascadingFolderUids) {
+    const ctx = baseCtx.next({ batchId: `template-collection-delete-cascade-folder-${folderUid}` });
+    const ack = await applySyncPayload({
+      batch: buildDeleteTemplateFolderEntityBatch(folderUid, ctx),
+      sideEffects: [],
+    });
+    if (!ack.ok) return ack;
+  }
+
+  const ctx = baseCtx.next(
     opts.batchId ? { batchId: opts.batchId } : { batchId: `template-collection-delete-${input.collectionUid}` },
   );
   return applySyncPayload({

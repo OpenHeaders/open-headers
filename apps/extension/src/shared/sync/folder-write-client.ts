@@ -26,12 +26,15 @@ import {
   type FolderSyncMirror,
   getFolderSyncMirrorForWorkspace,
 } from '@/context/folder-sync-mirror';
+import { getRuleSyncMirrorForWorkspace } from '@/context/rule-sync-mirror';
 import {
   buildCreateFolderBatch,
   buildDeleteFolderBatch,
+  buildDeleteFolderEntityBatch,
   buildMoveFolderBatch,
   buildRenameFolderBatch,
 } from '@/shared/sync/folder-mutations';
+import { buildDeleteBatch as buildDeleteRuleBatch } from '@/shared/sync/rule-mutations';
 
 export { createFolderSyncMirror } from '@/context/folder-sync-mirror';
 
@@ -83,11 +86,49 @@ export interface ApplyFolderDeleteInput {
   parent: FolderParentRef;
 }
 
+/**
+ * Delete a (rules) folder and cascade-delete every descendant rule +
+ * nested folder. Mirrors `rule-store.deleteFolder` (legacy SW handler)
+ * so cascade is consistent across surfaces.
+ */
 export async function applyFolderDelete(
   input: ApplyFolderDeleteInput,
   opts: FolderWriteOptions,
 ): Promise<FolderSimpleResult> {
-  const ctx = resolveRendererContext(opts).next(
+  const folderMirror = resolveMirror(opts, getFolderSyncMirrorForWorkspace);
+  await folderMirror.hydrated;
+  const folder = folderMirror.listFolders().find((f) => f.uid === input.folderUid);
+  if (!folder) return { ok: false, reason: 'not-found' };
+  const childPathPrefix = `${folder.path}/`;
+
+  const ruleMirror = getRuleSyncMirrorForWorkspace(opts.workspaceId);
+  await ruleMirror.hydrated;
+
+  const cascadingRuleUids = ruleMirror
+    .listRules()
+    .filter((r) => r.path?.startsWith(childPathPrefix))
+    .map((r) => r.uid);
+  const cascadingFolderUids = folderMirror
+    .listFolders()
+    .filter((f) => f.uid !== input.folderUid && f.path.startsWith(childPathPrefix))
+    .map((f) => f.uid);
+
+  const baseCtx = resolveRendererContext(opts);
+  for (const ruleUid of cascadingRuleUids) {
+    const ctx = baseCtx.next({ batchId: `folder-delete-cascade-rule-${ruleUid}` });
+    const ack = await applySyncPayload(buildDeleteRuleBatch(ruleUid, ctx));
+    if (!ack.ok) return ack;
+  }
+  for (const nestedUid of cascadingFolderUids) {
+    const ctx = baseCtx.next({ batchId: `folder-delete-cascade-nested-${nestedUid}` });
+    const ack = await applySyncPayload({
+      batch: buildDeleteFolderEntityBatch(nestedUid, ctx),
+      sideEffects: [],
+    });
+    if (!ack.ok) return ack;
+  }
+
+  const ctx = baseCtx.next(
     opts.batchId ? { batchId: opts.batchId } : { batchId: `folder-delete-${input.folderUid}` },
   );
   return applySyncPayload(buildDeleteFolderBatch(input, ctx));

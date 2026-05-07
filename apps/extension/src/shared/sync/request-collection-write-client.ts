@@ -20,6 +20,8 @@ import {
   getRequestCollectionSyncMirrorForWorkspace,
   type RequestCollectionSyncMirror,
 } from '@/context/request-collection-sync-mirror';
+import { getRequestFolderSyncMirrorForWorkspace } from '@/context/request-folder-sync-mirror';
+import { getRequestSyncMirrorForWorkspace } from '@/context/request-sync-mirror';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
@@ -34,6 +36,8 @@ import {
   buildSetRequestCollectionVarBatch,
 } from '@/shared/sync/request-collection-mutations';
 import { seedRequestCollection } from '@/shared/sync/request-collection-projection';
+import { buildDeleteRequestFolderEntityBatch } from '@/shared/sync/request-folder-mutations';
+import { buildDeleteBatch as buildDeleteRequestBatch } from '@/shared/sync/request-mutations';
 import { buildVariablesReplacement } from '@/shared/sync/variables-replacement';
 
 export { createRequestCollectionSyncMirror } from '@/context/request-collection-sync-mirror';
@@ -101,11 +105,61 @@ export interface ApplyRequestCollectionDeleteInput {
   collectionUid: string;
 }
 
+/**
+ * Delete a request-collection and cascade-delete every descendant
+ * request + request-folder. Cascade walks the per-workspace request
+ * and request-folder mirrors, finds path-prefixed descendants, and
+ * issues a delete envelope per descendant before tombstoning the
+ * collection itself. Mirrors `request-store.deleteRequestCollection`
+ * (the legacy SW handler) so the cascade is consistent regardless of
+ * which surface authored the gesture.
+ *
+ * Each child + the parent ride a separate batch (`oh.sync.apply`
+ * round-trip per envelope) — matches the SW legacy pattern. Per-child
+ * atomicity is enough for cache + projection consistency; the
+ * collection's tombstone arriving last guarantees the sidebar tree
+ * never shows an orphan with its parent already gone.
+ */
 export async function applyRequestCollectionDelete(
   input: ApplyRequestCollectionDeleteInput,
   opts: RequestCollectionWriteOptions,
 ): Promise<RequestCollectionSimpleResult> {
-  const ctx = resolveRendererContext(opts).next(
+  const collectionMirror = resolveMirror(opts, getRequestCollectionSyncMirrorForWorkspace);
+  await collectionMirror.hydrated;
+  const collectionEntry = collectionMirror.getRequestCollectionMirror(input.collectionUid);
+  if (!collectionEntry) return { ok: false, reason: 'not-found' };
+  const collectionPath = collectionEntry.collection.path;
+  const childPathPrefix = `${collectionPath}/`;
+
+  const requestMirror = getRequestSyncMirrorForWorkspace(opts.workspaceId);
+  const requestFolderMirror = getRequestFolderSyncMirrorForWorkspace(opts.workspaceId);
+  await Promise.all([requestMirror.hydrated, requestFolderMirror.hydrated]);
+
+  const cascadingRequestUids = requestMirror
+    .listRequests()
+    .filter((r) => r.path.startsWith(childPathPrefix))
+    .map((r) => r.uid);
+  const cascadingFolderUids = requestFolderMirror
+    .listRequestFolders()
+    .filter((f) => f.path.startsWith(childPathPrefix))
+    .map((f) => f.uid);
+
+  const baseCtx = resolveRendererContext(opts);
+  for (const reqUid of cascadingRequestUids) {
+    const ctx = baseCtx.next({ batchId: `request-collection-delete-cascade-req-${reqUid}` });
+    const ack = await applySyncPayload(buildDeleteRequestBatch(reqUid, ctx));
+    if (!ack.ok) return ack;
+  }
+  for (const folderUid of cascadingFolderUids) {
+    const ctx = baseCtx.next({ batchId: `request-collection-delete-cascade-folder-${folderUid}` });
+    const ack = await applySyncPayload({
+      batch: buildDeleteRequestFolderEntityBatch(folderUid, ctx),
+      sideEffects: [],
+    });
+    if (!ack.ok) return ack;
+  }
+
+  const ctx = baseCtx.next(
     opts.batchId ? { batchId: opts.batchId } : { batchId: `request-collection-delete-${input.collectionUid}` },
   );
   return applySyncPayload({

@@ -29,6 +29,9 @@ export type CollectionMirrorListener = (collectionUid: string) => void;
 
 export interface CollectionSyncMirror {
   getCollectionMirror(collectionUid: string): CollectionMirrorEntry | null;
+  /** Snapshot of every collection — used by delete cascades that
+   *  enumerate descendants by path prefix. */
+  listCollections(): V5.Collection[];
   liveVarNames(collectionUid: string): string[];
   liveOrderedSetItems(
     collectionUid: string,
@@ -75,6 +78,7 @@ export function createCollectionSyncMirror(
   );
   return {
     getCollectionMirror: core.get,
+    listCollections: () => core.list().map((e) => e.collection),
     liveVarNames: (uid) => core.get(uid)?.varUids ?? [],
     liveOrderedSetItems: (uid, setPath) => core.get(uid)?.setOrderKeys[setPath] ?? [],
     subscribeCollectionMirror: core.subscribe,

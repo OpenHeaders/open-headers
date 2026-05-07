@@ -20,12 +20,15 @@ import {
   getRequestFolderSyncMirrorForWorkspace,
   type RequestFolderSyncMirror,
 } from '@/context/request-folder-sync-mirror';
+import { getRequestSyncMirrorForWorkspace } from '@/context/request-sync-mirror';
 import {
   buildCreateRequestFolderBatch,
   buildDeleteRequestFolderBatch,
+  buildDeleteRequestFolderEntityBatch,
   buildMoveRequestFolderBatch,
   buildRenameRequestFolderBatch,
 } from '@/shared/sync/request-folder-mutations';
+import { buildDeleteBatch as buildDeleteRequestBatch } from '@/shared/sync/request-mutations';
 
 export { createRequestFolderSyncMirror } from '@/context/request-folder-sync-mirror';
 
@@ -73,11 +76,53 @@ export interface ApplyRequestFolderDeleteInput {
   parent: RequestFolderParentRef;
 }
 
+/**
+ * Delete a request-folder and cascade-delete every descendant request
+ * + nested request-folder. Mirrors `request-store.deleteRequestFolder`
+ * (legacy SW handler) so cascade is consistent across surfaces.
+ *
+ * The folder's tombstone covers its parent slot via the parent ref;
+ * descendants ride bare delete envelopes. Each child + the parent is a
+ * separate batch.
+ */
 export async function applyRequestFolderDelete(
   input: ApplyRequestFolderDeleteInput,
   opts: RequestFolderWriteOptions,
 ): Promise<RequestFolderSimpleResult> {
-  const ctx = resolveRendererContext(opts).next(
+  const folderMirror = resolveMirror(opts, getRequestFolderSyncMirrorForWorkspace);
+  await folderMirror.hydrated;
+  const folder = folderMirror.listRequestFolders().find((f) => f.uid === input.folderUid);
+  if (!folder) return { ok: false, reason: 'not-found' };
+  const childPathPrefix = `${folder.path}/`;
+
+  const requestMirror = getRequestSyncMirrorForWorkspace(opts.workspaceId);
+  await requestMirror.hydrated;
+
+  const cascadingRequestUids = requestMirror
+    .listRequests()
+    .filter((r) => r.path.startsWith(childPathPrefix))
+    .map((r) => r.uid);
+  const cascadingFolderUids = folderMirror
+    .listRequestFolders()
+    .filter((f) => f.uid !== input.folderUid && f.path.startsWith(childPathPrefix))
+    .map((f) => f.uid);
+
+  const baseCtx = resolveRendererContext(opts);
+  for (const reqUid of cascadingRequestUids) {
+    const ctx = baseCtx.next({ batchId: `request-folder-delete-cascade-req-${reqUid}` });
+    const ack = await applySyncPayload(buildDeleteRequestBatch(reqUid, ctx));
+    if (!ack.ok) return ack;
+  }
+  for (const nestedUid of cascadingFolderUids) {
+    const ctx = baseCtx.next({ batchId: `request-folder-delete-cascade-nested-${nestedUid}` });
+    const ack = await applySyncPayload({
+      batch: buildDeleteRequestFolderEntityBatch(nestedUid, ctx),
+      sideEffects: [],
+    });
+    if (!ack.ok) return ack;
+  }
+
+  const ctx = baseCtx.next(
     opts.batchId ? { batchId: opts.batchId } : { batchId: `request-folder-delete-${input.folderUid}` },
   );
   return applySyncPayload(buildDeleteRequestFolderBatch(input, ctx));

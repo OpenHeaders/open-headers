@@ -32,6 +32,10 @@ export type RuleMirrorListener = (uid: string) => void;
 
 export interface RuleSyncMirror {
   getRuleMirror(uid: string): RuleMirrorEntry | null;
+  /** Snapshot of every rule in the mirror — used by cross-entity
+   *  cascades (collection / folder delete cascades into descendant
+   *  rules) where the caller needs to enumerate by path prefix. */
+  listRules(): V5.Rule[];
   liveSetItems(uid: string, setPath: string): string[];
   liveOrderedSetItems(uid: string, setPath: string): Array<{ itemId: string; orderKey: string }>;
   subscribeRuleMirror(uid: string, listener: RuleMirrorListener): () => void;
@@ -84,6 +88,7 @@ export function createRuleSyncMirror(
   );
   return {
     getRuleMirror: core.get,
+    listRules: () => core.list().map((e) => e.rule),
     liveSetItems: (uid, setPath) => core.get(uid)?.setItemIds[setPath] ?? [],
     liveOrderedSetItems: (uid, setPath) => core.get(uid)?.setOrderKeys[setPath] ?? [],
     subscribeRuleMirror: core.subscribe,
