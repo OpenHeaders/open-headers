@@ -558,7 +558,6 @@ const CreateMode: React.FC<CreateProps> = ({ draftName, seedStep, onDirtyChange,
       <Tag color="blue" style={{ marginInlineEnd: 0 }}>
         Workflow
       </Tag>
-      <Tag style={{ marginInlineEnd: 0 }}>Draft</Tag>
     </>
   );
 
