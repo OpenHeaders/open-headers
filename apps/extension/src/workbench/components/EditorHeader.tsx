@@ -27,8 +27,12 @@ export interface EditorHeaderProps {
   /** Overflow menu items. Rule editors pass Save-as-Template here. */
   overflowItems?: MenuProps['items'];
   /** Shell-produced wiring bundle. Save semantics:
-   *   - `isPublished === true && !isDirty` → button disabled, "Saved"
-   *   - otherwise → enabled "Save" (orange when dirty or unpublished)
+   *   - `!isDirty` → button disabled, label "Saved" (clean form, nothing
+   *     to commit). Holds whether the entity is published or not — an
+   *     unpublished rule with no form edits has nothing to save; the
+   *     publication gate is communicated through the sidebar "draft"
+   *     pill + italic tab label, not by lighting Save orange.
+   *   - `isDirty` → enabled "Save" (orange).
    *  When undefined the Save button is hidden — used for non-editor
    *  surfaces (entity list pages) that mount the header for layout
    *  parity but have nothing to save. */
@@ -39,20 +43,15 @@ const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, overflowIte
   const wiring = shell as unknown as
     | { isDirty: boolean; isPublished?: boolean; onSave: () => void }
     | undefined;
-  const isDirty = wiring?.isDirty;
-  const isPublished = wiring?.isPublished;
+  const isDirty = !!wiring?.isDirty;
   const onSave = wiring?.onSave;
   const { token } = theme.useToken();
   const saveLabel = useShortcutLabel('save');
   const hasOverflow = (overflowItems?.length ?? 0) > 0;
   const hasActions = actions != null || onSave || hasOverflow;
-  // Publication-gate semantics. When `isPublished` is undefined, fall
-  // back to the legacy "Save iff dirty" model so non-publication editors
-  // behave unchanged.
-  const hasPublishGate = isPublished !== undefined;
-  const saveDisabled = hasPublishGate ? isPublished === true && !isDirty : !isDirty;
-  const saveAccent = hasPublishGate ? !isPublished || isDirty : !!isDirty;
-  const saveLabelText = hasPublishGate && isPublished === true && !isDirty ? 'Saved' : 'Save';
+  const saveDisabled = !isDirty;
+  const saveAccent = isDirty;
+  const saveLabelText = isDirty ? 'Save' : 'Saved';
 
   return (
     <div

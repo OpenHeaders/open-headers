@@ -213,6 +213,20 @@ function isRuleDraftTab(tab: WorkbenchTab, rules: V5.Rule[]): boolean {
   return rule !== undefined && isRuleDraft(rule);
 }
 
+/**
+ * Whether the tab is a "*-create" draft mode — entity is NOT yet
+ * persisted; Save click runs the where-to-save modal. Drives the gray
+ * tab dot (orthogonal to dirty/orange). Symmetric across rules and
+ * requests: both global-create gestures (header +, command palette)
+ * land here. Context-create gestures persist immediately and open in
+ * the regular 'edit' / 'request-edit' mode, so they bypass this.
+ */
+function isCreateDraftMode(tab: WorkbenchTab): boolean {
+  // 'rule-create' lands in Commit C alongside the rule global-create
+  // refactor; the helper is the future-symmetric extension point.
+  return tab.mode === 'request-create';
+}
+
 function truncateMiddle(text: string, max: number): string {
   if (text.length <= max) return text;
   const half = Math.floor((max - 1) / 2);
@@ -389,8 +403,8 @@ const TabPillContent: React.FC<TabPillContentProps> = ({
       <span className="rules-tab-label" style={isRuleDraftTab(tab, rules) ? { fontStyle: 'italic' } : undefined}>
         {renderTabLabel(tab, displayLabel)}
       </span>
-      {(tab.dirty || isRuleDraftTab(tab, rules)) && (
-        <span className="rules-tab-unsaved" style={{ background: isRuleDraftTab(tab, rules) ? '#999' : '#ff7875' }} />
+      {(tab.dirty || isCreateDraftMode(tab)) && (
+        <span className="rules-tab-unsaved" style={{ background: tab.dirty ? '#ff7875' : '#999' }} />
       )}
       {onClose && (
         <CloseOutlined
@@ -896,13 +910,13 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                     </span>
                   )}
                 </span>
-                {(tab.dirty || isRuleDraftTab(tab, rules)) && (
+                {(tab.dirty || isCreateDraftMode(tab)) && (
                   <span
                     style={{
                       width: 6,
                       height: 6,
                       borderRadius: '50%',
-                      background: isRuleDraftTab(tab, rules) ? '#999' : '#ff7875',
+                      background: tab.dirty ? '#ff7875' : '#999',
                       flexShrink: 0,
                     }}
                   />
