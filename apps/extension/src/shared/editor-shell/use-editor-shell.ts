@@ -47,18 +47,10 @@ export interface UseEditorShellInput {
   /** Publication state for entities with live runners. Drives the
    *  publish-gate Save semantics on `<EditorHeader>`. */
   isPublished?: boolean;
-  /** Whether the entity has all required fields with valid values.
-   *  Mirrors the same `isXComplete()` predicate the sidebar + tab
-   *  prefix-icon use, so the chip flips on the same threshold. */
-  isComplete?: boolean;
   /** Whether the entity has unresolved `{{ref}}`s in the active scope.
    *  Mirrors `unresolvableXUids.has(uid)` — same source as the sidebar's
    *  `unresolved` badge and the tab's yellow icon. */
   isUnresolved?: boolean;
-  /** Whether the user's enabled toggle is on. Only meaningful for
-   *  entities that have one (rules, workflows). Drives the `'off'`
-   *  status when the entity is published but toggled off. */
-  isEnabled?: boolean;
   onSave: () => void;
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (saveFn: () => void) => void;
@@ -84,9 +76,7 @@ export function useEditorShell(input: UseEditorShellInput): UseEditorShellOutput
     entityId,
     isDirty,
     isPublished,
-    isComplete,
     isUnresolved,
-    isEnabled,
     onSave,
     onDirtyChange,
     registerSaveRef,
@@ -108,39 +98,25 @@ export function useEditorShell(input: UseEditorShellInput): UseEditorShellOutput
     registerSaveRef?.(onSave);
   }, [registerSaveRef, onSave]);
 
-  // Lifecycle status — mirrors the EXACT precedence the tab prefix
-  // icon + sidebar badge use, so the editor chip never tells a
-  // different story. Each editor passes the SAME predicates the
-  // sidebar / tab consume: `isXComplete()`, `unresolvableXUids.has(uid)`,
-  // `entity.enabled`, `entity.published`.
+  // Lifecycle status — narrates persistence + publication. Per-field
+  // validation has its own inline affordances; the Enabled toggle is
+  // its own visible control; so the chip stays focused on the axis
+  // those surfaces don't already cover.
   //
   //   create-mode (no entity yet)         → 'scratch'
-  //   !complete                           → 'incomplete'   (whether published or not)
-  //   complete + unresolved               → 'unresolved'   (whether published or not)
-  //   !published + complete + resolved    → 'draft'
-  //   published + !enabled                → 'off'
-  //   published + enabled + complete + resolved → null (Live)
+  //   complete + unresolved               → 'unresolved'
+  //   !published                          → 'draft'
+  //   published (or no gate)              → null (Live)
   //
-  // Completeness/resolution beat publication state: a published rule
-  // whose required fields were cleared can't fire — same gray tab
-  // icon treatment, same chip. The publication-state buckets
-  // (`draft` / `off` / `null`) only kick in once the entity is
-  // structurally valid.
-  //
-  // Undefined inputs are treated as "fine" on that axis so editors
-  // don't have to opt into every one (a request editor with no
-  // publication gate lands on `null` once minted).
+  // Unresolved beats publication state: a published rule with broken
+  // refs can't fire — same yellow tab icon treatment, same chip.
   let status: EditorLifecycleStatus;
   if (entityId === null) {
     status = 'scratch';
-  } else if (isComplete === false) {
-    status = 'incomplete';
   } else if (isUnresolved === true) {
     status = 'unresolved';
   } else if (isPublished === false) {
     status = 'draft';
-  } else if (isEnabled === false) {
-    status = 'off';
   } else {
     status = null;
   }

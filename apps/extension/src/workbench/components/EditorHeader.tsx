@@ -62,13 +62,6 @@ const STATUS_STYLE: Record<StatusKey, StatusStyle> = {
     bg: 'rgba(140,140,140,0.10)',
     body: 'Unsaved draft. Nothing is persisted until you Save.',
   },
-  incomplete: {
-    label: 'Incomplete',
-    fg: '#d48806',
-    border: '#ffd591',
-    bg: 'rgba(250,173,20,0.12)',
-    body: 'Missing required fields. Cannot publish yet.',
-  },
   unresolved: {
     label: 'Unresolved',
     fg: '#cf1322',
@@ -81,14 +74,7 @@ const STATUS_STYLE: Record<StatusKey, StatusStyle> = {
     fg: '#7a7a7a',
     border: '#bfbfbf',
     bg: 'rgba(140,140,140,0.10)',
-    body: 'Saved and complete. Not yet published / live.',
-  },
-  off: {
-    label: 'Off',
-    fg: '#7a7a7a',
-    border: '#bfbfbf',
-    bg: 'rgba(140,140,140,0.10)',
-    body: 'Published but disabled. The Enabled toggle is off.',
+    body: 'Saved but not yet published / live.',
   },
   live: {
     label: 'Live',
@@ -99,7 +85,7 @@ const STATUS_STYLE: Record<StatusKey, StatusStyle> = {
   },
 };
 
-const STATUS_ORDER: StatusKey[] = ['scratch', 'incomplete', 'unresolved', 'draft', 'off', 'live'];
+const STATUS_ORDER: StatusKey[] = ['scratch', 'unresolved', 'draft', 'live'];
 
 function StatusPill({ s, active }: { s: StatusStyle; active: boolean }) {
   return (

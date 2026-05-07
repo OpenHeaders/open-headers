@@ -14,28 +14,20 @@ declare const SHELL_SCOPE_BRAND: unique symbol;
 
 /**
  * Lifecycle status surfaced next to the Save button so the user gets
- * the same "where am I?" feedback in the editor that the tab strip
- * (gray dot) and sidebar (`incomplete` / `unresolved` / `draft` / `off`
- * badges) already show. Same predicates, same precedence.
+ * the same "where am I?" feedback the tab strip (gray dot) and the
+ * sidebar already convey. The chip narrates persistence + publication
+ * state; orthogonal axes (per-field validation, the Enabled toggle)
+ * have their own dedicated affordances.
  *
- *   - `'scratch'`     — entity not yet minted (create-mode draft tab).
- *   - `'incomplete'`  — saved but missing required fields. Can't publish.
- *   - `'unresolved'`  — complete shape but `{{ref}}`s don't resolve in
- *     the active scope. Won't activate until the references are defined.
- *   - `'draft'`       — complete + resolved, but not yet published.
- *   - `'off'`         — published but `enabled === false`.
- *   - `null`          — published + enabled (Live), or no lifecycle gate.
+ *   - `'scratch'`    — entity not yet minted (create-mode draft tab).
+ *   - `'unresolved'` — has `{{ref}}`s that don't resolve in the active
+ *     scope; won't activate until the references are defined.
+ *   - `'draft'`      — saved but `published !== true`.
+ *   - `null`         — published (Live), or no lifecycle gate.
  *
- * Precedence (matches `useWorkflowNodes` in the sidebar):
- *   scratch → incomplete → unresolved → draft → off → null.
+ * Precedence: scratch → unresolved → draft → null.
  */
-export type EditorLifecycleStatus =
-  | 'scratch'
-  | 'incomplete'
-  | 'unresolved'
-  | 'draft'
-  | 'off'
-  | null;
+export type EditorLifecycleStatus = 'scratch' | 'unresolved' | 'draft' | null;
 
 export interface EditorShellHeaderWiring {
   readonly [SHELL_HEADER_BRAND]: never;

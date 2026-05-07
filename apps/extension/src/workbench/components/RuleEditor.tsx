@@ -31,7 +31,7 @@ import { serializeRule } from '@openheaders/core/codec/yaml';
 import { freshDocument } from '@openheaders/core/schemas';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
-import { generateUid, isRuleComplete } from '@openheaders/core/utils';
+import { generateUid } from '@openheaders/core/utils';
 import type { MenuProps } from 'antd';
 import { Alert, App, Button, Dropdown, Form, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -842,7 +842,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     entityId: ruleUid ?? null,
     isDirty,
     isPublished,
-    isComplete: liveRule ? isRuleComplete(liveRule) : undefined,
     onSave: handleSaveSync,
     onDirtyChange,
     registerSaveRef,
