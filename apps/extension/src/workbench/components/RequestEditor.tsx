@@ -26,7 +26,7 @@ import { CaretRightOutlined, DownOutlined, LoadingOutlined, ThunderboltOutlined 
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { useRequests } from '@hooks/useRequests';
 import { useVariableResolver } from '@hooks/useVariableResolver';
-import { serializeRequest } from '@openheaders/core/codec/yaml';
+import { canonicalizeRequest, serializeRequest } from '@openheaders/core/codec/yaml';
 import { freshDocument } from '@openheaders/core/schemas';
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
@@ -609,7 +609,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   const savedYaml = useMemo(() => {
     if (!isConflictDialogOpen || !liveRequest) return '';
     try {
-      return serializeRequest(freshDocument(liveRequest)).requestYaml;
+      return serializeRequest(freshDocument(canonicalizeRequest(liveRequest))).requestYaml;
     } catch {
       return '';
     }
@@ -620,7 +620,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       const projected = projectWithResolutions(resolutions);
       if (!projected) return '';
       try {
-        return serializeRequest(freshDocument(projected.req)).requestYaml;
+        return serializeRequest(freshDocument(canonicalizeRequest(projected.req))).requestYaml;
       } catch {
         return '';
       }

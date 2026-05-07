@@ -25,7 +25,15 @@ import * as v from 'valibot';
 import * as YAML from 'yaml';
 import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../schemas/document';
 import { RequestSchema } from '../../schemas/request';
-import type { BodyType, FormField, MultipartPart, Request, RequestBody } from '../../types/v5/request';
+import type {
+  BodyType,
+  FormField,
+  MultipartPart,
+  QueryParam,
+  Request,
+  RequestBody,
+  RequestHeader,
+} from '../../types/v5/request';
 import { CANONICAL_STRINGIFY_OPTIONS } from './canonical';
 import { buildFreshDocument, mergeKnownFields } from './merge';
 import { REQUEST_FIELD_ORDER } from './ordering';
@@ -273,5 +281,72 @@ function bodyContentOf(body: RequestBody): string | undefined {
     case 'text':
     case 'graphql':
       return body.content;
+  }
+}
+
+/**
+ * Normalize nested row key order in a request's set-modeled subtrees
+ * so two clients building the same request via different paths emit
+ * byte-identical YAML. Same architectural shape as `canonicalizeRule`
+ * — set rows (headers, params, body form/multipart parts) enter
+ * insertion order via the form's register sequence vs. the
+ * oracle-projected materialize pipeline; without normalization the
+ * diff dialog would show every row as removed+added on a partial-leaf
+ * change.
+ *
+ * Currently used by the request conflict-diff dialog only; persist
+ * boundary canonicalization is a follow-up (wider blast radius —
+ * rewrites every desktop-side request.yaml on next write).
+ */
+export function canonicalizeRequest(request: Request): Request {
+  const headers = request.headers.map(canonicalRequestHeader);
+  const params = request.params.map(canonicalQueryParam);
+  const body = canonicalRequestBody(request.body);
+  return { ...request, headers, params, body };
+}
+
+function canonicalRequestHeader(h: RequestHeader): RequestHeader {
+  const out: RequestHeader = { uid: h.uid, key: h.key, value: h.value };
+  if (h.description !== undefined) out.description = h.description;
+  if (h.enabled !== undefined) out.enabled = h.enabled;
+  return out;
+}
+
+function canonicalQueryParam(p: QueryParam): QueryParam {
+  const out: QueryParam = { uid: p.uid, key: p.key, value: p.value };
+  if (p.description !== undefined) out.description = p.description;
+  if (p.enabled !== undefined) out.enabled = p.enabled;
+  if (p.hasEquals !== undefined) out.hasEquals = p.hasEquals;
+  return out;
+}
+
+function canonicalFormField(f: FormField): FormField {
+  const out: FormField = { key: f.key, value: f.value };
+  if (f.description !== undefined) out.description = f.description;
+  if (f.enabled !== undefined) out.enabled = f.enabled;
+  return out;
+}
+
+function canonicalMultipartPart(p: MultipartPart): MultipartPart {
+  if (p.kind === 'text') {
+    const out = { kind: 'text' as const, name: p.name, value: p.value } as MultipartPart;
+    if (p.description !== undefined) (out as { description?: string }).description = p.description;
+    if (p.enabled !== undefined) (out as { enabled?: boolean }).enabled = p.enabled;
+    return out;
+  }
+  const out = { kind: 'file' as const, name: p.name, fileRefs: p.fileRefs } as MultipartPart;
+  if (p.description !== undefined) (out as { description?: string }).description = p.description;
+  if (p.enabled !== undefined) (out as { enabled?: boolean }).enabled = p.enabled;
+  return out;
+}
+
+function canonicalRequestBody(body: RequestBody): RequestBody {
+  switch (body.type) {
+    case 'form':
+      return { type: 'form', formParts: body.formParts.map(canonicalFormField) };
+    case 'multipart':
+      return { type: 'multipart', multipartParts: body.multipartParts.map(canonicalMultipartPart) };
+    default:
+      return body;
   }
 }

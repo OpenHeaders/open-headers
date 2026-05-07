@@ -18,7 +18,7 @@
 
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
-import { serializeTemplate } from '@openheaders/core/codec/yaml';
+import { canonicalizeTemplate, serializeTemplate } from '@openheaders/core/codec/yaml';
 import { freshDocument } from '@openheaders/core/schemas';
 import { TEMPLATE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
@@ -246,7 +246,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
   const savedYaml = useMemo(() => {
     if (!isConflictDialogOpen || !liveTemplate) return '';
     try {
-      return serializeTemplate(freshDocument(liveTemplate));
+      return serializeTemplate(freshDocument(canonicalizeTemplate(liveTemplate)));
     } catch {
       return '';
     }
@@ -266,7 +266,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
         templateResolveAdapter.applyResolutionToEntity(local, path, conflict);
       }
       try {
-        return serializeTemplate(freshDocument(local));
+        return serializeTemplate(freshDocument(canonicalizeTemplate(local)));
       } catch {
         return '';
       }
