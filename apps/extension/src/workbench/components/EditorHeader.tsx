@@ -85,7 +85,7 @@ const STATUS_STYLE: Record<StatusKey, StatusStyle> = {
   },
 };
 
-const STATUS_ORDER: StatusKey[] = ['scratch', 'unresolved', 'draft', 'live'];
+const STATUS_ORDER: StatusKey[] = ['scratch', 'draft', 'unresolved', 'live'];
 
 function StatusPill({ s, active }: { s: StatusStyle; active: boolean }) {
   return (

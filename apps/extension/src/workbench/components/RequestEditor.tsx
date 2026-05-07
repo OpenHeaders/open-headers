@@ -30,7 +30,7 @@ import { serializeRequest } from '@openheaders/core/codec/yaml';
 import { freshDocument } from '@openheaders/core/schemas';
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
-import { buildUrlDisplay, parseUrlQuery } from '@openheaders/core/utils';
+import { buildUrlDisplay, isRequestComplete, parseUrlQuery } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
 import { App, Button, Dropdown, Select, Tabs, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -715,6 +715,8 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     entityType: REQUEST_ENTITY_TYPE,
     entityId: requestUid ?? null,
     isDirty,
+    isComplete: liveRequest ? isRequestComplete(liveRequest) : undefined,
+    isUnresolved: hasUnresolvedRefs,
     onSave: handleSaveSync,
     onDirtyChange,
     registerSaveRef,
