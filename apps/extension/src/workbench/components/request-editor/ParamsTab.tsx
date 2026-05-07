@@ -11,13 +11,19 @@
 import { Typography } from 'antd';
 import type React from 'react';
 import { REQUEST_PATHS } from '@/shared/awareness';
-import KeyValueTable, { type KeyValueRow, makeKvRow } from './KeyValueTable';
+import KeyValueTable, {
+  type KeyValueRow,
+  type KeyValueRowConflictBridge,
+  makeKvRow,
+} from './KeyValueTable';
 
 const { Text } = Typography;
 
 interface ParamsTabProps {
   rows: KeyValueRow[];
   onChange: (rows: KeyValueRow[]) => void;
+  /** Inline conflict chips for param cells + set-remove rows. */
+  conflictBridge?: KeyValueRowConflictBridge;
 }
 
 function rowsToText(rows: KeyValueRow[]): string {
@@ -58,7 +64,7 @@ function annotateHasEquals(rows: KeyValueRow[]): KeyValueRow[] {
   return rows.map((r) => (r.value !== '' && !r.hasEquals ? { ...r, hasEquals: true } : r));
 }
 
-const ParamsTab: React.FC<ParamsTabProps> = ({ rows, onChange }) => {
+const ParamsTab: React.FC<ParamsTabProps> = ({ rows, onChange, conflictBridge }) => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <Text strong style={{ fontSize: 13 }}>
@@ -75,6 +81,7 @@ const ParamsTab: React.FC<ParamsTabProps> = ({ rows, onChange }) => {
           placeholder: PARAMS_BULK_PLACEHOLDER,
         }}
         rowPath={(uid, leaf) => REQUEST_PATHS.param(uid, leaf)}
+        conflictBridge={conflictBridge}
       />
     </div>
   );

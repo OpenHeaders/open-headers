@@ -50,6 +50,8 @@ import { CSS } from '@dnd-kit/utilities';
 import { Button, Checkbox, Input, Popover, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
+import { ConflictDiffChip, SetRowConflictChip } from '@/shared/awareness';
+import type { PathConflict } from '@/shared/conflicts/types';
 
 /** Read-only informational row rendered above user rows — e.g. Headers'
  *  browser-managed auto-generated entries. Not draggable, not part of
@@ -130,6 +132,29 @@ export interface EditableGridTableProps<Row> {
    *  ghost reuses its synthesized id; once the user types into it the
    *  row materializes with that same id. */
   rowPath?: (rowId: string, leaf: 'key' | 'value' | 'description') => string;
+  /** Inline conflict bridge — when supplied, each row's Key / Value /
+   *  Description cell renders a `<ConflictDiffChip>` when the entity-level
+   *  conflict tracker reports a leaf conflict at the matching `rowPath`,
+   *  and a `<SetRowConflictChip>` when the saved version dropped this row
+   *  but the form still has it. Mirrors the bridge shape used by
+   *  `VariableTable` + `HeaderRuleFields` so the same tracker primitives
+   *  feed every editor. */
+  conflictBridge?: KeyValueRowConflictBridge;
+}
+
+/** Inline-conflict bridge for rows in the shared editable grid. The
+ *  table calls `getLeafConflict(rowPath(uid, leaf), local)` on every
+ *  cell and renders the chip when the result is non-null. The set
+ *  chip surfaces a "saved version removed this row" affordance — the
+ *  table calls `getSetConflict(setPath, uid, true)` once per row. */
+export interface KeyValueRowConflictBridge {
+  /** Schema-aligned set path (e.g. `'headers'` / `'params'`). Used to
+   *  encode the set-level accept/dismiss path: `set:<setPath>.<uid>`. */
+  setPath: string;
+  getLeafConflict(path: string, local: string): PathConflict | null;
+  getSetConflict?(setPath: string, uid: string, formContainsUid: boolean): PathConflict | null;
+  onAcceptTheirs(path: string, theirs: string): void;
+  onDismiss(path: string): void;
 }
 
 const DEFAULT_COLUMN_WIDTH = 'minmax(180px, 1fr)';
@@ -167,6 +192,7 @@ export function EditableGridTable<Row>({
   bulkEdit,
   columnWidths,
   rowPath,
+  conflictBridge,
 }: EditableGridTableProps<Row>): React.ReactElement {
   const { token } = theme.useToken();
   const [bulkMode, setBulkMode] = useState(false);
@@ -461,6 +487,8 @@ export function EditableGridTable<Row>({
                     keyPlaceholder={keyPlaceholder}
                     renderValueCell={renderValueCell}
                     rowPath={rowPath}
+                    conflictBridge={conflictBridge}
+                    isPersisted={!isPlaceholder}
                     onUpdate={(next) => updateRow(adapter.getId(r), next)}
                     onRemove={() => removeRow(adapter.getId(r))}
                   />
@@ -485,6 +513,11 @@ interface SortableEditableRowProps<Row> {
   keyPlaceholder: string;
   renderValueCell: EditableGridTableProps<Row>['renderValueCell'];
   rowPath?: EditableGridTableProps<Row>['rowPath'];
+  conflictBridge?: KeyValueRowConflictBridge;
+  /** True for materialized rows (not the trailing ghost). Conflict
+   *  chips suppress on placeholder rows since they have no persisted
+   *  identity in the canonical baseline. */
+  isPersisted: boolean;
   onUpdate: (next: Row) => void;
   onRemove: () => void;
 }
@@ -500,11 +533,40 @@ function SortableEditableRow<Row>({
   keyPlaceholder,
   renderValueCell,
   rowPath,
+  conflictBridge,
+  isPersisted,
   onUpdate,
   onRemove,
 }: SortableEditableRowProps<Row>): React.ReactElement {
   const { token } = theme.useToken();
   const id = adapter.getId(row);
+
+  // ── Conflict lookups ──────────────────────────────────────────
+  // Suppress on placeholder rows — they have no canonical baseline
+  // entry. Once the user types the row materializes with this same
+  // uid; chips light up on the next render via the bridge.
+  const showConflicts = !!conflictBridge && isPersisted;
+  const localKey = adapter.getKey(row);
+  const localDescription = adapter.getDescription(row);
+  // `renderValueCell` owns the value control — we don't have direct
+  // access to its string. Read it off the row via the convention that
+  // KeyValueRow's `value` is the controlled string. The chip lookup is
+  // tolerant of `undefined`: falls back to empty string.
+  const localValue = String(((row as unknown as { value?: unknown }).value ?? ''));
+  const keyPath = rowPath?.(id, 'key');
+  const valuePath = rowPath?.(id, 'value');
+  const descPath = rowPath?.(id, 'description');
+  const keyConflict =
+    showConflicts && keyPath ? (conflictBridge?.getLeafConflict(keyPath, localKey) ?? null) : null;
+  const valueConflict =
+    showConflicts && valuePath ? (conflictBridge?.getLeafConflict(valuePath, localValue) ?? null) : null;
+  const descConflict =
+    showConflicts && descPath ? (conflictBridge?.getLeafConflict(descPath, localDescription) ?? null) : null;
+  const setRowConflictRaw =
+    showConflicts && conflictBridge?.getSetConflict
+      ? conflictBridge.getSetConflict(conflictBridge.setPath, id, true)
+      : null;
+  const setRowConflict = setRowConflictRaw?.kind === 'set-remove' ? setRowConflictRaw : null;
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id,
     disabled: isPlaceholder,
@@ -552,18 +614,37 @@ function SortableEditableRow<Row>({
           />
         </span>
       )}
-      <span
+      <div
         data-field-path={rowPath ? rowPath(id, 'key') : undefined}
-        style={{ display: 'contents' }}
+        style={{ display: 'flex', alignItems: 'center', minWidth: 0, gap: 4 }}
       >
         <Input
           variant="borderless"
-          value={adapter.getKey(row)}
+          value={localKey}
           placeholder={keyPlaceholder}
           onChange={(e) => onUpdate(adapter.setKey(row, e.target.value))}
-          style={{ ...cellFont, padding: '4px 10px', color: dim ? token.colorTextQuaternary : token.colorText }}
+          style={{
+            ...cellFont,
+            padding: '4px 10px',
+            flex: 1,
+            minWidth: 0,
+            color: dim ? token.colorTextQuaternary : token.colorText,
+          }}
         />
-      </span>
+        {keyConflict && conflictBridge && keyPath && (
+          <ConflictDiffChip
+            theirs={keyConflict.theirs}
+            base={keyConflict.base}
+            local={localKey}
+            remote={keyConflict.remote}
+            onTakeTheirs={() => {
+              onUpdate(adapter.setKey(row, keyConflict.theirs));
+              conflictBridge.onAcceptTheirs(keyPath, keyConflict.theirs);
+            }}
+            onKeepMine={() => conflictBridge.onDismiss(keyPath)}
+          />
+        )}
+      </div>
       {showValueColumn && (
         <div
           data-field-path={rowPath ? rowPath(id, 'value') : undefined}
@@ -573,42 +654,98 @@ function SortableEditableRow<Row>({
             display: 'flex',
             alignItems: 'center',
             minWidth: 0,
+            gap: 4,
           }}
         >
-          {renderValueCell(row, onUpdate, { isPlaceholder, dim })}
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center' }}>
+            {renderValueCell(row, onUpdate, { isPlaceholder, dim })}
+          </div>
+          {valueConflict && conflictBridge && valuePath && (
+            <ConflictDiffChip
+              theirs={valueConflict.theirs}
+              base={valueConflict.base}
+              local={localValue}
+              remote={valueConflict.remote}
+              onTakeTheirs={() => {
+                // Cells render their own controlled input via
+                // `renderValueCell`; this row only knows the value via
+                // the row shape. Adapter has no `setValue` slot — but
+                // the value cell's `update(next)` callback already
+                // accepts a full row replacement, and the value lives
+                // at the conventional `value` key on KeyValueRow. Use
+                // a structural patch here so the table stays generic.
+                onUpdate({ ...(row as object), value: valueConflict.theirs } as Row);
+                conflictBridge.onAcceptTheirs(valuePath, valueConflict.theirs);
+              }}
+              onKeepMine={() => conflictBridge.onDismiss(valuePath)}
+            />
+          )}
         </div>
       )}
       {showDescriptionColumn && (
-        <span
+        <div
           data-field-path={rowPath ? rowPath(id, 'description') : undefined}
-          style={{ display: 'contents' }}
+          style={{
+            borderLeft: `1px solid ${token.colorBorderSecondary}`,
+            display: 'flex',
+            alignItems: 'center',
+            minWidth: 0,
+            gap: 4,
+          }}
         >
           <Input
             variant="borderless"
-            value={adapter.getDescription(row)}
+            value={localDescription}
             placeholder="Description"
             onChange={(e) => onUpdate(adapter.setDescription(row, e.target.value))}
             style={{
               padding: '4px 10px',
               fontSize: 12,
-              borderLeft: `1px solid ${token.colorBorderSecondary}`,
+              flex: 1,
+              minWidth: 0,
               color: dim ? token.colorTextQuaternary : token.colorText,
             }}
           />
-        </span>
+          {descConflict && conflictBridge && descPath && (
+            <ConflictDiffChip
+              theirs={descConflict.theirs}
+              base={descConflict.base}
+              local={localDescription}
+              remote={descConflict.remote}
+              onTakeTheirs={() => {
+                onUpdate(adapter.setDescription(row, descConflict.theirs));
+                conflictBridge.onAcceptTheirs(descPath, descConflict.theirs);
+              }}
+              onKeepMine={() => conflictBridge.onDismiss(descPath)}
+            />
+          )}
+        </div>
       )}
-      <Button
-        type="text"
-        size="small"
-        icon={<DeleteOutlined />}
-        disabled={isPlaceholder}
-        onClick={onRemove}
-        className="editable-grid-delete"
-        style={{
-          color: token.colorTextTertiary,
-          visibility: isPlaceholder ? 'hidden' : undefined,
-        }}
-      />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+        {setRowConflict && conflictBridge && (
+          <SetRowConflictChip
+            baseSummary={setRowConflict.base}
+            remote={setRowConflict.remote}
+            onUseSaved={() => {
+              onRemove();
+              conflictBridge.onAcceptTheirs(`set:${conflictBridge.setPath}.${id}`, '');
+            }}
+            onKeepMine={() => conflictBridge.onDismiss(`set:${conflictBridge.setPath}.${id}`)}
+          />
+        )}
+        <Button
+          type="text"
+          size="small"
+          icon={<DeleteOutlined />}
+          disabled={isPlaceholder}
+          onClick={onRemove}
+          className="editable-grid-delete"
+          style={{
+            color: token.colorTextTertiary,
+            visibility: isPlaceholder ? 'hidden' : undefined,
+          }}
+        />
+      </div>
     </div>
   );
 }

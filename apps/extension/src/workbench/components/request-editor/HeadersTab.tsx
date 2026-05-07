@@ -21,7 +21,12 @@ import { Button, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
 import { REQUEST_PATHS } from '@/shared/awareness';
-import KeyValueTable, { type KeyValueRow, makeKvRow, type SuggestionRow } from './KeyValueTable';
+import KeyValueTable, {
+  type KeyValueRow,
+  type KeyValueRowConflictBridge,
+  makeKvRow,
+  type SuggestionRow,
+} from './KeyValueTable';
 
 function headerRowsToText(rows: KeyValueRow[]): string {
   return rows
@@ -115,9 +120,11 @@ interface HeadersTabProps {
   onChange: (rows: KeyValueRow[]) => void;
   /** Needed so `Content-Type` / `Content-Length` only show when a body exists. */
   body: V5.RequestBody;
+  /** Inline conflict chips for header cells + set-remove rows. */
+  conflictBridge?: KeyValueRowConflictBridge;
 }
 
-const HeadersTab: React.FC<HeadersTabProps> = ({ rows, onChange, body }) => {
+const HeadersTab: React.FC<HeadersTabProps> = ({ rows, onChange, body, conflictBridge }) => {
   const { token } = theme.useToken();
   const [showAuto, setShowAuto] = useState(false);
   const [disabledAutoKeys, setDisabledAutoKeys] = useState<Set<string>>(new Set());
@@ -179,6 +186,7 @@ const HeadersTab: React.FC<HeadersTabProps> = ({ rows, onChange, body }) => {
           placeholder: 'Content-Type: application/json\nAuthorization: Bearer {{token}} # auth\n//X-Disabled: value',
         }}
         rowPath={(uid, leaf) => REQUEST_PATHS.header(uid, leaf)}
+        conflictBridge={conflictBridge}
       />
     </div>
   );

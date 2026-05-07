@@ -65,7 +65,11 @@ import AuthorizationTab from './request-editor/AuthorizationTab';
 import BodyTab from './request-editor/BodyTab';
 import DocsTab from './request-editor/DocsTab';
 import HeadersTab from './request-editor/HeadersTab';
-import { type KeyValueRow, makeKvRow } from './request-editor/KeyValueTable';
+import {
+  type KeyValueRow,
+  type KeyValueRowConflictBridge,
+  makeKvRow,
+} from './request-editor/KeyValueTable';
 import ParamsTab from './request-editor/ParamsTab';
 import ScriptsTab from './request-editor/ScriptsTab';
 import SettingsTab, { type RequestSettingsDraft } from './request-editor/SettingsTab';
@@ -545,6 +549,34 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   );
 
   const [isConflictDialogOpen, setConflictDialogOpen] = useState(false);
+
+  // Inline conflict bridges for the Headers + Params tables. Each cell
+  // already writes the local leaf via the table's onChange path; the
+  // bridge only acks the tracker so the chip dismisses + baseline
+  // catches up. Set-remove flows the same way: the row's `onRemove`
+  // drops the row locally, then the bridge acks the `set:*` path.
+  const headerConflictBridge = useMemo<KeyValueRowConflictBridge>(
+    () => ({
+      setPath: REQUEST_PATHS.headerSet,
+      getLeafConflict: (path, local) => conflicts.getConflict(path, local),
+      getSetConflict: (setPath, uid, formContainsUid) =>
+        conflicts.getSetConflict(setPath, uid, formContainsUid),
+      onAcceptTheirs: (path, theirs) => conflicts.acceptTheirs(path, theirs),
+      onDismiss: (path) => conflicts.dismiss(path),
+    }),
+    [conflicts],
+  );
+  const paramConflictBridge = useMemo<KeyValueRowConflictBridge>(
+    () => ({
+      setPath: REQUEST_PATHS.paramSet,
+      getLeafConflict: (path, local) => conflicts.getConflict(path, local),
+      getSetConflict: (setPath, uid, formContainsUid) =>
+        conflicts.getSetConflict(setPath, uid, formContainsUid),
+      onAcceptTheirs: (path, theirs) => conflicts.acceptTheirs(path, theirs),
+      onDismiss: (path) => conflicts.dismiss(path),
+    }),
+    [conflicts],
+  );
 
   // Per-leaf auto-rebase — see EnvironmentEditor for the discipline.
   const applyAutoMerge = useCallback(
@@ -1026,7 +1058,14 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
                 />
               </div>
               <div style={{ flex: 1, overflow: 'auto', padding: '10px 16px' }}>
-                <TabContent tab={activeTab} draft={draft} setDraft={setDraft} settingsValue={settingsValue} />
+                <TabContent
+                  tab={activeTab}
+                  draft={draft}
+                  setDraft={setDraft}
+                  settingsValue={settingsValue}
+                  headerConflictBridge={isCreateMode ? undefined : headerConflictBridge}
+                  paramConflictBridge={isCreateMode ? undefined : paramConflictBridge}
+                />
               </div>
             </div>
             {response && (
@@ -1070,12 +1109,20 @@ const TabContent: React.FC<{
   draft: Draft;
   setDraft: React.Dispatch<React.SetStateAction<Draft>>;
   settingsValue: RequestSettingsDraft;
-}> = ({ tab, draft, setDraft, settingsValue }) => {
+  headerConflictBridge?: KeyValueRowConflictBridge;
+  paramConflictBridge?: KeyValueRowConflictBridge;
+}> = ({ tab, draft, setDraft, settingsValue, headerConflictBridge, paramConflictBridge }) => {
   switch (tab) {
     case 'docs':
       return <DocsTab value={draft.description} onChange={(description) => setDraft((d) => ({ ...d, description }))} />;
     case 'params':
-      return <ParamsTab rows={draft.params} onChange={(params) => setDraft((d) => ({ ...d, params }))} />;
+      return (
+        <ParamsTab
+          rows={draft.params}
+          onChange={(params) => setDraft((d) => ({ ...d, params }))}
+          conflictBridge={paramConflictBridge}
+        />
+      );
     case 'authorization':
       return <AuthorizationTab auth={draft.auth} onChange={(auth) => setDraft((d) => ({ ...d, auth }))} />;
     case 'headers':
@@ -1084,6 +1131,7 @@ const TabContent: React.FC<{
           rows={draft.headers}
           onChange={(headers) => setDraft((d) => ({ ...d, headers }))}
           body={draft.body}
+          conflictBridge={headerConflictBridge}
         />
       );
     case 'body':

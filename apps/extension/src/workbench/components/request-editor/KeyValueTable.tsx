@@ -19,10 +19,11 @@ import {
   type BulkEditConfig,
   EditableGridTable,
   type EditableRowAdapter,
+  type KeyValueRowConflictBridge,
   type SuggestionRow,
 } from './EditableGridTable';
 
-export type { SuggestionRow };
+export type { KeyValueRowConflictBridge, SuggestionRow };
 
 export interface KeyValueRow {
   uid: string;
@@ -53,6 +54,10 @@ interface KeyValueTableProps {
    *  `EditableGridTable.rowPath`). Caller composes the canonical
    *  schema-aligned path string per row index + leaf. */
   rowPath?: (rowId: string, leaf: 'key' | 'value' | 'description') => string;
+  /** Inline conflict bridge — forwarded to `EditableGridTable` so each
+   *  cell can render a `<ConflictDiffChip>` and a per-row
+   *  `<SetRowConflictChip>` driven by the entity-level tracker. */
+  conflictBridge?: KeyValueRowConflictBridge;
 }
 
 /**
@@ -98,6 +103,7 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
   hideEnabled = false,
   bulkEdit,
   rowPath,
+  conflictBridge,
 }) => {
   const { token } = theme.useToken();
 
@@ -111,6 +117,7 @@ const KeyValueTable: React.FC<KeyValueTableProps> = ({
       suggestionRows={suggestionRows}
       bulkEdit={bulkEdit}
       rowPath={rowPath}
+      conflictBridge={conflictBridge}
       renderValueCell={(row, update, ctx) => (
         <TemplateInput
           variant="borderless"
