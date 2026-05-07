@@ -20,6 +20,14 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { App } from 'antd';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+// Monaco (transitively pulled in via EntityConflictDialog) calls
+// `document.queryCommandSupported` at module-load time. The polyfill
+// must run BEFORE any import that reaches Monaco — beforeAll is too
+// late for top-level static imports.
+if (typeof document.queryCommandSupported !== 'function') {
+  document.queryCommandSupported = (() => false) as typeof document.queryCommandSupported;
+}
+
 // EditorHeader (rendered inside LiveWorkflowEditor) reads `keyboard.save`
 // via useShortcutLabel; the registry is populated by importing the
 // schema barrel for its side effects.
@@ -29,6 +37,12 @@ import '@/workbench/settings/schema';
 // AntD primitives rely on ResizeObserver via rc-resize-observer. jsdom
 // doesn't ship one.
 beforeAll(() => {
+  // Monaco (transitively pulled in via EntityConflictDialog) calls
+  // `document.queryCommandSupported` at import time; jsdom doesn't
+  // ship it.
+  if (typeof document.queryCommandSupported !== 'function') {
+    document.queryCommandSupported = (() => false) as typeof document.queryCommandSupported;
+  }
   class ResizeObserverStub implements ResizeObserver {
     observe(): void {}
     unobserve(): void {}

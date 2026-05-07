@@ -49,7 +49,19 @@ import {
 } from '@openheaders/core/live';
 import { LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
 import { EntityScopeProvider, useSetActiveFieldFocus } from '@/shared/awareness';
+import {
+  type ConflictResolution,
+  EntityConflictBanner,
+  EntityConflictDialog,
+  prettyPathMap,
+  useAutoMergeForm,
+} from '@/shared/conflicts';
 import { useEditorShell, useReprime } from '@/shared/editor-shell';
+import { liveWorkflowResolveAdapter } from './live-workflow-conflict-adapter';
+import {
+  projectLiveWorkflowToForm,
+  useLiveWorkflowConflicts,
+} from './use-live-workflow-conflicts';
 import { applyLiveWorkflowPublish } from '@/shared/sync/live-workflow-write-client';
 import { useWorkbenchEditingScopeWorkspaceId } from '../../hooks/EditingScopeWorkspaceContext';
 import type { V5 } from '@openheaders/core/types';
@@ -176,6 +188,11 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
   // `seedAppliedRef` survives auto-rebase + clean-state reseeds.
   const seedAppliedRef = useRef(false);
 
+  // Conflict baseline advances synchronously inside populate via a ref
+  // (tracker is declared after reprime since its `isDirty` flows in
+  // from reprime).
+  const setBaselineRef = useRef<(e: V5.LiveWorkflow) => void>(() => undefined);
+
   const reprime = useReprime<V5.LiveWorkflow>({
     liveEntity: workflow,
     scope: { entityType: LIVE_WORKFLOW_ENTITY_TYPE, entityId: workflow?.uid ?? null },
@@ -183,7 +200,8 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
     formFingerprint,
     signature: (e) => fingerprint(draftFromWorkflow(e, variables)),
     populate: (e) => setDraft(draftFromWorkflow(e, variables)),
-    onPrimed: () => {
+    onPrimed: (e) => {
+      setBaselineRef.current(e);
       if (!seedStep || seedAppliedRef.current) return;
       seedAppliedRef.current = true;
       setDraft((d) => {
@@ -203,6 +221,165 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
     },
   });
   const isDirty = reprime.isDirty;
+
+  const conflicts = useLiveWorkflowConflicts({
+    liveEntity: workflow,
+    isDirty,
+    enabled: workflow != null,
+    entityType: LIVE_WORKFLOW_ENTITY_TYPE,
+  });
+  setBaselineRef.current = conflicts.setBaseline;
+
+  const formProjection = useMemo(
+    () =>
+      draft
+        ? projectLiveWorkflowToForm({
+            name: draft.name,
+            description: draft.description,
+            enabled: draft.enabled,
+            refresh: draft.refresh,
+          })
+        : null,
+    [draft],
+  );
+
+  // Per-leaf auto-rebase. Workflow-level scalars only (steps + captures
+  // deferred — see live-workflow-conflict-adapter.ts header).
+  const applyAutoMerge = useCallback(
+    (path: string, theirs: string) => {
+      if (!workflow || !draft) return;
+      const transient: V5.LiveWorkflow = {
+        ...workflow,
+        name: draft.name,
+        description: draft.description,
+        enabled: draft.enabled,
+        refresh: draft.refresh,
+      };
+      if (!liveWorkflowResolveAdapter.applyResolutionToEntity(transient, path, { base: '', theirs })) return;
+      setDraft((d) =>
+        d
+          ? {
+              ...d,
+              name: transient.name,
+              description: transient.description ?? '',
+              enabled: transient.enabled,
+              refresh: transient.refresh,
+            }
+          : d,
+      );
+    },
+    [workflow, draft],
+  );
+  useAutoMergeForm({ conflicts, formProjection, applyToForm: applyAutoMerge });
+
+  const allConflicts = useMemo(
+    () => (formProjection ? conflicts.getAllConflicts(formProjection) : new Map()),
+    [conflicts, formProjection],
+  );
+  const [isConflictDialogOpen, setConflictDialogOpen] = useState(false);
+
+  const projectWithResolutions = useCallback(
+    (resolutions: ReadonlyMap<string, ConflictResolution>): V5.LiveWorkflow | null => {
+      if (!workflow || !draft) return null;
+      const transient: V5.LiveWorkflow = {
+        ...workflow,
+        name: draft.name,
+        description: draft.description,
+        enabled: draft.enabled,
+        refresh: draft.refresh,
+      };
+      for (const [path, choice] of resolutions) {
+        if (choice !== 'theirs') continue;
+        const conflict = allConflicts.get(path);
+        if (!conflict) continue;
+        liveWorkflowResolveAdapter.applyResolutionToEntity(transient, path, conflict);
+      }
+      return transient;
+    },
+    [allConflicts, draft, workflow],
+  );
+
+  const adoptProjected = useCallback((projected: V5.LiveWorkflow) => {
+    setDraft((d) =>
+      d
+        ? {
+            ...d,
+            name: projected.name,
+            description: projected.description ?? '',
+            enabled: projected.enabled,
+            refresh: projected.refresh,
+          }
+        : d,
+    );
+  }, []);
+
+  const handleKeepAllMine = useCallback(() => {
+    for (const path of allConflicts.keys()) conflicts.dismiss(path);
+  }, [allConflicts, conflicts]);
+
+  const handleUseAllSaved = useCallback(() => {
+    if (!workflow) return;
+    const all = new Map<string, ConflictResolution>();
+    for (const path of allConflicts.keys()) all.set(path, 'theirs');
+    const projected = projectWithResolutions(all);
+    if (!projected) return;
+    adoptProjected(projected);
+    for (const [path, conflict] of allConflicts) conflicts.acceptTheirs(path, conflict.theirs);
+  }, [allConflicts, conflicts, workflow, projectWithResolutions, adoptProjected]);
+
+  const applyResolutions = useCallback(
+    (resolutions: Map<string, ConflictResolution>) => {
+      const projected = projectWithResolutions(resolutions);
+      if (projected) adoptProjected(projected);
+      for (const [path, choice] of resolutions) {
+        const conflict = allConflicts.get(path);
+        if (!conflict) continue;
+        if (choice === 'theirs') conflicts.acceptTheirs(path, conflict.theirs);
+        else conflicts.dismiss(path);
+      }
+    },
+    [allConflicts, conflicts, projectWithResolutions, adoptProjected],
+  );
+
+  const conflictPathLabels = useMemo(
+    () =>
+      workflow
+        ? prettyPathMap(liveWorkflowResolveAdapter, workflow, allConflicts.keys())
+        : new Map<string, string>(),
+    [workflow, allConflicts],
+  );
+
+  const savedText = useMemo(() => {
+    if (!isConflictDialogOpen || !workflow) return '';
+    return JSON.stringify(
+      {
+        name: workflow.name,
+        description: workflow.description ?? '',
+        enabled: workflow.enabled,
+        refresh: workflow.refresh,
+      },
+      null,
+      2,
+    );
+  }, [isConflictDialogOpen, workflow]);
+
+  const buildLocalText = useCallback(
+    (resolutions: ReadonlyMap<string, ConflictResolution>): string => {
+      const projected = projectWithResolutions(resolutions);
+      if (!projected) return '';
+      return JSON.stringify(
+        {
+          name: projected.name,
+          description: projected.description ?? '',
+          enabled: projected.enabled,
+          refresh: projected.refresh,
+        },
+        null,
+        2,
+      );
+    },
+    [projectWithResolutions],
+  );
 
   // Per-field focus path. Live editors don't use antd Form, so focus
   // mapping rides `data-field-path` attributes on field-section
@@ -279,6 +456,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
       }
       // Dirty derives from form-vs-canonical equality; broadcast echo
       // brings live in line with form, useReprime auto-rebase clears.
+      conflicts.clearDismissed();
       return;
     }
     if (result.reason === 'not-found') {
@@ -296,6 +474,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
     createVariable,
     updateVariable,
     deleteVariable,
+    conflicts,
   ]);
 
   const handleSaveSync = useCallback(() => void handleSave(), [handleSave]);
@@ -379,6 +558,12 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
       onBlurCapture={handleBlurCapture}
     >
       <EditorHeader title={editHeaderTitle} actions={editHeaderActions} shell={shell.headerProps} />
+      <EntityConflictBanner
+        count={allConflicts.size}
+        onReview={() => setConflictDialogOpen(true)}
+        onKeepAllMine={handleKeepAllMine}
+        onUseAllSaved={handleUseAllSaved}
+      />
       <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
         <div style={{ maxWidth: 920, margin: '0 auto' }}>
           <div
@@ -477,6 +662,16 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
           <WorkflowFormBody draft={draft} setDraft={setDraft} />
         </div>
       </div>
+      <EntityConflictDialog
+        open={isConflictDialogOpen}
+        savedText={savedText}
+        buildLocalText={buildLocalText}
+        conflicts={allConflicts}
+        localValuesByPath={new Map(Object.entries(formProjection ?? {}))}
+        pathLabels={conflictPathLabels}
+        onResolve={applyResolutions}
+        onClose={() => setConflictDialogOpen(false)}
+      />
     </div>
     </EntityScopeProvider>
   );
