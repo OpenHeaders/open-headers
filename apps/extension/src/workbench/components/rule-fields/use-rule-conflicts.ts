@@ -60,6 +60,7 @@ export function useRuleConflicts(args: UseRuleConflictsArgs): RuleConflictsApi {
     getConflict: api.getConflict,
     getAllConflicts: api.getAllConflicts,
     getSetConflict: api.getSetConflict,
+    getAutoMergeable: api.getAutoMergeable,
     acceptTheirs: api.acceptTheirs,
     dismiss: api.dismiss,
     clearDismissed: api.clearDismissed,

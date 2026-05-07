@@ -27,7 +27,7 @@ import {
 } from '@ant-design/icons';
 import { useRuleMutator } from '@hooks/useRuleMutator';
 import { useRules } from '@hooks/useRules';
-import { serializeRule } from '@openheaders/core/codec/yaml';
+import { canonicalizeRule, serializeRule } from '@openheaders/core/codec/yaml';
 import { freshDocument } from '@openheaders/core/schemas';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
@@ -44,7 +44,7 @@ import {
   useLocalInstanceId,
 } from '@/shared/awareness';
 import type { ConflictResolution } from '@/shared/conflicts';
-import { EntityConflictBanner, EntityConflictDialog } from '@/shared/conflicts';
+import { EntityConflictBanner, EntityConflictDialog, useAutoMergeForm } from '@/shared/conflicts';
 import { useEditorShell, useReprime } from '@/shared/editor-shell';
 import { stableStringify } from '@/shared/forms';
 import { applyRuleCreate, applyRulePublish } from '@/shared/sync/rule-write-client';
@@ -68,6 +68,7 @@ import MockRuleFields, { MOCK_DYNAMIC_TEMPLATE } from './rule-fields/MockRuleFie
 import { prettyRulePathMap } from './rule-fields/pretty-path';
 import QueryParamRuleFields from './rule-fields/QueryParamRuleFields';
 import RedirectRuleFields from './rule-fields/RedirectRuleFields';
+import { mergeRuleForSave } from './rule-fields/merge-rule-for-save';
 import { applyResolutionToForm, applyResolutionToRule } from './rule-fields/rule-form-resolver';
 import type { PathConflict } from './rule-fields/use-rule-conflicts';
 import { useRuleConflicts } from './rule-fields/use-rule-conflicts';
@@ -252,6 +253,12 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   // populate + auto-rebase lifecycle.
   const setBaselineRef = useRef<(r: V5.Rule) => void>(() => undefined);
   const overlayAppliedRef = useRef(false);
+  // Snapshot of the rule the form was last seeded from. Drives the
+  // per-field save merge: Save broadcasts only leaves that diverge from
+  // baseline so a peer's concurrent commit on a different leaf survives.
+  // Advances in lockstep with the conflict tracker baseline (both wired
+  // through `onPrimed`).
+  const baselineRuleRef = useRef<V5.Rule | null>(null);
 
   // Populate the form from a persisted rule. `useReprime` calls this
   // on initial seed and broadcast catch-up; conflict-tracker baseline
@@ -366,6 +373,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     populate: populateFormFromRule,
     onPrimed: (rule) => {
       setBaselineRef.current(rule);
+      baselineRuleRef.current = rule;
       if (overlayAppliedRef.current) return;
       overlayAppliedRef.current = true;
 
@@ -471,6 +479,23 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     [formProjection, formSetOrders, conflicts],
   );
 
+  // Per-leaf auto-rebase via the shared `useAutoMergeForm` — when a peer
+  // commits to a leaf the user hasn't touched in this tab, silently catch
+  // the form up even when other leaves are dirty. Whole-form reprime gates
+  // on every leaf clean and stops working the moment one leaf is dirty;
+  // this complements it for the partial-dirty case (§6.2 killer demo).
+  // Real conflicts (same leaf edited in both tabs) are filtered out by
+  // `getAutoMergeable`'s form !== baseline guard and continue surfacing as
+  // chips.
+  const applyAutoMerge = useCallback(
+    (path: string, theirs: string) => {
+      if (!liveRule) return;
+      applyResolutionToForm(form, liveRule, path, { base: '', theirs });
+    },
+    [form, liveRule],
+  );
+  useAutoMergeForm({ conflicts, formProjection, applyToForm: applyAutoMerge });
+
   const [isConflictDialogOpen, setConflictDialogOpen] = useState(false);
 
   const handleKeepAllMine = useCallback(() => {
@@ -513,7 +538,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   const savedYaml = useMemo(() => {
     if (!isConflictDialogOpen || !liveRule) return '';
     try {
-      return serializeRule(freshDocument(liveRule));
+      return serializeRule(freshDocument(canonicalizeRule(liveRule)));
     } catch {
       return '';
     }
@@ -546,7 +571,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         applyResolutionToRule(localRule, path, conflict);
       }
       try {
-        return serializeRule(freshDocument(localRule));
+        return serializeRule(freshDocument(canonicalizeRule(localRule)));
       } catch {
         return '';
       }
@@ -784,14 +809,19 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         message.error('Unknown rule type');
         return;
       }
-      // Save = commit form values + flip publication gate. Two batches:
-      // the content commit fires DNR rebuild via the per-mutator side
-      // effects (header/redirect/etc. mutators emit recompile intents
+      // Save = the only broadcast point (rules intercept live HTTP traffic;
+      // per-keystroke streaming would leak half-typed values into the
+      // network path). Rebase the form against the latest canonical at
+      // field granularity so the batch carries only leaves the user
+      // actually edited — without this, untouched leaves travel as setField
+      // writes and silently overwrite a peer's concurrent edit on the same
+      // leaf via per-itemId / per-leaf LWW.
+      const merged = mergeRuleForSave(rule, baselineRuleRef.current, liveRule);
+      // Two batches: the content commit fires DNR rebuild via the per-mutator
+      // side effects (header/redirect/etc. mutators emit recompile intents
       // when their fields change); the publish call adds an explicit
-      // recompile + the `published` field flip. Per-keystroke streaming
-      // (§19.1) lands later — when it does, the content-commit step
-      // will be a no-op because every keystroke already streamed.
-      const updates = rule as Partial<Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>>;
+      // recompile + the `published` field flip.
+      const updates = merged as Partial<Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>>;
       const updated = await mutator.updateRule(ruleUid, updates);
       if (!updated.ok) {
         if (updated.reason === 'not-found') message.error('Rule was deleted from another tab');

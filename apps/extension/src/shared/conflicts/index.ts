@@ -40,3 +40,5 @@ export {
 } from './conflict-adapters';
 export { useEntityConflicts } from './use-entity-conflicts';
 export type { EntityConflictsApi, UseEntityConflictsArgs } from './use-entity-conflicts';
+export { useAutoMergeForm } from './use-auto-merge-form';
+export type { UseAutoMergeFormArgs } from './use-auto-merge-form';

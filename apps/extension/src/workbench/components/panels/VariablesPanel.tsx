@@ -901,15 +901,26 @@ function ScopeSection({
     <div style={{ borderBottom: `1px solid ${token.colorBorderSecondary}`, padding: '8px 0' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
         {scopeBadge(scope, 16)}
-        <Text strong style={{ fontSize: 11 }}>
+        <Text strong style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
           {config.label}
         </Text>
         {subtitle && (
-          <Text type="secondary" style={{ fontSize: 10 }}>
+          <Text
+            type="secondary"
+            style={{
+              fontSize: 10,
+              flex: 1,
+              minWidth: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+            title={subtitle}
+          >
             : {subtitle}
           </Text>
         )}
-        <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           {onOpenEditor ? (
             <Tooltip title={`Open the ${config.label.toLowerCase()} variables editor`}>
               <Text
@@ -929,7 +940,7 @@ function ScopeSection({
               </Text>
             </Tooltip>
           ) : null}
-          <Text type="secondary" style={{ fontSize: 9 }}>
+          <Text type="secondary" style={{ fontSize: 9, whiteSpace: 'nowrap' }}>
             {config.priority} priority
           </Text>
         </span>

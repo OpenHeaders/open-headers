@@ -8,6 +8,8 @@ export { default as PresenceBadge } from './PresenceBadge';
 export type { PresenceBadgeProps } from './PresenceBadge';
 export { default as FieldPresenceChip } from './FieldPresenceChip';
 export type { FieldPresenceChipProps } from './FieldPresenceChip';
+export { default as InputFieldPresenceSlot } from './InputFieldPresenceSlot';
+export type { InputFieldPresenceSlotProps } from './InputFieldPresenceSlot';
 export { default as TabPresenceBadge } from './TabPresenceBadge';
 export type { TabPresenceBadgeProps } from './TabPresenceBadge';
 export { default as AwarenessPill } from './AwarenessPill';

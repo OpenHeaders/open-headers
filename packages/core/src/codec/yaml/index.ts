@@ -50,7 +50,7 @@ export {
 export type { RequestCodecContext, RequestSerializeOutput, RequestSiblingFile } from './request';
 export { parseRequest, serializeRequest } from './request';
 export type { RuleCodecContext } from './rule';
-export { parseRule, serializeRule } from './rule';
+export { canonicalizeRule, parseRule, serializeRule } from './rule';
 export type { TemplateCodecContext } from './template';
 export { parseTemplate, serializeTemplate } from './template';
 export { parseVault, parseWorkspaceVariables, serializeVault, serializeWorkspaceVariables } from './variables';

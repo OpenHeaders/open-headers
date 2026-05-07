@@ -84,6 +84,14 @@ export interface EntityConflictsApi<E> {
    *  row chips to surface "saved version removed this row" without
    *  the caller having to project the whole form. */
   getSetConflict: (setPath: string, uid: string, formContainsUid: boolean) => PathConflict | null;
+  /** Leaves where `form === baseline` (user didn't touch) AND `live`
+   *  diverged from baseline (peer committed). Caller writes each
+   *  `theirs` into the form and calls `acceptTheirs(path, theirs)`
+   *  to advance baseline — same shape as the manual "Use saved"
+   *  affordance, but applied automatically because there's no real
+   *  conflict (only one side edited). Implements §6.2's killer-demo
+   *  promise: different paths apply unconditionally. */
+  getAutoMergeable: (form: PathMap) => Map<string, string>;
   /** Accept the external value at path: align baseline + dismiss. */
   acceptTheirs: (path: string, theirs: string) => void;
   /** Dismiss the chip without taking theirs. */
@@ -254,6 +262,33 @@ export function useEntityConflicts<E extends { uid: string }>(
     [enabled, isDirty, liveEntity, dismissed, localInstanceId, adapter, entityType],
   );
 
+  const getAutoMergeable = useCallback(
+    (form: PathMap): Map<string, string> => {
+      const out = new Map<string, string>();
+      if (!enabled || !liveEntity) return out;
+      const baseline = baselineRef.current;
+      if (!baseline) return out;
+      // Walk every baseline path. For each leaf where the user's value
+      // matches baseline (untouched) AND live diverged, surface the
+      // (path, live) pair so the caller can silently catch up. Whole-form
+      // dirty no longer blocks per-leaf rebase — only THIS leaf being
+      // dirty does. §6.2 killer-demo conformance.
+      for (const path of Object.keys(baseline.paths)) {
+        const base = overrides[path] ?? baseline.paths[path];
+        if (base === undefined) continue;
+        const local = form[path];
+        if (local === undefined) continue;
+        if (local !== base) continue; // user edited — not auto-mergeable
+        const theirs = adapter.readPath(liveEntity, path);
+        if (theirs === null) continue;
+        if (theirs === base) continue; // no peer change
+        out.set(path, theirs);
+      }
+      return out;
+    },
+    [enabled, liveEntity, overrides, adapter],
+  );
+
   const getConflict = useCallback(
     (path: string, localValue: string): PathConflict | null => {
       if (!enabled || !isDirty || !liveEntity) return null;
@@ -399,12 +434,23 @@ export function useEntityConflicts<E extends { uid: string }>(
       getConflict,
       getAllConflicts,
       getSetConflict,
+      getAutoMergeable,
       acceptTheirs,
       dismiss,
       clearDismissed,
       projectEntity,
     }),
-    [setBaseline, getConflict, getAllConflicts, getSetConflict, acceptTheirs, dismiss, clearDismissed, projectEntity],
+    [
+      setBaseline,
+      getConflict,
+      getAllConflicts,
+      getSetConflict,
+      getAutoMergeable,
+      acceptTheirs,
+      dismiss,
+      clearDismissed,
+      projectEntity,
+    ],
   );
 }
 
