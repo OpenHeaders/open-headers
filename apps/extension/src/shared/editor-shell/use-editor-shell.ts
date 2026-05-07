@@ -108,29 +108,37 @@ export function useEditorShell(input: UseEditorShellInput): UseEditorShellOutput
     registerSaveRef?.(onSave);
   }, [registerSaveRef, onSave]);
 
-  // Lifecycle status — same precedence as `useWorkflowNodes` in the
-  // sidebar so the chip / sidebar badge / tab prefix icon never
-  // disagree. Each editor passes the SAME predicates the sidebar /
-  // tab use (`isXComplete`, `unresolvableXUids.has(uid)`, `entity.enabled`,
-  // `entity.published`) — no separate completeness logic anywhere.
+  // Lifecycle status — mirrors the EXACT precedence the tab prefix
+  // icon + sidebar badge use, so the editor chip never tells a
+  // different story. Each editor passes the SAME predicates the
+  // sidebar / tab consume: `isXComplete()`, `unresolvableXUids.has(uid)`,
+  // `entity.enabled`, `entity.published`.
   //
-  //   create-mode (no entity yet)              → 'scratch'
-  //   unpublished + !complete                  → 'incomplete'
-  //   unpublished + complete + unresolved      → 'unresolved'
-  //   unpublished + complete + resolved        → 'draft'
-  //   published + !enabled                     → 'off'
-  //   published + enabled (or no gate)         → null (Live)
+  //   create-mode (no entity yet)         → 'scratch'
+  //   !complete                           → 'incomplete'   (whether published or not)
+  //   complete + unresolved               → 'unresolved'   (whether published or not)
+  //   !published + complete + resolved    → 'draft'
+  //   published + !enabled                → 'off'
+  //   published + enabled + complete + resolved → null (Live)
   //
-  // `isComplete` / `isUnresolved` / `isEnabled` undefined ⇒ that axis
-  // is treated as "fine" so the editor doesn't have to opt into every
-  // axis. Editors with no publication gate land in `null`.
+  // Completeness/resolution beat publication state: a published rule
+  // whose required fields were cleared can't fire — same gray tab
+  // icon treatment, same chip. The publication-state buckets
+  // (`draft` / `off` / `null`) only kick in once the entity is
+  // structurally valid.
+  //
+  // Undefined inputs are treated as "fine" on that axis so editors
+  // don't have to opt into every one (a request editor with no
+  // publication gate lands on `null` once minted).
   let status: EditorLifecycleStatus;
   if (entityId === null) {
     status = 'scratch';
+  } else if (isComplete === false) {
+    status = 'incomplete';
+  } else if (isUnresolved === true) {
+    status = 'unresolved';
   } else if (isPublished === false) {
-    if (isComplete === false) status = 'incomplete';
-    else if (isUnresolved === true) status = 'unresolved';
-    else status = 'draft';
+    status = 'draft';
   } else if (isEnabled === false) {
     status = 'off';
   } else {
