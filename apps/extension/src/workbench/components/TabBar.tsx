@@ -144,22 +144,16 @@ export function tabIcon(
     // Request tabs carry the HTTP method as their "icon" — compact
     // color-coded marker readable at tab-strip density.
     //
-    // `request-edit` tabs mirror the rule-tab treatment: a persisted
-    // request that `isRequestComplete` rejects (empty URL, unfilled
-    // auth field, …) renders as a greyed method tag — the same "draft"
-    // visual users already know from rules. `request-create` tabs
-    // stay colored because the user is in the middle of building the
-    // request and completeness isn't known until save.
+    // `request-create` tabs are scratch (not yet persisted) — gray
+    // method tag matches the gray dot on the same axis. `request-edit`
+    // tabs are colored unless the persisted request is incomplete or
+    // has unresolved refs (mirrors the rule-tab "draft" treatment).
     const method = tab.ruleType || 'GET';
     const request =
       tab.mode === 'request-edit' && tab.requestUid ? requests.find((r) => r.uid === tab.requestUid) : undefined;
     const incomplete = request ? !isRequestComplete(request) : false;
-    // Request won't send when structurally incomplete OR when refs
-    // don't resolve — the DNR discipline mirrored to the request
-    // executor. Grey the method in both cases (same iconography); the
-    // sidebar badge + Send-button tooltip distinguish the two causes.
     const unresolved = request ? unresolvableRequestUids.has(request.uid) : false;
-    const muted = incomplete || unresolved;
+    const muted = tab.mode === 'request-create' || incomplete || unresolved;
     const color = muted ? TAB_ICON_GRAY : (REQUEST_METHOD_COLORS[method] ?? '#999');
     return (
       <span
@@ -403,8 +397,15 @@ const TabPillContent: React.FC<TabPillContentProps> = ({
       <span className="rules-tab-label" style={isRuleDraftTab(tab, rules) ? { fontStyle: 'italic' } : undefined}>
         {renderTabLabel(tab, displayLabel)}
       </span>
-      {(tab.dirty || isCreateDraftMode(tab)) && (
-        <span className="rules-tab-unsaved" style={{ background: tab.dirty ? '#ff7875' : '#999' }} />
+      {/* Gray dot signals a not-yet-persisted scratch tab (always wins
+          over orange so the "scratch vs real entity" distinction reads
+          regardless of dirty edits). Orange dot only fires on a
+          persisted entity whose form has uncommitted edits. */}
+      {(isCreateDraftMode(tab) || tab.dirty) && (
+        <span
+          className="rules-tab-unsaved"
+          style={{ background: isCreateDraftMode(tab) ? '#999' : '#ff7875' }}
+        />
       )}
       {onClose && (
         <CloseOutlined
@@ -910,13 +911,13 @@ const TabSearchDropdown: React.FC<TabSearchProps> = ({
                     </span>
                   )}
                 </span>
-                {(tab.dirty || isCreateDraftMode(tab)) && (
+                {(isCreateDraftMode(tab) || tab.dirty) && (
                   <span
                     style={{
                       width: 6,
                       height: 6,
                       borderRadius: '50%',
-                      background: tab.dirty ? '#ff7875' : '#999',
+                      background: isCreateDraftMode(tab) ? '#999' : '#ff7875',
                       flexShrink: 0,
                     }}
                   />
