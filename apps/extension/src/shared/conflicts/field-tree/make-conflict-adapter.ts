@@ -526,7 +526,44 @@ export function makeConflictAdapter<E>(args: MakeAdapterArgs<E>): Adapters<E> {
             | undefined);
       return { kind: disc ?? null, branch };
     },
+    setOrderSensitivity() {
+      // Built once per adapter instance — collectSetMetadata walks the
+      // schema, not the entity, so the map is stable across entities.
+      return SCHEMA_SET_ORDER_SENSITIVITY;
+    },
   };
+
+  // Static schema walk to find every uid-set's `orderSensitive` flag.
+  // Doesn't depend on the entity, so we cache once at adapter build.
+  const SCHEMA_SET_ORDER_SENSITIVITY: ReadonlyMap<string, boolean> = (() => {
+    const out = new Map<string, boolean>();
+    const visit = (node: FieldNode, prefix: string): void => {
+      if (node.kind === 'object') {
+        for (const [key, child] of Object.entries(node.children)) {
+          visit(child, prefix ? `${prefix}.${key}` : key);
+        }
+        return;
+      }
+      if (node.kind === 'set' && node.identity === 'uid') {
+        out.set(prefix, node.orderSensitive === true);
+        if (node.child.kind === 'object' || node.child.kind === 'union') {
+          // Set-of-sets is rare; descend so nested uid-sets can declare
+          // their own sensitivity. Prefix can't be statically extended
+          // here (uid is part of the path), so we visit the child without
+          // appending — the entity-level walk handles uid expansion.
+          visit(node.child, prefix);
+        }
+        return;
+      }
+      if (node.kind === 'union') {
+        for (const branch of Object.values(node.branches)) {
+          visit(branch, prefix);
+        }
+      }
+    };
+    visit(args.schema, '');
+    return out;
+  })();
 
   function resolveFormName(
     entity: E,

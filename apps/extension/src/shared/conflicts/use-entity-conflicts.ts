@@ -104,8 +104,17 @@ export interface EntityConflictsApi<E> {
    *  the form's array in place via uid — leaf edits on rows that
    *  moved carry their identity through the reorder. Returns empty
    *  for sets where my order also diverged (membership or order
-   *  conflict — those keep going through the dialog). */
+   *  conflict — those keep going through the dialog).
+   *
+   *  For order-sensitive sets (DNR header rules, query-param actions),
+   *  the rebase is suppressed when ANY leaf in that set is locally
+   *  dirty: the user is reasoning by row position, and silent
+   *  reordering under a pending edit would change semantic meaning.
+   *  Those cases fall through to the dialog's set-reorder row.
+   *  `form` is the path-keyed projection that lets the hook compare
+   *  per-leaf form vs baseline under each set's prefix. */
   getAutoMergeableSetOrders: (
+    form: PathMap,
     formSetOrders: ReadonlyMap<string, readonly string[]>,
   ) => Map<string, readonly string[]>;
   /** Accept the external value at path: align baseline + dismiss. */
@@ -347,11 +356,15 @@ export function useEntityConflicts<E extends { uid: string }>(
   );
 
   const getAutoMergeableSetOrders = useCallback(
-    (formSetOrders: ReadonlyMap<string, readonly string[]>): Map<string, readonly string[]> => {
+    (
+      form: PathMap,
+      formSetOrders: ReadonlyMap<string, readonly string[]>,
+    ): Map<string, readonly string[]> => {
       const out = new Map<string, readonly string[]>();
       if (!enabled || !liveEntity) return out;
       const baseline = baselineRef.current;
       if (!baseline) return out;
+      const sensitivity = adapter.setOrderSensitivity?.() ?? new Map<string, boolean>();
       const liveSets = adapter.snapshotSets(liveEntity);
       for (const liveSnap of liveSets) {
         const setPath = liveSnap.setPath;
@@ -359,6 +372,25 @@ export function useEntityConflicts<E extends { uid: string }>(
         if (!baselineOrder) continue;
         const formOrder = formSetOrders.get(setPath);
         if (!formOrder) continue;
+        // Order-sensitive set: refuse silent rebase when the user has
+        // any leaf edit pending in this set. Falls through to the
+        // dialog's `set-reorder` row so the user resolves the
+        // semantic shift themselves rather than getting silently
+        // re-positioned mid-edit.
+        if (sensitivity.get(setPath) === true) {
+          const setPrefix = `${setPath}.`;
+          let inSetEditDirty = false;
+          for (const path of Object.keys(baseline.paths)) {
+            if (!path.startsWith(setPrefix)) continue;
+            const base = overrides[path] ?? baseline.paths[path];
+            const local = form[path];
+            if (local !== undefined && local !== base) {
+              inSetEditDirty = true;
+              break;
+            }
+          }
+          if (inSetEditDirty) continue;
+        }
         const liveOrder = Array.from(liveSnap.byUid.keys());
         // Auto-rebase requires:
         //   - my form-order == baseline-order (I didn't reorder)
@@ -395,7 +427,7 @@ export function useEntityConflicts<E extends { uid: string }>(
       }
       return out;
     },
-    [enabled, liveEntity, adapter, setOrderOverrides],
+    [enabled, liveEntity, adapter, setOrderOverrides, overrides],
   );
 
   const getConflict = useCallback(

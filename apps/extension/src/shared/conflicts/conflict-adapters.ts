@@ -83,6 +83,13 @@ export interface ConflictTrackingAdapter<E> {
    *  (write the new branch object + the discriminator) when the user
    *  picks "Use saved" on a structural kind transition. */
   readUnionBranchInfo?(entity: E, prefix: string): UnionBranchInfo | null;
+  /** Optional: per-set flag indicating whether row order carries
+   *  semantic meaning. The conflict tracker uses this to gate the
+   *  silent reorder rebase — order-sensitive sets fall through to the
+   *  dialog when peer reorder + local leaf edits combine, so the user
+   *  decides instead of getting silently re-positioned mid-edit.
+   *  Sets absent from the map default to `false` (order-insensitive). */
+  setOrderSensitivity?(): ReadonlyMap<string, boolean>;
 }
 
 /** Whole-branch payload at a `union:<prefix>` divergence. The

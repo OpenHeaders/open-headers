@@ -85,7 +85,10 @@ export function useAutoMergeForm<E extends { uid: string }>(args: UseAutoMergeFo
       conflicts.acceptTheirs(path, theirs);
     }
     if (applyToFormReorder) {
-      const autoOrders = conflicts.getAutoMergeableSetOrders(formSetOrders ?? EMPTY_SET_ORDERS);
+      const autoOrders = conflicts.getAutoMergeableSetOrders(
+        formProjection,
+        formSetOrders ?? EMPTY_SET_ORDERS,
+      );
       for (const [setPath, savedOrder] of autoOrders) {
         applyToFormReorder(setPath, savedOrder);
         conflicts.acceptTheirsSetOrder(setPath, savedOrder);

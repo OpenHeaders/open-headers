@@ -288,12 +288,27 @@ function makeTrackingAdapter<E extends { uid: string }>(
     return out;
   }
 
+  function setOrderSensitivity(): ReadonlyMap<string, boolean> {
+    // Walker carries the per-set order-sensitivity flags from the
+    // schema; conditions are emitted by the wrapper outside the walker
+    // and explicitly mark themselves as order-insensitive — condition
+    // rows are AND-combined across the set, position has no semantic
+    // meaning. Merge the two so the hook sees a complete map.
+    const out = new Map<string, boolean>(walker.tracking.setOrderSensitivity?.() ?? []);
+    out.set('conditions', false);
+    return out;
+  }
+
   return {
     signature: accessors.signature,
     extractBaseline,
     readPath,
     snapshotSets,
     snapshotSetsFromForm,
+    readUnionBranchInfo: walker.tracking.readUnionBranchInfo
+      ? (entity, prefix) => walker.tracking.readUnionBranchInfo!(entity, prefix)
+      : undefined,
+    setOrderSensitivity,
   };
 }
 

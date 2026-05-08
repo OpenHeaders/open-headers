@@ -75,6 +75,10 @@ function buildActionUnion(paths: ActionPathBundle, discriminatorField: string): 
             return h.headerName ? `Request header ${h.headerName}` : 'Request header';
           },
           child: HEADER_MOD_ROW,
+          // Order is semantic — DNR processes same-name actions in order
+          // (last override wins; append/merge stack in order). Peer reorder
+          // + local leaf edit must surface as a conflict, not silent rebase.
+          orderSensitive: true,
         }),
         responseHeaders: setByUid({
           summary: summarizeHeader,
@@ -83,6 +87,7 @@ function buildActionUnion(paths: ActionPathBundle, discriminatorField: string): 
             return h.headerName ? `Response header ${h.headerName}` : 'Response header';
           },
           child: HEADER_MOD_ROW,
+          orderSensitive: true,
         }),
       }),
       'query-param': obj({
@@ -93,6 +98,7 @@ function buildActionUnion(paths: ActionPathBundle, discriminatorField: string): 
             return p.param ? `Param ${p.param}` : 'Param';
           },
           child: QUERY_PARAM_ROW,
+          orderSensitive: true,
         }),
       }),
       redirect: obj({

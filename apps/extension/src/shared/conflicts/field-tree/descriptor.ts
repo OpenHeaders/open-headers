@@ -83,6 +83,16 @@ export type FieldNode =
       child: FieldNode;
       /** Optional human-friendly label for `prettyPath` on set-level keys. */
       rowLabel?: (row: unknown) => string;
+      /** When true, row order carries semantic meaning beyond visual
+       *  organization (e.g. DNR last-write-wins on duplicate header
+       *  names; query-param append stacking). The conflict tracker
+       *  refuses to silently auto-rebase a peer reorder on this set if
+       *  the user has any leaf edit pending in it — a peer-side reorder
+       *  changes the user's by-position mental model. Order-insensitive
+       *  sets (default) silent-rebase whenever the user's order matches
+       *  baseline, since uid identity carries each row's data through
+       *  the move regardless. */
+      orderSensitive?: boolean;
     }
   | { kind: 'set'; identity: 'value'; summary?: (value: string) => string }
   | {
@@ -136,8 +146,20 @@ export const enumLeaf = (
 export const obj = (children: Record<string, FieldNode>): FieldNode => ({ kind: 'object', children });
 
 export const setByUid = (
-  args: { summary: (row: unknown) => string; rowLabel?: (row: unknown) => string; child: FieldNode },
-): FieldNode => ({ kind: 'set', identity: 'uid', summary: args.summary, rowLabel: args.rowLabel, child: args.child });
+  args: {
+    summary: (row: unknown) => string;
+    rowLabel?: (row: unknown) => string;
+    child: FieldNode;
+    orderSensitive?: boolean;
+  },
+): FieldNode => ({
+  kind: 'set',
+  identity: 'uid',
+  summary: args.summary,
+  rowLabel: args.rowLabel,
+  child: args.child,
+  orderSensitive: args.orderSensitive,
+});
 
 export const setByValue = (summary?: (value: string) => string): FieldNode => ({
   kind: 'set',

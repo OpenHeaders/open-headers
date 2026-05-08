@@ -128,7 +128,7 @@ describe('useRuleConflicts', () => {
       const formOrders = new Map([
         ['action.requestHeaders', ['a0000001', 'b0000002', 'c0000003'] as const],
       ]);
-      const auto = result.current.getAutoMergeableSetOrders(formOrders);
+      const auto = result.current.getAutoMergeableSetOrders({}, formOrders);
       expect([...(auto.get('action.requestHeaders') ?? [])]).toEqual(['a0000001', 'c0000003', 'b0000002']);
     });
 
@@ -139,7 +139,7 @@ describe('useRuleConflicts', () => {
       const formOrders = new Map([
         ['action.requestHeaders', ['b0000002', 'a0000001', 'c0000003'] as const],
       ]);
-      expect(result.current.getAutoMergeableSetOrders(formOrders).size).toBe(0);
+      expect(result.current.getAutoMergeableSetOrders({}, formOrders).size).toBe(0);
     });
 
     it('skips the auto-rebase when membership differs (delete + reorder; falls through to dialog territory)', () => {
@@ -147,7 +147,39 @@ describe('useRuleConflicts', () => {
       const { result } = mount(live, true);
       act(() => result.current.setBaseline(ruleWithThreeHeaders(['a0000001', 'b0000002', 'c0000003'])));
       const formOrders = new Map([['action.requestHeaders', ['a0000001', 'b0000002'] as const]]);
-      expect(result.current.getAutoMergeableSetOrders(formOrders).size).toBe(0);
+      expect(result.current.getAutoMergeableSetOrders({}, formOrders).size).toBe(0);
+    });
+
+    it('skips the rebase on order-sensitive sets when ANY leaf in that set is locally dirty', () => {
+      // Header rules are order-sensitive (DNR last-write-wins on same name).
+      // Tab 2 has C.value mid-edit; Tab 1 reorders. Even though my form-order
+      // matches baseline, the rebase must NOT silently fire — silent
+      // reorder-under-an-edit changes by-position semantics. Falls through
+      // to the dialog's set-reorder row.
+      const live = ruleWithThreeHeaders(['a0000001', 'c0000003', 'b0000002'], { c0000003: 'v-c' });
+      const { result } = mount(live, true);
+      act(() =>
+        result.current.setBaseline(ruleWithThreeHeaders(['a0000001', 'b0000002', 'c0000003'], { c0000003: 'v-c' })),
+      );
+      const formOrders = new Map([
+        ['action.requestHeaders', ['a0000001', 'b0000002', 'c0000003'] as const],
+      ]);
+      // Local form has C.value=modified — leaf-dirty in the set.
+      const form = {
+        'action.requestHeaders.a0000001.headerName': 'X-A0000001',
+        'action.requestHeaders.a0000001.value': 'v-a0000001',
+        'action.requestHeaders.a0000001.operation': 'override',
+        'action.requestHeaders.a0000001.mergeSeparator': '',
+        'action.requestHeaders.b0000002.headerName': 'X-B0000002',
+        'action.requestHeaders.b0000002.value': 'v-b0000002',
+        'action.requestHeaders.b0000002.operation': 'override',
+        'action.requestHeaders.b0000002.mergeSeparator': '',
+        'action.requestHeaders.c0000003.headerName': 'X-C0000003',
+        'action.requestHeaders.c0000003.value': 'modified-locally',
+        'action.requestHeaders.c0000003.operation': 'override',
+        'action.requestHeaders.c0000003.mergeSeparator': '',
+      };
+      expect(result.current.getAutoMergeableSetOrders(form, formOrders).size).toBe(0);
     });
 
     it('acceptTheirsSetOrder advances the per-set baseline so the next peer reorder rebases off the new state', () => {
@@ -162,8 +194,34 @@ describe('useRuleConflicts', () => {
       const formOrders = new Map([
         ['action.requestHeaders', ['a0000001', 'c0000003', 'b0000002'] as const],
       ]);
-      const auto = result.current.getAutoMergeableSetOrders(formOrders);
+      const auto = result.current.getAutoMergeableSetOrders({}, formOrders);
       expect([...(auto.get('action.requestHeaders') ?? [])]).toEqual(['c0000003', 'a0000001', 'b0000002']);
+    });
+
+    it('rebases silently on order-sensitive sets when no leaf in the set is dirty (untouched user case)', () => {
+      const live = ruleWithThreeHeaders(['a0000001', 'c0000003', 'b0000002']);
+      const { result } = mount(live, true);
+      act(() => result.current.setBaseline(ruleWithThreeHeaders(['a0000001', 'b0000002', 'c0000003'])));
+      const formOrders = new Map([
+        ['action.requestHeaders', ['a0000001', 'b0000002', 'c0000003'] as const],
+      ]);
+      // Form matches baseline at every leaf — no in-set edits.
+      const form = {
+        'action.requestHeaders.a0000001.headerName': 'X-A0000001',
+        'action.requestHeaders.a0000001.value': 'v-a0000001',
+        'action.requestHeaders.a0000001.operation': 'override',
+        'action.requestHeaders.a0000001.mergeSeparator': '',
+        'action.requestHeaders.b0000002.headerName': 'X-B0000002',
+        'action.requestHeaders.b0000002.value': 'v-b0000002',
+        'action.requestHeaders.b0000002.operation': 'override',
+        'action.requestHeaders.b0000002.mergeSeparator': '',
+        'action.requestHeaders.c0000003.headerName': 'X-C0000003',
+        'action.requestHeaders.c0000003.value': 'v-c0000003',
+        'action.requestHeaders.c0000003.operation': 'override',
+        'action.requestHeaders.c0000003.mergeSeparator': '',
+      };
+      const auto = result.current.getAutoMergeableSetOrders(form, formOrders);
+      expect([...(auto.get('action.requestHeaders') ?? [])]).toEqual(['a0000001', 'c0000003', 'b0000002']);
     });
   });
 
