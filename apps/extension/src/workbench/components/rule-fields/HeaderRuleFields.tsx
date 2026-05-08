@@ -45,14 +45,19 @@ import { generateUid, getHeaderOperationCapability } from '@openheaders/core/uti
 import { Alert, Button, Form, Input, Select, Tabs, Tooltip, Typography } from 'antd';
 import type React from 'react';
 import {
-  ConflictDiffChip,
   EntityField,
-  SetRowConflictChip,
   TabPresenceBadge,
   useActionPaths,
   useEntityScope,
 } from '@/shared/awareness';
+import {
+  ConflictsProvider,
+  type FieldConflictsApi,
+  FieldConflictChip,
+  SetRowChip,
+} from '@/shared/conflicts/Field';
 import type { PathConflict } from '@/shared/conflicts/types';
+import { useMemo } from 'react';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../InspectorDocs';
 import { TemplateInput } from '../template-input';
@@ -72,16 +77,6 @@ const OPERATIONS = [
 
 type HeaderOp = 'override' | 'add' | 'remove' | 'merge';
 
-interface ConflictHandlers {
-  getConflict: (path: string, localValue: string) => PathConflict | null;
-  /** Optional row-level lookup: returns a `set-remove` conflict when the
-   *  saved version dropped this row but the form still has it. Renders
-   *  the inline `<SetRowConflictChip>`. */
-  getSetConflict?: (setPath: string, uid: string, formContainsUid: boolean) => PathConflict | null;
-  onAcceptTheirs: (path: string, theirs: string) => void;
-  onDismissConflict: (path: string) => void;
-}
-
 interface ModificationListProps {
   /** Form.List parent field name — 'requestHeaders' or 'responseHeaders'. */
   name: 'requestHeaders' | 'responseHeaders';
@@ -91,10 +86,9 @@ interface ModificationListProps {
    *  drafts (create mode) — chips are entity-bound, drafts have no uid. */
   ruleUid?: string;
   excludeInstanceId?: string;
-  conflicts?: ConflictHandlers;
 }
 
-function ModificationList({ name, direction, ruleUid, excludeInstanceId, conflicts }: ModificationListProps) {
+function ModificationList({ name, direction, ruleUid, excludeInstanceId }: ModificationListProps) {
   const { openDocs: openDocsInline } = useInspectorNav();
   const paths = useActionPaths();
   const form = Form.useFormInstance();
@@ -273,81 +267,33 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId, conflic
                     );
                   }}
                 </Form.Item>
-                {/* ConflictDiffChip — free-text leaves only. The chip
-                    consumes the same RULE_FIELD path the wrapper publishes,
-                    so peer presence + diff resolution align by construction.
-                    Headed name + value get diffs; operation + mergeSeparator
-                    are short typed scalars where a banner-style "they
-                    changed it" doesn't add value beyond presence. */}
-                {/* Per-row "saved version removed this row" chip — surfaces
-                    set-level conflicts inline, parallel to the leaf
-                    conflict chip below. The form still owns the row;
-                    user picks "Use saved (remove)" to drop it or
-                    "Keep mine" to dismiss. */}
-                {ruleUid && conflicts?.getSetConflict && rowUid && (() => {
-                  const setPath = paths.headerSet(direction);
-                  const setRemove = conflicts.getSetConflict(setPath, rowUid, true);
-                  if (!setRemove || setRemove.kind !== 'set-remove') return null;
-                  return (
-                    <SetRowConflictChip
-                      baseSummary={setRemove.base}
-                      remote={setRemove.remote}
-                      onUseSaved={() => {
-                        remove(field.name);
-                        conflicts.onAcceptTheirs(`set:${setPath}.${rowUid}`, '');
-                      }}
-                      onKeepMine={() => conflicts.onDismissConflict(`set:${setPath}.${rowUid}`)}
+                {/* Per-row + per-leaf conflict affordances — replaced the
+                    legacy inline shouldUpdate-Form.Item-ConflictDiffChip
+                    plumbing with the field-tree primitive. `<SetRowChip>`
+                    surfaces "saved version removed this row";
+                    `<FieldConflictChip>` surfaces per-leaf diffs for
+                    free-text leaves only (operation + mergeSeparator are
+                    short typed scalars where a banner-style "they changed
+                    it" doesn't add value beyond presence). */}
+                {ruleUid && rowUid && (
+                  <SetRowChip
+                    setPath={paths.headerSet(direction)}
+                    uid={rowUid}
+                    formContainsUid={true}
+                    onUseSaved={() => remove(field.name)}
+                  />
+                )}
+                {ruleUid && rowUid && (
+                  <>
+                    <FieldConflictChip
+                      path={paths.headerMod(direction, rowUid, 'value')}
+                      formName={[name, field.name, 'value']}
                     />
-                  );
-                })()}
-                {ruleUid && conflicts && rowUid && (
-                  <Form.Item
-                    noStyle
-                    shouldUpdate={(prev, cur) =>
-                      prev[name]?.[field.name]?.value !== cur[name]?.[field.name]?.value ||
-                      prev[name]?.[field.name]?.headerName !== cur[name]?.[field.name]?.headerName
-                    }
-                  >
-                    {({ getFieldValue }) => {
-                      const valuePath = paths.headerMod(direction, rowUid, 'value');
-                      const namePath = paths.headerMod(direction, rowUid, 'headerName');
-                      const localValue = String(getFieldValue([name, field.name, 'value']) ?? '');
-                      const localName = String(getFieldValue([name, field.name, 'headerName']) ?? '');
-                      const valueConflict = conflicts.getConflict(valuePath, localValue);
-                      const nameConflict = conflicts.getConflict(namePath, localName);
-                      if (!valueConflict && !nameConflict) return null;
-                      return (
-                        <>
-                          {valueConflict && (
-                            <ConflictDiffChip
-                              theirs={valueConflict.theirs}
-                              base={valueConflict.base}
-                              local={localValue}
-                              remote={valueConflict.remote}
-                              onTakeTheirs={() => {
-                                form.setFieldValue([name, field.name, 'value'], valueConflict.theirs);
-                                conflicts.onAcceptTheirs(valuePath, valueConflict.theirs);
-                              }}
-                              onKeepMine={() => conflicts.onDismissConflict(valuePath)}
-                            />
-                          )}
-                          {nameConflict && (
-                            <ConflictDiffChip
-                              theirs={nameConflict.theirs}
-                              base={nameConflict.base}
-                              local={localName}
-                              remote={nameConflict.remote}
-                              onTakeTheirs={() => {
-                                form.setFieldValue([name, field.name, 'headerName'], nameConflict.theirs);
-                                conflicts.onAcceptTheirs(namePath, nameConflict.theirs);
-                              }}
-                              onKeepMine={() => conflicts.onDismissConflict(namePath)}
-                            />
-                          )}
-                        </>
-                      );
-                    }}
-                  </Form.Item>
+                    <FieldConflictChip
+                      path={paths.headerMod(direction, rowUid, 'headerName')}
+                      formName={[name, field.name, 'headerName']}
+                    />
+                  </>
                 )}
                 <Button
                   type="text"
@@ -546,12 +492,21 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
   const scope = useEntityScope();
   const entityType = scope.entityType;
   const hasResponse = resCount > 0;
-  const conflictBridge =
-    getConflict && onAcceptTheirs && onDismissConflict
-      ? { getConflict, getSetConflict, onAcceptTheirs, onDismissConflict }
-      : undefined;
+  const conflictsApi = useMemo<FieldConflictsApi | null>(
+    () =>
+      getConflict && onAcceptTheirs && onDismissConflict
+        ? {
+            getConflict,
+            getSetConflict,
+            acceptTheirs: onAcceptTheirs,
+            dismiss: onDismissConflict,
+          }
+        : null,
+    [getConflict, getSetConflict, onAcceptTheirs, onDismissConflict],
+  );
 
   return (
+    <ConflictsProvider api={conflictsApi}>
     <div style={{ marginBottom: 16 }}>
       {hasResponse && (
         <Alert
@@ -600,7 +555,6 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
                 direction="request"
                 ruleUid={ruleUid}
                 excludeInstanceId={excludeInstanceId}
-                conflicts={conflictBridge}
               />
             ),
           },
@@ -626,13 +580,13 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
                 direction="response"
                 ruleUid={ruleUid}
                 excludeInstanceId={excludeInstanceId}
-                conflicts={conflictBridge}
               />
             ),
           },
         ]}
       />
     </div>
+    </ConflictsProvider>
   );
 };
 
