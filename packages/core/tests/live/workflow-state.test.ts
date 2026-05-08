@@ -18,9 +18,10 @@ function wf(overrides: Partial<LiveWorkflow> = {}): LiveWorkflow {
 
 function step(id: string, requestUid: string): WorkflowStep {
   return {
+    uid: `stp${id.padEnd(5, 'x').slice(0, 5)}`,
     id,
     requestUid,
-    captures: [{ name: 'cap', extractor: { kind: 'whole-body' } }],
+    captures: [{ uid: 'cap0capx', name: 'cap', extractor: { kind: 'whole-body' } }],
   };
 }
 

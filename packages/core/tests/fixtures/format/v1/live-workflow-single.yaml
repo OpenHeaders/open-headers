@@ -9,16 +9,19 @@ refresh:
   captureName: expires_in
   leadSeconds: 60
 steps:
-  - id: fetch-token
+  - uid: stpfetch
+    id: fetch-token
     description: POST /debug-auth with a static client secret.
     requestUid: reqdbg01
     captures:
-      - name: access_token
+      - uid: capacces
+        name: access_token
         description: Bearer token the DNR rule injects.
         extractor:
           kind: json-path
           path: $.access_token
-      - name: expires_in
+      - uid: capexpin
+        name: expires_in
         description: Seconds until the token expires.
         extractor:
           kind: json-path

@@ -14,6 +14,7 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
+import { generateUid } from '@openheaders/core/utils';
 import { theme } from 'antd';
 import type React from 'react';
 import { useRef } from 'react';
@@ -45,7 +46,7 @@ const ADAPTER: EditableRowAdapter<IdentifiedField> = {
   setKey: (r, v) => ({ ...r, key: v }),
   getDescription: (r) => r.description ?? '',
   setDescription: (r, v) => ({ ...r, description: v }),
-  makeEmpty: () => ({ __id: nextRowId(), key: '', value: '', description: '', enabled: true }),
+  makeEmpty: () => ({ __id: nextRowId(), uid: generateUid(), key: '', value: '', description: '', enabled: true }),
   isEmpty: (r) => r.key === '' && r.value === '' && (r.description ?? '') === '',
 };
 
@@ -78,7 +79,7 @@ function textToFields(text: string): IdentifiedField[] {
     const eqIdx = noteless.indexOf('=');
     const key = eqIdx >= 0 ? noteless.slice(0, eqIdx) : noteless;
     const value = eqIdx >= 0 ? noteless.slice(eqIdx + 1) : '';
-    out.push({ __id: nextRowId(), key: key.trim(), value, description, enabled });
+    out.push({ __id: nextRowId(), uid: generateUid(), key: key.trim(), value, description, enabled });
   }
   return out;
 }

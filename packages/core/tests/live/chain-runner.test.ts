@@ -16,9 +16,11 @@ function jsonResponse(payload: unknown, headers: Array<{ key: string; value: str
 
 function singleStep(id: string, requestUid: string, captureExtractors: Array<[string, unknown]> = []): WorkflowStep {
   return {
+    uid: `stp${id.padEnd(5, 'x').slice(0, 5)}`,
     id,
     requestUid,
-    captures: captureExtractors.map(([name, extractor]) => ({
+    captures: captureExtractors.map(([name, extractor], i) => ({
+      uid: `cap${String(i).padEnd(2, '0')}${name.slice(0, 3).padEnd(3, 'x')}`,
       name,
       extractor: extractor as WorkflowStep['captures'][number]['extractor'],
     })),
@@ -225,9 +227,11 @@ function dagStep(
   } = {},
 ): WorkflowStep {
   return {
+    uid: `stp${id.padEnd(5, 'x').slice(0, 5)}`,
     id,
     requestUid: opts.requestUid ?? `req${id.slice(0, 5).padEnd(5, 'x')}`,
-    captures: (opts.captures ?? []).map(([name, extractor]) => ({
+    captures: (opts.captures ?? []).map(([name, extractor], i) => ({
+      uid: `cap${String(i).padEnd(2, '0')}${name.slice(0, 3).padEnd(3, 'x')}`,
       name,
       extractor: extractor as WorkflowStep['captures'][number]['extractor'],
     })),
@@ -269,12 +273,16 @@ describe('runChain — DAG (Phase I)', () => {
       dagStep('probe', { captures: [['flag', { kind: 'json-path', path: '$.flag' }]] }),
       dagStep('pathA', {
         dependsOn: ['probe'],
-        runIf: { all: [{ kind: 'capture-equals', stepId: 'probe', captureName: 'flag', value: 'a' }] },
+        runIf: {
+          all: [{ uid: 'gat0eqa1', kind: 'capture-equals', stepId: 'probe', captureName: 'flag', value: 'a' }],
+        },
         captures: [['result', { kind: 'whole-body' }]],
       }),
       dagStep('pathB', {
         dependsOn: ['probe'],
-        runIf: { all: [{ kind: 'capture-equals', stepId: 'probe', captureName: 'flag', value: 'b' }] },
+        runIf: {
+          all: [{ uid: 'gat0eqb1', kind: 'capture-equals', stepId: 'probe', captureName: 'flag', value: 'b' }],
+        },
         captures: [['result', { kind: 'whole-body' }]],
       }),
     ]);
@@ -305,11 +313,11 @@ describe('runChain — DAG (Phase I)', () => {
       dagStep('probe', { captures: [['status', { kind: 'status-code' }]] }),
       dagStep('pathOk', {
         dependsOn: ['probe'],
-        runIf: { all: [{ kind: 'status', stepId: 'probe', match: '2xx' }] },
+        runIf: { all: [{ uid: 'gat0sta1', kind: 'status', stepId: 'probe', match: '2xx' }] },
       }),
       dagStep('pathErr', {
         dependsOn: ['probe'],
-        runIf: { all: [{ kind: 'status', stepId: 'probe', match: '5xx' }] },
+        runIf: { all: [{ uid: 'gat0sta2', kind: 'status', stepId: 'probe', match: '5xx' }] },
       }),
     ]);
     const executed: string[] = [];
@@ -393,12 +401,14 @@ describe('runChain — DAG (Phase I)', () => {
       dagStep('probe', { captures: [['flag', { kind: 'json-path', path: '$.flag' }]] }),
       dagStep('middle', {
         dependsOn: ['probe'],
-        runIf: { all: [{ kind: 'capture-equals', stepId: 'probe', captureName: 'flag', value: 'a' }] },
+        runIf: {
+          all: [{ uid: 'gat0eqa2', kind: 'capture-equals', stepId: 'probe', captureName: 'flag', value: 'a' }],
+        },
         captures: [['v', { kind: 'whole-body' }]],
       }),
       dagStep('tail', {
         dependsOn: ['middle'],
-        runIf: { all: [{ kind: 'capture-exists', stepId: 'middle', captureName: 'v' }] },
+        runIf: { all: [{ uid: 'gat0exv1', kind: 'capture-exists', stepId: 'middle', captureName: 'v' }] },
       }),
     ]);
     const executed: string[] = [];

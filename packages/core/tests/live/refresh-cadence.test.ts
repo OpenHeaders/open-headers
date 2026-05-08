@@ -19,12 +19,13 @@ function makeWorkflow(refresh: RefreshPolicy, overrides: Partial<LiveWorkflow> =
     refresh,
     steps: [
       {
+        uid: 'stpfetch',
         id: 'fetch',
         requestUid: 'reqfetch1',
         captures: [
-          { name: 'value', extractor: { kind: 'whole-body' } },
-          { name: 'expires_in', extractor: { kind: 'json-path', path: '$.expires_in' } },
-          { name: 'exp', extractor: { kind: 'json-path', path: '$.exp' } },
+          { uid: 'capvalue', name: 'value', extractor: { kind: 'whole-body' } },
+          { uid: 'capexpin', name: 'expires_in', extractor: { kind: 'json-path', path: '$.expires_in' } },
+          { uid: 'capexpat', name: 'exp', extractor: { kind: 'json-path', path: '$.exp' } },
         ],
       },
     ],

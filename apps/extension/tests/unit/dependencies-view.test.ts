@@ -28,7 +28,7 @@ function mkWorkflow(steps: V5.WorkflowStep[]): V5.LiveWorkflow {
 }
 
 function mkStep(id: string, overrides: Partial<V5.WorkflowStep> = {}): V5.WorkflowStep {
-  return { id, requestUid: 'req00000', captures: [], ...overrides };
+  return { uid: `stp${id.padEnd(5, 'x').slice(0, 5)}`, id, requestUid: 'req00000', captures: [], ...overrides };
 }
 
 describe('buildDependencyRows', () => {

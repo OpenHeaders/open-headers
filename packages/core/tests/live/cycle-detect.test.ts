@@ -12,9 +12,10 @@ function wf(uid: string, name: string, requestUid: string, captureName = 'value'
     refresh: { kind: 'manual' },
     steps: [
       {
+        uid: 'stponly0',
         id: 'only',
         requestUid,
-        captures: [{ name: captureName, extractor: { kind: 'whole-body' } }],
+        captures: [{ uid: 'capvalu0', name: captureName, extractor: { kind: 'whole-body' } }],
       },
     ],
   };

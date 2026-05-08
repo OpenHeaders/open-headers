@@ -7,26 +7,32 @@ refresh:
   kind: interval
   seconds: 300
 steps:
-  - id: probe
+  - uid: stpprobe
+    id: probe
     requestUid: reqprob1
     captures:
-      - name: token
+      - uid: captoken
+        name: token
         extractor:
           kind: json-path
           path: $.token
-  - id: introspect
+  - uid: stpintro
+    id: introspect
     requestUid: reqintr1
     captures:
-      - name: expiresIn
+      - uid: capexpin
+        name: expiresIn
         extractor:
           kind: json-path
           path: $.expires_in
     dependsOn:
       - probe
-  - id: finalize
+  - uid: stpfinal
+    id: finalize
     requestUid: reqfin01
     captures:
-      - name: accessToken
+      - uid: capacces
+        name: accessToken
         extractor:
           kind: json-path
           path: $.access_token

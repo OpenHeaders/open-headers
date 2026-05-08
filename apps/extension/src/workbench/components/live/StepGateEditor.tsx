@@ -21,6 +21,7 @@
 import { CloseOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import type { StructuralError } from '@openheaders/core/live';
 import type { V5 } from '@openheaders/core/types';
+import { generateUid } from '@openheaders/core/utils';
 import { Button, Input, InputNumber, Segmented, Select, Tag, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo } from 'react';
@@ -167,7 +168,7 @@ const StepGateEditor: React.FC<StepGateEditorProps> = ({
     // (if any); otherwise leave stepId empty — the validator will flag
     // it and the tooltip guides the user.
     const firstStep = reachableSteps[0]?.id ?? '';
-    const seed: V5.StepGateClause = { kind: 'status', stepId: firstStep, match: '2xx' };
+    const seed: V5.StepGateClause = { uid: generateUid(), kind: 'status', stepId: firstStep, match: '2xx' };
     emitNext([...clauses, seed]);
   }, [clauses, emitNext, reachableSteps]);
 
@@ -177,20 +178,21 @@ const StepGateEditor: React.FC<StepGateEditorProps> = ({
         return; // disabled; selection suppressed
       }
       const current = clauses[index];
+      const uid = current.uid;
       const stepId = current.stepId;
       const captureName = current.kind !== 'status' ? current.captureName : '';
       switch (nextKind) {
         case 'status':
-          updateClause(index, { kind: 'status', stepId, match: '2xx' });
+          updateClause(index, { uid, kind: 'status', stepId, match: '2xx' });
           return;
         case 'capture-exists':
-          updateClause(index, { kind: 'capture-exists', stepId, captureName });
+          updateClause(index, { uid, kind: 'capture-exists', stepId, captureName });
           return;
         case 'capture-equals':
-          updateClause(index, { kind: 'capture-equals', stepId, captureName, value: '' });
+          updateClause(index, { uid, kind: 'capture-equals', stepId, captureName, value: '' });
           return;
         case 'capture-matches':
-          updateClause(index, { kind: 'capture-matches', stepId, captureName, pattern: '' });
+          updateClause(index, { uid, kind: 'capture-matches', stepId, captureName, pattern: '' });
           return;
       }
     },

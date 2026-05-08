@@ -21,9 +21,14 @@ function wf(steps: WorkflowStep[], refresh: RefreshPolicy = { kind: 'manual' }):
 
 function step(id: string, requestUid: string, captureNames: string[] = []): WorkflowStep {
   return {
+    uid: `stp${id.slice(0, 5).padEnd(5, 'x')}`,
     id,
     requestUid,
-    captures: captureNames.map((n) => ({ name: n, extractor: { kind: 'whole-body' } as const })),
+    captures: captureNames.map((n, i) => ({
+      uid: `cap${String(i).padEnd(2, '0')}${n.slice(0, 3).padEnd(3, 'x')}`,
+      name: n,
+      extractor: { kind: 'whole-body' } as const,
+    })),
   };
 }
 
@@ -215,9 +220,14 @@ function dagStep(
   } = {},
 ): WorkflowStep {
   return {
+    uid: `stp${id.padEnd(5, 'x').slice(0, 5)}`,
     id,
     requestUid: opts.requestUid ?? `req${id.padEnd(5, 'x').slice(0, 5)}`,
-    captures: (opts.captureNames ?? []).map((n) => ({ name: n, extractor: { kind: 'whole-body' } as const })),
+    captures: (opts.captureNames ?? []).map((n, i) => ({
+      uid: `cap${String(i).padEnd(2, '0')}${n.slice(0, 3).padEnd(3, 'x')}`,
+      name: n,
+      extractor: { kind: 'whole-body' } as const,
+    })),
     dependsOn: opts.dependsOn,
     runIf: opts.runIf,
     priorityFrom: opts.priorityFrom,
@@ -231,7 +241,9 @@ describe('validateWorkflowShape — Phase I (DAG + gates + priority)', () => {
         dagStep('probe', { captureNames: ['flag'] }),
         dagStep('path', {
           dependsOn: ['probe'],
-          runIf: { all: [{ kind: 'capture-equals', stepId: 'probe', captureName: 'flag', value: 'a' }] },
+          runIf: {
+            all: [{ uid: 'gat0equa', kind: 'capture-equals', stepId: 'probe', captureName: 'flag', value: 'a' }],
+          },
         }),
       ]),
     );
@@ -275,7 +287,7 @@ describe('validateWorkflowShape — Phase I (DAG + gates + priority)', () => {
         dagStep('a'),
         dagStep('b', {
           dependsOn: ['a'],
-          runIf: { all: [{ kind: 'capture-exists', stepId: 'ghost', captureName: 'x' }] },
+          runIf: { all: [{ uid: 'gat0exg1', kind: 'capture-exists', stepId: 'ghost', captureName: 'x' }] },
         }),
       ]),
     );
@@ -290,7 +302,7 @@ describe('validateWorkflowShape — Phase I (DAG + gates + priority)', () => {
         dagStep('a', { dependsOn: [], captureNames: ['x'] }),
         dagStep('b', {
           dependsOn: [],
-          runIf: { all: [{ kind: 'capture-exists', stepId: 'a', captureName: 'x' }] },
+          runIf: { all: [{ uid: 'gat0exa1', kind: 'capture-exists', stepId: 'a', captureName: 'x' }] },
         }),
       ]),
     );
@@ -303,7 +315,9 @@ describe('validateWorkflowShape — Phase I (DAG + gates + priority)', () => {
         dagStep('a', { captureNames: ['real'] }),
         dagStep('b', {
           dependsOn: ['a'],
-          runIf: { all: [{ kind: 'capture-equals', stepId: 'a', captureName: 'ghost', value: 'x' }] },
+          runIf: {
+            all: [{ uid: 'gat0equg', kind: 'capture-equals', stepId: 'a', captureName: 'ghost', value: 'x' }],
+          },
         }),
       ]),
     );
@@ -316,7 +330,9 @@ describe('validateWorkflowShape — Phase I (DAG + gates + priority)', () => {
         dagStep('a', { captureNames: ['v'] }),
         dagStep('b', {
           dependsOn: ['a'],
-          runIf: { all: [{ kind: 'capture-matches', stepId: 'a', captureName: 'v', pattern: '[invalid' }] },
+          runIf: {
+            all: [{ uid: 'gat0matv', kind: 'capture-matches', stepId: 'a', captureName: 'v', pattern: '[invalid' }],
+          },
         }),
       ]),
     );

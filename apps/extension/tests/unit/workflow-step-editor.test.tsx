@@ -46,7 +46,7 @@ afterEach(() => {
 });
 
 function mkStep(overrides: Partial<DraftStep> = {}): DraftStep {
-  return { id: 'refresh', requestUid: 'reqrefrsh', captures: [], ...overrides };
+  return { uid: 'stprefrs', id: 'refresh', requestUid: 'reqrefrsh', captures: [], ...overrides };
 }
 
 function renderStep(step: DraftStep, propOverrides: Partial<React.ComponentProps<typeof WorkflowStepEditor>> = {}) {
@@ -93,8 +93,8 @@ describe('WorkflowStepEditor — Phase I', () => {
       mkStep({
         runIf: {
           all: [
-            { kind: 'status', stepId: 'introspect', match: '2xx' },
-            { kind: 'capture-exists', stepId: 'introspect', captureName: 'active' },
+            { uid: 'gat0sta1', kind: 'status', stepId: 'introspect', match: '2xx' },
+            { uid: 'gat0ex01', kind: 'capture-exists', stepId: 'introspect', captureName: 'active' },
           ],
         },
       }),

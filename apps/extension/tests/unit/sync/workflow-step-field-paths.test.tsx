@@ -34,7 +34,7 @@ afterEach(() => {
 });
 
 function mkStep(overrides: Partial<DraftStep> = {}): DraftStep {
-  return { id: 'authenticate', requestUid: 'req-auth', captures: [], ...overrides };
+  return { uid: 'stpauth0', id: 'authenticate', requestUid: 'req-auth', captures: [], ...overrides };
 }
 
 function renderStep(index: number, step: DraftStep) {

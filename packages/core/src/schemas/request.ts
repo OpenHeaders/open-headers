@@ -138,15 +138,15 @@ export const OAuth2AuthSchema = v.object({
    */
   sendAs: v.optional(v.picklist(['header', 'query'])),
   /** Optional extra params appended to the authorization URL. */
-  extraAuthParams: v.optional(v.array(v.object({ key: v.string(), value: v.string() }))),
+  extraAuthParams: v.optional(v.array(v.object({ uid: UidSchema, key: v.string(), value: v.string() }))),
   /** Optional extra params appended to the token POST body. */
-  extraTokenParams: v.optional(v.array(v.object({ key: v.string(), value: v.string() }))),
+  extraTokenParams: v.optional(v.array(v.object({ uid: UidSchema, key: v.string(), value: v.string() }))),
   /**
    * Optional extra params appended to the refresh-token POST body.
    * Mirrors `extraTokenParams` — some providers require additional
    * knobs on refresh that don't belong on the initial exchange.
    */
-  extraRefreshParams: v.optional(v.array(v.object({ key: v.string(), value: v.string() }))),
+  extraRefreshParams: v.optional(v.array(v.object({ uid: UidSchema, key: v.string(), value: v.string() }))),
 });
 
 export const AuthConfigSchema = v.variant('type', [
@@ -270,6 +270,7 @@ export const FileRefSchema = v.object({
 export const MultipartPartSchema = v.variant('kind', [
   v.object({
     kind: v.literal('text'),
+    uid: UidSchema,
     name: v.string(),
     value: v.string(),
     /** Optional free-form per-row note rendered in the Description column. */
@@ -278,6 +279,7 @@ export const MultipartPartSchema = v.variant('kind', [
   }),
   v.object({
     kind: v.literal('file'),
+    uid: UidSchema,
     name: v.string(),
     /** One or more file refs bound to this field name. Absent / empty
      *  array is a valid "not yet picked" state the editor surfaces
@@ -296,6 +298,7 @@ export const MultipartPartSchema = v.variant('kind', [
  * semantics differ (URL query strings vs request-body form fields).
  */
 export const FormFieldSchema = v.object({
+  uid: UidSchema,
   key: v.string(),
   value: v.string(),
   /** Optional free-form per-row note rendered in the Description column. */

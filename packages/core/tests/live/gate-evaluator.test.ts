@@ -44,52 +44,77 @@ describe('evaluateClause', () => {
   const sts = statuses({ probe: 200 });
 
   it('status clause — class match', () => {
-    const c: StepGateClause = { kind: 'status', stepId: 'probe', match: '2xx' };
+    const c: StepGateClause = { uid: 'gat0sta1', kind: 'status', stepId: 'probe', match: '2xx' };
     expect(evaluateClause(c, caps, sts)).toBe(true);
   });
 
   it('status clause — step without a recorded status is false (skipped ancestor)', () => {
-    const c: StepGateClause = { kind: 'status', stepId: 'ghost', match: '2xx' };
+    const c: StepGateClause = { uid: 'gat0sta2', kind: 'status', stepId: 'ghost', match: '2xx' };
     expect(evaluateClause(c, caps, sts)).toBe(false);
   });
 
   it('capture-exists — present = true', () => {
-    const c: StepGateClause = { kind: 'capture-exists', stepId: 'probe', captureName: 'flag' };
+    const c: StepGateClause = { uid: 'gat0ex01', kind: 'capture-exists', stepId: 'probe', captureName: 'flag' };
     expect(evaluateClause(c, caps, sts)).toBe(true);
   });
 
   it('capture-exists — absent = false', () => {
-    const c: StepGateClause = { kind: 'capture-exists', stepId: 'probe', captureName: 'missing' };
+    const c: StepGateClause = { uid: 'gat0ex02', kind: 'capture-exists', stepId: 'probe', captureName: 'missing' };
     expect(evaluateClause(c, caps, sts)).toBe(false);
   });
 
   it('capture-exists — skipped-step = false', () => {
-    const c: StepGateClause = { kind: 'capture-exists', stepId: 'ghost', captureName: 'anything' };
+    const c: StepGateClause = { uid: 'gat0ex03', kind: 'capture-exists', stepId: 'ghost', captureName: 'anything' };
     expect(evaluateClause(c, caps, sts)).toBe(false);
   });
 
   it('capture-equals — exact match', () => {
-    const c: StepGateClause = { kind: 'capture-equals', stepId: 'probe', captureName: 'flag', value: 'a' };
+    const c: StepGateClause = {
+      uid: 'gat0eq01',
+      kind: 'capture-equals',
+      stepId: 'probe',
+      captureName: 'flag',
+      value: 'a',
+    };
     expect(evaluateClause(c, caps, sts)).toBe(true);
   });
 
   it('capture-equals — mismatch', () => {
-    const c: StepGateClause = { kind: 'capture-equals', stepId: 'probe', captureName: 'flag', value: 'b' };
+    const c: StepGateClause = {
+      uid: 'gat0eq02',
+      kind: 'capture-equals',
+      stepId: 'probe',
+      captureName: 'flag',
+      value: 'b',
+    };
     expect(evaluateClause(c, caps, sts)).toBe(false);
   });
 
   it('capture-matches — regex hit', () => {
-    const c: StepGateClause = { kind: 'capture-matches', stepId: 'probe', captureName: 'token', pattern: '^abc' };
+    const c: StepGateClause = {
+      uid: 'gat0ma01',
+      kind: 'capture-matches',
+      stepId: 'probe',
+      captureName: 'token',
+      pattern: '^abc',
+    };
     expect(evaluateClause(c, caps, sts)).toBe(true);
   });
 
   it('capture-matches — regex miss', () => {
-    const c: StepGateClause = { kind: 'capture-matches', stepId: 'probe', captureName: 'token', pattern: '^xyz' };
+    const c: StepGateClause = {
+      uid: 'gat0ma02',
+      kind: 'capture-matches',
+      stepId: 'probe',
+      captureName: 'token',
+      pattern: '^xyz',
+    };
     expect(evaluateClause(c, caps, sts)).toBe(false);
   });
 
   it('capture-matches — invalid regex evaluates to false (defensive)', () => {
     const c: StepGateClause = {
+      uid: 'gat0ma03',
       kind: 'capture-matches',
       stepId: 'probe',
       captureName: 'token',
@@ -111,8 +136,8 @@ describe('evaluateGate — AND across clauses', () => {
   it('all clauses true → true', () => {
     const gate: StepGate = {
       all: [
-        { kind: 'status', stepId: 'probe', match: '2xx' },
-        { kind: 'capture-equals', stepId: 'probe', captureName: 'flag', value: 'a' },
+        { uid: 'gat1sta1', kind: 'status', stepId: 'probe', match: '2xx' },
+        { uid: 'gat1eq01', kind: 'capture-equals', stepId: 'probe', captureName: 'flag', value: 'a' },
       ],
     };
     expect(evaluateGate(gate, caps, sts)).toBe(true);
@@ -121,8 +146,8 @@ describe('evaluateGate — AND across clauses', () => {
   it('any clause false → false', () => {
     const gate: StepGate = {
       all: [
-        { kind: 'status', stepId: 'probe', match: '2xx' }, // true
-        { kind: 'capture-equals', stepId: 'probe', captureName: 'flag', value: 'b' }, // false
+        { uid: 'gat1sta2', kind: 'status', stepId: 'probe', match: '2xx' }, // true
+        { uid: 'gat1eq02', kind: 'capture-equals', stepId: 'probe', captureName: 'flag', value: 'b' }, // false
       ],
     };
     expect(evaluateGate(gate, caps, sts)).toBe(false);

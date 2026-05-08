@@ -49,10 +49,19 @@ vi.mock('@/background/modules/files-store', () => ({
 
 import { executeRequestDraft } from '@/background/modules/request-executor';
 
+type MultipartPartLike =
+  | (Omit<Extract<V5.MultipartPart, { kind: 'text' }>, 'uid'> & { uid?: string })
+  | (Omit<Extract<V5.MultipartPart, { kind: 'file' }>, 'uid'> & { uid?: string });
+
 function makeMultipartRequest(
-  parts: V5.MultipartPart[],
+  parts: MultipartPartLike[],
   headers: Array<{ key: string; value: string }> = [],
 ): V5.Request {
+  const withUids: V5.MultipartPart[] = parts.map((p, i) => {
+    const uid = p.uid ?? `mp${String(i).padStart(6, '0')}`;
+    if (p.kind === 'text') return { ...p, uid, kind: 'text' };
+    return { ...p, uid, kind: 'file' };
+  });
   return {
     schemaVersion: 5,
     uid: 'rMP',
@@ -63,7 +72,7 @@ function makeMultipartRequest(
     headers: headers.map((h, i) => ({ uid: `hdrmp${String(i).padStart(3, '0')}`, key: h.key, value: h.value })),
     params: [],
     auth: { type: 'none' },
-    body: { type: 'multipart', multipartParts: parts },
+    body: { type: 'multipart', multipartParts: withUids },
   };
 }
 

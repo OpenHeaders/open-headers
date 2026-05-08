@@ -321,7 +321,7 @@ function canonicalQueryParam(p: QueryParam): QueryParam {
 }
 
 function canonicalFormField(f: FormField): FormField {
-  const out: FormField = { key: f.key, value: f.value };
+  const out: FormField = { uid: f.uid, key: f.key, value: f.value };
   if (f.description !== undefined) out.description = f.description;
   if (f.enabled !== undefined) out.enabled = f.enabled;
   return out;
@@ -329,12 +329,12 @@ function canonicalFormField(f: FormField): FormField {
 
 function canonicalMultipartPart(p: MultipartPart): MultipartPart {
   if (p.kind === 'text') {
-    const out = { kind: 'text' as const, name: p.name, value: p.value } as MultipartPart;
+    const out = { kind: 'text' as const, uid: p.uid, name: p.name, value: p.value } as MultipartPart;
     if (p.description !== undefined) (out as { description?: string }).description = p.description;
     if (p.enabled !== undefined) (out as { enabled?: boolean }).enabled = p.enabled;
     return out;
   }
-  const out = { kind: 'file' as const, name: p.name, fileRefs: p.fileRefs } as MultipartPart;
+  const out = { kind: 'file' as const, uid: p.uid, name: p.name, fileRefs: p.fileRefs } as MultipartPart;
   if (p.description !== undefined) (out as { description?: string }).description = p.description;
   if (p.enabled !== undefined) (out as { enabled?: boolean }).enabled = p.enabled;
   return out;

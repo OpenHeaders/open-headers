@@ -24,6 +24,7 @@
  */
 
 import type { Capture, Extractor, LiveVariable, LiveWorkflow, WorkflowStep } from '../types/v5/live';
+import { generateUid } from '../utils/workspace';
 
 // ── Draft types ───────────────────────────────────────────────────
 
@@ -88,7 +89,7 @@ export function toDraftCapture(c: Capture, existingLv: LiveVariable | null): Dra
  * under its own name.
  */
 export function newDraftCapture(name: string, extractor: Extractor): DraftCapture {
-  return { name, extractor, exposed: true, liveName: name };
+  return { uid: generateUid(), name, extractor, exposed: true, liveName: name };
 }
 
 /**

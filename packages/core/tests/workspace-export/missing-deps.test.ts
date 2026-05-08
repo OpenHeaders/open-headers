@@ -123,6 +123,7 @@ function makeWorkflow(uid: string, name: string, requestUids: string[]): LiveWor
     name,
     steps: requestUids.map((rid, i) => ({
       schemaVersion: 5,
+      uid: `stp${String(i).padStart(5, '0')}`,
       id: `step-${i}` as `step-${string}`,
       requestUid: rid,
       captures: [],
@@ -210,7 +211,7 @@ describe('walkMissingDeps — live entities', () => {
       body: { type: 'none' },
     };
     input.entities.requests = [req];
-    wf.steps = [{ id: 'step-0' as `step-${string}`, requestUid: 'req00001', captures: [] }];
+    wf.steps = [{ uid: 'stp00000', id: 'step-0' as `step-${string}`, requestUid: 'req00001', captures: [] }];
     input.entities.liveWorkflows = [wf];
     input.entities.liveVariables = [makeLiveVar('lv000001', 'TOKEN', 'wf000001')];
     const exp = buildWorkspaceExport(input);

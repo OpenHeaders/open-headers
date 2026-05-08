@@ -186,8 +186,8 @@ describe('parseCurl — body data', () => {
     expect(request.body).toEqual({
       type: 'form',
       formParts: [
-        { key: 'a', value: '1' },
-        { key: 'b', value: 'hello world' },
+        { uid: expect.stringMatching(/^[a-z0-9]{8}$/), key: 'a', value: '1' },
+        { uid: expect.stringMatching(/^[a-z0-9]{8}$/), key: 'b', value: 'hello world' },
       ],
     });
   });
@@ -263,6 +263,7 @@ describe('parseCurl — drops (logged, not silent)', () => {
     expect(request.body.multipartParts).toEqual([
       {
         kind: 'file',
+        uid: expect.stringMatching(/^[a-z0-9]{8}$/),
         name: 'upload',
         fileRefs: [
           {
@@ -274,7 +275,7 @@ describe('parseCurl — drops (logged, not silent)', () => {
           },
         ],
       },
-      { kind: 'text', name: 'caption', value: 'hello world' },
+      { kind: 'text', uid: expect.stringMatching(/^[a-z0-9]{8}$/), name: 'caption', value: 'hello world' },
     ]);
     expect(report.transforms.some((t) => t.to.startsWith('multipart.file') && t.tracking === '#todo-file-blobs')).toBe(
       true,

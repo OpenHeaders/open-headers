@@ -114,6 +114,7 @@ export const ExtractorSchema = v.variant('kind', [
  * `{{live.X}}` only if a `LiveVariable` binds to it.
  */
 export const CaptureSchema = v.object({
+  uid: UidSchema,
   name: CaptureNameSchema,
   description: v.optional(v.string()),
   extractor: ExtractorSchema,
@@ -151,22 +152,26 @@ export const StatusMatchSchema = v.union([
 export const StepGateClauseSchema = v.variant('kind', [
   v.object({
     kind: v.literal('status'),
+    uid: UidSchema,
     stepId: StepIdSchema,
     match: StatusMatchSchema,
   }),
   v.object({
     kind: v.literal('capture-exists'),
+    uid: UidSchema,
     stepId: StepIdSchema,
     captureName: CaptureNameSchema,
   }),
   v.object({
     kind: v.literal('capture-equals'),
+    uid: UidSchema,
     stepId: StepIdSchema,
     captureName: CaptureNameSchema,
     value: v.string(),
   }),
   v.object({
     kind: v.literal('capture-matches'),
+    uid: UidSchema,
     stepId: StepIdSchema,
     captureName: CaptureNameSchema,
     /** JavaScript `RegExp` source. Compiled at evaluation time. */
@@ -203,6 +208,7 @@ export const PriorityRefSchema = v.object({
 // ── Workflow step ─────────────────────────────────────────────────
 
 export const WorkflowStepSchema = v.object({
+  uid: UidSchema,
   id: StepIdSchema,
   description: v.optional(v.string()),
   /** Uid of the persisted `V5.Request` this step invokes. */

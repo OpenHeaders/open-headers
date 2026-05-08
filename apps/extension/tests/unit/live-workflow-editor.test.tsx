@@ -67,9 +67,10 @@ const workflowFixture: V5.LiveWorkflow = {
   refresh: { kind: 'manual' },
   steps: [
     {
+      uid: 'stponly0',
       id: 'only',
       requestUid: 'reqtestfxt',
-      captures: [{ name: 'v', extractor: { kind: 'whole-body' } }],
+      captures: [{ uid: 'capvxxxx', name: 'v', extractor: { kind: 'whole-body' } }],
     },
   ],
 };

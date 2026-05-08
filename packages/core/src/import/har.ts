@@ -429,13 +429,14 @@ function buildBody(
       if (typeof p.fileName === 'string' && p.fileName.length > 0) {
         parts.push({
           kind: 'file',
+          uid: generateUid(),
           name,
           fileRefs: [placeholderFileRef({ filename: p.fileName, mimeType: p.contentType })],
         });
         filePlaceholderCount += 1;
         continue;
       }
-      parts.push({ kind: 'text', name, value: typeof p.value === 'string' ? p.value : '' });
+      parts.push({ kind: 'text', uid: generateUid(), name, value: typeof p.value === 'string' ? p.value : '' });
     }
     if (filePlaceholderCount > 0) {
       recordTransform(report, {
@@ -457,6 +458,7 @@ function buildBody(
     const formParts = postData.params
       .filter((p) => typeof p.name === 'string')
       .map((p) => ({
+        uid: generateUid(),
         key: p.name,
         value: typeof p.value === 'string' ? p.value : '',
       }));
@@ -477,15 +479,19 @@ function buildBody(
   return { type: 'text', content: text };
 }
 
-function parseFormFieldsFromUrlEncoded(encoded: string): Array<{ key: string; value: string }> {
+function parseFormFieldsFromUrlEncoded(encoded: string): Array<{ uid: string; key: string; value: string }> {
   if (!encoded) return [];
-  const out: Array<{ key: string; value: string }> = [];
+  const out: Array<{ uid: string; key: string; value: string }> = [];
   for (const segment of encoded.split('&')) {
     if (segment.length === 0) continue;
     const eq = segment.indexOf('=');
     const rawKey = eq < 0 ? segment : segment.slice(0, eq);
     const rawValue = eq < 0 ? '' : segment.slice(eq + 1);
-    out.push({ key: safeDecode(rawKey.replace(/\+/g, ' ')), value: safeDecode(rawValue.replace(/\+/g, ' ')) });
+    out.push({
+      uid: generateUid(),
+      key: safeDecode(rawKey.replace(/\+/g, ' ')),
+      value: safeDecode(rawValue.replace(/\+/g, ' ')),
+    });
   }
   return out;
 }

@@ -818,10 +818,11 @@ function buildResolvedBody(body: V5.RequestBody, resolveStr: (s: string) => stri
         }
         const name = resolveStr(part.name);
         if (part.kind === 'text') {
-          return { kind: 'text', name, value: resolveStr(part.value), enabled: part.enabled };
+          return { kind: 'text', uid: part.uid, name, value: resolveStr(part.value), enabled: part.enabled };
         }
         return {
           kind: 'file',
+          uid: part.uid,
           name,
           fileRefs: part.fileRefs,
           enabled: part.enabled,

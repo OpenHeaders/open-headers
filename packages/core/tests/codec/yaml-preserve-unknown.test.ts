@@ -183,10 +183,12 @@ refresh:
   kind: interval
   seconds: 300
 steps:
-  - id: only
+  - uid: stponly0
+    id: only
     requestUid: reqonly1
     captures:
-      - name: value
+      - uid: capvalu0
+        name: value
         extractor:
           kind: whole-body
 ownerTeam: platform

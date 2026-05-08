@@ -23,6 +23,7 @@ import { useFiles } from '@hooks/useFiles';
 import type { FileRef } from '@openheaders/core/files';
 import { isPlaceholderFileRef, placeholderFileRef } from '@openheaders/core/files';
 import type { V5 } from '@openheaders/core/types';
+import { generateUid } from '@openheaders/core/utils';
 import type { MenuProps } from 'antd';
 import { Dropdown, Select, Tag, theme } from 'antd';
 import type React from 'react';
@@ -64,6 +65,7 @@ const cellFont: React.CSSProperties = {
 const makeEmptyText = (id: string): IdentifiedPart => ({
   __id: id,
   kind: 'text',
+  uid: generateUid(),
   name: '',
   value: '',
   description: '',
@@ -174,7 +176,13 @@ const ValueCell: React.FC<ValueCellProps> = ({
 
   const switchKind = (kind: 'text' | 'file') => {
     if (kind === row.kind) return;
-    const common = { name: row.name, description: row.description, enabled: row.enabled, __id: row.__id };
+    const common = {
+      uid: row.uid,
+      name: row.name,
+      description: row.description,
+      enabled: row.enabled,
+      __id: row.__id,
+    };
     if (kind === 'text') {
       update({ ...common, kind: 'text', value: '' });
       return;
@@ -572,9 +580,17 @@ function parseMultipartFromText(
           refs.push(placeholderFileRef({ filename: declared }));
         }
       }
-      result.push({ __id: nextRowId(), kind: 'file', name, fileRefs: refs, description, enabled });
+      result.push({ __id: nextRowId(), kind: 'file', uid: generateUid(), name, fileRefs: refs, description, enabled });
     } else {
-      result.push({ __id: nextRowId(), kind: 'text', name, value: valueRaw, description, enabled });
+      result.push({
+        __id: nextRowId(),
+        kind: 'text',
+        uid: generateUid(),
+        name,
+        value: valueRaw,
+        description,
+        enabled,
+      });
     }
   }
   return result;

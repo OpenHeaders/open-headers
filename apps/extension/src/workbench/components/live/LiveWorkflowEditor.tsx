@@ -48,6 +48,7 @@ import {
   validateWorkflowShape,
 } from '@openheaders/core/live';
 import { LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
+import { generateUid } from '@openheaders/core/utils';
 import { EntityScopeProvider, useSetActiveFieldFocus } from '@/shared/awareness';
 import {
   type ConflictResolution,
@@ -109,8 +110,8 @@ function fingerprint(d: Draft): string {
 function emptyDraft(seedStep?: { requestUid: string; requestName: string; method: string } | undefined): Draft {
   const defaultCapture = newDraftCapture('capture1', { kind: 'whole-body' });
   const steps: DraftStep[] = seedStep
-    ? [{ id: 'step1', requestUid: seedStep.requestUid, captures: [defaultCapture] }]
-    : [{ id: 'step1', requestUid: '', captures: [defaultCapture] }];
+    ? [{ uid: generateUid(), id: 'step1', requestUid: seedStep.requestUid, captures: [defaultCapture] }]
+    : [{ uid: generateUid(), id: 'step1', requestUid: '', captures: [defaultCapture] }];
   return {
     name: '',
     description: '',
@@ -215,7 +216,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
         }
         return {
           ...d,
-          steps: [...d.steps, { id: candidate, requestUid: seedStep.requestUid, captures: [] }],
+          steps: [...d.steps, { uid: generateUid(), id: candidate, requestUid: seedStep.requestUid, captures: [] }],
         };
       });
     },
@@ -877,6 +878,7 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({ draft, setDraft }) 
       candidate = `step${n}`;
     }
     const next: DraftStep = {
+      uid: generateUid(),
       id: candidate,
       requestUid: '',
       captures: [],

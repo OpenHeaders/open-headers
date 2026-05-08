@@ -7,21 +7,26 @@ refresh:
   kind: interval
   seconds: 300
 steps:
-  - id: manifest
+  - uid: stpmanif
+    id: manifest
     requestUid: reqmanf1
     captures:
-      - name: tokenStaleness
+      - uid: captkstl
+        name: tokenStaleness
         extractor:
           kind: json-path
           path: $.tokens.stalenessSeconds
-      - name: sessionStaleness
+      - uid: capsesst
+        name: sessionStaleness
         extractor:
           kind: json-path
           path: $.sessions.stalenessSeconds
-  - id: refreshTokens
+  - uid: stprefto
+    id: refreshTokens
     requestUid: reqrtok1
     captures:
-      - name: accessToken
+      - uid: capacces
+        name: accessToken
         extractor:
           kind: json-path
           path: $.access_token
@@ -31,10 +36,12 @@ steps:
       stepId: manifest
       captureName: tokenStaleness
       sort: numeric
-  - id: refreshSessions
+  - uid: stprefse
+    id: refreshSessions
     requestUid: reqrses1
     captures:
-      - name: sessionId
+      - uid: capsesid
+        name: sessionId
         extractor:
           kind: json-path
           path: $.session_id

@@ -390,10 +390,10 @@ function parseFormFlag(raw: string, report: ImportReport, index: number): Multip
       reason: `File part imported as a placeholder. Upload the real file via the request editor's multipart view to complete reconciliation.`,
       tracking: '#todo-file-blobs',
     });
-    return { kind: 'file', name, fileRefs: [fileRef] };
+    return { kind: 'file', uid: generateUid(), name, fileRefs: [fileRef] };
   }
 
-  return { kind: 'text', name, value: rawValue };
+  return { kind: 'text', uid: generateUid(), name, value: rawValue };
 }
 
 function splitFormSuffix(rest: string): { value: string; params: Map<string, string> } {
@@ -615,15 +615,19 @@ function buildBody(parts: string[], kind: ParserState['dataKind'], headers: Requ
   return { type: 'text', content };
 }
 
-function parseFormFields(encoded: string): Array<{ key: string; value: string }> {
+function parseFormFields(encoded: string): Array<{ uid: string; key: string; value: string }> {
   if (!encoded) return [];
-  const out: Array<{ key: string; value: string }> = [];
+  const out: Array<{ uid: string; key: string; value: string }> = [];
   for (const segment of encoded.split('&')) {
     if (segment.length === 0) continue;
     const eq = segment.indexOf('=');
     const rawKey = eq < 0 ? segment : segment.slice(0, eq);
     const rawValue = eq < 0 ? '' : segment.slice(eq + 1);
-    out.push({ key: safeDecode(rawKey.replace(/\+/g, ' ')), value: safeDecode(rawValue.replace(/\+/g, ' ')) });
+    out.push({
+      uid: generateUid(),
+      key: safeDecode(rawKey.replace(/\+/g, ' ')),
+      value: safeDecode(rawValue.replace(/\+/g, ' ')),
+    });
   }
   return out;
 }

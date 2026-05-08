@@ -259,8 +259,8 @@ describe('parseHar — body', () => {
     expect(entries[0].request.body).toEqual({
       type: 'form',
       formParts: [
-        { key: 'a', value: '1' },
-        { key: 'b', value: '2' },
+        { uid: expect.stringMatching(/^[a-z0-9]{8}$/), key: 'a', value: '1' },
+        { uid: expect.stringMatching(/^[a-z0-9]{8}$/), key: 'b', value: '2' },
       ],
     });
   });
@@ -285,8 +285,8 @@ describe('parseHar — body', () => {
     expect(entries[0].request.body).toEqual({
       type: 'form',
       formParts: [
-        { key: 'a', value: '1' },
-        { key: 'b', value: 'hello world' },
+        { uid: expect.stringMatching(/^[a-z0-9]{8}$/), key: 'a', value: '1' },
+        { uid: expect.stringMatching(/^[a-z0-9]{8}$/), key: 'b', value: 'hello world' },
       ],
     });
   });
@@ -312,9 +312,10 @@ describe('parseHar — body', () => {
     expect(body.type).toBe('multipart');
     if (body.type !== 'multipart') throw new Error('expected multipart body');
     expect(body.multipartParts).toEqual([
-      { kind: 'text', name: 'title', value: 'my photo' },
+      { kind: 'text', uid: expect.stringMatching(/^[a-z0-9]{8}$/), name: 'title', value: 'my photo' },
       {
         kind: 'file',
+        uid: expect.stringMatching(/^[a-z0-9]{8}$/),
         name: 'image',
         fileRefs: [
           {

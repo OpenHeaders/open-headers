@@ -3,7 +3,7 @@ import { comparePriority, PRIORITY_LAST, priorityValue } from '../../src/live/pr
 import type { WorkflowStep } from '../../src/types/v5/live';
 
 function step(id: string, priorityFrom?: WorkflowStep['priorityFrom']): WorkflowStep {
-  return { id, requestUid: 'reqonly1', captures: [], priorityFrom };
+  return { uid: `stp${id.slice(0, 5).padEnd(5, 'x')}`, id, requestUid: 'reqonly1', captures: [], priorityFrom };
 }
 
 function captures(shape: Record<string, Record<string, string>>): ReadonlyMap<string, ReadonlyMap<string, string>> {

@@ -841,6 +841,7 @@ function buildBody(
       const formParts = items
         .filter((p) => p.key)
         .map((p) => ({
+          uid: generateUid(),
           key: p.key ?? '',
           value: typeof p.value === 'string' ? p.value : '',
           enabled: p.disabled ? false : undefined,
@@ -872,11 +873,11 @@ function buildBody(
             srcArr.length > 0
               ? srcArr.map((s) => placeholderFileRef({ filename: basenameFromPath(s ?? '') || 'unnamed' }))
               : [placeholderFileRef({ filename: (typeof p.value === 'string' ? p.value : name) || 'unnamed' })];
-          parts.push({ kind: 'file', name, fileRefs });
+          parts.push({ kind: 'file', uid: generateUid(), name, fileRefs });
           filePlaceholderCount += fileRefs.length;
           continue;
         }
-        parts.push({ kind: 'text', name, value: typeof p.value === 'string' ? p.value : '' });
+        parts.push({ kind: 'text', uid: generateUid(), name, value: typeof p.value === 'string' ? p.value : '' });
       }
       if (filePlaceholderCount > 0) {
         recordTransform(report, {
@@ -909,6 +910,7 @@ function buildBody(
         multipartParts: [
           {
             kind: 'file',
+            uid: generateUid(),
             name: 'file',
             fileRefs: [placeholderFileRef({ filename: filename || 'binary-body' })],
           },
@@ -950,15 +952,15 @@ function contentTypeOf(headers: readonly RequestHeader[]): string | null {
  * preserves them too. A bare `?` row with no `=` becomes a key-only
  * field with empty value.
  */
-function parseUrlEncodedToFormFields(encoded: string): Array<{ key: string; value: string }> {
+function parseUrlEncodedToFormFields(encoded: string): Array<{ uid: string; key: string; value: string }> {
   if (!encoded) return [];
-  const out: Array<{ key: string; value: string }> = [];
+  const out: Array<{ uid: string; key: string; value: string }> = [];
   for (const segment of encoded.split('&')) {
     if (segment.length === 0) continue;
     const eq = segment.indexOf('=');
     const rawKey = eq < 0 ? segment : segment.slice(0, eq);
     const rawValue = eq < 0 ? '' : segment.slice(eq + 1);
-    out.push({ key: safeUrlDecode(rawKey), value: safeUrlDecode(rawValue) });
+    out.push({ uid: generateUid(), key: safeUrlDecode(rawKey), value: safeUrlDecode(rawValue) });
   }
   return out;
 }

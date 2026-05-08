@@ -6,26 +6,32 @@ enabled: true
 refresh:
   kind: manual
 steps:
-  - id: fetchUser
+  - uid: stpfusr0
+    id: fetchUser
     requestUid: requser1
     captures:
-      - name: userId
+      - uid: capusrid
+        name: userId
         extractor:
           kind: json-path
           path: $.id
     dependsOn: []
-  - id: fetchTeam
+  - uid: stpftem0
+    id: fetchTeam
     requestUid: reqteam1
     captures:
-      - name: teamId
+      - uid: captemid
+        name: teamId
         extractor:
           kind: json-path
           path: $.team_id
     dependsOn: []
-  - id: aggregate
+  - uid: stpaggrt
+    id: aggregate
     requestUid: reqaggr1
     captures:
-      - name: combinedKey
+      - uid: capcomky
+        name: combinedKey
         extractor:
           kind: json-path
           path: $.key

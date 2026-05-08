@@ -626,9 +626,27 @@ describe('request mapping — body', () => {
     expect(result.requests[0]?.request.body).toEqual({
       type: 'form',
       formParts: [
-        { key: 'a', value: '1', enabled: undefined, description: undefined },
-        { key: 'b', value: 'two words', enabled: undefined, description: undefined },
-        { key: 'c', value: 'disabled', enabled: false, description: undefined },
+        {
+          uid: expect.stringMatching(/^[a-z0-9]{8}$/),
+          key: 'a',
+          value: '1',
+          enabled: undefined,
+          description: undefined,
+        },
+        {
+          uid: expect.stringMatching(/^[a-z0-9]{8}$/),
+          key: 'b',
+          value: 'two words',
+          enabled: undefined,
+          description: undefined,
+        },
+        {
+          uid: expect.stringMatching(/^[a-z0-9]{8}$/),
+          key: 'c',
+          value: 'disabled',
+          enabled: false,
+          description: undefined,
+        },
       ],
     });
   });
@@ -683,9 +701,10 @@ describe('request mapping — body', () => {
     expect(body?.type).toBe('multipart');
     if (body?.type !== 'multipart') throw new Error('expected multipart body');
     expect(body.multipartParts).toEqual([
-      { kind: 'text', name: 'name', value: 'alice' },
+      { kind: 'text', uid: expect.stringMatching(/^[a-z0-9]{8}$/), name: 'name', value: 'alice' },
       {
         kind: 'file',
+        uid: expect.stringMatching(/^[a-z0-9]{8}$/),
         name: 'avatar',
         fileRefs: [
           {
@@ -726,6 +745,7 @@ describe('request mapping — body', () => {
     expect(body.multipartParts).toEqual([
       {
         kind: 'file',
+        uid: expect.stringMatching(/^[a-z0-9]{8}$/),
         name: 'file',
         fileRefs: [
           {
@@ -1367,7 +1387,7 @@ describe('edge cases', () => {
       );
       expect(result.requests[0]?.request.body).toEqual({
         type: 'form',
-        formParts: [{ key: 'k', value: 'v' }],
+        formParts: [{ uid: expect.stringMatching(/^[a-z0-9]{8}$/), key: 'k', value: 'v' }],
       });
     });
 

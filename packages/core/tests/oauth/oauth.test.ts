@@ -110,7 +110,7 @@ describe('buildAuthorizationUrl', () => {
   it('threads preset + config extraAuthParams', () => {
     const url = buildAuthorizationUrl({
       config: makeConfig({
-        extraAuthParams: [{ key: 'custom', value: 'config-value' }],
+        extraAuthParams: [{ uid: 'extauth01', key: 'custom', value: 'config-value' }],
       }),
       redirectUri: 'https://x.chromiumapp.org/',
       state: 's',
@@ -181,8 +181,8 @@ describe('buildAuthorizationCodeTokenBody', () => {
     const body = buildAuthorizationCodeTokenBody({
       config: makeConfig({
         extraTokenParams: [
-          { key: 'audience', value: 'https://api.openheaders.io' },
-          { key: 'resource', value: 'https://resource.io' },
+          { uid: 'exttok001', key: 'audience', value: 'https://api.openheaders.io' },
+          { uid: 'exttok002', key: 'resource', value: 'https://resource.io' },
         ],
       }),
       code: 'c',
@@ -256,7 +256,7 @@ describe('buildRefreshTokenBody', () => {
 
   it('folds extraRefreshParams into the body so per-refresh knobs survive', () => {
     const body = buildRefreshTokenBody({
-      config: makeConfig({ extraRefreshParams: [{ key: 'audience', value: 'api.openheaders.io' }] }),
+      config: makeConfig({ extraRefreshParams: [{ uid: 'extref001', key: 'audience', value: 'api.openheaders.io' }] }),
       refreshToken: 'rf',
     });
     expect(body.get('audience')).toBe('api.openheaders.io');

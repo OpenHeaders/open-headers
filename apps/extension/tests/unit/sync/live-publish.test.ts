@@ -100,7 +100,14 @@ const baseWorkflow: V5.LiveWorkflow = {
   name: 'Demo',
   enabled: true,
   refresh: { kind: 'manual' },
-  steps: [{ id: 'fetch', requestUid: 'reqfetch1', captures: [{ name: 'v', extractor: { kind: 'whole-body' } }] }],
+  steps: [
+    {
+      uid: 'stpfetch',
+      id: 'fetch',
+      requestUid: 'reqfetch1',
+      captures: [{ uid: 'capvxxxx', name: 'v', extractor: { kind: 'whole-body' } }],
+    },
+  ],
 };
 
 const baseLv: V5.LiveVariable = {

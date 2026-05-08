@@ -103,10 +103,10 @@ describe('canonicalizeRequest', () => {
 
   it('normalizes form-body part key order', () => {
     const a = makeRequest({
-      body: { type: 'form', formParts: [{ key: 'x', value: '1', enabled: true }] },
+      body: { type: 'form', formParts: [{ uid: 'fp0xxxxa', key: 'x', value: '1', enabled: true }] },
     });
     const b = makeRequest({
-      body: { type: 'form', formParts: [{ enabled: true, value: '1', key: 'x' }] },
+      body: { type: 'form', formParts: [{ uid: 'fp0xxxxa', enabled: true, value: '1', key: 'x' }] },
     });
     const yamlA = serializeRequest({ value: canonicalizeRequest(a), raw: null }).requestYaml;
     const yamlB = serializeRequest({ value: canonicalizeRequest(b), raw: null }).requestYaml;

@@ -64,12 +64,23 @@ vi.mock('@/background/modules/observability-log', () => ({
 
 // ── Fixtures ──────────────────────────────────────────────────────
 
-function makeStep(overrides: Partial<V5.WorkflowStep> = {}): V5.WorkflowStep {
+type CaptureLike = Omit<V5.Capture, 'uid'> & { uid?: string };
+type StepLike = Omit<Partial<V5.WorkflowStep>, 'captures'> & { captures?: CaptureLike[] };
+
+function makeStep(overrides: StepLike = {}): V5.WorkflowStep {
+  const id = overrides.id ?? 'login';
+  const captures: CaptureLike[] = overrides.captures ?? [
+    { uid: 'captoken', name: 'token', extractor: { kind: 'json-path', path: '$.access_token' } as const },
+  ];
   return {
-    id: overrides.id ?? 'login',
-    requestUid: overrides.requestUid ?? 'reqlogin1',
-    captures: overrides.captures ?? [{ name: 'token', extractor: { kind: 'json-path', path: '$.access_token' } }],
     ...overrides,
+    uid: overrides.uid ?? `stp${id.padEnd(5, 'x').slice(0, 5)}`,
+    id,
+    requestUid: overrides.requestUid ?? 'reqlogin1',
+    captures: captures.map((c, i) => ({
+      ...c,
+      uid: c.uid ?? `cap${String(i).padEnd(2, '0')}${c.name.slice(0, 3).padEnd(3, 'x')}`,
+    })),
   };
 }
 
@@ -505,7 +516,15 @@ describe('skipped-step observability (Phase I)', () => {
           requestUid: 'reqrefrsh',
           dependsOn: ['introspect'],
           runIf: {
-            all: [{ kind: 'capture-equals', stepId: 'introspect', captureName: 'active', value: 'false' }],
+            all: [
+              {
+                uid: 'gat0eq01',
+                kind: 'capture-equals',
+                stepId: 'introspect',
+                captureName: 'active',
+                value: 'false',
+              },
+            ],
           },
           captures: [{ name: 'token', extractor: { kind: 'json-path', path: '$.access_token' } }],
         }),
@@ -547,7 +566,9 @@ describe('skipped-step observability (Phase I)', () => {
           requestUid: 'reqmid000',
           dependsOn: ['probe'],
           runIf: {
-            all: [{ kind: 'capture-equals', stepId: 'probe', captureName: 'flag', value: 'yes' }],
+            all: [
+              { uid: 'gat0eq02', kind: 'capture-equals', stepId: 'probe', captureName: 'flag', value: 'yes' },
+            ],
           },
           captures: [{ name: 'midval', extractor: { kind: 'whole-body' } }],
         }),
@@ -556,7 +577,7 @@ describe('skipped-step observability (Phase I)', () => {
           requestUid: 'reqfinal0',
           dependsOn: ['mid'],
           runIf: {
-            all: [{ kind: 'capture-exists', stepId: 'mid', captureName: 'midval' }],
+            all: [{ uid: 'gat0ex01', kind: 'capture-exists', stepId: 'mid', captureName: 'midval' }],
           },
           captures: [{ name: 'out', extractor: { kind: 'whole-body' } }],
         }),
@@ -604,7 +625,15 @@ describe('skipped-step observability (Phase I)', () => {
           requestUid: 'reqrefrsh',
           dependsOn: ['introspect'],
           runIf: {
-            all: [{ kind: 'capture-equals', stepId: 'introspect', captureName: 'active', value: 'false' }],
+            all: [
+              {
+                uid: 'gat0eq03',
+                kind: 'capture-equals',
+                stepId: 'introspect',
+                captureName: 'active',
+                value: 'false',
+              },
+            ],
           },
           captures: [{ name: 'token', extractor: { kind: 'whole-body' } }],
         }),

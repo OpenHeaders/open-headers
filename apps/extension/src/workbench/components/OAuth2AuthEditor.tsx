@@ -28,6 +28,7 @@ import { CopyOutlined, DownOutlined, InfoCircleOutlined, RightOutlined } from '@
 import { useOAuthBundlesContext } from '@context/OAuthBundlesContext';
 import { isExpired, secondsUntilExpiry } from '@openheaders/core/oauth';
 import type { V5 } from '@openheaders/core/types';
+import { generateUid } from '@openheaders/core/utils';
 import { Alert, App, Button, Checkbox, Input, Select, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
@@ -622,12 +623,10 @@ const Divider: React.FC = () => {
 };
 
 interface ParamEntry {
+  uid: string;
   key: string;
   value: string;
 }
-
-let OAUTH_PARAM_UID_COUNTER = 0;
-const nextOAuthParamUid = (): string => `op-${++OAUTH_PARAM_UID_COUNTER}`;
 
 /**
  * ParamsBlock — wraps the shared `KeyValueTable` so OAuth2's extra
@@ -645,8 +644,8 @@ const ParamsBlock: React.FC<{
 }> = ({ title, entries, onChange }) => {
   // Hydrate transient uids for the shared table; KeyValueRow carries
   // them so drag reorder + in-place edits stay stable across renders.
-  const rowsWithUid = entries.map((e) => ({
-    uid: nextOAuthParamUid(),
+  const rowsWithUid: KeyValueRow[] = entries.map((e) => ({
+    uid: e.uid,
     key: e.key,
     value: e.value,
     description: '',
@@ -661,10 +660,11 @@ const ParamsBlock: React.FC<{
       <KeyValueTable
         rows={rowsWithUid}
         onChange={(next: KeyValueRow[]) => {
-          // Strip uid + the placeholder description/enabled metadata
-          // before commit — the OAuth2Auth schema persists only
-          // `{key, value}` entries.
-          onChange(next.filter((r) => r.key.trim() || r.value.trim()).map(({ key, value }) => ({ key, value })));
+          onChange(
+            next
+              .filter((r) => r.key.trim() || r.value.trim())
+              .map((r) => ({ uid: r.uid || generateUid(), key: r.key, value: r.value })),
+          );
         }}
         keyPlaceholder="Key"
         valuePlaceholder="Value"

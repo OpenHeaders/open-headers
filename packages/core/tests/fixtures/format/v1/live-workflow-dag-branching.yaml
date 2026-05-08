@@ -6,20 +6,25 @@ enabled: true
 refresh:
   kind: manual
 steps:
-  - id: probe
+  - uid: stpprobe
+    id: probe
     requestUid: reqprob2
     captures:
-      - name: flag
+      - uid: capflag0
+        name: flag
         extractor:
           kind: json-path
           path: $.flag
-      - name: httpStatus
+      - uid: caphttps
+        name: httpStatus
         extractor:
           kind: status-code
-  - id: pathA
+  - uid: stppatha
+    id: pathA
     requestUid: reqpatha
     captures:
-      - name: resultA
+      - uid: capresla
+        name: resultA
         extractor:
           kind: json-path
           path: $.result
@@ -28,16 +33,20 @@ steps:
     runIf:
       all:
         - kind: status
+          uid: gat0sta1
           stepId: probe
           match: 2xx
         - kind: capture-equals
+          uid: gat0eqfa
           stepId: probe
           captureName: flag
           value: a
-  - id: pathB
+  - uid: stppathb
+    id: pathB
     requestUid: reqpathb
     captures:
-      - name: resultB
+      - uid: capreslb
+        name: resultB
         extractor:
           kind: json-path
           path: $.result
@@ -46,9 +55,11 @@ steps:
     runIf:
       all:
         - kind: status
+          uid: gat0sta2
           stepId: probe
           match: 2xx
         - kind: capture-equals
+          uid: gat0eqfb
           stepId: probe
           captureName: flag
           value: b

@@ -20,6 +20,7 @@
  */
 
 import type { V5 } from '../types';
+import { generateUid } from './workspace';
 
 export type LiveWorkflowSeed = Omit<V5.LiveWorkflow, 'uid' | 'path' | 'schemaVersion'>;
 export type LiveVariableSeed = Omit<V5.LiveVariable, 'uid' | 'path' | 'schemaVersion'>;
@@ -39,6 +40,7 @@ export function buildEmptyLiveWorkflow(name: string): LiveWorkflowSeed {
     name,
     steps: [
       {
+        uid: generateUid(),
         id: 'step1',
         requestUid: '',
         captures: [],

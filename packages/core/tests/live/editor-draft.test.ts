@@ -13,7 +13,7 @@ import type { Capture, LiveVariable, LiveWorkflow } from '../../src/types/v5/liv
 // ── Fixtures ──────────────────────────────────────────────────────
 
 function cap(name: string): Capture {
-  return { name, extractor: { kind: 'whole-body' } };
+  return { uid: `cap${name.slice(0, 5).padEnd(5, 'x')}`, name, extractor: { kind: 'whole-body' } };
 }
 
 function lv(overrides: Partial<LiveVariable>): LiveVariable {
@@ -38,7 +38,7 @@ function wf(overrides: Partial<LiveWorkflow> = {}): LiveWorkflow {
     name: 'wf',
     enabled: true,
     refresh: { kind: 'manual' },
-    steps: [{ id: 'step1', requestUid: 'reqxxxxx', captures: [cap('token')] }],
+    steps: [{ uid: 'stpstep1', id: 'step1', requestUid: 'reqxxxxx', captures: [cap('token')] }],
     ...overrides,
   };
 }
@@ -137,10 +137,12 @@ function buildDraft(overrides: Partial<DraftWorkflow['steps'][number]['captures'
     enabled: true,
     steps: [
       {
+        uid: 'stpstep1',
         id: 'step1',
         requestUid: 'reqxxxxx',
         captures: [
           {
+            uid: 'captoken',
             name: 'token',
             extractor: { kind: 'whole-body' },
             exposed: true,

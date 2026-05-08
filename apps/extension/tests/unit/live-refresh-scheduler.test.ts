@@ -186,9 +186,10 @@ function makeWorkflow(overrides: Partial<V5.LiveWorkflow> = {}): V5.LiveWorkflow
     refresh: { kind: 'interval', seconds: 300 },
     steps: [
       {
+        uid: 'stpfetch',
         id: 'fetch',
         requestUid: 'reqfetch1',
-        captures: [{ name: 'v', extractor: { kind: 'whole-body' } }],
+        captures: [{ uid: 'capvxxxx', name: 'v', extractor: { kind: 'whole-body' } }],
       },
     ],
     ...overrides,
