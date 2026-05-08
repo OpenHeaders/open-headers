@@ -116,6 +116,21 @@ export interface UseEntityConflictsArgs<E> {
   adapter: ConflictTrackingAdapter<E>;
 }
 
+/** Strip the `{"kind":"<name>"}` marker emitted by the walker at
+ *  `union:<prefix>` baseline keys down to the discriminator name. The
+ *  marker is JSON to keep stable-stringify roundtripping; the dialog
+ *  only needs the user-visible kind. */
+function parseDiscriminatorFromMarker(marker: string): string {
+  if (!marker) return '';
+  try {
+    const parsed = JSON.parse(marker) as { kind?: unknown };
+    if (parsed && typeof parsed.kind === 'string') return parsed.kind;
+  } catch {
+    // Non-JSON marker — fall through and return as-is.
+  }
+  return marker;
+}
+
 function describeRemote(presence: readonly AwarenessState[], now: number): ConflictRemoteInfo | undefined {
   if (presence.length === 0) return undefined;
   // Most-recent peer wins when several are in the candidate set.
@@ -444,9 +459,16 @@ export function useEntityConflicts<E extends { uid: string }>(
         // Stash the live branch payload alongside the structural marker
         // so resolvers can perform whole-branch swaps on "Use saved"
         // (replace `entity[prefix-tail]` + write the new discriminator).
+        // base/theirs stay as raw markers (JSON-stringified `{kind}`) so
+        // the post-accept comparison `theirs === base` against the
+        // override stays consistent with what `readPath` returns; the
+        // dialog parses them down to friendly discriminator labels at
+        // render time via `'union-swap'` kind handling.
         const prefix = key.slice('union:'.length);
         const branchInfo = adapter.readUnionBranchInfo?.(liveEntity, prefix) ?? undefined;
-        const conflict: PathConflict = remote ? { base, theirs, remote } : { base, theirs };
+        const conflict: PathConflict = remote
+          ? { kind: 'union-swap', base, theirs, remote }
+          : { kind: 'union-swap', base, theirs };
         if (branchInfo) conflict.rowPayload = branchInfo;
         out.set(key, conflict);
         divergentPrefixes.push(prefix);

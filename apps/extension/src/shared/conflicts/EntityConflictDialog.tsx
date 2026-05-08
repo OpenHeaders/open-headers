@@ -390,7 +390,9 @@ const EntityConflictDialog: React.FC<EntityConflictDialogProps> = ({
                       ? c.base
                       : kind === 'set-reorder'
                         ? c.base
-                        : yourEdit;
+                        : kind === 'union-swap'
+                          ? c.base
+                          : yourEdit;
                 const theirsDisplay =
                   kind === 'set-remove' ? '(removed)' : c.theirs;
                 const useSavedLabel =
@@ -400,7 +402,9 @@ const EntityConflictDialog: React.FC<EntityConflictDialogProps> = ({
                       ? 'Remove row'
                       : kind === 'set-reorder'
                         ? 'Use saved order'
-                        : 'Use saved';
+                        : kind === 'union-swap'
+                          ? 'Use saved type'
+                          : 'Use saved';
                 const keepMineLabel = kind === 'leaf' ? 'Keep mine' : 'Ignore';
                 const kindIcon =
                   kind === 'set-add' ? (
@@ -413,6 +417,10 @@ const EntityConflictDialog: React.FC<EntityConflictDialogProps> = ({
                     </Tooltip>
                   ) : kind === 'set-reorder' ? (
                     <Tooltip title="Saved version has a different row order">
+                      <SwapOutlined style={{ color: token.colorWarning, fontSize: 12, marginRight: 4 }} />
+                    </Tooltip>
+                  ) : kind === 'union-swap' ? (
+                    <Tooltip title="Saved version uses a different type — accepting replaces the whole branch">
                       <SwapOutlined style={{ color: token.colorWarning, fontSize: 12, marginRight: 4 }} />
                     </Tooltip>
                   ) : null;

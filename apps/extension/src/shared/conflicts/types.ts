@@ -38,8 +38,14 @@ export interface ConflictRemoteInfo {
  *                      `base`/`theirs` carry compact order summaries;
  *                      `rowPayload` carries the saved-side ordered uid
  *                      array so the resolver can re-sort the form.
+ *   - 'union-swap'   — discriminated-union kind transition (e.g. rule
+ *                      type `header → redirect`, body type `json →
+ *                      multipart`). `base` / `theirs` are the local /
+ *                      saved discriminator names; `rowPayload` carries
+ *                      `{kind, branch}` so the resolver can swap the
+ *                      whole branch + write the new discriminator.
  */
-export type PathConflictKind = 'leaf' | 'set-add' | 'set-remove' | 'set-reorder';
+export type PathConflictKind = 'leaf' | 'set-add' | 'set-remove' | 'set-reorder' | 'union-swap';
 
 export interface PathConflict {
   /** Defaults to 'leaf' when omitted (back-compat). */
