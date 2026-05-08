@@ -51,8 +51,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   // so it never exceeds the viewport. Centered + top + tall heights
   // conflict in Ant Modal — the modal ends up centered at one edge while
   // its body length pushes the other edge off-screen.
-  const width = maximized ? '95vw' : 960;
-  const height = maximized ? 'calc(100vh - 40px)' : '80vh';
+  const width = maximized ? '92vw' : 960;
+  const height = maximized ? 'calc(100vh - 64px)' : '80vh';
 
   return (
     <Modal
