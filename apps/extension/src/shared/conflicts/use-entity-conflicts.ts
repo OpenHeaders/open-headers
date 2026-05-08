@@ -480,7 +480,15 @@ export function useEntityConflicts<E extends { uid: string }>(
         // covers the divergence). Order matters when execution order is
         // semantic (DNR last-write-wins on same header name; workflow
         // step ordering; etc.).
+        //
+        // Mirrors the leaf-conflict invariant `theirs !== base`: only a
+        // genuine conflict when BOTH sides diverged from the baseline
+        // order. If `live === baseline`, peer didn't change anything;
+        // a `form !== live` divergence is just the user's unsaved local
+        // reorder, not a conflict needing dialog resolution.
         const formOrder = formSetOrders?.get(live.setPath);
+        const baselineOrderForSet =
+          setOrderOverrides.get(live.setPath) ?? baseline.setOrders.get(live.setPath);
         if (formOrder && liveBy.size > 1 && liveBy.size === formBy.size) {
           let sameMembership = true;
           for (const uid of liveBy.keys()) {
@@ -493,7 +501,16 @@ export function useEntityConflicts<E extends { uid: string }>(
             const liveOrder = Array.from(liveBy.keys());
             const orderMatches =
               liveOrder.length === formOrder.length && liveOrder.every((uid, idx) => uid === formOrder[idx]);
-            if (!orderMatches) {
+            // Peer-side change: live diverged from baseline. Form-side
+            // change: form diverged from baseline. Both are required for
+            // this to be a conflict — otherwise the divergence is one-
+            // sided and the other surface (auto-rebase / pending save)
+            // covers it.
+            const peerReordered =
+              !!baselineOrderForSet &&
+              (baselineOrderForSet.length !== liveOrder.length ||
+                liveOrder.some((uid, idx) => uid !== baselineOrderForSet[idx]));
+            if (!orderMatches && peerReordered) {
               const key = _reorderKey(live.setPath);
               if (!dismissed.has(key)) {
                 const summarize = (uids: readonly string[]) =>
@@ -615,7 +632,7 @@ export function useEntityConflicts<E extends { uid: string }>(
 
       return out;
     },
-    [getConflict, liveEntity, enabled, isDirty, dismissed, localInstanceId, adapter, entityType],
+    [getConflict, liveEntity, enabled, isDirty, dismissed, localInstanceId, adapter, entityType, setOrderOverrides, overrides],
   );
 
   return useMemo(

@@ -198,6 +198,43 @@ describe('useRuleConflicts', () => {
       expect([...(auto.get('action.requestHeaders') ?? [])]).toEqual(['c0000003', 'a0000001', 'b0000002']);
     });
 
+    it('getAllConflicts does NOT emit set-reorder when peer order matches baseline (only I reordered locally)', () => {
+      // Tab 2 dragged a row locally; peer hasn't reordered since baseline.
+      // Live order == baseline order → no peer divergence → no conflict.
+      // (User has a pending unsaved reorder, but that's not a CONFLICT.)
+      const live = ruleWithThreeHeaders(['a0000001', 'b0000002', 'c0000003']);
+      const { result } = mount(live, true);
+      act(() => result.current.setBaseline(ruleWithThreeHeaders(['a0000001', 'b0000002', 'c0000003'])));
+      const form = result.current.projectRule({
+        ...ruleWithThreeHeaders(['c0000003', 'a0000001', 'b0000002']),
+        uid: 'rule-1',
+        path: 'rules/rule-1.yaml',
+      } as V5.Rule);
+      const formOrders = new Map([
+        ['action.requestHeaders', ['c0000003', 'a0000001', 'b0000002'] as const],
+      ]);
+      const all = result.current.getAllConflicts(form, formOrders);
+      expect(all.has('reorder:action.requestHeaders')).toBe(false);
+    });
+
+    it('getAllConflicts emits set-reorder when both sides diverged from baseline (real conflict)', () => {
+      // Peer saved a reorder; I dragged into a different order locally.
+      // baseline=[a,b,c], live=[b,c,a], form=[c,a,b] → both diverged → conflict.
+      const live = ruleWithThreeHeaders(['b0000002', 'c0000003', 'a0000001']);
+      const { result } = mount(live, true);
+      act(() => result.current.setBaseline(ruleWithThreeHeaders(['a0000001', 'b0000002', 'c0000003'])));
+      const form = result.current.projectRule({
+        ...ruleWithThreeHeaders(['c0000003', 'a0000001', 'b0000002']),
+        uid: 'rule-1',
+        path: 'rules/rule-1.yaml',
+      } as V5.Rule);
+      const formOrders = new Map([
+        ['action.requestHeaders', ['c0000003', 'a0000001', 'b0000002'] as const],
+      ]);
+      const all = result.current.getAllConflicts(form, formOrders);
+      expect(all.has('reorder:action.requestHeaders')).toBe(true);
+    });
+
     it('getAllConflicts emits set-reorder when peer reordered + I have an in-set leaf edit (user-reported scenario)', () => {
       // Tab 2: edit C.value to "4", don't save.
       // Tab 1: drag row 3 to row 2, save → live becomes [a,c,b].
