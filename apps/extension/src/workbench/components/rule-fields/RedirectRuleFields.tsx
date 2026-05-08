@@ -10,15 +10,10 @@ import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../InspectorDocs';
 import { TemplateInput } from '../template-input';
 import ScalarConflictChip from '@/shared/conflicts/ScalarConflictChip';
-import type { ConflictBridge } from '@/shared/conflicts/types';
 
 const { Text } = Typography;
 
-interface RedirectRuleFieldsProps {
-  conflicts?: ConflictBridge;
-}
-
-const RedirectRuleFields: React.FC<RedirectRuleFieldsProps> = ({ conflicts }) => {
+const RedirectRuleFields: React.FC = () => {
   const { openDocs } = useInspectorNav();
   const paths = useActionPaths();
 
@@ -61,7 +56,7 @@ const RedirectRuleFields: React.FC<RedirectRuleFieldsProps> = ({ conflicts }) =>
             <TemplateInput placeholder="e.g. https://openheaders.io/redirected — use \1, \2 with URL Regex conditions" />
           </Form.Item>
         </EntityField>
-        <ScalarConflictChip formName="redirectTo" schemaPath={paths.redirectTo} conflicts={conflicts} />
+        <ScalarConflictChip formName="redirectTo" schemaPath={paths.redirectTo} />
       </div>
     </div>
   );

@@ -27,7 +27,6 @@ import CodeEditor from '../CodeEditor';
 import { getDocId } from '../InspectorDocs';
 import { TemplateInput } from '../template-input';
 import ScalarConflictChip from '@/shared/conflicts/ScalarConflictChip';
-import type { ConflictBridge } from '@/shared/conflicts/types';
 
 const { Text } = Typography;
 
@@ -145,11 +144,7 @@ export const MOCK_DYNAMIC_TEMPLATE = `function modifyResponse(args) {
   return response;
 }`;
 
-interface MockRuleFieldsProps {
-  conflicts?: ConflictBridge;
-}
-
-const MockRuleFields: React.FC<MockRuleFieldsProps> = ({ conflicts }) => {
+const MockRuleFields: React.FC = () => {
   const { openDocs } = useInspectorNav();
   const form = Form.useFormInstance();
   const paths = useActionPaths();
@@ -266,7 +261,7 @@ const MockRuleFields: React.FC<MockRuleFieldsProps> = ({ conflicts }) => {
               />
             </Form.Item>
           </EntityField>
-          <ScalarConflictChip formName="mockStatusCode" schemaPath={paths.mockStatusCode} conflicts={conflicts} />
+          <ScalarConflictChip formName="mockStatusCode" schemaPath={paths.mockStatusCode} />
         </div>
       </div>
 
@@ -419,11 +414,7 @@ const MockRuleFields: React.FC<MockRuleFieldsProps> = ({ conflicts }) => {
                 {isDynamic ? (
                   <>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
-                      <ScalarConflictChip
-                        formName="mockDynamicBody"
-                        schemaPath={paths.mockResponseBody}
-                        conflicts={conflicts}
-                      />
+                      <ScalarConflictChip formName="mockDynamicBody" schemaPath={paths.mockResponseBody} />
                     </div>
                     <EntityField path={paths.mockResponseBody}>
                       <Form.Item name="mockDynamicBody" style={{ marginBottom: 0 }}>
@@ -434,11 +425,7 @@ const MockRuleFields: React.FC<MockRuleFieldsProps> = ({ conflicts }) => {
                 ) : (
                   <>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
-                      <ScalarConflictChip
-                        formName="mockStaticBody"
-                        schemaPath={paths.mockResponseBody}
-                        conflicts={conflicts}
-                      />
+                      <ScalarConflictChip formName="mockStaticBody" schemaPath={paths.mockResponseBody} />
                     </div>
                     <EntityField path={paths.mockResponseBody}>
                       <Form.Item name="mockStaticBody" style={{ marginBottom: 0 }}>

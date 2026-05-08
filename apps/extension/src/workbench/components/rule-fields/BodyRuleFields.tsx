@@ -32,7 +32,6 @@ import { useInspectorNav } from '../../hooks/useInspectorNav';
 import CodeEditor from '../CodeEditor';
 import { getDocId } from '../InspectorDocs';
 import ScalarConflictChip from '@/shared/conflicts/ScalarConflictChip';
-import type { ConflictBridge } from '@/shared/conflicts/types';
 
 const { Text } = Typography;
 
@@ -43,11 +42,7 @@ export const BODY_DYNAMIC_TEMPLATE = `function modifyRequestBody(args) {
   return body;
 }`;
 
-interface BodyRuleFieldsProps {
-  conflicts?: ConflictBridge;
-}
-
-const BodyRuleFields: React.FC<BodyRuleFieldsProps> = ({ conflicts }) => {
+const BodyRuleFields: React.FC = () => {
   const { openDocs } = useInspectorNav();
   const form = Form.useFormInstance();
   const paths = useActionPaths();
@@ -195,11 +190,7 @@ const BodyRuleFields: React.FC<BodyRuleFieldsProps> = ({ conflicts }) => {
                 {isDynamic ? (
                   <>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
-                      <ScalarConflictChip
-                        formName="bodyDynamicContent"
-                        schemaPath={paths.body}
-                        conflicts={conflicts}
-                      />
+                      <ScalarConflictChip formName="bodyDynamicContent" schemaPath={paths.body} />
                     </div>
                     <EntityField path={paths.body}>
                       <Form.Item name="bodyDynamicContent" style={{ marginBottom: 0 }}>
@@ -210,11 +201,7 @@ const BodyRuleFields: React.FC<BodyRuleFieldsProps> = ({ conflicts }) => {
                 ) : (
                   <>
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
-                      <ScalarConflictChip
-                        formName="bodyStaticContent"
-                        schemaPath={paths.body}
-                        conflicts={conflicts}
-                      />
+                      <ScalarConflictChip formName="bodyStaticContent" schemaPath={paths.body} />
                     </div>
                     <EntityField path={paths.body}>
                       <Form.Item name="bodyStaticContent" style={{ marginBottom: 0 }}>

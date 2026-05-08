@@ -50,14 +50,7 @@ import {
   useActionPaths,
   useEntityScope,
 } from '@/shared/awareness';
-import {
-  ConflictsProvider,
-  type FieldConflictsApi,
-  FieldConflictChip,
-  SetRowChip,
-} from '@/shared/conflicts/Field';
-import type { PathConflict } from '@/shared/conflicts/types';
-import { useMemo } from 'react';
+import { FieldConflictChip, SetRowChip } from '@/shared/conflicts/Field';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../InspectorDocs';
 import { TemplateInput } from '../template-input';
@@ -466,13 +459,6 @@ interface HeaderRuleFieldsProps {
   ruleUid?: string;
   /** Local surface id ('workbench'), so per-row chips don't render this surface. */
   excludeInstanceId?: string;
-  /** Conflict-tracker bridge — diff chip is rendered when getConflict
-   *  returns a non-null entry for a row's value path. Undefined in
-   *  draft mode (no live rule to conflict with). */
-  getConflict?: (path: string, localValue: string) => PathConflict | null;
-  getSetConflict?: (setPath: string, uid: string, formContainsUid: boolean) => PathConflict | null;
-  onAcceptTheirs?: (path: string, theirs: string) => void;
-  onDismissConflict?: (path: string) => void;
 }
 
 const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
@@ -482,31 +468,14 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
   resCount,
   ruleUid,
   excludeInstanceId,
-  getConflict,
-  getSetConflict,
-  onAcceptTheirs,
-  onDismissConflict,
 }) => {
   const { openDocs } = useInspectorNav();
   const paths = useActionPaths();
   const scope = useEntityScope();
   const entityType = scope.entityType;
   const hasResponse = resCount > 0;
-  const conflictsApi = useMemo<FieldConflictsApi | null>(
-    () =>
-      getConflict && onAcceptTheirs && onDismissConflict
-        ? {
-            getConflict,
-            getSetConflict,
-            acceptTheirs: onAcceptTheirs,
-            dismiss: onDismissConflict,
-          }
-        : null,
-    [getConflict, getSetConflict, onAcceptTheirs, onDismissConflict],
-  );
 
   return (
-    <ConflictsProvider api={conflictsApi}>
     <div style={{ marginBottom: 16 }}>
       {hasResponse && (
         <Alert
@@ -586,7 +555,6 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
         ]}
       />
     </div>
-    </ConflictsProvider>
   );
 };
 

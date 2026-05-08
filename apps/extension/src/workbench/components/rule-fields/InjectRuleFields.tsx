@@ -22,7 +22,6 @@ import { useInspectorNav } from '../../hooks/useInspectorNav';
 import CodeEditor from '../CodeEditor';
 import { getDocId } from '../InspectorDocs';
 import ScalarConflictChip from '@/shared/conflicts/ScalarConflictChip';
-import type { ConflictBridge } from '@/shared/conflicts/types';
 
 const { Text } = Typography;
 
@@ -51,11 +50,7 @@ export function maybePrefillInjectCode(form: FormInstance, injectType: unknown):
   form.setFieldValue('injectCode', injectType === 'css' ? INJECT_TEMPLATES.css : INJECT_TEMPLATES.js);
 }
 
-interface InjectRuleFieldsProps {
-  conflicts?: ConflictBridge;
-}
-
-const InjectRuleFields: React.FC<InjectRuleFieldsProps> = ({ conflicts }) => {
+const InjectRuleFields: React.FC = () => {
   const { openDocs } = useInspectorNav();
   const form = Form.useFormInstance();
   const paths = useActionPaths();
@@ -160,11 +155,7 @@ const InjectRuleFields: React.FC<InjectRuleFieldsProps> = ({ conflicts }) => {
                       <Input size="small" placeholder="Enter Source URL (relative or absolute)" />
                     </Form.Item>
                   </EntityField>
-                  <ScalarConflictChip
-                    formName="injectSourceUrl"
-                    schemaPath={paths.injectSourceUrl}
-                    conflicts={conflicts}
-                  />
+                  <ScalarConflictChip formName="injectSourceUrl" schemaPath={paths.injectSourceUrl} />
                 </div>
                 <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
                   Code
@@ -179,7 +170,7 @@ const InjectRuleFields: React.FC<InjectRuleFieldsProps> = ({ conflicts }) => {
                 <Text type="secondary" style={{ fontSize: 11 }}>
                   Code
                 </Text>
-                <ScalarConflictChip formName="injectCode" schemaPath={paths.injectCode} conflicts={conflicts} />
+                <ScalarConflictChip formName="injectCode" schemaPath={paths.injectCode} />
               </div>
               <EntityField path={paths.injectCode}>
                 <Form.Item name="injectCode" style={{ marginBottom: 0 }}>

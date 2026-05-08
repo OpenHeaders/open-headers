@@ -9,15 +9,10 @@ import { EntityField, useActionPaths } from '@/shared/awareness';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../InspectorDocs';
 import ScalarConflictChip from '@/shared/conflicts/ScalarConflictChip';
-import type { ConflictBridge } from '@/shared/conflicts/types';
 
 const { Text } = Typography;
 
-interface DelayRuleFieldsProps {
-  conflicts?: ConflictBridge;
-}
-
-const DelayRuleFields: React.FC<DelayRuleFieldsProps> = ({ conflicts }) => {
+const DelayRuleFields: React.FC = () => {
   const { openDocs } = useInspectorNav();
   const paths = useActionPaths();
 
@@ -50,7 +45,7 @@ const DelayRuleFields: React.FC<DelayRuleFieldsProps> = ({ conflicts }) => {
             <InputNumber min={1} max={30000} step={100} addonAfter="ms" style={{ width: 160 }} placeholder="1000" />
           </Form.Item>
         </EntityField>
-        <ScalarConflictChip formName="delayMs" schemaPath={paths.delayMs} conflicts={conflicts} />
+        <ScalarConflictChip formName="delayMs" schemaPath={paths.delayMs} />
         <Text type="secondary" style={{ fontSize: 11 }}>
           Max 30,000 ms
         </Text>

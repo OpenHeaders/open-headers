@@ -72,6 +72,7 @@ import { mergeRuleForSave } from './rule-fields/merge-rule-for-save';
 import { applyResolutionToForm, applyResolutionToRule } from './rule-fields/rule-form-resolver';
 import type { PathConflict } from './rule-fields/use-rule-conflicts';
 import { useRuleConflicts } from './rule-fields/use-rule-conflicts';
+import { ConflictsProvider, type FieldConflictsApi } from '@/shared/conflicts/Field';
 import SaveAsTemplateModal from './SaveAsTemplateModal';
 import { buildRuleIcon } from './shared/rule-icon';
 import { renderTwoToneIcon } from './TwoToneIconPicker';
@@ -436,6 +437,20 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       getSetConflict: conflicts.getSetConflict,
       onAcceptTheirs: conflicts.acceptTheirs,
       onDismissConflict: conflicts.dismiss,
+    }),
+    [conflicts.getConflict, conflicts.getSetConflict, conflicts.acceptTheirs, conflicts.dismiss],
+  );
+
+  // Field-tree conflicts API exposed to per-type rule-fields/* via
+  // context. `<ScalarConflictChip>` + `<FieldConflictChip>` +
+  // `<SetRowChip>` all subscribe through the provider so the per-type
+  // editors stop prop-drilling the conflict bridge through every leaf.
+  const fieldConflictsApi = useMemo<FieldConflictsApi>(
+    () => ({
+      getConflict: conflicts.getConflict,
+      getSetConflict: conflicts.getSetConflict,
+      acceptTheirs: conflicts.acceptTheirs,
+      dismiss: conflicts.dismiss,
     }),
     [conflicts.getConflict, conflicts.getSetConflict, conflicts.acceptTheirs, conflicts.dismiss],
   );
@@ -1208,6 +1223,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                   {/* ── Two-column grid: fields left, conditions right (on wide screens) ── */}
                   <div className="rules-rule-editor-columns">
                     {/* ── Per-type fields ── */}
+                    <ConflictsProvider api={fieldConflictsApi}>
                     <div>
                       {selectedType === 'header' && (
                         <HeaderRuleFields
@@ -1217,24 +1233,21 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                           resCount={headerResCount}
                           ruleUid={ruleUid}
                           excludeInstanceId={localInstanceId}
-                          getConflict={conflicts.getConflict}
-                          getSetConflict={conflicts.getSetConflict}
-                          onAcceptTheirs={conflicts.acceptTheirs}
-                          onDismissConflict={conflicts.dismiss}
                         />
                       )}
                       {selectedType === 'block' && <BlockRuleFields />}
-                      {selectedType === 'redirect' && <RedirectRuleFields conflicts={conflictBridge} />}
+                      {selectedType === 'redirect' && <RedirectRuleFields />}
                       {selectedType === 'query-param' && <QueryParamRuleFields />}
-                      {selectedType === 'inject' && <InjectRuleFields conflicts={conflictBridge} />}
-                      {selectedType === 'delay' && <DelayRuleFields conflicts={conflictBridge} />}
-                      {selectedType === 'body' && <BodyRuleFields conflicts={conflictBridge} />}
-                      {selectedType === 'mock' && <MockRuleFields conflicts={conflictBridge} />}
+                      {selectedType === 'inject' && <InjectRuleFields />}
+                      {selectedType === 'delay' && <DelayRuleFields />}
+                      {selectedType === 'body' && <BodyRuleFields />}
+                      {selectedType === 'mock' && <MockRuleFields />}
                       {/* Single-mount inline action validation. The validator
                       lives in core; new rule types pick the banner up
                       automatically when their case is added there. */}
                       {selectedType && <ActionValueBanner ruleType={selectedType} />}
                     </div>
+                    </ConflictsProvider>
 
                     {/* ── Conditions section ── */}
                     <div style={{ marginBottom: 20 }}>
