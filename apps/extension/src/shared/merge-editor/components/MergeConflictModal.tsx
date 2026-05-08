@@ -47,6 +47,24 @@ const MergeConflictModal = ({ open, session, isDarkMode, onClose }: MergeConflic
   const allResolved = stats.totalRemaining === 0;
   const baseAvailable = useMemo(() => session.files.some((f) => f.base !== undefined), [session]);
 
+  // ARIA live announcer. Polite — won't interrupt the screen reader's
+  // current utterance. The remaining-hunk count is appended so each
+  // announcement carries the user's progress without an extra tick.
+  const liveRef = useRef<HTMLDivElement>(null);
+  const announce = useCallback(
+    (msg: string) => {
+      if (!liveRef.current) return;
+      const remaining = stats.totalRemaining;
+      const tail =
+        remaining === 0 ? ' All hunks resolved.' : ` ${remaining} ${remaining === 1 ? 'hunk' : 'hunks'} remaining.`;
+      // Toggle the text to force a re-announcement even if the message
+      // is identical to the previous one (some screen readers debounce).
+      liveRef.current.textContent = '';
+      liveRef.current.textContent = msg + tail;
+    },
+    [stats.totalRemaining],
+  );
+
   // Phase 1: single-file shell. Initial-file selection follows the
   // session hint or first file. Multi-file selection arrives in Phase 5.
   const activeFile = useMemo(() => {
@@ -205,6 +223,7 @@ const MergeConflictModal = ({ open, session, isDarkMode, onClose }: MergeConflic
               showNonConflicting={showNonConflicting}
               layout={layout}
               onHunkStatsChange={setStats}
+              onAnnounce={announce}
             />
           ) : (
             <div style={{ padding: 16 }}>
@@ -213,6 +232,27 @@ const MergeConflictModal = ({ open, session, isDarkMode, onClose }: MergeConflic
           )}
         </div>
       </div>
+      {/* Visually-hidden polite live region. Off-screen via the
+          standard sr-only clip rect; aria-live="polite" so screen
+          readers pick up announcements without preempting the user's
+          current focus. */}
+      <div
+        ref={liveRef}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        style={{
+          position: 'absolute',
+          width: 1,
+          height: 1,
+          padding: 0,
+          margin: -1,
+          overflow: 'hidden',
+          clip: 'rect(0,0,0,0)',
+          whiteSpace: 'nowrap',
+          border: 0,
+        }}
+      />
     </Modal>
   );
 };

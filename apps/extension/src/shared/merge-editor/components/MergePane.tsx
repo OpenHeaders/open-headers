@@ -75,6 +75,10 @@ export interface MergePaneProps {
   /** Optional render slot for a per-pane header strip
    *  (label + future per-pane affordances). Receives the pane key. */
   renderHeader?: (pane: 'theirs' | 'result' | 'mine') => ReactNode;
+  /** Caller wants user-action narration for an ARIA live region or
+   *  for telemetry. Fires on every accept-arrow / bulk-apply call.
+   *  Phrasing is stable; consumer renders it into a polite live region. */
+  onAnnounce?: (message: string) => void;
 }
 
 export interface MergePaneHandle {
@@ -125,6 +129,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     layout = 'column',
     className,
     renderHeader,
+    onAnnounce,
   } = props;
   const language = file.language ?? 'yaml';
 
@@ -274,8 +279,10 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
           forceMoveMarkers: true,
         },
       ]);
+      const sourceLabel = side === 'theirs' ? 'incoming' : 'current';
+      onAnnounce?.(`Accepted ${sourceLabel} hunk at line ${startLine}.`);
     },
-    [theirsHunks, mineHunks, resultHandle],
+    [theirsHunks, mineHunks, resultHandle, onAnnounce],
   );
 
   useHunkAcceptArrows({ editorRef: theirsHandle, side: 'theirs', hunks: visibleTheirs, onAccept: handleAccept });
@@ -367,16 +374,22 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     for (const h of mineHunks) {
       if (!classification.mineConflictIds.has(h.id)) picks.push({ hunk: h, replacement: h.mineLines });
     }
+    if (picks.length > 0)
+      onAnnounce?.(`Applied ${picks.length} non-conflicting ${picks.length === 1 ? 'hunk' : 'hunks'}.`);
     bulkApply(picks);
-  }, [theirsHunks, mineHunks, classification, bulkApply]);
+  }, [theirsHunks, mineHunks, classification, bulkApply, onAnnounce]);
 
   const acceptAllTheirs = useCallback(() => {
+    if (theirsHunks.length > 0)
+      onAnnounce?.(`Accepted all ${theirsHunks.length} incoming ${theirsHunks.length === 1 ? 'hunk' : 'hunks'}.`);
     bulkApply(theirsHunks.map((h) => ({ hunk: h, replacement: h.theirsLines })));
-  }, [theirsHunks, bulkApply]);
+  }, [theirsHunks, bulkApply, onAnnounce]);
 
   const acceptAllMine = useCallback(() => {
+    if (mineHunks.length > 0)
+      onAnnounce?.(`Accepted all ${mineHunks.length} current ${mineHunks.length === 1 ? 'hunk' : 'hunks'}.`);
     bulkApply(mineHunks.map((h) => ({ hunk: h, replacement: h.mineLines })));
-  }, [mineHunks, bulkApply]);
+  }, [mineHunks, bulkApply, onAnnounce]);
 
   useImperativeHandle(
     ref,
