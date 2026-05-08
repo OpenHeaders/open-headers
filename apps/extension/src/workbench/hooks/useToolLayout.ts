@@ -25,6 +25,7 @@ import { get as getSetting } from '../settings/store';
 import { focusStore } from '../stores/focus-region-store';
 import { TOOL_WINDOW_MAP, TOOL_WINDOWS } from '../tool-windows';
 import type { ToolWindowId, WorkbenchTab } from '../types';
+import type { SidebarView } from '../components/sidebar/types';
 import { readGlobalActiveWorkspaceId, readUrlWorkspaceId } from './readBootIdentity';
 
 export type ToolLayoutApi = DockLayoutApi<ToolWindowId>;
@@ -40,8 +41,20 @@ export type ToolLayoutApi = DockLayoutApi<ToolWindowId>;
  * the workspace's last-known expansions. Re-expanding a folder is a
  * second-cost operation; v2.2 may revisit.
  */
+/**
+ * Section-expansion state is per-view: each `SidebarView` owns its
+ * own slice keyed by section name. Multiple Sidebar instances can
+ * render at the same time (e.g. `http-rules` in left-top and
+ * `api-requests` in left-bottom), and shared section names
+ * (ENVIRONMENTS appears in three views; collection roots can recur)
+ * would otherwise leak collapse state across panels. Per-view slices
+ * remove the leak at the schema layer — no string-prefix gymnastics
+ * needed in the Sidebar component itself.
+ */
+export type SidebarSectionsByView = Record<SidebarView, Record<string, boolean>>;
+
 export interface SidebarExpansionsState {
-  sectionsExpanded: Record<string, boolean>;
+  sectionsExpanded: SidebarSectionsByView;
   expandedKeys: string[];
 }
 
@@ -112,14 +125,15 @@ const FACTORY_EDITOR_TABS: PersistedTabSession<WorkbenchTab> = { tabs: [], activ
  */
 export const FACTORY_SIDEBAR_EXPANSIONS: SidebarExpansionsState = {
   sectionsExpanded: {
-    rules: true,
-    templates: true,
-    'api-requests': true,
-    vault: true,
-    'workspace-vars': true,
-    'live-variables': true,
-    workflows: true,
-    environments: false,
+    'http-rules': { rules: true, templates: true, environments: false },
+    'api-requests': { 'api-requests': true, environments: false },
+    workflows: { workflows: true },
+    variables: {
+      vault: true,
+      'workspace-vars': true,
+      'live-variables': true,
+      environments: false,
+    },
   },
   expandedKeys: ['sys-tpl-col', 'sys-tpl-header'],
 };

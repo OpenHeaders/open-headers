@@ -994,6 +994,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openSettings,
     openWorkspaceManager,
     openEnvironmentEdit,
+    openCreateEnvironment: handleCreateEnvironment,
     openWorkspaceVariables,
     openVault,
     openCollectionVariables,
@@ -1883,8 +1884,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
               onHide={() => tl.closeDock(slot)}
               expandedKeys={sidebarState.expandedKeys}
               setExpandedKeys={sidebarState.setExpandedKeys}
-              sectionsExpanded={sidebarState.sectionsExpanded}
-              setSectionsExpanded={sidebarState.setSectionsExpanded}
+              sectionsExpanded={sidebarState.getSectionsForView(id)}
+              setSectionsExpanded={(updater) => sidebarState.setSectionsForView(id, updater)}
             />
           );
         case 'workflow-status':

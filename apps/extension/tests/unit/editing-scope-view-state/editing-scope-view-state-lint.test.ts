@@ -131,7 +131,11 @@ describe('per-tab-state lint', () => {
     const source = readFile('workbench/App.tsx');
     expect(source).toMatch(/useWorkbenchSidebarState\s*\(\s*perTab\s*\)/);
     expect(source).toMatch(/setExpandedKeys=\{sidebarState\.setExpandedKeys\}/);
-    expect(source).toMatch(/setSectionsExpanded=\{sidebarState\.setSectionsExpanded\}/);
+    // Section state is per-view: each Sidebar instance receives its
+    // own slice of the global map (see SidebarSectionsByView). The
+    // setter is wrapped so writes route to the correct view's slice.
+    expect(source).toMatch(/sidebarState\.getSectionsForView\(\s*id\s*\)/);
+    expect(source).toMatch(/sidebarState\.setSectionsForView\(\s*id\s*,/);
   });
 
   it('v3: Sidebar.tsx receives expandedKeys + sectionsExpanded as props (no internal useState for them)', () => {

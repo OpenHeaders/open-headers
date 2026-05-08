@@ -2,6 +2,42 @@ import type { V5 } from '@openheaders/core/types';
 import { useCallback } from 'react';
 import type { SidebarView } from './types';
 
+/**
+ * Single source of truth for "which view owns which section header".
+ * A section is **owned** by a view iff that view is the only one
+ * that renders the section. Auto-expand from active-tab change is
+ * only safe for owned (= single-view) sections — every mounted
+ * Sidebar instance reacts to the same activeTabId change, so
+ * expanding a multi-view section would simultaneously update every
+ * panel's slice and surface as cross-panel state leak.
+ *
+ * Use 'multi' for sections that render in more than one view (e.g.
+ * `environments` appears in http-rules, api-requests, and variables
+ * as a shared secondary reference). Multi-view sections rely on
+ * direct user-action handlers in Sidebar.tsx (e.g. createNew*) to
+ * expand only the originating panel's slice — those handlers run
+ * inside the Sidebar that received the click, so they're scoped
+ * correctly via the per-view setter route.
+ *
+ * Adding a new section anywhere in the workbench? List its
+ * ownership here and `shouldAutoExpandSection()` enforces the rule
+ * automatically — no per-call site updates needed.
+ */
+const SECTION_VIEW_OWNERSHIP: Record<string, SidebarView | 'multi'> = {
+  rules: 'http-rules',
+  templates: 'http-rules',
+  'api-requests': 'api-requests',
+  workflows: 'workflows',
+  vault: 'variables',
+  'workspace-vars': 'variables',
+  'live-variables': 'variables',
+  environments: 'multi',
+};
+
+function shouldAutoExpandSection(section: string, view: SidebarView): boolean {
+  return SECTION_VIEW_OWNERSHIP[section] === view;
+}
+
 interface UseSelectOpenedTabParams {
   activeTabId?: string | null;
   view: SidebarView;
@@ -15,8 +51,21 @@ interface UseSelectOpenedTabParams {
 }
 
 /**
- * "Select Opened Tab" — expand ancestors, focus, and scroll to the
- * active tab's sidebar node. Returns true if found + selected.
+ * "Select Opened Tab" — expand collection/folder ancestors, focus,
+ * and scroll to the active tab's sidebar node. Returns true if
+ * found + selected.
+ *
+ * Section-level auto-expansion routes through
+ * `shouldAutoExpandSection()` so the rule is one-line, data-driven:
+ * a section auto-expands here iff it is owned by exactly one view
+ * (per `SECTION_VIEW_OWNERSHIP`) and that view matches this hook's
+ * `view` prop. Sections marked `'multi'` (rendered in more than one
+ * view) never auto-expand from this hook — every mounted Sidebar
+ * reacts to the same activeTabId change, and expansion would
+ * propagate to every panel's slice. The originating Sidebar still
+ * expands its own slice via direct create-handler calls (e.g.
+ * `createNewEnvironment`), which run only in the panel that
+ * received the user click.
  */
 export function useSelectOpenedTab({
   activeTabId,
@@ -47,7 +96,9 @@ export function useSelectOpenedTab({
       nodeId = activeTabId;
     } else if (activeTabId.startsWith('env-')) {
       nodeId = activeTabId;
-      setSectionsExpanded((prev) => ({ ...prev, environments: true }));
+      if (shouldAutoExpandSection('environments', view)) {
+        setSectionsExpanded((prev) => ({ ...prev, environments: true }));
+      }
       setFocusedId(nodeId);
       setTimeout(() => {
         containerRef.current?.querySelector(`[data-item-id="${nodeId}"]`)?.scrollIntoView({ block: 'nearest' });
@@ -55,7 +106,9 @@ export function useSelectOpenedTab({
       return true;
     } else if (activeTabId.startsWith('live-wf-')) {
       nodeId = `workflow-${activeTabId.replace('live-wf-', '')}`;
-      setSectionsExpanded((prev) => ({ ...prev, workflows: true }));
+      if (shouldAutoExpandSection('workflows', view)) {
+        setSectionsExpanded((prev) => ({ ...prev, workflows: true }));
+      }
       setFocusedId(nodeId);
       setTimeout(() => {
         containerRef.current?.querySelector(`[data-item-id="${nodeId}"]`)?.scrollIntoView({ block: 'nearest' });
@@ -89,7 +142,9 @@ export function useSelectOpenedTab({
           for (const k of found.ancestors) next.add(k);
           return next;
         });
-        setSectionsExpanded((prev) => ({ ...prev, 'api-requests': true }));
+        if (shouldAutoExpandSection('api-requests', view)) {
+          setSectionsExpanded((prev) => ({ ...prev, 'api-requests': true }));
+        }
         setFocusedId(nodeId);
         setTimeout(() => {
           containerRef.current?.querySelector(`[data-item-id="${nodeId}"]`)?.scrollIntoView({ block: 'nearest' });
@@ -98,14 +153,18 @@ export function useSelectOpenedTab({
       }
       return false;
     } else if (activeTabId === 'vault' && view === 'variables') {
-      setSectionsExpanded((prev) => ({ ...prev, vault: true }));
+      if (shouldAutoExpandSection('vault', view)) {
+        setSectionsExpanded((prev) => ({ ...prev, vault: true }));
+      }
       setFocusedId('vault-row');
       setTimeout(() => {
         containerRef.current?.querySelector(`[data-item-id="vault-row"]`)?.scrollIntoView({ block: 'nearest' });
       }, 50);
       return true;
     } else if (activeTabId === 'workspace-vars' && view === 'variables') {
-      setSectionsExpanded((prev) => ({ ...prev, 'workspace-vars': true }));
+      if (shouldAutoExpandSection('workspace-vars', view)) {
+        setSectionsExpanded((prev) => ({ ...prev, 'workspace-vars': true }));
+      }
       setFocusedId('workspace-vars-row');
       setTimeout(() => {
         containerRef.current
@@ -114,7 +173,9 @@ export function useSelectOpenedTab({
       }, 50);
       return true;
     } else if (activeTabId === 'live-vars' && view === 'variables') {
-      setSectionsExpanded((prev) => ({ ...prev, 'live-variables': true }));
+      if (shouldAutoExpandSection('live-variables', view)) {
+        setSectionsExpanded((prev) => ({ ...prev, 'live-variables': true }));
+      }
       setFocusedId('live-vars-row');
       setTimeout(() => {
         containerRef.current?.querySelector(`[data-item-id="live-vars-row"]`)?.scrollIntoView({ block: 'nearest' });
@@ -149,7 +210,9 @@ export function useSelectOpenedTab({
     };
 
     if (nodeId.startsWith('col-') || nodeId.startsWith('tpl-col-')) {
-      setSectionsExpanded((prev) => ({ ...prev, [section]: true }));
+      if (shouldAutoExpandSection(section, view)) {
+        setSectionsExpanded((prev) => ({ ...prev, [section]: true }));
+      }
       setFocusedId(nodeId);
       setTimeout(() => {
         containerRef.current?.querySelector(`[data-item-id="${nodeId}"]`)?.scrollIntoView({ block: 'nearest' });
@@ -176,7 +239,9 @@ export function useSelectOpenedTab({
         for (const k of found.ancestors) next.add(k);
         return next;
       });
-      setSectionsExpanded((prev) => ({ ...prev, [found.section]: true }));
+      if (shouldAutoExpandSection(found.section, view)) {
+        setSectionsExpanded((prev) => ({ ...prev, [found.section]: true }));
+      }
       setFocusedId(nodeId);
       setTimeout(() => {
         containerRef.current?.querySelector(`[data-item-id="${nodeId}"]`)?.scrollIntoView({ block: 'nearest' });

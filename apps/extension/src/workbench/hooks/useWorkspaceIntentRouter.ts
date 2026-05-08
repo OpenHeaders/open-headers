@@ -58,6 +58,10 @@ interface UseWorkspaceIntentRouterOptions {
   openSettings: (target?: { settingKey?: string; categoryId?: string }) => void;
   openWorkspaceManager: () => void;
   openEnvironmentEdit: (uid: string, name: string, autoRename?: boolean) => void;
+  /** `create-environment` — mint a new env via the env API and open
+   *  its editor tab. Caller resolves a unique "New Environment (N)"
+   *  name on its own; routing surfaces don't carry payload. */
+  openCreateEnvironment: () => void;
   openWorkspaceVariables: () => void;
   openVault: () => void;
   openCollectionVariables: (uid: string, name: string) => void;
@@ -86,7 +90,7 @@ interface UseWorkspaceIntentRouterOptions {
   openImportModal: () => void;
 }
 
-/** `open-workspace`/`-docs`/`-settings`/`-manager`/`-vars`/`-vault`/`-export-modal`/`-import-picker` */
+/** `open-workspace`/`-docs`/`-settings`/`-manager`/`-vars`/`-vault`/`-export-modal`/`-import-picker`/`create-environment` */
 function isDataFreeIntent(intent: WorkspaceIntent): boolean {
   switch (intent.kind) {
     case 'open-workspace':
@@ -97,6 +101,7 @@ function isDataFreeIntent(intent: WorkspaceIntent): boolean {
     case 'open-vault':
     case 'open-export-modal':
     case 'open-import-modal':
+    case 'create-environment':
       return true;
     default:
       return false;
@@ -262,6 +267,9 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
           // flips to the real name as soon as the env-store hydrates.
           o.openEnvironmentEdit(intent.uid, 'Environment');
           return;
+        case 'create-environment':
+          o.openCreateEnvironment();
+          return;
         case 'open-collection-vars':
           o.openCollectionVariables(intent.uid, 'Collection');
           return;
@@ -385,6 +393,9 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
         return;
       case 'edit-environment':
         o.openEnvironmentEdit(pending.uid, 'Environment');
+        return;
+      case 'create-environment':
+        o.openCreateEnvironment();
         return;
       case 'open-collection-vars':
         o.openCollectionVariables(pending.uid, 'Collection');

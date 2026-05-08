@@ -525,7 +525,7 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
             activeCollectionDefaultEnvId={null}
             onSetCollectionPinnedEnvs={() => Promise.resolve(true)}
             onCreateEnvironment={() => {
-              void openWorkspace({ kind: 'open-workspace-vars' }, 'devpanel');
+              void openWorkspace({ kind: 'create-environment' }, 'devpanel');
             }}
             onOpenEnvironment={(uid) => {
               void openWorkspace({ kind: 'edit-environment', uid }, 'devpanel');

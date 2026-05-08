@@ -66,6 +66,7 @@ import { getRequestCollectionSyncMirrorForWorkspace } from '@/context/request-co
 import { getRequestFolderSyncMirrorForWorkspace } from '@/context/request-folder-sync-mirror';
 import { getTemplateCollectionSyncMirrorForWorkspace } from '@/context/template-collection-sync-mirror';
 import { getTemplateFolderSyncMirrorForWorkspace } from '@/context/template-folder-sync-mirror';
+import { replaceOwnedKeys } from './sidebar/expanded-key-ownership';
 import { FolderDndTree, type FolderDndConfig } from './sidebar/FolderDndTree';
 import { SectionHeader } from './sidebar/SectionHeader';
 import { TreeNodeRow } from './sidebar/TreeNodeRow';
@@ -327,6 +328,13 @@ const Sidebar: React.FC<SidebarProps> = ({
     [setExpandedKeys],
   );
 
+  // expand/collapse-all only mutate the calling view's slice of the
+  // expanded-keys set. `replaceOwnedKeys()` swaps in this view's
+  // `nextOwned` set while preserving every other panel's expansions
+  // (keys owned by other views, or with no recognized prefix). The
+  // sectionsExpanded setter is already per-view-scoped at the App.tsx
+  // boundary, so the literal section maps below only update this
+  // view's slice.
   const expandAll = useCallback(() => {
     if (view === 'api-requests') {
       setSectionsExpanded({ 'api-requests': true, environments: true });
@@ -342,25 +350,32 @@ const Sidebar: React.FC<SidebarProps> = ({
     } else {
       setSectionsExpanded({ rules: true, templates: true, environments: true });
     }
-    const allKeys = new Set<string>();
-    const collectKeys = (nodes: V5.TreeNode[]) => {
+    const collectFolderKeys = (nodes: V5.TreeNode[], prefix: string, into: Set<string>) => {
       for (const n of nodes) {
         if (n.type === 'folder') {
-          allKeys.add(`folder-${n.uid}`);
-          collectKeys(n.children);
+          into.add(`${prefix}${n.uid}`);
+          collectFolderKeys(n.children, prefix, into);
         }
       }
     };
-    for (const col of localCollectionTrees) {
-      allKeys.add(`col-${col.uid}`);
-      collectKeys(col.tree);
+    const ownedKeys = new Set<string>();
+    if (view === 'http-rules') {
+      for (const col of localCollectionTrees) {
+        ownedKeys.add(`col-${col.uid}`);
+        collectFolderKeys(col.tree, 'folder-', ownedKeys);
+      }
+      for (const col of templateCollectionTrees) {
+        ownedKeys.add(`tpl-col-${col.uid}`);
+        collectFolderKeys(col.tree, 'tpl-folder-', ownedKeys);
+      }
+    } else if (view === 'api-requests') {
+      for (const col of requestCollectionTrees) {
+        ownedKeys.add(`req-col-${col.uid}`);
+        collectFolderKeys(col.tree, 'req-folder-', ownedKeys);
+      }
     }
-    for (const col of templateCollectionTrees) {
-      allKeys.add(`tpl-col-${col.uid}`);
-      collectKeys(col.tree);
-    }
-    setExpandedKeys(allKeys);
-  }, [view, localCollectionTrees, templateCollectionTrees, setSectionsExpanded, setExpandedKeys]);
+    setExpandedKeys((prev) => replaceOwnedKeys(prev, ownedKeys, view));
+  }, [view, localCollectionTrees, templateCollectionTrees, requestCollectionTrees, setSectionsExpanded, setExpandedKeys]);
 
   const collapseAll = useCallback(() => {
     if (view === 'api-requests') {
@@ -377,7 +392,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     } else {
       setSectionsExpanded({ rules: false, templates: false, environments: false });
     }
-    setExpandedKeys(new Set());
+    setExpandedKeys((prev) => replaceOwnedKeys(prev, new Set<string>(), view));
   }, [view, setSectionsExpanded, setExpandedKeys]);
 
   const confirmOnDelete = useSettingValue('general.confirmOnDelete');
@@ -1275,7 +1290,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         {view === 'api-requests' && (
           <>
             <SectionHeader
-              title="API REQUESTS"
+              title="REQUESTS"
               expanded={sectionsExpanded['api-requests']}
               onToggle={() => toggleSection('api-requests')}
               actions={

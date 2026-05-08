@@ -14,19 +14,44 @@
  */
 
 import type { Dispatch, SetStateAction } from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
-import { FACTORY_SIDEBAR_EXPANSIONS, type WorkbenchViewState, type WorkbenchWorkspaceData } from './useToolLayout';
+import type { SidebarView } from '../components/sidebar/types';
+import {
+  FACTORY_SIDEBAR_EXPANSIONS,
+  type SidebarSectionsByView,
+  type WorkbenchViewState,
+  type WorkbenchWorkspaceData,
+} from './useToolLayout';
 
 export interface UseWorkbenchSidebarStateApi {
   expandedKeys: Set<string>;
   setExpandedKeys: Dispatch<SetStateAction<Set<string>>>;
-  sectionsExpanded: Record<string, boolean>;
-  setSectionsExpanded: Dispatch<SetStateAction<Record<string, boolean>>>;
+  /** Full per-view section-expansion map. Keyed by SidebarView so
+      multiple simultaneously-mounted Sidebar instances each have
+      their own slice (no cross-panel collapse leaks). */
+  sectionsByView: SidebarSectionsByView;
+  /** Read one view's slice. Empty record fall-through if the view
+      has never been touched (factory defaults populate every view
+      so this is a defensive guard, not the normal path). */
+  getSectionsForView: (view: SidebarView) => Record<string, boolean>;
+  /** Update one view's slice; preserves all other views' state.
+      Accepts the same `SetStateAction` shape Sidebar.tsx already
+      uses for its lifted setter. */
+  setSectionsForView: (view: SidebarView, updater: SetStateAction<Record<string, boolean>>) => void;
 }
 
 function readSliceData(perTab: EditingScopeViewStateApi<WorkbenchViewState>): WorkbenchWorkspaceData['sidebarExpansions'] {
   return perTab.initial.workspace?.data.sidebarExpansions ?? FACTORY_SIDEBAR_EXPANSIONS;
+}
+
+function cloneSectionsByView(input: SidebarSectionsByView): SidebarSectionsByView {
+  return {
+    'http-rules': { ...(input['http-rules'] ?? {}) },
+    'api-requests': { ...(input['api-requests'] ?? {}) },
+    workflows: { ...(input.workflows ?? {}) },
+    variables: { ...(input.variables ?? {}) },
+  };
 }
 
 export function useWorkbenchSidebarState(
@@ -34,9 +59,7 @@ export function useWorkbenchSidebarState(
 ): UseWorkbenchSidebarStateApi {
   const seed = readSliceData(perTab);
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => new Set(seed.expandedKeys));
-  const [sectionsExpanded, setSectionsExpanded] = useState<Record<string, boolean>>(() => ({
-    ...seed.sectionsExpanded,
-  }));
+  const [sectionsByView, setSectionsByView] = useState<SidebarSectionsByView>(() => cloneSectionsByView(seed.sectionsExpanded));
 
   const onPersist = perTab.onPersist;
   // First effect run loads from the resolved snapshot — skip the
@@ -60,7 +83,7 @@ export function useWorkbenchSidebarState(
     const next = sliceSidebar ?? readSliceData(perTab);
     skipNextPersistRef.current = true;
     setExpandedKeys(new Set(next.expandedKeys));
-    setSectionsExpanded({ ...next.sectionsExpanded });
+    setSectionsByView(cloneSectionsByView(next.sectionsExpanded));
   }, [sliceWorkspaceId, sliceSidebar, perTab]);
 
   useEffect(() => {
@@ -72,7 +95,7 @@ export function useWorkbenchSidebarState(
       const slice = prev.workspace;
       if (!slice) return prev;
       const nextSidebar: WorkbenchWorkspaceData['sidebarExpansions'] = {
-        sectionsExpanded,
+        sectionsExpanded: sectionsByView,
         expandedKeys: Array.from(expandedKeys),
       };
       return {
@@ -83,7 +106,24 @@ export function useWorkbenchSidebarState(
         },
       };
     });
-  }, [expandedKeys, sectionsExpanded, onPersist]);
+  }, [expandedKeys, sectionsByView, onPersist]);
 
-  return { expandedKeys, setExpandedKeys, sectionsExpanded, setSectionsExpanded };
+  const getSectionsForView = useCallback(
+    (view: SidebarView): Record<string, boolean> => sectionsByView[view] ?? {},
+    [sectionsByView],
+  );
+
+  const setSectionsForView = useCallback(
+    (view: SidebarView, updater: SetStateAction<Record<string, boolean>>) => {
+      setSectionsByView((prev) => {
+        const current = prev[view] ?? {};
+        const next = typeof updater === 'function' ? updater(current) : updater;
+        if (next === current) return prev;
+        return { ...prev, [view]: next };
+      });
+    },
+    [],
+  );
+
+  return { expandedKeys, setExpandedKeys, sectionsByView, getSectionsForView, setSectionsForView };
 }

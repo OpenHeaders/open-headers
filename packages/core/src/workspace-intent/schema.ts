@@ -77,6 +77,24 @@ export const EditEnvironmentIntentSchema = v.object({
   uid: UidSchema,
 });
 
+/**
+ * `create-environment` — request that the workbench mint a new
+ * environment, then open its editor tab. Carries no payload: the
+ * workbench picks the next available "New Environment (N)" name on
+ * receipt, so a stale link can't collide with a name the user has
+ * since reused. Same pattern as `create-live-variable`.
+ *
+ * Dispatched primarily from surfaces that don't host the environments
+ * list themselves (devpanel toolbar, popup), which previously had to
+ * route via `open-workspace-vars` as a fallback — that opened the
+ * Workspace Variables tab instead of creating an env, surfacing as a
+ * mis-routing bug. With this kind, those surfaces wire `+ New env`
+ * directly to a structurally correct destination.
+ */
+export const CreateEnvironmentIntentSchema = v.object({
+  kind: v.literal('create-environment'),
+});
+
 export const OpenCollectionVarsIntentSchema = v.object({
   kind: v.literal('open-collection-vars'),
   uid: UidSchema,
@@ -232,6 +250,7 @@ export const WorkspaceIntentSchema = v.variant('kind', [
   EditRuleIntentSchema,
   CreateRuleIntentSchema,
   EditEnvironmentIntentSchema,
+  CreateEnvironmentIntentSchema,
   OpenCollectionVarsIntentSchema,
   OpenRequestCollectionVarsIntentSchema,
   OpenTemplateCollectionVarsIntentSchema,
@@ -263,6 +282,7 @@ export const WORKSPACE_INTENT_KINDS = [
   'edit-rule',
   'create-rule',
   'edit-environment',
+  'create-environment',
   'open-collection-vars',
   'open-request-collection-vars',
   'open-template-collection-vars',

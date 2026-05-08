@@ -15,6 +15,7 @@
  *   #/create/<type>/<tpl>    → create-rule with templateKey
  *   #/create/<type>/draft-<n>→ create-rule with draftNonce
  *   #/environment/<uid>      → edit-environment
+ *   #/create-environment     → create-environment
  *   #/collection-vars/<uid>  → open-collection-vars
  *   #/request-collection-vars/<uid>  → open-request-collection-vars
  *   #/template-collection-vars/<uid>  → open-template-collection-vars
@@ -111,6 +112,9 @@ export function hashToIntent(rawHash: string): WorkspaceIntent | null {
     case 'environment':
       if (!rest[0]) return null;
       return buildIntent({ kind: 'edit-environment', uid: rest[0] });
+
+    case 'create-environment':
+      return buildIntent({ kind: 'create-environment' });
 
     case 'collection-vars':
       if (!rest[0]) return null;
@@ -249,6 +253,9 @@ export function intentToHash(intent: WorkspaceIntent): string {
 
     case 'edit-environment':
       return `#/environment/${encodeSegment(intent.uid)}`;
+
+    case 'create-environment':
+      return '#/create-environment';
 
     case 'open-collection-vars':
       return `#/collection-vars/${encodeSegment(intent.uid)}`;
