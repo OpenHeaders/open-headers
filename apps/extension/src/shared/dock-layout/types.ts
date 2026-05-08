@@ -52,15 +52,21 @@ export interface ToolWindowDef<TWindowId extends string = string> {
   icon: React.ReactNode;
   /**
    * Optional tooltip text. When omitted, the tab strip uses `label`.
-   * Useful when the label is an abbreviation (e.g. "WF Status") and
-   * the hover copy should spell out the full meaning ("Workflow
-   * Status") for discoverability.
+   * Useful when the label is an abbreviation and the hover copy should
+   * spell out the full meaning for discoverability.
    */
   tooltip?: string;
   /** Core tool windows cannot be hidden — the Hide menu entry is disabled. */
   core: boolean;
   /** Initial dock slot on a fresh profile; also the restore target for Hide → Show. */
   defaultSlot: DockSlot;
+  /**
+   * On a fresh profile, when the user first expands the containing
+   * region, should this window be the activated tab in its slot? Defaults
+   * to true. Set false for noisy/optional panels that should stay
+   * dormant until the user explicitly opens them.
+   */
+  openByDefault?: boolean;
 }
 
 /** Layout variant for the activity bar. */

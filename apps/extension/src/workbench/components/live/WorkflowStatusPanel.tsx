@@ -171,7 +171,7 @@ const WorkflowStatusPanel: React.FC<Props> = ({ onClose, onOpenWorkflow }) => {
       wiring={headerWiring}
       title={
         <>
-          <strong>WF Status</strong>
+          <strong>Workflow Status</strong>
           <OverallSummary rows={rows} />
         </>
       }

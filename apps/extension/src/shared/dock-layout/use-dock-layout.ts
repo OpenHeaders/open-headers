@@ -355,16 +355,19 @@ export function useDockLayout<T extends string>({
         } else {
           const snapshot = lastRegionOpenSlotsRef.current[region];
           // First-ever open of this region (no snapshot): fall back to
-          // opening every slot that has a window, matching the prior
-          // greedy behavior. After at least one close, snapshot drives
-          // restoration so we only reopen the slots the user had open.
+          // opening every slot that has a window, BUT skip any slot
+          // whose candidate window is flagged `openByDefault: false`.
+          // After at least one close, snapshot drives restoration so we
+          // only reopen the slots the user had open.
           const restoreAll = snapshot.size === 0;
           for (const s of slotsInRegion) {
             if (!restoreAll && !snapshot.has(s)) continue;
             const remembered = lastActiveRef.current[s];
             const first = next.docks[s].windows[0] ?? null;
             const candidate = remembered && next.docks[s].windows.includes(remembered) ? remembered : first;
-            if (candidate) next.docks[s].active = candidate;
+            if (!candidate) continue;
+            if (restoreAll && windowMap[candidate]?.openByDefault === false) continue;
+            next.docks[s].active = candidate;
           }
         }
       });

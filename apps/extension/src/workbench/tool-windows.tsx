@@ -53,20 +53,22 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
   { id: 'docs', label: 'Docs', icon: <BookOutlined />, core: false, defaultSlot: 'right-top' },
   { id: 'var-scope', label: 'Scope', icon: <ScanOutlined />, core: false, defaultSlot: 'right-top' },
   { id: 'variables', label: 'Variables', icon: <CodeOutlined />, core: false, defaultSlot: 'right-bottom' },
-  { id: 'page-traffic', label: 'Page Traffic', icon: <FundViewOutlined />, core: false, defaultSlot: 'bottom-right' },
-  // WF Status — per-workflow circuit-breaker dashboard (state,
-  // consecutive failures, openings, next-attempt countdown, manual
-  // Retry / Reset-circuit actions). Grouped with Test Runs in the
-  // bottom-left slot; listed BEFORE `test-runs` in this array so its
-  // ActivityBar icon renders above the Test Runs icon within the
-  // shared bottom group.
+  {
+    id: 'page-traffic',
+    label: 'Page Traffic',
+    icon: <FundViewOutlined />,
+    core: false,
+    defaultSlot: 'bottom-right',
+    openByDefault: false,
+  },
+  // Per-workflow circuit-breaker dashboard (state, consecutive
+  // failures, openings, next-attempt countdown, manual Retry /
+  // Reset-circuit actions). Grouped with Test Runs in the bottom-left
+  // slot; listed BEFORE `test-runs` so its ActivityBar icon renders
+  // above the Test Runs icon within the shared bottom group.
   {
     id: 'workflow-status',
-    label: 'WF Status',
-    // Short label ("WF Status") keeps the activity bar compact in the
-    // bottom-left group; the hover tooltip spells out the full name
-    // so users learn the feature even if they miss the abbreviation.
-    tooltip: 'Workflow Status',
+    label: 'Workflow Status',
     icon: <DashboardOutlined />,
     core: false,
     defaultSlot: 'bottom-left',
