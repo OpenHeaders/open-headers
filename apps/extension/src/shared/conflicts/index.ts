@@ -16,7 +16,7 @@
  */
 
 export type { ConflictBridge, ConflictRemoteInfo, PathConflict, PathConflictKind } from './types';
-export { default as EntityConflictBanner } from './EntityConflictBanner';
+export { default as EntityConflictBanner, hasDialogOnlyConflict } from './EntityConflictBanner';
 export type { EntityConflictBannerProps } from './EntityConflictBanner';
 export { default as EntityConflictDialog } from './EntityConflictDialog';
 export type { EntityConflictDialogProps, ConflictResolution } from './EntityConflictDialog';

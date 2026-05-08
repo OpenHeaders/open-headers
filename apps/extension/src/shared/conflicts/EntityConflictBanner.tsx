@@ -1,5 +1,5 @@
 /**
- * Entity-level aggregator that mounts above an editor body when 2+ fields
+ * Entity-level aggregator that mounts above an editor body when fields
  * have unresolved external changes.
  *
  * Pure presentational + entity-agnostic — caller computes `count` from
@@ -7,15 +7,34 @@
  * actions into the same `acceptTheirs` / `dismiss` paths the per-field
  * chips already use.
  *
- * Hidden when count < 2 (1 conflict reads the inline chip — banner
- * overhead not worth it; 0 means nothing to show).
+ * Visibility:
+ *   - Hidden at count 0 (nothing to show).
+ *   - Hidden at count 1 ONLY when an inline surface can resolve it
+ *     (a leaf chip / set-row chip handles the case alone). For
+ *     dialog-only conflicts (set-reorder, set-add, union-swap) the
+ *     banner is the only review affordance — caller passes
+ *     `forceVisible` whenever at least one such conflict is present.
+ *   - Always shown at count ≥ 2.
  */
 
 import { ThunderboltOutlined } from '@ant-design/icons';
 import { Alert, Button, Space, Typography } from 'antd';
 import type React from 'react';
+import type { PathConflict } from './types';
 
 const { Text } = Typography;
+
+/** True when the conflict map contains any kind that has no inline
+ *  affordance (set-reorder, set-add, union-swap). Editors pass the
+ *  result as `forceVisible` to keep the banner visible at count 1
+ *  whenever a dialog-only conflict is the lone surface. */
+export function hasDialogOnlyConflict(conflicts: ReadonlyMap<string, PathConflict>): boolean {
+  for (const conflict of conflicts.values()) {
+    const kind = conflict.kind ?? 'leaf';
+    if (kind === 'set-reorder' || kind === 'set-add' || kind === 'union-swap') return true;
+  }
+  return false;
+}
 
 export interface EntityConflictBannerProps {
   count: number;
@@ -24,6 +43,10 @@ export interface EntityConflictBannerProps {
   onUseAllSaved: () => void;
   /** Override the default copy noun ("fields"). e.g. "headers", "params". */
   fieldNoun?: string;
+  /** When true, the banner stays visible at count 1 — used when at
+   *  least one conflict is dialog-only (no inline chip can surface
+   *  it on its own). Caller derives this from the conflict map. */
+  forceVisible?: boolean;
   style?: React.CSSProperties;
 }
 
@@ -33,9 +56,11 @@ const EntityConflictBanner: React.FC<EntityConflictBannerProps> = ({
   onKeepAllMine,
   onUseAllSaved,
   fieldNoun = 'fields',
+  forceVisible = false,
   style,
 }) => {
-  if (count < 2) return null;
+  if (count === 0) return null;
+  if (count < 2 && !forceVisible) return null;
   const message = (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
       <Text style={{ fontSize: 13 }}>

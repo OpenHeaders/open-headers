@@ -198,6 +198,31 @@ describe('useRuleConflicts', () => {
       expect([...(auto.get('action.requestHeaders') ?? [])]).toEqual(['c0000003', 'a0000001', 'b0000002']);
     });
 
+    it('getAllConflicts emits set-reorder when peer reordered + I have an in-set leaf edit (user-reported scenario)', () => {
+      // Tab 2: edit C.value to "4", don't save.
+      // Tab 1: drag row 3 to row 2, save → live becomes [a,c,b].
+      // Tab 2 must surface a set-reorder conflict (silent rebase is suppressed
+      // by the order-sensitive guard so the user explicitly resolves).
+      const live = ruleWithThreeHeaders(['a0000001', 'c0000003', 'b0000002'], { c0000003: '3' });
+      const { result } = mount(live, true);
+      act(() =>
+        result.current.setBaseline(ruleWithThreeHeaders(['a0000001', 'b0000002', 'c0000003'], { c0000003: '3' })),
+      );
+      // Project Tab 2's form (still in baseline order [a,b,c], with C.value='4').
+      const form = result.current.projectRule({
+        ...ruleWithThreeHeaders(['a0000001', 'b0000002', 'c0000003'], { c0000003: '4' }),
+        uid: 'rule-1',
+        path: 'rules/rule-1.yaml',
+      } as V5.Rule);
+      const formOrders = new Map([
+        ['action.requestHeaders', ['a0000001', 'b0000002', 'c0000003'] as const],
+      ]);
+      const all = result.current.getAllConflicts(form, formOrders);
+      expect(all.has('reorder:action.requestHeaders')).toBe(true);
+      const reorder = all.get('reorder:action.requestHeaders');
+      expect(reorder?.kind).toBe('set-reorder');
+    });
+
     it('rebases silently on order-sensitive sets when no leaf in the set is dirty (untouched user case)', () => {
       const live = ruleWithThreeHeaders(['a0000001', 'c0000003', 'b0000002']);
       const { result } = mount(live, true);

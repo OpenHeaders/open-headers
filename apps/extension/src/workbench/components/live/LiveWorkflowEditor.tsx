@@ -53,6 +53,7 @@ import { EntityScopeProvider, useSetActiveFieldFocus } from '@/shared/awareness'
 import {
   type ConflictResolution,
   EntityConflictBanner,
+  hasDialogOnlyConflict,
   EntityConflictDialog,
   prettyPathMap,
   useAutoMergeForm,
@@ -561,6 +562,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
       <EditorHeader title={editHeaderTitle} actions={editHeaderActions} shell={shell.headerProps} />
       <EntityConflictBanner
         count={allConflicts.size}
+        forceVisible={hasDialogOnlyConflict(allConflicts)}
         onReview={() => setConflictDialogOpen(true)}
         onKeepAllMine={handleKeepAllMine}
         onUseAllSaved={handleUseAllSaved}

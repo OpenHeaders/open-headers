@@ -50,6 +50,7 @@ import {
 import { readFieldPath } from '@/shared/awareness/field-path';
 import {
   EntityConflictBanner,
+  hasDialogOnlyConflict,
   EntityConflictDialog,
   prettyPathMap,
   type ConflictResolution,
@@ -1007,6 +1008,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
 
           <EntityConflictBanner
             count={allConflicts.size}
+            forceVisible={hasDialogOnlyConflict(allConflicts)}
             onReview={() => setConflictDialogOpen(true)}
             onKeepAllMine={handleKeepAllMine}
             onUseAllSaved={handleUseAllSaved}

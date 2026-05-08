@@ -36,6 +36,7 @@ import {
 } from '@/shared/awareness';
 import {
   EntityConflictBanner,
+  hasDialogOnlyConflict,
   EntityConflictDialog,
   prettyPathMap,
   type ConflictResolution,
@@ -385,6 +386,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
 
             <EntityConflictBanner
               count={allConflicts.size}
+              forceVisible={hasDialogOnlyConflict(allConflicts)}
               onReview={() => setConflictDialogOpen(true)}
               onKeepAllMine={handleKeepAllMine}
               onUseAllSaved={handleUseAllSaved}

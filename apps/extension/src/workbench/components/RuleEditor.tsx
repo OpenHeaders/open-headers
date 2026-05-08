@@ -44,7 +44,7 @@ import {
   useLocalInstanceId,
 } from '@/shared/awareness';
 import type { ConflictResolution } from '@/shared/conflicts';
-import { EntityConflictBanner, EntityConflictDialog, useAutoMergeForm } from '@/shared/conflicts';
+import { EntityConflictBanner, EntityConflictDialog, hasDialogOnlyConflict, useAutoMergeForm } from '@/shared/conflicts';
 import { useEditorShell, useReprime } from '@/shared/editor-shell';
 import { stableStringify } from '@/shared/forms';
 import { applyRuleCreate, applyRulePublish } from '@/shared/sync/rule-write-client';
@@ -493,6 +493,12 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     () => (formProjection ? conflicts.getAllConflicts(formProjection, formSetOrders) : new Map<string, PathConflict>()),
     [formProjection, formSetOrders, conflicts],
   );
+
+  // Dialog-only conflicts (no inline anchor: set-reorder, set-add,
+  // union-swap) need the banner to stay visible even at count 1 so
+  // the user can open the dialog. Set-remove + leaf both have inline
+  // chips and let the banner hide at count 1.
+  const dialogOnlyConflict = useMemo(() => hasDialogOnlyConflict(allConflicts), [allConflicts]);
 
   // Per-leaf auto-rebase via the shared `useAutoMergeForm` — when a peer
   // commits to a leaf the user hasn't touched in this tab, silently catch
@@ -1176,6 +1182,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 
                   <EntityConflictBanner
                     count={allConflicts.size}
+                    forceVisible={dialogOnlyConflict}
                     onReview={() => setConflictDialogOpen(true)}
                     onKeepAllMine={handleKeepAllMine}
                     onUseAllSaved={handleUseAllSaved}
