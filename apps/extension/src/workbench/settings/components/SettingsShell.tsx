@@ -1,27 +1,24 @@
 /**
- * SettingsShell — the layout that backs both SettingsModal and
- * SettingsTab. Composes CategoryNav + SettingsSearch + scroll-spy
- * content pane.
+ * SettingsShell — layout backing both SettingsModal and SettingsTab.
+ * Composes CategoryNav + SettingsSearch + a scroll-spy content pane.
  *
  * Data flow:
  *   - query → search.ts → filtered defs → grouped by category
  *   - sections stack vertically, each anchored by data-category-id
- *   - IntersectionObserver on each section tells the nav which
- *     category is "current"
- *   - clicking a nav entry scrolls that section into view; scroll-spy
- *     is temporarily suppressed during programmatic scroll so the
- *     highlight lands where the user expected.
+ *   - useScrollSpy tracks which section's top has crossed the active line
+ *     and exposes scroll-to helpers; clicks on the nav re-use them.
  */
 
 import { Empty, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { allCategories } from '../registry';
 import { searchSettings } from '../search';
 import type { CategoryDef, SettingDef } from '../types';
 import CategoryNav from './CategoryNav';
 import SettingsSearch from './SettingsSearch';
 import SettingsSection from './SettingsSection';
+import { useScrollSpy } from './useScrollSpy';
 
 interface SettingsShellProps {
   /** Optional deep-link target: scroll to this setting key on mount. */
@@ -30,20 +27,18 @@ interface SettingsShellProps {
   initialCategoryId?: string;
 }
 
+const SCROLL_TOP_OFFSET = 16;
+
 const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initialCategoryId }) => {
   const { token } = theme.useToken();
   const [query, setQuery] = useState('');
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(initialCategoryId ?? null);
-
   const contentRef = useRef<HTMLDivElement>(null);
-  const sectionRefs = useRef<Map<string, HTMLElement>>(new Map());
-  const suppressSpyRef = useRef(false);
 
-  // ── Category filtering + grouping ──────────────────────────────────
-  //
-  // Run the search once per query change. Group the results by
-  // category so each SettingsSection gets its own def list, in
-  // category order. Empty categories drop out.
+  const { activeId, setActiveId, registerSection, scrollToSection, scrollToElement } = useScrollSpy({
+    containerRef: contentRef,
+    topOffset: SCROLL_TOP_OFFSET,
+    initialId: initialCategoryId ?? null,
+  });
 
   const { sectionList, visibleCategoryIds } = useMemo(() => {
     const results = searchSettings(query);
@@ -62,88 +57,37 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
     return { sectionList: ordered, visibleCategoryIds: visible };
   }, [query]);
 
-  // Ensure the active category is still visible after a query change.
+  // Keep activeId in sync with which categories are visible after a search.
   useEffect(() => {
-    if (activeCategoryId && !visibleCategoryIds.has(activeCategoryId)) {
-      setActiveCategoryId(sectionList[0]?.category.id ?? null);
-    } else if (!activeCategoryId && sectionList.length > 0) {
-      setActiveCategoryId(sectionList[0].category.id);
+    if (activeId && !visibleCategoryIds.has(activeId)) {
+      setActiveId(sectionList[0]?.category.id ?? null);
+    } else if (!activeId && sectionList.length > 0) {
+      setActiveId(sectionList[0].category.id);
     }
-  }, [visibleCategoryIds, activeCategoryId, sectionList]);
+  }, [visibleCategoryIds, activeId, sectionList, setActiveId]);
 
-  // ── Scroll-spy ─────────────────────────────────────────────────────
-
-  useEffect(() => {
-    const root = contentRef.current;
-    if (!root) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (suppressSpyRef.current) return;
-        // Pick the section with the largest visible area near the top.
-        let best: { id: string; ratio: number } | null = null;
-        for (const entry of entries) {
-          if (!entry.isIntersecting) continue;
-          const id = (entry.target as HTMLElement).dataset.categoryId;
-          if (!id) continue;
-          if (!best || entry.intersectionRatio > best.ratio) {
-            best = { id, ratio: entry.intersectionRatio };
-          }
-        }
-        if (best) setActiveCategoryId(best.id);
-      },
-      { root, rootMargin: '0px 0px -60% 0px', threshold: [0, 0.25, 0.5, 0.75, 1] },
-    );
-    for (const el of sectionRefs.current.values()) observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  // ── Click-to-scroll ────────────────────────────────────────────────
-
-  const scrollToCategory = useCallback((categoryId: string) => {
-    const el = sectionRefs.current.get(categoryId);
-    if (!el) return;
-    suppressSpyRef.current = true;
-    setActiveCategoryId(categoryId);
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    window.setTimeout(() => {
-      suppressSpyRef.current = false;
-    }, 500);
-  }, []);
-
-  // ── Deep link on mount ─────────────────────────────────────────────
-
+  // Deep-link on mount: prefer setting-key (centered + flash), fall back to category.
   useEffect(() => {
     if (initialSettingKey) {
       const el = contentRef.current?.querySelector<HTMLElement>(`[data-setting-key="${initialSettingKey}"]`);
       if (el) {
-        suppressSpyRef.current = true;
-        el.scrollIntoView({ behavior: 'auto', block: 'center' });
+        scrollToElement(el, 'auto', 'center');
         el.animate(
           [{ background: token.colorPrimaryBg }, { background: token.colorPrimaryBg }, { background: 'transparent' }],
           { duration: 1400, easing: 'ease-out' },
         );
-        window.setTimeout(() => {
-          suppressSpyRef.current = false;
-        }, 600);
+        return;
       }
-    } else if (initialCategoryId) {
-      // Delay a tick so section refs are populated.
-      window.setTimeout(() => scrollToCategory(initialCategoryId), 0);
     }
+    if (initialCategoryId) scrollToSection(initialCategoryId, 'auto');
+    // Mount-only: deep links apply once per shell instance.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialCategoryId, initialSettingKey, scrollToCategory, token.colorPrimaryBg]);
-
-  // ── Render ─────────────────────────────────────────────────────────
+  }, []);
 
   return (
     <div
       className="settings-shell"
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        background: token.colorBgLayout,
-      }}
+      style={{ display: 'flex', flexDirection: 'column', height: '100%', background: token.colorBgLayout }}
     >
       <div
         style={{
@@ -159,33 +103,18 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
       </div>
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
         <CategoryNav
-          activeCategoryId={activeCategoryId}
-          onSelect={scrollToCategory}
+          activeCategoryId={activeId}
+          onSelect={(id) => scrollToSection(id)}
           visibleCategoryIds={visibleCategoryIds}
         />
-        <div
-          ref={contentRef}
-          style={{
-            flex: 1,
-            overflowY: 'auto',
-            background: token.colorBgLayout,
-          }}
-        >
+        <div ref={contentRef} style={{ flex: 1, overflowY: 'auto', background: token.colorBgLayout }}>
           {sectionList.length === 0 ? (
             <div style={{ padding: 64, display: 'flex', justifyContent: 'center' }}>
               <Empty description="No settings match your search" />
             </div>
           ) : (
             sectionList.map(({ category, defs }) => (
-              <SettingsSection
-                key={category.id}
-                category={category}
-                defs={defs}
-                ref={(el) => {
-                  if (el) sectionRefs.current.set(category.id, el);
-                  else sectionRefs.current.delete(category.id);
-                }}
-              />
+              <SettingsSection key={category.id} category={category} defs={defs} ref={registerSection(category.id)} />
             ))
           )}
         </div>
