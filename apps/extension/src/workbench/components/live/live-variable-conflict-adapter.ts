@@ -1,91 +1,34 @@
 /**
  * Conflict tracking + resolve adapters for V5.LiveVariable.
  *
- * Save batch — `useLiveVariables.updateVariable` — sends scalar leaves:
- * name, description, enabled, requireFreshOnRuleBuild, workflowUid,
- * stepId, captureName. Manual override has its own out-of-band write
- * path (`setOverride`) and is not part of the editor's save diff;
- * skipped here.
- *
- * No set-modeled fields. `snapshotSets` returns empty — set-add /
- * set-remove / set-reorder don't apply.
+ * Driven by the field-tree descriptor + generic walker. Save batch
+ * sends scalar leaves: name, description, enabled,
+ * requireFreshOnRuleBuild, workflowUid, stepId, captureName. Manual
+ * override has its own out-of-band write path and is not part of the
+ * editor's save diff. No set-modeled fields.
  */
 
 import type { V5 } from '@openheaders/core/types';
-import { LIVE_VARIABLE_FIELD } from '@/shared/awareness';
-import type {
-  ConflictResolveAdapter,
-  ConflictTrackingAdapter,
-  PathMap,
-  SetMemberSnapshot,
-} from '@/shared/conflicts/conflict-adapters';
+import type { ConflictResolveAdapter, ConflictTrackingAdapter } from '@/shared/conflicts/conflict-adapters';
+import { leaf, obj } from '@/shared/conflicts/field-tree/descriptor';
+import { makeConflictAdapter } from '@/shared/conflicts/field-tree/make-conflict-adapter';
 
-const LV_LEAVES = [
-  'name',
-  'description',
-  'enabled',
-  'requireFreshOnRuleBuild',
-  'workflowUid',
-  'stepId',
-  'captureName',
-] as const;
-type LvLeaf = (typeof LV_LEAVES)[number];
+const LIVE_VARIABLE_SCHEMA = obj({
+  name: leaf('string'),
+  description: leaf('string'),
+  enabled: leaf('boolean', { coercion: 'boolean-strict' }),
+  requireFreshOnRuleBuild: leaf('boolean', { coercion: 'boolean-strict' }),
+  workflowUid: leaf('string'),
+  stepId: leaf('string'),
+  captureName: leaf('string'),
+});
 
-function readLeaf(lv: V5.LiveVariable, leaf: LvLeaf): string {
-  switch (leaf) {
-    case 'name':
-      return String(lv.name ?? '');
-    case 'description':
-      return String(lv.description ?? '');
-    case 'enabled':
-      return lv.enabled ? 'true' : 'false';
-    case 'requireFreshOnRuleBuild':
-      return lv.requireFreshOnRuleBuild ? 'true' : 'false';
-    case 'workflowUid':
-      return String(lv.workflowUid ?? '');
-    case 'stepId':
-      return String(lv.stepId ?? '');
-    case 'captureName':
-      return String(lv.captureName ?? '');
-  }
-}
-
-const LEAF_PATH: Record<LvLeaf, string> = {
-  name: LIVE_VARIABLE_FIELD.name,
-  description: LIVE_VARIABLE_FIELD.description,
-  enabled: LIVE_VARIABLE_FIELD.enabled,
-  requireFreshOnRuleBuild: LIVE_VARIABLE_FIELD.requireFreshOnRuleBuild,
-  workflowUid: LIVE_VARIABLE_FIELD.workflowUid,
-  stepId: LIVE_VARIABLE_FIELD.stepId,
-  captureName: LIVE_VARIABLE_FIELD.captureName,
-};
-
-const PATH_TO_LEAF = new Map<string, LvLeaf>(LV_LEAVES.map((l) => [LEAF_PATH[l], l]));
-
-function readPath(lv: V5.LiveVariable, path: string): string | null {
-  const leaf = PATH_TO_LEAF.get(path);
-  return leaf ? readLeaf(lv, leaf) : null;
-}
-
-function extractBaseline(lv: V5.LiveVariable): PathMap {
-  const out: PathMap = {};
-  for (const leaf of LV_LEAVES) out[LEAF_PATH[leaf]] = readLeaf(lv, leaf);
-  return out;
-}
-
-function snapshotSets(): readonly SetMemberSnapshot[] {
-  return [];
-}
-
-export const liveVariableConflictAdapter: ConflictTrackingAdapter<V5.LiveVariable> = {
+const adapters = makeConflictAdapter<V5.LiveVariable>({
+  schema: LIVE_VARIABLE_SCHEMA,
   signature: (e) => e.uid,
-  extractBaseline,
-  readPath,
-  snapshotSets,
-  snapshotSetsFromForm: () => [],
-};
+});
 
-const LEAF_LABEL: Record<LvLeaf, string> = {
+const LEAF_LABEL: Record<string, string> = {
   name: 'name',
   description: 'description',
   enabled: 'enabled',
@@ -95,27 +38,12 @@ const LEAF_LABEL: Record<LvLeaf, string> = {
   captureName: 'capture',
 };
 
+export const liveVariableConflictAdapter: ConflictTrackingAdapter<V5.LiveVariable> = adapters.tracking;
+
 export const liveVariableResolveAdapter: ConflictResolveAdapter<V5.LiveVariable> = {
-  // The editor uses controlled `useState<EditDraft>` (not antd Form);
-  // resolution writes go through the entity-clone path and the editor
-  // projects back into its draft.
-  applyResolutionToForm: () => false,
-  applyResolutionToEntity(entity, path, conflict) {
-    const leaf = PATH_TO_LEAF.get(path);
-    if (!leaf) return false;
-    const value = conflict.theirs;
-    const target = entity as V5.LiveVariable & Record<string, unknown>;
-    if (leaf === 'enabled' || leaf === 'requireFreshOnRuleBuild') {
-      target[leaf] = value === 'true';
-    } else if (leaf === 'description') {
-      target.description = value;
-    } else {
-      target[leaf] = value;
-    }
-    return true;
-  },
+  ...adapters.resolve,
   prettyPath(_entity, path) {
-    const leaf = PATH_TO_LEAF.get(path);
-    return leaf ? `Live variable (${LEAF_LABEL[leaf]})` : path;
+    const label = LEAF_LABEL[path];
+    return label ? `Live variable (${label})` : path;
   },
 };
