@@ -180,7 +180,8 @@ const MergeConflictModal = ({ open, session, isDarkMode, onClose }: MergeConflic
                 onChange={(v) => setLayout(v as MergeLayout)}
                 options={[
                   { label: 'Column', value: 'column' },
-                  { label: 'Show base', value: 'show-base-top', disabled: !baseAvailable },
+                  { label: 'Base on top', value: 'show-base-top', disabled: !baseAvailable },
+                  { label: 'Base in center', value: 'show-base-center', disabled: !baseAvailable },
                 ]}
               />
             </Tooltip>

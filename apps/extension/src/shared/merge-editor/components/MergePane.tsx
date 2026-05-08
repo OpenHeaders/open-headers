@@ -1,23 +1,33 @@
 /**
- * Phase 2 — Column layout (3-pane theirs|result|mine) + 2-pane fallback
- * (theirs|result, where result seeds the editable side). Hunk
- * decorations on side panes; gutter accept-arrows splice content into
- * the result buffer as single-undo-unit edits.
+ * Phase 3 — multi-layout merge pane.
+ *
+ * Architecture: ALL editor containers (theirs / base / result / mine)
+ * are mounted ONCE in stable JSX positions. Each carries
+ * `style={{ gridArea: ... }}`; the parent's `gridTemplateAreas` /
+ * `gridTemplateColumns` / `gridTemplateRows` swap per layout. Layout
+ * switches are pure CSS — no React reconciliation moves a container
+ * across the tree, so the Monaco editor instances bound to each
+ * container survive the swap with cursor / scroll / selection
+ * preserved (plan §13 acceptance criterion).
+ *
+ * Hidden panes get `display: 'none'` on their slot wrapper. The
+ * editor + model still exist; resize / scroll recompute when the
+ * pane returns to visible.
+ *
+ * Resize sashes: not part of this slice. Plan §13 commits to
+ * "CSS-grid template changes only"; user-driven pane resizing is a
+ * separate concern that can layer on later (custom drag handler that
+ * mutates `gridTemplateColumns`/`Rows` between sashes). Allotment
+ * doesn't fit because moving editor containers between two
+ * Allotment.Pane parents would unmount them — the load-bearing
+ * invariant the spec requires us to preserve.
  *
  * Diff axes are theirs↔result and mine↔result; both recompute on
  * every result-buffer change. Re-running the LCS keeps each pane's
  * decorations consistent with the user's current resolution state
  * without us having to track per-hunk drift through edits manually.
- *
- * Pane sizing uses Allotment — same primitive every other resizable
- * surface in this app uses (workbench shell, dock layout, import
- * preview). Phase 3's layout switcher swaps the Allotment vs CSS-grid
- * shape per layout but never recreates editor instances.
  */
 
-import { Allotment } from 'allotment';
-export type MergeLayout = 'column' | 'show-base-top';
-import 'allotment/dist/style.css';
 import { editor as monacoEditor } from 'monaco-editor/esm/vs/editor/edcore.main';
 import {
   forwardRef,
@@ -36,6 +46,8 @@ import { type HunkSide, useHunkDecorations } from '../monaco/use-hunk-decoration
 import { useMonacoEditorLifecycle } from '../monaco/use-monaco-editor-lifecycle';
 import { useSyncScroll } from '../monaco/use-sync-scroll';
 import type { MergeFile } from '../types';
+
+export type MergeLayout = 'column' | 'show-base-top' | 'show-base-center';
 
 export interface HunkStats {
   /** Remaining hunks where theirs ≠ result (incoming side still
@@ -61,61 +73,86 @@ export interface MergePaneProps {
    *  after every diff recompute. */
   onHunkStatsChange?: (stats: HunkStats) => void;
   /** Hide non-conflicting hunks from gutters + decorations when false.
-   *  Default true (show every hunk). VS Code's "Show Non-Conflicting
-   *  Changes" toggle is the inverse — `false` here matches `off` there. */
+   *  Default true. */
   showNonConflicting?: boolean;
-  /** Layout shape. `'column'` (default) renders the 3-pane row only.
-   *  `'show-base-top'` adds a full-width read-only base pane above
-   *  the row; ignored when `file.base` is undefined. Mixed and Show
-   *  Base Center per plan §1 are deferred to subsequent slices. */
+  /** Layout shape (plan §1). `'column'` (default) renders the 3-pane
+   *  row only. `'show-base-top'` adds a full-width read-only base
+   *  pane above the row. `'show-base-center'` puts the base between
+   *  theirs and mine on top with result spanning the full width
+   *  below. Layouts that need a base degrade to `column` when
+   *  `file.base` is undefined. */
   layout?: MergeLayout;
-  /** Optional className for the outer container; consumers may set
-   *  height / minHeight via CSS. */
+  /** Optional className for the outer container. */
   className?: string;
-  /** Optional render slot for a per-pane header strip
-   *  (label + future per-pane affordances). Receives the pane key. */
-  renderHeader?: (pane: 'theirs' | 'result' | 'mine') => ReactNode;
-  /** Caller wants user-action narration for an ARIA live region or
-   *  for telemetry. Fires on every accept-arrow / bulk-apply call.
-   *  Phrasing is stable; consumer renders it into a polite live region. */
+  /** Optional render slot for a per-pane header strip. */
+  renderHeader?: (pane: 'theirs' | 'base' | 'result' | 'mine') => ReactNode;
+  /** Caller wants user-action narration for an ARIA live region. */
   onAnnounce?: (message: string) => void;
 }
 
 export interface MergePaneHandle {
-  /** Read the current editable buffer. Used by the modal at Apply
-   *  time; resolves the §5 onApplyRequested contract synchronously
-   *  for Phase 1 (no debounced re-observation yet). */
   getResultText(): string;
-  /** Reveal the next remaining hunk after the result-buffer caret.
-   *  Cycles through both sides in line order; wraps at the end. */
   gotoNextHunk(): void;
-  /** Symmetric to `gotoNextHunk` for the previous hunk. */
   gotoPrevHunk(): void;
-  /** Bulk-apply every non-conflicting hunk into the result buffer
-   *  in a single undo unit. No-op when there are no non-conflicting
-   *  hunks; conflicts are left untouched for manual resolution. */
   applyNonConflicting(): void;
-  /** Bulk-apply every theirs-side hunk (including conflicts) into
-   *  the result buffer for the active file. Single undo unit. */
   acceptAllTheirs(): void;
-  /** Symmetric — bulk-apply every mine-side hunk. */
   acceptAllMine(): void;
 }
 
 const PANE_BG_LIGHT = '#ffffff';
 const PANE_BG_DARK = '#1e1e1e';
-
 const HEADER_HEIGHT = 28;
 const HEADER_PAD = '4px 10px';
-const PANE_MIN_PX = 200;
 
-function paneShell(): React.CSSProperties {
+/**
+ * Grid template for a given layout × pane availability. Returns the
+ * full set of CSS properties driving the swap.
+ *
+ *   column (3-pane):    theirs | result | mine                (1 row)
+ *   column (2-pane):    theirs | result                       (1 row)
+ *   show-base-top:      base spans top; theirs | result | mine
+ *   show-base-center:   theirs | base | mine on top; result spans bottom
+ */
+function gridTemplate(
+  layout: MergeLayout,
+  has3Panes: boolean,
+  baseAvailable: boolean,
+): { areas: string; cols: string; rows: string } {
+  const effectiveLayout: MergeLayout = baseAvailable ? layout : 'column';
+  if (effectiveLayout === 'show-base-top' && has3Panes) {
+    return {
+      areas: `"base base base" "theirs result mine"`,
+      cols: '1fr 1fr 1fr',
+      rows: '35% 1fr',
+    };
+  }
+  if (effectiveLayout === 'show-base-center' && has3Panes) {
+    return {
+      areas: `"theirs base mine" "result result result"`,
+      cols: '1fr 1fr 1fr',
+      rows: '1fr 1fr',
+    };
+  }
+  // column
+  if (has3Panes) {
+    return { areas: `"theirs result mine"`, cols: '1fr 1fr 1fr', rows: '1fr' };
+  }
+  // 2-pane fallback
+  return { areas: `"theirs result"`, cols: '1fr 1fr', rows: '1fr' };
+}
+
+/** Whether each pane is a member of the active layout's template. */
+function paneVisibility(
+  layout: MergeLayout,
+  has3Panes: boolean,
+  baseAvailable: boolean,
+): { theirs: boolean; base: boolean; result: boolean; mine: boolean } {
+  const effectiveLayout: MergeLayout = baseAvailable ? layout : 'column';
   return {
-    display: 'flex',
-    flexDirection: 'column',
-    minWidth: 0,
-    minHeight: 0,
-    height: '100%',
+    theirs: true,
+    result: true,
+    mine: has3Panes,
+    base: baseAvailable && (effectiveLayout === 'show-base-top' || effectiveLayout === 'show-base-center'),
   };
 }
 
@@ -139,7 +176,9 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   const baseContainerRef = useRef<HTMLDivElement | null>(null);
 
   const has3Panes = file.base !== undefined;
-  const showBase = layout === 'show-base-top' && file.base !== undefined;
+  const baseAvailable = file.base !== undefined;
+  const visibility = paneVisibility(layout, has3Panes, baseAvailable);
+  const grid = gridTemplate(layout, has3Panes, baseAvailable);
 
   const theirsHandle = useMonacoEditorLifecycle({
     containerRef: theirsContainerRef,
@@ -164,11 +203,8 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     options: { glyphMargin: true },
   });
 
-  // Base pane is created unconditionally so layout swaps don't recreate
-  // editor instances (plan §13 acceptance: layout changes preserve
-  // cursor/scroll/selection). When `file.base` is undefined the model
-  // holds an empty string and the pane simply isn't rendered into the
-  // grid; the lifecycle hook still owns its dispose path.
+  // Base editor is created unconditionally so layout swaps can show
+  // it without dispose+recreate. Empty string when the file has no base.
   const baseHandle = useMonacoEditorLifecycle({
     containerRef: baseContainerRef,
     value: file.base ?? '',
@@ -179,7 +215,6 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   // Track result text in state so diff recomputes on every edit.
   const [resultText, setResultText] = useState<string>(file.initialResult);
 
-  // Wire result-buffer changes -> resultText state + outer onResultChange.
   useEffect(() => {
     const model = resultHandle.current.model;
     if (!model) return;
@@ -193,36 +228,36 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     };
   }, [onResultChange, resultHandle]);
 
-  // Re-seed resultText when the underlying file changes (file switch).
   useEffect(() => {
     setResultText(file.initialResult);
   }, [file.initialResult]);
 
-  // Sync the global Monaco theme to dark/light. Theme is global per
-  // Monaco instance; setting it on any one editor takes effect on all.
   useEffect(() => {
     monacoEditor.setTheme(isDarkMode ? 'oh-dark' : 'oh-light');
   }, [isDarkMode]);
 
+  // After a layout swap, panes that were hidden may have stale layout
+  // metrics inside Monaco (zero-sized container during the hidden
+  // window). Force a layout recompute when visibility changes.
+  useEffect(() => {
+    if (visibility.theirs) theirsHandle.current.editor?.layout();
+    if (visibility.result) resultHandle.current.editor?.layout();
+    if (visibility.mine) mineHandle.current.editor?.layout();
+    if (visibility.base) baseHandle.current.editor?.layout();
+  }, [visibility, theirsHandle, resultHandle, mineHandle, baseHandle]);
+
   const syncTargets = useMemo(() => {
-    const editors = has3Panes ? [theirsHandle, resultHandle, mineHandle] : [theirsHandle, resultHandle];
-    if (showBase) editors.push(baseHandle);
+    const editors = [theirsHandle, resultHandle];
+    if (visibility.mine) editors.push(mineHandle);
+    if (visibility.base) editors.push(baseHandle);
     return editors;
-  }, [has3Panes, showBase, theirsHandle, resultHandle, mineHandle, baseHandle]);
+  }, [visibility.mine, visibility.base, theirsHandle, resultHandle, mineHandle, baseHandle]);
   useSyncScroll({ editors: syncTargets });
 
-  // Two diffs against the live result buffer. Hunks point at theirs /
-  // mine ranges respectively; the `mineRange` field is overloaded —
-  // for the theirs↔result diff it's the result-side range, and same
-  // for mine↔result. The accept handler keys off `side` to pick the
-  // right source.
   const theirsHunks = useMemo(() => diffLines(file.theirs, resultText), [file.theirs, resultText]);
   const mineHunks = useMemo(() => diffLines(file.mine, resultText), [file.mine, resultText]);
   const classification = useMemo(() => classifyConflicts(theirsHunks, mineHunks), [theirsHunks, mineHunks]);
 
-  // Filter when the toggle hides non-conflicting hunks. Identity is
-  // preserved (filtered list is a subset; ids unchanged) so the
-  // decoration / arrow hooks treat removed hunks as cleared.
   const visibleTheirs = useMemo(
     () => (showNonConflicting ? theirsHunks : theirsHunks.filter((h) => classification.theirsConflictIds.has(h.id))),
     [showNonConflicting, theirsHunks, classification],
@@ -244,16 +279,10 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
       const model = resultHandle.current.model;
       if (!editor || !model) return;
 
-      // The "right side" of each diff IS the result buffer, so
-      // `hunk.mineRange` is the splice target on the result. The
-      // replacement text is the OPPOSITE side (theirsLines on a
-      // theirs-accept, mineLines on a mine-accept).
       const targetRange = hunk.mineRange;
       const replacementLines = side === 'theirs' ? hunk.theirsLines : hunk.mineLines;
       const replacementText = replacementLines.join('\n') + (replacementLines.length > 0 ? '\n' : '');
 
-      // Resolve the splice range to a Monaco Range. A zero-line range
-      // (start === end) anchors at start-of-line for an insertion.
       const startLine = Math.max(1, targetRange.startLine);
       const endLine = targetRange.endLine;
       const isInsertion = endLine <= startLine;
@@ -271,7 +300,6 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
             endLineNumber: Math.min(endLine - 1, lineCount),
             endColumn: model.getLineMaxColumn(Math.min(endLine - 1, lineCount)),
           };
-      // Single undo unit per spec §2.4 invariant 2.
       editor.executeEdits('oh-merge-accept', [
         {
           range: replaceRange,
@@ -288,7 +316,6 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   useHunkAcceptArrows({ editorRef: theirsHandle, side: 'theirs', hunks: visibleTheirs, onAccept: handleAccept });
   useHunkAcceptArrows({ editorRef: mineHandle, side: 'mine', hunks: visibleMine, onAccept: handleAccept });
 
-  // Surface hunk stats to the consumer for header pills / counters.
   useEffect(() => {
     const conflicts = classification.theirsConflictIds.size + classification.mineConflictIds.size;
     const total = theirsHunks.length + mineHunks.length;
@@ -301,10 +328,6 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     });
   }, [theirsHunks, mineHunks, classification, onHunkStatsChange]);
 
-  // Navigator state — current hunk-index across the union of theirs +
-  // mine hunks ordered by their result-side start line. Tracked in a
-  // ref so consumer-driven `gotoNext` / `gotoPrev` calls don't trigger
-  // re-renders.
   const navIndexRef = useRef(-1);
   const orderedNav = useMemo(() => {
     const all = [
@@ -336,8 +359,6 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
       const editor = resultHandle.current.editor;
       const model = resultHandle.current.model;
       if (!editor || !model || picks.length === 0) return;
-      // Reverse-sort by start line so each edit's range stays valid
-      // after earlier-applied edits shift line numbers below them.
       const sorted = [...picks].sort((a, b) => b.hunk.mineRange.startLine - a.hunk.mineRange.startLine);
       const lineCount = model.getLineCount();
       const ops = sorted.map(({ hunk, replacement }) => {
@@ -360,7 +381,6 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
             };
         return { range, text: isInsertion ? replacementText : replacement.join('\n'), forceMoveMarkers: true };
       });
-      // executeEdits coalesces multi-op calls into a single undo unit.
       editor.executeEdits('oh-merge-bulk', ops);
     },
     [resultHandle],
@@ -410,93 +430,81 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     <div
       className={className}
       data-merge-theme={isDarkMode ? 'dark' : 'light'}
-      style={{ height: '100%', minHeight: 0, minWidth: 0 }}
+      style={{
+        display: 'grid',
+        gridTemplateAreas: grid.areas,
+        gridTemplateColumns: grid.cols,
+        gridTemplateRows: grid.rows,
+        gap: 1,
+        height: '100%',
+        minHeight: 0,
+        minWidth: 0,
+        background: isDarkMode ? '#2a2a2a' : '#e5e5e5',
+      }}
     >
-      {/* Vertical Allotment is always present so the base editor's
-          DOM container has a stable parent across layout switches.
-          Allotment toggles the base pane's visibility via the `visible`
-          prop without remounting. Plan §13 acceptance: layout changes
-          must NOT dispose+recreate editors. */}
-      <Allotment vertical proportionalLayout defaultSizes={[1, 2]}>
-        <Allotment.Pane minSize={120} visible={showBase} preferredSize="35%">
-          <BasePaneShell containerRef={baseContainerRef} bg={paneBg} />
-        </Allotment.Pane>
-        <Allotment.Pane minSize={240}>
-          <Allotment proportionalLayout defaultSizes={has3Panes ? [1, 1, 1] : [1, 1]}>
-            <Allotment.Pane minSize={PANE_MIN_PX}>
-              <Pane
-                header={renderHeader ? renderHeader('theirs') : <DefaultHeader label="Incoming (theirs)" />}
-                containerRef={theirsContainerRef}
-                bg={paneBg}
-              />
-            </Allotment.Pane>
-            <Allotment.Pane minSize={PANE_MIN_PX}>
-              <Pane
-                header={
-                  renderHeader ? (
-                    renderHeader('result')
-                  ) : (
-                    <DefaultHeader label={has3Panes ? 'Result' : 'Yours (mine, edit here)'} />
-                  )
-                }
-                containerRef={resultContainerRef}
-                bg={paneBg}
-              />
-            </Allotment.Pane>
-            {has3Panes ? (
-              <Allotment.Pane minSize={PANE_MIN_PX}>
-                <Pane
-                  header={renderHeader ? renderHeader('mine') : <DefaultHeader label="Current (mine)" />}
-                  containerRef={mineContainerRef}
-                  bg={paneBg}
-                />
-              </Allotment.Pane>
-            ) : null}
-          </Allotment>
-        </Allotment.Pane>
-      </Allotment>
+      <PaneSlot
+        gridArea="theirs"
+        visible={visibility.theirs}
+        bg={paneBg}
+        header={renderHeader ? renderHeader('theirs') : <DefaultHeader label="Incoming (theirs)" />}
+        containerRef={theirsContainerRef}
+      />
+      <PaneSlot
+        gridArea="result"
+        visible={visibility.result}
+        bg={paneBg}
+        header={
+          renderHeader ? (
+            renderHeader('result')
+          ) : (
+            <DefaultHeader label={has3Panes ? 'Result' : 'Yours (mine, edit here)'} />
+          )
+        }
+        containerRef={resultContainerRef}
+      />
+      <PaneSlot
+        gridArea="mine"
+        visible={visibility.mine}
+        bg={paneBg}
+        header={renderHeader ? renderHeader('mine') : <DefaultHeader label="Current (mine)" />}
+        containerRef={mineContainerRef}
+      />
+      <PaneSlot
+        gridArea="base"
+        visible={visibility.base}
+        bg={paneBg}
+        header={renderHeader ? renderHeader('base') : <DefaultHeader label="Base (common ancestor)" />}
+        containerRef={baseContainerRef}
+      />
     </div>
   );
 });
 
-function BasePaneShell({
-  containerRef,
-  bg,
-}: {
-  containerRef: React.RefObject<HTMLDivElement | null>;
+interface PaneSlotProps {
+  gridArea: string;
+  visible: boolean;
   bg: string;
-}): React.ReactElement {
-  return (
-    <div style={{ ...paneShell(), background: bg }}>
-      <div
-        style={{
-          height: HEADER_HEIGHT,
-          padding: HEADER_PAD,
-          fontSize: 12,
-          fontWeight: 600,
-          display: 'flex',
-          alignItems: 'center',
-          borderBottom: '1px solid rgba(127,127,127,0.2)',
-        }}
-      >
-        Base (common ancestor)
-      </div>
-      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-        <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
-      </div>
-    </div>
-  );
-}
-
-interface PaneProps {
   header: ReactNode;
   containerRef: React.RefObject<HTMLDivElement | null>;
-  bg: string;
 }
 
-function Pane({ header, containerRef, bg }: PaneProps): React.ReactElement {
+function PaneSlot({ gridArea, visible, bg, header, containerRef }: PaneSlotProps): React.ReactElement {
   return (
-    <div style={{ ...paneShell(), background: bg }}>
+    <div
+      style={{
+        gridArea,
+        // Hide via display:none; the inner editor instance + DOM
+        // container survive (React keeps the subtree mounted; CSS
+        // just removes it from layout). Re-showing triggers a Monaco
+        // layout() in the visibility effect upstream so the editor
+        // recovers its scroll geometry.
+        display: visible ? 'flex' : 'none',
+        flexDirection: 'column',
+        minWidth: 0,
+        minHeight: 0,
+        background: bg,
+      }}
+    >
       <div
         style={{
           height: HEADER_HEIGHT,
