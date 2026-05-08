@@ -16,6 +16,8 @@ import { Allotment } from 'allotment';
 import 'allotment/dist/style.css';
 import { editor as monacoEditor } from 'monaco-editor/esm/vs/editor/edcore.main';
 import { forwardRef, type ReactNode, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
+import { diffLines } from '../diff/line-diff';
+import { useHunkDecorations } from '../monaco/use-hunk-decorations';
 import { useMonacoEditorLifecycle } from '../monaco/use-monaco-editor-lifecycle';
 import { useSyncScroll } from '../monaco/use-sync-scroll';
 import type { MergeFile } from '../types';
@@ -115,6 +117,13 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   );
   useSyncScroll({ editors: syncTargets });
 
+  // Compute hunks once per (theirs, mine) text pair. Phase 2.1 baseline
+  // is a 2-way line-LCS; 3-way classification using base + the
+  // hunk-splitting post-pass land in subsequent slices.
+  const hunks = useMemo(() => diffLines(file.theirs, file.mine), [file.theirs, file.mine]);
+  useHunkDecorations({ editorRef: theirsHandle, side: 'theirs', hunks });
+  useHunkDecorations({ editorRef: mineHandle, side: 'mine', hunks });
+
   useImperativeHandle(
     ref,
     () => ({
@@ -126,7 +135,11 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   const paneBg = isDarkMode ? PANE_BG_DARK : PANE_BG_LIGHT;
 
   return (
-    <div className={className} style={{ height: '100%', minHeight: 0, minWidth: 0 }}>
+    <div
+      className={className}
+      data-merge-theme={isDarkMode ? 'dark' : 'light'}
+      style={{ height: '100%', minHeight: 0, minWidth: 0 }}
+    >
       <Allotment proportionalLayout defaultSizes={has3Panes ? [1, 1, 1] : [1, 1]}>
         <Allotment.Pane minSize={PANE_MIN_PX}>
           <Pane

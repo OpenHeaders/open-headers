@@ -1,0 +1,31 @@
+/* Hunk decoration palette.
+ *
+ * Class names use the `oh-merge__` prefix so they don't collide with
+ * Monaco's own decorations or any consumer's CSS. Variant suffixes
+ * mirror the `HunkClassification` discriminants in `diff/line-diff.ts`.
+ *
+ * Light / dark are gated by an ancestor `[data-merge-theme="dark"]`
+ * attribute the editor sets on its root container — Monaco's own
+ * `vs-dark` body class doesn't reach our decoration scope reliably
+ * across ShadowDOM-style isolated editors, so we set our own.
+ */
+
+.oh-merge__hunk-addition {
+  background-color: rgba(35, 134, 54, 0.18);
+}
+.oh-merge__hunk-removal {
+  background-color: rgba(218, 54, 51, 0.18);
+}
+.oh-merge__hunk-modification {
+  background-color: rgba(229, 192, 123, 0.22);
+}
+
+[data-merge-theme='dark'] .oh-merge__hunk-addition {
+  background-color: rgba(46, 160, 67, 0.28);
+}
+[data-merge-theme='dark'] .oh-merge__hunk-removal {
+  background-color: rgba(248, 81, 73, 0.26);
+}
+[data-merge-theme='dark'] .oh-merge__hunk-modification {
+  background-color: rgba(210, 153, 34, 0.30);
+}
