@@ -8,8 +8,8 @@
  * adapter. Modal stays open if any outcome is `ok: false`.
  */
 
-import { CheckCircleFilled, DownOutlined, UpOutlined } from '@ant-design/icons';
-import { Alert, Button, Modal, Space, Tag, Tooltip, Typography, theme } from 'antd';
+import { CheckCircleFilled, DownOutlined, ThunderboltOutlined, UpOutlined } from '@ant-design/icons';
+import { Alert, Button, Modal, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import { type ReactElement, useCallback, useMemo, useRef, useState } from 'react';
 import type { MergeApplyOutcome, MergeSession } from '../types';
 import MergePane, { type HunkStats, type MergePaneHandle } from './MergePane';
@@ -32,7 +32,16 @@ const MergeConflictModal = ({ open, session, isDarkMode, onClose }: MergeConflic
   const paneRef = useRef<MergePaneHandle>(null);
   const [applying, setApplying] = useState(false);
   const [outcomes, setOutcomes] = useState<MergeApplyOutcome[]>([]);
-  const [stats, setStats] = useState<HunkStats>({ theirsRemaining: 0, mineRemaining: 0, totalRemaining: 0 });
+  const [stats, setStats] = useState<HunkStats>({
+    theirsRemaining: 0,
+    mineRemaining: 0,
+    totalRemaining: 0,
+    nonConflicting: 0,
+    conflicts: 0,
+  });
+  // VS Code's default — gutter shows conflicts only until the user
+  // opts into the noisier view. Plan §5.4.
+  const [showNonConflicting, setShowNonConflicting] = useState(false);
   const failedOutcomes = useMemo(() => outcomes.filter((o) => !o.ok), [outcomes]);
   const allResolved = stats.totalRemaining === 0;
 
@@ -93,7 +102,7 @@ const MergeConflictModal = ({ open, session, isDarkMode, onClose }: MergeConflic
           minHeight: 480,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <Space size={6}>
             <Tooltip title="Previous hunk">
               <Button
@@ -117,13 +126,38 @@ const MergeConflictModal = ({ open, session, isDarkMode, onClose }: MergeConflic
               All hunks resolved
             </Tag>
           ) : (
-            <Tag color="processing">
+            <Tag color={stats.conflicts > 0 ? 'warning' : 'processing'}>
               {stats.totalRemaining} {stats.totalRemaining === 1 ? 'hunk' : 'hunks'} remaining
-              {stats.theirsRemaining > 0 && stats.mineRemaining > 0
-                ? ` · ${stats.theirsRemaining} incoming · ${stats.mineRemaining} current`
-                : ''}
+              {stats.conflicts > 0 ? ` · ${stats.conflicts} conflict${stats.conflicts === 1 ? '' : 's'}` : ''}
+              {stats.nonConflicting > 0 ? ` · ${stats.nonConflicting} non-conflicting` : ''}
             </Tag>
           )}
+          <Tooltip title="Apply every hunk only one side touched, in one undo step. Conflicts stay for manual resolution.">
+            <Button
+              size="small"
+              icon={<ThunderboltOutlined />}
+              disabled={stats.nonConflicting === 0}
+              onClick={() => paneRef.current?.applyNonConflicting()}
+            >
+              Apply non-conflicting
+            </Button>
+          </Tooltip>
+          <Button
+            size="small"
+            disabled={stats.theirsRemaining === 0}
+            onClick={() => paneRef.current?.acceptAllTheirs()}
+          >
+            Accept all incoming
+          </Button>
+          <Button size="small" disabled={stats.mineRemaining === 0} onClick={() => paneRef.current?.acceptAllMine()}>
+            Accept all current
+          </Button>
+          <Space size={4} style={{ marginLeft: 'auto' }}>
+            <Switch size="small" checked={showNonConflicting} onChange={setShowNonConflicting} />
+            <Text style={{ fontSize: 12 }} type="secondary">
+              Show non-conflicting
+            </Text>
+          </Space>
         </div>
         {failedOutcomes.length > 0 ? (
           <Alert
@@ -151,7 +185,13 @@ const MergeConflictModal = ({ open, session, isDarkMode, onClose }: MergeConflic
           }}
         >
           {activeFile ? (
-            <MergePane ref={paneRef} file={activeFile} isDarkMode={isDarkMode} onHunkStatsChange={setStats} />
+            <MergePane
+              ref={paneRef}
+              file={activeFile}
+              isDarkMode={isDarkMode}
+              showNonConflicting={showNonConflicting}
+              onHunkStatsChange={setStats}
+            />
           ) : (
             <div style={{ padding: 16 }}>
               <Text type="secondary">No files in this merge session.</Text>

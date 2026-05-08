@@ -28,6 +28,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { classifyConflicts } from '../diff/conflict-classify';
 import { diffLines, type Hunk } from '../diff/line-diff';
 import { useHunkAcceptArrows } from '../monaco/use-hunk-accept-arrows';
 import { type HunkSide, useHunkDecorations } from '../monaco/use-hunk-decorations';
@@ -43,6 +44,10 @@ export interface HunkStats {
   mineRemaining: number;
   /** `theirsRemaining + mineRemaining`. Conflict-counter feed. */
   totalRemaining: number;
+  /** Non-conflicting subtotal — auto-mergeable in one click. */
+  nonConflicting: number;
+  /** True conflicts (both sides diverge in overlapping ranges). */
+  conflicts: number;
 }
 
 export interface MergePaneProps {
@@ -54,6 +59,10 @@ export interface MergePaneProps {
   /** Caller wants live counts for a header pill / navigator. Fired
    *  after every diff recompute. */
   onHunkStatsChange?: (stats: HunkStats) => void;
+  /** Hide non-conflicting hunks from gutters + decorations when false.
+   *  Default true (show every hunk). VS Code's "Show Non-Conflicting
+   *  Changes" toggle is the inverse — `false` here matches `off` there. */
+  showNonConflicting?: boolean;
   /** Optional className for the outer container; consumers may set
    *  height / minHeight via CSS. */
   className?: string;
@@ -72,6 +81,15 @@ export interface MergePaneHandle {
   gotoNextHunk(): void;
   /** Symmetric to `gotoNextHunk` for the previous hunk. */
   gotoPrevHunk(): void;
+  /** Bulk-apply every non-conflicting hunk into the result buffer
+   *  in a single undo unit. No-op when there are no non-conflicting
+   *  hunks; conflicts are left untouched for manual resolution. */
+  applyNonConflicting(): void;
+  /** Bulk-apply every theirs-side hunk (including conflicts) into
+   *  the result buffer for the active file. Single undo unit. */
+  acceptAllTheirs(): void;
+  /** Symmetric — bulk-apply every mine-side hunk. */
+  acceptAllMine(): void;
 }
 
 const PANE_BG_LIGHT = '#ffffff';
@@ -92,7 +110,15 @@ function paneShell(): React.CSSProperties {
 }
 
 const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane(props, ref) {
-  const { file, isDarkMode, onResultChange, onHunkStatsChange, className, renderHeader } = props;
+  const {
+    file,
+    isDarkMode,
+    onResultChange,
+    onHunkStatsChange,
+    showNonConflicting = true,
+    className,
+    renderHeader,
+  } = props;
   const language = file.language ?? 'yaml';
 
   const theirsContainerRef = useRef<HTMLDivElement | null>(null);
@@ -165,9 +191,22 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   // right source.
   const theirsHunks = useMemo(() => diffLines(file.theirs, resultText), [file.theirs, resultText]);
   const mineHunks = useMemo(() => diffLines(file.mine, resultText), [file.mine, resultText]);
+  const classification = useMemo(() => classifyConflicts(theirsHunks, mineHunks), [theirsHunks, mineHunks]);
 
-  useHunkDecorations({ editorRef: theirsHandle, side: 'theirs', hunks: theirsHunks });
-  useHunkDecorations({ editorRef: mineHandle, side: 'mine', hunks: mineHunks });
+  // Filter when the toggle hides non-conflicting hunks. Identity is
+  // preserved (filtered list is a subset; ids unchanged) so the
+  // decoration / arrow hooks treat removed hunks as cleared.
+  const visibleTheirs = useMemo(
+    () => (showNonConflicting ? theirsHunks : theirsHunks.filter((h) => classification.theirsConflictIds.has(h.id))),
+    [showNonConflicting, theirsHunks, classification],
+  );
+  const visibleMine = useMemo(
+    () => (showNonConflicting ? mineHunks : mineHunks.filter((h) => classification.mineConflictIds.has(h.id))),
+    [showNonConflicting, mineHunks, classification],
+  );
+
+  useHunkDecorations({ editorRef: theirsHandle, side: 'theirs', hunks: visibleTheirs });
+  useHunkDecorations({ editorRef: mineHandle, side: 'mine', hunks: visibleMine });
 
   const handleAccept = useCallback(
     (hunkId: string, side: HunkSide) => {
@@ -217,17 +256,21 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     [theirsHunks, mineHunks, resultHandle],
   );
 
-  useHunkAcceptArrows({ editorRef: theirsHandle, side: 'theirs', hunks: theirsHunks, onAccept: handleAccept });
-  useHunkAcceptArrows({ editorRef: mineHandle, side: 'mine', hunks: mineHunks, onAccept: handleAccept });
+  useHunkAcceptArrows({ editorRef: theirsHandle, side: 'theirs', hunks: visibleTheirs, onAccept: handleAccept });
+  useHunkAcceptArrows({ editorRef: mineHandle, side: 'mine', hunks: visibleMine, onAccept: handleAccept });
 
   // Surface hunk stats to the consumer for header pills / counters.
   useEffect(() => {
+    const conflicts = classification.theirsConflictIds.size + classification.mineConflictIds.size;
+    const total = theirsHunks.length + mineHunks.length;
     onHunkStatsChange?.({
       theirsRemaining: theirsHunks.length,
       mineRemaining: mineHunks.length,
-      totalRemaining: theirsHunks.length + mineHunks.length,
+      totalRemaining: total,
+      nonConflicting: total - conflicts,
+      conflicts,
     });
-  }, [theirsHunks, mineHunks, onHunkStatsChange]);
+  }, [theirsHunks, mineHunks, classification, onHunkStatsChange]);
 
   // Navigator state — current hunk-index across the union of theirs +
   // mine hunks ordered by their result-side start line. Tracked in a
@@ -259,14 +302,71 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     [orderedNav, resultHandle],
   );
 
+  const bulkApply = useCallback(
+    (picks: ReadonlyArray<{ hunk: Hunk; replacement: readonly string[] }>) => {
+      const editor = resultHandle.current.editor;
+      const model = resultHandle.current.model;
+      if (!editor || !model || picks.length === 0) return;
+      // Reverse-sort by start line so each edit's range stays valid
+      // after earlier-applied edits shift line numbers below them.
+      const sorted = [...picks].sort((a, b) => b.hunk.mineRange.startLine - a.hunk.mineRange.startLine);
+      const lineCount = model.getLineCount();
+      const ops = sorted.map(({ hunk, replacement }) => {
+        const startLine = Math.max(1, hunk.mineRange.startLine);
+        const endLine = hunk.mineRange.endLine;
+        const isInsertion = endLine <= startLine;
+        const replacementText = replacement.join('\n') + (replacement.length > 0 && isInsertion ? '\n' : '');
+        const range = isInsertion
+          ? {
+              startLineNumber: Math.min(startLine, lineCount + 1),
+              startColumn: 1,
+              endLineNumber: Math.min(startLine, lineCount + 1),
+              endColumn: 1,
+            }
+          : {
+              startLineNumber: startLine,
+              startColumn: 1,
+              endLineNumber: Math.min(endLine - 1, lineCount),
+              endColumn: model.getLineMaxColumn(Math.min(endLine - 1, lineCount)),
+            };
+        return { range, text: isInsertion ? replacementText : replacement.join('\n'), forceMoveMarkers: true };
+      });
+      // executeEdits coalesces multi-op calls into a single undo unit.
+      editor.executeEdits('oh-merge-bulk', ops);
+    },
+    [resultHandle],
+  );
+
+  const applyNonConflicting = useCallback(() => {
+    const picks: { hunk: Hunk; replacement: readonly string[] }[] = [];
+    for (const h of theirsHunks) {
+      if (!classification.theirsConflictIds.has(h.id)) picks.push({ hunk: h, replacement: h.theirsLines });
+    }
+    for (const h of mineHunks) {
+      if (!classification.mineConflictIds.has(h.id)) picks.push({ hunk: h, replacement: h.mineLines });
+    }
+    bulkApply(picks);
+  }, [theirsHunks, mineHunks, classification, bulkApply]);
+
+  const acceptAllTheirs = useCallback(() => {
+    bulkApply(theirsHunks.map((h) => ({ hunk: h, replacement: h.theirsLines })));
+  }, [theirsHunks, bulkApply]);
+
+  const acceptAllMine = useCallback(() => {
+    bulkApply(mineHunks.map((h) => ({ hunk: h, replacement: h.mineLines })));
+  }, [mineHunks, bulkApply]);
+
   useImperativeHandle(
     ref,
     () => ({
       getResultText: () => resultHandle.current.model?.getValue() ?? '',
       gotoNextHunk: () => revealHunkAt(navIndexRef.current + 1),
       gotoPrevHunk: () => revealHunkAt(navIndexRef.current - 1),
+      applyNonConflicting,
+      acceptAllTheirs,
+      acceptAllMine,
     }),
-    [resultHandle, revealHunkAt],
+    [resultHandle, revealHunkAt, applyNonConflicting, acceptAllTheirs, acceptAllMine],
   );
 
   const paneBg = isDarkMode ? PANE_BG_DARK : PANE_BG_LIGHT;
