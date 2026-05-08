@@ -38,14 +38,33 @@ import {
   SwapOutlined,
   WarningFilled,
 } from '@ant-design/icons';
+import { useTheme } from '@context/ThemeContext';
 import { Button, Modal, Radio, Space, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import SurfaceChip from '@/shared/awareness/SurfaceChip';
-import { DEFAULT_DIFF_VIEWER_OPTIONS, RichDiffEditor } from '@/workbench/components/diff-viewer';
+import { MergeConflictModal } from '@/shared/merge-editor';
 import type { DiffViewerOptions } from '@/workbench/components/diff-viewer';
+import { DEFAULT_DIFF_VIEWER_OPTIONS, RichDiffEditor } from '@/workbench/components/diff-viewer';
 import { decorateYamlForDiff } from './decorate-yaml';
+import { buildEntityMergeSession } from './entity-merge-adapter';
 import type { ConflictRemoteInfo, PathConflict } from './types';
+
+/** Feature flag for the new merge-editor preview surface. Read once
+ *  per dialog mount; flip in DevTools console:
+ *    localStorage.setItem('oh.merge-editor.preview', '1')
+ *  Phase 1 commitment: preview is read-only at the Apply seam — the
+ *  new shell renders against real conflict data but its Complete
+ *  Merge button does NOT commit through onResolve. Use the old
+ *  dialog for actual resolution until Phase 6 lands the full
+ *  state-machine wiring. */
+function isMergeEditorPreviewEnabled(): boolean {
+  try {
+    return globalThis.localStorage?.getItem('oh.merge-editor.preview') === '1';
+  } catch {
+    return false;
+  }
+}
 
 const { Text } = Typography;
 
@@ -107,6 +126,11 @@ const EntityConflictDialog: React.FC<EntityConflictDialogProps> = ({
   onClose,
 }) => {
   const { token } = theme.useToken();
+  const { isDarkMode } = useTheme();
+  const [previewOpen, setPreviewOpen] = useState(false);
+  // Read once per mount so toggling in DevTools doesn't surprise an
+  // already-open dialog. Refresh by reopening.
+  const previewEnabled = useMemo(() => isMergeEditorPreviewEnabled(), []);
   // Track the value snapshot at pick time so live broadcasts that
   // change `theirs` after a pick can flag the row as stale and force
   // the user to re-confirm. Same model as VS Code's merge editor —
@@ -219,11 +243,7 @@ const EntityConflictDialog: React.FC<EntityConflictDialogProps> = ({
   const handleAllSaved = () => setAll('theirs');
   const handleAllMine = () => setAll('mine');
 
-  const valueCellStyle = (
-    isChosen: boolean,
-    isOther: boolean,
-    isResolved: boolean,
-  ): React.CSSProperties => ({
+  const valueCellStyle = (isChosen: boolean, isOther: boolean, isResolved: boolean): React.CSSProperties => ({
     padding: '6px 8px',
     fontFamily: 'monospace',
     fontSize: 11,
@@ -243,6 +263,11 @@ const EntityConflictDialog: React.FC<EntityConflictDialogProps> = ({
       destroyOnClose
       zIndex={1100}
       footer={[
+        previewEnabled ? (
+          <Button key="preview" onClick={() => setPreviewOpen(true)}>
+            Preview new merge editor
+          </Button>
+        ) : null,
         <Button key="cancel" onClick={onClose}>
           Cancel
         </Button>,
@@ -393,8 +418,7 @@ const EntityConflictDialog: React.FC<EntityConflictDialogProps> = ({
                         : kind === 'union-swap'
                           ? c.base
                           : yourEdit;
-                const theirsDisplay =
-                  kind === 'set-remove' ? '(removed)' : c.theirs;
+                const theirsDisplay = kind === 'set-remove' ? '(removed)' : c.theirs;
                 const useSavedLabel =
                   kind === 'set-add'
                     ? 'Add row'
@@ -424,11 +448,7 @@ const EntityConflictDialog: React.FC<EntityConflictDialogProps> = ({
                       <SwapOutlined style={{ color: token.colorWarning, fontSize: 12, marginRight: 4 }} />
                     </Tooltip>
                   ) : null;
-                const rowBg = isStale
-                  ? token.colorWarningBg
-                  : isResolved
-                    ? token.colorSuccessBg
-                    : 'transparent';
+                const rowBg = isStale ? token.colorWarningBg : isResolved ? token.colorSuccessBg : 'transparent';
                 return (
                   <tr
                     key={path}
@@ -465,9 +485,7 @@ const EntityConflictDialog: React.FC<EntityConflictDialogProps> = ({
                       style={valueCellStyle(choice === 'theirs', choice === 'mine', isResolved)}
                       title={theirsDisplay}
                     >
-                      <div style={ELLIPSIS}>
-                        {theirsDisplay || <Text type="secondary">(empty)</Text>}
-                      </div>
+                      <div style={ELLIPSIS}>{theirsDisplay || <Text type="secondary">(empty)</Text>}</div>
                       {showRowSource && c.remote && (
                         <div style={{ marginTop: 2, textDecoration: 'none' }}>
                           <SurfaceChip
@@ -479,10 +497,7 @@ const EntityConflictDialog: React.FC<EntityConflictDialogProps> = ({
                         </div>
                       )}
                     </td>
-                    <td
-                      style={valueCellStyle(choice === 'mine', choice === 'theirs', isResolved)}
-                      title={mineDisplay}
-                    >
+                    <td style={valueCellStyle(choice === 'mine', choice === 'theirs', isResolved)} title={mineDisplay}>
                       {mineDisplay || <Text type="secondary">(empty)</Text>}
                     </td>
                     <td style={{ padding: '6px 8px' }}>
@@ -498,9 +513,7 @@ const EntityConflictDialog: React.FC<EntityConflictDialogProps> = ({
                         </Radio.Group>
                         {isResolved && !isStale && (
                           <Tooltip title="Resolved">
-                            <CheckCircleFilled
-                              style={{ color: token.colorSuccess, fontSize: 14, flexShrink: 0 }}
-                            />
+                            <CheckCircleFilled style={{ color: token.colorSuccess, fontSize: 14, flexShrink: 0 }} />
                           </Tooltip>
                         )}
                       </div>
@@ -572,6 +585,27 @@ const EntityConflictDialog: React.FC<EntityConflictDialogProps> = ({
           </div>
         </div>
       </div>
+      {previewEnabled && previewOpen ? (
+        <MergeConflictModal
+          open
+          isDarkMode={isDarkMode}
+          onClose={() => setPreviewOpen(false)}
+          session={buildEntityMergeSession({
+            fileId: 'preview',
+            label: 'Preview',
+            title: 'New merge editor — preview (does not commit)',
+            language,
+            theirsText: savedText,
+            mineText: localText,
+            initialResult: localText,
+            // Preview is no-commit — Apply just closes the modal so
+            // operators can exercise the new shell against live data
+            // without affecting resolution semantics.
+            onApply: () => undefined,
+            onCancel: () => setPreviewOpen(false),
+          })}
+        />
+      ) : null}
     </Modal>
   );
 };
