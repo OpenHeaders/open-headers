@@ -10,9 +10,9 @@
 import { theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { allCategories } from '../registry';
+import { allCategories, getDef } from '../registry';
 import { searchSettings } from '../search';
-import type { CategoryDef, SettingDef } from '../types';
+import type { CategoryDef, SettingDef, SettingKey } from '../types';
 import CategoryNav from './CategoryNav';
 import CategoryPane from './CategoryPane';
 import SearchResultsPane from './SearchResultsPane';
@@ -56,7 +56,16 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
     return { all: cats, visible };
   }, [byCategory]);
 
-  const [activeId, setActiveId] = useState<string | null>(() => initialCategoryId ?? null);
+  // The setting's own category wins over an explicit initialCategoryId
+  // when both are passed — otherwise deep-linking to a key in a different
+  // category would mount the wrong pane and the row wouldn't be in the DOM.
+  const [activeId, setActiveId] = useState<string | null>(() => {
+    if (initialSettingKey) {
+      const def = getDef(initialSettingKey as SettingKey);
+      if (def) return def.category;
+    }
+    return initialCategoryId ?? null;
+  });
 
   // Keep activeId valid as the visible set changes (e.g. after search edits).
   useEffect(() => {

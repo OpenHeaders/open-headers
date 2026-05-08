@@ -47,8 +47,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
     if (open) setMaximized(initialMaximized);
   }, [open, initialMaximized]);
 
+  // Maximized: pin to top with explicit margin and compute body height
+  // so it never exceeds the viewport. Centered + top + tall heights
+  // conflict in Ant Modal — the modal ends up centered at one edge while
+  // its body length pushes the other edge off-screen.
   const width = maximized ? '95vw' : 960;
-  const height = maximized ? '95vh' : '80vh';
+  const height = maximized ? 'calc(100vh - 40px)' : '80vh';
 
   return (
     <Modal
@@ -58,8 +62,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       closable={false}
       destroyOnHidden
       width={width}
-      centered
-      style={{ padding: 0, top: maximized ? 20 : undefined }}
+      centered={!maximized}
+      style={{ padding: 0, top: maximized ? 20 : undefined, paddingBottom: 0 }}
       styles={{
         body: { padding: 0, height, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
       }}
