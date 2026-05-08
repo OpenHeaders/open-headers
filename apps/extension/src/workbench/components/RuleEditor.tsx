@@ -1237,7 +1237,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                       )}
                       {selectedType === 'block' && <BlockRuleFields />}
                       {selectedType === 'redirect' && <RedirectRuleFields />}
-                      {selectedType === 'query-param' && <QueryParamRuleFields />}
+                      {selectedType === 'query-param' && <QueryParamRuleFields ruleUid={ruleUid} />}
                       {selectedType === 'inject' && <InjectRuleFields />}
                       {selectedType === 'delay' && <DelayRuleFields />}
                       {selectedType === 'body' && <BodyRuleFields />}

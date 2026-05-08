@@ -10,13 +10,20 @@ import { generateUid } from '@openheaders/core/utils';
 import { Alert, Button, Form, Input, Select, Typography } from 'antd';
 import type React from 'react';
 import { EntityField, useActionPaths } from '@/shared/awareness';
+import { FieldConflictChip, SetRowChip } from '@/shared/conflicts/Field';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../InspectorDocs';
 import { TemplateInput } from '../template-input';
 
 const { Text } = Typography;
 
-const QueryParamRuleFields: React.FC = () => {
+interface QueryParamRuleFieldsProps {
+  /** Live rule uid; passed to per-row + per-leaf conflict chips.
+   *  Undefined for drafts (no entity = no conflict surface). */
+  ruleUid?: string;
+}
+
+const QueryParamRuleFields: React.FC<QueryParamRuleFieldsProps> = ({ ruleUid }) => {
   const { openDocs } = useInspectorNav();
   const paths = useActionPaths();
 
@@ -168,6 +175,26 @@ const QueryParamRuleFields: React.FC = () => {
                   }}
                 </Form.Item>
 
+                {ruleUid && rowUid && (
+                  <SetRowChip
+                    setPath={paths.queryParamSet}
+                    uid={rowUid}
+                    formContainsUid={true}
+                    onUseSaved={() => remove(field.name)}
+                  />
+                )}
+                {ruleUid && rowUid && (
+                  <>
+                    <FieldConflictChip
+                      path={paths.queryParam(rowUid, 'param')}
+                      formName={['queryParams', field.name, 'param']}
+                    />
+                    <FieldConflictChip
+                      path={paths.queryParam(rowUid, 'value')}
+                      formName={['queryParams', field.name, 'value']}
+                    />
+                  </>
+                )}
                 <Button
                   type="text"
                   size="small"
