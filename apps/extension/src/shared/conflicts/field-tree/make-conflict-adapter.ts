@@ -35,8 +35,12 @@ export interface MakeAdapterArgs<E> {
   /** Pretty-print the entity-level prefix used in `prettyPath`. */
   entityLabel?: (entity: E) => string;
   /** Optional override hook so the entity bundle can intercept specific
-   *  leaf writes (Rule's name routes to the sidebar mutator, etc.). */
-  writeLeafOverride?: (entity: E, path: string, value: string) => boolean;
+   *  leaf writes (Rule's name routes to the sidebar mutator, etc.).
+   *
+   *  Return `true` to mark the path handled, `false` to refuse the write
+   *  (the walker also stops — used by Vault's kind-leaf refusal), or
+   *  `'fallthrough'` to let the walker's default writer handle the path. */
+  writeLeafOverride?: (entity: E, path: string, value: string) => boolean | 'fallthrough';
 }
 
 interface ReorderPayload {
@@ -103,7 +107,9 @@ function navigate(root: FieldNode, entity: unknown, path: string): NavResult {
     }
 
     if (node.kind === 'union') {
-      const disc: unknown = (value as Record<string, unknown> | null | undefined)?.[node.discriminator];
+      const disc: string | undefined = node.discriminate
+        ? node.discriminate(parent, value)
+        : ((value as Record<string, unknown> | null | undefined)?.[node.discriminator] as string | undefined);
       const branch: FieldNode | undefined = typeof disc === 'string' ? node.branches[disc] : undefined;
       if (!branch) return { parent, field, node: null, value: undefined };
       // Re-enter without consuming a path part.
@@ -119,13 +125,15 @@ function navigate(root: FieldNode, entity: unknown, path: string): NavResult {
 
 // ── Baseline + set snapshots ─────────────────────────────────────
 
-function emit(node: FieldNode, value: unknown, prefix: string, out: PathMap): void {
+function emit(node: FieldNode, value: unknown, prefix: string, out: PathMap, parent: unknown = null): void {
   if (node.kind === 'omit' || node.kind === 'opaque') return;
   if (node.kind === 'leaf') {
+    if (node.baseline === 'skip') return;
     out[prefix] = getPolicy(node.coercion).read(value);
     return;
   }
   if (node.kind === 'enum') {
+    if (node.baseline === 'skip') return;
     out[prefix] = getPolicy(node.coercion).read(value);
     return;
   }
@@ -134,7 +142,7 @@ function emit(node: FieldNode, value: unknown, prefix: string, out: PathMap): vo
     for (const [key, child] of Object.entries(node.children)) {
       const sub = (value as Record<string, unknown>)[key];
       const subPrefix = prefix ? `${prefix}.${key}` : key;
-      emit(child, sub, subPrefix, out);
+      emit(child, sub, subPrefix, out, value);
     }
     return;
   }
@@ -144,14 +152,14 @@ function emit(node: FieldNode, value: unknown, prefix: string, out: PathMap): vo
       for (const row of arr) {
         const uid = (row as { uid?: string })?.uid;
         if (!uid) continue;
-        emit(node.child, row, `${prefix}.${uid}`, out);
+        emit(node.child, row, `${prefix}.${uid}`, out, arr);
       }
       return;
     }
     if (node.identity === 'key') {
       for (const row of arr) {
         for (const k of Object.keys(row as Record<string, unknown>)) {
-          emit(node.child, (row as Record<string, unknown>)[k], `${prefix}.${k}`, out);
+          emit(node.child, (row as Record<string, unknown>)[k], `${prefix}.${k}`, out, row);
         }
       }
       return;
@@ -160,10 +168,12 @@ function emit(node: FieldNode, value: unknown, prefix: string, out: PathMap): vo
     return;
   }
   if (node.kind === 'union') {
-    const disc = (value as Record<string, unknown> | null | undefined)?.[node.discriminator];
+    const disc: string | undefined = node.discriminate
+      ? node.discriminate(parent, value)
+      : ((value as Record<string, unknown> | null | undefined)?.[node.discriminator] as string | undefined);
     const branch = typeof disc === 'string' ? node.branches[disc] : undefined;
     if (!branch) return;
-    emit(branch, value, prefix, out);
+    emit(branch, value, prefix, out, parent);
   }
 }
 
@@ -173,13 +183,19 @@ interface SetWalkInfo {
   rows: readonly unknown[];
 }
 
-function collectSets(node: FieldNode, value: unknown, prefix: string, out: SetWalkInfo[]): void {
+function collectSets(
+  node: FieldNode,
+  value: unknown,
+  prefix: string,
+  out: SetWalkInfo[],
+  parent: unknown = null,
+): void {
   if (node.kind === 'object') {
     if (value == null || typeof value !== 'object') return;
     for (const [key, child] of Object.entries(node.children)) {
       const sub = (value as Record<string, unknown>)[key];
       const subPrefix = prefix ? `${prefix}.${key}` : key;
-      collectSets(child, sub, subPrefix, out);
+      collectSets(child, sub, subPrefix, out, value);
     }
     return;
   }
@@ -191,16 +207,18 @@ function collectSets(node: FieldNode, value: unknown, prefix: string, out: SetWa
         const uid = (row as { uid?: string })?.uid;
         if (!uid) continue;
         if (node.child.kind === 'object' || node.child.kind === 'union') {
-          collectSets(node.child, row, `${prefix}.${uid}`, out);
+          collectSets(node.child, row, `${prefix}.${uid}`, out, arr);
         }
       }
     }
     return;
   }
   if (node.kind === 'union') {
-    const disc = (value as Record<string, unknown> | null | undefined)?.[node.discriminator];
+    const disc: string | undefined = node.discriminate
+      ? node.discriminate(parent, value)
+      : ((value as Record<string, unknown> | null | undefined)?.[node.discriminator] as string | undefined);
     const branch = typeof disc === 'string' ? node.branches[disc] : undefined;
-    if (branch) collectSets(branch, value, prefix, out);
+    if (branch) collectSets(branch, value, prefix, out, parent);
   }
 }
 
@@ -397,7 +415,7 @@ export function makeConflictAdapter<E>(args: MakeAdapterArgs<E>): Adapters<E> {
     signature: args.signature,
     extractBaseline(entity) {
       const out: PathMap = {};
-      emit(args.schema, entity, '', out);
+      emit(args.schema, entity, '', out, entity);
       return out;
     },
     readPath(entity, path) {
@@ -410,7 +428,7 @@ export function makeConflictAdapter<E>(args: MakeAdapterArgs<E>): Adapters<E> {
     },
     snapshotSets(entity) {
       const sets: SetWalkInfo[] = [];
-      collectSets(args.schema, entity, '', sets);
+      collectSets(args.schema, entity, '', sets, entity);
       return buildSnapshots(sets);
     },
     snapshotSetsFromForm(form) {
@@ -457,7 +475,15 @@ export function makeConflictAdapter<E>(args: MakeAdapterArgs<E>): Adapters<E> {
         return false;
       }
 
-      if (args.writeLeafOverride && args.writeLeafOverride(entity, path, conflict.theirs)) return true;
+      if (args.writeLeafOverride) {
+        const result = args.writeLeafOverride(entity, path, conflict.theirs);
+        if (result === true) return true;
+        // `false` and `'fallthrough'` both fall through to the default
+        // writer below — `'fallthrough'` is the explicit form for bundles
+        // that opt only specific paths into the override (e.g. Rule's
+        // name leaf) while all other leaves continue to write through
+        // the schema-driven walker.
+      }
       return writeLeafByPath(args.schema, entity, path, conflict.theirs);
     },
     prettyPath: (entity, path) => prettyPath(args, entity, path),
