@@ -8,10 +8,11 @@
  * adapter. Modal stays open if any outcome is `ok: false`.
  */
 
-import { Alert, Button, Modal, Space, Typography, theme } from 'antd';
+import { CheckCircleFilled, DownOutlined, UpOutlined } from '@ant-design/icons';
+import { Alert, Button, Modal, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import { type ReactElement, useCallback, useMemo, useRef, useState } from 'react';
 import type { MergeApplyOutcome, MergeSession } from '../types';
-import MergePane, { type MergePaneHandle } from './MergePane';
+import MergePane, { type HunkStats, type MergePaneHandle } from './MergePane';
 
 const { Text } = Typography;
 
@@ -31,7 +32,9 @@ const MergeConflictModal = ({ open, session, isDarkMode, onClose }: MergeConflic
   const paneRef = useRef<MergePaneHandle>(null);
   const [applying, setApplying] = useState(false);
   const [outcomes, setOutcomes] = useState<MergeApplyOutcome[]>([]);
+  const [stats, setStats] = useState<HunkStats>({ theirsRemaining: 0, mineRemaining: 0, totalRemaining: 0 });
   const failedOutcomes = useMemo(() => outcomes.filter((o) => !o.ok), [outcomes]);
+  const allResolved = stats.totalRemaining === 0;
 
   // Phase 1: single-file shell. Initial-file selection follows the
   // session hint or first file. Multi-file selection arrives in Phase 5.
@@ -76,7 +79,7 @@ const MergeConflictModal = ({ open, session, isDarkMode, onClose }: MergeConflic
         <Button key="cancel" onClick={handleCancel} disabled={applying}>
           Cancel
         </Button>,
-        <Button key="apply" type="primary" onClick={handleApply} loading={applying}>
+        <Button key="apply" type="primary" onClick={handleApply} loading={applying} disabled={!allResolved}>
           Complete Merge
         </Button>,
       ]}
@@ -90,6 +93,38 @@ const MergeConflictModal = ({ open, session, isDarkMode, onClose }: MergeConflic
           minHeight: 480,
         }}
       >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Space size={6}>
+            <Tooltip title="Previous hunk">
+              <Button
+                size="small"
+                icon={<UpOutlined />}
+                disabled={stats.totalRemaining === 0}
+                onClick={() => paneRef.current?.gotoPrevHunk()}
+              />
+            </Tooltip>
+            <Tooltip title="Next hunk">
+              <Button
+                size="small"
+                icon={<DownOutlined />}
+                disabled={stats.totalRemaining === 0}
+                onClick={() => paneRef.current?.gotoNextHunk()}
+              />
+            </Tooltip>
+          </Space>
+          {allResolved ? (
+            <Tag color="success" icon={<CheckCircleFilled />}>
+              All hunks resolved
+            </Tag>
+          ) : (
+            <Tag color="processing">
+              {stats.totalRemaining} {stats.totalRemaining === 1 ? 'hunk' : 'hunks'} remaining
+              {stats.theirsRemaining > 0 && stats.mineRemaining > 0
+                ? ` · ${stats.theirsRemaining} incoming · ${stats.mineRemaining} current`
+                : ''}
+            </Tag>
+          )}
+        </div>
         {failedOutcomes.length > 0 ? (
           <Alert
             type="error"
@@ -116,7 +151,7 @@ const MergeConflictModal = ({ open, session, isDarkMode, onClose }: MergeConflic
           }}
         >
           {activeFile ? (
-            <MergePane ref={paneRef} file={activeFile} isDarkMode={isDarkMode} />
+            <MergePane ref={paneRef} file={activeFile} isDarkMode={isDarkMode} onHunkStatsChange={setStats} />
           ) : (
             <div style={{ padding: 16 }}>
               <Text type="secondary">No files in this merge session.</Text>

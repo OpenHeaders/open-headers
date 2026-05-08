@@ -35,12 +35,25 @@ import { useMonacoEditorLifecycle } from '../monaco/use-monaco-editor-lifecycle'
 import { useSyncScroll } from '../monaco/use-sync-scroll';
 import type { MergeFile } from '../types';
 
+export interface HunkStats {
+  /** Remaining hunks where theirs ≠ result (incoming side still
+   *  pending). */
+  theirsRemaining: number;
+  /** Remaining hunks where mine ≠ result. */
+  mineRemaining: number;
+  /** `theirsRemaining + mineRemaining`. Conflict-counter feed. */
+  totalRemaining: number;
+}
+
 export interface MergePaneProps {
   file: MergeFile;
   /** True for dark Monaco theme. The shell decides; the editor reflects. */
   isDarkMode?: boolean;
   /** Caller wants to know when the editable result text changes. */
   onResultChange?: (text: string) => void;
+  /** Caller wants live counts for a header pill / navigator. Fired
+   *  after every diff recompute. */
+  onHunkStatsChange?: (stats: HunkStats) => void;
   /** Optional className for the outer container; consumers may set
    *  height / minHeight via CSS. */
   className?: string;
@@ -54,6 +67,11 @@ export interface MergePaneHandle {
    *  time; resolves the §5 onApplyRequested contract synchronously
    *  for Phase 1 (no debounced re-observation yet). */
   getResultText(): string;
+  /** Reveal the next remaining hunk after the result-buffer caret.
+   *  Cycles through both sides in line order; wraps at the end. */
+  gotoNextHunk(): void;
+  /** Symmetric to `gotoNextHunk` for the previous hunk. */
+  gotoPrevHunk(): void;
 }
 
 const PANE_BG_LIGHT = '#ffffff';
@@ -74,7 +92,7 @@ function paneShell(): React.CSSProperties {
 }
 
 const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane(props, ref) {
-  const { file, isDarkMode, onResultChange, className, renderHeader } = props;
+  const { file, isDarkMode, onResultChange, onHunkStatsChange, className, renderHeader } = props;
   const language = file.language ?? 'yaml';
 
   const theirsContainerRef = useRef<HTMLDivElement | null>(null);
@@ -202,12 +220,53 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   useHunkAcceptArrows({ editorRef: theirsHandle, side: 'theirs', hunks: theirsHunks, onAccept: handleAccept });
   useHunkAcceptArrows({ editorRef: mineHandle, side: 'mine', hunks: mineHunks, onAccept: handleAccept });
 
+  // Surface hunk stats to the consumer for header pills / counters.
+  useEffect(() => {
+    onHunkStatsChange?.({
+      theirsRemaining: theirsHunks.length,
+      mineRemaining: mineHunks.length,
+      totalRemaining: theirsHunks.length + mineHunks.length,
+    });
+  }, [theirsHunks, mineHunks, onHunkStatsChange]);
+
+  // Navigator state — current hunk-index across the union of theirs +
+  // mine hunks ordered by their result-side start line. Tracked in a
+  // ref so consumer-driven `gotoNext` / `gotoPrev` calls don't trigger
+  // re-renders.
+  const navIndexRef = useRef(-1);
+  const orderedNav = useMemo(() => {
+    const all = [
+      ...theirsHunks.map((h) => ({ hunk: h, side: 'theirs' as const })),
+      ...mineHunks.map((h) => ({ hunk: h, side: 'mine' as const })),
+    ];
+    all.sort((a, b) => a.hunk.mineRange.startLine - b.hunk.mineRange.startLine);
+    return all;
+  }, [theirsHunks, mineHunks]);
+
+  const revealHunkAt = useCallback(
+    (idx: number) => {
+      if (orderedNav.length === 0) return;
+      const wrapped = ((idx % orderedNav.length) + orderedNav.length) % orderedNav.length;
+      navIndexRef.current = wrapped;
+      const target = orderedNav[wrapped];
+      const editor = resultHandle.current.editor;
+      if (!editor) return;
+      const line = target.hunk.mineRange.startLine;
+      editor.revealLineInCenterIfOutsideViewport(line);
+      editor.setPosition({ lineNumber: line, column: 1 });
+      editor.focus();
+    },
+    [orderedNav, resultHandle],
+  );
+
   useImperativeHandle(
     ref,
     () => ({
       getResultText: () => resultHandle.current.model?.getValue() ?? '',
+      gotoNextHunk: () => revealHunkAt(navIndexRef.current + 1),
+      gotoPrevHunk: () => revealHunkAt(navIndexRef.current - 1),
     }),
-    [resultHandle],
+    [resultHandle, revealHunkAt],
   );
 
   const paneBg = isDarkMode ? PANE_BG_DARK : PANE_BG_LIGHT;
