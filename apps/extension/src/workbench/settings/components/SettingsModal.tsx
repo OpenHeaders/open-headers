@@ -63,17 +63,20 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       destroyOnHidden
       width={width}
       centered={!maximized}
-      style={{ padding: 0, top: maximized ? 20 : undefined, paddingBottom: 0 }}
+      style={{ padding: 0, top: maximized ? 20 : undefined }}
       styles={{
         body: { padding: 0, height, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
       }}
       className="settings-modal"
     >
-      {/* Zero the panel padding — Ant's .ant-modal-content otherwise adds
-          ~20px top+bottom, which pushes our body past the viewport when
-          maximized. The styles prop doesn't expose `content`, so we rely
-          on the wrapping class. */}
-      <style>{'.settings-modal .ant-modal-content { padding: 0 !important; }'}</style>
+      {/* Strip every Ant default that contributes vertical chrome:
+          .ant-modal has padding-bottom: 24, .ant-modal-content has 20+20.
+          Without these overrides our body height + Ant's chrome exceeds
+          100vh when maximized and the modal-wrap (or page) gains a scrollbar. */}
+      <style>{`
+        .settings-modal { padding-bottom: 0 !important; }
+        .settings-modal .ant-modal-content { padding: 0 !important; }
+      `}</style>
       <div
         style={{
           display: 'flex',
