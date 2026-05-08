@@ -61,7 +61,16 @@ const ShellLayout: React.FC<ShellLayoutProps> = ({
   const [showLabels, setShowLabels] = useSetting('workspaceLayout.showToolWindowLabels');
   const bottomPanelAlignment = useSettingValue('workspaceLayout.bottomPanelAlignment') as BottomPanelAlignment;
   const sidebarLayout = useSettingValue('workspaceLayout.sidebarLayout') as SidebarLayoutVariant;
+  const [barWidthLeft, setBarWidthLeft] = useSetting('workspaceLayout.activityBarWidthLeft');
+  const [barWidthRight, setBarWidthRight] = useSetting('workspaceLayout.activityBarWidthRight');
   const toggleLabels = useCallback(() => setShowLabels(!showLabels), [showLabels, setShowLabels]);
+  const handleBarResize = useCallback(
+    (sizes: { left: number; right: number }) => {
+      setBarWidthLeft(sizes.left);
+      setBarWidthRight(sizes.right);
+    },
+    [setBarWidthLeft, setBarWidthRight],
+  );
 
   return (
     <SharedShellLayout<ToolWindowId>
@@ -76,6 +85,8 @@ const ShellLayout: React.FC<ShellLayoutProps> = ({
       showToolWindowLabels={showLabels}
       sidebarLayout={sidebarLayout}
       onToggleLabels={toggleLabels}
+      activityBarWidths={{ left: barWidthLeft, right: barWidthRight }}
+      onActivityBarResize={handleBarResize}
       sizes={responsive.sizes}
       collisionDetection={editorTabCollisionDetection}
       focusStore={focusStore}

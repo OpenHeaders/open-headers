@@ -49,7 +49,7 @@ html, body, #root {
   // squeezing the centered search to nothing on narrow viewports.
   display: grid;
   grid-template-columns:
-    var(--ab-width, 64px) auto 1fr minmax(0, 280px) 1fr auto var(--ab-width, 64px);
+    var(--ab-width-left, 78px) auto 1fr minmax(0, 280px) 1fr auto var(--ab-width-right, 78px);
   align-items: center;
   padding: 4px 0;
   flex-shrink: 0;
@@ -121,7 +121,7 @@ html, body, #root {
 @media (max-width: 1200px) {
   .rules-topbar {
     grid-template-columns:
-      var(--ab-width, 64px) auto 1fr auto 1fr auto var(--ab-width, 64px);
+      var(--ab-width-left, 78px) auto 1fr auto 1fr auto var(--ab-width-right, 78px);
   }
 
   .rules-topbar-title-full {
@@ -162,37 +162,12 @@ html, body, #root {
 // locked against the bottom edge.
 
 .rules-activity-bar {
-  width: 78px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding-top: 4px;
-  // Breathing room between the last activity icon and the status bar.
-  padding-bottom: 12px;
-  // The bar is a flex item of `.workbench-main` (row). Cross-axis stretch
-  // already sizes it to the parent's height — explicit `height: 100%`
-  // is redundant and, combined with padding under content-box, can
-  // push the bar 12px past its parent and into the status bar.
-  //
-  // We DO want the bar to shrink in constrained viewports rather than
-  // overflow: min-height: 0 unlocks shrinking, overflow-y: auto makes
-  // the icons scroll gracefully when the 6-icon stack exceeds available
-  // height. In normal viewports there's no scrollbar.
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-width: none;
+  // Width and height are governed by the outer Allotment.Pane in
+  // ShellLayout (per-rail user setting, locked at 36px in icon-only
+  // mode). The base bar styling lives in `dock-layout.css`; this
+  // block only carries workspace-specific layout-variant tweaks.
   &::-webkit-scrollbar {
     display: none;
-  }
-  flex-shrink: 0;
-  outline: none;
-  transition: width 0.12s ease;
-
-  // Icons-only compact mode — right-click menu on the bar toggles the
-  // label visibility preference which drives this modifier.
-  &.rules-activity-bar--compact {
-    width: 36px;
   }
 
   &.rules-activity-bar--layout-compact {
@@ -1109,9 +1084,9 @@ html, body, #root {
   min-width: 0;
   overflow: hidden;
   // Align with the left dock-body content edge so the breadcrumb lines
-  // up with the workspace chip in TopBar above it. `--ab-width` is set
-  // inline by StatusBar to match the current activity-bar width.
-  padding-left: var(--ab-width, 64px);
+  // up with the workspace chip in TopBar above it. `--ab-width-left`
+  // is set inline by StatusBar to match the current left-rail width.
+  padding-left: var(--ab-width-left, 78px);
 }
 
 .rules-statusbar-right {

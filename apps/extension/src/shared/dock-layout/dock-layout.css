@@ -36,6 +36,38 @@
   background: transparent !important;
 }
 
+/* Wrapper around each `bottomPanelAlignment` variant. The variants
+   render fundamentally different Allotment trees, so React must
+   unmount the old tree and mount the new one. Allotment's pane
+   sizing happens inside its own useEffect (after the first paint),
+   so the freshly-mounted tree paints one or two frames at zero size
+   before laying out — that's the visible flash.
+   We mask it by holding the new wrapper at opacity 0 across the
+   layout-settling window (`animation-fill-mode: backwards` makes
+   the `from` keyframe apply from the moment the element mounts,
+   even before the animation tick), keeping it invisible while
+   Allotment's effect runs and the inner panes register. The 0%→40%
+   plateau covers ~3 frames of layout work; the remaining 60%
+   eases up to full opacity. Total duration sits at the perception
+   threshold so the swap reads as "instant" without any visible
+   intermediate state. */
+.rules-center-mount {
+  animation: rules-center-paint-mask 130ms ease-out backwards;
+  will-change: opacity;
+}
+
+@keyframes rules-center-paint-mask {
+  0% {
+    opacity: 0;
+  }
+  40% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
 /* ── Main row (activity bar | content | activity bar) ─────────────── */
 
 .rules-main {
@@ -47,27 +79,38 @@
 }
 
 .rules-main-row {
-  display: flex;
+  /* Hosts the outer Allotment that splits [leftBar | center | rightBar].
+     Allotment fills its container, so we just give the row definite
+     dimensions and stay out of the way. */
   flex: 1;
   min-height: 0;
   position: relative;
 }
 
 .rules-main-horizontal {
-  flex: 1;
-  min-width: 0;
+  /* Sits inside the center Allotment.Pane and must fill it so the
+     nested per-alignment Allotment can size against a real box. */
+  width: 100%;
+  height: 100%;
   position: relative;
 }
 
 /* ── Activity bar ─────────────────────────────────────────────────── */
 
 .rules-activity-bar {
-  /* Bar hosts an inset tab chip with 8px gutter per side. Sized so the
-     widest workspace tool label ("API Requests") fits the chip at 11px
-     without ellipsis. The renderer reads the bar's offsetWidth at
-     runtime so this CSS value drives drop-zone overlay sizing without
-     a JS constant to keep in sync. */
-  width: 78px;
+  /* Bar width is driven by the outer Allotment.Pane (per-rail user
+     setting in labeled mode, locked at 36px in icon-only mode), so
+     the bar fills its pane horizontally. Height fills the pane too —
+     Allotment uses absolute positioning for panes, so explicit 100%
+     height is needed. `box-sizing: border-box` keeps the padding
+     inside that 100% box; without it the padding-bottom would push
+     the bar past the pane's `overflow: hidden` clip and crop the
+     absolutely-positioned bottom chip group. ShellLayout reads the
+     bar's offsetWidth at runtime to size the drop-zone overlay,
+     picking up drags automatically. */
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -77,9 +120,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: none;
-  flex-shrink: 0;
   outline: none;
-  transition: width 0.12s ease;
 }
 
 /* Rail bars sit inside the viewport edge so the leftmost / rightmost
@@ -108,9 +149,9 @@
   display: none;
 }
 
-.rules-activity-bar--compact {
-  width: 36px;
-}
+/* Compact (icon-only) modifier: bar width is enforced by the outer
+   Allotment.Pane min/max == 36px, but we keep the class hook so inner
+   tab sizing can still react to compact mode. */
 
 .rules-activity-bar--layout-compact .rules-activity-group--top {
   flex: 0 0 auto;
@@ -460,13 +501,15 @@
 }
 
 .rules-dock-tab--vertical {
-  /* 68px tab + 90px bar = ample gutter per side (with the rail's 10px
-     outer padding). `min-height: 32px` + `box-sizing: border-box`
-     makes the tab's outer height exactly 32px (matching the panel
-     header's 32px row) so the active chip and the panel-header bar
-     form one clean horizontal line in compact (icons-only) mode. */
+  /* Tab fills the strip's full width so it grows with the bar when
+     the user resizes a labeled rail. The strip width is the bar's
+     content area (bar minus rail outer padding), so the tab gets the
+     same per-side breathing room at any bar width. `min-height: 32px`
+     + `box-sizing: border-box` makes the tab's outer height exactly
+     32px (matching the panel header's 32px row) so the active chip
+     and the panel-header bar form one clean horizontal line. */
   box-sizing: border-box;
-  width: 68px;
+  width: 100%;
   min-height: 32px;
   padding: 6px 4px 4px;
   flex-direction: column;
@@ -856,6 +899,21 @@
   inset: 0;
   pointer-events: none;
   z-index: 50;
+}
+
+/* Wash behind the drop-zone rectangles, positioned (via inline
+   left/right from the renderer) to span only the editor + dock area
+   between the two activity bars. The bars stay uncovered so they
+   remain visible drag targets for tab reorder / cross-rail moves.
+   Painted in the panel bg so the underlying editor/panel content
+   disappears into a single clean surface that matches the dock
+   cards — the dashed drop targets become the only thing competing
+   for attention during a drag. Pointer-transparent so per-zone
+   droppables still receive hits. */
+.rules-drop-backdrop {
+  position: absolute;
+  background: var(--ant-color-bg-container, #ffffff);
+  pointer-events: none;
 }
 
 /* One dashed rectangle per dock slot. Pre-inset by ShellLayout so

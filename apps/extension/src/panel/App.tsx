@@ -256,7 +256,16 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   const [activityLabels, setActivityLabels] = useSetting('devpanelLayout.showToolWindowLabels');
   const [bottomPanelAlignment] = useSetting('devpanelLayout.bottomPanelAlignment');
   const [sidebarLayout] = useSetting('devpanelLayout.sidebarLayout');
+  const [barWidthLeft, setBarWidthLeft] = useSetting('devpanelLayout.activityBarWidthLeft');
+  const [barWidthRight, setBarWidthRight] = useSetting('devpanelLayout.activityBarWidthRight');
   const toggleLabels = useCallback(() => setActivityLabels(!activityLabels), [activityLabels, setActivityLabels]);
+  const handleBarResize = useCallback(
+    (sizes: { left: number; right: number }) => {
+      setBarWidthLeft(sizes.left);
+      setBarWidthRight(sizes.right);
+    },
+    [setBarWidthLeft, setBarWidthRight],
+  );
 
   // ── Panel-level state ──────────────────────────────────────
   const lastSectionRef = useRef<DetailSection>('headers');
@@ -617,6 +626,8 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
         showToolWindowLabels={activityLabels}
         sidebarLayout={sidebarLayout as SidebarLayoutVariant}
         onToggleLabels={toggleLabels}
+        activityBarWidths={{ left: barWidthLeft, right: barWidthRight }}
+        onActivityBarResize={handleBarResize}
         sizes={panelSizes}
         collisionDetection={editorTabCollisionDetection}
         focusStore={focusStore}

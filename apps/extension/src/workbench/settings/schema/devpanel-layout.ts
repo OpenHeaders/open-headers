@@ -23,8 +23,12 @@ declare module '../types' {
     'devpanelLayout.bottomPanelAlignment': DevpanelBottomPanelAlignmentSetting;
     'devpanelLayout.showToolWindowLabels': boolean;
     'devpanelLayout.sidebarLayout': DevpanelSidebarLayoutVariantSetting;
+    'devpanelLayout.activityBarWidthLeft': number;
+    'devpanelLayout.activityBarWidthRight': number;
   }
 }
+
+const activityBarWidthSchema = v.pipe(v.number(), v.minValue(64), v.maxValue(160));
 
 // ── Footer visibility ────────────────────────────────────────────────
 
@@ -114,6 +118,34 @@ registerSetting({
   category: 'devpanelLayout',
   subcategory: 'Shell',
   tags: ['activity bar', 'tool window', 'labels', 'compact', 'devtools'],
+  scope: 'user',
+});
+
+registerSetting({
+  key: 'devpanelLayout.activityBarWidthLeft',
+  type: 'number',
+  default: 78,
+  schema: activityBarWidthSchema,
+  label: 'Left Activity Bar Width',
+  description:
+    'Width of the left activity bar in the DevTools panel when tool-window labels are visible. Locked to 36px in icon-only mode.',
+  category: 'devpanelLayout',
+  subcategory: 'Shell',
+  tags: ['activity bar', 'sidebar', 'width', 'left', 'devtools'],
+  scope: 'user',
+});
+
+registerSetting({
+  key: 'devpanelLayout.activityBarWidthRight',
+  type: 'number',
+  default: 78,
+  schema: activityBarWidthSchema,
+  label: 'Right Activity Bar Width',
+  description:
+    'Width of the right activity bar in the DevTools panel when tool-window labels are visible. Locked to 36px in icon-only mode.',
+  category: 'devpanelLayout',
+  subcategory: 'Shell',
+  tags: ['activity bar', 'sidebar', 'width', 'right', 'devtools'],
   scope: 'user',
 });
 

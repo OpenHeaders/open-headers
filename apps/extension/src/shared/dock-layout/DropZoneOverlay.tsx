@@ -72,13 +72,35 @@ interface DropZoneOverlayProps {
   visible: boolean;
   rects: Record<DockSlot, DropZoneRect> | null;
   highlightedSlot: DockSlot | null;
+  /** Pixel x-extents of the activity bars so the content backdrop
+      can stop short of them — bars stay drag-targets for tab reorder
+      / cross-rail moves and must remain visually accessible. */
+  leftBarWidth: number;
+  rightBarWidth: number;
 }
 
-const DropZoneOverlay: React.FC<DropZoneOverlayProps> = ({ visible, rects, highlightedSlot }) => {
+const DropZoneOverlay: React.FC<DropZoneOverlayProps> = ({
+  visible,
+  rects,
+  highlightedSlot,
+  leftBarWidth,
+  rightBarWidth,
+}) => {
   if (!visible || !rects) return null;
 
   return (
     <div className="rules-drop-overlay" aria-hidden="true">
+      {/* Backdrop covers only the panel/editor area between the two
+          activity bars — the bars themselves stay uncovered so users
+          can still drag a tab onto another rail or reorder within
+          the same rail. Sits below the zones in DOM order so the
+          rects paint on top, and stays pointer-transparent so
+          dnd-kit's hit testing routes through to the per-zone
+          droppables. */}
+      <div
+        className="rules-drop-backdrop"
+        style={{ left: leftBarWidth, right: rightBarWidth, top: 0, bottom: 0 }}
+      />
       {(Object.keys(rects) as DockSlot[]).map((slot) => (
         <DropZone key={slot} slot={slot} rect={rects[slot]} highlighted={highlightedSlot === slot} />
       ))}

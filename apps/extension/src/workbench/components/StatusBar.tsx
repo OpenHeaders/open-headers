@@ -50,7 +50,10 @@ const StatusBar: React.FC<StatusBarProps> = ({
   // activity bar so the breadcrumb starts at the same X as "Open Headers"
   // above it, regardless of whether tool-window labels are on.
   const showToolWindowLabels = useSettingValue('workspaceLayout.showToolWindowLabels');
-  const activityBarWidth = showToolWindowLabels ? 64 : 36;
+  const barWidthLeft = useSettingValue('workspaceLayout.activityBarWidthLeft');
+  const barWidthRight = useSettingValue('workspaceLayout.activityBarWidthRight');
+  const activityBarWidthLeft = showToolWindowLabels ? barWidthLeft : 36;
+  const activityBarWidthRight = showToolWindowLabels ? barWidthRight : 36;
   const { openDocs } = useInspectorNav();
 
   const showVersion = useSettingValue('workspaceLayout.footerShowVersion');
@@ -64,7 +67,8 @@ const StatusBar: React.FC<StatusBarProps> = ({
         {
           background: token.colorBgLayout,
           color: token.colorTextSecondary,
-          '--ab-width': `${activityBarWidth}px`,
+          '--ab-width-left': `${activityBarWidthLeft}px`,
+          '--ab-width-right': `${activityBarWidthRight}px`,
         } as React.CSSProperties
       }
     >

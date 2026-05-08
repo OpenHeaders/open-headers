@@ -28,8 +28,12 @@ declare module '../types' {
     'workspaceLayout.bottomPanelAlignment': BottomPanelAlignmentSetting;
     'workspaceLayout.showToolWindowLabels': boolean;
     'workspaceLayout.sidebarLayout': SidebarLayoutVariantSetting;
+    'workspaceLayout.activityBarWidthLeft': number;
+    'workspaceLayout.activityBarWidthRight': number;
   }
 }
+
+const activityBarWidthSchema = v.pipe(v.number(), v.minValue(64), v.maxValue(160));
 
 // ── Footer visibility ────────────────────────────────────────────────
 
@@ -118,6 +122,32 @@ registerSetting({
   category: 'workspaceLayout',
   subcategory: 'Shell',
   tags: ['activity bar', 'tool window', 'labels', 'compact'],
+  scope: 'user',
+});
+
+registerSetting({
+  key: 'workspaceLayout.activityBarWidthLeft',
+  type: 'number',
+  default: 78,
+  schema: activityBarWidthSchema,
+  label: 'Left Activity Bar Width',
+  description: 'Width of the left activity bar when tool-window labels are visible. Locked to 36px in icon-only mode.',
+  category: 'workspaceLayout',
+  subcategory: 'Shell',
+  tags: ['activity bar', 'sidebar', 'width', 'left'],
+  scope: 'user',
+});
+
+registerSetting({
+  key: 'workspaceLayout.activityBarWidthRight',
+  type: 'number',
+  default: 78,
+  schema: activityBarWidthSchema,
+  label: 'Right Activity Bar Width',
+  description: 'Width of the right activity bar when tool-window labels are visible. Locked to 36px in icon-only mode.',
+  category: 'workspaceLayout',
+  subcategory: 'Shell',
+  tags: ['activity bar', 'sidebar', 'width', 'right'],
   scope: 'user',
 });
 

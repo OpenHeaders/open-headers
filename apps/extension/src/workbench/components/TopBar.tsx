@@ -80,13 +80,17 @@ const TopBar: React.FC<TopBarProps> = ({
   const toggleBottomLabel = useShortcutLabel('toggle-bottom');
   const toggleInspectorLabel = useShortcutLabel('toggle-inspector');
 
-  // Activity-bar width in rules.less: 64px with labels, 36px compact.
-  // We mirror that onto the topbar's outer grid tracks so the logo
-  // centers over the left bar, the product name/workspace starts at
-  // the left dock edge, and the settings icon centers over the right
-  // bar — independent of which docks are open.
+  // Mirror the live per-rail activity-bar widths onto the topbar's
+  // outer grid tracks so the logo centers over the left bar, the
+  // product name starts at the left dock edge, and the settings icon
+  // centers over the right bar — independent of which docks are open
+  // and of how the user has resized either rail. In icon-only mode
+  // the bars are pinned to 36px regardless of the stored width.
   const showLabels = useSettingValue('workspaceLayout.showToolWindowLabels');
-  const activityBarWidth = showLabels ? 64 : 36;
+  const barWidthLeft = useSettingValue('workspaceLayout.activityBarWidthLeft');
+  const barWidthRight = useSettingValue('workspaceLayout.activityBarWidthRight');
+  const activityBarWidthLeft = showLabels ? barWidthLeft : 36;
+  const activityBarWidthRight = showLabels ? barWidthRight : 36;
 
   const showPanelToggles = useSettingValue('workspaceLayout.topbarShowPanelToggles');
   const showLayoutMenu = useSettingValue('workspaceLayout.topbarShowLayoutMenu');
@@ -249,7 +253,8 @@ const TopBar: React.FC<TopBarProps> = ({
           borderBottom: `1px solid ${token.colorBorderSecondary}`,
           // Drives the grid column widths in rules.less — keeps the
           // topbar's outer slots exactly aligned with the activity bars.
-          '--ab-width': `${activityBarWidth}px`,
+          '--ab-width-left': `${activityBarWidthLeft}px`,
+          '--ab-width-right': `${activityBarWidthRight}px`,
         } as React.CSSProperties
       }
     >
