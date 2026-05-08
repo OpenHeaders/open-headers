@@ -41,6 +41,7 @@ import {
 } from 'react';
 import { classifyConflicts } from '../diff/conflict-classify';
 import { diffLines, type Hunk } from '../diff/line-diff';
+import { type GridRatios, useGridResize } from '../monaco/use-grid-resize';
 import { useHunkAcceptArrows } from '../monaco/use-hunk-accept-arrows';
 import { type HunkSide, useHunkDecorations } from '../monaco/use-hunk-decorations';
 import { useMonacoEditorLifecycle } from '../monaco/use-monaco-editor-lifecycle';
@@ -104,41 +105,74 @@ const PANE_BG_DARK = '#1e1e1e';
 const HEADER_HEIGHT = 28;
 const HEADER_PAD = '4px 10px';
 
+const SASH_PX = 5;
+
 /**
- * Grid template for a given layout × pane availability. Returns the
- * full set of CSS properties driving the swap.
+ * Grid template for a given layout × pane availability. Includes
+ * fixed-pixel sash tracks between resizable cells; the sash elements
+ * themselves are rendered as grid items by `MergePane` and bound to
+ * pointer drags via `useGridResize`. Plan §13: layouts swap via
+ * grid-template change only.
  *
- *   column (3-pane):    theirs | result | mine                (1 row)
- *   column (2-pane):    theirs | result                       (1 row)
- *   show-base-top:      base spans top; theirs | result | mine
- *   show-base-center:   theirs | base | mine on top; result spans bottom
+ *   column (3-pane):    theirs sashL result sashR mine            (1 row)
+ *   column (2-pane):    theirs sash  result                       (1 row)
+ *   show-base-top:      base spans top, sashRow, theirs|result|mine row
+ *   show-base-center:   theirs|base|mine row, sashRow, result spans bottom
  */
 function gridTemplate(
   layout: MergeLayout,
   has3Panes: boolean,
   baseAvailable: boolean,
-): { areas: string; cols: string; rows: string } {
+  ratios: GridRatios,
+): { areas: string; cols: string; rows: string; rowSash: boolean } {
   const effectiveLayout: MergeLayout = baseAvailable ? layout : 'column';
+  const sash = `${SASH_PX}px`;
+  const [c0, c1, c2] = ratios.cols;
+  const cols3 = `${c0}fr ${sash} ${c1}fr ${sash} ${c2}fr`;
+  const cols2 = `${c0}fr ${sash} ${c1}fr`;
+  const [r0, r1] = ratios.rows;
+  const rows2 = `${r0}fr ${sash} ${r1}fr`;
+
   if (effectiveLayout === 'show-base-top' && has3Panes) {
     return {
-      areas: `"base base base" "theirs result mine"`,
-      cols: '1fr 1fr 1fr',
-      rows: '35% 1fr',
+      areas: `
+        "base   base    base    base    base"
+        "rsash  rsash   rsash   rsash   rsash"
+        "theirs sashTL  result  sashTR  mine"
+      `,
+      cols: cols3,
+      rows: rows2,
+      rowSash: true,
     };
   }
   if (effectiveLayout === 'show-base-center' && has3Panes) {
     return {
-      areas: `"theirs base mine" "result result result"`,
-      cols: '1fr 1fr 1fr',
-      rows: '1fr 1fr',
+      areas: `
+        "theirs sashTL  base    sashTR  mine"
+        "rsash  rsash   rsash   rsash   rsash"
+        "result result  result  result  result"
+      `,
+      cols: cols3,
+      rows: rows2,
+      rowSash: true,
     };
   }
   // column
   if (has3Panes) {
-    return { areas: `"theirs result mine"`, cols: '1fr 1fr 1fr', rows: '1fr' };
+    return {
+      areas: `"theirs sashTL result sashTR mine"`,
+      cols: cols3,
+      rows: '1fr',
+      rowSash: false,
+    };
   }
   // 2-pane fallback
-  return { areas: `"theirs result"`, cols: '1fr 1fr', rows: '1fr' };
+  return {
+    areas: `"theirs sashTL result"`,
+    cols: cols2,
+    rows: '1fr',
+    rowSash: false,
+  };
 }
 
 /** Whether each pane is a member of the active layout's template. */
@@ -178,7 +212,8 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   const has3Panes = file.base !== undefined;
   const baseAvailable = file.base !== undefined;
   const visibility = paneVisibility(layout, has3Panes, baseAvailable);
-  const grid = gridTemplate(layout, has3Panes, baseAvailable);
+
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   const theirsHandle = useMonacoEditorLifecycle({
     containerRef: theirsContainerRef,
@@ -211,6 +246,18 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     language,
     readOnly: true,
   });
+
+  // Sash drag → editor layout()s. Run for every visible editor so
+  // Monaco's scrollbar / wrap geometry tracks the live pane size.
+  const onSashResize = useCallback(() => {
+    if (visibility.theirs) theirsHandle.current.editor?.layout();
+    if (visibility.result) resultHandle.current.editor?.layout();
+    if (visibility.mine) mineHandle.current.editor?.layout();
+    if (visibility.base) baseHandle.current.editor?.layout();
+  }, [visibility, theirsHandle, resultHandle, mineHandle, baseHandle]);
+
+  const gridResize = useGridResize({ containerRef, onResize: onSashResize });
+  const grid = gridTemplate(layout, has3Panes, baseAvailable, gridResize.ratios);
 
   // Track result text in state so diff recomputes on every edit.
   const [resultText, setResultText] = useState<string>(file.initialResult);
@@ -426,22 +473,31 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
 
   const paneBg = isDarkMode ? PANE_BG_DARK : PANE_BG_LIGHT;
 
+  const sashBg = isDarkMode ? '#3a3a3a' : '#d0d0d0';
+
   return (
     <div
       className={className}
+      ref={containerRef}
       data-merge-theme={isDarkMode ? 'dark' : 'light'}
       style={{
         display: 'grid',
         gridTemplateAreas: grid.areas,
         gridTemplateColumns: grid.cols,
         gridTemplateRows: grid.rows,
-        gap: 1,
         height: '100%',
         minHeight: 0,
         minWidth: 0,
         background: isDarkMode ? '#2a2a2a' : '#e5e5e5',
       }}
     >
+      <Sash gridArea="sashTL" axis="col" bg={sashBg} onPointerDown={(e) => gridResize.onColSashPointerDown(0, e)} />
+      {has3Panes ? (
+        <Sash gridArea="sashTR" axis="col" bg={sashBg} onPointerDown={(e) => gridResize.onColSashPointerDown(1, e)} />
+      ) : null}
+      {grid.rowSash ? (
+        <Sash gridArea="rsash" axis="row" bg={sashBg} onPointerDown={gridResize.onRowSashPointerDown} />
+      ) : null}
       <PaneSlot
         gridArea="theirs"
         visible={visibility.theirs}
@@ -527,6 +583,31 @@ function PaneSlot({ gridArea, visible, bg, header, containerRef }: PaneSlotProps
 
 function DefaultHeader({ label }: { label: string }): React.ReactElement {
   return <span>{label}</span>;
+}
+
+interface SashProps {
+  gridArea: string;
+  axis: 'col' | 'row';
+  bg: string;
+  onPointerDown: (e: React.PointerEvent) => void;
+}
+
+function Sash({ gridArea, axis, bg, onPointerDown }: SashProps): React.ReactElement {
+  // Presentation-only — the keyboard-accessible alternative to a sash
+  // is the layout switcher (always tab-reachable). Marking the bar as
+  // role="presentation" avoids inventing fake `aria-valuenow` numbers
+  // for a continuous drag handle that has no semantic discrete value.
+  return (
+    <div
+      style={{
+        gridArea,
+        background: bg,
+        cursor: axis === 'col' ? 'col-resize' : 'row-resize',
+        zIndex: 2,
+      }}
+      onPointerDown={onPointerDown}
+    />
+  );
 }
 
 export default MergePane;
