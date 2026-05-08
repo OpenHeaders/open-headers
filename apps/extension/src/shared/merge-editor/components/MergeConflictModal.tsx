@@ -10,7 +10,7 @@
 
 import { CheckCircleFilled, DownOutlined, ThunderboltOutlined, UpOutlined } from '@ant-design/icons';
 import { Alert, Button, Modal, Segmented, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
-import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactElement, useCallback, useMemo, useRef, useState } from 'react';
 import type { MergeApplyOutcome, MergeSession } from '../types';
 import MergePane, { type HunkStats, type MergeLayout, type MergePaneHandle } from './MergePane';
 
@@ -63,34 +63,6 @@ const MergeConflictModal = ({ open, session, isDarkMode, onClose }: MergeConflic
     onClose();
   }, [session, onClose]);
 
-  // Phase 4 starter — keyboard shortcuts. Bound on `window` while the
-  // modal is open so Monaco-internal focus doesn't swallow them. Phase 4
-  // proper still owes ARIA live announcements + keyboard equivalents
-  // for the per-hunk accept-arrows; this slice covers navigation +
-  // bulk-apply for power users who never want to leave the keyboard.
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.defaultPrevented) return;
-      if (e.key === 'F7') {
-        if (e.shiftKey) paneRef.current?.gotoPrevHunk();
-        else paneRef.current?.gotoNextHunk();
-        e.preventDefault();
-        return;
-      }
-      // Alt+A → bulk-apply non-conflicting. Alt avoids collision with
-      // Monaco's Cmd/Ctrl shortcuts.
-      if (e.altKey && (e.key === 'a' || e.key === 'A')) {
-        paneRef.current?.applyNonConflicting();
-        e.preventDefault();
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => {
-      window.removeEventListener('keydown', handler);
-    };
-  }, [open]);
-
   const handleApply = useCallback(async () => {
     if (!activeFile) return;
     setApplying(true);
@@ -134,7 +106,7 @@ const MergeConflictModal = ({ open, session, isDarkMode, onClose }: MergeConflic
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <Space size={6}>
-            <Tooltip title="Previous hunk (Shift+F7)">
+            <Tooltip title="Previous hunk">
               <Button
                 size="small"
                 icon={<UpOutlined />}
@@ -142,7 +114,7 @@ const MergeConflictModal = ({ open, session, isDarkMode, onClose }: MergeConflic
                 onClick={() => paneRef.current?.gotoPrevHunk()}
               />
             </Tooltip>
-            <Tooltip title="Next hunk (F7)">
+            <Tooltip title="Next hunk">
               <Button
                 size="small"
                 icon={<DownOutlined />}
@@ -162,7 +134,7 @@ const MergeConflictModal = ({ open, session, isDarkMode, onClose }: MergeConflic
               {stats.nonConflicting > 0 ? ` · ${stats.nonConflicting} non-conflicting` : ''}
             </Tag>
           )}
-          <Tooltip title="Apply every hunk only one side touched, in one undo step. Conflicts stay for manual resolution. (Alt+A)">
+          <Tooltip title="Apply every hunk only one side touched, in one undo step. Conflicts stay for manual resolution.">
             <Button
               size="small"
               icon={<ThunderboltOutlined />}
