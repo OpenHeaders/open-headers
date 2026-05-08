@@ -77,6 +77,22 @@ export interface ConflictTrackingAdapter<E> {
    *  type-conditional sets — header rules have request/response
    *  header sets; query-param rules have a params set). */
   snapshotSetsFromForm(form: PathMap, entity: E): readonly SetMemberSnapshot[];
+  /** Optional: surface the live branch payload at a `union:<prefix>`
+   *  divergence key. The conflict tracker stashes the result into
+   *  `conflict.rowPayload` so resolvers can perform whole-branch swaps
+   *  (write the new branch object + the discriminator) when the user
+   *  picks "Use saved" on a structural kind transition. */
+  readUnionBranchInfo?(entity: E, prefix: string): UnionBranchInfo | null;
+}
+
+/** Whole-branch payload at a `union:<prefix>` divergence. The
+ *  resolver replaces `entity[prefix-tail]` with `branch` and writes
+ *  the discriminator from `kind`. */
+export interface UnionBranchInfo {
+  /** Active discriminator on the live entity (e.g. `'redirect'`). */
+  kind: string | null;
+  /** The whole branch value at the union prefix. */
+  branch: unknown;
 }
 
 /**

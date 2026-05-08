@@ -23,6 +23,7 @@ import {
 } from '@/shared/conflicts/conflict-keys';
 import type { PathConflict } from '@/shared/conflicts/types';
 import { stableStringify } from '@/shared/forms/fingerprint';
+import type { FormInstance } from 'antd';
 import { getPolicy, type FieldNode } from './descriptor';
 
 /** Prefix for the structural divergence marker emitted at every
@@ -56,7 +57,25 @@ export interface MakeAdapterArgs<E> {
    *  Return `true` to mark the path handled, `false` to refuse the write
    *  (the walker also stops — used by Vault's kind-leaf refusal), or
    *  `'fallthrough'` to let the walker's default writer handle the path. */
-  writeLeafOverride?: (entity: E, path: string, value: string) => boolean | 'fallthrough';
+   writeLeafOverride?: (entity: E, path: string, value: string) => boolean | 'fallthrough';
+  /** Map a canonical conflict path / set path to the form name (or full
+   *  form path) the editor binds it under.
+   *
+   *  Called for:
+   *    - leaf scalar paths (e.g. `'action.redirectTo'`, `'name'`) — the
+   *      hook returns either the string form-name, a full
+   *      `(string|number)[]` form-path, `null` to skip the write
+   *      entirely (form doesn't own the field), or `undefined` to fall
+   *      back to the path's last segment.
+   *    - set paths (e.g. `'action.requestHeaders'`,
+   *      `'action.params'`) — the hook returns the Form.List name. The
+   *      walker handles uid → idx resolution itself for leaves nested
+   *      inside a uid-set; the hook only resolves the container name.
+   *
+   *  Bundles use this to bridge schema-side path keys (e.g. rule's
+   *  `'params'`) to form-side names (e.g. `'queryParams'`) when the two
+   *  diverge. */
+  formNameForPath?: (entity: E, path: string) => string | (string | number)[] | null | undefined;
 }
 
 interface ReorderPayload {
@@ -496,11 +515,100 @@ export function makeConflictAdapter<E>(args: MakeAdapterArgs<E>): Adapters<E> {
     snapshotSetsFromForm(form, entity) {
       return snapshotSetsFromForm(args.schema, form, entity);
     },
+    readUnionBranchInfo(entity, prefix) {
+      const info = navigateToUnionParent(args.schema, entity, prefix);
+      if (!info) return null;
+      const branch = info.parent[info.tailKey];
+      const disc: string | undefined = info.unionNode.discriminate
+        ? info.unionNode.discriminate(info.parent, branch)
+        : ((branch as Record<string, unknown> | null | undefined)?.[info.unionNode.discriminator] as
+            | string
+            | undefined);
+      return { kind: disc ?? null, branch };
+    },
   };
 
+  function resolveFormName(
+    entity: E,
+    setOrLeafPath: string,
+  ): { skip: boolean; name: string | (string | number)[] | null } {
+    const fn = args.formNameForPath?.(entity, setOrLeafPath);
+    if (fn === null) return { skip: true, name: null };
+    if (fn === undefined) {
+      const tail = setOrLeafPath.split('.').pop() ?? setOrLeafPath;
+      return { skip: false, name: tail };
+    }
+    return { skip: false, name: fn };
+  }
+
+  function applyResolutionToForm(form: FormInstance, entity: E, path: string, conflict: PathConflict): boolean {
+    const reorderKey = decodeReorderConflictKey(path);
+    if (reorderKey) {
+      const { skip, name } = resolveFormName(entity, reorderKey.setPath);
+      if (skip || typeof name !== 'string') return false;
+      if (!isReorderPayload(conflict.rowPayload)) return false;
+      const current = (form.getFieldValue(name) as { uid?: string }[] | undefined) ?? [];
+      if (current.length === 0) return false;
+      form.setFieldValue(name, reorderRows(current as { uid: string }[], conflict.rowPayload.savedOrder));
+      return true;
+    }
+    const setKey = decodeSetConflictKey(path);
+    if (setKey) {
+      const { skip, name } = resolveFormName(entity, setKey.setPath);
+      if (skip || typeof name !== 'string') return false;
+      const current = (form.getFieldValue(name) as { uid?: string }[] | undefined) ?? [];
+      if (conflict.kind === 'set-add') {
+        if (conflict.rowPayload === undefined) return false;
+        if (current.some((r) => r?.uid === setKey.uid)) return false;
+        form.setFieldValue(name, [...current, conflict.rowPayload as { uid?: string }]);
+        return true;
+      }
+      if (conflict.kind === 'set-remove') {
+        const next = current.filter((r) => r?.uid !== setKey.uid);
+        if (next.length === current.length) return false;
+        form.setFieldValue(name, next);
+        return true;
+      }
+      return false;
+    }
+
+    const decoded = decodeLeafPathForForm(args.schema, entity, path);
+    if (!decoded) return false;
+    if (decoded.setLeaf) {
+      const { skip, name } = resolveFormName(entity, decoded.setLeaf.setPath);
+      if (skip) return false;
+      const formName = typeof name === 'string' ? name : null;
+      if (!formName) return false;
+      form.setFieldValue([formName, decoded.setLeaf.idx, decoded.setLeaf.leaf], conflict.theirs);
+      return true;
+    }
+    if (decoded.scalar) {
+      const { skip, name } = resolveFormName(entity, path);
+      if (skip || name === null) return false;
+      form.setFieldValue(name, conflict.theirs);
+      return true;
+    }
+    return false;
+  }
+
   const resolve: ConflictResolveAdapter<E> = {
-    applyResolutionToForm: () => false,
+    applyResolutionToForm,
     applyResolutionToEntity(entity, path, conflict) {
+      const unionKey = decodeUnionDivergenceKey(path);
+      if (unionKey) {
+        const payload = conflict.rowPayload as { kind?: string | null; branch?: unknown } | undefined;
+        if (!payload || !('branch' in payload)) return false;
+        const info = navigateToUnionParent(args.schema, entity, unionKey.prefix);
+        if (!info) return false;
+        info.parent[info.tailKey] = payload.branch;
+        if (info.unionNode.discriminate) {
+          // Discriminator lives outside the union prefix on the parent
+          // (e.g. Rule's `type` lives at the entity root while the union
+          // covers `action.*`). Write it alongside the new branch.
+          info.parent[info.unionNode.discriminator] = payload.kind ?? null;
+        }
+        return true;
+      }
       const reorderKey = decodeReorderConflictKey(path);
       if (reorderKey) {
         if (!isReorderPayload(conflict.rowPayload)) return false;
@@ -567,4 +675,91 @@ function writeSetArray(node: FieldNode, entity: unknown, setPath: string, value:
   const last = parts[parts.length - 1];
   parent[last] = value;
   return true;
+}
+
+interface UnionParentInfo {
+  parent: Record<string, unknown>;
+  tailKey: string;
+  unionNode: Extract<FieldNode, { kind: 'union' }>;
+}
+
+/** Walk to the parent object that holds the union node at `prefix`.
+ *  Returns the mutable parent + the tail key + the union descriptor —
+ *  enough to write both the new branch and the discriminator. */
+function navigateToUnionParent(schema: FieldNode, entity: unknown, prefix: string): UnionParentInfo | null {
+  const parts = prefix.split('.');
+  let cur: FieldNode | null = schema;
+  let val: unknown = entity;
+  for (let i = 0; i < parts.length - 1; i++) {
+    if (!cur || cur.kind !== 'object') return null;
+    const child: FieldNode | undefined = cur.children[parts[i]];
+    if (!child) return null;
+    val = (val as Record<string, unknown> | null | undefined)?.[parts[i]];
+    if (val == null || typeof val !== 'object') return null;
+    cur = child;
+  }
+  if (!cur || cur.kind !== 'object') return null;
+  const tailKey = parts[parts.length - 1];
+  const child = cur.children[tailKey];
+  if (!child || child.kind !== 'union') return null;
+  return { parent: val as Record<string, unknown>, tailKey, unionNode: child };
+}
+
+interface DecodedLeafPath {
+  /** Set-rooted leaf — found a uid-set ancestor in the schema walk. */
+  setLeaf?: { setPath: string; idx: number; leaf: string };
+  /** Plain scalar leaf — no uid-set ancestor. */
+  scalar?: { leaf: string };
+}
+
+/** Walk schema + entity along `path`, identifying whether the leaf is
+ *  nested inside a uid-set (and at what index in the live entity). */
+function decodeLeafPathForForm(schema: FieldNode, entity: unknown, path: string): DecodedLeafPath | null {
+  const parts = path.split('.');
+  let cur: FieldNode | null = schema;
+  let val: unknown = entity;
+  let parent: unknown = null;
+  let setHit: { setPath: string; idx: number } | null = null;
+
+  let i = 0;
+  while (i < parts.length) {
+    if (!cur) return null;
+    if (cur.kind === 'union') {
+      const disc: string | undefined = cur.discriminate
+        ? cur.discriminate(parent, val)
+        : ((val as Record<string, unknown> | null | undefined)?.[cur.discriminator] as string | undefined);
+      const branchNode: FieldNode | undefined = typeof disc === 'string' ? cur.branches[disc] : undefined;
+      if (!branchNode) return null;
+      cur = branchNode;
+      continue;
+    }
+    if (cur.kind === 'object') {
+      const child: FieldNode | undefined = cur.children[parts[i]];
+      if (!child) return null;
+      parent = val;
+      val = (val as Record<string, unknown> | null | undefined)?.[parts[i]];
+      cur = child;
+      i += 1;
+      continue;
+    }
+    if (cur.kind === 'set') {
+      if (cur.identity !== 'uid') return null;
+      const arr = Array.isArray(val) ? val : [];
+      const uid = parts[i];
+      const idx = arr.findIndex((r) => (r as { uid?: string })?.uid === uid);
+      if (idx < 0) return null;
+      const setPath = parts.slice(0, i).join('.');
+      setHit = { setPath, idx };
+      parent = val;
+      val = arr[idx];
+      cur = cur.child;
+      i += 1;
+      continue;
+    }
+    return null;
+  }
+  if (!cur || (cur.kind !== 'leaf' && cur.kind !== 'enum')) return null;
+  const leaf = parts[parts.length - 1];
+  if (setHit) return { setLeaf: { setPath: setHit.setPath, idx: setHit.idx, leaf } };
+  return { scalar: { leaf } };
 }

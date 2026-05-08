@@ -299,14 +299,6 @@ function makeTrackingAdapter<E extends { uid: string }>(
 
 // ── Resolve adapter ───────────────────────────────────────────────
 
-interface DecodedActionPath {
-  kind: 'name' | 'conditions' | 'header' | 'param' | 'mock-header' | 'scalar' | 'unknown';
-  set?: 'requestHeaders' | 'responseHeaders';
-  uid?: string;
-  leaf?: string;
-  scalar?: string;
-}
-
 interface ReorderPayload {
   savedOrder: readonly string[];
 }
@@ -364,151 +356,37 @@ function makeResolveAdapter<E extends { uid: string }>(
   );
   const queryParamRe = new RegExp(`^${a}\\.${paths.queryParamKey}\\.([a-z0-9]{8})\\.(param|value|operation)$`);
   const mockHeaderRe = new RegExp(`^${a}\\.responseHeaders\\.([^.]+)\\.(name|value)$`);
+  const headerSetReq = paths.headerSet('request');
+  const headerSetRes = paths.headerSet('response');
+  const queryParamSet = paths.queryParamSet;
   const walker = makeConflictAdapter<E>({
     schema: buildActionEntitySchema(paths, { discriminatorField: accessors.discriminatorField }),
     signature: accessors.signature,
+    formNameForPath: (_entity, p) => {
+      // Set paths — bridge schema-side path keys (rule's `params`) to
+      // their Form.List name (`queryParams`) and pass header sets through.
+      if (p === headerSetReq) return 'requestHeaders';
+      if (p === headerSetRes) return 'responseHeaders';
+      if (p === queryParamSet) return 'queryParams';
+      // Entity-root scalars.
+      if (p === 'name') return accessors.nameFormName ?? null;
+      // All other action-rooted scalars use their tail (`action.redirectTo`
+      // → `redirectTo`, `action.delayMs` → `delayMs`, etc.) — let the
+      // walker fall back to the default. Conditions paths aren't in the
+      // walker schema and never reach this hook from the form-side
+      // collapser; the entity-side wrapper handles them.
+      return undefined;
+    },
   });
 
-  function decodePath(path: string): DecodedActionPath {
-    if (path === 'name') return { kind: 'name' };
-    if (path.startsWith('conditions.')) return { kind: 'conditions' };
-    if (!path.startsWith(`${a}.`)) return { kind: 'unknown' };
-    const headerMod = headerModRe.exec(path);
-    if (headerMod) {
-      return {
-        kind: 'header',
-        set: headerMod[1] as 'requestHeaders' | 'responseHeaders',
-        uid: headerMod[2],
-        leaf: headerMod[3],
-      };
-    }
-    const queryParam = queryParamRe.exec(path);
-    if (queryParam) return { kind: 'param', uid: queryParam[1], leaf: queryParam[2] };
-    if (mockHeaderRe.exec(path)) return { kind: 'mock-header' };
-    const tail = path.slice(a.length + 1);
-    if (!tail.includes('.')) return { kind: 'scalar', scalar: tail };
-    return { kind: 'unknown' };
-  }
-
-  function setPathToFormName(setPath: string): string | null {
-    if (setPath === paths.headerSet('request')) return 'requestHeaders';
-    if (setPath === paths.headerSet('response')) return 'responseHeaders';
-    if (setPath === paths.queryParamSet) return 'queryParams';
-    if (setPath === 'conditions') return 'conditions';
-    return null;
-  }
-
-  function setArrayOnEntity(
-    entity: E,
-    setPath: string,
-  ): { get(): { uid?: string }[]; set(next: { uid?: string }[]): boolean } | null {
-    if (setPath === 'conditions') {
-      return {
-        get: () => accessors.getConditions(entity) as unknown as { uid?: string }[],
-        set: (next) => {
-          accessors.setConditions(entity, next as V5.RuleCondition[]);
-          return true;
-        },
-      };
-    }
-    const root = accessors.getActionRoot(entity);
-    if (!root) return null;
-    const headerSetReq = paths.headerSet('request');
-    const headerSetRes = paths.headerSet('response');
-    if (setPath === headerSetReq && accessors.getRuleType(entity) === 'header') {
-      return {
-        get: () => (root.requestHeaders as { uid?: string }[]) ?? [],
-        set: (next) => {
-          root.requestHeaders = next;
-          return true;
-        },
-      };
-    }
-    if (setPath === headerSetRes && accessors.getRuleType(entity) === 'header') {
-      return {
-        get: () => (root.responseHeaders as { uid?: string }[]) ?? [],
-        set: (next) => {
-          root.responseHeaders = next;
-          return true;
-        },
-      };
-    }
-    if (setPath === paths.queryParamSet && accessors.getRuleType(entity) === 'query-param') {
-      return {
-        get: () => (root[paths.queryParamKey] as { uid?: string }[]) ?? [],
-        set: (next) => {
-          root[paths.queryParamKey] = next;
-          return true;
-        },
-      };
-    }
-    return null;
-  }
-
   function applyResolutionToForm(form: FormInstance, entity: E, path: string, conflict: PathConflict): boolean {
-    const reorderKey = decodeReorderConflictKey(path);
-    if (reorderKey) {
-      const formName = setPathToFormName(reorderKey.setPath);
-      if (!formName || !isReorderPayload(conflict.rowPayload)) return false;
-      const current = (form.getFieldValue(formName) as { uid?: string }[] | undefined) ?? [];
-      if (current.length === 0) return false;
-      form.setFieldValue(formName, reorderRows(current, conflict.rowPayload.savedOrder));
-      return true;
-    }
-    const setKey = decodeSetConflictKey(path);
-    if (setKey) {
-      const formName = setPathToFormName(setKey.setPath);
-      if (!formName) return false;
-      const current = (form.getFieldValue(formName) as { uid?: string }[] | undefined) ?? [];
-      if (conflict.kind === 'set-add') {
-        if (conflict.rowPayload === undefined) return false;
-        if (current.some((row) => row?.uid === setKey.uid)) return false;
-        form.setFieldValue(formName, [...current, conflict.rowPayload as { uid?: string }]);
-        return true;
-      }
-      if (conflict.kind === 'set-remove') {
-        const next = current.filter((row) => row?.uid !== setKey.uid);
-        if (next.length === current.length) return false;
-        form.setFieldValue(formName, next);
-        return true;
-      }
-      return false;
-    }
-    const value = conflict.theirs;
-    const decoded = decodePath(path);
-    if (decoded.kind === 'name') {
-      if (!accessors.nameFormName) return false;
-      form.setFieldValue(accessors.nameFormName, value);
-      return true;
-    }
-    if (decoded.kind === 'header') {
-      if (accessors.getRuleType(entity) !== 'header' || !decoded.uid || !decoded.leaf || !decoded.set) return false;
-      const root = accessors.getActionRoot(entity);
-      const arr = root?.[decoded.set] as { uid?: string }[] | undefined;
-      const idx = arr?.findIndex((r) => r.uid === decoded.uid) ?? -1;
-      if (idx < 0) return false;
-      form.setFieldValue([decoded.set, idx, decoded.leaf], value);
-      return true;
-    }
-    if (decoded.kind === 'param') {
-      if (accessors.getRuleType(entity) !== 'query-param' || !decoded.uid || !decoded.leaf) return false;
-      const root = accessors.getActionRoot(entity);
-      const arr = root?.[paths.queryParamKey] as { uid?: string }[] | undefined;
-      const idx = arr?.findIndex((r) => r.uid === decoded.uid) ?? -1;
-      if (idx < 0) return false;
-      form.setFieldValue(['queryParams', idx, decoded.leaf], value);
-      return true;
-    }
-    if (decoded.kind === 'scalar' && decoded.scalar) {
-      form.setFieldValue(decoded.scalar, value);
-      return true;
-    }
-    return false;
+    return walker.resolve.applyResolutionToForm(form, entity, path, conflict);
   }
 
   function applyResolutionToEntity(entity: E, path: string, conflict: PathConflict): boolean {
-    // Walker handles `name`, all action-rooted leaves, and uid-keyed
-    // set-add / set-remove / reorder under header + query-param sets.
+    // Walker handles `name`, all action-rooted leaves, uid-keyed
+    // set-add / set-remove / reorder under header + query-param sets,
+    // and `union:<prefix>` whole-branch swaps.
     if (walker.resolve.applyResolutionToEntity(entity, path, conflict)) return true;
 
     // Conditions set ops route through the entity-level `setConditions`
@@ -516,28 +394,28 @@ function makeResolveAdapter<E extends { uid: string }>(
     // path key `field` aliases schema field `type`.
     const reorderKey = decodeReorderConflictKey(path);
     if (reorderKey?.setPath === 'conditions') {
-      const set = setArrayOnEntity(entity, 'conditions');
-      if (!set || !isReorderPayload(conflict.rowPayload)) return false;
-      const current = set.get();
+      if (!isReorderPayload(conflict.rowPayload)) return false;
+      const current = accessors.getConditions(entity) as readonly { uid: string }[];
       if (current.length === 0) return false;
-      set.set(reorderRows(current, conflict.rowPayload.savedOrder));
+      accessors.setConditions(entity, reorderRows(current, conflict.rowPayload.savedOrder) as V5.RuleCondition[]);
       return true;
     }
     const setKey = decodeSetConflictKey(path);
     if (setKey?.setPath === 'conditions') {
-      const set = setArrayOnEntity(entity, 'conditions');
-      if (!set) return false;
-      const current = set.get();
+      const current = accessors.getConditions(entity) as readonly { uid: string }[];
       if (conflict.kind === 'set-add') {
         if (conflict.rowPayload === undefined) return false;
-        if (current.some((r) => r?.uid === setKey.uid)) return false;
-        set.set([...current, conflict.rowPayload as { uid?: string }]);
+        if (current.some((r) => r.uid === setKey.uid)) return false;
+        accessors.setConditions(
+          entity,
+          [...current, conflict.rowPayload as { uid: string }] as V5.RuleCondition[],
+        );
         return true;
       }
       if (conflict.kind === 'set-remove') {
-        const next = current.filter((r) => r?.uid !== setKey.uid);
+        const next = current.filter((r) => r.uid !== setKey.uid);
         if (next.length === current.length) return false;
-        set.set(next);
+        accessors.setConditions(entity, next as V5.RuleCondition[]);
         return true;
       }
     }
