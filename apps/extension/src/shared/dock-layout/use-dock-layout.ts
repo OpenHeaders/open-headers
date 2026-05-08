@@ -184,6 +184,18 @@ export function useDockLayout<T extends string>({
     'bottom-right': null,
   } as Record<DockSlot, T | null>);
 
+  // Captured at toggleRegion-close: the set of slots that were active
+  // right before the close. Reopening the region only restores these
+  // slots — slots that just *had windows but were never activated*
+  // stay closed. Without this, hitting the region collapse/expand
+  // button opens every dock with a windows list, which is louder
+  // than what the user had before.
+  const lastRegionOpenSlotsRef = useRef<Record<ToolRegion, Set<DockSlot>>>({
+    left: new Set(),
+    right: new Set(),
+    bottom: new Set(),
+  });
+
   const patch = useCallback((mutate: Mutator<T>) => {
     setState((prev) => {
       const next: ToolLayoutState<T> = {
@@ -331,14 +343,24 @@ export function useDockLayout<T extends string>({
         const slotsInRegion = ALL_DOCK_SLOTS.filter((s) => dockRegion(s) === region);
         const anyOpen = slotsInRegion.some((s) => next.docks[s].active !== null);
         if (anyOpen) {
+          const openSnapshot = new Set<DockSlot>();
           for (const s of slotsInRegion) {
             if (next.docks[s].active !== null) {
               lastActiveRef.current[s] = next.docks[s].active;
+              openSnapshot.add(s);
               next.docks[s].active = null;
             }
           }
+          lastRegionOpenSlotsRef.current[region] = openSnapshot;
         } else {
+          const snapshot = lastRegionOpenSlotsRef.current[region];
+          // First-ever open of this region (no snapshot): fall back to
+          // opening every slot that has a window, matching the prior
+          // greedy behavior. After at least one close, snapshot drives
+          // restoration so we only reopen the slots the user had open.
+          const restoreAll = snapshot.size === 0;
           for (const s of slotsInRegion) {
+            if (!restoreAll && !snapshot.has(s)) continue;
             const remembered = lastActiveRef.current[s];
             const first = next.docks[s].windows[0] ?? null;
             const candidate = remembered && next.docks[s].windows.includes(remembered) ? remembered : first;

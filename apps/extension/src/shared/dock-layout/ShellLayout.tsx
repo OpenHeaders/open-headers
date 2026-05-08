@@ -46,7 +46,13 @@ import { ALL_DOCK_SLOTS, regionDocks } from './constants';
 import DockTabStrip from './DockTabStrip';
 import DropZoneOverlay from './DropZoneOverlay';
 import type { FocusStore } from './focus-store';
-import type { BottomPanelAlignment, DockSlot, DropZoneRect, SidebarLayoutVariant, ToolWindowDef } from './types';
+import type {
+  BottomPanelAlignment,
+  DockSlot,
+  DropZoneRect,
+  SidebarLayoutVariant,
+  ToolWindowDef,
+} from './types';
 import type { DockLayoutApi } from './use-dock-layout';
 
 // ── Props ─────────────────────────────────────────────────────────────
@@ -151,6 +157,24 @@ function SideRegion<T extends string>({
   const topActive = topDock.active;
   const bottomActive = bottomDock.active;
 
+  // Allotment forgets the user-dragged split when one pane goes
+  // invisible — on re-show it falls back to minimumSize. We snapshot
+  // sizes only on the user's sash-drag end (so visibility-flip-induced
+  // onChange events don't overwrite the user's intent) and replay them
+  // via the imperative `resize` handle when both panes come back visible.
+  const allotmentRef = useRef<AllotmentHandle>(null);
+  const lastBothVisibleSizesRef = useRef<number[] | null>(null);
+  const handleDragEnd = (sizes: number[]) => {
+    if (topActive !== null && bottomActive !== null) {
+      lastBothVisibleSizesRef.current = sizes;
+    }
+  };
+  useEffect(() => {
+    if (topActive !== null && bottomActive !== null && lastBothVisibleSizesRef.current) {
+      allotmentRef.current?.resize(lastBothVisibleSizesRef.current);
+    }
+  }, [topActive, bottomActive]);
+
   return (
     <div
       className={`rules-region rules-region-${region}`}
@@ -158,8 +182,8 @@ function SideRegion<T extends string>({
       tabIndex={-1}
       style={{ height: '100%', background: token.colorBgLayout }}
     >
-      <Allotment vertical proportionalLayout>
-        <Allotment.Pane preferredSize={topSize.preferred} minSize={topSize.min} visible={topActive !== null} snap>
+      <Allotment ref={allotmentRef} vertical proportionalLayout onDragEnd={handleDragEnd}>
+        <Allotment.Pane preferredSize={topSize.preferred} minSize={topSize.min} visible={topActive !== null}>
           {topActive && (
             <FocusAwareDockBody slot={topSlot} focusStore={focusStore} baseClass="rules-dock-body">
               {renderToolWindow(topActive, topSlot)}
@@ -170,7 +194,6 @@ function SideRegion<T extends string>({
           preferredSize={bottomSize.preferred}
           minSize={bottomSize.min}
           visible={bottomActive !== null}
-          snap
         >
           {bottomActive && (
             <FocusAwareDockBody slot={bottomSlot} focusStore={focusStore} baseClass="rules-dock-body">
@@ -195,6 +218,26 @@ function BottomRegion<T extends string>({ tl, renderToolWindow, focusStore }: Bo
   const leftActive = leftDock.active;
   const rightActive = rightDock.active;
 
+  const allotmentRef = useRef<AllotmentHandle>(null);
+  const lastBothVisibleSizesRef = useRef<number[] | null>(null);
+  const handleDragEnd = (sizes: number[]) => {
+    if (leftActive !== null && rightActive !== null) {
+      lastBothVisibleSizesRef.current = sizes;
+    }
+  };
+  useEffect(() => {
+    if (leftActive === null || rightActive === null) return;
+    // Restore the user's last drag if we have one, otherwise fall back
+    // to an equal split. Allotment doesn't apply preferredSize on
+    // visibility transitions — it uses minimumSize — so the first time
+    // both panes become visible we have to nudge the split ourselves.
+    if (lastBothVisibleSizesRef.current) {
+      allotmentRef.current?.resize(lastBothVisibleSizesRef.current);
+    } else {
+      allotmentRef.current?.reset();
+    }
+  }, [leftActive, rightActive]);
+
   const renderBottomSub = (slot: DockSlot) => {
     const dock = tl.state.docks[slot];
     const active = dock.active;
@@ -208,11 +251,11 @@ function BottomRegion<T extends string>({ tl, renderToolWindow, focusStore }: Bo
 
   return (
     <div className="rules-region rules-region-bottom" data-region="bottom" tabIndex={-1} style={{ height: '100%' }}>
-      <Allotment proportionalLayout={false}>
-        <Allotment.Pane visible={leftActive !== null} minSize={200} snap>
+      <Allotment ref={allotmentRef} proportionalLayout onDragEnd={handleDragEnd}>
+        <Allotment.Pane preferredSize="50%" visible={leftActive !== null} minSize={200}>
           {leftActive !== null && renderBottomSub('bottom-left')}
         </Allotment.Pane>
-        <Allotment.Pane visible={rightActive !== null} minSize={200} snap>
+        <Allotment.Pane preferredSize="50%" visible={rightActive !== null} minSize={200}>
           {rightActive !== null && renderBottomSub('bottom-right')}
         </Allotment.Pane>
       </Allotment>
@@ -766,7 +809,6 @@ function ShellLayoutInner<T extends string>({
       maxSize={sizes.sidebar.max}
       visible={leftOpen}
       priority={LayoutPriority.Low}
-      snap
     >
       <SideRegion<T>
         region="left"
@@ -775,6 +817,7 @@ function ShellLayoutInner<T extends string>({
         topSize={topBottomHalves.top}
         bottomSize={topBottomHalves.bottom}
         focusStore={focusStore}
+       
       />
     </Allotment.Pane>
   );
@@ -785,7 +828,6 @@ function ShellLayoutInner<T extends string>({
       minSize={sizes.inspector.min}
       maxSize={sizes.inspector.max}
       visible={rightOpen}
-      snap
     >
       <SideRegion<T>
         region="right"
@@ -794,6 +836,7 @@ function ShellLayoutInner<T extends string>({
         topSize={topBottomHalves.top}
         bottomSize={topBottomHalves.bottom}
         focusStore={focusStore}
+       
       />
     </Allotment.Pane>
   );
@@ -804,7 +847,6 @@ function ShellLayoutInner<T extends string>({
       minSize={sizes.bottom.min}
       maxSize={sizes.bottom.max}
       visible={bottomOpen}
-      snap
     >
       <BottomRegion tl={tl} renderToolWindow={renderToolWindow} focusStore={focusStore} />
     </Allotment.Pane>
@@ -849,7 +891,12 @@ function ShellLayoutInner<T extends string>({
 
   // Editor stacked over bottom — used by the `center` alignment only.
   const editorOverBottom = (
-    <Allotment vertical proportionalLayout={false} onChange={handleVerticalChange} defaultSizes={verticalDefaults}>
+    <Allotment
+      vertical
+      proportionalLayout={false}
+      onChange={handleVerticalChange}
+      defaultSizes={verticalDefaults}
+    >
       <Allotment.Pane>{editorPane}</Allotment.Pane>
       {bottomPane}
     </Allotment>
@@ -858,7 +905,11 @@ function ShellLayoutInner<T extends string>({
   // Three-column row — sidebar | middle | inspector. The `middle` slot
   // differs per alignment (e.g. center stacks editor+bottom in middle).
   const threeColumnRow = (middle: React.ReactNode) => (
-    <Allotment proportionalLayout={false} onChange={handleHorizontalChange} defaultSizes={innerHorizDefaults}>
+    <Allotment
+      proportionalLayout={false}
+      onChange={handleHorizontalChange}
+      defaultSizes={innerHorizDefaults}
+    >
       {leftSidebarPane}
       <Allotment.Pane priority={LayoutPriority.High} minSize={sizes.editorMin}>
         {middle}
@@ -884,7 +935,12 @@ function ShellLayoutInner<T extends string>({
     // V[ H[left | editor | right] | bottom ]
     centerContent = (
       <div key="justify" className="rules-center-mount" style={{ height: '100%', width: '100%' }}>
-        <Allotment vertical proportionalLayout={false} onChange={handleVerticalChange} defaultSizes={verticalDefaults}>
+        <Allotment
+          vertical
+          proportionalLayout={false}
+          onChange={handleVerticalChange}
+          defaultSizes={verticalDefaults}
+        >
           <Allotment.Pane>{threeColumnRow(editorPane)}</Allotment.Pane>
           {bottomPane}
         </Allotment>
@@ -894,11 +950,23 @@ function ShellLayoutInner<T extends string>({
     // H[ V[ H[left | editor] | bottom(left+editor) ] | right ]
     centerContent = (
       <div key="left" className="rules-center-mount" style={{ height: '100%', width: '100%' }}>
-        <Allotment proportionalLayout={false} onChange={handleHorizontalChange} defaultSizes={leftAlignOuterDefaults}>
+        <Allotment
+          proportionalLayout={false}
+          onChange={handleHorizontalChange}
+          defaultSizes={leftAlignOuterDefaults}
+        >
           <Allotment.Pane priority={LayoutPriority.High} minSize={sizes.editorMin}>
-            <Allotment vertical proportionalLayout={false} onChange={handleVerticalChange} defaultSizes={verticalDefaults}>
+            <Allotment
+              vertical
+              proportionalLayout={false}
+              onChange={handleVerticalChange}
+              defaultSizes={verticalDefaults}
+            >
               <Allotment.Pane>
-                <Allotment proportionalLayout={false} defaultSizes={leftAlignInnerHorizDefaults}>
+                <Allotment
+                  proportionalLayout={false}
+                  defaultSizes={leftAlignInnerHorizDefaults}
+                >
                   {leftSidebarPane}
                   <Allotment.Pane priority={LayoutPriority.High} minSize={sizes.editorMin}>
                     {editorPane}
@@ -916,12 +984,24 @@ function ShellLayoutInner<T extends string>({
     // 'right' — H[ left | V[ H[editor | right] | bottom(editor+right) ] ]
     centerContent = (
       <div key="right" className="rules-center-mount" style={{ height: '100%', width: '100%' }}>
-        <Allotment proportionalLayout={false} onChange={handleHorizontalChange} defaultSizes={rightAlignOuterDefaults}>
+        <Allotment
+          proportionalLayout={false}
+          onChange={handleHorizontalChange}
+          defaultSizes={rightAlignOuterDefaults}
+        >
           {leftSidebarPane}
           <Allotment.Pane priority={LayoutPriority.High} minSize={sizes.editorMin}>
-            <Allotment vertical proportionalLayout={false} onChange={handleVerticalChange} defaultSizes={verticalDefaults}>
+            <Allotment
+              vertical
+              proportionalLayout={false}
+              onChange={handleVerticalChange}
+              defaultSizes={verticalDefaults}
+            >
               <Allotment.Pane>
-                <Allotment proportionalLayout={false} defaultSizes={rightAlignInnerHorizDefaults}>
+                <Allotment
+                  proportionalLayout={false}
+                  defaultSizes={rightAlignInnerHorizDefaults}
+                >
                   <Allotment.Pane priority={LayoutPriority.High} minSize={sizes.editorMin}>
                     {editorPane}
                   </Allotment.Pane>

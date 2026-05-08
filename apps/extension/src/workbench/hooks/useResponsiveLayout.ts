@@ -20,12 +20,12 @@ const BP_SIDEBAR_COLLAPSE = 1400;
 
 // ── Pixel clamps ───────────────────────────────────────────────────
 
-const SIDEBAR_MIN = 180;
-const SIDEBAR_MAX = 400;
-const INSPECTOR_MIN = 280;
-const INSPECTOR_MAX_RATIO = 0.35;
-const BOTTOM_MIN = 100;
-const BOTTOM_MAX_RATIO = 0.45;
+const SIDEBAR_MIN = 260;
+const SIDEBAR_MAX = 600;
+const INSPECTOR_MIN = 340;
+const INSPECTOR_MAX_RATIO = 0.45;
+const BOTTOM_MIN = 220;
+const BOTTOM_MAX_RATIO = 0.6;
 const EDITOR_MIN = 400;
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -77,8 +77,8 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function computeSizes(vw: number, vh: number, persisted: PersistedLayout | null): ResponsiveLayoutSizes {
-  const inspectorMax = Math.round(Math.min(900, vw * INSPECTOR_MAX_RATIO));
-  const bottomMax = Math.round(Math.min(500, vh * BOTTOM_MAX_RATIO));
+  const inspectorMax = Math.round(Math.min(1100, vw * INSPECTOR_MAX_RATIO));
+  const bottomMax = Math.round(Math.min(800, vh * BOTTOM_MAX_RATIO));
 
   if (persisted) {
     return {
@@ -110,17 +110,17 @@ function computeSizes(vw: number, vh: number, persisted: PersistedLayout | null)
   // Inspector 20%: docs panel doesn't need more; keeps editor wider
   return {
     sidebar: {
-      preferred: clamp(Math.round(vw * 0.2), SIDEBAR_MIN, SIDEBAR_MAX),
+      preferred: clamp(Math.round(vw * 0.22), SIDEBAR_MIN, SIDEBAR_MAX),
       min: SIDEBAR_MIN,
       max: SIDEBAR_MAX,
     },
     inspector: {
-      preferred: clamp(Math.round(vw * 0.2), INSPECTOR_MIN, inspectorMax),
+      preferred: clamp(Math.round(vw * 0.24), INSPECTOR_MIN, inspectorMax),
       min: INSPECTOR_MIN,
       max: inspectorMax,
     },
     bottom: {
-      preferred: clamp(Math.round(vh * 0.25), BOTTOM_MIN, bottomMax),
+      preferred: clamp(Math.round(vh * 0.32), BOTTOM_MIN, bottomMax),
       min: BOTTOM_MIN,
       max: bottomMax,
     },
