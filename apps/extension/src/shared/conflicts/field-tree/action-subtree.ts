@@ -26,8 +26,8 @@
 import type { ActionPathBundle } from '@/shared/awareness';
 import { enumLeaf, type FieldNode, leaf, obj, setByUid, union } from './descriptor';
 
-const HEADER_OPERATIONS = ['override', 'append', 'remove'] as const;
-const QUERY_PARAM_OPERATIONS = ['override', 'append', 'remove'] as const;
+const HEADER_OPERATIONS = ['override', 'add', 'remove', 'merge'] as const;
+const QUERY_PARAM_OPERATIONS = ['add', 'override', 'remove', 'remove-all'] as const;
 
 const summarizeHeader = (row: unknown): string => {
   const h = row as { headerName?: string; value?: string };
@@ -41,15 +41,15 @@ const summarizeQueryParam = (row: unknown): string => {
 
 const HEADER_MOD_ROW: FieldNode = obj({
   headerName: leaf('string'),
-  value: leaf('string'),
-  operation: enumLeaf([...HEADER_OPERATIONS], { baseline: 'skip' }),
-  mergeSeparator: leaf('string', { baseline: 'skip' }),
+  value: leaf('string', { coercion: 'optional-string' }),
+  operation: enumLeaf([...HEADER_OPERATIONS]),
+  mergeSeparator: leaf('string', { coercion: 'optional-string' }),
 });
 
 const QUERY_PARAM_ROW: FieldNode = obj({
   param: leaf('string'),
-  value: leaf('string'),
-  operation: enumLeaf([...QUERY_PARAM_OPERATIONS], { baseline: 'skip' }),
+  value: leaf('string', { coercion: 'optional-string' }),
+  operation: enumLeaf([...QUERY_PARAM_OPERATIONS]),
 });
 
 /**

@@ -279,13 +279,52 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId }: Modif
                 {ruleUid && rowUid && (
                   <>
                     <FieldConflictChip
-                      path={paths.headerMod(direction, rowUid, 'value')}
-                      formName={[name, field.name, 'value']}
-                    />
-                    <FieldConflictChip
                       path={paths.headerMod(direction, rowUid, 'headerName')}
                       formName={[name, field.name, 'headerName']}
                     />
+                    <FieldConflictChip
+                      path={paths.headerMod(direction, rowUid, 'operation')}
+                      formName={[name, field.name, 'operation']}
+                    />
+                    {/* `value` and `mergeSeparator` are operation-conditional —
+                        the inputs hide for op='remove' / non-'merge' so the
+                        chips would otherwise sit next to a column that's
+                        not visible. shouldUpdate gates each chip on the
+                        operation it belongs to. */}
+                    <Form.Item
+                      noStyle
+                      shouldUpdate={(prev, cur) =>
+                        prev[name]?.[field.name]?.operation !== cur[name]?.[field.name]?.operation
+                      }
+                    >
+                      {({ getFieldValue }) => {
+                        const op =
+                          (getFieldValue([name, field.name, 'operation']) as HeaderOp | undefined) ?? 'override';
+                        return op === 'remove' ? null : (
+                          <FieldConflictChip
+                            path={paths.headerMod(direction, rowUid, 'value')}
+                            formName={[name, field.name, 'value']}
+                          />
+                        );
+                      }}
+                    </Form.Item>
+                    <Form.Item
+                      noStyle
+                      shouldUpdate={(prev, cur) =>
+                        prev[name]?.[field.name]?.operation !== cur[name]?.[field.name]?.operation
+                      }
+                    >
+                      {({ getFieldValue }) => {
+                        const op =
+                          (getFieldValue([name, field.name, 'operation']) as HeaderOp | undefined) ?? 'override';
+                        return op === 'merge' ? (
+                          <FieldConflictChip
+                            path={paths.headerMod(direction, rowUid, 'mergeSeparator')}
+                            formName={[name, field.name, 'mergeSeparator']}
+                          />
+                        ) : null;
+                      }}
+                    </Form.Item>
                   </>
                 )}
                 <Button
