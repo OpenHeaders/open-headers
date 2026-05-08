@@ -9,10 +9,10 @@
  */
 
 import { CheckCircleFilled, DownOutlined, ThunderboltOutlined, UpOutlined } from '@ant-design/icons';
-import { Alert, Button, Modal, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
+import { Alert, Button, Modal, Segmented, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import { type ReactElement, useCallback, useMemo, useRef, useState } from 'react';
 import type { MergeApplyOutcome, MergeSession } from '../types';
-import MergePane, { type HunkStats, type MergePaneHandle } from './MergePane';
+import MergePane, { type HunkStats, type MergeLayout, type MergePaneHandle } from './MergePane';
 
 const { Text } = Typography;
 
@@ -42,8 +42,10 @@ const MergeConflictModal = ({ open, session, isDarkMode, onClose }: MergeConflic
   // VS Code's default — gutter shows conflicts only until the user
   // opts into the noisier view. Plan §5.4.
   const [showNonConflicting, setShowNonConflicting] = useState(false);
+  const [layout, setLayout] = useState<MergeLayout>('column');
   const failedOutcomes = useMemo(() => outcomes.filter((o) => !o.ok), [outcomes]);
   const allResolved = stats.totalRemaining === 0;
+  const baseAvailable = useMemo(() => session.files.some((f) => f.base !== undefined), [session]);
 
   // Phase 1: single-file shell. Initial-file selection follows the
   // session hint or first file. Multi-file selection arrives in Phase 5.
@@ -152,7 +154,18 @@ const MergeConflictModal = ({ open, session, isDarkMode, onClose }: MergeConflic
           <Button size="small" disabled={stats.mineRemaining === 0} onClick={() => paneRef.current?.acceptAllMine()}>
             Accept all current
           </Button>
-          <Space size={4} style={{ marginLeft: 'auto' }}>
+          <Space size={8} style={{ marginLeft: 'auto' }}>
+            <Tooltip title={baseAvailable ? '' : 'Base view unavailable — no common ancestor in this session.'}>
+              <Segmented
+                size="small"
+                value={layout}
+                onChange={(v) => setLayout(v as MergeLayout)}
+                options={[
+                  { label: 'Column', value: 'column' },
+                  { label: 'Show base', value: 'show-base-top', disabled: !baseAvailable },
+                ]}
+              />
+            </Tooltip>
             <Switch size="small" checked={showNonConflicting} onChange={setShowNonConflicting} />
             <Text style={{ fontSize: 12 }} type="secondary">
               Show non-conflicting
@@ -190,6 +203,7 @@ const MergeConflictModal = ({ open, session, isDarkMode, onClose }: MergeConflic
               file={activeFile}
               isDarkMode={isDarkMode}
               showNonConflicting={showNonConflicting}
+              layout={layout}
               onHunkStatsChange={setStats}
             />
           ) : (

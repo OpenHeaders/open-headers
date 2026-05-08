@@ -16,6 +16,7 @@
  */
 
 import { Allotment } from 'allotment';
+export type MergeLayout = 'column' | 'show-base-top';
 import 'allotment/dist/style.css';
 import { editor as monacoEditor } from 'monaco-editor/esm/vs/editor/edcore.main';
 import {
@@ -63,6 +64,11 @@ export interface MergePaneProps {
    *  Default true (show every hunk). VS Code's "Show Non-Conflicting
    *  Changes" toggle is the inverse — `false` here matches `off` there. */
   showNonConflicting?: boolean;
+  /** Layout shape. `'column'` (default) renders the 3-pane row only.
+   *  `'show-base-top'` adds a full-width read-only base pane above
+   *  the row; ignored when `file.base` is undefined. Mixed and Show
+   *  Base Center per plan §1 are deferred to subsequent slices. */
+  layout?: MergeLayout;
   /** Optional className for the outer container; consumers may set
    *  height / minHeight via CSS. */
   className?: string;
@@ -116,6 +122,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     onResultChange,
     onHunkStatsChange,
     showNonConflicting = true,
+    layout = 'column',
     className,
     renderHeader,
   } = props;
@@ -124,8 +131,10 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   const theirsContainerRef = useRef<HTMLDivElement | null>(null);
   const resultContainerRef = useRef<HTMLDivElement | null>(null);
   const mineContainerRef = useRef<HTMLDivElement | null>(null);
+  const baseContainerRef = useRef<HTMLDivElement | null>(null);
 
   const has3Panes = file.base !== undefined;
+  const showBase = layout === 'show-base-top' && file.base !== undefined;
 
   const theirsHandle = useMonacoEditorLifecycle({
     containerRef: theirsContainerRef,
@@ -148,6 +157,18 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     language,
     readOnly: true,
     options: { glyphMargin: true },
+  });
+
+  // Base pane is created unconditionally so layout swaps don't recreate
+  // editor instances (plan §13 acceptance: layout changes preserve
+  // cursor/scroll/selection). When `file.base` is undefined the model
+  // holds an empty string and the pane simply isn't rendered into the
+  // grid; the lifecycle hook still owns its dispose path.
+  const baseHandle = useMonacoEditorLifecycle({
+    containerRef: baseContainerRef,
+    value: file.base ?? '',
+    language,
+    readOnly: true,
   });
 
   // Track result text in state so diff recomputes on every edit.
@@ -178,10 +199,11 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     monacoEditor.setTheme(isDarkMode ? 'oh-dark' : 'oh-light');
   }, [isDarkMode]);
 
-  const syncTargets = useMemo(
-    () => (has3Panes ? [theirsHandle, resultHandle, mineHandle] : [theirsHandle, resultHandle]),
-    [has3Panes, theirsHandle, resultHandle, mineHandle],
-  );
+  const syncTargets = useMemo(() => {
+    const editors = has3Panes ? [theirsHandle, resultHandle, mineHandle] : [theirsHandle, resultHandle];
+    if (showBase) editors.push(baseHandle);
+    return editors;
+  }, [has3Panes, showBase, theirsHandle, resultHandle, mineHandle, baseHandle]);
   useSyncScroll({ editors: syncTargets });
 
   // Two diffs against the live result buffer. Hunks point at theirs /
@@ -377,40 +399,81 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
       data-merge-theme={isDarkMode ? 'dark' : 'light'}
       style={{ height: '100%', minHeight: 0, minWidth: 0 }}
     >
-      <Allotment proportionalLayout defaultSizes={has3Panes ? [1, 1, 1] : [1, 1]}>
-        <Allotment.Pane minSize={PANE_MIN_PX}>
-          <Pane
-            header={renderHeader ? renderHeader('theirs') : <DefaultHeader label="Incoming (theirs)" />}
-            containerRef={theirsContainerRef}
-            bg={paneBg}
-          />
+      {/* Vertical Allotment is always present so the base editor's
+          DOM container has a stable parent across layout switches.
+          Allotment toggles the base pane's visibility via the `visible`
+          prop without remounting. Plan §13 acceptance: layout changes
+          must NOT dispose+recreate editors. */}
+      <Allotment vertical proportionalLayout defaultSizes={[1, 2]}>
+        <Allotment.Pane minSize={120} visible={showBase} preferredSize="35%">
+          <BasePaneShell containerRef={baseContainerRef} bg={paneBg} />
         </Allotment.Pane>
-        <Allotment.Pane minSize={PANE_MIN_PX}>
-          <Pane
-            header={
-              renderHeader ? (
-                renderHeader('result')
-              ) : (
-                <DefaultHeader label={has3Panes ? 'Result' : 'Yours (mine, edit here)'} />
-              )
-            }
-            containerRef={resultContainerRef}
-            bg={paneBg}
-          />
+        <Allotment.Pane minSize={240}>
+          <Allotment proportionalLayout defaultSizes={has3Panes ? [1, 1, 1] : [1, 1]}>
+            <Allotment.Pane minSize={PANE_MIN_PX}>
+              <Pane
+                header={renderHeader ? renderHeader('theirs') : <DefaultHeader label="Incoming (theirs)" />}
+                containerRef={theirsContainerRef}
+                bg={paneBg}
+              />
+            </Allotment.Pane>
+            <Allotment.Pane minSize={PANE_MIN_PX}>
+              <Pane
+                header={
+                  renderHeader ? (
+                    renderHeader('result')
+                  ) : (
+                    <DefaultHeader label={has3Panes ? 'Result' : 'Yours (mine, edit here)'} />
+                  )
+                }
+                containerRef={resultContainerRef}
+                bg={paneBg}
+              />
+            </Allotment.Pane>
+            {has3Panes ? (
+              <Allotment.Pane minSize={PANE_MIN_PX}>
+                <Pane
+                  header={renderHeader ? renderHeader('mine') : <DefaultHeader label="Current (mine)" />}
+                  containerRef={mineContainerRef}
+                  bg={paneBg}
+                />
+              </Allotment.Pane>
+            ) : null}
+          </Allotment>
         </Allotment.Pane>
-        {has3Panes ? (
-          <Allotment.Pane minSize={PANE_MIN_PX}>
-            <Pane
-              header={renderHeader ? renderHeader('mine') : <DefaultHeader label="Current (mine)" />}
-              containerRef={mineContainerRef}
-              bg={paneBg}
-            />
-          </Allotment.Pane>
-        ) : null}
       </Allotment>
     </div>
   );
 });
+
+function BasePaneShell({
+  containerRef,
+  bg,
+}: {
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  bg: string;
+}): React.ReactElement {
+  return (
+    <div style={{ ...paneShell(), background: bg }}>
+      <div
+        style={{
+          height: HEADER_HEIGHT,
+          padding: HEADER_PAD,
+          fontSize: 12,
+          fontWeight: 600,
+          display: 'flex',
+          alignItems: 'center',
+          borderBottom: '1px solid rgba(127,127,127,0.2)',
+        }}
+      >
+        Base (common ancestor)
+      </div>
+      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+        <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
+      </div>
+    </div>
+  );
+}
 
 interface PaneProps {
   header: ReactNode;
