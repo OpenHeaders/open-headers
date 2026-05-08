@@ -7,9 +7,9 @@
  * sidebar surfaces per-category match counts.
  */
 
-import { theme } from 'antd';
+import { type InputRef, theme } from 'antd';
 import type React from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { allCategories, getDef } from '../registry';
 import { searchSettings } from '../search';
 import type { CategoryDef, SettingDef, SettingKey } from '../types';
@@ -27,6 +27,12 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
   const { token } = theme.useToken();
   const [query, setQuery] = useState('');
   const paneRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<InputRef>(null);
+
+  const focusSearch = useCallback(() => {
+    searchRef.current?.focus({ cursor: 'all' });
+  }, []);
 
   const isSearching = query.trim().length > 0;
   const results = useMemo(() => searchSettings(query), [query]);
@@ -75,6 +81,26 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
     }
   }, [orderedCategories, activeId]);
 
+  // `/` focuses search — same convention used elsewhere in the app.
+  // Suppressed when another input has focus so users can type "/" into
+  // setting fields.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+      const inField =
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target instanceof HTMLElement && e.target.isContentEditable);
+      if (inField) return;
+      e.preventDefault();
+      focusSearch();
+    };
+    root.addEventListener('keydown', onKeyDown);
+    return () => root.removeEventListener('keydown', onKeyDown);
+  }, [focusSearch]);
+
   // Reset scroll on category swap or mode swap.
   // biome-ignore lint/correctness/useExhaustiveDependencies: deps are triggers, not values
   useEffect(() => {
@@ -114,6 +140,7 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
 
   return (
     <div
+      ref={rootRef}
       className="settings-shell"
       style={{ display: 'flex', flexDirection: 'column', height: '100%', background: token.colorBgLayout }}
     >
@@ -137,7 +164,7 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
           background: token.colorBgContainer,
         }}
       >
-        <SettingsSearch query={query} onQueryChange={setQuery} />
+        <SettingsSearch query={query} onQueryChange={setQuery} inputRef={searchRef} autoFocus />
       </div>
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
         <CategoryNav

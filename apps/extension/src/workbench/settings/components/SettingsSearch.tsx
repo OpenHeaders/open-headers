@@ -7,13 +7,16 @@
  */
 
 import { CloseOutlined, SearchOutlined } from '@ant-design/icons';
-import { Button, Input, theme } from 'antd';
+import { Button, Input, type InputRef, theme } from 'antd';
 import type React from 'react';
 import { useCallback } from 'react';
 
 interface SettingsSearchProps {
   query: string;
   onQueryChange: (next: string) => void;
+  /** Forwarded to the inner Ant Input so the shell can focus it via hotkey. */
+  inputRef?: React.Ref<InputRef>;
+  autoFocus?: boolean;
 }
 
 const FILTERS: readonly { token: string; label: string }[] = [
@@ -21,7 +24,7 @@ const FILTERS: readonly { token: string; label: string }[] = [
   { token: '@experimental', label: 'Experimental' },
 ];
 
-const SettingsSearch: React.FC<SettingsSearchProps> = ({ query, onQueryChange }) => {
+const SettingsSearch: React.FC<SettingsSearchProps> = ({ query, onQueryChange, inputRef, autoFocus }) => {
   const { token } = theme.useToken();
 
   const toggleFilter = useCallback(
@@ -39,10 +42,20 @@ const SettingsSearch: React.FC<SettingsSearchProps> = ({ query, onQueryChange })
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
       <Input
+        ref={inputRef}
+        autoFocus={autoFocus}
         prefix={<SearchOutlined style={{ color: token.colorTextTertiary }} />}
         placeholder="Search settings (try @modified)"
         value={query}
         onChange={(e) => onQueryChange(e.target.value)}
+        onKeyDown={(e) => {
+          // Esc on a non-empty query clears it; on empty input we let
+          // Ant Modal's default Esc handler close the modal.
+          if (e.key === 'Escape' && query.length > 0) {
+            e.stopPropagation();
+            onQueryChange('');
+          }
+        }}
         allowClear={{ clearIcon: <CloseOutlined /> }}
         style={{ maxWidth: 420 }}
       />

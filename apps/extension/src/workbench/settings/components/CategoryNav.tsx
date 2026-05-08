@@ -9,6 +9,7 @@
 
 import { theme } from 'antd';
 import type React from 'react';
+import { useRef } from 'react';
 import type { CategoryDef } from '../types';
 
 interface CategoryNavProps {
@@ -28,6 +29,29 @@ const CategoryNav: React.FC<CategoryNavProps> = ({
   isSearching,
 }) => {
   const { token } = theme.useToken();
+  const buttonsRef = useRef<Map<string, HTMLButtonElement>>(new Map());
+
+  // Arrow keys move selection between visible (= non-dimmed) categories
+  // while searching, and between all categories otherwise. Focus follows
+  // the selected button so the next arrow press keeps moving.
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, currentId: string) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Home' && e.key !== 'End') return;
+    e.preventDefault();
+    const navigable = categories.filter((c) => !isSearching || (matchCount.get(c.id) ?? 0) > 0);
+    if (navigable.length === 0) return;
+    const idx = Math.max(
+      0,
+      navigable.findIndex((c) => c.id === currentId),
+    );
+    let nextIdx = idx;
+    if (e.key === 'ArrowDown') nextIdx = (idx + 1) % navigable.length;
+    else if (e.key === 'ArrowUp') nextIdx = (idx - 1 + navigable.length) % navigable.length;
+    else if (e.key === 'Home') nextIdx = 0;
+    else if (e.key === 'End') nextIdx = navigable.length - 1;
+    const nextId = navigable[nextIdx].id;
+    onSelect(nextId);
+    buttonsRef.current.get(nextId)?.focus();
+  };
 
   return (
     <nav
@@ -49,8 +73,13 @@ const CategoryNav: React.FC<CategoryNavProps> = ({
         return (
           <button
             key={cat.id}
+            ref={(el) => {
+              if (el) buttonsRef.current.set(cat.id, el);
+              else buttonsRef.current.delete(cat.id);
+            }}
             type="button"
             onClick={() => onSelect(cat.id)}
+            onKeyDown={(e) => handleKeyDown(e, cat.id)}
             aria-current={active ? 'true' : undefined}
             style={{
               display: 'flex',
