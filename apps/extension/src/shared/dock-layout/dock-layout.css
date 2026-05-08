@@ -333,6 +333,15 @@
      its bottom-panel header. */
   margin-top: 0;
   padding-top: 2px;
+  /* Drop the base rule's `width: 100%`. With absolute positioning +
+     left + right + width all specified, LTR resolution drops `right`
+     and `width: 100%` makes the group span the bar's full padding
+     box. The LEFT bar's per-side rule below sets `left: 10`, so a
+     100%-wide group overshoots the bar's right edge by 10px and
+     bleeds into the adjacent left-bottom side panel; the RIGHT bar
+     uses `left: 0` and looks fine. `width: auto` lets `left + right`
+     determine width, restoring left/right symmetry. */
+  width: auto;
 }
 
 /* The absolute group's `left/right: 0` would snap to the bar's padding
@@ -526,15 +535,24 @@
   border-bottom-left-radius: 0;
 }
 
-/* In dynamic mode, bottom-group tabs only merge with their panel
-   when BOTH rails are symmetric — i.e. only `bottom-justify` (panel
-   spans the full width and is adjacent to both rails). For
-   `left` / `right` alignments the panel is technically adjacent on
-   one side, but treating one rail as merged and the other as
-   standalone reads as a UI inconsistency — so we keep BOTH rails
-   standalone in those modes. `center` is naturally symmetric (neither
-   rail adjacent), also standalone. */
+/* In dynamic mode, a bottom-group tab merges with the bottom panel
+   only when that rail is actually adjacent to the panel given the
+   current `bottomPanelAlignment`:
+   - justify : panel spans full width → both rails merge.
+   - left    : panel spans [left sidebar + editor] → LEFT rail merges,
+               RIGHT rail has the right sidebar between it and the
+               bottom panel → standalone (otherwise the merged tab
+               would visually fuse into the side panel that's actually
+               next to it, which is confusing).
+   - right   : mirror → RIGHT merges, LEFT standalone.
+   - center  : neither rail adjacent → both standalone.
+   Standalone tabs stay rounded on all 4 corners (base rule) and
+   shrink to a centered chip below so they don't kiss the rail edges. */
 .rules-main--layout-dynamic.rules-main--bottom-justify
+  .rules-activity-bar--left
+  .rules-activity-group--bottom
+  .rules-dock-tab--vertical.active,
+.rules-main--layout-dynamic.rules-main--bottom-left
   .rules-activity-bar--left
   .rules-activity-group--bottom
   .rules-dock-tab--vertical.active {
@@ -548,6 +566,10 @@
 .rules-main--layout-dynamic.rules-main--bottom-justify
   .rules-activity-bar--right
   .rules-activity-group--bottom
+  .rules-dock-tab--vertical.active,
+.rules-main--layout-dynamic.rules-main--bottom-right
+  .rules-activity-bar--right
+  .rules-activity-group--bottom
   .rules-dock-tab--vertical.active {
   width: 100%;
   border-top-right-radius: 8px;
@@ -556,13 +578,43 @@
   border-bottom-left-radius: 0;
 }
 
-/* Standalone bottom-group active tab — bottom panel not adjacent to
-   this rail per `bottomPanelAlignment`. Same full-width as merged
-   tabs above; only the rounding differs (all 4 corners rounded via
-   the base `.rules-dock-tab--vertical.active` rule). Keeps the icon
-   position aligned with the inactive tabs above for visual coherence
-   (the previous align-self/width-reduction shifted the icon off the
-   rail's natural center). */
+/* Standalone bottom-group active tab — rail not adjacent to the
+   bottom panel in the current alignment. All 4 corners rounded via
+   the base `.rules-dock-tab--vertical.active`; shrink the tile so it
+   doesn't kiss the rail edges. The flex parent already centers items
+   on the cross-axis, so a narrower width auto-centers the chip with
+   symmetric breathing room. Cases:
+   - center      : both rails standalone
+   - left  align : RIGHT rail standalone
+   - right align : LEFT rail standalone */
+.rules-main--layout-dynamic.rules-main--bottom-center
+  .rules-activity-group--bottom
+  .rules-dock-tab--vertical.active,
+.rules-main--layout-dynamic.rules-main--bottom-left
+  .rules-activity-bar--right
+  .rules-activity-group--bottom
+  .rules-dock-tab--vertical.active,
+.rules-main--layout-dynamic.rules-main--bottom-right
+  .rules-activity-bar--left
+  .rules-activity-group--bottom
+  .rules-dock-tab--vertical.active {
+  width: 52px;
+}
+
+.rules-main--layout-dynamic.rules-main--bottom-center
+  .rules-activity-bar--compact
+  .rules-activity-group--bottom
+  .rules-dock-tab--vertical.active,
+.rules-main--layout-dynamic.rules-main--bottom-left
+  .rules-activity-bar--compact.rules-activity-bar--right
+  .rules-activity-group--bottom
+  .rules-dock-tab--vertical.active,
+.rules-main--layout-dynamic.rules-main--bottom-right
+  .rules-activity-bar--compact.rules-activity-bar--left
+  .rules-activity-group--bottom
+  .rules-dock-tab--vertical.active {
+  width: 24px;
+}
 
 /* Focused active tab paints a full primary-color tile (bg + color
    set inline). Force the icon to the same light foreground so the
@@ -592,41 +644,30 @@
   border-bottom-right-radius: 0;
 }
 
-/* Bottom-region panel rail-side margin is symmetric across both rails:
-   - `justify`: panel spans full width → margin: 0 + flat corners on
-     both rails so each side's active rail tab can merge with the panel.
-   - All other alignments (`center`, `left`, `right`): keep an 8px
-     visible grey gutter on both rails for a uniform look — even if
-     the alignment makes the panel technically adjacent on one rail. */
-.rules-main--layout-dynamic.rules-main--bottom-justify .rules-dock-body[data-dock-slot='bottom-left'] {
+/* Bottom-region panel collapses its rail-side margin/radius only on
+   the side where the rail is adjacent to the panel — so the merged
+   active tab meets the panel edge flush. Non-adjacent sides keep the
+   default 3px gutter and rounded corners (standalone chip).
+   - justify : both rails adjacent → both bottom sub-docks collapse.
+   - left    : LEFT rail adjacent → only `bottom-left` sub-dock
+               collapses its left side.
+   - right   : RIGHT rail adjacent → only `bottom-right` sub-dock
+               collapses its right side.
+   - center  : neither rail adjacent → no collapse. */
+.rules-main--layout-dynamic.rules-main--bottom-justify .rules-dock-body[data-dock-slot='bottom-left'],
+.rules-main--layout-dynamic.rules-main--bottom-left .rules-dock-body[data-dock-slot='bottom-left'] {
   margin-left: 0;
   width: calc(100% - 3px);
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
 }
 
-.rules-main--layout-dynamic.rules-main--bottom-justify .rules-dock-body[data-dock-slot='bottom-right'] {
+.rules-main--layout-dynamic.rules-main--bottom-justify .rules-dock-body[data-dock-slot='bottom-right'],
+.rules-main--layout-dynamic.rules-main--bottom-right .rules-dock-body[data-dock-slot='bottom-right'] {
   margin-right: 0;
   width: calc(100% - 3px);
   border-top-right-radius: 0;
   border-bottom-right-radius: 0;
-}
-
-/* Non-justify alignments: bump the rail-side margin from 3px (default)
-   to 8px on both bottom panels for a clearly visible grey gutter
-   between the bar and the panel. Same on both rails for symmetry. */
-.rules-main--layout-dynamic.rules-main--bottom-center .rules-dock-body[data-dock-slot='bottom-left'],
-.rules-main--layout-dynamic.rules-main--bottom-left .rules-dock-body[data-dock-slot='bottom-left'],
-.rules-main--layout-dynamic.rules-main--bottom-right .rules-dock-body[data-dock-slot='bottom-left'] {
-  margin-left: 8px;
-  width: calc(100% - 11px);
-}
-
-.rules-main--layout-dynamic.rules-main--bottom-center .rules-dock-body[data-dock-slot='bottom-right'],
-.rules-main--layout-dynamic.rules-main--bottom-left .rules-dock-body[data-dock-slot='bottom-right'],
-.rules-main--layout-dynamic.rules-main--bottom-right .rules-dock-body[data-dock-slot='bottom-right'] {
-  margin-right: 8px;
-  width: calc(100% - 11px);
 }
 
 [data-theme='dark'] .rules-dock-tab:not(.active):hover {
