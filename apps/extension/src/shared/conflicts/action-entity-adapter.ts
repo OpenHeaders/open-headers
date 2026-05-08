@@ -360,6 +360,10 @@ function makeResolveAdapter<E extends { uid: string }>(
   );
   const queryParamRe = new RegExp(`^${a}\\.${paths.queryParamKey}\\.([a-z0-9]{8})\\.(param|value|operation)$`);
   const mockHeaderRe = new RegExp(`^${a}\\.responseHeaders\\.([^.]+)\\.(name|value)$`);
+  const walker = makeConflictAdapter<E>({
+    schema: buildActionEntitySchema(paths, { discriminatorField: accessors.discriminatorField }),
+    signature: accessors.signature,
+  });
 
   function decodePath(path: string): DecodedActionPath {
     if (path === 'name') return { kind: 'name' };
@@ -499,9 +503,16 @@ function makeResolveAdapter<E extends { uid: string }>(
   }
 
   function applyResolutionToEntity(entity: E, path: string, conflict: PathConflict): boolean {
+    // Walker handles `name`, all action-rooted leaves, and uid-keyed
+    // set-add / set-remove / reorder under header + query-param sets.
+    if (walker.resolve.applyResolutionToEntity(entity, path, conflict)) return true;
+
+    // Conditions set ops route through the entity-level `setConditions`
+    // accessor — conditions live outside the walker schema because the
+    // path key `field` aliases schema field `type`.
     const reorderKey = decodeReorderConflictKey(path);
-    if (reorderKey) {
-      const set = setArrayOnEntity(entity, reorderKey.setPath);
+    if (reorderKey?.setPath === 'conditions') {
+      const set = setArrayOnEntity(entity, 'conditions');
       if (!set || !isReorderPayload(conflict.rowPayload)) return false;
       const current = set.get();
       if (current.length === 0) return false;
@@ -509,8 +520,8 @@ function makeResolveAdapter<E extends { uid: string }>(
       return true;
     }
     const setKey = decodeSetConflictKey(path);
-    if (setKey) {
-      const set = setArrayOnEntity(entity, setKey.setPath);
+    if (setKey?.setPath === 'conditions') {
+      const set = setArrayOnEntity(entity, 'conditions');
       if (!set) return false;
       const current = set.get();
       if (conflict.kind === 'set-add') {
@@ -525,35 +536,6 @@ function makeResolveAdapter<E extends { uid: string }>(
         set.set(next);
         return true;
       }
-      return false;
-    }
-    const value = conflict.theirs;
-    const decoded = decodePath(path);
-    if (decoded.kind === 'name') {
-      accessors.setName(entity, value);
-      return true;
-    }
-    const root = accessors.getActionRoot(entity);
-    if (!root) return false;
-    if (decoded.kind === 'header') {
-      if (accessors.getRuleType(entity) !== 'header' || !decoded.uid || !decoded.leaf || !decoded.set) return false;
-      const arr = root[decoded.set] as { uid?: string; [k: string]: unknown }[] | undefined;
-      const row = arr?.find((r) => r.uid === decoded.uid);
-      if (!row) return false;
-      row[decoded.leaf] = value;
-      return true;
-    }
-    if (decoded.kind === 'param') {
-      if (accessors.getRuleType(entity) !== 'query-param' || !decoded.uid || !decoded.leaf) return false;
-      const arr = root[paths.queryParamKey] as { uid?: string; [k: string]: unknown }[] | undefined;
-      const row = arr?.find((r) => r.uid === decoded.uid);
-      if (!row) return false;
-      row[decoded.leaf] = value;
-      return true;
-    }
-    if (decoded.kind === 'scalar' && decoded.scalar) {
-      root[decoded.scalar] = value;
-      return true;
     }
     return false;
   }

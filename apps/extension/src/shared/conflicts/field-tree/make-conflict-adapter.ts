@@ -344,6 +344,7 @@ function reorderRows<T extends { uid: string }>(rows: readonly T[], savedOrder: 
 
 function writeLeafByPath(node: FieldNode, entity: unknown, path: string, value: string): boolean {
   const parts = path.split('.');
+  let grandParent: Record<string, unknown> | null = null;
   let parent: Record<string, unknown> | null = entity as Record<string, unknown>;
   let cur: FieldNode | null = node;
 
@@ -352,6 +353,7 @@ function writeLeafByPath(node: FieldNode, entity: unknown, path: string, value: 
     if (cur.kind === 'object') {
       const child: FieldNode | undefined = cur.children[parts[i]];
       if (!child) return false;
+      grandParent = parent;
       parent = parent[parts[i]] as Record<string, unknown>;
       cur = child;
       continue;
@@ -361,6 +363,7 @@ function writeLeafByPath(node: FieldNode, entity: unknown, path: string, value: 
       if (cur.identity === 'uid') {
         const row = arr.find((r) => (r as { uid?: string })?.uid === parts[i]) as Record<string, unknown> | undefined;
         if (!row) return false;
+        grandParent = parent;
         parent = row;
         cur = cur.child;
         continue;
@@ -368,7 +371,9 @@ function writeLeafByPath(node: FieldNode, entity: unknown, path: string, value: 
       return false;
     }
     if (cur.kind === 'union') {
-      const disc: unknown = parent[cur.discriminator];
+      const disc: string | undefined = cur.discriminate
+        ? cur.discriminate(grandParent, parent)
+        : (parent[cur.discriminator] as string | undefined);
       const branch: FieldNode | undefined = typeof disc === 'string' ? cur.branches[disc] : undefined;
       if (!branch) return false;
       cur = branch;
@@ -389,7 +394,9 @@ function writeLeafByPath(node: FieldNode, entity: unknown, path: string, value: 
     }
   }
   if (cur.kind === 'union') {
-    const disc = parent[cur.discriminator];
+    const disc: string | undefined = cur.discriminate
+      ? cur.discriminate(grandParent, parent)
+      : (parent[cur.discriminator] as string | undefined);
     const branch = typeof disc === 'string' ? cur.branches[disc] : undefined;
     if (branch && branch.kind === 'object') {
       const child = branch.children[last];
