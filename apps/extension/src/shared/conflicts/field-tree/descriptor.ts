@@ -13,7 +13,8 @@ export type CoercionPolicyName =
   | 'enabled-default-true'
   | 'published-default-false'
   | 'optional-string'
-  | 'boolean-strict';
+  | 'boolean-strict'
+  | 'number-strict';
 
 export interface CoercionPolicy {
   /** Read raw value off entity → canonical string for path-keyed view. */
@@ -38,6 +39,10 @@ const POLICIES: Record<CoercionPolicyName, CoercionPolicy> = {
   'boolean-strict': {
     read: (v) => (v === true ? 'true' : 'false'),
     write: (s) => s === 'true',
+  },
+  'number-strict': {
+    read: (v) => (typeof v === 'number' ? String(v) : ''),
+    write: (s) => Number(s),
   },
 };
 
