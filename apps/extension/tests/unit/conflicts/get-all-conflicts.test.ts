@@ -146,6 +146,33 @@ describe('useRuleConflicts.getAllConflicts', () => {
     expect(conflict?.base).toBe('X-B: v1');
   });
 
+  it('rule type-change collapses to one union:action conflict + suppresses leaves', () => {
+    const baseline = makeHeaderRule([{ uid: 'aaaaaaaa', headerName: 'X-A', value: 'va' }]);
+    // Live rule changed type from 'header' to 'redirect' — completely
+    // different action shape. Without union-divergence suppression, the
+    // baseline's header leaves would surface as conflicts against the
+    // missing redirect leaves.
+    const live = {
+      uid: 'rule-x',
+      path: 'rules/rule-x.yaml',
+      name: 'Test',
+      enabled: true,
+      type: 'redirect',
+      schemaVersion: 5,
+      conditions: [],
+      action: { redirectTo: 'https://openheaders.io/x' },
+    } as unknown as V5.Rule;
+    const { result } = renderHook(() => useRuleConflicts({ liveRule: live, isDirty: true, enabled: true }));
+    act(() => result.current.setBaseline(baseline));
+    const form = result.current.projectRule(baseline);
+    const all = result.current.getAllConflicts(form);
+    // The structural conflict surfaces.
+    expect(all.has('union:action')).toBe(true);
+    // No per-leaf header conflicts under the divergent prefix.
+    expect(all.has('action.requestHeaders.aaaaaaaa.value')).toBe(false);
+    expect(all.has('action.requestHeaders.aaaaaaaa.headerName')).toBe(false);
+  });
+
   it('drops paths the user dismissed', () => {
     const baseline = makeHeaderRule([
       { uid: 'aaaaaaaa', headerName: 'X-A', value: 'base-a' },

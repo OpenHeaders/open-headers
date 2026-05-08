@@ -22,7 +22,23 @@ import {
   decodeSetValueConflictKey,
 } from '@/shared/conflicts/conflict-keys';
 import type { PathConflict } from '@/shared/conflicts/types';
+import { stableStringify } from '@/shared/forms/fingerprint';
 import { getPolicy, type FieldNode } from './descriptor';
+
+/** Prefix for the structural divergence marker emitted at every
+ *  `union(emitDivergenceKey: true)` node. Recognised by `useEntityConflicts`
+ *  as a kind-transition signal that suppresses per-leaf paths under
+ *  the same prefix when it diverges. */
+const UNION_KEY_PREFIX = 'union:';
+
+export function isUnionDivergenceKey(key: string): boolean {
+  return key.startsWith(UNION_KEY_PREFIX);
+}
+
+export function decodeUnionDivergenceKey(key: string): { prefix: string } | null {
+  if (!isUnionDivergenceKey(key)) return null;
+  return { prefix: key.slice(UNION_KEY_PREFIX.length) };
+}
 
 interface Adapters<E> {
   tracking: ConflictTrackingAdapter<E>;
@@ -172,6 +188,13 @@ function emit(node: FieldNode, value: unknown, prefix: string, out: PathMap, par
       ? node.discriminate(parent, value)
       : ((value as Record<string, unknown> | null | undefined)?.[node.discriminator] as string | undefined);
     const branch = typeof disc === 'string' ? node.branches[disc] : undefined;
+    if (node.emitDivergenceKey && prefix) {
+      // Encode only the discriminator — the structural marker is for
+      // kind-transition detection, not for every sub-leaf change. The
+      // saved-side branch payload travels via the resolve adapter, not
+      // the marker key.
+      out[`${UNION_KEY_PREFIX}${prefix}`] = stableStringify({ kind: disc ?? null });
+    }
     if (!branch) return;
     emit(branch, value, prefix, out, parent);
   }
@@ -444,6 +467,20 @@ export function makeConflictAdapter<E>(args: MakeAdapterArgs<E>): Adapters<E> {
       return out;
     },
     readPath(entity, path) {
+      const unionKey = decodeUnionDivergenceKey(path);
+      if (unionKey) {
+        // Walk to the union node + its current value via `navigate`.
+        // Reuses the same parent-threading discriminator logic emit
+        // does so the active-branch projection stays consistent.
+        const nav = navigate(args.schema, entity, unionKey.prefix);
+        if (!nav.node || nav.node.kind !== 'union') return null;
+        const disc: string | undefined = nav.node.discriminate
+          ? nav.node.discriminate(nav.parent, nav.value)
+          : ((nav.value as Record<string, unknown> | null | undefined)?.[nav.node.discriminator] as
+              | string
+              | undefined);
+        return stableStringify({ kind: disc ?? null });
+      }
       const nav = navigate(args.schema, entity, path);
       if (!nav.node) return null;
       if (nav.node.kind === 'leaf' || nav.node.kind === 'enum') {

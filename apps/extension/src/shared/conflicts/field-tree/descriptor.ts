@@ -104,6 +104,14 @@ export type FieldNode =
        *  the walker invokes `discriminate(parent, value)` instead of
        *  `value[discriminator]`. */
       discriminate?: (parent: unknown, value: unknown) => string | undefined;
+      /** When true, `extractBaseline` always emits a structural marker
+       *  key `union:<prefix>` containing a stable-stringified projection
+       *  of the active branch. The conflicts hook recognises that key
+       *  as a kind-transition signal and suppresses per-leaf paths
+       *  under the same prefix when it diverges. Off by default — Vault
+       *  surfaces kind transitions as a leaf conflict at the
+       *  discriminator path and would lose that signal otherwise. */
+      emitDivergenceKey?: boolean;
     }
   | { kind: 'opaque'; provisional?: true; reason?: string }
   | { kind: 'omit' };
@@ -151,6 +159,7 @@ export const union = (args: {
   branches: Record<string, FieldNode>;
   divergenceLabel?: string;
   discriminate?: (parent: unknown, value: unknown) => string | undefined;
+  emitDivergenceKey?: boolean;
 }): FieldNode => ({ kind: 'union', ...args });
 
 export const opaque = (reason?: string): FieldNode => ({ kind: 'opaque', provisional: true, reason });

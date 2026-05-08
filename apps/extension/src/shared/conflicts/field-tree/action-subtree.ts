@@ -63,6 +63,7 @@ function buildActionUnion(paths: ActionPathBundle, discriminatorField: string): 
     discriminator: discriminatorField,
     kindTransitionUnsafe: true,
     divergenceLabel: 'Rule type',
+    emitDivergenceKey: true,
     discriminate: (parent) =>
       (parent as Record<string, unknown> | null | undefined)?.[discriminatorField] as string | undefined,
     branches: {

@@ -423,6 +423,42 @@ export function useEntityConflicts<E extends { uid: string }>(
         const conflict = getConflict(key, local);
         if (conflict) out.set(key, conflict);
       }
+
+      // Kind-transition divergence: `union:<prefix>` keys are structural
+      // markers (the discriminator lives outside the form's editable
+      // leaves), so they surface whenever baseline ≠ live regardless of
+      // whether the form locally edited them. When divergent, suppress
+      // per-leaf paths under the same prefix from the output — the user
+      // resolves the kind transition via Use Saved on the structural
+      // conflict (whole-branch payload), not per-leaf values that don't
+      // apply to the new branch.
+      const divergentPrefixes: string[] = [];
+      for (const key of Object.keys(baseline.paths)) {
+        if (!key.startsWith('union:')) continue;
+        if (dismissed.has(key)) continue;
+        const base = overrides[key] ?? baseline.paths[key];
+        const theirs = adapter.readPath(liveEntity, key);
+        if (theirs === null) continue;
+        if (theirs === base) continue;
+        const remote = findRemoteAttribution(mirror, entityType, liveEntity.uid, key, localInstanceId, now);
+        const conflict: PathConflict = remote ? { base, theirs, remote } : { base, theirs };
+        out.set(key, conflict);
+        divergentPrefixes.push(key.slice('union:'.length));
+      }
+      if (divergentPrefixes.length > 0) {
+        for (const key of [...out.keys()]) {
+          if (key.startsWith('union:')) continue;
+          if (key.startsWith('reorder:')) continue;
+          if (key.startsWith('set:')) continue;
+          for (const prefix of divergentPrefixes) {
+            if (key === prefix || key.startsWith(`${prefix}.`)) {
+              out.delete(key);
+              break;
+            }
+          }
+        }
+      }
+
       return out;
     },
     [getConflict, liveEntity, enabled, isDirty, dismissed, localInstanceId, adapter, entityType],

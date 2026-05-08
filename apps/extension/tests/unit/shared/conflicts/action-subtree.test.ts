@@ -180,6 +180,26 @@ describe('ACTION_SUBTREE — Rule walker parity vs. createActionEntityAdapters',
   });
 });
 
+describe('ACTION_SUBTREE — union:<path> divergence emission', () => {
+  it('emits union:action structural marker in baseline for header rule', () => {
+    const baseline = walkerAdapters.tracking.extractBaseline(headerRule);
+    expect(baseline['union:action']).toBeDefined();
+    expect(baseline['union:action']).toContain('"kind":"header"');
+  });
+
+  it('readPath returns the same stableStringified payload at union:action', () => {
+    const baseline = walkerAdapters.tracking.extractBaseline(headerRule);
+    expect(walkerAdapters.tracking.readPath(headerRule, 'union:action')).toBe(baseline['union:action']);
+  });
+
+  it('different rule types produce different union:action payloads', () => {
+    const headerBaseline = walkerAdapters.tracking.extractBaseline(headerRule);
+    const redirectBaseline = walkerAdapters.tracking.extractBaseline(redirectRule);
+    expect(headerBaseline['union:action']).not.toBe(redirectBaseline['union:action']);
+    expect(redirectBaseline['union:action']).toContain('"kind":"redirect"');
+  });
+});
+
 describe('ACTION_SUBTREE — Template bundle uses the alternative actionRoot + queryParamKey', () => {
   const template: V5.Template = {
     uid: 't-q',

@@ -174,6 +174,10 @@ function makeTrackingAdapter<E extends { uid: string }>(
   });
 
   function readPath(entity: E, path: string): string | null {
+    // Structural divergence markers (`union:<prefix>`) are emitted by
+    // the walker's baseline projection; delegate the live read to the
+    // walker so the hook's kind-transition recognition stays consistent.
+    if (path.startsWith('union:')) return walker.tracking.readPath(entity, path);
     if (path === 'name') return String(accessors.getName(entity) ?? '');
     const condM = conditionsRe.exec(path);
     if (condM) {
