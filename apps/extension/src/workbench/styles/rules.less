@@ -733,22 +733,118 @@ html, body, #root {
 .rules-tabs-scroll {
   display: flex;
   align-items: center;
-  flex: 1;
+  // `flex: 0 1 auto` + `min-width: 0` makes the strip content-sized
+  // when the tabs fit and shrinks-but-never-grows when they overflow.
+  // Combined with the `+` button being a sibling outside this strip,
+  // it lets `+` sit immediately after the last tab in the fit case
+  // and at the right edge of the visible strip in the overflow case
+  // — without `+` itself ever scrolling away.
+  flex: 0 1 auto;
+  min-width: 0;
+  // `align-self: stretch` overrides the bar's `align-items: center`
+  // so the scroll element fills the full 32 px bar height. Without
+  // it the strip is content-sized vertically and floats centered in
+  // the bar — meaning the scrollbar gutter (drawn at the strip's
+  // bottom) lands a few px above the bar's divider with empty grey
+  // space underneath. Stretching pins the scrollbar flush against
+  // the divider, the way IDE tab strips render it.
+  align-self: stretch;
   gap: 2px;
   padding: 0 4px;
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-width: none;
+
+  // Edge-fade only when the strip is overflowing (the renderer adds
+  // `is-overflow` after measuring `scrollWidth > clientWidth`). With
+  // no overflow there is nothing to fade; painting the mask anyway
+  // would dim the rightmost tab's edge for no reason.
+  &.is-overflow {
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      black 24px,
+      black calc(100% - 24px),
+      transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      black 24px,
+      black calc(100% - 24px),
+      transparent 100%
+    );
+  }
+
+  // Thin overlay scrollbar — exactly 3 px tall, transparent thumb at
+  // rest, fades to a calm grey when the user is hovering anywhere in
+  // the tab bar. The 3 px gutter is reserved at all times so the
+  // scrollbar never causes a layout shift on hover-in / hover-out.
+  //
+  // We do NOT set `scrollbar-width` here: Chromium 121+ honors that
+  // property natively and, when set, ignores the
+  // `::-webkit-scrollbar` pseudo entirely — landing us back on the
+  // browser's built-in "thin" (~12 px) scrollbar. The webkit pseudo
+  // is the only way to get a sub-`thin` scrollbar in Chromium right
+  // now; Firefox falls back to its default `auto` width, which is
+  // acceptable for the rare case that someone runs the extension
+  // there. (When `scrollbar-width` finally lets us name a pixel
+  // size, we can drop the pseudo and use the standard property.)
   &::-webkit-scrollbar {
+    height: 3px;
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 2px;
+    transition: background 0.15s ease;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-button {
     display: none;
   }
+  &::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}
+
+// Subtler thumb than a typical content scrollbar: this one shares
+// vertical space with the tooltip that the hovered tab opens just
+// below the bar, so a heavy thumb reads as visual noise next to the
+// tooltip arrow. Low alpha keeps the indicator legible while letting
+// the tooltip own the visual focus.
+.rules-tabs-bar:hover .rules-tabs-scroll {
+  &::-webkit-scrollbar-thumb {
+    background: rgba(128, 128, 128, 0.28);
+  }
+}
+
+[data-theme='dark'] .rules-tabs-bar:hover .rules-tabs-scroll {
+  &::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.18);
+  }
+}
+
+// `+` button anchored to the strip's right edge, never shrinking. The
+// search chevron uses `margin-left: auto` to push itself to the bar's
+// right edge regardless of whether tabs fit (gap between + and chevron
+// in the fit case) or overflow (no gap; everything packed right).
+.rules-tabs-bar > .rules-tab-action-create {
+  flex-shrink: 0;
 }
 
 .rules-tab {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 10px;
+  // Vertical padding shrunk from 4 → 2 so the painted hover/active
+  // pill leaves a few pixels of bar above and below the tab. Two
+  // gains: (1) the 3 px scrollbar gutter never visually clips the
+  // active pill's bottom edge, (2) the active pill reads as a chip
+  // floating in the bar instead of stretching edge-to-edge — same
+  // visual rhythm as the JetBrains IDE / VS Code editor tabs.
+  padding: 2px 10px;
   font-size: 12px;
   white-space: nowrap;
   cursor: pointer;

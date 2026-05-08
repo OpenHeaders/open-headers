@@ -37,7 +37,7 @@ import type { InputRef } from 'antd';
 import { Dropdown, Input, Tooltip, theme } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import { scratchLabelForMode } from '../breadcrumbs';
 import { useDragIntent } from '../drag-intent';
@@ -707,6 +707,11 @@ const SortableTab: React.FC<SortableTabProps> = ({
           boxShadow: '0 2px 6px rgba(0, 0, 0, 0.06)',
         }}
         placement="bottomLeft"
+        // Offset the tooltip 6 px further from the tab so it clears
+        // the bar's bottom scrollbar gutter on hover. Without the
+        // offset the tooltip's top edge would sit right next to the
+        // hover-revealed scrollbar thumb, reading as visual clutter.
+        align={{ offset: [0, 6] }}
         arrow={false}
         mouseEnterDelay={0.5}
         mouseLeaveDelay={0}
@@ -1294,6 +1299,22 @@ const TabBar: React.FC<TabBarProps> = ({
   const createMenuItems = buildRuleTypeMenuItems(onCreateRule);
   const sortableIds = tabs.map((t) => `${leafId}::${t.id}`);
 
+  // Track whether the tabs strip is actually overflowing so the
+  // edge-fade mask is only painted when there's content beyond the
+  // visible window. With `flex: 0 1 auto` the strip is content-sized
+  // when the tabs fit, so an unconditional mask would fade the
+  // rightmost tab's edge for no reason. `useLayoutEffect` with no
+  // deps re-checks after every render — cheap DOM read against
+  // `scrollWidth`/`clientWidth`, only triggers a re-render when the
+  // boolean actually flips.
+  const [hasOverflow, setHasOverflow] = useState(false);
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const next = el.scrollWidth > el.clientWidth + 1;
+    if (next !== hasOverflow) setHasOverflow(next);
+  });
+
   // Cross-leaf insertion marker — rendered in this bar only when the
   // published drag intent targets this leaf. Published from
   // EditorGroupRenderer via DragIntentContext; consumed here directly
@@ -1304,8 +1325,16 @@ const TabBar: React.FC<TabBarProps> = ({
 
   return (
     <div className="rules-tabs-bar" style={{ borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
-      {/* Scrollable tabs */}
-      <div className="rules-tabs-scroll" ref={scrollRef} onWheel={handleWheel}>
+      {/* Scrollable tabs — content-sized when tabs fit, shrinks when
+          they overflow. The `+` button lives OUTSIDE this element
+          (sibling below) so it stays anchored at the right edge of
+          the strip when the user scrolls horizontally — same pattern
+          as the JetBrains IDE / VS Code editor tabs. */}
+      <div
+        className={`rules-tabs-scroll${hasOverflow ? ' is-overflow' : ''}`}
+        ref={scrollRef}
+        onWheel={handleWheel}
+      >
         <SortableContext items={sortableIds} strategy={horizontalListSortingStrategy}>
           {tabs.map((tab, index) => (
             <Fragment key={tab.id}>
@@ -1362,29 +1391,37 @@ const TabBar: React.FC<TabBarProps> = ({
             />
           )}
         </SortableContext>
-
-        {/* + button: inside scroll area, right after last tab */}
-        <Dropdown
-          menu={{ items: createMenuItems }}
-          trigger={['click']}
-          placement="bottomRight"
-          open={createMenuOpen}
-          onOpenChange={(v) => onCreateMenuOpenChange?.(v)}
-        >
-          <Tooltip
-            title={<ShortcutHintTitle label={newRuleLabel}>New rule</ShortcutHintTitle>}
-            placement="bottom"
-            open={createMenuOpen ? false : undefined}
-          >
-            <div className="rules-tab-action" style={{ color: token.colorTextSecondary, flexShrink: 0 }}>
-              <PlusOutlined style={{ fontSize: 12 }} />
-            </div>
-          </Tooltip>
-        </Dropdown>
       </div>
 
-      {/* Tab search chevron (always visible, outside scroll) */}
-      <div style={{ position: 'relative', flexShrink: 0 }}>
+      {/* + button — sits IMMEDIATELY after the tabs strip in the bar's
+          flex layout, never inside the scroll container. When tabs
+          fit, the strip is content-sized so + sits right after the
+          last tab; when tabs overflow, the strip shrinks and + stays
+          anchored at the strip's right edge (visually "sticky"). */}
+      <Dropdown
+        menu={{ items: createMenuItems }}
+        trigger={['click']}
+        placement="bottomRight"
+        open={createMenuOpen}
+        onOpenChange={(v) => onCreateMenuOpenChange?.(v)}
+      >
+        <Tooltip
+          title={<ShortcutHintTitle label={newRuleLabel}>New rule</ShortcutHintTitle>}
+          placement="bottom"
+          open={createMenuOpen ? false : undefined}
+        >
+          <div className="rules-tab-action rules-tab-action-create" style={{ color: token.colorTextSecondary }}>
+            <PlusOutlined style={{ fontSize: 12 }} />
+          </div>
+        </Tooltip>
+      </Dropdown>
+
+      {/* Tab search chevron (always visible, outside scroll). The
+          `marginLeft: auto` pushes the chevron to the bar's right
+          edge in the fit case (creating breathing room between `+`
+          and the chevron) and collapses to 0 in the overflow case
+          (everything packed right). */}
+      <div style={{ position: 'relative', flexShrink: 0, marginLeft: 'auto' }}>
         <Tooltip
           title={<ShortcutHintTitle label={tabSearchLabel}>Search tabs</ShortcutHintTitle>}
           placement="bottom"
