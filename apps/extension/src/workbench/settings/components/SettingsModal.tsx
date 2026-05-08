@@ -69,6 +69,11 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
       }}
       className="settings-modal"
     >
+      {/* Zero the panel padding — Ant's .ant-modal-content otherwise adds
+          ~20px top+bottom, which pushes our body past the viewport when
+          maximized. The styles prop doesn't expose `content`, so we rely
+          on the wrapping class. */}
+      <style>{'.settings-modal .ant-modal-content { padding: 0 !important; }'}</style>
       <div
         style={{
           display: 'flex',
