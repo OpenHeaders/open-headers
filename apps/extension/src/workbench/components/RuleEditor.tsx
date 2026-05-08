@@ -509,7 +509,53 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     },
     [form, liveRule],
   );
-  useAutoMergeForm({ conflicts, formProjection, applyToForm: applyAutoMerge });
+  // Silent reorder rebase: peer reordered a uid-keyed set whose order
+  // I haven't touched. uids carry per-row identity through the move,
+  // so my in-flight per-leaf edits on rows that just shifted keep their
+  // values + Form.List `field.key` keeps the DOM (and the cursor) in
+  // place. Falls back to the dialog's `set-reorder` row when my form
+  // ALSO diverged from baseline — only the untouched-side case auto-
+  // applies.
+  const applyAutoMergeReorder = useCallback(
+    (setPath: string, savedOrder: readonly string[]) => {
+      const formName =
+        setPath === 'action.requestHeaders'
+          ? 'requestHeaders'
+          : setPath === 'action.responseHeaders'
+            ? 'responseHeaders'
+            : setPath === 'action.params'
+              ? 'queryParams'
+              : setPath === 'conditions'
+                ? 'conditions'
+                : null;
+      if (!formName) return;
+      const current = (form.getFieldValue(formName) as { uid?: string }[] | undefined) ?? [];
+      if (current.length === 0) return;
+      const byUid = new Map<string, { uid?: string }>();
+      for (const row of current) if (row?.uid) byUid.set(row.uid, row);
+      const next: { uid?: string }[] = [];
+      for (const uid of savedOrder) {
+        const row = byUid.get(uid);
+        if (row) {
+          next.push(row);
+          byUid.delete(uid);
+        }
+      }
+      // Locally-added rows (not in saved order) keep their relative
+      // order and append to the tail — same convention as the manual
+      // "Use saved order" path.
+      for (const row of current) if (row?.uid && byUid.has(row.uid)) next.push(row);
+      form.setFieldValue(formName, next);
+    },
+    [form],
+  );
+  useAutoMergeForm({
+    conflicts,
+    formProjection,
+    formSetOrders,
+    applyToForm: applyAutoMerge,
+    applyToFormReorder: applyAutoMergeReorder,
+  });
 
   const [isConflictDialogOpen, setConflictDialogOpen] = useState(false);
 

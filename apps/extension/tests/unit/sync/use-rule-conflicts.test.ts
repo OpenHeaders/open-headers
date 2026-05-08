@@ -99,6 +99,74 @@ describe('useRuleConflicts', () => {
     expect(result.current.getConflict(PATH, 'theirs')).toBeNull();
   });
 
+  describe('reorder auto-rebase', () => {
+    function ruleWithThreeHeaders(order: readonly string[], values?: Record<string, string>): V5.Rule {
+      return {
+        uid: 'rule-1',
+        path: 'rules/rule-1.yaml',
+        name: 'r',
+        enabled: true,
+        type: 'header',
+        schemaVersion: 5,
+        conditions: [],
+        action: {
+          requestHeaders: order.map((uid) => ({
+            uid,
+            operation: 'override',
+            headerName: `X-${uid.toUpperCase()}`,
+            value: values?.[uid] ?? `v-${uid}`,
+          })),
+          responseHeaders: [],
+        },
+      } as unknown as V5.Rule;
+    }
+
+    it('emits an auto-rebase savedOrder when form-order matches baseline + live diverged', () => {
+      const live = ruleWithThreeHeaders(['a0000001', 'c0000003', 'b0000002']);
+      const { result } = mount(live, true);
+      act(() => result.current.setBaseline(ruleWithThreeHeaders(['a0000001', 'b0000002', 'c0000003'])));
+      const formOrders = new Map([
+        ['action.requestHeaders', ['a0000001', 'b0000002', 'c0000003'] as const],
+      ]);
+      const auto = result.current.getAutoMergeableSetOrders(formOrders);
+      expect([...(auto.get('action.requestHeaders') ?? [])]).toEqual(['a0000001', 'c0000003', 'b0000002']);
+    });
+
+    it('skips the auto-rebase when my form-order also diverged from baseline (real conflict, dialog territory)', () => {
+      const live = ruleWithThreeHeaders(['a0000001', 'c0000003', 'b0000002']);
+      const { result } = mount(live, true);
+      act(() => result.current.setBaseline(ruleWithThreeHeaders(['a0000001', 'b0000002', 'c0000003'])));
+      const formOrders = new Map([
+        ['action.requestHeaders', ['b0000002', 'a0000001', 'c0000003'] as const],
+      ]);
+      expect(result.current.getAutoMergeableSetOrders(formOrders).size).toBe(0);
+    });
+
+    it('skips the auto-rebase when membership differs (delete + reorder; falls through to dialog territory)', () => {
+      const live = ruleWithThreeHeaders(['a0000001', 'c0000003', 'b0000002']);
+      const { result } = mount(live, true);
+      act(() => result.current.setBaseline(ruleWithThreeHeaders(['a0000001', 'b0000002', 'c0000003'])));
+      const formOrders = new Map([['action.requestHeaders', ['a0000001', 'b0000002'] as const]]);
+      expect(result.current.getAutoMergeableSetOrders(formOrders).size).toBe(0);
+    });
+
+    it('acceptTheirsSetOrder advances the per-set baseline so the next peer reorder rebases off the new state', () => {
+      const live1 = ruleWithThreeHeaders(['a0000001', 'c0000003', 'b0000002']);
+      const { result, rerender } = mount(live1, true);
+      act(() => result.current.setBaseline(ruleWithThreeHeaders(['a0000001', 'b0000002', 'c0000003'])));
+      // Apply the first auto-rebase to a fresh form order matching live1.
+      act(() => result.current.acceptTheirsSetOrder('action.requestHeaders', ['a0000001', 'c0000003', 'b0000002']));
+      // Peer reorders again. Form still matches the previously-accepted live1 order.
+      const live2 = ruleWithThreeHeaders(['c0000003', 'a0000001', 'b0000002']);
+      rerender({ liveRule: live2, dirty: true });
+      const formOrders = new Map([
+        ['action.requestHeaders', ['a0000001', 'c0000003', 'b0000002'] as const],
+      ]);
+      const auto = result.current.getAutoMergeableSetOrders(formOrders);
+      expect([...(auto.get('action.requestHeaders') ?? [])]).toEqual(['c0000003', 'a0000001', 'b0000002']);
+    });
+  });
+
   describe('scalar widening', () => {
     function makeRedirectRule(target: string, uid = 'r-1'): V5.Rule {
       return {

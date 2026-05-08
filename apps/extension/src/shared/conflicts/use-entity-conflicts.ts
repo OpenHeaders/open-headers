@@ -60,6 +60,12 @@ interface BaselineState {
    *  (typically `entity.uid`). */
   signature: string;
   paths: PathMap;
+  /** Per-set ordered uid arrays at baseline-prime time. Used to detect
+   *  "my order is untouched" so peer reorders auto-rebase silently
+   *  instead of waiting on dialog resolution. Map insertion order on
+   *  the snapshotSets adapter result preserves the entity's array
+   *  order — ordering is implicit but consistent. */
+  setOrders: ReadonlyMap<string, readonly string[]>;
 }
 
 export interface EntityConflictsApi<E> {
@@ -92,8 +98,23 @@ export interface EntityConflictsApi<E> {
    *  conflict (only one side edited). Implements §6.2's killer-demo
    *  promise: different paths apply unconditionally. */
   getAutoMergeable: (form: PathMap) => Map<string, string>;
+  /** Set-level reorder analogue of `getAutoMergeable`: returns the
+   *  saved-side ordered uid array per setPath where my form's order
+   *  matches baseline (untouched) AND live diverged. Caller reorders
+   *  the form's array in place via uid — leaf edits on rows that
+   *  moved carry their identity through the reorder. Returns empty
+   *  for sets where my order also diverged (membership or order
+   *  conflict — those keep going through the dialog). */
+  getAutoMergeableSetOrders: (
+    formSetOrders: ReadonlyMap<string, readonly string[]>,
+  ) => Map<string, readonly string[]>;
   /** Accept the external value at path: align baseline + dismiss. */
   acceptTheirs: (path: string, theirs: string) => void;
+  /** Advance the per-set baseline order to a new ordering — used by
+   *  silent auto-rebase + manual "Use saved order" so subsequent peer
+   *  reorders compare against the most-recently accepted state, not
+   *  the stale at-prime order. Mirrors `acceptTheirs` for leaves. */
+  acceptTheirsSetOrder: (setPath: string, savedOrder: readonly string[]) => void;
   /** Dismiss the chip without taking theirs. */
   dismiss: (path: string) => void;
   /** Clear all dismissed entries (e.g. on successful save). */
@@ -185,6 +206,9 @@ export function useEntityConflicts<E extends { uid: string }>(
   const baselineRef = useRef<BaselineState | null>(null);
   const [dismissed, setDismissed] = useState<ReadonlySet<string>>(() => new Set());
   const [overrides, setOverrides] = useState<PathMap>({});
+  const [setOrderOverrides, setSetOrderOverrides] = useState<ReadonlyMap<string, readonly string[]>>(
+    () => new Map(),
+  );
   const localInstanceId = useOptionalLocalInstanceId();
 
   // Awareness re-render trigger. Mirror is the source of truth for
@@ -204,15 +228,33 @@ export function useEntityConflicts<E extends { uid: string }>(
 
   const setBaseline = useCallback(
     (entity: E) => {
+      const orders = new Map<string, readonly string[]>();
+      for (const snap of adapter.snapshotSets(entity)) {
+        // Map insertion order on `byUid` reflects the entity array's
+        // order at baseline time — `buildSnapshots` populates by
+        // iterating the array. Freeze a snapshot so subsequent live
+        // changes don't mutate this baseline view.
+        orders.set(snap.setPath, Array.from(snap.byUid.keys()));
+      }
       baselineRef.current = {
         signature: adapter.signature(entity),
         paths: adapter.extractBaseline(entity),
+        setOrders: orders,
       };
       setDismissed((prev) => (prev.size === 0 ? prev : new Set()));
       setOverrides((prev) => (Object.keys(prev).length === 0 ? prev : {}));
+      setSetOrderOverrides((prev) => (prev.size === 0 ? prev : new Map()));
     },
     [adapter],
   );
+
+  const acceptTheirsSetOrder = useCallback((setPath: string, savedOrder: readonly string[]) => {
+    setSetOrderOverrides((prev) => {
+      const next = new Map(prev);
+      next.set(setPath, savedOrder);
+      return next;
+    });
+  }, []);
 
   const acceptTheirs = useCallback((path: string, theirs: string) => {
     setOverrides((prev) => ({ ...prev, [path]: theirs }));
@@ -302,6 +344,58 @@ export function useEntityConflicts<E extends { uid: string }>(
       return out;
     },
     [enabled, liveEntity, overrides, adapter],
+  );
+
+  const getAutoMergeableSetOrders = useCallback(
+    (formSetOrders: ReadonlyMap<string, readonly string[]>): Map<string, readonly string[]> => {
+      const out = new Map<string, readonly string[]>();
+      if (!enabled || !liveEntity) return out;
+      const baseline = baselineRef.current;
+      if (!baseline) return out;
+      const liveSets = adapter.snapshotSets(liveEntity);
+      for (const liveSnap of liveSets) {
+        const setPath = liveSnap.setPath;
+        const baselineOrder = setOrderOverrides.get(setPath) ?? baseline.setOrders.get(setPath);
+        if (!baselineOrder) continue;
+        const formOrder = formSetOrders.get(setPath);
+        if (!formOrder) continue;
+        const liveOrder = Array.from(liveSnap.byUid.keys());
+        // Auto-rebase requires:
+        //   - my form-order == baseline-order (I didn't reorder)
+        //   - membership matches between my form and live (no add/remove
+        //     side-effect on this rebase — those go through the dialog)
+        //   - live order != baseline order (peer actually moved something)
+        if (formOrder.length !== baselineOrder.length) continue;
+        if (liveOrder.length !== formOrder.length) continue;
+        let formMatchesBaseline = true;
+        for (let i = 0; i < formOrder.length; i++) {
+          if (formOrder[i] !== baselineOrder[i]) {
+            formMatchesBaseline = false;
+            break;
+          }
+        }
+        if (!formMatchesBaseline) continue;
+        let membershipMatches = true;
+        for (const uid of liveSnap.byUid.keys()) {
+          if (!formOrder.includes(uid)) {
+            membershipMatches = false;
+            break;
+          }
+        }
+        if (!membershipMatches) continue;
+        let orderMatches = true;
+        for (let i = 0; i < liveOrder.length; i++) {
+          if (liveOrder[i] !== formOrder[i]) {
+            orderMatches = false;
+            break;
+          }
+        }
+        if (orderMatches) continue;
+        out.set(setPath, liveOrder);
+      }
+      return out;
+    },
+    [enabled, liveEntity, adapter, setOrderOverrides],
   );
 
   const getConflict = useCallback(
@@ -499,7 +593,9 @@ export function useEntityConflicts<E extends { uid: string }>(
       getAllConflicts,
       getSetConflict,
       getAutoMergeable,
+      getAutoMergeableSetOrders,
       acceptTheirs,
+      acceptTheirsSetOrder,
       dismiss,
       clearDismissed,
       projectEntity,
@@ -510,7 +606,9 @@ export function useEntityConflicts<E extends { uid: string }>(
       getAllConflicts,
       getSetConflict,
       getAutoMergeable,
+      getAutoMergeableSetOrders,
       acceptTheirs,
+      acceptTheirsSetOrder,
       dismiss,
       clearDismissed,
       projectEntity,
