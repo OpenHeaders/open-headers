@@ -162,7 +162,7 @@ html, body, #root {
 // locked against the bottom edge.
 
 .rules-activity-bar {
-  width: 64px;
+  width: 78px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -259,6 +259,36 @@ html, body, #root {
   margin-top: 6px;
 }
 
+// Dynamic layout: collapse the subslot's top spacing so the first tab
+// in the lower subslot lines up with the lower dock body's top edge
+// (panel sits at margin-top:3 inside its pane; border 1px + padding 2px
+// = 3px from the subslot divider to the first tab).
+.rules-activity-bar--layout-dynamic .rules-activity-subslot--second {
+  margin-top: 0;
+  padding-top: 2px;
+}
+
+// Dynamic-mode: drop bar padding-top so subslots can occupy the bar
+// from y=0; the 3px panel-margin offset lives on subslot--first below.
+.rules-main--layout-dynamic .rules-activity-bar {
+  padding-top: 0;
+}
+
+.rules-activity-bar--layout-dynamic .rules-activity-subslot {
+  box-sizing: border-box;
+}
+
+.rules-activity-bar--layout-dynamic .rules-activity-subslot--first {
+  padding-top: 3px;
+}
+
+// Dynamic mode: drop the inter-subslot gap so subslot heights add up
+// to side-region height exactly. The default 2px gap was offsetting
+// subslot--second downward and breaking lower-panel alignment.
+.rules-activity-bar--layout-dynamic .rules-activity-group--top {
+  gap: 0;
+}
+
 // Empty upper-first placeholder — mirrors subslot--second's dashed
 // boundary so the slot stays visually present when it has no tabs.
 // Scoped to non-dynamic layouts (dynamic collapses empty subslots to 0
@@ -293,6 +323,17 @@ html, body, #root {
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+// Dynamic mode: tighten the group's top padding AND clear the 6px
+// base margin-top — for an absolute-positioned element, that margin
+// shifts the group down 6px on top of the JS-set `top: regionH`,
+// which is why the bottom-group tab was landing well below its
+// bottom-panel header. Result: tab lands at regionH + border 1 +
+// padding 2 = regionH + 3 = bottom panel top.
+.rules-activity-bar--layout-dynamic .rules-activity-group--bottom {
+  margin-top: 0;
+  padding-top: 2px;
 }
 
 .rules-activity-bar--compact .rules-activity-subslot,
@@ -395,6 +436,20 @@ html, body, #root {
   padding: 0 6px;
   flex-shrink: 0;
   height: 32px;
+  position: relative;
+}
+
+// Inset separator line — 3px gap on each side so it doesn't touch
+// the panel card's rounded corners.
+.rules-sidebar-filter-row::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  bottom: 0;
+  height: 1px;
+  background: var(--ant-color-border-secondary, rgba(5, 5, 5, 0.06));
+  pointer-events: none;
 }
 
 .rules-sidebar-content {
@@ -895,6 +950,21 @@ html, body, #root {
   flex-shrink: 0;
   height: 40px;
   padding: 0 16px;
+  position: relative;
+}
+
+// Inset bottom separator — 3px gap each side so the line stops short
+// of the editor card's rounded corners (matches the side-panel
+// header / filter-row insets).
+.rules-editor-header::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  bottom: 0;
+  height: 1px;
+  background: var(--ant-color-border-secondary, rgba(5, 5, 5, 0.06));
+  pointer-events: none;
 }
 
 .rules-editor-header-title {
@@ -1190,12 +1260,14 @@ html, body, #root {
   transition: color 0.15s, background 0.12s;
 
   &.rules-dock-tab--vertical {
-    width: 56px;
-    padding: 6px 0 4px;
+    box-sizing: border-box;
+    width: 68px;
+    min-height: 32px;
+    padding: 6px 4px 4px;
     flex-direction: column;
     justify-content: center;
-    gap: 1px;
-    font-size: 15px;
+    gap: 2px;
+    font-size: 16px;
 
     .rules-activity-bar--compact & {
       width: 32px;
@@ -1209,12 +1281,8 @@ html, body, #root {
     border-radius: 3px;
   }
 
-  &:hover {
+  &:not(.active):hover {
     background: rgba(128, 128, 128, 0.1);
-  }
-
-  &.active:not(.focused) {
-    background: rgba(128, 128, 128, 0.18);
   }
 
   &.dragging {
@@ -1235,17 +1303,24 @@ html, body, #root {
 }
 
 .rules-dock-tab-label {
-  font-size: 9px;
-  line-height: 1.1;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  font-size: 11px;
+  line-height: 1.15;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 56px;
+  padding: 0 2px;
 
   .rules-dock-tab--horizontal & {
-    font-size: 11px;
+    font-size: 12px;
+    width: auto;
     max-width: none;
+    padding: 0;
   }
 }
 

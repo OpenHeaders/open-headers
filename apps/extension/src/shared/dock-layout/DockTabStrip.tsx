@@ -86,14 +86,14 @@ function SortableDockTab<T extends string>({
         outlineOffset: -2,
       }
     : isFocused
-      ? {
-          background: token.colorPrimaryBg,
-          color: token.colorPrimary,
-          ...(orientation === 'vertical'
-            ? slot.startsWith('left-')
-              ? { borderLeft: `2px solid ${token.colorPrimary}` }
-              : { borderRight: `2px solid ${token.colorPrimary}` }
-            : { borderBottom: `2px solid ${token.colorPrimary}` }),
+      ? // Focused active tab paints a softened primary-color tile (full
+        // saturation reads too harshly at this size). Reduced alpha
+        // blends the primary with the bar's grey, so the focus state
+        // is unmistakable but not eye-piercing. Light foreground keeps
+        // contrast on the tinted blue.
+        {
+          background: `${token.colorPrimary}cc`,
+          color: token.colorTextLightSolid,
         }
       : active
         ? // Active (non-focused) chip bg/color comes from the

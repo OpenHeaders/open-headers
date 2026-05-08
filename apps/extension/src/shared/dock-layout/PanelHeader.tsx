@@ -20,7 +20,7 @@
  */
 
 import { EllipsisOutlined, MinusOutlined } from '@ant-design/icons';
-import { Dropdown, type MenuProps, theme } from 'antd';
+import { Dropdown, type MenuProps } from 'antd';
 import type React from 'react';
 import type { PanelHeaderWiring } from './panel-header-wiring';
 
@@ -38,17 +38,13 @@ export interface PanelHeaderProps {
 }
 
 const PanelHeader: React.FC<PanelHeaderProps> = ({ wiring, title, actions, optionsMenuItems }) => {
-  const { token } = theme.useToken();
   // The brand carries `onHide` only; un-brand at the consume site via
   // the canonical `as unknown as` pattern. Same shape as EditorHeader's
   // un-brand.
   const onHide = (wiring as unknown as { onHide: () => void }).onHide;
 
   return (
-    <div
-      className="rules-panel-header"
-      style={{ borderBottom: `1px solid ${token.colorBorderSecondary}` }}
-    >
+    <div className="rules-panel-header">
       {title !== undefined && (
         <div className="rules-panel-header-title">{typeof title === 'string' ? <strong>{title}</strong> : title}</div>
       )}

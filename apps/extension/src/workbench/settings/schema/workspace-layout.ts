@@ -111,7 +111,7 @@ registerSetting({
 registerSetting({
   key: 'workspaceLayout.showToolWindowLabels',
   type: 'boolean',
-  default: true,
+  default: false,
   schema: v.boolean(),
   label: 'Show Tool Window Labels',
   description: 'Render text labels next to activity-bar and dock-tab icons. Disable for an icon-only compact shell.',

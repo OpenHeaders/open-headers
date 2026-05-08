@@ -62,14 +62,12 @@
 /* ── Activity bar ─────────────────────────────────────────────────── */
 
 .rules-activity-bar {
-  /* 96px gives an IDE-style inset active-tab chip: the bar is
-     96px wide, the tab chip is 80px (centered → 8px gutter on each
-     side), and the 9px label has enough room inside the chip for
-     the widest workspace tool label ("API Requests" / "Page Traffic")
-     without truncation. Must stay in sync with `ACTIVITY_BAR_WIDTH`
-     in ShellLayout.tsx — the drop-zone overlay subtracts two activity
-     bars from the viewport width when sizing the blue drag targets. */
-  width: 96px;
+  /* Bar hosts an inset tab chip with 8px gutter per side. Sized so the
+     widest workspace tool label ("API Requests") fits the chip at 11px
+     without ellipsis. The renderer reads the bar's offsetWidth at
+     runtime so this CSS value drives drop-zone overlay sizing without
+     a JS constant to keep in sync. */
+  width: 78px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -82,6 +80,28 @@
   flex-shrink: 0;
   outline: none;
   transition: width 0.12s ease;
+}
+
+/* Rail bars sit inside the viewport edge so the leftmost / rightmost
+   tabs don't kiss the browser frame — the 10px outer pad gives a
+   clear grey breathing strip between the browser frame and the tab.
+   In compact (icons-only) mode the bar is much narrower (36px), so
+   the outer pad shrinks to 4px so the 32px tab fits exactly in the
+   content area without overflowing or clipping. */
+.rules-activity-bar--left {
+  padding-left: 10px;
+}
+
+.rules-activity-bar--right {
+  padding-right: 10px;
+}
+
+.rules-activity-bar--compact.rules-activity-bar--left {
+  padding-left: 4px;
+}
+
+.rules-activity-bar--compact.rules-activity-bar--right {
+  padding-right: 4px;
 }
 
 .rules-activity-bar::-webkit-scrollbar {
@@ -220,18 +240,45 @@
 
 .rules-activity-bar--layout-dynamic .rules-activity-subslot {
   flex: var(--mirror-grow, 1) 1 0;
-  min-height: 44px;
+  /* min-height: 0 lets JS-set exact heights stick — `min-height: 44px`
+     from the base subslot rule would clamp small panes to 44 and break
+     alignment with the panel header below. */
+  min-height: 0;
 }
 
-/* Dynamic aligns the subslot divider with the pane divider. The default
-   `margin-top: 6px` on subslot--second pushes the subslot (and its top
-   border) below the flex boundary — fine for the static variants, but
-   in Dynamic it visibly lags behind the pane divider. Drop only the
-   margin-top so the border lands on the flex boundary; keep the
-   `padding-top: 6px` from the base rule so the first chip inside
-   still has breathing room below the dashed line. */
+/* Dynamic aligns the subslot divider with the pane divider AND lines
+   the first tab in the lower subslot up with the dock body's top edge
+   (which sits at margin-top:3 inside its pane). Border 1px + padding
+   2px = 3px from divider to first tab, matching the panel's 3px gutter
+   so the rail tab and the panel header form one continuous edge. */
 .rules-activity-bar--layout-dynamic .rules-activity-subslot--second {
   margin-top: 0;
+  padding-top: 2px;
+}
+
+/* Dynamic-mode alignment: drop the bar's top padding entirely and put
+   the 3px offset on subslot--first instead. Combined with box-sizing:
+   border-box on the subslots, this keeps each subslot's outer box
+   exactly at its flex-allocated (= pane) height while still pushing
+   the first tab inside down by 3px to match the panel's margin-top. */
+.rules-main--layout-dynamic .rules-activity-bar {
+  padding-top: 0;
+}
+
+.rules-activity-bar--layout-dynamic .rules-activity-subslot {
+  box-sizing: border-box;
+}
+
+.rules-activity-bar--layout-dynamic .rules-activity-subslot--first {
+  padding-top: 3px;
+}
+
+/* Dynamic mode: kill the inter-subslot gap so the subslot heights add
+   up exactly to the side-region height. The 2px default gap was
+   pushing subslot--second down by 2px, which propagated to its first
+   tab and caused the visible misalignment with the lower panel. */
+.rules-activity-bar--layout-dynamic .rules-activity-group--top {
+  gap: 0;
 }
 
 /* Empty subslots in dynamic stop competing for flex space. subslot--second
@@ -244,7 +291,13 @@
   flex: 0 0 auto;
 }
 .rules-activity-bar--layout-dynamic .rules-activity-subslot--second.rules-activity-subslot--empty {
+  /* When subslot--second has no active panel its alignment with the
+     pane divider is moot, so restore the standard breathing room
+     (6px margin + 1px border + 6px padding) above the inactive icons
+     so they don't crowd the live subslot's tabs above. */
   min-height: 0;
+  margin-top: 6px;
+  padding-top: 6px;
 }
 
 /* When either upper subslot is empty, the live one drops its flex-grow
@@ -264,17 +317,55 @@
    Dynamic mode so the top group always fills the full bar height — this
    is what keeps the subslot divider aligned with the pane divider. We
    keep this regardless of whether the lower dock has an active tool
-   window; mirroring stays consistent across both sides of the shell. */
+   window; mirroring stays consistent across both sides of the shell.
+   The reduced padding-top + 1px border = 3px from group top to first
+   tab, mirroring the bottom panel's `margin-top: 3px` so the active
+   tab in this group lines up with its panel's top edge when the JS
+   mirror clamps the group at `top: regionH`. */
 .rules-activity-bar--layout-dynamic .rules-activity-group--bottom {
   flex: 0 0 auto;
   position: absolute;
-  left: 0;
-  right: 0;
   bottom: 0;
+  /* margin-top:0 because the base `.rules-activity-group--bottom` sets
+     it to 6px, which on an absolute-positioned element shifts the
+     group down by 6 (compounding on the JS-set `top: regionH` clamp)
+     — that's why the bottom-group's first tab was landing ~6px below
+     its bottom-panel header. */
+  margin-top: 0;
+  padding-top: 2px;
+}
+
+/* The absolute group's `left/right: 0` would snap to the bar's padding
+   box (= border box when there is no border), making bottom-group tabs
+   bleed into the bar's outer 4px padding. Match each rail's outer
+   padding so the bottom group sits in the same content area as the
+   flex-flowed top group above it. */
+.rules-activity-bar--layout-dynamic.rules-activity-bar--left .rules-activity-group--bottom {
+  left: 10px;
+  right: 0;
+}
+
+.rules-activity-bar--layout-dynamic.rules-activity-bar--right .rules-activity-group--bottom {
+  left: 0;
+  right: 10px;
+}
+
+/* Compact rail uses the smaller 4px outer pad — keep the bottom
+   group's absolute offsets in lockstep with that. */
+.rules-activity-bar--compact.rules-activity-bar--layout-dynamic.rules-activity-bar--left
+  .rules-activity-group--bottom {
+  left: 4px;
+}
+
+.rules-activity-bar--compact.rules-activity-bar--layout-dynamic.rules-activity-bar--right
+  .rules-activity-group--bottom {
+  right: 4px;
 }
 
 .rules-activity-bar--compact.rules-activity-bar--layout-dynamic .rules-activity-subslot {
-  min-height: 32px;
+  /* same rationale as the non-compact dynamic rule above — let JS set
+     the exact pane height, no floor clamp. */
+  min-height: 0;
 }
 .rules-activity-bar--compact.rules-activity-bar--layout-dynamic .rules-activity-subslot--second.rules-activity-subslot--empty {
   min-height: 0;
@@ -360,15 +451,19 @@
 }
 
 .rules-dock-tab--vertical {
-  /* 80px tab + 96px bar = 8px gutter per side (the centered-chip
-     visual from the IDE activity bar). The active/hover background
-     fills the tab, so the gutter becomes a clearly-inset rounded rect. */
-  width: 80px;
+  /* 68px tab + 90px bar = ample gutter per side (with the rail's 10px
+     outer padding). `min-height: 32px` + `box-sizing: border-box`
+     makes the tab's outer height exactly 32px (matching the panel
+     header's 32px row) so the active chip and the panel-header bar
+     form one clean horizontal line in compact (icons-only) mode. */
+  box-sizing: border-box;
+  width: 68px;
+  min-height: 32px;
   padding: 6px 4px 4px;
   flex-direction: column;
   justify-content: center;
-  gap: 1px;
-  font-size: 15px;
+  gap: 2px;
+  font-size: 16px;
 }
 
 .rules-activity-bar--compact .rules-dock-tab--vertical {
@@ -385,22 +480,167 @@
 /* Hover / active states — black alphas on the light `#ececec` frame,
    white alphas on the dark `#1a1a1a` frame. Grey-128 alpha was
    near-invisible against either. */
-.rules-dock-tab:hover {
+.rules-dock-tab:not(.active):hover {
   background: rgba(0, 0, 0, 0.06);
 }
 
-.rules-dock-tab.active:not(.focused) {
-  background: rgba(0, 0, 0, 0.1);
-  color: rgba(0, 0, 0, 0.88);
+/* Every active tab — focused or not — paints in the panel's bg and
+   merges into the dock card directly. Outer side rounds; panel side
+   stays flat so the tab flows seamlessly into the panel. The
+   side-rail panel collapses its rail-side margin / radius below so
+   tab right edge meets panel left edge with nothing between them. */
+.rules-dock-tab.active {
+  background: var(--ant-color-bg-container, #fff);
+  color: var(--ant-color-text, rgba(0, 0, 0, 0.88));
 }
 
-[data-theme='dark'] .rules-dock-tab:hover {
+/* Standalone chip — rounded on all sides, keeps the base tab width
+   (68px) so it stays centered with breathing room on both sides
+   (visible gap to both the browser frame and the dock-panel edge).
+   The merged-tab rules below selectively override `width: 100%` for
+   tabs whose panel sits flush against the rail. */
+.rules-dock-tab--vertical.active {
+  border-radius: 8px;
+}
+
+/* Dynamic layout merges the active tab into its dock card: full bar
+   width, rounded only on the outer edge so the inner edge meets the
+   panel flush. Paired with `.rules-main--layout-dynamic
+   .rules-region-{left,right} .rules-dock-body` below — the panel
+   collapses its rail-side margin/radius only in dynamic mode. */
+/* Top-group tabs always merge with their adjacent side panel (left-top
+   sits next to the left bar, etc.) in dynamic mode. */
+.rules-main--layout-dynamic .rules-activity-bar--left .rules-activity-group--top .rules-dock-tab--vertical.active {
+  width: 100%;
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.rules-main--layout-dynamic .rules-activity-bar--right .rules-activity-group--top .rules-dock-tab--vertical.active {
+  width: 100%;
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+/* In dynamic mode, bottom-group tabs only merge with their panel
+   when BOTH rails are symmetric — i.e. only `bottom-justify` (panel
+   spans the full width and is adjacent to both rails). For
+   `left` / `right` alignments the panel is technically adjacent on
+   one side, but treating one rail as merged and the other as
+   standalone reads as a UI inconsistency — so we keep BOTH rails
+   standalone in those modes. `center` is naturally symmetric (neither
+   rail adjacent), also standalone. */
+.rules-main--layout-dynamic.rules-main--bottom-justify
+  .rules-activity-bar--left
+  .rules-activity-group--bottom
+  .rules-dock-tab--vertical.active {
+  width: 100%;
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.rules-main--layout-dynamic.rules-main--bottom-justify
+  .rules-activity-bar--right
+  .rules-activity-group--bottom
+  .rules-dock-tab--vertical.active {
+  width: 100%;
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+/* Standalone bottom-group active tab — bottom panel not adjacent to
+   this rail per `bottomPanelAlignment`. Same full-width as merged
+   tabs above; only the rounding differs (all 4 corners rounded via
+   the base `.rules-dock-tab--vertical.active` rule). Keeps the icon
+   position aligned with the inactive tabs above for visual coherence
+   (the previous align-self/width-reduction shifted the icon off the
+   rail's natural center). */
+
+/* Focused active tab paints a full primary-color tile (bg + color
+   set inline). Force the icon to the same light foreground so the
+   icon's SVG (fill=currentColor) reads clearly on the blue tile in
+   both themes — relying on plain inheritance from the parent's inline
+   color worked in light mode but the icon picked up the wrong tone in
+   dark mode where it inherited via different cascade paths. */
+.rules-dock-tab--vertical.active.focused .rules-dock-tab-icon {
+  color: var(--ant-color-text-light-solid, #fff);
+}
+
+/* Dynamic-layout only: side-rail dock body collapses its rail-side
+   margin and radius so the active tab in the bar meets the panel edge
+   flush. In other layouts the panel keeps its full rounded card and
+   the active tab stays a standalone rounded chip. */
+.rules-main--layout-dynamic .rules-region-left .rules-dock-body {
+  margin-left: 0;
+  width: calc(100% - 3px);
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.rules-main--layout-dynamic .rules-region-right .rules-dock-body {
+  margin-right: 0;
+  width: calc(100% - 3px);
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* Bottom-region panel rail-side margin is symmetric across both rails:
+   - `justify`: panel spans full width → margin: 0 + flat corners on
+     both rails so each side's active rail tab can merge with the panel.
+   - All other alignments (`center`, `left`, `right`): keep an 8px
+     visible grey gutter on both rails for a uniform look — even if
+     the alignment makes the panel technically adjacent on one rail. */
+.rules-main--layout-dynamic.rules-main--bottom-justify .rules-dock-body[data-dock-slot='bottom-left'] {
+  margin-left: 0;
+  width: calc(100% - 3px);
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.rules-main--layout-dynamic.rules-main--bottom-justify .rules-dock-body[data-dock-slot='bottom-right'] {
+  margin-right: 0;
+  width: calc(100% - 3px);
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* Non-justify alignments: bump the rail-side margin from 3px (default)
+   to 8px on both bottom panels for a clearly visible grey gutter
+   between the bar and the panel. Same on both rails for symmetry. */
+.rules-main--layout-dynamic.rules-main--bottom-center .rules-dock-body[data-dock-slot='bottom-left'],
+.rules-main--layout-dynamic.rules-main--bottom-left .rules-dock-body[data-dock-slot='bottom-left'],
+.rules-main--layout-dynamic.rules-main--bottom-right .rules-dock-body[data-dock-slot='bottom-left'] {
+  margin-left: 8px;
+  width: calc(100% - 11px);
+}
+
+.rules-main--layout-dynamic.rules-main--bottom-center .rules-dock-body[data-dock-slot='bottom-right'],
+.rules-main--layout-dynamic.rules-main--bottom-left .rules-dock-body[data-dock-slot='bottom-right'],
+.rules-main--layout-dynamic.rules-main--bottom-right .rules-dock-body[data-dock-slot='bottom-right'] {
+  margin-right: 8px;
+  width: calc(100% - 11px);
+}
+
+[data-theme='dark'] .rules-dock-tab:not(.active):hover {
   background: rgba(255, 255, 255, 0.12);
 }
 
-[data-theme='dark'] .rules-dock-tab.active:not(.focused) {
-  background: rgba(255, 255, 255, 0.45);
-  color: #1a1a1a;
+/* Dark theme: panel bg (#141414) is barely distinguishable from the bar
+   so an active tab with panel-bg disappears. Use a lighter grey tile
+   for visibility — both selected (non-focused) and focused share this
+   bg, with focused additionally carrying the blue accent pill + primary
+   icon/text on top of the grey. */
+[data-theme='dark'] .rules-dock-tab.active {
+  background: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .rules-dock-tab.dragging {
@@ -420,16 +660,18 @@
 }
 
 .rules-dock-tab-label {
-  font-size: 9px;
-  line-height: 1.1;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  font-size: 11px;
+  line-height: 1.15;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  /* Label fits inside the 80px tab minus 8px horizontal padding =
-     72px usable. "API Requests" at 9px system-ui renders around
-     64–68px — comfortably inside 72 without ellipsis. */
-  max-width: 72px;
+  padding: 0 2px;
 }
 
 .rules-dock-tab--horizontal .rules-dock-tab-label {
@@ -485,12 +727,27 @@
   padding: 0 6px 0 12px;
   gap: 6px;
   flex-shrink: 0;
+  position: relative;
+}
+
+/* Bottom separator inset 3px on each side so it stops short of the
+   panel card's rounded edges instead of running into the radius. */
+.rules-panel-header::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  bottom: 0;
+  height: 1px;
+  background: var(--ant-color-border-secondary, rgba(5, 5, 5, 0.06));
+  pointer-events: none;
 }
 
 .rules-panel-header-title {
   flex: 1;
   min-width: 0;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

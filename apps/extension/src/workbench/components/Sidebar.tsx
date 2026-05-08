@@ -1229,7 +1229,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         actions={headerActions}
         optionsMenuItems={behaviorMenuItems}
       />
-      <div className="rules-sidebar-filter-row" style={{ borderBottom: `1px solid ${token.colorBorderSecondary}` }}>
+      <div className="rules-sidebar-filter-row">
         <Input
           ref={filterRef}
           size="small"

@@ -62,7 +62,6 @@ const EditorHeader: React.FC<EditorHeaderProps> = ({ title, actions, overflowIte
     <div
       className="rules-editor-header"
       style={{
-        borderBottom: `1px solid ${token.colorBorderSecondary}`,
         background: token.colorBgContainer,
       }}
     >

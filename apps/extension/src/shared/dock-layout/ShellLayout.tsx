@@ -272,8 +272,12 @@ function useDynamicActivityMirror(
     const bottomGroup = bar.querySelector<HTMLElement>('.rules-activity-group--bottom');
 
     const clear = () => {
-      firstSubslot?.style.removeProperty('--mirror-grow');
-      secondSubslot?.style.removeProperty('--mirror-grow');
+      for (const el of [firstSubslot, secondSubslot]) {
+        if (!el) continue;
+        el.style.removeProperty('--mirror-grow');
+        el.style.removeProperty('height');
+        el.style.removeProperty('flex');
+      }
       if (topGroup) topGroup.style.flex = '';
       if (bottomGroup) {
         bottomGroup.style.top = '';
@@ -303,21 +307,34 @@ function useDynamicActivityMirror(
     let raf = 0;
     const sync = () => {
       raf = 0;
+      // Only pin exact subslot heights when BOTH side-panes are live.
+      // If one side is empty (active === null), the CSS empty-migration
+      // (flex: 0 0 auto on the live subslot via :has) keeps both
+      // subslots content-sized and tabs stack at the top — pinning
+      // here would force the live subslot to fill topGroup, pushing
+      // the empty subslot's inactive icons off the bottom of the bar.
+      const bothLive = !!topDock && !!bottomDock;
       if (firstSubslot) {
-        if (topDock) {
-          const h = Math.max(1, Math.round(topDock.getBoundingClientRect().height));
-          firstSubslot.style.setProperty('--mirror-grow', String(h));
+        if (bothLive && topDock) {
+          const h = Math.max(1, topDock.getBoundingClientRect().height + 6);
+          firstSubslot.style.height = `${h}px`;
+          firstSubslot.style.flex = '0 0 auto';
         } else {
-          firstSubslot.style.removeProperty('--mirror-grow');
+          firstSubslot.style.removeProperty('height');
+          firstSubslot.style.removeProperty('flex');
         }
+        firstSubslot.style.removeProperty('--mirror-grow');
       }
       if (secondSubslot) {
-        if (bottomDock) {
-          const h = Math.max(1, Math.round(bottomDock.getBoundingClientRect().height));
-          secondSubslot.style.setProperty('--mirror-grow', String(h));
+        if (bothLive && bottomDock) {
+          const h = Math.max(1, bottomDock.getBoundingClientRect().height + 6);
+          secondSubslot.style.height = `${h}px`;
+          secondSubslot.style.flex = '0 0 auto';
         } else {
-          secondSubslot.style.removeProperty('--mirror-grow');
+          secondSubslot.style.removeProperty('height');
+          secondSubslot.style.removeProperty('flex');
         }
+        secondSubslot.style.removeProperty('--mirror-grow');
       }
 
       // Clamp the top group to the side region's height so subslot
@@ -330,11 +347,16 @@ function useDynamicActivityMirror(
       // group absolute `bottom: 0` — keeps the lower chip cluster at
       // the bar's bottom edge instead of pushing it off-screen.
       if (sideRegion && topGroup && bottomGroup && bar) {
-        const regionH = Math.round(sideRegion.getBoundingClientRect().height);
-        const barH = Math.round(bar.getBoundingClientRect().height);
-        // A few px tolerance to absorb subpixel/border-box rounding.
+        const regionH = sideRegion.getBoundingClientRect().height;
+        const barH = bar.getBoundingClientRect().height;
+        // Subtract the bar's top padding so topGroup's bottom edge
+        // still lands exactly at side-region bottom (and the bottom
+        // group at top: regionH stays flush with the side region).
+        // Float values throughout — rounding here pushed the bottom
+        // group ~1px off from the bottom panel's header.
+        const barPadTop = parseFloat(getComputedStyle(bar).paddingTop) || 0;
         if (regionH > 0 && regionH < barH - 4) {
-          topGroup.style.flex = `0 0 ${regionH}px`;
+          topGroup.style.flex = `0 0 ${Math.max(0, regionH - barPadTop)}px`;
           bottomGroup.style.top = `${regionH}px`;
           bottomGroup.style.bottom = 'auto';
         } else {
@@ -1000,7 +1022,10 @@ function ShellLayoutInner<T extends string>({
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <div className="rules-main" ref={shellRef}>
+      <div
+        className={`rules-main rules-main--layout-${sidebarLayout} rules-main--bottom-${bottomPanelAlignment}`}
+        ref={shellRef}
+      >
         {mainRow}
         <DropZoneOverlay visible={draggingId !== null} rects={dropZoneRects} highlightedSlot={highlightedSlot} />
       </div>
