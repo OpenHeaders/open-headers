@@ -34,6 +34,8 @@ import type {
   SetMember,
   SetMemberSnapshot,
 } from './conflict-adapters';
+import { buildActionEntitySchema } from './field-tree/action-subtree';
+import { makeConflictAdapter } from './field-tree/make-conflict-adapter';
 import type { PathConflict } from './types';
 
 // ── Accessors ──────────────────────────────────────────────────────
@@ -49,6 +51,10 @@ export interface ActionEntityAccessors<E extends { uid: string }> {
    *  body / mock / …). Both rule (`rule.type`) and template
    *  (`template.ruleType`) project to the same V5.Rule['type'] union. */
   getRuleType: (entity: E) => V5.Rule['type'];
+  /** Schema field at the entity root that holds the rule-type
+   *  discriminator. Used by the field-tree walker's union descent —
+   *  `'type'` for Rule, `'ruleType'` for Template. */
+  discriminatorField: 'type' | 'ruleType';
   /** Read entity name. Both entities expose `name: string` at the
    *  schema root. */
   getName: (entity: E) => string;
@@ -148,19 +154,6 @@ function buildSetDefs<E extends { uid: string }>(
   };
 }
 
-function buildScalarPaths(paths: ActionPathBundle): Record<V5.Rule['type'], readonly string[]> {
-  return {
-    header: [],
-    block: [],
-    'query-param': [],
-    redirect: [paths.redirectTo],
-    delay: [paths.delayMs],
-    inject: [paths.injectCode, paths.injectSourceUrl, paths.injectType, paths.injectSource, paths.injectPosition],
-    body: [paths.body, paths.bodyType, paths.bodyResourceType],
-    mock: [paths.mockStatusCode, paths.mockResponseBody, paths.mockContentType, paths.mockBodyType],
-  };
-}
-
 // ── Tracking adapter ──────────────────────────────────────────────
 
 function makeTrackingAdapter<E extends { uid: string }>(
@@ -168,7 +161,6 @@ function makeTrackingAdapter<E extends { uid: string }>(
   accessors: ActionEntityAccessors<E>,
 ): ConflictTrackingAdapter<E> {
   const sets = buildSetDefs(paths, accessors);
-  const scalars = buildScalarPaths(paths);
   const a = paths.actionRoot;
   const headerModRe = new RegExp(
     `^${a}\\.(requestHeaders|responseHeaders)\\.([a-z0-9]{8})\\.(value|headerName|operation|mergeSeparator)$`,
@@ -176,6 +168,10 @@ function makeTrackingAdapter<E extends { uid: string }>(
   const queryParamRe = new RegExp(`^${a}\\.${paths.queryParamKey}\\.([a-z0-9]{8})\\.(param|value|operation)$`);
   const mockHeaderRe = new RegExp(`^${a}\\.responseHeaders\\.([^.]+)\\.(name|value)$`);
   const conditionsRe = /^conditions\.([a-z0-9]{8})\.(values|field|headerName)$/;
+  const walker = makeConflictAdapter<E>({
+    schema: buildActionEntitySchema(paths, { discriminatorField: accessors.discriminatorField }),
+    signature: accessors.signature,
+  });
 
   function readPath(entity: E, path: string): string | null {
     if (path === 'name') return String(accessors.getName(entity) ?? '');
@@ -232,99 +228,59 @@ function makeTrackingAdapter<E extends { uid: string }>(
     return String(value);
   }
 
+  // Pulls path-keyed form values into per-uid leaf maps under one
+  // prefix. Used by the conditions wrapper below; the walker handles
+  // its own action-rooted sets via `snapshotSetsFromForm`.
+  function collectFormPrefix(form: PathMap, prefix: string): Map<string, Record<string, unknown>> {
+    const byUid = new Map<string, Record<string, unknown>>();
+    for (const key of Object.keys(form)) {
+      if (!key.startsWith(`${prefix}.`)) continue;
+      const tail = key.slice(prefix.length + 1);
+      const m = /^([a-z0-9]{8})\.(.+)$/.exec(tail);
+      if (!m) continue;
+      const slot = byUid.get(m[1]) ?? {};
+      slot[m[2]] = form[key];
+      byUid.set(m[1], slot);
+    }
+    return byUid;
+  }
+
   function extractBaseline(entity: E): PathMap {
-    const out: PathMap = {};
-    out.name = String(accessors.getName(entity) ?? '');
+    // Walker handles `name` + the action subtree (header/respHeader sets,
+    // query-param sets, per-type scalars). Conditions + mock response
+    // headers wrap on top — both have schema-vs-path-key shapes that
+    // don't round-trip cleanly through the descriptor.
+    const out: PathMap = { ...walker.tracking.extractBaseline(entity) };
     for (const c of accessors.getConditions(entity)) {
       out[paths.condition(c.uid, 'values')] = (c.values ?? []).join(', ');
       out[paths.condition(c.uid, 'field')] = String(c.type);
     }
-    const ruleType = accessors.getRuleType(entity);
-    const root = accessors.getActionRoot(entity);
-    if (root) {
-      if (ruleType === 'header') {
-        for (const dir of ['request', 'response'] as const) {
-          const list = root[dir === 'request' ? 'requestHeaders' : 'responseHeaders'] as
-            | { uid: string; [k: string]: unknown }[]
-            | undefined;
-          for (const h of list ?? []) {
-            out[paths.headerMod(dir, h.uid, 'value')] = String(h.value ?? '');
-            out[paths.headerMod(dir, h.uid, 'headerName')] = String(h.headerName ?? '');
-          }
-        }
-      }
-      if (ruleType === 'query-param') {
-        const list = root[paths.queryParamKey] as { uid: string; [k: string]: unknown }[] | undefined;
-        for (const p of list ?? []) {
-          out[paths.queryParam(p.uid, 'param')] = String(p.param ?? '');
-          out[paths.queryParam(p.uid, 'value')] = String(p.value ?? '');
-        }
-      }
-      if (ruleType === 'mock') {
-        const map = (root.responseHeaders as Record<string, string> | undefined) ?? {};
-        for (const [headerName, headerValue] of Object.entries(map)) {
-          out[paths.mockHeader(headerName, 'name')] = headerName;
-          out[paths.mockHeader(headerName, 'value')] = String(headerValue ?? '');
-        }
-      }
-      for (const path of scalars[ruleType] ?? []) {
-        const v = readPath(entity, path);
-        if (v !== null) out[path] = v;
+    if (accessors.getRuleType(entity) === 'mock') {
+      const map = (accessors.getActionRoot(entity)?.responseHeaders as Record<string, string> | undefined) ?? {};
+      for (const [headerName, headerValue] of Object.entries(map)) {
+        out[paths.mockHeader(headerName, 'name')] = headerName;
+        out[paths.mockHeader(headerName, 'value')] = String(headerValue ?? '');
       }
     }
     return out;
   }
 
   function snapshotSets(entity: E): readonly SetMemberSnapshot[] {
-    const ruleType = accessors.getRuleType(entity);
-    const out: SetMemberSnapshot[] = [];
-    for (const def of sets.byType[ruleType] ?? []) {
-      const byUid = new Map<string, SetMember>();
-      for (const row of def.getter(entity) ?? []) {
-        byUid.set(row.uid, { uid: row.uid, summary: def.summarize(row), payload: row });
-      }
-      out.push({ setPath: def.setPath, byUid });
+    const out: SetMemberSnapshot[] = [...walker.tracking.snapshotSets(entity)];
+    const byUid = new Map<string, SetMember>();
+    for (const row of sets.conditions.getter(entity) ?? []) {
+      byUid.set(row.uid, { uid: row.uid, summary: sets.conditions.summarize(row), payload: row });
     }
-    {
-      const byUid = new Map<string, SetMember>();
-      for (const row of sets.conditions.getter(entity) ?? []) {
-        byUid.set(row.uid, { uid: row.uid, summary: sets.conditions.summarize(row), payload: row });
-      }
-      out.push({ setPath: sets.conditions.setPath, byUid });
-    }
+    out.push({ setPath: sets.conditions.setPath, byUid });
     return out;
   }
 
   function snapshotSetsFromForm(form: PathMap, entity: E): readonly SetMemberSnapshot[] {
-    const ruleType = accessors.getRuleType(entity);
-    const collectFromPrefix = (prefix: string): Map<string, Record<string, unknown>> => {
-      const byUid = new Map<string, Record<string, unknown>>();
-      for (const key of Object.keys(form)) {
-        if (!key.startsWith(`${prefix}.`)) continue;
-        const tail = key.slice(prefix.length + 1);
-        const m = /^([a-z0-9]{8})\.(.+)$/.exec(tail);
-        if (!m) continue;
-        const uid = m[1];
-        const leaf = m[2];
-        const slot = byUid.get(uid) ?? {};
-        slot[leaf] = form[key];
-        byUid.set(uid, slot);
-      }
-      return byUid;
-    };
-    const out: SetMemberSnapshot[] = [];
-    for (const def of sets.byType[ruleType] ?? []) {
-      const slots = collectFromPrefix(def.setPath);
-      const byUid = new Map<string, SetMember>();
-      for (const [uid, leaves] of slots) byUid.set(uid, def.fromForm(uid, leaves));
-      out.push({ setPath: def.setPath, byUid });
-    }
-    {
-      const slots = collectFromPrefix('conditions');
-      const byUid = new Map<string, SetMember>();
-      for (const [uid, leaves] of slots) byUid.set(uid, sets.conditions.fromForm(uid, leaves));
-      out.push({ setPath: 'conditions', byUid });
-    }
+    const out: SetMemberSnapshot[] = [...walker.tracking.snapshotSetsFromForm(form, entity)];
+    const slots = collectFormPrefix(form, 'conditions');
+    const byUid = new Map<string, SetMember>();
+    for (const [uid, leaves] of slots) byUid.set(uid, sets.conditions.fromForm(uid, leaves));
+    out.push({ setPath: 'conditions', byUid });
     return out;
   }
 

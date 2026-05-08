@@ -16,6 +16,7 @@ import { createActionEntityAdapters } from '@/shared/conflicts/action-entity-ada
 const adapters = createActionEntityAdapters<V5.Template>(TEMPLATE_ACTION_PATHS, {
   signature: (t) => t.uid,
   getRuleType: (t) => t.ruleType,
+  discriminatorField: 'ruleType',
   getName: (t) => t.name,
   getConditions: (t) => t.conditions,
   setName: (t, value) => {

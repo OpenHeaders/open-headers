@@ -19,6 +19,7 @@ import { makeConflictAdapter } from '@/shared/conflicts/field-tree/make-conflict
 const factoryAdapters = createActionEntityAdapters<V5.Rule>(RULE_ACTION_PATHS, {
   signature: (r) => r.uid,
   getRuleType: (r) => r.type,
+  discriminatorField: 'type',
   getName: (r) => r.name,
   getConditions: (r) => r.conditions,
   setName: (r, value) => {

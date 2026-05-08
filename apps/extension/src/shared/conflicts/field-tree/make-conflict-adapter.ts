@@ -245,9 +245,9 @@ function buildSnapshots(sets: SetWalkInfo[]): SetMemberSnapshot[] {
 
 // ── Form snapshot ────────────────────────────────────────────────
 
-function snapshotSetsFromForm(node: FieldNode, form: PathMap): readonly SetMemberSnapshot[] {
+function snapshotSetsFromForm<E>(node: FieldNode, form: PathMap, entity: E): readonly SetMemberSnapshot[] {
   const sets: { setPath: string; node: Extract<FieldNode, { kind: 'set' }> }[] = [];
-  collectSetPaths(node, '', sets);
+  collectSetPaths(node, '', sets, entity, entity);
 
   const out: SetMemberSnapshot[] = [];
   for (const s of sets) {
@@ -282,11 +282,23 @@ function collectSetPaths(
   node: FieldNode,
   prefix: string,
   out: { setPath: string; node: Extract<FieldNode, { kind: 'set' }> }[],
+  parent: unknown,
+  value: unknown,
 ): void {
   if (node.kind === 'object') {
+    if (value == null || typeof value !== 'object') {
+      // Walk children with undefined values so set paths still get
+      // collected even when the entity hasn't materialized the parent
+      // object yet (e.g. a missing optional sub-tree).
+      for (const [key, child] of Object.entries(node.children)) {
+        const subPrefix = prefix ? `${prefix}.${key}` : key;
+        collectSetPaths(child, subPrefix, out, value, undefined);
+      }
+      return;
+    }
     for (const [key, child] of Object.entries(node.children)) {
       const subPrefix = prefix ? `${prefix}.${key}` : key;
-      collectSetPaths(child, subPrefix, out);
+      collectSetPaths(child, subPrefix, out, value, (value as Record<string, unknown>)[key]);
     }
     return;
   }
@@ -295,11 +307,17 @@ function collectSetPaths(
     if (node.identity === 'uid' && (node.child.kind === 'object' || node.child.kind === 'union')) {
       // Nested sets inside per-row objects use a uid-segmented prefix
       // we can't pre-compute statically; the walker re-enters at row
-      // discovery time. For Variable / LiveVariable / Vault none of
-      // the canaries nest sets inside set rows, so the static collector
-      // is sufficient for this session.
+      // discovery time. None of the current consumers nest sets inside
+      // set rows, so the static collector is sufficient.
     }
     return;
+  }
+  if (node.kind === 'union') {
+    const disc: string | undefined = node.discriminate
+      ? node.discriminate(parent, value)
+      : ((value as Record<string, unknown> | null | undefined)?.[node.discriminator] as string | undefined);
+    const branch = typeof disc === 'string' ? node.branches[disc] : undefined;
+    if (branch) collectSetPaths(branch, prefix, out, parent, value);
   }
 }
 
@@ -431,8 +449,8 @@ export function makeConflictAdapter<E>(args: MakeAdapterArgs<E>): Adapters<E> {
       collectSets(args.schema, entity, '', sets, entity);
       return buildSnapshots(sets);
     },
-    snapshotSetsFromForm(form) {
-      return snapshotSetsFromForm(args.schema, form);
+    snapshotSetsFromForm(form, entity) {
+      return snapshotSetsFromForm(args.schema, form, entity);
     },
   };
 
