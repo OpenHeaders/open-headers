@@ -29,3 +29,30 @@
 [data-merge-theme='dark'] .oh-merge__hunk-modification {
   background-color: rgba(210, 153, 34, 0.30);
 }
+
+/* Gutter glyph for accept-this-hunk-into-result. Direction is
+ * encoded in the unicode arrow + a per-side rotation rule below.
+ * Hover lifts the opacity to make the affordance discoverable. */
+.oh-merge__hunk-accept {
+  cursor: pointer;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0.6;
+  transition: opacity 80ms ease;
+}
+.oh-merge__hunk-accept:hover {
+  opacity: 1;
+}
+.oh-merge__hunk-accept-theirs::before {
+  content: '▶';
+  color: rgba(35, 134, 54, 0.95);
+}
+.oh-merge__hunk-accept-mine::before {
+  content: '◀';
+  color: rgba(35, 134, 54, 0.95);
+}
+[data-merge-theme='dark'] .oh-merge__hunk-accept-theirs::before,
+[data-merge-theme='dark'] .oh-merge__hunk-accept-mine::before {
+  color: rgba(46, 160, 67, 1);
+}

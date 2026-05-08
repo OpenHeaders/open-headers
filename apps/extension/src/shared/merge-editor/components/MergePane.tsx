@@ -1,10 +1,13 @@
 /**
- * Phase 1 first slice — Column layout (3-pane theirs|result|mine) +
- * 2-pane fallback (theirs|result, where result seeds the editable side).
+ * Phase 2 — Column layout (3-pane theirs|result|mine) + 2-pane fallback
+ * (theirs|result, where result seeds the editable side). Hunk
+ * decorations on side panes; gutter accept-arrows splice content into
+ * the result buffer as single-undo-unit edits.
  *
- * No hunk arrows yet (Phase 2). No layout switcher (Phase 3). No file
- * list (Phase 5). Result pane is editable; sync-scroll keeps the trio
- * aligned.
+ * Diff axes are theirs↔result and mine↔result; both recompute on
+ * every result-buffer change. Re-running the LCS keeps each pane's
+ * decorations consistent with the user's current resolution state
+ * without us having to track per-hunk drift through edits manually.
  *
  * Pane sizing uses Allotment — same primitive every other resizable
  * surface in this app uses (workbench shell, dock layout, import
@@ -15,9 +18,19 @@
 import { Allotment } from 'allotment';
 import 'allotment/dist/style.css';
 import { editor as monacoEditor } from 'monaco-editor/esm/vs/editor/edcore.main';
-import { forwardRef, type ReactNode, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
-import { diffLines } from '../diff/line-diff';
-import { useHunkDecorations } from '../monaco/use-hunk-decorations';
+import {
+  forwardRef,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { diffLines, type Hunk } from '../diff/line-diff';
+import { useHunkAcceptArrows } from '../monaco/use-hunk-accept-arrows';
+import { type HunkSide, useHunkDecorations } from '../monaco/use-hunk-decorations';
 import { useMonacoEditorLifecycle } from '../monaco/use-monaco-editor-lifecycle';
 import { useSyncScroll } from '../monaco/use-sync-scroll';
 import type { MergeFile } from '../types';
@@ -75,6 +88,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     value: file.theirs,
     language,
     readOnly: true,
+    options: { glyphMargin: true },
   });
 
   const resultHandle = useMonacoEditorLifecycle({
@@ -89,21 +103,30 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     value: file.mine,
     language,
     readOnly: true,
+    options: { glyphMargin: true },
   });
 
-  // Wire result -> onResultChange.
+  // Track result text in state so diff recomputes on every edit.
+  const [resultText, setResultText] = useState<string>(file.initialResult);
+
+  // Wire result-buffer changes -> resultText state + outer onResultChange.
   useEffect(() => {
-    const editor = resultHandle.current.editor;
     const model = resultHandle.current.model;
-    if (!editor || !model || !onResultChange) return;
+    if (!model) return;
     const sub = model.onDidChangeContent(() => {
-      onResultChange(model.getValue());
+      const next = model.getValue();
+      setResultText(next);
+      onResultChange?.(next);
     });
     return () => {
       sub.dispose();
     };
-    // resultHandle is a stable ref; identity check on the callback only.
   }, [onResultChange, resultHandle]);
+
+  // Re-seed resultText when the underlying file changes (file switch).
+  useEffect(() => {
+    setResultText(file.initialResult);
+  }, [file.initialResult]);
 
   // Sync the global Monaco theme to dark/light. Theme is global per
   // Monaco instance; setting it on any one editor takes effect on all.
@@ -117,12 +140,67 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   );
   useSyncScroll({ editors: syncTargets });
 
-  // Compute hunks once per (theirs, mine) text pair. Phase 2.1 baseline
-  // is a 2-way line-LCS; 3-way classification using base + the
-  // hunk-splitting post-pass land in subsequent slices.
-  const hunks = useMemo(() => diffLines(file.theirs, file.mine), [file.theirs, file.mine]);
-  useHunkDecorations({ editorRef: theirsHandle, side: 'theirs', hunks });
-  useHunkDecorations({ editorRef: mineHandle, side: 'mine', hunks });
+  // Two diffs against the live result buffer. Hunks point at theirs /
+  // mine ranges respectively; the `mineRange` field is overloaded —
+  // for the theirs↔result diff it's the result-side range, and same
+  // for mine↔result. The accept handler keys off `side` to pick the
+  // right source.
+  const theirsHunks = useMemo(() => diffLines(file.theirs, resultText), [file.theirs, resultText]);
+  const mineHunks = useMemo(() => diffLines(file.mine, resultText), [file.mine, resultText]);
+
+  useHunkDecorations({ editorRef: theirsHandle, side: 'theirs', hunks: theirsHunks });
+  useHunkDecorations({ editorRef: mineHandle, side: 'mine', hunks: mineHunks });
+
+  const handleAccept = useCallback(
+    (hunkId: string, side: HunkSide) => {
+      const hunks: readonly Hunk[] = side === 'theirs' ? theirsHunks : mineHunks;
+      const hunk = hunks.find((h) => h.id === hunkId);
+      if (!hunk) return;
+      const editor = resultHandle.current.editor;
+      const model = resultHandle.current.model;
+      if (!editor || !model) return;
+
+      // The "right side" of each diff IS the result buffer, so
+      // `hunk.mineRange` is the splice target on the result. The
+      // replacement text is the OPPOSITE side (theirsLines on a
+      // theirs-accept, mineLines on a mine-accept).
+      const targetRange = hunk.mineRange;
+      const replacementLines = side === 'theirs' ? hunk.theirsLines : hunk.mineLines;
+      const replacementText = replacementLines.join('\n') + (replacementLines.length > 0 ? '\n' : '');
+
+      // Resolve the splice range to a Monaco Range. A zero-line range
+      // (start === end) anchors at start-of-line for an insertion.
+      const startLine = Math.max(1, targetRange.startLine);
+      const endLine = targetRange.endLine;
+      const isInsertion = endLine <= startLine;
+      const lineCount = model.getLineCount();
+      const replaceRange = isInsertion
+        ? {
+            startLineNumber: Math.min(startLine, lineCount + 1),
+            startColumn: 1,
+            endLineNumber: Math.min(startLine, lineCount + 1),
+            endColumn: 1,
+          }
+        : {
+            startLineNumber: startLine,
+            startColumn: 1,
+            endLineNumber: Math.min(endLine - 1, lineCount),
+            endColumn: model.getLineMaxColumn(Math.min(endLine - 1, lineCount)),
+          };
+      // Single undo unit per spec §2.4 invariant 2.
+      editor.executeEdits('oh-merge-accept', [
+        {
+          range: replaceRange,
+          text: isInsertion ? replacementText : replacementLines.join('\n'),
+          forceMoveMarkers: true,
+        },
+      ]);
+    },
+    [theirsHunks, mineHunks, resultHandle],
+  );
+
+  useHunkAcceptArrows({ editorRef: theirsHandle, side: 'theirs', hunks: theirsHunks, onAccept: handleAccept });
+  useHunkAcceptArrows({ editorRef: mineHandle, side: 'mine', hunks: mineHunks, onAccept: handleAccept });
 
   useImperativeHandle(
     ref,
