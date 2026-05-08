@@ -582,6 +582,36 @@ export function useEntityConflicts<E extends { uid: string }>(
         if (conflict) out.set(key, conflict);
       }
 
+      // When a set-reorder fires for a uid-keyed set, also surface
+      // per-row leaf drift in that set — even leaves where ONLY the
+      // local form diverged (peer didn't change). Strict per-leaf
+      // logic (`getConflict`) skips those because there's no
+      // peer/local divergence to resolve, but in the dialog context
+      // the user is reviewing structural changes and benefits from
+      // seeing which rows ALSO have unsaved value edits. "Use saved"
+      // on these rows reverts the local edit to the saved value;
+      // "Keep mine" dismisses (the edit will land on the next save).
+      for (const live of liveSets) {
+        const reorderKey = _reorderKey(live.setPath);
+        if (!out.has(reorderKey)) continue;
+        const setPrefix = `${live.setPath}.`;
+        for (const key of Object.keys(baseline.paths)) {
+          if (!key.startsWith(setPrefix)) continue;
+          if (out.has(key)) continue;
+          if (dismissed.has(key)) continue;
+          const base = overrides[key] ?? baseline.paths[key];
+          const local = form[key];
+          if (local === undefined) continue;
+          if (local === base) continue;
+          const theirs = adapter.readPath(liveEntity, key);
+          if (theirs === null) continue;
+          // Strict leaf conflicts (peer also diverged) already in `out`
+          // from the leaf walk above; we only fill the gap here.
+          if (theirs !== base) continue;
+          out.set(key, { base, theirs: base });
+        }
+      }
+
       // Kind-transition divergence: `union:<prefix>` keys are structural
       // markers (the discriminator lives outside the form's editable
       // leaves), so they surface whenever baseline ≠ live regardless of

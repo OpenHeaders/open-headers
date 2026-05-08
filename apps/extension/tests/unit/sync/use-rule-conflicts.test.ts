@@ -235,6 +235,54 @@ describe('useRuleConflicts', () => {
       expect(all.has('reorder:action.requestHeaders')).toBe(true);
     });
 
+    it('surfaces local-only leaf edits in the dialog when a set-reorder fires for the same set', () => {
+      // Peer reordered (live=[a,c,b]); I haven't reordered (form=[a,b,c])
+      // but I edited C.value locally to "4" (peer kept "3"). The dialog
+      // shows the reorder PLUS a row for the value drift so the user
+      // sees both changes side-by-side, not just the order change.
+      const live = ruleWithThreeHeaders(['a0000001', 'c0000003', 'b0000002'], { c0000003: '3' });
+      const { result } = mount(live, true);
+      act(() =>
+        result.current.setBaseline(ruleWithThreeHeaders(['a0000001', 'b0000002', 'c0000003'], { c0000003: '3' })),
+      );
+      const form = result.current.projectRule({
+        ...ruleWithThreeHeaders(['a0000001', 'b0000002', 'c0000003'], { c0000003: '4' }),
+        uid: 'rule-1',
+        path: 'rules/rule-1.yaml',
+      } as V5.Rule);
+      const formOrders = new Map([
+        ['action.requestHeaders', ['a0000001', 'b0000002', 'c0000003'] as const],
+      ]);
+      const all = result.current.getAllConflicts(form, formOrders);
+      expect(all.has('reorder:action.requestHeaders')).toBe(true);
+      const valueConflict = all.get('action.requestHeaders.c0000003.value');
+      expect(valueConflict).toBeDefined();
+      expect(valueConflict?.base).toBe('3');
+      expect(valueConflict?.theirs).toBe('3');
+    });
+
+    it('does NOT surface local-only leaf edits when no set-reorder fires (normal editing case)', () => {
+      // Same form-vs-baseline divergence on a leaf, but no peer reorder
+      // and no peer leaf change → strict per-leaf check returns null
+      // and the soft-leaf walk only runs when a set-reorder gates it.
+      const live = ruleWithThreeHeaders(['a0000001', 'b0000002', 'c0000003'], { c0000003: '3' });
+      const { result } = mount(live, true);
+      act(() =>
+        result.current.setBaseline(ruleWithThreeHeaders(['a0000001', 'b0000002', 'c0000003'], { c0000003: '3' })),
+      );
+      const form = result.current.projectRule({
+        ...ruleWithThreeHeaders(['a0000001', 'b0000002', 'c0000003'], { c0000003: '4' }),
+        uid: 'rule-1',
+        path: 'rules/rule-1.yaml',
+      } as V5.Rule);
+      const formOrders = new Map([
+        ['action.requestHeaders', ['a0000001', 'b0000002', 'c0000003'] as const],
+      ]);
+      const all = result.current.getAllConflicts(form, formOrders);
+      expect(all.has('reorder:action.requestHeaders')).toBe(false);
+      expect(all.has('action.requestHeaders.c0000003.value')).toBe(false);
+    });
+
     it('getAllConflicts emits set-reorder when peer reordered + I have an in-set leaf edit (user-reported scenario)', () => {
       // Tab 2: edit C.value to "4", don't save.
       // Tab 1: drag row 3 to row 2, save → live becomes [a,c,b].
