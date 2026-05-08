@@ -200,6 +200,36 @@ describe('ACTION_SUBTREE — union:<path> divergence emission', () => {
   });
 });
 
+describe('ACTION_SUBTREE — union:<prefix> whole-branch resolution', () => {
+  it('readUnionBranchInfo returns the live branch + discriminator at union:action', () => {
+    const info = walkerAdapters.tracking.readUnionBranchInfo?.(redirectRule, 'action');
+    expect(info).not.toBeNull();
+    expect(info?.kind).toBe('redirect');
+    expect(info?.branch).toEqual({ redirectTo: 'https://openheaders.io/x' });
+  });
+
+  it('applyResolutionToEntity replaces the branch + discriminator on union:action', () => {
+    const target = JSON.parse(JSON.stringify(headerRule)) as V5.Rule;
+    const ok = walkerAdapters.resolve.applyResolutionToEntity(target, 'union:action', {
+      base: '',
+      theirs: '',
+      rowPayload: { kind: 'redirect', branch: { redirectTo: 'https://openheaders.io/new' } },
+    });
+    expect(ok).toBe(true);
+    expect(target.type).toBe('redirect');
+    if (target.type !== 'redirect') throw new Error('expected redirect after swap');
+    expect(target.action.redirectTo).toBe('https://openheaders.io/new');
+  });
+
+  it('applyResolutionToEntity returns false when rowPayload is missing', () => {
+    const target = JSON.parse(JSON.stringify(headerRule)) as V5.Rule;
+    expect(
+      walkerAdapters.resolve.applyResolutionToEntity(target, 'union:action', { base: '', theirs: '' }),
+    ).toBe(false);
+    expect(target.type).toBe('header');
+  });
+});
+
 describe('ACTION_SUBTREE — Template bundle uses the alternative actionRoot + queryParamKey', () => {
   const template: V5.Template = {
     uid: 't-q',

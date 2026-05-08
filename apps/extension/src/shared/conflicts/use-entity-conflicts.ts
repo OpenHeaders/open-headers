@@ -441,9 +441,15 @@ export function useEntityConflicts<E extends { uid: string }>(
         if (theirs === null) continue;
         if (theirs === base) continue;
         const remote = findRemoteAttribution(mirror, entityType, liveEntity.uid, key, localInstanceId, now);
+        // Stash the live branch payload alongside the structural marker
+        // so resolvers can perform whole-branch swaps on "Use saved"
+        // (replace `entity[prefix-tail]` + write the new discriminator).
+        const prefix = key.slice('union:'.length);
+        const branchInfo = adapter.readUnionBranchInfo?.(liveEntity, prefix) ?? undefined;
         const conflict: PathConflict = remote ? { base, theirs, remote } : { base, theirs };
+        if (branchInfo) conflict.rowPayload = branchInfo;
         out.set(key, conflict);
-        divergentPrefixes.push(key.slice('union:'.length));
+        divergentPrefixes.push(prefix);
       }
       if (divergentPrefixes.length > 0) {
         for (const key of [...out.keys()]) {
