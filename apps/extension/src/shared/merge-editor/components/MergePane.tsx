@@ -4,11 +4,16 @@
  *
  * No hunk arrows yet (Phase 2). No layout switcher (Phase 3). No file
  * list (Phase 5). Result pane is editable; sync-scroll keeps the trio
- * aligned. Layout is one CSS-grid template parameterized by base
- * presence — Phase 3's other layouts will swap the template without
- * recreating editor instances.
+ * aligned.
+ *
+ * Pane sizing uses Allotment — same primitive every other resizable
+ * surface in this app uses (workbench shell, dock layout, import
+ * preview). Phase 3's layout switcher swaps the Allotment vs CSS-grid
+ * shape per layout but never recreates editor instances.
  */
 
+import { Allotment } from 'allotment';
+import 'allotment/dist/style.css';
 import { editor as monacoEditor } from 'monaco-editor/esm/vs/editor/edcore.main';
 import { forwardRef, type ReactNode, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import { useMonacoEditorLifecycle } from '../monaco/use-monaco-editor-lifecycle';
@@ -41,6 +46,7 @@ const PANE_BG_DARK = '#1e1e1e';
 
 const HEADER_HEIGHT = 28;
 const HEADER_PAD = '4px 10px';
+const PANE_MIN_PX = 200;
 
 function paneShell(): React.CSSProperties {
   return {
@@ -117,44 +123,41 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     [resultHandle],
   );
 
-  const gridTemplate = has3Panes ? '1fr 1fr 1fr' : '1fr 1fr';
+  const paneBg = isDarkMode ? PANE_BG_DARK : PANE_BG_LIGHT;
 
   return (
-    <div
-      className={className}
-      style={{
-        display: 'grid',
-        gridTemplateColumns: gridTemplate,
-        gridTemplateRows: '1fr',
-        gap: 1,
-        height: '100%',
-        minHeight: 0,
-        background: isDarkMode ? '#2a2a2a' : '#e5e5e5',
-      }}
-    >
-      <Pane
-        header={renderHeader ? renderHeader('theirs') : <DefaultHeader label="Incoming (theirs)" />}
-        containerRef={theirsContainerRef}
-        bg={isDarkMode ? PANE_BG_DARK : PANE_BG_LIGHT}
-      />
-      <Pane
-        header={
-          renderHeader ? (
-            renderHeader('result')
-          ) : (
-            <DefaultHeader label={has3Panes ? 'Result' : 'Yours (mine, edit here)'} />
-          )
-        }
-        containerRef={resultContainerRef}
-        bg={isDarkMode ? PANE_BG_DARK : PANE_BG_LIGHT}
-      />
-      {has3Panes ? (
-        <Pane
-          header={renderHeader ? renderHeader('mine') : <DefaultHeader label="Current (mine)" />}
-          containerRef={mineContainerRef}
-          bg={isDarkMode ? PANE_BG_DARK : PANE_BG_LIGHT}
-        />
-      ) : null}
+    <div className={className} style={{ height: '100%', minHeight: 0, minWidth: 0 }}>
+      <Allotment proportionalLayout defaultSizes={has3Panes ? [1, 1, 1] : [1, 1]}>
+        <Allotment.Pane minSize={PANE_MIN_PX}>
+          <Pane
+            header={renderHeader ? renderHeader('theirs') : <DefaultHeader label="Incoming (theirs)" />}
+            containerRef={theirsContainerRef}
+            bg={paneBg}
+          />
+        </Allotment.Pane>
+        <Allotment.Pane minSize={PANE_MIN_PX}>
+          <Pane
+            header={
+              renderHeader ? (
+                renderHeader('result')
+              ) : (
+                <DefaultHeader label={has3Panes ? 'Result' : 'Yours (mine, edit here)'} />
+              )
+            }
+            containerRef={resultContainerRef}
+            bg={paneBg}
+          />
+        </Allotment.Pane>
+        {has3Panes ? (
+          <Allotment.Pane minSize={PANE_MIN_PX}>
+            <Pane
+              header={renderHeader ? renderHeader('mine') : <DefaultHeader label="Current (mine)" />}
+              containerRef={mineContainerRef}
+              bg={paneBg}
+            />
+          </Allotment.Pane>
+        ) : null}
+      </Allotment>
     </div>
   );
 });
