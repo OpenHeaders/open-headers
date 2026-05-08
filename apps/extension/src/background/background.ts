@@ -106,6 +106,7 @@ import {
   bridgeTemplateCollectionSyncEngine,
   bridgeTemplateFolderSyncEngine,
   bridgeTemplateSyncEngine,
+  ensureDefaultTemplateCollection,
   getTemplates,
   onTemplateStoreChange,
 } from './modules/template-store';
@@ -577,6 +578,13 @@ async function initializeExtension(): Promise<void> {
   await bridgeFilesSyncEngine();
   markBootPhase('bridge-done');
 
+  // Seed the default "User Templates" collection so the Templates
+  // section is non-empty on first run. Idempotent — no-op if a
+  // collection with that name already exists.
+  await ensureDefaultTemplateCollection().catch((err: unknown) => {
+    logger.warn('Background', 'ensureDefaultTemplateCollection at boot failed', err);
+  });
+
   // Workspace coordination runner — drains SWAP_PER_WORKSPACE_STORES +
   // PURGE_WORKSPACE_DATA intents on every `extensionWorkspace`
   // broadcast and routes them through the orchestrator + per-workspace
@@ -595,6 +603,9 @@ async function initializeExtension(): Promise<void> {
         logger.warn('Background', `workspace-coord setRuntimeActive(${newId}) failed: ${result.reason}`);
       }
       await reseedAllPerWorkspaceBridges();
+      await ensureDefaultTemplateCollection().catch((err: unknown) => {
+        logger.warn('Background', 'ensureDefaultTemplateCollection on workspace switch failed', err);
+      });
     },
     purge: async (workspaceId) => {
       await purgeWorkspaceData([workspaceId]);

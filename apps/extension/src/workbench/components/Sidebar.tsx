@@ -227,6 +227,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     deleteLocalFolder,
     renameLocalCollection,
     createLocalCollection,
+    templateCollections,
     templateCollectionTrees,
     deleteTemplate,
     updateTemplate,
@@ -677,7 +678,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   // ── Create-new entrypoints ─────────────────────────────────────
 
   const createNewRequestCollection = useCallback(async () => {
-    const col = await createRequestCollectionRpc('New Collection');
+    const baseName = 'New Requests Collection';
+    const existingNames = new Set(requestCollections.map((c) => c.name));
+    let name = baseName;
+    let counter = 2;
+    while (existingNames.has(name)) name = `${baseName} (${counter++})`;
+    const col = await createRequestCollectionRpc(name);
     if (col) {
       setSectionsExpanded((prev) => ({ ...prev, 'api-requests': true }));
       setExpandedKeys((prev) => {
@@ -688,7 +694,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     } else {
       message.error('Failed to create request collection');
     }
-  }, [createRequestCollectionRpc, message]);
+  }, [createRequestCollectionRpc, requestCollections, message]);
 
   const createNewEnvironment = useCallback(async () => {
     const baseName = 'New Environment';
@@ -706,12 +712,17 @@ const Sidebar: React.FC<SidebarProps> = ({
   }, [createEnvironment, environments, onSelectEnvironment, message]);
 
   const createNewCollection = useCallback(async () => {
-    const col = await createLocalCollection('New Collection');
+    const baseName = 'New Rules Collection';
+    const existingNames = new Set(localCollections.map((c) => c.name));
+    let name = baseName;
+    let counter = 2;
+    while (existingNames.has(name)) name = `${baseName} (${counter++})`;
+    const col = await createLocalCollection(name);
     if (col) {
       setSectionsExpanded((prev) => ({ ...prev, rules: true }));
       onOpenCollectionOverview?.(col.uid, col.name, true);
     }
-  }, [createLocalCollection, onOpenCollectionOverview]);
+  }, [createLocalCollection, localCollections, onOpenCollectionOverview]);
 
   // ── Flat items for keyboard nav ──────────────────────────────
   // Only nodes from sections THIS view actually renders.
@@ -1345,7 +1356,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                     style={{ fontSize: 11, color: token.colorTextTertiary, cursor: 'pointer' }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      void createTemplateCollection('New Collection').then((col) => {
+                      const baseName = 'User Templates';
+                      const existingNames = new Set(templateCollections.map((c) => c.name));
+                      let name = baseName;
+                      let counter = 2;
+                      while (existingNames.has(name)) name = `${baseName} (${counter++})`;
+                      void createTemplateCollection(name).then((col) => {
                         if (col) {
                           setSectionsExpanded((prev) => ({ ...prev, templates: true }));
                           onOpenTemplateCollectionOverview?.(col.uid, col.name, true);
@@ -1360,7 +1376,12 @@ const Sidebar: React.FC<SidebarProps> = ({
               <div style={{ flex: 1, overflowY: 'auto' }}>
                 {renderNodes(systemTemplateNodes)}
                 {renderFolderDndNodes(templateNodes, templateFolderDndConfig, () => {
-                  void createTemplateCollection('My Templates').then((col) => {
+                  const baseName = 'User Templates';
+                  const existingNames = new Set(templateCollections.map((c) => c.name));
+                  let name = baseName;
+                  let counter = 2;
+                  while (existingNames.has(name)) name = `${baseName} (${counter++})`;
+                  void createTemplateCollection(name).then((col) => {
                     if (col) {
                       setSectionsExpanded((prev) => ({ ...prev, templates: true }));
                       onOpenTemplateCollectionOverview?.(col.uid, col.name, true);
