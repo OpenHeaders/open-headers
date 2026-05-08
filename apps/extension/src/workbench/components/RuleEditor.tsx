@@ -1221,9 +1221,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                   </div>
 
                   {/* ── Two-column grid: fields left, conditions right (on wide screens) ── */}
+                  <ConflictsProvider api={fieldConflictsApi}>
                   <div className="rules-rule-editor-columns">
                     {/* ── Per-type fields ── */}
-                    <ConflictsProvider api={fieldConflictsApi}>
                     <div>
                       {selectedType === 'header' && (
                         <HeaderRuleFields
@@ -1247,7 +1247,6 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                       automatically when their case is added there. */}
                       {selectedType && <ActionValueBanner ruleType={selectedType} />}
                     </div>
-                    </ConflictsProvider>
 
                     {/* ── Conditions section ── */}
                     <div style={{ marginBottom: 20 }}>
@@ -1278,6 +1277,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                       </Form.Item>
                     </div>
                   </div>
+                  </ConflictsProvider>
                 </Form>
 
                 <EntityConflictDialog

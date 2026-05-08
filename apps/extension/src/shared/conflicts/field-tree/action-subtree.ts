@@ -9,10 +9,10 @@
  * `'queryParams'`); the bundle's `ActionPathBundle` parameterizes both.
  *
  * Conditions live outside this subtree because they sit at the entity
- * root (alongside `name`) and the path keys diverge from the schema
- * field names (`conditions.<uid>.field` reads `c.type`). The entity
- * adapter wrapper emits conditions manually via the existing factory
- * helpers; the walker handles `name` + `action.*`.
+ * root (alongside `name`); the entity adapter wrapper emits conditions
+ * manually via the existing factory helpers (path keys + schema field
+ * names are now aligned: `conditions.<uid>.type` reads `c.type`).
+ * The walker handles `name` + `action.*`.
  *
  * `MockAction.responseHeaders` (Record-shape; per-entry `name` and
  * `value` keys are virtual on the form side) is left out of the union

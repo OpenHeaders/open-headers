@@ -62,7 +62,7 @@ export interface ActionPathBundle {
     uid: string,
     leaf: 'headerName' | 'value' | 'operation' | 'mergeSeparator',
   ): string;
-  condition(uid: string, leaf: 'values' | 'field' | 'headerName'): string;
+  condition(uid: string, leaf: 'values' | 'type' | 'headerName'): string;
   queryParam(uid: string, leaf: 'param' | 'value' | 'operation'): string;
   mockHeader(name: string, leaf: 'name' | 'value'): string;
   // Set roots (used for path-prefix presence + set-level conflict keys).

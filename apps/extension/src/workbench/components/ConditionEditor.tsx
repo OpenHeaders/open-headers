@@ -54,7 +54,8 @@ import {
 import { Button, Select, Tag, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo } from 'react';
-import { EntityField, useActionPaths } from '@/shared/awareness';
+import { ConflictDiffChip, EntityField, SetRowConflictChip, useActionPaths } from '@/shared/awareness';
+import { useFieldConflicts } from '@/shared/conflicts/Field';
 import { useInspectorNav } from '../hooks/useInspectorNav';
 import { getDocId } from './InspectorDocs';
 import { TemplateInput } from './template-input';
@@ -235,6 +236,67 @@ interface ConditionEditorProps {
   onChange?: (conditions: V5.RuleCondition[]) => void;
 }
 
+/** Inline conflict chip for one condition leaf — reads local value
+ *  directly from the controlled state (ConditionEditor doesn't sit
+ *  under a `Form.List`, so we can't subscribe via `Form.useWatch`).
+ *  Mounts a `<ConflictDiffChip>` only when a conflict surfaces at the
+ *  path. No-op outside a `<ConflictsProvider>`. */
+function ConditionLeafConflictChip({
+  path,
+  localValue,
+  onTakeTheirs,
+}: {
+  path: string;
+  localValue: string;
+  onTakeTheirs: (theirs: string) => void;
+}): React.ReactElement | null {
+  const conflicts = useFieldConflicts();
+  if (!conflicts) return null;
+  const conflict = conflicts.getConflict(path, localValue);
+  if (!conflict) return null;
+  return (
+    <ConflictDiffChip
+      theirs={conflict.theirs}
+      base={conflict.base}
+      local={localValue}
+      remote={conflict.remote}
+      onTakeTheirs={() => {
+        onTakeTheirs(conflict.theirs);
+        conflicts.acceptTheirs(path, conflict.theirs);
+      }}
+      onKeepMine={() => conflicts.dismiss(path)}
+    />
+  );
+}
+
+/** Saved-removed affordance for one condition row. */
+function ConditionSetRowChip({
+  setPath,
+  uid,
+  onUseSaved,
+}: {
+  setPath: string;
+  uid: string;
+  onUseSaved: () => void;
+}): React.ReactElement | null {
+  const conflicts = useFieldConflicts();
+  if (!conflicts?.getSetConflict) return null;
+  const setRemove = conflicts.getSetConflict(setPath, uid, true);
+  if (!setRemove || setRemove.kind !== 'set-remove') return null;
+  const setKey = `set:${setPath}.${uid}`;
+  return (
+    <SetRowConflictChip
+      baseSummary={setRemove.base}
+      remote={setRemove.remote}
+      onUseSaved={() => {
+        onUseSaved();
+        conflicts.acceptTheirs(setKey, '');
+      }}
+      onKeepMine={() => conflicts.dismiss(setKey)}
+    />
+  );
+}
+
 // ── Component ────────────────────────────────────────────────────
 
 const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange }) => {
@@ -411,7 +473,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
               )}
 
               {/* Type selector + docs link */}
-              <EntityField path={paths.condition(condition.uid, 'field')}>
+              <EntityField path={paths.condition(condition.uid, 'type')}>
                 <Select
                   size="small"
                   value={condition.type}
@@ -501,6 +563,38 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
 
               {/* Value-logic hint — explains how multiple values inside this row combine. */}
               <ValueLogicHint type={condition.type} />
+
+              {/* Inline per-row + per-leaf conflict affordances. SetRowChip
+                  surfaces "saved version removed this row"; the leaf chips
+                  surface peer edits to `type` / `headerName` / `values`. */}
+              <ConditionSetRowChip
+                setPath="conditions"
+                uid={condition.uid}
+                onUseSaved={() => removeCondition(index)}
+              />
+              <ConditionLeafConflictChip
+                path={paths.condition(condition.uid, 'type')}
+                localValue={String(condition.type)}
+                onTakeTheirs={(theirs) =>
+                  updateCondition(index, { type: theirs as V5.ConditionType })
+                }
+              />
+              {def?.inputType === 'header' && (
+                <ConditionLeafConflictChip
+                  path={paths.condition(condition.uid, 'headerName')}
+                  localValue={condition.headerName ?? ''}
+                  onTakeTheirs={(theirs) => updateCondition(index, { headerName: theirs })}
+                />
+              )}
+              <ConditionLeafConflictChip
+                path={paths.condition(condition.uid, 'values')}
+                localValue={(condition.values ?? []).join(', ')}
+                onTakeTheirs={(theirs) =>
+                  updateCondition(index, {
+                    values: theirs === '' ? [] : theirs.split(',').map((v) => v.trim()),
+                  })
+                }
+              />
 
               {/* Delete */}
               <Button

@@ -137,7 +137,7 @@ function buildSetDefs<E extends { uid: string }>(
       c.headerName
         ? `${c.type as string} ${c.headerName as string} ${(c.values as string[] | undefined)?.join(', ') ?? ''}`
         : `${c.type as string} ${(c.values as string[] | undefined)?.join(', ') ?? ''}`,
-    fromForm: (uid, leaves) => ({ uid, summary: (leaves.field as string) ?? uid, payload: { uid } }),
+    fromForm: (uid, leaves) => ({ uid, summary: (leaves.type as string) ?? uid, payload: { uid } }),
   };
   return {
     byType: {
@@ -167,7 +167,7 @@ function makeTrackingAdapter<E extends { uid: string }>(
   );
   const queryParamRe = new RegExp(`^${a}\\.${paths.queryParamKey}\\.([a-z0-9]{8})\\.(param|value|operation)$`);
   const mockHeaderRe = new RegExp(`^${a}\\.responseHeaders\\.([^.]+)\\.(name|value)$`);
-  const conditionsRe = /^conditions\.([a-z0-9]{8})\.(values|field|headerName)$/;
+  const conditionsRe = /^conditions\.([a-z0-9]{8})\.(values|type|headerName)$/;
   const walker = makeConflictAdapter<E>({
     schema: buildActionEntitySchema(paths, { discriminatorField: accessors.discriminatorField }),
     signature: accessors.signature,
@@ -182,11 +182,11 @@ function makeTrackingAdapter<E extends { uid: string }>(
     const condM = conditionsRe.exec(path);
     if (condM) {
       const uid = condM[1];
-      const leaf = condM[2] as 'values' | 'field' | 'headerName';
+      const leaf = condM[2] as 'values' | 'type' | 'headerName';
       const c = accessors.getConditions(entity).find((c) => c.uid === uid);
       if (!c) return null;
       if (leaf === 'values') return (c.values ?? []).join(', ');
-      if (leaf === 'field') return String(c.type);
+      if (leaf === 'type') return String(c.type);
       if (leaf === 'headerName') return String(c.headerName ?? '');
       return null;
     }
@@ -257,7 +257,7 @@ function makeTrackingAdapter<E extends { uid: string }>(
     const out: PathMap = { ...walker.tracking.extractBaseline(entity) };
     for (const c of accessors.getConditions(entity)) {
       out[paths.condition(c.uid, 'values')] = (c.values ?? []).join(', ');
-      out[paths.condition(c.uid, 'field')] = String(c.type);
+      out[paths.condition(c.uid, 'type')] = String(c.type);
     }
     if (accessors.getRuleType(entity) === 'mock') {
       const map = (accessors.getActionRoot(entity)?.responseHeaders as Record<string, string> | undefined) ?? {};
@@ -329,7 +329,7 @@ const HEADER_LEAF_LABEL: Record<string, string> = {
   mergeSeparator: 'merge separator',
 };
 const PARAM_LEAF_LABEL: Record<string, string> = { value: 'value', param: 'name', operation: 'operation' };
-const CONDITION_LEAF_LABEL: Record<string, string> = { values: 'values', field: 'field', headerName: 'header name' };
+const CONDITION_LEAF_LABEL: Record<string, string> = { values: 'values', type: 'type', headerName: 'header name' };
 const SCALAR_LABEL: Record<string, string> = {
   redirectTo: 'Redirect URL',
   delayMs: 'Delay (ms)',
@@ -471,7 +471,7 @@ function makeResolveAdapter<E extends { uid: string }>(
       return kind;
     }
     if (path === 'name') return 'Name';
-    const condM = /^conditions\.([a-z0-9]{8})\.(values|field|headerName)$/.exec(path);
+    const condM = /^conditions\.([a-z0-9]{8})\.(values|type|headerName)$/.exec(path);
     if (condM) {
       const leaf = CONDITION_LEAF_LABEL[condM[2]] ?? condM[2];
       return `Condition ${leaf}`;

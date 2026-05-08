@@ -44,7 +44,7 @@ describe('RULE_FIELD set-row generators (itemId-keyed)', () => {
 
   it('condition composes uid + leaf', () => {
     expect(RULE_FIELD.condition('cnd00001', 'values')).toBe('conditions.cnd00001.values');
-    expect(RULE_FIELD.condition('cnd00002', 'field')).toBe('conditions.cnd00002.field');
+    expect(RULE_FIELD.condition('cnd00002', 'type')).toBe('conditions.cnd00002.type');
     expect(RULE_FIELD.condition('cnd00003', 'headerName')).toBe('conditions.cnd00003.headerName');
   });
 
