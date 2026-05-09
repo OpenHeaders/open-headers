@@ -62,6 +62,7 @@ import {
 } from '@/shared/conflicts';
 import { useEditorShell, useReprime } from '@/shared/editor-shell';
 import { liveWorkflowResolveAdapter } from './live-workflow-conflict-adapter';
+import { rebindCaptureReferences } from './rebind-capture-references';
 import { rebindStepReferences } from './rebind-step-references';
 import {
   projectLiveWorkflowToForm,
@@ -963,6 +964,27 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({ draft, setDraft }) 
         oldId: prev.id,
         newId: next.id,
       });
+    }
+    // Auto-rebind capture references on a capture.name rename. Match
+    // captures by uid across prev / next and rewrite any
+    // `(stepId, captureName)` reference where stepId === step.id
+    // and captureName === old. Use the renamed step's CURRENT id
+    // (next.id) since the step-id rebind above already shifted the
+    // owner's identifier when both rename together.
+    if (prev) {
+      const prevCapByUid = new Map(prev.captures.map((c) => [c.uid, c]));
+      for (const nextCap of next.captures) {
+        const prevCap = prevCapByUid.get(nextCap.uid);
+        if (!prevCap) continue;
+        if (prevCap.name === nextCap.name) continue;
+        if (prevCap.name.length === 0 || nextCap.name.length === 0) continue;
+        nextDraft = rebindCaptureReferences({
+          draft: nextDraft,
+          ownerStepId: next.id,
+          oldName: prevCap.name,
+          newName: nextCap.name,
+        });
+      }
     }
     setDraft(nextDraft);
   };
