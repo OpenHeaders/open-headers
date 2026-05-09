@@ -286,6 +286,22 @@ export function reset<K extends SettingKey>(key: K): void {
   set(key, def.default);
 }
 
+/**
+ * Reset every modified setting back to its registered default. Writes
+ * are debounced per scope so this triggers at most one storage flush
+ * per scope, regardless of how many keys were touched.
+ */
+export function resetAll(): number {
+  let resetCount = 0;
+  for (const def of allDefs()) {
+    if (state.modified.has(def.key)) {
+      set(def.key, def.default);
+      resetCount++;
+    }
+  }
+  return resetCount;
+}
+
 // ── Subscription API ─────────────────────────────────────────────────
 
 export function subscribeKey<K extends SettingKey>(key: K, fn: KeyListener): () => void {

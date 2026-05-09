@@ -8,11 +8,13 @@
  */
 
 import { useCallback, useSyncExternalStore } from 'react';
+import { allDefs } from './registry';
 import {
   get as storeGet,
   isModified as storeIsModified,
   isReady as storeIsReady,
   reset as storeReset,
+  resetAll as storeResetAll,
   set as storeSet,
   subscribeAll,
   subscribeKey,
@@ -48,6 +50,21 @@ export function useIsModified<K extends SettingKey>(key: K): boolean {
 /** Reset `key` to its registered default. */
 export function useResetSetting<K extends SettingKey>(key: K): () => void {
   return useCallback(() => storeReset(key), [key]);
+}
+
+/** Reset every modified setting back to its registered default. Returns how many were reset. */
+export function useResetAllSettings(): () => number {
+  return useCallback(() => storeResetAll(), []);
+}
+
+/** Live count of settings whose value differs from their registered default. */
+export function useModifiedCount(): number {
+  const getSnapshot = useCallback(() => {
+    let n = 0;
+    for (const def of allDefs()) if (storeIsModified(def.key)) n++;
+    return n;
+  }, []);
+  return useSyncExternalStore(subscribeAll, getSnapshot, getSnapshot);
 }
 
 /**

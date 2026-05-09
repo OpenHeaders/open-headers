@@ -7,9 +7,11 @@
  * sidebar surfaces per-category match counts.
  */
 
-import { type InputRef, theme } from 'antd';
+import { UndoOutlined } from '@ant-design/icons';
+import { Button, type InputRef, Popconfirm, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useModifiedCount, useResetAllSettings } from '../hooks';
 import { allCategories, getDef } from '../registry';
 import { searchSettings } from '../search';
 import type { CategoryDef, SettingDef, SettingKey } from '../types';
@@ -215,8 +217,45 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
         <Hint keys={['↑', '↓']} label="Navigate" />
         <Hint keys={['↵']} label="Select" />
         <Hint keys={['Esc']} label="Clear / Close" />
+        <div style={{ flex: 1 }} />
+        <ResetAllButton />
       </footer>
     </div>
+  );
+};
+
+const ResetAllButton: React.FC = () => {
+  const { token } = theme.useToken();
+  const modified = useModifiedCount();
+  const resetAll = useResetAllSettings();
+  const disabled = modified === 0;
+  return (
+    <Popconfirm
+      title="Reset all settings?"
+      description={
+        modified === 0
+          ? 'Nothing to reset — all settings are at their defaults.'
+          : `Restore ${modified} setting${modified === 1 ? '' : 's'} to its default value.`
+      }
+      okText="Reset"
+      okButtonProps={{ danger: true, disabled }}
+      cancelText="Cancel"
+      onConfirm={() => {
+        if (!disabled) resetAll();
+      }}
+      placement="topRight"
+      disabled={disabled}
+    >
+      <Button
+        size="small"
+        type="text"
+        icon={<UndoOutlined />}
+        disabled={disabled}
+        style={{ fontSize: 11, color: disabled ? token.colorTextTertiary : token.colorTextSecondary }}
+      >
+        {modified === 0 ? 'Reset all' : `Reset all (${modified})`}
+      </Button>
+    </Popconfirm>
   );
 };
 
