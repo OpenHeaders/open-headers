@@ -16,7 +16,13 @@
  *   failed      = error  (after Apply outcome)
  */
 
-import { CheckCircleFilled, MinusCircleOutlined, PlusCircleOutlined, WarningFilled } from '@ant-design/icons';
+import {
+  CheckCircleFilled,
+  MinusCircleOutlined,
+  PlusCircleOutlined,
+  SwapOutlined,
+  WarningFilled,
+} from '@ant-design/icons';
 import { Tag, Tooltip, Typography, theme } from 'antd';
 import type { ReactElement } from 'react';
 import type { MergeFile, MergeFileKind } from '../types';
@@ -79,6 +85,16 @@ const MergeFileList = ({ files, activeFileId, states, onSelect }: MergeFileListP
   if (files.length <= 1) return null;
   const grouped = groupFiles(files);
   const showGroupHeaders = grouped.some((g) => g.group !== '');
+
+  // Paired-row resolution (plan §5.3 v1: visual pairing only,
+  // independent resolution per row). A row is "paired" when both
+  // sides of the pair exist in the same session.
+  const fileIds = new Set(files.map((f) => f.id));
+  const isPaired = (file: MergeFile): boolean => file.pairedWith !== undefined && fileIds.has(file.pairedWith);
+  const partnerLabel = (file: MergeFile): string | undefined => {
+    if (!file.pairedWith) return undefined;
+    return files.find((f) => f.id === file.pairedWith)?.label;
+  };
 
   return (
     <div
@@ -152,6 +168,11 @@ const MergeFileList = ({ files, activeFileId, states, onSelect }: MergeFileListP
                 >
                   {f.label}
                 </span>
+                {isPaired(f) ? (
+                  <Tooltip title={`Paired with: ${partnerLabel(f) ?? f.pairedWith}`}>
+                    <SwapOutlined style={{ color: token.colorTextSecondary, fontSize: 12 }} />
+                  </Tooltip>
+                ) : null}
                 {state.status === 'failed' && state.error ? (
                   <Tooltip title={state.error}>
                     <WarningFilled style={{ color: token.colorError, fontSize: 12 }} />
