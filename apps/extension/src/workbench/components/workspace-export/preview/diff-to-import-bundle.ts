@@ -13,7 +13,16 @@
  * neither incoming nor target content are skipped (no diff to surface).
  */
 
-import type { DiffEntry, DiffResult, DiffSingleton, WorkspaceExport } from '@openheaders/core/workspace-export';
+import type {
+  CollisionState,
+  DiffEntry,
+  DiffResult,
+  DiffSingleton,
+  PlanSingletonAction,
+  StrategyMap,
+  WorkspaceExport,
+} from '@openheaders/core/workspace-export';
+import type { MergeFile } from '@/shared/merge-editor';
 import type { ImportBundle, ImportBundleEntity, ImportWorkspaceSnapshot } from '@/shared/conflicts';
 
 /** Mirrors `SerializableEntityKind` from `@openheaders/core/workspace-export`.
@@ -120,4 +129,126 @@ export function diffResultToImportBundle(
       },
     },
   };
+}
+
+// ── Apply path: merge-editor results → envelope + StrategyMap ──────
+
+/** Singular `entityType` strings emitted by `diffResultToImportBundle`,
+ *  paired with the plural bucket name on the export envelope. */
+const BUCKET_BY_TYPE: Record<
+  Exclude<ImportEntityType, 'workspaceVars' | 'vault'>,
+  keyof Omit<DiffResult, 'workspaceVars' | 'vault'>
+> = {
+  collection: 'collections',
+  folder: 'folders',
+  rule: 'rules',
+  request: 'requests',
+  template: 'templates',
+  environment: 'environments',
+  liveWorkflow: 'liveWorkflows',
+  liveVariable: 'liveVariables',
+};
+
+function collisionStateOf(diff: DiffResult, entityType: ImportEntityType, uid: string): CollisionState | undefined {
+  if (entityType === 'workspaceVars' || entityType === 'vault') return undefined;
+  const bucket = BUCKET_BY_TYPE[entityType];
+  const list = diff[bucket] as readonly DiffEntry<{ uid: string }>[];
+  return list.find((e) => e.entity.uid === uid)?.state;
+}
+
+export interface ApplyMergeResultsArgs {
+  /** Original envelope produced by `parseWorkspaceExport` (or its
+   *  decrypted counterpart). The function returns a fresh envelope
+   *  with the user's resolved entities spliced in — the input is
+   *  not mutated. */
+  envelope: WorkspaceExport;
+  files: readonly MergeFile[];
+  results: ReadonlyMap<string, string>;
+  diff: DiffResult;
+  /** Caller-owned text → entity codec; `entityType` mirrors
+   *  `MergeFile.group` (singular form). Throw on parse failure;
+   *  `applyMergeResultsToEnvelope` propagates so the caller can
+   *  surface the row that broke. */
+  deserialize: (entityType: ImportEntityType, text: string) => unknown;
+}
+
+export interface ApplyMergeResultsOutput {
+  envelope: WorkspaceExport;
+  strategies: StrategyMap;
+}
+
+/** Project the merge-editor's result-text map onto a fresh envelope +
+ *  `StrategyMap` ready for `importWorkspace`. Decisions per file:
+ *    - empty result → strategy `'skip'`, envelope unchanged.
+ *    - collision + non-empty → splice resolved entity into envelope,
+ *      strategy `'update'`.
+ *    - non-collision + non-empty → splice + strategy `'new-uid'`.
+ *    - singletons: `'replace'` on non-empty, `'skip'` on empty.
+ *  Files absent from `results` (untouched) leave the envelope alone
+ *  and fall through to the diff's default strategy. */
+export function applyMergeResultsToEnvelope(args: ApplyMergeResultsArgs): ApplyMergeResultsOutput {
+  const { envelope, files, results, diff, deserialize } = args;
+  // Shallow-clone the envelope tree so mutations don't escape.
+  const next: WorkspaceExport = {
+    ...envelope,
+    entities: { ...envelope.entities },
+  };
+  const strategies: StrategyMap = {};
+
+  for (const file of files) {
+    const text = results.get(file.id);
+    if (text === undefined) continue;
+    const entityType = (file.group ?? '') as ImportEntityType;
+    const isEmpty = text.trim() === '';
+
+    if (entityType === 'workspaceVars') {
+      if (isEmpty) {
+        strategies.workspaceVars = 'skip';
+      } else {
+        const parsed = deserialize('workspaceVars', text);
+        next.entities = { ...next.entities, workspaceVars: parsed as WorkspaceExport['entities']['workspaceVars'] };
+        strategies.workspaceVars = 'replace' satisfies PlanSingletonAction;
+      }
+      continue;
+    }
+    if (entityType === 'vault') {
+      if (isEmpty) {
+        strategies.vault = 'skip';
+      } else {
+        const parsed = deserialize('vault', text);
+        next.entities = { ...next.entities, vault: parsed as WorkspaceExport['entities']['vault'] };
+        strategies.vault = 'replace' satisfies PlanSingletonAction;
+      }
+      continue;
+    }
+
+    const bucket = BUCKET_BY_TYPE[entityType];
+    if (!bucket) continue;
+    const state = collisionStateOf(diff, entityType, file.id);
+    const bucketKey = bucket as keyof StrategyMap;
+
+    if (isEmpty) {
+      const map = (strategies[bucketKey] as Record<string, string> | undefined) ?? {};
+      map[file.id] = 'skip';
+      (strategies as Record<string, unknown>)[bucketKey] = map;
+      continue;
+    }
+
+    const parsed = deserialize(entityType, text);
+    // Replace in the envelope's bucket array (immutable splice).
+    const list = (next.entities[bucket] as readonly { uid: string }[] | undefined) ?? [];
+    const idx = list.findIndex((e) => e.uid === file.id);
+    const nextList =
+      idx >= 0
+        ? [...list.slice(0, idx), parsed as { uid: string }, ...list.slice(idx + 1)]
+        : [...list, parsed as { uid: string }];
+    (next.entities as Record<string, unknown>)[bucket] = nextList;
+
+    const strategy = state && state !== 'no-collision' ? 'update' : 'new-uid';
+    const map = (strategies[bucketKey] as Record<string, string> | undefined) ?? {};
+    map[file.id] = strategy;
+    (strategies as Record<string, unknown>)[bucketKey] = map;
+  }
+
+  return { envelope: next, strategies };
 }

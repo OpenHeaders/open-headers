@@ -1,8 +1,10 @@
 import type { DiffEntry, DiffResult, WorkspaceExport } from '@openheaders/core/workspace-export';
-import { describe, expect, it } from 'vitest';
+import type { MergeFile } from '@/shared/merge-editor';
+import { describe, expect, it, vi } from 'vitest';
 import {
   VAULT_SINGLETON_UID,
   WORKSPACE_VARS_SINGLETON_UID,
+  applyMergeResultsToEnvelope,
   diffResultToImportBundle,
 } from '@/workbench/components/workspace-export/preview/diff-to-import-bundle';
 
@@ -185,6 +187,9 @@ describe('diffResultToImportBundle', () => {
     expect(bundle.entities).toEqual([]);
   });
 
+  // Below this point: applyMergeResultsToEnvelope tests live in their own
+  // describe block at file-end. This first block keeps the
+  // diffResultToImportBundle coverage intact.
   it('skips singletons that are present locally but missing in incoming (no remove projection in v1)', () => {
     const targetVault = { secrets: [{ uid: 's1', kind: 'string', name: 'TOKEN' }] };
     const { bundle } = diffResultToImportBundle(
@@ -201,5 +206,223 @@ describe('diffResultToImportBundle', () => {
       { entities: { workspaceVars: undefined, vault: undefined } } as unknown as WorkspaceExport,
     );
     expect(bundle.entities).toEqual([]);
+  });
+});
+
+describe('applyMergeResultsToEnvelope', () => {
+  function file(group: string, id: string): MergeFile {
+    return {
+      id,
+      label: id,
+      language: 'yaml',
+      group,
+      kind: 'modify',
+      theirs: '',
+      mine: '',
+      initialResult: '',
+    };
+  }
+
+  const baseEnvelope = (overrides: Partial<WorkspaceExport['entities']> = {}): WorkspaceExport =>
+    ({
+      kind: 'workspace-export',
+      entities: {
+        collections: [],
+        folders: [],
+        rules: [],
+        requests: [],
+        templates: [],
+        environments: [],
+        liveWorkflows: [],
+        liveVariables: [],
+        workspaceVars: { variables: [] },
+        ...overrides,
+      },
+    }) as unknown as WorkspaceExport;
+
+  function diffWith(overrides: Partial<DiffResult> = {}): DiffResult {
+    return { ...emptyDiff, ...overrides };
+  }
+
+  it('untouched files (no entry in results) leave envelope + strategies unchanged', () => {
+    const envelope = baseEnvelope({ rules: [{ uid: 'r1', name: 'X' } as never] });
+    const out = applyMergeResultsToEnvelope({
+      envelope,
+      files: [file('rule', 'r1')],
+      results: new Map(),
+      diff: diffWith(),
+      deserialize: vi.fn(),
+    });
+    expect(out.envelope.entities).toEqual(envelope.entities);
+    expect(out.strategies).toEqual({});
+  });
+
+  it('collision + non-empty result splices resolved entity and emits strategy=update', () => {
+    const original = { uid: 'r1', name: 'Original' };
+    const resolved = { uid: 'r1', name: 'Resolved' };
+    const envelope = baseEnvelope({ rules: [original as never] });
+    const deserialize = vi.fn().mockReturnValue(resolved);
+    const out = applyMergeResultsToEnvelope({
+      envelope,
+      files: [file('rule', 'r1')],
+      results: new Map([['r1', 'yaml-text']]),
+      diff: diffWith({
+        rules: [
+          { entity: original, state: 'collision-uid', defaultStrategy: 'update', allowedStrategies: ['update'] },
+        ] as DiffEntry<unknown>[] as DiffResult['rules'],
+      }),
+      deserialize,
+    });
+    expect(deserialize).toHaveBeenCalledWith('rule', 'yaml-text');
+    expect((out.envelope.entities.rules as unknown as Array<{ uid: string }>)[0]).toBe(resolved);
+    expect(out.strategies).toEqual({ rules: { r1: 'update' } });
+    // Original envelope was not mutated.
+    expect((envelope.entities.rules as unknown as Array<{ uid: string }>)[0]).toBe(original);
+  });
+
+  it("non-collision + non-empty result emits strategy=new-uid", () => {
+    const original = { uid: 'r1', name: 'New rule' };
+    const envelope = baseEnvelope({ rules: [original as never] });
+    const out = applyMergeResultsToEnvelope({
+      envelope,
+      files: [file('rule', 'r1')],
+      results: new Map([['r1', 'yaml-text']]),
+      diff: diffWith({
+        rules: [
+          { entity: original, state: 'no-collision', defaultStrategy: 'new-uid', allowedStrategies: ['new-uid'] },
+        ] as DiffEntry<unknown>[] as DiffResult['rules'],
+      }),
+      deserialize: vi.fn().mockReturnValue({ uid: 'r1', name: 'Edited' }),
+    });
+    expect(out.strategies).toEqual({ rules: { r1: 'new-uid' } });
+  });
+
+  it('empty result emits strategy=skip and leaves envelope unchanged', () => {
+    const original = { uid: 'r1', name: 'Skip me' };
+    const envelope = baseEnvelope({ rules: [original as never] });
+    const out = applyMergeResultsToEnvelope({
+      envelope,
+      files: [file('rule', 'r1')],
+      results: new Map([['r1', '   \n  ']]),
+      diff: diffWith({
+        rules: [
+          { entity: original, state: 'collision-uid', defaultStrategy: 'update', allowedStrategies: ['update'] },
+        ] as DiffEntry<unknown>[] as DiffResult['rules'],
+      }),
+      deserialize: vi.fn(),
+    });
+    expect(out.strategies).toEqual({ rules: { r1: 'skip' } });
+    expect(out.envelope.entities.rules).toEqual([original]);
+  });
+
+  it("workspaceVars singleton: non-empty → 'replace' + envelope swap, empty → 'skip'", () => {
+    const original = { variables: [{ key: 'A', value: '1' }] };
+    const resolved = { variables: [{ key: 'A', value: '2' }] };
+    const envelope = baseEnvelope({ workspaceVars: original as never });
+    const replace = applyMergeResultsToEnvelope({
+      envelope,
+      files: [file('workspaceVars', WORKSPACE_VARS_SINGLETON_UID)],
+      results: new Map([[WORKSPACE_VARS_SINGLETON_UID, 'yaml']]),
+      diff: diffWith(),
+      deserialize: vi.fn().mockReturnValue(resolved),
+    });
+    expect(replace.envelope.entities.workspaceVars).toBe(resolved);
+    expect(replace.strategies.workspaceVars).toBe('replace');
+
+    const skip = applyMergeResultsToEnvelope({
+      envelope,
+      files: [file('workspaceVars', WORKSPACE_VARS_SINGLETON_UID)],
+      results: new Map([[WORKSPACE_VARS_SINGLETON_UID, '']]),
+      diff: diffWith(),
+      deserialize: vi.fn(),
+    });
+    expect(skip.envelope.entities.workspaceVars).toBe(original);
+    expect(skip.strategies.workspaceVars).toBe('skip');
+  });
+
+  it('vault singleton handled symmetrically', () => {
+    const incomingVault = { secrets: [{ uid: 's1' }] };
+    const resolvedVault = { secrets: [{ uid: 's1', edited: true }] };
+    const envelope = baseEnvelope({ vault: incomingVault as never });
+    const out = applyMergeResultsToEnvelope({
+      envelope,
+      files: [file('vault', VAULT_SINGLETON_UID)],
+      results: new Map([[VAULT_SINGLETON_UID, 'yaml']]),
+      diff: diffWith(),
+      deserialize: vi.fn().mockReturnValue(resolvedVault),
+    });
+    expect(out.envelope.entities.vault).toBe(resolvedVault);
+    expect(out.strategies.vault).toBe('replace');
+  });
+
+  it('mixed bundle: collision update + add new-uid + skip + singleton replace', () => {
+    const ruleA = { uid: 'rule-a', name: 'A' };
+    const ruleB = { uid: 'rule-b', name: 'B' };
+    const envA = { uid: 'env-a', name: 'Env' };
+    const wsv = { variables: [] };
+    const envelope = baseEnvelope({
+      rules: [ruleA as never, ruleB as never],
+      environments: [envA as never],
+      workspaceVars: wsv as never,
+    });
+    const deserialize = vi.fn((type, text) => {
+      if (type === 'rule' && text === 'merged-a') return { uid: 'rule-a', name: 'Merged' };
+      if (type === 'environment' && text === 'edited-env') return { uid: 'env-a', name: 'Edited' };
+      if (type === 'workspaceVars') return { variables: [{ key: 'X', value: '1' }] };
+      return null;
+    });
+    const out = applyMergeResultsToEnvelope({
+      envelope,
+      files: [
+        file('rule', 'rule-a'),
+        file('rule', 'rule-b'),
+        file('environment', 'env-a'),
+        file('workspaceVars', WORKSPACE_VARS_SINGLETON_UID),
+      ],
+      results: new Map([
+        ['rule-a', 'merged-a'],
+        ['rule-b', '  '],
+        ['env-a', 'edited-env'],
+        [WORKSPACE_VARS_SINGLETON_UID, 'yaml'],
+      ]),
+      diff: diffWith({
+        rules: [
+          { entity: ruleA, state: 'collision-uid', defaultStrategy: 'update', allowedStrategies: ['update'] },
+          { entity: ruleB, state: 'no-collision', defaultStrategy: 'new-uid', allowedStrategies: ['new-uid'] },
+        ] as DiffEntry<unknown>[] as DiffResult['rules'],
+        environments: [
+          { entity: envA, state: 'collision-uid', defaultStrategy: 'update', allowedStrategies: ['update'] },
+        ] as DiffEntry<unknown>[] as DiffResult['environments'],
+      }),
+      deserialize,
+    });
+    expect(out.strategies).toEqual({
+      rules: { 'rule-a': 'update', 'rule-b': 'skip' },
+      environments: { 'env-a': 'update' },
+      workspaceVars: 'replace',
+    });
+    const rules = out.envelope.entities.rules as unknown as Array<{ uid: string; name: string }>;
+    expect(rules[0]).toEqual({ uid: 'rule-a', name: 'Merged' });
+    // rule-b was skipped → envelope keeps original
+    expect(rules[1]).toBe(ruleB);
+  });
+
+  it('deserialize errors propagate so the caller can surface the broken row', () => {
+    const envelope = baseEnvelope({ rules: [{ uid: 'r1', name: 'X' } as never] });
+    expect(() =>
+      applyMergeResultsToEnvelope({
+        envelope,
+        files: [file('rule', 'r1')],
+        results: new Map([['r1', 'yaml']]),
+        diff: diffWith({
+          rules: [
+            { entity: { uid: 'r1', name: 'X' }, state: 'collision-uid', defaultStrategy: 'update', allowedStrategies: ['update'] },
+          ] as DiffEntry<unknown>[] as DiffResult['rules'],
+        }),
+        deserialize: () => {
+          throw new Error('parse failed');
+        },
+      }),
+    ).toThrow('parse failed');
   });
 });
