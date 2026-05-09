@@ -194,6 +194,9 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
   // (tracker is declared after reprime since its `isDirty` flows in
   // from reprime).
   const setBaselineRef = useRef<(e: V5.LiveWorkflow) => void>(() => undefined);
+  // Snapshot of the canonical entity at the most recent re-prime — feeds
+  // the merge-editor preview's Show Base layouts via `baseText`.
+  const baselineLiveWorkflowRef = useRef<V5.LiveWorkflow | null>(null);
 
   const reprime = useReprime<V5.LiveWorkflow>({
     liveEntity: workflow,
@@ -204,6 +207,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
     populate: (e) => setDraft(draftFromWorkflow(e, variables)),
     onPrimed: (e) => {
       setBaselineRef.current(e);
+      baselineLiveWorkflowRef.current = e;
       if (!seedStep || seedAppliedRef.current) return;
       seedAppliedRef.current = true;
       setDraft((d) => {
@@ -364,6 +368,26 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
       2,
     );
   }, [isConflictDialogOpen, workflow]);
+
+  // Baseline JSON for the merge-editor preview's Show Base layouts.
+  // Mirrors `savedText`'s shape — `steps` is intentionally excluded
+  // (uid audit §0c.7: step.id is the unstable reorderable key, set-pick
+  // is gated off until a stable uid surfaces in the schema).
+  const baseText = useMemo(() => {
+    if (!isConflictDialogOpen) return undefined;
+    const baseline = baselineLiveWorkflowRef.current;
+    if (!baseline) return undefined;
+    return JSON.stringify(
+      {
+        name: baseline.name,
+        description: baseline.description ?? '',
+        enabled: baseline.enabled,
+        refresh: baseline.refresh,
+      },
+      null,
+      2,
+    );
+  }, [isConflictDialogOpen]);
 
   const buildLocalText = useCallback(
     (resolutions: ReadonlyMap<string, ConflictResolution>): string => {
@@ -668,6 +692,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
       <EntityConflictDialog
         open={isConflictDialogOpen}
         savedText={savedText}
+        baseText={baseText}
         buildLocalText={buildLocalText}
         conflicts={allConflicts}
         localValuesByPath={new Map(Object.entries(formProjection ?? {}))}
