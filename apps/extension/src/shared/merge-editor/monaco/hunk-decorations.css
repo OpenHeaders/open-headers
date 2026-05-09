@@ -70,3 +70,15 @@
 [data-merge-theme='dark'] .oh-merge__missing-marker {
   border-top-color: rgba(248, 81, 73, 0.6);
 }
+
+/* Inline char-level diff highlight inside a modification hunk. The
+ * line-level background is already tinted by hunk-modification; this
+ * adds a stronger character-range tint so the eye locks onto the
+ * actual edit. */
+.oh-merge__char-diff {
+  background-color: rgba(229, 192, 123, 0.45);
+  border-radius: 2px;
+}
+[data-merge-theme='dark'] .oh-merge__char-diff {
+  background-color: rgba(210, 153, 34, 0.55);
+}
