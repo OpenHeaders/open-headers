@@ -42,7 +42,7 @@ import {
 import { classifyConflicts } from '../diff/conflict-classify';
 import { diffLines, type Hunk } from '../diff/line-diff';
 import { useCharDecorations } from '../monaco/use-char-decorations';
-import { type GridRatios, useGridResize } from '../monaco/use-grid-resize';
+import { useGridResize } from '../monaco/use-grid-resize';
 import { useHunkAcceptArrows } from '../monaco/use-hunk-accept-arrows';
 import { type HunkSide, useHunkDecorations } from '../monaco/use-hunk-decorations';
 import { type MergeActionsContext, useMergeActions } from '../monaco/use-merge-actions';
@@ -50,8 +50,9 @@ import { useMissingMarkers } from '../monaco/use-missing-markers';
 import { useMonacoEditorLifecycle } from '../monaco/use-monaco-editor-lifecycle';
 import { useSyncScroll } from '../monaco/use-sync-scroll';
 import type { MergeFile } from '../types';
+import { gridTemplate, type MergeLayout, paneVisibility } from './layout';
 
-export type MergeLayout = 'column' | 'show-base-top' | 'show-base-center';
+export type { MergeLayout } from './layout';
 
 export interface HunkStats {
   /** Remaining hunks where theirs ≠ result (incoming side still
@@ -109,91 +110,6 @@ const PANE_BG_LIGHT = '#ffffff';
 const PANE_BG_DARK = '#1e1e1e';
 const HEADER_HEIGHT = 28;
 const HEADER_PAD = '4px 10px';
-
-const SASH_PX = 5;
-
-/**
- * Grid template for a given layout × pane availability. Includes
- * fixed-pixel sash tracks between resizable cells; the sash elements
- * themselves are rendered as grid items by `MergePane` and bound to
- * pointer drags via `useGridResize`. Plan §13: layouts swap via
- * grid-template change only.
- *
- *   column (3-pane):    theirs sashL result sashR mine            (1 row)
- *   column (2-pane):    theirs sash  result                       (1 row)
- *   show-base-top:      base spans top, sashRow, theirs|result|mine row
- *   show-base-center:   theirs|base|mine row, sashRow, result spans bottom
- */
-function gridTemplate(
-  layout: MergeLayout,
-  has3Panes: boolean,
-  baseAvailable: boolean,
-  ratios: GridRatios,
-): { areas: string; cols: string; rows: string; rowSash: boolean } {
-  const effectiveLayout: MergeLayout = baseAvailable ? layout : 'column';
-  const sash = `${SASH_PX}px`;
-  const [c0, c1, c2] = ratios.cols;
-  const cols3 = `${c0}fr ${sash} ${c1}fr ${sash} ${c2}fr`;
-  const cols2 = `${c0}fr ${sash} ${c1}fr`;
-  const [r0, r1] = ratios.rows;
-  const rows2 = `${r0}fr ${sash} ${r1}fr`;
-
-  if (effectiveLayout === 'show-base-top' && has3Panes) {
-    return {
-      areas: `
-        "base   base    base    base    base"
-        "rsash  rsash   rsash   rsash   rsash"
-        "theirs sashTL  result  sashTR  mine"
-      `,
-      cols: cols3,
-      rows: rows2,
-      rowSash: true,
-    };
-  }
-  if (effectiveLayout === 'show-base-center' && has3Panes) {
-    return {
-      areas: `
-        "theirs sashTL  base    sashTR  mine"
-        "rsash  rsash   rsash   rsash   rsash"
-        "result result  result  result  result"
-      `,
-      cols: cols3,
-      rows: rows2,
-      rowSash: true,
-    };
-  }
-  // column
-  if (has3Panes) {
-    return {
-      areas: `"theirs sashTL result sashTR mine"`,
-      cols: cols3,
-      rows: '1fr',
-      rowSash: false,
-    };
-  }
-  // 2-pane fallback
-  return {
-    areas: `"theirs sashTL result"`,
-    cols: cols2,
-    rows: '1fr',
-    rowSash: false,
-  };
-}
-
-/** Whether each pane is a member of the active layout's template. */
-function paneVisibility(
-  layout: MergeLayout,
-  has3Panes: boolean,
-  baseAvailable: boolean,
-): { theirs: boolean; base: boolean; result: boolean; mine: boolean } {
-  const effectiveLayout: MergeLayout = baseAvailable ? layout : 'column';
-  return {
-    theirs: true,
-    result: true,
-    mine: has3Panes,
-    base: baseAvailable && (effectiveLayout === 'show-base-top' || effectiveLayout === 'show-base-center'),
-  };
-}
 
 const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane(props, ref) {
   const {
