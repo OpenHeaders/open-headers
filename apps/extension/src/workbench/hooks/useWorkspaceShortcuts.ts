@@ -95,25 +95,25 @@ type HandlerRef =
 export const SHORTCUTS: readonly ShortcutDef[] = [
   // Panels
   {
-    id: 'toggle-sidebar',
-    label: 'Toggle sidebar',
-    settingKey: 'keyboard.toggleSidebar',
+    id: 'toggle-left-sidebar',
+    label: 'Toggle left sidebar',
+    settingKey: 'keyboard.toggleLeftSidebar',
     category: 'panels',
     handler: { kind: 'direct', name: 'onToggleSidebar' },
   },
   {
-    id: 'toggle-bottom',
+    id: 'toggle-right-sidebar',
+    label: 'Toggle right sidebar',
+    settingKey: 'keyboard.toggleRightSidebar',
+    category: 'panels',
+    handler: { kind: 'direct', name: 'onToggleInspector' },
+  },
+  {
+    id: 'toggle-bottom-panel',
     label: 'Toggle bottom panel',
     settingKey: 'keyboard.toggleBottomPanel',
     category: 'panels',
     handler: { kind: 'direct', name: 'onToggleBottomPanel' },
-  },
-  {
-    id: 'toggle-inspector',
-    label: 'Toggle inspector',
-    settingKey: 'keyboard.toggleInspector',
-    category: 'panels',
-    handler: { kind: 'direct', name: 'onToggleInspector' },
   },
 
   // Tabs
@@ -157,16 +157,16 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
   },
   {
     id: 'focus-filter',
-    label: 'Focus sidebar filter',
+    label: 'Focus left sidebar filter',
     settingKey: 'keyboard.focusSidebarFilter',
     category: 'navigation',
     handler: { kind: 'direct', name: 'onFocusFilter' },
     requireNoInput: true,
   },
   {
-    id: 'focus-left',
-    label: 'Focus left panel',
-    settingKey: 'keyboard.focusLeftPanel',
+    id: 'focus-left-sidebar',
+    label: 'Focus left sidebar',
+    settingKey: 'keyboard.focusLeftSidebar',
     category: 'navigation',
     handler: { kind: 'focus', region: 'left' },
   },
@@ -178,14 +178,14 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
     handler: { kind: 'focus', region: 'editor' },
   },
   {
-    id: 'focus-right',
-    label: 'Focus right panel',
-    settingKey: 'keyboard.focusRightPanel',
+    id: 'focus-right-sidebar',
+    label: 'Focus right sidebar',
+    settingKey: 'keyboard.focusRightSidebar',
     category: 'navigation',
     handler: { kind: 'focus', region: 'right' },
   },
   {
-    id: 'focus-bottom',
+    id: 'focus-bottom-panel',
     label: 'Focus bottom panel',
     settingKey: 'keyboard.focusBottomPanel',
     category: 'navigation',

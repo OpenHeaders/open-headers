@@ -76,9 +76,9 @@ const TopBar: React.FC<TopBarProps> = ({
   const { pickActiveEnvironment } = useEnvSwitcher();
   const commandPaletteLabel = useShortcutLabel('command-palette');
   const openSettingsLabel = useShortcutLabel('open-settings');
-  const toggleSidebarLabel = useShortcutLabel('toggle-sidebar');
-  const toggleBottomLabel = useShortcutLabel('toggle-bottom');
-  const toggleInspectorLabel = useShortcutLabel('toggle-inspector');
+  const toggleLeftSidebarLabel = useShortcutLabel('toggle-left-sidebar');
+  const toggleBottomPanelLabel = useShortcutLabel('toggle-bottom-panel');
+  const toggleRightSidebarLabel = useShortcutLabel('toggle-right-sidebar');
 
   // Mirror the live per-rail activity-bar widths onto the topbar's
   // outer grid tracks so the logo centers over the left bar, the
@@ -343,21 +343,21 @@ const TopBar: React.FC<TopBarProps> = ({
             />
             <div className="rules-panel-toggles">
               <RegionToggle
-                title={<ShortcutHintTitle label={toggleSidebarLabel}>Left sidebar</ShortcutHintTitle>}
+                title={<ShortcutHintTitle label={toggleLeftSidebarLabel}>Left sidebar</ShortcutHintTitle>}
                 ariaTitle="Left sidebar"
                 active={tl.isRegionOpen('left')}
                 position="left"
                 onClick={() => tl.toggleRegion('left')}
               />
               <RegionToggle
-                title={<ShortcutHintTitle label={toggleBottomLabel}>Bottom panel</ShortcutHintTitle>}
+                title={<ShortcutHintTitle label={toggleBottomPanelLabel}>Bottom panel</ShortcutHintTitle>}
                 ariaTitle="Bottom panel"
                 active={tl.isRegionOpen('bottom')}
                 position="bottom"
                 onClick={() => tl.toggleRegion('bottom')}
               />
               <RegionToggle
-                title={<ShortcutHintTitle label={toggleInspectorLabel}>Right sidebar</ShortcutHintTitle>}
+                title={<ShortcutHintTitle label={toggleRightSidebarLabel}>Right sidebar</ShortcutHintTitle>}
                 ariaTitle="Right sidebar"
                 active={tl.isRegionOpen('right')}
                 position="right"

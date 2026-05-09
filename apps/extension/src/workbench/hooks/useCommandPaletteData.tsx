@@ -228,9 +228,9 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
   ]);
 
   const newRuleLabel = useShortcutLabel('new-rule');
-  const toggleSidebarLabel = useShortcutLabel('toggle-sidebar');
-  const toggleBottomLabel = useShortcutLabel('toggle-bottom');
-  const toggleInspectorLabel = useShortcutLabel('toggle-inspector');
+  const toggleLeftSidebarLabel = useShortcutLabel('toggle-left-sidebar');
+  const toggleBottomPanelLabel = useShortcutLabel('toggle-bottom-panel');
+  const toggleRightSidebarLabel = useShortcutLabel('toggle-right-sidebar');
   const openSettingsLabel = useShortcutLabel('open-settings');
 
   const sections = useMemo((): CommandPaletteSection[] => {
@@ -260,22 +260,22 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
       title: 'Commands',
       items: [
         {
-          id: 'cmd-toggle-sidebar',
-          label: 'Toggle Sidebar',
-          shortcut: toggleSidebarLabel,
+          id: 'cmd-toggle-left-sidebar',
+          label: 'Toggle Left Sidebar',
+          shortcut: toggleLeftSidebarLabel,
           onSelect: () => onTogglePanel('sidebar'),
         },
         {
-          id: 'cmd-toggle-bottom',
-          label: 'Toggle Bottom Panel',
-          shortcut: toggleBottomLabel,
-          onSelect: () => onTogglePanel('bottomPanel'),
+          id: 'cmd-toggle-right-sidebar',
+          label: 'Toggle Right Sidebar',
+          shortcut: toggleRightSidebarLabel,
+          onSelect: () => onTogglePanel('inspector'),
         },
         {
-          id: 'cmd-toggle-inspector',
-          label: 'Toggle Inspector',
-          shortcut: toggleInspectorLabel,
-          onSelect: () => onTogglePanel('inspector'),
+          id: 'cmd-toggle-bottom-panel',
+          label: 'Toggle Bottom Panel',
+          shortcut: toggleBottomPanelLabel,
+          onSelect: () => onTogglePanel('bottomPanel'),
         },
         {
           id: 'cmd-shortcuts',
@@ -326,9 +326,9 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     onShowShortcuts,
     onOpenSettings,
     newRuleLabel,
-    toggleSidebarLabel,
-    toggleBottomLabel,
-    toggleInspectorLabel,
+    toggleLeftSidebarLabel,
+    toggleBottomPanelLabel,
+    toggleRightSidebarLabel,
     openSettingsLabel,
     environments,
     openEnvironmentEdit,

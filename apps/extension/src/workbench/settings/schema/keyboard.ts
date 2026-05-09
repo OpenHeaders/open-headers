@@ -31,9 +31,9 @@ declare module '../types' {
   interface SettingsMap {
     'keyboard.commandPalette': string;
     'keyboard.openSettings': string;
-    'keyboard.toggleSidebar': string;
+    'keyboard.toggleLeftSidebar': string;
     'keyboard.toggleBottomPanel': string;
-    'keyboard.toggleInspector': string;
+    'keyboard.toggleRightSidebar': string;
     'keyboard.newRule': string;
     'keyboard.save': string;
     'keyboard.closeTab': string;
@@ -41,9 +41,9 @@ declare module '../types' {
     'keyboard.previousTab': string;
     'keyboard.tabSearch': string;
     'keyboard.focusSidebarFilter': string;
-    'keyboard.focusLeftPanel': string;
+    'keyboard.focusLeftSidebar': string;
     'keyboard.focusEditor': string;
-    'keyboard.focusRightPanel': string;
+    'keyboard.focusRightSidebar': string;
     'keyboard.focusBottomPanel': string;
     'keyboard.showShortcutHelp': string;
     'keyboard.formatCode': string;
@@ -76,42 +76,44 @@ registerSetting({
   scope: 'user',
 });
 
+// Panel toggles cluster on three adjacent keys (`[` `]` `'`) so the
+// fingers don't have to leave home row to move between left/right/bottom.
 registerSetting({
-  key: 'keyboard.toggleSidebar',
+  key: 'keyboard.toggleLeftSidebar',
   type: 'keybinding',
-  default: 'mod+b',
+  default: 'mod+[',
   schema: chordSchema,
-  label: 'Toggle Sidebar',
+  label: 'Toggle Left Sidebar',
   description: 'Show or hide the left sidebar.',
   category: 'keyboard',
   subcategory: 'workbench-layout',
-  tags: ['sidebar', 'layout', 'panels'],
+  tags: ['left', 'sidebar', 'layout', 'panels'],
+  scope: 'user',
+});
+
+registerSetting({
+  key: 'keyboard.toggleRightSidebar',
+  type: 'keybinding',
+  default: 'mod+]',
+  schema: chordSchema,
+  label: 'Toggle Right Sidebar',
+  description: 'Show or hide the right sidebar.',
+  category: 'keyboard',
+  subcategory: 'workbench-layout',
+  tags: ['right', 'sidebar', 'inspector', 'layout', 'panels'],
   scope: 'user',
 });
 
 registerSetting({
   key: 'keyboard.toggleBottomPanel',
   type: 'keybinding',
-  default: 'mod+j',
+  default: "mod+'",
   schema: chordSchema,
   label: 'Toggle Bottom Panel',
   description: 'Show or hide the bottom panel.',
   category: 'keyboard',
   subcategory: 'workbench-layout',
-  tags: ['panel', 'layout', 'console'],
-  scope: 'user',
-});
-
-registerSetting({
-  key: 'keyboard.toggleInspector',
-  type: 'keybinding',
-  default: 'mod+\\',
-  schema: chordSchema,
-  label: 'Toggle Inspector',
-  description: 'Show or hide the right-side inspector panel.',
-  category: 'keyboard',
-  subcategory: 'workbench-layout',
-  tags: ['inspector', 'layout', 'panels'],
+  tags: ['bottom', 'panel', 'layout', 'console'],
   scope: 'user',
 });
 
@@ -162,7 +164,10 @@ registerSetting({
 registerSetting({
   key: 'keyboard.previousTab',
   type: 'keybinding',
-  default: 'mod+[',
+  // `mod+[` is reserved for the left sidebar — tab navigation moves to
+  // the alt+bracket cluster, which doesn't conflict with the browser's
+  // own back/forward chord either.
+  default: 'alt+[',
   schema: chordSchema,
   label: 'Previous Tab',
   description: 'Focus the previous editor tab.',
@@ -175,7 +180,7 @@ registerSetting({
 registerSetting({
   key: 'keyboard.nextTab',
   type: 'keybinding',
-  default: 'mod+]',
+  default: 'alt+]',
   schema: chordSchema,
   label: 'Next Tab',
   description: 'Focus the next editor tab.',
@@ -203,8 +208,8 @@ registerSetting({
   type: 'keybinding',
   default: '/',
   schema: chordSchema,
-  label: 'Focus Sidebar Filter',
-  description: 'Move focus to the sidebar filter input.',
+  label: 'Focus Left Sidebar Filter',
+  description: 'Move focus to the left sidebar filter input.',
   category: 'keyboard',
   subcategory: 'workbench-focus',
   tags: ['focus', 'filter', 'sidebar'],
@@ -212,12 +217,12 @@ registerSetting({
 });
 
 registerSetting({
-  key: 'keyboard.focusLeftPanel',
+  key: 'keyboard.focusLeftSidebar',
   type: 'keybinding',
   default: 'alt+1',
   schema: chordSchema,
-  label: 'Focus Left Panel',
-  description: 'Move keyboard focus to the left activity/sidebar region.',
+  label: 'Focus Left Sidebar',
+  description: 'Move keyboard focus to the left sidebar.',
   category: 'keyboard',
   subcategory: 'workbench-focus',
   tags: ['focus', 'navigation'],
@@ -238,12 +243,12 @@ registerSetting({
 });
 
 registerSetting({
-  key: 'keyboard.focusRightPanel',
+  key: 'keyboard.focusRightSidebar',
   type: 'keybinding',
   default: 'alt+3',
   schema: chordSchema,
-  label: 'Focus Right Panel',
-  description: 'Move keyboard focus to the right inspector panel.',
+  label: 'Focus Right Sidebar',
+  description: 'Move keyboard focus to the right sidebar.',
   category: 'keyboard',
   subcategory: 'workbench-focus',
   tags: ['focus', 'navigation'],
