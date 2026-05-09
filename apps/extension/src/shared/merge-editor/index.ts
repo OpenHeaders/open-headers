@@ -37,3 +37,4 @@ export type {
   MergeFileKind,
   MergeSession,
 } from './types';
+export { usePersistedLayout } from './use-persisted-layout';

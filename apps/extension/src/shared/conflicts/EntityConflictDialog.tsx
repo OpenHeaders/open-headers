@@ -589,6 +589,7 @@ const EntityConflictDialog: React.FC<EntityConflictDialogProps> = ({
         <MergeConflictModal
           open
           isDarkMode={isDarkMode}
+          surfaceId="entity-conflict"
           onClose={() => setPreviewOpen(false)}
           session={buildEntityMergeSession({
             fileId: 'preview',

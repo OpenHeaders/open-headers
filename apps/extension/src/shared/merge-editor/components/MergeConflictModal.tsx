@@ -12,6 +12,7 @@ import { CheckCircleFilled, DownOutlined, ThunderboltOutlined, UpOutlined } from
 import { Alert, Button, Modal, Segmented, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import { type ReactElement, useCallback, useMemo, useRef, useState } from 'react';
 import type { MergeApplyOutcome, MergeSession } from '../types';
+import { usePersistedLayout } from '../use-persisted-layout';
 import MergePane, { type HunkStats, type MergeLayout, type MergePaneHandle } from './MergePane';
 
 const { Text } = Typography;
@@ -25,9 +26,19 @@ export interface MergeConflictModalProps {
   /** Closes the modal after Apply succeeds for every file. The shell
    *  also calls `session.onCancel()` for explicit cancel. */
   onClose(): void;
+  /** Surface id for last-used-layout persistence (plan §13 — per-
+   *  surface persistence). Suggested values: `'entity-conflict'`,
+   *  `'import'`, `'git'`. Defaults to `'default'`. */
+  surfaceId?: string;
 }
 
-const MergeConflictModal = ({ open, session, isDarkMode, onClose }: MergeConflictModalProps): ReactElement => {
+const MergeConflictModal = ({
+  open,
+  session,
+  isDarkMode,
+  onClose,
+  surfaceId = 'default',
+}: MergeConflictModalProps): ReactElement => {
   const { token } = theme.useToken();
   const paneRef = useRef<MergePaneHandle>(null);
   const [applying, setApplying] = useState(false);
@@ -42,7 +53,7 @@ const MergeConflictModal = ({ open, session, isDarkMode, onClose }: MergeConflic
   // VS Code's default — gutter shows conflicts only until the user
   // opts into the noisier view. Plan §5.4.
   const [showNonConflicting, setShowNonConflicting] = useState(false);
-  const [layout, setLayout] = useState<MergeLayout>('column');
+  const [layout, setLayout] = usePersistedLayout(surfaceId, 'column');
   const failedOutcomes = useMemo(() => outcomes.filter((o) => !o.ok), [outcomes]);
   const allResolved = stats.totalRemaining === 0;
   const baseAvailable = useMemo(() => session.files.some((f) => f.base !== undefined), [session]);
