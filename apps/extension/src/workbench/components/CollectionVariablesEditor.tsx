@@ -223,6 +223,19 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
     [allConflicts, conflicts, projectWithResolutions, setDraft],
   );
 
+  // Phase 6 commit seam — JSON.parse the merge-editor's result text
+  // back into the variables array, replace the draft, dismiss every
+  // conflict path. Throws on malformed JSON or non-array shape.
+  const handleResolveText = useCallback(
+    (text: string) => {
+      const parsed = JSON.parse(text);
+      if (!Array.isArray(parsed)) throw new Error('Collection variables must be a JSON array.');
+      setDraft(parsed as V5.Variable[]);
+      for (const path of allConflicts.keys()) conflicts.dismiss(path);
+    },
+    [allConflicts, conflicts, setDraft],
+  );
+
   const conflictPathLabels = useMemo(
     () =>
       liveEntity
@@ -345,6 +358,7 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
           pathLabels={conflictPathLabels}
           baseText={baseText}
           onResolve={applyResolutions}
+          onResolveText={handleResolveText}
           onClose={() => setConflictDialogOpen(false)}
         />
       </div>

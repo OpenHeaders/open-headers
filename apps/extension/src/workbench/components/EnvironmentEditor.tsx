@@ -211,6 +211,20 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
     [allConflicts, conflicts, env, projectWithResolutions, setDraft],
   );
 
+  // Phase 6 commit seam — JSON.parse the merge-editor's result text
+  // back into the variables array, replace the draft, dismiss every
+  // conflict path. Throws on malformed JSON or non-array shape.
+  const handleResolveText = useCallback(
+    (text: string) => {
+      if (!env) return;
+      const parsed = JSON.parse(text);
+      if (!Array.isArray(parsed)) throw new Error('Environment variables must be a JSON array.');
+      setDraft(parsed as V5.Variable[]);
+      for (const path of allConflicts.keys()) conflicts.dismiss(path);
+    },
+    [env, allConflicts, conflicts, setDraft],
+  );
+
   const conflictPathLabels = useMemo(
     () =>
       liveEntity
@@ -365,6 +379,7 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
           pathLabels={conflictPathLabels}
           baseText={baseText}
           onResolve={applyResolutions}
+          onResolveText={handleResolveText}
           onClose={() => setConflictDialogOpen(false)}
         />
       </div>
