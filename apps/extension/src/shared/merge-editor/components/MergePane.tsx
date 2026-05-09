@@ -39,7 +39,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { classifyConflicts } from '../diff/conflict-classify';
+import { classifyConflicts, classifyConflicts3Way } from '../diff/conflict-classify';
 import type { Hunk } from '../diff/line-diff';
 import { diffLinesPatience } from '../diff/patience-diff';
 import { useCharDecorations } from '../monaco/use-char-decorations';
@@ -225,14 +225,44 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
 
   const theirsHunks = useMemo(() => diffLinesPatience(file.theirs, resultText), [file.theirs, resultText]);
   const mineHunks = useMemo(() => diffLinesPatience(file.mine, resultText), [file.mine, resultText]);
-  const classification = useMemo(() => classifyConflicts(theirsHunks, mineHunks), [theirsHunks, mineHunks]);
+
+  // Base-axis diffs feed the 3-way classifier when base is available.
+  // They run only when base is supplied; a 2-way fallback handles the
+  // base-less case (entity adapters that haven't wired baseText yet).
+  const theirsBaseHunks = useMemo(
+    () => (file.base !== undefined ? diffLinesPatience(file.base, file.theirs) : []),
+    [file.base, file.theirs],
+  );
+  const mineBaseHunks = useMemo(
+    () => (file.base !== undefined ? diffLinesPatience(file.base, file.mine) : []),
+    [file.base, file.mine],
+  );
+
+  const classification = useMemo(() => {
+    if (file.base !== undefined) {
+      return classifyConflicts3Way({ theirsHunks, mineHunks, theirsBaseHunks, mineBaseHunks });
+    }
+    return {
+      ...classifyConflicts(theirsHunks, mineHunks),
+      theirsCleanIds: new Set<string>(),
+      mineCleanIds: new Set<string>(),
+    };
+  }, [file.base, theirsHunks, mineHunks, theirsBaseHunks, mineBaseHunks]);
 
   const visibleTheirs = useMemo(
-    () => (showNonConflicting ? theirsHunks : theirsHunks.filter((h) => classification.theirsConflictIds.has(h.id))),
+    () =>
+      showNonConflicting
+        ? theirsHunks
+        : theirsHunks.filter(
+            (h) => classification.theirsConflictIds.has(h.id) && !classification.theirsCleanIds.has(h.id),
+          ),
     [showNonConflicting, theirsHunks, classification],
   );
   const visibleMine = useMemo(
-    () => (showNonConflicting ? mineHunks : mineHunks.filter((h) => classification.mineConflictIds.has(h.id))),
+    () =>
+      showNonConflicting
+        ? mineHunks
+        : mineHunks.filter((h) => classification.mineConflictIds.has(h.id) && !classification.mineCleanIds.has(h.id)),
     [showNonConflicting, mineHunks, classification],
   );
 
@@ -290,7 +320,18 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   useHunkAcceptArrows({ editorRef: mineHandle, side: 'mine', hunks: visibleMine, onAccept: handleAccept });
 
   useEffect(() => {
-    const conflicts = classification.theirsConflictIds.size + classification.mineConflictIds.size;
+    // 3-way refines the conflict count: a hunk in the 2-way conflict
+    // set is NOT a true conflict if the corresponding side is in the
+    // clean-from-X set (peer-only or user-only edit).
+    const trueTheirsConflicts = new Set<string>();
+    for (const id of classification.theirsConflictIds) {
+      if (!classification.theirsCleanIds.has(id)) trueTheirsConflicts.add(id);
+    }
+    const trueMineConflicts = new Set<string>();
+    for (const id of classification.mineConflictIds) {
+      if (!classification.mineCleanIds.has(id)) trueMineConflicts.add(id);
+    }
+    const conflicts = trueTheirsConflicts.size + trueMineConflicts.size;
     const total = theirsHunks.length + mineHunks.length;
     onHunkStatsChange?.({
       theirsRemaining: theirsHunks.length,
@@ -360,12 +401,18 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   );
 
   const applyNonConflicting = useCallback(() => {
+    // A hunk is non-conflicting if it's not flagged 2-way OR if the
+    // 3-way clean set tells us only one side actually changed vs base.
     const picks: { hunk: Hunk; replacement: readonly string[] }[] = [];
     for (const h of theirsHunks) {
-      if (!classification.theirsConflictIds.has(h.id)) picks.push({ hunk: h, replacement: h.theirsLines });
+      const flaggedConflict = classification.theirsConflictIds.has(h.id);
+      const cleanOverride = classification.theirsCleanIds.has(h.id);
+      if (!flaggedConflict || cleanOverride) picks.push({ hunk: h, replacement: h.theirsLines });
     }
     for (const h of mineHunks) {
-      if (!classification.mineConflictIds.has(h.id)) picks.push({ hunk: h, replacement: h.mineLines });
+      const flaggedConflict = classification.mineConflictIds.has(h.id);
+      const cleanOverride = classification.mineCleanIds.has(h.id);
+      if (!flaggedConflict || cleanOverride) picks.push({ hunk: h, replacement: h.mineLines });
     }
     if (picks.length > 0)
       onAnnounce?.(`Applied ${picks.length} non-conflicting ${picks.length === 1 ? 'hunk' : 'hunks'}.`);

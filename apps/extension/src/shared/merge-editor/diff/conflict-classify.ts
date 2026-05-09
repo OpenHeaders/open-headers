@@ -46,3 +46,80 @@ export function classifyConflicts(theirsHunks: readonly Hunk[], mineHunks: reado
   }
   return { theirsConflictIds, mineConflictIds };
 }
+
+/**
+ * 3-way classification overlay (real merge semantics).
+ *
+ * The 2-way classifier above flags any pair of overlapping
+ * theirs↔result and mine↔result hunks as conflict — conservative,
+ * but a false positive when only one side actually changed vs base
+ * (e.g. the user's edit propagated through `result === mine` and
+ * theirs's hunk just reflects the same region without a real peer
+ * change).
+ *
+ * The 3-way classifier consumes ADDITIONAL diff axes —
+ * `theirsBaseHunks = diff(base, theirs)` and `mineBaseHunks = diff(base,
+ * mine)` — to confirm which side actually changed vs base. Mapping is
+ * range-overlap on the base-side ranges of the original axes:
+ *
+ *   - `theirsHunk.theirsRange` overlaps any `theirsBaseHunk.mineRange`?
+ *     → theirs changed at this region vs base.
+ *   - `mineHunk.mineRange` overlaps any `mineBaseHunk.mineRange`?
+ *     → mine changed at this region vs base.
+ *
+ * (Recall: `Hunk.mineRange` is the right-side range of whichever diff
+ * produced it — `diff(base, X)` makes mineRange the X-side range.)
+ *
+ * Output adds two subsets of the 2-way conflict sets:
+ *   - `theirsCleanIds`: theirs↔result hunks WHERE theirs didn't actually
+ *     change vs base (so result diverged via mine alone — no real peer
+ *     edit). Auto-applicable.
+ *   - `mineCleanIds`: mine↔result hunks WHERE mine didn't actually change
+ *     vs base (the change came purely from theirs flowing through, OR
+ *     from manual user edits in result that the user implicitly
+ *     accepts).
+ *
+ * A hunk in the 2-way conflict set is a TRUE conflict iff it's NOT in
+ * the corresponding clean set.
+ */
+export interface ConflictClassification3Way extends ConflictClassification {
+  theirsCleanIds: ReadonlySet<string>;
+  mineCleanIds: ReadonlySet<string>;
+}
+
+export interface ClassifyConflicts3WayArgs {
+  theirsHunks: readonly Hunk[];
+  mineHunks: readonly Hunk[];
+  /** `diff(base, theirs)` hunks. `mineRange` on each hunk = theirs-side range. */
+  theirsBaseHunks: readonly Hunk[];
+  /** `diff(base, mine)` hunks. `mineRange` on each hunk = mine-side range. */
+  mineBaseHunks: readonly Hunk[];
+}
+
+export function classifyConflicts3Way(args: ClassifyConflicts3WayArgs): ConflictClassification3Way {
+  const base = classifyConflicts(args.theirsHunks, args.mineHunks);
+  const theirsCleanIds = new Set<string>();
+  const mineCleanIds = new Set<string>();
+
+  for (const t of args.theirsHunks) {
+    let theirsActuallyChanged = false;
+    for (const tb of args.theirsBaseHunks) {
+      if (rangesOverlap(t.theirsRange, tb.mineRange)) {
+        theirsActuallyChanged = true;
+        break;
+      }
+    }
+    if (!theirsActuallyChanged) theirsCleanIds.add(t.id);
+  }
+  for (const m of args.mineHunks) {
+    let mineActuallyChanged = false;
+    for (const mb of args.mineBaseHunks) {
+      if (rangesOverlap(m.mineRange, mb.mineRange)) {
+        mineActuallyChanged = true;
+        break;
+      }
+    }
+    if (!mineActuallyChanged) mineCleanIds.add(m.id);
+  }
+  return { ...base, theirsCleanIds, mineCleanIds };
+}
