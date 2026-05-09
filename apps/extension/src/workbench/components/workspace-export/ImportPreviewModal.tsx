@@ -1004,6 +1004,25 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
           onClose={() => setMergePreviewOpen(false)}
           headerSlot={
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {/* Target picker — choose the workspace to import into.
+                  State stays in ImportPreviewModal; mirrors the legacy
+                  topbar control. The next preview RPC reruns whenever
+                  `target` changes (existing useEffect dependency). */}
+              {parsed && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    Import into:
+                  </Text>
+                  <TargetControl
+                    target={target}
+                    onChange={setTarget}
+                    workspaces={workspaces}
+                    activeWorkspaceId={activeWorkspaceId}
+                    envelope={parsed.envelope}
+                    size="middle"
+                  />
+                </div>
+              )}
               {/* Vault decrypt prompt — when the envelope carries an
                   encrypted secrets block the user must unlock it
                   before importWorkspace will see the secrets. State
