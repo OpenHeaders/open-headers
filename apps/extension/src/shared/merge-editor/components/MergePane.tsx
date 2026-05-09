@@ -44,6 +44,7 @@ import { diffLines, type Hunk } from '../diff/line-diff';
 import { type GridRatios, useGridResize } from '../monaco/use-grid-resize';
 import { useHunkAcceptArrows } from '../monaco/use-hunk-accept-arrows';
 import { type HunkSide, useHunkDecorations } from '../monaco/use-hunk-decorations';
+import { type MergeActionsContext, useMergeActions } from '../monaco/use-merge-actions';
 import { useMissingMarkers } from '../monaco/use-missing-markers';
 import { useMonacoEditorLifecycle } from '../monaco/use-monaco-editor-lifecycle';
 import { useSyncScroll } from '../monaco/use-sync-scroll';
@@ -473,6 +474,22 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     }),
     [resultHandle, revealHunkAt, applyNonConflicting, acceptAllTheirs, acceptAllMine],
   );
+
+  // Monaco command palette actions. Bundled into a ref so action
+  // closures see fresh hunks / handlers without re-registering on
+  // every render.
+  const actionContextRef = useRef<MergeActionsContext | null>(null);
+  actionContextRef.current = {
+    theirsHunks,
+    mineHunks,
+    acceptHunk: handleAccept,
+    gotoNextHunk: () => revealHunkAt(navIndexRef.current + 1),
+    gotoPrevHunk: () => revealHunkAt(navIndexRef.current - 1),
+    applyNonConflicting,
+    acceptAllTheirs,
+    acceptAllMine,
+  };
+  useMergeActions({ resultEditorRef: resultHandle, contextRef: actionContextRef });
 
   const paneBg = isDarkMode ? PANE_BG_DARK : PANE_BG_LIGHT;
 
