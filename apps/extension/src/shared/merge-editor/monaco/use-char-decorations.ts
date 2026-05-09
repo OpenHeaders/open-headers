@@ -15,7 +15,7 @@
 
 import type * as monaco from 'monaco-editor';
 import { type RefObject, useEffect } from 'react';
-import { diffChars } from '../diff/char-diff';
+import { diffWords } from '../diff/char-diff';
 import type { Hunk } from '../diff/line-diff';
 import { pairLines } from '../diff/pair-lines';
 import type { HunkSide } from './use-hunk-decorations';
@@ -55,7 +55,7 @@ export function useCharDecorations({ editorRef, side, hunks }: UseCharDecoration
         const otherIdx = side === 'theirs' ? pair.bIdx : pair.aIdx;
         const own = ownLines[ownIdx];
         const other = otherLines[otherIdx];
-        const result = diffChars(own, other);
+        const result = diffWords(own, other);
         const spans = side === 'theirs' ? result.aSpans : result.bSpans;
         const lineNumber = range.startLine + ownIdx;
         for (const s of spans) {
