@@ -1045,7 +1045,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const renderEmptyState = (emptyCreate?: () => void) => (
     <div className="rules-sidebar-empty-state">
-      <span style={{ color: token.colorTextSecondary, fontSize: 12, fontWeight: 600 }}>No items in this panel</span>
+      <span style={{ color: token.colorTextSecondary, fontSize: 12, fontWeight: 600 }}>No items in this section</span>
       {emptyCreate && (
         <button
           type="button"
@@ -1374,20 +1374,38 @@ const Sidebar: React.FC<SidebarProps> = ({
             />
             {sectionsExpanded.templates && (
               <div style={{ flex: 1, overflowY: 'auto' }}>
-                {renderNodes(systemTemplateNodes)}
-                {renderFolderDndNodes(templateNodes, templateFolderDndConfig, () => {
-                  const baseName = 'User Templates';
-                  const existingNames = new Set(templateCollections.map((c) => c.name));
-                  let name = baseName;
-                  let counter = 2;
-                  while (existingNames.has(name)) name = `${baseName} (${counter++})`;
-                  void createTemplateCollection(name).then((col) => {
-                    if (col) {
-                      setSectionsExpanded((prev) => ({ ...prev, templates: true }));
-                      onOpenTemplateCollectionOverview?.(col.uid, col.name, true);
-                    }
-                  });
-                })}
+                {(() => {
+                  // System and user templates render side-by-side under the
+                  // single TEMPLATES section header. When both lists are
+                  // empty (filter excludes everything, or fresh workspace
+                  // before any user collection is created), render ONE
+                  // section-level empty-state instead of one per list —
+                  // otherwise the section flashes "No items in this section"
+                  // twice in a row, which reads like a layout bug.
+                  const createUserCollection = (): void => {
+                    const baseName = 'User Templates';
+                    const existingNames = new Set(templateCollections.map((c) => c.name));
+                    let name = baseName;
+                    let counter = 2;
+                    while (existingNames.has(name)) name = `${baseName} (${counter++})`;
+                    void createTemplateCollection(name).then((col) => {
+                      if (col) {
+                        setSectionsExpanded((prev) => ({ ...prev, templates: true }));
+                        onOpenTemplateCollectionOverview?.(col.uid, col.name, true);
+                      }
+                    });
+                  };
+                  if (systemTemplateNodes.length === 0 && templateNodes.length === 0) {
+                    return renderEmptyState(createUserCollection);
+                  }
+                  return (
+                    <>
+                      {systemTemplateNodes.length > 0 && systemTemplateNodes.map(renderTreeNodeRow)}
+                      {templateNodes.length > 0 &&
+                        renderFolderDndNodes(templateNodes, templateFolderDndConfig, createUserCollection)}
+                    </>
+                  );
+                })()}
               </div>
             )}
           </>

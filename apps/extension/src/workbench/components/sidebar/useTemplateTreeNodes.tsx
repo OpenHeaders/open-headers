@@ -191,6 +191,18 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
     const colId = 'sys-tpl-col';
     const isExpanded = p.expandedKeys.has(colId);
 
+    // Hide the "System Templates" group entirely when an active filter
+    // doesn't match the group label OR any bundled template inside.
+    // Without this gate the group stays visible (with all children
+    // hidden) while user-defined collections correctly drop out — an
+    // inconsistency that reads as a bug.
+    if (lowerFilter && !'system templates'.includes(lowerFilter)) {
+      const hasMatch = Object.values(TEMPLATES_BY_TYPE).some((tpls) =>
+        tpls.some((t) => t.name.toLowerCase().includes(lowerFilter)),
+      );
+      if (!hasMatch) return items;
+    }
+
     items.push({
       id: colId,
       kind: 'group',
