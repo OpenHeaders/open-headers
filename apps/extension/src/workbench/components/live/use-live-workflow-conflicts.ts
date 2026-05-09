@@ -35,6 +35,21 @@ export interface LiveWorkflowFormProjectionInput {
   description: string;
   enabled: boolean;
   refresh: V5.LiveWorkflow['refresh'];
+  /**
+   * Steps the user is currently editing. Required so the conflict
+   * tracker's per-leaf path comparisons cover step + capture edits;
+   * without this, baseline emits `steps.<uid>.id` paths that the
+   * form's projection doesn't, and the tracker silently falls back
+   * to baseline for the local value (peer-only changes never surface
+   * as auto-merge targets, edit-vs-edit conflicts stay invisible).
+   * Must mirror the adapter's `extractBaseline` shape.
+   */
+  steps?: readonly V5.WorkflowStep[];
+}
+
+function opaqueStringify(value: unknown): string {
+  if (value === undefined || value === null) return '';
+  return JSON.stringify(value);
 }
 
 export function projectLiveWorkflowToForm(d: LiveWorkflowFormProjectionInput): Record<string, string> {
@@ -56,6 +71,20 @@ export function projectLiveWorkflowToForm(d: LiveWorkflowFormProjectionInput): R
       break;
     case 'manual':
       break;
+  }
+  for (const step of d.steps ?? []) {
+    const sp = `steps.${step.uid}`;
+    out[`${sp}.id`] = step.id;
+    out[`${sp}.description`] = step.description ?? '';
+    out[`${sp}.requestUid`] = step.requestUid;
+    out[`${sp}.dependsOn`] = opaqueStringify(step.dependsOn ?? []);
+    out[`${sp}.runIf`] = opaqueStringify(step.runIf);
+    out[`${sp}.priorityFrom`] = opaqueStringify(step.priorityFrom);
+    for (const capture of step.captures) {
+      const cp = `${sp}.captures.${capture.uid}`;
+      out[`${cp}.name`] = capture.name;
+      out[`${cp}.extractor`] = opaqueStringify(capture.extractor);
+    }
   }
   return out;
 }

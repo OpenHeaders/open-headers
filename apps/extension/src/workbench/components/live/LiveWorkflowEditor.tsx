@@ -247,13 +247,19 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
             description: draft.description,
             enabled: draft.enabled,
             refresh: draft.refresh,
+            steps: stripDraftSteps(draft.steps),
           })
         : null,
     [draft],
   );
 
-  // Per-leaf auto-rebase. Workflow-level scalars only (steps + captures
-  // deferred — see live-workflow-conflict-adapter.ts header).
+  // Per-leaf auto-rebase. Covers workflow-level scalars + per-step +
+  // per-capture leaves; the resolve adapter handles the path → field
+  // dispatch (scalar / refresh sub-leaf / steps.<uid>.* / steps.<uid>.
+  // captures.<uid>.*). Draft.steps round-trips through stripDraftSteps
+  // so the transient WorkflowStep[] matches the adapter's expected
+  // shape, then re-wrap as DraftStep[] preserving each capture's
+  // existing exposure metadata (looked up by uid).
   const applyAutoMerge = useCallback(
     (path: string, theirs: string) => {
       if (!workflow || !draft) return;
@@ -263,21 +269,36 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
         description: draft.description,
         enabled: draft.enabled,
         refresh: draft.refresh,
+        steps: stripDraftSteps(draft.steps),
       };
       if (!liveWorkflowResolveAdapter.applyResolutionToEntity(transient, path, { base: '', theirs })) return;
-      setDraft((d) =>
-        d
-          ? {
-              ...d,
-              name: transient.name,
-              description: transient.description ?? '',
-              enabled: transient.enabled,
-              refresh: transient.refresh,
-            }
-          : d,
-      );
+      setDraft((d) => {
+        if (!d) return d;
+        // Rewrap captures as DraftCaptures, preserving each existing
+        // draft capture's exposure metadata (matched by uid). New /
+        // unmatched captures fall back to the toDraftCapture default.
+        const draftCapByUid = new Map<string, DraftStep['captures'][number]>();
+        for (const s of d.steps) for (const c of s.captures) draftCapByUid.set(c.uid, c);
+        const nextSteps: DraftStep[] = transient.steps.map((s) => ({
+          ...s,
+          captures: s.captures.map((c) => {
+            const existing = draftCapByUid.get(c.uid);
+            return existing
+              ? { ...c, exposed: existing.exposed, liveName: existing.liveName, liveUid: existing.liveUid }
+              : toDraftCapture(c, pickPrimaryLv(s.id, c.name, boundVars));
+          }),
+        }));
+        return {
+          ...d,
+          name: transient.name,
+          description: transient.description ?? '',
+          enabled: transient.enabled,
+          refresh: transient.refresh,
+          steps: nextSteps,
+        };
+      });
     },
-    [workflow, draft],
+    [workflow, draft, boundVars],
   );
   useAutoMergeForm({ conflicts, formProjection, applyToForm: applyAutoMerge });
 
