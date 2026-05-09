@@ -58,6 +58,7 @@ registerSetting({
   label: 'Open Command Palette',
   description: 'Show the command palette overlay.',
   category: 'keyboard',
+  subcategory: 'workbench-general',
   tags: ['palette', 'search', 'commands'],
   scope: 'user',
 });
@@ -70,6 +71,7 @@ registerSetting({
   label: 'Open Settings',
   description: 'Open the settings modal.',
   category: 'keyboard',
+  subcategory: 'workbench-general',
   tags: ['settings', 'preferences'],
   scope: 'user',
 });
@@ -82,6 +84,7 @@ registerSetting({
   label: 'Toggle Sidebar',
   description: 'Show or hide the left sidebar.',
   category: 'keyboard',
+  subcategory: 'workbench-layout',
   tags: ['sidebar', 'layout', 'panels'],
   scope: 'user',
 });
@@ -94,6 +97,7 @@ registerSetting({
   label: 'Toggle Bottom Panel',
   description: 'Show or hide the bottom panel.',
   category: 'keyboard',
+  subcategory: 'workbench-layout',
   tags: ['panel', 'layout', 'console'],
   scope: 'user',
 });
@@ -106,6 +110,7 @@ registerSetting({
   label: 'Toggle Inspector',
   description: 'Show or hide the right-side inspector panel.',
   category: 'keyboard',
+  subcategory: 'workbench-layout',
   tags: ['inspector', 'layout', 'panels'],
   scope: 'user',
 });
@@ -118,6 +123,7 @@ registerSetting({
   label: 'New Rule',
   description: 'Create a new rule in the current workspace.',
   category: 'keyboard',
+  subcategory: 'workbench-general',
   tags: ['new', 'rule', 'create'],
   scope: 'user',
 });
@@ -130,6 +136,7 @@ registerSetting({
   label: 'Save',
   description: 'Save the active editor tab.',
   category: 'keyboard',
+  subcategory: 'workbench-general',
   tags: ['save', 'persist'],
   scope: 'user',
 });
@@ -147,6 +154,7 @@ registerSetting({
   label: 'Close Tab',
   description: 'Close the focused editor tab.',
   category: 'keyboard',
+  subcategory: 'workbench-tabs',
   tags: ['tab', 'close'],
   scope: 'user',
 });
@@ -159,6 +167,7 @@ registerSetting({
   label: 'Previous Tab',
   description: 'Focus the previous editor tab.',
   category: 'keyboard',
+  subcategory: 'workbench-tabs',
   tags: ['tab', 'navigation'],
   scope: 'user',
 });
@@ -171,6 +180,7 @@ registerSetting({
   label: 'Next Tab',
   description: 'Focus the next editor tab.',
   category: 'keyboard',
+  subcategory: 'workbench-tabs',
   tags: ['tab', 'navigation'],
   scope: 'user',
 });
@@ -183,6 +193,7 @@ registerSetting({
   label: 'Search Tabs',
   description: 'Open a search overlay across all open tabs.',
   category: 'keyboard',
+  subcategory: 'workbench-tabs',
   tags: ['tab', 'search'],
   scope: 'user',
 });
@@ -195,6 +206,7 @@ registerSetting({
   label: 'Focus Sidebar Filter',
   description: 'Move focus to the sidebar filter input.',
   category: 'keyboard',
+  subcategory: 'workbench-focus',
   tags: ['focus', 'filter', 'sidebar'],
   scope: 'user',
 });
@@ -207,6 +219,7 @@ registerSetting({
   label: 'Focus Left Panel',
   description: 'Move keyboard focus to the left activity/sidebar region.',
   category: 'keyboard',
+  subcategory: 'workbench-focus',
   tags: ['focus', 'navigation'],
   scope: 'user',
 });
@@ -219,6 +232,7 @@ registerSetting({
   label: 'Focus Editor',
   description: 'Move keyboard focus to the editor area.',
   category: 'keyboard',
+  subcategory: 'workbench-focus',
   tags: ['focus', 'navigation'],
   scope: 'user',
 });
@@ -231,6 +245,7 @@ registerSetting({
   label: 'Focus Right Panel',
   description: 'Move keyboard focus to the right inspector panel.',
   category: 'keyboard',
+  subcategory: 'workbench-focus',
   tags: ['focus', 'navigation'],
   scope: 'user',
 });
@@ -243,6 +258,7 @@ registerSetting({
   label: 'Focus Bottom Panel',
   description: 'Move keyboard focus to the bottom panel tab row.',
   category: 'keyboard',
+  subcategory: 'workbench-focus',
   tags: ['focus', 'navigation'],
   scope: 'user',
 });
@@ -255,6 +271,7 @@ registerSetting({
   label: 'Show Shortcut Help',
   description: 'Display the keyboard shortcut cheatsheet.',
   category: 'keyboard',
+  subcategory: 'workbench-general',
   tags: ['help', 'shortcuts', 'cheatsheet'],
   scope: 'user',
 });
@@ -268,6 +285,7 @@ registerSetting({
   description:
     'Format the focused code editor buffer. Only fires when the editor has focus — does not interfere with global shortcuts.',
   category: 'keyboard',
+  subcategory: 'workbench-general',
   tags: ['format', 'prettier', 'editor', 'prettify'],
   scope: 'user',
 });

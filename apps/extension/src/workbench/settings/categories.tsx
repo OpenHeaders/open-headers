@@ -84,6 +84,16 @@ registerCategory({
   icon: <KeyOutlined />,
   order: 80,
   description: 'Customize keyboard shortcuts.',
+  subcategories: [
+    { id: 'workbench-general', label: 'Workbench', order: 10 },
+    { id: 'workbench-layout', label: 'Workbench · Layout', order: 20 },
+    { id: 'workbench-tabs', label: 'Workbench · Tabs', order: 30 },
+    { id: 'workbench-focus', label: 'Workbench · Focus', order: 40 },
+    { id: 'popup-general', label: 'Popup & Side Panel', order: 110 },
+    { id: 'popup-navigation', label: 'Popup & Side Panel · Navigation', order: 120 },
+    { id: 'popup-rows', label: 'Popup & Side Panel · Row Actions', order: 130 },
+    { id: 'popup-tabs', label: 'Popup & Side Panel · Tabs', order: 140 },
+  ],
 });
 
 registerCategory({

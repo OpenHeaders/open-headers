@@ -89,6 +89,7 @@ interface PopupKeySpec {
   label: string;
   description: string;
   tags: string[];
+  subcategory: 'popup-general' | 'popup-navigation' | 'popup-rows' | 'popup-tabs';
 }
 
 const POPUP_KEYS: readonly PopupKeySpec[] = [
@@ -102,6 +103,7 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     label: 'Popup — Toggle Shortcuts Help',
     description: 'Show or hide the popup keyboard-shortcut cheatsheet.',
     tags: ['popup', 'help', 'cheatsheet'],
+    subcategory: 'popup-general',
   },
   {
     key: 'keyboard.popup.toggleOptionsMenu',
@@ -109,6 +111,7 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     label: 'Popup — Toggle Options Menu',
     description: 'Open or close the footer options dropdown.',
     tags: ['popup', 'menu', 'options'],
+    subcategory: 'popup-general',
   },
   {
     key: 'keyboard.popup.focusSearch',
@@ -116,6 +119,7 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     label: 'Popup — Focus Search',
     description: 'Move keyboard focus into the active tab’s search input.',
     tags: ['popup', 'search', 'filter'],
+    subcategory: 'popup-general',
   },
   {
     key: 'keyboard.popup.prevPage',
@@ -123,6 +127,7 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     label: 'Popup — Previous Page',
     description: 'Jump to the previous page of rules in the active tab.',
     tags: ['popup', 'pagination'],
+    subcategory: 'popup-navigation',
   },
   {
     key: 'keyboard.popup.nextPage',
@@ -130,6 +135,7 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     label: 'Popup — Next Page',
     description: 'Jump to the next page of rules in the active tab.',
     tags: ['popup', 'pagination'],
+    subcategory: 'popup-navigation',
   },
   {
     key: 'keyboard.popup.moveDown',
@@ -137,6 +143,7 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     label: 'Popup — Move Down',
     description: 'Advance the focused row. ArrowDown is always available as an alias.',
     tags: ['popup', 'navigation', 'vim'],
+    subcategory: 'popup-navigation',
   },
   {
     key: 'keyboard.popup.moveUp',
@@ -144,6 +151,7 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     label: 'Popup — Move Up',
     description: 'Move the focus to the previous row. ArrowUp is always available as an alias.',
     tags: ['popup', 'navigation', 'vim'],
+    subcategory: 'popup-navigation',
   },
   {
     key: 'keyboard.popup.expandRow',
@@ -151,6 +159,7 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     label: 'Popup — Expand / Enter Sub-rows',
     description: 'Expand the focused row. ArrowRight and Enter are always available as aliases.',
     tags: ['popup', 'navigation', 'expand'],
+    subcategory: 'popup-navigation',
   },
   {
     key: 'keyboard.popup.collapseRow',
@@ -158,6 +167,7 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     label: 'Popup — Collapse / Exit Sub-rows',
     description: 'Collapse the focused row. ArrowLeft is always available as an alias.',
     tags: ['popup', 'navigation', 'collapse'],
+    subcategory: 'popup-navigation',
   },
   {
     key: 'keyboard.popup.toggleRow',
@@ -170,6 +180,7 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     label: 'Popup — Toggle Row',
     description: 'Toggle the focused rule on or off. Defaults to the spacebar.',
     tags: ['popup', 'toggle', 'rules'],
+    subcategory: 'popup-rows',
   },
   {
     key: 'keyboard.popup.editRow',
@@ -177,6 +188,7 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     label: 'Popup — Edit Row',
     description: 'Open the focused rule in the workspace editor.',
     tags: ['popup', 'edit'],
+    subcategory: 'popup-rows',
   },
   {
     key: 'keyboard.popup.copyValue',
@@ -184,6 +196,7 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     label: 'Popup — Copy Value',
     description: 'Copy the focused row’s primary value to the clipboard.',
     tags: ['popup', 'copy', 'clipboard'],
+    subcategory: 'popup-rows',
   },
   {
     key: 'keyboard.popup.deleteRow',
@@ -191,6 +204,7 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     label: 'Popup — Delete Row',
     description: 'Stage the focused row for deletion. Press again (or Enter) to confirm.',
     tags: ['popup', 'delete'],
+    subcategory: 'popup-rows',
   },
   {
     key: 'keyboard.popup.addRule',
@@ -198,6 +212,7 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     label: 'Popup — Add Rule',
     description: 'Create a new rule from the popup.',
     tags: ['popup', 'new', 'create'],
+    subcategory: 'popup-rows',
   },
   {
     key: 'keyboard.popup.toggleRulesPause',
@@ -207,6 +222,7 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     label: 'Popup — Toggle Rules Pause (global)',
     description: 'Pause or resume every rule across every collection.',
     tags: ['popup', 'pause', 'global'],
+    subcategory: 'popup-rows',
   },
   {
     key: 'keyboard.popup.togglePauseFocused',
@@ -215,6 +231,7 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     description:
       'Pause or resume the focused collection or folder in the Collections tab. Has no effect on individual rule rows — rules use the enabled toggle (Space) instead.',
     tags: ['popup', 'pause', 'collection', 'folder'],
+    subcategory: 'popup-rows',
   },
   {
     key: 'keyboard.popup.cycleTheme',
@@ -222,6 +239,7 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     label: 'Popup — Cycle Theme',
     description: 'Rotate between light, dark, and auto themes.',
     tags: ['popup', 'theme'],
+    subcategory: 'popup-general',
   },
   {
     key: 'keyboard.popup.toggleCompactMode',
@@ -229,6 +247,7 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     label: 'Popup — Toggle Compact Mode',
     description: 'Switch the popup between compact and comfortable density.',
     tags: ['popup', 'density'],
+    subcategory: 'popup-general',
   },
   {
     key: 'keyboard.popup.openWorkspace',
@@ -236,6 +255,7 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     label: 'Popup — Open Workspace',
     description: 'Open the full workspace tab.',
     tags: ['popup', 'workspace'],
+    subcategory: 'popup-general',
   },
   {
     key: 'keyboard.popup.openSettings',
@@ -243,6 +263,7 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     label: 'Popup — Open Settings',
     description: 'Open the settings page in a new workspace tab. Matches the workspace binding.',
     tags: ['popup', 'settings', 'preferences'],
+    subcategory: 'popup-general',
   },
   {
     key: 'keyboard.popup.tabThisPage',
@@ -250,6 +271,7 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     label: 'Popup — This Page Tab',
     description: 'Activate the "This Page" rules tab.',
     tags: ['popup', 'tab'],
+    subcategory: 'popup-tabs',
   },
   {
     key: 'keyboard.popup.tabAllRules',
@@ -257,6 +279,7 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     label: 'Popup — All Rules Tab',
     description: 'Activate the "All Rules" tab.',
     tags: ['popup', 'tab'],
+    subcategory: 'popup-tabs',
   },
   {
     key: 'keyboard.popup.tabCollections',
@@ -264,6 +287,7 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     label: 'Popup — Collections Tab',
     description: 'Activate the "Collections" tab.',
     tags: ['popup', 'tab'],
+    subcategory: 'popup-tabs',
   },
   {
     key: 'keyboard.popup.toggleSurface',
@@ -273,6 +297,7 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     label: 'Popup — Toggle Surface (popup ↔ side panel)',
     description: 'Switch between popup and side panel layouts from the popup header.',
     tags: ['popup', 'surface', 'sidepanel', 'layout'],
+    subcategory: 'popup-general',
   },
   {
     key: 'keyboard.popup.openTourGuide',
@@ -281,6 +306,7 @@ const POPUP_KEYS: readonly PopupKeySpec[] = [
     label: 'Popup — Open Tour Guide',
     description: 'Replay the welcome tour from any popup tab.',
     tags: ['popup', 'tour', 'onboarding', 'help'],
+    subcategory: 'popup-general',
   },
 ];
 
@@ -293,6 +319,7 @@ for (const spec of POPUP_KEYS) {
     label: spec.label,
     description: spec.description,
     category: 'keyboard',
+    subcategory: spec.subcategory,
     tags: spec.tags,
     scope: 'user',
   });
