@@ -6,20 +6,19 @@
  * Phase 7.3 scaffolding — used by the new merge-editor-driven import
  * surface that is replacing the legacy `<ImportPreviewModal>` body.
  *
- * Singletons (`workspaceVars`, `vault`) are intentionally omitted in
- * this slice. The diff carries their `state` + `target` but the
- * merge-editor needs both sides serialized, and the incoming side
- * lives on the parent `WorkspaceExport` envelope, not on the diff.
- * Singleton wiring lands in a follow-up slice when the new modal
- * threads the envelope alongside the diff.
+ * Singletons (`workspaceVars`, `vault`) are projected when the parent
+ * envelope is supplied. Synthetic uids `'__singleton.workspaceVars__'`
+ * and `'__singleton.vault__'` keep them addressable through the same
+ * `findByPathOrUid` lookup the bucket entities use. Singletons with
+ * neither incoming nor target content are skipped (no diff to surface).
  */
 
-import type { DiffEntry, DiffResult } from '@openheaders/core/workspace-export';
+import type { DiffEntry, DiffResult, DiffSingleton, WorkspaceExport } from '@openheaders/core/workspace-export';
 import type { ImportBundle, ImportBundleEntity, ImportWorkspaceSnapshot } from '@/shared/conflicts';
 
-/** Mirrors `SerializableEntityKind` from `@openheaders/core/workspace-export`
- *  for the bucket types this projection covers. Singletons (`workspaceVars`,
- *  `vault`) are handled out-of-band per the file header. */
+/** Mirrors `SerializableEntityKind` from `@openheaders/core/workspace-export`.
+ *  Both bucket entities and singletons share the union — the merge
+ *  editor groups files by this string in its sidebar. */
 export type ImportEntityType =
   | 'collection'
   | 'folder'
@@ -28,7 +27,14 @@ export type ImportEntityType =
   | 'template'
   | 'environment'
   | 'liveWorkflow'
-  | 'liveVariable';
+  | 'liveVariable'
+  | 'workspaceVars'
+  | 'vault';
+
+/** Synthetic uids for the singleton rows. Stable so the merge editor's
+ *  per-file result-text cache survives layout changes / file switching. */
+export const WORKSPACE_VARS_SINGLETON_UID = '__singleton.workspaceVars__';
+export const VAULT_SINGLETON_UID = '__singleton.vault__';
 
 export interface DiffToImportBundleResult {
   bundle: ImportBundle;
@@ -59,7 +65,29 @@ function addBucket<E extends BucketEntity>(
   }
 }
 
-export function diffResultToImportBundle(diff: DiffResult): DiffToImportBundleResult {
+function addSingleton(
+  entityType: ImportEntityType,
+  uid: string,
+  incoming: unknown | undefined,
+  singleton: DiffSingleton<unknown>,
+  entries: ImportBundleEntity[],
+  targets: Map<string, unknown>,
+): void {
+  const hasIncoming = incoming !== undefined && incoming !== null;
+  const hasTarget = singleton.target !== undefined && singleton.target !== null;
+  // Skip when neither side has content — there's nothing to diff.
+  if (!hasIncoming && !hasTarget) return;
+  // Singleton-removed-by-import is rare and not represented yet; skip
+  // until a use case forces a separate `kind: 'remove'` projection.
+  if (!hasIncoming) return;
+  entries.push({ uid, entityType, path: entityType, entity: incoming });
+  if (hasTarget) targets.set(uid, singleton.target);
+}
+
+export function diffResultToImportBundle(
+  diff: DiffResult,
+  envelope?: WorkspaceExport,
+): DiffToImportBundleResult {
   const entries: ImportBundleEntity[] = [];
   const targets = new Map<string, unknown>();
 
@@ -71,6 +99,18 @@ export function diffResultToImportBundle(diff: DiffResult): DiffToImportBundleRe
   addBucket('environment', diff.environments, entries, targets);
   addBucket('liveWorkflow', diff.liveWorkflows, entries, targets);
   addBucket('liveVariable', diff.liveVariables, entries, targets);
+
+  if (envelope) {
+    addSingleton(
+      'workspaceVars',
+      WORKSPACE_VARS_SINGLETON_UID,
+      envelope.entities.workspaceVars,
+      diff.workspaceVars,
+      entries,
+      targets,
+    );
+    addSingleton('vault', VAULT_SINGLETON_UID, envelope.entities.vault, diff.vault, entries, targets);
+  }
 
   return {
     bundle: { entities: entries },

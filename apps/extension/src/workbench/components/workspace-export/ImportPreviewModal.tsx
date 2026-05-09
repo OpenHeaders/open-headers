@@ -849,7 +849,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
           surfaceId="workspace-import"
           onClose={() => setMergePreviewOpen(false)}
           session={(() => {
-            const { bundle, workspace } = diffResultToImportBundle(preview.diff);
+            const { bundle, workspace } = diffResultToImportBundle(preview.diff, effectiveEnvelope ?? undefined);
             return buildImportMergeSession({
               bundle,
               workspace,

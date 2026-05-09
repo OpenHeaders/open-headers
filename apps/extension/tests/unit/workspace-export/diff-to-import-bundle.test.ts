@@ -1,6 +1,10 @@
-import type { DiffEntry, DiffResult } from '@openheaders/core/workspace-export';
+import type { DiffEntry, DiffResult, WorkspaceExport } from '@openheaders/core/workspace-export';
 import { describe, expect, it } from 'vitest';
-import { diffResultToImportBundle } from '@/workbench/components/workspace-export/preview/diff-to-import-bundle';
+import {
+  VAULT_SINGLETON_UID,
+  WORKSPACE_VARS_SINGLETON_UID,
+  diffResultToImportBundle,
+} from '@/workbench/components/workspace-export/preview/diff-to-import-bundle';
 
 function entry<T extends { uid: string }>(entity: T, matchedTarget?: T): DiffEntry<T> {
   return {
@@ -106,12 +110,96 @@ describe('diffResultToImportBundle', () => {
     expect(bundle.entities[1].path).toBe('rule-y');
   });
 
-  it("singletons (workspaceVars, vault) are intentionally NOT projected in this slice", () => {
+  it('omits singletons when no envelope is supplied (bucket-only mode)', () => {
     const { bundle } = diffResultToImportBundle({
       ...emptyDiff,
-      workspaceVars: { state: 'collision-uid', defaultStrategy: 'merge-vars', allowedStrategies: ['merge-vars'], targetHasContent: true },
-      vault: { state: 'collision-uid', defaultStrategy: 'merge-vars', allowedStrategies: ['merge-vars'], targetHasContent: true },
+      workspaceVars: {
+        state: 'collision-uid',
+        defaultStrategy: 'merge-vars',
+        allowedStrategies: ['merge-vars'],
+        targetHasContent: true,
+      },
+      vault: {
+        state: 'collision-uid',
+        defaultStrategy: 'merge-vars',
+        allowedStrategies: ['merge-vars'],
+        targetHasContent: true,
+      },
     });
+    expect(bundle.entities).toEqual([]);
+  });
+
+  it('projects workspaceVars singleton when envelope carries it (collision)', () => {
+    const incomingVars = { variables: [{ key: 'API_BASE', value: 'https://api.openheaders.io' }] };
+    const targetVars = { variables: [{ key: 'API_BASE', value: 'https://api.local' }] };
+    const { bundle, workspace } = diffResultToImportBundle(
+      {
+        ...emptyDiff,
+        workspaceVars: {
+          state: 'collision-uid',
+          defaultStrategy: 'merge-vars',
+          allowedStrategies: ['merge-vars'],
+          targetHasContent: true,
+          target: targetVars,
+        } as unknown as DiffResult['workspaceVars'],
+      },
+      { entities: { workspaceVars: incomingVars } } as unknown as WorkspaceExport,
+    );
+    expect(bundle.entities).toHaveLength(1);
+    const f = bundle.entities[0];
+    expect(f.uid).toBe(WORKSPACE_VARS_SINGLETON_UID);
+    expect(f.entityType).toBe('workspaceVars');
+    expect(f.path).toBe('workspaceVars');
+    expect(f.entity).toBe(incomingVars);
+    expect(workspace.findByPathOrUid(f)).toBe(targetVars);
+  });
+
+  it('projects vault singleton when envelope carries it', () => {
+    const incomingVault = { secrets: [{ uid: 's1', kind: 'string', name: 'TOKEN' }] };
+    const { bundle, workspace } = diffResultToImportBundle(
+      {
+        ...emptyDiff,
+        vault: {
+          state: 'no-collision',
+          defaultStrategy: 'skip',
+          allowedStrategies: ['skip'],
+          targetHasContent: false,
+        },
+      },
+      { entities: { vault: incomingVault, workspaceVars: { variables: [] } } } as unknown as WorkspaceExport,
+    );
+    expect(bundle.entities).toHaveLength(2);
+    const wsVars = bundle.entities[0];
+    const vault = bundle.entities[1];
+    expect(wsVars.uid).toBe(WORKSPACE_VARS_SINGLETON_UID);
+    expect(vault.uid).toBe(VAULT_SINGLETON_UID);
+    expect(vault.entity).toBe(incomingVault);
+    expect(workspace.findByPathOrUid(vault)).toBeUndefined();
+  });
+
+  it('skips workspaceVars when both sides empty (no diff to surface)', () => {
+    const { bundle } = diffResultToImportBundle(
+      emptyDiff,
+      { entities: { workspaceVars: undefined, vault: undefined } } as unknown as WorkspaceExport,
+    );
+    expect(bundle.entities).toEqual([]);
+  });
+
+  it('skips singletons that are present locally but missing in incoming (no remove projection in v1)', () => {
+    const targetVault = { secrets: [{ uid: 's1', kind: 'string', name: 'TOKEN' }] };
+    const { bundle } = diffResultToImportBundle(
+      {
+        ...emptyDiff,
+        vault: {
+          state: 'collision-uid',
+          defaultStrategy: 'merge-vars',
+          allowedStrategies: ['merge-vars'],
+          targetHasContent: true,
+          target: targetVault,
+        } as unknown as DiffResult['vault'],
+      },
+      { entities: { workspaceVars: undefined, vault: undefined } } as unknown as WorkspaceExport,
+    );
     expect(bundle.entities).toEqual([]);
   });
 });
