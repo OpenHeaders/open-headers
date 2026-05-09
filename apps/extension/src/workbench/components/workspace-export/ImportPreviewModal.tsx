@@ -1021,7 +1021,22 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
                     envelope={parsed.envelope}
                     size="middle"
                   />
+                  {/* Status chips — soft-dedup signal, missing-deps,
+                      preview errors. Same buildImportStatusChips()
+                      result the legacy header already renders. */}
+                  {statusChips.length > 0 && (
+                    <div style={{ marginLeft: 'auto' }}>
+                      <StatusChips chips={statusChips} />
+                    </div>
+                  )}
                 </div>
+              )}
+              {/* Strip-scripts row for low-trust sources. Pre-checked
+                  by default for URL-fetch / deep-link / playground;
+                  the user can flip it off here as easily as in the
+                  legacy preview. */}
+              {preview && isLowTrustSource && (
+                <StripScriptsTopRow source={source ?? 'link'} stripScripts={stripScripts} onChange={setStripScripts} />
               )}
               {/* Vault decrypt prompt — when the envelope carries an
                   encrypted secrets block the user must unlock it
