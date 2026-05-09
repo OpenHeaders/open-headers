@@ -146,6 +146,39 @@ const EntityConflictDialog: React.FC<EntityConflictDialogProps> = ({
   // Read once per mount so toggling in DevTools doesn't surprise an
   // already-open dialog. Refresh by reopening.
   const previewEnabled = useMemo(() => isMergeEditorPreviewEnabled(), []);
+
+  // Phase 6.10: when the caller wired the text save path, the merge
+  // editor IS the surface. Bypass the legacy path-keyed Modal entirely;
+  // its body (table + RichDiffEditor + Apply/Cancel) is dead code in
+  // that mode. The path-keyed code stays for now so callers without
+  // `onResolveText` still resolve via the legacy table — cleanup of
+  // the legacy plumbing is a follow-up slice once no caller needs it.
+  if (onResolveText) {
+    if (!open) return null;
+    return (
+      <MergeConflictModal
+        open
+        isDarkMode={isDarkMode}
+        surfaceId="entity-conflict"
+        onClose={onClose}
+        session={buildEntityMergeSession({
+          fileId: 'entity',
+          label: 'Resolve external changes',
+          title: 'Resolve external changes',
+          language,
+          theirsText: savedText,
+          mineText: buildLocalText(new Map()),
+          baseText,
+          initialResult: buildLocalText(new Map()),
+          onApply: async (resultText: string) => {
+            await onResolveText(resultText);
+            onClose();
+          },
+          onCancel: onClose,
+        })}
+      />
+    );
+  }
   // Track the value snapshot at pick time so live broadcasts that
   // change `theirs` after a pick can flag the row as stale and force
   // the user to re-confirm. Same model as VS Code's merge editor —
@@ -615,17 +648,10 @@ const EntityConflictDialog: React.FC<EntityConflictDialogProps> = ({
             mineText: localText,
             baseText,
             initialResult: localText,
-            // Phase 6 commit seam. When the caller wired
-            // `onResolveText`, Complete Merge parses + adopts +
-            // closes both modals on success. Otherwise stays
-            // no-commit so operators can still preview.
-            onApply: onResolveText
-              ? async (resultText: string) => {
-                  await onResolveText(resultText);
-                  setPreviewOpen(false);
-                  onClose();
-                }
-              : () => undefined,
+            // Legacy preview path — only reachable when `onResolveText`
+            // is NOT wired (the new merge-editor surface short-circuits
+            // above). No commit seam here; Complete Merge just closes.
+            onApply: () => undefined,
             onCancel: () => setPreviewOpen(false),
           })}
         />
