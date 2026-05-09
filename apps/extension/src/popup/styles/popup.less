@@ -1,4 +1,22 @@
 @import 'antd/dist/reset.css';
+// Inter — bundled UI font available via the appearance.fontFamilyPreset
+// "Inter" option. Three weights cover AntD's regular / medium / bold
+// needs; latin subset only to keep the bundle hit at ~70 KB.
+@import '@fontsource/inter/latin-400.css';
+@import '@fontsource/inter/latin-500.css';
+@import '@fontsource/inter/latin-700.css';
+// Atkinson Hyperlegible — accessibility-first sans bundled for the
+// "Atkinson Hyperlegible" preset. Only 400 and 700 weights ship in the
+// upstream package; that covers regular and bold needs.
+@import '@fontsource/atkinson-hyperlegible/latin-400.css';
+@import '@fontsource/atkinson-hyperlegible/latin-700.css';
+// Bundled monospace code fonts for `editor.fontFamilyPreset`. Regular
+// weight only — code editors rarely need bold/italic semantic weights,
+// and a single weight per font keeps the on-disk cost reasonable.
+@import '@fontsource/fira-code/latin-400.css';
+@import '@fontsource/jetbrains-mono/latin-400.css';
+@import '@fontsource/cascadia-code/latin-400.css';
+@import '@fontsource/source-code-pro/latin-400.css';
 
 @font-face {
   font-family: 'Press Start 2P';
@@ -14,7 +32,11 @@ html {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  // Pre-mount default — matches the System Sans preset's stack. Once
+  // ThemeContext mounts it overwrites `--oh-ui-font-family` on :root with
+  // the user's resolved stack, so this fallback only governs the brief
+  // window before React is interactive.
+  font-family: var(--oh-ui-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif);
   margin: 0;
   padding: 0;
   width: 800px;

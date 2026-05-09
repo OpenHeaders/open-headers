@@ -1,28 +1,25 @@
 /**
- * FontFamilyPresetField — enum picker for any font-family preset
- * setting (`editor.fontFamilyPreset`, `appearance.fontFamilyPreset`)
- * with live "installed" / "falls back" tags per option.
+ * FontFamilyPresetField — radio picker for any font-family preset
+ * setting (`editor.fontFamilyPreset`, `appearance.fontFamilyPreset`).
  *
- * Browser extensions can't enumerate the user's installed fonts
- * without a permission grant most users will never see, so we use
- * `document.fonts.check('12px "Family Name"')` to probe each named
- * preset on mount. Probes are synchronous for system-installed fonts
- * (no `@font-face` waiting), and we re-probe whenever the document
- * font-set changes — covers the case where a font is installed
- * mid-session via the OS.
+ * Each option renders as: bold label rendered in its own font on the
+ * first line, secondary description text on the second line. The label
+ * doubles as a live preview — users see how the font actually looks
+ * before selecting it.
  *
- * The OS stacks and the Custom escape hatch carry `probe: null` and
- * render no tag.
- *
- * The field is preset-table-agnostic: it picks the right table by
+ * The field is preset-table-agnostic — it picks the right table by
  * setting key. Editor presets are monospace; appearance presets are
- * proportional sans. They share the same shape and probe strategy,
- * so one component covers both.
+ * proportional sans. They share the same shape, so one component covers
+ * both.
+ *
+ * Every preset in both tables ships its font from our dist (either
+ * bundled woff2 via `@fontsource` or guaranteed OS fallback stacks),
+ * so we no longer probe `document.fonts.check()` for availability —
+ * there is nothing to discover.
  */
 
-import { Radio, Tag, Tooltip } from 'antd';
+import { Radio, theme } from 'antd';
 import type React from 'react';
-import { useEffect, useState } from 'react';
 import { useUntypedSetting } from '../hooks';
 import { APPEARANCE_FONT_PRESETS } from '../schema/appearance';
 import { EDITOR_FONT_PRESETS } from '../schema/editor';
@@ -33,8 +30,7 @@ interface FontPreset {
   id: string;
   label: string;
   description: string;
-  stack: string | undefined;
-  probe: string | null;
+  stack: string;
 }
 
 /** The setting keys this field handles, plus their preset tables. New
@@ -57,37 +53,10 @@ interface FontFamilyPresetFieldProps {
   def: SettingDef;
 }
 
-function probeFonts(presets: ReadonlyArray<FontPreset>): Record<string, boolean> {
-  const out: Record<string, boolean> = {};
-  if (typeof document === 'undefined' || !document.fonts) return out;
-  for (const preset of presets) {
-    if (!preset.probe) continue;
-    try {
-      out[preset.id] = document.fonts.check(`12px "${preset.probe}"`);
-    } catch {
-      // Some browsers throw on unusual family names — treat as missing.
-      out[preset.id] = false;
-    }
-  }
-  return out;
-}
-
 const FontFamilyPresetField: React.FC<FontFamilyPresetFieldProps> = ({ def }) => {
+  const { token } = theme.useToken();
   const [value, setValue] = useUntypedSetting(def.key);
   const presets = PRESET_TABLES.get(def.key) ?? [];
-  const [installed, setInstalled] = useState<Record<string, boolean>>(() => probeFonts(presets));
-
-  useEffect(() => {
-    if (typeof document === 'undefined' || !document.fonts) return;
-    // Re-probe once the font-set settles in case the page is mid-load
-    // when the settings panel mounts.
-    document.fonts
-      .ready.then(() => setInstalled(probeFonts(presets)))
-      .catch(() => {});
-    const handler = (): void => setInstalled(probeFonts(presets));
-    document.fonts.addEventListener?.('loadingdone', handler);
-    return () => document.fonts.removeEventListener?.('loadingdone', handler);
-  }, [presets]);
 
   return (
     <FieldRow
@@ -100,40 +69,18 @@ const FontFamilyPresetField: React.FC<FontFamilyPresetFieldProps> = ({ def }) =>
       <Radio.Group
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+        style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
       >
-        {presets.map((preset) => {
-          const status: 'na' | 'installed' | 'missing' = !preset.probe
-            ? 'na'
-            : installed[preset.id]
-              ? 'installed'
-              : 'missing';
-          const tag =
-            status === 'installed' ? (
-              <Tag color="success" style={{ marginInlineStart: 8 }}>
-                Installed
-              </Tag>
-            ) : status === 'missing' ? (
-              <Tooltip title="Not installed on this system — selecting this falls back to the system stack.">
-                <Tag color="default" style={{ marginInlineStart: 8 }}>
-                  Falls back
-                </Tag>
-              </Tooltip>
-            ) : null;
-          const radio = (
-            <Radio key={preset.id} value={preset.id}>
-              <span style={{ fontFamily: preset.stack ?? undefined }}>{preset.label}</span>
-              {tag}
-            </Radio>
-          );
-          return preset.description ? (
-            <Tooltip key={preset.id} title={preset.description} placement="right">
-              {radio}
-            </Tooltip>
-          ) : (
-            radio
-          );
-        })}
+        {presets.map((preset) => (
+          <Radio key={preset.id} value={preset.id} style={{ alignItems: 'flex-start' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, lineHeight: 1.4 }}>
+              <span style={{ fontFamily: preset.stack, fontWeight: 500 }}>{preset.label}</span>
+              {preset.description ? (
+                <span style={{ color: token.colorTextSecondary, fontSize: 12 }}>{preset.description}</span>
+              ) : null}
+            </div>
+          </Radio>
+        ))}
       </Radio.Group>
     </FieldRow>
   );

@@ -48,14 +48,23 @@ const FieldRow: React.FC<FieldRowProps> = ({
       className="settings-field-row"
       data-setting-key={settingKey}
       style={{
-        display: 'grid',
-        gridTemplateColumns: block ? '1fr' : 'minmax(0, 1fr) minmax(260px, 360px)',
-        gap: 16,
+        // Flex-wrap rather than a fixed two-column grid so narrow
+        // viewports (split-screen windows, the popup-inside-popup case)
+        // collapse to a stacked label-above-control layout instead of
+        // forcing the label column to break individual words across lines.
+        // Once both children have room for their `flex-basis`, they sit
+        // side-by-side; below that threshold they wrap.
+        display: 'flex',
+        flexWrap: 'wrap',
+        flexDirection: block ? 'column' : 'row',
+        alignItems: 'flex-start',
+        columnGap: 16,
+        rowGap: 12,
         padding: '14px 0',
         borderBottom: `1px solid ${token.colorBorderSecondary}`,
       }}
     >
-      <div style={{ minWidth: 0 }}>
+      <div style={{ flex: block ? '1 1 100%' : '1 1 280px', minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {modified && (
             <Tooltip title="Modified from default">
@@ -121,7 +130,18 @@ const FieldRow: React.FC<FieldRowProps> = ({
           {description}
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 8,
+          minWidth: 0,
+          // Stacked layout (block prop) and the narrow-wrap fallback
+          // both want the control to span the full row; in the
+          // side-by-side case it stays bounded by its flex-basis.
+          flex: block ? '1 1 100%' : '1 1 260px',
+        }}
+      >
         <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
           <div
             style={{

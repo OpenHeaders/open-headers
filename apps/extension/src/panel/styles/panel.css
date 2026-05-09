@@ -25,6 +25,16 @@
 @import './panel-search.css';
 @import './panel-menus.css';
 @import './panel-dnd.css';
+/* Inter — bundled UI font available via the appearance.fontFamilyPreset
+   "Inter" option. Three weights (regular / medium / bold), latin subset
+   only — ~70 KB total. */
+@import '@fontsource/inter/latin-400.css';
+@import '@fontsource/inter/latin-500.css';
+@import '@fontsource/inter/latin-700.css';
+/* Atkinson Hyperlegible — accessibility-first sans bundled for the
+   matching preset. Only 400 and 700 weights ship upstream. */
+@import '@fontsource/atkinson-hyperlegible/latin-400.css';
+@import '@fontsource/atkinson-hyperlegible/latin-700.css';
 
 @font-face {
   font-family: 'Press Start 2P';
@@ -133,6 +143,10 @@ body {
 body {
   background: var(--dt-bg);
   color: var(--dt-text);
+  /* ThemeContext writes `--oh-ui-font-family` on :root from the active
+     `appearance.fontFamilyPreset`. Routing the body through the variable
+     keeps plain HTML in step with the AntD token. */
+  font-family: var(--oh-ui-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
 }
 
 #root {

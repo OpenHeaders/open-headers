@@ -3,6 +3,23 @@
  * Mirrors the desktop V5 shell visual patterns (v5-shell.less).
  */
 
+// Inter — bundled UI font available via the appearance.fontFamilyPreset
+// "Inter" option. Three weights (regular / medium / bold), latin subset
+// only — ~70 KB total.
+@import '@fontsource/inter/latin-400.css';
+@import '@fontsource/inter/latin-500.css';
+@import '@fontsource/inter/latin-700.css';
+// Atkinson Hyperlegible — accessibility-first sans bundled for the
+// matching preset. Only 400 and 700 weights ship upstream.
+@import '@fontsource/atkinson-hyperlegible/latin-400.css';
+@import '@fontsource/atkinson-hyperlegible/latin-700.css';
+// Bundled monospace code fonts for `editor.fontFamilyPreset`. Regular
+// weight only.
+@import '@fontsource/fira-code/latin-400.css';
+@import '@fontsource/jetbrains-mono/latin-400.css';
+@import '@fontsource/cascadia-code/latin-400.css';
+@import '@fontsource/source-code-pro/latin-400.css';
+
 @font-face {
   font-family: 'Press Start 2P';
   font-style: normal;
@@ -15,6 +32,14 @@ html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
+}
+
+// ThemeContext writes `--oh-ui-font-family` on :root from the active
+// `appearance.fontFamilyPreset`. Routing the body through the variable
+// keeps plain HTML in step with the AntD token — without it, every
+// preset would render the same as System Sans on macOS.
+body {
+  font-family: var(--oh-ui-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
 }
 
 // ── Shell layout ───────────────────────────────────────────────────

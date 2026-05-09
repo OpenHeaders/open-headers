@@ -79,7 +79,6 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const fontFamilyPreset = useSettingValue('editor.fontFamilyPreset');
   const fontFamily = resolveFontFamily(fontFamilyPreset);
   const fontSize = useSettingValue('editor.fontSize');
-  const fontWeight = useSettingValue('editor.fontWeight');
   const fontLigatures = useSettingValue('editor.fontLigatures');
   const lineHeight = useSettingValue('editor.lineHeight');
   const tabSize = useSettingValue('editor.tabSize');
@@ -128,7 +127,6 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     minimap: { enabled: false },
     fontFamily,
     fontSize,
-    fontWeight,
     fontLigatures,
     lineHeight,
     lineNumbers: lineNumbers ? 'on' : 'off',

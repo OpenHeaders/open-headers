@@ -9,18 +9,13 @@ import { registerSetting } from '../registry';
 
 const wordWrapSchema = v.picklist(['off', 'on', 'bounded']);
 const renderWhitespaceSchema = v.picklist(['none', 'boundary', 'all']);
-// Monaco accepts numeric weights as strings; we keep the union narrow
-// so the field renders as a dropdown rather than free text.
-const fontWeightSchema = v.picklist(['normal', 'bold', '300', '400', '500', '600', '700']);
 
 /**
- * Curated monospace font-family presets. Browser extensions can't
- * enumerate the user's installed fonts without a permission prompt
- * most users will never see, so a free-text picker invites users to
- * type non-monospace names and silently break alignment in the
- * editor. The presets always end with `monospace` so an OS-level
- * fallback kicks in if the named font isn't installed; the alignment
- * stays correct even on a fresh machine.
+ * Curated monospace font-family presets. Every entry either ships its
+ * font from our dist (via `@fontsource` imports in `popup.less` /
+ * `rules.less`) or relies on an OS-guaranteed monospace stack. The
+ * stacks always end with `monospace` so an OS-level fallback kicks in
+ * if the bundled woff2 fails to load for any reason.
  */
 export const EDITOR_FONT_PRESETS: ReadonlyArray<{
   id: string;
@@ -28,61 +23,42 @@ export const EDITOR_FONT_PRESETS: ReadonlyArray<{
   description: string;
   /** Ready-to-use CSS font-family stack. */
   stack: string;
-  /** Font name to probe with `document.fonts.check()`. `null` skips
-   *  detection — used for OS stacks and for fonts we bundle ourselves
-   *  (where availability is guaranteed). */
-  probe: string | null;
 }> = [
   {
     id: 'system',
     label: 'System Mono',
     description: 'Operating-system default monospace — SF Mono on macOS, Consolas on Windows, Liberation Mono on Linux.',
     stack: "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace",
-    probe: null,
-  },
-  {
-    id: 'menlo-consolas',
-    label: 'Menlo / Consolas',
-    description: 'Classic platform monospaces — Menlo on macOS, Consolas on Windows.',
-    stack: "Menlo, Consolas, 'Liberation Mono', monospace",
-    probe: null,
   },
   {
     id: 'fira-code',
     label: 'Fira Code',
-    description: 'Free monospace with programming ligatures. Falls back to System Mono if not installed.',
+    description: 'Monospace with programming ligatures. Bundled — always available.',
     stack: "'Fira Code', 'Fira Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
-    probe: 'Fira Code',
   },
   {
     id: 'jetbrains-mono',
     label: 'JetBrains Mono',
-    description: 'Free monospace tuned for editors, with ligatures. Falls back to System Mono if not installed.',
+    description: 'Monospace tuned for editors, with ligatures. Bundled — always available.',
     stack: "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
-    probe: 'JetBrains Mono',
   },
   {
     id: 'cascadia-code',
     label: 'Cascadia Code',
-    description: 'Free monospace with programming ligatures. Falls back to System Mono if not installed.',
+    description: 'Monospace with programming ligatures. Bundled — always available.',
     stack: "'Cascadia Code', 'Cascadia Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
-    probe: 'Cascadia Code',
   },
   {
     id: 'source-code-pro',
     label: 'Source Code Pro',
-    description: 'Free Adobe monospace tuned for code. Falls back to System Mono if not installed.',
+    description: 'Adobe monospace tuned for code. Bundled — always available.',
     stack: "'Source Code Pro', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
-    probe: 'Source Code Pro',
   },
   {
     id: 'press-start-2p',
     label: 'Press Start 2P',
     description: 'The pixel-style display font we ship with the app. Bundled — always available. A novelty pick: legible but tall and wide.',
     stack: "'Press Start 2P', ui-monospace, SFMono-Regular, monospace",
-    // Bundled, registered programmatically from `assets/fonts/register-bundled-fonts.ts`.
-    // The probe stays null because availability is guaranteed.
-    probe: null,
   },
 ] as const;
 
@@ -97,16 +73,27 @@ export function resolveFontFamily(preset: string): string {
   return def?.stack ?? EDITOR_FONT_PRESETS[0].stack;
 }
 
+/** Default `editor.fontFamilyPreset` resolved per OS at first run.
+ *  Mirrors the appearance-font strategy: macOS keeps SF Mono's native
+ *  rendering; Windows / Linux get JetBrains Mono for cross-platform
+ *  consistency (same code looks the same across machines). The user's
+ *  explicit pick always wins once they change it. */
+function defaultEditorFontPreset(): string {
+  if (typeof navigator === 'undefined') return 'jetbrains-mono';
+  // biome-ignore lint/suspicious/noExplicitAny: navigator.userAgentData isn't yet in the lib.dom type
+  const uaData = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData;
+  const platform = uaData?.platform ?? navigator.platform ?? '';
+  return /mac/i.test(platform) ? 'system' : 'jetbrains-mono';
+}
+
 export type WordWrap = v.InferOutput<typeof wordWrapSchema>;
 export type RenderWhitespace = v.InferOutput<typeof renderWhitespaceSchema>;
-export type FontWeight = v.InferOutput<typeof fontWeightSchema>;
 export type FontFamilyPreset = v.InferOutput<typeof fontFamilyPresetSchema>;
 
 declare module '../types' {
   interface SettingsMap {
     'editor.fontSize': number;
     'editor.fontFamilyPreset': FontFamilyPreset;
-    'editor.fontWeight': FontWeight;
     'editor.fontLigatures': boolean;
     'editor.lineHeight': number;
     'editor.tabSize': number;
@@ -136,35 +123,15 @@ registerSetting({
 registerSetting({
   key: 'editor.fontFamilyPreset',
   type: 'enum',
-  default: 'system',
+  default: defaultEditorFontPreset(),
   schema: fontFamilyPresetSchema,
   label: 'Font Family',
-  description: 'Curated monospace stacks for the editor. Names with the "Falls back" tag are not installed on this system.',
+  description:
+    'Curated monospace stacks for the editor. Every option is bundled with the extension — no system install required. Default is JetBrains Mono on Windows / Linux for cross-platform consistency, and System Mono on macOS to keep SF Mono\'s native rendering.',
   category: 'editor',
   tags: ['font', 'typography', 'monospace', 'fira', 'jetbrains', 'cascadia', 'menlo', 'consolas', 'source code pro'],
   scope: 'user',
   enumOptions: EDITOR_FONT_PRESETS.map((p) => ({ value: p.id, label: p.label, description: p.description })),
-});
-
-registerSetting({
-  key: 'editor.fontWeight',
-  type: 'enum',
-  default: 'normal',
-  schema: fontWeightSchema,
-  label: 'Font Weight',
-  description: 'Stroke weight for editor text. Numeric values map to CSS font-weight steps.',
-  category: 'editor',
-  tags: ['font', 'weight', 'bold', 'thin'],
-  scope: 'user',
-  enumOptions: [
-    { value: 'normal', label: 'Normal' },
-    { value: 'bold', label: 'Bold' },
-    { value: '300', label: 'Light (300)' },
-    { value: '400', label: 'Regular (400)' },
-    { value: '500', label: 'Medium (500)' },
-    { value: '600', label: 'Semibold (600)' },
-    { value: '700', label: 'Bold (700)' },
-  ],
 });
 
 registerSetting({

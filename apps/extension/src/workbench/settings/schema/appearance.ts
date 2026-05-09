@@ -24,43 +24,46 @@ import { registerSetting } from '../registry';
 
 /**
  * Curated UI font-family presets for the chrome (everything outside
- * the editor). Same shape as `EDITOR_FONT_PRESETS` — `stack` is a
- * ready-to-use CSS family list ending in `sans-serif`, `probe` is the
- * primary family name fed to `document.fonts.check()`. The OS stack
- * and the custom escape hatch carry `probe: null`.
+ * the editor). Every entry either bundles its font (via `@fontsource`
+ * imports in `popup.less` / `rules.less` / `panel.css`) or is the
+ * OS-native fallback stack — availability is guaranteed in both cases,
+ * so we don't probe `document.fonts.check()` here.
  *
- * Ant Design's component sizing is tuned against system sans-serif
- * metrics, so the curated additions are limited to two well-behaved
- * proportional fonts: Inter (modern app UI) and Atkinson Hyperlegible
- * (accessibility-first). Anything else goes through Custom.
+ * Ant Design's component sizing is tuned against sans-serif metrics,
+ * so the bundled additions are deliberately limited: Inter as the
+ * cross-OS default, Atkinson Hyperlegible for accessibility, Press
+ * Start 2P as a novelty pick that doubles as our wordmark font.
  */
 export const APPEARANCE_FONT_PRESETS: ReadonlyArray<{
   id: string;
   label: string;
   description: string;
   stack: string;
-  probe: string | null;
 }> = [
-  {
-    id: 'system',
-    label: 'System Sans',
-    description: 'Operating-system default UI sans — San Francisco on macOS, Segoe UI on Windows, Roboto on Linux.',
-    stack: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    probe: null,
-  },
   {
     id: 'inter',
     label: 'Inter',
-    description: 'Free modern UI sans tuned for screens. Falls back to System Sans if not installed.',
+    description:
+      'Bundled UI sans designed for screens — renders identically on every operating system, so the app looks the same on macOS, Windows, and Linux.',
     stack: "'Inter', system-ui, -apple-system, sans-serif",
-    probe: 'Inter',
+    // Bundled in `popup.less` / `rules.less` / `panel.css` via the
+    // `@fontsource/inter` package — availability is guaranteed.
+  },
+  {
+    id: 'system',
+    label: 'System Sans',
+    description:
+      'Operating-system default UI sans — San Francisco on macOS, Segoe UI on Windows, Roboto on Linux. Use this if you prefer the native look at the cost of cross-platform consistency.',
+    stack: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   },
   {
     id: 'atkinson-hyperlegible',
     label: 'Atkinson Hyperlegible',
-    description: 'Free sans designed for low-vision readability — distinctive letterforms reduce character confusion.',
+    description:
+      'Sans designed for low-vision readability — distinctive letterforms reduce character confusion. Bundled — always available.',
     stack: "'Atkinson Hyperlegible', system-ui, -apple-system, sans-serif",
-    probe: 'Atkinson Hyperlegible',
+    // Bundled in `popup.less` / `rules.less` / `panel.css` via the
+    // `@fontsource/atkinson-hyperlegible` package — availability is guaranteed.
   },
   {
     id: 'press-start-2p',
@@ -68,7 +71,6 @@ export const APPEARANCE_FONT_PRESETS: ReadonlyArray<{
     description: 'The pixel-style display font we ship with the app. Bundled — always available. A novelty pick: legible but tall and wide; chrome paddings will look generous.',
     stack: "'Press Start 2P', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     // Bundled, registered programmatically — availability guaranteed.
-    probe: null,
   },
 ] as const;
 
@@ -78,7 +80,23 @@ const fontFamilyPresetSchema = v.picklist(APPEARANCE_FONT_PRESETS.map((p) => p.i
  *  Falls back to System Sans if the id is unknown. */
 export function resolveAppearanceFontFamily(preset: string): string {
   const def = APPEARANCE_FONT_PRESETS.find((p) => p.id === preset);
-  return def?.stack ?? APPEARANCE_FONT_PRESETS[0].stack;
+  return def?.stack ?? APPEARANCE_FONT_PRESETS[1].stack;
+}
+
+/** Default `appearance.fontFamilyPreset` resolved per OS at first run.
+ *  macOS: keep the native SF Pro / SF Pro Text rendering (with its
+ *  built-in optical sizing). Everywhere else: bundled Inter, so the
+ *  Windows / Linux fallback stacks (Segoe UI / Roboto / Noto) don't
+ *  produce a per-machine inconsistent look. The user's explicit pick
+ *  always wins once they change it. */
+function defaultFontFamilyPreset(): string {
+  if (typeof navigator === 'undefined') return 'inter';
+  // Modern browsers expose `userAgentData.platform`; fall back to the
+  // legacy `navigator.platform` (deprecated but still ubiquitous).
+  // biome-ignore lint/suspicious/noExplicitAny: navigator.userAgentData isn't yet in the lib.dom type
+  const uaData = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData;
+  const platform = uaData?.platform ?? navigator.platform ?? '';
+  return /mac/i.test(platform) ? 'system' : 'inter';
 }
 
 const themeSchema = v.picklist(['light', 'dark', 'auto']);
@@ -190,10 +208,11 @@ registerSetting({
 registerSetting({
   key: 'appearance.fontFamilyPreset',
   type: 'enum',
-  default: 'system',
+  default: defaultFontFamilyPreset(),
   schema: fontFamilyPresetSchema,
   label: 'UI Font Family',
-  description: 'Curated sans-serif stacks for the app chrome. Names with the "Falls back" tag are not installed on this system. Editor surfaces have their own font setting.',
+  description:
+    'Curated sans-serif stacks for the app chrome. Default is Inter on Windows / Linux for cross-platform consistency, and System Sans on macOS to keep SF Pro\'s native optical sizing. Every option is bundled with the extension. Editor surfaces have their own font setting.',
   category: 'appearance',
   tags: ['font', 'typography', 'sans', 'inter', 'atkinson', 'accessibility'],
   scope: 'user',

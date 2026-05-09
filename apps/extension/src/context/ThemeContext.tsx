@@ -108,6 +108,15 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     }
   }, [isDarkMode, themeMode]);
 
+  // Publish the active chrome font as a CSS custom property so global
+  // stylesheets (popup.less, rules.less, panel.css) can opt every plain
+  // HTML element into the user's choice. Without this, hardcoded
+  // `body { font-family: ... }` rules win over Ant Design's token and
+  // every preset renders identically on macOS (system fallback).
+  useEffect(() => {
+    document.documentElement.style.setProperty('--oh-ui-font-family', fontFamily);
+  }, [fontFamily]);
+
   // ── Store mutators ───────────────────────────────────────────────
   const handleSetThemeMode = (mode: ThemeMode): void => {
     setSettingValue('appearance.theme', mode);
