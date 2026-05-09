@@ -647,40 +647,26 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     // it is open.
   }, [isConflictDialogOpen]);
 
-  const buildLocalText = useCallback(
-    (resolutions: ReadonlyMap<string, ConflictResolution>): string => {
-      if (!liveRule || !formValues) return '';
-      const localBuilt = buildRule(formValues, ruleName, isEnabled);
-      if (!localBuilt) return '';
-      // Deep-clone before mutating so the caller's form / live data
-      // doesn't drift via shared sub-objects (action arrays especially).
-      // Splice entity-managed metadata (schemaVersion, published) from
-      // the live rule onto the projection — `buildRule` only knows the
-      // form-owned fields, so without this the diff would falsely
-      // remove `schemaVersion`/`published` lines on the local side.
-      const localRule = JSON.parse(
-        JSON.stringify({
-          ...localBuilt,
-          uid: liveRule.uid,
-          path: liveRule.path,
-          schemaVersion: liveRule.schemaVersion,
-          published: liveRule.published,
-        }),
-      ) as V5.Rule;
-      for (const [path, choice] of resolutions) {
-        if (choice !== 'theirs') continue;
-        const conflict = allConflicts.get(path);
-        if (!conflict) continue;
-        applyResolutionToRule(localRule, path, conflict);
-      }
-      try {
-        return serializeRule(freshDocument(canonicalizeRule(localRule)));
-      } catch {
-        return '';
-      }
-    },
-    [liveRule, formValues, ruleName, isEnabled, allConflicts],
-  );
+  // Local projection serialized for the merge editor's mine pane.
+  // Splices entity-managed metadata (schemaVersion, published) from
+  // the live rule — `buildRule` only knows form-owned fields.
+  const mineText = useMemo(() => {
+    if (!isConflictDialogOpen || !liveRule || !formValues) return '';
+    const localBuilt = buildRule(formValues, ruleName, isEnabled);
+    if (!localBuilt) return '';
+    const localRule = {
+      ...localBuilt,
+      uid: liveRule.uid,
+      path: liveRule.path,
+      schemaVersion: liveRule.schemaVersion,
+      published: liveRule.published,
+    } as V5.Rule;
+    try {
+      return serializeRule(freshDocument(canonicalizeRule(localRule)));
+    } catch {
+      return '';
+    }
+  }, [isConflictDialogOpen, liveRule, formValues, ruleName, isEnabled]);
 
   const conflictPathLabels = useMemo(
     () => (liveRule ? prettyRulePathMap(liveRule, allConflicts.keys()) : new Map<string, string>()),
@@ -1372,12 +1358,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                 <EntityConflictDialog
                   open={isConflictDialogOpen}
                   savedText={savedYaml}
-                  buildLocalText={buildLocalText}
-                  conflicts={allConflicts}
-                  localValuesByPath={formProjection ? new Map(Object.entries(formProjection)) : undefined}
-                  pathLabels={conflictPathLabels}
+                  mineText={mineText}
                   baseText={baseYaml}
-                  onResolve={applyResolutions}
+                  language="yaml"
                   onResolveText={handleResolveText}
                   onClose={() => setConflictDialogOpen(false)}
                 />

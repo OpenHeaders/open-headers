@@ -591,26 +591,22 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
     );
   }, [isConflictDialogOpen]);
 
-  const buildLocalText = useCallback(
-    (resolutions: ReadonlyMap<string, ConflictResolution>): string => {
-      const projected = projectWithResolutions(resolutions);
-      if (!projected) return '';
-      return JSON.stringify(
-        {
-          name: projected.name,
-          description: projected.description ?? '',
-          enabled: projected.enabled,
-          requireFreshOnRuleBuild: Boolean(projected.requireFreshOnRuleBuild),
-          workflowUid: projected.workflowUid,
-          stepId: projected.stepId,
-          captureName: projected.captureName,
-        },
-        null,
-        2,
-      );
-    },
-    [projectWithResolutions],
-  );
+  const mineText = useMemo(() => {
+    if (!isConflictDialogOpen || !draft) return '';
+    return JSON.stringify(
+      {
+        name: draft.name,
+        description: draft.description,
+        enabled: draft.enabled,
+        requireFreshOnRuleBuild: Boolean(draft.requireFreshOnRuleBuild),
+        workflowUid: draft.workflowUid,
+        stepId: draft.stepId,
+        captureName: draft.captureName,
+      },
+      null,
+      2,
+    );
+  }, [isConflictDialogOpen, draft]);
 
   // Per-field focus path. Live editors don't use antd Form, so focus
   // mapping rides `data-field-path` attributes on FieldRow wrappers;
@@ -1013,12 +1009,9 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
         <EntityConflictDialog
           open={isConflictDialogOpen}
           savedText={savedText}
+          mineText={mineText}
           baseText={baseText}
-          buildLocalText={buildLocalText}
-          conflicts={allConflicts}
-          localValuesByPath={new Map(Object.entries(formProjection ?? {}))}
-          pathLabels={conflictPathLabels}
-          onResolve={applyResolutions}
+          language="json"
           onResolveText={handleResolveText}
           onClose={() => setConflictDialogOpen(false)}
         />

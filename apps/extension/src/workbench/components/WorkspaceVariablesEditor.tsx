@@ -160,20 +160,6 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
     for (const [path, conflict] of allConflicts) conflicts.acceptTheirs(path, conflict.theirs);
   }, [allConflicts, conflicts, projectWithResolutions, setDraft]);
 
-  const applyResolutions = useCallback(
-    (resolutions: Map<string, ConflictResolution>) => {
-      const projected = projectWithResolutions(resolutions);
-      setDraft(projected.variables);
-      for (const [path, choice] of resolutions) {
-        const conflict = allConflicts.get(path);
-        if (!conflict) continue;
-        if (choice === 'theirs') conflicts.acceptTheirs(path, conflict.theirs);
-        else conflicts.dismiss(path);
-      }
-    },
-    [allConflicts, conflicts, projectWithResolutions, setDraft],
-  );
-
   // Phase 6 commit seam — JSON.parse the merge-editor's result text
   // back into the variables array, replace the draft, dismiss every
   // conflict path. Throws on malformed JSON or non-array shape.
@@ -185,11 +171,6 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
       for (const path of allConflicts.keys()) conflicts.dismiss(path);
     },
     [allConflicts, conflicts, setDraft],
-  );
-
-  const conflictPathLabels = useMemo(
-    () => prettyPathMap(variableResolveAdapter, liveEntity, allConflicts.keys()),
-    [liveEntity, allConflicts],
   );
 
   const savedText = useMemo(() => {
@@ -204,13 +185,10 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
     return JSON.stringify(baseline, null, 2);
   }, [isConflictDialogOpen]);
 
-  const buildLocalText = useCallback(
-    (resolutions: ReadonlyMap<string, ConflictResolution>): string => {
-      const projected = projectWithResolutions(resolutions);
-      return JSON.stringify(projected.variables, null, 2);
-    },
-    [projectWithResolutions],
-  );
+  const mineText = useMemo(() => {
+    if (!isConflictDialogOpen) return '';
+    return JSON.stringify(draft, null, 2);
+  }, [isConflictDialogOpen, draft]);
 
   const handleSave = useCallback(async () => {
     if (!isDirty) return;
@@ -289,12 +267,9 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
         <EntityConflictDialog
           open={isConflictDialogOpen}
           savedText={savedText}
-          buildLocalText={buildLocalText}
-          conflicts={allConflicts}
-          localValuesByPath={new Map(Object.entries(formProjection))}
-          pathLabels={conflictPathLabels}
+          mineText={mineText}
           baseText={baseText}
-          onResolve={applyResolutions}
+          language="json"
           onResolveText={handleResolveText}
           onClose={() => setConflictDialogOpen(false)}
         />

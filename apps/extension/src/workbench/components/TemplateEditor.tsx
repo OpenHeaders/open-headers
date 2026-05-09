@@ -284,25 +284,16 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
     }
   }, [isConflictDialogOpen]);
 
-  const buildLocalText = useCallback(
-    (resolutions: ReadonlyMap<string, ConflictResolution>): string => {
-      if (!liveTemplate || !formValues) return '';
-      const projected = buildTemplateUpdates(formValues);
-      const local = JSON.parse(JSON.stringify({ ...liveTemplate, ...projected })) as V5.Template;
-      for (const [path, choice] of resolutions) {
-        if (choice !== 'theirs') continue;
-        const conflict = allConflicts.get(path);
-        if (!conflict) continue;
-        templateResolveAdapter.applyResolutionToEntity(local, path, conflict);
-      }
-      try {
-        return serializeTemplate(freshDocument(canonicalizeTemplate(local)));
-      } catch {
-        return '';
-      }
-    },
-    [liveTemplate, formValues, allConflicts],
-  );
+  const mineText = useMemo(() => {
+    if (!isConflictDialogOpen || !liveTemplate || !formValues) return '';
+    const projected = buildTemplateUpdates(formValues);
+    const local = { ...liveTemplate, ...projected } as V5.Template;
+    try {
+      return serializeTemplate(freshDocument(canonicalizeTemplate(local)));
+    } catch {
+      return '';
+    }
+  }, [isConflictDialogOpen, liveTemplate, formValues]);
 
   const conflictPathLabels = useMemo(
     () =>
@@ -491,12 +482,9 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
           <EntityConflictDialog
             open={isConflictDialogOpen}
             savedText={savedYaml}
-            buildLocalText={buildLocalText}
-            conflicts={allConflicts}
-            localValuesByPath={formProjection ? new Map(Object.entries(formProjection)) : undefined}
-            pathLabels={conflictPathLabels}
+            mineText={mineText}
             baseText={baseYaml}
-            onResolve={applyResolutions}
+            language="yaml"
             onResolveText={handleResolveText}
             onClose={() => setConflictDialogOpen(false)}
           />

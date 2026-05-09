@@ -666,18 +666,18 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     }
   }, [isConflictDialogOpen]);
 
-  const buildLocalText = useCallback(
-    (resolutions: ReadonlyMap<string, ConflictResolution>): string => {
-      const projected = projectWithResolutions(resolutions);
-      if (!projected) return '';
-      try {
-        return serializeRequest(freshDocument(canonicalizeRequest(projected.req))).requestYaml;
-      } catch {
-        return '';
-      }
-    },
-    [projectWithResolutions],
-  );
+  // Local projection serialized for the merge editor's mine pane —
+  // live request + current draft, no per-path picks (the merge editor
+  // surface owns picks now).
+  const mineText = useMemo(() => {
+    if (!isConflictDialogOpen || !liveRequest) return '';
+    const merged = { ...liveRequest, ...buildRequestUpdates(draft) } as V5.Request;
+    try {
+      return serializeRequest(freshDocument(canonicalizeRequest(merged))).requestYaml;
+    } catch {
+      return '';
+    }
+  }, [isConflictDialogOpen, liveRequest, draft]);
 
   const conflictPathLabels = useMemo(
     () =>
@@ -1094,12 +1094,9 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
           <EntityConflictDialog
             open={isConflictDialogOpen}
             savedText={savedYaml}
-            buildLocalText={buildLocalText}
-            conflicts={allConflicts}
-            localValuesByPath={formProjection ? new Map(Object.entries(formProjection)) : undefined}
-            pathLabels={conflictPathLabels}
+            mineText={mineText}
             baseText={baseYaml}
-            onResolve={applyResolutions}
+            language="yaml"
             onResolveText={handleResolveText}
             onClose={() => setConflictDialogOpen(false)}
           />

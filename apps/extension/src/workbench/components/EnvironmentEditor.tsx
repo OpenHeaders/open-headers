@@ -196,21 +196,6 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
     for (const [path, conflict] of allConflicts) conflicts.acceptTheirs(path, conflict.theirs);
   }, [allConflicts, conflicts, env, projectWithResolutions, setDraft]);
 
-  const applyResolutions = useCallback(
-    (resolutions: Map<string, ConflictResolution>) => {
-      if (!env) return;
-      const projected = projectWithResolutions(resolutions);
-      if (projected) setDraft(projected.variables);
-      for (const [path, choice] of resolutions) {
-        const conflict = allConflicts.get(path);
-        if (!conflict) continue;
-        if (choice === 'theirs') conflicts.acceptTheirs(path, conflict.theirs);
-        else conflicts.dismiss(path);
-      }
-    },
-    [allConflicts, conflicts, env, projectWithResolutions, setDraft],
-  );
-
   // Phase 6 commit seam — JSON.parse the merge-editor's result text
   // back into the variables array, replace the draft, dismiss every
   // conflict path. Throws on malformed JSON or non-array shape.
@@ -225,14 +210,6 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
     [env, allConflicts, conflicts, setDraft],
   );
 
-  const conflictPathLabels = useMemo(
-    () =>
-      liveEntity
-        ? prettyPathMap(variableResolveAdapter, liveEntity, allConflicts.keys())
-        : new Map<string, string>(),
-    [liveEntity, allConflicts],
-  );
-
   const savedText = useMemo(() => {
     if (!isConflictDialogOpen || !env) return '';
     return JSON.stringify(env.variables, null, 2);
@@ -245,14 +222,10 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
     return JSON.stringify(baseline, null, 2);
   }, [isConflictDialogOpen]);
 
-  const buildLocalText = useCallback(
-    (resolutions: ReadonlyMap<string, ConflictResolution>): string => {
-      const projected = projectWithResolutions(resolutions);
-      if (!projected) return '';
-      return JSON.stringify(projected.variables, null, 2);
-    },
-    [projectWithResolutions],
-  );
+  const mineText = useMemo(() => {
+    if (!isConflictDialogOpen) return '';
+    return JSON.stringify(draft, null, 2);
+  }, [isConflictDialogOpen, draft]);
 
   const handleSave = useCallback(async () => {
     if (!env || !isDirty) return;
@@ -373,12 +346,9 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
         <EntityConflictDialog
           open={isConflictDialogOpen}
           savedText={savedText}
-          buildLocalText={buildLocalText}
-          conflicts={allConflicts}
-          localValuesByPath={new Map(Object.entries(formProjection))}
-          pathLabels={conflictPathLabels}
+          mineText={mineText}
           baseText={baseText}
-          onResolve={applyResolutions}
+          language="json"
           onResolveText={handleResolveText}
           onClose={() => setConflictDialogOpen(false)}
         />

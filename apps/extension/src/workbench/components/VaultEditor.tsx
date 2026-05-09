@@ -173,20 +173,6 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
     for (const [path, conflict] of allConflicts) conflicts.acceptTheirs(path, conflict.theirs);
   }, [allConflicts, conflicts, projectWithResolutions, setDraft]);
 
-  const applyResolutions = useCallback(
-    (resolutions: Map<string, ConflictResolution>) => {
-      const projected = projectWithResolutions(resolutions);
-      setDraft(projected.secrets);
-      for (const [path, choice] of resolutions) {
-        const conflict = allConflicts.get(path);
-        if (!conflict) continue;
-        if (choice === 'theirs') conflicts.acceptTheirs(path, conflict.theirs);
-        else conflicts.dismiss(path);
-      }
-    },
-    [allConflicts, conflicts, projectWithResolutions, setDraft],
-  );
-
   // Phase 6 commit seam — JSON.parse the merge-editor's result text
   // back into the secrets array, replace the draft, dismiss every
   // conflict path. Throws on malformed JSON or non-array shape.
@@ -198,11 +184,6 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
       for (const path of allConflicts.keys()) conflicts.dismiss(path);
     },
     [allConflicts, conflicts, setDraft],
-  );
-
-  const conflictPathLabels = useMemo(
-    () => prettyPathMap(vaultResolveAdapter, liveVaultWithUid, allConflicts.keys()),
-    [liveVaultWithUid, allConflicts],
   );
 
   const savedText = useMemo(() => {
@@ -218,13 +199,11 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
     return JSON.stringify(baseline, null, 2);
   }, [isConflictDialogOpen]);
 
-  const buildLocalText = useCallback(
-    (resolutions: ReadonlyMap<string, ConflictResolution>): string => {
-      const projected = projectWithResolutions(resolutions);
-      return JSON.stringify(projected.secrets, null, 2);
-    },
-    [projectWithResolutions],
-  );
+  // Local projection serialized for the merge editor's mine pane.
+  const mineText = useMemo(() => {
+    if (!isConflictDialogOpen) return '';
+    return JSON.stringify(draft, null, 2);
+  }, [isConflictDialogOpen, draft]);
 
   const handleSave = useCallback(async () => {
     if (!isDirty) return;
@@ -310,12 +289,9 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
         <EntityConflictDialog
           open={isConflictDialogOpen}
           savedText={savedText}
-          buildLocalText={buildLocalText}
-          conflicts={allConflicts}
-          localValuesByPath={new Map(Object.entries(formProjection))}
-          pathLabels={conflictPathLabels}
+          mineText={mineText}
           baseText={baseText}
-          onResolve={applyResolutions}
+          language="json"
           onResolveText={handleResolveText}
           onClose={() => setConflictDialogOpen(false)}
         />

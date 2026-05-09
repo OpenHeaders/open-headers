@@ -418,23 +418,19 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
     );
   }, [isConflictDialogOpen]);
 
-  const buildLocalText = useCallback(
-    (resolutions: ReadonlyMap<string, ConflictResolution>): string => {
-      const projected = projectWithResolutions(resolutions);
-      if (!projected) return '';
-      return JSON.stringify(
-        {
-          name: projected.name,
-          description: projected.description ?? '',
-          enabled: projected.enabled,
-          refresh: projected.refresh,
-        },
-        null,
-        2,
-      );
-    },
-    [projectWithResolutions],
-  );
+  const mineText = useMemo(() => {
+    if (!isConflictDialogOpen || !draft) return '';
+    return JSON.stringify(
+      {
+        name: draft.name,
+        description: draft.description,
+        enabled: draft.enabled,
+        refresh: draft.refresh,
+      },
+      null,
+      2,
+    );
+  }, [isConflictDialogOpen, draft]);
 
   // Per-field focus path. Live editors don't use antd Form, so focus
   // mapping rides `data-field-path` attributes on field-section
@@ -721,12 +717,9 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
       <EntityConflictDialog
         open={isConflictDialogOpen}
         savedText={savedText}
+        mineText={mineText}
         baseText={baseText}
-        buildLocalText={buildLocalText}
-        conflicts={allConflicts}
-        localValuesByPath={new Map(Object.entries(formProjection ?? {}))}
-        pathLabels={conflictPathLabels}
-        onResolve={applyResolutions}
+        language="json"
         onResolveText={handleResolveText}
         onClose={() => setConflictDialogOpen(false)}
       />
