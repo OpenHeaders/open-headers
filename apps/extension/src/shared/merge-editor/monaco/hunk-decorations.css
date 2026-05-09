@@ -56,3 +56,17 @@
 [data-merge-theme='dark'] .oh-merge__hunk-accept-mine::before {
   color: rgba(46, 160, 67, 1);
 }
+
+/* "Missing here" marker — thin dashed bar inserted as a view zone at
+ * the position on the empty side of a pure-addition / pure-removal
+ * hunk. Hairline + dashed so it reads as "absence" rather than
+ * pretending content lives on this side. */
+.oh-merge__missing-marker {
+  height: 2px;
+  border-top: 1px dashed rgba(218, 54, 51, 0.55);
+  margin: 0;
+  pointer-events: none;
+}
+[data-merge-theme='dark'] .oh-merge__missing-marker {
+  border-top-color: rgba(248, 81, 73, 0.6);
+}

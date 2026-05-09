@@ -44,6 +44,7 @@ import { diffLines, type Hunk } from '../diff/line-diff';
 import { type GridRatios, useGridResize } from '../monaco/use-grid-resize';
 import { useHunkAcceptArrows } from '../monaco/use-hunk-accept-arrows';
 import { type HunkSide, useHunkDecorations } from '../monaco/use-hunk-decorations';
+import { useMissingMarkers } from '../monaco/use-missing-markers';
 import { useMonacoEditorLifecycle } from '../monaco/use-monaco-editor-lifecycle';
 import { useSyncScroll } from '../monaco/use-sync-scroll';
 import type { MergeFile } from '../types';
@@ -316,6 +317,8 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
 
   useHunkDecorations({ editorRef: theirsHandle, side: 'theirs', hunks: visibleTheirs });
   useHunkDecorations({ editorRef: mineHandle, side: 'mine', hunks: visibleMine });
+  useMissingMarkers({ editorRef: theirsHandle, side: 'theirs', hunks: visibleTheirs });
+  useMissingMarkers({ editorRef: mineHandle, side: 'mine', hunks: visibleMine });
 
   const handleAccept = useCallback(
     (hunkId: string, side: HunkSide) => {
