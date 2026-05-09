@@ -1,11 +1,15 @@
 /**
- * Phase 1 shell — antd Modal that renders one MergePane for the
- * active file (single-file mode). Multi-file shell + sidebar arrives
- * in Phase 5.
+ * Modal shell — single MergePane plus an optional file-list sidebar
+ * (Phase 5). Per-file result text is cached so switching files
+ * preserves user edits without recreating Monaco editors (plan
+ * §11.8): `MergePane` re-seeds its result buffer when `file.initialResult`
+ * changes, but the same editor instance keeps its scroll/cursor/sash
+ * state.
  *
- * Apply flow: read each file's editable result text via the pane
- * handle, build the `Map<fileId, resultText>`, hand to the session
- * adapter. Modal stays open if any outcome is `ok: false`.
+ * Apply flow: read every file's editable result text (active file
+ * via pane handle; inactive files via the cache) and hand the
+ * `Map<fileId, text>` to the session adapter. The modal stays open
+ * if any outcome is `ok: false`.
  */
 
 import { CheckCircleFilled, DownOutlined, ReloadOutlined, ThunderboltOutlined, UpOutlined } from '@ant-design/icons';
@@ -13,6 +17,7 @@ import { Alert, Button, Modal, Segmented, Space, Switch, Tag, Tooltip, Typograph
 import { type ReactElement, useCallback, useMemo, useRef, useState } from 'react';
 import type { MergeApplyOutcome, MergeSession } from '../types';
 import { usePersistedLayout } from '../use-persisted-layout';
+import MergeFileList, { type MergeFileRowState } from './MergeFileList';
 import MergePane, { type HunkStats, type MergeLayout, type MergePaneHandle } from './MergePane';
 
 const { Text } = Typography;
@@ -76,16 +81,58 @@ const MergeConflictModal = ({
     [stats.totalRemaining],
   );
 
-  // Phase 1: single-file shell. Initial-file selection follows the
-  // session hint or first file. Multi-file selection arrives in Phase 5.
-  const activeFile = useMemo(() => {
+  // Active file id — initialized from `session.initialFileId` or the
+  // first file. Multi-file selection updates this from the sidebar.
+  const [activeFileId, setActiveFileId] = useState<string | null>(() => {
     if (session.files.length === 0) return null;
-    if (session.initialFileId) {
-      const hit = session.files.find((f) => f.id === session.initialFileId);
-      if (hit) return hit;
+    if (session.initialFileId && session.files.some((f) => f.id === session.initialFileId)) {
+      return session.initialFileId;
     }
-    return session.files[0];
-  }, [session]);
+    return session.files[0].id;
+  });
+
+  // Per-file result-text cache. Updated on every file switch + on Apply
+  // so inactive files contribute their last user edit. Apply payload
+  // also fetches the active file via the pane handle to capture any
+  // post-edit text the cache hasn't seen.
+  const [resultsByFileId, setResultsByFileId] = useState<Map<string, string>>(() => new Map());
+
+  const activeFile = useMemo(() => {
+    if (!activeFileId) return null;
+    const file = session.files.find((f) => f.id === activeFileId);
+    if (!file) return null;
+    const cached = resultsByFileId.get(file.id);
+    return cached !== undefined ? { ...file, initialResult: cached } : file;
+  }, [activeFileId, session.files, resultsByFileId]);
+
+  // File-row status map. `failed` rows surface their adapter error in
+  // the sidebar tooltip. `resolved` is set on Apply success.
+  const fileStates = useMemo<Map<string, MergeFileRowState>>(() => {
+    const map = new Map<string, MergeFileRowState>();
+    for (const o of outcomes) {
+      map.set(o.fileId, { status: o.ok ? 'resolved' : 'failed', error: o.error });
+    }
+    return map;
+  }, [outcomes]);
+
+  const handleFileSelect = useCallback(
+    (nextFileId: string) => {
+      if (!activeFileId || nextFileId === activeFileId) return;
+      // Cache the active file's current text BEFORE switching so the
+      // user's in-progress edits ride along.
+      const text = paneRef.current?.getResultText();
+      if (text !== undefined) {
+        setResultsByFileId((prev) => {
+          if (prev.get(activeFileId) === text) return prev;
+          const next = new Map(prev);
+          next.set(activeFileId, text);
+          return next;
+        });
+      }
+      setActiveFileId(nextFileId);
+    },
+    [activeFileId],
+  );
 
   const handleCancel = useCallback(() => {
     session.onCancel();
@@ -96,16 +143,25 @@ const MergeConflictModal = ({
     if (!activeFile) return;
     setApplying(true);
     try {
+      // Build the results map: cached text for inactive files, live
+      // pane text for the active file. Files the user never opened
+      // fall back to their adapter-supplied initialResult.
       const results = new Map<string, string>();
-      const text = paneRef.current?.getResultText() ?? activeFile.initialResult;
-      results.set(activeFile.id, text);
+      for (const f of session.files) {
+        const cached = resultsByFileId.get(f.id);
+        results.set(f.id, cached ?? f.initialResult);
+      }
+      const liveText = paneRef.current?.getResultText();
+      if (liveText !== undefined && activeFileId) {
+        results.set(activeFileId, liveText);
+      }
       const next = await session.onApply(session.files, results);
       setOutcomes(next);
       if (next.every((o) => o.ok)) onClose();
     } finally {
       setApplying(false);
     }
-  }, [activeFile, session, onClose]);
+  }, [activeFile, activeFileId, resultsByFileId, session, onClose]);
 
   return (
     <Modal
@@ -228,23 +284,35 @@ const MergeConflictModal = ({
             border: `1px solid ${token.colorBorderSecondary}`,
             borderRadius: 4,
             overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'row',
           }}
         >
-          {activeFile ? (
-            <MergePane
-              ref={paneRef}
-              file={activeFile}
-              isDarkMode={isDarkMode}
-              showNonConflicting={showNonConflicting}
-              layout={layout}
-              onHunkStatsChange={setStats}
-              onAnnounce={announce}
+          {activeFileId ? (
+            <MergeFileList
+              files={session.files}
+              activeFileId={activeFileId}
+              states={fileStates}
+              onSelect={handleFileSelect}
             />
-          ) : (
-            <div style={{ padding: 16 }}>
-              <Text type="secondary">No files in this merge session.</Text>
-            </div>
-          )}
+          ) : null}
+          <div style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
+            {activeFile ? (
+              <MergePane
+                ref={paneRef}
+                file={activeFile}
+                isDarkMode={isDarkMode}
+                showNonConflicting={showNonConflicting}
+                layout={layout}
+                onHunkStatsChange={setStats}
+                onAnnounce={announce}
+              />
+            ) : (
+              <div style={{ padding: 16 }}>
+                <Text type="secondary">No files in this merge session.</Text>
+              </div>
+            )}
+          </div>
         </div>
       </div>
       {/* Visually-hidden polite live region. Off-screen via the

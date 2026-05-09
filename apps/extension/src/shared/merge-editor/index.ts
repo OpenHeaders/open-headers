@@ -17,6 +17,8 @@
 
 export type { MergeConflictModalProps } from './components/MergeConflictModal';
 export { default as MergeConflictModal } from './components/MergeConflictModal';
+export type { MergeFileListProps, MergeFileRowState, MergeFileStatus } from './components/MergeFileList';
+export { default as MergeFileList } from './components/MergeFileList';
 export type { HunkStats, MergeLayout, MergePaneHandle, MergePaneProps } from './components/MergePane';
 export { default as MergePane } from './components/MergePane';
 export type {
