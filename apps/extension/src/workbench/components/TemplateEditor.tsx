@@ -19,7 +19,6 @@
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
 import { canonicalizeTemplate, serializeTemplate } from '@openheaders/core/codec/yaml';
-import { mergeTemplateForSave } from './merge-template-for-save';
 import { freshDocument } from '@openheaders/core/schemas';
 import { TEMPLATE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
@@ -35,18 +34,19 @@ import {
   useLocalInstanceId,
 } from '@/shared/awareness';
 import {
-  EntityConflictBanner,
-  hasDialogOnlyConflict,
-  EntityConflictDialog,
-  prettyPathMap,
   type ConflictResolution,
+  EntityConflictBanner,
+  EntityConflictDialog,
+  hasDialogOnlyConflict,
   type PathConflict,
+  prettyPathMap,
   useAutoMergeForm,
 } from '@/shared/conflicts';
 import { useEditorShell, useReprime } from '@/shared/editor-shell';
 import { stableStringify } from '@/shared/forms';
 import ConditionEditor from './ConditionEditor';
 import EditorHeader from './EditorHeader';
+import { mergeTemplateForSave } from './merge-template-for-save';
 import { ActionValueBanner } from './rule-fields/ActionValueBanner';
 import BlockRuleFields from './rule-fields/BlockRuleFields';
 import BodyRuleFields, { BODY_DYNAMIC_TEMPLATE } from './rule-fields/BodyRuleFields';
@@ -56,8 +56,8 @@ import InjectRuleFields, { maybePrefillInjectCode } from './rule-fields/InjectRu
 import MockRuleFields, { MOCK_DYNAMIC_TEMPLATE } from './rule-fields/MockRuleFields';
 import QueryParamRuleFields from './rule-fields/QueryParamRuleFields';
 import RedirectRuleFields from './rule-fields/RedirectRuleFields';
-import { templateResolveAdapter } from './template-conflict-adapter';
 import TwoToneIconPicker from './TwoToneIconPicker';
+import { templateResolveAdapter } from './template-conflict-adapter';
 import { useTemplateConflicts } from './use-template-conflicts';
 
 const { Text } = Typography;
@@ -204,10 +204,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
   }, [formValues]);
 
   const allConflicts = useMemo(
-    () =>
-      formProjection
-        ? conflicts.getAllConflicts(formProjection, formSetOrders)
-        : new Map<string, PathConflict>(),
+    () => (formProjection ? conflicts.getAllConflicts(formProjection, formSetOrders) : new Map<string, PathConflict>()),
     [formProjection, formSetOrders, conflicts],
   );
 
@@ -261,13 +258,24 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
     }
   }, [isConflictDialogOpen, liveTemplate]);
 
+  // Baseline YAML for the merge-editor preview's Show Base layouts.
+  // Captured at dialog-open from the form's baseline-template ref.
+  const baseYaml = useMemo(() => {
+    if (!isConflictDialogOpen) return undefined;
+    const baseline = baselineTemplateRef.current;
+    if (!baseline) return undefined;
+    try {
+      return serializeTemplate(freshDocument(canonicalizeTemplate(baseline)));
+    } catch {
+      return undefined;
+    }
+  }, [isConflictDialogOpen]);
+
   const buildLocalText = useCallback(
     (resolutions: ReadonlyMap<string, ConflictResolution>): string => {
       if (!liveTemplate || !formValues) return '';
       const projected = buildTemplateUpdates(formValues);
-      const local = JSON.parse(
-        JSON.stringify({ ...liveTemplate, ...projected }),
-      ) as V5.Template;
+      const local = JSON.parse(JSON.stringify({ ...liveTemplate, ...projected })) as V5.Template;
       for (const [path, choice] of resolutions) {
         if (choice !== 'theirs') continue;
         const conflict = allConflicts.get(path);
@@ -285,7 +293,9 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
 
   const conflictPathLabels = useMemo(
     () =>
-      liveTemplate ? prettyPathMap(templateResolveAdapter, liveTemplate, allConflicts.keys()) : new Map<string, string>(),
+      liveTemplate
+        ? prettyPathMap(templateResolveAdapter, liveTemplate, allConflicts.keys())
+        : new Map<string, string>(),
     [liveTemplate, allConflicts],
   );
 
@@ -472,6 +482,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
             conflicts={allConflicts}
             localValuesByPath={formProjection ? new Map(Object.entries(formProjection)) : undefined}
             pathLabels={conflictPathLabels}
+            baseText={baseYaml}
             onResolve={applyResolutions}
             onClose={() => setConflictDialogOpen(false)}
           />

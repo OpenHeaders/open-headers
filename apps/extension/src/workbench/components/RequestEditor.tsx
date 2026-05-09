@@ -27,7 +27,6 @@ import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { useRequests } from '@hooks/useRequests';
 import { useVariableResolver } from '@hooks/useVariableResolver';
 import { canonicalizeRequest, serializeRequest } from '@openheaders/core/codec/yaml';
-import { mergeRequestForSave } from './merge-request-for-save';
 import { freshDocument } from '@openheaders/core/schemas';
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
@@ -38,44 +37,36 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ExecutedRequestSnapshot } from '@/background/modules/request-executor';
 import { getRequestSyncMirrorForWorkspace } from '@/context/request-sync-mirror';
-import { useWorkbenchEditingScopeWorkspaceId } from '../hooks/EditingScopeWorkspaceContext';
-import { ensureScheme, needsSchemeNormalization } from '@/shared/fetch/ensure-scheme';
-import EditorHeader from './EditorHeader';
-import {
-  EntityField,
-  EntityScopeProvider,
-  REQUEST_PATHS,
-  useSetActiveFieldFocus,
-} from '@/shared/awareness';
+import { EntityField, EntityScopeProvider, REQUEST_PATHS, useSetActiveFieldFocus } from '@/shared/awareness';
 import { readFieldPath } from '@/shared/awareness/field-path';
 import {
-  EntityConflictBanner,
-  hasDialogOnlyConflict,
-  EntityConflictDialog,
-  prettyPathMap,
   type ConflictResolution,
+  EntityConflictBanner,
+  EntityConflictDialog,
+  hasDialogOnlyConflict,
   type PathConflict,
+  prettyPathMap,
   useAutoMergeForm,
 } from '@/shared/conflicts';
 import { useEditorShell, useReprime } from '@/shared/editor-shell';
+import { ensureScheme, needsSchemeNormalization } from '@/shared/fetch/ensure-scheme';
 import { stableStringify } from '@/shared/forms';
-import { requestResolveAdapter } from './request-conflict-adapter';
-import { useRequestConflicts } from './use-request-conflicts';
+import { useWorkbenchEditingScopeWorkspaceId } from '../hooks/EditingScopeWorkspaceContext';
+import EditorHeader from './EditorHeader';
 import { useRequestWorkflowStepContext } from './live/useRequestWorkflowStepContext';
+import { mergeRequestForSave } from './merge-request-for-save';
+import { requestResolveAdapter } from './request-conflict-adapter';
 import AuthorizationTab from './request-editor/AuthorizationTab';
 import BodyTab from './request-editor/BodyTab';
 import DocsTab from './request-editor/DocsTab';
 import HeadersTab from './request-editor/HeadersTab';
-import {
-  type KeyValueRow,
-  type KeyValueRowConflictBridge,
-  makeKvRow,
-} from './request-editor/KeyValueTable';
+import { type KeyValueRow, type KeyValueRowConflictBridge, makeKvRow } from './request-editor/KeyValueTable';
 import ParamsTab from './request-editor/ParamsTab';
 import ScriptsTab from './request-editor/ScriptsTab';
 import SettingsTab, { type RequestSettingsDraft } from './request-editor/SettingsTab';
 import type { AutoSuggestionContextValue } from './template-input';
 import { SuggestionContextProvider, TemplateInput } from './template-input';
+import { useRequestConflicts } from './use-request-conflicts';
 
 const { Text } = Typography;
 
@@ -542,10 +533,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   }, [draft.headers, draft.params]);
 
   const allConflicts = useMemo(
-    () =>
-      formProjection
-        ? conflicts.getAllConflicts(formProjection, formSetOrders)
-        : new Map<string, PathConflict>(),
+    () => (formProjection ? conflicts.getAllConflicts(formProjection, formSetOrders) : new Map<string, PathConflict>()),
     [formProjection, formSetOrders, conflicts],
   );
 
@@ -560,8 +548,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     () => ({
       setPath: REQUEST_PATHS.headerSet,
       getLeafConflict: (path, local) => conflicts.getConflict(path, local),
-      getSetConflict: (setPath, uid, formContainsUid) =>
-        conflicts.getSetConflict(setPath, uid, formContainsUid),
+      getSetConflict: (setPath, uid, formContainsUid) => conflicts.getSetConflict(setPath, uid, formContainsUid),
       onAcceptTheirs: (path, theirs) => conflicts.acceptTheirs(path, theirs),
       onDismiss: (path) => conflicts.dismiss(path),
     }),
@@ -571,8 +558,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     () => ({
       setPath: REQUEST_PATHS.paramSet,
       getLeafConflict: (path, local) => conflicts.getConflict(path, local),
-      getSetConflict: (setPath, uid, formContainsUid) =>
-        conflicts.getSetConflict(setPath, uid, formContainsUid),
+      getSetConflict: (setPath, uid, formContainsUid) => conflicts.getSetConflict(setPath, uid, formContainsUid),
       onAcceptTheirs: (path, theirs) => conflicts.acceptTheirs(path, theirs),
       onDismiss: (path) => conflicts.dismiss(path),
     }),
@@ -583,9 +569,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   const applyAutoMerge = useCallback(
     (path: string, theirs: string) => {
       if (!liveRequest) return;
-      const merged = JSON.parse(
-        JSON.stringify({ ...liveRequest, ...buildRequestUpdates(draft) }),
-      ) as V5.Request;
+      const merged = JSON.parse(JSON.stringify({ ...liveRequest, ...buildRequestUpdates(draft) })) as V5.Request;
       if (!requestResolveAdapter.applyResolutionToEntity(merged, path, { base: '', theirs })) return;
       setDraft(draftFromRequest(merged));
     },
@@ -604,9 +588,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   const projectWithResolutions = useCallback(
     (resolutions: ReadonlyMap<string, ConflictResolution>): { req: V5.Request; draft: Draft } | null => {
       if (!liveRequest) return null;
-      const merged = JSON.parse(
-        JSON.stringify({ ...liveRequest, ...buildRequestUpdates(draft) }),
-      ) as V5.Request;
+      const merged = JSON.parse(JSON.stringify({ ...liveRequest, ...buildRequestUpdates(draft) })) as V5.Request;
       for (const [path, choice] of resolutions) {
         if (choice !== 'theirs') continue;
         const conflict = allConflicts.get(path);
@@ -655,6 +637,19 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       return '';
     }
   }, [isConflictDialogOpen, liveRequest]);
+
+  // Baseline YAML for the merge-editor preview's Show Base layouts.
+  // Captured at dialog-open from the form's baseline-request ref.
+  const baseYaml = useMemo(() => {
+    if (!isConflictDialogOpen) return undefined;
+    const baseline = baselineRequestRef.current;
+    if (!baseline) return undefined;
+    try {
+      return serializeRequest(freshDocument(canonicalizeRequest(baseline))).requestYaml;
+    } catch {
+      return undefined;
+    }
+  }, [isConflictDialogOpen]);
 
   const buildLocalText = useCallback(
     (resolutions: ReadonlyMap<string, ConflictResolution>): string => {
@@ -819,16 +814,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     const snapshot = await execute({ draft: draftRequest });
     setSending(false);
     setResponse(snapshot);
-  }, [
-    sending,
-    summary,
-    draftName,
-    draft,
-    execute,
-    preferredCollectionId,
-    preferredFolderPath,
-    requestCollections,
-  ]);
+  }, [sending, summary, draftName, draft, execute, preferredCollectionId, preferredFolderPath, requestCollections]);
 
   if (!isCreateMode && !summary) {
     return (
@@ -934,7 +920,9 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
           size="small"
           style={{ width: 96, flexShrink: 0 }}
           popupMatchSelectWidth={false}
-          labelRender={({ label }) => <span style={{ fontWeight: 700, color: methodColor, fontSize: 12 }}>{label}</span>}
+          labelRender={({ label }) => (
+            <span style={{ fontWeight: 700, color: methodColor, fontSize: 12 }}>{label}</span>
+          )}
         />
       </EntityField>
       <EntityField path={REQUEST_PATHS.url}>
@@ -1095,6 +1083,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
             conflicts={allConflicts}
             localValuesByPath={formProjection ? new Map(Object.entries(formProjection)) : undefined}
             pathLabels={conflictPathLabels}
+            baseText={baseYaml}
             onResolve={applyResolutions}
             onClose={() => setConflictDialogOpen(false)}
           />
