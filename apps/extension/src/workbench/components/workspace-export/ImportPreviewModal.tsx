@@ -45,7 +45,7 @@ import {
   VaultPayloadShapeError,
   type WorkspaceExport,
 } from '@openheaders/core/workspace-export';
-import { App as AntApp, Button, Empty, Modal, Space, Spin, Typography, theme } from 'antd';
+import { Alert, App as AntApp, Button, Empty, Modal, Space, Spin, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DedupMatchesResult } from '@/background/modules/workspace-import-dedup';
@@ -1002,6 +1002,22 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
           isDarkMode={isDarkMode}
           surfaceId="workspace-import"
           onClose={() => setMergePreviewOpen(false)}
+          headerSlot={
+            // Concurrent-edit warning — `handleMergeApply` sets
+            // `staleSnapshotHash` when the SW preview re-check finds
+            // newer data after the user opened the modal. Surfacing it
+            // here gives the user a banner explaining why their last
+            // Complete Merge attempt failed without leaving the merge
+            // editor.
+            staleSnapshotHash !== null ? (
+              <Alert
+                type="warning"
+                showIcon
+                message="Workspace changed since this preview opened"
+                description="Reopen Import Preview to refresh the diff, then retry."
+              />
+            ) : null
+          }
           session={(() => {
             // Project the preview's typed diff into the generic
             // bundle/workspace shape, then hand-roll the session so

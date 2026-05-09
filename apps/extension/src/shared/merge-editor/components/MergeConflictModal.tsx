@@ -15,7 +15,7 @@
 import { CheckCircleFilled, DownOutlined, ReloadOutlined, ThunderboltOutlined, UpOutlined } from '@ant-design/icons';
 import { Allotment, LayoutPriority } from 'allotment';
 import { Alert, Button, Dropdown, Modal, Segmented, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
-import { type ReactElement, useCallback, useMemo, useRef, useState } from 'react';
+import { type ReactElement, type ReactNode, useCallback, useMemo, useRef, useState } from 'react';
 import { diffLinesPatience } from '../diff/patience-diff';
 import type { MergeApplyOutcome, MergeSession } from '../types';
 import { usePersistedLayout } from '../use-persisted-layout';
@@ -37,6 +37,17 @@ export interface MergeConflictModalProps {
    *  surface persistence). Suggested values: `'entity-conflict'`,
    *  `'import'`, `'git'`. Defaults to `'default'`. */
   surfaceId?: string;
+  /** Optional caller-owned chrome rendered between the modal title
+   *  and the merge editor body (above the toolbar). Hosts adapter-
+   *  specific banners — parse rejections, target pickers, dedup
+   *  hints, vault-decrypt prompts — without forcing the editor to
+   *  know about them. Stays out of the editor's height calc; it
+   *  takes its own space at the top of the flex column. */
+  headerSlot?: ReactNode;
+  /** Optional extra content rendered before the Cancel + Complete
+   *  Merge buttons in the modal footer. Use for adapter-specific
+   *  Advanced toggles or back-to-legacy buttons. */
+  footerLeading?: ReactNode;
 }
 
 const MergeConflictModal = ({
@@ -45,6 +56,8 @@ const MergeConflictModal = ({
   isDarkMode,
   onClose,
   surfaceId = 'default',
+  headerSlot,
+  footerLeading,
 }: MergeConflictModalProps): ReactElement => {
   const { token } = theme.useToken();
   const paneRef = useRef<MergePaneHandle>(null);
@@ -253,6 +266,7 @@ const MergeConflictModal = ({
       destroyOnClose
       zIndex={1100}
       footer={[
+        footerLeading ?? null,
         <Button key="cancel" onClick={handleCancel} disabled={applying}>
           Cancel
         </Button>,
@@ -270,6 +284,7 @@ const MergeConflictModal = ({
           minHeight: 480,
         }}
       >
+        {headerSlot}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <Space size={6}>
             <Tooltip title="Previous hunk · Cmd/Ctrl+K  P">
