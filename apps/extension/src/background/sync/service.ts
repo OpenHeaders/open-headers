@@ -199,12 +199,9 @@ const services = new Map<string, WorkspaceServiceState>();
 let currentActive: string | null = null;
 
 /**
- * Disposal grace period for {@link releaseWorkspaceService}. Production
- * default mirrors the design's 30s window; tests set this to 0 via
- * {@link __initSyncServiceForTests} so disposal is synchronous and
- * teardown assertions remain straightforward. Surfaced to users as the
- * `general.workspaceServiceGracePeriodMs` setting (registered in the
- * workbench schema; SW reads through a future settings-bridge step).
+ * Disposal grace period for {@link releaseWorkspaceService}. Tests set
+ * this to 0 via {@link __initSyncServiceForTests} so disposal is
+ * synchronous and teardown assertions remain straightforward.
  */
 let graceMs = 30_000;
 
