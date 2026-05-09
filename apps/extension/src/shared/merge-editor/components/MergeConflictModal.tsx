@@ -13,6 +13,7 @@
  */
 
 import { CheckCircleFilled, DownOutlined, ReloadOutlined, ThunderboltOutlined, UpOutlined } from '@ant-design/icons';
+import { Allotment, LayoutPriority } from 'allotment';
 import { Alert, Button, Dropdown, Modal, Segmented, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import { type ReactElement, useCallback, useMemo, useRef, useState } from 'react';
 import type { MergeApplyOutcome, MergeSession } from '../types';
@@ -386,31 +387,58 @@ const MergeConflictModal = ({
             flexDirection: 'row',
           }}
         >
-          {activeFileId ? (
-            <MergeFileList
-              files={session.files}
-              activeFileId={activeFileId}
-              states={fileStates}
-              onSelect={handleFileSelect}
-            />
-          ) : null}
-          <div style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
-            {activeFile ? (
-              <MergePane
-                ref={paneRef}
-                file={activeFile}
-                isDarkMode={isDarkMode}
-                showNonConflicting={showNonConflicting}
-                layout={layout}
-                onHunkStatsChange={setStats}
-                onAnnounce={announce}
-              />
-            ) : (
-              <div style={{ padding: 16 }}>
-                <Text type="secondary">No files in this merge session.</Text>
-              </div>
-            )}
-          </div>
+          {/* Sidebar lives outside MergePane's CSS-grid layout, so an
+              outer Allotment can resize it without crossing the
+              "editor containers must stay mounted" invariant. Allotment
+              renders nothing for the sidebar pane in single-file mode
+              because MergeFileList returns null at files.length === 1. */}
+          {session.files.length > 1 && activeFileId ? (
+            <Allotment proportionalLayout={false}>
+              <Allotment.Pane preferredSize={280} minSize={200} maxSize={480} snap priority={LayoutPriority.Low}>
+                <MergeFileList
+                  files={session.files}
+                  activeFileId={activeFileId}
+                  states={fileStates}
+                  onSelect={handleFileSelect}
+                />
+              </Allotment.Pane>
+              <Allotment.Pane priority={LayoutPriority.High}>
+                {activeFile ? (
+                  <MergePane
+                    ref={paneRef}
+                    file={activeFile}
+                    isDarkMode={isDarkMode}
+                    showNonConflicting={showNonConflicting}
+                    layout={layout}
+                    onHunkStatsChange={setStats}
+                    onAnnounce={announce}
+                  />
+                ) : (
+                  <div style={{ padding: 16 }}>
+                    <Text type="secondary">No files in this merge session.</Text>
+                  </div>
+                )}
+              </Allotment.Pane>
+            </Allotment>
+          ) : (
+            <div style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
+              {activeFile ? (
+                <MergePane
+                  ref={paneRef}
+                  file={activeFile}
+                  isDarkMode={isDarkMode}
+                  showNonConflicting={showNonConflicting}
+                  layout={layout}
+                  onHunkStatsChange={setStats}
+                  onAnnounce={announce}
+                />
+              ) : (
+                <div style={{ padding: 16 }}>
+                  <Text type="secondary">No files in this merge session.</Text>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
       {/* Visually-hidden polite live region. Off-screen via the

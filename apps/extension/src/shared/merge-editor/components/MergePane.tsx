@@ -29,6 +29,7 @@
  */
 
 import { editor as monacoEditor } from 'monaco-editor/esm/vs/editor/edcore.main';
+import { useTheme } from '@context/ThemeContext';
 import {
   forwardRef,
   type ReactNode,
@@ -202,8 +203,8 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   }, [file.initialResult]);
 
   useEffect(() => {
-    monacoEditor.setTheme(isDarkMode ? 'oh-dark' : 'oh-light');
-  }, [isDarkMode]);
+    monacoEditor.setTheme(monacoTheme);
+  }, [monacoTheme]);
 
   // After a layout swap, panes that were hidden may have stale layout
   // metrics inside Monaco (zero-sized container during the hidden
