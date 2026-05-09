@@ -28,7 +28,7 @@
  * only "Backup-restore mode" inside it — the §5.5 toggles ship later.
  */
 
-import { CloseOutlined, UploadOutlined } from '@ant-design/icons';
+import { CloseOutlined, ExperimentOutlined, UploadOutlined } from '@ant-design/icons';
 import { hashImportSource } from '@openheaders/core/import';
 import type { V5 } from '@openheaders/core/types';
 import {
@@ -38,6 +38,8 @@ import {
   type ImportDrop,
   type MissingDep,
   parseWorkspaceExport,
+  type SerializableEntityKind,
+  serializeEntityYaml,
   type StrategyMap,
   VaultDecryptionFailedError,
   VaultPayloadShapeError,
@@ -48,8 +50,12 @@ import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DedupMatchesResult } from '@/background/modules/workspace-import-dedup';
 import { call } from '@/utils/bridge';
+import { useTheme } from '@context/ThemeContext';
+import { buildImportMergeSession } from '@/shared/conflicts';
+import { MergeConflictModal } from '@/shared/merge-editor';
 import { renderWorkspacePrefix } from '@/workbench/components/workspace-prefix';
 import { buildImportStatusChips } from './preview/buildImportStatusChips';
+import { diffResultToImportBundle } from './preview/diff-to-import-bundle';
 import ImportDiffWorkspace from './preview/ImportDiffWorkspace';
 import RejectionBanner, { type ParseRejection } from './preview/RejectionBanner';
 import StatusChips from './preview/StatusChips';
@@ -131,6 +137,21 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
 }) => {
   const { message } = AntApp.useApp();
   const { token } = theme.useToken();
+  const { isDarkMode } = useTheme();
+
+  // Phase 7.3 — flag-gated preview of the new merge-editor surface.
+  // Flip in the DevTools console to opt in:
+  //   localStorage.setItem('oh.workspace-import.merge-editor', '1')
+  // Read once per mount; the button + stacked modal only appear when
+  // the flag is on. No-commit: Apply just closes back to this preview.
+  const mergeEditorPreviewEnabled = useState(() => {
+    try {
+      return globalThis.localStorage?.getItem('oh.workspace-import.merge-editor') === '1';
+    } catch {
+      return false;
+    }
+  })[0];
+  const [mergePreviewOpen, setMergePreviewOpen] = useState(false);
 
   const [parseRejection, setParseRejection] = useState<ParseRejection | null>(null);
   const [parsed, setParsed] = useState<{ envelope: WorkspaceExport; drops: ImportDrop[] } | null>(null);
@@ -798,6 +819,15 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
               : 'No data'}
         </Text>
         <Space>
+          {mergeEditorPreviewEnabled && (
+            <Button
+              icon={<ExperimentOutlined />}
+              onClick={() => setMergePreviewOpen(true)}
+              disabled={!preview || importing}
+            >
+              Preview merge editor
+            </Button>
+          )}
           <Button onClick={onCancel} disabled={importing}>
             Cancel
           </Button>
@@ -812,6 +842,37 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
           </Button>
         </Space>
       </div>
+      {mergeEditorPreviewEnabled && mergePreviewOpen && preview ? (
+        <MergeConflictModal
+          open
+          isDarkMode={isDarkMode}
+          surfaceId="workspace-import"
+          onClose={() => setMergePreviewOpen(false)}
+          session={(() => {
+            const { bundle, workspace } = diffResultToImportBundle(preview.diff);
+            return buildImportMergeSession({
+              bundle,
+              workspace,
+              serializeYaml: (entityType, entity) =>
+                // entityType strings emitted by `diffResultToImportBundle`
+                // mirror `SerializableEntityKind` 1:1 — see
+                // `preview/diff-to-import-bundle.ts` header.
+                serializeEntityYaml(entityType as SerializableEntityKind, entity),
+              // Preview-only: deserialize / apply are not exercised
+              // because Complete Merge closes back to this dialog rather
+              // than committing. They throw if invoked so a real apply
+              // attempt would surface inline rather than silently no-op.
+              deserializeYaml: () => {
+                throw new Error('Merge-editor import preview is no-commit; use the Import button.');
+              },
+              applyEntity: () => {
+                throw new Error('Merge-editor import preview is no-commit; use the Import button.');
+              },
+              onCancel: () => setMergePreviewOpen(false),
+            });
+          })()}
+        />
+      ) : null}
     </Modal>
   );
 };
