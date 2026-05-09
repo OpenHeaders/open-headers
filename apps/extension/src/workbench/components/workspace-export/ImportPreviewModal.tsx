@@ -28,11 +28,10 @@
  * only "Backup-restore mode" inside it — the §5.5 toggles ship later.
  */
 
-import { CloseOutlined, ExperimentOutlined, UploadOutlined } from '@ant-design/icons';
+import { CloseOutlined } from '@ant-design/icons';
 import { hashImportSource } from '@openheaders/core/import';
 import type { V5 } from '@openheaders/core/types';
 import {
-  type CollisionStrategy,
   type DiffResult,
   decryptVaultBlock,
   type ImportDrop,
@@ -69,7 +68,6 @@ import { renderWorkspacePrefix } from '@/workbench/components/workspace-prefix';
 import { buildImportStatusChips } from './preview/buildImportStatusChips';
 import { AdvancedTogglesList } from './preview/AdvancedPanel';
 import { applyMergeResultsToEnvelope, diffResultToImportBundle } from './preview/diff-to-import-bundle';
-import ImportDiffWorkspace from './preview/ImportDiffWorkspace';
 import RejectionBanner, { type ParseRejection } from './preview/RejectionBanner';
 import StatusChips from './preview/StatusChips';
 import StripScriptsTopRow from './preview/StripScriptsTopRow';
@@ -78,26 +76,6 @@ import type { ImportPreviewSource } from './preview/types';
 import { VaultDecryptedBanner, VaultEncryptedBlock, VaultPartialDecryptPanel } from './preview/VaultBlocks';
 
 const { Text } = Typography;
-
-/**
- * Compact "X rules, Y envs" summary used in the header + sidebar.
- * Same shape SourceAttribution renders, hoisted here so we can hand
- * it to whoever needs it (sidebar header, future post-import toast).
- */
-function summarizeImportCounts(counts: WorkspaceExport['meta']['counts']): string {
-  const parts: string[] = [];
-  const push = (n: number, singular: string, plural: string): void => {
-    if (n > 0) parts.push(`${n} ${n === 1 ? singular : plural}`);
-  };
-  push(counts.rules, 'rule', 'rules');
-  push(counts.requests, 'request', 'requests');
-  push(counts.environments, 'env', 'envs');
-  push(counts.templates, 'template', 'templates');
-  push(counts.liveWorkflows, 'workflow', 'workflows');
-  push(counts.liveVariables, 'live var', 'live vars');
-  push(counts.secrets, 'secret', 'secrets');
-  return parts.join(', ');
-}
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -152,18 +130,10 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
   const { token } = theme.useToken();
   const { isDarkMode } = useTheme();
 
-  // Phase 7.3 — flag-gated preview of the new merge-editor surface.
-  // Flip in the DevTools console to opt in:
-  //   localStorage.setItem('oh.workspace-import.merge-editor', '1')
-  // Read once per mount; the button + stacked modal only appear when
-  // the flag is on. No-commit: Apply just closes back to this preview.
-  const mergeEditorPreviewEnabled = useState(() => {
-    try {
-      return globalThis.localStorage?.getItem('oh.workspace-import.merge-editor') === '1';
-    } catch {
-      return false;
-    }
-  })[0];
+  // Phase 7.3.5: merge editor is the import surface. The legacy
+  // diff/strategy-chips body is gone; this modal now serves as the
+  // parse-pipeline shell and auto-opens `<MergeConflictModal>` once
+  // preview resolves.
   const [mergePreviewOpen, setMergePreviewOpen] = useState(false);
   // Drawer-hosted advanced toggles inside the merge modal — opens via
   // the modal's `footerLeading` button. Lives in this scope so the
@@ -200,19 +170,15 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
   const [target, setTarget] = useState<ImportTargetSelection>(() => initialTarget ?? { mode: 'current' });
   const [preview, setPreview] = useState<PreviewState | null>(null);
 
-  // Phase 7.3.5: when the flag is on, auto-open the merge editor as
-  // soon as preview is ready. The legacy preview body still mounts
-  // behind it (so all chrome state stays alive), but the merge editor
-  // is the de facto entry surface. Closing the merge editor cancels
-  // the whole import.
+  // Auto-open the merge editor as soon as preview resolves. The
+  // parse-pipeline shell mounts behind it (so all chrome state stays
+  // alive), but the merge modal IS the user-facing flow.
   useEffect(() => {
-    if (!mergeEditorPreviewEnabled) return;
     if (!preview) return;
     setMergePreviewOpen((prev) => prev || true);
-  }, [mergeEditorPreviewEnabled, preview]);
+  }, [preview]);
   const [previewing, setPreviewing] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
-  const [strategies, setStrategies] = useState<StrategyMap>({});
   const [backupRestore, setBackupRestore] = useState(false);
   const [trustExport, setTrustExport] = useState(false);
   // Strip-scripts default depends on source trust posture (design §5.5).
@@ -242,7 +208,6 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
       return new Set();
     }
   });
-  const [importing, setImporting] = useState(false);
   const [staleSnapshotHash, setStaleSnapshotHash] = useState<string | null>(null);
   const requestSeq = useRef(0);
 
@@ -270,7 +235,6 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     }
     setParseRejection(null);
     setParsed({ envelope: result.export, drops: result.drops });
-    setStrategies({});
     setBackupRestore(false);
     setTrustExport(false);
     setStripScripts(isLowTrustSource);
@@ -298,7 +262,6 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     setParsed(null);
     setPreview(null);
     setPreviewError(null);
-    setStrategies({});
     setBackupRestore(false);
     setTrustExport(false);
     setStripScripts(false);
@@ -547,78 +510,6 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     ],
   );
 
-  // ── Submit ────────────────────────────────────────────────────────
-  const handleImport = useCallback(async () => {
-    if (!parsed || !preview || !sourceHash || !effectiveEnvelope) return;
-    setImporting(true);
-    try {
-      // Re-run preview to detect concurrent edits since the user opened
-      // the modal (design §9 — "data changed since you opened this preview").
-      const fresh = await call('previewWorkspaceImport', {
-        incoming: effectiveEnvelope,
-        target,
-        backupRestore,
-      });
-      if (!fresh.success || !fresh.snapshotHash) {
-        message.error(fresh.error ?? 'Preview re-check failed');
-        return;
-      }
-      if (fresh.snapshotHash !== preview.snapshotHash) {
-        // Surface the change and require a second confirmation.
-        setStaleSnapshotHash(preview.snapshotHash);
-        if (fresh.diff && fresh.missingDeps) {
-          setPreview({
-            diff: fresh.diff,
-            missingDeps: fresh.missingDeps,
-            snapshotHash: fresh.snapshotHash,
-            targetWorkspaceId: fresh.targetWorkspaceId ?? null,
-          });
-        }
-        return;
-      }
-      const res = await call('importWorkspace', {
-        incoming: effectiveEnvelope,
-        strategies,
-        backupRestore,
-        trustExport,
-        stripScripts,
-        omitOAuthConfigs,
-        keepTargetCollectionOrder,
-        refuseUidCollision,
-        target,
-        sourceHash,
-      });
-      if (!res.success || !res.report || !res.targetWorkspaceId) {
-        message.error(res.error ?? 'Import failed');
-        return;
-      }
-      onImported({
-        targetWorkspaceId: res.targetWorkspaceId,
-        importedCount: res.report.summary.imported,
-        sourceLabel: effectiveEnvelope.source.workspaceLabel ?? effectiveEnvelope.workspace.name,
-      });
-    } catch (err) {
-      message.error(err instanceof Error ? err.message : 'Import failed');
-    } finally {
-      setImporting(false);
-    }
-  }, [
-    parsed,
-    preview,
-    sourceHash,
-    target,
-    backupRestore,
-    trustExport,
-    stripScripts,
-    omitOAuthConfigs,
-    keepTargetCollectionOrder,
-    refuseUidCollision,
-    strategies,
-    message,
-    onImported,
-    effectiveEnvelope,
-  ]);
-
   // ── Vault decryption handler ────────────────────────────────────
   const handleDecryptVault = useCallback(async () => {
     if (!parsed?.envelope.secrets) return;
@@ -663,13 +554,6 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
   }, [parsed, vaultPassphrase]);
 
   // ── Strategy update helpers ──────────────────────────────────────
-
-  const setStrategyFor = useCallback((kind: keyof StrategyMap, uid: string, value: CollisionStrategy) => {
-    setStrategies((prev) => {
-      const bucket = (prev[kind] as Record<string, CollisionStrategy> | undefined) ?? {};
-      return { ...prev, [kind]: { ...bucket, [uid]: value } };
-    });
-  }, []);
 
   // ── Render ────────────────────────────────────────────────────────
 
@@ -744,7 +628,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
       title={null}
       footer={null}
       closable={false}
-      onCancel={importing ? undefined : onCancel}
+      onCancel={onCancel}
       width="95vw"
       centered
       destroyOnHidden
@@ -796,185 +680,44 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
             type="text"
             size="small"
             icon={<CloseOutlined />}
-            onClick={importing ? undefined : onCancel}
+            onClick={onCancel}
             aria-label="Close import preview"
-            disabled={importing}
           />
         </div>
       </div>
 
-      {/* Secondary header — primary action (target picker) centered,
-          rendered at `size="middle"` so it visually outranks the
-          smaller controls inside the diff toolbar. Slightly taller than
-          the topbar to read as the "main action" row. The TargetControl
-          sits inside a white pill so its boundaries are obvious on the
-          gray strip — without it, antd Segmented's own gray bg blends
-          into the modal bg and the user can't see where the options
-          end. */}
-      {parsed && (
-        <div style={{ ...stripStyle, height: 52, justifyContent: 'center' }}>
-          <div
-            style={{
-              background: token.colorBgContainer,
-              border: `1px solid ${token.colorBorderSecondary}`,
-              borderRadius: 6,
-              padding: '6px 12px',
-              display: 'inline-flex',
-              alignItems: 'center',
-            }}
-          >
-            <TargetControl
-              target={target}
-              onChange={setTarget}
-              workspaces={workspaces}
-              activeWorkspaceId={activeWorkspaceId}
-              envelope={parsed.envelope}
-              size="middle"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Middle area — flex column of cards on gray. The ONLY white
-          surfaces in the modal live below this point: vault cards (when
-          present) and the diff workspace card. `padding: 3` + flex
-          `gap: 6` reproduces the workspace shell's `.rules-dock-body`
-          margin pattern (3 px gutter to the modal edge, 6 px between
-          adjacent cards). */}
+      {/* Phase 7.3.5: legacy preview body retired. The merge editor
+          (auto-opened in `useEffect` once `preview` resolves) is the
+          actual import surface; everything else here is a brief
+          loading shell that the merge modal stacks on top of. */}
       <div
         style={{
           flex: 1,
           minHeight: 0,
           display: 'flex',
           flexDirection: 'column',
-          gap: 6,
-          padding: 3,
-          overflow: 'hidden',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 12,
+          padding: 16,
         }}
       >
-        {parseRejection && (
-          <div style={{ ...cardStyle, padding: 12 }}>
+        {parseRejection ? (
+          <div style={{ ...cardStyle, padding: 12, maxWidth: 600, width: '100%' }}>
             <RejectionBanner rejection={parseRejection} />
           </div>
-        )}
-
-        {!parsed && !parseRejection && (
-          <div style={{ ...cardStyle, padding: 24 }}>
-            <Empty
-              description={
-                source === 'file'
-                  ? 'Drop a .openheaders.yaml file to preview it.'
-                  : source === 'link' || source === 'playground'
-                    ? 'Resolving import link…'
-                    : 'Paste a workspace export to preview it.'
-              }
-            />
-          </div>
-        )}
-
-        {parsed && (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 6,
-              position: 'relative',
-              flex: 1,
-              minHeight: 0,
-            }}
-          >
-            {/* Vault + strip-scripts card — rendered only when the
-                envelope has secrets or the source is low-trust. The
-                source attribution + target picker that used to live
-                here have been hoisted into the modal's top header and
-                secondary header strips. */}
-            {(parsed.envelope.secrets || decryptedEnvelope || (preview && isLowTrustSource)) && (
-              <div style={{ ...cardStyle, padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {parsed.envelope.secrets && !decryptedEnvelope && (
-                  <VaultEncryptedBlock
-                    envelope={parsed.envelope}
-                    passphrase={vaultPassphrase}
-                    onChangePassphrase={setVaultPassphrase}
-                    onDecrypt={() => void handleDecryptVault()}
-                    decrypting={vaultDecrypting}
-                    error={vaultDecryptError}
-                  />
-                )}
-
-                {decryptedEnvelope && vaultFingerprints && (
-                  <VaultDecryptedBanner
-                    fingerprints={vaultFingerprints}
-                    secretCount={decryptedEnvelope.entities.vault?.secrets.length ?? 0}
-                  />
-                )}
-
-                {decryptedEnvelope && vaultPartialDrops.length > 0 && (
-                  <VaultPartialDecryptPanel drops={vaultPartialDrops} />
-                )}
-
-                {preview && isLowTrustSource && (
-                  <StripScriptsTopRow
-                    source={source ?? 'link'}
-                    stripScripts={stripScripts}
-                    onChange={setStripScripts}
-                  />
-                )}
-              </div>
-            )}
-
-            {previewing && !preview && (
-              <div style={{ ...cardStyle, padding: 24, textAlign: 'center' }}>
-                <Spin />
-              </div>
-            )}
-
-            {preview && (
-              // No outer card wrapper here — `ImportDiffWorkspace`
-              // owns its own white rounded card around the Allotment,
-              // with the activity rails living *outside* the card so
-              // the rounded corners stay visible. Wrapping it in
-              // another cardStyle would double-frame and re-hide the
-              // rails behind the outer card edge.
-              <div style={{ flex: 1, minHeight: 360, display: 'flex', flexDirection: 'column' }}>
-                <ImportDiffWorkspace
-                  diff={preview.diff}
-                  summary={summarizeImportCounts(parsed.envelope.meta.counts)}
-                  incomingEntities={{
-                    workspaceVars: effectiveEnvelope?.entities.workspaceVars,
-                    vault: effectiveEnvelope?.entities.vault,
-                  }}
-                  strategies={strategies}
-                  onChangeStrategy={setStrategyFor}
-                  advanced={{
-                    activeCount:
-                      (backupRestore ? 1 : 0) +
-                      (trustExport ? 1 : 0) +
-                      (stripScripts && !isLowTrustSource ? 1 : 0) +
-                      (omitOAuthConfigs ? 1 : 0) +
-                      (keepTargetCollectionOrder ? 1 : 0) +
-                      (refuseUidCollision ? 1 : 0),
-                    lowTrustSource: isLowTrustSource,
-                    source: source ?? 'file',
-                    backupRestore,
-                    onBackupRestoreChange: setBackupRestore,
-                    trustExport,
-                    onTrustExportChange: setTrustExport,
-                    stripScripts,
-                    onStripScriptsChange: setStripScripts,
-                    omitOAuthConfigs,
-                    onOmitOAuthConfigsChange: setOmitOAuthConfigs,
-                    keepTargetCollectionOrder,
-                    onKeepTargetCollectionOrderChange: setKeepTargetCollectionOrder,
-                    includeWorkspaceSettings,
-                    onIncludeWorkspaceSettingsChange: setIncludeWorkspaceSettings,
-                    refuseUidCollision,
-                    onRefuseUidCollisionChange: setRefuseUidCollision,
-                    targetMode: target.mode,
-                  }}
-                />
-              </div>
-            )}
-          </div>
+        ) : !parsed ? (
+          <Empty
+            description={
+              source === 'file'
+                ? 'Drop a .openheaders.yaml file to preview it.'
+                : source === 'link' || source === 'playground'
+                  ? 'Resolving import link…'
+                  : 'Paste a workspace export to preview it.'
+            }
+          />
+        ) : (
+          <Spin size="large" tip="Preparing import…" />
         )}
       </div>
 
@@ -988,35 +731,9 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
               ? 'Pick a file to preview'
               : 'No data'}
         </Text>
-        <Space>
-          {/* Manual reopen for the merge editor — only meaningful in
-              edge cases where the flag is on but auto-open hasn't
-              fired yet (e.g. preview transitioning). With auto-open
-              + close-cancels-parent, this is rarely visible. */}
-          {mergeEditorPreviewEnabled && !mergePreviewOpen && (
-            <Button
-              icon={<ExperimentOutlined />}
-              onClick={() => setMergePreviewOpen(true)}
-              disabled={!preview || importing}
-            >
-              Open merge editor
-            </Button>
-          )}
-          <Button onClick={onCancel} disabled={importing}>
-            Cancel
-          </Button>
-          <Button
-            type="primary"
-            icon={<UploadOutlined />}
-            onClick={() => void handleImport()}
-            disabled={!parsed || !preview || previewing || !sourceHash || importing}
-            loading={importing}
-          >
-            Import
-          </Button>
-        </Space>
+        <Button onClick={onCancel}>Cancel</Button>
       </div>
-      {mergeEditorPreviewEnabled && mergePreviewOpen && preview ? (
+      {mergePreviewOpen && preview ? (
         <MergeConflictModal
           open
           isDarkMode={isDarkMode}
