@@ -75,7 +75,6 @@ const MergeConflictModal = ({
   const [showNonConflicting, setShowNonConflicting] = useState(false);
   const [layout, setLayout] = usePersistedLayout(surfaceId, 'column');
   const failedOutcomes = useMemo(() => outcomes.filter((o) => !o.ok), [outcomes]);
-  const allResolved = stats.totalRemaining === 0;
   const baseAvailable = useMemo(() => session.files.some((f) => f.base !== undefined), [session]);
 
   // ARIA live announcer. Polite — won't interrupt the screen reader's
@@ -120,21 +119,14 @@ const MergeConflictModal = ({
     return cached !== undefined ? { ...file, initialResult: cached } : file;
   }, [activeFileId, session.files, resultsByFileId]);
 
-  // File-row status map. `failed` rows surface their adapter error in
-  // the sidebar tooltip. `resolved` is set on Apply success.
-  const fileStates = useMemo<Map<string, MergeFileRowState>>(() => {
-    const map = new Map<string, MergeFileRowState>();
-    for (const o of outcomes) {
-      map.set(o.fileId, { status: o.ok ? 'resolved' : 'failed', error: o.error });
-    }
-    return map;
-  }, [outcomes]);
-
   // Initial per-file hunk count — diffs every file on session open so
   // the sidebar can show a "N" badge per row. Recomputes when the
   // session changes (reasonable since the session is the unit of work).
   // For very large sessions (>200 files) this could become expensive;
   // defer that optimization to a real consumer.
+  //
+  // Hoisted above `fileStates` because in-session status derives from
+  // the per-file hunk count (resolved iff zero remaining).
   const initialHunkCounts = useMemo<Map<string, number>>(() => {
     const map = new Map<string, number>();
     for (const f of session.files) {
@@ -153,6 +145,42 @@ const MergeConflictModal = ({
     if (activeFileId) map.set(activeFileId, stats.totalRemaining);
     return map;
   }, [initialHunkCounts, activeFileId, stats.totalRemaining]);
+
+  // File-row status map. Three layers (later layers override earlier):
+  //   1. In-session derived: every file with zero hunks remaining is
+  //      `resolved` — bulk actions (Accept All Incoming, Apply Non-
+  //      Conflicting) drive this by writing to `resultsByFileId`,
+  //      which the initial-count diff picks up. Files that never
+  //      diverged (kind: 'add' on a fresh workspace) start at zero
+  //      and surface as resolved immediately. Plan §5.3's "or
+  //      accepted-all hunks" branch.
+  //   2. Apply outcomes: success → `resolved`, failure → `failed`
+  //      (with the adapter error in the sidebar tooltip).
+  // The `partial` status is reserved for future per-file reorder/
+  // bulk affordances; not driven today.
+  const fileStates = useMemo<Map<string, MergeFileRowState>>(() => {
+    const map = new Map<string, MergeFileRowState>();
+    for (const f of session.files) {
+      const remaining = sidebarHunkCounts.get(f.id) ?? 0;
+      if (remaining === 0) {
+        map.set(f.id, { status: 'resolved' });
+      }
+    }
+    for (const o of outcomes) {
+      map.set(o.fileId, { status: o.ok ? 'resolved' : 'failed', error: o.error });
+    }
+    return map;
+  }, [outcomes, session.files, sidebarHunkCounts]);
+
+  // Whole-session gate for Complete Merge. The active file's live
+  // hunk count is folded in via `sidebarHunkCounts` already, so this
+  // is the same predicate the sidebar uses to surface per-row status.
+  const allFilesResolved = useMemo(() => {
+    for (const f of session.files) {
+      if ((sidebarHunkCounts.get(f.id) ?? 0) > 0) return false;
+    }
+    return true;
+  }, [session.files, sidebarHunkCounts]);
 
   const handleFileSelect = useCallback(
     (nextFileId: string) => {
@@ -270,7 +298,7 @@ const MergeConflictModal = ({
         <Button key="cancel" onClick={handleCancel} disabled={applying}>
           Cancel
         </Button>,
-        <Button key="apply" type="primary" onClick={handleApply} loading={applying} disabled={!allResolved}>
+        <Button key="apply" type="primary" onClick={handleApply} loading={applying} disabled={!allFilesResolved}>
           Complete Merge
         </Button>,
       ]}
@@ -304,7 +332,7 @@ const MergeConflictModal = ({
               />
             </Tooltip>
           </Space>
-          {allResolved ? (
+          {stats.totalRemaining === 0 ? (
             <Tag color="success" icon={<CheckCircleFilled />}>
               All hunks resolved
             </Tag>
