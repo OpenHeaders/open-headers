@@ -45,7 +45,7 @@ import {
   VaultPayloadShapeError,
   type WorkspaceExport,
 } from '@openheaders/core/workspace-export';
-import { Alert, App as AntApp, Button, Empty, Modal, Space, Spin, Typography, theme } from 'antd';
+import { Alert, App as AntApp, Button, Drawer, Empty, Modal, Space, Spin, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DedupMatchesResult } from '@/background/modules/workspace-import-dedup';
@@ -67,6 +67,7 @@ import type { MergeApplyOutcome, MergeFile } from '@/shared/merge-editor';
 import { MergeConflictModal } from '@/shared/merge-editor';
 import { renderWorkspacePrefix } from '@/workbench/components/workspace-prefix';
 import { buildImportStatusChips } from './preview/buildImportStatusChips';
+import { AdvancedTogglesList } from './preview/AdvancedPanel';
 import { applyMergeResultsToEnvelope, diffResultToImportBundle } from './preview/diff-to-import-bundle';
 import ImportDiffWorkspace from './preview/ImportDiffWorkspace';
 import RejectionBanner, { type ParseRejection } from './preview/RejectionBanner';
@@ -164,6 +165,10 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     }
   })[0];
   const [mergePreviewOpen, setMergePreviewOpen] = useState(false);
+  // Drawer-hosted advanced toggles inside the merge modal — opens via
+  // the modal's `footerLeading` button. Lives in this scope so the
+  // toggles bind to the same state the legacy preview reads.
+  const [mergeAdvancedOpen, setMergeAdvancedOpen] = useState(false);
 
   const [parseRejection, setParseRejection] = useState<ParseRejection | null>(null);
   const [parsed, setParsed] = useState<{ envelope: WorkspaceExport; drops: ImportDrop[] } | null>(null);
@@ -1002,6 +1007,20 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
           isDarkMode={isDarkMode}
           surfaceId="workspace-import"
           onClose={() => setMergePreviewOpen(false)}
+          footerLeading={
+            <Button key="advanced" onClick={() => setMergeAdvancedOpen(true)}>
+              {(() => {
+                const count =
+                  (backupRestore ? 1 : 0) +
+                  (trustExport ? 1 : 0) +
+                  (stripScripts && !isLowTrustSource ? 1 : 0) +
+                  (omitOAuthConfigs ? 1 : 0) +
+                  (keepTargetCollectionOrder ? 1 : 0) +
+                  (refuseUidCollision ? 1 : 0);
+                return count > 0 ? `Advanced (${count})` : 'Advanced';
+              })()}
+            </Button>
+          }
           headerSlot={
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {/* Target picker — choose the workspace to import into.
@@ -1119,6 +1138,38 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
           })()}
         />
       ) : null}
+      {/* Advanced toggles drawer — opened from the merge modal's
+          footerLeading button. zIndex=1200 keeps it above the merge
+          modal (1100) so the user can flip toggles without leaving
+          the merge editor. */}
+      <Drawer
+        open={mergeAdvancedOpen}
+        onClose={() => setMergeAdvancedOpen(false)}
+        title="Advanced"
+        placement="right"
+        width={360}
+        zIndex={1200}
+      >
+        <AdvancedTogglesList
+          lowTrustSource={isLowTrustSource}
+          source={source ?? 'file'}
+          backupRestore={backupRestore}
+          onBackupRestoreChange={setBackupRestore}
+          trustExport={trustExport}
+          onTrustExportChange={setTrustExport}
+          stripScripts={stripScripts}
+          onStripScriptsChange={setStripScripts}
+          omitOAuthConfigs={omitOAuthConfigs}
+          onOmitOAuthConfigsChange={setOmitOAuthConfigs}
+          keepTargetCollectionOrder={keepTargetCollectionOrder}
+          onKeepTargetCollectionOrderChange={setKeepTargetCollectionOrder}
+          includeWorkspaceSettings={includeWorkspaceSettings}
+          onIncludeWorkspaceSettingsChange={setIncludeWorkspaceSettings}
+          refuseUidCollision={refuseUidCollision}
+          onRefuseUidCollisionChange={setRefuseUidCollision}
+          targetMode={target.mode}
+        />
+      </Drawer>
     </Modal>
   );
 };

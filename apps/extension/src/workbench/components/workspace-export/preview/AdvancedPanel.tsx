@@ -20,9 +20,7 @@ import type { ImportPreviewSource } from './types';
 
 const { Text } = Typography;
 
-export interface AdvancedPanelProps {
-  open: boolean;
-  onToggle: () => void;
+export interface AdvancedTogglesListProps {
   lowTrustSource: boolean;
   source: ImportPreviewSource;
   backupRestore: boolean;
@@ -40,6 +38,96 @@ export interface AdvancedPanelProps {
   refuseUidCollision: boolean;
   onRefuseUidCollisionChange: (next: boolean) => void;
   targetMode: ImportTargetSelection['mode'];
+}
+
+/** Bare toggle list — same content as AdvancedPanel's body, no chrome.
+ *  Hosts that already provide their own header / surface (drawers,
+ *  popovers) embed this directly. */
+export const AdvancedTogglesList: React.FC<AdvancedTogglesListProps> = ({
+  lowTrustSource,
+  source,
+  backupRestore,
+  onBackupRestoreChange,
+  trustExport,
+  onTrustExportChange,
+  stripScripts,
+  onStripScriptsChange,
+  omitOAuthConfigs,
+  onOmitOAuthConfigsChange,
+  keepTargetCollectionOrder,
+  onKeepTargetCollectionOrderChange,
+  includeWorkspaceSettings,
+  onIncludeWorkspaceSettingsChange,
+  refuseUidCollision,
+  onRefuseUidCollisionChange,
+  targetMode,
+}) => {
+  const sourceLabel = source === 'link' ? 'deep-link' : 'URL-fetch';
+  if (lowTrustSource) {
+    return (
+      <Alert
+        type="info"
+        showIcon
+        icon={<InfoCircleOutlined />}
+        message="Hidden for low-trust sources"
+        description={`Save the file locally and use "Import from file…" if you need to override the protective defaults for this ${sourceLabel} import.`}
+      />
+    );
+  }
+  return (
+    <Space direction="vertical" size={10} style={{ width: '100%' }}>
+      <Toggle
+        checked={backupRestore}
+        onChange={onBackupRestoreChange}
+        label="This is mine — prefer update by uid"
+        help="Switches uid-matched collisions from “add as new” to “replace existing”. Skipped for entities edited locally since the export was made."
+      />
+      <Toggle
+        checked={trustExport}
+        onChange={onTrustExportChange}
+        label="Trust this export — keep enabled flags"
+        help="Imported rules / live workflows / live variables land disabled by default. Enable this only when you trust the sender."
+      />
+      <Toggle
+        checked={stripScripts}
+        onChange={onStripScriptsChange}
+        label="Strip request scripts on import"
+        help="Removes pre-request and post-response scripts from every imported request. Recommended when the sender is unfamiliar."
+      />
+      <Toggle
+        checked={omitOAuthConfigs}
+        onChange={onOmitOAuthConfigsChange}
+        label="Omit OAuth configs"
+        help="By default, OAuth2 configs ride with the request (token endpoint, client id, scopes — never client secret or tokens). With this on, every OAuth2 request lands with auth set to none."
+      />
+      <Toggle
+        checked={keepTargetCollectionOrder}
+        onChange={onKeepTargetCollectionOrderChange}
+        label="Keep target collection order on update"
+        help="By default, an updated collection takes the export's child order. With this on, your existing target ordering is preserved."
+      />
+      <Toggle
+        checked={includeWorkspaceSettings}
+        onChange={onIncludeWorkspaceSettingsChange}
+        disabled
+        label="Include workspace-level settings"
+        help="Reserved for a future allowlist of workspace-semantic settings. The current allowlist is empty — nothing ships through this toggle in v1."
+      />
+      {targetMode === 'new' && (
+        <Toggle
+          checked={refuseUidCollision}
+          onChange={onRefuseUidCollisionChange}
+          label="Refuse on workspace.uid collision"
+          help="By default, importing into a new workspace silently regenerates the workspace uid on collision. With this on, an existing workspace with the same uid blocks the import."
+        />
+      )}
+    </Space>
+  );
+};
+
+export interface AdvancedPanelProps extends AdvancedTogglesListProps {
+  open: boolean;
+  onToggle: () => void;
   /** Active-toggle count surfaced on the trigger button — informational. */
   activeCount: number;
 }
@@ -65,7 +153,6 @@ const AdvancedPanel: React.FC<AdvancedPanelProps> = ({
   targetMode,
 }) => {
   const { token } = theme.useToken();
-  const sourceLabel = source === 'link' ? 'deep-link' : 'URL-fetch';
   return (
     <div
       style={{
@@ -108,63 +195,25 @@ const AdvancedPanel: React.FC<AdvancedPanelProps> = ({
         </button>
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 12 }}>
-        {lowTrustSource ? (
-          <Alert
-            type="info"
-            showIcon
-            icon={<InfoCircleOutlined />}
-            title="Hidden for low-trust sources"
-            description={`Save the file locally and use "Import from file…" if you need to override the protective defaults for this ${sourceLabel} import.`}
-          />
-        ) : (
-          <Space orientation="vertical" size={10} style={{ width: '100%' }}>
-            <Toggle
-              checked={backupRestore}
-              onChange={onBackupRestoreChange}
-              label="This is mine — prefer update by uid"
-              help="Switches uid-matched collisions from “add as new” to “replace existing”. Skipped for entities edited locally since the export was made."
-            />
-            <Toggle
-              checked={trustExport}
-              onChange={onTrustExportChange}
-              label="Trust this export — keep enabled flags"
-              help="Imported rules / live workflows / live variables land disabled by default. Enable this only when you trust the sender."
-            />
-            <Toggle
-              checked={stripScripts}
-              onChange={onStripScriptsChange}
-              label="Strip request scripts on import"
-              help="Removes pre-request and post-response scripts from every imported request. Recommended when the sender is unfamiliar."
-            />
-            <Toggle
-              checked={omitOAuthConfigs}
-              onChange={onOmitOAuthConfigsChange}
-              label="Omit OAuth configs"
-              help="By default, OAuth2 configs ride with the request (token endpoint, client id, scopes — never client secret or tokens). With this on, every OAuth2 request lands with auth set to none."
-            />
-            <Toggle
-              checked={keepTargetCollectionOrder}
-              onChange={onKeepTargetCollectionOrderChange}
-              label="Keep target collection order on update"
-              help="By default, an updated collection takes the export's child order. With this on, your existing target ordering is preserved."
-            />
-            <Toggle
-              checked={includeWorkspaceSettings}
-              onChange={onIncludeWorkspaceSettingsChange}
-              disabled
-              label="Include workspace-level settings"
-              help="Reserved for a future allowlist of workspace-semantic settings. The current allowlist is empty — nothing ships through this toggle in v1."
-            />
-            {targetMode === 'new' && (
-              <Toggle
-                checked={refuseUidCollision}
-                onChange={onRefuseUidCollisionChange}
-                label="Refuse on workspace.uid collision"
-                help="By default, importing into a new workspace silently regenerates the workspace uid on collision. With this on, an existing workspace with the same uid blocks the import."
-              />
-            )}
-          </Space>
-        )}
+        <AdvancedTogglesList
+          lowTrustSource={lowTrustSource}
+          source={source}
+          backupRestore={backupRestore}
+          onBackupRestoreChange={onBackupRestoreChange}
+          trustExport={trustExport}
+          onTrustExportChange={onTrustExportChange}
+          stripScripts={stripScripts}
+          onStripScriptsChange={onStripScriptsChange}
+          omitOAuthConfigs={omitOAuthConfigs}
+          onOmitOAuthConfigsChange={onOmitOAuthConfigsChange}
+          keepTargetCollectionOrder={keepTargetCollectionOrder}
+          onKeepTargetCollectionOrderChange={onKeepTargetCollectionOrderChange}
+          includeWorkspaceSettings={includeWorkspaceSettings}
+          onIncludeWorkspaceSettingsChange={onIncludeWorkspaceSettingsChange}
+          refuseUidCollision={refuseUidCollision}
+          onRefuseUidCollisionChange={onRefuseUidCollisionChange}
+          targetMode={targetMode}
+        />
       </div>
     </div>
   );
