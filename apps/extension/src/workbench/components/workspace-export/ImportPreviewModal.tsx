@@ -1003,20 +1003,42 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
           surfaceId="workspace-import"
           onClose={() => setMergePreviewOpen(false)}
           headerSlot={
-            // Concurrent-edit warning — `handleMergeApply` sets
-            // `staleSnapshotHash` when the SW preview re-check finds
-            // newer data after the user opened the modal. Surfacing it
-            // here gives the user a banner explaining why their last
-            // Complete Merge attempt failed without leaving the merge
-            // editor.
-            staleSnapshotHash !== null ? (
-              <Alert
-                type="warning"
-                showIcon
-                message="Workspace changed since this preview opened"
-                description="Reopen Import Preview to refresh the diff, then retry."
-              />
-            ) : null
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {/* Vault decrypt prompt — when the envelope carries an
+                  encrypted secrets block the user must unlock it
+                  before importWorkspace will see the secrets. State
+                  stays in ImportPreviewModal; this is just chrome. */}
+              {parsed?.envelope.secrets && !decryptedEnvelope && (
+                <VaultEncryptedBlock
+                  envelope={parsed.envelope}
+                  passphrase={vaultPassphrase}
+                  onChangePassphrase={setVaultPassphrase}
+                  onDecrypt={() => void handleDecryptVault()}
+                  decrypting={vaultDecrypting}
+                  error={vaultDecryptError}
+                />
+              )}
+              {decryptedEnvelope && vaultFingerprints && (
+                <VaultDecryptedBanner
+                  fingerprints={vaultFingerprints}
+                  secretCount={decryptedEnvelope.entities.vault?.secrets.length ?? 0}
+                />
+              )}
+              {decryptedEnvelope && vaultPartialDrops.length > 0 && (
+                <VaultPartialDecryptPanel drops={vaultPartialDrops} />
+              )}
+              {/* Concurrent-edit warning — `handleMergeApply` sets
+                  `staleSnapshotHash` when the SW preview re-check finds
+                  newer data after the user opened the modal. */}
+              {staleSnapshotHash !== null && (
+                <Alert
+                  type="warning"
+                  showIcon
+                  message="Workspace changed since this preview opened"
+                  description="Reopen Import Preview to refresh the diff, then retry."
+                />
+              )}
+            </div>
           }
           session={(() => {
             // Project the preview's typed diff into the generic
