@@ -234,6 +234,24 @@ export interface BridgeRpcContract {
     };
   };
   /**
+   * Read the per-entity YAML snapshots written by the most recent
+   * `importWorkspace` call for `workspaceId`. Keys are entity uids
+   * (plus `__singleton.workspaceVars__` / `__singleton.vault__` for
+   * the two singletons); values are the canonical YAML form of each
+   * entity AS IT WAS IMPORTED.
+   *
+   * Drives the merge editor's 3-pane ancestor on re-imports
+   * (`MERGE_CONFLICT_EDITOR_PLAN.md` §7): collisions on a uid present
+   * here merge against the snapshot as the common base; collisions on
+   * a uid not present here fall back to 2-pane.
+   *
+   * Empty record when the workspace has never been imported into.
+   */
+  getLastImportedSnapshots: {
+    req: { workspaceId: string };
+    res: { snapshots: Record<string, string> };
+  };
+  /**
    * Walk every workspace's `importReports` ring for prior imports
    * matching the incoming export's `exportId` or source-workspace
    * uid. Drives the soft-dedup banner in the preview modal

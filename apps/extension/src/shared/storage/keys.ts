@@ -221,6 +221,23 @@ export interface WorkspaceKeys {
    * string array; an empty / missing value means nothing pending.
    */
   requestScriptsReviewPending: StorageKey<string[]>;
+  /**
+   * Per-entity YAML snapshots from the most recent workspace import,
+   * keyed by entity uid. Singletons live under
+   * `__singleton.workspaceVars__` and `__singleton.vault__`.
+   *
+   * Consumed by the import preview's merge editor: when the next
+   * import surfaces a collision on a uid present here, the snapshot
+   * acts as the common ancestor (3-pane merge against the version we
+   * last brought in vs. the new incoming vs. the local edits the user
+   * has made since). Without this, every collision falls back to a
+   * 2-pane diff per `MERGE_CONFLICT_EDITOR_PLAN.md` §7.
+   *
+   * Snapshots are written by `importWorkspace` after a successful
+   * `setMany`. Skipped plan entries don't update their snapshot —
+   * they keep whatever the prior import left.
+   */
+  lastImportedSnapshots: StorageKey<Record<string, string>>;
   /** Per-collection environment overrides: collectionId → envId (null = "No environment"). */
   collectionEnvOverrides: StorageKey<Record<string, string | null>>;
   /**
@@ -262,6 +279,7 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     liveCache: storageKey<unknown>(`${p}.liveCache`),
     variableRecents: storageKey<unknown>(`${p}.variableRecents`),
     requestScriptsReviewPending: storageKey<string[]>(`${p}.requestScriptsReviewPending`),
+    lastImportedSnapshots: storageKey<Record<string, string>>(`${p}.lastImportedSnapshots`),
     collectionEnvOverrides: storageKey<Record<string, string | null>>(`${p}.collectionEnvOverrides`),
     manualEnvId: storageKey<string | null>(`${p}.manualEnvId`),
   };

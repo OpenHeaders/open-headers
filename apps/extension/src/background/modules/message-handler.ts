@@ -420,6 +420,21 @@ export function handleGeneralMessage(
         .then(() => safeResponse({ success: true }))
         .catch(() => safeResponse({ success: false }));
       return true;
+    } else if (message.type === 'getLastImportedSnapshots') {
+      const workspaceId = message.workspaceId as string;
+      void (async () => {
+        try {
+          const { extensionStorage, wsKeys } = await import('@/shared/storage');
+          const snapshots =
+            ((await extensionStorage.get(wsKeys(workspaceId).lastImportedSnapshots)) as
+              | Record<string, string>
+              | undefined) ?? {};
+          safeResponse({ snapshots });
+        } catch {
+          safeResponse({ snapshots: {} });
+        }
+      })();
+      return true;
     } else if (message.type === 'importWorkspace') {
       // Drive the import orchestrator. SW reads target state, runs a
       // fresh diff under the workspace-import lock, applies the plan,

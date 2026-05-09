@@ -585,3 +585,62 @@ describe('previewWorkspaceImport', () => {
     expect(blobs.get('oh.ws.ws-active.importReports')).toBeUndefined();
   });
 });
+
+describe('importWorkspace — lastImportedSnapshots', () => {
+  it('persists per-uid snapshots after a successful import', async () => {
+    await orchestrator.importWorkspace({
+      incoming: makeExport(),
+      strategies: {},
+      target: { mode: 'current' },
+      sourceHash: 'sha256:snap-1',
+    });
+    const snaps = blobs.get('oh.ws.ws-active.lastImportedSnapshots') as Record<string, string>;
+    expect(snaps).toBeDefined();
+    // new-uid is the default for no-collision creates (importer.ts:281),
+    // so the imported rule lands at a fresh uid — find it by inspecting
+    // the persisted rules array.
+    const stored = blobs.get('oh.ws.ws-active.rules') as Array<{ uid: string }>;
+    expect(stored).toHaveLength(1);
+    const uid = stored[0].uid;
+    expect(typeof snaps[uid]).toBe('string');
+    expect(snaps[uid]).toContain(`uid: ${uid}`);
+    expect(snaps[uid]).toContain('name: Auth');
+  });
+
+  it('records a workspaceVars singleton snapshot under the synthetic uid', async () => {
+    await orchestrator.importWorkspace({
+      incoming: makeExport({
+        entities: {
+          ...makeExport().entities,
+          workspaceVars: {
+            schemaVersion: 5,
+            variables: [
+              { uid: 'var00001', name: 'API_BASE', value: 'https://api.openheaders.io', type: 'default' },
+            ],
+          },
+        },
+      }),
+      strategies: {},
+      target: { mode: 'current' },
+      sourceHash: 'sha256:snap-singleton',
+    });
+    const snaps = blobs.get('oh.ws.ws-active.lastImportedSnapshots') as Record<string, string>;
+    const ws = snaps['__singleton.workspaceVars__'];
+    expect(typeof ws).toBe('string');
+    expect(ws).toContain('API_BASE');
+  });
+
+  it('preserves prior snapshots for uids not touched by the new import', async () => {
+    blobs.set('oh.ws.ws-active.lastImportedSnapshots', { 'old-uid-1234': 'prior:yaml\n' });
+    await orchestrator.importWorkspace({
+      incoming: makeExport(),
+      strategies: {},
+      target: { mode: 'current' },
+      sourceHash: 'sha256:snap-merge',
+    });
+    const snaps = blobs.get('oh.ws.ws-active.lastImportedSnapshots') as Record<string, string>;
+    expect(snaps['old-uid-1234']).toBe('prior:yaml\n');
+    const stored = blobs.get('oh.ws.ws-active.rules') as Array<{ uid: string }>;
+    expect(snaps[stored[0].uid]).toBeDefined();
+  });
+});

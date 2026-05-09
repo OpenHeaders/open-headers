@@ -209,6 +209,12 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     }
   });
   const [staleSnapshotHash, setStaleSnapshotHash] = useState<string | null>(null);
+  // Per-uid YAML snapshots from the most recent import into the
+  // resolved target. Promotes collisions to honest 3-pane in the merge
+  // editor (snapshot = base; theirs = new incoming; mine = local
+  // edits since last import). Empty when the target has never been
+  // imported into.
+  const [lastImportedSnapshots, setLastImportedSnapshots] = useState<Record<string, string>>({});
   const requestSeq = useRef(0);
 
   // ── Stage 1: parse on open / when raw text changes ────────────────
@@ -330,6 +336,31 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
       cancelled = true;
     };
   }, [effectiveEnvelope, target, backupRestore]);
+
+  // Fetch per-uid snapshots from the most recent import into the
+  // resolved target. Re-runs whenever the target changes; no-op for
+  // `target=new` (a fresh workspace has no prior imports). Failures
+  // degrade silently to 2-pane diff per plan §7.
+  useEffect(() => {
+    const targetWsId = preview?.targetWorkspaceId;
+    if (!targetWsId) {
+      setLastImportedSnapshots({});
+      return;
+    }
+    let cancelled = false;
+    void call('getLastImportedSnapshots', { workspaceId: targetWsId })
+      .then((res) => {
+        if (cancelled) return;
+        setLastImportedSnapshots(res.snapshots ?? {});
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLastImportedSnapshots({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [preview?.targetWorkspaceId]);
 
   // ── Stage 3: dedup walker ─────────────────────────────────────────
   useEffect(() => {
@@ -856,12 +887,18 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
                 };
               }
               const existingYaml = serializeEntityYaml(incoming.entityType as SerializableEntityKind, existing);
+              // 3-pane when we have a snapshot from a prior import —
+              // the snapshot is what we last brought in, so it's the
+              // honest common ancestor between `theirs` (new incoming)
+              // and `mine` (local evolution since then).
+              const snapshot = lastImportedSnapshots[incoming.uid];
               return {
                 id: incoming.uid,
                 label: incoming.path,
                 language: 'yaml',
                 group: incoming.entityType,
                 kind: 'modify' as const,
+                base: snapshot,
                 theirs: incomingYaml,
                 mine: existingYaml,
                 initialResult: existingYaml,
