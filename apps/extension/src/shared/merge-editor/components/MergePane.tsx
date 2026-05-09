@@ -40,7 +40,8 @@ import {
   useState,
 } from 'react';
 import { classifyConflicts } from '../diff/conflict-classify';
-import { diffLines, type Hunk } from '../diff/line-diff';
+import type { Hunk } from '../diff/line-diff';
+import { diffLinesPatience } from '../diff/patience-diff';
 import { useCharDecorations } from '../monaco/use-char-decorations';
 import { useGridResize } from '../monaco/use-grid-resize';
 import { useHunkAcceptArrows } from '../monaco/use-hunk-accept-arrows';
@@ -222,8 +223,8 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   }, [visibility.mine, visibility.base, theirsHandle, resultHandle, mineHandle, baseHandle]);
   useSyncScroll({ editors: syncTargets });
 
-  const theirsHunks = useMemo(() => diffLines(file.theirs, resultText), [file.theirs, resultText]);
-  const mineHunks = useMemo(() => diffLines(file.mine, resultText), [file.mine, resultText]);
+  const theirsHunks = useMemo(() => diffLinesPatience(file.theirs, resultText), [file.theirs, resultText]);
+  const mineHunks = useMemo(() => diffLinesPatience(file.mine, resultText), [file.mine, resultText]);
   const classification = useMemo(() => classifyConflicts(theirsHunks, mineHunks), [theirsHunks, mineHunks]);
 
   const visibleTheirs = useMemo(
