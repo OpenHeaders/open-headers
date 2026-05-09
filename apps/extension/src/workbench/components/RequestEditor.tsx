@@ -26,7 +26,7 @@ import { CaretRightOutlined, DownOutlined, LoadingOutlined, ThunderboltOutlined 
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { useRequests } from '@hooks/useRequests';
 import { useVariableResolver } from '@hooks/useVariableResolver';
-import { canonicalizeRequest, serializeRequest } from '@openheaders/core/codec/yaml';
+import { canonicalizeRequest, parseRequest, serializeRequest } from '@openheaders/core/codec/yaml';
 import { freshDocument } from '@openheaders/core/schemas';
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
@@ -629,6 +629,21 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
     [allConflicts, conflicts, liveRequest, projectWithResolutions],
   );
 
+  // Phase 6 commit seam — parses the merge-editor's result YAML back
+  // to a Request (siblings omitted: the merge surface only carries
+  // `request.yaml`; body/variables/scripts round-trip outside this
+  // path), populates the draft, dismisses every conflict path. Throws
+  // on parse failure — the merge modal renders the error inline.
+  const handleResolveText = useCallback(
+    (text: string) => {
+      if (!liveRequest) return;
+      const parsed = parseRequest(text, { path: liveRequest.path });
+      setDraft(draftFromRequest(parsed.value));
+      for (const path of allConflicts.keys()) conflicts.dismiss(path);
+    },
+    [liveRequest, allConflicts, conflicts],
+  );
+
   const savedYaml = useMemo(() => {
     if (!isConflictDialogOpen || !liveRequest) return '';
     try {
@@ -1085,6 +1100,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
             pathLabels={conflictPathLabels}
             baseText={baseYaml}
             onResolve={applyResolutions}
+            onResolveText={handleResolveText}
             onClose={() => setConflictDialogOpen(false)}
           />
         </div>

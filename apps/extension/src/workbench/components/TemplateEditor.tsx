@@ -18,7 +18,7 @@
 
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
-import { canonicalizeTemplate, serializeTemplate } from '@openheaders/core/codec/yaml';
+import { canonicalizeTemplate, parseTemplate, serializeTemplate } from '@openheaders/core/codec/yaml';
 import { freshDocument } from '@openheaders/core/schemas';
 import { TEMPLATE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
@@ -247,6 +247,19 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
       }
     },
     [allConflicts, conflicts, form, liveTemplate],
+  );
+
+  // Phase 6 commit seam — parses the merge-editor's result YAML back
+  // to a Template, populates the form, dismisses every conflict path.
+  // Throws on parse failure; the merge modal renders the error inline.
+  const handleResolveText = useCallback(
+    (text: string) => {
+      if (!liveTemplate) return;
+      const parsed = parseTemplate(text, { path: liveTemplate.path });
+      populateFormFromTemplate(parsed.value);
+      for (const path of allConflicts.keys()) conflicts.dismiss(path);
+    },
+    [liveTemplate, populateFormFromTemplate, allConflicts, conflicts],
   );
 
   const savedYaml = useMemo(() => {
@@ -484,6 +497,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
             pathLabels={conflictPathLabels}
             baseText={baseYaml}
             onResolve={applyResolutions}
+            onResolveText={handleResolveText}
             onClose={() => setConflictDialogOpen(false)}
           />
         </div>
