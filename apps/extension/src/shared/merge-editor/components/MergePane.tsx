@@ -100,6 +100,8 @@ export interface MergePaneHandle {
   applyNonConflicting(): void;
   acceptAllTheirs(): void;
   acceptAllMine(): void;
+  /** Restore the default sash ratios for the current layout. */
+  resetLayout(): void;
 }
 
 const PANE_BG_LIGHT = '#ffffff';
@@ -471,8 +473,13 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
       applyNonConflicting,
       acceptAllTheirs,
       acceptAllMine,
+      resetLayout: () => {
+        gridResize.reset();
+        // Defer layout recompute; reset() updates state which re-renders
+        // with new templates. Editor.layout fires through onSashResize.
+      },
     }),
-    [resultHandle, revealHunkAt, applyNonConflicting, acceptAllTheirs, acceptAllMine],
+    [resultHandle, revealHunkAt, applyNonConflicting, acceptAllTheirs, acceptAllMine, gridResize],
   );
 
   // Monaco command palette actions. Bundled into a ref so action

@@ -8,7 +8,7 @@
  * adapter. Modal stays open if any outcome is `ok: false`.
  */
 
-import { CheckCircleFilled, DownOutlined, ThunderboltOutlined, UpOutlined } from '@ant-design/icons';
+import { CheckCircleFilled, DownOutlined, ReloadOutlined, ThunderboltOutlined, UpOutlined } from '@ant-design/icons';
 import { Alert, Button, Modal, Segmented, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import { type ReactElement, useCallback, useMemo, useRef, useState } from 'react';
 import type { MergeApplyOutcome, MergeSession } from '../types';
@@ -195,6 +195,9 @@ const MergeConflictModal = ({
                   { label: 'Base in center', value: 'show-base-center', disabled: !baseAvailable },
                 ]}
               />
+            </Tooltip>
+            <Tooltip title="Reset pane sizes for the current layout">
+              <Button size="small" icon={<ReloadOutlined />} onClick={() => paneRef.current?.resetLayout()} />
             </Tooltip>
             <Switch size="small" checked={showNonConflicting} onChange={setShowNonConflicting} />
             <Text style={{ fontSize: 12 }} type="secondary">
