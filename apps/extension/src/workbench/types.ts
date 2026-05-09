@@ -12,7 +12,6 @@ export type TabMode =
   | 'rule-flow'
   | 'run-report'
   | 'settings'
-  | 'landing'
   | 'workspace-manager'
   | 'env-edit'
   | 'workspace-vars'
@@ -28,9 +27,6 @@ export type TabMode =
   | 'live-variable-create'
   | 'live-workflow-edit'
   | 'live-workflow-create';
-
-/** Variant of the startup landing tab — drives which view `LandingScreen` renders. */
-export type LandingView = 'home' | 'rules' | 'collections';
 
 /** Scope for the rule flow visualization. */
 export type RuleFlowScope = 'this-page' | 'collection' | 'folder' | 'all-active';
@@ -95,8 +91,6 @@ export interface WorkbenchTab {
   settingsInitialKey?: string;
   /** For settings tabs: optional deep-link target category to scroll to on mount. */
   settingsInitialCategory?: string;
-  /** For landing tabs: which top-level view is rendered (home, rules, collections). */
-  landingView?: LandingView;
   /**
    * For env-edit tabs: the environment uid being edited. For
    * collection-vars tabs: the collection uid being edited (separate

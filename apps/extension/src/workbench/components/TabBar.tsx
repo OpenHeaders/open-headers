@@ -22,7 +22,6 @@ import {
   FileTextOutlined,
   FolderOpenOutlined,
   FolderOutlined,
-  HomeOutlined,
   PlusOutlined,
   SearchOutlined,
   SettingOutlined,
@@ -109,7 +108,6 @@ export function tabIcon(
       )
     );
   }
-  if (tab.mode === 'landing') return <HomeOutlined style={{ fontSize: 12, color: TAB_ICON_GRAY }} />;
   if (tab.mode === 'workspace-manager') return <AppstoreOutlined style={{ fontSize: 12, color: TAB_ICON_GRAY }} />;
   if (tab.mode === 'env-edit') return scopeBadge('environment');
   if (tab.mode === 'workspace-vars') return scopeBadge('workspace');
@@ -1330,11 +1328,7 @@ const TabBar: React.FC<TabBarProps> = ({
           (sibling below) so it stays anchored at the right edge of
           the strip when the user scrolls horizontally — same pattern
           as the JetBrains IDE / VS Code editor tabs. */}
-      <div
-        className={`rules-tabs-scroll${hasOverflow ? ' is-overflow' : ''}`}
-        ref={scrollRef}
-        onWheel={handleWheel}
-      >
+      <div className={`rules-tabs-scroll${hasOverflow ? ' is-overflow' : ''}`} ref={scrollRef} onWheel={handleWheel}>
         <SortableContext items={sortableIds} strategy={horizontalListSortingStrategy}>
           {tabs.map((tab, index) => (
             <Fragment key={tab.id}>

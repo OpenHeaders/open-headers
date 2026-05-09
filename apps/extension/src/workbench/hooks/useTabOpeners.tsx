@@ -11,13 +11,12 @@
  */
 
 import type { V5 } from '@openheaders/core/types';
-import { buildEmptyRule } from '@openheaders/core/utils';
+import { buildEmptyRequest, buildEmptyRule, generateUid, toFolderName } from '@openheaders/core/utils';
 import { App } from 'antd';
 import { useCallback, useState } from 'react';
 import { applyRequestCreate } from '@/shared/sync/request-write-client';
 import { applyRuleCreate } from '@/shared/sync/rule-write-client';
-import { buildEmptyRequest, generateUid, toFolderName } from '@openheaders/core/utils';
-import type { ClosedTab, LandingView, RuleFlowScope, WorkbenchTab } from '../types';
+import type { ClosedTab, RuleFlowScope, WorkbenchTab } from '../types';
 
 /**
  * Resolve the parent path for a context-create gesture: explicit
@@ -105,7 +104,6 @@ export interface UseTabOpenersApi {
   ) => void;
   openRuleFlow: (scope: RuleFlowScope, entityId?: string, label?: string, tabUrl?: string) => void;
   openSettingsTab: (options?: { settingKey?: string; categoryId?: string }) => void;
-  openLandingTab: (view: LandingView) => void;
   openWorkspaceManager: () => void;
   openEnvironmentEdit: (uid: string, name: string, autoRename?: boolean) => void;
   openWorkspaceVariables: () => void;
@@ -465,26 +463,6 @@ export function useTabOpeners({
     [allTabs, addTab, switchTab],
   );
 
-  const openLandingTab = useCallback(
-    (view: LandingView) => {
-      const id = `landing-${view}`;
-      if (allTabs.some((t) => t.id === id)) {
-        switchTab(id);
-        return;
-      }
-      const label = view === 'home' ? 'Home' : view === 'rules' ? 'Rules' : 'Collections';
-      addTab({
-        id,
-        label,
-        ruleType: '',
-        dirty: false,
-        mode: 'landing',
-        landingView: view,
-      });
-    },
-    [allTabs, addTab, switchTab],
-  );
-
   const openSettingsTab = useCallback(
     (options?: { settingKey?: string; categoryId?: string }) => {
       const id = 'settings';
@@ -820,7 +798,6 @@ export function useTabOpeners({
     openRunReport,
     openRuleFlow,
     openSettingsTab,
-    openLandingTab,
     openWorkspaceManager,
     openEnvironmentEdit,
     openWorkspaceVariables,

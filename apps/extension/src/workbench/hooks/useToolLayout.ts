@@ -21,11 +21,11 @@ import { normalizeDockLayout, useDockLayout } from '@/shared/dock-layout';
 import type { EditingScopeViewStateApi, WorkspaceSlice } from '@/shared/editing-scope-view-state';
 import { createWorkspaceAwareResolver, useEditingScopeViewState } from '@/shared/editing-scope-view-state';
 import { extensionStorage, type PersistedTabSession, wsKeys } from '@/shared/storage';
+import type { SidebarView } from '../components/sidebar/types';
 import { get as getSetting } from '../settings/store';
 import { focusStore } from '../stores/focus-region-store';
 import { TOOL_WINDOW_MAP, TOOL_WINDOWS } from '../tool-windows';
 import type { ToolWindowId, WorkbenchTab } from '../types';
-import type { SidebarView } from '../components/sidebar/types';
 import { readGlobalActiveWorkspaceId, readUrlWorkspaceId } from './readBootIdentity';
 
 export type ToolLayoutApi = DockLayoutApi<ToolWindowId>;
@@ -139,11 +139,10 @@ export const FACTORY_SIDEBAR_EXPANSIONS: SidebarExpansionsState = {
 };
 
 /** Read the workspace's legacy `tabSession` shadow as the fall-through
- *  for editor tabs. Settings gate (`general.openTo === 'last' &&
- *  general.restoreTabsOnStartup`) carries from v1's useEditorGroups
- *  cold-start logic — disabling restore yields an empty session.
- *  Sidebar expansions return factory defaults (no workspace-keyed
- *  shadow per design § 2.2).
+ *  for editor tabs. The `general.restoreTabsOnStartup` setting gates
+ *  whether to bring the previous tab list back; when disabled, the
+ *  workspace cold-starts with no editor tabs. Sidebar expansions return
+ *  factory defaults (no workspace-keyed shadow per design § 2.2).
  *
  *  Exported so `useWorkbenchWorkspaceSlice` (the in-tab workspace-
  *  binding owner) shares the same builder as the resolver — single
@@ -152,7 +151,7 @@ export const FACTORY_SIDEBAR_EXPANSIONS: SidebarExpansionsState = {
 export async function readWorkspaceFallThrough(workspaceId: string): Promise<WorkbenchWorkspaceData> {
   let shouldRestore = false;
   try {
-    shouldRestore = getSetting('general.openTo') === 'last' && getSetting('general.restoreTabsOnStartup');
+    shouldRestore = getSetting('general.restoreTabsOnStartup');
   } catch {
     shouldRestore = false;
   }

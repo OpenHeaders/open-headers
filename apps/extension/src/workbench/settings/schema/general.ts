@@ -7,19 +7,16 @@
 import * as v from 'valibot';
 import { registerSetting } from '../registry';
 
-const openToSchema = v.picklist(['last', 'home', 'rules', 'collections']);
 const languageSchema = v.picklist(['auto', 'en']);
 const settingsOpenModeSchema = v.picklist(['modal', 'modal-maximized', 'tab']);
 const collectionEnvAutoSwitchSchema = v.picklist(['keep-selection', 'apply-defaults', 'follow-collection']);
 
-export type OpenTo = v.InferOutput<typeof openToSchema>;
 export type Language = v.InferOutput<typeof languageSchema>;
 export type SettingsOpenMode = v.InferOutput<typeof settingsOpenModeSchema>;
 export type CollectionEnvAutoSwitch = v.InferOutput<typeof collectionEnvAutoSwitchSchema>;
 
 declare module '../types' {
   interface SettingsMap {
-    'general.openTo': OpenTo;
     'general.language': Language;
     'general.confirmOnDelete': boolean;
     'general.showEmptyStateHints': boolean;
@@ -28,41 +25,6 @@ declare module '../types' {
     'general.collectionEnvAutoSwitch': CollectionEnvAutoSwitch;
   }
 }
-
-registerSetting({
-  key: 'general.openTo',
-  type: 'enum',
-  default: 'last',
-  schema: openToSchema,
-  label: 'Startup View',
-  description:
-    "Which view the workbench opens to. 'Last session' resumes your previous tabs; the other options replace the tab list with a single landing page. Per-tab layouts are preserved either way.",
-  category: 'general',
-  tags: ['startup', 'landing', 'home', 'open to'],
-  scope: 'user',
-  enumOptions: [
-    {
-      value: 'last',
-      label: 'Last session',
-      description: 'Pick up where you left off — your previous editor tabs are restored.',
-    },
-    {
-      value: 'home',
-      label: 'Home',
-      description: 'Open a single Home dashboard (stats and recent activity) instead of restoring tabs.',
-    },
-    {
-      value: 'rules',
-      label: 'Rules',
-      description: 'Open a single Rules browser tab — every rule across every collection.',
-    },
-    {
-      value: 'collections',
-      label: 'Collections',
-      description: 'Open a single Collections browser tab.',
-    },
-  ],
-});
 
 registerSetting({
   key: 'general.language',

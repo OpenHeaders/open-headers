@@ -76,7 +76,6 @@ import FolderOverview from './components/FolderOverview';
 import ImportCurlModal from './components/ImportCurlModal';
 import ImportHarModal from './components/ImportHarModal';
 import ImportPostmanModal from './components/ImportPostmanModal';
-import LandingScreen from './components/LandingScreen';
 import LiveVariablesEditor from './components/LiveVariablesEditor';
 import LiveVariableEditor from './components/live/LiveVariableEditor';
 import LiveWorkflowEditor from './components/live/LiveWorkflowEditor';
@@ -112,10 +111,8 @@ import {
 } from './hooks/EditingScopeWorkspaceContext';
 import { useCommandPaletteData } from './hooks/useCommandPaletteData';
 import { useEditingScopeWorkspaceId } from './hooks/useEditingScopeWorkspaceId';
-import { useUrlWorkspaceBindingMirror } from './hooks/useUrlWorkspaceBindingMirror';
 import { useEditorGroups } from './hooks/useEditorGroups';
 import { useFocusRegion } from './hooks/useFocusRegion';
-import { useInitialLanding } from './hooks/useInitialLanding';
 import { InspectorNavProvider, useInspectorNav } from './hooks/useInspectorNav';
 import { useRequestScriptsReviewPending } from './hooks/useRequestScriptsReviewPending';
 import { type ResponsiveLayout, useResponsiveLayout } from './hooks/useResponsiveLayout';
@@ -130,6 +127,7 @@ import {
   useWorkbenchEditingScopeViewState,
   type WorkbenchViewState,
 } from './hooks/useToolLayout';
+import { useUrlWorkspaceBindingMirror } from './hooks/useUrlWorkspaceBindingMirror';
 import { useWorkbenchSidebarState } from './hooks/useWorkbenchSidebarState';
 import { useWorkbenchWorkspaceSlice } from './hooks/useWorkbenchWorkspaceSlice';
 import { useWorkspaceIntentRouter } from './hooks/useWorkspaceIntentRouter';
@@ -808,7 +806,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openRunReport,
     openRuleFlow,
     openSettingsTab,
-    openLandingTab,
     openWorkspaceManager,
     openEnvironmentEdit,
     openWorkspaceVariables,
@@ -1013,13 +1010,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
         setImportPreviewState({ open: true, rawText: args.rawText, source: args.source });
       }
     },
-  });
-
-  // ── Initial landing (openTo = home/workbench/collections) ─────────
-  useInitialLanding({
-    isStatusLoaded,
-    allTabs,
-    openLandingTab,
   });
 
   // ── Sync tab labels with rule/template changes; close on delete ─
@@ -1698,17 +1688,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
           />
         );
       }
-      if (tab.mode === 'landing') {
-        return (
-          <LandingScreen
-            view={tab.landingView ?? 'home'}
-            onCreateRule={openCreateTab}
-            onSelectRule={openEditTab}
-            onOpenCollectionOverview={openCollectionOverview}
-            onOpenSettings={() => openSettings()}
-          />
-        );
-      }
       if (tab.mode === 'live-variable-edit' && tab.liveVariableUid) {
         return (
           <LiveVariableEditor
@@ -1780,13 +1759,11 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       registerSaveAsTemplateRef,
       openEditTab,
       openCreateTab,
-      openCollectionOverview,
       openFolderOverview,
       openRequestFolderOverview,
       openTemplateFolderOverview,
       openRuleFlow,
       openTestRunsPanel,
-      openSettings,
       handleRunReportDeleted,
       workspacesApi,
       openCollectionVariables,
@@ -2375,14 +2352,14 @@ const Workbench: React.FC = () => {
       <ActiveFieldFocusProvider>
         <ActiveEditorDirtyProvider>
           <ActiveEditorLifecycleProvider>
-          <ActiveTabEntityProvider>
-            {/* RuleProvider mounts inside `WorkbenchTabAware` (called via
+            <ActiveTabEntityProvider>
+              {/* RuleProvider mounts inside `WorkbenchTabAware` (called via
                 `WorkbenchInner`) so it can take the tab's editing-scope
                 workspace id as a prop (BC-MWPT-5). The `InspectorNavProvider`
                 followed it down for the same reason — a per-tab-correct
                 tree start at the seam. */}
-            <WorkbenchInner onLifelineWorkspaceIdChange={setLifelineWorkspaceId} />
-          </ActiveTabEntityProvider>
+              <WorkbenchInner onLifelineWorkspaceIdChange={setLifelineWorkspaceId} />
+            </ActiveTabEntityProvider>
           </ActiveEditorLifecycleProvider>
         </ActiveEditorDirtyProvider>
       </ActiveFieldFocusProvider>
