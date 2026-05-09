@@ -26,6 +26,7 @@ import type * as monaco from 'monaco-editor';
 import type React from 'react';
 import { useRef } from 'react';
 import { useSettingValue } from '../../settings/hooks';
+import { resolveFontFamily } from '../../settings/schema/editor';
 // Side-effect import: kicks Monaco's bootstrap at module load.
 // The bootstrap also registers the `oh.*` ambient type declaration on
 // the JS language service, so every Monaco JS editor — this one AND
@@ -62,9 +63,14 @@ const ScriptEditor: React.FC<ScriptEditorProps> = ({
   placeholder,
 }) => {
   const { token } = theme.useToken();
-  const { isDarkMode } = useTheme();
-  const fontFamily = useSettingValue('editor.fontFamily');
+  const { monacoTheme } = useTheme();
+  const fontFamilyPreset = useSettingValue('editor.fontFamilyPreset');
+  const customFontFamily = useSettingValue('editor.fontFamily');
+  const fontFamily = resolveFontFamily(fontFamilyPreset, customFontFamily);
   const fontSize = useSettingValue('editor.fontSize');
+  const fontWeight = useSettingValue('editor.fontWeight');
+  const fontLigatures = useSettingValue('editor.fontLigatures');
+  const lineHeight = useSettingValue('editor.lineHeight');
   const tabSize = useSettingValue('editor.tabSize');
   const insertSpaces = useSettingValue('editor.insertSpaces');
   const wordWrap = useSettingValue('editor.wordWrap');
@@ -81,6 +87,9 @@ const ScriptEditor: React.FC<ScriptEditorProps> = ({
     minimap: { enabled: false },
     fontFamily,
     fontSize,
+    fontWeight,
+    fontLigatures,
+    lineHeight,
     lineNumbers: lineNumbers ? 'on' : 'off',
     tabSize,
     insertSpaces,
@@ -113,7 +122,7 @@ const ScriptEditor: React.FC<ScriptEditorProps> = ({
       <Editor
         height={minHeight}
         defaultLanguage="javascript"
-        theme={isDarkMode ? 'oh-dark' : 'oh-light'}
+        theme={monacoTheme}
         value={value}
         onMount={(ed, monacoApi) => {
           editorRef.current = ed;

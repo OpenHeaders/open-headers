@@ -1,22 +1,30 @@
 /**
  * ThemeContext — thin ConfigProvider wrapper over the settings store.
  *
- * Reads `appearance.theme`, `appearance.density`, and
- * `appearance.accentColor` from the settings store and translates
- * them into Ant Design's ConfigProvider token overrides. Mutations go
- * straight to the settings store via `setSettingValue`.
+ * Reads `appearance.theme`, `appearance.density`,
+ * `appearance.accentColor`, `appearance.lightVariant`, and
+ * `appearance.darkVariant` from the settings store, resolves the
+ * active variant via the themes registry, and feeds Ant Design's
+ * ConfigProvider with the variant's token overrides plus the algorithm
+ * for the resolved mode.
  *
- * The `useTheme()` API predates the settings system and is kept stable
- * so popup/workspace callers don't need to rewrite — they still see
+ * The variant also publishes a Monaco theme id (`monacoTheme`) so
+ * editor surfaces — CodeEditor, ScriptEditor, CodeViewer, MergePane,
+ * RichDiffEditor — switch in lockstep with the chrome.
+ *
+ * The `useTheme()` API surface stays compatible with existing callers:
  * `themeMode`, `isDarkMode`, `isCompactMode`, `toggleCompactMode`, etc.
- * Internally, every field is derived from the store.
+ * The added `monacoTheme` field is the single source of truth for
+ * editor theming — callers should prefer it over deriving an id from
+ * `isDarkMode`.
  *
  * Requires `SettingsProvider` to be mounted above this component.
  */
 
 import { ConfigProvider, theme } from 'antd';
 import type React from 'react';
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { getVariant, type ThemeVariant } from '@/themes';
 import { setSettingValue, useSettingValue } from '@/workbench/settings';
 
 type ThemeMode = 'light' | 'dark' | 'auto';
@@ -28,7 +36,15 @@ interface ThemeContextValue {
   toggleTheme: () => void;
   setThemeMode: (mode: ThemeMode) => void;
   toggleCompactMode: () => void;
+  /** Active variant (after mode resolution + variant lookup). */
+  variant: ThemeVariant;
+  /** Monaco theme id matching the active variant. */
+  monacoTheme: string;
 }
+
+// Sentinel default — ThemeProvider always overrides this. The variant
+// shape is required so consumers don't need to null-check `variant`.
+import { lightDefault as DEFAULT_VARIANT } from '@/themes/light/default';
 
 export const ThemeContext = createContext<ThemeContextValue>({
   isDarkMode: false,
@@ -37,6 +53,8 @@ export const ThemeContext = createContext<ThemeContextValue>({
   toggleTheme: () => {},
   setThemeMode: () => {},
   toggleCompactMode: () => {},
+  variant: DEFAULT_VARIANT,
+  monacoTheme: DEFAULT_VARIANT.monacoTheme,
 });
 
 export const useTheme = (): ThemeContextValue => useContext(ThemeContext);
@@ -49,6 +67,9 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const themeMode = useSettingValue('appearance.theme');
   const density = useSettingValue('appearance.density');
   const accentColor = useSettingValue('appearance.accentColor');
+  const lightVariantId = useSettingValue('appearance.lightVariant');
+  const darkVariantId = useSettingValue('appearance.darkVariant');
+  const uiScale = useSettingValue('appearance.uiScale');
   const isCompactMode = density === 'compact';
 
   // System color-scheme preference drives `auto` theme resolution.
@@ -62,6 +83,10 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   }, []);
 
   const isDarkMode = themeMode === 'dark' || (themeMode === 'auto' && systemPrefersDark);
+  const variant = useMemo(
+    () => getVariant(isDarkMode ? 'dark' : 'light', isDarkMode ? darkVariantId : lightVariantId),
+    [isDarkMode, lightVariantId, darkVariantId],
+  );
 
   // Mirror the resolved theme onto the document element and into
   // localStorage so the next page load can render the correct theme on
@@ -97,23 +122,28 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const algorithms: Array<typeof theme.darkAlgorithm> = [isDarkMode ? theme.darkAlgorithm : theme.defaultAlgorithm];
   if (isCompactMode) algorithms.push(theme.compactAlgorithm);
 
-  const antTheme = {
-    algorithm: algorithms.length === 1 ? algorithms[0] : algorithms,
-    token: {
-      colorPrimary: accentColor,
-      borderRadius: 6,
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      // Shell frame tone — sits behind the dock/editor "cards" and shows
-      // through as the gutter between them. antd's default light value
-      // (`#f5f5f5`) is almost indistinguishable from `colorBgContainer`
-      // (`#fff`), so the gutters disappear. A slightly darker neutral
-      // gives us the IDE-style visible frame without loud contrast.
-      // Dark mode is already fine by default (layout `#000` vs
-      // container `#141414`), but we pin it explicitly so the relationship
-      // doesn't drift if antd changes its algorithm.
-      colorBgLayout: isDarkMode ? '#1a1a1a' : '#f0f0f0',
-    },
-  };
+  const antTheme = useMemo(
+    () => ({
+      algorithm: algorithms.length === 1 ? algorithms[0] : algorithms,
+      token: {
+        ...variant.antdTokens,
+        // Accent color is user-controlled only on variants that opt in.
+        // Tinted / high-contrast variants pin their own primary so the
+        // palette stays internally consistent.
+        ...(variant.honorsAccentColor ? { colorPrimary: accentColor } : {}),
+        // UI scale rides on the seed `fontSize` token. AntD derives
+        // controlHeight, paddings, line-heights, and icon sizes from
+        // this value via its algorithm, so a single multiplier rescales
+        // the entire chrome without per-component overrides. Editor
+        // surfaces read `editor.fontSize` directly and are unaffected.
+        fontSize: Math.round(14 * uiScale),
+      },
+    }),
+    // `algorithms` rebuilds every render but its content is stable when
+    // these inputs are; including primitives here keeps the memo honest.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: algorithms is derived from isDarkMode + isCompactMode
+    [variant, accentColor, isDarkMode, isCompactMode, uiScale],
+  );
 
   return (
     <ThemeContext.Provider
@@ -124,6 +154,8 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         toggleTheme,
         setThemeMode: handleSetThemeMode,
         toggleCompactMode,
+        variant,
+        monacoTheme: variant.monacoTheme,
       }}
     >
       <ConfigProvider theme={antTheme}>{children}</ConfigProvider>

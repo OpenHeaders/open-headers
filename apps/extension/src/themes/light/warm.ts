@@ -1,0 +1,40 @@
+import type { ThemeVariant } from '../types';
+
+export const lightWarm: ThemeVariant = {
+  id: 'warm',
+  mode: 'light',
+  label: 'Warm',
+  description: 'Paper-like surfaces with warm neutrals and an amber accent — easier on the eyes for long sessions.',
+  honorsAccentColor: false,
+  antdTokens: {
+    borderRadius: 6,
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    colorBgBase: '#faf7f2',
+    colorBgLayout: '#efe7d7',
+    colorBgContainer: '#faf7f2',
+    colorBgElevated: '#fffdf8',
+    colorTextBase: '#3b2f1d',
+    colorBorder: '#d6cab2',
+    colorBorderSecondary: '#e7decb',
+    colorPrimary: '#a85a00',
+    colorSuccess: '#3f6212',
+    colorWarning: '#9a3412',
+    colorError: '#9b1c1c',
+    colorInfo: '#1d4ed8',
+  },
+  monacoTheme: 'oh-light-warm',
+  monacoDefinition: {
+    base: 'vs',
+    inherit: true,
+    rules: [{ token: 'comment', foreground: '8a7a5b', fontStyle: 'italic' }],
+    colors: {
+      'editor.background': '#faf7f2',
+      'editor.foreground': '#3b2f1d',
+      'editor.lineHighlightBackground': '#f1ead9',
+      'editor.lineHighlightBorder': '#f1ead9',
+      'editorLineNumber.foreground': '#a89072',
+      'editorLineNumber.activeForeground': '#3b2f1d',
+      'editorCursor.foreground': '#a85a00',
+    },
+  },
+};

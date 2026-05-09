@@ -1,0 +1,40 @@
+import type { ThemeVariant } from '../types';
+
+export const lightRose: ThemeVariant = {
+  id: 'rose',
+  mode: 'light',
+  label: 'Rose',
+  description: 'Soft blush surfaces with a magenta accent — gentle warmth without the amber tone of Warm.',
+  honorsAccentColor: false,
+  antdTokens: {
+    borderRadius: 6,
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    colorBgBase: '#fdf6f7',
+    colorBgLayout: '#f4e3e6',
+    colorBgContainer: '#fdf6f7',
+    colorBgElevated: '#fffafb',
+    colorTextBase: '#3b1f29',
+    colorBorder: '#e7c9cf',
+    colorBorderSecondary: '#f0d9de',
+    colorPrimary: '#9d174d',
+    colorSuccess: '#3f6212',
+    colorWarning: '#92400e',
+    colorError: '#9f1239',
+    colorInfo: '#7c3aed',
+  },
+  monacoTheme: 'oh-light-rose',
+  monacoDefinition: {
+    base: 'vs',
+    inherit: true,
+    rules: [{ token: 'comment', foreground: '997381', fontStyle: 'italic' }],
+    colors: {
+      'editor.background': '#fdf6f7',
+      'editor.foreground': '#3b1f29',
+      'editor.lineHighlightBackground': '#f6e6ea',
+      'editor.lineHighlightBorder': '#f6e6ea',
+      'editorLineNumber.foreground': '#b7919c',
+      'editorLineNumber.activeForeground': '#3b1f29',
+      'editorCursor.foreground': '#9d174d',
+    },
+  },
+};

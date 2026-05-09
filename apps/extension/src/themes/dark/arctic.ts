@@ -1,0 +1,40 @@
+import type { ThemeVariant } from '../types';
+
+export const darkArctic: ThemeVariant = {
+  id: 'arctic',
+  mode: 'dark',
+  label: 'Arctic',
+  description: 'Cool blue-gray dark theme with a frosty cyan accent — flatter and less saturated than Dim or Midnight.',
+  honorsAccentColor: false,
+  antdTokens: {
+    borderRadius: 6,
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    colorBgBase: '#2e3440',
+    colorBgLayout: '#252933',
+    colorBgContainer: '#2e3440',
+    colorBgElevated: '#3b4252',
+    colorTextBase: '#eceff4',
+    colorBorder: '#434c5e',
+    colorBorderSecondary: '#3b4252',
+    colorPrimary: '#88c0d0',
+    colorSuccess: '#a3be8c',
+    colorWarning: '#ebcb8b',
+    colorError: '#bf616a',
+    colorInfo: '#81a1c1',
+  },
+  monacoTheme: 'oh-dark-arctic',
+  monacoDefinition: {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [{ token: 'comment', foreground: '7b8497', fontStyle: 'italic' }],
+    colors: {
+      'editor.background': '#2e3440',
+      'editor.foreground': '#eceff4',
+      'editor.lineHighlightBackground': '#3b4252',
+      'editor.lineHighlightBorder': '#3b4252',
+      'editorLineNumber.foreground': '#5e6779',
+      'editorLineNumber.activeForeground': '#eceff4',
+      'editorCursor.foreground': '#88c0d0',
+    },
+  },
+};

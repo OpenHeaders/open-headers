@@ -1,0 +1,40 @@
+import type { ThemeVariant } from '../types';
+
+export const darkMidnight: ThemeVariant = {
+  id: 'midnight',
+  mode: 'dark',
+  label: 'Midnight',
+  description: 'Deep navy surfaces with a vivid blue accent — richer and more saturated than Dim.',
+  honorsAccentColor: false,
+  antdTokens: {
+    borderRadius: 6,
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    colorBgBase: '#0b1020',
+    colorBgLayout: '#070a17',
+    colorBgContainer: '#0b1020',
+    colorBgElevated: '#141b35',
+    colorTextBase: '#e2e8ff',
+    colorBorder: '#1e2747',
+    colorBorderSecondary: '#161d35',
+    colorPrimary: '#60a5fa',
+    colorSuccess: '#34d399',
+    colorWarning: '#fbbf24',
+    colorError: '#f87171',
+    colorInfo: '#60a5fa',
+  },
+  monacoTheme: 'oh-dark-midnight',
+  monacoDefinition: {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [{ token: 'comment', foreground: '6f7ba8', fontStyle: 'italic' }],
+    colors: {
+      'editor.background': '#0b1020',
+      'editor.foreground': '#e2e8ff',
+      'editor.lineHighlightBackground': '#141b35',
+      'editor.lineHighlightBorder': '#141b35',
+      'editorLineNumber.foreground': '#4a557d',
+      'editorLineNumber.activeForeground': '#e2e8ff',
+      'editorCursor.foreground': '#60a5fa',
+    },
+  },
+};

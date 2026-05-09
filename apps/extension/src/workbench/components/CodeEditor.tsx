@@ -24,6 +24,7 @@ import { useCallback, useRef, useState } from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
 import { getLanguage, type LanguageId, toMonacoLanguage } from '../languages/registry';
+import { resolveFontFamily } from '../settings/schema/editor';
 import { useSettingValue } from '../settings/hooks';
 // Side-effect import: kicks the Monaco bootstrap (loader.config + worker
 // wiring + TS language-service setup + Prettier provider registration)
@@ -65,7 +66,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 }) => {
   const registerCompletions = useMonacoVariableCompletions();
   const { token } = theme.useToken();
-  const { isDarkMode } = useTheme();
+  const { monacoTheme } = useTheme();
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const valueRef = useRef(value);
   valueRef.current = value;
@@ -75,8 +76,13 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   // or runs Format successfully.
   const [formatError, setFormatError] = useState<string | null>(null);
 
-  const fontFamily = useSettingValue('editor.fontFamily');
+  const fontFamilyPreset = useSettingValue('editor.fontFamilyPreset');
+  const customFontFamily = useSettingValue('editor.fontFamily');
+  const fontFamily = resolveFontFamily(fontFamilyPreset, customFontFamily);
   const fontSize = useSettingValue('editor.fontSize');
+  const fontWeight = useSettingValue('editor.fontWeight');
+  const fontLigatures = useSettingValue('editor.fontLigatures');
+  const lineHeight = useSettingValue('editor.lineHeight');
   const tabSize = useSettingValue('editor.tabSize');
   const insertSpaces = useSettingValue('editor.insertSpaces');
   const wordWrap = useSettingValue('editor.wordWrap');
@@ -123,6 +129,9 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
     minimap: { enabled: false },
     fontFamily,
     fontSize,
+    fontWeight,
+    fontLigatures,
+    lineHeight,
     lineNumbers: lineNumbers ? 'on' : 'off',
     tabSize,
     insertSpaces,
@@ -172,7 +181,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
         height={minHeight}
         defaultLanguage={toMonacoLanguage(language)}
         language={toMonacoLanguage(language)}
-        theme={isDarkMode ? 'oh-dark' : 'oh-light'}
+        theme={monacoTheme}
         value={value}
         onMount={(ed, monacoApi) => {
           editorRef.current = ed;

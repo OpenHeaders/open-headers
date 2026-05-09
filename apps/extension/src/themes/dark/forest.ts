@@ -1,0 +1,40 @@
+import type { ThemeVariant } from '../types';
+
+export const darkForest: ThemeVariant = {
+  id: 'forest',
+  mode: 'dark',
+  label: 'Forest',
+  description: 'Green-tinted dark surfaces with an emerald accent — calm, vegetal palette.',
+  honorsAccentColor: false,
+  antdTokens: {
+    borderRadius: 6,
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    colorBgBase: '#0f1c14',
+    colorBgLayout: '#0a140e',
+    colorBgContainer: '#0f1c14',
+    colorBgElevated: '#16291d',
+    colorTextBase: '#d6e7da',
+    colorBorder: '#1f3a2a',
+    colorBorderSecondary: '#162a1f',
+    colorPrimary: '#34d399',
+    colorSuccess: '#86efac',
+    colorWarning: '#fbbf24',
+    colorError: '#f87171',
+    colorInfo: '#7dd3fc',
+  },
+  monacoTheme: 'oh-dark-forest',
+  monacoDefinition: {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [{ token: 'comment', foreground: '6c8a76', fontStyle: 'italic' }],
+    colors: {
+      'editor.background': '#0f1c14',
+      'editor.foreground': '#d6e7da',
+      'editor.lineHighlightBackground': '#16291d',
+      'editor.lineHighlightBorder': '#16291d',
+      'editorLineNumber.foreground': '#4a6855',
+      'editorLineNumber.activeForeground': '#d6e7da',
+      'editorCursor.foreground': '#34d399',
+    },
+  },
+};

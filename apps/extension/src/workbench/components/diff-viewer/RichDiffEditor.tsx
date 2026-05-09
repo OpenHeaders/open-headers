@@ -64,7 +64,7 @@ const RichDiffEditor: React.FC<Props> = ({
   header,
 }) => {
   const { token } = theme.useToken();
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, monacoTheme } = useTheme();
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<monaco.editor.IStandaloneDiffEditor | null>(null);
@@ -85,7 +85,7 @@ const RichDiffEditor: React.FC<Props> = ({
     const container = containerRef.current;
     if (!container) return;
 
-    monacoEditor.setTheme(isDarkMode ? 'oh-dark' : 'oh-light');
+    monacoEditor.setTheme(monacoTheme);
 
     const editor = monacoEditor.createDiffEditor(container, {
       automaticLayout: true,
@@ -146,8 +146,8 @@ const RichDiffEditor: React.FC<Props> = ({
 
   // ── Prop sync: theme (global to Monaco). ──────────────────────────
   useEffect(() => {
-    monacoEditor.setTheme(isDarkMode ? 'oh-dark' : 'oh-light');
-  }, [isDarkMode]);
+    monacoEditor.setTheme(monacoTheme);
+  }, [monacoTheme]);
 
   // ── Prop sync: editor options. ────────────────────────────────────
   useEffect(() => {

@@ -1,0 +1,40 @@
+import type { ThemeVariant } from '../types';
+
+export const darkDim: ThemeVariant = {
+  id: 'dim',
+  mode: 'dark',
+  label: 'Dim',
+  description: 'Soft slate-blue surfaces with lower glare — easier on the eyes in low-light environments.',
+  honorsAccentColor: false,
+  antdTokens: {
+    borderRadius: 6,
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    colorBgBase: '#1a1f2e',
+    colorBgLayout: '#141826',
+    colorBgContainer: '#1a1f2e',
+    colorBgElevated: '#222843',
+    colorTextBase: '#d6dbe7',
+    colorBorder: '#2c324a',
+    colorBorderSecondary: '#252a3e',
+    colorPrimary: '#7c8cff',
+    colorSuccess: '#5dd9a3',
+    colorWarning: '#ffb86b',
+    colorError: '#ff7a91',
+    colorInfo: '#7c8cff',
+  },
+  monacoTheme: 'oh-dark-dim',
+  monacoDefinition: {
+    base: 'vs-dark',
+    inherit: true,
+    rules: [{ token: 'comment', foreground: '7d8aa3', fontStyle: 'italic' }],
+    colors: {
+      'editor.background': '#1a1f2e',
+      'editor.foreground': '#d6dbe7',
+      'editor.lineHighlightBackground': '#222843',
+      'editor.lineHighlightBorder': '#222843',
+      'editorLineNumber.foreground': '#5b6280',
+      'editorLineNumber.activeForeground': '#d6dbe7',
+      'editorCursor.foreground': '#7c8cff',
+    },
+  },
+};

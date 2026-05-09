@@ -66,6 +66,7 @@ import {
   ScriptTarget,
   typescriptDefaults,
 } from 'monaco-editor/esm/vs/language/typescript/monaco.contribution';
+import { allVariants } from '@/themes';
 import { OH_AMBIENT_DTS } from '../script-editor/oh-types';
 import { registerPrettierFormatters } from './formatters';
 
@@ -77,24 +78,13 @@ import { registerPrettierFormatters } from './formatters';
 // `loader.init()`. Running them synchronously lets the Editor
 // component mount with a fully-configured singleton.
 
-monacoEdCore.editor.defineTheme('oh-light', {
-  base: 'vs',
-  inherit: true,
-  rules: [],
-  colors: {
-    'editor.lineHighlightBackground': '#F1F3F5',
-    'editor.lineHighlightBorder': '#F1F3F5',
-  },
-});
-monacoEdCore.editor.defineTheme('oh-dark', {
-  base: 'vs-dark',
-  inherit: true,
-  rules: [],
-  colors: {
-    'editor.lineHighlightBackground': '#2A2D2E',
-    'editor.lineHighlightBorder': '#2A2D2E',
-  },
-});
+// Register one Monaco theme per variant from the themes registry. Each
+// variant ships its own `monacoTheme` id + definition; ConfigProvider
+// and the editor surfaces both read the active variant from the same
+// registry, so the chrome and the editor stay in sync.
+for (const variant of allVariants()) {
+  monacoEdCore.editor.defineTheme(variant.monacoTheme, variant.monacoDefinition);
+}
 
 // JS language-service configuration for every JS-flavored Monaco
 // editor in the extension (scripts tab, raw-JavaScript body, etc.).

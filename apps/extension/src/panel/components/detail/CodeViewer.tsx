@@ -37,7 +37,7 @@ export default function CodeViewer({
   searchQuery,
   searchMatchIndex,
 }: CodeViewerProps) {
-  const { isDarkMode } = useTheme();
+  const { monacoTheme } = useTheme();
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof monaco | null>(null);
   const decorationIdsRef = useRef<string[]>([]);
@@ -92,7 +92,7 @@ export default function CodeViewer({
         height="100%"
         defaultLanguage={language}
         language={language}
-        theme={isDarkMode ? 'oh-dark' : 'oh-light'}
+        theme={monacoTheme}
         value={value}
         onMount={(ed, m) => {
           editorRef.current = ed;
