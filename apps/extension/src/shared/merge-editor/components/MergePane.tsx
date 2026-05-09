@@ -521,12 +521,63 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
         background: isDarkMode ? '#2a2a2a' : '#e5e5e5',
       }}
     >
-      <Sash gridArea="sashTL" axis="col" bg={sashBg} onPointerDown={(e) => gridResize.onColSashPointerDown(0, e)} />
+      <Sash
+        gridArea="sashTL"
+        axis="col"
+        bg={sashBg}
+        ariaLabel="Resize column 1 / column 2"
+        ariaValueNow={Math.round((gridResize.ratios.cols[0] / 3) * 100)}
+        onPointerDown={(e) => gridResize.onColSashPointerDown(0, e)}
+        onKeyDown={(e) => {
+          const step = e.shiftKey ? 0.15 : 0.05;
+          if (e.key === 'ArrowLeft') {
+            gridResize.nudgeColSash(0, 'left', step);
+            e.preventDefault();
+          } else if (e.key === 'ArrowRight') {
+            gridResize.nudgeColSash(0, 'right', step);
+            e.preventDefault();
+          }
+        }}
+      />
       {has3Panes ? (
-        <Sash gridArea="sashTR" axis="col" bg={sashBg} onPointerDown={(e) => gridResize.onColSashPointerDown(1, e)} />
+        <Sash
+          gridArea="sashTR"
+          axis="col"
+          bg={sashBg}
+          ariaLabel="Resize column 2 / column 3"
+          ariaValueNow={Math.round((gridResize.ratios.cols[1] / 3) * 100)}
+          onPointerDown={(e) => gridResize.onColSashPointerDown(1, e)}
+          onKeyDown={(e) => {
+            const step = e.shiftKey ? 0.15 : 0.05;
+            if (e.key === 'ArrowLeft') {
+              gridResize.nudgeColSash(1, 'left', step);
+              e.preventDefault();
+            } else if (e.key === 'ArrowRight') {
+              gridResize.nudgeColSash(1, 'right', step);
+              e.preventDefault();
+            }
+          }}
+        />
       ) : null}
       {grid.rowSash ? (
-        <Sash gridArea="rsash" axis="row" bg={sashBg} onPointerDown={gridResize.onRowSashPointerDown} />
+        <Sash
+          gridArea="rsash"
+          axis="row"
+          bg={sashBg}
+          ariaLabel="Resize top row / bottom row"
+          ariaValueNow={Math.round(gridResize.ratios.rows[0] * 100)}
+          onPointerDown={gridResize.onRowSashPointerDown}
+          onKeyDown={(e) => {
+            const step = e.shiftKey ? 0.15 : 0.05;
+            if (e.key === 'ArrowUp') {
+              gridResize.nudgeRowSash('up', step);
+              e.preventDefault();
+            } else if (e.key === 'ArrowDown') {
+              gridResize.nudgeRowSash('down', step);
+              e.preventDefault();
+            }
+          }}
+        />
       ) : null}
       <PaneSlot
         gridArea="theirs"
@@ -619,16 +670,25 @@ interface SashProps {
   gridArea: string;
   axis: 'col' | 'row';
   bg: string;
+  ariaLabel: string;
+  /** Approximate "first pane" share as a percentage (0–100). */
+  ariaValueNow: number;
   onPointerDown: (e: React.PointerEvent) => void;
+  onKeyDown: (e: React.KeyboardEvent) => void;
 }
 
-function Sash({ gridArea, axis, bg, onPointerDown }: SashProps): React.ReactElement {
-  // Presentation-only — the keyboard-accessible alternative to a sash
-  // is the layout switcher (always tab-reachable). Marking the bar as
-  // role="presentation" avoids inventing fake `aria-valuenow` numbers
-  // for a continuous drag handle that has no semantic discrete value.
+function Sash({
+  gridArea,
+  axis,
+  bg,
+  ariaLabel,
+  ariaValueNow,
+  onPointerDown,
+  onKeyDown,
+}: SashProps): React.ReactElement {
   return (
     <div
+      className="oh-merge__sash"
       style={{
         gridArea,
         background: bg,
@@ -636,6 +696,14 @@ function Sash({ gridArea, axis, bg, onPointerDown }: SashProps): React.ReactElem
         zIndex: 2,
       }}
       onPointerDown={onPointerDown}
+      onKeyDown={onKeyDown}
+      tabIndex={0}
+      role="separator"
+      aria-orientation={axis === 'col' ? 'vertical' : 'horizontal'}
+      aria-label={ariaLabel}
+      aria-valuenow={ariaValueNow}
+      aria-valuemin={0}
+      aria-valuemax={100}
     />
   );
 }

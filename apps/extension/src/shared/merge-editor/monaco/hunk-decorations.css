@@ -82,3 +82,11 @@
 [data-merge-theme='dark'] .oh-merge__char-diff {
   background-color: rgba(210, 153, 34, 0.55);
 }
+
+/* Sash focus-visible ring — the keyboard equivalent of the cursor
+ * change on hover. Browsers without :focus-visible fall back to the
+ * standard outline. */
+.oh-merge__sash:focus-visible {
+  outline: 2px solid rgba(64, 156, 255, 0.85);
+  outline-offset: -1px;
+}

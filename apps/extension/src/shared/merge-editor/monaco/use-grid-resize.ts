@@ -44,6 +44,12 @@ export interface UseGridResizeApi {
   onColSashPointerDown(i: 0 | 1, e: React.PointerEvent): void;
   /** Begin dragging the row-sash between rows 0 and 1. */
   onRowSashPointerDown(e: React.PointerEvent): void;
+  /** Keyboard nudge for a column sash. ArrowLeft/Right shift the
+   *  ratio by `step` (default 0.05). Returns `true` when the event
+   *  was consumed so callers can `preventDefault`. */
+  nudgeColSash(i: 0 | 1, direction: 'left' | 'right', step?: number): void;
+  /** Keyboard nudge for the row sash. */
+  nudgeRowSash(direction: 'up' | 'down', step?: number): void;
   /** Programmatic reset — useful after a layout switch where the
    *  prior ratios don't make sense for the new template. */
   reset(): void;
@@ -145,5 +151,31 @@ export function useGridResize({ containerRef, onResize }: UseGridResizeArgs): Us
     [containerRef, ratios],
   );
 
-  return { ratios, onColSashPointerDown, onRowSashPointerDown, reset };
+  const nudgeColSash = useCallback(
+    (i: 0 | 1, direction: 'left' | 'right', step = 0.05) => {
+      const delta = direction === 'right' ? step : -step;
+      setRatios((prev) => {
+        const next: [number, number, number] = [...prev.cols];
+        next[i] = clamp(next[i] + delta, MIN_FRAC, 3 - MIN_FRAC * 2);
+        next[i + 1] = clamp(next[i + 1] - delta, MIN_FRAC, 3 - MIN_FRAC * 2);
+        return { ...prev, cols: next };
+      });
+      onResize?.();
+    },
+    [onResize],
+  );
+
+  const nudgeRowSash = useCallback(
+    (direction: 'up' | 'down', step = 0.05) => {
+      const delta = direction === 'down' ? step : -step;
+      setRatios((prev) => {
+        const top = clamp(prev.rows[0] + delta, MIN_FRAC, 1 - MIN_FRAC);
+        return { ...prev, rows: [top, 1 - top] };
+      });
+      onResize?.();
+    },
+    [onResize],
+  );
+
+  return { ratios, onColSashPointerDown, onRowSashPointerDown, nudgeColSash, nudgeRowSash, reset };
 }
