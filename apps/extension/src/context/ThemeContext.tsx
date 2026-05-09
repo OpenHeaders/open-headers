@@ -26,6 +26,7 @@ import type React from 'react';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { getVariant, type ThemeVariant } from '@/themes';
 import { setSettingValue, useSettingValue } from '@/workbench/settings';
+import { resolveAppearanceFontFamily } from '@/workbench/settings/schema/appearance';
 
 type ThemeMode = 'light' | 'dark' | 'auto';
 
@@ -70,6 +71,8 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const lightVariantId = useSettingValue('appearance.lightVariant');
   const darkVariantId = useSettingValue('appearance.darkVariant');
   const uiScale = useSettingValue('appearance.uiScale');
+  const fontFamilyPreset = useSettingValue('appearance.fontFamilyPreset');
+  const fontFamily = resolveAppearanceFontFamily(fontFamilyPreset);
   const isCompactMode = density === 'compact';
 
   // System color-scheme preference drives `auto` theme resolution.
@@ -137,12 +140,15 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         // the entire chrome without per-component overrides. Editor
         // surfaces read `editor.fontSize` directly and are unaffected.
         fontSize: Math.round(14 * uiScale),
+        // Chrome font from the appearance preset takes priority over
+        // the variant's default fontFamily. Editor font is independent.
+        fontFamily,
       },
     }),
     // `algorithms` rebuilds every render but its content is stable when
     // these inputs are; including primitives here keeps the memo honest.
     // biome-ignore lint/correctness/useExhaustiveDependencies: algorithms is derived from isDarkMode + isCompactMode
-    [variant, accentColor, isDarkMode, isCompactMode, uiScale],
+    [variant, accentColor, isDarkMode, isCompactMode, uiScale, fontFamily],
   );
 
   return (

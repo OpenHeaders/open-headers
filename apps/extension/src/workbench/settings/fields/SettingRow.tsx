@@ -21,6 +21,7 @@ import CodeField from './CodeField';
 import ColorField from './ColorField';
 import EnumField from './EnumField';
 import FilesBrowserField from './FilesBrowserField';
+import FontFamilyPresetField, { isFontFamilyPresetKey } from './FontFamilyPresetField';
 import InfoField from './InfoField';
 import KeybindingField from './KeybindingField';
 import KeyValueField from './KeyValueField';
@@ -39,6 +40,15 @@ const SettingRow: React.FC<SettingRowProps> = ({ def }) => {
   useSettingsReady();
   if (def.when && !def.when(<K extends SettingKey>(k: K): SettingsMap[K] => storeGet(k))) {
     return null;
+  }
+
+  // Font-family preset enums get their own field component so each
+  // option can carry a live "installed" / "falls back" badge based on
+  // `document.fonts.check()`. The component dispatches on the setting
+  // key to pick the right preset table (monospace for editor,
+  // proportional sans for appearance).
+  if (isFontFamilyPresetKey(def.key)) {
+    return <FontFamilyPresetField def={def} />;
   }
 
   switch (def.type) {

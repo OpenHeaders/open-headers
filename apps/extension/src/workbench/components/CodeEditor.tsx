@@ -77,8 +77,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
   const [formatError, setFormatError] = useState<string | null>(null);
 
   const fontFamilyPreset = useSettingValue('editor.fontFamilyPreset');
-  const customFontFamily = useSettingValue('editor.fontFamily');
-  const fontFamily = resolveFontFamily(fontFamilyPreset, customFontFamily);
+  const fontFamily = resolveFontFamily(fontFamilyPreset);
   const fontSize = useSettingValue('editor.fontSize');
   const fontWeight = useSettingValue('editor.fontWeight');
   const fontLigatures = useSettingValue('editor.fontLigatures');

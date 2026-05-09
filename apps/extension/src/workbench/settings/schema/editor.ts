@@ -21,71 +21,80 @@ const fontWeightSchema = v.picklist(['normal', 'bold', '300', '400', '500', '600
  * editor. The presets always end with `monospace` so an OS-level
  * fallback kicks in if the named font isn't installed; the alignment
  * stays correct even on a fresh machine.
- *
- * Order is the dropdown order. `custom` is last and reveals the free
- * `editor.fontFamily` field via `when:`.
  */
 export const EDITOR_FONT_PRESETS: ReadonlyArray<{
   id: string;
   label: string;
   description: string;
-  /** Ready-to-use CSS font-family stack. `undefined` for `custom` —
-   *  consumers fall back to `editor.fontFamily` instead. */
-  stack: string | undefined;
+  /** Ready-to-use CSS font-family stack. */
+  stack: string;
+  /** Font name to probe with `document.fonts.check()`. `null` skips
+   *  detection — used for OS stacks and for fonts we bundle ourselves
+   *  (where availability is guaranteed). */
+  probe: string | null;
 }> = [
   {
     id: 'system',
     label: 'System Mono',
     description: 'Operating-system default monospace — SF Mono on macOS, Consolas on Windows, Liberation Mono on Linux.',
     stack: "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace",
+    probe: null,
   },
   {
     id: 'menlo-consolas',
     label: 'Menlo / Consolas',
     description: 'Classic platform monospaces — Menlo on macOS, Consolas on Windows.',
     stack: "Menlo, Consolas, 'Liberation Mono', monospace",
+    probe: null,
   },
   {
     id: 'fira-code',
     label: 'Fira Code',
     description: 'Free monospace with programming ligatures. Falls back to System Mono if not installed.',
     stack: "'Fira Code', 'Fira Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+    probe: 'Fira Code',
   },
   {
     id: 'jetbrains-mono',
     label: 'JetBrains Mono',
     description: 'Free monospace tuned for editors, with ligatures. Falls back to System Mono if not installed.',
     stack: "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+    probe: 'JetBrains Mono',
   },
   {
     id: 'cascadia-code',
     label: 'Cascadia Code',
     description: 'Free monospace with programming ligatures. Falls back to System Mono if not installed.',
     stack: "'Cascadia Code', 'Cascadia Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+    probe: 'Cascadia Code',
   },
   {
     id: 'source-code-pro',
     label: 'Source Code Pro',
     description: 'Free Adobe monospace tuned for code. Falls back to System Mono if not installed.',
     stack: "'Source Code Pro', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+    probe: 'Source Code Pro',
   },
   {
-    id: 'custom',
-    label: 'Custom…',
-    description: 'Use a free-text font-family stack. Must be a monospace font or the editor will mis-align.',
-    stack: undefined,
+    id: 'press-start-2p',
+    label: 'Press Start 2P',
+    description: 'The pixel-style display font we ship with the app. Bundled — always available. A novelty pick: legible but tall and wide.',
+    stack: "'Press Start 2P', ui-monospace, SFMono-Regular, monospace",
+    // Bundled, registered programmatically from `assets/fonts/register-bundled-fonts.ts`.
+    // The probe stays null because availability is guaranteed.
+    probe: null,
   },
 ] as const;
 
 const fontFamilyPresetSchema = v.picklist(EDITOR_FONT_PRESETS.map((p) => p.id) as [string, ...string[]]);
 
-/** Resolve the active font-family stack from the two-setting pair.
- *  `preset === 'custom'` returns the user's free-text value;
- *  every other preset returns its curated stack. */
-export function resolveFontFamily(preset: string, customStack: string): string {
+/** Resolve the active font-family stack for a preset id. Falls back
+ *  to the System Mono stack if the id is unknown — the storage layer
+ *  validates against the schema, so this only triggers if a preset is
+ *  removed mid-session. */
+export function resolveFontFamily(preset: string): string {
   const def = EDITOR_FONT_PRESETS.find((p) => p.id === preset);
-  if (!def || def.stack === undefined) return customStack;
-  return def.stack;
+  return def?.stack ?? EDITOR_FONT_PRESETS[0].stack;
 }
 
 export type WordWrap = v.InferOutput<typeof wordWrapSchema>;
@@ -97,7 +106,6 @@ declare module '../types' {
   interface SettingsMap {
     'editor.fontSize': number;
     'editor.fontFamilyPreset': FontFamilyPreset;
-    'editor.fontFamily': string;
     'editor.fontWeight': FontWeight;
     'editor.fontLigatures': boolean;
     'editor.lineHeight': number;
@@ -131,24 +139,11 @@ registerSetting({
   default: 'system',
   schema: fontFamilyPresetSchema,
   label: 'Font Family',
-  description: 'Choose a curated monospace stack for the editor, or pick Custom to enter a free-text stack.',
+  description: 'Curated monospace stacks for the editor. Names with the "Falls back" tag are not installed on this system.',
   category: 'editor',
   tags: ['font', 'typography', 'monospace', 'fira', 'jetbrains', 'cascadia', 'menlo', 'consolas', 'source code pro'],
   scope: 'user',
   enumOptions: EDITOR_FONT_PRESETS.map((p) => ({ value: p.id, label: p.label, description: p.description })),
-});
-
-registerSetting({
-  key: 'editor.fontFamily',
-  type: 'string',
-  default: "ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace",
-  schema: v.pipe(v.string(), v.minLength(1)),
-  label: 'Custom Font Family',
-  description: 'Comma-separated font stack. Must be a monospace font or the editor will mis-align.',
-  category: 'editor',
-  tags: ['font', 'typography', 'monospace', 'custom'],
-  scope: 'user',
-  when: (get) => get('editor.fontFamilyPreset') === 'custom',
 });
 
 registerSetting({
