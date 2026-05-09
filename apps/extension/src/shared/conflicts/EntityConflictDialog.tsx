@@ -84,6 +84,10 @@ export interface EntityConflictDialogProps {
   localValuesByPath?: ReadonlyMap<string, string>;
   /** Optional human-readable label per path. */
   pathLabels?: ReadonlyMap<string, string>;
+  /** Optional baseline (common-ancestor) serialized YAML. When
+   *  supplied, the merge-editor preview renders 3-pane and exposes
+   *  the Show Base layout switcher. */
+  baseText?: string;
   /** Caller commits the chosen resolution map. */
   onResolve: (resolutions: Map<string, ConflictResolution>) => void;
   onClose: () => void;
@@ -122,6 +126,7 @@ const EntityConflictDialog: React.FC<EntityConflictDialogProps> = ({
   conflicts,
   localValuesByPath,
   pathLabels,
+  baseText,
   onResolve,
   onClose,
 }) => {
@@ -598,6 +603,7 @@ const EntityConflictDialog: React.FC<EntityConflictDialogProps> = ({
             language,
             theirsText: savedText,
             mineText: localText,
+            baseText,
             initialResult: localText,
             // Preview is no-commit — Apply just closes the modal so
             // operators can exercise the new shell against live data

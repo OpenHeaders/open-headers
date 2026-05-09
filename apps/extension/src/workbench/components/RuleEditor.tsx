@@ -44,13 +44,19 @@ import {
   useLocalInstanceId,
 } from '@/shared/awareness';
 import type { ConflictResolution } from '@/shared/conflicts';
-import { EntityConflictBanner, EntityConflictDialog, hasDialogOnlyConflict, useAutoMergeForm } from '@/shared/conflicts';
+import {
+  EntityConflictBanner,
+  EntityConflictDialog,
+  hasDialogOnlyConflict,
+  useAutoMergeForm,
+} from '@/shared/conflicts';
+import { ConflictsProvider, type FieldConflictsApi } from '@/shared/conflicts/Field';
 import { useEditorShell, useReprime } from '@/shared/editor-shell';
 import { stableStringify } from '@/shared/forms';
 import { applyRuleCreate, applyRulePublish } from '@/shared/sync/rule-write-client';
-import type { RuleDraftData } from '../hooks/useSaveRuleFlow';
 import { buildDraftConditions } from '../draft-conditions';
 import { useInspectorNav } from '../hooks/useInspectorNav';
+import type { RuleDraftData } from '../hooks/useSaveRuleFlow';
 import { formatString } from '../languages/prettier';
 import type { LanguageId } from '../languages/registry';
 import { SYSTEM_TEMPLATE_TREE_BY_TYPE, type SystemTemplateNode, TEMPLATES_BY_TYPE } from '../rule-templates';
@@ -65,14 +71,13 @@ import DelayRuleFields from './rule-fields/DelayRuleFields';
 import HeaderRuleFields from './rule-fields/HeaderRuleFields';
 import InjectRuleFields, { maybePrefillInjectCode } from './rule-fields/InjectRuleFields';
 import MockRuleFields, { MOCK_DYNAMIC_TEMPLATE } from './rule-fields/MockRuleFields';
+import { mergeRuleForSave } from './rule-fields/merge-rule-for-save';
 import { prettyRulePathMap } from './rule-fields/pretty-path';
 import QueryParamRuleFields from './rule-fields/QueryParamRuleFields';
 import RedirectRuleFields from './rule-fields/RedirectRuleFields';
-import { mergeRuleForSave } from './rule-fields/merge-rule-for-save';
 import { applyResolutionToForm, applyResolutionToRule } from './rule-fields/rule-form-resolver';
 import type { PathConflict } from './rule-fields/use-rule-conflicts';
 import { useRuleConflicts } from './rule-fields/use-rule-conflicts';
-import { ConflictsProvider, type FieldConflictsApi } from '@/shared/conflicts/Field';
 import SaveAsTemplateModal from './SaveAsTemplateModal';
 import { buildRuleIcon } from './shared/rule-icon';
 import { renderTwoToneIcon } from './TwoToneIconPicker';
@@ -182,10 +187,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 
   /** Live rule from context — null in create mode (no entity yet) or
    *  when the rule has been tombstoned by another surface. */
-  const liveRule = useMemo(
-    () => (ruleUid ? rules.find((r) => r.uid === ruleUid) : undefined),
-    [ruleUid, rules],
-  );
+  const liveRule = useMemo(() => (ruleUid ? rules.find((r) => r.uid === ruleUid) : undefined), [ruleUid, rules]);
 
   /** Whether the rule is published (live to DNR / runners). Create-mode
    *  drafts are always unpublished; in edit mode, Save flips
@@ -610,6 +612,24 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       return '';
     }
   }, [isConflictDialogOpen, liveRule]);
+
+  // Baseline YAML feeds the merge-editor preview's Show Base layouts.
+  // Computed at dialog-open from the per-tab baseline rule so the
+  // common ancestor is the rule as it was when the form last seeded
+  // (matches the conflict tracker's baseline notion).
+  const baseYaml = useMemo(() => {
+    if (!isConflictDialogOpen) return undefined;
+    const baseline = baselineRuleRef.current;
+    if (!baseline) return undefined;
+    try {
+      return serializeRule(freshDocument(canonicalizeRule(baseline)));
+    } catch {
+      return undefined;
+    }
+    // baselineRuleRef is a ref; deliberately stale-on-purpose so the
+    // value is captured when the dialog opens and stays stable while
+    // it is open.
+  }, [isConflictDialogOpen]);
 
   const buildLocalText = useCallback(
     (resolutions: ReadonlyMap<string, ConflictResolution>): string => {
@@ -1275,61 +1295,61 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 
                   {/* ── Two-column grid: fields left, conditions right (on wide screens) ── */}
                   <ConflictsProvider api={fieldConflictsApi}>
-                  <div className="rules-rule-editor-columns">
-                    {/* ── Per-type fields ── */}
-                    <div>
-                      {selectedType === 'header' && (
-                        <HeaderRuleFields
-                          activeTab={headerActiveTab}
-                          onTabChange={handleHeaderTabChange}
-                          reqCount={headerReqCount}
-                          resCount={headerResCount}
-                          ruleUid={ruleUid}
-                          excludeInstanceId={localInstanceId}
-                        />
-                      )}
-                      {selectedType === 'block' && <BlockRuleFields />}
-                      {selectedType === 'redirect' && <RedirectRuleFields />}
-                      {selectedType === 'query-param' && <QueryParamRuleFields ruleUid={ruleUid} />}
-                      {selectedType === 'inject' && <InjectRuleFields />}
-                      {selectedType === 'delay' && <DelayRuleFields />}
-                      {selectedType === 'body' && <BodyRuleFields />}
-                      {selectedType === 'mock' && <MockRuleFields />}
-                      {/* Single-mount inline action validation. The validator
+                    <div className="rules-rule-editor-columns">
+                      {/* ── Per-type fields ── */}
+                      <div>
+                        {selectedType === 'header' && (
+                          <HeaderRuleFields
+                            activeTab={headerActiveTab}
+                            onTabChange={handleHeaderTabChange}
+                            reqCount={headerReqCount}
+                            resCount={headerResCount}
+                            ruleUid={ruleUid}
+                            excludeInstanceId={localInstanceId}
+                          />
+                        )}
+                        {selectedType === 'block' && <BlockRuleFields />}
+                        {selectedType === 'redirect' && <RedirectRuleFields />}
+                        {selectedType === 'query-param' && <QueryParamRuleFields ruleUid={ruleUid} />}
+                        {selectedType === 'inject' && <InjectRuleFields />}
+                        {selectedType === 'delay' && <DelayRuleFields />}
+                        {selectedType === 'body' && <BodyRuleFields />}
+                        {selectedType === 'mock' && <MockRuleFields />}
+                        {/* Single-mount inline action validation. The validator
                       lives in core; new rule types pick the banner up
                       automatically when their case is added there. */}
-                      {selectedType && <ActionValueBanner ruleType={selectedType} />}
-                    </div>
+                        {selectedType && <ActionValueBanner ruleType={selectedType} />}
+                      </div>
 
-                    {/* ── Conditions section ── */}
-                    <div style={{ marginBottom: 20 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                        <Text strong style={{ fontSize: 13 }}>
-                          Conditions
-                        </Text>
-                        <InfoCircleOutlined
-                          style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-                          onClick={() => openDocs('conditions')}
-                        />
+                      {/* ── Conditions section ── */}
+                      <div style={{ marginBottom: 20 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                          <Text strong style={{ fontSize: 13 }}>
+                            Conditions
+                          </Text>
+                          <InfoCircleOutlined
+                            style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
+                            onClick={() => openDocs('conditions')}
+                          />
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: 'var(--ant-color-text-secondary)',
+                            lineHeight: 1.5,
+                            marginBottom: 10,
+                          }}
+                        >
+                          Each row targets one DNR field, so rows combine with <strong>AND</strong> — every row must
+                          match. To match any of several values, list them inside one row (the <strong>OR</strong> badge
+                          marks rows that accept multiple values; <strong>1 value</strong> rows take a single scalar).
+                          Add at least one condition.
+                        </div>
+                        <Form.Item name="conditions" style={{ marginBottom: 0 }}>
+                          <ConditionEditor />
+                        </Form.Item>
                       </div>
-                      <div
-                        style={{
-                          fontSize: 12,
-                          color: 'var(--ant-color-text-secondary)',
-                          lineHeight: 1.5,
-                          marginBottom: 10,
-                        }}
-                      >
-                        Each row targets one DNR field, so rows combine with <strong>AND</strong> — every row must
-                        match. To match any of several values, list them inside one row (the <strong>OR</strong> badge
-                        marks rows that accept multiple values; <strong>1 value</strong> rows take a single scalar). Add
-                        at least one condition.
-                      </div>
-                      <Form.Item name="conditions" style={{ marginBottom: 0 }}>
-                        <ConditionEditor />
-                      </Form.Item>
                     </div>
-                  </div>
                   </ConflictsProvider>
                 </Form>
 
@@ -1340,6 +1360,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                   conflicts={allConflicts}
                   localValuesByPath={formProjection ? new Map(Object.entries(formProjection)) : undefined}
                   pathLabels={conflictPathLabels}
+                  baseText={baseYaml}
                   onResolve={applyResolutions}
                   onClose={() => setConflictDialogOpen(false)}
                 />
