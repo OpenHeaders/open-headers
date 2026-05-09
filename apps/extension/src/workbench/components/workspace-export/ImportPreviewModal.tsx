@@ -199,6 +199,17 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
   // initial state-init can race with `activeWorkspaceId` resolution.
   const [target, setTarget] = useState<ImportTargetSelection>(() => initialTarget ?? { mode: 'current' });
   const [preview, setPreview] = useState<PreviewState | null>(null);
+
+  // Phase 7.3.5: when the flag is on, auto-open the merge editor as
+  // soon as preview is ready. The legacy preview body still mounts
+  // behind it (so all chrome state stays alive), but the merge editor
+  // is the de facto entry surface. Closing the merge editor cancels
+  // the whole import.
+  useEffect(() => {
+    if (!mergeEditorPreviewEnabled) return;
+    if (!preview) return;
+    setMergePreviewOpen((prev) => prev || true);
+  }, [mergeEditorPreviewEnabled, preview]);
   const [previewing, setPreviewing] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [strategies, setStrategies] = useState<StrategyMap>({});
@@ -978,13 +989,17 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
               : 'No data'}
         </Text>
         <Space>
-          {mergeEditorPreviewEnabled && (
+          {/* Manual reopen for the merge editor — only meaningful in
+              edge cases where the flag is on but auto-open hasn't
+              fired yet (e.g. preview transitioning). With auto-open
+              + close-cancels-parent, this is rarely visible. */}
+          {mergeEditorPreviewEnabled && !mergePreviewOpen && (
             <Button
               icon={<ExperimentOutlined />}
               onClick={() => setMergePreviewOpen(true)}
               disabled={!preview || importing}
             >
-              Preview merge editor
+              Open merge editor
             </Button>
           )}
           <Button onClick={onCancel} disabled={importing}>
@@ -1006,7 +1021,14 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
           open
           isDarkMode={isDarkMode}
           surfaceId="workspace-import"
-          onClose={() => setMergePreviewOpen(false)}
+          onClose={() => {
+            // Closing the merge editor cancels the whole import (the
+            // legacy preview body is no longer the user-facing flow
+            // when the flag is on). The legacy modal closes via the
+            // `onCancel` prop fed in by the caller.
+            setMergePreviewOpen(false);
+            onCancel();
+          }}
           footerLeading={
             <Button key="advanced" onClick={() => setMergeAdvancedOpen(true)}>
               {(() => {
