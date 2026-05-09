@@ -16,6 +16,7 @@ import { CheckCircleFilled, DownOutlined, ReloadOutlined, ThunderboltOutlined, U
 import { Allotment, LayoutPriority } from 'allotment';
 import { Alert, Button, Dropdown, Modal, Segmented, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import { type ReactElement, useCallback, useMemo, useRef, useState } from 'react';
+import { diffLinesPatience } from '../diff/patience-diff';
 import type { MergeApplyOutcome, MergeSession } from '../types';
 import { usePersistedLayout } from '../use-persisted-layout';
 import MergeFileList, { type MergeFileRowState } from './MergeFileList';
@@ -115,6 +116,30 @@ const MergeConflictModal = ({
     }
     return map;
   }, [outcomes]);
+
+  // Initial per-file hunk count — diffs every file on session open so
+  // the sidebar can show a "N" badge per row. Recomputes when the
+  // session changes (reasonable since the session is the unit of work).
+  // For very large sessions (>200 files) this could become expensive;
+  // defer that optimization to a real consumer.
+  const initialHunkCounts = useMemo<Map<string, number>>(() => {
+    const map = new Map<string, number>();
+    for (const f of session.files) {
+      const seed = resultsByFileId.get(f.id) ?? f.initialResult;
+      const t = diffLinesPatience(f.theirs, seed).length;
+      const m = diffLinesPatience(f.mine, seed).length;
+      map.set(f.id, t + m);
+    }
+    return map;
+  }, [session.files, resultsByFileId]);
+
+  // Active file shows live count from MergePane stats; inactive files
+  // show the (possibly stale) initial count. Live wins on collision.
+  const sidebarHunkCounts = useMemo<Map<string, number>>(() => {
+    const map = new Map(initialHunkCounts);
+    if (activeFileId) map.set(activeFileId, stats.totalRemaining);
+    return map;
+  }, [initialHunkCounts, activeFileId, stats.totalRemaining]);
 
   const handleFileSelect = useCallback(
     (nextFileId: string) => {
@@ -399,6 +424,7 @@ const MergeConflictModal = ({
                   files={session.files}
                   activeFileId={activeFileId}
                   states={fileStates}
+                  hunkCounts={sidebarHunkCounts}
                   onSelect={handleFileSelect}
                 />
               </Allotment.Pane>

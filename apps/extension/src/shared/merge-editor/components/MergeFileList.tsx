@@ -42,6 +42,10 @@ export interface MergeFileListProps {
   activeFileId: string;
   /** Optional state per file id. Missing entries default to unresolved. */
   states?: ReadonlyMap<string, MergeFileRowState>;
+  /** Optional remaining-hunk count per file. Missing entries omit the
+   *  badge. Active file should reflect live stats; inactive files get
+   *  the initial-state count from session-open. */
+  hunkCounts?: ReadonlyMap<string, number>;
   onSelect(fileId: string): void;
 }
 
@@ -79,7 +83,13 @@ function groupFiles(files: ReadonlyArray<MergeFile>): GroupedFile[] {
     .sort((a, b) => a.group.localeCompare(b.group));
 }
 
-const MergeFileList = ({ files, activeFileId, states, onSelect }: MergeFileListProps): ReactElement | null => {
+const MergeFileList = ({
+  files,
+  activeFileId,
+  states,
+  hunkCounts,
+  onSelect,
+}: MergeFileListProps): ReactElement | null => {
   const { token } = theme.useToken();
 
   if (files.length <= 1) return null;
@@ -176,6 +186,11 @@ const MergeFileList = ({ files, activeFileId, states, onSelect }: MergeFileListP
                 {state.status === 'failed' && state.error ? (
                   <Tooltip title={state.error}>
                     <WarningFilled style={{ color: token.colorError, fontSize: 12 }} />
+                  </Tooltip>
+                ) : null}
+                {hunkCounts?.has(f.id) && (hunkCounts.get(f.id) ?? 0) > 0 ? (
+                  <Tooltip title={`${hunkCounts.get(f.id)} hunks remaining`}>
+                    <Tag style={{ margin: 0, fontSize: 10, lineHeight: '16px' }}>{hunkCounts.get(f.id)}</Tag>
                   </Tooltip>
                 ) : null}
                 <Tag color={status.color} style={{ margin: 0, fontSize: 10, lineHeight: '16px' }}>
