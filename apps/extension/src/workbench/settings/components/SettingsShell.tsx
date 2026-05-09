@@ -13,7 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { allCategories, getDef } from '../registry';
 import { searchSettings } from '../search';
 import type { CategoryDef, SettingDef, SettingKey } from '../types';
-import CategoryNav from './CategoryNav';
+import CategoryNav, { type CategoryNavHandle } from './CategoryNav';
 import CategoryPane from './CategoryPane';
 import SearchResultsPane from './SearchResultsPane';
 import SettingsSearch from './SettingsSearch';
@@ -29,9 +29,13 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
   const paneRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<InputRef>(null);
+  const navRef = useRef<CategoryNavHandle>(null);
 
   const focusSearch = useCallback(() => {
     searchRef.current?.focus({ cursor: 'all' });
+  }, []);
+  const focusSidebar = useCallback(() => {
+    navRef.current?.focusActive();
   }, []);
 
   const isSearching = query.trim().length > 0;
@@ -164,15 +168,23 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
           background: token.colorBgContainer,
         }}
       >
-        <SettingsSearch query={query} onQueryChange={setQuery} inputRef={searchRef} autoFocus />
+        <SettingsSearch
+          query={query}
+          onQueryChange={setQuery}
+          inputRef={searchRef}
+          autoFocus
+          onArrowDown={focusSidebar}
+        />
       </div>
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
         <CategoryNav
+          ref={navRef}
           categories={orderedCategories.all}
           activeCategoryId={isSearching ? null : activeId}
           onSelect={handleSelectCategory}
           matchCount={matchCount}
           isSearching={isSearching}
+          onLeaveTop={focusSearch}
         />
         <div ref={paneRef} style={{ flex: 1, overflowY: 'auto', background: token.colorBgLayout }}>
           {isSearching ? (
@@ -186,7 +198,54 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
           )}
         </div>
       </div>
+      <footer
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
+          padding: '6px 14px',
+          borderTop: `1px solid ${token.colorBorderSecondary}`,
+          background: token.colorBgContainer,
+          fontSize: 11,
+          color: token.colorTextTertiary,
+          flex: 'none',
+        }}
+      >
+        <Hint keys={['/']} label="Search" />
+        <Hint keys={['↑', '↓']} label="Navigate" />
+        <Hint keys={['↵']} label="Select" />
+        <Hint keys={['Esc']} label="Clear / Close" />
+      </footer>
     </div>
+  );
+};
+
+const Hint: React.FC<{ keys: readonly string[]; label: string }> = ({ keys, label }) => {
+  const { token } = theme.useToken();
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      {keys.map((k) => (
+        <kbd
+          key={k}
+          style={{
+            display: 'inline-block',
+            minWidth: 18,
+            padding: '0 5px',
+            borderRadius: 4,
+            border: `1px solid ${token.colorBorderSecondary}`,
+            background: token.colorBgLayout,
+            color: token.colorTextSecondary,
+            fontSize: 10,
+            fontFamily: 'inherit',
+            lineHeight: '16px',
+            textAlign: 'center',
+          }}
+        >
+          {k}
+        </kbd>
+      ))}
+      <span>{label}</span>
+    </span>
   );
 };
 

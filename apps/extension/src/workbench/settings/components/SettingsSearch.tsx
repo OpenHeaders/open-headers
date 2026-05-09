@@ -17,6 +17,8 @@ interface SettingsSearchProps {
   /** Forwarded to the inner Ant Input so the shell can focus it via hotkey. */
   inputRef?: React.Ref<InputRef>;
   autoFocus?: boolean;
+  /** ArrowDown in the input — shell uses this to jump focus into the sidebar. */
+  onArrowDown?: () => void;
 }
 
 const FILTERS: readonly { token: string; label: string }[] = [
@@ -24,7 +26,7 @@ const FILTERS: readonly { token: string; label: string }[] = [
   { token: '@experimental', label: 'Experimental' },
 ];
 
-const SettingsSearch: React.FC<SettingsSearchProps> = ({ query, onQueryChange, inputRef, autoFocus }) => {
+const SettingsSearch: React.FC<SettingsSearchProps> = ({ query, onQueryChange, inputRef, autoFocus, onArrowDown }) => {
   const { token } = theme.useToken();
 
   const toggleFilter = useCallback(
@@ -54,6 +56,11 @@ const SettingsSearch: React.FC<SettingsSearchProps> = ({ query, onQueryChange, i
           if (e.key === 'Escape' && query.length > 0) {
             e.stopPropagation();
             onQueryChange('');
+            return;
+          }
+          if (e.key === 'ArrowDown' && onArrowDown) {
+            e.preventDefault();
+            onArrowDown();
           }
         }}
         allowClear={{ clearIcon: <CloseOutlined /> }}

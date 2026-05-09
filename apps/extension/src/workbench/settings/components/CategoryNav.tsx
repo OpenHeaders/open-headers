@@ -9,7 +9,7 @@
 
 import { theme } from 'antd';
 import type React from 'react';
-import { useRef } from 'react';
+import { forwardRef, useImperativeHandle, useRef } from 'react';
 import type { CategoryDef } from '../types';
 
 interface CategoryNavProps {
@@ -19,36 +19,54 @@ interface CategoryNavProps {
   /** Match count per category id while searching; empty otherwise. */
   matchCount: ReadonlyMap<string, number>;
   isSearching: boolean;
+  /** Called when ArrowUp is pressed at the first navigable item (return to search). */
+  onLeaveTop?: () => void;
 }
 
-const CategoryNav: React.FC<CategoryNavProps> = ({
-  categories,
-  activeCategoryId,
-  onSelect,
-  matchCount,
-  isSearching,
-}) => {
+export interface CategoryNavHandle {
+  /** Focus the active button (or the first navigable one if none is active). */
+  focusActive: () => void;
+}
+
+const CategoryNav = forwardRef<CategoryNavHandle, CategoryNavProps>(function CategoryNav(
+  { categories, activeCategoryId, onSelect, matchCount, isSearching, onLeaveTop },
+  ref,
+) {
   const { token } = theme.useToken();
   const buttonsRef = useRef<Map<string, HTMLButtonElement>>(new Map());
 
-  // Arrow keys move selection between visible (= non-dimmed) categories
-  // while searching, and between all categories otherwise. Focus follows
-  // the selected button so the next arrow press keeps moving.
+  const computeNavigable = (): string[] =>
+    categories.filter((c) => !isSearching || (matchCount.get(c.id) ?? 0) > 0).map((c) => c.id);
+
+  useImperativeHandle(ref, () => ({
+    focusActive: () => {
+      const ids = computeNavigable();
+      if (ids.length === 0) return;
+      const target = activeCategoryId && ids.includes(activeCategoryId) ? activeCategoryId : ids[0];
+      buttonsRef.current.get(target)?.focus();
+    },
+  }));
+
+  // Arrow keys move selection between navigable categories. Focus follows
+  // selection so the next arrow press keeps moving. ArrowUp at the top
+  // bubbles back to the search input via onLeaveTop.
   const handleKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, currentId: string) => {
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Home' && e.key !== 'End') return;
+    const ids = computeNavigable();
+    if (ids.length === 0) return;
+    const idx = Math.max(0, ids.indexOf(currentId));
+    if (e.key === 'ArrowUp' && idx === 0 && onLeaveTop) {
+      e.preventDefault();
+      onLeaveTop();
+      return;
+    }
     e.preventDefault();
-    const navigable = categories.filter((c) => !isSearching || (matchCount.get(c.id) ?? 0) > 0);
-    if (navigable.length === 0) return;
-    const idx = Math.max(
-      0,
-      navigable.findIndex((c) => c.id === currentId),
-    );
     let nextIdx = idx;
-    if (e.key === 'ArrowDown') nextIdx = (idx + 1) % navigable.length;
-    else if (e.key === 'ArrowUp') nextIdx = (idx - 1 + navigable.length) % navigable.length;
+    if (e.key === 'ArrowDown') nextIdx = (idx + 1) % ids.length;
+    else if (e.key === 'ArrowUp') nextIdx = (idx - 1 + ids.length) % ids.length;
     else if (e.key === 'Home') nextIdx = 0;
-    else if (e.key === 'End') nextIdx = navigable.length - 1;
-    const nextId = navigable[nextIdx].id;
+    else if (e.key === 'End') nextIdx = ids.length - 1;
+    const nextId = ids[nextIdx];
     onSelect(nextId);
     buttonsRef.current.get(nextId)?.focus();
   };
@@ -132,6 +150,6 @@ const CategoryNav: React.FC<CategoryNavProps> = ({
       })}
     </nav>
   );
-};
+});
 
 export default CategoryNav;
