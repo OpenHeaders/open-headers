@@ -60,6 +60,7 @@ import {
 } from '@/shared/conflicts';
 import { useEditorShell, useReprime } from '@/shared/editor-shell';
 import { liveWorkflowResolveAdapter } from './live-workflow-conflict-adapter';
+import { rebindStepReferences } from './rebind-step-references';
 import {
   projectLiveWorkflowToForm,
   useLiveWorkflowConflicts,
@@ -914,9 +915,23 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({ draft, setDraft }) 
   );
 
   const updateStep = (idx: number, next: DraftStep) => {
+    const prev = draft.steps[idx];
     const nextSteps = draft.steps.slice();
     nextSteps[idx] = next;
-    setDraft({ ...draft, steps: nextSteps });
+    let nextDraft: Draft = { ...draft, steps: nextSteps };
+    // Auto-rebind in-workflow references on a step.id rename so
+    // dependsOn / runIf clauses / priorityFrom / refresh.stepId track
+    // the new id without manual chase. Same step.uid + changed id is
+    // the rename signature.
+    if (prev && prev.uid === next.uid && prev.id !== next.id && prev.id.length > 0 && next.id.length > 0) {
+      nextDraft = rebindStepReferences({
+        draft: nextDraft,
+        targetUid: next.uid,
+        oldId: prev.id,
+        newId: next.id,
+      });
+    }
+    setDraft(nextDraft);
   };
 
   const addStep = () => {
