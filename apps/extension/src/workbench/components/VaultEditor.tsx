@@ -23,8 +23,8 @@
  * defensively. The entity-level presence chip is the only signal.
  */
 
-import { useVault } from '@hooks/useVault';
 import { useVariableMutator } from '@hooks/useVariableMutator';
+import { useVault } from '@hooks/useVault';
 import { VAULT_ENTITY_TYPE, VAULT_ID } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
 import { Alert, App, Typography, theme } from 'antd';
@@ -43,8 +43,8 @@ import { stableStringify } from '@/shared/forms';
 import EditorHeader from './EditorHeader';
 import VariableTable, { type VariableTableConflictBridge } from './panels/VariableTable';
 import { scopeBadge } from './shared/scope-colors';
-import { vaultResolveAdapter } from './vault-conflict-adapter';
 import { projectSecretsToForm, useVaultConflicts } from './use-vault-conflicts';
+import { vaultResolveAdapter } from './vault-conflict-adapter';
 
 const { Text } = Typography;
 
@@ -74,6 +74,9 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
   // reprime's `onPrimed` advances the tracker's baseline. Break the
   // ordering cycle with a ref.
   const setBaselineRef = useRef<(e: V5.Vault & { uid: string }) => void>(() => undefined);
+  // Snapshot of secrets at the most recent re-prime — feeds the
+  // merge-editor preview's Show Base layouts via `baseText`.
+  const baselineSecretsRef = useRef<readonly V5.VaultSecret[] | null>(null);
 
   const reprime = useReprime<V5.Vault>({
     liveEntity: vault,
@@ -82,7 +85,10 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
     formFingerprint,
     signature: (e) => secretsSignature(e.secrets),
     populate: (e) => setDraft(e.secrets),
-    onPrimed: (e) => setBaselineRef.current({ ...e, uid: VAULT_ID }),
+    onPrimed: (e) => {
+      setBaselineRef.current({ ...e, uid: VAULT_ID });
+      baselineSecretsRef.current = e.secrets;
+    },
   });
   const isDirty = reprime.isDirty;
 
@@ -191,6 +197,14 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
     return JSON.stringify(vault.secrets, null, 2);
   }, [isConflictDialogOpen, vault.secrets]);
 
+  // Baseline JSON for the merge-editor preview's Show Base layouts.
+  const baseText = useMemo(() => {
+    if (!isConflictDialogOpen) return undefined;
+    const baseline = baselineSecretsRef.current;
+    if (!baseline) return undefined;
+    return JSON.stringify(baseline, null, 2);
+  }, [isConflictDialogOpen]);
+
   const buildLocalText = useCallback(
     (resolutions: ReadonlyMap<string, ConflictResolution>): string => {
       const projected = projectWithResolutions(resolutions);
@@ -287,6 +301,7 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
           conflicts={allConflicts}
           localValuesByPath={new Map(Object.entries(formProjection))}
           pathLabels={conflictPathLabels}
+          baseText={baseText}
           onResolve={applyResolutions}
           onClose={() => setConflictDialogOpen(false)}
         />
