@@ -43,8 +43,10 @@ import {
   draftFromWorkflow as draftFromWorkflowCore,
   isWorkflowComplete,
   newDraftCapture,
+  pickPrimaryLv,
   planLiveVariableReconcile,
   stripDraftSteps,
+  toDraftCapture,
   validateWorkflowShape,
 } from '@openheaders/core/live';
 import { LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
@@ -349,9 +351,10 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
   );
 
   // Phase 6 commit seam — parses the merge-editor's result text back to
-  // the projection (`name`/`description`/`enabled`/`refresh`; `steps` is
-  // intentionally absent per uid audit §0c.7), adopts to draft, then
-  // dismisses every conflict path. Throws on malformed JSON.
+  // the projection, adopts to draft, then dismisses every conflict path.
+  // Steps are reconstructed as DraftSteps via toDraftCapture so the
+  // editor's per-capture exposure metadata is rebuilt from the bound
+  // LiveVariable set. Throws on malformed JSON.
   const handleResolveText = useCallback(
     (text: string) => {
       if (!workflow) return;
@@ -360,7 +363,14 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
         description: string;
         enabled: boolean;
         refresh: V5.LiveWorkflow['refresh'];
+        steps: V5.WorkflowStep[];
       }>;
+      const nextSteps: DraftStep[] | undefined = Array.isArray(raw.steps)
+        ? raw.steps.map((step) => ({
+            ...step,
+            captures: step.captures.map((c) => toDraftCapture(c, pickPrimaryLv(step.id, c.name, boundVars))),
+          }))
+        : undefined;
       setDraft((d) =>
         d
           ? {
@@ -369,12 +379,13 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
               description: typeof raw.description === 'string' ? raw.description : d.description,
               enabled: typeof raw.enabled === 'boolean' ? raw.enabled : d.enabled,
               refresh: raw.refresh !== undefined ? raw.refresh : d.refresh,
+              steps: nextSteps !== undefined ? nextSteps : d.steps,
             }
           : d,
       );
       for (const path of allConflicts.keys()) conflicts.dismiss(path);
     },
-    [workflow, allConflicts, conflicts],
+    [workflow, allConflicts, conflicts, boundVars],
   );
 
   const conflictPathLabels = useMemo(
@@ -393,6 +404,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
         description: workflow.description ?? '',
         enabled: workflow.enabled,
         refresh: workflow.refresh,
+        steps: workflow.steps,
       },
       null,
       2,
@@ -400,9 +412,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
   }, [isConflictDialogOpen, workflow]);
 
   // Baseline JSON for the merge-editor preview's Show Base layouts.
-  // Mirrors `savedText`'s shape — `steps` is intentionally excluded
-  // (uid audit §0c.7: step.id is the unstable reorderable key, set-pick
-  // is gated off until a stable uid surfaces in the schema).
+  // Same shape as savedText / mineText so the 3-pane diff aligns.
   const baseText = useMemo(() => {
     if (!isConflictDialogOpen) return undefined;
     const baseline = baselineLiveWorkflowRef.current;
@@ -413,6 +423,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
         description: baseline.description ?? '',
         enabled: baseline.enabled,
         refresh: baseline.refresh,
+        steps: baseline.steps,
       },
       null,
       2,
@@ -427,6 +438,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
         description: draft.description,
         enabled: draft.enabled,
         refresh: draft.refresh,
+        steps: stripDraftSteps(draft.steps),
       },
       null,
       2,
