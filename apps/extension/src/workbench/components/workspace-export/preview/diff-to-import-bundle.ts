@@ -165,11 +165,13 @@ export interface ApplyMergeResultsArgs {
   files: readonly MergeFile[];
   results: ReadonlyMap<string, string>;
   diff: DiffResult;
-  /** Caller-owned text → entity codec; `entityType` mirrors
-   *  `MergeFile.group` (singular form). Throw on parse failure;
-   *  `applyMergeResultsToEnvelope` propagates so the caller can
-   *  surface the row that broke. */
-  deserialize: (entityType: ImportEntityType, text: string) => unknown;
+  /** Caller-owned text → entity codec. Receives the merge file so the
+   *  caller can dispatch by `file.group` (entity type) and look up the
+   *  original entity's `path` from the envelope when the per-codec
+   *  context requires it. Throw on parse failure;
+   *  `applyMergeResultsToEnvelope` propagates so the caller can surface
+   *  the row that broke. */
+  deserialize: (text: string, file: MergeFile) => unknown;
 }
 
 export interface ApplyMergeResultsOutput {
@@ -205,7 +207,7 @@ export function applyMergeResultsToEnvelope(args: ApplyMergeResultsArgs): ApplyM
       if (isEmpty) {
         strategies.workspaceVars = 'skip';
       } else {
-        const parsed = deserialize('workspaceVars', text);
+        const parsed = deserialize(text, file);
         next.entities = { ...next.entities, workspaceVars: parsed as WorkspaceExport['entities']['workspaceVars'] };
         strategies.workspaceVars = 'replace' satisfies PlanSingletonAction;
       }
@@ -215,7 +217,7 @@ export function applyMergeResultsToEnvelope(args: ApplyMergeResultsArgs): ApplyM
       if (isEmpty) {
         strategies.vault = 'skip';
       } else {
-        const parsed = deserialize('vault', text);
+        const parsed = deserialize(text, file);
         next.entities = { ...next.entities, vault: parsed as WorkspaceExport['entities']['vault'] };
         strategies.vault = 'replace' satisfies PlanSingletonAction;
       }
@@ -234,7 +236,7 @@ export function applyMergeResultsToEnvelope(args: ApplyMergeResultsArgs): ApplyM
       continue;
     }
 
-    const parsed = deserialize(entityType, text);
+    const parsed = deserialize(text, file);
     // Replace in the envelope's bucket array (immutable splice).
     const list = (next.entities[bucket] as readonly { uid: string }[] | undefined) ?? [];
     const idx = list.findIndex((e) => e.uid === file.id);

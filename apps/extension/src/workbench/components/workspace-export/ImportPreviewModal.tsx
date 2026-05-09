@@ -50,12 +50,24 @@ import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DedupMatchesResult } from '@/background/modules/workspace-import-dedup';
 import { call } from '@/utils/bridge';
+import {
+  parseCollection,
+  parseEnvironment,
+  parseFolder,
+  parseLiveVariable,
+  parseLiveWorkflow,
+  parseRequest,
+  parseRule,
+  parseTemplate,
+  parseVault,
+  parseWorkspaceVariables,
+} from '@openheaders/core/codec/yaml';
 import { useTheme } from '@context/ThemeContext';
-import { buildImportMergeSession } from '@/shared/conflicts';
+import type { MergeApplyOutcome, MergeFile } from '@/shared/merge-editor';
 import { MergeConflictModal } from '@/shared/merge-editor';
 import { renderWorkspacePrefix } from '@/workbench/components/workspace-prefix';
 import { buildImportStatusChips } from './preview/buildImportStatusChips';
-import { diffResultToImportBundle } from './preview/diff-to-import-bundle';
+import { applyMergeResultsToEnvelope, diffResultToImportBundle } from './preview/diff-to-import-bundle';
 import ImportDiffWorkspace from './preview/ImportDiffWorkspace';
 import RejectionBanner, { type ParseRejection } from './preview/RejectionBanner';
 import StatusChips from './preview/StatusChips';
@@ -376,6 +388,148 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
       cancelled = true;
     };
   }, [parsed, preview, target.mode]);
+
+  // ── Merge-editor surface (Phase 7.3.3a) ───────────────────────────
+  // Per-codec parser dispatcher. Each non-singleton codec needs the
+  // entity's `path` from the envelope; we look it up by uid across the
+  // typed buckets. Throws on unknown uid / unknown entityType so the
+  // merge editor surfaces the broken row inline.
+  const deserializeMergeFile = useCallback(
+    (text: string, file: MergeFile): unknown => {
+      if (!effectiveEnvelope) throw new Error('No envelope available for path lookup.');
+      const ent = effectiveEnvelope.entities;
+      const findPath = (uid: string): string => {
+        const lists: ReadonlyArray<{ uid: string; path?: string }>[] = [
+          ent.collections,
+          ent.folders,
+          ent.rules,
+          ent.requests,
+          ent.templates,
+          ent.environments,
+          ent.liveWorkflows,
+          ent.liveVariables,
+        ];
+        for (const list of lists) {
+          const found = list.find((e) => e.uid === uid);
+          if (found?.path) return found.path;
+        }
+        throw new Error(`Could not resolve path for uid ${uid}`);
+      };
+      switch (file.group) {
+        case 'rule':
+          return parseRule(text, { path: findPath(file.id) }).value;
+        case 'request':
+          return parseRequest(text, { path: findPath(file.id) }).value;
+        case 'template':
+          return parseTemplate(text, { path: findPath(file.id) }).value;
+        case 'collection':
+          return parseCollection(text, { path: findPath(file.id) }).value;
+        case 'folder':
+          return parseFolder(text, { path: findPath(file.id) }).value;
+        case 'environment':
+          return parseEnvironment({ default: text }).value;
+        case 'liveWorkflow':
+          return parseLiveWorkflow(text, { path: findPath(file.id) }).value;
+        case 'liveVariable':
+          return parseLiveVariable(text, { path: findPath(file.id) }).value;
+        case 'workspaceVars':
+          return parseWorkspaceVariables(text).value;
+        case 'vault':
+          return parseVault(text).value;
+        default:
+          throw new Error(`Unknown merge entity type: ${String(file.group)}`);
+      }
+    },
+    [effectiveEnvelope],
+  );
+
+  // Bundle-wide commit through the merge editor: derive a fresh
+  // envelope + StrategyMap from per-file results, re-run the SW
+  // preview to detect concurrent edits, then submit through
+  // `importWorkspace`. Mirrors `handleImport` but the merged envelope
+  // carries the user's resolved entities instead of relying on a
+  // strategy map alone.
+  const handleMergeApply = useCallback(
+    async (filesArg: readonly MergeFile[], results: Map<string, string>): Promise<MergeApplyOutcome[]> => {
+      const failAll = (err: string): MergeApplyOutcome[] =>
+        filesArg.map((f) => ({ fileId: f.id, ok: false, status: 'resolved' as const, error: err }));
+      if (!effectiveEnvelope || !preview || !sourceHash) return failAll('Preview is not ready.');
+      let mergedEnvelope: WorkspaceExport;
+      let derivedStrategies: StrategyMap;
+      try {
+        const out = applyMergeResultsToEnvelope({
+          envelope: effectiveEnvelope,
+          files: filesArg,
+          results,
+          diff: preview.diff,
+          deserialize: deserializeMergeFile,
+        });
+        mergedEnvelope = out.envelope;
+        derivedStrategies = out.strategies;
+      } catch (err) {
+        return failAll(err instanceof Error ? err.message : String(err));
+      }
+      try {
+        const fresh = await call('previewWorkspaceImport', {
+          incoming: mergedEnvelope,
+          target,
+          backupRestore,
+        });
+        if (!fresh.success || !fresh.snapshotHash) return failAll(fresh.error ?? 'Preview re-check failed');
+        if (fresh.snapshotHash !== preview.snapshotHash) {
+          setStaleSnapshotHash(preview.snapshotHash);
+          if (fresh.diff && fresh.missingDeps) {
+            setPreview({
+              diff: fresh.diff,
+              missingDeps: fresh.missingDeps,
+              snapshotHash: fresh.snapshotHash,
+              targetWorkspaceId: fresh.targetWorkspaceId ?? null,
+            });
+          }
+          return failAll('Workspace changed since preview opened. Re-confirm in the legacy preview and retry.');
+        }
+        const res = await call('importWorkspace', {
+          incoming: mergedEnvelope,
+          strategies: derivedStrategies,
+          backupRestore,
+          trustExport,
+          stripScripts,
+          omitOAuthConfigs,
+          keepTargetCollectionOrder,
+          refuseUidCollision,
+          target,
+          sourceHash,
+        });
+        if (!res.success || !res.report || !res.targetWorkspaceId) {
+          return failAll(res.error ?? 'Import failed');
+        }
+        // Success — close the merge modal and notify the parent.
+        setMergePreviewOpen(false);
+        onImported({
+          targetWorkspaceId: res.targetWorkspaceId,
+          importedCount: res.report.summary.imported,
+          sourceLabel: mergedEnvelope.source.workspaceLabel ?? mergedEnvelope.workspace.name,
+        });
+        return filesArg.map((f) => ({ fileId: f.id, ok: true, status: 'resolved' as const }));
+      } catch (err) {
+        return failAll(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [
+      effectiveEnvelope,
+      preview,
+      sourceHash,
+      target,
+      backupRestore,
+      trustExport,
+      stripScripts,
+      omitOAuthConfigs,
+      keepTargetCollectionOrder,
+      refuseUidCollision,
+      onImported,
+      deserializeMergeFile,
+    ],
+  );
 
   // ── Submit ────────────────────────────────────────────────────────
   const handleImport = useCallback(async () => {
@@ -849,27 +1003,47 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
           surfaceId="workspace-import"
           onClose={() => setMergePreviewOpen(false)}
           session={(() => {
+            // Project the preview's typed diff into the generic
+            // bundle/workspace shape, then hand-roll the session so
+            // `onApply` runs the bundle-wide commit through
+            // `importWorkspace` rather than the per-file `applyEntity`
+            // shape `buildImportMergeSession` defaults to.
             const { bundle, workspace } = diffResultToImportBundle(preview.diff, effectiveEnvelope ?? undefined);
-            return buildImportMergeSession({
-              bundle,
-              workspace,
-              serializeYaml: (entityType, entity) =>
-                // entityType strings emitted by `diffResultToImportBundle`
-                // mirror `SerializableEntityKind` 1:1 — see
-                // `preview/diff-to-import-bundle.ts` header.
-                serializeEntityYaml(entityType as SerializableEntityKind, entity),
-              // Preview-only: deserialize / apply are not exercised
-              // because Complete Merge closes back to this dialog rather
-              // than committing. They throw if invoked so a real apply
-              // attempt would surface inline rather than silently no-op.
-              deserializeYaml: () => {
-                throw new Error('Merge-editor import preview is no-commit; use the Import button.');
-              },
-              applyEntity: () => {
-                throw new Error('Merge-editor import preview is no-commit; use the Import button.');
-              },
-              onCancel: () => setMergePreviewOpen(false),
+            const files: MergeFile[] = bundle.entities.map((incoming) => {
+              const existing = workspace.findByPathOrUid(incoming);
+              const incomingYaml = serializeEntityYaml(incoming.entityType as SerializableEntityKind, incoming.entity);
+              if (existing === undefined) {
+                return {
+                  id: incoming.uid,
+                  label: incoming.path,
+                  language: 'yaml',
+                  group: incoming.entityType,
+                  kind: 'add' as const,
+                  theirs: incomingYaml,
+                  mine: '',
+                  initialResult: incomingYaml,
+                  badges: [{ label: 'added by import', tone: 'success' as const }],
+                };
+              }
+              const existingYaml = serializeEntityYaml(incoming.entityType as SerializableEntityKind, existing);
+              return {
+                id: incoming.uid,
+                label: incoming.path,
+                language: 'yaml',
+                group: incoming.entityType,
+                kind: 'modify' as const,
+                theirs: incomingYaml,
+                mine: existingYaml,
+                initialResult: existingYaml,
+                badges: [{ label: 'collision', tone: 'warn' as const }],
+              };
             });
+            return {
+              title: `Import — ${files.length} ${files.length === 1 ? 'item' : 'items'}`,
+              files,
+              onApply: handleMergeApply,
+              onCancel: () => setMergePreviewOpen(false),
+            };
           })()}
         />
       ) : null}

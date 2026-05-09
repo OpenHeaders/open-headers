@@ -273,7 +273,7 @@ describe('applyMergeResultsToEnvelope', () => {
       }),
       deserialize,
     });
-    expect(deserialize).toHaveBeenCalledWith('rule', 'yaml-text');
+    expect(deserialize).toHaveBeenCalledWith('yaml-text', expect.objectContaining({ id: 'r1', group: 'rule' }));
     expect((out.envelope.entities.rules as unknown as Array<{ uid: string }>)[0]).toBe(resolved);
     expect(out.strategies).toEqual({ rules: { r1: 'update' } });
     // Original envelope was not mutated.
@@ -365,10 +365,10 @@ describe('applyMergeResultsToEnvelope', () => {
       environments: [envA as never],
       workspaceVars: wsv as never,
     });
-    const deserialize = vi.fn((type, text) => {
-      if (type === 'rule' && text === 'merged-a') return { uid: 'rule-a', name: 'Merged' };
-      if (type === 'environment' && text === 'edited-env') return { uid: 'env-a', name: 'Edited' };
-      if (type === 'workspaceVars') return { variables: [{ key: 'X', value: '1' }] };
+    const deserialize = vi.fn((text: string, f: MergeFile) => {
+      if (f.group === 'rule' && text === 'merged-a') return { uid: 'rule-a', name: 'Merged' };
+      if (f.group === 'environment' && text === 'edited-env') return { uid: 'env-a', name: 'Edited' };
+      if (f.group === 'workspaceVars') return { variables: [{ key: 'X', value: '1' }] };
       return null;
     });
     const out = applyMergeResultsToEnvelope({
