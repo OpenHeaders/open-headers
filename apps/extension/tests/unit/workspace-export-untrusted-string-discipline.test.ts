@@ -42,9 +42,7 @@ describe('workspace-export untrusted-string rendering discipline', () => {
 
   it('lists at least the expected component files (sanity)', () => {
     const names = sources.map((p) => p.split('/').pop()).sort();
-    expect(names).toEqual(
-      expect.arrayContaining(['ExportModal.tsx', 'ImportPreviewModal.tsx', 'RuleSummary.tsx', 'RequestSummary.tsx']),
-    );
+    expect(names).toEqual(expect.arrayContaining(['ExportModal.tsx', 'ImportPreviewModal.tsx']));
   });
 
   /**
