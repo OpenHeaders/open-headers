@@ -34,16 +34,33 @@ registerSetting({
   type: 'enum',
   default: 'last',
   schema: openToSchema,
-  label: 'Open To',
-  description: 'Which screen is shown when the rules window opens.',
+  label: 'Startup View',
+  description:
+    "Which view the workbench opens to. 'Last session' resumes your previous tabs; the other options replace the tab list with a single landing page. Per-tab layouts are preserved either way.",
   category: 'general',
-  tags: ['startup', 'landing', 'home'],
+  tags: ['startup', 'landing', 'home', 'open to'],
   scope: 'user',
   enumOptions: [
-    { value: 'last', label: 'Last session', description: 'Whatever was open when you closed it' },
-    { value: 'home', label: 'Home' },
-    { value: 'rules', label: 'Rules' },
-    { value: 'collections', label: 'Collections' },
+    {
+      value: 'last',
+      label: 'Last session',
+      description: 'Pick up where you left off — your previous editor tabs are restored.',
+    },
+    {
+      value: 'home',
+      label: 'Home',
+      description: 'Open a single Home dashboard (stats and recent activity) instead of restoring tabs.',
+    },
+    {
+      value: 'rules',
+      label: 'Rules',
+      description: 'Open a single Rules browser tab — every rule across every collection.',
+    },
+    {
+      value: 'collections',
+      label: 'Collections',
+      description: 'Open a single Collections browser tab.',
+    },
   ],
 });
 
