@@ -272,7 +272,7 @@ const MergeConflictModal = ({
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <Space size={6}>
-            <Tooltip title="Previous hunk">
+            <Tooltip title="Previous hunk · Cmd/Ctrl+K  P">
               <Button
                 size="small"
                 icon={<UpOutlined />}
@@ -280,7 +280,7 @@ const MergeConflictModal = ({
                 onClick={() => paneRef.current?.gotoPrevHunk()}
               />
             </Tooltip>
-            <Tooltip title="Next hunk">
+            <Tooltip title="Next hunk · Cmd/Ctrl+K  N">
               <Button
                 size="small"
                 icon={<DownOutlined />}
@@ -300,7 +300,7 @@ const MergeConflictModal = ({
               {stats.nonConflicting > 0 ? ` · ${stats.nonConflicting} non-conflicting` : ''}
             </Tag>
           )}
-          <Tooltip title="Apply every hunk only one side touched, in one undo step. Conflicts stay for manual resolution.">
+          <Tooltip title="Apply every hunk only one side touched, in one undo step. Conflicts stay for manual resolution. · Cmd/Ctrl+K  A">
             <Button
               size="small"
               icon={<ThunderboltOutlined />}

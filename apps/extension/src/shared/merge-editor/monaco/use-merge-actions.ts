@@ -1,19 +1,31 @@
 /**
  * Register merge-editor operations as Monaco actions on the result
  * editor. Each action shows up in Monaco's command palette (F1) under
- * its label so the full toolbar set is keyboard-reachable without us
- * inventing browser-unsafe keybindings.
+ * its label and is bound to a browser-safe `Ctrl/Cmd+K`-prefixed chord
+ * so it's keyboard-reachable without colliding with browser chrome.
  *
- * No `keybindings` field — those are out of scope until a browser-safe
- * binding scheme lands. Discoverability stays via the palette + the
- * existing toolbar buttons.
+ * Chord choice — `Ctrl/Cmd+K` is Monaco's well-known chord prefix
+ * (VS Code uses it extensively) and emits no default browser action,
+ * so a follow-up letter is safe across Chrome / Firefox / Edge /
+ * Safari on Mac / Windows / Linux. F-keys (F7 toggles Firefox caret
+ * browsing) and bare `Alt+letter` (Windows menubar accelerators)
+ * stay out of the bindings for that reason.
+ *
+ * Bindings:
+ *   Ctrl/Cmd+K  N   — next hunk
+ *   Ctrl/Cmd+K  P   — previous hunk
+ *   Ctrl/Cmd+K  T   — accept incoming (theirs) at cursor
+ *   Ctrl/Cmd+K  C   — accept current at cursor
+ *   Ctrl/Cmd+K  A   — apply non-conflicting (auto-merge)
+ *   Ctrl/Cmd+K  I   — accept all incoming
+ *   Ctrl/Cmd+K  U   — accept all current (U because C, A, M are taken)
  *
  * `findHunkAtLine` walks the active hunk lists to find one whose
  * result-side range covers the caret. The "accept at cursor" actions
  * use that to splice without the user navigating first.
  */
 
-import type * as monaco from 'monaco-editor';
+import * as monaco from 'monaco-editor';
 import { type RefObject, useEffect } from 'react';
 import type { Hunk } from '../diff/line-diff';
 import type { HunkSide } from './use-hunk-decorations';
@@ -59,10 +71,16 @@ export function useMergeActions({ resultEditorRef, contextRef }: UseMergeActions
 
     const ctx = (): MergeActionsContext | null => contextRef.current;
 
+    // `Ctrl/Cmd+K <letter>` chord — `KeyMod.chord(prefix, suffix)` with
+    // `CtrlCmd` mapping to Ctrl on Win/Linux + Cmd on Mac.
+    const chord = (suffix: number): number =>
+      monaco.KeyMod.chord(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, suffix);
+
     disposables.push(
       editor.addAction({
         id: 'oh-merge.next-hunk',
         label: 'Merge: Go to next hunk',
+        keybindings: [chord(monaco.KeyCode.KeyN)],
         contextMenuGroupId: 'merge',
         contextMenuOrder: 1,
         run: () => ctx()?.gotoNextHunk(),
@@ -70,6 +88,7 @@ export function useMergeActions({ resultEditorRef, contextRef }: UseMergeActions
       editor.addAction({
         id: 'oh-merge.prev-hunk',
         label: 'Merge: Go to previous hunk',
+        keybindings: [chord(monaco.KeyCode.KeyP)],
         contextMenuGroupId: 'merge',
         contextMenuOrder: 2,
         run: () => ctx()?.gotoPrevHunk(),
@@ -77,6 +96,7 @@ export function useMergeActions({ resultEditorRef, contextRef }: UseMergeActions
       editor.addAction({
         id: 'oh-merge.accept-theirs-at-cursor',
         label: 'Merge: Accept incoming hunk at cursor',
+        keybindings: [chord(monaco.KeyCode.KeyT)],
         contextMenuGroupId: 'merge',
         contextMenuOrder: 3,
         run: (ed) => {
@@ -91,6 +111,7 @@ export function useMergeActions({ resultEditorRef, contextRef }: UseMergeActions
       editor.addAction({
         id: 'oh-merge.accept-mine-at-cursor',
         label: 'Merge: Accept current hunk at cursor',
+        keybindings: [chord(monaco.KeyCode.KeyC)],
         contextMenuGroupId: 'merge',
         contextMenuOrder: 4,
         run: (ed) => {
@@ -105,6 +126,7 @@ export function useMergeActions({ resultEditorRef, contextRef }: UseMergeActions
       editor.addAction({
         id: 'oh-merge.apply-non-conflicting',
         label: 'Merge: Apply non-conflicting changes',
+        keybindings: [chord(monaco.KeyCode.KeyA)],
         contextMenuGroupId: 'merge',
         contextMenuOrder: 5,
         run: () => ctx()?.applyNonConflicting(),
@@ -112,6 +134,7 @@ export function useMergeActions({ resultEditorRef, contextRef }: UseMergeActions
       editor.addAction({
         id: 'oh-merge.accept-all-incoming',
         label: 'Merge: Accept all incoming',
+        keybindings: [chord(monaco.KeyCode.KeyI)],
         contextMenuGroupId: 'merge',
         contextMenuOrder: 6,
         run: () => ctx()?.acceptAllTheirs(),
@@ -119,6 +142,7 @@ export function useMergeActions({ resultEditorRef, contextRef }: UseMergeActions
       editor.addAction({
         id: 'oh-merge.accept-all-current',
         label: 'Merge: Accept all current',
+        keybindings: [chord(monaco.KeyCode.KeyU)],
         contextMenuGroupId: 'merge',
         contextMenuOrder: 7,
         run: () => ctx()?.acceptAllMine(),
