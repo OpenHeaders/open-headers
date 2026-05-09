@@ -1,18 +1,24 @@
 /**
  * Conflict tracking + resolve adapters for V5.LiveWorkflow.
  *
- * Scope (this session): workflow-level scalar leaves only.
- *   - name, description, enabled
- *   - refresh.kind (discriminator)
- *   - refresh.seconds (interval)
- *   - refresh.stepId / refresh.captureName / refresh.leadSeconds
- *     (expires-in / expires-at)
+ * Tracks workflow-level scalar leaves AND the steps + captures
+ * nested set hierarchy. WorkflowStep + Capture both carry a stable
+ * 8-char `uid` (schema/live.ts) — set membership keys off that.
+ * `step.id` (the user-mutable `{{step.<id>.<capture>}}` reference)
+ * is tracked as a leaf at `steps.<uid>.id`, so a rename surfaces as
+ * a leaf conflict instead of delete + add. In-workflow references to
+ * a renamed step are auto-rebound by `rebind-step-references.ts` at
+ * edit time.
  *
- * Out of scope (deferred): step set + per-capture leaves. WorkflowStep
- * has no stable uid (step.id is user-mutable), so set-by-uid identity
- * doesn't apply cleanly — renames look like delete + add. Designing
- * stable step identity is a separate epic; until then steps + captures
- * fall back to whole-form re-prime + LWW-at-save.
+ * Per-step opaque leaves (`dependsOn` / `runIf` / `priorityFrom`)
+ * carry the JSON-stringified subtree as the leaf value. Catches the
+ * "the gate changed" granularity without designing per-clause
+ * tracking for the StepGateClause variant union — a future slice
+ * can subdivide if the opaque-payload UX surfaces real friction.
+ *
+ * Captures are tracked as a nested `setByUid` per step, with leaves
+ * at `steps.<stepUid>.captures.<captureUid>.{name,extractor}`. The
+ * extractor is opaque (variant union); same trade-off as the gates.
  */
 
 import type { V5 } from '@openheaders/core/types';
@@ -21,6 +27,7 @@ import type {
   ConflictResolveAdapter,
   ConflictTrackingAdapter,
   PathMap,
+  SetMember,
   SetMemberSnapshot,
 } from '@/shared/conflicts/conflict-adapters';
 
@@ -32,6 +39,61 @@ const PATH_REFRESH_SECONDS = 'refresh.seconds';
 const PATH_REFRESH_STEP_ID = 'refresh.stepId';
 const PATH_REFRESH_CAPTURE_NAME = 'refresh.captureName';
 const PATH_REFRESH_LEAD_SECONDS = 'refresh.leadSeconds';
+
+const STEP_LEAF_RE = /^steps\.([a-z0-9]{8})\.(id|description|requestUid|dependsOn|runIf|priorityFrom)$/;
+const CAPTURE_LEAF_RE = /^steps\.([a-z0-9]{8})\.captures\.([a-z0-9]{8})\.(name|extractor)$/;
+
+const STEP_SET_PATH = 'steps';
+const stepCapturesSetPath = (stepUid: string): string => `steps.${stepUid}.captures`;
+
+// ── Helpers ───────────────────────────────────────────────────────
+
+/** Stable JSON for opaque-leaf payloads. Object key order matches
+ *  the runtime insertion order; arrays preserve their order. We don't
+ *  re-sort because the schema's array order is semantic
+ *  (e.g. dependsOn declares topological intent). */
+function opaqueStringify(value: unknown): string {
+  if (value === undefined || value === null) return '';
+  return JSON.stringify(value);
+}
+
+function findStep(wf: V5.LiveWorkflow, stepUid: string): V5.WorkflowStep | undefined {
+  return wf.steps.find((s) => s.uid === stepUid);
+}
+
+function findCapture(step: V5.WorkflowStep, captureUid: string): V5.WorkflowStep['captures'][number] | undefined {
+  return step.captures.find((c) => c.uid === captureUid);
+}
+
+function readStepLeaf(step: V5.WorkflowStep, leaf: string): string | null {
+  switch (leaf) {
+    case 'id':
+      return step.id;
+    case 'description':
+      return step.description ?? '';
+    case 'requestUid':
+      return step.requestUid;
+    case 'dependsOn':
+      return opaqueStringify(step.dependsOn ?? []);
+    case 'runIf':
+      return opaqueStringify(step.runIf);
+    case 'priorityFrom':
+      return opaqueStringify(step.priorityFrom);
+    default:
+      return null;
+  }
+}
+
+function readCaptureLeaf(capture: V5.WorkflowStep['captures'][number], leaf: string): string | null {
+  switch (leaf) {
+    case 'name':
+      return capture.name;
+    case 'extractor':
+      return opaqueStringify(capture.extractor);
+    default:
+      return null;
+  }
+}
 
 function readRefreshLeaf(refresh: V5.LiveWorkflow['refresh'], path: string): string | null {
   switch (path) {
@@ -58,9 +120,24 @@ function readPath(wf: V5.LiveWorkflow, path: string): string | null {
       return wf.description ?? '';
     case PATH_ENABLED:
       return wf.enabled ? 'true' : 'false';
-    default:
-      return readRefreshLeaf(wf.refresh, path);
   }
+  const refreshLeaf = readRefreshLeaf(wf.refresh, path);
+  if (refreshLeaf !== null) return refreshLeaf;
+  const stepMatch = STEP_LEAF_RE.exec(path);
+  if (stepMatch) {
+    const step = findStep(wf, stepMatch[1]);
+    if (!step) return null;
+    return readStepLeaf(step, stepMatch[2]);
+  }
+  const capMatch = CAPTURE_LEAF_RE.exec(path);
+  if (capMatch) {
+    const step = findStep(wf, capMatch[1]);
+    if (!step) return null;
+    const capture = findCapture(step, capMatch[2]);
+    if (!capture) return null;
+    return readCaptureLeaf(capture, capMatch[3]);
+  }
+  return null;
 }
 
 function extractBaseline(wf: V5.LiveWorkflow): PathMap {
@@ -83,11 +160,96 @@ function extractBaseline(wf: V5.LiveWorkflow): PathMap {
     case 'manual':
       break;
   }
+  for (const step of wf.steps) {
+    out[`steps.${step.uid}.id`] = step.id;
+    out[`steps.${step.uid}.description`] = step.description ?? '';
+    out[`steps.${step.uid}.requestUid`] = step.requestUid;
+    out[`steps.${step.uid}.dependsOn`] = opaqueStringify(step.dependsOn ?? []);
+    out[`steps.${step.uid}.runIf`] = opaqueStringify(step.runIf);
+    out[`steps.${step.uid}.priorityFrom`] = opaqueStringify(step.priorityFrom);
+    for (const capture of step.captures) {
+      out[`steps.${step.uid}.captures.${capture.uid}.name`] = capture.name;
+      out[`steps.${step.uid}.captures.${capture.uid}.extractor`] = opaqueStringify(capture.extractor);
+    }
+  }
   return out;
 }
 
-function snapshotSets(): readonly SetMemberSnapshot[] {
-  return [];
+function snapshotSets(wf: V5.LiveWorkflow): readonly SetMemberSnapshot[] {
+  const out: SetMemberSnapshot[] = [];
+  const stepsMap = new Map<string, SetMember>();
+  for (const step of wf.steps) {
+    stepsMap.set(step.uid, {
+      uid: step.uid,
+      summary: step.id || '(unnamed step)',
+      payload: step,
+    });
+  }
+  out.push({ setPath: STEP_SET_PATH, byUid: stepsMap });
+  for (const step of wf.steps) {
+    const captures = new Map<string, SetMember>();
+    for (const capture of step.captures) {
+      captures.set(capture.uid, {
+        uid: capture.uid,
+        summary: capture.name || '(unnamed capture)',
+        payload: capture,
+      });
+    }
+    out.push({ setPath: stepCapturesSetPath(step.uid), byUid: captures });
+  }
+  return out;
+}
+
+/**
+ * Reconstruct set membership from a PathMap. Set members surface to
+ * the form via their leaf paths — scanning for `steps.<uid>.id` keys
+ * (the canonical per-step leaf every step always emits) yields the
+ * full step uid set; ditto for captures via `steps.<uid>.captures.<uid>.name`.
+ *
+ * Form-side payloads are stub `{ uid }` objects — the live-side
+ * snapshot carries the full payload that resolves consult; the
+ * form-side snapshot only needs to expose membership for the tracker's
+ * add/remove/reorder detection.
+ */
+function snapshotSetsFromForm(form: PathMap): readonly SetMemberSnapshot[] {
+  const stepsMap = new Map<string, SetMember>();
+  const capturesByStep = new Map<string, Map<string, SetMember>>();
+  for (const path of Object.keys(form)) {
+    const stepMatch = STEP_LEAF_RE.exec(path);
+    if (stepMatch && stepMatch[2] === 'id') {
+      const stepUid = stepMatch[1];
+      if (!stepsMap.has(stepUid)) {
+        stepsMap.set(stepUid, { uid: stepUid, summary: form[path] || '(unnamed step)', payload: { uid: stepUid } });
+      }
+      continue;
+    }
+    const capMatch = CAPTURE_LEAF_RE.exec(path);
+    if (capMatch && capMatch[3] === 'name') {
+      const stepUid = capMatch[1];
+      const capUid = capMatch[2];
+      let bucket = capturesByStep.get(stepUid);
+      if (!bucket) {
+        bucket = new Map();
+        capturesByStep.set(stepUid, bucket);
+      }
+      if (!bucket.has(capUid)) {
+        bucket.set(capUid, { uid: capUid, summary: form[path] || '(unnamed capture)', payload: { uid: capUid } });
+      }
+    }
+  }
+  const out: SetMemberSnapshot[] = [{ setPath: STEP_SET_PATH, byUid: stepsMap }];
+  for (const [stepUid, captures] of capturesByStep) {
+    out.push({ setPath: stepCapturesSetPath(stepUid), byUid: captures });
+  }
+  // Steps that have no captures still need an empty snapshot so
+  // the tracker can detect "captures were added on the saved side"
+  // for that step. Walk the step set and fill blanks.
+  for (const stepUid of stepsMap.keys()) {
+    if (!capturesByStep.has(stepUid)) {
+      out.push({ setPath: stepCapturesSetPath(stepUid), byUid: new Map() });
+    }
+  }
+  return out;
 }
 
 export const liveWorkflowConflictAdapter: ConflictTrackingAdapter<V5.LiveWorkflow> = {
@@ -95,7 +257,7 @@ export const liveWorkflowConflictAdapter: ConflictTrackingAdapter<V5.LiveWorkflo
   extractBaseline,
   readPath,
   snapshotSets,
-  snapshotSetsFromForm: () => [],
+  snapshotSetsFromForm: (form) => snapshotSetsFromForm(form),
 };
 
 const LEAF_LABEL: Record<string, string> = {
@@ -108,6 +270,67 @@ const LEAF_LABEL: Record<string, string> = {
   [PATH_REFRESH_CAPTURE_NAME]: 'refresh capture',
   [PATH_REFRESH_LEAD_SECONDS]: 'refresh lead seconds',
 };
+
+const STEP_LEAF_LABEL: Record<string, string> = {
+  id: 'id',
+  description: 'description',
+  requestUid: 'request',
+  dependsOn: 'dependsOn',
+  runIf: 'runIf',
+  priorityFrom: 'priorityFrom',
+};
+
+const CAPTURE_LEAF_LABEL: Record<string, string> = {
+  name: 'name',
+  extractor: 'extractor',
+};
+
+function writeStepLeaf(step: V5.WorkflowStep, leaf: string, value: string): boolean {
+  switch (leaf) {
+    case 'id':
+      step.id = value;
+      return true;
+    case 'description':
+      step.description = value === '' ? undefined : value;
+      return true;
+    case 'requestUid':
+      step.requestUid = value;
+      return true;
+    case 'dependsOn':
+    case 'runIf':
+    case 'priorityFrom': {
+      try {
+        const parsed = value === '' ? undefined : (JSON.parse(value) as unknown);
+        if (leaf === 'dependsOn') step.dependsOn = parsed as V5.WorkflowStep['dependsOn'];
+        else if (leaf === 'runIf') step.runIf = parsed as V5.WorkflowStep['runIf'];
+        else step.priorityFrom = parsed as V5.WorkflowStep['priorityFrom'];
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    default:
+      return false;
+  }
+}
+
+function writeCaptureLeaf(capture: V5.WorkflowStep['captures'][number], leaf: string, value: string): boolean {
+  switch (leaf) {
+    case 'name':
+      capture.name = value;
+      return true;
+    case 'extractor': {
+      try {
+        capture.extractor = JSON.parse(value) as V5.WorkflowStep['captures'][number]['extractor'];
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    default:
+      return false;
+  }
+}
 
 export const liveWorkflowResolveAdapter: ConflictResolveAdapter<V5.LiveWorkflow> = {
   applyResolutionToForm: () => false,
@@ -147,17 +370,42 @@ export const liveWorkflowResolveAdapter: ConflictResolveAdapter<V5.LiveWorkflow>
           return true;
         }
         return false;
-      // refresh.kind: switching the discriminator changes the shape's
-      // required fields. The dialog presents the saved-side shape as a
-      // single payload via the "Use all saved" path, not as an isolated
-      // leaf. Per-leaf accept here would leave the entity in an invalid
-      // state. Skip; whole-form re-prime handles kind transitions.
-      default:
-        return false;
     }
+    const stepMatch = STEP_LEAF_RE.exec(path);
+    if (stepMatch) {
+      const step = findStep(entity, stepMatch[1]);
+      if (!step) return false;
+      return writeStepLeaf(step, stepMatch[2], value);
+    }
+    const capMatch = CAPTURE_LEAF_RE.exec(path);
+    if (capMatch) {
+      const step = findStep(entity, capMatch[1]);
+      if (!step) return false;
+      const capture = findCapture(step, capMatch[2]);
+      if (!capture) return false;
+      return writeCaptureLeaf(capture, capMatch[3], value);
+    }
+    // refresh.kind: switching the discriminator changes the shape's
+    // required fields. Whole-form re-prime handles kind transitions.
+    return false;
   },
-  prettyPath(_entity, path) {
+  prettyPath(entity, path) {
     const label = LEAF_LABEL[path];
-    return label ? `Workflow (${label})` : path;
+    if (label) return `Workflow (${label})`;
+    const stepMatch = STEP_LEAF_RE.exec(path);
+    if (stepMatch) {
+      const step = findStep(entity, stepMatch[1]);
+      const stepLabel = step?.id || `step ${stepMatch[1].slice(0, 4)}`;
+      return `Step ${stepLabel} (${STEP_LEAF_LABEL[stepMatch[2]] ?? stepMatch[2]})`;
+    }
+    const capMatch = CAPTURE_LEAF_RE.exec(path);
+    if (capMatch) {
+      const step = findStep(entity, capMatch[1]);
+      const stepLabel = step?.id || `step ${capMatch[1].slice(0, 4)}`;
+      const capture = step ? findCapture(step, capMatch[2]) : undefined;
+      const capLabel = capture?.name || `capture ${capMatch[2].slice(0, 4)}`;
+      return `Step ${stepLabel} → ${capLabel} (${CAPTURE_LEAF_LABEL[capMatch[3]] ?? capMatch[3]})`;
+    }
+    return path;
   },
 };
