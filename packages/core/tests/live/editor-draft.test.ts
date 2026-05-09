@@ -189,6 +189,38 @@ describe('planLiveVariableReconcile', () => {
     expect(plan.updates).toEqual([{ liveUid: 'lv1abc2d', stepId: 'step1', captureName: 'token', liveName: 'token' }]);
   });
 
+  it('plans an update when the owning step was renamed (stepId drift)', () => {
+    // LV was bound to (step1, token); the user renamed step1 → auth in
+    // the workflow editor (slice A's rebind handler kept in-workflow
+    // refs in sync, plus left the capture's liveUid pointing here).
+    // Save-time reconcile must rebind the LV to the new stepId so
+    // {{live.<name>}} resolution doesn't dangle.
+    const existing = lv({ uid: 'lv1abc2d', name: 'token', stepId: 'step1', captureName: 'token' });
+    const draft = buildDraft({ liveUid: 'lv1abc2d' });
+    draft.steps[0].id = 'auth';
+    const plan = planLiveVariableReconcile('wfxxxxxx', draft, [existing]);
+    expect(plan.updates).toEqual([{ liveUid: 'lv1abc2d', stepId: 'auth', captureName: 'token', liveName: 'token' }]);
+  });
+
+  it('leaves alias LVs (independent definitions on the same capture) untouched', () => {
+    // L1 is the in-draft LV (capture.liveUid=L1.uid); L2 is an alias
+    // that points at the same (workflowUid, stepId, captureName) but
+    // wasn't tracked by the editor. Documented v1 behavior: aliases
+    // are owned by the LV list page, NOT the workflow editor — the
+    // reconcile leaves them alone even when the rename would dangle
+    // their references. The LV list surfaces the dangling state and
+    // the user fixes it there.
+    const tracked = lv({ uid: 'lv1abc2d', name: 'token', stepId: 'step1', captureName: 'token' });
+    const alias = lv({ uid: 'lvaliasx', name: 'legacy', stepId: 'step1', captureName: 'token' });
+    const draft = buildDraft({ liveUid: 'lv1abc2d' });
+    draft.steps[0].id = 'auth';
+    const plan = planLiveVariableReconcile('wfxxxxxx', draft, [tracked, alias]);
+    expect(plan.updates).toEqual([{ liveUid: 'lv1abc2d', stepId: 'auth', captureName: 'token', liveName: 'token' }]);
+    // Alias not in updates / creates / deletes.
+    expect(plan.updates.find((u) => u.liveUid === 'lvaliasx')).toBeUndefined();
+    expect(plan.deletes).not.toContain('lvaliasx');
+  });
+
   it('plans a delete when a previously-owned capture is now unexposed', () => {
     const existing = lv({ uid: 'lv1abc2d', name: 'token', stepId: 'step1', captureName: 'token' });
     const plan = planLiveVariableReconcile('wfxxxxxx', buildDraft({ liveUid: 'lv1abc2d', exposed: false }), [existing]);
