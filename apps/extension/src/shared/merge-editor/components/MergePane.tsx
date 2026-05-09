@@ -348,13 +348,22 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
 
   const navIndexRef = useRef(-1);
   const orderedNav = useMemo(() => {
+    // Hunks classified clean-from-theirs / clean-from-mine are
+    // auto-applicable via "Apply non-conflicting" — skip them in
+    // navigator order so F-key cycling lands on hunks the user
+    // actually has to think about. Falls back to "show every hunk"
+    // when no 3-way classification is available (no base).
     const all = [
-      ...theirsHunks.map((h) => ({ hunk: h, side: 'theirs' as const })),
-      ...mineHunks.map((h) => ({ hunk: h, side: 'mine' as const })),
+      ...theirsHunks
+        .filter((h) => !classification.theirsCleanIds.has(h.id))
+        .map((h) => ({ hunk: h, side: 'theirs' as const })),
+      ...mineHunks
+        .filter((h) => !classification.mineCleanIds.has(h.id))
+        .map((h) => ({ hunk: h, side: 'mine' as const })),
     ];
     all.sort((a, b) => a.hunk.mineRange.startLine - b.hunk.mineRange.startLine);
     return all;
-  }, [theirsHunks, mineHunks]);
+  }, [theirsHunks, mineHunks, classification]);
 
   const revealHunkAt = useCallback(
     (idx: number) => {
