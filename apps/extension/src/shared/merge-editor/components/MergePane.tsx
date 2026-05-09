@@ -28,8 +28,8 @@
  * without us having to track per-hunk drift through edits manually.
  */
 
-import { editor as monacoEditor } from 'monaco-editor/esm/vs/editor/edcore.main';
 import { useTheme } from '@context/ThemeContext';
+import { editor as monacoEditor } from 'monaco-editor/esm/vs/editor/edcore.main';
 import {
   forwardRef,
   type ReactNode,
@@ -125,6 +125,9 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     renderHeader,
     onAnnounce,
   } = props;
+  // Monaco theme id comes from the active variant — the chrome's
+  // `isDarkMode` prop only drives the merge-pane background shading.
+  const { monacoTheme } = useTheme();
   const language = file.language ?? 'yaml';
 
   const theirsContainerRef = useRef<HTMLDivElement | null>(null);

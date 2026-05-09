@@ -17,6 +17,7 @@ import type * as monaco from 'monaco-editor';
 import { type RefObject, useEffect } from 'react';
 import { diffChars } from '../diff/char-diff';
 import type { Hunk } from '../diff/line-diff';
+import { pairLines } from '../diff/pair-lines';
 import type { HunkSide } from './use-hunk-decorations';
 import type { MonacoEditorHandle } from './use-monaco-editor-lifecycle';
 
@@ -41,13 +42,22 @@ export function useCharDecorations({ editorRef, side, hunks }: UseCharDecoration
       if (range.endLine <= range.startLine) continue;
       const ownLines = side === 'theirs' ? h.theirsLines : h.mineLines;
       const otherLines = side === 'theirs' ? h.mineLines : h.theirsLines;
-      const pairCount = Math.min(ownLines.length, otherLines.length);
-      for (let i = 0; i < pairCount; i++) {
-        const own = ownLines[i];
-        const other = otherLines[i];
+      // LCS-pair lines so shifted-content hunks (e.g. theirs=[B,A,C]
+      // vs mine=[X,B,Y]) align on the matching B instead of mis-pairing
+      // by index. Exact-match pairs need no char-diff (identical
+      // strings produce no spans anyway, but we skip the call).
+      // `pairLines` is symmetric — pass the side's own array first
+      // so `aIdx` belongs to this side.
+      const pairs = side === 'theirs' ? pairLines(ownLines, otherLines) : pairLines(otherLines, ownLines);
+      for (const pair of pairs) {
+        if (pair.exactMatch) continue;
+        const ownIdx = side === 'theirs' ? pair.aIdx : pair.bIdx;
+        const otherIdx = side === 'theirs' ? pair.bIdx : pair.aIdx;
+        const own = ownLines[ownIdx];
+        const other = otherLines[otherIdx];
         const result = diffChars(own, other);
         const spans = side === 'theirs' ? result.aSpans : result.bSpans;
-        const lineNumber = range.startLine + i;
+        const lineNumber = range.startLine + ownIdx;
         for (const s of spans) {
           decos.push({
             range: {
