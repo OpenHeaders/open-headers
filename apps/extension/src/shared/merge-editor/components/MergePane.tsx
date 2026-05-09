@@ -227,8 +227,21 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   }, [visibility.mine, visibility.base, theirsHandle, resultHandle, mineHandle, baseHandle]);
   useSyncScroll({ editors: syncTargets });
 
-  const theirsHunks = useMemo(() => diffLinesPatience(file.theirs, resultText), [file.theirs, resultText]);
-  const mineHunks = useMemo(() => diffLinesPatience(file.mine, resultText), [file.mine, resultText]);
+  // For `kind: 'add'` the entity has no local counterpart — `mine` is
+  // empty by design, NOT a divergence the user has to resolve. The
+  // `mine ↔ result` diff against an empty `mine` would otherwise emit
+  // a phantom whole-content hunk that drives every add file to
+  // permanent "unresolved" status (sidebar pill never flips, "Accept
+  // all incoming" is a silent no-op because the result already equals
+  // theirs). Symmetric for `kind: 'remove'` on the theirs side.
+  const theirsHunks = useMemo(
+    () => (file.kind === 'remove' ? [] : diffLinesPatience(file.theirs, resultText)),
+    [file.theirs, resultText, file.kind],
+  );
+  const mineHunks = useMemo(
+    () => (file.kind === 'add' ? [] : diffLinesPatience(file.mine, resultText)),
+    [file.mine, resultText, file.kind],
+  );
 
   // Base-axis diffs feed the 3-way classifier when base is available.
   // They run only when base is supplied; a 2-way fallback handles the
@@ -253,7 +266,15 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     };
   }, [file.base, theirsHunks, mineHunks, theirsBaseHunks, mineBaseHunks]);
 
-  const visibleTheirs = useMemo(
+  // Line backgrounds + missing markers + char-diff render for EVERY
+  // hunk, regardless of the show-non-conflicting toggle. Per
+  // `MERGE_CONFLICT_EDITOR_PLAN.md` §5.4 the toggle "shows / hides
+  // the gutter [arrows]" — i.e. the actionable affordance, not the
+  // visual diff itself. The previous implementation conflated the
+  // two, hiding the entire diff for non-conflicting hunks; in single-
+  // entity sessions where every hunk is non-conflicting, the result
+  // was completely blank panes despite real drift in the buffer.
+  const acceptArrowTheirs = useMemo(
     () =>
       showNonConflicting
         ? theirsHunks
@@ -262,7 +283,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
           ),
     [showNonConflicting, theirsHunks, classification],
   );
-  const visibleMine = useMemo(
+  const acceptArrowMine = useMemo(
     () =>
       showNonConflicting
         ? mineHunks
@@ -270,12 +291,12 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     [showNonConflicting, mineHunks, classification],
   );
 
-  useHunkDecorations({ editorRef: theirsHandle, side: 'theirs', hunks: visibleTheirs });
-  useHunkDecorations({ editorRef: mineHandle, side: 'mine', hunks: visibleMine });
-  useMissingMarkers({ editorRef: theirsHandle, side: 'theirs', hunks: visibleTheirs });
-  useMissingMarkers({ editorRef: mineHandle, side: 'mine', hunks: visibleMine });
-  useCharDecorations({ editorRef: theirsHandle, side: 'theirs', hunks: visibleTheirs });
-  useCharDecorations({ editorRef: mineHandle, side: 'mine', hunks: visibleMine });
+  useHunkDecorations({ editorRef: theirsHandle, side: 'theirs', hunks: theirsHunks });
+  useHunkDecorations({ editorRef: mineHandle, side: 'mine', hunks: mineHunks });
+  useMissingMarkers({ editorRef: theirsHandle, side: 'theirs', hunks: theirsHunks });
+  useMissingMarkers({ editorRef: mineHandle, side: 'mine', hunks: mineHunks });
+  useCharDecorations({ editorRef: theirsHandle, side: 'theirs', hunks: theirsHunks });
+  useCharDecorations({ editorRef: mineHandle, side: 'mine', hunks: mineHunks });
 
   const handleAccept = useCallback(
     (hunkId: string, side: HunkSide) => {
@@ -320,22 +341,27 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     [theirsHunks, mineHunks, resultHandle, onAnnounce],
   );
 
-  useHunkAcceptArrows({ editorRef: theirsHandle, side: 'theirs', hunks: visibleTheirs, onAccept: handleAccept });
-  useHunkAcceptArrows({ editorRef: mineHandle, side: 'mine', hunks: visibleMine, onAccept: handleAccept });
+  useHunkAcceptArrows({ editorRef: theirsHandle, side: 'theirs', hunks: acceptArrowTheirs, onAccept: handleAccept });
+  useHunkAcceptArrows({ editorRef: mineHandle, side: 'mine', hunks: acceptArrowMine, onAccept: handleAccept });
 
   useEffect(() => {
-    // 3-way refines the conflict count: a hunk in the 2-way conflict
-    // set is NOT a true conflict if the corresponding side is in the
-    // clean-from-X set (peer-only or user-only edit).
-    const trueTheirsConflicts = new Set<string>();
+    // True-conflict union: 2-way overlap (refined by clean-from-X) +
+    // 3-way base-region overlap (catches the result===mine case where
+    // mineHunks is empty but both sides moved from base). The base-
+    // region path only contributes when `file.base` is supplied.
+    const trueTheirs = new Set<string>();
     for (const id of classification.theirsConflictIds) {
-      if (!classification.theirsCleanIds.has(id)) trueTheirsConflicts.add(id);
+      if (!classification.theirsCleanIds.has(id)) trueTheirs.add(id);
     }
-    const trueMineConflicts = new Set<string>();
+    const trueMine = new Set<string>();
     for (const id of classification.mineConflictIds) {
-      if (!classification.mineCleanIds.has(id)) trueMineConflicts.add(id);
+      if (!classification.mineCleanIds.has(id)) trueMine.add(id);
     }
-    const conflicts = trueTheirsConflicts.size + trueMineConflicts.size;
+    if ('theirsTrueConflicts' in classification) {
+      for (const id of classification.theirsTrueConflicts) trueTheirs.add(id);
+      for (const id of classification.mineTrueConflicts) trueMine.add(id);
+    }
+    const conflicts = trueTheirs.size + trueMine.size;
     const total = theirsHunks.length + mineHunks.length;
     onHunkStatsChange?.({
       theirsRemaining: theirsHunks.length,

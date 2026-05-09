@@ -118,6 +118,57 @@ describe('classifyConflicts3Way', () => {
     expect(c.mineCleanIds.has(mineHunks[0].id)).toBe(true);
   });
 
+  it('flags a true 3-way conflict via base-region overlap when result === mine masks the 2-way overlap', () => {
+    // The dialog opens with `result === mine` (entity adapter's seed
+    // convention — result starts as the user's draft). mineHunks =
+    // diff(mine, result) is empty, so the 2-way overlap classifier
+    // can't possibly flag any theirs hunk as conflicting. But base=1,
+    // mine=2, theirs=3 means BOTH sides moved from base — a textbook
+    // 3-way conflict that must surface in `theirsTrueConflicts`.
+    const base = 'a\n1\nc';
+    const theirs = 'a\n3\nc';
+    const mine = 'a\n2\nc';
+    const result = mine;
+
+    const theirsHunks = diffLinesPatience(theirs, result);
+    const mineHunks = diffLinesPatience(mine, result);
+    const c = classifyConflicts3Way({
+      theirsHunks,
+      mineHunks,
+      theirsBaseHunks: diffLinesPatience(base, theirs),
+      mineBaseHunks: diffLinesPatience(base, mine),
+    });
+    expect(theirsHunks).toHaveLength(1);
+    expect(mineHunks).toHaveLength(0);
+    // 2-way overlap finds nothing (no mine hunks to overlap with).
+    expect(c.theirsConflictIds.size).toBe(0);
+    // 3-way base-region check correctly flags the conflict.
+    expect(c.theirsTrueConflicts.has(theirsHunks[0].id)).toBe(true);
+    // Theirs DID change vs base, so it's NOT clean.
+    expect(c.theirsCleanIds.has(theirsHunks[0].id)).toBe(false);
+  });
+
+  it('does NOT flag a true conflict when only one side moved from base (clean-from-mine case)', () => {
+    // base=1, mine=1, theirs=3. Only theirs moved → not a real
+    // conflict, the auto-merge can take theirs cleanly.
+    const base = 'a\n1\nc';
+    const theirs = 'a\n3\nc';
+    const mine = base;
+    const result = mine;
+
+    const theirsHunks = diffLinesPatience(theirs, result);
+    const mineHunks = diffLinesPatience(mine, result);
+    const c = classifyConflicts3Way({
+      theirsHunks,
+      mineHunks,
+      theirsBaseHunks: diffLinesPatience(base, theirs),
+      mineBaseHunks: diffLinesPatience(base, mine),
+    });
+    expect(theirsHunks).toHaveLength(1);
+    expect(c.theirsTrueConflicts.size).toBe(0);
+    expect(c.mineTrueConflicts.size).toBe(0);
+  });
+
   it('preserves 2-way conflict ids alongside the new clean sets', () => {
     const base = 'a\nb\nc';
     const theirs = 'a\nT\nc';

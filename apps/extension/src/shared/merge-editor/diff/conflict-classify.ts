@@ -85,6 +85,19 @@ export function classifyConflicts(theirsHunks: readonly Hunk[], mineHunks: reado
 export interface ConflictClassification3Way extends ConflictClassification {
   theirsCleanIds: ReadonlySet<string>;
   mineCleanIds: ReadonlySet<string>;
+  /**
+   * True-conflict supersets: a theirs hunk is in `theirsTrueConflicts`
+   * iff theirs AND mine both changed the same BASE region — even when
+   * the 2-way overlap doesn't catch it. The 2-way classifier requires
+   * theirs↔result and mine↔result hunks to overlap; that fails the
+   * common case where the dialog opens with `result === mine` (draft
+   * untouched), making `mineHunks` empty and every theirs hunk
+   * spuriously "non-conflicting." The base-region check fires on the
+   * actual divergence axes (theirs↔base + mine↔base) and produces a
+   * conflict signal independent of the result-pane state.
+   */
+  theirsTrueConflicts: ReadonlySet<string>;
+  mineTrueConflicts: ReadonlySet<string>;
 }
 
 export interface ClassifyConflicts3WayArgs {
@@ -100,26 +113,67 @@ export function classifyConflicts3Way(args: ClassifyConflicts3WayArgs): Conflict
   const base = classifyConflicts(args.theirsHunks, args.mineHunks);
   const theirsCleanIds = new Set<string>();
   const mineCleanIds = new Set<string>();
+  const theirsTrueConflicts = new Set<string>();
+  const mineTrueConflicts = new Set<string>();
 
   for (const t of args.theirsHunks) {
     let theirsActuallyChanged = false;
+    // Collect the BASE-side ranges this theirs hunk maps to via the
+    // theirs-vs-base diff. `theirsBaseHunks = diff(base, theirs)` →
+    // mineRange = theirs-side range, theirsRange = base-side range.
+    const baseRangesForTheirs: Array<{ startLine: number; endLine: number }> = [];
     for (const tb of args.theirsBaseHunks) {
       if (rangesOverlap(t.theirsRange, tb.mineRange)) {
         theirsActuallyChanged = true;
-        break;
+        baseRangesForTheirs.push(tb.theirsRange);
       }
     }
     if (!theirsActuallyChanged) theirsCleanIds.add(t.id);
+    // True-conflict check: did mine also change in any of these base
+    // regions? `mineBaseHunks = diff(base, mine)` → theirsRange =
+    // base-side range. If yes, this is a real 3-way conflict
+    // regardless of the 2-way overlap state.
+    if (theirsActuallyChanged) {
+      for (const mb of args.mineBaseHunks) {
+        let overlap = false;
+        for (const br of baseRangesForTheirs) {
+          if (rangesOverlap(br, mb.theirsRange)) {
+            overlap = true;
+            break;
+          }
+        }
+        if (overlap) {
+          theirsTrueConflicts.add(t.id);
+          break;
+        }
+      }
+    }
   }
   for (const m of args.mineHunks) {
     let mineActuallyChanged = false;
+    const baseRangesForMine: Array<{ startLine: number; endLine: number }> = [];
     for (const mb of args.mineBaseHunks) {
       if (rangesOverlap(m.mineRange, mb.mineRange)) {
         mineActuallyChanged = true;
-        break;
+        baseRangesForMine.push(mb.theirsRange);
       }
     }
     if (!mineActuallyChanged) mineCleanIds.add(m.id);
+    if (mineActuallyChanged) {
+      for (const tb of args.theirsBaseHunks) {
+        let overlap = false;
+        for (const br of baseRangesForMine) {
+          if (rangesOverlap(br, tb.theirsRange)) {
+            overlap = true;
+            break;
+          }
+        }
+        if (overlap) {
+          mineTrueConflicts.add(m.id);
+          break;
+        }
+      }
+    }
   }
-  return { ...base, theirsCleanIds, mineCleanIds };
+  return { ...base, theirsCleanIds, mineCleanIds, theirsTrueConflicts, mineTrueConflicts };
 }
