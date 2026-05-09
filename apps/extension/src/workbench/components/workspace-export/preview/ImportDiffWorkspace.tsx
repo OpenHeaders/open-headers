@@ -158,7 +158,7 @@ const ImportDiffWorkspace: React.FC<ImportDiffWorkspaceProps> = ({
   );
 
   if (allRows.length === 0) {
-    return <Empty description="Nothing to import" style={{ padding: 32 }} />;
+    return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Nothing to import" style={{ padding: 32 }} />;
   }
 
   const showAdvanced = !!(advanced && advancedOpen);

@@ -44,7 +44,7 @@ const CollectionOverviewShell: React.FC<CollectionOverviewShellProps> = ({
   if (notFound) {
     return (
       <div style={{ padding: '24px 32px' }}>
-        <Empty description={notFoundLabel} />
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={notFoundLabel} />
       </div>
     );
   }

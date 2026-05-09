@@ -301,6 +301,7 @@ const RunReportView: React.FC<RunReportViewProps> = ({ runId, onSelectRule, onAf
     return (
       <div style={{ padding: 48 }}>
         <Empty
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
           description={
             <Space direction="vertical" size={8} style={{ maxWidth: 420 }}>
               <Text>{error ?? 'No run loaded'}</Text>
@@ -366,7 +367,7 @@ const RunReportView: React.FC<RunReportViewProps> = ({ runId, onSelectRule, onAf
         {/* Pipeline canvas — same dot-grid background as RuleFlow */}
         <div className="rule-flow-pipeline" style={{ flex: 1 }}>
           {visibleTiers.length === 0 ? (
-            <Empty description="No rules in this run" style={{ marginTop: 48 }} />
+            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No rules in this run" style={{ marginTop: 48 }} />
           ) : (
             <>
               <Terminus type="start" compact={compact} />

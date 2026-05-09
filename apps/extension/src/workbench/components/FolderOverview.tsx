@@ -234,7 +234,7 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
   if (!folder) {
     return (
       <div style={{ padding: '24px 32px' }}>
-        <Empty description="Folder not found" />
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Folder not found" />
       </div>
     );
   }

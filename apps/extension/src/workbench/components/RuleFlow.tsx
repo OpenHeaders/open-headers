@@ -323,6 +323,7 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
       <div className="rule-flow-pipeline">
         {totalRules === 0 ? (
           <Empty
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
             description={
               scope === 'this-page'
                 ? tabUrl

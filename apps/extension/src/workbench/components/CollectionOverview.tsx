@@ -215,7 +215,7 @@ const CollectionOverview: React.FC<CollectionOverviewProps> = ({
   if (!collection) {
     return (
       <div style={{ padding: '24px 32px' }}>
-        <Empty description="Collection not found" />
+        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Collection not found" />
       </div>
     );
   }

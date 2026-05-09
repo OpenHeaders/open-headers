@@ -192,12 +192,12 @@ const WorkflowStatusPanel: React.FC<Props> = ({ onClose, onOpenWorkflow }) => {
     body = (
       <div style={{ padding: 20, textAlign: 'center' }}>
         <Empty
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
           description={
             <Text type="secondary" style={{ fontSize: 12 }}>
               No workflow runs yet. Create a workflow and click Refresh to populate.
             </Text>
           }
-          imageStyle={{ height: 40 }}
         />
       </div>
     );

@@ -24,7 +24,6 @@ import {
   MenuUnfoldOutlined,
   PlusOutlined,
   SearchOutlined,
-  ThunderboltOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { createPanelHeaderWiring, PanelHeader } from '@/shared/dock-layout';
@@ -1456,16 +1455,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               }
             />
             {sectionsExpanded.workflows && (
-              <div style={{ overflowY: 'auto' }}>
-                {workflowNodes.length > 0 ? (
-                  renderNodes(workflowNodes, () => onCreateWorkflow?.())
-                ) : (
-                  <div style={{ padding: '8px 16px', fontSize: 11, color: token.colorTextTertiary }}>
-                    <ThunderboltOutlined style={{ marginRight: 4 }} />
-                    No workflows yet — author one by clicking + to schedule a request chain.
-                  </div>
-                )}
-              </div>
+              <div style={{ overflowY: 'auto' }}>{renderNodes(workflowNodes, () => onCreateWorkflow?.())}</div>
             )}
           </>
         )}
