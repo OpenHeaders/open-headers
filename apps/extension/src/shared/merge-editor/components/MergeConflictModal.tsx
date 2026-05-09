@@ -13,7 +13,7 @@
  */
 
 import { CheckCircleFilled, DownOutlined, ReloadOutlined, ThunderboltOutlined, UpOutlined } from '@ant-design/icons';
-import { Alert, Button, Modal, Segmented, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
+import { Alert, Button, Dropdown, Modal, Segmented, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import { type ReactElement, useCallback, useMemo, useRef, useState } from 'react';
 import type { MergeApplyOutcome, MergeSession } from '../types';
 import { usePersistedLayout } from '../use-persisted-layout';
@@ -139,6 +139,61 @@ const MergeConflictModal = ({
     onClose();
   }, [session, onClose]);
 
+  // Session-wide bulk apply. Replaces every file's result text with
+  // either `theirs` or `mine` wholesale; conflicts are accepted per
+  // the user's chosen side. Plan §5.4: confirmation modal names what
+  // will happen with a per-group breakdown so a misclick doesn't
+  // silently overwrite 50 entities.
+  const summarizeSessionScope = useCallback((): string => {
+    const total = session.files.length;
+    const groupCounts = new Map<string, number>();
+    for (const f of session.files) {
+      const key = f.group ?? 'Other';
+      groupCounts.set(key, (groupCounts.get(key) ?? 0) + 1);
+    }
+    const groupParts = Array.from(groupCounts.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([g, n]) => `${n} ${g}`)
+      .join(', ');
+    return `${total} ${total === 1 ? 'file' : 'files'}${groupParts ? ` (${groupParts})` : ''}`;
+  }, [session.files]);
+
+  const applySessionWide = useCallback(
+    (side: 'theirs' | 'mine') => {
+      Modal.confirm({
+        title: side === 'theirs' ? 'Accept all incoming (session)' : 'Accept all current (session)',
+        content: (
+          <Typography.Paragraph style={{ marginBottom: 0 }}>
+            <Typography.Text>
+              {side === 'theirs'
+                ? `Replace ${summarizeSessionScope()} with the incoming version.`
+                : `Reset ${summarizeSessionScope()} to your current version.`}
+            </Typography.Text>
+            <br />
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              {side === 'theirs'
+                ? 'This discards your local edits for every file in the session.'
+                : 'This discards every incoming change for every file in the session.'}
+            </Typography.Text>
+          </Typography.Paragraph>
+        ),
+        okText: side === 'theirs' ? 'Accept all incoming' : 'Accept all current',
+        cancelText: 'Cancel',
+        okButtonProps: { danger: side === 'theirs' },
+        onOk: () => {
+          setResultsByFileId(() => {
+            const next = new Map<string, string>();
+            for (const f of session.files) {
+              next.set(f.id, side === 'theirs' ? f.theirs : f.mine);
+            }
+            return next;
+          });
+        },
+      });
+    },
+    [session.files, summarizeSessionScope],
+  );
+
   const handleApply = useCallback(async () => {
     if (!activeFile) return;
     setApplying(true);
@@ -229,16 +284,59 @@ const MergeConflictModal = ({
               Apply non-conflicting
             </Button>
           </Tooltip>
-          <Button
-            size="small"
-            disabled={stats.theirsRemaining === 0}
-            onClick={() => paneRef.current?.acceptAllTheirs()}
-          >
-            Accept all incoming
-          </Button>
-          <Button size="small" disabled={stats.mineRemaining === 0} onClick={() => paneRef.current?.acceptAllMine()}>
-            Accept all current
-          </Button>
+          {session.files.length > 1 ? (
+            <Dropdown
+              menu={{
+                items: [
+                  {
+                    key: 'file-theirs',
+                    label: 'Accept all incoming (this file)',
+                    disabled: stats.theirsRemaining === 0,
+                    onClick: () => paneRef.current?.acceptAllTheirs(),
+                  },
+                  {
+                    key: 'file-mine',
+                    label: 'Accept all current (this file)',
+                    disabled: stats.mineRemaining === 0,
+                    onClick: () => paneRef.current?.acceptAllMine(),
+                  },
+                  { type: 'divider' },
+                  {
+                    key: 'session-theirs',
+                    label: 'Accept all incoming (whole session)',
+                    danger: true,
+                    onClick: () => applySessionWide('theirs'),
+                  },
+                  {
+                    key: 'session-mine',
+                    label: 'Accept all current (whole session)',
+                    onClick: () => applySessionWide('mine'),
+                  },
+                ],
+              }}
+            >
+              <Button size="small">
+                Accept all <DownOutlined />
+              </Button>
+            </Dropdown>
+          ) : (
+            <>
+              <Button
+                size="small"
+                disabled={stats.theirsRemaining === 0}
+                onClick={() => paneRef.current?.acceptAllTheirs()}
+              >
+                Accept all incoming
+              </Button>
+              <Button
+                size="small"
+                disabled={stats.mineRemaining === 0}
+                onClick={() => paneRef.current?.acceptAllMine()}
+              >
+                Accept all current
+              </Button>
+            </>
+          )}
           <Space size={8} style={{ marginLeft: 'auto' }}>
             <Tooltip title={baseAvailable ? '' : 'Base view unavailable — no common ancestor in this session.'}>
               <Segmented
