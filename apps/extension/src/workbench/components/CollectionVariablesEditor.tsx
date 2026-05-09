@@ -122,6 +122,7 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
 
   // Conflict-baseline ref pattern (canonical recipe).
   const setBaselineRef = useRef<(e: VariableEntity) => void>(() => undefined);
+  const baselineVariablesRef = useRef<readonly V5.Variable[] | null>(null);
 
   const reprime = useReprime<V5.Collection>({
     liveEntity: collection,
@@ -130,7 +131,10 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
     formFingerprint,
     signature: (e) => variablesSignature(e.variables),
     populate: (e) => setDraft(e.variables),
-    onPrimed: (e) => setBaselineRef.current({ uid: e.uid, variables: e.variables }),
+    onPrimed: (e) => {
+      setBaselineRef.current({ uid: e.uid, variables: e.variables });
+      baselineVariablesRef.current = e.variables;
+    },
   });
   const isDirty = reprime.isDirty;
 
@@ -232,6 +236,13 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
     return JSON.stringify(collection.variables, null, 2);
   }, [isConflictDialogOpen, collection]);
 
+  const baseText = useMemo(() => {
+    if (!isConflictDialogOpen) return undefined;
+    const baseline = baselineVariablesRef.current;
+    if (!baseline) return undefined;
+    return JSON.stringify(baseline, null, 2);
+  }, [isConflictDialogOpen]);
+
   const buildLocalText = useCallback(
     (resolutions: ReadonlyMap<string, ConflictResolution>): string => {
       const projected = projectWithResolutions(resolutions);
@@ -332,6 +343,7 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
           conflicts={allConflicts}
           localValuesByPath={new Map(Object.entries(formProjection))}
           pathLabels={conflictPathLabels}
+          baseText={baseText}
           onResolve={applyResolutions}
           onClose={() => setConflictDialogOpen(false)}
         />

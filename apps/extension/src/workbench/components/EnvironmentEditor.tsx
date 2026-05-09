@@ -91,6 +91,9 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
   // a later render, by which time `reprime.isDirty` has propagated up
   // through the loop below via `useEffect`.
   const setBaselineRef = useRef<(e: VariableEntity) => void>(() => undefined);
+  // Snapshot of variables at the most recent re-prime — feeds the
+  // merge-editor preview's Show Base layouts via `baseText`.
+  const baselineVariablesRef = useRef<readonly V5.Variable[] | null>(null);
 
   // Reprime: hook-owned comparison + populate sequencing. Editor never
   // reads both fingerprints simultaneously — the hook IS the comparison.
@@ -101,7 +104,10 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
     formFingerprint,
     signature: (e) => variablesSignature(e.variables),
     populate: (e) => setDraft(e.variables),
-    onPrimed: (e) => setBaselineRef.current({ uid: e.uid, variables: e.variables }),
+    onPrimed: (e) => {
+      setBaselineRef.current({ uid: e.uid, variables: e.variables });
+      baselineVariablesRef.current = e.variables;
+    },
   });
   const isDirty = reprime.isDirty;
 
@@ -217,6 +223,13 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
     if (!isConflictDialogOpen || !env) return '';
     return JSON.stringify(env.variables, null, 2);
   }, [isConflictDialogOpen, env]);
+
+  const baseText = useMemo(() => {
+    if (!isConflictDialogOpen) return undefined;
+    const baseline = baselineVariablesRef.current;
+    if (!baseline) return undefined;
+    return JSON.stringify(baseline, null, 2);
+  }, [isConflictDialogOpen]);
 
   const buildLocalText = useCallback(
     (resolutions: ReadonlyMap<string, ConflictResolution>): string => {
@@ -350,6 +363,7 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
           conflicts={allConflicts}
           localValuesByPath={new Map(Object.entries(formProjection))}
           pathLabels={conflictPathLabels}
+          baseText={baseText}
           onResolve={applyResolutions}
           onClose={() => setConflictDialogOpen(false)}
         />
