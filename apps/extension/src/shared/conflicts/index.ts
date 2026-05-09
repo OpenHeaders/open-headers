@@ -42,3 +42,11 @@ export { useEntityConflicts } from './use-entity-conflicts';
 export type { EntityConflictsApi, UseEntityConflictsArgs } from './use-entity-conflicts';
 export { useAutoMergeForm } from './use-auto-merge-form';
 export type { UseAutoMergeFormArgs } from './use-auto-merge-form';
+export { buildImportMergeSession } from './import-merge-adapter';
+export type {
+  BuildImportMergeSessionArgs,
+  ImportApplyOp,
+  ImportBundle,
+  ImportBundleEntity,
+  ImportWorkspaceSnapshot,
+} from './import-merge-adapter';
