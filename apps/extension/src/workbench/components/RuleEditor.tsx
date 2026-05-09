@@ -27,7 +27,7 @@ import {
 } from '@ant-design/icons';
 import { useRuleMutator } from '@hooks/useRuleMutator';
 import { useRules } from '@hooks/useRules';
-import { canonicalizeRule, serializeRule } from '@openheaders/core/codec/yaml';
+import { canonicalizeRule, parseRule, serializeRule } from '@openheaders/core/codec/yaml';
 import { freshDocument } from '@openheaders/core/schemas';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { V5 } from '@openheaders/core/types';
@@ -596,6 +596,22 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       }
     },
     [allConflicts, conflicts, form, liveRule],
+  );
+
+  // Phase 6 commit seam for the merge-editor surface. The user has
+  // edited the result text directly; parse it back to a Rule, populate
+  // the form, and dismiss every conflict path so chips disappear. The
+  // next Save broadcasts diverged leaves; reprime then rebases the
+  // tracker baseline cleanly. Throws on parse failure — the merge
+  // modal renders the error inline and stays open.
+  const handleResolveText = useCallback(
+    (text: string) => {
+      if (!liveRule) return;
+      const parsed = parseRule(text, { path: liveRule.path });
+      populateFormFromRule(parsed.value);
+      for (const path of allConflicts.keys()) conflicts.dismiss(path);
+    },
+    [liveRule, populateFormFromRule, allConflicts, conflicts],
   );
 
   // Diff dialog payloads. Saved (left pane) is the canonical rule
@@ -1362,6 +1378,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
                   pathLabels={conflictPathLabels}
                   baseText={baseYaml}
                   onResolve={applyResolutions}
+                  onResolveText={handleResolveText}
                   onClose={() => setConflictDialogOpen(false)}
                 />
 

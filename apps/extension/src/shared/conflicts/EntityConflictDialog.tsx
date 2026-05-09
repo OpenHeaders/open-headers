@@ -53,11 +53,11 @@ import type { ConflictRemoteInfo, PathConflict } from './types';
 /** Feature flag for the new merge-editor preview surface. Read once
  *  per dialog mount; flip in DevTools console:
  *    localStorage.setItem('oh.merge-editor.preview', '1')
- *  Phase 1 commitment: preview is read-only at the Apply seam — the
- *  new shell renders against real conflict data but its Complete
- *  Merge button does NOT commit through onResolve. Use the old
- *  dialog for actual resolution until Phase 6 lands the full
- *  state-machine wiring. */
+ *  Phase 6 wiring (incremental): when the caller passes `onResolveText`,
+ *  the preview's Complete Merge commits through that callback (parse
+ *  text → entity → adopt → advance tracker). Callers that haven't
+ *  wired `onResolveText` yet keep the legacy no-commit preview and
+ *  must use the path-keyed table to actually resolve. */
 function isMergeEditorPreviewEnabled(): boolean {
   try {
     return globalThis.localStorage?.getItem('oh.merge-editor.preview') === '1';
@@ -90,6 +90,15 @@ export interface EntityConflictDialogProps {
   baseText?: string;
   /** Caller commits the chosen resolution map. */
   onResolve: (resolutions: Map<string, ConflictResolution>) => void;
+  /** Phase 6 commit seam for the merge-editor surface. When supplied,
+   *  the merge-editor preview's Complete Merge runs `onResolveText`
+   *  with the user's final result text; the caller owns parsing it
+   *  back to an entity, adopting it into the form, and advancing the
+   *  conflict tracker. Throw to surface a parse / persist error —
+   *  the preview renders the message inline and stays open. When
+   *  omitted the preview stays no-commit (legacy until each editor
+   *  wires its own text parser). */
+  onResolveText?: (resultText: string) => Promise<void> | void;
   onClose: () => void;
 }
 
@@ -128,6 +137,7 @@ const EntityConflictDialog: React.FC<EntityConflictDialogProps> = ({
   pathLabels,
   baseText,
   onResolve,
+  onResolveText,
   onClose,
 }) => {
   const { token } = theme.useToken();
@@ -605,10 +615,17 @@ const EntityConflictDialog: React.FC<EntityConflictDialogProps> = ({
             mineText: localText,
             baseText,
             initialResult: localText,
-            // Preview is no-commit — Apply just closes the modal so
-            // operators can exercise the new shell against live data
-            // without affecting resolution semantics.
-            onApply: () => undefined,
+            // Phase 6 commit seam. When the caller wired
+            // `onResolveText`, Complete Merge parses + adopts +
+            // closes both modals on success. Otherwise stays
+            // no-commit so operators can still preview.
+            onApply: onResolveText
+              ? async (resultText: string) => {
+                  await onResolveText(resultText);
+                  setPreviewOpen(false);
+                  onClose();
+                }
+              : () => undefined,
             onCancel: () => setPreviewOpen(false),
           })}
         />
