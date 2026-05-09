@@ -501,6 +501,40 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
     for (const [path, conflict] of allConflicts) conflicts.acceptTheirs(path, conflict.theirs);
   }, [allConflicts, conflicts, lv, projectWithResolutions, adoptProjected]);
 
+  // Phase 6 commit seam — parse the merge-editor's result text back to
+  // the projection, adopt to draft, dismiss every conflict path. Save
+  // re-prime advances the tracker baseline. Throws on malformed JSON.
+  const handleResolveText = useCallback(
+    (text: string) => {
+      if (!lv) return;
+      const raw = JSON.parse(text) as Partial<{
+        name: string;
+        description: string;
+        enabled: boolean;
+        requireFreshOnRuleBuild: boolean;
+        workflowUid: string;
+        stepId: string;
+        captureName: string;
+      }>;
+      setDraft((d) =>
+        d
+          ? {
+              ...d,
+              name: typeof raw.name === 'string' ? raw.name : d.name,
+              description: typeof raw.description === 'string' ? raw.description : d.description,
+              enabled: typeof raw.enabled === 'boolean' ? raw.enabled : d.enabled,
+              requireFreshOnRuleBuild: Boolean(raw.requireFreshOnRuleBuild ?? d.requireFreshOnRuleBuild),
+              workflowUid: typeof raw.workflowUid === 'string' ? raw.workflowUid : d.workflowUid,
+              stepId: typeof raw.stepId === 'string' ? raw.stepId : d.stepId,
+              captureName: typeof raw.captureName === 'string' ? raw.captureName : d.captureName,
+            }
+          : d,
+      );
+      for (const path of allConflicts.keys()) conflicts.dismiss(path);
+    },
+    [lv, allConflicts, conflicts],
+  );
+
   const applyResolutions = useCallback(
     (resolutions: Map<string, ConflictResolution>) => {
       const projected = projectWithResolutions(resolutions);
@@ -985,6 +1019,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
           localValuesByPath={new Map(Object.entries(formProjection ?? {}))}
           pathLabels={conflictPathLabels}
           onResolve={applyResolutions}
+          onResolveText={handleResolveText}
           onClose={() => setConflictDialogOpen(false)}
         />
     </div>

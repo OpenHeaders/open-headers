@@ -347,6 +347,35 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
     [allConflicts, conflicts, projectWithResolutions, adoptProjected],
   );
 
+  // Phase 6 commit seam — parses the merge-editor's result text back to
+  // the projection (`name`/`description`/`enabled`/`refresh`; `steps` is
+  // intentionally absent per uid audit §0c.7), adopts to draft, then
+  // dismisses every conflict path. Throws on malformed JSON.
+  const handleResolveText = useCallback(
+    (text: string) => {
+      if (!workflow) return;
+      const raw = JSON.parse(text) as Partial<{
+        name: string;
+        description: string;
+        enabled: boolean;
+        refresh: V5.LiveWorkflow['refresh'];
+      }>;
+      setDraft((d) =>
+        d
+          ? {
+              ...d,
+              name: typeof raw.name === 'string' ? raw.name : d.name,
+              description: typeof raw.description === 'string' ? raw.description : d.description,
+              enabled: typeof raw.enabled === 'boolean' ? raw.enabled : d.enabled,
+              refresh: raw.refresh !== undefined ? raw.refresh : d.refresh,
+            }
+          : d,
+      );
+      for (const path of allConflicts.keys()) conflicts.dismiss(path);
+    },
+    [workflow, allConflicts, conflicts],
+  );
+
   const conflictPathLabels = useMemo(
     () =>
       workflow
@@ -698,6 +727,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
         localValuesByPath={new Map(Object.entries(formProjection ?? {}))}
         pathLabels={conflictPathLabels}
         onResolve={applyResolutions}
+        onResolveText={handleResolveText}
         onClose={() => setConflictDialogOpen(false)}
       />
     </div>
