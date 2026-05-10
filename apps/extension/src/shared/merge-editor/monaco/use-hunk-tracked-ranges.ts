@@ -62,7 +62,15 @@ const STICKINESS = 1; // monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypi
 
 function clampedRange(range: LineRange, lineCount: number): { startLine: number; endLine: number } {
   const start = Math.min(Math.max(range.startLine, 1), Math.max(1, lineCount));
-  const end = Math.min(Math.max(range.endLine, start), Math.max(1, lineCount));
+  // `LineRange.endLine` is EXCLUSIVE per `diff/line-diff.ts`'s type
+  // doc; Monaco's `IRange.endLineNumber` is INCLUSIVE. Convert here
+  // so the stored decoration covers the right lines. For zero-line
+  // ranges (insertion-point hunks where startLine === endLine), use
+  // startLine for a collapsed range — Monaco can't represent
+  // negative-extent ranges and the consumers handle insertion points
+  // via the `endLineNumber === startLineNumber` shape.
+  const inclusiveEnd = range.endLine > range.startLine ? range.endLine - 1 : range.startLine;
+  const end = Math.min(Math.max(inclusiveEnd, start), Math.max(1, lineCount));
   return { startLine: start, endLine: end };
 }
 
