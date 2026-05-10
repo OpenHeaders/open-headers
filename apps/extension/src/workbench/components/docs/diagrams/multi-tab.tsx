@@ -624,123 +624,213 @@ export const MultiTabSyncedDiagram: React.FC = () => {
 // ─── What stays in each tab (private to that tab) ────────────────
 
 /**
- * Two tabs side-by-side, visibly DIFFERENT internal states. Each
- * shows its own splitter ratio (different widths) and its own draft
- * (one with unsaved text + cursor, the other clean). A subtle wall
- * between them with ✗ markers calls out that these never cross.
+ * Two tab cards side-by-side with visibly DIFFERENT internal states:
+ * different sidebar widths and different draft contents. A single
+ * dashed wall with one ✗ badge sits between them. The whole point is
+ * "look how different these two tabs are right now — and that's
+ * fine, because each keeps its own UI state."
  */
 export const MultiTabLocalDiagram: React.FC = () => {
   const errColor = 'var(--ant-color-error)';
   const errBorder = 'var(--ant-color-error-border)';
-  const dim = 'var(--ant-color-fill-tertiary)';
-  const dim2 = 'var(--ant-color-fill-quaternary)';
+  const errBg = 'var(--ant-color-error-bg)';
   const winBorder = 'var(--ant-color-border)';
+  const winBg = 'var(--ant-color-bg-container)';
+  const sidebarFill = 'var(--ant-color-fill-quaternary)';
+  const mainFill = 'var(--ant-color-fill-tertiary)';
 
-  /** A tiny tab card: title bar + layout panels + unsaved-draft strip. */
-  const renderTab = (xOff: number, ordinal: string, sidebarW: number, draft: { text: string; unsaved: boolean }) => {
-    const W = 130;
-    const H = 130;
-    const innerY = 32;
-    const innerH = 64;
-    const innerW = W - 16;
-    const innerX = xOff + 8;
+  // Layout constants
+  const TAB_Y = 44;
+  const TAB_W = 132;
+  const TAB_H = 158;
+  const TITLE_H = 18;
+
+  /** Section label (small text) above a sub-area inside the tab. */
+  const SectionLabel = ({ x, y, text }: { x: number; y: number; text: string }) => (
+    <text x={x} y={y} fontSize={8} fontWeight={600} fill={TEXT_DIM} letterSpacing={0.4}>
+      {text.toUpperCase()}
+    </text>
+  );
+
+  type Draft = { text: string; unsaved: boolean };
+  const renderTab = (xOff: number, ordinal: string, sidebarRatio: number, draft: Draft) => {
+    const innerX = xOff + 10;
+    const innerW = TAB_W - 20;
+
+    // Layout panel
+    const layoutLabelY = TAB_Y + TITLE_H + 12;
+    const layoutY = layoutLabelY + 4;
+    const layoutH = 60;
+    const sidebarW = Math.round(innerW * sidebarRatio);
+    // Some fake "rows" inside main panel to imply content.
+    const fakeRows = [0.55, 0.7, 0.4, 0.6];
+
+    // Draft area
+    const draftLabelY = layoutY + layoutH + 24;
+    const draftY = draftLabelY + 4;
+    const draftH = 28;
+
     return (
       <g>
         {/* tab card */}
-        <rect x={xOff} y={26} width={W} height={H} rx={4} fill="var(--ant-color-bg-container)" stroke={winBorder} />
+        <rect x={xOff} y={TAB_Y} width={TAB_W} height={TAB_H} rx={4} fill={winBg} stroke={winBorder} />
         {/* title bar */}
-        <rect x={xOff} y={26} width={W} height={18} fill={FILL_BLUE} stroke={STROKE_BLUE} />
-        <text x={xOff + 8} y={39} fontSize={9} fontWeight={700} fill={TEXT}>
+        <rect x={xOff} y={TAB_Y} width={TAB_W} height={TITLE_H} fill={FILL_BLUE} stroke={STROKE_BLUE} />
+        <circle cx={xOff + 8} cy={TAB_Y + 9} r={2.5} fill={STROKE_BLUE} />
+        <text x={xOff + 18} y={TAB_Y + 12} fontSize={10} fontWeight={700} fill={TEXT}>
           Tab {ordinal}
         </text>
 
-        {/* Layout — sidebar + main, with sidebar width varying */}
-        <rect x={innerX} y={innerY + 18} width={sidebarW} height={innerH} fill={dim2} stroke={winBorder} />
+        {/* LAYOUT */}
+        <SectionLabel x={innerX} y={layoutLabelY} text="layout" />
+        <rect x={innerX} y={layoutY} width={sidebarW} height={layoutH} fill={sidebarFill} stroke={winBorder} />
         <rect
           x={innerX + sidebarW}
-          y={innerY + 18}
+          y={layoutY}
           width={innerW - sidebarW}
-          height={innerH}
-          fill={dim}
+          height={layoutH}
+          fill={mainFill}
           stroke={winBorder}
         />
-        {/* splitter handle highlighted */}
-        <line
-          x1={innerX + sidebarW}
-          y1={innerY + 18}
-          x2={innerX + sidebarW}
-          y2={innerY + 18 + innerH}
-          stroke={STROKE_ORANGE}
-          strokeWidth={2}
+        {/* sidebar items (3 stripes) */}
+        {[0, 1, 2].map((i) => (
+          <rect
+            key={i}
+            x={innerX + 4}
+            y={layoutY + 6 + i * 12}
+            width={sidebarW - 8}
+            height={6}
+            rx={1}
+            fill="var(--ant-color-fill-secondary)"
+          />
+        ))}
+        {/* main content rows */}
+        {fakeRows.map((ratio, i) => {
+          const rowX = innerX + sidebarW + 4;
+          const rowMaxW = innerW - sidebarW - 8;
+          return (
+            <rect
+              key={i}
+              x={rowX}
+              y={layoutY + 6 + i * 12}
+              width={Math.max(8, rowMaxW * ratio)}
+              height={6}
+              rx={1}
+              fill="var(--ant-color-fill-secondary)"
+            />
+          );
+        })}
+        {/* splitter handle — orange tab in the middle */}
+        <rect
+          x={innerX + sidebarW - 1}
+          y={layoutY + layoutH / 2 - 6}
+          width={3}
+          height={12}
+          rx={1.5}
+          fill={STROKE_ORANGE}
         />
-        <text x={xOff + W / 2} y={innerY + 14} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT_DIM}>
-          layout
+        {/* small ratio label below the layout */}
+        <text x={xOff + TAB_W / 2} y={layoutY + layoutH + 11} textAnchor="middle" fontSize={8} fill={TEXT_DIM}>
+          {`${Math.round(sidebarRatio * 100)} / ${100 - Math.round(sidebarRatio * 100)}`}
         </text>
 
-        {/* Draft strip below */}
-        <rect x={innerX} y={innerY + 18 + innerH + 6} width={innerW} height={18} rx={2} fill={dim} stroke={winBorder} />
-        <text
-          x={innerX + 6}
-          y={innerY + 18 + innerH + 18}
-          fontFamily="monospace"
-          fontSize={8}
-          fill={draft.unsaved ? TEXT : TEXT_DIM}
-        >
-          {draft.text}
-        </text>
-        {draft.unsaved && (
-          <circle
-            cx={innerX + innerW - 6}
-            cy={innerY + 18 + innerH + 15}
-            r={2.5}
-            fill={FILL_ORANGE}
-            stroke={STROKE_ORANGE}
-          />
+        {/* DRAFT */}
+        <SectionLabel x={innerX} y={draftLabelY} text="unsaved draft" />
+        <rect x={innerX} y={draftY} width={innerW} height={draftH} rx={3} fill={mainFill} stroke={winBorder} />
+        {draft.unsaved ? (
+          <>
+            <text x={innerX + 6} y={draftY + 13} fontFamily="monospace" fontSize={9} fill={TEXT}>
+              {draft.text}
+            </text>
+            <rect
+              x={innerX + 6}
+              y={draftY + draftH - 12}
+              width={48}
+              height={9}
+              rx={4.5}
+              fill={FILL_ORANGE}
+              stroke={STROKE_ORANGE}
+            />
+            <text
+              x={innerX + 30}
+              y={draftY + draftH - 4}
+              textAnchor="middle"
+              fontSize={7}
+              fontWeight={700}
+              fill={STROKE_ORANGE}
+            >
+              ● unsaved
+            </text>
+          </>
+        ) : (
+          <text
+            x={innerX + innerW / 2}
+            y={draftY + draftH / 2 + 3}
+            textAnchor="middle"
+            fontSize={9}
+            fontStyle="italic"
+            fill={TEXT_DIM}
+          >
+            no unsaved changes
+          </text>
         )}
-        <text
-          x={xOff + W / 2}
-          y={innerY + 18 + innerH + 38}
-          textAnchor="middle"
-          fontSize={9}
-          fontWeight={600}
-          fill={TEXT_DIM}
-        >
-          {draft.unsaved ? 'unsaved draft' : 'no draft'}
-        </text>
       </g>
     );
   };
 
   return (
     <svg
-      viewBox="0 0 320 200"
+      viewBox="0 0 320 240"
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="What stays in each tab — layout and unsaved drafts. Two tabs visibly differ: different splitter ratios, different drafts."
+      aria-label="What stays in each tab — layout splitter ratio and unsaved drafts. Two tabs visibly differ: 25/75 vs 65/35 splits, one with a draft and one without."
     >
-      <text x={160} y={14} textAnchor="middle" fontSize={11} fontWeight={700} fill={errColor}>
+      {/* Header */}
+      <text x={160} y={16} textAnchor="middle" fontSize={11} fontWeight={700} fill={errColor}>
         ✗ Stays in each tab
       </text>
-      <text x={160} y={28} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        layout drags and unsaved typing — never cross
+      <text x={160} y={32} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
+        splitter ratio + unsaved typing — private to where you did them
       </text>
 
-      {renderTab(10, '#1', 30, { text: 'X-Auth: foo|', unsaved: true })}
-      {renderTab(180, '#2', 80, { text: '(saved)', unsaved: false })}
+      {/* Tab cards */}
+      {renderTab(10, '#1', 0.25, { text: 'X-Auth: foo|', unsaved: true })}
+      {renderTab(178, '#2', 0.65, { text: '', unsaved: false })}
 
-      {/* Wall between the tabs */}
-      <line x1={158} y1={36} x2={158} y2={150} stroke={errBorder} strokeWidth={1} strokeDasharray="3 3" />
-      <line x1={162} y1={36} x2={162} y2={150} stroke={errBorder} strokeWidth={1} strokeDasharray="3 3" />
-      <circle cx={160} cy={93} r={9} fill="var(--ant-color-error-bg)" stroke={errBorder} />
-      <line x1={156} y1={89} x2={164} y2={97} stroke={errColor} strokeWidth={1.5} />
-      <line x1={164} y1={89} x2={156} y2={97} stroke={errColor} strokeWidth={1.5} />
+      {/* Wall between */}
+      <line
+        x1={160}
+        y1={TAB_Y + 4}
+        x2={160}
+        y2={TAB_Y + TAB_H - 4}
+        stroke={errBorder}
+        strokeWidth={1}
+        strokeDasharray="2 3"
+      />
+      <circle cx={160} cy={TAB_Y + TAB_H / 2} r={10} fill={errBg} stroke={errBorder} />
+      <line
+        x1={156}
+        y1={TAB_Y + TAB_H / 2 - 4}
+        x2={164}
+        y2={TAB_Y + TAB_H / 2 + 4}
+        stroke={errColor}
+        strokeWidth={1.8}
+      />
+      <line
+        x1={164}
+        y1={TAB_Y + TAB_H / 2 - 4}
+        x2={156}
+        y2={TAB_Y + TAB_H / 2 + 4}
+        stroke={errColor}
+        strokeWidth={1.8}
+      />
 
-      <text x={160} y={172} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Each tab keeps its own splitter ratio + draft —
+      <text x={160} y={216} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+        Each tab keeps its own splitter + draft.
       </text>
-      <text x={160} y={184} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        a tab opened after the change inherits the new layout.
+      <text x={160} y={228} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+        A tab opened AFTER your drag inherits the new layout.
       </text>
     </svg>
   );
