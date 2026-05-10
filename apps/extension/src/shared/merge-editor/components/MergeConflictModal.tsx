@@ -73,6 +73,19 @@ const MergeConflictModal = ({
   // VS Code's default — gutter shows conflicts only until the user
   // opts into the noisier view. Plan §5.4.
   const [showNonConflicting, setShowNonConflicting] = useState(false);
+  // Single-click-resolve: when enabled, accepting one side of a hunk
+  // auto-dismisses the other so the hunk fully resolves on the first
+  // click. Default OFF so the diagonal-append affordance stays
+  // discoverable. Plan §5.4 reserved this toggle for the per-side
+  // state machine; toggling it doesn't undo prior decisions, only
+  // affects future clicks.
+  const [singleClickResolve, setSingleClickResolve] = useState(false);
+  // Bumped whenever any file's pick-state changes via MergePane's
+  // `onPickStateChange`. Forces the modal's memoized hunk-count diff
+  // to re-run so the sidebar pill / Complete Merge gate reflect the
+  // user's clicks immediately (without waiting for the next stats
+  // emission, which only covers the active file).
+  const [pickStateRev, setPickStateRev] = useState(0);
   const [layout, setLayout] = usePersistedLayout(surfaceId, 'column');
   const failedOutcomes = useMemo(() => outcomes.filter((o) => !o.ok), [outcomes]);
   const baseAvailable = useMemo(() => session.files.some((f) => f.base !== undefined), [session]);
@@ -131,12 +144,22 @@ const MergeConflictModal = ({
     const map = new Map<string, number>();
     for (const f of session.files) {
       const seed = resultsByFileId.get(f.id) ?? f.initialResult;
-      const t = diffLinesPatience(f.theirs, seed).length;
-      const m = diffLinesPatience(f.mine, seed).length;
+      // Symmetric to MergePane's per-kind diff gating: `kind: 'add'`
+      // skips the mine-vs-result diff (mine is empty by design),
+      // `kind: 'remove'` skips the theirs-vs-result diff. Without
+      // these gates, every add file shows a phantom whole-content
+      // hunk on the mine side and never resolves.
+      const t = f.kind === 'remove' ? 0 : diffLinesPatience(f.theirs, seed).length;
+      const m = f.kind === 'add' ? 0 : diffLinesPatience(f.mine, seed).length;
       map.set(f.id, t + m);
     }
+    // Read pickStateRev so a controller-driven state change in the
+    // active MergePane re-runs this memo. The diff itself doesn't
+    // depend on the rev — the dependency just busts the cache so the
+    // sidebar pill catches up to the user's clicks immediately.
+    void pickStateRev;
     return map;
-  }, [session.files, resultsByFileId]);
+  }, [session.files, resultsByFileId, pickStateRev]);
 
   // Active file shows live count from MergePane stats; inactive files
   // show the (possibly stale) initial count. Live wins on collision.
@@ -426,6 +449,12 @@ const MergeConflictModal = ({
             <Text style={{ fontSize: 12 }} type="secondary">
               Show non-conflicting
             </Text>
+            <Tooltip title="When on, accepting one side of a hunk auto-dismisses the other so the hunk resolves in one click. Off keeps the diagonal-append (↘ / ↙) affordance so you can stack both sides.">
+              <Switch size="small" checked={singleClickResolve} onChange={setSingleClickResolve} />
+            </Tooltip>
+            <Text style={{ fontSize: 12 }} type="secondary">
+              Single-click resolve
+            </Text>
           </Space>
         </div>
         {failedOutcomes.length > 0 ? (
@@ -497,8 +526,10 @@ const MergeConflictModal = ({
                   file={activeFile}
                   isDarkMode={isDarkMode}
                   showNonConflicting={showNonConflicting}
+                  singleClickResolve={singleClickResolve}
                   layout={layout}
                   onHunkStatsChange={setStats}
+                  onPickStateChange={() => setPickStateRev((n) => n + 1)}
                   onAnnounce={announce}
                 />
               ) : (
