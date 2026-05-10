@@ -10,28 +10,27 @@
 
 /* Scoped scrollbar styling — only inside merge-editor panes (the
  * `[data-merge-theme]` attribute is set on `<MergePane>`'s root).
- * Monaco's default sliders are quite dark and pull focus; we slim
- * them down + cut opacity to match VS Code's merge-editor style.
- * Hover / active darken back up so the scrollbar still affords
- * grabbing when the user reaches for it. */
+ * Sliders sit very faint at rest so they recede behind the diff
+ * content, then darken on hover/active for grabbability. Matches
+ * VS Code's merge-editor scrollbar opacity. */
 [data-merge-theme] .monaco-scrollable-element > .scrollbar > .slider {
-  background: rgba(127, 127, 127, 0.25) !important;
+  background: rgba(127, 127, 127, 0.12) !important;
   border-radius: 3px !important;
 }
 [data-merge-theme] .monaco-scrollable-element > .scrollbar > .slider:hover {
-  background: rgba(127, 127, 127, 0.45) !important;
+  background: rgba(127, 127, 127, 0.32) !important;
 }
 [data-merge-theme] .monaco-scrollable-element > .scrollbar > .slider.active {
-  background: rgba(127, 127, 127, 0.6) !important;
+  background: rgba(127, 127, 127, 0.5) !important;
 }
 [data-merge-theme='dark'] .monaco-scrollable-element > .scrollbar > .slider {
-  background: rgba(255, 255, 255, 0.18) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
 }
 [data-merge-theme='dark'] .monaco-scrollable-element > .scrollbar > .slider:hover {
-  background: rgba(255, 255, 255, 0.35) !important;
+  background: rgba(255, 255, 255, 0.22) !important;
 }
 [data-merge-theme='dark'] .monaco-scrollable-element > .scrollbar > .slider.active {
-  background: rgba(255, 255, 255, 0.5) !important;
+  background: rgba(255, 255, 255, 0.4) !important;
 }
 
 /* Wrapper for view zone DOMs (action zone, status zone, alignment
@@ -45,7 +44,13 @@
 .oh-merge__action-zone-wrapper {
   width: 100%;
   height: 100%;
-  padding-right: 14px;
+  /* Must match the `scrollbar.verticalScrollbarSize` Monaco config
+   * in `use-monaco-editor-lifecycle.ts`. Mismatch creates a visible
+   * step where the action-zone right edge sits at a different x
+   * than the per-line frame decorations on the rows below
+   * (per-line decorations end at the line element's right edge =
+   * editor content right edge = scrollbar's left edge). */
+  padding-right: 10px;
   box-sizing: border-box;
 }
 
