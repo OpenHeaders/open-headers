@@ -673,69 +673,78 @@ export const RulesPipelineDiagram: React.FC = () => {
 };
 
 /**
- * Capacity bar — visualizes how the rule count maps to a Status
- * level. Three zones: 0…threshold (green), threshold…cap (yellow,
- * "approaching"), and cap…Chrome ceiling (red — but the engine
- * never gets here because rules over `cap` are truncated up-front,
- * with the truncation reported as yellow).
+ * Capacity bar — three zones mapped to the meaningful 0…1.2× cap
+ * range. Showing all the way to Chrome's 30k ceiling would crush
+ * the warn/cap region into a sliver, since the cap default is
+ * 5000. The 30k figure is a footer note, not bar geometry.
  */
 export const RulesCapacityDiagram: React.FC = () => {
-  // Stylised — actual numbers come from settings. Defaults documented
-  // here for clarity; tweak the visualised proportions, not the
-  // semantics.
-  const MAX = 30000; // chrome's hard ceiling (MAX_DYNAMIC)
-  const CAP = 5000; // rulesEngine.maxActiveRules default
-  const WARN = 4000; // rulesEngine.largeRuleSetThreshold default
+  // Stylised defaults — the real values come from settings.
+  const CAP = 5000; // rulesEngine.maxActiveRules
+  const WARN = 4000; // rulesEngine.largeRuleSetThreshold
+  const DISPLAY_MAX = 6000; // 1.2× CAP — focuses on the meaningful range
 
   const BAR_X = 20;
-  const BAR_Y = 80;
+  const BAR_Y = 78;
   const BAR_W = 280;
   const BAR_H = 28;
 
-  const fracWarn = WARN / MAX;
-  const fracCap = CAP / MAX;
-  const warnX = BAR_X + BAR_W * fracWarn;
-  const capX = BAR_X + BAR_W * fracCap;
+  const warnX = BAR_X + BAR_W * (WARN / DISPLAY_MAX);
+  const capX = BAR_X + BAR_W * (CAP / DISPLAY_MAX);
+  const endX = BAR_X + BAR_W;
 
-  // Three example markers
+  // Three example markers (rule counts), spaced so their badges
+  // don't collide.
   const HEALTHY = 1200;
   const APPROACHING = 4500;
-  const OVER = 5800;
-  const x = (count: number) => BAR_X + BAR_W * Math.min(count / MAX, 1);
+  const OVER = 5600;
+  const x = (count: number) => BAR_X + BAR_W * Math.min(count / DISPLAY_MAX, 1);
 
   return (
     <svg
-      viewBox="0 0 320 220"
+      viewBox="0 0 320 230"
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="DNR capacity bar — green up to the warning threshold, yellow up to the truncation cap, red beyond. The engine truncates over the cap so the red zone is never actually reached at runtime."
+      aria-label="DNR capacity bar — green up to the warning threshold, yellow up to the truncation cap, red beyond. Rules over the cap are dropped, so the red zone is never reached at runtime."
     >
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
         Rule capacity — where each rule count lands
       </text>
 
       {/* Zone labels above the bar */}
-      <text x={(BAR_X + warnX) / 2} y={36} textAnchor="middle" fontSize={9} fontWeight={700} fill={dotColor('green')}>
+      <text x={(BAR_X + warnX) / 2} y={34} textAnchor="middle" fontSize={9} fontWeight={700} fill={dotColor('green')}>
         ✓ healthy
       </text>
-      <text x={(warnX + capX) / 2} y={36} textAnchor="middle" fontSize={9} fontWeight={700} fill={dotColor('yellow')}>
+      <text x={(warnX + capX) / 2} y={34} textAnchor="middle" fontSize={9} fontWeight={700} fill={dotColor('yellow')}>
         approaching
       </text>
-      <text x={(capX + (BAR_X + BAR_W)) / 2} y={36} textAnchor="middle" fontSize={9} fontWeight={700} fill={dotColor('red')}>
-        (truncated)
+      <text x={(capX + endX) / 2} y={34} textAnchor="middle" fontSize={9} fontWeight={700} fill={dotColor('red')}>
+        truncated
       </text>
 
-      {/* Threshold rule counts */}
-      <text x={(BAR_X + warnX) / 2} y={50} textAnchor="middle" fontSize={8} fill={TEXT_DIM}>
-        0 – warn
-      </text>
-      <text x={(warnX + capX) / 2} y={50} textAnchor="middle" fontSize={8} fill={TEXT_DIM}>
-        warn – cap
-      </text>
-      <text x={(capX + (BAR_X + BAR_W)) / 2} y={50} textAnchor="middle" fontSize={8} fill={TEXT_DIM}>
-        over cap
-      </text>
+      {/* Example count needles above the bar */}
+      {[
+        { count: HEALTHY, label: '1,200', level: 'green' as const },
+        { count: APPROACHING, label: '4,500', level: 'yellow' as const },
+        { count: OVER, label: '5,600', level: 'red' as const },
+      ].map((m) => (
+        <g key={m.count}>
+          <rect
+            x={x(m.count) - 22}
+            y={48}
+            width={44}
+            height={16}
+            rx={3}
+            fill={m.level === 'red' ? ERROR_BG : m.level === 'yellow' ? WARNING_BG : SUCCESS_BG}
+            stroke={dotColor(m.level)}
+          />
+          <text x={x(m.count)} y={59} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>
+            {m.label}
+          </text>
+          <line x1={x(m.count)} y1={64} x2={x(m.count)} y2={BAR_Y} stroke={dotColor(m.level)} strokeWidth={1.5} />
+        </g>
+      ))}
 
       {/* Bar — three colored segments */}
       <rect x={BAR_X} y={BAR_Y} width={warnX - BAR_X} height={BAR_H} fill={SUCCESS_BG} stroke={dotColor('green')} />
@@ -743,7 +752,7 @@ export const RulesCapacityDiagram: React.FC = () => {
       <rect
         x={capX}
         y={BAR_Y}
-        width={BAR_X + BAR_W - capX}
+        width={endX - capX}
         height={BAR_H}
         fill={ERROR_BG}
         stroke={dotColor('red')}
@@ -751,63 +760,42 @@ export const RulesCapacityDiagram: React.FC = () => {
       />
 
       {/* Threshold markers below the bar */}
-      <line x1={warnX} y1={BAR_Y + BAR_H} x2={warnX} y2={BAR_Y + BAR_H + 8} stroke={dotColor('yellow')} strokeWidth={1.5} />
-      <text x={warnX} y={BAR_Y + BAR_H + 20} textAnchor="middle" fontSize={8} fontWeight={700} fill={TEXT}>
+      <line x1={warnX} y1={BAR_Y + BAR_H} x2={warnX} y2={BAR_Y + BAR_H + 6} stroke={dotColor('yellow')} strokeWidth={1.5} />
+      <text x={warnX} y={BAR_Y + BAR_H + 18} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>
         warn
       </text>
-      <text x={warnX} y={BAR_Y + BAR_H + 30} textAnchor="middle" fontSize={7} fill={TEXT_DIM}>
-        largeRuleSetThreshold
+      <text x={warnX} y={BAR_Y + BAR_H + 29} textAnchor="middle" fontSize={8} fill={TEXT_DIM}>
+        4,000
       </text>
 
-      <line x1={capX} y1={BAR_Y + BAR_H} x2={capX} y2={BAR_Y + BAR_H + 8} stroke={dotColor('red')} strokeWidth={1.5} />
-      <text x={capX} y={BAR_Y + BAR_H + 20} textAnchor="middle" fontSize={8} fontWeight={700} fill={TEXT}>
+      <line x1={capX} y1={BAR_Y + BAR_H} x2={capX} y2={BAR_Y + BAR_H + 6} stroke={dotColor('red')} strokeWidth={1.5} />
+      <text x={capX} y={BAR_Y + BAR_H + 18} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>
         cap
       </text>
-      <text x={capX} y={BAR_Y + BAR_H + 30} textAnchor="middle" fontSize={7} fill={TEXT_DIM}>
-        maxActiveRules
+      <text x={capX} y={BAR_Y + BAR_H + 29} textAnchor="middle" fontSize={8} fill={TEXT_DIM}>
+        5,000
       </text>
 
-      <line x1={BAR_X + BAR_W} y1={BAR_Y + BAR_H} x2={BAR_X + BAR_W} y2={BAR_Y + BAR_H + 8} stroke={GREY} strokeWidth={1.5} />
-      <text x={BAR_X + BAR_W} y={BAR_Y + BAR_H + 20} textAnchor="end" fontSize={8} fontWeight={700} fill={TEXT}>
-        30k
+      {/* Legend / footer notes */}
+      <text x={20} y={172} fontSize={8} fontWeight={700} fill={TEXT}>
+        warn
       </text>
-      <text x={BAR_X + BAR_W} y={BAR_Y + BAR_H + 30} textAnchor="end" fontSize={7} fill={TEXT_DIM}>
-        Chrome ceiling
+      <text x={48} y={172} fontFamily="monospace" fontSize={8} fill={TEXT_DIM}>
+        rulesEngine.largeRuleSetThreshold
       </text>
 
-      {/* Example count needles above the bar */}
-      {[
-        { count: HEALTHY, label: '1,200', level: 'green' as const },
-        { count: APPROACHING, label: '4,500', level: 'yellow' as const },
-        { count: OVER, label: '5,800', level: 'red' as const },
-      ].map((m) => (
-        <g key={m.count}>
-          <line x1={x(m.count)} y1={BAR_Y - 4} x2={x(m.count)} y2={BAR_Y} stroke={dotColor(m.level)} strokeWidth={2} />
-          <rect
-            x={x(m.count) - 22}
-            y={BAR_Y - 22}
-            width={44}
-            height={14}
-            rx={3}
-            fill={
-              m.level === 'red' ? ERROR_BG : m.level === 'yellow' ? WARNING_BG : SUCCESS_BG
-            }
-            stroke={dotColor(m.level)}
-          />
-          <text x={x(m.count)} y={BAR_Y - 12} textAnchor="middle" fontSize={8} fontWeight={700} fill={TEXT}>
-            {m.label}
-          </text>
-        </g>
-      ))}
+      <text x={20} y={186} fontSize={8} fontWeight={700} fill={TEXT}>
+        cap
+      </text>
+      <text x={48} y={186} fontFamily="monospace" fontSize={8} fill={TEXT_DIM}>
+        rulesEngine.maxActiveRules
+      </text>
 
-      <text x={160} y={160} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT}>
+      <text x={160} y={208} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
         Rules over the cap are dropped in match-order (top wins).
       </text>
-      <text x={160} y={176} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        The yellow status carries the dropped count so you know what's missing.
-      </text>
-      <text x={160} y={204} textAnchor="middle" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        Defaults shown — both thresholds are configurable in Settings.
+      <text x={160} y={222} textAnchor="middle" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
+        Chrome's hard ceiling sits much further out at 30,000.
       </text>
     </svg>
   );
