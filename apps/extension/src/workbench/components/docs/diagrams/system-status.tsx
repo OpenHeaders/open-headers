@@ -1197,19 +1197,19 @@ export const PermissionsAuditFlowDiagram: React.FC = () => {
       label: 'granted = true',
       sub: 'happy path',
       level: 'green',
-      msg: 'All host permissions granted',
+      msg: 'All granted',
     },
     {
       label: 'granted = false',
       sub: 'user revoked a host',
       level: 'red',
-      msg: 'Host permissions narrowed',
+      msg: 'Hosts narrowed',
     },
     {
       label: 'throws',
       sub: 'API unavailable',
       level: 'yellow',
-      msg: 'Could not audit',
+      msg: 'Audit failed',
     },
   ];
 
