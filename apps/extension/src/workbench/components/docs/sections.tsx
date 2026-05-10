@@ -43,6 +43,8 @@ import {
   RequestTrackingDiagram,
   RequestTrackingPhasesDiagram,
   RequestTrackingUiDiagram,
+  PermissionsAuditFlowDiagram,
+  PermissionsImpactDiagram,
   RequestExecutorOutcomesDiagram,
   RequestExecutorScopeDiagram,
   RulesCapacityDiagram,
@@ -495,17 +497,30 @@ export const SystemStatusSection: React.FC = () => (
 
     <SubsystemHeading name="Permissions" subtitle="Host permissions audit" />
     <DocParagraph>
-      Audits <code>&lt;all_urls&gt;</code> on each service-worker wake.
+      DNR rules and content scripts targeting a host that's been revoked from <code>chrome://extensions</code> don't
+      error — they silently no-op. This audit's whole job is to surface that hidden state, since otherwise you'd spend
+      30 minutes debugging a rule that <em>looks</em> fine.
     </DocParagraph>
+    <DiagramFrame caption="Granted: the rule fires. Narrowed: the rule silently no-ops and the header never arrives.">
+      <PermissionsImpactDiagram />
+    </DiagramFrame>
+    <DocParagraph>
+      The audit polls <code>chrome.permissions.contains({"{ origins: ['<all_urls>'] }"})</code> on every
+      service-worker wake. MV3 has no permission-change observer in Chromium, so poll-on-wake is the cheapest signal we
+      can get.
+    </DocParagraph>
+    <DiagramFrame caption="One call, three branches — green for granted, red for narrowed, yellow if the API call itself fails.">
+      <PermissionsAuditFlowDiagram />
+    </DiagramFrame>
     <StateRow color="success" label="green">
-      All host permissions granted.
+      <strong>All host permissions granted</strong> — <code>&lt;all_urls&gt;</code> is still in scope.
     </StateRow>
     <StateRow color="warning" label="yellow">
-      Audit couldn't run — unusual; the browser didn't expose <code>chrome.permissions</code>.
+      <strong>Could not audit host permissions</strong> — unusual; the browser didn't expose <code>chrome.permissions</code>.
     </StateRow>
     <StateRow color="error" label="red">
-      Host permissions were narrowed from <code>chrome://extensions</code>. Rules targeting revoked hosts silently no-op
-      until access is restored.
+      <strong>Host permissions narrowed</strong> — some rules will silently no-op on revoked hosts until access is
+      restored from <code>chrome://extensions</code>.
     </StateRow>
 
     <SubsystemHeading name="Secrets" subtitle="Vault integrity" />

@@ -43,6 +43,8 @@ export {
   RequestTrackingUiDiagram,
 } from './request-tracking';
 export {
+  PermissionsAuditFlowDiagram,
+  PermissionsImpactDiagram,
   RequestExecutorOutcomesDiagram,
   RequestExecutorScopeDiagram,
   RulesCapacityDiagram,
