@@ -1201,17 +1201,25 @@ export const PermissionsAuditFlowDiagram: React.FC = () => {
     },
     {
       label: 'granted = false',
-      sub: 'user narrowed in chrome://extensions',
+      sub: 'user revoked a host',
       level: 'red',
-      msg: 'Host permissions narrowed — silent no-op risk',
+      msg: 'Host permissions narrowed',
     },
     {
       label: 'throws',
-      sub: 'chrome.permissions unavailable',
+      sub: 'API unavailable',
       level: 'yellow',
-      msg: 'Could not audit host permissions',
+      msg: 'Could not audit',
     },
   ];
+
+  // Box geometry: 3 boxes with gaps. Total = 3·BOX_W + 2·BOX_GAP ≤ 300.
+  const BOX_W = 94;
+  const BOX_GAP = 8;
+  const TOTAL_W = BOX_W * 3 + BOX_GAP * 2;
+  const BOX_X0 = (320 - TOTAL_W) / 2;
+  const boxX = (i: number) => BOX_X0 + i * (BOX_W + BOX_GAP);
+  const boxCenter = (i: number) => boxX(i) + BOX_W / 2;
 
   return (
     <svg
@@ -1248,14 +1256,14 @@ export const PermissionsAuditFlowDiagram: React.FC = () => {
       </text>
 
       {/* Three branch arrows */}
-      {[80, 160, 240].map((x, i) => (
+      {BRANCHES.map((b, i) => (
         <line
-          key={x}
+          key={b.label}
           x1={160}
           y1={104}
-          x2={x}
+          x2={boxCenter(i)}
           y2={124}
-          stroke={dotColor(BRANCHES[i].level)}
+          stroke={dotColor(b.level)}
           strokeWidth={1.5}
           markerEnd={`url(#${ID})`}
         />
@@ -1263,33 +1271,37 @@ export const PermissionsAuditFlowDiagram: React.FC = () => {
 
       {/* Branch outcome boxes */}
       {BRANCHES.map((branch, i) => {
-        const x = [10, 110, 210][i];
+        const x = boxX(i);
+        const cx = boxCenter(i);
         const fill = branch.level === 'red' ? ERROR_BG : branch.level === 'yellow' ? WARNING_BG : SUCCESS_BG;
         const stroke = dotColor(branch.level);
         return (
           <g key={branch.label}>
-            <rect x={x} y={126} width={100} height={84} rx={4} fill={fill} stroke={stroke} />
-            <text x={x + 50} y={140} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>
+            <rect x={x} y={126} width={BOX_W} height={86} rx={4} fill={fill} stroke={stroke} />
+            <text x={cx} y={140} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>
               {branch.label}
             </text>
-            <text x={x + 50} y={152} textAnchor="middle" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
+            <text x={cx} y={152} textAnchor="middle" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
               {branch.sub}
             </text>
             {/* Resulting pill */}
-            <rect x={x + 10} y={160} width={80} height={16} rx={3} fill={BG_CONTAINER} stroke={stroke} />
-            <circle cx={x + 18} cy={168} r={2.5} fill={stroke} />
-            <text x={x + 50} y={171} textAnchor="middle" fontSize={8} fontWeight={700} fill={TEXT}>
+            <rect x={x + 8} y={160} width={BOX_W - 16} height={16} rx={3} fill={BG_CONTAINER} stroke={stroke} />
+            <circle cx={x + 16} cy={168} r={2.5} fill={stroke} />
+            <text x={cx + 4} y={171} textAnchor="middle" fontSize={8} fontWeight={700} fill={TEXT}>
               {branch.level === 'green' ? 'green' : branch.level === 'yellow' ? 'yellow' : 'red'}
             </text>
-            <text x={x + 50} y={194} textAnchor="middle" fontSize={7} fill={TEXT_DIM}>
-              "{branch.msg.length > 24 ? branch.msg.slice(0, 23) + '…' : branch.msg}"
+            <text x={cx} y={196} textAnchor="middle" fontSize={7} fill={TEXT_DIM}>
+              "{branch.msg}"
             </text>
           </g>
         );
       })}
 
-      <text x={160} y={228} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        MV3 has no permission-change observer — re-check fires on every SW wake.
+      <text x={160} y={224} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+        MV3 has no permission-change observer —
+      </text>
+      <text x={160} y={236} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+        re-check fires on every SW wake.
       </text>
     </svg>
   );
