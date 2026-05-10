@@ -392,10 +392,10 @@ export const SyncLifecycleDiagram: React.FC = () => {
   const ID = 'sync-life';
 
   // Lifeline anchor X positions
-  const X_SW = 50;
-  const X_DESK = 175;
-  const X_PILL = 282;
-  const PILL_W = 34;
+  const X_SW = 44;
+  const X_DESK = 156;
+  const X_PILL = 276;
+  const PILL_W = 64;
 
   // Status pill column helper — renders a tiny pill at a given Y to
   // mirror what the actual UI shows at that point in the timeline.
@@ -482,7 +482,7 @@ export const SyncLifecycleDiagram: React.FC = () => {
       <text x={(X_SW + X_DESK) / 2} y={118} textAnchor="middle" fontSize={ARROW_LABEL_FS} fill={TEXT}>
         WebSocket connect
       </text>
-      <StatusMarker y={126} level="yellow" label="…ing" />
+      <StatusMarker y={126} level="yellow" label="Connecting" />
 
       {/* ── Event 4: handshake OK ── */}
       <line
@@ -497,7 +497,7 @@ export const SyncLifecycleDiagram: React.FC = () => {
       <text x={(X_SW + X_DESK) / 2} y={142} textAnchor="middle" fontSize={ARROW_LABEL_FS} fill={SUCCESS}>
         handshake OK
       </text>
-      <StatusMarker y={150} level="green" label="✓ on" />
+      <StatusMarker y={150} level="green" label="Connected" />
 
       {/* Activation bars on both lifelines while connected */}
       <rect x={X_SW - 3} y={150} width={6} height={50} fill={SUCCESS_BG} stroke={dotColor('green')} />
@@ -517,7 +517,7 @@ export const SyncLifecycleDiagram: React.FC = () => {
       <line x1={X_SW + 8} y1={220} x2={X_DESK - 8} y2={220} stroke={WARNING} strokeWidth={1} strokeDasharray="3 3" />
       <line x1={(X_SW + X_DESK) / 2 - 5} y1={215} x2={(X_SW + X_DESK) / 2 + 5} y2={225} stroke={WARNING} strokeWidth={1.5} />
       <line x1={(X_SW + X_DESK) / 2 + 5} y1={215} x2={(X_SW + X_DESK) / 2 - 5} y2={225} stroke={WARNING} strokeWidth={1.5} />
-      <StatusMarker y={224} level="yellow" label="re #1" />
+      <StatusMarker y={224} level="yellow" label="Retry #1" />
 
       {/* ── Event 7: backoff + retry ── */}
       <text x={X_SW} y={246} textAnchor="middle" fontSize={ARROW_LABEL_FS} fontStyle="italic" fill={TEXT_DIM}>
@@ -527,7 +527,7 @@ export const SyncLifecycleDiagram: React.FC = () => {
       <text x={(X_SW + X_DESK) / 2} y={248} textAnchor="middle" fontSize={ARROW_LABEL_FS} fill={TEXT}>
         retry connect
       </text>
-      <StatusMarker y={256} level="yellow" label="re #2" />
+      <StatusMarker y={256} level="yellow" label="Retry #2" />
 
       {/* ── Event 8: handshake OK again ── */}
       <line
@@ -542,7 +542,7 @@ export const SyncLifecycleDiagram: React.FC = () => {
       <text x={(X_SW + X_DESK) / 2} y={274} textAnchor="middle" fontSize={ARROW_LABEL_FS} fill={SUCCESS}>
         handshake OK
       </text>
-      <StatusMarker y={282} level="green" label="✓ on" />
+      <StatusMarker y={282} level="green" label="Connected" />
 
       <text x={160} y={326} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
         Exponential backoff between retries · pings detect silent proxy drops
