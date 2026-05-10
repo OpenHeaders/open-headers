@@ -62,6 +62,13 @@
 
 .oh-merge__action-btn-arrow {
   font-weight: bold;
+  /* Blue = workflow color (matches accepted-stripe + action-zone
+   * button text). Direction is conveyed by the arrow glyph itself
+   * (▶ pulls from theirs, ◀ pulls from mine), not by color. */
+  color: rgba(0, 102, 204, 0.95);
+}
+[data-merge-theme='dark'] .oh-merge__action-btn-arrow {
+  color: rgba(102, 178, 255, 0.95);
 }
 
 .oh-merge__action-btn-x {

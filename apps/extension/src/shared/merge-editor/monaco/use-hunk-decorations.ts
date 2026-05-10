@@ -63,7 +63,20 @@ export function useHunkDecorations({ editorRef, side, hunks, getSideState, state
     for (const h of hunks) {
       const range = side === 'theirs' ? h.theirsRange : h.mineRange;
       if (range.endLine <= range.startLine) continue;
-      const baseClass = CSS_CLASS_BY_KIND[h.classification];
+      // Per-pane display kind. The diff algorithm classifies left-only
+      // segments as 'removal' (going left→right those lines would be
+      // deleted) and right-only segments as 'addition' (those lines
+      // would be added). But the source panes display content from
+      // their OWN side, and the user's mental model is "this pane has
+      // content the other doesn't" — which always reads as ADDITION
+      // regardless of which operand of the diff is which. Without
+      // this flip, a peer-added hunk (theirs has X-C, result lacks)
+      // shows as RED on the theirs pane because the diff was
+      // theirs→result and theirs has the extra; the user expects
+      // GREEN ("theirs added"). Modifications stay AMBER (both sides
+      // have differing content here, kind is symmetric).
+      const displayKind = h.classification === 'removal' ? 'addition' : h.classification;
+      const baseClass = CSS_CLASS_BY_KIND[displayKind];
       const sideState = getSideState ? getSideState(h.id) : 'pending';
       const className = baseClass + STATE_SUFFIX[sideState];
       decos.push({

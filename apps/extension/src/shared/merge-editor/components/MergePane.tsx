@@ -54,7 +54,6 @@ import {
 import { type HunkSide, useHunkDecorations } from '../monaco/use-hunk-decorations';
 import { useHunkTrackedRanges } from '../monaco/use-hunk-tracked-ranges';
 import { type MergeActionsContext, useMergeActions } from '../monaco/use-merge-actions';
-import { useMissingMarkers } from '../monaco/use-missing-markers';
 import { useMonacoEditorLifecycle } from '../monaco/use-monaco-editor-lifecycle';
 import { useSyncScroll } from '../monaco/use-sync-scroll';
 import type { MergeFile } from '../types';
@@ -308,38 +307,35 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     };
   }, [file.base, theirsHunks, mineHunks, theirsBaseHunks, mineBaseHunks]);
 
-  // Line backgrounds + missing markers + char-diff render for EVERY
-  // hunk, regardless of the show-non-conflicting toggle. Per
-  // `MERGE_CONFLICT_EDITOR_PLAN.md` §5.4 the toggle "shows / hides
-  // the gutter [arrows]" — i.e. the actionable affordance, not the
-  // visual diff itself.
-  // Side-pane "missing here" markers + char-diff render for every
-  // hunk regardless of pick state — they're orthogonal to the
-  // accept/dismiss decision (showing where content lives on each
-  // side, not whether the user has decided yet).
-  useMissingMarkers({ editorRef: theirsHandle, side: 'theirs', hunks: theirsHunks });
-  useMissingMarkers({ editorRef: mineHandle, side: 'mine', hunks: mineHunks });
-  useCharDecorations({ editorRef: theirsHandle, side: 'theirs', hunks: theirsHunks });
-  useCharDecorations({ editorRef: mineHandle, side: 'mine', hunks: mineHunks });
-
-  // Hunks that participate in the per-side state machine. Computed
-  // ONCE against `file.initialResult` (not the live `resultText`)
-  // so hunk identity is stable across the user's own pick-driven
-  // buffer edits. If we used the live `theirsHunks`, accepting a
-  // hunk would write theirs into result, causing diff(theirs,
-  // result) to drop that hunk (content matches now) — which would
-  // tear down the OTHER side's action zone too, destroying the
-  // user's affordance to also accept the other side and produce a
-  // combination. Static hunks persist until the file switches.
+  // Hunks that participate in the per-side state machine AND drive
+  // every visual decoration. Computed ONCE against
+  // `file.initialResult` (not the live `resultText`) so hunk identity
+  // is stable across the user's own pick-driven buffer edits. If we
+  // used the live `theirsHunks`, accepting a hunk would write theirs
+  // into result, causing diff(theirs, result) to drop that hunk
+  // (content matches now) — which would tear down the OTHER side's
+  // action zone too, destroying the user's affordance to also accept
+  // the other side and produce a combination. Static hunks persist
+  // until the file switches.
   //
-  // Live `theirsHunks` / `mineHunks` continue to feed the visual
-  // decorations (highlighting "what's different right now") because
-  // that's the right semantic for those — the pick-state machine
-  // wants stable identity, the decorations want truth.
+  // pickStateHunks's range axes (theirsRange = positions in
+  // file.theirs, mineRange = positions in file.initialResult ≈
+  // file.mine) are stable, which is what the per-pane decorations
+  // need — live hunks have result-side mineRange that drifts from
+  // mine after each accept, causing decorations to land on the
+  // wrong rows.
   const pickStateHunks = useMemo(
     () => (file.kind === 'remove' ? [] : diffLinesPatience(file.theirs, file.initialResult)),
     [file.theirs, file.initialResult, file.kind],
   );
+
+  // Char-diff decorations — must run AFTER pickStateHunks since they
+  // consume it. `useMissingMarkers` (the older dashed-bar) is dropped
+  // entirely; `useHunkAlignmentPlaceholders`'s missing-side slot is
+  // the richer replacement (full bordered hashed rectangle of the
+  // right line count, on the empty side).
+  useCharDecorations({ editorRef: theirsHandle, side: 'theirs', hunks: pickStateHunks });
+  useCharDecorations({ editorRef: mineHandle, side: 'mine', hunks: pickStateHunks });
 
   // Sticky tracking decorations on the result pane — anchor each
   // hunk's range so subsequent picks target the live span (not the
@@ -395,23 +391,47 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   useHunkDecorations({
     editorRef: theirsHandle,
     side: 'theirs',
-    hunks: theirsHunks,
+    hunks: pickStateHunks,
     getSideState: getTheirsSideState,
     stateRev: pickStateRev,
   });
   useHunkDecorations({
     editorRef: mineHandle,
     side: 'mine',
-    hunks: theirsHunks,
+    hunks: pickStateHunks,
     getSideState: getMineSideStateForTheirsHunks,
     stateRev: pickStateRev,
   });
-  // Additional mine pane decorations for the user's local-edit
-  // divergences (mineHunks). These don't have controller state, so
-  // they always render with the pending-style "this is different"
-  // tint until the user resolves them via direct buffer editing or
-  // the gutter actions on overlapping theirs hunks.
-  useHunkDecorations({ editorRef: mineHandle, side: 'mine', hunks: mineHunks });
+  // No third decoration call for `mineHunks` (live mine ↔ result
+  // diff). With the result pane read-only and every write going
+  // through the controller, the only divergence between mine and
+  // result is the controller's own writes — already represented in
+  // pickStateHunks above. Adding a `mineHunks`-driven decoration
+  // would re-paint the same conflict twice, AND the mine-side range
+  // it carries is the post-write RESULT position (not mine), so
+  // decorations would land on the wrong rows after the first accept.
+
+  // True-conflict ids for the pickStateHunks set. Routes to the
+  // orange/blue frame split: hunks where both sides actually changed
+  // the same base region get the orange "decide me" frame; everything
+  // else (single-side change, auto-mergeable) gets the calmer blue
+  // "informational" frame. Resolved hunks always go grey.
+  //
+  // Predicate matches `applyNonConflicting`'s "is true conflict"
+  // check — single source of truth for what counts as a real
+  // conflict vs auto-mergeable across stats, action zones, and the
+  // bulk apply gate.
+  const trueConflictIds = useMemo<ReadonlySet<string>>(() => {
+    const ids = new Set<string>();
+    for (const h of pickStateHunks) {
+      const flagged = classification.theirsConflictIds.has(h.id);
+      const cleanOverride = classification.theirsCleanIds.has(h.id);
+      const baseRegionConflict =
+        'theirsTrueConflicts' in classification && classification.theirsTrueConflicts.has(h.id);
+      if ((flagged && !cleanOverride) || baseRegionConflict) ids.add(h.id);
+    }
+    return ids;
+  }, [pickStateHunks, classification]);
 
   // VS Code-style inline action labels above each pending hunk in
   // the theirs / mine panes. Layout-agnostic — works in every
@@ -424,7 +444,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     controller: pickController,
     stateRev: pickStateRev,
     enabled: inlineActionLabels,
-    has3Panes,
+    trueConflictIds,
   });
   useHunkActionZones({
     editorRef: mineHandle,
@@ -433,7 +453,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     controller: pickController,
     stateRev: pickStateRev,
     enabled: inlineActionLabels && has3Panes,
-    has3Panes,
+    trueConflictIds,
   });
   // Result-pane status zone — non-interactive labels that maintain
   // row alignment with the theirs / mine action zones (so all three
@@ -446,6 +466,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     controller: pickController,
     stateRev: pickStateRev,
     enabled: inlineActionLabels,
+    trueConflictIds,
   });
   // Alignment placeholders in theirs / mine. Two slots per hunk per
   // side — action-slot (above content, when this side is decided

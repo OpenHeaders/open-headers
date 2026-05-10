@@ -184,8 +184,26 @@ export function createPickStateController(args: CreatePickStateControllerArgs): 
     states: () => map,
     get: (hunkId) => map.get(hunkId) ?? PENDING_HUNK,
     dispatch(click) {
+      const hunk = findHunk(click.hunkId);
       const prev = map.get(click.hunkId) ?? PENDING_HUNK;
-      const next = transitionForClick(prev, click, args.singleClickResolveRef.current);
+      let next = transitionForClick(prev, click, args.singleClickResolveRef.current);
+      // Auto-dismiss the empty side of pure-add / pure-remove hunks.
+      // The empty side has no content to decide about and its action
+      // zone is hidden in the UI (no affordance), so without this
+      // bridge a single dispatch leaves the hunk stuck in
+      // {accepted, pending} forever — frame stays blue instead of
+      // resolving to grey, and "Complete Merge" stays disabled
+      // because stats count the empty side as still-pending. The
+      // auto-dismiss matches the user's intent (they decided on the
+      // populated side; the empty side has nothing to decide).
+      if (hunk) {
+        if (hunk.mineLines.length === 0 && next.theirs !== 'pending' && next.mine === 'pending') {
+          next = { ...next, mine: 'dismissed' };
+        }
+        if (hunk.theirsLines.length === 0 && next.mine !== 'pending' && next.theirs === 'pending') {
+          next = { ...next, theirs: 'dismissed' };
+        }
+      }
       if (prev.theirs === next.theirs && prev.mine === next.mine) return;
       map.set(click.hunkId, next);
       undoStack.push({ hunkId: click.hunkId, prev, next });

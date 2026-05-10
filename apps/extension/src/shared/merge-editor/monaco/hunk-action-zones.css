@@ -222,6 +222,30 @@
   cursor: default;
 }
 
+/* Clean (auto-mergeable) variant — applied to action / status zones
+ * when the hunk is pending BUT not a true conflict (only one side
+ * actually changed vs base). Blue tint instead of orange — calmer
+ * "informational, can be auto-merged" cue, reserving orange's
+ * attention-pull for hunks that actually require a decision. Pairs
+ * with `oh-merge__action-zone-frame-clean` per-line decorations.
+ *
+ * Color logic recap:
+ *   ORANGE = "true conflict, you must decide"
+ *   BLUE   = "non-conflicting change, here for review"
+ *   GREY   = "decided / resolved / dismissed" */
+.oh-merge__action-zone-clean {
+  background: rgba(0, 102, 204, 0.08) !important;
+  border-top-color: rgba(0, 102, 204, 0.7) !important;
+  border-left-color: rgba(0, 102, 204, 0.7) !important;
+  box-shadow: inset -1px 0 0 rgba(0, 102, 204, 0.7) !important;
+}
+[data-merge-theme='dark'] .oh-merge__action-zone-clean {
+  background: rgba(102, 178, 255, 0.10) !important;
+  border-top-color: rgba(102, 178, 255, 0.6) !important;
+  border-left-color: rgba(102, 178, 255, 0.6) !important;
+  box-shadow: inset -1px 0 0 rgba(102, 178, 255, 0.6) !important;
+}
+
 /* Resolved variant — applied to action / status zones when the hunk
  * is fully resolved (no side pending). Greyed-out rectangle so the
  * pane signals "this conflict was reviewed and decided" without the
@@ -277,6 +301,33 @@
   width: 100%;
   height: 100%;
   pointer-events: none;
+  /* Container for an optional label inside the placeholder body
+   * (used by missing-side variants). Relative positioning anchors
+   * the absolute label inside; flex-block sizing inherits from the
+   * wrapper. */
+  position: relative;
+}
+
+/* Label text inside a missing-side placeholder — names where the
+ * content actually lives so the user reads "what is this hashed
+ * rectangle?" without guessing. Anchored top-left, padded slightly
+ * so it doesn't kiss the border. Italic + greyed so it reads as
+ * meta-information, not content. */
+.oh-merge__placeholder-label {
+  position: absolute;
+  top: 1px;
+  left: 8px;
+  font-size: 11px;
+  line-height: 16px;
+  font-style: italic;
+  color: rgba(80, 80, 80, 0.75);
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  user-select: none;
+  white-space: nowrap;
+  pointer-events: none;
+}
+[data-merge-theme='dark'] .oh-merge__placeholder-label {
+  color: rgba(200, 200, 200, 0.75);
 }
 
 .oh-merge__alignment-placeholder-stacked-content {
@@ -298,6 +349,53 @@
   );
 }
 
+/* Missing-side placeholder — hashed parity rows + grey ghost frame
+ * on the source side that has NO content for a hunk. Pure additions
+ * (theirs added X-C, mine has nothing there) and pure removals
+ * (mine removed X-B, theirs has nothing there) leave one source
+ * pane with zero lines for the hunk. Without this, the empty side
+ * shows just a floating action-zone label with nothing under it
+ * and no parity rows for the OTHER side's content — confusing
+ * (where IS the conflict?) and breaks line-by-line alignment.
+ *
+ * Renders N hashed-diagonal rows (= other side's line count) with
+ * a complete grey rectangle around them. The hash signals "content
+ * exists on the other side, not here"; the grey frame matches the
+ * resolved-state visual vocabulary (this side's role in the conflict
+ * is "no content" — a decided, neutral state). All four edges are
+ * drawn directly on the placeholder DOM since there are no model
+ * lines to attach per-line decorations to. */
+.oh-merge__alignment-placeholder-missing-side {
+  box-sizing: border-box;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0,
+    transparent 4px,
+    rgba(127, 127, 127, 0.18) 4px,
+    rgba(127, 127, 127, 0.18) 8px
+  );
+  border-top: 1px solid rgba(127, 127, 127, 0.55);
+  border-bottom: 1px solid rgba(127, 127, 127, 0.55);
+  border-left: 1px solid rgba(127, 127, 127, 0.55);
+  /* Same right-edge trick as action zones — Monaco view zone DOMs
+   * extend across the scrollbar area, so a real `border-right`
+   * misaligns. Inset box-shadow paints inside the box regardless. */
+  box-shadow: inset -1px 0 0 rgba(127, 127, 127, 0.55);
+}
+[data-merge-theme='dark'] .oh-merge__alignment-placeholder-missing-side {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0,
+    transparent 4px,
+    rgba(255, 255, 255, 0.10) 4px,
+    rgba(255, 255, 255, 0.10) 8px
+  );
+  border-top-color: rgba(180, 180, 180, 0.45);
+  border-bottom-color: rgba(180, 180, 180, 0.45);
+  border-left-color: rgba(180, 180, 180, 0.45);
+  box-shadow: inset -1px 0 0 rgba(180, 180, 180, 0.45);
+}
+
 /* Action-slot placeholder closes the TOP edge of the bordered
  * rectangle around resolved hunks. Same inset-shadow trick for the
  * right edge — view zone DOMs hit the same Monaco-right-edge
@@ -314,6 +412,42 @@
   border-top-color: rgba(180, 180, 180, 0.45);
   border-left-color: rgba(180, 180, 180, 0.45);
   box-shadow: inset -1px 0 0 rgba(180, 180, 180, 0.45);
+}
+
+/* Clean-state frame (blue) — per-line counterpart of
+ * `-action-zone-clean`. Same box-shadow + ::after/::before approach
+ * as the orange `-frame` variant; just the color swaps. Used for
+ * pending hunks that aren't true conflicts (auto-mergeable). */
+.oh-merge__action-zone-frame-clean {
+  position: relative;
+  box-shadow: inset 1px 0 0 rgba(0, 102, 204, 0.7);
+}
+.oh-merge__action-zone-frame-clean::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 10px;
+  width: 1px;
+  background: rgba(0, 102, 204, 0.7);
+  pointer-events: none;
+}
+.oh-merge__action-zone-frame-clean-last::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 10px;
+  height: 1px;
+  background: rgba(0, 102, 204, 0.7);
+  pointer-events: none;
+}
+[data-merge-theme='dark'] .oh-merge__action-zone-frame-clean {
+  box-shadow: inset 1px 0 0 rgba(102, 178, 255, 0.6);
+}
+[data-merge-theme='dark'] .oh-merge__action-zone-frame-clean::after,
+[data-merge-theme='dark'] .oh-merge__action-zone-frame-clean-last::before {
+  background: rgba(102, 178, 255, 0.6);
 }
 
 /* Resolved-state frame (grey). Same inset box-shadow approach as

@@ -56,10 +56,14 @@ export interface UseHunkActionZonesArgs {
    *  rendering. Used by the toolbar toggle to disable the inline
    *  labels without unmounting the side editor. */
   enabled: boolean;
-  /** Mine pane only renders in 3-pane sessions. Affects frame
-   *  visibility in the resolved-but-other-side-active case (a side
-   *  with no rendered pane shouldn't count as "active alignment"). */
-  has3Panes: boolean;
+  /** Hunk ids classified as TRUE 3-way conflicts (both sides actually
+   *  changed the same base region). Drives the frame color split:
+   *  true conflicts get the orange "needs decision" frame; everything
+   *  else (single-side changes, auto-mergeable) gets the calmer blue
+   *  "informational" frame. Resolved hunks always go grey regardless.
+   *  When omitted (or the hunk id isn't in the set), the hunk is
+   *  treated as non-conflicting (blue). */
+  trueConflictIds?: ReadonlySet<string>;
 }
 
 const LABEL_THEIRS = {
@@ -90,6 +94,9 @@ function buildZoneDom(args: {
   hunk: Hunk;
   controller: PickStateController;
   isCombineMeaningful: boolean;
+  /** When false, the action zone takes the calmer blue "auto-mergeable"
+   *  visual treatment instead of the loud orange "true conflict" one. */
+  isTrueConflict: boolean;
 }): HTMLElement {
   const labels = args.side === 'theirs' ? LABEL_THEIRS : LABEL_MINE;
   // Wrapper reserves room at the right for Monaco's vertical
@@ -101,7 +108,12 @@ function buildZoneDom(args: {
   const wrapper = document.createElement('div');
   wrapper.className = 'oh-merge__action-zone-wrapper';
   const root = document.createElement('div');
-  root.className = 'oh-merge__action-zone';
+  // Base class always; clean modifier swaps orange→blue when the
+  // hunk is auto-mergeable. Resolved hunks never reach this DOM
+  // builder (shouldRenderZone returns false for non-pending sides).
+  root.className = args.isTrueConflict
+    ? 'oh-merge__action-zone'
+    : 'oh-merge__action-zone oh-merge__action-zone-clean';
   root.setAttribute('data-side', args.side);
   root.setAttribute('data-hunk-id', args.hunk.id);
   wrapper.appendChild(root);
@@ -160,33 +172,45 @@ function shouldRenderZone(state: { theirs: SideState; mine: SideState }, side: H
 }
 
 /**
- * Whether THIS side should render a frame around its hunk content,
- * mirroring VS Code's bordered grouping rectangle. Two cases produce
- * a frame:
- *   1. This side's action zone is rendered (pending) — orange frame.
- *   2. This side is decided BUT another pane still renders a zone
- *      (other side action zone or result status zone) — grey frame
- *      around the action-slot placeholder + content.
+ * Frame state for THIS side's hunk content.
  *
- * The third case (this side decided + no other zone) yields no frame
- * because the conflict is fully resolved with no other panes to
- * align with — the user has moved on.
+ *   pending-conflict — this side is pending AND the hunk is a true
+ *                      3-way conflict → ORANGE frame ("decide me").
+ *   pending-clean    — this side is pending but the hunk is NOT a
+ *                      true conflict (single-side change, auto-
+ *                      mergeable) → BLUE frame ("informational").
+ *   resolved         — this side is decided → GREY ghost frame.
+ *                      Always renders, even when no other pane is
+ *                      active, so the file's conflict topology
+ *                      stays visually scannable after resolution.
+ *
+ * `isTrueConflict` defaults to true (conservative — orange) when no
+ * classification has been threaded through, preserving prior behavior
+ * for callers that don't pass `trueConflictIds`.
  */
+type FrameState = 'pending-conflict' | 'pending-clean' | 'resolved';
+
 function frameStateFor(
   state: { theirs: SideState; mine: SideState },
   side: HunkSide,
-  has3Panes: boolean,
-): 'pending' | 'resolved' | null {
+  isTrueConflict: boolean,
+): FrameState {
   const thisPending = side === 'theirs' ? state.theirs === 'pending' : state.mine === 'pending';
-  if (thisPending) return 'pending';
-  // This side is decided. Render a grey frame iff something else is
-  // still in flight (other side or result status).
-  const otherPending =
-    side === 'theirs' ? state.mine === 'pending' && has3Panes : state.theirs === 'pending';
-  const resultVisible = statusLabelFor(state) !== null;
-  if (otherPending || resultVisible) return 'resolved';
-  return null;
+  if (thisPending) return isTrueConflict ? 'pending-conflict' : 'pending-clean';
+  return 'resolved';
 }
+
+/** Per-frame-state CSS class table — keeps the choice in one place. */
+const FRAME_CLASS: Record<FrameState, string> = {
+  'pending-conflict': 'oh-merge__action-zone-frame',
+  'pending-clean': 'oh-merge__action-zone-frame-clean',
+  resolved: 'oh-merge__action-zone-frame-resolved',
+};
+const FRAME_CLASS_LAST: Record<FrameState, string> = {
+  'pending-conflict': 'oh-merge__action-zone-frame-last',
+  'pending-clean': 'oh-merge__action-zone-frame-clean-last',
+  resolved: 'oh-merge__action-zone-frame-resolved-last',
+};
 
 export function useHunkActionZones(args: UseHunkActionZonesArgs): void {
   const zoneIdsRef = useRef<Map<string, string>>(new Map());
@@ -250,21 +274,27 @@ export function useHunkActionZones(args: UseHunkActionZonesArgs): void {
         const startLine = range.startLine;
         const endLineExclusive = range.endLine;
         if (startLine < 1 || startLine > lineCount + 1) continue;
+        // Empty extent on THIS side (pure addition on theirs / pure
+        // removal on mine) — no model lines to attach per-line frame
+        // decorations to. The missing-side alignment placeholder
+        // renders the bordered rectangle instead, so we skip framing
+        // here entirely.
+        const hasContentOnThisSide = endLineExclusive > startLine;
 
-        // Frame around the bordered grouping rectangle. Renders for
-        // both pending (orange) and resolved-but-others-active (grey)
-        // states. Top + side borders come from the action zone DOM
+        const isTrueConflict = args.trueConflictIds?.has(h.id) ?? false;
+
+        // Frame around the bordered grouping rectangle. Three states:
+        // pending-conflict (orange), pending-clean (blue), resolved
+        // (grey). Top + side borders come from the action zone DOM
         // (pending) or the action-slot placeholder (resolved); side +
         // bottom borders come from these per-line frame decorations.
-        const frameState = frameStateFor(state, args.side, args.has3Panes);
-        if (frameState !== null) {
+        // Skipped entirely on empty-extent sides — handled by the
+        // missing-side placeholder instead.
+        if (hasContentOnThisSide) {
+          const frameState = frameStateFor(state, args.side, isTrueConflict);
           const lastLineInclusive = Math.min(endLineExclusive - 1, lineCount);
-          const sideClass =
-            frameState === 'pending' ? 'oh-merge__action-zone-frame' : 'oh-merge__action-zone-frame-resolved';
-          const lastClass =
-            frameState === 'pending'
-              ? 'oh-merge__action-zone-frame-last'
-              : 'oh-merge__action-zone-frame-resolved-last';
+          const sideClass = FRAME_CLASS[frameState];
+          const lastClass = FRAME_CLASS_LAST[frameState];
           for (let line = startLine; line <= lastLineInclusive; line++) {
             frameDecos.push({
               range: {
@@ -282,13 +312,40 @@ export function useHunkActionZones(args: UseHunkActionZonesArgs): void {
           }
         }
 
-        if (!shouldRender) continue;
+        // Skip the action zone entirely on empty-extent sides (pure
+        // additions on theirs / pure removals on mine). The
+        // affordances "Accept Current | Ignore" on a side with no
+        // content are semantically redundant with deciding from the
+        // populated side or via the result-pane "Remove …" buttons —
+        // both produce the same result-buffer outcome. Hiding it
+        // declutters the empty side; the missing-side placeholder
+        // (rendered by useHunkAlignmentPlaceholders) is the only
+        // visual cue the empty side needs.
+        if (!shouldRender || !hasContentOnThisSide) continue;
         // Anchor the zone above the hunk's start line on this side.
         const isMultiLine = endLineExclusive > startLine + 1;
         const otherSideAccepted = args.side === 'theirs' ? state.mine === 'accepted' : state.theirs === 'accepted';
+        // "Accept Combination" stacks both sides into result. When the
+        // OTHER side has no content (pure addition / removal), the
+        // combination collapses to "use this side" — identical to
+        // "Accept Incoming"/"Accept Current". Hide the redundant
+        // button in that case so the action label doesn't carry a
+        // no-op affordance.
+        const otherSideHasContent =
+          args.side === 'theirs' ? h.mineLines.length > 0 : h.theirsLines.length > 0;
         const isCombineMeaningful =
-          isMultiLine && !otherSideAccepted && state.theirs !== 'dismissed' && state.mine !== 'dismissed';
-        const dom = buildZoneDom({ side: args.side, hunk: h, controller: args.controller, isCombineMeaningful });
+          isMultiLine &&
+          otherSideHasContent &&
+          !otherSideAccepted &&
+          state.theirs !== 'dismissed' &&
+          state.mine !== 'dismissed';
+        const dom = buildZoneDom({
+          side: args.side,
+          hunk: h,
+          controller: args.controller,
+          isCombineMeaningful,
+          isTrueConflict,
+        });
         const zoneId = accessor.addZone({
           afterLineNumber: startLine - 1,
           heightInLines: 1,
@@ -321,7 +378,15 @@ export function useHunkActionZones(args: UseHunkActionZonesArgs): void {
         frameDecorationsRef.current = null;
       }
     };
-  }, [args.editorRef, args.side, args.hunks, args.controller, args.stateRev, args.enabled, args.has3Panes]);
+  }, [
+    args.editorRef,
+    args.side,
+    args.hunks,
+    args.controller,
+    args.stateRev,
+    args.enabled,
+    args.trueConflictIds,
+  ]);
 }
 
 // ── Result-pane status zones ────────────────────────────────────────
@@ -359,6 +424,9 @@ export interface UseResultStatusZonesArgs {
   controller: PickStateController;
   stateRev: number;
   enabled: boolean;
+  /** See `UseHunkActionZonesArgs.trueConflictIds`. Drives the result
+   *  status zone's frame color via the same orange/blue/grey rule. */
+  trueConflictIds?: ReadonlySet<string>;
 }
 
 interface ResultStatus {
@@ -411,17 +479,23 @@ function buildStatusDom(args: {
   status: ResultStatus;
   controller: PickStateController;
   resolved: boolean;
+  isTrueConflict: boolean;
 }): HTMLElement {
   const wrapper = document.createElement('div');
   wrapper.className = 'oh-merge__action-zone-wrapper';
   const root = document.createElement('div');
-  // When the hunk is resolved (no side pending), the status zone
-  // takes the grey-bordered "solved" treatment so the result pane's
-  // visual cue matches the source panes' grey rectangles. Pending
-  // hunks keep the orange "active conflict" framing.
-  root.className = args.resolved
-    ? 'oh-merge__action-zone oh-merge__action-zone-resolved oh-merge__action-zone-status'
-    : 'oh-merge__action-zone oh-merge__action-zone-status';
+  // Three visual variants matching the source-pane frame logic:
+  //   resolved          → grey  ("decided, here for reference")
+  //   pending conflict  → orange ("decide me — true 3-way conflict")
+  //   pending non-conf  → blue   ("informational, auto-mergeable")
+  // Keeping the result-pane and source-pane treatments aligned so
+  // the user reads the same color story across all three editors.
+  const variant = args.resolved
+    ? ' oh-merge__action-zone-resolved'
+    : args.isTrueConflict
+      ? '' // base class is already orange
+      : ' oh-merge__action-zone-clean';
+  root.className = `oh-merge__action-zone${variant} oh-merge__action-zone-status`;
   wrapper.appendChild(root);
 
   const eatMouseDown = (e: Event) => e.stopPropagation();
@@ -456,6 +530,10 @@ function buildStatusDom(args: {
 }
 
 export function useResultStatusZones(args: UseResultStatusZonesArgs): void {
+  // Two zones possible per hunk: ${hunkId}:status (always) +
+  // ${hunkId}:missing (only when the result region is zero-extent —
+  // pre-acceptance pure additions). Composite key keeps both
+  // independently addressable across re-renders.
   const zoneIdsRef = useRef<Map<string, string>>(new Map());
   const frameDecorationsRef = useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
 
@@ -479,25 +557,34 @@ export function useResultStatusZones(args: UseResultStatusZonesArgs): void {
       return;
     }
 
-    const liveIds = new Set(args.hunks.map((h) => h.id));
+    const liveKeys = new Set<string>();
+    for (const h of args.hunks) {
+      liveKeys.add(`${h.id}:status`);
+      liveKeys.add(`${h.id}:missing`);
+    }
     const lineCount = model.getLineCount();
     const frameDecos: monaco.editor.IModelDeltaDecoration[] = [];
 
     editor.changeViewZones((accessor) => {
-      for (const [hunkId, zoneId] of zoneIds) {
-        if (!liveIds.has(hunkId)) {
+      for (const [key, zoneId] of zoneIds) {
+        if (!liveKeys.has(key)) {
           accessor.removeZone(zoneId);
-          zoneIds.delete(hunkId);
+          zoneIds.delete(key);
         }
       }
 
       for (const h of args.hunks) {
-        const existing = zoneIds.get(h.id);
         const state = args.controller.get(h.id);
         const status = statusLabelFor(state);
-        if (existing) {
-          accessor.removeZone(existing);
-          zoneIds.delete(h.id);
+        // Always-rebuild approach: drop both possible zones for this
+        // hunk and re-add according to current state.
+        for (const slot of ['status', 'missing'] as const) {
+          const key = `${h.id}:${slot}`;
+          const existing = zoneIds.get(key);
+          if (existing) {
+            accessor.removeZone(existing);
+            zoneIds.delete(key);
+          }
         }
         if (status === null) continue;
         // Position via the sticky tracked range so the zone follows
@@ -508,22 +595,86 @@ export function useResultStatusZones(args: UseResultStatusZonesArgs): void {
         const endLineExclusive = live ? live.endLineNumber + 1 : h.mineRange.endLine;
         if (startLine < 1 || startLine > lineCount + 1) continue;
         const resolved = isResolvedHunk(state);
-        const dom = buildStatusDom({ hunkId: h.id, status, controller: args.controller, resolved });
-        const zoneId = accessor.addZone({
+        const isTrueConflict = args.trueConflictIds?.has(h.id) ?? false;
+
+        // Status zone first (anchored at startLine - 1) so it lands
+        // ABOVE the missing-side placeholder when both are emitted.
+        // Monaco stacks zones at the same afterLineNumber in
+        // insertion order; status-then-missing reads as label-on-top
+        // of the hashed rectangle, matching the source panes.
+        const dom = buildStatusDom({
+          hunkId: h.id,
+          status,
+          controller: args.controller,
+          resolved,
+          isTrueConflict,
+        });
+        const statusZoneId = accessor.addZone({
           afterLineNumber: startLine - 1,
           heightInLines: 1,
           domNode: dom,
         } satisfies monaco.editor.IViewZone);
-        zoneIds.set(h.id, zoneId);
+        zoneIds.set(`${h.id}:status`, statusZoneId);
+
+        // Result-pane parity for empty-extent hunks. When the result
+        // has zero lines for this hunk (pre-acceptance pure addition,
+        // or both-dismissed pure addition), emit a missing-side
+        // placeholder so result row count matches the source panes
+        // (which show the populated side's N content lines or their
+        // own missing-side placeholder of N rows). Without this, the
+        // result pane is N rows shorter than theirs/mine for the
+        // hunk, breaking line-by-line alignment across all 3 panes.
+        //
+        // Insertion-point detection mirrors useHunkTrackedRanges'
+        // encoding: tracked decoration with endColumn === 1 + same
+        // line + startColumn === 1 marks an insertion point (zero
+        // content). Without this check, `endLineExclusive > startLine`
+        // is always true (because endLineExclusive = endLineNumber + 1)
+        // and the per-line frame would erroneously wrap the line
+        // BELOW the hunk (e.g. `responseHeaders: []` on a pre-accept
+        // pure-addition).
+        const isInsertionPoint =
+          live !== null &&
+          live.startLineNumber === live.endLineNumber &&
+          live.startColumn === 1 &&
+          live.endColumn === 1;
+        const hasContentInResult = !isInsertionPoint && endLineExclusive > startLine;
+        if (!hasContentInResult) {
+          // Pre-acceptance / both-dismissed pure-addition: theirs has
+          // N lines, mine has 0, result has 0. Pad result with N rows.
+          // Pure-removals never hit this branch — result starts as
+          // mine which still has the to-be-removed content.
+          const otherLineCount = Math.max(h.theirsLines.length, h.mineLines.length);
+          if (otherLineCount > 0) {
+            // No label inside the hashed body — the result pane's
+            // status zone above ("No Changes Accepted" / "Incoming" /
+            // etc.) already serves as the header for this rectangle.
+            const placeholderDom = buildPlaceholderDom('missing-side');
+            const missingZoneId = accessor.addZone({
+              afterLineNumber: startLine - 1,
+              heightInLines: otherLineCount,
+              domNode: placeholderDom,
+            } satisfies monaco.editor.IViewZone);
+            zoneIds.set(`${h.id}:missing`, missingZoneId);
+          }
+        }
 
         // Frame around the status row + hunk content. Color matches
-        // the status zone DOM: orange when active, grey when fully
-        // resolved (matches the source panes' frame coloring).
+        // the status zone DOM via the same FRAME_CLASS table the
+        // source panes use: orange (true conflict pending), blue
+        // (clean pending), grey (resolved). Skipped for empty-extent
+        // hunks — the missing-side placeholder is already a self-
+        // contained bordered rectangle (grey ghost), so adding a
+        // per-line frame would double-draw on the wrong color.
+        if (!hasContentInResult) continue;
         const lastLineInclusive = Math.min(endLineExclusive - 1, lineCount);
-        const sideClass = resolved ? 'oh-merge__action-zone-frame-resolved' : 'oh-merge__action-zone-frame';
-        const lastClass = resolved
-          ? 'oh-merge__action-zone-frame-resolved-last'
-          : 'oh-merge__action-zone-frame-last';
+        const frameState: FrameState = resolved
+          ? 'resolved'
+          : isTrueConflict
+            ? 'pending-conflict'
+            : 'pending-clean';
+        const sideClass = FRAME_CLASS[frameState];
+        const lastClass = FRAME_CLASS_LAST[frameState];
         for (let line = startLine; line <= lastLineInclusive; line++) {
           frameDecos.push({
             range: {
@@ -560,7 +711,15 @@ export function useResultStatusZones(args: UseResultStatusZonesArgs): void {
         frameDecorationsRef.current = null;
       }
     };
-  }, [args.resultRef, args.trackedRangesRef, args.hunks, args.controller, args.stateRev, args.enabled]);
+  }, [
+    args.resultRef,
+    args.trackedRangesRef,
+    args.hunks,
+    args.controller,
+    args.stateRev,
+    args.enabled,
+    args.trueConflictIds,
+  ]);
 }
 
 // ── Hashed diagonal alignment placeholders ──────────────────────────
@@ -601,7 +760,9 @@ export interface UseHunkAlignmentPlaceholdersArgs {
 interface PlaceholderPlan {
   /** Lines BEFORE the source content (action-zone slot — hidden
    *  when this side is decided but other panes still render zones,
-   *  so we need a placeholder to maintain row-by-row alignment). */
+   *  so we need a placeholder to maintain row-by-row alignment).
+   *  Doubles as the header strip for the missing-side rectangle
+   *  below it when `missingLines > 0`. */
   beforeLines: number;
   /** Lines AFTER the source content (stacked-content slot — when
    *  both sides accepted, the result has N + M lines; this side has
@@ -611,6 +772,24 @@ interface PlaceholderPlan {
    *  mine's in the result stack — line-number parity is the goal,
    *  not a per-line semantic mapping. */
   afterLines: number;
+  /** Lines REPLACING absent content (missing-side slot — pure add /
+   *  pure remove hunks have zero lines on one source side, but the
+   *  other side / result still render N lines for the divergence.
+   *  This placeholder fills those N rows on the empty side so all
+   *  three panes line up + visually communicates "content lives on
+   *  the other side, not here." Self-contained bordered rectangle
+   *  in grey (no per-line frame decorations possible — there are
+   *  no model lines to attach them to). */
+  missingLines: number;
+  /** Label rendered in the action-slot strip above a missing-side
+   *  rectangle ("Only in Incoming" / "Only in Current"). Set only
+   *  when this is a missing-side scenario; consumed by the action-
+   *  slot placeholder DOM as its caption. The action-slot already
+   *  renders 1 line tall directly above the hashed body, so it acts
+   *  as a natural header — putting the label there keeps it on a
+   *  solid grey background instead of fighting with the hash
+   *  pattern below. */
+  missingLabel?: string;
 }
 
 /**
@@ -642,6 +821,11 @@ function placeholderPlanFor(
   const M = hunk.mineLines.length;
   const tA = state.theirs === 'accepted';
   const mA = state.mine === 'accepted';
+  const thisLineCount = side === 'theirs' ? N : M;
+  const otherLineCount = side === 'theirs' ? M : N;
+  const isEmptyOnThisSide = thisLineCount === 0 && otherLineCount > 0;
+  // Cached so we only build the label string once per plan.
+  const emptySideLabel = isEmptyOnThisSide ? missingSideLabel(hunk) : undefined;
 
   const thisSidePending = side === 'theirs' ? state.theirs === 'pending' : state.mine === 'pending';
   // Mine zone only renders when has3Panes — in 2-pane fallback it's
@@ -652,24 +836,44 @@ function placeholderPlanFor(
       ? state.mine === 'pending' && has3Panes
       : state.theirs === 'pending';
   const resultStatusVisible = statusLabelFor(state) !== null;
+  // Action zone on THIS side hides on empty-extent hunks (the user
+  // can decide from the populated side or from the result status
+  // zone). So even when state is "pending", an empty-side hunk is
+  // treated as if it has no zone here for alignment purposes — the
+  // missing-side placeholder needs an action-slot row above it to
+  // match the other panes' action zone height.
+  const thisZoneRenders = thisSidePending && !isEmptyOnThisSide;
 
-  const beforeLines = !thisSidePending && (otherZonePending || resultStatusVisible) ? 1 : 0;
+  // Force the action-slot row to render whenever this side is empty:
+  // it becomes the visual HEADER for the missing-side rectangle below
+  // (carries the "Only in …" label on a solid grey backdrop, instead
+  // of letting the label fight with the hashed pattern). Outside the
+  // missing-side case, render the action-slot only when alignment
+  // requires it.
+  const beforeLines = isEmptyOnThisSide || (!thisZoneRenders && (otherZonePending || resultStatusVisible)) ? 1 : 0;
+
+  // Missing-side slot — pure add / pure remove on this side. Renders
+  // N hashed rows where N = the OTHER side's content line count, so
+  // all panes line up row-by-row + the empty side keeps a visible
+  // bordered rectangle that survives auto-resolve.
+  const missingLines = isEmptyOnThisSide ? otherLineCount : 0;
 
   // Stacked-content slot: both accepted → result has N + M lines,
   // this side has its own line count, the rest is the other side's
-  // content rendered as a placeholder.
+  // content rendered as a placeholder. Mutually exclusive with
+  // missing-side (empty-side hunks have nothing to stack onto).
   let afterLines = 0;
-  if (tA && mA) {
+  if (!isEmptyOnThisSide && tA && mA) {
     afterLines = side === 'theirs' ? M : N;
   }
 
-  if (beforeLines === 0 && afterLines === 0) return null;
-  return { beforeLines, afterLines };
+  if (beforeLines === 0 && afterLines === 0 && missingLines === 0) return null;
+  return { beforeLines, afterLines, missingLines, missingLabel: emptySideLabel };
 }
 
-type PlaceholderKind = 'action-slot' | 'stacked-content';
+type PlaceholderKind = 'action-slot' | 'stacked-content' | 'missing-side';
 
-function buildPlaceholderDom(kind: PlaceholderKind): HTMLElement {
+function buildPlaceholderDom(kind: PlaceholderKind, label?: string): HTMLElement {
   // Same wrapper trick as the action / status zones: outer reserves
   // scrollbar space; inner takes the borders. Stacked-content kind
   // doesn't have borders but uses the same wrapper for layout
@@ -680,13 +884,36 @@ function buildPlaceholderDom(kind: PlaceholderKind): HTMLElement {
   wrapper.className = 'oh-merge__action-zone-wrapper';
   const root = document.createElement('div');
   root.className = `oh-merge__alignment-placeholder oh-merge__alignment-placeholder-${kind}`;
+  if (label) {
+    // Inline label so the user reads what the hashed rectangle
+    // means without guessing. Side-aware copy comes from the caller.
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'oh-merge__placeholder-label';
+    labelSpan.textContent = label;
+    root.appendChild(labelSpan);
+  }
   wrapper.appendChild(root);
   return wrapper;
 }
 
+/**
+ * Caption for a missing-side placeholder. Panel-focused: the user
+ * already knows which pane they're in, so the caption names what's
+ * happening RIGHT HERE ("No content here") instead of describing
+ * the other pane ("Only in Incoming/Current"). Same string for both
+ * sides — the per-pane interpretation is implicit from the user's
+ * vantage point. Kept as a function so future callers can branch
+ * on hunk shape if a need arises.
+ */
+function missingSideLabel(_hunk: Hunk): string {
+  return 'No content here';
+}
+
 export function useHunkAlignmentPlaceholders(args: UseHunkAlignmentPlaceholdersArgs & { has3Panes: boolean }): void {
-  // Two zones possible per hunk per side: before (action-slot) + after
-  // (stacked-content). Composite key `${hunkId}:before` / `${hunkId}:after`.
+  // Up to three zones possible per hunk per side:
+  //   ${hunkId}:before   — action-slot (above content, decided + others active)
+  //   ${hunkId}:after    — stacked-content (below content, both-accepted parity)
+  //   ${hunkId}:missing  — missing-side (replaces absent content for pure add/remove)
   const zoneIdsRef = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
@@ -709,6 +936,7 @@ export function useHunkAlignmentPlaceholders(args: UseHunkAlignmentPlaceholdersA
     for (const h of args.hunks) {
       liveKeys.add(`${h.id}:before`);
       liveKeys.add(`${h.id}:after`);
+      liveKeys.add(`${h.id}:missing`);
     }
 
     editor.changeViewZones((accessor) => {
@@ -725,7 +953,7 @@ export function useHunkAlignmentPlaceholders(args: UseHunkAlignmentPlaceholdersA
         // Always-rebuild approach: drop existing zones for this hunk
         // and re-add according to the current plan. Cheaper than
         // diffing per-region; view zones are lightweight.
-        for (const slot of ['before', 'after'] as const) {
+        for (const slot of ['before', 'after', 'missing'] as const) {
           const key = `${h.id}:${slot}`;
           const existing = zoneIds.get(key);
           if (existing) {
@@ -738,7 +966,11 @@ export function useHunkAlignmentPlaceholders(args: UseHunkAlignmentPlaceholdersA
         const startLine = range.startLine;
         const endLineExclusive = range.endLine;
         if (plan.beforeLines > 0) {
-          const dom = buildPlaceholderDom('action-slot');
+          // For missing-side hunks the action-slot doubles as the
+          // header row — carry the "Only in …" label here so it
+          // sits on the solid grey strip directly above the hashed
+          // body, instead of overlapping the hash pattern.
+          const dom = buildPlaceholderDom('action-slot', plan.missingLabel);
           const zoneId = accessor.addZone({
             afterLineNumber: Math.max(0, startLine - 1),
             heightInLines: plan.beforeLines,
@@ -758,6 +990,24 @@ export function useHunkAlignmentPlaceholders(args: UseHunkAlignmentPlaceholdersA
             domNode: dom,
           } satisfies monaco.editor.IViewZone);
           zoneIds.set(`${h.id}:after`, zoneId);
+        }
+        if (plan.missingLines > 0) {
+          // Anchor at the insertion point on this side. For pure
+          // additions (theirs added X-C, mine has nothing): mineRange
+          // is zero-extent at the insertion line in mine pane, so
+          // afterLineNumber lands the placeholder right where the
+          // content WOULD have been. The action zone for this hunk
+          // (if pending) renders at the same anchor; Monaco zones at
+          // the same afterLineNumber stack in insertion order.
+          // No label here — it lives in the action-slot strip above
+          // (the hashed body would otherwise compete with the text).
+          const dom = buildPlaceholderDom('missing-side');
+          const zoneId = accessor.addZone({
+            afterLineNumber: Math.max(0, startLine - 1),
+            heightInLines: plan.missingLines,
+            domNode: dom,
+          } satisfies monaco.editor.IViewZone);
+          zoneIds.set(`${h.id}:missing`, zoneId);
         }
       }
     });
