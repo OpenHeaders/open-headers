@@ -45,7 +45,7 @@ export const STATUS_TAG_WIDTH = 92;
  * hook (workspace) or the `#/docs/...` hash route (popup/sidepanel)
  * when the user clicks the popover's (i) button.
  */
-export const STATUS_DOCS_SECTION_ID = 'doc-system-status';
+export const STATUS_DOCS_SECTION_ID = 'system-status';
 
 export type StatusPillDensity = 'row' | 'full' | 'compact';
 

@@ -17,22 +17,9 @@
  * `isRuleComplete` so it can never leave stale DNR rules behind.
  */
 
-import {
-  CloseOutlined,
-  HolderOutlined,
-  InfoCircleOutlined,
-  PlusOutlined,
-  WarningOutlined,
-} from '@ant-design/icons';
+import { CloseOutlined, HolderOutlined, InfoCircleOutlined, PlusOutlined, WarningOutlined } from '@ant-design/icons';
 import type { DragEndEvent } from '@dnd-kit/core';
-import {
-  closestCenter,
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core';
+import { closestCenter, DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import {
   SortableContext,
   sortableKeyboardCoordinates,
@@ -44,15 +31,10 @@ import type { HeaderDirection } from '@openheaders/core/utils';
 import { generateUid, getHeaderOperationCapability } from '@openheaders/core/utils';
 import { Alert, Button, Form, Input, Select, Tabs, Tooltip, Typography } from 'antd';
 import type React from 'react';
-import {
-  EntityField,
-  TabPresenceBadge,
-  useActionPaths,
-  useEntityScope,
-} from '@/shared/awareness';
+import { EntityField, TabPresenceBadge, useActionPaths, useEntityScope } from '@/shared/awareness';
 import { FieldConflictChip, SetRowChip } from '@/shared/conflicts/Field';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
-import { getDocId } from '../InspectorDocs';
+import { getDocId } from '../docs/doc-ids';
 import { TemplateInput } from '../template-input';
 
 const { Text } = Typography;
@@ -108,159 +90,171 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId }: Modif
         };
         const rowIds = fields.map((f) => f.key);
         return (
-        <>
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={rowIds} strategy={verticalListSortingStrategy}>
-          {fields.map((field) => {
-            const rowUid = rowUidAt(field.name);
-            // `wrap` short-circuits to the children directly when the
-            // row's persisted uid hasn't propagated through the form
-            // yet (one-tick race during a fresh `add()`). The fallback
-            // means the input still renders; presence chips light up
-            // on the next tick once the hidden uid binding flushes.
-            const wrap = (leaf: 'headerName' | 'value' | 'operation' | 'mergeSeparator', child: React.ReactNode) =>
-              rowUid ? <EntityField path={paths.headerMod(direction, rowUid, leaf)}>{child}</EntityField> : child;
-            return (
-            <SortableHeaderRow key={field.key} id={field.key}>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                {/* Hidden uid binding — preserves the row's persisted
-                 *  identity through `getFieldsValue` so reorders /
-                 *  edits don't churn itemIds on every save. Without
-                 *  this, antd Form.List drops unbound subkeys from
-                 *  its output, and the per-itemId LWW path on the
-                 *  oracle treats every save as "remove+add" instead
-                 *  of in-place edit. The schema-required `uid` is
-                 *  also re-injected at the persist boundary
-                 *  (`synthesizeSetDiff`) for defense in depth — that
-                 *  catches any future editor that ships without this
-                 *  hidden binding. */}
-                <Form.Item {...field} name={[field.name, 'uid']} hidden noStyle>
-                  <input type="hidden" />
-                </Form.Item>
-                {wrap(
-                  'operation',
-                  <Form.Item
-                    {...field}
-                    name={[field.name, 'operation']}
-                    style={{ marginBottom: 0, width: 125, flexShrink: 0 }}
-                  >
-                    <Select size="small" options={OPERATIONS} />
-                  </Form.Item>,
-                )}
-                <Form.Item
-                  noStyle
-                  shouldUpdate={(prev, cur) =>
-                    prev[name]?.[field.name]?.operation !== cur[name]?.[field.name]?.operation
-                  }
-                >
-                  {({ getFieldValue }) => {
-                    const op = (getFieldValue([name, field.name, 'operation']) as HeaderOp | undefined) ?? 'override';
-                    return (
-                      <InfoCircleOutlined
-                        style={{
-                          fontSize: 10,
-                          color: 'var(--ant-color-text-quaternary)',
-                          cursor: 'pointer',
-                          flexShrink: 0,
-                        }}
-                        onClick={() => openDocsInline(getDocId(op, 'action'))}
-                      />
-                    );
-                  }}
-                </Form.Item>
-                <Form.Item
-                  noStyle
-                  shouldUpdate={(prev, cur) =>
-                    prev[name]?.[field.name]?.operation !== cur[name]?.[field.name]?.operation ||
-                    prev[name]?.[field.name]?.headerName !== cur[name]?.[field.name]?.headerName
-                  }
-                >
-                  {({ getFieldValue }) => {
-                    const op = (getFieldValue([name, field.name, 'operation']) as HeaderOp | undefined) ?? 'override';
-                    const headerName = (getFieldValue([name, field.name, 'headerName']) as string | undefined) ?? '';
-                    const capability = getHeaderOperationCapability(direction, op, headerName);
-                    const showWarning = !capability.allowed;
-                    // Header name uses TemplateInput (same as the value
-                    // field) so `{{var}}` segments render as pills and
-                    // get the variable-suggestion popover. Standard
-                    // header-name autocomplete (Authorization, etc.)
-                    // is dropped — having two competing popovers on
-                    // the same input was the worse UX, and template
-                    // support for header names is the more frequently
-                    // useful primitive.
-                    return wrap(
-                      'headerName',
-                      <Form.Item
-                        {...field}
-                        name={[field.name, 'headerName']}
-                        style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
-                        validateStatus={showWarning ? 'warning' : undefined}
-                      >
-                        <TemplateInput size="small" placeholder="Header Name" />
-                      </Form.Item>,
-                    );
-                  }}
-                </Form.Item>
-                <Form.Item
-                  noStyle
-                  shouldUpdate={(prev, cur) => {
-                    const prevOp = prev[name]?.[field.name]?.operation;
-                    const curOp = cur[name]?.[field.name]?.operation;
-                    return prevOp !== curOp;
-                  }}
-                >
-                  {({ getFieldValue }) => {
-                    const op = getFieldValue([name, field.name, 'operation']);
-                    if (op === 'remove') return null;
-                    if (op === 'merge') {
-                      return (
-                        <>
-                          <Input
-                            size="small"
-                            disabled
-                            value="existing value"
-                            style={{ marginBottom: 0, width: 105, flexShrink: 0, fontStyle: 'italic', opacity: 0.5 }}
-                          />
-                          {wrap(
-                            'mergeSeparator',
-                            <Form.Item
-                              {...field}
-                              name={[field.name, 'mergeSeparator']}
-                              style={{ marginBottom: 0, width: 50, flexShrink: 0 }}
-                            >
-                              <Input
-                                size="small"
-                                placeholder="; "
-                                style={{ textAlign: 'center', fontFamily: 'monospace' }}
+          <>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={rowIds} strategy={verticalListSortingStrategy}>
+                {fields.map((field) => {
+                  const rowUid = rowUidAt(field.name);
+                  // `wrap` short-circuits to the children directly when the
+                  // row's persisted uid hasn't propagated through the form
+                  // yet (one-tick race during a fresh `add()`). The fallback
+                  // means the input still renders; presence chips light up
+                  // on the next tick once the hidden uid binding flushes.
+                  const wrap = (
+                    leaf: 'headerName' | 'value' | 'operation' | 'mergeSeparator',
+                    child: React.ReactNode,
+                  ) =>
+                    rowUid ? <EntityField path={paths.headerMod(direction, rowUid, leaf)}>{child}</EntityField> : child;
+                  return (
+                    <SortableHeaderRow key={field.key} id={field.key}>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        {/* Hidden uid binding — preserves the row's persisted
+                         *  identity through `getFieldsValue` so reorders /
+                         *  edits don't churn itemIds on every save. Without
+                         *  this, antd Form.List drops unbound subkeys from
+                         *  its output, and the per-itemId LWW path on the
+                         *  oracle treats every save as "remove+add" instead
+                         *  of in-place edit. The schema-required `uid` is
+                         *  also re-injected at the persist boundary
+                         *  (`synthesizeSetDiff`) for defense in depth — that
+                         *  catches any future editor that ships without this
+                         *  hidden binding. */}
+                        <Form.Item {...field} name={[field.name, 'uid']} hidden noStyle>
+                          <input type="hidden" />
+                        </Form.Item>
+                        {wrap(
+                          'operation',
+                          <Form.Item
+                            {...field}
+                            name={[field.name, 'operation']}
+                            style={{ marginBottom: 0, width: 125, flexShrink: 0 }}
+                          >
+                            <Select size="small" options={OPERATIONS} />
+                          </Form.Item>,
+                        )}
+                        <Form.Item
+                          noStyle
+                          shouldUpdate={(prev, cur) =>
+                            prev[name]?.[field.name]?.operation !== cur[name]?.[field.name]?.operation
+                          }
+                        >
+                          {({ getFieldValue }) => {
+                            const op =
+                              (getFieldValue([name, field.name, 'operation']) as HeaderOp | undefined) ?? 'override';
+                            return (
+                              <InfoCircleOutlined
+                                style={{
+                                  fontSize: 10,
+                                  color: 'var(--ant-color-text-quaternary)',
+                                  cursor: 'pointer',
+                                  flexShrink: 0,
+                                }}
+                                onClick={() => openDocsInline(getDocId(op, 'action'))}
                               />
-                            </Form.Item>,
-                          )}
-                          {wrap(
-                            'value',
-                            <Form.Item
-                              {...field}
-                              name={[field.name, 'value']}
-                              style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
-                            >
-                              <TemplateInput size="small" placeholder="Value to append" />
-                            </Form.Item>,
-                          )}
-                        </>
-                      );
-                    }
-                    return wrap(
-                      'value',
-                      <Form.Item
-                        {...field}
-                        name={[field.name, 'value']}
-                        style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
-                      >
-                        <TemplateInput size="small" placeholder="Header Value" />
-                      </Form.Item>,
-                    );
-                  }}
-                </Form.Item>
-                {/* Per-row + per-leaf conflict affordances — replaced the
+                            );
+                          }}
+                        </Form.Item>
+                        <Form.Item
+                          noStyle
+                          shouldUpdate={(prev, cur) =>
+                            prev[name]?.[field.name]?.operation !== cur[name]?.[field.name]?.operation ||
+                            prev[name]?.[field.name]?.headerName !== cur[name]?.[field.name]?.headerName
+                          }
+                        >
+                          {({ getFieldValue }) => {
+                            const op =
+                              (getFieldValue([name, field.name, 'operation']) as HeaderOp | undefined) ?? 'override';
+                            const headerName =
+                              (getFieldValue([name, field.name, 'headerName']) as string | undefined) ?? '';
+                            const capability = getHeaderOperationCapability(direction, op, headerName);
+                            const showWarning = !capability.allowed;
+                            // Header name uses TemplateInput (same as the value
+                            // field) so `{{var}}` segments render as pills and
+                            // get the variable-suggestion popover. Standard
+                            // header-name autocomplete (Authorization, etc.)
+                            // is dropped — having two competing popovers on
+                            // the same input was the worse UX, and template
+                            // support for header names is the more frequently
+                            // useful primitive.
+                            return wrap(
+                              'headerName',
+                              <Form.Item
+                                {...field}
+                                name={[field.name, 'headerName']}
+                                style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
+                                validateStatus={showWarning ? 'warning' : undefined}
+                              >
+                                <TemplateInput size="small" placeholder="Header Name" />
+                              </Form.Item>,
+                            );
+                          }}
+                        </Form.Item>
+                        <Form.Item
+                          noStyle
+                          shouldUpdate={(prev, cur) => {
+                            const prevOp = prev[name]?.[field.name]?.operation;
+                            const curOp = cur[name]?.[field.name]?.operation;
+                            return prevOp !== curOp;
+                          }}
+                        >
+                          {({ getFieldValue }) => {
+                            const op = getFieldValue([name, field.name, 'operation']);
+                            if (op === 'remove') return null;
+                            if (op === 'merge') {
+                              return (
+                                <>
+                                  <Input
+                                    size="small"
+                                    disabled
+                                    value="existing value"
+                                    style={{
+                                      marginBottom: 0,
+                                      width: 105,
+                                      flexShrink: 0,
+                                      fontStyle: 'italic',
+                                      opacity: 0.5,
+                                    }}
+                                  />
+                                  {wrap(
+                                    'mergeSeparator',
+                                    <Form.Item
+                                      {...field}
+                                      name={[field.name, 'mergeSeparator']}
+                                      style={{ marginBottom: 0, width: 50, flexShrink: 0 }}
+                                    >
+                                      <Input
+                                        size="small"
+                                        placeholder="; "
+                                        style={{ textAlign: 'center', fontFamily: 'monospace' }}
+                                      />
+                                    </Form.Item>,
+                                  )}
+                                  {wrap(
+                                    'value',
+                                    <Form.Item
+                                      {...field}
+                                      name={[field.name, 'value']}
+                                      style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
+                                    >
+                                      <TemplateInput size="small" placeholder="Value to append" />
+                                    </Form.Item>,
+                                  )}
+                                </>
+                              );
+                            }
+                            return wrap(
+                              'value',
+                              <Form.Item
+                                {...field}
+                                name={[field.name, 'value']}
+                                style={{ marginBottom: 0, flex: 1, minWidth: 0 }}
+                              >
+                                <TemplateInput size="small" placeholder="Header Value" />
+                              </Form.Item>,
+                            );
+                          }}
+                        </Form.Item>
+                        {/* Per-row + per-leaf conflict affordances — replaced the
                     legacy inline shouldUpdate-Form.Item-ConflictDiffChip
                     plumbing with the field-tree primitive. `<SetRowChip>`
                     surfaces "saved version removed this row";
@@ -268,138 +262,143 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId }: Modif
                     free-text leaves only (operation + mergeSeparator are
                     short typed scalars where a banner-style "they changed
                     it" doesn't add value beyond presence). */}
-                {ruleUid && rowUid && (
-                  <SetRowChip
-                    setPath={paths.headerSet(direction)}
-                    uid={rowUid}
-                    formContainsUid={true}
-                    onUseSaved={() => remove(field.name)}
-                  />
-                )}
-                {ruleUid && rowUid && (
-                  <>
-                    <FieldConflictChip
-                      path={paths.headerMod(direction, rowUid, 'headerName')}
-                      formName={[name, field.name, 'headerName']}
-                    />
-                    <FieldConflictChip
-                      path={paths.headerMod(direction, rowUid, 'operation')}
-                      formName={[name, field.name, 'operation']}
-                    />
-                    {/* `value` and `mergeSeparator` are operation-conditional —
+                        {ruleUid && rowUid && (
+                          <SetRowChip
+                            setPath={paths.headerSet(direction)}
+                            uid={rowUid}
+                            formContainsUid={true}
+                            onUseSaved={() => remove(field.name)}
+                          />
+                        )}
+                        {ruleUid && rowUid && (
+                          <>
+                            <FieldConflictChip
+                              path={paths.headerMod(direction, rowUid, 'headerName')}
+                              formName={[name, field.name, 'headerName']}
+                            />
+                            <FieldConflictChip
+                              path={paths.headerMod(direction, rowUid, 'operation')}
+                              formName={[name, field.name, 'operation']}
+                            />
+                            {/* `value` and `mergeSeparator` are operation-conditional —
                         the inputs hide for op='remove' / non-'merge' so the
                         chips would otherwise sit next to a column that's
                         not visible. shouldUpdate gates each chip on the
                         operation it belongs to. */}
-                    <Form.Item
-                      noStyle
-                      shouldUpdate={(prev, cur) =>
-                        prev[name]?.[field.name]?.operation !== cur[name]?.[field.name]?.operation
-                      }
-                    >
-                      {({ getFieldValue }) => {
-                        const op =
-                          (getFieldValue([name, field.name, 'operation']) as HeaderOp | undefined) ?? 'override';
-                        return op === 'remove' ? null : (
-                          <FieldConflictChip
-                            path={paths.headerMod(direction, rowUid, 'value')}
-                            formName={[name, field.name, 'value']}
-                          />
-                        );
-                      }}
-                    </Form.Item>
-                    <Form.Item
-                      noStyle
-                      shouldUpdate={(prev, cur) =>
-                        prev[name]?.[field.name]?.operation !== cur[name]?.[field.name]?.operation
-                      }
-                    >
-                      {({ getFieldValue }) => {
-                        const op =
-                          (getFieldValue([name, field.name, 'operation']) as HeaderOp | undefined) ?? 'override';
-                        return op === 'merge' ? (
-                          <FieldConflictChip
-                            path={paths.headerMod(direction, rowUid, 'mergeSeparator')}
-                            formName={[name, field.name, 'mergeSeparator']}
-                          />
-                        ) : null;
-                      }}
-                    </Form.Item>
-                  </>
-                )}
-                <Button
-                  type="text"
-                  size="small"
-                  icon={<CloseOutlined style={{ fontSize: 10 }} />}
-                  onClick={() => remove(field.name)}
-                  style={{ color: 'var(--ant-color-text-tertiary)', flexShrink: 0 }}
-                />
-              </div>
-              {/* Inline capability warning — separate row so long reasons wrap cleanly. */}
-              <Form.Item
-                noStyle
-                shouldUpdate={(prev, cur) =>
-                  prev[name]?.[field.name]?.operation !== cur[name]?.[field.name]?.operation ||
-                  prev[name]?.[field.name]?.headerName !== cur[name]?.[field.name]?.headerName
-                }
-              >
-                {({ getFieldValue }) => {
-                  const op = (getFieldValue([name, field.name, 'operation']) as HeaderOp | undefined) ?? 'override';
-                  const headerName = (getFieldValue([name, field.name, 'headerName']) as string | undefined) ?? '';
-                  const capability = getHeaderOperationCapability(direction, op, headerName);
-                  if (capability.allowed) return null;
-                  const switchToSuggested = () => {
-                    if (!capability.suggestion) return;
-                    form.setFieldValue([name, field.name, 'operation'], capability.suggestion);
-                  };
-                  return (
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 6,
-                        marginLeft: 147,
-                        marginTop: 2,
-                        fontSize: 11,
-                        color: 'var(--ant-color-warning)',
-                        lineHeight: 1.4,
-                      }}
-                    >
-                      <WarningOutlined style={{ fontSize: 11, marginTop: 2 }} />
-                      <span style={{ flex: 1 }}>
-                        {capability.reason}
-                        {capability.suggestion && (
-                          <>
-                            {' '}
-                            <Button
-                              type="link"
-                              size="small"
-                              onClick={switchToSuggested}
-                              style={{ padding: 0, height: 'auto', fontSize: 11 }}
+                            <Form.Item
+                              noStyle
+                              shouldUpdate={(prev, cur) =>
+                                prev[name]?.[field.name]?.operation !== cur[name]?.[field.name]?.operation
+                              }
                             >
-                              Switch to {capability.suggestion === 'override' ? 'Add / Replace' : capability.suggestion}
-                            </Button>
+                              {({ getFieldValue }) => {
+                                const op =
+                                  (getFieldValue([name, field.name, 'operation']) as HeaderOp | undefined) ??
+                                  'override';
+                                return op === 'remove' ? null : (
+                                  <FieldConflictChip
+                                    path={paths.headerMod(direction, rowUid, 'value')}
+                                    formName={[name, field.name, 'value']}
+                                  />
+                                );
+                              }}
+                            </Form.Item>
+                            <Form.Item
+                              noStyle
+                              shouldUpdate={(prev, cur) =>
+                                prev[name]?.[field.name]?.operation !== cur[name]?.[field.name]?.operation
+                              }
+                            >
+                              {({ getFieldValue }) => {
+                                const op =
+                                  (getFieldValue([name, field.name, 'operation']) as HeaderOp | undefined) ??
+                                  'override';
+                                return op === 'merge' ? (
+                                  <FieldConflictChip
+                                    path={paths.headerMod(direction, rowUid, 'mergeSeparator')}
+                                    formName={[name, field.name, 'mergeSeparator']}
+                                  />
+                                ) : null;
+                              }}
+                            </Form.Item>
                           </>
                         )}
-                      </span>
-                    </div>
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<CloseOutlined style={{ fontSize: 10 }} />}
+                          onClick={() => remove(field.name)}
+                          style={{ color: 'var(--ant-color-text-tertiary)', flexShrink: 0 }}
+                        />
+                      </div>
+                      {/* Inline capability warning — separate row so long reasons wrap cleanly. */}
+                      <Form.Item
+                        noStyle
+                        shouldUpdate={(prev, cur) =>
+                          prev[name]?.[field.name]?.operation !== cur[name]?.[field.name]?.operation ||
+                          prev[name]?.[field.name]?.headerName !== cur[name]?.[field.name]?.headerName
+                        }
+                      >
+                        {({ getFieldValue }) => {
+                          const op =
+                            (getFieldValue([name, field.name, 'operation']) as HeaderOp | undefined) ?? 'override';
+                          const headerName =
+                            (getFieldValue([name, field.name, 'headerName']) as string | undefined) ?? '';
+                          const capability = getHeaderOperationCapability(direction, op, headerName);
+                          if (capability.allowed) return null;
+                          const switchToSuggested = () => {
+                            if (!capability.suggestion) return;
+                            form.setFieldValue([name, field.name, 'operation'], capability.suggestion);
+                          };
+                          return (
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: 6,
+                                marginLeft: 147,
+                                marginTop: 2,
+                                fontSize: 11,
+                                color: 'var(--ant-color-warning)',
+                                lineHeight: 1.4,
+                              }}
+                            >
+                              <WarningOutlined style={{ fontSize: 11, marginTop: 2 }} />
+                              <span style={{ flex: 1 }}>
+                                {capability.reason}
+                                {capability.suggestion && (
+                                  <>
+                                    {' '}
+                                    <Button
+                                      type="link"
+                                      size="small"
+                                      onClick={switchToSuggested}
+                                      style={{ padding: 0, height: 'auto', fontSize: 11 }}
+                                    >
+                                      Switch to{' '}
+                                      {capability.suggestion === 'override' ? 'Add / Replace' : capability.suggestion}
+                                    </Button>
+                                  </>
+                                )}
+                              </span>
+                            </div>
+                          );
+                        }}
+                      </Form.Item>
+                    </SortableHeaderRow>
                   );
-                }}
-              </Form.Item>
-            </SortableHeaderRow>
-            );
-          })}
-            </SortableContext>
-          </DndContext>
-          <Button
-            type="dashed"
-            size="small"
-            icon={<PlusOutlined />}
-            onClick={() => add({ uid: generateUid(), operation: 'override', headerName: '', value: '' })}
-          >
-            Add Action
-          </Button>
-        </>
+                })}
+              </SortableContext>
+            </DndContext>
+            <Button
+              type="dashed"
+              size="small"
+              icon={<PlusOutlined />}
+              onClick={() => add({ uid: generateUid(), operation: 'override', headerName: '', value: '' })}
+            >
+              Add Action
+            </Button>
+          </>
         );
       }}
     </Form.List>
@@ -415,13 +414,7 @@ function ModificationList({ name, direction, ruleUid, excludeInstanceId }: Modif
  * pipeline emits the minimum diff (`moveBefore` per row outside the
  * LIS) via the unified set-diff synthesizer (session 40).
  */
-function SortableHeaderRow({
-  id,
-  children,
-}: {
-  id: string | number;
-  children: React.ReactNode;
-}): React.ReactElement {
+function SortableHeaderRow({ id, children }: { id: string | number; children: React.ReactNode }): React.ReactElement {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style: React.CSSProperties = {
     display: 'flex',
@@ -451,9 +444,7 @@ function SortableHeaderRow({
       >
         <HolderOutlined />
       </span>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>
-        {children}
-      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minWidth: 0 }}>{children}</div>
     </div>
   );
 }
@@ -531,7 +522,7 @@ const HeaderRuleFields: React.FC<HeaderRuleFieldsProps> = ({
         <Tooltip title="Invalid combinations (e.g. Append on a custom header) mark the rule as a draft. Drafts are saved but not executed.">
           <InfoCircleOutlined
             style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-            onClick={() => openDocs('actions')}
+            onClick={() => openDocs('header-actions')}
           />
         </Tooltip>
       </div>

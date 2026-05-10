@@ -11,8 +11,8 @@ import {
   SortAscendingOutlined,
 } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
-import { useRules } from '@hooks/useRules';
 import { useRuleMutator } from '@hooks/useRuleMutator';
+import { useRules } from '@hooks/useRules';
 import { resolvePauseState } from '@openheaders/core/utils';
 import { call, subscribe } from '@utils/bridge';
 import { scheduleFrame } from '@utils/frame-scheduler';
@@ -641,20 +641,23 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
   });
 
   // Register row actions for keyboard navigation
-  const handleToggleRow = useCallback((index: number) => {
-    const record = dataSourceRef.current[index];
-    if (!record) return;
-    const isEnabled = record.isEnabled !== false;
-    setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled: !isEnabled } : r)));
-    void ruleMutator.toggleRule(record.id, !isEnabled).then((resp) => {
-      if (resp.ok) {
-        // Nudge the SW to revalidate tracked requests + rebuild DNR
-        void call('rulesUpdated').catch(() => undefined);
-      } else {
-        setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled } : r)));
-      }
-    });
-  }, [ruleMutator]);
+  const handleToggleRow = useCallback(
+    (index: number) => {
+      const record = dataSourceRef.current[index];
+      if (!record) return;
+      const isEnabled = record.isEnabled !== false;
+      setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled: !isEnabled } : r)));
+      void ruleMutator.toggleRule(record.id, !isEnabled).then((resp) => {
+        if (resp.ok) {
+          // Nudge the SW to revalidate tracked requests + rebuild DNR
+          void call('rulesUpdated').catch(() => undefined);
+        } else {
+          setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled } : r)));
+        }
+      });
+    },
+    [ruleMutator],
+  );
 
   const handleEditRow = useCallback(
     (index: number) => {
@@ -1537,7 +1540,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
               >
                 <InfoCircleOutlined
                   style={{ fontSize: 12, color: 'var(--ant-color-text-tertiary)', cursor: 'pointer' }}
-                  onClick={() => openRulesIntent({ kind: 'open-docs', section: 'doc-request-tracking' })}
+                  onClick={() => openRulesIntent({ kind: 'open-docs', section: 'request-tracking' })}
                 />
               </Tooltip>
             ),
