@@ -15,10 +15,11 @@ export {
   MockFlowDiagram,
 } from './_pending';
 export {
+  MultiTabLocalDiagram,
   MultiTabNavigationDiagram,
   MultiTabNumberingDiagram,
   MultiTabSyncDiagram,
-  MultiTabSyncMatrixDiagram,
+  MultiTabSyncedDiagram,
 } from './multi-tab';
 export {
   ConditionsHostVsOriginDiagram,

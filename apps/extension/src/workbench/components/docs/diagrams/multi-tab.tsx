@@ -16,9 +16,10 @@
  *     workspace-tab-registry: closing #1 while #2/#3 survive does NOT
  *     renumber; the next tab gets #4.
  *
- *   • MultiTabSyncMatrixDiagram — what syncs vs what's tab-local, in
- *     a two-column reach visualization (mirror of the DNR / Script
- *     reach pair).
+ *   • MultiTabSyncedDiagram + MultiTabLocalDiagram — paired view
+ *     of "what syncs" (storage pool with both tabs reading from it)
+ *     vs "what stays" (two visibly-different tab states with a wall
+ *     between them).
  */
 
 import type React from 'react';
@@ -509,236 +510,238 @@ export const MultiTabNumberingDiagram: React.FC = () => {
   );
 };
 
-// ─── What syncs vs what's tab-local ───────────────────────────────
+// ─── What syncs across tabs (shared storage pool) ────────────────
 
 /**
- * Three side-by-side scenarios — each row shows you doing something
- * in Tab #1 and what Tab #2 sees right after. The point is concrete:
- * which actions cross the gap, which don't. Saving a rule reaches
- * Tab #2; dragging a splitter or typing an unsaved edit doesn't.
+ * "Shared pool" metaphor: chrome.storage at the top holds every
+ * persisted entity as a pill. Both tabs sit below and read/write
+ * through bidirectional arrows. Visual hook: there's ONE pool, every
+ * tab is a window into it. Save in any tab → ripples to all.
  */
-export const MultiTabSyncMatrixDiagram: React.FC = () => {
-  const ID = 'mt-sync-matrix';
-  const tabBg = 'var(--ant-color-bg-container)';
-  const tabBorder = 'var(--ant-color-border)';
-  const headerBg = 'var(--ant-color-fill-secondary)';
-  const errColor = 'var(--ant-color-error)';
+export const MultiTabSyncedDiagram: React.FC = () => {
+  const ID = 'mt-synced';
+  // Three rows of pills, sized to fit the storage pool.
+  const ROW1 = ['rules', 'collections', 'folders'];
+  const ROW2 = ['environments', 'variables', 'vault'];
+  const ROW3 = ['requests', 'templates'];
+  const PILL_H = 18;
+  const PILL_GAP = 6;
+  const PILL_PAD = 9;
+  const charW = 5.5;
+  const widthOf = (s: string) => Math.ceil(s.length * charW) + PILL_PAD * 2;
 
-  type Row = {
-    action: string;
-    tab1: React.ReactNode;
-    tab2: React.ReactNode;
-    syncs: boolean;
-    note: string;
+  const rowWidth = (row: string[]) =>
+    row.reduce((sum, s) => sum + widthOf(s), 0) + PILL_GAP * (row.length - 1);
+
+  const renderRow = (row: string[], y: number) => {
+    const total = rowWidth(row);
+    let x = 160 - total / 2;
+    return row.map((s) => {
+      const w = widthOf(s);
+      const node = (
+        <g key={`${y}-${s}`}>
+          <rect x={x} y={y} width={w} height={PILL_H} rx={9} fill={FILL_GREEN} stroke={STROKE_GREEN} />
+          <text x={x + w / 2} y={y + PILL_H / 2 + 3} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT}>
+            {s}
+          </text>
+        </g>
+      );
+      x += w + PILL_GAP;
+      return node;
+    });
   };
-
-  const TAB_W = 100;
-  const TAB_H = 56;
-  const TAB1_X = 10;
-  const TAB2_X = 210;
-  const ROW_GAP = 16;
-  const HEADER_Y = 26;
-  const FIRST_ROW_Y = 50;
-
-  const renderTabFrame = (x: number, y: number, label: string, content: React.ReactNode) => (
-    <g>
-      <rect x={x} y={y} width={TAB_W} height={TAB_H} rx={3} fill={tabBg} stroke={tabBorder} />
-      <rect x={x} y={y} width={TAB_W} height={12} fill={headerBg} stroke={tabBorder} />
-      <text x={x + 6} y={y + 9} fontSize={8} fontWeight={600} fill={TEXT}>
-        {label}
-      </text>
-      <g transform={`translate(${x - 16}, ${y + 14})`}>{content}</g>
-    </g>
-  );
-
-  const ROWS: Row[] = [
-    {
-      action: 'Save a rule',
-      tab1: (
-        <g>
-          <rect x={16} y={0} width={88} height={12} rx={2} fill={FILL_GREEN} stroke={STROKE_GREEN} />
-          <text x={20} y={9} fontSize={8} fontWeight={600} fill={TEXT}>
-            ✓ Auth header
-          </text>
-          <rect x={16} y={16} width={88} height={10} rx={2} fill="var(--ant-color-fill-tertiary)" />
-          <text x={20} y={24} fontSize={8} fill={TEXT_DIM}>
-            CORS bypass
-          </text>
-          <rect x={16} y={28} width={88} height={10} rx={2} fill="var(--ant-color-fill-tertiary)" />
-          <text x={20} y={36} fontSize={8} fill={TEXT_DIM}>
-            Block ads
-          </text>
-        </g>
-      ),
-      tab2: (
-        <g>
-          <rect x={16} y={0} width={88} height={12} rx={2} fill={FILL_GREEN} stroke={STROKE_GREEN} />
-          <text x={20} y={9} fontSize={8} fontWeight={600} fill={TEXT}>
-            ✓ Auth header
-          </text>
-          <rect x={16} y={16} width={88} height={10} rx={2} fill="var(--ant-color-fill-tertiary)" />
-          <text x={20} y={24} fontSize={8} fill={TEXT_DIM}>
-            CORS bypass
-          </text>
-          <rect x={16} y={28} width={88} height={10} rx={2} fill="var(--ant-color-fill-tertiary)" />
-          <text x={20} y={36} fontSize={8} fill={TEXT_DIM}>
-            Block ads
-          </text>
-        </g>
-      ),
-      syncs: true,
-      note: 'Tab #2 picks up the new rule',
-    },
-    {
-      action: 'Drag a splitter',
-      tab1: (
-        <g>
-          {/* small layout with sidebar widened */}
-          <rect x={16} y={0} width={36} height={40} fill="var(--ant-color-fill-quaternary)" stroke={tabBorder} />
-          <rect x={52} y={0} width={52} height={40} fill="var(--ant-color-fill-tertiary)" stroke={tabBorder} />
-          {/* Highlight the splitter handle */}
-          <line x1={52} y1={0} x2={52} y2={40} stroke={FILL_ORANGE} strokeWidth={3} />
-          <line x1={52} y1={0} x2={52} y2={40} stroke={STROKE_ORANGE} strokeWidth={1} strokeDasharray="2 2" />
-          <text x={60} y={42} fontSize={7} fontStyle="italic" fill={STROKE_ORANGE}>
-            dragged →
-          </text>
-        </g>
-      ),
-      tab2: (
-        <g>
-          {/* old, narrower sidebar */}
-          <rect x={16} y={0} width={20} height={40} fill="var(--ant-color-fill-quaternary)" stroke={tabBorder} />
-          <rect x={36} y={0} width={68} height={40} fill="var(--ant-color-fill-tertiary)" stroke={tabBorder} />
-          <text x={60} y={42} fontSize={7} fontStyle="italic" fill={TEXT_DIM}>
-            unchanged
-          </text>
-        </g>
-      ),
-      syncs: false,
-      note: 'splitter ratio stays in Tab #1',
-    },
-    {
-      action: 'Type unsaved text',
-      tab1: (
-        <g>
-          <rect x={16} y={2} width={88} height={36} rx={2} fill="var(--ant-color-fill-tertiary)" stroke={tabBorder} />
-          <text x={20} y={14} fontFamily="monospace" fontSize={8} fill={TEXT}>
-            X-Auth: foo
-          </text>
-          <text x={20} y={24} fontFamily="monospace" fontSize={8} fill={TEXT}>
-            X-Sess: ba|
-          </text>
-          <circle cx={98} cy={6} r={2.5} fill={FILL_ORANGE} stroke={STROKE_ORANGE} />
-          <text x={20} y={36} fontSize={7} fontStyle="italic" fill={STROKE_ORANGE}>
-            unsaved
-          </text>
-        </g>
-      ),
-      tab2: (
-        <g>
-          <rect x={16} y={2} width={88} height={36} rx={2} fill="var(--ant-color-fill-tertiary)" stroke={tabBorder} />
-          <text x={20} y={14} fontFamily="monospace" fontSize={8} fill={TEXT}>
-            X-Auth: foo
-          </text>
-          <text x={20} y={24} fontFamily="monospace" fontSize={8} fill={TEXT_DIM}>
-            (last saved)
-          </text>
-          <text x={20} y={36} fontSize={7} fontStyle="italic" fill={TEXT_DIM}>
-            doesn't see it
-          </text>
-        </g>
-      ),
-      syncs: false,
-      note: 'drafts live in their own tab',
-    },
-  ];
 
   return (
     <svg
-      viewBox="0 0 320 280"
+      viewBox="0 0 320 240"
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Three side-by-side scenarios — saving a rule reaches Tab #2; dragging a splitter or typing unsaved text stays in Tab #1"
+      aria-label="What syncs across tabs — chrome.storage holds rules, collections, folders, environments, variables, vault, requests, templates. Both tabs read and write through it."
     >
       <ArrowDefs id={ID} />
-      <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={600} fill={TEXT}>
-        What crosses between tabs?
+      <text x={160} y={14} textAnchor="middle" fontSize={11} fontWeight={700} fill={STROKE_GREEN}>
+        ✓ Syncs across tabs
+      </text>
+      <text x={160} y={28} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
+        every tab reads and writes the same chrome.storage
       </text>
 
-      {/* Column headers */}
-      <text x={TAB1_X + TAB_W / 2} y={HEADER_Y + 6} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT_DIM}>
-        in Tab #1
+      {/* Storage pool */}
+      <rect
+        x={20}
+        y={36}
+        width={280}
+        height={108}
+        rx={6}
+        fill="var(--ant-color-success-bg)"
+        stroke={STROKE_GREEN}
+      />
+      <text x={32} y={51} fontSize={9} fontWeight={700} fill={STROKE_GREEN}>
+        chrome.storage.local
       </text>
-      <text x={TAB2_X + TAB_W / 2} y={HEADER_Y + 6} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT_DIM}>
-        Tab #2 sees…
+      <text x={300} y={51} textAnchor="end" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+        single source of truth
       </text>
 
-      {ROWS.map((row, ri) => {
-        const y = FIRST_ROW_Y + ri * (TAB_H + 4 + ROW_GAP);
-        const arrowY = y + TAB_H / 2;
-        return (
-          <g key={row.action}>
-            {/* Action label above the row */}
-            <text x={160} y={y - 4} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT}>
-              {row.action}
-            </text>
+      {renderRow(ROW1, 60)}
+      {renderRow(ROW2, 60 + PILL_H + PILL_GAP)}
+      {renderRow(ROW3, 60 + (PILL_H + PILL_GAP) * 2)}
 
-            {renderTabFrame(TAB1_X, y, '#1', row.tab1)}
-            {renderTabFrame(TAB2_X, y, '#2', row.tab2)}
+      {/* Two tabs below — both pulling from the pool */}
+      <rect x={40} y={170} width={100} height={42} rx={4} fill="var(--ant-color-bg-container)" stroke={STROKE_BLUE} />
+      <rect x={40} y={170} width={100} height={14} fill={FILL_BLUE} stroke={STROKE_BLUE} />
+      <text x={48} y={180} fontSize={9} fontWeight={700} fill={TEXT}>
+        Tab #1
+      </text>
+      <text x={90} y={201} textAnchor="middle" fontSize={9} fill={TEXT}>
+        live data
+      </text>
 
-            {/* Arrow / barrier in the middle */}
-            {row.syncs ? (
-              <g>
-                <line
-                  x1={TAB1_X + TAB_W + 4}
-                  y1={arrowY}
-                  x2={TAB2_X - 4}
-                  y2={arrowY}
-                  stroke={STROKE_GREEN}
-                  strokeWidth={1.5}
-                  markerEnd={`url(#${ID})`}
-                />
-                <rect
-                  x={138}
-                  y={arrowY - 9}
-                  width={44}
-                  height={14}
-                  rx={3}
-                  fill={FILL_GREEN}
-                  stroke={STROKE_GREEN}
-                />
-                <text x={160} y={arrowY + 1} textAnchor="middle" fontSize={9} fontWeight={700} fill={STROKE_GREEN}>
-                  ✓ syncs
-                </text>
-              </g>
-            ) : (
-              <g>
-                <line
-                  x1={TAB1_X + TAB_W + 4}
-                  y1={arrowY}
-                  x2={TAB2_X - 4}
-                  y2={arrowY}
-                  stroke="var(--ant-color-border-secondary)"
-                  strokeWidth={1}
-                  strokeDasharray="3 2"
-                />
-                {/* X barrier in the middle */}
-                <line x1={155} y1={arrowY - 5} x2={165} y2={arrowY + 5} stroke={errColor} strokeWidth={1.5} />
-                <line x1={165} y1={arrowY - 5} x2={155} y2={arrowY + 5} stroke={errColor} strokeWidth={1.5} />
-                <text x={160} y={arrowY + 18} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-                  tab-local
-                </text>
-              </g>
-            )}
+      <rect x={180} y={170} width={100} height={42} rx={4} fill="var(--ant-color-bg-container)" stroke={STROKE_BLUE} />
+      <rect x={180} y={170} width={100} height={14} fill={FILL_BLUE} stroke={STROKE_BLUE} />
+      <text x={188} y={180} fontSize={9} fontWeight={700} fill={TEXT}>
+        Tab #2
+      </text>
+      <text x={230} y={201} textAnchor="middle" fontSize={9} fill={TEXT}>
+        live data
+      </text>
 
-            {/* Note under the row */}
-            <text x={160} y={y + TAB_H + 12} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-              {row.note}
-            </text>
-          </g>
-        );
-      })}
+      {/* Bidirectional arrows from each tab to the pool */}
+      <line x1={70} y1={170} x2={70} y2={146} stroke={STROKE_GREEN} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
+      <line x1={110} y1={146} x2={110} y2={170} stroke={STROKE_GREEN} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
+
+      <line x1={210} y1={170} x2={210} y2={146} stroke={STROKE_GREEN} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
+      <line x1={250} y1={146} x2={250} y2={170} stroke={STROKE_GREEN} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
+
+      <text x={160} y={228} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+        Save in either tab — the other re-hydrates instantly.
+      </text>
+    </svg>
+  );
+};
+
+// ─── What stays in each tab (private to that tab) ────────────────
+
+/**
+ * Two tabs side-by-side, visibly DIFFERENT internal states. Each
+ * shows its own splitter ratio (different widths) and its own draft
+ * (one with unsaved text + cursor, the other clean). A subtle wall
+ * between them with ✗ markers calls out that these never cross.
+ */
+export const MultiTabLocalDiagram: React.FC = () => {
+  const errColor = 'var(--ant-color-error)';
+  const errBorder = 'var(--ant-color-error-border)';
+  const dim = 'var(--ant-color-fill-tertiary)';
+  const dim2 = 'var(--ant-color-fill-quaternary)';
+  const winBorder = 'var(--ant-color-border)';
+
+  /** A tiny tab card: title bar + layout panels + unsaved-draft strip. */
+  const renderTab = (xOff: number, ordinal: string, sidebarW: number, draft: { text: string; unsaved: boolean }) => {
+    const W = 130;
+    const H = 130;
+    const innerY = 32;
+    const innerH = 64;
+    const innerW = W - 16;
+    const innerX = xOff + 8;
+    return (
+      <g>
+        {/* tab card */}
+        <rect x={xOff} y={26} width={W} height={H} rx={4} fill="var(--ant-color-bg-container)" stroke={winBorder} />
+        {/* title bar */}
+        <rect x={xOff} y={26} width={W} height={18} fill={FILL_BLUE} stroke={STROKE_BLUE} />
+        <text x={xOff + 8} y={39} fontSize={9} fontWeight={700} fill={TEXT}>
+          Tab {ordinal}
+        </text>
+
+        {/* Layout — sidebar + main, with sidebar width varying */}
+        <rect x={innerX} y={innerY + 18} width={sidebarW} height={innerH} fill={dim2} stroke={winBorder} />
+        <rect
+          x={innerX + sidebarW}
+          y={innerY + 18}
+          width={innerW - sidebarW}
+          height={innerH}
+          fill={dim}
+          stroke={winBorder}
+        />
+        {/* splitter handle highlighted */}
+        <line
+          x1={innerX + sidebarW}
+          y1={innerY + 18}
+          x2={innerX + sidebarW}
+          y2={innerY + 18 + innerH}
+          stroke={STROKE_ORANGE}
+          strokeWidth={2}
+        />
+        <text x={xOff + W / 2} y={innerY + 14} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT_DIM}>
+          layout
+        </text>
+
+        {/* Draft strip below */}
+        <rect x={innerX} y={innerY + 18 + innerH + 6} width={innerW} height={18} rx={2} fill={dim} stroke={winBorder} />
+        <text
+          x={innerX + 6}
+          y={innerY + 18 + innerH + 18}
+          fontFamily="monospace"
+          fontSize={8}
+          fill={draft.unsaved ? TEXT : TEXT_DIM}
+        >
+          {draft.text}
+        </text>
+        {draft.unsaved && (
+          <circle
+            cx={innerX + innerW - 6}
+            cy={innerY + 18 + innerH + 15}
+            r={2.5}
+            fill={FILL_ORANGE}
+            stroke={STROKE_ORANGE}
+          />
+        )}
+        <text
+          x={xOff + W / 2}
+          y={innerY + 18 + innerH + 38}
+          textAnchor="middle"
+          fontSize={9}
+          fontWeight={600}
+          fill={TEXT_DIM}
+        >
+          {draft.unsaved ? 'unsaved draft' : 'no draft'}
+        </text>
+      </g>
+    );
+  };
+
+  return (
+    <svg
+      viewBox="0 0 320 200"
+      width="100%"
+      style={{ maxWidth: 360 }}
+      role="img"
+      aria-label="What stays in each tab — layout and unsaved drafts. Two tabs visibly differ: different splitter ratios, different drafts."
+    >
+      <text x={160} y={14} textAnchor="middle" fontSize={11} fontWeight={700} fill={errColor}>
+        ✗ Stays in each tab
+      </text>
+      <text x={160} y={28} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
+        layout drags and unsaved typing — never cross
+      </text>
+
+      {renderTab(10, '#1', 30, { text: 'X-Auth: foo|', unsaved: true })}
+      {renderTab(180, '#2', 80, { text: '(saved)', unsaved: false })}
+
+      {/* Wall between the tabs */}
+      <line x1={158} y1={36} x2={158} y2={150} stroke={errBorder} strokeWidth={1} strokeDasharray="3 3" />
+      <line x1={162} y1={36} x2={162} y2={150} stroke={errBorder} strokeWidth={1} strokeDasharray="3 3" />
+      <circle cx={160} cy={93} r={9} fill="var(--ant-color-error-bg)" stroke={errBorder} />
+      <line x1={156} y1={89} x2={164} y2={97} stroke={errColor} strokeWidth={1.5} />
+      <line x1={164} y1={89} x2={156} y2={97} stroke={errColor} strokeWidth={1.5} />
+
+      <text x={160} y={172} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+        Each tab keeps its own splitter ratio + draft —
+      </text>
+      <text x={160} y={184} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+        a tab opened after the change inherits the new layout.
+      </text>
     </svg>
   );
 };

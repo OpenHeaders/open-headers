@@ -35,10 +35,11 @@ import {
   HeaderOpsDiagram,
   InjectTimingDiagram,
   MockFlowDiagram,
+  MultiTabLocalDiagram,
   MultiTabNavigationDiagram,
   MultiTabNumberingDiagram,
   MultiTabSyncDiagram,
-  MultiTabSyncMatrixDiagram,
+  MultiTabSyncedDiagram,
   RequestTrackingDiagram,
   RequestTrackingPhasesDiagram,
   RequestTrackingUiDiagram,
@@ -341,8 +342,11 @@ export const MultiTabSection: React.FC = () => (
       templates — lives in <code>chrome.storage.local</code> as the single source of truth. Saves in tab A broadcast
       through the background and tab B re-hydrates. Workspace and environment switches propagate the same way.
     </DocParagraph>
-    <DiagramFrame caption="Persisted entities sync through storage; ephemeral UI state stays in each tab.">
-      <MultiTabSyncMatrixDiagram />
+    <DiagramFrame caption="One shared chrome.storage; both tabs read and write the same persisted data.">
+      <MultiTabSyncedDiagram />
+    </DiagramFrame>
+    <DiagramFrame caption="Layout drags and unsaved typing live in each tab — the other tab never sees them.">
+      <MultiTabLocalDiagram />
     </DiagramFrame>
     <Callout kind="note" title="Layout does not live-sync">
       Pane ratios and tool-window dock state are per-workspace, but changes don't propagate to already-open tabs.
