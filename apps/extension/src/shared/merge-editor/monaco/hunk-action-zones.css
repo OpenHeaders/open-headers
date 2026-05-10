@@ -104,3 +104,21 @@
 [data-merge-theme='dark'] .oh-merge__action-zone-sep {
   color: rgba(180, 180, 180, 0.5);
 }
+
+/* Result-pane status variant — non-interactive label that mirrors
+ * the action zone's geometry so result-pane rows align with the
+ * theirs / mine panes. Same border treatment so the bordered
+ * grouping reads consistently across all three panes. */
+.oh-merge__action-zone-status {
+  cursor: default;
+}
+
+.oh-merge__action-zone-status-label {
+  color: rgba(80, 80, 80, 0.85);
+  font-style: italic;
+  user-select: none;
+}
+
+[data-merge-theme='dark'] .oh-merge__action-zone-status-label {
+  color: rgba(200, 200, 200, 0.85);
+}

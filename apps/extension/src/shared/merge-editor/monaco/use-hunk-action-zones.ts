@@ -39,6 +39,7 @@ import type { Hunk } from '../diff/line-diff';
 import type { PickStateController, SideState } from '../use-hunk-pick-state';
 import type { HunkSide } from './use-hunk-decorations';
 import type { MonacoEditorHandle } from './use-monaco-editor-lifecycle';
+import type { HunkTrackedRangesHandle } from './use-hunk-tracked-ranges';
 import './hunk-action-zones.css';
 
 export interface UseHunkActionZonesArgs {
@@ -281,4 +282,168 @@ export function useHunkActionZones(args: UseHunkActionZonesArgs): void {
       }
     };
   }, [args.editorRef, args.side, args.hunks, args.controller, args.stateRev, args.enabled]);
+}
+
+// ── Result-pane status zones ────────────────────────────────────────
+
+/**
+ * Non-interactive companion to `useHunkActionZones` for the RESULT
+ * pane. Maintains row alignment with the theirs / mine action zones
+ * by emitting a same-height view zone at the corresponding line in
+ * result, with a status label that reflects the current pick state:
+ *
+ *   pending / pending     → "No Changes Accepted"
+ *   accepted / pending    → "Incoming Accepted"
+ *   pending  / accepted   → "Current Accepted"
+ *   accepted / accepted   → "Combination Accepted"
+ *   dismissed / pending   → "Incoming Skipped"
+ *   pending / dismissed   → "Current Skipped"
+ *   accepted / dismissed  → "Incoming Accepted"  (dismissed side hidden)
+ *   dismissed / accepted  → "Current Accepted"
+ *   dismissed / dismissed → no zone (fully resolved, no alignment needed)
+ *
+ * Without this, the action zones in theirs/mine push their content
+ * down by 1 line each but the result pane's content stays at its
+ * original line position — making the three panes visually
+ * desynchronized. With it, every row across all three panes lines
+ * up at the same vertical offset.
+ *
+ * Result-pane positions come from the sticky tracked ranges (the
+ * per-hunk decoration that follows buffer edits). The zone anchors
+ * via `afterLineNumber = liveRange.startLineNumber - 1`.
+ */
+export interface UseResultStatusZonesArgs {
+  resultRef: RefObject<MonacoEditorHandle>;
+  trackedRangesRef: RefObject<HunkTrackedRangesHandle>;
+  hunks: readonly Hunk[];
+  controller: PickStateController;
+  stateRev: number;
+  enabled: boolean;
+}
+
+function statusLabelFor(state: { theirs: SideState; mine: SideState }): string | null {
+  if (state.theirs === 'pending' && state.mine === 'pending') return 'No Changes Accepted';
+  if (state.theirs === 'accepted' && state.mine === 'accepted') return 'Combination Accepted';
+  if (state.theirs === 'accepted') return 'Incoming Accepted';
+  if (state.mine === 'accepted') return 'Current Accepted';
+  if (state.theirs === 'dismissed' && state.mine === 'pending') return 'Incoming Skipped';
+  if (state.mine === 'dismissed' && state.theirs === 'pending') return 'Current Skipped';
+  // both dismissed → fully resolved, no alignment needed
+  return null;
+}
+
+function buildStatusDom(label: string): HTMLElement {
+  const root = document.createElement('div');
+  root.className = 'oh-merge__action-zone oh-merge__action-zone-status';
+  const span = document.createElement('span');
+  span.className = 'oh-merge__action-zone-status-label';
+  span.textContent = label;
+  root.appendChild(span);
+  return root;
+}
+
+export function useResultStatusZones(args: UseResultStatusZonesArgs): void {
+  const zoneIdsRef = useRef<Map<string, string>>(new Map());
+  const frameDecorationsRef = useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
+
+  useEffect(() => {
+    const editor = args.resultRef.current.editor;
+    const model = args.resultRef.current.model;
+    if (!editor || !model) return;
+    const zoneIds = zoneIdsRef.current;
+
+    if (!args.enabled) {
+      if (zoneIds.size > 0) {
+        editor.changeViewZones((accessor) => {
+          for (const id of zoneIds.values()) accessor.removeZone(id);
+        });
+        zoneIds.clear();
+      }
+      if (frameDecorationsRef.current) {
+        frameDecorationsRef.current.clear();
+        frameDecorationsRef.current = null;
+      }
+      return;
+    }
+
+    const liveIds = new Set(args.hunks.map((h) => h.id));
+    const lineCount = model.getLineCount();
+    const frameDecos: monaco.editor.IModelDeltaDecoration[] = [];
+
+    editor.changeViewZones((accessor) => {
+      for (const [hunkId, zoneId] of zoneIds) {
+        if (!liveIds.has(hunkId)) {
+          accessor.removeZone(zoneId);
+          zoneIds.delete(hunkId);
+        }
+      }
+
+      for (const h of args.hunks) {
+        const existing = zoneIds.get(h.id);
+        const state = args.controller.get(h.id);
+        const label = statusLabelFor(state);
+        if (existing) {
+          accessor.removeZone(existing);
+          zoneIds.delete(h.id);
+        }
+        if (label === null) continue;
+        // Position via the sticky tracked range so the zone follows
+        // buffer edits / accept writes that shift the hunk's
+        // location in result.
+        const live = args.trackedRangesRef.current.liveRangeOf(h.id);
+        const startLine = live ? live.startLineNumber : h.mineRange.startLine;
+        const endLineExclusive = live ? live.endLineNumber + 1 : h.mineRange.endLine;
+        if (startLine < 1 || startLine > lineCount + 1) continue;
+        const dom = buildStatusDom(label);
+        const zoneId = accessor.addZone({
+          afterLineNumber: startLine - 1,
+          heightInLines: 1,
+          domNode: dom,
+        } satisfies monaco.editor.IViewZone);
+        zoneIds.set(h.id, zoneId);
+
+        // Mirror the bordered grouping outline on the result pane so
+        // the (status row + hunk content) shows as one box, matching
+        // the theirs/mine panes' grouping.
+        const lastLineInclusive = Math.min(endLineExclusive - 1, lineCount);
+        for (let line = startLine; line <= lastLineInclusive; line++) {
+          frameDecos.push({
+            range: {
+              startLineNumber: line,
+              startColumn: 1,
+              endLineNumber: line,
+              endColumn: model.getLineMaxColumn(line),
+            },
+            options: {
+              isWholeLine: true,
+              className:
+                line === lastLineInclusive
+                  ? 'oh-merge__action-zone-frame oh-merge__action-zone-frame-last'
+                  : 'oh-merge__action-zone-frame',
+              stickiness: 1,
+            },
+          });
+        }
+      }
+    });
+
+    if (!frameDecorationsRef.current) {
+      frameDecorationsRef.current = editor.createDecorationsCollection(frameDecos);
+    } else {
+      frameDecorationsRef.current.set(frameDecos);
+    }
+
+    return () => {
+      if (zoneIds.size > 0) {
+        editor.changeViewZones((accessor) => {
+          for (const id of zoneIds.values()) accessor.removeZone(id);
+        });
+        zoneIds.clear();
+      }
+      if (frameDecorationsRef.current) {
+        frameDecorationsRef.current.clear();
+        frameDecorationsRef.current = null;
+      }
+    };
+  }, [args.resultRef, args.trackedRangesRef, args.hunks, args.controller, args.stateRev, args.enabled]);
 }

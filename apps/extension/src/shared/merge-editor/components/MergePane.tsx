@@ -46,7 +46,7 @@ import { diffLinesPatience } from '../diff/patience-diff';
 import { useCharDecorations } from '../monaco/use-char-decorations';
 import { useGridResize } from '../monaco/use-grid-resize';
 import { useHunkActionMarkers } from '../monaco/use-hunk-action-markers';
-import { useHunkActionZones } from '../monaco/use-hunk-action-zones';
+import { useHunkActionZones, useResultStatusZones } from '../monaco/use-hunk-action-zones';
 import { type HunkSide, useHunkDecorations } from '../monaco/use-hunk-decorations';
 import { useHunkTrackedRanges } from '../monaco/use-hunk-tracked-ranges';
 import { type MergeActionsContext, useMergeActions } from '../monaco/use-merge-actions';
@@ -411,6 +411,18 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     controller: pickController,
     stateRev: pickStateRev,
     enabled: inlineActionLabels && has3Panes,
+  });
+  // Result-pane status zone — non-interactive labels that maintain
+  // row alignment with the theirs / mine action zones (so all three
+  // panes' content lines up vertically). Renders "No Changes
+  // Accepted" / "Incoming Accepted" / etc. based on per-hunk state.
+  useResultStatusZones({
+    resultRef: resultHandle,
+    trackedRangesRef,
+    hunks: pickStateHunks,
+    controller: pickController,
+    stateRev: pickStateRev,
+    enabled: inlineActionLabels,
   });
 
   // Reset the controller's state when the file switches — stale entries
