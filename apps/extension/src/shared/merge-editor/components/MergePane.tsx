@@ -557,7 +557,12 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
       const editor = resultHandle.current.editor;
       if (!editor) return;
       const line = target.hunk.mineRange.startLine;
-      editor.revealLineInCenterIfOutsideViewport(line);
+      // Land the conflict near the TOP of the viewport (VS Code's
+      // navigator convention) so the user immediately sees the
+      // hunk's content + action zones above it without further
+      // scrolling. Pairs with `scrollBeyondLastLine: true` so this
+      // works even for hunks near EOF.
+      editor.revealLineNearTop(line);
       editor.setPosition({ lineNumber: line, column: 1 });
       editor.focus();
     },

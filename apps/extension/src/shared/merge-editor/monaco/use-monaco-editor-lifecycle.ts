@@ -39,7 +39,14 @@ export function useMonacoEditorLifecycle(args: MonacoEditorLifecycleArgs): RefOb
       readOnly,
       automaticLayout: true,
       minimap: { enabled: false },
-      scrollBeyondLastLine: false,
+      // Scroll past the last line so navigator-driven jumps (Cmd/
+      // Ctrl+K N/P, ↑/↓ chord, "next conflict" toolbar buttons) can
+      // land on a hunk near the EOF and still scroll it to the top
+      // of the viewport — VS Code's merge editor convention. Without
+      // this, the last few hunks stay near the bottom of the
+      // viewport because the editor refuses to scroll past EOF, and
+      // the navigator's "reveal at top" call no-ops.
+      scrollBeyondLastLine: true,
       renderLineHighlight: 'gutter',
       lineNumbers: 'on',
       folding: false,
