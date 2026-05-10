@@ -43,6 +43,8 @@ export {
   RequestTrackingUiDiagram,
 } from './request-tracking';
 export {
+  LivePillAggregationDiagram,
+  LiveWorkflowFreshnessDiagram,
   PermissionsAuditFlowDiagram,
   PermissionsImpactDiagram,
   RequestExecutorOutcomesDiagram,

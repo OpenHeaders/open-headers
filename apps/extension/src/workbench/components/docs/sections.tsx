@@ -43,6 +43,8 @@ import {
   RequestTrackingDiagram,
   RequestTrackingPhasesDiagram,
   RequestTrackingUiDiagram,
+  LivePillAggregationDiagram,
+  LiveWorkflowFreshnessDiagram,
   PermissionsAuditFlowDiagram,
   PermissionsImpactDiagram,
   RequestExecutorOutcomesDiagram,
@@ -554,15 +556,33 @@ export const SystemStatusSection: React.FC = () => (
     </StateRow>
 
     <SubsystemHeading name="Live" subtitle="Live Variable workflow refresh" />
-    <DocParagraph>Aggregates the most recent refresh result across every configured Live workflow.</DocParagraph>
+    <DocParagraph>
+      Each Live workflow refreshes on its own cadence. Per-workflow state turns on three checks: whether the last
+      extractor succeeded, whether the run is within <code>2×</code> its cadence, and how many failures it's had in a
+      row. The three states fold into the pill via "worst wins".
+    </DocParagraph>
+    <DiagramFrame caption="Fresh = clean run · stale = past 2× cadence or 1–4 failures · failing = ≥ 5 consecutive failures.">
+      <LiveWorkflowFreshnessDiagram />
+    </DiagramFrame>
+    <DocParagraph>
+      Only the <strong>active workspace's</strong> workflows contribute. Inactive workspaces are excluded — you can't
+      see or act on those rules right now, so pilling on them would surface noise you can't reach. Switching workspaces
+      recomputes the pill against the new active set.
+    </DocParagraph>
+    <DiagramFrame caption="Active-workspace workflows fold into one pill via max(); other workspaces are skipped.">
+      <LivePillAggregationDiagram />
+    </DiagramFrame>
     <StateRow color="success" label="green">
-      Every workflow's last run is fresh — or no workflows are configured.
+      <strong>N workflows fresh</strong> — every active-workspace workflow's last run was OK and within 2× its cadence.
+      Also shown as <strong>No workflows configured</strong> when there are none.
     </StateRow>
     <StateRow color="warning" label="yellow">
-      One or more workflows are stale or failing (below the consecutive-failure threshold).
+      <strong>N workflows stale or failing</strong> — at least one run is past 2× cadence, the last extractor failed,
+      or there are 1–4 consecutive failures.
     </StateRow>
     <StateRow color="error" label="red">
-      A workflow crossed the consecutive-failure threshold (3+ in a row) and is now considered failing.
+      <strong>N workflows failing (5+ consecutive)</strong> — any single workflow crossed five consecutive failures and
+      is now considered failing.
     </StateRow>
 
     <Callout kind="note" title="Desktop App — product note">
