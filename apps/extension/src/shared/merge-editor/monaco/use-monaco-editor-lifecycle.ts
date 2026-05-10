@@ -51,6 +51,18 @@ export function useMonacoEditorLifecycle(args: MonacoEditorLifecycleArgs): RefOb
       lineNumbers: 'on',
       folding: false,
       fontSize: 12,
+      // Disable Monaco's indent / bracket-pair guides — the vertical
+      // lines connecting nested fields add a lot of visual noise to
+      // a merge view where the user is already tracking gutter
+      // glyphs, hunk decorations, action zones, frame rectangles,
+      // and char-diff overlays. The merge editor's signal-to-noise
+      // ratio is the load-bearing UX concern; lose the guides.
+      guides: {
+        indentation: false,
+        highlightActiveIndentation: false,
+        bracketPairs: false,
+        bracketPairsHorizontal: false,
+      },
       ...options,
     });
     handleRef.current = { editor, model };
