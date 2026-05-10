@@ -321,24 +321,71 @@ export interface UseResultStatusZonesArgs {
   enabled: boolean;
 }
 
-function statusLabelFor(state: { theirs: SideState; mine: SideState }): string | null {
-  if (state.theirs === 'pending' && state.mine === 'pending') return 'No Changes Accepted';
-  if (state.theirs === 'accepted' && state.mine === 'accepted') return 'Combination Accepted';
-  if (state.theirs === 'accepted') return 'Incoming Accepted';
-  if (state.mine === 'accepted') return 'Current Accepted';
-  if (state.theirs === 'dismissed' && state.mine === 'pending') return 'Incoming Skipped';
-  if (state.mine === 'dismissed' && state.theirs === 'pending') return 'Current Skipped';
+interface ResultStatus {
+  label: string;
+  /** Which slots can still be reverted from the result-pane labels.
+   *  Each entry adds a "Remove …" button that calls
+   *  `controller.revert(hunkId, slot)`. */
+  removable: ReadonlyArray<{ slot: 'left' | 'right'; label: string }>;
+}
+
+function statusLabelFor(state: { theirs: SideState; mine: SideState }): ResultStatus | null {
+  if (state.theirs === 'pending' && state.mine === 'pending') {
+    return { label: 'No Changes Accepted', removable: [] };
+  }
+  if (state.theirs === 'accepted' && state.mine === 'accepted') {
+    return {
+      label: 'Incoming + Current',
+      removable: [
+        { slot: 'left', label: 'Remove Incoming' },
+        { slot: 'right', label: 'Remove Current' },
+      ],
+    };
+  }
+  if (state.theirs === 'accepted') {
+    return { label: 'Incoming', removable: [{ slot: 'left', label: 'Remove Incoming' }] };
+  }
+  if (state.mine === 'accepted') {
+    return { label: 'Current', removable: [{ slot: 'right', label: 'Remove Current' }] };
+  }
+  if (state.theirs === 'dismissed' && state.mine === 'pending') return { label: 'Incoming Skipped', removable: [] };
+  if (state.mine === 'dismissed' && state.theirs === 'pending') return { label: 'Current Skipped', removable: [] };
   // both dismissed → fully resolved, no alignment needed
   return null;
 }
 
-function buildStatusDom(label: string): HTMLElement {
+function buildStatusDom(args: { hunkId: string; status: ResultStatus; controller: PickStateController }): HTMLElement {
   const root = document.createElement('div');
   root.className = 'oh-merge__action-zone oh-merge__action-zone-status';
-  const span = document.createElement('span');
-  span.className = 'oh-merge__action-zone-status-label';
-  span.textContent = label;
-  root.appendChild(span);
+
+  const eatMouseDown = (e: Event) => e.stopPropagation();
+  root.addEventListener('mousedown', eatMouseDown);
+
+  const labelSpan = document.createElement('span');
+  labelSpan.className = 'oh-merge__action-zone-status-label';
+  labelSpan.textContent = args.status.label;
+  root.appendChild(labelSpan);
+
+  for (const remove of args.status.removable) {
+    const sep = document.createElement('span');
+    sep.className = 'oh-merge__action-zone-sep';
+    sep.textContent = ' | ';
+    sep.setAttribute('aria-hidden', 'true');
+    root.appendChild(sep);
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'oh-merge__action-zone-btn oh-merge__action-zone-btn-remove';
+    btn.textContent = remove.label;
+    btn.title = `Revert ${remove.label.replace(/^Remove\s+/, '').toLowerCase()} to pending so you can re-decide`;
+    btn.addEventListener('mousedown', eatMouseDown);
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      args.controller.revert(args.hunkId, remove.slot);
+    });
+    root.appendChild(btn);
+  }
   return root;
 }
 
@@ -381,12 +428,12 @@ export function useResultStatusZones(args: UseResultStatusZonesArgs): void {
       for (const h of args.hunks) {
         const existing = zoneIds.get(h.id);
         const state = args.controller.get(h.id);
-        const label = statusLabelFor(state);
+        const status = statusLabelFor(state);
         if (existing) {
           accessor.removeZone(existing);
           zoneIds.delete(h.id);
         }
-        if (label === null) continue;
+        if (status === null) continue;
         // Position via the sticky tracked range so the zone follows
         // buffer edits / accept writes that shift the hunk's
         // location in result.
@@ -394,7 +441,7 @@ export function useResultStatusZones(args: UseResultStatusZonesArgs): void {
         const startLine = live ? live.startLineNumber : h.mineRange.startLine;
         const endLineExclusive = live ? live.endLineNumber + 1 : h.mineRange.endLine;
         if (startLine < 1 || startLine > lineCount + 1) continue;
-        const dom = buildStatusDom(label);
+        const dom = buildStatusDom({ hunkId: h.id, status, controller: args.controller });
         const zoneId = accessor.addZone({
           afterLineNumber: startLine - 1,
           heightInLines: 1,

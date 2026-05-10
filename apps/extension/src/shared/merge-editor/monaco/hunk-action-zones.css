@@ -122,3 +122,10 @@
 [data-merge-theme='dark'] .oh-merge__action-zone-status-label {
   color: rgba(200, 200, 200, 0.85);
 }
+
+.oh-merge__action-zone-btn-remove {
+  color: rgba(180, 60, 60, 0.95);
+}
+[data-merge-theme='dark'] .oh-merge__action-zone-btn-remove {
+  color: rgba(255, 130, 130, 0.95);
+}

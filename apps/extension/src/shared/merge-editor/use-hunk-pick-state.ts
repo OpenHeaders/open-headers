@@ -110,6 +110,11 @@ export interface PickStateController {
   /** Apply a click. Computes the new state, runs the buffer write,
    *  records the transition for undo. No-op when the hunk is unknown. */
   dispatch(click: PickClick): void;
+  /** Revert one slot back to `pending` from a non-pending state. If
+   *  no slot remains accepted after the revert, the buffer's region
+   *  for this hunk is restored to its original content (`mineLines`).
+   *  Records as a single undo entry like `dispatch`. */
+  revert(hunkId: string, slot: ClickSlot): void;
   /** Bulk action — set the state for many hunks at once and write the
    *  buffer in one batch. Used by "Apply Non-Conflicting" / "Accept
    *  All Theirs" / "Accept All Mine". Each entry is recorded as a
@@ -157,6 +162,24 @@ export function createPickStateController(args: CreatePickStateControllerArgs): 
     args.trackedRangesRef.current.writeHunk(hunkId, text);
   };
 
+  /**
+   * Restore the hunk's region to its original (pre-acceptance)
+   * content. Used by `revert` when both slots become pending —
+   * `writeTextFor` returns null in that case (no accept = no write
+   * by the standard rules), but the buffer is currently displaying
+   * accepted content from a prior pick that we need to undo.
+   *
+   * "Original" = `hunk.mineLines` for theirs-axis hunks because the
+   * result is seeded with mine. Empty `mineLines` (kind: 'add'
+   * fixtures) writes empty.
+   */
+  const writeOriginalFor = (hunkId: string): void => {
+    const hunk = findHunk(hunkId);
+    if (!hunk) return;
+    const originalText = hunk.mineLines.length === 0 ? '' : `${hunk.mineLines.join('\n')}\n`;
+    args.trackedRangesRef.current.writeHunk(hunkId, originalText);
+  };
+
   return {
     states: () => map,
     get: (hunkId) => map.get(hunkId) ?? PENDING_HUNK,
@@ -169,6 +192,34 @@ export function createPickStateController(args: CreatePickStateControllerArgs): 
       redoStack.length = 0;
       writeFor(click.hunkId, next);
       args.onChange?.(click.hunkId);
+    },
+    revert(hunkId, slot) {
+      const prev = map.get(hunkId) ?? PENDING_HUNK;
+      const next: HunkPickState = { ...prev };
+      if (slot === 'left') next.theirs = 'pending';
+      else next.mine = 'pending';
+      if (prev.theirs === next.theirs && prev.mine === next.mine) return;
+      // Drop the entry entirely if both sides are now pending —
+      // matches the undo path's "missing-from-map === PENDING_HUNK"
+      // convention so the controller's state map stays compact.
+      if (next.theirs === 'pending' && next.mine === 'pending') {
+        map.delete(hunkId);
+      } else {
+        map.set(hunkId, next);
+      }
+      undoStack.push({ hunkId, prev, next });
+      redoStack.length = 0;
+      // Buffer write: if either side is still accepted, write that
+      // content. If neither remains accepted, restore the hunk's
+      // original pre-acceptance content (writeTextFor returns null
+      // for the all-pending tuple, so we have to do this explicitly).
+      const text = writeTextFor(next, findHunk(hunkId) ?? ({} as Hunk));
+      if (text !== null) {
+        args.trackedRangesRef.current.writeHunk(hunkId, text);
+      } else {
+        writeOriginalFor(hunkId);
+      }
+      args.onChange?.(hunkId);
     },
     bulkSet(updates) {
       let changed = false;
