@@ -36,104 +36,140 @@ import {
   TEXT_DIM,
 } from './_shared';
 
-// ─── Overview: storage broadcast ──────────────────────────────────
+// ─── Overview: two tab mockups side-by-side ───────────────────────
 
+/**
+ * Two browser-tab mockups showing the practical end-user payoff:
+ * work two contexts in parallel without losing your place. Left tab
+ * is a different workspace ("Production"); right tab is the same
+ * workspace with a different layout (Environments expanded instead
+ * of Rules). The point is concrete: each tab has its own focus, and
+ * shared data (rule names) appears in both because storage syncs.
+ */
 export const MultiTabSyncDiagram: React.FC = () => {
-  const ID = 'mt-sync';
+  const tabBg = 'var(--ant-color-bg-container)';
+  const tabBorder = 'var(--ant-color-border)';
+  const headerBg = 'var(--ant-color-fill-secondary)';
+  const sidebarBg = 'var(--ant-color-fill-quaternary)';
+  const rowBg = 'var(--ant-color-fill-tertiary)';
+  const activeFill = FILL_BLUE;
+  const activeStroke = STROKE_BLUE;
+
+  const renderTab = (xOffset: number, ordinal: string, workspace: string, mode: 'rules' | 'env') => {
+    const x = xOffset;
+    return (
+      <g key={ordinal}>
+        {/* Tab strip + title */}
+        <rect x={x} y={26} width={146} height={18} rx={3} fill={headerBg} stroke={tabBorder} />
+        <text x={x + 8} y={38} fontSize={9} fontWeight={600} fill={TEXT}>
+          {ordinal} Open Headers
+        </text>
+        <circle cx={x + 138} cy={35} r={3} fill="var(--ant-color-text-quaternary)" />
+
+        {/* App body */}
+        <rect x={x} y={44} width={146} height={120} fill={tabBg} stroke={tabBorder} />
+
+        {/* Top bar with workspace name */}
+        <rect x={x} y={44} width={146} height={16} fill={headerBg} stroke="none" />
+        <text x={x + 8} y={56} fontSize={9} fontWeight={600} fill={TEXT}>
+          {workspace}
+        </text>
+        <circle cx={x + 132} cy={52} r={3} fill={STROKE_GREEN} />
+
+        {/* Sidebar */}
+        <rect x={x} y={60} width={44} height={104} fill={sidebarBg} stroke="none" />
+        {/* Sidebar items */}
+        {(['Rules', 'Requests', 'Env'] as const).map((label, i) => {
+          const itemY = 68 + i * 18;
+          const isActiveSidebar =
+            (mode === 'rules' && label === 'Rules') || (mode === 'env' && label === 'Env');
+          return (
+            <g key={label}>
+              {isActiveSidebar && (
+                <rect x={x + 2} y={itemY - 6} width={40} height={14} rx={2} fill={activeFill} stroke={activeStroke} />
+              )}
+              <text x={x + 6} y={itemY + 3} fontSize={8} fontWeight={isActiveSidebar ? 600 : 400} fill={TEXT}>
+                {label}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Main content rows */}
+        {mode === 'rules' &&
+          ['Auth header', 'CORS bypass', 'Block ads'].map((row, i) => {
+            const ry = 68 + i * 22;
+            return (
+              <g key={row}>
+                <rect x={x + 50} y={ry - 6} width={92} height={16} rx={2} fill={rowBg} stroke={tabBorder} />
+                <circle cx={x + 56} cy={ry + 1} r={2.5} fill={STROKE_GREEN} />
+                <text x={x + 62} y={ry + 4} fontSize={8} fill={TEXT}>
+                  {row}
+                </text>
+              </g>
+            );
+          })}
+        {mode === 'env' && (
+          <g>
+            <text x={x + 50} y={68} fontSize={8} fontWeight={600} fill={TEXT}>
+              staging
+            </text>
+            {['API_HOST', 'API_KEY', 'DEBUG'].map((k, i) => {
+              const ry = 84 + i * 16;
+              return (
+                <g key={k}>
+                  <rect x={x + 50} y={ry - 6} width={42} height={12} rx={2} fill={rowBg} stroke={tabBorder} />
+                  <text x={x + 53} y={ry + 2} fontFamily="monospace" fontSize={7} fill={TEXT}>
+                    {k}
+                  </text>
+                  <text x={x + 96} y={ry + 2} fontFamily="monospace" fontSize={7} fill={TEXT_DIM}>
+                    ●●●●
+                  </text>
+                </g>
+              );
+            })}
+          </g>
+        )}
+
+        {/* Pinned label under tab */}
+        <text x={x + 73} y={180} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+          {mode === 'rules' ? 'Rules editor' : 'Env editor'}
+        </text>
+      </g>
+    );
+  };
+
   return (
     <svg
-      viewBox="0 0 320 260"
+      viewBox="0 0 320 220"
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Multi-tab data sync — Tab A saves to chrome.storage, the SW broadcasts, Tab B re-hydrates. Layout state stays per-tab."
+      aria-label="Two workspace tabs open side by side — different workspaces or different layouts, working in parallel"
     >
-      <ArrowDefs id={ID} />
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={600} fill={TEXT}>
-        Saves broadcast through chrome.storage
+        Two tabs, two contexts — at the same time
       </text>
 
-      {/* Lifeline headers */}
-      <Box x={10} y={26} w={80} h={28} fill={FILL_BLUE} stroke={STROKE_BLUE} label="Tab A" sub="editor" />
-      <Box x={120} y={26} w={80} h={28} fill={FILL_GREEN} stroke={STROKE_GREEN} label="chrome.storage" sub="local" />
-      <Box x={230} y={26} w={80} h={28} fill={FILL_BLUE} stroke={STROKE_BLUE} label="Tab B" sub="editor" />
+      {renderTab(8, '#1', 'Production', 'rules')}
+      {renderTab(166, '#2', 'Staging', 'env')}
 
-      {/* Lifelines */}
-      <line x1={50} y1={54} x2={50} y2={210} stroke={STROKE} strokeDasharray="2 2" />
-      <line x1={160} y1={54} x2={160} y2={210} stroke={STROKE} strokeDasharray="2 2" />
-      <line x1={270} y1={54} x2={270} y2={210} stroke={STROKE} strokeDasharray="2 2" />
-
-      {/* 1: save */}
-      <line x1={50} y1={76} x2={158} y2={76} stroke={STROKE} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
-      <text x={104} y={72} textAnchor="middle" fontSize={9} fill={TEXT}>
-        save rule
-      </text>
-
-      {/* activation bar on storage */}
-      <rect x={156} y={76} width={8} height={36} fill={FILL_GREEN} stroke={STROKE_GREEN} />
-
-      {/* 2: ack */}
+      {/* Sync hint between the two tabs */}
       <line
-        x1={158}
+        x1={154}
         y1={104}
-        x2={52}
+        x2={166}
         y2={104}
-        stroke={STROKE}
+        stroke={STROKE_GREEN}
         strokeWidth={1}
-        strokeDasharray="3 2"
-        markerEnd={`url(#${ID})`}
+        strokeDasharray="2 2"
       />
-      <text x={104} y={100} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        write OK
-      </text>
 
-      {/* 3: broadcast to Tab B */}
-      <line x1={164} y1={138} x2={268} y2={138} stroke={STROKE} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
-      <text x={216} y={134} textAnchor="middle" fontSize={9} fill={TEXT}>
-        broadcast
+      <text x={160} y={200} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
+        Rules + collections sync through storage.
       </text>
-
-      {/* activation bar on Tab B */}
-      <rect x={266} y={138} width={8} height={36} fill={FILL_BLUE} stroke={STROKE_BLUE} />
-
-      <text x={216} y={166} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        re-hydrate
-      </text>
-
-      {/* Per-tab layout boxes — off-lifeline, dashed */}
-      <rect
-        x={12}
-        y={188}
-        width={76}
-        height={24}
-        rx={3}
-        fill="var(--ant-color-fill-secondary)"
-        stroke={STROKE}
-        strokeDasharray="3 2"
-      />
-      <text x={50} y={203} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        layout (A)
-      </text>
-
-      <rect
-        x={232}
-        y={188}
-        width={76}
-        height={24}
-        rx={3}
-        fill="var(--ant-color-fill-secondary)"
-        stroke={STROKE}
-        strokeDasharray="3 2"
-      />
-      <text x={270} y={203} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        layout (B)
-      </text>
-
-      <text x={160} y={232} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        Entities sync through storage; layout stays
-      </text>
-      <text x={160} y={245} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
-        in each tab's memory.
+      <text x={160} y={213} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
+        Each tab keeps its own workspace + layout.
       </text>
     </svg>
   );
