@@ -662,8 +662,11 @@ export const RulesPipelineDiagram: React.FC = () => {
         );
       })}
 
-      <text x={160} y={250} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Rebuild fires on every save · paused state stays green ("Rule execution paused").
+      <text x={160} y={244} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+        Rebuild fires on every save.
+      </text>
+      <text x={160} y={256} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+        Paused stays green ("Rule execution paused").
       </text>
     </svg>
   );
