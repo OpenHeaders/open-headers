@@ -135,56 +135,6 @@ export const DelayRoutingDiagram: React.FC = () => (
   </svg>
 );
 
-// ── Multi-tab data flow ──────────────────────────────────────────
-
-export const MultiTabSyncDiagram: React.FC = () => (
-  <svg
-    viewBox="0 0 280 180"
-    width="100%"
-    style={{ maxWidth: 320 }}
-    role="img"
-    aria-label="Multi-tab data sync via chrome.storage with per-tab layout"
-  >
-    <ArrowDefs id="mt-arrow" />
-    <Box x={10} y={15} w={80} h={40} fill={FILL_BLUE} stroke={STROKE_BLUE} label="Tab A" sub="editor + UI" />
-    <Box x={190} y={15} w={80} h={40} fill={FILL_BLUE} stroke={STROKE_BLUE} label="Tab B" sub="editor + UI" />
-    <Box
-      x={95}
-      y={75}
-      w={90}
-      h={40}
-      fill={FILL_GREEN}
-      stroke={STROKE_GREEN}
-      label="chrome.storage"
-      sub="source of truth"
-    />
-    <line x1="55" y1="55" x2="115" y2="75" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#mt-arrow)" />
-    <text x={70} y={72} fontSize="9" fill={TEXT_DIM}>
-      save
-    </text>
-    <line x1="165" y1="75" x2="225" y2="55" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#mt-arrow)" />
-    <text x={195} y={72} fontSize="9" fill={TEXT_DIM}>
-      broadcast
-    </text>
-    <rect
-      x={20}
-      y={130}
-      width={240}
-      height={40}
-      rx={4}
-      fill="var(--ant-color-fill-secondary)"
-      stroke={STROKE}
-      strokeDasharray="3 2"
-    />
-    <text x={140} y={148} textAnchor="middle" fontSize="10" fontWeight="600" fill={TEXT}>
-      Layout / dock state
-    </text>
-    <text x={140} y={162} textAnchor="middle" fontSize="9" fill={TEXT_DIM}>
-      saved per workspace, NOT live-synced across tabs
-    </text>
-  </svg>
-);
-
 // ── Header operations comparison ─────────────────────────────────
 
 export const HeaderOpsDiagram: React.FC = () => (

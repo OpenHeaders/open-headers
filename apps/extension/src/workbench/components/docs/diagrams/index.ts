@@ -13,8 +13,13 @@ export {
   HeaderOpsDiagram,
   InjectTimingDiagram,
   MockFlowDiagram,
-  MultiTabSyncDiagram,
 } from './_pending';
+export {
+  MultiTabNavigationDiagram,
+  MultiTabNumberingDiagram,
+  MultiTabSyncDiagram,
+  MultiTabSyncMatrixDiagram,
+} from './multi-tab';
 export {
   ConditionsHostVsOriginDiagram,
   ConditionsMatchingDiagram,

@@ -35,7 +35,10 @@ import {
   HeaderOpsDiagram,
   InjectTimingDiagram,
   MockFlowDiagram,
+  MultiTabNavigationDiagram,
+  MultiTabNumberingDiagram,
   MultiTabSyncDiagram,
+  MultiTabSyncMatrixDiagram,
   RequestTrackingDiagram,
   RequestTrackingPhasesDiagram,
   RequestTrackingUiDiagram,
@@ -296,12 +299,13 @@ export const ExecutionSection: React.FC = () => (
 
 export const MultiTabSection: React.FC = () => (
   <>
+    <SurfaceContext surfaces={['workbench']} />
     <DocParagraph>
       Multiple workspace tabs open at once is a first-class state. Persisted data syncs through{' '}
       <code>chrome.storage</code>, layout state stays per-tab, and navigation intents reuse existing tabs in the same
       window before opening new ones.
     </DocParagraph>
-    <DiagramFrame caption="Data syncs through chrome.storage; layout state stays per-tab">
+    <DiagramFrame caption="Tab A saves, the SW broadcasts, Tab B re-hydrates. Layout state stays in each tab.">
       <MultiTabSyncDiagram />
     </DiagramFrame>
 
@@ -312,6 +316,9 @@ export const MultiTabSection: React.FC = () => (
       window rather than pulling focus across Chrome windows — mirroring how Chrome's own DevTools works, with one panel
       per window.
     </DocParagraph>
+    <DiagramFrame caption="Warm path activates the same-window tab; cold path opens a new tab in the caller's window.">
+      <MultiTabNavigationDiagram />
+    </DiagramFrame>
 
     <DocHeading level={3}>Tab numbering</DocHeading>
     <DocParagraph>
@@ -324,6 +331,9 @@ export const MultiTabSection: React.FC = () => (
       remain does not renumber survivors. The next tab opened gets <code>#4</code>; numbering resets to <code>#1</code>{' '}
       only after every workspace tab has closed.
     </DocParagraph>
+    <DiagramFrame caption="Survivors keep their numbers across closes; the next tab is always max + 1.">
+      <MultiTabNumberingDiagram />
+    </DiagramFrame>
 
     <DocHeading level={3}>What syncs, what doesn't</DocHeading>
     <DocParagraph>
@@ -331,6 +341,9 @@ export const MultiTabSection: React.FC = () => (
       templates — lives in <code>chrome.storage.local</code> as the single source of truth. Saves in tab A broadcast
       through the background and tab B re-hydrates. Workspace and environment switches propagate the same way.
     </DocParagraph>
+    <DiagramFrame caption="Persisted entities sync through storage; ephemeral UI state stays in each tab.">
+      <MultiTabSyncMatrixDiagram />
+    </DiagramFrame>
     <Callout kind="note" title="Layout does not live-sync">
       Pane ratios and tool-window dock state are per-workspace, but changes don't propagate to already-open tabs.
       Dragging a splitter in tab A leaves tab B untouched until reload — live layout sync would feel jarring while
