@@ -476,7 +476,7 @@ const CONDITION_ANCHORS = [
   { id: 'methods', title: 'Methods' },
   { id: 'condition-resource-types', title: 'Resource Types' },
   { id: 'domain-type', title: 'Domain Type' },
-  { id: 'headers', title: 'Request / Response Headers' },
+  { id: 'headers', title: 'Response Headers' },
 ];
 
 export const ConditionsSection: React.FC = () => (
@@ -486,6 +486,11 @@ export const ConditionsSection: React.FC = () => (
       A condition is a filter on one attribute of an outgoing request. Stack multiple conditions and they combine with
       AND logic — every condition must match for the rule to fire. Each condition maps directly to a Chrome{' '}
       <code>declarativeNetRequest</code> field.
+    </DocParagraph>
+    <DocParagraph>
+      Most conditions also have an <strong>Excl.</strong> variant in the rule editor — Excl. Methods, Excl. Resources,
+      Excl. Initiator, Excl. Resp Header — that flips the match (e.g., "everything except these methods"). Use them
+      whenever the negative set is smaller than the positive one.
     </DocParagraph>
     <DiagramFrame caption="Once all conditions match, the rule's action runs and the outgoing request is modified.">
       <ConditionsRuleFiresDiagram />
@@ -585,11 +590,11 @@ export const ConditionsSection: React.FC = () => (
     </Anchor>
 
     <Anchor id="headers">
-      <Card title="Request / Response Headers" extra={<BrowserTag min="chrome-128" />} style={{ marginBottom: 8 }}>
-        Match requests carrying a specific header with a specific value. Both the header name and the value are
-        compared as exact strings — no wildcards, no partial matching, and the header must actually be present on
-        the request.
-        <DiagramFrame caption="Two pills (name + value) joined by =, then test cases hitting each failure mode.">
+      <Card title="Response Headers" extra={<BrowserTag min="chrome-128" />} style={{ marginBottom: 8 }}>
+        Match responses carrying a specific header with a specific value. Chrome's DNR doesn't expose request-header
+        matching — this condition is response-side only. Both the header name and the value are compared as exact
+        strings (no wildcards, no partial matching) and the header must actually be present on the response.
+        <DiagramFrame caption="Two pills (name + value) joined by =, then test response headers hitting each failure mode.">
           <HeadersConditionDiagram />
         </DiagramFrame>
       </Card>

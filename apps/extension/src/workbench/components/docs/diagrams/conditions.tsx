@@ -161,7 +161,7 @@ const ROWS: Row[] = [
   { attr: 'origin', value: 'portal.openheaders.io', cond: 'Initiator Domains', fill: FILL_CYAN, stroke: STROKE_CYAN },
   { attr: 'type', value: 'xhr', cond: 'Resource Types', fill: FILL_PURPLE, stroke: STROKE_PURPLE },
   { attr: 'party', value: 'third-party', cond: 'Domain Type', fill: FILL_GOLD, stroke: STROKE_GOLD },
-  { attr: 'header', value: 'Cookie: session=abc', cond: 'Headers', fill: FILL_MAGENTA, stroke: STROKE_MAGENTA },
+  { attr: 'header', value: 'Content-Type: text/html', cond: 'Headers', fill: FILL_MAGENTA, stroke: STROKE_MAGENTA },
 ];
 
 const ROW_H = 22;
@@ -1266,9 +1266,11 @@ export const ResourceTypesDiagram: React.FC = () => {
   const unselectedStroke = 'var(--ant-color-border)';
   const matchOk = STROKE_GREEN;
   const matchFail = 'var(--ant-color-error)';
+  // 9 types — matches what the rule editor's Resource Types multi-select
+  // exposes. Chrome DNR has more enum values (sub_frame, ping, etc.) but
+  // the editor curates these 9 as the user-pickable set.
   const row1: { name: string; selected: boolean }[] = [
     { name: 'Page', selected: true },
-    { name: 'Frame', selected: false },
     { name: 'XHR', selected: true },
     { name: 'Script', selected: false },
     { name: 'CSS', selected: false },
@@ -1278,7 +1280,6 @@ export const ResourceTypesDiagram: React.FC = () => {
     { name: 'Font', selected: false },
     { name: 'Media', selected: false },
     { name: 'WS', selected: false },
-    { name: 'Ping', selected: false },
     { name: 'Other', selected: false },
   ];
   const renderPill = (name: string, x: number, y: number, selected: boolean) => (
@@ -1321,10 +1322,10 @@ export const ResourceTypesDiagram: React.FC = () => {
         Purple kinds match; the rest don't trigger the rule
       </text>
 
-      {/* Row 1 — 6 pills, centered */}
-      {row1.map((m, i) => renderPill(m.name, 30 + i * 44, 42, m.selected))}
-      {/* Row 2 — 5 pills, centered */}
-      {row2.map((m, i) => renderPill(m.name, 52 + i * 44, 68, m.selected))}
+      {/* Row 1 — 5 pills, centered (5 × 40 + 4 × 4 = 216 → start x=52) */}
+      {row1.map((m, i) => renderPill(m.name, 52 + i * 44, 42, m.selected))}
+      {/* Row 2 — 4 pills, centered (4 × 40 + 3 × 4 = 172 → start x=74) */}
+      {row2.map((m, i) => renderPill(m.name, 74 + i * 44, 68, m.selected))}
 
       <line x1={20} y1={104} x2={300} y2={104} stroke={STROKE} strokeDasharray="2 3" />
 
@@ -1515,14 +1516,14 @@ export const DomainTypeDiagram: React.FC = () => {
 };
 
 /**
- * Request / Response Headers — exact name + exact value match.
+ * Response Headers — exact name + exact value match.
  *
- * Two magenta pills (header name and header value) joined by an
- * "=" sign make the two-part nature obvious. Sub-labels under each
- * pill spell out "exact name" / "exact value" so the no-wildcards
- * rule can't be missed. Test cases below cover the three distinct
- * failure modes — value differs, different header name, and header
- * absent entirely — so beginners see why exact match is strict.
+ * Chrome DNR only exposes RESPONSE-side header matching; there's no
+ * way to match on a request header from a rule condition. The
+ * diagram therefore frames everything around responses: rule sample
+ * is `Content-Type = application/json`, test cases are response
+ * header lines, and failure modes cover value mismatch, different
+ * header name, and absent header.
  */
 export const HeadersConditionDiagram: React.FC = () => {
   const headerFill = FILL_MAGENTA;
@@ -1535,13 +1536,13 @@ export const HeadersConditionDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Headers condition — exact header name plus exact value, with test cases for each failure mode"
+      aria-label="Response Headers condition — exact name plus exact value, response-side only (Chrome DNR doesn't match on request headers)"
     >
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={600} fill={TEXT}>
-        Headers — exact name + exact value match
+        Response Headers — exact name + exact value
       </text>
       <text x={160} y={28} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Both halves must match exactly — no wildcards, no partial matching
+        Response-side only — Chrome DNR doesn't match request headers
       </text>
 
       {/* Rule visualization */}
@@ -1558,7 +1559,7 @@ export const HeadersConditionDiagram: React.FC = () => {
         fontWeight={700}
         fill={TEXT}
       >
-        Authorization
+        Content-Type
       </text>
       <text x={148} y={63} textAnchor="middle" fontSize={14} fontWeight={700} fill={TEXT_DIM}>
         =
@@ -1573,7 +1574,7 @@ export const HeadersConditionDiagram: React.FC = () => {
         fontWeight={700}
         fill={TEXT}
       >
-        Bearer test-token
+        application/json
       </text>
       <text x={98} y={82} textAnchor="middle" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
         exact name
@@ -1584,23 +1585,23 @@ export const HeadersConditionDiagram: React.FC = () => {
 
       <line x1={20} y1={96} x2={300} y2={96} stroke={STROKE} strokeDasharray="2 3" />
 
-      {/* Test request headers */}
+      {/* Test response headers */}
       <text x={20} y={112} fontSize={9} fontWeight={600} fill={TEXT_DIM}>
-        Test request headers:
+        Test response headers:
       </text>
 
       <text x={24} y={132} fontSize={11} fontWeight={700} fill={matchOk}>
         ✓
       </text>
       <text x={40} y={132} fontFamily="monospace" fontSize={9} fill={TEXT}>
-        Authorization: Bearer test-token
+        Content-Type: application/json
       </text>
 
       <text x={24} y={154} fontSize={11} fontWeight={700} fill={matchFail}>
         ✗
       </text>
       <text x={40} y={154} fontFamily="monospace" fontSize={9} fill={TEXT_DIM}>
-        Authorization: Bearer other-token
+        Content-Type: text/html
       </text>
       <text x={40} y={166} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
         name matches, but value differs
@@ -1610,7 +1611,7 @@ export const HeadersConditionDiagram: React.FC = () => {
         ✗
       </text>
       <text x={40} y={186} fontFamily="monospace" fontSize={9} fill={TEXT_DIM}>
-        Cookie: session=abc
+        Server: nginx
       </text>
       <text x={40} y={198} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
         different header name
@@ -1620,7 +1621,7 @@ export const HeadersConditionDiagram: React.FC = () => {
         ✗
       </text>
       <text x={40} y={218} fontFamily="monospace" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        (no Authorization header)
+        (response without Content-Type)
       </text>
       <text x={40} y={230} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
         header absent — must be present to match
@@ -1638,7 +1639,7 @@ export const HeadersConditionDiagram: React.FC = () => {
         strokeDasharray="2 3"
       />
       <text x={160} y={265} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Common use: scope rules to authenticated or typed requests
+        Common use: filter rules by response Content-Type or custom flags
       </text>
     </svg>
   );
