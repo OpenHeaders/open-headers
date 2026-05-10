@@ -1480,14 +1480,14 @@ export const VaultDriftDetailDiagram: React.FC = () => {
             {!fieldOk && (
               <rect x={xOff + 6} y={fy - 12} width={128} height={20} rx={2} fill={fillRow} stroke={errBorder} />
             )}
-            <text x={xOff + 12} y={fy} fontFamily="monospace" fontSize={9} fontWeight={700} fill={TEXT}>
+            <text x={xOff + 12} y={fy} fontFamily="monospace" fontSize={8} fontWeight={700} fill={TEXT}>
               {f.key}:
             </text>
             <text
-              x={xOff + 60}
+              x={xOff + 64}
               y={fy}
               fontFamily="monospace"
-              fontSize={9}
+              fontSize={8}
               fill={f.missing ? errColor : TEXT}
               fontStyle={f.missing ? 'italic' : undefined}
             >
@@ -1525,7 +1525,7 @@ export const VaultDriftDetailDiagram: React.FC = () => {
           { key: 'uid', value: 'sec_a1f3' },
           { key: 'label', value: 'API token' },
           { key: 'cipher', value: 'aes-gcm…' },
-          { key: 'createdAt', value: '1715000…' },
+          { key: 'created', value: '1715000…' },
         ]}
       />
 
@@ -1538,7 +1538,7 @@ export const VaultDriftDetailDiagram: React.FC = () => {
           { key: 'uid', value: 'sec_c3d5' },
           { key: 'label', value: 'Old token' },
           { key: 'cipher', value: '', missing: true },
-          { key: 'createdAt', value: '"yesterday"', ok: false },
+          { key: 'created', value: '"yesterday"', ok: false },
         ]}
         issue="2 schema issues → dropped"
       />
