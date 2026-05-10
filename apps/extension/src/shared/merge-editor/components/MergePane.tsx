@@ -320,6 +320,17 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   const singleClickRef = useRef<boolean>(singleClickResolve);
   singleClickRef.current = singleClickResolve;
   const [pickStateRev, setPickStateRev] = useState(0);
+  // Ref-mirror the parent-supplied onChange so the controller stays
+  // stable across parent re-renders even when the parent passes a
+  // fresh inline arrow each render. Without this, `useMemo([...,
+  // onPickStateChange])` recreates the controller on every render →
+  // file-switch reset effect fires → reset() emits onChange →
+  // setPickStateRev → re-render → loop. React #185 ("max update
+  // depth exceeded") was the symptom; the trigger we saw in the
+  // wild was a window-resize burst from Chrome split-tab drag,
+  // which floods Monaco layout events through `useHunkActionMarkers`.
+  const onPickStateChangeRef = useRef(onPickStateChange);
+  onPickStateChangeRef.current = onPickStateChange;
   const pickController = useMemo<PickStateController>(
     () =>
       createPickStateController({
@@ -328,10 +339,10 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
         singleClickResolveRef: singleClickRef,
         onChange: (hunkId) => {
           setPickStateRev((n) => n + 1);
-          onPickStateChange?.(hunkId);
+          onPickStateChangeRef.current?.(hunkId);
         },
       }),
-    [trackedRangesRef, onPickStateChange],
+    [trackedRangesRef],
   );
 
   // Per-side state lookups for the decoration hooks. Theirs-list
@@ -374,7 +385,10 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   // biome-ignore lint/correctness/useExhaustiveDependencies: file id is the lifecycle handle
   useEffect(() => {
     pickController.reset();
-  }, [file.id, pickController]);
+    // pickController is stable by construction (ref-mirror above);
+    // dropping it from deps avoids the reset cascade that triggered
+    // React #185 on Chrome split-tab drag bursts.
+  }, [file.id]);
 
   // Pixel-y positions for the action gutter rows. Recomputed when the
   // hunk set changes or the result editor scrolls / lays out.

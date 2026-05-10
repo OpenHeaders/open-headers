@@ -86,6 +86,13 @@ const MergeConflictModal = ({
   // user's clicks immediately (without waiting for the next stats
   // emission, which only covers the active file).
   const [pickStateRev, setPickStateRev] = useState(0);
+  // Stable callback so MergePane's `useMemo([..., onPickStateChange])`
+  // doesn't recreate the pick-state controller on every modal render.
+  // (MergePane also ref-mirrors this internally, but stabilizing here
+  // avoids unnecessary churn through the prop chain.)
+  const handlePickStateChange = useCallback(() => {
+    setPickStateRev((n) => n + 1);
+  }, []);
   const [layout, setLayout] = usePersistedLayout(surfaceId, 'column');
   const failedOutcomes = useMemo(() => outcomes.filter((o) => !o.ok), [outcomes]);
   const baseAvailable = useMemo(() => session.files.some((f) => f.base !== undefined), [session]);
@@ -529,7 +536,7 @@ const MergeConflictModal = ({
                   singleClickResolve={singleClickResolve}
                   layout={layout}
                   onHunkStatsChange={setStats}
-                  onPickStateChange={() => setPickStateRev((n) => n + 1)}
+                  onPickStateChange={handlePickStateChange}
                   onAnnounce={announce}
                 />
               ) : (
