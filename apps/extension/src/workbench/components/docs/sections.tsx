@@ -43,6 +43,8 @@ import {
   RequestTrackingDiagram,
   RequestTrackingPhasesDiagram,
   RequestTrackingUiDiagram,
+  RequestExecutorOutcomesDiagram,
+  RequestExecutorScopeDiagram,
   RulesCapacityDiagram,
   RulesPipelineDiagram,
   SyncLifecycleDiagram,
@@ -467,12 +469,28 @@ export const SystemStatusSection: React.FC = () => (
     </StateRow>
 
     <SubsystemHeading name="Requests" subtitle="API request executor" />
-    <DocParagraph>Reflects the last ad-hoc API request fired from the Request editor.</DocParagraph>
+    <DocParagraph>
+      Reflects the last ad-hoc API request fired from the Request editor's <strong>Send</strong> button. The pill flips
+      green for <em>any</em> HTTP response — including 4xx and 5xx — because "the request completed" is a separate
+      question from "the server liked it." Only network-level failures with no response turn it yellow.
+    </DocParagraph>
+    <DiagramFrame caption="Any status code = green. Yellow is reserved for failures with no response back.">
+      <RequestExecutorOutcomesDiagram />
+    </DiagramFrame>
+    <DocParagraph>
+      Background traffic doesn't update this pill: Live workflow refreshes pass <code>silentStatus: true</code>, and
+      webpage requests flow through the Rules engine, not the executor.
+    </DocParagraph>
+    <DiagramFrame caption="Only ad-hoc Send-button traffic shapes this pill — everything else stays quiet.">
+      <RequestExecutorScopeDiagram />
+    </DiagramFrame>
     <StateRow color="success" label="green">
-      Last request returned a response.
+      <strong>Last request: {'<status> <statusText>'}</strong> — any HTTP response (e.g. <em>200 OK</em>, <em>404 Not
+      Found</em>, <em>500 Server Error</em>).
     </StateRow>
     <StateRow color="warning" label="yellow">
-      Last request failed before producing a response (network offline, DNS, abort).
+      <strong>Last request failed: {'<message>'}</strong> — network-level failure before a response (e.g.{' '}
+      <em>NetworkError</em>, <em>Aborted</em>, offline/DNS).
     </StateRow>
 
     <SubsystemHeading name="Permissions" subtitle="Host permissions audit" />
