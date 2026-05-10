@@ -382,133 +382,170 @@ export const SyncTopologyDiagram: React.FC = () => {
 };
 
 /**
- * Lifecycle: state diagram of every label the Sync pill can show.
- * Pulled directly from `websocket.ts` — green for Disabled/Connected,
- * yellow for Connecting/Reconnecting/URL-rejected, plus the reserved
- * red box drawn dashed since no code path emits it today.
+ * Lifecycle: a UML-style sequence diagram of the Sync connection
+ * lifetime. Three lifelines — Extension SW, Desktop app, and the
+ * Status pill — and a sequence of messages timed top-to-bottom. The
+ * Status pill column shows the colored state at each transition so
+ * "what does the user see when X happens?" is answerable at a glance.
  */
 export const SyncLifecycleDiagram: React.FC = () => {
   const ID = 'sync-life';
 
-  const StateBox = ({
-    x,
+  // Lifeline anchor X positions
+  const X_SW = 50;
+  const X_DESK = 175;
+  const X_PILL = 282;
+  const PILL_W = 34;
+
+  // Status pill column helper — renders a tiny pill at a given Y to
+  // mirror what the actual UI shows at that point in the timeline.
+  const StatusMarker = ({
     y,
-    w,
-    label,
-    sub,
     level,
-    dashed = false,
+    label,
   }: {
-    x: number;
     y: number;
-    w: number;
+    level: Exclude<Level, 'grey'>;
     label: string;
-    sub: string;
-    level: Level;
-    dashed?: boolean;
   }) => {
-    const fill =
-      level === 'red'
-        ? ERROR_BG
-        : level === 'yellow'
-          ? WARNING_BG
-          : level === 'green'
-            ? SUCCESS_BG
-            : GREY_BG;
+    const fill = level === 'green' ? SUCCESS_BG : level === 'yellow' ? WARNING_BG : ERROR_BG;
     const stroke = dotColor(level);
     return (
       <g>
-        <rect
-          x={x}
-          y={y}
-          width={w}
-          height={36}
-          rx={5}
-          fill={fill}
-          stroke={stroke}
-          strokeWidth={1.5}
-          strokeDasharray={dashed ? '3 2' : undefined}
-        />
-        <circle cx={x + 10} cy={y + 12} r={3} fill={dotColor(level)} />
-        <text x={x + 20} y={y + 15} fontSize={10} fontWeight={700} fill={TEXT}>
+        <rect x={X_PILL - PILL_W / 2} y={y - 7} width={PILL_W} height={14} rx={4} fill={fill} stroke={stroke} />
+        <circle cx={X_PILL - PILL_W / 2 + 5} cy={y} r={2.5} fill={dotColor(level)} />
+        <text x={X_PILL - PILL_W / 2 + 11} y={y + 3} fontSize={8} fontWeight={700} fill={TEXT}>
           {label}
-        </text>
-        <text x={x + 10} y={y + 28} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-          {sub}
         </text>
       </g>
     );
   };
 
+  const ARROW_LABEL_FS = 8;
+
   return (
     <svg
-      viewBox="0 0 320 240"
+      viewBox="0 0 320 340"
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Sync connection lifecycle — Disabled is green; Connecting and Reconnecting are yellow; Connected is green. URL rejected is yellow. Red is reserved and not emitted."
+      aria-label="Sync connection lifecycle as a sequence diagram — extension service worker connects to the desktop app, status pill transitions green to yellow to green over time"
     >
       <ArrowDefs id={ID} />
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        Sync states and how they're reached
+        How the Sync pill changes over time
       </text>
 
-      {/* Top row: Disabled & Connecting */}
-      <StateBox x={14} y={30} w={130} label="Disabled" sub="auto-connect off" level="green" />
-      <StateBox x={176} y={30} w={130} label="Connecting…" sub="first attempt" level="yellow" />
+      {/* Lifeline headers */}
+      <rect x={X_SW - 40} y={24} width={80} height={22} rx={4} fill={FILL_SECONDARY} stroke={BORDER} />
+      <text x={X_SW} y={38} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>
+        Extension SW
+      </text>
 
-      {/* Middle row: Connected & Reconnecting */}
-      <StateBox x={14} y={96} w={130} label="Connected" sub="WS handshake OK" level="green" />
-      <StateBox x={176} y={96} w={130} label="Reconnecting #N" sub="backs off, retries" level="yellow" />
+      <rect x={X_DESK - 40} y={24} width={80} height={22} rx={4} fill={FILL_SECONDARY} stroke={BORDER} />
+      <text x={X_DESK} y={38} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>
+        Desktop app
+      </text>
 
-      {/* Bottom row: URL rejected & Red reserved */}
-      <StateBox x={14} y={162} w={130} label="URL rejected" sub="bad settings URL" level="yellow" />
-      <StateBox
-        x={176}
-        y={162}
-        w={130}
-        label="(red reserved)"
-        sub="no code path today"
-        level="red"
-        dashed
+      <rect x={X_PILL - PILL_W / 2 - 4} y={24} width={PILL_W + 8} height={22} rx={4} fill={FILL_SECONDARY} stroke={BORDER} />
+      <text x={X_PILL} y={38} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>
+        Sync pill
+      </text>
+
+      {/* Lifelines */}
+      {[X_SW, X_DESK, X_PILL].map((x) => (
+        <line key={x} x1={x} y1={46} x2={x} y2={310} stroke={STROKE} strokeDasharray="2 3" />
+      ))}
+
+      {/* ── Event 1: SW boot reads settings ── */}
+      <text x={X_SW} y={62} textAnchor="middle" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
+        SW wakes
+      </text>
+      <text x={X_SW} y={74} textAnchor="middle" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
+        reads settings
+      </text>
+
+      {/* ── Event 2: auto-connect off branch — status disabled (green) ── */}
+      <text x={(X_SW + X_PILL) / 2} y={90} textAnchor="middle" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
+        if auto-connect = off →
+      </text>
+      <StatusMarker y={94} level="green" label="Disabled" />
+
+      {/* divider */}
+      <line x1={20} y1={108} x2={300} y2={108} stroke={BORDER} strokeDasharray="3 3" />
+      <text x={160} y={105} textAnchor="middle" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
+        otherwise →
+      </text>
+
+      {/* ── Event 3: SW initiates WS connection ── */}
+      <line x1={X_SW} y1={122} x2={X_DESK - 2} y2={122} stroke={STROKE} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
+      <text x={(X_SW + X_DESK) / 2} y={118} textAnchor="middle" fontSize={ARROW_LABEL_FS} fill={TEXT}>
+        WebSocket connect
+      </text>
+      <StatusMarker y={126} level="yellow" label="…ing" />
+
+      {/* ── Event 4: handshake OK ── */}
+      <line
+        x1={X_DESK}
+        y1={146}
+        x2={X_SW + 2}
+        y2={146}
+        stroke={SUCCESS}
+        strokeWidth={1.5}
+        markerEnd={`url(#${ID})`}
       />
-
-      {/* Transitions */}
-      {/* Disabled → Connecting (enable auto-connect) */}
-      <line x1={144} y1={48} x2={176} y2={48} stroke={STROKE} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
-      <text x={160} y={43} textAnchor="middle" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        enable
-      </text>
-
-      {/* Connecting → Connected (success) */}
-      <line x1={241} y1={66} x2={79} y2={96} stroke={SUCCESS} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
-      <text x={170} y={78} fontSize={8} fontStyle="italic" fill={SUCCESS}>
+      <text x={(X_SW + X_DESK) / 2} y={142} textAnchor="middle" fontSize={ARROW_LABEL_FS} fill={SUCCESS}>
         handshake OK
       </text>
+      <StatusMarker y={150} level="green" label="✓ on" />
 
-      {/* Connecting → URL rejected */}
-      <line x1={176} y1={66} x2={79} y2={162} stroke={WARNING} strokeWidth={1.2} strokeDasharray="3 2" markerEnd={`url(#${ID})`} />
-      <text x={110} y={130} fontSize={8} fontStyle="italic" fill={WARNING}>
-        invalid URL
+      {/* Activation bars on both lifelines while connected */}
+      <rect x={X_SW - 3} y={150} width={6} height={50} fill={SUCCESS_BG} stroke={dotColor('green')} />
+      <rect x={X_DESK - 3} y={150} width={6} height={50} fill={SUCCESS_BG} stroke={dotColor('green')} />
+
+      {/* ── Event 5: keep-alive ping ── */}
+      <line x1={X_SW + 3} y1={172} x2={X_DESK - 3} y2={172} stroke={STROKE} strokeWidth={1} strokeDasharray="2 2" markerEnd={`url(#${ID})`} />
+      <line x1={X_DESK - 3} y1={184} x2={X_SW + 3} y2={184} stroke={STROKE} strokeWidth={1} strokeDasharray="2 2" markerEnd={`url(#${ID})`} />
+      <text x={(X_SW + X_DESK) / 2} y={168} textAnchor="middle" fontSize={ARROW_LABEL_FS} fill={TEXT_DIM}>
+        ping ⇄ pong
       </text>
 
-      {/* Connected → Reconnecting (drop) */}
-      <line x1={144} y1={114} x2={176} y2={114} stroke={WARNING} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
-      <text x={160} y={110} textAnchor="middle" fontSize={8} fontStyle="italic" fill={WARNING}>
-        drop
+      {/* ── Event 6: drop ── */}
+      <text x={(X_SW + X_DESK) / 2} y={216} textAnchor="middle" fontSize={ARROW_LABEL_FS} fontWeight={700} fill={WARNING}>
+        ✗ connection drops
       </text>
+      <line x1={X_SW + 8} y1={220} x2={X_DESK - 8} y2={220} stroke={WARNING} strokeWidth={1} strokeDasharray="3 3" />
+      <line x1={(X_SW + X_DESK) / 2 - 5} y1={215} x2={(X_SW + X_DESK) / 2 + 5} y2={225} stroke={WARNING} strokeWidth={1.5} />
+      <line x1={(X_SW + X_DESK) / 2 + 5} y1={215} x2={(X_SW + X_DESK) / 2 - 5} y2={225} stroke={WARNING} strokeWidth={1.5} />
+      <StatusMarker y={224} level="yellow" label="re #1" />
 
-      {/* Reconnecting → Connected (retry succeeds) */}
-      <line x1={176} y1={120} x2={144} y2={120} stroke={SUCCESS} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
-      <text x={160} y={132} textAnchor="middle" fontSize={8} fontStyle="italic" fill={SUCCESS}>
-        re-OK
+      {/* ── Event 7: backoff + retry ── */}
+      <text x={X_SW} y={246} textAnchor="middle" fontSize={ARROW_LABEL_FS} fontStyle="italic" fill={TEXT_DIM}>
+        backoff
       </text>
+      <line x1={X_SW} y1={252} x2={X_DESK - 2} y2={252} stroke={STROKE} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
+      <text x={(X_SW + X_DESK) / 2} y={248} textAnchor="middle" fontSize={ARROW_LABEL_FS} fill={TEXT}>
+        retry connect
+      </text>
+      <StatusMarker y={256} level="yellow" label="re #2" />
 
-      <text x={160} y={210} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT}>
-        Reconnect uses exponential backoff (configurable max delay).
+      {/* ── Event 8: handshake OK again ── */}
+      <line
+        x1={X_DESK}
+        y1={278}
+        x2={X_SW + 2}
+        y2={278}
+        stroke={SUCCESS}
+        strokeWidth={1.5}
+        markerEnd={`url(#${ID})`}
+      />
+      <text x={(X_SW + X_DESK) / 2} y={274} textAnchor="middle" fontSize={ARROW_LABEL_FS} fill={SUCCESS}>
+        handshake OK
       </text>
-      <text x={160} y={224} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Periodic pings detect silent drops behind strict proxies.
+      <StatusMarker y={282} level="green" label="✓ on" />
+
+      <text x={160} y={326} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+        Exponential backoff between retries · pings detect silent proxy drops
       </text>
     </svg>
   );
