@@ -43,6 +43,9 @@ import {
   RequestTrackingDiagram,
   RequestTrackingPhasesDiagram,
   RequestTrackingUiDiagram,
+  SystemStatusPopoverDiagram,
+  SystemStatusSurfacesDiagram,
+  SystemStatusWorstLevelDiagram,
 } from './diagrams';
 import {
   Anchor,
@@ -376,16 +379,31 @@ const SubsystemHeading: React.FC<{ name: string; subtitle: string }> = ({ name, 
 
 export const SystemStatusSection: React.FC = () => (
   <>
+    <SurfaceContext surfaces={['popup', 'side-panel', 'workbench']} />
     <DocParagraph>
-      The <strong>System status</strong> pill — in the workspace footer and the popup / sidepanel header — is a live
-      snapshot of the extension's health. Each subsystem reports a single state and the worst level wins: red &gt;
-      yellow &gt; green.
+      <strong>System status</strong> is a live snapshot of the extension's health. The workbench footer shows it as a
+      six-pill row — one pill per subsystem, each with its own colored dot. The popup and side-panel header collapse it
+      down to a single composite dot whose color tracks the worst-state subsystem.
     </DocParagraph>
+    <DiagramFrame caption="One row per subsystem in the footer; one composite dot in the popup/side-panel header.">
+      <SystemStatusSurfacesDiagram />
+    </DiagramFrame>
     <DocParagraph>
-      Rows come in two groups: grey first (no events yet this service-worker lifetime) and colored after (have reported
-      at least once). Full history lives in the Observability log — export from{' '}
+      Each subsystem reports a single state and the worst level wins: red &gt; yellow &gt; green. One red anywhere flips
+      the composite dot red.
+    </DocParagraph>
+    <DiagramFrame caption="Six subsystem states fold into one composite via max — red beats yellow beats green.">
+      <SystemStatusWorstLevelDiagram />
+    </DiagramFrame>
+    <DocParagraph>
+      Clicking any pill opens the same details popover. Rows come in two groups: grey first (no events yet this
+      service-worker lifetime) and colored after (have reported at least once). Within each group the canonical
+      subsystem order is preserved. Full history lives in the Observability log — export from{' '}
       <strong>Settings → Data → Export Diagnostic Log</strong>.
     </DocParagraph>
+    <DiagramFrame caption="Greys above the divider, coloreds below; on first report a row migrates once.">
+      <SystemStatusPopoverDiagram />
+    </DiagramFrame>
 
     <SubsystemHeading name="Sync" subtitle="Desktop-app connection" />
     <DocParagraph>Mirrors the WebSocket connection to the OpenHeaders desktop app.</DocParagraph>
@@ -447,6 +465,18 @@ export const SystemStatusSection: React.FC = () => (
     <StateRow color="error" label="red">
       A cipher decrypt failed for a named secret. Sticks red until a subsequent successful read; reinstall or restore
       from backup if it persists.
+    </StateRow>
+
+    <SubsystemHeading name="Live" subtitle="Live Variable workflow refresh" />
+    <DocParagraph>Aggregates the most recent refresh result across every configured Live workflow.</DocParagraph>
+    <StateRow color="success" label="green">
+      Every workflow's last run is fresh — or no workflows are configured.
+    </StateRow>
+    <StateRow color="warning" label="yellow">
+      One or more workflows are stale or failing (below the consecutive-failure threshold).
+    </StateRow>
+    <StateRow color="error" label="red">
+      A workflow crossed the consecutive-failure threshold (3+ in a row) and is now considered failing.
     </StateRow>
 
     <Callout kind="note" title="Desktop App — product note">

@@ -42,3 +42,8 @@ export {
   RequestTrackingPhasesDiagram,
   RequestTrackingUiDiagram,
 } from './request-tracking';
+export {
+  SystemStatusPopoverDiagram,
+  SystemStatusSurfacesDiagram,
+  SystemStatusWorstLevelDiagram,
+} from './system-status';
