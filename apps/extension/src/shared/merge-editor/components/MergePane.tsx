@@ -46,6 +46,7 @@ import { diffLinesPatience } from '../diff/patience-diff';
 import { useCharDecorations } from '../monaco/use-char-decorations';
 import { useGridResize } from '../monaco/use-grid-resize';
 import { useHunkActionMarkers } from '../monaco/use-hunk-action-markers';
+import { useHunkActionZones } from '../monaco/use-hunk-action-zones';
 import { type HunkSide, useHunkDecorations } from '../monaco/use-hunk-decorations';
 import { useHunkTrackedRanges } from '../monaco/use-hunk-tracked-ranges';
 import { type MergeActionsContext, useMergeActions } from '../monaco/use-merge-actions';
@@ -108,6 +109,16 @@ export interface MergePaneProps {
    *  diagonal-append affordance stays visible so users can opt to
    *  stack both sides. */
   singleClickResolve?: boolean;
+  /** Show VS Code-style inline action labels above each pending
+   *  hunk in the theirs / mine panes ("Accept Incoming | Accept
+   *  Combination | Ignore"). Layout-agnostic. Default true. */
+  inlineActionLabels?: boolean;
+  /** Show side action gutters flanking the result editor
+   *  ("× ▶" / "◀ ×"). Spatially correct only when result is
+   *  between theirs and mine on the same row (Column layout). The
+   *  modal force-disables this in `show-base-*` layouts. Default
+   *  true (subject to the per-layout availability check). */
+  sideActionGutters?: boolean;
   /** Fires whenever the per-side pick-state map changes (any click,
    *  bulk action, undo/redo, or session reset). The argument is the
    *  affected hunk id, or `null` when many changed at once. Surface
@@ -144,6 +155,8 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     renderHeader,
     onAnnounce,
     singleClickResolve = false,
+    inlineActionLabels = true,
+    sideActionGutters = true,
     onPickStateChange,
   } = props;
   // Monaco theme id comes from the active variant — the chrome's
@@ -378,6 +391,27 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   // tint until the user resolves them via direct buffer editing or
   // the gutter actions on overlapping theirs hunks.
   useHunkDecorations({ editorRef: mineHandle, side: 'mine', hunks: mineHunks });
+
+  // VS Code-style inline action labels above each pending hunk in
+  // the theirs / mine panes. Layout-agnostic — works in every
+  // layout because the labels live INSIDE the source panes. Toggled
+  // independently from the side gutters via `inlineActionLabels`.
+  useHunkActionZones({
+    editorRef: theirsHandle,
+    side: 'theirs',
+    hunks: pickStateHunks,
+    controller: pickController,
+    stateRev: pickStateRev,
+    enabled: inlineActionLabels,
+  });
+  useHunkActionZones({
+    editorRef: mineHandle,
+    side: 'mine',
+    hunks: pickStateHunks,
+    controller: pickController,
+    stateRev: pickStateRev,
+    enabled: inlineActionLabels && has3Panes,
+  });
 
   // Reset the controller's state when the file switches — stale entries
   // would carry false signals for hunks that don't exist in the new
@@ -678,7 +712,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
         }
         containerRef={resultContainerRef}
         leftFlanker={
-          pickStateHunks.length > 0 ? (
+          sideActionGutters && pickStateHunks.length > 0 ? (
             <HunkActionGutter
               side="left"
               markers={visibleActionMarkers}
@@ -693,7 +727,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
           // and the user can't compare against a separate local copy.
           // Theirs↔result resolution via the left gutter is the whole
           // surface in that case.
-          pickStateHunks.length > 0 && has3Panes ? (
+          sideActionGutters && pickStateHunks.length > 0 && has3Panes ? (
             <HunkActionGutter
               side="right"
               markers={visibleActionMarkers}

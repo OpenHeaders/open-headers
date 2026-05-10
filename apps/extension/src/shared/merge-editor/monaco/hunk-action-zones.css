@@ -1,0 +1,64 @@
+/* Inline action-label widgets — Monaco view zones rendering above
+ * each pending hunk in the theirs / mine panes. Mirrors VS Code's
+ * "Accept Incoming | Accept Combination | Ignore" affordance.
+ *
+ * Lives in the editor's content-area, so width matches the pane.
+ * Click targets are real <button> elements so keyboard focus +
+ * accessibility come for free. Buttons surface as compact pill-
+ * style chips with the link-blue accent so they read as actions
+ * rather than text. */
+
+.oh-merge__action-zone {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 1px 12px;
+  font-size: 11px;
+  line-height: 18px;
+  background: rgba(0, 0, 0, 0.04);
+  border-bottom: 1px dashed rgba(127, 127, 127, 0.35);
+  user-select: none;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+[data-merge-theme='dark'] .oh-merge__action-zone {
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom-color: rgba(255, 255, 255, 0.18);
+}
+
+.oh-merge__action-zone-btn {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: rgb(0, 102, 204);
+  cursor: pointer;
+}
+
+[data-merge-theme='dark'] .oh-merge__action-zone-btn {
+  color: rgb(102, 178, 255);
+}
+
+.oh-merge__action-zone-btn:hover {
+  text-decoration: underline;
+}
+
+.oh-merge__action-zone-btn:focus-visible {
+  outline: 2px solid rgba(64, 156, 255, 0.85);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.oh-merge__action-zone-btn-ignore {
+  color: rgba(127, 127, 127, 0.95);
+}
+
+[data-merge-theme='dark'] .oh-merge__action-zone-btn-ignore {
+  color: rgba(180, 180, 180, 0.95);
+}
+
+.oh-merge__action-zone-btn[hidden] {
+  display: none;
+}

@@ -80,6 +80,17 @@ const MergeConflictModal = ({
   // state machine; toggling it doesn't undo prior decisions, only
   // affects future clicks.
   const [singleClickResolve, setSingleClickResolve] = useState(false);
+  // Affordance-style toggles. Both default ON. The user-side prefers
+  // one or the other based on muscle memory — some users
+  // gravitate to the gutter glyphs, VS Code users to the inline
+  // labels. Defaulting both lets each user land in something they
+  // recognize, and they can disable the redundant one once they've
+  // chosen. Side gutters are spatially incorrect in show-base-*
+  // layouts (the result pane is on a separate row from theirs/mine,
+  // so flankers end up at the modal edges); we force-disable the
+  // toggle there.
+  const [inlineActionLabels, setInlineActionLabels] = useState(true);
+  const [sideActionGutters, setSideActionGutters] = useState(true);
   // Bumped whenever any file's pick-state changes via MergePane's
   // `onPickStateChange`. Forces the modal's memoized hunk-count diff
   // to re-run so the sidebar pill / Complete Merge gate reflect the
@@ -94,6 +105,13 @@ const MergeConflictModal = ({
     setPickStateRev((n) => n + 1);
   }, []);
   const [layout, setLayout] = usePersistedLayout(surfaceId, 'column');
+  // Side gutters are spatially correct only in Column layout — in
+  // base-on-top / base-in-center the result pane is on a separate
+  // row, so flankers end up at the modal edges (visually
+  // disconnected from theirs / mine). Force-disable the toggle in
+  // those layouts; users still get the inline labels.
+  const sideGuttersAvailable = layout === 'column';
+  const effectiveSideGutters = sideGuttersAvailable && sideActionGutters;
   const failedOutcomes = useMemo(() => outcomes.filter((o) => !o.ok), [outcomes]);
   const baseAvailable = useMemo(() => session.files.some((f) => f.base !== undefined), [session]);
 
@@ -462,6 +480,29 @@ const MergeConflictModal = ({
             <Text style={{ fontSize: 12 }} type="secondary">
               Single-click resolve
             </Text>
+            <Tooltip title="Show 'Accept Incoming | Accept Combination | Ignore' labels above each pending hunk in the side panes. Layout-agnostic.">
+              <Switch size="small" checked={inlineActionLabels} onChange={setInlineActionLabels} />
+            </Tooltip>
+            <Text style={{ fontSize: 12 }} type="secondary">
+              Inline labels
+            </Text>
+            <Tooltip
+              title={
+                sideGuttersAvailable
+                  ? 'Show ✕ ▶ / ◀ ✕ glyphs flanking the result editor.'
+                  : 'Side gutters are only available in Column layout — base-on-top and base-in-center put the result on a separate row from theirs / mine.'
+              }
+            >
+              <Switch
+                size="small"
+                checked={effectiveSideGutters}
+                onChange={setSideActionGutters}
+                disabled={!sideGuttersAvailable}
+              />
+            </Tooltip>
+            <Text style={{ fontSize: 12 }} type="secondary" disabled={!sideGuttersAvailable}>
+              Side gutters
+            </Text>
           </Space>
         </div>
         {failedOutcomes.length > 0 ? (
@@ -534,6 +575,8 @@ const MergeConflictModal = ({
                   isDarkMode={isDarkMode}
                   showNonConflicting={showNonConflicting}
                   singleClickResolve={singleClickResolve}
+                  inlineActionLabels={inlineActionLabels}
+                  sideActionGutters={effectiveSideGutters}
                   layout={layout}
                   onHunkStatsChange={setStats}
                   onPickStateChange={handlePickStateChange}
