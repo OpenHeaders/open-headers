@@ -30,6 +30,26 @@
   position: relative;
   z-index: 5;
   pointer-events: auto;
+  /* Single-row layout. The view zone is height-constrained at 1
+   * line by Monaco, so any wrap would overflow the allotted height
+   * and visually trample the text below. `nowrap` keeps the labels
+   * on one line; `overflow-x: auto` lets the user scroll when the
+   * pane is narrower than the action row needs. `overflow-y:
+   * hidden` clips any spillover instead of growing the zone. */
+  white-space: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* Hide the horizontal scrollbar visually but keep the scroll
+ * functionality (Shift+wheel / drag). Mirrors Monaco's own thin
+ * scrollbar styling so the action row doesn't grow visual weight. */
+.oh-merge__action-zone::-webkit-scrollbar {
+  height: 4px;
+}
+.oh-merge__action-zone::-webkit-scrollbar-thumb {
+  background: rgba(127, 127, 127, 0.4);
+  border-radius: 2px;
 }
 
 [data-merge-theme='dark'] .oh-merge__action-zone {
@@ -67,6 +87,12 @@
   color: rgb(0, 102, 204);
   cursor: pointer;
   pointer-events: auto;
+  /* Hold the button's full label even when the row's flex container
+   * is narrower than the sum of children — overflow-x: auto on the
+   * container handles scrolling. Without flex-shrink: 0, flex would
+   * compress button text and re-wrap. */
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 [data-merge-theme='dark'] .oh-merge__action-zone-btn {
@@ -99,6 +125,8 @@
   color: rgba(127, 127, 127, 0.6);
   user-select: none;
   font-weight: normal;
+  flex-shrink: 0;
+  white-space: pre;
 }
 
 [data-merge-theme='dark'] .oh-merge__action-zone-sep {
@@ -136,6 +164,8 @@
   color: rgba(80, 80, 80, 0.85);
   font-style: italic;
   user-select: none;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 [data-merge-theme='dark'] .oh-merge__action-zone-status-label {
