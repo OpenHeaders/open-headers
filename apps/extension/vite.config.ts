@@ -249,6 +249,13 @@ export default defineConfig({
         // extension's `script-src 'self'`.
         offscreen: path.resolve(__dirname, 'offscreen.html'),
         sandbox: path.resolve(__dirname, 'sandbox.html'),
+        // Developer-only showcase page for the merge-conflict editor.
+        // Bundled so it's reachable at
+        // `chrome-extension://<id>/merge-showcase.html` for visual
+        // regression review without manually reproducing each
+        // conflict shape. Not surfaced from any UI; users find it
+        // by URL only. See `src/dev/merge-showcase.tsx`.
+        'merge-showcase': path.resolve(__dirname, 'merge-showcase.html'),
         background: path.resolve(__dirname, 'src/background/index.ts'),
       },
       output: {
