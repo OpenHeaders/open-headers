@@ -92,10 +92,19 @@ function buildZoneDom(args: {
   isCombineMeaningful: boolean;
 }): HTMLElement {
   const labels = args.side === 'theirs' ? LABEL_THEIRS : LABEL_MINE;
+  // Wrapper reserves room at the right for Monaco's vertical
+  // scrollbar so the inner styled rectangle ends at the content
+  // area's right edge (= scrollbar's left edge), matching VS Code.
+  // Without the wrapper, the view zone DOM spans the full editor
+  // view (including over the scrollbar) and the right shadow lands
+  // on top of the scrollbar.
+  const wrapper = document.createElement('div');
+  wrapper.className = 'oh-merge__action-zone-wrapper';
   const root = document.createElement('div');
   root.className = 'oh-merge__action-zone';
   root.setAttribute('data-side', args.side);
   root.setAttribute('data-hunk-id', args.hunk.id);
+  wrapper.appendChild(root);
 
   const slot: 'left' | 'right' = args.side === 'theirs' ? 'left' : 'right';
 
@@ -142,7 +151,7 @@ function buildZoneDom(args: {
   }
   root.appendChild(makeSeparator());
   root.appendChild(ignoreBtn);
-  return root;
+  return wrapper;
 }
 
 function shouldRenderZone(state: { theirs: SideState; mine: SideState }, side: HunkSide): boolean {
@@ -403,6 +412,8 @@ function buildStatusDom(args: {
   controller: PickStateController;
   resolved: boolean;
 }): HTMLElement {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'oh-merge__action-zone-wrapper';
   const root = document.createElement('div');
   // When the hunk is resolved (no side pending), the status zone
   // takes the grey-bordered "solved" treatment so the result pane's
@@ -411,6 +422,7 @@ function buildStatusDom(args: {
   root.className = args.resolved
     ? 'oh-merge__action-zone oh-merge__action-zone-resolved oh-merge__action-zone-status'
     : 'oh-merge__action-zone oh-merge__action-zone-status';
+  wrapper.appendChild(root);
 
   const eatMouseDown = (e: Event) => e.stopPropagation();
   root.addEventListener('mousedown', eatMouseDown);
@@ -440,7 +452,7 @@ function buildStatusDom(args: {
     });
     root.appendChild(btn);
   }
-  return root;
+  return wrapper;
 }
 
 export function useResultStatusZones(args: UseResultStatusZonesArgs): void {
@@ -658,9 +670,18 @@ function placeholderPlanFor(
 type PlaceholderKind = 'action-slot' | 'stacked-content';
 
 function buildPlaceholderDom(kind: PlaceholderKind): HTMLElement {
+  // Same wrapper trick as the action / status zones: outer reserves
+  // scrollbar space; inner takes the borders. Stacked-content kind
+  // doesn't have borders but uses the same wrapper for layout
+  // consistency (otherwise the hashed pattern would extend over the
+  // scrollbar area and look wrong against the rectangle's right
+  // edge on the rows above/below).
+  const wrapper = document.createElement('div');
+  wrapper.className = 'oh-merge__action-zone-wrapper';
   const root = document.createElement('div');
   root.className = `oh-merge__alignment-placeholder oh-merge__alignment-placeholder-${kind}`;
-  return root;
+  wrapper.appendChild(root);
+  return wrapper;
 }
 
 export function useHunkAlignmentPlaceholders(args: UseHunkAlignmentPlaceholdersArgs & { has3Panes: boolean }): void {

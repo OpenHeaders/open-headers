@@ -1,15 +1,16 @@
 /**
  * Sync-scroll bridge.
  *
- * Mirrors the `result` editor's vertical scroll position to the side
- * editors. Result is the authority — it's the editable pane and the
- * one the user typically drives. Side editors echo `scrollTop`; their
- * own user-initiated scrolls flow back the same way (also writing to
- * result), so reading either side keeps the trio aligned.
+ * Mirrors scroll position (BOTH vertical and horizontal) across all
+ * editors in the merge-editor pane group. Any pane the user
+ * scrolls becomes the authority for that tick; the others echo
+ * `scrollTop` / `scrollLeft`. Re-entrancy guard skips the bounce
+ * tick on the receiving side.
  *
- * Re-entrancy guard: when we push a scroll to a slave, that slave's
- * onDidScrollChange fires too. The guard skips one tick on the
- * receiving side so we don't bounce.
+ * Horizontal sync matters for long YAML / JSON lines where the
+ * user wraps off-screen — the matching content on the OTHER side
+ * is also off-screen, but at the same horizontal offset, so the
+ * panes stay vertically AND horizontally aligned through the diff.
  */
 
 import type * as monaco from 'monaco-editor';
@@ -31,12 +32,13 @@ export function useSyncScroll({ editors }: SyncScrollArgs): void {
     for (const source of ready) {
       const sub = source.onDidScrollChange((event) => {
         if (muted) return;
-        if (!event.scrollTopChanged) return;
+        if (!event.scrollTopChanged && !event.scrollLeftChanged) return;
         muted = true;
         try {
           for (const target of ready) {
             if (target === source) continue;
-            target.setScrollTop(event.scrollTop);
+            if (event.scrollTopChanged) target.setScrollTop(event.scrollTop);
+            if (event.scrollLeftChanged) target.setScrollLeft(event.scrollLeft);
           }
         } finally {
           muted = false;

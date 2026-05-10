@@ -8,6 +8,47 @@
  * style chips with the link-blue accent so they read as actions
  * rather than text. */
 
+/* Scoped scrollbar styling — only inside merge-editor panes (the
+ * `[data-merge-theme]` attribute is set on `<MergePane>`'s root).
+ * Monaco's default sliders are quite dark and pull focus; we slim
+ * them down + cut opacity to match VS Code's merge-editor style.
+ * Hover / active darken back up so the scrollbar still affords
+ * grabbing when the user reaches for it. */
+[data-merge-theme] .monaco-scrollable-element > .scrollbar > .slider {
+  background: rgba(127, 127, 127, 0.25) !important;
+  border-radius: 3px !important;
+}
+[data-merge-theme] .monaco-scrollable-element > .scrollbar > .slider:hover {
+  background: rgba(127, 127, 127, 0.45) !important;
+}
+[data-merge-theme] .monaco-scrollable-element > .scrollbar > .slider.active {
+  background: rgba(127, 127, 127, 0.6) !important;
+}
+[data-merge-theme='dark'] .monaco-scrollable-element > .scrollbar > .slider {
+  background: rgba(255, 255, 255, 0.18) !important;
+}
+[data-merge-theme='dark'] .monaco-scrollable-element > .scrollbar > .slider:hover {
+  background: rgba(255, 255, 255, 0.35) !important;
+}
+[data-merge-theme='dark'] .monaco-scrollable-element > .scrollbar > .slider.active {
+  background: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Wrapper for view zone DOMs (action zone, status zone, alignment
+ * placeholders). Reserves space at the right for Monaco's vertical
+ * scrollbar so the inner styled rectangle ends at the content
+ * area's right edge, matching the per-line frame decorations and
+ * VS Code's clean rectangle closure. View zones in Monaco span the
+ * full editor view (including the scrollbar area) — without the
+ * wrapper, the rectangle's right edge lands ON the scrollbar
+ * instead of just before it. */
+.oh-merge__action-zone-wrapper {
+  width: 100%;
+  height: 100%;
+  padding-right: 14px;
+  box-sizing: border-box;
+}
+
 .oh-merge__action-zone {
   display: flex;
   align-items: center;

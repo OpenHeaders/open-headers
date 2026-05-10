@@ -63,6 +63,16 @@ export function useMonacoEditorLifecycle(args: MonacoEditorLifecycleArgs): RefOb
         bracketPairs: false,
         bracketPairsHorizontal: false,
       },
+      // Lighter scrollbars (VS Code merge-editor style) — Monaco's
+      // defaults are quite dark and pull focus. Slim them down +
+      // remove the cast shadow at the edges so they recede.
+      scrollbar: {
+        verticalScrollbarSize: 10,
+        horizontalScrollbarSize: 10,
+        useShadows: false,
+        verticalSliderSize: 10,
+        horizontalSliderSize: 10,
+      },
       ...options,
     });
     handleRef.current = { editor, model };
