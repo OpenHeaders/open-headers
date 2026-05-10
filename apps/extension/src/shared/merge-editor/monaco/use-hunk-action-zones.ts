@@ -71,7 +71,11 @@ const LABEL_MINE = {
 function makeSeparator(): HTMLElement {
   const sep = document.createElement('span');
   sep.className = 'oh-merge__action-zone-sep';
-  sep.textContent = '|';
+  // Space-padded text instead of relying purely on flex `gap` —
+  // some Monaco theme stylesheets interfere with `gap` rendering on
+  // view zones, and the visible whitespace inside the text node is
+  // a load-bearing fallback that always reads as a proper separator.
+  sep.textContent = ' | ';
   sep.setAttribute('aria-hidden', 'true');
   return sep;
 }
@@ -143,6 +147,7 @@ function shouldRenderZone(state: { theirs: SideState; mine: SideState }, side: H
 
 export function useHunkActionZones(args: UseHunkActionZonesArgs): void {
   const zoneIdsRef = useRef<Map<string, string>>(new Map());
+  const frameDecorationsRef = useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
 
   useEffect(() => {
     const editor = args.editorRef.current.editor;
@@ -151,18 +156,29 @@ export function useHunkActionZones(args: UseHunkActionZonesArgs): void {
     const zoneIds = zoneIdsRef.current;
 
     if (!args.enabled) {
-      // Disabled: clear all zones, leave editor untouched.
+      // Disabled: clear all zones + frame decorations, leave editor
+      // untouched otherwise.
       if (zoneIds.size > 0) {
         editor.changeViewZones((accessor) => {
           for (const id of zoneIds.values()) accessor.removeZone(id);
         });
         zoneIds.clear();
       }
+      if (frameDecorationsRef.current) {
+        frameDecorationsRef.current.clear();
+        frameDecorationsRef.current = null;
+      }
       return;
     }
 
     const liveIds = new Set(args.hunks.map((h) => h.id));
     const lineCount = model.getLineCount();
+
+    // Frame decorations close the VS Code-style outline around the
+    // (label row + hunk lines) grouping. Top + side borders come
+    // from the action-zone DOM (above); side + bottom borders come
+    // from these per-line decorations on the hunk content.
+    const frameDecos: monaco.editor.IModelDeltaDecoration[] = [];
 
     editor.changeViewZones((accessor) => {
       // Drop zones whose hunks vanished from the diff (or whose side
@@ -189,22 +205,25 @@ export function useHunkActionZones(args: UseHunkActionZonesArgs): void {
         }
         if (!shouldRender) continue;
         // Anchor the zone above the hunk's start line on this side.
-        // `theirsRange.startLine` for the theirs pane;
-        // `mineRange.startLine` for the mine pane. Both are 1-based
-        // inclusive per the line-diff convention. View zones are
-        // positioned via `afterLineNumber`, where 0 means "before
+        // View zones use `afterLineNumber` where 0 means "before
         // line 1" — for a hunk starting at line N, we want the zone
         // BEFORE the hunk → afterLineNumber = N - 1.
-        const startLine = args.side === 'theirs' ? h.theirsRange.startLine : h.mineRange.startLine;
+        const range = args.side === 'theirs' ? h.theirsRange : h.mineRange;
+        const startLine = range.startLine;
+        const endLineExclusive = range.endLine;
         if (startLine < 1 || startLine > lineCount + 1) continue;
-        // Combine is meaningful when both sides could still potentially
-        // be accepted. If the OTHER side is already accepted, the
-        // simple Accept on this side already stacks via the controller
-        // (because mine='accepted' makes left-arrow combine theirs+
-        // mine). Hide the explicit Combine button in that case to
-        // reduce duplication.
+        // Combination is only offered for MULTI-line hunks — VS Code's
+        // convention is that single-line hunks just get
+        // "Accept | Ignore" (taking BOTH means stacking, which is only
+        // meaningful when each side has distinct multi-line content).
+        // Single-line picks default to whichever side the user names.
+        const isMultiLine = endLineExclusive > startLine + 1;
+        // Combine is also only meaningful when the OTHER side is still
+        // pending (accepting both makes sense) AND no side is dismissed
+        // (combining a dismissed side is contradictory).
         const otherSideAccepted = args.side === 'theirs' ? state.mine === 'accepted' : state.theirs === 'accepted';
-        const isCombineMeaningful = !otherSideAccepted && state.theirs !== 'dismissed' && state.mine !== 'dismissed';
+        const isCombineMeaningful =
+          isMultiLine && !otherSideAccepted && state.theirs !== 'dismissed' && state.mine !== 'dismissed';
         const dom = buildZoneDom({ side: args.side, hunk: h, controller: args.controller, isCombineMeaningful });
         const zoneId = accessor.addZone({
           afterLineNumber: startLine - 1,
@@ -212,16 +231,54 @@ export function useHunkActionZones(args: UseHunkActionZonesArgs): void {
           domNode: dom,
         } satisfies monaco.editor.IViewZone);
         zoneIds.set(h.id, zoneId);
+
+        // Frame decorations on every line of the hunk to close the
+        // VS Code-style outline rectangle (label row + hunk body).
+        // Last line gets the bottom border to seal the box.
+        const lastLineInclusive = Math.min(endLineExclusive - 1, lineCount);
+        for (let line = startLine; line <= lastLineInclusive; line++) {
+          frameDecos.push({
+            range: {
+              startLineNumber: line,
+              startColumn: 1,
+              endLineNumber: line,
+              endColumn: model.getLineMaxColumn(line),
+            },
+            options: {
+              isWholeLine: true,
+              className:
+                line === lastLineInclusive
+                  ? 'oh-merge__action-zone-frame oh-merge__action-zone-frame-last'
+                  : 'oh-merge__action-zone-frame',
+              stickiness: 1,
+            },
+          });
+        }
       }
     });
+
+    // Apply frame decorations as a single collection, replacing any
+    // previous frame from a prior render. Collection diffs in place.
+    if (!frameDecorationsRef.current) {
+      frameDecorationsRef.current = editor.createDecorationsCollection(frameDecos);
+    } else {
+      frameDecorationsRef.current.set(frameDecos);
+    }
+
     return () => {
-      // Cleanup on unmount or args change: remove every zone we own.
-      // The next effect run re-adds them if still applicable.
-      if (zoneIds.size === 0) return;
-      editor.changeViewZones((accessor) => {
-        for (const id of zoneIds.values()) accessor.removeZone(id);
-      });
-      zoneIds.clear();
+      // Cleanup on unmount or args change: remove zones + frame
+      // decorations. The next effect run re-adds them if still
+      // applicable.
+      if (zoneIds.size > 0) {
+        editor.changeViewZones((accessor) => {
+          for (const id of zoneIds.values()) accessor.removeZone(id);
+        });
+        zoneIds.clear();
+      }
+      if (frameDecorationsRef.current) {
+        frameDecorationsRef.current.clear();
+        frameDecorationsRef.current = null;
+      }
     };
   }, [args.editorRef, args.side, args.hunks, args.controller, args.stateRev, args.enabled]);
 }

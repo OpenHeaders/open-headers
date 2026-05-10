@@ -11,12 +11,18 @@
 .oh-merge__action-zone {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 1px 12px;
+  gap: 4px;
+  padding: 1px 12px 1px 8px;
   font-size: 12px;
   line-height: 18px;
-  background: rgba(0, 0, 0, 0.04);
-  border-bottom: 1px dashed rgba(127, 127, 127, 0.35);
+  background: rgba(255, 159, 67, 0.10);
+  /* VS Code-style outline that wraps both the label row and the
+   * hunk content below it. Top + side borders here; the bottom edge
+   * comes from the matching `oh-merge__action-zone-anchor`
+   * decoration on the hunk's last line below. */
+  border-top: 1px solid rgba(255, 159, 67, 0.85);
+  border-left: 1px solid rgba(255, 159, 67, 0.85);
+  border-right: 1px solid rgba(255, 159, 67, 0.85);
   user-select: none;
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   /* Sit above the editor view layers so clicks on the buttons hit
@@ -27,8 +33,28 @@
 }
 
 [data-merge-theme='dark'] .oh-merge__action-zone {
-  background: rgba(255, 255, 255, 0.04);
-  border-bottom-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 159, 67, 0.14);
+  border-top-color: rgba(255, 159, 67, 0.75);
+  border-left-color: rgba(255, 159, 67, 0.75);
+  border-right-color: rgba(255, 159, 67, 0.75);
+}
+
+/* Decoration class applied by `useHunkActionZones` to every line of
+ * the hunk that follows the action label. Provides the side + bottom
+ * borders that close the VS Code-style grouping rectangle. */
+.oh-merge__action-zone-frame {
+  border-left: 1px solid rgba(255, 159, 67, 0.85);
+  border-right: 1px solid rgba(255, 159, 67, 0.85);
+}
+.oh-merge__action-zone-frame-last {
+  border-bottom: 1px solid rgba(255, 159, 67, 0.85);
+}
+[data-merge-theme='dark'] .oh-merge__action-zone-frame {
+  border-left-color: rgba(255, 159, 67, 0.75);
+  border-right-color: rgba(255, 159, 67, 0.75);
+}
+[data-merge-theme='dark'] .oh-merge__action-zone-frame-last {
+  border-bottom-color: rgba(255, 159, 67, 0.75);
 }
 
 .oh-merge__action-zone-btn {
