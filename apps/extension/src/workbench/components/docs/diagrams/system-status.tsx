@@ -716,8 +716,15 @@ export const RulesCapacityDiagram: React.FC = () => {
       <text x={(BAR_X + warnX) / 2} y={34} textAnchor="middle" fontSize={9} fontWeight={700} fill={dotColor('green')}>
         ✓ healthy
       </text>
-      <text x={(warnX + capX) / 2} y={34} textAnchor="middle" fontSize={9} fontWeight={700} fill={dotColor('yellow')}>
-        approaching
+      <text
+        x={(warnX + capX) / 2 - 10}
+        y={34}
+        textAnchor="middle"
+        fontSize={9}
+        fontWeight={700}
+        fill={dotColor('yellow')}
+      >
+        approach
       </text>
       <text x={(capX + endX) / 2} y={34} textAnchor="middle" fontSize={9} fontWeight={700} fill={dotColor('red')}>
         truncated
