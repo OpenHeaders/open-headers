@@ -381,13 +381,36 @@ function statusLabelFor(state: { theirs: SideState; mine: SideState }): ResultSt
   }
   if (state.theirs === 'dismissed' && state.mine === 'pending') return { label: 'Incoming Skipped', removable: [] };
   if (state.mine === 'dismissed' && state.theirs === 'pending') return { label: 'Current Skipped', removable: [] };
-  // both dismissed → fully resolved, no alignment needed
+  // Both dismissed — explicit user decision to keep the original
+  // content. Surface a "No Changes Accepted" status so the result
+  // pane keeps its bordered rectangle (in grey) as a "this conflict
+  // was reviewed and skipped" marker, and so the source panes still
+  // get their alignment placeholders.
+  if (state.theirs === 'dismissed' && state.mine === 'dismissed') {
+    return { label: 'No Changes Accepted', removable: [] };
+  }
   return null;
 }
 
-function buildStatusDom(args: { hunkId: string; status: ResultStatus; controller: PickStateController }): HTMLElement {
+/** Whether all sides of a hunk have reached a terminal state. */
+function isResolvedHunk(state: { theirs: SideState; mine: SideState }): boolean {
+  return state.theirs !== 'pending' && state.mine !== 'pending';
+}
+
+function buildStatusDom(args: {
+  hunkId: string;
+  status: ResultStatus;
+  controller: PickStateController;
+  resolved: boolean;
+}): HTMLElement {
   const root = document.createElement('div');
-  root.className = 'oh-merge__action-zone oh-merge__action-zone-status';
+  // When the hunk is resolved (no side pending), the status zone
+  // takes the grey-bordered "solved" treatment so the result pane's
+  // visual cue matches the source panes' grey rectangles. Pending
+  // hunks keep the orange "active conflict" framing.
+  root.className = args.resolved
+    ? 'oh-merge__action-zone oh-merge__action-zone-resolved oh-merge__action-zone-status'
+    : 'oh-merge__action-zone oh-merge__action-zone-status';
 
   const eatMouseDown = (e: Event) => e.stopPropagation();
   root.addEventListener('mousedown', eatMouseDown);
@@ -472,7 +495,8 @@ export function useResultStatusZones(args: UseResultStatusZonesArgs): void {
         const startLine = live ? live.startLineNumber : h.mineRange.startLine;
         const endLineExclusive = live ? live.endLineNumber + 1 : h.mineRange.endLine;
         if (startLine < 1 || startLine > lineCount + 1) continue;
-        const dom = buildStatusDom({ hunkId: h.id, status, controller: args.controller });
+        const resolved = isResolvedHunk(state);
+        const dom = buildStatusDom({ hunkId: h.id, status, controller: args.controller, resolved });
         const zoneId = accessor.addZone({
           afterLineNumber: startLine - 1,
           heightInLines: 1,
@@ -480,10 +504,14 @@ export function useResultStatusZones(args: UseResultStatusZonesArgs): void {
         } satisfies monaco.editor.IViewZone);
         zoneIds.set(h.id, zoneId);
 
-        // Mirror the bordered grouping outline on the result pane so
-        // the (status row + hunk content) shows as one box, matching
-        // the theirs/mine panes' grouping.
+        // Frame around the status row + hunk content. Color matches
+        // the status zone DOM: orange when active, grey when fully
+        // resolved (matches the source panes' frame coloring).
         const lastLineInclusive = Math.min(endLineExclusive - 1, lineCount);
+        const sideClass = resolved ? 'oh-merge__action-zone-frame-resolved' : 'oh-merge__action-zone-frame';
+        const lastClass = resolved
+          ? 'oh-merge__action-zone-frame-resolved-last'
+          : 'oh-merge__action-zone-frame-last';
         for (let line = startLine; line <= lastLineInclusive; line++) {
           frameDecos.push({
             range: {
@@ -494,10 +522,7 @@ export function useResultStatusZones(args: UseResultStatusZonesArgs): void {
             },
             options: {
               isWholeLine: true,
-              className:
-                line === lastLineInclusive
-                  ? 'oh-merge__action-zone-frame oh-merge__action-zone-frame-last'
-                  : 'oh-merge__action-zone-frame',
+              className: line === lastLineInclusive ? `${sideClass} ${lastClass}` : sideClass,
               stickiness: 1,
             },
           });

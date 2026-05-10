@@ -113,6 +113,25 @@
   cursor: default;
 }
 
+/* Resolved variant — applied to action / status zones when the hunk
+ * is fully resolved (no side pending). Greyed-out rectangle so the
+ * pane signals "this conflict was reviewed and decided" without the
+ * loud orange "active conflict" cue. Pairs with the
+ * `oh-merge__action-zone-frame-resolved` line decorations to form a
+ * complete grey rectangle around the hunk. */
+.oh-merge__action-zone-resolved {
+  background: rgba(127, 127, 127, 0.06) !important;
+  border-top-color: rgba(127, 127, 127, 0.55) !important;
+  border-left-color: rgba(127, 127, 127, 0.55) !important;
+  border-right-color: rgba(127, 127, 127, 0.55) !important;
+}
+[data-merge-theme='dark'] .oh-merge__action-zone-resolved {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border-top-color: rgba(180, 180, 180, 0.45) !important;
+  border-left-color: rgba(180, 180, 180, 0.45) !important;
+  border-right-color: rgba(180, 180, 180, 0.45) !important;
+}
+
 .oh-merge__action-zone-status-label {
   color: rgba(80, 80, 80, 0.85);
   font-style: italic;
