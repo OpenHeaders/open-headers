@@ -10,24 +10,61 @@
  * across ShadowDOM-style isolated editors, so we set our own.
  */
 
+/* Line backgrounds use a gradient that goes transparent in the last
+ * 10px so the color ends at the same x as the bordered-rectangle's
+ * right edge (= Monaco scrollbar's left edge per
+ * `verticalScrollbarSize` config). Without this, the line color
+ * extends across the FULL editor view (over the scrollbar) and
+ * visually overflows past the rectangle's right side, looking
+ * broken on rows where both decorations apply. */
 .oh-merge__hunk-addition {
-  background-color: rgba(35, 134, 54, 0.18);
+  background: linear-gradient(
+    to right,
+    rgba(35, 134, 54, 0.18) 0,
+    rgba(35, 134, 54, 0.18) calc(100% - 10px),
+    transparent calc(100% - 10px)
+  );
 }
 .oh-merge__hunk-removal {
-  background-color: rgba(218, 54, 51, 0.18);
+  background: linear-gradient(
+    to right,
+    rgba(218, 54, 51, 0.18) 0,
+    rgba(218, 54, 51, 0.18) calc(100% - 10px),
+    transparent calc(100% - 10px)
+  );
 }
 .oh-merge__hunk-modification {
-  background-color: rgba(229, 192, 123, 0.22);
+  background: linear-gradient(
+    to right,
+    rgba(229, 192, 123, 0.22) 0,
+    rgba(229, 192, 123, 0.22) calc(100% - 10px),
+    transparent calc(100% - 10px)
+  );
 }
 
 [data-merge-theme='dark'] .oh-merge__hunk-addition {
-  background-color: rgba(46, 160, 67, 0.28);
+  background: linear-gradient(
+    to right,
+    rgba(46, 160, 67, 0.28) 0,
+    rgba(46, 160, 67, 0.28) calc(100% - 10px),
+    transparent calc(100% - 10px)
+  );
 }
 [data-merge-theme='dark'] .oh-merge__hunk-removal {
-  background-color: rgba(248, 81, 73, 0.26);
+  background: linear-gradient(
+    to right,
+    rgba(248, 81, 73, 0.26) 0,
+    rgba(248, 81, 73, 0.26) calc(100% - 10px),
+    transparent calc(100% - 10px)
+  );
 }
 [data-merge-theme='dark'] .oh-merge__hunk-modification {
-  background-color: rgba(210, 153, 34, 0.30);
+  background: linear-gradient(
+    to right,
+    rgba(210, 153, 34, 0.30) 0,
+    rgba(210, 153, 34, 0.30) calc(100% - 10px),
+    transparent calc(100% - 10px)
+  );
 }
 
 /* Gutter glyph for accept-this-hunk-into-result. Direction is

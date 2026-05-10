@@ -114,34 +114,48 @@
  * the hunk that follows the action label. Provides the side + bottom
  * edges that close the VS Code-style grouping rectangle.
  *
- * Uses `inset box-shadow` rather than `border-{left,right,bottom}`
- * because Monaco's whole-line `className` decoration renders into a
- * span whose `border-right` is unreliably positioned — sometimes
- * rendered at the end-of-text position, sometimes clipped by the
- * vertical scrollbar. Inset box-shadow paints inside the element's
- * own box and survives both. Stacked shadows compose the L/R/B
- * edges in one rule per line. */
+ * The LEFT edge is a real `inset box-shadow` (positioned 0px from
+ * left, so the line element's right-edge geometry doesn't matter).
+ * The RIGHT edge uses an absolutely-positioned `::after` pseudo
+ * inset by 10px (= `verticalScrollbarSize` from Monaco config), so
+ * it aligns with the action zone wrapper's right edge instead of
+ * Monaco's whole-line element right edge (which extends across the
+ * scrollbar area). The BOTTOM edge on `-frame-last` uses `::before`
+ * with the same right inset so the bottom-right corner closes
+ * cleanly. Without this trick the per-line right edge sits at
+ * Monaco's view edge (over the scrollbar) while the action zone's
+ * right edge sits at scrollbar's-left-edge — visible zig-zag
+ * step on the rectangle's right side. */
 .oh-merge__action-zone-frame {
-  box-shadow:
-    inset 1px 0 0 rgba(255, 159, 67, 0.85),
-    inset -1px 0 0 rgba(255, 159, 67, 0.85);
+  position: relative;
+  box-shadow: inset 1px 0 0 rgba(255, 159, 67, 0.85);
 }
-.oh-merge__action-zone-frame-last {
-  box-shadow:
-    inset 1px 0 0 rgba(255, 159, 67, 0.85),
-    inset -1px 0 0 rgba(255, 159, 67, 0.85),
-    inset 0 -1px 0 rgba(255, 159, 67, 0.85);
+.oh-merge__action-zone-frame::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 10px;
+  width: 1px;
+  background: rgba(255, 159, 67, 0.85);
+  pointer-events: none;
+}
+.oh-merge__action-zone-frame-last::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 10px;
+  height: 1px;
+  background: rgba(255, 159, 67, 0.85);
+  pointer-events: none;
 }
 [data-merge-theme='dark'] .oh-merge__action-zone-frame {
-  box-shadow:
-    inset 1px 0 0 rgba(255, 159, 67, 0.75),
-    inset -1px 0 0 rgba(255, 159, 67, 0.75);
+  box-shadow: inset 1px 0 0 rgba(255, 159, 67, 0.75);
 }
-[data-merge-theme='dark'] .oh-merge__action-zone-frame-last {
-  box-shadow:
-    inset 1px 0 0 rgba(255, 159, 67, 0.75),
-    inset -1px 0 0 rgba(255, 159, 67, 0.75),
-    inset 0 -1px 0 rgba(255, 159, 67, 0.75);
+[data-merge-theme='dark'] .oh-merge__action-zone-frame::after,
+[data-merge-theme='dark'] .oh-merge__action-zone-frame-last::before {
+  background: rgba(255, 159, 67, 0.75);
 }
 
 .oh-merge__action-zone-btn {
