@@ -90,3 +90,39 @@
   outline: 2px solid rgba(64, 156, 255, 0.85);
   outline-offset: -1px;
 }
+
+/* ── Per-side state suffixes (Phase: per-side state machine) ───────
+ *
+ * Hunks track per-side resolution via the pick state controller.
+ * `useHunkDecorations` appends a state-suffix CSS class so the side
+ * panes visually communicate decided vs pending divergences:
+ *
+ *   pending   — solid kind tint (default — rules above)
+ *   accepted  — bolded outline + slightly stronger fill (this side
+ *               IS being used in result)
+ *   dismissed — dashed top/bottom brackets, fill removed (this side
+ *               will NOT land in result)
+ *
+ * Plan §5.3 frames this as the "decided hunks fade out of the
+ * conflict surface but stay visible as reference." */
+
+.oh-merge__hunk-accepted {
+  /* Solid tint stays from the kind class (background-color set
+   * earlier in cascade); the !important on the border ensures the
+   * accent is visible above Monaco's own line-decoration cues. */
+  box-shadow: inset 2px 0 0 rgba(35, 134, 54, 0.85);
+}
+[data-merge-theme='dark'] .oh-merge__hunk-accepted {
+  box-shadow: inset 2px 0 0 rgba(46, 160, 67, 1);
+}
+
+.oh-merge__hunk-dismissed {
+  background-color: transparent !important;
+  border-top: 1px dashed rgba(127, 127, 127, 0.55);
+  border-bottom: 1px dashed rgba(127, 127, 127, 0.55);
+  opacity: 0.55;
+}
+[data-merge-theme='dark'] .oh-merge__hunk-dismissed {
+  border-top-color: rgba(255, 255, 255, 0.30);
+  border-bottom-color: rgba(255, 255, 255, 0.30);
+}

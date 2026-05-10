@@ -42,6 +42,14 @@ export interface MergeActionsContext {
   applyNonConflicting(): void;
   acceptAllTheirs(): void;
   acceptAllMine(): void;
+  /** Pick-state undo/redo. Wired to Cmd/Ctrl+Z and Cmd/Ctrl+Shift+Z
+   *  alongside Monaco's native buffer undo so a single keypress
+   *  reverts both the per-side state map AND the buffer edit the
+   *  controller wrote — they go onto separate stacks (Monaco's
+   *  per-edit, ours per-click) so both must run together to stay in
+   *  lock-step. */
+  pickUndo(): void;
+  pickRedo(): void;
 }
 
 export interface UseMergeActionsArgs {
@@ -146,6 +154,31 @@ export function useMergeActions({ resultEditorRef, contextRef }: UseMergeActions
         contextMenuGroupId: 'merge',
         contextMenuOrder: 7,
         run: () => ctx()?.acceptAllMine(),
+      }),
+      // Cmd/Ctrl+Z + Cmd/Ctrl+Shift+Z fire the controller's pick-state
+      // undo / redo IN ADDITION to Monaco's native buffer undo. The
+      // user's mental model is "undo what I just did" — for a click,
+      // that means reverting BOTH the state map entry AND the buffer
+      // write the controller drove. We trigger Monaco's undo/redo
+      // explicitly via `editor.trigger` because the Monaco action we
+      // registered overrides the default keybinding.
+      editor.addAction({
+        id: 'oh-merge.undo',
+        label: 'Merge: Undo (buffer + pick state)',
+        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyZ],
+        run: (ed) => {
+          ed.trigger('oh-merge', 'undo', null);
+          ctx()?.pickUndo();
+        },
+      }),
+      editor.addAction({
+        id: 'oh-merge.redo',
+        label: 'Merge: Redo (buffer + pick state)',
+        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyZ],
+        run: (ed) => {
+          ed.trigger('oh-merge', 'redo', null);
+          ctx()?.pickRedo();
+        },
       }),
     );
 

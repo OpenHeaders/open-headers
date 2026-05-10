@@ -58,7 +58,6 @@ import {
   PENDING_HUNK,
   type PickStateController,
   createPickStateController,
-  isResolved,
 } from '../use-hunk-pick-state';
 import HunkActionGutter from './HunkActionGutter';
 import { gridTemplate, type MergeLayout, paneVisibility } from './layout';
@@ -291,8 +290,10 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   // `MERGE_CONFLICT_EDITOR_PLAN.md` §5.4 the toggle "shows / hides
   // the gutter [arrows]" — i.e. the actionable affordance, not the
   // visual diff itself.
-  useHunkDecorations({ editorRef: theirsHandle, side: 'theirs', hunks: theirsHunks });
-  useHunkDecorations({ editorRef: mineHandle, side: 'mine', hunks: mineHunks });
+  // Side-pane "missing here" markers + char-diff render for every
+  // hunk regardless of pick state — they're orthogonal to the
+  // accept/dismiss decision (showing where content lives on each
+  // side, not whether the user has decided yet).
   useMissingMarkers({ editorRef: theirsHandle, side: 'theirs', hunks: theirsHunks });
   useMissingMarkers({ editorRef: mineHandle, side: 'mine', hunks: mineHunks });
   useCharDecorations({ editorRef: theirsHandle, side: 'theirs', hunks: theirsHunks });
@@ -332,6 +333,40 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
       }),
     [trackedRangesRef, onPickStateChange],
   );
+
+  // Per-side state lookups for the decoration hooks. Theirs-list
+  // hunks are the identity domain for the pick state machine; the
+  // mine pane reads `state.mine` for the SAME hunk id (the controller
+  // tracks both slots per hunk).
+  const getTheirsSideState = useCallback(
+    (hunkId: string) => pickController.get(hunkId).theirs,
+    [pickController],
+  );
+  const getMineSideStateForTheirsHunks = useCallback(
+    (hunkId: string) => pickController.get(hunkId).mine,
+    [pickController],
+  );
+
+  useHunkDecorations({
+    editorRef: theirsHandle,
+    side: 'theirs',
+    hunks: theirsHunks,
+    getSideState: getTheirsSideState,
+    stateRev: pickStateRev,
+  });
+  useHunkDecorations({
+    editorRef: mineHandle,
+    side: 'mine',
+    hunks: theirsHunks,
+    getSideState: getMineSideStateForTheirsHunks,
+    stateRev: pickStateRev,
+  });
+  // Additional mine pane decorations for the user's local-edit
+  // divergences (mineHunks). These don't have controller state, so
+  // they always render with the pending-style "this is different"
+  // tint until the user resolves them via direct buffer editing or
+  // the gutter actions on overlapping theirs hunks.
+  useHunkDecorations({ editorRef: mineHandle, side: 'mine', hunks: mineHunks });
 
   // Reset the controller's state when the file switches — stale entries
   // would carry false signals for hunks that don't exist in the new
@@ -379,29 +414,25 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   );
 
   useEffect(() => {
-    // Stats now derive from the per-side pick-state controller. A hunk
-    // is "remaining" iff at least one side is still `pending` — i.e.
-    // the user hasn't decided that side yet. Resolved hunks (both
-    // sides decided, regardless of accept/dismiss) contribute zero to
-    // the counter, drive the sidebar pill green, and free up Complete
-    // Merge gating.
-    //
-    // Theirs / mine remaining counts mirror the per-slot pending
-    // status so a workflow that surfaces "N incoming pending"
-    // separately from "M current pending" still has the breakdown.
+    // Stats derive from the per-side pick-state controller. In 3-pane
+    // sessions both sides count toward "remaining"; in 2-pane fallback
+    // (no base / mine pane hidden) only the theirs side is reachable
+    // from the gutter UI, so the mine side is auto-resolved (treated
+    // as dismissed) and never blocks Complete Merge gating.
     let theirsPending = 0;
     let minePending = 0;
     let trueConflicts = 0;
     for (const h of pickStateHunks) {
       const state = pickController.get(h.id);
       if (state.theirs === 'pending') theirsPending++;
-      if (state.mine === 'pending') minePending++;
+      if (has3Panes && state.mine === 'pending') minePending++;
       const flagged = classification.theirsConflictIds.has(h.id);
       const cleanFromTheirs = classification.theirsCleanIds.has(h.id);
       const baseRegionConflict =
         'theirsTrueConflicts' in classification && classification.theirsTrueConflicts.has(h.id);
       const isTrueConflict = (flagged && !cleanFromTheirs) || baseRegionConflict;
-      if (isTrueConflict && (state.theirs === 'pending' || state.mine === 'pending')) trueConflicts++;
+      const sidesPending = state.theirs === 'pending' || (has3Panes && state.mine === 'pending');
+      if (isTrueConflict && sidesPending) trueConflicts++;
     }
     const total = theirsPending + minePending;
     onHunkStatsChange?.({
@@ -411,11 +442,8 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
       nonConflicting: Math.max(0, total - trueConflicts),
       conflicts: trueConflicts,
     });
-    // Reading pickStateRev forces the effect to re-run after every
-    // controller mutation; the controller's `get()` is read fresh on
-    // each pass.
     void pickStateRev;
-  }, [pickStateHunks, classification, onHunkStatsChange, pickController, pickStateRev]);
+  }, [pickStateHunks, classification, onHunkStatsChange, pickController, pickStateRev, has3Panes]);
 
   const navIndexRef = useRef(-1);
   const orderedNav = useMemo(() => {
@@ -452,10 +480,12 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     [orderedNav, resultHandle],
   );
 
+  // In 2-pane fallback the mine slot isn't reachable from the gutter,
+  // so bulk actions skip writing to it (the stats useEffect already
+  // treats `mine: 'pending'` in 2-pane as auto-resolved).
+  const minePostState: 'dismissed' | 'pending' = has3Panes ? 'dismissed' : 'pending';
+
   const applyNonConflicting = useCallback(() => {
-    // Auto-mergeable hunks: not flagged 2-way OR refined as clean by
-    // 3-way overlap. Routes through the controller so state + buffer
-    // stay in sync (sidebar pills flip + Complete Merge enables).
     const updates: { hunkId: string; next: HunkPickState }[] = [];
     for (const h of pickStateHunks) {
       const flaggedConflict = classification.theirsConflictIds.has(h.id);
@@ -465,27 +495,31 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
       const isTrueConflict = (flaggedConflict && !cleanOverride) || baseRegionConflict;
       if (isTrueConflict) continue;
       const prev = pickController.get(h.id);
-      if (isResolved(prev)) continue;
-      updates.push({ hunkId: h.id, next: { theirs: 'accepted', mine: 'dismissed' } });
+      if (prev.theirs !== 'pending') continue;
+      updates.push({ hunkId: h.id, next: { theirs: 'accepted', mine: minePostState } });
     }
     if (updates.length > 0) {
       onAnnounce?.(`Applied ${updates.length} non-conflicting ${updates.length === 1 ? 'hunk' : 'hunks'}.`);
       pickController.bulkSet(updates);
     }
-  }, [pickStateHunks, classification, pickController, onAnnounce]);
+  }, [pickStateHunks, classification, pickController, onAnnounce, minePostState]);
 
   const acceptAllTheirs = useCallback(() => {
     const updates: { hunkId: string; next: HunkPickState }[] = pickStateHunks.map((h) => ({
       hunkId: h.id,
-      next: { theirs: 'accepted', mine: 'dismissed' },
+      next: { theirs: 'accepted', mine: minePostState },
     }));
     if (updates.length > 0) {
       onAnnounce?.(`Accepted all ${updates.length} incoming ${updates.length === 1 ? 'hunk' : 'hunks'}.`);
       pickController.bulkSet(updates);
     }
-  }, [pickStateHunks, pickController, onAnnounce]);
+  }, [pickStateHunks, pickController, onAnnounce, minePostState]);
 
   const acceptAllMine = useCallback(() => {
+    // In 2-pane fallback there is no separate "mine" content to take —
+    // the right pane isn't displayed and the mine slot is unreachable
+    // from the gutter. Skip the action entirely.
+    if (!has3Panes) return;
     const updates: { hunkId: string; next: HunkPickState }[] = pickStateHunks.map((h) => ({
       hunkId: h.id,
       next: { theirs: 'dismissed', mine: 'accepted' },
@@ -494,7 +528,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
       onAnnounce?.(`Accepted all ${updates.length} current ${updates.length === 1 ? 'hunk' : 'hunks'}.`);
       pickController.bulkSet(updates);
     }
-  }, [pickStateHunks, pickController, onAnnounce]);
+  }, [pickStateHunks, pickController, onAnnounce, has3Panes]);
 
   useImperativeHandle(
     ref,
@@ -527,6 +561,8 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     applyNonConflicting,
     acceptAllTheirs,
     acceptAllMine,
+    pickUndo: () => pickController.undo(),
+    pickRedo: () => pickController.redo(),
   };
   useMergeActions({ resultEditorRef: resultHandle, contextRef: actionContextRef });
 

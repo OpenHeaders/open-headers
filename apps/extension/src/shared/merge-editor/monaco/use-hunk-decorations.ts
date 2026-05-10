@@ -16,6 +16,7 @@
 import type * as monaco from 'monaco-editor';
 import { type RefObject, useEffect } from 'react';
 import type { Hunk } from '../diff/line-diff';
+import type { SideState } from '../use-hunk-pick-state';
 import './hunk-decorations.css';
 import type { MonacoEditorHandle } from './use-monaco-editor-lifecycle';
 
@@ -27,13 +28,32 @@ const CSS_CLASS_BY_KIND = {
   modification: 'oh-merge__hunk-modification',
 } as const;
 
+const STATE_SUFFIX: Record<SideState, string> = {
+  pending: '',
+  accepted: ' oh-merge__hunk-accepted',
+  dismissed: ' oh-merge__hunk-dismissed',
+};
+
 export interface UseHunkDecorationsArgs {
   editorRef: RefObject<MonacoEditorHandle>;
   side: HunkSide;
   hunks: readonly Hunk[];
+  /** Optional per-hunk side state. When provided, the hook applies a
+   *  state-suffix CSS class so accepted / dismissed hunks render with
+   *  visually distinct treatment (dashed brackets for dismissed, etc.)
+   *  per `MERGE_CONFLICT_EDITOR_PLAN.md` §5.3 — the side panes are
+   *  reference surfaces, so resolved hunks fade to signal "this
+   *  divergence is decided." Pending hunks keep the solid kind tint.
+   *
+   *  Reads the state for the side this hook decorates: the theirs
+   *  pane reads `state.theirs`, the mine pane reads `state.mine`. */
+  getSideState?: (hunkId: string) => SideState;
+  /** Force the hook to re-run when the controller's state map mutates.
+   *  Bumped via `pickStateRev` from MergePane. */
+  stateRev?: number;
 }
 
-export function useHunkDecorations({ editorRef, side, hunks }: UseHunkDecorationsArgs): void {
+export function useHunkDecorations({ editorRef, side, hunks, getSideState, stateRev }: UseHunkDecorationsArgs): void {
   useEffect(() => {
     const editor = editorRef.current.editor;
     const model = editorRef.current.model;
@@ -42,12 +62,10 @@ export function useHunkDecorations({ editorRef, side, hunks }: UseHunkDecoration
     const decos: monaco.editor.IModelDeltaDecoration[] = [];
     for (const h of hunks) {
       const range = side === 'theirs' ? h.theirsRange : h.mineRange;
-      // Skip zero-line ranges — Monaco line decorations need at least
-      // one line; pure-additions on the theirs side and pure-removals
-      // on the mine side fall here. The OPPOSITE side renders the
-      // hunk visibly; this side is implicitly "missing here."
       if (range.endLine <= range.startLine) continue;
-      const className = CSS_CLASS_BY_KIND[h.classification];
+      const baseClass = CSS_CLASS_BY_KIND[h.classification];
+      const sideState = getSideState ? getSideState(h.id) : 'pending';
+      const className = baseClass + STATE_SUFFIX[sideState];
       decos.push({
         range: {
           startLineNumber: range.startLine,
@@ -58,7 +76,7 @@ export function useHunkDecorations({ editorRef, side, hunks }: UseHunkDecoration
         options: {
           isWholeLine: true,
           className,
-          stickiness: 1, // monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges
+          stickiness: 1,
         },
       });
     }
@@ -67,5 +85,7 @@ export function useHunkDecorations({ editorRef, side, hunks }: UseHunkDecoration
     return () => {
       collection.clear();
     };
-  }, [editorRef, side, hunks]);
+    // stateRev intentionally in deps — bumped on every controller
+    // mutation so decorations refresh in lock-step with the gutter.
+  }, [editorRef, side, hunks, getSideState, stateRev]);
 }
