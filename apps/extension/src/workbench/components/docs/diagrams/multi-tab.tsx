@@ -349,21 +349,51 @@ export const MultiTabNavigationDiagram: React.FC = () => {
 
 // ─── Tab numbering: ordinals are stable within a tab's lifetime ───
 
+/**
+ * Five Chrome-style tab-strip mockups stacked vertically, each
+ * showing the same window after one user action. The point is
+ * concrete, not abstract: open three tabs, close the first, open
+ * one more — the new one is #4, not #1, because survivors never
+ * renumber. Highlight ribbons on the right call out the moment
+ * each rule kicks in (prefix appears, prefix sheds, ordinal stays).
+ */
 export const MultiTabNumberingDiagram: React.FC = () => {
-  type Frame = {
-    label: string;
-    titles: string[]; // empty string = closed slot for spacing alignment
-  };
-  const FRAMES: Frame[] = [
-    { label: '1 tab', titles: ['Open Headers'] },
-    { label: 'open 2nd', titles: ['#1 Open Headers', '#2 Open Headers'] },
-    { label: 'open 3rd', titles: ['#1 Open Headers', '#2 Open Headers', '#3 Open Headers'] },
-    { label: 'close #1', titles: ['', '#2 Open Headers', '#3 Open Headers'] },
-    { label: 'open new', titles: ['', '#2 Open Headers', '#3 Open Headers', '#4 Open Headers'] },
+  type Tab = { title: string; closed?: boolean; isNew?: boolean; w?: number };
+  type Step = { action: string; tabs: Tab[]; note?: string };
+  const STEPS: Step[] = [
+    {
+      action: '1 tab open',
+      tabs: [{ title: 'Open Headers', isNew: true, w: 96 }],
+      note: 'no prefix',
+    },
+    {
+      action: 'open another',
+      tabs: [{ title: '#1' }, { title: '#2', isNew: true }],
+      note: 'prefixes appear',
+    },
+    {
+      action: 'open a third',
+      tabs: [{ title: '#1' }, { title: '#2' }, { title: '#3', isNew: true }],
+    },
+    {
+      action: 'close #1',
+      tabs: [{ title: '#1', closed: true }, { title: '#2' }, { title: '#3' }],
+      note: '#2 #3 unchanged',
+    },
+    {
+      action: 'open one more',
+      tabs: [{ title: '#2' }, { title: '#3' }, { title: '#4', isNew: true }],
+      note: 'next is #4',
+    },
   ];
 
-  const FRAME_W = 60;
-  const ROW_H = 16;
+  const ROW_Y = 30;
+  const ROW_H = 22;
+  const ROW_GAP = 8;
+  const STRIP_X = 78;
+  const STRIP_W = 160;
+  const TAB_W = 48;
+  const TAB_GAP = 4;
 
   return (
     <svg
@@ -377,79 +407,102 @@ export const MultiTabNumberingDiagram: React.FC = () => {
         Ordinals stay stable within a tab's lifetime
       </text>
 
-      {FRAMES.map((frame, fi) => {
-        const x = 10 + fi * FRAME_W;
+      {STEPS.map((step, si) => {
+        const y = ROW_Y + si * (ROW_H + ROW_GAP);
         return (
-          <g key={frame.label}>
-            <text x={x + FRAME_W / 2} y={32} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT_DIM}>
-              {frame.label}
+          <g key={step.action}>
+            {/* Action label (left) */}
+            <text x={70} y={y + 14} textAnchor="end" fontSize={9} fontWeight={600} fill={TEXT}>
+              {step.action}
             </text>
-            {frame.titles.map((title, ti) => {
-              const y = 42 + ti * (ROW_H + 4);
-              if (title === '') {
-                // closed slot — show a faint X
+
+            {/* Tab strip background */}
+            <rect
+              x={STRIP_X}
+              y={y}
+              width={STRIP_W}
+              height={ROW_H}
+              fill="var(--ant-color-fill-secondary)"
+              stroke="var(--ant-color-border)"
+            />
+
+            {/* Tabs */}
+            {(() => {
+              let cursor = STRIP_X + 4;
+              return step.tabs.map((tab, ti) => {
+                const tw = tab.w ?? TAB_W;
+                const tx = cursor;
+                cursor += tw + TAB_GAP;
+                if (tab.closed) {
+                  return (
+                    <g key={`${step.action}-${ti}`}>
+                      <rect
+                        x={tx}
+                        y={y + 2}
+                        width={tw}
+                        height={ROW_H - 4}
+                        rx={3}
+                        fill="transparent"
+                        stroke="var(--ant-color-border-secondary)"
+                        strokeDasharray="2 2"
+                      />
+                      <line
+                        x1={tx + 6}
+                        y1={y + 6}
+                        x2={tx + tw - 6}
+                        y2={y + ROW_H - 6}
+                        stroke="var(--ant-color-error)"
+                        strokeWidth={1.5}
+                      />
+                      <line
+                        x1={tx + tw - 6}
+                        y1={y + 6}
+                        x2={tx + 6}
+                        y2={y + ROW_H - 6}
+                        stroke="var(--ant-color-error)"
+                        strokeWidth={1.5}
+                      />
+                    </g>
+                  );
+                }
                 return (
-                  <g key={`${frame.label}-${ti}`}>
+                  <g key={`${step.action}-${ti}`}>
                     <rect
-                      x={x + 4}
-                      y={y}
-                      width={FRAME_W - 8}
-                      height={ROW_H}
-                      rx={2}
-                      fill="transparent"
-                      stroke="var(--ant-color-border-secondary)"
-                      strokeDasharray="2 2"
+                      x={tx}
+                      y={y + 2}
+                      width={tw}
+                      height={ROW_H - 4}
+                      rx={3}
+                      fill={tab.isNew ? FILL_GREEN : FILL_BLUE}
+                      stroke={tab.isNew ? STROKE_GREEN : STROKE_BLUE}
                     />
                     <text
-                      x={x + FRAME_W / 2}
-                      y={y + ROW_H - 4}
+                      x={tx + tw / 2}
+                      y={y + ROW_H / 2 + 3}
                       textAnchor="middle"
+                      fontFamily="monospace"
                       fontSize={9}
-                      fill="var(--ant-color-text-quaternary)"
+                      fontWeight={600}
+                      fill={TEXT}
                     >
-                      closed
+                      {tab.title}
                     </text>
                   </g>
                 );
-              }
-              const isNew = fi === 4 && ti === 3;
-              const isPrefixed = title.startsWith('#');
-              return (
-                <g key={`${frame.label}-${ti}`}>
-                  <rect
-                    x={x + 4}
-                    y={y}
-                    width={FRAME_W - 8}
-                    height={ROW_H}
-                    rx={2}
-                    fill={isNew ? FILL_GREEN : isPrefixed ? FILL_BLUE : 'var(--ant-color-fill-secondary)'}
-                    stroke={isNew ? STROKE_GREEN : isPrefixed ? STROKE_BLUE : STROKE}
-                  />
-                  <text
-                    x={x + FRAME_W / 2}
-                    y={y + ROW_H - 4}
-                    textAnchor="middle"
-                    fontFamily="monospace"
-                    fontSize={8}
-                    fill={TEXT}
-                  >
-                    {title}
-                  </text>
-                </g>
-              );
-            })}
+              });
+            })()}
+
+            {/* Right-side note */}
+            {step.note && (
+              <text x={244} y={y + 14} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+                {step.note}
+              </text>
+            )}
           </g>
         );
       })}
 
-      {/* Annotation arrow under "close #1" frame */}
-      <text x={200} y={150} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        survivors keep their numbers
-      </text>
-      <text x={250} y={170} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        next opens at #4, not #1
-      </text>
-      <text x={160} y={190} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
+      <text x={160} y={195} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
         Numbering resets to #1 only after every workspace tab has closed.
       </text>
     </svg>
