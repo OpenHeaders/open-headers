@@ -190,7 +190,13 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     containerRef: resultContainerRef,
     value: file.initialResult,
     language,
-    readOnly: false,
+    // Result pane is read-only — every write goes through the
+    // controller (Accept Incoming / Current / Combination / Remove)
+    // so user free-typing can't introduce parse-incompatible content.
+    // Programmatic `executeEdits` from the controller still works on
+    // a read-only editor, and Monaco's undo stack still records
+    // those edits so Cmd/Ctrl+Z reverts them via our chord handler.
+    readOnly: true,
   });
 
   const mineHandle = useMonacoEditorLifecycle({
@@ -316,13 +322,24 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   useCharDecorations({ editorRef: theirsHandle, side: 'theirs', hunks: theirsHunks });
   useCharDecorations({ editorRef: mineHandle, side: 'mine', hunks: mineHunks });
 
-  // Hunks that participate in the per-side state machine. Use
-  // `theirsHunks` as the identity domain — each carries both
-  // `theirsLines` (peer's version) AND `mineLines` (result's
-  // current content for that region, which initially equals mine's
-  // version at the same lines). The pick-state controller writes
-  // into the result buffer per the (theirs, mine) state tuple.
-  const pickStateHunks = theirsHunks;
+  // Hunks that participate in the per-side state machine. Computed
+  // ONCE against `file.initialResult` (not the live `resultText`)
+  // so hunk identity is stable across the user's own pick-driven
+  // buffer edits. If we used the live `theirsHunks`, accepting a
+  // hunk would write theirs into result, causing diff(theirs,
+  // result) to drop that hunk (content matches now) — which would
+  // tear down the OTHER side's action zone too, destroying the
+  // user's affordance to also accept the other side and produce a
+  // combination. Static hunks persist until the file switches.
+  //
+  // Live `theirsHunks` / `mineHunks` continue to feed the visual
+  // decorations (highlighting "what's different right now") because
+  // that's the right semantic for those — the pick-state machine
+  // wants stable identity, the decorations want truth.
+  const pickStateHunks = useMemo(
+    () => (file.kind === 'remove' ? [] : diffLinesPatience(file.theirs, file.initialResult)),
+    [file.theirs, file.initialResult, file.kind],
+  );
 
   // Sticky tracking decorations on the result pane — anchor each
   // hunk's range so subsequent picks target the live span (not the
@@ -653,7 +670,18 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     pickUndo: () => pickController.undo(),
     pickRedo: () => pickController.redo(),
   };
-  useMergeActions({ resultEditorRef: resultHandle, contextRef: actionContextRef });
+  // Side editors get the undo/redo chords too so Cmd/Ctrl+Z works
+  // regardless of which pane has focus — undo is global to the
+  // modal, not bound to a single editor's focus.
+  const sideEditorRefs = useMemo(
+    () => [theirsHandle, mineHandle, baseHandle],
+    [theirsHandle, mineHandle, baseHandle],
+  );
+  useMergeActions({
+    resultEditorRef: resultHandle,
+    sideEditorRefs,
+    contextRef: actionContextRef,
+  });
 
   const paneBg = isDarkMode ? PANE_BG_DARK : PANE_BG_LIGHT;
 

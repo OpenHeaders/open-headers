@@ -53,9 +53,16 @@ export interface MergeActionsContext {
 }
 
 export interface UseMergeActionsArgs {
-  /** Result editor — actions register here so the palette opens with
-   *  the user's caret in the editable surface. */
+  /** Result editor — primary action surface. The "accept hunk at
+   *  cursor" / hunk navigator / bulk actions register here so the
+   *  palette opens with the user's caret in the editable surface. */
   resultEditorRef: RefObject<MonacoEditorHandle>;
+  /** Side editors (theirs / mine / base when present). Get a
+   *  reduced action set — just undo/redo — so the chord works
+   *  regardless of which pane has focus. The full action set lives
+   *  on the result editor where the navigator's "at cursor"
+   *  semantics actually mean something. */
+  sideEditorRefs?: ReadonlyArray<RefObject<MonacoEditorHandle>>;
   /** Latest action context. Bundled in a ref so action closures can
    *  read fresh state without re-registering on every render. */
   contextRef: RefObject<MergeActionsContext | null>;
@@ -71,13 +78,28 @@ function findHunkAtLine(hunks: readonly Hunk[], line: number): Hunk | undefined 
   return undefined;
 }
 
-export function useMergeActions({ resultEditorRef, contextRef }: UseMergeActionsArgs): void {
+export function useMergeActions({ resultEditorRef, sideEditorRefs, contextRef }: UseMergeActionsArgs): void {
   useEffect(() => {
     const editor = resultEditorRef.current.editor;
     if (!editor) return;
     const disposables: monaco.IDisposable[] = [];
 
     const ctx = (): MergeActionsContext | null => contextRef.current;
+
+    // Cmd/Ctrl+Z + Cmd/Ctrl+Shift+Z fire BOTH Monaco's native buffer
+    // undo on the result editor AND the controller's pick-state
+    // undo. Always targets the RESULT editor regardless of where the
+    // chord was pressed, so undo is global to the modal — focusing
+    // the theirs / mine pane and pressing Cmd+Z still reverts the
+    // last pick + buffer write.
+    const triggerUndo = (): void => {
+      resultEditorRef.current.editor?.trigger('oh-merge', 'undo', null);
+      ctx()?.pickUndo();
+    };
+    const triggerRedo = (): void => {
+      resultEditorRef.current.editor?.trigger('oh-merge', 'redo', null);
+      ctx()?.pickRedo();
+    };
 
     // `Ctrl/Cmd+K <letter>` chord — `KeyMod.chord(prefix, suffix)` with
     // `CtrlCmd` mapping to Ctrl on Win/Linux + Cmd on Mac.
@@ -155,35 +177,47 @@ export function useMergeActions({ resultEditorRef, contextRef }: UseMergeActions
         contextMenuOrder: 7,
         run: () => ctx()?.acceptAllMine(),
       }),
-      // Cmd/Ctrl+Z + Cmd/Ctrl+Shift+Z fire the controller's pick-state
-      // undo / redo IN ADDITION to Monaco's native buffer undo. The
-      // user's mental model is "undo what I just did" — for a click,
-      // that means reverting BOTH the state map entry AND the buffer
-      // write the controller drove. We trigger Monaco's undo/redo
-      // explicitly via `editor.trigger` because the Monaco action we
-      // registered overrides the default keybinding.
       editor.addAction({
         id: 'oh-merge.undo',
         label: 'Merge: Undo (buffer + pick state)',
         keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyZ],
-        run: (ed) => {
-          ed.trigger('oh-merge', 'undo', null);
-          ctx()?.pickUndo();
-        },
+        run: triggerUndo,
       }),
       editor.addAction({
         id: 'oh-merge.redo',
         label: 'Merge: Redo (buffer + pick state)',
         keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyZ],
-        run: (ed) => {
-          ed.trigger('oh-merge', 'redo', null);
-          ctx()?.pickRedo();
-        },
+        run: triggerRedo,
       }),
     );
+
+    // Register undo/redo on the side editors so the chord works
+    // regardless of which pane has focus. Side editors don't get
+    // the per-cursor accept actions (those are caret-aware against
+    // the result pane).
+    if (sideEditorRefs) {
+      for (const ref of sideEditorRefs) {
+        const sideEditor = ref.current.editor;
+        if (!sideEditor) continue;
+        disposables.push(
+          sideEditor.addAction({
+            id: 'oh-merge.undo',
+            label: 'Merge: Undo (buffer + pick state)',
+            keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyZ],
+            run: triggerUndo,
+          }),
+          sideEditor.addAction({
+            id: 'oh-merge.redo',
+            label: 'Merge: Redo (buffer + pick state)',
+            keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyZ],
+            run: triggerRedo,
+          }),
+        );
+      }
+    }
 
     return () => {
       for (const d of disposables) d.dispose();
     };
-  }, [resultEditorRef, contextRef]);
+  }, [resultEditorRef, sideEditorRefs, contextRef]);
 }
