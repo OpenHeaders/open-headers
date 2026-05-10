@@ -54,4 +54,6 @@ export {
   SystemStatusPopoverDiagram,
   SystemStatusSurfacesDiagram,
   SystemStatusWorstLevelDiagram,
+  VaultDriftDetailDiagram,
+  VaultHydrationDiagram,
 } from './system-status';

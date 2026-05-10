@@ -54,6 +54,8 @@ import {
   SystemStatusPopoverDiagram,
   SystemStatusSurfacesDiagram,
   SystemStatusWorstLevelDiagram,
+  VaultDriftDetailDiagram,
+  VaultHydrationDiagram,
 } from './diagrams';
 import {
   Anchor,
@@ -524,16 +526,31 @@ export const SystemStatusSection: React.FC = () => (
     </StateRow>
 
     <SubsystemHeading name="Secrets" subtitle="Vault integrity" />
-    <DocParagraph>Tracks the per-workspace vault blob.</DocParagraph>
+    <DocParagraph>
+      Tracks the per-workspace encrypted vault blob in <code>chrome.storage.local</code>. On every service-worker wake,
+      each stored secret is validated against the current schema; entries that fail validation are dropped from the
+      in-memory vault and the pill flips yellow until they're re-saved.
+    </DocParagraph>
+    <DiagramFrame caption="Hydrate loads the blob; the schema validator keeps matches, drops drifts, and reports yellow.">
+      <VaultHydrationDiagram />
+    </DiagramFrame>
+    <DocParagraph>
+      "Drift" usually means a stored entry was written by an older build (missing a field that's now required, or a
+      field with the wrong type). The validator's job is to fail loud — silently inheriting unknown shapes is what
+      causes the bug six versions later.
+    </DocParagraph>
+    <DiagramFrame caption="Same two fields side by side: a valid entry vs a drift entry with a missing cipher and a wrongly-typed createdAt.">
+      <VaultDriftDetailDiagram />
+    </DiagramFrame>
     <StateRow color="success" label="green">
-      Vault healthy — last decrypt succeeded.
+      Default — no schema-drift events this service-worker lifetime.
     </StateRow>
     <StateRow color="warning" label="yellow">
-      Schema drift on hydrate — a stored vault entry didn't match the current shape and was dropped.
+      <strong>Schema drift: dropped entry from {'<storageKey>'}</strong> — at least one stored vault entry didn't match
+      the current shape and was dropped on hydrate. Re-saving from the Vault editor restores it.
     </StateRow>
     <StateRow color="error" label="red">
-      A cipher decrypt failed for a named secret. Sticks red until a subsequent successful read; reinstall or restore
-      from backup if it persists.
+      Reserved for cipher decrypt failures; no code path emits this today.
     </StateRow>
 
     <SubsystemHeading name="Live" subtitle="Live Variable workflow refresh" />
