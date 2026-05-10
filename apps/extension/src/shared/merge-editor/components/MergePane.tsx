@@ -628,7 +628,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
         }
         containerRef={resultContainerRef}
         leftFlanker={
-          has3Panes ? (
+          pickStateHunks.length > 0 ? (
             <HunkActionGutter
               side="left"
               markers={visibleActionMarkers}
@@ -638,7 +638,12 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
           ) : undefined
         }
         rightFlanker={
-          has3Panes ? (
+          // Right (mine) decisions only matter in 3-pane sessions —
+          // in 2-pane fallback the right pane (mine) doesn't render
+          // and the user can't compare against a separate local copy.
+          // Theirs↔result resolution via the left gutter is the whole
+          // surface in that case.
+          pickStateHunks.length > 0 && has3Panes ? (
             <HunkActionGutter
               side="right"
               markers={visibleActionMarkers}
