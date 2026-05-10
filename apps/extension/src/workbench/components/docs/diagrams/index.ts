@@ -11,13 +11,13 @@ export {
   BodyInterceptDiagram,
   ConditionsUrlAnatomyDiagram,
   DelayRoutingDiagram,
-  ExecutionPathDiagram,
   HeaderOpsDiagram,
   InjectTimingDiagram,
   MockFlowDiagram,
   MultiTabSyncDiagram,
 } from './_pending';
 export { DirectVsIndirectDiagram } from './direct-vs-indirect';
+export { ExecutionDnrReachDiagram, ExecutionScriptReachDiagram, ExecutionStackDiagram } from './execution';
 export {
   RequestTrackingDiagram,
   RequestTrackingPhasesDiagram,

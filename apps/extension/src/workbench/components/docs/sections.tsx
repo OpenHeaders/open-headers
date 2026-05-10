@@ -18,7 +18,9 @@ import {
   ConditionsUrlAnatomyDiagram,
   DelayRoutingDiagram,
   DirectVsIndirectDiagram,
-  ExecutionPathDiagram,
+  ExecutionDnrReachDiagram,
+  ExecutionScriptReachDiagram,
+  ExecutionStackDiagram,
   HeaderOpsDiagram,
   InjectTimingDiagram,
   MockFlowDiagram,
@@ -232,12 +234,13 @@ const RESOURCE_TYPES = [
 
 export const ExecutionSection: React.FC = () => (
   <>
+    <SurfaceContext surfaces={['popup', 'side-panel', 'workbench']} />
     <DocParagraph>
       Rules execute through one of two engines depending on what they do. Knowing which path a rule travels explains
       where it applies — and where it cannot.
     </DocParagraph>
-    <DiagramFrame caption="Two parallel execution paths — same trigger, different reach">
-      <ExecutionPathDiagram />
+    <DiagramFrame caption="JS-initiated requests pass through Script then DNR. Static and navigation traffic bypass Script entirely.">
+      <ExecutionStackDiagram />
     </DiagramFrame>
 
     <DocHeading level={3}>
@@ -254,6 +257,9 @@ export const ExecutionSection: React.FC = () => (
       Reach is broad: pages, sub-frames, scripts, images, fonts, fetch, XHR — every request the browser makes on behalf
       of the page.
     </DocParagraph>
+    <DiagramFrame caption="A single bordered list — DNR's reach is essentially universal.">
+      <ExecutionDnrReachDiagram />
+    </DiagramFrame>
 
     <DocHeading level={3}>
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -263,8 +269,11 @@ export const ExecutionSection: React.FC = () => (
     <DocParagraph>
       Inject, Delay, Request Body, API Response, and Header Merge rules work by monkey-patching <code>fetch()</code> and{' '}
       <code>XMLHttpRequest</code> from inside the page. They can transform JavaScript-initiated traffic in ways DNR
-      can't express.
+      can't express — including reading and rewriting response bodies, which DNR has no access to.
     </DocParagraph>
+    <DiagramFrame caption="Two columns — what the script engine actually intercepts, and what slips through unchanged.">
+      <ExecutionScriptReachDiagram />
+    </DiagramFrame>
     <Callout kind="limitation">
       Static resources (<code>&lt;img&gt;</code>, <code>&lt;script&gt;</code>, <code>&lt;link&gt;</code>), page
       navigations, and browser-internal requests bypass this engine entirely. Use a DNR-based rule for those.

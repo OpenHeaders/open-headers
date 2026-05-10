@@ -405,9 +405,9 @@ export function SurfaceContext({ surfaces }: { surfaces: DocSurface[] }) {
     <div
       style={{
         display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        padding: '8px 12px',
+        flexDirection: 'column',
+        gap: 8,
+        padding: '8px 12px 10px',
         marginBottom: 12,
         background: 'var(--ant-color-fill-quaternary)',
         borderRadius: 6,
@@ -421,13 +421,12 @@ export function SurfaceContext({ surfaces }: { surfaces: DocSurface[] }) {
           textTransform: 'uppercase',
           letterSpacing: 0.6,
           color: 'var(--ant-color-text-tertiary)',
-          whiteSpace: 'nowrap',
-          flexShrink: 0,
+          textAlign: 'center',
         }}
       >
         Where you'll see this
       </div>
-      <div style={{ display: 'flex', gap: 14, flex: 1, justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-around', gap: 8 }}>
         {SURFACE_ORDER.map((s) => {
           const active = set.has(s);
           return (
@@ -439,6 +438,7 @@ export function SurfaceContext({ surfaces }: { surfaces: DocSurface[] }) {
                 alignItems: 'center',
                 gap: 3,
                 opacity: active ? 1 : 0.35,
+                minWidth: 0,
               }}
             >
               <SurfaceGlyph

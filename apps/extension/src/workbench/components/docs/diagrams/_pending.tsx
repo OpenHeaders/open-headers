@@ -24,60 +24,6 @@ import {
   TEXT_DIM,
 } from './_shared';
 
-// ── DNR vs Script-based execution ────────────────────────────────
-
-export const ExecutionPathDiagram: React.FC = () => (
-  <svg
-    viewBox="0 0 280 200"
-    width="100%"
-    style={{ maxWidth: 320 }}
-    role="img"
-    aria-label="DNR vs script-based execution paths"
-  >
-    <ArrowDefs id="ex-arrow" />
-    <Box x={95} y={10} w={90} h={32} fill={FILL_BLUE} stroke={STROKE_BLUE} label="Page" sub="fetch / XHR / nav" />
-    <line x1="140" y1="42" x2="140" y2="62" stroke={STROKE} strokeWidth="1.5" />
-    <line x1="60" y1="62" x2="220" y2="62" stroke={STROKE} strokeWidth="1.5" />
-    <line x1="60" y1="62" x2="60" y2="78" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#ex-arrow)" />
-    <line x1="220" y1="62" x2="220" y2="78" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#ex-arrow)" />
-    <Box x={15} y={80} w={90} h={36} fill={FILL_GREEN} stroke={STROKE_GREEN} label="DNR engine" sub="Chrome network" />
-    <text x={60} y={132} textAnchor="middle" fontSize="9" fill={TEXT_DIM}>
-      Headers · Block ·
-    </text>
-    <text x={60} y={144} textAnchor="middle" fontSize="9" fill={TEXT_DIM}>
-      Redirect · QueryParam
-    </text>
-    <text x={60} y={170} textAnchor="middle" fontSize="9" fontWeight="600" fill={TEXT}>
-      Fast · declarative
-    </text>
-    <text x={60} y={183} textAnchor="middle" fontSize="9" fill={TEXT_DIM}>
-      All resource types
-    </text>
-    <Box
-      x={175}
-      y={80}
-      w={90}
-      h={36}
-      fill={FILL_PURPLE}
-      stroke={STROKE_PURPLE}
-      label="Script patch"
-      sub="in page context"
-    />
-    <text x={220} y={132} textAnchor="middle" fontSize="9" fill={TEXT_DIM}>
-      Inject · Delay · Body ·
-    </text>
-    <text x={220} y={144} textAnchor="middle" fontSize="9" fill={TEXT_DIM}>
-      Mock · Header Merge
-    </text>
-    <text x={220} y={170} textAnchor="middle" fontSize="9" fontWeight="600" fill={TEXT}>
-      Fetch / XHR only
-    </text>
-    <text x={220} y={183} textAnchor="middle" fontSize="9" fill={TEXT_DIM}>
-      Read response body
-    </text>
-  </svg>
-);
-
 // ── Inject timing relative to page parse ─────────────────────────
 
 export const InjectTimingDiagram: React.FC = () => (
