@@ -45,13 +45,22 @@ import type { Hunk } from '../diff/line-diff';
 import { diffLinesPatience } from '../diff/patience-diff';
 import { useCharDecorations } from '../monaco/use-char-decorations';
 import { useGridResize } from '../monaco/use-grid-resize';
-import { useHunkAcceptArrows } from '../monaco/use-hunk-accept-arrows';
+import { useHunkActionMarkers } from '../monaco/use-hunk-action-markers';
 import { type HunkSide, useHunkDecorations } from '../monaco/use-hunk-decorations';
+import { useHunkTrackedRanges } from '../monaco/use-hunk-tracked-ranges';
 import { type MergeActionsContext, useMergeActions } from '../monaco/use-merge-actions';
 import { useMissingMarkers } from '../monaco/use-missing-markers';
 import { useMonacoEditorLifecycle } from '../monaco/use-monaco-editor-lifecycle';
 import { useSyncScroll } from '../monaco/use-sync-scroll';
 import type { MergeFile } from '../types';
+import {
+  type HunkPickState,
+  PENDING_HUNK,
+  type PickStateController,
+  createPickStateController,
+  isResolved,
+} from '../use-hunk-pick-state';
+import HunkActionGutter from './HunkActionGutter';
 import { gridTemplate, type MergeLayout, paneVisibility } from './layout';
 
 export type { MergeLayout } from './layout';
@@ -95,6 +104,17 @@ export interface MergePaneProps {
   renderHeader?: (pane: 'theirs' | 'base' | 'result' | 'mine') => ReactNode;
   /** Caller wants user-action narration for an ARIA live region. */
   onAnnounce?: (message: string) => void;
+  /** When true, accepting one side auto-dismisses the other so the
+   *  hunk is fully resolved on the first click. Default false — the
+   *  diagonal-append affordance stays visible so users can opt to
+   *  stack both sides. */
+  singleClickResolve?: boolean;
+  /** Fires whenever the per-side pick-state map changes (any click,
+   *  bulk action, undo/redo, or session reset). The argument is the
+   *  affected hunk id, or `null` when many changed at once. Surface
+   *  for the modal to derive the sidebar status pill + Complete Merge
+   *  gate from a single source of truth. */
+  onPickStateChange?: (hunkId: string | null) => void;
 }
 
 export interface MergePaneHandle {
@@ -124,6 +144,8 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     className,
     renderHeader,
     onAnnounce,
+    singleClickResolve = false,
+    onPickStateChange,
   } = props;
   // Monaco theme id comes from the active variant — the chrome's
   // `isDarkMode` prop only drives the merge-pane background shading.
@@ -146,7 +168,6 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     value: file.theirs,
     language,
     readOnly: true,
-    options: { glyphMargin: true },
   });
 
   const resultHandle = useMonacoEditorLifecycle({
@@ -161,7 +182,6 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     value: file.mine,
     language,
     readOnly: true,
-    options: { glyphMargin: true },
   });
 
   // Base editor is created unconditionally so layout swaps can show
@@ -270,27 +290,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   // hunk, regardless of the show-non-conflicting toggle. Per
   // `MERGE_CONFLICT_EDITOR_PLAN.md` §5.4 the toggle "shows / hides
   // the gutter [arrows]" — i.e. the actionable affordance, not the
-  // visual diff itself. The previous implementation conflated the
-  // two, hiding the entire diff for non-conflicting hunks; in single-
-  // entity sessions where every hunk is non-conflicting, the result
-  // was completely blank panes despite real drift in the buffer.
-  const acceptArrowTheirs = useMemo(
-    () =>
-      showNonConflicting
-        ? theirsHunks
-        : theirsHunks.filter(
-            (h) => classification.theirsConflictIds.has(h.id) && !classification.theirsCleanIds.has(h.id),
-          ),
-    [showNonConflicting, theirsHunks, classification],
-  );
-  const acceptArrowMine = useMemo(
-    () =>
-      showNonConflicting
-        ? mineHunks
-        : mineHunks.filter((h) => classification.mineConflictIds.has(h.id) && !classification.mineCleanIds.has(h.id)),
-    [showNonConflicting, mineHunks, classification],
-  );
-
+  // visual diff itself.
   useHunkDecorations({ editorRef: theirsHandle, side: 'theirs', hunks: theirsHunks });
   useHunkDecorations({ editorRef: mineHandle, side: 'mine', hunks: mineHunks });
   useMissingMarkers({ editorRef: theirsHandle, side: 'theirs', hunks: theirsHunks });
@@ -298,79 +298,124 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   useCharDecorations({ editorRef: theirsHandle, side: 'theirs', hunks: theirsHunks });
   useCharDecorations({ editorRef: mineHandle, side: 'mine', hunks: mineHunks });
 
-  const handleAccept = useCallback(
-    (hunkId: string, side: HunkSide) => {
-      const hunks: readonly Hunk[] = side === 'theirs' ? theirsHunks : mineHunks;
-      const hunk = hunks.find((h) => h.id === hunkId);
-      if (!hunk) return;
-      const editor = resultHandle.current.editor;
-      const model = resultHandle.current.model;
-      if (!editor || !model) return;
+  // Hunks that participate in the per-side state machine. Use
+  // `theirsHunks` as the identity domain — each carries both
+  // `theirsLines` (peer's version) AND `mineLines` (result's
+  // current content for that region, which initially equals mine's
+  // version at the same lines). The pick-state controller writes
+  // into the result buffer per the (theirs, mine) state tuple.
+  const pickStateHunks = theirsHunks;
 
-      const targetRange = hunk.mineRange;
-      const replacementLines = side === 'theirs' ? hunk.theirsLines : hunk.mineLines;
-      const replacementText = replacementLines.join('\n') + (replacementLines.length > 0 ? '\n' : '');
+  // Sticky tracking decorations on the result pane — anchor each
+  // hunk's range so subsequent picks target the live span (not the
+  // stale `mineRange` line numbers from when the diff was computed).
+  const trackedRangesRef = useHunkTrackedRanges({ resultRef: resultHandle, hunks: pickStateHunks });
 
-      const startLine = Math.max(1, targetRange.startLine);
-      const endLine = targetRange.endLine;
-      const isInsertion = endLine <= startLine;
-      const lineCount = model.getLineCount();
-      const replaceRange = isInsertion
-        ? {
-            startLineNumber: Math.min(startLine, lineCount + 1),
-            startColumn: 1,
-            endLineNumber: Math.min(startLine, lineCount + 1),
-            endColumn: 1,
-          }
-        : {
-            startLineNumber: startLine,
-            startColumn: 1,
-            endLineNumber: Math.min(endLine - 1, lineCount),
-            endColumn: model.getLineMaxColumn(Math.min(endLine - 1, lineCount)),
-          };
-      editor.executeEdits('oh-merge-accept', [
-        {
-          range: replaceRange,
-          text: isInsertion ? replacementText : replacementLines.join('\n'),
-          forceMoveMarkers: true,
+  // Per-side pick state controller. Memoized so the same instance
+  // survives re-renders. Refs feed the controller hooks-style data
+  // (current hunks, current toggle) without recreating it.
+  const pickHunksRef = useRef<readonly Hunk[]>(pickStateHunks);
+  pickHunksRef.current = pickStateHunks;
+  const singleClickRef = useRef<boolean>(singleClickResolve);
+  singleClickRef.current = singleClickResolve;
+  const [pickStateRev, setPickStateRev] = useState(0);
+  const pickController = useMemo<PickStateController>(
+    () =>
+      createPickStateController({
+        hunksRef: pickHunksRef,
+        trackedRangesRef,
+        singleClickResolveRef: singleClickRef,
+        onChange: (hunkId) => {
+          setPickStateRev((n) => n + 1);
+          onPickStateChange?.(hunkId);
         },
-      ]);
-      const sourceLabel = side === 'theirs' ? 'incoming' : 'current';
-      onAnnounce?.(`Accepted ${sourceLabel} hunk at line ${startLine}.`);
-    },
-    [theirsHunks, mineHunks, resultHandle, onAnnounce],
+      }),
+    [trackedRangesRef, onPickStateChange],
   );
 
-  useHunkAcceptArrows({ editorRef: theirsHandle, side: 'theirs', hunks: acceptArrowTheirs, onAccept: handleAccept });
-  useHunkAcceptArrows({ editorRef: mineHandle, side: 'mine', hunks: acceptArrowMine, onAccept: handleAccept });
+  // Reset the controller's state when the file switches — stale entries
+  // would carry false signals for hunks that don't exist in the new
+  // file's diff.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: file id is the lifecycle handle
+  useEffect(() => {
+    pickController.reset();
+  }, [file.id, pickController]);
+
+  // Pixel-y positions for the action gutter rows. Recomputed when the
+  // hunk set changes or the result editor scrolls / lays out.
+  const actionMarkers = useHunkActionMarkers({
+    resultRef: resultHandle,
+    trackedRangesRef,
+    hunks: pickStateHunks,
+  });
+
+  // Markers gated by the show-non-conflicting toggle: when off, hide
+  // action affordances on hunks whose theirs side didn't change vs
+  // base (the "clean from theirs" auto-mergeable case). Still render
+  // markers for true conflicts. The toggle only affects the action
+  // gutters; line decorations stay always-on per §5.4.
+  const visibleActionMarkers = useMemo(() => {
+    if (showNonConflicting) return actionMarkers;
+    const visibleIds = new Set<string>();
+    for (const h of pickStateHunks) {
+      const cleanFromTheirs = classification.theirsCleanIds.has(h.id);
+      if (!cleanFromTheirs) visibleIds.add(h.id);
+    }
+    return actionMarkers.filter((m) => visibleIds.has(m.hunkId));
+  }, [actionMarkers, showNonConflicting, pickStateHunks, classification]);
+
+  // Legacy single-click accept callback retained for the Monaco
+  // command palette ("Accept incoming/current hunk at cursor"). The
+  // chord lands as if the user clicked the corresponding action-gutter
+  // arrow, routing through the controller so state + buffer stay in
+  // lock-step.
+  const handleAccept = useCallback(
+    (hunkId: string, side: HunkSide) => {
+      pickController.dispatch({ hunkId, slot: side === 'theirs' ? 'left' : 'right', action: 'arrow' });
+      const sourceLabel = side === 'theirs' ? 'incoming' : 'current';
+      onAnnounce?.(`Accepted ${sourceLabel} hunk.`);
+    },
+    [pickController, onAnnounce],
+  );
 
   useEffect(() => {
-    // True-conflict union: 2-way overlap (refined by clean-from-X) +
-    // 3-way base-region overlap (catches the result===mine case where
-    // mineHunks is empty but both sides moved from base). The base-
-    // region path only contributes when `file.base` is supplied.
-    const trueTheirs = new Set<string>();
-    for (const id of classification.theirsConflictIds) {
-      if (!classification.theirsCleanIds.has(id)) trueTheirs.add(id);
+    // Stats now derive from the per-side pick-state controller. A hunk
+    // is "remaining" iff at least one side is still `pending` — i.e.
+    // the user hasn't decided that side yet. Resolved hunks (both
+    // sides decided, regardless of accept/dismiss) contribute zero to
+    // the counter, drive the sidebar pill green, and free up Complete
+    // Merge gating.
+    //
+    // Theirs / mine remaining counts mirror the per-slot pending
+    // status so a workflow that surfaces "N incoming pending"
+    // separately from "M current pending" still has the breakdown.
+    let theirsPending = 0;
+    let minePending = 0;
+    let trueConflicts = 0;
+    for (const h of pickStateHunks) {
+      const state = pickController.get(h.id);
+      if (state.theirs === 'pending') theirsPending++;
+      if (state.mine === 'pending') minePending++;
+      const flagged = classification.theirsConflictIds.has(h.id);
+      const cleanFromTheirs = classification.theirsCleanIds.has(h.id);
+      const baseRegionConflict =
+        'theirsTrueConflicts' in classification && classification.theirsTrueConflicts.has(h.id);
+      const isTrueConflict = (flagged && !cleanFromTheirs) || baseRegionConflict;
+      if (isTrueConflict && (state.theirs === 'pending' || state.mine === 'pending')) trueConflicts++;
     }
-    const trueMine = new Set<string>();
-    for (const id of classification.mineConflictIds) {
-      if (!classification.mineCleanIds.has(id)) trueMine.add(id);
-    }
-    if ('theirsTrueConflicts' in classification) {
-      for (const id of classification.theirsTrueConflicts) trueTheirs.add(id);
-      for (const id of classification.mineTrueConflicts) trueMine.add(id);
-    }
-    const conflicts = trueTheirs.size + trueMine.size;
-    const total = theirsHunks.length + mineHunks.length;
+    const total = theirsPending + minePending;
     onHunkStatsChange?.({
-      theirsRemaining: theirsHunks.length,
-      mineRemaining: mineHunks.length,
+      theirsRemaining: theirsPending,
+      mineRemaining: minePending,
       totalRemaining: total,
-      nonConflicting: total - conflicts,
-      conflicts,
+      nonConflicting: Math.max(0, total - trueConflicts),
+      conflicts: trueConflicts,
     });
-  }, [theirsHunks, mineHunks, classification, onHunkStatsChange]);
+    // Reading pickStateRev forces the effect to re-run after every
+    // controller mutation; the controller's `get()` is read fresh on
+    // each pass.
+    void pickStateRev;
+  }, [pickStateHunks, classification, onHunkStatsChange, pickController, pickStateRev]);
 
   const navIndexRef = useRef(-1);
   const orderedNav = useMemo(() => {
@@ -407,68 +452,49 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     [orderedNav, resultHandle],
   );
 
-  const bulkApply = useCallback(
-    (picks: ReadonlyArray<{ hunk: Hunk; replacement: readonly string[] }>) => {
-      const editor = resultHandle.current.editor;
-      const model = resultHandle.current.model;
-      if (!editor || !model || picks.length === 0) return;
-      const sorted = [...picks].sort((a, b) => b.hunk.mineRange.startLine - a.hunk.mineRange.startLine);
-      const lineCount = model.getLineCount();
-      const ops = sorted.map(({ hunk, replacement }) => {
-        const startLine = Math.max(1, hunk.mineRange.startLine);
-        const endLine = hunk.mineRange.endLine;
-        const isInsertion = endLine <= startLine;
-        const replacementText = replacement.join('\n') + (replacement.length > 0 && isInsertion ? '\n' : '');
-        const range = isInsertion
-          ? {
-              startLineNumber: Math.min(startLine, lineCount + 1),
-              startColumn: 1,
-              endLineNumber: Math.min(startLine, lineCount + 1),
-              endColumn: 1,
-            }
-          : {
-              startLineNumber: startLine,
-              startColumn: 1,
-              endLineNumber: Math.min(endLine - 1, lineCount),
-              endColumn: model.getLineMaxColumn(Math.min(endLine - 1, lineCount)),
-            };
-        return { range, text: isInsertion ? replacementText : replacement.join('\n'), forceMoveMarkers: true };
-      });
-      editor.executeEdits('oh-merge-bulk', ops);
-    },
-    [resultHandle],
-  );
-
   const applyNonConflicting = useCallback(() => {
-    // A hunk is non-conflicting if it's not flagged 2-way OR if the
-    // 3-way clean set tells us only one side actually changed vs base.
-    const picks: { hunk: Hunk; replacement: readonly string[] }[] = [];
-    for (const h of theirsHunks) {
+    // Auto-mergeable hunks: not flagged 2-way OR refined as clean by
+    // 3-way overlap. Routes through the controller so state + buffer
+    // stay in sync (sidebar pills flip + Complete Merge enables).
+    const updates: { hunkId: string; next: HunkPickState }[] = [];
+    for (const h of pickStateHunks) {
       const flaggedConflict = classification.theirsConflictIds.has(h.id);
       const cleanOverride = classification.theirsCleanIds.has(h.id);
-      if (!flaggedConflict || cleanOverride) picks.push({ hunk: h, replacement: h.theirsLines });
+      const baseRegionConflict =
+        'theirsTrueConflicts' in classification && classification.theirsTrueConflicts.has(h.id);
+      const isTrueConflict = (flaggedConflict && !cleanOverride) || baseRegionConflict;
+      if (isTrueConflict) continue;
+      const prev = pickController.get(h.id);
+      if (isResolved(prev)) continue;
+      updates.push({ hunkId: h.id, next: { theirs: 'accepted', mine: 'dismissed' } });
     }
-    for (const h of mineHunks) {
-      const flaggedConflict = classification.mineConflictIds.has(h.id);
-      const cleanOverride = classification.mineCleanIds.has(h.id);
-      if (!flaggedConflict || cleanOverride) picks.push({ hunk: h, replacement: h.mineLines });
+    if (updates.length > 0) {
+      onAnnounce?.(`Applied ${updates.length} non-conflicting ${updates.length === 1 ? 'hunk' : 'hunks'}.`);
+      pickController.bulkSet(updates);
     }
-    if (picks.length > 0)
-      onAnnounce?.(`Applied ${picks.length} non-conflicting ${picks.length === 1 ? 'hunk' : 'hunks'}.`);
-    bulkApply(picks);
-  }, [theirsHunks, mineHunks, classification, bulkApply, onAnnounce]);
+  }, [pickStateHunks, classification, pickController, onAnnounce]);
 
   const acceptAllTheirs = useCallback(() => {
-    if (theirsHunks.length > 0)
-      onAnnounce?.(`Accepted all ${theirsHunks.length} incoming ${theirsHunks.length === 1 ? 'hunk' : 'hunks'}.`);
-    bulkApply(theirsHunks.map((h) => ({ hunk: h, replacement: h.theirsLines })));
-  }, [theirsHunks, bulkApply, onAnnounce]);
+    const updates: { hunkId: string; next: HunkPickState }[] = pickStateHunks.map((h) => ({
+      hunkId: h.id,
+      next: { theirs: 'accepted', mine: 'dismissed' },
+    }));
+    if (updates.length > 0) {
+      onAnnounce?.(`Accepted all ${updates.length} incoming ${updates.length === 1 ? 'hunk' : 'hunks'}.`);
+      pickController.bulkSet(updates);
+    }
+  }, [pickStateHunks, pickController, onAnnounce]);
 
   const acceptAllMine = useCallback(() => {
-    if (mineHunks.length > 0)
-      onAnnounce?.(`Accepted all ${mineHunks.length} current ${mineHunks.length === 1 ? 'hunk' : 'hunks'}.`);
-    bulkApply(mineHunks.map((h) => ({ hunk: h, replacement: h.mineLines })));
-  }, [mineHunks, bulkApply, onAnnounce]);
+    const updates: { hunkId: string; next: HunkPickState }[] = pickStateHunks.map((h) => ({
+      hunkId: h.id,
+      next: { theirs: 'dismissed', mine: 'accepted' },
+    }));
+    if (updates.length > 0) {
+      onAnnounce?.(`Accepted all ${updates.length} current ${updates.length === 1 ? 'hunk' : 'hunks'}.`);
+      pickController.bulkSet(updates);
+    }
+  }, [pickStateHunks, pickController, onAnnounce]);
 
   useImperativeHandle(
     ref,
@@ -601,6 +627,26 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
           )
         }
         containerRef={resultContainerRef}
+        leftFlanker={
+          has3Panes ? (
+            <HunkActionGutter
+              side="left"
+              markers={visibleActionMarkers}
+              controller={pickController}
+              stateRev={pickStateRev}
+            />
+          ) : undefined
+        }
+        rightFlanker={
+          has3Panes ? (
+            <HunkActionGutter
+              side="right"
+              markers={visibleActionMarkers}
+              controller={pickController}
+              stateRev={pickStateRev}
+            />
+          ) : undefined
+        }
       />
       <PaneSlot
         gridArea="mine"
@@ -626,9 +672,22 @@ interface PaneSlotProps {
   bg: string;
   header: ReactNode;
   containerRef: React.RefObject<HTMLDivElement | null>;
+  /** Optional flex-row flankers around the editor container. Used by
+   *  the result pane to render the per-side action gutters
+   *  (`<HunkActionGutter>`) flanking the editable Monaco surface. */
+  leftFlanker?: ReactNode;
+  rightFlanker?: ReactNode;
 }
 
-function PaneSlot({ gridArea, visible, bg, header, containerRef }: PaneSlotProps): React.ReactElement {
+function PaneSlot({
+  gridArea,
+  visible,
+  bg,
+  header,
+  containerRef,
+  leftFlanker,
+  rightFlanker,
+}: PaneSlotProps): React.ReactElement {
   return (
     <div
       style={{
@@ -658,8 +717,12 @@ function PaneSlot({ gridArea, visible, bg, header, containerRef }: PaneSlotProps
       >
         {header}
       </div>
-      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
-        <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
+      <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex' }}>
+        {leftFlanker}
+        <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+          <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
+        </div>
+        {rightFlanker}
       </div>
     </div>
   );
