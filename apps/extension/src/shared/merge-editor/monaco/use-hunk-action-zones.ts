@@ -56,6 +56,10 @@ export interface UseHunkActionZonesArgs {
    *  rendering. Used by the toolbar toggle to disable the inline
    *  labels without unmounting the side editor. */
   enabled: boolean;
+  /** Mine pane only renders in 3-pane sessions. Affects frame
+   *  visibility in the resolved-but-other-side-active case (a side
+   *  with no rendered pane shouldn't count as "active alignment"). */
+  has3Panes: boolean;
 }
 
 const LABEL_THEIRS = {
@@ -146,6 +150,35 @@ function shouldRenderZone(state: { theirs: SideState; mine: SideState }, side: H
   return state.mine === 'pending';
 }
 
+/**
+ * Whether THIS side should render a frame around its hunk content,
+ * mirroring VS Code's bordered grouping rectangle. Two cases produce
+ * a frame:
+ *   1. This side's action zone is rendered (pending) — orange frame.
+ *   2. This side is decided BUT another pane still renders a zone
+ *      (other side action zone or result status zone) — grey frame
+ *      around the action-slot placeholder + content.
+ *
+ * The third case (this side decided + no other zone) yields no frame
+ * because the conflict is fully resolved with no other panes to
+ * align with — the user has moved on.
+ */
+function frameStateFor(
+  state: { theirs: SideState; mine: SideState },
+  side: HunkSide,
+  has3Panes: boolean,
+): 'pending' | 'resolved' | null {
+  const thisPending = side === 'theirs' ? state.theirs === 'pending' : state.mine === 'pending';
+  if (thisPending) return 'pending';
+  // This side is decided. Render a grey frame iff something else is
+  // still in flight (other side or result status).
+  const otherPending =
+    side === 'theirs' ? state.mine === 'pending' && has3Panes : state.theirs === 'pending';
+  const resultVisible = statusLabelFor(state) !== null;
+  if (otherPending || resultVisible) return 'resolved';
+  return null;
+}
+
 export function useHunkActionZones(args: UseHunkActionZonesArgs): void {
   const zoneIdsRef = useRef<Map<string, string>>(new Map());
   const frameDecorationsRef = useRef<monaco.editor.IEditorDecorationsCollection | null>(null);
@@ -204,24 +237,45 @@ export function useHunkActionZones(args: UseHunkActionZonesArgs): void {
           accessor.removeZone(existing);
           zoneIds.delete(h.id);
         }
-        if (!shouldRender) continue;
-        // Anchor the zone above the hunk's start line on this side.
-        // View zones use `afterLineNumber` where 0 means "before
-        // line 1" — for a hunk starting at line N, we want the zone
-        // BEFORE the hunk → afterLineNumber = N - 1.
         const range = args.side === 'theirs' ? h.theirsRange : h.mineRange;
         const startLine = range.startLine;
         const endLineExclusive = range.endLine;
         if (startLine < 1 || startLine > lineCount + 1) continue;
-        // Combination is only offered for MULTI-line hunks — VS Code's
-        // convention is that single-line hunks just get
-        // "Accept | Ignore" (taking BOTH means stacking, which is only
-        // meaningful when each side has distinct multi-line content).
-        // Single-line picks default to whichever side the user names.
+
+        // Frame around the bordered grouping rectangle. Renders for
+        // both pending (orange) and resolved-but-others-active (grey)
+        // states. Top + side borders come from the action zone DOM
+        // (pending) or the action-slot placeholder (resolved); side +
+        // bottom borders come from these per-line frame decorations.
+        const frameState = frameStateFor(state, args.side, args.has3Panes);
+        if (frameState !== null) {
+          const lastLineInclusive = Math.min(endLineExclusive - 1, lineCount);
+          const sideClass =
+            frameState === 'pending' ? 'oh-merge__action-zone-frame' : 'oh-merge__action-zone-frame-resolved';
+          const lastClass =
+            frameState === 'pending'
+              ? 'oh-merge__action-zone-frame-last'
+              : 'oh-merge__action-zone-frame-resolved-last';
+          for (let line = startLine; line <= lastLineInclusive; line++) {
+            frameDecos.push({
+              range: {
+                startLineNumber: line,
+                startColumn: 1,
+                endLineNumber: line,
+                endColumn: model.getLineMaxColumn(line),
+              },
+              options: {
+                isWholeLine: true,
+                className: line === lastLineInclusive ? `${sideClass} ${lastClass}` : sideClass,
+                stickiness: 1,
+              },
+            });
+          }
+        }
+
+        if (!shouldRender) continue;
+        // Anchor the zone above the hunk's start line on this side.
         const isMultiLine = endLineExclusive > startLine + 1;
-        // Combine is also only meaningful when the OTHER side is still
-        // pending (accepting both makes sense) AND no side is dismissed
-        // (combining a dismissed side is contradictory).
         const otherSideAccepted = args.side === 'theirs' ? state.mine === 'accepted' : state.theirs === 'accepted';
         const isCombineMeaningful =
           isMultiLine && !otherSideAccepted && state.theirs !== 'dismissed' && state.mine !== 'dismissed';
@@ -232,29 +286,6 @@ export function useHunkActionZones(args: UseHunkActionZonesArgs): void {
           domNode: dom,
         } satisfies monaco.editor.IViewZone);
         zoneIds.set(h.id, zoneId);
-
-        // Frame decorations on every line of the hunk to close the
-        // VS Code-style outline rectangle (label row + hunk body).
-        // Last line gets the bottom border to seal the box.
-        const lastLineInclusive = Math.min(endLineExclusive - 1, lineCount);
-        for (let line = startLine; line <= lastLineInclusive; line++) {
-          frameDecos.push({
-            range: {
-              startLineNumber: line,
-              startColumn: 1,
-              endLineNumber: line,
-              endColumn: model.getLineMaxColumn(line),
-            },
-            options: {
-              isWholeLine: true,
-              className:
-                line === lastLineInclusive
-                  ? 'oh-merge__action-zone-frame oh-merge__action-zone-frame-last'
-                  : 'oh-merge__action-zone-frame',
-              stickiness: 1,
-            },
-          });
-        }
       }
     });
 
@@ -281,7 +312,7 @@ export function useHunkActionZones(args: UseHunkActionZonesArgs): void {
         frameDecorationsRef.current = null;
       }
     };
-  }, [args.editorRef, args.side, args.hunks, args.controller, args.stateRev, args.enabled]);
+  }, [args.editorRef, args.side, args.hunks, args.controller, args.stateRev, args.enabled, args.has3Panes]);
 }
 
 // ── Result-pane status zones ────────────────────────────────────────
@@ -531,75 +562,85 @@ export interface UseHunkAlignmentPlaceholdersArgs {
 }
 
 interface PlaceholderPlan {
-  /** Where the placeholder zone goes (Monaco's `afterLineNumber`). */
-  afterLineNumber: number;
-  /** Number of lines the placeholder represents. */
-  heightInLines: number;
+  /** Lines BEFORE the source content (action-zone slot — hidden
+   *  when this side is decided but other panes still render zones,
+   *  so we need a placeholder to maintain row-by-row alignment). */
+  beforeLines: number;
+  /** Lines AFTER the source content (stacked-content slot — when
+   *  both sides accepted, the result has N + M lines; this side has
+   *  fewer, so the rest pads visually below). VS Code's convention
+   *  puts the placeholder below content on BOTH sides for visual
+   *  symmetry, even though semantically theirs's content sits above
+   *  mine's in the result stack — line-number parity is the goal,
+   *  not a per-line semantic mapping. */
+  afterLines: number;
 }
 
 /**
  * Compute the placeholder plan for a hunk on a given source side
- * given the current pick state. Returns null when no placeholder is
- * needed.
+ * given the current pick state.
  *
- * Rules (target = result-region line count):
- *   both accepted   → result has N + M lines
- *   theirs accepted → result has N lines
- *   mine accepted   → result has M lines
- *   else            → result has whatever was there originally; we
- *                     skip placeholders in pending / dismissed states
- *                     (alignment doesn't add value, and the dismissed
- *                     case might leave the user's manual edits in
- *                     the result region).
+ * Action-zone slot (`beforeLines === 1`):
+ *   When this side's action zone is hidden (state ≠ pending) but
+ *   other panes still render zones (other side's action zone OR
+ *   result status zone), add a 1-line placeholder above content so
+ *   the visual row count matches across panes.
  *
- * For the source side, the placeholder is the difference between the
- * result-region line count and this source's content line count.
- * Position depends on which side:
- *   theirs side: placeholder AFTER theirs content (mine lands after
- *                in result, so the placeholder represents that)
- *   mine side:   placeholder BEFORE mine content (theirs lands before
- *                in result, so the placeholder represents that)
+ * Stacked-content slot (`afterLines === N or M`):
+ *   When both sides accepted, the result region has N + M lines
+ *   (theirs stacked above mine). Each source side has fewer lines
+ *   than result; the remainder is rendered as a placeholder below
+ *   that side's content. Both sides put the placeholder BELOW for
+ *   visual symmetry (matches VS Code).
+ *
+ * Returns null when no placeholder is needed for either slot.
  */
 function placeholderPlanFor(
   side: HunkSide,
   hunk: Hunk,
   state: { theirs: SideState; mine: SideState },
+  has3Panes: boolean,
 ): PlaceholderPlan | null {
   const N = hunk.theirsLines.length;
   const M = hunk.mineLines.length;
   const tA = state.theirs === 'accepted';
   const mA = state.mine === 'accepted';
 
-  // Only the both-accepted case produces a meaningful per-side
-  // placeholder (theirs needs M lines, mine needs N lines). The
-  // other states either don't change the result line count vs the
-  // source's content (theirs-only → result is N; mine-only → result
-  // is M) or leave the buffer in an unknown state (pending /
-  // dismissed where the user may have typed). v1 ships the
-  // both-accepted case; richer rules can layer on later.
-  if (!tA || !mA) return null;
-  if (side === 'theirs') {
-    // Placeholder M lines AFTER theirs content (theirsRange.endLine
-    // is exclusive, so afterLineNumber = endLine - 1 places the zone
-    // immediately AFTER the last content line).
-    if (M === 0) return null;
-    return { afterLineNumber: hunk.theirsRange.endLine - 1, heightInLines: M };
+  const thisSidePending = side === 'theirs' ? state.theirs === 'pending' : state.mine === 'pending';
+  // Mine zone only renders when has3Panes — in 2-pane fallback it's
+  // hidden by the action-zones hook, so the alignment math should
+  // treat it as not-visible for action-slot placement purposes.
+  const otherZonePending =
+    side === 'theirs'
+      ? state.mine === 'pending' && has3Panes
+      : state.theirs === 'pending';
+  const resultStatusVisible = statusLabelFor(state) !== null;
+
+  const beforeLines = !thisSidePending && (otherZonePending || resultStatusVisible) ? 1 : 0;
+
+  // Stacked-content slot: both accepted → result has N + M lines,
+  // this side has its own line count, the rest is the other side's
+  // content rendered as a placeholder.
+  let afterLines = 0;
+  if (tA && mA) {
+    afterLines = side === 'theirs' ? M : N;
   }
-  // mine side
-  if (N === 0) return null;
-  // Placeholder N lines BEFORE mine content. View zones use
-  // afterLineNumber, so to put the zone BEFORE line K we use
-  // afterLineNumber = K - 1.
-  return { afterLineNumber: hunk.mineRange.startLine - 1, heightInLines: N };
+
+  if (beforeLines === 0 && afterLines === 0) return null;
+  return { beforeLines, afterLines };
 }
 
-function buildPlaceholderDom(): HTMLElement {
+type PlaceholderKind = 'action-slot' | 'stacked-content';
+
+function buildPlaceholderDom(kind: PlaceholderKind): HTMLElement {
   const root = document.createElement('div');
-  root.className = 'oh-merge__alignment-placeholder';
+  root.className = `oh-merge__alignment-placeholder oh-merge__alignment-placeholder-${kind}`;
   return root;
 }
 
-export function useHunkAlignmentPlaceholders(args: UseHunkAlignmentPlaceholdersArgs): void {
+export function useHunkAlignmentPlaceholders(args: UseHunkAlignmentPlaceholdersArgs & { has3Panes: boolean }): void {
+  // Two zones possible per hunk per side: before (action-slot) + after
+  // (stacked-content). Composite key `${hunkId}:before` / `${hunkId}:after`.
   const zoneIdsRef = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
@@ -618,31 +659,60 @@ export function useHunkAlignmentPlaceholders(args: UseHunkAlignmentPlaceholdersA
       return;
     }
 
-    const liveIds = new Set(args.hunks.map((h) => h.id));
+    const liveKeys = new Set<string>();
+    for (const h of args.hunks) {
+      liveKeys.add(`${h.id}:before`);
+      liveKeys.add(`${h.id}:after`);
+    }
 
     editor.changeViewZones((accessor) => {
-      for (const [hunkId, zoneId] of zoneIds) {
-        if (!liveIds.has(hunkId)) {
+      // Drop zones for hunks no longer in the live set.
+      for (const [key, zoneId] of zoneIds) {
+        if (!liveKeys.has(key)) {
           accessor.removeZone(zoneId);
-          zoneIds.delete(hunkId);
+          zoneIds.delete(key);
         }
       }
       for (const h of args.hunks) {
-        const existing = zoneIds.get(h.id);
         const state = args.controller.get(h.id);
-        const plan = placeholderPlanFor(args.side, h, state);
-        if (existing) {
-          accessor.removeZone(existing);
-          zoneIds.delete(h.id);
+        const plan = placeholderPlanFor(args.side, h, state, args.has3Panes);
+        // Always-rebuild approach: drop existing zones for this hunk
+        // and re-add according to the current plan. Cheaper than
+        // diffing per-region; view zones are lightweight.
+        for (const slot of ['before', 'after'] as const) {
+          const key = `${h.id}:${slot}`;
+          const existing = zoneIds.get(key);
+          if (existing) {
+            accessor.removeZone(existing);
+            zoneIds.delete(key);
+          }
         }
         if (!plan) continue;
-        const dom = buildPlaceholderDom();
-        const zoneId = accessor.addZone({
-          afterLineNumber: plan.afterLineNumber,
-          heightInLines: plan.heightInLines,
-          domNode: dom,
-        } satisfies monaco.editor.IViewZone);
-        zoneIds.set(h.id, zoneId);
+        const range = args.side === 'theirs' ? h.theirsRange : h.mineRange;
+        const startLine = range.startLine;
+        const endLineExclusive = range.endLine;
+        if (plan.beforeLines > 0) {
+          const dom = buildPlaceholderDom('action-slot');
+          const zoneId = accessor.addZone({
+            afterLineNumber: Math.max(0, startLine - 1),
+            heightInLines: plan.beforeLines,
+            domNode: dom,
+          } satisfies monaco.editor.IViewZone);
+          zoneIds.set(`${h.id}:before`, zoneId);
+        }
+        if (plan.afterLines > 0) {
+          const dom = buildPlaceholderDom('stacked-content');
+          const zoneId = accessor.addZone({
+            // Place AFTER the last content line. `endLine` is
+            // exclusive in our LineRange convention, so endLine - 1
+            // is the last content line; afterLineNumber on it puts
+            // the zone immediately below.
+            afterLineNumber: Math.max(0, endLineExclusive - 1),
+            heightInLines: plan.afterLines,
+            domNode: dom,
+          } satisfies monaco.editor.IViewZone);
+          zoneIds.set(`${h.id}:after`, zoneId);
+        }
       }
     });
     return () => {
@@ -652,5 +722,5 @@ export function useHunkAlignmentPlaceholders(args: UseHunkAlignmentPlaceholdersA
       });
       zoneIds.clear();
     };
-  }, [args.editorRef, args.side, args.hunks, args.controller, args.stateRev, args.enabled]);
+  }, [args.editorRef, args.side, args.hunks, args.controller, args.stateRev, args.enabled, args.has3Panes]);
 }

@@ -130,16 +130,26 @@
   color: rgba(255, 130, 130, 0.95);
 }
 
-/* Hashed diagonal alignment placeholders. Rendered as Monaco view
- * zones in the theirs / mine source panes when the result region
- * has more lines than the source side does (e.g. both-accepted
- * combination on a 1-line hunk → result is 2 lines, so each source
- * needs a 1-line placeholder to align). Pure-visual cue: same
- * height as the missing lines, hashed background to read as
- * "no content here, alignment row." */
+/* Alignment placeholders. Two kinds, both Monaco view zones in
+ * theirs / mine source panes:
+ *
+ *   action-slot (above content): empty row that takes the place of
+ *     a hidden action zone. Keeps the action-row position consistent
+ *     across panes when one side is decided but others still render
+ *     their zones. Top + side borders close the bordered grouping
+ *     rectangle around resolved hunks.
+ *
+ *   stacked-content (below content): hashed-diagonal row(s) that
+ *     pad for the OTHER side's content stacked into result via
+ *     "Accept Combination". Pure visual signal — content lives in
+ *     result, this row stays hashed in the source pane. */
 .oh-merge__alignment-placeholder {
   width: 100%;
   height: 100%;
+  pointer-events: none;
+}
+
+.oh-merge__alignment-placeholder-stacked-content {
   background-image: repeating-linear-gradient(
     -45deg,
     transparent 0,
@@ -147,9 +157,8 @@
     rgba(127, 127, 127, 0.18) 4px,
     rgba(127, 127, 127, 0.18) 8px
   );
-  pointer-events: none;
 }
-[data-merge-theme='dark'] .oh-merge__alignment-placeholder {
+[data-merge-theme='dark'] .oh-merge__alignment-placeholder-stacked-content {
   background-image: repeating-linear-gradient(
     -45deg,
     transparent 0,
@@ -157,4 +166,39 @@
     rgba(255, 255, 255, 0.10) 4px,
     rgba(255, 255, 255, 0.10) 8px
   );
+}
+
+/* Action-slot placeholder closes the TOP edge of the bordered
+ * rectangle around resolved hunks. Color is greyed-out (the conflict
+ * is solved — the orange "active" cue is no longer warranted). */
+.oh-merge__alignment-placeholder-action-slot {
+  background: rgba(127, 127, 127, 0.06);
+  border-top: 1px solid rgba(127, 127, 127, 0.55);
+  border-left: 1px solid rgba(127, 127, 127, 0.55);
+  border-right: 1px solid rgba(127, 127, 127, 0.55);
+}
+[data-merge-theme='dark'] .oh-merge__alignment-placeholder-action-slot {
+  background: rgba(255, 255, 255, 0.04);
+  border-top-color: rgba(180, 180, 180, 0.45);
+  border-left-color: rgba(180, 180, 180, 0.45);
+  border-right-color: rgba(180, 180, 180, 0.45);
+}
+
+/* Resolved-state frame (grey). Applied to the side-pane content
+ * lines on hunks where this side is decided. Pairs with the action-
+ * slot placeholder's grey top + side borders to form a complete
+ * grey rectangle around the now-solved conflict. */
+.oh-merge__action-zone-frame-resolved {
+  border-left: 1px solid rgba(127, 127, 127, 0.55);
+  border-right: 1px solid rgba(127, 127, 127, 0.55);
+}
+.oh-merge__action-zone-frame-resolved-last {
+  border-bottom: 1px solid rgba(127, 127, 127, 0.55);
+}
+[data-merge-theme='dark'] .oh-merge__action-zone-frame-resolved {
+  border-left-color: rgba(180, 180, 180, 0.45);
+  border-right-color: rgba(180, 180, 180, 0.45);
+}
+[data-merge-theme='dark'] .oh-merge__action-zone-frame-resolved-last {
+  border-bottom-color: rgba(180, 180, 180, 0.45);
 }

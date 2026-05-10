@@ -424,6 +424,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     controller: pickController,
     stateRev: pickStateRev,
     enabled: inlineActionLabels,
+    has3Panes,
   });
   useHunkActionZones({
     editorRef: mineHandle,
@@ -432,6 +433,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     controller: pickController,
     stateRev: pickStateRev,
     enabled: inlineActionLabels && has3Panes,
+    has3Panes,
   });
   // Result-pane status zone — non-interactive labels that maintain
   // row alignment with the theirs / mine action zones (so all three
@@ -445,10 +447,12 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     stateRev: pickStateRev,
     enabled: inlineActionLabels,
   });
-  // Hashed-diagonal alignment placeholders in theirs / mine when the
-  // result region has more lines than the source side does (e.g.
-  // both-accepted combination on a 1-line hunk where result becomes
-  // 2 lines). Keeps the three panes line-by-line aligned.
+  // Alignment placeholders in theirs / mine. Two slots per hunk per
+  // side — action-slot (above content, when this side is decided
+  // but other panes still render zones) + stacked-content slot
+  // (below content, when both sides accepted and result has the
+  // stacked combination). Maintains row-by-row line-number parity
+  // across all three editors.
   useHunkAlignmentPlaceholders({
     editorRef: theirsHandle,
     side: 'theirs',
@@ -456,6 +460,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     controller: pickController,
     stateRev: pickStateRev,
     enabled: inlineActionLabels,
+    has3Panes,
   });
   useHunkAlignmentPlaceholders({
     editorRef: mineHandle,
@@ -464,6 +469,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     controller: pickController,
     stateRev: pickStateRev,
     enabled: inlineActionLabels && has3Panes,
+    has3Panes,
   });
 
   // Reset the controller's state when the file switches — stale entries
