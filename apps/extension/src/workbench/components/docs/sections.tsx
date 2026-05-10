@@ -43,6 +43,8 @@ import {
   RequestTrackingDiagram,
   RequestTrackingPhasesDiagram,
   RequestTrackingUiDiagram,
+  RulesCapacityDiagram,
+  RulesPipelineDiagram,
   SyncLifecycleDiagram,
   SyncTopologyDiagram,
   SystemStatusPopoverDiagram,
@@ -436,16 +438,32 @@ export const SystemStatusSection: React.FC = () => (
     </StateRow>
 
     <SubsystemHeading name="Rules" subtitle="declarativeNetRequest engine" />
-    <DocParagraph>Reports on every DNR rebuild.</DocParagraph>
+    <DocParagraph>
+      Reports on every DNR rebuild. Every save runs your rule through four stages before it goes live: compile to DNR
+      JSON, resolve <code>{'{{VAR}}'}</code> references, enforce the active-rule cap, then apply through Chrome's
+      <code> declarativeNetRequest</code> API. Each stage can flip the pill.
+    </DocParagraph>
+    <DiagramFrame caption="Four stages — each can emit a Status level if it goes sideways.">
+      <RulesPipelineDiagram />
+    </DiagramFrame>
+    <DocParagraph>
+      The active-rule count maps to a state on a three-zone capacity bar. Rules over the cap are dropped in match-order
+      (top wins), and the yellow message carries the dropped count.
+    </DocParagraph>
+    <DiagramFrame caption="Green up to the warn threshold, yellow up to the cap, red beyond — but truncation keeps you out of the red zone at runtime.">
+      <RulesCapacityDiagram />
+    </DiagramFrame>
     <StateRow color="success" label="green">
-      N active rules, or "Rule execution paused".
+      <strong>N active DNR rule(s)</strong> or <strong>Rule execution paused</strong>.
     </StateRow>
     <StateRow color="warning" label="yellow">
-      Unresolved <code>{'{{VAR}}'}</code> references in the compiled set, rule cap exceeded, or approaching DNR
-      capacity.
+      Unresolved <code>{'{{VAR}}'}</code> references (<em>N unresolved variables in M rules</em>), the rule cap was
+      exceeded (<em>Dropped N rules over cap</em>), or you're approaching DNR capacity (<em>Approaching DNR capacity (N
+      ≥ threshold)</em>).
     </StateRow>
     <StateRow color="error" label="red">
-      Transport failure — Chrome rejected the dynamic or session rule update.
+      Transport failure — Chrome rejected the dynamic or session rule update (<em>Failed to apply
+      [dynamic|session] DNR rules</em>).
     </StateRow>
 
     <SubsystemHeading name="Requests" subtitle="API request executor" />
