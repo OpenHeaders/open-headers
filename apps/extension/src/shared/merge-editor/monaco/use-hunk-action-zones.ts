@@ -494,3 +494,163 @@ export function useResultStatusZones(args: UseResultStatusZonesArgs): void {
     };
   }, [args.resultRef, args.trackedRangesRef, args.hunks, args.controller, args.stateRev, args.enabled]);
 }
+
+// ── Hashed diagonal alignment placeholders ──────────────────────────
+
+/**
+ * Hashed-diagonal placeholder view zones in the theirs / mine source
+ * panes. Maintains line-by-line alignment with the result pane when
+ * the result region for a hunk has more lines than the corresponding
+ * source side does.
+ *
+ * Common case: both sides accepted on a single-line hunk. Theirs has
+ * 1 line, mine has 1 line, result has 2 lines (theirs then mine
+ * stacked). To keep all three panes visually aligned line-for-line:
+ *
+ *   theirs:  theirs-value      (line 7)
+ *            ╱╱╱╱╱╱╱╱╱╱╱╱      (line 8 — hashed placeholder)
+ *   result:  theirs-value      (line 7)
+ *            mine-value        (line 8)
+ *   mine:    ╱╱╱╱╱╱╱╱╱╱╱╱      (line 7 — hashed placeholder)
+ *            mine-value        (line 8)
+ *
+ * Hash pattern uses CSS `repeating-linear-gradient` so it scales
+ * cleanly with the editor font size. Pure-visual — no clicks, no
+ * state, just an alignment cue. Disabled when inline action labels
+ * are off (the alignment isn't relevant when there are no zones to
+ * align with).
+ */
+export interface UseHunkAlignmentPlaceholdersArgs {
+  editorRef: RefObject<MonacoEditorHandle>;
+  /** Source side this hook decorates ('theirs' or 'mine'). */
+  side: HunkSide;
+  hunks: readonly Hunk[];
+  controller: PickStateController;
+  stateRev: number;
+  enabled: boolean;
+}
+
+interface PlaceholderPlan {
+  /** Where the placeholder zone goes (Monaco's `afterLineNumber`). */
+  afterLineNumber: number;
+  /** Number of lines the placeholder represents. */
+  heightInLines: number;
+}
+
+/**
+ * Compute the placeholder plan for a hunk on a given source side
+ * given the current pick state. Returns null when no placeholder is
+ * needed.
+ *
+ * Rules (target = result-region line count):
+ *   both accepted   → result has N + M lines
+ *   theirs accepted → result has N lines
+ *   mine accepted   → result has M lines
+ *   else            → result has whatever was there originally; we
+ *                     skip placeholders in pending / dismissed states
+ *                     (alignment doesn't add value, and the dismissed
+ *                     case might leave the user's manual edits in
+ *                     the result region).
+ *
+ * For the source side, the placeholder is the difference between the
+ * result-region line count and this source's content line count.
+ * Position depends on which side:
+ *   theirs side: placeholder AFTER theirs content (mine lands after
+ *                in result, so the placeholder represents that)
+ *   mine side:   placeholder BEFORE mine content (theirs lands before
+ *                in result, so the placeholder represents that)
+ */
+function placeholderPlanFor(
+  side: HunkSide,
+  hunk: Hunk,
+  state: { theirs: SideState; mine: SideState },
+): PlaceholderPlan | null {
+  const N = hunk.theirsLines.length;
+  const M = hunk.mineLines.length;
+  const tA = state.theirs === 'accepted';
+  const mA = state.mine === 'accepted';
+
+  // Only the both-accepted case produces a meaningful per-side
+  // placeholder (theirs needs M lines, mine needs N lines). The
+  // other states either don't change the result line count vs the
+  // source's content (theirs-only → result is N; mine-only → result
+  // is M) or leave the buffer in an unknown state (pending /
+  // dismissed where the user may have typed). v1 ships the
+  // both-accepted case; richer rules can layer on later.
+  if (!tA || !mA) return null;
+  if (side === 'theirs') {
+    // Placeholder M lines AFTER theirs content (theirsRange.endLine
+    // is exclusive, so afterLineNumber = endLine - 1 places the zone
+    // immediately AFTER the last content line).
+    if (M === 0) return null;
+    return { afterLineNumber: hunk.theirsRange.endLine - 1, heightInLines: M };
+  }
+  // mine side
+  if (N === 0) return null;
+  // Placeholder N lines BEFORE mine content. View zones use
+  // afterLineNumber, so to put the zone BEFORE line K we use
+  // afterLineNumber = K - 1.
+  return { afterLineNumber: hunk.mineRange.startLine - 1, heightInLines: N };
+}
+
+function buildPlaceholderDom(): HTMLElement {
+  const root = document.createElement('div');
+  root.className = 'oh-merge__alignment-placeholder';
+  return root;
+}
+
+export function useHunkAlignmentPlaceholders(args: UseHunkAlignmentPlaceholdersArgs): void {
+  const zoneIdsRef = useRef<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    const editor = args.editorRef.current.editor;
+    const model = args.editorRef.current.model;
+    if (!editor || !model) return;
+    const zoneIds = zoneIdsRef.current;
+
+    if (!args.enabled) {
+      if (zoneIds.size > 0) {
+        editor.changeViewZones((accessor) => {
+          for (const id of zoneIds.values()) accessor.removeZone(id);
+        });
+        zoneIds.clear();
+      }
+      return;
+    }
+
+    const liveIds = new Set(args.hunks.map((h) => h.id));
+
+    editor.changeViewZones((accessor) => {
+      for (const [hunkId, zoneId] of zoneIds) {
+        if (!liveIds.has(hunkId)) {
+          accessor.removeZone(zoneId);
+          zoneIds.delete(hunkId);
+        }
+      }
+      for (const h of args.hunks) {
+        const existing = zoneIds.get(h.id);
+        const state = args.controller.get(h.id);
+        const plan = placeholderPlanFor(args.side, h, state);
+        if (existing) {
+          accessor.removeZone(existing);
+          zoneIds.delete(h.id);
+        }
+        if (!plan) continue;
+        const dom = buildPlaceholderDom();
+        const zoneId = accessor.addZone({
+          afterLineNumber: plan.afterLineNumber,
+          heightInLines: plan.heightInLines,
+          domNode: dom,
+        } satisfies monaco.editor.IViewZone);
+        zoneIds.set(h.id, zoneId);
+      }
+    });
+    return () => {
+      if (zoneIds.size === 0) return;
+      editor.changeViewZones((accessor) => {
+        for (const id of zoneIds.values()) accessor.removeZone(id);
+      });
+      zoneIds.clear();
+    };
+  }, [args.editorRef, args.side, args.hunks, args.controller, args.stateRev, args.enabled]);
+}

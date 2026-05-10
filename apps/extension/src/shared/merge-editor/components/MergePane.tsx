@@ -46,7 +46,11 @@ import { diffLinesPatience } from '../diff/patience-diff';
 import { useCharDecorations } from '../monaco/use-char-decorations';
 import { useGridResize } from '../monaco/use-grid-resize';
 import { useHunkActionMarkers } from '../monaco/use-hunk-action-markers';
-import { useHunkActionZones, useResultStatusZones } from '../monaco/use-hunk-action-zones';
+import {
+  useHunkActionZones,
+  useHunkAlignmentPlaceholders,
+  useResultStatusZones,
+} from '../monaco/use-hunk-action-zones';
 import { type HunkSide, useHunkDecorations } from '../monaco/use-hunk-decorations';
 import { useHunkTrackedRanges } from '../monaco/use-hunk-tracked-ranges';
 import { type MergeActionsContext, useMergeActions } from '../monaco/use-merge-actions';
@@ -423,6 +427,26 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     controller: pickController,
     stateRev: pickStateRev,
     enabled: inlineActionLabels,
+  });
+  // Hashed-diagonal alignment placeholders in theirs / mine when the
+  // result region has more lines than the source side does (e.g.
+  // both-accepted combination on a 1-line hunk where result becomes
+  // 2 lines). Keeps the three panes line-by-line aligned.
+  useHunkAlignmentPlaceholders({
+    editorRef: theirsHandle,
+    side: 'theirs',
+    hunks: pickStateHunks,
+    controller: pickController,
+    stateRev: pickStateRev,
+    enabled: inlineActionLabels,
+  });
+  useHunkAlignmentPlaceholders({
+    editorRef: mineHandle,
+    side: 'mine',
+    hunks: pickStateHunks,
+    controller: pickController,
+    stateRev: pickStateRev,
+    enabled: inlineActionLabels && has3Panes,
   });
 
   // Reset the controller's state when the file switches — stale entries
