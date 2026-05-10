@@ -43,6 +43,8 @@ export {
   RequestTrackingUiDiagram,
 } from './request-tracking';
 export {
+  SyncLifecycleDiagram,
+  SyncTopologyDiagram,
   SystemStatusPopoverDiagram,
   SystemStatusSurfacesDiagram,
   SystemStatusWorstLevelDiagram,

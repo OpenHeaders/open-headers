@@ -294,6 +294,226 @@ export const SystemStatusWorstLevelDiagram: React.FC = () => {
   );
 };
 
+// ─── Sync subsystem — topology + lifecycle ────────────────────────
+
+/**
+ * Topology: the extension's background SW maintains a single
+ * WebSocket to the desktop app on `127.0.0.1:59210`. The line in the
+ * middle carries the actual data shapes — keeping it labeled keeps
+ * "what does syncing actually do?" answerable without reading prose.
+ */
+export const SyncTopologyDiagram: React.FC = () => {
+  const ID = 'sync-topo';
+  return (
+    <svg
+      viewBox="0 0 320 200"
+      width="100%"
+      style={{ maxWidth: 360 }}
+      role="img"
+      aria-label="Sync topology — the extension service worker holds one WebSocket to the desktop app on 127.0.0.1:59210, exchanging workspaces, variables, and team sync data."
+    >
+      <ArrowDefs id={ID} />
+      <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
+        How the Sync subsystem connects
+      </text>
+
+      {/* Extension card (left) */}
+      <rect x={14} y={36} width={120} height={108} rx={6} fill={BG_CONTAINER} stroke={BORDER} />
+      <rect x={14} y={36} width={120} height={20} rx={6} fill={FILL_SECONDARY} stroke={BORDER} />
+      <text x={74} y={50} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
+        Extension
+      </text>
+      <text x={74} y={72} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
+        service worker
+      </text>
+      {/* Mini browser icon */}
+      <rect x={50} y={82} width={48} height={36} rx={3} fill={FILL_SECONDARY} stroke={BORDER} />
+      {[0, 1, 2].map((i) => (
+        <circle key={i} cx={56 + i * 6} cy={89} r={2} fill={GREY} />
+      ))}
+      <rect x={54} y={96} width={40} height={3} rx={1.5} fill="var(--ant-color-fill-tertiary)" />
+      <rect x={54} y={102} width={28} height={3} rx={1.5} fill="var(--ant-color-fill-tertiary)" />
+      <rect x={54} y={108} width={34} height={3} rx={1.5} fill="var(--ant-color-fill-tertiary)" />
+      <text x={74} y={134} textAnchor="middle" fontSize={9} fill={TEXT}>
+        WS client
+      </text>
+
+      {/* Desktop card (right) */}
+      <rect x={186} y={36} width={120} height={108} rx={6} fill={BG_CONTAINER} stroke={BORDER} />
+      <rect x={186} y={36} width={120} height={20} rx={6} fill={FILL_SECONDARY} stroke={BORDER} />
+      <text x={246} y={50} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
+        Desktop app
+      </text>
+      <text x={246} y={72} textAnchor="middle" fontSize={9} fill={TEXT_DIM}>
+        on your machine
+      </text>
+      {/* Mini desktop window icon */}
+      <rect x={210} y={82} width={72} height={36} rx={3} fill={FILL_SECONDARY} stroke={BORDER} />
+      <rect x={210} y={82} width={72} height={6} fill="var(--ant-color-fill-tertiary)" stroke={BORDER} />
+      <circle cx={215} cy={85} r={1.5} fill={ERROR} />
+      <circle cx={220} cy={85} r={1.5} fill={WARNING} />
+      <circle cx={225} cy={85} r={1.5} fill={SUCCESS} />
+      <rect x={215} y={94} width={62} height={3} rx={1.5} fill="var(--ant-color-fill-tertiary)" />
+      <rect x={215} y={100} width={50} height={3} rx={1.5} fill="var(--ant-color-fill-tertiary)" />
+      <rect x={215} y={106} width={56} height={3} rx={1.5} fill="var(--ant-color-fill-tertiary)" />
+      <text x={246} y={134} textAnchor="middle" fontSize={9} fill={TEXT}>
+        WS server
+      </text>
+
+      {/* WebSocket line between */}
+      <line x1={134} y1={90} x2={186} y2={90} stroke={SUCCESS} strokeWidth={2} />
+      <line x1={134} y1={110} x2={186} y2={110} stroke={SUCCESS} strokeWidth={2} markerEnd={`url(#${ID})`} />
+      <line x1={186} y1={110} x2={134} y2={110} stroke={SUCCESS} strokeWidth={2} markerEnd={`url(#${ID})`} />
+      <text x={160} y={86} textAnchor="middle" fontSize={8} fontWeight={700} fill={SUCCESS}>
+        WebSocket
+      </text>
+      <text x={160} y={124} textAnchor="middle" fontFamily="monospace" fontSize={8} fill={TEXT_DIM}>
+        127.0.0.1:59210
+      </text>
+
+      <text x={160} y={166} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT}>
+        Carries: dynamic variables · workspaces · team sync
+      </text>
+      <text x={160} y={184} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+        Loopback only — never leaves your machine.
+      </text>
+    </svg>
+  );
+};
+
+/**
+ * Lifecycle: state diagram of every label the Sync pill can show.
+ * Pulled directly from `websocket.ts` — green for Disabled/Connected,
+ * yellow for Connecting/Reconnecting/URL-rejected, plus the reserved
+ * red box drawn dashed since no code path emits it today.
+ */
+export const SyncLifecycleDiagram: React.FC = () => {
+  const ID = 'sync-life';
+
+  const StateBox = ({
+    x,
+    y,
+    w,
+    label,
+    sub,
+    level,
+    dashed = false,
+  }: {
+    x: number;
+    y: number;
+    w: number;
+    label: string;
+    sub: string;
+    level: Level;
+    dashed?: boolean;
+  }) => {
+    const fill =
+      level === 'red'
+        ? ERROR_BG
+        : level === 'yellow'
+          ? WARNING_BG
+          : level === 'green'
+            ? SUCCESS_BG
+            : GREY_BG;
+    const stroke = dotColor(level);
+    return (
+      <g>
+        <rect
+          x={x}
+          y={y}
+          width={w}
+          height={36}
+          rx={5}
+          fill={fill}
+          stroke={stroke}
+          strokeWidth={1.5}
+          strokeDasharray={dashed ? '3 2' : undefined}
+        />
+        <circle cx={x + 10} cy={y + 12} r={3} fill={dotColor(level)} />
+        <text x={x + 20} y={y + 15} fontSize={10} fontWeight={700} fill={TEXT}>
+          {label}
+        </text>
+        <text x={x + 10} y={y + 28} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
+          {sub}
+        </text>
+      </g>
+    );
+  };
+
+  return (
+    <svg
+      viewBox="0 0 320 240"
+      width="100%"
+      style={{ maxWidth: 360 }}
+      role="img"
+      aria-label="Sync connection lifecycle — Disabled is green; Connecting and Reconnecting are yellow; Connected is green. URL rejected is yellow. Red is reserved and not emitted."
+    >
+      <ArrowDefs id={ID} />
+      <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
+        Sync states and how they're reached
+      </text>
+
+      {/* Top row: Disabled & Connecting */}
+      <StateBox x={14} y={30} w={130} label="Disabled" sub="auto-connect off" level="green" />
+      <StateBox x={176} y={30} w={130} label="Connecting…" sub="first attempt" level="yellow" />
+
+      {/* Middle row: Connected & Reconnecting */}
+      <StateBox x={14} y={96} w={130} label="Connected" sub="WS handshake OK" level="green" />
+      <StateBox x={176} y={96} w={130} label="Reconnecting #N" sub="backs off, retries" level="yellow" />
+
+      {/* Bottom row: URL rejected & Red reserved */}
+      <StateBox x={14} y={162} w={130} label="URL rejected" sub="bad settings URL" level="yellow" />
+      <StateBox
+        x={176}
+        y={162}
+        w={130}
+        label="(red reserved)"
+        sub="no code path today"
+        level="red"
+        dashed
+      />
+
+      {/* Transitions */}
+      {/* Disabled → Connecting (enable auto-connect) */}
+      <line x1={144} y1={48} x2={176} y2={48} stroke={STROKE} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
+      <text x={160} y={43} textAnchor="middle" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
+        enable
+      </text>
+
+      {/* Connecting → Connected (success) */}
+      <line x1={241} y1={66} x2={79} y2={96} stroke={SUCCESS} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
+      <text x={170} y={78} fontSize={8} fontStyle="italic" fill={SUCCESS}>
+        handshake OK
+      </text>
+
+      {/* Connecting → URL rejected */}
+      <line x1={176} y1={66} x2={79} y2={162} stroke={WARNING} strokeWidth={1.2} strokeDasharray="3 2" markerEnd={`url(#${ID})`} />
+      <text x={110} y={130} fontSize={8} fontStyle="italic" fill={WARNING}>
+        invalid URL
+      </text>
+
+      {/* Connected → Reconnecting (drop) */}
+      <line x1={144} y1={114} x2={176} y2={114} stroke={WARNING} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
+      <text x={160} y={110} textAnchor="middle" fontSize={8} fontStyle="italic" fill={WARNING}>
+        drop
+      </text>
+
+      {/* Reconnecting → Connected (retry succeeds) */}
+      <line x1={176} y1={120} x2={144} y2={120} stroke={SUCCESS} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
+      <text x={160} y={132} textAnchor="middle" fontSize={8} fontStyle="italic" fill={SUCCESS}>
+        re-OK
+      </text>
+
+      <text x={160} y={210} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT}>
+        Reconnect uses exponential backoff (configurable max delay).
+      </text>
+      <text x={160} y={224} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+        Periodic pings detect silent drops behind strict proxies.
+      </text>
+    </svg>
+  );
+};
+
 // ─── Popover two-tier ordering ────────────────────────────────────
 
 export const SystemStatusPopoverDiagram: React.FC = () => {

@@ -43,6 +43,8 @@ import {
   RequestTrackingDiagram,
   RequestTrackingPhasesDiagram,
   RequestTrackingUiDiagram,
+  SyncLifecycleDiagram,
+  SyncTopologyDiagram,
   SystemStatusPopoverDiagram,
   SystemStatusSurfacesDiagram,
   SystemStatusWorstLevelDiagram,
@@ -406,15 +408,31 @@ export const SystemStatusSection: React.FC = () => (
     </DiagramFrame>
 
     <SubsystemHeading name="Sync" subtitle="Desktop-app connection" />
-    <DocParagraph>Mirrors the WebSocket connection to the OpenHeaders desktop app.</DocParagraph>
+    <DocParagraph>
+      Mirrors the WebSocket connection between the extension's service worker and the OpenHeaders desktop app running on
+      your machine. The link is loopback-only (<code>127.0.0.1:59210</code>) and carries dynamic variables, team
+      workspace data, and presence — nothing leaves your device.
+    </DocParagraph>
+    <DiagramFrame caption="Single WebSocket between the extension and the desktop app on localhost.">
+      <SyncTopologyDiagram />
+    </DiagramFrame>
+    <DocParagraph>
+      The pill reflects the live connection state. A drop triggers exponential-backoff reconnects; periodic pings detect
+      silent disconnects behind strict corporate proxies.
+    </DocParagraph>
+    <DiagramFrame caption="Disabled and Connected are green; Connecting, Reconnecting, and URL rejected are yellow.">
+      <SyncLifecycleDiagram />
+    </DiagramFrame>
     <StateRow color="success" label="green">
-      Connected, or disabled on purpose (auto-connect off).
+      <strong>Connected to desktop</strong> (handshake succeeded) or <strong>Desktop sync disabled</strong> (auto-connect
+      off).
     </StateRow>
     <StateRow color="warning" label="yellow">
-      Connecting, reconnecting, or the settings URL was rejected.
+      <strong>Connecting…</strong> / <strong>Reconnecting (attempt N)</strong>, or <strong>Desktop URL rejected by
+      settings</strong>.
     </StateRow>
     <StateRow color="error" label="red">
-      Reserved for fatal desktop-sync failures; not used today.
+      Reserved for fatal desktop-sync failures; no code path emits this today.
     </StateRow>
 
     <SubsystemHeading name="Rules" subtitle="declarativeNetRequest engine" />
