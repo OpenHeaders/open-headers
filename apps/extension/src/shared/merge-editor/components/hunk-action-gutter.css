@@ -1,0 +1,69 @@
+/* Result-pane action gutter — flanks the result editor with the
+ * per-side accept/dismiss buttons. Width is fixed so the surrounding
+ * grid template can carve out two narrow columns for it. */
+
+.oh-merge__action-gutter {
+  position: relative;
+  width: 36px;
+  flex-shrink: 0;
+  background: var(--oh-merge-action-gutter-bg, transparent);
+  /* The gutter is overlay-style: rows are absolutely positioned via
+   * `top: marker.top` from `useHunkActionMarkers`. The container's
+   * height matches the editor's container via the surrounding grid
+   * template (1fr in the relevant row). */
+  overflow: hidden;
+  user-select: none;
+}
+
+.oh-merge__action-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 18px;
+  padding: 0 2px;
+}
+
+[data-side='left'] .oh-merge__action-row {
+  /* Outward → inward: dismiss × first (away from result), then arrow
+   * (toward result). Matches the prototype's directional convention. */
+  flex-direction: row;
+}
+
+[data-side='right'] .oh-merge__action-row {
+  /* Mirror of the left gutter: arrow first (toward result), × last. */
+  flex-direction: row;
+}
+
+.oh-merge__action-btn {
+  appearance: none;
+  border: 1px solid var(--oh-merge-action-btn-border, rgba(127, 127, 127, 0.4));
+  background: var(--oh-merge-action-btn-bg, rgba(127, 127, 127, 0.08));
+  color: var(--oh-merge-action-btn-fg, currentColor);
+  border-radius: 3px;
+  width: 16px;
+  height: 16px;
+  font-size: 11px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+}
+
+.oh-merge__action-btn:hover {
+  background: var(--oh-merge-action-btn-bg-hover, rgba(127, 127, 127, 0.18));
+  border-color: var(--oh-merge-action-btn-border-hover, rgba(127, 127, 127, 0.7));
+}
+
+.oh-merge__action-btn-arrow {
+  font-weight: bold;
+}
+
+.oh-merge__action-btn-x {
+  color: var(--oh-merge-action-btn-x-fg, rgba(127, 127, 127, 0.85));
+}
