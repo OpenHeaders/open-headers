@@ -68,6 +68,14 @@ const LABEL_MINE = {
   ignore: 'Ignore',
 };
 
+function makeSeparator(): HTMLElement {
+  const sep = document.createElement('span');
+  sep.className = 'oh-merge__action-zone-sep';
+  sep.textContent = '|';
+  sep.setAttribute('aria-hidden', 'true');
+  return sep;
+}
+
 function buildZoneDom(args: {
   side: HunkSide;
   hunk: Hunk;
@@ -82,46 +90,48 @@ function buildZoneDom(args: {
 
   const slot: 'left' | 'right' = args.side === 'theirs' ? 'left' : 'right';
 
-  const acceptBtn = document.createElement('button');
-  acceptBtn.type = 'button';
-  acceptBtn.className = 'oh-merge__action-zone-btn';
-  acceptBtn.textContent = labels.accept;
-  acceptBtn.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    args.controller.dispatch({ hunkId: args.hunk.id, slot, action: 'arrow' });
-  });
+  // Stop mousedown propagation BEFORE Monaco's editor-level mouse
+  // handler sees it. Monaco intercepts mousedown on its own DOM root
+  // to manage caret positioning + selection — without this, the
+  // browser's click event never fires inside view zones because
+  // Monaco's preventDefault eats the mouse interaction.
+  const eatMouseDown = (e: Event) => e.stopPropagation();
 
-  const combineBtn = document.createElement('button');
-  combineBtn.type = 'button';
-  combineBtn.className = 'oh-merge__action-zone-btn';
-  combineBtn.textContent = labels.combine;
+  const makeBtn = (label: string, extraClass: string, onClick: () => void): HTMLButtonElement => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `oh-merge__action-zone-btn ${extraClass}`.trim();
+    btn.textContent = label;
+    btn.addEventListener('mousedown', eatMouseDown);
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onClick();
+    });
+    return btn;
+  };
+
+  const acceptBtn = makeBtn(labels.accept, '', () =>
+    args.controller.dispatch({ hunkId: args.hunk.id, slot, action: 'arrow' }),
+  );
+  const combineBtn = makeBtn(labels.combine, '', () =>
+    args.controller.bulkSet([{ hunkId: args.hunk.id, next: { theirs: 'accepted', mine: 'accepted' } }]),
+  );
   combineBtn.title = 'Stack both sides — incoming first, then current';
-  // Combine is only meaningful when we can actually take BOTH sides.
-  // If this side is dismissed or the other side is dismissed, combine
-  // would be a no-op or contradictory; hide it.
-  if (!args.isCombineMeaningful) combineBtn.hidden = true;
-  combineBtn.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    // Combination = accept BOTH sides. Bypass the per-side controller
-    // dispatch (which would only flip one slot) and use bulkSet to
-    // emit a single undo entry for the combined state.
-    args.controller.bulkSet([{ hunkId: args.hunk.id, next: { theirs: 'accepted', mine: 'accepted' } }]);
-  });
+  const ignoreBtn = makeBtn(labels.ignore, 'oh-merge__action-zone-btn-ignore', () =>
+    args.controller.dispatch({ hunkId: args.hunk.id, slot, action: 'x' }),
+  );
 
-  const ignoreBtn = document.createElement('button');
-  ignoreBtn.type = 'button';
-  ignoreBtn.className = 'oh-merge__action-zone-btn oh-merge__action-zone-btn-ignore';
-  ignoreBtn.textContent = labels.ignore;
-  ignoreBtn.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    args.controller.dispatch({ hunkId: args.hunk.id, slot, action: 'x' });
-  });
+  // Also eat mousedown on the container itself so empty space within
+  // the row doesn't drop the user into the text caret.
+  root.addEventListener('mousedown', eatMouseDown);
 
   root.appendChild(acceptBtn);
-  root.appendChild(combineBtn);
+  if (args.isCombineMeaningful) {
+    root.appendChild(makeSeparator());
+    root.appendChild(combineBtn);
+  }
+  root.appendChild(makeSeparator());
   root.appendChild(ignoreBtn);
   return root;
 }

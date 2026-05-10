@@ -11,14 +11,19 @@
 .oh-merge__action-zone {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   padding: 1px 12px;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 18px;
   background: rgba(0, 0, 0, 0.04);
   border-bottom: 1px dashed rgba(127, 127, 127, 0.35);
   user-select: none;
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  /* Sit above the editor view layers so clicks on the buttons hit
+   * the buttons and not the underlying text/decoration spans. */
+  position: relative;
+  z-index: 5;
+  pointer-events: auto;
 }
 
 [data-merge-theme='dark'] .oh-merge__action-zone {
@@ -35,6 +40,7 @@
   font: inherit;
   color: rgb(0, 102, 204);
   cursor: pointer;
+  pointer-events: auto;
 }
 
 [data-merge-theme='dark'] .oh-merge__action-zone-btn {
@@ -61,4 +67,14 @@
 
 .oh-merge__action-zone-btn[hidden] {
   display: none;
+}
+
+.oh-merge__action-zone-sep {
+  color: rgba(127, 127, 127, 0.6);
+  user-select: none;
+  font-weight: normal;
+}
+
+[data-merge-theme='dark'] .oh-merge__action-zone-sep {
+  color: rgba(180, 180, 180, 0.5);
 }
