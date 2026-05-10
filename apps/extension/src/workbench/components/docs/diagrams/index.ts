@@ -9,13 +9,26 @@
 
 export {
   BodyInterceptDiagram,
-  ConditionsUrlAnatomyDiagram,
   DelayRoutingDiagram,
   HeaderOpsDiagram,
   InjectTimingDiagram,
   MockFlowDiagram,
   MultiTabSyncDiagram,
 } from './_pending';
+export {
+  ConditionsHostVsOriginDiagram,
+  ConditionsMatchingDiagram,
+  ConditionsRuleFiresDiagram,
+  DomainTypeDiagram,
+  ExcludeDomainsDiagram,
+  HeadersConditionDiagram,
+  InitiatorDomainsDiagram,
+  MethodsDiagram,
+  RequestDomainsDiagram,
+  ResourceTypesDiagram,
+  UrlPatternDiagram,
+  UrlRegexDiagram,
+} from './conditions';
 export { DirectVsIndirectDiagram } from './direct-vs-indirect';
 export { ExecutionDnrReachDiagram, ExecutionScriptReachDiagram, ExecutionStackDiagram } from './execution';
 export {

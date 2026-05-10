@@ -15,7 +15,18 @@ import type React from 'react';
 import { SHORTCUTS, useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
 import {
   BodyInterceptDiagram,
-  ConditionsUrlAnatomyDiagram,
+  ConditionsHostVsOriginDiagram,
+  ConditionsMatchingDiagram,
+  ConditionsRuleFiresDiagram,
+  DomainTypeDiagram,
+  ExcludeDomainsDiagram,
+  HeadersConditionDiagram,
+  InitiatorDomainsDiagram,
+  MethodsDiagram,
+  RequestDomainsDiagram,
+  ResourceTypesDiagram,
+  UrlPatternDiagram,
+  UrlRegexDiagram,
   DelayRoutingDiagram,
   DirectVsIndirectDiagram,
   ExecutionDnrReachDiagram,
@@ -470,59 +481,50 @@ const CONDITION_ANCHORS = [
 
 export const ConditionsSection: React.FC = () => (
   <>
+    <SurfaceContext surfaces={['popup', 'side-panel', 'workbench']} />
     <DocParagraph>
-      All conditions must match for a rule to fire (AND logic). Each condition maps directly to a Chrome{' '}
+      A condition is a filter on one attribute of an outgoing request. Stack multiple conditions and they combine with
+      AND logic — every condition must match for the rule to fire. Each condition maps directly to a Chrome{' '}
       <code>declarativeNetRequest</code> field.
     </DocParagraph>
-    <DiagramFrame caption="Which slice of a URL each condition matches">
-      <ConditionsUrlAnatomyDiagram />
+    <DiagramFrame caption="Once all conditions match, the rule's action runs and the outgoing request is modified.">
+      <ConditionsRuleFiresDiagram />
+    </DiagramFrame>
+    <DiagramFrame caption="The page URL and the fetch's destination URL are tracked separately — that's why there are two domain conditions.">
+      <ConditionsHostVsOriginDiagram />
+    </DiagramFrame>
+    <DiagramFrame caption="Each condition checks one request attribute. All must match for the rule to fire.">
+      <ConditionsMatchingDiagram />
     </DiagramFrame>
     <OnThisPage entries={CONDITION_ANCHORS} />
 
     <Anchor id="url-pattern">
       <Card title="URL Pattern" extra={<Tag color="blue">urlFilter</Tag>} style={{ marginBottom: 8 }}>
-        Wildcard pattern on the full URL. Use <code>*</code> to match any characters. Protocol must be specified:{' '}
-        <code>*://</code> for any, <code>https://</code> for HTTPS only.
-        <Example
-          rule="*://api.openheaders.io/*"
-          after={['https://api.openheaders.io/v2/users', 'http://api.openheaders.io/health']}
-          wontApply={[
-            'https://other-site.com/api — different domain, only api.openheaders.io matches',
-            'https://cdn.openheaders.io/img.png — cdn is a different subdomain than api',
-            '→ Use Request Domains with openheaders.io to match all subdomains at once',
-          ]}
-        />
+        Wildcard pattern on the full URL. Use <code>*</code> to match any characters. The protocol must be
+        specified: <code>*://</code> for any, <code>https://</code> for HTTPS only.
+        <DiagramFrame caption="Gold = wildcard, green = literal. Each test URL below shows whether the pattern matches it.">
+          <UrlPatternDiagram />
+        </DiagramFrame>
       </Card>
     </Anchor>
 
     <Anchor id="url-regex">
       <Card title="URL Regex" extra={<Tag color="purple">regexFilter</Tag>} style={{ marginBottom: 8 }}>
-        RE2 regular expression on the full URL including protocol. For complex matching. Cannot be combined with URL
-        Pattern.
-        <Example
-          rule="^https://api\.openheaders\.io/v[0-9]+"
-          after={['https://api.openheaders.io/v2', 'https://api.openheaders.io/v3']}
-          wontApply={[
-            'http://api.openheaders.io/v2 — regex specifies https:// only',
-            'https://api.openheaders.io/latest — does not match /v[0-9]+',
-            '→ Use ^https?:// to match both http and https',
-          ]}
-        />
+        RE2 regular expression on the full URL including protocol. For matching that wildcards can't express. Cannot
+        be combined with URL Pattern in the same rule.
+        <DiagramFrame caption="Purple = real regex syntax. Green = literal characters. Each test URL below shows whether the regex matches.">
+          <UrlRegexDiagram />
+        </DiagramFrame>
       </Card>
     </Anchor>
 
     <Anchor id="request-domains">
       <Card title="Request Domains" extra={<Tag color="green">requestDomains</Tag>} style={{ marginBottom: 8 }}>
-        Matches the domain and ALL its subdomains automatically.
-        <Example
-          rule="openheaders.io"
-          after={['openheaders.io', 'api.openheaders.io', 'cdn.openheaders.io']}
-          wontApply={[
-            'not-openheaders.io — different domain, not a subdomain',
-            'openheaders.com — different TLD',
-            '→ Add each domain separately or use URL Pattern for cross-domain matching',
-          ]}
-        />
+        Matches a domain plus every one of its subdomains, automatically. Enter the apex domain once; the rule
+        covers <code>api.</code>, <code>cdn.</code>, <code>www.</code>, and any deeper nesting without wildcards.
+        <DiagramFrame caption="One value, all subdomains. The boundary cases below show what counts as a true subdomain.">
+          <RequestDomainsDiagram />
+        </DiagramFrame>
       </Card>
     </Anchor>
 
@@ -532,92 +534,64 @@ export const ConditionsSection: React.FC = () => (
         extra={<Tag color="warning">excludedRequestDomains</Tag>}
         style={{ marginBottom: 8 }}
       >
-        Skip these domains even if other conditions match. Must be combined with Request Domains or other conditions —
-        it only excludes, it doesn't match on its own.
-        <Example
-          rule="Request Domains: openheaders.io + Exclude: staging.openheaders.io"
-          after={[
-            'api.openheaders.io — matched by Request Domains, not excluded',
-            'cdn.openheaders.io — matched, not excluded',
-          ]}
-          wontApply={[
-            'staging.openheaders.io — matched by Request Domains but then excluded',
-            '→ Remove the Exclude condition to apply to staging too',
-          ]}
-        />
+        Subtracts hosts from another condition's matches — same subdomain semantics as Request Domains, so excluding
+        a host also excludes its subdomains. Doesn't match anything on its own.
+        <DiagramFrame caption="Green include narrows to a candidate set; red exclude removes some of those. Subdomains follow.">
+          <ExcludeDomainsDiagram />
+        </DiagramFrame>
       </Card>
     </Anchor>
 
     <Anchor id="initiator-domains">
       <Card title="Initiator Domains" extra={<Tag>initiatorDomains</Tag>} style={{ marginBottom: 8 }}>
-        Only match requests made FROM pages on this domain.
-        <Example
-          rule="portal.openheaders.io"
-          after={['API call while browsing portal.openheaders.io']}
-          wontApply={[
-            'Same API call while browsing other-site.com',
-            '→ Use Request Domains instead to match by destination, not origin',
-          ]}
-        />
+        Matches by which page is open when the request is made — the request's origin, not its destination. The
+        same fetch call to the same URL can match or miss depending on which tab the user is browsing.
+        <DiagramFrame caption="Same destination, two different page contexts. The initiator decides which one matches.">
+          <InitiatorDomainsDiagram />
+        </DiagramFrame>
       </Card>
     </Anchor>
 
     <Anchor id="methods">
       <Card title="Methods" extra={<Tag>requestMethods</Tag>} style={{ marginBottom: 8 }}>
-        Filter by HTTP method. Select specific methods to ignore others.
-        <Example
-          rule="GET, POST"
-          after={['GET /api/users', 'POST /api/login']}
-          wontApply={[
-            'PUT /api/users/1 — method not selected',
-            'DELETE /api/users/1 — method not selected',
-            '→ Add more methods or remove this condition to match all methods',
-          ]}
-        />
+        Filter by HTTP verb. Multi-select — pick the methods that should match; the rest don't trigger the rule.
+        Leave the condition off entirely to match every method.
+        <DiagramFrame caption="Orange pills are selected; gray are skipped. Test requests below trace each verb to its outcome.">
+          <MethodsDiagram />
+        </DiagramFrame>
       </Card>
     </Anchor>
 
     <Anchor id="condition-resource-types">
       <Card title="Resource Types" extra={<Tag>resourceTypes</Tag>} style={{ marginBottom: 8 }}>
-        Filter by what kind of resource is being loaded.
-        <Example
-          rule="xhr"
-          after={["fetch('/api/data')", 'XMLHttpRequest calls']}
-          wontApply={[
-            'Page navigation (main_frame) — not xhr',
-            '<img> loads, <script> loads, CSS loads',
-            '→ Add "page" to also match page navigations',
-          ]}
-        />
+        Filter by what kind of resource is being loaded — page navigations, XHR/fetch, scripts, images, fonts, and
+        more. Multi-select like Methods. See the <DocLink to="resource-types">Resource Types</DocLink> reference
+        for the full list with code names and concrete examples.
+        <DiagramFrame caption="Purple kinds match; gray kinds are skipped. Each test request shows its kind inline.">
+          <ResourceTypesDiagram />
+        </DiagramFrame>
       </Card>
     </Anchor>
 
     <Anchor id="domain-type">
       <Card title="Domain Type" extra={<Tag>domainType</Tag>} style={{ marginBottom: 8 }}>
-        First-party (same site) or third-party (cross-site). Useful for blocking trackers.
-        <Example
-          rule="thirdParty"
-          after={['Requests to analytics.google.com (cross-site)', 'Requests to cdn.external.com (cross-site)']}
-          wontApply={[
-            'Requests to same domain the user is browsing',
-            '→ Use "firstParty" to match same-site requests instead',
-          ]}
-        />
+        Classifies each request by its relationship to the page — <code>firstParty</code> when the destination shares
+        the page's registrable domain, <code>thirdParty</code> when it doesn't. Common use: blocking trackers (match
+        only thirdParty) or scoping a rule to your own services (match only firstParty).
+        <DiagramFrame caption="Page banner sets the origin; the selector picks which type matches; the table shows the verdict per destination.">
+          <DomainTypeDiagram />
+        </DiagramFrame>
       </Card>
     </Anchor>
 
     <Anchor id="headers">
       <Card title="Request / Response Headers" extra={<BrowserTag min="chrome-128" />} style={{ marginBottom: 8 }}>
-        Match requests that have a specific header with an exact value.
-        <Example
-          rule="Authorization = Bearer test-token"
-          after={['Request with Authorization: Bearer test-token']}
-          wontApply={[
-            "Authorization: Bearer other-token — value doesn't match exactly",
-            'Request without Authorization header — header must be present',
-            'No wildcard or partial matching — Chrome only supports exact header name and exact value',
-          ]}
-        />
+        Match requests carrying a specific header with a specific value. Both the header name and the value are
+        compared as exact strings — no wildcards, no partial matching, and the header must actually be present on
+        the request.
+        <DiagramFrame caption="Two pills (name + value) joined by =, then test cases hitting each failure mode.">
+          <HeadersConditionDiagram />
+        </DiagramFrame>
       </Card>
     </Anchor>
   </>

@@ -185,49 +185,6 @@ export const MultiTabSyncDiagram: React.FC = () => (
   </svg>
 );
 
-// ── Conditions URL anatomy ───────────────────────────────────────
-
-export const ConditionsUrlAnatomyDiagram: React.FC = () => (
-  <svg
-    viewBox="0 0 300 170"
-    width="100%"
-    style={{ maxWidth: 320 }}
-    role="img"
-    aria-label="URL anatomy showing which condition matches each part"
-  >
-    <ArrowDefs id="cn-arrow" />
-    <line x1="14" y1="42" x2="286" y2="42" stroke={STROKE_PURPLE} strokeWidth="1.5" />
-    <line x1="14" y1="42" x2="14" y2="48" stroke={STROKE_PURPLE} strokeWidth="1.5" />
-    <line x1="286" y1="42" x2="286" y2="48" stroke={STROKE_PURPLE} strokeWidth="1.5" />
-    <text x="150" y="22" textAnchor="middle" fontSize="9" fill={TEXT_DIM}>
-      match the whole URL
-    </text>
-    <text x="150" y="34" textAnchor="middle" fontSize="10" fontWeight="600" fill={TEXT}>
-      URL Pattern · URL Regex
-    </text>
-    <rect x="10" y="52" width="280" height="26" rx="3" fill={FILL_BLUE} stroke={STROKE_BLUE} />
-    <text x="150" y="69" textAnchor="middle" fontFamily="monospace" fontSize="11" fill={TEXT}>
-      https://api.openheaders.io/v2/users?q=foo
-    </text>
-    <line x1="58" y1="80" x2="174" y2="80" stroke={STROKE_GREEN} strokeWidth="1.5" />
-    <line x1="58" y1="80" x2="58" y2="86" stroke={STROKE_GREEN} strokeWidth="1.5" />
-    <line x1="174" y1="80" x2="174" y2="86" stroke={STROKE_GREEN} strokeWidth="1.5" />
-    <text x="116" y="100" textAnchor="middle" fontSize="10" fontWeight="600" fill={TEXT}>
-      Request Domains
-    </text>
-    <text x="116" y="111" textAnchor="middle" fontSize="9" fill={TEXT_DIM}>
-      host + all subdomains
-    </text>
-    <rect x="10" y="125" width="280" height="34" rx="3" fill={FILL_ORANGE} stroke={STROKE_ORANGE} />
-    <text x="150" y="139" textAnchor="middle" fontSize="10" fontWeight="600" fill={TEXT}>
-      Methods · Resource Types · Domain Type · Headers
-    </text>
-    <text x="150" y="151" textAnchor="middle" fontSize="9" fill={TEXT_DIM}>
-      orthogonal — apply on top of the URL match
-    </text>
-  </svg>
-);
-
 // ── Header operations comparison ─────────────────────────────────
 
 export const HeaderOpsDiagram: React.FC = () => (
