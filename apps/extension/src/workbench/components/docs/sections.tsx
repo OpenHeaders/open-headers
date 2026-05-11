@@ -124,6 +124,9 @@ import {
 
 export const WhySection: React.FC = () => (
   <>
+    {/* Empty surfaces array — every glyph renders inactive/grey.
+     *  Why OpenHeaders is concept-level, not tied to one panel. */}
+    <SurfaceContext surfaces={[]} />
     <DiagramFrame caption="The page sends a request — OpenHeaders rewrites it locally before it reaches the network.">
       <WhyHeroDiagram />
     </DiagramFrame>
