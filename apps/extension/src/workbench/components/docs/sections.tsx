@@ -37,6 +37,8 @@ import {
   HeaderOpsDiagram,
   OverrideDiagram,
   OverrideWontApplyDiagram,
+  RemoveDiagram,
+  RemoveWontApplyDiagram,
   InjectTimingDiagram,
   MockFlowDiagram,
   MultiTabLocalDiagram,
@@ -815,15 +817,12 @@ export const HeaderActionsSection: React.FC = () => (
     <Anchor id="remove">
       <ActionHeading title="Remove" engine="dnr" />
       <DocParagraph>Deletes all instances of this header. No value needed.</DocParagraph>
-      <Example
-        rule="Remove X-Frame-Options"
-        before={['X-Frame-Options: DENY', 'Content-Type: text/html']}
-        after={['Content-Type: text/html']}
-        wontApply={[
-          'Header already absent — no-op, no error',
-          '→ Use Override to change the value instead of removing entirely',
-        ]}
-      />
+      <DiagramFrame caption="Targeted row vanishes; everything else passes through unchanged.">
+        <RemoveDiagram />
+      </DiagramFrame>
+      <DiagramFrame caption="If the header isn't there, nothing happens — no error, just a no-op.">
+        <RemoveWontApplyDiagram />
+      </DiagramFrame>
     </Anchor>
 
     <Anchor id="merge">

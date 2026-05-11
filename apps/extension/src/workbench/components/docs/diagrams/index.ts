@@ -19,6 +19,8 @@ export {
   HeaderOpsDiagram,
   OverrideDiagram,
   OverrideWontApplyDiagram,
+  RemoveDiagram,
+  RemoveWontApplyDiagram,
 } from './header-actions';
 export {
   MultiTabLocalDiagram,
