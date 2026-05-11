@@ -288,7 +288,7 @@ export const WhyCapabilitiesDiagram: React.FC = () => {
       label: 'MODIFY RESPONSES',
       tiles: [
         {
-          title: 'Body + status',
+          title: 'Response',
           ...ENGINE_PURPLE,
           glyph: (
             <text x={0} y={3} textAnchor="middle" fontFamily="monospace" fontSize={9} fontWeight={700} fill={STROKE_PURPLE}>
@@ -302,7 +302,7 @@ export const WhyCapabilitiesDiagram: React.FC = () => {
       label: 'RUN CODE',
       tiles: [
         {
-          title: 'Inject JS / CSS',
+          title: 'Inject',
           ...ENGINE_PURPLE,
           glyph: (
             <text x={0} y={3} textAnchor="middle" fontFamily="monospace" fontSize={10} fontWeight={700} fill={STROKE_PURPLE}>
@@ -342,21 +342,21 @@ export const WhyCapabilitiesDiagram: React.FC = () => {
   ];
 
   // Layout: each group has a header and its tiles wrap in a row.
-  const TILE_W = 56;
-  const TILE_H = 56;
-  const TILE_GAP = 8;
-  const GROUP_GAP = 16;
+  const TILE_W = 54;
+  const TILE_H = 50;
+  const TILE_GAP = 6;
+  const GROUP_GAP = 10;
   const SECTION_X = 14;
 
-  let cursorY = 32;
+  let cursorY = 30;
 
   return (
     <svg
-      viewBox="0 0 320 420"
+      viewBox="0 0 320 350"
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="OpenHeaders capabilities — Headers, Block, Redirect, Query, Body for requests; Body+status for responses; Inject and Delay for code; Track for observation."
+      aria-label="OpenHeaders capabilities — Headers, Block, Redirect, Query, Body for requests; Response for responses; Inject and Delay for code; Track for observation."
     >
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
         WHAT YOU CAN DO
@@ -421,21 +421,21 @@ export const WhyScenariosDiagram: React.FC = () => {
   const SCENARIOS: Scenario[] = [
     {
       title: 'Auth your staging API',
-      problem: 'Your team\'s API needs a debug auth header on your machine only.',
+      problem: 'Add a dev auth header — just for you.',
       rule: 'Override Auth: dev-token',
       accent: STROKE_BLUE,
       accentBg: FILL_BLUE,
     },
     {
       title: 'Test the error path',
-      problem: 'You need to see how your UI handles a 500 — without a real backend outage.',
+      problem: 'See how the UI handles a 500.',
       rule: 'Mock 500 · POST /api/save',
       accent: STROKE_PURPLE,
       accentBg: FILL_PURPLE,
     },
     {
       title: 'Clean screen recordings',
-      problem: "Trackers and banners ruin your demo. Hide them while you record.",
+      problem: 'Hide trackers while you record.',
       rule: 'Block ads.example.com',
       accent: STROKE_ORANGE,
       accentBg: FILL_ORANGE,
