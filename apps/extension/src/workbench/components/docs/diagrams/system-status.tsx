@@ -43,35 +43,32 @@ const SUBSYSTEMS = ['Sync', 'Rules', 'Requests', 'Permissions', 'Secrets', 'Live
 // ─── Surfaces — where the pill renders ────────────────────────────
 
 /**
- * Two surface mockups stacked. Top: a stylised workbench app frame
- * with a real-looking footer strip carrying all six subsystem pills.
- * Bottom: a popup window mockup with a header bar carrying the
- * single composite dot. The mockups frame the indicator so users
- * can spot where to look in their own UI.
+ * Two clean strip mockups: the workbench-footer pill row up top, the
+ * popup/side-panel header bar with its single composite dot below.
+ * Each strip is the focal point — no extraneous window chrome,
+ * placeholder body lines, or callout arrows competing for attention.
  */
 export const SystemStatusSurfacesDiagram: React.FC = () => {
-  // Compact pill metrics — tight enough that all six fit in a real-
-  // looking footer strip (≈ 280px) without truncation.
+  // Compact pill metrics — tight enough that all six fit in the
+  // 280px footer interior without truncation.
   const charW = 4.3;
   const PAD_X = 4;
   const DOT_R = 2;
   const DOT_GAP = 3;
-  const PILL_H = 14;
+  const PILL_H = 16;
   const PILL_GAP = 3;
   const widthOf = (name: string) => Math.ceil(name.length * charW) + PAD_X * 2 + DOT_R * 2 + DOT_GAP;
 
   const ROW: { name: string; level: Level }[] = SUBSYSTEMS.map((s) => ({ name: s, level: 'green' }));
   const totalW = ROW.reduce((sum, p) => sum + widthOf(p.name), 0) + PILL_GAP * (ROW.length - 1);
 
-  // ─ Workbench mockup geometry ─
+  // ─ Workbench footer strip ─
   const WB_X = 10;
-  const WB_Y = 36;
+  const WB_Y = 54;
   const WB_W = 300;
-  const WB_H = 88;
-  const FOOTER_H = 22;
-  const footerY = WB_Y + WB_H - FOOTER_H;
+  const WB_H = 32;
+  const wbCenterY = WB_Y + WB_H / 2;
   const pillsStartX = WB_X + (WB_W - totalW) / 2;
-  const pillsCenterY = footerY + FOOTER_H / 2;
 
   let cursor = pillsStartX;
   const pills = ROW.map((p) => {
@@ -80,12 +77,20 @@ export const SystemStatusSurfacesDiagram: React.FC = () => {
     cursor += w + PILL_GAP;
     return (
       <g key={p.name}>
-        <rect x={x} y={pillsCenterY - PILL_H / 2} width={w} height={PILL_H} rx={6} fill={FILL_SECONDARY} stroke={BORDER} />
-        <circle cx={x + PAD_X + DOT_R} cy={pillsCenterY} r={DOT_R} fill={dotColor(p.level)} />
+        <rect
+          x={x}
+          y={wbCenterY - PILL_H / 2}
+          width={w}
+          height={PILL_H}
+          rx={8}
+          fill={BG_CONTAINER}
+          stroke={BORDER}
+        />
+        <circle cx={x + PAD_X + DOT_R} cy={wbCenterY} r={DOT_R} fill={dotColor(p.level)} />
         <text
           x={x + PAD_X + DOT_R * 2 + DOT_GAP}
-          y={pillsCenterY + 3}
-          fontSize={8}
+          y={wbCenterY + 3}
+          fontSize={9}
           fontWeight={600}
           fill={TEXT}
         >
@@ -95,97 +100,50 @@ export const SystemStatusSurfacesDiagram: React.FC = () => {
     );
   });
 
-  // ─ Popup mockup geometry ─
-  const PU_X = 90;
-  const PU_Y = 142;
-  const PU_W = 140;
-  const PU_H = 50;
-  const PU_HEAD_H = 22;
+  // ─ Popup header strip ─
+  const PU_X = 10;
+  const PU_Y = 130;
+  const PU_W = 300;
+  const PU_H = 32;
+  const puCenterY = PU_Y + PU_H / 2;
 
   return (
     <svg
-      viewBox="0 0 320 220"
+      viewBox="0 0 320 200"
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
       aria-label="Where the system status pill appears — a six-pill row in the workbench footer; a single composite dot in the popup or side-panel header."
     >
-      <text x={160} y={16} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-        Same status, two surfaces
+      <text x={160} y={16} textAnchor="middle" fontSize={11} fontWeight={700} fill={TEXT}>
+        Two surfaces, same status
       </text>
 
-      {/* ── Surface 1 — Workbench app + footer strip ── */}
-      <rect x={WB_X} y={WB_Y} width={WB_W} height={WB_H} rx={4} fill={BG_CONTAINER} stroke={BORDER} />
-      {/* Workbench title bar */}
-      <rect x={WB_X} y={WB_Y} width={WB_W} height={14} rx={4} fill={FILL_SECONDARY} stroke={BORDER} />
-      {[0, 1, 2].map((i) => (
-        <circle key={i} cx={WB_X + 8 + i * 7} cy={WB_Y + 7} r={2.5} fill={GREY} />
-      ))}
-      <text x={WB_X + WB_W / 2} y={WB_Y + 10} textAnchor="middle" fontSize={8} fontWeight={600} fill={TEXT_DIM}>
-        Open Headers — Workbench
-      </text>
-      {/* Body placeholder lines */}
-      {[0, 1, 2].map((i) => (
-        <rect
-          key={`b-${i}`}
-          x={WB_X + 12}
-          y={WB_Y + 22 + i * 8}
-          width={WB_W - 24}
-          height={4}
-          rx={2}
-          fill="var(--ant-color-fill-tertiary)"
-        />
-      ))}
-      {/* Footer strip */}
-      <rect x={WB_X} y={footerY} width={WB_W} height={FOOTER_H} fill={FILL_SECONDARY} stroke={BORDER} />
-      {pills}
-      {/* Footer label */}
-      <text x={WB_X} y={WB_Y - 4} fontSize={9} fontWeight={700} fill={TEXT}>
+      {/* ── Workbench footer strip ── */}
+      <text x={WB_X} y={WB_Y - 14} fontSize={10} fontWeight={700} fill={TEXT}>
         Workbench footer
       </text>
-      <text x={WB_X + WB_W} y={WB_Y - 4} textAnchor="end" fontSize={8} fill={TEXT_DIM}>
-        one pill per subsystem
+      <text x={WB_X + WB_W} y={WB_Y - 14} textAnchor="end" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+        six pills · one per subsystem
       </text>
+      <rect x={WB_X} y={WB_Y} width={WB_W} height={WB_H} rx={4} fill={FILL_SECONDARY} stroke={BORDER} />
+      {pills}
 
-      {/* ── Surface 2 — Popup mini-window with composite dot ── */}
-      <rect x={PU_X} y={PU_Y} width={PU_W} height={PU_H} rx={4} fill={BG_CONTAINER} stroke={BORDER} />
-      <rect x={PU_X} y={PU_Y} width={PU_W} height={PU_HEAD_H} rx={4} fill={FILL_SECONDARY} stroke={BORDER} />
-      <text x={PU_X + 8} y={PU_Y + 14} fontSize={9} fontWeight={700} fill={TEXT}>
+      {/* ── Popup / side-panel header strip ── */}
+      <text x={PU_X} y={PU_Y - 14} fontSize={10} fontWeight={700} fill={TEXT}>
+        Popup / side-panel header
+      </text>
+      <text x={PU_X + PU_W} y={PU_Y - 14} textAnchor="end" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+        one composite dot
+      </text>
+      <rect x={PU_X} y={PU_Y} width={PU_W} height={PU_H} rx={4} fill={FILL_SECONDARY} stroke={BORDER} />
+      <text x={PU_X + 12} y={puCenterY + 4} fontSize={11} fontWeight={700} fill={TEXT}>
         Open Headers
       </text>
-      <circle cx={PU_X + PU_W - 10} cy={PU_Y + PU_HEAD_H / 2} r={4} fill={SUCCESS} />
-      {/* composite dot annotation */}
-      <line
-        x1={PU_X + PU_W - 14}
-        y1={PU_Y + PU_HEAD_H / 2 - 4}
-        x2={PU_X + PU_W + 18}
-        y2={PU_Y - 4}
-        stroke={STROKE}
-        strokeWidth={1}
-        strokeDasharray="2 2"
-      />
-      <text x={PU_X + PU_W + 22} y={PU_Y - 6} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        composite dot
-      </text>
-      {/* Mini body */}
-      {[0, 1].map((i) => (
-        <rect
-          key={`pb-${i}`}
-          x={PU_X + 8}
-          y={PU_Y + PU_HEAD_H + 6 + i * 8}
-          width={PU_W - 16}
-          height={4}
-          rx={2}
-          fill="var(--ant-color-fill-tertiary)"
-        />
-      ))}
-      {/* Popup section header label */}
-      <text x={PU_X} y={PU_Y - 6} textAnchor="start" fontSize={9} fontWeight={700} fill={TEXT}>
-        Popup / side-panel
-      </text>
+      <circle cx={PU_X + PU_W - 14} cy={puCenterY} r={5} fill={SUCCESS} />
 
-      <text x={160} y={210} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Click anywhere on either to open the same details popover.
+      <text x={160} y={190} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+        Click either to open the same details popover.
       </text>
     </svg>
   );
