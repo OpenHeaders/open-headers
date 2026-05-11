@@ -650,14 +650,14 @@ export const ConditionsSection: React.FC = () => (
       Excl. Initiator, Excl. Resp Header — that flips the match (e.g., "everything except these methods"). Use them
       whenever the negative set is smaller than the positive one.
     </DocParagraph>
+    <DiagramFrame caption="Each condition checks one request attribute. All must match for the rule to fire.">
+      <ConditionsMatchingDiagram />
+    </DiagramFrame>
     <DiagramFrame caption="Once all conditions match, the rule's action runs and the outgoing request is modified.">
       <ConditionsRuleFiresDiagram />
     </DiagramFrame>
     <DiagramFrame caption="The page URL and the fetch's destination URL are tracked separately — that's why there are two domain conditions.">
       <ConditionsHostVsOriginDiagram />
-    </DiagramFrame>
-    <DiagramFrame caption="Each condition checks one request attribute. All must match for the rule to fire.">
-      <ConditionsMatchingDiagram />
     </DiagramFrame>
     <OnThisPage entries={CONDITION_ANCHORS} />
 
