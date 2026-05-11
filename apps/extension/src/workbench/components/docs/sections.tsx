@@ -35,6 +35,8 @@ import {
   AppendDiagram,
   AppendWontApplyDiagram,
   HeaderOpsDiagram,
+  MergeDiagram,
+  MergeWontApplyDiagram,
   OverrideDiagram,
   OverrideWontApplyDiagram,
   RemoveDiagram,
@@ -831,16 +833,12 @@ export const HeaderActionsSection: React.FC = () => (
         Reads the existing value at runtime and appends yours with a separator. Defaults to <code>{'; '}</code> for
         Cookie and <code>{', '}</code> for others. The separator can be empty for direct concatenation.
       </DocParagraph>
-      <Example
-        rule="Merge Cookie + new=val (sep: '; ')"
-        before={['Cookie: session=abc']}
-        after={['Cookie: session=abc; new=val']}
-        wontApply={[
-          'Page navigations — only fetch / XHR',
-          'Static resources (img, script, link) — only JS-initiated requests',
-          '→ For page-level headers, use Override or Append (DNR) instead',
-        ]}
-      />
+      <DiagramFrame caption="Existing value stays; your value is appended after the separator.">
+        <MergeDiagram />
+      </DiagramFrame>
+      <DiagramFrame caption="Script-engine only — page navigations and static resources flow through untouched.">
+        <MergeWontApplyDiagram />
+      </DiagramFrame>
       <Callout kind="limitation">
         Merge is invisible in DevTools and can't read browser-default headers (Accept, User-Agent) — only headers
         explicitly set by page code.

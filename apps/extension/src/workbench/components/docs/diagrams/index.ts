@@ -17,6 +17,8 @@ export {
   AppendDiagram,
   AppendWontApplyDiagram,
   HeaderOpsDiagram,
+  MergeDiagram,
+  MergeWontApplyDiagram,
   OverrideDiagram,
   OverrideWontApplyDiagram,
   RemoveDiagram,
