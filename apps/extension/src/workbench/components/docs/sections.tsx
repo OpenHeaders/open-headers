@@ -776,6 +776,7 @@ const ActionHeading: React.FC<{ title: string; engine: 'dnr' | 'script' }> = ({ 
 
 export const HeaderActionsSection: React.FC = () => (
   <>
+    <SurfaceContext surfaces={['popup', 'side-panel', 'workbench', 'devtools']} />
     <DocParagraph>
       Four operations on request and response headers — three native (Add/Replace, Append, Remove) plus one script-based
       (Merge) for value concatenation DNR can't express.
