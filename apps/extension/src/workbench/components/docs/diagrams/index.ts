@@ -8,11 +8,18 @@
  */
 
 export {
-  BodyInterceptDiagram,
   DelayRoutingDiagram,
   InjectTimingDiagram,
   MockFlowDiagram,
 } from './_pending';
+export {
+  BodyDynamicDiagram,
+  BodyGraphqlDiagram,
+  BodyInterceptDiagram,
+  BodyStaticDiagram,
+  BodyUseCasesDiagram,
+  BodyWontApplyDiagram,
+} from './body';
 export { BlockDiagram, BlockUseCasesDiagram, BlockWontApplyDiagram } from './block';
 export {
   RedirectRegexDiagram,

@@ -37,6 +37,11 @@ import {
   BlockDiagram,
   BlockUseCasesDiagram,
   BlockWontApplyDiagram,
+  BodyDynamicDiagram,
+  BodyGraphqlDiagram,
+  BodyStaticDiagram,
+  BodyUseCasesDiagram,
+  BodyWontApplyDiagram,
   QueryParamAddReplaceDiagram,
   QueryParamRemoveAllDiagram,
   QueryParamRemoveDiagram,
@@ -1092,6 +1097,7 @@ export const DelaySection: React.FC = () => (
 
 export const BodySection: React.FC = () => (
   <>
+    <SurfaceContext surfaces={['popup', 'side-panel', 'workbench', 'devtools']} />
     <DocParagraph>
       Override or transform request bodies before they leave the browser. Script-based — intercepts <code>fetch()</code>{' '}
       and <code>XMLHttpRequest</code>.
@@ -1106,15 +1112,9 @@ export const BodySection: React.FC = () => (
         Replaces the entire request body with a fixed string. Works for both REST and GraphQL — the rule doesn't parse
         the body, it substitutes wholesale.
       </DocParagraph>
-      <Example
-        rule={`Static body: { "userId": "test-1" }`}
-        before={[`Original POST body: { "userId": "abc" }`]}
-        after={[`Body sent: { "userId": "test-1" }`]}
-        wontApply={[
-          'GET / HEAD requests — no body to replace',
-          'Static resource loads — only JS-initiated fetch / XHR',
-        ]}
-      />
+      <DiagramFrame caption="Whole body replaced — original is discarded.">
+        <BodyStaticDiagram />
+      </DiagramFrame>
     </Anchor>
 
     <Anchor id="body-dynamic">
@@ -1123,11 +1123,9 @@ export const BodySection: React.FC = () => (
         Write a function that receives the original body and request context, then returns the modified body. The
         function receives <code>{'{ method, url, body, bodyAsJson }'}</code>.
       </DocParagraph>
-      <Example
-        rule="Dynamic body: stamp every payload with a debug flag"
-        before={[`{ "userId": "abc" }`]}
-        after={[`{ "userId": "abc", "debug": true }`]}
-      />
+      <DiagramFrame caption="Function sees the original; returns whatever should be sent.">
+        <BodyDynamicDiagram />
+      </DiagramFrame>
     </Anchor>
 
     <Anchor id="body-graphql">
@@ -1142,11 +1140,23 @@ export const BodySection: React.FC = () => (
         Common keys: <code>operationName</code> for the named operation, <code>query</code> for a substring of the query
         text. Requests without a JSON body, or with a missing or non-matching field, pass through untouched.
       </DocParagraph>
-      <Example
-        rule={`GraphQL: operationName Equals "GetUser"  →  static body`}
-        after={['Only POST /graphql with operationName="GetUser" gets the static-body substitution']}
-      />
+      <DiagramFrame caption="Field-level gate — operations that don't match flow through untouched.">
+        <BodyGraphqlDiagram />
+      </DiagramFrame>
     </Anchor>
+
+    <DiagramFrame caption="GET/HEAD have nothing to replace; static resources don't enter the script intercept.">
+      <BodyWontApplyDiagram />
+    </DiagramFrame>
+
+    <DocHeading level={3}>When to use this</DocHeading>
+    <DocParagraph>
+      Forcing test fixtures, stamping every payload with metadata (debug flags, request IDs), mocking specific GraphQL
+      operations, and anonymizing PII before replay are the four typical patterns.
+    </DocParagraph>
+    <DiagramFrame caption="Four typical patterns — pair with URL Pattern or Domains to scope.">
+      <BodyUseCasesDiagram />
+    </DiagramFrame>
   </>
 );
 

@@ -136,69 +136,6 @@ export const DelayRoutingDiagram: React.FC = () => (
 );
 
 
-// ── Request-body interception ────────────────────────────────────
-
-export const BodyInterceptDiagram: React.FC = () => (
-  <svg
-    viewBox="0 0 300 220"
-    width="100%"
-    style={{ maxWidth: 320 }}
-    role="img"
-    aria-label="Request body interception pipeline"
-  >
-    <ArrowDefs id="bd-arrow" />
-    <Box x={105} y={10} w={90} h={32} fill={FILL_BLUE} stroke={STROKE_BLUE} label="page.js" sub="fetch / XHR call" />
-    <line x1="150" y1="42" x2="150" y2="58" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#bd-arrow)" />
-    <Box
-      x={75}
-      y={60}
-      w={150}
-      h={36}
-      fill={FILL_PURPLE}
-      stroke={STROKE_PURPLE}
-      label="Intercept"
-      sub="extension monkey-patch"
-    />
-    <line x1="150" y1="96" x2="150" y2="112" stroke={STROKE} strokeWidth="1.5" />
-    <line x1="60" y1="112" x2="240" y2="112" stroke={STROKE} strokeWidth="1.5" />
-    <line x1="60" y1="112" x2="60" y2="125" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#bd-arrow)" />
-    <line x1="150" y1="112" x2="150" y2="125" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#bd-arrow)" />
-    <line x1="240" y1="112" x2="240" y2="125" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#bd-arrow)" />
-    <text x="60" y="138" textAnchor="middle" fontSize="9" fontWeight="600" fill={TEXT}>
-      Static
-    </text>
-    <text x="60" y="150" textAnchor="middle" fontSize="8" fill={TEXT_DIM}>
-      replace body
-    </text>
-    <text x="60" y="160" textAnchor="middle" fontSize="8" fill={TEXT_DIM}>
-      wholesale
-    </text>
-    <text x="150" y="138" textAnchor="middle" fontSize="9" fontWeight="600" fill={TEXT}>
-      Dynamic
-    </text>
-    <text x="150" y="150" textAnchor="middle" fontSize="8" fill={TEXT_DIM}>
-      fn(orig) →
-    </text>
-    <text x="150" y="160" textAnchor="middle" fontSize="8" fill={TEXT_DIM}>
-      modified body
-    </text>
-    <text x="240" y="138" textAnchor="middle" fontSize="9" fontWeight="600" fill={TEXT}>
-      GraphQL
-    </text>
-    <text x="240" y="150" textAnchor="middle" fontSize="8" fill={TEXT_DIM}>
-      match op? →
-    </text>
-    <text x="240" y="160" textAnchor="middle" fontSize="8" fill={TEXT_DIM}>
-      apply : skip
-    </text>
-    <line x1="60" y1="170" x2="60" y2="180" stroke={STROKE} strokeWidth="1.5" />
-    <line x1="150" y1="170" x2="150" y2="180" stroke={STROKE} strokeWidth="1.5" />
-    <line x1="240" y1="170" x2="240" y2="180" stroke={STROKE} strokeWidth="1.5" />
-    <line x1="60" y1="180" x2="240" y2="180" stroke={STROKE} strokeWidth="1.5" />
-    <line x1="150" y1="180" x2="150" y2="192" stroke={STROKE} strokeWidth="1.5" markerEnd="url(#bd-arrow)" />
-    <Box x={105} y={194} w={90} h={22} fill={FILL_GREEN} stroke={STROKE_GREEN} label="real network" />
-  </svg>
-);
 
 // ── Mock — static vs dynamic flow ────────────────────────────────
 
