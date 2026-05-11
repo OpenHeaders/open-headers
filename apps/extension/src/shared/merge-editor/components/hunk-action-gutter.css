@@ -25,6 +25,10 @@
   gap: 2px;
   height: 18px;
   padding: 0 2px;
+  /* `top` from `useHunkActionMarkers` is the Y of the rectangle's
+   * vertical center. Shifting the row up by half its own height
+   * places its visual midpoint exactly at that center. */
+  transform: translateY(-50%);
 }
 
 [data-side='left'] .oh-merge__action-row {

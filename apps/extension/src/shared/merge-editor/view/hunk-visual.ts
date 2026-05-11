@@ -22,7 +22,7 @@
  * cleanly into the future shared-UI package.
  */
 
-import type { HunkAnalysis } from '../diff/hunk-analysis';
+import type { HunkAnalysis, SideKind } from '../diff/hunk-analysis';
 import type { HunkPickState, SideState } from '../use-hunk-pick-state';
 
 export type HunkSide = 'theirs' | 'mine';
@@ -43,12 +43,6 @@ export type FrameVariant = 'pending-conflict' | 'pending-clean' | 'resolved';
  *  base content"); `neutral` ⇒ grey ("absence — content lives on the
  *  other side"). */
 export type MissingVariant = 'removal' | 'neutral';
-
-export interface MissingTreatment {
-  variant: MissingVariant;
-  /** Caption rendered in the action-slot strip above the hashed body. */
-  label: string;
-}
 
 /** Status label + revert affordances for the result-pane status zone. */
 export interface ResultStatusTreatment {
@@ -106,17 +100,40 @@ export function frameForResult(analysis: HunkAnalysis, state: HunkPickState): Fr
   return analysis.conflict === 'true' ? 'pending-conflict' : 'pending-clean';
 }
 
-export function missingFor(analysis: HunkAnalysis, side: HunkSide): MissingTreatment | null {
+/**
+ * Color variant for the empty-side placeholder body. `removal` ⇒ red
+ * (this side actively deleted content present in base); `neutral` ⇒
+ * grey (this side never had content here). Returns null when this
+ * side has content — there's no placeholder body to color.
+ */
+export function missingVariantFor(analysis: HunkAnalysis, side: HunkSide): MissingVariant | null {
   const change = side === 'theirs' ? analysis.theirs : analysis.mine;
   if (!change.isEmpty) return null;
   const other = side === 'theirs' ? analysis.mine : analysis.theirs;
   // Both sides empty would mean an empty hunk — pickHunks shouldn't
   // produce these, but guard so we never emit a phantom placeholder.
   if (other.isEmpty) return null;
-  if (change.kind === 'removed') {
-    return { variant: 'removal', label: 'Removed here' };
+  return change.kind === 'removed' ? 'removal' : 'neutral';
+}
+
+/**
+ * Right-aligned type caption for the per-side header strip — `Added`
+ * / `Deleted` / `Modified` / `No change`. Single vocabulary across
+ * theirs + mine action zones; the result pane keeps its status label
+ * only (any per-side "type" word on the result is misleading until
+ * the user has actually decided what the result should contain).
+ */
+export function kindLabelFor(kind: SideKind): string {
+  switch (kind) {
+    case 'added':
+      return 'Added';
+    case 'removed':
+      return 'Deleted';
+    case 'modified':
+      return 'Modified';
+    case 'unchanged':
+      return 'No change';
   }
-  return { variant: 'neutral', label: 'No content here' };
 }
 
 // ── Result-pane status label + revert affordances ─────────────────────

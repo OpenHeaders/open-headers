@@ -174,89 +174,77 @@ export function useHunkTrackedRanges({
         // range as "insert at position" and leaves the line below
         // intact. Without this branch, the +1 expansion below would
         // consume the line that the insertion point anchors against.
-        const isInsertionPoint =
+        const wasInsertionPoint =
           live.startLineNumber === live.endLineNumber && live.startColumn === 1 && live.endColumn === 1;
+        const writtenLineCount = text.length === 0 ? 0 : text.split('\n').length - (text.endsWith('\n') ? 1 : 0);
+
+        // No-op fast path: empty text against an already-empty range.
+        // Happens when restoring original content for a pure-addition
+        // hunk that's already at its insertion-point state (e.g. a
+        // fresh Ignore click). Skipping early preserves the tracked
+        // decoration so subsequent Accept clicks can still find it.
+        if (writtenLineCount === 0 && wasInsertionPoint) return true;
+
         // Whole-line replacement range for content-bearing hunks:
         // from the start of the first tracked line to the start of
         // the line AFTER the last tracked line, so the trailing
         // newline is consumed cleanly. If we're at end-of-buffer, use
         // the model's max column on the final line instead.
         const endLineExclusive = live.endLineNumber + 1;
-        const useTailColumn = !isInsertionPoint && endLineExclusive > lc;
-        const replaceRange: monaco.IRange = isInsertionPoint
-          ? {
-              startLineNumber: startLine,
-              startColumn: 1,
-              endLineNumber: startLine,
-              endColumn: 1,
-            }
+        const useTailColumn = !wasInsertionPoint && endLineExclusive > lc;
+        const replaceRange: monaco.IRange = wasInsertionPoint
+          ? { startLineNumber: startLine, startColumn: 1, endLineNumber: startLine, endColumn: 1 }
           : useTailColumn
-            ? {
-                startLineNumber: startLine,
-                startColumn: 1,
-                endLineNumber: lc,
-                endColumn: model.getLineMaxColumn(lc),
-              }
-            : {
-                startLineNumber: startLine,
-                startColumn: 1,
-                endLineNumber: endLineExclusive,
-                endColumn: 1,
-              };
-        // Compute the new tracked range = the lines actually written.
-        // `text` is expected to end with `\n` for whole-line writes;
-        // empty `text` is a removal (collapses to a zero-line range).
-        const writtenLineCount = text.length === 0 ? 0 : text.split('\n').length - (text.endsWith('\n') ? 1 : 0);
-        const newEndLine = Math.max(startLine, startLine + writtenLineCount - 1);
-        // Use `model.pushEditOperations` instead of
-        // `editor.executeEdits`. The result editor is `readOnly: true`
-        // (so the user can't free-type into the merged buffer), and
-        // Monaco's editor-level `executeEdits` checks the readOnly
-        // option and silently no-ops when set — the controller would
-        // update its state map and the status zone would refresh, but
-        // the buffer would never reflect the accept. Model-level edits
-        // bypass the readOnly gate (it lives on the editor widget,
-        // not the model), which is the right escape hatch for
-        // programmatic writes that originate from our own UI.
+            ? { startLineNumber: startLine, startColumn: 1, endLineNumber: lc, endColumn: model.getLineMaxColumn(lc) }
+            : { startLineNumber: startLine, startColumn: 1, endLineNumber: endLineExclusive, endColumn: 1 };
+
+        // Decoration lifecycle is decoupled from the edit so the edit
+        // doesn't have to thread stickiness / forceMoveMarkers
+        // semantics. Drop the old decoration BEFORE the edit, run the
+        // edit, then install a fresh decoration at the explicit new
+        // range. This avoids transient-state bugs where Monaco's
+        // pre-edit decoration position interfered with the subsequent
+        // deltaDecorations re-anchor on insertion-point hunks.
+        editor.deltaDecorations([decoId], []);
+        tracked.delete(hunkId);
+        // Use `model.pushEditOperations` instead of `editor.executeEdits`
+        // — the editor is readOnly so executeEdits silently no-ops,
+        // but model-level edits bypass the readOnly gate (it lives on
+        // the editor widget, not the model).
         model.pushEditOperations(
           null,
           [
             {
               range: replaceRange,
               text: useTailColumn && !text.endsWith('\n') ? text : useTailColumn ? text.slice(0, -1) : text,
-              forceMoveMarkers: true,
             },
           ],
           () => null,
         );
-        // Re-anchor: drop the old decoration, install a fresh one at
-        // the new range (skip when the range collapsed to zero — the
-        // hunk is now empty and a follow-up diff recompute will drop
-        // the hunk id naturally). Use lineMaxColumn for the new end
-        // so the content/insertion-point distinction survives across
-        // subsequent writes (a re-decided hunk previously stored as
-        // insertion-point now holds real content; next write should
-        // treat it as content).
-        if (writtenLineCount > 0) {
-          const newIds = editor.deltaDecorations(
-            [decoId],
-            [
-              {
-                range: {
-                  startLineNumber: startLine,
-                  startColumn: 1,
-                  endLineNumber: newEndLine,
-                  endColumn: model.getLineMaxColumn(newEndLine),
-                },
-                options: { stickiness: STICKINESS },
+
+        // Re-anchor with explicit range. Content-bearing writes get a
+        // line-spanning range with `endColumn = lineMaxColumn(endLine)`;
+        // empty writes (content reverted to original / deleted) collapse
+        // back to an insertion-point range at `startLine`. Either way
+        // the tracked entry survives so future writes can find it.
+        const isNowInsertionPoint = writtenLineCount === 0;
+        const newEndLine = isNowInsertionPoint ? startLine : Math.max(startLine, startLine + writtenLineCount - 1);
+        const newEndColumn = isNowInsertionPoint ? 1 : model.getLineMaxColumn(newEndLine);
+        const newIds = editor.deltaDecorations(
+          [],
+          [
+            {
+              range: {
+                startLineNumber: startLine,
+                startColumn: 1,
+                endLineNumber: newEndLine,
+                endColumn: newEndColumn,
               },
-            ],
-          );
-          if (newIds[0]) tracked.set(hunkId, newIds[0]);
-        } else {
-          editor.deltaDecorations([decoId], []);
-          tracked.delete(hunkId);
-        }
+              options: { stickiness: STICKINESS },
+            },
+          ],
+        );
+        if (newIds[0]) tracked.set(hunkId, newIds[0]);
         return true;
       },
     };

@@ -35,8 +35,9 @@ import {
   frameForSide,
   type HunkSide,
   isCombineMeaningful,
+  kindLabelFor,
   type MissingVariant,
-  missingFor,
+  missingVariantFor,
   resultStatusLabelFor,
 } from '../view/hunk-visual';
 import './hunk-action-zones.css';
@@ -143,6 +144,15 @@ function buildActionZoneDom(args: {
   }
   root.appendChild(makeSeparator());
   root.appendChild(ignoreBtn);
+
+  // Right-aligned type label (Added / Deleted / Modified / No change).
+  // Single design vocabulary across every header so the user reads
+  // the same word for the same concept regardless of pane or state.
+  const kind = args.side === 'theirs' ? args.analysis.theirs.kind : args.analysis.mine.kind;
+  const kindLabel = document.createElement('span');
+  kindLabel.className = 'oh-merge__action-zone-kind';
+  kindLabel.textContent = kindLabelFor(kind);
+  root.appendChild(kindLabel);
   return wrapper;
 }
 
@@ -234,14 +244,13 @@ export function useHunkActionZones(args: UseHunkActionZonesArgs): void {
           }
         }
 
-        // Action zone (top strip with buttons) only renders for
-        // pending sides on hunks with actual content. Empty-side
-        // hunks are decided from the populated side or the result-
-        // pane "Remove …" button — no need for an action row that
-        // would offer "Accept Current" on a side with no current
-        // content.
+        // Action zone (top strip with buttons + type label) renders
+        // for every pending hunk on this side — including empty-side
+        // hunks where the buttons let the user resolve the divergence
+        // from this pane too. For empty sides the action zone serves
+        // as the header above the missing-side placeholder body.
         const sidePending = args.side === 'theirs' ? state.theirs === 'pending' : state.mine === 'pending';
-        if (!sidePending || !hasContentOnThisSide) continue;
+        if (!sidePending) continue;
         const combineMeaningful = isCombineMeaningful({ analysis, side: args.side, state });
         const dom = buildActionZoneDom({
           side: args.side,
@@ -428,7 +437,14 @@ export function useResultStatusZones(args: UseResultStatusZonesArgs): void {
           // "deletion" semantic to communicate.
           const otherLineCount = Math.max(analysis.theirs.lines.length, analysis.mine.lines.length);
           if (otherLineCount > 0) {
-            const placeholderDom = buildPlaceholderDom({ kind: 'missing-side', hashed: true });
+            // Hashed pattern signals "intermediate — content WILL
+            // arrive here once you decide." Once the user resolves
+            // the hunk (either side dismissed or both dismissed),
+            // there's no more decision to be made — drop the hash
+            // so the placeholder reads as quiet "decided, no
+            // content."
+            const resolved = state.theirs !== 'pending' && state.mine !== 'pending';
+            const placeholderDom = buildPlaceholderDom({ kind: 'missing-side', hashed: !resolved });
             const missingZoneId = accessor.addZone({
               afterLineNumber: startLine - 1,
               heightInLines: otherLineCount,
@@ -486,17 +502,21 @@ type PlaceholderKind = 'action-slot' | 'stacked-content' | 'missing-side';
 
 interface BuildPlaceholderArgs {
   kind: PlaceholderKind;
-  label?: string;
   variant?: MissingVariant;
   /** Adds the diagonal hash pattern to a `missing-side` placeholder.
    *  Reserved for the RESULT pane — there the rectangle represents
    *  "content will arrive here from one of the sources." Source-pane
    *  placeholders stay flat: this side simply doesn't have content. */
   hashed?: boolean;
+  /** Right-aligned kind label inside an action-slot placeholder
+   *  (decided side). Mirrors the action zone's kind label so the
+   *  per-side header pattern stays uniform across pending and
+   *  decided states. */
+  kindLabel?: string;
 }
 
 function buildPlaceholderDom(args: BuildPlaceholderArgs): HTMLElement {
-  const { kind, label, variant = 'neutral', hashed = false } = args;
+  const { kind, variant = 'neutral', hashed = false, kindLabel } = args;
   const wrapper = document.createElement('div');
   wrapper.className = 'oh-merge__action-zone-wrapper';
   const root = document.createElement('div');
@@ -511,10 +531,10 @@ function buildPlaceholderDom(args: BuildPlaceholderArgs): HTMLElement {
     classes.push('oh-merge__alignment-placeholder-missing-side-hashed');
   }
   root.className = classes.join(' ');
-  if (label) {
+  if (kindLabel && kind === 'action-slot') {
     const labelSpan = document.createElement('span');
-    labelSpan.className = 'oh-merge__placeholder-label';
-    labelSpan.textContent = label;
+    labelSpan.className = 'oh-merge__action-zone-kind';
+    labelSpan.textContent = kindLabel;
     root.appendChild(labelSpan);
   }
   wrapper.appendChild(root);
@@ -524,11 +544,13 @@ function buildPlaceholderDom(args: BuildPlaceholderArgs): HTMLElement {
 /**
  * Lines-of-placeholder plan for a hunk on a given source side.
  *
- *   beforeLines  — action-slot strip ABOVE content. Renders when this
- *                  side's action zone is hidden (decided) but other
- *                  panes still emit zones at the same row, OR when the
- *                  missing-side body needs a header strip carrying
- *                  the "Removed here" / "No content here" label.
+ *   beforeLines  — action-slot strip ABOVE content. Renders only when
+ *                  this side's action zone is hidden (decided) AND
+ *                  another pane still emits a zone at the same row,
+ *                  so a 1-line filler keeps row counts in sync across
+ *                  panes. Empty-pending sides are handled by the
+ *                  action zone itself (it doubles as the header above
+ *                  the missing-side body).
  *   afterLines   — stacked-content strip BELOW content. Renders when
  *                  both sides are accepted — result has N + M lines
  *                  and this side has fewer; the rest pads visually.
@@ -539,11 +561,15 @@ interface PlaceholderPlan {
   beforeLines: number;
   afterLines: number;
   missingLines: number;
-  /** Carried into action-slot DOM as a caption when present. */
-  missingLabel?: string;
-  /** Variant for the missing-side body + its action-slot header.
+  /** Variant for the missing-side body + its action-slot header
+   *  (when the action-slot is rendering as a decided-side filler).
    *  Undefined when this is not a missing-side scenario. */
   missingVariant?: MissingVariant;
+  /** Right-aligned kind label rendered inside the action-slot when
+   *  the action-slot fires (decided side). Same vocabulary the
+   *  action zone uses for pending sides — keeps the per-side header
+   *  pattern uniform across pending and decided states. */
+  kindLabel?: string;
 }
 
 function placeholderPlanFor(args: {
@@ -561,24 +587,21 @@ function placeholderPlanFor(args: {
   const otherChange = side === 'theirs' ? analysis.mine : analysis.theirs;
   const isEmptyOnThisSide = sideChange.isEmpty && !otherChange.isEmpty;
 
-  const missing = isEmptyOnThisSide ? missingFor(analysis, side) : null;
+  const missingVariant = missingVariantFor(analysis, side) ?? undefined;
 
   const thisSidePending = side === 'theirs' ? state.theirs === 'pending' : state.mine === 'pending';
   const otherZonePending = side === 'theirs' ? state.mine === 'pending' && has3Panes : state.theirs === 'pending';
   const resultStatusVisible = resultStatusLabelFor(state) !== null;
-  // The action zone on this side hides for empty-extent hunks even
-  // when pending — the populated side + result status zone drive the
-  // decision. So an empty side counts as "no zone here" for alignment
-  // purposes.
-  const thisZoneRenders = thisSidePending && !isEmptyOnThisSide;
+  // The action zone renders for every pending hunk regardless of
+  // whether this side has content. Empty-pending sides get the zone
+  // as the header for the missing-side body below them.
+  const thisZoneRenders = thisSidePending;
 
-  // The action-slot header strip ABOVE content fires when:
-  //   1. This side is empty (the strip carries the "Removed here" /
-  //      "No content here" label above the hashed body), OR
-  //   2. This side's action zone is hidden but other panes still
-  //      render zones — so a 1-line placeholder keeps row counts in
-  //      sync across panes.
-  const beforeLines = isEmptyOnThisSide || (!thisZoneRenders && (otherZonePending || resultStatusVisible)) ? 1 : 0;
+  // The action-slot strip fires when this side's action zone is
+  // hidden (decided) AND we still need a header on this side — either
+  // because this side is empty (the missing-side body needs a top
+  // label) or because other panes still emit zones (alignment).
+  const beforeLines = !thisZoneRenders && (isEmptyOnThisSide || otherZonePending || resultStatusVisible) ? 1 : 0;
 
   const missingLines = isEmptyOnThisSide ? Math.max(N, M) : 0;
 
@@ -590,12 +613,13 @@ function placeholderPlanFor(args: {
   }
 
   if (beforeLines === 0 && afterLines === 0 && missingLines === 0) return null;
+  const sideKind = side === 'theirs' ? analysis.theirs.kind : analysis.mine.kind;
   return {
     beforeLines,
     afterLines,
     missingLines,
-    missingLabel: missing?.label,
-    missingVariant: missing?.variant,
+    missingVariant,
+    kindLabel: beforeLines > 0 ? kindLabelFor(sideKind) : undefined,
   };
 }
 
@@ -666,8 +690,8 @@ export function useHunkAlignmentPlaceholders(args: UseHunkAlignmentPlaceholdersA
         if (plan.beforeLines > 0) {
           const dom = buildPlaceholderDom({
             kind: 'action-slot',
-            label: plan.missingLabel,
             variant: plan.missingVariant,
+            kindLabel: plan.kindLabel,
           });
           const zoneId = accessor.addZone({
             afterLineNumber: Math.max(0, startLine - 1),

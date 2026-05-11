@@ -308,26 +308,30 @@
   position: relative;
 }
 
-/* Label text inside a missing-side placeholder — names where the
- * content actually lives so the user reads "what is this hashed
- * rectangle?" without guessing. Anchored top-left, padded slightly
- * so it doesn't kiss the border. Italic + greyed so it reads as
- * meta-information, not content. */
-.oh-merge__placeholder-label {
-  position: absolute;
-  top: 1px;
-  left: 8px;
+/* Right-aligned type label inside the action zone / status zone —
+ * shows what happened on this side vs base (`Added` / `Deleted` /
+ * `Modified` / `No change`) or the overall conflict shape on the
+ * result pane. Italic + muted so it reads as meta-information that
+ * doesn't compete with the action buttons.
+ *
+ * `margin-left: auto` pushes the label to the right edge of the
+ * flex row regardless of how many buttons + separators sit on the
+ * left. `flex-shrink: 0` keeps the label intact when the row is
+ * narrower than its natural width — the buttons' own flex-shrink: 0
+ * + the row's `overflow-x: auto` handle that case. */
+.oh-merge__action-zone-kind {
+  margin-left: auto;
+  padding-left: 12px;
   font-size: 11px;
-  line-height: 16px;
   font-style: italic;
-  color: rgba(80, 80, 80, 0.75);
+  color: rgba(80, 80, 80, 0.85);
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   user-select: none;
   white-space: nowrap;
-  pointer-events: none;
+  flex-shrink: 0;
 }
-[data-merge-theme='dark'] .oh-merge__placeholder-label {
-  color: rgba(200, 200, 200, 0.75);
+[data-merge-theme='dark'] .oh-merge__action-zone-kind {
+  color: rgba(200, 200, 200, 0.85);
 }
 
 /* Stacked-content padding (both-accepted case). Lives only in source
@@ -423,13 +427,18 @@
 /* Action-slot placeholder closes the TOP edge of the bordered
  * rectangle around resolved hunks. Same inset-shadow trick for the
  * right edge — view zone DOMs hit the same Monaco-right-edge
- * geometry as the action zone DOM. */
+ * geometry as the action zone DOM. Flex layout mirrors the action
+ * zone so the right-aligned kind label sits in the same position
+ * across pending (action zone) and decided (action-slot) headers. */
 .oh-merge__alignment-placeholder-action-slot {
   box-sizing: border-box;
   background: rgba(127, 127, 127, 0.06);
   border-top: 1px solid rgba(127, 127, 127, 0.55);
   border-left: 1px solid rgba(127, 127, 127, 0.55);
   box-shadow: inset -1px 0 0 rgba(127, 127, 127, 0.55);
+  display: flex;
+  align-items: center;
+  padding: 1px 12px 1px 8px;
 }
 [data-merge-theme='dark'] .oh-merge__alignment-placeholder-action-slot {
   background: rgba(255, 255, 255, 0.04);
@@ -456,17 +465,6 @@
   box-shadow: inset -1px 0 0 rgba(248, 81, 73, 0.55);
 }
 
-/* Label inside a removal-variant placeholder — switch the italic
- * caption to the removal red so "Removed here" reads as a real
- * deletion signal instead of meta-information about absence. */
-.oh-merge__alignment-placeholder-missing-side-removal .oh-merge__placeholder-label,
-.oh-merge__alignment-placeholder-action-slot-removal .oh-merge__placeholder-label {
-  color: rgba(180, 60, 60, 0.95);
-}
-[data-merge-theme='dark'] .oh-merge__alignment-placeholder-missing-side-removal .oh-merge__placeholder-label,
-[data-merge-theme='dark'] .oh-merge__alignment-placeholder-action-slot-removal .oh-merge__placeholder-label {
-  color: rgba(255, 130, 130, 0.95);
-}
 
 /* Clean-state frame (blue) — per-line counterpart of
  * `-action-zone-clean`. Same box-shadow + ::after/::before approach

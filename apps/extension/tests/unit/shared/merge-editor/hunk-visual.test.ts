@@ -5,8 +5,9 @@ import { PENDING_HUNK } from '@/shared/merge-editor/use-hunk-pick-state';
 import {
   frameForResult,
   frameForSide,
+  kindLabelFor,
   lineTintFor,
-  missingFor,
+  missingVariantFor,
   resultStatusLabelFor,
 } from '@/shared/merge-editor/view/hunk-visual';
 
@@ -46,18 +47,18 @@ describe('view/hunk-visual', () => {
     });
   });
 
-  describe('missingFor', () => {
-    it('emits red "Removed here" on the side that deleted base content', () => {
+  describe('missingVariantFor', () => {
+    it('returns "removal" on the empty side that deleted base content', () => {
       const a = makeDeleteVsModifyAnalysis();
-      expect(missingFor(a, 'theirs')).toEqual({ variant: 'removal', label: 'Removed here' });
+      expect(missingVariantFor(a, 'theirs')).toBe('removal');
     });
 
     it('returns null on the populated side', () => {
       const a = makeDeleteVsModifyAnalysis();
-      expect(missingFor(a, 'mine')).toBeNull();
+      expect(missingVariantFor(a, 'mine')).toBeNull();
     });
 
-    it('emits grey "No content here" when the other side simply added new content', () => {
+    it('returns "neutral" when the other side simply added new content', () => {
       const base = 'A\nB\n';
       const theirs = 'A\nB\nC\n';
       const mine = 'A\nB\n';
@@ -66,7 +67,16 @@ describe('view/hunk-visual', () => {
       const mineBaseHunks = diffLines(base, mine);
       const [a] = analyzeHunks({ pickHunks, theirsBaseHunks, mineBaseHunks });
       // Mine pane is empty (theirs added C); mine never had this row.
-      expect(missingFor(a, 'mine')).toEqual({ variant: 'neutral', label: 'No content here' });
+      expect(missingVariantFor(a, 'mine')).toBe('neutral');
+    });
+  });
+
+  describe('kindLabelFor', () => {
+    it('maps side kinds to user-facing labels', () => {
+      expect(kindLabelFor('added')).toBe('Added');
+      expect(kindLabelFor('removed')).toBe('Deleted');
+      expect(kindLabelFor('modified')).toBe('Modified');
+      expect(kindLabelFor('unchanged')).toBe('No change');
     });
   });
 

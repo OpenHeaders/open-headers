@@ -109,11 +109,16 @@ describe('createPickStateController', () => {
     expect(calls).toEqual([{ hunkId: 'h1', text: 'T\n' }]);
   });
 
-  it('x click on right sets mine to dismissed, no buffer write', () => {
+  it('x click on right sets mine to dismissed, restores original content', () => {
+    // The buffer always reflects the controller's state. Going from
+    // PENDING_HUNK → {theirs: pending, mine: dismissed} restores the
+    // original content (= mineLines for theirs-axis hunks); for hunks
+    // that hadn't been written before, this writes the same text the
+    // buffer already holds — a safe no-op at the model level.
     const { controller, calls } = setup();
     controller.dispatch({ hunkId: 'h1', slot: 'right', action: 'x' });
     expect(controller.get('h1')).toEqual({ theirs: 'pending', mine: 'dismissed' });
-    expect(calls).toEqual([]);
+    expect(calls).toEqual([{ hunkId: 'h1', text: 'M\n' }]);
   });
 
   it('accept theirs then accept mine stacks the write', () => {
@@ -150,22 +155,67 @@ describe('createPickStateController', () => {
     expect(controller.get('h1')).toEqual({ theirs: 'accepted', mine: 'accepted' });
   });
 
-  it('undo reverts state + replays the write for the prior state', () => {
+  it('undo reverts state AND restores the original buffer content', () => {
     const { controller, calls } = setup();
     controller.dispatch({ hunkId: 'h1', slot: 'left', action: 'arrow' });
     expect(controller.get('h1').theirs).toBe('accepted');
     controller.undo();
     expect(controller.get('h1')).toEqual(PENDING_HUNK);
-    // Pending → null write → no extra call.
-    expect(calls).toEqual([{ hunkId: 'h1', text: 'T\n' }]);
+    // Undo to PENDING_HUNK must rewrite the original mine content
+    // so the buffer stays in lock-step with the controller state —
+    // without this, the model is left holding theirs's accepted
+    // content while the controller says pending (visual / buffer
+    // mismatch, and the action zone reappears over what looks like
+    // an already-accepted region).
+    expect(calls).toEqual([
+      { hunkId: 'h1', text: 'T\n' },
+      { hunkId: 'h1', text: 'M\n' },
+    ]);
   });
 
-  it('redo re-applies an undone click', () => {
-    const { controller } = setup();
+  it('redo re-applies the accepted content after an undo', () => {
+    const { controller, calls } = setup();
     controller.dispatch({ hunkId: 'h1', slot: 'left', action: 'arrow' });
     controller.undo();
     controller.redo();
     expect(controller.get('h1').theirs).toBe('accepted');
+    expect(calls).toEqual([
+      { hunkId: 'h1', text: 'T\n' },
+      { hunkId: 'h1', text: 'M\n' },
+      { hunkId: 'h1', text: 'T\n' },
+    ]);
+  });
+
+  it('dismiss other side then accept this side still writes this side', () => {
+    // Repro for the "Ignore on right + Accept Incoming on left" bug:
+    // the SECOND dispatch must still produce a buffer write for the
+    // accepted side even though the first dispatch already decided
+    // the other side.
+    const hunks: Hunk[] = [
+      makeHunk({
+        id: 'add',
+        theirsLines: ['T1', 'T2'],
+        mineLines: [],
+        theirsRange: { startLine: 1, endLine: 3 },
+        mineRange: { startLine: 1, endLine: 1 },
+      }),
+    ];
+    const { handle, calls } = makeTrackedHandle();
+    const controller = createPickStateController({
+      hunksRef: { current: hunks },
+      trackedRangesRef: { current: handle },
+      singleClickResolveRef: { current: false },
+    });
+    controller.dispatch({ hunkId: 'add', slot: 'right', action: 'x' });
+    expect(controller.get('add')).toEqual({ theirs: 'pending', mine: 'dismissed' });
+    // First dispatch restores original (= empty for pure-add).
+    expect(calls).toEqual([{ hunkId: 'add', text: '' }]);
+    controller.dispatch({ hunkId: 'add', slot: 'left', action: 'arrow' });
+    expect(controller.get('add')).toEqual({ theirs: 'accepted', mine: 'dismissed' });
+    expect(calls).toEqual([
+      { hunkId: 'add', text: '' },
+      { hunkId: 'add', text: 'T1\nT2\n' },
+    ]);
   });
 
   it('new dispatch clears the redo stack (standard editor behavior)', () => {

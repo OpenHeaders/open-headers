@@ -154,30 +154,31 @@ export function createPickStateController(args: CreatePickStateControllerArgs): 
     return null;
   };
 
+  /**
+   * Sync the model with the target pick state.
+   *
+   * When `writeTextFor` returns null (no side accepted), the model's
+   * region for this hunk should hold its ORIGINAL pre-acceptance
+   * content. Without this restoration the model is left holding
+   * whatever the previous accepted state wrote, while the controller
+   * says "pending / dismissed" — visual reads as pending but the
+   * buffer reflects an accepted state.
+   *
+   * "Original" = `hunk.mineLines` joined with newlines because the
+   * result buffer is seeded from mine. Pure-addition hunks have empty
+   * `mineLines`, so the original content is the empty string (an
+   * insertion-point in the result).
+   *
+   * Crossing this restore through `writeFor` (rather than leaving
+   * `revert` to do it alone) closes the same gap on undo / redo, which
+   * also transition between accepted and pending states.
+   */
   const writeFor = (hunkId: string, state: HunkPickState): void => {
     const hunk = findHunk(hunkId);
     if (!hunk) return;
     const text = writeTextFor(state, hunk);
-    if (text === null) return;
-    args.trackedRangesRef.current.writeHunk(hunkId, text);
-  };
-
-  /**
-   * Restore the hunk's region to its original (pre-acceptance)
-   * content. Used by `revert` when both slots become pending —
-   * `writeTextFor` returns null in that case (no accept = no write
-   * by the standard rules), but the buffer is currently displaying
-   * accepted content from a prior pick that we need to undo.
-   *
-   * "Original" = `hunk.mineLines` for theirs-axis hunks because the
-   * result is seeded with mine. Empty `mineLines` (kind: 'add'
-   * fixtures) writes empty.
-   */
-  const writeOriginalFor = (hunkId: string): void => {
-    const hunk = findHunk(hunkId);
-    if (!hunk) return;
-    const originalText = hunk.mineLines.length === 0 ? '' : `${hunk.mineLines.join('\n')}\n`;
-    args.trackedRangesRef.current.writeHunk(hunkId, originalText);
+    const finalText = text ?? (hunk.mineLines.length === 0 ? '' : `${hunk.mineLines.join('\n')}\n`);
+    args.trackedRangesRef.current.writeHunk(hunkId, finalText);
   };
 
   return {
@@ -227,16 +228,10 @@ export function createPickStateController(args: CreatePickStateControllerArgs): 
       }
       undoStack.push({ hunkId, prev, next });
       redoStack.length = 0;
-      // Buffer write: if either side is still accepted, write that
-      // content. If neither remains accepted, restore the hunk's
-      // original pre-acceptance content (writeTextFor returns null
-      // for the all-pending tuple, so we have to do this explicitly).
-      const text = writeTextFor(next, findHunk(hunkId) ?? ({} as Hunk));
-      if (text !== null) {
-        args.trackedRangesRef.current.writeHunk(hunkId, text);
-      } else {
-        writeOriginalFor(hunkId);
-      }
+      // `writeFor` handles both the accepted-content and the
+      // restore-to-original cases — single source of truth for
+      // syncing the model with the target state.
+      writeFor(hunkId, next);
       args.onChange?.(hunkId);
     },
     bulkSet(updates) {
