@@ -27,7 +27,11 @@ import {
   ResourceTypesDiagram,
   UrlPatternDiagram,
   UrlRegexDiagram,
+  DelayNavDiagram,
   DelayRoutingDiagram,
+  DelayUseCasesDiagram,
+  DelayWontApplyDiagram,
+  DelayXhrDiagram,
   DirectVsIndirectDiagram,
   ExecutionDnrReachDiagram,
   ExecutionScriptReachDiagram,
@@ -1069,10 +1073,11 @@ export const InjectSection: React.FC = () => (
 
 export const DelaySection: React.FC = () => (
   <>
+    <SurfaceContext surfaces={['popup', 'side-panel', 'workbench', 'devtools']} />
     <DocParagraph>
       Adds artificial latency to matching requests. Three lanes run in parallel depending on the request kind.
     </DocParagraph>
-    <DiagramFrame caption="Delay routing — three lanes for three request kinds">
+    <DiagramFrame caption="Delay routing — three lanes for three request kinds.">
       <DelayRoutingDiagram />
     </DiagramFrame>
 
@@ -1081,30 +1086,32 @@ export const DelaySection: React.FC = () => (
       Routed through a local waiting page. Honors delays up to <strong>30,000 ms</strong> — Chrome's DNR redirect
       ceiling.
     </DocParagraph>
-    <Example
-      rule="Delay 8000ms (page navigation)"
-      after={['Page hangs on a waiting screen for 8 seconds before loading']}
-    />
+    <DiagramFrame caption="A local waiting page holds the navigation for N ms, then forwards to the real target.">
+      <DelayNavDiagram />
+    </DiagramFrame>
 
     <DocHeading level={3}>JS-initiated XHR / fetch</DocHeading>
     <DocParagraph>
       Intercepted by a <code>fetch()</code> / <code>XMLHttpRequest</code> monkey-patch. Capped at{' '}
       <strong>5,000 ms</strong> to avoid starving Chrome's HTTP connection pool — values above are clamped on the wire.
     </DocParagraph>
-    <Example
-      rule="Delay 3000ms (XHR)"
-      after={['Each fetch() / XHR resolves 3 seconds later than it normally would']}
-      wontApply={[
-        'Service-worker fetches that bypass page-level monkey-patches',
-        '→ Inject the patch in the service-worker scope if you control it',
-      ]}
-    />
+    <DiagramFrame caption="setTimeout inside the page-level patch holds the call before forwarding to the network.">
+      <DelayXhrDiagram />
+    </DiagramFrame>
 
-    <DocHeading level={3}>Sub-resources</DocHeading>
+    <DiagramFrame caption="Sub-resources and service-worker fetches escape the page-level monkey-patch.">
+      <DelayWontApplyDiagram />
+    </DiagramFrame>
+
+    <DocHeading level={3}>When to use this</DocHeading>
     <DocParagraph>
-      Images, scripts, stylesheets, fonts, and other passive resources are <strong>not delayed</strong>. They need a
-      real local proxy that can hold the connection open and stream bytes — something an extension can't do.
+      Surfacing loading-state regressions, exercising debounce/throttle code paths, exposing race conditions between
+      concurrent requests, and approximating slow-network conditions during local development.
     </DocParagraph>
+    <DiagramFrame caption="Four typical patterns — pair with URL Pattern or Domains to scope.">
+      <DelayUseCasesDiagram />
+    </DiagramFrame>
+
     <Callout kind="limitation">
       Use a local desktop proxy if you specifically need to throttle static-resource loads.
     </Callout>

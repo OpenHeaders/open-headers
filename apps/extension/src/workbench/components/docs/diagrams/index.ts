@@ -7,7 +7,13 @@
  * `header-actions.tsx`) and the export gets relocated here.
  */
 
-export { DelayRoutingDiagram } from './_pending';
+export {
+  DelayNavDiagram,
+  DelayRoutingDiagram,
+  DelayUseCasesDiagram,
+  DelayWontApplyDiagram,
+  DelayXhrDiagram,
+} from './delay';
 export {
   InjectCssDiagram,
   InjectScriptDiagram,
