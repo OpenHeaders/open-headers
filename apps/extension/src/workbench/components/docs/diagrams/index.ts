@@ -87,7 +87,7 @@ export { DirectVsIndirectDiagram } from './direct-vs-indirect';
 export { RESOURCE_TYPE_ICONS, ResourceTypesAnatomyDiagram } from './resource-types';
 export { KeyboardRegionsDiagram } from './keyboard-shortcuts';
 export { LimitationsOverviewDiagram } from './limitations';
-export { WhyProblemDiagram, WhyStrengthsDiagram, WhyWhereItFitsDiagram } from './why';
+export { WhyCapabilitiesDiagram, WhyHeroDiagram, WhyScenariosDiagram } from './why';
 export { ExecutionDnrReachDiagram, ExecutionScriptReachDiagram, ExecutionStackDiagram } from './execution';
 export {
   RequestTrackingDiagram,
