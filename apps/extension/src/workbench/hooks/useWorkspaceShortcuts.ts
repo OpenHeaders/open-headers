@@ -157,7 +157,7 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
   },
   {
     id: 'focus-filter',
-    label: 'Focus left sidebar filter',
+    label: 'Focus active section filter',
     settingKey: 'keyboard.focusSidebarFilter',
     category: 'navigation',
     handler: { kind: 'direct', name: 'onFocusFilter' },
