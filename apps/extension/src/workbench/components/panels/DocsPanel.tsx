@@ -445,81 +445,19 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ onClose }) => {
       ) : (
         <SectionRegistryContext.Provider value={registerAnchor}>
           <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
-            {/* Top pager — sits right below the breadcrumb so users
-             *  can hop without scrolling to the footer. */}
-            {(prevSection || nextSection) && (
-              <div
-                style={{
-                  display: 'flex',
-                  gap: 8,
-                  justifyContent: 'space-between',
-                  marginBottom: 10,
-                  paddingBottom: 8,
-                  borderBottom: `1px solid ${token.colorBorderSecondary}`,
-                }}
-              >
-                {prevSection ? (
-                  <PagerLink
-                    direction="prev"
-                    title={prevSection.title}
-                    onClick={() => navigateTo(prevSection.id)}
-                  />
-                ) : (
-                  <span />
-                )}
-                {nextSection ? (
-                  <PagerLink
-                    direction="next"
-                    title={nextSection.title}
-                    onClick={() => navigateTo(nextSection.id)}
-                  />
-                ) : (
-                  <span />
-                )}
-              </div>
-            )}
-
             <Typography.Title level={5} style={{ fontSize: 14, marginTop: 0, marginBottom: 8 }}>
               {activeSection.title}
             </Typography.Title>
             <Component />
-            {(prevSection || nextSection) && (
-              <div
-                style={{
-                  marginTop: 24,
-                  paddingTop: 12,
-                  borderTop: `1px solid ${token.colorBorderSecondary}`,
-                  display: 'flex',
-                  gap: 8,
-                  justifyContent: 'space-between',
-                }}
-              >
-                {prevSection ? (
-                  <PagerLink
-                    direction="prev"
-                    title={prevSection.title}
-                    onClick={() => navigateTo(prevSection.id)}
-                  />
-                ) : (
-                  <span />
-                )}
-                {nextSection ? (
-                  <PagerLink
-                    direction="next"
-                    title={nextSection.title}
-                    onClick={() => navigateTo(nextSection.id)}
-                  />
-                ) : (
-                  <span />
-                )}
-              </div>
-            )}
             <div style={{ height: 16 }} />
           </div>
         </SectionRegistryContext.Provider>
       )}
 
-      {/* Sticky footer — keyboard hints, command-palette style. */}
+      {/* Sticky footer — pager on the sides, keyboard hints in the
+       *  middle. In reading view the pager replaces the prev/next
+       *  chord hints (the buttons themselves carry the chord
+       *  indicator), leaving only `esc` as the contextual shortcut. */}
       <div
         style={{
           display: 'flex',
@@ -531,20 +469,42 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ onClose }) => {
           color: token.colorTextTertiary,
           fontSize: 10,
           flexShrink: 0,
-          minHeight: 24,
+          minHeight: 32,
         }}
       >
         {view === 'toc' ? (
-          <>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12, margin: '0 auto' }}>
             <FooterHint chord="↑↓" label="navigate" />
             <FooterHint chord="↵" label="open" />
             <FooterHint chord="esc" label="back" />
-          </>
+          </div>
         ) : (
           <>
-            <FooterHint chord="⌥←" label="prev" />
-            <FooterHint chord="⌥→" label="next" />
-            <FooterHint chord="esc" label="contents" />
+            <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-start' }}>
+              {prevSection ? (
+                <PagerLink
+                  direction="prev"
+                  title={prevSection.title}
+                  onClick={() => navigateTo(prevSection.id)}
+                />
+              ) : (
+                <span />
+              )}
+            </div>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
+              <FooterHint chord="esc" label="contents" />
+            </div>
+            <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
+              {nextSection ? (
+                <PagerLink
+                  direction="next"
+                  title={nextSection.title}
+                  onClick={() => navigateTo(nextSection.id)}
+                />
+              ) : (
+                <span />
+              )}
+            </div>
           </>
         )}
       </div>
