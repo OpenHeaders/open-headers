@@ -43,6 +43,53 @@ const SUBSYSTEMS = ['Sync', 'Rules', 'Requests', 'Permissions', 'Secrets', 'Live
 // ─── Surfaces — where the pill renders ────────────────────────────
 
 /**
+ * Mini-rendering of the real Open Headers extension logo
+ * (`apps/extension/src/assets/images/logo-pixel.svg`). Letter strokes
+ * and the smile curve are preserved so the mark stays recognizable
+ * even at toolbar-icon size. Inlined here instead of an `<image href>`
+ * so colors stay theme-stable and the SVG ships with the diagram.
+ */
+const OhLogo: React.FC<{ x: number; y: number; size: number; idSuffix: string }> = ({
+  x,
+  y,
+  size,
+  idSuffix,
+}) => {
+  const scale = size / 512;
+  const gradientId = `oh-bg-${idSuffix}`;
+  return (
+    <g transform={`translate(${x}, ${y}) scale(${scale})`}>
+      <defs>
+        <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#5890FF" />
+          <stop offset="100%" stopColor="#4A7FE8" />
+        </linearGradient>
+      </defs>
+      <rect width={512} height={512} rx={80} fill={`url(#${gradientId})`} />
+      <g transform="translate(32 32) scale(0.875)">
+        <g fill="white" shapeRendering="crispEdges">
+          <rect x={80} y={112} width={128} height={32} />
+          <rect x={48} y={144} width={64} height={160} />
+          <rect x={176} y={144} width={64} height={160} />
+          <rect x={80} y={304} width={128} height={32} />
+          <rect x={272} y={112} width={64} height={224} />
+          <rect x={400} y={112} width={64} height={224} />
+          <rect x={272} y={208} width={192} height={32} />
+        </g>
+        <rect x={112} y={144} width={64} height={160} fill="#FF4444" shapeRendering="crispEdges" />
+        <path
+          d="M 80 388 C 180 448, 332 448, 432 388"
+          stroke="white"
+          strokeWidth={28}
+          fill="none"
+          strokeLinecap="round"
+        />
+      </g>
+    </g>
+  );
+};
+
+/**
  * Reusable: scaled-up version of the `SurfaceContext` glyph. Draws a
  * Chrome-style browser window — title bar with traffic lights, tab
  * strip, address bar — and lets the caller pass child SVG nodes for
@@ -292,12 +339,24 @@ export const SystemStatusPopupSurfaceDiagram: React.FC = () => {
           ))}
         </g>
 
-        {/* Extension icon highlighted in the toolbar */}
-        <rect x={290} y={39} width={14} height={12} rx={3} fill={FILL_BLUE} stroke={STROKE_BLUE} strokeWidth={1.5} />
+        {/* Extension icon — actual Open Headers logo */}
+        <OhLogo x={286} y={53} size={20} idSuffix="popup-icon" />
+        {/* Subtle "selected" ring around the icon */}
+        <rect
+          x={284}
+          y={51}
+          width={24}
+          height={24}
+          rx={5}
+          fill="transparent"
+          stroke={STROKE_BLUE}
+          strokeWidth={1.5}
+          strokeDasharray="2 2"
+        />
         {/* Connector arrow from icon to popup */}
         <line
-          x1={297}
-          y1={52}
+          x1={296}
+          y1={76}
           x2={PU_X + PU_W - 12}
           y2={PU_Y}
           stroke={STROKE_BLUE}
