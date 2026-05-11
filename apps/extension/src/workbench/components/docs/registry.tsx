@@ -17,6 +17,7 @@ import {
   AppstoreOutlined,
   ClockCircleOutlined,
   CodeOutlined,
+  CompassOutlined,
   DashboardOutlined,
   DeploymentUnitOutlined,
   FilterOutlined,
@@ -48,6 +49,7 @@ import {
   RequestTrackingSection,
   ResourceTypesSection,
   SystemStatusSection,
+  WhySection,
 } from './sections';
 
 export interface DocSection {
@@ -75,6 +77,14 @@ export const DOC_GROUPS: DocGroup[] = [
     id: 'concepts',
     label: 'Concepts',
     sections: [
+      {
+        id: 'why',
+        title: 'Why OpenHeaders',
+        summary: 'What problem it solves, where it fits, and why pick it over alternatives.',
+        group: 'concepts',
+        icon: <CompassOutlined />,
+        Component: WhySection,
+      },
       {
         id: 'conditions',
         title: 'Conditions',
@@ -239,4 +249,4 @@ export function findSection(id: string): DocSection | null {
 }
 
 /** Default section opened on first mount when no deep-link is pending. */
-export const DEFAULT_SECTION_ID = 'conditions';
+export const DEFAULT_SECTION_ID = 'why';

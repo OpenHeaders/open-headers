@@ -85,6 +85,9 @@ import {
   LimitationsOverviewDiagram,
   RESOURCE_TYPE_ICONS,
   ResourceTypesAnatomyDiagram,
+  WhyProblemDiagram,
+  WhyStrengthsDiagram,
+  WhyWhereItFitsDiagram,
   LivePillAggregationDiagram,
   LiveWorkflowFreshnessDiagram,
   PermissionsAuditFlowDiagram,
@@ -116,6 +119,50 @@ import {
   StateRow,
   SurfaceContext,
 } from './shared';
+
+// ── Concepts: Why OpenHeaders ────────────────────────────────────
+
+export const WhySection: React.FC = () => (
+  <>
+    <SurfaceContext surfaces={['popup', 'side-panel', 'workbench', 'devtools']} />
+    <DocParagraph>
+      OpenHeaders is a browser extension that lets you shape network traffic locally — add headers, redirect URLs, mock
+      responses, inject scripts — without touching the server or the app's source.
+    </DocParagraph>
+
+    <DocHeading level={3}>The problem</DocHeading>
+    <DocParagraph>
+      You hit a page you didn't build, talking to a server you don't own, and you need to change something on the wire.
+      Maybe a header has the wrong value, maybe the response shape needs a tweak for a demo, maybe a script needs to
+      load before app code. The page is built by someone else and the server's out of reach.
+    </DocParagraph>
+    <DiagramFrame caption="OpenHeaders slots into the wire as a local interceptor — neither side has to change.">
+      <WhyProblemDiagram />
+    </DiagramFrame>
+
+    <DocHeading level={3}>Where it fits</DocHeading>
+    <DocParagraph>
+      You could fix this with a local proxy or by forking the app's code. An extension is the lightest path: click to
+      install, no system-wide routing, and the rules never leave your machine.
+    </DocParagraph>
+    <DiagramFrame caption="Extension is zero-setup and private; proxies trade setup time for system-wide reach; code forks need the source.">
+      <WhyWhereItFitsDiagram />
+    </DiagramFrame>
+
+    <DocHeading level={3}>Why us</DocHeading>
+    <DocParagraph>
+      Four properties make OpenHeaders worth picking over other extensions in this space:
+    </DocParagraph>
+    <DiagramFrame caption="Local-only · native DNR speed · scriptable for edge cases · cross-browser.">
+      <WhyStrengthsDiagram />
+    </DiagramFrame>
+
+    <Callout kind="note">
+      Once you're comfortable with the concepts, the section pages below give you the full picture — start with
+      <strong> Conditions</strong> to learn how every rule decides what to act on.
+    </Callout>
+  </>
+);
 
 // ── Concepts: Request Tracking ───────────────────────────────────
 
