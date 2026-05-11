@@ -21,6 +21,14 @@ export {
   RedirectWontApplyDiagram,
 } from './redirect';
 export {
+  QueryParamAddReplaceDiagram,
+  QueryParamRemoveAllDiagram,
+  QueryParamRemoveDiagram,
+  QueryParamReplaceOnlyDiagram,
+  QueryParamUseCasesDiagram,
+  QueryParamWontApplyDiagram,
+} from './query-params';
+export {
   AppendDiagram,
   AppendWontApplyDiagram,
   HeaderOpsDiagram,

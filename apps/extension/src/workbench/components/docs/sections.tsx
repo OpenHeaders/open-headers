@@ -37,6 +37,12 @@ import {
   BlockDiagram,
   BlockUseCasesDiagram,
   BlockWontApplyDiagram,
+  QueryParamAddReplaceDiagram,
+  QueryParamRemoveAllDiagram,
+  QueryParamRemoveDiagram,
+  QueryParamReplaceOnlyDiagram,
+  QueryParamUseCasesDiagram,
+  QueryParamWontApplyDiagram,
   RedirectRegexDiagram,
   RedirectStaticDiagram,
   RedirectUseCasesDiagram,
@@ -937,6 +943,7 @@ export const RedirectSection: React.FC = () => (
 
 export const QueryParamSection: React.FC = () => (
   <>
+    <SurfaceContext surfaces={['popup', 'side-panel', 'workbench', 'devtools']} />
     <DocParagraph>
       Modify URL query parameters before the request leaves the browser. Compiles to a DNR <code>queryTransform</code>{' '}
       action.
@@ -945,7 +952,9 @@ export const QueryParamSection: React.FC = () => (
     <Anchor id="qp-add">
       <ActionHeading title="Add / Replace" engine="dnr" />
       <DocParagraph>Adds the parameter if missing, or replaces its value if already present.</DocParagraph>
-      <Example rule="debug = true" before={['?page=1']} after={['?page=1&debug=true']} />
+      <DiagramFrame caption="Adds when missing, replaces when present — always one matching param with your value.">
+        <QueryParamAddReplaceDiagram />
+      </DiagramFrame>
     </Anchor>
 
     <Anchor id="qp-override">
@@ -955,13 +964,17 @@ export const QueryParamSection: React.FC = () => (
         untouched. Use this to canonicalize a value (e.g. force <code>region=eu</code> on URLs already carrying any
         region) without injecting it into URLs that didn't have it.
       </DocParagraph>
-      <Example rule="region = eu (override)" before={['?region=us', '?page=1']} after={['?region=eu', '?page=1']} />
+      <DiagramFrame caption="Replaces only existing values — URLs without the param are untouched.">
+        <QueryParamReplaceOnlyDiagram />
+      </DiagramFrame>
     </Anchor>
 
     <Anchor id="qp-remove">
       <ActionHeading title="Remove" engine="dnr" />
       <DocParagraph>Removes specific parameters by name. The value is ignored.</DocParagraph>
-      <Example rule="Remove utm_source" before={['?utm_source=google&page=1']} after={['?page=1']} />
+      <DiagramFrame caption="Named param goes away; every other query param passes through.">
+        <QueryParamRemoveDiagram />
+      </DiagramFrame>
     </Anchor>
 
     <Anchor id="qp-remove-all">
@@ -969,8 +982,23 @@ export const QueryParamSection: React.FC = () => (
       <DocParagraph>
         Strips the entire query string. Can't be combined with Add / Replace in the same rule.
       </DocParagraph>
-      <Example rule="Remove All" before={['?utm_source=google&page=1&debug=true']} after={['(no query string)']} />
+      <DiagramFrame caption="Strips the whole query in one step — the URL ends up bare.">
+        <QueryParamRemoveAllDiagram />
+      </DiagramFrame>
     </Anchor>
+
+    <DiagramFrame caption="Remove All conflicts with Add / Replace at the DNR layer — split into two rules.">
+      <QueryParamWontApplyDiagram />
+    </DiagramFrame>
+
+    <DocHeading level={3}>When to use this</DocHeading>
+    <DocParagraph>
+      Forcing a debug flag, canonicalizing region or locale, scrubbing tracking params, or stripping all query strings
+      for privacy. Each one maps cleanly to one of the four operations above.
+    </DocParagraph>
+    <DiagramFrame caption="Four typical patterns — pick the operation that matches your intent.">
+      <QueryParamUseCasesDiagram />
+    </DiagramFrame>
   </>
 );
 
