@@ -217,7 +217,11 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ onClose }) => {
         // consistent across narrow + wide docs panels, and we use
         // `behavior: 'auto'` so rapid presses accumulate cleanly
         // instead of queueing sluggish smooth animations.
-        if (!isInput && !e.altKey && !e.metaKey && !e.ctrlKey) {
+        // Shift is deliberately excluded: Shift+Arrow / Shift+PageUp /
+        // Shift+Home extend a native text selection. Stealing those
+        // would silently break "click some prose, then Shift+Down to
+        // grab a few more lines" — a normal docs-reading reflex.
+        if (!isInput && !e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
           const container = scrollRef.current;
           if (!container) return;
           const arrowStep = Math.max(160, Math.round(container.clientHeight * 0.3));
