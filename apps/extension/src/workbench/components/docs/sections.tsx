@@ -81,6 +81,7 @@ import {
   RequestTrackingDiagram,
   RequestTrackingPhasesDiagram,
   RequestTrackingUiDiagram,
+  ResourceTypesAnatomyDiagram,
   LivePillAggregationDiagram,
   LiveWorkflowFreshnessDiagram,
   PermissionsAuditFlowDiagram,
@@ -1241,10 +1242,14 @@ export const MockSection: React.FC = () => (
 
 export const ResourceTypesSection: React.FC = () => (
   <>
+    <SurfaceContext surfaces={['popup', 'side-panel', 'workbench', 'devtools']} />
     <DocParagraph>
       Reference for Chrome's <code>ResourceType</code> values surfaced by request tracking and the Resource Types
       condition. Each label maps to a single underlying type — there's no overlap between rows.
     </DocParagraph>
+    <DiagramFrame caption="What kind of request lands in which ResourceType — at a glance.">
+      <ResourceTypesAnatomyDiagram />
+    </DiagramFrame>
     <ResourceTypeTable />
   </>
 );
