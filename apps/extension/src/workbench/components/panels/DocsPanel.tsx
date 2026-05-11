@@ -445,6 +445,45 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ onClose }) => {
       ) : (
         <SectionRegistryContext.Provider value={registerAnchor}>
           <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
+            {/* Top pager — sits right below the breadcrumb so users can
+             *  hop forward/back without scrolling to the footer.
+             *  Renders the prev/next titles dimmer than the bottom pager
+             *  to keep the section heading the visual anchor. */}
+            {(prevSection || nextSection) && (
+              <div
+                style={{
+                  display: 'flex',
+                  gap: 12,
+                  marginBottom: 10,
+                  paddingBottom: 8,
+                  borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                }}
+              >
+                {prevSection ? (
+                  <PagerLink
+                    direction="prev"
+                    title={prevSection.title}
+                    onClick={() => navigateTo(prevSection.id)}
+                    color={token.colorTextTertiary}
+                    primary={token.colorPrimary}
+                  />
+                ) : (
+                  <div style={{ flex: 1 }} />
+                )}
+                {nextSection ? (
+                  <PagerLink
+                    direction="next"
+                    title={nextSection.title}
+                    onClick={() => navigateTo(nextSection.id)}
+                    color={token.colorTextTertiary}
+                    primary={token.colorPrimary}
+                  />
+                ) : (
+                  <div style={{ flex: 1 }} />
+                )}
+              </div>
+            )}
+
             <Typography.Title level={5} style={{ fontSize: 14, marginTop: 0, marginBottom: 8 }}>
               {activeSection.title}
             </Typography.Title>
@@ -465,7 +504,6 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ onClose }) => {
                     title={prevSection.title}
                     onClick={() => navigateTo(prevSection.id)}
                     color={token.colorText}
-                    dim={token.colorTextTertiary}
                     primary={token.colorPrimary}
                   />
                 ) : (
@@ -477,7 +515,6 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ onClose }) => {
                     title={nextSection.title}
                     onClick={() => navigateTo(nextSection.id)}
                     color={token.colorText}
-                    dim={token.colorTextTertiary}
                     primary={token.colorPrimary}
                   />
                 ) : (
@@ -541,69 +578,56 @@ const FooterHint: React.FC<{ chord: string; label: string }> = ({ chord, label }
 );
 
 /**
- * Minimalist Stripe-style pager link — chevron + small label on
- * one line, target section title on the next, both subtle until
- * hover bumps them up to primary color.
+ * Minimalist one-line pager link — chevron + target section title on
+ * a single line. Stays subtle until hover, then bumps to primary
+ * color. Used both at the top of a section (below the breadcrumb,
+ * subtle row) and at the bottom (after the section content).
  */
 const PagerLink: React.FC<{
   direction: 'prev' | 'next';
   title: string;
   onClick: () => void;
   color: string;
-  dim: string;
   primary: string;
-}> = ({ direction, title, onClick, color, dim, primary }) => {
+}> = ({ direction, title, onClick, color, primary }) => {
   const [hover, setHover] = useState(false);
   const isPrev = direction === 'prev';
-  const labelText = isPrev ? 'Previous' : 'Next';
   return (
     <button
       type="button"
       onClick={onClick}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
+      title={(isPrev ? 'Previous: ' : 'Next: ') + title}
       style={{
         flex: 1,
         background: 'transparent',
         border: 'none',
-        padding: '4px 0',
+        padding: 0,
         cursor: 'pointer',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: isPrev ? 'flex-start' : 'flex-end',
-        gap: 2,
-        textAlign: isPrev ? 'left' : 'right',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: isPrev ? 'flex-start' : 'flex-end',
+        gap: 6,
+        color: hover ? primary : color,
+        fontSize: 12,
+        fontWeight: 500,
         minWidth: 0,
+        textAlign: isPrev ? 'left' : 'right',
       }}
     >
+      {isPrev && <ArrowLeftOutlined style={{ fontSize: 11, flexShrink: 0 }} />}
       <span
         style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 4,
-          fontSize: 10,
-          textTransform: 'uppercase',
-          letterSpacing: 0.6,
-          color: dim,
-        }}
-      >
-        {isPrev && <ArrowLeftOutlined style={{ fontSize: 10 }} />}
-        {labelText}
-        {!isPrev && <ArrowRightOutlined style={{ fontSize: 10 }} />}
-      </span>
-      <span
-        style={{
-          fontSize: 12,
-          fontWeight: 500,
-          color: hover ? primary : color,
-          maxWidth: '100%',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
+          minWidth: 0,
         }}
       >
         {title}
       </span>
+      {!isPrev && <ArrowRightOutlined style={{ fontSize: 11, flexShrink: 0 }} />}
     </button>
   );
 };
