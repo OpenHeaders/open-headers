@@ -445,15 +445,14 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ onClose }) => {
       ) : (
         <SectionRegistryContext.Provider value={registerAnchor}>
           <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
-            {/* Top pager — sits right below the breadcrumb so users can
-             *  hop forward/back without scrolling to the footer.
-             *  Renders the prev/next titles dimmer than the bottom pager
-             *  to keep the section heading the visual anchor. */}
+            {/* Top pager — sits right below the breadcrumb so users
+             *  can hop without scrolling to the footer. */}
             {(prevSection || nextSection) && (
               <div
                 style={{
                   display: 'flex',
-                  gap: 12,
+                  gap: 8,
+                  justifyContent: 'space-between',
                   marginBottom: 10,
                   paddingBottom: 8,
                   borderBottom: `1px solid ${token.colorBorderSecondary}`,
@@ -464,22 +463,18 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ onClose }) => {
                     direction="prev"
                     title={prevSection.title}
                     onClick={() => navigateTo(prevSection.id)}
-                    color={token.colorTextTertiary}
-                    primary={token.colorPrimary}
                   />
                 ) : (
-                  <div style={{ flex: 1 }} />
+                  <span />
                 )}
                 {nextSection ? (
                   <PagerLink
                     direction="next"
                     title={nextSection.title}
                     onClick={() => navigateTo(nextSection.id)}
-                    color={token.colorTextTertiary}
-                    primary={token.colorPrimary}
                   />
                 ) : (
-                  <div style={{ flex: 1 }} />
+                  <span />
                 )}
               </div>
             )}
@@ -495,7 +490,8 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ onClose }) => {
                   paddingTop: 12,
                   borderTop: `1px solid ${token.colorBorderSecondary}`,
                   display: 'flex',
-                  gap: 12,
+                  gap: 8,
+                  justifyContent: 'space-between',
                 }}
               >
                 {prevSection ? (
@@ -503,22 +499,18 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ onClose }) => {
                     direction="prev"
                     title={prevSection.title}
                     onClick={() => navigateTo(prevSection.id)}
-                    color={token.colorText}
-                    primary={token.colorPrimary}
                   />
                 ) : (
-                  <div style={{ flex: 1 }} />
+                  <span />
                 )}
                 {nextSection ? (
                   <PagerLink
                     direction="next"
                     title={nextSection.title}
                     onClick={() => navigateTo(nextSection.id)}
-                    color={token.colorText}
-                    primary={token.colorPrimary}
                   />
                 ) : (
-                  <div style={{ flex: 1 }} />
+                  <span />
                 )}
               </div>
             )}
@@ -578,57 +570,40 @@ const FooterHint: React.FC<{ chord: string; label: string }> = ({ chord, label }
 );
 
 /**
- * Minimalist one-line pager link — chevron + target section title on
- * a single line. Stays subtle until hover, then bumps to primary
- * color. Used both at the top of a section (below the breadcrumb,
- * subtle row) and at the bottom (after the section content).
+ * Tour-guide-style pager button — Ant Button with a kbd-key chord
+ * indicator + "Previous" / "Next" label. Mirrors the look of the
+ * onboarding tour's prev/next buttons (uses the same `.kbd-key`
+ * class so they render with the kbd styling used everywhere else).
+ * Title is intentionally omitted: keeps the two buttons same-width
+ * and the focus on the action, not the destination label.
  */
 const PagerLink: React.FC<{
   direction: 'prev' | 'next';
   title: string;
   onClick: () => void;
-  color: string;
-  primary: string;
-}> = ({ direction, title, onClick, color, primary }) => {
-  const [hover, setHover] = useState(false);
+}> = ({ direction, title, onClick }) => {
   const isPrev = direction === 'prev';
   return (
-    <button
-      type="button"
+    <Button
+      type="default"
+      size="small"
       onClick={onClick}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
       title={(isPrev ? 'Previous: ' : 'Next: ') + title}
-      style={{
-        flex: 1,
-        background: 'transparent',
-        border: 'none',
-        padding: 0,
-        cursor: 'pointer',
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: isPrev ? 'flex-start' : 'flex-end',
-        gap: 6,
-        color: hover ? primary : color,
-        fontSize: 12,
-        fontWeight: 500,
-        minWidth: 0,
-        textAlign: isPrev ? 'left' : 'right',
-      }}
     >
-      {isPrev && <ArrowLeftOutlined style={{ fontSize: 11, flexShrink: 0 }} />}
-      <span
-        style={{
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          minWidth: 0,
-        }}
-      >
-        {title}
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        {isPrev && (
+          <span className="kbd-key" style={{ fontSize: 9, height: 16, minWidth: 16, padding: '0 3px' }}>
+            ←
+          </span>
+        )}
+        <span>{isPrev ? 'Previous' : 'Next'}</span>
+        {!isPrev && (
+          <span className="kbd-key" style={{ fontSize: 9, height: 16, minWidth: 16, padding: '0 3px' }}>
+            →
+          </span>
+        )}
       </span>
-      {!isPrev && <ArrowRightOutlined style={{ fontSize: 11, flexShrink: 0 }} />}
-    </button>
+    </Button>
   );
 };
 
