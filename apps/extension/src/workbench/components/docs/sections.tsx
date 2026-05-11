@@ -124,7 +124,6 @@ import {
 
 export const WhySection: React.FC = () => (
   <>
-    <SurfaceContext surfaces={['popup', 'side-panel', 'workbench', 'devtools']} />
     <DiagramFrame caption="The page sends a request — OpenHeaders rewrites it locally before it reaches the network.">
       <WhyHeroDiagram />
     </DiagramFrame>
