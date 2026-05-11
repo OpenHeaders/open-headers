@@ -265,7 +265,7 @@ const RESOURCE_TYPES = [
 
 export const ExecutionSection: React.FC = () => (
   <>
-    <SurfaceContext surfaces={['popup', 'side-panel', 'workbench']} />
+    <SurfaceContext surfaces={['popup', 'side-panel', 'workbench', 'devtools']} />
     <DocParagraph>
       Rules execute through one of two engines depending on what they do. Knowing which path a rule travels explains
       where it applies — and where it cannot.
