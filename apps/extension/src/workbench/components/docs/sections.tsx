@@ -34,6 +34,8 @@ import {
   ExecutionStackDiagram,
   AppendDiagram,
   AppendWontApplyDiagram,
+  BlockDiagram,
+  BlockWontApplyDiagram,
   HeaderOpsDiagram,
   MergeDiagram,
   MergeWontApplyDiagram,
@@ -851,6 +853,7 @@ export const HeaderActionsSection: React.FC = () => (
 
 export const BlockSection: React.FC = () => (
   <>
+    <SurfaceContext surfaces={['popup', 'side-panel', 'workbench', 'devtools']} />
     <DocParagraph>
       Cancels matching requests at the network layer. The browser receives a network error and the page sees the request
       fail as if the server were unreachable.
@@ -862,14 +865,12 @@ export const BlockSection: React.FC = () => (
       scripts, images, fonts, fetch, XHR — so a single rule covers everything unless you scope it down with a Resource
       Type condition.
     </DocParagraph>
-    <Example
-      rule="Block · Request Domains: ads.openheaders.io"
-      after={['Any request to ads.openheaders.io fails with a network error']}
-      wontApply={[
-        'Already-loaded resources — only future requests are intercepted',
-        '→ Reload the page after enabling the rule',
-      ]}
-    />
+    <DiagramFrame caption="Request is killed before it leaves the browser; the page sees a network error.">
+      <BlockDiagram />
+    </DiagramFrame>
+    <DiagramFrame caption="Already-loaded resources stay loaded — Block only catches future requests.">
+      <BlockWontApplyDiagram />
+    </DiagramFrame>
 
     <DocHeading level={3}>When to use this</DocHeading>
     <DocParagraph>
