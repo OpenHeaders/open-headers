@@ -81,6 +81,7 @@ import {
   RequestTrackingDiagram,
   RequestTrackingPhasesDiagram,
   RequestTrackingUiDiagram,
+  KeyboardRegionsDiagram,
   RESOURCE_TYPE_ICONS,
   ResourceTypesAnatomyDiagram,
   LivePillAggregationDiagram,
@@ -1294,10 +1295,14 @@ export const KeyboardShortcutsSection: React.FC = () => {
   const { token } = theme.useToken();
   return (
     <>
+      <SurfaceContext surfaces={['popup', 'side-panel', 'workbench', 'devtools']} />
       <DocParagraph>
         Press <code>?</code> anytime to jump here. Shortcuts use{' '}
         <strong>{/Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘ Cmd' : 'Ctrl'}</strong> as the modifier key.
       </DocParagraph>
+      <DiagramFrame caption="Four chords park your focus in one of four shell regions.">
+        <KeyboardRegionsDiagram />
+      </DiagramFrame>
       {(['panels', 'tabs', 'navigation', 'actions'] as const).map((category) => {
         const items = SHORTCUTS.filter((s) => s.category === category);
         if (items.length === 0) return null;

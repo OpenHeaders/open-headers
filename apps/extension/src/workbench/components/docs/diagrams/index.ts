@@ -85,6 +85,7 @@ export {
 } from './conditions';
 export { DirectVsIndirectDiagram } from './direct-vs-indirect';
 export { RESOURCE_TYPE_ICONS, ResourceTypesAnatomyDiagram } from './resource-types';
+export { KeyboardRegionsDiagram } from './keyboard-shortcuts';
 export { ExecutionDnrReachDiagram, ExecutionScriptReachDiagram, ExecutionStackDiagram } from './execution';
 export {
   RequestTrackingDiagram,
