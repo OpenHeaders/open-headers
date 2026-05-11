@@ -1112,8 +1112,10 @@ export const DelaySection: React.FC = () => (
       <DelayUseCasesDiagram />
     </DiagramFrame>
 
-    <Callout kind="limitation">
-      Use a local desktop proxy if you specifically need to throttle static-resource loads.
+    <Callout kind="note" title="Desktop App — product note">
+      Throttling static resources (images, scripts, stylesheets, fonts) needs a real local network layer that can hold
+      connections open and stream bytes — out of reach for an extension. The v5 desktop app, in development now, will
+      pick that up once it ships.
     </Callout>
   </>
 );

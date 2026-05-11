@@ -284,7 +284,7 @@ export const DelayWontApplyDiagram: React.FC = () => {
         Suggestion
       </text>
       <text x={48} y={138} fontSize={9} fill={TEXT}>
-        Use a real local desktop proxy to throttle.
+        Sub-resource throttling lands with the v5 desktop app.
       </text>
     </svg>
   );
