@@ -349,10 +349,10 @@ export const QueryParamWontApplyDiagram: React.FC = () => {
 export const QueryParamUseCasesDiagram: React.FC = () => {
   type Card = { title: string; example: string };
   const CARDS: Card[] = [
-    { title: 'Force a flag', example: 'Add debug=true everywhere' },
-    { title: 'Canonicalize', example: 'Replace region only if present' },
-    { title: 'Strip trackers', example: 'Remove utm_source, utm_medium' },
-    { title: 'Privacy mode', example: 'Remove All on outgoing fetches' },
+    { title: 'Force a flag', example: 'Add debug=true' },
+    { title: 'Canonicalize', example: 'Replace region only' },
+    { title: 'Strip trackers', example: 'Remove utm_* params' },
+    { title: 'Privacy mode', example: 'Strip all queries' },
   ];
 
   const CARD_W = 142;
