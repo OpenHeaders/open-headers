@@ -43,32 +43,127 @@ const SUBSYSTEMS = ['Sync', 'Rules', 'Requests', 'Permissions', 'Secrets', 'Live
 // ─── Surfaces — where the pill renders ────────────────────────────
 
 /**
- * Two clean strip mockups: the workbench-footer pill row up top, the
- * popup/side-panel header bar with its single composite dot below.
- * Each strip is the focal point — no extraneous window chrome,
- * placeholder body lines, or callout arrows competing for attention.
+ * Reusable: scaled-up version of the `SurfaceContext` glyph. Draws a
+ * Chrome-style browser window — title bar with traffic lights, tab
+ * strip, address bar — and lets the caller pass child SVG nodes for
+ * whatever surface-specific content sits inside the content area.
  */
-export const SystemStatusSurfacesDiagram: React.FC = () => {
-  // Compact pill metrics — tight enough that all six fit in the
-  // 280px footer interior without truncation.
+const BrowserFrame: React.FC<{ tabLabel: string; addressBar: string; children: React.ReactNode }> = ({
+  tabLabel,
+  addressBar,
+  children,
+}) => {
+  const FX = 8;
+  const FY = 18;
+  const FW = 304;
+  const FH = 160;
+
+  const titleY = FY;
+  const titleH = 16;
+  const tabsY = titleY + titleH;
+  const tabsH = 18;
+  const addrY = tabsY + tabsH;
+  const addrH = 18;
+  const bodyY = addrY + addrH;
+  const bodyH = FH - (titleH + tabsH + addrH);
+
+  return (
+    <g>
+      {/* Outer frame */}
+      <rect x={FX} y={FY} width={FW} height={FH} rx={6} fill={BG_CONTAINER} stroke={BORDER} />
+
+      {/* Title bar — traffic lights */}
+      <rect x={FX} y={titleY} width={FW} height={titleH} rx={6} fill={FILL_SECONDARY} stroke={BORDER} />
+      {[0, 1, 2].map((i) => (
+        <circle key={i} cx={FX + 10 + i * 8} cy={titleY + titleH / 2} r={3} fill={GREY} />
+      ))}
+
+      {/* Tab strip */}
+      <rect x={FX} y={tabsY} width={FW} height={tabsH} fill={FILL_SECONDARY} stroke={BORDER} />
+      <rect
+        x={FX + 8}
+        y={tabsY + 3}
+        width={120}
+        height={tabsH - 3}
+        rx={4}
+        fill={BG_CONTAINER}
+        stroke={BORDER}
+      />
+      <text x={FX + 16} y={tabsY + tabsH / 2 + 3} fontSize={9} fontWeight={700} fill={TEXT}>
+        {tabLabel}
+      </text>
+      <text x={FX + FW - 8} y={tabsY + tabsH / 2 + 3} textAnchor="end" fontSize={11} fill={GREY}>
+        +
+      </text>
+
+      {/* Address bar */}
+      <rect x={FX} y={addrY} width={FW} height={addrH} fill={BG_CONTAINER} stroke={BORDER} />
+      <rect
+        x={FX + 8}
+        y={addrY + 3}
+        width={FW - 36}
+        height={addrH - 6}
+        rx={6}
+        fill={FILL_SECONDARY}
+        stroke={BORDER}
+      />
+      <text x={FX + 16} y={addrY + addrH / 2 + 3} fontFamily="monospace" fontSize={8} fill={TEXT_DIM}>
+        {addressBar}
+      </text>
+      {/* Toolbar extension icon slot */}
+      <rect
+        x={FX + FW - 22}
+        y={addrY + 3}
+        width={14}
+        height={addrH - 6}
+        rx={3}
+        fill={FILL_SECONDARY}
+        stroke={BORDER}
+      />
+
+      {/* Caller-provided body content (positioned absolutely inside the frame) */}
+      <g transform={`translate(0, 0)`}>{children}</g>
+
+      {/* Body bounds exposed via data-attr for clarity — not visible */}
+      <rect
+        x={FX}
+        y={bodyY}
+        width={FW}
+        height={bodyH}
+        fill="transparent"
+        stroke={BORDER}
+        strokeWidth={0.5}
+      />
+    </g>
+  );
+};
+
+/**
+ * Workbench surface: the browser shows a workbench.html tab and the
+ * status row lives in the workbench's bottom footer. Inside the body
+ * we paint a few faded UI placeholders for context, and a real-looking
+ * footer strip with the six pills as the focal point.
+ */
+export const SystemStatusWorkbenchSurfaceDiagram: React.FC = () => {
   const charW = 4.3;
   const PAD_X = 4;
   const DOT_R = 2;
   const DOT_GAP = 3;
-  const PILL_H = 16;
+  const PILL_H = 14;
   const PILL_GAP = 3;
-  const widthOf = (name: string) => Math.ceil(name.length * charW) + PAD_X * 2 + DOT_R * 2 + DOT_GAP;
+  const widthOf = (name: string) =>
+    Math.ceil(name.length * charW) + PAD_X * 2 + DOT_R * 2 + DOT_GAP;
 
   const ROW: { name: string; level: Level }[] = SUBSYSTEMS.map((s) => ({ name: s, level: 'green' }));
   const totalW = ROW.reduce((sum, p) => sum + widthOf(p.name), 0) + PILL_GAP * (ROW.length - 1);
 
-  // ─ Workbench footer strip ─
-  const WB_X = 10;
-  const WB_Y = 54;
-  const WB_W = 300;
-  const WB_H = 32;
-  const wbCenterY = WB_Y + WB_H / 2;
-  const pillsStartX = WB_X + (WB_W - totalW) / 2;
+  // Footer strip lives at the bottom of the body area.
+  const FOOTER_H = 22;
+  const FOOTER_Y = 178 - FOOTER_H; // frame bottom edge - footer height
+  const FOOTER_X = 8;
+  const FOOTER_W = 304;
+  const pillsStartX = FOOTER_X + (FOOTER_W - totalW) / 2;
+  const pillsCenterY = FOOTER_Y + FOOTER_H / 2;
 
   let cursor = pillsStartX;
   const pills = ROW.map((p) => {
@@ -79,71 +174,171 @@ export const SystemStatusSurfacesDiagram: React.FC = () => {
       <g key={p.name}>
         <rect
           x={x}
-          y={wbCenterY - PILL_H / 2}
+          y={pillsCenterY - PILL_H / 2}
           width={w}
           height={PILL_H}
-          rx={8}
+          rx={7}
           fill={BG_CONTAINER}
           stroke={BORDER}
         />
-        <circle cx={x + PAD_X + DOT_R} cy={wbCenterY} r={DOT_R} fill={dotColor(p.level)} />
-        <text
-          x={x + PAD_X + DOT_R * 2 + DOT_GAP}
-          y={wbCenterY + 3}
-          fontSize={9}
-          fontWeight={600}
-          fill={TEXT}
-        >
+        <circle cx={x + PAD_X + DOT_R} cy={pillsCenterY} r={DOT_R} fill={dotColor(p.level)} />
+        <text x={x + PAD_X + DOT_R * 2 + DOT_GAP} y={pillsCenterY + 3} fontSize={8} fontWeight={600} fill={TEXT}>
           {p.name}
         </text>
       </g>
     );
   });
 
-  // ─ Popup header strip ─
-  const PU_X = 10;
-  const PU_Y = 130;
-  const PU_W = 300;
-  const PU_H = 32;
-  const puCenterY = PU_Y + PU_H / 2;
-
   return (
     <svg
-      viewBox="0 0 320 200"
+      viewBox="0 0 320 220"
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Where the system status pill appears — a six-pill row in the workbench footer; a single composite dot in the popup or side-panel header."
+      aria-label="Workbench surface — the OpenHeaders workbench tab. The status row lives in the bottom footer with one pill per subsystem."
     >
-      <text x={160} y={16} textAnchor="middle" fontSize={11} fontWeight={700} fill={TEXT}>
-        Two surfaces, same status
+      <text x={160} y={14} textAnchor="middle" fontSize={11} fontWeight={700} fill={TEXT}>
+        Workbench: status row in the footer
       </text>
 
-      {/* ── Workbench footer strip ── */}
-      <text x={WB_X} y={WB_Y - 14} fontSize={10} fontWeight={700} fill={TEXT}>
-        Workbench footer
-      </text>
-      <text x={WB_X + WB_W} y={WB_Y - 14} textAnchor="end" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        six pills · one per subsystem
-      </text>
-      <rect x={WB_X} y={WB_Y} width={WB_W} height={WB_H} rx={4} fill={FILL_SECONDARY} stroke={BORDER} />
-      {pills}
+      <BrowserFrame tabLabel="Open Headers" addressBar="chrome-extension://…/workbench.html">
+        {/* Faded body placeholders — sidebar + content panes */}
+        <rect x={16} y={72} width={56} height={86} rx={4} fill="var(--ant-color-fill-quaternary)" />
+        <rect x={80} y={72} width={232} height={86} rx={4} fill="var(--ant-color-fill-quaternary)" />
+        {[0, 1, 2].map((i) => (
+          <rect
+            key={i}
+            x={22}
+            y={82 + i * 16}
+            width={44}
+            height={6}
+            rx={2}
+            fill="var(--ant-color-fill-tertiary)"
+          />
+        ))}
+        {[0, 1, 2].map((i) => (
+          <rect
+            key={`m-${i}`}
+            x={88}
+            y={82 + i * 16}
+            width={216 - i * 40}
+            height={6}
+            rx={2}
+            fill="var(--ant-color-fill-tertiary)"
+          />
+        ))}
 
-      {/* ── Popup / side-panel header strip ── */}
-      <text x={PU_X} y={PU_Y - 14} fontSize={10} fontWeight={700} fill={TEXT}>
-        Popup / side-panel header
-      </text>
-      <text x={PU_X + PU_W} y={PU_Y - 14} textAnchor="end" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        one composite dot
-      </text>
-      <rect x={PU_X} y={PU_Y} width={PU_W} height={PU_H} rx={4} fill={FILL_SECONDARY} stroke={BORDER} />
-      <text x={PU_X + 12} y={puCenterY + 4} fontSize={11} fontWeight={700} fill={TEXT}>
-        Open Headers
-      </text>
-      <circle cx={PU_X + PU_W - 14} cy={puCenterY} r={5} fill={SUCCESS} />
+        {/* Footer strip highlighted */}
+        <rect
+          x={FOOTER_X}
+          y={FOOTER_Y}
+          width={FOOTER_W}
+          height={FOOTER_H}
+          fill={FILL_SECONDARY}
+          stroke={dotColor('green')}
+          strokeWidth={1.5}
+        />
+        {pills}
+      </BrowserFrame>
 
-      <text x={160} y={190} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Click either to open the same details popover.
+      {/* Callout */}
+      <text x={160} y={204} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+        ↑ six pills — one per subsystem, click any to open the popover.
+      </text>
+    </svg>
+  );
+};
+
+/**
+ * Popup surface: same browser, but the extension popup hangs down
+ * from the toolbar's extension icon. The popup is the focal point;
+ * the page behind it is just dimmed background. A composite green
+ * dot sits in the popup's header, mirroring the real UI.
+ */
+export const SystemStatusPopupSurfaceDiagram: React.FC = () => {
+  // Popup dimensions and position — anchored under the toolbar's
+  // extension-icon slot (right-aligned in the address bar).
+  const PU_W = 168;
+  const PU_H = 110;
+  const PU_X = 312 - PU_W - 4; // right-aligned to the frame
+  const PU_Y = 64; // hangs from just below the address bar
+  const PU_HEAD_H = 24;
+
+  return (
+    <svg
+      viewBox="0 0 320 220"
+      width="100%"
+      style={{ maxWidth: 360 }}
+      role="img"
+      aria-label="Popup surface — the extension popup hangs from the toolbar icon. The composite status dot lives in its header."
+    >
+      <text x={160} y={14} textAnchor="middle" fontSize={11} fontWeight={700} fill={TEXT}>
+        Popup: composite dot in the header
+      </text>
+
+      <BrowserFrame tabLabel="example.com" addressBar="https://example.com">
+        {/* Page content placeholders (dimmed) */}
+        <g opacity={0.4}>
+          {[0, 1, 2, 3].map((i) => (
+            <rect
+              key={i}
+              x={16}
+              y={86 + i * 14}
+              width={290 - i * 28}
+              height={6}
+              rx={2}
+              fill="var(--ant-color-fill-tertiary)"
+            />
+          ))}
+        </g>
+
+        {/* Extension icon highlighted in the toolbar */}
+        <rect x={290} y={39} width={14} height={12} rx={3} fill={FILL_BLUE} stroke={STROKE_BLUE} strokeWidth={1.5} />
+        {/* Connector arrow from icon to popup */}
+        <line
+          x1={297}
+          y1={52}
+          x2={PU_X + PU_W - 12}
+          y2={PU_Y}
+          stroke={STROKE_BLUE}
+          strokeWidth={1}
+          strokeDasharray="2 2"
+        />
+
+        {/* Popup window */}
+        <rect x={PU_X} y={PU_Y} width={PU_W} height={PU_H} rx={5} fill={BG_CONTAINER} stroke={BORDER} />
+        {/* Popup header */}
+        <rect
+          x={PU_X}
+          y={PU_Y}
+          width={PU_W}
+          height={PU_HEAD_H}
+          rx={5}
+          fill={FILL_SECONDARY}
+          stroke={dotColor('green')}
+          strokeWidth={1.5}
+        />
+        <text x={PU_X + 10} y={PU_Y + PU_HEAD_H / 2 + 4} fontSize={11} fontWeight={700} fill={TEXT}>
+          Open Headers
+        </text>
+        <circle cx={PU_X + PU_W - 14} cy={PU_Y + PU_HEAD_H / 2} r={5} fill={SUCCESS} />
+
+        {/* Popup body placeholders */}
+        {[0, 1, 2, 3].map((i) => (
+          <rect
+            key={`pb-${i}`}
+            x={PU_X + 10}
+            y={PU_Y + PU_HEAD_H + 10 + i * 12}
+            width={PU_W - 24 - i * 18}
+            height={5}
+            rx={2}
+            fill="var(--ant-color-fill-tertiary)"
+          />
+        ))}
+      </BrowserFrame>
+
+      <text x={160} y={204} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+        ↑ one dot — color tracks the worst-state subsystem.
       </text>
     </svg>
   );

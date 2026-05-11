@@ -54,7 +54,8 @@ import {
   SyncLifecycleDiagram,
   SyncTopologyDiagram,
   SystemStatusPopoverDiagram,
-  SystemStatusSurfacesDiagram,
+  SystemStatusPopupSurfaceDiagram,
+  SystemStatusWorkbenchSurfaceDiagram,
   SystemStatusWorstLevelDiagram,
   VaultDriftDetailDiagram,
   VaultHydrationDiagram,
@@ -397,8 +398,11 @@ export const SystemStatusSection: React.FC = () => (
       six-pill row — one pill per subsystem, each with its own colored dot. The popup and side-panel header collapse it
       down to a single composite dot whose color tracks the worst-state subsystem.
     </DocParagraph>
-    <DiagramFrame caption="One row per subsystem in the footer; one composite dot in the popup/side-panel header.">
-      <SystemStatusSurfacesDiagram />
+    <DiagramFrame caption="In the workbench, the row sits in the footer with one pill per subsystem.">
+      <SystemStatusWorkbenchSurfaceDiagram />
+    </DiagramFrame>
+    <DiagramFrame caption="Click the toolbar icon and a single composite dot sits in the popup's header.">
+      <SystemStatusPopupSurfaceDiagram />
     </DiagramFrame>
     <DocParagraph>
       Each subsystem reports a single state and the worst level wins: red &gt; yellow &gt; green. One red anywhere flips
