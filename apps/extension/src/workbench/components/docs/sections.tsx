@@ -32,6 +32,8 @@ import {
   ExecutionDnrReachDiagram,
   ExecutionScriptReachDiagram,
   ExecutionStackDiagram,
+  AppendDiagram,
+  AppendWontApplyDiagram,
   HeaderOpsDiagram,
   OverrideDiagram,
   OverrideWontApplyDiagram,
@@ -801,15 +803,12 @@ export const HeaderActionsSection: React.FC = () => (
         Adds a new header entry with the same name. The original stays — duplicate headers result. Use for Set-Cookie,
         Link, Via.
       </DocParagraph>
-      <Example
-        rule="Append Set-Cookie: tracking=xyz"
-        before={['Set-Cookie: session=abc']}
-        after={['Set-Cookie: session=abc', 'Set-Cookie: tracking=xyz']}
-        wontApply={[
-          "Headers that don't support duplicates (e.g. Authorization) — browser keeps only one",
-          '→ Use Override to replace the value, or Merge to append to the existing value',
-        ]}
-      />
+      <DiagramFrame caption="The original header stays; a second row with the same name is added. Both are delivered.">
+        <AppendDiagram />
+      </DiagramFrame>
+      <DiagramFrame caption="Some headers can't be duplicated — the browser collapses them. Reach for Override or Merge instead.">
+        <AppendWontApplyDiagram />
+      </DiagramFrame>
     </Anchor>
 
     <Anchor id="remove">

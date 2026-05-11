@@ -250,6 +250,171 @@ export const OverrideWontApplyDiagram: React.FC = () => {
   );
 };
 
+/**
+ * Append — visualises the duplicate-header outcome. Beginners often
+ * read "Append" as "concatenate the value." It's actually adding a
+ * SECOND header line with the same name — both lines are delivered.
+ * The diagram makes the duplication visible: BEFORE has one row,
+ * AFTER has two rows with the new one highlighted.
+ */
+export const AppendDiagram: React.FC = () => {
+  const ID = 'ap';
+  const RULE_Y = 22;
+  const RULE_H = 22;
+  const BEFORE_X = 14;
+  const AFTER_X = 168;
+  const STATE_W = 138;
+  const BEFORE_H = 38;
+  const AFTER_H = 56;
+  const STATE_Y = 70;
+  const STAMP_Y = STATE_Y + AFTER_H + 30;
+
+  return (
+    <svg
+      viewBox="0 0 320 200"
+      width="100%"
+      style={{ maxWidth: 360 }}
+      role="img"
+      aria-label="Append adds a second header row with the same name — both delivered. BEFORE has one Set-Cookie; AFTER has two Set-Cookie rows, the new one highlighted."
+    >
+      <ArrowDefs id={ID} />
+
+      {/* Rule banner */}
+      <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
+        RULE
+      </text>
+      <rect x={20} y={RULE_Y} width={280} height={RULE_H} rx={4} fill={FILL_BLUE} stroke={STROKE_BLUE} />
+      <text x={160} y={RULE_Y + 15} textAnchor="middle" fontFamily="monospace" fontSize={10} fontWeight={700} fill={TEXT}>
+        Append Set-Cookie: tracking=xyz
+      </text>
+
+      {/* BEFORE */}
+      <rect
+        x={BEFORE_X}
+        y={STATE_Y}
+        width={STATE_W}
+        height={BEFORE_H}
+        rx={5}
+        fill="var(--ant-color-fill-secondary)"
+        stroke="var(--ant-color-border)"
+      />
+      <text x={BEFORE_X + 6} y={STATE_Y + 12} fontSize={8} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
+        BEFORE
+      </text>
+      <text x={BEFORE_X + 8} y={STATE_Y + 28} fontFamily="monospace" fontSize={9} fill={TEXT}>
+        Set-Cookie: session=abc
+      </text>
+
+      {/* Arrow */}
+      <line
+        x1={BEFORE_X + STATE_W + 4}
+        y1={STATE_Y + BEFORE_H / 2}
+        x2={AFTER_X - 4}
+        y2={STATE_Y + BEFORE_H / 2}
+        stroke={STROKE_BLUE}
+        strokeWidth={1.5}
+        markerEnd={`url(#${ID})`}
+      />
+      <text
+        x={(BEFORE_X + STATE_W + AFTER_X) / 2}
+        y={STATE_Y + BEFORE_H / 2 - 6}
+        textAnchor="middle"
+        fontSize={8}
+        fontStyle="italic"
+        fill={STROKE_BLUE}
+      >
+        +1 row
+      </text>
+
+      {/* AFTER — tall, two rows */}
+      <rect x={AFTER_X} y={STATE_Y} width={STATE_W} height={AFTER_H} rx={5} fill={FILL_GREEN} stroke={STROKE_GREEN} />
+      <text x={AFTER_X + 6} y={STATE_Y + 12} fontSize={8} fontWeight={700} fill={STROKE_GREEN} letterSpacing={0.5}>
+        AFTER
+      </text>
+      {/* Original row, kept */}
+      <text x={AFTER_X + 8} y={STATE_Y + 28} fontFamily="monospace" fontSize={9} fill={TEXT}>
+        Set-Cookie: session=abc
+      </text>
+      <text x={AFTER_X + STATE_W - 6} y={STATE_Y + 28} textAnchor="end" fontSize={7} fontStyle="italic" fill={TEXT_DIM}>
+        original
+      </text>
+      {/* New duplicate row, highlighted */}
+      <text x={AFTER_X + 8} y={STATE_Y + 44} fontFamily="monospace" fontSize={9} fontWeight={700} fill={STROKE_GREEN}>
+        Set-Cookie: tracking=xyz
+      </text>
+      <text x={AFTER_X + STATE_W - 6} y={STATE_Y + 44} textAnchor="end" fontSize={7} fontWeight={700} fill={STROKE_GREEN}>
+        +new
+      </text>
+
+      {/* Outcome stamp */}
+      <text x={160} y={STAMP_Y} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
+        Two Set-Cookie rows — both delivered.
+      </text>
+      <text x={160} y={STAMP_Y + 14} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+        Use for Set-Cookie, Link, Via — headers that allow duplicates.
+      </text>
+    </svg>
+  );
+};
+
+/**
+ * Append — the duplicate-unfriendly gotcha. Many headers (e.g.
+ * Authorization, Host, Content-Type) are spec'd or browser-treated
+ * as single-valued, so appending a second row gets coalesced. Two
+ * routes out: Override to replace, or Merge to concatenate.
+ */
+export const AppendWontApplyDiagram: React.FC = () => {
+  const errColor = 'var(--ant-color-error)';
+  const errBorder = 'var(--ant-color-error-border)';
+  return (
+    <svg
+      viewBox="0 0 320 140"
+      width="100%"
+      style={{ maxWidth: 360 }}
+      role="img"
+      aria-label="Append won't apply cleanly to headers that don't support duplicates — the browser keeps only one. Use Override to replace or Merge to concatenate."
+    >
+      <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
+        WHEN IT DOESN'T FIRE
+      </text>
+
+      <rect
+        x={14}
+        y={26}
+        width={292}
+        height={100}
+        rx={5}
+        fill="var(--ant-color-error-bg)"
+        stroke={errBorder}
+        strokeDasharray="3 3"
+      />
+
+      <text x={28} y={48} fontSize={14} fontWeight={700} fill={errColor}>
+        ✗
+      </text>
+      <text x={48} y={48} fontSize={10} fontWeight={700} fill={TEXT}>
+        Headers that don't allow duplicates
+      </text>
+      <text x={48} y={62} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+        e.g. Authorization, Host, Content-Type — browser keeps only one.
+      </text>
+
+      <text x={28} y={88} fontSize={12} fontWeight={700} fill={STROKE_BLUE}>
+        →
+      </text>
+      <text x={48} y={88} fontSize={10} fontWeight={700} fill={STROKE_BLUE}>
+        Suggestion
+      </text>
+      <text x={48} y={102} fontSize={9} fill={TEXT}>
+        Use Override to replace the value.
+      </text>
+      <text x={48} y={116} fontSize={9} fill={TEXT}>
+        Use Merge to append to the existing value.
+      </text>
+    </svg>
+  );
+};
+
 // ── Header operations comparison (overview) ──────────────────────
 
 /**
