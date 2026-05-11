@@ -132,9 +132,7 @@ export const WhySection: React.FC = () => (
     </DiagramFrame>
 
     <DocParagraph>
-      OpenHeaders is a browser extension for shaping network traffic — locally, on your machine, against any site. You
-      write rules in a clean editor and they apply the next time the page makes a request, with no server change, no
-      proxy setup, and no app fork.
+      OpenHeaders is a browser extension for shaping network traffic — locally, on your machine, against any site.
     </DocParagraph>
 
     <DocHeading level={3}>What you can do</DocHeading>
