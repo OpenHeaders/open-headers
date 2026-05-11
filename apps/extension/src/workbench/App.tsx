@@ -1337,34 +1337,6 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   type SidebarViewId = 'http-rules' | 'api-requests' | 'variables' | 'workflows';
   const sidebarFilterRefs = useRef<Map<SidebarViewId, InputRef | null>>(new Map());
 
-  // Map the active tab's mode to the sidebar that owns its entity
-  // type, so `/` (`onFocusFilter`) drops you into the right list
-  // without you having to switch panels first.
-  const sidebarForTabMode = (mode: string | undefined): SidebarViewId | null => {
-    if (!mode) return null;
-    if (mode === 'edit' || mode === 'rule-create' || mode === 'collection-overview' || mode === 'folder-overview') {
-      return 'http-rules';
-    }
-    if (mode === 'request-edit' || mode === 'request-create' || mode === 'request-collection-vars') {
-      return 'api-requests';
-    }
-    if (mode === 'live-workflow-edit' || mode === 'live-workflow-create') {
-      return 'workflows';
-    }
-    if (
-      mode === 'live-variable-edit' ||
-      mode === 'live-variable-create' ||
-      mode === 'env-edit' ||
-      mode === 'env-create' ||
-      mode === 'workspace-vars' ||
-      mode === 'vault' ||
-      mode === 'collection-vars'
-    ) {
-      return 'variables';
-    }
-    return null;
-  };
-
   // Keyboard shortcuts help:
   //   • Docs closed → open and navigate to keyboard-shortcuts.
   //   • Docs open and ALREADY on keyboard-shortcuts → toggle closed
@@ -1435,52 +1407,17 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     onSave: handleSave,
     onNewRule: openCreateMenu,
     onFocusFilter: () => {
-      if (!tl.isRegionOpen('left')) togglePanel('sidebar');
-      const sidebarIds: SidebarViewId[] = ['http-rules', 'api-requests', 'variables', 'workflows'];
-
-      // Priority is region-driven so the shortcut reads "what is
-      // the user actually looking at right now?":
-      //   • In the left sidebar — focus the filter of whichever
-      //     sidebar tab they're already in. Don't switch to a
-      //     different sidebar just because the editor has a
-      //     different entity type open.
-      //   • In the editor — switch the left sidebar to match the
-      //     active tab's entity type, then focus that filter.
-      //   • Otherwise (region locked out by allowedRegions, so this
-      //     branch is mainly defensive) — first mounted, then
-      //     http-rules.
-      const region = getFocusedRegion();
-      let target: SidebarViewId | null = null;
-      if (region === 'left') {
-        const focusedDock = getFocusedDock();
-        const activeInFocused = focusedDock ? tl.state.docks[focusedDock]?.active : null;
-        if (activeInFocused && (sidebarIds as string[]).includes(activeInFocused)) {
-          target = activeInFocused as SidebarViewId;
-        }
-      }
-      if (!target) {
-        target = sidebarForTabMode(activeTab?.mode);
-      }
-      if (!target) {
-        target = sidebarIds.find((id) => sidebarFilterRefs.current.get(id) != null) ?? 'http-rules';
-      }
-
-      // Activate the sidebar's window in the left dock — silently
-      // no-ops if it's already the active tab there. This unblocks
-      // the case where the active editor tab type's sidebar isn't
-      // currently the visible one in the left dock.
-      tl.activateWindow(target);
-
-      // Defer the focus call by one frame so a freshly-activated
-      // sidebar has time to mount its filter input and register its
-      // ref. If already mounted this still works — the rAF is a no-
-      // op delay, not a wait.
-      const doFocus = () => sidebarFilterRefs.current.get(target as SidebarViewId)?.focus();
-      if (sidebarFilterRefs.current.get(target)) {
-        doFocus();
-      } else {
-        requestAnimationFrame(doFocus);
-      }
+      // Scope to whatever panel the user is currently focused in.
+      // Look up the active tool window in the focused dock, focus
+      // its registered filter ref. No mapping, no fallbacks — if
+      // the panel doesn't have a filter, the shortcut is a no-op
+      // and the keystroke flows through to the browser.
+      const focusedDock = getFocusedDock();
+      if (!focusedDock) return;
+      const activeWindow = tl.state.docks[focusedDock]?.active;
+      if (!activeWindow) return;
+      const ref = sidebarFilterRefs.current.get(activeWindow as SidebarViewId);
+      ref?.focus();
     },
     onCommandPalette: () => setCommandPaletteOpen(true),
     onShowShortcuts: handleShowShortcuts,

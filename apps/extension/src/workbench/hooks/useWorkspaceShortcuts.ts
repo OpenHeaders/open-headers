@@ -172,9 +172,10 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
     category: 'navigation',
     handler: { kind: 'direct', name: 'onFocusFilter' },
     requireNoInput: true,
-    // Only fire from the editor or the sidebar itself — reading
-    // the docs panel or the bottom drawer should leave `/` alone.
-    allowedRegions: ['editor', 'left'],
+    // No allowedRegions: the handler is self-scoping — it looks
+    // up the focused dock's active panel and focuses that panel's
+    // filter ref. If the focused panel didn't register a filter,
+    // the action is a no-op and `/` flows through.
   },
   {
     id: 'focus-left-sidebar',
