@@ -23,138 +23,157 @@ import {
 import { FILL_BLUE, FILL_GREEN, STROKE_BLUE, STROKE_GREEN, TEXT, TEXT_DIM } from './_shared';
 
 /**
- * Phases overview — the section's hero diagram. Two clean side-by-
- * side panels, one per phase. Each panel has a numbered badge, a
- * directional mini-flow (Page → Network / Network → Page), and the
- * list of fields captured in that direction. Plenty of whitespace
- * inside each panel so nothing crowds the eye. Bottom strip ties
- * them together: "both captured per connection." The popup outcome
- * lives in the next two diagrams in the section — this one focuses
- * solely on the two-phase concept.
+ * Phases overview — two stacked cards with a thin saturated accent
+ * stripe on the left and clean white interiors. No washed-out fills.
+ * Both phases use the locked DNR-blue palette in different weights
+ * (light primary for request, deep blue-800 for response) — keeps the
+ * "captured by tracking" semantic visually unified without leaning on
+ * the pale success-green tint that doesn't survive a light theme.
  */
 export const RequestTrackingPhasesDiagram: React.FC = () => {
-  // Panel geometry — two equal-width panels with a clear gap.
-  const PANEL_W = 142;
-  const PANEL_H = 168;
-  const PANEL_Y = 30;
-  const LEFT_X = 10;
-  const RIGHT_X = 168;
+  const CARD_X = 10;
+  const CARD_W = 300;
+  const CARD_H = 84;
+  const CARD_Y0 = 30;
+  const CARD_GAP = 22;
+  const STRIPE_W = 6;
+
+  // Hardcoded blue palette — `--ant-color-primary` is theme-stable
+  // for the lighter shade; the deeper shade is from Ant's default
+  // palette (blue-8) and reads correctly in both light + dark themes.
+  const REQUEST_ACCENT = 'var(--ant-color-primary)';
+  const RESPONSE_ACCENT = '#0958d9';
 
   type PhaseDef = {
     n: number;
     name: 'REQUEST' | 'RESPONSE';
-    direction: 'out' | 'in';
+    direction: 'Page → Network' | 'Network → Page';
+    sub: 'outbound' | 'inbound';
     captured: string[];
-    accentFill: string;
-    accentStroke: string;
+    accent: string;
   };
 
   const PHASES: PhaseDef[] = [
     {
       n: 1,
       name: 'REQUEST',
-      direction: 'out',
+      direction: 'Page → Network',
+      sub: 'outbound',
       captured: ['URL', 'Method', 'Headers', 'Body'],
-      accentFill: FILL_BLUE,
-      accentStroke: STROKE_BLUE,
+      accent: REQUEST_ACCENT,
     },
     {
       n: 2,
       name: 'RESPONSE',
-      direction: 'in',
+      direction: 'Network → Page',
+      sub: 'inbound',
       captured: ['Status code', 'Headers', 'Body', 'Timings'],
-      accentFill: FILL_GREEN,
-      accentStroke: STROKE_GREEN,
+      accent: RESPONSE_ACCENT,
     },
   ];
 
-  const renderPanel = (xOff: number, phase: PhaseDef) => {
-    const accentColor = phase.accentStroke;
-    const HEADER_H = 38;
+  const renderCard = (yOff: number, phase: PhaseDef) => {
+    // Left column — number + name + direction
+    const leftColX = CARD_X + STRIPE_W + 14;
+    // Right column — captured grid
+    const rightColX = CARD_X + 160;
+    const rightColTwoX = rightColX + 80;
+
     return (
       <g>
-        {/* Panel frame */}
+        {/* Card frame */}
         <rect
-          x={xOff}
-          y={PANEL_Y}
-          width={PANEL_W}
-          height={PANEL_H}
-          rx={6}
+          x={CARD_X}
+          y={yOff}
+          width={CARD_W}
+          height={CARD_H}
+          rx={8}
           fill="var(--ant-color-bg-container)"
           stroke="var(--ant-color-border)"
         />
 
-        {/* Header band — phase name + colored stripe */}
+        {/* Thin accent stripe on the left edge */}
         <rect
-          x={xOff}
-          y={PANEL_Y}
-          width={PANEL_W}
-          height={HEADER_H}
-          rx={6}
-          fill={phase.accentFill}
-          stroke={phase.accentStroke}
+          x={CARD_X}
+          y={yOff + 1}
+          width={STRIPE_W}
+          height={CARD_H - 2}
+          rx={3}
+          fill={phase.accent}
         />
-        {/* Numbered circle on the left */}
-        <circle cx={xOff + 18} cy={PANEL_Y + HEADER_H / 2} r={11} fill="var(--ant-color-bg-container)" stroke={accentColor} strokeWidth={1.5} />
-        <text x={xOff + 18} y={PANEL_Y + HEADER_H / 2 + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill={accentColor}>
+
+        {/* Numbered badge */}
+        <circle cx={leftColX + 8} cy={yOff + 22} r={12} fill={phase.accent} />
+        <text
+          x={leftColX + 8}
+          y={yOff + 26}
+          textAnchor="middle"
+          fontSize={13}
+          fontWeight={700}
+          fill="var(--ant-color-bg-container)"
+        >
           {phase.n}
         </text>
-        {/* Phase name to the right of the number */}
-        <text x={xOff + 36} y={PANEL_Y + HEADER_H / 2 + 4} fontSize={11} fontWeight={700} fill={accentColor} letterSpacing={0.6}>
+
+        {/* Phase name */}
+        <text
+          x={leftColX + 26}
+          y={yOff + 19}
+          fontSize={13}
+          fontWeight={700}
+          fill={phase.accent}
+          letterSpacing={0.6}
+        >
           {phase.name}
         </text>
+        <text
+          x={leftColX + 26}
+          y={yOff + 32}
+          fontSize={9}
+          fontStyle="italic"
+          fill={TEXT_DIM}
+        >
+          {phase.sub}
+        </text>
 
-        {/* Direction arrow row — Page → Network or Network → Page */}
-        <g transform={`translate(${xOff + 10}, ${PANEL_Y + HEADER_H + 12})`}>
-          <rect x={0} y={0} width={40} height={20} rx={3} fill="var(--ant-color-fill-secondary)" stroke="var(--ant-color-border)" />
-          <text x={20} y={13} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT}>
-            {phase.direction === 'out' ? 'Page' : 'Network'}
-          </text>
-          {/* Arrow */}
-          <line
-            x1={44}
-            y1={10}
-            x2={82}
-            y2={10}
-            stroke={accentColor}
-            strokeWidth={2}
-            markerEnd={`url(#rt-ph-${phase.n}-arrow)`}
-          />
-          <rect x={82} y={0} width={40} height={20} rx={3} fill="var(--ant-color-fill-secondary)" stroke="var(--ant-color-border)" />
-          <text x={102} y={13} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT}>
-            {phase.direction === 'out' ? 'Network' : 'Page'}
-          </text>
-        </g>
+        {/* Direction flow */}
+        <text x={leftColX} y={yOff + 56} fontFamily="monospace" fontSize={10} fontWeight={600} fill={TEXT}>
+          {phase.direction}
+        </text>
+        <text x={leftColX} y={yOff + 72} fontSize={8} fill={TEXT_DIM}>
+          per HTTP roundtrip
+        </text>
 
-        {/* Divider */}
-        <line
-          x1={xOff + 12}
-          y1={PANEL_Y + HEADER_H + 44}
-          x2={xOff + PANEL_W - 12}
-          y2={PANEL_Y + HEADER_H + 44}
-          stroke="var(--ant-color-border-secondary)"
-        />
-
-        {/* "Captured:" header */}
-        <text x={xOff + 12} y={PANEL_Y + HEADER_H + 58} fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.4}>
+        {/* Captured header */}
+        <text
+          x={rightColX}
+          y={yOff + 16}
+          fontSize={8}
+          fontWeight={700}
+          fill={TEXT_DIM}
+          letterSpacing={0.6}
+        >
           CAPTURED
         </text>
 
-        {/* Bullet list of captured fields */}
+        {/* Two-column captured list (2 columns × 2 rows) */}
         {phase.captured.map((item, i) => {
-          const itemY = PANEL_Y + HEADER_H + 70 + i * 16;
+          const col = Math.floor(i / 2);
+          const row = i % 2;
+          const cx = col === 0 ? rightColX : rightColTwoX;
+          const cy = yOff + 34 + row * 22;
           return (
             <g key={item}>
-              {/* Check icon */}
-              <circle cx={xOff + 16} cy={itemY - 4} r={4} fill={phase.accentFill} stroke={accentColor} />
+              <circle cx={cx + 5} cy={cy - 4} r={5} fill={phase.accent} />
               <path
-                d={`M ${xOff + 13} ${itemY - 4} L ${xOff + 15} ${itemY - 2} L ${xOff + 19} ${itemY - 6}`}
-                stroke={accentColor}
-                strokeWidth={1.5}
+                d={`M ${cx + 1} ${cy - 4} L ${cx + 4} ${cy - 1} L ${cx + 9} ${cy - 7}`}
+                stroke="var(--ant-color-bg-container)"
+                strokeWidth={1.8}
                 fill="none"
                 strokeLinecap="round"
+                strokeLinejoin="round"
               />
-              <text x={xOff + 26} y={itemY} fontSize={10} fill={TEXT}>
+              <text x={cx + 16} y={cy} fontSize={10} fill={TEXT}>
                 {item}
               </text>
             </g>
@@ -164,40 +183,56 @@ export const RequestTrackingPhasesDiagram: React.FC = () => {
     );
   };
 
+  const card1Y = CARD_Y0;
+  const card2Y = CARD_Y0 + CARD_H + CARD_GAP;
+  const connectorY = card1Y + CARD_H;
+
   return (
     <svg
-      viewBox="0 0 320 230"
+      viewBox="0 0 320 244"
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Two phases are captured per connection — REQUEST captures URL, method, headers, body; RESPONSE captures status code, headers, body, timings."
+      aria-label="Two phases of every connection — request and response — each with its own captured fields."
     >
-      <defs>
-        {PHASES.map((p) => (
-          <marker
-            key={p.n}
-            id={`rt-ph-${p.n}-arrow`}
-            viewBox="0 0 10 10"
-            refX="9"
-            refY="5"
-            markerWidth="6"
-            markerHeight="6"
-            orient="auto"
-          >
-            <path d="M 0 0 L 10 5 L 0 10 z" fill={p.accentStroke} />
-          </marker>
-        ))}
-      </defs>
-
       <text x={160} y={18} textAnchor="middle" fontSize={11} fontWeight={700} fill={TEXT}>
         Every connection has two phases
       </text>
 
-      {renderPanel(LEFT_X, PHASES[0])}
-      {renderPanel(RIGHT_X, PHASES[1])}
+      {renderCard(card1Y, PHASES[0])}
+      {renderCard(card2Y, PHASES[1])}
 
-      {/* Bottom unifying caption */}
-      <text x={160} y={216} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+      {/* Connector between the two cards */}
+      <line
+        x1={160}
+        y1={connectorY + 2}
+        x2={160}
+        y2={connectorY + CARD_GAP - 2}
+        stroke="var(--ant-color-border)"
+        strokeWidth={1.5}
+        strokeDasharray="3 3"
+      />
+      <rect
+        x={118}
+        y={connectorY + CARD_GAP / 2 - 8}
+        width={84}
+        height={16}
+        rx={8}
+        fill="var(--ant-color-bg-container)"
+        stroke="var(--ant-color-border)"
+      />
+      <text
+        x={160}
+        y={connectorY + CARD_GAP / 2 + 3}
+        textAnchor="middle"
+        fontSize={9}
+        fontWeight={600}
+        fill={TEXT_DIM}
+      >
+        same connection
+      </text>
+
+      <text x={160} y={236} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
         Both phases contribute data to the badge count in This Page.
       </text>
     </svg>
