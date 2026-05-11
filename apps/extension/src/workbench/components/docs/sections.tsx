@@ -392,7 +392,7 @@ const SubsystemHeading: React.FC<{ name: string; subtitle: string }> = ({ name, 
 
 export const SystemStatusSection: React.FC = () => (
   <>
-    <SurfaceContext surfaces={['popup', 'side-panel', 'workbench']} />
+    <SurfaceContext surfaces={['popup', 'side-panel', 'workbench', 'devtools']} />
     <DocParagraph>
       <strong>System status</strong> is a live snapshot of the extension's health. The workbench footer shows it as a
       six-pill row — one pill per subsystem, each with its own colored dot. The popup and side-panel collapse it down to
@@ -639,7 +639,7 @@ const CONDITION_ANCHORS = [
 
 export const ConditionsSection: React.FC = () => (
   <>
-    <SurfaceContext surfaces={['popup', 'side-panel', 'workbench']} />
+    <SurfaceContext surfaces={['popup', 'side-panel', 'workbench', 'devtools']} />
     <DocParagraph>
       A condition is a filter on one attribute of an outgoing request. Stack multiple conditions and they combine with
       AND logic — every condition must match for the rule to fire. Each condition maps directly to a Chrome{' '}
