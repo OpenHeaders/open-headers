@@ -72,11 +72,11 @@ describe('view/hunk-visual', () => {
   });
 
   describe('kindLabelFor', () => {
-    it('maps side kinds to user-facing labels', () => {
-      expect(kindLabelFor('added')).toBe('Added');
-      expect(kindLabelFor('removed')).toBe('Deleted');
-      expect(kindLabelFor('modified')).toBe('Modified');
-      expect(kindLabelFor('unchanged')).toBe('No change');
+    it('maps side kinds to symbol + present-tense diff verb', () => {
+      expect(kindLabelFor('added')).toBe('+ Adds');
+      expect(kindLabelFor('removed')).toBe('− Removes');
+      expect(kindLabelFor('modified')).toBe('~ Modifies');
+      expect(kindLabelFor('unchanged')).toBe('= Unchanged');
     });
   });
 

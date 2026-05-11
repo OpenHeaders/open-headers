@@ -117,22 +117,34 @@ export function missingVariantFor(analysis: HunkAnalysis, side: HunkSide): Missi
 }
 
 /**
- * Right-aligned type caption for the per-side header strip — `Added`
- * / `Deleted` / `Modified` / `No change`. Single vocabulary across
- * theirs + mine action zones; the result pane keeps its status label
- * only (any per-side "type" word on the result is misleading until
- * the user has actually decided what the result should contain).
+ * Right-aligned type caption for the per-side header strip — present-
+ * tense diff verb + symbol prefix:
+ *
+ *   `+ Adds`       — this side has content not in base
+ *   `− Removes`    — this side dropped content present in base
+ *   `~ Modifies`   — this side changed base content
+ *   `= Unchanged`  — this side matches base in this region
+ *
+ * Single vocabulary across theirs + mine action zones; the result
+ * pane keeps its status label only (any per-side "type" word on the
+ * result is misleading until the user has actually decided what the
+ * result should contain).
+ *
+ * Present tense reads as a fact about the pane ("this pane DOES X")
+ * rather than a workflow state ("this side was resolved AS X") — the
+ * earlier `Added / Deleted / Modified` past-tense form could be
+ * misread as "this side has already been accepted as an addition."
  */
 export function kindLabelFor(kind: SideKind): string {
   switch (kind) {
     case 'added':
-      return 'Added';
+      return '+ Adds';
     case 'removed':
-      return 'Deleted';
+      return '− Removes';
     case 'modified':
-      return 'Modified';
+      return '~ Modifies';
     case 'unchanged':
-      return 'No change';
+      return '= Unchanged';
   }
 }
 
