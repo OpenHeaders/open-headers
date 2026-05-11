@@ -87,9 +87,7 @@ export function useHiddenAreas({
   // the gap from this map (= fully revealed); directional buttons
   // accumulate top / bottom counts. Map key is the gap's
   // `${start}-${end}` line range, same as before.
-  const [gapExpansions, setGapExpansions] = useState<ReadonlyMap<string, GapExpansion>>(
-    () => new Map(),
-  );
+  const [gapExpansions, setGapExpansions] = useState<ReadonlyMap<string, GapExpansion>>(() => new Map());
   const fullyExpandedRef = useRef<Set<string>>(new Set());
   const zoneIdsRef = useRef<Map<string, string>>(new Map());
 
@@ -228,7 +226,10 @@ export function useHiddenAreas({
       });
     }
 
-    editor.setHiddenAreas(adjusted.map((g) => g.range), 'oh-merge-hidden');
+    editor.setHiddenAreas(
+      adjusted.map((g) => g.range),
+      'oh-merge-hidden',
+    );
 
     // Emit a GitLab-style three-button strip at each hidden gap's
     // boundary. Anchor: `afterLineNumber = startLineNumber - 1` =
@@ -283,15 +284,33 @@ export function useHiddenAreas({
 }
 
 /**
- * Indentation-based ancestor walker. For each hunk's start line,
- * walks UP collecting lines with STRICTLY LESS indentation (the
- * structural parents in indent-driven formats — YAML keys, JSON
- * nesting, etc.). Stops at indent 0 (top-level).
+ * Indent-aware ancestor walker for YAML / indent-driven formats.
+ * For each hunk's start line, walks UP collecting structural
+ * parents. Returns a deduplicated, sorted list of line numbers.
  *
- * Returns a deduplicated, sorted list of ancestor line numbers
- * across all hunks. Caller uses these as additional visible ranges
- * so collapsed regions never hide the section header that gives
- * the conflict its meaning ("this is inside requestHeaders").
+ * Two ancestor relationships in play:
+ *   1. **Lower-indent ancestor** — a line at strictly less indent
+ *      than the current reference, the classic "outer scope"
+ *      relationship. e.g. `action:` (indent 0) is an ancestor of
+ *      `value: "B"` (indent 4).
+ *   2. **Same-indent list-parent key** — a `<key>:` line at the
+ *      same indent as a preceding `- ` list-item run. YAML's flow:
+ *
+ *        requestHeaders:        ← indent 2 (KEY)
+ *          - uid: hr0000aa      ← indent 2 (LIST ITEM, child of key)
+ *          - uid: hr0000bb      ← indent 2
+ *
+ *      The key and its list items share an indent, but the key IS
+ *      the parent of the items. Without this rule, walking from a
+ *      hunk inside the list never surfaces `requestHeaders:` because
+ *      "strictly less indent" skips over it.
+ *
+ * The walker tracks `sawListItem` per layer: when we encounter a
+ * `- ` line at the current indent (or descend into one via lower-
+ * indent), we know any subsequent same-indent key is a parent of
+ * that list run. A non-list-item key at the same indent is just a
+ * sibling field (e.g. `headerName:` next to `value:`) and gets
+ * skipped — `sawListItem` stays false in that case.
  */
 function collectAncestorLines(
   model: monaco.editor.ITextModel,
@@ -305,23 +324,48 @@ function collectAncestorLines(
     // Reference indent: prefer the hunk's content indent (passed by
     // the caller from the diff's theirsLines/mineLines). Falls back
     // to the anchor line's own indent when the caller didn't supply
-    // one. The content indent is the right reference for
-    // insertion-point hunks where the anchor line is a SIBLING of
-    // the conflict's parent, not a child — walking from the
-    // anchor's indent would miss the actual list/key that owns the
-    // inserted content.
+    // one.
     const supplied = contentIndents?.[i];
-    const referenceIndent =
-      supplied !== undefined ? supplied : leadingIndent(model.getLineContent(r.startLine));
-    if (referenceIndent === 0) continue;
+    const referenceIndent = supplied !== undefined ? supplied : leadingIndent(model.getLineContent(r.startLine));
+    if (referenceIndent <= 0) continue;
+
     let currentIndent = referenceIndent;
-    for (let line = r.startLine - 1; line >= 1 && currentIndent > 0; line--) {
+    let sawListItem = false;
+
+    for (let line = r.startLine - 1; line >= 1; line--) {
       const content = model.getLineContent(line);
-      if (content.trim() === '') continue;
+      const trimmed = content.trim();
+      if (trimmed === '') continue;
       const indent = leadingIndent(content);
+      // Deeper lines are children of something we haven't reached
+      // yet on the walk — skip.
+      if (indent > currentIndent) continue;
+
+      const isListItem = trimmed.startsWith('- ') || trimmed === '-';
+      // YAML key: starts non-dash, contains a colon followed by
+      // space-or-end. Doesn't try to be perfect — false positives
+      // here only surface a visible context line, which is benign.
+      const isKey = !isListItem && /:(?:\s|$)/.test(trimmed);
+
       if (indent < currentIndent) {
         out.add(line);
         currentIndent = indent;
+        // If we just stepped onto a list-item line at a lower
+        // indent, remember it so a subsequent same-indent key can
+        // be recognized as its container.
+        sawListItem = isListItem;
+        if (currentIndent === 0) break;
+      } else {
+        // indent === currentIndent
+        if (isListItem) {
+          sawListItem = true;
+        } else if (isKey && sawListItem) {
+          // The parent key of the list run we just walked past.
+          // Keep currentIndent — we still want to find this key's
+          // own ancestors (typically at strictly lower indent).
+          out.add(line);
+          sawListItem = false;
+        }
       }
     }
   }
@@ -334,28 +378,70 @@ function leadingIndent(line: string): number {
   return i;
 }
 
-function buildGapDom(lineCount: number, key: string, onExpand: (key: string) => void): HTMLElement {
+interface BuildGapDomArgs {
+  key: string;
+  remainingLineCount: number;
+  onExpandDown: (key: string) => void;
+  onExpandUp: (key: string) => void;
+  onExpandAll: (key: string) => void;
+}
+
+function buildGapDom(args: BuildGapDomArgs): HTMLElement {
   const wrapper = document.createElement('div');
   wrapper.className = 'oh-merge__action-zone-wrapper';
   const root = document.createElement('div');
   root.className = 'oh-merge__hidden-gap';
-  root.title = 'Click to expand this region';
+
   // Eat mousedown so Monaco's editor-level mouse handler doesn't
   // intercept it for caret positioning before the click fires.
   const eatMouseDown = (e: Event): void => {
     e.stopPropagation();
   };
   root.addEventListener('mousedown', eatMouseDown);
-  root.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onExpand(key);
-  });
-  const label = document.createElement('span');
-  label.className = 'oh-merge__hidden-gap-label';
-  const word = lineCount === 1 ? 'line' : 'lines';
-  label.textContent = `↕ ${lineCount} ${word} hidden — click to expand`;
-  root.appendChild(label);
+
+  const makeBtn = (glyph: string, title: string, extraClass: string, onClick: () => void): HTMLButtonElement => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `oh-merge__hidden-gap-btn ${extraClass}`.trim();
+    btn.title = title;
+    btn.textContent = glyph;
+    btn.addEventListener('mousedown', eatMouseDown);
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      onClick();
+    });
+    return btn;
+  };
+
+  // Three buttons: expand-down (reveals lines just below the
+  // previous hunk), expand-all (reveals the whole gap at once),
+  // expand-up (reveals lines just above the next hunk). The middle
+  // button doubles as the "N lines hidden" status label so the user
+  // sees the remaining gap size at a glance.
+  const downBtn = makeBtn(
+    '↓',
+    `Show ${Math.min(STEP_LINES, args.remainingLineCount)} more lines below`,
+    'oh-merge__hidden-gap-btn-down',
+    () => args.onExpandDown(args.key),
+  );
+  const word = args.remainingLineCount === 1 ? 'line' : 'lines';
+  const allBtn = makeBtn(
+    `↕ ${args.remainingLineCount} ${word} hidden`,
+    `Show all ${args.remainingLineCount} hidden ${word}`,
+    'oh-merge__hidden-gap-btn-all',
+    () => args.onExpandAll(args.key),
+  );
+  const upBtn = makeBtn(
+    '↑',
+    `Show ${Math.min(STEP_LINES, args.remainingLineCount)} more lines above`,
+    'oh-merge__hidden-gap-btn-up',
+    () => args.onExpandUp(args.key),
+  );
+
+  root.appendChild(downBtn);
+  root.appendChild(allBtn);
+  root.appendChild(upBtn);
   wrapper.appendChild(root);
   return wrapper;
 }

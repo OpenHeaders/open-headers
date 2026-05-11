@@ -22,7 +22,10 @@ export interface ConflictClassification {
   mineConflictIds: ReadonlySet<string>;
 }
 
-function rangesOverlap(a: { startLine: number; endLine: number }, b: { startLine: number; endLine: number }): boolean {
+export function rangesOverlap(
+  a: { startLine: number; endLine: number },
+  b: { startLine: number; endLine: number },
+): boolean {
   // Empty ranges (insertions): treat zero-line ranges as a 1-line
   // sentinel for overlap purposes — an insertion at line N conflicts
   // with another change touching line N.

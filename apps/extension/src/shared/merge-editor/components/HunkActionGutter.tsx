@@ -20,13 +20,8 @@
  */
 
 import type React from 'react';
-import {
-  type ClickAction,
-  type ClickSlot,
-  PENDING_HUNK,
-  type PickStateController,
-} from '../use-hunk-pick-state';
 import type { HunkActionMarker } from '../monaco/use-hunk-action-markers';
+import { type ClickAction, type ClickSlot, PENDING_HUNK, type PickStateController } from '../use-hunk-pick-state';
 import './hunk-action-gutter.css';
 
 export interface HunkActionGutterProps {

@@ -40,7 +40,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { classifyConflicts, classifyConflicts3Way } from '../diff/conflict-classify';
+import { analyzeHunks } from '../diff/hunk-analysis';
 import type { Hunk, LineRange } from '../diff/line-diff';
 import { diffLinesPatience } from '../diff/patience-diff';
 import { useCharDecorations } from '../monaco/use-char-decorations';
@@ -58,12 +58,7 @@ import { type MergeActionsContext, useMergeActions } from '../monaco/use-merge-a
 import { useMonacoEditorLifecycle } from '../monaco/use-monaco-editor-lifecycle';
 import { useSyncScroll } from '../monaco/use-sync-scroll';
 import type { MergeFile } from '../types';
-import {
-  type HunkPickState,
-  PENDING_HUNK,
-  type PickStateController,
-  createPickStateController,
-} from '../use-hunk-pick-state';
+import { createPickStateController, type HunkPickState, type PickStateController } from '../use-hunk-pick-state';
 import HunkActionGutter from './HunkActionGutter';
 import { gridTemplate, type MergeLayout, paneVisibility } from './layout';
 
@@ -291,9 +286,9 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     [file.mine, resultText, file.kind],
   );
 
-  // Base-axis diffs feed the 3-way classifier when base is available.
-  // They run only when base is supplied; a 2-way fallback handles the
-  // base-less case (entity adapters that haven't wired baseText yet).
+  // Base-axis diffs feed the analysis pipeline when base is available.
+  // 2-pane fallback (file.base undefined) lets `analyzeHunks` derive
+  // per-side kinds from the pair-diff alone.
   const theirsBaseHunks = useMemo(
     () => (file.base !== undefined ? diffLinesPatience(file.base, file.theirs) : []),
     [file.base, file.theirs],
@@ -302,17 +297,6 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     () => (file.base !== undefined ? diffLinesPatience(file.base, file.mine) : []),
     [file.base, file.mine],
   );
-
-  const classification = useMemo(() => {
-    if (file.base !== undefined) {
-      return classifyConflicts3Way({ theirsHunks, mineHunks, theirsBaseHunks, mineBaseHunks });
-    }
-    return {
-      ...classifyConflicts(theirsHunks, mineHunks),
-      theirsCleanIds: new Set<string>(),
-      mineCleanIds: new Set<string>(),
-    };
-  }, [file.base, theirsHunks, mineHunks, theirsBaseHunks, mineBaseHunks]);
 
   // Hunks that participate in the per-side state machine AND drive
   // every visual decoration. Computed ONCE against
@@ -336,11 +320,28 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     [file.theirs, file.initialResult, file.kind],
   );
 
+  // Per-hunk base-aware analysis. One pass producing one HunkAnalysis
+  // per pickStateHunk — every downstream visual decision (line tint,
+  // frame color, missing-side placeholder, conflict counter, "apply
+  // non-conflicting" gate) reads from this single source of truth.
+  // Stable: depends on initialResult, not the live result text. Base
+  // hunks are passed only when file.base is supplied; 2-pane fallback
+  // derives kinds from the pair-diff inside `analyzeHunks`.
+  const analyses = useMemo(
+    () =>
+      analyzeHunks({
+        pickHunks: pickStateHunks,
+        theirsBaseHunks: file.base !== undefined ? theirsBaseHunks : undefined,
+        mineBaseHunks: file.base !== undefined ? mineBaseHunks : undefined,
+      }),
+    [pickStateHunks, file.base, theirsBaseHunks, mineBaseHunks],
+  );
+
   // Char-diff decorations — must run AFTER pickStateHunks since they
-  // consume it. `useMissingMarkers` (the older dashed-bar) is dropped
-  // entirely; `useHunkAlignmentPlaceholders`'s missing-side slot is
-  // the richer replacement (full bordered hashed rectangle of the
-  // right line count, on the empty side).
+  // consume it. Empty-side hunks are visualised by
+  // `useHunkAlignmentPlaceholders`'s missing-side slot (a full
+  // bordered hashed rectangle of the right line count on the empty
+  // side), so no separate "missing marker" hook is needed.
   useCharDecorations({ editorRef: theirsHandle, side: 'theirs', hunks: pickStateHunks });
   useCharDecorations({ editorRef: mineHandle, side: 'mine', hunks: pickStateHunks });
 
@@ -386,10 +387,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   // hunks are the identity domain for the pick state machine; the
   // mine pane reads `state.mine` for the SAME hunk id (the controller
   // tracks both slots per hunk).
-  const getTheirsSideState = useCallback(
-    (hunkId: string) => pickController.get(hunkId).theirs,
-    [pickController],
-  );
+  const getTheirsSideState = useCallback((hunkId: string) => pickController.get(hunkId).theirs, [pickController]);
   const getMineSideStateForTheirsHunks = useCallback(
     (hunkId: string) => pickController.get(hunkId).mine,
     [pickController],
@@ -398,14 +396,14 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   useHunkDecorations({
     editorRef: theirsHandle,
     side: 'theirs',
-    hunks: pickStateHunks,
+    analyses,
     getSideState: getTheirsSideState,
     stateRev: pickStateRev,
   });
   useHunkDecorations({
     editorRef: mineHandle,
     side: 'mine',
-    hunks: pickStateHunks,
+    analyses,
     getSideState: getMineSideStateForTheirsHunks,
     stateRev: pickStateRev,
   });
@@ -418,49 +416,26 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   // it carries is the post-write RESULT position (not mine), so
   // decorations would land on the wrong rows after the first accept.
 
-  // True-conflict ids for the pickStateHunks set. Routes to the
-  // orange/blue frame split: hunks where both sides actually changed
-  // the same base region get the orange "decide me" frame; everything
-  // else (single-side change, auto-mergeable) gets the calmer blue
-  // "informational" frame. Resolved hunks always go grey.
-  //
-  // Predicate matches `applyNonConflicting`'s "is true conflict"
-  // check — single source of truth for what counts as a real
-  // conflict vs auto-mergeable across stats, action zones, and the
-  // bulk apply gate.
-  const trueConflictIds = useMemo<ReadonlySet<string>>(() => {
-    const ids = new Set<string>();
-    for (const h of pickStateHunks) {
-      const flagged = classification.theirsConflictIds.has(h.id);
-      const cleanOverride = classification.theirsCleanIds.has(h.id);
-      const baseRegionConflict =
-        'theirsTrueConflicts' in classification && classification.theirsTrueConflicts.has(h.id);
-      if ((flagged && !cleanOverride) || baseRegionConflict) ids.add(h.id);
-    }
-    return ids;
-  }, [pickStateHunks, classification]);
-
   // VS Code-style inline action labels above each pending hunk in
   // the theirs / mine panes. Layout-agnostic — works in every
-  // layout because the labels live INSIDE the source panes. Toggled
-  // independently from the side gutters via `inlineActionLabels`.
+  // layout because the labels live INSIDE the source panes. Frame
+  // color (orange/blue/grey) derives from `analysis.conflict` +
+  // per-side pick state inside the hook via `frameForSide`.
   useHunkActionZones({
     editorRef: theirsHandle,
     side: 'theirs',
-    hunks: pickStateHunks,
+    analyses,
     controller: pickController,
     stateRev: pickStateRev,
     enabled: inlineActionLabels,
-    trueConflictIds,
   });
   useHunkActionZones({
     editorRef: mineHandle,
     side: 'mine',
-    hunks: pickStateHunks,
+    analyses,
     controller: pickController,
     stateRev: pickStateRev,
     enabled: inlineActionLabels && has3Panes,
-    trueConflictIds,
   });
   // Result-pane status zone — non-interactive labels that maintain
   // row alignment with the theirs / mine action zones (so all three
@@ -469,22 +444,18 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   useResultStatusZones({
     resultRef: resultHandle,
     trackedRangesRef,
-    hunks: pickStateHunks,
+    analyses,
     controller: pickController,
     stateRev: pickStateRev,
     enabled: inlineActionLabels,
-    trueConflictIds,
   });
-  // Alignment placeholders in theirs / mine. Two slots per hunk per
-  // side — action-slot (above content, when this side is decided
-  // but other panes still render zones) + stacked-content slot
-  // (below content, when both sides accepted and result has the
-  // stacked combination). Maintains row-by-row line-number parity
-  // across all three editors.
+  // Alignment placeholders in theirs / mine. Missing-side variant
+  // (red "Removed here" vs grey "No content here") derives from
+  // `analysis.theirs.kind` / `analysis.mine.kind` inside the hook.
   useHunkAlignmentPlaceholders({
     editorRef: theirsHandle,
     side: 'theirs',
-    hunks: pickStateHunks,
+    analyses,
     controller: pickController,
     stateRev: pickStateRev,
     enabled: inlineActionLabels,
@@ -493,7 +464,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   useHunkAlignmentPlaceholders({
     editorRef: mineHandle,
     side: 'mine',
-    hunks: pickStateHunks,
+    analyses,
     controller: pickController,
     stateRev: pickStateRev,
     enabled: inlineActionLabels && has3Panes,
@@ -521,14 +492,8 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   // Combination of a 5+5-line modification). pickStateRev in the
   // memo's deps busts the cache on every controller mutation so
   // the visible windows track the live content.
-  const theirsVisibleRanges = useMemo<LineRange[]>(
-    () => pickStateHunks.map((h) => h.theirsRange),
-    [pickStateHunks],
-  );
-  const mineVisibleRanges = useMemo<LineRange[]>(
-    () => pickStateHunks.map((h) => h.mineRange),
-    [pickStateHunks],
-  );
+  const theirsVisibleRanges = useMemo<LineRange[]>(() => pickStateHunks.map((h) => h.theirsRange), [pickStateHunks]);
+  const mineVisibleRanges = useMemo<LineRange[]>(() => pickStateHunks.map((h) => h.mineRange), [pickStateHunks]);
   const resultVisibleRanges = useMemo<LineRange[]>(() => {
     const ranges: LineRange[] = [];
     for (const h of pickStateHunks) {
@@ -596,19 +561,15 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   });
 
   // Markers gated by the show-non-conflicting toggle: when off, hide
-  // action affordances on hunks whose theirs side didn't change vs
-  // base (the "clean from theirs" auto-mergeable case). Still render
-  // markers for true conflicts. The toggle only affects the action
-  // gutters; line decorations stay always-on per §5.4.
+  // affordances on auto-mergeable hunks (single-side change vs base).
+  // Still render markers for true conflicts. The toggle only affects
+  // the action gutters; line decorations stay always-on per §5.4.
   const visibleActionMarkers = useMemo(() => {
     if (showNonConflicting) return actionMarkers;
     const visibleIds = new Set<string>();
-    for (const h of pickStateHunks) {
-      const cleanFromTheirs = classification.theirsCleanIds.has(h.id);
-      if (!cleanFromTheirs) visibleIds.add(h.id);
-    }
+    for (const a of analyses) if (a.conflict === 'true') visibleIds.add(a.id);
     return actionMarkers.filter((m) => visibleIds.has(m.hunkId));
-  }, [actionMarkers, showNonConflicting, pickStateHunks, classification]);
+  }, [actionMarkers, showNonConflicting, analyses]);
 
   // Legacy single-click accept callback retained for the Monaco
   // command palette ("Accept incoming/current hunk at cursor"). The
@@ -625,25 +586,19 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   );
 
   useEffect(() => {
-    // Stats derive from the per-side pick-state controller. In 3-pane
-    // sessions both sides count toward "remaining"; in 2-pane fallback
-    // (no base / mine pane hidden) only the theirs side is reachable
-    // from the gutter UI, so the mine side is auto-resolved (treated
-    // as dismissed) and never blocks Complete Merge gating.
+    // Stats derive from the controller + the unified analysis. In
+    // 2-pane fallback (mine pane hidden) the mine slot is unreachable
+    // so its pending count is ignored — the stats useEffect already
+    // treats `mine: 'pending'` in 2-pane as auto-resolved.
     let theirsPending = 0;
     let minePending = 0;
     let trueConflicts = 0;
-    for (const h of pickStateHunks) {
-      const state = pickController.get(h.id);
+    for (const analysis of analyses) {
+      const state = pickController.get(analysis.id);
       if (state.theirs === 'pending') theirsPending++;
       if (has3Panes && state.mine === 'pending') minePending++;
-      const flagged = classification.theirsConflictIds.has(h.id);
-      const cleanFromTheirs = classification.theirsCleanIds.has(h.id);
-      const baseRegionConflict =
-        'theirsTrueConflicts' in classification && classification.theirsTrueConflicts.has(h.id);
-      const isTrueConflict = (flagged && !cleanFromTheirs) || baseRegionConflict;
       const sidesPending = state.theirs === 'pending' || (has3Panes && state.mine === 'pending');
-      if (isTrueConflict && sidesPending) trueConflicts++;
+      if (analysis.conflict === 'true' && sidesPending) trueConflicts++;
     }
     const total = theirsPending + minePending;
     onHunkStatsChange?.({
@@ -654,26 +609,21 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
       conflicts: trueConflicts,
     });
     void pickStateRev;
-  }, [pickStateHunks, classification, onHunkStatsChange, pickController, pickStateRev, has3Panes]);
+  }, [analyses, onHunkStatsChange, pickController, pickStateRev, has3Panes]);
 
   const navIndexRef = useRef(-1);
   const orderedNav = useMemo(() => {
-    // Hunks classified clean-from-theirs / clean-from-mine are
-    // auto-applicable via "Apply non-conflicting" — skip them in
-    // navigator order so F-key cycling lands on hunks the user
-    // actually has to think about. Falls back to "show every hunk"
-    // when no 3-way classification is available (no base).
-    const all = [
-      ...theirsHunks
-        .filter((h) => !classification.theirsCleanIds.has(h.id))
-        .map((h) => ({ hunk: h, side: 'theirs' as const })),
-      ...mineHunks
-        .filter((h) => !classification.mineCleanIds.has(h.id))
-        .map((h) => ({ hunk: h, side: 'mine' as const })),
-    ];
-    all.sort((a, b) => a.hunk.mineRange.startLine - b.hunk.mineRange.startLine);
-    return all;
-  }, [theirsHunks, mineHunks, classification]);
+    // Navigate only through TRUE conflicts (auto-mergeable hunks
+    // resolve via "Apply Non-Conflicting" — no need to cycle through
+    // them with the F-keys). Order by mine-side line for natural top-
+    // to-bottom traversal in the result pane.
+    const trueConflictIds = new Set<string>();
+    for (const a of analyses) if (a.conflict === 'true') trueConflictIds.add(a.id);
+    const visible = pickStateHunks.filter((h) => trueConflictIds.has(h.id));
+    return visible
+      .map((h) => ({ hunk: h, side: 'theirs' as const }))
+      .sort((a, b) => a.hunk.mineRange.startLine - b.hunk.mineRange.startLine);
+  }, [analyses, pickStateHunks]);
 
   const revealHunkAt = useCallback(
     (idx: number) => {
@@ -703,22 +653,27 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
 
   const applyNonConflicting = useCallback(() => {
     const updates: { hunkId: string; next: HunkPickState }[] = [];
-    for (const h of pickStateHunks) {
-      const flaggedConflict = classification.theirsConflictIds.has(h.id);
-      const cleanOverride = classification.theirsCleanIds.has(h.id);
-      const baseRegionConflict =
-        'theirsTrueConflicts' in classification && classification.theirsTrueConflicts.has(h.id);
-      const isTrueConflict = (flaggedConflict && !cleanOverride) || baseRegionConflict;
-      if (isTrueConflict) continue;
-      const prev = pickController.get(h.id);
+    for (const analysis of analyses) {
+      if (analysis.conflict === 'true') continue;
+      const prev = pickController.get(analysis.id);
       if (prev.theirs !== 'pending') continue;
-      updates.push({ hunkId: h.id, next: { theirs: 'accepted', mine: minePostState } });
+      // Auto-mergeable hunk shape: take whichever side actually
+      // changed vs base. Mine-only change ⇒ keep mine (dismiss
+      // theirs). Theirs-only change ⇒ accept theirs (default
+      // dismissed mine in 3-pane). 2-pane fallback collapses to
+      // "accept theirs" because that's the only axis the user can
+      // act on.
+      if (analysis.hasBase && analysis.theirs.kind === 'unchanged' && analysis.mine.kind !== 'unchanged') {
+        updates.push({ hunkId: analysis.id, next: { theirs: 'dismissed', mine: 'accepted' } });
+      } else {
+        updates.push({ hunkId: analysis.id, next: { theirs: 'accepted', mine: minePostState } });
+      }
     }
     if (updates.length > 0) {
       onAnnounce?.(`Applied ${updates.length} non-conflicting ${updates.length === 1 ? 'hunk' : 'hunks'}.`);
       pickController.bulkSet(updates);
     }
-  }, [pickStateHunks, classification, pickController, onAnnounce, minePostState]);
+  }, [analyses, pickController, onAnnounce, minePostState]);
 
   const acceptAllTheirs = useCallback(() => {
     const updates: { hunkId: string; next: HunkPickState }[] = pickStateHunks.map((h) => ({
@@ -783,10 +738,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   // Side editors get the undo/redo chords too so Cmd/Ctrl+Z works
   // regardless of which pane has focus — undo is global to the
   // modal, not bound to a single editor's focus.
-  const sideEditorRefs = useMemo(
-    () => [theirsHandle, mineHandle, baseHandle],
-    [theirsHandle, mineHandle, baseHandle],
-  );
+  const sideEditorRefs = useMemo(() => [theirsHandle, mineHandle, baseHandle], [theirsHandle, mineHandle, baseHandle]);
   useMergeActions({
     resultEditorRef: resultHandle,
     sideEditorRefs,

@@ -1,10 +1,14 @@
-/* "N lines hidden — click to expand" markers for Compact view.
+/* "N lines hidden" expand strip for Compact view.
+ *
+ * Three buttons in one row, GitLab-style:
+ *   ↓ (left)   — reveal STEP_LINES from the top of the gap
+ *   ↕ N hidden (middle) — reveal the whole gap; also surfaces the
+ *                          remaining gap size
+ *   ↑ (right)  — reveal STEP_LINES from the bottom of the gap
  *
  * Anchored at each hidden gap's start line via a Monaco view zone,
  * wrapped in the standard action-zone-wrapper so the right edge
- * aligns with the scrollbar inset (padding-right: 10px on the
- * wrapper). Single row, subtle grey-blue background, hover lifts
- * to a stronger tint to signal interactivity. */
+ * aligns with the scrollbar inset (padding-right: 10px). */
 
 .oh-merge__hidden-gap {
   width: 100%;
@@ -12,40 +16,69 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   font-size: 11px;
   line-height: 16px;
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  color: rgba(80, 80, 80, 0.7);
   background: rgba(127, 127, 127, 0.06);
   border-top: 1px solid rgba(127, 127, 127, 0.25);
   border-bottom: 1px solid rgba(127, 127, 127, 0.25);
-  cursor: pointer;
   user-select: none;
-  pointer-events: auto;
-  transition: background 80ms ease, color 80ms ease;
-}
-
-.oh-merge__hidden-gap:hover {
-  background: rgba(0, 102, 204, 0.10);
-  color: rgba(0, 102, 204, 0.95);
-  border-top-color: rgba(0, 102, 204, 0.45);
-  border-bottom-color: rgba(0, 102, 204, 0.45);
 }
 
 [data-merge-theme='dark'] .oh-merge__hidden-gap {
-  color: rgba(200, 200, 200, 0.7);
   background: rgba(255, 255, 255, 0.04);
   border-top-color: rgba(180, 180, 180, 0.25);
   border-bottom-color: rgba(180, 180, 180, 0.25);
 }
-[data-merge-theme='dark'] .oh-merge__hidden-gap:hover {
-  background: rgba(102, 178, 255, 0.12);
-  color: rgba(102, 178, 255, 0.95);
-  border-top-color: rgba(102, 178, 255, 0.45);
-  border-bottom-color: rgba(102, 178, 255, 0.45);
+
+.oh-merge__hidden-gap-btn {
+  appearance: none;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 0 6px;
+  margin: 0;
+  height: 18px;
+  font: inherit;
+  color: rgba(80, 80, 80, 0.75);
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 80ms ease, color 80ms ease, border-color 80ms ease;
 }
 
-.oh-merge__hidden-gap-label {
-  pointer-events: none;
-  white-space: nowrap;
+.oh-merge__hidden-gap-btn:hover {
+  background: rgba(0, 102, 204, 0.10);
+  color: rgba(0, 102, 204, 0.95);
+  border-color: rgba(0, 102, 204, 0.35);
+}
+
+.oh-merge__hidden-gap-btn:focus-visible {
+  outline: 2px solid rgba(64, 156, 255, 0.85);
+  outline-offset: 1px;
+}
+
+[data-merge-theme='dark'] .oh-merge__hidden-gap-btn {
+  color: rgba(200, 200, 200, 0.75);
+}
+[data-merge-theme='dark'] .oh-merge__hidden-gap-btn:hover {
+  background: rgba(102, 178, 255, 0.12);
+  color: rgba(102, 178, 255, 0.95);
+  border-color: rgba(102, 178, 255, 0.45);
+}
+
+/* Directional buttons sit fixed-width with a single arrow glyph;
+ * the "all" button stretches to carry the line-count label. */
+.oh-merge__hidden-gap-btn-down,
+.oh-merge__hidden-gap-btn-up {
+  width: 24px;
+  font-weight: 700;
+}
+
+.oh-merge__hidden-gap-btn-all {
+  font-style: italic;
+  font-weight: 500;
 }

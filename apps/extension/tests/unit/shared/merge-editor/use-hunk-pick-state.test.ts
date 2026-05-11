@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import type { Hunk } from '@/shared/merge-editor/diff/line-diff';
 import type { HunkTrackedRangesHandle } from '@/shared/merge-editor/monaco/use-hunk-tracked-ranges';
 import {
-  type HunkPickState,
-  PENDING_HUNK,
   createPickStateController,
+  type HunkPickState,
   isResolved,
+  PENDING_HUNK,
   writeTextFor,
 } from '@/shared/merge-editor/use-hunk-pick-state';
 

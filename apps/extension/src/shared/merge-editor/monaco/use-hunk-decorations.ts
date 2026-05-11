@@ -1,32 +1,30 @@
 /**
- * Push line-background decorations for a list of hunks onto a Monaco
- * editor (read-only side panes — theirs / mine). Decorations are
- * scoped per-side: theirs-side decorations use the hunk's
- * `theirsRange`, mine-side decorations use the hunk's `mineRange`.
- * Classifications map to CSS classes whose palette lives in
- * `hunk-decorations.css`.
+ * Push line-background decorations on a side pane (theirs / mine).
  *
- * The hook returns nothing; on each `hunks` change it replaces the
- * editor's decoration collection (Monaco diffs the collection in
- * place — only the deltas hit the renderer). On unmount or hunk-list
- * shrink, the collection is cleared via `set([])` so stale decorations
- * never leak across model swaps.
+ * Reads per-hunk visual treatment from `view/hunk-visual.ts` — the
+ * hook itself owns no palette decisions. For each analyzed hunk it
+ * asks `lineTintFor` for the kind class, suffixes the result with
+ * the pick-state class (`accepted` / `dismissed` / `pending`), and
+ * applies the decoration. Empty-side hunks return `null` and are
+ * skipped here; the missing-side placeholder in
+ * `useHunkAlignmentPlaceholders` carries the visual for those.
  */
 
 import type * as monaco from 'monaco-editor';
 import { type RefObject, useEffect } from 'react';
-import type { Hunk } from '../diff/line-diff';
+import type { HunkAnalysis } from '../diff/hunk-analysis';
 import type { SideState } from '../use-hunk-pick-state';
+import { type HunkSide, type LineTint, lineTintFor } from '../view/hunk-visual';
 import './hunk-decorations.css';
 import type { MonacoEditorHandle } from './use-monaco-editor-lifecycle';
 
-export type HunkSide = 'theirs' | 'mine';
+export type { HunkSide } from '../view/hunk-visual';
 
-const CSS_CLASS_BY_KIND = {
+const CSS_CLASS_BY_TINT: Record<LineTint, string> = {
   addition: 'oh-merge__hunk-addition',
   removal: 'oh-merge__hunk-removal',
   modification: 'oh-merge__hunk-modification',
-} as const;
+};
 
 const STATE_SUFFIX: Record<SideState, string> = {
   pending: '',
@@ -37,54 +35,49 @@ const STATE_SUFFIX: Record<SideState, string> = {
 export interface UseHunkDecorationsArgs {
   editorRef: RefObject<MonacoEditorHandle>;
   side: HunkSide;
-  hunks: readonly Hunk[];
-  /** Optional per-hunk side state. When provided, the hook applies a
-   *  state-suffix CSS class so accepted / dismissed hunks render with
-   *  visually distinct treatment (dashed brackets for dismissed, etc.)
-   *  per `MERGE_CONFLICT_EDITOR_PLAN.md` §5.3 — the side panes are
-   *  reference surfaces, so resolved hunks fade to signal "this
-   *  divergence is decided." Pending hunks keep the solid kind tint.
-   *
-   *  Reads the state for the side this hook decorates: the theirs
-   *  pane reads `state.theirs`, the mine pane reads `state.mine`. */
-  getSideState?: (hunkId: string) => SideState;
-  /** Force the hook to re-run when the controller's state map mutates.
-   *  Bumped via `pickStateRev` from MergePane. */
-  stateRev?: number;
+  analyses: readonly HunkAnalysis[];
+  /** Reads the per-hunk pick state for this side. Drives the
+   *  accepted / dismissed suffix so resolved hunks fade into a
+   *  reference treatment. */
+  getSideState: (hunkId: string) => SideState;
+  /** Bumped on every controller mutation so the effect re-runs in
+   *  lock-step with the gutter / action zones. */
+  stateRev: number;
 }
 
-export function useHunkDecorations({ editorRef, side, hunks, getSideState, stateRev }: UseHunkDecorationsArgs): void {
+export function useHunkDecorations({
+  editorRef,
+  side,
+  analyses,
+  getSideState,
+  stateRev,
+}: UseHunkDecorationsArgs): void {
+  // stateRev is the load-bearing trigger — the pick controller is
+  // ref-stable and React can't observe its mutations, so the parent
+  // bumps stateRev on every state change to force this effect to
+  // re-run. biome's exhaustive-deps check doesn't see the ref
+  // indirection, so the suppression is intentional.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: stateRev is intentional reactivity bridge
   useEffect(() => {
     const editor = editorRef.current.editor;
     const model = editorRef.current.model;
     if (!editor || !model) return;
 
     const decos: monaco.editor.IModelDeltaDecoration[] = [];
-    for (const h of hunks) {
-      const range = side === 'theirs' ? h.theirsRange : h.mineRange;
-      if (range.endLine <= range.startLine) continue;
-      // Per-pane display kind. The diff algorithm classifies left-only
-      // segments as 'removal' (going left→right those lines would be
-      // deleted) and right-only segments as 'addition' (those lines
-      // would be added). But the source panes display content from
-      // their OWN side, and the user's mental model is "this pane has
-      // content the other doesn't" — which always reads as ADDITION
-      // regardless of which operand of the diff is which. Without
-      // this flip, a peer-added hunk (theirs has X-C, result lacks)
-      // shows as RED on the theirs pane because the diff was
-      // theirs→result and theirs has the extra; the user expects
-      // GREEN ("theirs added"). Modifications stay AMBER (both sides
-      // have differing content here, kind is symmetric).
-      const displayKind = h.classification === 'removal' ? 'addition' : h.classification;
-      const baseClass = CSS_CLASS_BY_KIND[displayKind];
-      const sideState = getSideState ? getSideState(h.id) : 'pending';
-      const className = baseClass + STATE_SUFFIX[sideState];
+    for (const analysis of analyses) {
+      const tint = lineTintFor(analysis, side);
+      if (tint === null) continue;
+      const sideChange = side === 'theirs' ? analysis.theirs : analysis.mine;
+      const state = getSideState(analysis.id);
+      const className = CSS_CLASS_BY_TINT[tint] + STATE_SUFFIX[state];
+      const range = sideChange.range;
+      const endLineInclusive = Math.min(range.endLine - 1, model.getLineCount());
       decos.push({
         range: {
           startLineNumber: range.startLine,
           startColumn: 1,
-          endLineNumber: range.endLine - 1,
-          endColumn: model.getLineMaxColumn(Math.min(range.endLine - 1, model.getLineCount())),
+          endLineNumber: endLineInclusive,
+          endColumn: model.getLineMaxColumn(endLineInclusive),
         },
         options: {
           isWholeLine: true,
@@ -98,7 +91,5 @@ export function useHunkDecorations({ editorRef, side, hunks, getSideState, state
     return () => {
       collection.clear();
     };
-    // stateRev intentionally in deps — bumped on every controller
-    // mutation so decorations refresh in lock-step with the gutter.
-  }, [editorRef, side, hunks, getSideState, stateRev]);
+  }, [editorRef, side, analyses, getSideState, stateRev]);
 }

@@ -330,23 +330,16 @@
   color: rgba(200, 200, 200, 0.75);
 }
 
+/* Stacked-content padding (both-accepted case). Lives only in source
+ * panes — pure alignment with the result's stacked layout. Flat grey
+ * because the source pane never HAD this content; the hashed pattern
+ * is reserved for the result pane's "content will arrive here from
+ * one of the sources" semantic. */
 .oh-merge__alignment-placeholder-stacked-content {
-  background-image: repeating-linear-gradient(
-    -45deg,
-    transparent 0,
-    transparent 4px,
-    rgba(127, 127, 127, 0.18) 4px,
-    rgba(127, 127, 127, 0.18) 8px
-  );
+  background: rgba(127, 127, 127, 0.06);
 }
 [data-merge-theme='dark'] .oh-merge__alignment-placeholder-stacked-content {
-  background-image: repeating-linear-gradient(
-    -45deg,
-    transparent 0,
-    transparent 4px,
-    rgba(255, 255, 255, 0.10) 4px,
-    rgba(255, 255, 255, 0.10) 8px
-  );
+  background: rgba(255, 255, 255, 0.04);
 }
 
 /* Missing-side placeholder — hashed parity rows + grey ghost frame
@@ -396,6 +389,43 @@
   box-shadow: inset -1px 0 0 rgba(180, 180, 180, 0.45);
 }
 
+/* Removal variant — paints the missing-side placeholder in the
+ * removal-red palette (matching `oh-merge__hunk-removal` on populated
+ * sides) when this side actively DELETED content present in base.
+ * Reads as "the row USED to be here, this side dropped it" instead of
+ * the neutral grey "absence — content only on the other side." Hash
+ * diagonals stay (alignment cue + signals "non-content"), but the
+ * background tint + frame switch to red so the deletion communicates
+ * symmetrically with the green "addition" on populated sides. */
+.oh-merge__alignment-placeholder-missing-side-removal {
+  background-color: rgba(218, 54, 51, 0.10);
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0,
+    transparent 4px,
+    rgba(218, 54, 51, 0.32) 4px,
+    rgba(218, 54, 51, 0.32) 8px
+  );
+  border-top-color: rgba(218, 54, 51, 0.55);
+  border-bottom-color: rgba(218, 54, 51, 0.55);
+  border-left-color: rgba(218, 54, 51, 0.55);
+  box-shadow: inset -1px 0 0 rgba(218, 54, 51, 0.55);
+}
+[data-merge-theme='dark'] .oh-merge__alignment-placeholder-missing-side-removal {
+  background-color: rgba(248, 81, 73, 0.10);
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0,
+    transparent 4px,
+    rgba(248, 81, 73, 0.26) 4px,
+    rgba(248, 81, 73, 0.26) 8px
+  );
+  border-top-color: rgba(248, 81, 73, 0.55);
+  border-bottom-color: rgba(248, 81, 73, 0.55);
+  border-left-color: rgba(248, 81, 73, 0.55);
+  box-shadow: inset -1px 0 0 rgba(248, 81, 73, 0.55);
+}
+
 /* Action-slot placeholder closes the TOP edge of the bordered
  * rectangle around resolved hunks. Same inset-shadow trick for the
  * right edge — view zone DOMs hit the same Monaco-right-edge
@@ -412,6 +442,36 @@
   border-top-color: rgba(180, 180, 180, 0.45);
   border-left-color: rgba(180, 180, 180, 0.45);
   box-shadow: inset -1px 0 0 rgba(180, 180, 180, 0.45);
+}
+
+/* Removal variant for the action-slot header — pairs with the
+ * missing-side-removal body so the "Removed here" label sits on a
+ * red-tinted strip that visually connects to the hashed body below.
+ * Without this, the action-slot would stay grey while the body went
+ * red, breaking the single-rectangle read. */
+.oh-merge__alignment-placeholder-action-slot-removal {
+  background: rgba(218, 54, 51, 0.10);
+  border-top-color: rgba(218, 54, 51, 0.55);
+  border-left-color: rgba(218, 54, 51, 0.55);
+  box-shadow: inset -1px 0 0 rgba(218, 54, 51, 0.55);
+}
+[data-merge-theme='dark'] .oh-merge__alignment-placeholder-action-slot-removal {
+  background: rgba(248, 81, 73, 0.10);
+  border-top-color: rgba(248, 81, 73, 0.55);
+  border-left-color: rgba(248, 81, 73, 0.55);
+  box-shadow: inset -1px 0 0 rgba(248, 81, 73, 0.55);
+}
+
+/* Label inside a removal-variant placeholder — switch the italic
+ * caption to the removal red so "Removed here" reads as a real
+ * deletion signal instead of meta-information about absence. */
+.oh-merge__alignment-placeholder-missing-side-removal .oh-merge__placeholder-label,
+.oh-merge__alignment-placeholder-action-slot-removal .oh-merge__placeholder-label {
+  color: rgba(180, 60, 60, 0.95);
+}
+[data-merge-theme='dark'] .oh-merge__alignment-placeholder-missing-side-removal .oh-merge__placeholder-label,
+[data-merge-theme='dark'] .oh-merge__alignment-placeholder-action-slot-removal .oh-merge__placeholder-label {
+  color: rgba(255, 130, 130, 0.95);
 }
 
 /* Clean-state frame (blue) — per-line counterpart of

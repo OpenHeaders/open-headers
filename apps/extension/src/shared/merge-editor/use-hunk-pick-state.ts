@@ -69,7 +69,7 @@ export function isResolved(state: HunkPickState): boolean {
 }
 
 function withTrailingNewline(s: string): string {
-  return s.length > 0 && !s.endsWith('\n') ? s + '\n' : s;
+  return s.length > 0 && !s.endsWith('\n') ? `${s}\n` : s;
 }
 
 /** Compute the buffer text the hunk's region should hold for a given

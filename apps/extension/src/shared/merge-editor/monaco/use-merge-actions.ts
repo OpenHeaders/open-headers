@@ -103,8 +103,7 @@ export function useMergeActions({ resultEditorRef, sideEditorRefs, contextRef }:
 
     // `Ctrl/Cmd+K <letter>` chord — `KeyMod.chord(prefix, suffix)` with
     // `CtrlCmd` mapping to Ctrl on Win/Linux + Cmd on Mac.
-    const chord = (suffix: number): number =>
-      monaco.KeyMod.chord(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, suffix);
+    const chord = (suffix: number): number => monaco.KeyMod.chord(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, suffix);
 
     disposables.push(
       editor.addAction({

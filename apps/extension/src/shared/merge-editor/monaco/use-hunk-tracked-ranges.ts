@@ -74,7 +74,10 @@ function clampedRange(range: LineRange, lineCount: number): { startLine: number;
   return { startLine: start, endLine: end };
 }
 
-export function useHunkTrackedRanges({ resultRef, hunks }: UseHunkTrackedRangesArgs): RefObject<HunkTrackedRangesHandle> {
+export function useHunkTrackedRanges({
+  resultRef,
+  hunks,
+}: UseHunkTrackedRangesArgs): RefObject<HunkTrackedRangesHandle> {
   // Map<hunkId, decorationId> — owned by this hook for the editor's lifetime.
   const trackedRef = useRef<Map<string, string>>(new Map());
   const handleRef = useRef<HunkTrackedRangesHandle>({
