@@ -91,6 +91,11 @@ const MergeConflictModal = ({
   // toggle there.
   const [inlineActionLabels, setInlineActionLabels] = useState(true);
   const [sideActionGutters, setSideActionGutters] = useState(true);
+  // Compact view collapses unchanged regions across all three panes so
+  // only hunks (+ a few lines of context) stay visible. Off by default
+  // because compact view loses the surrounding YAML context which is
+  // often useful for understanding the rule's overall shape.
+  const [compactView, setCompactView] = useState(false);
   // Bumped whenever any file's pick-state changes via MergePane's
   // `onPickStateChange`. Forces the modal's memoized hunk-count diff
   // to re-run so the sidebar pill / Complete Merge gate reflect the
@@ -474,6 +479,12 @@ const MergeConflictModal = ({
             <Text style={{ fontSize: 12 }} type="secondary">
               Show non-conflicting
             </Text>
+            <Tooltip title="Collapse unchanged regions across all panes — only hunk areas (plus a few lines of context) stay visible. Useful for files where most lines are unchanged.">
+              <Switch size="small" checked={compactView} onChange={setCompactView} />
+            </Tooltip>
+            <Text style={{ fontSize: 12 }} type="secondary">
+              Compact view
+            </Text>
             <Tooltip title="When on, accepting one side of a hunk auto-dismisses the other so the hunk resolves in one click. Off keeps the diagonal-append (↘ / ↙) affordance so you can stack both sides.">
               <Switch size="small" checked={singleClickResolve} onChange={setSingleClickResolve} />
             </Tooltip>
@@ -555,6 +566,7 @@ const MergeConflictModal = ({
                     file={activeFile}
                     isDarkMode={isDarkMode}
                     showNonConflicting={showNonConflicting}
+                    compactView={compactView}
                     layout={layout}
                     onHunkStatsChange={setStats}
                     onAnnounce={announce}
@@ -577,6 +589,7 @@ const MergeConflictModal = ({
                   singleClickResolve={singleClickResolve}
                   inlineActionLabels={inlineActionLabels}
                   sideActionGutters={effectiveSideGutters}
+                  compactView={compactView}
                   layout={layout}
                   onHunkStatsChange={setStats}
                   onPickStateChange={handlePickStateChange}

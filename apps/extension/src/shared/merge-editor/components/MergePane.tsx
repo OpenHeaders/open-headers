@@ -41,10 +41,11 @@ import {
   useState,
 } from 'react';
 import { classifyConflicts, classifyConflicts3Way } from '../diff/conflict-classify';
-import type { Hunk } from '../diff/line-diff';
+import type { Hunk, LineRange } from '../diff/line-diff';
 import { diffLinesPatience } from '../diff/patience-diff';
 import { useCharDecorations } from '../monaco/use-char-decorations';
 import { useGridResize } from '../monaco/use-grid-resize';
+import { useHiddenAreas } from '../monaco/use-hidden-areas';
 import { useHunkActionMarkers } from '../monaco/use-hunk-action-markers';
 import {
   useHunkActionZones,
@@ -128,6 +129,11 @@ export interface MergePaneProps {
    *  for the modal to derive the sidebar status pill + Complete Merge
    *  gate from a single source of truth. */
   onPickStateChange?: (hunkId: string | null) => void;
+  /** When true, collapse unchanged regions across all three panes so
+   *  the editor focuses on hunk regions + a few lines of context.
+   *  Same Monaco primitive (`setHiddenAreas`) VS Code's merge editor
+   *  uses. Default false. */
+  compactView?: boolean;
 }
 
 export interface MergePaneHandle {
@@ -161,6 +167,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     inlineActionLabels = true,
     sideActionGutters = true,
     onPickStateChange,
+    compactView = false,
   } = props;
   // Monaco theme id comes from the active variant — the chrome's
   // `isDarkMode` prop only drives the merge-pane background shading.
@@ -503,6 +510,82 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     // dropping it from deps avoids the reset cascade that triggered
     // React #185 on Chrome split-tab drag bursts.
   }, [file.id]);
+
+  // Compact-view hidden ranges. Theirs / mine use pickStateHunks's
+  // own range axes directly (stable, pane-local coordinates).
+  // Result must read live tracked ranges via trackedRangesRef
+  // because the result pane's content shifts every time the user
+  // accepts a hunk — pickStateHunks's mineRange points at the
+  // INITIAL insertion position, which can drift from the actual
+  // post-accept content for multi-line stacks (e.g. Accept
+  // Combination of a 5+5-line modification). pickStateRev in the
+  // memo's deps busts the cache on every controller mutation so
+  // the visible windows track the live content.
+  const theirsVisibleRanges = useMemo<LineRange[]>(
+    () => pickStateHunks.map((h) => h.theirsRange),
+    [pickStateHunks],
+  );
+  const mineVisibleRanges = useMemo<LineRange[]>(
+    () => pickStateHunks.map((h) => h.mineRange),
+    [pickStateHunks],
+  );
+  const resultVisibleRanges = useMemo<LineRange[]>(() => {
+    const ranges: LineRange[] = [];
+    for (const h of pickStateHunks) {
+      const live = trackedRangesRef.current?.liveRangeOf(h.id);
+      if (live) {
+        ranges.push({ startLine: live.startLineNumber, endLine: live.endLineNumber + 1 });
+      } else {
+        ranges.push(h.mineRange);
+      }
+    }
+    void pickStateRev;
+    return ranges;
+  }, [pickStateHunks, pickStateRev, trackedRangesRef]);
+  // Smallest indent across the hunk's actual content lines. Drives
+  // ancestor lookup in `useHiddenAreas` so insertion-point hunks
+  // (whose pane-local anchor is a sibling line, not a child) still
+  // find the right structural parent. e.g. a peer-added row inserted
+  // at the `responseHeaders:` line — anchor indent 2, content indent
+  // 4 → walking from indent 4 surfaces `requestHeaders:` at indent 2
+  // as the logical parent. Same array reused across all three panes
+  // since the content text doesn't depend on which pane displays it.
+  const hunkContentIndents = useMemo<ReadonlyArray<number | undefined>>(
+    () =>
+      pickStateHunks.map((h) => {
+        let min = Number.POSITIVE_INFINITY;
+        for (const line of [...h.theirsLines, ...h.mineLines]) {
+          if (line.trim() === '') continue;
+          let i = 0;
+          while (i < line.length && (line[i] === ' ' || line[i] === '\t')) i++;
+          if (i < min) min = i;
+        }
+        return Number.isFinite(min) ? min : undefined;
+      }),
+    [pickStateHunks],
+  );
+
+  useHiddenAreas({
+    editorRef: theirsHandle,
+    visibleRanges: theirsVisibleRanges,
+    contentIndents: hunkContentIndents,
+    context: 3,
+    enabled: compactView,
+  });
+  useHiddenAreas({
+    editorRef: mineHandle,
+    visibleRanges: mineVisibleRanges,
+    contentIndents: hunkContentIndents,
+    context: 3,
+    enabled: compactView,
+  });
+  useHiddenAreas({
+    editorRef: resultHandle,
+    visibleRanges: resultVisibleRanges,
+    contentIndents: hunkContentIndents,
+    context: 3,
+    enabled: compactView,
+  });
 
   // Pixel-y positions for the action gutter rows. Recomputed when the
   // hunk set changes or the result editor scrolls / lays out.

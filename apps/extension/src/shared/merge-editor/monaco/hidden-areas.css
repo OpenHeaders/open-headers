@@ -1,0 +1,51 @@
+/* "N lines hidden — click to expand" markers for Compact view.
+ *
+ * Anchored at each hidden gap's start line via a Monaco view zone,
+ * wrapped in the standard action-zone-wrapper so the right edge
+ * aligns with the scrollbar inset (padding-right: 10px on the
+ * wrapper). Single row, subtle grey-blue background, hover lifts
+ * to a stronger tint to signal interactivity. */
+
+.oh-merge__hidden-gap {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  line-height: 16px;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  color: rgba(80, 80, 80, 0.7);
+  background: rgba(127, 127, 127, 0.06);
+  border-top: 1px solid rgba(127, 127, 127, 0.25);
+  border-bottom: 1px solid rgba(127, 127, 127, 0.25);
+  cursor: pointer;
+  user-select: none;
+  pointer-events: auto;
+  transition: background 80ms ease, color 80ms ease;
+}
+
+.oh-merge__hidden-gap:hover {
+  background: rgba(0, 102, 204, 0.10);
+  color: rgba(0, 102, 204, 0.95);
+  border-top-color: rgba(0, 102, 204, 0.45);
+  border-bottom-color: rgba(0, 102, 204, 0.45);
+}
+
+[data-merge-theme='dark'] .oh-merge__hidden-gap {
+  color: rgba(200, 200, 200, 0.7);
+  background: rgba(255, 255, 255, 0.04);
+  border-top-color: rgba(180, 180, 180, 0.25);
+  border-bottom-color: rgba(180, 180, 180, 0.25);
+}
+[data-merge-theme='dark'] .oh-merge__hidden-gap:hover {
+  background: rgba(102, 178, 255, 0.12);
+  color: rgba(102, 178, 255, 0.95);
+  border-top-color: rgba(102, 178, 255, 0.45);
+  border-bottom-color: rgba(102, 178, 255, 0.45);
+}
+
+.oh-merge__hidden-gap-label {
+  pointer-events: none;
+  white-space: nowrap;
+}

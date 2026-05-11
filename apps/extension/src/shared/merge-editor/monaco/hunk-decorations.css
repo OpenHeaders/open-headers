@@ -169,12 +169,54 @@
 }
 
 .oh-merge__hunk-dismissed {
-  background-color: transparent !important;
-  border-top: 1px dashed rgba(127, 127, 127, 0.55);
-  border-bottom: 1px dashed rgba(127, 127, 127, 0.55);
+  /* Top/bottom dashed brackets via two layered repeating-gradient
+   * backgrounds instead of `border-top`/`border-bottom`. Reasons:
+   *   1. Native borders paint across the FULL element width, but
+   *      Monaco's whole-line decorations extend past the scrollbar
+   *      area — the borders would overflow past the bordered
+   *      rectangle's right edge.
+   *   2. Sizing each gradient at `calc(100% - 10px)` parks the right
+   *      end at the scrollbar inset, matching the frame's geometry.
+   *   3. `::before` / `::after` can't be used because the frame
+   *      variants (`-frame`, `-frame-resolved-last`) already claim
+   *      those pseudos with conflicting position/size.
+   * `!important` overrides the kind class's `background:
+   * linear-gradient(...)` (shorthand → background-image) so the
+   * green/red/amber kind tint doesn't bleed through the dismissed
+   * state. */
+  background:
+    repeating-linear-gradient(
+      to right,
+      rgba(127, 127, 127, 0.55) 0,
+      rgba(127, 127, 127, 0.55) 4px,
+      transparent 4px,
+      transparent 8px
+    ) top left / calc(100% - 10px) 1px no-repeat,
+    repeating-linear-gradient(
+      to right,
+      rgba(127, 127, 127, 0.55) 0,
+      rgba(127, 127, 127, 0.55) 4px,
+      transparent 4px,
+      transparent 8px
+    ) bottom left / calc(100% - 10px) 1px no-repeat
+    !important;
   opacity: 0.55;
 }
 [data-merge-theme='dark'] .oh-merge__hunk-dismissed {
-  border-top-color: rgba(255, 255, 255, 0.30);
-  border-bottom-color: rgba(255, 255, 255, 0.30);
+  background:
+    repeating-linear-gradient(
+      to right,
+      rgba(255, 255, 255, 0.30) 0,
+      rgba(255, 255, 255, 0.30) 4px,
+      transparent 4px,
+      transparent 8px
+    ) top left / calc(100% - 10px) 1px no-repeat,
+    repeating-linear-gradient(
+      to right,
+      rgba(255, 255, 255, 0.30) 0,
+      rgba(255, 255, 255, 0.30) 4px,
+      transparent 4px,
+      transparent 8px
+    ) bottom left / calc(100% - 10px) 1px no-repeat
+    !important;
 }

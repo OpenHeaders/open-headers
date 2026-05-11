@@ -450,31 +450,43 @@
   background: rgba(102, 178, 255, 0.6);
 }
 
-/* Resolved-state frame (grey). Same inset box-shadow approach as
- * the orange variant — Monaco's whole-line decorations don't
- * reliably render `border-right`, so we compose L/R/B via inset
- * shadows. Pairs with the action-slot placeholder's grey top +
- * side borders to form a complete grey rectangle around the
- * now-solved conflict. */
+/* Resolved-state frame (grey). Same right-edge trick as the orange
+ * `-frame` and blue `-frame-clean` variants: position: relative + an
+ * ::after pseudo positioned at `right: 10px` so the right edge lands
+ * at the scrollbar's left edge instead of the editor view's right
+ * edge (Monaco's whole-line decoration elements extend across the
+ * scrollbar area; a pure `inset -1px` box-shadow paints off-screen
+ * past the scrollbar and is invisible to the user). `::before` on
+ * the `-last` row closes the bottom edge with the same `right: 10px`
+ * inset for consistent geometry. */
 .oh-merge__action-zone-frame-resolved {
-  box-shadow:
-    inset 1px 0 0 rgba(127, 127, 127, 0.55),
-    inset -1px 0 0 rgba(127, 127, 127, 0.55);
+  position: relative;
+  box-shadow: inset 1px 0 0 rgba(127, 127, 127, 0.55);
 }
-.oh-merge__action-zone-frame-resolved-last {
-  box-shadow:
-    inset 1px 0 0 rgba(127, 127, 127, 0.55),
-    inset -1px 0 0 rgba(127, 127, 127, 0.55),
-    inset 0 -1px 0 rgba(127, 127, 127, 0.55);
+.oh-merge__action-zone-frame-resolved::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 10px;
+  width: 1px;
+  background: rgba(127, 127, 127, 0.55);
+  pointer-events: none;
+}
+.oh-merge__action-zone-frame-resolved-last::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 10px;
+  height: 1px;
+  background: rgba(127, 127, 127, 0.55);
+  pointer-events: none;
 }
 [data-merge-theme='dark'] .oh-merge__action-zone-frame-resolved {
-  box-shadow:
-    inset 1px 0 0 rgba(180, 180, 180, 0.45),
-    inset -1px 0 0 rgba(180, 180, 180, 0.45);
+  box-shadow: inset 1px 0 0 rgba(180, 180, 180, 0.45);
 }
-[data-merge-theme='dark'] .oh-merge__action-zone-frame-resolved-last {
-  box-shadow:
-    inset 1px 0 0 rgba(180, 180, 180, 0.45),
-    inset -1px 0 0 rgba(180, 180, 180, 0.45),
-    inset 0 -1px 0 rgba(180, 180, 180, 0.45);
+[data-merge-theme='dark'] .oh-merge__action-zone-frame-resolved::after,
+[data-merge-theme='dark'] .oh-merge__action-zone-frame-resolved-last::before {
+  background: rgba(180, 180, 180, 0.45);
 }
