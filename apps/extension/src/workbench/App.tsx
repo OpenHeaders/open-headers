@@ -1337,15 +1337,43 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   type SidebarViewId = 'http-rules' | 'api-requests' | 'variables' | 'workflows';
   const sidebarFilterRefs = useRef<Map<SidebarViewId, InputRef | null>>(new Map());
 
-  // Keyboard shortcuts help: toggle right pane on docs/keyboard-shortcuts.
-  const handleShowShortcuts = useCallback(() => {
-    const docsSlot = tl.dockOf('docs');
-    if (docsSlot && tl.state.docks[docsSlot].active === 'docs') {
-      tl.toggleWindow('docs');
-    } else {
-      openDocs('keyboard-shortcuts');
+  // Map the active tab's mode to the sidebar that owns its entity
+  // type, so `/` (`onFocusFilter`) drops you into the right list
+  // without you having to switch panels first.
+  const sidebarForTabMode = (mode: string | undefined): SidebarViewId | null => {
+    if (!mode) return null;
+    if (mode === 'edit' || mode === 'rule-create' || mode === 'collection-overview' || mode === 'folder-overview') {
+      return 'http-rules';
     }
-  }, [tl, openDocs]);
+    if (mode === 'request-edit' || mode === 'request-create' || mode === 'request-collection-vars') {
+      return 'api-requests';
+    }
+    if (mode === 'live-workflow-edit' || mode === 'live-workflow-create') {
+      return 'workflows';
+    }
+    if (
+      mode === 'live-variable-edit' ||
+      mode === 'live-variable-create' ||
+      mode === 'env-edit' ||
+      mode === 'env-create' ||
+      mode === 'workspace-vars' ||
+      mode === 'vault' ||
+      mode === 'collection-vars'
+    ) {
+      return 'variables';
+    }
+    return null;
+  };
+
+  // Keyboard shortcuts help: open the docs panel and navigate to the
+  // keyboard-shortcuts section. Never closes — pressing the shortcut
+  // while docs is already open on a DIFFERENT section just jumps to
+  // keyboard-shortcuts (instead of silently closing the panel and
+  // burying the user's place). Close path is the panel toggle button
+  // or Esc inside the docs panel.
+  const handleShowShortcuts = useCallback(() => {
+    openDocs('keyboard-shortcuts');
+  }, [openDocs]);
 
   // The +create dropdown needs to open from multiple entry points
   // (command palette item, ⌥N shortcut). Share the "open + focus first
@@ -1400,16 +1428,25 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     onNewRule: openCreateMenu,
     onFocusFilter: () => {
       if (!tl.isRegionOpen('left')) togglePanel('sidebar');
-      // Pick the sidebar to focus based on which dock the user is
-      // currently in. Falls back to http-rules, then any other
-      // mounted sidebar — never silently focuses an unrelated panel.
+      // Pick the sidebar that matches what the user is actually
+      // working on right now. Priority:
+      //   1. Sidebar for the active tab's entity type — if you're
+      //      editing a request, `/` focuses the API Requests filter,
+      //      not whichever sidebar happens to be mounted.
+      //   2. Currently active sidebar in the focused dock.
+      //   3. Any mounted sidebar, in canonical order.
+      //   4. http-rules as the last-resort default.
       const sidebarIds: SidebarViewId[] = ['http-rules', 'api-requests', 'variables', 'workflows'];
+      const fromActiveTab = sidebarForTabMode(activeTab?.mode);
       const focusedDock = getFocusedDock();
       const activeInFocused = focusedDock ? tl.state.docks[focusedDock]?.active : null;
-      const target =
-        (activeInFocused && (sidebarIds as string[]).includes(activeInFocused)
+      const fromActiveSidebar =
+        activeInFocused && (sidebarIds as string[]).includes(activeInFocused)
           ? (activeInFocused as SidebarViewId)
-          : null) ??
+          : null;
+      const target =
+        fromActiveTab ??
+        fromActiveSidebar ??
         sidebarIds.find((id) => sidebarFilterRefs.current.get(id) != null) ??
         'http-rules';
       sidebarFilterRefs.current.get(target)?.focus();
