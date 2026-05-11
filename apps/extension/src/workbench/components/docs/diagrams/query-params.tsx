@@ -144,9 +144,9 @@ export const QueryParamReplaceOnlyDiagram: React.FC = () => {
   const TILE_W = 138;
   const LEFT_X = 14;
   const RIGHT_X = 168;
-  const SCENARIO_LABEL_Y = 50;
-  const SCENARIO_SUB_Y = 62;
-  const BEFORE_Y = 74;
+  const SCENARIO_LABEL_Y = 64;
+  const SCENARIO_SUB_Y = 78;
+  const BEFORE_Y = 92;
   const STATE_H = 34;
   const ARROW_Y_S = BEFORE_Y + STATE_H + 4;
   const ARROW_Y_E = ARROW_Y_S + 20;
