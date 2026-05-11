@@ -10,10 +10,10 @@
 export {
   BodyInterceptDiagram,
   DelayRoutingDiagram,
-  HeaderOpsDiagram,
   InjectTimingDiagram,
   MockFlowDiagram,
 } from './_pending';
+export { HeaderOpsDiagram, OverrideDiagram } from './header-actions';
 export {
   MultiTabLocalDiagram,
   MultiTabNavigationDiagram,

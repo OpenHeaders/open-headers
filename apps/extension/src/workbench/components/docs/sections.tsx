@@ -33,6 +33,7 @@ import {
   ExecutionScriptReachDiagram,
   ExecutionStackDiagram,
   HeaderOpsDiagram,
+  OverrideDiagram,
   InjectTimingDiagram,
   MockFlowDiagram,
   MultiTabLocalDiagram,
@@ -785,6 +786,9 @@ export const HeaderActionsSection: React.FC = () => (
       <DocParagraph>
         Sets the header to this value. Replaces if present, adds if missing — always one header with your value.
       </DocParagraph>
+      <DiagramFrame caption="Same rule covers both cases — replaces an existing header, or adds it when absent.">
+        <OverrideDiagram />
+      </DiagramFrame>
       <Example
         rule="Override X-Auth: Bearer token"
         before={['X-Auth: old-value']}
