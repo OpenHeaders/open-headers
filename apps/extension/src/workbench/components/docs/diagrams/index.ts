@@ -15,6 +15,12 @@ export {
 } from './_pending';
 export { BlockDiagram, BlockUseCasesDiagram, BlockWontApplyDiagram } from './block';
 export {
+  RedirectRegexDiagram,
+  RedirectStaticDiagram,
+  RedirectUseCasesDiagram,
+  RedirectWontApplyDiagram,
+} from './redirect';
+export {
   AppendDiagram,
   AppendWontApplyDiagram,
   HeaderOpsDiagram,

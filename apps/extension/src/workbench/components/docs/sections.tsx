@@ -37,6 +37,10 @@ import {
   BlockDiagram,
   BlockUseCasesDiagram,
   BlockWontApplyDiagram,
+  RedirectRegexDiagram,
+  RedirectStaticDiagram,
+  RedirectUseCasesDiagram,
+  RedirectWontApplyDiagram,
   HeaderOpsDiagram,
   MergeDiagram,
   MergeWontApplyDiagram,
@@ -891,6 +895,7 @@ export const BlockSection: React.FC = () => (
 
 export const RedirectSection: React.FC = () => (
   <>
+    <SurfaceContext surfaces={['popup', 'side-panel', 'workbench', 'devtools']} />
     <DocParagraph>
       Redirects matching requests to a different URL. Supports static URLs and regex capture groups.
     </DocParagraph>
@@ -898,10 +903,9 @@ export const RedirectSection: React.FC = () => (
     <Anchor id="redirect-url">
       <ActionHeading title="Static redirect" engine="dnr" />
       <DocParagraph>Enter a full URL to redirect every matching request to the same destination.</DocParagraph>
-      <Example
-        rule="https://openheaders.io/new-page"
-        after={['All matching requests → https://openheaders.io/new-page']}
-      />
+      <DiagramFrame caption="Same destination for every matching request — full URL substitution.">
+        <RedirectStaticDiagram />
+      </DiagramFrame>
     </Anchor>
 
     <Anchor id="redirect-regex">
@@ -910,12 +914,24 @@ export const RedirectSection: React.FC = () => (
         Pair with a URL Regex condition. Use <code>\1</code>, <code>\2</code>, etc. to reference capture groups in the
         destination URL.
       </DocParagraph>
-      <Example
-        rule="Condition: ^http://(openheaders\.io/.*)$  →  https://\1"
-        before={['http://openheaders.io/page']}
-        after={['https://openheaders.io/page']}
-      />
+      <DiagramFrame caption="The capture group's matched text gets substituted into the destination URL.">
+        <RedirectRegexDiagram />
+      </DiagramFrame>
     </Anchor>
+
+    <DiagramFrame caption="Redirect doesn't retro-apply to already-loaded pages. Loops are silently capped by Chrome.">
+      <RedirectWontApplyDiagram />
+    </DiagramFrame>
+
+    <DocHeading level={3}>When to use this</DocHeading>
+    <DocParagraph>
+      Forcing HTTP → HTTPS, migrating users from an old domain, rewriting API versions, and proxying CDN traffic to a
+      local dev server are the four typical patterns. Pair Static with full URLs you know up-front; reach for Regex when
+      the path needs to carry through the redirect.
+    </DocParagraph>
+    <DiagramFrame caption="Four typical patterns — pick Regex when the destination path depends on the match.">
+      <RedirectUseCasesDiagram />
+    </DiagramFrame>
   </>
 );
 
