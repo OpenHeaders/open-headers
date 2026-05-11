@@ -183,7 +183,7 @@ export const DOC_GROUPS: DocGroup[] = [
     sections: [
       {
         id: 'inject',
-        title: 'Inject',
+        title: 'Inject JS / CSS',
         summary: 'Run JavaScript or CSS in the page context — pre-page-script or after DOM is ready.',
         group: 'run-code',
         icon: <CodeOutlined />,

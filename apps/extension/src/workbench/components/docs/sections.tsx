@@ -59,7 +59,11 @@ import {
   OverrideWontApplyDiagram,
   RemoveDiagram,
   RemoveWontApplyDiagram,
+  InjectCssDiagram,
+  InjectScriptDiagram,
   InjectTimingDiagram,
+  InjectUseCasesDiagram,
+  InjectWontApplyDiagram,
   MockDynamicDiagram,
   MockFlowDiagram,
   MockStaticDiagram,
@@ -1013,10 +1017,11 @@ export const QueryParamSection: React.FC = () => (
 
 export const InjectSection: React.FC = () => (
   <>
+    <SurfaceContext surfaces={['popup', 'side-panel', 'workbench', 'devtools']} />
     <DocParagraph>
       Inject JavaScript or CSS into matching pages. Code runs in the page's context via a content script.
     </DocParagraph>
-    <DiagramFrame caption="Insertion timing — pre-page-script vs DOM-safe">
+    <DiagramFrame caption="Insertion timing — pre-page-script (ASAP) vs DOM-safe (After Load).">
       <InjectTimingDiagram />
     </DiagramFrame>
 
@@ -1031,14 +1036,9 @@ export const InjectSection: React.FC = () => (
         <strong>After Page Load</strong> — runs once the page has parsed. Safer default for code that reads the DOM,
         since elements are guaranteed to exist.
       </DocParagraph>
-      <Example
-        rule="Script (ASAP): wrap fetch to log every call"
-        after={['Every fetch() in the page logs URL + method to the console before the real call goes out']}
-        wontApply={[
-          'Sandboxed iframes that disable script execution',
-          '→ Use a parent-page rule and post messages into the iframe instead',
-        ]}
-      />
+      <DiagramFrame caption="Script lands as a <script> tag in the page — sees the same globals as page JS.">
+        <InjectScriptDiagram />
+      </DiagramFrame>
     </Anchor>
 
     <Anchor id="inject-css">
@@ -1047,11 +1047,23 @@ export const InjectSection: React.FC = () => (
         Inject custom CSS as a <code>&lt;style&gt;</code> tag. Useful for dark-mode overrides, hiding noisy elements, or
         per-environment theming.
       </DocParagraph>
-      <Example
-        rule="CSS: header.banner { display: none }"
-        after={['The .banner header is hidden on every matching page']}
-      />
+      <DiagramFrame caption="CSS is appended as a <style> tag with normal CSS specificity.">
+        <InjectCssDiagram />
+      </DiagramFrame>
     </Anchor>
+
+    <DiagramFrame caption="Sandboxed iframes and strict CSP pages block injected scripts.">
+      <InjectWontApplyDiagram />
+    </DiagramFrame>
+
+    <DocHeading level={3}>When to use this</DocHeading>
+    <DocParagraph>
+      Monkey-patching browser APIs before app code grabs them, forcing a dark-mode theme, hiding noisy UI elements, and
+      seeding window-level feature flags before the page initializes.
+    </DocParagraph>
+    <DiagramFrame caption="Four typical patterns — ASAP timing is required for the first and fourth.">
+      <InjectUseCasesDiagram />
+    </DiagramFrame>
   </>
 );
 
