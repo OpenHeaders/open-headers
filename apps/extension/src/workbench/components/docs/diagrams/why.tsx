@@ -17,17 +17,23 @@ import type React from 'react';
 import {
   ArrowDefs,
   FILL_BLUE,
-  FILL_GREEN,
   FILL_ORANGE,
   FILL_PURPLE,
   STROKE,
   STROKE_BLUE,
-  STROKE_GREEN,
   STROKE_ORANGE,
   STROKE_PURPLE,
   TEXT,
   TEXT_DIM,
 } from './_shared';
+
+// Local saturated-green palette. We deliberately avoid `_shared`
+// FILL_GREEN / STROKE_GREEN — they map to Ant's `success-bg` /
+// `success-border` which render as a washed-out lime on light
+// themes. These use the vibrant `success` token + a low-alpha tint
+// for fill so the green still reads on a white panel.
+const OH_GREEN = 'var(--ant-color-success)';
+const OH_GREEN_TINT = 'rgba(82, 196, 26, 0.12)';
 
 /**
  * Mini Open Headers logo, scaled into a small box. Mirrors the
@@ -114,7 +120,8 @@ export const WhyHeroDiagram: React.FC = () => {
       {/* Arrow into OH */}
       <line x1={98} y1={130} x2={114} y2={130} stroke={STROKE} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
 
-      {/* OpenHeaders transform card (center) */}
+      {/* OpenHeaders transform card (center) — uses the brand blue,
+       *  not green, so the OH card carries its own identity. */}
       <rect
         x={116}
         y={50}
@@ -122,10 +129,10 @@ export const WhyHeroDiagram: React.FC = () => {
         height={170}
         rx={8}
         fill="var(--ant-color-bg-container)"
-        stroke={STROKE_GREEN}
+        stroke={STROKE_BLUE}
         strokeWidth={1.8}
       />
-      <rect x={116} y={50} width={106} height={28} rx={8} fill={FILL_GREEN} stroke={STROKE_GREEN} />
+      <rect x={116} y={50} width={106} height={28} rx={8} fill={FILL_BLUE} stroke={STROKE_BLUE} />
       <OhLogoSmall x={124} y={56} size={16} idSuffix="hero" />
       <text x={144} y={68} fontSize={10} fontWeight={700} fill={TEXT}>
         Open Headers
@@ -140,13 +147,13 @@ export const WhyHeroDiagram: React.FC = () => {
       <text x={126} y={108} fontFamily="monospace" fontSize={7} fill="var(--ant-color-error)" textDecoration="line-through">
         Auth: prod-token
       </text>
-      <rect x={122} y={120} width={94} height={20} rx={2} fill={FILL_GREEN} stroke={STROKE_GREEN} />
-      <text x={126} y={132} fontFamily="monospace" fontSize={7} fontWeight={700} fill={STROKE_GREEN}>
+      <rect x={122} y={120} width={94} height={20} rx={2} fill={OH_GREEN_TINT} stroke={OH_GREEN} />
+      <text x={126} y={132} fontFamily="monospace" fontSize={7} fontWeight={700} fill={OH_GREEN}>
         Auth: dev-token
       </text>
 
-      <rect x={122} y={146} width={94} height={20} rx={2} fill={FILL_GREEN} stroke={STROKE_GREEN} />
-      <text x={126} y={158} fontFamily="monospace" fontSize={7} fontWeight={700} fill={STROKE_GREEN}>
+      <rect x={122} y={146} width={94} height={20} rx={2} fill={OH_GREEN_TINT} stroke={OH_GREEN} />
+      <text x={126} y={158} fontFamily="monospace" fontSize={7} fontWeight={700} fill={OH_GREEN}>
         +X-Debug: true
       </text>
 
@@ -160,7 +167,7 @@ export const WhyHeroDiagram: React.FC = () => {
       </text>
 
       {/* Arrow out to Network */}
-      <line x1={222} y1={130} x2={238} y2={130} stroke={STROKE_GREEN} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
+      <line x1={222} y1={130} x2={238} y2={130} stroke={OH_GREEN} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
 
       {/* Network card (right) */}
       <rect x={240} y={70} width={70} height={120} rx={6} fill="var(--ant-color-bg-container)" stroke="var(--ant-color-border)" />
@@ -172,7 +179,7 @@ export const WhyHeroDiagram: React.FC = () => {
         {[0, 1, 2].map((i) => (
           <g key={i}>
             <rect x={0} y={i * 13} width={46} height={9} rx={2} fill={FILL_BLUE} stroke={STROKE_BLUE} />
-            <circle cx={5} cy={i * 13 + 4.5} r={1.5} fill={STROKE_GREEN} />
+            <circle cx={5} cy={i * 13 + 4.5} r={1.5} fill={OH_GREEN} />
             <rect x={11} y={i * 13 + 3} width={28} height={3} rx={1.5} fill="var(--ant-color-fill-tertiary)" />
           </g>
         ))}
@@ -321,12 +328,12 @@ export const WhyCapabilitiesDiagram: React.FC = () => {
       tiles: [
         {
           title: 'Track',
-          accent: 'var(--ant-color-success)',
-          accentBg: FILL_GREEN,
+          accent: OH_GREEN,
+          accentBg: OH_GREEN_TINT,
           glyph: (
             <g>
-              <circle cx={0} cy={0} r={3} fill="var(--ant-color-success)" />
-              <circle cx={0} cy={0} r={6} fill="none" stroke="var(--ant-color-success)" strokeWidth={1.2} opacity={0.6} />
+              <circle cx={0} cy={0} r={3} fill={OH_GREEN} />
+              <circle cx={0} cy={0} r={6} fill="none" stroke={OH_GREEN} strokeWidth={1.2} opacity={0.6} />
             </g>
           ),
         },
