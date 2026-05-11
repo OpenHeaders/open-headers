@@ -463,9 +463,9 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ onClose }) => {
       ) : (
         <SectionRegistryContext.Provider value={registerAnchor}>
           <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
-            <Typography.Title level={5} style={{ fontSize: 14, marginTop: 0, marginBottom: 8 }}>
-              {activeSection.title}
-            </Typography.Title>
+            {/* No in-page heading — the breadcrumb already shows the
+             *  section title; rendering an <h1> here would duplicate
+             *  it visually. */}
             <Component />
             <div style={{ height: 16 }} />
           </div>
