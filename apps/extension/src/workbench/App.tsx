@@ -1436,28 +1436,51 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     onNewRule: openCreateMenu,
     onFocusFilter: () => {
       if (!tl.isRegionOpen('left')) togglePanel('sidebar');
-      // Pick the sidebar that matches what the user is actually
-      // working on right now. Priority:
-      //   1. Sidebar for the active tab's entity type — if you're
-      //      editing a request, `/` focuses the API Requests filter,
-      //      not whichever sidebar happens to be mounted.
-      //   2. Currently active sidebar in the focused dock.
-      //   3. Any mounted sidebar, in canonical order.
-      //   4. http-rules as the last-resort default.
       const sidebarIds: SidebarViewId[] = ['http-rules', 'api-requests', 'variables', 'workflows'];
-      const fromActiveTab = sidebarForTabMode(activeTab?.mode);
-      const focusedDock = getFocusedDock();
-      const activeInFocused = focusedDock ? tl.state.docks[focusedDock]?.active : null;
-      const fromActiveSidebar =
-        activeInFocused && (sidebarIds as string[]).includes(activeInFocused)
-          ? (activeInFocused as SidebarViewId)
-          : null;
-      const target =
-        fromActiveTab ??
-        fromActiveSidebar ??
-        sidebarIds.find((id) => sidebarFilterRefs.current.get(id) != null) ??
-        'http-rules';
-      sidebarFilterRefs.current.get(target)?.focus();
+
+      // Priority is region-driven so the shortcut reads "what is
+      // the user actually looking at right now?":
+      //   • In the left sidebar — focus the filter of whichever
+      //     sidebar tab they're already in. Don't switch to a
+      //     different sidebar just because the editor has a
+      //     different entity type open.
+      //   • In the editor — switch the left sidebar to match the
+      //     active tab's entity type, then focus that filter.
+      //   • Otherwise (region locked out by allowedRegions, so this
+      //     branch is mainly defensive) — first mounted, then
+      //     http-rules.
+      const region = getFocusedRegion();
+      let target: SidebarViewId | null = null;
+      if (region === 'left') {
+        const focusedDock = getFocusedDock();
+        const activeInFocused = focusedDock ? tl.state.docks[focusedDock]?.active : null;
+        if (activeInFocused && (sidebarIds as string[]).includes(activeInFocused)) {
+          target = activeInFocused as SidebarViewId;
+        }
+      }
+      if (!target) {
+        target = sidebarForTabMode(activeTab?.mode);
+      }
+      if (!target) {
+        target = sidebarIds.find((id) => sidebarFilterRefs.current.get(id) != null) ?? 'http-rules';
+      }
+
+      // Activate the sidebar's window in the left dock — silently
+      // no-ops if it's already the active tab there. This unblocks
+      // the case where the active editor tab type's sidebar isn't
+      // currently the visible one in the left dock.
+      tl.activateWindow(target);
+
+      // Defer the focus call by one frame so a freshly-activated
+      // sidebar has time to mount its filter input and register its
+      // ref. If already mounted this still works — the rAF is a no-
+      // op delay, not a wait.
+      const doFocus = () => sidebarFilterRefs.current.get(target as SidebarViewId)?.focus();
+      if (sidebarFilterRefs.current.get(target)) {
+        doFocus();
+      } else {
+        requestAnimationFrame(doFocus);
+      }
     },
     onCommandPalette: () => setCommandPaletteOpen(true),
     onShowShortcuts: handleShowShortcuts,
