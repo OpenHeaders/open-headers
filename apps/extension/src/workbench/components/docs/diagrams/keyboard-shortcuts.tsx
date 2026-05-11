@@ -106,7 +106,7 @@ export const KeyboardRegionsDiagram: React.FC = () => {
         stroke={STROKE}
       />
       <text x={WB_X + LEFT_W / 2} y={WB_Y + TITLE_H + 14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>
-        Sidebar
+        Left sidebar
       </text>
       <ChordChip chord={leftChord} x={WB_X + LEFT_W / 2} y={WB_Y + 56} />
 
@@ -134,7 +134,7 @@ export const KeyboardRegionsDiagram: React.FC = () => {
         fontWeight={700}
         fill={TEXT}
       >
-        Right pane
+        Right sidebar
       </text>
       <ChordChip chord={rightChord} x={editorX + editorW + 1 + RIGHT_W / 2} y={WB_Y + 56} />
 
