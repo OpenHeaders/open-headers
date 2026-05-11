@@ -304,13 +304,14 @@ export const SystemStatusWorkbenchSurfaceDiagram: React.FC = () => {
  * bottom of the popup, alongside the Debug + help icons.
  */
 export const SystemStatusPopupSurfaceDiagram: React.FC = () => {
-  // Popup dimensions
+  // Popup dimensions — anchored BELOW the address bar so the
+  // browser-frame separators don't draw through the popup header.
   const PU_W = 172;
-  const PU_H = 124;
+  const PU_H = 110;
   const PU_X = 312 - PU_W - 4;
-  const PU_Y = 60;
+  const PU_Y = 76;
   const HEAD_H = 22;
-  const FOOTER_H = 20;
+  const FOOTER_H = 22;
   const BODY_Y = PU_Y + HEAD_H;
   const FOOTER_Y = PU_Y + PU_H - FOOTER_H;
 
@@ -355,16 +356,6 @@ export const SystemStatusPopupSurfaceDiagram: React.FC = () => {
           strokeWidth={1.5}
           strokeDasharray="2 2"
         />
-        {/* Connector from toolbar icon down to popup */}
-        <line
-          x1={296}
-          y1={76}
-          x2={PU_X + PU_W - 12}
-          y2={PU_Y}
-          stroke={STROKE_BLUE}
-          strokeWidth={1}
-          strokeDasharray="2 2"
-        />
 
         {/* Popup window */}
         <rect x={PU_X} y={PU_Y} width={PU_W} height={PU_H} rx={5} fill={BG_CONTAINER} stroke={BORDER} />
@@ -388,35 +379,19 @@ export const SystemStatusPopupSurfaceDiagram: React.FC = () => {
           ws ▾
         </text>
 
-        {/* Popup body — three faded rows + a couple of mock list items */}
+        {/* Popup body — a few faded placeholder rows */}
         <g opacity={0.55}>
-          {[0, 1].map((i) => (
+          {[0, 1, 2].map((i) => (
             <rect
               key={`pbr-${i}`}
               x={PU_X + 10}
               y={BODY_Y + 10 + i * 12}
-              width={PU_W - 24 - i * 14}
+              width={PU_W - 24 - i * 18}
               height={5}
               rx={2}
               fill="var(--ant-color-fill-tertiary)"
             />
           ))}
-          <rect
-            x={PU_X + 10}
-            y={BODY_Y + 40}
-            width={PU_W - 20}
-            height={16}
-            rx={3}
-            fill="var(--ant-color-fill-tertiary)"
-          />
-          <rect
-            x={PU_X + 10}
-            y={BODY_Y + 60}
-            width={PU_W - 20}
-            height={16}
-            rx={3}
-            fill="var(--ant-color-fill-tertiary)"
-          />
         </g>
 
         {/* Popup footer — the focal point, with the status pill highlighted */}
@@ -429,19 +404,15 @@ export const SystemStatusPopupSurfaceDiagram: React.FC = () => {
           stroke={dotColor('green')}
           strokeWidth={1.5}
         />
-        {/* Left side: tiny Debug + help icons */}
-        <rect x={PU_X + 6} y={FOOTER_Y + 4} width={26} height={12} rx={3} fill={BG_CONTAINER} stroke={BORDER} />
-        <text x={PU_X + 19} y={FOOTER_Y + 13} textAnchor="middle" fontSize={7} fill={TEXT_DIM}>
-          ⌗ Debug
-        </text>
-        <circle cx={PU_X + 40} cy={FOOTER_Y + FOOTER_H / 2} r={5} fill={BG_CONTAINER} stroke={BORDER} />
-        <text x={PU_X + 40} y={FOOTER_Y + 13} textAnchor="middle" fontSize={7} fill={TEXT_DIM}>
+        {/* Help icon on the left */}
+        <circle cx={PU_X + 14} cy={FOOTER_Y + FOOTER_H / 2} r={6} fill={BG_CONTAINER} stroke={BORDER} />
+        <text x={PU_X + 14} y={FOOTER_Y + FOOTER_H / 2 + 3} textAnchor="middle" fontSize={8} fontWeight={700} fill={TEXT_DIM}>
           ?
         </text>
         {/* Status pill — dot + label */}
-        <circle cx={PU_X + 84} cy={FOOTER_Y + FOOTER_H / 2} r={3} fill={SUCCESS} />
+        <circle cx={PU_X + 38} cy={FOOTER_Y + FOOTER_H / 2} r={3.5} fill={SUCCESS} />
         <text
-          x={PU_X + 90}
+          x={PU_X + 46}
           y={FOOTER_Y + FOOTER_H / 2 + 3}
           fontSize={9}
           fontWeight={700}
@@ -449,9 +420,11 @@ export const SystemStatusPopupSurfaceDiagram: React.FC = () => {
         >
           System status
         </text>
+        {/* Right-aligned version chip */}
         <text
-          x={PU_X + 144}
+          x={PU_X + PU_W - 8}
           y={FOOTER_Y + FOOTER_H / 2 + 3}
+          textAnchor="end"
           fontSize={8}
           fill={TEXT_DIM}
         >
