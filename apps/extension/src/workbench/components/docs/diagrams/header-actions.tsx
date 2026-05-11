@@ -261,21 +261,24 @@ export const AppendDiagram: React.FC = () => {
   const ID = 'ap';
   const RULE_Y = 22;
   const RULE_H = 22;
-  const BEFORE_X = 14;
-  const AFTER_X = 168;
-  const STATE_W = 138;
+  const STATE_X = 50;
+  const STATE_W = 220;
+
+  const BEFORE_Y = 70;
   const BEFORE_H = 38;
+  const ARROW_Y_START = BEFORE_Y + BEFORE_H + 4;
+  const ARROW_Y_END = ARROW_Y_START + 22;
+  const AFTER_Y = ARROW_Y_END + 4;
   const AFTER_H = 56;
-  const STATE_Y = 70;
-  const STAMP_Y = STATE_Y + AFTER_H + 30;
+  const STAMP_Y = AFTER_Y + AFTER_H + 22;
 
   return (
     <svg
-      viewBox="0 0 320 200"
+      viewBox="0 0 320 240"
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Append adds a second header row with the same name — both delivered. BEFORE has one Set-Cookie; AFTER has two Set-Cookie rows, the new one highlighted."
+      aria-label="Append adds a second header row with the same name — both delivered. BEFORE has one Set-Cookie row; AFTER has two, the new one highlighted."
     >
       <ArrowDefs id={ID} />
 
@@ -288,65 +291,56 @@ export const AppendDiagram: React.FC = () => {
         Append Set-Cookie: tracking=xyz
       </text>
 
-      {/* BEFORE */}
+      {/* BEFORE — full width row */}
       <rect
-        x={BEFORE_X}
-        y={STATE_Y}
+        x={STATE_X}
+        y={BEFORE_Y}
         width={STATE_W}
         height={BEFORE_H}
         rx={5}
         fill="var(--ant-color-fill-secondary)"
         stroke="var(--ant-color-border)"
       />
-      <text x={BEFORE_X + 6} y={STATE_Y + 12} fontSize={8} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
+      <text x={STATE_X + 8} y={BEFORE_Y + 13} fontSize={8} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
         BEFORE
       </text>
-      <text x={BEFORE_X + 8} y={STATE_Y + 28} fontFamily="monospace" fontSize={9} fill={TEXT}>
+      <text x={STATE_X + 10} y={BEFORE_Y + 30} fontFamily="monospace" fontSize={10} fill={TEXT}>
         Set-Cookie: session=abc
       </text>
 
-      {/* Arrow */}
+      {/* Vertical arrow with label aside */}
       <line
-        x1={BEFORE_X + STATE_W + 4}
-        y1={STATE_Y + BEFORE_H / 2}
-        x2={AFTER_X - 4}
-        y2={STATE_Y + BEFORE_H / 2}
+        x1={STATE_X + STATE_W / 2}
+        y1={ARROW_Y_START}
+        x2={STATE_X + STATE_W / 2}
+        y2={ARROW_Y_END}
         stroke={STROKE_BLUE}
         strokeWidth={1.5}
         markerEnd={`url(#${ID})`}
       />
       <text
-        x={(BEFORE_X + STATE_W + AFTER_X) / 2}
-        y={STATE_Y + BEFORE_H / 2 - 6}
-        textAnchor="middle"
-        fontSize={8}
+        x={STATE_X + STATE_W / 2 + 12}
+        y={(ARROW_Y_START + ARROW_Y_END) / 2 + 3}
+        fontSize={9}
         fontStyle="italic"
         fill={STROKE_BLUE}
       >
-        +1 row
+        +1 duplicate row
       </text>
 
-      {/* AFTER — tall, two rows */}
-      <rect x={AFTER_X} y={STATE_Y} width={STATE_W} height={AFTER_H} rx={5} fill={FILL_GREEN} stroke={STROKE_GREEN} />
-      <text x={AFTER_X + 6} y={STATE_Y + 12} fontSize={8} fontWeight={700} fill={STROKE_GREEN} letterSpacing={0.5}>
+      {/* AFTER — full width, two rows clearly visible */}
+      <rect x={STATE_X} y={AFTER_Y} width={STATE_W} height={AFTER_H} rx={5} fill={FILL_GREEN} stroke={STROKE_GREEN} />
+      <text x={STATE_X + 8} y={AFTER_Y + 13} fontSize={8} fontWeight={700} fill={STROKE_GREEN} letterSpacing={0.5}>
         AFTER
       </text>
-      {/* Original row, kept */}
-      <text x={AFTER_X + 8} y={STATE_Y + 28} fontFamily="monospace" fontSize={9} fill={TEXT}>
+      <text x={STATE_X + 10} y={AFTER_Y + 30} fontFamily="monospace" fontSize={10} fill={TEXT}>
         Set-Cookie: session=abc
       </text>
-      <text x={AFTER_X + STATE_W - 6} y={STATE_Y + 28} textAnchor="end" fontSize={7} fontStyle="italic" fill={TEXT_DIM}>
-        original
-      </text>
-      {/* New duplicate row, highlighted */}
-      <text x={AFTER_X + 8} y={STATE_Y + 44} fontFamily="monospace" fontSize={9} fontWeight={700} fill={STROKE_GREEN}>
+      <text x={STATE_X + 10} y={AFTER_Y + 46} fontFamily="monospace" fontSize={10} fontWeight={700} fill={STROKE_GREEN}>
         Set-Cookie: tracking=xyz
       </text>
-      <text x={AFTER_X + STATE_W - 6} y={STATE_Y + 44} textAnchor="end" fontSize={7} fontWeight={700} fill={STROKE_GREEN}>
-        +new
-      </text>
 
-      {/* Outcome stamp */}
+      {/* Outcome stamps */}
       <text x={160} y={STAMP_Y} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
         Two Set-Cookie rows — both delivered.
       </text>
