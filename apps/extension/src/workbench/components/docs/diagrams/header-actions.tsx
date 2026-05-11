@@ -22,34 +22,27 @@ import {
 } from './_shared';
 
 /**
- * Add / Replace ("Override") — self-contained explainer for the
- * Add/Replace subsection. Encapsulates everything the old prose
- * "Example" block used to carry:
- *   • the rule
- *   • before / after for both scenarios
- *   • a "won't apply" gotcha + suggestion
- * Pattern mirrors the Conditions sub-diagrams (rule banner → two
- * test cases → footer suggestion) so the visual language stays
- * consistent across the docs.
+ * Add / Replace ("Override") — scenarios diagram. Shows the rule
+ * applied to two starting states (header present vs. absent) and
+ * how both converge to the same outcome. Generous vertical spacing
+ * — labels never overlap the rule banner or the colored cards.
  */
 export const OverrideDiagram: React.FC = () => {
   const ID = 'ov';
-  const errColor = 'var(--ant-color-error)';
-  const errBorder = 'var(--ant-color-error-border)';
 
-  // ─ Two scenario tiles ─
   const TILE_W = 138;
-  const TILE_GAP = 10;
   const TILE_LEFT_X = 14;
-  const TILE_RIGHT_X = TILE_LEFT_X + TILE_W + TILE_GAP * 2;
+  const TILE_RIGHT_X = 168;
 
   const STATE_H = 50;
-  const SCENARIO_LABEL_Y = 50;
-  const SCENARIO_SUB_Y = 62;
-  const BEFORE_Y = 70;
-  const ARROW_LABEL_Y = BEFORE_Y + STATE_H + 14;
+  const RULE_Y = 22;
+  const RULE_H = 22;
+  const SCENARIO_LABEL_Y = 64;
+  const SCENARIO_SUB_Y = 78;
+  const BEFORE_Y = 92;
+  const ARROW_LABEL_Y = BEFORE_Y + STATE_H + 16;
   const AFTER_Y = ARROW_LABEL_Y + 10;
-  const STAMP_Y = AFTER_Y + STATE_H + 18;
+  const STAMP_Y = AFTER_Y + STATE_H + 22;
 
   const renderTile = (
     xOff: number,
@@ -58,9 +51,9 @@ export const OverrideDiagram: React.FC = () => {
     before: { line: string; matched: boolean }[],
     after: { line: string; highlight: boolean }[],
     arrowLabel: string,
+    extraBeforeLine?: string,
   ) => (
     <g>
-      {/* Scenario header */}
       <text x={xOff + TILE_W / 2} y={SCENARIO_LABEL_Y} textAnchor="middle" fontSize={11} fontWeight={700} fill={STROKE_BLUE}>
         {label}
       </text>
@@ -68,7 +61,6 @@ export const OverrideDiagram: React.FC = () => {
         {sub}
       </text>
 
-      {/* BEFORE */}
       <rect
         x={xOff}
         y={BEFORE_Y}
@@ -94,18 +86,24 @@ export const OverrideDiagram: React.FC = () => {
           {h.line}
         </text>
       ))}
-      {before.length === 1 && (
-        <text x={xOff + 8} y={BEFORE_Y + 38} fontFamily="monospace" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-          (no X-Auth)
+      {extraBeforeLine && (
+        <text
+          x={xOff + 8}
+          y={BEFORE_Y + 26 + before.length * 12}
+          fontFamily="monospace"
+          fontSize={9}
+          fontStyle="italic"
+          fill={TEXT_DIM}
+        >
+          {extraBeforeLine}
         </text>
       )}
 
-      {/* Arrow */}
       <line
         x1={xOff + TILE_W / 2}
-        y1={BEFORE_Y + STATE_H}
+        y1={BEFORE_Y + STATE_H + 2}
         x2={xOff + TILE_W / 2}
-        y2={AFTER_Y - 1}
+        y2={AFTER_Y - 2}
         stroke={STROKE_BLUE}
         strokeWidth={1.5}
         markerEnd={`url(#${ID})`}
@@ -114,7 +112,6 @@ export const OverrideDiagram: React.FC = () => {
         {arrowLabel}
       </text>
 
-      {/* AFTER */}
       <rect x={xOff} y={AFTER_Y} width={TILE_W} height={STATE_H} rx={5} fill={FILL_GREEN} stroke={STROKE_GREEN} />
       <text x={xOff + 6} y={AFTER_Y + 12} fontSize={8} fontWeight={700} fill={STROKE_GREEN} letterSpacing={0.5}>
         AFTER
@@ -137,24 +134,22 @@ export const OverrideDiagram: React.FC = () => {
 
   return (
     <svg
-      viewBox="0 0 320 340"
+      viewBox="0 0 320 260"
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Add / Replace — same rule covers both cases. Replaces an existing X-Auth header value, or adds the header when absent. Both arrive at the same outcome. If the rule's conditions don't match the request, it silently no-ops."
+      aria-label="Add / Replace — same rule covers both cases. Replaces an existing X-Auth header value, or adds the header when absent. Both arrive at the same outcome."
     >
       <ArrowDefs id={ID} />
 
-      {/* Rule banner */}
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
         RULE
       </text>
-      <rect x={20} y={20} width={280} height={22} rx={4} fill={FILL_BLUE} stroke={STROKE_BLUE} />
-      <text x={160} y={35} textAnchor="middle" fontFamily="monospace" fontSize={10} fontWeight={700} fill={TEXT}>
+      <rect x={20} y={RULE_Y} width={280} height={RULE_H} rx={4} fill={FILL_BLUE} stroke={STROKE_BLUE} />
+      <text x={160} y={RULE_Y + 15} textAnchor="middle" fontFamily="monospace" fontSize={10} fontWeight={700} fill={TEXT}>
         Override X-Auth: Bearer token
       </text>
 
-      {/* Two scenario tiles */}
       {renderTile(
         TILE_LEFT_X,
         'Replace',
@@ -179,48 +174,77 @@ export const OverrideDiagram: React.FC = () => {
           { line: 'Content-Type: html', highlight: false },
         ],
         'header added',
+        '(no X-Auth)',
       )}
 
-      {/* Vertical separator */}
       <line
         x1={160}
-        y1={BEFORE_Y - 2}
+        y1={SCENARIO_LABEL_Y - 8}
         x2={160}
-        y2={AFTER_Y + STATE_H + 2}
+        y2={AFTER_Y + STATE_H + 4}
         stroke="var(--ant-color-border-secondary)"
         strokeDasharray="2 4"
       />
 
-      {/* Outcome stamp */}
       <text x={160} y={STAMP_Y} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
         Either way → one X-Auth header with your value
       </text>
+    </svg>
+  );
+};
 
-      {/* Won't apply / suggestion footer */}
+/**
+ * Add / Replace — the "won't apply" gotcha as its own focused
+ * diagram. Conditions gate every rule; if they don't match, the
+ * action silently no-ops. Designed to sit just under the scenarios
+ * diagram so the gotcha gets its own breathing room.
+ */
+export const OverrideWontApplyDiagram: React.FC = () => {
+  const errColor = 'var(--ant-color-error)';
+  const errBorder = 'var(--ant-color-error-border)';
+  return (
+    <svg
+      viewBox="0 0 320 120"
+      width="100%"
+      style={{ maxWidth: 360 }}
+      role="img"
+      aria-label="Add / Replace won't apply when the rule's conditions don't match the request — it silently no-ops. Suggestion: check Request Domains or URL Pattern conditions."
+    >
+      <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
+        WHEN IT DOESN'T FIRE
+      </text>
+
       <rect
         x={14}
-        y={STAMP_Y + 14}
+        y={26}
         width={292}
-        height={62}
-        rx={4}
+        height={80}
+        rx={5}
         fill="var(--ant-color-error-bg)"
         stroke={errBorder}
-        strokeDasharray="2 3"
+        strokeDasharray="3 3"
       />
-      <text x={26} y={STAMP_Y + 30} fontSize={11} fontWeight={700} fill={errColor}>
+
+      {/* ✗ row */}
+      <text x={28} y={48} fontSize={14} fontWeight={700} fill={errColor}>
         ✗
       </text>
-      <text x={42} y={STAMP_Y + 30} fontSize={9} fontWeight={700} fill={TEXT}>
+      <text x={48} y={48} fontSize={10} fontWeight={700} fill={TEXT}>
         Request to a non-matching domain
       </text>
-      <text x={42} y={STAMP_Y + 42} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+      <text x={48} y={62} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
         Conditions gate the action — no match, no-op.
       </text>
-      <text x={26} y={STAMP_Y + 60} fontSize={9} fontWeight={700} fill={STROKE_BLUE}>
+
+      {/* → suggestion row */}
+      <text x={28} y={88} fontSize={12} fontWeight={700} fill={STROKE_BLUE}>
         →
       </text>
-      <text x={42} y={STAMP_Y + 60} fontSize={9} fill={TEXT}>
-        Check Request Domains or URL Pattern.
+      <text x={48} y={88} fontSize={10} fontWeight={700} fill={STROKE_BLUE}>
+        Suggestion
+      </text>
+      <text x={48} y={100} fontSize={9} fill={TEXT}>
+        Check the rule's Request Domains or URL Pattern.
       </text>
     </svg>
   );

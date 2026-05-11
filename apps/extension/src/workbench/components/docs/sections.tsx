@@ -34,6 +34,7 @@ import {
   ExecutionStackDiagram,
   HeaderOpsDiagram,
   OverrideDiagram,
+  OverrideWontApplyDiagram,
   InjectTimingDiagram,
   MockFlowDiagram,
   MultiTabLocalDiagram,
@@ -788,6 +789,9 @@ export const HeaderActionsSection: React.FC = () => (
       </DocParagraph>
       <DiagramFrame caption="Same rule covers both cases — replaces when present, adds when absent.">
         <OverrideDiagram />
+      </DiagramFrame>
+      <DiagramFrame caption="If the rule's conditions don't match the request, nothing happens — no error, no-op.">
+        <OverrideWontApplyDiagram />
       </DiagramFrame>
     </Anchor>
 

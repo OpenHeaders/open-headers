@@ -13,7 +13,7 @@ export {
   InjectTimingDiagram,
   MockFlowDiagram,
 } from './_pending';
-export { HeaderOpsDiagram, OverrideDiagram } from './header-actions';
+export { HeaderOpsDiagram, OverrideDiagram, OverrideWontApplyDiagram } from './header-actions';
 export {
   MultiTabLocalDiagram,
   MultiTabNavigationDiagram,
