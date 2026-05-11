@@ -108,7 +108,13 @@ export const OverrideDiagram: React.FC = () => {
         strokeWidth={1.5}
         markerEnd={`url(#${ID})`}
       />
-      <text x={xOff + TILE_W / 2} y={ARROW_LABEL_Y} textAnchor="middle" fontSize={8} fontStyle="italic" fill={STROKE_BLUE}>
+      <text
+        x={xOff + TILE_W / 2 + 8}
+        y={ARROW_LABEL_Y - 2}
+        fontSize={8}
+        fontStyle="italic"
+        fill={STROKE_BLUE}
+      >
         {arrowLabel}
       </text>
 
