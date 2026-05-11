@@ -7,11 +7,14 @@
  * `header-actions.tsx`) and the export gets relocated here.
  */
 
+export { DelayRoutingDiagram, InjectTimingDiagram } from './_pending';
 export {
-  DelayRoutingDiagram,
-  InjectTimingDiagram,
+  MockDynamicDiagram,
   MockFlowDiagram,
-} from './_pending';
+  MockStaticDiagram,
+  MockUseCasesDiagram,
+  MockWontApplyDiagram,
+} from './mock';
 export {
   BodyDynamicDiagram,
   BodyGraphqlDiagram,

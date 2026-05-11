@@ -169,8 +169,8 @@ export const DOC_GROUPS: DocGroup[] = [
     sections: [
       {
         id: 'mock',
-        title: 'Mock Responses',
-        summary: 'Intercept API calls and return synthetic responses — fixed or dynamically transformed.',
+        title: 'Response Body + Status',
+        summary: 'Intercept API calls and return synthetic or transformed responses — body, status, headers.',
         group: 'modify-responses',
         icon: <ApiOutlined />,
         Component: MockSection,

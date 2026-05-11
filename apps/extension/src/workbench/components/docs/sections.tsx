@@ -60,7 +60,11 @@ import {
   RemoveDiagram,
   RemoveWontApplyDiagram,
   InjectTimingDiagram,
+  MockDynamicDiagram,
   MockFlowDiagram,
+  MockStaticDiagram,
+  MockUseCasesDiagram,
+  MockWontApplyDiagram,
   MultiTabLocalDiagram,
   MultiTabNavigationDiagram,
   MultiTabNumberingDiagram,
@@ -1162,11 +1166,12 @@ export const BodySection: React.FC = () => (
 
 export const MockSection: React.FC = () => (
   <>
+    <SurfaceContext surfaces={['popup', 'side-panel', 'workbench', 'devtools']} />
     <DocParagraph>
-      Intercept API calls and return custom responses. Script-based — intercepts <code>fetch()</code> and{' '}
-      <code>XMLHttpRequest</code>.
+      Intercept API calls and return custom responses — full control over status code, body, and response headers.
+      Script-based — intercepts <code>fetch()</code> and <code>XMLHttpRequest</code>.
     </DocParagraph>
-    <DiagramFrame caption="Static skips the network entirely; Dynamic hits it first, then transforms">
+    <DiagramFrame caption="Static skips the network entirely; Dynamic hits it first, then transforms.">
       <MockFlowDiagram />
     </DiagramFrame>
 
@@ -1177,14 +1182,9 @@ export const MockSection: React.FC = () => (
         additional response headers (Set-Cookie, CORS headers, custom flags). The real request is never made. Useful for
         offline development against a known fixture.
       </DocParagraph>
-      <Example
-        rule={`Static response: 200 { "users": [] } (Content-Type: application/json)`}
-        after={[`fetch("/api/users") resolves with { "users": [] } and never hits the server`]}
-        wontApply={[
-          'Static resource loads — only JS-initiated fetch / XHR',
-          '→ Use a real local server / proxy for static-resource fixtures',
-        ]}
-      />
+      <DiagramFrame caption="Server is never contacted — page receives the fixture as if it came from the wire.">
+        <MockStaticDiagram />
+      </DiagramFrame>
     </Anchor>
 
     <Anchor id="mock-dynamic">
@@ -1197,12 +1197,23 @@ export const MockSection: React.FC = () => (
         Status code, Content-Type, and response-header fields set on the rule still apply on top of the function's
         return value, so you can mutate the body while letting the rule control wrapper headers.
       </DocParagraph>
-      <Example
-        rule="Dynamic response: redact emails from JSON body"
-        before={[`{ "user": { "email": "alice@openheaders.io" } }`]}
-        after={[`{ "user": { "email": "[redacted]" } }`]}
-      />
+      <DiagramFrame caption="Real call happens first; the function rewrites whatever comes back.">
+        <MockDynamicDiagram />
+      </DiagramFrame>
     </Anchor>
+
+    <DiagramFrame caption="Static resources and page navigations never enter the script intercept.">
+      <MockWontApplyDiagram />
+    </DiagramFrame>
+
+    <DocHeading level={3}>When to use this</DocHeading>
+    <DocParagraph>
+      Offline development against a fixture, simulating specific error responses, redacting PII before it reaches the
+      page, and exercising edge-case payload shapes that are hard to reproduce against a real backend.
+    </DocParagraph>
+    <DiagramFrame caption="Four typical patterns — pick Static for fixtures, Dynamic for real-data transforms.">
+      <MockUseCasesDiagram />
+    </DiagramFrame>
   </>
 );
 
