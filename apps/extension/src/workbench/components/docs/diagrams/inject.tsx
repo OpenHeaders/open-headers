@@ -66,7 +66,7 @@ export const InjectTimingDiagram: React.FC = () => (
     <line x1="75" y1="60" x2="60" y2="78" stroke={STROKE} strokeWidth="1" strokeDasharray="2 2" />
     <line x1="230" y1="60" x2="220" y2="78" stroke={STROKE} strokeWidth="1" strokeDasharray="2 2" />
     <text x={140} y={130} textAnchor="middle" fontSize="9" fill={TEXT_DIM}>
-      Pick ASAP to win monkey-patch races; After Load for DOM reads
+      ASAP for races · After Load for DOM
     </text>
   </svg>
 );
