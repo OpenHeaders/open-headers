@@ -82,6 +82,7 @@ import {
   RequestTrackingPhasesDiagram,
   RequestTrackingUiDiagram,
   KeyboardRegionsDiagram,
+  LimitationsOverviewDiagram,
   RESOURCE_TYPE_ICONS,
   ResourceTypesAnatomyDiagram,
   LivePillAggregationDiagram,
@@ -656,9 +657,13 @@ export const SystemStatusSection: React.FC = () => (
 
 export const LimitationsSection: React.FC = () => (
   <>
+    <SurfaceContext surfaces={['popup', 'side-panel', 'workbench', 'devtools']} />
     <DocParagraph>
       Quick reference for behaviors that surprise people. Each item is also called out inline in the section it affects.
     </DocParagraph>
+    <DiagramFrame caption="Four common gotchas at a glance — each callout below has the details.">
+      <LimitationsOverviewDiagram />
+    </DiagramFrame>
     <Callout kind="limitation" title="Modified headers don't show in DevTools">
       Header actions are applied correctly but Chrome's Network tab still displays the original server headers.
     </Callout>
