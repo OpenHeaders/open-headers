@@ -578,11 +578,13 @@ const FooterHint: React.FC<{ chord: string; label: string }> = ({ chord, label }
  */
 const PAGER_BTN_ROW: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 4 };
 const PAGER_KBD_STYLE: React.CSSProperties = {
-  fontSize: 9,
+  fontSize: 8,
+  lineHeight: 1,
   verticalAlign: 'middle',
-  height: 16,
-  minWidth: 16,
-  padding: '0 3px',
+  height: 13,
+  minWidth: 13,
+  padding: '0 2px',
+  borderRadius: 3,
 };
 
 const PagerLink: React.FC<{
