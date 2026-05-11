@@ -1295,7 +1295,7 @@ export const KeyboardShortcutsSection: React.FC = () => {
   const { token } = theme.useToken();
   return (
     <>
-      <SurfaceContext surfaces={['popup', 'side-panel', 'workbench', 'devtools']} />
+      <SurfaceContext surfaces={['popup', 'side-panel', 'workbench']} />
       <DocParagraph>
         Press <code>?</code> anytime to jump here. Shortcuts use{' '}
         <strong>{/Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘ Cmd' : 'Ctrl'}</strong> as the modifier key.
