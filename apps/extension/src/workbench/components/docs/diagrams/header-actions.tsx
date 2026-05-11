@@ -22,192 +22,205 @@ import {
 } from './_shared';
 
 /**
- * Add / Replace ("Override") — the killer insight is that ONE rule
- * covers both cases:
- *
- *   • Header already present → value gets REPLACED
- *   • Header is missing      → value is ADDED
- *
- * Two side-by-side scenarios share the same rule banner at top and
- * both arrive at the same final value. The visual diff highlights
- * what changed in each case so users see "either way, you end up
- * with exactly one header carrying your value."
+ * Add / Replace ("Override") — self-contained explainer for the
+ * Add/Replace subsection. Encapsulates everything the old prose
+ * "Example" block used to carry:
+ *   • the rule
+ *   • before / after for both scenarios
+ *   • a "won't apply" gotcha + suggestion
+ * Pattern mirrors the Conditions sub-diagrams (rule banner → two
+ * test cases → footer suggestion) so the visual language stays
+ * consistent across the docs.
  */
 export const OverrideDiagram: React.FC = () => {
   const ID = 'ov';
+  const errColor = 'var(--ant-color-error)';
+  const errBorder = 'var(--ant-color-error-border)';
 
-  type Scenario = {
-    label: 'Replace' | 'Add';
-    sub: string;
-    before: { line: string; matched: boolean }[];
-    after: { line: string; isNew?: boolean; isChanged?: boolean }[];
-    arrowLabel: string;
-  };
+  // ─ Two scenario tiles ─
+  const TILE_W = 138;
+  const TILE_GAP = 10;
+  const TILE_LEFT_X = 14;
+  const TILE_RIGHT_X = TILE_LEFT_X + TILE_W + TILE_GAP * 2;
 
-  const SCENARIOS: Scenario[] = [
-    {
-      label: 'Replace',
-      sub: 'header already present',
-      before: [
-        { line: 'X-Auth: old-value', matched: true },
-        { line: 'Content-Type: html', matched: false },
-      ],
-      after: [
-        { line: 'X-Auth: Bearer token', isChanged: true },
-        { line: 'Content-Type: html' },
-      ],
-      arrowLabel: 'value replaced',
-    },
-    {
-      label: 'Add',
-      sub: 'no X-Auth header yet',
-      before: [{ line: 'Content-Type: html', matched: false }],
-      after: [
-        { line: 'X-Auth: Bearer token', isNew: true },
-        { line: 'Content-Type: html' },
-      ],
-      arrowLabel: 'header added',
-    },
-  ];
+  const STATE_H = 50;
+  const SCENARIO_LABEL_Y = 50;
+  const SCENARIO_SUB_Y = 62;
+  const BEFORE_Y = 70;
+  const ARROW_LABEL_Y = BEFORE_Y + STATE_H + 14;
+  const AFTER_Y = ARROW_LABEL_Y + 10;
+  const STAMP_Y = AFTER_Y + STATE_H + 18;
 
-  const renderTile = (xOff: number, scenario: Scenario) => {
-    const TILE_W = 138;
-    const STATE_W = TILE_W;
-    const STATE_H = 50;
-    const labelY = 32;
-    const beforeY = 44;
-    const arrowY = beforeY + STATE_H + 14;
-    const afterY = arrowY + 12;
+  const renderTile = (
+    xOff: number,
+    label: 'Replace' | 'Add',
+    sub: string,
+    before: { line: string; matched: boolean }[],
+    after: { line: string; highlight: boolean }[],
+    arrowLabel: string,
+  ) => (
+    <g>
+      {/* Scenario header */}
+      <text x={xOff + TILE_W / 2} y={SCENARIO_LABEL_Y} textAnchor="middle" fontSize={11} fontWeight={700} fill={STROKE_BLUE}>
+        {label}
+      </text>
+      <text x={xOff + TILE_W / 2} y={SCENARIO_SUB_Y} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+        {sub}
+      </text>
 
-    return (
-      <g>
-        {/* Scenario header */}
-        <text x={xOff + TILE_W / 2} y={labelY} textAnchor="middle" fontSize={11} fontWeight={700} fill={STROKE_BLUE}>
-          {scenario.label}
+      {/* BEFORE */}
+      <rect
+        x={xOff}
+        y={BEFORE_Y}
+        width={TILE_W}
+        height={STATE_H}
+        rx={5}
+        fill="var(--ant-color-fill-secondary)"
+        stroke="var(--ant-color-border)"
+      />
+      <text x={xOff + 6} y={BEFORE_Y + 12} fontSize={8} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
+        BEFORE
+      </text>
+      {before.map((h, i) => (
+        <text
+          key={`b-${i}`}
+          x={xOff + 8}
+          y={BEFORE_Y + 26 + i * 12}
+          fontFamily="monospace"
+          fontSize={9}
+          fill={h.matched ? STROKE_BLUE : TEXT}
+          fontWeight={h.matched ? 700 : 400}
+        >
+          {h.line}
         </text>
-        <text x={xOff + TILE_W / 2} y={labelY + 12} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-          {scenario.sub}
+      ))}
+      {before.length === 1 && (
+        <text x={xOff + 8} y={BEFORE_Y + 38} fontFamily="monospace" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+          (no X-Auth)
         </text>
+      )}
 
-        {/* BEFORE card */}
-        <rect
-          x={xOff}
-          y={beforeY}
-          width={STATE_W}
-          height={STATE_H}
-          rx={5}
-          fill="var(--ant-color-fill-secondary)"
-          stroke="var(--ant-color-border)"
-        />
-        <text x={xOff + 6} y={beforeY + 12} fontSize={8} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
-          BEFORE
-        </text>
-        {scenario.before.map((h, i) => (
-          <text
-            key={`b-${i}`}
-            x={xOff + 8}
-            y={beforeY + 26 + i * 12}
-            fontFamily="monospace"
-            fontSize={9}
-            fill={h.matched ? STROKE_BLUE : TEXT}
-            fontWeight={h.matched ? 700 : 400}
-          >
-            {h.line}
-          </text>
-        ))}
-        {scenario.before.length === 1 && (
-          <text
-            x={xOff + 8}
-            y={beforeY + 38}
-            fontFamily="monospace"
-            fontSize={9}
-            fontStyle="italic"
-            fill={TEXT_DIM}
-          >
-            (no X-Auth header)
-          </text>
-        )}
+      {/* Arrow */}
+      <line
+        x1={xOff + TILE_W / 2}
+        y1={BEFORE_Y + STATE_H}
+        x2={xOff + TILE_W / 2}
+        y2={AFTER_Y - 1}
+        stroke={STROKE_BLUE}
+        strokeWidth={1.5}
+        markerEnd={`url(#${ID})`}
+      />
+      <text x={xOff + TILE_W / 2} y={ARROW_LABEL_Y} textAnchor="middle" fontSize={8} fontStyle="italic" fill={STROKE_BLUE}>
+        {arrowLabel}
+      </text>
 
-        {/* Arrow + action label */}
-        <line
-          x1={xOff + TILE_W / 2}
-          y1={beforeY + STATE_H}
-          x2={xOff + TILE_W / 2}
-          y2={arrowY + 8}
-          stroke={STROKE_BLUE}
-          strokeWidth={1.5}
-          markerEnd={`url(#${ID})`}
-        />
-        <text x={xOff + TILE_W / 2} y={arrowY + 2} textAnchor="middle" fontSize={8} fontStyle="italic" fill={STROKE_BLUE}>
-          {scenario.arrowLabel}
+      {/* AFTER */}
+      <rect x={xOff} y={AFTER_Y} width={TILE_W} height={STATE_H} rx={5} fill={FILL_GREEN} stroke={STROKE_GREEN} />
+      <text x={xOff + 6} y={AFTER_Y + 12} fontSize={8} fontWeight={700} fill={STROKE_GREEN} letterSpacing={0.5}>
+        AFTER
+      </text>
+      {after.map((h, i) => (
+        <text
+          key={`a-${i}`}
+          x={xOff + 8}
+          y={AFTER_Y + 26 + i * 12}
+          fontFamily="monospace"
+          fontSize={9}
+          fontWeight={h.highlight ? 700 : 400}
+          fill={h.highlight ? STROKE_GREEN : TEXT}
+        >
+          {h.line}
         </text>
-
-        {/* AFTER card */}
-        <rect
-          x={xOff}
-          y={afterY}
-          width={STATE_W}
-          height={STATE_H}
-          rx={5}
-          fill={FILL_GREEN}
-          stroke={STROKE_GREEN}
-        />
-        <text x={xOff + 6} y={afterY + 12} fontSize={8} fontWeight={700} fill={STROKE_GREEN} letterSpacing={0.5}>
-          AFTER
-        </text>
-        {scenario.after.map((h, i) => {
-          const accent = h.isNew || h.isChanged;
-          return (
-            <text
-              key={`a-${i}`}
-              x={xOff + 8}
-              y={afterY + 26 + i * 12}
-              fontFamily="monospace"
-              fontSize={9}
-              fontWeight={accent ? 700 : 400}
-              fill={accent ? STROKE_GREEN : TEXT}
-            >
-              {h.line}
-            </text>
-          );
-        })}
-      </g>
-    );
-  };
+      ))}
+    </g>
+  );
 
   return (
     <svg
-      viewBox="0 0 320 220"
+      viewBox="0 0 320 340"
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Add / Replace — the same rule replaces an existing header value when present and adds the header when absent. Both scenarios end with the header set to the rule's value."
+      aria-label="Add / Replace — same rule covers both cases. Replaces an existing X-Auth header value, or adds the header when absent. Both arrive at the same outcome. If the rule's conditions don't match the request, it silently no-ops."
     >
       <ArrowDefs id={ID} />
 
-      {/* Rule banner at top */}
-      <rect
-        x={20}
-        y={6}
-        width={280}
-        height={20}
-        rx={4}
-        fill={FILL_BLUE}
-        stroke={STROKE_BLUE}
-      />
-      <text x={160} y={20} textAnchor="middle" fontFamily="monospace" fontSize={10} fontWeight={700} fill={TEXT}>
+      {/* Rule banner */}
+      <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
+        RULE
+      </text>
+      <rect x={20} y={20} width={280} height={22} rx={4} fill={FILL_BLUE} stroke={STROKE_BLUE} />
+      <text x={160} y={35} textAnchor="middle" fontFamily="monospace" fontSize={10} fontWeight={700} fill={TEXT}>
         Override X-Auth: Bearer token
       </text>
 
-      {renderTile(14, SCENARIOS[0])}
-      {renderTile(168, SCENARIOS[1])}
+      {/* Two scenario tiles */}
+      {renderTile(
+        TILE_LEFT_X,
+        'Replace',
+        'header already present',
+        [
+          { line: 'X-Auth: old-value', matched: true },
+          { line: 'Content-Type: html', matched: false },
+        ],
+        [
+          { line: 'X-Auth: Bearer token', highlight: true },
+          { line: 'Content-Type: html', highlight: false },
+        ],
+        'value replaced',
+      )}
+      {renderTile(
+        TILE_RIGHT_X,
+        'Add',
+        'no X-Auth header yet',
+        [{ line: 'Content-Type: html', matched: false }],
+        [
+          { line: 'X-Auth: Bearer token', highlight: true },
+          { line: 'Content-Type: html', highlight: false },
+        ],
+        'header added',
+      )}
 
-      {/* Vertical separator between tiles */}
-      <line x1={160} y1={36} x2={160} y2={196} stroke="var(--ant-color-border-secondary)" strokeDasharray="2 4" />
+      {/* Vertical separator */}
+      <line
+        x1={160}
+        y1={BEFORE_Y - 2}
+        x2={160}
+        y2={AFTER_Y + STATE_H + 2}
+        stroke="var(--ant-color-border-secondary)"
+        strokeDasharray="2 4"
+      />
 
-      {/* Outcome stamp at the bottom */}
-      <text x={160} y={210} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT}>
-        Either way → one X-Auth header with your value.
+      {/* Outcome stamp */}
+      <text x={160} y={STAMP_Y} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
+        Either way → one X-Auth header with your value
+      </text>
+
+      {/* Won't apply / suggestion footer */}
+      <rect
+        x={14}
+        y={STAMP_Y + 14}
+        width={292}
+        height={62}
+        rx={4}
+        fill="var(--ant-color-error-bg)"
+        stroke={errBorder}
+        strokeDasharray="2 3"
+      />
+      <text x={26} y={STAMP_Y + 30} fontSize={11} fontWeight={700} fill={errColor}>
+        ✗
+      </text>
+      <text x={42} y={STAMP_Y + 30} fontSize={9} fontWeight={700} fill={TEXT}>
+        Request to a non-matching domain
+      </text>
+      <text x={42} y={STAMP_Y + 42} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+        Conditions gate the action — no match, no-op.
+      </text>
+      <text x={26} y={STAMP_Y + 60} fontSize={9} fontWeight={700} fill={STROKE_BLUE}>
+        →
+      </text>
+      <text x={42} y={STAMP_Y + 60} fontSize={9} fill={TEXT}>
+        Check Request Domains or URL Pattern.
       </text>
     </svg>
   );
