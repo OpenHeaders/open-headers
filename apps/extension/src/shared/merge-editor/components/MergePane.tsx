@@ -561,13 +561,18 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   });
 
   // Markers gated by the show-non-conflicting toggle: when off, hide
-  // affordances on auto-mergeable hunks (single-side change vs base).
-  // Still render markers for true conflicts. The toggle only affects
+  // hunks where THEIRS didn't change vs base — those are the user's
+  // own edits flowing through result, not peer changes that need a
+  // decision. Pure-theirs changes (peer added / modified, mine
+  // untouched) stay visible because the user still has to acknowledge
+  // them. True conflicts stay visible too. The toggle only affects
   // the action gutters; line decorations stay always-on per §5.4.
   const visibleActionMarkers = useMemo(() => {
     if (showNonConflicting) return actionMarkers;
     const visibleIds = new Set<string>();
-    for (const a of analyses) if (a.conflict === 'true') visibleIds.add(a.id);
+    for (const a of analyses) {
+      if (a.theirs.kind !== 'unchanged') visibleIds.add(a.id);
+    }
     return actionMarkers.filter((m) => visibleIds.has(m.hunkId));
   }, [actionMarkers, showNonConflicting, analyses]);
 

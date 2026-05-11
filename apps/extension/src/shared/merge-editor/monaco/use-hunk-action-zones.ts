@@ -428,7 +428,7 @@ export function useResultStatusZones(args: UseResultStatusZonesArgs): void {
           // "deletion" semantic to communicate.
           const otherLineCount = Math.max(analysis.theirs.lines.length, analysis.mine.lines.length);
           if (otherLineCount > 0) {
-            const placeholderDom = buildPlaceholderDom('missing-side', undefined, 'neutral');
+            const placeholderDom = buildPlaceholderDom({ kind: 'missing-side', hashed: true });
             const missingZoneId = accessor.addZone({
               afterLineNumber: startLine - 1,
               heightInLines: otherLineCount,
@@ -484,19 +484,33 @@ export function useResultStatusZones(args: UseResultStatusZonesArgs): void {
 
 type PlaceholderKind = 'action-slot' | 'stacked-content' | 'missing-side';
 
-function buildPlaceholderDom(kind: PlaceholderKind, label?: string, variant: MissingVariant = 'neutral'): HTMLElement {
+interface BuildPlaceholderArgs {
+  kind: PlaceholderKind;
+  label?: string;
+  variant?: MissingVariant;
+  /** Adds the diagonal hash pattern to a `missing-side` placeholder.
+   *  Reserved for the RESULT pane — there the rectangle represents
+   *  "content will arrive here from one of the sources." Source-pane
+   *  placeholders stay flat: this side simply doesn't have content. */
+  hashed?: boolean;
+}
+
+function buildPlaceholderDom(args: BuildPlaceholderArgs): HTMLElement {
+  const { kind, label, variant = 'neutral', hashed = false } = args;
   const wrapper = document.createElement('div');
   wrapper.className = 'oh-merge__action-zone-wrapper';
   const root = document.createElement('div');
-  // The red `-removal` modifier applies only to the action-slot
-  // header + missing-side body (the two parts of the bordered
-  // missing-side rectangle). Stacked-content is alignment padding
-  // and stays neutral hash regardless.
-  const variantSuffix =
-    variant === 'removal' && (kind === 'missing-side' || kind === 'action-slot')
-      ? ` oh-merge__alignment-placeholder-${kind}-removal`
-      : '';
-  root.className = `oh-merge__alignment-placeholder oh-merge__alignment-placeholder-${kind}${variantSuffix}`;
+  const classes = ['oh-merge__alignment-placeholder', `oh-merge__alignment-placeholder-${kind}`];
+  // Red `-removal` modifier applies only to the action-slot header +
+  // missing-side body (the two parts of the bordered missing-side
+  // rectangle). Stacked-content is alignment padding and stays neutral.
+  if (variant === 'removal' && (kind === 'missing-side' || kind === 'action-slot')) {
+    classes.push(`oh-merge__alignment-placeholder-${kind}-removal`);
+  }
+  if (hashed && kind === 'missing-side') {
+    classes.push('oh-merge__alignment-placeholder-missing-side-hashed');
+  }
+  root.className = classes.join(' ');
   if (label) {
     const labelSpan = document.createElement('span');
     labelSpan.className = 'oh-merge__placeholder-label';
@@ -650,7 +664,11 @@ export function useHunkAlignmentPlaceholders(args: UseHunkAlignmentPlaceholdersA
         const startLine = sideChange.range.startLine;
         const endLineExclusive = sideChange.range.endLine;
         if (plan.beforeLines > 0) {
-          const dom = buildPlaceholderDom('action-slot', plan.missingLabel, plan.missingVariant);
+          const dom = buildPlaceholderDom({
+            kind: 'action-slot',
+            label: plan.missingLabel,
+            variant: plan.missingVariant,
+          });
           const zoneId = accessor.addZone({
             afterLineNumber: Math.max(0, startLine - 1),
             heightInLines: plan.beforeLines,
@@ -659,7 +677,7 @@ export function useHunkAlignmentPlaceholders(args: UseHunkAlignmentPlaceholdersA
           zoneIds.set(`${analysis.id}:before`, zoneId);
         }
         if (plan.afterLines > 0) {
-          const dom = buildPlaceholderDom('stacked-content');
+          const dom = buildPlaceholderDom({ kind: 'stacked-content' });
           const zoneId = accessor.addZone({
             afterLineNumber: Math.max(0, endLineExclusive - 1),
             heightInLines: plan.afterLines,
@@ -668,7 +686,7 @@ export function useHunkAlignmentPlaceholders(args: UseHunkAlignmentPlaceholdersA
           zoneIds.set(`${analysis.id}:after`, zoneId);
         }
         if (plan.missingLines > 0) {
-          const dom = buildPlaceholderDom('missing-side', undefined, plan.missingVariant);
+          const dom = buildPlaceholderDom({ kind: 'missing-side', variant: plan.missingVariant });
           const zoneId = accessor.addZone({
             afterLineNumber: Math.max(0, startLine - 1),
             heightInLines: plan.missingLines,

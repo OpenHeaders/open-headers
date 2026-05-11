@@ -342,31 +342,20 @@
   background: rgba(255, 255, 255, 0.04);
 }
 
-/* Missing-side placeholder — hashed parity rows + grey ghost frame
- * on the source side that has NO content for a hunk. Pure additions
- * (theirs added X-C, mine has nothing there) and pure removals
- * (mine removed X-B, theirs has nothing there) leave one source
- * pane with zero lines for the hunk. Without this, the empty side
- * shows just a floating action-zone label with nothing under it
- * and no parity rows for the OTHER side's content — confusing
- * (where IS the conflict?) and breaks line-by-line alignment.
+/* Missing-side placeholder — fills the empty side of a pure-addition
+ * or pure-removal hunk so all panes stay line-by-line aligned and
+ * the empty side reads as "decided, no content" rather than a
+ * floating action label with nothing under it.
  *
- * Renders N hashed-diagonal rows (= other side's line count) with
- * a complete grey rectangle around them. The hash signals "content
- * exists on the other side, not here"; the grey frame matches the
- * resolved-state visual vocabulary (this side's role in the conflict
- * is "no content" — a decided, neutral state). All four edges are
- * drawn directly on the placeholder DOM since there are no model
- * lines to attach per-line decorations to. */
+ * Default (source-pane usage) is flat grey: this side simply doesn't
+ * have content here. The hashed diagonal pattern is reserved for
+ * the result-pane variant (`-hashed` modifier) where it carries the
+ * "content will arrive here from one of the sources" semantic. All
+ * four edges are drawn on the placeholder DOM since there are no
+ * model lines to attach per-line frame decorations to. */
 .oh-merge__alignment-placeholder-missing-side {
   box-sizing: border-box;
-  background-image: repeating-linear-gradient(
-    -45deg,
-    transparent 0,
-    transparent 4px,
-    rgba(127, 127, 127, 0.18) 4px,
-    rgba(127, 127, 127, 0.18) 8px
-  );
+  background: rgba(127, 127, 127, 0.06);
   border-top: 1px solid rgba(127, 127, 127, 0.55);
   border-bottom: 1px solid rgba(127, 127, 127, 0.55);
   border-left: 1px solid rgba(127, 127, 127, 0.55);
@@ -376,6 +365,29 @@
   box-shadow: inset -1px 0 0 rgba(127, 127, 127, 0.55);
 }
 [data-merge-theme='dark'] .oh-merge__alignment-placeholder-missing-side {
+  background: rgba(255, 255, 255, 0.04);
+  border-top-color: rgba(180, 180, 180, 0.45);
+  border-bottom-color: rgba(180, 180, 180, 0.45);
+  border-left-color: rgba(180, 180, 180, 0.45);
+  box-shadow: inset -1px 0 0 rgba(180, 180, 180, 0.45);
+}
+
+/* Result-pane modifier — applied when the placeholder represents a
+ * region where content WILL arrive from one of the source sides
+ * (pre-acceptance pure addition / both-dismissed pure addition).
+ * The diagonal hash is the cue that "this row is reserved alignment
+ * space; pick a side to fill it." Source-pane placeholders never
+ * use this modifier — they stay flat. */
+.oh-merge__alignment-placeholder-missing-side-hashed {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0,
+    transparent 4px,
+    rgba(127, 127, 127, 0.18) 4px,
+    rgba(127, 127, 127, 0.18) 8px
+  );
+}
+[data-merge-theme='dark'] .oh-merge__alignment-placeholder-missing-side-hashed {
   background-image: repeating-linear-gradient(
     -45deg,
     transparent 0,
@@ -383,10 +395,6 @@
     rgba(255, 255, 255, 0.10) 4px,
     rgba(255, 255, 255, 0.10) 8px
   );
-  border-top-color: rgba(180, 180, 180, 0.45);
-  border-bottom-color: rgba(180, 180, 180, 0.45);
-  border-left-color: rgba(180, 180, 180, 0.45);
-  box-shadow: inset -1px 0 0 rgba(180, 180, 180, 0.45);
 }
 
 /* Removal variant — paints the missing-side placeholder in the
@@ -398,28 +406,14 @@
  * background tint + frame switch to red so the deletion communicates
  * symmetrically with the green "addition" on populated sides. */
 .oh-merge__alignment-placeholder-missing-side-removal {
-  background-color: rgba(218, 54, 51, 0.10);
-  background-image: repeating-linear-gradient(
-    -45deg,
-    transparent 0,
-    transparent 4px,
-    rgba(218, 54, 51, 0.32) 4px,
-    rgba(218, 54, 51, 0.32) 8px
-  );
+  background: rgba(218, 54, 51, 0.10);
   border-top-color: rgba(218, 54, 51, 0.55);
   border-bottom-color: rgba(218, 54, 51, 0.55);
   border-left-color: rgba(218, 54, 51, 0.55);
   box-shadow: inset -1px 0 0 rgba(218, 54, 51, 0.55);
 }
 [data-merge-theme='dark'] .oh-merge__alignment-placeholder-missing-side-removal {
-  background-color: rgba(248, 81, 73, 0.10);
-  background-image: repeating-linear-gradient(
-    -45deg,
-    transparent 0,
-    transparent 4px,
-    rgba(248, 81, 73, 0.26) 4px,
-    rgba(248, 81, 73, 0.26) 8px
-  );
+  background: rgba(248, 81, 73, 0.10);
   border-top-color: rgba(248, 81, 73, 0.55);
   border-bottom-color: rgba(248, 81, 73, 0.55);
   border-left-color: rgba(248, 81, 73, 0.55);
