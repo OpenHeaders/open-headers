@@ -10,7 +10,12 @@ import { TEMPLATES_BY_TYPE } from '../../rule-templates';
 import { renderTwoToneIcon } from '../TwoToneIconPicker';
 import { exportNodeFields } from './export-fields';
 import { iconEl } from './icons';
-import { DEFAULT_TEMPLATE_COLLECTION, templateCollectionMenuItems, templateFolderMenuItems } from './menus';
+import {
+  containerActionMenuItems,
+  DEFAULT_TEMPLATE_COLLECTION,
+  templateCollectionMenuItems,
+  templateFolderMenuItems,
+} from './menus';
 import type { TreeNode } from './types';
 
 const RULE_TYPE_LABEL: Record<string, string> = {
@@ -64,7 +69,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
       for (const node of v5Nodes) {
         if (node.type === 'folder') {
           const fid = `tpl-folder-${node.uid}`;
-          const isExpanded = p.expandedKeys.has(fid);
+          const isExpanded = p.expandedKeys.has(fid) || lowerFilter !== '';
           const onAddFolder = () => {
             void p.createTemplateFolder('New Folder', node.path).then((f) => {
               if (f) {
@@ -189,7 +194,9 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
   const systemTemplateNodes = useMemo((): TreeNode[] => {
     const items: TreeNode[] = [];
     const colId = 'sys-tpl-col';
-    const isExpanded = p.expandedKeys.has(colId);
+    // Active filter forces expansion so matches surface without
+    // requiring a manual click — search-as-typed UX.
+    const isExpanded = p.expandedKeys.has(colId) || lowerFilter !== '';
 
     // Hide the "System Templates" group entirely when an active filter
     // doesn't match the group label OR any bundled template inside.
@@ -223,7 +230,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
         if (lowerFilter && filteredTpls.length === 0) continue;
 
         const folderId = `sys-tpl-${ruleType}`;
-        const folderExpanded = p.expandedKeys.has(folderId);
+        const folderExpanded = p.expandedKeys.has(folderId) || lowerFilter !== '';
 
         items.push({
           id: folderId,
@@ -265,16 +272,24 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
   const templateNodes = useMemo((): TreeNode[] => {
     const items: TreeNode[] = [];
 
+    const hasTemplateMatch = (nodes: V5.TreeNode[]): boolean => {
+      for (const n of nodes) {
+        if (n.type === 'template' && n.name.toLowerCase().includes(lowerFilter)) return true;
+        if (n.type === 'folder') {
+          if (n.name.toLowerCase().includes(lowerFilter)) return true;
+          if (hasTemplateMatch(n.children)) return true;
+        }
+      }
+      return false;
+    };
+
     for (const collection of p.templateCollectionTrees) {
       if (lowerFilter && !collection.name.toLowerCase().includes(lowerFilter)) {
-        const hasMatch = collection.tree.some(
-          (n) => n.type === 'template' && n.name.toLowerCase().includes(lowerFilter),
-        );
-        if (!hasMatch) continue;
+        if (!hasTemplateMatch(collection.tree)) continue;
       }
 
       const colId = `tpl-col-${collection.uid}`;
-      const isExpanded = p.expandedKeys.has(colId);
+      const isExpanded = p.expandedKeys.has(colId) || lowerFilter !== '';
       const isDefault = collection.name === DEFAULT_TEMPLATE_COLLECTION;
       const onAddFolder = () => {
         void p.createTemplateFolder('New Folder', collection.path).then((f) => {
@@ -317,21 +332,26 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
                 void p.deleteTemplateCollection(collection.uid);
               })
           : undefined,
-        addMenuItems: templateCollectionMenuItems(
-          onAddFolder,
-          () => p.setRenamingId(colId),
-          () =>
-            p.confirmDelete(collection.name, () => {
-              void p.deleteTemplateCollection(collection.uid);
+        addMenuItems: templateCollectionMenuItems(onAddFolder),
+        actionMenuItems: isDefault
+          ? undefined
+          : containerActionMenuItems({
+              onRename: () => p.setRenamingId(colId),
+              onDelete: () =>
+                p.confirmDelete(collection.name, () => {
+                  void p.deleteTemplateCollection(collection.uid);
+                }),
+              kind: 'collection',
+              ...(p.onExportEntity
+                ? {
+                    onExport: () =>
+                      p.onExportEntity?.({ kind: 'collection', uid: collection.uid, name: collection.name }),
+                  }
+                : {}),
+              ...(p.onOpenCollectionVariables
+                ? { onOpenVariables: () => p.onOpenCollectionVariables?.(collection.uid, collection.name) }
+                : {}),
             }),
-          isDefault,
-          p.onExportEntity
-            ? () => p.onExportEntity?.({ kind: 'collection', uid: collection.uid, name: collection.name })
-            : undefined,
-          !isDefault && p.onOpenCollectionVariables
-            ? () => p.onOpenCollectionVariables?.(collection.uid, collection.name)
-            : undefined,
-        ),
         ...(isDefault ? {} : { awareness: { entityType: TEMPLATE_COLLECTION_ENTITY_TYPE, entityId: collection.uid } }),
       });
 

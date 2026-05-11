@@ -65,7 +65,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
       for (const node of v5Nodes) {
         if (node.type === 'folder') {
           const fid = `req-folder-${node.uid}`;
-          const isExpanded = p.expandedKeys.has(fid);
+          const isExpanded = p.expandedKeys.has(fid) || lowerFilter !== '';
           const onAddFolder = () => {
             void p.createRequestFolderRpc('New Folder', node.path).then((f) => {
               if (f) {
@@ -223,16 +223,24 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
   return useMemo((): TreeNode[] => {
     const items: TreeNode[] = [];
 
+    const hasRequestMatch = (nodes: V5.TreeNode[]): boolean => {
+      for (const n of nodes) {
+        if (n.type === 'request' && n.name.toLowerCase().includes(lowerFilter)) return true;
+        if (n.type === 'folder') {
+          if (n.name.toLowerCase().includes(lowerFilter)) return true;
+          if (hasRequestMatch(n.children)) return true;
+        }
+      }
+      return false;
+    };
+
     for (const collection of p.requestCollectionTrees) {
       if (lowerFilter && !collection.name.toLowerCase().includes(lowerFilter)) {
-        const hasMatch = collection.tree.some(
-          (n) => n.type === 'request' && n.name.toLowerCase().includes(lowerFilter),
-        );
-        if (!hasMatch) continue;
+        if (!hasRequestMatch(collection.tree)) continue;
       }
 
       const colId = `req-col-${collection.uid}`;
-      const isExpanded = p.expandedKeys.has(colId);
+      const isExpanded = p.expandedKeys.has(colId) || lowerFilter !== '';
       const onAddRequest = () => {
         p.setExpandedKeys((prev) => {
           const next = new Set(prev);

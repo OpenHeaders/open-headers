@@ -14,7 +14,10 @@ import type { ItemType } from 'antd/es/menu/interface';
 import { createElement } from 'react';
 import { buildRuleTypeMenuItemsCE } from '../../rule-type-menu';
 
-export const DEFAULT_TEMPLATE_COLLECTION = 'Default Templates';
+// Must match the seeded collection name in
+// `background/modules/template-store.ts` (DEFAULT_COLLECTION_NAME)
+// — drift here re-enables rename/delete on the default collection.
+export const DEFAULT_TEMPLATE_COLLECTION = 'User Templates';
 
 export function ruleTypeSubmenu(onAddRule: (type: string) => void): ItemType[] {
   return buildRuleTypeMenuItemsCE(onAddRule) as ItemType[];
@@ -146,40 +149,11 @@ export function containerActionMenuItems({
   return items;
 }
 
-export function templateCollectionMenuItems(
-  onAddFolder: () => void,
-  onRename: () => void,
-  onDelete: () => void,
-  isDefault: boolean,
-  onExport?: () => void,
-  onOpenVariables?: () => void,
-): ItemType[] {
-  const items: ItemType[] = [
-    { key: 'add-folder', icon: createElement(FolderOutlined), label: 'Add Folder', onClick: onAddFolder },
-  ];
-  if (!isDefault) {
-    items.push({ type: 'divider' as const, key: 'div' });
-    items.push({ key: 'rename', icon: createElement(EditOutlined), label: 'Rename', onClick: onRename });
-    if (onOpenVariables) {
-      items.push({
-        key: 'edit-variables',
-        icon: createElement(CodeOutlined),
-        label: 'Edit Variables',
-        onClick: onOpenVariables,
-      });
-    }
-    if (onExport) {
-      items.push({ key: 'export', icon: createElement(ExportOutlined), label: 'Export…', onClick: onExport });
-    }
-    items.push({
-      key: 'delete',
-      icon: createElement(DeleteOutlined),
-      label: 'Delete',
-      danger: true,
-      onClick: onDelete,
-    });
-  }
-  return items;
+// `+` on a template collection only adds children. Modify-actions
+// (Rename / Edit Variables / Export / Delete) belong on the `⋯`
+// menu, wired via `containerActionMenuItems` by the tree builder.
+export function templateCollectionMenuItems(onAddFolder: () => void): ItemType[] {
+  return [{ key: 'add-folder', icon: createElement(FolderOutlined), label: 'Add Folder', onClick: onAddFolder }];
 }
 
 export function templateFolderMenuItems(

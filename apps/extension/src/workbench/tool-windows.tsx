@@ -27,13 +27,11 @@ export type ToolWindowDef = GenericToolWindowDef<ToolWindowId>;
 /**
  * Default slot layout:
  *   - Left pane hosts the authoring surfaces: `http-rules` (core) on
- *     `left-top`, with `api-requests` + `workflows` stacked on
- *     `left-bottom` so a first-open user sees rules + requests together
- *     without manually splitting the sidebar.
+ *     `left-top`, with `workflows` on `left-bottom`.
  *   - Right pane hosts the inspectors that annotate the active tab:
- *     `docs` + `var-scope` share `right-top` as sibling tabs (reference
- *     + tab-scoped state), and `variables` — the workspace-wide variable
- *     library — lives below on `right-bottom`.
+ *     `right-top` stacks `docs`, `var-scope` (active by default), and
+ *     `variables` as sibling tabs; `right-bottom` is reserved for
+ *     `api-requests`.
  *
  * `var-scope` is the inspector that shows variables referenced in the
  * active rule + all scopes resolved against current env/workspace/vault
@@ -43,16 +41,20 @@ export type ToolWindowDef = GenericToolWindowDef<ToolWindowId>;
  */
 export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
   { id: 'http-rules', label: 'HTTP Rules', icon: <FileTextOutlined />, core: true, defaultSlot: 'left-top' },
-  { id: 'api-requests', label: 'API Requests', icon: <ApiOutlined />, core: false, defaultSlot: 'left-bottom' },
   // A Workflow is the scheduled-refresh variable producer: a request
   // chain + extraction rule. Its output surfaces as a `{{live.X}}`
   // reference in the Scope panel's Live category via a Live Variable
   // binding. First-class left-bottom tab so users see it as a feature
   // rather than a Variables sub-section.
   { id: 'workflows', label: 'Workflows', icon: <SisternodeOutlined />, core: false, defaultSlot: 'left-bottom' },
+  // Right-top tab order matters — it is the slot's tab order on
+  // first open. `docs` sits first, then `var-scope` (active by
+  // default), then `variables`. `api-requests` lives alone on
+  // `right-bottom`.
   { id: 'docs', label: 'Docs', icon: <BookOutlined />, core: false, defaultSlot: 'right-top' },
   { id: 'var-scope', label: 'Scope', icon: <ScanOutlined />, core: false, defaultSlot: 'right-top' },
-  { id: 'variables', label: 'Variables', icon: <CodeOutlined />, core: false, defaultSlot: 'right-bottom' },
+  { id: 'variables', label: 'Variables', icon: <CodeOutlined />, core: false, defaultSlot: 'right-top' },
+  { id: 'api-requests', label: 'API Requests', icon: <ApiOutlined />, core: false, defaultSlot: 'right-bottom' },
   {
     id: 'page-traffic',
     label: 'Page Traffic',

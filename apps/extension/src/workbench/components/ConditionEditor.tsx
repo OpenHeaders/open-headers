@@ -57,7 +57,7 @@ import { useCallback, useMemo } from 'react';
 import { ConflictDiffChip, EntityField, SetRowConflictChip, useActionPaths } from '@/shared/awareness';
 import { useFieldConflicts } from '@/shared/conflicts/Field';
 import { useInspectorNav } from '../hooks/useInspectorNav';
-import { getDocId } from './InspectorDocs';
+import { getDocId } from './docs/doc-ids';
 import { TemplateInput } from './template-input';
 
 // ── Condition type definitions ───────────────────────────────────

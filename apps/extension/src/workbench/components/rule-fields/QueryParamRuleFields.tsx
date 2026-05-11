@@ -12,7 +12,7 @@ import type React from 'react';
 import { EntityField, useActionPaths } from '@/shared/awareness';
 import { FieldConflictChip, SetRowChip } from '@/shared/conflicts/Field';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
-import { getDocId } from '../InspectorDocs';
+import { getDocId } from '../docs/doc-ids';
 import { TemplateInput } from '../template-input';
 
 const { Text } = Typography;

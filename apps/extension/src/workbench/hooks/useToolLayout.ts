@@ -45,7 +45,7 @@ export type ToolLayoutApi = DockLayoutApi<ToolWindowId>;
  * Section-expansion state is per-view: each `SidebarView` owns its
  * own slice keyed by section name. Multiple Sidebar instances can
  * render at the same time (e.g. `http-rules` in left-top and
- * `api-requests` in left-bottom), and shared section names
+ * `api-requests` in right-bottom), and shared section names
  * (ENVIRONMENTS appears in three views; collection roots can recur)
  * would otherwise leak collapse state across panels. Per-view slices
  * remove the leak at the schema layer — no string-prefix gymnastics
@@ -85,10 +85,12 @@ export interface WorkbenchViewState {
 }
 
 /**
- * Fresh-profile seed (design § 8). Three panels active on first open:
- *   - `http-rules` in `left-top`
- *   - `api-requests` in `left-bottom`
- *   - `var-scope` in `right-top`
+ * Fresh-profile seed (design § 8). On first open:
+ *   - `http-rules` is active in `left-top`
+ *   - `right-top` stacks `docs`, `var-scope` (active), `variables`
+ *     as sibling tabs — Scope leads because it annotates the active
+ *     editor tab, which is what users reach for first
+ *   - `right-bottom` hosts `api-requests` (active)
  * The shared normalizer fills in remaining `defaultSlot` registry
  * entries without activating them.
  */
@@ -96,9 +98,12 @@ const WORKSPACE_FRESH_DOCK_LAYOUT: ToolLayoutState<ToolWindowId> = normalizeDock
   {
     docks: {
       'left-top': { windows: ['http-rules'], active: 'http-rules' },
-      'left-bottom': { windows: ['api-requests'], active: 'api-requests' },
-      'right-top': { windows: ['var-scope'], active: 'var-scope' },
-      'right-bottom': { windows: [], active: null },
+      'left-bottom': { windows: [], active: null },
+      'right-top': {
+        windows: ['docs', 'var-scope', 'variables'],
+        active: 'var-scope',
+      },
+      'right-bottom': { windows: ['api-requests'], active: 'api-requests' },
       'bottom-left': { windows: [], active: null },
       'bottom-right': { windows: [], active: null },
     },
@@ -120,8 +125,8 @@ const FACTORY_EDITOR_TABS: PersistedTabSession<WorkbenchTab> = { tabs: [], activ
  * Factory defaults for sidebar expansions. Dense across every view's
  * section keys so the lifted state covers any Sidebar mount without a
  * second-mount initialization step. The `sys-tpl-*` row keys keep the
- * built-in template collection visually expanded on the http-rules
- * view's first open — matches v1 component-local `useState` defaults.
+ * built-in template collection — and every rule-type folder beneath
+ * it — visually expanded on the http-rules view's first open.
  */
 export const FACTORY_SIDEBAR_EXPANSIONS: SidebarExpansionsState = {
   sectionsExpanded: {
@@ -132,10 +137,20 @@ export const FACTORY_SIDEBAR_EXPANSIONS: SidebarExpansionsState = {
       vault: true,
       'workspace-vars': true,
       'live-variables': true,
-      environments: false,
+      environments: true,
     },
   },
-  expandedKeys: ['sys-tpl-col', 'sys-tpl-header'],
+  expandedKeys: [
+    'sys-tpl-col',
+    'sys-tpl-header',
+    'sys-tpl-block',
+    'sys-tpl-redirect',
+    'sys-tpl-query-param',
+    'sys-tpl-inject',
+    'sys-tpl-delay',
+    'sys-tpl-body',
+    'sys-tpl-mock',
+  ],
 };
 
 /** Read the workspace's legacy `tabSession` shadow as the fall-through

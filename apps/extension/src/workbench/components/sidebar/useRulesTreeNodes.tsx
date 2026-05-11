@@ -62,7 +62,7 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
       for (const node of v5Nodes) {
         if (node.type === 'folder') {
           const fid = `folder-${node.uid}`;
-          const isExpanded = p.expandedKeys.has(fid);
+          const isExpanded = p.expandedKeys.has(fid) || lowerFilter !== '';
           const folderPaused = p.pausedUids.has(node.uid);
           const folderHasOwnMarker = p.pauseMarkers.has(node.path);
           const folderHasNestedMarkers = hasNestedPauseMarkers(node.path, p.pauseMarkers);
@@ -266,14 +266,24 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
   return useMemo((): TreeNode[] => {
     const items: TreeNode[] = [];
 
+    const hasRuleMatch = (nodes: V5.TreeNode[]): boolean => {
+      for (const n of nodes) {
+        if (n.type === 'rule' && n.name.toLowerCase().includes(lowerFilter)) return true;
+        if (n.type === 'folder') {
+          if (n.name.toLowerCase().includes(lowerFilter)) return true;
+          if (hasRuleMatch(n.children)) return true;
+        }
+      }
+      return false;
+    };
+
     for (const collection of p.localCollectionTrees) {
       if (lowerFilter && !collection.name.toLowerCase().includes(lowerFilter)) {
-        const hasMatch = collection.tree.some((n) => n.type === 'rule' && n.name.toLowerCase().includes(lowerFilter));
-        if (!hasMatch) continue;
+        if (!hasRuleMatch(collection.tree)) continue;
       }
 
       const colId = `col-${collection.uid}`;
-      const isExpanded = p.expandedKeys.has(colId);
+      const isExpanded = p.expandedKeys.has(colId) || lowerFilter !== '';
       const onAddRule = (type: string) => p.onCreateRule(type, { collectionId: collection.uid });
       const onAddFolder = () => {
         void p.createLocalFolder('New Folder', collection.path).then((f) => {

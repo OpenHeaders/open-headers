@@ -7,7 +7,7 @@ import { InfoCircleOutlined, StopOutlined } from '@ant-design/icons';
 import { Typography } from 'antd';
 import type React from 'react';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
-import { getDocId } from '../InspectorDocs';
+import { getDocId } from '../docs/doc-ids';
 
 const { Text } = Typography;
 

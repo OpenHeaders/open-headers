@@ -138,7 +138,7 @@ import { ConnectionProvider } from './settings/ConnectionContext';
 import { useSettingValue } from './settings/hooks';
 import { get as getSetting } from './settings/store';
 import { SettingsModal, SettingsTab } from './settings/ui';
-import { getFocusedRegion } from './stores/focus-region-store';
+import { getFocusedDock, getFocusedRegion } from './stores/focus-region-store';
 import { type TabDisplayLookups, tabDisplayLabel } from './tab-display';
 import type { DockSlot, ToolWindowId, WorkbenchTab } from './types';
 
@@ -1329,8 +1329,13 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     if (activeTabId) void handleCloseTab(activeTabId);
   }, [activeTabId, handleCloseTab]);
 
-  // Sidebar filter focus ref
-  const sidebarFilterRef = useRef<InputRef>(null);
+  // Sidebar filter focus refs — one per sidebar-backed tool window.
+  // The `/` shortcut routes to the filter in the currently focused
+  // dock so it doesn't yank focus across panels (e.g. typing `/`
+  // while interacting with the http-rules sidebar must focus the
+  // http-rules filter, not whichever sidebar happened to mount last).
+  type SidebarViewId = 'http-rules' | 'api-requests' | 'variables' | 'workflows';
+  const sidebarFilterRefs = useRef<Map<SidebarViewId, InputRef | null>>(new Map());
 
   // Keyboard shortcuts help: toggle right pane on docs/keyboard-shortcuts.
   const handleShowShortcuts = useCallback(() => {
@@ -1395,7 +1400,19 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     onNewRule: openCreateMenu,
     onFocusFilter: () => {
       if (!tl.isRegionOpen('left')) togglePanel('sidebar');
-      sidebarFilterRef.current?.focus();
+      // Pick the sidebar to focus based on which dock the user is
+      // currently in. Falls back to http-rules, then any other
+      // mounted sidebar — never silently focuses an unrelated panel.
+      const sidebarIds: SidebarViewId[] = ['http-rules', 'api-requests', 'variables', 'workflows'];
+      const focusedDock = getFocusedDock();
+      const activeInFocused = focusedDock ? tl.state.docks[focusedDock]?.active : null;
+      const target =
+        (activeInFocused && (sidebarIds as string[]).includes(activeInFocused)
+          ? (activeInFocused as SidebarViewId)
+          : null) ??
+        sidebarIds.find((id) => sidebarFilterRefs.current.get(id) != null) ??
+        'http-rules';
+      sidebarFilterRefs.current.get(target)?.focus();
     },
     onCommandPalette: () => setCommandPaletteOpen(true),
     onShowShortcuts: handleShowShortcuts,
@@ -1849,7 +1866,10 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
                 setImportHarOpen(true);
               }}
               onImportPostman={() => setImportPostmanOpen(true)}
-              filterRef={sidebarFilterRef}
+              filterRef={(node: InputRef | null) => {
+                if (node) sidebarFilterRefs.current.set(id as SidebarViewId, node);
+                else sidebarFilterRefs.current.delete(id as SidebarViewId);
+              }}
               dirtyRuleUids={dirtyRuleUids}
               dirtyRequestUids={dirtyRequestUids}
               scriptsReviewPendingUids={scriptsReviewPendingUids}

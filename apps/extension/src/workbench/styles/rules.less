@@ -425,42 +425,15 @@ body {
   overflow: hidden;
 }
 
-// Sidebar filter row — sits below the standardized PanelHeader. 32px
-// matches the PanelHeader height so the two stacked rows total the
-// 64px sidebar header band; the border-bottom inside this row lines
-// up with the editor tab-bar grid below.
+// Sidebar filter row — sits below the standardized PanelHeader. The
+// bordered Input itself provides the visible rectangle, so the row
+// is just a flex container with side padding.
 .rules-sidebar-filter-row {
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 0 6px;
-  margin: 0 4px;
-  border-radius: 4px;
+  padding: 6px 8px;
   flex-shrink: 0;
-  height: 32px;
-  position: relative;
-  transition: background-color 0.12s ease;
-
-  &:hover {
-    background-color: var(--ant-color-fill-tertiary, rgba(0, 0, 0, 0.04));
-  }
-}
-
-[data-theme='dark'] .rules-sidebar-filter-row:hover {
-  background-color: rgba(255, 255, 255, 0.06);
-}
-
-// Inset separator line — 3px gap on each side so it doesn't touch
-// the panel card's rounded corners.
-.rules-sidebar-filter-row::after {
-  content: '';
-  position: absolute;
-  left: 3px;
-  right: 3px;
-  bottom: 0;
-  height: 1px;
-  background: var(--ant-color-border-secondary, rgba(5, 5, 5, 0.06));
-  pointer-events: none;
 }
 
 .rules-sidebar-content {

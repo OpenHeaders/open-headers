@@ -55,6 +55,7 @@ import type { InputRef } from 'antd';
 import { App, Dropdown, Input, Modal, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { TEMPLATES_BY_TYPE } from '../rule-templates';
 import { buildRuleTypeMenuItems } from '../rule-type-menu';
 import { useEnvSwitcher } from '../services/env-switcher';
 import { useSettingValue } from '../settings/hooks';
@@ -328,28 +329,17 @@ const Sidebar: React.FC<SidebarProps> = ({
     [setExpandedKeys],
   );
 
-  // expand/collapse-all only mutate the calling view's slice of the
-  // expanded-keys set. `replaceOwnedKeys()` swaps in this view's
-  // `nextOwned` set while preserving every other panel's expansions
-  // (keys owned by other views, or with no recognized prefix). The
-  // sectionsExpanded setter is already per-view-scoped at the App.tsx
-  // boundary, so the literal section maps below only update this
-  // view's slice.
+  // Expand/Collapse All operate on the visible tree only — sections
+  // are a layout choice owned by the user, not a deeper level of the
+  // tree, so a click here never opens or closes a section. The one
+  // exception: if every section in the view is collapsed, Expand All
+  // would be a visible no-op, so we fall back to opening sections too
+  // and let the user climb out of an all-closed state in one click.
+  //
+  // `replaceOwnedKeys()` swaps in this view's `nextOwned` tree-key
+  // set while preserving every other panel's expansions (keys owned
+  // by other views or with no recognized prefix).
   const expandAll = useCallback(() => {
-    if (view === 'api-requests') {
-      setSectionsExpanded({ 'api-requests': true, environments: true });
-    } else if (view === 'variables') {
-      setSectionsExpanded({
-        vault: true,
-        'workspace-vars': true,
-        environments: true,
-        'live-variables': true,
-      });
-    } else if (view === 'workflows') {
-      setSectionsExpanded({ workflows: true });
-    } else {
-      setSectionsExpanded({ rules: true, templates: true, environments: true });
-    }
     const collectFolderKeys = (nodes: V5.TreeNode[], prefix: string, into: Set<string>) => {
       for (const n of nodes) {
         if (n.type === 'folder') {
@@ -358,42 +348,90 @@ const Sidebar: React.FC<SidebarProps> = ({
         }
       }
     };
-    const ownedKeys = new Set<string>();
-    if (view === 'http-rules') {
-      for (const col of localCollectionTrees) {
-        ownedKeys.add(`col-${col.uid}`);
-        collectFolderKeys(col.tree, 'folder-', ownedKeys);
-      }
-      for (const col of templateCollectionTrees) {
-        ownedKeys.add(`tpl-col-${col.uid}`);
-        collectFolderKeys(col.tree, 'tpl-folder-', ownedKeys);
-      }
-    } else if (view === 'api-requests') {
-      for (const col of requestCollectionTrees) {
-        ownedKeys.add(`req-col-${col.uid}`);
-        collectFolderKeys(col.tree, 'req-folder-', ownedKeys);
-      }
-    }
-    setExpandedKeys((prev) => replaceOwnedKeys(prev, ownedKeys, view));
-  }, [view, localCollectionTrees, templateCollectionTrees, requestCollectionTrees, setSectionsExpanded, setExpandedKeys]);
 
-  const collapseAll = useCallback(() => {
-    if (view === 'api-requests') {
-      setSectionsExpanded({ 'api-requests': false, environments: false });
-    } else if (view === 'variables') {
-      setSectionsExpanded({
-        vault: false,
-        'workspace-vars': false,
-        environments: false,
-        'live-variables': false,
-      });
-    } else if (view === 'workflows') {
-      setSectionsExpanded({ workflows: false });
-    } else {
-      setSectionsExpanded({ rules: false, templates: false, environments: false });
+    if (view === 'http-rules') {
+      const rulesOpen = sectionsExpanded.rules === true;
+      const templatesOpen = sectionsExpanded.templates === true;
+      const allClosed = !rulesOpen && !templatesOpen && sectionsExpanded.environments !== true;
+      if (allClosed) {
+        setSectionsExpanded({ rules: true, templates: true, environments: true });
+      }
+      const ownedKeys = new Set<string>();
+      if (rulesOpen || allClosed) {
+        for (const col of localCollectionTrees) {
+          ownedKeys.add(`col-${col.uid}`);
+          collectFolderKeys(col.tree, 'folder-', ownedKeys);
+        }
+      }
+      if (templatesOpen || allClosed) {
+        for (const col of templateCollectionTrees) {
+          ownedKeys.add(`tpl-col-${col.uid}`);
+          collectFolderKeys(col.tree, 'tpl-folder-', ownedKeys);
+        }
+        ownedKeys.add('sys-tpl-col');
+        for (const [ruleType, tpls] of Object.entries(TEMPLATES_BY_TYPE)) {
+          if (tpls.length === 0) continue;
+          ownedKeys.add(`sys-tpl-${ruleType}`);
+        }
+      }
+      setExpandedKeys((prev) => replaceOwnedKeys(prev, ownedKeys, view));
+      return;
     }
+
+    if (view === 'api-requests') {
+      const reqOpen = sectionsExpanded['api-requests'] === true;
+      const allClosed = !reqOpen && sectionsExpanded.environments !== true;
+      if (allClosed) {
+        setSectionsExpanded({ 'api-requests': true, environments: true });
+      }
+      const ownedKeys = new Set<string>();
+      if (reqOpen || allClosed) {
+        for (const col of requestCollectionTrees) {
+          ownedKeys.add(`req-col-${col.uid}`);
+          collectFolderKeys(col.tree, 'req-folder-', ownedKeys);
+        }
+      }
+      setExpandedKeys((prev) => replaceOwnedKeys(prev, ownedKeys, view));
+      return;
+    }
+
+    // Views without expandable trees: fall back to opening sections
+    // so the button isn't a no-op when sections are collapsed.
+    if (view === 'variables') {
+      const anyOpen =
+        sectionsExpanded.vault === true ||
+        sectionsExpanded['workspace-vars'] === true ||
+        sectionsExpanded['live-variables'] === true ||
+        sectionsExpanded.environments === true;
+      if (!anyOpen) {
+        setSectionsExpanded({
+          vault: true,
+          'workspace-vars': true,
+          environments: true,
+          'live-variables': true,
+        });
+      }
+    } else if (view === 'workflows') {
+      if (sectionsExpanded.workflows !== true) {
+        setSectionsExpanded({ workflows: true });
+      }
+    }
+  }, [
+    view,
+    sectionsExpanded,
+    localCollectionTrees,
+    templateCollectionTrees,
+    requestCollectionTrees,
+    setSectionsExpanded,
+    setExpandedKeys,
+  ]);
+
+  // Collapse All only clears tree keys; sections stay as the user
+  // left them. Symmetric with Expand All — a click never closes a
+  // section the user explicitly opened.
+  const collapseAll = useCallback(() => {
     setExpandedKeys((prev) => replaceOwnedKeys(prev, new Set<string>(), view));
-  }, [view, setSectionsExpanded, setExpandedKeys]);
+  }, [view, setExpandedKeys]);
 
   const confirmOnDelete = useSettingValue('general.confirmOnDelete');
   const confirmDelete = useCallback(
@@ -1259,7 +1297,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           ref={filterRef}
           size="small"
           placeholder="Filter"
-          prefix={<SearchOutlined style={{ color: token.colorTextTertiary, fontSize: 11 }} />}
+          prefix={<SearchOutlined style={{ color: token.colorTextTertiary, fontSize: 12 }} />}
           value={filterText}
           onChange={(e) => setFilterText(e.target.value)}
           onKeyDown={(e) => {
@@ -1284,8 +1322,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             }
           }}
           allowClear
-          style={{ flex: 1, fontSize: 11 }}
-          variant="borderless"
+          style={{ flex: 1, fontSize: 12, height: 28 }}
         />
       </div>
 
@@ -1410,30 +1447,54 @@ const Sidebar: React.FC<SidebarProps> = ({
           </>
         )}
 
-        {view === 'variables' && (
-          <>
-            <SectionHeader title="VAULT" expanded={sectionsExpanded.vault} onToggle={() => toggleSection('vault')} />
-            {sectionsExpanded.vault && <div style={{ overflowY: 'auto' }}>{renderNodes([vaultNode])}</div>}
+        {view === 'variables' &&
+          (() => {
+            // Variables view sections each contain a single opener
+            // row. With an active filter, hide a section when neither
+            // its title nor its row label contains the query — and
+            // force-expand when it does, so a filter never silently
+            // hides matches behind a collapsed chevron.
+            const lower = filterText.toLowerCase();
+            const matches = (label: string) => !lower || label.toLowerCase().includes(lower);
+            const showVault = matches('vault') || matches('Vault');
+            const showWorkspace = matches('workspace variables');
+            const showLive = matches('live variables');
+            const vaultOpen = sectionsExpanded.vault || (lower !== '' && showVault);
+            const wsOpen = sectionsExpanded['workspace-vars'] || (lower !== '' && showWorkspace);
+            const liveOpen = sectionsExpanded['live-variables'] || (lower !== '' && showLive);
+            return (
+              <>
+                {showVault && (
+                  <>
+                    <SectionHeader title="VAULT" expanded={vaultOpen} onToggle={() => toggleSection('vault')} />
+                    {vaultOpen && <div style={{ overflowY: 'auto' }}>{renderNodes([vaultNode])}</div>}
+                  </>
+                )}
 
-            <SectionHeader
-              title="WORKSPACE VARIABLES"
-              expanded={sectionsExpanded['workspace-vars']}
-              onToggle={() => toggleSection('workspace-vars')}
-            />
-            {sectionsExpanded['workspace-vars'] && (
-              <div style={{ overflowY: 'auto' }}>{renderNodes([workspaceVarsNode])}</div>
-            )}
+                {showWorkspace && (
+                  <>
+                    <SectionHeader
+                      title="WORKSPACE VARIABLES"
+                      expanded={wsOpen}
+                      onToggle={() => toggleSection('workspace-vars')}
+                    />
+                    {wsOpen && <div style={{ overflowY: 'auto' }}>{renderNodes([workspaceVarsNode])}</div>}
+                  </>
+                )}
 
-            <SectionHeader
-              title="LIVE VARIABLES"
-              expanded={sectionsExpanded['live-variables']}
-              onToggle={() => toggleSection('live-variables')}
-            />
-            {sectionsExpanded['live-variables'] && (
-              <div style={{ overflowY: 'auto' }}>{renderNodes([liveVarsNode])}</div>
-            )}
-          </>
-        )}
+                {showLive && (
+                  <>
+                    <SectionHeader
+                      title="LIVE VARIABLES"
+                      expanded={liveOpen}
+                      onToggle={() => toggleSection('live-variables')}
+                    />
+                    {liveOpen && <div style={{ overflowY: 'auto' }}>{renderNodes([liveVarsNode])}</div>}
+                  </>
+                )}
+              </>
+            );
+          })()}
 
         {view === 'workflows' && (
           <>

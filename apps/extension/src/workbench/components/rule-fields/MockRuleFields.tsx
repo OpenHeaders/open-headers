@@ -24,7 +24,7 @@ import type React from 'react';
 import { EntityField, useActionPaths } from '@/shared/awareness';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import CodeEditor from '../CodeEditor';
-import { getDocId } from '../InspectorDocs';
+import { getDocId } from '../docs/doc-ids';
 import { TemplateInput } from '../template-input';
 import ScalarConflictChip from '@/shared/conflicts/ScalarConflictChip';
 
