@@ -570,12 +570,21 @@ const FooterHint: React.FC<{ chord: string; label: string }> = ({ chord, label }
 );
 
 /**
- * Tour-guide-style pager button — Ant Button with a kbd-key chord
- * indicator + "Previous" / "Next" label. Mirrors the look of the
- * onboarding tour exactly: Previous = default button, Next = primary
- * (blue) button. Each uses the same `.kbd-key` class as the tour's
- * arrow chords so the visual matches.
+ * Onboarding-tour pager button — uses the IDENTICAL structure the
+ * tour passes via `prev/nextButtonProps.children`: an inline-flex
+ * span with `gap: 4`, a `.kbd-key` arrow chord, and the label text.
+ * Ant `Button` `size="small"` to match the tour's Popover button
+ * footprint. Previous = default; Next = primary blue.
  */
+const PAGER_BTN_ROW: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 4 };
+const PAGER_KBD_STYLE: React.CSSProperties = {
+  fontSize: 9,
+  verticalAlign: 'middle',
+  height: 16,
+  minWidth: 16,
+  padding: '0 3px',
+};
+
 const PagerLink: React.FC<{
   direction: 'prev' | 'next';
   title: string;
@@ -585,19 +594,20 @@ const PagerLink: React.FC<{
   return (
     <Button
       type={isPrev ? 'default' : 'primary'}
+      size="small"
       onClick={onClick}
       title={(isPrev ? 'Previous: ' : 'Next: ') + title}
     >
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+      <span style={PAGER_BTN_ROW}>
         {isPrev && (
-          <span className="kbd-key" style={{ fontSize: 9, verticalAlign: 'middle', height: 16, minWidth: 16, padding: '0 3px' }}>
-            ←
+          <span className="kbd-key" style={PAGER_KBD_STYLE}>
+            {'←'}
           </span>
         )}
         <span>{isPrev ? 'Previous' : 'Next'}</span>
         {!isPrev && (
-          <span className="kbd-key" style={{ fontSize: 9, verticalAlign: 'middle', height: 16, minWidth: 16, padding: '0 3px' }}>
-            →
+          <span className="kbd-key" style={PAGER_KBD_STYLE}>
+            {'→'}
           </span>
         )}
       </span>
