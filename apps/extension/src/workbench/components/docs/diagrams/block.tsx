@@ -37,13 +37,16 @@ export const BlockDiagram: React.FC = () => {
   const NET_X = 216;
   const NET_W = 90;
 
-  const OUTCOMES_Y = FLOW_Y + FLOW_H + 24;
+  // Push outcomes further down so the "DNR block" caption beneath
+  // the ✗ badge doesn't collide with the "WHAT THE PAGE SEES"
+  // header that introduces the outcome row.
+  const OUTCOMES_Y = FLOW_Y + FLOW_H + 56;
   const OUTCOME_H = 56;
   const OUTCOME_W = 142;
 
   return (
     <svg
-      viewBox="0 0 320 240"
+      viewBox="0 0 320 274"
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
