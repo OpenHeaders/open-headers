@@ -220,10 +220,10 @@ export const RedirectRegexDiagram: React.FC = () => {
 export const RedirectUseCasesDiagram: React.FC = () => {
   type Card = { title: string; example: string };
   const CARDS: Card[] = [
-    { title: 'HTTP → HTTPS', example: 'Force every old http URL to https' },
-    { title: 'Domain migration', example: 'old.example → new.example' },
+    { title: 'HTTP → HTTPS', example: 'Force all http to https' },
+    { title: 'Domain migration', example: 'old.com → new.com' },
     { title: 'Path rewrite', example: '/v1/* → /v2/*' },
-    { title: 'Local dev proxy', example: 'cdn.example → http://localhost' },
+    { title: 'Local dev proxy', example: 'cdn.example → localhost' },
   ];
 
   const CARD_W = 142;
@@ -329,7 +329,7 @@ export const RedirectWontApplyDiagram: React.FC = () => {
         Redirect loops
       </text>
       <text x={48} y={98} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        Chrome caps the chain and returns ERR_TOO_MANY_REDIRECTS.
+        Chrome caps it — ERR_TOO_MANY_REDIRECTS.
       </text>
 
       <text x={28} y={124} fontSize={12} fontWeight={700} fill={STROKE_BLUE}>
@@ -339,7 +339,7 @@ export const RedirectWontApplyDiagram: React.FC = () => {
         Suggestion
       </text>
       <text x={48} y={138} fontSize={9} fill={TEXT}>
-        Reload after enabling; check conditions don't match the destination.
+        Reload. Make sure conditions don't loop.
       </text>
     </svg>
   );
