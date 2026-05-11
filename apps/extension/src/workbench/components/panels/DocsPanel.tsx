@@ -572,10 +572,9 @@ const FooterHint: React.FC<{ chord: string; label: string }> = ({ chord, label }
 /**
  * Tour-guide-style pager button — Ant Button with a kbd-key chord
  * indicator + "Previous" / "Next" label. Mirrors the look of the
- * onboarding tour's prev/next buttons (uses the same `.kbd-key`
- * class so they render with the kbd styling used everywhere else).
- * Title is intentionally omitted: keeps the two buttons same-width
- * and the focus on the action, not the destination label.
+ * onboarding tour exactly: Previous = default button, Next = primary
+ * (blue) button. Each uses the same `.kbd-key` class as the tour's
+ * arrow chords so the visual matches.
  */
 const PagerLink: React.FC<{
   direction: 'prev' | 'next';
@@ -585,20 +584,19 @@ const PagerLink: React.FC<{
   const isPrev = direction === 'prev';
   return (
     <Button
-      type="default"
-      size="small"
+      type={isPrev ? 'default' : 'primary'}
       onClick={onClick}
       title={(isPrev ? 'Previous: ' : 'Next: ') + title}
     >
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
         {isPrev && (
-          <span className="kbd-key" style={{ fontSize: 9, height: 16, minWidth: 16, padding: '0 3px' }}>
+          <span className="kbd-key" style={{ fontSize: 9, verticalAlign: 'middle', height: 16, minWidth: 16, padding: '0 3px' }}>
             ←
           </span>
         )}
         <span>{isPrev ? 'Previous' : 'Next'}</span>
         {!isPrev && (
-          <span className="kbd-key" style={{ fontSize: 9, height: 16, minWidth: 16, padding: '0 3px' }}>
+          <span className="kbd-key" style={{ fontSize: 9, verticalAlign: 'middle', height: 16, minWidth: 16, padding: '0 3px' }}>
             →
           </span>
         )}
