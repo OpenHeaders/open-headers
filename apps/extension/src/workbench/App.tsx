@@ -773,7 +773,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   );
 
   // Right-pane-open callback for useInspectorNav.
-  const { onOpenInspector, openDocs } = useInspectorNav();
+  const { onOpenInspector, openDocs, currentSectionRef: docsCurrentSectionRef } = useInspectorNav();
   onOpenInspector.current = useCallback(() => {
     if (tl.state.hidden.includes('docs')) tl.restoreWindow('docs');
     tl.activateWindow('docs');
@@ -1365,15 +1365,23 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     return null;
   };
 
-  // Keyboard shortcuts help: open the docs panel and navigate to the
-  // keyboard-shortcuts section. Never closes — pressing the shortcut
-  // while docs is already open on a DIFFERENT section just jumps to
-  // keyboard-shortcuts (instead of silently closing the panel and
-  // burying the user's place). Close path is the panel toggle button
-  // or Esc inside the docs panel.
+  // Keyboard shortcuts help:
+  //   • Docs closed → open and navigate to keyboard-shortcuts.
+  //   • Docs open and ALREADY on keyboard-shortcuts → toggle closed
+  //     (so the shortcut both shows and hides the cheatsheet when
+  //     you're parked on it).
+  //   • Docs open on a different section → navigate to keyboard-
+  //     shortcuts without closing (don't bury the user's place).
   const handleShowShortcuts = useCallback(() => {
+    const docsSlot = tl.dockOf('docs');
+    const docsTabActive = docsSlot ? tl.state.docks[docsSlot].active === 'docs' : false;
+    const onShortcutsSection = docsCurrentSectionRef.current === 'keyboard-shortcuts';
+    if (docsTabActive && onShortcutsSection) {
+      tl.toggleWindow('docs');
+      return;
+    }
     openDocs('keyboard-shortcuts');
-  }, [openDocs]);
+  }, [tl, openDocs, docsCurrentSectionRef]);
 
   // The +create dropdown needs to open from multiple entry points
   // (command palette item, ⌥N shortcut). Share the "open + focus first

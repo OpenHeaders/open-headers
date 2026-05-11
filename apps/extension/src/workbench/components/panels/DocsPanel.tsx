@@ -44,9 +44,18 @@ const FLAT_SECTIONS = DOC_GROUPS.flatMap((g) => g.sections);
 const DocsPanel: React.FC<DocsPanelProps> = ({ onClose }) => {
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide: onClose }), [onClose]);
   const { token } = theme.useToken();
-  const { pendingSection, pendingCounter, clearPending } = useInspectorNav();
+  const { pendingSection, pendingCounter, clearPending, reportCurrentSection } = useInspectorNav();
 
   const [activeId, setActiveId] = useState<string>(DEFAULT_SECTION_ID);
+
+  // Publish the current section to the inspector-nav context so
+  // outside shortcut handlers can decide whether to navigate or
+  // toggle. Clear on unmount so a stale id doesn't survive panel
+  // close.
+  useEffect(() => {
+    reportCurrentSection(activeId);
+    return () => reportCurrentSection(null);
+  }, [activeId, reportCurrentSection]);
   const [pendingAnchor, setPendingAnchor] = useState<string | null>(null);
   const [view, setView] = useState<'reading' | 'toc'>('reading');
   const [filterText, setFilterText] = useState('');

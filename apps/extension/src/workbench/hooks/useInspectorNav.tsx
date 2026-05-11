@@ -34,6 +34,15 @@ interface InspectorNavContextValue {
    * the provider doesn't re-render when the host rewires.
    */
   onOpenInspector: React.MutableRefObject<(() => void) | null>;
+  /**
+   * Live mirror of the section DocsPanel is currently showing. Used by
+   * shortcut handlers (e.g. Shift+?) to decide whether to toggle the
+   * panel closed or navigate to a different section. DocsPanel pushes
+   * via `reportCurrentSection`; consumers read via `currentSectionRef`
+   * so the provider doesn't re-render on every section change.
+   */
+  currentSectionRef: React.MutableRefObject<string | null>;
+  reportCurrentSection: (sectionId: string | null) => void;
 }
 
 const InspectorNavContext = createContext<InspectorNavContextValue | null>(null);
@@ -42,6 +51,7 @@ export const InspectorNavProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [pendingSection, setPendingSection] = useState<string | null>(null);
   const [pendingCounter, setPendingCounter] = useState(0);
   const onOpenInspector = useRef<(() => void) | null>(null);
+  const currentSectionRef = useRef<string | null>(null);
 
   const openDocs = useCallback((sectionId: string) => {
     setPendingSection(sectionId);
@@ -53,8 +63,22 @@ export const InspectorNavProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setPendingSection(null);
   }, []);
 
+  const reportCurrentSection = useCallback((sectionId: string | null) => {
+    currentSectionRef.current = sectionId;
+  }, []);
+
   return (
-    <InspectorNavContext.Provider value={{ openDocs, pendingSection, pendingCounter, clearPending, onOpenInspector }}>
+    <InspectorNavContext.Provider
+      value={{
+        openDocs,
+        pendingSection,
+        pendingCounter,
+        clearPending,
+        onOpenInspector,
+        currentSectionRef,
+        reportCurrentSection,
+      }}
+    >
       {children}
     </InspectorNavContext.Provider>
   );

@@ -22,6 +22,7 @@ import { useShellKeyDown } from '@/shared/dock-layout';
 import { useSettingValue } from '../settings/hooks';
 import { get as getSetting } from '../settings/store';
 import type { SettingKey } from '../settings/types';
+import { getFocusedRegion } from '../stores/focus-region-store';
 
 // ── Platform detection ─────────────────────────────────────────────
 
@@ -75,6 +76,15 @@ export interface ShortcutDef {
   requireNoInput?: boolean;
   /** Only fire when there's an active tab to close */
   requireActiveTab?: boolean;
+  /**
+   * Only fire when the user's focused region (from the shell focus
+   * store, fed by the event bus) is in this list. Use for shortcuts
+   * whose action only makes sense from certain shell regions — e.g.
+   * `/` should focus the left-sidebar filter only from `editor` or
+   * `left`, never while reading the docs panel (`right`) or the
+   * bottom drawer. Omit to allow from any region.
+   */
+  allowedRegions?: readonly FocusRegion[];
 }
 
 type HandlerRef =
@@ -162,6 +172,9 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
     category: 'navigation',
     handler: { kind: 'direct', name: 'onFocusFilter' },
     requireNoInput: true,
+    // Only fire from the editor or the sidebar itself — reading
+    // the docs panel or the bottom drawer should leave `/` alone.
+    allowedRegions: ['editor', 'left'],
   },
   {
     id: 'focus-left-sidebar',
@@ -432,6 +445,13 @@ export function useWorkspaceShortcuts(handlers: WorkspaceShortcutHandlers): void
         if (!boundChord) continue;
         if (!eventChords.includes(boundChord)) continue;
         if (def.requireNoInput && inputFocused) continue;
+        if (def.allowedRegions) {
+          // Read the live focused region from the shell focus store.
+          // Region is non-reactive here — we only need the value at
+          // dispatch time, no subscription overhead.
+          const region = getFocusedRegion();
+          if (!region || !def.allowedRegions.includes(region as FocusRegion)) continue;
+        }
         if (def.requireActiveTab && !handlers.hasActiveTab()) {
           // Let the browser handle it (close page) when there's no tab
           return;
