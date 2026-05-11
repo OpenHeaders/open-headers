@@ -390,72 +390,74 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ onClose }) => {
                 >
                   {g.label}
                 </Text>
-                <div style={{ marginTop: 2 }}>
-                  {g.sections.map((s) => {
+                <ol
+                  start={1}
+                  style={{
+                    listStyle: 'none',
+                    padding: 0,
+                    margin: '2px 0 0 16px',
+                    counterReset: 'doc-section',
+                  }}
+                >
+                  {g.sections.map((s, idx) => {
                     const isActive = s.id === activeId;
                     const isFocused = s.id === focusedTocId;
                     const bg = isFocused ? token.colorPrimaryBg : isActive ? token.colorFillSecondary : 'transparent';
                     const fg = isFocused ? token.colorPrimary : isActive ? token.colorPrimary : token.colorText;
                     return (
-                      <button
-                        key={s.id}
-                        type="button"
-                        data-toc-id={s.id}
-                        onClick={() => navigateTo(s.id)}
-                        onMouseEnter={() => setFocusedTocId(s.id)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: 8,
-                          width: '100%',
-                          textAlign: 'left',
-                          padding: '6px 8px',
-                          marginTop: 2,
-                          fontSize: 12,
-                          background: bg,
-                          color: fg,
-                          fontWeight: isActive || isFocused ? 600 : 400,
-                          border: 'none',
-                          borderRadius: 4,
-                          cursor: 'pointer',
-                          transition: 'background-color 0.12s ease',
-                        }}
-                      >
-                        <span
+                      <li key={s.id} style={{ margin: 0 }}>
+                        <button
+                          type="button"
+                          data-toc-id={s.id}
+                          onClick={() => navigateTo(s.id)}
+                          onMouseEnter={() => setFocusedTocId(s.id)}
                           style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            width: 16,
-                            color: isActive || isFocused ? token.colorPrimary : token.colorTextTertiary,
-                            fontSize: 13,
-                            flexShrink: 0,
+                            display: 'flex',
+                            alignItems: 'baseline',
+                            gap: 8,
+                            width: '100%',
+                            textAlign: 'left',
+                            padding: '4px 8px',
                             marginTop: 1,
+                            fontSize: 12,
+                            background: bg,
+                            color: fg,
+                            fontWeight: isActive || isFocused ? 600 : 400,
+                            border: 'none',
+                            borderRadius: 4,
+                            cursor: 'pointer',
+                            transition: 'background-color 0.12s ease',
                           }}
                         >
-                          {s.icon}
-                        </span>
-                        <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {s.title}
+                          <span
+                            style={{
+                              minWidth: 18,
+                              fontVariantNumeric: 'tabular-nums',
+                              color:
+                                isActive || isFocused ? token.colorPrimary : token.colorTextTertiary,
+                              fontSize: 11,
+                              flexShrink: 0,
+                              textAlign: 'right',
+                            }}
+                          >
+                            {idx + 1}.
                           </span>
                           <span
                             style={{
-                              fontSize: 10,
-                              fontWeight: 400,
-                              color: token.colorTextTertiary,
+                              flex: 1,
+                              minWidth: 0,
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
                               whiteSpace: 'nowrap',
                             }}
                           >
-                            {s.summary}
+                            {s.title}
                           </span>
-                        </span>
-                      </button>
+                        </button>
+                      </li>
                     );
                   })}
-                </div>
+                </ol>
               </div>
             ))
           )}
