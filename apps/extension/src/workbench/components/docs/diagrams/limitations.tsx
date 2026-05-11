@@ -17,44 +17,50 @@ const ERR = 'var(--ant-color-error)';
 export const LimitationsOverviewDiagram: React.FC = () => {
   type Card = {
     title: string;
-    tagline: string;
+    /** Tagline split across two lines to fit inside the 142px card. */
+    line1: string;
+    line2: string;
     /** Small glyph rendered inside a circle in the top-left. */
     glyph: React.ReactNode;
   };
 
   const CARDS: Card[] = [
     {
-      title: 'DevTools blind spot',
-      tagline: 'Modified headers still show original values.',
+      title: 'DevTools blind',
+      line1: 'Network tab shows',
+      line2: 'the original headers.',
       glyph: (
-        <text x={0} y={4} textAnchor="middle" fontFamily="monospace" fontSize={11} fontWeight={700} fill={ERR}>
+        <text x={0} y={3} textAnchor="middle" fontFamily="monospace" fontSize={8} fontWeight={700} fill={ERR}>
           {'</>'}
         </text>
       ),
     },
     {
       title: 'Script reach',
-      tagline: 'Only fetch / XHR — not nav or static.',
+      line1: 'Only fetch / XHR —',
+      line2: 'no nav, no static.',
       glyph: (
-        <text x={0} y={4} textAnchor="middle" fontFamily="monospace" fontSize={12} fontWeight={700} fill={ERR}>
+        <text x={0} y={3} textAnchor="middle" fontFamily="monospace" fontSize={9} fontWeight={700} fill={ERR}>
           fn
         </text>
       ),
     },
     {
-      title: 'Merge sees only',
-      tagline: 'Headers explicitly set by page code.',
+      title: 'Merge scope',
+      line1: 'Sees only headers',
+      line2: 'set by page code.',
       glyph: (
-        <text x={0} y={4} textAnchor="middle" fontFamily="monospace" fontSize={12} fontWeight={700} fill={ERR}>
-          ; ,
+        <text x={0} y={3} textAnchor="middle" fontFamily="monospace" fontSize={9} fontWeight={700} fill={ERR}>
+          ;,
         </text>
       ),
     },
     {
-      title: 'Chrome 128+ for headers',
-      tagline: 'Older browsers skip header matching silently.',
+      title: 'Chrome 128+',
+      line1: 'Older browsers',
+      line2: 'skip header match.',
       glyph: (
-        <text x={0} y={4} textAnchor="middle" fontSize={11} fontWeight={700} fill={ERR}>
+        <text x={0} y={3} textAnchor="middle" fontSize={8} fontWeight={700} fill={ERR}>
           128+
         </text>
       ),
@@ -62,7 +68,7 @@ export const LimitationsOverviewDiagram: React.FC = () => {
   ];
 
   const CARD_W = 142;
-  const CARD_H = 72;
+  const CARD_H = 76;
   const CARD_X = [14, 164] as const;
   const CARD_Y_START = 36;
   const CARD_GAP = 12;
@@ -103,12 +109,15 @@ export const LimitationsOverviewDiagram: React.FC = () => {
             <text x={x + 34} y={y + 22} fontSize={10} fontWeight={700} fill={TEXT}>
               {card.title}
             </text>
-            {/* Tagline — wraps to two lines if needed */}
+            {/* Tagline — two lines */}
             <text x={x + 10} y={y + 44} fontSize={9} fill={TEXT}>
-              {card.tagline}
+              {card.line1}
             </text>
-            <text x={x + 10} y={y + 60} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-              See the matching callout below.
+            <text x={x + 10} y={y + 56} fontSize={9} fill={TEXT}>
+              {card.line2}
+            </text>
+            <text x={x + 10} y={y + 70} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
+              See callout below.
             </text>
           </g>
         );
