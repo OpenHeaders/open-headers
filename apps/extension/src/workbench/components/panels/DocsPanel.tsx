@@ -11,7 +11,7 @@
  *     the command palette footer.
  *
  * Keyboard:
- *   • Reading view  — Alt+ArrowLeft / Alt+ArrowRight pager,
+ *   • Reading view  — ArrowLeft / ArrowRight pager,
  *                     Esc opens the TOC.
  *   • TOC view      — ArrowUp / ArrowDown move focus, Enter opens
  *                     the focused section, Esc returns to reading.
@@ -177,7 +177,7 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ onClose }) => {
   }, [view, focusedTocId]);
 
   // Panel-scoped keyboard:
-  //   • Reading: Alt+Left / Alt+Right pager, Esc opens TOC.
+  //   • Reading: Left / Right pager, Esc opens TOC.
   //   • TOC:     Up/Down move focus, Enter opens, Esc returns.
   //   • Filter input swallows arrow keys for text editing UNTIL
   //     ArrowDown moves focus from the input into the list.
@@ -190,7 +190,12 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ onClose }) => {
       const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable;
 
       if (view === 'reading') {
-        if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        if (
+          !e.altKey &&
+          !e.metaKey &&
+          !e.ctrlKey &&
+          (e.key === 'ArrowLeft' || e.key === 'ArrowRight')
+        ) {
           if (isInput) return;
           const idx = FLAT_SECTIONS.findIndex((s) => s.id === activeId);
           const nextId = e.key === 'ArrowLeft' ? FLAT_SECTIONS[idx - 1]?.id : FLAT_SECTIONS[idx + 1]?.id;
