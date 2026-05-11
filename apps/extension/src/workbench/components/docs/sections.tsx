@@ -395,13 +395,14 @@ export const SystemStatusSection: React.FC = () => (
     <SurfaceContext surfaces={['popup', 'side-panel', 'workbench']} />
     <DocParagraph>
       <strong>System status</strong> is a live snapshot of the extension's health. The workbench footer shows it as a
-      six-pill row — one pill per subsystem, each with its own colored dot. The popup and side-panel header collapse it
-      down to a single composite dot whose color tracks the worst-state subsystem.
+      six-pill row — one pill per subsystem, each with its own colored dot. The popup and side-panel collapse it down to
+      a single <code>● System status</code> entry in their bottom footer, with the dot's color tracking the worst-state
+      subsystem.
     </DocParagraph>
     <DiagramFrame caption="In the workbench, the row sits in the footer with one pill per subsystem.">
       <SystemStatusWorkbenchSurfaceDiagram />
     </DiagramFrame>
-    <DiagramFrame caption="Click the toolbar icon and a single composite dot sits in the popup's header.">
+    <DiagramFrame caption="Click the toolbar icon, and the same status surfaces as a single labeled pill in the popup's footer.">
       <SystemStatusPopupSurfaceDiagram />
     </DiagramFrame>
     <DocParagraph>

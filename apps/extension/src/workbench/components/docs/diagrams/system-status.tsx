@@ -297,19 +297,22 @@ export const SystemStatusWorkbenchSurfaceDiagram: React.FC = () => {
 };
 
 /**
- * Popup surface: same browser, but the extension popup hangs down
- * from the toolbar's extension icon. The popup is the focal point;
- * the page behind it is just dimmed background. A composite green
- * dot sits in the popup's header, mirroring the real UI.
+ * Popup surface: the extension popup hangs from the toolbar icon.
+ * Inside the popup, the status indicator lives in the FOOTER (not
+ * the header) — rendered as a colored dot + "System status" label.
+ * Matches the real UI: small `● System status v5.0.0` strip at the
+ * bottom of the popup, alongside the Debug + help icons.
  */
 export const SystemStatusPopupSurfaceDiagram: React.FC = () => {
-  // Popup dimensions and position — anchored under the toolbar's
-  // extension-icon slot (right-aligned in the address bar).
-  const PU_W = 168;
-  const PU_H = 110;
-  const PU_X = 312 - PU_W - 4; // right-aligned to the frame
-  const PU_Y = 64; // hangs from just below the address bar
-  const PU_HEAD_H = 24;
+  // Popup dimensions
+  const PU_W = 172;
+  const PU_H = 124;
+  const PU_X = 312 - PU_W - 4;
+  const PU_Y = 60;
+  const HEAD_H = 22;
+  const FOOTER_H = 20;
+  const BODY_Y = PU_Y + HEAD_H;
+  const FOOTER_Y = PU_Y + PU_H - FOOTER_H;
 
   return (
     <svg
@@ -317,10 +320,10 @@ export const SystemStatusPopupSurfaceDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Popup surface — the extension popup hangs from the toolbar icon. The composite status dot lives in its header."
+      aria-label="Popup surface — the extension popup hangs from the toolbar icon. The status pill sits in the popup's bottom footer as a dot plus 'System status' label."
     >
       <text x={160} y={14} textAnchor="middle" fontSize={11} fontWeight={700} fill={TEXT}>
-        Popup: composite dot in the header
+        Popup: System status pill in the footer
       </text>
 
       <BrowserFrame tabLabel="example.com" addressBar="https://example.com">
@@ -339,9 +342,8 @@ export const SystemStatusPopupSurfaceDiagram: React.FC = () => {
           ))}
         </g>
 
-        {/* Extension icon — actual Open Headers logo */}
+        {/* Toolbar extension icon — actual Open Headers logo */}
         <OhLogo x={286} y={53} size={20} idSuffix="popup-icon" />
-        {/* Subtle "selected" ring around the icon */}
         <rect
           x={284}
           y={51}
@@ -353,7 +355,7 @@ export const SystemStatusPopupSurfaceDiagram: React.FC = () => {
           strokeWidth={1.5}
           strokeDasharray="2 2"
         />
-        {/* Connector arrow from icon to popup */}
+        {/* Connector from toolbar icon down to popup */}
         <line
           x1={296}
           y1={76}
@@ -366,38 +368,99 @@ export const SystemStatusPopupSurfaceDiagram: React.FC = () => {
 
         {/* Popup window */}
         <rect x={PU_X} y={PU_Y} width={PU_W} height={PU_H} rx={5} fill={BG_CONTAINER} stroke={BORDER} />
-        {/* Popup header */}
+
+        {/* Popup header (top) — OH logo + name + small chip suggesting the workspace selector */}
+        <rect x={PU_X} y={PU_Y} width={PU_W} height={HEAD_H} rx={5} fill={FILL_SECONDARY} stroke={BORDER} />
+        <OhLogo x={PU_X + 6} y={PU_Y + 5} size={12} idSuffix="popup-head" />
+        <text x={PU_X + 22} y={PU_Y + HEAD_H / 2 + 4} fontSize={10} fontWeight={700} fill={TEXT}>
+          Open Headers
+        </text>
+        <rect
+          x={PU_X + PU_W - 32}
+          y={PU_Y + 5}
+          width={26}
+          height={12}
+          rx={6}
+          fill={BG_CONTAINER}
+          stroke={BORDER}
+        />
+        <text x={PU_X + PU_W - 19} y={PU_Y + 14} textAnchor="middle" fontSize={7} fill={TEXT_DIM}>
+          ws ▾
+        </text>
+
+        {/* Popup body — three faded rows + a couple of mock list items */}
+        <g opacity={0.55}>
+          {[0, 1].map((i) => (
+            <rect
+              key={`pbr-${i}`}
+              x={PU_X + 10}
+              y={BODY_Y + 10 + i * 12}
+              width={PU_W - 24 - i * 14}
+              height={5}
+              rx={2}
+              fill="var(--ant-color-fill-tertiary)"
+            />
+          ))}
+          <rect
+            x={PU_X + 10}
+            y={BODY_Y + 40}
+            width={PU_W - 20}
+            height={16}
+            rx={3}
+            fill="var(--ant-color-fill-tertiary)"
+          />
+          <rect
+            x={PU_X + 10}
+            y={BODY_Y + 60}
+            width={PU_W - 20}
+            height={16}
+            rx={3}
+            fill="var(--ant-color-fill-tertiary)"
+          />
+        </g>
+
+        {/* Popup footer — the focal point, with the status pill highlighted */}
         <rect
           x={PU_X}
-          y={PU_Y}
+          y={FOOTER_Y}
           width={PU_W}
-          height={PU_HEAD_H}
-          rx={5}
+          height={FOOTER_H}
           fill={FILL_SECONDARY}
           stroke={dotColor('green')}
           strokeWidth={1.5}
         />
-        <text x={PU_X + 10} y={PU_Y + PU_HEAD_H / 2 + 4} fontSize={11} fontWeight={700} fill={TEXT}>
-          Open Headers
+        {/* Left side: tiny Debug + help icons */}
+        <rect x={PU_X + 6} y={FOOTER_Y + 4} width={26} height={12} rx={3} fill={BG_CONTAINER} stroke={BORDER} />
+        <text x={PU_X + 19} y={FOOTER_Y + 13} textAnchor="middle" fontSize={7} fill={TEXT_DIM}>
+          ⌗ Debug
         </text>
-        <circle cx={PU_X + PU_W - 14} cy={PU_Y + PU_HEAD_H / 2} r={5} fill={SUCCESS} />
-
-        {/* Popup body placeholders */}
-        {[0, 1, 2, 3].map((i) => (
-          <rect
-            key={`pb-${i}`}
-            x={PU_X + 10}
-            y={PU_Y + PU_HEAD_H + 10 + i * 12}
-            width={PU_W - 24 - i * 18}
-            height={5}
-            rx={2}
-            fill="var(--ant-color-fill-tertiary)"
-          />
-        ))}
+        <circle cx={PU_X + 40} cy={FOOTER_Y + FOOTER_H / 2} r={5} fill={BG_CONTAINER} stroke={BORDER} />
+        <text x={PU_X + 40} y={FOOTER_Y + 13} textAnchor="middle" fontSize={7} fill={TEXT_DIM}>
+          ?
+        </text>
+        {/* Status pill — dot + label */}
+        <circle cx={PU_X + 84} cy={FOOTER_Y + FOOTER_H / 2} r={3} fill={SUCCESS} />
+        <text
+          x={PU_X + 90}
+          y={FOOTER_Y + FOOTER_H / 2 + 3}
+          fontSize={9}
+          fontWeight={700}
+          fill={TEXT}
+        >
+          System status
+        </text>
+        <text
+          x={PU_X + 144}
+          y={FOOTER_Y + FOOTER_H / 2 + 3}
+          fontSize={8}
+          fill={TEXT_DIM}
+        >
+          v5.0.0
+        </text>
       </BrowserFrame>
 
       <text x={160} y={204} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
-        ↑ one dot — color tracks the worst-state subsystem.
+        ↑ dot + "System status" label sits in the popup's footer strip.
       </text>
     </svg>
   );
