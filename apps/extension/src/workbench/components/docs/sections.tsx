@@ -35,6 +35,7 @@ import {
   AppendDiagram,
   AppendWontApplyDiagram,
   BlockDiagram,
+  BlockUseCasesDiagram,
   BlockWontApplyDiagram,
   HeaderOpsDiagram,
   MergeDiagram,
@@ -878,6 +879,9 @@ export const BlockSection: React.FC = () => (
       endpoint while leaving the rest of an API reachable. To block only the document of a page (not its sub-resources),
       add a Resource Type condition of <code>main_frame</code>.
     </DocParagraph>
+    <DiagramFrame caption="Four typical patterns — scope each one with Conditions (Domains, URL Pattern, Resource Type).">
+      <BlockUseCasesDiagram />
+    </DiagramFrame>
     <Callout kind="note">
       Blocking a <code>main_frame</code> request renders an "ERR_BLOCKED_BY_CLIENT" page in Chrome. Sub-resource blocks
       happen silently — what the user sees depends on the page's own error handling.

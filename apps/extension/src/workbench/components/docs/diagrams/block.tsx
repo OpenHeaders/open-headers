@@ -161,6 +161,80 @@ export const BlockDiagram: React.FC = () => {
   );
 };
 
+/**
+ * Block — common use cases at a glance. Four cards in a 2×2 grid,
+ * each pairing a short title with a concrete one-line example so
+ * users can recognise their own intent without reading prose.
+ */
+export const BlockUseCasesDiagram: React.FC = () => {
+  type Card = { title: string; example: string };
+  const CARDS: Card[] = [
+    { title: 'Ads & trackers', example: 'Block ads.openheaders.io' },
+    { title: 'Outage simulation', example: 'Take a host offline to test' },
+    { title: 'Endpoint denial', example: 'Block /api/admin only' },
+    { title: 'Page-only block', example: 'Add main_frame condition' },
+  ];
+
+  const CARD_W = 142;
+  const CARD_H = 60;
+  const CARD_X = [14, 164] as const;
+  const CARD_Y_START = 36;
+  const CARD_GAP = 12;
+
+  return (
+    <svg
+      viewBox="0 0 320 200"
+      width="100%"
+      style={{ maxWidth: 360 }}
+      role="img"
+      aria-label="Block — common use cases: ads & trackers, outage simulation, endpoint denial, and page-only block."
+    >
+      <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
+        COMMON USE CASES
+      </text>
+
+      {CARDS.map((card, i) => {
+        const col = i % 2;
+        const row = Math.floor(i / 2);
+        const x = CARD_X[col];
+        const y = CARD_Y_START + row * (CARD_H + CARD_GAP);
+        return (
+          <g key={card.title}>
+            <rect
+              x={x}
+              y={y}
+              width={CARD_W}
+              height={CARD_H}
+              rx={5}
+              fill="var(--ant-color-bg-container)"
+              stroke="var(--ant-color-border)"
+            />
+            {/* Accent stripe on the left edge */}
+            <rect x={x} y={y + 1} width={4} height={CARD_H - 2} rx={2} fill={STROKE_BLUE} />
+            {/* Numbered badge */}
+            <circle cx={x + 16} cy={y + 16} r={8} fill={FILL_BLUE} stroke={STROKE_BLUE} />
+            <text x={x + 16} y={y + 19} textAnchor="middle" fontSize={9} fontWeight={700} fill={STROKE_BLUE}>
+              {i + 1}
+            </text>
+            {/* Title */}
+            <text x={x + 30} y={y + 19} fontSize={10} fontWeight={700} fill={TEXT}>
+              {card.title}
+            </text>
+            {/* Example */}
+            <text x={x + 12} y={y + 40} fontSize={9} fill={TEXT}>
+              {card.example}
+            </text>
+          </g>
+        );
+      })}
+
+      <text x={160} y={188} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+        Pair Block with Conditions to scope it down.
+      </text>
+    </svg>
+  );
+};
+
 export const BlockWontApplyDiagram: React.FC = () => {
   const errColor = 'var(--ant-color-error)';
   const errBorder = 'var(--ant-color-error-border)';

@@ -13,7 +13,7 @@ export {
   InjectTimingDiagram,
   MockFlowDiagram,
 } from './_pending';
-export { BlockDiagram, BlockWontApplyDiagram } from './block';
+export { BlockDiagram, BlockUseCasesDiagram, BlockWontApplyDiagram } from './block';
 export {
   AppendDiagram,
   AppendWontApplyDiagram,
