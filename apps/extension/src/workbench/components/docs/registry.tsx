@@ -76,6 +76,14 @@ export const DOC_GROUPS: DocGroup[] = [
     label: 'Concepts',
     sections: [
       {
+        id: 'conditions',
+        title: 'Conditions',
+        summary: 'AND-matching filters that gate every rule — domains, URL patterns, methods, headers.',
+        group: 'concepts',
+        icon: <FilterOutlined />,
+        Component: ConditionsSection,
+      },
+      {
         id: 'request-tracking',
         title: 'Request Tracking',
         summary: 'How matched requests are observed, recorded, and surfaced as badges in the popup.',
@@ -90,14 +98,6 @@ export const DOC_GROUPS: DocGroup[] = [
         group: 'concepts',
         icon: <DeploymentUnitOutlined />,
         Component: ExecutionSection,
-      },
-      {
-        id: 'conditions',
-        title: 'Conditions',
-        summary: 'AND-matching filters that gate every rule — domains, URL patterns, methods, headers.',
-        group: 'concepts',
-        icon: <FilterOutlined />,
-        Component: ConditionsSection,
       },
       {
         id: 'multi-tab',
@@ -239,4 +239,4 @@ export function findSection(id: string): DocSection | null {
 }
 
 /** Default section opened on first mount when no deep-link is pending. */
-export const DEFAULT_SECTION_ID = 'request-tracking';
+export const DEFAULT_SECTION_ID = 'conditions';
