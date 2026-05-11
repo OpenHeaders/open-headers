@@ -344,23 +344,37 @@ export const ResourceTypesAnatomyDiagram: React.FC = () => {
       </text>
 
       {[
-        { c: STROKE_BLUE, label: 'Page · main_frame' },
-        { c: CYAN, label: 'Frame · sub_frame' },
-        { c: STROKE_GREEN, label: 'Fetch/XHR' },
-        { c: STROKE_ORANGE, label: 'Script' },
-        { c: STROKE_PURPLE, label: 'CSS' },
-        { c: MAGENTA, label: 'Image' },
-        { c: VOLCANO, label: 'Font' },
-        { c: GOLD, label: 'Media' },
-        { c: LIME, label: 'WebSocket' },
-        { c: GEEK, label: 'Ping' },
-        { c: 'var(--ant-color-text-tertiary)', label: 'Other' },
+        { stroke: STROKE_BLUE, fill: FILL_BLUE, label: 'Page' },
+        { stroke: CYAN, fill: CYAN_BG, label: 'Frame' },
+        { stroke: STROKE_GREEN, fill: FILL_GREEN, label: 'Fetch/XHR' },
+        { stroke: STROKE_ORANGE, fill: FILL_ORANGE, label: 'Script' },
+        { stroke: STROKE_PURPLE, fill: FILL_PURPLE, label: 'CSS' },
+        { stroke: MAGENTA, fill: MAGENTA_BG, label: 'Image' },
+        { stroke: VOLCANO, fill: VOLCANO_BG, label: 'Font' },
+        { stroke: GOLD, fill: GOLD_BG, label: 'Media' },
+        { stroke: LIME, fill: LIME_BG, label: 'WebSocket' },
+        { stroke: GEEK, fill: GEEK_BG, label: 'Ping' },
+        {
+          stroke: 'var(--ant-color-text-tertiary)',
+          fill: 'var(--ant-color-fill-secondary)',
+          label: 'Other',
+        },
       ].map((row, i) => {
         const y = PAGE_Y + 24 + i * 18;
         return (
           <g key={row.label}>
-            <rect x={PAGE_X + PAGE_W + 16} y={y - 7} width={10} height={10} rx={2} fill={row.c} />
-            <text x={PAGE_X + PAGE_W + 30} y={y + 1} fontSize={9} fill={TEXT}>
+            {/* Swatch mirrors the anatomy element style: tinted fill + accent border */}
+            <rect
+              x={PAGE_X + PAGE_W + 16}
+              y={y - 7}
+              width={12}
+              height={12}
+              rx={2}
+              fill={row.fill}
+              stroke={row.stroke}
+              strokeWidth={1.2}
+            />
+            <text x={PAGE_X + PAGE_W + 32} y={y + 1} fontSize={9} fill={TEXT}>
               {row.label}
             </text>
           </g>
