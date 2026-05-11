@@ -316,7 +316,7 @@ export const ExecutionSection: React.FC = () => (
 
 export const MultiTabSection: React.FC = () => (
   <>
-    <SurfaceContext surfaces={['workbench']} />
+    <SurfaceContext surfaces={['workbench', 'devtools']} />
     <DocParagraph>
       Multiple workspace tabs open at once is a first-class state. Persisted data syncs through{' '}
       <code>chrome.storage</code>, layout state stays per-tab, and navigation intents reuse existing tabs in the same
