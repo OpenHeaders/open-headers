@@ -22,6 +22,189 @@ import {
   TEXT_DIM,
 } from './_shared';
 
+// ── Per-type mini icons ─────────────────────────────────────────
+//
+// Small 40×40 glyphs used next to each row in the table. Each one
+// uses its locked accent color so the visual key matches the
+// anatomy diagram above.
+
+const ICON_BLUE = 'var(--ant-color-primary)';
+const ICON_CYAN = '#08979c';
+const ICON_GREEN = 'var(--ant-color-success)';
+const ICON_ORANGE = '#fa8c16';
+const ICON_PURPLE = '#722ed1';
+const ICON_MAGENTA = '#c41d7f';
+const ICON_VOLCANO = '#d4380d';
+const ICON_GOLD = '#d48806';
+const ICON_LIME = '#7cb305';
+const ICON_GEEK = '#1d39c4';
+const ICON_GREY = 'var(--ant-color-text-tertiary)';
+
+const ICON_BG = 'var(--ant-color-fill-quaternary)';
+
+interface IconProps {
+  size?: number;
+}
+
+const IconFrame: React.FC<{ accent: string; children: React.ReactNode; size?: number }> = ({
+  accent,
+  children,
+  size = 40,
+}) => (
+  <svg width={size} height={size} viewBox="0 0 40 40" role="img" aria-hidden="true">
+    <rect x={1} y={1} width={38} height={38} rx={6} fill={ICON_BG} stroke={accent} strokeWidth={1.2} />
+    {children}
+  </svg>
+);
+
+export const PageIcon: React.FC<IconProps> = ({ size }) => (
+  <IconFrame accent={ICON_BLUE} size={size}>
+    <rect x={7} y={9} width={26} height={4} rx={1} fill={ICON_BLUE} />
+    <rect x={7} y={16} width={26} height={16} rx={1.5} fill="var(--ant-color-bg-container)" stroke={ICON_BLUE} />
+    <rect x={10} y={19} width={14} height={2} fill={ICON_BLUE} opacity={0.6} />
+    <rect x={10} y={23} width={20} height={2} fill={ICON_BLUE} opacity={0.4} />
+    <rect x={10} y={27} width={16} height={2} fill={ICON_BLUE} opacity={0.4} />
+  </IconFrame>
+);
+
+export const FrameIcon: React.FC<IconProps> = ({ size }) => (
+  <IconFrame accent={ICON_CYAN} size={size}>
+    {/* Outer page */}
+    <rect x={6} y={6} width={28} height={28} rx={2} fill="none" stroke={ICON_CYAN} strokeWidth={1.2} />
+    {/* Inner iframe — dashed */}
+    <rect
+      x={14}
+      y={14}
+      width={18}
+      height={14}
+      rx={1.5}
+      fill={ICON_CYAN}
+      fillOpacity={0.18}
+      stroke={ICON_CYAN}
+      strokeWidth={1.2}
+      strokeDasharray="2 2"
+    />
+  </IconFrame>
+);
+
+export const FetchIcon: React.FC<IconProps> = ({ size }) => (
+  <IconFrame accent={ICON_GREEN} size={size}>
+    {/* { } JSON braces */}
+    <text x={20} y={26} textAnchor="middle" fontFamily="monospace" fontSize={18} fontWeight={700} fill={ICON_GREEN}>
+      {'{ }'}
+    </text>
+  </IconFrame>
+);
+
+export const ScriptIcon: React.FC<IconProps> = ({ size }) => (
+  <IconFrame accent={ICON_ORANGE} size={size}>
+    {/* < / > */}
+    <text x={20} y={26} textAnchor="middle" fontFamily="monospace" fontSize={14} fontWeight={700} fill={ICON_ORANGE}>
+      {'</>'}
+    </text>
+  </IconFrame>
+);
+
+export const CssIcon: React.FC<IconProps> = ({ size }) => (
+  <IconFrame accent={ICON_PURPLE} size={size}>
+    {/* Hash + dots — like a CSS selector */}
+    <text x={20} y={26} textAnchor="middle" fontFamily="monospace" fontSize={16} fontWeight={700} fill={ICON_PURPLE}>
+      #·.
+    </text>
+  </IconFrame>
+);
+
+export const ImageIcon: React.FC<IconProps> = ({ size }) => (
+  <IconFrame accent={ICON_MAGENTA} size={size}>
+    {/* Mountains + sun */}
+    <circle cx={28} cy={14} r={3} fill={ICON_MAGENTA} opacity={0.7} />
+    <path
+      d="M 8 30 L 16 18 L 22 24 L 26 20 L 32 30 Z"
+      fill={ICON_MAGENTA}
+      fillOpacity={0.3}
+      stroke={ICON_MAGENTA}
+      strokeWidth={1.2}
+      strokeLinejoin="round"
+    />
+  </IconFrame>
+);
+
+export const FontIcon: React.FC<IconProps> = ({ size }) => (
+  <IconFrame accent={ICON_VOLCANO} size={size}>
+    {/* Stylised 'Aa' */}
+    <text
+      x={20}
+      y={28}
+      textAnchor="middle"
+      fontFamily="Georgia, 'Times New Roman', serif"
+      fontSize={20}
+      fontWeight={700}
+      fill={ICON_VOLCANO}
+    >
+      Aa
+    </text>
+  </IconFrame>
+);
+
+export const MediaIcon: React.FC<IconProps> = ({ size }) => (
+  <IconFrame accent={ICON_GOLD} size={size}>
+    {/* Play triangle inside circle */}
+    <circle cx={20} cy={20} r={11} fill="none" stroke={ICON_GOLD} strokeWidth={1.4} />
+    <path d="M 17 14 L 17 26 L 27 20 Z" fill={ICON_GOLD} />
+  </IconFrame>
+);
+
+export const WebSocketIcon: React.FC<IconProps> = ({ size }) => (
+  <IconFrame accent={ICON_LIME} size={size}>
+    {/* Bidirectional arrows */}
+    <path d="M 10 16 L 30 16" stroke={ICON_LIME} strokeWidth={1.5} fill="none" />
+    <path d="M 28 13 L 31 16 L 28 19" stroke={ICON_LIME} strokeWidth={1.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M 30 24 L 10 24" stroke={ICON_LIME} strokeWidth={1.5} fill="none" />
+    <path d="M 12 21 L 9 24 L 12 27" stroke={ICON_LIME} strokeWidth={1.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+  </IconFrame>
+);
+
+export const PingIcon: React.FC<IconProps> = ({ size }) => (
+  <IconFrame accent={ICON_GEEK} size={size}>
+    {/* Radiating signal */}
+    <circle cx={20} cy={26} r={2} fill={ICON_GEEK} />
+    <path d="M 14 22 A 8 8 0 0 1 26 22" stroke={ICON_GEEK} strokeWidth={1.5} fill="none" />
+    <path d="M 10 18 A 14 14 0 0 1 30 18" stroke={ICON_GEEK} strokeWidth={1.5} fill="none" strokeOpacity={0.65} />
+    <path d="M 6 14 A 20 20 0 0 1 34 14" stroke={ICON_GEEK} strokeWidth={1.5} fill="none" strokeOpacity={0.35} />
+  </IconFrame>
+);
+
+export const OtherIcon: React.FC<IconProps> = ({ size }) => (
+  <IconFrame accent={ICON_GREY} size={size}>
+    <text
+      x={20}
+      y={28}
+      textAnchor="middle"
+      fontFamily="Georgia, serif"
+      fontSize={20}
+      fontWeight={700}
+      fill={ICON_GREY}
+    >
+      ?
+    </text>
+  </IconFrame>
+);
+
+/** Lookup by ResourceType code so the table can render the right icon. */
+export const RESOURCE_TYPE_ICONS: Record<string, React.FC<IconProps>> = {
+  main_frame: PageIcon,
+  sub_frame: FrameIcon,
+  xmlhttprequest: FetchIcon,
+  script: ScriptIcon,
+  stylesheet: CssIcon,
+  image: ImageIcon,
+  font: FontIcon,
+  media: MediaIcon,
+  websocket: WebSocketIcon,
+  ping: PingIcon,
+  other: OtherIcon,
+};
+
 export const ResourceTypesAnatomyDiagram: React.FC = () => {
   // Locked color contract has fixed roles; for a reference like this
   // we tone them down by using both fill + accent text for each

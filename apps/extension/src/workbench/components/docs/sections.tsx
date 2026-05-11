@@ -81,6 +81,7 @@ import {
   RequestTrackingDiagram,
   RequestTrackingPhasesDiagram,
   RequestTrackingUiDiagram,
+  RESOURCE_TYPE_ICONS,
   ResourceTypesAnatomyDiagram,
   LivePillAggregationDiagram,
   LiveWorkflowFreshnessDiagram,
@@ -173,50 +174,63 @@ const ResourceTypeTable: React.FC = () => (
       marginBottom: 8,
     }}
   >
-    {RESOURCE_TYPES.map(({ tag, code, color, desc, examples }) => (
-      <div
-        key={code}
-        style={{
-          padding: '8px 10px',
-          borderRadius: 4,
-          background: 'var(--ant-color-fill-quaternary)',
-          fontSize: 12,
-          lineHeight: 1.6,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-          <strong>{tag}</strong>
-          <Tag color={color} style={{ fontSize: 10, margin: 0 }}>
-            {code}
-          </Tag>
-        </div>
-        <div style={{ color: 'var(--ant-color-text-secondary)' }}>{desc}</div>
+    {RESOURCE_TYPES.map(({ tag, code, color, desc, examples }) => {
+      const Icon = RESOURCE_TYPE_ICONS[code];
+      return (
         <div
+          key={code}
           style={{
-            marginTop: 4,
-            fontFamily: 'monospace',
-            fontSize: 11,
-            color: 'var(--ant-color-text-tertiary)',
+            padding: '8px 10px',
+            borderRadius: 4,
+            background: 'var(--ant-color-fill-quaternary)',
+            fontSize: 12,
+            lineHeight: 1.6,
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 10,
           }}
         >
-          {examples.map((ex, i) => (
-            <code
-              key={i}
+          {Icon ? (
+            <div style={{ flexShrink: 0, marginTop: 2 }}>
+              <Icon size={36} />
+            </div>
+          ) : null}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+              <strong>{tag}</strong>
+              <Tag color={color} style={{ fontSize: 10, margin: 0 }}>
+                {code}
+              </Tag>
+            </div>
+            <div style={{ color: 'var(--ant-color-text-secondary)' }}>{desc}</div>
+            <div
               style={{
-                display: 'block',
-                paddingLeft: 8,
-                opacity: 0.85,
-                whiteSpace: 'pre',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
+                marginTop: 4,
+                fontFamily: 'monospace',
+                fontSize: 11,
+                color: 'var(--ant-color-text-tertiary)',
               }}
             >
-              {ex}
-            </code>
-          ))}
+              {examples.map((ex, i) => (
+                <code
+                  key={i}
+                  style={{
+                    display: 'block',
+                    paddingLeft: 8,
+                    opacity: 0.85,
+                    whiteSpace: 'pre',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {ex}
+                </code>
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
-    ))}
+      );
+    })}
   </div>
 );
 

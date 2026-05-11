@@ -84,7 +84,7 @@ export {
   UrlRegexDiagram,
 } from './conditions';
 export { DirectVsIndirectDiagram } from './direct-vs-indirect';
-export { ResourceTypesAnatomyDiagram } from './resource-types';
+export { RESOURCE_TYPE_ICONS, ResourceTypesAnatomyDiagram } from './resource-types';
 export { ExecutionDnrReachDiagram, ExecutionScriptReachDiagram, ExecutionStackDiagram } from './execution';
 export {
   RequestTrackingDiagram,
