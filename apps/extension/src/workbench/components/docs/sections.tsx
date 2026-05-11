@@ -1114,8 +1114,7 @@ export const DelaySection: React.FC = () => (
 
     <Callout kind="note" title="Desktop App — product note">
       Throttling static resources (images, scripts, stylesheets, fonts) needs a real local network layer that can hold
-      connections open and stream bytes — out of reach for an extension. The v5 desktop app, in development now, will
-      pick that up once it ships.
+      connections open and stream bytes — out of reach for an extension. The desktop app picks that up soon.
     </Callout>
   </>
 );

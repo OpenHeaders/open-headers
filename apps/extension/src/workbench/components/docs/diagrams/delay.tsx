@@ -284,7 +284,7 @@ export const DelayWontApplyDiagram: React.FC = () => {
         Suggestion
       </text>
       <text x={48} y={138} fontSize={9} fill={TEXT}>
-        Sub-resource throttling lands with the v5 desktop app.
+        Sub-resource throttling lands with the desktop app soon.
       </text>
     </svg>
   );
