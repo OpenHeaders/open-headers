@@ -78,6 +78,7 @@ export {
   ParadigmApiCatalogDiagram,
   ParadigmConvergenceDiagram,
   ParadigmFieldSyncDiagram,
+  ParadigmFrontEndsDiagram,
   ParadigmLocalFirstDiagram,
   ParadigmRuleEngineDiagram,
   ParadigmShiftDiagram,

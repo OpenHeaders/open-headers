@@ -70,6 +70,7 @@ import {
   ParadigmApiCatalogDiagram,
   ParadigmConvergenceDiagram,
   ParadigmFieldSyncDiagram,
+  ParadigmFrontEndsDiagram,
   ParadigmLocalFirstDiagram,
   ParadigmRuleEngineDiagram,
   ParadigmShiftDiagram,
@@ -183,6 +184,16 @@ export const ParadigmSection: React.FC = () => (
     </DocParagraph>
     <DiagramFrame>
       <ParadigmLocalFirstDiagram />
+    </DiagramFrame>
+
+    <DocParagraph>
+      The same principle applies to <em>how</em> you reach that data. The browser extension is the default front-end
+      today — four surfaces inside the browser. A native desktop app, a CLI, and a remote web app follow on the
+      roadmap. Every front-end speaks to a back-end of your choice; pick any combination, and every surface stays in
+      sync.
+    </DocParagraph>
+    <DiagramFrame>
+      <ParadigmFrontEndsDiagram />
     </DiagramFrame>
 
     <DocHeading level={3}>Auto-Sync without losing your work</DocHeading>
