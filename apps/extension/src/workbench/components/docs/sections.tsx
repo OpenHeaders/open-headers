@@ -14,28 +14,6 @@ import { Card, Tag, theme } from 'antd';
 import type React from 'react';
 import { SHORTCUTS, useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
 import {
-  BodyInterceptDiagram,
-  ConditionsHostVsOriginDiagram,
-  ConditionsMatchingDiagram,
-  ConditionsRuleFiresDiagram,
-  DomainTypeDiagram,
-  ExcludeDomainsDiagram,
-  HeadersConditionDiagram,
-  InitiatorDomainsDiagram,
-  MethodsDiagram,
-  RequestDomainsDiagram,
-  ResourceTypesDiagram,
-  UrlPatternDiagram,
-  UrlRegexDiagram,
-  DelayNavDiagram,
-  DelayRoutingDiagram,
-  DelayUseCasesDiagram,
-  DelayWontApplyDiagram,
-  DelayXhrDiagram,
-  DirectVsIndirectDiagram,
-  ExecutionDnrReachDiagram,
-  ExecutionScriptReachDiagram,
-  ExecutionStackDiagram,
   AppendDiagram,
   AppendWontApplyDiagram,
   BlockDiagram,
@@ -43,31 +21,40 @@ import {
   BlockWontApplyDiagram,
   BodyDynamicDiagram,
   BodyGraphqlDiagram,
+  BodyInterceptDiagram,
   BodyStaticDiagram,
   BodyUseCasesDiagram,
   BodyWontApplyDiagram,
-  QueryParamAddReplaceDiagram,
-  QueryParamRemoveAllDiagram,
-  QueryParamRemoveDiagram,
-  QueryParamReplaceOnlyDiagram,
-  QueryParamUseCasesDiagram,
-  QueryParamWontApplyDiagram,
-  RedirectRegexDiagram,
-  RedirectStaticDiagram,
-  RedirectUseCasesDiagram,
-  RedirectWontApplyDiagram,
+  ComparisonMatrixDiagram,
+  ConditionsHostVsOriginDiagram,
+  ConditionsMatchingDiagram,
+  ConditionsRuleFiresDiagram,
+  DelayNavDiagram,
+  DelayRoutingDiagram,
+  DelayUseCasesDiagram,
+  DelayWontApplyDiagram,
+  DelayXhrDiagram,
+  DirectVsIndirectDiagram,
+  DomainTypeDiagram,
+  ExcludeDomainsDiagram,
+  ExecutionDnrReachDiagram,
+  ExecutionScriptReachDiagram,
+  ExecutionStackDiagram,
   HeaderOpsDiagram,
-  MergeDiagram,
-  MergeWontApplyDiagram,
-  OverrideDiagram,
-  OverrideWontApplyDiagram,
-  RemoveDiagram,
-  RemoveWontApplyDiagram,
+  HeadersConditionDiagram,
+  InitiatorDomainsDiagram,
   InjectCssDiagram,
   InjectScriptDiagram,
   InjectTimingDiagram,
   InjectUseCasesDiagram,
   InjectWontApplyDiagram,
+  KeyboardRegionsDiagram,
+  LimitationsOverviewDiagram,
+  LivePillAggregationDiagram,
+  LiveWorkflowFreshnessDiagram,
+  MergeDiagram,
+  MergeWontApplyDiagram,
+  MethodsDiagram,
   MockDynamicDiagram,
   MockFlowDiagram,
   MockStaticDiagram,
@@ -78,22 +65,38 @@ import {
   MultiTabNumberingDiagram,
   MultiTabSyncDiagram,
   MultiTabSyncedDiagram,
+  OverrideDiagram,
+  OverrideWontApplyDiagram,
+  ParadigmApiCatalogDiagram,
+  ParadigmConvergenceDiagram,
+  ParadigmFieldSyncDiagram,
+  ParadigmLocalFirstDiagram,
+  ParadigmRuleEngineDiagram,
+  ParadigmShiftDiagram,
+  PermissionsAuditFlowDiagram,
+  PermissionsImpactDiagram,
+  QueryParamAddReplaceDiagram,
+  QueryParamRemoveAllDiagram,
+  QueryParamRemoveDiagram,
+  QueryParamReplaceOnlyDiagram,
+  QueryParamUseCasesDiagram,
+  QueryParamWontApplyDiagram,
+  RESOURCE_TYPE_ICONS,
+  RedirectRegexDiagram,
+  RedirectStaticDiagram,
+  RedirectUseCasesDiagram,
+  RedirectWontApplyDiagram,
+  RemoveDiagram,
+  RemoveWontApplyDiagram,
+  RequestDomainsDiagram,
+  RequestExecutorOutcomesDiagram,
+  RequestExecutorScopeDiagram,
   RequestTrackingDiagram,
   RequestTrackingPhasesDiagram,
   RequestTrackingUiDiagram,
-  KeyboardRegionsDiagram,
-  LimitationsOverviewDiagram,
-  RESOURCE_TYPE_ICONS,
   ResourceTypesAnatomyDiagram,
-  WhyCapabilitiesDiagram,
-  WhyHeroDiagram,
-  WhyScenariosDiagram,
-  LivePillAggregationDiagram,
-  LiveWorkflowFreshnessDiagram,
-  PermissionsAuditFlowDiagram,
-  PermissionsImpactDiagram,
-  RequestExecutorOutcomesDiagram,
-  RequestExecutorScopeDiagram,
+  ResourceTypesDiagram,
+  RoadmapMilestonesDiagram,
   RulesCapacityDiagram,
   RulesPipelineDiagram,
   SyncLifecycleDiagram,
@@ -102,6 +105,8 @@ import {
   SystemStatusPopupSurfaceDiagram,
   SystemStatusWorkbenchSurfaceDiagram,
   SystemStatusWorstLevelDiagram,
+  UrlPatternDiagram,
+  UrlRegexDiagram,
   VaultDriftDetailDiagram,
   VaultHydrationDiagram,
 } from './diagrams';
@@ -114,48 +119,203 @@ import {
   DocLink,
   DocParagraph,
   EngineTag,
-  Example,
   OnThisPage,
   StateRow,
   SurfaceContext,
 } from './shared';
 
-// ── Concepts: Why OpenHeaders ────────────────────────────────────
+// ── Open Headers: What do we do (differently) ───────────────────
 
-export const WhySection: React.FC = () => (
+export const ParadigmSection: React.FC = () => (
   <>
-    {/* Empty surfaces array — every glyph renders inactive/grey.
-     *  Why OpenHeaders is concept-level, not tied to one panel. */}
-    <SurfaceContext surfaces={[]} />
-    <DiagramFrame caption="The page sends a request — OpenHeaders rewrites it locally before it reaches the network.">
-      <WhyHeroDiagram />
+    <DiagramFrame>
+      <ParadigmShiftDiagram />
     </DiagramFrame>
 
+    <DocHeading level={3}>Everything in one extension</DocHeading>
     <DocParagraph>
-      OpenHeaders is a browser extension for shaping network traffic — locally, on your machine, against any site.
+      Three product categories have historically split this surface area between them: desktop proxies handle HTTP
+      interception, cloud API platforms hold your requests and collections, and lightweight header extensions cover the
+      "just rewrite one header" case. None of them ships the others. Open Headers does — inside a single browser
+      extension, with one workspace store powering every surface.
     </DocParagraph>
-
-    <DocHeading level={3}>What you can do</DocHeading>
-    <DocParagraph>
-      Nine rule types cover the surface area of "things you'd otherwise edit on the server or in the app." Each one is
-      one save away.
-    </DocParagraph>
-    <DiagramFrame caption="Rules grouped by what they change — requests, responses, runtime, observation.">
-      <WhyCapabilitiesDiagram />
+    <DiagramFrame caption="Three legacy categories converge into one install. Nobody else ships this combination inside the extension.">
+      <ParadigmConvergenceDiagram />
     </DiagramFrame>
 
-    <DocHeading level={3}>Where it earns its place</DocHeading>
+    <DocHeading level={3}>Enterprise-grade rule engine</DocHeading>
     <DocParagraph>
-      The same problems show up across teams. Three patterns that take seconds with OpenHeaders and a meeting without
-      it:
+      The rule engine isn't a single trick stretched across nine UIs — it's two real execution paths with one shared
+      language on top. <strong>DNR-native</strong> rules compile down to Chrome's <code>declarativeNetRequest</code>
+      API and catch every browser-issued request (pages, sub-frames, fetch, XHR, images, fonts, scripts). The{' '}
+      <strong>script engine</strong> picks up where DNR can't reach — value-merging headers, transforming bodies,
+      mocking responses, injecting code, delaying calls. Both engines read the same condition language and the same five
+      variable scopes, so a rule you wrote against DNR moves to the script engine by changing one action type.
     </DocParagraph>
-    <DiagramFrame caption="Three real scenarios — each solved by one saved rule.">
-      <WhyScenariosDiagram />
+    <DiagramFrame caption="Two execution paths, nine rule categories, one shared condition + variable language.">
+      <ParadigmRuleEngineDiagram />
+    </DiagramFrame>
+
+    <DocHeading level={3}>Full API request catalog</DocHeading>
+    <DocParagraph>
+      Every capability a desktop API client ships — request building, environments, OAuth 2.0 (including PKCE + Client
+      Credentials + refresh), pre- and post-response scripts, multipart with content-addressed file blobs, collections +
+      folders, GraphQL with schema introspection — lives inside the extension. Same workspace store as the rules, same
+      five variable scopes, same surfaces. Bring your collections from another platform and keep working; nothing
+      exports back out to a cloud you don't control.
+    </DocParagraph>
+    <DiagramFrame caption="The request editor, with protocol support, every auth type, scripts, files, and collections — inside the extension.">
+      <ParadigmApiCatalogDiagram />
+    </DiagramFrame>
+
+    <DocHeading level={3}>Local-first by design</DocHeading>
+    <DocParagraph>
+      "Local-first" is a posture, not a feature. The extension has no account system, no cloud relay, no telemetry
+      endpoint, no background phone-home — and you have a real choice in <em>where</em> the back-end lives. Four hosting
+      options, all local-only, all under your control: the in-browser service worker (today, zero setup), the desktop
+      app's embedded back-end, a standalone local daemon serving every Open Headers surface on one machine, or a
+      back-end you self-host on your own VM. Every option preserves the same guarantees; the trade-off is reach, not
+      ownership.
+    </DocParagraph>
+    <DocParagraph>
+      Cross-user cloud sync is explicitly off the roadmap. Team collaboration ships through user-controlled storage
+      backends (Git, on the roadmap) — never through a vendor server.
+    </DocParagraph>
+    <DiagramFrame>
+      <ParadigmLocalFirstDiagram />
+    </DiagramFrame>
+
+    <DocHeading level={3}>Sync without surrender</DocHeading>
+    <DocParagraph>
+      Cross-device sync is usually where local-first products fold and ask you to trust their cloud. Open Headers solves
+      it differently. Edits are <strong>per-field mutations</strong> carrying hybrid logical clocks; the popup toggling
+      a rule's <code>enabled</code> flag and the workbench rewriting a header value in the same rule both land, in any
+      order, with no stale-draft banner. The same primitives scale from the four surfaces of one extension today to a
+      local daemon backing extension + desktop + CLI tomorrow, and to multi-user team workspaces through a Git remote —
+      without ever needing a vendor server in the middle.
+    </DocParagraph>
+    <DiagramFrame caption="Two surfaces, one rule, different fields — both edits commit through the local oracle.">
+      <ParadigmFieldSyncDiagram />
     </DiagramFrame>
 
     <Callout kind="note">
-      Ready to start? <strong>Conditions</strong> is the next page — every rule reads from the same condition language,
-      so it's the one concept that pays off across everything else.
+      Want to see how this compares to other tools you might have tried?{' '}
+      <DocLink to="comparison">The comparison</DocLink> is next. Looking for what's coming? Skip to{' '}
+      <DocLink to="roadmap">The roadmap</DocLink>.
+    </Callout>
+  </>
+);
+
+// ── Open Headers: The comparison ────────────────────────────────
+
+export const ComparisonSection: React.FC = () => (
+  <>
+    <SurfaceContext surfaces={[]} />
+    <DocParagraph>
+      The shortest version: Open Headers is what you'd build if you took the request-shaping power of a desktop proxy,
+      the rule library of a cloud API platform, and the always-on surface of a header-only extension, and asked them to
+      share a single store.
+    </DocParagraph>
+    <DiagramFrame caption="Three product categories, one set of trade-offs each — and where Open Headers lands.">
+      <ComparisonMatrixDiagram />
+    </DiagramFrame>
+
+    <DocHeading level={3}>vs cloud API platforms</DocHeading>
+    <DocParagraph>
+      Cloud-hosted tools expect your traffic, credentials, and rule definitions to live on their servers. That model
+      assumes you're fine with that data leaving your machine — and with maintaining an account to access your own work.
+      Open Headers doesn't make either assumption. Everything stays local; team collaboration ships through
+      user-controlled storage (Git, on the roadmap), not through a vendor's database.
+    </DocParagraph>
+
+    <DocHeading level={3}>vs desktop proxies</DocHeading>
+    <DocParagraph>
+      Proxies route your full traffic through a separate process. They're powerful but heavy: install a binary, install
+      a CA certificate, configure each app to point at the proxy port. Open Headers uses Chrome's{' '}
+      <code>declarativeNetRequest</code> API for static traffic and a per-page script engine for dynamic transforms. No
+      proxy port, no CA cert, no per-app config — and matched rules apply with the page's own permissions, not a
+      man-in-the-middle's.
+    </DocParagraph>
+
+    <DocHeading level={3}>vs header-only extensions</DocHeading>
+    <DocParagraph>
+      Header-only extensions handle exactly one rule type and stop there. Open Headers handles{' '}
+      <DocLink to="header-actions">nine</DocLink> — header Add / Replace / Append / Remove / Merge,{' '}
+      <DocLink to="block">Block</DocLink>, <DocLink to="redirect">Redirect</DocLink>,{' '}
+      <DocLink to="query-param">Query Params</DocLink>, <DocLink to="inject">Inject</DocLink>,{' '}
+      <DocLink to="delay">Delay</DocLink>, <DocLink to="body">Body</DocLink>, <DocLink to="mock">Mock</DocLink> — all
+      driven by the same <DocLink to="conditions">condition language</DocLink>, all observable through the same{' '}
+      <DocLink to="request-tracking">request-tracking</DocLink> surface.
+    </DocParagraph>
+
+    <Callout kind="tip" title="Why this matters in practice">
+      Most workflows hit more than one of these categories. Mocking an API response, blocking a third-party tracker, and
+      forcing a debug header onto one specific environment are three different rule types — three different installs in
+      the legacy world. Here, they share one workspace.
+    </Callout>
+  </>
+);
+
+// ── Open Headers: The roadmap ───────────────────────────────────
+
+export const RoadmapSection: React.FC = () => (
+  <>
+    <SurfaceContext surfaces={[]} />
+    <DocParagraph>
+      Open Headers is local-only today, one extension on one device. The work below extends that shape without breaking
+      it. Cross-user cloud sync is <strong>explicitly not on the roadmap</strong> — collaboration always ships through
+      user-controlled storage backends.
+    </DocParagraph>
+    <DiagramFrame caption="Six milestones in sequence — local-only stays the product through every one of them.">
+      <RoadmapMilestonesDiagram />
+    </DiagramFrame>
+
+    <DocHeading level={3}>Team workspaces via Git</DocHeading>
+    <DocParagraph>
+      Workspaces serialize to YAML in a Git repository you control. Pull syncs; push shares; merge conflicts resolve
+      through Git's existing tooling. No central server, no account, no vendor lock-in. Real-time presence is{' '}
+      <code>git log</code> and <code>git blame</code> — durable, auditable, already understood.
+    </DocParagraph>
+
+    <DocHeading level={3}>Desktop app</DocHeading>
+    <DocParagraph>
+      A native binary that runs the same workspace store as the extension. Useful for surfaces an extension can't reach
+      — system-level traffic shaping, multi-window editing, deeper filesystem integration. The two share the same
+      on-disk format, so opening the desktop app on a workspace the extension owns is a read, not a migration.
+    </DocParagraph>
+
+    <DocHeading level={3}>Local / LAN daemon for cross-device sync</DocHeading>
+    <DocParagraph>
+      A sync daemon you can run on your machine, your LAN, or a tunneled host. Extension, desktop app, and CLI all
+      become clients of the same daemon — same workspaces, same rules, same vault, across every device you use. The
+      daemon stays on the local network; there is no opt-in cloud path layered on top.
+    </DocParagraph>
+
+    <DocHeading level={3}>CLI</DocHeading>
+    <DocParagraph>
+      Headless scripting and CI integration. List rules, toggle environments, run a single saved request from the shell,
+      diff a workspace against another. The CLI talks to the same daemon as the extension and desktop app, so automation
+      stays in sync with what you see in the UI.
+    </DocParagraph>
+
+    <DocHeading level={3}>Self-hosted web app</DocHeading>
+    <DocParagraph>
+      The same UI shipped as a web bundle you can serve from your own origin. For locked-down corporate browsers, kiosk
+      devices, or any environment where installing an extension isn't an option — and for users who want a branded
+      deployment of Open Headers under their own domain.
+    </DocParagraph>
+
+    <DocHeading level={3}>More importers</DocHeading>
+    <DocParagraph>
+      Beyond the existing cURL / HAR / Postman importers: Insomnia collections, OpenAPI specs, and full HAR request
+      imports (not just headers). Importer parity is how Open Headers earns adoption from people already invested in
+      another tool — bring your collection across in one step, keep working.
+    </DocParagraph>
+
+    <Callout kind="note" title="Not on the roadmap">
+      A cloud-hosted backend for team collaboration. The local-only stance is a design decision, not a phase. If you
+      need a feature that fundamentally requires a vendor server, Open Headers is the wrong tool — and we'd rather be
+      honest about that than ship the feature and quietly compromise the product's posture.
     </Callout>
   </>
 );
@@ -537,12 +697,12 @@ export const SystemStatusSection: React.FC = () => (
       <SyncLifecycleDiagram />
     </DiagramFrame>
     <StateRow color="success" label="green">
-      <strong>Connected to desktop</strong> (handshake succeeded) or <strong>Desktop sync disabled</strong> (auto-connect
-      off).
+      <strong>Connected to desktop</strong> (handshake succeeded) or <strong>Desktop sync disabled</strong>{' '}
+      (auto-connect off).
     </StateRow>
     <StateRow color="warning" label="yellow">
-      <strong>Connecting…</strong> / <strong>Reconnecting (attempt N)</strong>, or <strong>Desktop URL rejected by
-      settings</strong>.
+      <strong>Connecting…</strong> / <strong>Reconnecting (attempt N)</strong>, or{' '}
+      <strong>Desktop URL rejected by settings</strong>.
     </StateRow>
     <StateRow color="error" label="red">
       Reserved for fatal desktop-sync failures; no code path emits this today.
@@ -569,12 +729,12 @@ export const SystemStatusSection: React.FC = () => (
     </StateRow>
     <StateRow color="warning" label="yellow">
       Unresolved <code>{'{{VAR}}'}</code> references (<em>N unresolved variables in M rules</em>), the rule cap was
-      exceeded (<em>Dropped N rules over cap</em>), or you're approaching DNR capacity (<em>Approaching DNR capacity (N
-      ≥ threshold)</em>).
+      exceeded (<em>Dropped N rules over cap</em>), or you're approaching DNR capacity (
+      <em>Approaching DNR capacity (N ≥ threshold)</em>).
     </StateRow>
     <StateRow color="error" label="red">
-      Transport failure — Chrome rejected the dynamic or session rule update (<em>Failed to apply
-      [dynamic|session] DNR rules</em>).
+      Transport failure — Chrome rejected the dynamic or session rule update (
+      <em>Failed to apply [dynamic|session] DNR rules</em>).
     </StateRow>
 
     <SubsystemHeading name="Requests" subtitle="API request executor" />
@@ -594,8 +754,8 @@ export const SystemStatusSection: React.FC = () => (
       <RequestExecutorScopeDiagram />
     </DiagramFrame>
     <StateRow color="success" label="green">
-      <strong>Last request: {'<status> <statusText>'}</strong> — any HTTP response (e.g. <em>200 OK</em>, <em>404 Not
-      Found</em>, <em>500 Server Error</em>).
+      <strong>Last request: {'<status> <statusText>'}</strong> — any HTTP response (e.g. <em>200 OK</em>,{' '}
+      <em>404 Not Found</em>, <em>500 Server Error</em>).
     </StateRow>
     <StateRow color="warning" label="yellow">
       <strong>Last request failed: {'<message>'}</strong> — network-level failure before a response (e.g.{' '}
@@ -612,9 +772,8 @@ export const SystemStatusSection: React.FC = () => (
       <PermissionsImpactDiagram />
     </DiagramFrame>
     <DocParagraph>
-      The audit polls <code>chrome.permissions.contains({"{ origins: ['<all_urls>'] }"})</code> on every
-      service-worker wake. MV3 has no permission-change observer in Chromium, so poll-on-wake is the cheapest signal we
-      can get.
+      The audit polls <code>chrome.permissions.contains({"{ origins: ['<all_urls>'] }"})</code> on every service-worker
+      wake. MV3 has no permission-change observer in Chromium, so poll-on-wake is the cheapest signal we can get.
     </DocParagraph>
     <DiagramFrame caption="One call, three branches — green for granted, red for narrowed, yellow if the API call itself fails.">
       <PermissionsAuditFlowDiagram />
@@ -623,7 +782,8 @@ export const SystemStatusSection: React.FC = () => (
       <strong>All host permissions granted</strong> — <code>&lt;all_urls&gt;</code> is still in scope.
     </StateRow>
     <StateRow color="warning" label="yellow">
-      <strong>Could not audit host permissions</strong> — unusual; the browser didn't expose <code>chrome.permissions</code>.
+      <strong>Could not audit host permissions</strong> — unusual; the browser didn't expose{' '}
+      <code>chrome.permissions</code>.
     </StateRow>
     <StateRow color="error" label="red">
       <strong>Host permissions narrowed</strong> — some rules will silently no-op on revoked hosts until access is
@@ -680,8 +840,8 @@ export const SystemStatusSection: React.FC = () => (
       Also shown as <strong>No workflows configured</strong> when there are none.
     </StateRow>
     <StateRow color="warning" label="yellow">
-      <strong>N workflows stale or failing</strong> — at least one run is past 2× cadence, the last extractor failed,
-      or there are 1–4 consecutive failures.
+      <strong>N workflows stale or failing</strong> — at least one run is past 2× cadence, the last extractor failed, or
+      there are 1–4 consecutive failures.
     </StateRow>
     <StateRow color="error" label="red">
       <strong>N workflows failing (5+ consecutive)</strong> — any single workflow crossed five consecutive failures and
@@ -765,8 +925,8 @@ export const ConditionsSection: React.FC = () => (
 
     <Anchor id="url-pattern">
       <Card title="URL Pattern" extra={<Tag color="blue">urlFilter</Tag>} style={{ marginBottom: 8 }}>
-        Wildcard pattern on the full URL. Use <code>*</code> to match any characters. The protocol must be
-        specified: <code>*://</code> for any, <code>https://</code> for HTTPS only.
+        Wildcard pattern on the full URL. Use <code>*</code> to match any characters. The protocol must be specified:{' '}
+        <code>*://</code> for any, <code>https://</code> for HTTPS only.
         <DiagramFrame caption="Gold = wildcard, green = literal. Each test URL below shows whether the pattern matches it.">
           <UrlPatternDiagram />
         </DiagramFrame>
@@ -775,8 +935,8 @@ export const ConditionsSection: React.FC = () => (
 
     <Anchor id="url-regex">
       <Card title="URL Regex" extra={<Tag color="purple">regexFilter</Tag>} style={{ marginBottom: 8 }}>
-        RE2 regular expression on the full URL including protocol. For matching that wildcards can't express. Cannot
-        be combined with URL Pattern in the same rule.
+        RE2 regular expression on the full URL including protocol. For matching that wildcards can't express. Cannot be
+        combined with URL Pattern in the same rule.
         <DiagramFrame caption="Purple = real regex syntax. Green = literal characters. Each test URL below shows whether the regex matches.">
           <UrlRegexDiagram />
         </DiagramFrame>
@@ -785,8 +945,8 @@ export const ConditionsSection: React.FC = () => (
 
     <Anchor id="request-domains">
       <Card title="Request Domains" extra={<Tag color="green">requestDomains</Tag>} style={{ marginBottom: 8 }}>
-        Matches a domain plus every one of its subdomains, automatically. Enter the apex domain once; the rule
-        covers <code>api.</code>, <code>cdn.</code>, <code>www.</code>, and any deeper nesting without wildcards.
+        Matches a domain plus every one of its subdomains, automatically. Enter the apex domain once; the rule covers{' '}
+        <code>api.</code>, <code>cdn.</code>, <code>www.</code>, and any deeper nesting without wildcards.
         <DiagramFrame caption="One value, all subdomains. The boundary cases below show what counts as a true subdomain.">
           <RequestDomainsDiagram />
         </DiagramFrame>
@@ -799,8 +959,8 @@ export const ConditionsSection: React.FC = () => (
         extra={<Tag color="warning">excludedRequestDomains</Tag>}
         style={{ marginBottom: 8 }}
       >
-        Subtracts hosts from another condition's matches — same subdomain semantics as Request Domains, so excluding
-        a host also excludes its subdomains. Doesn't match anything on its own.
+        Subtracts hosts from another condition's matches — same subdomain semantics as Request Domains, so excluding a
+        host also excludes its subdomains. Doesn't match anything on its own.
         <DiagramFrame caption="Green include narrows to a candidate set; red exclude removes some of those. Subdomains follow.">
           <ExcludeDomainsDiagram />
         </DiagramFrame>
@@ -809,8 +969,8 @@ export const ConditionsSection: React.FC = () => (
 
     <Anchor id="initiator-domains">
       <Card title="Initiator Domains" extra={<Tag>initiatorDomains</Tag>} style={{ marginBottom: 8 }}>
-        Matches by which page is open when the request is made — the request's origin, not its destination. The
-        same fetch call to the same URL can match or miss depending on which tab the user is browsing.
+        Matches by which page is open when the request is made — the request's origin, not its destination. The same
+        fetch call to the same URL can match or miss depending on which tab the user is browsing.
         <DiagramFrame caption="Same destination, two different page contexts. The initiator decides which one matches.">
           <InitiatorDomainsDiagram />
         </DiagramFrame>
@@ -819,8 +979,8 @@ export const ConditionsSection: React.FC = () => (
 
     <Anchor id="methods">
       <Card title="Methods" extra={<Tag>requestMethods</Tag>} style={{ marginBottom: 8 }}>
-        Filter by HTTP verb. Multi-select — pick the methods that should match; the rest don't trigger the rule.
-        Leave the condition off entirely to match every method.
+        Filter by HTTP verb. Multi-select — pick the methods that should match; the rest don't trigger the rule. Leave
+        the condition off entirely to match every method.
         <DiagramFrame caption="Orange pills are selected; gray are skipped. Test requests below trace each verb to its outcome.">
           <MethodsDiagram />
         </DiagramFrame>
@@ -829,9 +989,9 @@ export const ConditionsSection: React.FC = () => (
 
     <Anchor id="condition-resource-types">
       <Card title="Resource Types" extra={<Tag>resourceTypes</Tag>} style={{ marginBottom: 8 }}>
-        Filter by what kind of resource is being loaded — page navigations, XHR/fetch, scripts, images, fonts, and
-        more. Multi-select like Methods. See the <DocLink to="resource-types">Resource Types</DocLink> reference
-        for the full list with code names and concrete examples.
+        Filter by what kind of resource is being loaded — page navigations, XHR/fetch, scripts, images, fonts, and more.
+        Multi-select like Methods. See the <DocLink to="resource-types">Resource Types</DocLink> reference for the full
+        list with code names and concrete examples.
         <DiagramFrame caption="Purple kinds match; gray kinds are skipped. Each test request shows its kind inline.">
           <ResourceTypesDiagram />
         </DiagramFrame>

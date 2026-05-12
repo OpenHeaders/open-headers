@@ -15,9 +15,9 @@
 import {
   ApiOutlined,
   AppstoreOutlined,
+  BulbOutlined,
   ClockCircleOutlined,
   CodeOutlined,
-  CompassOutlined,
   DashboardOutlined,
   DeploymentUnitOutlined,
   FilterOutlined,
@@ -26,8 +26,10 @@ import {
   LinkOutlined,
   ProfileOutlined,
   RadarChartOutlined,
+  RocketOutlined,
   SendOutlined,
   StopOutlined,
+  SwapOutlined,
   TagsOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
@@ -35,6 +37,7 @@ import type React from 'react';
 import {
   BlockSection,
   BodySection,
+  ComparisonSection,
   ConditionsSection,
   DelaySection,
   ExecutionSection,
@@ -44,12 +47,13 @@ import {
   LimitationsSection,
   MockSection,
   MultiTabSection,
+  ParadigmSection,
   QueryParamSection,
   RedirectSection,
   RequestTrackingSection,
   ResourceTypesSection,
+  RoadmapSection,
   SystemStatusSection,
-  WhySection,
 } from './sections';
 
 export interface DocSection {
@@ -74,17 +78,39 @@ export interface DocGroup {
 
 export const DOC_GROUPS: DocGroup[] = [
   {
+    id: 'open-headers',
+    label: 'Open Headers',
+    sections: [
+      {
+        id: 'paradigm',
+        title: 'What do we do (differently)',
+        summary: 'A browser extension that does what used to need a proxy, a desktop binary, or a cloud account.',
+        group: 'open-headers',
+        icon: <BulbOutlined />,
+        Component: ParadigmSection,
+      },
+      {
+        id: 'comparison',
+        title: 'The comparison',
+        summary: 'How Open Headers lands against cloud platforms, desktop proxies, and header-only extensions.',
+        group: 'open-headers',
+        icon: <SwapOutlined />,
+        Component: ComparisonSection,
+      },
+      {
+        id: 'roadmap',
+        title: 'The roadmap',
+        summary: 'Milestones in sequence — Git workspaces, desktop app, daemon, CLI, web app, more importers.',
+        group: 'open-headers',
+        icon: <RocketOutlined />,
+        Component: RoadmapSection,
+      },
+    ],
+  },
+  {
     id: 'concepts',
     label: 'Concepts',
     sections: [
-      {
-        id: 'why',
-        title: 'Why OpenHeaders',
-        summary: 'What problem it solves, where it fits, and why pick it over alternatives.',
-        group: 'concepts',
-        icon: <CompassOutlined />,
-        Component: WhySection,
-      },
       {
         id: 'conditions',
         title: 'Conditions',
@@ -249,4 +275,4 @@ export function findSection(id: string): DocSection | null {
 }
 
 /** Default section opened on first mount when no deep-link is pending. */
-export const DEFAULT_SECTION_ID = 'why';
+export const DEFAULT_SECTION_ID = 'paradigm';
