@@ -729,7 +729,8 @@ export const ParadigmLocalFirstDiagram: React.FC = () => {
         { text: 'zero setup', status: 'new' },
         { text: 'single device', status: 'new' },
         { text: 'per-browser instance', status: 'new' },
-        { text: 'multi-window editing', status: 'new' },
+        { text: 'multi-surface concurrent editing', status: 'new' },
+        { text: 'multi-window concurrent editing', status: 'new' },
         { text: 'Localhost-only', status: 'new' },
         { text: 'browser.storage.local', status: 'new' },
       ],
@@ -753,9 +754,11 @@ export const ParadigmLocalFirstDiagram: React.FC = () => {
       bullets: [
         { text: 'zero setup', status: 'carried' },
         { text: 'single device', status: 'carried' },
-        { text: 'multi-window editing', status: 'carried' },
+        { text: 'multi-surface concurrent editing', status: 'carried' },
+        { text: 'multi-window concurrent editing', status: 'carried' },
         { text: 'Localhost-only', status: 'carried' },
         { text: 'multi-browser instances', status: 'new' },
+        { text: 'per-app instance', status: 'new' },
         { text: 'native filesystem', status: 'new' },
         { text: 'YAML on disk', status: 'new' },
         { text: 'git integration (local/remote)', status: 'new' },
@@ -769,19 +772,30 @@ export const ParadigmLocalFirstDiagram: React.FC = () => {
       icon: 'daemon',
       inheritsFrom: 'Desktop app',
       bullets: [
+        { text: 'minimal setup', status: 'new' },
+        { text: 'LAN-reachable', status: 'new' },
         { text: 'multi-browser instances', status: 'carried' },
-        { text: 'multi-window editing', status: 'carried' },
+        { text: 'multi-app instances', status: 'new' },
+        { text: 'multi-surface concurrent editing', status: 'carried' },
+        { text: 'multi-window concurrent editing', status: 'carried' },
         { text: 'native filesystem', status: 'carried' },
         { text: 'YAML on disk', status: 'carried' },
         { text: 'git integration (local/remote)', status: 'carried' },
-        { text: 'minimal setup', status: 'new' },
         { text: 'multiple devices', status: 'new' },
         { text: 'browser ext · desktop app · CLI', status: 'new' },
-        { text: 'LAN-reachable', status: 'new' },
       ],
       platforms: [
         { label: 'All OS', items: [{ label: 'macOS' }, { label: 'Windows' }, { label: 'Linux' }] },
-        { label: 'Embedded', items: [{ label: 'Raspberry Pi' }, { label: 'NAS' }] },
+        {
+          label: 'Embedded',
+          items: [
+            { label: 'Raspberry Pi' },
+            { label: 'NAS' },
+            { label: 'Mini PC' },
+            { label: 'Home server' },
+            { label: 'Old laptop' },
+          ],
+        },
       ],
     },
     {
@@ -793,7 +807,9 @@ export const ParadigmLocalFirstDiagram: React.FC = () => {
       bullets: [
         { text: 'multiple devices', status: 'carried' },
         { text: 'multi-browser instances', status: 'carried' },
-        { text: 'multi-window editing', status: 'carried' },
+        { text: 'multi-app instances', status: 'carried' },
+        { text: 'multi-surface concurrent editing', status: 'carried' },
+        { text: 'multi-window concurrent editing', status: 'carried' },
         { text: 'native filesystem', status: 'carried' },
         { text: 'YAML on disk', status: 'carried' },
         { text: 'git integration (local/remote)', status: 'carried' },
@@ -1309,164 +1325,337 @@ export const ParadigmLocalFirstDiagram: React.FC = () => {
  * mechanism is deliberately not surfaced — the diagram shows the
  * observable behavior, not the proprietary engine internals.
  */
+type FieldSyncEdit = {
+  op: '+' | '~' | '-';
+  field: string;
+  value?: string;
+  src: 'DevTools' | 'Workbench';
+};
+
 export const ParadigmFieldSyncDiagram: React.FC = () => {
   const ID = 'pg-sync';
 
-  const SURF_Y = 40;
-  const SURF_H = 76;
-  const SURF_LEFT_X = 10;
-  const SURF_RIGHT_X = 170;
-  const SURF_W = 140;
+  const W = 480;
+  const CX = W / 2;
 
-  const RULE_X = 30;
-  const RULE_W = 260;
-  const RULE_Y = 160;
-  const RULE_H = 96;
+  const TITLE_Y = 22;
+  const SUBTITLE_Y = 40;
+
+  // Each surface = device chassis (laptop OR desktop monitor) wrapping a
+  // browser-style window. Larger to fit chrome + action + a Rule X
+  // mini-card showing several header edits.
+  const SURF_Y = 58;
+  const SURF_W = 220;
+  const SURF_H = 188;
+  const SURF_LEFT_X = 12;
+  const SURF_RIGHT_X = W - SURF_W - 12;
+  const CHROME_H = 22;
+  const ACTION_H = 16;
+  const ROW_H_INNER = 16;
+
+  const BAND_Y = SURF_Y + SURF_H + 30;
+  const BAND_H = 20;
+
+  // Merged rule — diff-style change log of all six edits, grouped by
+  // op so the eye can scan adds / modifies / deletes as blocks.
+  const RULE_X = 28;
+  const RULE_W = W - 56;
+  const RULE_Y = BAND_Y + BAND_H + 18;
+  const RULE_HEADER_H = 24;
+  const MERGED_ROW_H = 18;
+  const GROUP_LABEL_H = 16;
+  const NUM_MERGED_ROWS = 6;
+  const NUM_GROUPS = 3;
+  const RULE_H = RULE_HEADER_H + NUM_GROUPS * GROUP_LABEL_H + NUM_MERGED_ROWS * MERGED_ROW_H + 14;
+
+  const VERDICT_Y = RULE_Y + RULE_H + 16;
+  const VERDICT_H = 44;
+  const H = VERDICT_Y + VERDICT_H + 14;
+
+  const leftEdits: FieldSyncEdit[] = [
+    { op: '+', field: 'X-Trace-Id', value: '"abc-123"', src: 'DevTools' },
+    { op: '~', field: 'Authorization', value: '"Bearer v2"', src: 'DevTools' },
+    { op: '-', field: 'X-Old-Hdr', src: 'DevTools' },
+  ];
+  const rightEdits: FieldSyncEdit[] = [
+    { op: '+', field: 'Cookie', value: '"session=…"', src: 'Workbench' },
+    { op: '~', field: 'User-Agent', value: '"oh/5.0"', src: 'Workbench' },
+    { op: '-', field: 'X-Debug-Token', src: 'Workbench' },
+  ];
+  const merged: FieldSyncEdit[] = [...leftEdits, ...rightEdits];
+
+  const opColor = (op: FieldSyncEdit['op']) =>
+    op === '+' ? OH_GREEN : op === '~' ? STROKE_BLUE : 'var(--ant-color-error)';
+  const opFill = (op: FieldSyncEdit['op']) =>
+    op === '+' ? OH_GREEN_TINT : op === '~' ? FILL_BLUE : 'var(--ant-color-error-bg)';
+
+  const renderInnerEditRow = (x: number, y: number, w: number, e: FieldSyncEdit) => {
+    const color = opColor(e.op);
+    const fill = opFill(e.op);
+    const text = e.value ? `${e.field}: ${e.value}` : e.field;
+    return (
+      <g>
+        <rect x={x} y={y} width={w} height={ROW_H_INNER - 2} rx={3} fill={fill} stroke={color} strokeOpacity={0.55} />
+        <text x={x + 6} y={y + 11} fontFamily="monospace" fontSize={10} fontWeight={800} fill={color}>
+          {e.op}
+        </text>
+        <text
+          x={x + 18}
+          y={y + 11}
+          fontFamily="monospace"
+          fontSize={9}
+          fontWeight={700}
+          fill={TEXT}
+          textDecoration={e.op === '-' ? 'line-through' : undefined}
+        >
+          {text}
+        </text>
+      </g>
+    );
+  };
+
+  const renderDeviceChassis = (x: number, device: 'laptop' | 'desktop', chasH: number) => {
+    if (device === 'laptop') {
+      return (
+        <g>
+          {/* Lid */}
+          <rect
+            x={x + 4}
+            y={SURF_Y}
+            width={SURF_W - 8}
+            height={chasH}
+            rx={6}
+            fill="var(--ant-color-fill-secondary)"
+            stroke="var(--ant-color-border)"
+            strokeWidth={1.5}
+          />
+          {/* Keyboard deck — wider than the lid to suggest open laptop */}
+          <rect
+            x={x}
+            y={SURF_Y + chasH + 2}
+            width={SURF_W}
+            height={6}
+            rx={2}
+            fill="var(--ant-color-fill-tertiary)"
+            stroke="var(--ant-color-border)"
+          />
+          <rect
+            x={x + 8}
+            y={SURF_Y + chasH + 8}
+            width={SURF_W - 16}
+            height={3}
+            rx={1.5}
+            fill="var(--ant-color-border)"
+          />
+        </g>
+      );
+    }
+    return (
+      <g>
+        {/* Monitor bezel */}
+        <rect
+          x={x + 4}
+          y={SURF_Y}
+          width={SURF_W - 8}
+          height={chasH}
+          rx={4}
+          fill="var(--ant-color-fill-secondary)"
+          stroke="var(--ant-color-border)"
+          strokeWidth={1.5}
+        />
+        {/* Neck */}
+        <rect
+          x={x + SURF_W / 2 - 12}
+          y={SURF_Y + chasH}
+          width={24}
+          height={8}
+          fill="var(--ant-color-fill-tertiary)"
+          stroke="var(--ant-color-border)"
+        />
+        {/* Base */}
+        <rect
+          x={x + 24}
+          y={SURF_Y + chasH + 8}
+          width={SURF_W - 48}
+          height={5}
+          rx={2}
+          fill="var(--ant-color-border)"
+        />
+      </g>
+    );
+  };
+
+  const renderSurface = (
+    x: number,
+    device: 'laptop' | 'desktop',
+    title: string,
+    sideLabel: string,
+    action: string,
+    edits: FieldSyncEdit[],
+  ) => {
+    const FRAME_TOP_PAD = 8;
+    const FRAME_SIDE_PAD = 10;
+    const FRAME_BOT_RESERVE = device === 'laptop' ? 14 : 16;
+    const chasH = SURF_H - FRAME_BOT_RESERVE;
+
+    const winX = x + FRAME_SIDE_PAD;
+    const winY = SURF_Y + FRAME_TOP_PAD;
+    const winW = SURF_W - FRAME_SIDE_PAD * 2;
+    const winH = chasH - FRAME_TOP_PAD * 2;
+
+    const ruleX = winX + 6;
+    const ruleW = winW - 12;
+    const ruleY = winY + CHROME_H + ACTION_H + 4;
+    const ruleH = winH - (CHROME_H + ACTION_H + 4) - 8;
+    const RULE_HDR = 18;
+
+    return (
+      <g>
+        {renderDeviceChassis(x, device, chasH)}
+
+        {/* Browser window */}
+        <rect
+          x={winX}
+          y={winY}
+          width={winW}
+          height={winH}
+          rx={5}
+          fill="var(--ant-color-bg-container)"
+          stroke="var(--ant-color-border)"
+        />
+        {/* Chrome bar */}
+        <rect
+          x={winX}
+          y={winY}
+          width={winW}
+          height={CHROME_H}
+          rx={5}
+          fill="var(--ant-color-fill-secondary)"
+          stroke="var(--ant-color-border)"
+        />
+        <circle cx={winX + 9} cy={winY + CHROME_H / 2} r={3.5} fill="#ff5f57" />
+        <circle cx={winX + 19} cy={winY + CHROME_H / 2} r={3.5} fill="#febc2e" />
+        <circle cx={winX + 29} cy={winY + CHROME_H / 2} r={3.5} fill="#28c840" />
+        <text x={winX + 42} y={winY + CHROME_H / 2 + 4} fontSize={10} fontWeight={700} fill={TEXT}>
+          {title}
+        </text>
+        <text
+          x={winX + winW - 6}
+          y={winY + CHROME_H / 2 + 4}
+          textAnchor="end"
+          fontSize={9}
+          fontStyle="italic"
+          fill={TEXT_DIM}
+        >
+          {sideLabel}
+        </text>
+
+        {/* Action label — what the user is doing on this surface */}
+        <text x={winX + 8} y={winY + CHROME_H + 12} fontSize={10} fontStyle="italic" fill={TEXT_DIM}>
+          {action}
+        </text>
+
+        {/* Inner Rule X blue container */}
+        <rect
+          x={ruleX}
+          y={ruleY}
+          width={ruleW}
+          height={ruleH}
+          rx={4}
+          fill="var(--ant-color-bg-container)"
+          stroke={STROKE_BLUE}
+          strokeWidth={1.2}
+        />
+        <rect x={ruleX} y={ruleY} width={ruleW} height={RULE_HDR} rx={4} fill={FILL_BLUE} stroke={STROKE_BLUE} />
+        <text x={ruleX + 8} y={ruleY + 13} fontSize={10} fontWeight={700} fill={TEXT}>
+          Rule X
+        </text>
+        <text x={ruleX + ruleW - 8} y={ruleY + 13} textAnchor="end" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
+          headers
+        </text>
+
+        {/* Edit rows */}
+        {edits.map((e, i) => (
+          <g key={i}>
+            {renderInnerEditRow(ruleX + 6, ruleY + RULE_HDR + 6 + i * ROW_H_INNER, ruleW - 12, e)}
+          </g>
+        ))}
+      </g>
+    );
+  };
 
   return (
     <svg
-      viewBox="0 0 320 320"
+      viewBox={`0 0 ${W} ${H}`}
       width="100%"
-      style={{ maxWidth: 360 }}
+      style={{ maxWidth: 540 }}
       role="img"
-      aria-label="Two surfaces edit the same rule simultaneously. The popup toggles enabled to true. The workbench rewrites the header value. The sync engine lets both edits land without a stale-draft banner or overwrite — different fields, both surfaces, one entity, two successful saves."
+      aria-label="Two surfaces edit the same rule simultaneously. The popup toggles enabled to true. The workbench rewrites a header value. Both edits land in the merged rule without a banner or overwrite."
     >
       <ArrowDefs id={ID} />
 
-      <text x={160} y={14} textAnchor="middle" fontSize={11} fontWeight={700} fill={TEXT}>
+      <text x={CX} y={TITLE_Y} textAnchor="middle" fontSize={13} fontWeight={700} fill={TEXT}>
         Two surfaces, same rule, both edits land
       </text>
-      <text x={160} y={26} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+      <text x={CX} y={SUBTITLE_Y} textAnchor="middle" fontSize={10} fontStyle="italic" fill={TEXT_DIM}>
         Per-field sync — no banner, no overwrite, no lost work
       </text>
 
-      {/* LEFT surface — popup toggles enabled */}
-      <rect
-        x={SURF_LEFT_X}
-        y={SURF_Y}
-        width={SURF_W}
-        height={SURF_H}
-        rx={6}
-        fill="var(--ant-color-bg-container)"
-        stroke={STROKE_BLUE}
-      />
-      <rect x={SURF_LEFT_X} y={SURF_Y} width={SURF_W} height={18} rx={6} fill={FILL_BLUE} stroke={STROKE_BLUE} />
-      <text x={SURF_LEFT_X + 8} y={SURF_Y + 13} fontSize={10} fontWeight={700} fill={TEXT}>
-        Popup
-      </text>
-      <text
-        x={SURF_LEFT_X + SURF_W - 8}
-        y={SURF_Y + 13}
-        textAnchor="end"
-        fontSize={8}
-        fontStyle="italic"
-        fill={TEXT_DIM}
-      >
-        surface A
-      </text>
-      <text x={SURF_LEFT_X + 8} y={SURF_Y + 34} fontSize={9} fill={TEXT_DIM}>
-        Rule X · toggle
-      </text>
-      <rect
-        x={SURF_LEFT_X + 8}
-        y={SURF_Y + 40}
-        width={SURF_W - 16}
-        height={26}
-        rx={3}
-        fill={OH_GREEN_TINT}
-        stroke={OH_GREEN}
-      />
-      <text x={SURF_LEFT_X + 16} y={SURF_Y + 54} fontFamily="monospace" fontSize={9} fontWeight={700} fill={OH_GREEN}>
-        enabled = true
-      </text>
-      <text x={SURF_LEFT_X + 16} y={SURF_Y + 64} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        save · t1
-      </text>
+      {renderSurface(SURF_LEFT_X, 'laptop', 'DevTools', 'surface A', 'editing headers', leftEdits)}
+      {renderSurface(SURF_RIGHT_X, 'desktop', 'Workbench', 'surface B', 'editing headers', rightEdits)}
 
-      {/* RIGHT surface — workbench edits header value */}
-      <rect
-        x={SURF_RIGHT_X}
-        y={SURF_Y}
-        width={SURF_W}
-        height={SURF_H}
-        rx={6}
-        fill="var(--ant-color-bg-container)"
-        stroke={STROKE_BLUE}
-      />
-      <rect x={SURF_RIGHT_X} y={SURF_Y} width={SURF_W} height={18} rx={6} fill={FILL_BLUE} stroke={STROKE_BLUE} />
-      <text x={SURF_RIGHT_X + 8} y={SURF_Y + 13} fontSize={10} fontWeight={700} fill={TEXT}>
-        Workbench
-      </text>
-      <text
-        x={SURF_RIGHT_X + SURF_W - 8}
-        y={SURF_Y + 13}
-        textAnchor="end"
-        fontSize={8}
-        fontStyle="italic"
-        fill={TEXT_DIM}
-      >
-        surface B
-      </text>
-      <text x={SURF_RIGHT_X + 8} y={SURF_Y + 34} fontSize={9} fill={TEXT_DIM}>
-        Rule X · header[0]
-      </text>
-      <rect
-        x={SURF_RIGHT_X + 8}
-        y={SURF_Y + 40}
-        width={SURF_W - 16}
-        height={26}
-        rx={3}
-        fill={OH_GREEN_TINT}
-        stroke={OH_GREEN}
-      />
-      <text x={SURF_RIGHT_X + 16} y={SURF_Y + 54} fontFamily="monospace" fontSize={9} fontWeight={700} fill={OH_GREEN}>
-        value = "x-debug"
-      </text>
-      <text x={SURF_RIGHT_X + 16} y={SURF_Y + 64} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        save · t2
-      </text>
-
-      {/* Arrows down to the local oracle / rule snapshot */}
+      {/* Arrows from each surface down into the sync band */}
       <line
         x1={SURF_LEFT_X + SURF_W / 2}
         y1={SURF_Y + SURF_H + 2}
         x2={SURF_LEFT_X + SURF_W / 2}
-        y2={RULE_Y - 12}
+        y2={BAND_Y - 2}
         stroke={OH_GREEN}
-        strokeWidth={1.5}
+        strokeWidth={1.6}
         markerEnd={`url(#${ID})`}
       />
       <line
         x1={SURF_RIGHT_X + SURF_W / 2}
         y1={SURF_Y + SURF_H + 2}
         x2={SURF_RIGHT_X + SURF_W / 2}
-        y2={RULE_Y - 12}
+        y2={BAND_Y - 2}
         stroke={OH_GREEN}
-        strokeWidth={1.5}
+        strokeWidth={1.6}
         markerEnd={`url(#${ID})`}
       />
 
-      {/* Local oracle band */}
+      {/* Sync band — its own row, clear separation from arrows and rule card */}
       <rect
-        x={RULE_X - 4}
-        y={RULE_Y - 12}
-        width={RULE_W + 8}
-        height={16}
-        rx={3}
+        x={RULE_X}
+        y={BAND_Y}
+        width={RULE_W}
+        height={BAND_H}
+        rx={4}
         fill="var(--ant-color-fill-secondary)"
         stroke="var(--ant-color-border)"
       />
       <text
-        x={160}
-        y={RULE_Y - 1}
+        x={CX}
+        y={BAND_Y + BAND_H / 2 + 4}
         textAnchor="middle"
-        fontSize={9}
+        fontSize={10}
         fontWeight={700}
         fill={TEXT_DIM}
-        letterSpacing={0.4}
+        letterSpacing={0.6}
       >
-        SYNC ENGINE · per-field merge · same rule, both edits land
+        SYNC ENGINE · per-field merge
       </text>
+
+      {/* Arrow from sync band down into rule card */}
+      <line
+        x1={CX}
+        y1={BAND_Y + BAND_H + 2}
+        x2={CX}
+        y2={RULE_Y - 2}
+        stroke={OH_GREEN}
+        strokeWidth={1.6}
+        markerEnd={`url(#${ID})`}
+      />
 
       {/* Merged rule snapshot */}
       <rect
@@ -1479,60 +1668,107 @@ export const ParadigmFieldSyncDiagram: React.FC = () => {
         stroke={STROKE_BLUE}
         strokeWidth={1.5}
       />
-      <rect x={RULE_X} y={RULE_Y} width={RULE_W} height={20} rx={6} fill={FILL_BLUE} stroke={STROKE_BLUE} />
-      <text x={RULE_X + 10} y={RULE_Y + 14} fontSize={10} fontWeight={700} fill={TEXT}>
+      <rect x={RULE_X} y={RULE_Y} width={RULE_W} height={RULE_HEADER_H} rx={6} fill={FILL_BLUE} stroke={STROKE_BLUE} />
+      <text x={RULE_X + 12} y={RULE_Y + 17} fontSize={11} fontWeight={700} fill={TEXT}>
         Rule X
       </text>
-      <text x={RULE_X + RULE_W - 10} y={RULE_Y + 14} textAnchor="end" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        merged snapshot
+      <text x={RULE_X + RULE_W - 12} y={RULE_Y + 17} textAnchor="end" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+        merged snapshot · headers
       </text>
 
-      {/* Field rows — both highlighted green to mean "both edits applied" */}
-      <rect
-        x={RULE_X + 8}
-        y={RULE_Y + 26}
-        width={RULE_W - 16}
-        height={26}
-        rx={3}
-        fill={OH_GREEN_TINT}
-        stroke={OH_GREEN}
-      />
-      <text x={RULE_X + 16} y={RULE_Y + 38} fontFamily="monospace" fontSize={9} fontWeight={700} fill={TEXT}>
-        enabled:
-      </text>
-      <text x={RULE_X + 70} y={RULE_Y + 38} fontFamily="monospace" fontSize={9} fontWeight={700} fill={OH_GREEN}>
-        true
-      </text>
-      <text x={RULE_X + 16} y={RULE_Y + 48} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        ← from popup
-      </text>
+      {/* Diff-style change log — grouped by op so adds / modifies /
+       *  deletes read as three visual blocks. */}
+      {(() => {
+        const groups: { op: FieldSyncEdit['op']; label: string; rows: FieldSyncEdit[] }[] = [
+          { op: '+', label: 'Added', rows: merged.filter((e) => e.op === '+') },
+          { op: '~', label: 'Modified', rows: merged.filter((e) => e.op === '~') },
+          { op: '-', label: 'Removed', rows: merged.filter((e) => e.op === '-') },
+        ];
+        let cursor = RULE_Y + RULE_HEADER_H + 6;
+        return groups.map((g) => {
+          const labelY = cursor;
+          const color = opColor(g.op);
+          const groupNode = (
+            <g key={g.op}>
+              <text
+                x={RULE_X + 14}
+                y={labelY + 11}
+                fontSize={9}
+                fontWeight={800}
+                fill={color}
+                letterSpacing={0.6}
+              >
+                {g.label.toUpperCase()}
+              </text>
+              <line
+                x1={RULE_X + 14 + g.label.length * 6 + 8}
+                y1={labelY + 8}
+                x2={RULE_X + RULE_W - 14}
+                y2={labelY + 8}
+                stroke={color}
+                strokeOpacity={0.25}
+              />
+              {g.rows.map((e, i) => {
+                const ry = labelY + GROUP_LABEL_H + i * MERGED_ROW_H;
+                const text = e.value ? `${e.field}: ${e.value}` : e.field;
+                return (
+                  <g key={i}>
+                    <rect
+                      x={RULE_X + 14}
+                      y={ry + 2}
+                      width={3}
+                      height={MERGED_ROW_H - 4}
+                      rx={1.5}
+                      fill={color}
+                    />
+                    <text
+                      x={RULE_X + 24}
+                      y={ry + 13}
+                      fontFamily="monospace"
+                      fontSize={11}
+                      fontWeight={800}
+                      fill={color}
+                    >
+                      {e.op}
+                    </text>
+                    <text
+                      x={RULE_X + 40}
+                      y={ry + 13}
+                      fontFamily="monospace"
+                      fontSize={10}
+                      fontWeight={700}
+                      fill={TEXT}
+                      textDecoration={e.op === '-' ? 'line-through' : undefined}
+                    >
+                      {text}
+                    </text>
+                    <text
+                      x={RULE_X + RULE_W - 12}
+                      y={ry + 13}
+                      textAnchor="end"
+                      fontSize={9}
+                      fontStyle="italic"
+                      fill={TEXT_DIM}
+                    >
+                      ← from {e.src}
+                    </text>
+                  </g>
+                );
+              })}
+            </g>
+          );
+          cursor += GROUP_LABEL_H + g.rows.length * MERGED_ROW_H;
+          return groupNode;
+        });
+      })()}
 
-      <rect
-        x={RULE_X + 8}
-        y={RULE_Y + 58}
-        width={RULE_W - 16}
-        height={30}
-        rx={3}
-        fill={OH_GREEN_TINT}
-        stroke={OH_GREEN}
-      />
-      <text x={RULE_X + 16} y={RULE_Y + 72} fontFamily="monospace" fontSize={9} fontWeight={700} fill={TEXT}>
-        headers[0].value:
-      </text>
-      <text x={RULE_X + 120} y={RULE_Y + 72} fontFamily="monospace" fontSize={9} fontWeight={700} fill={OH_GREEN}>
-        "x-debug"
-      </text>
-      <text x={RULE_X + 16} y={RULE_Y + 84} fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        ← from workbench
-      </text>
-
-      {/* Bottom verdict strip */}
-      <rect x={14} y={RULE_Y + RULE_H + 12} width={292} height={36} rx={5} fill={OH_GREEN_TINT} stroke={OH_GREEN} />
-      <text x={160} y={RULE_Y + RULE_H + 27} textAnchor="middle" fontSize={10} fontWeight={700} fill={OH_GREEN}>
+      {/* Bottom verdict strip — two clear lines, no overflow */}
+      <rect x={RULE_X} y={VERDICT_Y} width={RULE_W} height={VERDICT_H} rx={5} fill={OH_GREEN_TINT} stroke={OH_GREEN} />
+      <text x={CX} y={VERDICT_Y + 18} textAnchor="middle" fontSize={11} fontWeight={700} fill={OH_GREEN}>
         ✓ both edits applied — no banner, no conflict
       </text>
-      <text x={160} y={RULE_Y + RULE_H + 41} textAnchor="middle" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
-        Same path scales: popup ↔ workbench today → extension + desktop + CLI tomorrow.
+      <text x={CX} y={VERDICT_Y + 34} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+        Same path scales: extension today → extension + desktop + CLI tomorrow
       </text>
     </svg>
   );
@@ -1591,7 +1827,7 @@ export const ParadigmShiftDiagram: React.FC = () => {
       them: { primary: 'Last-write-wins', sub: 'or no sync at all' },
     },
     {
-      us: { primary: 'Conflict-free Saves', sub: 'concurrent edits, both committed' },
+      us: { primary: 'Conflict-free Saves', sub: 'concurrent edits, all committed' },
       them: { primary: 'Whole-entity overwrite', sub: 'saves can wipe each other' },
     },
   ];
@@ -1659,10 +1895,10 @@ export const ParadigmShiftDiagram: React.FC = () => {
           x={x + stampW / 2}
           y={cy + 3}
           textAnchor="middle"
-          fontSize={9}
+          fontSize={8}
           fontWeight={900}
           fill={TEXT}
-          letterSpacing={1}
+          letterSpacing={0.8}
         >
           {label}
         </text>
@@ -1902,21 +2138,40 @@ export const ParadigmRuleEngineDiagram: React.FC = () => {
       role="img"
       aria-label="Open Headers rule engine — two execution paths (DNR-native and script-based intercept), nine rule type categories grouped by engine, plus the shared condition language and variable scope chain that every rule reads from."
     >
-      {/* Title with #1 chip — small square */}
+      {/* Title with #1 stamp — matches ParadigmShift corner-stamp format */}
       <text x={LEFT_X} y={TITLE_Y} fontSize={13} fontWeight={700} fill={TEXT}>
         Rule Engine
       </text>
       <rect
         x={LEFT_X + 88}
-        y={TITLE_Y - 13}
-        width={18}
+        y={TITLE_Y - 14}
+        width={24}
         height={18}
         rx={3}
         fill="var(--ant-color-bg-container)"
         stroke={STROKE_BLUE}
-        strokeWidth={1.5}
+        strokeWidth={2}
       />
-      <text x={LEFT_X + 97} y={TITLE_Y + 1} textAnchor="middle" fontSize={11} fontWeight={900} fill={TEXT}>
+      <rect
+        x={LEFT_X + 91}
+        y={TITLE_Y - 11}
+        width={18}
+        height={12}
+        rx={2}
+        fill="none"
+        stroke={STROKE_BLUE}
+        strokeWidth={0.8}
+        strokeDasharray="2 2"
+      />
+      <text
+        x={LEFT_X + 100}
+        y={TITLE_Y - 2}
+        textAnchor="middle"
+        fontSize={8}
+        fontWeight={900}
+        fill={TEXT}
+        letterSpacing={0.8}
+      >
         #1
       </text>
       <text x={LEFT_X} y={SUBTITLE_Y} fontSize={10} fontStyle="italic" fill={TEXT_DIM}>
@@ -2055,12 +2310,12 @@ export const ParadigmRuleEngineDiagram: React.FC = () => {
  */
 export const ParadigmApiCatalogDiagram: React.FC = () => {
   const W = 480;
-  const H = 340;
+  const H = 360;
   const OUTER_PAD = 10;
 
   // Mockup geometry
   const MOCK_X = OUTER_PAD;
-  const MOCK_Y = 40;
+  const MOCK_Y = 60;
   const MOCK_W = W - OUTER_PAD * 2;
   const MOCK_H = 168;
 
@@ -2090,25 +2345,32 @@ export const ParadigmApiCatalogDiagram: React.FC = () => {
       {/* Title — chips sit on the SAME row, right-aligned. Subtitle
        *  gets its own row below at full width so it can't overflow into
        *  the chip area. */}
-      <text x={OUTER_PAD} y={20} fontSize={13} fontWeight={700} fill={TEXT}>
+      <text x={OUTER_PAD} y={24} fontSize={13} fontWeight={700} fill={TEXT}>
         API Requests Catalog
       </text>
-      {PROTOCOLS.map((p, i) => {
-        const chipW = 50;
-        const chipH = 18;
+      {(() => {
+        const chipH = 20;
         const gap = 6;
-        const totalW = PROTOCOLS.length * chipW + (PROTOCOLS.length - 1) * gap;
-        const x = W - OUTER_PAD - totalW + i * (chipW + gap);
-        return (
-          <g key={p}>
-            <rect x={x} y={9} width={chipW} height={chipH} rx={chipH / 2} fill={FILL_BLUE} stroke={STROKE_BLUE} />
-            <text x={x + chipW / 2} y={22} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
-              {p}
-            </text>
-          </g>
-        );
-      })}
-      <text x={OUTER_PAD} y={36} fontSize={10} fontStyle="italic" fill={TEXT_DIM}>
+        const charW = 6.5;
+        const padX = 12;
+        const widths = PROTOCOLS.map((p) => Math.max(44, Math.round(p.length * charW + padX * 2)));
+        const totalW = widths.reduce((s, w) => s + w, 0) + (PROTOCOLS.length - 1) * gap;
+        let cursor = W - OUTER_PAD - totalW;
+        return PROTOCOLS.map((p, i) => {
+          const chipW = widths[i];
+          const x = cursor;
+          cursor += chipW + gap;
+          return (
+            <g key={p}>
+              <rect x={x} y={10} width={chipW} height={chipH} rx={chipH / 2} fill={FILL_BLUE} stroke={STROKE_BLUE} />
+              <text x={x + chipW / 2} y={24} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
+                {p}
+              </text>
+            </g>
+          );
+        });
+      })()}
+      <text x={OUTER_PAD} y={46} fontSize={10} fontStyle="italic" fill={TEXT_DIM}>
         Full request building, sending, and collection management — inside the extension.
       </text>
 

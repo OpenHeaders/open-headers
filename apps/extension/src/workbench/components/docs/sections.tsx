@@ -185,16 +185,16 @@ export const ParadigmSection: React.FC = () => (
       <ParadigmLocalFirstDiagram />
     </DiagramFrame>
 
-    <DocHeading level={3}>Sync without surrender</DocHeading>
+    <DocHeading level={3}>Auto-Sync without losing your work</DocHeading>
     <DocParagraph>
       Cross-device sync is usually where local-first products fold and ask you to trust their cloud. Open Headers solves
-      it differently. Edits are <strong>per-field mutations</strong> carrying hybrid logical clocks; the popup toggling
-      a rule's <code>enabled</code> flag and the workbench rewriting a header value in the same rule both land, in any
-      order, with no stale-draft banner. The same primitives scale from the four surfaces of one extension today to a
-      local daemon backing extension + desktop + CLI tomorrow, and to multi-user team workspaces through a Git remote —
-      without ever needing a vendor server in the middle.
+      it at the <strong>per-field</strong> level: the popup toggling a rule's <code>enabled</code> flag and the
+      workbench rewriting a header value in the same rule both land, in any order, with no stale-draft banner and no
+      overwrite. The same approach scales from the four surfaces of one extension today to a local daemon backing
+      extension + desktop + CLI tomorrow, and to multi-user team workspaces through a Git remote — without ever needing
+      a vendor server in the middle.
     </DocParagraph>
-    <DiagramFrame caption="Two surfaces, one rule, different fields — both edits commit through the local oracle.">
+    <DiagramFrame caption="Two surfaces, one rule, different fields — both edits land, nothing overwritten.">
       <ParadigmFieldSyncDiagram />
     </DiagramFrame>
 
