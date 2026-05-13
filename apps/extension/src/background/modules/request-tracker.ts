@@ -23,6 +23,11 @@ import { computeVerdict } from '@/shared/verdict';
 import type { ActiveRule, ObservationSource, TrackedResource, TrackedResourceType } from '@/types/browser';
 import { getRules as getRawRules } from '@openheaders/oracle/entity/rule-store';
 import { getResolvedRules, getUnresolvableRuleUids } from '@openheaders/oracle/rule-engine/variables-resolver';
+import {
+  clearAllTracking as clearAllTrackingState,
+  setTrackedResource,
+  tabsWithActiveRules as oracleTabsWithActiveRules,
+} from '@openheaders/oracle/tracking/tab-tracking-store';
 
 /** Read the current rule list in resolved form, falling back to the
  *  raw rule-store view before the first compile has populated the
@@ -63,10 +68,14 @@ const REVALIDATION_QUEUE = new Set<number>();
 let isRevalidating = false;
 
 /**
- * Map<tabId, Map<normalizedUrl, TrackedResource>> — tracks which resource URLs
- * were seen on which tabs, with resource type metadata. Used for indirect matching.
+ * Per-tab tracked-resource attribution. The Map itself lives in
+ * `@openheaders/oracle/tracking/tab-tracking-store` so the FE-thin-
+ * subscriber invariant holds (oracle owns the state, the host owns
+ * the chrome bindings that mutate it). Re-exported here under the
+ * historical name so existing call sites in this module and in
+ * sibling modules (request-monitor, tab-listeners) keep working.
  */
-export const tabsWithActiveRules: Map<number, Map<string, TrackedResource>> = new Map();
+export const tabsWithActiveRules = oracleTabsWithActiveRules;
 
 // ── Pattern precompilation ────────────────────────────────────────
 
@@ -458,40 +467,21 @@ export function addTrackedUrl(
 ): void {
   const source = options.source ?? 'webRequest';
   const servedFromCache = options.servedFromCache ?? false;
-  if (!tabsWithActiveRules.has(tabId)) {
-    tabsWithActiveRules.set(tabId, new Map());
+  // setTrackedResource owns the in-memory state mutation; the host-only
+  // side effects (broadcast + debounced session-storage flush) stay
+  // here because they reach chrome.runtime and chrome.storage.session.
+  // Returns true only on first insert — re-observations don't broadcast
+  // (the popup already knows about this URL; per-request broadcast
+  // storms on noisy pages would wake it for no new information).
+  const inserted = setTrackedResource(tabId, url, resourceType, source, servedFromCache);
+  if (inserted) {
+    broadcast('trackedUrlsUpdated', { tabId });
   }
-  const trackedUrls = tabsWithActiveRules.get(tabId)!;
-  const now = Date.now();
-  const existing = trackedUrls.get(url);
-  if (existing) {
-    // Re-observation — merge provenance and bump lastSeenTs in place. A
-    // single fresh network observation downgrades `servedFromCache` to
-    // false (the record is now known to have been live at some point).
-    // We don't broadcast on re-observation: the popup already knows
-    // about this URL, and a per-request broadcast storm on noisy pages
-    // would wake the popup for no new information.
-    existing.sources.add(source);
-    existing.lastSeenTs = now;
-    existing.timestamp = now;
-    if (!servedFromCache) existing.servedFromCache = false;
-    scheduleTabTrackingPersist();
-    return;
-  }
-  trackedUrls.set(url, {
-    firstSeenTs: now,
-    lastSeenTs: now,
-    timestamp: now,
-    resourceType,
-    sources: new Set<ObservationSource>([source]),
-    servedFromCache,
-  });
-  broadcast('trackedUrlsUpdated', { tabId });
   scheduleTabTrackingPersist();
 }
 
 export function clearAllTracking(): void {
-  tabsWithActiveRules.clear();
+  clearAllTrackingState();
 }
 
 // ── Session persistence ────────────────────────────────────────────

@@ -5,6 +5,7 @@
 import type { TrackedResourceType } from '@openheaders/core/types';
 
 export type { TrackedResourceType } from '@openheaders/core/types';
+export type { ObservationSource, TrackedResource } from '@openheaders/oracle/tracking/types';
 
 declare const browser: typeof chrome | undefined;
 
@@ -31,41 +32,6 @@ export interface PendingRequest {
   url: string;
   headersApplied: boolean;
   method: string;
-}
-
-/**
- * Which extension API surfaced a given observation. `webRequest` is the
- * classic MV3 network-intercept signal; `perfObserver` is the in-page
- * PerformanceObserver content script that catches memory-cache hits and
- * SW-shortcutted responses that webRequest misses; `dnrFeedback` is
- * `declarativeNetRequest.onRuleMatchedDebug` (optional surface, only
- * wired in packaged builds for now).
- */
-export type ObservationSource = 'webRequest' | 'perfObserver' | 'dnrFeedback';
-
-/**
- * Tracked resource stored per-tab — URL + metadata. Provenance is
- * tracked as a set because a single URL can be observed through
- * multiple signals (e.g. a network-fresh request fires webRequest AND
- * surfaces in the page's Resource Timing list on reload).
- */
-export interface TrackedResource {
-  /** Wall-clock ms at first observation. Stable across re-observations. */
-  firstSeenTs: number;
-  /** Wall-clock ms at most-recent observation. Updated on every sighting. */
-  lastSeenTs: number;
-  /** Back-compat alias for lastSeenTs — retained so existing tests pass. */
-  timestamp: number;
-  resourceType: TrackedResourceType;
-  /** Non-empty set — every source that has seen this URL. */
-  sources: Set<ObservationSource>;
-  /**
-   * True when the response was served from the renderer's memory cache
-   * or HTTP cache without a fresh network round-trip. Detected via
-   * `transferSize === 0 && encodedBodySize > 0` in the Resource Timing
-   * entry. Drives the "silent" verdict in the popup.
-   */
-  servedFromCache?: boolean;
 }
 
 /**
