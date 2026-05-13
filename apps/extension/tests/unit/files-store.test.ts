@@ -13,7 +13,7 @@ const { store } = vi.hoisted(() => ({
 
 let putCounter = 0;
 
-vi.mock('@/shared/files/blob-store', () => ({
+vi.mock('@openheaders/oracle/files', () => ({
   hashBlob: vi.fn(async () => `sha256:${'a'.repeat(64)}`),
   putBlob: vi.fn(async (workspaceId: string, input: { blob: Blob; filename: string; mimeType?: string }) => {
     putCounter++;

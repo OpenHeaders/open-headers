@@ -40,7 +40,7 @@ import {
 } from '@openheaders/core/sync';
 import type { Rule } from '@openheaders/core/types';
 import { seedRule } from './rule-projection';
-import { type LiveSetEntry, synthesizeSetDiff } from './set-diff';
+import { type LiveSetEntry, synthesizeSetDiff } from '@openheaders/oracle/sync-builders';
 
 export interface RuleMutationPayload {
   batch: MutationBatch;

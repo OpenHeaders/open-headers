@@ -38,7 +38,7 @@ import {
 import { seedRequestCollection } from '@/shared/sync/request-collection-projection';
 import { buildDeleteRequestFolderEntityBatch } from '@/shared/sync/request-folder-mutations';
 import { buildDeleteBatch as buildDeleteRequestBatch } from '@/shared/sync/request-mutations';
-import { buildVariablesReplacement } from '@/shared/sync/variables-replacement';
+import { buildVariablesReplacement } from '@openheaders/oracle/sync-builders';
 
 export { createRequestCollectionSyncMirror } from '@/context/request-collection-sync-mirror';
 

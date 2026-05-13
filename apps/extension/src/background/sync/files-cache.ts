@@ -20,7 +20,7 @@
 
 import type { FileRef } from '@openheaders/core/files';
 import { FILES_ENTITY_TYPE } from '@openheaders/core/sync';
-import * as BlobStore from '@/shared/files/blob-store';
+import * as BlobStore from '@openheaders/oracle/files';
 import { seedFiles } from '@/shared/sync/files-projection';
 import type { InMemoryBroadcast } from './broadcast';
 import { projectFilesSingleton } from './files-post-state';

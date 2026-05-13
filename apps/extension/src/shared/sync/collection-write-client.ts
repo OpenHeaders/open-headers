@@ -49,7 +49,7 @@ import {
 import { seedCollection } from '@/shared/sync/collection-projection';
 import { buildDeleteFolderEntityBatch } from '@/shared/sync/folder-mutations';
 import { buildDeleteBatch as buildDeleteRuleBatch } from '@/shared/sync/rule-mutations';
-import { buildVariablesReplacement } from '@/shared/sync/variables-replacement';
+import { buildVariablesReplacement } from '@openheaders/oracle/sync-builders';
 
 export { createCollectionSyncMirror } from '@/context/collection-sync-mirror';
 

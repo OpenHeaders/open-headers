@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { hashBlob } from '@/shared/files/blob-store';
+import { hashBlob } from '@openheaders/oracle/files';
 
 describe('hashBlob', () => {
   it('computes the sha256 of a Blob', async () => {

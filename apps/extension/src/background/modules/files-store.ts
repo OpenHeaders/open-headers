@@ -3,7 +3,7 @@
  * sync engine's catalog of `FileRef` shells.
  *
  * Two-layer split (Phase B):
- *   • Bytes — `@/shared/files/blob-store` (IndexedDB, keyed by
+ *   • Bytes — `@openheaders/oracle/files` (IndexedDB, keyed by
  *     `(workspaceId, fileId)`). Always the source of truth for actual
  *     blob content.
  *   • Catalog — sync engine `files` entity (singleton, set-modeled by
@@ -25,7 +25,7 @@
 import type { FileRef } from '@openheaders/core/files';
 import type { FileRefSlot, MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
 import { logger } from '@utils/logger';
-import * as BlobStore from '@/shared/files/blob-store';
+import * as BlobStore from '@openheaders/oracle/files';
 import { buildAddFileRefBatch, buildRemoveFileRefBatch, buildRenameFileRefBatch } from '@/shared/sync/files-mutations';
 import { FILES_REGISTRATION } from '../sync/entity-registry';
 import type { FilesCache } from '../sync/files-cache';

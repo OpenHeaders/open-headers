@@ -37,7 +37,7 @@ import {
 import { seedTemplateCollection } from '@/shared/sync/template-collection-projection';
 import { buildDeleteTemplateFolderEntityBatch } from '@/shared/sync/template-folder-mutations';
 import { buildDeleteBatch as buildDeleteTemplateBatch } from '@/shared/sync/template-mutations';
-import { buildVariablesReplacement } from '@/shared/sync/variables-replacement';
+import { buildVariablesReplacement } from '@openheaders/oracle/sync-builders';
 
 export { createTemplateCollectionSyncMirror } from '@/context/template-collection-sync-mirror';
 

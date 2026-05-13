@@ -39,7 +39,7 @@ import {
 } from '@openheaders/core/sync';
 import type { Request } from '@openheaders/core/types';
 import { seedRequest } from './request-projection';
-import { type LiveSetEntry, synthesizeSetDiff } from './set-diff';
+import { type LiveSetEntry, synthesizeSetDiff } from '@openheaders/oracle/sync-builders';
 
 export interface RequestMutationPayload {
   batch: MutationBatch;
