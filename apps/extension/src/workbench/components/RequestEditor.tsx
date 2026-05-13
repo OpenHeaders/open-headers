@@ -135,7 +135,7 @@ interface Draft {
   postResponseScript?: string;
 }
 
-function headersFromV5(list: RequestHeader[]): KeyValueRow[] {
+function headersFromRequest(list: RequestHeader[]): KeyValueRow[] {
   return list.map((h) =>
     makeKvRow({
       uid: h.uid,
@@ -146,7 +146,7 @@ function headersFromV5(list: RequestHeader[]): KeyValueRow[] {
     }),
   );
 }
-function paramsFromV5(list: QueryParam[]): KeyValueRow[] {
+function paramsFromRequest(list: QueryParam[]): KeyValueRow[] {
   return list.map((p) =>
     makeKvRow({
       uid: p.uid,
@@ -232,8 +232,8 @@ function draftFromRequest(req: Request): Draft {
     method: req.method,
     url: parsed.base,
     description: req.description ?? '',
-    headers: headersFromV5(req.headers),
-    params: [...urlParams, ...paramsFromV5(req.params)],
+    headers: headersFromRequest(req.headers),
+    params: [...urlParams, ...paramsFromRequest(req.params)],
     auth: req.auth,
     body: req.body,
     credentialsMode: req.credentialsMode,
