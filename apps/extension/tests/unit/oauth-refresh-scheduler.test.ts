@@ -50,7 +50,7 @@ let storeState: {
   listeners: Set<(workspaceId: string) => void>;
 } = { tokens: {}, configs: {}, errors: {}, listeners: new Set() };
 
-vi.mock('@/background/modules/oauth-token-store', () => ({
+vi.mock('@openheaders/oracle/entity/oauth-token-store', () => ({
   getTokenBundle: vi.fn(async (ref: string, ws: string) => storeState.tokens[ws]?.[ref] ?? null),
   getRefreshConfig: vi.fn(async (ref: string, ws: string) => storeState.configs[ws]?.[ref] ?? null),
   listAllWorkspaceCredentials: vi.fn(async () => {

@@ -35,17 +35,17 @@ vi.mock('@/background/modules/observability-log', () => ({
   recordLog: vi.fn(),
 }));
 
-vi.mock('@/background/modules/live-workflow-store', () => ({
+vi.mock('@openheaders/oracle/live/live-workflow-store', () => ({
   getLiveWorkflows: () => [],
   onLiveWorkflowStoreChange: () => () => {},
 }));
 
-vi.mock('@/background/modules/live-variable-store', () => ({
+vi.mock('@openheaders/oracle/live/live-variable-store', () => ({
   getLiveVariablesForWorkflow: () => [],
   onLiveVariableStoreChange: () => () => {},
 }));
 
-vi.mock('@/background/modules/live-cache-store', () => ({
+vi.mock('@openheaders/oracle/live/live-cache-store', () => ({
   listCachesForWorkflow: () => Promise.resolve([]),
   listWorkflowRunCaches: () => listWorkflowRunCachesMock(),
   onLiveCacheStoreChange: () => () => {},

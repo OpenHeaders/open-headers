@@ -40,14 +40,14 @@
 import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
 import type { OAuth2Auth } from '@openheaders/core/types';
 import { refreshCredential } from './oauth-flow';
-import type { OAuthRefreshErrorState, WorkspaceCredentialEntry } from './oauth-token-store';
+import type { OAuthRefreshErrorState, WorkspaceCredentialEntry } from '@openheaders/oracle/entity/oauth-token-store';
 import {
   getRefreshConfig,
   getTokenBundle,
   listAllWorkspaceCredentials,
   onOAuthStoreChange,
   recordRefreshError,
-} from './oauth-token-store';
+} from '@openheaders/oracle/entity/oauth-token-store';
 import { recordLog } from './observability-log';
 import { createAlarmNameCodec, type RefreshProvider, RefreshScheduler } from './refresh-scheduler';
 

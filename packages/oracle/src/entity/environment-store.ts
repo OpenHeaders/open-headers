@@ -23,7 +23,7 @@
 import { EnvironmentSchema, VaultSchema, WorkspaceVariablesSchema } from '@openheaders/core/schemas';
 import type { Environment, Variable, Vault, WorkspaceVariables } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
-import { logger } from '@utils/logger';
+import { logger } from '@openheaders/core/utils';
 import {
   ENVIRONMENT_REGISTRATION,
   VAULT_REGISTRATION,
@@ -36,7 +36,7 @@ import type { WorkspaceVariablesCache } from '@openheaders/oracle/sync/workspace
 import { entityLockName, withLock } from '@openheaders/oracle/coordination';
 import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
 import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
-import { getActiveWorkspaceId } from './workspace-store';
+import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 
 // ── In-memory state ─────────────────────────────────────────────────
 
@@ -512,7 +512,7 @@ function reconcilePointer(persisted: string | null, envs: Environment[]): string
 }
 
 export async function hydrateEnvironmentsFromStorage(): Promise<void> {
-  const workspaceId = getActiveWorkspaceId();
+  const workspaceId = requireActiveWorkspaceId();
   const snapshot = await readWorkspaceSnapshot(workspaceId);
   environments = snapshot.environments;
   activeEnvironmentId = reconcilePointer(snapshot.activeEnvironmentId, environments);

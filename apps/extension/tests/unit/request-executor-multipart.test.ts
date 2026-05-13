@@ -20,7 +20,7 @@ vi.stubGlobal('fetch', (input: string, init?: RequestInit) => {
   return Promise.resolve(new Response('ok', { status: 200, statusText: 'OK' }));
 });
 
-vi.mock('@/background/modules/environment-store', () => ({
+vi.mock('@openheaders/oracle/entity/environment-store', () => ({
   getEnvironments: vi.fn(() => [] as Environment[]),
   getActiveEnvironmentId: vi.fn(() => null as string | null),
   getDefaultEnvironmentId: vi.fn(() => null as string | null),
@@ -28,7 +28,7 @@ vi.mock('@/background/modules/environment-store', () => ({
   getVault: vi.fn(() => ({ schemaVersion: 5, secrets: [] }) as Vault),
 }));
 
-vi.mock('@/background/modules/request-store', () => ({
+vi.mock('@openheaders/oracle/entity/request-store', () => ({
   getRequest: vi.fn(() => null),
   getRequestCollections: vi.fn(() => [] as Collection[]),
 }));
@@ -37,7 +37,7 @@ vi.mock('@openheaders/oracle/entity/rule-store', () => ({
   getCollections: vi.fn(() => [] as Collection[]),
 }));
 
-vi.mock('@/background/modules/files-store', () => ({
+vi.mock('@openheaders/oracle/entity/files-store', () => ({
   listFiles: vi.fn(async () => []),
   getFileBlob: vi.fn(async (fileId: string) => {
     if (fileId === 'file:apple') return new Blob(['apple-bytes'], { type: 'text/plain' });
@@ -331,7 +331,7 @@ describe('executor — multipart templating (Phase 12.4b)', () => {
   });
 
   it('resolves {{VAR}} in text part values via the environment-store workspace vars', async () => {
-    const { getWorkspaceVariables } = await import('@/background/modules/environment-store');
+    const { getWorkspaceVariables } = await import('@openheaders/oracle/entity/environment-store');
     (getWorkspaceVariables as ReturnType<typeof vi.fn>).mockReturnValue({
       schemaVersion: 5,
       variables: [
@@ -353,7 +353,7 @@ describe('executor — multipart templating (Phase 12.4b)', () => {
   });
 
   it('resolves {{VAR}} in multi-file row name via template', async () => {
-    const { getWorkspaceVariables } = await import('@/background/modules/environment-store');
+    const { getWorkspaceVariables } = await import('@openheaders/oracle/entity/environment-store');
     (getWorkspaceVariables as ReturnType<typeof vi.fn>).mockReturnValue({
       schemaVersion: 5,
       variables: [{ uid: 'b0e41848', name: 'FIELD', value: 'upload', type: 'default' }],

@@ -29,7 +29,7 @@ import {
 } from '@openheaders/core/sync';
 import type { Collection, CollectionTree, Request, TreeNode } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
-import { logger } from '@utils/logger';
+import { logger } from '@openheaders/core/utils';
 import type { PersistedLocalFolder } from '@openheaders/oracle/storage';
 import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
 import {
@@ -59,7 +59,7 @@ import {
   nextSwMutatorContext,
 } from '@openheaders/oracle/sync/service';
 import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
-import { getActiveWorkspaceId } from './workspace-store';
+import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 
 /** Re-export from rule-store-style shape. Identical runtime layout. */
 export type LocalFolder = PersistedLocalFolder;
@@ -566,7 +566,7 @@ async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnap
 }
 
 export async function hydrateFromStorage(): Promise<Request[]> {
-  const workspaceId = getActiveWorkspaceId();
+  const workspaceId = requireActiveWorkspaceId();
   const snapshot = await readWorkspaceSnapshot(workspaceId);
   requests = snapshot.requests;
   collections = snapshot.collections;

@@ -39,14 +39,16 @@ class FifoLockRuntime {
   }
 }
 
-let store: typeof import('@/background/modules/oauth-token-store');
+let store: typeof import('@openheaders/oracle/entity/oauth-token-store');
 
 beforeEach(async () => {
   installBackingStorage();
   vi.resetModules();
   const lockModule = await import('@openheaders/oracle/coordination');
   lockModule.setLockRuntime(new FifoLockRuntime());
-  store = await import('@/background/modules/oauth-token-store');
+  const { setOracleHostHooks } = await import('@openheaders/oracle/sync');
+  setOracleHostHooks({ getActiveWorkspaceId: () => 'ws-oauth' });
+  store = await import('@openheaders/oracle/entity/oauth-token-store');
 });
 
 afterEach(async () => {

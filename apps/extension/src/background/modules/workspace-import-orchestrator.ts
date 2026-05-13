@@ -62,19 +62,19 @@ import {
   bridgeVaultSyncEngine,
   bridgeWorkspaceVariablesSyncEngine,
   hydrateEnvironmentsFromStorage,
-} from './environment-store';
-import { bridgeFilesSyncEngine } from './files-store';
+} from '@openheaders/oracle/entity/environment-store';
+import { bridgeFilesSyncEngine } from '@openheaders/oracle/entity/files-store';
 import { recordImportReport } from '@openheaders/oracle/entity/import-reports-store';
-import { bridgeLayoutStateSyncEngine } from './layout-store';
+import { bridgeLayoutStateSyncEngine } from '@openheaders/oracle/workspace/layout-store';
 import {
   bridgeLiveVariableSyncEngine,
   hydrateFromStorage as hydrateLiveVariablesFromStorage,
-} from './live-variable-store';
+} from '@openheaders/oracle/live/live-variable-store';
 import {
   bridgeLiveWorkflowSyncEngine,
   hydrateFromStorage as hydrateLiveWorkflowsFromStorage,
-} from './live-workflow-store';
-import { bridgeOAuthSyncEngine } from './oauth-token-store';
+} from '@openheaders/oracle/live/live-workflow-store';
+import { bridgeOAuthSyncEngine } from '@openheaders/oracle/entity/oauth-token-store';
 import { recordLog } from './observability-log';
 import { bridgePauseMarkersSyncEngine } from '@openheaders/oracle/entity/pause-markers-store';
 import { markPendingScriptsReview, markPendingScriptsReviewForWorkspace } from '@openheaders/oracle/entity/request-scripts-review-store';
@@ -83,7 +83,7 @@ import {
   bridgeRequestFolderSyncEngine,
   bridgeRequestSyncEngine,
   hydrateFromStorage as hydrateRequestsFromStorage,
-} from './request-store';
+} from '@openheaders/oracle/entity/request-store';
 import { scheduleUpdate } from './rule-engine';
 import {
   bridgeCollectionSyncEngine,

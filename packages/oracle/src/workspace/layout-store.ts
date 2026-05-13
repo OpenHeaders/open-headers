@@ -13,12 +13,12 @@
  * the renderer's `useResponsiveLayout` / `useDockLayoutStorage` hooks.
  */
 
-import { logger } from '@utils/logger';
+import { logger } from '@openheaders/core/utils';
 import { extensionStorage, type PersistedPanelLayout, wsKeys } from '@openheaders/oracle/storage';
 import { LAYOUT_STATE_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
 import type { LayoutStateCache } from '@openheaders/oracle/sync/layout-state-cache';
 import { getActiveCacheForRegistration } from '@openheaders/oracle/sync/service';
-import { getActiveWorkspaceId } from './workspace-store';
+import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 
 // ── Hydration / bridge ────────────────────────────────────────────
 
@@ -36,7 +36,7 @@ async function readLayoutFor(workspaceId: string): Promise<PersistedPanelLayout 
 export async function bridgeLayoutStateSyncEngine(): Promise<void> {
   const cache = getActiveCacheForRegistration<LayoutStateCache>(LAYOUT_STATE_REGISTRATION);
   if (!cache) return;
-  const workspaceId = getActiveWorkspaceId();
+  const workspaceId = requireActiveWorkspaceId();
   const persisted = await readLayoutFor(workspaceId);
   await cache.seedFromPersistedLayout(persisted);
   logger.info('LayoutStore', `Bridged ws=${workspaceId}: ${persisted ? 'seeded' : 'empty'}`);

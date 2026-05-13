@@ -51,7 +51,7 @@ import type {
 import type { MutationEnvelope, MutatorOutcome } from '@openheaders/core/sync';
 import type { Collection, CollectionTree, Environment, ExtensionWorkspace, LiveVariable, LiveVariableOverride, LiveWorkflow, OAuth2Auth, RefreshPolicy, Request, Rule, RuleDraft, Template, Variable, Vault, WorkflowStep, WorkspaceVariables } from '@openheaders/core/types';
 import type { IntentCallerContext, WorkspaceIntent } from '@openheaders/core/workspace-intent';
-import type { WorkflowRunCache } from '@/background/modules/live-cache-store';
+import type { WorkflowRunCache } from '@openheaders/oracle/live/live-cache-store';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import type { TabTelemetrySnapshot } from '@openheaders/core/types';
 import type { LoadedTestRun, TestRunOwnerType } from '@openheaders/core/types';

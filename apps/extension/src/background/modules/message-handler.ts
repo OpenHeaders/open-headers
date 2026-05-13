@@ -55,8 +55,8 @@ import {
   getWorkspaceVariables,
   renameEnvironment,
   updateEnvironmentVariables,
-} from './environment-store';
-import { deleteFile, getFileBlob, listFiles, putFile, renameFile } from './files-store';
+} from '@openheaders/oracle/entity/environment-store';
+import { deleteFile, getFileBlob, listFiles, putFile, renameFile } from '@openheaders/oracle/entity/files-store';
 import {
   clearImportReports,
   findImportReportBySourceHash,
@@ -67,7 +67,7 @@ import {
   clearWorkflowRunCache,
   getWorkflowRunCache,
   listCachesForWorkflow as listLiveCacheForWorkflow,
-} from './live-cache-store';
+} from '@openheaders/oracle/live/live-cache-store';
 import { refreshLiveWorkflowByUser, resetCircuitForWorkflow } from './live-refresh-scheduler';
 import {
   createLiveVariable,
@@ -76,14 +76,14 @@ import {
   getLiveVariables,
   setLiveVariableOverride,
   updateLiveVariable,
-} from './live-variable-store';
+} from '@openheaders/oracle/live/live-variable-store';
 import {
   createLiveWorkflow,
   deleteLiveWorkflow,
   getLiveWorkflow,
   getLiveWorkflows,
   updateLiveWorkflow,
-} from './live-workflow-store';
+} from '@openheaders/oracle/live/live-workflow-store';
 import {
   getOAuthRedirectUri,
   launchAuthorizationCodeFlow,
@@ -91,7 +91,7 @@ import {
   performClientCredentialsFlow,
   performRefresh,
 } from './oauth-flow';
-import { deleteTokenBundle } from './oauth-token-store';
+import { deleteTokenBundle } from '@openheaders/oracle/entity/oauth-token-store';
 import { clearObservabilityLog, getObservabilityLog } from './observability-log';
 import { handleScriptHostRequest } from './offscreen-host';
 import { executeRequest, executeRequestDraft } from './request-executor';
@@ -113,7 +113,7 @@ import {
   renameRequestCollection,
   renameRequestFolder,
   updateRequest,
-} from './request-store';
+} from '@openheaders/oracle/entity/request-store';
 import { getActiveRulesForTab, ingestPerfEntries } from './request-tracker';
 import { createRuleDraft, takeRuleDraft } from '@openheaders/oracle/entity/rule-draft-store';
 import {

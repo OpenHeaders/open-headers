@@ -1,7 +1,7 @@
 import type { Collection, Environment, HeaderRule, LiveVariable, Rule, Variable, Vault, WorkspaceVariables } from '@openheaders/core/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/background/modules/environment-store', () => {
+vi.mock('@openheaders/oracle/entity/environment-store', () => {
   return {
     getEnvironments: vi.fn(() => [] as Environment[]),
     getActiveEnvironmentId: vi.fn(() => null as string | null),
@@ -20,11 +20,11 @@ vi.mock('@openheaders/oracle/entity/rule-store', () => {
 
 // Live stores — mocked so the LiveRegistry-building path in
 // `variables-resolver` has deterministic inputs.
-vi.mock('@/background/modules/live-variable-store', () => ({
+vi.mock('@openheaders/oracle/live/live-variable-store', () => ({
   getLiveVariables: vi.fn(() => [] as LiveVariable[]),
   onLiveVariableStoreChange: vi.fn(() => () => {}),
 }));
-vi.mock('@/background/modules/live-cache-store', () => ({
+vi.mock('@openheaders/oracle/live/live-cache-store', () => ({
   listWorkflowRunCaches: vi.fn(() => Promise.resolve([])),
   onLiveCacheStoreChange: vi.fn(() => () => {}),
 }));
@@ -34,7 +34,7 @@ import {
   getEnvironments,
   getVault,
   getWorkspaceVariables,
-} from '@/background/modules/environment-store';
+} from '@openheaders/oracle/entity/environment-store';
 import { getCollections, getRules } from '@openheaders/oracle/entity/rule-store';
 import {
   __resetForTests,

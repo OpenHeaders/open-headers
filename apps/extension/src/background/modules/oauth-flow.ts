@@ -32,7 +32,7 @@ import type { OAuth2Auth } from '@openheaders/core/types';
 import { identity } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { withHostAccess } from '@/shared/fetch/with-host-access';
-import { getTokenBundle, putTokenBundle } from './oauth-token-store';
+import { getTokenBundle, putTokenBundle } from '@openheaders/oracle/entity/oauth-token-store';
 // `workspaceId?` threads the editing-scope workspace through the
 // browser-mediated OAuth flow so a diverged tab's authorize lands the
 // resulting bundle in its own workspace's oracle (MWPT-FULL § 8.3.10).

@@ -40,12 +40,12 @@ vi.mock('@/background/modules/request-executor', () => ({
   executeForLiveChain: (...args: unknown[]) => executeForLiveChainMock(...args),
 }));
 
-vi.mock('@/background/modules/request-store', () => ({
+vi.mock('@openheaders/oracle/entity/request-store', () => ({
   getRequest: (uid: string) => getRequestMock(uid),
   getRequestInWorkspace: (uid: string, _workspaceId: string) => getRequestMock(uid),
 }));
 
-vi.mock('@/background/modules/live-cache-store', () => ({
+vi.mock('@openheaders/oracle/live/live-cache-store', () => ({
   putWorkflowRunCache: (...args: unknown[]) => putWorkflowRunCacheMock(...args),
   recordRefreshError: (...args: unknown[]) => recordRefreshErrorMock(...args),
 }));

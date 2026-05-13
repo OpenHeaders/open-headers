@@ -27,7 +27,7 @@
 import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
 import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
 import type { OAuth2Auth } from '@openheaders/core/types';
-import { logger } from '@utils/logger';
+import { logger } from '@openheaders/core/utils';
 import { entityLockName, withLock } from '@openheaders/oracle/coordination';
 import { extensionStorage, OH, wsKeys } from '@openheaders/oracle/storage';
 import {
@@ -39,7 +39,7 @@ import type { OAuthBundleSnapshot } from '@openheaders/oracle/sync-builders/oaut
 import { OAUTH_BUNDLE_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
 import type { OAuthBundleCache } from '@openheaders/oracle/sync/oauth-bundle-cache';
 import { getActiveCacheForRegistration, getOracleForCurrentWorkspace, nextSwMutatorContext } from '@openheaders/oracle/sync/service';
-import { getActiveWorkspaceId } from './workspace-store';
+import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 
 // ── Storage shape ─────────────────────────────────────────────────
 
@@ -81,7 +81,7 @@ function notifyChange(workspaceId: string): void {
 // ── Reads ──────────────────────────────────────────────────────────
 
 export async function getTokenBundle(credentialRef: string, workspaceId?: string): Promise<OAuth2TokenBundle | null> {
-  const wsId = workspaceId ?? getActiveWorkspaceId();
+  const wsId = workspaceId ?? requireActiveWorkspaceId();
   if (wsId === mirrorWorkspaceId) {
     return (mirror.tokens[credentialRef] as OAuth2TokenBundle | undefined) ?? null;
   }
@@ -93,7 +93,7 @@ export async function getTokenBundle(credentialRef: string, workspaceId?: string
 }
 
 export async function getRefreshConfig(credentialRef: string, workspaceId?: string): Promise<OAuth2Auth | null> {
-  const wsId = workspaceId ?? getActiveWorkspaceId();
+  const wsId = workspaceId ?? requireActiveWorkspaceId();
   if (wsId === mirrorWorkspaceId) {
     return (mirror.configs[credentialRef] as OAuth2Auth | undefined) ?? null;
   }
@@ -102,7 +102,7 @@ export async function getRefreshConfig(credentialRef: string, workspaceId?: stri
 }
 
 export async function listTokenBundles(workspaceId?: string): Promise<Record<string, OAuth2TokenBundle>> {
-  const wsId = workspaceId ?? getActiveWorkspaceId();
+  const wsId = workspaceId ?? requireActiveWorkspaceId();
   if (wsId === mirrorWorkspaceId) {
     return { ...(mirror.tokens as Record<string, OAuth2TokenBundle>) };
   }
@@ -154,7 +154,7 @@ export async function putTokenBundle(
   config?: OAuth2Auth,
   workspaceId?: string,
 ): Promise<void> {
-  const wsId = workspaceId ?? getActiveWorkspaceId();
+  const wsId = workspaceId ?? requireActiveWorkspaceId();
   if (wsId !== mirrorWorkspaceId) {
     // Cross-workspace OAuth writes happen on the scheduler / refresh
     // path. The currently-bridged oracle only owns the active workspace;
@@ -181,7 +181,7 @@ export async function putTokenBundle(
 }
 
 export async function deleteTokenBundle(credentialRef: string, workspaceId?: string): Promise<boolean> {
-  const wsId = workspaceId ?? getActiveWorkspaceId();
+  const wsId = workspaceId ?? requireActiveWorkspaceId();
   if (wsId !== mirrorWorkspaceId) {
     let removed = false;
     await applyDirectStorageWrite(wsId, (blob) => {
@@ -345,7 +345,7 @@ export async function bridgeOAuthSyncEngine(): Promise<void> {
     cacheUnsubscribe();
     cacheUnsubscribe = null;
   }
-  const workspaceId = getActiveWorkspaceId();
+  const workspaceId = requireActiveWorkspaceId();
   cacheUnsubscribe = cache.onChange(() => {
     mirror = cache.getSnapshot();
     notifyChange(workspaceId);

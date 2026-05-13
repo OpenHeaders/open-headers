@@ -47,10 +47,10 @@ import {
   getVaultForWorkspace,
   getWorkspaceVariables,
   getWorkspaceVariablesForWorkspace,
-} from './environment-store';
-import { getFileBlob, listFiles } from './files-store';
+} from '@openheaders/oracle/entity/environment-store';
+import { getFileBlob, listFiles } from '@openheaders/oracle/entity/files-store';
 import { OAuth2FlowError, performRefresh as performOAuthRefresh } from './oauth-flow';
-import { getTokenBundle as getOAuthTokenBundle } from './oauth-token-store';
+import { getTokenBundle as getOAuthTokenBundle } from '@openheaders/oracle/entity/oauth-token-store';
 import { recordLog } from './observability-log';
 import { __setExecuteRequestDraft, isOffscreenSupported, runScript } from './offscreen-host';
 import {
@@ -58,7 +58,7 @@ import {
   getRequestCollections,
   getRequestCollectionsForWorkspace,
   getRequestInWorkspace,
-} from './request-store';
+} from '@openheaders/oracle/entity/request-store';
 import {
   getCollections as getRuleCollections,
   getCollectionsForWorkspace as getRuleCollectionsForWorkspace,

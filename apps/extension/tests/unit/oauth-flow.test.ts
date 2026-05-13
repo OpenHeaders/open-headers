@@ -29,7 +29,7 @@ vi.mock('@utils/logger', () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock('@/background/modules/oauth-token-store', () => ({
+vi.mock('@openheaders/oracle/entity/oauth-token-store', () => ({
   putTokenBundle: putTokenBundleMock,
   getTokenBundle: getTokenBundleMock,
 }));

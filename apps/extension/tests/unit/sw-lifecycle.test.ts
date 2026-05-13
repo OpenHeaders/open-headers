@@ -138,7 +138,9 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
 
     let ws = await import('@/background/modules/workspace-store');
     await ws.bootstrap();
-    let env = await import('@/background/modules/environment-store');
+    let oracleSync = await import('@openheaders/oracle/sync');
+    oracleSync.setOracleHostHooks({ getActiveWorkspaceId: ws.getActiveWorkspaceId });
+    let env = await import('@openheaders/oracle/entity/environment-store');
     await env.hydrateEnvironmentsFromStorage();
     expect(env.getEnvironments()).toHaveLength(2);
     expect(env.getWorkspaceVariables().variables[0].name).toBe('API_URL');
@@ -147,7 +149,9 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
     vi.resetModules();
     ws = await import('@/background/modules/workspace-store');
     await ws.bootstrap();
-    env = await import('@/background/modules/environment-store');
+    oracleSync = await import('@openheaders/oracle/sync');
+    oracleSync.setOracleHostHooks({ getActiveWorkspaceId: ws.getActiveWorkspaceId });
+    env = await import('@openheaders/oracle/entity/environment-store');
     expect(env.getEnvironments()).toEqual([]);
     await env.hydrateEnvironmentsFromStorage();
     expect(env.getEnvironments()).toHaveLength(2);
@@ -267,7 +271,7 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
     await orchestrator.hydrateActiveWorkspaceStores();
 
     const rules = await import('@openheaders/oracle/entity/rule-store');
-    const envs = await import('@/background/modules/environment-store');
+    const envs = await import('@openheaders/oracle/entity/environment-store');
     expect(rules.getRules()).toHaveLength(1);
     expect(rules.getCollections()).toHaveLength(1);
     expect(envs.getEnvironments()).toHaveLength(1);

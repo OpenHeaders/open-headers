@@ -23,7 +23,7 @@ vi.stubGlobal('fetch', (input: string, init?: RequestInit) => {
   return Promise.resolve(new Response('ok', { status: 200, statusText: 'OK' }));
 });
 
-vi.mock('@/background/modules/environment-store', () => ({
+vi.mock('@openheaders/oracle/entity/environment-store', () => ({
   getEnvironments: vi.fn(() => [] as Environment[]),
   getActiveEnvironmentId: vi.fn(() => null as string | null),
   getDefaultEnvironmentId: vi.fn(() => null as string | null),
@@ -31,7 +31,7 @@ vi.mock('@/background/modules/environment-store', () => ({
   getVault: vi.fn(() => ({ schemaVersion: 5, secrets: [] }) as Vault),
 }));
 
-vi.mock('@/background/modules/request-store', () => ({
+vi.mock('@openheaders/oracle/entity/request-store', () => ({
   getRequest: vi.fn(() => null),
   getRequestCollections: vi.fn(() => [] as Collection[]),
 }));
@@ -40,12 +40,12 @@ vi.mock('@openheaders/oracle/entity/rule-store', () => ({
   getCollections: vi.fn(() => [] as Collection[]),
 }));
 
-vi.mock('@/background/modules/files-store', () => ({
+vi.mock('@openheaders/oracle/entity/files-store', () => ({
   listFiles: vi.fn(async () => []),
   getFileBlob: vi.fn(async () => null),
 }));
 
-vi.mock('@/background/modules/oauth-token-store', () => ({
+vi.mock('@openheaders/oracle/entity/oauth-token-store', () => ({
   getTokenBundle: getTokenBundleMock,
 }));
 

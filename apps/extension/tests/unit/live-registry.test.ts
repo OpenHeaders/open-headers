@@ -25,7 +25,7 @@ const getLiveVariablesMock = vi.fn<() => LiveVariable[]>(() => []);
 const listWorkflowRunCachesMock = vi.fn<() => Promise<unknown[]>>(() => Promise.resolve([]));
 const getActiveEnvironmentIdMock = vi.fn<() => string | null>(() => null);
 
-vi.mock('@/background/modules/environment-store', () => ({
+vi.mock('@openheaders/oracle/entity/environment-store', () => ({
   getEnvironments: vi.fn(() => []),
   getActiveEnvironmentId: () => getActiveEnvironmentIdMock(),
   getDefaultEnvironmentId: vi.fn(() => null),
@@ -38,12 +38,12 @@ vi.mock('@openheaders/oracle/entity/rule-store', () => ({
   getRules: vi.fn(() => []),
 }));
 
-vi.mock('@/background/modules/live-variable-store', () => ({
+vi.mock('@openheaders/oracle/live/live-variable-store', () => ({
   getLiveVariables: () => getLiveVariablesMock(),
   onLiveVariableStoreChange: vi.fn(() => () => {}),
 }));
 
-vi.mock('@/background/modules/live-cache-store', () => ({
+vi.mock('@openheaders/oracle/live/live-cache-store', () => ({
   listWorkflowRunCaches: () => listWorkflowRunCachesMock(),
   onLiveCacheStoreChange: vi.fn(() => () => {}),
 }));

@@ -30,7 +30,7 @@ vi.mock('@/background/modules/observability-log', () => ({
 const refreshSyncMock = vi.fn();
 
 let liveVariables: LiveVariable[] = [];
-vi.mock('@/background/modules/live-variable-store', () => ({
+vi.mock('@openheaders/oracle/live/live-variable-store', () => ({
   getLiveVariables: () => liveVariables.slice(),
   onLiveVariableStoreChange: () => () => {},
 }));
@@ -41,7 +41,7 @@ let cachedRuns: Array<{
   expiresAt: number | null;
   extractedAt: number;
 }> = [];
-vi.mock('@/background/modules/live-cache-store', () => ({
+vi.mock('@openheaders/oracle/live/live-cache-store', () => ({
   listWorkflowRunCaches: async () => cachedRuns.slice(),
   onLiveCacheStoreChange: () => () => {},
 }));
@@ -57,7 +57,7 @@ vi.mock('@/background/modules/workspace-store', () => ({
 }));
 
 const activeEnv: { id: string | null } = { id: 'env-prod' };
-vi.mock('@/background/modules/environment-store', () => ({
+vi.mock('@openheaders/oracle/entity/environment-store', () => ({
   getVault: () => ({ schemaVersion: 5, secrets: [] }),
   getEnvironments: () => [],
   getActiveEnvironmentId: () => activeEnv.id,

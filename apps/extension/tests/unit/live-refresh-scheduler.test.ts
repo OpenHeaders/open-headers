@@ -88,7 +88,7 @@ let storeState: {
   listeners: { workflow: new Set(), variable: new Set(), cache: new Set() },
 };
 
-vi.mock('@/background/modules/live-workflow-store', () => ({
+vi.mock('@openheaders/oracle/live/live-workflow-store', () => ({
   getLiveWorkflows: () => storeState.workflows,
   // Per-workspace lookup (MWPT-FULL session #19): the test harness keeps
   // a single `storeState.workflows` list — return matches by uid
@@ -102,7 +102,7 @@ vi.mock('@/background/modules/live-workflow-store', () => ({
   },
 }));
 
-vi.mock('@/background/modules/live-variable-store', () => ({
+vi.mock('@openheaders/oracle/live/live-variable-store', () => ({
   getLiveVariables: () => storeState.variables.slice(),
   getLiveVariablesForWorkflow: (workflowUid: string) =>
     storeState.variables.filter((v) => v.workflowUid === workflowUid),
@@ -120,11 +120,11 @@ vi.mock('@/background/modules/live-variable-store', () => ({
 // the graph can leave the lookup returning `null` (no edges formed;
 // reconcile degrades to a flat list). Cases that need specific refs
 // seed `storeState.requests` explicitly.
-vi.mock('@/background/modules/request-store', () => ({
+vi.mock('@openheaders/oracle/entity/request-store', () => ({
   getRequest: (uid: string) => storeState.requests.get(uid) ?? null,
 }));
 
-vi.mock('@/background/modules/live-cache-store', () => ({
+vi.mock('@openheaders/oracle/live/live-cache-store', () => ({
   listCachesForWorkflow: async (workflowUid: string) => storeState.caches.filter((c) => c.workflowUid === workflowUid),
   listWorkflowRunCaches: async () => storeState.caches.slice(),
   onLiveCacheStoreChange: (fn: () => void) => {
@@ -158,7 +158,7 @@ vi.mock('@/background/modules/workspace-store', () => ({
   },
 }));
 
-vi.mock('@/background/modules/environment-store', () => ({
+vi.mock('@openheaders/oracle/entity/environment-store', () => ({
   getActiveEnvironmentId: () => activeSwitchState.activeEnvId,
   onActiveEnvironmentChange: (fn: (newId: string | null, prevId: string | null) => void) => {
     activeSwitchState.envListeners.add(fn);

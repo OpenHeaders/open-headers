@@ -43,7 +43,7 @@ vi.mock('@openheaders/oracle/entity/rule-store', () => ({
   bridgeCollectionSyncEngine: vi.fn(async () => undefined),
   bridgeFolderSyncEngine: vi.fn(async () => undefined),
 }));
-vi.mock('@/background/modules/request-store', () => ({
+vi.mock('@openheaders/oracle/entity/request-store', () => ({
   hydrateFromStorage: vi.fn(async () => []),
   bridgeRequestSyncEngine: vi.fn(async () => undefined),
   bridgeRequestCollectionSyncEngine: vi.fn(async () => undefined),
@@ -55,17 +55,17 @@ vi.mock('@openheaders/oracle/entity/template-store', () => ({
   bridgeTemplateCollectionSyncEngine: vi.fn(async () => undefined),
   bridgeTemplateFolderSyncEngine: vi.fn(async () => undefined),
 }));
-vi.mock('@/background/modules/environment-store', () => ({
+vi.mock('@openheaders/oracle/entity/environment-store', () => ({
   hydrateEnvironmentsFromStorage: vi.fn(async () => []),
   bridgeEnvironmentSyncEngine: vi.fn(async () => {}),
   bridgeVaultSyncEngine: vi.fn(async () => {}),
   bridgeWorkspaceVariablesSyncEngine: vi.fn(async () => {}),
 }));
-vi.mock('@/background/modules/live-workflow-store', () => ({
+vi.mock('@openheaders/oracle/live/live-workflow-store', () => ({
   hydrateFromStorage: vi.fn(async () => []),
   bridgeLiveWorkflowSyncEngine: vi.fn(async () => {}),
 }));
-vi.mock('@/background/modules/live-variable-store', () => ({
+vi.mock('@openheaders/oracle/live/live-variable-store', () => ({
   hydrateFromStorage: vi.fn(async () => []),
   bridgeLiveVariableSyncEngine: vi.fn(async () => {}),
 }));
@@ -75,13 +75,13 @@ vi.mock('@/background/modules/rule-engine', () => ({
 vi.mock('@/background/modules/observability-log', () => ({
   recordLog: vi.fn(),
 }));
-vi.mock('@/background/modules/oauth-token-store', () => ({
+vi.mock('@openheaders/oracle/entity/oauth-token-store', () => ({
   bridgeOAuthSyncEngine: vi.fn(async () => {}),
 }));
 vi.mock('@openheaders/oracle/entity/pause-markers-store', () => ({
   bridgePauseMarkersSyncEngine: vi.fn(async () => {}),
 }));
-vi.mock('@/background/modules/files-store', () => ({
+vi.mock('@openheaders/oracle/entity/files-store', () => ({
   bridgeFilesSyncEngine: vi.fn(async () => {}),
 }));
 vi.mock('@openheaders/oracle/entity/import-reports-store', () => ({

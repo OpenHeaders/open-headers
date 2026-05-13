@@ -18,7 +18,7 @@ type ChangeListener = () => void;
 const envListeners: ChangeListener[] = [];
 let mockVault: Vault = { schemaVersion: 5, secrets: [] };
 
-vi.mock('@/background/modules/environment-store', () => ({
+vi.mock('@openheaders/oracle/entity/environment-store', () => ({
   getVault: vi.fn(() => mockVault),
   onEnvironmentStoreChange: (fn: ChangeListener) => {
     envListeners.push(fn);

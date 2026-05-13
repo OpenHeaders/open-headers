@@ -24,7 +24,7 @@
 
 import type { FileRef } from '@openheaders/core/files';
 import type { FileRefSlot, MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
-import { logger } from '@utils/logger';
+import { logger } from '@openheaders/core/utils';
 import * as BlobStore from '@openheaders/oracle/files';
 import { buildAddFileRefBatch, buildRemoveFileRefBatch, buildRenameFileRefBatch } from '@openheaders/oracle/sync-builders/files-mutations';
 import { FILES_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
@@ -34,7 +34,7 @@ import {
   getOracleForWorkspace,
   nextSwMutatorContextForWorkspace,
 } from '@openheaders/oracle/sync/service';
-import { getActiveWorkspaceId } from './workspace-store';
+import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 
 // ── Change listeners ────────────────────────────────────────────────
 //
@@ -65,7 +65,7 @@ let mirrorWorkspaceId: string | null = null;
 
 /** List every file in the given workspace (defaults to runtime-Active). Metadata only (no bytes). */
 export async function listFiles(workspaceId?: string): Promise<FileRef[]> {
-  const wsId = workspaceId ?? getActiveWorkspaceId();
+  const wsId = workspaceId ?? requireActiveWorkspaceId();
   if (wsId === mirrorWorkspaceId) {
     // Defensive copy — callers occasionally sort the result in place.
     return mirror.slice();
@@ -80,7 +80,7 @@ export async function listFiles(workspaceId?: string): Promise<FileRef[]> {
  * in this workspace.
  */
 export async function getFileBlob(fileId: string, workspaceId?: string): Promise<Blob | null> {
-  const wsId = workspaceId ?? getActiveWorkspaceId();
+  const wsId = workspaceId ?? requireActiveWorkspaceId();
   return BlobStore.getBlob(wsId, fileId);
 }
 
@@ -90,7 +90,7 @@ export async function getFileBlob(fileId: string, workspaceId?: string): Promise
  * users reference a file by content rather than identity.
  */
 export async function getFileBlobByHash(hash: string, workspaceId?: string): Promise<Blob | null> {
-  const wsId = workspaceId ?? getActiveWorkspaceId();
+  const wsId = workspaceId ?? requireActiveWorkspaceId();
   return BlobStore.getBlobByHash(wsId, hash);
 }
 
@@ -113,7 +113,7 @@ export async function putFile(input: {
   mimeType?: string;
   workspaceId?: string;
 }): Promise<FileRef> {
-  const wsId = input.workspaceId ?? getActiveWorkspaceId();
+  const wsId = input.workspaceId ?? requireActiveWorkspaceId();
   const ref = await BlobStore.putBlob(wsId, input);
   logger.debug('FilesStore', `Stored "${ref.filename}" (${ref.size}B, ${ref.hash.slice(0, 14)}…)`);
   await applyFilesMutationOrThrow(wsId, (ctx) => buildAddFileRefBatch({ ref: toSlot(ref) }, ctx), 'putFile');
@@ -141,7 +141,7 @@ export async function renameFile(input: {
   mimeType?: string;
   workspaceId?: string;
 }): Promise<FileRef | null> {
-  const wsId = input.workspaceId ?? getActiveWorkspaceId();
+  const wsId = input.workspaceId ?? requireActiveWorkspaceId();
   const updated = await BlobStore.renameBlob(wsId, input.fileId, {
     filename: input.filename,
     mimeType: input.mimeType,
@@ -155,7 +155,7 @@ export async function renameFile(input: {
 
 /** Delete a file by `fileId`. Returns `true` iff an entry was removed. */
 export async function deleteFile(fileId: string, workspaceId?: string): Promise<boolean> {
-  const wsId = workspaceId ?? getActiveWorkspaceId();
+  const wsId = workspaceId ?? requireActiveWorkspaceId();
   const removed = await BlobStore.deleteBlob(wsId, fileId);
   if (!removed) return false;
   logger.info('FilesStore', `Deleted file ${fileId}`);
@@ -229,7 +229,7 @@ export async function bridgeFilesSyncEngine(): Promise<void> {
     cacheUnsubscribe();
     cacheUnsubscribe = null;
   }
-  const workspaceId = getActiveWorkspaceId();
+  const workspaceId = requireActiveWorkspaceId();
   cacheUnsubscribe = cache.onChange(() => {
     mirror = cache.getSnapshot().refs.slice();
     notifyChange();

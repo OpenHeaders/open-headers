@@ -33,7 +33,7 @@ vi.mock('@utils/logger', () => ({
 }));
 
 import { attachLiveBypassExclusion, LIVE_BYPASS_HEADER_NAME } from '@openheaders/rule-engine/builders';
-import * as liveVarStore from '@/background/modules/live-variable-store';
+import * as liveVarStore from '@openheaders/oracle/live/live-variable-store';
 import { LIVE_BYPASS_HEADER, liveBypassHeaderValue } from '@/background/modules/request-executor';
 import { computeRuleLiveBypass, __resetForTests as resetResolver } from '@/background/modules/variables-resolver';
 import * as workspaceStore from '@/background/modules/workspace-store';
@@ -140,16 +140,19 @@ describe('computeRuleLiveBypass', () => {
     // Prime the store so assertLoaded() inside mutators doesn't throw;
     // here we only need reads, but hydrate ties the internal workspaceId
     // to a real one so the store's loader guards pass.
-    vi.spyOn(workspaceStore, 'getActiveWorkspaceId').mockReturnValue('ws-1');
+    const { setOracleHostHooks } = await import('@openheaders/oracle/sync');
+    setOracleHostHooks({ getActiveWorkspaceId: () => 'ws-1' });
     __initSyncServiceForTests('ws-1');
     await liveVarStore.hydrateFromStorage();
     await liveVarStore.bridgeLiveVariableSyncEngine();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     resetResolver();
     disposeSyncService();
     vi.restoreAllMocks();
+    const { setOracleHostHooks } = await import('@openheaders/oracle/sync');
+    setOracleHostHooks({});
   });
 
   it('returns the workflow uid for a rule referencing an effective LV (published + enabled)', async () => {

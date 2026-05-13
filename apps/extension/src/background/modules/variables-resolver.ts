@@ -40,9 +40,9 @@ import {
   getEnvironments,
   getVault,
   getWorkspaceVariables,
-} from './environment-store';
-import { listWorkflowRunCaches, onLiveCacheStoreChange, type WorkflowRunCache } from './live-cache-store';
-import { getLiveVariables, getLiveVariablesForWorkspace } from './live-variable-store';
+} from '@openheaders/oracle/entity/environment-store';
+import { listWorkflowRunCaches, onLiveCacheStoreChange, type WorkflowRunCache } from '@openheaders/oracle/live/live-cache-store';
+import { getLiveVariables, getLiveVariablesForWorkspace } from '@openheaders/oracle/live/live-variable-store';
 import { recordLog } from './observability-log';
 import { getCollections, getRules } from '@openheaders/oracle/entity/rule-store';
 import { getCachedTotpCodes } from './totp-scheduler';

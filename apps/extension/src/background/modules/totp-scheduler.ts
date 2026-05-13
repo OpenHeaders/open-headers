@@ -35,7 +35,7 @@ import { generateTotp } from '@openheaders/core/totp';
 import type { Vault, VaultSecretTotp } from '@openheaders/core/types';
 import { EMPTY_TOTP_REGISTRY, type TotpRegistry } from '@openheaders/core/variables';
 import { logger } from '@utils/logger';
-import { getVault, onEnvironmentStoreChange } from './environment-store';
+import { getVault, onEnvironmentStoreChange } from '@openheaders/oracle/entity/environment-store';
 
 const ALARM_NAME = 'oh-totp-tick';
 /** Guardband added to the next window-flip — schedule slightly AFTER

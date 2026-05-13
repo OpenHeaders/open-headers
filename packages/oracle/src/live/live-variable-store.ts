@@ -27,7 +27,7 @@ import { LiveVariableSchema } from '@openheaders/core/schemas';
 import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
 import type { LiveVariable, LiveVariableOverride } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
-import { logger } from '@utils/logger';
+import { logger } from '@openheaders/core/utils';
 import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
 import {
   buildAddLiveVariableBatch,
@@ -43,7 +43,7 @@ import {
   nextSwMutatorContext,
 } from '@openheaders/oracle/sync/service';
 import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
-import { getActiveWorkspaceId } from './workspace-store';
+import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 
 // ── In-memory state (scoped to the active workspace) ───────────────
 
@@ -234,7 +234,7 @@ async function readSnapshot(workspaceId: string): Promise<LiveVariable[]> {
 }
 
 export async function hydrateFromStorage(): Promise<LiveVariable[]> {
-  const workspaceId = getActiveWorkspaceId();
+  const workspaceId = requireActiveWorkspaceId();
   variables = await readSnapshot(workspaceId);
   loadedWorkspaceId = workspaceId;
   logger.info('LiveVariableStore', `Hydrated ws=${workspaceId}: ${variables.length} variables`);

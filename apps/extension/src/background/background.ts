@@ -35,16 +35,16 @@ import {
   getVault,
   getWorkspaceVariables,
   onEnvironmentStoreChange,
-} from './modules/environment-store';
-import { bridgeFilesSyncEngine, listFiles, onFilesStoreChange } from './modules/files-store';
+} from '@openheaders/oracle/entity/environment-store';
+import { bridgeFilesSyncEngine, listFiles, onFilesStoreChange } from '@openheaders/oracle/entity/files-store';
 // Module-load side effect: registers `liveChainAdapter` with the live
 // scheduler via `__setLiveRefreshAdapter`. Import for its side effect
 // even though we don't name anything from it here — the scheduler's
 // adapter port is filled at eval time so the first alarm fires
 // against a real chain runner rather than the Phase-C stub.
 import './modules/live-chain-adapter';
-import { bridgeLayoutStateSyncEngine } from './modules/layout-store';
-import { onLiveCacheStoreChange } from './modules/live-cache-store';
+import { bridgeLayoutStateSyncEngine } from '@openheaders/oracle/workspace/layout-store';
+import { onLiveCacheStoreChange } from '@openheaders/oracle/live/live-cache-store';
 import {
   handleLiveAlarm,
   isLiveRefreshAlarm,
@@ -57,12 +57,12 @@ import {
   bridgeLiveVariableSyncEngine,
   getLiveVariables,
   onLiveVariableStoreChange,
-} from './modules/live-variable-store';
+} from '@openheaders/oracle/live/live-variable-store';
 import {
   bridgeLiveWorkflowSyncEngine,
   getLiveWorkflows,
   onLiveWorkflowStoreChange,
-} from './modules/live-workflow-store';
+} from '@openheaders/oracle/live/live-workflow-store';
 import { handleGeneralMessage } from './modules/message-handler';
 import {
   handleOAuthAlarm,
@@ -73,7 +73,7 @@ import {
 import { setLockObserver } from '@openheaders/oracle/coordination';
 import { setOracleHostHooks } from '@openheaders/oracle/sync';
 import { scheduleUpdate as scheduleRuleEngineUpdate } from './modules/rule-engine';
-import { bridgeOAuthSyncEngine } from './modules/oauth-token-store';
+import { bridgeOAuthSyncEngine } from '@openheaders/oracle/entity/oauth-token-store';
 import { hydrateObservabilityLog, recordLog } from './modules/observability-log';
 import { disposeResolverStateForWorkspace } from './modules/variables-resolver';
 
@@ -113,7 +113,7 @@ import {
   bridgeRequestSyncEngine,
   getRequests,
   onRequestStoreChange,
-} from './modules/request-store';
+} from '@openheaders/oracle/entity/request-store';
 import {
   getActiveRulesForTab,
   precompileRulePatterns,

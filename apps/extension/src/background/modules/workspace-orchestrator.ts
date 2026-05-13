@@ -36,20 +36,20 @@ import {
   hydrateEnvironmentsFromStorage,
   purgeWorkspaceEnvironmentData,
   switchToWorkspace as switchEnvToWorkspace,
-} from './environment-store';
-import { purgeFilesForWorkspace } from './files-store';
-import { purgeLiveCacheForWorkspace } from './live-cache-store';
+} from '@openheaders/oracle/entity/environment-store';
+import { purgeFilesForWorkspace } from '@openheaders/oracle/entity/files-store';
+import { purgeLiveCacheForWorkspace } from '@openheaders/oracle/live/live-cache-store';
 import {
   hydrateFromStorage as hydrateLiveVariablesFromStorage,
   purgeLiveVariablesForWorkspace,
   switchToWorkspace as switchLiveVariablesToWorkspace,
-} from './live-variable-store';
+} from '@openheaders/oracle/live/live-variable-store';
 import {
   hydrateFromStorage as hydrateLiveWorkflowsFromStorage,
   purgeLiveWorkflowsForWorkspace,
   switchToWorkspace as switchLiveWorkflowsToWorkspace,
-} from './live-workflow-store';
-import { purgeOAuthForWorkspace } from './oauth-token-store';
+} from '@openheaders/oracle/live/live-workflow-store';
+import { purgeOAuthForWorkspace } from '@openheaders/oracle/entity/oauth-token-store';
 import { recordLog } from './observability-log';
 import { getPauseMarkers } from '@openheaders/oracle/entity/pause-markers-store';
 import {
@@ -59,7 +59,7 @@ import {
 import {
   hydrateFromStorage as hydrateRequestsFromStorage,
   switchToWorkspace as switchRequestsToWorkspace,
-} from './request-store';
+} from '@openheaders/oracle/entity/request-store';
 import { scheduleUpdate } from './rule-engine';
 import { seedFromWorkspaceSwitch } from './rule-state-observer';
 import {

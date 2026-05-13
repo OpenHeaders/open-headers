@@ -55,7 +55,7 @@ import { alarms } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { report as reportStatus } from '@/shared/status';
 import { extensionStorage, OH } from '@openheaders/oracle/storage';
-import { getActiveEnvironmentId, onActiveEnvironmentChange } from './environment-store';
+import { getActiveEnvironmentId, onActiveEnvironmentChange } from '@openheaders/oracle/entity/environment-store';
 import {
   listCachesForWorkflow,
   listWorkflowRunCaches,
@@ -64,17 +64,17 @@ import {
   recordRefreshError,
   resetCircuitForRun,
   type WorkflowRunCache,
-} from './live-cache-store';
+} from '@openheaders/oracle/live/live-cache-store';
 import {
   getLiveVariables,
   getLiveVariablesForWorkflow,
   getLiveVariablesForWorkflowInWorkspace,
   onLiveVariableStoreChange,
-} from './live-variable-store';
-import { getLiveWorkflowInWorkspace, getLiveWorkflows, onLiveWorkflowStoreChange } from './live-workflow-store';
+} from '@openheaders/oracle/live/live-variable-store';
+import { getLiveWorkflowInWorkspace, getLiveWorkflows, onLiveWorkflowStoreChange } from '@openheaders/oracle/live/live-workflow-store';
 import { recordLog } from './observability-log';
 import { createAlarmNameCodec, type RefreshProvider, RefreshScheduler } from './refresh-scheduler';
-import { getRequest } from './request-store';
+import { getRequest } from '@openheaders/oracle/entity/request-store';
 import { getOrCreateWorkspaceService, releaseWorkspaceService } from '@openheaders/oracle/sync/service';
 import { getActiveWorkspaceId, onActiveWorkspaceChange } from './workspace-store';
 

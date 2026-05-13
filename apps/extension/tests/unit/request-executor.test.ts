@@ -25,7 +25,7 @@ Object.defineProperty(globalThis.navigator, 'onLine', {
   writable: true,
 });
 
-vi.mock('@/background/modules/environment-store', () => ({
+vi.mock('@openheaders/oracle/entity/environment-store', () => ({
   getEnvironments: vi.fn(() => [] as Environment[]),
   getActiveEnvironmentId: vi.fn(() => null as string | null),
   getDefaultEnvironmentId: vi.fn(() => null as string | null),
@@ -33,7 +33,7 @@ vi.mock('@/background/modules/environment-store', () => ({
   getVault: vi.fn(() => ({ schemaVersion: 5, secrets: [] }) as Vault),
 }));
 
-vi.mock('@/background/modules/request-store', () => ({
+vi.mock('@openheaders/oracle/entity/request-store', () => ({
   getRequest: vi.fn(() => null),
   getRequestCollections: vi.fn(() => [] as Collection[]),
 }));
@@ -47,9 +47,9 @@ import {
   getEnvironments,
   getVault,
   getWorkspaceVariables,
-} from '@/background/modules/environment-store';
+} from '@openheaders/oracle/entity/environment-store';
 import { ensureScheme, executeRequestDraft } from '@/background/modules/request-executor';
-import { getRequestCollections } from '@/background/modules/request-store';
+import { getRequestCollections } from '@openheaders/oracle/entity/request-store';
 import { needsSchemeNormalization } from '@/shared/fetch/ensure-scheme';
 
 const mockEnvs = getEnvironments as ReturnType<typeof vi.fn>;

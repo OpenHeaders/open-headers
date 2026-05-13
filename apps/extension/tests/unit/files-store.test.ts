@@ -64,15 +64,17 @@ vi.mock('@/background/modules/workspace-store', () => ({
   getActiveWorkspaceId: vi.fn(() => 'ws-files'),
 }));
 
-let filesStore: typeof import('@/background/modules/files-store');
+let filesStore: typeof import('@openheaders/oracle/entity/files-store');
 let syncService: typeof import('@openheaders/oracle/sync/service');
 
 beforeEach(async () => {
   store.clear();
   putCounter = 0;
   vi.resetModules();
+  const { setOracleHostHooks } = await import('@openheaders/oracle/sync');
+  setOracleHostHooks({ getActiveWorkspaceId: () => 'ws-files' });
   syncService = await import('@openheaders/oracle/sync/service');
-  filesStore = await import('@/background/modules/files-store');
+  filesStore = await import('@openheaders/oracle/entity/files-store');
   syncService.__initSyncServiceForTests('ws-files');
   await filesStore.bridgeFilesSyncEngine();
 });

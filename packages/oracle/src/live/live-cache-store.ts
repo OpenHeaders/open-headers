@@ -45,10 +45,10 @@ import {
   transitionOpenToHalfOpen,
 } from '@openheaders/core/live';
 import type { WorkflowRunCache } from '@openheaders/core/types';
-import { logger } from '@utils/logger';
+import { logger } from '@openheaders/core/utils';
 import { entityLockName, withLock } from '@openheaders/oracle/coordination';
 import { extensionStorage, OH, wsKeys } from '@openheaders/oracle/storage';
-import { getActiveWorkspaceId } from './workspace-store';
+import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 
 export type { WorkflowRunCache } from '@openheaders/core/types';
 
@@ -117,7 +117,7 @@ async function writeBlob(workspaceId: string, blob: LiveCacheBlob): Promise<void
 }
 
 function resolveWorkspaceId(workspaceId: string | undefined): string {
-  return workspaceId ?? getActiveWorkspaceId();
+  return workspaceId ?? requireActiveWorkspaceId();
 }
 
 function withCacheLock<T>(workspaceId: string, fn: () => Promise<T>): Promise<T> {
