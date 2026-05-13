@@ -1,0 +1,20 @@
+/**
+ * @openheaders/rule-engine — declarativeNetRequest compile pipeline +
+ * content-script generation + scripting injection.
+ *
+ * Host-agnostic: every browser-API call goes through dependencies
+ * injected by the host app at boot. The package owns the rule → DNR
+ * compile path and the chrome.scripting injection path; the host owns
+ * workspace state (which rules exist, which are paused, which are
+ * under test) and feeds resolved rules into the engine.
+ *
+ * Use subpath imports:
+ *
+ *   import { compileRuleSet } from '@openheaders/rule-engine/compile'
+ *   import { applyDynamicRules } from '@openheaders/rule-engine/apply'
+ *   import { applyInjection } from '@openheaders/rule-engine/inject'
+ *   import { headerCompiler } from '@openheaders/rule-engine/builders'
+ *   import type { Injection } from '@openheaders/rule-engine/content-scripts'
+ *   import type { RuleEngineDeps } from '@openheaders/rule-engine/types'
+ */
+export {};

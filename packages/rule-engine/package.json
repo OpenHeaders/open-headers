@@ -1,0 +1,51 @@
+{
+  "name": "@openheaders/rule-engine",
+  "version": "2026.5.0",
+  "private": true,
+  "description": "OpenHeaders rule engine — declarativeNetRequest compile pipeline, content-script generation, scripting injection",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "default": "./dist/index.js"
+    },
+    "./compile": {
+      "import": "./src/compile.ts",
+      "default": "./dist/compile.js"
+    },
+    "./apply": {
+      "import": "./src/apply.ts",
+      "default": "./dist/apply.js"
+    },
+    "./inject": {
+      "import": "./src/inject.ts",
+      "default": "./dist/inject.js"
+    },
+    "./builders": {
+      "import": "./src/builders/index.ts",
+      "default": "./dist/builders/index.js"
+    },
+    "./content-scripts": {
+      "import": "./src/content-scripts.ts",
+      "default": "./dist/content-scripts.js"
+    },
+    "./types": {
+      "import": "./src/types.ts",
+      "default": "./dist/types.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@openheaders/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.1.38",
+    "typescript": "^5.9.3"
+  }
+}

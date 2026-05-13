@@ -48,6 +48,7 @@
     "@fontsource/source-code-pro": "^5.2.7",
     "@monaco-editor/react": "^4.7.0",
     "@openheaders/core": "workspace:*",
+    "@openheaders/rule-engine": "workspace:*",
     "@openheaders/ui": "workspace:*",
     "@prettier/plugin-xml": "^3.4.2",
     "allotment": "^1.20.5",
