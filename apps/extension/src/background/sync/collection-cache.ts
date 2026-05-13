@@ -19,7 +19,7 @@ import { CollectionSchema } from '@openheaders/core/schemas';
 import type { MaterializedEntity } from '@openheaders/core/sync';
 import { COLLECTION_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Collection } from '@openheaders/core/types';
-import { logger } from '@utils/logger';
+import { logger } from '@openheaders/core/utils';
 import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
 import { projectCollection, seedCollection } from '@openheaders/oracle/sync-builders/collection-projection';
 import { driftRecorder } from '../modules/storage-drift';

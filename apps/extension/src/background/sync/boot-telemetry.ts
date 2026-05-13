@@ -29,7 +29,7 @@
  */
 
 import { getOracleHostHooks } from '@openheaders/oracle/sync';
-import { logger } from '@utils/logger';
+import { logger } from '@openheaders/core/utils';
 
 const SW_BOOT_AT = Date.now();
 

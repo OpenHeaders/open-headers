@@ -74,9 +74,8 @@ import {
   VAULT_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ENTITY_TYPE,
 } from '@openheaders/core/sync';
+import { logger } from '@openheaders/core/utils';
 import { getOracleHostHooks } from '@openheaders/oracle/sync';
-import { broadcast as bridgeBroadcast } from '@utils/bridge';
-import { logger } from '@utils/logger';
 import { type AwarenessStore, createAwarenessStore } from './awareness';
 import { handleAwarenessPublish } from './awareness-bridge';
 import { handleSyncApply, wireBroadcastToSink } from './bridge';
@@ -847,8 +846,8 @@ function productionDepsFactory(workspaceId: string): WireDeps {
     intents: new IdbPendingIntents(workspaceId),
     lock: ruleOracleLockAcquirer,
     recompile: (reason) => getOracleHostHooks().scheduleRuleEngineUpdate?.(reason),
-    sink: (event) => bridgeBroadcast('syncBroadcast', event),
-    awarenessSink: (presence) => bridgeBroadcast('awarenessBroadcast', { workspaceId, presence }),
+    sink: (event) => getOracleHostHooks().broadcastSyncEvent?.(event),
+    awarenessSink: (presence) => getOracleHostHooks().broadcastAwareness?.({ workspaceId, presence }),
   };
 }
 

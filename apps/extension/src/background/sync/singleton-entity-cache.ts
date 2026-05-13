@@ -26,7 +26,7 @@
  */
 
 import type { MutationBatch, MutatorContext } from '@openheaders/core/sync';
-import { logger } from '@utils/logger';
+import { logger } from '@openheaders/core/utils';
 import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';
 import type { EntityOracle } from './oracle';
 import type { SwMutatorContextFactory } from './sw-context';

@@ -28,8 +28,8 @@
 
 import type { SyncExtensionWorkspacePostState } from '@openheaders/core/protocol';
 import { EXTENSION_WORKSPACE_ENTITY_TYPE, EXTENSION_WORKSPACE_GLOBAL_SCOPE } from '@openheaders/core/sync';
-import { broadcast as bridgeBroadcast } from '@utils/bridge';
-import { logger } from '@utils/logger';
+import { logger } from '@openheaders/core/utils';
+import { getOracleHostHooks } from '@openheaders/oracle/sync';
 import { wireBroadcastToSink } from './bridge';
 import { InMemoryBroadcast } from './broadcast';
 import {
@@ -77,7 +77,7 @@ export function initGlobalSyncService(): void {
     log: new IdbMutationLog(EXTENSION_WORKSPACE_GLOBAL_SCOPE),
     intents: new IdbPendingIntents(EXTENSION_WORKSPACE_GLOBAL_SCOPE),
     lock: ruleOracleLockAcquirer,
-    sink: (event) => bridgeBroadcast('syncBroadcast', event),
+    sink: (event) => getOracleHostHooks().broadcastSyncEvent?.(event),
   });
   logger.info(
     'GlobalSyncService',

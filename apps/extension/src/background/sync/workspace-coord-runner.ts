@@ -56,7 +56,7 @@ import {
   PURGE_WORKSPACE_DATA,
   SWAP_PER_WORKSPACE_STORES,
 } from '@openheaders/core/sync';
-import { logger } from '@utils/logger';
+import { logger } from '@openheaders/core/utils';
 import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';
 import type { PendingIntents } from './pending-intents';
 

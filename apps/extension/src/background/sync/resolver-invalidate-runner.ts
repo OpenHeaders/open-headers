@@ -27,7 +27,7 @@
  */
 
 import { type EntityType, INVALIDATE_RESOLVER } from '@openheaders/core/sync';
-import { logger } from '@utils/logger';
+import { logger } from '@openheaders/core/utils';
 import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';
 import type { PendingIntents } from './pending-intents';
 

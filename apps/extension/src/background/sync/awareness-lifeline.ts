@@ -23,7 +23,7 @@
  * the same shape applies with WebSocket close events instead.
  */
 
-import { logger } from '@utils/logger';
+import { logger } from '@openheaders/core/utils';
 
 const LIFELINE_PREFIX = 'oh.awareness.lifeline:' as const;
 

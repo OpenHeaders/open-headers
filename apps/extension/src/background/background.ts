@@ -89,6 +89,8 @@ setOracleHostHooks({
   recordLog,
   scheduleRuleEngineUpdate: (reason) => scheduleRuleEngineUpdate(reason, { immediate: false }),
   disposeResolverStateForWorkspace,
+  broadcastSyncEvent: (event) => broadcast('syncBroadcast', event),
+  broadcastAwareness: (event) => broadcast('awarenessBroadcast', event),
 });
 import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
 import { bridgePauseMarkersSyncEngine, getPauseMarkers } from './modules/pause-markers-store';

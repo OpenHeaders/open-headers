@@ -31,7 +31,7 @@
  */
 
 import { type EntityType, RECOMPILE_DNR } from '@openheaders/core/sync';
-import { logger } from '@utils/logger';
+import { logger } from '@openheaders/core/utils';
 import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';
 import type { PendingIntents } from './pending-intents';
 
