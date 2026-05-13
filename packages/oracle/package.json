@@ -47,33 +47,17 @@
       "import": "./src/editing-scope/index.ts",
       "default": "./dist/editing-scope/index.js"
     },
-    "./entity": {
-      "import": "./src/entity/index.ts",
-      "default": "./dist/entity/index.js"
-    },
     "./entity/*": {
       "import": "./src/entity/*.ts",
       "default": "./dist/entity/*.js"
-    },
-    "./live": {
-      "import": "./src/live/index.ts",
-      "default": "./dist/live/index.js"
     },
     "./live/*": {
       "import": "./src/live/*.ts",
       "default": "./dist/live/*.js"
     },
-    "./workspace": {
-      "import": "./src/workspace/index.ts",
-      "default": "./dist/workspace/index.js"
-    },
     "./workspace/*": {
       "import": "./src/workspace/*.ts",
       "default": "./dist/workspace/*.js"
-    },
-    "./rule-engine": {
-      "import": "./src/rule-engine/index.ts",
-      "default": "./dist/rule-engine/index.js"
     },
     "./rule-engine/*": {
       "import": "./src/rule-engine/*.ts",
