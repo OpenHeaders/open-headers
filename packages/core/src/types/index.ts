@@ -200,6 +200,9 @@ export type { ExportSelection } from './workspace-export-selection';
 // ── Live cache row ─────────────────────────────────────────────────
 export type { WorkflowRunCache } from './live-cache';
 
+// ── Observability (local-first log ring) ──────────────────────────
+export type { LogEntry, LogEntryContext, LogLevel, LogSubsystem } from './observability';
+
 // ── Storage ────────────────────────────────────────────────────────
 export { GITIGNORE } from './storage';
 

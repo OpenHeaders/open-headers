@@ -16,7 +16,7 @@
  */
 
 import type * as v from 'valibot';
-import type { LogSubsystem } from '@/shared/observability/types';
+import type { LogSubsystem } from '@openheaders/core/types';
 import { report as reportStatus } from '@/shared/status';
 import type { StatusSubsystem } from '@/shared/status/types';
 import { recordLog } from './observability-log';

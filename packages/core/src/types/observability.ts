@@ -1,0 +1,72 @@
+/**
+ * Observability types — structured entries for the local-first ring buffer.
+ *
+ * Distinct from `logger`: `logger` writes to the host console only
+ * (debug stream). Observability entries are the *exportable* record —
+ * users attach them to bug reports, we never upload anything by default.
+ */
+
+export type LogLevel = 'info' | 'warn' | 'error';
+
+/**
+ * Fixed set of subsystems that can record entries. Adding a new
+ * subsystem is a manifest-level change (UI filter chips render from
+ * this list; status footers key pills off it).
+ */
+export type LogSubsystem =
+  | 'rule-engine'
+  | 'request-executor'
+  | 'workspace'
+  | 'environment'
+  | 'vault'
+  | 'permissions'
+  | 'extension'
+  | 'scripts'
+  | 'oauth'
+  | 'live'
+  | 'sync';
+
+export interface LogEntryContext {
+  /** Rule uid when the event relates to a specific rule. */
+  ruleId?: string;
+  /** Workspace id when the event is workspace-scoped. */
+  workspaceId?: string;
+  /** Request uid when the event relates to a specific request. */
+  requestId?: string;
+  /** Error class name (e.g. `TypeError`, `AbortError`) — helps triage. */
+  errorClass?: string;
+  /** Error stack for `error`-level entries. Never sent off-device. */
+  stack?: string;
+  /** App version at record time. Filled by the recorder. */
+  extensionVersion?: string;
+  /** Tab id when the event is tab-scoped (workspace tab registry, etc.). */
+  tabId?: number;
+  /** Count of tracked entities (workspace tabs, etc.) at record time. */
+  count?: number;
+  /** Script kind (`pre-request` | `post-response`) when the event is scripts-scoped. */
+  scriptKind?: 'pre-request' | 'post-response';
+  /** Script execution id when the event is tied to a specific run. */
+  executionId?: string;
+  /** OAuth credential reference when the event is auth-scoped. */
+  credentialRef?: string;
+  /** Live Workflow uid when the event is live-refresh scoped. */
+  workflowUid?: string;
+  /** Environment uid when the event is env-scoped (live scheduler / resolver). */
+  environmentId?: string | null;
+  /** Sync-engine boot phase identifier (set by boot telemetry). */
+  phase?: string;
+  /** Milliseconds elapsed between SW eval start and the recorded phase marker. */
+  phaseElapsedMs?: number;
+}
+
+export interface LogEntry {
+  /** `Date.now()` at record time. */
+  timestamp: number;
+  subsystem: LogSubsystem;
+  /** Short op code — stable across entries of the same kind (e.g. `dnr-update`, `fetch`). */
+  op: string;
+  level: LogLevel;
+  /** Human-readable summary. Not user-facing UI copy — triage text. */
+  message: string;
+  context: LogEntryContext;
+}

@@ -55,7 +55,7 @@ import type { WorkflowRunCache } from '@/background/modules/live-cache-store';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import type { TabTelemetrySnapshot } from '@openheaders/core/types';
 import type { LoadedTestRun, TestRunOwnerType } from '@openheaders/core/types';
-import type { LogEntry as ObservabilityLogEntry } from '@/shared/observability/types';
+import type { LogEntry as ObservabilityLogEntry } from '@openheaders/core/types';
 import type { StatusSnapshot } from '@/shared/status/types';
 import type { ActiveRule } from '@/types/browser';
 import type { PerfResourceEntry } from '@/types/perf';

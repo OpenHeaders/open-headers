@@ -28,7 +28,7 @@
 import { broadcast } from '@utils/bridge';
 import { logger } from '@utils/logger';
 import { LogRing } from '@/shared/observability/ring';
-import type { LogEntry } from '@/shared/observability/types';
+import type { LogEntry } from '@openheaders/core/types';
 import { extensionStorage, OH } from '@/shared/storage';
 
 const PERSIST_DEBOUNCE_MS = 250;
