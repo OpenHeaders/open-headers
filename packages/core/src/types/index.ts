@@ -227,3 +227,16 @@ export type {
 
 // ── Workspace ──────────────────────────────────────────────────────
 export type { Workspace, WorkspaceSection } from './workspace';
+
+// ── View mode (popup vs sidepanel) ────────────────────────────────
+export type { ViewMode } from './view-mode';
+export { DEFAULT_VIEW_MODE, VIEW_MODE_STORAGE_KEY } from './view-mode';
+
+// ── Editing-scope view state (per-tab snapshots + donor record) ──
+export type {
+  DonorRecord,
+  EditingScopeViewStateApi,
+  EditingScopeViewStateEnvelope,
+  SurfaceType,
+  UseEditingScopeViewStateOptions,
+} from './editing-scope-view-state';
