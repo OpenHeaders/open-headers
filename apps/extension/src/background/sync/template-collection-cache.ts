@@ -7,7 +7,7 @@ import { CollectionSchema } from '@openheaders/core/schemas';
 import { TEMPLATE_COLLECTION_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Collection } from '@openheaders/core/types';
 import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
-import { projectTemplateCollection, seedTemplateCollection } from '@/shared/sync/template-collection-projection';
+import { projectTemplateCollection, seedTemplateCollection } from '@openheaders/oracle/sync-builders/template-collection-projection';
 import { driftRecorder } from '../modules/storage-drift';
 import type { InMemoryBroadcast } from './broadcast';
 import { createFlatEntityCache } from './flat-entity-cache';

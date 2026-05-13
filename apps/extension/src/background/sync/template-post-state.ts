@@ -11,7 +11,7 @@
 import type { SyncTemplatePostState } from '@openheaders/core/protocol';
 import { TEMPLATE_CONDITIONS_PATH, TEMPLATE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Template } from '@openheaders/core/types';
-import { projectTemplate } from '@/shared/sync/template-projection';
+import { projectTemplate } from '@openheaders/oracle/sync-builders/template-projection';
 import { buildSetMembersExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
 import type { EntityOracle } from './oracle';
 

@@ -33,7 +33,7 @@ import {
   buildAddLiveVariableBatch,
   buildDeleteLiveVariableBatch,
   buildUpdateLiveVariableBatch,
-} from '@/shared/sync/live-variable-mutations';
+} from '@openheaders/oracle/sync-builders/live-variable-mutations';
 import { LIVE_VARIABLE_REGISTRATION } from '../sync/entity-registry';
 import type { LiveVariableCache } from '../sync/live-variable-cache';
 import {

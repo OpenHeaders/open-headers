@@ -12,8 +12,8 @@ import {
   TEMPLATE_FOLDER_ENTITY_TYPE,
 } from '@openheaders/core/sync';
 import type { Folder } from '@openheaders/core/types';
-import { projectTemplateCollection } from '@/shared/sync/template-collection-projection';
-import { projectTemplateFolder } from '@/shared/sync/template-folder-projection';
+import { projectTemplateCollection } from '@openheaders/oracle/sync-builders/template-collection-projection';
+import { projectTemplateFolder } from '@openheaders/oracle/sync-builders/template-folder-projection';
 import {
   type FolderTreeKinds,
   projectAllFoldersGeneric,

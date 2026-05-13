@@ -35,15 +35,15 @@ import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
 import {
   buildDeleteRequestCollectionBatch,
   buildRenameRequestCollectionBatch,
-} from '@/shared/sync/request-collection-mutations';
-import { seedRequestCollection } from '@/shared/sync/request-collection-projection';
+} from '@openheaders/oracle/sync-builders/request-collection-mutations';
+import { seedRequestCollection } from '@openheaders/oracle/sync-builders/request-collection-projection';
 import {
   buildCreateRequestFolderBatch,
   buildDeleteRequestFolderBatch,
   buildDeleteRequestFolderEntityBatch,
   buildRenameRequestFolderBatch,
-} from '@/shared/sync/request-folder-mutations';
-import { buildAddBatch, buildDeleteBatch, buildUpdateBatch } from '@/shared/sync/request-mutations';
+} from '@openheaders/oracle/sync-builders/request-folder-mutations';
+import { buildAddBatch, buildDeleteBatch, buildUpdateBatch } from '@openheaders/oracle/sync-builders/request-mutations';
 import {
   REQUEST_COLLECTION_REGISTRATION,
   REQUEST_FOLDER_REGISTRATION,

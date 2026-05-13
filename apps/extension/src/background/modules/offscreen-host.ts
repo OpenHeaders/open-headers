@@ -57,7 +57,7 @@ export function __setExecuteRequestDraft(fn: typeof executeRequestDraftRef): voi
   executeRequestDraftRef = fn;
 }
 
-import { buildSetWorkspaceVarBatch } from '@/shared/sync/workspace-variables-mutations';
+import { buildSetWorkspaceVarBatch } from '@openheaders/oracle/sync-builders/workspace-variables-mutations';
 import { getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
 import {
   getActiveEnvironmentId,

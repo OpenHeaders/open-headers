@@ -14,7 +14,7 @@ import { InMemoryMutationLog } from '@/background/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
 import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
 import { createTemplateCollectionCache } from '@/background/sync/template-collection-cache';
-import { buildDeleteTemplateCollectionBatch } from '@/shared/sync/template-collection-mutations';
+import { buildDeleteTemplateCollectionBatch } from '@openheaders/oracle/sync-builders/template-collection-mutations';
 import {
   projectTemplateCollectionByUid,
   projectTemplateCollectionPostState,

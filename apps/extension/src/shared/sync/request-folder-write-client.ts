@@ -27,8 +27,8 @@ import {
   buildDeleteRequestFolderEntityBatch,
   buildMoveRequestFolderBatch,
   buildRenameRequestFolderBatch,
-} from '@/shared/sync/request-folder-mutations';
-import { buildDeleteBatch as buildDeleteRequestBatch } from '@/shared/sync/request-mutations';
+} from '@openheaders/oracle/sync-builders/request-folder-mutations';
+import { buildDeleteBatch as buildDeleteRequestBatch } from '@openheaders/oracle/sync-builders/request-mutations';
 
 export { createRequestFolderSyncMirror } from '@/context/request-folder-sync-mirror';
 

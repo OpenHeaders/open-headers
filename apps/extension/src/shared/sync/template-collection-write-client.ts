@@ -33,10 +33,10 @@ import {
   buildRemoveTemplateCollectionVarBatch,
   buildRenameTemplateCollectionBatch,
   buildSetTemplateCollectionVarBatch,
-} from '@/shared/sync/template-collection-mutations';
-import { seedTemplateCollection } from '@/shared/sync/template-collection-projection';
-import { buildDeleteTemplateFolderEntityBatch } from '@/shared/sync/template-folder-mutations';
-import { buildDeleteBatch as buildDeleteTemplateBatch } from '@/shared/sync/template-mutations';
+} from '@openheaders/oracle/sync-builders/template-collection-mutations';
+import { seedTemplateCollection } from '@openheaders/oracle/sync-builders/template-collection-projection';
+import { buildDeleteTemplateFolderEntityBatch } from '@openheaders/oracle/sync-builders/template-folder-mutations';
+import { buildDeleteBatch as buildDeleteTemplateBatch } from '@openheaders/oracle/sync-builders/template-mutations';
 import { buildVariablesReplacement } from '@openheaders/oracle/sync-builders';
 
 export { createTemplateCollectionSyncMirror } from '@/context/template-collection-sync-mirror';

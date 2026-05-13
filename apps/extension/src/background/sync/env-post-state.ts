@@ -11,7 +11,7 @@
 import type { SyncEnvironmentPostState } from '@openheaders/core/protocol';
 import { ENV_VARS_PATH, ENVIRONMENT_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Environment } from '@openheaders/core/types';
-import { projectEnvironment } from '@/shared/sync/env-projection';
+import { projectEnvironment } from '@openheaders/oracle/sync-builders/env-projection';
 import { buildVarNamesExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
 import type { EntityOracle } from './oracle';
 

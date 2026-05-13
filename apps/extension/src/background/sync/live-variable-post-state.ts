@@ -9,7 +9,7 @@
 import type { SyncLiveVariablePostState } from '@openheaders/core/protocol';
 import { LIVE_VARIABLE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { LiveVariable } from '@openheaders/core/types';
-import { projectLiveVariable } from '@/shared/sync/live-variable-projection';
+import { projectLiveVariable } from '@openheaders/oracle/sync-builders/live-variable-projection';
 import { makeFlatEntityProjectors } from './flat-entity-post-state';
 import type { EntityOracle } from './oracle';
 

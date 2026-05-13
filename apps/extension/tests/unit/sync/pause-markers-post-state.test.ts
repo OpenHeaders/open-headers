@@ -20,7 +20,7 @@ import {
   projectPauseMarkersSingleton,
 } from '@/background/sync/pause-markers-post-state';
 import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
-import { seedPauseMarkers } from '@/shared/sync/pause-markers-projection';
+import { seedPauseMarkers } from '@openheaders/oracle/sync-builders/pause-markers-projection';
 
 const wsId = 'ws-1';
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();

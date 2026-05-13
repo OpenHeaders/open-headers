@@ -19,7 +19,7 @@ import {
 import { InMemoryMutationLog } from '@/background/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
 import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
-import { seedLayoutState } from '@/shared/sync/layout-state-projection';
+import { seedLayoutState } from '@openheaders/oracle/sync-builders/layout-state-projection';
 
 const wsId = 'ws-1';
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();

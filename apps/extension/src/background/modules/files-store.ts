@@ -26,7 +26,7 @@ import type { FileRef } from '@openheaders/core/files';
 import type { FileRefSlot, MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
 import { logger } from '@utils/logger';
 import * as BlobStore from '@openheaders/oracle/files';
-import { buildAddFileRefBatch, buildRemoveFileRefBatch, buildRenameFileRefBatch } from '@/shared/sync/files-mutations';
+import { buildAddFileRefBatch, buildRemoveFileRefBatch, buildRenameFileRefBatch } from '@openheaders/oracle/sync-builders/files-mutations';
 import { FILES_REGISTRATION } from '../sync/entity-registry';
 import type { FilesCache } from '../sync/files-cache';
 import {

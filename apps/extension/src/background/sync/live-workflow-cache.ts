@@ -7,7 +7,7 @@ import { LiveWorkflowSchema } from '@openheaders/core/schemas';
 import { LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { LiveWorkflow } from '@openheaders/core/types';
 import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
-import { projectLiveWorkflow, seedLiveWorkflow } from '@/shared/sync/live-workflow-projection';
+import { projectLiveWorkflow, seedLiveWorkflow } from '@openheaders/oracle/sync-builders/live-workflow-projection';
 import { driftRecorder } from '../modules/storage-drift';
 import type { InMemoryBroadcast } from './broadcast';
 import { createFlatEntityCache } from './flat-entity-cache';

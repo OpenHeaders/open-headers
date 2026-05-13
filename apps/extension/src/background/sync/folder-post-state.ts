@@ -15,8 +15,8 @@ import {
   type MutationEnvelope,
 } from '@openheaders/core/sync';
 import type { Folder } from '@openheaders/core/types';
-import { projectCollection } from '@/shared/sync/collection-projection';
-import { projectFolder } from '@/shared/sync/folder-projection';
+import { projectCollection } from '@openheaders/oracle/sync-builders/collection-projection';
+import { projectFolder } from '@openheaders/oracle/sync-builders/folder-projection';
 import {
   type FolderTreeKinds,
   projectAllFoldersGeneric,

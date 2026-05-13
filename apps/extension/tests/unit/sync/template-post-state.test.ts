@@ -22,7 +22,7 @@ import {
   projectTemplateByUid,
   projectTemplatePostState,
 } from '@/background/sync/template-post-state';
-import { seedTemplate } from '@/shared/sync/template-projection';
+import { seedTemplate } from '@openheaders/oracle/sync-builders/template-projection';
 
 const wsId = 'ws-1';
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();

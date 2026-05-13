@@ -20,7 +20,7 @@ import { projectEnvironmentByUid, projectEnvironmentPostState } from '@/backgrou
 import { InMemoryMutationLog } from '@/background/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
 import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
-import { seedEnvironment } from '@/shared/sync/env-projection';
+import { seedEnvironment } from '@openheaders/oracle/sync-builders/env-projection';
 
 const wsId = 'ws-1';
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();

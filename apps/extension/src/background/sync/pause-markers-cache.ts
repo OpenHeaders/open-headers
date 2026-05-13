@@ -15,7 +15,7 @@ import {
   EMPTY_PAUSE_MARKERS,
   type PauseMarkersSnapshot,
   seedPauseMarkers,
-} from '@/shared/sync/pause-markers-projection';
+} from '@openheaders/oracle/sync-builders/pause-markers-projection';
 import type { InMemoryBroadcast } from './broadcast';
 import type { EntityOracle } from './oracle';
 import { projectPauseMarkersSingleton } from './pause-markers-post-state';

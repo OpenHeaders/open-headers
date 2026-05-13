@@ -28,7 +28,7 @@ import {
   buildAddBatch,
   buildDeleteBatch,
   buildUpdateBatch,
-} from '@/shared/sync/request-mutations';
+} from '@openheaders/oracle/sync-builders/request-mutations';
 
 export type RequestUpdates = Partial<Omit<Request, 'uid' | 'path' | 'schemaVersion'>>;
 

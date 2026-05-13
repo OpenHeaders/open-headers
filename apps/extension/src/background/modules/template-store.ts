@@ -30,15 +30,15 @@ import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
 import {
   buildDeleteTemplateCollectionBatch,
   buildRenameTemplateCollectionBatch,
-} from '@/shared/sync/template-collection-mutations';
-import { seedTemplateCollection } from '@/shared/sync/template-collection-projection';
+} from '@openheaders/oracle/sync-builders/template-collection-mutations';
+import { seedTemplateCollection } from '@openheaders/oracle/sync-builders/template-collection-projection';
 import {
   buildCreateTemplateFolderBatch,
   buildDeleteTemplateFolderBatch,
   buildDeleteTemplateFolderEntityBatch,
   buildRenameTemplateFolderBatch,
-} from '@/shared/sync/template-folder-mutations';
-import { buildAddBatch, buildDeleteBatch, buildUpdateBatch } from '@/shared/sync/template-mutations';
+} from '@openheaders/oracle/sync-builders/template-folder-mutations';
+import { buildAddBatch, buildDeleteBatch, buildUpdateBatch } from '@openheaders/oracle/sync-builders/template-mutations';
 import {
   TEMPLATE_COLLECTION_REGISTRATION,
   TEMPLATE_FOLDER_REGISTRATION,

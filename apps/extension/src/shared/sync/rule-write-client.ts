@@ -37,7 +37,7 @@ import {
   buildDeleteBatch,
   buildToggleBatch,
   buildUpdateBatch,
-} from '@/shared/sync/rule-mutations';
+} from '@openheaders/oracle/sync-builders/rule-mutations';
 
 export type RuleUpdates = Partial<Omit<Rule, 'uid' | 'path' | 'schemaVersion'>>;
 

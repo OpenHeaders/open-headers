@@ -34,10 +34,10 @@ import {
   buildRemoveRequestCollectionVarBatch,
   buildRenameRequestCollectionBatch,
   buildSetRequestCollectionVarBatch,
-} from '@/shared/sync/request-collection-mutations';
-import { seedRequestCollection } from '@/shared/sync/request-collection-projection';
-import { buildDeleteRequestFolderEntityBatch } from '@/shared/sync/request-folder-mutations';
-import { buildDeleteBatch as buildDeleteRequestBatch } from '@/shared/sync/request-mutations';
+} from '@openheaders/oracle/sync-builders/request-collection-mutations';
+import { seedRequestCollection } from '@openheaders/oracle/sync-builders/request-collection-projection';
+import { buildDeleteRequestFolderEntityBatch } from '@openheaders/oracle/sync-builders/request-folder-mutations';
+import { buildDeleteBatch as buildDeleteRequestBatch } from '@openheaders/oracle/sync-builders/request-mutations';
 import { buildVariablesReplacement } from '@openheaders/oracle/sync-builders';
 
 export { createRequestCollectionSyncMirror } from '@/context/request-collection-sync-mirror';

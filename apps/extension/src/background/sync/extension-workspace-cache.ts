@@ -22,7 +22,7 @@
 
 import { EXTENSION_WORKSPACE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
-import { seedExtensionWorkspaces } from '@/shared/sync/extension-workspace-projection';
+import { seedExtensionWorkspaces } from '@openheaders/oracle/sync-builders/extension-workspace-projection';
 import type { InMemoryBroadcast } from './broadcast';
 import { projectExtensionWorkspaceSingleton } from './extension-workspace-post-state';
 import type { EntityOracle } from './oracle';

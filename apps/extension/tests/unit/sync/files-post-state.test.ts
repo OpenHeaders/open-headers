@@ -17,7 +17,7 @@ import { projectFilesPostState, projectFilesSingleton } from '@/background/sync/
 import { InMemoryMutationLog } from '@/background/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
 import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
-import { seedFiles } from '@/shared/sync/files-projection';
+import { seedFiles } from '@openheaders/oracle/sync-builders/files-projection';
 
 const wsId = 'ws-1';
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();

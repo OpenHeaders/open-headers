@@ -44,7 +44,7 @@ import {
   buildRemoveEnvVarBatch,
   buildRenameEnvironmentBatch,
   buildSetEnvVarBatch,
-} from '@/shared/sync/env-mutations';
+} from '@openheaders/oracle/sync-builders/env-mutations';
 
 // `createEnvSyncMirror` is re-exported so tests can construct a mirror
 // without going through the singleton.

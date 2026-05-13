@@ -33,8 +33,8 @@ import {
   buildDeleteFolderEntityBatch,
   buildMoveFolderBatch,
   buildRenameFolderBatch,
-} from '@/shared/sync/folder-mutations';
-import { buildDeleteBatch as buildDeleteRuleBatch } from '@/shared/sync/rule-mutations';
+} from '@openheaders/oracle/sync-builders/folder-mutations';
+import { buildDeleteBatch as buildDeleteRuleBatch } from '@openheaders/oracle/sync-builders/rule-mutations';
 
 export { createFolderSyncMirror } from '@/context/folder-sync-mirror';
 

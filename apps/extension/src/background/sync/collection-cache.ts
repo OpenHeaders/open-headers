@@ -21,7 +21,7 @@ import { COLLECTION_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Collection } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
-import { projectCollection, seedCollection } from '@/shared/sync/collection-projection';
+import { projectCollection, seedCollection } from '@openheaders/oracle/sync-builders/collection-projection';
 import { driftRecorder } from '../modules/storage-drift';
 import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';
 import type { EntityOracle } from './oracle';

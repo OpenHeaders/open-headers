@@ -32,7 +32,7 @@ import {
   buildRemoveExtensionWorkspaceBatch,
   buildSetActiveExtensionWorkspaceBatch,
   buildSetExtensionWorkspaceBatch,
-} from '@/shared/sync/extension-workspace-mutations';
+} from '@openheaders/oracle/sync-builders/extension-workspace-mutations';
 import {
   type ExtensionWorkspaceSlot,
   keyBetween,

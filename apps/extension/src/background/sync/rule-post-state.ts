@@ -13,7 +13,7 @@
 import type { SyncRulePostState } from '@openheaders/core/protocol';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Rule } from '@openheaders/core/types';
-import { projectRule } from '@/shared/sync/rule-projection';
+import { projectRule } from '@openheaders/oracle/sync-builders/rule-projection';
 import { buildSetMembersExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
 import type { EntityOracle } from './oracle';
 

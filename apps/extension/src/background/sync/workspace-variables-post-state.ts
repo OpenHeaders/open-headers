@@ -12,7 +12,7 @@ import {
   WORKSPACE_VARIABLES_ID,
   WORKSPACE_VARIABLES_PATH,
 } from '@openheaders/core/sync';
-import { projectWorkspaceVariables } from '@/shared/sync/workspace-variables-projection';
+import { projectWorkspaceVariables } from '@openheaders/oracle/sync-builders/workspace-variables-projection';
 import { makeSingletonEntityProjectors } from './flat-entity-post-state';
 import type { EntityOracle } from './oracle';
 
