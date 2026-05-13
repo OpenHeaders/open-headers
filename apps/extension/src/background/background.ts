@@ -98,6 +98,9 @@ setOracleHostHooks({
       message: entry.message,
       context: entry.context,
     }),
+  getActiveWorkspaceId,
+  peekActiveWorkspaceId,
+  getCachedTotpCodes,
 });
 import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
 import { bridgePauseMarkersSyncEngine, getPauseMarkers } from './modules/pause-markers-store';
@@ -139,7 +142,7 @@ import {
 } from './modules/template-store';
 import { pruneOrphanOwners } from './modules/test-run-store';
 import { setupTestRunnerPorts } from './modules/test-runner';
-import { bootstrapTotpScheduler, handleTotpAlarm, isTotpAlarm } from './modules/totp-scheduler';
+import { bootstrapTotpScheduler, getCachedTotpCodes, handleTotpAlarm, isTotpAlarm } from './modules/totp-scheduler';
 import { __setSyncWarmRunner, getUnresolvableRuleUids, hydrateLiveCacheMirror } from './modules/variables-resolver';
 import { initializeViewMode } from './modules/view-mode';
 import { isHandoffSweepAlarm, sweepExpiredHandoffs } from './modules/workspace-export-handoff-store';

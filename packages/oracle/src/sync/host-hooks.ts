@@ -34,6 +34,7 @@ import type {
 } from '@openheaders/core/protocol';
 import type { MutationEnvelope, MutatorOutcome } from '@openheaders/core/sync';
 import type { LogEntry } from '@openheaders/core/types';
+import type { TotpRegistry } from '@openheaders/core/variables';
 
 /**
  * Per-mutation broadcast emitted by the sync engine. Carries the
@@ -107,6 +108,26 @@ export interface OracleHostHooks {
    * closed set.
    */
   reportStatus?: (entry: OracleStatusReport) => void;
+  /**
+   * Return the host's current active-workspace pointer or throw if the
+   * host hasn't bootstrapped one yet. Per-app-instance state owned by
+   * the host (architecture taxonomy §4.3). Workspace-scoped stores
+   * call this when they need to know which slice to read or mutate.
+   */
+  getActiveWorkspaceId?: () => string;
+  /**
+   * Non-throwing variant — returns null when no active workspace is
+   * set (boot, post-tear-down). Callers that can short-circuit safely
+   * prefer this over {@link getActiveWorkspaceId}.
+   */
+  peekActiveWorkspaceId?: () => string | null;
+  /**
+   * Synchronous read of the host's cached TOTP code mirror. The DNR
+   * compile path inside the resolver reads this on every refresh;
+   * async crypto stays out of the resolver's hot path because the
+   * host pre-warms the cache on its own cadence.
+   */
+  getCachedTotpCodes?: () => TotpRegistry;
 }
 
 export interface OracleStatusReport {
