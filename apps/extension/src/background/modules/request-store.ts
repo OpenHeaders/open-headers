@@ -30,8 +30,8 @@ import {
 import type { Collection, CollectionTree, Request, TreeNode } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
-import type { PersistedLocalFolder } from '@/shared/storage';
-import { extensionStorage, wsKeys } from '@/shared/storage';
+import type { PersistedLocalFolder } from '@openheaders/oracle/storage';
+import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
 import {
   buildDeleteRequestCollectionBatch,
   buildRenameRequestCollectionBatch,

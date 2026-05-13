@@ -13,7 +13,7 @@
 import { VaultSchema } from '@openheaders/core/schemas';
 import { VAULT_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Vault } from '@openheaders/core/types';
-import { extensionStorage, wsKeys } from '@/shared/storage';
+import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
 import { seedVault } from '@/shared/sync/vault-projection';
 import { driftRecorder } from '../modules/storage-drift';
 import type { InMemoryBroadcast } from './broadcast';

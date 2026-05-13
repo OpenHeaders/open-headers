@@ -20,7 +20,7 @@ import type { DockLayoutApi, ToolLayoutState } from '@/shared/dock-layout';
 import { normalizeDockLayout, useDockLayout } from '@/shared/dock-layout';
 import type { EditingScopeViewStateApi, WorkspaceSlice } from '@/shared/editing-scope-view-state';
 import { createWorkspaceAwareResolver, useEditingScopeViewState } from '@/shared/editing-scope-view-state';
-import { extensionStorage, type PersistedTabSession, wsKeys } from '@/shared/storage';
+import { extensionStorage, type PersistedTabSession, wsKeys } from '@openheaders/oracle/storage';
 import type { SidebarView } from '../components/sidebar/types';
 import { get as getSetting } from '../settings/store';
 import { focusStore } from '../stores/focus-region-store';

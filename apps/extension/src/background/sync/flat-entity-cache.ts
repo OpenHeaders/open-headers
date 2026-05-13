@@ -19,7 +19,7 @@
 
 import type { MaterializedEntity, MutationBatch, MutatorContext } from '@openheaders/core/sync';
 import { logger } from '@utils/logger';
-import { extensionStorage, type StorageKey } from '@/shared/storage';
+import { extensionStorage, type StorageKey } from '@openheaders/oracle/storage';
 import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';
 import type { EntityOracle } from './oracle';
 import type { SwMutatorContextFactory } from './sw-context';

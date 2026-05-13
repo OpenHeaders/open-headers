@@ -21,7 +21,7 @@
  */
 
 import { hashToBoundIntent } from '@openheaders/core/workspace-intent';
-import { extensionStorage, OH } from '@/shared/storage';
+import { extensionStorage, OH } from '@openheaders/oracle/storage';
 
 export async function readGlobalActiveWorkspaceId(): Promise<string | null> {
   try {

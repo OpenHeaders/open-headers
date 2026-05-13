@@ -30,7 +30,7 @@
 import { RuleSchema } from '@openheaders/core/schemas';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Rule } from '@openheaders/core/types';
-import { extensionStorage, wsKeys } from '@/shared/storage';
+import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
 import { projectRule, seedRule } from '@/shared/sync/rule-projection';
 import { driftRecorder } from '../modules/storage-drift';
 import type { InMemoryBroadcast } from './broadcast';

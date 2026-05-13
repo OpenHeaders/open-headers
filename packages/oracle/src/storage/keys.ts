@@ -20,10 +20,21 @@
  * modules and declared in the respective module — not registered here.
  */
 
-import type { Collection, Environment, ExtensionWorkspace, LiveVariable, LiveWorkflow, Request, Rule, Template, Vault, WorkspaceVariables } from '@openheaders/core/types';
+import type {
+  Collection,
+  Environment,
+  ExtensionWorkspace,
+  LiveVariable,
+  LiveWorkflow,
+  LogEntry,
+  Request,
+  Rule,
+  Template,
+  Vault,
+  ViewMode,
+  WorkspaceVariables,
+} from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
-import type { LogEntry } from '@openheaders/core/types';
-import type { ViewMode } from '@/shared/view-mode/types';
 
 // ── Core key type ────────────────────────────────────────────────────
 

@@ -17,8 +17,17 @@
 
 import { type ParseEntityOptions, parseEntity, parseEntityArray } from '@openheaders/core/schemas';
 import type * as v from 'valibot';
-import { getBrowserAPI } from '@/types/browser';
 import type { StorageArea, StorageKey } from './keys';
+
+// Inlined cross-browser API resolver. Firefox exposes the WebExtension
+// surface as `browser`; everywhere else it's `chrome`. Mirrored from
+// `@/types/browser` so this package does not reach back into the host
+// app's path aliases.
+declare const browser: typeof chrome | undefined;
+
+function getBrowserAPI(): typeof chrome {
+  return typeof browser !== 'undefined' ? browser : chrome;
+}
 
 // ── Raw-area abstraction ─────────────────────────────────────────────
 

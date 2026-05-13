@@ -424,7 +424,7 @@ export function handleGeneralMessage(
       const workspaceId = message.workspaceId as string;
       void (async () => {
         try {
-          const { extensionStorage, wsKeys } = await import('@/shared/storage');
+          const { extensionStorage, wsKeys } = await import('@openheaders/oracle/storage');
           const snapshots =
             ((await extensionStorage.get(wsKeys(workspaceId).lastImportedSnapshots)) as
               | Record<string, string>

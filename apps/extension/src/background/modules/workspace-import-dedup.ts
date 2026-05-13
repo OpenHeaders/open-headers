@@ -14,7 +14,7 @@ import type { DedupMatchEntry, DedupMatchesResult, FindMatchesArgs } from '@open
 import type { WorkspaceExportImportReport } from '@openheaders/core/import';
 import { ImportReportSchema } from '@openheaders/core/import';
 import { parseEntityArray } from '@openheaders/core/schemas';
-import { extensionStorage, wsKeys } from '@/shared/storage';
+import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
 import { listWorkspaces } from './workspace-store';
 
 export type { DedupMatchEntry, DedupMatchesResult, FindMatchesArgs } from '@openheaders/core/types';

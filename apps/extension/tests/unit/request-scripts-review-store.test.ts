@@ -17,8 +17,8 @@ vi.mock('@/background/modules/workspace-store', () => ({
   getActiveWorkspaceId: vi.fn(() => 'ws-active'),
 }));
 
-vi.mock('@/shared/storage', async () => {
-  const actual = await vi.importActual<typeof import('@/shared/storage')>('@/shared/storage');
+vi.mock('@openheaders/oracle/storage', async () => {
+  const actual = await vi.importActual<typeof import('@openheaders/oracle/storage')>('@openheaders/oracle/storage');
   return {
     ...actual,
     extensionStorage: {

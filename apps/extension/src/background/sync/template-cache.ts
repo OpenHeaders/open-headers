@@ -6,7 +6,7 @@
 import { TemplateSchema } from '@openheaders/core/schemas';
 import { TEMPLATE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Template } from '@openheaders/core/types';
-import { extensionStorage, wsKeys } from '@/shared/storage';
+import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
 import { projectTemplate, seedTemplate } from '@/shared/sync/template-projection';
 import { driftRecorder } from '../modules/storage-drift';
 import type { InMemoryBroadcast } from './broadcast';

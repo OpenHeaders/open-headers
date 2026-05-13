@@ -22,14 +22,18 @@ beforeEach(() => {
   vi.useRealTimers();
 });
 
-vi.mock('@/shared/storage/extension-storage', () => ({
-  extensionStorage: {
-    get: vi.fn(async (spec: { key: string }) => store[spec.key]),
-    set: vi.fn(async (spec: { key: string }, value: unknown) => {
-      store[spec.key] = value;
-    }),
-  },
-}));
+vi.mock('@openheaders/oracle/storage', async () => {
+  const real = await vi.importActual<typeof import('@openheaders/oracle/storage')>('@openheaders/oracle/storage');
+  return {
+    ...real,
+    extensionStorage: {
+      get: vi.fn(async (spec: { key: string }) => store[spec.key]),
+      set: vi.fn(async (spec: { key: string }, value: unknown) => {
+        store[spec.key] = value;
+      }),
+    },
+  };
+});
 
 // ── Tests ──────────────────────────────────────────────────────────
 

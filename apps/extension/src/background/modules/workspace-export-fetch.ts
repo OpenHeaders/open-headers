@@ -21,7 +21,7 @@
  */
 
 import { logger } from '@utils/logger';
-import { ALLOWED_FETCH_HOSTS_SETTING_KEY, DEFAULT_ALLOWED_FETCH_HOSTS, extensionStorage, OH } from '@/shared/storage';
+import { ALLOWED_FETCH_HOSTS_SETTING_KEY, DEFAULT_ALLOWED_FETCH_HOSTS, extensionStorage, OH } from '@openheaders/oracle/storage';
 import { recordLog } from './observability-log';
 
 /** Hard cap for the URL-fetch source body size — design §5.1. */

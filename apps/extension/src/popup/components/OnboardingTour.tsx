@@ -19,7 +19,7 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import DockSlotIcon from '@/shared/dock-layout/DockSlotIcon';
 import LayoutMenuIcon from '@/shared/dock-layout/LayoutMenuIcon';
-import { extensionStorage, UI } from '@/shared/storage';
+import { extensionStorage, UI } from '@openheaders/oracle/storage';
 import { getBrowserAPI } from '@/types/browser';
 
 const logoUrl = getBrowserAPI().runtime.getURL('images/logo-pixel.svg');

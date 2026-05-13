@@ -10,7 +10,7 @@ import {
   type FolderParentRef,
 } from '@openheaders/core/sync';
 import type { Collection, Folder } from '@openheaders/core/types';
-import { type PersistedLocalFolder, wsKeys } from '@/shared/storage';
+import { type PersistedLocalFolder, wsKeys } from '@openheaders/oracle/storage';
 import { buildCreateFolderBatch } from '@/shared/sync/folder-mutations';
 import type { InMemoryBroadcast } from './broadcast';
 import { projectAllFolders } from './folder-post-state';

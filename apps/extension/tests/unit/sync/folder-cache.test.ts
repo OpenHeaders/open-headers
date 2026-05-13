@@ -18,7 +18,7 @@ import { InMemoryMutationLog } from '@/background/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
 import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
 import { seedCollection } from '@/shared/sync/collection-projection';
-import type { PersistedLocalFolder } from '@/shared/storage';
+import type { PersistedLocalFolder } from '@openheaders/oracle/storage';
 
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
 

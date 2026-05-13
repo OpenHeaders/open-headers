@@ -32,7 +32,7 @@ import type { Collection, CollectionTree, Rule, TreeNode, Variable } from '@open
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 import { entityLockName, withLock } from '@openheaders/oracle/coordination';
-import { extensionStorage, type PersistedLocalFolder, wsKeys } from '@/shared/storage';
+import { extensionStorage, type PersistedLocalFolder, wsKeys } from '@openheaders/oracle/storage';
 import {
   buildDeleteCollectionBatch,
   buildRenameCollectionBatch,

@@ -20,7 +20,7 @@ import { CollectionSchema } from '@openheaders/core/schemas';
 import { type MutationBatch, type MutatorContext, newBatchId, type SideEffectIntent } from '@openheaders/core/sync';
 import type { Collection, Folder } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
-import { extensionStorage, type PersistedLocalFolder, type StorageKey } from '@/shared/storage';
+import { extensionStorage, type PersistedLocalFolder, type StorageKey } from '@openheaders/oracle/storage';
 import { driftRecorder } from '../modules/storage-drift';
 import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';
 import type { EntityOracle } from './oracle';

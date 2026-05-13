@@ -12,8 +12,7 @@
  * Chrome.storage.local only.
  */
 
-import { extensionStorage } from '@/shared/storage/extension-storage';
-import { type StorageKey, storageKey } from '@/shared/storage/keys';
+import { extensionStorage, type StorageKey, storageKey } from '@openheaders/oracle/storage';
 
 export const RECENTS_CAP = 8;
 export const RECENTS_SCHEMA_VERSION = 5 as const;

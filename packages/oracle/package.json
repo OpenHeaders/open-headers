@@ -30,6 +30,14 @@
     "./coordination": {
       "import": "./src/coordination/index.ts",
       "default": "./dist/coordination/index.js"
+    },
+    "./view-mode": {
+      "import": "./src/view-mode/index.ts",
+      "default": "./dist/view-mode/index.js"
+    },
+    "./editing-scope": {
+      "import": "./src/editing-scope/index.ts",
+      "default": "./dist/editing-scope/index.js"
     }
   },
   "scripts": {
@@ -38,7 +46,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@openheaders/core": "workspace:*"
+    "@openheaders/core": "workspace:*",
+    "valibot": "^1.3.1"
   },
   "devDependencies": {
     "@types/chrome": "^0.1.38",

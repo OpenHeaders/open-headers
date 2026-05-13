@@ -9,8 +9,8 @@ const { mockGet } = vi.hoisted(() => ({
   mockGet: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => undefined),
 }));
 
-vi.mock('@/shared/storage', async () => {
-  const real = await vi.importActual<typeof import('@/shared/storage')>('@/shared/storage');
+vi.mock('@openheaders/oracle/storage', async () => {
+  const real = await vi.importActual<typeof import('@openheaders/oracle/storage')>('@openheaders/oracle/storage');
   return {
     ...real,
     extensionStorage: {

@@ -17,7 +17,7 @@
  */
 
 import type { Collection, CollectionTree, Request, Rule, Template, TreeNode } from '@openheaders/core/types';
-import type { PersistedLocalFolder } from './storage';
+import type { PersistedLocalFolder } from '@openheaders/oracle/storage';
 
 function parentPathOf(path: string): string {
   const slash = path.lastIndexOf('/');

@@ -21,7 +21,7 @@ import {
   projectTemplateFolderByUid,
   projectTemplateFolderPostState,
 } from '@/background/sync/template-folder-post-state';
-import type { PersistedLocalFolder } from '@/shared/storage';
+import type { PersistedLocalFolder } from '@openheaders/oracle/storage';
 
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
 

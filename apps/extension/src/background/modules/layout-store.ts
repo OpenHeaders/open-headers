@@ -14,7 +14,7 @@
  */
 
 import { logger } from '@utils/logger';
-import { extensionStorage, type PersistedPanelLayout, wsKeys } from '@/shared/storage';
+import { extensionStorage, type PersistedPanelLayout, wsKeys } from '@openheaders/oracle/storage';
 import { LAYOUT_STATE_REGISTRATION } from '../sync/entity-registry';
 import type { LayoutStateCache } from '../sync/layout-state-cache';
 import { getActiveCacheForRegistration } from '../sync/service';

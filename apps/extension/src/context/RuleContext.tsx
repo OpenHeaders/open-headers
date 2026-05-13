@@ -28,7 +28,7 @@ import type React from 'react';
 import { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePauseMarkersContext } from '@/context/PauseMarkersContext';
 import { buildLocalCollectionTrees, buildTemplateCollectionTrees } from '@/shared/local-tree-builder';
-import { extensionStorage, type PersistedLocalFolder, UI, wsKeys } from '@/shared/storage';
+import { extensionStorage, type PersistedLocalFolder, UI, wsKeys } from '@openheaders/oracle/storage';
 import {
   applyCollectionCreate,
   applyCollectionDelete,

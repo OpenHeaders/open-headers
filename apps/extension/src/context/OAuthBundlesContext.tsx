@@ -28,7 +28,7 @@ import type { OAuth2Auth } from '@openheaders/core/types';
 import { call } from '@utils/bridge';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { extensionStorage, wsKeys } from '@/shared/storage';
+import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
 import { applyOAuthRevoke } from '@/shared/sync/oauth-bundle-write-client';
 
 interface PersistedOAuthBlob {

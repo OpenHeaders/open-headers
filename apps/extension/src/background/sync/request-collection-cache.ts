@@ -6,7 +6,7 @@
 import { CollectionSchema } from '@openheaders/core/schemas';
 import { REQUEST_COLLECTION_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Collection } from '@openheaders/core/types';
-import { extensionStorage, wsKeys } from '@/shared/storage';
+import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
 import { projectRequestCollection, seedRequestCollection } from '@/shared/sync/request-collection-projection';
 import { driftRecorder } from '../modules/storage-drift';
 import type { InMemoryBroadcast } from './broadcast';

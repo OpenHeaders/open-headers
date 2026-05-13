@@ -51,7 +51,7 @@ import {
   getActiveExtensionWorkspaceCache,
 } from '@/background/sync/extension-workspace-cache';
 import { getGlobalOracle, nextGlobalSwContext } from '@/background/sync/global-service';
-import { extensionStorage, OH } from '@/shared/storage';
+import { extensionStorage, OH } from '@openheaders/oracle/storage';
 import { buildSetExtensionWorkspaceBatch } from '@/shared/sync/extension-workspace-mutations';
 import { driftRecorder } from './storage-drift';
 

@@ -6,7 +6,7 @@
 import { EnvironmentSchema } from '@openheaders/core/schemas';
 import { ENVIRONMENT_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Environment } from '@openheaders/core/types';
-import { extensionStorage, wsKeys } from '@/shared/storage';
+import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
 import { projectEnvironment, seedEnvironment } from '@/shared/sync/env-projection';
 import { driftRecorder } from '../modules/storage-drift';
 import type { InMemoryBroadcast } from './broadcast';

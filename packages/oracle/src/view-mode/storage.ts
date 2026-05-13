@@ -5,8 +5,8 @@
  * machines.
  */
 
-import { extensionStorage, OH } from '@/shared/storage';
-import { DEFAULT_VIEW_MODE, type ViewMode } from './types';
+import { DEFAULT_VIEW_MODE, type ViewMode } from '@openheaders/core/types';
+import { extensionStorage, OH } from '../storage';
 
 export async function getViewMode(): Promise<ViewMode> {
   const stored = await extensionStorage.get(OH.viewMode);

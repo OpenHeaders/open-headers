@@ -10,7 +10,7 @@ import {
   type TemplateFolderParentRef,
 } from '@openheaders/core/sync';
 import type { Collection, Folder } from '@openheaders/core/types';
-import { type PersistedLocalFolder, wsKeys } from '@/shared/storage';
+import { type PersistedLocalFolder, wsKeys } from '@openheaders/oracle/storage';
 import { buildCreateTemplateFolderBatch } from '@/shared/sync/template-folder-mutations';
 import type { InMemoryBroadcast } from './broadcast';
 import { createFolderTreeCache, type FolderTreeCacheConfig } from './folder-tree-cache';

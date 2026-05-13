@@ -27,7 +27,7 @@
 
 import { call } from '@utils/bridge';
 import { logger } from '@utils/logger';
-import { setViewMode as persistViewMode } from './storage';
+import { setViewMode as persistViewMode } from '@openheaders/oracle/view-mode';
 import type { ViewMode } from './types';
 
 interface SidePanelOpenOptions {

@@ -13,7 +13,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
-import { extensionStorage, type PersistedTabSession, wsKeys } from '@/shared/storage';
+import { extensionStorage, type PersistedTabSession, wsKeys } from '@openheaders/oracle/storage';
 import {
   activateTabInLeaf,
   type EditorLeaf,

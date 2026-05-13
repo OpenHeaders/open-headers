@@ -25,7 +25,7 @@ import type { PauseMarker } from '@openheaders/core/utils';
 import { resolvePauseState } from '@openheaders/core/utils';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { extensionStorage, wsKeys } from '@/shared/storage';
+import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
 import {
   applyPauseMarkerClear,
   applyPauseMarkerSet,

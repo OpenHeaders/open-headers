@@ -10,8 +10,8 @@
  * walks every committed `v<N>.json` to lock this in (design § 8.3).
  */
 
-import { extensionStorage, type StorageKey, storageKey } from '@/shared/storage';
-import type { DonorRecord, SurfaceType } from './types';
+import type { DonorRecord, SurfaceType } from '@openheaders/core/types';
+import { extensionStorage, type StorageKey, storageKey } from '../storage';
 
 function donorKey(surface: SurfaceType): StorageKey<DonorRecord<unknown>> {
   return storageKey<DonorRecord<unknown>>(`oh.donorRecord.${surface}`);

@@ -29,7 +29,7 @@ import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheade
 import type { OAuth2Auth } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import { entityLockName, withLock } from '@openheaders/oracle/coordination';
-import { extensionStorage, OH, wsKeys } from '@/shared/storage';
+import { extensionStorage, OH, wsKeys } from '@openheaders/oracle/storage';
 import {
   buildDeleteOAuthTokenBatch,
   buildRecordOAuthRefreshErrorBatch,

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { extensionStorage, wsKeys } from '@/shared/storage';
+import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
 import { call } from '@/utils/bridge';
 
 /**

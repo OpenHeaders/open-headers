@@ -23,7 +23,7 @@ import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheade
 import type { LiveWorkflow, RefreshPolicy, WorkflowStep } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
-import { extensionStorage, wsKeys } from '@/shared/storage';
+import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
 import {
   buildAddLiveWorkflowBatch,
   buildDeleteLiveWorkflowBatch,

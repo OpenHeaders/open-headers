@@ -15,7 +15,7 @@
 import type { Collection, Rule, RuleType, Template } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
 import { buildLocalCollectionTrees, buildTemplateCollectionTrees } from '@/shared/local-tree-builder';
-import type { PersistedLocalFolder } from '@/shared/storage';
+import type { PersistedLocalFolder } from '@openheaders/oracle/storage';
 
 const collection = (path: string, name: string): Collection => ({
   schemaVersion: 5,

@@ -105,8 +105,8 @@ vi.mock('@/background/modules/request-scripts-review-store', () => ({
   }),
 }));
 
-vi.mock('@/shared/storage', async () => {
-  const actual = await vi.importActual<typeof import('@/shared/storage')>('@/shared/storage');
+vi.mock('@openheaders/oracle/storage', async () => {
+  const actual = await vi.importActual<typeof import('@openheaders/oracle/storage')>('@openheaders/oracle/storage');
   return {
     ...actual,
     extensionStorage: {

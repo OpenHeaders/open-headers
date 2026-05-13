@@ -10,7 +10,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { extensionStorage, type PersistedPanelLayout, wsKeys } from '@/shared/storage';
+import { extensionStorage, type PersistedPanelLayout, wsKeys } from '@openheaders/oracle/storage';
 import { applyLayoutSet } from '@/shared/sync/layout-state-write-client';
 
 // ── Breakpoints (CSS pixels, accounts for browser zoom) ───────────

@@ -31,7 +31,7 @@ beforeEach(() => {
 });
 
 import type { Variable, Vault } from '@openheaders/core/types';
-import { extensionStorage, storageKey } from '@/shared/storage';
+import { extensionStorage, storageKey } from '@openheaders/oracle/storage';
 
 describe('extensionStorage.getValidated', () => {
   it('returns null when the slot is empty', async () => {

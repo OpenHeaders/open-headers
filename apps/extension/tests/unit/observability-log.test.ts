@@ -14,8 +14,8 @@ vi.mock('@utils/bridge', () => ({
   broadcast: mockBroadcast,
 }));
 
-vi.mock('@/shared/storage', async () => {
-  const real = await vi.importActual<typeof import('@/shared/storage')>('@/shared/storage');
+vi.mock('@openheaders/oracle/storage', async () => {
+  const real = await vi.importActual<typeof import('@openheaders/oracle/storage')>('@openheaders/oracle/storage');
   return {
     ...real,
     extensionStorage: {

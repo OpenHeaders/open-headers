@@ -25,7 +25,7 @@
 import { scanTemplateReferencesMany } from '@openheaders/core/live';
 import type { Collection, Environment, ExportSelection, Folder, LiveVariable, LiveWorkflow, Request, Rule, Template, WorkspaceVariables } from '@openheaders/core/types';
 import type { BuildWorkspaceExportInput } from '@openheaders/core/workspace-export';
-import { extensionStorage, type PersistedLocalFolder, wsKeys } from '@/shared/storage';
+import { extensionStorage, type PersistedLocalFolder, wsKeys } from '@openheaders/oracle/storage';
 import { getWorkspace } from './workspace-store';
 
 export type { ExportSelection } from '@openheaders/core/types';

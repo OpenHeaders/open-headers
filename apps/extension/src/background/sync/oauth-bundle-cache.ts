@@ -16,7 +16,7 @@
  */
 
 import { OAUTH_BUNDLE_ENTITY_TYPE } from '@openheaders/core/sync';
-import { extensionStorage, wsKeys } from '@/shared/storage';
+import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
 import { type OAuthBundleSnapshot, seedOAuthBundle } from '@/shared/sync/oauth-bundle-projection';
 import type { InMemoryBroadcast } from './broadcast';
 import { projectOAuthBundleSingleton } from './oauth-bundle-post-state';

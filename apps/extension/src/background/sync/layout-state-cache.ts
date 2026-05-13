@@ -11,7 +11,7 @@
  */
 
 import { LAYOUT_STATE_ENTITY_TYPE } from '@openheaders/core/sync';
-import { extensionStorage, type PersistedPanelLayout, wsKeys } from '@/shared/storage';
+import { extensionStorage, type PersistedPanelLayout, wsKeys } from '@openheaders/oracle/storage';
 import { EMPTY_LAYOUT_STATE, type LayoutStateSnapshot, seedLayoutState } from '@/shared/sync/layout-state-projection';
 import type { InMemoryBroadcast } from './broadcast';
 import { projectLayoutStateSingleton } from './layout-state-post-state';

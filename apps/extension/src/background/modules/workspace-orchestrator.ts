@@ -30,7 +30,7 @@ import type { Collection, ExtensionWorkspace, LiveVariable, LiveWorkflow, Reques
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { deepCopyHierarchy } from '@openheaders/core/workspace-export';
 import { logger } from '@utils/logger';
-import { extensionStorage, type StorageKey, wsKeys } from '@/shared/storage';
+import { extensionStorage, type StorageKey, wsKeys } from '@openheaders/oracle/storage';
 import { getRulesPaused } from '../dnr-manager';
 import {
   hydrateEnvironmentsFromStorage,

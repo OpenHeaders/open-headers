@@ -10,7 +10,7 @@
  */
 
 import { PAUSE_MARKERS_ENTITY_TYPE } from '@openheaders/core/sync';
-import { extensionStorage, wsKeys } from '@/shared/storage';
+import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
 import {
   EMPTY_PAUSE_MARKERS,
   type PauseMarkersSnapshot,

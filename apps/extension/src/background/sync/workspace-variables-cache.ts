@@ -10,7 +10,7 @@
 import { WorkspaceVariablesSchema } from '@openheaders/core/schemas';
 import { WORKSPACE_VARIABLES_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { WorkspaceVariables } from '@openheaders/core/types';
-import { extensionStorage, wsKeys } from '@/shared/storage';
+import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
 import { seedWorkspaceVariables } from '@/shared/sync/workspace-variables-projection';
 import { driftRecorder } from '../modules/storage-drift';
 import type { InMemoryBroadcast } from './broadcast';

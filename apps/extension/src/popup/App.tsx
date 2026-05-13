@@ -18,7 +18,7 @@ import { Layout } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AwarenessIdentityProvider, resolvePopupIdentity, resolveSidePanelIdentity } from '@/shared/awareness';
-import { extensionStorage, UI } from '@/shared/storage';
+import { extensionStorage, UI } from '@openheaders/oracle/storage';
 import { useSurface } from '@/shared/surface';
 import { VariablePopoverProvider } from '@/workbench/components/template-input/VariablePopoverHost';
 import { EnvSwitcherProvider } from '@/workbench/services/env-switcher';

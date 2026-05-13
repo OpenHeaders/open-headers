@@ -34,7 +34,7 @@ import { getActiveCacheForRegistration, getCacheForWorkspace } from '@/backgroun
 import type { VaultCache } from '@/background/sync/vault-cache';
 import type { WorkspaceVariablesCache } from '@/background/sync/workspace-variables-cache';
 import { entityLockName, withLock } from '@openheaders/oracle/coordination';
-import { extensionStorage, wsKeys } from '@/shared/storage';
+import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
 import { driftRecorder } from './storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
 

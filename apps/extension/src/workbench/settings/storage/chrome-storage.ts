@@ -23,7 +23,7 @@
  */
 
 import { logger } from '@utils/logger';
-import { extensionStorage, OH, type StorageKey, wsKeys } from '@/shared/storage';
+import { extensionStorage, OH, type StorageKey, wsKeys } from '@openheaders/oracle/storage';
 import type { DictStorage, SettingScope, StorageUnsubscribe } from './adapter';
 
 type ScopeDict = Record<string, unknown>;

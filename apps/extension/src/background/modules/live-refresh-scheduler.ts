@@ -54,7 +54,7 @@ import type { LiveVariable, LiveWorkflow } from '@openheaders/core/types';
 import { alarms } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { report as reportStatus } from '@/shared/status';
-import { extensionStorage, OH } from '@/shared/storage';
+import { extensionStorage, OH } from '@openheaders/oracle/storage';
 import { getActiveEnvironmentId, onActiveEnvironmentChange } from './environment-store';
 import {
   listCachesForWorkflow,

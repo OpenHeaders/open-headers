@@ -25,7 +25,7 @@
 
 import { logger } from '@utils/logger';
 import { entityLockName, withLock } from '@openheaders/oracle/coordination';
-import { extensionStorage, wsKeys } from '@/shared/storage';
+import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
 import { getActiveWorkspaceId } from './workspace-store';
 
 // ── In-memory mirror (active workspace) ────────────────────────────
