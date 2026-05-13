@@ -1232,7 +1232,7 @@ function classifyFetchFailure(url: string, rawMessage: string): string {
 }
 
 /**
- * Build a FormData object from a V5 multipart part list. Text parts
+ * Build a FormData object from a multipart part list. Text parts
  * go through verbatim; file parts resolve `fileRef.hash` to the
  * actual blob bytes via the per-workspace BlobStore. Missing blobs
  * are skipped silently today — the user sees the mismatch reflected

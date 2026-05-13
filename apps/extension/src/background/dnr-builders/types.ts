@@ -88,19 +88,19 @@ export interface DnrRedirect {
 //     those fields on session-scoped rules)
 //
 // In-page script injections are NOT part of the plan. inject-manager
-// consumes V5 rules from the rule store directly and handles its own
+// consumes rules from the rule store directly and handles its own
 // per-navigation injection lifecycle — the two concerns have different
 // cadences (DNR: lives for the rule's lifetime; scriptable: runs per
 // page load) and stay cleanly decoupled.
 //
-// A single V5 rule can contribute rules to both layers. Delay rules emit
+// A single rule can contribute rules to both layers. Delay rules emit
 // sessionRules (because they need excludedTabIds for loop-prevention
 // bypass). Inject rules with bypassCSP emit dynamicRules (to strip CSP
 // headers). Header rules with set/append/remove ops emit dynamicRules.
 // The same rule may ALSO run a scriptable injection — inject-manager
 // decides that from the rule itself, independently of this plan.
 //
-// Each DnrRule is tagged with its source V5 uid by dnr-manager after
+// Each DnrRule is tagged with its source uid by dnr-manager after
 // compilation so id→uid lookups stay correct for telemetry.
 
 // ── Scriptable injection shapes ──────────────────────────────────
@@ -134,7 +134,7 @@ export interface InlineScriptInjection {
 export type Injection = FuncInjection | InlineScriptInjection;
 
 /**
- * The output of compiling a single V5 rule. All fields are arrays so
+ * The output of compiling a single rule. All fields are arrays so
  * compilers can emit zero, one, or many of each. Missing arrays default
  * to empty — compilers may return a partial object.
  */
@@ -154,7 +154,7 @@ export interface CompilerContext {
 }
 
 /**
- * A per-type compiler that turns a V5 rule into a CompilationPlan.
+ * A per-type compiler that turns a rule into a CompilationPlan.
  * Returns a plan with empty arrays if the rule is invalid or should be skipped.
  */
 export interface RuleCompiler<T extends Rule> {
@@ -178,7 +178,7 @@ const RESOURCE_TYPE_MAP: Record<string, string> = {
 };
 
 /**
- * Convert V5 RuleCondition[] into a Chrome DNR condition object.
+ * Convert RuleCondition[] into a Chrome DNR condition object.
  *
  * Each condition row maps 1:1 to a Chrome DNR field — no translation,
  * no approximation. What the user configures is what Chrome executes.

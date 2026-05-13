@@ -1,5 +1,5 @@
 /**
- * Rule Store — single source of truth for V5 rules in the active
+ * Rule Store — single source of truth for rules in the active
  * workspace.
  *
  * The store holds the CURRENT active workspace's rules/collections/

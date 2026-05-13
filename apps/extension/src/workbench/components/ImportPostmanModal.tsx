@@ -1,7 +1,7 @@
 /**
  * ImportPostmanModal — import a Postman v2.1 collection JSON (and
- * optionally a companion environment JSON) into a new V5 Collection
- * + matching folder tree + optional V5 Environment.
+ * optionally a companion environment JSON) into a new Collection
+ * + matching folder tree + optional Environment.
  *
  * The modal is the thin UI layer over `parsePostman` /
  * `parsePostmanEnvironment` in `@openheaders/core/import`. It:
@@ -72,7 +72,7 @@ interface ImportPostmanModalProps {
     seed: Partial<Request>;
   }) => Promise<{ uid: string } | null>;
   /**
-   * Creates a V5 Environment with the given name + variables.
+   * Creates a Environment with the given name + variables.
    */
   createEnvironment: (payload: { name: string; variables: Variable[] }) => Promise<{ uid: string } | null>;
   findPreviousReport?: (sourceHash: string) => Promise<ImportReport | null>;
@@ -298,7 +298,7 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
       <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
         Import a Postman Collection v2.1 JSON. Folder structure, collection variables, and per-request auth (basic /
         bearer / api-key) are preserved. Scripts, OAuth 2.0, AWS sigv4, and file uploads are tracked as drops until
-        those features land in  Optionally attach a Postman environment file to land a matching V5 Environment.
+        those features land in  Optionally attach a Postman environment file to land a matching Environment.
       </Paragraph>
 
       {stage.kind === 'empty' && (
@@ -326,7 +326,7 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
               size="small"
               value={collectionName}
               onChange={(e) => setCollectionName(e.target.value)}
-              placeholder="Name for the new V5 Collection"
+              placeholder="Name for the new Collection"
               style={{ fontSize: 12 }}
             />
           </div>

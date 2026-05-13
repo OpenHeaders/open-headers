@@ -111,7 +111,7 @@ interface ActiveRun {
   id: string;
   owner: TestRunOwner;
   scopeLabel: string;
-  /** V5 rules snapshotted at run start — the scope under test. */
+  /** rules snapshotted at run start — the scope under test. */
   scopeRules: Rule[];
   ruleUids: Set<string>;
   /**

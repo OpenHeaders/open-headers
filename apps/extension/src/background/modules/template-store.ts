@@ -1,5 +1,5 @@
 /**
- * Template Store — single source of truth for V5 user-defined templates
+ * Template Store — single source of truth for user-defined templates
  * in the active workspace.
  *
  * Mirrors `request-store.ts` post Phase B: writes route through the sync

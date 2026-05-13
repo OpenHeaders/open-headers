@@ -1,5 +1,5 @@
 /**
- * Live Variable + Live Workflow types (v5).
+ * Live Variable + Live Workflow types.
  *
  * Derived from the valibot schemas in `../../schemas/live.ts` so the
  * runtime validator and the TypeScript type stay locked together.

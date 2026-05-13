@@ -1,5 +1,5 @@
 /**
- * ImportCurlModal — paste a curl command, preview the parsed V5
+ * ImportCurlModal — paste a curl command, preview the parsed destination
  * request + any drops/transforms, pick a collection, import.
  *
  * The parser lives in `@openheaders/core/import` (platform-agnostic,

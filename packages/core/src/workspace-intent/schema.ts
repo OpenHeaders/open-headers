@@ -7,7 +7,7 @@
  * a compile error.
  *
  * All uid-bearing kinds use the shared 8-char `UidSchema` to match the
- * rest of the persisted V5 model (invariant #2 in the V5 plan).
+ * rest of the persisted data model (invariant #2 in the data-model plan).
  */
 
 import * as v from 'valibot';
@@ -20,7 +20,7 @@ export const RuleFlowScopeSchema = v.picklist(['this-page', 'collection', 'folde
 
 export type RuleFlowScope = v.InferOutput<typeof RuleFlowScopeSchema>;
 
-/** The 8 extension rule types — matches `ExtensionRuleType` in V5 types. */
+/** The 8 extension rule types — matches `ExtensionRuleType`. */
 export const IntentRuleTypeSchema = v.picklist([
   'header',
   'block',

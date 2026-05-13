@@ -7,7 +7,7 @@
  * callouts across the popup, sidepanel, and workspace footer.
  *
  * Current callouts:
- *   - `sync` — note that the v5 desktop app isn't shipped yet. The
+ *   - `sync` — note that the desktop app isn't shipped yet. The
  *     `sync` subsystem ALWAYS reports green "Desktop sync disabled"
  *     (the extension turns off `autoConnect` when there's no desktop
  *     to connect to) — the extra here makes the product timeline
@@ -38,7 +38,7 @@ export function productStatusExtras(subsystem: StatusSubsystem, _entry: StatusEn
   if (subsystem === 'sync') {
     return (
       <>
-        <ExtrasRow tagColor="blue" label="Desktop App" message="v5 coming soon" />
+        <ExtrasRow tagColor="blue" label="Desktop App" message="coming soon" />
         <BootRegressionCallout />
       </>
     );

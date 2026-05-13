@@ -53,7 +53,7 @@ const NOT_CONNECTED_TIP = (
     App not connected
     <div style={{ marginTop: 4 }}>
       <Tag color="blue" style={{ marginInlineEnd: 4 }}>
-        v5
+        Desktop
       </Tag>
       coming soon
     </div>
@@ -182,7 +182,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
     });
   }, [rules, message]);
 
-  // Build table records from all V5 rules, sorted by status group then name.
+  // Build table records from all rules, sorted by status group then name.
   // `actionDetail` and the displayed `conditions` flow from the RESOLVED
   // rule (templates substituted) so the row reflects what reaches the
   // wire — not the literal `{{ref}}` source. The original `rule` is

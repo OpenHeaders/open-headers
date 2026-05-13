@@ -1,7 +1,7 @@
 /**
  * Tree navigation utilities — shared between desktop and extension.
  *
- * Pure functions for navigating V5 CollectionTree structures:
+ * Pure functions for navigating CollectionTree structures:
  *   - Finding children at a given folder path
  *   - Building breadcrumb trails from root to a target folder
  *

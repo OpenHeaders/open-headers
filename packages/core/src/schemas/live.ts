@@ -1,5 +1,5 @@
 /**
- * Valibot schemas for Live Variables + Live Workflows (v5).
+ * Valibot schemas for Live Variables + Live Workflows.
  *
  * See docs/LIVE_VARIABLES_PLAN.md for the architectural motivation.
  *

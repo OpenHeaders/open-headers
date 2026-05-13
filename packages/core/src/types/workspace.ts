@@ -11,7 +11,7 @@
  * The workspace IS a git repo (when synced via desktop/team). The manifest
  * is one of several versioned entities — every persisted YAML file carries
  * its own `schemaVersion`, so migrations can target a single entity kind
- * without rewriting the whole tree. Starts at 5 to align with the v5 brand;
+ * without rewriting the whole tree. Starts at 5 to mark the rewrite;
  * future breaking changes bump per-entity (6, 7, …). See
  * docs/V5_FOUNDATION_PLAN.md §Phase 0.
  *

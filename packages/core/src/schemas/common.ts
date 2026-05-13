@@ -1,5 +1,5 @@
 /**
- * Shared Valibot primitives for V5 entity schemas.
+ * Shared Valibot primitives for entity schemas.
  *
  * Every persisted entity carries `schemaVersion` + an 8-char uid; the
  * width + charset are checked at the schema layer too, not just via the
@@ -10,8 +10,8 @@
 import * as v from 'valibot';
 
 /**
- * The V5 baseline. Fresh workspaces carry `schemaVersion: 5`; any
- * persisted entity below 5 is rejected at the boundary. V5 has no
+ * The data-model baseline. Fresh workspaces carry `schemaVersion: 5`; any
+ * persisted entity below 5 is rejected at the boundary. There is no
  * prior users to support (per memory: project_v5_fresh_start) — so
  * we don't carry a compat pane for v1–v4. Future breaking changes in
  * any entity bump per-entity (6, 7, …). See

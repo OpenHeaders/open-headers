@@ -2,7 +2,7 @@
  * useRequestWorkflowStepContext — derive a {@link SuggestionContext.workflowStep}
  * value for a request that's used as a step in a Live Workflow.
  *
- * A V5 Request is a pure, workflow-agnostic entity; it can be sent on
+ * A Request is a pure, workflow-agnostic entity; it can be sent on
  * its own AND referenced by any number of `WorkflowStep.requestUid`s.
  * When a user edits a request that IS a workflow step, `{{step.X.Y}}`
  * suggestions should surface captures from steps earlier than this one

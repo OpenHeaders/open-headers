@@ -1,7 +1,7 @@
 /**
  * Rule projection — `Rule ⇄ MutationBatch / MaterializedEntity`.
  *
- * The oracle's data model and the persisted V5 rule shape diverge in
+ * The oracle's data model and the persisted rule shape diverge in
  * one architecturally-load-bearing way: the rule mutator catalog
  * treats `conditions`, `action.requestHeaders`, and
  * `action.responseHeaders` as **sets** (parent-owned ordering with
@@ -81,7 +81,7 @@ export function seedRule(rule: Rule, ctx: MutatorContext): MutationBatch {
 /**
  * Read the persisted `uid` off a set member. Conditions and header
  * mods both carry `uid: UidSchema` (schema-required, session 40). The
- * cast is honest at this point — the source array satisfies the V5
+ * cast is honest at this point — the source array satisfies the destination
  * schema and the schema requires `uid` first.
  */
 function readUid(item: unknown): string {

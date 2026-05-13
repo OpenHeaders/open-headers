@@ -2,7 +2,7 @@
  * Request Monitor — sets up webRequest monitoring to drive telemetry and
  * the badge. Two responsibilities:
  *
- *   1. Pattern-match observed requests against enabled V5 rules for badge /
+ *   1. Pattern-match observed requests against enabled rules for badge /
  *      active-tab display (via request-tracker).
  *   2. Feed tab-telemetry's `recordObservedFire` so popup counters reflect
  *      every observed match. Every enabled rule whose URL conditions match

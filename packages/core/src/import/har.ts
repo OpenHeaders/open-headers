@@ -1,10 +1,10 @@
 /**
  * HAR (HTTP Archive) import — parse a HAR 1.2 JSON document into
- * V5-request-shaped entries + one `ImportReport` covering the whole
+ * request-shaped entries + one `ImportReport` covering the whole
  * file.
  *
  * HAR is JSON — `log.entries` is an array where every entry carries a
- * `request` and a `response`. We map `request` only (V5 requests are
+ * `request` and a `response`. We map `request` only (requests are
  * authoring-side; response bodies from the original capture are not
  * persisted in the workspace model). Many entries per file is the
  * norm — the caller presents a selection UI and invokes `parseHar` +
@@ -25,7 +25,7 @@
  *   • `request.postData.mimeType: multipart/form-data` — same gap as
  *     curl's `-F`: binary payloads require content-addressed storage
  *     (§6).
- *   • `response.*` — HAR responses aren't part of the V5 request
+ *   • `response.*` — HAR responses aren't part of the request
  *     model (auth tokens / test runs live elsewhere); importing them
  *     silently would leak capture artifacts into authoring data.
  */
@@ -73,7 +73,7 @@ interface HarRequest {
 // ── Output shapes ───────────────────────────────────────────────────
 
 /**
- * One HAR entry rendered as an authoring-ready V5 request + the
+ * One HAR entry rendered as an authoring-ready request + the
  * index it came from in the source file (stable across selection UI
  * toggles so the selector doesn't care about sort order).
  */
@@ -209,7 +209,7 @@ function tryConvertEntry(req: HarRequest, index: number, report: ImportReport): 
       from: `${stripped} pseudo-header${stripped === 1 ? '' : 's'}`,
       to: 'removed',
       reason:
-        'HTTP/2 pseudo-headers (`:method`, `:path`, etc.) are wire artifacts; the V5 request already carries method + URL as first-class fields.',
+        'HTTP/2 pseudo-headers (`:method`, `:path`, etc.) are wire artifacts; the request already carries method + URL as first-class fields.',
       tracking: 'PERMANENT: §HTTP/2 pseudo-header discipline',
     });
   }
@@ -414,7 +414,7 @@ function buildBody(
   const mime = (postData.mimeType ?? '').toLowerCase();
   const text = typeof postData.text === 'string' ? postData.text : '';
 
-  // Multipart: reconcile into a V5 multipart body. HAR exports a
+  // Multipart: reconcile into a multipart body. HAR exports a
   // `params[]` list where text parts carry `value` and file parts
   // carry `fileName + contentType` (bytes are NOT preserved in HAR
   // — browsers only record the multipart field metadata). Text
@@ -467,7 +467,7 @@ function buildBody(
 
   if (text.length === 0) return { type: 'none' };
 
-  // Pick V5 body type from the content-type (header first, falling
+  // Pick body type from the content-type (header first, falling
   // back to postData.mimeType since some HAR exporters set one but
   // not the other).
   const contentType = contentTypeOf(headers) ?? mime;

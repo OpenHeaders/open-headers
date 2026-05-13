@@ -11,7 +11,7 @@
  *   - name: display name
  *   - description: what it does (shown under the selector)
  *   - conditions: prefilled RuleCondition[]
- *   - formValues: prefilled form field values (not the V5 action object)
+ *   - formValues: prefilled form field values (not the action object)
  */
 
 import type { RuleCondition } from '@openheaders/core/types';
@@ -21,7 +21,7 @@ export interface RuleTemplate {
   name: string;
   description: string;
   conditions: RuleCondition[];
-  /** Form field values to set (not the V5 action object — these are form fields). */
+  /** Form field values to set (not the action object — these are form fields). */
   formValues: Record<string, unknown>;
 }
 

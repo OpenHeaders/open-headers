@@ -1,5 +1,5 @@
 /**
- * Request Store — single source of truth for V5 HTTP requests in the
+ * Request Store — single source of truth for HTTP requests in the
  * active workspace.
  *
  * Mirrors `rule-store.ts` post Phase B: writes route through the sync

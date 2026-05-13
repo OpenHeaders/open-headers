@@ -1,6 +1,6 @@
 /**
  * WebSocket connection management — connects to the desktop app
- * and receives V5 resolved rules.
+ * and receives resolved rules.
  */
 
 import { PROTOCOL_INCOMPATIBLE_CLOSE_CODE, PROTOCOL_VERSION } from '@openheaders/core/protocol';
@@ -161,7 +161,7 @@ function reportSyncStatus(): void {
 //
 // Team-workspace data sync (rules/collections/vars) lands in v2 — when
 // it does, it'll go through a workspace-scoped channel that writes to
-// the per-workspace stores, not a global rules-push like the pre-v5
+// the per-workspace stores, not a global rules-push like the pre-rewrite
 // "desktop pushes rules" flow.
 
 function createMessageHandler(): (event: MessageEvent) => void {

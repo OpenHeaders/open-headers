@@ -4,7 +4,7 @@
  * run.
  *
  * ARCHITECTURE.md §23 specifies the per-source sidecar shape; the
- * V5 workspace-export design (§10) extends it to a discriminated
+ * workspace-export design (§10) extends it to a discriminated
  * union on `source`. The flat arms (curl / har / postman-v2.1 /
  * insomnia / openapi) carry the same fields as before; the
  * `'workspace-export'` arm carries additional fields the post-import
@@ -40,7 +40,7 @@ export type ImportSource = v.InferOutput<typeof ImportSourceSchema>;
 // ── Entry shapes (shared) ───────────────────────────────────────────
 
 /**
- * A value the importer could not map to the V5 schema. The `path`
+ * A value the importer could not map to the schema. The `path`
  * points at the location in the source (curl flag, JSON pointer, etc.)
  * so users can grep for it. `tracking` either links to a GitHub issue
  * ("#issue-123") or a permanent-design-choice marker
@@ -55,7 +55,7 @@ export const ImportDropSchema = v.object({
 export type ImportDrop = v.InferOutput<typeof ImportDropSchema>;
 
 /**
- * A value the importer rewrote to fit the V5 schema. Transforms are
+ * A value the importer rewrote to fit the schema. Transforms are
  * never silent — every rewrite lands in this list so the user can
  * audit that the imported request will behave identically on the
  * wire.

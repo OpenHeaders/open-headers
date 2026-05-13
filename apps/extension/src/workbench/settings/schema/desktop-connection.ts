@@ -1,6 +1,6 @@
 /**
  * Desktop Connection category — settings for the WebSocket link
- * between the extension and the Open Headers desktop app. The v5
+ * between the extension and the Open Headers desktop app. The
  * desktop app runs on 127.0.0.1:59510 (deliberately different from
  * v4's :59210, so an installed v4 app can't accidentally answer); the
  * extension is the client and reconnects with exponential backoff.

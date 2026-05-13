@@ -72,13 +72,13 @@
  *   chrome-extension://delay.html, and inject's content-script mount
  *   targets the user URL — so inject IS shadowable by delay on the same
  *   URL. The delay phase is the only one where inject participates.
- * - V5 has no `allow` action. That arbitration escape-hatch is N/A here.
+ * - There is no `allow` action. That arbitration escape-hatch is N/A here.
  */
 
 import type { Rule } from '@openheaders/core/types';
 import type { MatchingRule } from './request-tracker';
 
-/** Action class used for arbitration. One entry per V5 rule type. */
+/** Action class used for arbitration. One entry per rule type. */
 export type ActionClass = 'block' | 'redirect' | 'query-param' | 'header' | 'body' | 'mock' | 'delay' | 'inject-csp';
 
 /** The reason a rule was shadowed. Each kind maps to a distinct diagnostic message in the UI. */
@@ -101,7 +101,7 @@ export interface ShadowAttribution {
 }
 
 /**
- * V5 DNR priority ladder used for arbitration. These are *conceptual*
+ * DNR priority ladder used for arbitration. These are *conceptual*
  * priorities — they encode "who wins in a semantic conflict" rather than
  * the literal emitted DNR priority (which can be 1000/950 for response
  * headers, etc.). Keeping them decoupled lets arbitration reason about
@@ -220,7 +220,7 @@ export function arbitrateWithStrategy(
 // ── Phase 1: block-terminal ───────────────────────────────────────
 
 /**
- * Block is the only terminal action in V5 — Chrome cancels the request,
+ * Block is the only terminal action in the data model — Chrome cancels the request,
  * so redirect / query-param / header / delay / body / mock all silently
  * fail. Inject's CSP strip runs on the response, which never comes, so
  * it's moot rather than "shadowed" in the user-visible sense (we treat

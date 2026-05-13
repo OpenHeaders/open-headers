@@ -1,6 +1,6 @@
 /**
  * ImportHarModal — import a HAR file, preview + select entries,
- * write each selected entry as a V5 request in the chosen collection.
+ * write each selected entry as a request in the chosen collection.
  *
  * HAR differs from curl: a single file carries many requests, most of
  * which are noise (OCSP checks, favicon, analytics). The modal:
@@ -268,7 +268,7 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
       destroyOnClose
     >
       <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
-        Import a <code>.har</code> file (HTTP Archive) exported from DevTools or a proxy. Each entry becomes a V5
+        Import a <code>.har</code> file (HTTP Archive) exported from DevTools or a proxy. Each entry becomes a destination
         request in the chosen collection. Cookies and multipart uploads are dropped with tracking annotations; auth
         headers are promoted to first-class auth types.
       </Paragraph>
@@ -494,7 +494,7 @@ const ReportPanel: React.FC<ReportPanelProps> = ({ report, token }) => {
           icon={<InfoCircleOutlined />}
           message={`${totalTransforms} transform${totalTransforms === 1 ? '' : 's'} applied to the source`}
           description={
-            <Tooltip title="Transforms rewrite source fields into V5 equivalents — e.g. promoting Authorization headers into first-class auth types.">
+            <Tooltip title="Transforms rewrite source fields into normalized equivalents — e.g. promoting Authorization headers into first-class auth types.">
               <span style={{ fontSize: 11, color: token.colorTextSecondary, cursor: 'help' }}>
                 Hover for details · full list in the import-report export (Settings → Data)
               </span>
@@ -509,7 +509,7 @@ const ReportPanel: React.FC<ReportPanelProps> = ({ report, token }) => {
           icon={<WarningOutlined />}
           message={`${totalDrops} drop${totalDrops === 1 ? '' : 's'} recorded`}
           description={
-            <Tooltip title="Drops are source fields that don't map to V5 (cookies, multipart uploads, etc.). Each has a tracking annotation in the full report.">
+            <Tooltip title="Drops are source fields that don't map to the model (cookies, multipart uploads, etc.). Each has a tracking annotation in the full report.">
               <span style={{ fontSize: 11, color: token.colorTextSecondary, cursor: 'help' }}>
                 Hover for details · full list in the import-report export (Settings → Data)
               </span>

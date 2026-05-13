@@ -1,5 +1,5 @@
 /**
- * Request Tracker — tracks which tabs have requests matching V5 rules.
+ * Request Tracker — tracks which tabs have requests matching rules.
  *
  * Used for badge display and the Active tab in the popup.
  * Reads rules from the in-memory rule store (no storage reads in hot
@@ -116,7 +116,7 @@ export function checkIfUrlMatchesAnyRule(url: string): boolean {
 
 /**
  * A single header operation as seen by arbitration. Normalized away from
- * the V5 wire shape (`override`/`add` collapsed into set/append) because
+ * the wire shape (`override`/`add` collapsed into set/append) because
  * the arbitrator only cares about the *effective semantics* on Chrome's
  * side, not the UX labels. The name is lowercased — HTTP header names are
  * case-insensitive and Chrome collapses them internally.
@@ -125,8 +125,8 @@ export interface MatchingRuleHeaderOp {
   side: 'request' | 'response';
   /**
    * Effective operation:
-   *   - 'set'     — override an existing value (Chrome 'set'; V5 'override')
-   *   - 'append'  — add a new header entry alongside any existing (V5 'add')
+   *   - 'set'     — override an existing value (Chrome 'set'; previously 'override')
+   *   - 'append'  — add a new header entry alongside any existing ('add')
    *   - 'remove'  — delete all instances of the header
    *   - 'merge'   — scriptable read-modify-write, not a DNR operation
    */
@@ -156,7 +156,7 @@ export interface MatchingRule {
   /**
    * Populated only for `header` rules. Used by shadow arbitration to
    * detect header-stacking ambiguity and mock-intercept on response-side
-   * modifications. Normalized away from the V5 wire shape.
+   * modifications. Normalized away from the wire shape.
    */
   headerOps?: MatchingRuleHeaderOp[];
 }
@@ -193,7 +193,7 @@ function hasHeaderMergeAction(rule: HeaderRule): boolean {
 
 /**
  * Normalize a header rule's action into the arbitration-facing shape.
- * V5's `override` is Chrome's `set`; V5's `add` is Chrome's `append`;
+ * the model'ss `override` is Chrome's `set`; the model'ss `add` is Chrome's `append`;
  * `remove` and `merge` pass through. Names are lowercased because HTTP
  * header matching is case-insensitive. Empty output means "header rule
  * with no modifications" — callers should treat that the same as a

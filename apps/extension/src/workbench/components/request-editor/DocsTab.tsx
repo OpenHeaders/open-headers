@@ -1,6 +1,6 @@
 /**
  * DocsTab — free-form markdown notes for the request. Persists as the
- * optional `description` field on the V5 `Request` schema so rationale
+ * optional `description` field on the `Request` schema so rationale
  * rides along in the workspace YAML (alongside the body + scripts)
  * when team sync lands.
  */

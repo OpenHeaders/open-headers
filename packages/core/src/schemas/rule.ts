@@ -28,7 +28,7 @@ export const RuleTypeSchema = v.picklist([
 
 // Chrome MV3 DNR has no request-header matching; the request-side
 // counterparts of `response-header` were never shipped. We omit them from
-// the schema entirely — V5 starts clean. If Chrome ships request-header
+// the schema entirely — the schema starts clean. If Chrome ships request-header
 // matching later, re-add the two types here and flip them in
 // `condition-metadata.ts`.
 export const ConditionTypeSchema = v.picklist([

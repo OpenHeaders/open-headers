@@ -16,7 +16,7 @@
  *      Advanced (Refresh Token URL + Auth / Token / Refresh request
  *      extra params) + "Get new access token" button.
  *
- * The grant-type dropdown maps UI labels to the V5 flow enum:
+ * The grant-type dropdown maps UI labels to the flow enum:
  *   • "Authorization Code"            → authorization-code-pkce (+ PKCE off)
  *   • "Authorization Code (With PKCE)" → authorization-code-pkce
  *   • "Implicit"                       → authorization-code-pkce (marked reserved)
@@ -60,7 +60,7 @@ interface GrantTypeDef {
     scope: boolean;
     state: boolean;
   };
-  /** Maps back to the persisted V5 flow. */
+  /** Maps back to the persisted flow. */
   v5Flow: OAuth2Flow;
   /** Note shown when the grant type is partial / reserved. */
   reservedNote?: string;

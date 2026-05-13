@@ -33,7 +33,7 @@
  * The extension's own rules are DNR-compiled with deterministic numeric
  * ids derived from the rule uid — `dnr-manager` maintains the
  * bidirectional mapping. This module translates `rule.ruleId` back to a
- * V5 uid via that mapping and builds a `RequestRecord` that matches
+ * uid via that mapping and builds a `RequestRecord` that matches
  * the shape tab-telemetry produces for inferred fires. The record is
  * then broadcast with `authoritative: true` over the inspector port.
  *

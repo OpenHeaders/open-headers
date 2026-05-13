@@ -1,5 +1,5 @@
 /**
- * curl import — parse a `curl` command-line string into a V5 Request
+ * curl import — parse a `curl` command-line string into a Request
  * + an ImportReport describing drops / transforms.
  *
  * Scope (v1, ARCHITECTURE.md §23):
@@ -296,7 +296,7 @@ function consumeToken(
       const takesArg = typeof next === 'string' && !next.startsWith('-');
       recordDrop(report, {
         path: `flag:${token}`,
-        reason: `Unrecognized flag${takesArg ? ` (with value: ${next})` : ''}. If this is important, file an issue so we can map it to the V5 request model.`,
+        reason: `Unrecognized flag${takesArg ? ` (with value: ${next})` : ''}. If this is important, file an issue so we can map it to the request model.`,
         tracking: '#todo-curl-coverage',
       });
       return cursor + (takesArg ? 2 : 1);
@@ -438,7 +438,7 @@ function parseUserFlag(value: string): AuthConfig {
   };
 }
 
-// ── Finalize: fold parser state into a V5 request ──────────────────
+// ── Finalize: fold parser state into a request ──────────────────
 
 function finalize(state: ParserState, report: ImportReport): CurlRequest {
   if (state.url === null) {

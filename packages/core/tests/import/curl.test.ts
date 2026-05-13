@@ -2,7 +2,7 @@
  * curl import — parser + tokenizer coverage.
  *
  * Each test drives a single-line or multi-line curl command through
- * `parseCurl` and asserts the produced V5 request fields plus the
+ * `parseCurl` and asserts the produced request fields plus the
  * shape of the `ImportReport` (drops/transforms) the user would see.
  */
 

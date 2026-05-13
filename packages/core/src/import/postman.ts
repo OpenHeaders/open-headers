@@ -1,12 +1,12 @@
 /**
  * Postman Collection v2.1 import — parse a Postman collection JSON
- * into V5-request-shaped entries + one `ImportReport` covering the
+ * into request-shaped entries + one `ImportReport` covering the
  * whole collection.
  *
  * Scope (v1, ARCHITECTURE.md §23):
  *   • Collection metadata — name, description, collection variables.
  *   • Folder tree — nested `item[]` with `name` + child `item[]` maps
- *     directly to a V5 folder path. Every folder's description is
+ *     directly to a folder path. Every folder's description is
  *     carried forward.
  *   • Requests — `name` + `request.{method,url,header,body,auth}`
  *     → `CurlRequest` shape for unified downstream handling with
@@ -15,7 +15,7 @@
  *     `raw` field (Postman's documented canonical form) and query +
  *     path-variable arrays folded back into the URL string.
  *   • Auth — `basic` / `bearer` / `apikey` (header + query) promoted
- *     to first-class V5 auth types. `oauth2` / `awsv4` / `digest` /
+ *     to first-class auth types. `oauth2` / `awsv4` / `digest` /
  *     `hawk` / `ntlm` / `edgegrid` DROPPED with tracking pointers to
  *     §18 (first-class auth).
  *   • Body — `raw` (content-type from `options.raw.language`),
@@ -32,16 +32,16 @@
  * Format reference: schema v2.1.0 — https://schema.getpostman.com/json/collection/v2.1.0/collection.json
  *
  * One deliberate design choice: this parser does NOT rewrite the
- * `{{var}}` syntax. Postman and V5 both resolve flat `{{var}}`
+ * `{{var}}` syntax. Postman and our data model both resolve flat `{{var}}`
  * against a scope chain (Postman: globals → environment → collection
- * → local; V5: env → collection → workspace → secret → vault). A
+ * → local; ours: env → collection → workspace → secret → vault). A
  * reference imported verbatim resolves correctly as long as the
  * referenced variable is defined somewhere in the chain.
  *
  * Postman's collection variables ARE imported here (`collectionVariables`
  * in the result). Postman's environments live in separate
  * `.postman_environment.json` files — import those via
- * `parsePostmanEnvironment` (same module) and wire them as V5
+ * `parsePostmanEnvironment` (same module) and wire them as native
  * environments. The resolver's error-as-spec pipeline (Phase 3) then
  * surfaces any remaining unresolved references with a concrete hint.
  */
@@ -175,7 +175,7 @@ interface PostmanEvent {
 // ── Output ─────────────────────────────────────────────────────────
 
 /**
- * One request extracted from the collection — the V5-shaped
+ * One request extracted from the collection — the request-shaped
  * `CurlRequest` (reused so curl + HAR + Postman share one write
  * path downstream) plus the folder path it was nested under. The
  * path is ordered root→leaf and empty when the request lives at the
@@ -188,7 +188,7 @@ export interface PostmanParsedRequest {
 
 /**
  * Folders discovered during traversal. Callers may want to create
- * matching V5 folders and attach requests; or flatten entirely. The
+ * matching matching folders and attach requests; or flatten entirely. The
  * parser only reports the structure — the UI decides the write
  * strategy.
  */
@@ -199,7 +199,7 @@ export interface PostmanParsedFolder {
 
 /**
  * Normalized collection variable. Postman has no secret/default
- * split — every variable is effectively `default`, matching the V5
+ * split — every variable is effectively `default`, matching the destination
  * collection-variables model. The `type` is pinned to `'default'`
  * here; callers promoting to secret do so via UI.
  */
@@ -249,7 +249,7 @@ interface PostmanEnvironmentFile {
 
 /**
  * Normalized variable — matches `Variable`. `type: 'secret'`
- * lands verbatim so the V5 secret/default split is preserved.
+ * lands verbatim so the secret/default split is preserved.
  */
 export interface PostmanParsedEnvironmentVariable {
   name: string;
@@ -266,7 +266,7 @@ export interface PostmanEnvironmentParseResult {
 
 /**
  * Parse a Postman environment JSON. Returns the name + a list of
- * variables ready to be attached to a fresh V5 Environment.
+ * variables ready to be attached to a fresh Environment.
  * Disabled entries are dropped with tracking. Non-string values are
  * coerced via `String(...)` rather than dropped — an environment
  * with a numeric port number is still useful to import.
@@ -562,7 +562,7 @@ function buildUrl(url: PostmanUrl | string | undefined, jsonPath: string, report
     return '';
   }
   if (typeof url.raw === 'string' && url.raw.length > 0) {
-    // Path variables: `{{foo}}` in raw stays literal so the V5
+    // Path variables: `{{foo}}` in raw stays literal so the destination
     // resolver can fill it. `:foo` in the path is Postman's own
     // placeholder syntax — substitute from `variable[]` if present.
     return substitutePathVars(url.raw, url.variable);
@@ -803,7 +803,7 @@ function buildBody(
           path: `${jsonPath}.request.body`,
           from: 'raw/html',
           to: 'text',
-          reason: 'No dedicated HTML body type in V5; kept as text. Set Content-Type manually.',
+          reason: 'No dedicated HTML body type; kept as text. Set Content-Type manually.',
           tracking: 'PERMANENT: body-type picklist',
         });
         return { type: 'text', content };
@@ -813,7 +813,7 @@ function buildBody(
           path: `${jsonPath}.request.body`,
           from: 'raw/javascript',
           to: 'text',
-          reason: 'No dedicated JavaScript body type in V5; kept as text.',
+          reason: 'No dedicated JavaScript body type; kept as text.',
           tracking: 'PERMANENT: body-type picklist',
         });
         return { type: 'text', content };
@@ -893,7 +893,7 @@ function buildBody(
     }
     case 'file': {
       // Postman's `file` body mode ships an entire file as the request
-      // body (not inside a multipart envelope). V5 expresses this as a
+      // body (not inside a multipart envelope). We express this as a
       // multipart body with a single file part so the UI can prompt
       // for reconciliation through the same affordance.
       const src = typeof body.file?.src === 'string' ? body.file.src : undefined;

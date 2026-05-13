@@ -1,5 +1,5 @@
 /**
- * Canonical top-level field ordering for every persisted v5 entity.
+ * Canonical top-level field ordering for every persisted entity.
  *
  * Matches invariant #6 — metadata top, payload nested — from
  * docs/V5_FOUNDATION_PLAN.md §Phase 0. The codec serializes known

@@ -360,7 +360,7 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
 
   const collectRuleUidsUnder = useCallback(
     (record: CollectionTreeRecord): string[] => {
-      // Walk the live V5 trees to find this node and collect every rule under it,
+      // Walk the live trees to find this node and collect every rule under it,
       // not the CollectionTreeRecord (which may be filtered by the search box).
       const uids: string[] = [];
       const walk = (nodes: TreeNode[]) => {

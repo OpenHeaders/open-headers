@@ -1,5 +1,5 @@
 /**
- * File blob reference model for V5 (ARCHITECTURE.md §6).
+ * File blob reference model (ARCHITECTURE.md §6).
  *
  * A `FileRef` is a pointer to a user-uploaded blob. The BYTES live in
  * the extension's IndexedDB (or the desktop's OPFS in v2+). The

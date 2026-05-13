@@ -572,7 +572,7 @@ export const SystemStatusSection: React.FC = () => (
     </StateRow>
 
     <Callout kind="note" title="Desktop App — product note">
-      The v5 desktop app is in development and ships after the v5 extension stabilizes. Workspaces, variables, and team
+      The desktop app is in development and ships after the extension stabilizes. Workspaces, variables, and team
       sync that integrate with the desktop app unlock then. The <strong>Sync</strong> subsystem flips from disabled to
       connecting automatically on first launch — no reinstall required.
     </Callout>

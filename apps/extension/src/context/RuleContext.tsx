@@ -1,5 +1,5 @@
 /**
- * RuleContext — provides the active workspace's V5 rules to the popup,
+ * RuleContext — provides the active workspace's rules to the popup,
  * sidepanel, and workbench.html surfaces.
  *
  * Data is owned by the background service worker. This context:

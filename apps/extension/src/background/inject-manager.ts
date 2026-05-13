@@ -102,7 +102,7 @@ export const __testExtractHeaderMergeEntry = extractHeaderMergeEntry;
 
 /**
  * Update the set of active scriptable rules. Called by dnr-manager whenever
- * rules change. Accepts every V5 rule with any in-page side effect (inject,
+ * rules change. Accepts every rule with any in-page side effect (inject,
  * delay, body, mock, header); header-merge entries are derived from header
  * rules internally so dnr-manager doesn't have to know about them.
  */

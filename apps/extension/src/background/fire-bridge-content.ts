@@ -1,5 +1,5 @@
 /**
- * Fire bridge (ISOLATED world) — always-on listener for V5 rule fire events.
+ * Fire bridge (ISOLATED world) — always-on listener for rule fire events.
  *
  * Registered as a static content script via manifest.json with matches:["<all_urls>"]
  * at document_start. Runs on every page the extension has host access to,

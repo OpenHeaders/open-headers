@@ -1,7 +1,7 @@
 /**
  * TreeNodeRow — generic sidebar tree row component.
  *
- * Mirrors desktop v5-shell/sidebar/TreeNodeRow.tsx exactly.
+ * Mirrors the old desktop shell at sidebar/TreeNodeRow.tsx exactly.
  * Renders any TreeNode uniformly: caret, icon, label (or rename input),
  * badge, hover actions (+ / ... menus), context menu.
  */

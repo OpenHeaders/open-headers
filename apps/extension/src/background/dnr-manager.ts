@@ -18,7 +18,7 @@
  *     scoped rules only fire on their own tab.
  *
  * Scriptable injections are NOT handled here. `inject-manager` consumes
- * V5 rules directly from the rule store and installs its MAIN-world
+ * rules directly from the rule store and installs its MAIN-world
  * injections per main-frame commit. The two concerns have different
  * lifecycles and stay cleanly decoupled.
  */
@@ -300,7 +300,7 @@ interface RebuildOutput {
 
 /**
  * Compile every enabled rule into DNR rules plus a scriptable passthrough
- * for inject-manager. Returns TAGGED rules (with their source V5 uid) so
+ * for inject-manager. Returns TAGGED rules (with their source uid) so
  * callers can build id→uid maps for telemetry lookups.
  */
 function compileRuleSet(rules: Rule[], startId: number): RebuildOutput {

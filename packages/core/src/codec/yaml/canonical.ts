@@ -1,7 +1,7 @@
 /**
  * Canonical YAML stringify options.
  *
- * One fixed style for every entity in the v5 format so two clients
+ * One fixed style for every persisted entity so two clients
  * writing the same entity produce byte-identical output. Round-trip
  * fixtures assert this. Matches invariant #16 (yaml eemeli) +
  * invariant #17 (one platform-agnostic codec) — see

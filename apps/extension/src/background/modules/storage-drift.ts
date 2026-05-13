@@ -2,7 +2,7 @@
  * Shared helper for recording schema-drift events emitted by
  * `extensionStorage.getValidatedArray` on hydrate paths.
  *
- * Each store that hydrates persisted V5 entities on SW wake passes a
+ * Each store that hydrates persisted entities on SW wake passes a
  * `logDrift(...)` callback to the validator. When a stored entry fails
  * the schema (older/newer shape, manual DevTools edit, sync conflict),
  * the validator drops it and calls back here; this module stamps the

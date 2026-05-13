@@ -1,5 +1,5 @@
 /**
- * RequestEditor — V5 HTTP request editor tab.
+ * RequestEditor — HTTP request editor tab.
  *
  * Full-fidelity editor for the request shape the SW's `executeRequest`
  * runner can ship. Tab layout: Docs · Params · Authorization · Headers

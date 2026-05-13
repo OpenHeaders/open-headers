@@ -1,7 +1,7 @@
 /**
  * Sidebar tree types — unified model for all sidebar items.
  *
- * Mirrors desktop v5-shell/sidebar/types.ts exactly.
+ * Mirrors the old desktop shell at sidebar/types.ts exactly.
  * Every sidebar item is a TreeNode. The rendering layer (TreeNodeRow)
  * treats all nodes identically.
  */

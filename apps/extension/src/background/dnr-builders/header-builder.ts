@@ -13,7 +13,7 @@
  *     and calls `setRequestHeader(name, existing + sep + newValue)` for
  *     matched requests. Necessary because DNR has no "merge" operation.
  *
- * Both outputs can coexist for a single V5 rule with mixed operations.
+ * Both outputs can coexist for a single rule with mixed operations.
  */
 
 import type { HeaderModification, HeaderRule } from '@openheaders/core/types';
@@ -174,7 +174,7 @@ export const headerCompiler: RuleCompiler<HeaderRule> = {
       }
     };
 
-    // One DNR rule per V5 rule — `cleanBase` already carries `requestDomains`
+    // One DNR rule per rule — `cleanBase` already carries `requestDomains`
     // when the user added a request-domains row, so we never iterate per
     // domain. URL Pattern + Request Domains coexist as separate slots and
     // Chrome AND's them, which matches the editor's "rows combine with AND"

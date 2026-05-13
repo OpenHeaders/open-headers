@@ -1,5 +1,5 @@
 /**
- * Platform-agnostic YAML codec for v5 workspace entities.
+ * Platform-agnostic YAML codec for workspace entities.
  *
  * String-in / string-out — no filesystem access. Callers (desktop YAML
  * storage service, future team sync) layer filesystem concerns on top.

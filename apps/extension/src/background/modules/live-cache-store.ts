@@ -116,7 +116,7 @@ function normalizeBlob(raw: unknown): LiveCacheBlob {
   }
   // Per-row tolerant read: inject a default circuit snapshot into any
   // row that predates the circuit-breaker field. This is the ONLY
-  // backwards-compat we do — v5 is pre-release so there's no migration
+  // backwards-compat we do — this is pre-release so there's no migration
   // story, but within a single SW lifetime a read could still encounter
   // a storage row written before this module shipped. Safer to heal on
   // read than to crash a scheduler dispatch on `cache.circuit.state`.
