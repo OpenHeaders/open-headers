@@ -26,6 +26,7 @@ import { Button, Popover, Tag, Tooltip, Typography, theme } from 'antd';
 import type { TooltipPlacement } from 'antd/es/tooltip';
 import React from 'react';
 import { useStatus } from '@/hooks/useStatus';
+import { getBuildInfo } from '@/shared/build-info';
 import { type StatusLevel, type StatusSnapshot, type StatusSubsystem, SUBSYSTEM_LABELS } from './types';
 
 export const SUBSYSTEM_ORDER: StatusSubsystem[] = ['sync', 'rules', 'requests', 'permissions', 'secrets', 'live'];
@@ -338,6 +339,38 @@ const StatusPopoverBody: React.FC<StatusPopoverBodyProps> = ({ snapshot, token, 
         );
       })}
       {extrasRows.length > 0 ? extrasRows : null}
+      <BuildInfoFooter token={token} />
+    </div>
+  );
+};
+
+/**
+ * Compact build-info line rendered at the bottom of the Status popover.
+ * Replaces the standalone version chip that used to live in the popup
+ * footer — keeps Open Headers' identity visible while reclaiming the
+ * footer's pixel budget on small surfaces.
+ */
+const BuildInfoFooter: React.FC<{ token: ReturnType<typeof theme.useToken>['token'] }> = ({ token }) => {
+  const info = getBuildInfo();
+  const label = info.channel === 'beta' ? `${info.version} (beta)` : info.version;
+  const buildDetail = info.build > 0 ? ` · build ${info.build}` : '';
+  const commitDetail = info.commit && info.commit !== '—' ? ` · ${info.commit}` : '';
+  return (
+    <div
+      style={{
+        marginTop: 4,
+        paddingTop: 6,
+        borderTop: `1px solid ${token.colorBorderSecondary}`,
+        fontSize: 10,
+        color: token.colorTextTertiary,
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+      }}
+    >
+      Open Headers · {label}
+      {buildDetail}
+      {commitDetail}
     </div>
   );
 };

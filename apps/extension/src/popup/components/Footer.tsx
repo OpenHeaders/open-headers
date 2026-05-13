@@ -1,7 +1,7 @@
 import { BugOutlined, GlobalOutlined, StarOutlined } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { BridgeError, call } from '@utils/bridge';
-import { Button, Space, Tooltip, Typography, theme } from 'antd';
+import { Button, Space, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
@@ -12,12 +12,9 @@ import { openWorkspace } from '@/shared/workspace-intent';
 import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
 import DebugNetworkPanel from './DebugNetworkPanel';
 
-const { Text } = Typography;
-
 const Footer: React.FC = () => {
   const { setFooterActions, setIsShortcutsOverlayVisible } = useKeyboardNav();
   const surface = useSurface();
-  const version = __APP_VERSION__;
   const { token } = theme.useToken();
   const [debugNetworkOpen, setDebugNetworkOpen] = useState(false);
 
@@ -104,9 +101,6 @@ const Footer: React.FC = () => {
             renderSubsystemExtras={productStatusExtras}
             onOpenDocs={handleOpenDocs}
           />
-          <Text className="oh-version" style={{ fontSize: '11px', color: token.colorTextTertiary }}>
-            v{version}
-          </Text>
           <Tooltip title="Help us with a star on GitHub">
             <Button
               className="github-star-button"

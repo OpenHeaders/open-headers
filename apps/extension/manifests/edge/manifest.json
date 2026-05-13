@@ -1,6 +1,6 @@
 {
   "name": "Open Headers",
-  "description": "Modify HTTP Traffic. Team Workspaces. Everything local.",
+  "description": "Manage everything inside the browser extension. Modify live HTTP Requests. Team Collaboration. Works Offline. Like it should be.",
   "author": "Open Headers",
   "version": "0.0.0",
   "manifest_version": 3,
