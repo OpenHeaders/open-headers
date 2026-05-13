@@ -18,14 +18,14 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { blockCompiler } from '@/background/dnr-builders/block-builder';
-import { delayCompiler } from '@/background/dnr-builders/delay-builder';
-import { headerCompiler } from '@/background/dnr-builders/header-builder';
-import { injectCompiler } from '@/background/dnr-builders/inject-builder';
-import { queryParamCompiler } from '@/background/dnr-builders/query-param-builder';
-import { redirectCompiler } from '@/background/dnr-builders/redirect-builder';
-import type { CompilerContext, DnrRule } from '@/background/dnr-builders/types';
-import { ALL_RESOURCE_TYPES, resolveResourceTypes, SUB_RESOURCE_TYPES } from '@/background/dnr-builders/types';
+import { blockCompiler } from '@openheaders/rule-engine/builders';
+import { delayCompiler } from '@openheaders/rule-engine/builders';
+import { headerCompiler } from '@openheaders/rule-engine/builders';
+import { injectCompiler } from '@openheaders/rule-engine/builders';
+import { queryParamCompiler } from '@openheaders/rule-engine/builders';
+import { redirectCompiler } from '@openheaders/rule-engine/builders';
+import type { CompilerContext, DnrRule } from '@openheaders/rule-engine/builders';
+import { ALL_RESOURCE_TYPES, resolveResourceTypes, SUB_RESOURCE_TYPES } from '@openheaders/rule-engine/builders';
 
 function makeCtx(start = 1, liveRulesMode = true): CompilerContext {
   let id = start;

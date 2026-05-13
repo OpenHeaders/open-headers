@@ -17,4 +17,4 @@
  *   import type { Injection } from '@openheaders/rule-engine/content-scripts'
  *   import type { RuleEngineDeps } from '@openheaders/rule-engine/types'
  */
-export {};
+export { CACHE_BYPASS_ID_BASE } from './reserved-ids';

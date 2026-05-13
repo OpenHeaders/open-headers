@@ -22,7 +22,7 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { buildBodyInjection, buildMockInjection, type FuncInjection } from '@/background/content-scripts';
+import { buildBodyInjection, buildMockInjection, type FuncInjection } from '@openheaders/rule-engine/content-scripts';
 
 interface OrigEnv {
   fetch: typeof window.fetch;

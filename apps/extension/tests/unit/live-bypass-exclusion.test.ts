@@ -32,7 +32,7 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { attachLiveBypassExclusion, LIVE_BYPASS_HEADER_NAME } from '@/background/dnr-builders';
+import { attachLiveBypassExclusion, LIVE_BYPASS_HEADER_NAME } from '@openheaders/rule-engine/builders';
 import * as liveVarStore from '@/background/modules/live-variable-store';
 import { LIVE_BYPASS_HEADER, liveBypassHeaderValue } from '@/background/modules/request-executor';
 import { computeRuleLiveBypass, __resetForTests as resetResolver } from '@/background/modules/variables-resolver';

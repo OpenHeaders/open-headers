@@ -16,7 +16,7 @@ declare const browser: typeof chrome | undefined;
 
 import type { InjectAction, InjectRule } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
-import type { Injection } from '../content-scripts';
+import type { Injection } from './content-scripts';
 
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 

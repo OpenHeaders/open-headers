@@ -34,6 +34,10 @@
     "./types": {
       "import": "./src/types.ts",
       "default": "./dist/types.js"
+    },
+    "./rule-validator": {
+      "import": "./src/rule-validator.ts",
+      "default": "./dist/rule-validator.js"
     }
   },
   "scripts": {

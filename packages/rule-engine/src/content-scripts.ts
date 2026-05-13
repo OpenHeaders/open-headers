@@ -38,10 +38,10 @@
 
 import type { BodyRule, DelayRule, MockRule } from '@openheaders/core/types';
 import { compileRuleForInjection } from '@openheaders/core/utils';
-import type { FuncInjection, Injection } from './dnr-builders/types';
+import type { FuncInjection, Injection } from './builders/types';
 
 // Re-export the injection types so existing importers keep working.
-export type { FuncInjection, Injection, InlineScriptInjection } from './dnr-builders/types';
+export type { FuncInjection, Injection, InlineScriptInjection } from './builders/types';
 
 // ── Per-rule config shapes passed into injected funcs ───────────────
 

@@ -1,6 +1,6 @@
 import type { HeaderValueValidation } from '@openheaders/core';
 import { describe, expect, it } from 'vitest';
-import { isValidHeaderValue, sanitizeHeaderValue, validateHeaderValue } from '@/background/rule-validator';
+import { isValidHeaderValue, sanitizeHeaderValue, validateHeaderValue } from '@openheaders/rule-engine/rule-validator';
 
 // ---------------------------------------------------------------------------
 //  Enterprise test data

@@ -25,8 +25,8 @@ vi.mock('@openheaders/core/utils', async () => {
   };
 });
 
-import { headerCompiler } from '@/background/dnr-builders/header-builder';
-import type { CompilerContext } from '@/background/dnr-builders/types';
+import { headerCompiler } from '@openheaders/rule-engine/builders';
+import type { CompilerContext } from '@openheaders/rule-engine/builders';
 
 function makeCtx(start = 1, liveRulesMode = true): CompilerContext {
   let id = start;

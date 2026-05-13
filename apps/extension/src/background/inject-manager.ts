@@ -25,8 +25,8 @@ import {
   buildDelayInjection,
   buildHeaderMergeInjection,
   buildMockInjection,
-} from './content-scripts';
-import { applyInjection, injectCSS, injectCSSUrl, injectScript, injectScriptUrl } from './engine/inject';
+} from '@openheaders/rule-engine/content-scripts';
+import { applyInjection, injectCSS, injectCSSUrl, injectScript, injectScriptUrl } from '@openheaders/rule-engine/inject';
 import { getTestScopeForTab, isRuleUnderTest } from './modules/test-runner';
 
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;

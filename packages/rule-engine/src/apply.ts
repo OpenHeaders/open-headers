@@ -13,7 +13,7 @@
  */
 
 import { logger } from '@openheaders/core/utils';
-import type { DnrRule } from '../dnr-builders';
+import type { DnrRule } from './builders';
 import { CACHE_BYPASS_ID_BASE } from './reserved-ids';
 
 /**

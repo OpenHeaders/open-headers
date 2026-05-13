@@ -10,8 +10,8 @@ vi.mock('@utils/logger', () => ({
   },
 }));
 
-import { delayCompiler } from '@/background/dnr-builders/delay-builder';
-import type { CompilerContext } from '@/background/dnr-builders/types';
+import { delayCompiler } from '@openheaders/rule-engine/builders';
+import type { CompilerContext } from '@openheaders/rule-engine/builders';
 
 function makeDelayRule(overrides: Partial<DelayRule> = {}): DelayRule {
   return {

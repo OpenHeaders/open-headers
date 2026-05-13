@@ -18,8 +18,8 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { headerCompiler } from '@/background/dnr-builders/header-builder';
-import type { CompilerContext } from '@/background/dnr-builders/types';
+import { headerCompiler } from '@openheaders/rule-engine/builders';
+import type { CompilerContext } from '@openheaders/rule-engine/builders';
 
 // Tests flip Live Rules Mode off so the synthesizer doesn't add unrelated
 // cache-bypass mods to the assertion targets.

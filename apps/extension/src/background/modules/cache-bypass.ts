@@ -30,7 +30,7 @@
 
 import { declarativeNetRequest } from '@utils/browser-api';
 import { logger } from '@utils/logger';
-import { CACHE_BYPASS_ID_BASE } from '../engine/reserved-ids';
+import { CACHE_BYPASS_ID_BASE } from '@openheaders/rule-engine';
 
 export { CACHE_BYPASS_ID_BASE };
 

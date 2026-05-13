@@ -15,7 +15,7 @@
 
 import type { Rule } from '@openheaders/core/types';
 import { isRuleEffective, type PauseMarkers } from '@openheaders/core/utils';
-import type { CompilationPlan, CompilerContext, DnrRule, EngineCompileSettings, RuleCompiler } from '../dnr-builders';
+import type { CompilationPlan, CompilerContext, DnrRule, EngineCompileSettings, RuleCompiler } from './builders';
 import {
   blockCompiler,
   delayCompiler,
@@ -23,7 +23,7 @@ import {
   injectCompiler,
   queryParamCompiler,
   redirectCompiler,
-} from '../dnr-builders';
+} from './builders';
 
 /**
  * Single source of truth for "how does each rule type become DNR rules?".
