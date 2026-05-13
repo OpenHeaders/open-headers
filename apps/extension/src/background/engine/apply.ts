@@ -6,25 +6,40 @@
  * Does NOT decide which rules to compile, when to apply, or how to
  * react to errors — that's the orchestrator's job.
  *
- * Today this calls `declarativeNetRequest` directly via the existing
- * `@utils/browser-api` wrapper. When the engine moves to its own
- * package, the `browserApi` becomes an injected dependency so the
- * package stays host-agnostic.
+ * The `DnrClient` parameter is the engine's only handle on the host's
+ * declarativeNetRequest API. The host (extension SW) wraps Chrome's
+ * promise/callback split and passes the wrapper in. `null` means the
+ * host has no DNR access — applies degrade to logged no-ops.
  */
 
 import { logger } from '@openheaders/core/utils';
-import { declarativeNetRequest } from '@utils/browser-api';
 import type { DnrRule } from '../dnr-builders';
 import { CACHE_BYPASS_ID_BASE } from './reserved-ids';
 
+/**
+ * The subset of `chrome.declarativeNetRequest` the engine actually uses.
+ * Session-rule methods are optional — Firefox doesn't expose them, and
+ * the engine treats their absence as "session layer disabled" rather
+ * than an error.
+ */
+export interface DnrClient {
+  getDynamicRules(): Promise<chrome.declarativeNetRequest.Rule[]>;
+  updateDynamicRules(options: chrome.declarativeNetRequest.UpdateRuleOptions): Promise<void>;
+  getSessionRules?(): Promise<chrome.declarativeNetRequest.Rule[]>;
+  updateSessionRules?(options: chrome.declarativeNetRequest.UpdateRuleOptions): Promise<void>;
+}
+
 export type ApplyResult = { ok: true } | { ok: false; error: string };
 
-export function applyDynamicRules(newRules: DnrRule[]): Promise<ApplyResult> {
-  return declarativeNetRequest!
+export function applyDynamicRules(dnr: DnrClient | null, newRules: DnrRule[]): Promise<ApplyResult> {
+  if (!dnr) {
+    return Promise.resolve({ ok: false, error: 'declarativeNetRequest API unavailable' });
+  }
+  return dnr
     .getDynamicRules()
     .then((existingRules) => {
       const removeRuleIds = existingRules.map((r) => r.id);
-      return declarativeNetRequest!.updateDynamicRules({
+      return dnr.updateDynamicRules({
         removeRuleIds,
         addRules: newRules as chrome.declarativeNetRequest.Rule[],
       });
@@ -40,8 +55,7 @@ export function applyDynamicRules(newRules: DnrRule[]): Promise<ApplyResult> {
     });
 }
 
-export function applySessionRules(newRules: DnrRule[]): Promise<ApplyResult> {
-  const dnr = declarativeNetRequest;
+export function applySessionRules(dnr: DnrClient | null, newRules: DnrRule[]): Promise<ApplyResult> {
   if (!dnr?.updateSessionRules || !dnr.getSessionRules) {
     if (newRules.length > 0) {
       logger.info('DnrEngine', 'updateSessionRules unavailable — session rules will not be applied');
@@ -76,20 +90,20 @@ export function applySessionRules(newRules: DnrRule[]): Promise<ApplyResult> {
     });
 }
 
-export function clearAllDynamicRules(): void {
-  declarativeNetRequest!
+export function clearAllDynamicRules(dnr: DnrClient | null): void {
+  if (!dnr) return;
+  dnr
     .getDynamicRules()
     .then((existingRules) => {
       const removeIds = existingRules.map((r) => r.id);
-      return declarativeNetRequest!.updateDynamicRules({ removeRuleIds: removeIds, addRules: [] });
+      return dnr.updateDynamicRules({ removeRuleIds: removeIds, addRules: [] });
     })
     .then(() => {
       logger.debug('DnrEngine', 'All dynamic rules cleared');
     });
 }
 
-export function clearAllSessionRules(): void {
-  const dnr = declarativeNetRequest;
+export function clearAllSessionRules(dnr: DnrClient | null): void {
   if (!dnr?.updateSessionRules || !dnr.getSessionRules) return;
   dnr
     .getSessionRules()

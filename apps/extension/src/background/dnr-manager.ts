@@ -25,6 +25,7 @@
 
 import type { Rule } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
+import { declarativeNetRequest } from '@utils/browser-api';
 import { report as reportStatus } from '@/shared/status';
 import { get as getSetting } from '@/workbench/settings/store';
 import type { DnrRule, EngineCompileSettings } from './dnr-builders';
@@ -326,8 +327,8 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
 
   if (isPaused) {
     logger.info('DnrManager', 'Rules execution is paused, clearing all active rules');
-    clearAllDynamicRules();
-    clearAllSessionRules();
+    clearAllDynamicRules(declarativeNetRequest);
+    clearAllSessionRules(declarativeNetRequest);
     updateScriptableRules([]);
     reportStatus({
       subsystem: 'rules',
@@ -397,7 +398,7 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
     dynamicToApply.push(rule);
   }
 
-  const dynamicPromise = applyDynamicRules(dynamicToApply);
+  const dynamicPromise = applyDynamicRules(declarativeNetRequest, dynamicToApply);
   updateScriptableRules(scriptables);
 
   // ── Layer 2: session rules ──
@@ -482,7 +483,7 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
     sessionToApply.push(rule);
   }
 
-  const sessionPromise = applySessionRules(sessionToApply);
+  const sessionPromise = applySessionRules(declarativeNetRequest, sessionToApply);
   return Promise.all([dynamicPromise, sessionPromise]).then(([dyn, ses]) => {
     // Single reporting point for the `rules` Status subsystem. Layered
     // so the worst condition wins: transport failure > unresolved
