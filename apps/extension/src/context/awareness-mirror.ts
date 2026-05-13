@@ -1,11 +1,13 @@
 /**
  * Renderer-side awareness mirror.
  *
- * Subscribes once to the SW's `awarenessBroadcast` channel and holds
- * the canonical per-workspace presence list. UI consumers (editor tab
- * badge, field-level chip, deletion view) query the mirror by entity
- * ref or field path; subscriptions fire when the presence relevant to
- * a query changes.
+ * Subscribes once to the SW's `awarenessBroadcast` channel and caches
+ * the latest per-workspace presence snapshot for query. The SW owns
+ * the authoritative presence registry (see
+ * `packages/oracle/src/sync/awareness.ts`); this module is strictly a
+ * read-side mirror. UI consumers (editor tab badge, field-level chip,
+ * deletion view) query by entity ref or field path; subscriptions
+ * fire when the relevant slice changes.
  *
  * Awareness ≠ sync — the mirror is intentionally separate from
  * `rule-sync-mirror.ts`. They consume different broadcast channels and

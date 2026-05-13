@@ -119,7 +119,9 @@ interface ResolveOptions {
   /** Async navigation handle resolver. The identity is returned
    *  immediately with `navigation` undefined, then the handle is filled
    *  in once the lookup completes. Surfaces that publish before
-   *  navigation lands will simply re-publish on the next heartbeat. */
+   *  navigation lands will simply re-publish on the next focus / dirty
+   *  change — there is no heartbeat (the awareness lifeline is
+   *  connection-bound; see `awareness-lifeline.ts`). */
   resolveNavigation?: () => Promise<NavigationHandle | null>;
   /** Wire a live-label source. Returns a teardown function. The
    *  callback is invoked whenever the label changes, including the
