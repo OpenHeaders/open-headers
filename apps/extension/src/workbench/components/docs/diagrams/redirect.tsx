@@ -8,16 +8,7 @@
  */
 
 import type React from 'react';
-import {
-  ArrowDefs,
-  FILL_BLUE,
-  FILL_GREEN,
-  STROKE,
-  STROKE_BLUE,
-  STROKE_GREEN,
-  TEXT,
-  TEXT_DIM,
-} from './_shared';
+import { ArrowDefs, FILL_BLUE, FILL_GREEN, STROKE, STROKE_BLUE, STROKE_GREEN, TEXT, TEXT_DIM } from './_shared';
 
 /**
  * Static redirect — full URL goes in, full URL comes out. Reads
@@ -51,7 +42,15 @@ export const RedirectStaticDiagram: React.FC = () => {
         RULE
       </text>
       <rect x={20} y={RULE_Y} width={280} height={RULE_H} rx={4} fill={FILL_BLUE} stroke={STROKE_BLUE} />
-      <text x={160} y={RULE_Y + 15} textAnchor="middle" fontFamily="monospace" fontSize={10} fontWeight={700} fill={TEXT}>
+      <text
+        x={160}
+        y={RULE_Y + 15}
+        textAnchor="middle"
+        fontFamily="monospace"
+        fontSize={10}
+        fontWeight={700}
+        fill={TEXT}
+      >
         Redirect → https://openheaders.io/new-page
       </text>
 
@@ -147,7 +146,15 @@ export const RedirectRegexDiagram: React.FC = () => {
       <text x={160} y={RULE_Y + 14} textAnchor="middle" fontFamily="monospace" fontSize={9} fill={TEXT}>
         URL Regex: ^http://(openheaders\.io/.*)$
       </text>
-      <text x={160} y={RULE_Y + 28} textAnchor="middle" fontFamily="monospace" fontSize={9} fontWeight={700} fill={TEXT}>
+      <text
+        x={160}
+        y={RULE_Y + 28}
+        textAnchor="middle"
+        fontFamily="monospace"
+        fontSize={9}
+        fontWeight={700}
+        fill={TEXT}
+      >
         Redirect → https://\1
       </text>
 
@@ -172,7 +179,15 @@ export const RedirectRegexDiagram: React.FC = () => {
       </text>
       {/* Capture-group chip below */}
       <rect x={STATE_X + 80} y={BEFORE_Y + 36} width={140} height={14} rx={3} fill={GOLD_BG} stroke={GOLD} />
-      <text x={STATE_X + 150} y={BEFORE_Y + 47} textAnchor="middle" fontFamily="monospace" fontSize={8} fontWeight={700} fill={GOLD}>
+      <text
+        x={STATE_X + 150}
+        y={BEFORE_Y + 47}
+        textAnchor="middle"
+        fontFamily="monospace"
+        fontSize={8}
+        fontWeight={700}
+        fill={GOLD}
+      >
         \1 = openheaders.io/page
       </text>
 

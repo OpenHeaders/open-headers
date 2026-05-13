@@ -203,6 +203,11 @@ const DocsPanel: React.FC<DocsPanelProps> = ({ onClose }) => {
           !e.altKey &&
           !e.metaKey &&
           !e.ctrlKey &&
+          // Shift is excluded for the same reason it's excluded from
+          // the scroll keys below: Shift+ArrowLeft / Shift+ArrowRight
+          // extend a native text selection by one character. Stealing
+          // those would silently break selecting a few words of prose.
+          !e.shiftKey &&
           (e.key === 'ArrowLeft' || e.key === 'ArrowRight')
         ) {
           if (isInput) return;

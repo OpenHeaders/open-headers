@@ -108,12 +108,7 @@ const BodyCard: React.FC<{
 }> = ({ idSuffix, rule, beforeLines, afterLines, arrowLabel, stamp }) => {
   const ID = `bd-${idSuffix}`;
   return (
-    <svg
-      viewBox="0 0 320 240"
-      width="100%"
-      style={{ maxWidth: 360 }}
-      role="img"
-    >
+    <svg viewBox="0 0 320 240" width="100%" style={{ maxWidth: 360 }} role="img">
       <ArrowDefs id={ID} />
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
         RULE
@@ -172,14 +167,7 @@ const BodyCard: React.FC<{
         BODY SENT
       </text>
       {afterLines.map((line, i) => (
-        <text
-          key={`a-${i}`}
-          x={STATE_X + 10}
-          y={AFTER_Y + 30 + i * 14}
-          fontFamily="monospace"
-          fontSize={9}
-          fill={TEXT}
-        >
+        <text key={`a-${i}`} x={STATE_X + 10} y={AFTER_Y + 30 + i * 14} fontFamily="monospace" fontSize={9} fill={TEXT}>
           {line}
         </text>
       ))}
@@ -195,10 +183,7 @@ export const BodyStaticDiagram: React.FC = () => (
   <BodyCard
     idSuffix="st"
     rule='Static body: { "userId": "test-1" }'
-    beforeLines={[
-      <tspan key="b">{'POST /api/save  body:'}</tspan>,
-      <tspan key="b2">{'{ "userId": "abc" }'}</tspan>,
-    ]}
+    beforeLines={[<tspan key="b">{'POST /api/save  body:'}</tspan>, <tspan key="b2">{'{ "userId": "abc" }'}</tspan>]}
     afterLines={[
       <tspan key="a">{'POST /api/save  body:'}</tspan>,
       <tspan key="a2" fontWeight={700} fill={STROKE_PURPLE}>
@@ -213,7 +198,7 @@ export const BodyStaticDiagram: React.FC = () => (
 export const BodyDynamicDiagram: React.FC = () => (
   <BodyCard
     idSuffix="dyn"
-    rule='Dynamic body: fn(orig) → stamped'
+    rule="Dynamic body: fn(orig) → stamped"
     beforeLines={[
       <tspan key="b">{'{ "userId": "abc" }'}</tspan>,
       <tspan key="b2" fontStyle="italic" fill={TEXT_DIM}>
@@ -263,7 +248,15 @@ export const BodyGraphqlDiagram: React.FC = () => {
       <text x={86} y={94} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
         operationName = GetUser
       </text>
-      <rect x={14} y={104} width={144} height={50} rx={5} fill="var(--ant-color-fill-secondary)" stroke="var(--ant-color-border)" />
+      <rect
+        x={14}
+        y={104}
+        width={144}
+        height={50}
+        rx={5}
+        fill="var(--ant-color-fill-secondary)"
+        stroke="var(--ant-color-border)"
+      />
       <text x={20} y={120} fontFamily="monospace" fontSize={8} fill={TEXT}>
         {'{'}
       </text>
@@ -273,15 +266,7 @@ export const BodyGraphqlDiagram: React.FC = () => {
       <text x={28} y={144} fontFamily="monospace" fontSize={8} fontWeight={700} fill={STROKE_PURPLE}>
         {'  "GetUser", ...'}
       </text>
-      <line
-        x1={86}
-        y1={158}
-        x2={86}
-        y2={178}
-        stroke={STROKE_PURPLE}
-        strokeWidth={1.5}
-        markerEnd={`url(#${ID})`}
-      />
+      <line x1={86} y1={158} x2={86} y2={178} stroke={STROKE_PURPLE} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
       <rect x={14} y={180} width={144} height={32} rx={5} fill={FILL_PURPLE} stroke={STROKE_PURPLE} />
       <text x={86} y={200} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
         rule fires
@@ -293,7 +278,15 @@ export const BodyGraphqlDiagram: React.FC = () => {
       <text x={234} y={94} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
         any other operation
       </text>
-      <rect x={162} y={104} width={144} height={50} rx={5} fill="var(--ant-color-fill-secondary)" stroke="var(--ant-color-border)" />
+      <rect
+        x={162}
+        y={104}
+        width={144}
+        height={50}
+        rx={5}
+        fill="var(--ant-color-fill-secondary)"
+        stroke="var(--ant-color-border)"
+      />
       <text x={168} y={120} fontFamily="monospace" fontSize={8} fill={TEXT}>
         {'{'}
       </text>
@@ -431,7 +424,15 @@ export const BodyUseCasesDiagram: React.FC = () => {
         const y = CARD_Y_START + row * (CARD_H + CARD_GAP);
         return (
           <g key={card.title}>
-            <rect x={x} y={y} width={CARD_W} height={CARD_H} rx={5} fill="var(--ant-color-bg-container)" stroke="var(--ant-color-border)" />
+            <rect
+              x={x}
+              y={y}
+              width={CARD_W}
+              height={CARD_H}
+              rx={5}
+              fill="var(--ant-color-bg-container)"
+              stroke="var(--ant-color-border)"
+            />
             <rect x={x} y={y + 1} width={4} height={CARD_H - 2} rx={2} fill={STROKE_PURPLE} />
             <circle cx={x + 16} cy={y + 16} r={8} fill={FILL_PURPLE} stroke={STROKE_PURPLE} />
             <text x={x + 16} y={y + 19} textAnchor="middle" fontSize={9} fontWeight={700} fill={STROKE_PURPLE}>

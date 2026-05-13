@@ -1,5 +1,6 @@
 import type React from 'react';
 import { FILL_BLUE, STROKE_BLUE, STROKE_GREEN, TEXT, TEXT_DIM } from '../_shared';
+import { OH_GREEN, OH_GREEN_TINT } from './_shared';
 
 /**
  * Comparison matrix — four stacked category cards. The first three are
@@ -101,8 +102,8 @@ export const ComparisonMatrixDiagram: React.FC = () => {
               width={46}
               height={14}
               rx={7}
-              fill={card.us ? accent : 'var(--ant-color-fill-quaternary)'}
-              stroke={accent}
+              fill={card.us ? OH_GREEN_TINT : 'var(--ant-color-fill-quaternary)'}
+              stroke={card.us ? OH_GREEN : accent}
             />
             <text
               x={CARD_X + CARD_W - 33}
@@ -110,7 +111,7 @@ export const ComparisonMatrixDiagram: React.FC = () => {
               textAnchor="middle"
               fontSize={9}
               fontWeight={700}
-              fill={card.us ? 'var(--ant-color-bg-container)' : TEXT_DIM}
+              fill={card.us ? TEXT : TEXT_DIM}
             >
               {card.tag}
             </text>

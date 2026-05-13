@@ -98,8 +98,24 @@ export const InjectScriptDiagram: React.FC = () => {
       </text>
 
       {/* Page mockup */}
-      <rect x={30} y={66} width={260} height={134} rx={6} fill="var(--ant-color-bg-container)" stroke="var(--ant-color-border)" />
-      <rect x={30} y={66} width={260} height={16} rx={6} fill="var(--ant-color-fill-secondary)" stroke="var(--ant-color-border)" />
+      <rect
+        x={30}
+        y={66}
+        width={260}
+        height={134}
+        rx={6}
+        fill="var(--ant-color-bg-container)"
+        stroke="var(--ant-color-border)"
+      />
+      <rect
+        x={30}
+        y={66}
+        width={260}
+        height={16}
+        rx={6}
+        fill="var(--ant-color-fill-secondary)"
+        stroke="var(--ant-color-border)"
+      />
       <text x={40} y={78} fontFamily="monospace" fontSize={9} fill={TEXT_DIM}>
         &lt;!doctype html&gt;
       </text>
@@ -176,7 +192,15 @@ export const InjectCssDiagram: React.FC = () => {
       </text>
 
       {/* Before page card */}
-      <rect x={10} y={64} width={140} height={140} rx={6} fill="var(--ant-color-bg-container)" stroke="var(--ant-color-border)" />
+      <rect
+        x={10}
+        y={64}
+        width={140}
+        height={140}
+        rx={6}
+        fill="var(--ant-color-bg-container)"
+        stroke="var(--ant-color-border)"
+      />
       <text x={80} y={78} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM}>
         BEFORE
       </text>
@@ -187,7 +211,15 @@ export const InjectCssDiagram: React.FC = () => {
       </text>
       {/* page rows */}
       {[0, 1, 2, 3].map((i) => (
-        <rect key={i} x={20} y={112 + i * 18} width={120 - i * 14} height={6} rx={2} fill="var(--ant-color-fill-tertiary)" />
+        <rect
+          key={i}
+          x={20}
+          y={112 + i * 18}
+          width={120 - i * 14}
+          height={6}
+          rx={2}
+          fill="var(--ant-color-fill-tertiary)"
+        />
       ))}
 
       {/* Arrow */}
@@ -200,18 +232,43 @@ export const InjectCssDiagram: React.FC = () => {
       </text>
 
       {/* After page card */}
-      <rect x={172} y={64} width={140} height={140} rx={6} fill="var(--ant-color-bg-container)" stroke={STROKE_PURPLE} />
+      <rect
+        x={172}
+        y={64}
+        width={140}
+        height={140}
+        rx={6}
+        fill="var(--ant-color-bg-container)"
+        stroke={STROKE_PURPLE}
+      />
       <text x={242} y={78} textAnchor="middle" fontSize={9} fontWeight={700} fill={STROKE_PURPLE}>
         AFTER
       </text>
       {/* Banner hidden — shown as struck-through dim */}
-      <rect x={182} y={84} width={120} height={20} rx={2} fill="var(--ant-color-fill-quaternary)" stroke="var(--ant-color-border-secondary)" strokeDasharray="2 2" />
+      <rect
+        x={182}
+        y={84}
+        width={120}
+        height={20}
+        rx={2}
+        fill="var(--ant-color-fill-quaternary)"
+        stroke="var(--ant-color-border-secondary)"
+        strokeDasharray="2 2"
+      />
       <text x={242} y={97} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
         (hidden)
       </text>
       {/* Page rows shift up — show only 4 lower rows */}
       {[0, 1, 2, 3].map((i) => (
-        <rect key={i} x={182} y={112 + i * 18} width={120 - i * 14} height={6} rx={2} fill="var(--ant-color-fill-tertiary)" />
+        <rect
+          key={i}
+          x={182}
+          y={112 + i * 18}
+          width={120 - i * 14}
+          height={6}
+          rx={2}
+          fill="var(--ant-color-fill-tertiary)"
+        />
       ))}
 
       <text x={160} y={224} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
@@ -314,7 +371,15 @@ export const InjectUseCasesDiagram: React.FC = () => {
         const y = CARD_Y_START + row * (CARD_H + CARD_GAP);
         return (
           <g key={card.title}>
-            <rect x={x} y={y} width={CARD_W} height={CARD_H} rx={5} fill="var(--ant-color-bg-container)" stroke="var(--ant-color-border)" />
+            <rect
+              x={x}
+              y={y}
+              width={CARD_W}
+              height={CARD_H}
+              rx={5}
+              fill="var(--ant-color-bg-container)"
+              stroke="var(--ant-color-border)"
+            />
             <rect x={x} y={y + 1} width={4} height={CARD_H - 2} rx={2} fill={STROKE_PURPLE} />
             <circle cx={x + 16} cy={y + 16} r={8} fill={FILL_PURPLE} stroke={STROKE_PURPLE} />
             <text x={x + 16} y={y + 19} textAnchor="middle" fontSize={9} fontWeight={700} fill={STROKE_PURPLE}>

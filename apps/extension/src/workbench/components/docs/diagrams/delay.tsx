@@ -219,7 +219,16 @@ export const DelayXhrDiagram: React.FC = () => {
       </text>
 
       {/* Response */}
-      <line x1={280} y1={172} x2={42} y2={172} stroke={STROKE} strokeWidth={1.2} strokeDasharray="3 2" markerEnd={`url(#${ID})`} />
+      <line
+        x1={280}
+        y1={172}
+        x2={42}
+        y2={172}
+        stroke={STROKE}
+        strokeWidth={1.2}
+        strokeDasharray="3 2"
+        markerEnd={`url(#${ID})`}
+      />
       <text x={160} y={168} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
         response (delayed by 3s)
       </text>
@@ -324,7 +333,15 @@ export const DelayUseCasesDiagram: React.FC = () => {
         const y = CARD_Y_START + row * (CARD_H + CARD_GAP);
         return (
           <g key={card.title}>
-            <rect x={x} y={y} width={CARD_W} height={CARD_H} rx={5} fill="var(--ant-color-bg-container)" stroke="var(--ant-color-border)" />
+            <rect
+              x={x}
+              y={y}
+              width={CARD_W}
+              height={CARD_H}
+              rx={5}
+              fill="var(--ant-color-bg-container)"
+              stroke="var(--ant-color-border)"
+            />
             <rect x={x} y={y + 1} width={4} height={CARD_H - 2} rx={2} fill={STROKE_PURPLE} />
             <circle cx={x + 16} cy={y + 16} r={8} fill={FILL_PURPLE} stroke={STROKE_PURPLE} />
             <text x={x + 16} y={y + 19} textAnchor="middle" fontSize={9} fontWeight={700} fill={STROKE_PURPLE}>

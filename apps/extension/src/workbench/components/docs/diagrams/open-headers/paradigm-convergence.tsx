@@ -30,7 +30,7 @@ export const ParadigmConvergenceDiagram: React.FC = () => {
    *  the product behaves. `badge` is an inline marker (e.g. "#1"). */
   type Pill = { label: string; tone: 'capability' | 'posture'; badge?: string };
   const PILLS: Pill[] = [
-    { label: 'Rule Engine', tone: 'capability', badge: '#1' },
+    { label: 'Rule Engine', tone: 'capability' },
     { label: 'API Requests Catalog', tone: 'capability' },
     { label: 'Real-time Sync Engine', tone: 'capability' },
     { label: 'Conflict-free Save', tone: 'capability' },

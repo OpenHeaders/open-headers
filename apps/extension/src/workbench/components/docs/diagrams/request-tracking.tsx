@@ -93,14 +93,7 @@ export const RequestTrackingPhasesDiagram: React.FC = () => {
         />
 
         {/* Thin accent stripe on the left edge */}
-        <rect
-          x={CARD_X}
-          y={yOff + 1}
-          width={STRIPE_W}
-          height={CARD_H - 2}
-          rx={3}
-          fill={phase.accent}
-        />
+        <rect x={CARD_X} y={yOff + 1} width={STRIPE_W} height={CARD_H - 2} rx={3} fill={phase.accent} />
 
         {/* Numbered badge */}
         <circle cx={leftColX + 8} cy={yOff + 22} r={12} fill={phase.accent} />
@@ -116,23 +109,10 @@ export const RequestTrackingPhasesDiagram: React.FC = () => {
         </text>
 
         {/* Phase name */}
-        <text
-          x={leftColX + 26}
-          y={yOff + 19}
-          fontSize={13}
-          fontWeight={700}
-          fill={phase.accent}
-          letterSpacing={0.6}
-        >
+        <text x={leftColX + 26} y={yOff + 19} fontSize={13} fontWeight={700} fill={phase.accent} letterSpacing={0.6}>
           {phase.name}
         </text>
-        <text
-          x={leftColX + 26}
-          y={yOff + 32}
-          fontSize={9}
-          fontStyle="italic"
-          fill={TEXT_DIM}
-        >
+        <text x={leftColX + 26} y={yOff + 32} fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
           {phase.sub}
         </text>
 
@@ -145,14 +125,7 @@ export const RequestTrackingPhasesDiagram: React.FC = () => {
         </text>
 
         {/* Captured header */}
-        <text
-          x={rightColX}
-          y={yOff + 16}
-          fontSize={8}
-          fontWeight={700}
-          fill={TEXT_DIM}
-          letterSpacing={0.6}
-        >
+        <text x={rightColX} y={yOff + 16} fontSize={8} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.6}>
           CAPTURED
         </text>
 
@@ -221,14 +194,7 @@ export const RequestTrackingPhasesDiagram: React.FC = () => {
         fill="var(--ant-color-bg-container)"
         stroke="var(--ant-color-border)"
       />
-      <text
-        x={160}
-        y={connectorY + CARD_GAP / 2 + 3}
-        textAnchor="middle"
-        fontSize={9}
-        fontWeight={600}
-        fill={TEXT_DIM}
-      >
+      <text x={160} y={connectorY + CARD_GAP / 2 + 3} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT_DIM}>
         same connection
       </text>
 

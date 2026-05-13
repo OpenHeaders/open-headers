@@ -31,10 +31,12 @@ import {
   StopOutlined,
   SwapOutlined,
   TagsOutlined,
+  ThunderboltOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
 import type React from 'react';
 import {
+  ActionsSection,
   BlockSection,
   BodySection,
   ComparisonSection,
@@ -91,7 +93,7 @@ export const DOC_GROUPS: DocGroup[] = [
       },
       {
         id: 'comparison',
-        title: 'The comparison',
+        title: 'How we compare',
         summary: 'How Open Headers lands against cloud platforms, desktop proxies, and header-only extensions.',
         group: 'open-headers',
         icon: <SwapOutlined />,
@@ -99,7 +101,7 @@ export const DOC_GROUPS: DocGroup[] = [
       },
       {
         id: 'roadmap',
-        title: 'The roadmap',
+        title: "What we're building next",
         summary: 'Milestones in sequence — Git workspaces, desktop app, daemon, CLI, web app, more importers.',
         group: 'open-headers',
         icon: <RocketOutlined />,
@@ -118,6 +120,14 @@ export const DOC_GROUPS: DocGroup[] = [
         group: 'concepts',
         icon: <FilterOutlined />,
         Component: ConditionsSection,
+      },
+      {
+        id: 'actions',
+        title: 'Actions',
+        summary: 'The "do" half of a rule — modify request, modify response, or run code. Pairs with conditions.',
+        group: 'concepts',
+        icon: <ThunderboltOutlined />,
+        Component: ActionsSection,
       },
       {
         id: 'request-tracking',

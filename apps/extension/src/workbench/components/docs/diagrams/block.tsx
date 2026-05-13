@@ -10,16 +10,7 @@
  */
 
 import type React from 'react';
-import {
-  ArrowDefs,
-  FILL_BLUE,
-  FILL_GREEN,
-  STROKE,
-  STROKE_BLUE,
-  STROKE_GREEN,
-  TEXT,
-  TEXT_DIM,
-} from './_shared';
+import { ArrowDefs, FILL_BLUE, FILL_GREEN, STROKE, STROKE_BLUE, STROKE_GREEN, TEXT, TEXT_DIM } from './_shared';
 
 export const BlockDiagram: React.FC = () => {
   const ID = 'bl';
@@ -59,13 +50,29 @@ export const BlockDiagram: React.FC = () => {
         RULE
       </text>
       <rect x={20} y={RULE_Y} width={280} height={RULE_H} rx={4} fill={FILL_BLUE} stroke={STROKE_BLUE} />
-      <text x={160} y={RULE_Y + 15} textAnchor="middle" fontFamily="monospace" fontSize={10} fontWeight={700} fill={TEXT}>
+      <text
+        x={160}
+        y={RULE_Y + 15}
+        textAnchor="middle"
+        fontFamily="monospace"
+        fontSize={10}
+        fontWeight={700}
+        fill={TEXT}
+      >
         Block · Request Domains: ads.openheaders.io
       </text>
 
       {/* Flow row — Page → ✗ intercept → Network */}
       {/* Page card */}
-      <rect x={PAGE_X} y={FLOW_Y} width={PAGE_W} height={FLOW_H} rx={5} fill="var(--ant-color-bg-container)" stroke={STROKE_BLUE} />
+      <rect
+        x={PAGE_X}
+        y={FLOW_Y}
+        width={PAGE_W}
+        height={FLOW_H}
+        rx={5}
+        fill="var(--ant-color-bg-container)"
+        stroke={STROKE_BLUE}
+      />
       <rect x={PAGE_X} y={FLOW_Y} width={PAGE_W} height={14} rx={5} fill={FILL_BLUE} stroke={STROKE_BLUE} />
       <text x={PAGE_X + PAGE_W / 2} y={FLOW_Y + 10} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>
         Page
@@ -73,7 +80,14 @@ export const BlockDiagram: React.FC = () => {
       <text x={PAGE_X + PAGE_W / 2} y={FLOW_Y + 32} textAnchor="middle" fontFamily="monospace" fontSize={9} fill={TEXT}>
         fetch()
       </text>
-      <text x={PAGE_X + PAGE_W / 2} y={FLOW_Y + 46} textAnchor="middle" fontFamily="monospace" fontSize={8} fill={TEXT_DIM}>
+      <text
+        x={PAGE_X + PAGE_W / 2}
+        y={FLOW_Y + 46}
+        textAnchor="middle"
+        fontFamily="monospace"
+        fontSize={8}
+        fill={TEXT_DIM}
+      >
         ads.openheaders.io
       </text>
 
@@ -89,8 +103,24 @@ export const BlockDiagram: React.FC = () => {
 
       {/* X intercept badge in the middle */}
       <circle cx={160} cy={FLOW_Y + FLOW_H / 2} r={16} fill={errBg} stroke={errBorder} strokeWidth={1.5} />
-      <line x1={152} y1={FLOW_Y + FLOW_H / 2 - 8} x2={168} y2={FLOW_Y + FLOW_H / 2 + 8} stroke={errColor} strokeWidth={2.2} strokeLinecap="round" />
-      <line x1={168} y1={FLOW_Y + FLOW_H / 2 - 8} x2={152} y2={FLOW_Y + FLOW_H / 2 + 8} stroke={errColor} strokeWidth={2.2} strokeLinecap="round" />
+      <line
+        x1={152}
+        y1={FLOW_Y + FLOW_H / 2 - 8}
+        x2={168}
+        y2={FLOW_Y + FLOW_H / 2 + 8}
+        stroke={errColor}
+        strokeWidth={2.2}
+        strokeLinecap="round"
+      />
+      <line
+        x1={168}
+        y1={FLOW_Y + FLOW_H / 2 - 8}
+        x2={152}
+        y2={FLOW_Y + FLOW_H / 2 + 8}
+        stroke={errColor}
+        strokeWidth={2.2}
+        strokeLinecap="round"
+      />
       <text x={160} y={FLOW_Y + FLOW_H + 14} textAnchor="middle" fontSize={9} fontWeight={700} fill={errColor}>
         DNR block
       </text>
@@ -123,38 +153,99 @@ export const BlockDiagram: React.FC = () => {
       <text x={NET_X + NET_W / 2} y={FLOW_Y + 36} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
         never reached
       </text>
-      <text x={NET_X + NET_W / 2} y={FLOW_Y + 50} textAnchor="middle" fontFamily="monospace" fontSize={8} fill={TEXT_DIM}>
+      <text
+        x={NET_X + NET_W / 2}
+        y={FLOW_Y + 50}
+        textAnchor="middle"
+        fontFamily="monospace"
+        fontSize={8}
+        fill={TEXT_DIM}
+      >
         request cancelled
       </text>
 
       {/* Outcome cards — what the user sees */}
-      <text x={160} y={OUTCOMES_Y - 4} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
+      <text
+        x={160}
+        y={OUTCOMES_Y - 4}
+        textAnchor="middle"
+        fontSize={9}
+        fontWeight={700}
+        fill={TEXT_DIM}
+        letterSpacing={0.5}
+      >
         WHAT THE PAGE SEES
       </text>
 
       {/* main_frame outcome */}
-      <rect x={14} y={OUTCOMES_Y} width={OUTCOME_W} height={OUTCOME_H} rx={5} fill="var(--ant-color-bg-container)" stroke={errBorder} />
+      <rect
+        x={14}
+        y={OUTCOMES_Y}
+        width={OUTCOME_W}
+        height={OUTCOME_H}
+        rx={5}
+        fill="var(--ant-color-bg-container)"
+        stroke={errBorder}
+      />
       <rect x={14} y={OUTCOMES_Y} width={OUTCOME_W} height={16} rx={5} fill={errBg} stroke={errBorder} />
-      <text x={14 + OUTCOME_W / 2} y={OUTCOMES_Y + 12} textAnchor="middle" fontFamily="monospace" fontSize={9} fontWeight={700} fill={errColor}>
+      <text
+        x={14 + OUTCOME_W / 2}
+        y={OUTCOMES_Y + 12}
+        textAnchor="middle"
+        fontFamily="monospace"
+        fontSize={9}
+        fontWeight={700}
+        fill={errColor}
+      >
         main_frame
       </text>
       <text x={14 + OUTCOME_W / 2} y={OUTCOMES_Y + 32} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>
         ERR_BLOCKED_BY_CLIENT
       </text>
-      <text x={14 + OUTCOME_W / 2} y={OUTCOMES_Y + 46} textAnchor="middle" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
+      <text
+        x={14 + OUTCOME_W / 2}
+        y={OUTCOMES_Y + 46}
+        textAnchor="middle"
+        fontSize={8}
+        fontStyle="italic"
+        fill={TEXT_DIM}
+      >
         Chrome's block page
       </text>
 
       {/* sub-resource outcome */}
-      <rect x={164} y={OUTCOMES_Y} width={OUTCOME_W} height={OUTCOME_H} rx={5} fill="var(--ant-color-bg-container)" stroke={STROKE_GREEN} />
+      <rect
+        x={164}
+        y={OUTCOMES_Y}
+        width={OUTCOME_W}
+        height={OUTCOME_H}
+        rx={5}
+        fill="var(--ant-color-bg-container)"
+        stroke={STROKE_GREEN}
+      />
       <rect x={164} y={OUTCOMES_Y} width={OUTCOME_W} height={16} rx={5} fill={FILL_GREEN} stroke={STROKE_GREEN} />
-      <text x={164 + OUTCOME_W / 2} y={OUTCOMES_Y + 12} textAnchor="middle" fontFamily="monospace" fontSize={9} fontWeight={700} fill={STROKE_GREEN}>
+      <text
+        x={164 + OUTCOME_W / 2}
+        y={OUTCOMES_Y + 12}
+        textAnchor="middle"
+        fontFamily="monospace"
+        fontSize={9}
+        fontWeight={700}
+        fill={STROKE_GREEN}
+      >
         sub-resource
       </text>
       <text x={164 + OUTCOME_W / 2} y={OUTCOMES_Y + 32} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>
         Silent failure
       </text>
-      <text x={164 + OUTCOME_W / 2} y={OUTCOMES_Y + 46} textAnchor="middle" fontSize={8} fontStyle="italic" fill={TEXT_DIM}>
+      <text
+        x={164 + OUTCOME_W / 2}
+        y={OUTCOMES_Y + 46}
+        textAnchor="middle"
+        fontSize={8}
+        fontStyle="italic"
+        fill={TEXT_DIM}
+      >
         page handles its own error
       </text>
     </svg>

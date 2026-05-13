@@ -158,9 +158,23 @@ export const WebSocketIcon: React.FC<IconProps> = ({ size }) => (
   <IconFrame accent={ICON_LIME} size={size}>
     {/* Bidirectional arrows */}
     <path d="M 10 16 L 30 16" stroke={ICON_LIME} strokeWidth={1.5} fill="none" />
-    <path d="M 28 13 L 31 16 L 28 19" stroke={ICON_LIME} strokeWidth={1.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    <path
+      d="M 28 13 L 31 16 L 28 19"
+      stroke={ICON_LIME}
+      strokeWidth={1.5}
+      fill="none"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
     <path d="M 30 24 L 10 24" stroke={ICON_LIME} strokeWidth={1.5} fill="none" />
-    <path d="M 12 21 L 9 24 L 12 27" stroke={ICON_LIME} strokeWidth={1.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    <path
+      d="M 12 21 L 9 24 L 12 27"
+      stroke={ICON_LIME}
+      strokeWidth={1.5}
+      fill="none"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </IconFrame>
 );
 
@@ -176,15 +190,7 @@ export const PingIcon: React.FC<IconProps> = ({ size }) => (
 
 export const OtherIcon: React.FC<IconProps> = ({ size }) => (
   <IconFrame accent={ICON_GREY} size={size}>
-    <text
-      x={20}
-      y={28}
-      textAnchor="middle"
-      fontFamily="Georgia, serif"
-      fontSize={20}
-      fontWeight={700}
-      fill={ICON_GREY}
-    >
+    <text x={20} y={28} textAnchor="middle" fontFamily="Georgia, serif" fontSize={20} fontWeight={700} fill={ICON_GREY}>
       ?
     </text>
   </IconFrame>
@@ -242,7 +248,16 @@ export const ResourceTypesAnatomyDiagram: React.FC = () => {
       </text>
 
       {/* Outer page card */}
-      <rect x={PAGE_X} y={PAGE_Y} width={PAGE_W} height={PAGE_H} rx={6} fill="var(--ant-color-bg-container)" stroke={STROKE_BLUE} strokeWidth={1.5} />
+      <rect
+        x={PAGE_X}
+        y={PAGE_Y}
+        width={PAGE_W}
+        height={PAGE_H}
+        rx={6}
+        fill="var(--ant-color-bg-container)"
+        stroke={STROKE_BLUE}
+        strokeWidth={1.5}
+      />
 
       {/* Address bar — Page = main_frame */}
       <rect x={PAGE_X} y={PAGE_Y} width={PAGE_W} height={20} rx={6} fill={FILL_BLUE} stroke={STROKE_BLUE} />
@@ -253,13 +268,29 @@ export const ResourceTypesAnatomyDiagram: React.FC = () => {
       {/* Inside the page */}
       {/* Script tag */}
       <rect x={PAGE_X + 8} y={PAGE_Y + 28} width={84} height={14} rx={2} fill={FILL_ORANGE} stroke={STROKE_ORANGE} />
-      <text x={PAGE_X + 50} y={PAGE_Y + 38} textAnchor="middle" fontFamily="monospace" fontSize={8} fontWeight={700} fill={STROKE_ORANGE}>
+      <text
+        x={PAGE_X + 50}
+        y={PAGE_Y + 38}
+        textAnchor="middle"
+        fontFamily="monospace"
+        fontSize={8}
+        fontWeight={700}
+        fill={STROKE_ORANGE}
+      >
         {'<script>'}
       </text>
 
       {/* Stylesheet */}
       <rect x={PAGE_X + 100} y={PAGE_Y + 28} width={92} height={14} rx={2} fill={FILL_PURPLE} stroke={STROKE_PURPLE} />
-      <text x={PAGE_X + 146} y={PAGE_Y + 38} textAnchor="middle" fontFamily="monospace" fontSize={8} fontWeight={700} fill={STROKE_PURPLE}>
+      <text
+        x={PAGE_X + 146}
+        y={PAGE_Y + 38}
+        textAnchor="middle"
+        fontFamily="monospace"
+        fontSize={8}
+        fontWeight={700}
+        fill={STROKE_PURPLE}
+      >
         {'<link css>'}
       </text>
 
@@ -271,19 +302,52 @@ export const ResourceTypesAnatomyDiagram: React.FC = () => {
 
       {/* Font (web font / @font-face) */}
       <rect x={PAGE_X + 72} y={PAGE_Y + 50} width={56} height={20} rx={2} fill={VOLCANO_BG} stroke={VOLCANO} />
-      <text x={PAGE_X + 100} y={PAGE_Y + 64} textAnchor="middle" fontFamily="monospace" fontSize={8} fontWeight={700} fill={VOLCANO}>
+      <text
+        x={PAGE_X + 100}
+        y={PAGE_Y + 64}
+        textAnchor="middle"
+        fontFamily="monospace"
+        fontSize={8}
+        fontWeight={700}
+        fill={VOLCANO}
+      >
         @font-face
       </text>
 
       {/* Media (video/audio) */}
       <rect x={PAGE_X + 72} y={PAGE_Y + 74} width={56} height={16} rx={2} fill={GOLD_BG} stroke={GOLD} />
-      <text x={PAGE_X + 100} y={PAGE_Y + 86} textAnchor="middle" fontFamily="monospace" fontSize={8} fontWeight={700} fill={GOLD}>
+      <text
+        x={PAGE_X + 100}
+        y={PAGE_Y + 86}
+        textAnchor="middle"
+        fontFamily="monospace"
+        fontSize={8}
+        fontWeight={700}
+        fill={GOLD}
+      >
         {'<video>'}
       </text>
 
       {/* Iframe (sub_frame) */}
-      <rect x={PAGE_X + 136} y={PAGE_Y + 50} width={56} height={40} rx={2} fill={CYAN_BG} stroke={CYAN} strokeDasharray="3 2" />
-      <text x={PAGE_X + 164} y={PAGE_Y + 68} textAnchor="middle" fontFamily="monospace" fontSize={8} fontWeight={700} fill={CYAN}>
+      <rect
+        x={PAGE_X + 136}
+        y={PAGE_Y + 50}
+        width={56}
+        height={40}
+        rx={2}
+        fill={CYAN_BG}
+        stroke={CYAN}
+        strokeDasharray="3 2"
+      />
+      <text
+        x={PAGE_X + 164}
+        y={PAGE_Y + 68}
+        textAnchor="middle"
+        fontFamily="monospace"
+        fontSize={8}
+        fontWeight={700}
+        fill={CYAN}
+      >
         {'<iframe>'}
       </text>
       <text x={PAGE_X + 164} y={PAGE_Y + 80} textAnchor="middle" fontSize={7} fontStyle="italic" fill={CYAN}>
@@ -320,7 +384,15 @@ export const ResourceTypesAnatomyDiagram: React.FC = () => {
       </text>
 
       {/* Manifest / favicon — Other */}
-      <rect x={PAGE_X + 8} y={PAGE_Y + 206} width={184} height={18} rx={3} fill="var(--ant-color-fill-secondary)" stroke="var(--ant-color-border)" />
+      <rect
+        x={PAGE_X + 8}
+        y={PAGE_Y + 206}
+        width={184}
+        height={18}
+        rx={3}
+        fill="var(--ant-color-fill-secondary)"
+        stroke="var(--ant-color-border)"
+      />
       <text x={PAGE_X + 14} y={PAGE_Y + 219} fontFamily="monospace" fontSize={9} fontWeight={700} fill={TEXT_DIM}>
         favicon, manifest, …
       </text>

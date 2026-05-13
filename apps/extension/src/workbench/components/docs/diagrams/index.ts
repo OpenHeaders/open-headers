@@ -7,6 +7,7 @@
  * `header-actions.tsx`) and the export gets relocated here.
  */
 
+export { ActionsRuleAnatomyDiagram, ActionsTaxonomyDiagram } from './actions';
 export { BlockDiagram, BlockUseCasesDiagram, BlockWontApplyDiagram } from './block';
 export {
   BodyDynamicDiagram,
@@ -75,6 +76,9 @@ export {
 } from './multi-tab';
 export {
   ComparisonMatrixDiagram,
+  ComparisonVsCloudDiagram,
+  ComparisonVsHeaderOnlyDiagram,
+  ComparisonVsProxyDiagram,
   ParadigmApiCatalogDiagram,
   ParadigmConvergenceDiagram,
   ParadigmFieldSyncDiagram,
@@ -82,7 +86,15 @@ export {
   ParadigmLocalFirstDiagram,
   ParadigmRuleEngineDiagram,
   ParadigmShiftDiagram,
+  RoadmapCliDiagram,
+  RoadmapDaemonDiagram,
+  RoadmapDesktopAppDiagram,
+  RoadmapGitWorkspacesDiagram,
+  RoadmapImportersDiagram,
+  RoadmapMcpArchitectureDiagram,
+  RoadmapMcpToolsDiagram,
   RoadmapMilestonesDiagram,
+  RoadmapWebAppDiagram,
 } from './open-headers';
 export {
   QueryParamAddReplaceDiagram,

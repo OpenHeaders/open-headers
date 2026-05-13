@@ -80,14 +80,14 @@ export const ParadigmRuleEngineDiagram: React.FC = () => {
       role="img"
       aria-label="Open Headers rule engine — two execution paths (DNR-native and script-based intercept), nine rule type categories grouped by engine, plus the shared condition language and variable scope chain that every rule reads from."
     >
-      {/* Title with #1 stamp — matches ParadigmShift corner-stamp format */}
+      {/* Title with BEST-IN-CLASS stamp — matches ParadigmShift corner-stamp format */}
       <text x={LEFT_X} y={TITLE_Y} fontSize={13} fontWeight={700} fill={TEXT}>
         Rule Engine
       </text>
       <rect
         x={LEFT_X + 88}
         y={TITLE_Y - 14}
-        width={24}
+        width={104}
         height={18}
         rx={3}
         fill="var(--ant-color-bg-container)"
@@ -97,7 +97,7 @@ export const ParadigmRuleEngineDiagram: React.FC = () => {
       <rect
         x={LEFT_X + 91}
         y={TITLE_Y - 11}
-        width={18}
+        width={98}
         height={12}
         rx={2}
         fill="none"
@@ -106,7 +106,7 @@ export const ParadigmRuleEngineDiagram: React.FC = () => {
         strokeDasharray="2 2"
       />
       <text
-        x={LEFT_X + 100}
+        x={LEFT_X + 140}
         y={TITLE_Y - 2}
         textAnchor="middle"
         fontSize={8}
@@ -114,7 +114,7 @@ export const ParadigmRuleEngineDiagram: React.FC = () => {
         fill={TEXT}
         letterSpacing={0.8}
       >
-        #1
+        BEST-IN-CLASS
       </text>
       <text x={LEFT_X} y={SUBTITLE_Y} fontSize={10} fontStyle="italic" fill={TEXT_DIM}>
         MV3 native · two engines · nine rule categories

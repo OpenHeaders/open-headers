@@ -9,8 +9,8 @@
  */
 
 import type React from 'react';
-import { FILL_BLUE, STROKE, STROKE_BLUE, TEXT, TEXT_DIM } from './_shared';
 import { shortcutLabel } from '../../../hooks/useWorkspaceShortcuts';
+import { FILL_BLUE, STROKE, STROKE_BLUE, TEXT, TEXT_DIM } from './_shared';
 
 /**
  * Renders a chord chip with the kbd-key class so it visually
@@ -88,11 +88,26 @@ export const KeyboardRegionsDiagram: React.FC = () => {
       <rect x={WB_X} y={WB_Y} width={WB_W} height={WB_H} rx={6} fill="var(--ant-color-bg-container)" stroke={STROKE} />
 
       {/* Title bar */}
-      <rect x={WB_X} y={WB_Y} width={WB_W} height={TITLE_H} rx={6} fill="var(--ant-color-fill-secondary)" stroke={STROKE} />
+      <rect
+        x={WB_X}
+        y={WB_Y}
+        width={WB_W}
+        height={TITLE_H}
+        rx={6}
+        fill="var(--ant-color-fill-secondary)"
+        stroke={STROKE}
+      />
       {[0, 1, 2].map((i) => (
         <circle key={i} cx={WB_X + 8 + i * 7} cy={WB_Y + TITLE_H / 2} r={2.5} fill={TEXT_DIM} />
       ))}
-      <text x={WB_X + WB_W / 2} y={WB_Y + TITLE_H / 2 + 3} textAnchor="middle" fontSize={8} fontWeight={600} fill={TEXT_DIM}>
+      <text
+        x={WB_X + WB_W / 2}
+        y={WB_Y + TITLE_H / 2 + 3}
+        textAnchor="middle"
+        fontSize={8}
+        fontWeight={600}
+        fill={TEXT_DIM}
+      >
         Open Headers — Workbench
       </text>
 
@@ -147,7 +162,14 @@ export const KeyboardRegionsDiagram: React.FC = () => {
         fill="var(--ant-color-fill-secondary)"
         stroke={STROKE}
       />
-      <text x={WB_X + WB_W / 2} y={WB_Y + WB_H - BOTTOM_H + 12} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>
+      <text
+        x={WB_X + WB_W / 2}
+        y={WB_Y + WB_H - BOTTOM_H + 12}
+        textAnchor="middle"
+        fontSize={9}
+        fontWeight={700}
+        fill={TEXT}
+      >
         Bottom panel
       </text>
       <ChordChip chord={bottomChord} x={WB_X + WB_W / 2} y={WB_Y + WB_H - BOTTOM_H + 28} />

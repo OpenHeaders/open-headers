@@ -10,16 +10,7 @@
  */
 
 import type React from 'react';
-import {
-  ArrowDefs,
-  FILL_BLUE,
-  FILL_GREEN,
-  STROKE,
-  STROKE_BLUE,
-  STROKE_GREEN,
-  TEXT,
-  TEXT_DIM,
-} from './_shared';
+import { ArrowDefs, FILL_BLUE, FILL_GREEN, STROKE, STROKE_BLUE, STROKE_GREEN, TEXT, TEXT_DIM } from './_shared';
 
 const SHARED = {
   RULE_Y: 22,
@@ -46,18 +37,21 @@ const BeforeAfterCards: React.FC<{
 }> = ({ idSuffix, rule, before, after, arrowLabel, stamp }) => {
   const ID = `qp-${idSuffix}`;
   return (
-    <svg
-      viewBox="0 0 320 200"
-      width="100%"
-      style={{ maxWidth: 360 }}
-      role="img"
-    >
+    <svg viewBox="0 0 320 200" width="100%" style={{ maxWidth: 360 }} role="img">
       <ArrowDefs id={ID} />
       <text x={160} y={14} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
         RULE
       </text>
       <rect x={20} y={SHARED.RULE_Y} width={280} height={SHARED.RULE_H} rx={4} fill={FILL_BLUE} stroke={STROKE_BLUE} />
-      <text x={160} y={SHARED.RULE_Y + 15} textAnchor="middle" fontFamily="monospace" fontSize={10} fontWeight={700} fill={TEXT}>
+      <text
+        x={160}
+        y={SHARED.RULE_Y + 15}
+        textAnchor="middle"
+        fontFamily="monospace"
+        fontSize={10}
+        fontWeight={700}
+        fill={TEXT}
+      >
         {rule}
       </text>
 
@@ -71,7 +65,14 @@ const BeforeAfterCards: React.FC<{
         fill="var(--ant-color-fill-secondary)"
         stroke="var(--ant-color-border)"
       />
-      <text x={SHARED.STATE_X + 8} y={SHARED.BEFORE_Y + 13} fontSize={8} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
+      <text
+        x={SHARED.STATE_X + 8}
+        y={SHARED.BEFORE_Y + 13}
+        fontSize={8}
+        fontWeight={700}
+        fill={TEXT_DIM}
+        letterSpacing={0.5}
+      >
         BEFORE
       </text>
       <text x={SHARED.STATE_X + 10} y={SHARED.BEFORE_Y + 30} fontFamily="monospace" fontSize={10} fill={TEXT}>
@@ -107,7 +108,14 @@ const BeforeAfterCards: React.FC<{
         fill={FILL_GREEN}
         stroke={STROKE_GREEN}
       />
-      <text x={SHARED.STATE_X + 8} y={AFTER_Y + 13} fontSize={8} fontWeight={700} fill={STROKE_GREEN} letterSpacing={0.5}>
+      <text
+        x={SHARED.STATE_X + 8}
+        y={AFTER_Y + 13}
+        fontSize={8}
+        fontWeight={700}
+        fill={STROKE_GREEN}
+        letterSpacing={0.5}
+      >
         AFTER
       </text>
       <text x={SHARED.STATE_X + 10} y={AFTER_Y + 30} fontFamily="monospace" fontSize={10} fill={TEXT}>
@@ -163,10 +171,24 @@ export const QueryParamReplaceOnlyDiagram: React.FC = () => {
     arrowLabel: string,
   ) => (
     <g>
-      <text x={xOff + TILE_W / 2} y={SCENARIO_LABEL_Y} textAnchor="middle" fontSize={11} fontWeight={700} fill={STROKE_BLUE}>
+      <text
+        x={xOff + TILE_W / 2}
+        y={SCENARIO_LABEL_Y}
+        textAnchor="middle"
+        fontSize={11}
+        fontWeight={700}
+        fill={STROKE_BLUE}
+      >
         {label}
       </text>
-      <text x={xOff + TILE_W / 2} y={SCENARIO_SUB_Y} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+      <text
+        x={xOff + TILE_W / 2}
+        y={SCENARIO_SUB_Y}
+        textAnchor="middle"
+        fontSize={9}
+        fontStyle="italic"
+        fill={TEXT_DIM}
+      >
         {sub}
       </text>
 
@@ -195,7 +217,13 @@ export const QueryParamReplaceOnlyDiagram: React.FC = () => {
         strokeWidth={1.5}
         markerEnd={`url(#${ID})`}
       />
-      <text x={xOff + TILE_W / 2 + 8} y={(ARROW_Y_S + ARROW_Y_E) / 2 + 2} fontSize={8} fontStyle="italic" fill={STROKE_BLUE}>
+      <text
+        x={xOff + TILE_W / 2 + 8}
+        y={(ARROW_Y_S + ARROW_Y_E) / 2 + 2}
+        fontSize={8}
+        fontStyle="italic"
+        fill={STROKE_BLUE}
+      >
         {arrowLabel}
       </text>
 
@@ -251,7 +279,14 @@ export const QueryParamReplaceOnlyDiagram: React.FC = () => {
       {renderTile(LEFT_X, 'Present', 'param already there', '?region=us', '?region=eu', true, 'value replaced')}
       {renderTile(RIGHT_X, 'Absent', 'no region param', '?page=1', '?page=1', false, 'unchanged')}
 
-      <line x1={160} y1={SCENARIO_LABEL_Y - 8} x2={160} y2={AFTER_Y_T + STATE_H + 4} stroke="var(--ant-color-border-secondary)" strokeDasharray="2 4" />
+      <line
+        x1={160}
+        y1={SCENARIO_LABEL_Y - 8}
+        x2={160}
+        y2={AFTER_Y_T + STATE_H + 4}
+        stroke="var(--ant-color-border-secondary)"
+        strokeDasharray="2 4"
+      />
 
       <text x={160} y={STAMP} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
         Replaces, never adds — URLs without the param pass through.
@@ -380,7 +415,15 @@ export const QueryParamUseCasesDiagram: React.FC = () => {
         const y = CARD_Y_START + row * (CARD_H + CARD_GAP);
         return (
           <g key={card.title}>
-            <rect x={x} y={y} width={CARD_W} height={CARD_H} rx={5} fill="var(--ant-color-bg-container)" stroke="var(--ant-color-border)" />
+            <rect
+              x={x}
+              y={y}
+              width={CARD_W}
+              height={CARD_H}
+              rx={5}
+              fill="var(--ant-color-bg-container)"
+              stroke="var(--ant-color-border)"
+            />
             <rect x={x} y={y + 1} width={4} height={CARD_H - 2} rx={2} fill={STROKE_BLUE} />
             <circle cx={x + 16} cy={y + 16} r={8} fill={FILL_BLUE} stroke={STROKE_BLUE} />
             <text x={x + 16} y={y + 19} textAnchor="middle" fontSize={9} fontWeight={700} fill={STROKE_BLUE}>

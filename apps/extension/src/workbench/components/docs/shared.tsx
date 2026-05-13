@@ -311,6 +311,34 @@ const ON_THIS_PAGE_THRESHOLD = 5;
  * can't reach for it on short pages. Threshold is a module constant —
  * tuning it tunes every section uniformly.
  */
+function OnThisPageLink({ id, title }: { id: string; title: string }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <a
+      href={`#${id}`}
+      onClick={(ev) => {
+        ev.preventDefault();
+        document.getElementById(id)?.scrollIntoView({ block: 'start', behavior: 'auto' });
+      }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        display: 'block',
+        padding: '3px 8px',
+        marginLeft: -8,
+        borderRadius: 4,
+        color: hover ? 'var(--ant-color-primary)' : 'var(--ant-color-text-secondary)',
+        background: hover ? 'var(--ant-color-primary-bg)' : 'transparent',
+        textDecoration: 'none',
+        transition: 'background 120ms ease, color 120ms ease, transform 120ms ease',
+        transform: hover ? 'translateX(2px)' : 'translateX(0)',
+      }}
+    >
+      {title}
+    </a>
+  );
+}
+
 export function OnThisPage({ entries }: { entries: { id: string; title: string }[] }) {
   if (entries.length < ON_THIS_PAGE_THRESHOLD) return null;
   return (
@@ -334,22 +362,7 @@ export function OnThisPage({ entries }: { entries: { id: string; title: string }
         On this page
       </div>
       {entries.map((e) => (
-        <a
-          key={e.id}
-          href={`#${e.id}`}
-          onClick={(ev) => {
-            ev.preventDefault();
-            document.getElementById(e.id)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-          }}
-          style={{
-            display: 'block',
-            padding: '2px 0',
-            color: 'var(--ant-color-text-secondary)',
-            textDecoration: 'none',
-          }}
-        >
-          {e.title}
-        </a>
+        <OnThisPageLink key={e.id} id={e.id} title={e.title} />
       ))}
     </div>
   );

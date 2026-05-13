@@ -54,10 +54,24 @@ export const OverrideDiagram: React.FC = () => {
     extraBeforeLine?: string,
   ) => (
     <g>
-      <text x={xOff + TILE_W / 2} y={SCENARIO_LABEL_Y} textAnchor="middle" fontSize={11} fontWeight={700} fill={STROKE_BLUE}>
+      <text
+        x={xOff + TILE_W / 2}
+        y={SCENARIO_LABEL_Y}
+        textAnchor="middle"
+        fontSize={11}
+        fontWeight={700}
+        fill={STROKE_BLUE}
+      >
         {label}
       </text>
-      <text x={xOff + TILE_W / 2} y={SCENARIO_SUB_Y} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+      <text
+        x={xOff + TILE_W / 2}
+        y={SCENARIO_SUB_Y}
+        textAnchor="middle"
+        fontSize={9}
+        fontStyle="italic"
+        fill={TEXT_DIM}
+      >
         {sub}
       </text>
 
@@ -108,13 +122,7 @@ export const OverrideDiagram: React.FC = () => {
         strokeWidth={1.5}
         markerEnd={`url(#${ID})`}
       />
-      <text
-        x={xOff + TILE_W / 2 + 8}
-        y={ARROW_LABEL_Y - 2}
-        fontSize={8}
-        fontStyle="italic"
-        fill={STROKE_BLUE}
-      >
+      <text x={xOff + TILE_W / 2 + 8} y={ARROW_LABEL_Y - 2} fontSize={8} fontStyle="italic" fill={STROKE_BLUE}>
         {arrowLabel}
       </text>
 
@@ -152,7 +160,15 @@ export const OverrideDiagram: React.FC = () => {
         RULE
       </text>
       <rect x={20} y={RULE_Y} width={280} height={RULE_H} rx={4} fill={FILL_BLUE} stroke={STROKE_BLUE} />
-      <text x={160} y={RULE_Y + 15} textAnchor="middle" fontFamily="monospace" fontSize={10} fontWeight={700} fill={TEXT}>
+      <text
+        x={160}
+        y={RULE_Y + 15}
+        textAnchor="middle"
+        fontFamily="monospace"
+        fontSize={10}
+        fontWeight={700}
+        fill={TEXT}
+      >
         Override X-Auth: Bearer token
       </text>
 
@@ -293,7 +309,15 @@ export const AppendDiagram: React.FC = () => {
         RULE
       </text>
       <rect x={20} y={RULE_Y} width={280} height={RULE_H} rx={4} fill={FILL_BLUE} stroke={STROKE_BLUE} />
-      <text x={160} y={RULE_Y + 15} textAnchor="middle" fontFamily="monospace" fontSize={10} fontWeight={700} fill={TEXT}>
+      <text
+        x={160}
+        y={RULE_Y + 15}
+        textAnchor="middle"
+        fontFamily="monospace"
+        fontSize={10}
+        fontWeight={700}
+        fill={TEXT}
+      >
         Append Set-Cookie: tracking=xyz
       </text>
 
@@ -453,7 +477,15 @@ export const RemoveDiagram: React.FC = () => {
         RULE
       </text>
       <rect x={20} y={RULE_Y} width={280} height={RULE_H} rx={4} fill={FILL_BLUE} stroke={STROKE_BLUE} />
-      <text x={160} y={RULE_Y + 15} textAnchor="middle" fontFamily="monospace" fontSize={10} fontWeight={700} fill={TEXT}>
+      <text
+        x={160}
+        y={RULE_Y + 15}
+        textAnchor="middle"
+        fontFamily="monospace"
+        fontSize={10}
+        fontWeight={700}
+        fill={TEXT}
+      >
         Remove X-Frame-Options
       </text>
 
@@ -617,7 +649,15 @@ export const MergeDiagram: React.FC = () => {
         RULE
       </text>
       <rect x={20} y={RULE_Y} width={280} height={RULE_H} rx={4} fill={FILL_PURPLE} stroke={STROKE_PURPLE} />
-      <text x={160} y={RULE_Y + 15} textAnchor="middle" fontFamily="monospace" fontSize={10} fontWeight={700} fill={TEXT}>
+      <text
+        x={160}
+        y={RULE_Y + 15}
+        textAnchor="middle"
+        fontFamily="monospace"
+        fontSize={10}
+        fontWeight={700}
+        fill={TEXT}
+      >
         Merge Cookie + new=val{'  '}(sep: '; ')
       </text>
 
@@ -852,7 +892,15 @@ export const HeaderOpsDiagram: React.FC = () => {
         fill="var(--ant-color-fill-secondary)"
         stroke="var(--ant-color-border)"
       />
-      <text x={BEFORE_BOX_X + BEFORE_BOX_W / 2} y={BEFORE_BOX_Y + 12} textAnchor="middle" fontSize={8} fontWeight={700} fill={TEXT_DIM} letterSpacing={0.5}>
+      <text
+        x={BEFORE_BOX_X + BEFORE_BOX_W / 2}
+        y={BEFORE_BOX_Y + 12}
+        textAnchor="middle"
+        fontSize={8}
+        fontWeight={700}
+        fill={TEXT_DIM}
+        letterSpacing={0.5}
+      >
         BEFORE
       </text>
       <text
@@ -866,15 +914,16 @@ export const HeaderOpsDiagram: React.FC = () => {
         {BEFORE}
       </text>
 
+      <line x1={160} y1={BEFORE_BOX_Y + BEFORE_BOX_H} x2={160} y2={ROW_Y0 - 6} stroke={STROKE} strokeDasharray="2 3" />
       <line
         x1={160}
-        y1={BEFORE_BOX_Y + BEFORE_BOX_H}
+        y1={ROW_Y0 - 6}
         x2={160}
-        y2={ROW_Y0 - 6}
+        y2={ROW_Y0 - 2}
         stroke={STROKE}
-        strokeDasharray="2 3"
+        strokeWidth={1.5}
+        markerEnd={`url(#${ID})`}
       />
-      <line x1={160} y1={ROW_Y0 - 6} x2={160} y2={ROW_Y0 - 2} stroke={STROKE} strokeWidth={1.5} markerEnd={`url(#${ID})`} />
 
       {OPS.map((op, i) => {
         const y = ROW_Y0 + i * (ROW_H + ROW_GAP);
@@ -896,7 +945,15 @@ export const HeaderOpsDiagram: React.FC = () => {
             <text x={ROW_X + 12} y={y + 17} fontSize={11} fontWeight={700} fill={TEXT}>
               {op.name}
             </text>
-            <rect x={ROW_X + 12} y={y + 22} width={42} height={12} rx={3} fill="var(--ant-color-bg-container)" stroke={accent} />
+            <rect
+              x={ROW_X + 12}
+              y={y + 22}
+              width={42}
+              height={12}
+              rx={3}
+              fill="var(--ant-color-bg-container)"
+              stroke={accent}
+            />
             <text x={ROW_X + 33} y={y + 31} textAnchor="middle" fontSize={8} fontWeight={700} fill={accent}>
               {op.engine}
             </text>
@@ -911,13 +968,7 @@ export const HeaderOpsDiagram: React.FC = () => {
               markerEnd={`url(#${ID})`}
             />
 
-            <text
-              x={ROW_X + 138}
-              y={y + ROW_H / 2 + 4}
-              fontFamily="monospace"
-              fontSize={10}
-              fill={TEXT}
-            >
+            <text x={ROW_X + 138} y={y + ROW_H / 2 + 4} fontFamily="monospace" fontSize={10} fill={TEXT}>
               {op.after}
             </text>
           </g>

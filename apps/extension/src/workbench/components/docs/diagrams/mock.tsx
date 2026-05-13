@@ -102,7 +102,15 @@ const MockCard: React.FC<{
         RULE
       </text>
       <rect x={20} y={RULE_Y} width={280} height={22} rx={4} fill={FILL_PURPLE} stroke={STROKE_PURPLE} />
-      <text x={160} y={RULE_Y + 15} textAnchor="middle" fontFamily="monospace" fontSize={10} fontWeight={700} fill={TEXT}>
+      <text
+        x={160}
+        y={RULE_Y + 15}
+        textAnchor="middle"
+        fontFamily="monospace"
+        fontSize={10}
+        fontWeight={700}
+        fill={TEXT}
+      >
         {rule}
       </text>
 
@@ -155,14 +163,7 @@ const MockCard: React.FC<{
         {afterTitle}
       </text>
       {afterLines.map((line, i) => (
-        <text
-          key={`a-${i}`}
-          x={STATE_X + 10}
-          y={AFTER_Y + 30 + i * 14}
-          fontFamily="monospace"
-          fontSize={9}
-          fill={TEXT}
-        >
+        <text key={`a-${i}`} x={STATE_X + 10} y={AFTER_Y + 30 + i * 14} fontFamily="monospace" fontSize={9} fill={TEXT}>
           {line}
         </text>
       ))}
@@ -317,7 +318,15 @@ export const MockUseCasesDiagram: React.FC = () => {
         const y = CARD_Y_START + row * (CARD_H + CARD_GAP);
         return (
           <g key={card.title}>
-            <rect x={x} y={y} width={CARD_W} height={CARD_H} rx={5} fill="var(--ant-color-bg-container)" stroke="var(--ant-color-border)" />
+            <rect
+              x={x}
+              y={y}
+              width={CARD_W}
+              height={CARD_H}
+              rx={5}
+              fill="var(--ant-color-bg-container)"
+              stroke="var(--ant-color-border)"
+            />
             <rect x={x} y={y + 1} width={4} height={CARD_H - 2} rx={2} fill={STROKE_PURPLE} />
             <circle cx={x + 16} cy={y + 16} r={8} fill={FILL_PURPLE} stroke={STROKE_PURPLE} />
             <text x={x + 16} y={y + 19} textAnchor="middle" fontSize={9} fontWeight={700} fill={STROKE_PURPLE}>
