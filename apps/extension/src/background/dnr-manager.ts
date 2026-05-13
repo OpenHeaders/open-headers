@@ -24,23 +24,14 @@
  */
 
 import type { Rule } from '@openheaders/core/types';
-import { isRuleEffective } from '@openheaders/core/utils';
-import { declarativeNetRequest } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { report as reportStatus } from '@/shared/status';
 import { get as getSetting } from '@/workbench/settings/store';
-import type { CompilationPlan, CompilerContext, DnrRule, RuleCompiler } from './dnr-builders';
-import {
-  attachLiveBypassExclusion,
-  blockCompiler,
-  delayCompiler,
-  headerCompiler,
-  injectCompiler,
-  queryParamCompiler,
-  redirectCompiler,
-} from './dnr-builders';
+import type { DnrRule } from './dnr-builders';
+import { attachLiveBypassExclusion } from './dnr-builders';
+import { applyDynamicRules, applySessionRules, clearAllDynamicRules, clearAllSessionRules } from './engine/apply';
+import { compileRuleSet } from './engine/compile';
 import { updateScriptableRules } from './inject-manager';
-import { CACHE_BYPASS_ID_BASE } from './modules/cache-bypass';
 import { recordLog } from './modules/observability-log';
 import { getPauseMarkers } from './modules/pause-markers-store';
 import { observeRuleState } from './modules/rule-state-observer';
@@ -89,25 +80,6 @@ export function setRulesPaused(paused: boolean): void {
 export function getRulesPaused(): boolean {
   return isPaused;
 }
-
-// ── Compiler registry ────────────────────────────────────────────
-
-/**
- * Single source of truth for "how does each rule type become DNR rules?".
- * Adding a rule type means writing a compiler and registering it here —
- * nothing else needs to know.
- */
-const compilers: Record<string, RuleCompiler<Rule>> = {
-  block: blockCompiler as RuleCompiler<Rule>,
-  delay: delayCompiler as RuleCompiler<Rule>,
-  header: headerCompiler as RuleCompiler<Rule>,
-  inject: injectCompiler as RuleCompiler<Rule>,
-  'query-param': queryParamCompiler as RuleCompiler<Rule>,
-  redirect: redirectCompiler as RuleCompiler<Rule>,
-};
-
-/** Rule types whose scriptable side is handled by inject-manager. */
-const SCRIPTABLE_TYPES: ReadonlySet<Rule['type']> = new Set(['inject', 'delay', 'body', 'mock', 'header']);
 
 // ── Delay bypass state ──────────────────────────────────────────
 //
@@ -287,52 +259,6 @@ function runRebuild(rules: Rule[]): Promise<void> {
 
 // ── Core compile/dispatch loop ───────────────────────────────────
 
-interface TaggedRule {
-  rule: DnrRule;
-  uid: string;
-}
-
-interface RebuildOutput {
-  dynamic: TaggedRule[];
-  session: TaggedRule[];
-  scriptables: Rule[];
-}
-
-/**
- * Compile every enabled rule into DNR rules plus a scriptable passthrough
- * for inject-manager. Returns TAGGED rules (with their source uid) so
- * callers can build id→uid maps for telemetry lookups.
- */
-function compileRuleSet(rules: Rule[], startId: number): RebuildOutput {
-  const dynamic: TaggedRule[] = [];
-  const session: TaggedRule[] = [];
-  const scriptables: Rule[] = [];
-
-  let nextId = startId;
-  const ctx: CompilerContext = { allocateId: () => nextId++ };
-
-  for (const rule of rules) {
-    // `compileRuleSet` only runs when the engine is NOT globally paused
-    // (checked upstream in `rebuildAll`), so we pass `false` for
-    // `enginePaused` here.
-    if (!isRuleEffective(rule, getPauseMarkers(), false)) continue;
-
-    // inject-manager wants every rule that has any in-page side effect,
-    // regardless of whether it ALSO produces DNR rules. Passed by value.
-    if (SCRIPTABLE_TYPES.has(rule.type)) {
-      scriptables.push(rule);
-    }
-
-    const compiler = compilers[rule.type];
-    if (!compiler) continue;
-    const plan: CompilationPlan = compiler.compile(rule, ctx);
-    for (const dr of plan.dynamicRules ?? []) dynamic.push({ rule: dr, uid: rule.uid });
-    for (const sr of plan.sessionRules ?? []) session.push({ rule: sr, uid: rule.uid });
-  }
-
-  return { dynamic, session, scriptables };
-}
-
 async function rebuildAll(rawRules: Rule[]): Promise<void> {
   dynamicDnrIdToUid.clear();
   runSessionRuleIdToUid.clear();
@@ -418,7 +344,7 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
   // Compile all enabled rules. Dynamic DNR rules go out globally; session
   // DNR rules will be tagged with excludedTabIds below to keep delay-bypass
   // loop prevention correct.
-  const { dynamic: globalDynamic, session: globalSessionUntagged, scriptables } = compileRuleSet(rules, 1);
+  const { dynamic: globalDynamic, session: globalSessionUntagged, scriptables } = compileRuleSet(rules, getPauseMarkers(), 1);
 
   // ── Capacity enforcement ───────────────────────────────────────
   //
@@ -510,7 +436,7 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
     const scopeUnresolvable = getUnresolvableRuleUids();
     const effectiveScope =
       scopeUnresolvable.size > 0 ? resolvedScope.filter((r) => !scopeUnresolvable.has(r.uid)) : resolvedScope;
-    const { dynamic: runDynamic, session: runSession } = compileRuleSet(effectiveScope, sessionIdCounter);
+    const { dynamic: runDynamic, session: runSession } = compileRuleSet(effectiveScope, getPauseMarkers(), sessionIdCounter);
     // Both the "dynamic" and "session" outputs from a test scope end up
     // in the session layer with tabIds stamped — within a test run,
     // everything is per-tab.
@@ -617,89 +543,3 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
   });
 }
 
-// ── DNR rule application ─────────────────────────────────────────
-
-type ApplyResult = { ok: true } | { ok: false; error: string };
-
-function applyDynamicRules(newRules: DnrRule[]): Promise<ApplyResult> {
-  return declarativeNetRequest!
-    .getDynamicRules()
-    .then((existingRules) => {
-      const removeRuleIds = existingRules.map((r) => r.id);
-      return declarativeNetRequest!.updateDynamicRules({
-        removeRuleIds,
-        addRules: newRules as chrome.declarativeNetRequest.Rule[],
-      });
-    })
-    .then((): ApplyResult => {
-      logger.debug('DnrManager', `Applied ${newRules.length} dynamic DNR rules`);
-      return { ok: true };
-    })
-    .catch((e: Error): ApplyResult => {
-      const error = e.message || 'Unknown error';
-      logger.error('DnrManager', 'Error updating dynamic rules:', error);
-      return { ok: false, error };
-    });
-}
-
-function applySessionRules(newRules: DnrRule[]): Promise<ApplyResult> {
-  const dnr = declarativeNetRequest;
-  if (!dnr?.updateSessionRules || !dnr.getSessionRules) {
-    if (newRules.length > 0) {
-      logger.info('DnrManager', 'updateSessionRules unavailable — session rules will not be applied');
-    }
-    // Absent API is not a failure — treat as no-op success so the
-    // Status pill doesn't show red on Firefox's session-rule-less
-    // codepath. Users on browsers without session rules never expect
-    // delay-tab scoping to work anyway.
-    return Promise.resolve({ ok: true });
-  }
-  return dnr
-    .getSessionRules()
-    .then((existing) => {
-      // Preserve cache-bypass session rules (installed by the inspector
-      // panel's "Disable Cache" toggle) — they have their own lifecycle
-      // and shouldn't be nuked by a user-rule rebuild. See
-      // `modules/cache-bypass.ts`.
-      const removeRuleIds = existing.filter((r) => r.id < CACHE_BYPASS_ID_BASE).map((r) => r.id);
-      return dnr.updateSessionRules!({
-        removeRuleIds,
-        addRules: newRules as chrome.declarativeNetRequest.Rule[],
-      });
-    })
-    .then((): ApplyResult => {
-      logger.debug('DnrManager', `Applied ${newRules.length} session DNR rules`);
-      return { ok: true };
-    })
-    .catch((e: Error): ApplyResult => {
-      const error = e.message || 'Unknown error';
-      logger.error('DnrManager', 'Error updating session rules:', error);
-      return { ok: false, error };
-    });
-}
-
-function clearAllDynamicRules(): void {
-  declarativeNetRequest!
-    .getDynamicRules()
-    .then((existingRules) => {
-      const removeIds = existingRules.map((r) => r.id);
-      return declarativeNetRequest!.updateDynamicRules({ removeRuleIds: removeIds, addRules: [] });
-    })
-    .then(() => {
-      logger.debug('DnrManager', 'All dynamic rules cleared');
-    });
-}
-
-function clearAllSessionRules(): void {
-  const dnr = declarativeNetRequest;
-  if (!dnr?.updateSessionRules || !dnr.getSessionRules) return;
-  dnr
-    .getSessionRules()
-    .then((existing) => {
-      const removeIds = existing.map((r) => r.id);
-      return dnr.updateSessionRules!({ removeRuleIds: removeIds, addRules: [] });
-    })
-    .then(() => {
-      logger.debug('DnrManager', 'All session rules cleared');
-    });
-}
