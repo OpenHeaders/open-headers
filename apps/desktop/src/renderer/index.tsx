@@ -1,60 +1,22 @@
-// Global console override to suppress iframe sandbox errors from rrweb
-// This MUST be before any other imports to catch all console messages
-(() => {
-  const originalError = console.error;
-  const originalWarn = console.warn;
-  const originalLog = console.log;
+/**
+ * Desktop renderer — rewrite in progress.
+ *
+ * Placeholder mount so electron-vite produces a valid renderer bundle
+ * and `pnpm turbo typecheck` succeeds against `src/renderer/tsconfig.json`.
+ * The rewrite will replace this with the shared UI shell.
+ */
 
-  const suppressPatterns = [
-    'Blocked script execution',
-    "sandboxed and the 'allow-scripts'",
-    'file:///Applications/OpenHeaders.app',
-    '[Intervention]',
-    'Slow network is detected',
-    'Fallback font will be used',
-    'An iframe which has both allow-scripts and allow-same-origin',
-    'can escape its sandboxing',
-  ];
-
-  const shouldSuppress = (args: unknown[]) => {
-    const message = args[0]?.toString() || '';
-    return suppressPatterns.some((pattern) => message.includes(pattern));
-  };
-
-  console.error = (...args: unknown[]) => {
-    if (!shouldSuppress(args)) {
-      originalError.apply(console, args);
-    }
-  };
-
-  console.warn = (...args: unknown[]) => {
-    if (!shouldSuppress(args)) {
-      originalWarn.apply(console, args);
-    }
-  };
-
-  console.log = (...args: unknown[]) => {
-    if (!shouldSuppress(args)) {
-      originalLog.apply(console, args);
-    }
-  };
-})();
-
+import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import AppComponent from './App';
-import { AppProvider } from './contexts';
-import './App.less';
 
-// Initialize video recording manager
-import './services/VideoRecordingManager';
-
-// Create a root for React 18
-const container = document.getElementById('root')!;
-const root = createRoot(container);
-
-// Render the React application with React 18 API and optimized context structure
-root.render(
-  <AppProvider>
-    <AppComponent />
-  </AppProvider>,
-);
+const root = document.getElementById('root');
+if (root) {
+  createRoot(root).render(
+    <StrictMode>
+      <main style={{ fontFamily: 'system-ui, sans-serif', padding: '2rem' }}>
+        <h1>Open Headers</h1>
+        <p>Desktop app rewrite in progress.</p>
+      </main>
+    </StrictMode>,
+  );
+}
