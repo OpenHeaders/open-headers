@@ -56,6 +56,8 @@ export {
   validateHeaderName,
   validateHeaderValue,
 } from './headers';
+export type { LogLevel } from './logger';
+export { isValidLogLevel, logger } from './logger';
 export type { PauseMarker, PauseMarkers } from './pause';
 export { computePausedUids, hasNestedPauseMarkers, resolvePauseState } from './pause';
 export type { RequestIncompleteReason } from './request-validation';
