@@ -15,23 +15,22 @@
  *     response reuse would hide the user's response-header modification.
  */
 import type { HeaderRule } from '@openheaders/core/types';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@utils/logger', () => ({
-  logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
-}));
+vi.mock('@openheaders/core/utils', async () => {
+  const actual = await vi.importActual<typeof import('@openheaders/core/utils')>('@openheaders/core/utils');
+  return {
+    ...actual,
+    logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
+  };
+});
 
-// Importing the schema barrel registers every setting — including
-// `rulesEngine.liveRulesMode` with its default `true` — so the header
-// compiler's `getSetting` call resolves without having to init the store.
-import '@/workbench/settings/schema';
 import { headerCompiler } from '@/background/dnr-builders/header-builder';
 import type { CompilerContext } from '@/background/dnr-builders/types';
-import { set as setSetting } from '@/workbench/settings/store';
 
-function makeCtx(start = 1): CompilerContext {
+function makeCtx(start = 1, liveRulesMode = true): CompilerContext {
   let id = start;
-  return { allocateId: () => id++ };
+  return { allocateId: () => id++, settings: { liveRulesMode } };
 }
 
 function baseRule(action: HeaderRule['action']): HeaderRule {
@@ -46,11 +45,6 @@ function baseRule(action: HeaderRule['action']): HeaderRule {
     action,
   };
 }
-
-// All tests run with Live Rules Mode on unless they flip it explicitly.
-beforeEach(() => {
-  setSetting('rulesEngine.liveRulesMode', true);
-});
 
 describe('Live Rules Mode — Layer 1 injection', () => {
   it('prepends Cache-Control + Pragma on request-only rules', () => {
@@ -138,13 +132,12 @@ describe('Live Rules Mode — Layer 1 injection', () => {
   });
 
   it('does not inject Cache-Control when Live Rules Mode is off', () => {
-    setSetting('rulesEngine.liveRulesMode', false);
     const plan = headerCompiler.compile(
       baseRule({
         requestHeaders: [{ uid: 'thm00006', operation: 'override', headerName: 'Authorization', value: 'Bearer xyz' }],
         responseHeaders: [],
       }),
-      makeCtx(),
+      makeCtx(1, false),
     );
     const reqMods = (plan.dynamicRules ?? [])[0]!.action.requestHeaders ?? [];
     expect(reqMods).toHaveLength(1);

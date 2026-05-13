@@ -6,7 +6,7 @@ import type { HeaderValueValidation } from '@openheaders/core';
 import {
   sanitizeHeaderValue as sanitizeHeaderValueCore,
   validateHeaderValue as validateHeaderValueCore,
-} from '@utils/header-validator';
+} from '@openheaders/core/utils';
 
 /**
  * Validates if a header value is acceptable for Chrome's declarativeNetRequest API.

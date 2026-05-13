@@ -27,9 +27,9 @@ function makeDelayRule(overrides: Partial<DelayRule> = {}): DelayRule {
   };
 }
 
-function makeCtx(start = 1): CompilerContext {
+function makeCtx(start = 1, liveRulesMode = true): CompilerContext {
   let id = start;
-  return { allocateId: () => id++ };
+  return { allocateId: () => id++, settings: { liveRulesMode } };
 }
 
 describe('delayCompiler', () => {

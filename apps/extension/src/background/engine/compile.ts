@@ -15,7 +15,7 @@
 
 import type { Rule } from '@openheaders/core/types';
 import { isRuleEffective, type PauseMarkers } from '@openheaders/core/utils';
-import type { CompilationPlan, CompilerContext, DnrRule, RuleCompiler } from '../dnr-builders';
+import type { CompilationPlan, CompilerContext, DnrRule, EngineCompileSettings, RuleCompiler } from '../dnr-builders';
 import {
   blockCompiler,
   delayCompiler,
@@ -61,13 +61,18 @@ export interface CompileResult {
  * Callers must pass already-resolved rules — `{{VAR}}` templates should be
  * substituted upstream so the engine sees concrete strings.
  */
-export function compileRuleSet(rules: Rule[], pauseMarkers: PauseMarkers, startId: number): CompileResult {
+export function compileRuleSet(
+  rules: Rule[],
+  pauseMarkers: PauseMarkers,
+  startId: number,
+  settings: EngineCompileSettings,
+): CompileResult {
   const dynamic: TaggedDnrRule[] = [];
   const session: TaggedDnrRule[] = [];
   const scriptables: Rule[] = [];
 
   let nextId = startId;
-  const ctx: CompilerContext = { allocateId: () => nextId++ };
+  const ctx: CompilerContext = { allocateId: () => nextId++, settings };
 
   for (const rule of rules) {
     // `compileRuleSet` only runs when the engine is NOT globally paused

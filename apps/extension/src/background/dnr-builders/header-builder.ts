@@ -18,7 +18,6 @@
 
 import type { HeaderModification, HeaderRule } from '@openheaders/core/types';
 import { getHeaderOperationCapability, logger, normalizeHeaderName, validateHeaderName } from '@openheaders/core/utils';
-import { get as getSetting } from '@/workbench/settings/store';
 import { isValidHeaderValue, sanitizeHeaderValue } from '../rule-validator';
 import type {
   CompilationPlan,
@@ -92,7 +91,7 @@ export const headerCompiler: RuleCompiler<HeaderRule> = {
     //     reuse would hide the response modification.
     //   - Toggle: `rulesEngine.liveRulesMode` (default on). Advanced users
     //     can opt out.
-    if (getSetting('rulesEngine.liveRulesMode')) {
+    if (ctx.settings.liveRulesMode) {
       const userTouchesCacheControl = reqMods.some((m) => m.header.toLowerCase() === 'cache-control');
       if (!userTouchesCacheControl) {
         reqMods.unshift(

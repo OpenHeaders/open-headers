@@ -12,20 +12,20 @@
  */
 
 import type { HeaderRule } from '@openheaders/core/types';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import '@/workbench/settings/schema';
 import { headerCompiler } from '@/background/dnr-builders/header-builder';
 import type { CompilerContext } from '@/background/dnr-builders/types';
-import { set as setSetting } from '@/workbench/settings/store';
 
-function makeCtx(start = 1): CompilerContext {
+// Tests flip Live Rules Mode off so the synthesizer doesn't add unrelated
+// cache-bypass mods to the assertion targets.
+function makeCtx(start = 1, liveRulesMode = false): CompilerContext {
   let id = start;
-  return { allocateId: () => id++ };
+  return { allocateId: () => id++, settings: { liveRulesMode } };
 }
 
 function baseRule(action: HeaderRule['action']): HeaderRule {
@@ -40,12 +40,6 @@ function baseRule(action: HeaderRule['action']): HeaderRule {
     action,
   };
 }
-
-beforeEach(() => {
-  // Flip Live Rules Mode off so the synthesizer doesn't add unrelated
-  // cache-bypass mods to the assertion targets.
-  setSetting('rulesEngine.liveRulesMode', false);
-});
 
 describe('header compiler — unresolved template guard', () => {
   it('skips a mod whose header-name template did not resolve', () => {

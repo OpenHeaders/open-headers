@@ -11,6 +11,7 @@ export type {
   DnrHeaderModification,
   DnrRedirect,
   DnrRule,
+  EngineCompileSettings,
   FuncInjection,
   Injection,
   InlineScriptInjection,

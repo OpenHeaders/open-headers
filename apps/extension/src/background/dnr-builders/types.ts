@@ -148,9 +148,31 @@ export interface CompilationPlan {
 /**
  * Context passed to every compiler. `allocateId` returns a unique DnrRule id
  * each call — compilers don't manage id allocation themselves.
+ *
+ * `settings` carries engine-relevant settings sourced from the host app's
+ * settings store. The engine itself never reads `@/workbench/settings/store`
+ * directly — the orchestrator passes values down so the engine stays
+ * host-agnostic.
  */
 export interface CompilerContext {
   allocateId(): number;
+  settings: EngineCompileSettings;
+}
+
+/**
+ * Settings the engine compile pipeline actually reads. Pruned to exactly
+ * what's consumed — when a compiler grows a new dependency, extend this
+ * shape and route through the orchestrator.
+ */
+export interface EngineCompileSettings {
+  /**
+   * When true, header rules whose value templates contain `{{live.X}}`
+   * references emit live-bypass exclusions on the rule condition so the
+   * SW's own chain fetch doesn't loop. The orchestrator computes the
+   * actual bypass map; this flag just gates whether the compiler should
+   * attach the exclusion clause at all.
+   */
+  liveRulesMode: boolean;
 }
 
 /**

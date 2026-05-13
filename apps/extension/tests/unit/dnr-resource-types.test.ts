@@ -18,10 +18,6 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-// Register every setting (including `rulesEngine.liveRulesMode` that the
-// header compiler reads) so `getSetting` returns a default instead of
-// throwing.
-import '@/workbench/settings/schema';
 import { blockCompiler } from '@/background/dnr-builders/block-builder';
 import { delayCompiler } from '@/background/dnr-builders/delay-builder';
 import { headerCompiler } from '@/background/dnr-builders/header-builder';
@@ -31,9 +27,9 @@ import { redirectCompiler } from '@/background/dnr-builders/redirect-builder';
 import type { CompilerContext, DnrRule } from '@/background/dnr-builders/types';
 import { ALL_RESOURCE_TYPES, resolveResourceTypes, SUB_RESOURCE_TYPES } from '@/background/dnr-builders/types';
 
-function makeCtx(start = 1): CompilerContext {
+function makeCtx(start = 1, liveRulesMode = true): CompilerContext {
   let id = start;
-  return { allocateId: () => id++ };
+  return { allocateId: () => id++, settings: { liveRulesMode } };
 }
 
 function expectNoExcludedResourceTypes(rules: DnrRule[]) {

@@ -27,7 +27,7 @@ import type { Rule } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import { report as reportStatus } from '@/shared/status';
 import { get as getSetting } from '@/workbench/settings/store';
-import type { DnrRule } from './dnr-builders';
+import type { DnrRule, EngineCompileSettings } from './dnr-builders';
 import { attachLiveBypassExclusion } from './dnr-builders';
 import { applyDynamicRules, applySessionRules, clearAllDynamicRules, clearAllSessionRules } from './engine/apply';
 import { compileRuleSet } from './engine/compile';
@@ -340,11 +340,23 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
   const testTabIds = getActiveTestTabIds();
   const runs = getActiveRunSnapshots();
 
+  // Engine-relevant settings, sourced once per rebuild — the engine
+  // package doesn't read `@/workbench/settings/store` directly; the
+  // orchestrator threads values through every compile.
+  const engineSettings: EngineCompileSettings = {
+    liveRulesMode: getSetting('rulesEngine.liveRulesMode'),
+  };
+
   // ── Layer 1: dynamic rules (global, not per-tab) ──
   // Compile all enabled rules. Dynamic DNR rules go out globally; session
   // DNR rules will be tagged with excludedTabIds below to keep delay-bypass
   // loop prevention correct.
-  const { dynamic: globalDynamic, session: globalSessionUntagged, scriptables } = compileRuleSet(rules, getPauseMarkers(), 1);
+  const { dynamic: globalDynamic, session: globalSessionUntagged, scriptables } = compileRuleSet(
+    rules,
+    getPauseMarkers(),
+    1,
+    engineSettings,
+  );
 
   // ── Capacity enforcement ───────────────────────────────────────
   //
@@ -436,7 +448,12 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
     const scopeUnresolvable = getUnresolvableRuleUids();
     const effectiveScope =
       scopeUnresolvable.size > 0 ? resolvedScope.filter((r) => !scopeUnresolvable.has(r.uid)) : resolvedScope;
-    const { dynamic: runDynamic, session: runSession } = compileRuleSet(effectiveScope, getPauseMarkers(), sessionIdCounter);
+    const { dynamic: runDynamic, session: runSession } = compileRuleSet(
+      effectiveScope,
+      getPauseMarkers(),
+      sessionIdCounter,
+      engineSettings,
+    );
     // Both the "dynamic" and "session" outputs from a test scope end up
     // in the session layer with tabIds stamped — within a test run,
     // everything is per-tab.
