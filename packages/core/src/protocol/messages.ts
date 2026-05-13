@@ -104,6 +104,13 @@ export interface BrowserInfoMessage {
   browser: string;
   version: string;
   extensionVersion: string;
+  /**
+   * Wire-protocol version the extension speaks. Required from day one;
+   * desktop closes the connection with PROTOCOL_INCOMPATIBLE_CLOSE_CODE
+   * if this is missing or outside its accepted range. See
+   * `@openheaders/core/protocol` `PROTOCOL_VERSION` for the current value.
+   */
+  protocolVersion: number;
 }
 
 export interface FocusAppMessage {

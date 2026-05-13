@@ -1,3 +1,4 @@
+import { execSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import react from '@vitejs/plugin-react';
@@ -6,6 +7,33 @@ import { defineConfig, build as viteBuild } from 'vite';
 const browser = process.env.BROWSER || 'chrome';
 const isDev = process.argv.includes('--watch');
 const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf8')) as { version: string };
+
+// CalVer / semver string from package.json, possibly with `-beta.N` suffix.
+const pkgVersion = pkg.version;
+// Numeric-only form for Chrome's manifest.version (no `-beta.N`).
+// Replaces `X.Y.Z-beta.N` → `X.Y.Z.N`; leaves already-numeric versions alone.
+const manifestNumericVersion = pkgVersion.replace(/^(\d+\.\d+\.\d+)-beta\.(\d+)$/, '$1.$2');
+const isBeta = /-beta\.\d+$/.test(pkgVersion);
+const channel = isBeta ? 'beta' : 'stable';
+
+// Build metadata captured once at config-load time so every plugin sees
+// the same values. Reading git is best-effort — dev clones without git
+// (rare) get '-dev' placeholders instead of crashing the build.
+function git(cmd: string, fallback: string): string {
+  try {
+    return execSync(`git ${cmd}`, { cwd: __dirname, encoding: 'utf8' }).trim();
+  } catch {
+    return fallback;
+  }
+}
+const buildInfo = {
+  version: pkgVersion,
+  commit: git('rev-parse --short=7 HEAD', '0000000'),
+  commitFull: git('rev-parse HEAD', '0'.repeat(40)),
+  build: Number.parseInt(git('rev-list --count HEAD', '0'), 10) || 0,
+  date: new Date().toISOString(),
+  channel,
+};
 
 /**
  * Vite plugin to ensure Chrome Web Store compliance.
@@ -67,15 +95,31 @@ function copyAssetsPlugin() {
         if (fs.existsSync(src)) {
           fs.mkdirSync(path.dirname(dest), { recursive: true });
           if (to === 'manifest.json') {
-            // Inject version from package.json into the output manifest
             const manifest = JSON.parse(fs.readFileSync(src, 'utf8'));
-            manifest.version = pkg.version.replace(/^(\d+\.\d+\.\d+)-beta\.(\d+)$/, '$1.$2');
+            // Chrome's manifest.version must be dotted integers (no
+            // `-beta.N`), so betas land as `X.Y.Z.N`. The free-text
+            // `version_name` field carries the real label users see in
+            // `chrome://extensions` so `2026.5.0-beta.1` is not silently
+            // displayed as `2026.5.0.1`.
+            manifest.version = manifestNumericVersion;
+            if (isBeta) {
+              manifest.version_name = pkgVersion;
+            } else {
+              delete manifest.version_name;
+            }
             fs.writeFileSync(dest, `${JSON.stringify(manifest, null, 2)}\n`);
           } else {
             fs.copyFileSync(src, dest);
           }
         }
       }
+      // Emit build metadata for the runtime About surface + log
+      // prefixes. Lives next to manifest.json so it's reachable via
+      // `chrome.runtime.getURL('build-info.json')`.
+      fs.writeFileSync(
+        path.resolve(outDir, 'build-info.json'),
+        `${JSON.stringify(buildInfo, null, 2)}\n`,
+      );
     },
   };
 }
@@ -306,10 +350,12 @@ export default defineConfig({
   },
 
   // Build-time constants.
-  // __APP_VERSION__ uses the numeric manifest-style version (e.g. 5.0.0.1 instead of 5.0.0-beta.1).
+  // __APP_VERSION__ uses the numeric manifest-style version (e.g. 2026.5.0.1 instead of 2026.5.0-beta.1)
+  // so callers reading runtime.getManifest().version line up with this constant exactly.
   // globalThis override prevents Vite from using detection code that violates CSP.
   define: {
-    __APP_VERSION__: JSON.stringify(pkg.version.replace(/^(\d+\.\d+\.\d+)-beta\.(\d+)$/, '$1.$2')),
+    __APP_VERSION__: JSON.stringify(manifestNumericVersion),
+    __BUILD_INFO__: JSON.stringify(buildInfo),
     globalThis: 'globalThis',
   },
 

@@ -3,6 +3,20 @@
 /** Build-time constant injected by Vite from package.json version. */
 declare const __APP_VERSION__: string;
 
+/**
+ * Build metadata injected by Vite at build time. See `vite.config.ts`
+ * (`buildInfo` constant) and `src/shared/build-info.ts` for the typed
+ * accessor consumers should use.
+ */
+declare const __BUILD_INFO__: {
+  version: string;
+  commit: string;
+  commitFull: string;
+  build: number;
+  date: string;
+  channel: 'stable' | 'beta';
+};
+
 // Monaco submodule imports we use to keep the bundle lean (see
 // `rules/components/monaco/bootstrap.ts`). Monaco's `package.json`
 // `exports` field maps `./*` but only ships types for the default

@@ -3,6 +3,7 @@
  * and receives V5 resolved rules.
  */
 
+import { PROTOCOL_INCOMPATIBLE_CLOSE_CODE, PROTOCOL_VERSION } from '@openheaders/core/protocol';
 import { broadcast } from '@utils/bridge';
 import { isChrome, isEdge, isFirefox, isSafari, runtime } from '@utils/browser-api';
 import { logger } from '@utils/logger';
@@ -32,6 +33,10 @@ let pingTimer: ReturnType<typeof setInterval> | null = null;
 let isConnecting = false;
 let isConnected = false;
 let reconnectAttempts = 0;
+// Set once the desktop app has rejected this build's protocol version.
+// Suppresses the reconnect loop until either the extension updates
+// (extension restart wipes this) or the setting URL changes.
+let protocolIncompatible = false;
 
 // ── Keep-alive ────────────────────────────────────────────────────
 //
@@ -104,9 +109,10 @@ function sendBrowserInfo(): void {
         browser: getBrowserName(),
         version: getBrowserVersion(),
         extensionVersion: runtime.getManifest().version,
+        protocolVersion: PROTOCOL_VERSION,
       }),
     );
-    logger.info('WebSocket', 'Sent browser info to desktop app');
+    logger.info('WebSocket', `Sent browser info (protocol v${PROTOCOL_VERSION})`);
   }
 }
 
@@ -249,8 +255,29 @@ function connectStandardWebSocket(url: string): void {
 
       socket.onmessage = createMessageHandler();
 
-      socket.onclose = () => {
+      socket.onclose = (event?: CloseEvent) => {
         clearTimeout(connectionTimeout);
+        if (event?.code === PROTOCOL_INCOMPATIBLE_CLOSE_CODE) {
+          logger.warn(
+            'WebSocket',
+            `Desktop rejected protocol v${PROTOCOL_VERSION}: ${event.reason || 'no reason'}`,
+          );
+          protocolIncompatible = true;
+          socket = null;
+          isConnecting = false;
+          isConnected = false;
+          clearPingTimer();
+          if (reconnectTimer) clearTimeout(reconnectTimer);
+          reconnectAttempts = 0;
+          broadcastConnectionStatus();
+          reportStatus({
+            subsystem: 'sync',
+            state: 'red',
+            message: 'Desktop app speaks a newer protocol — update extension',
+            context: { closeCode: event.code, reason: event.reason },
+          });
+          return;
+        }
         logger.info('WebSocket', 'Connection closed');
         handleConnectionFailure();
       };
@@ -276,6 +303,7 @@ export function connectWebSocket(): Promise<boolean> {
     return Promise.resolve(false);
   }
 
+  if (protocolIncompatible) return Promise.resolve(false);
   if (socket && socket.readyState === WebSocket.OPEN) return Promise.resolve(true);
   if (isConnecting) return Promise.resolve(false);
 
@@ -333,6 +361,10 @@ export function reconnectWebSocket(): void {
   isConnected = false;
   isConnecting = false;
   reconnectAttempts = 0;
+  // URL change is the user reacting to a problem — clear the
+  // incompatibility latch so they can re-try (e.g. after updating
+  // the desktop app or pointing at a different host).
+  protocolIncompatible = false;
   void connectWebSocket();
 }
 

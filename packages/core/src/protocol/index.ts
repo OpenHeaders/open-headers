@@ -10,6 +10,14 @@ export {
   WS_SERVER_URL,
 } from './constants';
 
+export type { IncompatibleProtocolReason } from './version';
+export {
+  MIN_COMPATIBLE_PROTOCOL,
+  PROTOCOL_INCOMPATIBLE_CLOSE_CODE,
+  PROTOCOL_VERSION,
+  isCompatibleProtocol,
+} from './version';
+
 export { SYNC_APPLY_TYPE, SYNC_BROADCAST_TYPE } from './sync-bridge';
 export type {
   SyncApplyAckErr,
