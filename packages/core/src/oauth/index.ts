@@ -27,7 +27,7 @@
  * deterministic without having to reach for `crypto.getRandomValues`.
  */
 
-import type { OAuth2Auth, OAuth2Flow } from '../types/v5/request';
+import type { OAuth2Auth, OAuth2Flow } from '../types/request';
 
 // ── Runtime state shape ────────────────────────────────────────────
 

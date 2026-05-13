@@ -11,7 +11,7 @@
  */
 
 import type * as v from 'valibot';
-import type { TemplateSchema } from '../../schemas/template';
+import type { TemplateSchema } from '../schemas/template';
 
 // ── Template ──────────────────────────────────────────────────────
 

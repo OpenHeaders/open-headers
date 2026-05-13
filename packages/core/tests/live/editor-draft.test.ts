@@ -8,7 +8,7 @@ import {
   stripDraftSteps,
   toDraftCapture,
 } from '../../src/live/editor-draft';
-import type { Capture, LiveVariable, LiveWorkflow } from '../../src/types/v5/live';
+import type { Capture, LiveVariable, LiveWorkflow } from '../../src/types/live';
 
 // ── Fixtures ──────────────────────────────────────────────────────
 

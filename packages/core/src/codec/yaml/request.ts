@@ -33,7 +33,7 @@ import type {
   Request,
   RequestBody,
   RequestHeader,
-} from '../../types/v5/request';
+} from '../../types/request';
 import { CANONICAL_STRINGIFY_OPTIONS } from './canonical';
 import { buildFreshDocument, mergeKnownFields } from './merge';
 import { REQUEST_FIELD_ORDER } from './ordering';

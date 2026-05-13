@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { HeaderRule, Request } from '../../src/types/v5/index';
+import type { HeaderRule, Request } from '../../src/types/index';
 import { diffIncomingAgainstPriorImport, type WorkspaceExport } from '../../src/workspace-export/index';
 
 const ENVELOPE_BASE = {

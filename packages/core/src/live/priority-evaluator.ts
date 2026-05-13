@@ -19,7 +19,7 @@
  * not here.
  */
 
-import type { WorkflowStep } from '../types/v5/live';
+import type { WorkflowStep } from '../types/live';
 
 /** Sentinel for "run last" in comparator chains. */
 export const PRIORITY_LAST = Number.POSITIVE_INFINITY;

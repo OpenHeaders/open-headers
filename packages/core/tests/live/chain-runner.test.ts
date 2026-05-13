@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { FetchAdapter } from '../../src/live/chain-runner';
 import { runChain } from '../../src/live/chain-runner';
 import type { StepResponse } from '../../src/live/extractor';
-import type { LiveWorkflow, WorkflowStep } from '../../src/types/v5/live';
+import type { LiveWorkflow, WorkflowStep } from '../../src/types/live';
 
 function jsonResponse(payload: unknown, headers: Array<{ key: string; value: string }> = []): StepResponse {
   return {

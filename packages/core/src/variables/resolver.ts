@@ -23,7 +23,7 @@ import type {
   Vault,
   VaultSecret,
   WorkspaceVariables,
-} from '../types/v5';
+} from '../types';
 import { parseReference, parseStepRefName, type VariableNamespace } from './namespaces';
 
 // ── Live / step scope helpers ──────────────────────────────────────

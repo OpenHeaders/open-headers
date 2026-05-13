@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Request } from '../../src/types/v5/request';
-import type { ResolvedVariable } from '../../src/types/v5/variable';
+import type { Request } from '../../src/types/request';
+import type { ResolvedVariable } from '../../src/types/variable';
 import { isRequestComplete, isRequestResolvable, requestIncompleteReason } from '../../src/utils/request-validation';
 
 function makeRequest(overrides: Partial<Request> = {}): Request {

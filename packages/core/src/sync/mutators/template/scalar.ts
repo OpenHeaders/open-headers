@@ -2,7 +2,7 @@
  * Scalar `setField` intent factory for template entities.
  *
  * Single typed-path generic that constrains call sites to the actual
- * scalar paths on `V5.Template`. Same posture as `request/scalar.ts` —
+ * scalar paths on `Template`. Same posture as `request/scalar.ts` —
  * collapses near-identical micro-factories into one and catches schema
  * drift at the call site via the string-literal union.
  *

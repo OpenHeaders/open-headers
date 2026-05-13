@@ -26,7 +26,7 @@ import * as v from 'valibot';
 import * as YAML from 'yaml';
 import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../schemas/document';
 import { RuleSchema } from '../../schemas/rule';
-import type { HeaderModification, QueryParamEntry, Rule, RuleCondition } from '../../types/v5/rule';
+import type { HeaderModification, QueryParamEntry, Rule, RuleCondition } from '../../types/rule';
 import { CANONICAL_STRINGIFY_OPTIONS } from './canonical';
 import { buildFreshDocument, mergeKnownFields } from './merge';
 import { RULE_FIELD_ORDER } from './ordering';

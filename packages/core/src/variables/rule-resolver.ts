@@ -1,5 +1,5 @@
 /**
- * Rule resolver — applies VariableResolver to V5.Rule fields.
+ * Rule resolver — applies VariableResolver to Rule fields.
  *
  * Resolves all {{VAR}} templates in rule string fields (conditions, values,
  * patterns, etc.) producing rules that are ready for wire transmission
@@ -21,7 +21,7 @@ import type {
   ResolutionContext,
   Rule,
   RuleCondition,
-} from '../types/v5';
+} from '../types';
 import { isListShapedConditionType } from '../utils/condition-metadata';
 import { applyDomainValueCleanup, summarizeDomainIssues, validateDomainValues } from '../utils/condition-validation';
 import { buildPostResolveError, type ResolutionError, type VariableResolver } from './resolver';

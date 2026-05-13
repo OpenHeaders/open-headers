@@ -37,7 +37,7 @@ import type {
   Rule,
   Vault,
   WorkspaceVariables,
-} from '../types/v5/index';
+} from '../types/index';
 import type { TargetWorkspaceState } from './diff';
 import type { WorkspaceExport } from './schema';
 

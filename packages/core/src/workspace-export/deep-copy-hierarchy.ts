@@ -29,16 +29,16 @@
  * when its branches start consuming it.
  */
 
-import type * as V5 from '../types/v5/index';
+import type { Collection, Folder } from '../types/index';
 import { generateUid, toFolderName } from '../utils/workspace';
 
 /**
  * Local-folder alias re-exported for the extension-side caller. The
- * persisted shape on disk has no `order` field; `V5.Folder` declares
+ * persisted shape on disk has no `order` field; `Folder` declares
  * `order` as optional, so the persisted form is structurally
  * compatible — same type.
  */
-export type LocalFolder = V5.Folder;
+export type LocalFolder = Folder;
 
 /**
  * The minimum shape a "leaf" entity in a collection tree carries.
@@ -62,7 +62,7 @@ export interface DeepCopyContext<E extends TreeLeafEntity> {
   /** Old entity uid → new entity uid. */
   entityUidRemap: Map<string, string>;
   /** New collections (already in remapped form). */
-  newCollections: V5.Collection[];
+  newCollections: Collection[];
   /** New folders (already in remapped form). */
   newFolders: LocalFolder[];
   /**
@@ -75,7 +75,7 @@ export interface DeepCopyContext<E extends TreeLeafEntity> {
 
 export interface DeepCopyHierarchyParams<E extends TreeLeafEntity> {
   entities: E[];
-  collections: V5.Collection[];
+  collections: Collection[];
   folders: LocalFolder[];
   /** `'rules'` / `'requests'` / `'templates'` — the on-disk top folder. */
   treePrefix: string;
@@ -90,7 +90,7 @@ export interface DeepCopyHierarchyParams<E extends TreeLeafEntity> {
 
 export interface DeepCopyHierarchyResult<E extends TreeLeafEntity> {
   entities: E[];
-  collections: V5.Collection[];
+  collections: Collection[];
   folders: LocalFolder[];
   /** Old container path → new container path (collections + folders). */
   pathRemap: Map<string, string>;
@@ -109,7 +109,7 @@ export function deepCopyHierarchy<E extends TreeLeafEntity>(
   const entityUidRemap = new Map<string, string>();
 
   // ── Collections ─────────────────────────────────────────────────
-  const newCollections: V5.Collection[] = collections.map((c) => {
+  const newCollections: Collection[] = collections.map((c) => {
     const uid = generateUid();
     const path = `${treePrefix}/${toFolderName(c.name, uid)}`;
     pathRemap.set(c.path, path);

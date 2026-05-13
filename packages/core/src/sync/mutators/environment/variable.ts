@@ -13,7 +13,7 @@
  * manual merge.
  */
 
-import type { Variable } from '../../../types/v5/variable';
+import type { Variable } from '../../../types/variable';
 import { makeVariableMutators, type VariableType } from '../shared/variable-mutators';
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';

@@ -27,7 +27,7 @@ import type {
   RedirectRule,
   Rule,
   RuleCondition,
-} from '../types/v5/index';
+} from '../types/index';
 
 /**
  * Structured summary fragments. The renderer composes these into a

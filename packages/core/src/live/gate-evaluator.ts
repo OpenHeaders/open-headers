@@ -17,7 +17,7 @@
  * right layer for rejecting bad patterns at save time.
  */
 
-import type { StatusMatch, StepGate, StepGateClause } from '../types/v5/live';
+import type { StatusMatch, StepGate, StepGateClause } from '../types/live';
 
 // ── Public API ────────────────────────────────────────────────────
 

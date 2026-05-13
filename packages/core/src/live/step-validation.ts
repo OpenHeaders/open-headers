@@ -26,7 +26,7 @@
  * Both return `StructuralError[]` — empty means valid. Never throw.
  */
 
-import type { LiveWorkflow, WorkflowStep } from '../types/v5/live';
+import type { LiveWorkflow, WorkflowStep } from '../types/live';
 import type { RequestIncompleteReason } from '../utils/request-validation';
 import { effectiveDependsOn } from './chain-runner';
 import { scanTemplateReferences } from './template-scan';

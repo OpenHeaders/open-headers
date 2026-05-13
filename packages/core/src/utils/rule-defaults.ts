@@ -20,7 +20,7 @@
  * `useWorkspaceIntentRouter` decodes the hash + dispatches the same
  * `openCreateTab(type, context, templateKey, initialDraft)` call.
  *
- * `openCreateTab` builds a structurally valid `V5.Rule` seed using this
+ * `openCreateTab` builds a structurally valid `Rule` seed using this
  * helper, applies any per-gesture overlays (template values, draft
  * pre-fill), fires `applyRuleCreate` against the local oracle, and
  * opens the resulting uid in an edit tab. The entity is real from the
@@ -41,11 +41,10 @@
  * USER asked for vs. what the publication contract requires.
  */
 
-import type { V5 } from '../types';
+import type { Rule, RuleType } from '../types';
+export type RuleSeed = Omit<Rule, 'uid' | 'path' | 'schemaVersion'>;
 
-export type RuleSeed = Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>;
-
-export function buildEmptyRule(type: V5.RuleType, name: string): RuleSeed {
+export function buildEmptyRule(type: RuleType, name: string): RuleSeed {
   const base = { name, enabled: true, conditions: [] };
   switch (type) {
     case 'header':

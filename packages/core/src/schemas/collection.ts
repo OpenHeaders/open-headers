@@ -1,5 +1,5 @@
 /**
- * Valibot schema for `V5.Collection` — the folder that holds rules
+ * Valibot schema for `Collection` — the folder that holds rules
  * or requests + collection-scoped variables.
  */
 

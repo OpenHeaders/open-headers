@@ -55,7 +55,7 @@ import type {
   QueryParam,
   RequestBody,
   RequestHeader,
-} from '../types/v5/request';
+} from '../types/request';
 import type { CurlRequest } from './curl';
 import { createReport, type ImportReport, recordDrop, recordTransform } from './report';
 
@@ -248,7 +248,7 @@ interface PostmanEnvironmentFile {
 }
 
 /**
- * Normalized variable — matches `V5.Variable`. `type: 'secret'`
+ * Normalized variable — matches `Variable`. `type: 'secret'`
  * lands verbatim so the V5 secret/default split is preserved.
  */
 export interface PostmanParsedEnvironmentVariable {

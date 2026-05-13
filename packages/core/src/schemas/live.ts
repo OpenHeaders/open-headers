@@ -211,7 +211,7 @@ export const WorkflowStepSchema = v.object({
   uid: UidSchema,
   id: StepIdSchema,
   description: v.optional(v.string()),
-  /** Uid of the persisted `V5.Request` this step invokes. */
+  /** Uid of the persisted `Request` this step invokes. */
   requestUid: UidSchema,
   captures: v.array(CaptureSchema),
   /**

@@ -32,8 +32,8 @@
  */
 
 import { collectRequestTemplateStrings } from '../live/request-scan';
-import type { Request } from '../types/v5/request';
-import type { ResolvedVariable } from '../types/v5/variable';
+import type { Request } from '../types/request';
+import type { ResolvedVariable } from '../types/variable';
 import { type ResolutionEnvSnapshot, resolveTemplate, type ScopedLookupFn } from '../variables';
 
 /**

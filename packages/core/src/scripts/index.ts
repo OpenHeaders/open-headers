@@ -19,8 +19,7 @@
  *     return assertion results.
  */
 
-import type { V5 } from '../types';
-
+import type { HttpMethod, RequestBody } from '../types';
 // ── Kinds ──────────────────────────────────────────────────────────
 
 export type ScriptKind = 'pre-request' | 'post-response';
@@ -32,17 +31,17 @@ export type ScriptKind = 'pre-request' | 'post-response';
  * pre-request mode and read-only inspect in test mode. Headers + params
  * are carried as ordered tuples to preserve the user's edit intent.
  *
- * `body` mirrors the persistence-layer `V5.RequestBody` discriminated
+ * `body` mirrors the persistence-layer `RequestBody` discriminated
  * union — same variants, same field names — so a pre-request script
  * can return `{ type: 'form', formParts: [...] }` and the host can
  * apply the mutation without re-shaping. File parts are surfaced by
  * their `FileRef` metadata only; raw bytes don't cross the sandbox
  * boundary (scripts can't read or modify the wire blobs).
  */
-export type RequestSnapshotBody = V5.RequestBody;
+export type RequestSnapshotBody = RequestBody;
 
 export interface RequestSnapshot {
-  method: V5.HttpMethod;
+  method: HttpMethod;
   url: string;
   headers: Array<{ key: string; value: string }>;
   params: Array<{ key: string; value: string }>;
@@ -86,7 +85,7 @@ export interface TestAssertion {
  * the wire payload small when the script is a no-op.
  */
 export interface RequestMutation {
-  method?: V5.HttpMethod;
+  method?: HttpMethod;
   url?: string;
   /** Full replacement for the request's header list (post-resolution). */
   headers?: Array<{ key: string; value: string }>;

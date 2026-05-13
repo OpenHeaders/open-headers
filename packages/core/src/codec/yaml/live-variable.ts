@@ -15,7 +15,7 @@ import * as v from 'valibot';
 import * as YAML from 'yaml';
 import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../schemas/document';
 import { LiveVariableSchema } from '../../schemas/live';
-import type { LiveVariable } from '../../types/v5/live';
+import type { LiveVariable } from '../../types/live';
 import { CANONICAL_STRINGIFY_OPTIONS } from './canonical';
 import { buildFreshDocument, mergeKnownFields } from './merge';
 import { LIVE_VARIABLE_FIELD_ORDER } from './ordering';

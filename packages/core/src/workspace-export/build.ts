@@ -42,7 +42,7 @@ import type {
   Vault,
   VaultSecret,
   WorkspaceVariables,
-} from '../types/v5/index';
+} from '../types/index';
 import { generateUid, toFolderName } from '../utils/workspace';
 import {
   base64UrlToBytes,
@@ -285,7 +285,7 @@ export interface EncryptVaultBlockOptions {
  * passphrase" (design §3.2).
  */
 export async function encryptVaultBlock(
-  secrets: import('../types/v5/index').VaultSecret[],
+  secrets: import('../types/index').VaultSecret[],
   passphrase: string,
   opts: EncryptVaultBlockOptions = {},
 ): Promise<EncryptVaultBlockResult> {

@@ -36,7 +36,7 @@ import type {
   Template,
   Vault,
   WorkspaceVariables,
-} from '../types/v5/index';
+} from '../types/index';
 import type { WorkspaceExport } from './schema';
 
 // ── Strategies & states ─────────────────────────────────────────────

@@ -32,7 +32,7 @@ import type {
   RedirectRuleDraftSchema,
   RuleDraftBaseSchema,
   RuleDraftSchema,
-} from '../../schemas/rule-draft';
+} from '../schemas/rule-draft';
 
 export type RuleDraftBase = v.InferOutput<typeof RuleDraftBaseSchema>;
 

@@ -11,8 +11,7 @@
  */
 
 import type { MutationBatch, MutationEnvelope, MutatorOutcome, SideEffectIntent } from '../sync';
-import type { V5 } from '../types';
-
+import type { Collection, Environment, ExtensionWorkspace, FileRef, Folder, LiveVariable, LiveWorkflow, OAuth2Auth, Request, Rule, Template, Vault, WorkspaceVariables } from '../types';
 /** Surface → oracle: apply this batch all-or-nothing under the per-entity lock. */
 export interface SyncApplyRequest {
   type: 'oh.sync.apply';
@@ -41,7 +40,7 @@ export type SyncApplyResponse = SyncApplyAckOk | SyncApplyAckErr;
 
 /**
  * Post-commit projection for a Rule envelope. Carries the materialized
- * V5.Rule and the live itemIds the oracle holds at each set-modeled
+ * Rule and the live itemIds the oracle holds at each set-modeled
  * path, so renderer-side mirrors can:
  *
  *   1. Track the canonical rule shape without round-tripping back to
@@ -56,7 +55,7 @@ export type SyncApplyResponse = SyncApplyAckOk | SyncApplyAckErr;
  * Defer that decision until a second entity actually needs it.
  */
 export interface SyncRulePostState {
-  rule: V5.Rule;
+  rule: Rule;
   /** Map keyed by set path (e.g. `conditions`, `action.requestHeaders`). */
   setItemIds: Record<string, string[]>;
   /**
@@ -73,26 +72,26 @@ export interface SyncRulePostState {
 
 /**
  * Post-commit projection for an Environment envelope. Carries the
- * materialized {@link V5.Environment} plus the live variable uids
+ * materialized {@link Environment} plus the live variable uids
  * (set member identity = uid, see env mutators). Renderer-side
  * mirrors fold this in lockstep with the SW oracle so they can read
  * post-commit state without a round-trip.
  */
 export interface SyncEnvironmentPostState {
-  environment: V5.Environment;
+  environment: Environment;
   /** Live variable uids — the set-member identity (uid) for env vars. */
   varUids: string[];
 }
 
 /**
  * Post-commit projection for a Collection envelope. Carries the
- * materialized {@link V5.Collection} plus the live variable uids
+ * materialized {@link Collection} plus the live variable uids
  * (set member identity = uid, same as env vars). Renderer-side
  * mirrors fold this so collection-vars editing surfaces can read
  * post-commit state without a round-trip.
  */
 export interface SyncCollectionPostState {
-  collection: V5.Collection;
+  collection: Collection;
   /** Live variable uids — the set-member identity (uid) for collection vars. */
   varUids: string[];
   /**
@@ -109,13 +108,13 @@ export interface SyncCollectionPostState {
  * Post-commit projection for a workspace-variables envelope. Singleton
  * entity per workspace — there is exactly one materialized record at
  * the fixed id `workspace-vars`. Carries the materialized
- * {@link V5.WorkspaceVariables} plus the live variable uids (set
+ * {@link WorkspaceVariables} plus the live variable uids (set
  * member identity = name, same as env + collection vars). Renderer
  * mirrors fold this so the workspace-vars editing surface reads
  * post-commit state without a round-trip.
  */
 export interface SyncWorkspaceVariablesPostState {
-  workspaceVariables: V5.WorkspaceVariables;
+  workspaceVariables: WorkspaceVariables;
   /** Live variable uids — the set-member identity (uid) for workspace vars. */
   varUids: string[];
 }
@@ -123,7 +122,7 @@ export interface SyncWorkspaceVariablesPostState {
 /**
  * Post-commit projection for a vault envelope. Singleton entity per
  * workspace — there is exactly one materialized record at the fixed
- * id `vault`. Carries the materialized {@link V5.Vault} plus the live
+ * id `vault`. Carries the materialized {@link Vault} plus the live
  * secret names (set member identity = uid, same shape as the other
  * variable scopes). Renderer mirrors fold this so the vault editing
  * surface reads post-commit state without a round-trip.
@@ -135,7 +134,7 @@ export interface SyncWorkspaceVariablesPostState {
  * editor needs.
  */
 export interface SyncVaultPostState {
-  vault: V5.Vault;
+  vault: Vault;
   /** Live secret uids — the set-member identity (uid) for vault entries. */
   secretUids: string[];
 }
@@ -143,14 +142,14 @@ export interface SyncVaultPostState {
 /**
  * Post-commit projection for a Request envelope. Parallel to
  * {@link SyncRulePostState} — carries the materialized
- * {@link V5.Request} and the live itemIds the oracle holds at each
+ * {@link Request} and the live itemIds the oracle holds at each
  * set-modeled path (`headers`, `params`). Renderer-side write helpers
  * fold this into their local mirror so partial-update emit paths can
  * enumerate `removeFromSet` itemIds without round-tripping back to the
  * SW (§19.4 synchronous-render discipline).
  */
 export interface SyncRequestPostState {
-  request: V5.Request;
+  request: Request;
   /** Map keyed by set path (`headers`, `params`). */
   setItemIds: Record<string, string[]>;
   /**
@@ -167,7 +166,7 @@ export interface SyncRequestPostState {
 
 /**
  * Post-commit projection for a Folder envelope. Carries the
- * materialized {@link V5.Folder} with its full path reconstructed from
+ * materialized {@link Folder} with its full path reconstructed from
  * the parent walk (collection root → folder chain). Folders are
  * non-singleton entities keyed by uid; renderer-side mirrors fold this
  * per uid so sidebar tree consumers see post-commit shape without a
@@ -179,7 +178,7 @@ export interface SyncRequestPostState {
  * source for `keyBetween` lookups.
  */
 export interface SyncFolderPostState {
-  folder: V5.Folder;
+  folder: Folder;
   /**
    * Live `(itemId, orderKey)` pairs at the folder's own `folders` set
    * (§23.5) — the slot list for child folders nested under this folder.
@@ -192,12 +191,12 @@ export interface SyncFolderPostState {
 /**
  * Post-commit projection for a request-collection envelope. Mirrors
  * {@link SyncCollectionPostState}: carries the materialized
- * {@link V5.Collection} plus live variable uids (set member identity =
+ * {@link Collection} plus live variable uids (set member identity =
  * name, same as env + rule-collection vars) and the parent-owned
  * `folders` order keys.
  */
 export interface SyncRequestCollectionPostState {
-  collection: V5.Collection;
+  collection: Collection;
   /** Live variable uids — the set-member identity (uid) for request-collection vars. */
   varUids: string[];
   /** Live `(itemId, orderKey)` pairs at the parent-owned `folders` set
@@ -212,7 +211,7 @@ export interface SyncRequestCollectionPostState {
  * (request-collection root → request-folder chain).
  */
 export interface SyncRequestFolderPostState {
-  folder: V5.Folder;
+  folder: Folder;
   /** Live `(itemId, orderKey)` pairs at the folder's own `folders` set
    *  (§23.5). Same shape as {@link SyncFolderPostState.setOrderKeys}. */
   setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
@@ -221,14 +220,14 @@ export interface SyncRequestFolderPostState {
 /**
  * Post-commit projection for a Template envelope. Parallel to
  * {@link SyncRequestPostState} — carries the materialized
- * {@link V5.Template} and the live itemIds the oracle holds at the
+ * {@link Template} and the live itemIds the oracle holds at the
  * set-modeled `conditions` path. Renderer-side write helpers fold this
  * into their local mirror so partial-update emit paths can enumerate
  * `removeFromSet` itemIds without round-tripping back to the SW
  * (§19.4 synchronous-render discipline).
  */
 export interface SyncTemplatePostState {
-  template: V5.Template;
+  template: Template;
   /** Map keyed by set path (`conditions`). */
   setItemIds: Record<string, string[]>;
   /**
@@ -246,11 +245,11 @@ export interface SyncTemplatePostState {
 /**
  * Post-commit projection for a template-collection envelope. Mirrors
  * {@link SyncRequestCollectionPostState}: carries the materialized
- * {@link V5.Collection} plus live variable uids and the parent-owned
+ * {@link Collection} plus live variable uids and the parent-owned
  * `folders` order keys.
  */
 export interface SyncTemplateCollectionPostState {
-  collection: V5.Collection;
+  collection: Collection;
   /** Live variable uids — the set-member identity (uid) for template-collection vars. */
   varUids: string[];
   /** Live `(itemId, orderKey)` pairs at the parent-owned `folders` set
@@ -265,7 +264,7 @@ export interface SyncTemplateCollectionPostState {
  * (template-collection root → template-folder chain).
  */
 export interface SyncTemplateFolderPostState {
-  folder: V5.Folder;
+  folder: Folder;
   /** Live `(itemId, orderKey)` pairs at the folder's own `folders` set
    *  (§23.5). Same shape as {@link SyncFolderPostState.setOrderKeys}. */
   setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
@@ -279,7 +278,7 @@ export interface SyncTemplateFolderPostState {
  * without round-tripping back to the SW (§19.4).
  */
 export interface SyncLiveVariablePostState {
-  liveVariable: V5.LiveVariable;
+  liveVariable: LiveVariable;
 }
 
 /**
@@ -288,7 +287,7 @@ export interface SyncLiveVariablePostState {
  * carries only the projected entity.
  */
 export interface SyncLiveWorkflowPostState {
-  workflow: V5.LiveWorkflow;
+  workflow: LiveWorkflow;
 }
 
 /**
@@ -298,7 +297,7 @@ export interface SyncLiveWorkflowPostState {
  * projected back into Records keyed by `credentialRef` so the renderer
  * mirror + scheduler both see post-commit state without iterating
  * arrays. Item payloads stay opaque to core — they're typed at the
- * extension boundary (`OAuth2TokenBundle`, `V5.OAuth2Auth`,
+ * extension boundary (`OAuth2TokenBundle`, `OAuth2Auth`,
  * `OAuthRefreshErrorState`).
  *
  * The bundle is §12.1 schema-marked sensitive in full — broadcast is
@@ -373,7 +372,7 @@ export interface SyncLayoutStatePostState {
  */
 export interface SyncFilesPostState {
   /** All currently-known FileRefs, in fileId order. */
-  refs: V5.FileRef[];
+  refs: FileRef[];
   /** Sorted live set of fileIds — convenient for consumers iterating
    *  in deterministic order. */
   fileIds: string[];
@@ -386,7 +385,7 @@ export interface SyncFilesPostState {
  * catalog stores workspace records as set members at `workspaces` (set
  * member identity = workspace id) plus the active-workspace pointer as
  * a scalar at `activeId`; the projection folds them into a sorted
- * `V5.ExtensionWorkspace[]` (re-emitting the per-entry orderKey via a
+ * `ExtensionWorkspace[]` (re-emitting the per-entry orderKey via a
  * synthetic `sortIndex` so legacy consumers stay byte-stable) plus the
  * scalar pointer.
  *
@@ -395,7 +394,7 @@ export interface SyncFilesPostState {
  */
 export interface SyncExtensionWorkspacePostState {
   /** All currently-known workspaces, sorted by orderKey ascending then id. */
-  workspaces: V5.ExtensionWorkspace[];
+  workspaces: ExtensionWorkspace[];
   /**
    * Active-workspace pointer. `null` when no envelope has set it yet
    * (cold oracle prior to seed). Consumers fall back to the first
@@ -404,7 +403,7 @@ export interface SyncExtensionWorkspacePostState {
   activeWorkspaceId: string | null;
   /**
    * Per-workspace fractional-indexing keys, keyed by workspace id. The
-   * public `V5.ExtensionWorkspace` shape strips them (consumers see a
+   * public `ExtensionWorkspace` shape strips them (consumers see a
    * sorted list); renderer-direct write paths need them to mint
    * `keyBetween` between siblings on rename without touching position.
    */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isWorkflowComplete, isWorkflowDraft, isWorkflowEffective } from '../../src/live/workflow-state';
-import type { LiveWorkflow, WorkflowStep } from '../../src/types/v5/live';
+import type { LiveWorkflow, WorkflowStep } from '../../src/types/live';
 
 function wf(overrides: Partial<LiveWorkflow> = {}): LiveWorkflow {
   return {

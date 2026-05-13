@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Variable } from '../../../../src/types/v5/variable';
+import type { Variable } from '../../../../src/types/variable';
 import {
   ENV_VARS_PATH,
   ENVIRONMENT_ENTITY_TYPE,

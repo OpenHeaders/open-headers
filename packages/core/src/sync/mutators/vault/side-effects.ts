@@ -3,7 +3,7 @@
  *
  * Vault entries feed the same variable resolver as environments,
  * collections, and workspace variables (priority: vault > env >
- * collection > workspace, see `types/v5/variable.ts`); an edit
+ * collection > workspace, see `types/variable.ts`); an edit
  * invalidates the resolver cache + recompiles downstream rules whose
  * templates reference the affected vault entry. Reuses the
  * `INVALIDATE_RESOLVER` intent kind so the single shared runner handles

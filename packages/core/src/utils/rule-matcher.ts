@@ -39,8 +39,7 @@
  * strings and typed rule objects. Perfect-fit for core.
  */
 
-import type { V5 } from '../types';
-
+import type { Rule } from '../types';
 // ── Types ────────────────────────────────────────────────────────
 
 export type MatchPatternKind = 'url-filter' | 'url-regex';
@@ -157,7 +156,7 @@ export function compilePatternToRegexSource(pattern: string): string | null {
  * between the badge display (match everything) and the injection
  * targeting (match nothing, to avoid injecting into every page).
  */
-export function getRuleMatchPatterns(rule: V5.Rule): MatchPattern[] {
+export function getRuleMatchPatterns(rule: Rule): MatchPattern[] {
   const patterns: MatchPattern[] = [];
   for (const c of rule.conditions) {
     if (c.type === 'request-domains') {
@@ -210,7 +209,7 @@ export function doesUrlMatchEntry(url: string, entry: MatchPattern): boolean {
  * semantic must check `getRuleMatchPatterns(rule).length === 0` and
  * apply their own default.
  */
-export function doesUrlMatchRule(url: string, rule: V5.Rule): boolean {
+export function doesUrlMatchRule(url: string, rule: Rule): boolean {
   const patterns = getRuleMatchPatterns(rule);
   for (const entry of patterns) {
     if (doesUrlMatchEntry(url, entry)) return true;
@@ -232,7 +231,7 @@ export function doesUrlMatchRule(url: string, rule: V5.Rule): boolean {
  * injection function — Chrome's urlFilter semantics (including `|`/`||`
  * anchors as they're added) live in ONE place: this module.
  */
-export function compileRuleForInjection(rule: V5.Rule): string[] {
+export function compileRuleForInjection(rule: Rule): string[] {
   const sources: string[] = [];
   for (const entry of getRuleMatchPatterns(rule)) {
     if (entry.kind === 'url-regex') {

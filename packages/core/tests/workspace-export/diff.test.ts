@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { Collection, Environment, Folder, HeaderRule, WorkspaceVariables } from '../../src/types/v5/index';
+import type { Collection, Environment, Folder, HeaderRule, WorkspaceVariables } from '../../src/types/index';
 import { applyBackupRestoreToggle, buildWorkspaceExport, diffWorkspaceExport } from '../../src/workspace-export/index';
 
 const FIXED_TIMESTAMP = '2026-04-27T18:30:00.000Z';

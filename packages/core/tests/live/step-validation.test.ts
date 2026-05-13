@@ -5,7 +5,7 @@ import {
   validateStepReferences,
   validateWorkflowShape,
 } from '../../src/live/step-validation';
-import type { LiveWorkflow, RefreshPolicy, WorkflowStep } from '../../src/types/v5/live';
+import type { LiveWorkflow, RefreshPolicy, WorkflowStep } from '../../src/types/live';
 
 function wf(steps: WorkflowStep[], refresh: RefreshPolicy = { kind: 'manual' }): LiveWorkflow {
   return {

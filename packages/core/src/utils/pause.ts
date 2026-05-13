@@ -10,7 +10,7 @@
  * self) that has any marker decides. Default is unpaused.
  */
 
-import type { CollectionTree, TreeNode } from '../types/v5/collection';
+import type { CollectionTree, TreeNode } from '../types/collection';
 
 export type PauseMarker = 'paused' | 'unpaused';
 

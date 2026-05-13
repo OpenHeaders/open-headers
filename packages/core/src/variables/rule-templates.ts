@@ -19,7 +19,7 @@
  * the walker's output against the resolver's touched-string count.
  */
 
-import type { Rule } from '../types/v5';
+import type { Rule } from '../types';
 
 /**
  * Collect every templatable string in a rule. Returns strings in

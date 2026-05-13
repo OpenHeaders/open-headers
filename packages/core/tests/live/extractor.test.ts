@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyExtractor, type StepResponse } from '../../src/live/extractor';
-import type { Extractor } from '../../src/types/v5/live';
+import type { Extractor } from '../../src/types/live';
 
 function makeResponse(overrides: Partial<StepResponse> = {}): StepResponse {
   return {

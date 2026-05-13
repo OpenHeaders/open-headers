@@ -25,7 +25,7 @@ import {
   parseTokenResponse,
   secondsUntilExpiry,
 } from '../../src/oauth';
-import type { OAuth2Auth } from '../../src/types/v5/request';
+import type { OAuth2Auth } from '../../src/types/request';
 
 // ── Test factories ────────────────────────────────────────────────
 

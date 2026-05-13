@@ -10,7 +10,7 @@
  *
  * Singleton entity: one record at id = `EXTENSION_WORKSPACE_ID`.
  *   - `workspaces` set path keyed by workspace id; each slot mirrors the
- *     public {@link V5.ExtensionWorkspace} shell minus `sortIndex`
+ *     public {@link ExtensionWorkspace} shell minus `sortIndex`
  *     (ordering lives on the set entry's `orderKey`, §23.5) and minus
  *     `schemaVersion` (the singleton itself carries the schema version
  *     when persisted).
@@ -56,10 +56,10 @@ export const EXTENSION_WORKSPACE_GLOBAL_SCOPE = '__global__';
 
 /**
  * Set-item shape carried inside the singleton's `workspaces` set.
- * Mirrors {@link V5.ExtensionWorkspace} minus `schemaVersion` (carried
+ * Mirrors {@link ExtensionWorkspace} minus `schemaVersion` (carried
  * by the singleton-level snapshot) and minus `sortIndex` (replaced by
  * the envelope-resident `orderKey` on each set entry, §23.5). Stored
- * directly so the projector can rebuild a `V5.ExtensionWorkspace[]`
+ * directly so the projector can rebuild a `ExtensionWorkspace[]`
  * straight from `liveSetItems`.
  */
 export interface ExtensionWorkspaceSlot {

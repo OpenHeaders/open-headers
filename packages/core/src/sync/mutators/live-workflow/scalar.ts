@@ -1,7 +1,7 @@
 /**
  * Scalar `setField` intent factory for live-workflow entities.
  *
- * Single typed-path generic over scalar paths on `V5.LiveWorkflow`.
+ * Single typed-path generic over scalar paths on `LiveWorkflow`.
  * `steps` is a scalar here (whole-array LWW) — see `types.ts` for the
  * rationale. `refresh` is also a scalar (the whole policy variant
  * swaps atomically; the editor never edits a single field within an

@@ -41,7 +41,7 @@
  * other) is per-platform.
  */
 
-import type { FileRef } from '../types/v5/request';
+import type { FileRef } from '../types/request';
 
 export type { FileRef };
 

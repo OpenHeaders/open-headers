@@ -19,11 +19,11 @@
  * the structural slot is in place).
  */
 
-import type { V5 } from '../types';
+import type { LiveVariable, LiveWorkflow } from '../types';
 import { generateUid } from './workspace';
 
-export type LiveWorkflowSeed = Omit<V5.LiveWorkflow, 'uid' | 'path' | 'schemaVersion'>;
-export type LiveVariableSeed = Omit<V5.LiveVariable, 'uid' | 'path' | 'schemaVersion'>;
+export type LiveWorkflowSeed = Omit<LiveWorkflow, 'uid' | 'path' | 'schemaVersion'>;
+export type LiveVariableSeed = Omit<LiveVariable, 'uid' | 'path' | 'schemaVersion'>;
 
 /**
  * Empty workflow seed with a single placeholder step. The step's

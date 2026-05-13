@@ -14,7 +14,7 @@ import * as v from 'valibot';
 import * as YAML from 'yaml';
 import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../schemas/document';
 import { LiveWorkflowSchema } from '../../schemas/live';
-import type { LiveWorkflow } from '../../types/v5/live';
+import type { LiveWorkflow } from '../../types/live';
 import { generateUid } from '../../utils/workspace';
 import { CANONICAL_STRINGIFY_OPTIONS } from './canonical';
 import { buildFreshDocument, mergeKnownFields } from './merge';

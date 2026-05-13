@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { evaluateClause, evaluateGate, matchStatus } from '../../src/live/gate-evaluator';
-import type { StepGate, StepGateClause } from '../../src/types/v5/live';
+import type { StepGate, StepGateClause } from '../../src/types/live';
 
 function captures(shape: Record<string, Record<string, string>>): ReadonlyMap<string, ReadonlyMap<string, string>> {
   return new Map(Object.entries(shape).map(([stepId, caps]) => [stepId, new Map(Object.entries(caps))]));

@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from 'vitest';
 import * as YAML from 'yaml';
-import type { Environment, HeaderRule, OAuth2Auth, Request, WorkspaceVariables } from '../../src/types/v5/index';
+import type { Environment, HeaderRule, OAuth2Auth, Request, WorkspaceVariables } from '../../src/types/index';
 import { buildWorkspaceExport, serializeWorkspaceExport } from '../../src/workspace-export/index';
 
 const FIXED_TIMESTAMP = '2026-04-27T18:30:00.000Z';

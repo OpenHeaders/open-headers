@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { MutationBatch, MutationBody } from '../../../../src/sync';
-import type { Variable } from '../../../../src/types/v5/variable';
+import type { Variable } from '../../../../src/types/variable';
 import {
   type MutatorContext,
   type SideEffectIntent,

@@ -28,7 +28,7 @@ import * as v from 'valibot';
 import * as YAML from 'yaml';
 import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../schemas/document';
 import { EnvironmentSchema } from '../../schemas/variable';
-import type { Environment, Variable } from '../../types/v5/variable';
+import type { Environment, Variable } from '../../types/variable';
 import { generateUid } from '../../utils/workspace';
 import { CANONICAL_STRINGIFY_OPTIONS } from './canonical';
 import { buildFreshDocument, mergeKnownFields } from './merge';

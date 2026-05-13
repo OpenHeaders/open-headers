@@ -43,7 +43,7 @@ import type {
   Vault,
   VaultSecret,
   WorkspaceVariables,
-} from '../types/v5/index';
+} from '../types/index';
 import { generateUid, toFolderName } from '../utils/workspace';
 import { deepCopyHierarchy, type LocalFolder } from './deep-copy-hierarchy';
 import type { CollisionStrategy, DiffEntry, DiffResult, DiffSingleton, TargetWorkspaceState } from './diff';

@@ -15,7 +15,7 @@ import type {
   QueryParamRule,
   RedirectRule,
   Rule,
-} from '../types/v5/rule';
+} from '../types/rule';
 
 // ── Action detail ────────────────────────────────────────────────
 

@@ -15,7 +15,7 @@
  * Phase B commit 2 (`request-projection.ts`) flattens the create
  * payload into per-leaf scalars + per-row `addToSet` envelopes, so
  * the catalog's create can stay opaque about the row shapes — the
- * payload is just `V5.Request` minus uid/path (which are the
+ * payload is just `Request` minus uid/path (which are the
  * envelope's `id` and a scalar respectively).
  */
 
@@ -27,7 +27,7 @@ import { REQUEST_ENTITY_TYPE } from './types';
 export interface CreateRequestArgs {
   requestUid: string;
   /**
-   * Full request payload as `V5.Request` minus `uid` (carried on the
+   * Full request payload as `Request` minus `uid` (carried on the
    * envelope as `id`). Validated at the oracle boundary by the
    * request schema. The projector layer is responsible for splitting
    * `headers` / `params` arrays into per-row `addToSet` envelopes —

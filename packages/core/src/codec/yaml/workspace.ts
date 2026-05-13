@@ -18,7 +18,7 @@ import * as v from 'valibot';
 import * as YAML from 'yaml';
 import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../schemas/document';
 import { WorkspaceSchema } from '../../schemas/workspace';
-import type { Workspace } from '../../types/v5/workspace';
+import type { Workspace } from '../../types/workspace';
 import { CANONICAL_STRINGIFY_OPTIONS } from './canonical';
 import { buildFreshDocument, mergeKnownFields } from './merge';
 import { WORKSPACE_FIELD_ORDER } from './ordering';

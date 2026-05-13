@@ -10,7 +10,7 @@ import type {
   RedirectRule,
   Rule,
   RuleCondition,
-} from '../../src/types/v5';
+} from '../../src/types';
 import { validateActionValues } from '../../src/utils';
 
 const baseFields = {

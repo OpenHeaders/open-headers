@@ -44,7 +44,7 @@
  * fetch → apply extractors → advance.
  */
 
-import type { LiveWorkflow, WorkflowStep } from '../types/v5/live';
+import type { LiveWorkflow, WorkflowStep } from '../types/live';
 import { applyExtractor, type StepResponse } from './extractor';
 import { evaluateGate } from './gate-evaluator';
 import { comparePriority, priorityValue } from './priority-evaluator';

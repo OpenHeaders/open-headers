@@ -26,7 +26,7 @@ import type {
   ExtensionWorkspaceKindSchema,
   ExtensionWorkspaceSchema,
   ExtensionWorkspaceSourceSchema,
-} from '../../schemas/workspace';
+} from '../schemas/workspace';
 
 export type ExtensionWorkspaceKind = v.InferOutput<typeof ExtensionWorkspaceKindSchema>;
 export type ExtensionWorkspace = v.InferOutput<typeof ExtensionWorkspaceSchema>;

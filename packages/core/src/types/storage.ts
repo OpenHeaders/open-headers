@@ -10,7 +10,7 @@
 
 // ── Gitignore template ─────────────────────────────────────────────
 
-export const V5_GITIGNORE = `# OpenHeaders — local-only files
+export const GITIGNORE = `# OpenHeaders — local-only files
 *.secret.yaml
 !*.secret.yaml.template
 .oh-local/

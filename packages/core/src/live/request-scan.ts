@@ -1,5 +1,5 @@
 /**
- * Pure collector for every templatable string in a V5.Request.
+ * Pure collector for every templatable string in a Request.
  *
  * The executor walks these exact fields during variable resolution;
  * downstream callers (Live Workflow dependency graph, step-reference
@@ -13,7 +13,7 @@
  * the step-reference validator (Phase A) silently under-report refs.
  */
 
-import type { Request } from '../types/v5';
+import type { Request } from '../types';
 
 /**
  * Flat, order-preserving list of every templatable string in `request`.

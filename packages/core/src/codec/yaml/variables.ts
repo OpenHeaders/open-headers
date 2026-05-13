@@ -32,7 +32,7 @@ import * as v from 'valibot';
 import * as YAML from 'yaml';
 import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../schemas/document';
 import { VaultSchema, WorkspaceVariablesSchema } from '../../schemas/variable';
-import type { Vault, VaultSecret, WorkspaceVariables } from '../../types/v5/variable';
+import type { Vault, VaultSecret, WorkspaceVariables } from '../../types/variable';
 import { generateUid } from '../../utils/workspace';
 import { CANONICAL_STRINGIFY_OPTIONS } from './canonical';
 import { buildFreshDocument, mergeKnownFields } from './merge';

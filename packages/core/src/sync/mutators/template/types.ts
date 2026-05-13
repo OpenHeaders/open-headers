@@ -34,7 +34,7 @@ export const TEMPLATE_ENTITY_TYPE = 'template';
 export const TEMPLATE_CONDITIONS_PATH = 'conditions';
 
 /**
- * Wire shape for a template-condition row. Mirrors `V5.RuleCondition`
+ * Wire shape for a template-condition row. Mirrors `RuleCondition`
  * field-for-field but typed locally so the catalog stays decoupled
  * from `@openheaders/core/types` (the same way other catalogs keep
  * their row shapes local).

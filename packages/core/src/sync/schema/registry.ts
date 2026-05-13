@@ -48,7 +48,7 @@ import type { EntityType } from '../envelope';
  * suffices when every variant of the entity carries the same set
  * paths (e.g. `Vault.secrets` is always present). The function form
  * handles entities where set paths depend on a discriminant field —
- * `V5.Rule` is the canonical case: `action.requestHeaders` /
+ * `Rule` is the canonical case: `action.requestHeaders` /
  * `action.responseHeaders` exist only on `type: 'header'`. The
  * resolver receives the entity's field-value-only partial materialized
  * data so it can branch on the discriminant.

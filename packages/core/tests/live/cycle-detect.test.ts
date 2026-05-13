@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { detectCycles, type RequestTemplateProvider } from '../../src/live/cycle-detect';
-import type { LiveVariable, LiveWorkflow } from '../../src/types/v5/live';
+import type { LiveVariable, LiveWorkflow } from '../../src/types/live';
 
 function wf(uid: string, name: string, requestUid: string, captureName = 'value'): LiveWorkflow {
   return {

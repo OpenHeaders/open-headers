@@ -37,7 +37,7 @@ export interface SetOAuthTokenArgs {
   credentialRef: string;
   /** `OAuth2TokenBundle` payload — opaque to the catalog. */
   bundle: unknown;
-  /** Optional `V5.OAuth2Auth` sidecar — caller passes the live config
+  /** Optional `OAuth2Auth` sidecar — caller passes the live config
    *  when known so the scheduler can rebuild the refresh POST without
    *  walking the request tree. Omit for paths that already carry a
    *  trusted config (in-place refresh exchanges). */

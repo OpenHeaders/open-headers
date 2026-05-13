@@ -6,7 +6,7 @@ import * as v from 'valibot';
 import { SchemaVersionSchema, UidSchema } from './common';
 
 /**
- * On-disk `workspace.yaml` + runtime `V5.Workspace`. `rootPath` is
+ * On-disk `workspace.yaml` + runtime `Workspace`. `rootPath` is
  * runtime-only (absolute path on desktop); the codec (when it lands)
  * strips it on serialize. Schemas are shared by runtime + codec —
  * `rootPath` is optional here because the parsed-from-disk form omits

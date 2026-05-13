@@ -1,5 +1,5 @@
 /**
- * Valibot schema for `V5.Template` — saved rule configurations that
+ * Valibot schema for `Template` — saved rule configurations that
  * can be re-applied. Stores a snapshot of conditions + form values.
  */
 

@@ -14,7 +14,7 @@ import type {
   QueryParamRule,
   RedirectRule,
   RuleCondition,
-} from '../../src/types/v5/index';
+} from '../../src/types/index';
 import { summarizeRule } from '../../src/workspace-export/rule-summary';
 
 function base(): { uid: string; path: string; name: string; schemaVersion: 5; version: 1; enabled: true } {

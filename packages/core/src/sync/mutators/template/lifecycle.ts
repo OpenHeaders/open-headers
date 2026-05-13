@@ -24,7 +24,7 @@ import { TEMPLATE_ENTITY_TYPE } from './types';
 export interface CreateTemplateArgs {
   templateUid: string;
   /**
-   * Full template payload as `V5.Template` minus `uid` (carried on
+   * Full template payload as `Template` minus `uid` (carried on
    * the envelope as `id`). Validated at the oracle boundary by the
    * template schema. The projector is responsible for splitting
    * `conditions` array into per-row `addToSet` envelopes.

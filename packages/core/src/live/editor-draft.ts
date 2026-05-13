@@ -23,7 +23,7 @@
  * user as a preview.
  */
 
-import type { Capture, Extractor, LiveVariable, LiveWorkflow, WorkflowStep } from '../types/v5/live';
+import type { Capture, Extractor, LiveVariable, LiveWorkflow, WorkflowStep } from '../types/live';
 import { generateUid } from '../utils/workspace';
 
 // ── Draft types ───────────────────────────────────────────────────

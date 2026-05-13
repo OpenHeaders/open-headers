@@ -1,6 +1,6 @@
 /**
- * Valibot schema for `V5.Rule` — the discriminated union over 8 rule
- * types. Mirrors `types/v5/rule.ts` so hand-written types + schemas
+ * Valibot schema for `Rule` — the discriminated union over 8 rule
+ * types. Mirrors `types/rule.ts` so hand-written types + schemas
  * stay in lockstep.
  *
  * Split from `rule-draft.ts`: drafts are pre-fill handoffs used by the
@@ -56,7 +56,7 @@ export const RuleConditionSchema = v.object({
 
 // ── RuleBase shared fields ─────────────────────────────────────────
 //
-// Exposed as a full `RuleBaseSchema` so `V5.RuleBase` can be derived from
+// Exposed as a full `RuleBaseSchema` so `RuleBase` can be derived from
 // it (matches the Phase 2 "derive types from schemas" discipline). The
 // schema is never parsed in isolation — each rule variant carries the
 // discriminator + action on top via `v.variant('type', [...])`.

@@ -77,7 +77,7 @@ export interface VariableEntry {
 
 /**
  * Vault entries supplied to the suggester. Mirrors the discriminated
- * union on `V5.VaultSecret` — `string` rows preview their value (masked),
+ * union on `VaultSecret` — `string` rows preview their value (masked),
  * `totp` rows preview a "TOTP code" badge so users see at a glance that
  * `{{vault.X}}` will resolve to a freshly-computed code each fire.
  *

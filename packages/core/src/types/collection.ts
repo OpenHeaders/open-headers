@@ -24,7 +24,7 @@
  */
 
 import type * as v from 'valibot';
-import type { CollectionSchema, FolderSchema } from '../../schemas/collection';
+import type { CollectionSchema, FolderSchema } from '../schemas/collection';
 import type { HttpMethod } from './request';
 import type { RuleType } from './rule';
 

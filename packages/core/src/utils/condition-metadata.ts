@@ -48,7 +48,7 @@
  * validator surfaces a structural issue if they slip through.
  */
 
-import type { ConditionType, RuleCondition } from '../types/v5/rule';
+import type { ConditionType, RuleCondition } from '../types/rule';
 
 /**
  * How values inside ONE row combine (within that row's input control):

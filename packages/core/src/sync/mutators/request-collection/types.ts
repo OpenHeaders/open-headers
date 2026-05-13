@@ -2,7 +2,7 @@
  * Request-collection mutator catalog — routing constants.
  *
  * Distinct from {@link COLLECTION_ENTITY_TYPE}: rule collections and
- * request collections share the same `V5.Collection` schema on disk
+ * request collections share the same `Collection` schema on disk
  * but live under different storage keys (`oh.ws.<id>.collections` vs
  * `oh.ws.<id>.requestCollections`) and are owned by different stores
  * (`rule-store` vs `request-store`). The sync engine's `(workspaceId,

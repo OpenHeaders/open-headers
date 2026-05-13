@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { TreeNode } from '../../src/types/v5/collection';
+import type { TreeNode } from '../../src/types/collection';
 import { buildBreadcrumbTrail, findNodeChildren } from '../../src/utils/tree';
 
 // ── Fixtures ────────────────────────────────────────────────────────

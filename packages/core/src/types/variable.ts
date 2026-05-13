@@ -29,7 +29,7 @@ import type {
   VaultSecretStringSchema,
   VaultSecretTotpSchema,
   WorkspaceVariablesSchema,
-} from '../../schemas/variable';
+} from '../schemas/variable';
 
 // ── Variable scope ─────────────────────────────────────────────────
 

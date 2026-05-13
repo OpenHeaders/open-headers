@@ -33,7 +33,7 @@ import type {
   RequestBodySchema,
   RequestHeaderSchema,
   RequestSchema,
-} from '../../schemas/request';
+} from '../schemas/request';
 
 // ── HTTP method ────────────────────────────────────────────────────
 

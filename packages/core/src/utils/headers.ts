@@ -10,7 +10,7 @@
  * execute), and the UI (autocomplete + inline warnings on the header row).
  */
 
-import type { HeaderOperation } from '../types/v5/rule';
+import type { HeaderOperation } from '../types/rule';
 
 // ── Validation result types ─────────────────────────────────────────
 

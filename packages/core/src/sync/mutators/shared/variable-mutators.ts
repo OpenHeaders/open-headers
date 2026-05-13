@@ -24,7 +24,7 @@
  *
  * Per-catalog wrappers below preserve the existing named-arg shapes
  * (`SetCollectionVarArgs`, etc.) so call sites and tests don't churn
- * structurally — the args carry a `variable: V5.Variable` payload now
+ * structurally — the args carry a `variable: Variable` payload now
  * instead of separate name/value/type fields.
  *
  * Singleton variable scopes (workspace-variables, vault) plug in by
@@ -36,7 +36,7 @@
 
 import type { HLC } from '../../hlc';
 import type { MutationBatch, MutationBody } from '../../envelope';
-import type { Variable } from '../../../types/v5/variable';
+import type { Variable } from '../../../types/variable';
 import type { MutatorContext, MutatorIntent, SideEffectIntent } from '../types';
 
 export type VariableType = 'default' | 'secret';

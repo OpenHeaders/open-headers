@@ -12,7 +12,7 @@
  * duplicating the predicates.
  */
 
-import type { LiveWorkflow } from '../types/v5/live';
+import type { LiveWorkflow } from '../types/live';
 import { validateWorkflowShape } from './step-validation';
 
 /**

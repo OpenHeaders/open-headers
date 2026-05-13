@@ -8,8 +8,8 @@
  * This is the single source of truth for "can this rule do anything?"
  */
 
-import type { HeaderRule, InjectRule, QueryParamRule, RedirectRule, Rule, RuleBase } from '../types/v5/rule';
-import type { ResolutionContext, ResolvedVariable } from '../types/v5/variable';
+import type { HeaderRule, InjectRule, QueryParamRule, RedirectRule, Rule, RuleBase } from '../types/rule';
+import type { ResolutionContext, ResolvedVariable } from '../types/variable';
 import {
   collectRuleTemplateStrings,
   type ResolutionEnvSnapshot,

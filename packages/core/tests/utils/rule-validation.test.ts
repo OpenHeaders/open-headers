@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { RuleCondition } from '../../src/types/v5/rule';
-import type { ResolvedVariable } from '../../src/types/v5/variable';
+import type { RuleCondition } from '../../src/types/rule';
+import type { ResolvedVariable } from '../../src/types/variable';
 import { isRuleComplete, isRuleResolvable } from '../../src/utils/rule-validation';
 
 const hostCondition: RuleCondition = { uid: 'cnd00001', type: 'request-domains', values: ['openheaders.io'] };

@@ -3,7 +3,7 @@
  *
  * Distinct from {@link COLLECTION_ENTITY_TYPE} and
  * {@link REQUEST_COLLECTION_ENTITY_TYPE}: rule, request, and template
- * collections share the same `V5.Collection` schema on disk but live
+ * collections share the same `Collection` schema on disk but live
  * under different storage keys (`oh.ws.<id>.collections` vs
  * `oh.ws.<id>.requestCollections` vs `oh.ws.<id>.templateCollections`)
  * and are owned by different stores (`rule-store` vs `request-store` vs

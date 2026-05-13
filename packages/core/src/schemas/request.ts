@@ -1,7 +1,7 @@
 /**
- * Valibot schema for `V5.Request`.
+ * Valibot schema for `Request`.
  *
- * Mirrors `types/v5/request.ts` field-for-field. Auth is a discriminated
+ * Mirrors `types/request.ts` field-for-field. Auth is a discriminated
  * union on `type`; body carries an optional `content` + graphql vars.
  */
 

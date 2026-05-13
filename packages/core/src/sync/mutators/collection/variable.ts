@@ -17,7 +17,7 @@
  * the UI layer + schema enforcement reject secret on collection scope.
  */
 
-import type { Variable } from '../../../types/v5/variable';
+import type { Variable } from '../../../types/variable';
 import type { MutatorContext, MutatorIntent } from '../types';
 import { makeVariableMutators, type VariableType } from '../shared/variable-mutators';
 import { mintBatch } from './envelope';

@@ -16,7 +16,7 @@ import * as v from 'valibot';
 import * as YAML from 'yaml';
 import { FolderSchema } from '../../schemas/collection';
 import { makeParsed, type ParsedDocument, type WriteableDocument } from '../../schemas/document';
-import type { Folder } from '../../types/v5/collection';
+import type { Folder } from '../../types/collection';
 import { CANONICAL_STRINGIFY_OPTIONS } from './canonical';
 import { buildFreshDocument, mergeKnownFields } from './merge';
 import { FOLDER_FIELD_ORDER } from './ordering';

@@ -13,7 +13,7 @@ import type {
   Request,
   Vault,
   WorkspaceVariables,
-} from '../../src/types/v5/index';
+} from '../../src/types/index';
 import { buildWorkspaceExport, type TargetWorkspaceState, walkMissingDeps } from '../../src/workspace-export/index';
 
 const FIXED_TIMESTAMP = '2026-04-27T18:30:00.000Z';

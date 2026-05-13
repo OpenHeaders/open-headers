@@ -4,7 +4,7 @@
  * Singleton entity (per workspace). One OAuthBundle record holds three
  * parallel maps keyed by `credentialRef`:
  *   • `tokens`         — `OAuth2TokenBundle` (access/refresh/expiry).
- *   • `configs`        — `V5.OAuth2Auth` sidecar captured at last
+ *   • `configs`        — `OAuth2Auth` sidecar captured at last
  *                        authorize/refresh; lets the scheduler rebuild
  *                        a refresh POST without walking the request
  *                        tree (§20 of the auth design).
@@ -39,7 +39,7 @@ export const OAUTH_BUNDLE_ID = 'oauth';
 /** Set path holding `OAuth2TokenBundle` records keyed by credentialRef. */
 export const OAUTH_TOKENS_PATH = 'tokens';
 
-/** Set path holding `V5.OAuth2Auth` sidecars keyed by credentialRef. */
+/** Set path holding `OAuth2Auth` sidecars keyed by credentialRef. */
 export const OAUTH_CONFIGS_PATH = 'configs';
 
 /** Set path holding `OAuthRefreshErrorState` records keyed by credentialRef. */

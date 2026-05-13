@@ -24,7 +24,7 @@
  * concrete catalogs; the pattern is recognizable and ≤50-line bodies.
  */
 
-import type { V5 } from '../../../types';
+import type { VaultSecret } from '../../../types';
 import type { MutationBody } from '../../envelope';
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
@@ -33,7 +33,7 @@ import { VAULT_ENTITY_TYPE, VAULT_ID, VAULT_PATH } from './types';
 
 export interface SetVaultSecretArgs {
   /** Whole secret record. `secret.uid` is the set-member itemId. */
-  secret: V5.VaultSecret;
+  secret: VaultSecret;
   /** Optional explicit orderKey — defaults to seed-key when omitted. */
   orderKey?: string;
 }

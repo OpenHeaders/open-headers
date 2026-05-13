@@ -11,13 +11,12 @@
  *   - auth: inherit (collection / folder default)
  *   - body: none
  *
- * The output is a complete `V5.Request` — `uid` and `path` are
+ * The output is a complete `Request` — `uid` and `path` are
  * caller-provided because the renderer mints uids locally and the
  * collection/folder context decides the path prefix.
  */
 
-import type { V5 } from '../types';
-
+import type { Request } from '../types';
 export interface BuildEmptyRequestInput {
   uid: string;
   /** Full request path: `${parentPath}/${pathSegment}`. */
@@ -25,7 +24,7 @@ export interface BuildEmptyRequestInput {
   name: string;
 }
 
-export function buildEmptyRequest(input: BuildEmptyRequestInput): V5.Request {
+export function buildEmptyRequest(input: BuildEmptyRequestInput): Request {
   return {
     schemaVersion: 5,
     uid: input.uid,

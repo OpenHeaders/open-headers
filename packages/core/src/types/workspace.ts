@@ -23,7 +23,7 @@
  */
 
 import type * as v from 'valibot';
-import type { WorkspaceSchema } from '../../schemas/workspace';
+import type { WorkspaceSchema } from '../schemas/workspace';
 
 /**
  * Top-level sections that organize collections within a workspace.

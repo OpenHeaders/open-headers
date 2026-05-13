@@ -10,7 +10,7 @@
  * standard `TextEncoder`.
  */
 
-import type { Extractor } from '../types/v5/live';
+import type { Extractor } from '../types/live';
 
 // ── Response shape passed to extractors ───────────────────────────
 

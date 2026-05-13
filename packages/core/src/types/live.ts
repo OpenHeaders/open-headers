@@ -22,7 +22,7 @@ import type {
   StepGateClauseSchema,
   StepGateSchema,
   WorkflowStepSchema,
-} from '../../schemas/live';
+} from '../schemas/live';
 
 /** One extraction pipeline applied to a step's response. */
 export type Extractor = v.InferOutput<typeof ExtractorSchema>;

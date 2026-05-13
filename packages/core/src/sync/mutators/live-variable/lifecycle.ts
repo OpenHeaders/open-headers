@@ -18,7 +18,7 @@ import { LIVE_VARIABLE_ENTITY_TYPE } from './types';
 
 export interface CreateLiveVariableArgs {
   liveVariableUid: string;
-  /** Full `V5.LiveVariable` minus `uid` (carried on the envelope as `id`). */
+  /** Full `LiveVariable` minus `uid` (carried on the envelope as `id`). */
   payload: unknown;
 }
 

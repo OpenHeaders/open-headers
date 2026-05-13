@@ -26,7 +26,7 @@ import { LIVE_WORKFLOW_ENTITY_TYPE } from './types';
 
 export interface CreateLiveWorkflowArgs {
   workflowUid: string;
-  /** Full `V5.LiveWorkflow` minus `uid` (carried on the envelope as `id`). */
+  /** Full `LiveWorkflow` minus `uid` (carried on the envelope as `id`). */
   payload: unknown;
 }
 

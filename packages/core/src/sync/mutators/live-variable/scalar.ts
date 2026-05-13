@@ -1,7 +1,7 @@
 /**
  * Scalar `setField` intent factory for live-variable entities.
  *
- * Single typed-path generic over the scalar paths on `V5.LiveVariable`.
+ * Single typed-path generic over the scalar paths on `LiveVariable`.
  * Same posture as `template/scalar.ts` and `request/scalar.ts` —
  * collapses near-identical micro-factories into one and catches schema
  * drift at the call site via the string-literal union.

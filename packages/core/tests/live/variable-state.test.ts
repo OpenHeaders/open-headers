@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isLiveVariableDraft, isLiveVariableEffective } from '../../src/live/variable-state';
-import type { LiveVariable } from '../../src/types/v5/live';
+import type { LiveVariable } from '../../src/types/live';
 
 function lv(overrides: Partial<LiveVariable> = {}): LiveVariable {
   return {

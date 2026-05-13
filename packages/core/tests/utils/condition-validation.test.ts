@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { RuleCondition } from '../../src/types/v5';
+import type { RuleCondition } from '../../src/types';
 import {
   applyDomainValueCleanup,
   validateConditionStructure,

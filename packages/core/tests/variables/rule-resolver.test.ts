@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { Environment, HeaderRule, RedirectRule, Variable, WorkspaceVariables } from '../../src/types/v5';
+import type { Environment, HeaderRule, RedirectRule, Variable, WorkspaceVariables } from '../../src/types';
 import { resolveRule, resolveRuleWithDiagnostics, VariableResolver } from '../../src/variables';
 
 let varCounter = 0;

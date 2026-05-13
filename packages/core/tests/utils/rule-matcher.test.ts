@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { HeaderRule } from '../../src/types/v5/rule';
+import type { HeaderRule } from '../../src/types/rule';
 import {
   compilePatternToRegexSource,
   compileRuleForInjection,

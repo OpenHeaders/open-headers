@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { CollectionTree } from '../../src/types/v5/collection';
+import type { CollectionTree } from '../../src/types/collection';
 import { computePausedUids, hasNestedPauseMarkers, type PauseMarker, resolvePauseState } from '../../src/utils/pause';
 
 function markers(record: Record<string, PauseMarker>): Map<string, PauseMarker> {

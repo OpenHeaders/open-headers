@@ -41,7 +41,7 @@ import type {
   QueryParam,
   RequestBody,
   RequestHeader,
-} from '../types/v5/request';
+} from '../types/request';
 import { createReport, type ImportReport, recordDrop, recordTransform } from './report';
 
 export interface CurlRequest {

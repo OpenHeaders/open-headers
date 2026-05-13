@@ -20,7 +20,7 @@ import type {
   Request,
   Template,
   WorkspaceVariables,
-} from '../../src/types/v5/index';
+} from '../../src/types/index';
 import {
   buildWorkspaceExport,
   CURRENT_EXPORT_FORMAT_VERSION,

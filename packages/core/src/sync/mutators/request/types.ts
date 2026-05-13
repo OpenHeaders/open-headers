@@ -37,7 +37,7 @@ export const REQUEST_HEADERS_PATH = 'headers';
 export const REQUEST_PARAMS_PATH = 'params';
 
 /**
- * Wire shape for a request-header row. Mirrors `V5.RequestHeader`
+ * Wire shape for a request-header row. Mirrors `RequestHeader`
  * field-for-field but typed locally so the catalog stays decoupled
  * from `@openheaders/core/types` (the same way other catalogs keep
  * their row shapes local).
@@ -56,7 +56,7 @@ export interface RequestHeaderRow {
 }
 
 /**
- * Wire shape for a URL query-param row. Mirrors `V5.QueryParam` —
+ * Wire shape for a URL query-param row. Mirrors `QueryParam` —
  * `hasEquals` preserves the `?key` vs `?key=` distinction through
  * round-trip persistence (see schema for the full rationale).
  */

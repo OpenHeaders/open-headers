@@ -17,7 +17,7 @@ import type {
   LiveWorkflow,
   Request,
   WorkspaceVariables,
-} from '../../src/types/v5/index';
+} from '../../src/types/index';
 import {
   buildImportPlan,
   buildWorkspaceExport,

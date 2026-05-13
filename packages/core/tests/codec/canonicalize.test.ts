@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { canonicalizeRequest, canonicalizeTemplate, serializeRequest, serializeTemplate } from '../../src/codec/yaml';
-import type { Template } from '../../src/types/v5/template';
-import type { Request } from '../../src/types/v5/request';
+import type { Template } from '../../src/types/template';
+import type { Request } from '../../src/types/request';
 
 function makeTemplate(overrides: Partial<Template> = {}): Template {
   return {

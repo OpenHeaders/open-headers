@@ -9,7 +9,7 @@ import {
   VAULT_MUTATOR_VERSION,
   VAULT_PATH,
 } from '../../../../src/sync';
-import type { V5 } from '../../../../src/types';
+import type { VaultSecret } from '../../../../src/types';
 
 const ctx = (overrides: Partial<MutatorContext> = {}): MutatorContext => ({
   workspaceId: 'ws-1',
@@ -19,14 +19,14 @@ const ctx = (overrides: Partial<MutatorContext> = {}): MutatorContext => ({
   ...overrides,
 });
 
-const stringSecret = (uid: string, name: string, value = 'sek'): V5.VaultSecret => ({
+const stringSecret = (uid: string, name: string, value = 'sek'): VaultSecret => ({
   uid,
   kind: 'string',
   name,
   value,
 });
 
-const totpSecret = (uid: string, name: string): V5.VaultSecret => ({
+const totpSecret = (uid: string, name: string): VaultSecret => ({
   uid,
   kind: 'totp',
   name,

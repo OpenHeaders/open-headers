@@ -2,7 +2,7 @@
  * Scalar `setField` intent factory for request entities.
  *
  * Single typed-path generic that constrains call sites to the actual
- * scalar paths on `V5.Request`. This keeps grep-friendliness ("who
+ * scalar paths on `Request`. This keeps grep-friendliness ("who
  * sets request.url") while collapsing nine near-identical micro-
  * factories into one — a posture the established catalogs reach for
  * when the per-path body is identical save for the path string itself.

@@ -49,7 +49,7 @@ import type {
   RuleConditionSchema,
   RuleSchema,
   RuleTypeSchema,
-} from '../../schemas/rule';
+} from '../schemas/rule';
 
 // ── Rule types ─────────────────────────────────────────────────────
 

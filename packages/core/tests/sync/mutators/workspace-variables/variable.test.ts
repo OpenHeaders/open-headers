@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Variable } from '../../../../src/types/v5/variable';
+import type { Variable } from '../../../../src/types/variable';
 import {
   INVALIDATE_RESOLVER,
   type MutatorContext,

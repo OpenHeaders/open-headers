@@ -6,7 +6,7 @@ import {
 } from '../../src/utils/collection-env-resolution';
 
 // Minimal collection shape the resolver reads from — mirrors what
-// App.tsx passes in (full V5.Collection[] works too; only the uid +
+// App.tsx passes in (full Collection[] works too; only the uid +
 // defaultEnvironmentId are consumed).
 function collection(uid: string, defaultEnvironmentId: string | null = null) {
   return { uid, defaultEnvironmentId };

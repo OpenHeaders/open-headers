@@ -21,7 +21,7 @@
  * just the first) by continuing DFS after each detection.
  */
 
-import type { LiveVariable, LiveWorkflow } from '../types/v5/live';
+import type { LiveVariable, LiveWorkflow } from '../types/live';
 import { scanTemplateReferencesMany } from './template-scan';
 
 // ── Result shape ──────────────────────────────────────────────────

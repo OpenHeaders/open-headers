@@ -5,7 +5,7 @@ import {
   MAX_BACKOFF_SECONDS,
   MIN_ALARM_DELAY_MS,
 } from '../../src/live/refresh-cadence';
-import type { LiveWorkflow, RefreshPolicy } from '../../src/types/v5/live';
+import type { LiveWorkflow, RefreshPolicy } from '../../src/types/live';
 
 const NOW = 1_700_000_000_000;
 

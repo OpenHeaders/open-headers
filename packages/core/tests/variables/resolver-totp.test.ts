@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Vault } from '../../src/types/v5';
+import type { Vault } from '../../src/types';
 import { EMPTY_TOTP_REGISTRY, VariableResolver } from '../../src/variables';
 
 function vaultWith(secrets: Vault['secrets']): Vault {

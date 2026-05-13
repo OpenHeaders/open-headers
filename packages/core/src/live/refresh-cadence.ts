@@ -12,7 +12,7 @@
  * healthy-path tick from the refresh policy.
  */
 
-import type { LiveWorkflow } from '../types/v5/live';
+import type { LiveWorkflow } from '../types/live';
 import type { CircuitSnapshot } from './circuit-breaker';
 import { computePreBreakerDelayMs } from './circuit-breaker';
 

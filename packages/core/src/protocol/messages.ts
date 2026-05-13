@@ -182,7 +182,7 @@ export interface StopSyncRecordingMessage {
  */
 export interface RulesUpdateMessage {
   type: 'rulesUpdate';
-  rules: import('../types/v5/rule').Rule[];
+  rules: import('../types/rule').Rule[];
 }
 
 export interface VideoRecordingStateChangedMessage {

@@ -29,7 +29,7 @@ import type {
   QueryParamRule,
   RedirectRule,
   Rule,
-} from '../types/v5/rule';
+} from '../types/rule';
 import { getHeaderOperationCapability, type HeaderDirection, validateHeaderName, validateHeaderValue } from './headers';
 
 // ── Public types ────────────────────────────────────────────────

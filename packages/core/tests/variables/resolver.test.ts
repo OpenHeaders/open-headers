@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { Environment, Variable, Vault, WorkspaceVariables } from '../../src/types/v5';
+import type { Environment, Variable, Vault, WorkspaceVariables } from '../../src/types';
 import { type ResolvedLiveValue, resolveTemplate, VariableResolver } from '../../src/variables';
 
 // ── Factories ──────────────────────────────────────────────────────

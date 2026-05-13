@@ -12,7 +12,7 @@
  * not as a broad "draft" flag).
  */
 
-import type { LiveVariable } from '../types/v5/live';
+import type { LiveVariable } from '../types/live';
 
 /**
  * Single source of truth for "is this LV a still-drafting,

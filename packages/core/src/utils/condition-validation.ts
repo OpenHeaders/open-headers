@@ -24,7 +24,7 @@
  * rule with structurally-invalid domain values.
  */
 
-import type { ConditionType, RuleCondition } from '../types/v5/rule';
+import type { ConditionType, RuleCondition } from '../types/rule';
 import { CONDITION_META, getConditionSlotKey, isDomainListConditionType } from './condition-metadata';
 import { validateHeaderName } from './headers';
 
