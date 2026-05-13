@@ -18,7 +18,7 @@
  */
 
 import * as v from 'valibot';
-import { ALLOWED_FETCH_HOSTS_SETTING_KEY, DEFAULT_ALLOWED_FETCH_HOSTS } from '@openheaders/oracle/storage';
+import { ALLOWED_FETCH_HOSTS_SETTING_KEY, DEFAULT_ALLOWED_FETCH_HOSTS } from '@openheaders/core/storage';
 import { registerSetting } from '../registry';
 
 declare module '../types' {

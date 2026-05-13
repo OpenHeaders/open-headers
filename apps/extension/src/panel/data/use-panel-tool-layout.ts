@@ -13,7 +13,7 @@ import type { DockLayoutApi, DockState, ToolLayoutState } from '@/shared/dock-la
 import { normalizeDockLayout, useDockLayout } from '@/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
 import { useEditingScopeViewState } from '@/shared/editing-scope-view-state';
-import type { PersistedTabSession } from '@openheaders/oracle/storage';
+import type { PersistedTabSession } from '@openheaders/core/storage';
 import { focusStore } from './focus-store';
 import type { InspectorTab } from './inspector-tab';
 import { PANEL_TOOL_WINDOW_MAP, PANEL_TOOL_WINDOWS, type PanelToolWindowId } from './tool-windows';

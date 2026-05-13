@@ -9,6 +9,7 @@
 
 declare const browser: typeof chrome | undefined;
 
+import '@/host/install-host-storage';
 import type { Rule, TreeNode } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
 import { isRuleEffective } from '@openheaders/core/utils';

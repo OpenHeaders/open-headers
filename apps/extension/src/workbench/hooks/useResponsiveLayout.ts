@@ -10,7 +10,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { extensionStorage, type PersistedPanelLayout, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, type PersistedPanelLayout, wsKeys } from '@openheaders/core/storage';
 import { applyLayoutSet } from '@/shared/sync/layout-state-write-client';
 
 // ── Breakpoints (CSS pixels, accounts for browser zoom) ───────────
@@ -147,7 +147,7 @@ export function useResponsiveLayout(workspaceId: string | null): ResponsiveLayou
   const activeWorkspaceIdRef = useRef<string | null>(null);
 
   const loadLayoutFor = useCallback(async (id: string) => {
-    const saved = (await extensionStorage.get(wsKeys(id).panelLayout)) as PersistedLayout | undefined;
+    const saved = (await hostStorage.get(wsKeys(id).panelLayout)) as PersistedLayout | undefined;
     if (saved?.sidebarRatio != null && saved?.inspectorRatio != null && saved?.bottomRatio != null) {
       setPersisted(saved);
       latestPersistedRef.current = saved;

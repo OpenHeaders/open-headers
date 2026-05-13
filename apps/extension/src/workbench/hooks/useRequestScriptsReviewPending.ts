@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, wsKeys } from '@openheaders/core/storage';
 import { call } from '@/utils/bridge';
 
 /**
@@ -23,7 +23,7 @@ export function useRequestScriptsReviewPending(activeWorkspaceId: string | null)
     void call('getRequestScriptsReviewPending').then((res) => {
       if (!cancelled) setUids(res.uids);
     });
-    const dispose = extensionStorage.subscribe(wsKeys(activeWorkspaceId).requestScriptsReviewPending, (next) => {
+    const dispose = hostStorage.subscribe(wsKeys(activeWorkspaceId).requestScriptsReviewPending, (next) => {
       setUids(Array.isArray(next) ? next : []);
     });
     return () => {

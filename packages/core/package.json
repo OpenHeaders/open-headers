@@ -74,6 +74,10 @@
     "./sync": {
       "import": "./src/sync/index.ts",
       "default": "./dist/sync/index.js"
+    },
+    "./storage": {
+      "import": "./src/storage/index.ts",
+      "default": "./dist/storage/index.js"
     }
   },
   "scripts": {

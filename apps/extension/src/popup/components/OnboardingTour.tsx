@@ -19,7 +19,7 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import DockSlotIcon from '@/shared/dock-layout/DockSlotIcon';
 import LayoutMenuIcon from '@/shared/dock-layout/LayoutMenuIcon';
-import { extensionStorage, UI } from '@openheaders/oracle/storage';
+import { hostStorage, UI } from '@openheaders/core/storage';
 import { getBrowserAPI } from '@/types/browser';
 
 const logoUrl = getBrowserAPI().runtime.getURL('images/logo-pixel.svg');
@@ -62,7 +62,7 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
   // On mount, check if onboarding should auto-show (first time)
   useEffect(() => {
     if (open !== null) return;
-    void extensionStorage.get(UI.onboardingCompleted).then((done) => {
+    void hostStorage.get(UI.onboardingCompleted).then((done) => {
       if (!done) {
         // Set tour open immediately to hide ConnectionInfo, then show tour after brief layout settle
         setIsTourOpen(true);
@@ -87,7 +87,7 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
   const handleClose = useCallback(() => {
     setIsVisible(false);
     setCurrentStep(0);
-    void extensionStorage.set(UI.onboardingCompleted, true);
+    void hostStorage.set(UI.onboardingCompleted, true);
     onClose();
   }, [onClose]);
 

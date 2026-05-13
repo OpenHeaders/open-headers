@@ -18,7 +18,7 @@ import { Layout } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AwarenessIdentityProvider, resolvePopupIdentity, resolveSidePanelIdentity } from '@/shared/awareness';
-import { extensionStorage, UI } from '@openheaders/oracle/storage';
+import { hostStorage, UI } from '@openheaders/core/storage';
 import { useSurface } from '@/shared/surface';
 import { VariablePopoverProvider } from '@/workbench/components/template-input/VariablePopoverHost';
 import { EnvSwitcherProvider } from '@/workbench/services/env-switcher';
@@ -84,7 +84,7 @@ const AppContent: React.FC = () => {
 
   // Load persisted tab on mount
   useEffect(() => {
-    void extensionStorage.get(UI.activePopupTab).then((saved) => {
+    void hostStorage.get(UI.activePopupTab).then((saved) => {
       setActiveTab(saved ?? 'all-workbench');
     });
   }, []);
@@ -92,7 +92,7 @@ const AppContent: React.FC = () => {
   // Persist tab changes
   const handleTabChange = useCallback((key: string) => {
     setActiveTab(key);
-    void extensionStorage.set(UI.activePopupTab, key);
+    void hostStorage.set(UI.activePopupTab, key);
   }, []);
 
   useEffect(() => {

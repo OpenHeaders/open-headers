@@ -1,3 +1,4 @@
+import '@/host/install-host-storage';
 import { ThemeProvider } from '@context/ThemeContext';
 import { App as AntApp } from 'antd';
 import { createRoot } from 'react-dom/client';

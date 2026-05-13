@@ -13,7 +13,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
-import { extensionStorage, type PersistedTabSession, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, type PersistedTabSession, wsKeys } from '@openheaders/core/storage';
 import {
   activateTabInLeaf,
   type EditorLeaf,
@@ -266,7 +266,7 @@ export function useEditorGroups({ perTab }: UseEditorGroupsArgs): UseEditorGroup
       // Shadow-write to the workspace's `tabSession` so a future tab
       // opening in this workspace whose donor was captured elsewhere
       // can fall through to this layout (design § 2.2).
-      void extensionStorage.set(wsKeys(workspaceId).tabSession, projection);
+      void hostStorage.set(wsKeys(workspaceId).tabSession, projection);
     }, SESSION_DEBOUNCE_MS);
     return () => {
       if (persistTimerRef.current) clearTimeout(persistTimerRef.current);

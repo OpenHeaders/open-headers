@@ -2,7 +2,7 @@
  * Extension-side settings storage backend.
  *
  * Routes every scope read/write/subscription through the shared
- * `extensionStorage` adapter so the settings layer doesn't touch
+ * `hostStorage` adapter so the settings layer doesn't touch
  * `chrome.storage.*` directly.
  *
  * Scope mapping:
@@ -23,13 +23,13 @@
  */
 
 import { logger } from '@utils/logger';
-import { extensionStorage, OH, type StorageKey, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, OH, type StorageKey, wsKeys } from '@openheaders/core/storage';
 import type { DictStorage, SettingScope, StorageUnsubscribe } from './adapter';
 
 type ScopeDict = Record<string, unknown>;
 
 async function resolveGlobalWorkspaceId(): Promise<string | null> {
-  return (await extensionStorage.get(OH.runtimeActive)) ?? null;
+  return (await hostStorage.get(OH.runtimeActive)) ?? null;
 }
 
 /**
@@ -63,7 +63,7 @@ export class ChromeDictStorage implements DictStorage {
   async load(scope: SettingScope): Promise<ScopeDict> {
     const spec = await resolveKey(scope);
     if (!spec) return {};
-    return (await extensionStorage.get(spec)) ?? {};
+    return (await hostStorage.get(spec)) ?? {};
   }
 
   async save(scope: SettingScope, values: ScopeDict): Promise<void> {
@@ -72,12 +72,12 @@ export class ChromeDictStorage implements DictStorage {
       logger.info('Settings', `save(${scope}) skipped — no active workspace yet`);
       return;
     }
-    await extensionStorage.set(spec, values);
+    await hostStorage.set(spec, values);
   }
 
   subscribe(scope: SettingScope, fn: (values: ScopeDict) => void): StorageUnsubscribe {
     if (scope === 'user') {
-      return extensionStorage.subscribe(OH.settingsUser, (next) => fn(next ?? {}));
+      return hostStorage.subscribe(OH.settingsUser, (next) => fn(next ?? {}));
     }
 
     // Workspace-taste / workspace-behavioral — rebind when the relevant
@@ -89,16 +89,16 @@ export class ChromeDictStorage implements DictStorage {
     const bindForWorkspace = async (id: string): Promise<void> => {
       scopeUnsub?.();
       const spec = workspaceKeyFor(scope, id);
-      scopeUnsub = extensionStorage.subscribe(spec, (next) => fn(next ?? {}));
-      const current = (await extensionStorage.get(spec)) ?? {};
+      scopeUnsub = hostStorage.subscribe(spec, (next) => fn(next ?? {}));
+      const current = (await hostStorage.get(spec)) ?? {};
       fn(current);
     };
 
-    void extensionStorage.get(OH.runtimeActive).then((id) => {
+    void hostStorage.get(OH.runtimeActive).then((id) => {
       if (id) void bindForWorkspace(id);
     });
 
-    const activeIdUnsub = extensionStorage.subscribe(OH.runtimeActive, (nextId) => {
+    const activeIdUnsub = hostStorage.subscribe(OH.runtimeActive, (nextId) => {
       if (nextId) {
         void bindForWorkspace(nextId);
       } else {

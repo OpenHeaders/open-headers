@@ -12,7 +12,7 @@
  * Chrome.storage.local only.
  */
 
-import { extensionStorage, type StorageKey, storageKey } from '@openheaders/oracle/storage';
+import { hostStorage, type StorageKey, storageKey } from '@openheaders/core/storage';
 
 export const RECENTS_CAP = 8;
 export const RECENTS_SCHEMA_VERSION = 5 as const;
@@ -42,7 +42,7 @@ function empty(): VariableRecents {
  */
 export async function listRecents(workspaceId: string | null): Promise<VariableRecents> {
   if (!workspaceId) return empty();
-  const raw = await extensionStorage.get(recentsKey(workspaceId)).catch(() => undefined);
+  const raw = await hostStorage.get(recentsKey(workspaceId)).catch(() => undefined);
   if (!raw || typeof raw !== 'object') return empty();
   const candidate = raw as Partial<VariableRecents>;
   if (candidate.schemaVersion !== RECENTS_SCHEMA_VERSION) return empty();
@@ -72,7 +72,7 @@ export async function addRecent(workspaceId: string | null, reference: string): 
     schemaVersion: RECENTS_SCHEMA_VERSION,
     entries: [{ reference, insertedAt: now }, ...filtered].slice(0, RECENTS_CAP),
   };
-  await extensionStorage.set(recentsKey(workspaceId), next).catch(() => undefined);
+  await hostStorage.set(recentsKey(workspaceId), next).catch(() => undefined);
 }
 
 /**
@@ -89,6 +89,6 @@ export async function pruneRecents(
   const surviving = current.entries.filter((e) => validReferences.has(e.reference));
   if (surviving.length === current.entries.length) return current;
   const next: VariableRecents = { schemaVersion: RECENTS_SCHEMA_VERSION, entries: surviving };
-  await extensionStorage.set(recentsKey(workspaceId), next).catch(() => undefined);
+  await hostStorage.set(recentsKey(workspaceId), next).catch(() => undefined);
   return next;
 }

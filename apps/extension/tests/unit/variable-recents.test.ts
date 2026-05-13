@@ -4,6 +4,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { type HostStorage, setHostStorage } from '@openheaders/core/storage';
 import {
   addRecent,
   listRecents,
@@ -20,19 +21,15 @@ let store: Record<string, unknown> = {};
 beforeEach(() => {
   store = {};
   vi.useRealTimers();
-});
-
-vi.mock('@openheaders/oracle/storage', async () => {
-  const real = await vi.importActual<typeof import('@openheaders/oracle/storage')>('@openheaders/oracle/storage');
-  return {
-    ...real,
-    extensionStorage: {
-      get: vi.fn(async (spec: { key: string }) => store[spec.key]),
-      set: vi.fn(async (spec: { key: string }, value: unknown) => {
-        store[spec.key] = value;
-      }),
-    },
+  // Install a minimal in-memory host-storage adapter for this test
+  // suite — recents.ts reads/writes through the `hostStorage` proxy.
+  const fake: Partial<HostStorage> = {
+    get: vi.fn(async (spec: { key: string }) => store[spec.key]) as HostStorage['get'],
+    set: vi.fn(async (spec: { key: string }, value: unknown) => {
+      store[spec.key] = value;
+    }) as HostStorage['set'],
   };
+  setHostStorage(fake as HostStorage);
 });
 
 // ── Tests ──────────────────────────────────────────────────────────

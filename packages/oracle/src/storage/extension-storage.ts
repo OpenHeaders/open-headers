@@ -16,8 +16,8 @@
  */
 
 import { type ParseEntityOptions, parseEntity, parseEntityArray } from '@openheaders/core/schemas';
+import type { HostStorage, StorageArea, StorageKey } from '@openheaders/core/storage';
 import type * as v from 'valibot';
-import type { StorageArea, StorageKey } from './keys';
 
 // Inlined cross-browser API resolver. Firefox exposes the WebExtension
 // surface as `browser`; everywhere else it's `chrome`. Mirrored from
@@ -90,7 +90,7 @@ function areaRemove(area: StorageArea, keys: string[]): Promise<void> {
 
 // ── Adapter ─────────────────────────────────────────────────────────
 
-export class ExtensionStorage {
+export class ExtensionStorage implements HostStorage {
   /** Read a single key. Returns `undefined` when the slot is empty. */
   async get<T>(spec: StorageKey<T>): Promise<T | undefined> {
     const items = await areaGet(spec.area, [spec.key]);

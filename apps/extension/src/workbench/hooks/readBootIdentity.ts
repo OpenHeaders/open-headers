@@ -21,11 +21,11 @@
  */
 
 import { hashToBoundIntent } from '@openheaders/core/workspace-intent';
-import { extensionStorage, OH } from '@openheaders/oracle/storage';
+import { hostStorage, OH } from '@openheaders/core/storage';
 
 export async function readGlobalActiveWorkspaceId(): Promise<string | null> {
   try {
-    const id = (await extensionStorage.get(OH.runtimeActive)) as string | undefined;
+    const id = (await hostStorage.get(OH.runtimeActive)) as string | undefined;
     return typeof id === 'string' && id.length > 0 ? id : null;
   } catch {
     return null;

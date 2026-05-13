@@ -33,8 +33,8 @@ import type {
   Vault,
   ViewMode,
   WorkspaceVariables,
-} from '@openheaders/core/types';
-import type { PauseMarker } from '@openheaders/core/utils';
+} from '../types';
+import type { PauseMarker } from '../utils';
 
 // ── Core key type ────────────────────────────────────────────────────
 
