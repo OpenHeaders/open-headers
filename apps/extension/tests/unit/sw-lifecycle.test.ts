@@ -191,7 +191,9 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
 
     let ws = await import('@/background/modules/workspace-store');
     await ws.bootstrap();
-    let store = await import('@/background/modules/rule-store');
+    let oracleSync = await import('@openheaders/oracle/sync');
+    oracleSync.setOracleHostHooks({ getActiveWorkspaceId: ws.getActiveWorkspaceId });
+    let store = await import('@openheaders/oracle/entity/rule-store');
     await store.hydrateFromStorage();
     expect(store.getRules()).toHaveLength(1);
     expect(store.getCollections()).toHaveLength(1);
@@ -199,7 +201,9 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
     vi.resetModules();
     ws = await import('@/background/modules/workspace-store');
     await ws.bootstrap();
-    store = await import('@/background/modules/rule-store');
+    oracleSync = await import('@openheaders/oracle/sync');
+    oracleSync.setOracleHostHooks({ getActiveWorkspaceId: ws.getActiveWorkspaceId });
+    store = await import('@openheaders/oracle/entity/rule-store');
     expect(store.getRules()).toEqual([]);
     await store.hydrateFromStorage();
     expect(store.getRules()).toHaveLength(1);
@@ -262,7 +266,7 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
     const orchestrator = await import('@/background/modules/workspace-orchestrator');
     await orchestrator.hydrateActiveWorkspaceStores();
 
-    const rules = await import('@/background/modules/rule-store');
+    const rules = await import('@openheaders/oracle/entity/rule-store');
     const envs = await import('@/background/modules/environment-store');
     expect(rules.getRules()).toHaveLength(1);
     expect(rules.getCollections()).toHaveLength(1);

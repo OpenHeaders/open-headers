@@ -46,7 +46,7 @@ vi.mock('@/background/modules/live-cache-store', () => ({
   onLiveCacheStoreChange: () => () => {},
 }));
 
-vi.mock('@/background/modules/rule-store', () => ({
+vi.mock('@openheaders/oracle/entity/rule-store', () => ({
   getRules: () => [],
   getCollections: () => [],
 }));

@@ -36,7 +36,7 @@ import { updateScriptableRules } from './inject-manager';
 import { recordLog } from './modules/observability-log';
 import { getPauseMarkers } from '@openheaders/oracle/entity/pause-markers-store';
 import { observeRuleState } from './modules/rule-state-observer';
-import { getRules } from './modules/rule-store';
+import { getRules } from '@openheaders/oracle/entity/rule-store';
 import { getActiveRunSnapshots, getActiveTestTabIds } from './modules/test-runner';
 import { refreshCachedTotpCodes } from './modules/totp-scheduler';
 import {

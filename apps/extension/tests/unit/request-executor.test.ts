@@ -38,7 +38,7 @@ vi.mock('@/background/modules/request-store', () => ({
   getRequestCollections: vi.fn(() => [] as Collection[]),
 }));
 
-vi.mock('@/background/modules/rule-store', () => ({
+vi.mock('@openheaders/oracle/entity/rule-store', () => ({
   getCollections: vi.fn(() => [] as Collection[]),
 }));
 

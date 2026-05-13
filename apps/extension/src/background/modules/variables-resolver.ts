@@ -44,7 +44,7 @@ import {
 import { listWorkflowRunCaches, onLiveCacheStoreChange, type WorkflowRunCache } from './live-cache-store';
 import { getLiveVariables, getLiveVariablesForWorkspace } from './live-variable-store';
 import { recordLog } from './observability-log';
-import { getCollections, getRules } from './rule-store';
+import { getCollections, getRules } from '@openheaders/oracle/entity/rule-store';
 import { getCachedTotpCodes } from './totp-scheduler';
 import { peekActiveWorkspaceId } from './workspace-store';
 

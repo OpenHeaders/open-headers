@@ -73,7 +73,7 @@ vi.mock('@/background/modules/observability-log', () => ({
   recordLog: vi.fn(),
 }));
 
-vi.mock('@/background/modules/rule-store', () => ({
+vi.mock('@openheaders/oracle/entity/rule-store', () => ({
   getRules: vi.fn(() => []),
 }));
 

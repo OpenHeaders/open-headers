@@ -90,13 +90,13 @@ import {
   bridgeFolderSyncEngine,
   bridgeToSyncEngine,
   hydrateFromStorage as hydrateRulesFromStorage,
-} from './rule-store';
+} from '@openheaders/oracle/entity/rule-store';
 import {
   bridgeTemplateCollectionSyncEngine,
   bridgeTemplateFolderSyncEngine,
   bridgeTemplateSyncEngine,
   hydrateTemplatesFromStorage,
-} from './template-store';
+} from '@openheaders/oracle/entity/template-store';
 import {
   createWorkspace as createWorkspaceMeta,
   getActiveWorkspaceId,

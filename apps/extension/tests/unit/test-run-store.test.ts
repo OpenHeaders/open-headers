@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // Mock rule-store before importing the store under test. The store reads
 // rule + collection state through getRules / getCollectionTrees when
 // computing owner hashes — the mocks let each test feed a tailored snapshot.
-vi.mock('@/background/modules/rule-store', () => ({
+vi.mock('@openheaders/oracle/entity/rule-store', () => ({
   getRules: vi.fn(() => [] as Rule[]),
   getCollectionTrees: vi.fn(() => [] as CollectionTree[]),
 }));
@@ -24,7 +24,7 @@ vi.mock('@utils/logger', () => ({
   },
 }));
 
-import { getCollectionTrees, getRules } from '@/background/modules/rule-store';
+import { getCollectionTrees, getRules } from '@openheaders/oracle/entity/rule-store';
 import {
   computeOwnerHash,
   deleteAllTestRunsForOwner,

@@ -33,7 +33,7 @@ vi.mock('@/background/modules/environment-store', () => ({
   getWorkspaceVariables: vi.fn(() => ({ schemaVersion: 5, variables: [] })),
 }));
 
-vi.mock('@/background/modules/rule-store', () => ({
+vi.mock('@openheaders/oracle/entity/rule-store', () => ({
   getCollections: vi.fn(() => []),
   getRules: vi.fn(() => []),
 }));

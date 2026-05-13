@@ -29,8 +29,7 @@ import {
   mintBatch as mintCollectionBatch,
 } from '@openheaders/core/sync';
 import type { Collection, CollectionTree, Rule, TreeNode, Variable } from '@openheaders/core/types';
-import { generateUid, toFolderName } from '@openheaders/core/utils';
-import { logger } from '@utils/logger';
+import { generateUid, logger, toFolderName } from '@openheaders/core/utils';
 import { entityLockName, withLock } from '@openheaders/oracle/coordination';
 import { extensionStorage, type PersistedLocalFolder, wsKeys } from '@openheaders/oracle/storage';
 import {
@@ -57,7 +56,7 @@ import {
   nextSwMutatorContext,
 } from '@openheaders/oracle/sync/service';
 import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
-import { getActiveWorkspaceId } from './workspace-store';
+import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 
 /** Stored folder — same concept as a directory with _folder.yaml on disk.
  *  Identical shape to the `PersistedLocalFolder` declared in the key
@@ -668,7 +667,7 @@ async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnap
  * is fine because the single owner (background.ts) calls us once.
  */
 export async function hydrateFromStorage(): Promise<Rule[]> {
-  const workspaceId = getActiveWorkspaceId();
+  const workspaceId = requireActiveWorkspaceId();
   const snapshot = await readWorkspaceSnapshot(workspaceId);
   rules = snapshot.rules;
   collections = snapshot.collections;

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock rule-store before importing request-tracker
 const mockGetRules = vi.fn<() => Rule[]>(() => []);
-vi.mock('@/background/modules/rule-store', () => ({
+vi.mock('@openheaders/oracle/entity/rule-store', () => ({
   getRules: (...args: unknown[]) => mockGetRules(...(args as [])),
 }));
 

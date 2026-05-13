@@ -11,7 +11,7 @@ vi.mock('@/background/modules/environment-store', () => {
   };
 });
 
-vi.mock('@/background/modules/rule-store', () => {
+vi.mock('@openheaders/oracle/entity/rule-store', () => {
   return {
     getCollections: vi.fn(() => [] as Collection[]),
     getRules: vi.fn(() => [] as Rule[]),
@@ -35,7 +35,7 @@ import {
   getVault,
   getWorkspaceVariables,
 } from '@/background/modules/environment-store';
-import { getCollections, getRules } from '@/background/modules/rule-store';
+import { getCollections, getRules } from '@openheaders/oracle/entity/rule-store';
 import {
   __resetForTests,
   getLastAggregatedResolutionErrors,

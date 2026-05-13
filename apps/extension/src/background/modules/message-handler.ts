@@ -130,7 +130,7 @@ import {
   renameFolder,
   updateCollectionPinnedEnvs,
   updateCollectionVariables,
-} from './rule-store';
+} from '@openheaders/oracle/entity/rule-store';
 import { getTabSnapshot, recordScriptableFire } from './tab-telemetry';
 import {
   addTemplate,
@@ -148,7 +148,7 @@ import {
   renameTemplateCollection,
   renameTemplateFolder,
   updateTemplate,
-} from './template-store';
+} from '@openheaders/oracle/entity/template-store';
 import {
   deleteAllTestRunsForOwner,
   deleteTestRunById,

@@ -9,7 +9,7 @@
 import { logger } from '@utils/logger';
 import { updateNetworkRules } from '@/background/dnr-manager';
 import { get as getSetting } from '@/workbench/settings/store';
-import { getRules } from './rule-store';
+import { getRules } from '@openheaders/oracle/entity/rule-store';
 import { generateRulesHash } from './utils';
 
 interface ScheduleOptions {

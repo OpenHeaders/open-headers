@@ -6,7 +6,7 @@ vi.mock('@/background/dnr-manager', () => ({
   updateNetworkRules: vi.fn(),
 }));
 
-vi.mock('@/background/modules/rule-store', () => ({
+vi.mock('@openheaders/oracle/entity/rule-store', () => ({
   getRules: vi.fn(() => []),
 }));
 
@@ -28,7 +28,7 @@ vi.mock('@/workbench/settings/store', () => ({
 
 import { updateNetworkRules } from '@/background/dnr-manager';
 import { getLastRulesHash, scheduleUpdate, setLastRulesHash } from '@/background/modules/rule-engine';
-import { getRules } from '@/background/modules/rule-store';
+import { getRules } from '@openheaders/oracle/entity/rule-store';
 
 const mockUpdateNetworkRules = updateNetworkRules as ReturnType<typeof vi.fn>;
 const mockGetRules = getRules as ReturnType<typeof vi.fn>;

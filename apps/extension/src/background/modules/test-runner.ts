@@ -63,7 +63,7 @@ import { logger } from '@utils/logger';
 import { applyAllRules, applyAllRulesAsync } from '../dnr-manager';
 import { getPauseMarkers } from '@openheaders/oracle/entity/pause-markers-store';
 import { matchRulesToRequest } from './request-tracker';
-import { getRules } from './rule-store';
+import { getRules } from '@openheaders/oracle/entity/rule-store';
 import { arbitrate, type ShadowAttribution } from './shadow-arbitration';
 import {
   getObservedUrls,

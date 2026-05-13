@@ -37,7 +37,7 @@ vi.mock('@/background/modules/workspace-store', () => ({
   })),
 }));
 
-vi.mock('@/background/modules/rule-store', () => ({
+vi.mock('@openheaders/oracle/entity/rule-store', () => ({
   hydrateFromStorage: vi.fn(async () => []),
   bridgeToSyncEngine: vi.fn(async () => undefined),
   bridgeCollectionSyncEngine: vi.fn(async () => undefined),
@@ -49,7 +49,7 @@ vi.mock('@/background/modules/request-store', () => ({
   bridgeRequestCollectionSyncEngine: vi.fn(async () => undefined),
   bridgeRequestFolderSyncEngine: vi.fn(async () => undefined),
 }));
-vi.mock('@/background/modules/template-store', () => ({
+vi.mock('@openheaders/oracle/entity/template-store', () => ({
   hydrateTemplatesFromStorage: vi.fn(async () => []),
   bridgeTemplateSyncEngine: vi.fn(async () => undefined),
   bridgeTemplateCollectionSyncEngine: vi.fn(async () => undefined),

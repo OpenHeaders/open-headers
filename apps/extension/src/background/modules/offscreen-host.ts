@@ -68,7 +68,7 @@ import {
 } from './environment-store';
 import { getTokenBundle as getOAuthTokenBundle } from './oauth-token-store';
 import { getRequestCollections } from './request-store';
-import { getCollections as getRuleCollections } from './rule-store';
+import { getCollections as getRuleCollections } from '@openheaders/oracle/entity/rule-store';
 
 const OFFSCREEN_URL = 'offscreen.html';
 const IDLE_CLOSE_MS = 30_000;

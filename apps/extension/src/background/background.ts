@@ -130,7 +130,7 @@ import {
   getCollectionTrees,
   getRules,
   onStoreChange,
-} from './modules/rule-store';
+} from '@openheaders/oracle/entity/rule-store';
 import { initializeActiveTabTracking, setupPeriodicCleanup, setupTabListeners } from './modules/tab-listeners';
 import {
   bridgeTemplateCollectionSyncEngine,
@@ -139,7 +139,7 @@ import {
   ensureDefaultTemplateCollection,
   getTemplates,
   onTemplateStoreChange,
-} from './modules/template-store';
+} from '@openheaders/oracle/entity/template-store';
 import { pruneOrphanOwners } from './modules/test-run-store';
 import { setupTestRunnerPorts } from './modules/test-runner';
 import { bootstrapTotpScheduler, getCachedTotpCodes, handleTotpAlarm, isTotpAlarm } from './modules/totp-scheduler';

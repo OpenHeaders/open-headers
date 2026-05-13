@@ -24,8 +24,7 @@ import {
   type TemplateFolderParentRef,
 } from '@openheaders/core/sync';
 import type { Collection, CollectionTree, RuleType, Template, TreeNode } from '@openheaders/core/types';
-import { generateUid, toFolderName } from '@openheaders/core/utils';
-import { logger } from '@utils/logger';
+import { generateUid, logger, toFolderName } from '@openheaders/core/utils';
 import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
 import {
   buildDeleteTemplateCollectionBatch,
@@ -53,9 +52,9 @@ import {
 import type { TemplateCache } from '@openheaders/oracle/sync/template-cache';
 import type { TemplateCollectionCache } from '@openheaders/oracle/sync/template-collection-cache';
 import type { TemplateFolderCache } from '@openheaders/oracle/sync/template-folder-cache';
-import type { LocalFolder } from './rule-store';
+import type { LocalFolder } from '@openheaders/oracle/entity/rule-store';
 import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
-import { getActiveWorkspaceId } from './workspace-store';
+import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 
 // ── In-memory state (scoped to active workspace) ────────────────────
 
@@ -536,7 +535,7 @@ async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnap
 }
 
 export async function hydrateTemplatesFromStorage(): Promise<void> {
-  const workspaceId = getActiveWorkspaceId();
+  const workspaceId = requireActiveWorkspaceId();
   const snapshot = await readWorkspaceSnapshot(workspaceId);
   templates = snapshot.templates;
   templateCollections = snapshot.templateCollections;

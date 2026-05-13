@@ -40,7 +40,7 @@ import type {
 } from '@openheaders/core/types';
 import { stableStringify } from '@/shared/forms/fingerprint';
 import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
-import { getCollectionTrees, getRules } from './rule-store';
+import { getCollectionTrees, getRules } from '@openheaders/oracle/entity/rule-store';
 import { getActiveWorkspaceId } from './workspace-store';
 
 export type {
