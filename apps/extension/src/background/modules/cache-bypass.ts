@@ -30,8 +30,9 @@
 
 import { declarativeNetRequest } from '@utils/browser-api';
 import { logger } from '@utils/logger';
+import { CACHE_BYPASS_ID_BASE } from '../engine/reserved-ids';
 
-export const CACHE_BYPASS_ID_BASE = 9_000_000;
+export { CACHE_BYPASS_ID_BASE };
 
 function ruleIdForTab(tabId: number): number {
   return CACHE_BYPASS_ID_BASE + tabId;

@@ -6,7 +6,7 @@
  */
 
 import type { BlockRule } from '@openheaders/core/types';
-import { logger } from '@utils/logger';
+import { logger } from '@openheaders/core/utils';
 import type { CompilationPlan, CompilerContext, DnrCondition, DnrRule, RuleCompiler } from './types';
 import { ALL_RESOURCE_TYPES, buildDnrCondition, resolveResourceTypes, stripResourceTypeFields } from './types';
 

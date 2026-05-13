@@ -17,10 +17,7 @@
  */
 
 import type { HeaderModification, HeaderRule } from '@openheaders/core/types';
-import { getHeaderOperationCapability } from '@openheaders/core/utils';
-import { validateHeaderName } from '@utils/header-validator';
-import { logger } from '@utils/logger';
-import { normalizeHeaderName } from '@utils/utils';
+import { getHeaderOperationCapability, logger, normalizeHeaderName, validateHeaderName } from '@openheaders/core/utils';
 import { get as getSetting } from '@/workbench/settings/store';
 import { isValidHeaderValue, sanitizeHeaderValue } from '../rule-validator';
 import type {

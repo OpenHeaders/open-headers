@@ -8,7 +8,7 @@
 
 import type { Rule, RuleCondition, RuleType } from '@openheaders/core/types';
 import { validateConditionStructure } from '@openheaders/core/utils';
-import { logger } from '@utils/logger';
+import { logger } from '@openheaders/core/utils';
 
 // ── DNR rule shape ───────────────────────────────────────────────
 

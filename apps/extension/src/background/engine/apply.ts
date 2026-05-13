@@ -12,10 +12,10 @@
  * package stays host-agnostic.
  */
 
+import { logger } from '@openheaders/core/utils';
 import { declarativeNetRequest } from '@utils/browser-api';
-import { logger } from '@utils/logger';
-import { CACHE_BYPASS_ID_BASE } from '../modules/cache-bypass';
 import type { DnrRule } from '../dnr-builders';
+import { CACHE_BYPASS_ID_BASE } from './reserved-ids';
 
 export type ApplyResult = { ok: true } | { ok: false; error: string };
 

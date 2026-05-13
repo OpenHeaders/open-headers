@@ -27,7 +27,7 @@
 declare const browser: typeof chrome | undefined;
 
 import type { DelayRule } from '@openheaders/core/types';
-import { logger } from '@utils/logger';
+import { logger } from '@openheaders/core/utils';
 import type { CompilationPlan, CompilerContext, DnrCondition, DnrRule, RuleCompiler } from './types';
 import { buildDnrCondition, resolveResourceTypes, stripResourceTypeFields } from './types';
 
