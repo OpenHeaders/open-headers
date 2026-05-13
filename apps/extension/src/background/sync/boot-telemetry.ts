@@ -28,8 +28,8 @@
  * baseline.
  */
 
+import { getOracleHostHooks } from '@openheaders/oracle/sync';
 import { logger } from '@utils/logger';
-import { recordLog } from '@/background/modules/observability-log';
 
 const SW_BOOT_AT = Date.now();
 
@@ -47,7 +47,7 @@ export function markBootPhase(phase: BootPhase): void {
   if (seen.has(phase)) return;
   seen.add(phase);
   const elapsedMs = Date.now() - SW_BOOT_AT;
-  recordLog({
+  getOracleHostHooks().recordLog?.({
     subsystem: 'sync',
     op: `boot.${phase}`,
     level: 'info',

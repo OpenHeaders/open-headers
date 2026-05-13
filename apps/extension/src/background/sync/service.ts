@@ -74,10 +74,9 @@ import {
   VAULT_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ENTITY_TYPE,
 } from '@openheaders/core/sync';
+import { getOracleHostHooks } from '@openheaders/oracle/sync';
 import { broadcast as bridgeBroadcast } from '@utils/bridge';
 import { logger } from '@utils/logger';
-import { scheduleUpdate } from '@/background/modules/rule-engine';
-import { disposeResolverStateForWorkspace } from '@/background/modules/variables-resolver';
 import { type AwarenessStore, createAwarenessStore } from './awareness';
 import { handleAwarenessPublish } from './awareness-bridge';
 import { handleSyncApply, wireBroadcastToSink } from './bridge';
@@ -847,7 +846,7 @@ function productionDepsFactory(workspaceId: string): WireDeps {
     log: new IdbMutationLog(workspaceId),
     intents: new IdbPendingIntents(workspaceId),
     lock: ruleOracleLockAcquirer,
-    recompile: (reason) => scheduleUpdate(reason, { immediate: false }),
+    recompile: (reason) => getOracleHostHooks().scheduleRuleEngineUpdate?.(reason),
     sink: (event) => bridgeBroadcast('syncBroadcast', event),
     awarenessSink: (presence) => bridgeBroadcast('awarenessBroadcast', { workspaceId, presence }),
   };
@@ -1032,7 +1031,7 @@ function finalizeDisposal(svc: WorkspaceServiceState): void {
   // Drop the per-workspace variables-resolver state alongside the
   // service teardown so the resolver memo + live-cache mirror don't
   // outlive their owning workspace (F-16).
-  disposeResolverStateForWorkspace(svc.workspaceId);
+  getOracleHostHooks().disposeResolverStateForWorkspace?.(svc.workspaceId);
   services.delete(svc.workspaceId);
   logger.info('SyncService', `Disposed workspace ${svc.workspaceId}`);
 }

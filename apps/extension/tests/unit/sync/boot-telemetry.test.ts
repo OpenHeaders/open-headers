@@ -13,6 +13,8 @@ describe('boot-telemetry', () => {
   it('records sw-eval at module load and dedupes re-fires', async () => {
     const obs = await import('@/background/modules/observability-log');
     obs.__resetForTests();
+    const { setOracleHostHooks } = await import('@openheaders/oracle/sync');
+    setOracleHostHooks({ recordLog: obs.recordLog });
     const { markBootPhase } = await import('@/background/sync/boot-telemetry');
 
     const swEvalEntries = obs.getObservabilityLog().filter((e) => e.op === 'boot.sw-eval');
@@ -27,6 +29,8 @@ describe('boot-telemetry', () => {
   it('records each phase exactly once with monotonic elapsedMs', async () => {
     const obs = await import('@/background/modules/observability-log');
     obs.__resetForTests();
+    const { setOracleHostHooks } = await import('@openheaders/oracle/sync');
+    setOracleHostHooks({ recordLog: obs.recordLog });
     const { markBootPhase } = await import('@/background/sync/boot-telemetry');
 
     markBootPhase('settings-ready');
