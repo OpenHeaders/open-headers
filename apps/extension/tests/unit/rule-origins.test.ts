@@ -5,7 +5,7 @@
 import type { Rule, RuleCondition } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
 
-import { extractOriginsFromRules, extractRuleOrigins, originsFromUrlFilter } from '@/background/modules/rule-origins';
+import { extractOriginsFromRules, extractRuleOrigins, originsFromUrlFilter } from '@openheaders/oracle/rule-engine/rule-origins';
 
 function rule(conditions: RuleCondition[]): Rule {
   return {

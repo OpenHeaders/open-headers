@@ -7,7 +7,7 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "types": ["chrome"]
+    "types": ["chrome", "node"]
   },
   "include": ["src"]
 }

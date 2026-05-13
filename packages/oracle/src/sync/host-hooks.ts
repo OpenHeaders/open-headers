@@ -148,3 +148,25 @@ export function setOracleHostHooks(next: OracleHostHooks): void {
 export function getOracleHostHooks(): OracleHostHooks {
   return hooks;
 }
+
+/**
+ * Require the host's active-workspace pointer. Throws if no host hook
+ * is installed or the host reports no active workspace. Use from store
+ * paths that have no sensible fallback when a workspace isn't selected.
+ */
+export function requireActiveWorkspaceId(): string {
+  const id = hooks.getActiveWorkspaceId?.();
+  if (id == null) {
+    throw new Error('Oracle: getActiveWorkspaceId host hook is not wired or no workspace is active');
+  }
+  return id;
+}
+
+/**
+ * Non-throwing read of the host's active-workspace pointer. Returns
+ * null when no host hook is installed or no workspace is currently
+ * active (boot, post-tear-down).
+ */
+export function peekActiveWorkspaceId(): string | null {
+  return hooks.peekActiveWorkspaceId?.() ?? null;
+}

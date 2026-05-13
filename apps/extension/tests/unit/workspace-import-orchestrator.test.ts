@@ -78,19 +78,19 @@ vi.mock('@/background/modules/observability-log', () => ({
 vi.mock('@/background/modules/oauth-token-store', () => ({
   bridgeOAuthSyncEngine: vi.fn(async () => {}),
 }));
-vi.mock('@/background/modules/pause-markers-store', () => ({
+vi.mock('@openheaders/oracle/entity/pause-markers-store', () => ({
   bridgePauseMarkersSyncEngine: vi.fn(async () => {}),
 }));
 vi.mock('@/background/modules/files-store', () => ({
   bridgeFilesSyncEngine: vi.fn(async () => {}),
 }));
-vi.mock('@/background/modules/import-reports-store', () => ({
+vi.mock('@openheaders/oracle/entity/import-reports-store', () => ({
   recordImportReport: vi.fn(async (report: unknown) => {
     const current = (blobs.get('oh.ws.ws-active.importReports') as unknown[]) ?? [];
     blobs.set('oh.ws.ws-active.importReports', [...current, report]);
   }),
 }));
-vi.mock('@/background/modules/request-scripts-review-store', () => ({
+vi.mock('@openheaders/oracle/entity/request-scripts-review-store', () => ({
   markPendingScriptsReview: vi.fn(async (uids: readonly string[]) => {
     const key = 'oh.ws.ws-active.requestScriptsReviewPending';
     const current = ((blobs.get(key) as string[] | undefined) ?? []).slice();
@@ -159,6 +159,8 @@ beforeEach(async () => {
   blobs.clear();
   setLockRuntime(new FifoLockRuntime());
   vi.resetModules();
+  const { setOracleHostHooks } = await import('@openheaders/oracle/sync');
+  setOracleHostHooks({ getActiveWorkspaceId: () => 'ws-active' });
   orchestrator = await import('@/background/modules/workspace-import-orchestrator');
 });
 

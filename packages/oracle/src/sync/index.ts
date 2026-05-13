@@ -1,5 +1,7 @@
 export {
   getOracleHostHooks,
+  peekActiveWorkspaceId,
+  requireActiveWorkspaceId,
   setOracleHostHooks,
   type OracleAwarenessBroadcast,
   type OracleHostHooks,

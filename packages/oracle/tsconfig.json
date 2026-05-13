@@ -3,7 +3,7 @@
   "compilerOptions": {
     "noEmit": true,
     "rootDir": ".",
-    "types": ["chrome"]
+    "types": ["chrome", "node"]
   },
   "include": ["src"]
 }

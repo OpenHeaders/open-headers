@@ -64,7 +64,7 @@ import {
   getCollectionsForWorkspace as getRuleCollectionsForWorkspace,
 } from './rule-store';
 import { getTemplateCollections, getTemplateCollectionsForWorkspace } from './template-store';
-import { checkCooldown as checkTotpCooldown, recordUsage as recordTotpUsage } from './totp-cooldown-store';
+import { checkCooldown as checkTotpCooldown, recordUsage as recordTotpUsage } from '@openheaders/oracle/entity/totp-cooldown-store';
 import { getLiveRegistrySnapshot, getLiveRegistrySnapshotForWorkspace } from './variables-resolver';
 import { getActiveWorkspaceId } from './workspace-store';
 

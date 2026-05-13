@@ -4,7 +4,7 @@ import {
   checkCooldown,
   purgeWorkspaceCooldowns,
   recordUsage,
-} from '@/background/modules/totp-cooldown-store';
+} from '@openheaders/oracle/entity/totp-cooldown-store';
 
 describe('totp-cooldown-store', () => {
   beforeEach(() => {

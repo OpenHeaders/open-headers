@@ -13,12 +13,12 @@
  */
 
 import type { PauseMarkerKind } from '@openheaders/core/sync';
-import { logger } from '@utils/logger';
+import { logger } from '@openheaders/core/utils';
 import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
 import { PAUSE_MARKERS_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
 import type { PauseMarkersCache } from '@openheaders/oracle/sync/pause-markers-cache';
 import { getActiveCacheForRegistration } from '@openheaders/oracle/sync/service';
-import { getActiveWorkspaceId } from './workspace-store';
+import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 
 // ── Type re-export (legacy callers use the local name) ────────────
 
@@ -72,7 +72,7 @@ export async function bridgePauseMarkersSyncEngine(): Promise<void> {
     markers = new Map(Object.entries(cache.getSnapshot().markers));
     notifyChange();
   });
-  const workspaceId = getActiveWorkspaceId();
+  const workspaceId = requireActiveWorkspaceId();
   const persisted = await readMarkersFor(workspaceId);
   await cache.seedFromPersistedPauseMarkers(persisted);
   markers = new Map(Object.entries(cache.getSnapshot().markers));

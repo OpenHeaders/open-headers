@@ -34,7 +34,7 @@ import { attachLiveBypassExclusion } from '@openheaders/rule-engine/builders';
 import { compileRuleSet } from '@openheaders/rule-engine/compile';
 import { updateScriptableRules } from './inject-manager';
 import { recordLog } from './modules/observability-log';
-import { getPauseMarkers } from './modules/pause-markers-store';
+import { getPauseMarkers } from '@openheaders/oracle/entity/pause-markers-store';
 import { observeRuleState } from './modules/rule-state-observer';
 import { getRules } from './modules/rule-store';
 import { getActiveRunSnapshots, getActiveTestTabIds } from './modules/test-runner';

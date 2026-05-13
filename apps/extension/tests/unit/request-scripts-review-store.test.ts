@@ -38,13 +38,15 @@ class ImmediateLockRuntime {
   }
 }
 
-let store: typeof import('@/background/modules/request-scripts-review-store');
+let store: typeof import('@openheaders/oracle/entity/request-scripts-review-store');
 
 beforeEach(async () => {
   blobs.clear();
   setLockRuntime(new ImmediateLockRuntime());
   vi.resetModules();
-  store = await import('@/background/modules/request-scripts-review-store');
+  const { setOracleHostHooks } = await import('@openheaders/oracle/sync');
+  setOracleHostHooks({ getActiveWorkspaceId: () => 'ws-active' });
+  store = await import('@openheaders/oracle/entity/request-scripts-review-store');
   store.__resetForTests();
 });
 

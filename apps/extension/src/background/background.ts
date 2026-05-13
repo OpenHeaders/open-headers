@@ -103,10 +103,10 @@ setOracleHostHooks({
   getCachedTotpCodes,
 });
 import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
-import { bridgePauseMarkersSyncEngine, getPauseMarkers } from './modules/pause-markers-store';
+import { bridgePauseMarkersSyncEngine, getPauseMarkers } from '@openheaders/oracle/entity/pause-markers-store';
 import { auditHostPermissions } from './modules/permissions-audit';
 import { setupRequestMonitoring } from './modules/request-monitor';
-import { applyExternalSnapshot as applyRequestScriptsReviewSnapshot } from './modules/request-scripts-review-store';
+import { applyExternalSnapshot as applyRequestScriptsReviewSnapshot } from '@openheaders/oracle/entity/request-scripts-review-store';
 import {
   bridgeRequestCollectionSyncEngine,
   bridgeRequestFolderSyncEngine,

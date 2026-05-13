@@ -257,6 +257,8 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
 
     const ws = await import('@/background/modules/workspace-store');
     await ws.bootstrap();
+    const { setOracleHostHooks } = await import('@openheaders/oracle/sync');
+    setOracleHostHooks({ getActiveWorkspaceId: ws.getActiveWorkspaceId });
     const orchestrator = await import('@/background/modules/workspace-orchestrator');
     await orchestrator.hydrateActiveWorkspaceStores();
 

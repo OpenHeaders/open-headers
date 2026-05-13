@@ -69,13 +69,15 @@ class FifoLockRuntime {
   }
 }
 
-let store: typeof import('@/background/modules/import-reports-store');
+let store: typeof import('@openheaders/oracle/entity/import-reports-store');
 
 beforeEach(async () => {
   blobs.clear();
   setLockRuntime(new FifoLockRuntime());
   vi.resetModules();
-  store = await import('@/background/modules/import-reports-store');
+  const { setOracleHostHooks } = await import('@openheaders/oracle/sync');
+  setOracleHostHooks({ getActiveWorkspaceId: () => 'ws-imports' });
+  store = await import('@openheaders/oracle/entity/import-reports-store');
 });
 
 afterEach(() => {

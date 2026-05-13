@@ -60,7 +60,7 @@ import type { PauseMarker } from '@openheaders/core/utils';
 import { isRuleEffective } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 import { enqueueInvalidation } from './cache-invalidator';
-import { extractRuleOrigins } from './rule-origins';
+import { extractRuleOrigins } from '@openheaders/oracle/rule-engine/rule-origins';
 
 interface RuleFingerprint {
   /** `isRuleEffective(rule, pauseMarkers, enginePaused)` — the single

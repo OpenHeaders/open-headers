@@ -62,7 +62,7 @@ import {
   findImportReportBySourceHash,
   listImportReports,
   recordImportReport,
-} from './import-reports-store';
+} from '@openheaders/oracle/entity/import-reports-store';
 import {
   clearWorkflowRunCache,
   getWorkflowRunCache,
@@ -95,7 +95,7 @@ import { deleteTokenBundle } from './oauth-token-store';
 import { clearObservabilityLog, getObservabilityLog } from './observability-log';
 import { handleScriptHostRequest } from './offscreen-host';
 import { executeRequest, executeRequestDraft } from './request-executor';
-import { clearPendingScriptsReview, getPendingScriptsReview } from './request-scripts-review-store';
+import { clearPendingScriptsReview, getPendingScriptsReview } from '@openheaders/oracle/entity/request-scripts-review-store';
 import {
   addRequest,
   addRequestToCollection,
@@ -115,7 +115,7 @@ import {
   updateRequest,
 } from './request-store';
 import { getActiveRulesForTab, ingestPerfEntries } from './request-tracker';
-import { createRuleDraft, takeRuleDraft } from './rule-draft-store';
+import { createRuleDraft, takeRuleDraft } from '@openheaders/oracle/entity/rule-draft-store';
 import {
   createCollection,
   createFolder,

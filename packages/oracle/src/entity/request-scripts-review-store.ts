@@ -23,10 +23,10 @@
  * the active workspace).
  */
 
-import { logger } from '@utils/logger';
+import { logger } from '@openheaders/core/utils';
 import { entityLockName, withLock } from '@openheaders/oracle/coordination';
 import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
-import { getActiveWorkspaceId } from './workspace-store';
+import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 
 // ── In-memory mirror (active workspace) ────────────────────────────
 
@@ -142,7 +142,7 @@ async function readPendingFor(workspaceId: string): Promise<Set<string>> {
 }
 
 export async function hydrateRequestScriptsReviewFromStorage(): Promise<void> {
-  const workspaceId = getActiveWorkspaceId();
+  const workspaceId = requireActiveWorkspaceId();
   pending = await readPendingFor(workspaceId);
   loadedWorkspaceId = workspaceId;
   logger.info('RequestScriptsReviewStore', `Hydrated ws=${workspaceId}: ${pending.size} pending`);

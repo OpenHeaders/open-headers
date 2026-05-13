@@ -49,7 +49,7 @@ vi.mock('@utils/logger', () => ({
 import { formatUrlPattern } from '@openheaders/core/utils';
 import { declarativeNetRequest } from '@utils/browser-api';
 import { setRulesPaused, updateNetworkRules } from '@/background/dnr-manager';
-import { __setMarkersForTests as setPauseMarkers } from '@/background/modules/pause-markers-store';
+import { __setMarkersForTests as setPauseMarkers } from '@openheaders/oracle/entity/pause-markers-store';
 
 const mockGetDynamicRules = declarativeNetRequest!.getDynamicRules as ReturnType<typeof vi.fn>;
 const mockUpdateDynamicRules = declarativeNetRequest!.updateDynamicRules as ReturnType<typeof vi.fn>;

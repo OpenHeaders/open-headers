@@ -44,7 +44,7 @@
 
 import { RuleDraftSchema } from '@openheaders/core/schemas';
 import type { RuleDraft } from '@openheaders/core/types';
-import { logger } from '@utils/logger';
+import { logger } from '@openheaders/core/utils';
 import * as v from 'valibot';
 
 interface StoredDraft {

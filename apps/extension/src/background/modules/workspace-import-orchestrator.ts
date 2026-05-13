@@ -64,7 +64,7 @@ import {
   hydrateEnvironmentsFromStorage,
 } from './environment-store';
 import { bridgeFilesSyncEngine } from './files-store';
-import { recordImportReport } from './import-reports-store';
+import { recordImportReport } from '@openheaders/oracle/entity/import-reports-store';
 import { bridgeLayoutStateSyncEngine } from './layout-store';
 import {
   bridgeLiveVariableSyncEngine,
@@ -76,8 +76,8 @@ import {
 } from './live-workflow-store';
 import { bridgeOAuthSyncEngine } from './oauth-token-store';
 import { recordLog } from './observability-log';
-import { bridgePauseMarkersSyncEngine } from './pause-markers-store';
-import { markPendingScriptsReview, markPendingScriptsReviewForWorkspace } from './request-scripts-review-store';
+import { bridgePauseMarkersSyncEngine } from '@openheaders/oracle/entity/pause-markers-store';
+import { markPendingScriptsReview, markPendingScriptsReviewForWorkspace } from '@openheaders/oracle/entity/request-scripts-review-store';
 import {
   bridgeRequestCollectionSyncEngine,
   bridgeRequestFolderSyncEngine,

@@ -51,11 +51,11 @@ import {
 } from './live-workflow-store';
 import { purgeOAuthForWorkspace } from './oauth-token-store';
 import { recordLog } from './observability-log';
-import { getPauseMarkers } from './pause-markers-store';
+import { getPauseMarkers } from '@openheaders/oracle/entity/pause-markers-store';
 import {
   hydrateRequestScriptsReviewFromStorage,
   switchToWorkspace as switchRequestScriptsReviewToWorkspace,
-} from './request-scripts-review-store';
+} from '@openheaders/oracle/entity/request-scripts-review-store';
 import {
   hydrateFromStorage as hydrateRequestsFromStorage,
   switchToWorkspace as switchRequestsToWorkspace,
@@ -70,7 +70,7 @@ import {
 } from './rule-store';
 import { hydrateTemplatesFromStorage, switchToWorkspace as switchTemplatesToWorkspace } from './template-store';
 import { purgeWorkspaceTestRuns } from './test-run-store';
-import { purgeWorkspaceCooldowns } from './totp-cooldown-store';
+import { purgeWorkspaceCooldowns } from '@openheaders/oracle/entity/totp-cooldown-store';
 import { createWorkspace as createWorkspaceMeta, getWorkspace } from './workspace-store';
 
 // ── Storage key helpers ─────────────────────────────────────────────

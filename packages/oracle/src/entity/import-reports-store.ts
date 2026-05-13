@@ -28,10 +28,10 @@
 import type { ImportReport } from '@openheaders/core/import';
 import { ImportReportSchema } from '@openheaders/core/import';
 import { parseEntityArray } from '@openheaders/core/schemas';
-import { logger } from '@utils/logger';
+import { logger } from '@openheaders/core/utils';
 import { entityLockName, withLock } from '@openheaders/oracle/coordination';
 import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
-import { getActiveWorkspaceId } from './workspace-store';
+import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 
 const RING_CAP = 50;
 
@@ -65,7 +65,7 @@ async function writeRing(workspaceId: string, reports: ImportReport[]): Promise<
  * entries — oldest fall out.
  */
 export async function recordImportReport(report: ImportReport): Promise<void> {
-  const workspaceId = getActiveWorkspaceId();
+  const workspaceId = requireActiveWorkspaceId();
   await withReportsLock(workspaceId, async () => {
     const current = await readRing(workspaceId);
     let next: ImportReport[];
@@ -92,7 +92,7 @@ export async function recordImportReport(report: ImportReport): Promise<void> {
  * "most-recent-first" UX.
  */
 export async function listImportReports(): Promise<ImportReport[]> {
-  const workspaceId = getActiveWorkspaceId();
+  const workspaceId = requireActiveWorkspaceId();
   return readRing(workspaceId);
 }
 
@@ -105,14 +105,14 @@ export async function listImportReports(): Promise<ImportReport[]> {
  */
 export async function findImportReportBySourceHash(sourceHash: string): Promise<ImportReport | null> {
   if (!sourceHash || sourceHash.length === 0) return null;
-  const workspaceId = getActiveWorkspaceId();
+  const workspaceId = requireActiveWorkspaceId();
   const current = await readRing(workspaceId);
   return current.find((r) => r.sourceHash === sourceHash) ?? null;
 }
 
 /** Drop every report for the active workspace. */
 export async function clearImportReports(): Promise<void> {
-  const workspaceId = getActiveWorkspaceId();
+  const workspaceId = requireActiveWorkspaceId();
   await withReportsLock(workspaceId, async () => {
     await writeRing(workspaceId, []);
     logger.info('ImportReportsStore', `Cleared import reports (ws=${workspaceId})`);
