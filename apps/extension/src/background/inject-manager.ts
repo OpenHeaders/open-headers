@@ -17,7 +17,7 @@
 
 declare const browser: typeof chrome | undefined;
 
-import type { BodyRule, DelayRule, HeaderRule, InjectAction, InjectRule, MockRule, Rule } from '@openheaders/core/types';
+import type { BodyRule, DelayRule, HeaderRule, InjectRule, MockRule, Rule } from '@openheaders/core/types';
 import { compileRuleForInjection, doesUrlMatchRule } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 import {
@@ -25,8 +25,8 @@ import {
   buildDelayInjection,
   buildHeaderMergeInjection,
   buildMockInjection,
-  type Injection,
 } from './content-scripts';
+import { applyInjection, injectCSS, injectCSSUrl, injectScript, injectScriptUrl } from './engine/inject';
 import { getTestScopeForTab, isRuleUnderTest } from './modules/test-runner';
 
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
@@ -268,99 +268,3 @@ async function injectForUrl(tabId: number, url: string): Promise<void> {
   }
 }
 
-/**
- * Dispatch an Injection to the correct underlying injection mechanism.
- *
- * - `func` injections go through `executeScript({func, args, world:'MAIN'})`
- *   directly — the func body runs in MAIN world with extension privilege and
- *   never creates an inline <script> tag, so it bypasses the page's CSP.
- * - `inline-script` injections use the legacy `<script>` tag approach, which
- *   is subject to the page's CSP and may be blocked on strict-CSP sites. This
- *   path is only used for dynamic body/mock rules that embed user JavaScript.
- */
-async function applyInjection(tabId: number, injection: Injection, ruleName: string): Promise<void> {
-  if (injection.kind === 'func') {
-    await browserAPI.scripting.executeScript({
-      target: { tabId },
-      // Cast: Injection.func is typed as (cfg: never) => void to seal the
-      // contravariant parameter. executeScript serializes via toString() and
-      // runs it in the page — TS type of the param is meaningless at runtime.
-      func: injection.func as unknown as (cfg: unknown) => void,
-      args: injection.args,
-      world: 'MAIN' as chrome.scripting.ExecutionWorld,
-      injectImmediately: true,
-    });
-    logger.info('InjectManager', `Injected ${ruleName} func into tab ${tabId}`);
-    return;
-  }
-  // Legacy inline-<script> path for dynamic rules with user JS.
-  await browserAPI.scripting.executeScript({
-    target: { tabId },
-    func: (injectedCode: string) => {
-      const script = document.createElement('script');
-      script.textContent = injectedCode;
-      (document.head || document.documentElement).appendChild(script);
-      script.remove();
-    },
-    args: [injection.code],
-    world: 'MAIN' as chrome.scripting.ExecutionWorld,
-    injectImmediately: true,
-  });
-  logger.debug('InjectManager', `Injected ${ruleName} (inline) into tab ${tabId}`);
-}
-
-async function injectScript(tabId: number, code: string, position: InjectAction['position']): Promise<void> {
-  const early = position === 'head'; // 'head' = as soon as possible
-  await browserAPI.scripting.executeScript({
-    target: { tabId },
-    func: (injectedCode: string) => {
-      const script = document.createElement('script');
-      script.textContent = injectedCode;
-      (document.head || document.documentElement).appendChild(script);
-      script.remove();
-    },
-    args: [code],
-    world: 'MAIN' as chrome.scripting.ExecutionWorld,
-    ...(early ? { injectImmediately: true } : {}),
-  });
-  logger.debug('InjectManager', `Injected script into tab ${tabId} (${position})`);
-}
-
-async function injectCSS(tabId: number, rule: InjectRule): Promise<void> {
-  await browserAPI.scripting.insertCSS({
-    target: { tabId },
-    css: rule.action.code,
-  });
-  logger.debug('InjectManager', `Injected CSS "${rule.name}" into tab ${tabId}`);
-}
-
-/** Inject an external script by URL — creates a <script src="..."> tag in MAIN world. */
-async function injectScriptUrl(tabId: number, url: string): Promise<void> {
-  await browserAPI.scripting.executeScript({
-    target: { tabId },
-    func: (srcUrl: string) => {
-      const script = document.createElement('script');
-      script.src = srcUrl;
-      (document.head || document.documentElement).appendChild(script);
-    },
-    args: [url],
-    world: 'MAIN' as chrome.scripting.ExecutionWorld,
-  });
-  logger.debug('InjectManager', `Injected script URL into tab ${tabId}: ${url}`);
-}
-
-/** Inject an external CSS by URL — creates a <link rel="stylesheet"> tag. */
-async function injectCSSUrl(tabId: number, url: string): Promise<void> {
-  await browserAPI.scripting.executeScript({
-    target: { tabId },
-    func: (href: string) => {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = href;
-      (document.head || document.documentElement).appendChild(link);
-    },
-    args: [url],
-    world: 'MAIN' as chrome.scripting.ExecutionWorld,
-  });
-  logger.debug('InjectManager', `Injected CSS URL into tab ${tabId}: ${url}`);
-}
