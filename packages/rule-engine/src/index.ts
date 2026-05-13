@@ -11,10 +11,13 @@
  * Use subpath imports:
  *
  *   import { compileRuleSet } from '@openheaders/rule-engine/compile'
- *   import { applyDynamicRules } from '@openheaders/rule-engine/apply'
+ *   import { applyDynamicRules, type DnrClient } from '@openheaders/rule-engine/apply'
  *   import { applyInjection } from '@openheaders/rule-engine/inject'
- *   import { headerCompiler } from '@openheaders/rule-engine/builders'
+ *   import { headerCompiler, type CompilerContext } from '@openheaders/rule-engine/builders'
  *   import type { Injection } from '@openheaders/rule-engine/content-scripts'
- *   import type { RuleEngineDeps } from '@openheaders/rule-engine/types'
+ *   import { isValidHeaderValue } from '@openheaders/rule-engine/rule-validator'
+ *
+ * The root barrel exports `CACHE_BYPASS_ID_BASE` — the only host-facing
+ * contract the engine reserves on Chrome's DNR session-rule ID space.
  */
 export { CACHE_BYPASS_ID_BASE } from './reserved-ids';

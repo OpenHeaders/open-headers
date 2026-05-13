@@ -31,10 +31,6 @@
       "import": "./src/content-scripts.ts",
       "default": "./dist/content-scripts.js"
     },
-    "./types": {
-      "import": "./src/types.ts",
-      "default": "./dist/types.js"
-    },
     "./rule-validator": {
       "import": "./src/rule-validator.ts",
       "default": "./dist/rule-validator.js"
