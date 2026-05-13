@@ -13,12 +13,12 @@
  *     the same per-workspace keys — no global pointer state, no
  *     cross-tab cross-talk.
  *
- *   - Reads: `extensionStorage.subscribe` on each pointer key, scoped
+ *   - Reads: `hostStorage.subscribe` on each pointer key, scoped
  *     to the resolved workspaceId. The SW's `environmentsChanged`
  *     broadcast carries env-list re-projections for the legacy
  *     branch but NO LONGER drives pointer state.
  *
- *   - Writes: `extensionStorage.set` directly on the per-workspace
+ *   - Writes: `hostStorage.set` directly on the per-workspace
  *     pointer keys. The SW environment-store subscribes to its
  *     runtime-Active workspace's pointer keys and reacts (DNR
  *     recompile, resolver invalidate, live-refresh switch-warm) when
@@ -37,7 +37,7 @@ import type { BridgeRpcResponse } from '@utils/bridge';
 import { call, subscribe } from '@utils/bridge';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, wsKeys } from '@openheaders/core/storage';
 import {
   applyEnvironmentCreate,
   applyEnvironmentDelete,
@@ -182,11 +182,11 @@ export const EnvironmentProvider: React.FC<EnvironmentProviderProps> = ({
       setEnvironments([]);
       return;
     }
-    void extensionStorage.get(wsKeys(wsId).environments).then((record) => {
+    void hostStorage.get(wsKeys(wsId).environments).then((record) => {
       if (workspaceIdRef.current !== wsId) return;
       setEnvironments(record ?? []);
     });
-    return extensionStorage.subscribe(wsKeys(wsId).environments, (record) => {
+    return hostStorage.subscribe(wsKeys(wsId).environments, (record) => {
       if (workspaceIdRef.current !== wsId) return;
       setEnvironments(record ?? []);
     });
@@ -208,10 +208,10 @@ export const EnvironmentProvider: React.FC<EnvironmentProviderProps> = ({
     let cancelled = false;
 
     void Promise.all([
-      extensionStorage.get(keys.activeEnvironmentId),
-      extensionStorage.get(keys.defaultEnvironmentId),
-      extensionStorage.get(keys.manualEnvId),
-      extensionStorage.get(keys.collectionEnvOverrides),
+      hostStorage.get(keys.activeEnvironmentId),
+      hostStorage.get(keys.defaultEnvironmentId),
+      hostStorage.get(keys.manualEnvId),
+      hostStorage.get(keys.collectionEnvOverrides),
     ]).then(([active, def, manual, overrides]) => {
       if (cancelled || workspaceIdRef.current !== wsId) return;
       setActiveEnvironmentIdState(readPointer(active));
@@ -222,19 +222,19 @@ export const EnvironmentProvider: React.FC<EnvironmentProviderProps> = ({
     });
 
     const disposers = [
-      extensionStorage.subscribe(keys.activeEnvironmentId, (next) => {
+      hostStorage.subscribe(keys.activeEnvironmentId, (next) => {
         if (workspaceIdRef.current !== wsId) return;
         setActiveEnvironmentIdState(readPointer(next));
       }),
-      extensionStorage.subscribe(keys.defaultEnvironmentId, (next) => {
+      hostStorage.subscribe(keys.defaultEnvironmentId, (next) => {
         if (workspaceIdRef.current !== wsId) return;
         setDefaultEnvironmentIdState(readPointer(next));
       }),
-      extensionStorage.subscribe(keys.manualEnvId, (next) => {
+      hostStorage.subscribe(keys.manualEnvId, (next) => {
         if (workspaceIdRef.current !== wsId) return;
         setManualEnvIdState(readPointer(next));
       }),
-      extensionStorage.subscribe(keys.collectionEnvOverrides, (next) => {
+      hostStorage.subscribe(keys.collectionEnvOverrides, (next) => {
         if (workspaceIdRef.current !== wsId) return;
         setCollectionEnvOverrides(readOverrides(next));
       }),
@@ -327,7 +327,7 @@ export const EnvironmentProvider: React.FC<EnvironmentProviderProps> = ({
     async (uid) => {
       const wsId = workspaceIdRef.current;
       if (!wsId) return false;
-      await extensionStorage.set(wsKeys(wsId).activeEnvironmentId, uid);
+      await hostStorage.set(wsKeys(wsId).activeEnvironmentId, uid);
       return true;
     },
     [],
@@ -337,7 +337,7 @@ export const EnvironmentProvider: React.FC<EnvironmentProviderProps> = ({
     async (uid) => {
       const wsId = workspaceIdRef.current;
       if (!wsId) return false;
-      await extensionStorage.set(wsKeys(wsId).defaultEnvironmentId, uid);
+      await hostStorage.set(wsKeys(wsId).defaultEnvironmentId, uid);
       return true;
     },
     [],
@@ -347,7 +347,7 @@ export const EnvironmentProvider: React.FC<EnvironmentProviderProps> = ({
     async (uid) => {
       const wsId = workspaceIdRef.current;
       if (!wsId) return false;
-      await extensionStorage.set(wsKeys(wsId).manualEnvId, uid);
+      await hostStorage.set(wsKeys(wsId).manualEnvId, uid);
       return true;
     },
     [],
@@ -363,7 +363,7 @@ export const EnvironmentProvider: React.FC<EnvironmentProviderProps> = ({
       } else {
         next[collectionId] = envId;
       }
-      await extensionStorage.set(wsKeys(wsId).collectionEnvOverrides, next);
+      await hostStorage.set(wsKeys(wsId).collectionEnvOverrides, next);
     },
     [collectionEnvOverrides],
   );

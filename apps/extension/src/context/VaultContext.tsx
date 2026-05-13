@@ -24,7 +24,7 @@ import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
 import { call, subscribe } from '@utils/bridge';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, wsKeys } from '@openheaders/core/storage';
 import {
   applyVaultReplacement,
   applyVaultSecretRemove,
@@ -123,12 +123,12 @@ export const VaultProvider: React.FC<VaultProviderProps> = ({ children, surfaceI
       return;
     }
     setIsReady(false);
-    void extensionStorage.get(wsKeys(wsId).vault).then((record) => {
+    void hostStorage.get(wsKeys(wsId).vault).then((record) => {
       if (overrideIdRef.current !== wsId) return;
       setVault(record ?? EMPTY_VAULT);
       setIsReady(true);
     });
-    return extensionStorage.subscribe(wsKeys(wsId).vault, (record) => {
+    return hostStorage.subscribe(wsKeys(wsId).vault, (record) => {
       setVault(record ?? EMPTY_VAULT);
     });
   }, [isOverridden, activeWorkspaceIdOverride]);

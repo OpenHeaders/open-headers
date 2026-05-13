@@ -1,18 +1,19 @@
 /**
- * ExtensionStorage — the single typed adapter over `chrome.storage.*`.
+ * ExtensionStorage — chrome.storage adapter implementing
+ * {@link HostStorage} from `@openheaders/core/storage`. The
+ * browser-extension host installs an instance of this class via
+ * `setHostStorage(extensionStorage)` at boot so UI code reading
+ * through the `hostStorage` proxy lands here. SW-internal modules
+ * (oracle, background stores) keep importing `extensionStorage`
+ * directly because they only ever run inside the chrome SW context;
+ * the indirection matters at the UI seam, not inside the host.
  *
- * Every read, write, remove, and subscription against persisted state
- * flows through this class. Callers pass a `StorageKey<T>` from the
- * keys registry; the adapter:
+ * Callers pass a `StorageKey<T>` from the typed key registry; the
+ * adapter:
  *   - routes to the correct area (local / sync / session)
  *   - promisifies Chrome's callback-style API
  *   - narrows return types via the key's phantom payload
  *   - dedupes `onChanged` subscriptions per (area, key) pair
- *
- * No module in the extension should import `chrome.storage.*`
- * directly — that defeats the whole point of the typed layer. The
- * settings `ChromeDictStorage`, background stores, and UI hooks all
- * route through this class.
  */
 
 import { type ParseEntityOptions, parseEntity, parseEntityArray } from '@openheaders/core/schemas';

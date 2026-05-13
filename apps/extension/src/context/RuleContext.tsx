@@ -28,7 +28,7 @@ import type React from 'react';
 import { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePauseMarkersContext } from '@/context/PauseMarkersContext';
 import { buildLocalCollectionTrees, buildTemplateCollectionTrees } from '@/shared/local-tree-builder';
-import { extensionStorage, type PersistedLocalFolder, UI, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, type PersistedLocalFolder, UI, wsKeys } from '@openheaders/core/storage';
 import {
   applyCollectionCreate,
   applyCollectionDelete,
@@ -278,7 +278,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
   //    materialized snapshots directly is the discipline-conforming
   //    shape per `SYNC_ENGINE_DESIGN.md` § 9.1 ("Snapshots are the read
   //    path"). Same pattern pause-markers already use.
-  //    `extensionStorage.subscribe` rebinds when the override id changes;
+  //    `hostStorage.subscribe` rebinds when the override id changes;
   //    cross-process / cross-workspace mutations land via chrome.storage
   //    `onChanged` regardless of which oracle is currently running.
   //    Connection status still comes from the bridge (system-scoped).
@@ -474,32 +474,32 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       );
     };
 
-    const unsubRules = extensionStorage.subscribe(wsKeys(wsId).rules, (record) => {
+    const unsubRules = hostStorage.subscribe(wsKeys(wsId).rules, (record) => {
       currentRules = record ?? [];
       setRules(currentRules);
       recomputeRulesTree();
     });
-    const unsubCollections = extensionStorage.subscribe(wsKeys(wsId).collections, (record) => {
+    const unsubCollections = hostStorage.subscribe(wsKeys(wsId).collections, (record) => {
       currentCollections = record ?? [];
       setLocalCollections(currentCollections);
       recomputeRulesTree();
     });
-    const unsubFolders = extensionStorage.subscribe(wsKeys(wsId).folders, (record) => {
+    const unsubFolders = hostStorage.subscribe(wsKeys(wsId).folders, (record) => {
       currentFolders = record ?? [];
       foldersRef.current = currentFolders;
       recomputeRulesTree();
     });
-    const unsubTemplates = extensionStorage.subscribe(wsKeys(wsId).templates, (record) => {
+    const unsubTemplates = hostStorage.subscribe(wsKeys(wsId).templates, (record) => {
       currentTemplates = record ?? [];
       setTemplates(currentTemplates);
       recomputeTemplatesTree();
     });
-    const unsubTemplateCollections = extensionStorage.subscribe(wsKeys(wsId).templateCollections, (record) => {
+    const unsubTemplateCollections = hostStorage.subscribe(wsKeys(wsId).templateCollections, (record) => {
       currentTemplateCollections = record ?? [];
       setTemplateCollections(currentTemplateCollections);
       recomputeTemplatesTree();
     });
-    const unsubTemplateFolders = extensionStorage.subscribe(wsKeys(wsId).templateFolders, (record) => {
+    const unsubTemplateFolders = hostStorage.subscribe(wsKeys(wsId).templateFolders, (record) => {
       currentTemplateFolders = record ?? [];
       templateFoldersRef.current = currentTemplateFolders;
       recomputeTemplatesTree();
@@ -512,12 +512,12 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
     // and the empty-trees recompute could stomp the populated one
     // (Session 24 cold-reload empty-state regression).
     void Promise.all([
-      extensionStorage.get(wsKeys(wsId).rules),
-      extensionStorage.get(wsKeys(wsId).collections),
-      extensionStorage.get(wsKeys(wsId).folders),
-      extensionStorage.get(wsKeys(wsId).templates),
-      extensionStorage.get(wsKeys(wsId).templateCollections),
-      extensionStorage.get(wsKeys(wsId).templateFolders),
+      hostStorage.get(wsKeys(wsId).rules),
+      hostStorage.get(wsKeys(wsId).collections),
+      hostStorage.get(wsKeys(wsId).folders),
+      hostStorage.get(wsKeys(wsId).templates),
+      hostStorage.get(wsKeys(wsId).templateCollections),
+      hostStorage.get(wsKeys(wsId).templateFolders),
     ]).then(
       ([
         rulesRecord,
@@ -557,7 +557,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
   // ── UI state persistence ──────────────────────────────────────
 
   useEffect(() => {
-    void extensionStorage.get(UI.popupState).then((popupState) => {
+    void hostStorage.get(UI.popupState).then((popupState) => {
       if (popupState?.uiState) {
         setUiState((prev) => ({ ...prev, ...(popupState.uiState as Partial<UiState>) }));
       }
@@ -566,8 +566,8 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
 
   useEffect(() => {
     const saveTimeout = setTimeout(() => {
-      void extensionStorage.get(UI.popupState).then((prev) => {
-        void extensionStorage.set(UI.popupState, { ...(prev ?? {}), uiState });
+      void hostStorage.get(UI.popupState).then((prev) => {
+        void hostStorage.set(UI.popupState, { ...(prev ?? {}), uiState });
       });
     }, 500);
     return () => clearTimeout(saveTimeout);

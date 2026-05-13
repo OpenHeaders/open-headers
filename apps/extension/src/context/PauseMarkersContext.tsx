@@ -8,7 +8,7 @@
  * `PauseMarkersSyncMirror`.
  *
  *   - Override branch: reads `wsKeys(workspaceId).pauseMarkers` via
- *     `extensionStorage.subscribe`; writes route through
+ *     `hostStorage.subscribe`; writes route through
  *     `pause-markers-write-client` with the explicit workspaceId. Diverged
  *     tabs editing W2 see and write to W2's markers, regardless of
  *     runtime-Active.
@@ -25,7 +25,7 @@ import type { PauseMarker } from '@openheaders/core/utils';
 import { resolvePauseState } from '@openheaders/core/utils';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, wsKeys } from '@openheaders/core/storage';
 import {
   applyPauseMarkerClear,
   applyPauseMarkerSet,
@@ -101,12 +101,12 @@ export const PauseMarkersProvider: React.FC<PauseMarkersProviderProps> = ({
       return;
     }
     setIsReady(false);
-    void extensionStorage.get(wsKeys(wsId).pauseMarkers).then((record) => {
+    void hostStorage.get(wsKeys(wsId).pauseMarkers).then((record) => {
       if (readIdRef.current !== wsId) return;
       setPauseMarkers(record ? new Map(Object.entries(record)) : new Map());
       setIsReady(true);
     });
-    return extensionStorage.subscribe(wsKeys(wsId).pauseMarkers, (record) => {
+    return hostStorage.subscribe(wsKeys(wsId).pauseMarkers, (record) => {
       setPauseMarkers(record ? new Map(Object.entries(record)) : new Map());
     });
   }, [readWorkspaceId]);

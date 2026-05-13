@@ -121,7 +121,7 @@ export const FilesProvider: React.FC<FilesProviderProps> = ({ children, activeWo
   // Files do NOT have a `wsKeys.X` storage key (catalog lives in the
   // sync engine; bytes live in BlobStore IDB). Override branch consumes
   // the per-workspace mirror's `subscribeMirror` instead of
-  // `extensionStorage.subscribe`. The mirror's bridge subscription
+  // `hostStorage.subscribe`. The mirror's bridge subscription
   // filters by `event.envelope.workspaceId` (M-2), so cross-workspace
   // contamination is structurally inexpressible.
 

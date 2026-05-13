@@ -28,7 +28,7 @@ import type { BridgeRpcResponse } from '@utils/bridge';
 import { call, subscribe } from '@utils/bridge';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, wsKeys } from '@openheaders/core/storage';
 import {
   applyLiveWorkflowCreate,
   applyLiveWorkflowDelete,
@@ -144,12 +144,12 @@ export const LiveWorkflowsProvider: React.FC<LiveWorkflowsProviderProps> = ({
       return;
     }
     setIsReady(false);
-    void extensionStorage.get(wsKeys(wsId).liveWorkflows).then((record) => {
+    void hostStorage.get(wsKeys(wsId).liveWorkflows).then((record) => {
       if (overrideIdRef.current !== wsId) return;
       setWorkflows(record ?? []);
       setIsReady(true);
     });
-    return extensionStorage.subscribe(wsKeys(wsId).liveWorkflows, (record) => {
+    return hostStorage.subscribe(wsKeys(wsId).liveWorkflows, (record) => {
       setWorkflows(record ?? []);
     });
   }, [isOverridden, activeWorkspaceIdOverride]);

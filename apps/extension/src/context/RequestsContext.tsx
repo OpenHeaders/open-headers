@@ -8,7 +8,7 @@
  * `requestCollectionTrees` in the renderer via `buildRequestCollectionTrees`.
  *
  *   - `activeWorkspaceIdOverride` set ⇒ workbench (override) branch:
- *     reads the three storage keys via `extensionStorage.subscribe`;
+ *     reads the three storage keys via `hostStorage.subscribe`;
  *     request entity CRUD routes through `request-write-client` with
  *     the explicit workspaceId. Diverged tabs editing workspace W2
  *     see and write to W2's data, regardless of the runtime-Active
@@ -40,7 +40,7 @@ import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import { buildRequestCollectionTrees } from '@/shared/local-tree-builder';
-import { extensionStorage, type PersistedLocalFolder, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, type PersistedLocalFolder, wsKeys } from '@openheaders/core/storage';
 import {
   applyRequestCollectionCreate,
   applyRequestCollectionDelete,
@@ -209,26 +209,26 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       setCollectionTrees(buildRequestCollectionTrees(currentCollections, currentFolders, currentRequests));
     };
 
-    const unsubRequests = extensionStorage.subscribe(wsKeys(wsId).requests, (record) => {
+    const unsubRequests = hostStorage.subscribe(wsKeys(wsId).requests, (record) => {
       currentRequests = record ?? [];
       setRequests(currentRequests);
       recomputeTrees();
     });
-    const unsubCollections = extensionStorage.subscribe(wsKeys(wsId).requestCollections, (record) => {
+    const unsubCollections = hostStorage.subscribe(wsKeys(wsId).requestCollections, (record) => {
       currentCollections = record ?? [];
       setCollections(currentCollections);
       recomputeTrees();
     });
-    const unsubFolders = extensionStorage.subscribe(wsKeys(wsId).requestFolders, (record) => {
+    const unsubFolders = hostStorage.subscribe(wsKeys(wsId).requestFolders, (record) => {
       currentFolders = record ?? [];
       foldersRef.current = currentFolders;
       recomputeTrees();
     });
 
     void Promise.all([
-      extensionStorage.get(wsKeys(wsId).requests),
-      extensionStorage.get(wsKeys(wsId).requestCollections),
-      extensionStorage.get(wsKeys(wsId).requestFolders),
+      hostStorage.get(wsKeys(wsId).requests),
+      hostStorage.get(wsKeys(wsId).requestCollections),
+      hostStorage.get(wsKeys(wsId).requestFolders),
     ]).then(([reqRecord, colRecord, foldersRecord]) => {
       if (overrideIdRef.current !== wsId) return;
       currentRequests = reqRecord ?? [];

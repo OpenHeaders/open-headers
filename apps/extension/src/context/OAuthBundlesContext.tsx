@@ -10,7 +10,7 @@
  * provider subscribes the storage key directly.
  *
  *   - Override branch: reads `wsKeys(workspaceId).oauth` via
- *     `extensionStorage.subscribe`; revoke routes through
+ *     `hostStorage.subscribe`; revoke routes through
  *     `oauth-bundle-write-client` with the explicit workspaceId.
  *     Browser-mediated flows (authorize / clientCredentials / refresh)
  *     stay on bridge RPCs but carry `workspaceId` through to the SW.
@@ -28,7 +28,7 @@ import type { OAuth2Auth } from '@openheaders/core/types';
 import { call } from '@utils/bridge';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, wsKeys } from '@openheaders/core/storage';
 import { applyOAuthRevoke } from '@/shared/sync/oauth-bundle-write-client';
 
 interface PersistedOAuthBlob {
@@ -118,12 +118,12 @@ export const OAuthBundlesProvider: React.FC<OAuthBundlesProviderProps> = ({
       return;
     }
     setIsReady(false);
-    void extensionStorage.get(wsKeys(wsId).oauth).then((blob) => {
+    void hostStorage.get(wsKeys(wsId).oauth).then((blob) => {
       if (readIdRef.current !== wsId) return;
       setTokens(extractTokens(blob));
       setIsReady(true);
     });
-    return extensionStorage.subscribe(wsKeys(wsId).oauth, (blob) => {
+    return hostStorage.subscribe(wsKeys(wsId).oauth, (blob) => {
       setTokens(extractTokens(blob));
     });
   }, [readWorkspaceId]);

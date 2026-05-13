@@ -26,7 +26,7 @@ import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
 import { call, subscribe } from '@utils/bridge';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, wsKeys } from '@openheaders/core/storage';
 import {
   applyWorkspaceVariablesReplacement,
   applyWorkspaceVarRemove,
@@ -147,12 +147,12 @@ export const WorkspaceVariablesProvider: React.FC<WorkspaceVariablesProviderProp
       return;
     }
     setIsReady(false);
-    void extensionStorage.get(wsKeys(wsId).workspaceVars).then((record) => {
+    void hostStorage.get(wsKeys(wsId).workspaceVars).then((record) => {
       if (overrideIdRef.current !== wsId) return;
       setWorkspaceVariables(record ?? EMPTY_WS_VARS);
       setIsReady(true);
     });
-    return extensionStorage.subscribe(wsKeys(wsId).workspaceVars, (record) => {
+    return hostStorage.subscribe(wsKeys(wsId).workspaceVars, (record) => {
       setWorkspaceVariables(record ?? EMPTY_WS_VARS);
     });
   }, [isOverridden, activeWorkspaceIdOverride]);
