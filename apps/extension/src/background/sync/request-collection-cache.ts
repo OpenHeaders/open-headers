@@ -5,7 +5,7 @@
 
 import { CollectionSchema } from '@openheaders/core/schemas';
 import { REQUEST_COLLECTION_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection } from '@openheaders/core/types';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 import { projectRequestCollection, seedRequestCollection } from '@/shared/sync/request-collection-projection';
 import { driftRecorder } from '../modules/storage-drift';
@@ -18,8 +18,8 @@ export type RequestCollectionCacheListener = () => void;
 
 export interface RequestCollectionCache {
   readonly workspaceId: string;
-  getRequestCollections(): V5.Collection[];
-  seedFromPersistedRequestCollections(colls: V5.Collection[]): Promise<void>;
+  getRequestCollections(): Collection[];
+  seedFromPersistedRequestCollections(colls: Collection[]): Promise<void>;
   hydrateFromStorage(): Promise<void>;
   onChange(listener: RequestCollectionCacheListener): () => void;
   dispose(): void;
@@ -31,7 +31,7 @@ export function createRequestCollectionCache(
   broadcast: InMemoryBroadcast,
   contextFactory: SwMutatorContextFactory,
 ): RequestCollectionCache {
-  const core = createFlatEntityCache<V5.Collection, typeof REQUEST_COLLECTION_ENTITY_TYPE>(
+  const core = createFlatEntityCache<Collection, typeof REQUEST_COLLECTION_ENTITY_TYPE>(
     workspaceId,
     oracle,
     broadcast,

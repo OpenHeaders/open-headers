@@ -7,7 +7,7 @@
 
 import { PlusOutlined } from '@ant-design/icons';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import type { V5 } from '@openheaders/core/types';
+import type { Rule, RuleType } from '@openheaders/core/types';
 import { Button, Dropdown, theme } from 'antd';
 import type React from 'react';
 import { buildRuleTypeMenuItems } from '../../rule-type-menu';
@@ -19,7 +19,7 @@ export interface PriorityTier {
   label: string;
   description: string;
   color: string;
-  ruleTypes: V5.RuleType[];
+  ruleTypes: RuleType[];
 }
 
 export const PRIORITY_TIERS: PriorityTier[] = [
@@ -83,7 +83,7 @@ export const PRIORITY_TIERS: PriorityTier[] = [
 
 interface PriorityGroupProps {
   tier: PriorityTier;
-  rules: V5.Rule[];
+  rules: Rule[];
   onSelectRule: (uid: string) => void;
   onCreateRule: (type: string, context?: { collectionId: string; folderPath?: string }) => void;
   collectionId?: string;
@@ -125,7 +125,7 @@ const PriorityGroup: React.FC<PriorityGroupProps> = ({
     } else {
       onCreateRule(type);
     }
-  }).filter((item) => tier.ruleTypes.includes(item.key as V5.RuleType));
+  }).filter((item) => tier.ruleTypes.includes(item.key as RuleType));
 
   return (
     <div className="flow-priority-group">

@@ -27,7 +27,7 @@
 import { CopyOutlined, DownOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons';
 import { useOAuthBundlesContext } from '@context/OAuthBundlesContext';
 import { isExpired, secondsUntilExpiry } from '@openheaders/core/oauth';
-import type { V5 } from '@openheaders/core/types';
+import type { OAuth2Auth, OAuth2Flow } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { Alert, App, Button, Checkbox, Input, Select, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -35,8 +35,6 @@ import { useMemo, useState } from 'react';
 import KeyValueTable, { type KeyValueRow } from './request-editor/KeyValueTable';
 
 const { Text, Link } = Typography;
-
-type OAuth2Auth = V5.OAuth2Auth;
 
 // ── Grant type UI model ───────────────────────────────────────────
 
@@ -63,7 +61,7 @@ interface GrantTypeDef {
     state: boolean;
   };
   /** Maps back to the persisted V5 flow. */
-  v5Flow: V5.OAuth2Flow;
+  v5Flow: OAuth2Flow;
   /** Note shown when the grant type is partial / reserved. */
   reservedNote?: string;
 }

@@ -22,11 +22,10 @@
  *     non-test tabs so the run doesn't leak outside its sandbox.
  */
 
-import type { V5 } from '@openheaders/core/types';
-
+import type { Rule } from '@openheaders/core/types';
 export interface ActiveRunEntry {
   id: string;
-  scopeRules: V5.Rule[];
+  scopeRules: Rule[];
   ruleUids: Set<string>;
   tabId: number | null;
 }
@@ -57,7 +56,7 @@ export function hasActiveRuns(): boolean {
 export interface ActiveRunSnapshot {
   id: string;
   tabId: number;
-  scopeRules: V5.Rule[];
+  scopeRules: Rule[];
   ruleUids: Set<string>;
 }
 

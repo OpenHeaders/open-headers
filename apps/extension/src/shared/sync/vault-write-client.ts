@@ -33,7 +33,7 @@ import {
   VAULT_PATH,
   vaultInvalidateResolverIntent,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { VaultSecret } from '@openheaders/core/types';
 import {
   createVaultSyncMirror,
   getVaultSyncMirrorForWorkspace,
@@ -55,7 +55,7 @@ export interface VaultWriteOptions extends BaseSyncWriteOptions {
 
 export interface ApplyVaultSecretSetInput {
   /** Whole secret record. `secret.uid` is the set-member itemId. */
-  secret: V5.VaultSecret;
+  secret: VaultSecret;
 }
 
 export async function applyVaultSecretSet(
@@ -86,13 +86,13 @@ export async function applyVaultSecretRemove(
  * `removeFromSet` by uid. Empty diff → empty batch.
  */
 export async function applyVaultReplacement(
-  newSecrets: readonly V5.VaultSecret[],
-  oldSecrets: readonly V5.VaultSecret[],
+  newSecrets: readonly VaultSecret[],
+  oldSecrets: readonly VaultSecret[],
   opts: VaultWriteOptions,
 ): Promise<VaultSimpleResult> {
-  const oldByUid = new Map<string, V5.VaultSecret>();
+  const oldByUid = new Map<string, VaultSecret>();
   for (const s of oldSecrets) oldByUid.set(s.uid, s);
-  const newByUid = new Map<string, V5.VaultSecret>();
+  const newByUid = new Map<string, VaultSecret>();
   for (const s of newSecrets) {
     if (!s.name.trim()) continue;
     newByUid.set(s.uid, s);
@@ -139,7 +139,7 @@ export function activeMirror(workspaceId: string): VaultSyncMirror {
 
 // ── Internals ─────────────────────────────────────────────────────
 
-function fingerprintSecret(s: V5.VaultSecret): string {
+function fingerprintSecret(s: VaultSecret): string {
   return s.kind === 'totp'
     ? JSON.stringify(['totp', s.name, s.seed, s.algorithm, s.digits, s.period, s.issuer ?? ''])
     : JSON.stringify(['string', s.name, s.value]);

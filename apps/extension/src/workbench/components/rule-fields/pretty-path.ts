@@ -8,14 +8,14 @@
  * with existing rule callers.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import { prettyPathMap } from '@/shared/conflicts/conflict-adapters';
 import { ruleResolveAdapter } from './rule-resolve-adapter';
 
-export function prettyRulePath(rule: V5.Rule, path: string): string {
+export function prettyRulePath(rule: Rule, path: string): string {
   return ruleResolveAdapter.prettyPath(rule, path);
 }
 
-export function prettyRulePathMap(rule: V5.Rule, paths: Iterable<string>): Map<string, string> {
+export function prettyRulePathMap(rule: Rule, paths: Iterable<string>): Map<string, string> {
   return prettyPathMap(ruleResolveAdapter, rule, paths);
 }

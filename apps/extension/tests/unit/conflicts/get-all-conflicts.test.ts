@@ -7,12 +7,12 @@
  * dismissed / accepted state.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { useRuleConflicts } from '@/workbench/components/rule-fields/use-rule-conflicts';
 
-function makeHeaderRule(req: Array<{ uid: string; headerName: string; value: string }>): V5.Rule {
+function makeHeaderRule(req: Array<{ uid: string; headerName: string; value: string }>): Rule {
   return {
     uid: 'rule-x',
     path: 'rules/rule-x.yaml',
@@ -25,7 +25,7 @@ function makeHeaderRule(req: Array<{ uid: string; headerName: string; value: str
       requestHeaders: req.map((h) => ({ uid: h.uid, operation: 'override', headerName: h.headerName, value: h.value })),
       responseHeaders: [],
     },
-  } as unknown as V5.Rule;
+  } as unknown as Rule;
 }
 
 const A_VALUE = 'action.requestHeaders.aaaaaaaa.value';
@@ -161,7 +161,7 @@ describe('useRuleConflicts.getAllConflicts', () => {
       schemaVersion: 5,
       conditions: [],
       action: { redirectTo: 'https://openheaders.io/x' },
-    } as unknown as V5.Rule;
+    } as unknown as Rule;
     const { result } = renderHook(() => useRuleConflicts({ liveRule: live, isDirty: true, enabled: true }));
     act(() => result.current.setBaseline(baseline));
     const form = result.current.projectRule(baseline);

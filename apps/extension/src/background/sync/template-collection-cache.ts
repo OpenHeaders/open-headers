@@ -5,7 +5,7 @@
 
 import { CollectionSchema } from '@openheaders/core/schemas';
 import { TEMPLATE_COLLECTION_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection } from '@openheaders/core/types';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 import { projectTemplateCollection, seedTemplateCollection } from '@/shared/sync/template-collection-projection';
 import { driftRecorder } from '../modules/storage-drift';
@@ -18,8 +18,8 @@ export type TemplateCollectionCacheListener = () => void;
 
 export interface TemplateCollectionCache {
   readonly workspaceId: string;
-  getTemplateCollections(): V5.Collection[];
-  seedFromPersistedTemplateCollections(colls: V5.Collection[]): Promise<void>;
+  getTemplateCollections(): Collection[];
+  seedFromPersistedTemplateCollections(colls: Collection[]): Promise<void>;
   hydrateFromStorage(): Promise<void>;
   onChange(listener: TemplateCollectionCacheListener): () => void;
   dispose(): void;
@@ -31,7 +31,7 @@ export function createTemplateCollectionCache(
   broadcast: InMemoryBroadcast,
   contextFactory: SwMutatorContextFactory,
 ): TemplateCollectionCache {
-  const core = createFlatEntityCache<V5.Collection, typeof TEMPLATE_COLLECTION_ENTITY_TYPE>(
+  const core = createFlatEntityCache<Collection, typeof TEMPLATE_COLLECTION_ENTITY_TYPE>(
     workspaceId,
     oracle,
     broadcast,

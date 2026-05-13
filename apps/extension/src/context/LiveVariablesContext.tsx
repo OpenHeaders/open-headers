@@ -21,7 +21,7 @@
  * shim — `updateLiveVariable(uid, { manualOverride })`).
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { LiveVariable, LiveVariableOverride } from '@openheaders/core/types';
 import type { BridgeRpcResponse } from '@utils/bridge';
 import { call, subscribe } from '@utils/bridge';
 import type React from 'react';
@@ -37,7 +37,7 @@ export type LiveVariableWriteResult = BridgeRpcResponse<'updateLiveVariable'>;
 export type LiveVariableOverrideResult = BridgeRpcResponse<'setLiveVariableOverride'>;
 
 export interface LiveVariablesContextValue {
-  variables: V5.LiveVariable[];
+  variables: LiveVariable[];
   isReady: boolean;
   createVariable: (input: {
     name: string;
@@ -47,13 +47,13 @@ export interface LiveVariablesContextValue {
     description?: string;
     requireFreshOnRuleBuild?: boolean;
     enabled?: boolean;
-  }) => Promise<V5.LiveVariable | null>;
+  }) => Promise<LiveVariable | null>;
   updateVariable: (
     uid: string,
-    updates: Partial<Omit<V5.LiveVariable, 'uid' | 'path' | 'schemaVersion'>>,
+    updates: Partial<Omit<LiveVariable, 'uid' | 'path' | 'schemaVersion'>>,
   ) => Promise<LiveVariableWriteResult>;
   deleteVariable: (uid: string) => Promise<boolean>;
-  setOverride: (uid: string, override: V5.LiveVariableOverride | null) => Promise<LiveVariableOverrideResult>;
+  setOverride: (uid: string, override: LiveVariableOverride | null) => Promise<LiveVariableOverrideResult>;
 }
 
 const defaultContextValue: LiveVariablesContextValue = {
@@ -87,7 +87,7 @@ export const LiveVariablesProvider: React.FC<LiveVariablesProviderProps> = ({
   activeWorkspaceIdOverride,
 }) => {
   const isOverridden = activeWorkspaceIdOverride !== undefined;
-  const [variables, setVariables] = useState<V5.LiveVariable[]>([]);
+  const [variables, setVariables] = useState<LiveVariable[]>([]);
   const [isReady, setIsReady] = useState(false);
   const overrideIdRef = useRef<string | null>(null);
 
@@ -167,7 +167,7 @@ export const LiveVariablesProvider: React.FC<LiveVariablesProviderProps> = ({
       if (isOverridden) {
         const wsId = activeWorkspaceIdOverride ?? null;
         if (!wsId) return null;
-        const seed: Omit<V5.LiveVariable, 'uid' | 'path' | 'schemaVersion'> = {
+        const seed: Omit<LiveVariable, 'uid' | 'path' | 'schemaVersion'> = {
           name: input.name,
           workflowUid: input.workflowUid,
           stepId: input.stepId,

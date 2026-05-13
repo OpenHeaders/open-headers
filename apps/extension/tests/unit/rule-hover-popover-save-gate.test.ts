@@ -23,12 +23,12 @@
  * all three failure modes (no `||` accidentally relaxed to `&&`).
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { HeaderOperation } from '@openheaders/core/types';
 import { getHeaderOperationCapability, validateHeaderName, validateHeaderValue } from '@openheaders/core/utils';
 import { describe, expect, it } from 'vitest';
 
 interface Draft {
-  operation: V5.HeaderOperation;
+  operation: HeaderOperation;
   headerName: string;
   value: string;
 }

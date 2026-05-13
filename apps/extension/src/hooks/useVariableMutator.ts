@@ -30,7 +30,7 @@ import { useEnvVarVault } from '@hooks/useEnvVarVault';
 import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
-import type { V5 } from '@openheaders/core/types';
+import type { LiveVariableOverride, Variable, VaultSecret } from '@openheaders/core/types';
 import { useCallback } from 'react';
 import { applyCollectionVariablesReplacement } from '@/shared/sync/collection-write-client';
 import { applyEnvVariablesReplacement } from '@/shared/sync/env-write-client';
@@ -49,19 +49,19 @@ export type MutationResult = { ok: true } | { ok: false; reason: MutationFailure
 
 export interface UseVariableMutatorApi {
   /** Replace the workspace variables list. */
-  replaceWorkspaceVariables(variables: V5.Variable[]): Promise<MutationResult>;
+  replaceWorkspaceVariables(variables: Variable[]): Promise<MutationResult>;
   /** Replace an environment's variables list. */
-  replaceEnvironmentVariables(envUid: string, variables: V5.Variable[]): Promise<MutationResult>;
+  replaceEnvironmentVariables(envUid: string, variables: Variable[]): Promise<MutationResult>;
   /** Replace a rule-collection's variables list. */
-  replaceCollectionVariables(collectionUid: string, variables: V5.Variable[]): Promise<MutationResult>;
+  replaceCollectionVariables(collectionUid: string, variables: Variable[]): Promise<MutationResult>;
   /** Replace a request-collection's variables list. */
-  replaceRequestCollectionVariables(collectionUid: string, variables: V5.Variable[]): Promise<MutationResult>;
+  replaceRequestCollectionVariables(collectionUid: string, variables: Variable[]): Promise<MutationResult>;
   /** Replace a template-collection's variables list. */
-  replaceTemplateCollectionVariables(collectionUid: string, variables: V5.Variable[]): Promise<MutationResult>;
+  replaceTemplateCollectionVariables(collectionUid: string, variables: Variable[]): Promise<MutationResult>;
   /** Replace the vault. */
-  replaceVault(secrets: V5.VaultSecret[]): Promise<MutationResult>;
+  replaceVault(secrets: VaultSecret[]): Promise<MutationResult>;
   /** Set or clear a live variable's manual override. */
-  setLiveOverride(uid: string, override: V5.LiveVariableOverride | null): Promise<MutationResult>;
+  setLiveOverride(uid: string, override: LiveVariableOverride | null): Promise<MutationResult>;
 }
 
 export function useVariableMutator(): UseVariableMutatorApi {

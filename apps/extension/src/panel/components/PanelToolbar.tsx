@@ -1,5 +1,5 @@
 import { LayoutOutlined, ReloadOutlined, SettingOutlined, ShareAltOutlined } from '@ant-design/icons';
-import type { V5 } from '@openheaders/core/types';
+import type { Environment } from '@openheaders/core/types';
 import { Dropdown, type MenuProps, Popover, Space, theme, Tooltip } from 'antd';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
@@ -270,7 +270,7 @@ export interface PanelToolbarProps {
   perTab: EditingScopeViewStateApi<PanelViewState>;
   /** Environment list + active uid + switch handler for the slim
    *  env-switcher dropdown. Mirrors the workspace env selector. */
-  environments: V5.Environment[];
+  environments: Environment[];
   activeEnvironmentId: string | null;
   onSwitchEnvironment: (uid: string | null) => void;
 }

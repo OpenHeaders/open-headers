@@ -3,19 +3,19 @@
  *
  * Thin adapter over `flat-entity-post-state.ts`. LW has no set-modeled
  * paths — `steps` is a whole-array scalar — so the projection carries
- * only the projected `V5.LiveWorkflow`.
+ * only the projected `LiveWorkflow`.
  */
 
 import type { SyncLiveWorkflowPostState } from '@openheaders/core/protocol';
 import { LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { LiveWorkflow } from '@openheaders/core/types';
 import { projectLiveWorkflow } from '@/shared/sync/live-workflow-projection';
 import { makeFlatEntityProjectors } from './flat-entity-post-state';
 import type { EntityOracle } from './oracle';
 
 type Reads = Pick<EntityOracle, 'materializeOne'>;
 
-const projectors = makeFlatEntityProjectors<Reads, V5.LiveWorkflow, SyncLiveWorkflowPostState>({
+const projectors = makeFlatEntityProjectors<Reads, LiveWorkflow, SyncLiveWorkflowPostState>({
   entityType: LIVE_WORKFLOW_ENTITY_TYPE,
   project: projectLiveWorkflow,
   composeResult: (workflow) => ({ workflow }),

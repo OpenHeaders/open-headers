@@ -1,6 +1,6 @@
 /**
  * Conflict tracking + resolve adapters for any entity that holds a
- * uid-keyed `variables: V5.Variable[]` set.
+ * uid-keyed `variables: Variable[]` set.
  *
  * Driven by the field-tree descriptor + generic walker in
  * `shared/conflicts/field-tree/`. Set-member identity is `variable.uid`
@@ -10,14 +10,14 @@
  * convergent-rename guarantee.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Variable } from '@openheaders/core/types';
 import type { ConflictResolveAdapter, ConflictTrackingAdapter } from '@/shared/conflicts/conflict-adapters';
 import { enumLeaf, leaf, obj, setByUid } from '@/shared/conflicts/field-tree/descriptor';
 import { makeConflictAdapter } from '@/shared/conflicts/field-tree/make-conflict-adapter';
 
 export interface VariableEntity {
   uid: string;
-  variables: V5.Variable[];
+  variables: Variable[];
 }
 
 const VAR_LEAVES = ['name', 'value', 'type'] as const;
@@ -27,9 +27,9 @@ const summarize = (row: { name?: string; value?: string }): string => `${row.nam
 
 const VARIABLE_SCHEMA = obj({
   variables: setByUid({
-    summary: (row) => summarize(row as V5.Variable),
+    summary: (row) => summarize(row as Variable),
     rowLabel: (row) => {
-      const v = row as V5.Variable;
+      const v = row as Variable;
       return v.name ? `Variable ${v.name}` : 'Variable';
     },
     child: obj({

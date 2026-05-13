@@ -1,18 +1,18 @@
 /**
- * Query Param compiler — converts V5.QueryParamRule into a CompilationPlan.
+ * Query Param compiler — converts QueryParamRule into a CompilationPlan.
  *
  * Uses DNR redirect action with transform.queryTransform to add, override,
  * or remove URL query parameters. One DNR rule per domain.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { QueryParamRule } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import type { CompilationPlan, CompilerContext, DnrCondition, DnrRedirect, DnrRule, RuleCompiler } from './types';
 import { ALL_RESOURCE_TYPES, buildDnrCondition, resolveResourceTypes, stripResourceTypeFields } from './types';
 
-export const queryParamCompiler: RuleCompiler<V5.QueryParamRule> = {
+export const queryParamCompiler: RuleCompiler<QueryParamRule> = {
   ruleType: 'query-param',
-  compile(rule: V5.QueryParamRule, ctx: CompilerContext): CompilationPlan {
+  compile(rule: QueryParamRule, ctx: CompilerContext): CompilationPlan {
     const { base, domains, useRegex, urlPattern } = buildDnrCondition(rule.conditions);
     const { action } = rule;
 

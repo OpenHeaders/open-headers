@@ -22,7 +22,7 @@
 
 import { CopyOutlined } from '@ant-design/icons';
 import { generateTotp, totpSecondsRemaining } from '@openheaders/core/totp';
-import type { V5 } from '@openheaders/core/types';
+import type { TotpAlgorithm } from '@openheaders/core/types';
 import { App, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
@@ -31,7 +31,7 @@ const { Text } = Typography;
 
 export interface TotpPreviewProps {
   seed: string;
-  algorithm: V5.TotpAlgorithm;
+  algorithm: TotpAlgorithm;
   digits: number;
   period: number;
   /** `compact` shrinks the code + ring + drops the copy button. */

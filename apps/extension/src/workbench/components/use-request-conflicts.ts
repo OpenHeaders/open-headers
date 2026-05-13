@@ -5,7 +5,7 @@
  */
 
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Request } from '@openheaders/core/types';
 import {
   type EntityConflictsApi,
   useEntityConflicts,
@@ -13,13 +13,13 @@ import {
 import { requestConflictAdapter } from './request-conflict-adapter';
 
 export interface UseRequestConflictsArgs {
-  liveRequest: V5.Request | null | undefined;
+  liveRequest: Request | null | undefined;
   isDirty: boolean;
   enabled: boolean;
 }
 
-export function useRequestConflicts(args: UseRequestConflictsArgs): EntityConflictsApi<V5.Request> {
-  return useEntityConflicts<V5.Request>({
+export function useRequestConflicts(args: UseRequestConflictsArgs): EntityConflictsApi<Request> {
+  return useEntityConflicts<Request>({
     liveEntity: args.liveRequest,
     isDirty: args.isDirty,
     enabled: args.enabled,

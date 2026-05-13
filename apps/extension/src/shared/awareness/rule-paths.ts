@@ -76,7 +76,7 @@ export interface ActionPathsOptions {
    *  Rule, `'formValues'` for Template. */
   actionRoot: string;
   /** Schema key for query params under the action root. `'params'` for
-   *  Rule (matches `action.params` in `V5.QueryParamRule`); `'queryParams'`
+   *  Rule (matches `action.params` in `QueryParamRule`); `'queryParams'`
    *  for Template (matches `formValues.queryParams` per template encoding). */
   queryParamKey: string;
 }

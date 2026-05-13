@@ -1,14 +1,14 @@
 /**
- * Template-folder projection — `V5.Folder ⇄ MutationBatch /
+ * Template-folder projection — `Folder ⇄ MutationBatch /
  * MaterializedEntity` for the template-folder entity type.
  *
  * Mirrors `request-folder-projection.ts`. Folder is its own entity but
  * carries minimal scalar state (`name` + `schemaVersion` + frozen
  * `pathSegment`). Sibling order + parent linkage live on the parent's
  * `folders` set under template-collection / template-folder routing.
- * Path on `V5.Folder` is reconstructed at projection time by walking
+ * Path on `Folder` is reconstructed at projection time by walking
  * the parent chain — `projectTemplateFolder` takes the resolved
- * `parentPath` and produces a `V5.Folder` with the full slug path
+ * `parentPath` and produces a `Folder` with the full slug path
  * legacy consumers expect.
  */
 
@@ -20,7 +20,7 @@ import {
   type MutatorContext,
   TEMPLATE_FOLDER_ENTITY_TYPE,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Folder } from '@openheaders/core/types';
 import { toFolderName } from '@openheaders/core/utils';
 
 function fallbackPathSegment(name: string, uid: string): string {
@@ -28,11 +28,11 @@ function fallbackPathSegment(name: string, uid: string): string {
 }
 
 /**
- * Convert a persisted `V5.Folder` (under template-folder routing) into
+ * Convert a persisted `Folder` (under template-folder routing) into
  * a single-mutation create batch. The parent slot insertion is the
  * caller's responsibility — same contract as the rule-folder seed.
  */
-export function seedTemplateFolder(folder: V5.Folder, ctx: MutatorContext): MutationBatch {
+export function seedTemplateFolder(folder: Folder, ctx: MutatorContext): MutationBatch {
   const pathSegment = lastSegment(folder.path) ?? fallbackPathSegment(folder.name, folder.uid);
   const body: MutationBody = {
     kind: 'create',
@@ -52,7 +52,7 @@ function lastSegment(path: string): string | null {
 
 /**
  * Convert a `MaterializedEntity` (the oracle's per-template-folder
- * snapshot) back into a `V5.Folder`. `parentPath` is the absolute path
+ * snapshot) back into a `Folder`. `parentPath` is the absolute path
  * of the parent (template collection or parent template folder) — the
  * cache's projection layer resolves it via parent-walk before calling
  * here. Returns `null` when the materialized data fails basic shape
@@ -61,7 +61,7 @@ function lastSegment(path: string): string | null {
 export function projectTemplateFolder(
   materialized: MaterializedEntity,
   parentPath: string,
-): V5.Folder | null {
+): Folder | null {
   if (materialized.type !== TEMPLATE_FOLDER_ENTITY_TYPE) return null;
   const data = materialized.data;
   if (!isPlainObject(data)) return null;

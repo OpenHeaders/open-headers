@@ -25,8 +25,7 @@ import { InMemoryMutationLog } from '@/background/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
 import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
 import { seedExtensionWorkspaces } from '@/shared/sync/extension-workspace-projection';
-import type { V5 } from '@openheaders/core/types';
-
+import type { ExtensionWorkspace } from '@openheaders/core/types';
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
 const ctx = (ms: number): MutatorContext => ({
   workspaceId: EXTENSION_WORKSPACE_GLOBAL_SCOPE,
@@ -35,7 +34,7 @@ const ctx = (ms: number): MutatorContext => ({
   deviceId: 'd',
 });
 
-const ws = (overrides: Partial<V5.ExtensionWorkspace> = {}): V5.ExtensionWorkspace => ({
+const ws = (overrides: Partial<ExtensionWorkspace> = {}): ExtensionWorkspace => ({
   schemaVersion: 5,
   id: 'ws-a',
   kind: 'personal',

@@ -24,7 +24,7 @@ import {
   WORKSPACE_VARIABLES_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ID,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Variable, WorkspaceVariables } from '@openheaders/core/types';
 import { App, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -51,9 +51,9 @@ interface WorkspaceVariablesEditorProps {
   registerSaveRef?: (save: () => void) => void;
 }
 
-const EMPTY_VARS: V5.Variable[] = [];
+const EMPTY_VARS: Variable[] = [];
 
-function variablesSignature(vars: readonly V5.Variable[]): string {
+function variablesSignature(vars: readonly Variable[]): string {
   return stableStringify(vars);
 }
 
@@ -63,7 +63,7 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
   const { workspaceVariables } = useWorkspaceVariables();
   const { replaceWorkspaceVariables } = useVariableMutator();
 
-  const [draft, setDraft] = useState<V5.Variable[]>(() => workspaceVariables.variables ?? EMPTY_VARS);
+  const [draft, setDraft] = useState<Variable[]>(() => workspaceVariables.variables ?? EMPTY_VARS);
   const formFingerprint = useMemo(() => variablesSignature(draft), [draft]);
 
   const liveEntity: VariableEntity = useMemo(
@@ -73,9 +73,9 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
 
   // Conflict-baseline ref pattern (canonical recipe).
   const setBaselineRef = useRef<(e: VariableEntity) => void>(() => undefined);
-  const baselineVariablesRef = useRef<readonly V5.Variable[] | null>(null);
+  const baselineVariablesRef = useRef<readonly Variable[] | null>(null);
 
-  const reprime = useReprime<V5.WorkspaceVariables>({
+  const reprime = useReprime<WorkspaceVariables>({
     liveEntity: workspaceVariables,
     scope: { entityType: WORKSPACE_VARIABLES_ENTITY_TYPE, entityId: WORKSPACE_VARIABLES_ID },
     enabled: true,
@@ -167,7 +167,7 @@ const WorkspaceVariablesEditor: React.FC<WorkspaceVariablesEditorProps> = ({ onD
     (text: string) => {
       const parsed = JSON.parse(text);
       if (!Array.isArray(parsed)) throw new Error('Workspace variables must be a JSON array.');
-      setDraft(parsed as V5.Variable[]);
+      setDraft(parsed as Variable[]);
       for (const path of allConflicts.keys()) conflicts.dismiss(path);
     },
     [allConflicts, conflicts, setDraft],

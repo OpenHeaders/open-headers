@@ -1,18 +1,18 @@
 /**
- * Block compiler — converts V5.BlockRule into a CompilationPlan.
+ * Block compiler — converts BlockRule into a CompilationPlan.
  *
  * Chrome's DNR `block` action stops the request entirely (network error).
  * One DNR rule per domain, or one rule if URL/path conditions are used.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { BlockRule } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import type { CompilationPlan, CompilerContext, DnrCondition, DnrRule, RuleCompiler } from './types';
 import { ALL_RESOURCE_TYPES, buildDnrCondition, resolveResourceTypes, stripResourceTypeFields } from './types';
 
-export const blockCompiler: RuleCompiler<V5.BlockRule> = {
+export const blockCompiler: RuleCompiler<BlockRule> = {
   ruleType: 'block',
-  compile(rule: V5.BlockRule, ctx: CompilerContext): CompilationPlan {
+  compile(rule: BlockRule, ctx: CompilerContext): CompilationPlan {
     const { base, domains, useRegex, urlPattern } = buildDnrCondition(rule.conditions);
 
     if (domains.length === 0 && !urlPattern) {

@@ -7,7 +7,7 @@
  */
 
 import { WORKSPACE_VARIABLES_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { WorkspaceVariables } from '@openheaders/core/types';
 import { call } from '@utils/bridge';
 import {
   createSingletonEntityMirror,
@@ -16,7 +16,7 @@ import {
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 
 export interface WorkspaceVariablesMirrorEntry {
-  workspaceVariables: V5.WorkspaceVariables;
+  workspaceVariables: WorkspaceVariables;
   /** Live variable uids. Set member identity is `variable.uid`; this
    *  array is the projected names list. */
   varUids: string[];

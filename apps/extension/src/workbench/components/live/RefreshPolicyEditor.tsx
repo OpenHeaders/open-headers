@@ -6,7 +6,7 @@
  * picks a real source rather than typing stepId/captureName strings.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { RefreshPolicy } from '@openheaders/core/types';
 import { InputNumber, Select, Space, Typography } from 'antd';
 import type React from 'react';
 
@@ -20,7 +20,7 @@ const { Text } = Typography;
  * Labels make the distinction explicit so users pick correctly; the
  * trailing helper text under the row reiterates with an example.
  */
-const KIND_OPTIONS: { value: V5.RefreshPolicy['kind']; label: string }[] = [
+const KIND_OPTIONS: { value: RefreshPolicy['kind']; label: string }[] = [
   { value: 'manual', label: 'Manual only' },
   { value: 'interval', label: 'Fixed interval' },
   { value: 'expires-in', label: 'Expires in N seconds (relative)' },
@@ -34,13 +34,13 @@ interface CaptureTarget {
 }
 
 interface Props {
-  value: V5.RefreshPolicy;
-  onChange: (next: V5.RefreshPolicy) => void;
+  value: RefreshPolicy;
+  onChange: (next: RefreshPolicy) => void;
   availableCaptures: CaptureTarget[];
   disabled?: boolean;
 }
 
-export function defaultPolicyFor(kind: V5.RefreshPolicy['kind'], captures: CaptureTarget[]): V5.RefreshPolicy {
+export function defaultPolicyFor(kind: RefreshPolicy['kind'], captures: CaptureTarget[]): RefreshPolicy {
   switch (kind) {
     case 'interval':
       return { kind: 'interval', seconds: 300 };
@@ -73,7 +73,7 @@ const RefreshPolicyEditor: React.FC<Props> = ({ value, onChange, availableCaptur
           style={{ width: 220 }}
           value={value.kind}
           options={KIND_OPTIONS}
-          onChange={(kind) => onChange(defaultPolicyFor(kind as V5.RefreshPolicy['kind'], availableCaptures))}
+          onChange={(kind) => onChange(defaultPolicyFor(kind as RefreshPolicy['kind'], availableCaptures))}
         />
         {value.kind === 'interval' && (
           <InputNumber

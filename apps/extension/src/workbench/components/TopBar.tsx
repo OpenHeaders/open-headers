@@ -7,7 +7,7 @@
  */
 
 import { LayoutOutlined, ReloadOutlined, SearchOutlined, SettingOutlined, ShareAltOutlined } from '@ant-design/icons';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, Environment, ExtensionWorkspace } from '@openheaders/core/types';
 import { Button, Dropdown, type MenuProps, Space, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
@@ -30,14 +30,14 @@ interface TopBarProps {
   perTab: EditingScopeViewStateApi<WorkbenchViewState>;
   onCommandPalette?: () => void;
   onOpenSettings?: () => void;
-  workspaces: V5.ExtensionWorkspace[];
+  workspaces: ExtensionWorkspace[];
   activeWorkspaceId: string | null;
   onSwitchWorkspace: (id: string, opts?: { makeActive?: boolean }) => void;
   onSetActiveWorkspace: (id: string) => Promise<boolean>;
   onOpenWorkspaceManager: () => void;
   onExportWorkspace: () => void;
   onImportWorkspace: () => void;
-  environments: V5.Environment[];
+  environments: Environment[];
   activeEnvironmentId: string | null;
   onCreateEnvironment: () => void;
   onOpenEnvironment: (uid: string) => void;
@@ -45,7 +45,7 @@ interface TopBarProps {
   onOpenCollectionVariables: () => void;
   onOpenVault: () => void;
   activeCollectionId: string | null;
-  allCollections: V5.Collection[];
+  allCollections: Collection[];
   onSetCollectionPinnedEnvs: (collectionUid: string, pinnedIds: string[], defaultId: string | null) => Promise<boolean>;
 }
 

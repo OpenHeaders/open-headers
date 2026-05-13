@@ -8,7 +8,7 @@
  */
 
 import { initialCircuitSnapshot } from '@openheaders/core/live';
-import type { V5 } from '@openheaders/core/types';
+import type { RefreshPolicy } from '@openheaders/core/types';
 import type { LiveWorkflowRunSnapshot } from '@utils/bridge';
 import { describe, expect, it } from 'vitest';
 import {
@@ -124,7 +124,7 @@ describe('describeRunSchedule', () => {
 
   it('interval policy — says "auto-refresh" instead of "expires"', () => {
     const run = makeRun({ extractedAt: NOW - 60_000, expiresAt: NOW + 240_000 });
-    const policy: V5.RefreshPolicy = { kind: 'interval', seconds: 300 };
+    const policy: RefreshPolicy = { kind: 'interval', seconds: 300 };
     const chunks = describeRunSchedule(run, policy, NOW);
     const labels = chunks.map((c) => c.text);
     expect(labels).toContain('last 1m ago');
@@ -136,7 +136,7 @@ describe('describeRunSchedule', () => {
 
   it('expires-in policy — says "expires" and optionally "auto-refresh" when leadSeconds gap is significant', () => {
     const run = makeRun({ extractedAt: NOW - 60_000, expiresAt: NOW + 600_000 });
-    const policy: V5.RefreshPolicy = {
+    const policy: RefreshPolicy = {
       kind: 'expires-in',
       stepId: 'step1',
       captureName: 'expires_in',
@@ -152,7 +152,7 @@ describe('describeRunSchedule', () => {
 
   it('expires-in policy — suppresses the auto-refresh chunk when leadSeconds gap is < 30s', () => {
     const run = makeRun({ extractedAt: NOW - 60_000, expiresAt: NOW + 60_000 });
-    const policy: V5.RefreshPolicy = {
+    const policy: RefreshPolicy = {
       kind: 'expires-in',
       stepId: 'step1',
       captureName: 'expires_in',
@@ -167,7 +167,7 @@ describe('describeRunSchedule', () => {
 
   it('expires-at policy — treats the captured ms as true expiry', () => {
     const run = makeRun({ extractedAt: NOW - 60_000, expiresAt: NOW + 300_000 });
-    const policy: V5.RefreshPolicy = {
+    const policy: RefreshPolicy = {
       kind: 'expires-at',
       stepId: 'step1',
       captureName: 'exp',
@@ -180,7 +180,7 @@ describe('describeRunSchedule', () => {
 
   it('manual policy — says "manual refresh only"', () => {
     const run = makeRun({ extractedAt: NOW - 60_000, expiresAt: null });
-    const policy: V5.RefreshPolicy = { kind: 'manual' };
+    const policy: RefreshPolicy = { kind: 'manual' };
     const chunks = describeRunSchedule(run, policy, NOW);
     const labels = chunks.map((c) => c.text);
     expect(labels).toEqual(['last 1m ago', 'manual refresh only']);
@@ -188,7 +188,7 @@ describe('describeRunSchedule', () => {
 
   it('past-expired token — flags the expiry chunk with warning tone', () => {
     const run = makeRun({ extractedAt: NOW - 3600_000, expiresAt: NOW - 60_000 });
-    const policy: V5.RefreshPolicy = {
+    const policy: RefreshPolicy = {
       kind: 'expires-in',
       stepId: 'step1',
       captureName: 'expires_in',
@@ -202,7 +202,7 @@ describe('describeRunSchedule', () => {
 
   it('omits the "last ..." chunk when the cache has never been populated', () => {
     const run = makeRun({ extractedAt: 0, expiresAt: null });
-    const policy: V5.RefreshPolicy = { kind: 'interval', seconds: 300 };
+    const policy: RefreshPolicy = { kind: 'interval', seconds: 300 };
     const chunks = describeRunSchedule(run, policy, NOW);
     const labels = chunks.map((c) => c.text);
     expect(labels.some((l) => l.startsWith('last'))).toBe(false);

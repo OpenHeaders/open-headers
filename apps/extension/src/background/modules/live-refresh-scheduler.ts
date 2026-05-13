@@ -50,7 +50,7 @@ import {
   MIN_ALARM_DELAY_MS,
   scanTemplateReferencesMany,
 } from '@openheaders/core/live';
-import type { V5 } from '@openheaders/core/types';
+import type { LiveVariable, LiveWorkflow } from '@openheaders/core/types';
 import { alarms } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { report as reportStatus } from '@/shared/status';
@@ -172,7 +172,7 @@ export interface LiveRefreshAdapter {
    */
   refreshWorkflow(args: {
     workspaceId: string;
-    workflow: V5.LiveWorkflow;
+    workflow: LiveWorkflow;
     environmentId: string | null;
     bypass?: boolean;
   }): Promise<void>;
@@ -200,7 +200,7 @@ export function __setLiveRefreshAdapter(adapter: LiveRefreshAdapter | null): voi
  * but we still want `scheduleLiveWorkflowRefresh` to clear a stale
  * alarm through `cancelLiveWorkflowRefresh`.
  */
-export function canScheduleWorkflow(workflow: V5.LiveWorkflow, boundVariables: V5.LiveVariable[]): boolean {
+export function canScheduleWorkflow(workflow: LiveWorkflow, boundVariables: LiveVariable[]): boolean {
   if (!isWorkflowEffective(workflow)) return false;
   const hasEffectiveBinding = boundVariables.some((v) => isLiveVariableEffective(v));
   if (!hasEffectiveBinding) return false;
@@ -238,8 +238,8 @@ export function toCacheSummary(run: WorkflowRunCache | null | undefined): CacheS
  */
 interface LiveEntry {
   workspaceId: string;
-  workflow: V5.LiveWorkflow;
-  boundVariables: V5.LiveVariable[];
+  workflow: LiveWorkflow;
+  boundVariables: LiveVariable[];
   cache: WorkflowRunCache | null;
   environmentId: string | null;
 }
@@ -623,8 +623,8 @@ const scheduler = new RefreshScheduler(provider, 'LiveScheduler');
 export async function scheduleLiveWorkflowRefresh(
   entry: {
     workspaceId: string;
-    workflow: V5.LiveWorkflow;
-    boundVariables: V5.LiveVariable[];
+    workflow: LiveWorkflow;
+    boundVariables: LiveVariable[];
     cache: WorkflowRunCache | null;
     environmentId: string | null;
   },

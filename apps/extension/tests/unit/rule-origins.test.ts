@@ -1,13 +1,13 @@
 /**
- * Pure unit tests for rule-origins: given a V5.Rule, what origins
+ * Pure unit tests for rule-origins: given a Rule, what origins
  * does it cover and when do we fall back to a broad wipe?
  */
-import type { V5 } from '@openheaders/core/types';
+import type { Rule, RuleCondition } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
 
 import { extractOriginsFromRules, extractRuleOrigins, originsFromUrlFilter } from '@/background/modules/rule-origins';
 
-function rule(conditions: V5.RuleCondition[]): V5.Rule {
+function rule(conditions: RuleCondition[]): Rule {
   return {
     uid: 'r1',
     path: 'rules/test',
@@ -16,7 +16,7 @@ function rule(conditions: V5.RuleCondition[]): V5.Rule {
     enabled: true,
     conditions,
     action: {},
-  } as V5.Rule;
+  } as Rule;
 }
 
 describe('originsFromUrlFilter', () => {

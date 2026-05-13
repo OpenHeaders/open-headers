@@ -75,7 +75,7 @@
  * - V5 has no `allow` action. That arbitration escape-hatch is N/A here.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import type { MatchingRule } from './request-tracker';
 
 /** Action class used for arbitration. One entry per V5 rule type. */
@@ -112,7 +112,7 @@ export interface ShadowAttribution {
  * arbitration order, which matches real-world behavior (they run against
  * a request that survives DNR arbitration).
  */
-const RULE_PRIORITY: Record<V5.Rule['type'], number> = {
+const RULE_PRIORITY: Record<Rule['type'], number> = {
   inject: 2000,
   block: 200,
   redirect: 150,
@@ -123,7 +123,7 @@ const RULE_PRIORITY: Record<V5.Rule['type'], number> = {
   delay: 2,
 };
 
-const RULE_ACTION_CLASS: Record<V5.Rule['type'], ActionClass> = {
+const RULE_ACTION_CLASS: Record<Rule['type'], ActionClass> = {
   inject: 'inject-csp',
   block: 'block',
   redirect: 'redirect',

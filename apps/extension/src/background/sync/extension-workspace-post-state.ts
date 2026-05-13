@@ -3,13 +3,13 @@
  *
  * Thin adapter over `flat-entity-post-state.ts` (singleton variant).
  * Folds the live set at `workspaces` into a sorted
- * `V5.ExtensionWorkspace[]` and reads the `activeId` scalar so renderer
+ * `ExtensionWorkspace[]` and reads the `activeId` scalar so renderer
  * + SW-internal consumers see post-commit state without iterating
  * arrays themselves.
  *
  * Sort order: `liveSetItems` already returns entries sorted by orderKey
  * then itemId (the document store's tie-break). The synthetic
- * `sortIndex` re-emitted on each `V5.ExtensionWorkspace` mirrors the
+ * `sortIndex` re-emitted on each `ExtensionWorkspace` mirrors the
  * projection's sort position so legacy consumers reading `sortIndex`
  * stay byte-stable.
  */
@@ -22,7 +22,7 @@ import {
   EXTENSION_WORKSPACES_SET_PATH,
   type ExtensionWorkspaceSlot,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { makeSingletonEntityProjectors } from './flat-entity-post-state';
 import type { EntityOracle } from './oracle';
 
@@ -37,7 +37,7 @@ const projectors = makeSingletonEntityProjectors<Reads, SyncExtensionWorkspacePo
       EXTENSION_WORKSPACE_ID,
       EXTENSION_WORKSPACES_SET_PATH,
     );
-    const workspaces: V5.ExtensionWorkspace[] = [];
+    const workspaces: ExtensionWorkspace[] = [];
     const orderKeys: Record<string, string> = {};
     let sortIndex = 0;
     for (const entry of entries) {
@@ -68,7 +68,7 @@ const isExtensionWorkspaceSlot = (v: unknown): v is ExtensionWorkspaceSlot => {
   );
 };
 
-function toExtensionWorkspace(slot: ExtensionWorkspaceSlot, sortIndex: number): V5.ExtensionWorkspace {
+function toExtensionWorkspace(slot: ExtensionWorkspaceSlot, sortIndex: number): ExtensionWorkspace {
   return {
     schemaVersion: 5,
     id: slot.id,

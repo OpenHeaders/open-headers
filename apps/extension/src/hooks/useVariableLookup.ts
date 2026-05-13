@@ -16,7 +16,7 @@ import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
 import { useVariableResolver } from '@hooks/useVariableResolver';
-import type { V5 } from '@openheaders/core/types';
+import type { LiveVariable, LiveVariableOverride, Variable, VariableScope, VaultSecret } from '@openheaders/core/types';
 import { parseReference, parseStepRefName, type VariableNamespace } from '@openheaders/core/variables';
 import { useMemo } from 'react';
 import { findCollectionByUid } from '@/shared/variables/collection-scope';
@@ -25,7 +25,7 @@ export type VariableCandidate =
   | {
       scope: 'vault';
       kind: 'string' | 'totp';
-      secret: V5.VaultSecret;
+      secret: VaultSecret;
     }
   | {
       scope: 'environment';
@@ -33,23 +33,23 @@ export type VariableCandidate =
       envName: string;
       isActive: boolean;
       isDefault: boolean;
-      variable: V5.Variable;
+      variable: Variable;
     }
   | {
       scope: 'collection';
       collectionUid: string;
       collectionName: string;
-      variable: V5.Variable;
+      variable: Variable;
     }
   | {
       scope: 'workspace';
-      variable: V5.Variable;
+      variable: Variable;
     }
   | {
       scope: 'live';
-      lv: V5.LiveVariable;
+      lv: LiveVariable;
       cached?: { value: string; stale: boolean; environmentId: string | null };
-      override?: V5.LiveVariableOverride;
+      override?: LiveVariableOverride;
     }
   | {
       scope: 'step';
@@ -73,7 +73,7 @@ export interface VariableLookupResult {
   /** Resolved value the resolver would actually substitute. */
   active: {
     value: string;
-    scope: V5.VariableScope;
+    scope: VariableScope;
     isSensitive: boolean;
     deferred?: boolean;
   } | null;

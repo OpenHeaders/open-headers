@@ -4,10 +4,10 @@
  *
  * Two modes, picked at the call site:
  *   - `mode="variable"` (default) — env / workspace / collection
- *     variables. Row shape is `V5.Variable`; `allowSecrets` toggles
+ *     variables. Row shape is `Variable`; `allowSecrets` toggles
  *     the per-row sensitive marker.
  *   - `mode="vault"`              — vault secrets. Row shape is the
- *     `V5.VaultSecret` discriminated union; the per-row "kind" picker
+ *     `VaultSecret` discriminated union; the per-row "kind" picker
  *     swaps between a literal string value and an RFC 6238 TOTP
  *     entry (seed + algorithm/digits/period + a live countdown +
  *     code preview). All rows are implicitly sensitive — vault is
@@ -35,7 +35,7 @@ import type { DragEndEvent, Modifier } from '@dnd-kit/core';
 import { DndContext } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { V5 } from '@openheaders/core/types';
+import type { TotpAlgorithm, Variable, VaultSecret } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { Collapse, Input, InputNumber, Select, Tooltip, theme } from 'antd';
 import type React from 'react';
@@ -91,22 +91,22 @@ interface LocalRow {
   isPlaceholder: boolean;
   // ── TOTP-only fields (defaulted on insert; ignored when kind='string') ──
   seed: string;
-  algorithm: V5.TotpAlgorithm;
+  algorithm: TotpAlgorithm;
   digits: number;
   period: number;
   issuer?: string;
 }
 
-const TOTP_DEFAULTS = { algorithm: 'SHA1' as V5.TotpAlgorithm, digits: 6, period: 30 };
+const TOTP_DEFAULTS = { algorithm: 'SHA1' as TotpAlgorithm, digits: 6, period: 30 };
 
-const EMPTY_SECRETS: V5.VaultSecret[] = [];
-const EMPTY_VARS: V5.Variable[] = [];
+const EMPTY_SECRETS: VaultSecret[] = [];
+const EMPTY_VARS: Variable[] = [];
 
 type VariableTableProps =
   | {
       mode?: 'variable';
-      variables: V5.Variable[];
-      onChange: (next: V5.Variable[]) => void;
+      variables: Variable[];
+      onChange: (next: Variable[]) => void;
       /** Disallow marking rows as secret (used for the collection-vars
        *  editor — collection vars are synced via Git and never encrypted). */
       allowSecrets?: boolean;
@@ -120,8 +120,8 @@ type VariableTableProps =
     }
   | {
       mode: 'vault';
-      secrets: V5.VaultSecret[];
-      onChange: (next: V5.VaultSecret[]) => void;
+      secrets: VaultSecret[];
+      onChange: (next: VaultSecret[]) => void;
       /** Per-leaf conflict bridge for vault. Path encoding is
        *  `secrets.<uid>.<leaf>` — name + (kind-specific leaves). */
       conflictBridge?: VariableTableConflictBridge;
@@ -155,7 +155,7 @@ function emptyRow(isPlaceholder: boolean): LocalRow {
   };
 }
 
-function variablesToLocal(variables: V5.Variable[]): LocalRow[] {
+function variablesToLocal(variables: Variable[]): LocalRow[] {
   const rows: LocalRow[] = variables.map((v) => ({
     ...emptyRow(false),
     uid: v.uid,
@@ -167,8 +167,8 @@ function variablesToLocal(variables: V5.Variable[]): LocalRow[] {
   return rows;
 }
 
-function variablesFromLocal(rows: LocalRow[]): V5.Variable[] {
-  const out: V5.Variable[] = [];
+function variablesFromLocal(rows: LocalRow[]): Variable[] {
+  const out: Variable[] = [];
   for (const row of rows) {
     if (row.isPlaceholder || !row.name.trim()) continue;
     out.push({
@@ -181,11 +181,11 @@ function variablesFromLocal(rows: LocalRow[]): V5.Variable[] {
   return out;
 }
 
-function variablesFingerprint(vars: V5.Variable[]): string {
+function variablesFingerprint(vars: Variable[]): string {
   return JSON.stringify(vars.map((v) => [v.uid, v.name, v.value, v.type]));
 }
 
-function secretsToLocal(secrets: V5.VaultSecret[]): LocalRow[] {
+function secretsToLocal(secrets: VaultSecret[]): LocalRow[] {
   const rows: LocalRow[] = secrets.map((s) =>
     s.kind === 'totp'
       ? {
@@ -213,8 +213,8 @@ function secretsToLocal(secrets: V5.VaultSecret[]): LocalRow[] {
   return rows;
 }
 
-function secretsFromLocal(rows: LocalRow[]): V5.VaultSecret[] {
-  const out: V5.VaultSecret[] = [];
+function secretsFromLocal(rows: LocalRow[]): VaultSecret[] {
+  const out: VaultSecret[] = [];
   for (const row of rows) {
     if (row.isPlaceholder || !row.name.trim()) continue;
     const name = row.name.trim();
@@ -236,7 +236,7 @@ function secretsFromLocal(rows: LocalRow[]): V5.VaultSecret[] {
   return out;
 }
 
-function secretsFingerprint(secrets: V5.VaultSecret[]): string {
+function secretsFingerprint(secrets: VaultSecret[]): string {
   return JSON.stringify(
     secrets.map((s) =>
       s.kind === 'totp'
@@ -679,8 +679,8 @@ const VariableTable: React.FC<VariableTableProps> = (props) => {
   // discriminated-union narrowing pitfall when reading `props.X`
   // inside callbacks that outlive the render.
   const isVaultMode = props.mode === 'vault';
-  const sourceSecrets: V5.VaultSecret[] = isVaultMode ? props.secrets : EMPTY_SECRETS;
-  const sourceVariables: V5.Variable[] = isVaultMode ? EMPTY_VARS : props.variables;
+  const sourceSecrets: VaultSecret[] = isVaultMode ? props.secrets : EMPTY_SECRETS;
+  const sourceVariables: Variable[] = isVaultMode ? EMPTY_VARS : props.variables;
   const onChangeRef = useRef(props.onChange);
   onChangeRef.current = props.onChange;
 
@@ -712,11 +712,11 @@ const VariableTable: React.FC<VariableTableProps> = (props) => {
       if (isVaultMode) {
         const next = secretsFromLocal(nextRows);
         lastExternalFp.current = secretsFingerprint(next);
-        (onChangeRef.current as (n: V5.VaultSecret[]) => void)(next);
+        (onChangeRef.current as (n: VaultSecret[]) => void)(next);
       } else {
         const next = variablesFromLocal(nextRows);
         lastExternalFp.current = variablesFingerprint(next);
-        (onChangeRef.current as (n: V5.Variable[]) => void)(next);
+        (onChangeRef.current as (n: Variable[]) => void)(next);
       }
     },
     [isVaultMode],

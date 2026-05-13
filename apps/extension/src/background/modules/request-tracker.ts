@@ -9,7 +9,7 @@
  * rule-store view until the first DNR compile populates the snapshot.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { HeaderOperation, HeaderRule, Rule } from '@openheaders/core/types';
 import {
   doesUrlMatchEntry as coreDoesUrlMatchEntry,
   getActionDetail,
@@ -28,7 +28,7 @@ import { getResolvedRules, getUnresolvableRuleUids } from './variables-resolver'
  *  raw rule-store view before the first compile has populated the
  *  resolver snapshot. Every call site in this file that matches URL
  *  patterns goes through this helper. */
-function getRules(): V5.Rule[] {
+function getRules(): Rule[] {
   const resolved = getResolvedRules();
   return resolved.length > 0 ? resolved : getRawRules();
 }
@@ -142,7 +142,7 @@ export interface MatchingRuleHeaderOp {
 export interface MatchingRule {
   uid: string;
   name: string;
-  type: V5.Rule['type'];
+  type: Rule['type'];
   pattern: string;
   /**
    * True when the rule has a scriptable channel that *might* emit a fire
@@ -169,7 +169,7 @@ export interface MatchingRule {
  * would strand plain header rules in the fallback buffer and surface them
  * as `matched-fallback` evidence, which is factually wrong.
  */
-function computeDeferred(rule: V5.Rule): boolean {
+function computeDeferred(rule: Rule): boolean {
   switch (rule.type) {
     case 'delay':
     case 'body':
@@ -183,7 +183,7 @@ function computeDeferred(rule: V5.Rule): boolean {
   }
 }
 
-function hasHeaderMergeAction(rule: V5.HeaderRule): boolean {
+function hasHeaderMergeAction(rule: HeaderRule): boolean {
   const req = rule.action.requestHeaders ?? [];
   const res = rule.action.responseHeaders ?? [];
   for (const h of req) if (h.operation === 'merge') return true;
@@ -199,9 +199,9 @@ function hasHeaderMergeAction(rule: V5.HeaderRule): boolean {
  * with no modifications" — callers should treat that the same as a
  * non-header rule for arbitration purposes.
  */
-function extractHeaderOps(rule: V5.HeaderRule): MatchingRuleHeaderOp[] {
+function extractHeaderOps(rule: HeaderRule): MatchingRuleHeaderOp[] {
   const out: MatchingRuleHeaderOp[] = [];
-  const convert = (op: V5.HeaderOperation): MatchingRuleHeaderOp['operation'] => {
+  const convert = (op: HeaderOperation): MatchingRuleHeaderOp['operation'] => {
     if (op === 'override') return 'set';
     if (op === 'add') return 'append';
     return op; // 'remove' | 'merge'

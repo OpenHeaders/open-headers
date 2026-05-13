@@ -41,7 +41,7 @@ import { type RuleMutationResult, useRuleMutator } from '@hooks/useRuleMutator';
 import { useRules } from '@hooks/useRules';
 import { useLiveRule } from '@/context/rule-sync-mirror';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { HeaderModification, HeaderOperation, HeaderRule, Rule } from '@openheaders/core/types';
 import { getHeaderOperationCapability, validateHeaderName, validateHeaderValue } from '@openheaders/core/utils';
 import { App, Button, Select, Tag, Tooltip, theme } from 'antd';
 import type { GlobalToken } from 'antd/es/theme/interface';
@@ -78,14 +78,14 @@ import { ResolvedHeaderValue } from './ResolvedHeaderValue';
 export interface RuleHoverPopoverTarget {
   direction: 'request' | 'response';
   headerName: string;
-  operation: V5.HeaderOperation;
+  operation: HeaderOperation;
 }
 
 export interface RuleHoverPopoverProps {
   anchorEl: HTMLElement;
   /** Live rule for editing. Null when the rule was deleted since the
    *  fire — the popover still renders the snapshot from `attribution`. */
-  rule: V5.Rule | null;
+  rule: Rule | null;
   target?: RuleHoverPopoverTarget;
   /** Row attribution carrying the snapshot block's data. Optional only
    *  for non-header rule activity (Matched Rules panel) where the
@@ -113,7 +113,7 @@ export interface RuleHoverPopoverProps {
 
 const POPOVER_WIDTH = 480;
 
-const OPERATION_OPTIONS: { value: V5.HeaderOperation; label: string }[] = [
+const OPERATION_OPTIONS: { value: HeaderOperation; label: string }[] = [
   // Mirror the workbench HeaderRuleFields labels so the popover and the
   // full editor agree on what each op is called.
   { value: 'override', label: 'Add / Replace' },
@@ -122,7 +122,7 @@ const OPERATION_OPTIONS: { value: V5.HeaderOperation; label: string }[] = [
   { value: 'merge', label: 'Merge' },
 ];
 
-const RULE_TYPE_LABEL: Record<V5.Rule['type'], string> = {
+const RULE_TYPE_LABEL: Record<Rule['type'], string> = {
   header: 'Header',
   redirect: 'Redirect',
   block: 'Block',
@@ -134,7 +134,7 @@ const RULE_TYPE_LABEL: Record<V5.Rule['type'], string> = {
 };
 
 interface ModDraft {
-  operation: V5.HeaderOperation;
+  operation: HeaderOperation;
   headerName: string;
   value: string;
   mergeSeparator?: string;
@@ -273,8 +273,8 @@ type FutureKind =
 
 function computeFutureKind(
   applicability: RuleApplicability | null,
-  liveRule: V5.Rule | null,
-  currentMod: V5.HeaderModification | null,
+  liveRule: Rule | null,
+  currentMod: HeaderModification | null,
   mod: RuleSnapshotHeaderMod,
   currentResolvedValue: string | null,
 ): FutureKind {
@@ -385,7 +385,7 @@ export function RuleHoverPopover({
   const ruleType = liveRule?.type ?? ctx?.ruleType ?? 'header';
   const ruleName = liveRule?.name ?? ctx?.ruleName ?? '';
   const isHeader = ruleType === 'header' && !!target;
-  const headerRule = isHeader && liveRule?.type === 'header' ? (liveRule as V5.HeaderRule) : null;
+  const headerRule = isHeader && liveRule?.type === 'header' ? (liveRule as HeaderRule) : null;
 
   // Locate the live mod via the shared `findCurrentMod` helper. Pure,
   // reactive against `liveRule` — when another surface commits a new
@@ -393,7 +393,7 @@ export function RuleHoverPopover({
   // effect catches up the form. Falls back to direction+name+operation
   // when the row was opened without an attribution context (legacy
   // hover paths).
-  const currentMod = useMemo<V5.HeaderModification | null>(() => {
+  const currentMod = useMemo<HeaderModification | null>(() => {
     if (ctx) return findCurrentMod(liveRule, ctx);
     return findFallbackMod(headerRule, target);
   }, [liveRule, ctx, headerRule, target]);
@@ -584,7 +584,7 @@ export function RuleHoverPopover({
               mergeSeparator: live.mergeSeparator,
             }
           : { uid, operation: live.operation, headerName: live.headerName, value: live.value };
-      const updates: Partial<V5.HeaderRule> = {
+      const updates: Partial<HeaderRule> = {
         action: {
           requestHeaders: target.direction === 'request' ? next : headerRule.action.requestHeaders,
           responseHeaders: target.direction === 'response' ? next : headerRule.action.responseHeaders,
@@ -913,7 +913,7 @@ export function RuleHoverPopover({
                 <Button
                   type="link"
                   size="small"
-                  onClick={() => updateDraft({ operation: capability.suggestion as V5.HeaderOperation })}
+                  onClick={() => updateDraft({ operation: capability.suggestion as HeaderOperation })}
                   style={{ padding: '0 0 0 6px', height: 'auto', fontSize: 11 }}
                 >
                   Switch to {capability.suggestion}
@@ -985,10 +985,10 @@ interface SnapshotBlockProps {
   /** Live rule from the renderer mirror — passed in so SnapshotBlock
    *  shows the freshest "future" view without reaching into a stale
    *  attribution-cached field. */
-  liveRule: V5.Rule | null;
+  liveRule: Rule | null;
   /** Live mod (or null if removed) — derived once in the parent via
    *  `findCurrentMod(liveRule, ctx)`. */
-  currentMod: V5.HeaderModification | null;
+  currentMod: HeaderModification | null;
   /** Whether the live rule diverges from the snapshot — derived once
    *  in the parent via `isAttributionEdited(liveRule, ctx)`. */
   ruleEdited: boolean;
@@ -1320,9 +1320,9 @@ function SiblingModRow({ mod, token }: { mod: RuleSnapshotHeaderMod; token: Glob
  * a current mod by direction + name + operation.
  */
 function findFallbackMod(
-  rule: V5.HeaderRule | null,
+  rule: HeaderRule | null,
   target: RuleHoverPopoverTarget | undefined,
-): V5.HeaderModification | null {
+): HeaderModification | null {
   if (!rule || !target) return null;
   const list = target.direction === 'request' ? rule.action.requestHeaders : rule.action.responseHeaders;
   const lower = target.headerName.toLowerCase();

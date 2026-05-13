@@ -3,7 +3,7 @@
  *
  * Contract:
  *   - `computeRuleLiveBypass(rule)` walks every templatable string in a
- *     V5.Rule, finds `{{live.X}}` references, and returns the set of
+ *     Rule, finds `{{live.X}}` references, and returns the set of
  *     workflow uids those LVs bind to. Disabled LVs don't contribute.
  *   - `attachLiveBypassExclusion(condition, workflowUids, opts)` appends
  *     the extension's runtime id to `excludedInitiatorDomains` when the
@@ -25,7 +25,7 @@
  * without a rule-walk refactor.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { HeaderRule, LiveVariable, Rule } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@utils/logger', () => ({
@@ -39,7 +39,7 @@ import { computeRuleLiveBypass, __resetForTests as resetResolver } from '@/backg
 import * as workspaceStore from '@/background/modules/workspace-store';
 import { __initSyncServiceForTests, dispose as disposeSyncService } from '@/background/sync/service';
 
-const LV_A: V5.LiveVariable = {
+const LV_A: LiveVariable = {
   schemaVersion: 5,
   uid: 'lvaaaaa1',
   path: 'live-variables/a',
@@ -51,7 +51,7 @@ const LV_A: V5.LiveVariable = {
   published: true,
 };
 
-const LV_B_DISABLED: V5.LiveVariable = {
+const LV_B_DISABLED: LiveVariable = {
   schemaVersion: 5,
   uid: 'lvbbbbb1',
   path: 'live-variables/b',
@@ -63,7 +63,7 @@ const LV_B_DISABLED: V5.LiveVariable = {
   published: true,
 };
 
-function makeHeaderRule(value: string): V5.HeaderRule {
+function makeHeaderRule(value: string): HeaderRule {
   return {
     schemaVersion: 5,
     uid: 'hr000001',

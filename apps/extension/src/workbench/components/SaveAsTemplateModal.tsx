@@ -6,7 +6,7 @@
  */
 
 import { useRules } from '@hooks/useRules';
-import type { V5 } from '@openheaders/core/types';
+import type { RuleCondition, RuleType, Template } from '@openheaders/core/types';
 import { Checkbox, Input, Modal, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
@@ -30,10 +30,10 @@ const RULE_TYPE_LABEL: Record<string, string> = {
 interface SaveAsTemplateModalProps {
   open: boolean;
   ruleType: string;
-  conditions: V5.RuleCondition[];
+  conditions: RuleCondition[];
   formValues: Record<string, unknown>;
   onCancel: () => void;
-  onSaved?: (template: V5.Template) => void;
+  onSaved?: (template: Template) => void;
 }
 
 const SaveAsTemplateModal: React.FC<SaveAsTemplateModalProps> = ({
@@ -78,9 +78,9 @@ const SaveAsTemplateModal: React.FC<SaveAsTemplateModalProps> = ({
 
   const handleCollectionSave = useCallback(
     async (params: { name: string; collectionId: string; folderPath?: string }) => {
-      const templateData: Omit<V5.Template, 'uid' | 'path' | 'schemaVersion' | 'version'> = {
+      const templateData: Omit<Template, 'uid' | 'path' | 'schemaVersion' | 'version'> = {
         name: params.name,
-        ruleType: ruleType as V5.RuleType,
+        ruleType: ruleType as RuleType,
         icon: icon || getDefaultIconForType(ruleType),
         description,
         includes: { conditions: includeConditions, formValues: includeFormValues },

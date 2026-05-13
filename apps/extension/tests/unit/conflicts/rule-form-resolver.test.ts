@@ -8,7 +8,7 @@
  * mutating the form.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import type { FormInstance } from 'antd';
 import { describe, expect, it, vi } from 'vitest';
 import { applyResolutionToForm, applyResolutionToRule } from '@/workbench/components/rule-fields/rule-form-resolver';
@@ -23,7 +23,7 @@ function makeForm(): FormInstance {
   return fake;
 }
 
-const RULE_HEADER: V5.Rule = {
+const RULE_HEADER: Rule = {
   uid: 'r-1',
   path: 'rules/r-1.yaml',
   name: 'h',
@@ -35,9 +35,9 @@ const RULE_HEADER: V5.Rule = {
     requestHeaders: [{ uid: 'aaaaaaaa', operation: 'override', headerName: 'X-A', value: 'v0' }],
     responseHeaders: [{ uid: 'cccccccc', operation: 'override', headerName: 'X-R', value: 'v1' }],
   },
-} as unknown as V5.Rule;
+} as unknown as Rule;
 
-const RULE_REDIRECT: V5.Rule = {
+const RULE_REDIRECT: Rule = {
   uid: 'r-2',
   path: 'rules/r-2.yaml',
   name: 'r',
@@ -46,7 +46,7 @@ const RULE_REDIRECT: V5.Rule = {
   schemaVersion: 5,
   conditions: [],
   action: { redirectTo: 'https://openheaders.io/old' },
-} as unknown as V5.Rule;
+} as unknown as Rule;
 
 function leafConflict(theirs: string): import('@/shared/conflicts/types').PathConflict {
   return { kind: 'leaf', base: '(prev)', theirs };
@@ -109,7 +109,7 @@ describe('applyResolutionToForm', () => {
   });
 
   it('returns false for mock Record-keyed responseHeaders (out of scope)', () => {
-    const mockRule = { ...RULE_HEADER, type: 'mock', action: { responseHeaders: { 'X-A': 'v' } } } as unknown as V5.Rule;
+    const mockRule = { ...RULE_HEADER, type: 'mock', action: { responseHeaders: { 'X-A': 'v' } } } as unknown as Rule;
     const form = makeForm();
     expect(applyResolutionToForm(form, mockRule, 'action.responseHeaders.X-A.value', leafConflict('x'))).toBe(false);
   });
@@ -218,7 +218,7 @@ describe('applyResolutionToForm', () => {
 
 describe('applyResolutionToRule', () => {
   it('mutates header-row leaf in place', () => {
-    const rule = JSON.parse(JSON.stringify(RULE_HEADER)) as V5.Rule;
+    const rule = JSON.parse(JSON.stringify(RULE_HEADER)) as Rule;
     const ok = applyResolutionToRule(rule, 'action.requestHeaders.aaaaaaaa.value', leafConflict('v-saved'));
     expect(ok).toBe(true);
     if (rule.type !== 'header') throw new Error('expected header');
@@ -226,7 +226,7 @@ describe('applyResolutionToRule', () => {
   });
 
   it('mutates top-level scalar', () => {
-    const rule = JSON.parse(JSON.stringify(RULE_REDIRECT)) as V5.Rule;
+    const rule = JSON.parse(JSON.stringify(RULE_REDIRECT)) as Rule;
     const ok = applyResolutionToRule(rule, 'action.redirectTo', leafConflict('https://openheaders.io/new'));
     expect(ok).toBe(true);
     if (rule.type !== 'redirect') throw new Error('expected redirect');
@@ -234,19 +234,19 @@ describe('applyResolutionToRule', () => {
   });
 
   it('mutates rule.name', () => {
-    const rule = JSON.parse(JSON.stringify(RULE_HEADER)) as V5.Rule;
+    const rule = JSON.parse(JSON.stringify(RULE_HEADER)) as Rule;
     const ok = applyResolutionToRule(rule, 'name', leafConflict('renamed'));
     expect(ok).toBe(true);
     expect(rule.name).toBe('renamed');
   });
 
   it('returns false for unknown rows', () => {
-    const rule = JSON.parse(JSON.stringify(RULE_HEADER)) as V5.Rule;
+    const rule = JSON.parse(JSON.stringify(RULE_HEADER)) as Rule;
     expect(applyResolutionToRule(rule, 'action.requestHeaders.deadbeef.value', leafConflict('x'))).toBe(false);
   });
 
   it('set-add inserts the row into the rule array', () => {
-    const rule = JSON.parse(JSON.stringify(RULE_HEADER)) as V5.Rule;
+    const rule = JSON.parse(JSON.stringify(RULE_HEADER)) as Rule;
     if (rule.type !== 'header') throw new Error('expected header');
     const newRow = { uid: 'newrow12', operation: 'override', headerName: 'X-B', value: '7' };
     const ok = applyResolutionToRule(rule, 'set:action.requestHeaders.newrow12', {
@@ -260,7 +260,7 @@ describe('applyResolutionToRule', () => {
   });
 
   it('set-remove drops the row from the rule array', () => {
-    const rule = JSON.parse(JSON.stringify(RULE_HEADER)) as V5.Rule;
+    const rule = JSON.parse(JSON.stringify(RULE_HEADER)) as Rule;
     if (rule.type !== 'header') throw new Error('expected header');
     const ok = applyResolutionToRule(rule, 'set:action.requestHeaders.aaaaaaaa', {
       kind: 'set-remove',

@@ -21,7 +21,7 @@ import {
   EXTENSION_WORKSPACE_ENTITY_TYPE,
   EXTENSION_WORKSPACE_GLOBAL_SCOPE,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { call } from '@utils/bridge';
 import {
   createSingletonEntityMirror,
@@ -29,7 +29,7 @@ import {
 } from './singleton-entity-mirror';
 
 export interface ExtensionWorkspaceMirrorEntry {
-  workspaces: V5.ExtensionWorkspace[];
+  workspaces: ExtensionWorkspace[];
   activeWorkspaceId: string | null;
   /** Per-id fractional-indexing key. Absent ids inherit a fresh tail key. */
   orderKeys: Record<string, string>;
@@ -40,7 +40,7 @@ export type ExtensionWorkspaceMirrorListener = () => void;
 export interface ExtensionWorkspaceSyncMirror {
   getMirror(): ExtensionWorkspaceMirrorEntry | null;
   /** Convenience reader — empty list when the mirror hasn't bootstrapped. */
-  liveWorkspaces(): V5.ExtensionWorkspace[];
+  liveWorkspaces(): ExtensionWorkspace[];
   /** Convenience reader — `null` until bootstrap completes. */
   liveActiveWorkspaceId(): string | null;
   /** Lookup the live order key for a given workspace id, or `undefined`. */

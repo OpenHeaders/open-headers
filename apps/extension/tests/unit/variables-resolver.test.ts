@@ -1,27 +1,27 @@
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, Environment, HeaderRule, LiveVariable, Rule, Variable, Vault, WorkspaceVariables } from '@openheaders/core/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/background/modules/environment-store', () => {
   return {
-    getEnvironments: vi.fn(() => [] as V5.Environment[]),
+    getEnvironments: vi.fn(() => [] as Environment[]),
     getActiveEnvironmentId: vi.fn(() => null as string | null),
     getDefaultEnvironmentId: vi.fn(() => null as string | null),
-    getWorkspaceVariables: vi.fn(() => ({ schemaVersion: 5, variables: [] }) as V5.WorkspaceVariables),
-    getVault: vi.fn(() => ({ schemaVersion: 5, secrets: [] }) as V5.Vault),
+    getWorkspaceVariables: vi.fn(() => ({ schemaVersion: 5, variables: [] }) as WorkspaceVariables),
+    getVault: vi.fn(() => ({ schemaVersion: 5, secrets: [] }) as Vault),
   };
 });
 
 vi.mock('@/background/modules/rule-store', () => {
   return {
-    getCollections: vi.fn(() => [] as V5.Collection[]),
-    getRules: vi.fn(() => [] as V5.Rule[]),
+    getCollections: vi.fn(() => [] as Collection[]),
+    getRules: vi.fn(() => [] as Rule[]),
   };
 });
 
 // Live stores — mocked so the LiveRegistry-building path in
 // `variables-resolver` has deterministic inputs.
 vi.mock('@/background/modules/live-variable-store', () => ({
-  getLiveVariables: vi.fn(() => [] as V5.LiveVariable[]),
+  getLiveVariables: vi.fn(() => [] as LiveVariable[]),
   onLiveVariableStoreChange: vi.fn(() => () => {}),
 }));
 vi.mock('@/background/modules/live-cache-store', () => ({
@@ -53,7 +53,7 @@ const mockStoreRules = getRules as ReturnType<typeof vi.fn>;
 
 // ── Helpers ────────────────────────────────────────────────────────
 
-function makeHeaderRule(overrides: Partial<V5.HeaderRule> & { path: string; uid: string }): V5.HeaderRule {
+function makeHeaderRule(overrides: Partial<HeaderRule> & { path: string; uid: string }): HeaderRule {
   return {
     schemaVersion: 5,
     name: 'R',
@@ -65,10 +65,10 @@ function makeHeaderRule(overrides: Partial<V5.HeaderRule> & { path: string; uid:
       responseHeaders: [],
     },
     ...overrides,
-  } as V5.HeaderRule;
+  } as HeaderRule;
 }
 
-function env(name: string, variables: V5.Variable[], uid = `e-${name}`): V5.Environment {
+function env(name: string, variables: Variable[], uid = `e-${name}`): Environment {
   return { schemaVersion: 5, uid, name, variables };
 }
 
@@ -93,7 +93,7 @@ describe('VariablesResolver (extension)', () => {
     });
 
     const rule = makeHeaderRule({ uid: 'r1', path: 'rules/my-coll-abcd/r1' });
-    const [resolved] = resolveRulesForCompile([rule]) as V5.HeaderRule[];
+    const [resolved] = resolveRulesForCompile([rule]) as HeaderRule[];
 
     expect(resolved.action.requestHeaders?.[0].value).toBe('Bearer ws-token');
   });
@@ -110,7 +110,7 @@ describe('VariablesResolver (extension)', () => {
     mockActiveEnvId.mockReturnValue('e-staging');
 
     const rule = makeHeaderRule({ uid: 'r1', path: 'rules/my-coll-abcd/r1' });
-    const [resolved] = resolveRulesForCompile([rule]) as V5.HeaderRule[];
+    const [resolved] = resolveRulesForCompile([rule]) as HeaderRule[];
 
     expect(resolved.action.requestHeaders?.[0].value).toBe('Bearer staging-token');
   });
@@ -125,13 +125,13 @@ describe('VariablesResolver (extension)', () => {
     });
 
     const rule = makeHeaderRule({ uid: 'r1', path: 'rules/my-coll-abcd/r1' });
-    const [resolved] = resolveRulesForCompile([rule]) as V5.HeaderRule[];
+    const [resolved] = resolveRulesForCompile([rule]) as HeaderRule[];
 
     expect(resolved.action.requestHeaders?.[0].value).toBe('Bearer vault-token');
   });
 
   it('resolves collection-scoped variables for rules inside that collection', () => {
-    const collection: V5.Collection = {
+    const collection: Collection = {
       schemaVersion: 5,
       uid: 'c-1',
       path: 'rules/my-coll-abcd',
@@ -148,13 +148,13 @@ describe('VariablesResolver (extension)', () => {
     });
 
     const rule = makeHeaderRule({ uid: 'r1', path: 'rules/my-coll-abcd/r1' });
-    const [resolved] = resolveRulesForCompile([rule]) as V5.HeaderRule[];
+    const [resolved] = resolveRulesForCompile([rule]) as HeaderRule[];
 
     expect(resolved.action.requestHeaders?.[0].value).toBe('Bearer coll-token');
   });
 
   it('falls back to workspace scope for rules outside any collection', () => {
-    const collection: V5.Collection = {
+    const collection: Collection = {
       schemaVersion: 5,
       uid: 'c-1',
       path: 'rules/my-coll-abcd',
@@ -171,7 +171,7 @@ describe('VariablesResolver (extension)', () => {
     });
 
     const orphan = makeHeaderRule({ uid: 'r1', path: 'rules/other-coll-wxyz/r1' });
-    const [resolved] = resolveRulesForCompile([orphan]) as V5.HeaderRule[];
+    const [resolved] = resolveRulesForCompile([orphan]) as HeaderRule[];
 
     expect(resolved.action.requestHeaders?.[0].value).toBe('Bearer ws-token');
   });
@@ -188,14 +188,14 @@ describe('VariablesResolver (extension)', () => {
     });
 
     const rule = makeHeaderRule({ uid: 'r1', path: 'rules/my-coll-abcd/r1' });
-    const [resolved] = resolveRulesForCompile([rule]) as V5.HeaderRule[];
+    const [resolved] = resolveRulesForCompile([rule]) as HeaderRule[];
 
     expect(resolved.action.requestHeaders?.[0].value).toBe('Bearer ws-token');
   });
 
   it('leaves unresolved variables as-is', () => {
     const rule = makeHeaderRule({ uid: 'r1', path: 'rules/my-coll-abcd/r1' });
-    const [resolved] = resolveRulesForCompile([rule]) as V5.HeaderRule[];
+    const [resolved] = resolveRulesForCompile([rule]) as HeaderRule[];
 
     expect(resolved.action.requestHeaders?.[0].value).toBe('Bearer {{TOKEN}}');
   });
@@ -222,11 +222,11 @@ describe('VariablesResolver (extension)', () => {
     const rule = makeHeaderRule({ uid: 'r1', path: 'rules/my-coll-abcd/r1' });
 
     mockActiveEnvId.mockReturnValue('e-staging');
-    const [first] = resolveRulesForCompile([rule]) as V5.HeaderRule[];
+    const [first] = resolveRulesForCompile([rule]) as HeaderRule[];
     expect(first.action.requestHeaders?.[0].value).toBe('Bearer staging');
 
     mockActiveEnvId.mockReturnValue('e-prod');
-    const [second] = resolveRulesForCompile([rule]) as V5.HeaderRule[];
+    const [second] = resolveRulesForCompile([rule]) as HeaderRule[];
     expect(second.action.requestHeaders?.[0].value).toBe('Bearer prod');
   });
 

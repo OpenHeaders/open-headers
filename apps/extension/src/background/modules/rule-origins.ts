@@ -1,5 +1,5 @@
 /**
- * Rule origin extraction — pure function from V5.Rule to the set of
+ * Rule origin extraction — pure function from Rule to the set of
  * origins its URL patterns cover.
  *
  * Used by the rule-state observer to compute the scope of cache
@@ -19,7 +19,7 @@
  * a global cache wipe instead of emitting a malformed origin list.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import { getRuleMatchPatterns } from '@openheaders/core/utils';
 
 export interface RuleOriginSet {
@@ -60,7 +60,7 @@ const EMPTY: RuleOriginSet = { origins: [], broad: false };
  *     (anchored regex whose first component is a bare host); anything
  *     more complex sets `broad: true`.
  */
-export function extractRuleOrigins(rule: V5.Rule): RuleOriginSet {
+export function extractRuleOrigins(rule: Rule): RuleOriginSet {
   const patterns = getRuleMatchPatterns(rule);
   if (patterns.length === 0) return EMPTY;
 
@@ -94,7 +94,7 @@ export function extractRuleOrigins(rule: V5.Rule): RuleOriginSet {
  * flagged `broad` makes the whole set broad; the caller should treat
  * that as "wipe the HTTP cache globally."
  */
-export function extractOriginsFromRules(rules: readonly V5.Rule[]): RuleOriginSet {
+export function extractOriginsFromRules(rules: readonly Rule[]): RuleOriginSet {
   const origins = new Set<string>();
   let broad = false;
   for (const rule of rules) {

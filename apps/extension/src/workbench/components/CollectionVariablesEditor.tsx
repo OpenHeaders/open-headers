@@ -28,7 +28,7 @@ import {
   REQUEST_COLLECTION_ENTITY_TYPE,
   TEMPLATE_COLLECTION_ENTITY_TYPE,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, Variable } from '@openheaders/core/types';
 import { App, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -71,9 +71,9 @@ interface CollectionVariablesEditorProps {
   registerSaveRef?: (save: () => void) => void;
 }
 
-const EMPTY_VARS: V5.Variable[] = [];
+const EMPTY_VARS: Variable[] = [];
 
-function variablesSignature(vars: readonly V5.Variable[]): string {
+function variablesSignature(vars: readonly Variable[]): string {
   return stableStringify(vars);
 }
 
@@ -110,7 +110,7 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
     }
   }, [kind, replaceCollectionVariables, replaceRequestCollectionVariables, replaceTemplateCollectionVariables]);
 
-  const [draft, setDraft] = useState<V5.Variable[]>(() => collection?.variables ?? EMPTY_VARS);
+  const [draft, setDraft] = useState<Variable[]>(() => collection?.variables ?? EMPTY_VARS);
   const formFingerprint = useMemo(() => variablesSignature(draft), [draft]);
 
   const entityType = entityTypeFor(kind);
@@ -122,9 +122,9 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
 
   // Conflict-baseline ref pattern (canonical recipe).
   const setBaselineRef = useRef<(e: VariableEntity) => void>(() => undefined);
-  const baselineVariablesRef = useRef<readonly V5.Variable[] | null>(null);
+  const baselineVariablesRef = useRef<readonly Variable[] | null>(null);
 
-  const reprime = useReprime<V5.Collection>({
+  const reprime = useReprime<Collection>({
     liveEntity: collection,
     scope: { entityType, entityId: collectionUid },
     enabled: collection !== null,
@@ -216,7 +216,7 @@ const CollectionVariablesEditor: React.FC<CollectionVariablesEditorProps> = ({
     (text: string) => {
       const parsed = JSON.parse(text);
       if (!Array.isArray(parsed)) throw new Error('Collection variables must be a JSON array.');
-      setDraft(parsed as V5.Variable[]);
+      setDraft(parsed as Variable[]);
       for (const path of allConflicts.keys()) conflicts.dismiss(path);
     },
     [allConflicts, conflicts, setDraft],

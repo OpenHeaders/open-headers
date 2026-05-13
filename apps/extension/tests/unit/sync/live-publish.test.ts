@@ -20,7 +20,7 @@ import {
   LIVE_VARIABLE_ENTITY_TYPE,
   LIVE_WORKFLOW_ENTITY_TYPE,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { LiveVariable, LiveWorkflow } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockCall } = vi.hoisted(() => ({ mockCall: vi.fn() }));
@@ -73,7 +73,7 @@ function makeContextHandle(workspaceId = 'ws-1', surfaceId = 'workbench'): Rende
   };
 }
 
-function makeWorkflowMirror(workflow: V5.LiveWorkflow | null): LiveWorkflowSyncMirror {
+function makeWorkflowMirror(workflow: LiveWorkflow | null): LiveWorkflowSyncMirror {
   return {
     getLiveWorkflowMirror: (uid: string) =>
       workflow && workflow.uid === uid ? { workflow } : null,
@@ -83,7 +83,7 @@ function makeWorkflowMirror(workflow: V5.LiveWorkflow | null): LiveWorkflowSyncM
   } as unknown as LiveWorkflowSyncMirror;
 }
 
-function makeVariableMirror(lv: V5.LiveVariable | null): LiveVariableSyncMirror {
+function makeVariableMirror(lv: LiveVariable | null): LiveVariableSyncMirror {
   return {
     getLiveVariableMirror: (uid: string) =>
       lv && lv.uid === uid ? { liveVariable: lv } : null,
@@ -93,7 +93,7 @@ function makeVariableMirror(lv: V5.LiveVariable | null): LiveVariableSyncMirror 
   } as unknown as LiveVariableSyncMirror;
 }
 
-const baseWorkflow: V5.LiveWorkflow = {
+const baseWorkflow: LiveWorkflow = {
   schemaVersion: 5,
   uid: 'wflow001',
   path: 'live-workflows/demo',
@@ -110,7 +110,7 @@ const baseWorkflow: V5.LiveWorkflow = {
   ],
 };
 
-const baseLv: V5.LiveVariable = {
+const baseLv: LiveVariable = {
   schemaVersion: 5,
   uid: 'lvxxxxx1',
   path: 'live-variables/demo',
@@ -130,7 +130,7 @@ describe('applyLiveWorkflowCreate', () => {
     const result = await applyLiveWorkflowCreate(
       {
         workflow: { ...baseWorkflow, name: 'New', published: true } as Omit<
-          V5.LiveWorkflow,
+          LiveWorkflow,
           'uid' | 'path' | 'schemaVersion'
         >,
         parentPath: 'live-workflows',
@@ -251,7 +251,7 @@ describe('applyLiveVariableCreate', () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const result = await applyLiveVariableCreate(
       {
-        liveVariable: { ...baseLv, published: true } as Omit<V5.LiveVariable, 'uid' | 'path' | 'schemaVersion'>,
+        liveVariable: { ...baseLv, published: true } as Omit<LiveVariable, 'uid' | 'path' | 'schemaVersion'>,
         parentPath: 'live-variables',
       },
       { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle() },

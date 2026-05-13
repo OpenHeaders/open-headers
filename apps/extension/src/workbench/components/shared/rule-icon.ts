@@ -22,7 +22,7 @@ import {
   StopOutlined,
   SwapOutlined,
 } from '@ant-design/icons';
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import { getActionDetail } from '@openheaders/core/utils';
 import { createElement } from 'react';
 
@@ -44,7 +44,7 @@ const YELLOW = 'var(--ant-color-warning, #faad14)';
 interface RuleIconOptions {
   ruleType: string;
   /** Full rule object — used for action details (direction). */
-  rule?: V5.Rule;
+  rule?: Rule;
   /** Whether the rule is active (enabled + complete). */
   isActive: boolean;
   /**

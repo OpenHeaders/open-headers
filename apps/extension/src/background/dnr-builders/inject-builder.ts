@@ -1,5 +1,5 @@
 /**
- * Inject compiler — converts V5.InjectRule into a CompilationPlan.
+ * Inject compiler — converts InjectRule into a CompilationPlan.
  *
  * Inject rules primarily run as a scriptable injection (JS or CSS into the
  * page). When the user enables `bypassCSP`, we additionally emit DNR
@@ -21,13 +21,13 @@
  * view of "every rule that runs something in the page."
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { InjectRule } from '@openheaders/core/types';
 import type { CompilationPlan, CompilerContext, DnrCondition, DnrRule, RuleCompiler } from './types';
 import { ALL_RESOURCE_TYPES, buildDnrCondition, resolveResourceTypes, stripResourceTypeFields } from './types';
 
-export const injectCompiler: RuleCompiler<V5.InjectRule> = {
+export const injectCompiler: RuleCompiler<InjectRule> = {
   ruleType: 'inject',
-  compile(rule: V5.InjectRule, ctx: CompilerContext): CompilationPlan {
+  compile(rule: InjectRule, ctx: CompilerContext): CompilationPlan {
     // Inject rules don't need their code path reflected in the plan —
     // inject-manager hooks webNavigation.onCommitted directly and consumes
     // the rule from the rule store. The only DNR output we generate is

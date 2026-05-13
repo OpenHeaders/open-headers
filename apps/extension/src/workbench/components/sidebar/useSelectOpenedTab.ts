@@ -1,4 +1,4 @@
-import type { V5 } from '@openheaders/core/types';
+import type { TreeNode } from '@openheaders/core/types';
 import { useCallback } from 'react';
 import type { SidebarView } from './types';
 
@@ -41,9 +41,9 @@ function shouldAutoExpandSection(section: string, view: SidebarView): boolean {
 interface UseSelectOpenedTabParams {
   activeTabId?: string | null;
   view: SidebarView;
-  localCollectionTrees: readonly { uid: string; tree: V5.TreeNode[] }[];
-  templateCollectionTrees: readonly { uid: string; tree: V5.TreeNode[] }[];
-  requestCollectionTrees: readonly { uid: string; tree: V5.TreeNode[] }[];
+  localCollectionTrees: readonly { uid: string; tree: TreeNode[] }[];
+  templateCollectionTrees: readonly { uid: string; tree: TreeNode[] }[];
+  requestCollectionTrees: readonly { uid: string; tree: TreeNode[] }[];
   containerRef: React.RefObject<HTMLDivElement | null>;
   setExpandedKeys: React.Dispatch<React.SetStateAction<Set<string>>>;
   setSectionsExpanded: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
@@ -120,7 +120,7 @@ export function useSelectOpenedTab({
       let found: { ancestors: string[] } | null = null;
       for (const col of requestCollectionTrees) {
         const colKey = `req-col-${col.uid}`;
-        const walk = (nodes: V5.TreeNode[], trail: string[]): string[] | null => {
+        const walk = (nodes: TreeNode[], trail: string[]): string[] | null => {
           for (const n of nodes) {
             if (n.type === 'request' && n.uid === targetUid) return trail;
             if (n.type === 'folder') {
@@ -185,7 +185,7 @@ export function useSelectOpenedTab({
     if (!nodeId) return false;
 
     const findAncestors = (
-      trees: readonly { uid: string; tree: V5.TreeNode[] }[],
+      trees: readonly { uid: string; tree: TreeNode[] }[],
       targetUid: string,
       targetType: string,
       colKeyPrefix: string,
@@ -193,7 +193,7 @@ export function useSelectOpenedTab({
     ): { ancestors: string[]; section: 'rules' | 'templates' } | null => {
       for (const col of trees) {
         const colKey = `${colKeyPrefix}${col.uid}`;
-        const walk = (nodes: V5.TreeNode[], trail: string[]): string[] | null => {
+        const walk = (nodes: TreeNode[], trail: string[]): string[] | null => {
           for (const n of nodes) {
             if (n.type === targetType && n.uid === targetUid) return trail;
             if (n.type === 'folder') {

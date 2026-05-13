@@ -24,24 +24,24 @@
  * cleanup remains there.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { CollectionTree, Environment, LiveVariable, LiveWorkflow, Request, Rule, Template, TreeNode } from '@openheaders/core/types';
 import type { WorkbenchTab } from './types';
 
 export interface TabDisplayLookups {
-  rules: readonly V5.Rule[];
-  templates: readonly V5.Template[];
-  environments: readonly V5.Environment[];
-  requests: readonly V5.Request[];
-  localCollectionTrees: readonly V5.CollectionTree[];
-  requestCollectionTrees: readonly V5.CollectionTree[];
-  templateCollectionTrees: readonly V5.CollectionTree[];
-  liveVariables: readonly V5.LiveVariable[];
-  liveWorkflows: readonly V5.LiveWorkflow[];
+  rules: readonly Rule[];
+  templates: readonly Template[];
+  environments: readonly Environment[];
+  requests: readonly Request[];
+  localCollectionTrees: readonly CollectionTree[];
+  requestCollectionTrees: readonly CollectionTree[];
+  templateCollectionTrees: readonly CollectionTree[];
+  liveVariables: readonly LiveVariable[];
+  liveWorkflows: readonly LiveWorkflow[];
 }
 
-function findFolderNameInTrees(trees: readonly V5.CollectionTree[], uid: string): string | null {
+function findFolderNameInTrees(trees: readonly CollectionTree[], uid: string): string | null {
   for (const col of trees) {
-    const stack: V5.TreeNode[] = [...col.tree];
+    const stack: TreeNode[] = [...col.tree];
     while (stack.length > 0) {
       const node = stack.pop()!;
       if (node.type !== 'folder') continue;

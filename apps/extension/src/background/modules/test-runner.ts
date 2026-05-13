@@ -54,7 +54,7 @@
  * `getMatchedRules` call.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import { isRuleComplete, parseTestTargetUrl, resolvePauseState } from '@openheaders/core/utils';
 import { intentToHash } from '@openheaders/core/workspace-intent';
 import { broadcast } from '@utils/bridge';
@@ -112,7 +112,7 @@ interface ActiveRun {
   owner: TestRunOwner;
   scopeLabel: string;
   /** V5 rules snapshotted at run start — the scope under test. */
-  scopeRules: V5.Rule[];
+  scopeRules: Rule[];
   ruleUids: Set<string>;
   /**
    * Rules in the scope that won't actually run during this run — disabled,

@@ -15,7 +15,7 @@
  * `applyWorkspaceVariablesReplacement` diffs two lists by uid.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Variable } from '@openheaders/core/types';
 import {
   applySyncPayload,
   type BaseSyncWriteOptions,
@@ -53,7 +53,7 @@ export interface WorkspaceVariablesWriteOptions extends BaseSyncWriteOptions {
 
 export interface ApplyWorkspaceVarSetInput {
   /** Whole variable record. `variable.uid` is the set-member itemId. */
-  variable: V5.Variable;
+  variable: Variable;
 }
 
 export async function applyWorkspaceVarSet(
@@ -84,13 +84,13 @@ export async function applyWorkspaceVarRemove(
  * diff → empty batch.
  */
 export async function applyWorkspaceVariablesReplacement(
-  newVars: readonly V5.Variable[],
-  oldVars: readonly V5.Variable[],
+  newVars: readonly Variable[],
+  oldVars: readonly Variable[],
   opts: WorkspaceVariablesWriteOptions,
 ): Promise<WorkspaceVariablesSimpleResult> {
-  const oldByUid = new Map<string, V5.Variable>();
+  const oldByUid = new Map<string, Variable>();
   for (const v of oldVars) oldByUid.set(v.uid, v);
-  const newByUid = new Map<string, V5.Variable>();
+  const newByUid = new Map<string, Variable>();
   for (const v of newVars) {
     if (!v.name.trim()) continue;
     newByUid.set(v.uid, v);

@@ -10,7 +10,7 @@
  * (`{ ok: true } | { ok: false; reason: 'not-found' | 'other' }`).
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Variable } from '@openheaders/core/types';
 import { useMemo } from 'react';
 import {
   applyEnvRemoveVar,
@@ -30,15 +30,15 @@ export interface UseEnvironmentMutatorOptions {
 
 export interface UseEnvironmentMutatorApi {
   /** Upsert a variable row — handles add, edit, rename, type-toggle. */
-  setVariable(envId: string, variable: V5.Variable): Promise<EnvSimpleResult>;
+  setVariable(envId: string, variable: Variable): Promise<EnvSimpleResult>;
   /** Remove a variable row by its persisted uid. */
   removeVariable(envId: string, uid: string): Promise<EnvSimpleResult>;
   renameEnvironment(envId: string, name: string): Promise<EnvSimpleResult>;
   /** Replace the full variables list — see `applyEnvVariablesReplacement`. */
   replaceVariables(
     envId: string,
-    newVars: readonly V5.Variable[],
-    oldVars: readonly V5.Variable[],
+    newVars: readonly Variable[],
+    oldVars: readonly Variable[],
   ): Promise<EnvSimpleResult>;
 }
 
@@ -50,7 +50,7 @@ export function useEnvironmentMutator(
   const setVariable = useGuardedMutation(
     workspaceId,
     surfaceId,
-    (writeOpts, envId: string, variable: V5.Variable) =>
+    (writeOpts, envId: string, variable: Variable) =>
       applyEnvSetVar({ envId, variable }, writeOpts),
   );
 
@@ -72,8 +72,8 @@ export function useEnvironmentMutator(
     (
       writeOpts,
       envId: string,
-      newVars: readonly V5.Variable[],
-      oldVars: readonly V5.Variable[],
+      newVars: readonly Variable[],
+      oldVars: readonly Variable[],
     ) => applyEnvVariablesReplacement(envId, newVars, oldVars, writeOpts),
   );
 

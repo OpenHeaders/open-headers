@@ -11,7 +11,7 @@ import {
   REQUEST_ENTITY_TYPE,
   setRequestField,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Request } from '@openheaders/core/types';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@/background/sync/broadcast';
 import { InMemoryMutationLog } from '@/background/sync/mutation-log';
@@ -21,7 +21,7 @@ import { createRequestCache } from '@/background/sync/request-cache';
 
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
 
-const makeRequest = (uid: string, overrides: Partial<V5.Request> = {}): V5.Request =>
+const makeRequest = (uid: string, overrides: Partial<Request> = {}): Request =>
   ({
     schemaVersion: 5,
     uid,
@@ -36,7 +36,7 @@ const makeRequest = (uid: string, overrides: Partial<V5.Request> = {}): V5.Reque
     auth: { type: 'inherit' },
     body: { type: 'none' },
     ...overrides,
-  }) as unknown as V5.Request;
+  }) as unknown as Request;
 
 let hlcCounter = 0;
 const ctxFactory = () => {

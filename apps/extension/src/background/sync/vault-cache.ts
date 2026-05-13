@@ -12,7 +12,7 @@
 
 import { VaultSchema } from '@openheaders/core/schemas';
 import { VAULT_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Vault } from '@openheaders/core/types';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 import { seedVault } from '@/shared/sync/vault-projection';
 import { driftRecorder } from '../modules/storage-drift';
@@ -22,7 +22,7 @@ import { createSingletonEntityCache, type SingletonEntityCache } from './singlet
 import type { SwMutatorContextFactory } from './sw-context';
 import { projectVaultSingleton } from './vault-post-state';
 
-const EMPTY_VAULT: V5.Vault = {
+const EMPTY_VAULT: Vault = {
   schemaVersion: 5,
   secrets: [],
 };
@@ -31,8 +31,8 @@ export type VaultCacheListener = () => void;
 
 export interface VaultCache {
   readonly workspaceId: string;
-  getVault(): V5.Vault;
-  seedFromPersistedVault(vault: V5.Vault): Promise<void>;
+  getVault(): Vault;
+  seedFromPersistedVault(vault: Vault): Promise<void>;
   hydrateFromStorage(): Promise<void>;
   onChange(listener: VaultCacheListener): () => void;
   dispose(): void;
@@ -44,7 +44,7 @@ export function createVaultCache(
   broadcast: InMemoryBroadcast,
   contextFactory: SwMutatorContextFactory,
 ): VaultCache {
-  const core: SingletonEntityCache<V5.Vault, V5.Vault> = createSingletonEntityCache(
+  const core: SingletonEntityCache<Vault, Vault> = createSingletonEntityCache(
     workspaceId,
     oracle,
     broadcast,

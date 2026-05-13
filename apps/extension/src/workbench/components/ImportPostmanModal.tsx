@@ -38,7 +38,7 @@ import {
   parsePostman,
   parsePostmanEnvironment,
 } from '@openheaders/core/import';
-import type { V5 } from '@openheaders/core/types';
+import type { Request, Variable } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { Alert, App as AntApp, Button, Divider, Input, Modal, Space, Tag, Typography, theme } from 'antd';
 import type React from 'react';
@@ -69,12 +69,12 @@ interface ImportPostmanModalProps {
   createRequest: (payload: {
     name: string;
     parentPath: string;
-    seed: Partial<V5.Request>;
+    seed: Partial<Request>;
   }) => Promise<{ uid: string } | null>;
   /**
    * Creates a V5 Environment with the given name + variables.
    */
-  createEnvironment: (payload: { name: string; variables: V5.Variable[] }) => Promise<{ uid: string } | null>;
+  createEnvironment: (payload: { name: string; variables: Variable[] }) => Promise<{ uid: string } | null>;
   findPreviousReport?: (sourceHash: string) => Promise<ImportReport | null>;
 }
 
@@ -210,7 +210,7 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
       for (const { folderPath, request } of result.requests) {
         const key = folderPath.join('/');
         const parentPath = folderPathMap.get(key) ?? coll.path;
-        const seed: Partial<V5.Request> = {
+        const seed: Partial<Request> = {
           method: request.method,
           url: request.url,
           headers: request.headers,
@@ -229,7 +229,7 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
       // 4. Optional environment.
       let environmentUid: string | null = null;
       if (envFile) {
-        const variables: V5.Variable[] = envFile.result.variables.map((v) => ({
+        const variables: Variable[] = envFile.result.variables.map((v) => ({
           uid: generateUid(),
           name: v.name,
           value: v.value,
@@ -298,7 +298,7 @@ const ImportPostmanModal: React.FC<ImportPostmanModalProps> = ({
       <Paragraph type="secondary" style={{ fontSize: 12, marginBottom: 12 }}>
         Import a Postman Collection v2.1 JSON. Folder structure, collection variables, and per-request auth (basic /
         bearer / api-key) are preserved. Scripts, OAuth 2.0, AWS sigv4, and file uploads are tracked as drops until
-        those features land in V5. Optionally attach a Postman environment file to land a matching V5 Environment.
+        those features land in  Optionally attach a Postman environment file to land a matching V5 Environment.
       </Paragraph>
 
       {stage.kind === 'empty' && (

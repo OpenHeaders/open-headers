@@ -11,7 +11,7 @@
  * These tests lock in that contract for every builder so a future change
  * to a single builder can't quietly reintroduce the bug.
  */
-import type { V5 } from '@openheaders/core/types';
+import type { BlockRule, HeaderRule, InjectRule, QueryParamRule, RedirectRule } from '@openheaders/core/types';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@utils/logger', () => ({
@@ -111,7 +111,7 @@ describe('resolveResourceTypes', () => {
 // ── Per-builder regression tests ─────────────────────────────────
 
 describe('blockCompiler resource-type handling', () => {
-  const rule: V5.BlockRule = {
+  const rule: BlockRule = {
     schemaVersion: 5,
     uid: 'b1',
     path: 'rules/block',
@@ -150,7 +150,7 @@ describe('blockCompiler resource-type handling', () => {
 });
 
 describe('redirectCompiler resource-type handling', () => {
-  const rule: V5.RedirectRule = {
+  const rule: RedirectRule = {
     schemaVersion: 5,
     uid: 'r1',
     path: 'rules/redirect',
@@ -175,7 +175,7 @@ describe('redirectCompiler resource-type handling', () => {
 });
 
 describe('queryParamCompiler resource-type handling', () => {
-  const rule: V5.QueryParamRule = {
+  const rule: QueryParamRule = {
     schemaVersion: 5,
     uid: 'q1',
     path: 'rules/qp',
@@ -201,7 +201,7 @@ describe('queryParamCompiler resource-type handling', () => {
 });
 
 describe('injectCompiler resource-type handling', () => {
-  const rule: V5.InjectRule = {
+  const rule: InjectRule = {
     schemaVersion: 5,
     uid: 'i1',
     path: 'rules/inject',
@@ -232,7 +232,7 @@ describe('injectCompiler resource-type handling', () => {
 });
 
 describe('headerCompiler resource-type handling', () => {
-  function makeRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
+  function makeRule(overrides: Partial<HeaderRule> = {}): HeaderRule {
     return {
       schemaVersion: 5,
       uid: 'h1',

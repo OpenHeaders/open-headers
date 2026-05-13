@@ -12,7 +12,7 @@ import {
   setTemplateField,
   TEMPLATE_CONDITIONS_PATH,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Template } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@/background/sync/broadcast';
 import { InMemoryMutationLog } from '@/background/sync/mutation-log';
@@ -33,7 +33,7 @@ const ctx = (ms: number): MutatorContext => ({
   deviceId: 'd',
 });
 
-const makeTemplate = (uid: string): V5.Template =>
+const makeTemplate = (uid: string): Template =>
   ({
     schemaVersion: 5,
     uid,
@@ -47,7 +47,7 @@ const makeTemplate = (uid: string): V5.Template =>
     formValues: {},
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
-  }) as unknown as V5.Template;
+  }) as unknown as Template;
 
 function newOracle(): EntityOracle {
   return new EntityOracle({

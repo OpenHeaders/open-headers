@@ -29,7 +29,7 @@ import { useVariableResolver } from '@hooks/useVariableResolver';
 import { canonicalizeRequest, parseRequest, serializeRequest } from '@openheaders/core/codec/yaml';
 import { freshDocument } from '@openheaders/core/schemas';
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { AuthConfig, CredentialsMode, HttpMethod, QueryParam, Request, RequestBody, RequestHeader } from '@openheaders/core/types';
 import { buildUrlDisplay, isRequestComplete, parseUrlQuery } from '@openheaders/core/utils';
 import { resolveTemplate } from '@openheaders/core/variables';
 import { App, Button, Dropdown, Select, Tabs, Tag, Tooltip, Typography, theme } from 'antd';
@@ -99,7 +99,7 @@ export interface ExtractSeedStep {
   method: string;
 }
 
-const METHOD_OPTIONS: { value: V5.HttpMethod; label: string }[] = [
+const METHOD_OPTIONS: { value: HttpMethod; label: string }[] = [
   { value: 'GET', label: 'GET' },
   { value: 'POST', label: 'POST' },
   { value: 'PUT', label: 'PUT' },
@@ -109,7 +109,7 @@ const METHOD_OPTIONS: { value: V5.HttpMethod; label: string }[] = [
   { value: 'OPTIONS', label: 'OPTIONS' },
 ];
 
-const METHOD_COLORS: Record<V5.HttpMethod, string> = {
+const METHOD_COLORS: Record<HttpMethod, string> = {
   GET: '#61affe',
   POST: '#49cc90',
   PUT: '#fca130',
@@ -122,20 +122,20 @@ const METHOD_COLORS: Record<V5.HttpMethod, string> = {
 // ── Draft shape ───────────────────────────────────────────────────
 
 interface Draft {
-  method: V5.HttpMethod;
+  method: HttpMethod;
   url: string;
   description: string;
   headers: KeyValueRow[];
   params: KeyValueRow[];
-  auth: V5.AuthConfig;
-  body: V5.RequestBody;
-  credentialsMode?: V5.CredentialsMode;
+  auth: AuthConfig;
+  body: RequestBody;
+  credentialsMode?: CredentialsMode;
   followRedirects?: boolean;
   preRequestScript?: string;
   postResponseScript?: string;
 }
 
-function headersFromV5(list: V5.RequestHeader[]): KeyValueRow[] {
+function headersFromV5(list: RequestHeader[]): KeyValueRow[] {
   return list.map((h) =>
     makeKvRow({
       uid: h.uid,
@@ -146,7 +146,7 @@ function headersFromV5(list: V5.RequestHeader[]): KeyValueRow[] {
     }),
   );
 }
-function paramsFromV5(list: V5.QueryParam[]): KeyValueRow[] {
+function paramsFromV5(list: QueryParam[]): KeyValueRow[] {
   return list.map((p) =>
     makeKvRow({
       uid: p.uid,
@@ -158,7 +158,7 @@ function paramsFromV5(list: V5.QueryParam[]): KeyValueRow[] {
     }),
   );
 }
-function rowsToHeaders(rows: KeyValueRow[]): V5.RequestHeader[] {
+function rowsToHeaders(rows: KeyValueRow[]): RequestHeader[] {
   return rows
     .filter((r) => r.key.trim())
     .map((r) => ({
@@ -169,7 +169,7 @@ function rowsToHeaders(rows: KeyValueRow[]): V5.RequestHeader[] {
       enabled: r.enabled,
     }));
 }
-function rowsToParams(rows: KeyValueRow[]): V5.QueryParam[] {
+function rowsToParams(rows: KeyValueRow[]): QueryParam[] {
   return rows
     .filter((r) => r.key.trim())
     .map((r) => ({
@@ -218,7 +218,7 @@ function mergeParamsFromUrl(
   });
 }
 
-function draftFromRequest(req: V5.Request): Draft {
+function draftFromRequest(req: Request): Draft {
   // Split any legacy `?…` suffix off of `req.url` into structured
   // params so the editor's bidirectional URL↔Params sync has a clean
   // base URL to work with. Existing `req.params` entries keep their
@@ -260,13 +260,13 @@ function emptyDraft(): Draft {
  *  source of truth so dirty / save / conflict tracker all agree. */
 function buildRequestUpdates(draft: Draft): {
   description: string | undefined;
-  method: V5.HttpMethod;
+  method: HttpMethod;
   url: string;
-  headers: V5.RequestHeader[];
-  params: V5.QueryParam[];
-  auth: V5.AuthConfig;
-  body: V5.RequestBody;
-  credentialsMode: V5.CredentialsMode | undefined;
+  headers: RequestHeader[];
+  params: QueryParam[];
+  auth: AuthConfig;
+  body: RequestBody;
+  credentialsMode: CredentialsMode | undefined;
   followRedirects: boolean | undefined;
   preRequestScript: string | undefined;
   postResponseScript: string | undefined;
@@ -286,9 +286,9 @@ function buildRequestUpdates(draft: Draft): {
   };
 }
 
-/** Project a live `V5.Request` into the same shape `buildRequestUpdates`
+/** Project a live `Request` into the same shape `buildRequestUpdates`
  *  emits — fingerprint comparison stays apples-to-apples. */
-function canonicalRequestProjection(req: V5.Request): ReturnType<typeof buildRequestUpdates> {
+function canonicalRequestProjection(req: Request): ReturnType<typeof buildRequestUpdates> {
   return buildRequestUpdates(draftFromRequest(req));
 }
 
@@ -322,7 +322,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   const [draft, setDraft] = useState<Draft>(() => emptyDraft());
   const [loading, setLoading] = useState(!isCreateMode);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [liveRequest, setLiveRequest] = useState<V5.Request | null>(null);
+  const [liveRequest, setLiveRequest] = useState<Request | null>(null);
 
   const [sending, setSending] = useState(false);
   const [response, setResponse] = useState<ExecutedRequestSnapshot | null>(null);
@@ -484,13 +484,13 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
 
   // Conflict-baseline ref pattern (canonical recipe — see RuleEditor /
   // EnvironmentEditor / VaultEditor).
-  const setBaselineRef = useRef<(e: V5.Request) => void>(() => undefined);
+  const setBaselineRef = useRef<(e: Request) => void>(() => undefined);
   // Save-time merge baseline: snapshot of the request at the most
   // recent re-prime — feeds `mergeRequestForSave` so the save batch
   // only carries leaves the user actually edited.
-  const baselineRequestRef = useRef<V5.Request | null>(null);
+  const baselineRequestRef = useRef<Request | null>(null);
 
-  const reprime = useReprime<V5.Request>({
+  const reprime = useReprime<Request>({
     liveEntity: liveRequest,
     scope: { entityType: REQUEST_ENTITY_TYPE, entityId: requestUid ?? null },
     enabled: isInitialized && !isCreateMode,
@@ -515,7 +515,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
 
   const formProjection = useMemo(() => {
     if (!liveRequest || !isInitialized) return null;
-    const transient: V5.Request = { ...liveRequest, ...buildRequestUpdates(draft) };
+    const transient: Request = { ...liveRequest, ...buildRequestUpdates(draft) };
     return conflicts.projectEntity(transient);
   }, [draft, liveRequest, isInitialized, conflicts]);
 
@@ -569,7 +569,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   const applyAutoMerge = useCallback(
     (path: string, theirs: string) => {
       if (!liveRequest) return;
-      const merged = JSON.parse(JSON.stringify({ ...liveRequest, ...buildRequestUpdates(draft) })) as V5.Request;
+      const merged = JSON.parse(JSON.stringify({ ...liveRequest, ...buildRequestUpdates(draft) })) as Request;
       if (!requestResolveAdapter.applyResolutionToEntity(merged, path, { base: '', theirs })) return;
       setDraft(draftFromRequest(merged));
     },
@@ -586,9 +586,9 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   // the corresponding draft. One source of truth for the "use saved"
   // affordances and for the dialog's right-pane preview text.
   const projectWithResolutions = useCallback(
-    (resolutions: ReadonlyMap<string, ConflictResolution>): { req: V5.Request; draft: Draft } | null => {
+    (resolutions: ReadonlyMap<string, ConflictResolution>): { req: Request; draft: Draft } | null => {
       if (!liveRequest) return null;
-      const merged = JSON.parse(JSON.stringify({ ...liveRequest, ...buildRequestUpdates(draft) })) as V5.Request;
+      const merged = JSON.parse(JSON.stringify({ ...liveRequest, ...buildRequestUpdates(draft) })) as Request;
       for (const [path, choice] of resolutions) {
         if (choice !== 'theirs') continue;
         const conflict = allConflicts.get(path);
@@ -671,7 +671,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
   // surface owns picks now).
   const mineText = useMemo(() => {
     if (!isConflictDialogOpen || !liveRequest) return '';
-    const merged = { ...liveRequest, ...buildRequestUpdates(draft) } as V5.Request;
+    const merged = { ...liveRequest, ...buildRequestUpdates(draft) } as Request;
     try {
       return serializeRequest(freshDocument(canonicalizeRequest(merged))).requestYaml;
     } catch {
@@ -811,7 +811,7 @@ const RequestEditor: React.FC<RequestEditorProps> = ({
       path = `${parentPath}/draft`;
     }
 
-    const draftRequest: V5.Request = {
+    const draftRequest: Request = {
       schemaVersion: 5,
       uid: summary?.uid ?? 'draft',
       path,

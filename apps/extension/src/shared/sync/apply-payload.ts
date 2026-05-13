@@ -10,7 +10,7 @@
  * every entity, so all three live here.
  *
  * Per-entity `MutationResult` shapes that extend the simple result with
- * an entity-specific success payload (e.g. `{ ok: true, rule: V5.Rule }`)
+ * an entity-specific success payload (e.g. `{ ok: true, rule: Rule }`)
  * stay in their write-client — only the simple ack adapter is shared.
  */
 

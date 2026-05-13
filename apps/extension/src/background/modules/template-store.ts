@@ -23,7 +23,7 @@ import {
   TEMPLATE_FOLDER_ENTITY_TYPE,
   type TemplateFolderParentRef,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, CollectionTree, RuleType, Template, TreeNode } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 import { extensionStorage, wsKeys } from '@/shared/storage';
@@ -59,8 +59,8 @@ import { getActiveWorkspaceId } from './workspace-store';
 
 // ── In-memory state (scoped to active workspace) ────────────────────
 
-let templates: V5.Template[] = [];
-let templateCollections: V5.Collection[] = [];
+let templates: Template[] = [];
+let templateCollections: Collection[] = [];
 let templateFolders: LocalFolder[] = [];
 let loadedWorkspaceId: string | null = null;
 
@@ -80,11 +80,11 @@ function notifyChange(): void {
 
 // ── Reads ───────────────────────────────────────────────────────────
 
-export function getTemplates(): V5.Template[] {
+export function getTemplates(): Template[] {
   return templates;
 }
 
-export function getTemplateCollections(): V5.Collection[] {
+export function getTemplateCollections(): Collection[] {
   return templateCollections;
 }
 
@@ -96,7 +96,7 @@ export function getTemplateCollections(): V5.Collection[] {
  * feed) read through here instead of {@link getTemplateCollections},
  * which is Active-bound by design (renderer/popup).
  */
-export function getTemplateCollectionsForWorkspace(workspaceId: string): V5.Collection[] {
+export function getTemplateCollectionsForWorkspace(workspaceId: string): Collection[] {
   const cache = getCacheForWorkspace<TemplateCollectionCache>(TEMPLATE_COLLECTION_REGISTRATION, workspaceId);
   return cache ? cache.getTemplateCollections() : [];
 }
@@ -105,7 +105,7 @@ export function getTemplateFolders(): LocalFolder[] {
   return templateFolders;
 }
 
-export function getTemplateCollectionTrees(): V5.CollectionTree[] {
+export function getTemplateCollectionTrees(): CollectionTree[] {
   return templateCollections.map((collection) => {
     const tree = buildTreeForParent(TEMPLATE_COLLECTION_ENTITY_TYPE, collection.uid, collection.path);
     return { ...collection, tree };
@@ -123,8 +123,8 @@ function buildTreeForParent(
   parentType: typeof TEMPLATE_COLLECTION_ENTITY_TYPE | typeof TEMPLATE_FOLDER_ENTITY_TYPE,
   parentUid: string,
   parentPath: string,
-): V5.TreeNode[] {
-  const nodes: V5.TreeNode[] = [];
+): TreeNode[] {
+  const nodes: TreeNode[] = [];
 
   const oracle = getOracleForCurrentWorkspace();
   const slots = oracle ? oracle.liveOrderedSetItems(parentType, parentUid, TEMPLATE_FOLDER_CHILDREN_PATH) : [];
@@ -162,7 +162,7 @@ function buildTreeForParent(
       uid: template.uid,
       name: template.name,
       path: template.path,
-      ruleType: template.ruleType as V5.RuleType,
+      ruleType: template.ruleType as RuleType,
       icon: template.icon,
     });
   }
@@ -181,13 +181,13 @@ function assertLoaded(): string {
   return loadedWorkspaceId;
 }
 
-export async function ensureDefaultTemplateCollection(): Promise<V5.Collection> {
+export async function ensureDefaultTemplateCollection(): Promise<Collection> {
   const existing = templateCollections.find((c) => c.name === DEFAULT_COLLECTION_NAME);
   if (existing) return existing;
 
   const uid = generateUid();
   const folderName = toFolderName(DEFAULT_COLLECTION_NAME, uid);
-  const collection: V5.Collection = {
+  const collection: Collection = {
     schemaVersion: 5,
     uid,
     path: `templates/${folderName}`,
@@ -207,10 +207,10 @@ export async function ensureDefaultTemplateCollection(): Promise<V5.Collection> 
   return collection;
 }
 
-export async function createTemplateCollection(name: string): Promise<V5.Collection> {
+export async function createTemplateCollection(name: string): Promise<Collection> {
   const uid = generateUid();
   const folderName = toFolderName(name, uid);
-  const collection: V5.Collection = {
+  const collection: Collection = {
     schemaVersion: 5,
     uid,
     path: `templates/${folderName}`,
@@ -350,13 +350,13 @@ export async function deleteTemplateFolder(uid: string): Promise<boolean> {
 // ── Templates (CRUD) ────────────────────────────────────────────────
 
 export async function addTemplate(
-  template: Omit<V5.Template, 'uid' | 'path' | 'schemaVersion' | 'version'>,
+  template: Omit<Template, 'uid' | 'path' | 'schemaVersion' | 'version'>,
   parentPath: string,
-): Promise<V5.Template> {
+): Promise<Template> {
   const uid = generateUid();
   const folderName = toFolderName(template.name, uid);
   const now = new Date().toISOString();
-  const created: V5.Template = {
+  const created: Template = {
     schemaVersion: 5,
     ...template,
     uid,
@@ -369,9 +369,9 @@ export async function addTemplate(
 }
 
 export async function addTemplateToCollection(
-  template: Omit<V5.Template, 'uid' | 'path' | 'schemaVersion' | 'version'>,
+  template: Omit<Template, 'uid' | 'path' | 'schemaVersion' | 'version'>,
   collectionUid: string,
-): Promise<V5.Template> {
+): Promise<Template> {
   const collection = templateCollections.find((c) => c.uid === collectionUid);
   const parentPath = collection?.path ?? `templates/${collectionUid}`;
   return addTemplate(template, parentPath);
@@ -383,13 +383,13 @@ export async function addTemplateToCollection(
  * versioned compare-and-set.
  */
 export type TemplateWriteResult =
-  | { ok: true; template: V5.Template }
+  | { ok: true; template: Template }
   | { ok: false; reason: 'not-found' }
   | { ok: false; reason: 'other'; message: string };
 
 export async function updateTemplate(
   uid: string,
-  updates: Partial<Omit<V5.Template, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
+  updates: Partial<Omit<Template, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
 ): Promise<TemplateWriteResult> {
   assertLoaded();
   const oracle = getOracleForCurrentWorkspace();
@@ -421,7 +421,7 @@ export async function updateTemplate(
       message: result.failure?.detail ?? 'oracle rejected template batch',
     };
   }
-  return { ok: true, template: { ...existing, ...stamped } as V5.Template };
+  return { ok: true, template: { ...existing, ...stamped } as Template };
 }
 
 export async function deleteTemplate(uid: string): Promise<boolean> {
@@ -502,8 +502,8 @@ async function applyTemplateFolderMutationOrThrow(
 // ── Hydration / workspace switch ────────────────────────────────────
 
 interface WorkspaceSnapshot {
-  templates: V5.Template[];
-  templateCollections: V5.Collection[];
+  templates: Template[];
+  templateCollections: Collection[];
   templateFolders: LocalFolder[];
 }
 

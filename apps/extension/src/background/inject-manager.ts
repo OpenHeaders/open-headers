@@ -17,7 +17,7 @@
 
 declare const browser: typeof chrome | undefined;
 
-import type { V5 } from '@openheaders/core/types';
+import type { BodyRule, DelayRule, HeaderRule, InjectAction, InjectRule, MockRule, Rule } from '@openheaders/core/types';
 import { compileRuleForInjection, doesUrlMatchRule } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 import {
@@ -32,7 +32,7 @@ import { getTestScopeForTab, isRuleUnderTest } from './modules/test-runner';
 const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
 
 /** Rules inject-manager can act on. Header rules are here for their `merge` operations. */
-type ScriptableRule = V5.InjectRule | V5.DelayRule | V5.BodyRule | V5.MockRule | V5.HeaderRule;
+type ScriptableRule = InjectRule | DelayRule | BodyRule | MockRule | HeaderRule;
 
 /** A header merge operation extracted from a HeaderRule. */
 interface HeaderMergeEntry {
@@ -55,7 +55,7 @@ function defaultSeparator(headerName: string): string {
 }
 
 /**
- * Extract the merge operations from a V5.HeaderRule. Returns null if the
+ * Extract the merge operations from a HeaderRule. Returns null if the
  * rule has no merges — caller should skip installing an injection in that
  * case. This lives here (not in the header compiler) because header merge
  * injection is strictly a scriptable concern — inject-manager reads it
@@ -76,7 +76,7 @@ function isMergeModResolvable(m: { headerName: string; value?: string; mergeSepa
   return true;
 }
 
-function extractHeaderMergeEntry(rule: V5.HeaderRule): HeaderMergeEntry | null {
+function extractHeaderMergeEntry(rule: HeaderRule): HeaderMergeEntry | null {
   const requestMerges = (rule.action.requestHeaders ?? [])
     .filter((m) => m.operation === 'merge' && m.headerName?.trim() && m.value?.trim() && isMergeModResolvable(m))
     .map((m) => ({
@@ -106,7 +106,7 @@ export const __testExtractHeaderMergeEntry = extractHeaderMergeEntry;
  * delay, body, mock, header); header-merge entries are derived from header
  * rules internally so dnr-manager doesn't have to know about them.
  */
-export function updateScriptableRules(rules: V5.Rule[]): void {
+export function updateScriptableRules(rules: Rule[]): void {
   const scriptable: ScriptableRule[] = [];
   const headerMerges: HeaderMergeEntry[] = [];
   for (const rule of rules) {
@@ -309,7 +309,7 @@ async function applyInjection(tabId: number, injection: Injection, ruleName: str
   logger.debug('InjectManager', `Injected ${ruleName} (inline) into tab ${tabId}`);
 }
 
-async function injectScript(tabId: number, code: string, position: V5.InjectAction['position']): Promise<void> {
+async function injectScript(tabId: number, code: string, position: InjectAction['position']): Promise<void> {
   const early = position === 'head'; // 'head' = as soon as possible
   await browserAPI.scripting.executeScript({
     target: { tabId },
@@ -326,7 +326,7 @@ async function injectScript(tabId: number, code: string, position: V5.InjectActi
   logger.debug('InjectManager', `Injected script into tab ${tabId} (${position})`);
 }
 
-async function injectCSS(tabId: number, rule: V5.InjectRule): Promise<void> {
+async function injectCSS(tabId: number, rule: InjectRule): Promise<void> {
   await browserAPI.scripting.insertCSS({
     target: { tabId },
     css: rule.action.code,

@@ -30,7 +30,7 @@ import {
 import { horizontalListSortingStrategy, SortableContext, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { isWorkflowComplete, isWorkflowDraft } from '@openheaders/core/live';
-import type { V5 } from '@openheaders/core/types';
+import type { LiveWorkflow, Request, Rule, Template } from '@openheaders/core/types';
 import { isRequestComplete, isRuleComplete, isRuleDraft } from '@openheaders/core/utils';
 import type { InputRef } from 'antd';
 import { Dropdown, Input, Tooltip, theme } from 'antd';
@@ -73,13 +73,13 @@ const EMPTY_SET: ReadonlySet<string> = new Set<string>();
 
 export function tabIcon(
   tab: WorkbenchTab,
-  rules: V5.Rule[],
-  templates: V5.Template[],
+  rules: Rule[],
+  templates: Template[],
   pausedUids: ReadonlySet<string>,
-  requests: V5.Request[] = [],
+  requests: Request[] = [],
   unresolvableRequestUids: ReadonlySet<string> = EMPTY_SET,
   unresolvableRuleUids: ReadonlySet<string> = EMPTY_SET,
-  liveWorkflows: V5.LiveWorkflow[] = [],
+  liveWorkflows: LiveWorkflow[] = [],
   unresolvableWorkflowUids: ReadonlySet<string> = EMPTY_SET,
   options?: {
     /** Drop list-alignment paddings (empty arrow slot on rules, 36px
@@ -199,7 +199,7 @@ const TAB_LABEL_MAX = 20;
  * since last save"). The "what counts as a draft" semantic lives in
  * core's {@link isRuleDraft} so every surface stays in lockstep.
  */
-function isRuleDraftTab(tab: WorkbenchTab, rules: V5.Rule[]): boolean {
+function isRuleDraftTab(tab: WorkbenchTab, rules: Rule[]): boolean {
   if (tab.mode !== 'edit' || !tab.ruleUid) return false;
   const rule = rules.find((r) => r.uid === tab.ruleUid);
   return rule !== undefined && isRuleDraft(rule);
@@ -258,12 +258,12 @@ interface TabBarProps {
   isFocusedLeaf: boolean;
   tabs: WorkbenchTab[];
   activeTabId: string | null;
-  rules: V5.Rule[];
-  templates: V5.Template[];
+  rules: Rule[];
+  templates: Template[];
   /** Persisted API requests — feeds `isRequestComplete` so the tab
    *  method-icon greys out when a saved request is incomplete (mirrors
    *  the rule-draft treatment). */
-  requests: V5.Request[];
+  requests: Request[];
   /** Effective paused uids — drives the yellow tab icon for paused
    *  rules, collection-overviews, and folder-overviews. */
   pausedUids: ReadonlySet<string>;
@@ -276,7 +276,7 @@ interface TabBarProps {
    *  greyed method tag on request tabs. */
   unresolvableRequestUids?: ReadonlySet<string>;
   /** Live workflows — drives state-based icon color on workflow tabs. */
-  liveWorkflows?: V5.LiveWorkflow[];
+  liveWorkflows?: LiveWorkflow[];
   /** Workflow uids whose step requests have unresolved refs. */
   unresolvableWorkflowUids?: ReadonlySet<string>;
   /** Breadcrumb path for a tab (workspace excluded) — drives the hover
@@ -352,13 +352,13 @@ interface TabPillContentProps {
    *  `tabDisplayLabel(tab, lookups)`. Reads here instead of `tab.label`
    *  so a rename in any surface lands without an imperative sync hook. */
   displayLabel: string;
-  rules: V5.Rule[];
-  templates: V5.Template[];
-  requests: V5.Request[];
+  rules: Rule[];
+  templates: Template[];
+  requests: Request[];
   pausedUids: ReadonlySet<string>;
   unresolvableRuleUids: ReadonlySet<string>;
   unresolvableRequestUids: ReadonlySet<string>;
-  liveWorkflows: V5.LiveWorkflow[];
+  liveWorkflows: LiveWorkflow[];
   unresolvableWorkflowUids: ReadonlySet<string>;
   onClose?: (id: string) => void;
   closeIconColor: string;
@@ -453,13 +453,13 @@ function emptyPlaceholderStyle(token: ReturnType<typeof theme.useToken>['token']
 interface CrossLeafInsertionMarkerProps {
   tab: WorkbenchTab;
   displayLabel: string;
-  rules: V5.Rule[];
-  templates: V5.Template[];
-  requests: V5.Request[];
+  rules: Rule[];
+  templates: Template[];
+  requests: Request[];
   pausedUids: ReadonlySet<string>;
   unresolvableRuleUids: ReadonlySet<string>;
   unresolvableRequestUids: ReadonlySet<string>;
-  liveWorkflows: V5.LiveWorkflow[];
+  liveWorkflows: LiveWorkflow[];
   unresolvableWorkflowUids: ReadonlySet<string>;
   token: ReturnType<typeof theme.useToken>['token'];
 }
@@ -507,13 +507,13 @@ interface SortableTabProps {
   tab: WorkbenchTab;
   displayLabel: string;
   isActive: boolean;
-  rules: V5.Rule[];
-  templates: V5.Template[];
-  requests: V5.Request[];
+  rules: Rule[];
+  templates: Template[];
+  requests: Request[];
   pausedUids: ReadonlySet<string>;
   unresolvableRuleUids: ReadonlySet<string>;
   unresolvableRequestUids: ReadonlySet<string>;
-  liveWorkflows: V5.LiveWorkflow[];
+  liveWorkflows: LiveWorkflow[];
   unresolvableWorkflowUids: ReadonlySet<string>;
   tabPath?: string[];
   contextMenu: { items: ItemType[] };
@@ -729,13 +729,13 @@ interface TabSearchProps {
   onClose: () => void;
   tabs: WorkbenchTab[];
   activeTabId: string | null;
-  rules: V5.Rule[];
-  templates: V5.Template[];
-  requests: V5.Request[];
+  rules: Rule[];
+  templates: Template[];
+  requests: Request[];
   pausedUids: ReadonlySet<string>;
   unresolvableRuleUids: ReadonlySet<string>;
   unresolvableRequestUids: ReadonlySet<string>;
-  liveWorkflows: V5.LiveWorkflow[];
+  liveWorkflows: LiveWorkflow[];
   unresolvableWorkflowUids: ReadonlySet<string>;
   /** Breadcrumb path for a tab (workspace excluded) — rendered as muted
    *  secondary line so users can disambiguate rows with the same name. */

@@ -37,7 +37,7 @@ import type {
   ScriptHostResponse,
   ScriptKind,
 } from '@openheaders/core/scripts';
-import type { V5 } from '@openheaders/core/types';
+import type { Request } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { resolveTemplate, VariableResolver } from '@openheaders/core/variables';
 import { logger } from '@utils/logger';
@@ -51,7 +51,7 @@ import { recordLog } from './observability-log';
 // binding until first use — by then the executor module has finished
 // initializing.
 let executeRequestDraftRef:
-  | ((req: V5.Request) => Promise<import('./request-executor').ExecutedRequestSnapshot>)
+  | ((req: Request) => Promise<import('./request-executor').ExecutedRequestSnapshot>)
   | null = null;
 export function __setExecuteRequestDraft(fn: typeof executeRequestDraftRef): void {
   executeRequestDraftRef = fn;
@@ -380,7 +380,7 @@ async function dispatchAdHocRequest(snapshot: RequestSnapshot): Promise<Response
   if (!executeRequestDraftRef) {
     throw new Error('oh.sendRequest unavailable — request executor not wired');
   }
-  const request: V5.Request = {
+  const request: Request = {
     schemaVersion: 5,
     uid: `script-${Date.now().toString(36)}`,
     path: 'scripts/ad-hoc',

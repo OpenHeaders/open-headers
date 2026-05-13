@@ -19,14 +19,14 @@
  */
 
 import { WarningFilled } from '@ant-design/icons';
-import type { V5 } from '@openheaders/core/types';
+import type { HeaderModification, QueryParamRule, Rule, RuleCondition, RuleType } from '@openheaders/core/types';
 import { type ActionValueIssue, validateActionValues } from '@openheaders/core/utils';
 import { Form, theme } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
 
 interface ActionValueBannerProps {
-  ruleType: V5.RuleType;
+  ruleType: RuleType;
 }
 
 export const ActionValueBanner: React.FC<ActionValueBannerProps> = ({ ruleType }) => {
@@ -35,7 +35,7 @@ export const ActionValueBanner: React.FC<ActionValueBannerProps> = ({ ruleType }
   // no allocations beyond the issue array) and per-field subscriptions
   // would be 20+ separate hooks scattered across rule types.
   const formValues = Form.useWatch([], { preserve: true });
-  const conditions = Form.useWatch('conditions') as V5.RuleCondition[] | undefined;
+  const conditions = Form.useWatch('conditions') as RuleCondition[] | undefined;
 
   const issues = useMemo(() => {
     if (!formValues) return [] as ActionValueIssue[];
@@ -124,10 +124,10 @@ function dedupeMessages(issues: readonly ActionValueIssue[]): string[] {
  * nothing in that case.
  */
 function assembleSyntheticRule(
-  ruleType: V5.RuleType,
+  ruleType: RuleType,
   formValues: Record<string, unknown>,
-  conditions: V5.RuleCondition[],
-): V5.Rule | null {
+  conditions: RuleCondition[],
+): Rule | null {
   const baseShell = {
     schemaVersion: 1,
     uid: '__synthetic__',
@@ -144,8 +144,8 @@ function assembleSyntheticRule(
         ...baseShell,
         type: 'header',
         action: {
-          requestHeaders: (formValues.requestHeaders as V5.HeaderModification[]) ?? [],
-          responseHeaders: (formValues.responseHeaders as V5.HeaderModification[]) ?? [],
+          requestHeaders: (formValues.requestHeaders as HeaderModification[]) ?? [],
+          responseHeaders: (formValues.responseHeaders as HeaderModification[]) ?? [],
         },
       };
     case 'redirect':
@@ -242,7 +242,7 @@ function assembleSyntheticRule(
       return {
         ...baseShell,
         type: 'query-param',
-        action: { params: (formValues.queryParams as V5.QueryParamRule['action']['params']) ?? [] },
+        action: { params: (formValues.queryParams as QueryParamRule['action']['params']) ?? [] },
       };
     default:
       return null;

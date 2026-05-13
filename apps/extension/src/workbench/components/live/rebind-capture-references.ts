@@ -20,14 +20,13 @@
  */
 
 import type { DraftWorkflow } from '@openheaders/core/live';
-import type { V5 } from '@openheaders/core/types';
-
+import type { LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
 function rewriteRefresh(
-  refresh: V5.LiveWorkflow['refresh'],
+  refresh: LiveWorkflow['refresh'],
   ownerStepId: string,
   oldName: string,
   newName: string,
-): V5.LiveWorkflow['refresh'] {
+): LiveWorkflow['refresh'] {
   if (refresh.kind === 'expires-in' || refresh.kind === 'expires-at') {
     if (refresh.stepId === ownerStepId && refresh.captureName === oldName) {
       return { ...refresh, captureName: newName };
@@ -37,11 +36,11 @@ function rewriteRefresh(
 }
 
 function rewriteStepGate(
-  gate: V5.WorkflowStep['runIf'],
+  gate: WorkflowStep['runIf'],
   ownerStepId: string,
   oldName: string,
   newName: string,
-): V5.WorkflowStep['runIf'] {
+): WorkflowStep['runIf'] {
   if (!gate) return gate;
   let changed = false;
   const all = gate.all.map((clause) => {
@@ -56,11 +55,11 @@ function rewriteStepGate(
 }
 
 function rewritePriority(
-  priority: V5.WorkflowStep['priorityFrom'],
+  priority: WorkflowStep['priorityFrom'],
   ownerStepId: string,
   oldName: string,
   newName: string,
-): V5.WorkflowStep['priorityFrom'] {
+): WorkflowStep['priorityFrom'] {
   if (!priority) return priority;
   if (priority.stepId === ownerStepId && priority.captureName === oldName) {
     return { ...priority, captureName: newName };

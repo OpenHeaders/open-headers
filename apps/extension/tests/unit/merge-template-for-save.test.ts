@@ -1,18 +1,18 @@
-import type { V5 } from '@openheaders/core/types';
+import type { HeaderModification, RuleCondition, Template } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
 import {
   mergeTemplateForSave,
   type TemplateSaveBatch,
 } from '@/workbench/components/merge-template-for-save';
 
-const hmod = (uid: string, headerName: string, value: string): V5.HeaderModification => ({
+const hmod = (uid: string, headerName: string, value: string): HeaderModification => ({
   uid,
   operation: 'override',
   headerName,
   value,
 });
 
-function makeTpl(overrides: Partial<V5.Template> = {}): V5.Template {
+function makeTpl(overrides: Partial<Template> = {}): Template {
   return {
     schemaVersion: 5,
     uid: 'tpl-aaaa',
@@ -30,7 +30,7 @@ function makeTpl(overrides: Partial<V5.Template> = {}): V5.Template {
   };
 }
 
-function batchOf(t: V5.Template): TemplateSaveBatch {
+function batchOf(t: Template): TemplateSaveBatch {
   return {
     name: t.name,
     icon: t.icon,
@@ -92,7 +92,7 @@ describe('mergeTemplateForSave', () => {
   });
 
   it('per-row merges conditions by uid', () => {
-    const c = (uid: string, value: string): V5.RuleCondition => ({
+    const c = (uid: string, value: string): RuleCondition => ({
       uid,
       type: 'request-domains',
       values: [value],

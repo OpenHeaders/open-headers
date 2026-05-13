@@ -43,7 +43,7 @@ import {
   useAutoMergeForm,
 } from '@/shared/conflicts';
 import { useEditorShell, useReprime } from '@/shared/editor-shell';
-import type { V5 } from '@openheaders/core/types';
+import type { LiveVariable } from '@openheaders/core/types';
 import { App, Button, Input, InputNumber, Select, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -84,7 +84,7 @@ interface CreateProps {
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (save: () => void) => void;
   /** Called when a new LV lands — host replaces the create tab with an edit tab. */
-  onCreated: (lv: V5.LiveVariable) => void;
+  onCreated: (lv: LiveVariable) => void;
 }
 
 interface EditProps {
@@ -133,7 +133,7 @@ interface EditDraft {
   manualOverride: { value: string; until: number | null } | null;
 }
 
-function editDraftFromVariable(lv: V5.LiveVariable): EditDraft {
+function editDraftFromVariable(lv: LiveVariable): EditDraft {
   return {
     name: lv.name,
     description: lv.description ?? '',
@@ -371,12 +371,12 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
   // sequence — captured by `onPrimed`, called via a ref so the
   // tracker hook can be declared after `reprime` (its `isDirty` is the
   // tracker's input).
-  const setBaselineRef = useRef<(e: V5.LiveVariable) => void>(() => undefined);
+  const setBaselineRef = useRef<(e: LiveVariable) => void>(() => undefined);
   // Snapshot of the canonical entity at the most recent re-prime — feeds
   // the merge-editor preview's Show Base layouts via `baseText`.
-  const baselineLiveVariableRef = useRef<V5.LiveVariable | null>(null);
+  const baselineLiveVariableRef = useRef<LiveVariable | null>(null);
 
-  const reprime = useReprime<V5.LiveVariable>({
+  const reprime = useReprime<LiveVariable>({
     liveEntity: lv,
     scope: { entityType: LIVE_VARIABLE_ENTITY_TYPE, entityId: lv?.uid ?? null },
     enabled: lv != null,
@@ -419,7 +419,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
   const applyAutoMerge = useCallback(
     (path: string, theirs: string) => {
       if (!lv || !draft) return;
-      const transient = { ...lv } as V5.LiveVariable;
+      const transient = { ...lv } as LiveVariable;
       if (!liveVariableResolveAdapter.applyResolutionToEntity(transient, path, { base: '', theirs })) return;
       setDraft((d) =>
         d
@@ -447,9 +447,9 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
   const [isConflictDialogOpen, setConflictDialogOpen] = useState(false);
 
   const projectWithResolutions = useCallback(
-    (resolutions: ReadonlyMap<string, ConflictResolution>): V5.LiveVariable | null => {
+    (resolutions: ReadonlyMap<string, ConflictResolution>): LiveVariable | null => {
       if (!lv || !draft) return null;
-      const transient: V5.LiveVariable = {
+      const transient: LiveVariable = {
         ...lv,
         name: draft.name,
         description: draft.description,
@@ -470,7 +470,7 @@ const EditMode: React.FC<EditProps> = ({ variableUid, onDirtyChange, registerSav
     [allConflicts, draft, lv],
   );
 
-  const adoptProjected = useCallback((projected: V5.LiveVariable) => {
+  const adoptProjected = useCallback((projected: LiveVariable) => {
     setDraft((d) =>
       d
         ? {

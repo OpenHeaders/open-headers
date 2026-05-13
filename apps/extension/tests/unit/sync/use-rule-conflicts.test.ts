@@ -9,12 +9,12 @@
  *   - new baselines (e.g. on populateFormFromRule) clear dismissed state.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { useRuleConflicts } from '@/workbench/components/rule-fields/use-rule-conflicts';
 
-function makeHeaderRule(value: string, name = 'X-Test', uid = 'rule-1'): V5.Rule {
+function makeHeaderRule(value: string, name = 'X-Test', uid = 'rule-1'): Rule {
   return {
     uid,
     path: `rules/${uid}.yaml`,
@@ -27,7 +27,7 @@ function makeHeaderRule(value: string, name = 'X-Test', uid = 'rule-1'): V5.Rule
       requestHeaders: [{ uid: 'thm00097', operation: 'override', headerName: name, value }],
       responseHeaders: [],
     },
-  } as unknown as V5.Rule;
+  } as unknown as Rule;
 }
 
 // Path is itemId-keyed (`action.requestHeaders.<uid>.value`) so reorders
@@ -35,9 +35,9 @@ function makeHeaderRule(value: string, name = 'X-Test', uid = 'rule-1'): V5.Rule
 // canonical identity for the row across base + theirs snapshots.
 const PATH = 'action.requestHeaders.thm00097.value';
 
-function mount(rule: V5.Rule | null, isDirty: boolean) {
+function mount(rule: Rule | null, isDirty: boolean) {
   return renderHook(
-    ({ liveRule, dirty }: { liveRule: V5.Rule | null; dirty: boolean }) =>
+    ({ liveRule, dirty }: { liveRule: Rule | null; dirty: boolean }) =>
       useRuleConflicts({ liveRule, isDirty: dirty, enabled: true }),
     { initialProps: { liveRule: rule, dirty: isDirty } },
   );
@@ -100,7 +100,7 @@ describe('useRuleConflicts', () => {
   });
 
   describe('reorder auto-rebase', () => {
-    function ruleWithThreeHeaders(order: readonly string[], values?: Record<string, string>): V5.Rule {
+    function ruleWithThreeHeaders(order: readonly string[], values?: Record<string, string>): Rule {
       return {
         uid: 'rule-1',
         path: 'rules/rule-1.yaml',
@@ -118,7 +118,7 @@ describe('useRuleConflicts', () => {
           })),
           responseHeaders: [],
         },
-      } as unknown as V5.Rule;
+      } as unknown as Rule;
     }
 
     it('emits an auto-rebase savedOrder when form-order matches baseline + live diverged', () => {
@@ -209,7 +209,7 @@ describe('useRuleConflicts', () => {
         ...ruleWithThreeHeaders(['c0000003', 'a0000001', 'b0000002']),
         uid: 'rule-1',
         path: 'rules/rule-1.yaml',
-      } as V5.Rule);
+      } as Rule);
       const formOrders = new Map([
         ['action.requestHeaders', ['c0000003', 'a0000001', 'b0000002'] as const],
       ]);
@@ -227,7 +227,7 @@ describe('useRuleConflicts', () => {
         ...ruleWithThreeHeaders(['c0000003', 'a0000001', 'b0000002']),
         uid: 'rule-1',
         path: 'rules/rule-1.yaml',
-      } as V5.Rule);
+      } as Rule);
       const formOrders = new Map([
         ['action.requestHeaders', ['c0000003', 'a0000001', 'b0000002'] as const],
       ]);
@@ -249,7 +249,7 @@ describe('useRuleConflicts', () => {
         ...ruleWithThreeHeaders(['a0000001', 'b0000002', 'c0000003'], { c0000003: '4' }),
         uid: 'rule-1',
         path: 'rules/rule-1.yaml',
-      } as V5.Rule);
+      } as Rule);
       const formOrders = new Map([
         ['action.requestHeaders', ['a0000001', 'b0000002', 'c0000003'] as const],
       ]);
@@ -274,7 +274,7 @@ describe('useRuleConflicts', () => {
         ...ruleWithThreeHeaders(['a0000001', 'b0000002', 'c0000003'], { c0000003: '4' }),
         uid: 'rule-1',
         path: 'rules/rule-1.yaml',
-      } as V5.Rule);
+      } as Rule);
       const formOrders = new Map([
         ['action.requestHeaders', ['a0000001', 'b0000002', 'c0000003'] as const],
       ]);
@@ -298,7 +298,7 @@ describe('useRuleConflicts', () => {
         ...ruleWithThreeHeaders(['a0000001', 'b0000002', 'c0000003'], { c0000003: '4' }),
         uid: 'rule-1',
         path: 'rules/rule-1.yaml',
-      } as V5.Rule);
+      } as Rule);
       const formOrders = new Map([
         ['action.requestHeaders', ['a0000001', 'b0000002', 'c0000003'] as const],
       ]);
@@ -336,7 +336,7 @@ describe('useRuleConflicts', () => {
   });
 
   describe('scalar widening', () => {
-    function makeRedirectRule(target: string, uid = 'r-1'): V5.Rule {
+    function makeRedirectRule(target: string, uid = 'r-1'): Rule {
       return {
         uid,
         path: `rules/${uid}.yaml`,
@@ -346,9 +346,9 @@ describe('useRuleConflicts', () => {
         schemaVersion: 5,
         conditions: [],
         action: { redirectTo: target },
-      } as unknown as V5.Rule;
+      } as unknown as Rule;
     }
-    function makeDelayRule(ms: number, uid = 'd-1'): V5.Rule {
+    function makeDelayRule(ms: number, uid = 'd-1'): Rule {
       return {
         uid,
         path: `rules/${uid}.yaml`,
@@ -358,9 +358,9 @@ describe('useRuleConflicts', () => {
         schemaVersion: 5,
         conditions: [],
         action: { delayMs: ms },
-      } as unknown as V5.Rule;
+      } as unknown as Rule;
     }
-    function makeInjectRule(code: string, uid = 'i-1'): V5.Rule {
+    function makeInjectRule(code: string, uid = 'i-1'): Rule {
       return {
         uid,
         path: `rules/${uid}.yaml`,
@@ -370,7 +370,7 @@ describe('useRuleConflicts', () => {
         schemaVersion: 5,
         conditions: [],
         action: { injectType: 'script', code, source: 'code', position: 'body-end' },
-      } as unknown as V5.Rule;
+      } as unknown as Rule;
     }
 
     it('detects redirectTo scalar conflict on schema path', () => {
@@ -411,8 +411,8 @@ describe('useRuleConflicts', () => {
     });
 
     it('detects rule.name conflict for any rule type', () => {
-      const live: V5.Rule = { ...makeDelayRule(1000), name: 'theirs name' };
-      const baseline: V5.Rule = { ...makeDelayRule(1000), name: 'base name' };
+      const live: Rule = { ...makeDelayRule(1000), name: 'theirs name' };
+      const baseline: Rule = { ...makeDelayRule(1000), name: 'base name' };
       const { result } = renderHook(() =>
         useRuleConflicts({ liveRule: live, isDirty: true, enabled: true }),
       );

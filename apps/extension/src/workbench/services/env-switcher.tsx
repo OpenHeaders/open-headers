@@ -43,7 +43,7 @@
  */
 
 import { useEnvironments } from '@hooks/useEnvironments';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection } from '@openheaders/core/types';
 import { type CollectionEnvAutoSwitchMode, resolveAutoSwitchTarget } from '@openheaders/core/utils';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 
@@ -51,7 +51,7 @@ export interface EnvSwitcherCollectionContext {
   /** Uid of the collection the active editor tab lives in, or null. */
   activeTabCollectionId: string | null;
   /** Every collection visible in the env-resolution scope (local + remote). */
-  allCollectionsForEnv: V5.Collection[];
+  allCollectionsForEnv: Collection[];
   /** The user's auto-switch preference. */
   collectionEnvAutoSwitch: CollectionEnvAutoSwitchMode;
   /** The active collection's pinned default env, separated so the

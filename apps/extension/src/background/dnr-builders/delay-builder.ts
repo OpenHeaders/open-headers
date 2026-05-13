@@ -1,5 +1,5 @@
 /**
- * Delay compiler — converts V5.DelayRule into a CompilationPlan.
+ * Delay compiler — converts DelayRule into a CompilationPlan.
  *
  * A delay rule has TWO execution paths that coexist:
  *
@@ -26,7 +26,7 @@
 
 declare const browser: typeof chrome | undefined;
 
-import type { V5 } from '@openheaders/core/types';
+import type { DelayRule } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import type { CompilationPlan, CompilerContext, DnrCondition, DnrRule, RuleCompiler } from './types';
 import { buildDnrCondition, resolveResourceTypes, stripResourceTypeFields } from './types';
@@ -83,9 +83,9 @@ function urlFilterToRegex(filter: string): string {
   return (anchorStart ? '^' : '') + escaped + (anchorEnd ? '$' : '');
 }
 
-export const delayCompiler: RuleCompiler<V5.DelayRule> = {
+export const delayCompiler: RuleCompiler<DelayRule> = {
   ruleType: 'delay',
-  compile(rule: V5.DelayRule, ctx: CompilerContext): CompilationPlan {
+  compile(rule: DelayRule, ctx: CompilerContext): CompilationPlan {
     const { base, domains, useRegex, urlPattern } = buildDnrCondition(rule.conditions);
 
     if (domains.length === 0 && !urlPattern) {

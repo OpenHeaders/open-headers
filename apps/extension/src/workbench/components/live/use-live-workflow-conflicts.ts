@@ -1,9 +1,9 @@
 /**
- * Conflict-tracker binding for V5.LiveWorkflow. Pins entityType +
+ * Conflict-tracker binding for LiveWorkflow. Pins entityType +
  * adapter for the entity-agnostic `useEntityConflicts`.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
 import {
   type EntityConflictsApi,
   useEntityConflicts,
@@ -11,7 +11,7 @@ import {
 import { liveWorkflowConflictAdapter } from './live-workflow-conflict-adapter';
 
 export interface UseLiveWorkflowConflictsArgs {
-  liveEntity: V5.LiveWorkflow | null | undefined;
+  liveEntity: LiveWorkflow | null | undefined;
   isDirty: boolean;
   enabled: boolean;
   /** `LIVE_WORKFLOW_ENTITY_TYPE` from `@openheaders/core/sync`. */
@@ -20,8 +20,8 @@ export interface UseLiveWorkflowConflictsArgs {
 
 export function useLiveWorkflowConflicts(
   args: UseLiveWorkflowConflictsArgs,
-): EntityConflictsApi<V5.LiveWorkflow> {
-  return useEntityConflicts<V5.LiveWorkflow>({
+): EntityConflictsApi<LiveWorkflow> {
+  return useEntityConflicts<LiveWorkflow>({
     liveEntity: args.liveEntity ?? null,
     isDirty: args.isDirty,
     enabled: args.enabled,
@@ -34,7 +34,7 @@ export interface LiveWorkflowFormProjectionInput {
   name: string;
   description: string;
   enabled: boolean;
-  refresh: V5.LiveWorkflow['refresh'];
+  refresh: LiveWorkflow['refresh'];
   /**
    * Steps the user is currently editing. Required so the conflict
    * tracker's per-leaf path comparisons cover step + capture edits;
@@ -44,7 +44,7 @@ export interface LiveWorkflowFormProjectionInput {
    * as auto-merge targets, edit-vs-edit conflicts stay invisible).
    * Must mirror the adapter's `extractBaseline` shape.
    */
-  steps?: readonly V5.WorkflowStep[];
+  steps?: readonly WorkflowStep[];
 }
 
 function opaqueStringify(value: unknown): string {

@@ -6,7 +6,7 @@
  * `useDismiss`, fresh mount per session).
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import { createHoverPopoverHost, type HoverPopoverBodyProps } from '@/shared/hover-popover-host';
 import type { HeaderAttribution } from '../data/header-attribution';
 import type { RuleApplicability } from '../data/rule-applicability';
@@ -16,7 +16,7 @@ interface RulePopoverState {
   anchorEl: HTMLElement;
   /** Live rule for editing (may be null if the rule was deleted since
    *  the fire — popover degrades to read-only history view). */
-  rule: V5.Rule | null;
+  rule: Rule | null;
   /** For header rules — pinpoints the modification entry the row came from. */
   target?: RuleHoverPopoverTarget;
   /** Row attribution — provides the snapshot for the "what happened on

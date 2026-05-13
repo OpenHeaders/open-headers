@@ -14,10 +14,7 @@
  * by uid. Per-(setPath, uid) LWW handles convergence.
  */
 
-import type { V5 } from '@openheaders/core/types';
-
-type Variable = V5.Variable;
-
+import type { Environment, Variable } from '@openheaders/core/types';
 import {
   ENVIRONMENT_ENTITY_TYPE,
   invalidateResolverIntent,
@@ -72,7 +69,7 @@ export function buildRenameEnvironmentBatch(input: RenameEnvironmentInput, ctx: 
  * the env on the SW side. Mirrors `buildAddBatch` in `rule-mutations.ts`.
  */
 export interface AddEnvironmentInput {
-  environment: V5.Environment;
+  environment: Environment;
 }
 
 export interface EnvMutationBatchPayload {

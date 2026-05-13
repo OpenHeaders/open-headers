@@ -13,7 +13,7 @@
 
 import { FileTextOutlined, FolderOutlined } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
-import type { V5 } from '@openheaders/core/types';
+import type { CollectionTree, FolderNode, RuleType, TreeNode } from '@openheaders/core/types';
 import { Empty, Space, Table, Tag, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
@@ -31,11 +31,11 @@ interface ContentRow {
   uid: string;
   name: string;
   kind: 'folder' | 'template';
-  ruleType?: V5.RuleType;
+  ruleType?: RuleType;
   childCount?: number;
 }
 
-function countTemplatesDeep(nodes: V5.TreeNode[]): number {
+function countTemplatesDeep(nodes: TreeNode[]): number {
   let count = 0;
   for (const n of nodes) {
     if (n.type === 'template') count++;
@@ -44,7 +44,7 @@ function countTemplatesDeep(nodes: V5.TreeNode[]): number {
   return count;
 }
 
-function countFoldersDeep(nodes: V5.TreeNode[]): number {
+function countFoldersDeep(nodes: TreeNode[]): number {
   let count = 0;
   for (const n of nodes) {
     if (n.type === 'folder') {
@@ -55,9 +55,9 @@ function countFoldersDeep(nodes: V5.TreeNode[]): number {
   return count;
 }
 
-function findFolder(trees: readonly V5.CollectionTree[], uid: string): V5.FolderNode | null {
+function findFolder(trees: readonly CollectionTree[], uid: string): FolderNode | null {
   for (const col of trees) {
-    const walk = (nodes: V5.TreeNode[]): V5.FolderNode | null => {
+    const walk = (nodes: TreeNode[]): FolderNode | null => {
       for (const n of nodes) {
         if (n.type !== 'folder') continue;
         if (n.uid === uid) return n;

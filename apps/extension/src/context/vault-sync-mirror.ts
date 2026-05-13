@@ -6,7 +6,7 @@
  */
 
 import { VAULT_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Vault } from '@openheaders/core/types';
 import { call } from '@utils/bridge';
 import {
   createSingletonEntityMirror,
@@ -15,7 +15,7 @@ import {
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 
 export interface VaultMirrorEntry {
-  vault: V5.Vault;
+  vault: Vault;
   /** Live secret uids. Set member identity is `secret.uid`; this
    *  array is the projected names list. */
   secretUids: string[];

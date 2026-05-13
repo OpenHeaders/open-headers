@@ -5,7 +5,7 @@
  */
 
 import { VAULT_ENTITY_TYPE, VAULT_ID } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Vault, VaultSecret } from '@openheaders/core/types';
 import {
   type EntityConflictsApi,
   useEntityConflicts,
@@ -13,7 +13,7 @@ import {
 import { vaultConflictAdapter } from './vault-conflict-adapter';
 
 export interface UseVaultConflictsArgs {
-  liveVault: V5.Vault | null | undefined;
+  liveVault: Vault | null | undefined;
   isDirty: boolean;
   enabled: boolean;
 }
@@ -22,9 +22,9 @@ export interface UseVaultConflictsArgs {
  *  binding boundary so the entity-agnostic hook's `signature(e) =>
  *  e.uid` contract still holds. The signature is stable across the
  *  whole vault lifecycle (one vault per workspace). */
-type VaultWithUid = V5.Vault & { uid: string };
+type VaultWithUid = Vault & { uid: string };
 
-function withSingletonUid(vault: V5.Vault | null | undefined): VaultWithUid | null {
+function withSingletonUid(vault: Vault | null | undefined): VaultWithUid | null {
   return vault ? { ...vault, uid: VAULT_ID } : null;
 }
 
@@ -39,9 +39,9 @@ export function useVaultConflicts(args: UseVaultConflictsArgs): EntityConflictsA
 }
 
 /** Project a secrets array into the path-keyed shape the tracker
- *  expects. Editors call this with their `draft` (a V5.VaultSecret[])
+ *  expects. Editors call this with their `draft` (a VaultSecret[])
  *  to produce the `form` argument for `getAllConflicts`. */
-export function projectSecretsToForm(secrets: readonly V5.VaultSecret[]): Record<string, string> {
+export function projectSecretsToForm(secrets: readonly VaultSecret[]): Record<string, string> {
   const out: Record<string, string> = {};
   for (const s of secrets) {
     out[`secrets.${s.uid}.name`] = String(s.name ?? '');

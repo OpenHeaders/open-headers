@@ -10,7 +10,7 @@
  * changes how the body is SYNTAX-highlighted; the wire bytes are
  * whatever the user typed verbatim.
  *
- * Schema mapping (matches the `V5.RequestBody` discriminated union):
+ * Schema mapping (matches the `RequestBody` discriminated union):
  *   - none                  → `{ type: 'none' }`
  *   - form-data             → `{ type: 'multipart', multipartParts }`
  *   - x-www-form-urlencoded → `{ type: 'form', formParts }`
@@ -29,7 +29,7 @@
  */
 
 import { InfoCircleOutlined, ReloadOutlined, WarningFilled } from '@ant-design/icons';
-import type { V5 } from '@openheaders/core/types';
+import type { RequestBody } from '@openheaders/core/types';
 import { Radio, Select, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useRef } from 'react';
@@ -43,11 +43,11 @@ type RawFormat = 'text' | 'javascript' | 'json' | 'html' | 'xml';
 type RadioValue = 'none' | 'form-data' | 'form-urlencoded' | 'raw' | 'graphql';
 
 interface BodyTabProps {
-  body: V5.RequestBody;
-  onChange: (body: V5.RequestBody) => void;
+  body: RequestBody;
+  onChange: (body: RequestBody) => void;
 }
 
-function classifyBody(body: V5.RequestBody): { radio: RadioValue; raw: RawFormat } {
+function classifyBody(body: RequestBody): { radio: RadioValue; raw: RawFormat } {
   switch (body.type) {
     case 'none':
       return { radio: 'none', raw: 'text' };
@@ -79,7 +79,7 @@ function classifyBody(body: V5.RequestBody): { radio: RadioValue; raw: RawFormat
  * when no draft for that variant has been visited yet during this
  * editor session.
  */
-function freshBody(radio: RadioValue, raw: RawFormat): V5.RequestBody {
+function freshBody(radio: RadioValue, raw: RawFormat): RequestBody {
   switch (radio) {
     case 'none':
       return { type: 'none' };
@@ -94,7 +94,7 @@ function freshBody(radio: RadioValue, raw: RawFormat): V5.RequestBody {
   }
 }
 
-function rawBodyOf(raw: RawFormat, content: string): V5.RequestBody {
+function rawBodyOf(raw: RawFormat, content: string): RequestBody {
   switch (raw) {
     case 'json':
       return { type: 'json', content };
@@ -116,7 +116,7 @@ const BodyTab: React.FC<BodyTabProps> = ({ body, onChange }) => {
   // values they typed under A come back. The persisted shape carries
   // only the active variant; this ref is the editor-local memory of
   // the others. Cleared on unmount (component-scoped useRef).
-  const draftCacheRef = useRef<Partial<Record<RadioValue, V5.RequestBody>>>({});
+  const draftCacheRef = useRef<Partial<Record<RadioValue, RequestBody>>>({});
   // Mirror the live body into the cache on every render so the active
   // variant's edits are captured for return-trips.
   draftCacheRef.current[radio] = body;

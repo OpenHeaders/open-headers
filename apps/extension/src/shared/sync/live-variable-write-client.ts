@@ -24,7 +24,7 @@ import {
   mintBatch,
   type MutationBody,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { LiveVariable } from '@openheaders/core/types';
 import { generateUid, shouldAutoUnpublishOnUpdate, toFolderName } from '@openheaders/core/utils';
 import {
   applySyncPayload,
@@ -43,10 +43,10 @@ import {
   buildUpdateLiveVariableBatch,
 } from '@/shared/sync/live-variable-mutations';
 
-export type LiveVariableUpdates = Partial<Omit<V5.LiveVariable, 'uid' | 'path' | 'schemaVersion'>>;
+export type LiveVariableUpdates = Partial<Omit<LiveVariable, 'uid' | 'path' | 'schemaVersion'>>;
 
 export type LiveVariableMutationResult =
-  | { ok: true; liveVariable: V5.LiveVariable }
+  | { ok: true; liveVariable: LiveVariable }
   | { ok: false; reason: 'not-found' }
   | { ok: false; reason: 'other'; message?: string };
 
@@ -79,7 +79,7 @@ export async function applyLiveVariableUpdate(
   const payload = buildUpdateLiveVariableBatch(liveVariableUid, augmented, ctx);
   const ack = await applySyncPayload(payload);
   if (ack.ok) {
-    return { ok: true, liveVariable: { ...entry.liveVariable, ...augmented } as V5.LiveVariable };
+    return { ok: true, liveVariable: { ...entry.liveVariable, ...augmented } as LiveVariable };
   }
   if (ack.reason === 'not-found') return { ok: false, reason: 'not-found' };
   return { ok: false, reason: 'other', message: ack.message };
@@ -92,12 +92,12 @@ export async function applyLiveVariableUpdate(
  * publication via {@link applyLiveVariablePublish}.
  */
 export async function applyLiveVariableCreate(
-  request: { liveVariable: Omit<V5.LiveVariable, 'uid' | 'path' | 'schemaVersion'>; parentPath: string },
+  request: { liveVariable: Omit<LiveVariable, 'uid' | 'path' | 'schemaVersion'>; parentPath: string },
   opts: LiveVariableWriteOptions,
 ): Promise<LiveVariableMutationResult> {
   const uid = generateUid();
   const folderName = toFolderName(request.liveVariable.name, uid);
-  const created: V5.LiveVariable = {
+  const created: LiveVariable = {
     ...request.liveVariable,
     schemaVersion: 5 as const,
     uid,

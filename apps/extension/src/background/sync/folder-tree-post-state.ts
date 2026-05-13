@@ -5,7 +5,7 @@
  *
  * Each tree has the same shape: a root entity type ("collection") that
  * owns a `folders` set on its children path, and a folder entity type
- * that may nest under either kind. `V5.Folder.path` is reconstructed
+ * that may nest under either kind. `Folder.path` is reconstructed
  * from the parent walk — sibling order + parent linkage live on the
  * parent's `folders` set (§23.5). Parent-linkage that can't be
  * resolved (mid-batch boot replay; tombstoned parent) is reported as
@@ -17,7 +17,7 @@
  */
 
 import type { MaterializedEntity, MutationEnvelope } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, Folder } from '@openheaders/core/types';
 import { buildFolderChildrenOrderKeys } from './folder-children-order-keys';
 import type { EntityOracle } from './oracle';
 
@@ -26,15 +26,15 @@ type Reads = Pick<EntityOracle, 'materializeOne' | 'materializeAll' | 'liveSetIt
 /**
  * Per-tree configuration. The two entity-type constants + the children
  * path are the only branch identity the walker needs; the projector
- * pair lifts each materialized entity into its `V5.Collection` /
- * `V5.Folder` shape.
+ * pair lifts each materialized entity into its `Collection` /
+ * `Folder` shape.
  */
 export interface FolderTreeKinds<C extends string = string, F extends string = string> {
   collectionType: C;
   folderType: F;
   childrenPath: string;
-  projectCollection: (materialized: MaterializedEntity) => V5.Collection | null;
-  projectFolder: (materialized: MaterializedEntity, parentPath: string) => V5.Folder | null;
+  projectCollection: (materialized: MaterializedEntity) => Collection | null;
+  projectFolder: (materialized: MaterializedEntity, parentPath: string) => Folder | null;
 }
 
 /**
@@ -44,7 +44,7 @@ export interface FolderTreeKinds<C extends string = string, F extends string = s
  * (paths can shift when a parent renames or reparents).
  */
 export interface FolderPostStateProjection {
-  folder: V5.Folder;
+  folder: Folder;
   /** Live `(itemId, orderKey)` pairs at the folder's own `folders` set
    *  — the slot list for nested child folders. Keyed by setPath
    *  (`'folders'`) for shape consistency with other entities. */
@@ -92,9 +92,9 @@ export function projectFolderByUidGeneric<C extends string, F extends string>(
 export function projectAllFoldersGeneric<C extends string, F extends string>(
   oracle: Reads,
   kinds: FolderTreeKinds<C, F>,
-): V5.Folder[] {
+): Folder[] {
   const materialized = oracle.materializeAll();
-  const out: V5.Folder[] = [];
+  const out: Folder[] = [];
   for (const m of materialized) {
     if (m.type !== kinds.folderType) continue;
     const parentPath = resolveParentPath(oracle, m.id, kinds);

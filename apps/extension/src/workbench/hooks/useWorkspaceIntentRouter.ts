@@ -29,7 +29,7 @@
  * hash-route fires before the SW's data RPCs have responded.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { RuleDraft } from '@openheaders/core/types';
 import { decodeWorkspaceExportDeepLink } from '@openheaders/core/workspace-export';
 import { hashToBoundIntent, type WorkspaceIntent } from '@openheaders/core/workspace-intent';
 import { call, subscribe } from '@utils/bridge';
@@ -45,7 +45,7 @@ interface UseWorkspaceIntentRouterOptions {
     type: string,
     context?: { collectionId: string; folderPath?: string },
     templateKey?: string,
-    initialDraft?: V5.RuleDraft,
+    initialDraft?: RuleDraft,
   ) => void;
   openEditTab: (uid: string) => void;
   openDocs: (sectionId: string) => void;
@@ -252,7 +252,7 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
           if (intent.draftNonce) {
             call('takeRuleDraft', { nonce: intent.draftNonce })
               .then((res) => {
-                const draft = (res?.draft ?? null) as V5.RuleDraft | null;
+                const draft = (res?.draft ?? null) as RuleDraft | null;
                 o.openCreateTab(intent.ruleType, intent.context, undefined, draft ?? undefined);
               })
               .catch(() => o.openCreateTab(intent.ruleType, intent.context));
@@ -383,7 +383,7 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
         if (pending.draftNonce) {
           call('takeRuleDraft', { nonce: pending.draftNonce })
             .then((res) => {
-              const draft = (res?.draft ?? null) as V5.RuleDraft | null;
+              const draft = (res?.draft ?? null) as RuleDraft | null;
               o.openCreateTab(pending.ruleType, pending.context, undefined, draft ?? undefined);
             })
             .catch(() => o.openCreateTab(pending.ruleType, pending.context));

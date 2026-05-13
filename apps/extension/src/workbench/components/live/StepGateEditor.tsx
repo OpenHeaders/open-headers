@@ -20,7 +20,7 @@
 
 import { CloseOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import type { StructuralError } from '@openheaders/core/live';
-import type { V5 } from '@openheaders/core/types';
+import type { StatusMatch, StepGate, StepGateClause, StepGateClauseKind } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { Button, Input, InputNumber, Segmented, Select, Tag, Tooltip, theme } from 'antd';
 import type React from 'react';
@@ -29,7 +29,7 @@ import { useCallback, useMemo } from 'react';
 // ── Clause-kind catalog (enabled + future) ────────────────────────
 
 interface ClauseKindDef {
-  value: V5.StepGateClauseKind | FutureClauseKind;
+  value: StepGateClauseKind | FutureClauseKind;
   label: string;
   disabled?: boolean;
   tooltip?: string;
@@ -82,12 +82,12 @@ const STATUS_MATCH_OPTIONS: { value: StatusMatchMode; label: string }[] = [
   { value: 'in', label: 'one of…' },
 ];
 
-function statusMatchMode(match: V5.StatusMatch): StatusMatchMode {
+function statusMatchMode(match: StatusMatch): StatusMatchMode {
   if (typeof match === 'string') return match;
   return match[0];
 }
 
-function defaultStatusMatch(mode: StatusMatchMode): V5.StatusMatch {
+function defaultStatusMatch(mode: StatusMatchMode): StatusMatch {
   switch (mode) {
     case '2xx':
     case '3xx':
@@ -107,9 +107,9 @@ function defaultStatusMatch(mode: StatusMatchMode): V5.StatusMatch {
 
 interface StepGateEditorProps {
   /** The gate as it exists today. `undefined` = no gate (always runs). */
-  value: V5.StepGate | undefined;
+  value: StepGate | undefined;
   /** Clearing the last clause emits `undefined`, not `{ all: [] }`. */
-  onChange: (next: V5.StepGate | undefined) => void;
+  onChange: (next: StepGate | undefined) => void;
   /**
    * Reachable ancestor step ids for the step that owns this gate. Only
    * these show up in the step dropdown — unreachable steps would fail
@@ -136,10 +136,10 @@ const StepGateEditor: React.FC<StepGateEditorProps> = ({
   errors = [],
 }) => {
   const { token } = theme.useToken();
-  const clauses: V5.StepGateClause[] = useMemo(() => value?.all ?? [], [value]);
+  const clauses: StepGateClause[] = useMemo(() => value?.all ?? [], [value]);
 
   const emitNext = useCallback(
-    (next: V5.StepGateClause[]) => {
+    (next: StepGateClause[]) => {
       if (next.length === 0) {
         onChange(undefined);
         return;
@@ -150,7 +150,7 @@ const StepGateEditor: React.FC<StepGateEditorProps> = ({
   );
 
   const updateClause = useCallback(
-    (index: number, next: V5.StepGateClause) => {
+    (index: number, next: StepGateClause) => {
       emitNext(clauses.map((c, i) => (i === index ? next : c)));
     },
     [clauses, emitNext],
@@ -168,12 +168,12 @@ const StepGateEditor: React.FC<StepGateEditorProps> = ({
     // (if any); otherwise leave stepId empty — the validator will flag
     // it and the tooltip guides the user.
     const firstStep = reachableSteps[0]?.id ?? '';
-    const seed: V5.StepGateClause = { uid: generateUid(), kind: 'status', stepId: firstStep, match: '2xx' };
+    const seed: StepGateClause = { uid: generateUid(), kind: 'status', stepId: firstStep, match: '2xx' };
     emitNext([...clauses, seed]);
   }, [clauses, emitNext, reachableSteps]);
 
   const changeClauseKind = useCallback(
-    (index: number, nextKind: V5.StepGateClauseKind | FutureClauseKind) => {
+    (index: number, nextKind: StepGateClauseKind | FutureClauseKind) => {
       if (nextKind === 'capture-numeric-compare' || nextKind === 'capture-in-list' || nextKind === 'header-contains') {
         return; // disabled; selection suppressed
       }
@@ -281,13 +281,13 @@ const StepGateEditor: React.FC<StepGateEditorProps> = ({
 
 interface ClauseRowProps {
   index: number;
-  clause: V5.StepGateClause;
+  clause: StepGateClause;
   isFirst: boolean;
   stepOptions: { value: string; label: string }[];
   capturesByStepId: Map<string, string[]>;
   errors: StructuralError[];
-  onChange: (next: V5.StepGateClause) => void;
-  onKindChange: (kind: V5.StepGateClauseKind | FutureClauseKind) => void;
+  onChange: (next: StepGateClause) => void;
+  onKindChange: (kind: StepGateClauseKind | FutureClauseKind) => void;
   onRemove: () => void;
 }
 
@@ -338,7 +338,7 @@ const ClauseRow: React.FC<ClauseRowProps> = ({
         placeholder="Step"
         value={clause.stepId || undefined}
         options={stepOptions}
-        onChange={(stepId) => onChange({ ...clause, stepId } as V5.StepGateClause)}
+        onChange={(stepId) => onChange({ ...clause, stepId } as StepGateClause)}
       />
     </Tooltip>
   );
@@ -360,7 +360,7 @@ const ClauseRow: React.FC<ClauseRowProps> = ({
           k.label
         ),
       }))}
-      onChange={(nextKind) => onKindChange(nextKind as V5.StepGateClauseKind | FutureClauseKind)}
+      onChange={(nextKind) => onKindChange(nextKind as StepGateClauseKind | FutureClauseKind)}
     />
   );
 
@@ -469,8 +469,8 @@ const ClauseRow: React.FC<ClauseRowProps> = ({
 // ── Status-match controls ─────────────────────────────────────────
 
 const StatusMatchControls: React.FC<{
-  match: V5.StatusMatch;
-  onChange: (next: V5.StatusMatch) => void;
+  match: StatusMatch;
+  onChange: (next: StatusMatch) => void;
 }> = ({ match, onChange }) => {
   const mode = statusMatchMode(match);
 

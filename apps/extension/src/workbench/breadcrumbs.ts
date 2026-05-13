@@ -12,7 +12,7 @@
  * tab strip and the breadcrumb so they can never disagree.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { CollectionTree, Request, Rule, TreeNode } from '@openheaders/core/types';
 import type { WorkbenchTab } from './types';
 
 /**
@@ -40,11 +40,11 @@ export function scratchLabelForMode(mode: WorkbenchTab['mode']): string | null {
 export function computeBreadcrumbs(
   tab: WorkbenchTab | undefined,
   displayLabel: string,
-  rules: V5.Rule[],
-  localCollectionTrees: V5.CollectionTree[],
-  requestCollectionTrees: readonly V5.CollectionTree[] = [],
-  requests: readonly V5.Request[] = [],
-  templateCollectionTrees: readonly V5.CollectionTree[] = [],
+  rules: Rule[],
+  localCollectionTrees: CollectionTree[],
+  requestCollectionTrees: readonly CollectionTree[] = [],
+  requests: readonly Request[] = [],
+  templateCollectionTrees: readonly CollectionTree[] = [],
 ): string[] {
   if (!tab) return [];
 
@@ -71,7 +71,7 @@ export function computeBreadcrumbs(
     if (req) {
       for (const col of requestCollectionTrees) {
         const trail: string[] = [];
-        const findRequest = (nodes: V5.TreeNode[]): boolean => {
+        const findRequest = (nodes: TreeNode[]): boolean => {
           for (const n of nodes) {
             if (n.type === 'request' && n.uid === req.uid) return true;
             if (n.type === 'folder') {
@@ -130,10 +130,10 @@ export function computeBreadcrumbs(
     // globally unique; the walk visits rule → request → template
     // trees and emits the family-prefixed breadcrumb. Falls through
     // to "Rules" as the default when the uid hasn't loaded yet.
-    const findIn = (trees: readonly V5.CollectionTree[]): { collectionName: string; trail: string[] } | null => {
+    const findIn = (trees: readonly CollectionTree[]): { collectionName: string; trail: string[] } | null => {
       for (const col of trees) {
         const trail: string[] = [];
-        const walk = (nodes: V5.TreeNode[]): boolean => {
+        const walk = (nodes: TreeNode[]): boolean => {
           for (const n of nodes) {
             if (n.type === 'folder' && n.uid === tab.entityId) return true;
             if (n.type === 'folder') {
@@ -162,7 +162,7 @@ export function computeBreadcrumbs(
     if (rule) {
       for (const col of localCollectionTrees) {
         const trail: string[] = [];
-        const findRule = (nodes: V5.TreeNode[]): boolean => {
+        const findRule = (nodes: TreeNode[]): boolean => {
           for (const n of nodes) {
             if (n.type === 'rule' && n.uid === rule.uid) return true;
             if (n.type === 'folder') {
@@ -193,7 +193,7 @@ export function computeBreadcrumbs(
       if (ownerType === 'folder') {
         for (const col of localCollectionTrees) {
           const trail: string[] = [];
-          const findFolder = (nodes: V5.TreeNode[]): boolean => {
+          const findFolder = (nodes: TreeNode[]): boolean => {
             for (const n of nodes) {
               if (n.type === 'folder' && n.uid === ownerId) {
                 trail.push(n.name);
@@ -215,7 +215,7 @@ export function computeBreadcrumbs(
         if (rule) {
           for (const col of localCollectionTrees) {
             const trail: string[] = [];
-            const findRule = (nodes: V5.TreeNode[]): boolean => {
+            const findRule = (nodes: TreeNode[]): boolean => {
               for (const n of nodes) {
                 if (n.type === 'rule' && n.uid === rule.uid) return true;
                 if (n.type === 'folder') {
@@ -242,7 +242,7 @@ export function computeBreadcrumbs(
     if (tab.flowScope === 'folder' && tab.entityId) {
       for (const col of localCollectionTrees) {
         const trail: string[] = [];
-        const findFolder = (nodes: V5.TreeNode[]): boolean => {
+        const findFolder = (nodes: TreeNode[]): boolean => {
           for (const n of nodes) {
             if (n.type === 'folder' && n.uid === tab.entityId) return true;
             if (n.type === 'folder') {
@@ -274,11 +274,11 @@ export function computeBreadcrumbs(
  */
 export function computeRequestTrail(
   requestUid: string,
-  collectionTrees: V5.CollectionTree[],
+  collectionTrees: CollectionTree[],
 ): { collectionName: string; folderTrail: string[] } | null {
   for (const col of collectionTrees) {
     const folderTrail: string[] = [];
-    const find = (nodes: V5.TreeNode[]): boolean => {
+    const find = (nodes: TreeNode[]): boolean => {
       for (const n of nodes) {
         if (n.type === 'request' && n.uid === requestUid) return true;
         if (n.type === 'folder') {

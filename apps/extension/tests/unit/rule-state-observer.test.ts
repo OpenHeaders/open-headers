@@ -2,7 +2,7 @@
  * Rule-state observer — diff logic across the four transition categories
  * plus first-run seeding and broad-scope fallback.
  */
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -23,7 +23,7 @@ import {
   rehydrateFromStorage,
 } from '@/background/modules/rule-state-observer';
 
-function rule(uid: string, opts: { domain?: string; enabled?: boolean; path?: string } = {}): V5.Rule {
+function rule(uid: string, opts: { domain?: string; enabled?: boolean; path?: string } = {}): Rule {
   const domain = opts.domain ?? 'api.openheaders.io';
   return {
     uid,
@@ -34,7 +34,7 @@ function rule(uid: string, opts: { domain?: string; enabled?: boolean; path?: st
     published: true,
     conditions: [{ uid: 'tcd00055', type: 'request-domains', values: [domain] }],
     action: {},
-  } as V5.Rule;
+  } as Rule;
 }
 
 const NO_MARKERS: ReadonlyMap<string, PauseMarker> = new Map();
@@ -352,7 +352,7 @@ describe('broad fallback', () => {
       published: true,
       conditions: [{ uid: 'tcd00056', type: 'url-filter', values: ['*://*.openheaders.io/*'] }],
       action: {},
-    } as unknown as V5.Rule;
+    } as unknown as Rule;
 
     observeRuleState([broadRule], NO_MARKERS, false);
 

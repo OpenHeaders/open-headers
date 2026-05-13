@@ -5,7 +5,7 @@
  */
 
 import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
-import type { V5 } from '@openheaders/core/types';
+import type { OAuth2Auth } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Global mocks ──────────────────────────────────────────────────
@@ -42,7 +42,7 @@ vi.mock('@/background/modules/oauth-flow', () => ({
 // real token-store is unit-tested separately.
 let storeState: {
   tokens: Record<string, Record<string, OAuth2TokenBundle>>;
-  configs: Record<string, Record<string, V5.OAuth2Auth>>;
+  configs: Record<string, Record<string, OAuth2Auth>>;
   errors: Record<
     string,
     Record<string, { consecutiveFailures: number; lastErrorAt: number; lastErrorMessage: string }>
@@ -58,7 +58,7 @@ vi.mock('@/background/modules/oauth-token-store', () => ({
       workspaceId: string;
       credentialRef: string;
       bundle: OAuth2TokenBundle;
-      config: V5.OAuth2Auth | null;
+      config: OAuth2Auth | null;
       errorState: { consecutiveFailures: number; lastErrorAt: number; lastErrorMessage: string } | null;
     }> = [];
     for (const ws of Object.keys(storeState.tokens)) {
@@ -107,7 +107,7 @@ function makeBundle(overrides: Partial<OAuth2TokenBundle> = {}): OAuth2TokenBund
   };
 }
 
-function makeConfig(overrides: Partial<V5.OAuth2Auth> = {}): V5.OAuth2Auth {
+function makeConfig(overrides: Partial<OAuth2Auth> = {}): OAuth2Auth {
   return {
     type: 'oauth2',
     credentialRef: 'cred-test',
@@ -124,7 +124,7 @@ function seed(
   workspaceId: string,
   credentialRef: string,
   bundle: OAuth2TokenBundle,
-  config: V5.OAuth2Auth | null,
+  config: OAuth2Auth | null,
   errorState?: { consecutiveFailures: number; lastErrorAt: number; lastErrorMessage: string },
 ): void {
   storeState.tokens[workspaceId] = { ...(storeState.tokens[workspaceId] ?? {}), [credentialRef]: bundle };

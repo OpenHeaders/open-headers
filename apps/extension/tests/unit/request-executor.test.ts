@@ -1,4 +1,4 @@
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, Environment, Request, Vault, WorkspaceVariables } from '@openheaders/core/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Capture the URL fetch is called with so we can assert resolved output.
@@ -26,20 +26,20 @@ Object.defineProperty(globalThis.navigator, 'onLine', {
 });
 
 vi.mock('@/background/modules/environment-store', () => ({
-  getEnvironments: vi.fn(() => [] as V5.Environment[]),
+  getEnvironments: vi.fn(() => [] as Environment[]),
   getActiveEnvironmentId: vi.fn(() => null as string | null),
   getDefaultEnvironmentId: vi.fn(() => null as string | null),
-  getWorkspaceVariables: vi.fn(() => ({ schemaVersion: 5, variables: [] }) as V5.WorkspaceVariables),
-  getVault: vi.fn(() => ({ schemaVersion: 5, secrets: [] }) as V5.Vault),
+  getWorkspaceVariables: vi.fn(() => ({ schemaVersion: 5, variables: [] }) as WorkspaceVariables),
+  getVault: vi.fn(() => ({ schemaVersion: 5, secrets: [] }) as Vault),
 }));
 
 vi.mock('@/background/modules/request-store', () => ({
   getRequest: vi.fn(() => null),
-  getRequestCollections: vi.fn(() => [] as V5.Collection[]),
+  getRequestCollections: vi.fn(() => [] as Collection[]),
 }));
 
 vi.mock('@/background/modules/rule-store', () => ({
-  getCollections: vi.fn(() => [] as V5.Collection[]),
+  getCollections: vi.fn(() => [] as Collection[]),
 }));
 
 import {
@@ -58,7 +58,7 @@ const mockWsVars = getWorkspaceVariables as ReturnType<typeof vi.fn>;
 const mockVault = getVault as ReturnType<typeof vi.fn>;
 const mockRequestCollections = getRequestCollections as ReturnType<typeof vi.fn>;
 
-function makeRequest(overrides: Partial<V5.Request> = {}): V5.Request {
+function makeRequest(overrides: Partial<Request> = {}): Request {
   return {
     schemaVersion: 5,
     uid: 'r1',
@@ -105,7 +105,7 @@ describe('RequestExecutor', () => {
         variables: [{ uid: '9d864e7f', name: 'TOKEN', value: 'coll-token', type: 'default' }],
         pinnedEnvironmentIds: [],
         defaultEnvironmentId: null,
-      } satisfies V5.Collection,
+      } satisfies Collection,
     ]);
     const req = makeRequest({
       path: 'requests/auth-coll/login-abcd',
@@ -384,11 +384,11 @@ describe('needsSchemeNormalization', () => {
 describe('pre-flight URL validation', () => {
   beforeEach(() => {
     fetchMock.mockReset();
-    mockEnvs.mockReturnValue([] as V5.Environment[]);
+    mockEnvs.mockReturnValue([] as Environment[]);
     mockActiveEnvId.mockReturnValue(null);
-    mockWsVars.mockReturnValue({ schemaVersion: 5, variables: [] } as V5.WorkspaceVariables);
-    mockVault.mockReturnValue({ schemaVersion: 5, secrets: [] } as V5.Vault);
-    mockRequestCollections.mockReturnValue([] as V5.Collection[]);
+    mockWsVars.mockReturnValue({ schemaVersion: 5, variables: [] } as WorkspaceVariables);
+    mockVault.mockReturnValue({ schemaVersion: 5, secrets: [] } as Vault);
+    mockRequestCollections.mockReturnValue([] as Collection[]);
   });
 
   it('surfaces "Invalid URL" for malformed inputs without calling fetch', async () => {
@@ -438,11 +438,11 @@ describe('pre-flight URL validation', () => {
 describe('fetch-failure classification', () => {
   beforeEach(() => {
     fetchMock.mockReset();
-    mockEnvs.mockReturnValue([] as V5.Environment[]);
+    mockEnvs.mockReturnValue([] as Environment[]);
     mockActiveEnvId.mockReturnValue(null);
-    mockWsVars.mockReturnValue({ schemaVersion: 5, variables: [] } as V5.WorkspaceVariables);
-    mockVault.mockReturnValue({ schemaVersion: 5, secrets: [] } as V5.Vault);
-    mockRequestCollections.mockReturnValue([] as V5.Collection[]);
+    mockWsVars.mockReturnValue({ schemaVersion: 5, variables: [] } as WorkspaceVariables);
+    mockVault.mockReturnValue({ schemaVersion: 5, secrets: [] } as Vault);
+    mockRequestCollections.mockReturnValue([] as Collection[]);
   });
 
   it('expands "Failed to fetch" for a public host into an actionable message', async () => {

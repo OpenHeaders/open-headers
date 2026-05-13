@@ -1,5 +1,5 @@
 /**
- * Conflict tracking + resolve adapters for V5.LiveWorkflow.
+ * Conflict tracking + resolve adapters for LiveWorkflow.
  *
  * Tracks workflow-level scalar leaves AND the steps + captures
  * nested set hierarchy. WorkflowStep + Capture both carry a stable
@@ -21,7 +21,7 @@
  * extractor is opaque (variant union); same trade-off as the gates.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
 import { LIVE_WORKFLOW_FIELD } from '@/shared/awareness/live-paths';
 import type {
   ConflictResolveAdapter,
@@ -57,15 +57,15 @@ function opaqueStringify(value: unknown): string {
   return JSON.stringify(value);
 }
 
-function findStep(wf: V5.LiveWorkflow, stepUid: string): V5.WorkflowStep | undefined {
+function findStep(wf: LiveWorkflow, stepUid: string): WorkflowStep | undefined {
   return wf.steps.find((s) => s.uid === stepUid);
 }
 
-function findCapture(step: V5.WorkflowStep, captureUid: string): V5.WorkflowStep['captures'][number] | undefined {
+function findCapture(step: WorkflowStep, captureUid: string): WorkflowStep['captures'][number] | undefined {
   return step.captures.find((c) => c.uid === captureUid);
 }
 
-function readStepLeaf(step: V5.WorkflowStep, leaf: string): string | null {
+function readStepLeaf(step: WorkflowStep, leaf: string): string | null {
   switch (leaf) {
     case 'id':
       return step.id;
@@ -84,7 +84,7 @@ function readStepLeaf(step: V5.WorkflowStep, leaf: string): string | null {
   }
 }
 
-function readCaptureLeaf(capture: V5.WorkflowStep['captures'][number], leaf: string): string | null {
+function readCaptureLeaf(capture: WorkflowStep['captures'][number], leaf: string): string | null {
   switch (leaf) {
     case 'name':
       return capture.name;
@@ -95,7 +95,7 @@ function readCaptureLeaf(capture: V5.WorkflowStep['captures'][number], leaf: str
   }
 }
 
-function readRefreshLeaf(refresh: V5.LiveWorkflow['refresh'], path: string): string | null {
+function readRefreshLeaf(refresh: LiveWorkflow['refresh'], path: string): string | null {
   switch (path) {
     case PATH_REFRESH_KIND:
       return refresh.kind;
@@ -112,7 +112,7 @@ function readRefreshLeaf(refresh: V5.LiveWorkflow['refresh'], path: string): str
   }
 }
 
-function readPath(wf: V5.LiveWorkflow, path: string): string | null {
+function readPath(wf: LiveWorkflow, path: string): string | null {
   switch (path) {
     case PATH_NAME:
       return wf.name;
@@ -140,7 +140,7 @@ function readPath(wf: V5.LiveWorkflow, path: string): string | null {
   return null;
 }
 
-function extractBaseline(wf: V5.LiveWorkflow): PathMap {
+function extractBaseline(wf: LiveWorkflow): PathMap {
   const out: PathMap = {
     [PATH_NAME]: wf.name,
     [PATH_DESCRIPTION]: wf.description ?? '',
@@ -175,7 +175,7 @@ function extractBaseline(wf: V5.LiveWorkflow): PathMap {
   return out;
 }
 
-function snapshotSets(wf: V5.LiveWorkflow): readonly SetMemberSnapshot[] {
+function snapshotSets(wf: LiveWorkflow): readonly SetMemberSnapshot[] {
   const out: SetMemberSnapshot[] = [];
   const stepsMap = new Map<string, SetMember>();
   for (const step of wf.steps) {
@@ -252,7 +252,7 @@ function snapshotSetsFromForm(form: PathMap): readonly SetMemberSnapshot[] {
   return out;
 }
 
-export const liveWorkflowConflictAdapter: ConflictTrackingAdapter<V5.LiveWorkflow> = {
+export const liveWorkflowConflictAdapter: ConflictTrackingAdapter<LiveWorkflow> = {
   signature: (e) => e.uid,
   extractBaseline,
   readPath,
@@ -285,7 +285,7 @@ const CAPTURE_LEAF_LABEL: Record<string, string> = {
   extractor: 'extractor',
 };
 
-function writeStepLeaf(step: V5.WorkflowStep, leaf: string, value: string): boolean {
+function writeStepLeaf(step: WorkflowStep, leaf: string, value: string): boolean {
   switch (leaf) {
     case 'id':
       step.id = value;
@@ -301,9 +301,9 @@ function writeStepLeaf(step: V5.WorkflowStep, leaf: string, value: string): bool
     case 'priorityFrom': {
       try {
         const parsed = value === '' ? undefined : (JSON.parse(value) as unknown);
-        if (leaf === 'dependsOn') step.dependsOn = parsed as V5.WorkflowStep['dependsOn'];
-        else if (leaf === 'runIf') step.runIf = parsed as V5.WorkflowStep['runIf'];
-        else step.priorityFrom = parsed as V5.WorkflowStep['priorityFrom'];
+        if (leaf === 'dependsOn') step.dependsOn = parsed as WorkflowStep['dependsOn'];
+        else if (leaf === 'runIf') step.runIf = parsed as WorkflowStep['runIf'];
+        else step.priorityFrom = parsed as WorkflowStep['priorityFrom'];
         return true;
       } catch {
         return false;
@@ -314,14 +314,14 @@ function writeStepLeaf(step: V5.WorkflowStep, leaf: string, value: string): bool
   }
 }
 
-function writeCaptureLeaf(capture: V5.WorkflowStep['captures'][number], leaf: string, value: string): boolean {
+function writeCaptureLeaf(capture: WorkflowStep['captures'][number], leaf: string, value: string): boolean {
   switch (leaf) {
     case 'name':
       capture.name = value;
       return true;
     case 'extractor': {
       try {
-        capture.extractor = JSON.parse(value) as V5.WorkflowStep['captures'][number]['extractor'];
+        capture.extractor = JSON.parse(value) as WorkflowStep['captures'][number]['extractor'];
         return true;
       } catch {
         return false;
@@ -332,7 +332,7 @@ function writeCaptureLeaf(capture: V5.WorkflowStep['captures'][number], leaf: st
   }
 }
 
-export const liveWorkflowResolveAdapter: ConflictResolveAdapter<V5.LiveWorkflow> = {
+export const liveWorkflowResolveAdapter: ConflictResolveAdapter<LiveWorkflow> = {
   applyResolutionToForm: () => false,
   applyResolutionToEntity(entity, path, conflict) {
     const value = conflict.theirs;

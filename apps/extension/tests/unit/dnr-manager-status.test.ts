@@ -1,4 +1,4 @@
-import type { V5 } from '@openheaders/core/types';
+import type { HeaderRule, Rule, RuleCondition } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@utils/browser-api', () => ({
@@ -54,7 +54,7 @@ vi.mock('@/background/modules/rule-state-observer', () => ({
 }));
 
 vi.mock('@/background/modules/variables-resolver', () => ({
-  resolveRulesForCompile: vi.fn((rules: V5.Rule[]) => rules),
+  resolveRulesForCompile: vi.fn((rules: Rule[]) => rules),
   getLastAggregatedResolutionErrors: vi.fn(() => []),
   getLastResolutionErrors: vi.fn(() => new Map<string, unknown>()),
   // Compile pipeline drops rules whose `uid` is in this set before
@@ -95,11 +95,11 @@ const mockGetSetting = getSetting as unknown as ReturnType<typeof vi.fn>;
 const mockAggregatedErrors = getLastAggregatedResolutionErrors as ReturnType<typeof vi.fn>;
 const mockResolutionErrors = getLastResolutionErrors as ReturnType<typeof vi.fn>;
 
-function hostConditions(domains: string[]): V5.RuleCondition[] {
+function hostConditions(domains: string[]): RuleCondition[] {
   return domains.length > 0 ? [{ uid: 'tcd00015', type: 'request-domains', values: domains }] : [];
 }
 
-function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
+function makeHeaderRule(overrides: Partial<HeaderRule> = {}): HeaderRule {
   return {
     schemaVersion: 5,
     uid: 'r1a2b3c4',

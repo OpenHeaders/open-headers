@@ -34,7 +34,7 @@ import {
   WarningOutlined,
 } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import { call } from '@utils/bridge';
 import { App, Button, Checkbox, Empty, Space, Spin, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -244,7 +244,7 @@ const RunReportView: React.FC<RunReportViewProps> = ({ runId, onSelectRule, onAf
 
   // Group scoped rules by tier — same ordering as RuleFlow.
   const rulesByTier = useMemo(() => {
-    const map = new Map<string, V5.Rule[]>();
+    const map = new Map<string, Rule[]>();
     for (const tier of PRIORITY_TIERS) map.set(tier.key, []);
     for (const rule of scopedRules) {
       const tier = PRIORITY_TIERS.find((t) => t.ruleTypes.includes(rule.type));
@@ -449,7 +449,7 @@ const StatusIcon: React.FC<{ status: 'executed' | 'shadowed' | 'no-fire' | 'skip
 };
 
 interface DrillDownPanelProps {
-  rule: V5.Rule;
+  rule: Rule;
   overlay: RuleStatusOverlay;
   fires: TestFireEvent[];
   onClose: () => void;

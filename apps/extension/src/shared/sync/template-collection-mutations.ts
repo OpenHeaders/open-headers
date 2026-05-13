@@ -8,8 +8,7 @@
  * (boot-time hydration) and the renderer (variable write client).
  */
 
-import type { V5 } from '@openheaders/core/types';
-type Variable = V5.Variable;
+import type { Variable } from '@openheaders/core/types';
 import {
   type MutationBatch,
   type MutatorContext,

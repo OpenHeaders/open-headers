@@ -1,5 +1,5 @@
 /**
- * `REQUEST_SCHEMA` — declarative field-tree descriptor for `V5.Request`.
+ * `REQUEST_SCHEMA` — declarative field-tree descriptor for `Request`.
  *
  * Closes the field-tree epic by replacing the hand-rolled
  * tracking + resolve adapters in `request-conflict-adapter.ts` with a

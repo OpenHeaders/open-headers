@@ -4,8 +4,8 @@
  * the owning collection of an entity, or pick the active collection
  * for a tab.
  *
- * Three collection families share the same `V5.Collection` shape and
- * each carries its own `variables: V5.Variable[]`:
+ * Three collection families share the same `Collection` shape and
+ * each carries its own `variables: Variable[]`:
  *   - rule collections      (`useRules().localCollections`           / `getCollections()`)
  *   - request collections   (`useRequests().collections`             / `getRequestCollections()`)
  *   - template collections  (`useRules().templateCollections`        / `getTemplateCollections()`)
@@ -28,18 +28,18 @@
  * silently empty for every request and template surface.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, CollectionTree, FolderNode, TreeNode, Variable } from '@openheaders/core/types';
 import type { VariableResolver } from '@openheaders/core/variables';
 
 /** Bundle of all three collection families. Pass once, reuse everywhere. */
 export interface CollectionFamilies {
-  ruleCollections: readonly V5.Collection[];
-  requestCollections: readonly V5.Collection[];
-  templateCollections: readonly V5.Collection[];
+  ruleCollections: readonly Collection[];
+  requestCollections: readonly Collection[];
+  templateCollections: readonly Collection[];
 }
 
 /** Find a collection by uid across all three families. */
-export function findCollectionByUid(uid: string, families: CollectionFamilies): V5.Collection | null {
+export function findCollectionByUid(uid: string, families: CollectionFamilies): Collection | null {
   return (
     families.ruleCollections.find((c) => c.uid === uid) ??
     families.requestCollections.find((c) => c.uid === uid) ??
@@ -58,8 +58,8 @@ export function findCollectionByUid(uid: string, families: CollectionFamilies): 
 export function findCollectionWithFamily(
   uid: string,
   families: CollectionFamilies,
-): { family: CollectionFamily; collection: V5.Collection } | null {
-  const PAIRS: { family: CollectionFamily; list: readonly V5.Collection[] }[] = [
+): { family: CollectionFamily; collection: Collection } | null {
+  const PAIRS: { family: CollectionFamily; list: readonly Collection[] }[] = [
     { family: 'rule', list: families.ruleCollections },
     { family: 'request', list: families.requestCollections },
     { family: 'template', list: families.templateCollections },
@@ -82,13 +82,13 @@ export function findCollectionWithFamily(
 export function findCollectionByPath(
   entityPath: string,
   families: CollectionFamilies,
-): V5.Collection | null {
+): Collection | null {
   for (const candidates of [
     families.ruleCollections,
     families.requestCollections,
     families.templateCollections,
   ]) {
-    let best: V5.Collection | null = null;
+    let best: Collection | null = null;
     for (const c of candidates) {
       if (!entityPath.startsWith(`${c.path}/`)) continue;
       if (!best || c.path.length > best.path.length) best = c;
@@ -126,7 +126,7 @@ export function feedCollectionVariablesToResolver(
 }
 
 /** Iterate every collection across all families. Used for "all collections" displays. */
-export function* iterateAllCollections(families: CollectionFamilies): Generator<V5.Collection> {
+export function* iterateAllCollections(families: CollectionFamilies): Generator<Collection> {
   for (const c of families.ruleCollections) yield c;
   for (const c of families.requestCollections) yield c;
   for (const c of families.templateCollections) yield c;
@@ -137,12 +137,12 @@ export type CollectionFamily = 'rule' | 'request' | 'template';
 
 /** Bundle of all three families' collection trees — the per-tree counterpart
  * to {@link CollectionFamilies}. Folder lookup needs trees because folders
- * live as `V5.FolderNode` entries inside `V5.CollectionTree.tree`, not on
+ * live as `FolderNode` entries inside `CollectionTree.tree`, not on
  * the flat `Collection` objects. */
 export interface CollectionTreeFamilies {
-  ruleTrees: readonly V5.CollectionTree[];
-  requestTrees: readonly V5.CollectionTree[];
-  templateTrees: readonly V5.CollectionTree[];
+  ruleTrees: readonly CollectionTree[];
+  requestTrees: readonly CollectionTree[];
+  templateTrees: readonly CollectionTree[];
 }
 
 /**
@@ -162,7 +162,7 @@ export function findFolderByUid(
   families: CollectionTreeFamilies,
 ): {
   family: CollectionFamily;
-  folder: V5.FolderNode;
+  folder: FolderNode;
   collectionUid: string;
   collectionName: string;
   /** Folder names from the owning collection root down to (but excluding)
@@ -170,7 +170,7 @@ export function findFolderByUid(
    *  collection. Useful for breadcrumb construction. */
   folderTrail: string[];
 } | null {
-  const FAMILIES: { family: CollectionFamily; trees: readonly V5.CollectionTree[] }[] = [
+  const FAMILIES: { family: CollectionFamily; trees: readonly CollectionTree[] }[] = [
     { family: 'rule', trees: families.ruleTrees },
     { family: 'request', trees: families.requestTrees },
     { family: 'template', trees: families.templateTrees },
@@ -178,7 +178,7 @@ export function findFolderByUid(
   for (const { family, trees } of FAMILIES) {
     for (const col of trees) {
       const trail: string[] = [];
-      const walk = (nodes: V5.TreeNode[]): V5.FolderNode | null => {
+      const walk = (nodes: TreeNode[]): FolderNode | null => {
         for (const n of nodes) {
           if (n.type !== 'folder') continue;
           if (n.uid === folderUid) return n;

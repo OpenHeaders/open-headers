@@ -5,7 +5,7 @@
  */
 
 import { useMemo } from 'react';
-import type { V5 } from '@openheaders/core/types';
+import type { LiveWorkflow } from '@openheaders/core/types';
 import {
   applyLiveWorkflowCreate,
   applyLiveWorkflowDelete,
@@ -24,7 +24,7 @@ export interface UseLiveWorkflowMutatorOptions {
   surfaceId: string;
 }
 
-export type LiveWorkflowSeed = Omit<V5.LiveWorkflow, 'uid' | 'path' | 'schemaVersion'>;
+export type LiveWorkflowSeed = Omit<LiveWorkflow, 'uid' | 'path' | 'schemaVersion'>;
 
 export interface UseLiveWorkflowMutatorApi {
   updateLiveWorkflow(

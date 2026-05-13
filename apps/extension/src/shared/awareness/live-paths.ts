@@ -1,5 +1,5 @@
 /**
- * Canonical V5.LiveVariable / V5.LiveWorkflow field paths for awareness
+ * Canonical LiveVariable / LiveWorkflow field paths for awareness
  * publishing.
  *
  * Lives in `shared/awareness/` for symmetry with `rule-paths.ts` and

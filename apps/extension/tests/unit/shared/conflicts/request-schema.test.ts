@@ -4,17 +4,17 @@
  * the old opaque stable-stringified scalars at `auth` / `body`.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { AuthConfig, Request, RequestBody } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
 import { makeConflictAdapter } from '@/shared/conflicts/field-tree/make-conflict-adapter';
 import { REQUEST_SCHEMA } from '@/shared/conflicts/field-tree/request-schema';
 
-const adapter = makeConflictAdapter<V5.Request>({
+const adapter = makeConflictAdapter<Request>({
   schema: REQUEST_SCHEMA,
   signature: (r) => r.uid,
 });
 
-function baseRequest(overrides: Partial<V5.Request> = {}): V5.Request {
+function baseRequest(overrides: Partial<Request> = {}): Request {
   return {
     uid: 'req-0001',
     name: 'r',
@@ -27,7 +27,7 @@ function baseRequest(overrides: Partial<V5.Request> = {}): V5.Request {
     auth: { type: 'none' },
     body: { type: 'none' },
     ...overrides,
-  } as unknown as V5.Request;
+  } as unknown as Request;
 }
 
 describe('REQUEST_SCHEMA — Auth (OAuth2) per-leaf', () => {
@@ -40,7 +40,7 @@ describe('REQUEST_SCHEMA — Auth (OAuth2) per-leaf', () => {
       clientId: 'client-1',
       scopes: ['read', 'write'],
       extraTokenParams: [{ uid: 'tp000001', key: 'audience', value: 'a' }],
-    } as unknown as V5.AuthConfig,
+    } as unknown as AuthConfig,
   });
 
   it('emits per-leaf paths for OAuth2 fields', () => {
@@ -64,7 +64,7 @@ describe('REQUEST_SCHEMA — Auth (OAuth2) per-leaf', () => {
   });
 
   it('applyResolutionToEntity writes a per-leaf change into the auth object', () => {
-    const target = JSON.parse(JSON.stringify(req)) as V5.Request;
+    const target = JSON.parse(JSON.stringify(req)) as Request;
     const ok = adapter.resolve.applyResolutionToEntity(target, 'auth.tokenEndpoint', {
       base: 'https://openheaders.io/oauth/token',
       theirs: 'https://openheaders.io/oauth/token-v2',
@@ -76,7 +76,7 @@ describe('REQUEST_SCHEMA — Auth (OAuth2) per-leaf', () => {
   });
 
   it('union:auth whole-branch resolution swaps the auth branch + discriminator', () => {
-    const target = JSON.parse(JSON.stringify(req)) as V5.Request;
+    const target = JSON.parse(JSON.stringify(req)) as Request;
     const ok = adapter.resolve.applyResolutionToEntity(target, 'union:auth', {
       base: '',
       theirs: '',
@@ -89,7 +89,7 @@ describe('REQUEST_SCHEMA — Auth (OAuth2) per-leaf', () => {
 
 describe('REQUEST_SCHEMA — Body (JSON) per-leaf', () => {
   const req = baseRequest({
-    body: { type: 'json', content: '{"a":1}' } as V5.RequestBody,
+    body: { type: 'json', content: '{"a":1}' } as RequestBody,
   });
 
   it('emits a per-leaf path for json body content', () => {
@@ -99,7 +99,7 @@ describe('REQUEST_SCHEMA — Body (JSON) per-leaf', () => {
   });
 
   it('applyResolutionToEntity writes the new content into body.content', () => {
-    const target = JSON.parse(JSON.stringify(req)) as V5.Request;
+    const target = JSON.parse(JSON.stringify(req)) as Request;
     const ok = adapter.resolve.applyResolutionToEntity(target, 'body.content', {
       base: '{"a":1}',
       theirs: '{"a":2}',
@@ -109,7 +109,7 @@ describe('REQUEST_SCHEMA — Body (JSON) per-leaf', () => {
   });
 
   it('union:body resolves whole-branch swap json → text', () => {
-    const target = JSON.parse(JSON.stringify(req)) as V5.Request;
+    const target = JSON.parse(JSON.stringify(req)) as Request;
     const ok = adapter.resolve.applyResolutionToEntity(target, 'union:body', {
       base: '',
       theirs: '',

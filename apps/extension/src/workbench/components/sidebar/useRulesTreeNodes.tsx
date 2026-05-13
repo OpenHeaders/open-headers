@@ -1,6 +1,6 @@
 import { CheckCircleOutlined, FolderOpenOutlined, FolderOutlined, PlusOutlined, StopOutlined } from '@ant-design/icons';
 import { COLLECTION_ENTITY_TYPE, FOLDER_ENTITY_TYPE, RULE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Rule, TreeNode as CoreTreeNode } from '@openheaders/core/types';
 import { hasNestedPauseMarkers, isRuleComplete, type PauseMarkers } from '@openheaders/core/utils';
 import { useCallback, useMemo } from 'react';
 import type { WorkbenchTab } from '../../types';
@@ -11,9 +11,9 @@ import { containerActionMenuItems, containerAddMenuItems } from './menus';
 import type { TreeNode } from './types';
 
 interface UseRulesTreeNodesParams {
-  rules: readonly V5.Rule[];
+  rules: readonly Rule[];
   localCollections: readonly { uid: string; path: string }[];
-  localCollectionTrees: readonly { uid: string; name: string; path: string; tree: V5.TreeNode[] }[];
+  localCollectionTrees: readonly { uid: string; name: string; path: string; tree: CoreTreeNode[] }[];
   pauseMarkers: PauseMarkers;
   pausedUids: ReadonlySet<string>;
   unresolvableRuleUids: ReadonlySet<string>;
@@ -30,7 +30,7 @@ interface UseRulesTreeNodesParams {
   togglePause: (path: string) => void;
   clearPauseOverride: (path: string) => void;
   clearNestedPauseOverrides: (path: string) => void;
-  updateLocalRule: (uid: string, patch: Partial<V5.Rule>) => Promise<unknown> | unknown;
+  updateLocalRule: (uid: string, patch: Partial<Rule>) => Promise<unknown> | unknown;
   createLocalFolder: (name: string, parentPath: string) => Promise<{ uid: string; path: string; name: string } | null>;
   renameLocalFolder: (uid: string, name: string) => Promise<unknown> | unknown;
   deleteLocalFolder: (uid: string) => Promise<unknown> | unknown;
@@ -56,7 +56,7 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
   const lowerFilter = p.filterText.toLowerCase();
 
   const walkV5Tree = useCallback(
-    (v5Nodes: V5.TreeNode[], depth: number, parentId: string, collectionId: string): TreeNode[] => {
+    (v5Nodes: CoreTreeNode[], depth: number, parentId: string, collectionId: string): TreeNode[] => {
       const items: TreeNode[] = [];
 
       for (const node of v5Nodes) {
@@ -266,7 +266,7 @@ export function useRulesTreeNodes(p: UseRulesTreeNodesParams): TreeNode[] {
   return useMemo((): TreeNode[] => {
     const items: TreeNode[] = [];
 
-    const hasRuleMatch = (nodes: V5.TreeNode[]): boolean => {
+    const hasRuleMatch = (nodes: CoreTreeNode[]): boolean => {
       for (const n of nodes) {
         if (n.type === 'rule' && n.name.toLowerCase().includes(lowerFilter)) return true;
         if (n.type === 'folder') {

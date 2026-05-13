@@ -5,7 +5,7 @@ import {
   REQUEST_ENTITY_TYPE,
   REQUEST_FOLDER_ENTITY_TYPE,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Request, TreeNode as CoreTreeNode } from '@openheaders/core/types';
 import { isRequestComplete, isRequestResolvable } from '@openheaders/core/utils';
 import { useCallback, useMemo } from 'react';
 import type { WorkbenchTab } from '../../types';
@@ -15,9 +15,9 @@ import { containerActionMenuItems, containerAddMenuItems } from './menus';
 import type { TreeNode } from './types';
 
 interface UseRequestTreeNodesParams {
-  requestCollectionTrees: readonly { uid: string; name: string; path: string; tree: V5.TreeNode[] }[];
+  requestCollectionTrees: readonly { uid: string; name: string; path: string; tree: CoreTreeNode[] }[];
   requestCollections: readonly { uid: string; path: string }[];
-  allRequests: readonly V5.Request[];
+  allRequests: readonly Request[];
   resolver: ReturnType<typeof useVariableResolver>;
   dirtyRequestUids?: ReadonlySet<string>;
   /** Post-import: imported request uids whose scripts the user hasn't
@@ -32,7 +32,7 @@ interface UseRequestTreeNodesParams {
   setRenamingId: (id: string | null) => void;
   filterText: string;
   confirmDelete: (name: string, onConfirm: () => void) => void;
-  updateRequestData: (uid: string, patch: Partial<V5.Request>) => Promise<unknown> | unknown;
+  updateRequestData: (uid: string, patch: Partial<Request>) => Promise<unknown> | unknown;
   deleteRequest: (uid: string) => Promise<unknown> | unknown;
   createRequestFolderRpc: (
     name: string,
@@ -60,7 +60,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
   const lowerFilter = p.filterText.toLowerCase();
 
   const walkRequestTree = useCallback(
-    (v5Nodes: V5.TreeNode[], depth: number, parentId: string, collectionId: string): TreeNode[] => {
+    (v5Nodes: CoreTreeNode[], depth: number, parentId: string, collectionId: string): TreeNode[] => {
       const items: TreeNode[] = [];
       for (const node of v5Nodes) {
         if (node.type === 'folder') {
@@ -223,7 +223,7 @@ export function useRequestTreeNodes(p: UseRequestTreeNodesParams): TreeNode[] {
   return useMemo((): TreeNode[] => {
     const items: TreeNode[] = [];
 
-    const hasRequestMatch = (nodes: V5.TreeNode[]): boolean => {
+    const hasRequestMatch = (nodes: CoreTreeNode[]): boolean => {
       for (const n of nodes) {
         if (n.type === 'request' && n.name.toLowerCase().includes(lowerFilter)) return true;
         if (n.type === 'folder') {

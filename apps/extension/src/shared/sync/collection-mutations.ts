@@ -9,8 +9,7 @@
  * (`useCollectionMutator` write client).
  */
 
-import type { V5 } from '@openheaders/core/types';
-type Variable = V5.Variable;
+import type { Variable } from '@openheaders/core/types';
 import {
   COLLECTION_ENTITY_TYPE,
   COLLECTION_MUTATOR_VERSION,

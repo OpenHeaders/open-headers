@@ -26,7 +26,7 @@
  * purge) follows every renderer-direct mutation that needs it.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, ExtensionWorkspace, LiveVariable, LiveWorkflow, Request, Rule, Template } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { deepCopyHierarchy } from '@openheaders/core/workspace-export';
 import { logger } from '@utils/logger';
@@ -214,7 +214,7 @@ interface DuplicateOptions {
 export async function duplicateWorkspace(
   sourceId: string,
   options: DuplicateOptions = {},
-): Promise<V5.ExtensionWorkspace | null> {
+): Promise<ExtensionWorkspace | null> {
   const source = getWorkspace(sourceId);
   if (!source) return null;
 
@@ -321,8 +321,8 @@ export async function duplicateWorkspace(
 // ── Deep-copy helpers ───────────────────────────────────────────────
 
 interface RuleHierarchyCopy {
-  remappedRules: V5.Rule[];
-  remappedCollections: V5.Collection[];
+  remappedRules: Rule[];
+  remappedCollections: Collection[];
   remappedFolders: LocalFolder[];
   /** Old path → new path for every collection + folder (NOT rules).
    *  Used by the outer caller to remap pause markers, which are keyed
@@ -331,17 +331,17 @@ interface RuleHierarchyCopy {
 }
 
 function deepCopyRuleHierarchy(
-  rules: V5.Rule[],
-  collections: V5.Collection[],
+  rules: Rule[],
+  collections: Collection[],
   folders: LocalFolder[],
 ): RuleHierarchyCopy {
-  const result = deepCopyHierarchy<V5.Rule>({
+  const result = deepCopyHierarchy<Rule>({
     entities: rules,
     collections,
     folders,
     treePrefix: 'rules',
     finalizeEntity: (rule, ctx) => {
-      const ruleWithIds = rule as V5.Rule & { collectionId?: string; folderId?: string };
+      const ruleWithIds = rule as Rule & { collectionId?: string; folderId?: string };
       const remapContainerId = (oldId: string | undefined): string | undefined => {
         if (!oldId) return oldId;
         return ctx.collectionUidRemap.get(oldId) ?? ctx.folderUidRemap.get(oldId) ?? oldId;
@@ -350,7 +350,7 @@ function deepCopyRuleHierarchy(
         ...rule,
         ...(ruleWithIds.collectionId && { collectionId: remapContainerId(ruleWithIds.collectionId) }),
         ...(ruleWithIds.folderId && { folderId: remapContainerId(ruleWithIds.folderId) }),
-      } as V5.Rule;
+      } as Rule;
     },
   });
   return {
@@ -362,17 +362,17 @@ function deepCopyRuleHierarchy(
 }
 
 interface TemplateHierarchyCopy {
-  remappedTemplates: V5.Template[];
-  remappedTemplateCollections: V5.Collection[];
+  remappedTemplates: Template[];
+  remappedTemplateCollections: Collection[];
   remappedTemplateFolders: LocalFolder[];
 }
 
 function deepCopyTemplateHierarchy(
-  templates: V5.Template[],
-  collections: V5.Collection[],
+  templates: Template[],
+  collections: Collection[],
   folders: LocalFolder[],
 ): TemplateHierarchyCopy {
-  const result = deepCopyHierarchy<V5.Template>({
+  const result = deepCopyHierarchy<Template>({
     entities: templates,
     collections,
     folders,
@@ -386,8 +386,8 @@ function deepCopyTemplateHierarchy(
 }
 
 interface RequestHierarchyCopy {
-  remappedRequests: V5.Request[];
-  remappedRequestCollections: V5.Collection[];
+  remappedRequests: Request[];
+  remappedRequestCollections: Collection[];
   remappedRequestFolders: LocalFolder[];
   /**
    * `sourceRequestUid → newRequestUid` mapping. Consumed by
@@ -400,11 +400,11 @@ interface RequestHierarchyCopy {
 }
 
 function deepCopyRequestHierarchy(
-  requests: V5.Request[],
-  collections: V5.Collection[],
+  requests: Request[],
+  collections: Collection[],
   folders: LocalFolder[],
 ): RequestHierarchyCopy {
-  const result = deepCopyHierarchy<V5.Request>({
+  const result = deepCopyHierarchy<Request>({
     entities: requests,
     collections,
     folders,
@@ -419,8 +419,8 @@ function deepCopyRequestHierarchy(
 }
 
 interface LiveEntitiesCopy {
-  remappedLiveWorkflows: V5.LiveWorkflow[];
-  remappedLiveVariables: V5.LiveVariable[];
+  remappedLiveWorkflows: LiveWorkflow[];
+  remappedLiveVariables: LiveVariable[];
 }
 
 /**
@@ -439,13 +439,13 @@ interface LiveEntitiesCopy {
  * on its first alarm fire.
  */
 function deepCopyLiveEntities(
-  workflows: V5.LiveWorkflow[],
-  variables: V5.LiveVariable[],
+  workflows: LiveWorkflow[],
+  variables: LiveVariable[],
   requestUidRemap: Map<string, string>,
 ): LiveEntitiesCopy {
   const workflowUidRemap = new Map<string, string>();
 
-  const remappedLiveWorkflows: V5.LiveWorkflow[] = workflows.map((w) => {
+  const remappedLiveWorkflows: LiveWorkflow[] = workflows.map((w) => {
     const uid = generateUid();
     workflowUidRemap.set(w.uid, uid);
     const path = `live-workflows/${toFolderName(w.name, uid)}`;
@@ -461,7 +461,7 @@ function deepCopyLiveEntities(
     return { ...w, uid, path, steps };
   });
 
-  const remappedLiveVariables: V5.LiveVariable[] = variables.map((lv) => {
+  const remappedLiveVariables: LiveVariable[] = variables.map((lv) => {
     const uid = generateUid();
     const path = `live-variables/${toFolderName(lv.name, uid)}`;
     return {

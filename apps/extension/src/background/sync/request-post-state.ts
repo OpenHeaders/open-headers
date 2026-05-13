@@ -9,7 +9,7 @@
 
 import type { SyncRequestPostState } from '@openheaders/core/protocol';
 import { REQUEST_ENTITY_TYPE, REQUEST_HEADERS_PATH, REQUEST_PARAMS_PATH } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Request } from '@openheaders/core/types';
 import { projectRequest } from '@/shared/sync/request-projection';
 import { buildSetMembersExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
 import type { EntityOracle } from './oracle';
@@ -19,7 +19,7 @@ const REQUEST_SET_PATHS = [REQUEST_HEADERS_PATH, REQUEST_PARAMS_PATH] as const;
 
 type Reads = Pick<EntityOracle, 'materializeOne' | 'liveOrderedSetItems'>;
 
-const projectors = makeFlatEntityProjectors<Reads, V5.Request, SyncRequestPostState>({
+const projectors = makeFlatEntityProjectors<Reads, Request, SyncRequestPostState>({
   entityType: REQUEST_ENTITY_TYPE,
   project: projectRequest,
   composeResult: (request, oracle, uid) => ({

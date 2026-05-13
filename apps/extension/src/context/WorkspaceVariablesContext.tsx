@@ -21,7 +21,7 @@
  * pointer concept, so the migration covers all writes.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Variable, WorkspaceVariables } from '@openheaders/core/types';
 import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
 import { call, subscribe } from '@utils/bridge';
 import type React from 'react';
@@ -34,16 +34,16 @@ import {
   type WorkspaceVariablesSimpleResult,
 } from '@/shared/sync/workspace-variables-write-client';
 
-const EMPTY_WS_VARS: V5.WorkspaceVariables = { schemaVersion: 5, variables: [] };
+const EMPTY_WS_VARS: WorkspaceVariables = { schemaVersion: 5, variables: [] };
 
 export interface WorkspaceVariablesContextValue {
-  workspaceVariables: V5.WorkspaceVariables;
+  workspaceVariables: WorkspaceVariables;
   isReady: boolean;
-  setWorkspaceVariable: (variable: V5.Variable) => Promise<WorkspaceVariablesSimpleResult>;
+  setWorkspaceVariable: (variable: Variable) => Promise<WorkspaceVariablesSimpleResult>;
   removeWorkspaceVariable: (uid: string) => Promise<WorkspaceVariablesSimpleResult>;
   replaceWorkspaceVariables: (
-    newVars: readonly V5.Variable[],
-    oldVars: readonly V5.Variable[],
+    newVars: readonly Variable[],
+    oldVars: readonly Variable[],
   ) => Promise<WorkspaceVariablesSimpleResult>;
 }
 
@@ -82,7 +82,7 @@ export const WorkspaceVariablesProvider: React.FC<WorkspaceVariablesProviderProp
   const activeWorkspaceId = useActiveWorkspaceId();
   const writeWorkspaceId = isOverridden ? (activeWorkspaceIdOverride ?? null) : activeWorkspaceId;
 
-  const [workspaceVariables, setWorkspaceVariables] = useState<V5.WorkspaceVariables>(EMPTY_WS_VARS);
+  const [workspaceVariables, setWorkspaceVariables] = useState<WorkspaceVariables>(EMPTY_WS_VARS);
   const [isReady, setIsReady] = useState(false);
   const overrideIdRef = useRef<string | null>(null);
 

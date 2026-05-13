@@ -16,12 +16,12 @@
  *      request executor's own resolver.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { LiveVariable } from '@openheaders/core/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Mocks for the stores + environment-store ─────────────────────
 
-const getLiveVariablesMock = vi.fn<() => V5.LiveVariable[]>(() => []);
+const getLiveVariablesMock = vi.fn<() => LiveVariable[]>(() => []);
 const listWorkflowRunCachesMock = vi.fn<() => Promise<unknown[]>>(() => Promise.resolve([]));
 const getActiveEnvironmentIdMock = vi.fn<() => string | null>(() => null);
 
@@ -54,7 +54,7 @@ vi.mock('@utils/logger', () => ({
 
 // ── Helpers ───────────────────────────────────────────────────────
 
-function makeLV(overrides: Partial<V5.LiveVariable> = {}): V5.LiveVariable {
+function makeLV(overrides: Partial<LiveVariable> = {}): LiveVariable {
   return {
     schemaVersion: 5,
     uid: overrides.uid ?? 'lvar0001',

@@ -1,12 +1,12 @@
-import type { V5 } from '@openheaders/core/types';
+import type { CollectionTree, HeaderRule, Rule, TreeNode } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock rule-store before importing the store under test. The store reads
 // rule + collection state through getRules / getCollectionTrees when
 // computing owner hashes — the mocks let each test feed a tailored snapshot.
 vi.mock('@/background/modules/rule-store', () => ({
-  getRules: vi.fn(() => [] as V5.Rule[]),
-  getCollectionTrees: vi.fn(() => [] as V5.CollectionTree[]),
+  getRules: vi.fn(() => [] as Rule[]),
+  getCollectionTrees: vi.fn(() => [] as CollectionTree[]),
 }));
 
 // Workspace-store is a singleton; the test-run-store keys its I/O off
@@ -67,7 +67,7 @@ afterEach(() => {
 
 // ── Fixture helpers ──────────────────────────────────────────────────
 
-function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
+function makeHeaderRule(overrides: Partial<HeaderRule> = {}): HeaderRule {
   return {
     schemaVersion: 5,
     uid: 'rule-1',
@@ -81,7 +81,7 @@ function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
       responseHeaders: [],
     },
     ...overrides,
-  } as V5.HeaderRule;
+  } as HeaderRule;
 }
 
 function makeRun(overrides: Partial<StoredTestRun> = {}): StoredTestRun {
@@ -102,7 +102,7 @@ function makeRun(overrides: Partial<StoredTestRun> = {}): StoredTestRun {
   };
 }
 
-function makeCollectionTree(uid: string, ruleNodes: V5.TreeNode[]): V5.CollectionTree {
+function makeCollectionTree(uid: string, ruleNodes: TreeNode[]): CollectionTree {
   return {
     schemaVersion: 5,
     uid,
@@ -203,7 +203,7 @@ describe('test-run-store', () => {
 
     it('flags stale on a collection when a child rule is added', async () => {
       const ruleA = makeHeaderRule({ uid: 'rule-a' });
-      const ruleNodeA: V5.TreeNode = {
+      const ruleNodeA: TreeNode = {
         type: 'rule',
         uid: 'rule-a',
         name: 'A',
@@ -226,7 +226,7 @@ describe('test-run-store', () => {
 
       // Add a sibling rule — collection content changed, hash drifts.
       const ruleB = makeHeaderRule({ uid: 'rule-b' });
-      const ruleNodeB: V5.TreeNode = {
+      const ruleNodeB: TreeNode = {
         type: 'rule',
         uid: 'rule-b',
         name: 'B',

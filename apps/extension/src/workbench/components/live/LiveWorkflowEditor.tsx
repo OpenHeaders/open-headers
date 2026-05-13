@@ -70,7 +70,7 @@ import {
 } from './use-live-workflow-conflicts';
 import { applyLiveWorkflowPublish } from '@/shared/sync/live-workflow-write-client';
 import { useWorkbenchEditingScopeWorkspaceId } from '../../hooks/EditingScopeWorkspaceContext';
-import type { V5 } from '@openheaders/core/types';
+import type { LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
 import { Alert, App, Button, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -155,7 +155,7 @@ interface CreateProps {
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (save: () => void) => void;
   /** Called when the draft persists. Host replaces the tab with an edit tab. */
-  onCreated: (wf: V5.LiveWorkflow) => void;
+  onCreated: (wf: LiveWorkflow) => void;
 }
 
 type Props = EditProps | CreateProps;
@@ -197,12 +197,12 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
   // Conflict baseline advances synchronously inside populate via a ref
   // (tracker is declared after reprime since its `isDirty` flows in
   // from reprime).
-  const setBaselineRef = useRef<(e: V5.LiveWorkflow) => void>(() => undefined);
+  const setBaselineRef = useRef<(e: LiveWorkflow) => void>(() => undefined);
   // Snapshot of the canonical entity at the most recent re-prime — feeds
   // the merge-editor preview's Show Base layouts via `baseText`.
-  const baselineLiveWorkflowRef = useRef<V5.LiveWorkflow | null>(null);
+  const baselineLiveWorkflowRef = useRef<LiveWorkflow | null>(null);
 
-  const reprime = useReprime<V5.LiveWorkflow>({
+  const reprime = useReprime<LiveWorkflow>({
     liveEntity: workflow,
     scope: { entityType: LIVE_WORKFLOW_ENTITY_TYPE, entityId: workflow?.uid ?? null },
     enabled: workflow != null,
@@ -264,7 +264,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
   const applyAutoMerge = useCallback(
     (path: string, theirs: string) => {
       if (!workflow || !draft) return;
-      const transient: V5.LiveWorkflow = {
+      const transient: LiveWorkflow = {
         ...workflow,
         name: draft.name,
         description: draft.description,
@@ -310,9 +310,9 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
   const [isConflictDialogOpen, setConflictDialogOpen] = useState(false);
 
   const projectWithResolutions = useCallback(
-    (resolutions: ReadonlyMap<string, ConflictResolution>): V5.LiveWorkflow | null => {
+    (resolutions: ReadonlyMap<string, ConflictResolution>): LiveWorkflow | null => {
       if (!workflow || !draft) return null;
-      const transient: V5.LiveWorkflow = {
+      const transient: LiveWorkflow = {
         ...workflow,
         name: draft.name,
         description: draft.description,
@@ -330,7 +330,7 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
     [allConflicts, draft, workflow],
   );
 
-  const adoptProjected = useCallback((projected: V5.LiveWorkflow) => {
+  const adoptProjected = useCallback((projected: LiveWorkflow) => {
     setDraft((d) =>
       d
         ? {
@@ -384,8 +384,8 @@ const EditMode: React.FC<EditProps> = ({ workflowUid, seedStep, onDirtyChange, r
         name: string;
         description: string;
         enabled: boolean;
-        refresh: V5.LiveWorkflow['refresh'];
-        steps: V5.WorkflowStep[];
+        refresh: LiveWorkflow['refresh'];
+        steps: WorkflowStep[];
       }>;
       const nextSteps: DraftStep[] | undefined = Array.isArray(raw.steps)
         ? raw.steps.map((step) => ({
@@ -875,7 +875,7 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({ draft, setDraft }) 
   // helper see a coherent object. Synthetic `uid` / `path` /
   // `schemaVersion` / `version` don't affect validation semantics —
   // they're only inspected for cross-reference shape.
-  const draftWorkflow = useMemo<V5.LiveWorkflow>(
+  const draftWorkflow = useMemo<LiveWorkflow>(
     () => ({
       schemaVersion: 5,
       version: 1,

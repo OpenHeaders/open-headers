@@ -1,5 +1,5 @@
 /**
- * `ConflictTrackingAdapter<V5.Request>` + `ConflictResolveAdapter<V5.Request>`
+ * `ConflictTrackingAdapter<Request>` + `ConflictResolveAdapter<Request>`
  * — declarative wiring on top of the field-tree walker.
  *
  * Tracking + entity-side resolution come from `makeConflictAdapter` over
@@ -15,7 +15,7 @@
  * default until a richer label set is needed.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Request } from '@openheaders/core/types';
 import { REQUEST_PATHS } from '@/shared/awareness';
 import type {
   ConflictResolveAdapter,
@@ -57,10 +57,10 @@ const PARAM_LEAF_LABEL: Record<ParamLeaf, string> = {
   hasEquals: 'separator',
 };
 
-function findHeaderName(req: V5.Request, uid: string): string | null {
+function findHeaderName(req: Request, uid: string): string | null {
   return req.headers?.find((h) => h.uid === uid)?.key ?? null;
 }
-function findParamName(req: V5.Request, uid: string): string | null {
+function findParamName(req: Request, uid: string): string | null {
   return req.params?.find((p) => p.uid === uid)?.key ?? null;
 }
 
@@ -70,14 +70,14 @@ function setPathSummary(setPath: string): string {
   return setPath;
 }
 
-const walker = makeConflictAdapter<V5.Request>({
+const walker = makeConflictAdapter<Request>({
   schema: REQUEST_SCHEMA,
   signature: (r) => r.uid,
 });
 
-export const requestConflictAdapter: ConflictTrackingAdapter<V5.Request> = walker.tracking;
+export const requestConflictAdapter: ConflictTrackingAdapter<Request> = walker.tracking;
 
-export const requestResolveAdapter: ConflictResolveAdapter<V5.Request> = {
+export const requestResolveAdapter: ConflictResolveAdapter<Request> = {
   applyResolutionToForm: () => false,
   applyResolutionToEntity: (req, path, conflict) =>
     walker.resolve.applyResolutionToEntity(req, path, conflict),

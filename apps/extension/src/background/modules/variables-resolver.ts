@@ -6,7 +6,7 @@
  * Source of truth for each scope:
  *   - vault, environments, active env, workspace vars → environment-store
  *   - collection-scoped variables                     → rule-store (each
- *     `V5.Collection.variables`)
+ *     `Collection.variables`)
  *
  * Sync strategy: re-populate scopes on every call to
  * `resolveRulesForCompile`. The resolver is cheap (arrays of variables,
@@ -23,7 +23,7 @@
  */
 
 import { isLiveVariableEffective, scanTemplateReferencesMany } from '@openheaders/core/live';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, LiveVariable, Rule } from '@openheaders/core/types';
 import {
   collectRuleTemplateStrings,
   EMPTY_LIVE_REGISTRY,
@@ -82,7 +82,7 @@ interface ResolverState {
    * Populated on every `resolveRulesForCompile` call. Empty before the
    * first compile.
    */
-  lastResolvedRules: V5.Rule[];
+  lastResolvedRules: Rule[];
   /**
    * Per-rule resolution errors collected during the most recent
    * `resolveRulesForCompile` for THIS workspace. Keyed by rule uid so
@@ -160,7 +160,7 @@ export function disposeResolverStateForWorkspace(workspaceId: string): void {
  * Current resolved-rule snapshot for the runtime-Active workspace.
  * Returns an empty array until the first DNR compile runs.
  */
-export function getResolvedRules(): V5.Rule[] {
+export function getResolvedRules(): Rule[] {
   return activeState().lastResolvedRules;
 }
 
@@ -305,12 +305,12 @@ export function getLiveRegistrySnapshotForWorkspace(
  * to the feedback-loop risk (their workflows won't produce values a
  * disabled LV's rule consumes).
  */
-export function computeRuleLiveBypass(rule: V5.Rule): ReadonlySet<string> {
+export function computeRuleLiveBypass(rule: Rule): ReadonlySet<string> {
   const strings = collectRuleTemplateStrings(rule);
   if (strings.length === 0) return EMPTY_STRING_SET;
   const { live } = scanTemplateReferencesMany(strings);
   if (live.length === 0) return EMPTY_STRING_SET;
-  const lvByName = new Map<string, V5.LiveVariable>();
+  const lvByName = new Map<string, LiveVariable>();
   for (const lv of getLiveVariables()) {
     if (isLiveVariableEffective(lv)) lvByName.set(lv.name, lv);
   }
@@ -480,7 +480,7 @@ function buildLiveRegistry(state: ResolverState): LiveRegistry {
  */
 function buildLiveRegistryFor(
   state: ResolverState,
-  liveVariables: readonly V5.LiveVariable[],
+  liveVariables: readonly LiveVariable[],
   activeEnv: string | null,
 ): LiveRegistry {
   // Effective LVs only (published + enabled). Mirrors the renderer-side
@@ -576,7 +576,7 @@ function syncResolverFromStores(state: ResolverState): void {
  * compiles and cache invalidation for a Map keyed by ephemeral paths
  * isn't worth the complexity.
  */
-function buildRuleToCollectionContext(collections: readonly V5.Collection[]) {
+function buildRuleToCollectionContext(collections: readonly Collection[]) {
   const prefixPairs: Array<{ prefix: string; uid: string }> = collections
     .map((c) => ({ prefix: `${c.path}/`, uid: c.uid }))
     // Longer prefixes first so nested collections (v2) win over ancestors.
@@ -598,7 +598,7 @@ function buildRuleToCollectionContext(collections: readonly V5.Collection[]) {
  * are never mutated. Safe to call every rebuild; cheap even for hundreds
  * of rules.
  */
-export function resolveRulesForCompile(rules: V5.Rule[]): V5.Rule[] {
+export function resolveRulesForCompile(rules: Rule[]): Rule[] {
   const state = activeState();
   syncResolverFromStores(state);
   const collections = getCollections();

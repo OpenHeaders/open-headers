@@ -1,10 +1,10 @@
 /**
- * Request-collection projection — `V5.Collection ⇄ MutationBatch /
+ * Request-collection projection — `Collection ⇄ MutationBatch /
  * MaterializedEntity` for the request-collection entity type.
  *
  * Mirrors `collection-projection.ts` (rule-collection side). The
  * oracle stores variables as set members at `variables` (set member
- * identity = `variable.uid`); persisted `V5.Collection.variables` is a
+ * identity = `variable.uid`); persisted `Collection.variables` is a
  * plain array. `seedRequestCollection` strips the `variables` array off
  * the create payload and emits one `addToSet` per variable (itemId =
  * uid); `projectRequestCollection` is the inverse via the materialized
@@ -25,16 +25,15 @@ import {
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_COLLECTION_VARS_PATH,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
-
+import type { Collection } from '@openheaders/core/types';
 /**
- * Convert a persisted `V5.Collection` (under request-collection
+ * Convert a persisted `Collection` (under request-collection
  * routing) into a `MutationBatch` of one `create` for the scalar shell
  * plus one `addToSet` per variable. All-or-nothing under the oracle's
  * per-entity lock.
  */
 export function seedRequestCollection(
-  collection: V5.Collection,
+  collection: Collection,
   ctx: MutatorContext,
 ): MutationBatch {
   const shell = stripVariables(collection);
@@ -57,21 +56,21 @@ export function seedRequestCollection(
 
 /**
  * Convert a `MaterializedEntity` (the oracle's per-request-collection
- * snapshot) back into a `V5.Collection`. Returns `null` when the
+ * snapshot) back into a `Collection`. Returns `null` when the
  * materialized data fails basic shape checks.
  */
 export function projectRequestCollection(
   materialized: MaterializedEntity,
-): V5.Collection | null {
+): Collection | null {
   if (materialized.type !== REQUEST_COLLECTION_ENTITY_TYPE) return null;
   const data = materialized.data;
   if (!isPlainObject(data)) return null;
-  return data as V5.Collection;
+  return data as Collection;
 }
 
 // ── internals ─────────────────────────────────────────────────────
 
-function stripVariables(collection: V5.Collection): unknown {
+function stripVariables(collection: Collection): unknown {
   const shell = JSON.parse(JSON.stringify(collection)) as Record<string, unknown>;
   delete shell.variables;
   return shell;

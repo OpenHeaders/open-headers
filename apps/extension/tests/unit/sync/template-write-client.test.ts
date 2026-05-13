@@ -19,7 +19,7 @@
 
 import type { MutationBatch, MutatorContext } from '@openheaders/core/sync';
 import { advanceHlc, initialHlc, TEMPLATE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { RuleCondition, Template } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockCall } = vi.hoisted(() => ({ mockCall: vi.fn() }));
@@ -44,7 +44,7 @@ import {
 import type { TemplateSyncMirror } from '@/context/template-sync-mirror';
 import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 
-const baseTemplate: V5.Template = {
+const baseTemplate: Template = {
   schemaVersion: 5,
   uid: 'tpl-1',
   path: 'templates/col-1/My',
@@ -57,10 +57,10 @@ const baseTemplate: V5.Template = {
   formValues: {},
   createdAt: '2026-01-01T00:00:00Z',
   updatedAt: '2026-01-01T00:00:00Z',
-} as unknown as V5.Template;
+} as unknown as Template;
 
 function makeMirror(
-  template: V5.Template | null,
+  template: Template | null,
   setItemIds: Record<string, string[]> = {},
   setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>> = {},
 ): TemplateSyncMirror {
@@ -119,8 +119,8 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const cond = (uid: string, value: string): V5.RuleCondition =>
-  ({ uid, type: 'urlContains', values: [value] }) as unknown as V5.RuleCondition;
+const cond = (uid: string, value: string): RuleCondition =>
+  ({ uid, type: 'urlContains', values: [value] }) as unknown as RuleCondition;
 
 describe('applyTemplateUpdate — set-diff via synthesizer', () => {
   it('returns not-found when the mirror has no entry', async () => {
@@ -138,7 +138,7 @@ describe('applyTemplateUpdate — set-diff via synthesizer', () => {
     const c1 = cond('cnd00001', 'a');
     const c2 = cond('cnd00002', 'b');
     const c3 = cond('cnd00003', 'c');
-    const tpl: V5.Template = { ...baseTemplate, conditions: [c1, c2, c3] };
+    const tpl: Template = { ...baseTemplate, conditions: [c1, c2, c3] };
     const mirror = makeMirror(
       tpl,
       { conditions: ['cnd00001', 'cnd00002', 'cnd00003'] },
@@ -165,7 +165,7 @@ describe('applyTemplateUpdate — set-diff via synthesizer', () => {
   it('byte-identical conditions save fires zero envelopes (no bridge call)', async () => {
     const c1 = cond('cnd00001', 'a');
     const c2 = cond('cnd00002', 'b');
-    const tpl: V5.Template = { ...baseTemplate, conditions: [c1, c2] };
+    const tpl: Template = { ...baseTemplate, conditions: [c1, c2] };
     const mirror = makeMirror(
       tpl,
       { conditions: ['cnd00001', 'cnd00002'] },
@@ -189,7 +189,7 @@ describe('applyTemplateUpdate — set-diff via synthesizer', () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const live = cond('cnd00001', 'old');
     const edited = cond('cnd00001', 'new');
-    const tpl: V5.Template = { ...baseTemplate, conditions: [live] };
+    const tpl: Template = { ...baseTemplate, conditions: [live] };
     const mirror = makeMirror(
       tpl,
       { conditions: ['cnd00001'] },
@@ -215,7 +215,7 @@ describe('applyTemplateUpdate — set-diff via synthesizer', () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const live = cond('cnd00001', 'live');
     const fresh = cond('cnd00009', 'fresh');
-    const tpl: V5.Template = { ...baseTemplate, conditions: [live] };
+    const tpl: Template = { ...baseTemplate, conditions: [live] };
     const mirror = makeMirror(
       tpl,
       { conditions: ['cnd00001'] },

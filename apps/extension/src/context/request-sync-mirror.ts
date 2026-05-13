@@ -11,7 +11,7 @@
  */
 
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Request } from '@openheaders/core/types';
 import { call } from '@utils/bridge';
 import {
   createFlatEntityMirror,
@@ -20,7 +20,7 @@ import {
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 
 export interface RequestMirrorEntry {
-  request: V5.Request;
+  request: Request;
   /** Map keyed by set path (e.g. `headers`, `params`). */
   setItemIds: Record<string, string[]>;
   /** Per-set ordered `(itemId, orderKey)` pairs for `moveBefore` writes. */
@@ -31,7 +31,7 @@ export type RequestMirrorListener = (uid: string) => void;
 
 export interface RequestSyncMirror {
   getRequestMirror(uid: string): RequestMirrorEntry | null;
-  listRequests(): V5.Request[];
+  listRequests(): Request[];
   liveSetItems(uid: string, setPath: string): string[];
   liveOrderedSetItems(uid: string, setPath: string): Array<{ itemId: string; orderKey: string }>;
   subscribeRequestMirror(uid: string, listener: RequestMirrorListener): () => void;

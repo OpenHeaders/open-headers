@@ -20,7 +20,7 @@
  * modules and declared in the respective module — not registered here.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, Environment, ExtensionWorkspace, LiveVariable, LiveWorkflow, Request, Rule, Template, Vault, WorkspaceVariables } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
 import type { LogEntry } from '@/shared/observability/types';
 import type { ViewMode } from '@/shared/view-mode/types';
@@ -89,7 +89,7 @@ export interface PersistedLocalFolder {
 
 export const OH = {
   /** Full list of extension workspaces. */
-  workspaces: storageKey<V5.ExtensionWorkspace[]>('oh.workspaces'),
+  workspaces: storageKey<ExtensionWorkspace[]>('oh.workspaces'),
   /**
    * Runtime-Active workspace pointer — singular, browser-platform-bound.
    * The workspace whose rules are currently applied via DNR; read by
@@ -146,20 +146,20 @@ export const UI = {
 // ── Workspace-scoped keys ────────────────────────────────────────────
 
 export interface WorkspaceKeys {
-  rules: StorageKey<V5.Rule[]>;
-  collections: StorageKey<V5.Collection[]>;
+  rules: StorageKey<Rule[]>;
+  collections: StorageKey<Collection[]>;
   folders: StorageKey<PersistedLocalFolder[]>;
-  requests: StorageKey<V5.Request[]>;
-  requestCollections: StorageKey<V5.Collection[]>;
+  requests: StorageKey<Request[]>;
+  requestCollections: StorageKey<Collection[]>;
   requestFolders: StorageKey<PersistedLocalFolder[]>;
-  templates: StorageKey<V5.Template[]>;
-  templateCollections: StorageKey<V5.Collection[]>;
+  templates: StorageKey<Template[]>;
+  templateCollections: StorageKey<Collection[]>;
   templateFolders: StorageKey<PersistedLocalFolder[]>;
-  environments: StorageKey<V5.Environment[]>;
+  environments: StorageKey<Environment[]>;
   activeEnvironmentId: StorageKey<string | null>;
   defaultEnvironmentId: StorageKey<string | null>;
-  workspaceVars: StorageKey<V5.WorkspaceVariables>;
-  vault: StorageKey<V5.Vault>;
+  workspaceVars: StorageKey<WorkspaceVariables>;
+  vault: StorageKey<Vault>;
   pauseMarkers: StorageKey<Record<string, PauseMarker>>;
   /** Persisted `Record<ownerKey, StoredTestRun[]>`. Opaque at storage layer. */
   testRuns: StorageKey<Record<string, unknown>>;
@@ -191,12 +191,12 @@ export interface WorkspaceKeys {
    * steps + refresh schedule; the workflow-run cache lives under
    * {@link liveCache}.
    */
-  liveWorkflows: StorageKey<V5.LiveWorkflow[]>;
+  liveWorkflows: StorageKey<LiveWorkflow[]>;
   /**
    * Live Variable definitions — `{{live.<name>}}` bindings. Thin
    * namespace projections referencing one workflow step capture.
    */
-  liveVariables: StorageKey<V5.LiveVariable[]>;
+  liveVariables: StorageKey<LiveVariable[]>;
   /**
    * Live workflow-run cache. Blob keyed by `(workflowUid, environmentId)`
    * holds the most recent extraction per workflow per active env.
@@ -252,20 +252,20 @@ export interface WorkspaceKeys {
 export function wsKeys(workspaceId: string): WorkspaceKeys {
   const p = `oh.ws.${workspaceId}`;
   return {
-    rules: storageKey<V5.Rule[]>(`${p}.rules`),
-    collections: storageKey<V5.Collection[]>(`${p}.collections`),
+    rules: storageKey<Rule[]>(`${p}.rules`),
+    collections: storageKey<Collection[]>(`${p}.collections`),
     folders: storageKey<PersistedLocalFolder[]>(`${p}.folders`),
-    requests: storageKey<V5.Request[]>(`${p}.requests`),
-    requestCollections: storageKey<V5.Collection[]>(`${p}.requestCollections`),
+    requests: storageKey<Request[]>(`${p}.requests`),
+    requestCollections: storageKey<Collection[]>(`${p}.requestCollections`),
     requestFolders: storageKey<PersistedLocalFolder[]>(`${p}.requestFolders`),
-    templates: storageKey<V5.Template[]>(`${p}.templates`),
-    templateCollections: storageKey<V5.Collection[]>(`${p}.templateCollections`),
+    templates: storageKey<Template[]>(`${p}.templates`),
+    templateCollections: storageKey<Collection[]>(`${p}.templateCollections`),
     templateFolders: storageKey<PersistedLocalFolder[]>(`${p}.templateFolders`),
-    environments: storageKey<V5.Environment[]>(`${p}.environments`),
+    environments: storageKey<Environment[]>(`${p}.environments`),
     activeEnvironmentId: storageKey<string | null>(`${p}.activeEnvironmentId`),
     defaultEnvironmentId: storageKey<string | null>(`${p}.defaultEnvironmentId`),
-    workspaceVars: storageKey<V5.WorkspaceVariables>(`${p}.workspaceVars`),
-    vault: storageKey<V5.Vault>(`${p}.vault`),
+    workspaceVars: storageKey<WorkspaceVariables>(`${p}.workspaceVars`),
+    vault: storageKey<Vault>(`${p}.vault`),
     pauseMarkers: storageKey<Record<string, PauseMarker>>(`${p}.pauseMarkers`),
     testRuns: storageKey<Record<string, unknown>>(`${p}.testRuns`),
     tabSession: storageKey<PersistedTabSession>(`${p}.tabSession`),
@@ -274,8 +274,8 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     settingsWorkspaceBehavioral: storageKey<Record<string, unknown>>(`${p}.settings.workspaceBehavioral`),
     importReports: storageKey<unknown[]>(`${p}.importReports`),
     oauth: storageKey<unknown>(`${p}.oauth`),
-    liveWorkflows: storageKey<V5.LiveWorkflow[]>(`${p}.liveWorkflows`),
-    liveVariables: storageKey<V5.LiveVariable[]>(`${p}.liveVariables`),
+    liveWorkflows: storageKey<LiveWorkflow[]>(`${p}.liveWorkflows`),
+    liveVariables: storageKey<LiveVariable[]>(`${p}.liveVariables`),
     liveCache: storageKey<unknown>(`${p}.liveCache`),
     variableRecents: storageKey<unknown>(`${p}.variableRecents`),
     requestScriptsReviewPending: storageKey<string[]>(`${p}.requestScriptsReviewPending`),

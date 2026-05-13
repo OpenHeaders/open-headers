@@ -30,17 +30,17 @@ beforeEach(() => {
   });
 });
 
-import type { V5 } from '@openheaders/core/types';
+import type { Variable, Vault } from '@openheaders/core/types';
 import { extensionStorage, storageKey } from '@/shared/storage';
 
 describe('extensionStorage.getValidated', () => {
   it('returns null when the slot is empty', async () => {
-    const spec = storageKey<V5.Vault>('oh.ws.test.vault');
+    const spec = storageKey<Vault>('oh.ws.test.vault');
     expect(await extensionStorage.getValidated(spec, VaultSchema)).toBeNull();
   });
 
   it('returns the parsed value on a valid blob', async () => {
-    const spec = storageKey<V5.Vault>('oh.ws.test.vault');
+    const spec = storageKey<Vault>('oh.ws.test.vault');
     await extensionStorage.set(spec, {
       schemaVersion: 5,
       
@@ -55,13 +55,13 @@ describe('extensionStorage.getValidated', () => {
   });
 
   it('returns null when the blob fails the schema (pre-5 schemaVersion floor)', async () => {
-    const spec = storageKey<V5.Vault>('oh.ws.test.vault');
+    const spec = storageKey<Vault>('oh.ws.test.vault');
     localStore['oh.ws.test.vault'] = { schemaVersion: 1, secrets: [] };
     expect(await extensionStorage.getValidated(spec, VaultSchema)).toBeNull();
   });
 
   it('invokes onError with the raw value + issues on schema failure', async () => {
-    const spec = storageKey<V5.Vault>('oh.ws.test.vault');
+    const spec = storageKey<Vault>('oh.ws.test.vault');
     localStore['oh.ws.test.vault'] = { schemaVersion: 1, secrets: [] };
     const onError = vi.fn();
     await extensionStorage.getValidated(spec, VaultSchema, { onError });
@@ -73,18 +73,18 @@ describe('extensionStorage.getValidated', () => {
 
 describe('extensionStorage.getValidatedArray', () => {
   it('returns [] when the slot is empty', async () => {
-    const spec = storageKey<V5.Variable[]>('oh.ws.test.vars');
+    const spec = storageKey<Variable[]>('oh.ws.test.vars');
     expect(await extensionStorage.getValidatedArray(spec, VariableSchema)).toEqual([]);
   });
 
   it('returns [] when the stored raw is not an array', async () => {
-    const spec = storageKey<V5.Variable[]>('oh.ws.test.vars');
+    const spec = storageKey<Variable[]>('oh.ws.test.vars');
     localStore['oh.ws.test.vars'] = { not: 'an array' };
     expect(await extensionStorage.getValidatedArray(spec, VariableSchema)).toEqual([]);
   });
 
   it('drops individual bad entries but keeps the valid ones', async () => {
-    const spec = storageKey<V5.Variable[]>('oh.ws.test.vars');
+    const spec = storageKey<Variable[]>('oh.ws.test.vars');
     localStore['oh.ws.test.vars'] = [
       { uid: '143137ab', name: 'OK', value: 'yes', type: 'default' },
       { name: 'BAD', value: 'no', type: 'not-a-valid-type' },

@@ -1,5 +1,5 @@
 /**
- * `ConflictTrackingAdapter<V5.Rule>` — thin binding around the shared
+ * `ConflictTrackingAdapter<Rule>` — thin binding around the shared
  * action-entity factory in `shared/conflicts/action-entity-adapter.ts`.
  *
  * Rule + Template share the per-rule-type field components and observe
@@ -7,11 +7,11 @@
  * each entity supplies an `ActionEntityAccessors` shim.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Rule, RuleCondition } from '@openheaders/core/types';
 import { RULE_ACTION_PATHS } from '@/shared/awareness';
 import { createActionEntityAdapters } from '@/shared/conflicts/action-entity-adapter';
 
-const adapters = createActionEntityAdapters<V5.Rule>(RULE_ACTION_PATHS, {
+const adapters = createActionEntityAdapters<Rule>(RULE_ACTION_PATHS, {
   signature: (r) => r.uid,
   getRuleType: (r) => r.type,
   discriminatorField: 'type',
@@ -21,7 +21,7 @@ const adapters = createActionEntityAdapters<V5.Rule>(RULE_ACTION_PATHS, {
     (r as { name: string }).name = value;
   },
   setConditions: (r, value) => {
-    (r as { conditions: V5.RuleCondition[] }).conditions = value;
+    (r as { conditions: RuleCondition[] }).conditions = value;
   },
   getActionRoot: (r) => (r as unknown as { action?: Record<string, unknown> }).action,
   // Rule's `name` is externally owned (sidebar / breadcrumb rename).

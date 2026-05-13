@@ -1,19 +1,19 @@
 /**
- * Redirect compiler — converts V5.RedirectRule into a CompilationPlan.
+ * Redirect compiler — converts RedirectRule into a CompilationPlan.
  *
  * Maps conditions to DNR condition and RedirectAction.redirectTo to the
  * redirect target. One DNR rule per domain, or one rule if URL/path
  * conditions are used.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { RedirectRule } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import type { CompilationPlan, CompilerContext, DnrCondition, DnrRule, RuleCompiler } from './types';
 import { ALL_RESOURCE_TYPES, buildDnrCondition, resolveResourceTypes, stripResourceTypeFields } from './types';
 
-export const redirectCompiler: RuleCompiler<V5.RedirectRule> = {
+export const redirectCompiler: RuleCompiler<RedirectRule> = {
   ruleType: 'redirect',
-  compile(rule: V5.RedirectRule, ctx: CompilerContext): CompilationPlan {
+  compile(rule: RedirectRule, ctx: CompilerContext): CompilationPlan {
     const { base, domains, useRegex, urlPattern } = buildDnrCondition(rule.conditions);
     const { action } = rule;
 

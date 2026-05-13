@@ -7,7 +7,7 @@
  * `removeVariable` keys by uid.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Variable } from '@openheaders/core/types';
 import { useMemo } from 'react';
 import {
   applyCollectionRemoveVar,
@@ -30,7 +30,7 @@ export interface UseCollectionMutatorOptions {
 
 export interface UseCollectionMutatorApi {
   /** Upsert a variable row — handles add, edit, rename, type-toggle. */
-  setVariable(collectionUid: string, variable: V5.Variable): Promise<CollectionSimpleResult>;
+  setVariable(collectionUid: string, variable: Variable): Promise<CollectionSimpleResult>;
   /** Remove a variable row by its persisted uid. */
   removeVariable(collectionUid: string, uid: string): Promise<CollectionSimpleResult>;
   renameCollection(collectionUid: string, name: string): Promise<CollectionSimpleResult>;
@@ -49,8 +49,8 @@ export interface UseCollectionMutatorApi {
   ): Promise<CollectionSimpleResult>;
   replaceVariables(
     collectionUid: string,
-    newVars: readonly V5.Variable[],
-    oldVars: readonly V5.Variable[],
+    newVars: readonly Variable[],
+    oldVars: readonly Variable[],
   ): Promise<CollectionSimpleResult>;
 }
 
@@ -60,7 +60,7 @@ export function useCollectionMutator(opts: UseCollectionMutatorOptions): UseColl
   const setVariable = useGuardedMutation(
     workspaceId,
     surfaceId,
-    (writeOpts, collectionUid: string, variable: V5.Variable) =>
+    (writeOpts, collectionUid: string, variable: Variable) =>
       applyCollectionSetVar({ collectionUid, variable }, writeOpts),
   );
 
@@ -113,8 +113,8 @@ export function useCollectionMutator(opts: UseCollectionMutatorOptions): UseColl
     (
       writeOpts,
       collectionUid: string,
-      newVars: readonly V5.Variable[],
-      oldVars: readonly V5.Variable[],
+      newVars: readonly Variable[],
+      oldVars: readonly Variable[],
     ) => applyCollectionVariablesReplacement(collectionUid, newVars, oldVars, writeOpts),
   );
 

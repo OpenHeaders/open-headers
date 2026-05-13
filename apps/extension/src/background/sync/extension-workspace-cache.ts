@@ -21,7 +21,7 @@
  */
 
 import { EXTENSION_WORKSPACE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { seedExtensionWorkspaces } from '@/shared/sync/extension-workspace-projection';
 import type { InMemoryBroadcast } from './broadcast';
 import { projectExtensionWorkspaceSingleton } from './extension-workspace-post-state';
@@ -30,7 +30,7 @@ import { createSingletonEntityCache, type SingletonEntityCache } from './singlet
 import type { SwMutatorContextFactory } from './sw-context';
 
 export interface ExtensionWorkspaceSnapshot {
-  workspaces: V5.ExtensionWorkspace[];
+  workspaces: ExtensionWorkspace[];
   activeWorkspaceId: string | null;
 }
 

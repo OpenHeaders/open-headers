@@ -6,7 +6,7 @@
  */
 
 import { LIVE_VARIABLE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { LiveVariable } from '@openheaders/core/types';
 import { call } from '@utils/bridge';
 import {
   createFlatEntityMirror,
@@ -15,14 +15,14 @@ import {
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 
 export interface LiveVariableMirrorEntry {
-  liveVariable: V5.LiveVariable;
+  liveVariable: LiveVariable;
 }
 
 export type LiveVariableMirrorListener = (uid: string) => void;
 
 export interface LiveVariableSyncMirror {
   getLiveVariableMirror(uid: string): LiveVariableMirrorEntry | null;
-  listLiveVariables(): V5.LiveVariable[];
+  listLiveVariables(): LiveVariable[];
   subscribeLiveVariableMirror(uid: string, listener: LiveVariableMirrorListener): () => void;
   subscribeAny(listener: LiveVariableMirrorListener): () => void;
   hydrated: Promise<void>;

@@ -25,7 +25,7 @@
 
 import { LiveVariableSchema } from '@openheaders/core/schemas';
 import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { LiveVariable, LiveVariableOverride } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 import { extensionStorage, wsKeys } from '@/shared/storage';
@@ -47,7 +47,7 @@ import { getActiveWorkspaceId } from './workspace-store';
 
 // ── In-memory state (scoped to the active workspace) ───────────────
 
-let variables: V5.LiveVariable[] = [];
+let variables: LiveVariable[] = [];
 let loadedWorkspaceId: string | null = null;
 
 // ── Change listeners ────────────────────────────────────────────────
@@ -66,19 +66,19 @@ function notifyChange(): void {
 
 // ── Reads ────────────────────────────────────────────────────────────
 
-export function getLiveVariables(): V5.LiveVariable[] {
+export function getLiveVariables(): LiveVariable[] {
   return variables;
 }
 
-export function getLiveVariable(uid: string): V5.LiveVariable | null {
+export function getLiveVariable(uid: string): LiveVariable | null {
   return variables.find((v) => v.uid === uid) ?? null;
 }
 
-export function getLiveVariableByName(name: string): V5.LiveVariable | null {
+export function getLiveVariableByName(name: string): LiveVariable | null {
   return variables.find((v) => v.name === name) ?? null;
 }
 
-export function getLiveVariablesForWorkflow(workflowUid: string): V5.LiveVariable[] {
+export function getLiveVariablesForWorkflow(workflowUid: string): LiveVariable[] {
   return variables.filter((v) => v.workflowUid === workflowUid);
 }
 
@@ -90,7 +90,7 @@ export function getLiveVariablesForWorkflow(workflowUid: string): V5.LiveVariabl
  * live-registry build) read through here instead of {@link
  * getLiveVariables}, which is Active-bound by design (renderer/popup).
  */
-export function getLiveVariablesForWorkspace(workspaceId: string): V5.LiveVariable[] {
+export function getLiveVariablesForWorkspace(workspaceId: string): LiveVariable[] {
   const cache = getCacheForWorkspace<LiveVariableCache>(LIVE_VARIABLE_REGISTRATION, workspaceId);
   return cache ? cache.getLiveVariables() : [];
 }
@@ -101,7 +101,7 @@ export function getLiveVariablesForWorkspace(workspaceId: string): V5.LiveVariab
  * getLiveVariablesForWorkflow} but reads the per-workspace cache rather
  * than the Active-bound in-memory mirror.
  */
-export function getLiveVariablesForWorkflowInWorkspace(workflowUid: string, workspaceId: string): V5.LiveVariable[] {
+export function getLiveVariablesForWorkflowInWorkspace(workflowUid: string, workspaceId: string): LiveVariable[] {
   return getLiveVariablesForWorkspace(workspaceId).filter((v) => v.workflowUid === workflowUid);
 }
 
@@ -124,11 +124,11 @@ export interface CreateLiveVariableInput {
   enabled?: boolean;
 }
 
-export async function createLiveVariable(input: CreateLiveVariableInput): Promise<V5.LiveVariable> {
+export async function createLiveVariable(input: CreateLiveVariableInput): Promise<LiveVariable> {
   assertLoaded();
   const uid = generateUid();
   const folderName = toFolderName(input.name, uid);
-  const created: V5.LiveVariable = {
+  const created: LiveVariable = {
     schemaVersion: 5,
     uid,
     path: `live-variables/${folderName}`,
@@ -150,13 +150,13 @@ export async function createLiveVariable(input: CreateLiveVariableInput): Promis
  * not a versioned compare-and-set.
  */
 export type LiveVariableWriteResult =
-  | { ok: true; variable: V5.LiveVariable }
+  | { ok: true; variable: LiveVariable }
   | { ok: false; reason: 'not-found' }
   | { ok: false; reason: 'other'; message: string };
 
 export async function updateLiveVariable(
   uid: string,
-  updates: Partial<Omit<V5.LiveVariable, 'uid' | 'path' | 'schemaVersion'>>,
+  updates: Partial<Omit<LiveVariable, 'uid' | 'path' | 'schemaVersion'>>,
 ): Promise<LiveVariableWriteResult> {
   assertLoaded();
   const oracle = getOracleForCurrentWorkspace();
@@ -179,7 +179,7 @@ export async function updateLiveVariable(
       message: result.failure?.detail ?? 'oracle rejected live-variable batch',
     };
   }
-  return { ok: true, variable: { ...existing, ...updates } as V5.LiveVariable };
+  return { ok: true, variable: { ...existing, ...updates } as LiveVariable };
 }
 
 export async function deleteLiveVariable(uid: string): Promise<boolean> {
@@ -195,7 +195,7 @@ export async function deleteLiveVariable(uid: string): Promise<boolean> {
  */
 export async function setLiveVariableOverride(
   uid: string,
-  override: V5.LiveVariableOverride | null,
+  override: LiveVariableOverride | null,
 ): Promise<LiveVariableWriteResult> {
   return updateLiveVariable(uid, { manualOverride: override ?? undefined });
 }
@@ -223,7 +223,7 @@ async function applyLiveVariableMutationOrThrow(
 
 // ── Hydration / workspace switch ────────────────────────────────────
 
-async function readSnapshot(workspaceId: string): Promise<V5.LiveVariable[]> {
+async function readSnapshot(workspaceId: string): Promise<LiveVariable[]> {
   return extensionStorage.getValidatedArray(wsKeys(workspaceId).liveVariables, LiveVariableSchema, {
     onError: driftRecorder({
       subsystem: 'live',
@@ -233,7 +233,7 @@ async function readSnapshot(workspaceId: string): Promise<V5.LiveVariable[]> {
   });
 }
 
-export async function hydrateFromStorage(): Promise<V5.LiveVariable[]> {
+export async function hydrateFromStorage(): Promise<LiveVariable[]> {
   const workspaceId = getActiveWorkspaceId();
   variables = await readSnapshot(workspaceId);
   loadedWorkspaceId = workspaceId;

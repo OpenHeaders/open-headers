@@ -22,7 +22,7 @@
  * of conditional fallback logic that was hard to read inline.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Environment } from '@openheaders/core/types';
 import {
   type CollectionFamilies,
   findCollectionWithFamily,
@@ -62,7 +62,7 @@ export interface ScopeEditorContext {
   families: CollectionFamilies;
   activeEnvironmentId: string | null;
   defaultEnvironmentId: string | null;
-  environments: readonly V5.Environment[];
+  environments: readonly Environment[];
   /** All known live variables — used to look up uid by name from a
    *  row that didn't capture the uid at build time (defensive
    *  fallback; production callers attach `liveVariableUid` upstream). */

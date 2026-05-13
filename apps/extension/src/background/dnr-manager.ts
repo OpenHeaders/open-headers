@@ -4,7 +4,7 @@
  * Architecture:
  *
  *   - Each rule type has a `RuleCompiler` in `dnr-builders/` that turns a
- *     V5.Rule into a `CompilationPlan { dynamicRules?, sessionRules? }`.
+ *     Rule into a `CompilationPlan { dynamicRules?, sessionRules? }`.
  *   - `rebuildAll` iterates enabled rules, compiles each, and fans out the
  *     resulting DNR rules to Chrome's two rule layers:
  *       - Dynamic layer (updateDynamicRules): rules that don't need per-tab
@@ -23,7 +23,7 @@
  * lifecycles and stay cleanly decoupled.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import { isRuleEffective } from '@openheaders/core/utils';
 import { declarativeNetRequest } from '@utils/browser-api';
 import { logger } from '@utils/logger';
@@ -61,13 +61,13 @@ import {
 let isPaused = false;
 
 /**
- * Dynamic-layer rule id → source V5.Rule.uid. Rebuilt on every applyAllRules()
+ * Dynamic-layer rule id → source Rule.uid. Rebuilt on every applyAllRules()
  * call. Used for telemetry lookups (e.g. getActiveRulesForTab).
  */
 const dynamicDnrIdToUid: Map<number, string> = new Map();
 
 /**
- * Per-run mapping from DNR session rule id → V5.Rule.uid. Keyed by test
+ * Per-run mapping from DNR session rule id → Rule.uid. Keyed by test
  * run id so the test-runner can look up fires for its own run without
  * colliding with other parallel runs. ("Session" in the field name refers
  * to Chrome's `updateSessionRules` DNR category, not to our test runs.)
@@ -97,17 +97,17 @@ export function getRulesPaused(): boolean {
  * Adding a rule type means writing a compiler and registering it here —
  * nothing else needs to know.
  */
-const compilers: Record<string, RuleCompiler<V5.Rule>> = {
-  block: blockCompiler as RuleCompiler<V5.Rule>,
-  delay: delayCompiler as RuleCompiler<V5.Rule>,
-  header: headerCompiler as RuleCompiler<V5.Rule>,
-  inject: injectCompiler as RuleCompiler<V5.Rule>,
-  'query-param': queryParamCompiler as RuleCompiler<V5.Rule>,
-  redirect: redirectCompiler as RuleCompiler<V5.Rule>,
+const compilers: Record<string, RuleCompiler<Rule>> = {
+  block: blockCompiler as RuleCompiler<Rule>,
+  delay: delayCompiler as RuleCompiler<Rule>,
+  header: headerCompiler as RuleCompiler<Rule>,
+  inject: injectCompiler as RuleCompiler<Rule>,
+  'query-param': queryParamCompiler as RuleCompiler<Rule>,
+  redirect: redirectCompiler as RuleCompiler<Rule>,
 };
 
 /** Rule types whose scriptable side is handled by inject-manager. */
-const SCRIPTABLE_TYPES: ReadonlySet<V5.Rule['type']> = new Set(['inject', 'delay', 'body', 'mock', 'header']);
+const SCRIPTABLE_TYPES: ReadonlySet<Rule['type']> = new Set(['inject', 'delay', 'body', 'mock', 'header']);
 
 // ── Delay bypass state ──────────────────────────────────────────
 //
@@ -212,7 +212,7 @@ export function forgetDelayBypassForTab(tabId: number): void {
 
 // ── Entry points ─────────────────────────────────────────────────
 
-export function updateNetworkRules(rules: V5.Rule[]): void {
+export function updateNetworkRules(rules: Rule[]): void {
   void scheduleRebuild(rules);
 }
 
@@ -251,12 +251,12 @@ export function applyAllRulesAsync(): Promise<void> {
 
 let inflight: Promise<void> | null = null;
 interface PendingRebuild {
-  rules: V5.Rule[];
+  rules: Rule[];
   resolvers: Array<() => void>;
 }
 let pending: PendingRebuild | null = null;
 
-function scheduleRebuild(rules: V5.Rule[]): Promise<void> {
+function scheduleRebuild(rules: Rule[]): Promise<void> {
   if (!inflight) {
     inflight = runRebuild(rules);
     return inflight;
@@ -271,7 +271,7 @@ function scheduleRebuild(rules: V5.Rule[]): Promise<void> {
   });
 }
 
-function runRebuild(rules: V5.Rule[]): Promise<void> {
+function runRebuild(rules: Rule[]): Promise<void> {
   return rebuildAll(rules).finally(() => {
     if (pending) {
       const next = pending;
@@ -295,7 +295,7 @@ interface TaggedRule {
 interface RebuildOutput {
   dynamic: TaggedRule[];
   session: TaggedRule[];
-  scriptables: V5.Rule[];
+  scriptables: Rule[];
 }
 
 /**
@@ -303,10 +303,10 @@ interface RebuildOutput {
  * for inject-manager. Returns TAGGED rules (with their source V5 uid) so
  * callers can build id→uid maps for telemetry lookups.
  */
-function compileRuleSet(rules: V5.Rule[], startId: number): RebuildOutput {
+function compileRuleSet(rules: Rule[], startId: number): RebuildOutput {
   const dynamic: TaggedRule[] = [];
   const session: TaggedRule[] = [];
-  const scriptables: V5.Rule[] = [];
+  const scriptables: Rule[] = [];
 
   let nextId = startId;
   const ctx: CompilerContext = { allocateId: () => nextId++ };
@@ -333,7 +333,7 @@ function compileRuleSet(rules: V5.Rule[], startId: number): RebuildOutput {
   return { dynamic, session, scriptables };
 }
 
-async function rebuildAll(rawRules: V5.Rule[]): Promise<void> {
+async function rebuildAll(rawRules: Rule[]): Promise<void> {
   dynamicDnrIdToUid.clear();
   runSessionRuleIdToUid.clear();
 

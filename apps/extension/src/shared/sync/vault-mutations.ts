@@ -22,13 +22,12 @@ import {
   removeVaultSecret,
   setVaultSecret,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
-
+import type { VaultSecret } from '@openheaders/core/types';
 export type VaultMutationPayload = MutatorIntent;
 
 export interface SetVaultSecretInput {
   /** Whole secret record. `secret.uid` is the set-member itemId. */
-  secret: V5.VaultSecret;
+  secret: VaultSecret;
   orderKey?: string;
 }
 

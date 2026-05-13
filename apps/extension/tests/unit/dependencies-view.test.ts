@@ -11,23 +11,23 @@
  *   - MAX_INDENT cap prevents deep chains from pushing steps off-screen.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
 import { buildDependencyRows, MAX_INDENT } from '@/workbench/components/live/dependencies-view';
 
-function mkWorkflow(steps: V5.WorkflowStep[]): V5.LiveWorkflow {
+function mkWorkflow(steps: WorkflowStep[]): LiveWorkflow {
   return {
     schemaVersion: 5,
     uid: 'wfabcdef',
     path: 'live-workflows/test-wfabcdef',
     name: 'test',
-    steps: steps as V5.LiveWorkflow['steps'],
+    steps: steps as LiveWorkflow['steps'],
     refresh: { kind: 'manual' },
     enabled: true,
   };
 }
 
-function mkStep(id: string, overrides: Partial<V5.WorkflowStep> = {}): V5.WorkflowStep {
+function mkStep(id: string, overrides: Partial<WorkflowStep> = {}): WorkflowStep {
   return { uid: `stp${id.padEnd(5, 'x').slice(0, 5)}`, id, requestUid: 'req00000', captures: [], ...overrides };
 }
 

@@ -14,7 +14,7 @@ import {
   FOLDER_ENTITY_TYPE,
   type MutationEnvelope,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Folder } from '@openheaders/core/types';
 import { projectCollection } from '@/shared/sync/collection-projection';
 import { projectFolder } from '@/shared/sync/folder-projection';
 import {
@@ -43,6 +43,6 @@ export function projectFolderByUid(oracle: Reads, folderUid: string): SyncFolder
   return projectFolderByUidGeneric(oracle, folderUid, KINDS);
 }
 
-export function projectAllFolders(oracle: Reads): V5.Folder[] {
+export function projectAllFolders(oracle: Reads): Folder[] {
   return projectAllFoldersGeneric(oracle, KINDS);
 }

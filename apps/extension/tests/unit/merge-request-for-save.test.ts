@@ -1,14 +1,14 @@
-import type { V5 } from '@openheaders/core/types';
+import type { QueryParam, Request, RequestHeader } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
 import {
   mergeRequestForSave,
   type RequestSaveBatch,
 } from '@/workbench/components/merge-request-for-save';
 
-const hdr = (uid: string, key: string, value: string): V5.RequestHeader => ({ uid, key, value });
-const param = (uid: string, key: string, value: string): V5.QueryParam => ({ uid, key, value });
+const hdr = (uid: string, key: string, value: string): RequestHeader => ({ uid, key, value });
+const param = (uid: string, key: string, value: string): QueryParam => ({ uid, key, value });
 
-function makeReq(overrides: Partial<V5.Request> = {}): V5.Request {
+function makeReq(overrides: Partial<Request> = {}): Request {
   return {
     schemaVersion: 5,
     uid: 'req-aaaa',
@@ -24,7 +24,7 @@ function makeReq(overrides: Partial<V5.Request> = {}): V5.Request {
   };
 }
 
-function batchOf(req: V5.Request): RequestSaveBatch {
+function batchOf(req: Request): RequestSaveBatch {
   return {
     description: req.description,
     method: req.method,

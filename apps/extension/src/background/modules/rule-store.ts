@@ -28,7 +28,7 @@ import {
   type MutationBody,
   mintBatch as mintCollectionBatch,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, CollectionTree, Rule, TreeNode, Variable } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 import { entityLockName, withLock } from '@/shared/coordination/with-lock';
@@ -67,8 +67,8 @@ export type LocalFolder = PersistedLocalFolder;
 
 // ── In-memory state (scoped to the currently active workspace) ──────
 
-let rules: V5.Rule[] = [];
-let collections: V5.Collection[] = [];
+let rules: Rule[] = [];
+let collections: Collection[] = [];
 let folders: LocalFolder[] = [];
 /** Id of the workspace whose data is currently loaded. Null until first
  *  hydration. Used to assert that reads/writes never outlive a switch. */
@@ -91,7 +91,7 @@ function notifyChange(): void {
 
 // ── Reads ────────────────────────────────────────────────────────────
 
-export function getRules(): V5.Rule[] {
+export function getRules(): Rule[] {
   // Cache is the source of truth once `bridgeToSyncEngine()` has wired
   // the oracle's broadcast through to our local mirror. The local
   // `rules` array tracks the cache via the change listener — keep it
@@ -99,7 +99,7 @@ export function getRules(): V5.Rule[] {
   return rules;
 }
 
-export function getCollections(): V5.Collection[] {
+export function getCollections(): Collection[] {
   return collections;
 }
 
@@ -111,7 +111,7 @@ export function getCollections(): V5.Collection[] {
  * through here instead of {@link getCollections}, which is Active-bound
  * by design (renderer/popup).
  */
-export function getCollectionsForWorkspace(workspaceId: string): V5.Collection[] {
+export function getCollectionsForWorkspace(workspaceId: string): Collection[] {
   const cache = getCacheForWorkspace<CollectionCache>(COLLECTION_REGISTRATION, workspaceId);
   return cache ? cache.getCollections() : [];
 }
@@ -124,7 +124,7 @@ export function getFolders(): LocalFolder[] {
  * Build CollectionTree[] from flat collections + folders + rules.
  * Same structure the desktop derives from the filesystem.
  */
-export function getCollectionTrees(): V5.CollectionTree[] {
+export function getCollectionTrees(): CollectionTree[] {
   return collections.map((collection) => {
     const tree = buildTreeForParent(COLLECTION_ENTITY_TYPE, collection.uid, collection.path);
     return { ...collection, tree };
@@ -143,8 +143,8 @@ function buildTreeForParent(
   parentType: typeof COLLECTION_ENTITY_TYPE | typeof FOLDER_ENTITY_TYPE,
   parentUid: string,
   parentPath: string,
-): V5.TreeNode[] {
-  const nodes: V5.TreeNode[] = [];
+): TreeNode[] {
+  const nodes: TreeNode[] = [];
 
   const oracle = getOracleForCurrentWorkspace();
   const slots = oracle ? oracle.liveOrderedSetItems(parentType, parentUid, FOLDER_CHILDREN_PATH) : [];
@@ -212,13 +212,13 @@ function assertLoaded(): string {
  * follows. Callers that need the post-commit collection on disk
  * should `await ensureDefaultCollection()`.
  */
-export function ensureDefaultCollection(): V5.Collection {
+export function ensureDefaultCollection(): Collection {
   const existing = collections.find((c) => c.name === DEFAULT_COLLECTION_NAME);
   if (existing) return existing;
 
   const uid = generateUid();
   const folderName = toFolderName(DEFAULT_COLLECTION_NAME, uid);
-  const collection: V5.Collection = {
+  const collection: Collection = {
     schemaVersion: 5,
     uid,
     path: `rules/${folderName}`,
@@ -239,10 +239,10 @@ export function ensureDefaultCollection(): V5.Collection {
   return collection;
 }
 
-export function createCollection(name: string): V5.Collection {
+export function createCollection(name: string): Collection {
   const uid = generateUid();
   const folderName = toFolderName(name, uid);
-  const collection: V5.Collection = {
+  const collection: Collection = {
     schemaVersion: 5,
     uid,
     path: `rules/${folderName}`,
@@ -264,7 +264,7 @@ export function createCollection(name: string): V5.Collection {
  * retired in Phase B — convergence is per-(field) LWW at the oracle,
  * not a versioned compare-and-set.
  */
-export type CollectionWriteResult = { ok: true; collection: V5.Collection } | { ok: false; reason: 'not-found' };
+export type CollectionWriteResult = { ok: true; collection: Collection } | { ok: false; reason: 'not-found' };
 
 export async function renameCollection(uid: string, name: string): Promise<CollectionWriteResult> {
   assertLoaded();
@@ -322,7 +322,7 @@ export async function deleteCollection(uid: string): Promise<boolean> {
  * `useVariableMutator` / `useCollectionMutator`. Both paths converge
  * through the same oracle.
  */
-export async function updateCollectionVariables(uid: string, variables: V5.Variable[]): Promise<CollectionWriteResult> {
+export async function updateCollectionVariables(uid: string, variables: Variable[]): Promise<CollectionWriteResult> {
   assertLoaded();
   const existing = collections.find((c) => c.uid === uid);
   if (!existing) return { ok: false, reason: 'not-found' };
@@ -363,12 +363,12 @@ export async function updateCollectionPinnedEnvs(
 
 function buildVariableReplacementBodies(
   collectionUid: string,
-  oldVars: readonly V5.Variable[],
-  newVars: readonly V5.Variable[],
+  oldVars: readonly Variable[],
+  newVars: readonly Variable[],
 ): MutationBody[] {
-  const oldByName = new Map<string, V5.Variable>();
+  const oldByName = new Map<string, Variable>();
   for (const v of oldVars) oldByName.set(v.name, v);
-  const newByName = new Map<string, V5.Variable>();
+  const newByName = new Map<string, Variable>();
   for (const v of newVars) {
     if (!v.name.trim()) continue;
     newByName.set(v.name, v);
@@ -504,9 +504,9 @@ export async function deleteFolder(uid: string): Promise<boolean> {
  * before the function resolves.
  */
 export async function addRule(
-  rule: Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>,
+  rule: Omit<Rule, 'uid' | 'path' | 'schemaVersion'>,
   parentPath: string,
-): Promise<V5.Rule> {
+): Promise<Rule> {
   const uid = generateUid();
   const folderName = toFolderName(rule.name, uid);
   const created = {
@@ -514,7 +514,7 @@ export async function addRule(
     ...rule,
     uid,
     path: `${parentPath}/${folderName}`,
-  } as V5.Rule;
+  } as Rule;
   await applyRuleMutationOrThrow((ctx) => buildAddBatch(created, ctx), 'addRule');
   return created;
 }
@@ -524,9 +524,9 @@ export async function addRule(
  * then calls `addRule`.
  */
 export function addRuleToCollection(
-  rule: Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>,
+  rule: Omit<Rule, 'uid' | 'path' | 'schemaVersion'>,
   collectionUid: string,
-): Promise<V5.Rule> {
+): Promise<Rule> {
   const collection = collections.find((c) => c.uid === collectionUid);
   const parentPath = collection?.path ?? `rules/${collectionUid}`;
   return addRule(rule, parentPath);
@@ -625,8 +625,8 @@ async function applyCollectionMutationOrThrow(
 // ── Hydration / workspace switch ────────────────────────────────────
 
 interface WorkspaceSnapshot {
-  rules: V5.Rule[];
-  collections: V5.Collection[];
+  rules: Rule[];
+  collections: Collection[];
   folders: LocalFolder[];
 }
 
@@ -667,7 +667,7 @@ async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnap
  * resolves. Idempotent — subsequent calls re-load from storage, which
  * is fine because the single owner (background.ts) calls us once.
  */
-export async function hydrateFromStorage(): Promise<V5.Rule[]> {
+export async function hydrateFromStorage(): Promise<Rule[]> {
   const workspaceId = getActiveWorkspaceId();
   const snapshot = await readWorkspaceSnapshot(workspaceId);
   rules = snapshot.rules;

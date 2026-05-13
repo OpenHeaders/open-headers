@@ -21,9 +21,8 @@
  */
 
 import type { DraftWorkflow } from '@openheaders/core/live';
-import type { V5 } from '@openheaders/core/types';
-
-function rewriteRefresh(refresh: V5.LiveWorkflow['refresh'], oldId: string, newId: string): V5.LiveWorkflow['refresh'] {
+import type { LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
+function rewriteRefresh(refresh: LiveWorkflow['refresh'], oldId: string, newId: string): LiveWorkflow['refresh'] {
   if (refresh.kind === 'expires-in' || refresh.kind === 'expires-at') {
     if (refresh.stepId === oldId) return { ...refresh, stepId: newId };
   }
@@ -31,10 +30,10 @@ function rewriteRefresh(refresh: V5.LiveWorkflow['refresh'], oldId: string, newI
 }
 
 function rewriteStepGate(
-  gate: NonNullable<V5.WorkflowStep['runIf']> | undefined,
+  gate: NonNullable<WorkflowStep['runIf']> | undefined,
   oldId: string,
   newId: string,
-): NonNullable<V5.WorkflowStep['runIf']> | undefined {
+): NonNullable<WorkflowStep['runIf']> | undefined {
   if (!gate) return gate;
   let changed = false;
   const all = gate.all.map((clause) => {
@@ -48,20 +47,20 @@ function rewriteStepGate(
 }
 
 function rewritePriority(
-  priority: V5.WorkflowStep['priorityFrom'],
+  priority: WorkflowStep['priorityFrom'],
   oldId: string,
   newId: string,
-): V5.WorkflowStep['priorityFrom'] {
+): WorkflowStep['priorityFrom'] {
   if (!priority) return priority;
   if (priority.stepId === oldId) return { ...priority, stepId: newId };
   return priority;
 }
 
 function rewriteDependsOn(
-  dependsOn: V5.WorkflowStep['dependsOn'],
+  dependsOn: WorkflowStep['dependsOn'],
   oldId: string,
   newId: string,
-): V5.WorkflowStep['dependsOn'] {
+): WorkflowStep['dependsOn'] {
   if (!dependsOn || dependsOn.length === 0) return dependsOn;
   let changed = false;
   const next = dependsOn.map((d) => {

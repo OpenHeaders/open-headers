@@ -21,7 +21,7 @@ import { useRules } from '@hooks/useRules';
 import { canonicalizeTemplate, parseTemplate, serializeTemplate } from '@openheaders/core/codec/yaml';
 import { freshDocument } from '@openheaders/core/schemas';
 import { TEMPLATE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { RuleCondition, Template } from '@openheaders/core/types';
 import { App, Checkbox, Form, Input, Select, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -107,7 +107,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
   // ── Form initialization ──────────────────────────────────────
 
   const populateFormFromTemplate = useCallback(
-    (t: V5.Template) => {
+    (t: Template) => {
       const values: Record<string, unknown> = {
         ruleType: t.ruleType,
         templateName: t.name,
@@ -140,13 +140,13 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
   );
 
   // Conflict-baseline ref pattern (canonical recipe).
-  const setBaselineRef = useRef<(t: V5.Template) => void>(() => undefined);
+  const setBaselineRef = useRef<(t: Template) => void>(() => undefined);
   // Save-time merge baseline: snapshot of the template at the most
   // recent re-prime — feeds `mergeTemplateForSave` so the save batch
   // only carries leaves the user actually edited.
-  const baselineTemplateRef = useRef<V5.Template | null>(null);
+  const baselineTemplateRef = useRef<Template | null>(null);
 
-  const reprime = useReprime<V5.Template>({
+  const reprime = useReprime<Template>({
     liveEntity: liveTemplate,
     scope: { entityType: TEMPLATE_ENTITY_TYPE, entityId: templateUid },
     enabled: isInitialized && liveTemplate != null,
@@ -176,11 +176,11 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
   setBaselineRef.current = conflicts.setBaseline;
 
   // Conflict aggregation. Project current form values into a transient
-  // V5.Template-shaped object so the path-keyed projection lines up
+  // Template-shaped object so the path-keyed projection lines up
   // with baseline.
   const formProjection = useMemo(() => {
     if (!formValues || !liveTemplate) return null;
-    const transient: V5.Template = {
+    const transient: Template = {
       ...liveTemplate,
       ...buildTemplateUpdates(formValues),
     };
@@ -287,7 +287,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
   const mineText = useMemo(() => {
     if (!isConflictDialogOpen || !liveTemplate || !formValues) return '';
     const projected = buildTemplateUpdates(formValues);
-    const local = { ...liveTemplate, ...projected } as V5.Template;
+    const local = { ...liveTemplate, ...projected } as Template;
     try {
       return serializeTemplate(freshDocument(canonicalizeTemplate(local)));
     } catch {
@@ -496,7 +496,7 @@ const TemplateEditor: React.FC<TemplateEditorProps> = ({ templateUid, onDirtyCha
 
 export default TemplateEditor;
 
-// ── Pure projection: form values → V5.Template update shape ──────────
+// ── Pure projection: form values → Template update shape ──────────
 //
 // Used both at save time and as the dirty-derivation projection. The
 // `name`, `icon`, `description`, `includes`, `conditions`, `formValues`
@@ -508,7 +508,7 @@ function buildTemplateUpdates(values: Record<string, unknown>): {
   icon: string;
   description: string;
   includes: { conditions: boolean; formValues: boolean };
-  conditions: V5.RuleCondition[];
+  conditions: RuleCondition[];
   formValues: Record<string, unknown>;
 } {
   const includeConditions = values.includeConditions !== false;
@@ -522,7 +522,7 @@ function buildTemplateUpdates(values: Record<string, unknown>): {
     icon: (values.templateIcon as string) ?? '',
     description: (values.templateDescription as string) ?? '',
     includes: { conditions: includeConditions, formValues: includeFormValues },
-    conditions: includeConditions ? ((values.conditions as V5.RuleCondition[]) ?? []) : [],
+    conditions: includeConditions ? ((values.conditions as RuleCondition[]) ?? []) : [],
     formValues: includeFormValues ? formValues : {},
   };
 }

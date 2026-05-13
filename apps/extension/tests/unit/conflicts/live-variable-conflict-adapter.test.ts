@@ -1,11 +1,11 @@
-import type { V5 } from '@openheaders/core/types';
+import type { LiveVariable } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
 import {
   liveVariableConflictAdapter,
   liveVariableResolveAdapter,
 } from '@/workbench/components/live/live-variable-conflict-adapter';
 
-function makeLv(overrides: Partial<V5.LiveVariable> = {}): V5.LiveVariable {
+function makeLv(overrides: Partial<LiveVariable> = {}): LiveVariable {
   return {
     schemaVersion: 5,
     uid: 'lv-aaaa',
@@ -18,7 +18,7 @@ function makeLv(overrides: Partial<V5.LiveVariable> = {}): V5.LiveVariable {
     stepId: 'login',
     captureName: 'token',
     ...overrides,
-  } as V5.LiveVariable;
+  } as LiveVariable;
 }
 
 describe('liveVariableConflictAdapter', () => {

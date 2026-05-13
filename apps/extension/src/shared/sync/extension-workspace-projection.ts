@@ -1,5 +1,5 @@
 /**
- * ExtensionWorkspace projection — `(V5.ExtensionWorkspace[], activeId) ⇄ MutationBatch`.
+ * ExtensionWorkspace projection — `(ExtensionWorkspace[], activeId) ⇄ MutationBatch`.
  *
  * The persisted record lives one layer down: the legacy
  * `oh.workspaces` + `oh.runtimeActive.active` chrome.storage keys (the
@@ -7,7 +7,7 @@
  * The sync engine governs only the singleton record's set + active-id
  * scalar.
  *
- * `seedExtensionWorkspaces` walks a list of `V5.ExtensionWorkspace`
+ * `seedExtensionWorkspaces` walks a list of `ExtensionWorkspace`
  * (sorted by sortIndex ascending) and emits one `addToSet` per entry
  * under `EXTENSION_WORKSPACES_SET_PATH` with a derived order key, plus
  * one `setField` for the `activeId` scalar. All-or-nothing under the
@@ -27,8 +27,7 @@ import {
   type MutatorContext,
   seedKey,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
-
+import type { ExtensionWorkspace } from '@openheaders/core/types';
 /**
  * Convert a list of workspaces + an active-id pointer into a single
  * `MutationBatch`: one `create` for the singleton shell + one
@@ -41,7 +40,7 @@ import type { V5 } from '@openheaders/core/types';
  * and minus `sortIndex` (replaced by the envelope-resident orderKey).
  */
 export function seedExtensionWorkspaces(
-  workspaces: readonly V5.ExtensionWorkspace[],
+  workspaces: readonly ExtensionWorkspace[],
   activeWorkspaceId: string | null,
   ctx: MutatorContext,
 ): MutationBatch {

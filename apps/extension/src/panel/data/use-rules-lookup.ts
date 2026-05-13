@@ -12,16 +12,16 @@
  * so rule edits propagate here without a page reload.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import { call, subscribe } from '@utils/bridge';
 import { useEffect, useState } from 'react';
 
-export type RulesByUid = ReadonlyMap<string, V5.Rule>;
+export type RulesByUid = ReadonlyMap<string, Rule>;
 
 const EMPTY: RulesByUid = new Map();
 
-function indexRules(rules: readonly V5.Rule[]): RulesByUid {
-  const map = new Map<string, V5.Rule>();
+function indexRules(rules: readonly Rule[]): RulesByUid {
+  const map = new Map<string, Rule>();
   for (const r of rules) map.set(r.uid, r);
   return map;
 }

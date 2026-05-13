@@ -1,4 +1,4 @@
-import type { V5 } from '@openheaders/core/types';
+import type { DelayRule } from '@openheaders/core/types';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@utils/logger', () => ({
@@ -13,7 +13,7 @@ vi.mock('@utils/logger', () => ({
 import { delayCompiler } from '@/background/dnr-builders/delay-builder';
 import type { CompilerContext } from '@/background/dnr-builders/types';
 
-function makeDelayRule(overrides: Partial<V5.DelayRule> = {}): V5.DelayRule {
+function makeDelayRule(overrides: Partial<DelayRule> = {}): DelayRule {
   return {
     schemaVersion: 5,
     uid: 'd1',

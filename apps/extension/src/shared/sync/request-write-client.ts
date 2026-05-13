@@ -12,7 +12,7 @@
  * call the imperative functions directly with an explicit workspace id.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Request } from '@openheaders/core/types';
 import {
   getRequestSyncMirrorForWorkspace,
   type RequestSyncMirror,
@@ -30,10 +30,10 @@ import {
   buildUpdateBatch,
 } from '@/shared/sync/request-mutations';
 
-export type RequestUpdates = Partial<Omit<V5.Request, 'uid' | 'path' | 'schemaVersion'>>;
+export type RequestUpdates = Partial<Omit<Request, 'uid' | 'path' | 'schemaVersion'>>;
 
 export type RequestMutationResult =
-  | { ok: true; request: V5.Request }
+  | { ok: true; request: Request }
   | { ok: false; reason: 'not-found' }
   | { ok: false; reason: 'other'; message?: string };
 
@@ -77,17 +77,17 @@ export async function applyRequestUpdate(
   });
   const ack = await applySyncPayload(payload);
   if (ack.ok) {
-    return { ok: true, request: { ...entry.request, ...updates } as V5.Request };
+    return { ok: true, request: { ...entry.request, ...updates } as Request };
   }
   if (ack.reason === 'not-found') return { ok: false, reason: 'not-found' };
   return { ok: false, reason: 'other', message: ack.message };
 }
 
 /** Seed a brand-new request through the oracle. Caller mints the full
- *  `V5.Request` shape; the helper handles the create + per-row addToSet
+ *  `Request` shape; the helper handles the create + per-row addToSet
  *  envelopes via the projection layer. */
 export async function applyRequestCreate(
-  request: V5.Request,
+  request: Request,
   opts: RequestWriteOptions,
 ): Promise<RequestSimpleResult> {
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);

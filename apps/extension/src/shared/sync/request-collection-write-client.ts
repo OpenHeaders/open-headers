@@ -14,7 +14,7 @@ import {
   REQUEST_COLLECTION_VARS_PATH,
   requestCollectionInvalidateResolverIntent,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, Variable } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import {
   getRequestCollectionSyncMirrorForWorkspace,
@@ -54,7 +54,7 @@ export interface RequestCollectionWriteOptions extends BaseSyncWriteOptions {
  * carried on `opts`. Mirrors `applyCollectionCreate`.
  */
 export type RequestCollectionMutationResult =
-  | { ok: true; collection: V5.Collection }
+  | { ok: true; collection: Collection }
   | { ok: false; reason: 'not-found' }
   | { ok: false; reason: 'other'; message?: string };
 
@@ -68,7 +68,7 @@ export async function applyRequestCollectionCreate(
 ): Promise<RequestCollectionMutationResult> {
   const uid = generateUid();
   const folderName = toFolderName(input.name, uid);
-  const collection: V5.Collection = {
+  const collection: Collection = {
     schemaVersion: MIN_SCHEMA_VERSION,
     uid,
     path: `requests/${folderName}`,
@@ -171,7 +171,7 @@ export async function applyRequestCollectionDelete(
 export interface ApplyRequestCollectionSetVarInput {
   requestCollectionUid: string;
   /** Whole variable record. `variable.uid` is the set-member itemId. */
-  variable: V5.Variable;
+  variable: Variable;
 }
 
 export async function applyRequestCollectionSetVar(
@@ -203,8 +203,8 @@ export async function applyRequestCollectionRemoveVar(
  */
 export async function applyRequestCollectionVariablesReplacement(
   collectionUid: string,
-  newVars: readonly V5.Variable[],
-  oldVars: readonly V5.Variable[],
+  newVars: readonly Variable[],
+  oldVars: readonly Variable[],
   opts: RequestCollectionWriteOptions,
 ): Promise<RequestCollectionSimpleResult> {
   const ctx = resolveRendererContext(opts).next({

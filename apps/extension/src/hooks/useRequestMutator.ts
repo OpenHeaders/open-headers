@@ -9,7 +9,7 @@
  */
 
 import { useMemo } from 'react';
-import type { V5 } from '@openheaders/core/types';
+import type { Request } from '@openheaders/core/types';
 import {
   applyRequestCreate,
   applyRequestDelete,
@@ -29,7 +29,7 @@ export interface UseRequestMutatorOptions {
 
 export interface UseRequestMutatorApi {
   updateRequest(requestUid: string, updates: RequestUpdates): Promise<RequestMutationResult>;
-  createRequest(request: V5.Request): Promise<RequestSimpleResult>;
+  createRequest(request: Request): Promise<RequestSimpleResult>;
   deleteRequest(requestUid: string): Promise<RequestSimpleResult>;
 }
 
@@ -46,7 +46,7 @@ export function useRequestMutator(opts: UseRequestMutatorOptions): UseRequestMut
   const createRequest = useGuardedMutation(
     workspaceId,
     surfaceId,
-    (writeOpts, request: V5.Request) => applyRequestCreate(request, writeOpts),
+    (writeOpts, request: Request) => applyRequestCreate(request, writeOpts),
   );
 
   const deleteRequest = useGuardedMutation(

@@ -30,7 +30,7 @@
  * debugging proxies accept; not actually reachable in practice.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { HeaderModification, HeaderRule } from '@openheaders/core/types';
 import type { RuleSnapshot, RuleSnapshotHeaderMod } from '@/types/telemetry';
 import { getRules } from './rule-store';
 import { getResolvedRules } from './variables-resolver';
@@ -62,15 +62,15 @@ export function buildRuleSnapshot(ruleUid: string): RuleSnapshot | null {
   };
 
   if (identitySource.type === 'header') {
-    snapshot.headerMods = buildHeaderMods(raw as V5.HeaderRule | undefined, resolved as V5.HeaderRule | undefined);
+    snapshot.headerMods = buildHeaderMods(raw as HeaderRule | undefined, resolved as HeaderRule | undefined);
   }
 
   return snapshot;
 }
 
 function buildHeaderMods(
-  raw: V5.HeaderRule | undefined,
-  resolved: V5.HeaderRule | undefined,
+  raw: HeaderRule | undefined,
+  resolved: HeaderRule | undefined,
 ): ReadonlyArray<RuleSnapshotHeaderMod> {
   // Walk the raw rule's mod arrays as the structural authority — those
   // are the entries the user wrote. The resolved rule's mods at the
@@ -79,7 +79,7 @@ function buildHeaderMods(
   // mapping over the same arrays without reordering.
   const out: RuleSnapshotHeaderMod[] = [];
   const directions: Array<
-    ['request' | 'response', V5.HeaderModification[] | undefined, V5.HeaderModification[] | undefined]
+    ['request' | 'response', HeaderModification[] | undefined, HeaderModification[] | undefined]
   > = [
     ['request', raw?.action.requestHeaders, resolved?.action.requestHeaders],
     ['response', raw?.action.responseHeaders, resolved?.action.responseHeaders],

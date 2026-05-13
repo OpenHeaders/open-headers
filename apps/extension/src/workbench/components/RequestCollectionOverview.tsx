@@ -18,7 +18,7 @@
 
 import { CodeOutlined, FolderOutlined, PlusOutlined } from '@ant-design/icons';
 import { useRequests } from '@hooks/useRequests';
-import type { V5 } from '@openheaders/core/types';
+import type { HttpMethod, TreeNode } from '@openheaders/core/types';
 import { Button, Empty, Space, Table, Tag, Tooltip, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
@@ -27,7 +27,7 @@ import CollectionOverviewShell from './CollectionOverviewShell';
 
 interface RequestCollectionOverviewProps {
   collectionUid: string;
-  onSelectRequest: (uid: string, name: string, method: V5.HttpMethod) => void;
+  onSelectRequest: (uid: string, name: string, method: HttpMethod) => void;
   onCreateRequest: (context: { collectionId: string; folderPath?: string }) => void;
   onOpenFolderOverview: (uid: string, name: string) => void;
   onOpenCollectionVariables?: (uid: string, name: string) => void;
@@ -38,11 +38,11 @@ interface ContentRow {
   uid: string;
   name: string;
   kind: 'folder' | 'request';
-  method?: V5.HttpMethod;
+  method?: HttpMethod;
   childCount?: number;
 }
 
-function countRequestsDeep(nodes: V5.TreeNode[]): number {
+function countRequestsDeep(nodes: TreeNode[]): number {
   let count = 0;
   for (const n of nodes) {
     if (n.type === 'request') count++;
@@ -51,7 +51,7 @@ function countRequestsDeep(nodes: V5.TreeNode[]): number {
   return count;
 }
 
-function countFoldersDeep(nodes: V5.TreeNode[]): number {
+function countFoldersDeep(nodes: TreeNode[]): number {
   let count = 0;
   for (const n of nodes) {
     if (n.type === 'folder') {

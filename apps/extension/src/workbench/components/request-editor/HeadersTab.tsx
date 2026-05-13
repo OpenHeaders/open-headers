@@ -16,7 +16,7 @@
  */
 
 import { EyeInvisibleOutlined, EyeOutlined, InfoCircleOutlined } from '@ant-design/icons';
-import type { V5 } from '@openheaders/core/types';
+import type { RequestBody } from '@openheaders/core/types';
 import { Button, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
@@ -119,7 +119,7 @@ interface HeadersTabProps {
   rows: KeyValueRow[];
   onChange: (rows: KeyValueRow[]) => void;
   /** Needed so `Content-Type` / `Content-Length` only show when a body exists. */
-  body: V5.RequestBody;
+  body: RequestBody;
   /** Inline conflict chips for header cells + set-remove rows. */
   conflictBridge?: KeyValueRowConflictBridge;
 }

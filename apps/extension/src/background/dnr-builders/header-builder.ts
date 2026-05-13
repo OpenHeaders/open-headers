@@ -1,5 +1,5 @@
 /**
- * Header compiler — converts V5.HeaderRule into a CompilationPlan.
+ * Header compiler — converts HeaderRule into a CompilationPlan.
  *
  * Header rules are the most versatile: a single rule can combine DNR
  * modifyHeaders operations (set/append/remove) with scriptable merge
@@ -16,7 +16,7 @@
  * Both outputs can coexist for a single V5 rule with mixed operations.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { HeaderModification, HeaderRule } from '@openheaders/core/types';
 import { getHeaderOperationCapability } from '@openheaders/core/utils';
 import { validateHeaderName } from '@utils/header-validator';
 import { logger } from '@utils/logger';
@@ -43,9 +43,9 @@ const MAIN_FRAME_ONLY: chrome.declarativeNetRequest.ResourceType[] = [
   'main_frame' as chrome.declarativeNetRequest.ResourceType,
 ];
 
-export const headerCompiler: RuleCompiler<V5.HeaderRule> = {
+export const headerCompiler: RuleCompiler<HeaderRule> = {
   ruleType: 'header',
-  compile(rule: V5.HeaderRule, ctx: CompilerContext): CompilationPlan {
+  compile(rule: HeaderRule, ctx: CompilerContext): CompilationPlan {
     const { base, domains, useRegex, urlPattern } = buildDnrCondition(rule.conditions);
 
     if (domains.length === 0 && !urlPattern) {
@@ -195,7 +195,7 @@ export const headerCompiler: RuleCompiler<V5.HeaderRule> = {
   },
 };
 
-function buildMod(mod: V5.HeaderModification, isResponse: boolean, ruleName: string): DnrHeaderModification | null {
+function buildMod(mod: HeaderModification, isResponse: boolean, ruleName: string): DnrHeaderModification | null {
   // Unresolvable templates: by the time we run, `resolveRulesForCompile`
   // has substituted every resolvable `{{ref}}`. A surviving `{{` in the
   // header name OR value means the resolver couldn't resolve the ref

@@ -2,10 +2,10 @@
  * Request write-site → oracle helpers.
  *
  * Parallel to {@link rule-mutations}: `request-store.ts` historically
- * owned the in-memory `V5.Request[]` array and persisted it on every
+ * owned the in-memory `Request[]` array and persisted it on every
  * write. With the request entity routed through the oracle, writes
  * now flow as `MutationBatch`es; the request cache projects the
- * oracle's materialized state back to `V5.Request[]` and persists it.
+ * oracle's materialized state back to `Request[]` and persists it.
  *
  * The four helpers below produce `(batch, sideEffects)` pairs for the
  * four legacy write paths. They're pure transforms — no oracle reads,
@@ -37,7 +37,7 @@ import {
   type MutatorContext,
   type SideEffectIntent,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Request } from '@openheaders/core/types';
 import { seedRequest } from './request-projection';
 import { type LiveSetEntry, synthesizeSetDiff } from './set-diff';
 
@@ -60,7 +60,7 @@ export type LiveSetEntries = (
 ) => ReadonlyArray<LiveSetEntry>;
 
 /** New request → seed batch. No side effects. */
-export function buildAddBatch(request: V5.Request, ctx: MutatorContext): RequestMutationPayload {
+export function buildAddBatch(request: Request, ctx: MutatorContext): RequestMutationPayload {
   return { batch: seedRequest(request, ctx), sideEffects: [] };
 }
 
@@ -82,7 +82,7 @@ const isSetPath = (key: string): SetPath | null =>
   key === REQUEST_HEADERS_PATH ? REQUEST_HEADERS_PATH : key === REQUEST_PARAMS_PATH ? REQUEST_PARAMS_PATH : null;
 
 /**
- * Translate a `Partial<Omit<V5.Request, 'uid'|'path'>>` patch into a
+ * Translate a `Partial<Omit<Request, 'uid'|'path'>>` patch into a
  * single batch of mutations. Scalar fields → one `setField` per leaf;
  * set-modeled fields (`headers`, `params`) → minimum diff via
  * {@link synthesizeSetDiff}.
@@ -97,7 +97,7 @@ const isSetPath = (key: string): SetPath | null =>
  */
 export function buildUpdateBatch(
   requestUid: string,
-  updates: Partial<Omit<V5.Request, 'uid' | 'path'>>,
+  updates: Partial<Omit<Request, 'uid' | 'path'>>,
   ctx: MutatorContext,
   liveSetEntries: LiveSetEntries,
 ): RequestMutationPayload {

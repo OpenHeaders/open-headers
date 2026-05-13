@@ -10,7 +10,7 @@ import { DeleteOutlined, EditOutlined, HolderOutlined } from '@ant-design/icons'
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useRules } from '@hooks/useRules';
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import { getActionDetail, isRuleComplete } from '@openheaders/core/utils';
 import { Button, Popconfirm, Space, Switch, Tag, Tooltip, theme } from 'antd';
 import type React from 'react';
@@ -95,7 +95,7 @@ const SHADOW_TAG_TOOLTIP: Record<RuleShadowKind, (name: string) => string> = {
 };
 
 interface FlowRuleCardProps {
-  rule: V5.Rule;
+  rule: Rule;
   /** Always opens the rule in the editor — used by the explicit edit button. */
   onSelectRule: (uid: string) => void;
   /**

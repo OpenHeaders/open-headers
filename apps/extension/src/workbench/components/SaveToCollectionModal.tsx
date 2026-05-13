@@ -15,7 +15,7 @@ import {
   SaveOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, CollectionTree, TreeNode } from '@openheaders/core/types';
 import { buildBreadcrumbTrail, findNodeChildren } from '@openheaders/core/utils';
 import { Button, Input, type InputRef, Modal, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -27,17 +27,17 @@ const { Text } = Typography;
 interface SaveToCollectionModalProps {
   open: boolean;
   entityName: string;
-  collectionTrees: V5.CollectionTree[];
-  collections: V5.Collection[];
+  collectionTrees: CollectionTree[];
+  collections: Collection[];
   onSave: (params: { name: string; collectionId: string; folderPath?: string }) => void;
-  onCreateCollection: (name: string) => Promise<V5.Collection | null>;
+  onCreateCollection: (name: string) => Promise<Collection | null>;
   onCreateFolder: (name: string, parentPath: string) => Promise<{ uid: string; path: string; name: string } | null>;
   onCancel: () => void;
 }
 
 type SelectableRow =
-  | { kind: 'collection'; id: string; collection: V5.Collection }
-  | { kind: 'folder'; id: string; node: V5.TreeNode & { type: 'folder' } };
+  | { kind: 'collection'; id: string; collection: Collection }
+  | { kind: 'folder'; id: string; node: TreeNode & { type: 'folder' } };
 
 const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
   open,
@@ -104,12 +104,12 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
   const selectedTree = selectedCollectionId ? collectionTrees.find((c) => c.uid === selectedCollectionId) : null;
 
   // Current folder's children (shared tree utility)
-  const currentNodes = useMemo((): V5.TreeNode[] => {
+  const currentNodes = useMemo((): TreeNode[] => {
     if (!selectedTree) return [];
     return findNodeChildren(selectedTree.tree, selectedFolderPath) ?? [];
   }, [selectedTree, selectedFolderPath]);
 
-  const filteredCurrentNodes = useMemo((): V5.TreeNode[] => {
+  const filteredCurrentNodes = useMemo((): TreeNode[] => {
     if (!filter) return currentNodes;
     return currentNodes.filter((n) => n.name.toLowerCase().includes(filter));
   }, [currentNodes, filter]);
@@ -120,7 +120,7 @@ const SaveToCollectionModal: React.FC<SaveToCollectionModalProps> = ({
       return filteredCollections.map((col) => ({ kind: 'collection', id: `col-${col.uid}`, collection: col }));
     }
     return filteredCurrentNodes
-      .filter((n): n is V5.TreeNode & { type: 'folder' } => n.type === 'folder')
+      .filter((n): n is TreeNode & { type: 'folder' } => n.type === 'folder')
       .map((node) => ({ kind: 'folder', id: `fld-${node.uid}`, node }));
   }, [selectedCollectionId, filteredCollections, filteredCurrentNodes]);
 

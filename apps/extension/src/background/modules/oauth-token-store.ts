@@ -3,7 +3,7 @@
  * parallel maps keyed by `credentialRef`:
  *
  *   • `tokens`         — `OAuth2TokenBundle` (access/refresh/expiry).
- *   • `configs`        — `V5.OAuth2Auth` sidecar captured at last
+ *   • `configs`        — `OAuth2Auth` sidecar captured at last
  *                        authorize/refresh; lets the scheduler rebuild
  *                        a refresh POST without walking the request tree.
  *   • `refreshErrors`  — `OAuthRefreshErrorState` failure counters for
@@ -26,7 +26,7 @@
 
 import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
 import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { OAuth2Auth } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import { entityLockName, withLock } from '@/shared/coordination/with-lock';
 import { extensionStorage, OH, wsKeys } from '@/shared/storage';
@@ -92,13 +92,13 @@ export async function getTokenBundle(credentialRef: string, workspaceId?: string
   return (blob.tokens[credentialRef] as OAuth2TokenBundle | undefined) ?? null;
 }
 
-export async function getRefreshConfig(credentialRef: string, workspaceId?: string): Promise<V5.OAuth2Auth | null> {
+export async function getRefreshConfig(credentialRef: string, workspaceId?: string): Promise<OAuth2Auth | null> {
   const wsId = workspaceId ?? getActiveWorkspaceId();
   if (wsId === mirrorWorkspaceId) {
-    return (mirror.configs[credentialRef] as V5.OAuth2Auth | undefined) ?? null;
+    return (mirror.configs[credentialRef] as OAuth2Auth | undefined) ?? null;
   }
   const blob = await readSnapshot(wsId);
-  return (blob.configs[credentialRef] as V5.OAuth2Auth | undefined) ?? null;
+  return (blob.configs[credentialRef] as OAuth2Auth | undefined) ?? null;
 }
 
 export async function listTokenBundles(workspaceId?: string): Promise<Record<string, OAuth2TokenBundle>> {
@@ -114,7 +114,7 @@ export interface WorkspaceCredentialEntry {
   workspaceId: string;
   credentialRef: string;
   bundle: OAuth2TokenBundle;
-  config: V5.OAuth2Auth | null;
+  config: OAuth2Auth | null;
   errorState: OAuthRefreshErrorState | null;
 }
 
@@ -132,7 +132,7 @@ export async function listAllWorkspaceCredentials(): Promise<WorkspaceCredential
         workspaceId: ws.id,
         credentialRef,
         bundle: bundle as OAuth2TokenBundle,
-        config: (blob.configs[credentialRef] as V5.OAuth2Auth | undefined) ?? null,
+        config: (blob.configs[credentialRef] as OAuth2Auth | undefined) ?? null,
         errorState: (blob.refreshErrors[credentialRef] as OAuthRefreshErrorState | undefined) ?? null,
       });
     }
@@ -151,7 +151,7 @@ export async function listAllWorkspaceCredentials(): Promise<WorkspaceCredential
 export async function putTokenBundle(
   credentialRef: string,
   bundle: OAuth2TokenBundle,
-  config?: V5.OAuth2Auth,
+  config?: OAuth2Auth,
   workspaceId?: string,
 ): Promise<void> {
   const wsId = workspaceId ?? getActiveWorkspaceId();

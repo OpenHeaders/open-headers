@@ -1,6 +1,6 @@
 /**
  * Phase B Folder — projector reads cross-entity oracle state to
- * reconstruct V5.Folder.path via parent walk. Returns null for
+ * reconstruct Folder.path via parent walk. Returns null for
  * non-folder envelopes / tombstoned folders / folders whose parent
  * linkage hasn't seeded yet.
  */
@@ -17,7 +17,7 @@ import {
   renameFolder,
   RULE_ENTITY_TYPE,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, Folder } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@/background/sync/broadcast';
 import {
@@ -39,7 +39,7 @@ const ctx = (ms: number): MutatorContext => ({
   deviceId: 'd',
 });
 
-const makeCollection = (uid: string): V5.Collection =>
+const makeCollection = (uid: string): Collection =>
   ({
     schemaVersion: 5,
     uid,
@@ -48,7 +48,7 @@ const makeCollection = (uid: string): V5.Collection =>
     variables: [],
     pinnedEnvironmentIds: [],
     defaultEnvironmentId: null,
-  }) as unknown as V5.Collection;
+  }) as unknown as Collection;
 
 function newOracle(): EntityOracle {
   return new EntityOracle({

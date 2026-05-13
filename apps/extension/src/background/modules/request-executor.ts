@@ -1,5 +1,5 @@
 /**
- * Request Executor — runs a V5.Request through `fetch()` from the
+ * Request Executor — runs a Request through `fetch()` from the
  * service worker and returns a response snapshot the UI can render.
  *
  * Design:
@@ -13,7 +13,7 @@
  *     is intentional: users can test their own rules end-to-end.
  *   - Body types: `none`, `json`, `xml`, `text`, `form` (urlencoded).
  *     `graphql` and `multipart` land in a later phase — the shape
- *     variant is declared in `V5.BodyType` but the executor falls back
+ *     variant is declared in `BodyType` but the executor falls back
  *     to `none` if asked to send one.
  *   - Auth: `none` | `inherit` are no-ops (nothing to inject). `basic`
  *     and `bearer` add Authorization; `api-key` adds either a header or
@@ -29,7 +29,7 @@
 import { isExpired as isOAuthTokenExpired } from '@openheaders/core/oauth';
 import type { RequestMutation, RequestSnapshot, ResponseSnapshot, TestAssertion } from '@openheaders/core/scripts';
 import { generateTotp } from '@openheaders/core/totp';
-import type { V5 } from '@openheaders/core/types';
+import type { AuthConfig, BodyType, Collection, CredentialsMode, Environment, FormField, HttpMethod, MultipartPart, Request, RequestBody, Vault, VaultSecretTotp, WorkspaceVariables } from '@openheaders/core/types';
 import { appendQueryParams, generateUid, isRequestResolvable } from '@openheaders/core/utils';
 import { resolveTemplate, type TotpRegistry, VariableResolver } from '@openheaders/core/variables';
 import { logger } from '@utils/logger';
@@ -174,7 +174,7 @@ export async function executeRequest(
 
 /** Execute an in-memory request shape (for unsaved drafts + tests). */
 export async function executeRequestDraft(
-  request: V5.Request,
+  request: Request,
   options: ExecuteRequestOptions = {},
 ): Promise<ExecutedRequestSnapshot> {
   let outcome: ResolvedRequestOutcome;
@@ -361,10 +361,10 @@ export interface LiveChainExecuteOptions {
  * `StepResponse`.
  */
 export async function executeForLiveChain(
-  request: V5.Request,
+  request: Request,
   options: LiveChainExecuteOptions,
 ): Promise<ExecutedRequestSnapshot> {
-  const stamped: V5.Request = {
+  const stamped: Request = {
     ...request,
     headers: [
       ...request.headers,
@@ -414,7 +414,7 @@ function applyMutation(target: ResolvedRequest, mutation: RequestMutation): void
 interface ResolverContext {
   workspaceId: string | null;
   environmentId: string | null;
-  vault: V5.Vault;
+  vault: Vault;
 }
 
 /**
@@ -495,15 +495,15 @@ async function buildResolver(
 }
 
 interface ExecutionScope {
-  vault: V5.Vault;
-  environments: V5.Environment[];
+  vault: Vault;
+  environments: Environment[];
   activeEnvironmentId: string | null;
   defaultEnvironmentId: string | null;
-  workspaceVariables: V5.WorkspaceVariables;
+  workspaceVariables: WorkspaceVariables;
   collections: {
-    ruleCollections: V5.Collection[];
-    requestCollections: V5.Collection[];
-    templateCollections: V5.Collection[];
+    ruleCollections: Collection[];
+    requestCollections: Collection[];
+    templateCollections: Collection[];
   };
 }
 
@@ -557,23 +557,23 @@ async function readPerWorkspaceScope(workspaceId: string): Promise<ExecutionScop
  * dispatches where the runtime-Active workspace's collections aren't
  * the right namespace.
  */
-function collectionIdForRequest(request: V5.Request, workspaceId: string | null): string | undefined {
+function collectionIdForRequest(request: Request, workspaceId: string | null): string | undefined {
   const collections = workspaceId ? getRequestCollectionsForWorkspace(workspaceId) : getRequestCollections();
   const hit = collections.find((c) => request.path.startsWith(`${c.path}/`));
   return hit?.uid;
 }
 
 interface ResolvedRequest {
-  method: V5.HttpMethod;
+  method: HttpMethod;
   url: string;
   headers: Array<{ key: string; value: string }>;
-  body: V5.RequestBody;
+  body: RequestBody;
   /** Wire-level cookie policy. `'omit'` unless the request opts into `'include'`. */
-  credentialsMode: V5.CredentialsMode;
+  credentialsMode: CredentialsMode;
   /**
    * Redirect policy forwarded to `fetch`. `false` maps to `'manual'`,
    * `undefined`/`true` map to `'follow'`. See the `followRedirects`
-   * field on `V5.Request` for the architectural note about the missing
+   * field on `Request` for the architectural note about the missing
    * max-redirects cap.
    */
   followRedirects?: boolean;
@@ -613,7 +613,7 @@ interface ResolvedRequestOutcome {
   totpUsed: ReadonlyArray<TotpUsage>;
 }
 
-async function resolveRequest(request: V5.Request, options: ExecuteRequestOptions): Promise<ResolvedRequestOutcome> {
+async function resolveRequest(request: Request, options: ExecuteRequestOptions): Promise<ResolvedRequestOutcome> {
   const { resolver, context: scope } = await buildResolver(options.workspaceId, options.stepCaptures);
   const context = {
     collectionId: collectionIdForRequest(request, scope.workspaceId),
@@ -642,7 +642,7 @@ async function resolveRequest(request: V5.Request, options: ExecuteRequestOption
   // `scope.vault` is the per-workspace snapshot when `options.workspaceId`
   // is set — guards against a vault rotation between buildResolver and
   // here, and keeps cross-workspace dispatches honest.
-  const totpEntries = new Map<string, V5.VaultSecretTotp>();
+  const totpEntries = new Map<string, VaultSecretTotp>();
   for (const s of scope.vault.secrets) {
     if (s.kind === 'totp') totpEntries.set(s.name, s);
   }
@@ -728,8 +728,8 @@ async function resolveRequest(request: V5.Request, options: ExecuteRequestOption
  * surfaces them as `unset-in-scope` and the request gate rejects the
  * send with a structured error.
  */
-async function buildTotpRegistry(vault: V5.Vault): Promise<TotpRegistry> {
-  const totpEntries = vault.secrets.filter((s): s is V5.VaultSecretTotp => s.kind === 'totp');
+async function buildTotpRegistry(vault: Vault): Promise<TotpRegistry> {
+  const totpEntries = vault.secrets.filter((s): s is VaultSecretTotp => s.kind === 'totp');
   if (totpEntries.length === 0) return new Map();
   const codes = await Promise.all(
     totpEntries.map(async (e) => {
@@ -771,7 +771,7 @@ async function buildTotpRegistry(vault: V5.Vault): Promise<TotpRegistry> {
  * row?" question in any downstream consumer (snapshot, mutation,
  * scripts).
  */
-function buildResolvedBody(body: V5.RequestBody, resolveStr: (s: string) => string): V5.RequestBody {
+function buildResolvedBody(body: RequestBody, resolveStr: (s: string) => string): RequestBody {
   switch (body.type) {
     case 'none':
       return { type: 'none' };
@@ -793,7 +793,7 @@ function buildResolvedBody(body: V5.RequestBody, resolveStr: (s: string) => stri
         : { type: 'graphql', content: resolveStr(body.content) };
     }
     case 'form': {
-      const resolvedParts: V5.FormField[] = body.formParts.map((part) => {
+      const resolvedParts: FormField[] = body.formParts.map((part) => {
         // Skip resolveStr for disabled rows — they aren't sent, so
         // their `{{ref}}` references shouldn't burn TOTP cooldown or
         // contribute to the resolver's variable-usage tracking. The
@@ -809,7 +809,7 @@ function buildResolvedBody(body: V5.RequestBody, resolveStr: (s: string) => stri
       return { type: 'form', formParts: resolvedParts };
     }
     case 'multipart': {
-      const resolvedParts: V5.MultipartPart[] = body.multipartParts.map((part) => {
+      const resolvedParts: MultipartPart[] = body.multipartParts.map((part) => {
         if (part.enabled === false) {
           // Same disabled-row contract as form — skip resolveStr so
           // disabled parts can't leak vault TOTP usage into the
@@ -839,7 +839,7 @@ function buildResolvedBody(body: V5.RequestBody, resolveStr: (s: string) => stri
 }
 
 async function applyAuth(
-  auth: V5.AuthConfig,
+  auth: AuthConfig,
   headers: Array<{ key: string; value: string }>,
   params: Array<{ key: string; value: string }>,
   resolveStr: (s: string) => string,
@@ -924,7 +924,7 @@ export { ensureScheme } from '@/shared/fetch/ensure-scheme';
  * `text/html` instead of plain `text/plain`. The user can always
  * override by setting an explicit Content-Type header.
  */
-function defaultContentType(body: V5.RequestBody): string | null {
+function defaultContentType(body: RequestBody): string | null {
   switch (body.type) {
     case 'json':
       return 'application/json';
@@ -1240,7 +1240,7 @@ function classifyFetchFailure(url: string, rawMessage: string): string {
  * A future dedicated Status-subsystem entry could surface this more
  * loudly once we have the UI affordance.
  */
-async function buildMultipartForm(parts: readonly V5.MultipartPart[]): Promise<FormData> {
+async function buildMultipartForm(parts: readonly MultipartPart[]): Promise<FormData> {
   const form = new FormData();
   for (const part of parts) {
     if (part.enabled === false) continue;

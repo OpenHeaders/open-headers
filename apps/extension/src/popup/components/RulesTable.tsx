@@ -11,7 +11,7 @@ import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRuleMutator } from '@hooks/useRuleMutator';
 import { useRules } from '@hooks/useRules';
 import { useVariableResolver } from '@hooks/useVariableResolver';
-import type { V5 } from '@openheaders/core/types';
+import type { ExtensionRuleType, RuleCondition, RuleType } from '@openheaders/core/types';
 import { getActionDetail, isRuleComplete, isRuleDraft, resolvePauseState } from '@openheaders/core/utils';
 import { resolveRule } from '@openheaders/core/variables';
 import {
@@ -86,10 +86,10 @@ interface TableRecord {
   id: string;
   name: string;
   path: string;
-  ruleType: V5.RuleType;
+  ruleType: RuleType;
   actionDetail: ActionDetail;
   domains: string[];
-  conditions: V5.RuleCondition[];
+  conditions: RuleCondition[];
   isEnabled: boolean;
   isComplete: boolean;
   /** True for unpublished rules — derived from `isRuleDraft(rule)`.
@@ -491,7 +491,7 @@ const RulesTable: React.FC<RulesTableProps> = ({
   ];
 
   const handlePaletteSelect = useCallback(
-    (ruleType: V5.ExtensionRuleType, templateKey?: string) => {
+    (ruleType: ExtensionRuleType, templateKey?: string) => {
       openRulesIntent({ kind: 'create-rule', ruleType, templateKey });
     },
     [openRulesIntent],

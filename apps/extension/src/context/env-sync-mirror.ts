@@ -8,7 +8,7 @@
  * synchronously without a SW round-trip per write (§19.4).
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Environment } from '@openheaders/core/types';
 import { call } from '@utils/bridge';
 import {
   createFlatEntityMirror,
@@ -17,7 +17,7 @@ import {
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 
 export interface EnvironmentMirrorEntry {
-  environment: V5.Environment;
+  environment: Environment;
   /** Live variable uids. Set member identity is `variable.uid`; this
    *  array is the projected names list (used by the resolver + DNR
    *  recompile dependency tracking). */

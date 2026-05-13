@@ -3,7 +3,7 @@
  *
  * Mirrors `environment-cache.ts`. Subscribes to the oracle's broadcast
  * bus, re-projects the materialized state on every committed
- * Collection envelope, and persists the projected `V5.Collection[]`
+ * Collection envelope, and persists the projected `Collection[]`
  * back to `chrome.storage.local` under the workspace's `collections`
  * key so legacy readers (rule-store local mirror, exporter, sidebar
  * UI, request collections that walk by path) keep working without
@@ -18,7 +18,7 @@
 import { CollectionSchema } from '@openheaders/core/schemas';
 import type { MaterializedEntity } from '@openheaders/core/sync';
 import { COLLECTION_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 import { projectCollection, seedCollection } from '@/shared/sync/collection-projection';
@@ -32,11 +32,11 @@ export type CollectionCacheListener = () => void;
 export interface CollectionCache {
   readonly workspaceId: string;
   /** Snapshot of the cached collections in stable (uid) order. */
-  getCollections(): V5.Collection[];
+  getCollections(): Collection[];
   /** Replace the cache from a list of collection snapshots and seed
    *  the oracle. Drives boot-time hydration and the workspace-switch
    *  path. */
-  seedFromPersistedCollections(colls: V5.Collection[]): Promise<void>;
+  seedFromPersistedCollections(colls: Collection[]): Promise<void>;
   /** Read the persisted collection list for this workspace and seed the
    *  oracle. No-op when nothing is persisted. Called by `buildService`'s
    *  `hydrated` promise so a freshly materialized non-Active workspace
@@ -55,7 +55,7 @@ export function createCollectionCache(
   broadcast: InMemoryBroadcast,
   contextFactory: SwMutatorContextFactory,
 ): CollectionCache {
-  let collections: V5.Collection[] = [];
+  let collections: Collection[] = [];
   const listeners = new Set<CollectionCacheListener>();
 
   const refreshFromOracle = (): void => {
@@ -76,7 +76,7 @@ export function createCollectionCache(
     refreshFromOracle();
   });
 
-  const seedFromPersistedCollections = async (persisted: V5.Collection[]): Promise<void> => {
+  const seedFromPersistedCollections = async (persisted: Collection[]): Promise<void> => {
     for (const coll of persisted) {
       const batch = seedCollection(coll, contextFactory());
       const result = await oracle.apply(batch, []);
@@ -130,8 +130,8 @@ export function createCollectionCache(
 
 // ── helpers ───────────────────────────────────────────────────────
 
-function projectAllCollections(materialized: MaterializedEntity[]): V5.Collection[] {
-  const out: V5.Collection[] = [];
+function projectAllCollections(materialized: MaterializedEntity[]): Collection[] {
+  const out: Collection[] = [];
   for (const m of materialized) {
     if (m.type !== COLLECTION_ENTITY_TYPE) continue;
     const coll = projectCollection(m);
@@ -141,7 +141,7 @@ function projectAllCollections(materialized: MaterializedEntity[]): V5.Collectio
   return out;
 }
 
-async function persist(workspaceId: string, collections: V5.Collection[]): Promise<void> {
+async function persist(workspaceId: string, collections: Collection[]): Promise<void> {
   try {
     await extensionStorage.set(wsKeys(workspaceId).collections, collections);
   } catch (err) {

@@ -5,7 +5,7 @@
 
 import { LiveVariableSchema } from '@openheaders/core/schemas';
 import { LIVE_VARIABLE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { LiveVariable } from '@openheaders/core/types';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 import { projectLiveVariable, seedLiveVariable } from '@/shared/sync/live-variable-projection';
 import { driftRecorder } from '../modules/storage-drift';
@@ -18,8 +18,8 @@ export type LiveVariableCacheListener = () => void;
 
 export interface LiveVariableCache {
   readonly workspaceId: string;
-  getLiveVariables(): V5.LiveVariable[];
-  seedFromPersistedLiveVariables(items: V5.LiveVariable[]): Promise<void>;
+  getLiveVariables(): LiveVariable[];
+  seedFromPersistedLiveVariables(items: LiveVariable[]): Promise<void>;
   hydrateFromStorage(): Promise<void>;
   onChange(listener: LiveVariableCacheListener): () => void;
   dispose(): void;
@@ -31,7 +31,7 @@ export function createLiveVariableCache(
   broadcast: InMemoryBroadcast,
   contextFactory: SwMutatorContextFactory,
 ): LiveVariableCache {
-  const core = createFlatEntityCache<V5.LiveVariable, typeof LIVE_VARIABLE_ENTITY_TYPE>(
+  const core = createFlatEntityCache<LiveVariable, typeof LIVE_VARIABLE_ENTITY_TYPE>(
     workspaceId,
     oracle,
     broadcast,

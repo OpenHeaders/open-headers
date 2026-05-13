@@ -18,7 +18,7 @@
 
 import { CollectionSchema } from '@openheaders/core/schemas';
 import { type MutationBatch, type MutatorContext, newBatchId, type SideEffectIntent } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, Folder } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import { extensionStorage, type PersistedLocalFolder, type StorageKey } from '@/shared/storage';
 import { driftRecorder } from '../modules/storage-drift';
@@ -52,11 +52,11 @@ export interface FolderTreeCacheConfig<P> {
    * collection list as a peer projection alongside the folder list,
    * since folder hydration needs collections to compute parent refs.
    */
-  collectionStorageKey: (workspaceId: string) => StorageKey<V5.Collection[]>;
+  collectionStorageKey: (workspaceId: string) => StorageKey<Collection[]>;
   /** Prefix for the boot-time hydration batch id (e.g. "boot-folders"). */
   hydrationBatchPrefix: string;
   /** Project every folder under this tree off the oracle. */
-  projectAllFolders: (oracle: EntityOracle) => V5.Folder[];
+  projectAllFolders: (oracle: EntityOracle) => Folder[];
   /** Build a `createFolder` batch + side effects for hydration. */
   buildCreateBatch: (
     input: FolderTreeCreateInput<P>,
@@ -68,8 +68,8 @@ export interface FolderTreeCacheConfig<P> {
 
 export interface FolderTreeCacheCore {
   readonly workspaceId: string;
-  getFolders(): V5.Folder[];
-  seedFromPersisted(folders: PersistedLocalFolder[], collections: V5.Collection[]): Promise<void>;
+  getFolders(): Folder[];
+  seedFromPersisted(folders: PersistedLocalFolder[], collections: Collection[]): Promise<void>;
   hydrateFromStorage(): Promise<void>;
   onChange(listener: () => void): () => void;
   dispose(): void;
@@ -82,7 +82,7 @@ export function createFolderTreeCache<P>(
   contextFactory: SwMutatorContextFactory,
   config: FolderTreeCacheConfig<P>,
 ): FolderTreeCacheCore {
-  let folders: V5.Folder[] = [];
+  let folders: Folder[] = [];
   const listeners = new Set<() => void>();
 
   const refreshFromOracle = (): void => {
@@ -104,7 +104,7 @@ export function createFolderTreeCache<P>(
 
   const seedFromPersisted = async (
     persistedFolders: PersistedLocalFolder[],
-    collections: V5.Collection[],
+    collections: Collection[],
   ): Promise<void> => {
     // Sort folders so a parent always seeds before any of its
     // descendants. Depth derived from `/` separators is total-ordered
@@ -197,7 +197,7 @@ function affectsFolders<P>(event: BroadcastEvent, config: FolderTreeCacheConfig<
   return false;
 }
 
-async function persist<P>(workspaceId: string, folders: V5.Folder[], config: FolderTreeCacheConfig<P>): Promise<void> {
+async function persist<P>(workspaceId: string, folders: Folder[], config: FolderTreeCacheConfig<P>): Promise<void> {
   try {
     const persisted: PersistedLocalFolder[] = folders.map((f) => ({
       schemaVersion: f.schemaVersion,
@@ -212,7 +212,7 @@ async function persist<P>(workspaceId: string, folders: V5.Folder[], config: Fol
 }
 
 function buildParentLookup<P>(
-  collections: readonly V5.Collection[],
+  collections: readonly Collection[],
   folders: readonly PersistedLocalFolder[],
   config: FolderTreeCacheConfig<P>,
 ): Map<string, P> {

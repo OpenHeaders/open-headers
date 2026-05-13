@@ -1,9 +1,9 @@
 /**
- * Request projection — `V5.Request ⇄ MutationBatch / MaterializedEntity`.
+ * Request projection — `Request ⇄ MutationBatch / MaterializedEntity`.
  *
  * Parallel to {@link rule-projection}: the request mutator catalog
  * treats `headers` and `params` as **sets** (parent-owned ordering with
- * itemId-keyed members + fractional indexing), while `V5.Request`
+ * itemId-keyed members + fractional indexing), while `Request`
  * persists them as plain arrays without per-item identifiers.
  *
  * The generic `create` mutation flattens any array to numeric-indexed
@@ -15,14 +15,14 @@
  * payload and emits one `addToSet` per item with a freshly-minted
  * itemId. `projectRequest` is the inverse: read the oracle's
  * MaterializedEntity (which already carries the array form for
- * set-modeled paths and scalars elsewhere) and return a `V5.Request`.
+ * set-modeled paths and scalars elsewhere) and return a `Request`.
  *
  * Synthetic itemIds live only inside the oracle's in-memory state;
  * each SW cold-wake re-mints them on hydration. Cross-device stability
  * is Phase D scope.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { QueryParam, Request, RequestHeader } from '@openheaders/core/types';
 import {
   type MaterializedEntity,
   mintBatch,
@@ -47,11 +47,11 @@ type SetPath = (typeof SET_PATHS)[number];
 interface SetMember {
   path: SetPath;
   itemId: string;
-  item: V5.RequestHeader | V5.QueryParam;
+  item: RequestHeader | QueryParam;
 }
 
 /**
- * Convert a persisted V5.Request into a `MutationBatch` of one `create`
+ * Convert a persisted Request into a `MutationBatch` of one `create`
  * for the scalar shell, plus one `addToSet` per member of every
  * set-modeled field. Each member's `uid` doubles as the sync engine's
  * itemId — once persisted (commit `a` of the §7.3 reorder slice),
@@ -61,7 +61,7 @@ interface SetMember {
  *
  * Per-batch all-or-nothing under the oracle's lock.
  */
-export function seedRequest(request: V5.Request, ctx: MutatorContext): MutationBatch {
+export function seedRequest(request: Request, ctx: MutatorContext): MutationBatch {
   const setMembers: SetMember[] = [];
   const scalarShell = stripSetFields(request, setMembers);
 
@@ -83,11 +83,11 @@ export function seedRequest(request: V5.Request, ctx: MutatorContext): MutationB
 
 /**
  * Convert a `MaterializedEntity` (the oracle's per-entity snapshot)
- * back into a `V5.Request`. Returns `null` when the materialized data
+ * back into a `Request`. Returns `null` when the materialized data
  * fails basic shape checks — callers persist the request only when
  * projection succeeds.
  */
-export function projectRequest(materialized: MaterializedEntity): V5.Request | null {
+export function projectRequest(materialized: MaterializedEntity): Request | null {
   if (materialized.type !== REQUEST_ENTITY_TYPE) return null;
   const data = materialized.data;
   if (!isPlainObject(data)) return null;
@@ -95,13 +95,13 @@ export function projectRequest(materialized: MaterializedEntity): V5.Request | n
   // unflattened from per-leaf paths; set-modeled fields are emitted as
   // arrays at their setPath. The cast is honest because seedRequest
   // committed to that shape on the way in.
-  return data as V5.Request;
+  return data as Request;
 }
 
 // ── internals ─────────────────────────────────────────────────────
 
-function stripSetFields(request: V5.Request, out: SetMember[]): unknown {
-  // Deep clone via JSON round-trip — V5.Request has no functions /
+function stripSetFields(request: Request, out: SetMember[]): unknown {
+  // Deep clone via JSON round-trip — Request has no functions /
   // symbols / Dates; correct-by-construction for the persisted shape.
   // Not a hot path.
   const shell = JSON.parse(JSON.stringify(request)) as Record<string, unknown>;

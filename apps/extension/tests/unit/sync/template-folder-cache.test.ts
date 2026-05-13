@@ -9,7 +9,7 @@ import {
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_FOLDER_ENTITY_TYPE,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection } from '@openheaders/core/types';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@/background/sync/broadcast';
 import { InMemoryMutationLog } from '@/background/sync/mutation-log';
@@ -25,7 +25,7 @@ import type { PersistedLocalFolder } from '@/shared/storage';
 
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
 
-const makeCollection = (uid: string): V5.Collection =>
+const makeCollection = (uid: string): Collection =>
   ({
     schemaVersion: 5,
     uid,
@@ -34,7 +34,7 @@ const makeCollection = (uid: string): V5.Collection =>
     variables: [],
     pinnedEnvironmentIds: [],
     defaultEnvironmentId: null,
-  }) as unknown as V5.Collection;
+  }) as unknown as Collection;
 
 let hlcCounter = 0;
 const ctxFactory = () => {

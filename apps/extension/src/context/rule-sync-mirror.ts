@@ -12,7 +12,7 @@
  *      envelope batches on save.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import { call } from '@utils/bridge';
 import {
   createFlatEntityMirror,
@@ -21,7 +21,7 @@ import {
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 
 export interface RuleMirrorEntry {
-  rule: V5.Rule;
+  rule: Rule;
   /** Map keyed by set path (e.g. `conditions`). */
   setItemIds: Record<string, string[]>;
   /** Per-set ordered `(itemId, orderKey)` pairs for synthesizer-driven writes. */
@@ -35,7 +35,7 @@ export interface RuleSyncMirror {
   /** Snapshot of every rule in the mirror — used by cross-entity
    *  cascades (collection / folder delete cascades into descendant
    *  rules) where the caller needs to enumerate by path prefix. */
-  listRules(): V5.Rule[];
+  listRules(): Rule[];
   liveSetItems(uid: string, setPath: string): string[];
   liveOrderedSetItems(uid: string, setPath: string): Array<{ itemId: string; orderKey: string }>;
   subscribeRuleMirror(uid: string, listener: RuleMirrorListener): () => void;
@@ -150,8 +150,8 @@ import { useEffect, useState } from 'react';
 export function useLiveRule(
   uid: string | null | undefined,
   workspaceId: string | null,
-): V5.Rule | null {
-  const [rule, setRule] = useState<V5.Rule | null>(() => {
+): Rule | null {
+  const [rule, setRule] = useState<Rule | null>(() => {
     if (!uid || !workspaceId) return null;
     return getRuleSyncMirrorForWorkspace(workspaceId).getRuleMirror(uid)?.rule ?? null;
   });

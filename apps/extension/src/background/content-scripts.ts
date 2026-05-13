@@ -36,7 +36,7 @@
  * is an opaque cross-realm object.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { BodyRule, DelayRule, MockRule } from '@openheaders/core/types';
 import { compileRuleForInjection } from '@openheaders/core/utils';
 import type { FuncInjection, Injection } from './dnr-builders/types';
 
@@ -124,7 +124,7 @@ const GRAPHQL_MATCHER_CODE = [
 
 // ── Static Delay (real function) ────────────────────────────────────
 
-export function buildDelayInjection(rule: V5.DelayRule): FuncInjection {
+export function buildDelayInjection(rule: DelayRule): FuncInjection {
   const config: DelayConfig = {
     ruleUid: rule.uid,
     regexSources: compileRuleForInjection(rule),
@@ -201,7 +201,7 @@ function delayInjectionFunc(cfg: DelayConfig): void {
 
 // ── Static Body (real function) ─────────────────────────────────────
 
-export function buildBodyInjection(rule: V5.BodyRule): Injection {
+export function buildBodyInjection(rule: BodyRule): Injection {
   const bodyType = rule.action.bodyType || 'static';
   if (bodyType === 'dynamic') {
     return { kind: 'inline-script', code: generateDynamicBodyScript(rule) };
@@ -303,7 +303,7 @@ function staticBodyInjectionFunc(cfg: StaticBodyConfig): void {
 
 // ── Static Mock (real function) ─────────────────────────────────────
 
-export function buildMockInjection(rule: V5.MockRule): Injection {
+export function buildMockInjection(rule: MockRule): Injection {
   const bodyType = rule.action.bodyType || 'static';
   if (bodyType === 'dynamic') {
     return { kind: 'inline-script', code: generateDynamicMockScript(rule) };
@@ -545,7 +545,7 @@ function headerMergeInjectionFunc(cfg: HeaderMergeConfig): void {
  * Stays as a string-template inline-script injection because it embeds arbitrary
  * user JavaScript. On strict-CSP sites this will be blocked — pre-existing limitation.
  */
-function generateDynamicBodyScript(rule: V5.BodyRule): string {
+function generateDynamicBodyScript(rule: BodyRule): string {
   const regexSources = compileRuleForInjection(rule);
   const { body: userCode } = rule.action;
   const regexSourcesJSON = JSON.stringify(regexSources);
@@ -612,7 +612,7 @@ XMLHttpRequest.prototype.send = function(body) {
  * Dynamic mode — make the REAL request, then pass the response to the user's
  * modifyResponse() function. Embeds arbitrary user JS — inline-script path only.
  */
-function generateDynamicMockScript(rule: V5.MockRule): string {
+function generateDynamicMockScript(rule: MockRule): string {
   const regexSources = compileRuleForInjection(rule);
   const { statusCode, responseBody } = rule.action;
   const regexSourcesJSON = JSON.stringify(regexSources);

@@ -15,7 +15,7 @@
  * subscribeMirror tick on every commit.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { call } from '@utils/bridge';
 import { useCallback, useEffect, useState } from 'react';
 import { getActiveExtensionWorkspaceSyncMirror } from '@/context/extension-workspace-sync-mirror';
@@ -34,14 +34,14 @@ const DEFAULT_SURFACE_ID = 'workspace-meta';
  *  Phase 10 stale-draft contract; convergence is per-(field) LWW by
  *  arrival order at the global oracle. */
 export type WorkspaceUpdateResult =
-  | { success: true; workspace: V5.ExtensionWorkspace }
+  | { success: true; workspace: ExtensionWorkspace }
   | { success: false; reason: 'not-found' }
   | { success: false; reason: 'other'; message: string };
 
 export interface UseWorkspacesApi {
-  workspaces: V5.ExtensionWorkspace[];
+  workspaces: ExtensionWorkspace[];
   activeWorkspaceId: string | null;
-  activeWorkspace: V5.ExtensionWorkspace | null;
+  activeWorkspace: ExtensionWorkspace | null;
   isReady: boolean;
 
   createWorkspace: (input: {
@@ -49,7 +49,7 @@ export interface UseWorkspacesApi {
     description?: string;
     color?: string;
     icon?: string;
-  }) => Promise<V5.ExtensionWorkspace | null>;
+  }) => Promise<ExtensionWorkspace | null>;
   renameWorkspace: (id: string, name: string) => Promise<boolean>;
   /**
    * Update workspace metadata. Convergence is per-(field) LWW by HLC at
@@ -60,7 +60,7 @@ export interface UseWorkspacesApi {
     updates: { name?: string; description?: string; color?: string; icon?: string | null },
   ) => Promise<WorkspaceUpdateResult>;
   deleteWorkspace: (id: string) => Promise<{ success: boolean; error?: string; activeWorkspaceId?: string }>;
-  duplicateWorkspace: (id: string, name?: string) => Promise<V5.ExtensionWorkspace | null>;
+  duplicateWorkspace: (id: string, name?: string) => Promise<ExtensionWorkspace | null>;
   setActiveWorkspace: (id: string) => Promise<boolean>;
   reorderWorkspaces: (idOrder: string[]) => Promise<boolean>;
 }
@@ -78,7 +78,7 @@ export interface UseWorkspacesOptions {
 
 export function useWorkspaces(options: UseWorkspacesOptions = {}): UseWorkspacesApi {
   const surfaceId = options.surfaceId ?? DEFAULT_SURFACE_ID;
-  const [workspaces, setWorkspaces] = useState<V5.ExtensionWorkspace[]>([]);
+  const [workspaces, setWorkspaces] = useState<ExtensionWorkspace[]>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
 

@@ -11,19 +11,19 @@
  * stays stable across the migration.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Environment, Vault, WorkspaceVariables } from '@openheaders/core/types';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useVault } from '@hooks/useVault';
 import { useWorkspaceVariables } from '@hooks/useWorkspaceVariables';
 
 export interface UseEnvVarVaultApi {
-  environments: V5.Environment[];
+  environments: Environment[];
   activeEnvironmentId: string | null;
-  activeEnvironment: V5.Environment | null;
+  activeEnvironment: Environment | null;
   defaultEnvironmentId: string | null;
-  defaultEnvironment: V5.Environment | null;
-  workspaceVariables: V5.WorkspaceVariables;
-  vault: V5.Vault;
+  defaultEnvironment: Environment | null;
+  workspaceVariables: WorkspaceVariables;
+  vault: Vault;
   isReady: boolean;
   collectionEnvOverrides: Record<string, string | null>;
   manualEnvId: string | null;

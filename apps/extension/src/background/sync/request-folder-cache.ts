@@ -9,7 +9,7 @@ import {
   REQUEST_FOLDER_ENTITY_TYPE,
   type RequestFolderParentRef,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, Folder } from '@openheaders/core/types';
 import { type PersistedLocalFolder, wsKeys } from '@/shared/storage';
 import { buildCreateRequestFolderBatch } from '@/shared/sync/request-folder-mutations';
 import type { InMemoryBroadcast } from './broadcast';
@@ -22,8 +22,8 @@ export type RequestFolderCacheListener = () => void;
 
 export interface RequestFolderCache {
   readonly workspaceId: string;
-  getRequestFolders(): V5.Folder[];
-  seedFromPersistedRequestFolders(folders: PersistedLocalFolder[], collections: V5.Collection[]): Promise<void>;
+  getRequestFolders(): Folder[];
+  seedFromPersistedRequestFolders(folders: PersistedLocalFolder[], collections: Collection[]): Promise<void>;
   hydrateFromStorage(): Promise<void>;
   onChange(listener: RequestFolderCacheListener): () => void;
   dispose(): void;

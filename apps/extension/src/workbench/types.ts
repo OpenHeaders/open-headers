@@ -2,8 +2,7 @@
  * Types for the workbench.html full-page editor.
  */
 
-import type { V5 } from '@openheaders/core/types';
-
+import type { Request, RuleDraft } from '@openheaders/core/types';
 export type TabMode =
   | 'edit'
   | 'collection-overview'
@@ -53,7 +52,7 @@ export interface WorkbenchTab {
    * unpublished. After publish (or on subsequent mounts) the prop is
    * inert.
    */
-  initialDraft?: V5.RuleDraft;
+  initialDraft?: RuleDraft;
   /**
    * For request-create tabs opened from a specific collection/folder
    * (sidebar "Add Request", CollectionOverview, FolderOverview): the
@@ -100,7 +99,7 @@ export interface WorkbenchTab {
   environmentUid?: string;
   /** For collection-vars tabs: the collection uid whose variables are being edited. */
   collectionUid?: string;
-  /** For request-edit tabs: the V5.Request uid being edited. */
+  /** For request-edit tabs: the Request uid being edited. */
   requestUid?: string;
   /** For live-variable-edit tabs: the LV uid being edited. */
   liveVariableUid?: string;

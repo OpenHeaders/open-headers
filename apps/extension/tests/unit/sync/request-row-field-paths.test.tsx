@@ -21,7 +21,7 @@ import ParamsTab from '@/workbench/components/request-editor/ParamsTab';
 // reads workbench settings via `useSyncExternalStore`; the schema
 // barrel registers default values so tests don't crash on first read.
 import '@/workbench/settings/schema';
-import type { V5 } from '@openheaders/core/types';
+import type { RequestBody } from '@openheaders/core/types';
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -47,7 +47,7 @@ function row(uid: string, key: string, value: string): KeyValueRow {
   return { uid, key, value, description: '', enabled: true };
 }
 
-const NO_BODY: V5.RequestBody = { type: 'none' };
+const NO_BODY: RequestBody = { type: 'none' };
 
 describe('ParamsTab — per-row data-field-path', () => {
   it('wraps each cell with params.<uid>.<leaf>', () => {

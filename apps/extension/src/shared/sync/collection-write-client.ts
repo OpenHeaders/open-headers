@@ -22,7 +22,7 @@ import {
   COLLECTION_VARS_PATH,
   collectionInvalidateResolverIntent,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, Variable } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import {
   type CollectionSyncMirror,
@@ -62,7 +62,7 @@ export interface CollectionWriteOptions extends BaseSyncWriteOptions {
 export interface ApplyCollectionSetVarInput {
   collectionUid: string;
   /** Whole variable record. `variable.uid` is the set-member itemId. */
-  variable: V5.Variable;
+  variable: Variable;
 }
 
 export async function applyCollectionSetVar(
@@ -97,7 +97,7 @@ export async function applyCollectionRemoveVar(
  * editing-scope workspaceId.
  */
 export type CollectionMutationResult =
-  | { ok: true; collection: V5.Collection }
+  | { ok: true; collection: Collection }
   | { ok: false; reason: 'not-found' }
   | { ok: false; reason: 'other'; message?: string };
 
@@ -111,7 +111,7 @@ export async function applyCollectionCreate(
 ): Promise<CollectionMutationResult> {
   const uid = generateUid();
   const folderName = toFolderName(input.name, uid);
-  const collection: V5.Collection = {
+  const collection: Collection = {
     schemaVersion: MIN_SCHEMA_VERSION,
     uid,
     path: `rules/${folderName}`,
@@ -245,8 +245,8 @@ export async function applySetPinnedAndDefault(
  */
 export async function applyCollectionVariablesReplacement(
   collectionUid: string,
-  newVars: readonly V5.Variable[],
-  oldVars: readonly V5.Variable[],
+  newVars: readonly Variable[],
+  oldVars: readonly Variable[],
   opts: CollectionWriteOptions,
 ): Promise<CollectionSimpleResult> {
   const ctx = resolveRendererContext(opts).next({ batchId: opts.batchId ?? `coll-replace-${collectionUid}` });

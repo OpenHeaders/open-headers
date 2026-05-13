@@ -6,7 +6,7 @@
  *   "Don't save" (discard) / "Cancel" / "Save changes" (red)
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import { isRuleDraft } from '@openheaders/core/utils';
 import { App as AntApp, Button } from 'antd';
 import { useCallback } from 'react';
@@ -19,7 +19,7 @@ interface UseTabLifecycleOptions {
   /** Live rules — used to detect tabs whose rule is still in draft
    *  (unpublished) state, which need the discard-or-keep prompt
    *  rather than the legacy "save changes?" prompt. */
-  rules: V5.Rule[];
+  rules: Rule[];
   /** Active workspace id — required for `applyRuleDelete` on Discard. */
   workspaceId: string | null;
   /** Returns the tabs in the same leaf as the anchor tab — batch close
@@ -39,7 +39,7 @@ interface UseTabLifecycleOptions {
  * the single-close and batch-close paths agree on what counts as
  * "still drafting."
  */
-function tabDraftRule(tab: WorkbenchTab, rules: V5.Rule[]): V5.Rule | null {
+function tabDraftRule(tab: WorkbenchTab, rules: Rule[]): Rule | null {
   if (tab.mode !== 'edit' || !tab.ruleUid) return null;
   const rule = rules.find((r) => r.uid === tab.ruleUid);
   return rule && isRuleDraft(rule) ? rule : null;

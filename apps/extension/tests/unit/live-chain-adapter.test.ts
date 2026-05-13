@@ -19,7 +19,7 @@
  *      `__setLiveRefreshAdapter`.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Capture, LiveWorkflow, Request, WorkflowStep } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Mocks ──────────────────────────────────────────────────────────
@@ -64,10 +64,10 @@ vi.mock('@/background/modules/observability-log', () => ({
 
 // ── Fixtures ──────────────────────────────────────────────────────
 
-type CaptureLike = Omit<V5.Capture, 'uid'> & { uid?: string };
-type StepLike = Omit<Partial<V5.WorkflowStep>, 'captures'> & { captures?: CaptureLike[] };
+type CaptureLike = Omit<Capture, 'uid'> & { uid?: string };
+type StepLike = Omit<Partial<WorkflowStep>, 'captures'> & { captures?: CaptureLike[] };
 
-function makeStep(overrides: StepLike = {}): V5.WorkflowStep {
+function makeStep(overrides: StepLike = {}): WorkflowStep {
   const id = overrides.id ?? 'login';
   const captures: CaptureLike[] = overrides.captures ?? [
     { uid: 'captoken', name: 'token', extractor: { kind: 'json-path', path: '$.access_token' } as const },
@@ -84,7 +84,7 @@ function makeStep(overrides: StepLike = {}): V5.WorkflowStep {
   };
 }
 
-function makeWorkflow(overrides: Partial<V5.LiveWorkflow> = {}): V5.LiveWorkflow {
+function makeWorkflow(overrides: Partial<LiveWorkflow> = {}): LiveWorkflow {
   return {
     schemaVersion: 5,
     uid: 'wflowxxx',
@@ -98,7 +98,7 @@ function makeWorkflow(overrides: Partial<V5.LiveWorkflow> = {}): V5.LiveWorkflow
   };
 }
 
-function makeRequest(overrides: Partial<V5.Request> = {}): V5.Request {
+function makeRequest(overrides: Partial<Request> = {}): Request {
   return {
     schemaVersion: 5,
     uid: overrides.uid ?? 'reqlogin1',

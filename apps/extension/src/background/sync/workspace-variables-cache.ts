@@ -9,7 +9,7 @@
 
 import { WorkspaceVariablesSchema } from '@openheaders/core/schemas';
 import { WORKSPACE_VARIABLES_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { WorkspaceVariables } from '@openheaders/core/types';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 import { seedWorkspaceVariables } from '@/shared/sync/workspace-variables-projection';
 import { driftRecorder } from '../modules/storage-drift';
@@ -19,7 +19,7 @@ import { createSingletonEntityCache, type SingletonEntityCache } from './singlet
 import type { SwMutatorContextFactory } from './sw-context';
 import { projectWorkspaceVariablesSingleton } from './workspace-variables-post-state';
 
-const EMPTY_WORKSPACE_VARIABLES: V5.WorkspaceVariables = {
+const EMPTY_WORKSPACE_VARIABLES: WorkspaceVariables = {
   schemaVersion: 5,
   variables: [],
 };
@@ -28,8 +28,8 @@ export type WorkspaceVariablesCacheListener = () => void;
 
 export interface WorkspaceVariablesCache {
   readonly workspaceId: string;
-  getWorkspaceVariables(): V5.WorkspaceVariables;
-  seedFromPersistedWorkspaceVariables(workspaceVars: V5.WorkspaceVariables): Promise<void>;
+  getWorkspaceVariables(): WorkspaceVariables;
+  seedFromPersistedWorkspaceVariables(workspaceVars: WorkspaceVariables): Promise<void>;
   hydrateFromStorage(): Promise<void>;
   onChange(listener: WorkspaceVariablesCacheListener): () => void;
   dispose(): void;
@@ -41,7 +41,7 @@ export function createWorkspaceVariablesCache(
   broadcast: InMemoryBroadcast,
   contextFactory: SwMutatorContextFactory,
 ): WorkspaceVariablesCache {
-  const core: SingletonEntityCache<V5.WorkspaceVariables, V5.WorkspaceVariables> = createSingletonEntityCache(
+  const core: SingletonEntityCache<WorkspaceVariables, WorkspaceVariables> = createSingletonEntityCache(
     workspaceId,
     oracle,
     broadcast,

@@ -21,7 +21,7 @@ import {
   type MutatorContext,
   type SideEffectIntent,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { LiveWorkflow } from '@openheaders/core/types';
 import { seedLiveWorkflow } from './live-workflow-projection';
 
 export interface LiveWorkflowMutationPayload {
@@ -30,7 +30,7 @@ export interface LiveWorkflowMutationPayload {
 }
 
 export function buildAddLiveWorkflowBatch(
-  workflow: V5.LiveWorkflow,
+  workflow: LiveWorkflow,
   ctx: MutatorContext,
 ): LiveWorkflowMutationPayload {
   return {
@@ -54,7 +54,7 @@ export function buildDeleteLiveWorkflowBatch(
 
 export function buildUpdateLiveWorkflowBatch(
   workflowUid: string,
-  updates: Partial<Omit<V5.LiveWorkflow, 'uid' | 'path'>>,
+  updates: Partial<Omit<LiveWorkflow, 'uid' | 'path'>>,
   ctx: MutatorContext,
 ): LiveWorkflowMutationPayload {
   const bodies: MutationBody[] = [];

@@ -48,7 +48,7 @@ import {
   type FetchAdapter,
   runChain,
 } from '@openheaders/core/live';
-import type { V5 } from '@openheaders/core/types';
+import type { LiveWorkflow } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import { putWorkflowRunCache, recordManualBypassFailureForRun, recordRefreshError } from './live-cache-store';
 import { __setLiveRefreshAdapter, type LiveRefreshAdapter } from './live-refresh-scheduler';
@@ -158,7 +158,7 @@ export const liveChainAdapter: LiveRefreshAdapter = {
 
 async function commitSuccess(
   workspaceId: string,
-  workflow: V5.LiveWorkflow,
+  workflow: LiveWorkflow,
   environmentId: string | null,
   outcome: ChainRunSuccess,
 ): Promise<void> {
@@ -222,7 +222,7 @@ async function commitSuccess(
  */
 function emitSkipEntries(
   workspaceId: string,
-  workflow: V5.LiveWorkflow,
+  workflow: LiveWorkflow,
   environmentId: string | null,
   skippedStepIds: readonly string[],
 ): void {
@@ -261,7 +261,7 @@ function emitSkipEntries(
 
 async function commitFailure(
   workspaceId: string,
-  workflow: V5.LiveWorkflow,
+  workflow: LiveWorkflow,
   environmentId: string | null,
   outcome: ChainRunFailure,
   bypass: boolean,
@@ -343,7 +343,7 @@ export class ChainRefreshError extends Error {
  * semantics).
  */
 function deriveExpiresAt(
-  workflow: V5.LiveWorkflow,
+  workflow: LiveWorkflow,
   stepCaptures: Record<string, Record<string, string>>,
   extractedAt: number,
 ): number | null {

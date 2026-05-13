@@ -1,4 +1,4 @@
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, CollectionTree, FolderNode, TreeNode, Variable } from '@openheaders/core/types';
 import { VariableResolver } from '@openheaders/core/variables';
 import {
   type CollectionFamilies,
@@ -12,7 +12,7 @@ import {
 } from '@/shared/variables/collection-scope';
 import { describe, expect, it } from 'vitest';
 
-function coll(uid: string, path: string, vars: V5.Variable[] = []): V5.Collection {
+function coll(uid: string, path: string, vars: Variable[] = []): Collection {
   return {
     schemaVersion: 5,
     uid,
@@ -21,7 +21,7 @@ function coll(uid: string, path: string, vars: V5.Variable[] = []): V5.Collectio
     variables: vars,
     defaultEnvironmentId: null,
     pinnedEnvironmentIds: [],
-  } as V5.Collection;
+  } as Collection;
 }
 
 const RULE_A = coll('rc-a', 'rules/A', [{ uid: '0b02d0ac', name: 'X', value: 'rule', type: 'default' }]);
@@ -108,18 +108,18 @@ describe('iterateAllCollections', () => {
   });
 });
 
-function folder(uid: string, name: string, path: string, children: V5.TreeNode[] = []): V5.FolderNode {
+function folder(uid: string, name: string, path: string, children: TreeNode[] = []): FolderNode {
   return { type: 'folder', uid, name, path, children };
 }
 
-function tree(col: V5.Collection, treeNodes: V5.TreeNode[]): V5.CollectionTree {
+function tree(col: Collection, treeNodes: TreeNode[]): CollectionTree {
   return { ...col, tree: treeNodes };
 }
 
 const RULE_FOLDER = folder('rf-1', 'Auth', 'rules/A/auth');
 const RULE_FOLDER_NESTED = folder('rf-2', 'OAuth', 'rules/A/auth/oauth');
 const RULE_TREE = tree(RULE_A, [
-  { ...RULE_FOLDER, children: [RULE_FOLDER_NESTED] } as V5.FolderNode,
+  { ...RULE_FOLDER, children: [RULE_FOLDER_NESTED] } as FolderNode,
 ]);
 const REQ_FOLDER = folder('qf-1', 'Login', 'requests/A/login');
 const REQ_TREE = tree(REQ_A, [REQ_FOLDER]);

@@ -8,7 +8,7 @@
  * VaultSecret schema diverges (TOTP discriminator).
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Variable } from '@openheaders/core/types';
 import {
   type EntityConflictsApi,
   useEntityConflicts,
@@ -41,9 +41,9 @@ export function useVariableConflicts<E extends VariableEntity>(
 }
 
 /** Project a variables array into the path-keyed shape the tracker
- *  expects. Editors call this with their `draft` (a V5.Variable[]) to
+ *  expects. Editors call this with their `draft` (a Variable[]) to
  *  produce the `form` argument for `getAllConflicts`. */
-export function projectVariablesToForm(variables: readonly V5.Variable[]): Record<string, string> {
+export function projectVariablesToForm(variables: readonly Variable[]): Record<string, string> {
   const out: Record<string, string> = {};
   for (const v of variables) {
     out[`variables.${v.uid}.name`] = String(v.name ?? '');

@@ -6,7 +6,7 @@
  * different leaves of the same entity both land without false conflicts.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { HeaderModification, HeaderRule, RedirectRule, Rule } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
 import {
   mergeRowsByUid,
@@ -15,9 +15,9 @@ import {
 } from '@/workbench/components/rule-fields/merge-rule-for-save';
 
 const headerRule = (
-  reqHeaders: V5.HeaderModification[],
-  resHeaders: V5.HeaderModification[] = [],
-): V5.HeaderRule => ({
+  reqHeaders: HeaderModification[],
+  resHeaders: HeaderModification[] = [],
+): HeaderRule => ({
   schemaVersion: 5,
   uid: 'rule-uid',
   path: 'collection/rule.headerrule',
@@ -34,7 +34,7 @@ const headerRule = (
   action: { requestHeaders: reqHeaders, responseHeaders: resHeaders },
 });
 
-const hmod = (uid: string, headerName: string, value: string): V5.HeaderModification => ({
+const hmod = (uid: string, headerName: string, value: string): HeaderModification => ({
   uid,
   operation: 'override',
   headerName,
@@ -59,36 +59,36 @@ describe('mergeRowsByUid', () => {
   });
 
   it('keeps locally added rows', () => {
-    const baseline: V5.HeaderModification[] = [];
-    const live: V5.HeaderModification[] = [];
+    const baseline: HeaderModification[] = [];
+    const live: HeaderModification[] = [];
     const form = [hmod('new', 'x-new', '42')];
     expect(mergeRowsByUid(form, baseline, live)).toEqual(form);
   });
 
   it('preserves peer-added rows we never saw', () => {
-    const baseline: V5.HeaderModification[] = [];
+    const baseline: HeaderModification[] = [];
     const live = [hmod('peer', 'x-peer', '7')];
-    const form: V5.HeaderModification[] = [];
+    const form: HeaderModification[] = [];
     expect(mergeRowsByUid(form, baseline, live)).toEqual(live);
   });
 
   it('drops rows the user removed locally', () => {
     const baseline = [hmod('a', 'h', 'v')];
     const live = [hmod('a', 'h', 'v')];
-    const form: V5.HeaderModification[] = [];
+    const form: HeaderModification[] = [];
     expect(mergeRowsByUid(form, baseline, live)).toEqual([]);
   });
 
   it('peer-deleted untouched row drops (delete-wins)', () => {
     const baseline = [hmod('a', 'h', 'v')];
-    const live: V5.HeaderModification[] = [];
+    const live: HeaderModification[] = [];
     const form = [hmod('a', 'h', 'v')];
     expect(mergeRowsByUid(form, baseline, live)).toEqual([]);
   });
 
   it('peer-deleted row with local edits resurrects with our edits', () => {
     const baseline = [hmod('a', 'h', 'v')];
-    const live: V5.HeaderModification[] = [];
+    const live: HeaderModification[] = [];
     const form = [hmod('a', 'h', 'edited')];
     expect(mergeRowsByUid(form, baseline, live)).toEqual([hmod('a', 'h', 'edited')]);
   });
@@ -110,7 +110,7 @@ describe('mergeRuleForSave — header rule', () => {
   it('the screenshot scenario: each tab edited a different row', () => {
     const baseline = headerRule([hmod('h1', 'x-debug-1', '1'), hmod('h2', 'x-debug-2', '2')]);
     // Tab A's save lands first → live now has x-debug-1=01.
-    const live: V5.Rule = headerRule([hmod('h1', 'x-debug-1', '01'), hmod('h2', 'x-debug-2', '2')]);
+    const live: Rule = headerRule([hmod('h1', 'x-debug-1', '01'), hmod('h2', 'x-debug-2', '2')]);
     // Tab B's form: untouched x-debug-1, edited x-debug-2.
     const form = {
       name: baseline.name,
@@ -143,13 +143,13 @@ describe('mergeRuleForSave — header rule', () => {
       action: { requestHeaders: [], responseHeaders: [] },
     };
     const live = headerRule([]);
-    const baseline = { ...live, type: 'redirect' as const, action: { redirectTo: '' } } as unknown as V5.Rule;
+    const baseline = { ...live, type: 'redirect' as const, action: { redirectTo: '' } } as unknown as Rule;
     expect(mergeRuleForSave(form, baseline, live)).toBe(form);
   });
 });
 
 describe('mergeRuleForSave — redirect (scalar action)', () => {
-  const redirectRule = (target: string): V5.RedirectRule => ({
+  const redirectRule = (target: string): RedirectRule => ({
     schemaVersion: 5,
     uid: 'r',
     path: 'p/r.redirectrule',

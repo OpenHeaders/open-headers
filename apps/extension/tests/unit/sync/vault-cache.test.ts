@@ -1,10 +1,10 @@
 /**
- * Phase B — vault cache subscribes to broadcast, re-projects to V5.Vault,
+ * Phase B — vault cache subscribes to broadcast, re-projects to Vault,
  * persists to chrome.storage.local. Mirrors workspace-variables-cache.test.ts.
  */
 
 import { setVaultSecret } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Vault, VaultSecret } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@/background/sync/broadcast';
 import { InMemoryMutationLog } from '@/background/sync/mutation-log';
@@ -14,7 +14,7 @@ import { createVaultCache } from '@/background/sync/vault-cache';
 
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
 
-const makeVault = (secrets: V5.VaultSecret[]): V5.Vault => ({
+const makeVault = (secrets: VaultSecret[]): Vault => ({
   schemaVersion: 5,
   
   secrets,

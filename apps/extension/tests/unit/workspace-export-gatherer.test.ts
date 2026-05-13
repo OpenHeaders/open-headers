@@ -12,7 +12,7 @@
  *     workspace-vars filter is empty.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, Environment, LiveVariable, LiveWorkflow, Request, Rule, WorkspaceVariables } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { blobs } = vi.hoisted(() => ({ blobs: new Map<string, unknown>() }));
@@ -55,13 +55,13 @@ afterEach(() => {
 // ── Helpers ───────────────────────────────────────────────────────
 
 function seedWorkspace(opts: {
-  rules?: V5.Rule[];
-  requests?: V5.Request[];
-  environments?: V5.Environment[];
-  workspaceVars?: V5.WorkspaceVariables;
-  liveWorkflows?: V5.LiveWorkflow[];
-  liveVariables?: V5.LiveVariable[];
-  collections?: V5.Collection[];
+  rules?: Rule[];
+  requests?: Request[];
+  environments?: Environment[];
+  workspaceVars?: WorkspaceVariables;
+  liveWorkflows?: LiveWorkflow[];
+  liveVariables?: LiveVariable[];
+  collections?: Collection[];
 }): void {
   blobs.set('oh.ws.ws-test.rules', opts.rules ?? []);
   blobs.set('oh.ws.ws-test.collections', opts.collections ?? []);
@@ -78,7 +78,7 @@ function seedWorkspace(opts: {
   blobs.set('oh.ws.ws-test.liveVariables', opts.liveVariables ?? []);
 }
 
-function makeHeaderRule(overrides: Partial<V5.Rule> = {}): V5.Rule {
+function makeHeaderRule(overrides: Partial<Rule> = {}): Rule {
   return {
     schemaVersion: 5,
     uid: 'rul00001',
@@ -92,7 +92,7 @@ function makeHeaderRule(overrides: Partial<V5.Rule> = {}): V5.Rule {
       responseHeaders: [],
     },
     ...overrides,
-  } as V5.Rule;
+  } as Rule;
 }
 
 const OPTS = {
@@ -106,13 +106,13 @@ const OPTS = {
 describe('gatherWorkspaceExport — selection scope transitive deps', () => {
   it('pulls in an env referenced via {{env.X}} from a selected rule', async () => {
     const rule = makeHeaderRule();
-    const env: V5.Environment = {
+    const env: Environment = {
       schemaVersion: 5,
       version: 1,
       uid: 'env00001',
       name: 'Prod',
       variables: [{ uid: '970ccc1a', name: 'token', value: 'abc', type: 'default' }],
-    } as V5.Environment;
+    } as Environment;
     seedWorkspace({ rules: [rule], environments: [env] });
 
     const res = await gatherer.gatherWorkspaceExport(
@@ -131,7 +131,7 @@ describe('gatherWorkspaceExport — selection scope transitive deps', () => {
         requestHeaders: [{ name: 'X-Region', value: '{{workspace.region}}', operation: 'set' }],
         responseHeaders: [],
       },
-    } as Partial<V5.Rule>);
+    } as Partial<Rule>);
     seedWorkspace({
       rules: [rule],
       workspaceVars: {
@@ -159,7 +159,7 @@ describe('gatherWorkspaceExport — selection scope transitive deps', () => {
         requestHeaders: [{ name: 'X-Trace', value: '{{live.trace_id}}', operation: 'set' }],
         responseHeaders: [],
       },
-    } as Partial<V5.Rule>);
+    } as Partial<Rule>);
     const workflow = {
       schemaVersion: 5,
       version: 1,
@@ -168,7 +168,7 @@ describe('gatherWorkspaceExport — selection scope transitive deps', () => {
       name: 'Trace WF',
       enabled: true,
       steps: [],
-    } as unknown as V5.LiveWorkflow;
+    } as unknown as LiveWorkflow;
     const liveVar = {
       schemaVersion: 5,
       version: 1,
@@ -179,7 +179,7 @@ describe('gatherWorkspaceExport — selection scope transitive deps', () => {
       workflowUid: workflow.uid,
       stepId: 'step1',
       captureName: 'id',
-    } as unknown as V5.LiveVariable;
+    } as unknown as LiveVariable;
     seedWorkspace({ rules: [rule], liveWorkflows: [workflow], liveVariables: [liveVar] });
 
     const res = await gatherer.gatherWorkspaceExport(
@@ -201,14 +201,14 @@ describe('gatherWorkspaceExport — selection scope transitive deps', () => {
         ],
         responseHeaders: [],
       },
-    } as Partial<V5.Rule>);
-    const env: V5.Environment = {
+    } as Partial<Rule>);
+    const env: Environment = {
       schemaVersion: 5,
       version: 1,
       uid: 'env00001',
       name: 'Prod',
       variables: [{ uid: 'ebc450f3', name: 'token', value: 'abc', type: 'default' }],
-    } as V5.Environment;
+    } as Environment;
     seedWorkspace({
       rules: [rule],
       environments: [env],

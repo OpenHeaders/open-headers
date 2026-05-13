@@ -9,7 +9,7 @@
  * in `workspace-orchestrator.ts` — we call it, not inline it.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { LiveVariable, LiveVariableOverride, LiveWorkflow, OAuth2Auth, RefreshPolicy, Request, Template, TreeNode, Variable, WorkflowStep } from '@openheaders/core/types';
 import { doesUrlMatchEntry, getRuleMatchPatterns } from '@openheaders/core/utils';
 import { buildWorkspaceExport, serializeWorkspaceExport } from '@openheaders/core/workspace-export';
 import { broadcast } from '@utils/bridge';
@@ -178,7 +178,7 @@ function pruneOrphanTestRunOwners(): void {
   for (const r of getRules()) liveRules.add(r.uid);
   for (const c of getCollectionTrees()) {
     liveEntities.add(c.uid);
-    const walk = (nodes: V5.TreeNode[]): void => {
+    const walk = (nodes: TreeNode[]): void => {
       for (const n of nodes) {
         if (n.type === 'folder') {
           liveEntities.add(n.uid);
@@ -465,7 +465,7 @@ export function handleGeneralMessage(
       });
     } else if (message.type === 'createEnvironment') {
       const name = message.name as string;
-      const variables = (message.variables as V5.Variable[] | undefined) ?? [];
+      const variables = (message.variables as Variable[] | undefined) ?? [];
       const environment = createEnvironment(name, variables);
       safeResponse({ success: true, environment });
     } else if (message.type === 'renameEnvironment') {
@@ -474,7 +474,7 @@ export function handleGeneralMessage(
         .catch((err: Error) => safeResponse({ ok: false, reason: 'other', message: err.message }));
       return true;
     } else if (message.type === 'updateEnvironmentVariables') {
-      updateEnvironmentVariables(message.uid as string, message.variables as V5.Variable[])
+      updateEnvironmentVariables(message.uid as string, message.variables as Variable[])
         .then((result) => safeResponse(result))
         .catch((err: Error) => safeResponse({ ok: false, reason: 'other', message: err.message }));
       return true;
@@ -496,7 +496,7 @@ export function handleGeneralMessage(
     } else if (message.type === 'getVault') {
       safeResponse({ vault: getVault() });
     } else if (message.type === 'updateCollectionVariables') {
-      updateCollectionVariables(message.collectionUid as string, message.variables as V5.Variable[])
+      updateCollectionVariables(message.collectionUid as string, message.variables as Variable[])
         .then((result) => {
           if (result.ok) {
             // Collection-scoped variable edits change resolved DNR output;
@@ -529,7 +529,7 @@ export function handleGeneralMessage(
       const name = (message.name as string | undefined) ?? 'New Request';
       const collectionUid = message.collectionUid as string | undefined;
       const parentPath = message.parentPath as string | undefined;
-      const seed = message.seed as Partial<V5.Request> | undefined;
+      const seed = message.seed as Partial<Request> | undefined;
 
       // Resolve the target collection, falling back to the default if
       // the caller's preferred collection was deleted between when the
@@ -562,7 +562,7 @@ export function handleGeneralMessage(
     } else if (message.type === 'updateLocalRequest') {
       updateRequest(
         message.requestUid as string,
-        message.updates as Partial<Omit<V5.Request, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
+        message.updates as Partial<Omit<Request, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
       )
         .then((result) => safeResponse(result))
         .catch((err: Error) => safeResponse({ ok: false, reason: 'other', message: err.message }));
@@ -608,7 +608,7 @@ export function handleGeneralMessage(
       return true;
     } else if (message.type === 'executeRequest') {
       const requestUid = message.requestUid as string | undefined;
-      const draft = message.draft as V5.Request | undefined;
+      const draft = message.draft as Request | undefined;
       const environmentId = message.environmentId as string | undefined;
       const exec = requestUid
         ? executeRequest(requestUid, { environmentId })
@@ -892,11 +892,11 @@ export function handleGeneralMessage(
     } else if (message.type === 'getTemplateFolders') {
       safeResponse({ folders: getTemplateFolders() });
     } else if (message.type === 'createTemplate') {
-      const templateData = message.template as Omit<V5.Template, 'uid' | 'path'>;
+      const templateData = message.template as Omit<Template, 'uid' | 'path'>;
       const parentPath = message.parentPath as string | undefined;
       const collectionUid = message.collectionUid as string | undefined;
 
-      const create = async (): Promise<V5.Template> => {
+      const create = async (): Promise<Template> => {
         if (parentPath) return addTemplate(templateData, parentPath);
         const collection = collectionUid ? { uid: collectionUid } : await ensureDefaultTemplateCollection();
         return addTemplateToCollection(templateData, collection.uid);
@@ -908,7 +908,7 @@ export function handleGeneralMessage(
     } else if (message.type === 'updateTemplate') {
       updateTemplate(
         message.templateUid as string,
-        message.updates as Partial<Omit<V5.Template, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
+        message.updates as Partial<Omit<Template, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
       )
         .then((result) => safeResponse(result))
         .catch((err: Error) => safeResponse({ ok: false, reason: 'other', message: err.message }));
@@ -1034,7 +1034,7 @@ export function handleGeneralMessage(
       // Renderer reads via `extensionStorage.subscribe(wsKeys(ws).oauth)` (MWPT-FULL § 8.3.10);
       // the former `listOAuthTokens` RPC + `oauthTokensChanged` broadcast were deleted.
     } else if (message.type === 'oauthAuthorize') {
-      const config = message.config as import('@openheaders/core/types').V5.OAuth2Auth;
+      const config = message.config as import('@openheaders/core/types').OAuth2Auth;
       const workspaceId = typeof message.workspaceId === 'string' ? (message.workspaceId as string) : undefined;
       launchAuthorizationCodeFlow(config, workspaceId)
         .then((result) => safeResponse({ success: true, bundle: result.bundle, redirectUri: result.redirectUri }))
@@ -1044,7 +1044,7 @@ export function handleGeneralMessage(
         });
       return true;
     } else if (message.type === 'oauthClientCredentials') {
-      const config = message.config as import('@openheaders/core/types').V5.OAuth2Auth;
+      const config = message.config as import('@openheaders/core/types').OAuth2Auth;
       const workspaceId = typeof message.workspaceId === 'string' ? (message.workspaceId as string) : undefined;
       performClientCredentialsFlow(config, workspaceId)
         .then((bundle) => safeResponse({ success: true, bundle }))
@@ -1054,7 +1054,7 @@ export function handleGeneralMessage(
         });
       return true;
     } else if (message.type === 'oauthRefresh') {
-      const config = message.config as import('@openheaders/core/types').V5.OAuth2Auth;
+      const config = message.config as import('@openheaders/core/types').OAuth2Auth;
       const workspaceId = typeof message.workspaceId === 'string' ? (message.workspaceId as string) : undefined;
       performRefresh(config, workspaceId)
         .then((bundle) => safeResponse({ success: true, bundle }))
@@ -1087,8 +1087,8 @@ export function handleGeneralMessage(
           const workflow = await createLiveWorkflow({
             name: message.name as string,
             description: message.description as string | undefined,
-            steps: message.steps as import('@openheaders/core/types').V5.WorkflowStep[] | undefined,
-            refresh: message.refresh as import('@openheaders/core/types').V5.RefreshPolicy | undefined,
+            steps: message.steps as import('@openheaders/core/types').WorkflowStep[] | undefined,
+            refresh: message.refresh as import('@openheaders/core/types').RefreshPolicy | undefined,
             enabled: message.enabled as boolean | undefined,
           });
           safeResponse({ success: true, workflow });
@@ -1100,7 +1100,7 @@ export function handleGeneralMessage(
     } else if (message.type === 'updateLiveWorkflow') {
       const req = message as {
         uid: string;
-        updates: Partial<Omit<import('@openheaders/core/types').V5.LiveWorkflow, 'uid' | 'path' | 'schemaVersion'>>;
+        updates: Partial<Omit<import('@openheaders/core/types').LiveWorkflow, 'uid' | 'path' | 'schemaVersion'>>;
       };
       updateLiveWorkflow(req.uid, req.updates)
         .then((result) => {
@@ -1154,7 +1154,7 @@ export function handleGeneralMessage(
     } else if (message.type === 'updateLiveVariable') {
       const req = message as {
         uid: string;
-        updates: Partial<Omit<import('@openheaders/core/types').V5.LiveVariable, 'uid' | 'path' | 'schemaVersion'>>;
+        updates: Partial<Omit<import('@openheaders/core/types').LiveVariable, 'uid' | 'path' | 'schemaVersion'>>;
       };
       updateLiveVariable(req.uid, req.updates)
         .then((result) => {
@@ -1176,7 +1176,7 @@ export function handleGeneralMessage(
     } else if (message.type === 'setLiveVariableOverride') {
       const req = message as {
         uid: string;
-        override: import('@openheaders/core/types').V5.LiveVariableOverride | null;
+        override: import('@openheaders/core/types').LiveVariableOverride | null;
       };
       setLiveVariableOverride(req.uid, req.override)
         .then((result) => {

@@ -39,7 +39,7 @@
  * Name matching is case-insensitive per RFC 9110 §5.1.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { HeaderModification, HeaderRule, Rule } from '@openheaders/core/types';
 import type { RuleSnapshot, RuleSnapshotHeaderMod } from '@/types/telemetry';
 import type { InspectorFire } from './types';
 
@@ -62,7 +62,7 @@ export interface RuleAttributionContext {
   ruleUid: string;
   /** Display name from the snapshot — what the rule was called at fire time. */
   ruleName: string;
-  ruleType: V5.Rule['type'];
+  ruleType: Rule['type'];
   /** The exact mod (frozen) that produced this row. */
   snapshotMod: RuleSnapshotHeaderMod;
   /**
@@ -177,9 +177,9 @@ function snapshotValue(mod: RuleSnapshotHeaderMod): string {
  *      surface "mod gone" with a clear signal.
  */
 export function findCurrentMod(
-  liveRule: V5.Rule | null,
+  liveRule: Rule | null,
   ctx: RuleAttributionContext,
-): V5.HeaderModification | null {
+): HeaderModification | null {
   if (!liveRule || liveRule.type !== 'header') return null;
   const { snapshotMod, snapshotMods } = ctx;
   const list = snapshotMod.direction === 'request' ? liveRule.action.requestHeaders : liveRule.action.responseHeaders;
@@ -221,7 +221,7 @@ export function findCurrentMod(
  * mod's structural fields diverge from the snapshot. **Pure**, called
  * by the popover + inspector against the current `liveRule`.
  */
-export function isAttributionEdited(liveRule: V5.Rule | null, ctx: RuleAttributionContext): boolean {
+export function isAttributionEdited(liveRule: Rule | null, ctx: RuleAttributionContext): boolean {
   if (!liveRule) return true;
   if (liveRule.type !== ctx.ruleType) return true;
   const currentMod = findCurrentMod(liveRule, ctx);
@@ -229,7 +229,7 @@ export function isAttributionEdited(liveRule: V5.Rule | null, ctx: RuleAttributi
   return modsDiverge(ctx.snapshotMod, currentMod);
 }
 
-function modsDiverge(a: RuleSnapshotHeaderMod, b: V5.HeaderModification): boolean {
+function modsDiverge(a: RuleSnapshotHeaderMod, b: HeaderModification): boolean {
   if (a.operation !== b.operation) return true;
   // Compare templates structurally: the snapshot's `headerName` is the
   // resolved name, but `headerNameTemplate` (when set) is what the user
@@ -272,14 +272,14 @@ function buildContext(snapshot: RuleSnapshot, snapshotMod: RuleSnapshotHeaderMod
  * source (so rendering still works) but never marks the row as edited
  * (we have no historical baseline to compare).
  */
-function synthesizeSnapshot(rule: V5.HeaderRule): RuleSnapshot {
+function synthesizeSnapshot(rule: HeaderRule): RuleSnapshot {
   // Legacy fires (predate the snapshotter) carry no resolved values.
   // Use the live rule's template literally for both `headerName` and
   // `headerNameTemplate`/`valueTemplate`/`valueResolved`. Consumers
   // that read `isAttributionEdited` will report `false` because the
   // synthesized snapshot already matches the live mod structurally —
   // a clean baseline ensures we don't claim drift we can't verify.
-  const synthMod = (m: V5.HeaderModification, direction: 'request' | 'response'): RuleSnapshotHeaderMod => {
+  const synthMod = (m: HeaderModification, direction: 'request' | 'response'): RuleSnapshotHeaderMod => {
     const entry: RuleSnapshotHeaderMod = { direction, operation: m.operation, headerName: m.headerName };
     if (m.operation !== 'remove' && m.value !== undefined) {
       entry.valueTemplate = m.value;
@@ -307,7 +307,7 @@ export function attributeHeaders(
   harHeaders: readonly HarHeader[],
   fires: readonly InspectorFire[],
   direction: HeaderDirection,
-  rulesByUid: ReadonlyMap<string, V5.Rule>,
+  rulesByUid: ReadonlyMap<string, Rule>,
   systemCtx: SystemHeaderContext = {},
 ): AnnotatedHeader[] {
   // ── Server rows ───────────────────────────────────────────

@@ -24,7 +24,7 @@ import { useEnvironments } from '@hooks/useEnvironments';
 import { useRules } from '@hooks/useRules';
 import { useAllLiveCaches } from '@hooks/useLiveCache';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
-import type { V5 } from '@openheaders/core/types';
+import type { RefreshPolicy } from '@openheaders/core/types';
 import type { LiveWorkflowRunSnapshot } from '@utils/bridge';
 import { call } from '@utils/bridge';
 import { App, Badge, Button, Empty, Space, Tag, Tooltip, Typography, theme } from 'antd';
@@ -50,7 +50,7 @@ interface Row {
    * chunks policy-aware ("auto-refresh in 3h" for interval vs.
    * "expires in 3h" for expires-in/at).
    */
-  refreshPolicy: V5.RefreshPolicy;
+  refreshPolicy: RefreshPolicy;
   environmentId: string | null;
   environmentName: string;
   run: LiveWorkflowRunSnapshot;

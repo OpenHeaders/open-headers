@@ -20,8 +20,7 @@ import { createExtensionWorkspaceCache } from '@/background/sync/extension-works
 import { InMemoryMutationLog } from '@/background/sync/mutation-log';
 import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
 import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
-import type { V5 } from '@openheaders/core/types';
-
+import type { ExtensionWorkspace } from '@openheaders/core/types';
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
 
 // Monotonic HLC across factory calls — the active-id scalar is shared
@@ -35,7 +34,7 @@ const ctxFactory = () => ({
   deviceId: 'd',
 });
 
-const ws = (overrides: Partial<V5.ExtensionWorkspace> = {}): V5.ExtensionWorkspace => ({
+const ws = (overrides: Partial<ExtensionWorkspace> = {}): ExtensionWorkspace => ({
   schemaVersion: 5,
   id: 'ws-a',
   kind: 'personal',

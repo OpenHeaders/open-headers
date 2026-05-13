@@ -9,7 +9,7 @@
  * post-save state matches "opened an existing request".
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { AuthConfig, CredentialsMode, HttpMethod, QueryParam, Request, RequestBody, RequestHeader } from '@openheaders/core/types';
 import { useCallback, useState } from 'react';
 import type { WorkbenchTab } from '../types';
 
@@ -19,8 +19,8 @@ interface UseSaveRequestFlowOptions {
     name: string;
     collectionUid?: string;
     parentPath?: string;
-    seed?: Partial<V5.Request>;
-  }) => Promise<V5.Request | null>;
+    seed?: Partial<Request>;
+  }) => Promise<Request | null>;
   replaceTab: (oldId: string, newTab: WorkbenchTab) => void;
 }
 
@@ -34,19 +34,19 @@ export interface SaveRequestFlowApi {
 
 /**
  * Shape the RequestEditor hands to `handleSaveDraft`. Mirrors a
- * `Partial<V5.Request>` minus identity fields — name is separate so
+ * `Partial<Request>` minus identity fields — name is separate so
  * the modal can prefill the naming input.
  */
 export interface DraftData {
   name: string;
   description?: string;
-  method: V5.HttpMethod;
+  method: HttpMethod;
   url: string;
-  headers: V5.RequestHeader[];
-  params: V5.QueryParam[];
-  auth: V5.AuthConfig;
-  body: V5.RequestBody;
-  credentialsMode?: V5.CredentialsMode;
+  headers: RequestHeader[];
+  params: QueryParam[];
+  auth: AuthConfig;
+  body: RequestBody;
+  credentialsMode?: CredentialsMode;
   followRedirects?: boolean;
   preRequestScript?: string;
   postResponseScript?: string;
@@ -54,7 +54,7 @@ export interface DraftData {
 
 function buildEditTab(
   oldTabId: string,
-  created: V5.Request,
+  created: Request,
   replaceTab: (oldId: string, newTab: WorkbenchTab) => void,
 ): void {
   const editId = `request-${created.uid}`;

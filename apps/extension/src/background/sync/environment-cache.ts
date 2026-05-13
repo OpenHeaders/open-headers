@@ -5,7 +5,7 @@
 
 import { EnvironmentSchema } from '@openheaders/core/schemas';
 import { ENVIRONMENT_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Environment } from '@openheaders/core/types';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 import { projectEnvironment, seedEnvironment } from '@/shared/sync/env-projection';
 import { driftRecorder } from '../modules/storage-drift';
@@ -18,8 +18,8 @@ export type EnvironmentCacheListener = () => void;
 
 export interface EnvironmentCache {
   readonly workspaceId: string;
-  getEnvironments(): V5.Environment[];
-  seedFromPersistedEnvironments(envs: V5.Environment[]): Promise<void>;
+  getEnvironments(): Environment[];
+  seedFromPersistedEnvironments(envs: Environment[]): Promise<void>;
   hydrateFromStorage(): Promise<void>;
   onChange(listener: EnvironmentCacheListener): () => void;
   dispose(): void;
@@ -31,7 +31,7 @@ export function createEnvironmentCache(
   broadcast: InMemoryBroadcast,
   contextFactory: SwMutatorContextFactory,
 ): EnvironmentCache {
-  const core = createFlatEntityCache<V5.Environment, typeof ENVIRONMENT_ENTITY_TYPE>(
+  const core = createFlatEntityCache<Environment, typeof ENVIRONMENT_ENTITY_TYPE>(
     workspaceId,
     oracle,
     broadcast,

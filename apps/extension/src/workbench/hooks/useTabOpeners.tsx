@@ -10,7 +10,7 @@
  * it lives in here.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, Rule, RuleDraft, RuleType, Template } from '@openheaders/core/types';
 import { buildEmptyRequest, buildEmptyRule, generateUid, toFolderName } from '@openheaders/core/utils';
 import { App } from 'antd';
 import { useCallback, useState } from 'react';
@@ -27,7 +27,7 @@ import type { ClosedTab, RuleFlowScope, WorkbenchTab } from '../types';
  */
 function resolveContextParentPath(
   context: { collectionId?: string; folderPath?: string } | undefined,
-  collections: readonly V5.Collection[],
+  collections: readonly Collection[],
 ): string | undefined {
   if (context?.folderPath) return context.folderPath;
   if (!context?.collectionId) return undefined;
@@ -35,14 +35,14 @@ function resolveContextParentPath(
 }
 
 interface UseTabOpenersOptions {
-  rules: V5.Rule[];
-  templates: V5.Template[];
+  rules: Rule[];
+  templates: Template[];
   /** Local rule collections — used to resolve the parent path when a
    *  create gesture didn't pin one explicitly. */
-  localCollections: V5.Collection[];
+  localCollections: Collection[];
   /** Request collections — used to resolve the parent path for
    *  request context-create gestures. */
-  requestCollections: V5.Collection[];
+  requestCollections: Collection[];
   /** Active workspace id — required for renderer-direct rule create. */
   workspaceId: string | null;
   /** Surface attribution carried on every emitted envelope (always
@@ -78,7 +78,7 @@ export interface UseTabOpenersApi {
     type: string,
     context?: { collectionId: string; folderPath?: string },
     templateKey?: string,
-    initialDraft?: V5.RuleDraft,
+    initialDraft?: RuleDraft,
   ) => void;
   openEditTab: (uid: string) => void;
   openCollectionOverview: (uid: string, name: string, autoRename?: boolean) => void;
@@ -211,7 +211,7 @@ export function useTabOpeners({
       type: string,
       context?: { collectionId: string; folderPath?: string },
       templateKey?: string,
-      initialDraft?: V5.RuleDraft,
+      initialDraft?: RuleDraft,
     ) => {
       if (!workspaceId) {
         message.error('No active workspace');
@@ -225,7 +225,7 @@ export function useTabOpeners({
       // SaveToCollectionModal needed.
       const parentPath = resolveContextParentPath(context, localCollections);
       if (parentPath) {
-        const seed = buildEmptyRule(type as V5.RuleType, draftName);
+        const seed = buildEmptyRule(type as RuleType, draftName);
         void applyRuleCreate({ rule: seed, parentPath }, { workspaceId, surfaceId }).then((result) => {
           if (!result.ok) {
             message.error('Failed to create rule');

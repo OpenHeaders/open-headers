@@ -38,7 +38,7 @@ import {
   type PerEntityStrategies,
   type WorkspaceExportImportReport,
 } from '@openheaders/core/import';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, Environment, Folder, LiveVariable, LiveWorkflow, Request, Rule, Template, Vault, WorkspaceVariables } from '@openheaders/core/types';
 import {
   applyBackupRestoreToggle,
   buildImportPlan,
@@ -296,11 +296,11 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
       );
 
       // Singletons.
-      const nextWorkspaceVars: V5.WorkspaceVariables = {
+      const nextWorkspaceVars: WorkspaceVariables = {
         schemaVersion: 5,
         variables: plan.workspaceVars.variables,
       };
-      const nextVault: V5.Vault | undefined =
+      const nextVault: Vault | undefined =
         plan.vault.action === 'skip' && (target.vault?.secrets ?? []).length === 0
           ? undefined
           : {
@@ -365,7 +365,7 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
       const scriptsPendingUids: string[] = [];
       for (const entry of plan.requests) {
         if (entry.action === 'skip') continue;
-        const r = entry.entity as V5.Request;
+        const r = entry.entity as Request;
         if (
           (r.preRequestScript && r.preRequestScript.length > 0) ||
           (r.postResponseScript && r.postResponseScript.length > 0)
@@ -597,20 +597,20 @@ function collidingName(desired: string): string {
  */
 interface ReadTargetResult {
   target: {
-    rules?: V5.Rule[];
-    collections?: V5.Collection[];
+    rules?: Rule[];
+    collections?: Collection[];
     folders?: PersistedLocalFolder[];
-    requests?: V5.Request[];
-    requestCollections?: V5.Collection[];
+    requests?: Request[];
+    requestCollections?: Collection[];
     requestFolders?: PersistedLocalFolder[];
-    templates?: V5.Template[];
-    templateCollections?: V5.Collection[];
+    templates?: Template[];
+    templateCollections?: Collection[];
     templateFolders?: PersistedLocalFolder[];
-    environments?: V5.Environment[];
-    workspaceVars?: V5.WorkspaceVariables;
-    vault?: V5.Vault;
-    liveWorkflows?: V5.LiveWorkflow[];
-    liveVariables?: V5.LiveVariable[];
+    environments?: Environment[];
+    workspaceVars?: WorkspaceVariables;
+    vault?: Vault;
+    liveWorkflows?: LiveWorkflow[];
+    liveVariables?: LiveVariable[];
   };
   targetState: TargetWorkspaceState;
 }
@@ -638,14 +638,14 @@ export async function readTargetWorkspaceState(workspaceId: string): Promise<Rea
   });
   const targetState: TargetWorkspaceState = {
     collections: [
-      ...((target.collections ?? []) as V5.Collection[]),
-      ...((target.requestCollections ?? []) as V5.Collection[]),
-      ...((target.templateCollections ?? []) as V5.Collection[]),
+      ...((target.collections ?? []) as Collection[]),
+      ...((target.requestCollections ?? []) as Collection[]),
+      ...((target.templateCollections ?? []) as Collection[]),
     ],
     folders: [
-      ...((target.folders ?? []) as V5.Folder[]),
-      ...((target.requestFolders ?? []) as V5.Folder[]),
-      ...((target.templateFolders ?? []) as V5.Folder[]),
+      ...((target.folders ?? []) as Folder[]),
+      ...((target.requestFolders ?? []) as Folder[]),
+      ...((target.templateFolders ?? []) as Folder[]),
     ],
     rules: target.rules ?? [],
     requests: target.requests ?? [],

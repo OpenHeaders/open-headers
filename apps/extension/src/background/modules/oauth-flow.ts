@@ -28,10 +28,7 @@ import {
   type OAuth2TokenBundle,
   parseTokenResponse,
 } from '@openheaders/core/oauth';
-import type { V5 } from '@openheaders/core/types';
-
-type OAuth2Auth = V5.OAuth2Auth;
-
+import type { OAuth2Auth } from '@openheaders/core/types';
 import { identity } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { withHostAccess } from '@/shared/fetch/with-host-access';

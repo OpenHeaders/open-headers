@@ -30,7 +30,7 @@
 
 import { CloseOutlined } from '@ant-design/icons';
 import { hashImportSource } from '@openheaders/core/import';
-import type { V5 } from '@openheaders/core/types';
+import type { ExtensionWorkspace } from '@openheaders/core/types';
 import {
   type DiffResult,
   decryptVaultBlock,
@@ -95,7 +95,7 @@ interface ImportPreviewModalProps {
   /** Provenance of the source (drives tone of the modal & "Save & re-open" hint). */
   source?: ImportPreviewSource;
   /** All workspaces the user can pick as the import target. */
-  workspaces: V5.ExtensionWorkspace[];
+  workspaces: ExtensionWorkspace[];
   activeWorkspaceId: string | null;
   /** Default target when the modal opens. */
   initialTarget?: ImportTargetSelection;

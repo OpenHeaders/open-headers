@@ -24,7 +24,7 @@
  */
 
 import type { FormInstance } from 'antd';
-import type { V5 } from '@openheaders/core/types';
+import type { Rule, RuleCondition } from '@openheaders/core/types';
 import type { ActionPathBundle } from '@/shared/awareness';
 import { decodeReorderConflictKey, decodeSetConflictKey } from './conflict-keys';
 import type {
@@ -42,15 +42,15 @@ import type { PathConflict } from './types';
 
 /**
  * Per-entity glue. The factory works against any entity that exposes a
- * V5.Rule['type'] discriminator + a stable uid + a Record-shaped action
+ * Rule['type'] discriminator + a stable uid + a Record-shaped action
  * subtree at `entity[actionRoot]`.
  */
 export interface ActionEntityAccessors<E extends { uid: string }> {
   signature: (entity: E) => string;
   /** Discriminator that selects the action-shape (header / inject /
    *  body / mock / …). Both rule (`rule.type`) and template
-   *  (`template.ruleType`) project to the same V5.Rule['type'] union. */
-  getRuleType: (entity: E) => V5.Rule['type'];
+   *  (`template.ruleType`) project to the same Rule['type'] union. */
+  getRuleType: (entity: E) => Rule['type'];
   /** Schema field at the entity root that holds the rule-type
    *  discriminator. Used by the field-tree walker's union descent —
    *  `'type'` for Rule, `'ruleType'` for Template. */
@@ -60,12 +60,12 @@ export interface ActionEntityAccessors<E extends { uid: string }> {
   getName: (entity: E) => string;
   /** Read conditions array. Both entities expose `conditions:
    *  RuleCondition[]` at the schema root. */
-  getConditions: (entity: E) => readonly V5.RuleCondition[];
+  getConditions: (entity: E) => readonly RuleCondition[];
   /** Mutate the entity's name in place. Used by `applyResolutionToEntity`
    *  for the diff dialog right-pane preview. */
   setName: (entity: E, value: string) => void;
   /** Mutate the entity's conditions in place. */
-  setConditions: (entity: E, value: V5.RuleCondition[]) => void;
+  setConditions: (entity: E, value: RuleCondition[]) => void;
   /** Get a mutable reference to the action root container —
    *  `rule.action` for Rule, `template.formValues` for Template. */
   getActionRoot: (entity: E) => Record<string, unknown> | undefined;
@@ -96,7 +96,7 @@ interface SetDef<E> {
 function buildSetDefs<E extends { uid: string }>(
   paths: ActionPathBundle,
   accessors: ActionEntityAccessors<E>,
-): { byType: Record<V5.Rule['type'], readonly SetDef<E>[]>; conditions: SetDef<E> } {
+): { byType: Record<Rule['type'], readonly SetDef<E>[]>; conditions: SetDef<E> } {
   const headerDir = (direction: 'request' | 'response'): SetDef<E> => ({
     setPath: paths.headerSet(direction),
     formName: direction === 'request' ? 'requestHeaders' : 'responseHeaders',
@@ -412,7 +412,7 @@ function makeResolveAdapter<E extends { uid: string }>(
       if (!isReorderPayload(conflict.rowPayload)) return false;
       const current = accessors.getConditions(entity) as readonly { uid: string }[];
       if (current.length === 0) return false;
-      accessors.setConditions(entity, reorderRows(current, conflict.rowPayload.savedOrder) as V5.RuleCondition[]);
+      accessors.setConditions(entity, reorderRows(current, conflict.rowPayload.savedOrder) as RuleCondition[]);
       return true;
     }
     const setKey = decodeSetConflictKey(path);
@@ -423,14 +423,14 @@ function makeResolveAdapter<E extends { uid: string }>(
         if (current.some((r) => r.uid === setKey.uid)) return false;
         accessors.setConditions(
           entity,
-          [...current, conflict.rowPayload as { uid: string }] as V5.RuleCondition[],
+          [...current, conflict.rowPayload as { uid: string }] as RuleCondition[],
         );
         return true;
       }
       if (conflict.kind === 'set-remove') {
         const next = current.filter((r) => r.uid !== setKey.uid);
         if (next.length === current.length) return false;
-        accessors.setConditions(entity, next as V5.RuleCondition[]);
+        accessors.setConditions(entity, next as RuleCondition[]);
         return true;
       }
     }

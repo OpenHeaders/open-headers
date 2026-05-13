@@ -22,7 +22,7 @@ import { CloseOutlined, DeleteOutlined, FileOutlined, PlusOutlined, WarningOutli
 import { useFiles } from '@hooks/useFiles';
 import type { FileRef } from '@openheaders/core/files';
 import { isPlaceholderFileRef, placeholderFileRef } from '@openheaders/core/files';
-import type { V5 } from '@openheaders/core/types';
+import type { MultipartPart } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import type { MenuProps } from 'antd';
 import { Dropdown, Select, Tag, theme } from 'antd';
@@ -47,14 +47,14 @@ if (typeof document !== 'undefined' && !document.getElementById(MP_DROPDOWN_STYL
 }
 
 interface MultipartEditorProps {
-  parts: V5.MultipartPart[];
-  onChange: (parts: V5.MultipartPart[]) => void;
+  parts: MultipartPart[];
+  onChange: (parts: MultipartPart[]) => void;
 }
 
 let rowIdCounter = 0;
 const nextRowId = (): string => `mp-${++rowIdCounter}`;
 
-type IdentifiedPart = V5.MultipartPart & { __id: string };
+type IdentifiedPart = MultipartPart & { __id: string };
 type IdentifiedFilePart = Extract<IdentifiedPart, { kind: 'file' }>;
 
 const cellFont: React.CSSProperties = {
@@ -84,15 +84,15 @@ const ADAPTER: EditableRowAdapter<IdentifiedPart> = {
   isEmpty: (r) => r.kind === 'text' && r.name === '' && r.value === '' && (r.description ?? '') === '',
 };
 
-function stripId(row: IdentifiedPart): V5.MultipartPart {
+function stripId(row: IdentifiedPart): MultipartPart {
   const { __id: _id, ...part } = row;
-  return part as V5.MultipartPart;
+  return part as MultipartPart;
 }
 
 const MultipartEditor: React.FC<MultipartEditorProps> = ({ parts, onChange }) => {
   const { files, isReady: filesReady, uploadFile, deleteFile } = useFiles();
 
-  const idMapRef = useRef<WeakMap<V5.MultipartPart, string>>(new WeakMap());
+  const idMapRef = useRef<WeakMap<MultipartPart, string>>(new WeakMap());
   const rows = useMemo<IdentifiedPart[]>(() => {
     return parts.map((part) => {
       let id = idMapRef.current.get(part);
@@ -106,7 +106,7 @@ const MultipartEditor: React.FC<MultipartEditorProps> = ({ parts, onChange }) =>
 
   const handleChange = useCallback(
     (next: IdentifiedPart[]) => {
-      const fresh = new WeakMap<V5.MultipartPart, string>();
+      const fresh = new WeakMap<MultipartPart, string>();
       const stripped = next.map((row) => {
         const bare = stripId(row);
         fresh.set(bare, row.__id);

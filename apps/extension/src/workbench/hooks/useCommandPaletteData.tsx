@@ -7,7 +7,7 @@
  */
 
 import { ApiOutlined, FolderOutlined, GlobalOutlined, LockOutlined, SettingOutlined } from '@ant-design/icons';
-import type { V5 } from '@openheaders/core/types';
+import type { CollectionTree, Environment, Rule, Template, TreeNode } from '@openheaders/core/types';
 import { useMemo } from 'react';
 import type { CommandPaletteGroup, CommandPaletteItem, CommandPaletteSection } from '../components/CommandPalette';
 import { buildRuleIcon } from '../components/shared/rule-icon';
@@ -18,14 +18,14 @@ import { allCategories, allDefs } from '../settings';
 import { getRuleTypeLabel } from './useTabOpeners';
 
 interface UseCommandPaletteDataOptions {
-  rules: V5.Rule[];
-  templates: V5.Template[];
-  localCollectionTrees: V5.CollectionTree[];
-  templateCollectionTrees: V5.CollectionTree[];
-  requestCollectionTrees: V5.CollectionTree[];
+  rules: Rule[];
+  templates: Template[];
+  localCollectionTrees: CollectionTree[];
+  templateCollectionTrees: CollectionTree[];
+  requestCollectionTrees: CollectionTree[];
   /** Effective paused uids — drives the yellow icon on rule items in the palette. */
   pausedUids: ReadonlySet<string>;
-  environments: V5.Environment[];
+  environments: Environment[];
   openEditTab: (uid: string) => void;
   openCreateTab: (type: string, context?: { collectionId: string; folderPath?: string }, templateKey?: string) => void;
   openTemplateEditTab: (uid: string) => void;
@@ -70,7 +70,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
 
     for (const col of localCollectionTrees) {
       const ruleItems: CommandPaletteItem[] = [];
-      const walk = (nodes: V5.TreeNode[]) => {
+      const walk = (nodes: TreeNode[]) => {
         for (const node of nodes) {
           if (node.type === 'rule') {
             const rule = rules.find((r) => r.uid === node.uid);
@@ -125,7 +125,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
 
     for (const col of templateCollectionTrees) {
       const tplItems: CommandPaletteItem[] = [];
-      const walkTpl = (nodes: V5.TreeNode[]) => {
+      const walkTpl = (nodes: TreeNode[]) => {
         for (const node of nodes) {
           if (node.type === 'template') {
             tplItems.push({
@@ -158,7 +158,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     // uniform.
     for (const col of requestCollectionTrees) {
       const requestItems: CommandPaletteItem[] = [];
-      const walkReq = (nodes: V5.TreeNode[]) => {
+      const walkReq = (nodes: TreeNode[]) => {
         for (const node of nodes) {
           if (node.type === 'request') {
             requestItems.push({

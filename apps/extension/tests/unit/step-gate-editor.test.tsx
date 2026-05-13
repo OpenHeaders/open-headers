@@ -3,7 +3,7 @@
  *
  * Three focus areas:
  *   1. Empty state + clause list expansion — user can add a clause and
- *      the component emits a well-formed `V5.StepGate` to `onChange`.
+ *      the component emits a well-formed `StepGate` to `onChange`.
  *   2. Show-but-disable catalog — Segmented `Any (OR)` option is
  *      disabled; future clause-kind options carry disabled + tooltip.
  *   3. Error plumbing — `gate-unknown-stepid` / `gate-unknown-capture`
@@ -19,7 +19,7 @@
  */
 
 import type { StructuralError } from '@openheaders/core/live';
-import type { V5 } from '@openheaders/core/types';
+import type { StepGate } from '@openheaders/core/types';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -41,7 +41,7 @@ beforeAll(() => {
 
 function renderEditor(overrides: Partial<React.ComponentProps<typeof StepGateEditor>> = {}): {
   onChange: ReturnType<typeof vi.fn>;
-  rerender: (next: V5.StepGate | undefined) => void;
+  rerender: (next: StepGate | undefined) => void;
 } {
   const onChange = vi.fn();
   const reachableSteps = overrides.reachableSteps ?? [
@@ -112,7 +112,7 @@ describe('StepGateEditor', () => {
   });
 
   it('emits undefined when the last clause is removed', () => {
-    const value: V5.StepGate = {
+    const value: StepGate = {
       all: [{ uid: 'gat0sta1', kind: 'status', stepId: 'introspect', match: '2xx' }],
     };
     const { onChange } = renderEditor({ value });
@@ -134,7 +134,7 @@ describe('StepGateEditor', () => {
   // `ant-*-status-error` class name on the wrapping element; when AntD
   // starts emitting aria-invalid, flip these over.
   it('routes `gate-unknown-stepid` to the step dropdown as a visual error', () => {
-    const value: V5.StepGate = {
+    const value: StepGate = {
       all: [{ uid: 'gat0sta2', kind: 'status', stepId: 'deleted-step', match: '2xx' }],
     };
     const errors: StructuralError[] = [
@@ -150,7 +150,7 @@ describe('StepGateEditor', () => {
   });
 
   it('routes `gate-unknown-capture` to the capture dropdown as a visual error', () => {
-    const value: V5.StepGate = {
+    const value: StepGate = {
       all: [{ uid: 'gat0eq01', kind: 'capture-equals', stepId: 'introspect', captureName: 'missing', value: 'x' }],
     };
     const errors: StructuralError[] = [
@@ -167,7 +167,7 @@ describe('StepGateEditor', () => {
   });
 
   it('marks invalid capture-matches regex pattern with a visual error', () => {
-    const value: V5.StepGate = {
+    const value: StepGate = {
       all: [{ uid: 'gat0ma01', kind: 'capture-matches', stepId: 'introspect', captureName: 'active', pattern: '(' }],
     };
     const errors: StructuralError[] = [
@@ -191,7 +191,7 @@ describe('StepGateEditor', () => {
   // `aria-disabled` attribute — `aria-disabled` is a proper semantic ARIA
   // state, and visible-text search is how a user would identify the item.
   it('renders 3 future clause kinds as disabled options in the kind dropdown', () => {
-    const value: V5.StepGate = {
+    const value: StepGate = {
       all: [{ uid: 'gat0sta1', kind: 'status', stepId: 'introspect', match: '2xx' }],
     };
     renderEditor({ value });
@@ -214,7 +214,7 @@ describe('StepGateEditor', () => {
   it('keeps enabled clause kinds aria-disabled=false in the kind dropdown', () => {
     // Regression guard: if anyone flips an enabled kind to disabled by
     // mistake, this catches it.
-    const value: V5.StepGate = {
+    const value: StepGate = {
       all: [{ uid: 'gat0sta1', kind: 'status', stepId: 'introspect', match: '2xx' }],
     };
     renderEditor({ value });

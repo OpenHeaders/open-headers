@@ -9,7 +9,7 @@
 
 declare const browser: typeof chrome | undefined;
 
-import type { V5 } from '@openheaders/core/types';
+import type { Rule, TreeNode } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
 import { isRuleEffective } from '@openheaders/core/utils';
 import { broadcast } from '@utils/bridge';
@@ -216,7 +216,7 @@ function pruneOrphanTestRunOwnersFromStore(): void {
   for (const r of getRules()) liveRules.add(r.uid);
   for (const c of getCollectionTrees()) {
     liveEntities.add(c.uid);
-    const walk = (nodes: V5.TreeNode[]): void => {
+    const walk = (nodes: TreeNode[]): void => {
       for (const n of nodes) {
         if (n.type === 'folder') {
           liveEntities.add(n.uid);
@@ -554,7 +554,7 @@ async function initializeExtension(): Promise<void> {
   }
   markBootPhase('sync-init-done');
   // Bridge the rule-store to the sync engine: seed the oracle from
-  // the hydrated `V5.Rule[]` and subscribe to the cache so subsequent
+  // the hydrated `Rule[]` and subscribe to the cache so subsequent
   // mutations (in-process today, remote in Phase C) flow back into
   // the local mirror. After this call rule writes route through the
   // oracle; reads stay synchronous off the local mirror.

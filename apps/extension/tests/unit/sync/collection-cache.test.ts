@@ -1,11 +1,11 @@
 /**
  * Phase B — collection cache subscribes to broadcast, re-projects to
- * V5.Collection[], persists to chrome.storage.local. Mirrors
+ * Collection[], persists to chrome.storage.local. Mirrors
  * environment-cache.test.ts.
  */
 
 import { setCollectionVar } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@/background/sync/broadcast';
 import { createCollectionCache } from '@/background/sync/collection-cache';
@@ -15,7 +15,7 @@ import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
 
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
 
-const makeCollection = (uid: string): V5.Collection =>
+const makeCollection = (uid: string): Collection =>
   ({
     schemaVersion: 5,
     uid,
@@ -25,7 +25,7 @@ const makeCollection = (uid: string): V5.Collection =>
     pinnedEnvironmentIds: [],
     defaultEnvironmentId: null,
     version: 1,
-  }) as unknown as V5.Collection;
+  }) as unknown as Collection;
 
 const ctxFactory = () => ({
   workspaceId: 'ws-1',

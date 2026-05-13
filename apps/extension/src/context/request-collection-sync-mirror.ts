@@ -2,14 +2,14 @@
  * Renderer-side request-collection sync mirror.
  *
  * Thin adapter over {@link createFlatEntityMirror}. Each entry carries
- * the materialized `V5.Collection`, the live `varUids` (set-member
+ * the materialized `Collection`, the live `varUids` (set-member
  * identity for request-collection vars; consumed by the
  * variables-replacement diff helper to enumerate `removeFromSet`
  * itemIds), and the parent-owned `folders` set order keys.
  */
 
 import { REQUEST_COLLECTION_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection } from '@openheaders/core/types';
 import { call } from '@utils/bridge';
 import {
   createFlatEntityMirror,
@@ -18,7 +18,7 @@ import {
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 
 export interface RequestCollectionMirrorEntry {
-  collection: V5.Collection;
+  collection: Collection;
   /** Live variable uids — set-member identity for request-collection vars. */
   varUids: string[];
   /** Per-set ordered `(itemId, orderKey)` pairs. Carries the parent's
@@ -30,7 +30,7 @@ export type RequestCollectionMirrorListener = (collectionUid: string) => void;
 
 export interface RequestCollectionSyncMirror {
   getRequestCollectionMirror(collectionUid: string): RequestCollectionMirrorEntry | null;
-  listRequestCollections(): V5.Collection[];
+  listRequestCollections(): Collection[];
   liveOrderedSetItems(
     collectionUid: string,
     setPath: string,

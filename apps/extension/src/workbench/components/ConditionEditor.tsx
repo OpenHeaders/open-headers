@@ -36,7 +36,7 @@
  */
 
 import { CloseOutlined, InfoCircleOutlined, PlusOutlined, WarningFilled } from '@ant-design/icons';
-import type { V5 } from '@openheaders/core/types';
+import type { ConditionType, RuleCondition } from '@openheaders/core/types';
 import {
   applyDomainValueCleanup,
   CONDITION_META,
@@ -63,7 +63,7 @@ import { TemplateInput } from './template-input';
 // ── Condition type definitions ───────────────────────────────────
 
 interface ConditionTypeDef {
-  value: V5.ConditionType;
+  value: ConditionType;
   label: string;
   group: string;
   inputType: 'text' | 'multi-select-methods' | 'multi-select-resources' | 'single-select-domain-type' | 'header';
@@ -180,9 +180,9 @@ const DOMAIN_TYPES = [
  * conditions; the editor just renders it.
  */
 function buildTypeOptions(
-  conditions: readonly V5.RuleCondition[],
+  conditions: readonly RuleCondition[],
   currentIndex: number,
-): Array<{ label: string; options: Array<{ value: V5.ConditionType; label: React.ReactNode; disabled?: boolean }> }> {
+): Array<{ label: string; options: Array<{ value: ConditionType; label: React.ReactNode; disabled?: boolean }> }> {
   // Slot keys claimed by OTHER rows. We use the type-only slot key here
   // (not the per-row key) — header types intentionally never gate the
   // picker, so we skip them.
@@ -225,15 +225,15 @@ function buildTypeOptions(
   }));
 }
 
-function getTypeDef(type: V5.ConditionType): ConditionTypeDef | undefined {
+function getTypeDef(type: ConditionType): ConditionTypeDef | undefined {
   return CONDITION_TYPES.find((t) => t.value === type);
 }
 
 // ── Props ────────────────────────────────────────────────────────
 
 interface ConditionEditorProps {
-  value?: V5.RuleCondition[];
-  onChange?: (conditions: V5.RuleCondition[]) => void;
+  value?: RuleCondition[];
+  onChange?: (conditions: RuleCondition[]) => void;
 }
 
 /** Inline conflict chip for one condition leaf — reads local value
@@ -317,7 +317,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
   }, [value]);
 
   const updateCondition = useCallback(
-    (index: number, updates: Partial<V5.RuleCondition>) => {
+    (index: number, updates: Partial<RuleCondition>) => {
       const next = value.map((c, i) => (i === index ? { ...c, ...updates } : c));
       onChange?.(next);
     },
@@ -346,7 +346,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
       const k = getConditionTypeSlotKey(c.type);
       if (k) claimed.add(k);
     }
-    const candidates = (Object.values(CONDITION_META) as ReadonlyArray<(typeof CONDITION_META)[V5.ConditionType]>)
+    const candidates = (Object.values(CONDITION_META) as ReadonlyArray<(typeof CONDITION_META)[ConditionType]>)
       .filter((m) => m.supportedByDnr)
       .filter((m) => {
         if (m.perHeader) return true;
@@ -354,16 +354,16 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
         return k !== null && !claimed.has(k);
       })
       .sort((a, b) => a.pickerOrder - b.pickerOrder);
-    const type: V5.ConditionType = candidates[0]?.type ?? 'request-domains';
-    const newCondition: V5.RuleCondition = { uid: generateUid(), type, values: [] };
+    const type: ConditionType = candidates[0]?.type ?? 'request-domains';
+    const newCondition: RuleCondition = { uid: generateUid(), type, values: [] };
     if (CONDITION_META[type]?.perHeader) newCondition.headerName = '';
     onChange?.([...value, newCondition]);
   }, [value, onChange]);
 
   const handleTypeChange = useCallback(
-    (index: number, type: V5.ConditionType) => {
+    (index: number, type: ConditionType) => {
       const def = getTypeDef(type);
-      const updates: Partial<V5.RuleCondition> = { type, values: [] };
+      const updates: Partial<RuleCondition> = { type, values: [] };
       if (def?.inputType !== 'header') {
         updates.headerName = undefined;
       } else if (!value[index].headerName) {
@@ -576,7 +576,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
                 path={paths.condition(condition.uid, 'type')}
                 localValue={String(condition.type)}
                 onTakeTheirs={(theirs) =>
-                  updateCondition(index, { type: theirs as V5.ConditionType })
+                  updateCondition(index, { type: theirs as ConditionType })
                 }
               />
               {def?.inputType === 'header' && (
@@ -642,7 +642,7 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
  *
  * Drawn from `CONDITION_META.valueLogic` — no editor-side hardcoding.
  */
-const ValueLogicHint: React.FC<{ type: V5.ConditionType }> = ({ type }) => {
+const ValueLogicHint: React.FC<{ type: ConditionType }> = ({ type }) => {
   const { token } = theme.useToken();
   const meta = CONDITION_META[type];
   if (!meta) return null;

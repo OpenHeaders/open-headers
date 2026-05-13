@@ -19,7 +19,7 @@ import {
   recompileDnrIntent,
   RULE_ENTITY_TYPE,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import { generateUid, shouldAutoUnpublishOnUpdate, toFolderName } from '@openheaders/core/utils';
 import {
   getRuleSyncMirrorForWorkspace,
@@ -39,10 +39,10 @@ import {
   buildUpdateBatch,
 } from '@/shared/sync/rule-mutations';
 
-export type RuleUpdates = Partial<Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>>;
+export type RuleUpdates = Partial<Omit<Rule, 'uid' | 'path' | 'schemaVersion'>>;
 
 export type RuleMutationResult =
-  | { ok: true; rule: V5.Rule }
+  | { ok: true; rule: Rule }
   | { ok: false; reason: 'not-found' }
   | { ok: false; reason: 'other'; message?: string };
 
@@ -100,7 +100,7 @@ export async function applyRuleUpdate(
   });
   const ack = await applySyncPayload(payload);
   if (ack.ok) {
-    return { ok: true, rule: { ...entry.rule, ...augmented } as V5.Rule };
+    return { ok: true, rule: { ...entry.rule, ...augmented } as Rule };
   }
   if (ack.reason === 'not-found') return { ok: false, reason: 'not-found' };
   return { ok: false, reason: 'other', message: ack.message };
@@ -119,7 +119,7 @@ export async function applyRuleUpdate(
  * must not arrive published.
  */
 export async function applyRuleCreate(
-  request: { rule: Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>; parentPath: string },
+  request: { rule: Omit<Rule, 'uid' | 'path' | 'schemaVersion'>; parentPath: string },
   opts: RuleWriteOptions,
 ): Promise<RuleMutationResult> {
   const uid = generateUid();
@@ -130,7 +130,7 @@ export async function applyRuleCreate(
     uid,
     path: `${request.parentPath}/${folderName}`,
     published: false,
-  } as V5.Rule;
+  } as Rule;
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const payload = buildAddBatch(created, ctx);
   const ack = await applySyncPayload(payload);
@@ -196,7 +196,7 @@ export async function applyRuleDelete(
  * to its content-unequal branch — correct, just one envelope per row.
  */
 function resolveRuleRows(
-  rule: V5.Rule | undefined,
+  rule: Rule | undefined,
   path: string,
 ): ReadonlyArray<{ uid: string }> | null {
   if (!rule) return null;

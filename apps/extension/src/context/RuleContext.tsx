@@ -20,7 +20,7 @@ import {
   TEMPLATE_FOLDER_ENTITY_TYPE,
   type TemplateFolderParentRef,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, CollectionTree, Rule, Template, TreeNode } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
 import { computePausedUids, generateUid, toFolderName } from '@openheaders/core/utils';
 import { call, subscribe } from '@utils/bridge';
@@ -62,7 +62,7 @@ export interface UiState {
 
 export interface RuleContextValue {
   /** All rules from the background (desktop + local). */
-  rules: V5.Rule[];
+  rules: Rule[];
   /** Active workspace id, or `null` until the SW reply lands. */
   activeWorkspaceId: string | null;
   /** Whether the desktop app is connected via WebSocket. */
@@ -99,15 +99,15 @@ export interface RuleContextValue {
   /** Update persisted UI state. */
   updateUiState: (updates: Partial<UiState>) => void;
   /** Local collections (flat, without tree). */
-  localCollections: V5.Collection[];
+  localCollections: Collection[];
   /** Local collection trees (with folder → rule hierarchy). */
-  localCollectionTrees: V5.CollectionTree[];
+  localCollectionTrees: CollectionTree[];
   /** Update a local rule by uid. */
-  updateLocalRule: (uid: string, updates: Partial<Omit<V5.Rule, 'uid' | 'path'>>) => Promise<boolean>;
+  updateLocalRule: (uid: string, updates: Partial<Omit<Rule, 'uid' | 'path'>>) => Promise<boolean>;
   /** Delete a local rule by uid. */
   deleteLocalRule: (uid: string) => Promise<boolean>;
   /** Create a local collection. */
-  createLocalCollection: (name: string) => Promise<V5.Collection | null>;
+  createLocalCollection: (name: string) => Promise<Collection | null>;
   /** Rename a local collection. */
   renameLocalCollection: (uid: string, name: string) => Promise<boolean>;
   /** Delete a local collection and all its contents. */
@@ -120,26 +120,26 @@ export interface RuleContextValue {
   deleteLocalFolder: (uid: string) => Promise<boolean>;
   // ── Templates ─────────────────────────────────────────────────────
   /** All user-defined templates. */
-  templates: V5.Template[];
+  templates: Template[];
   /** Template collections (flat). */
-  templateCollections: V5.Collection[];
+  templateCollections: Collection[];
   /** Template collection trees (with folder → template hierarchy). */
-  templateCollectionTrees: V5.CollectionTree[];
+  templateCollectionTrees: CollectionTree[];
   /** Create a template. `schemaVersion` + `version` are stamped by the store. */
   createTemplate: (
-    template: Omit<V5.Template, 'uid' | 'path' | 'schemaVersion' | 'version'>,
+    template: Omit<Template, 'uid' | 'path' | 'schemaVersion' | 'version'>,
     collectionUid?: string,
     parentPath?: string,
-  ) => Promise<V5.Template | null>;
+  ) => Promise<Template | null>;
   /** Update a template by uid. */
   updateTemplate: (
     uid: string,
-    updates: Partial<Omit<V5.Template, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
+    updates: Partial<Omit<Template, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
   ) => Promise<boolean>;
   /** Delete a template by uid. */
   deleteTemplate: (uid: string) => Promise<boolean>;
   /** Create a template collection. */
-  createTemplateCollection: (name: string) => Promise<V5.Collection | null>;
+  createTemplateCollection: (name: string) => Promise<Collection | null>;
   /** Rename a template collection. */
   renameTemplateCollection: (uid: string, name: string) => Promise<boolean>;
   /** Delete a template collection and all its contents. */
@@ -231,7 +231,7 @@ interface RuleProviderProps {
 
 export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId, activeWorkspaceIdOverride }) => {
   const isOverridden = activeWorkspaceIdOverride !== undefined;
-  const [rules, setRules] = useState<V5.Rule[]>([]);
+  const [rules, setRules] = useState<Rule[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [isStatusLoaded, setIsStatusLoaded] = useState(false);
   const [uiState, setUiState] = useState<UiState>({
@@ -239,11 +239,11 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
   });
   const { pauseMarkers, togglePause, clearPauseOverride, clearNestedPauseOverrides, replaceMarkers } =
     usePauseMarkersContext();
-  const [localCollections, setLocalCollections] = useState<V5.Collection[]>([]);
-  const [localCollectionTrees, setLocalCollectionTrees] = useState<V5.CollectionTree[]>([]);
-  const [templates, setTemplates] = useState<V5.Template[]>([]);
-  const [templateCollections, setTemplateCollections] = useState<V5.Collection[]>([]);
-  const [templateCollectionTrees, setTemplateCollectionTrees] = useState<V5.CollectionTree[]>([]);
+  const [localCollections, setLocalCollections] = useState<Collection[]>([]);
+  const [localCollectionTrees, setLocalCollectionTrees] = useState<CollectionTree[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [templateCollections, setTemplateCollections] = useState<Collection[]>([]);
+  const [templateCollectionTrees, setTemplateCollectionTrees] = useState<CollectionTree[]>([]);
   // Workspace id tracked as BOTH ref (used in sync mutators without
   // triggering re-renders) AND state (drives the pause-markers
   // subscription rebind on workspace switch).
@@ -458,11 +458,11 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       return;
     }
     const wsId = activeWorkspaceId;
-    let currentRules: V5.Rule[] = [];
-    let currentCollections: V5.Collection[] = [];
+    let currentRules: Rule[] = [];
+    let currentCollections: Collection[] = [];
     let currentFolders: PersistedLocalFolder[] = [];
-    let currentTemplates: V5.Template[] = [];
-    let currentTemplateCollections: V5.Collection[] = [];
+    let currentTemplates: Template[] = [];
+    let currentTemplateCollections: Collection[] = [];
     let currentTemplateFolders: PersistedLocalFolder[] = [];
 
     const recomputeRulesTree = () => {
@@ -590,7 +590,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
     const activePaths = new Set<string>();
     for (const tree of localCollectionTrees) {
       activePaths.add(tree.path);
-      const addFolderPaths = (nodes: V5.TreeNode[]) => {
+      const addFolderPaths = (nodes: TreeNode[]) => {
         for (const node of nodes) {
           if (node.type === 'folder') {
             activePaths.add(node.path);
@@ -618,7 +618,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
   // and the editor's Save button is the publication gate.
 
   const updateLocalRuleFn = useCallback(
-    async (uid: string, updates: Partial<Omit<V5.Rule, 'uid' | 'path'>>): Promise<boolean> => {
+    async (uid: string, updates: Partial<Omit<Rule, 'uid' | 'path'>>): Promise<boolean> => {
       if (!activeWorkspaceId) return false;
       const result = await applyRuleUpdate(uid, updates, { workspaceId: activeWorkspaceId, surfaceId });
       if (result.ok) {
@@ -674,7 +674,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
   );
 
   const createLocalCollectionFn = useCallback(
-    async (name: string): Promise<V5.Collection | null> => {
+    async (name: string): Promise<Collection | null> => {
       if (isOverridden) {
         const wsId = activeWorkspaceIdRef.current;
         if (!wsId) return null;
@@ -816,10 +816,10 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
 
   const createTemplateFn = useCallback(
     async (
-      template: Omit<V5.Template, 'uid' | 'path' | 'schemaVersion' | 'version'>,
+      template: Omit<Template, 'uid' | 'path' | 'schemaVersion' | 'version'>,
       collectionUid?: string,
       parentPath?: string,
-    ): Promise<V5.Template | null> => {
+    ): Promise<Template | null> => {
       if (isOverridden) {
         const wsId = activeWorkspaceIdRef.current;
         if (!wsId) return null;
@@ -829,7 +829,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
         const uid = generateUid();
         const folderName = toFolderName(template.name, uid);
         const now = new Date().toISOString();
-        const created: V5.Template = {
+        const created: Template = {
           schemaVersion: MIN_SCHEMA_VERSION,
           ...template,
           uid,
@@ -855,7 +855,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
   const updateTemplateFn = useCallback(
     async (
       uid: string,
-      updates: Partial<Omit<V5.Template, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
+      updates: Partial<Omit<Template, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
     ): Promise<boolean> => {
       if (isOverridden) {
         const wsId = activeWorkspaceIdRef.current;
@@ -900,7 +900,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
   );
 
   const createTemplateCollectionFn = useCallback(
-    async (name: string): Promise<V5.Collection | null> => {
+    async (name: string): Promise<Collection | null> => {
       if (isOverridden) {
         const wsId = activeWorkspaceIdRef.current;
         if (!wsId) return null;

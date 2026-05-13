@@ -13,7 +13,7 @@
 
 import type { MutationBatch, MutatorContext } from '@openheaders/core/sync';
 import { advanceHlc, initialHlc, RULE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { HeaderModification, HeaderRule, Rule } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockCall } = vi.hoisted(() => ({ mockCall: vi.fn() }));
@@ -39,7 +39,7 @@ import {
 import type { RuleSyncMirror } from '@/context/rule-sync-mirror';
 import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 
-const headerRule: V5.HeaderRule = {
+const headerRule: HeaderRule = {
   schemaVersion: 5,
   uid: 'rule-1',
   path: 'rules/My/Header',
@@ -51,7 +51,7 @@ const headerRule: V5.HeaderRule = {
 };
 
 function makeMirror(
-  rule: V5.Rule | null,
+  rule: Rule | null,
   setItemIds: Record<string, string[]> = {},
   setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>> = {},
 ): RuleSyncMirror {
@@ -145,7 +145,7 @@ describe('applyRuleUpdate', () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const live = ['hm-old-1', 'hm-old-2'];
     const mirror = makeMirror(headerRule, { 'action.requestHeaders': live });
-    const newHeaders: V5.HeaderModification[] = [
+    const newHeaders: HeaderModification[] = [
       { uid: 'thm00096', operation: 'override', headerName: 'X-Foo', value: 'bar' },
     ];
     await applyRuleUpdate(
@@ -176,7 +176,7 @@ describe('applyRuleUpdate', () => {
 });
 
 describe('applyRuleUpdate auto-unpublish', () => {
-  const publishedRule: V5.HeaderRule = { ...headerRule, published: true };
+  const publishedRule: HeaderRule = { ...headerRule, published: true };
 
   it('augments a published-rule runtime edit with published: false', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });

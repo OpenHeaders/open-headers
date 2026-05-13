@@ -1,4 +1,4 @@
-import type { V5 } from '@openheaders/core/types';
+import type { Vault, VaultSecretString, VaultSecretTotp } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // `chrome.alarms` lives on the global mock — we drive it directly.
@@ -16,7 +16,7 @@ vi.stubGlobal('chrome', {
 // Capture environment-store change listeners so we can fire them ourselves.
 type ChangeListener = () => void;
 const envListeners: ChangeListener[] = [];
-let mockVault: V5.Vault = { schemaVersion: 5, secrets: [] };
+let mockVault: Vault = { schemaVersion: 5, secrets: [] };
 
 vi.mock('@/background/modules/environment-store', () => ({
   getVault: vi.fn(() => mockVault),
@@ -45,7 +45,7 @@ const REF_SEED = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
 const REF_T_MS = 59 * 1000;
 
 let totpUidCounter = 0;
-function totpEntry(name: string, overrides: Partial<V5.VaultSecretTotp> = {}): V5.VaultSecretTotp {
+function totpEntry(name: string, overrides: Partial<VaultSecretTotp> = {}): VaultSecretTotp {
   totpUidCounter += 1;
   return {
     uid: `sctotp${totpUidCounter.toString().padStart(2, '0')}`,
@@ -60,7 +60,7 @@ function totpEntry(name: string, overrides: Partial<V5.VaultSecretTotp> = {}): V
 }
 
 let stringUidCounter = 0;
-function stringEntry(name: string, value: string): V5.VaultSecretString {
+function stringEntry(name: string, value: string): VaultSecretString {
   stringUidCounter += 1;
   return { uid: `scstrx${stringUidCounter.toString().padStart(2, '0')}`, kind: 'string', name, value };
 }

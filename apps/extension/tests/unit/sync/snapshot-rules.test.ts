@@ -7,7 +7,7 @@
  */
 
 import { type MutatorContext, RULE_ENTITY_TYPE, mintBatch, toggleEnabled } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -27,7 +27,7 @@ const ctx = (ms: number, surface = 's'): MutatorContext => ({
   deviceId: 'd0',
 });
 
-const makeRule = (uid: string, name = 'r'): V5.Rule =>
+const makeRule = (uid: string, name = 'r'): Rule =>
   ({
     schemaVersion: 5,
     uid,
@@ -40,7 +40,7 @@ const makeRule = (uid: string, name = 'r'): V5.Rule =>
       requestHeaders: [{ uid: 'hmd00001', headerName: 'X-A', operation: 'set', value: '1' }],
       responseHeaders: [],
     },
-  }) as unknown as V5.Rule;
+  }) as unknown as Rule;
 
 beforeEach(() => {
   __initSyncServiceForTests(wsId);

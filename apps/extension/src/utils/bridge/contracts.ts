@@ -49,7 +49,7 @@ import type {
   SyncWorkspaceVariablesPostState,
 } from '@openheaders/core/protocol';
 import type { MutationEnvelope, MutatorOutcome } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, CollectionTree, Environment, ExtensionWorkspace, LiveVariable, LiveVariableOverride, LiveWorkflow, OAuth2Auth, RefreshPolicy, Request, Rule, RuleDraft, Template, Variable, Vault, WorkflowStep, WorkspaceVariables } from '@openheaders/core/types';
 import type { IntentCallerContext, WorkspaceIntent } from '@openheaders/core/workspace-intent';
 import type { WorkflowRunCache } from '@/background/modules/live-cache-store';
 import type { ExecutedRequestSnapshot } from '@/background/modules/request-executor';
@@ -64,7 +64,7 @@ import type { PerfResourceEntry } from '@/types/perf';
 
 /** Snapshot returned whenever the UI needs the current workspace list + active id. */
 export interface WorkspaceSnapshot {
-  workspaces: V5.ExtensionWorkspace[];
+  workspaces: ExtensionWorkspace[];
   activeWorkspaceId: string;
 }
 
@@ -105,9 +105,9 @@ export interface BridgeRpcContract {
     req: Record<string, never>;
     res: {
       type?: string;
-      rules: V5.Rule[];
+      rules: Rule[];
       connected: boolean;
-      workspaces: V5.ExtensionWorkspace[];
+      workspaces: ExtensionWorkspace[];
       activeWorkspaceId: string;
     };
   };
@@ -119,11 +119,11 @@ export interface BridgeRpcContract {
   };
   getActiveWorkspace: {
     req: Record<string, never>;
-    res: { workspace: V5.ExtensionWorkspace };
+    res: { workspace: ExtensionWorkspace };
   };
   duplicateWorkspace: {
     req: { id: string; name?: string };
-    res: { success: boolean; workspace?: V5.ExtensionWorkspace; error?: string };
+    res: { success: boolean; workspace?: ExtensionWorkspace; error?: string };
   };
   exportWorkspace: {
     req: {
@@ -343,7 +343,7 @@ export interface BridgeRpcContract {
   };
   getRules: {
     req: Record<string, never>;
-    res: { rules: V5.Rule[]; isConnected: boolean };
+    res: { rules: Rule[]; isConnected: boolean };
   };
   rulesUpdated: {
     req: Record<string, never>;
@@ -405,12 +405,12 @@ export interface BridgeRpcContract {
     res: { success: boolean; error?: string };
   };
   createRuleDraft: {
-    req: { draft: V5.RuleDraft };
+    req: { draft: RuleDraft };
     res: { success: boolean; nonce?: string; error?: string };
   };
   takeRuleDraft: {
     req: { nonce: string };
-    res: { success: boolean; draft: V5.RuleDraft | null };
+    res: { success: boolean; draft: RuleDraft | null };
   };
   setCacheBypass: {
     req: { tabId: number; enabled: boolean };
@@ -418,15 +418,15 @@ export interface BridgeRpcContract {
   };
   getLocalRules: {
     req: Record<string, never>;
-    res: { rules: V5.Rule[] };
+    res: { rules: Rule[] };
   };
   getLocalCollections: {
     req: Record<string, never>;
-    res: { collections: V5.Collection[] };
+    res: { collections: Collection[] };
   };
   getLocalCollectionTrees: {
     req: Record<string, never>;
-    res: { collectionTrees: V5.CollectionTree[] };
+    res: { collectionTrees: CollectionTree[] };
   };
   getLocalFolders: {
     req: Record<string, never>;
@@ -446,7 +446,7 @@ export interface BridgeRpcContract {
   };
   createLocalCollection: {
     req: { name: string };
-    res: { success: boolean; collection?: V5.Collection };
+    res: { success: boolean; collection?: Collection };
   };
   renameLocalCollection: {
     req: { collectionUid: string; name: string };
@@ -511,15 +511,15 @@ export interface BridgeRpcContract {
   // ── Template CRUD ──────────────────────────────────────────────
   getTemplates: {
     req: Record<string, never>;
-    res: { templates: V5.Template[] };
+    res: { templates: Template[] };
   };
   getTemplateCollections: {
     req: Record<string, never>;
-    res: { collections: V5.Collection[] };
+    res: { collections: Collection[] };
   };
   getTemplateCollectionTrees: {
     req: Record<string, never>;
-    res: { collectionTrees: V5.CollectionTree[] };
+    res: { collectionTrees: CollectionTree[] };
   };
   getTemplateFolders: {
     req: Record<string, never>;
@@ -527,19 +527,19 @@ export interface BridgeRpcContract {
   };
   createTemplate: {
     req: {
-      template: Omit<V5.Template, 'uid' | 'path' | 'schemaVersion' | 'version'>;
+      template: Omit<Template, 'uid' | 'path' | 'schemaVersion' | 'version'>;
       collectionUid?: string;
       parentPath?: string;
     };
-    res: { success: boolean; template?: V5.Template };
+    res: { success: boolean; template?: Template };
   };
   updateTemplate: {
     req: {
       templateUid: string;
-      updates: Partial<Omit<V5.Template, 'uid' | 'path' | 'schemaVersion'>>;
+      updates: Partial<Omit<Template, 'uid' | 'path' | 'schemaVersion'>>;
     };
     res:
-      | { ok: true; template: V5.Template }
+      | { ok: true; template: Template }
       | { ok: false; reason: 'not-found' }
       | { ok: false; reason: 'other'; message: string };
   };
@@ -549,7 +549,7 @@ export interface BridgeRpcContract {
   };
   createTemplateCollection: {
     req: { name: string };
-    res: { success: boolean; collection?: V5.Collection };
+    res: { success: boolean; collection?: Collection };
   };
   renameTemplateCollection: {
     req: { collectionUid: string; name: string };
@@ -576,7 +576,7 @@ export interface BridgeRpcContract {
   listEnvironments: {
     req: Record<string, never>;
     res: {
-      environments: V5.Environment[];
+      environments: Environment[];
       activeEnvironmentId: string | null;
       defaultEnvironmentId: string | null;
       collectionEnvOverrides: Record<string, string | null>;
@@ -584,20 +584,20 @@ export interface BridgeRpcContract {
     };
   };
   createEnvironment: {
-    req: { name: string; variables?: V5.Variable[] };
-    res: { success: boolean; environment?: V5.Environment };
+    req: { name: string; variables?: Variable[] };
+    res: { success: boolean; environment?: Environment };
   };
   renameEnvironment: {
     req: { uid: string; name: string };
     res:
-      | { ok: true; environment: V5.Environment }
+      | { ok: true; environment: Environment }
       | { ok: false; reason: 'not-found' }
       | { ok: false; reason: 'other'; message: string };
   };
   updateEnvironmentVariables: {
-    req: { uid: string; variables: V5.Variable[] };
+    req: { uid: string; variables: Variable[] };
     res:
-      | { ok: true; environment: V5.Environment }
+      | { ok: true; environment: Environment }
       | { ok: false; reason: 'not-found' }
       | { ok: false; reason: 'other'; message: string };
   };
@@ -611,19 +611,19 @@ export interface BridgeRpcContract {
   };
   getWorkspaceVariables: {
     req: Record<string, never>;
-    res: { workspaceVariables: V5.WorkspaceVariables };
+    res: { workspaceVariables: WorkspaceVariables };
   };
   getVault: {
     req: Record<string, never>;
-    res: { vault: V5.Vault };
+    res: { vault: Vault };
   };
   updateCollectionVariables: {
     req: {
       collectionUid: string;
-      variables: V5.Variable[];
+      variables: Variable[];
     };
     res:
-      | { ok: true; collection: V5.Collection }
+      | { ok: true; collection: Collection }
       | { ok: false; reason: 'not-found' }
       | { ok: false; reason: 'other'; message: string };
   };
@@ -631,19 +631,19 @@ export interface BridgeRpcContract {
   // ── API Requests (active workspace) ────────────────────────────
   getLocalRequests: {
     req: Record<string, never>;
-    res: { requests: V5.Request[] };
+    res: { requests: Request[] };
   };
   getLocalRequest: {
     req: { requestUid: string };
-    res: { success: boolean; request?: V5.Request };
+    res: { success: boolean; request?: Request };
   };
   getLocalRequestCollections: {
     req: Record<string, never>;
-    res: { collections: V5.Collection[] };
+    res: { collections: Collection[] };
   };
   getLocalRequestCollectionTrees: {
     req: Record<string, never>;
-    res: { collectionTrees: V5.CollectionTree[] };
+    res: { collectionTrees: CollectionTree[] };
   };
   getLocalRequestFolders: {
     req: Record<string, never>;
@@ -654,17 +654,17 @@ export interface BridgeRpcContract {
       name: string;
       collectionUid?: string;
       parentPath?: string;
-      seed?: Partial<V5.Request>;
+      seed?: Partial<Request>;
     };
-    res: { success: boolean; request?: V5.Request };
+    res: { success: boolean; request?: Request };
   };
   updateLocalRequest: {
     req: {
       requestUid: string;
-      updates: Partial<Omit<V5.Request, 'uid' | 'path' | 'schemaVersion' | 'version'>>;
+      updates: Partial<Omit<Request, 'uid' | 'path' | 'schemaVersion' | 'version'>>;
     };
     res:
-      | { ok: true; request: V5.Request }
+      | { ok: true; request: Request }
       | { ok: false; reason: 'not-found' }
       | { ok: false; reason: 'other'; message: string };
   };
@@ -674,7 +674,7 @@ export interface BridgeRpcContract {
   };
   createLocalRequestCollection: {
     req: { name: string };
-    res: { success: boolean; collection?: V5.Collection };
+    res: { success: boolean; collection?: Collection };
   };
   renameLocalRequestCollection: {
     req: { collectionUid: string; name: string };
@@ -704,7 +704,7 @@ export interface BridgeRpcContract {
   executeRequest: {
     req: {
       requestUid?: string;
-      draft?: V5.Request;
+      draft?: Request;
       environmentId?: string;
     };
     res: { success: boolean; snapshot?: ExecutedRequestSnapshot; error?: string };
@@ -854,7 +854,7 @@ export interface BridgeRpcContract {
    * misconfigured redirect, user cancelled, etc.).
    */
   oauthAuthorize: {
-    req: { config: V5.OAuth2Auth; workspaceId?: string };
+    req: { config: OAuth2Auth; workspaceId?: string };
     res: { success: boolean; bundle?: OAuth2TokenBundle; redirectUri?: string; error?: string };
   };
   /**
@@ -863,7 +863,7 @@ export interface BridgeRpcContract {
    * interaction is required.
    */
   oauthClientCredentials: {
-    req: { config: V5.OAuth2Auth; workspaceId?: string };
+    req: { config: OAuth2Auth; workspaceId?: string };
     res: { success: boolean; bundle?: OAuth2TokenBundle; error?: string };
   };
   /**
@@ -872,7 +872,7 @@ export interface BridgeRpcContract {
    * diagnose refresh failures from the editor.
    */
   oauthRefresh: {
-    req: { config: V5.OAuth2Auth; workspaceId?: string };
+    req: { config: OAuth2Auth; workspaceId?: string };
     res: { success: boolean; bundle?: OAuth2TokenBundle; error?: string };
   };
   /** Delete the stored token bundle for `credentialRef`. "Disconnect" flow. */
@@ -901,29 +901,29 @@ export interface BridgeRpcContract {
    */
   listLiveWorkflows: {
     req: Record<string, never>;
-    res: { workflows: V5.LiveWorkflow[] };
+    res: { workflows: LiveWorkflow[] };
   };
   getLiveWorkflow: {
     req: { uid: string };
-    res: { workflow: V5.LiveWorkflow | null };
+    res: { workflow: LiveWorkflow | null };
   };
   createLiveWorkflow: {
     req: {
       name: string;
       description?: string;
-      steps?: V5.WorkflowStep[];
-      refresh?: V5.RefreshPolicy;
+      steps?: WorkflowStep[];
+      refresh?: RefreshPolicy;
       enabled?: boolean;
     };
-    res: { success: boolean; workflow?: V5.LiveWorkflow; error?: string };
+    res: { success: boolean; workflow?: LiveWorkflow; error?: string };
   };
   updateLiveWorkflow: {
     req: {
       uid: string;
-      updates: Partial<Omit<V5.LiveWorkflow, 'uid' | 'path' | 'schemaVersion'>>;
+      updates: Partial<Omit<LiveWorkflow, 'uid' | 'path' | 'schemaVersion'>>;
     };
     res:
-      | { success: true; workflow: V5.LiveWorkflow }
+      | { success: true; workflow: LiveWorkflow }
       | { success: false; reason: 'not-found' }
       | { success: false; reason: 'other'; error: string };
   };
@@ -934,11 +934,11 @@ export interface BridgeRpcContract {
 
   listLiveVariables: {
     req: Record<string, never>;
-    res: { variables: V5.LiveVariable[] };
+    res: { variables: LiveVariable[] };
   };
   getLiveVariable: {
     req: { uid: string };
-    res: { variable: V5.LiveVariable | null };
+    res: { variable: LiveVariable | null };
   };
   createLiveVariable: {
     req: {
@@ -950,15 +950,15 @@ export interface BridgeRpcContract {
       requireFreshOnRuleBuild?: boolean;
       enabled?: boolean;
     };
-    res: { success: boolean; variable?: V5.LiveVariable; error?: string };
+    res: { success: boolean; variable?: LiveVariable; error?: string };
   };
   updateLiveVariable: {
     req: {
       uid: string;
-      updates: Partial<Omit<V5.LiveVariable, 'uid' | 'path' | 'schemaVersion'>>;
+      updates: Partial<Omit<LiveVariable, 'uid' | 'path' | 'schemaVersion'>>;
     };
     res:
-      | { success: true; variable: V5.LiveVariable }
+      | { success: true; variable: LiveVariable }
       | { success: false; reason: 'not-found' }
       | { success: false; reason: 'other'; error: string };
   };
@@ -971,9 +971,9 @@ export interface BridgeRpcContract {
    * override. Pass `null` to clear.
    */
   setLiveVariableOverride: {
-    req: { uid: string; override: V5.LiveVariableOverride | null };
+    req: { uid: string; override: LiveVariableOverride | null };
     res:
-      | { success: true; variable: V5.LiveVariable }
+      | { success: true; variable: LiveVariable }
       | { success: false; reason: 'not-found' }
       | { success: false; reason: 'other'; error: string };
   };
@@ -1273,9 +1273,9 @@ export type BridgeTabContract = Record<string, never>;
  * is not an error.
  */
 export interface BridgeBroadcastContract {
-  rulesUpdated: { rules: V5.Rule[]; timestamp?: number };
-  templatesUpdated: { templates: V5.Template[] };
-  requestsUpdated: { requests: V5.Request[] };
+  rulesUpdated: { rules: Rule[]; timestamp?: number };
+  templatesUpdated: { templates: Template[] };
+  requestsUpdated: { requests: Request[] };
   testRunFinished: { ownerType: TestRunOwnerType; ownerId: string; runId: string };
   testRunDeleted: { runId: string };
   testRunsClearedForOwner: { ownerType: TestRunOwnerType; ownerId: string };
@@ -1349,14 +1349,14 @@ export interface BridgeBroadcastContract {
    * workflow list so consumers (sidebar, editor, rule-editor picker)
    * stay in sync without per-workflow subscriptions.
    */
-  liveWorkflowsChanged: { workflows: V5.LiveWorkflow[] };
+  liveWorkflowsChanged: { workflows: LiveWorkflow[] };
 
   /**
    * Fires on every Live Variable definition mutation. Carries the full
    * LV list so the sidebar + variable picker + resolver update
    * together.
    */
-  liveVariablesChanged: { variables: V5.LiveVariable[] };
+  liveVariablesChanged: { variables: LiveVariable[] };
 
   /**
    * Fires on every live-cache mutation (successful refresh, recorded
@@ -1519,7 +1519,7 @@ export interface BridgeBroadcastContract {
  * (Postman semantics); resolution still works via lower scopes.
  */
 export interface EnvironmentsSnapshot {
-  environments: V5.Environment[];
+  environments: Environment[];
   activeEnvironmentId: string | null;
   /**
    * Workspace default env uid (used as the resolver fallback when the
@@ -1527,8 +1527,8 @@ export interface EnvironmentsSnapshot {
    * `null` means no default is configured.
    */
   defaultEnvironmentId: string | null;
-  workspaceVariables: V5.WorkspaceVariables;
-  vault: V5.Vault;
+  workspaceVariables: WorkspaceVariables;
+  vault: Vault;
   collectionEnvOverrides: Record<string, string | null>;
   /** Last env the user manually picked — consumed by the `apply-defaults` auto-switch mode. */
   manualEnvId: string | null;

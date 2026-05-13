@@ -5,7 +5,7 @@
  */
 
 import { useMemo } from 'react';
-import type { V5 } from '@openheaders/core/types';
+import type { LiveVariable } from '@openheaders/core/types';
 import {
   applyLiveVariableCreate,
   applyLiveVariableDelete,
@@ -24,7 +24,7 @@ export interface UseLiveVariableMutatorOptions {
   surfaceId: string;
 }
 
-export type LiveVariableSeed = Omit<V5.LiveVariable, 'uid' | 'path' | 'schemaVersion'>;
+export type LiveVariableSeed = Omit<LiveVariable, 'uid' | 'path' | 'schemaVersion'>;
 
 export interface UseLiveVariableMutatorApi {
   updateLiveVariable(

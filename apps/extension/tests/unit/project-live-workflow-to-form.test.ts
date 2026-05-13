@@ -1,11 +1,11 @@
-import type { V5 } from '@openheaders/core/types';
+import type { LiveWorkflow } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
 import { projectLiveWorkflowToForm } from '@/workbench/components/live/use-live-workflow-conflicts';
 
 const STEP_UID = 's0000001';
 const CAP_UID = 'c0000001';
 
-const refreshManual: V5.LiveWorkflow['refresh'] = { kind: 'manual' };
+const refreshManual: LiveWorkflow['refresh'] = { kind: 'manual' };
 
 describe('projectLiveWorkflowToForm', () => {
   it('emits scalar workflow leaves + refresh discriminator only when steps absent', () => {

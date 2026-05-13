@@ -7,7 +7,7 @@
  */
 
 import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
-import type { V5 } from '@openheaders/core/types';
+import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { App, Button, Dropdown, Space, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useState } from 'react';
@@ -18,7 +18,7 @@ import { renderWorkspacePrefix } from './workspace-prefix';
 const { Text } = Typography;
 
 interface WorkspaceSwitcherProps {
-  workspaces: V5.ExtensionWorkspace[];
+  workspaces: ExtensionWorkspace[];
   /** The editing-scope workspace id — what THIS tab is editing. */
   activeWorkspaceId: string | null;
   /** Switch the editing-scope workspace for this tab. */

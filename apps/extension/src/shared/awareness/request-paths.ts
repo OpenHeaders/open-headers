@@ -1,5 +1,5 @@
 /**
- * Canonical schema-aligned field-path generators for `V5.Request`.
+ * Canonical schema-aligned field-path generators for `Request`.
  *
  * Awareness publishing + per-path conflict tracking key off these
  * strings; peers must agree on the encoding for chips to render.

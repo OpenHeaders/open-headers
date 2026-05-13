@@ -1,5 +1,5 @@
 /**
- * Per-field save merge for V5.Rule editors.
+ * Per-field save merge for Rule editors.
  *
  * Save is the deliberate publication gate (`memory/project_publication_gate_decision.md`).
  * For the merge to honor §6.2's killer-demo promise — two surfaces editing
@@ -34,10 +34,10 @@
  * diff, so they can't trigger LWW against a peer's edit they never saw.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { HeaderRule, QueryParamRule, Rule } from '@openheaders/core/types';
 import { mergeRowsByIdentity, mergeScalarLeaves } from '@/shared/forms/per-field-merge';
 
-type RuleFormShape = Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>;
+type RuleFormShape = Omit<Rule, 'uid' | 'path' | 'schemaVersion'>;
 
 /** Convenience wrapper — uid-keyed rows are the dominant set shape. */
 export function mergeRowsByUid<T extends { uid: string }>(
@@ -66,8 +66,8 @@ export { mergeScalarLeaves };
  */
 export function mergeRuleForSave(
   form: RuleFormShape,
-  baseline: V5.Rule | null,
-  live: V5.Rule | null,
+  baseline: Rule | null,
+  live: Rule | null,
 ): RuleFormShape {
   if (!baseline || !live) return form;
   if (form.type !== baseline.type || form.type !== live.type) return form;
@@ -77,20 +77,20 @@ export function mergeRuleForSave(
 
   switch (form.type) {
     case 'header': {
-      const f = (form as V5.HeaderRule).action;
-      const b = (baseline as V5.HeaderRule).action;
-      const l = (live as V5.HeaderRule).action;
-      (merged as V5.HeaderRule).action = {
+      const f = (form as HeaderRule).action;
+      const b = (baseline as HeaderRule).action;
+      const l = (live as HeaderRule).action;
+      (merged as HeaderRule).action = {
         requestHeaders: mergeRowsByUid(f.requestHeaders ?? [], b.requestHeaders ?? [], l.requestHeaders ?? []),
         responseHeaders: mergeRowsByUid(f.responseHeaders ?? [], b.responseHeaders ?? [], l.responseHeaders ?? []),
       };
       return merged;
     }
     case 'query-param': {
-      const f = (form as V5.QueryParamRule).action;
-      const b = (baseline as V5.QueryParamRule).action;
-      const l = (live as V5.QueryParamRule).action;
-      (merged as V5.QueryParamRule).action = {
+      const f = (form as QueryParamRule).action;
+      const b = (baseline as QueryParamRule).action;
+      const l = (live as QueryParamRule).action;
+      (merged as QueryParamRule).action = {
         params: mergeRowsByUid(f.params ?? [], b.params ?? [], l.params ?? []),
       };
       return merged;

@@ -43,7 +43,7 @@ import {
   type SideEffectIntent,
   seedKey,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { ExtensionWorkspace, ExtensionWorkspaceKind } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 import {
@@ -60,7 +60,7 @@ const DEFAULT_WORKSPACE_COLOR = 'neutral';
 
 // ── In-memory state ───────────────────────────────────────────────────
 
-let workspaces: V5.ExtensionWorkspace[] = [];
+let workspaces: ExtensionWorkspace[] = [];
 let activeWorkspaceId: string | null = null;
 
 // ── Change listeners ──────────────────────────────────────────────────
@@ -113,7 +113,7 @@ function notifyActiveChange(newId: string, prevId: string | null): void {
 // ── Reads ─────────────────────────────────────────────────────────────
 
 /** Current workspace list, sorted by sortIndex (ascending), then createdAt. */
-export function listWorkspaces(): V5.ExtensionWorkspace[] {
+export function listWorkspaces(): ExtensionWorkspace[] {
   return [...workspaces].sort(compareWorkspaces);
 }
 
@@ -134,7 +134,7 @@ export function peekActiveWorkspaceId(): string | null {
   return activeWorkspaceId;
 }
 
-export function getActiveWorkspace(): V5.ExtensionWorkspace {
+export function getActiveWorkspace(): ExtensionWorkspace {
   const id = getActiveWorkspaceId();
   const ws = workspaces.find((w) => w.id === id);
   if (!ws) {
@@ -143,13 +143,13 @@ export function getActiveWorkspace(): V5.ExtensionWorkspace {
   return ws;
 }
 
-export function getWorkspace(id: string): V5.ExtensionWorkspace | null {
+export function getWorkspace(id: string): ExtensionWorkspace | null {
   return workspaces.find((w) => w.id === id) ?? null;
 }
 
 // ── Sort helpers ──────────────────────────────────────────────────────
 
-function compareWorkspaces(a: V5.ExtensionWorkspace, b: V5.ExtensionWorkspace): number {
+function compareWorkspaces(a: ExtensionWorkspace, b: ExtensionWorkspace): number {
   if (a.sortIndex !== b.sortIndex) return a.sortIndex - b.sortIndex;
   return a.createdAt.localeCompare(b.createdAt);
 }
@@ -161,7 +161,7 @@ export interface CreateWorkspaceInput {
   description?: string;
   color?: string;
   icon?: string;
-  kind?: V5.ExtensionWorkspaceKind;
+  kind?: ExtensionWorkspaceKind;
 }
 
 /**
@@ -174,7 +174,7 @@ export interface CreateWorkspaceInput {
  * `extension-workspace-write-client.ts`; this helper is intentionally
  * not bridge-exposed.
  */
-export async function createWorkspace(input: CreateWorkspaceInput): Promise<V5.ExtensionWorkspace> {
+export async function createWorkspace(input: CreateWorkspaceInput): Promise<ExtensionWorkspace> {
   const now = new Date().toISOString();
   const id = generateUid();
   const slot: ExtensionWorkspaceSlot = {
@@ -276,7 +276,7 @@ export async function bootstrap(): Promise<void> {
   // The bridge's cache.seedFromPersistedState fires the broadcast that
   // ultimately writes both storage keys via the cache.onChange sink.
   const now = new Date().toISOString();
-  const defaultWorkspace: V5.ExtensionWorkspace = {
+  const defaultWorkspace: ExtensionWorkspace = {
     schemaVersion: 5,
     id: generateUid(),
     kind: 'personal',
@@ -348,7 +348,7 @@ function installCacheSink(cache: ExtensionWorkspaceCache): () => void {
 }
 
 async function persistFromCache(snap: {
-  workspaces: V5.ExtensionWorkspace[];
+  workspaces: ExtensionWorkspace[];
   activeWorkspaceId: string | null;
 }): Promise<void> {
   const tasks: Array<Promise<void>> = [extensionStorage.set(OH.workspaces, snap.workspaces)];

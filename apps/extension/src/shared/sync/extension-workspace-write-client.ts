@@ -41,7 +41,7 @@ import {
   seedKey,
   type SideEffectIntent,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { ExtensionWorkspace, ExtensionWorkspaceKind } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import {
   type ExtensionWorkspaceSyncMirror,
@@ -94,19 +94,19 @@ export interface ApplyCreateWorkspaceInput {
   description?: string;
   color?: string;
   icon?: string;
-  kind?: V5.ExtensionWorkspaceKind;
+  kind?: ExtensionWorkspaceKind;
 }
 
 export type ApplyCreateWorkspaceResult =
-  | { ok: true; workspace: V5.ExtensionWorkspace }
+  | { ok: true; workspace: ExtensionWorkspace }
   | { ok: false; reason: 'other'; message?: string };
 
 /**
  * Mint a new workspace at the tail of the list. Returns the
- * post-broadcast `V5.ExtensionWorkspace` projection (sortIndex assigned
+ * post-broadcast `ExtensionWorkspace` projection (sortIndex assigned
  * by the post-state) — the caller is expected to await the next mirror
  * tick for the projected entry; this helper returns the synthetic slot
- * mapped to `V5.ExtensionWorkspace` shape so navigation can proceed
+ * mapped to `ExtensionWorkspace` shape so navigation can proceed
  * without a round-trip wait.
  */
 export async function applyCreateWorkspace(
@@ -135,7 +135,7 @@ export async function applyCreateWorkspace(
   // assignment for the new tail position. The mirror will overwrite
   // this on the next broadcast tick.
   const sortIndex = mirror.liveWorkspaces().length;
-  const workspace: V5.ExtensionWorkspace = {
+  const workspace: ExtensionWorkspace = {
     schemaVersion: 5,
     id,
     kind: slot.kind,
@@ -168,7 +168,7 @@ export interface ApplyUpdateWorkspaceInput {
 }
 
 export type ApplyUpdateWorkspaceResult =
-  | { ok: true; workspace: V5.ExtensionWorkspace }
+  | { ok: true; workspace: ExtensionWorkspace }
   | { ok: false; reason: 'not-found' }
   | { ok: false; reason: 'other'; message?: string };
 
@@ -205,7 +205,7 @@ export async function applyUpdateWorkspace(
     return { ok: false, reason: 'other', message: result.reason === 'other' ? result.message : undefined };
   // Project the new slot onto the live shape — sortIndex preserved
   // from the pre-image (rename doesn't change position).
-  const workspace: V5.ExtensionWorkspace = {
+  const workspace: ExtensionWorkspace = {
     schemaVersion: 5,
     id: input.id,
     kind: next.kind,

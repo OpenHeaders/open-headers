@@ -8,7 +8,7 @@
 
 import { closestCenter, DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { useRules } from '@hooks/useRules';
-import type { V5 } from '@openheaders/core/types';
+import type { FolderNode, Rule, TreeNode } from '@openheaders/core/types';
 import { isRuleComplete } from '@openheaders/core/utils';
 import { call } from '@utils/bridge';
 import { Checkbox, Empty, Segmented, Space, theme } from 'antd';
@@ -122,7 +122,7 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
 
     // Folder match — find parent collection
     for (const col of localCollectionTrees) {
-      const walk = (nodes: V5.TreeNode[]): string | null => {
+      const walk = (nodes: TreeNode[]): string | null => {
         for (const n of nodes) {
           if (n.type === 'folder') {
             if (n.uid === entityId) return n.path;
@@ -140,7 +140,7 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
 
   // Get rules for the current scope
   const scopedRules = useMemo(() => {
-    let filtered: V5.Rule[];
+    let filtered: Rule[];
 
     switch (scope) {
       case 'this-page':
@@ -154,7 +154,7 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
         const col = localCollectionTrees.find((c) => c.uid === entityId);
         if (!col) return [];
         const ruleUids = new Set<string>();
-        const collectUids = (nodes: V5.TreeNode[]) => {
+        const collectUids = (nodes: TreeNode[]) => {
           for (const n of nodes) {
             if (n.type === 'rule') ruleUids.add(n.uid);
             else if (n.type === 'folder') collectUids(n.children);
@@ -169,7 +169,7 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
         if (!entityId) return [];
         const folderUids = new Set<string>();
         for (const col of localCollectionTrees) {
-          const findFolder = (nodes: V5.TreeNode[]): V5.FolderNode | null => {
+          const findFolder = (nodes: TreeNode[]): FolderNode | null => {
             for (const n of nodes) {
               if (n.type === 'folder') {
                 if (n.uid === entityId) return n;
@@ -181,7 +181,7 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
           };
           const folder = findFolder(col.tree);
           if (folder) {
-            const collectUids = (nodes: V5.TreeNode[]) => {
+            const collectUids = (nodes: TreeNode[]) => {
               for (const n of nodes) {
                 if (n.type === 'rule') folderUids.add(n.uid);
                 else if (n.type === 'folder') collectUids(n.children);
@@ -214,7 +214,7 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
 
   // Group rules by priority tier
   const rulesByTier = useMemo(() => {
-    const map = new Map<string, V5.Rule[]>();
+    const map = new Map<string, Rule[]>();
     for (const tier of PRIORITY_TIERS) {
       map.set(tier.key, []);
     }

@@ -4,17 +4,17 @@
  * categorical verdict + reason string it renders.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { HeaderRule, Rule, RuleCondition } from '@openheaders/core/types';
 import { getRuleMatchPatterns } from '@openheaders/core/utils';
 import { describe, expect, it } from 'vitest';
 import { computeVerdict, registrableDomainOf } from '@/shared/verdict';
 import type { ObservationSource, TrackedResource } from '@/types/browser';
 
-function hostConditions(domains: string[]): V5.RuleCondition[] {
+function hostConditions(domains: string[]): RuleCondition[] {
   return domains.length > 0 ? [{ uid: 'tcd00067', type: 'request-domains', values: domains }] : [];
 }
 
-function makeRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
+function makeRule(overrides: Partial<HeaderRule> = {}): HeaderRule {
   return {
     schemaVersion: 5,
     uid: `rule-${Math.random().toString(36).slice(2, 6)}`,
@@ -53,7 +53,7 @@ function resource(overrides: {
 // consistently, which identity guarantees trivially.
 const identityNormalize = (u: string) => u;
 
-function callEngine(rule: V5.Rule, tabUrl: string, tracked: Map<string, TrackedResource>, firing = false) {
+function callEngine(rule: Rule, tabUrl: string, tracked: Map<string, TrackedResource>, firing = false) {
   return computeVerdict({
     rule,
     patterns: getRuleMatchPatterns(rule),

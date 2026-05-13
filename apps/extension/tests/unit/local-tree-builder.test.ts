@@ -12,12 +12,12 @@
  * the same shape the SW would emit via `oracle.liveOrderedSetItems`.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, Rule, RuleType, Template } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
 import { buildLocalCollectionTrees, buildTemplateCollectionTrees } from '@/shared/local-tree-builder';
 import type { PersistedLocalFolder } from '@/shared/storage';
 
-const collection = (path: string, name: string): V5.Collection => ({
+const collection = (path: string, name: string): Collection => ({
   schemaVersion: 5,
   uid: `c-${name}`,
   path,
@@ -44,17 +44,17 @@ describe('buildLocalCollectionTrees', () => {
         uid: 'r1',
         path: 'rules/cA/inner/r1',
         name: 'r1',
-        type: 'header' as V5.RuleType,
+        type: 'header' as RuleType,
         enabled: true,
-      } as V5.Rule,
+      } as Rule,
       {
         schemaVersion: 5,
         uid: 'r2',
         path: 'rules/cA/r2',
         name: 'r2',
-        type: 'header' as V5.RuleType,
+        type: 'header' as RuleType,
         enabled: false,
-      } as V5.Rule,
+      } as Rule,
     ];
 
     const trees = buildLocalCollectionTrees(collections, folders, rules);
@@ -86,9 +86,9 @@ describe('buildLocalCollectionTrees', () => {
         uid: 'r-disabled',
         path: 'rules/c/r-disabled',
         name: 'disabled',
-        type: 'block' as V5.RuleType,
+        type: 'block' as RuleType,
         enabled: false,
-      } as V5.Rule,
+      } as Rule,
     ];
     const [tree] = buildLocalCollectionTrees(collections, [], rules);
     const ruleNode = tree.tree[0];
@@ -112,9 +112,9 @@ describe('buildLocalCollectionTrees', () => {
         uid: 'r-orphan',
         path: 'rules/orphan/r-orphan',
         name: 'orphan',
-        type: 'header' as V5.RuleType,
+        type: 'header' as RuleType,
         enabled: true,
-      } as V5.Rule,
+      } as Rule,
     ];
     const [tree] = buildLocalCollectionTrees(collections, folders, rules);
     expect(tree.tree).toEqual([]);
@@ -130,9 +130,9 @@ describe('buildTemplateCollectionTrees', () => {
         uid: 't1',
         path: 'templates/c/t1',
         name: 't1',
-        ruleType: 'header' as V5.RuleType,
+        ruleType: 'header' as RuleType,
         icon: 'star',
-      } as V5.Template,
+      } as Template,
     ];
     const [tree] = buildTemplateCollectionTrees(collections, [], templates);
     const node = tree.tree[0];

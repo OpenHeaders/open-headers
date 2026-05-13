@@ -16,7 +16,7 @@
  * of the five verdict values.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import { doesUrlMatchEntry, type MatchPattern } from '@openheaders/core/utils';
 import type { RuleVerdict, SilentMatchRecord, TrackedResource } from '@/types/browser';
 
@@ -70,7 +70,7 @@ export function registrableDomainOf(url: string): string | null {
 }
 
 export interface VerdictInput {
-  rule: V5.Rule;
+  rule: Rule;
   patterns: MatchPattern[];
   /** Pre-normalized tab URL — caller owns normalization. */
   normalizedTabUrl: string;

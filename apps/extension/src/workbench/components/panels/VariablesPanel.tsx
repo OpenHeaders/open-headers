@@ -36,7 +36,7 @@ import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
 import { isLiveVariableEffective } from '@openheaders/core/live';
-import type { V5 } from '@openheaders/core/types';
+import type { CollectionTree, Request, Rule, Template, TotpAlgorithm, TreeNode, Variable } from '@openheaders/core/types';
 import type { ResolutionError } from '@openheaders/core/variables';
 import { VariableResolver } from '@openheaders/core/variables';
 import { Empty, Tag, Tooltip, Typography, theme } from 'antd';
@@ -131,7 +131,7 @@ interface DisplayVariable {
    *  Codes refresh on a 1Hz tick from the seed; never persisted. */
   totp?: {
     seed: string;
-    algorithm: V5.TotpAlgorithm;
+    algorithm: TotpAlgorithm;
     digits: number;
     period: number;
   };
@@ -199,16 +199,16 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({
   // null for a request's `requests/...` path or a template's
   // `templates/...` path.
   const { activeRule, activeRequest, activeTemplate, activeCollectionId } = useMemo<{
-    activeRule: V5.Rule | null;
-    activeRequest: V5.Request | null;
-    activeTemplate: V5.Template | null;
+    activeRule: Rule | null;
+    activeRequest: Request | null;
+    activeTemplate: Template | null;
     activeCollectionId: string | null;
   }>(() => {
     if (!activeTab)
       return { activeRule: null, activeRequest: null, activeTemplate: null, activeCollectionId: null };
-    let rule: V5.Rule | null = null;
-    let request: V5.Request | null = null;
-    let template: V5.Template | null = null;
+    let rule: Rule | null = null;
+    let request: Request | null = null;
+    let template: Template | null = null;
     if (scopeKind === 'rule' && activeTab.ruleUid) {
       rule = rules.find((r) => r.uid === activeTab.ruleUid) ?? null;
     } else if (scopeKind === 'request' && activeTab.requestUid) {
@@ -217,7 +217,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({
       template = templates.find((t) => t.uid === activeTab.templateUid) ?? null;
     }
 
-    const entityForCollection: V5.Rule | V5.Request | V5.Template | null = rule ?? request ?? template;
+    const entityForCollection: Rule | Request | Template | null = rule ?? request ?? template;
     let collId: string | null = null;
     if (
       (activeTab.mode === 'collection-overview' || activeTab.mode === 'folder-overview') &&
@@ -230,14 +230,14 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({
         collId = activeTab.entityId;
       } else {
         const folderUid = activeTab.entityId;
-        const treeFamilies: ReadonlyArray<readonly V5.CollectionTree[]> = [
+        const treeFamilies: ReadonlyArray<readonly CollectionTree[]> = [
           localCollectionTrees,
           requestCollectionTrees,
           templateCollectionTrees,
         ];
         outer: for (const trees of treeFamilies) {
           for (const col of trees) {
-            const stack: V5.TreeNode[] = [...col.tree];
+            const stack: TreeNode[] = [...col.tree];
             while (stack.length > 0) {
               const node = stack.shift();
               if (!node) break;
@@ -294,7 +294,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({
     if (scopeKind === 'none' && mode === 'in-context') setMode('all');
   }, [activeTab, scopeKind, mode]);
 
-  const contextEntity: V5.Rule | V5.Request | V5.Template | null = activeRule ?? activeRequest ?? activeTemplate;
+  const contextEntity: Rule | Request | Template | null = activeRule ?? activeRequest ?? activeTemplate;
   const contextEntityName = activeRule?.name ?? activeRequest?.name ?? activeTemplate?.name ?? null;
 
   // LiveRegistry mirrors the SW's `buildLiveRegistry`: enabled LVs
@@ -525,7 +525,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({
         resolved: s.value !== '',
       };
     });
-    const envList: V5.Variable[] = activeEnvironmentId
+    const envList: Variable[] = activeEnvironmentId
       ? (environments.find((e) => e.uid === activeEnvironmentId)?.variables ?? [])
       : [];
     const envDisplay: DisplayVariable[] = envList.map((v) => ({

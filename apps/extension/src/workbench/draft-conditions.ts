@@ -11,11 +11,11 @@
  * draft-URL strategy.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { RuleCondition, RuleDraftBase } from '@openheaders/core/types';
 import { type DraftUrlStrategy, deriveUrlFilter } from '@openheaders/core/utils';
 
-export function buildDraftConditions(draft: V5.RuleDraftBase, strategy: DraftUrlStrategy): V5.RuleCondition[] {
-  const conditions: V5.RuleCondition[] = [];
+export function buildDraftConditions(draft: RuleDraftBase, strategy: DraftUrlStrategy): RuleCondition[] {
+  const conditions: RuleCondition[] = [];
   const resolvedFilter = draft.urlFilter ?? (draft.url ? deriveUrlFilter(draft.url, strategy) : undefined);
   if (resolvedFilter) {
     conditions.push({ uid: 'sct00027', type: 'url-filter', values: [resolvedFilter] });

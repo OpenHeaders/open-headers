@@ -5,7 +5,7 @@
  */
 
 import { useMemo } from 'react';
-import type { V5 } from '@openheaders/core/types';
+import type { Template } from '@openheaders/core/types';
 import {
   applyTemplateCreate,
   applyTemplateDelete,
@@ -25,7 +25,7 @@ export interface UseTemplateMutatorOptions {
 
 export interface UseTemplateMutatorApi {
   updateTemplate(templateUid: string, updates: TemplateUpdates): Promise<TemplateMutationResult>;
-  createTemplate(template: V5.Template): Promise<TemplateSimpleResult>;
+  createTemplate(template: Template): Promise<TemplateSimpleResult>;
   deleteTemplate(templateUid: string): Promise<TemplateSimpleResult>;
 }
 
@@ -42,7 +42,7 @@ export function useTemplateMutator(opts: UseTemplateMutatorOptions): UseTemplate
   const createTemplate = useGuardedMutation(
     workspaceId,
     surfaceId,
-    (writeOpts, template: V5.Template) => applyTemplateCreate(template, writeOpts),
+    (writeOpts, template: Template) => applyTemplateCreate(template, writeOpts),
   );
 
   const deleteTemplate = useGuardedMutation(

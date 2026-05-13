@@ -21,7 +21,7 @@
  */
 
 import { EnvironmentSchema, VaultSchema, WorkspaceVariablesSchema } from '@openheaders/core/schemas';
-import type { V5 } from '@openheaders/core/types';
+import type { Environment, Variable, Vault, WorkspaceVariables } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 import {
@@ -40,7 +40,7 @@ import { getActiveWorkspaceId } from './workspace-store';
 
 // ── In-memory state ─────────────────────────────────────────────────
 
-let environments: V5.Environment[] = [];
+let environments: Environment[] = [];
 let activeEnvironmentId: string | null = null;
 let defaultEnvironmentId: string | null = null;
 let collectionEnvOverrides: Record<string, string | null> = {};
@@ -51,8 +51,8 @@ let collectionEnvOverrides: Record<string, string | null> = {};
 let manualEnvId: string | null = null;
 // Workspace-scoped singletons — Phase B retired the OCC counter (§24);
 // concurrent edits reconcile through HLC LWW at the oracle.
-let workspaceVariables: V5.WorkspaceVariables = { schemaVersion: 5, variables: [] };
-let vault: V5.Vault = { schemaVersion: 5, secrets: [] };
+let workspaceVariables: WorkspaceVariables = { schemaVersion: 5, variables: [] };
+let vault: Vault = { schemaVersion: 5, secrets: [] };
 let loadedWorkspaceId: string | null = null;
 
 // ── Change listeners ────────────────────────────────────────────────
@@ -96,7 +96,7 @@ function notifyActiveChange(newId: string | null, prevId: string | null): void {
 
 // ── Reads ───────────────────────────────────────────────────────────
 
-export function getEnvironments(): V5.Environment[] {
+export function getEnvironments(): Environment[] {
   return environments;
 }
 
@@ -104,7 +104,7 @@ export function getActiveEnvironmentId(): string | null {
   return activeEnvironmentId;
 }
 
-export function getActiveEnvironment(): V5.Environment | null {
+export function getActiveEnvironment(): Environment | null {
   if (!activeEnvironmentId) return null;
   return environments.find((e) => e.uid === activeEnvironmentId) ?? null;
 }
@@ -113,7 +113,7 @@ export function getDefaultEnvironmentId(): string | null {
   return defaultEnvironmentId;
 }
 
-export function getDefaultEnvironment(): V5.Environment | null {
+export function getDefaultEnvironment(): Environment | null {
   if (!defaultEnvironmentId) return null;
   return environments.find((e) => e.uid === defaultEnvironmentId) ?? null;
 }
@@ -126,11 +126,11 @@ export function getManualEnvId(): string | null {
   return manualEnvId;
 }
 
-export function getWorkspaceVariables(): V5.WorkspaceVariables {
+export function getWorkspaceVariables(): WorkspaceVariables {
   return workspaceVariables;
 }
 
-export function getVault(): V5.Vault {
+export function getVault(): Vault {
   return vault;
 }
 
@@ -142,17 +142,17 @@ export function getVault(): V5.Vault {
 // empty / null when no service is materialized for the workspace —
 // the chain dispatch fails cleanly upstream.
 
-export function getEnvironmentsForWorkspace(workspaceId: string): V5.Environment[] {
+export function getEnvironmentsForWorkspace(workspaceId: string): Environment[] {
   const cache = getCacheForWorkspace<EnvironmentCache>(ENVIRONMENT_REGISTRATION, workspaceId);
   return cache ? cache.getEnvironments() : [];
 }
 
-export function getVaultForWorkspace(workspaceId: string): V5.Vault {
+export function getVaultForWorkspace(workspaceId: string): Vault {
   const cache = getCacheForWorkspace<VaultCache>(VAULT_REGISTRATION, workspaceId);
   return cache ? cache.getVault() : { schemaVersion: 5, secrets: [] };
 }
 
-export function getWorkspaceVariablesForWorkspace(workspaceId: string): V5.WorkspaceVariables {
+export function getWorkspaceVariablesForWorkspace(workspaceId: string): WorkspaceVariables {
   const cache = getCacheForWorkspace<WorkspaceVariablesCache>(WORKSPACE_VARIABLES_REGISTRATION, workspaceId);
   return cache ? cache.getWorkspaceVariables() : { schemaVersion: 5, variables: [] };
 }
@@ -179,8 +179,8 @@ function assertLoaded(): string {
   return loadedWorkspaceId;
 }
 
-export function createEnvironment(name: string, variables: V5.Variable[] = []): V5.Environment {
-  const env: V5.Environment = {
+export function createEnvironment(name: string, variables: Variable[] = []): Environment {
+  const env: Environment = {
     schemaVersion: 5,
     uid: generateUid(),
     name: name.trim() || 'Untitled Environment',
@@ -195,7 +195,7 @@ export function createEnvironment(name: string, variables: V5.Variable[] = []): 
  * Outcome of an environment write. Phase B retired the stale-draft
  * branch (§24) — concurrent edits reconcile via HLC LWW at the oracle.
  */
-export type EnvironmentWriteResult = { ok: true; environment: V5.Environment } | { ok: false; reason: 'not-found' };
+export type EnvironmentWriteResult = { ok: true; environment: Environment } | { ok: false; reason: 'not-found' };
 
 export async function renameEnvironment(uid: string, name: string): Promise<EnvironmentWriteResult> {
   const workspaceId = assertLoaded();
@@ -205,7 +205,7 @@ export async function renameEnvironment(uid: string, name: string): Promise<Envi
       const idx = environments.findIndex((e) => e.uid === uid);
       if (idx === -1) return { ok: false, reason: 'not-found' };
       const existing = environments[idx];
-      const updated: V5.Environment = {
+      const updated: Environment = {
         ...existing,
         name: name.trim() || existing.name,
       };
@@ -219,7 +219,7 @@ export async function renameEnvironment(uid: string, name: string): Promise<Envi
 
 export async function updateEnvironmentVariables(
   uid: string,
-  variables: V5.Variable[],
+  variables: Variable[],
 ): Promise<EnvironmentWriteResult> {
   const workspaceId = assertLoaded();
   return withLock(
@@ -228,7 +228,7 @@ export async function updateEnvironmentVariables(
       const idx = environments.findIndex((e) => e.uid === uid);
       if (idx === -1) return { ok: false, reason: 'not-found' };
       const existing = environments[idx];
-      const updated: V5.Environment = { ...existing, variables };
+      const updated: Environment = { ...existing, variables };
       environments = [...environments.slice(0, idx), updated, ...environments.slice(idx + 1)];
       await persistEnvironments();
       return { ok: true, environment: updated };
@@ -296,7 +296,7 @@ export async function deleteEnvironment(uid: string): Promise<boolean> {
 
 function reconcileOverrides(
   overrides: Record<string, string | null>,
-  envs: V5.Environment[],
+  envs: Environment[],
 ): Record<string, string | null> {
   const known = new Set(envs.map((e) => e.uid));
   const result: Record<string, string | null> = {};
@@ -440,11 +440,11 @@ async function persistManualEnvId(): Promise<void> {
 // ── Hydration / workspace switch ───────────────────────────────────
 
 interface WorkspaceSnapshot {
-  environments: V5.Environment[];
+  environments: Environment[];
   activeEnvironmentId: string | null;
   defaultEnvironmentId: string | null;
-  workspaceVariables: V5.WorkspaceVariables;
-  vault: V5.Vault;
+  workspaceVariables: WorkspaceVariables;
+  vault: Vault;
   collectionEnvOverrides: Record<string, string | null>;
   manualEnvId: string | null;
 }
@@ -507,7 +507,7 @@ async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnap
  * Reconcile persisted pointer ids against the loaded environment list.
  * Drops any stale id whose env no longer exists.
  */
-function reconcilePointer(persisted: string | null, envs: V5.Environment[]): string | null {
+function reconcilePointer(persisted: string | null, envs: Environment[]): string | null {
   return persisted && envs.some((e) => e.uid === persisted) ? persisted : null;
 }
 

@@ -20,7 +20,7 @@ import { CopyOutlined, DeleteOutlined, EditOutlined, HolderOutlined, PlusOutline
 import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { V5 } from '@openheaders/core/types';
+import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { App as AntApp, Button, Form, Input, Modal, Space, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useState } from 'react';
@@ -51,7 +51,7 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
   const { token } = theme.useToken();
   const { message, modal } = AntApp.useApp();
   const [createOpen, setCreateOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<V5.ExtensionWorkspace | null>(null);
+  const [editTarget, setEditTarget] = useState<ExtensionWorkspace | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   const canDelete = api.workspaces.length > 1;
@@ -71,7 +71,7 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
   );
 
   const handleDelete = useCallback(
-    (workspace: V5.ExtensionWorkspace) => {
+    (workspace: ExtensionWorkspace) => {
       modal.confirm({
         title: `Delete "${workspace.name}"?`,
         content:
@@ -89,7 +89,7 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
   );
 
   const handleDuplicate = useCallback(
-    async (workspace: V5.ExtensionWorkspace) => {
+    async (workspace: ExtensionWorkspace) => {
       const created = await api.duplicateWorkspace(workspace.id);
       if (created) message.success(`Duplicated "${workspace.name}"`);
       else message.error('Failed to duplicate workspace');
@@ -192,7 +192,7 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
 // ── Sortable row ─────────────────────────────────────────────────────
 
 interface SortableRowProps {
-  workspace: V5.ExtensionWorkspace;
+  workspace: ExtensionWorkspace;
   isActive: boolean;
   canDelete: boolean;
   onEdit: () => void;
@@ -332,7 +332,7 @@ interface WorkspaceFormModalProps {
   open: boolean;
   title: string;
   okText: string;
-  initial?: V5.ExtensionWorkspace;
+  initial?: ExtensionWorkspace;
   onCancel: () => void;
   onSubmit: (values: WorkspaceFormValues) => Promise<boolean>;
 }

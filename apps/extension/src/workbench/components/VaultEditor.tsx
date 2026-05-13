@@ -26,7 +26,7 @@
 import { useVariableMutator } from '@hooks/useVariableMutator';
 import { useVault } from '@hooks/useVault';
 import { VAULT_ENTITY_TYPE, VAULT_ID } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Vault, VaultSecret } from '@openheaders/core/types';
 import { Alert, App, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -53,9 +53,9 @@ interface VaultEditorProps {
   registerSaveRef?: (save: () => void) => void;
 }
 
-const EMPTY_SECRETS: V5.VaultSecret[] = [];
+const EMPTY_SECRETS: VaultSecret[] = [];
 
-function secretsSignature(secrets: readonly V5.VaultSecret[]): string {
+function secretsSignature(secrets: readonly VaultSecret[]): string {
   return stableStringify(secrets);
 }
 
@@ -65,7 +65,7 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
   const { vault } = useVault();
   const { replaceVault } = useVariableMutator();
 
-  const [draft, setDraft] = useState<V5.VaultSecret[]>(() => vault.secrets ?? EMPTY_SECRETS);
+  const [draft, setDraft] = useState<VaultSecret[]>(() => vault.secrets ?? EMPTY_SECRETS);
   const formFingerprint = useMemo(() => secretsSignature(draft), [draft]);
   const liveVaultWithUid = useMemo(() => ({ ...vault, uid: VAULT_ID }), [vault]);
 
@@ -73,12 +73,12 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
   // EnvironmentEditor): conflict tracker reads `isDirty` from reprime,
   // reprime's `onPrimed` advances the tracker's baseline. Break the
   // ordering cycle with a ref.
-  const setBaselineRef = useRef<(e: V5.Vault & { uid: string }) => void>(() => undefined);
+  const setBaselineRef = useRef<(e: Vault & { uid: string }) => void>(() => undefined);
   // Snapshot of secrets at the most recent re-prime — feeds the
   // merge-editor preview's Show Base layouts via `baseText`.
-  const baselineSecretsRef = useRef<readonly V5.VaultSecret[] | null>(null);
+  const baselineSecretsRef = useRef<readonly VaultSecret[] | null>(null);
 
-  const reprime = useReprime<V5.Vault>({
+  const reprime = useReprime<Vault>({
     liveEntity: vault,
     scope: { entityType: VAULT_ENTITY_TYPE, entityId: VAULT_ID },
     enabled: true,
@@ -108,7 +108,7 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
   // still surfaces them — the apply returning false leaves the chip up.
   const applyAutoMerge = useCallback(
     (path: string, theirs: string) => {
-      const transient = { uid: VAULT_ID, schemaVersion: vault.schemaVersion, secrets: [...draft] } as V5.Vault & {
+      const transient = { uid: VAULT_ID, schemaVersion: vault.schemaVersion, secrets: [...draft] } as Vault & {
         uid: string;
       };
       if (!vaultResolveAdapter.applyResolutionToEntity(transient, path, { base: '', theirs })) return;
@@ -128,7 +128,7 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
       getLeafConflict: (path, local) => conflicts.getConflict(path, local),
       getSetConflict: (setPath, uid, formContainsUid) => conflicts.getSetConflict(setPath, uid, formContainsUid),
       onAcceptTheirs: (path, theirs) => {
-        const transient = { uid: VAULT_ID, schemaVersion: vault.schemaVersion, secrets: [...draft] } as V5.Vault & {
+        const transient = { uid: VAULT_ID, schemaVersion: vault.schemaVersion, secrets: [...draft] } as Vault & {
           uid: string;
         };
         // Only dismiss the chip when the apply succeeded. Kind-transition leaf
@@ -146,8 +146,8 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
   );
 
   const projectWithResolutions = useCallback(
-    (resolutions: ReadonlyMap<string, ConflictResolution>): V5.Vault & { uid: string } => {
-      const transient = { uid: VAULT_ID, schemaVersion: vault.schemaVersion, secrets: [...draft] } as V5.Vault & {
+    (resolutions: ReadonlyMap<string, ConflictResolution>): Vault & { uid: string } => {
+      const transient = { uid: VAULT_ID, schemaVersion: vault.schemaVersion, secrets: [...draft] } as Vault & {
         uid: string;
       };
       for (const [path, choice] of resolutions) {
@@ -180,7 +180,7 @@ const VaultEditor: React.FC<VaultEditorProps> = ({ onDirtyChange, registerSaveRe
     (text: string) => {
       const parsed = JSON.parse(text);
       if (!Array.isArray(parsed)) throw new Error('Vault secrets must be a JSON array.');
-      setDraft(parsed as V5.VaultSecret[]);
+      setDraft(parsed as VaultSecret[]);
       for (const path of allConflicts.keys()) conflicts.dismiss(path);
     },
     [allConflicts, conflicts, setDraft],

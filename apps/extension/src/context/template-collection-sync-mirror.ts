@@ -2,13 +2,13 @@
  * Renderer-side template-collection sync mirror.
  *
  * Thin adapter over {@link createFlatEntityMirror}. Each entry carries
- * the materialized `V5.Collection`, the live `varUids` (set-member
+ * the materialized `Collection`, the live `varUids` (set-member
  * identity for template-collection vars), and the parent-owned `folders`
  * set order keys.
  */
 
 import { TEMPLATE_COLLECTION_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection } from '@openheaders/core/types';
 import { call } from '@utils/bridge';
 import {
   createFlatEntityMirror,
@@ -17,7 +17,7 @@ import {
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 
 export interface TemplateCollectionMirrorEntry {
-  collection: V5.Collection;
+  collection: Collection;
   /** Live variable uids — set-member identity for template-collection vars. */
   varUids: string[];
   /** Per-set ordered `(itemId, orderKey)` pairs. Carries the parent's
@@ -29,7 +29,7 @@ export type TemplateCollectionMirrorListener = (collectionUid: string) => void;
 
 export interface TemplateCollectionSyncMirror {
   getTemplateCollectionMirror(collectionUid: string): TemplateCollectionMirrorEntry | null;
-  listTemplateCollections(): V5.Collection[];
+  listTemplateCollections(): Collection[];
   liveOrderedSetItems(
     collectionUid: string,
     setPath: string,

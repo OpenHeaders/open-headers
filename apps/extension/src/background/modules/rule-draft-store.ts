@@ -43,12 +43,12 @@
  */
 
 import { RuleDraftSchema } from '@openheaders/core/schemas';
-import type { V5 } from '@openheaders/core/types';
+import type { RuleDraft } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import * as v from 'valibot';
 
 interface StoredDraft {
-  draft: V5.RuleDraft;
+  draft: RuleDraft;
   createdAt: number;
   evictionTimer: ReturnType<typeof setTimeout>;
 }
@@ -95,7 +95,7 @@ export function createRuleDraft(rawDraft: unknown): string {
  * expected to be immutable from other code, so a second parse is
  * defense-in-depth without being expensive.
  */
-export function takeRuleDraft(nonce: string): V5.RuleDraft | null {
+export function takeRuleDraft(nonce: string): RuleDraft | null {
   const entry = drafts.get(nonce);
   if (!entry) return null;
   clearTimeout(entry.evictionTimer);

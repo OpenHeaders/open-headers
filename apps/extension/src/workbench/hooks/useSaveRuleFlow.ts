@@ -9,7 +9,7 @@
  * matches "opened an existing rule".
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, Rule } from '@openheaders/core/types';
 import { useCallback, useState } from 'react';
 import {
   applyRuleCreate,
@@ -23,7 +23,7 @@ interface UseSaveRuleFlowOptions {
   surfaceId: string;
   /** Local rule collections — used for fast-path collectionId → path
    *  resolution when the draft tab pinned a preferred destination. */
-  localCollections: V5.Collection[];
+  localCollections: Collection[];
   replaceTab: (oldId: string, newTab: WorkbenchTab) => void;
 }
 
@@ -41,11 +41,11 @@ export interface SaveRuleFlowApi {
  * with name surfaced separately so the modal can prefill the naming
  * input.
  */
-export type RuleDraftData = Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion' | 'published'>;
+export type RuleDraftData = Omit<Rule, 'uid' | 'path' | 'schemaVersion' | 'published'>;
 
 function buildEditTab(
   oldTabId: string,
-  created: V5.Rule,
+  created: Rule,
   replaceTab: (oldId: string, newTab: WorkbenchTab) => void,
 ): void {
   const editId = `edit-${created.uid}`;
@@ -70,7 +70,7 @@ async function persist(
   replaceTab: (oldId: string, newTab: WorkbenchTab) => void,
 ): Promise<RuleMutationResult> {
   const result = await applyRuleCreate(
-    { rule: draft as Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>, parentPath },
+    { rule: draft as Omit<Rule, 'uid' | 'path' | 'schemaVersion'>, parentPath },
     { workspaceId, surfaceId },
   );
   if (result.ok) buildEditTab(tabId, result.rule, replaceTab);

@@ -13,7 +13,7 @@ import {
   WORKSPACE_VARIABLES_ID,
   WORKSPACE_VARIABLES_PATH,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Variable, WorkspaceVariables } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@/background/sync/broadcast';
 import { InMemoryMutationLog } from '@/background/sync/mutation-log';
@@ -34,7 +34,7 @@ const ctx = (ms: number): MutatorContext => ({
   deviceId: 'd',
 });
 
-const makeWorkspaceVars = (vars: V5.Variable[]): V5.WorkspaceVariables => ({
+const makeWorkspaceVars = (vars: Variable[]): WorkspaceVariables => ({
   schemaVersion: 5,
   variables: vars,
 });

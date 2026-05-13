@@ -1,9 +1,9 @@
 /**
- * Template projection — `V5.Template ⇄ MutationBatch / MaterializedEntity`.
+ * Template projection — `Template ⇄ MutationBatch / MaterializedEntity`.
  *
  * Parallel to {@link request-projection}: the template mutator catalog
  * treats `conditions` as a **set** (per-row addToSet with synthetic
- * itemIds), while `V5.Template` persists it as a plain array without
+ * itemIds), while `Template` persists it as a plain array without
  * per-item identifiers.
  *
  * The generic `create` mutation flattens any array to numeric-indexed
@@ -20,14 +20,14 @@
  * `seedRequest` (session 39). `projectTemplate` is the inverse: read
  * the oracle's MaterializedEntity (which already carries the array
  * form for set-modeled paths and scalars elsewhere) and return a
- * `V5.Template`.
+ * `Template`.
  *
  * `formValues` and `includes` ride the create payload as scalars per
  * the catalog's v1 trade-off (whole-object replacement; per-field LWW
  * within either would need branch-aware paths).
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Template } from '@openheaders/core/types';
 import {
   type MaterializedEntity,
   mintBatch,
@@ -39,11 +39,11 @@ import {
 } from '@openheaders/core/sync';
 
 /**
- * Convert a persisted V5.Template into a `MutationBatch` of one `create`
+ * Convert a persisted Template into a `MutationBatch` of one `create`
  * for the scalar shell, plus one `addToSet` per condition. Per-batch
  * all-or-nothing under the oracle's lock.
  */
-export function seedTemplate(template: V5.Template, ctx: MutatorContext): MutationBatch {
+export function seedTemplate(template: Template, ctx: MutatorContext): MutationBatch {
   const conditions: unknown[] = [];
   const scalarShell = stripConditions(template, conditions);
 
@@ -81,20 +81,20 @@ function readUid(item: unknown): string {
 
 /**
  * Convert a `MaterializedEntity` (the oracle's per-template snapshot)
- * back into a `V5.Template`. Returns `null` when the materialized data
+ * back into a `Template`. Returns `null` when the materialized data
  * fails basic shape checks — callers persist the template only when
  * projection succeeds.
  */
-export function projectTemplate(materialized: MaterializedEntity): V5.Template | null {
+export function projectTemplate(materialized: MaterializedEntity): Template | null {
   if (materialized.type !== TEMPLATE_ENTITY_TYPE) return null;
   const data = materialized.data;
   if (!isPlainObject(data)) return null;
-  return data as V5.Template;
+  return data as Template;
 }
 
 // ── internals ─────────────────────────────────────────────────────
 
-function stripConditions(template: V5.Template, out: unknown[]): unknown {
+function stripConditions(template: Template, out: unknown[]): unknown {
   const shell = JSON.parse(JSON.stringify(template)) as Record<string, unknown>;
   const conds = shell[TEMPLATE_CONDITIONS_PATH];
   if (Array.isArray(conds)) {

@@ -15,7 +15,7 @@
  */
 
 import { CheckCircleFilled, CheckCircleOutlined, ExportOutlined, ImportOutlined, SettingOutlined } from '@ant-design/icons';
-import type { V5 } from '@openheaders/core/types';
+import type { ExtensionWorkspace } from '@openheaders/core/types';
 import type { InputRef } from 'antd';
 import { Divider, Input, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -28,7 +28,7 @@ const { Text } = Typography;
 export type WorkspaceDropdownMode = 'workbench' | 'system';
 
 export interface WorkspaceDropdownBodyProps {
-  workspaces: V5.ExtensionWorkspace[];
+  workspaces: ExtensionWorkspace[];
   /** Editing-scope (selected) workspace id for this surface. */
   selectedId: string | null;
   /** Globally active workspace id (the one popup/sidepanel/devpanel follow). */

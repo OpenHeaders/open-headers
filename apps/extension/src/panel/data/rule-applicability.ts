@@ -14,7 +14,7 @@
  * `useVariableResolver` and `rulesByUid` hooks.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import { doesUrlMatchRule, getRuleMatchPatterns } from '@openheaders/core/utils';
 import { resolveRuleConditions, type VariableResolver } from '@openheaders/core/variables';
 import { findCurrentMod, type RuleAttributionContext } from './header-attribution';
@@ -53,7 +53,7 @@ export interface ApplicabilityInputs {
    * snapshot; the function never reaches into a cached struct (the
    * attribution context is historical-only — see `header-attribution.ts`).
    */
-  liveRule: V5.Rule | null;
+  liveRule: Rule | null;
   ctx: RuleAttributionContext;
   /** URL of the request whose row this popover anchors. */
   url: string;

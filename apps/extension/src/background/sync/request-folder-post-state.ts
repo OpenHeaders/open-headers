@@ -11,7 +11,7 @@ import {
   REQUEST_FOLDER_CHILDREN_PATH,
   REQUEST_FOLDER_ENTITY_TYPE,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Folder } from '@openheaders/core/types';
 import { projectRequestCollection } from '@/shared/sync/request-collection-projection';
 import { projectRequestFolder } from '@/shared/sync/request-folder-projection';
 import {
@@ -43,6 +43,6 @@ export function projectRequestFolderByUid(oracle: Reads, folderUid: string): Syn
   return projectFolderByUidGeneric(oracle, folderUid, KINDS);
 }
 
-export function projectAllRequestFolders(oracle: Reads): V5.Folder[] {
+export function projectAllRequestFolders(oracle: Reads): Folder[] {
   return projectAllFoldersGeneric(oracle, KINDS);
 }

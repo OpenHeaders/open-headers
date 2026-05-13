@@ -15,7 +15,7 @@
  * state is exposed via `aria-disabled` + the native `disabled` property.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { LiveWorkflow } from '@openheaders/core/types';
 import { cleanup, render, screen } from '@testing-library/react';
 import { App } from 'antd';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -58,7 +58,7 @@ beforeAll(() => {
 // Each mock provides the minimum slice LiveWorkflowEditor reads. The
 // module paths match the `@hooks/*` alias configured in the extension
 // package's vite / tsconfig.
-const workflowFixture: V5.LiveWorkflow = {
+const workflowFixture: LiveWorkflow = {
   schemaVersion: 5,
   uid: 'wftestfxt',
   path: 'live-workflows/test-fixture-wftestfxt',

@@ -11,7 +11,7 @@
  * content edits.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Template } from '@openheaders/core/types';
 import {
   getTemplateSyncMirrorForWorkspace,
   type TemplateSyncMirror,
@@ -29,10 +29,10 @@ import {
   buildUpdateBatch,
 } from '@/shared/sync/template-mutations';
 
-export type TemplateUpdates = Partial<Omit<V5.Template, 'uid' | 'path' | 'schemaVersion'>>;
+export type TemplateUpdates = Partial<Omit<Template, 'uid' | 'path' | 'schemaVersion'>>;
 
 export type TemplateMutationResult =
-  | { ok: true; template: V5.Template }
+  | { ok: true; template: Template }
   | { ok: false; reason: 'not-found' }
   | { ok: false; reason: 'other'; message?: string };
 
@@ -68,14 +68,14 @@ export async function applyTemplateUpdate(
   });
   const ack = await applySyncPayload(payload);
   if (ack.ok) {
-    return { ok: true, template: { ...entry.template, ...updates } as V5.Template };
+    return { ok: true, template: { ...entry.template, ...updates } as Template };
   }
   if (ack.reason === 'not-found') return { ok: false, reason: 'not-found' };
   return { ok: false, reason: 'other', message: ack.message };
 }
 
 export async function applyTemplateCreate(
-  template: V5.Template,
+  template: Template,
   opts: TemplateWriteOptions,
 ): Promise<TemplateSimpleResult> {
   const ctx = resolveRendererContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
@@ -91,7 +91,7 @@ export async function applyTemplateCreate(
  * the synthesizer falls back to its content-unequal branch.
  */
 function resolveTemplateRows(
-  template: V5.Template | undefined,
+  template: Template | undefined,
   path: string,
 ): ReadonlyArray<{ uid: string }> | null {
   if (!template) return null;

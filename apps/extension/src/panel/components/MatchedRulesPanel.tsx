@@ -11,7 +11,7 @@
  */
 
 import { useMemo } from 'react';
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import { createPanelHeaderWiring, PanelHeader } from '@/shared/dock-layout';
 import { type InspectorFire, type InspectorRequest, isAppliedFire } from '../data/types';
 import type { RulesByUid } from '../data/use-rules-lookup';
@@ -23,11 +23,11 @@ interface MatchedRulesPanelProps {
   onClose: () => void;
 }
 
-function formatRuleType(rule: V5.Rule): string {
+function formatRuleType(rule: Rule): string {
   return formatRuleTypeFromSnapshot(rule.type);
 }
 
-function formatRuleTypeFromSnapshot(type: V5.Rule['type']): string {
+function formatRuleTypeFromSnapshot(type: Rule['type']): string {
   switch (type) {
     case 'header':
       return 'Header';
@@ -56,7 +56,7 @@ function formatRuleTypeFromSnapshot(type: V5.Rule['type']): string {
  * preference, editing a rule would silently rewrite the action lines
  * shown for past fires.
  */
-function describeHeaderActions(fire: InspectorFire, rule: V5.Rule | undefined): string[] {
+function describeHeaderActions(fire: InspectorFire, rule: Rule | undefined): string[] {
   const snapshot = fire.ruleSnapshot;
   if (snapshot && snapshot.type === 'header' && snapshot.headerMods) {
     const lines: string[] = [];
@@ -80,7 +80,7 @@ function describeHeaderActions(fire: InspectorFire, rule: V5.Rule | undefined): 
 
 interface FireRowProps {
   fire: InspectorFire;
-  rule: V5.Rule | undefined;
+  rule: Rule | undefined;
 }
 
 /** Power-user evidence label — distinguishes the *source* of the

@@ -9,7 +9,7 @@ import {
   FOLDER_ENTITY_TYPE,
   type FolderParentRef,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, Folder } from '@openheaders/core/types';
 import { type PersistedLocalFolder, wsKeys } from '@/shared/storage';
 import { buildCreateFolderBatch } from '@/shared/sync/folder-mutations';
 import type { InMemoryBroadcast } from './broadcast';
@@ -22,8 +22,8 @@ export type FolderCacheListener = () => void;
 
 export interface FolderCache {
   readonly workspaceId: string;
-  getFolders(): V5.Folder[];
-  seedFromPersistedFolders(folders: PersistedLocalFolder[], collections: V5.Collection[]): Promise<void>;
+  getFolders(): Folder[];
+  seedFromPersistedFolders(folders: PersistedLocalFolder[], collections: Collection[]): Promise<void>;
   hydrateFromStorage(): Promise<void>;
   onChange(listener: FolderCacheListener): () => void;
   dispose(): void;

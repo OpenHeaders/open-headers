@@ -12,7 +12,7 @@ import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { useRuleMutator } from '@hooks/useRuleMutator';
 import { useRules } from '@hooks/useRules';
 import { useVariableResolver } from '@hooks/useVariableResolver';
-import type { V5 } from '@openheaders/core/types';
+import type { CollectionTree, FolderNode, Rule, RuleCondition, RuleType, TreeNode } from '@openheaders/core/types';
 import type { PauseMarkers } from '@openheaders/core/utils';
 import { type ActionDetail, getActionDetail, isRuleComplete, isRuleDraft } from '@openheaders/core/utils';
 import type { VariableResolver } from '@openheaders/core/variables';
@@ -40,10 +40,10 @@ interface CollectionTreeRecord {
   path: string;
   name: string;
   nodeType: 'collection' | 'folder' | 'rule';
-  ruleType?: V5.RuleType;
+  ruleType?: RuleType;
   actionDetail?: ActionDetail;
   domains?: string[];
-  conditions?: V5.RuleCondition[];
+  conditions?: RuleCondition[];
   isEnabled?: boolean;
   isComplete?: boolean;
   /** True for unpublished rules — derived from `isRuleDraft(rule)`.
@@ -61,7 +61,7 @@ interface CollectionTreeRecord {
 
 // ── Helpers ─────────────────────────────────────────────────────
 
-function countRules(nodes: V5.TreeNode[]): { total: number; enabled: number } {
+function countRules(nodes: TreeNode[]): { total: number; enabled: number } {
   let total = 0;
   let enabled = 0;
   for (const node of nodes) {
@@ -95,8 +95,8 @@ function resolveNodeState(
 }
 
 function treeNodesToRecords(
-  nodes: V5.TreeNode[],
-  rules: V5.Rule[],
+  nodes: TreeNode[],
+  rules: Rule[],
   pauseMarkers: PauseMarkers,
   inherited: boolean,
   resolver: VariableResolver,
@@ -159,8 +159,8 @@ function treeNodesToRecords(
 }
 
 function collectionTreesToRecords(
-  trees: V5.CollectionTree[],
-  rules: V5.Rule[],
+  trees: CollectionTree[],
+  rules: Rule[],
   pauseMarkers: PauseMarkers,
   resolver: VariableResolver,
 ): CollectionTreeRecord[] {
@@ -363,7 +363,7 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
       // Walk the live V5 trees to find this node and collect every rule under it,
       // not the CollectionTreeRecord (which may be filtered by the search box).
       const uids: string[] = [];
-      const walk = (nodes: V5.TreeNode[]) => {
+      const walk = (nodes: TreeNode[]) => {
         for (const n of nodes) {
           if (n.type === 'rule') uids.push(n.uid);
           else if (n.type === 'folder') walk(n.children);
@@ -375,7 +375,7 @@ const CollectionManager: React.FC<CollectionManagerProps> = ({
           return uids;
         }
         // Recursively search for a folder with this uid
-        const findFolder = (nodes: V5.TreeNode[]): V5.FolderNode | null => {
+        const findFolder = (nodes: TreeNode[]): FolderNode | null => {
           for (const n of nodes) {
             if (n.type === 'folder') {
               if (n.uid === record.uid) return n;

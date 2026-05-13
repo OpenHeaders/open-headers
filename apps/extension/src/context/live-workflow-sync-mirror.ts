@@ -7,7 +7,7 @@
  */
 
 import { LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { LiveWorkflow } from '@openheaders/core/types';
 import { call } from '@utils/bridge';
 import {
   createFlatEntityMirror,
@@ -16,14 +16,14 @@ import {
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 
 export interface LiveWorkflowMirrorEntry {
-  workflow: V5.LiveWorkflow;
+  workflow: LiveWorkflow;
 }
 
 export type LiveWorkflowMirrorListener = (uid: string) => void;
 
 export interface LiveWorkflowSyncMirror {
   getLiveWorkflowMirror(uid: string): LiveWorkflowMirrorEntry | null;
-  listLiveWorkflows(): V5.LiveWorkflow[];
+  listLiveWorkflows(): LiveWorkflow[];
   subscribeLiveWorkflowMirror(uid: string, listener: LiveWorkflowMirrorListener): () => void;
   subscribeAny(listener: LiveWorkflowMirrorListener): () => void;
   hydrated: Promise<void>;

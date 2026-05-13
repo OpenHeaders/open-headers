@@ -32,7 +32,7 @@
  */
 
 import { generateTotp } from '@openheaders/core/totp';
-import type { V5 } from '@openheaders/core/types';
+import type { Vault, VaultSecretTotp } from '@openheaders/core/types';
 import { EMPTY_TOTP_REGISTRY, type TotpRegistry } from '@openheaders/core/variables';
 import { logger } from '@utils/logger';
 import { getVault, onEnvironmentStoreChange } from './environment-store';
@@ -57,8 +57,8 @@ export function getCachedTotpCodes(): TotpRegistry {
   return cachedCodes;
 }
 
-function totpEntries(vault: V5.Vault): V5.VaultSecretTotp[] {
-  return vault.secrets.filter((s): s is V5.VaultSecretTotp => s.kind === 'totp');
+function totpEntries(vault: Vault): VaultSecretTotp[] {
+  return vault.secrets.filter((s): s is VaultSecretTotp => s.kind === 'totp');
 }
 
 /**

@@ -8,7 +8,7 @@
  * `removeVariable` keys by uid.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Variable } from '@openheaders/core/types';
 import { useMemo } from 'react';
 import {
   applyWorkspaceVariablesReplacement,
@@ -27,13 +27,13 @@ export interface UseWorkspaceVariablesMutatorOptions {
 
 export interface UseWorkspaceVariablesMutatorApi {
   /** Upsert a variable row — handles add, edit, rename, type-toggle. */
-  setVariable(variable: V5.Variable): Promise<WorkspaceVariablesSimpleResult>;
+  setVariable(variable: Variable): Promise<WorkspaceVariablesSimpleResult>;
   /** Remove a variable row by its persisted uid. */
   removeVariable(uid: string): Promise<WorkspaceVariablesSimpleResult>;
   /** Replace the full variables list — see `applyWorkspaceVariablesReplacement`. */
   replaceVariables(
-    newVars: readonly V5.Variable[],
-    oldVars: readonly V5.Variable[],
+    newVars: readonly Variable[],
+    oldVars: readonly Variable[],
   ): Promise<WorkspaceVariablesSimpleResult>;
 }
 
@@ -45,7 +45,7 @@ export function useWorkspaceVariablesMutator(
   const setVariable = useGuardedMutation(
     workspaceId,
     surfaceId,
-    (writeOpts, variable: V5.Variable) => applyWorkspaceVarSet({ variable }, writeOpts),
+    (writeOpts, variable: Variable) => applyWorkspaceVarSet({ variable }, writeOpts),
   );
 
   const removeVariable = useGuardedMutation(workspaceId, surfaceId, (writeOpts, uid: string) =>
@@ -55,7 +55,7 @@ export function useWorkspaceVariablesMutator(
   const replaceVariables = useGuardedMutation(
     workspaceId,
     surfaceId,
-    (writeOpts, newVars: readonly V5.Variable[], oldVars: readonly V5.Variable[]) =>
+    (writeOpts, newVars: readonly Variable[], oldVars: readonly Variable[]) =>
       applyWorkspaceVariablesReplacement(newVars, oldVars, writeOpts),
   );
 

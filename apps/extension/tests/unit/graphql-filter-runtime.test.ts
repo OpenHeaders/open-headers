@@ -15,7 +15,7 @@
  * dynamic mock.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { BodyAction, BodyModType, BodyResourceType, BodyRule, MockAction, MockBodyType, MockRule } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@utils/logger', () => ({
@@ -62,11 +62,11 @@ afterEach(() => {
 });
 
 function bodyRule(opts: {
-  bodyType: V5.BodyModType;
+  bodyType: BodyModType;
   body: string;
-  resourceType: V5.BodyResourceType;
-  graphqlFilter?: V5.BodyAction['graphqlFilter'];
-}): V5.BodyRule {
+  resourceType: BodyResourceType;
+  graphqlFilter?: BodyAction['graphqlFilter'];
+}): BodyRule {
   return {
     schemaVersion: 5,
     uid: 'bdy00001',
@@ -85,11 +85,11 @@ function bodyRule(opts: {
 }
 
 function mockRule(opts: {
-  bodyType: V5.MockBodyType;
+  bodyType: MockBodyType;
   responseBody: string;
-  resourceType?: V5.BodyResourceType;
-  graphqlFilter?: V5.MockAction['graphqlFilter'];
-}): V5.MockRule {
+  resourceType?: BodyResourceType;
+  graphqlFilter?: MockAction['graphqlFilter'];
+}): MockRule {
   return {
     schemaVersion: 5,
     uid: 'mck00001',

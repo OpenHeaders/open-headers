@@ -30,7 +30,7 @@ import { useRules } from '@hooks/useRules';
 import { canonicalizeRule, parseRule, serializeRule } from '@openheaders/core/codec/yaml';
 import { freshDocument } from '@openheaders/core/schemas';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { BlockRule, BodyModType, BodyResourceType, BodyRule, DelayRule, ExtensionRuleType, HeaderModification, HeaderRule, InjectAction, InjectRule, InjectSource, InjectType, MockBodyType, MockRule, QueryParamOperation, QueryParamRule, RedirectRule, Rule, RuleCondition, RuleDraft, TreeNode } from '@openheaders/core/types';
 import { generateUid, isRuleComplete } from '@openheaders/core/utils';
 import type { MenuProps } from 'antd';
 import { Alert, App, Button, Dropdown, Form, Switch, Tooltip, Typography, theme } from 'antd';
@@ -108,7 +108,7 @@ interface RuleEditorProps {
   tabId?: string;
   /** Rule type for create mode (rules are immutable post-mint, so this
    *  is required when no `ruleUid` is supplied). */
-  seedRuleType?: V5.ExtensionRuleType;
+  seedRuleType?: ExtensionRuleType;
   /** Display name pre-applied in create mode (drives breadcrumbs +
    *  the persisted name when Save lands). */
   seedDraftName?: string;
@@ -128,7 +128,7 @@ interface RuleEditorProps {
    *  panel "override this header" CTA, future import/paste flows).
    *  Same semantics as `initialTemplateKey` — first-mount form overlay
    *  on unpublished rules only. */
-  initialDraft?: V5.RuleDraft;
+  initialDraft?: RuleDraft;
   onSaved?: (uid: string) => void;
   onDirtyChange?: (dirty: boolean) => void;
   registerSaveRef?: (saveFn: () => void) => void;
@@ -202,7 +202,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   // `create(...)` with a fresh id (§7.2 — re-creation MUST use a fresh
   // id; there's no HLC escape hatch). The open tab hands off to the
   // freshly-created rule via `onSaved(newUid)`.
-  const lastSeenRuleRef = useRef<V5.Rule | null>(null);
+  const lastSeenRuleRef = useRef<Rule | null>(null);
   useEffect(() => {
     if (liveRule) {
       lastSeenRuleRef.current = liveRule;
@@ -219,7 +219,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   /** Rule type is immutable for the lifetime of the entity. In create
    *  mode it comes from the seed prop (the picker that opened the
    *  draft tab pinned the type). */
-  const selectedType = (liveRule?.type ?? seedRuleType) as V5.ExtensionRuleType | undefined;
+  const selectedType = (liveRule?.type ?? seedRuleType) as ExtensionRuleType | undefined;
 
   /** Single source of truth for enabled state. New drafts default to
    *  enabled; the toggle only takes effect after Save mints the entity. */
@@ -238,7 +238,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     [formValues, ruleName, isEnabled],
   );
   const canonicalProjection = useCallback(
-    (rule: V5.Rule) =>
+    (rule: Rule) =>
       stableStringify({
         name: rule.name,
         enabled: rule.enabled,
@@ -254,27 +254,27 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   // its baseline setter without a forward declaration, and so the
   // first-mount overlay / template-apply runs once across the
   // populate + auto-rebase lifecycle.
-  const setBaselineRef = useRef<(r: V5.Rule) => void>(() => undefined);
+  const setBaselineRef = useRef<(r: Rule) => void>(() => undefined);
   const overlayAppliedRef = useRef(false);
   // Snapshot of the rule the form was last seeded from. Drives the
   // per-field save merge: Save broadcasts only leaves that diverge from
   // baseline so a peer's concurrent commit on a different leaf survives.
   // Advances in lockstep with the conflict tracker baseline (both wired
   // through `onPrimed`).
-  const baselineRuleRef = useRef<V5.Rule | null>(null);
+  const baselineRuleRef = useRef<Rule | null>(null);
 
   // Populate the form from a persisted rule. `useReprime` calls this
   // on initial seed and broadcast catch-up; conflict-tracker baseline
   // advancement happens in `onPrimed`, not here.
   const populateFormFromRule = useCallback(
-    (rule: V5.Rule) => {
+    (rule: Rule) => {
       const baseValues = {
         ruleType: rule.type,
         conditions: rule.conditions,
       };
       switch (rule.type) {
         case 'header': {
-          const hr = rule as V5.HeaderRule;
+          const hr = rule as HeaderRule;
           const reqH = hr.action.requestHeaders ?? [];
           const resH = hr.action.responseHeaders ?? [];
           form.setFieldsValue({ ...baseValues, requestHeaders: reqH, responseHeaders: resH });
@@ -287,12 +287,12 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           form.setFieldsValue(baseValues);
           break;
         case 'redirect': {
-          const rr = rule as V5.RedirectRule;
+          const rr = rule as RedirectRule;
           form.setFieldsValue({ ...baseValues, redirectTo: rr.action.redirectTo });
           break;
         }
         case 'query-param': {
-          const qr = rule as V5.QueryParamRule;
+          const qr = rule as QueryParamRule;
           form.setFieldsValue({
             ...baseValues,
             queryParams: qr.action.params.map((p) => ({
@@ -305,7 +305,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           break;
         }
         case 'inject': {
-          const ir = rule as V5.InjectRule;
+          const ir = rule as InjectRule;
           form.setFieldsValue({
             ...baseValues,
             injectType: ir.action.injectType,
@@ -318,12 +318,12 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           break;
         }
         case 'delay': {
-          const dr = rule as V5.DelayRule;
+          const dr = rule as DelayRule;
           form.setFieldsValue({ ...baseValues, delayMs: dr.action.delayMs });
           break;
         }
         case 'body': {
-          const br = rule as V5.BodyRule;
+          const br = rule as BodyRule;
           form.setFieldsValue({
             ...baseValues,
             bodyModType: br.action.bodyType || 'static',
@@ -337,7 +337,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
           break;
         }
         case 'mock': {
-          const mr = rule as V5.MockRule;
+          const mr = rule as MockRule;
           form.setFieldsValue({
             ...baseValues,
             mockStatusCode: mr.action.statusCode || undefined,
@@ -367,7 +367,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   // the tracker, defined below, can wire its setter without a forward
   // reference), and on the first invocation applies the inspector-CTA
   // `initialDraft` overlay or `initialTemplateKey` template.
-  const reprime = useReprime<V5.Rule>({
+  const reprime = useReprime<Rule>({
     liveEntity: liveRule,
     scope: { entityType: RULE_ENTITY_TYPE, entityId: ruleUid ?? '' },
     enabled: !isCreateMode && liveRule != null,
@@ -410,10 +410,10 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         if (rule.type === 'header') {
           const reqLen = Array.isArray(overlay.requestHeaders)
             ? (overlay.requestHeaders as unknown[]).length
-            : ((rule as V5.HeaderRule).action.requestHeaders?.length ?? 0);
+            : ((rule as HeaderRule).action.requestHeaders?.length ?? 0);
           const resLen = Array.isArray(overlay.responseHeaders)
             ? (overlay.responseHeaders as unknown[]).length
-            : ((rule as V5.HeaderRule).action.responseHeaders?.length ?? 0);
+            : ((rule as HeaderRule).action.responseHeaders?.length ?? 0);
           setHeaderReqCount(reqLen);
           setHeaderResCount(resLen);
           setDefaultHeaderTab(reqLen, resLen);
@@ -465,10 +465,10 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     if (!formValues) return null;
     const built = buildRule(formValues, ruleName, isEnabled);
     if (!built || !liveRule) return null;
-    // `extractBaseline` keys by `uid` and reads from a full V5.Rule
+    // `extractBaseline` keys by `uid` and reads from a full Rule
     // shape — splice the live rule's uid + path onto the built form
     // projection so the path-keyed projection lines up with baseline.
-    return conflicts.projectRule({ ...built, uid: liveRule.uid, path: liveRule.path } as V5.Rule);
+    return conflicts.projectRule({ ...built, uid: liveRule.uid, path: liveRule.path } as Rule);
   }, [formValues, ruleName, isEnabled, liveRule, conflicts]);
 
   // Form-side ordered uid arrays per set-modeled path. The conflict
@@ -660,7 +660,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       path: liveRule.path,
       schemaVersion: liveRule.schemaVersion,
       published: liveRule.published,
-    } as V5.Rule;
+    } as Rule;
     try {
       return serializeRule(freshDocument(canonicalizeRule(localRule)));
     } catch {
@@ -748,7 +748,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   useEffect(() => {
     if (!isCreateMode || overlayAppliedRef.current) return;
     overlayAppliedRef.current = true;
-    const type = (seedRuleType ?? 'header') as V5.ExtensionRuleType;
+    const type = (seedRuleType ?? 'header') as ExtensionRuleType;
     form.setFieldsValue({ ruleType: type, conditions: [] });
 
     if (initialTemplateKey) {
@@ -910,7 +910,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
       // side effects (header/redirect/etc. mutators emit recompile intents
       // when their fields change); the publish call adds an explicit
       // recompile + the `published` field flip.
-      const updates = merged as Partial<Omit<V5.Rule, 'uid' | 'path' | 'schemaVersion'>>;
+      const updates = merged as Partial<Omit<Rule, 'uid' | 'path' | 'schemaVersion'>>;
       const updated = await mutator.updateRule(ruleUid, updates);
       if (!updated.ok) {
         if (updated.reason === 'not-found') message.error('Rule was deleted from another tab');
@@ -1044,7 +1044,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
   );
 
   const buildUserMenuItems = useCallback(
-    (nodes: V5.TreeNode[], ruleType: string): NonNullable<MenuProps['items']> => {
+    (nodes: TreeNode[], ruleType: string): NonNullable<MenuProps['items']> => {
       const items: NonNullable<MenuProps['items']> = [];
       for (const node of nodes) {
         if (node.type === 'folder') {
@@ -1392,7 +1392,7 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
 
 export default RuleEditor;
 
-// ── Pure projection: form values → V5.Rule shape ─────────────────────
+// ── Pure projection: form values → Rule shape ─────────────────────
 //
 // Used at save time (`handleSubmit` reads form values and projects to
 // the mutation payload) AND at dirty-derivation time (the same
@@ -1410,8 +1410,8 @@ function buildRule(
   formValues: Record<string, unknown>,
   ruleName: string,
   isEnabled: boolean,
-): Omit<V5.Rule, 'uid' | 'path'> | null {
-  const conditions = Array.isArray(formValues.conditions) ? (formValues.conditions as V5.RuleCondition[]) : [];
+): Omit<Rule, 'uid' | 'path'> | null {
+  const conditions = Array.isArray(formValues.conditions) ? (formValues.conditions as RuleCondition[]) : [];
   const base = { name: ruleName, enabled: isEnabled, conditions };
 
   switch (formValues.ruleType) {
@@ -1420,18 +1420,18 @@ function buildRule(
         ...base,
         type: 'header',
         action: {
-          requestHeaders: (formValues.requestHeaders as V5.HeaderModification[]) ?? [],
-          responseHeaders: (formValues.responseHeaders as V5.HeaderModification[]) ?? [],
+          requestHeaders: (formValues.requestHeaders as HeaderModification[]) ?? [],
+          responseHeaders: (formValues.responseHeaders as HeaderModification[]) ?? [],
         },
-      } as Omit<V5.HeaderRule, 'uid' | 'path'>;
+      } as Omit<HeaderRule, 'uid' | 'path'>;
     case 'block':
-      return { ...base, type: 'block', action: {} } as Omit<V5.BlockRule, 'uid' | 'path'>;
+      return { ...base, type: 'block', action: {} } as Omit<BlockRule, 'uid' | 'path'>;
     case 'redirect':
       return {
         ...base,
         type: 'redirect',
         action: { redirectTo: (formValues.redirectTo as string) ?? '' },
-      } as Omit<V5.RedirectRule, 'uid' | 'path'>;
+      } as Omit<RedirectRule, 'uid' | 'path'>;
     case 'query-param':
       return {
         ...base,
@@ -1448,40 +1448,40 @@ function buildRule(
             uid: p.uid ?? generateUid(),
             param: p.param,
             value: p.operation === 'remove' ? undefined : p.value,
-            operation: p.operation as V5.QueryParamOperation,
+            operation: p.operation as QueryParamOperation,
           })),
         },
-      } as Omit<V5.QueryParamRule, 'uid' | 'path'>;
+      } as Omit<QueryParamRule, 'uid' | 'path'>;
     case 'inject':
       return {
         ...base,
         type: 'inject',
         action: {
-          injectType: formValues.injectType as V5.InjectType,
-          source: ((formValues.injectSource as string) || 'code') as V5.InjectSource,
+          injectType: formValues.injectType as InjectType,
+          source: ((formValues.injectSource as string) || 'code') as InjectSource,
           code: (formValues.injectCode as string) ?? '',
           sourceUrl: (formValues.injectSourceUrl as string) || undefined,
-          position: formValues.injectPosition as V5.InjectAction['position'],
+          position: formValues.injectPosition as InjectAction['position'],
           bypassCSP: (formValues.injectBypassCSP as boolean) || false,
         },
-      } as Omit<V5.InjectRule, 'uid' | 'path'>;
+      } as Omit<InjectRule, 'uid' | 'path'>;
     case 'delay':
       return {
         ...base,
         type: 'delay',
         action: { delayMs: (formValues.delayMs as number) || 0 },
-      } as Omit<V5.DelayRule, 'uid' | 'path'>;
+      } as Omit<DelayRule, 'uid' | 'path'>;
     case 'body':
       return {
         ...base,
         type: 'body',
         action: {
-          bodyType: ((formValues.bodyModType as string) ?? 'static') as V5.BodyModType,
+          bodyType: ((formValues.bodyModType as string) ?? 'static') as BodyModType,
           body:
             formValues.bodyModType === 'dynamic'
               ? ((formValues.bodyDynamicContent as string) ?? '')
               : ((formValues.bodyStaticContent as string) ?? ''),
-          resourceType: ((formValues.bodyResourceType as string) ?? 'rest') as V5.BodyResourceType,
+          resourceType: ((formValues.bodyResourceType as string) ?? 'rest') as BodyResourceType,
           graphqlFilter:
             formValues.bodyResourceType === 'graphql' && (formValues.bodyGraphqlKey as string)?.trim()
               ? {
@@ -1491,7 +1491,7 @@ function buildRule(
                 }
               : undefined,
         },
-      } as Omit<V5.BodyRule, 'uid' | 'path'>;
+      } as Omit<BodyRule, 'uid' | 'path'>;
     case 'mock':
       return {
         ...base,
@@ -1512,8 +1512,8 @@ function buildRule(
               .filter((h) => h.name?.trim())
               .map((h) => [h.name!.trim(), h.value ?? '']),
           ),
-          bodyType: ((formValues.mockBodyType as string) ?? 'static') as V5.MockBodyType,
-          resourceType: ((formValues.mockResourceType as string) ?? 'rest') as V5.BodyResourceType,
+          bodyType: ((formValues.mockBodyType as string) ?? 'static') as MockBodyType,
+          resourceType: ((formValues.mockResourceType as string) ?? 'rest') as BodyResourceType,
           graphqlFilter:
             formValues.mockResourceType === 'graphql' && (formValues.mockGraphqlKey as string)?.trim()
               ? {
@@ -1523,7 +1523,7 @@ function buildRule(
                 }
               : undefined,
         },
-      } as Omit<V5.MockRule, 'uid' | 'path'>;
+      } as Omit<MockRule, 'uid' | 'path'>;
     default:
       return null;
   }

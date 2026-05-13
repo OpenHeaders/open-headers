@@ -15,7 +15,7 @@ import {
   PlusOutlined,
 } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
-import type { V5 } from '@openheaders/core/types';
+import type { TreeNode } from '@openheaders/core/types';
 import { isRuleComplete, isRuleDraft, resolvePauseState } from '@openheaders/core/utils';
 import { Button, Dropdown, Empty, Space, Table, Tag, Tooltip, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
@@ -53,7 +53,7 @@ interface ContentRow {
   effectivelyPaused: boolean;
 }
 
-function countRulesDeep(nodes: V5.TreeNode[]): number {
+function countRulesDeep(nodes: TreeNode[]): number {
   let count = 0;
   for (const n of nodes) {
     if (n.type === 'rule') count++;
@@ -89,7 +89,7 @@ const CollectionOverview: React.FC<CollectionOverviewProps> = ({
     let disabled = 0;
     let draft = 0;
 
-    const walk = (nodes: V5.TreeNode[]) => {
+    const walk = (nodes: TreeNode[]) => {
       for (const n of nodes) {
         if (n.type === 'folder') {
           folders++;

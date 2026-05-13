@@ -18,7 +18,7 @@
 
 import type { AddToSetMutation, MoveBeforeMutation, MutationBatch, MutatorContext } from '@openheaders/core/sync';
 import { advanceHlc, initialHlc } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Request, RequestHeader } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockCall } = vi.hoisted(() => ({ mockCall: vi.fn() }));
@@ -42,7 +42,7 @@ import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 
 type LiveOrdered = Array<{ itemId: string; orderKey: string }>;
 
-function makeMirror(request: V5.Request, ordered: Record<string, LiveOrdered>): RequestSyncMirror {
+function makeMirror(request: Request, ordered: Record<string, LiveOrdered>): RequestSyncMirror {
   return {
     getRequestMirror: (uid) =>
       uid === request.uid
@@ -85,11 +85,11 @@ function makeContextHandle(workspaceId = 'ws-1', surfaceId = 'workbench'): Rende
   };
 }
 
-function header(uid: string, key: string, value: string): V5.RequestHeader {
+function header(uid: string, key: string, value: string): RequestHeader {
   return { uid, key, value, enabled: true };
 }
 
-function baseRequest(headers: V5.RequestHeader[]): V5.Request {
+function baseRequest(headers: RequestHeader[]): Request {
   return {
     schemaVersion: 5,
     uid: 'rq-1',
@@ -101,7 +101,7 @@ function baseRequest(headers: V5.RequestHeader[]): V5.Request {
     params: [],
     auth: { type: 'none' },
     body: { type: 'none' },
-  } as V5.Request;
+  } as Request;
 }
 
 beforeEach(() => mockCall.mockReset());
@@ -110,7 +110,7 @@ afterEach(() => vi.restoreAllMocks());
 describe('applyRequestUpdate — set-modeled paths via shared synthesizer', () => {
   it('emits exactly one moveBefore for drag-to-front of 3 rows (LIS-optimal)', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
-    const live: V5.RequestHeader[] = [header('h1', 'X-A', 'a'), header('h2', 'X-B', 'b'), header('h3', 'X-C', 'c')];
+    const live: RequestHeader[] = [header('h1', 'X-A', 'a'), header('h2', 'X-B', 'b'), header('h3', 'X-C', 'c')];
     const ordered: LiveOrdered = [
       { itemId: 'h1', orderKey: 'h' },
       { itemId: 'h2', orderKey: 'm' },
@@ -133,7 +133,7 @@ describe('applyRequestUpdate — set-modeled paths via shared synthesizer', () =
 
   it('fires no envelopes when the save is byte-identical (mirror short-circuits via empty batch)', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
-    const live: V5.RequestHeader[] = [header('h1', 'X-A', 'a'), header('h2', 'X-B', 'b')];
+    const live: RequestHeader[] = [header('h1', 'X-A', 'a'), header('h2', 'X-B', 'b')];
     const ordered: LiveOrdered = [
       { itemId: 'h1', orderKey: 'h' },
       { itemId: 'h2', orderKey: 'm' },
@@ -151,7 +151,7 @@ describe('applyRequestUpdate — set-modeled paths via shared synthesizer', () =
 
   it('emits one addToSet (no removeFromSet) for a content-only edit, preserving the live orderKey', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
-    const live: V5.RequestHeader[] = [header('h1', 'X-A', 'a'), header('h2', 'X-B', 'b')];
+    const live: RequestHeader[] = [header('h1', 'X-A', 'a'), header('h2', 'X-B', 'b')];
     const ordered: LiveOrdered = [
       { itemId: 'h1', orderKey: 'h' },
       { itemId: 'h2', orderKey: 'm' },
@@ -168,12 +168,12 @@ describe('applyRequestUpdate — set-modeled paths via shared synthesizer', () =
     expect(body.kind).toBe('addToSet');
     expect(body.itemId).toBe('h2');
     expect(body.orderKey).toBe('m');
-    expect((body.item as V5.RequestHeader).value).toBe('EDITED');
+    expect((body.item as RequestHeader).value).toBe('EDITED');
   });
 
   it('handles mixed gesture (drag + content edit) without redundant removeFromSet', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
-    const live: V5.RequestHeader[] = [header('h1', 'X-A', 'a'), header('h2', 'X-B', 'b'), header('h3', 'X-C', 'c')];
+    const live: RequestHeader[] = [header('h1', 'X-A', 'a'), header('h2', 'X-B', 'b'), header('h3', 'X-C', 'c')];
     const ordered: LiveOrdered = [
       { itemId: 'h1', orderKey: 'h' },
       { itemId: 'h2', orderKey: 'm' },
@@ -193,13 +193,13 @@ describe('applyRequestUpdate — set-modeled paths via shared synthesizer', () =
     const adds = batch.mutations.map((m) => m.body).filter((b): b is AddToSetMutation => b.kind === 'addToSet');
     const h2Add = adds.find((a) => a.itemId === 'h2');
     expect(h2Add).toBeDefined();
-    expect((h2Add!.item as V5.RequestHeader).value).toBe('EDITED');
+    expect((h2Add!.item as RequestHeader).value).toBe('EDITED');
     expect(typeof h2Add!.orderKey).toBe('string');
   });
 
   it('emits removeFromSet only for vanished uids; new uids land as addToSet with explicit orderKey', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
-    const live: V5.RequestHeader[] = [header('h1', 'X-A', 'a'), header('h2', 'X-B', 'b')];
+    const live: RequestHeader[] = [header('h1', 'X-A', 'a'), header('h2', 'X-B', 'b')];
     const ordered: LiveOrdered = [
       { itemId: 'h1', orderKey: 'h' },
       { itemId: 'h2', orderKey: 'm' },

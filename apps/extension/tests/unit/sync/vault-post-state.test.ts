@@ -13,7 +13,7 @@ import {
   VAULT_ID,
   VAULT_PATH,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Vault, VaultSecret } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@/background/sync/broadcast';
 import { InMemoryMutationLog } from '@/background/sync/mutation-log';
@@ -31,7 +31,7 @@ const ctx = (ms: number): MutatorContext => ({
   deviceId: 'd',
 });
 
-const makeVault = (secrets: V5.VaultSecret[]): V5.Vault => ({
+const makeVault = (secrets: VaultSecret[]): Vault => ({
   schemaVersion: 5,
   
   secrets,

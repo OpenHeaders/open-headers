@@ -9,7 +9,7 @@
  */
 
 import { TEMPLATE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Template } from '@openheaders/core/types';
 import { call } from '@utils/bridge';
 import {
   createFlatEntityMirror,
@@ -18,7 +18,7 @@ import {
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 
 export interface TemplateMirrorEntry {
-  template: V5.Template;
+  template: Template;
   /** Map keyed by set path (e.g. `conditions`). */
   setItemIds: Record<string, string[]>;
   /** Per-set ordered `(itemId, orderKey)` pairs for synthesizer-driven writes. */
@@ -29,7 +29,7 @@ export type TemplateMirrorListener = (uid: string) => void;
 
 export interface TemplateSyncMirror {
   getTemplateMirror(uid: string): TemplateMirrorEntry | null;
-  listTemplates(): V5.Template[];
+  listTemplates(): Template[];
   liveSetItems(uid: string, setPath: string): string[];
   liveOrderedSetItems(uid: string, setPath: string): Array<{ itemId: string; orderKey: string }>;
   subscribeTemplateMirror(uid: string, listener: TemplateMirrorListener): () => void;

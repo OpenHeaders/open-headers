@@ -1,6 +1,6 @@
 import { isWorkflowComplete, isWorkflowDraft } from '@openheaders/core/live';
 import { LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { LiveWorkflow } from '@openheaders/core/types';
 import { createElement, useMemo } from 'react';
 import type { WorkbenchTab } from '../../types';
 import { exportNodeFields } from './export-fields';
@@ -14,7 +14,7 @@ interface LiveCache {
 }
 
 interface UseWorkflowNodesParams {
-  liveWorkflows: readonly V5.LiveWorkflow[];
+  liveWorkflows: readonly LiveWorkflow[];
   liveVariables: readonly { workflowUid: string }[];
   liveCaches: Record<string, LiveCache[] | undefined>;
   activeEnvironmentId: string | null;

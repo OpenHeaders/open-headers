@@ -14,7 +14,7 @@ import {
   PlusOutlined,
 } from '@ant-design/icons';
 import { useRules } from '@hooks/useRules';
-import type { V5 } from '@openheaders/core/types';
+import type { CollectionTree, FolderNode, TreeNode } from '@openheaders/core/types';
 import { isRuleComplete, isRuleDraft, resolvePauseState } from '@openheaders/core/utils';
 import { Button, Dropdown, Empty, Space, Table, Tag, Tooltip, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
@@ -50,7 +50,7 @@ interface ContentRow {
   effectivelyPaused: boolean;
 }
 
-function countRulesDeep(nodes: V5.TreeNode[]): number {
+function countRulesDeep(nodes: TreeNode[]): number {
   let count = 0;
   for (const n of nodes) {
     if (n.type === 'rule') count++;
@@ -61,11 +61,11 @@ function countRulesDeep(nodes: V5.TreeNode[]): number {
 
 /** Walk collection trees to find a folder by uid. Returns the folder node and its parent collection uid. */
 function findFolder(
-  trees: V5.CollectionTree[],
+  trees: CollectionTree[],
   uid: string,
-): { folder: V5.FolderNode; collectionUid: string; path: string } | null {
+): { folder: FolderNode; collectionUid: string; path: string } | null {
   for (const col of trees) {
-    const walk = (nodes: V5.TreeNode[]): V5.FolderNode | null => {
+    const walk = (nodes: TreeNode[]): FolderNode | null => {
       for (const n of nodes) {
         if (n.type === 'folder') {
           if (n.uid === uid) return n;
@@ -108,7 +108,7 @@ const FolderOverview: React.FC<FolderOverviewProps> = ({
     let disabled = 0;
     let draft = 0;
 
-    const walk = (nodes: V5.TreeNode[]) => {
+    const walk = (nodes: TreeNode[]) => {
       for (const n of nodes) {
         if (n.type === 'folder') {
           folders++;

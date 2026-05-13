@@ -22,13 +22,12 @@
  */
 
 import { computeTransitiveAncestors, effectiveDependsOn } from '@openheaders/core/live';
-import type { V5 } from '@openheaders/core/types';
-
+import type { LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
 /** Hard cap on indentation tiers. Past this, everything renders flush. */
 export const MAX_INDENT = 8;
 
 export interface DependencyRow {
-  step: V5.WorkflowStep;
+  step: WorkflowStep;
   declaredIndex: number;
   /** 0-based depth; clamped to `MAX_INDENT`. */
   indent: number;
@@ -44,7 +43,7 @@ export interface DependencyRow {
  * Complexity: O(V + E) — single pass over steps, constant-time ancestor
  * lookup via the precomputed map from core.
  */
-export function buildDependencyRows(workflow: V5.LiveWorkflow): DependencyRow[] {
+export function buildDependencyRows(workflow: LiveWorkflow): DependencyRow[] {
   const ancestors = computeTransitiveAncestors(workflow);
   const depth = new Map<string, number>();
 

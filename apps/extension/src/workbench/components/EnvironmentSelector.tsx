@@ -16,7 +16,7 @@ import {
   PushpinOutlined,
   SettingOutlined,
 } from '@ant-design/icons';
-import type { V5 } from '@openheaders/core/types';
+import type { Environment } from '@openheaders/core/types';
 import type { InputRef } from 'antd';
 import { Button, Divider, Dropdown, Input, Popover, Radio, Space, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
@@ -30,7 +30,7 @@ const { Text } = Typography;
 // them across re-renders without unmounting (fixes hovered-state flicker).
 
 interface EnvRowProps {
-  env: V5.Environment;
+  env: Environment;
   pinned: boolean;
   activeEnvironmentId: string | null;
   activeCollectionId: string | null;
@@ -236,7 +236,7 @@ const NoEnvRow: React.FC<NoEnvRowProps> = ({ activeEnvironmentId, onSelect }) =>
 // ── Main component ──────────────────────────────────────────────────
 
 interface EnvironmentSelectorProps {
-  environments: V5.Environment[];
+  environments: Environment[];
   activeEnvironmentId: string | null;
   activeCollectionId: string | null;
   activeCollectionPinnedEnvIds: string[];
@@ -292,7 +292,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
 
   const hasPinnedSection = activeCollectionId !== null && pinnedEnvs.length > 0;
 
-  function handleTogglePin(env: V5.Environment, currentlyPinned: boolean): void {
+  function handleTogglePin(env: Environment, currentlyPinned: boolean): void {
     if (!activeCollectionId) return;
     let nextPinned: string[];
     let nextDefault: string | null = activeCollectionDefaultEnvId;
@@ -305,7 +305,7 @@ const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({
     void onSetCollectionPinnedEnvs(activeCollectionId, nextPinned, nextDefault);
   }
 
-  function handleSetDefault(env: V5.Environment): void {
+  function handleSetDefault(env: Environment): void {
     if (!activeCollectionId) return;
     const isCurrentDefault = activeCollectionDefaultEnvId === env.uid;
     const nextDefault = isCurrentDefault ? null : env.uid;

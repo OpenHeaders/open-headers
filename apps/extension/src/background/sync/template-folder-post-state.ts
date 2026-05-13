@@ -11,7 +11,7 @@ import {
   TEMPLATE_FOLDER_CHILDREN_PATH,
   TEMPLATE_FOLDER_ENTITY_TYPE,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Folder } from '@openheaders/core/types';
 import { projectTemplateCollection } from '@/shared/sync/template-collection-projection';
 import { projectTemplateFolder } from '@/shared/sync/template-folder-projection';
 import {
@@ -43,6 +43,6 @@ export function projectTemplateFolderByUid(oracle: Reads, folderUid: string): Sy
   return projectFolderByUidGeneric(oracle, folderUid, KINDS);
 }
 
-export function projectAllTemplateFolders(oracle: Reads): V5.Folder[] {
+export function projectAllTemplateFolders(oracle: Reads): Folder[] {
   return projectAllFoldersGeneric(oracle, KINDS);
 }

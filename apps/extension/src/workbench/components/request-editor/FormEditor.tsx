@@ -13,7 +13,7 @@
  * valid form body by populating `content`; the executor falls back.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { FormField } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { theme } from 'antd';
 import type React from 'react';
@@ -22,8 +22,8 @@ import { TemplateInput } from '../template-input';
 import { EditableGridTable, type EditableRowAdapter } from './EditableGridTable';
 
 interface FormEditorProps {
-  fields: V5.FormField[];
-  onChange: (fields: V5.FormField[]) => void;
+  fields: FormField[];
+  onChange: (fields: FormField[]) => void;
 }
 
 // Transient id for drag-stable reorder + in-place edits. The persisted
@@ -31,7 +31,7 @@ interface FormEditorProps {
 let rowIdCounter = 0;
 const nextRowId = (): string => `ff-${++rowIdCounter}`;
 
-type IdentifiedField = V5.FormField & { __id: string };
+type IdentifiedField = FormField & { __id: string };
 
 const cellFont: React.CSSProperties = {
   fontFamily: "'SF Mono', 'Fira Code', monospace",
@@ -50,7 +50,7 @@ const ADAPTER: EditableRowAdapter<IdentifiedField> = {
   isEmpty: (r) => r.key === '' && r.value === '' && (r.description ?? '') === '',
 };
 
-function stripId(row: IdentifiedField): V5.FormField {
+function stripId(row: IdentifiedField): FormField {
   const { __id: _id, ...field } = row;
   return field;
 }

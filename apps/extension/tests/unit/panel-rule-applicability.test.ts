@@ -1,11 +1,11 @@
-import type { V5 } from '@openheaders/core/types';
+import type { HeaderRule, Rule } from '@openheaders/core/types';
 import { VariableResolver } from '@openheaders/core/variables';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { RuleAttributionContext } from '@/panel/data/header-attribution';
 import { computeRuleApplicability } from '@/panel/data/rule-applicability';
 import type { RuleSnapshotHeaderMod } from '@/types/telemetry';
 
-function makeRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
+function makeRule(overrides: Partial<HeaderRule> = {}): HeaderRule {
   return {
     schemaVersion: 5,
     uid: 'r1',
@@ -19,7 +19,7 @@ function makeRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
       responseHeaders: [],
     },
     ...overrides,
-  } as V5.HeaderRule;
+  } as HeaderRule;
 }
 
 function makeMod(overrides: Partial<RuleSnapshotHeaderMod> = {}): RuleSnapshotHeaderMod {
@@ -35,12 +35,12 @@ function makeMod(overrides: Partial<RuleSnapshotHeaderMod> = {}): RuleSnapshotHe
 
 interface FixtureOverrides {
   /** Pass `null` to simulate a deleted rule. */
-  liveRule?: V5.Rule | null;
+  liveRule?: Rule | null;
   snapshotMod?: Partial<RuleSnapshotHeaderMod>;
 }
 
 function makeFixture(overrides: FixtureOverrides = {}): {
-  liveRule: V5.Rule | null;
+  liveRule: Rule | null;
   ctx: RuleAttributionContext;
 } {
   const liveRule = overrides.liveRule === undefined ? makeRule() : overrides.liveRule;

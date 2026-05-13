@@ -7,7 +7,7 @@
  */
 
 import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
-import type { V5 } from '@openheaders/core/types';
+import type { OAuth2Auth } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const fetchMock = vi.fn();
@@ -49,7 +49,7 @@ import { __resetRateLimiterForTests } from '@/background/modules/refresh-schedul
 
 vi.stubGlobal('fetch', fetchMock);
 
-const makeConfig = (overrides: Partial<V5.OAuth2Auth> = {}): V5.OAuth2Auth => ({
+const makeConfig = (overrides: Partial<OAuth2Auth> = {}): OAuth2Auth => ({
   type: 'oauth2',
   credentialRef: 'oauth2-cred-test',
   flow: 'authorization-code-pkce',

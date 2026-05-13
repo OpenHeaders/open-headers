@@ -17,7 +17,7 @@ import {
   seedKey,
   setCollectionVar,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@/background/sync/broadcast';
 import { projectCollectionByUid, projectCollectionPostState } from '@/background/sync/collection-post-state';
@@ -35,7 +35,7 @@ const ctx = (ms: number, hlc: [number, number] = [ms, 0]): MutatorContext => ({
   deviceId: 'd',
 });
 
-const makeCollection = (uid: string): V5.Collection =>
+const makeCollection = (uid: string): Collection =>
   ({
     schemaVersion: 5,
     uid,
@@ -48,7 +48,7 @@ const makeCollection = (uid: string): V5.Collection =>
     pinnedEnvironmentIds: [],
     defaultEnvironmentId: null,
     version: 1,
-  }) as unknown as V5.Collection;
+  }) as unknown as Collection;
 
 function newOracle(): EntityOracle {
   return new EntityOracle({

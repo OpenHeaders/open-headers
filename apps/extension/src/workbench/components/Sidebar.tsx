@@ -49,7 +49,7 @@ import {
   TEMPLATE_FOLDER_ENTITY_TYPE,
   type TemplateFolderParentRef,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { TreeNode as CoreTreeNode } from '@openheaders/core/types';
 import { isRuleResolvable } from '@openheaders/core/utils';
 import type { InputRef } from 'antd';
 import { App, Dropdown, Input, Modal, Tooltip, theme } from 'antd';
@@ -340,7 +340,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   // set while preserving every other panel's expansions (keys owned
   // by other views or with no recognized prefix).
   const expandAll = useCallback(() => {
-    const collectFolderKeys = (nodes: V5.TreeNode[], prefix: string, into: Set<string>) => {
+    const collectFolderKeys = (nodes: CoreTreeNode[], prefix: string, into: Set<string>) => {
       for (const n of nodes) {
         if (n.type === 'folder') {
           into.add(`${prefix}${n.uid}`);

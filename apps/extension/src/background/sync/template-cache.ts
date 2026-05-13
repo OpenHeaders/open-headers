@@ -5,7 +5,7 @@
 
 import { TemplateSchema } from '@openheaders/core/schemas';
 import { TEMPLATE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Template } from '@openheaders/core/types';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 import { projectTemplate, seedTemplate } from '@/shared/sync/template-projection';
 import { driftRecorder } from '../modules/storage-drift';
@@ -18,8 +18,8 @@ export type TemplateCacheListener = () => void;
 
 export interface TemplateCache {
   readonly workspaceId: string;
-  getTemplates(): V5.Template[];
-  seedFromPersistedTemplates(templates: V5.Template[]): Promise<void>;
+  getTemplates(): Template[];
+  seedFromPersistedTemplates(templates: Template[]): Promise<void>;
   hydrateFromStorage(): Promise<void>;
   onChange(listener: TemplateCacheListener): () => void;
   dispose(): void;
@@ -31,7 +31,7 @@ export function createTemplateCache(
   broadcast: InMemoryBroadcast,
   contextFactory: SwMutatorContextFactory,
 ): TemplateCache {
-  const core = createFlatEntityCache<V5.Template, typeof TEMPLATE_ENTITY_TYPE>(
+  const core = createFlatEntityCache<Template, typeof TEMPLATE_ENTITY_TYPE>(
     workspaceId,
     oracle,
     broadcast,

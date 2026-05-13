@@ -1,11 +1,11 @@
 /**
  * Phase B — workspace-variables cache subscribes to broadcast,
- * re-projects to V5.WorkspaceVariables, persists to
+ * re-projects to WorkspaceVariables, persists to
  * chrome.storage.local. Mirrors collection-cache.test.ts.
  */
 
 import { setWorkspaceVar } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Variable, WorkspaceVariables } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@/background/sync/broadcast';
 import { InMemoryMutationLog } from '@/background/sync/mutation-log';
@@ -15,7 +15,7 @@ import { createWorkspaceVariablesCache } from '@/background/sync/workspace-varia
 
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
 
-const makeWorkspaceVars = (vars: V5.Variable[]): V5.WorkspaceVariables => ({
+const makeWorkspaceVars = (vars: Variable[]): WorkspaceVariables => ({
   schemaVersion: 5,
   variables: vars,
 });

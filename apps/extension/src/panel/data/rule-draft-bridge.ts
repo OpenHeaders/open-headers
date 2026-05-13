@@ -8,7 +8,7 @@
  * with a tooltip explaining the upcoming release.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { HeaderRuleDraft, RuleDraft } from '@openheaders/core/types';
 import { call } from '@utils/bridge';
 import { openWorkspace } from '@/shared/workspace-intent';
 import type { InspectorRequest } from './types';
@@ -17,9 +17,9 @@ import type { InspectorRequest } from './types';
 export function buildHeaderDraftFromRequest(
   request: InspectorRequest,
   header: { direction: 'request' | 'response'; headerName: string; value?: string } | undefined,
-): V5.HeaderRuleDraft {
+): HeaderRuleDraft {
   const method = request.method ? [request.method.toUpperCase()] : undefined;
-  const base: V5.HeaderRuleDraft = {
+  const base: HeaderRuleDraft = {
     type: 'header',
     url: request.url,
     ...(method ? { requestMethods: method } : {}),
@@ -45,7 +45,7 @@ export function buildHeaderDraftFromRequest(
  * pre-filled. Otherwise a fresh workspace tab opens and its cold-path
  * router does the same via the URL-encoded intent.
  */
-export async function handOffRuleDraft(draft: V5.RuleDraft): Promise<void> {
+export async function handOffRuleDraft(draft: RuleDraft): Promise<void> {
   const res = await call('createRuleDraft', { draft });
   if (!res.success || !res.nonce) {
     // Validation failure — surface to the user. In the panel this

@@ -28,7 +28,7 @@
  * id at call time — there is no in-memory cache, so switching is free.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { CollectionTree, FolderNode, Rule, TreeNode } from '@openheaders/core/types';
 import { stableStringify } from '@/shared/forms/fingerprint';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 import { getCollectionTrees, getRules } from './rule-store';
@@ -119,7 +119,7 @@ function withLock<T>(fn: () => Promise<T>): Promise<T> {
 
 // ── Owner content hashing ─────────────────────────────────────────
 
-function hashableRuleContent(rule: V5.Rule): unknown {
+function hashableRuleContent(rule: Rule): unknown {
   return {
     uid: rule.uid,
     enabled: rule.enabled,
@@ -137,7 +137,7 @@ function djb2(str: string): string {
   return (h >>> 0).toString(16);
 }
 
-function collectDescendantRuleUids(nodes: V5.TreeNode[]): string[] {
+function collectDescendantRuleUids(nodes: TreeNode[]): string[] {
   const out: string[] = [];
   for (const node of nodes) {
     if (node.type === 'rule') out.push(node.uid);
@@ -146,7 +146,7 @@ function collectDescendantRuleUids(nodes: V5.TreeNode[]): string[] {
   return out;
 }
 
-function findFolderDescendantRuleUids(folderUid: string, trees: V5.CollectionTree[]): string[] | null {
+function findFolderDescendantRuleUids(folderUid: string, trees: CollectionTree[]): string[] | null {
   for (const tree of trees) {
     const found = walkForFolder(folderUid, tree.tree);
     if (found) return collectDescendantRuleUids(found.children);
@@ -154,7 +154,7 @@ function findFolderDescendantRuleUids(folderUid: string, trees: V5.CollectionTre
   return null;
 }
 
-function walkForFolder(folderUid: string, nodes: V5.TreeNode[]): V5.FolderNode | null {
+function walkForFolder(folderUid: string, nodes: TreeNode[]): FolderNode | null {
   for (const n of nodes) {
     if (n.type === 'folder') {
       if (n.uid === folderUid) return n;

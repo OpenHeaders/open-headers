@@ -15,7 +15,7 @@
  *     fixed; the workflow's cache is irrelevant until override lifts).
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { LiveVariable } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@utils/logger', () => ({
@@ -29,7 +29,7 @@ vi.mock('@/background/modules/observability-log', () => ({
 
 const refreshSyncMock = vi.fn();
 
-let liveVariables: V5.LiveVariable[] = [];
+let liveVariables: LiveVariable[] = [];
 vi.mock('@/background/modules/live-variable-store', () => ({
   getLiveVariables: () => liveVariables.slice(),
   onLiveVariableStoreChange: () => () => {},
@@ -73,7 +73,7 @@ import {
   SYNC_WARM_TIMEOUT_MS,
 } from '@/background/modules/variables-resolver';
 
-function makeLv(overrides: Partial<V5.LiveVariable>): V5.LiveVariable {
+function makeLv(overrides: Partial<LiveVariable>): LiveVariable {
   return {
     schemaVersion: 5,
     uid: 'lv000001',

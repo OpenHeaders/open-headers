@@ -28,7 +28,7 @@ import {
   parseHar,
   selectHarEntries,
 } from '@openheaders/core/import';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, Request } from '@openheaders/core/types';
 import {
   Alert,
   App as AntApp,
@@ -52,7 +52,7 @@ const { Text, Paragraph } = Typography;
 interface ImportHarModalProps {
   open: boolean;
   /** All request collections the user can pick as the import target. */
-  collections: V5.Collection[];
+  collections: Collection[];
   /** Id of the collection in focus when the modal opened (preselect). */
   initialCollectionId?: string;
   onCancel: () => void;
@@ -71,7 +71,7 @@ interface ImportHarModalProps {
   createRequest: (payload: {
     name: string;
     collectionUid: string;
-    seed: Partial<V5.Request>;
+    seed: Partial<Request>;
   }) => Promise<{ uid: string } | null>;
   /**
    * Look up a prior import report by source hash so the modal can
@@ -205,7 +205,7 @@ const ImportHarModal: React.FC<ImportHarModalProps> = ({
       // SW. Parallelizing would race the same collection's version
       // counter needlessly for a feature users trigger by hand.
       for (const entry of narrowed.entries) {
-        const seed: Partial<V5.Request> = {
+        const seed: Partial<Request> = {
           method: entry.request.method,
           url: entry.request.url,
           headers: entry.request.headers,

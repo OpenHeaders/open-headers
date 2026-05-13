@@ -41,7 +41,7 @@ import {
   WORKSPACE_VARIABLES_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ID,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { ExtensionRuleType } from '@openheaders/core/types';
 import { isRequestResolvable, isRuleResolvable, slugify } from '@openheaders/core/utils';
 import { call } from '@utils/bridge';
 import { focusFirstDropdownItem } from '@utils/focus-dropdown-item';
@@ -1684,7 +1684,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
           <RuleEditor
             mode="rule-create"
             tabId={tab.id}
-            seedRuleType={tab.ruleType as V5.ExtensionRuleType}
+            seedRuleType={tab.ruleType as ExtensionRuleType}
             seedDraftName={tab.draftName ?? tab.label}
             initialTemplateKey={tab.templateKey}
             initialDraft={tab.initialDraft}

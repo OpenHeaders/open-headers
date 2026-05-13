@@ -7,7 +7,7 @@
  * `oh.sync.snapshotCollections` on construction.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Collection } from '@openheaders/core/types';
 import { call } from '@utils/bridge';
 import {
   createFlatEntityMirror,
@@ -16,7 +16,7 @@ import {
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 
 export interface CollectionMirrorEntry {
-  collection: V5.Collection;
+  collection: Collection;
   /** Live variable uids. Set member identity is `variable.uid`; this
    *  array is the projected names list. */
   varUids: string[];
@@ -31,7 +31,7 @@ export interface CollectionSyncMirror {
   getCollectionMirror(collectionUid: string): CollectionMirrorEntry | null;
   /** Snapshot of every collection — used by delete cascades that
    *  enumerate descendants by path prefix. */
-  listCollections(): V5.Collection[];
+  listCollections(): Collection[];
   liveVarNames(collectionUid: string): string[];
   liveOrderedSetItems(
     collectionUid: string,

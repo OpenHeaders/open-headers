@@ -12,7 +12,7 @@
 
 import type { SyncRulePostState } from '@openheaders/core/protocol';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import { projectRule } from '@/shared/sync/rule-projection';
 import { buildSetMembersExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
 import type { EntityOracle } from './oracle';
@@ -22,7 +22,7 @@ const RULE_SET_PATHS = ['conditions', 'action.requestHeaders', 'action.responseH
 
 type Reads = Pick<EntityOracle, 'materializeOne' | 'liveOrderedSetItems'>;
 
-const projectors = makeFlatEntityProjectors<Reads, V5.Rule, SyncRulePostState>({
+const projectors = makeFlatEntityProjectors<Reads, Rule, SyncRulePostState>({
   entityType: RULE_ENTITY_TYPE,
   project: projectRule,
   composeResult: (rule, oracle, uid) => ({

@@ -1,11 +1,11 @@
 /**
- * Rule projection — `V5.Rule ⇄ MutationBatch / MaterializedEntity`.
+ * Rule projection — `Rule ⇄ MutationBatch / MaterializedEntity`.
  *
  * The oracle's data model and the persisted V5 rule shape diverge in
  * one architecturally-load-bearing way: the rule mutator catalog
  * treats `conditions`, `action.requestHeaders`, and
  * `action.responseHeaders` as **sets** (parent-owned ordering with
- * itemId-keyed members + fractional indexing), while V5.Rule persists
+ * itemId-keyed members + fractional indexing), while Rule persists
  * those same fields as plain arrays without per-item identifiers.
  *
  * The generic `create` mutation, by contrast, would flatten any array
@@ -20,7 +20,7 @@
  * + `HeaderModification` per session-40 schema bump). `projectRule` is
  * the inverse: read the oracle's MaterializedEntity (which already
  * carries the array form for set-modeled paths and scalars elsewhere)
- * and return a V5.Rule.
+ * and return a Rule.
  *
  * **Identity preservation across save/reload.** Using the persisted
  * `uid` as itemId (instead of minting fresh via `generateUid()` on
@@ -31,7 +31,7 @@
  * the saved row uids. Mirrors `seedRequest` (session 39).
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import {
   type MaterializedEntity,
   mintBatch,
@@ -52,12 +52,12 @@ const SET_PATHS = ['conditions', 'action.requestHeaders', 'action.responseHeader
 type SetPath = (typeof SET_PATHS)[number];
 
 /**
- * Convert a persisted V5.Rule into a `MutationBatch` of one `create`
+ * Convert a persisted Rule into a `MutationBatch` of one `create`
  * for the scalar + non-set-modeled fields, plus one `addToSet` per
  * member of every set-modeled field. The batch is all-or-nothing under
  * the oracle's per-entity lock — partial seeding is impossible.
  */
-export function seedRule(rule: V5.Rule, ctx: MutatorContext): MutationBatch {
+export function seedRule(rule: Rule, ctx: MutatorContext): MutationBatch {
   const setItems: Array<{ path: SetPath; item: unknown }> = [];
   const scalarShell = stripSetFields(rule, setItems);
 
@@ -97,11 +97,11 @@ function readUid(item: unknown): string {
 
 /**
  * Convert a `MaterializedEntity` (the oracle's per-entity snapshot)
- * back into a V5.Rule. Returns `null` when the materialized data fails
+ * back into a Rule. Returns `null` when the materialized data fails
  * basic shape checks — callers persist the rule only when projection
  * succeeds.
  */
-export function projectRule(materialized: MaterializedEntity): V5.Rule | null {
+export function projectRule(materialized: MaterializedEntity): Rule | null {
   if (materialized.type !== RULE_ENTITY_TYPE) return null;
   const data = materialized.data;
   if (!isPlainObject(data)) return null;
@@ -109,15 +109,15 @@ export function projectRule(materialized: MaterializedEntity): V5.Rule | null {
   // unflattened from per-leaf paths; set-modeled fields are emitted as
   // arrays at their setPath. The cast is honest because seedRule
   // committed to that shape on the way in.
-  return data as V5.Rule;
+  return data as Rule;
 }
 
 // ── internals ─────────────────────────────────────────────────────
 
-function stripSetFields(rule: V5.Rule, out: Array<{ path: SetPath; item: unknown }>): unknown {
+function stripSetFields(rule: Rule, out: Array<{ path: SetPath; item: unknown }>): unknown {
   // Deep clone is overkill; we copy the shell and replace the
   // set-modeled slots with pruned versions. JSON round-trip is the
-  // simplest correct-by-construction approach for V5.Rule's deep
+  // simplest correct-by-construction approach for Rule's deep
   // shape (uid, path, action.*, conditions[]) — we're not on a hot
   // path here.
   const shell = JSON.parse(JSON.stringify(rule)) as Record<string, unknown>;

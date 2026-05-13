@@ -16,7 +16,7 @@
  * the same path-string parent filter we use here.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, CollectionTree, Request, Rule, Template, TreeNode } from '@openheaders/core/types';
 import type { PersistedLocalFolder } from './storage';
 
 function parentPathOf(path: string): string {
@@ -29,9 +29,9 @@ function buildFolderChildren<TLeaf>(
   folders: PersistedLocalFolder[],
   leaves: TLeaf[],
   leafPathOf: (leaf: TLeaf) => string,
-  emitLeaf: (leaf: TLeaf) => V5.TreeNode,
-): V5.TreeNode[] {
-  const nodes: V5.TreeNode[] = [];
+  emitLeaf: (leaf: TLeaf) => TreeNode,
+): TreeNode[] {
+  const nodes: TreeNode[] = [];
   for (const folder of folders) {
     if (parentPathOf(folder.path) !== parentPath) continue;
     nodes.push({
@@ -50,10 +50,10 @@ function buildFolderChildren<TLeaf>(
 }
 
 export function buildLocalCollectionTrees(
-  collections: V5.Collection[],
+  collections: Collection[],
   folders: PersistedLocalFolder[],
-  rules: V5.Rule[],
-): V5.CollectionTree[] {
+  rules: Rule[],
+): CollectionTree[] {
   return collections.map((collection) => ({
     ...collection,
     tree: buildFolderChildren(
@@ -67,10 +67,10 @@ export function buildLocalCollectionTrees(
 }
 
 export function buildRequestCollectionTrees(
-  collections: V5.Collection[],
+  collections: Collection[],
   folders: PersistedLocalFolder[],
-  requests: V5.Request[],
-): V5.CollectionTree[] {
+  requests: Request[],
+): CollectionTree[] {
   return collections.map((collection) => ({
     ...collection,
     tree: buildFolderChildren(
@@ -84,10 +84,10 @@ export function buildRequestCollectionTrees(
 }
 
 export function buildTemplateCollectionTrees(
-  templateCollections: V5.Collection[],
+  templateCollections: Collection[],
   templateFolders: PersistedLocalFolder[],
-  templates: V5.Template[],
-): V5.CollectionTree[] {
+  templates: Template[],
+): CollectionTree[] {
   return templateCollections.map((collection) => ({
     ...collection,
     tree: buildFolderChildren(

@@ -1,4 +1,4 @@
-import type { V5 } from '@openheaders/core/types';
+import type { HeaderModification, HeaderRule, Rule, RuleBase } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
 import { attributeHeaders, findCurrentMod, isAttributionEdited } from '@/panel/data/header-attribution';
 import type { InspectorFire } from '@/panel/data/types';
@@ -7,9 +7,9 @@ import type { RuleSnapshot, RuleSnapshotHeaderMod } from '@/types/telemetry';
 function headerRule(
   uid: string,
   name: string,
-  mods: V5.HeaderModification[],
+  mods: HeaderModification[],
   direction: 'request' | 'response',
-): V5.Rule {
+): Rule {
   return {
     uid,
     type: 'header',
@@ -20,9 +20,9 @@ function headerRule(
       requestHeaders: direction === 'request' ? mods : [],
       responseHeaders: direction === 'response' ? mods : [],
     },
-    // Fields required by V5.RuleBase — fill with empty defaults where
+    // Fields required by RuleBase — fill with empty defaults where
     // the attribution logic doesn't touch them.
-  } as unknown as V5.Rule;
+  } as unknown as Rule;
 }
 
 function fire(ruleUid: string): InspectorFire {
@@ -35,8 +35,8 @@ function fire(ruleUid: string): InspectorFire {
   };
 }
 
-function byUid(...rules: V5.Rule[]): ReadonlyMap<string, V5.Rule> {
-  const m = new Map<string, V5.Rule>();
+function byUid(...rules: Rule[]): ReadonlyMap<string, Rule> {
+  const m = new Map<string, Rule>();
   for (const r of rules) m.set(r.uid, r);
   return m;
 }
@@ -317,14 +317,14 @@ describe('attributeHeaders', () => {
   });
 
   it('ignores non-header rules (redirect/mock/block) — they do not produce header attributions', () => {
-    const nonHeader: V5.Rule = {
+    const nonHeader: Rule = {
       uid: 'r1',
       type: 'redirect',
       name: 'Redir',
       enabled: true,
       conditions: [],
       action: { redirectTo: 'y' },
-    } as unknown as V5.Rule;
+    } as unknown as Rule;
     const result = attributeHeaders([{ name: 'Location', value: '/old' }], [fire('r1')], 'response', byUid(nonHeader));
     expect(result[0].attribution.kind).toBe('server');
   });
@@ -436,7 +436,7 @@ describe('attributeHeaders', () => {
   // editing the rule afterwards does not retroactively rewrite the
   // value displayed for a past request. These tests pin that contract.
 
-  function snapshotOf(rule: V5.HeaderRule, overrides?: Partial<RuleSnapshot>): RuleSnapshot {
+  function snapshotOf(rule: HeaderRule, overrides?: Partial<RuleSnapshot>): RuleSnapshot {
     const headerMods: RuleSnapshotHeaderMod[] = [];
     for (const m of rule.action.requestHeaders) {
       headerMods.push({
@@ -482,14 +482,14 @@ describe('attributeHeaders', () => {
       'X',
       [{ uid: 'thm00055', operation: 'override', headerName: 'X-Foo', value: 'v2' }],
       'response',
-    ) as V5.HeaderRule;
+    ) as HeaderRule;
     const snapshot = snapshotOf({
       ...liveRule,
       action: {
         requestHeaders: [],
         responseHeaders: [{ uid: 'thm00056', operation: 'override', headerName: 'X-Foo', value: 'v1' }],
       },
-    } as V5.HeaderRule);
+    } as HeaderRule);
     const result = attributeHeaders(
       [{ name: 'X-Foo', value: 'server' }],
       [fireWithSnapshot(snapshot)],
@@ -511,7 +511,7 @@ describe('attributeHeaders', () => {
       'X',
       [{ uid: 'thm00057', operation: 'override', headerName: 'X-Foo', value: 'v1' }],
       'response',
-    ) as V5.HeaderRule;
+    ) as HeaderRule;
     const snapshot = snapshotOf(liveRule);
     const result = attributeHeaders(
       [{ name: 'X-Foo', value: 'server' }],
@@ -559,7 +559,7 @@ describe('attributeHeaders', () => {
       'X',
       [{ uid: 'thm00058', operation: 'override', headerName: 'X-Foo', value: '{{env.foo}}' }],
       'response',
-    ) as V5.HeaderRule;
+    ) as HeaderRule;
     const snapshot: RuleSnapshot = {
       ruleUid: 'r1',
       name: 'X',
@@ -606,14 +606,14 @@ describe('attributeHeaders', () => {
     // resolved it to `X-Debug` at fire time. The snapshot stores the
     // *resolved* name as `headerName` (so attribution can match the
     // HAR row) and the raw template separately as `headerNameTemplate`.
-    const liveRule: V5.Rule = {
+    const liveRule: Rule = {
       ...(headerRule(
         'r1',
         'Tpl name',
         [{ uid: 'thm00060', operation: 'override', headerName: 'X-{{env.suffix}}', value: 'v' }],
         'request',
       ) as object),
-    } as V5.Rule;
+    } as Rule;
     const snapshot: RuleSnapshot = {
       ruleUid: 'r1',
       name: 'Tpl name',
@@ -661,7 +661,7 @@ describe('attributeHeaders', () => {
         { uid: 'thm00062', operation: 'add', headerName: 'Set-Cookie', value: 'b=2' },
       ],
       'response',
-    ) as V5.HeaderRule;
+    ) as HeaderRule;
     const snapshot = snapshotOf(rule);
     const result = attributeHeaders([], [fireWithSnapshot(snapshot)], 'response', byUid(rule));
     expect(result).toHaveLength(2);

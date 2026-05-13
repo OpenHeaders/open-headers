@@ -1,5 +1,5 @@
 /**
- * Conflict tracking + resolve adapters for V5.Vault (singleton, secrets
+ * Conflict tracking + resolve adapters for Vault (singleton, secrets
  * keyed by uid). Each row is a `{kind: 'string' | 'totp'}` union;
  * partial leaf-write of the discriminator is refused — kind transitions
  * resolve via Use Saved on the row (carries the full payload).
@@ -11,7 +11,7 @@
  * dirty AND a same-user peer edited the same secret.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Vault, VaultSecret } from '@openheaders/core/types';
 import type { ConflictResolveAdapter, ConflictTrackingAdapter } from '@/shared/conflicts/conflict-adapters';
 import { enumLeaf, leaf, obj, setByUid, union } from '@/shared/conflicts/field-tree/descriptor';
 import { makeConflictAdapter } from '@/shared/conflicts/field-tree/make-conflict-adapter';
@@ -21,11 +21,11 @@ const MASK = new Set<'mask' | 'redact-presence'>(['mask']);
 const VAULT_SCHEMA = obj({
   secrets: setByUid({
     summary: (row) => {
-      const s = row as V5.VaultSecret;
+      const s = row as VaultSecret;
       return s.kind === 'totp' ? `${s.name} (TOTP)` : s.name;
     },
     rowLabel: (row) => {
-      const s = row as V5.VaultSecret;
+      const s = row as VaultSecret;
       return s.name ? `Secret ${s.name}` : 'Secret';
     },
     child: union({
@@ -64,7 +64,7 @@ const LEAF_LABEL: Record<string, string> = {
   issuer: 'issuer',
 };
 
-type VaultEntity = V5.Vault & { uid: string };
+type VaultEntity = Vault & { uid: string };
 
 const adapters = makeConflictAdapter<VaultEntity>({
   schema: VAULT_SCHEMA,

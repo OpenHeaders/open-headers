@@ -1,4 +1,4 @@
-import type { V5 } from '@openheaders/core/types';
+import type { HeaderRule, Rule, RuleCondition } from '@openheaders/core/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Mocks ────────────────────────────────────────────────────────────
@@ -60,11 +60,11 @@ const flushPromises = () => new Promise((resolve) => setTimeout(resolve, 0));
 // ── Helpers ──────────────────────────────────────────────────────────
 
 /** Helper: build conditions from domain strings. */
-function hostConditions(domains: string[]): V5.RuleCondition[] {
+function hostConditions(domains: string[]): RuleCondition[] {
   return domains.length > 0 ? [{ uid: 'tcd00038', type: 'request-domains', values: domains }] : [];
 }
 
-function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
+function makeHeaderRule(overrides: Partial<HeaderRule> = {}): HeaderRule {
   return {
     schemaVersion: 5,
     uid: `rule-${crypto.randomUUID?.() ?? 'a1b2'}`.slice(0, 8),
@@ -466,7 +466,7 @@ describe('header-manager', () => {
 
   describe('non-header rule types', () => {
     it('ignores desktop-only rule types (body, delay, mock)', async () => {
-      const bodyRule: V5.Rule = {
+      const bodyRule: Rule = {
         schemaVersion: 5,
         uid: 'bdy1',
         path: 'rules/body',

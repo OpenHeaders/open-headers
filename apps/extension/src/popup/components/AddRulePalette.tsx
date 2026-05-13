@@ -12,7 +12,7 @@
  */
 
 import { CodeOutlined, SearchOutlined } from '@ant-design/icons';
-import type { V5 } from '@openheaders/core/types';
+import type { ExtensionRuleType } from '@openheaders/core/types';
 import { Empty, Input, Modal, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -23,7 +23,7 @@ const { Text } = Typography;
 
 interface PaletteItem {
   id: string;
-  ruleType: V5.ExtensionRuleType;
+  ruleType: ExtensionRuleType;
   templateKey?: string;
   title: string;
   subtitle: string;
@@ -63,7 +63,7 @@ function buildPaletteItems(): PaletteItem[] {
 interface AddRulePaletteProps {
   open: boolean;
   onClose: () => void;
-  onSelect: (ruleType: V5.ExtensionRuleType, templateKey?: string) => void;
+  onSelect: (ruleType: ExtensionRuleType, templateKey?: string) => void;
 }
 
 export function AddRulePalette({ open, onClose, onSelect }: AddRulePaletteProps): React.ReactElement {

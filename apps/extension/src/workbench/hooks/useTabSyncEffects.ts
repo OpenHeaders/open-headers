@@ -29,20 +29,20 @@
  *     fires for actual disappearances.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { CollectionTree, Environment, LiveVariable, LiveWorkflow, Request, Rule, Template, TreeNode } from '@openheaders/core/types';
 import { useEffect, useRef } from 'react';
 import type { WorkbenchTab } from '../types';
 
 interface UseTabSyncEffectsOptions {
-  rules: V5.Rule[];
-  localCollectionTrees: V5.CollectionTree[];
-  environments: V5.Environment[];
-  requests: V5.Request[];
-  requestCollectionTrees: V5.CollectionTree[];
-  templates: V5.Template[];
-  templateCollectionTrees: V5.CollectionTree[];
-  liveVariables: V5.LiveVariable[];
-  liveWorkflows: V5.LiveWorkflow[];
+  rules: Rule[];
+  localCollectionTrees: CollectionTree[];
+  environments: Environment[];
+  requests: Request[];
+  requestCollectionTrees: CollectionTree[];
+  templates: Template[];
+  templateCollectionTrees: CollectionTree[];
+  liveVariables: LiveVariable[];
+  liveWorkflows: LiveWorkflow[];
   allTabs: WorkbenchTab[];
   updateTab: (tabId: string, updates: Partial<WorkbenchTab>) => void;
   closeTab: (tabId: string, force?: boolean) => void;
@@ -84,7 +84,7 @@ export function useTabSyncEffects({
     for (const r of rules) currentIds.add(r.uid);
     for (const col of localCollectionTrees) {
       currentIds.add(col.uid);
-      const walk = (nodes: V5.TreeNode[]) => {
+      const walk = (nodes: TreeNode[]) => {
         for (const n of nodes) {
           currentIds.add(n.uid);
           if (n.type === 'folder') walk(n.children);
@@ -96,7 +96,7 @@ export function useTabSyncEffects({
     for (const req of requests) currentIds.add(req.uid);
     for (const col of requestCollectionTrees) {
       currentIds.add(col.uid);
-      const walk = (nodes: V5.TreeNode[]) => {
+      const walk = (nodes: TreeNode[]) => {
         for (const n of nodes) {
           currentIds.add(n.uid);
           if (n.type === 'folder') walk(n.children);
@@ -107,7 +107,7 @@ export function useTabSyncEffects({
     for (const tpl of templates) currentIds.add(tpl.uid);
     for (const col of templateCollectionTrees) {
       currentIds.add(col.uid);
-      const walk = (nodes: V5.TreeNode[]) => {
+      const walk = (nodes: TreeNode[]) => {
         for (const n of nodes) {
           currentIds.add(n.uid);
           if (n.type === 'folder') walk(n.children);

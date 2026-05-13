@@ -20,7 +20,7 @@
 
 import { LiveWorkflowSchema } from '@openheaders/core/schemas';
 import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { LiveWorkflow, RefreshPolicy, WorkflowStep } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 import { extensionStorage, wsKeys } from '@/shared/storage';
@@ -42,7 +42,7 @@ import { getActiveWorkspaceId } from './workspace-store';
 
 // ── In-memory state (scoped to the active workspace) ───────────────
 
-let workflows: V5.LiveWorkflow[] = [];
+let workflows: LiveWorkflow[] = [];
 let loadedWorkspaceId: string | null = null;
 
 // ── Change listeners ────────────────────────────────────────────────
@@ -61,11 +61,11 @@ function notifyChange(): void {
 
 // ── Reads ────────────────────────────────────────────────────────────
 
-export function getLiveWorkflows(): V5.LiveWorkflow[] {
+export function getLiveWorkflows(): LiveWorkflow[] {
   return workflows;
 }
 
-export function getLiveWorkflow(uid: string): V5.LiveWorkflow | null {
+export function getLiveWorkflow(uid: string): LiveWorkflow | null {
   return workflows.find((w) => w.uid === uid) ?? null;
 }
 
@@ -77,7 +77,7 @@ export function getLiveWorkflow(uid: string): V5.LiveWorkflow | null {
  * service is materialized for the workspace OR no workflow with that
  * uid exists in it.
  */
-export function getLiveWorkflowInWorkspace(uid: string, workspaceId: string): V5.LiveWorkflow | null {
+export function getLiveWorkflowInWorkspace(uid: string, workspaceId: string): LiveWorkflow | null {
   const cache = getCacheForWorkspace<LiveWorkflowCache>(LIVE_WORKFLOW_REGISTRATION, workspaceId);
   if (!cache) return null;
   return cache.getLiveWorkflows().find((w) => w.uid === uid) ?? null;
@@ -91,7 +91,7 @@ export function getLiveWorkflowInWorkspace(uid: string, workspaceId: string): V5
  * dispatch is keyed by an explicit workspaceId rather than the
  * runtime-Active one.
  */
-export function getLiveWorkflowsForWorkspace(workspaceId: string): V5.LiveWorkflow[] {
+export function getLiveWorkflowsForWorkspace(workspaceId: string): LiveWorkflow[] {
   const cache = getCacheForWorkspace<LiveWorkflowCache>(LIVE_WORKFLOW_REGISTRATION, workspaceId);
   return cache ? cache.getLiveWorkflows() : [];
 }
@@ -109,21 +109,21 @@ function assertLoaded(): string {
  * Default refresh policy for a brand-new workflow — manual-only until
  * the user picks a cadence.
  */
-const DEFAULT_REFRESH: V5.RefreshPolicy = { kind: 'manual' };
+const DEFAULT_REFRESH: RefreshPolicy = { kind: 'manual' };
 
 export interface CreateLiveWorkflowInput {
   name: string;
   description?: string;
-  steps?: V5.WorkflowStep[];
-  refresh?: V5.RefreshPolicy;
+  steps?: WorkflowStep[];
+  refresh?: RefreshPolicy;
   enabled?: boolean;
 }
 
-export async function createLiveWorkflow(input: CreateLiveWorkflowInput): Promise<V5.LiveWorkflow> {
+export async function createLiveWorkflow(input: CreateLiveWorkflowInput): Promise<LiveWorkflow> {
   assertLoaded();
   const uid = generateUid();
   const folderName = toFolderName(input.name, uid);
-  const created: V5.LiveWorkflow = {
+  const created: LiveWorkflow = {
     schemaVersion: 5,
     uid,
     path: `live-workflows/${folderName}`,
@@ -138,13 +138,13 @@ export async function createLiveWorkflow(input: CreateLiveWorkflowInput): Promis
 }
 
 export type LiveWorkflowWriteResult =
-  | { ok: true; workflow: V5.LiveWorkflow }
+  | { ok: true; workflow: LiveWorkflow }
   | { ok: false; reason: 'not-found' }
   | { ok: false; reason: 'other'; message: string };
 
 export async function updateLiveWorkflow(
   uid: string,
-  updates: Partial<Omit<V5.LiveWorkflow, 'uid' | 'path' | 'schemaVersion'>>,
+  updates: Partial<Omit<LiveWorkflow, 'uid' | 'path' | 'schemaVersion'>>,
 ): Promise<LiveWorkflowWriteResult> {
   assertLoaded();
   const oracle = getOracleForCurrentWorkspace();
@@ -167,7 +167,7 @@ export async function updateLiveWorkflow(
       message: result.failure?.detail ?? 'oracle rejected live-workflow batch',
     };
   }
-  return { ok: true, workflow: { ...existing, ...updates } as V5.LiveWorkflow };
+  return { ok: true, workflow: { ...existing, ...updates } as LiveWorkflow };
 }
 
 export async function deleteLiveWorkflow(uid: string): Promise<boolean> {
@@ -200,7 +200,7 @@ async function applyLiveWorkflowMutationOrThrow(
 
 // ── Hydration / workspace switch ────────────────────────────────────
 
-async function readSnapshot(workspaceId: string): Promise<V5.LiveWorkflow[]> {
+async function readSnapshot(workspaceId: string): Promise<LiveWorkflow[]> {
   return extensionStorage.getValidatedArray(wsKeys(workspaceId).liveWorkflows, LiveWorkflowSchema, {
     onError: driftRecorder({
       subsystem: 'live',
@@ -210,7 +210,7 @@ async function readSnapshot(workspaceId: string): Promise<V5.LiveWorkflow[]> {
   });
 }
 
-export async function hydrateFromStorage(): Promise<V5.LiveWorkflow[]> {
+export async function hydrateFromStorage(): Promise<LiveWorkflow[]> {
   const workspaceId = getActiveWorkspaceId();
   workflows = await readSnapshot(workspaceId);
   loadedWorkspaceId = workspaceId;

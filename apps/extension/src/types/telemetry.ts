@@ -7,7 +7,7 @@
  * lives here as the single source of truth for the wire format.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { HeaderOperation, Rule } from '@openheaders/core/types';
 import type { ShadowAttribution } from '@/background/modules/shadow-arbitration';
 import type { TrackedResourceType } from './browser';
 
@@ -27,7 +27,7 @@ import type { TrackedResourceType } from './browser';
 export interface RuleSnapshot {
   ruleUid: string;
   name: string;
-  type: V5.Rule['type'];
+  type: Rule['type'];
   enabled: boolean;
   /** Header-rule modifications, present only when `type === 'header'`. */
   headerMods?: ReadonlyArray<RuleSnapshotHeaderMod>;
@@ -35,7 +35,7 @@ export interface RuleSnapshot {
 
 export interface RuleSnapshotHeaderMod {
   direction: 'request' | 'response';
-  operation: V5.HeaderOperation;
+  operation: HeaderOperation;
   /** Resolved header name — what hit the wire. Drives attribution
    *  matching against HAR rows and is the display name in the
    *  inspector. When the user wrote `{{vars}}` in the name field,

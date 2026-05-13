@@ -31,7 +31,7 @@ import {
   type ImportReportDiff,
   parseCurl,
 } from '@openheaders/core/import';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, Request } from '@openheaders/core/types';
 import { Alert, App as AntApp, Button, Input, Modal, Select, Space, Tag, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -42,7 +42,7 @@ const { Text, Paragraph } = Typography;
 interface ImportCurlModalProps {
   open: boolean;
   /** All request collections the user can pick as the import target. */
-  collections: V5.Collection[];
+  collections: Collection[];
   /** Id of the collection that was in focus when the modal opened (preselect). */
   initialCollectionId?: string;
   onCancel: () => void;
@@ -64,7 +64,7 @@ interface ImportCurlModalProps {
   createRequest: (payload: {
     name: string;
     collectionUid: string;
-    seed: Partial<V5.Request>;
+    seed: Partial<Request>;
   }) => Promise<{ uid: string } | null>;
   /**
    * Look up a prior import report by source hash so the modal can
@@ -187,7 +187,7 @@ const ImportCurlModal: React.FC<ImportCurlModalProps> = ({
     try {
       const hash = await hashImportSource(source.trim());
       const req = parsed.request;
-      const seed: Partial<V5.Request> = {
+      const seed: Partial<Request> = {
         method: req.method,
         url: req.url,
         headers: req.headers,

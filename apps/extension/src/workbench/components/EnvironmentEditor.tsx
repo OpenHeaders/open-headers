@@ -21,7 +21,7 @@ import { CheckCircleTwoTone, StarFilled, StarOutlined } from '@ant-design/icons'
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useEnvironmentMutator } from '@hooks/useEnvironmentMutator';
 import { ENVIRONMENT_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Environment, Variable } from '@openheaders/core/types';
 import { App, Button, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -51,7 +51,7 @@ interface EnvironmentEditorProps {
   registerSaveRef?: (save: () => void) => void;
 }
 
-const EMPTY_VARS: V5.Variable[] = [];
+const EMPTY_VARS: Variable[] = [];
 
 const SURFACE_ID = 'workbench';
 
@@ -60,7 +60,7 @@ const SURFACE_ID = 'workbench';
 // user-visible change you'd save). Reorder convergence is tracked
 // separately by the conflict adapter via `formSetOrders` for the
 // set-reorder kind.
-function variablesSignature(vars: readonly V5.Variable[]): string {
+function variablesSignature(vars: readonly Variable[]): string {
   return stableStringify(vars);
 }
 
@@ -75,7 +75,7 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
   const env = useMemo(() => environments.find((e) => e.uid === environmentUid) ?? null, [environments, environmentUid]);
   const localInstanceId = useLocalInstanceId();
 
-  const [draft, setDraft] = useState<V5.Variable[]>(() => env?.variables ?? EMPTY_VARS);
+  const [draft, setDraft] = useState<Variable[]>(() => env?.variables ?? EMPTY_VARS);
   const formFingerprint = useMemo(() => variablesSignature(draft), [draft]);
 
   // ── Conflict tracking ──────────────────────────────────────────
@@ -93,11 +93,11 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
   const setBaselineRef = useRef<(e: VariableEntity) => void>(() => undefined);
   // Snapshot of variables at the most recent re-prime — feeds the
   // merge-editor preview's Show Base layouts via `baseText`.
-  const baselineVariablesRef = useRef<readonly V5.Variable[] | null>(null);
+  const baselineVariablesRef = useRef<readonly Variable[] | null>(null);
 
   // Reprime: hook-owned comparison + populate sequencing. Editor never
   // reads both fingerprints simultaneously — the hook IS the comparison.
-  const reprime = useReprime<V5.Environment>({
+  const reprime = useReprime<Environment>({
     liveEntity: env,
     scope: { entityType: ENVIRONMENT_ENTITY_TYPE, entityId: env?.uid ?? null },
     enabled: env !== null,
@@ -204,7 +204,7 @@ const EnvironmentEditor: React.FC<EnvironmentEditorProps> = ({ environmentUid, o
       if (!env) return;
       const parsed = JSON.parse(text);
       if (!Array.isArray(parsed)) throw new Error('Environment variables must be a JSON array.');
-      setDraft(parsed as V5.Variable[]);
+      setDraft(parsed as Variable[]);
       for (const path of allConflicts.keys()) conflicts.dismiss(path);
     },
     [env, allConflicts, conflicts, setDraft],

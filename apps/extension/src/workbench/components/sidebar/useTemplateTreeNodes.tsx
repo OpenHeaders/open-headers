@@ -4,7 +4,7 @@ import {
   TEMPLATE_ENTITY_TYPE,
   TEMPLATE_FOLDER_ENTITY_TYPE,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Template, TemplateNode, TreeNode as CoreTreeNode } from '@openheaders/core/types';
 import { createElement, useCallback, useMemo } from 'react';
 import { TEMPLATES_BY_TYPE } from '../../rule-templates';
 import { renderTwoToneIcon } from '../TwoToneIconPicker';
@@ -30,7 +30,7 @@ const RULE_TYPE_LABEL: Record<string, string> = {
 };
 
 interface UseTemplateTreeNodesParams {
-  templateCollectionTrees: readonly { uid: string; name: string; path: string; tree: V5.TreeNode[] }[];
+  templateCollectionTrees: readonly { uid: string; name: string; path: string; tree: CoreTreeNode[] }[];
   expandedKeys: ReadonlySet<string>;
   setExpandedKeys: React.Dispatch<React.SetStateAction<Set<string>>>;
   toggleExpand: (key: string) => void;
@@ -45,7 +45,7 @@ interface UseTemplateTreeNodesParams {
   deleteTemplateFolder: (uid: string) => Promise<unknown> | unknown;
   renameTemplateCollection: (uid: string, name: string) => Promise<unknown> | unknown;
   deleteTemplateCollection: (uid: string) => Promise<unknown> | unknown;
-  updateTemplate: (uid: string, patch: Partial<V5.Template>) => Promise<unknown> | unknown;
+  updateTemplate: (uid: string, patch: Partial<Template>) => Promise<unknown> | unknown;
   deleteTemplate: (uid: string) => Promise<unknown> | unknown;
   onCreateRule: (type: string, context?: { collectionId: string; folderPath?: string }, templateKey?: string) => void;
   onSelectTemplate?: (uid: string) => void;
@@ -63,7 +63,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
   const lowerFilter = p.filterText.toLowerCase();
 
   const walkTemplateTree = useCallback(
-    (v5Nodes: V5.TreeNode[], depth: number, parentId: string, collectionId: string): TreeNode[] => {
+    (v5Nodes: CoreTreeNode[], depth: number, parentId: string, collectionId: string): TreeNode[] => {
       const items: TreeNode[] = [];
 
       for (const node of v5Nodes) {
@@ -142,7 +142,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
         } else if (node.type === 'template') {
           if (lowerFilter && !node.name.toLowerCase().includes(lowerFilter)) continue;
           const tid = `tpl-${node.uid}`;
-          const tplNode = node as V5.TemplateNode;
+          const tplNode = node as TemplateNode;
 
           items.push({
             id: tid,
@@ -272,7 +272,7 @@ export function useTemplateTreeNodes(p: UseTemplateTreeNodesParams): {
   const templateNodes = useMemo((): TreeNode[] => {
     const items: TreeNode[] = [];
 
-    const hasTemplateMatch = (nodes: V5.TreeNode[]): boolean => {
+    const hasTemplateMatch = (nodes: CoreTreeNode[]): boolean => {
       for (const n of nodes) {
         if (n.type === 'template' && n.name.toLowerCase().includes(lowerFilter)) return true;
         if (n.type === 'folder') {

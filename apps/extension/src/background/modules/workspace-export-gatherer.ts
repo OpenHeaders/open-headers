@@ -23,7 +23,7 @@
  */
 
 import { scanTemplateReferencesMany } from '@openheaders/core/live';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, Environment, Folder, LiveVariable, LiveWorkflow, Request, Rule, Template, WorkspaceVariables } from '@openheaders/core/types';
 import type { BuildWorkspaceExportInput } from '@openheaders/core/workspace-export';
 import { extensionStorage, type PersistedLocalFolder, wsKeys } from '@/shared/storage';
 import { getWorkspace } from './workspace-store';
@@ -91,7 +91,7 @@ interface GatherResult {
  * optional, so the envelope schema accepts the persisted shape
  * verbatim).
  */
-function toExportFolders(folders: PersistedLocalFolder[]): V5.Folder[] {
+function toExportFolders(folders: PersistedLocalFolder[]): Folder[] {
   return folders;
 }
 
@@ -114,14 +114,14 @@ interface ExpandedSelection {
 }
 
 interface SelectionSources {
-  collections: readonly V5.Collection[];
-  folders: readonly V5.Folder[];
-  rules: readonly V5.Rule[];
-  requests: readonly V5.Request[];
-  templates: readonly V5.Template[];
-  environments: readonly V5.Environment[];
-  liveWorkflows: readonly V5.LiveWorkflow[];
-  liveVariables: readonly V5.LiveVariable[];
+  collections: readonly Collection[];
+  folders: readonly Folder[];
+  rules: readonly Rule[];
+  requests: readonly Request[];
+  templates: readonly Template[];
+  environments: readonly Environment[];
+  liveWorkflows: readonly LiveWorkflow[];
+  liveVariables: readonly LiveVariable[];
 }
 
 /**
@@ -224,7 +224,7 @@ function expandTransitiveDeps(expanded: ExpandedSelection, src: SelectionSources
   // in every env that carries a referenced name (a name can live in
   // multiple envs; ship them all so the recipient can pick the right
   // one at import time).
-  const envsByVarName = new Map<string, V5.Environment[]>();
+  const envsByVarName = new Map<string, Environment[]>();
   for (const env of src.environments) {
     for (const v of env.variables ?? []) {
       const list = envsByVarName.get(v.name) ?? [];
@@ -233,16 +233,16 @@ function expandTransitiveDeps(expanded: ExpandedSelection, src: SelectionSources
     }
   }
 
-  const liveVarByName = new Map<string, V5.LiveVariable>();
+  const liveVarByName = new Map<string, LiveVariable>();
   for (const lv of src.liveVariables) liveVarByName.set(lv.name, lv);
 
-  const workflowByUid = new Map<string, V5.LiveWorkflow>();
+  const workflowByUid = new Map<string, LiveWorkflow>();
   for (const wf of src.liveWorkflows) workflowByUid.set(wf.uid, wf);
 
-  const requestByUid = new Map<string, V5.Request>();
+  const requestByUid = new Map<string, Request>();
   for (const r of src.requests) requestByUid.set(r.uid, r);
 
-  type ColWithVars = V5.Collection & { variables?: { name: string }[] };
+  type ColWithVars = Collection & { variables?: { name: string }[] };
   const collectionsWithVar = new Map<string, ColWithVars>();
   for (const c of src.collections as ColWithVars[]) {
     for (const v of c.variables ?? []) {
@@ -400,37 +400,37 @@ export async function gatherWorkspaceExport(
     defaultEnvironmentId: k.defaultEnvironmentId,
   });
 
-  const allRules: V5.Rule[] = src.rules ?? [];
-  const allRequests: V5.Request[] = src.requests ?? [];
-  const allTemplates: V5.Template[] = src.templates ?? [];
-  const allEnvironments: V5.Environment[] = src.environments ?? [];
-  const allLiveWorkflows: V5.LiveWorkflow[] = src.liveWorkflows ?? [];
-  const allLiveVariables: V5.LiveVariable[] = src.liveVariables ?? [];
+  const allRules: Rule[] = src.rules ?? [];
+  const allRequests: Request[] = src.requests ?? [];
+  const allTemplates: Template[] = src.templates ?? [];
+  const allEnvironments: Environment[] = src.environments ?? [];
+  const allLiveWorkflows: LiveWorkflow[] = src.liveWorkflows ?? [];
+  const allLiveVariables: LiveVariable[] = src.liveVariables ?? [];
 
   // Three parallel trees flatten into single arrays in the envelope.
   // Path prefix (`rules/...` / `requests/...` / `templates/...`)
   // preserves tree affiliation for the importer (PR 2).
-  const allCollections: V5.Collection[] = [
-    ...((src.collections ?? []) as V5.Collection[]),
-    ...((src.requestCollections ?? []) as V5.Collection[]),
-    ...((src.templateCollections ?? []) as V5.Collection[]),
+  const allCollections: Collection[] = [
+    ...((src.collections ?? []) as Collection[]),
+    ...((src.requestCollections ?? []) as Collection[]),
+    ...((src.templateCollections ?? []) as Collection[]),
   ];
-  const allFolders: V5.Folder[] = [
+  const allFolders: Folder[] = [
     ...toExportFolders(src.folders ?? []),
     ...toExportFolders(src.requestFolders ?? []),
     ...toExportFolders(src.templateFolders ?? []),
   ];
 
-  let rules: V5.Rule[];
-  let requests: V5.Request[];
-  let templates: V5.Template[];
-  let environments: V5.Environment[];
-  let collections: V5.Collection[];
-  let folders: V5.Folder[];
-  let liveWorkflows: V5.LiveWorkflow[];
-  let liveVariables: V5.LiveVariable[];
+  let rules: Rule[];
+  let requests: Request[];
+  let templates: Template[];
+  let environments: Environment[];
+  let collections: Collection[];
+  let folders: Folder[];
+  let liveWorkflows: LiveWorkflow[];
+  let liveVariables: LiveVariable[];
   let envelopeScope: BuildWorkspaceExportInput['scope'];
-  let workspaceVarsOut: V5.WorkspaceVariables | undefined;
+  let workspaceVarsOut: WorkspaceVariables | undefined;
 
   if (scope.kind === 'workspace') {
     rules = allRules;

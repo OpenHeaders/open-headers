@@ -7,7 +7,7 @@
  * edit, rename, kind-transition uniformly), `removeSecret` keys by uid.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { VaultSecret } from '@openheaders/core/types';
 import { useMemo } from 'react';
 import {
   applyVaultReplacement,
@@ -26,13 +26,13 @@ export interface UseVaultMutatorOptions {
 
 export interface UseVaultMutatorApi {
   /** Upsert a secret — handles add, edit, rename, kind-transition. */
-  setSecret(secret: V5.VaultSecret): Promise<VaultSimpleResult>;
+  setSecret(secret: VaultSecret): Promise<VaultSimpleResult>;
   /** Remove a secret by its persisted uid. */
   removeSecret(uid: string): Promise<VaultSimpleResult>;
   /** Replace the full secrets list — see `applyVaultReplacement`. */
   replaceSecrets(
-    newSecrets: readonly V5.VaultSecret[],
-    oldSecrets: readonly V5.VaultSecret[],
+    newSecrets: readonly VaultSecret[],
+    oldSecrets: readonly VaultSecret[],
   ): Promise<VaultSimpleResult>;
 }
 
@@ -42,7 +42,7 @@ export function useVaultMutator(opts: UseVaultMutatorOptions): UseVaultMutatorAp
   const setSecret = useGuardedMutation(
     workspaceId,
     surfaceId,
-    (writeOpts, secret: V5.VaultSecret) => applyVaultSecretSet({ secret }, writeOpts),
+    (writeOpts, secret: VaultSecret) => applyVaultSecretSet({ secret }, writeOpts),
   );
 
   const removeSecret = useGuardedMutation(workspaceId, surfaceId, (writeOpts, uid: string) =>
@@ -52,7 +52,7 @@ export function useVaultMutator(opts: UseVaultMutatorOptions): UseVaultMutatorAp
   const replaceSecrets = useGuardedMutation(
     workspaceId,
     surfaceId,
-    (writeOpts, newSecrets: readonly V5.VaultSecret[], oldSecrets: readonly V5.VaultSecret[]) =>
+    (writeOpts, newSecrets: readonly VaultSecret[], oldSecrets: readonly VaultSecret[]) =>
       applyVaultReplacement(newSecrets, oldSecrets, writeOpts),
   );
 

@@ -1,11 +1,11 @@
 /**
  * Phase B — environment cache subscribes to broadcast, re-projects to
- * V5.Environment[], persists to chrome.storage.local. Mirrors
+ * Environment[], persists to chrome.storage.local. Mirrors
  * rule-cache test shape.
  */
 
 import { setEnvVar } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Environment } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@/background/sync/broadcast';
 import { createEnvironmentCache } from '@/background/sync/environment-cache';
@@ -15,14 +15,14 @@ import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
 
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
 
-const makeEnv = (uid: string): V5.Environment =>
+const makeEnv = (uid: string): Environment =>
   ({
     schemaVersion: 5,
     uid,
     name: `env-${uid}`,
     variables: [{ uid: '624adb9a', name: 'A', value: '1', type: 'default' }],
     version: 1,
-  }) as unknown as V5.Environment;
+  }) as unknown as Environment;
 
 const ctxFactory = () => ({
   workspaceId: 'ws-1',

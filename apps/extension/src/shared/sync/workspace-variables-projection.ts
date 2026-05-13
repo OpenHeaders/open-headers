@@ -1,12 +1,12 @@
 /**
- * Workspace-variables projection — `V5.WorkspaceVariables ⇄
+ * Workspace-variables projection — `WorkspaceVariables ⇄
  * MutationBatch / MaterializedEntity`.
  *
  * Mirrors `env-projection.ts` / `collection-projection.ts` for the
  * singleton workspace-variables entity. The oracle stores variables as
  * set members at `variables` (set member identity = `variable.uid`,
  * see `mutators/workspace-variables/types.ts`); persisted
- * `V5.WorkspaceVariables.variables` is a plain array. `seedWorkspaceVariables`
+ * `WorkspaceVariables.variables` is a plain array. `seedWorkspaceVariables`
  * therefore strips the `variables` array off the create payload and
  * emits one `addToSet` per variable (itemId = uid);
  * `projectWorkspaceVariables` is the inverse.
@@ -16,7 +16,7 @@
  * singletons don't have one to thread.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { WorkspaceVariables } from '@openheaders/core/types';
 import {
   type MaterializedEntity,
   mintBatch,
@@ -29,12 +29,12 @@ import {
 } from '@openheaders/core/sync';
 
 /**
- * Convert a persisted `V5.WorkspaceVariables` into a `MutationBatch`
+ * Convert a persisted `WorkspaceVariables` into a `MutationBatch`
  * of one `create` for the scalar shell plus one `addToSet` per
  * variable. All-or-nothing under the oracle's per-entity lock.
  */
 export function seedWorkspaceVariables(
-  workspaceVars: V5.WorkspaceVariables,
+  workspaceVars: WorkspaceVariables,
   ctx: MutatorContext,
 ): MutationBatch {
   const shell = stripVariables(workspaceVars);
@@ -62,21 +62,21 @@ export function seedWorkspaceVariables(
 
 /**
  * Convert a `MaterializedEntity` (the oracle's snapshot of the
- * singleton) back into a `V5.WorkspaceVariables`. Returns `null` when
+ * singleton) back into a `WorkspaceVariables`. Returns `null` when
  * the materialized data fails basic shape checks.
  */
 export function projectWorkspaceVariables(
   materialized: MaterializedEntity,
-): V5.WorkspaceVariables | null {
+): WorkspaceVariables | null {
   if (materialized.type !== WORKSPACE_VARIABLES_ENTITY_TYPE) return null;
   const data = materialized.data;
   if (!isPlainObject(data)) return null;
-  return data as V5.WorkspaceVariables;
+  return data as WorkspaceVariables;
 }
 
 // ── internals ─────────────────────────────────────────────────────
 
-function stripVariables(workspaceVars: V5.WorkspaceVariables): unknown {
+function stripVariables(workspaceVars: WorkspaceVariables): unknown {
   const shell = JSON.parse(JSON.stringify(workspaceVars)) as Record<string, unknown>;
   delete shell.variables;
   return shell;

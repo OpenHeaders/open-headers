@@ -1,5 +1,5 @@
 /**
- * Per-field save merge for V5.Template editors. Same architectural
+ * Per-field save merge for Template editors. Same architectural
  * shape as `merge-rule-for-save.ts` — Templates carry the same
  * uid-keyed set rows (conditions; formValues.requestHeaders /
  * responseHeaders / params) as Rules, plus a flat scalar metadata
@@ -8,7 +8,7 @@
  * know about ahead of time.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { RuleCondition, Template } from '@openheaders/core/types';
 import { mergeRowsByIdentity, mergeScalarLeaves } from '@/shared/forms/per-field-merge';
 
 export interface TemplateSaveBatch {
@@ -16,11 +16,11 @@ export interface TemplateSaveBatch {
   icon: string;
   description: string;
   includes: { conditions: boolean; formValues: boolean };
-  conditions: V5.RuleCondition[];
+  conditions: RuleCondition[];
   formValues: Record<string, unknown>;
 }
 
-function projectTemplate(t: V5.Template): TemplateSaveBatch {
+function projectTemplate(t: Template): TemplateSaveBatch {
   return {
     name: t.name,
     icon: t.icon,
@@ -68,19 +68,19 @@ function mergeFormValues(
 
 export function mergeTemplateForSave(
   form: TemplateSaveBatch,
-  baseline: V5.Template | null,
-  live: V5.Template | null,
+  baseline: Template | null,
+  live: Template | null,
 ): TemplateSaveBatch {
   if (!baseline || !live) return form;
   const baseProj = projectTemplate(baseline);
   const liveProj = projectTemplate(live);
 
   const conditions = mergeRowsByIdentity(
-    form.conditions as ReadonlyArray<V5.RuleCondition & Record<string, unknown>>,
-    baseProj.conditions as ReadonlyArray<V5.RuleCondition & Record<string, unknown>>,
-    liveProj.conditions as ReadonlyArray<V5.RuleCondition & Record<string, unknown>>,
+    form.conditions as ReadonlyArray<RuleCondition & Record<string, unknown>>,
+    baseProj.conditions as ReadonlyArray<RuleCondition & Record<string, unknown>>,
+    liveProj.conditions as ReadonlyArray<RuleCondition & Record<string, unknown>>,
     'uid',
-  ) as V5.RuleCondition[];
+  ) as RuleCondition[];
 
   const scalarForm: Record<string, unknown> = {
     name: form.name,

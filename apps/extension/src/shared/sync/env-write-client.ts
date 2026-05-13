@@ -29,7 +29,7 @@ import {
   mintBatch,
   type SideEffectIntent,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Environment, Variable } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import type { EnvSyncMirror } from '@/context/env-sync-mirror';
 import {
@@ -59,7 +59,7 @@ export interface EnvWriteOptions extends BaseSyncWriteOptions {
 export interface ApplyEnvSetVarInput {
   envId: string;
   /** Whole variable record. `variable.uid` is the set-member itemId. */
-  variable: V5.Variable;
+  variable: Variable;
 }
 
 export async function applyEnvSetVar(input: ApplyEnvSetVarInput, opts: EnvWriteOptions): Promise<EnvSimpleResult> {
@@ -103,13 +103,13 @@ export async function applyRenameEnvironment(
  */
 export async function applyEnvVariablesReplacement(
   envId: string,
-  newVars: readonly V5.Variable[],
-  oldVars: readonly V5.Variable[],
+  newVars: readonly Variable[],
+  oldVars: readonly Variable[],
   opts: EnvWriteOptions,
 ): Promise<EnvSimpleResult> {
-  const oldByUid = new Map<string, V5.Variable>();
+  const oldByUid = new Map<string, Variable>();
   for (const v of oldVars) oldByUid.set(v.uid, v);
-  const newByUid = new Map<string, V5.Variable>();
+  const newByUid = new Map<string, Variable>();
   for (const v of newVars) {
     if (!v.name.trim()) continue;
     newByUid.set(v.uid, v);
@@ -170,20 +170,20 @@ export async function applyEnvVariablesReplacement(
  * the editing-scope workspaceId, fixing BC-MWPT-FULL-1.
  */
 export type EnvironmentMutationResult =
-  | { ok: true; environment: V5.Environment }
+  | { ok: true; environment: Environment }
   | { ok: false; reason: 'not-found' }
   | { ok: false; reason: 'other'; message?: string };
 
 export interface ApplyEnvironmentCreateInput {
   name: string;
-  variables?: V5.Variable[];
+  variables?: Variable[];
 }
 
 export async function applyEnvironmentCreate(
   input: ApplyEnvironmentCreateInput,
   opts: EnvWriteOptions,
 ): Promise<EnvironmentMutationResult> {
-  const environment: V5.Environment = {
+  const environment: Environment = {
     schemaVersion: 5,
     uid: generateUid(),
     name: input.name.trim() || 'Untitled Environment',

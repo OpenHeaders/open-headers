@@ -19,7 +19,7 @@
  * projection equality holds the same way as for ws-vars.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Vault, VaultSecret } from '@openheaders/core/types';
 import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
 import { call, subscribe } from '@utils/bridge';
 import type React from 'react';
@@ -32,16 +32,16 @@ import {
   type VaultSimpleResult,
 } from '@/shared/sync/vault-write-client';
 
-const EMPTY_VAULT: V5.Vault = { schemaVersion: 5, secrets: [] };
+const EMPTY_VAULT: Vault = { schemaVersion: 5, secrets: [] };
 
 export interface VaultContextValue {
-  vault: V5.Vault;
+  vault: Vault;
   isReady: boolean;
-  setVaultSecret: (secret: V5.VaultSecret) => Promise<VaultSimpleResult>;
+  setVaultSecret: (secret: VaultSecret) => Promise<VaultSimpleResult>;
   removeVaultSecret: (uid: string) => Promise<VaultSimpleResult>;
   replaceVault: (
-    newSecrets: readonly V5.VaultSecret[],
-    oldSecrets: readonly V5.VaultSecret[],
+    newSecrets: readonly VaultSecret[],
+    oldSecrets: readonly VaultSecret[],
   ) => Promise<VaultSimpleResult>;
 }
 
@@ -76,7 +76,7 @@ export const VaultProvider: React.FC<VaultProviderProps> = ({ children, surfaceI
   const activeWorkspaceId = useActiveWorkspaceId();
   const writeWorkspaceId = isOverridden ? (activeWorkspaceIdOverride ?? null) : activeWorkspaceId;
 
-  const [vault, setVault] = useState<V5.Vault>(EMPTY_VAULT);
+  const [vault, setVault] = useState<Vault>(EMPTY_VAULT);
   const [isReady, setIsReady] = useState(false);
   const overrideIdRef = useRef<string | null>(null);
 

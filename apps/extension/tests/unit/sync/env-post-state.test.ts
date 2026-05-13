@@ -13,7 +13,7 @@ import {
   RULE_ENTITY_TYPE,
   setEnvVar,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Environment } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@/background/sync/broadcast';
 import { projectEnvironmentByUid, projectEnvironmentPostState } from '@/background/sync/env-post-state';
@@ -31,7 +31,7 @@ const ctx = (ms: number, hlc: [number, number] = [ms, 0]): MutatorContext => ({
   deviceId: 'd',
 });
 
-const makeEnv = (uid: string): V5.Environment =>
+const makeEnv = (uid: string): Environment =>
   ({
     schemaVersion: 5,
     uid,
@@ -41,7 +41,7 @@ const makeEnv = (uid: string): V5.Environment =>
       { uid: '04861989', name: 'API_KEY', value: 'k', type: 'secret' },
     ],
     version: 1,
-  }) as unknown as V5.Environment;
+  }) as unknown as Environment;
 
 function newOracle(): EntityOracle {
   return new EntityOracle({

@@ -32,7 +32,7 @@
  *     the runtime-Active workspace's collections).
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Environment, Variable } from '@openheaders/core/types';
 import type { BridgeRpcResponse } from '@utils/bridge';
 import { call, subscribe } from '@utils/bridge';
 import type React from 'react';
@@ -49,18 +49,18 @@ import { applySetPinnedAndDefault } from '@/shared/sync/collection-write-client'
 export type EnvironmentWriteResult = BridgeRpcResponse<'updateEnvironmentVariables'>;
 
 export interface EnvironmentContextValue {
-  environments: V5.Environment[];
+  environments: Environment[];
   activeEnvironmentId: string | null;
-  activeEnvironment: V5.Environment | null;
+  activeEnvironment: Environment | null;
   defaultEnvironmentId: string | null;
-  defaultEnvironment: V5.Environment | null;
+  defaultEnvironment: Environment | null;
   isReady: boolean;
   collectionEnvOverrides: Record<string, string | null>;
   manualEnvId: string | null;
 
-  createEnvironment: (name: string, variables?: V5.Variable[]) => Promise<V5.Environment | null>;
+  createEnvironment: (name: string, variables?: Variable[]) => Promise<Environment | null>;
   renameEnvironment: (uid: string, name: string) => Promise<EnvironmentWriteResult>;
-  updateEnvironmentVariables: (uid: string, variables: V5.Variable[]) => Promise<EnvironmentWriteResult>;
+  updateEnvironmentVariables: (uid: string, variables: Variable[]) => Promise<EnvironmentWriteResult>;
   deleteEnvironment: (uid: string) => Promise<boolean>;
   setActiveEnvironment: (uid: string | null) => Promise<boolean>;
   setDefaultEnvironment: (uid: string | null) => Promise<boolean>;
@@ -126,7 +126,7 @@ export const EnvironmentProvider: React.FC<EnvironmentProviderProps> = ({
   activeWorkspaceIdOverride,
 }) => {
   const isOverridden = activeWorkspaceIdOverride !== undefined;
-  const [environments, setEnvironments] = useState<V5.Environment[]>([]);
+  const [environments, setEnvironments] = useState<Environment[]>([]);
   const [activeEnvironmentId, setActiveEnvironmentIdState] = useState<string | null>(null);
   const [defaultEnvironmentId, setDefaultEnvironmentIdState] = useState<string | null>(null);
   const [manualEnvId, setManualEnvIdState] = useState<string | null>(null);

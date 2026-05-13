@@ -8,11 +8,11 @@
  * end-to-end coverage of `duplicateWorkspace` itself.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, HeaderRule, Rule } from '@openheaders/core/types';
 import { deepCopyHierarchy, type LocalFolder } from '@openheaders/core/workspace-export';
 import { describe, expect, it } from 'vitest';
 
-function makeCollection(uid: string, name: string, path: string): V5.Collection {
+function makeCollection(uid: string, name: string, path: string): Collection {
   return {
     schemaVersion: 5,
     uid,
@@ -28,7 +28,7 @@ function makeFolder(uid: string, name: string, path: string): LocalFolder {
   return { schemaVersion: 5, uid, name, path };
 }
 
-function makeRule(uid: string, name: string, path: string, partial: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
+function makeRule(uid: string, name: string, path: string, partial: Partial<HeaderRule> = {}): HeaderRule {
   return {
     schemaVersion: 5,
     uid,
@@ -44,7 +44,7 @@ function makeRule(uid: string, name: string, path: string, partial: Partial<V5.H
 
 describe('deepCopyHierarchy — empty input', () => {
   it('returns empty arrays when there is nothing to copy', () => {
-    const out = deepCopyHierarchy<V5.Rule>({
+    const out = deepCopyHierarchy<Rule>({
       entities: [],
       collections: [],
       folders: [],
@@ -64,7 +64,7 @@ describe('deepCopyHierarchy — collection + folder + entity', () => {
     const folder = makeFolder('fld00001', 'Tokens', 'rules/old-col-path/old-folder');
     const rule = makeRule('rul00001', 'X-Auth header', 'rules/old-col-path/old-folder/old-rule');
 
-    const out = deepCopyHierarchy<V5.Rule>({
+    const out = deepCopyHierarchy<Rule>({
       entities: [rule],
       collections: [col],
       folders: [folder],
@@ -104,7 +104,7 @@ describe('deepCopyHierarchy — nested folders', () => {
     const parent = makeFolder('flda0001', 'Auth', 'rules/api-col/auth-fld');
     const child = makeFolder('fldb0001', 'OAuth', 'rules/api-col/auth-fld/oauth-fld');
 
-    const out = deepCopyHierarchy<V5.Rule>({
+    const out = deepCopyHierarchy<Rule>({
       entities: [],
       collections: [col],
       // Pass child first to verify the helper sorts shallow-first.
@@ -130,7 +130,7 @@ describe('deepCopyHierarchy — nested folders', () => {
     const b = makeFolder('fldb0001', 'B', 'rules/api-col/b');
     const c = makeFolder('fldc0001', 'C', 'rules/api-col/c');
 
-    const out = deepCopyHierarchy<V5.Rule>({
+    const out = deepCopyHierarchy<Rule>({
       entities: [],
       collections: [col],
       folders: [c, a, b],
@@ -154,24 +154,24 @@ describe('deepCopyHierarchy — finalizeEntity callback', () => {
     (rule as unknown as { collectionId?: string; folderId?: string }).collectionId = 'col00001';
     (rule as unknown as { collectionId?: string; folderId?: string }).folderId = 'fld00001';
 
-    const out = deepCopyHierarchy<V5.Rule>({
+    const out = deepCopyHierarchy<Rule>({
       entities: [rule],
       collections: [col],
       folders: [folder],
       treePrefix: 'rules',
       finalizeEntity: (r, ctx) => {
-        const withIds = r as V5.Rule & { collectionId?: string; folderId?: string };
+        const withIds = r as Rule & { collectionId?: string; folderId?: string };
         return {
           ...r,
           ...(withIds.collectionId && {
             collectionId: ctx.collectionUidRemap.get(withIds.collectionId) ?? withIds.collectionId,
           }),
           ...(withIds.folderId && { folderId: ctx.folderUidRemap.get(withIds.folderId) ?? withIds.folderId }),
-        } as V5.Rule;
+        } as Rule;
       },
     });
 
-    const newRule = out.entities[0] as V5.Rule & { collectionId?: string; folderId?: string };
+    const newRule = out.entities[0] as Rule & { collectionId?: string; folderId?: string };
     const newCol = out.collections[0];
     const newFolder = out.folders[0];
     expect(newRule.collectionId).toBe(newCol.uid);
@@ -182,8 +182,8 @@ describe('deepCopyHierarchy — finalizeEntity callback', () => {
 describe('deepCopyHierarchy — uid uniqueness', () => {
   it('generates fresh uids across consecutive calls (no cross-call collision)', () => {
     const col = makeCollection('col00001', 'Coll', 'rules/coll');
-    const a = deepCopyHierarchy<V5.Rule>({ entities: [], collections: [col], folders: [], treePrefix: 'rules' });
-    const b = deepCopyHierarchy<V5.Rule>({ entities: [], collections: [col], folders: [], treePrefix: 'rules' });
+    const a = deepCopyHierarchy<Rule>({ entities: [], collections: [col], folders: [], treePrefix: 'rules' });
+    const b = deepCopyHierarchy<Rule>({ entities: [], collections: [col], folders: [], treePrefix: 'rules' });
     expect(a.collections[0].uid).not.toBe(b.collections[0].uid);
   });
 });

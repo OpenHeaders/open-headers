@@ -8,7 +8,7 @@
  */
 
 import { PlayCircleOutlined } from '@ant-design/icons';
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import { parseTestTargetUrl } from '@openheaders/core/utils';
 import { call } from '@utils/bridge';
 import { App, AutoComplete, Button, Input, Modal, Space, Typography } from 'antd';
@@ -33,7 +33,7 @@ interface TestRunModalProps {
   /** Optional default URL — e.g., the last URL used, or the tab url. */
   defaultUrl?: string;
   /** All V5 rules — kept in props for symmetry with other launchers. */
-  allRules: V5.Rule[];
+  allRules: Rule[];
 }
 
 /**

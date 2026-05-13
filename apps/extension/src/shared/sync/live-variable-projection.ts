@@ -1,5 +1,5 @@
 /**
- * Live-variable projection — `V5.LiveVariable ⇄ MutationBatch /
+ * Live-variable projection — `LiveVariable ⇄ MutationBatch /
  * MaterializedEntity`.
  *
  * The catalog treats `manualOverride` as a whole-object scalar — set or
@@ -21,11 +21,10 @@ import {
   type MutationBody,
   type MutatorContext,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
-
+import type { LiveVariable } from '@openheaders/core/types';
 const MANUAL_OVERRIDE_PATH = 'manualOverride';
 
-export function seedLiveVariable(liveVariable: V5.LiveVariable, ctx: MutatorContext): MutationBatch {
+export function seedLiveVariable(liveVariable: LiveVariable, ctx: MutatorContext): MutationBatch {
   const shell = JSON.parse(JSON.stringify(liveVariable)) as Record<string, unknown>;
   const override = shell[MANUAL_OVERRIDE_PATH];
   delete shell[MANUAL_OVERRIDE_PATH];
@@ -47,15 +46,15 @@ export function seedLiveVariable(liveVariable: V5.LiveVariable, ctx: MutatorCont
 
 /**
  * Convert a `MaterializedEntity` (the oracle's per-LV snapshot) back
- * into a `V5.LiveVariable`. Returns `null` when the materialized data
+ * into a `LiveVariable`. Returns `null` when the materialized data
  * fails basic shape checks — callers persist only when projection
  * succeeds.
  */
-export function projectLiveVariable(materialized: MaterializedEntity): V5.LiveVariable | null {
+export function projectLiveVariable(materialized: MaterializedEntity): LiveVariable | null {
   if (materialized.type !== LIVE_VARIABLE_ENTITY_TYPE) return null;
   const data = materialized.data;
   if (!isPlainObject(data)) return null;
-  return data as V5.LiveVariable;
+  return data as LiveVariable;
 }
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> =>

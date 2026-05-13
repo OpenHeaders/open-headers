@@ -1,11 +1,11 @@
 /**
  * Rule write-site → oracle helpers.
  *
- * `rule-store.ts` historically owned the in-memory `V5.Rule[]` array
+ * `rule-store.ts` historically owned the in-memory `Rule[]` array
  * and persisted it to chrome.storage.local on every write. With the
  * sync engine activated (Phase A Fw6f), rule writes route through the
  * oracle as `MutationBatch`es; the rule cache projects the oracle's
- * materialized state back to `V5.Rule[]` and persists it.
+ * materialized state back to `Rule[]` and persists it.
  *
  * The four helpers below produce `(batch, sideEffects)` pairs for the
  * four legacy write paths. They're pure transforms — no oracle reads,
@@ -38,7 +38,7 @@ import {
   type SideEffectIntent,
   toggleEnabled,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import { seedRule } from './rule-projection';
 import { type LiveSetEntry, synthesizeSetDiff } from './set-diff';
 
@@ -62,7 +62,7 @@ export type LiveSetEntries = (
 ) => ReadonlyArray<LiveSetEntry>;
 
 /** New rule → seed batch + DNR recompile intent. */
-export function buildAddBatch(rule: V5.Rule, ctx: MutatorContext): RuleMutationPayload {
+export function buildAddBatch(rule: Rule, ctx: MutatorContext): RuleMutationPayload {
   return {
     batch: seedRule(rule, ctx),
     sideEffects: [recompileDnrIntent(rule.uid, ctx.hlc)],
@@ -100,7 +100,7 @@ const isSetPath = (top: string, sub?: string): SetPath | null => {
 };
 
 /**
- * Translate a `Partial<Omit<V5.Rule, 'uid'|'path'>>` patch into a
+ * Translate a `Partial<Omit<Rule, 'uid'|'path'>>` patch into a
  * single batch of mutations. Scalar fields → one `setField` per
  * leaf; set-modeled fields → minimum diff via {@link synthesizeSetDiff}.
  *
@@ -111,8 +111,8 @@ const isSetPath = (top: string, sub?: string): SetPath | null => {
  */
 export function buildUpdateBatch(
   ruleUid: string,
-  ruleType: V5.Rule['type'],
-  updates: Partial<Omit<V5.Rule, 'uid' | 'path'>>,
+  ruleType: Rule['type'],
+  updates: Partial<Omit<Rule, 'uid' | 'path'>>,
   ctx: MutatorContext,
   liveSetEntries: LiveSetEntries,
 ): RuleMutationPayload {

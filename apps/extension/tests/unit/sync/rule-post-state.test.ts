@@ -10,7 +10,7 @@ import {
   mintBatch,
   toggleEnabled,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@/background/sync/broadcast';
@@ -29,7 +29,7 @@ const ctx = (ms: number, hlc: [number, number] = [ms, 0]): MutatorContext => ({
   deviceId: 'd',
 });
 
-const makeRule = (uid: string): V5.Rule =>
+const makeRule = (uid: string): Rule =>
   ({
     schemaVersion: 5,
     uid,
@@ -42,7 +42,7 @@ const makeRule = (uid: string): V5.Rule =>
       requestHeaders: [{ uid: 'hmd00001', headerName: 'X-A', operation: 'set', value: '1' }],
       responseHeaders: [],
     },
-  }) as unknown as V5.Rule;
+  }) as unknown as Rule;
 
 async function newOracle(): Promise<EntityOracle> {
   return new EntityOracle({

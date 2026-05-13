@@ -11,7 +11,7 @@
 
 import type { MutationEnvelope, MutatorOutcome } from '@openheaders/core/sync';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockSubscribe, mockCall } = vi.hoisted(() => ({
@@ -42,7 +42,7 @@ type Handler = (event: {
   envelope: MutationEnvelope;
   outcome: MutatorOutcome;
   batchId?: string;
-  rulePostState?: { rule: V5.Rule; setItemIds: Record<string, string[]> };
+  rulePostState?: { rule: Rule; setItemIds: Record<string, string[]> };
 }) => void;
 
 let lastHandler: Handler | null = null;
@@ -73,7 +73,7 @@ const env = (uid: string): MutationEnvelope => ({
   body: { kind: 'setField', type: RULE_ENTITY_TYPE, id: uid, path: 'name', value: 'x' },
 });
 
-const rule = (uid: string, name = 'r'): V5.Rule => ({ uid, name } as unknown as V5.Rule);
+const rule = (uid: string, name = 'r'): Rule => ({ uid, name } as unknown as Rule);
 
 const outcome: MutatorOutcome = { status: 'applied' };
 
@@ -167,7 +167,7 @@ describe('rule sync mirror', () => {
   });
 
   it('bootstrap defers to broadcasts that landed first', async () => {
-    let resolveSnap!: (v: { entries: Array<{ rule: V5.Rule; setItemIds: Record<string, string[]> }> }) => void;
+    let resolveSnap!: (v: { entries: Array<{ rule: Rule; setItemIds: Record<string, string[]> }> }) => void;
     mockCall.mockReturnValueOnce(new Promise((res) => { resolveSnap = res; }));
     const mirror = createRuleSyncMirror('ws-1');
     // Broadcast lands while snapshot in flight.

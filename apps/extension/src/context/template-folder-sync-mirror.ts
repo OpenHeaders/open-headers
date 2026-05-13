@@ -6,7 +6,7 @@
  */
 
 import { TEMPLATE_FOLDER_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Folder } from '@openheaders/core/types';
 import { call } from '@utils/bridge';
 import {
   createFlatEntityMirror,
@@ -15,7 +15,7 @@ import {
 import { createWorkspaceMirrorRegistry } from './per-workspace-mirror-registry';
 
 export interface TemplateFolderMirrorEntry {
-  folder: V5.Folder;
+  folder: Folder;
   /** Per-set ordered `(itemId, orderKey)` pairs. Carries the folder's
    *  own `folders` set; read via `liveOrderedSetItems`. */
   setOrderKeys: Record<string, Array<{ itemId: string; orderKey: string }>>;
@@ -25,7 +25,7 @@ export type TemplateFolderMirrorListener = (folderUid: string) => void;
 
 export interface TemplateFolderSyncMirror {
   getTemplateFolderMirror(folderUid: string): TemplateFolderMirrorEntry | null;
-  listTemplateFolders(): V5.Folder[];
+  listTemplateFolders(): Folder[];
   liveOrderedSetItems(
     folderUid: string,
     setPath: string,

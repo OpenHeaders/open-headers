@@ -32,7 +32,7 @@ import {
   REQUEST_FOLDER_ENTITY_TYPE,
   type RequestFolderParentRef,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, CollectionTree, Request } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import type { BridgeRpcResponse } from '@utils/bridge';
 import { call, subscribe } from '@utils/bridge';
@@ -56,26 +56,26 @@ import { applyRequestCreate, applyRequestDelete, applyRequestUpdate } from '@/sh
 export type RequestWriteResult = BridgeRpcResponse<'updateLocalRequest'>;
 
 export interface RequestsContextValue {
-  requests: V5.Request[];
-  collections: V5.Collection[];
-  collectionTrees: V5.CollectionTree[];
+  requests: Request[];
+  collections: Collection[];
+  collectionTrees: CollectionTree[];
   isReady: boolean;
 
-  getRequest: (requestUid: string) => Promise<V5.Request | null>;
+  getRequest: (requestUid: string) => Promise<Request | null>;
 
   createRequest: (input: {
     name: string;
     collectionUid?: string;
     parentPath?: string;
-    seed?: Partial<V5.Request>;
-  }) => Promise<V5.Request | null>;
+    seed?: Partial<Request>;
+  }) => Promise<Request | null>;
   updateRequest: (
     requestUid: string,
-    updates: Partial<Omit<V5.Request, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
+    updates: Partial<Omit<Request, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
   ) => Promise<RequestWriteResult>;
   deleteRequest: (requestUid: string) => Promise<boolean>;
 
-  createCollection: (name: string) => Promise<V5.Collection | null>;
+  createCollection: (name: string) => Promise<Collection | null>;
   renameCollection: (collectionUid: string, name: string) => Promise<boolean>;
   deleteCollection: (collectionUid: string) => Promise<boolean>;
 
@@ -85,7 +85,7 @@ export interface RequestsContextValue {
 
   execute: (input: {
     requestUid?: string;
-    draft?: V5.Request;
+    draft?: Request;
     environmentId?: string;
   }) => Promise<ExecutedRequestSnapshot | null>;
 }
@@ -128,9 +128,9 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
   activeWorkspaceIdOverride,
 }) => {
   const isOverridden = activeWorkspaceIdOverride !== undefined;
-  const [requests, setRequests] = useState<V5.Request[]>([]);
-  const [collections, setCollections] = useState<V5.Collection[]>([]);
-  const [collectionTrees, setCollectionTrees] = useState<V5.CollectionTree[]>([]);
+  const [requests, setRequests] = useState<Request[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
+  const [collectionTrees, setCollectionTrees] = useState<CollectionTree[]>([]);
   const [isReady, setIsReady] = useState(false);
   const overrideIdRef = useRef<string | null>(null);
   // Folder list isn't rendered directly — the trees view is — so keep it
@@ -201,8 +201,8 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
     }
 
     setIsReady(false);
-    let currentRequests: V5.Request[] = [];
-    let currentCollections: V5.Collection[] = [];
+    let currentRequests: Request[] = [];
+    let currentCollections: Collection[] = [];
     let currentFolders: PersistedLocalFolder[] = [];
 
     const recomputeTrees = () => {
@@ -282,7 +282,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
         const uid = generateUid();
         const folderName = toFolderName(input.name, uid);
         const seed = input.seed;
-        const created: V5.Request = {
+        const created: Request = {
           schemaVersion: 5,
           uid,
           path: `${parentPath}/${folderName}`,

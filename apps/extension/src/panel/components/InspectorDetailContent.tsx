@@ -6,7 +6,7 @@
 
 import { useRules } from '@hooks/useRules';
 import { useVariableResolver } from '@hooks/useVariableResolver';
-import type { V5 } from '@openheaders/core/types';
+import type { HeaderModification, HeaderOperation, Rule } from '@openheaders/core/types';
 import { validateHeaderName } from '@openheaders/core/utils';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -185,11 +185,11 @@ function AttributedHeaderRow({
   // Live rule + live mod — derived reactively from the rule registry on
   // every render. The attribution context is historical-only; "what
   // does the rule look like NOW" must always come from `rulesByUid`.
-  const liveRule: V5.Rule | null = ruleCtx ? (rulesByUid.get(ruleCtx.ruleUid) ?? null) : null;
-  const currentMod: V5.HeaderModification | null = ruleCtx ? findCurrentMod(liveRule, ruleCtx) : null;
+  const liveRule: Rule | null = ruleCtx ? (rulesByUid.get(ruleCtx.ruleUid) ?? null) : null;
+  const currentMod: HeaderModification | null = ruleCtx ? findCurrentMod(liveRule, ruleCtx) : null;
   const ruleEdited = ruleCtx ? isAttributionEdited(liveRule, ruleCtx) : false;
-  const ruleForHover: V5.Rule | null = liveRule;
-  const operationForHover: V5.HeaderOperation | undefined =
+  const ruleForHover: Rule | null = liveRule;
+  const operationForHover: HeaderOperation | undefined =
     kind === 'added' || kind === 'modified' ? attribution.operation : kind === 'removed' ? 'remove' : undefined;
 
   // Re-resolve the live mod's template against the current resolver

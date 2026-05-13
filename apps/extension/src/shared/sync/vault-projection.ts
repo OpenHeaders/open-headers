@@ -1,9 +1,9 @@
 /**
- * Vault projection — `V5.Vault ⇄ MutationBatch / MaterializedEntity`.
+ * Vault projection — `Vault ⇄ MutationBatch / MaterializedEntity`.
  *
  * Mirrors `workspace-variables-projection.ts` for the singleton vault
  * entity. The oracle stores secrets as set members at `secrets` (set
- * member identity = `secret.uid`); persisted `V5.Vault.secrets` is a
+ * member identity = `secret.uid`); persisted `Vault.secrets` is a
  * plain array of `VaultSecret` (kind: 'string' | 'totp').
  * `seedVault` strips the `secrets` array off the create payload and
  * emits one `addToSet` per secret (itemId = uid); `projectVault` is
@@ -14,7 +14,7 @@
  * have one to thread.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Vault } from '@openheaders/core/types';
 import {
   type MaterializedEntity,
   mintBatch,
@@ -27,11 +27,11 @@ import {
 } from '@openheaders/core/sync';
 
 /**
- * Convert a persisted `V5.Vault` into a `MutationBatch` of one `create`
+ * Convert a persisted `Vault` into a `MutationBatch` of one `create`
  * for the scalar shell plus one `addToSet` per secret. All-or-nothing
  * under the oracle's per-entity lock.
  */
-export function seedVault(vault: V5.Vault, ctx: MutatorContext): MutationBatch {
+export function seedVault(vault: Vault, ctx: MutatorContext): MutationBatch {
   const shell = stripSecrets(vault);
 
   const bodies: MutationBody[] = [
@@ -57,19 +57,19 @@ export function seedVault(vault: V5.Vault, ctx: MutatorContext): MutationBatch {
 
 /**
  * Convert a `MaterializedEntity` (the oracle's snapshot of the
- * singleton) back into a `V5.Vault`. Returns `null` when the
+ * singleton) back into a `Vault`. Returns `null` when the
  * materialized data fails basic shape checks.
  */
-export function projectVault(materialized: MaterializedEntity): V5.Vault | null {
+export function projectVault(materialized: MaterializedEntity): Vault | null {
   if (materialized.type !== VAULT_ENTITY_TYPE) return null;
   const data = materialized.data;
   if (!isPlainObject(data)) return null;
-  return data as V5.Vault;
+  return data as Vault;
 }
 
 // ── internals ─────────────────────────────────────────────────────
 
-function stripSecrets(vault: V5.Vault): unknown {
+function stripSecrets(vault: Vault): unknown {
   const shell = JSON.parse(JSON.stringify(vault)) as Record<string, unknown>;
   delete shell.secrets;
   return shell;

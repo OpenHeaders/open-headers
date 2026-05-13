@@ -6,7 +6,7 @@
  * and collects the resulting DnrRule[] for atomic application.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Rule, RuleCondition, RuleType } from '@openheaders/core/types';
 import { validateConditionStructure } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 
@@ -157,8 +157,8 @@ export interface CompilerContext {
  * A per-type compiler that turns a V5 rule into a CompilationPlan.
  * Returns a plan with empty arrays if the rule is invalid or should be skipped.
  */
-export interface RuleCompiler<T extends V5.Rule> {
-  ruleType: V5.RuleType;
+export interface RuleCompiler<T extends Rule> {
+  ruleType: RuleType;
   compile(rule: T, ctx: CompilerContext): CompilationPlan;
 }
 
@@ -199,7 +199,7 @@ const RESOURCE_TYPE_MAP: Record<string, string> = {
  * survives — matches what users would see if Chrome assembled the rule
  * itself (scalar fields overwrite; list fields collapse identically).
  */
-export function buildDnrCondition(conditions: V5.RuleCondition[]): {
+export function buildDnrCondition(conditions: RuleCondition[]): {
   base: DnrCondition;
   domains: string[];
   useRegex: boolean;

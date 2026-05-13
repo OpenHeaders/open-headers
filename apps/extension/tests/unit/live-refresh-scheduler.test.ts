@@ -4,7 +4,7 @@
  * and `observability-log` so each phase is exercised in isolation.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { LiveVariable, LiveWorkflow, Request } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Global mocks ──────────────────────────────────────────────────
@@ -75,9 +75,9 @@ interface TestCacheRow {
 }
 
 let storeState: {
-  workflows: V5.LiveWorkflow[];
-  variables: V5.LiveVariable[];
-  requests: Map<string, V5.Request>;
+  workflows: LiveWorkflow[];
+  variables: LiveVariable[];
+  requests: Map<string, Request>;
   caches: TestCacheRow[];
   listeners: { workflow: Set<() => void>; variable: Set<() => void>; cache: Set<() => void> };
 } = {
@@ -175,7 +175,7 @@ import { installBackingStorage, seedStorageMany } from '../helpers/chrome-storag
 
 const NOW = 1_700_000_000_000;
 
-function makeWorkflow(overrides: Partial<V5.LiveWorkflow> = {}): V5.LiveWorkflow {
+function makeWorkflow(overrides: Partial<LiveWorkflow> = {}): LiveWorkflow {
   return {
     schemaVersion: 5,
     uid: 'wflow001',
@@ -196,7 +196,7 @@ function makeWorkflow(overrides: Partial<V5.LiveWorkflow> = {}): V5.LiveWorkflow
   };
 }
 
-function makeVariable(overrides: Partial<V5.LiveVariable> = {}): V5.LiveVariable {
+function makeVariable(overrides: Partial<LiveVariable> = {}): LiveVariable {
   return {
     schemaVersion: 5,
     uid: 'livvar01',
@@ -508,7 +508,7 @@ describe('handleLiveAlarm', () => {
   });
 
   it('calls the installed adapter on successful dispatch', async () => {
-    type RefreshArgs = { workspaceId: string; workflow: V5.LiveWorkflow; environmentId: string | null };
+    type RefreshArgs = { workspaceId: string; workflow: LiveWorkflow; environmentId: string | null };
     const refreshSpy = vi.fn<(args: RefreshArgs) => Promise<void>>(async () => {});
     scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
     storeState.workflows = [makeWorkflow()];
@@ -847,7 +847,7 @@ describe('kickActiveContextRefresh', () => {
   });
 
   it('is env-scoped — fires for the active env even when another env is warm', async () => {
-    type RefreshArgs = { workspaceId: string; workflow: V5.LiveWorkflow; environmentId: string | null };
+    type RefreshArgs = { workspaceId: string; workflow: LiveWorkflow; environmentId: string | null };
     const refreshSpy = vi.fn<(args: RefreshArgs) => Promise<void>>(async () => {});
     scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
     storeState.workflows = [makeWorkflow({ refresh: { kind: 'interval', seconds: 4 * 3600 } })];

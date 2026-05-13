@@ -1,4 +1,4 @@
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, Environment } from '@openheaders/core/types';
 import {
   buildScopeEditorDispatch,
   buildVariableEditorDispatch,
@@ -8,7 +8,7 @@ import {
 } from '@/workbench/components/panels/scope-editor-dispatch';
 import { describe, expect, it, vi } from 'vitest';
 
-function coll(uid: string, path: string): V5.Collection {
+function coll(uid: string, path: string): Collection {
   return {
     schemaVersion: 5,
     uid,
@@ -17,25 +17,25 @@ function coll(uid: string, path: string): V5.Collection {
     variables: [],
     defaultEnvironmentId: null,
     pinnedEnvironmentIds: [],
-  } as V5.Collection;
+  } as Collection;
 }
 
 const RULE_COLL = coll('rc', 'rules/A');
 const REQ_COLL = coll('qc', 'requests/A');
 const TPL_COLL = coll('tc', 'templates/A');
 
-const ENV_PROD: V5.Environment = {
+const ENV_PROD: Environment = {
   schemaVersion: 5,
   uid: 'env-prod',
   name: 'prod',
   variables: [],
-} as V5.Environment;
-const ENV_STAGE: V5.Environment = {
+} as Environment;
+const ENV_STAGE: Environment = {
   schemaVersion: 5,
   uid: 'env-stage',
   name: 'stage',
   variables: [],
-} as V5.Environment;
+} as Environment;
 
 const BASE_CTX: ScopeEditorContext = {
   activeCollectionId: null,

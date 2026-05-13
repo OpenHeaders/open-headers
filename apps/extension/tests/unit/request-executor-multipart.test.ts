@@ -10,7 +10,7 @@
  *   • Honors `filenameOverride` for file parts.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, Environment, MultipartPart, Request, Vault, WorkspaceVariables } from '@openheaders/core/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const fetchMock = vi.fn();
@@ -21,20 +21,20 @@ vi.stubGlobal('fetch', (input: string, init?: RequestInit) => {
 });
 
 vi.mock('@/background/modules/environment-store', () => ({
-  getEnvironments: vi.fn(() => [] as V5.Environment[]),
+  getEnvironments: vi.fn(() => [] as Environment[]),
   getActiveEnvironmentId: vi.fn(() => null as string | null),
   getDefaultEnvironmentId: vi.fn(() => null as string | null),
-  getWorkspaceVariables: vi.fn(() => ({ schemaVersion: 5, variables: [] }) as V5.WorkspaceVariables),
-  getVault: vi.fn(() => ({ schemaVersion: 5, secrets: [] }) as V5.Vault),
+  getWorkspaceVariables: vi.fn(() => ({ schemaVersion: 5, variables: [] }) as WorkspaceVariables),
+  getVault: vi.fn(() => ({ schemaVersion: 5, secrets: [] }) as Vault),
 }));
 
 vi.mock('@/background/modules/request-store', () => ({
   getRequest: vi.fn(() => null),
-  getRequestCollections: vi.fn(() => [] as V5.Collection[]),
+  getRequestCollections: vi.fn(() => [] as Collection[]),
 }));
 
 vi.mock('@/background/modules/rule-store', () => ({
-  getCollections: vi.fn(() => [] as V5.Collection[]),
+  getCollections: vi.fn(() => [] as Collection[]),
 }));
 
 vi.mock('@/background/modules/files-store', () => ({
@@ -50,14 +50,14 @@ vi.mock('@/background/modules/files-store', () => ({
 import { executeRequestDraft } from '@/background/modules/request-executor';
 
 type MultipartPartLike =
-  | (Omit<Extract<V5.MultipartPart, { kind: 'text' }>, 'uid'> & { uid?: string })
-  | (Omit<Extract<V5.MultipartPart, { kind: 'file' }>, 'uid'> & { uid?: string });
+  | (Omit<Extract<MultipartPart, { kind: 'text' }>, 'uid'> & { uid?: string })
+  | (Omit<Extract<MultipartPart, { kind: 'file' }>, 'uid'> & { uid?: string });
 
 function makeMultipartRequest(
   parts: MultipartPartLike[],
   headers: Array<{ key: string; value: string }> = [],
-): V5.Request {
-  const withUids: V5.MultipartPart[] = parts.map((p, i) => {
+): Request {
+  const withUids: MultipartPart[] = parts.map((p, i) => {
     const uid = p.uid ?? `mp${String(i).padStart(6, '0')}`;
     if (p.kind === 'text') return { ...p, uid, kind: 'text' };
     return { ...p, uid, kind: 'file' };
@@ -338,7 +338,7 @@ describe('executor — multipart templating (Phase 12.4b)', () => {
         { uid: 'b643106b', name: 'USER', value: 'alice', type: 'default' },
         { uid: '400ea01b', name: 'ROLE', value: 'admin', type: 'default' },
       ],
-    } as V5.WorkspaceVariables);
+    } as WorkspaceVariables);
 
     await executeRequestDraft(
       makeMultipartRequest([
@@ -357,7 +357,7 @@ describe('executor — multipart templating (Phase 12.4b)', () => {
     (getWorkspaceVariables as ReturnType<typeof vi.fn>).mockReturnValue({
       schemaVersion: 5,
       variables: [{ uid: 'b0e41848', name: 'FIELD', value: 'upload', type: 'default' }],
-    } as V5.WorkspaceVariables);
+    } as WorkspaceVariables);
 
     await executeRequestDraft(
       makeMultipartRequest([

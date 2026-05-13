@@ -5,8 +5,8 @@
  *
  *   - Subscribes to the oracle's broadcast bus. Every committed
  *     envelope re-projects the oracle's full materialized state to a
- *     `V5.Rule[]` and updates this module's in-memory cache.
- *   - Persists the projected `V5.Rule[]` back to `chrome.storage.local`
+ *     `Rule[]` and updates this module's in-memory cache.
+ *   - Persists the projected `Rule[]` back to `chrome.storage.local`
  *     under the workspace's `rules` key — the existing storage layout
  *     stays intact so other subsystems (rule engine, badge, telemetry)
  *     continue reading from it without changes.
@@ -15,7 +15,7 @@
  *     bridge `rulesUpdated` broadcast and the orphan-test-run sweep).
  *
  * Hydration is the inverse: `seedFromPersistedRules(rules)` minimally
- * walks each persisted V5.Rule, builds a `seedRule` batch via the
+ * walks each persisted Rule, builds a `seedRule` batch via the
  * projection, and applies it through the oracle. The broadcasts that
  * fire during hydration replay through this same sink — the
  * write-back to `chrome.storage.local` is byte-identical and
@@ -29,7 +29,7 @@
 
 import { RuleSchema } from '@openheaders/core/schemas';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 import { projectRule, seedRule } from '@/shared/sync/rule-projection';
 import { driftRecorder } from '../modules/storage-drift';
@@ -42,8 +42,8 @@ export type RuleCacheListener = () => void;
 
 export interface RuleCache {
   readonly workspaceId: string;
-  getRules(): V5.Rule[];
-  seedFromPersistedRules(rules: V5.Rule[]): Promise<void>;
+  getRules(): Rule[];
+  seedFromPersistedRules(rules: Rule[]): Promise<void>;
   hydrateFromStorage(): Promise<void>;
   onChange(listener: RuleCacheListener): () => void;
   dispose(): void;
@@ -55,7 +55,7 @@ export function createRuleCache(
   broadcast: InMemoryBroadcast,
   contextFactory: SwMutatorContextFactory,
 ): RuleCache {
-  const core = createFlatEntityCache<V5.Rule, typeof RULE_ENTITY_TYPE>(workspaceId, oracle, broadcast, contextFactory, {
+  const core = createFlatEntityCache<Rule, typeof RULE_ENTITY_TYPE>(workspaceId, oracle, broadcast, contextFactory, {
     entityType: RULE_ENTITY_TYPE,
     loggerTag: 'RuleCache',
     storageKey: (ws) => wsKeys(ws).rules,

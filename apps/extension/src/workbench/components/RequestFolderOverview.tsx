@@ -17,7 +17,7 @@
 
 import { FolderOutlined, PlusOutlined } from '@ant-design/icons';
 import { useRequests } from '@hooks/useRequests';
-import type { V5 } from '@openheaders/core/types';
+import type { CollectionTree, FolderNode, HttpMethod, TreeNode } from '@openheaders/core/types';
 import { Button, Empty, Space, Table, Tag, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
@@ -26,7 +26,7 @@ import CollectionOverviewShell from './CollectionOverviewShell';
 
 interface RequestFolderOverviewProps {
   folderUid: string;
-  onSelectRequest: (uid: string, name: string, method: V5.HttpMethod) => void;
+  onSelectRequest: (uid: string, name: string, method: HttpMethod) => void;
   onCreateRequest: (context: { collectionId: string; folderPath?: string }) => void;
   onOpenFolderOverview: (uid: string, name: string) => void;
 }
@@ -36,7 +36,7 @@ interface ContentRow {
   uid: string;
   name: string;
   kind: 'folder' | 'request';
-  method?: V5.HttpMethod;
+  method?: HttpMethod;
   childCount?: number;
 }
 
@@ -50,7 +50,7 @@ const METHOD_COLOR: Record<string, string> = {
   OPTIONS: 'default',
 };
 
-function countRequestsDeep(nodes: V5.TreeNode[]): number {
+function countRequestsDeep(nodes: TreeNode[]): number {
   let count = 0;
   for (const n of nodes) {
     if (n.type === 'request') count++;
@@ -59,7 +59,7 @@ function countRequestsDeep(nodes: V5.TreeNode[]): number {
   return count;
 }
 
-function countFoldersDeep(nodes: V5.TreeNode[]): number {
+function countFoldersDeep(nodes: TreeNode[]): number {
   let count = 0;
   for (const n of nodes) {
     if (n.type === 'folder') {
@@ -71,11 +71,11 @@ function countFoldersDeep(nodes: V5.TreeNode[]): number {
 }
 
 function findFolder(
-  trees: readonly V5.CollectionTree[],
+  trees: readonly CollectionTree[],
   uid: string,
-): { folder: V5.FolderNode; collectionUid: string } | null {
+): { folder: FolderNode; collectionUid: string } | null {
   for (const col of trees) {
-    const walk = (nodes: V5.TreeNode[]): V5.FolderNode | null => {
+    const walk = (nodes: TreeNode[]): FolderNode | null => {
       for (const n of nodes) {
         if (n.type !== 'folder') continue;
         if (n.uid === uid) return n;

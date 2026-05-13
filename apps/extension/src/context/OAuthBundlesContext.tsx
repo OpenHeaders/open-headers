@@ -24,7 +24,7 @@
 
 import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
 import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
-import type { V5 } from '@openheaders/core/types';
+import type { OAuth2Auth } from '@openheaders/core/types';
 import { call } from '@utils/bridge';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -57,9 +57,9 @@ export interface OAuthBundlesContextValue {
   tokens: Readonly<Record<string, OAuth2TokenBundle>>;
   isReady: boolean;
   redirectUri: string | null;
-  authorize: (config: V5.OAuth2Auth) => Promise<OAuthAuthorizeResult>;
-  clientCredentials: (config: V5.OAuth2Auth) => Promise<OAuthFlowResult>;
-  refresh: (config: V5.OAuth2Auth) => Promise<OAuthFlowResult>;
+  authorize: (config: OAuth2Auth) => Promise<OAuthAuthorizeResult>;
+  clientCredentials: (config: OAuth2Auth) => Promise<OAuthFlowResult>;
+  refresh: (config: OAuth2Auth) => Promise<OAuthFlowResult>;
   revoke: (credentialRef: string) => Promise<boolean>;
 }
 

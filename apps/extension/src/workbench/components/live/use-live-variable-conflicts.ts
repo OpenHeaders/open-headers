@@ -1,10 +1,10 @@
 /**
- * Conflict-tracker binding for V5.LiveVariable. Mirrors
+ * Conflict-tracker binding for LiveVariable. Mirrors
  * `use-variable-conflicts.ts` — thin wrapper that pins entityType +
  * adapter for the entity-agnostic `useEntityConflicts`.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { LiveVariable } from '@openheaders/core/types';
 import {
   type EntityConflictsApi,
   useEntityConflicts,
@@ -13,7 +13,7 @@ import { LIVE_VARIABLE_FIELD } from '@/shared/awareness';
 import { liveVariableConflictAdapter } from './live-variable-conflict-adapter';
 
 export interface UseLiveVariableConflictsArgs {
-  liveEntity: V5.LiveVariable | null | undefined;
+  liveEntity: LiveVariable | null | undefined;
   isDirty: boolean;
   enabled: boolean;
   /** `LIVE_VARIABLE_ENTITY_TYPE` from `@openheaders/core/sync`. */
@@ -22,8 +22,8 @@ export interface UseLiveVariableConflictsArgs {
 
 export function useLiveVariableConflicts(
   args: UseLiveVariableConflictsArgs,
-): EntityConflictsApi<V5.LiveVariable> {
-  return useEntityConflicts<V5.LiveVariable>({
+): EntityConflictsApi<LiveVariable> {
+  return useEntityConflicts<LiveVariable>({
     liveEntity: args.liveEntity ?? null,
     isDirty: args.isDirty,
     enabled: args.enabled,

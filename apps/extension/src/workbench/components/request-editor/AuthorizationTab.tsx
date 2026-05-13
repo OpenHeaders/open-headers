@@ -8,7 +8,7 @@
  */
 
 import { findOAuth2Preset, OAUTH2_PROVIDER_PRESETS } from '@openheaders/core/oauth';
-import type { V5 } from '@openheaders/core/types';
+import type { AuthConfig } from '@openheaders/core/types';
 import { Select, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback } from 'react';
@@ -17,7 +17,7 @@ import { TemplateInput } from '../template-input';
 
 const { Text } = Typography;
 
-type AuthKind = V5.AuthConfig['type'];
+type AuthKind = AuthConfig['type'];
 
 interface AuthOption {
   value: AuthKind;
@@ -34,8 +34,8 @@ const AUTH_OPTIONS: AuthOption[] = [
 ];
 
 interface AuthorizationTabProps {
-  auth: V5.AuthConfig;
-  onChange: (auth: V5.AuthConfig) => void;
+  auth: AuthConfig;
+  onChange: (auth: AuthConfig) => void;
 }
 
 const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) => {
@@ -258,8 +258,8 @@ const AuthorizationTab: React.FC<AuthorizationTabProps> = ({ auth, onChange }) =
 //     scopes from the core preset library.
 
 const OAuth2LeftRailControls: React.FC<{
-  auth: Extract<V5.AuthConfig, { type: 'oauth2' }>;
-  onChange: (auth: V5.AuthConfig) => void;
+  auth: Extract<AuthConfig, { type: 'oauth2' }>;
+  onChange: (auth: AuthConfig) => void;
 }> = ({ auth, onChange }) => {
   const applyPreset = useCallback(
     (presetId: string) => {

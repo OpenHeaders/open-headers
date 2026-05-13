@@ -14,14 +14,13 @@
  *   - formValues: prefilled form field values (not the V5 action object)
  */
 
-import type { V5 } from '@openheaders/core/types';
-
+import type { RuleCondition } from '@openheaders/core/types';
 export interface RuleTemplate {
   key: string;
   icon: string;
   name: string;
   description: string;
-  conditions: V5.RuleCondition[];
+  conditions: RuleCondition[];
   /** Form field values to set (not the V5 action object — these are form fields). */
   formValues: Record<string, unknown>;
 }

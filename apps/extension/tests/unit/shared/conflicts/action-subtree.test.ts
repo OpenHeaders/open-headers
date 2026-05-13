@@ -9,14 +9,14 @@
  * exercises at least once.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Rule, RuleCondition, Template } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
 import { RULE_ACTION_PATHS, TEMPLATE_ACTION_PATHS } from '@/shared/awareness';
 import { createActionEntityAdapters } from '@/shared/conflicts/action-entity-adapter';
 import { buildActionEntitySchema } from '@/shared/conflicts/field-tree/action-subtree';
 import { makeConflictAdapter } from '@/shared/conflicts/field-tree/make-conflict-adapter';
 
-const factoryAdapters = createActionEntityAdapters<V5.Rule>(RULE_ACTION_PATHS, {
+const factoryAdapters = createActionEntityAdapters<Rule>(RULE_ACTION_PATHS, {
   signature: (r) => r.uid,
   getRuleType: (r) => r.type,
   discriminatorField: 'type',
@@ -26,18 +26,18 @@ const factoryAdapters = createActionEntityAdapters<V5.Rule>(RULE_ACTION_PATHS, {
     (r as { name: string }).name = value;
   },
   setConditions: (r, value) => {
-    (r as { conditions: V5.RuleCondition[] }).conditions = value;
+    (r as { conditions: RuleCondition[] }).conditions = value;
   },
   getActionRoot: (r) => (r as unknown as { action?: Record<string, unknown> }).action,
   nameFormName: null,
 });
 
-const walkerAdapters = makeConflictAdapter<V5.Rule>({
+const walkerAdapters = makeConflictAdapter<Rule>({
   schema: buildActionEntitySchema(RULE_ACTION_PATHS, { discriminatorField: 'type' }),
   signature: (r) => r.uid,
 });
 
-const templateWalkerAdapters = makeConflictAdapter<V5.Template>({
+const templateWalkerAdapters = makeConflictAdapter<Template>({
   schema: buildActionEntitySchema(TEMPLATE_ACTION_PATHS, { discriminatorField: 'ruleType' }),
   signature: (t) => t.uid,
 });
@@ -50,7 +50,7 @@ const templateWalkerAdapters = makeConflictAdapter<V5.Template>({
  *     `{name, value}` per-entry pairs; the walker would need a
  *     keyed-virtual-pair node kind to express it cleanly.
  */
-function stripWrapperKeys(map: Record<string, string>, ruleType: V5.Rule['type']): Record<string, string> {
+function stripWrapperKeys(map: Record<string, string>, ruleType: Rule['type']): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(map)) {
     if (k.startsWith('conditions.')) continue;
@@ -60,52 +60,52 @@ function stripWrapperKeys(map: Record<string, string>, ruleType: V5.Rule['type']
   return out;
 }
 
-function makeBase(uid: string, name = 'r'): { uid: string; path: string; name: string; enabled: boolean; schemaVersion: 5; conditions: V5.RuleCondition[] } {
+function makeBase(uid: string, name = 'r'): { uid: string; path: string; name: string; enabled: boolean; schemaVersion: 5; conditions: RuleCondition[] } {
   return { uid, path: `rules/${uid}.yaml`, name, enabled: true, schemaVersion: 5, conditions: [] };
 }
 
-const headerRule: V5.Rule = {
+const headerRule: Rule = {
   ...makeBase('r-h'),
   type: 'header',
   action: {
     requestHeaders: [{ uid: 'thm00097', operation: 'override', headerName: 'X-A', value: 'v' }],
     responseHeaders: [{ uid: 'thm00098', operation: 'append', headerName: 'X-B', value: 'w', mergeSeparator: ',' }],
   },
-} as unknown as V5.Rule;
+} as unknown as Rule;
 
-const queryParamRule: V5.Rule = {
+const queryParamRule: Rule = {
   ...makeBase('r-q'),
   type: 'query-param',
   action: {
     params: [{ uid: 'qp000001', operation: 'override', param: 'page', value: '1' }],
   },
-} as unknown as V5.Rule;
+} as unknown as Rule;
 
-const redirectRule: V5.Rule = {
+const redirectRule: Rule = {
   ...makeBase('r-r'),
   type: 'redirect',
   action: { redirectTo: 'https://openheaders.io/x' },
-} as unknown as V5.Rule;
+} as unknown as Rule;
 
-const delayRule: V5.Rule = {
+const delayRule: Rule = {
   ...makeBase('r-d'),
   type: 'delay',
   action: { delayMs: 1000 },
-} as unknown as V5.Rule;
+} as unknown as Rule;
 
-const injectRule: V5.Rule = {
+const injectRule: Rule = {
   ...makeBase('r-i'),
   type: 'inject',
   action: { injectType: 'script', code: 'console.log(1)', source: 'code', position: 'body-end' },
-} as unknown as V5.Rule;
+} as unknown as Rule;
 
-const bodyRule: V5.Rule = {
+const bodyRule: Rule = {
   ...makeBase('r-b'),
   type: 'body',
   action: { bodyType: 'replace', body: '{}', resourceType: 'xhr' },
-} as unknown as V5.Rule;
+} as unknown as Rule;
 
-const mockRule: V5.Rule = {
+const mockRule: Rule = {
   ...makeBase('r-m'),
   type: 'mock',
   action: {
@@ -115,11 +115,11 @@ const mockRule: V5.Rule = {
     contentType: 'application/json',
     bodyType: 'json',
   },
-} as unknown as V5.Rule;
+} as unknown as Rule;
 
-const blockRule: V5.Rule = { ...makeBase('r-bl'), type: 'block', action: {} } as unknown as V5.Rule;
+const blockRule: Rule = { ...makeBase('r-bl'), type: 'block', action: {} } as unknown as Rule;
 
-const FIXTURES: ReadonlyArray<{ name: string; rule: V5.Rule }> = [
+const FIXTURES: ReadonlyArray<{ name: string; rule: Rule }> = [
   { name: 'header', rule: headerRule },
   { name: 'query-param', rule: queryParamRule },
   { name: 'redirect', rule: redirectRule },
@@ -209,7 +209,7 @@ describe('ACTION_SUBTREE — union:<prefix> whole-branch resolution', () => {
   });
 
   it('applyResolutionToEntity replaces the branch + discriminator on union:action', () => {
-    const target = JSON.parse(JSON.stringify(headerRule)) as V5.Rule;
+    const target = JSON.parse(JSON.stringify(headerRule)) as Rule;
     const ok = walkerAdapters.resolve.applyResolutionToEntity(target, 'union:action', {
       base: '',
       theirs: '',
@@ -222,7 +222,7 @@ describe('ACTION_SUBTREE — union:<prefix> whole-branch resolution', () => {
   });
 
   it('applyResolutionToEntity returns false when rowPayload is missing', () => {
-    const target = JSON.parse(JSON.stringify(headerRule)) as V5.Rule;
+    const target = JSON.parse(JSON.stringify(headerRule)) as Rule;
     expect(
       walkerAdapters.resolve.applyResolutionToEntity(target, 'union:action', { base: '', theirs: '' }),
     ).toBe(false);
@@ -231,7 +231,7 @@ describe('ACTION_SUBTREE — union:<prefix> whole-branch resolution', () => {
 });
 
 describe('ACTION_SUBTREE — Template bundle uses the alternative actionRoot + queryParamKey', () => {
-  const template: V5.Template = {
+  const template: Template = {
     uid: 't-q',
     path: 'templates/t-q.yaml',
     name: 't',
@@ -241,7 +241,7 @@ describe('ACTION_SUBTREE — Template bundle uses the alternative actionRoot + q
     formValues: {
       queryParams: [{ uid: 'qp000002', operation: 'override', param: 'q', value: '1' }],
     },
-  } as unknown as V5.Template;
+  } as unknown as Template;
 
   it("emits paths under formValues.queryParams (not action.params)", () => {
     const baseline = templateWalkerAdapters.tracking.extractBaseline(template);

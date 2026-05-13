@@ -1,5 +1,5 @@
 /**
- * WorkflowStepEditor — draft-level editor for a single `V5.WorkflowStep`.
+ * WorkflowStepEditor — draft-level editor for a single `WorkflowStep`.
  *
  * Used inside `LiveWorkflowEditor` (once per step). The step-id chip is
  * editable because `{{step.<id>.<capture>}}` references are stable
@@ -29,7 +29,7 @@ import {
 } from '@ant-design/icons';
 import type { DraftCapture, DraftStep, StructuralError } from '@openheaders/core/live';
 import { newDraftCapture } from '@openheaders/core/live';
-import type { V5 } from '@openheaders/core/types';
+import type { PriorityRef, StepGate, WorkflowStep } from '@openheaders/core/types';
 import { Button, Collapse, Input, InputNumber, Select, Space, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
@@ -184,7 +184,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
   // ── runIf helpers ───────────────────────────────────────────────
   const runIfCount = step.runIf?.all.length ?? 0;
 
-  const handleRunIfChange = (next: V5.StepGate | undefined) => {
+  const handleRunIfChange = (next: StepGate | undefined) => {
     const nextStep = { ...step };
     if (next === undefined) {
       delete nextStep.runIf;
@@ -205,7 +205,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
     return (capturesByStepId.get(priority.stepId) ?? []).map((c: string) => ({ value: c, label: c }));
   }, [priority, capturesByStepId]);
 
-  const setPriority = (next: V5.PriorityRef | undefined) => {
+  const setPriority = (next: PriorityRef | undefined) => {
     const nextStep = { ...step };
     if (next === undefined) {
       delete nextStep.priorityFrom;

@@ -23,7 +23,7 @@
  * Session 11's live-variable side).
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { LiveWorkflow, RefreshPolicy, WorkflowStep } from '@openheaders/core/types';
 import type { BridgeRpcResponse } from '@utils/bridge';
 import { call, subscribe } from '@utils/bridge';
 import type React from 'react';
@@ -38,18 +38,18 @@ import {
 export type LiveWorkflowWriteResult = BridgeRpcResponse<'updateLiveWorkflow'>;
 
 export interface LiveWorkflowsContextValue {
-  workflows: V5.LiveWorkflow[];
+  workflows: LiveWorkflow[];
   isReady: boolean;
   createWorkflow: (input: {
     name: string;
     description?: string;
-    steps?: V5.WorkflowStep[];
-    refresh?: V5.RefreshPolicy;
+    steps?: WorkflowStep[];
+    refresh?: RefreshPolicy;
     enabled?: boolean;
-  }) => Promise<V5.LiveWorkflow | null>;
+  }) => Promise<LiveWorkflow | null>;
   updateWorkflow: (
     uid: string,
-    updates: Partial<Omit<V5.LiveWorkflow, 'uid' | 'path' | 'schemaVersion'>>,
+    updates: Partial<Omit<LiveWorkflow, 'uid' | 'path' | 'schemaVersion'>>,
   ) => Promise<LiveWorkflowWriteResult>;
   deleteWorkflow: (uid: string) => Promise<boolean>;
   refreshNow: (
@@ -89,7 +89,7 @@ export const LiveWorkflowsProvider: React.FC<LiveWorkflowsProviderProps> = ({
   activeWorkspaceIdOverride,
 }) => {
   const isOverridden = activeWorkspaceIdOverride !== undefined;
-  const [workflows, setWorkflows] = useState<V5.LiveWorkflow[]>([]);
+  const [workflows, setWorkflows] = useState<LiveWorkflow[]>([]);
   const [isReady, setIsReady] = useState(false);
   const overrideIdRef = useRef<string | null>(null);
 
@@ -167,7 +167,7 @@ export const LiveWorkflowsProvider: React.FC<LiveWorkflowsProviderProps> = ({
       if (isOverridden) {
         const wsId = activeWorkspaceIdOverride ?? null;
         if (!wsId) return null;
-        const seed: Omit<V5.LiveWorkflow, 'uid' | 'path' | 'schemaVersion'> = {
+        const seed: Omit<LiveWorkflow, 'uid' | 'path' | 'schemaVersion'> = {
           name: input.name,
           enabled: input.enabled ?? true,
           steps: input.steps ?? [],

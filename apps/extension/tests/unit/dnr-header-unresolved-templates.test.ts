@@ -11,7 +11,7 @@
  * the user-visible "rule won't fire" verdict honest.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { HeaderRule } from '@openheaders/core/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@utils/logger', () => ({
@@ -28,7 +28,7 @@ function makeCtx(start = 1): CompilerContext {
   return { allocateId: () => id++ };
 }
 
-function baseRule(action: V5.HeaderRule['action']): V5.HeaderRule {
+function baseRule(action: HeaderRule['action']): HeaderRule {
   return {
     schemaVersion: 5,
     uid: 'h1',

@@ -14,7 +14,7 @@ import {
   deleteRequest,
   setRequestField,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Request } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { describe, expect, it } from 'vitest';
 import { InMemoryBroadcast } from '@/background/sync/broadcast';
@@ -33,7 +33,7 @@ const ctx = (ms: number, hlc: [number, number] = [ms, 0]): MutatorContext => ({
   deviceId: 'd',
 });
 
-const makeRequest = (uid: string): V5.Request =>
+const makeRequest = (uid: string): Request =>
   ({
     schemaVersion: 5,
     uid,
@@ -45,7 +45,7 @@ const makeRequest = (uid: string): V5.Request =>
     params: [],
     auth: { type: 'inherit' },
     body: { type: 'none' },
-  }) as unknown as V5.Request;
+  }) as unknown as Request;
 
 async function newOracle(): Promise<EntityOracle> {
   return new EntityOracle({

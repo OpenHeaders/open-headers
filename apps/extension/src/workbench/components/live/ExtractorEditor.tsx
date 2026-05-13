@@ -1,4 +1,4 @@
-import type { V5 } from '@openheaders/core/types';
+import type { Extractor } from '@openheaders/core/types';
 import { Input, InputNumber, Select } from 'antd';
 import type React from 'react';
 
@@ -20,7 +20,7 @@ const KIND_OPTIONS = [
   },
 ];
 
-export function defaultExtractorFor(kind: V5.Extractor['kind']): V5.Extractor {
+export function defaultExtractorFor(kind: Extractor['kind']): Extractor {
   switch (kind) {
     case 'json-path':
       return { kind: 'json-path', path: '$.' };
@@ -36,8 +36,8 @@ export function defaultExtractorFor(kind: V5.Extractor['kind']): V5.Extractor {
 }
 
 interface Props {
-  value: V5.Extractor;
-  onChange: (next: V5.Extractor) => void;
+  value: Extractor;
+  onChange: (next: Extractor) => void;
   compact?: boolean;
 }
 
@@ -50,7 +50,7 @@ const ExtractorEditor: React.FC<Props> = ({ value, onChange, compact }) => {
         style={{ width: 220, flexShrink: 0 }}
         value={value.kind}
         options={KIND_OPTIONS}
-        onChange={(kind) => onChange(defaultExtractorFor(kind as V5.Extractor['kind']))}
+        onChange={(kind) => onChange(defaultExtractorFor(kind as Extractor['kind']))}
       />
       {value.kind === 'json-path' && (
         <Input

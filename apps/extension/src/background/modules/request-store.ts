@@ -27,7 +27,7 @@ import {
   REQUEST_FOLDER_ENTITY_TYPE,
   type RequestFolderParentRef,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, CollectionTree, Request, TreeNode } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
 import type { PersistedLocalFolder } from '@/shared/storage';
@@ -66,8 +66,8 @@ export type LocalFolder = PersistedLocalFolder;
 
 // ── In-memory state (scoped to the currently active workspace) ──────
 
-let requests: V5.Request[] = [];
-let collections: V5.Collection[] = [];
+let requests: Request[] = [];
+let collections: Collection[] = [];
 let folders: LocalFolder[] = [];
 let loadedWorkspaceId: string | null = null;
 
@@ -87,11 +87,11 @@ function notifyChange(): void {
 
 // ── Reads ────────────────────────────────────────────────────────────
 
-export function getRequests(): V5.Request[] {
+export function getRequests(): Request[] {
   return requests;
 }
 
-export function getRequestCollections(): V5.Collection[] {
+export function getRequestCollections(): Collection[] {
   return collections;
 }
 
@@ -100,7 +100,7 @@ export function getRequestFolders(): LocalFolder[] {
 }
 
 /** Build CollectionTree[] from flat collections + folders + requests. */
-export function getRequestCollectionTrees(): V5.CollectionTree[] {
+export function getRequestCollectionTrees(): CollectionTree[] {
   return collections.map((collection) => {
     const tree = buildTreeForParent(REQUEST_COLLECTION_ENTITY_TYPE, collection.uid, collection.path);
     return { ...collection, tree };
@@ -118,8 +118,8 @@ function buildTreeForParent(
   parentType: typeof REQUEST_COLLECTION_ENTITY_TYPE | typeof REQUEST_FOLDER_ENTITY_TYPE,
   parentUid: string,
   parentPath: string,
-): V5.TreeNode[] {
-  const nodes: V5.TreeNode[] = [];
+): TreeNode[] {
+  const nodes: TreeNode[] = [];
 
   const oracle = getOracleForCurrentWorkspace();
   const slots = oracle ? oracle.liveOrderedSetItems(parentType, parentUid, REQUEST_FOLDER_CHILDREN_PATH) : [];
@@ -167,13 +167,13 @@ function assertLoaded(): string {
   return loadedWorkspaceId;
 }
 
-export async function ensureDefaultRequestCollection(): Promise<V5.Collection> {
+export async function ensureDefaultRequestCollection(): Promise<Collection> {
   const existing = collections.find((c) => c.name === DEFAULT_COLLECTION_NAME);
   if (existing) return existing;
 
   const uid = generateUid();
   const folderName = toFolderName(DEFAULT_COLLECTION_NAME, uid);
-  const collection: V5.Collection = {
+  const collection: Collection = {
     schemaVersion: 5,
     uid,
     path: `requests/${folderName}`,
@@ -193,10 +193,10 @@ export async function ensureDefaultRequestCollection(): Promise<V5.Collection> {
   return collection;
 }
 
-export async function createRequestCollection(name: string): Promise<V5.Collection> {
+export async function createRequestCollection(name: string): Promise<Collection> {
   const uid = generateUid();
   const folderName = toFolderName(name, uid);
-  const collection: V5.Collection = {
+  const collection: Collection = {
     schemaVersion: 5,
     uid,
     path: `requests/${folderName}`,
@@ -339,11 +339,11 @@ export async function deleteRequestFolder(uid: string): Promise<boolean> {
 export async function addRequest(
   name: string,
   parentPath: string,
-  seed?: Partial<Omit<V5.Request, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
-): Promise<V5.Request> {
+  seed?: Partial<Omit<Request, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
+): Promise<Request> {
   const uid = generateUid();
   const folderName = toFolderName(name, uid);
-  const created: V5.Request = {
+  const created: Request = {
     schemaVersion: 5,
     uid,
     path: `${parentPath}/${folderName}`,
@@ -367,14 +367,14 @@ export async function addRequest(
 export function addRequestToCollection(
   name: string,
   collectionUid: string,
-  seed?: Partial<Omit<V5.Request, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
-): Promise<V5.Request> {
+  seed?: Partial<Omit<Request, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
+): Promise<Request> {
   const collection = collections.find((c) => c.uid === collectionUid);
   const parentPath = collection?.path ?? `requests/${collectionUid}`;
   return addRequest(name, parentPath, seed);
 }
 
-export function getRequest(uid: string): V5.Request | null {
+export function getRequest(uid: string): Request | null {
   return requests.find((r) => r.uid === uid) ?? null;
 }
 
@@ -387,7 +387,7 @@ export function getRequest(uid: string): V5.Request | null {
  * {@link getRequest} would silently miss requests that live in a per-
  * tab editing-scope workspace.
  */
-export function getRequestInWorkspace(uid: string, workspaceId: string): V5.Request | null {
+export function getRequestInWorkspace(uid: string, workspaceId: string): Request | null {
   const cache = getCacheForWorkspace<RequestCache>(REQUEST_REGISTRATION, workspaceId);
   if (!cache) return null;
   return cache.getRequests().find((r) => r.uid === uid) ?? null;
@@ -400,7 +400,7 @@ export function getRequestInWorkspace(uid: string, workspaceId: string): V5.Requ
  * scope feed (collection-vars) for chain refresh executions targeting
  * a non-Active workspace.
  */
-export function getRequestCollectionsForWorkspace(workspaceId: string): V5.Collection[] {
+export function getRequestCollectionsForWorkspace(workspaceId: string): Collection[] {
   const cache = getCacheForWorkspace<RequestCollectionCache>(REQUEST_COLLECTION_REGISTRATION, workspaceId);
   return cache ? cache.getRequestCollections() : [];
 }
@@ -411,13 +411,13 @@ export function getRequestCollectionsForWorkspace(workspaceId: string): V5.Colle
  * versioned compare-and-set.
  */
 export type RequestWriteResult =
-  | { ok: true; request: V5.Request }
+  | { ok: true; request: Request }
   | { ok: false; reason: 'not-found' }
   | { ok: false; reason: 'other'; message: string };
 
 export async function updateRequest(
   uid: string,
-  updates: Partial<Omit<V5.Request, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
+  updates: Partial<Omit<Request, 'uid' | 'path' | 'schemaVersion' | 'version'>>,
 ): Promise<RequestWriteResult> {
   assertLoaded();
   const oracle = getOracleForCurrentWorkspace();
@@ -450,7 +450,7 @@ export async function updateRequest(
   }
   // Optimistic merge — broadcast-driven cache projection lands the
   // authoritative shape back into the local mirror momentarily.
-  return { ok: true, request: { ...existing, ...updates } as V5.Request };
+  return { ok: true, request: { ...existing, ...updates } as Request };
 }
 
 export async function deleteRequest(uid: string): Promise<boolean> {
@@ -544,8 +544,8 @@ async function applyRequestFolderMutationOrThrow(
 // ── Hydration / workspace switch ────────────────────────────────────
 
 interface WorkspaceSnapshot {
-  requests: V5.Request[];
-  collections: V5.Collection[];
+  requests: Request[];
+  collections: Collection[];
   folders: LocalFolder[];
 }
 
@@ -565,7 +565,7 @@ async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnap
   return { requests, collections, folders };
 }
 
-export async function hydrateFromStorage(): Promise<V5.Request[]> {
+export async function hydrateFromStorage(): Promise<Request[]> {
   const workspaceId = getActiveWorkspaceId();
   const snapshot = await readWorkspaceSnapshot(workspaceId);
   requests = snapshot.requests;

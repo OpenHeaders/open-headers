@@ -2,13 +2,12 @@
  * General Utilities
  */
 
-import type { V5 } from '@openheaders/core/types';
-
+import type { Rule } from '@openheaders/core/types';
 /**
  * Generate a fast hash for a V5 rules array (FNV-1a 32-bit).
  * Used for change detection — not cryptographic.
  */
-export function generateRulesHash(rules: V5.Rule[]): string {
+export function generateRulesHash(rules: Rule[]): string {
   const str = JSON.stringify(rules.map((r) => ({ uid: r.uid, enabled: r.enabled, type: r.type })));
   let hash = 0x811c9dc5;
   for (let i = 0; i < str.length; i++) {

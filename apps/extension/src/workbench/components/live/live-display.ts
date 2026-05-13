@@ -6,7 +6,7 @@
  * or a status color derives it here so the strings stay in lockstep.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { RefreshPolicy } from '@openheaders/core/types';
 import type { LiveWorkflowRunSnapshot } from '@utils/bridge';
 
 export type LiveStatusLevel = 'green' | 'yellow' | 'red' | 'idle';
@@ -272,7 +272,7 @@ export interface ScheduleChunk {
 
 export function describeRunSchedule(
   run: LiveWorkflowRunSnapshot,
-  policy: V5.RefreshPolicy,
+  policy: RefreshPolicy,
   nowMs: number = Date.now(),
 ): ScheduleChunk[] {
   const chunks: ScheduleChunk[] = [];
@@ -340,7 +340,7 @@ export function statusColor(level: LiveStatusLevel): string {
  * and the sidebar's per-LV subtitle so the user immediately sees whether
  * a workflow re-runs on its own or only when they click Refresh.
  */
-export function describeRefreshPolicy(policy: V5.RefreshPolicy): string {
+export function describeRefreshPolicy(policy: RefreshPolicy): string {
   switch (policy.kind) {
     case 'interval':
       return `every ${policy.seconds}s`;

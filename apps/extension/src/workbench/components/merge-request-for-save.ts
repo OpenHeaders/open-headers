@@ -1,5 +1,5 @@
 /**
- * Per-field save merge for V5.Request editors. Same architectural
+ * Per-field save merge for Request editors. Same architectural
  * shape as `merge-rule-for-save.ts` (Session 24). Closes the
  * Save-stomp gap that the auto-merge effect leaves open against a
  * race window: if a peer commit broadcasts AFTER the auto-merge
@@ -14,24 +14,24 @@
  * be index-keyed otherwise. Top-level scalars merge per-leaf.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { AuthConfig, CredentialsMode, HttpMethod, QueryParam, Request, RequestBody, RequestHeader } from '@openheaders/core/types';
 import { deepEqual, mergeRowsByIdentity, mergeScalarLeaves } from '@/shared/forms/per-field-merge';
 
 export interface RequestSaveBatch {
   description: string | undefined;
-  method: V5.HttpMethod;
+  method: HttpMethod;
   url: string;
-  headers: V5.RequestHeader[];
-  params: V5.QueryParam[];
-  auth: V5.AuthConfig;
-  body: V5.RequestBody;
-  credentialsMode: V5.CredentialsMode | undefined;
+  headers: RequestHeader[];
+  params: QueryParam[];
+  auth: AuthConfig;
+  body: RequestBody;
+  credentialsMode: CredentialsMode | undefined;
   followRedirects: boolean | undefined;
   preRequestScript: string | undefined;
   postResponseScript: string | undefined;
 }
 
-function projectRequest(req: V5.Request): RequestSaveBatch {
+function projectRequest(req: Request): RequestSaveBatch {
   return {
     description: req.description,
     method: req.method,
@@ -49,26 +49,26 @@ function projectRequest(req: V5.Request): RequestSaveBatch {
 
 export function mergeRequestForSave(
   form: RequestSaveBatch,
-  baseline: V5.Request | null,
-  live: V5.Request | null,
+  baseline: Request | null,
+  live: Request | null,
 ): RequestSaveBatch {
   if (!baseline || !live) return form;
   const baseProj = projectRequest(baseline);
   const liveProj = projectRequest(live);
 
   const headers = mergeRowsByIdentity(
-    form.headers as ReadonlyArray<V5.RequestHeader & Record<string, unknown>>,
-    baseProj.headers as ReadonlyArray<V5.RequestHeader & Record<string, unknown>>,
-    liveProj.headers as ReadonlyArray<V5.RequestHeader & Record<string, unknown>>,
+    form.headers as ReadonlyArray<RequestHeader & Record<string, unknown>>,
+    baseProj.headers as ReadonlyArray<RequestHeader & Record<string, unknown>>,
+    liveProj.headers as ReadonlyArray<RequestHeader & Record<string, unknown>>,
     'uid',
-  ) as V5.RequestHeader[];
+  ) as RequestHeader[];
 
   const params = mergeRowsByIdentity(
-    form.params as ReadonlyArray<V5.QueryParam & Record<string, unknown>>,
-    baseProj.params as ReadonlyArray<V5.QueryParam & Record<string, unknown>>,
-    liveProj.params as ReadonlyArray<V5.QueryParam & Record<string, unknown>>,
+    form.params as ReadonlyArray<QueryParam & Record<string, unknown>>,
+    baseProj.params as ReadonlyArray<QueryParam & Record<string, unknown>>,
+    liveProj.params as ReadonlyArray<QueryParam & Record<string, unknown>>,
     'uid',
-  ) as V5.QueryParam[];
+  ) as QueryParam[];
 
   // Scalar leaves (everything except headers/params/body — those are
   // structural and merged separately).
@@ -111,13 +111,13 @@ export function mergeRequestForSave(
 
   return {
     description: merged.description as string | undefined,
-    method: merged.method as V5.HttpMethod,
+    method: merged.method as HttpMethod,
     url: merged.url as string,
     headers,
     params,
-    auth: merged.auth as V5.AuthConfig,
+    auth: merged.auth as AuthConfig,
     body,
-    credentialsMode: merged.credentialsMode as V5.CredentialsMode | undefined,
+    credentialsMode: merged.credentialsMode as CredentialsMode | undefined,
     followRedirects: merged.followRedirects as boolean | undefined,
     preRequestScript: merged.preRequestScript as string | undefined,
     postResponseScript: merged.postResponseScript as string | undefined,

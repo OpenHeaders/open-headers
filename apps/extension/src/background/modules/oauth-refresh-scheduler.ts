@@ -38,7 +38,7 @@
  */
 
 import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
-import type { V5 } from '@openheaders/core/types';
+import type { OAuth2Auth } from '@openheaders/core/types';
 import { refreshCredential } from './oauth-flow';
 import type { OAuthRefreshErrorState, WorkspaceCredentialEntry } from './oauth-token-store';
 import {
@@ -116,7 +116,7 @@ export function isOAuthRefreshAlarm(alarm: chrome.alarms.Alarm): boolean {
  * Password / Device Code flows) OR its flow is Client Credentials
  * (which re-runs the full token exchange on every refresh).
  */
-export function canSilentRefresh(bundle: OAuth2TokenBundle | null, config: V5.OAuth2Auth | null): boolean {
+export function canSilentRefresh(bundle: OAuth2TokenBundle | null, config: OAuth2Auth | null): boolean {
   if (!bundle || !config) return false;
   if (config.flow === 'client-credentials') return true;
   return typeof bundle.refreshToken === 'string' && bundle.refreshToken.length > 0;

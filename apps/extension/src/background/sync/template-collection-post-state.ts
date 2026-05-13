@@ -2,7 +2,7 @@
  * Per-envelope template-collection post-state projection.
  *
  * Thin adapter over `flat-entity-post-state.ts`. Carries the
- * materialized `V5.Collection`, the live variable uids (set-member
+ * materialized `Collection`, the live variable uids (set-member
  * identity for template-collection vars), and the parent-owned `folders`
  * set order keys.
  */
@@ -13,7 +13,7 @@ import {
   TEMPLATE_COLLECTION_VARS_PATH,
   TEMPLATE_FOLDER_CHILDREN_PATH,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection } from '@openheaders/core/types';
 import { projectTemplateCollection } from '@/shared/sync/template-collection-projection';
 import { buildVarNamesExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
 import { buildFolderChildrenOrderKeys } from './folder-children-order-keys';
@@ -21,7 +21,7 @@ import type { EntityOracle } from './oracle';
 
 type Reads = Pick<EntityOracle, 'materializeOne' | 'liveSetItems' | 'liveOrderedSetItems'>;
 
-const projectors = makeFlatEntityProjectors<Reads, V5.Collection, SyncTemplateCollectionPostState>({
+const projectors = makeFlatEntityProjectors<Reads, Collection, SyncTemplateCollectionPostState>({
   entityType: TEMPLATE_COLLECTION_ENTITY_TYPE,
   project: projectTemplateCollection,
   composeResult: (collection, oracle, uid) => ({

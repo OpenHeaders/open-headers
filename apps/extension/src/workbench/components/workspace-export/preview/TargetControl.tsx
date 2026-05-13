@@ -7,7 +7,7 @@
  *   - Pick    → workspace dropdown
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { ExtensionWorkspace } from '@openheaders/core/types';
 import type { WorkspaceExport } from '@openheaders/core/workspace-export';
 import { Input, Segmented, Select, Typography } from 'antd';
 import type React from 'react';
@@ -23,7 +23,7 @@ export type ImportTargetSelection =
 const TargetControl: React.FC<{
   target: ImportTargetSelection;
   onChange: (t: ImportTargetSelection) => void;
-  workspaces: V5.ExtensionWorkspace[];
+  workspaces: ExtensionWorkspace[];
   activeWorkspaceId: string | null;
   envelope: WorkspaceExport;
   /** Visual size of the segmented + side fields. `'middle'` is used

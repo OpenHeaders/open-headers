@@ -1,4 +1,4 @@
-import type { V5 } from '@openheaders/core/types';
+import type { HeaderRule, Rule, RuleCondition } from '@openheaders/core/types';
 import { formatUrlPattern } from '@openheaders/core/utils';
 import { normalizeHeaderName } from '@utils/utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -8,11 +8,11 @@ import { debounce, generateRulesHash } from '@/background/modules/utils';
 //  Factory functions
 // ---------------------------------------------------------------------------
 
-function hostConditions(domains: string[]): V5.RuleCondition[] {
+function hostConditions(domains: string[]): RuleCondition[] {
   return domains.length > 0 ? [{ uid: 'tcd00060', type: 'request-domains', values: domains }] : [];
 }
 
-function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
+function makeHeaderRule(overrides: Partial<HeaderRule> = {}): HeaderRule {
   return {
     schemaVersion: 5,
     uid: 'r1a2',
@@ -98,7 +98,7 @@ describe('generateRulesHash', () => {
 
   it('creates different hash when type changes', () => {
     const r1 = [makeHeaderRule({ uid: 'x1y2' })];
-    const r2: V5.Rule[] = [
+    const r2: Rule[] = [
       {
         schemaVersion: 5,
         uid: 'x1y2',

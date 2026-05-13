@@ -55,7 +55,7 @@
  * every launch.
  */
 
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
 import { isRuleEffective } from '@openheaders/core/utils';
 import { logger } from '@utils/logger';
@@ -88,7 +88,7 @@ let writeTimer: ReturnType<typeof setTimeout> | null = null;
  * eviction itself is async and decoupled.
  */
 export function observeRuleState(
-  rules: readonly V5.Rule[],
+  rules: readonly Rule[],
   pauseMarkers: ReadonlyMap<string, PauseMarker>,
   enginePaused: boolean,
 ): void {
@@ -155,7 +155,7 @@ export async function rehydrateFromStorage(): Promise<void> {
  * the cache invalidator then has to coalesce anyway.
  */
 export function seedFromWorkspaceSwitch(
-  nextRules: readonly V5.Rule[],
+  nextRules: readonly Rule[],
   pauseMarkers: ReadonlyMap<string, PauseMarker>,
   enginePaused: boolean,
 ): void {
@@ -267,7 +267,7 @@ function isPersistedShape(raw: unknown): raw is Record<string, RuleFingerprint> 
 // ── Snapshot construction ────────────────────────────────────────
 
 function buildSnapshot(
-  rules: readonly V5.Rule[],
+  rules: readonly Rule[],
   pauseMarkers: ReadonlyMap<string, PauseMarker>,
   enginePaused: boolean,
 ): Snapshot {

@@ -10,7 +10,7 @@
 
 import type { SyncTemplatePostState } from '@openheaders/core/protocol';
 import { TEMPLATE_CONDITIONS_PATH, TEMPLATE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Template } from '@openheaders/core/types';
 import { projectTemplate } from '@/shared/sync/template-projection';
 import { buildSetMembersExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
 import type { EntityOracle } from './oracle';
@@ -19,7 +19,7 @@ const TEMPLATE_SET_PATHS = [TEMPLATE_CONDITIONS_PATH] as const;
 
 type Reads = Pick<EntityOracle, 'materializeOne' | 'liveOrderedSetItems'>;
 
-const projectors = makeFlatEntityProjectors<Reads, V5.Template, SyncTemplatePostState>({
+const projectors = makeFlatEntityProjectors<Reads, Template, SyncTemplatePostState>({
   entityType: TEMPLATE_ENTITY_TYPE,
   project: projectTemplate,
   composeResult: (template, oracle, uid) => ({

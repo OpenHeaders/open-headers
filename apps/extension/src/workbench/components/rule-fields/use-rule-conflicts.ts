@@ -17,7 +17,7 @@
  */
 
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Rule } from '@openheaders/core/types';
 import type { ConflictBridge, ConflictRemoteInfo, PathConflict } from '@/shared/conflicts/types';
 import {
   decodeReorderConflictKey,
@@ -31,23 +31,23 @@ import { ruleConflictAdapter } from './rule-conflict-adapter';
 export type { ConflictBridge, ConflictRemoteInfo, PathConflict };
 export { isSetConflictKey, isReorderConflictKey, decodeSetConflictKey, decodeReorderConflictKey };
 
-/** Rule-bound API surface. Identical shape to `EntityConflictsApi<V5.Rule>`
+/** Rule-bound API surface. Identical shape to `EntityConflictsApi<Rule>`
  *  with `projectRule` aliased from `projectEntity` for back-compat. */
-export interface RuleConflictsApi extends Omit<EntityConflictsApi<V5.Rule>, 'projectEntity'> {
+export interface RuleConflictsApi extends Omit<EntityConflictsApi<Rule>, 'projectEntity'> {
   /** Project the live rule into the same path-keyed shape as the
    *  baseline. Useful for entity-level diff dialog rendering. */
-  projectRule: (rule: V5.Rule) => Record<string, string>;
+  projectRule: (rule: Rule) => Record<string, string>;
 }
 
 export interface UseRuleConflictsArgs {
-  liveRule: V5.Rule | null | undefined;
+  liveRule: Rule | null | undefined;
   isDirty: boolean;
   /** When false, getConflict returns null unconditionally. */
   enabled: boolean;
 }
 
 export function useRuleConflicts(args: UseRuleConflictsArgs): RuleConflictsApi {
-  const api = useEntityConflicts<V5.Rule>({
+  const api = useEntityConflicts<Rule>({
     liveEntity: args.liveRule,
     isDirty: args.isDirty,
     enabled: args.enabled,

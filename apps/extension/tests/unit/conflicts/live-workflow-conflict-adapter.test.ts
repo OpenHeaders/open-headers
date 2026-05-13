@@ -1,4 +1,4 @@
-import type { V5 } from '@openheaders/core/types';
+import type { LiveWorkflow } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
 import {
   liveWorkflowConflictAdapter,
@@ -8,7 +8,7 @@ import {
 const STEP_UID = 's0000001';
 const CAP_UID = 'c0000001';
 
-function makeWf(overrides: Partial<V5.LiveWorkflow> = {}): V5.LiveWorkflow {
+function makeWf(overrides: Partial<LiveWorkflow> = {}): LiveWorkflow {
   return {
     schemaVersion: 5,
     uid: 'wf-aaaa',
@@ -19,7 +19,7 @@ function makeWf(overrides: Partial<V5.LiveWorkflow> = {}): V5.LiveWorkflow {
     refresh: { kind: 'interval', seconds: 300 },
     steps: [{ uid: STEP_UID, id: 'step1', requestUid: 'req-bbbb', captures: [] }],
     ...overrides,
-  } as V5.LiveWorkflow;
+  } as LiveWorkflow;
 }
 
 describe('liveWorkflowConflictAdapter', () => {

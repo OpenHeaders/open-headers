@@ -9,7 +9,7 @@
  */
 
 import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, Environment, OAuth2Auth, Request, Vault, WorkspaceVariables } from '@openheaders/core/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { fetchMock, getTokenBundleMock, performRefreshMock } = vi.hoisted(() => ({
@@ -24,20 +24,20 @@ vi.stubGlobal('fetch', (input: string, init?: RequestInit) => {
 });
 
 vi.mock('@/background/modules/environment-store', () => ({
-  getEnvironments: vi.fn(() => [] as V5.Environment[]),
+  getEnvironments: vi.fn(() => [] as Environment[]),
   getActiveEnvironmentId: vi.fn(() => null as string | null),
   getDefaultEnvironmentId: vi.fn(() => null as string | null),
-  getWorkspaceVariables: vi.fn(() => ({ schemaVersion: 5, variables: [] }) as V5.WorkspaceVariables),
-  getVault: vi.fn(() => ({ schemaVersion: 5, secrets: [] }) as V5.Vault),
+  getWorkspaceVariables: vi.fn(() => ({ schemaVersion: 5, variables: [] }) as WorkspaceVariables),
+  getVault: vi.fn(() => ({ schemaVersion: 5, secrets: [] }) as Vault),
 }));
 
 vi.mock('@/background/modules/request-store', () => ({
   getRequest: vi.fn(() => null),
-  getRequestCollections: vi.fn(() => [] as V5.Collection[]),
+  getRequestCollections: vi.fn(() => [] as Collection[]),
 }));
 
 vi.mock('@/background/modules/rule-store', () => ({
-  getCollections: vi.fn(() => [] as V5.Collection[]),
+  getCollections: vi.fn(() => [] as Collection[]),
 }));
 
 vi.mock('@/background/modules/files-store', () => ({
@@ -62,7 +62,7 @@ vi.mock('@/background/modules/oauth-flow', () => ({
 
 import { executeRequestDraft } from '@/background/modules/request-executor';
 
-function makeOAuthRequest(authOverrides: Partial<V5.OAuth2Auth> = {}): V5.Request {
+function makeOAuthRequest(authOverrides: Partial<OAuth2Auth> = {}): Request {
   return {
     schemaVersion: 5,
     uid: 'r-oauth',

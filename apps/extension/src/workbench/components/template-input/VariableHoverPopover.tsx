@@ -15,7 +15,7 @@ import { useEnvVarVault } from '@hooks/useEnvVarVault';
 import { useRules } from '@hooks/useRules';
 import { useVariableLookup, type VariableCandidate, type VariableLookupResult } from '@hooks/useVariableLookup';
 import { type MutationResult, useVariableMutator } from '@hooks/useVariableMutator';
-import type { V5 } from '@openheaders/core/types';
+import type { Collection, Environment, Variable, VariableScope, Vault, VaultSecret, WorkspaceVariables } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { App, Button, Dropdown, Input, type MenuProps, Tag, Tooltip, theme } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -41,12 +41,12 @@ export interface VariableHoverPopoverProps {
   visible?: boolean;
 }
 
-/** Map a resolver scope (`V5.VariableScope`) plus the popover-only
+/** Map a resolver scope (`VariableScope`) plus the popover-only
  *  `'reserved'` / `'none'` discriminators to the canonical `ScopeKey`.
  *  `'reserved'` represents `{{dynamic.X}}` references which use the
  *  shared 'dynamic' palette entry. `'none'` (truly unresolved) returns
  *  null and the caller renders a neutral Tag. */
-function toScopeKey(scope: V5.VariableScope | 'reserved' | 'none'): ScopeKey | null {
+function toScopeKey(scope: VariableScope | 'reserved' | 'none'): ScopeKey | null {
   if (scope === 'none') return null;
   if (scope === 'reserved') return 'dynamic';
   return scope;
@@ -157,7 +157,7 @@ const VariableHoverPopover: React.FC<VariableHoverPopoverProps> = ({
   }, [saveChord]);
 
   const editable = candidate ? isCandidateEditable(candidate) : false;
-  const resolvedScope: V5.VariableScope | 'reserved' | 'none' = lookup.active?.scope ?? candidate?.scope ?? 'none';
+  const resolvedScope: VariableScope | 'reserved' | 'none' = lookup.active?.scope ?? candidate?.scope ?? 'none';
   const scopeKey = toScopeKey(resolvedScope);
   const scopeLabel = candidate ? scopeLabelFor(candidate) : 'Unresolved';
 
@@ -543,17 +543,17 @@ function describeUnresolved(lookup: ReturnType<typeof useVariableLookup>, candid
 // (whose render we already gate on hydration) closes the race.
 
 interface UpdateSnapshot {
-  environments: V5.Environment[];
-  workspaceVariables: V5.WorkspaceVariables;
-  vault: V5.Vault;
-  localCollections: V5.Collection[];
+  environments: Environment[];
+  workspaceVariables: WorkspaceVariables;
+  vault: Vault;
+  localCollections: Collection[];
 }
 
 interface CreateSnapshot {
-  activeEnvironment: V5.Environment | null;
-  workspaceVariables: V5.WorkspaceVariables;
-  vault: V5.Vault;
-  localCollections: V5.Collection[];
+  activeEnvironment: Environment | null;
+  workspaceVariables: WorkspaceVariables;
+  vault: Vault;
+  localCollections: Collection[];
   collectionId?: string;
 }
 
@@ -625,7 +625,7 @@ async function runCreate(
       if (snap.workspaceVariables.variables.some((v) => v.name === name)) {
         return { ok: false, reason: 'duplicate-name' };
       }
-      const next: V5.Variable[] = [
+      const next: Variable[] = [
         ...snap.workspaceVariables.variables,
         { uid: generateUid(), name, value, type: 'default' },
       ];
@@ -635,7 +635,7 @@ async function runCreate(
       if (snap.vault.secrets.some((s) => s.name === name)) {
         return { ok: false, reason: 'duplicate-name' };
       }
-      const next: V5.VaultSecret[] = [
+      const next: VaultSecret[] = [
         ...snap.vault.secrets,
         { uid: generateUid(), kind: 'string', name, value },
       ];
@@ -647,7 +647,7 @@ async function runCreate(
       if (env.variables.some((v) => v.name === name)) {
         return { ok: false, reason: 'duplicate-name' };
       }
-      const next: V5.Variable[] = [
+      const next: Variable[] = [
         ...env.variables,
         { uid: generateUid(), name, value, type: 'default' },
       ];
@@ -661,7 +661,7 @@ async function runCreate(
       if (variables.some((v) => v.name === name)) {
         return { ok: false, reason: 'duplicate-name' };
       }
-      const next: V5.Variable[] = [
+      const next: Variable[] = [
         ...variables,
         { uid: generateUid(), name, value, type: 'default' },
       ];

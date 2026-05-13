@@ -1,8 +1,8 @@
-import type { V5 } from '@openheaders/core/types';
+import type { HeaderRule, Rule, RuleCondition } from '@openheaders/core/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock rule-store before importing request-tracker
-const mockGetRules = vi.fn<() => V5.Rule[]>(() => []);
+const mockGetRules = vi.fn<() => Rule[]>(() => []);
 vi.mock('@/background/modules/rule-store', () => ({
   getRules: (...args: unknown[]) => mockGetRules(...(args as [])),
 }));
@@ -38,11 +38,11 @@ import {
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-function hostConditions(domains: string[]): V5.RuleCondition[] {
+function hostConditions(domains: string[]): RuleCondition[] {
   return domains.length > 0 ? [{ uid: 'tcd00041', type: 'request-domains', values: domains }] : [];
 }
 
-function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
+function makeHeaderRule(overrides: Partial<HeaderRule> = {}): HeaderRule {
   return {
     schemaVersion: 5,
     uid: `rule-${Math.random().toString(36).slice(2, 6)}`,
@@ -59,7 +59,7 @@ function makeHeaderRule(overrides: Partial<V5.HeaderRule> = {}): V5.HeaderRule {
   };
 }
 
-function seedRules(rules: V5.Rule[]): void {
+function seedRules(rules: Rule[]): void {
   mockGetRules.mockReturnValue(rules);
   precompileRulePatterns();
 }

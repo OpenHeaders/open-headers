@@ -23,7 +23,7 @@ import {
   mintBatch,
   type MutationBody,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { LiveWorkflow } from '@openheaders/core/types';
 import { generateUid, shouldAutoUnpublishOnUpdate, toFolderName } from '@openheaders/core/utils';
 import {
   applySyncPayload,
@@ -42,10 +42,10 @@ import {
   buildUpdateLiveWorkflowBatch,
 } from '@/shared/sync/live-workflow-mutations';
 
-export type LiveWorkflowUpdates = Partial<Omit<V5.LiveWorkflow, 'uid' | 'path' | 'schemaVersion'>>;
+export type LiveWorkflowUpdates = Partial<Omit<LiveWorkflow, 'uid' | 'path' | 'schemaVersion'>>;
 
 export type LiveWorkflowMutationResult =
-  | { ok: true; workflow: V5.LiveWorkflow }
+  | { ok: true; workflow: LiveWorkflow }
   | { ok: false; reason: 'not-found' }
   | { ok: false; reason: 'other'; message?: string };
 
@@ -84,7 +84,7 @@ export async function applyLiveWorkflowUpdate(
   const payload = buildUpdateLiveWorkflowBatch(workflowUid, augmented, ctx);
   const ack = await applySyncPayload(payload);
   if (ack.ok) {
-    return { ok: true, workflow: { ...entry.workflow, ...augmented } as V5.LiveWorkflow };
+    return { ok: true, workflow: { ...entry.workflow, ...augmented } as LiveWorkflow };
   }
   if (ack.reason === 'not-found') return { ok: false, reason: 'not-found' };
   return { ok: false, reason: 'other', message: ack.message };
@@ -102,12 +102,12 @@ export async function applyLiveWorkflowUpdate(
  * ignored; the write client always overrides to `false`.
  */
 export async function applyLiveWorkflowCreate(
-  request: { workflow: Omit<V5.LiveWorkflow, 'uid' | 'path' | 'schemaVersion'>; parentPath: string },
+  request: { workflow: Omit<LiveWorkflow, 'uid' | 'path' | 'schemaVersion'>; parentPath: string },
   opts: LiveWorkflowWriteOptions,
 ): Promise<LiveWorkflowMutationResult> {
   const uid = generateUid();
   const folderName = toFolderName(request.workflow.name, uid);
-  const created: V5.LiveWorkflow = {
+  const created: LiveWorkflow = {
     ...request.workflow,
     schemaVersion: 5 as const,
     uid,

@@ -28,7 +28,7 @@ import {
   type MutatorContext,
   type SideEffectIntent,
 } from '@openheaders/core/sync';
-import type { V5 } from '@openheaders/core/types';
+import type { Template } from '@openheaders/core/types';
 import { seedTemplate } from './template-projection';
 import { type LiveSetEntry, synthesizeSetDiff } from './set-diff';
 
@@ -50,7 +50,7 @@ export type LiveSetEntries = (
 ) => ReadonlyArray<LiveSetEntry>;
 
 /** New template → seed batch. No side effects. */
-export function buildAddBatch(template: V5.Template, ctx: MutatorContext): TemplateMutationPayload {
+export function buildAddBatch(template: Template, ctx: MutatorContext): TemplateMutationPayload {
   return { batch: seedTemplate(template, ctx), sideEffects: [] };
 }
 
@@ -61,7 +61,7 @@ export function buildDeleteBatch(templateUid: string, ctx: MutatorContext): Temp
 }
 
 /**
- * Translate a `Partial<Omit<V5.Template, 'uid'|'path'>>` patch into a
+ * Translate a `Partial<Omit<Template, 'uid'|'path'>>` patch into a
  * single batch of mutations. Scalar fields → one `setField` per leaf;
  * set-modeled `conditions` → minimum diff via {@link synthesizeSetDiff}.
  *
@@ -70,7 +70,7 @@ export function buildDeleteBatch(templateUid: string, ctx: MutatorContext): Temp
  */
 export function buildUpdateBatch(
   templateUid: string,
-  updates: Partial<Omit<V5.Template, 'uid' | 'path'>>,
+  updates: Partial<Omit<Template, 'uid' | 'path'>>,
   ctx: MutatorContext,
   liveSetEntries: LiveSetEntries,
 ): TemplateMutationPayload {

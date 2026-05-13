@@ -25,7 +25,7 @@
  */
 
 import { useDndMonitor } from '@dnd-kit/core';
-import type { V5 } from '@openheaders/core/types';
+import type { LiveWorkflow, Request, Rule, Template } from '@openheaders/core/types';
 import { Allotment } from 'allotment';
 import { theme } from 'antd';
 import type React from 'react';
@@ -204,15 +204,15 @@ export interface RenderLeafHeaderContext {
 
 export interface EditorGroupRendererProps {
   groups: UseEditorGroupsApi;
-  rules: V5.Rule[];
-  templates: V5.Template[];
-  requests: V5.Request[];
+  rules: Rule[];
+  templates: Template[];
+  requests: Request[];
   pausedUids: ReadonlySet<string>;
   /** Rules/Requests/Workflows whose `{{...}}` references don't resolve
    *  against the current scope — forwarded to TabBar for icon coloring. */
   unresolvableRuleUids?: ReadonlySet<string>;
   unresolvableRequestUids?: ReadonlySet<string>;
-  liveWorkflows?: V5.LiveWorkflow[];
+  liveWorkflows?: LiveWorkflow[];
   unresolvableWorkflowUids?: ReadonlySet<string>;
   renderTabBody: (ctx: RenderLeafContext) => React.ReactNode;
   renderLeafHeader: (ctx: RenderLeafHeaderContext) => React.ReactNode;
