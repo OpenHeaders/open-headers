@@ -38,10 +38,10 @@ import type {
   TestRunOwnerType,
   TreeNode,
 } from '@openheaders/core/types';
-import { stableStringify } from '@/shared/forms/fingerprint';
-import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
-import { getCollectionTrees, getRules } from '@openheaders/oracle/entity/rule-store';
-import { getActiveWorkspaceId } from './workspace-store';
+import { canonicalJson } from '@openheaders/core/sync';
+import { extensionStorage, wsKeys } from '../storage';
+import { getCollectionTrees, getRules } from '../entity/rule-store';
+import { requireActiveWorkspaceId } from '../sync/host-hooks';
 
 export type {
   LoadedTestRun,
@@ -146,13 +146,13 @@ export function computeOwnerHash(owner: TestRunOwner): string | null {
 
   if (owner.type === 'workspace') {
     const sorted = [...allRules].sort((a, b) => a.uid.localeCompare(b.uid));
-    return djb2(stableStringify({ workspace: sorted.map(hashableRuleContent) }));
+    return djb2(canonicalJson({ workspace: sorted.map(hashableRuleContent) }));
   }
 
   if (owner.type === 'rule') {
     const rule = allRules.find((r) => r.uid === owner.id);
     if (!rule) return null;
-    return djb2(stableStringify(hashableRuleContent(rule)));
+    return djb2(canonicalJson(hashableRuleContent(rule)));
   }
 
   const trees = getCollectionTrees();
@@ -171,7 +171,7 @@ export function computeOwnerHash(owner: TestRunOwner): string | null {
     const rule = ruleByUid.get(uid);
     return rule ? hashableRuleContent(rule) : { uid, missing: true };
   });
-  return djb2(stableStringify({ uids: descendantUids, rules: payload }));
+  return djb2(canonicalJson({ uids: descendantUids, rules: payload }));
 }
 
 // ── Public API ─────────────────────────────────────────────────────
@@ -182,7 +182,7 @@ export function computeOwnerHash(owner: TestRunOwner): string | null {
  * Idempotent on run id within the same bucket.
  */
 export async function persistTestRun(run: StoredTestRun): Promise<void> {
-  const workspaceId = getActiveWorkspaceId();
+  const workspaceId = requireActiveWorkspaceId();
   await withLock(async () => {
     const store = await readStore(workspaceId);
     const key = ownerKey({ type: run.ownerType, id: run.ownerId });
@@ -197,7 +197,7 @@ export async function persistTestRun(run: StoredTestRun): Promise<void> {
 }
 
 export async function listTestRunsForOwner(owner: TestRunOwner): Promise<LoadedTestRun[]> {
-  const workspaceId = getActiveWorkspaceId();
+  const workspaceId = requireActiveWorkspaceId();
   const store = await readStore(workspaceId);
   const bucket = store[ownerKey(owner)] ?? [];
   const currentHash = computeOwnerHash(owner);
@@ -208,7 +208,7 @@ export async function listTestRunsForOwner(owner: TestRunOwner): Promise<LoadedT
 }
 
 export async function listAllTestRuns(): Promise<LoadedTestRun[]> {
-  const workspaceId = getActiveWorkspaceId();
+  const workspaceId = requireActiveWorkspaceId();
   const store = await readStore(workspaceId);
   const hashCache = new Map<string, string | null>();
   const out: LoadedTestRun[] = [];
@@ -235,7 +235,7 @@ export async function listAllTestRuns(): Promise<LoadedTestRun[]> {
 }
 
 export async function getTestRunById(id: string): Promise<LoadedTestRun | null> {
-  const workspaceId = getActiveWorkspaceId();
+  const workspaceId = requireActiveWorkspaceId();
   const store = await readStore(workspaceId);
   for (const bucket of Object.values(store)) {
     const found = bucket.find((s) => s.id === id);
@@ -248,7 +248,7 @@ export async function getTestRunById(id: string): Promise<LoadedTestRun | null> 
 }
 
 export async function deleteTestRunById(id: string): Promise<void> {
-  const workspaceId = getActiveWorkspaceId();
+  const workspaceId = requireActiveWorkspaceId();
   await withLock(async () => {
     const store = await readStore(workspaceId);
     let changed = false;
@@ -266,7 +266,7 @@ export async function deleteTestRunById(id: string): Promise<void> {
 }
 
 export async function deleteAllTestRunsForOwner(owner: TestRunOwner): Promise<void> {
-  const workspaceId = getActiveWorkspaceId();
+  const workspaceId = requireActiveWorkspaceId();
   await withLock(async () => {
     const store = await readStore(workspaceId);
     const key = ownerKey(owner);
@@ -282,7 +282,7 @@ export async function deleteAllTestRunsForOwner(owner: TestRunOwner): Promise<vo
  * in `liveOwnerIds` within the active workspace.
  */
 export async function pruneOrphanOwners(liveRuleIds: Set<string>, liveEntityIds: Set<string>): Promise<void> {
-  const workspaceId = getActiveWorkspaceId();
+  const workspaceId = requireActiveWorkspaceId();
   await withLock(async () => {
     const store = await readStore(workspaceId);
     let changed = false;

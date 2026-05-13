@@ -73,7 +73,7 @@ import {
   stopTracking,
   subscribeFires,
 } from './tab-telemetry';
-import { registerRun, setRunTabId, unregisterRun } from './test-run-state';
+import { registerRun, setRunTabId, unregisterRun } from '@openheaders/oracle/test-run/test-run-state';
 import {
   computeOwnerHash,
   persistTestRun,
@@ -81,7 +81,7 @@ import {
   type TestRuleStatus as StoredTestRuleStatus,
   type StoredTestRun,
   type TestRunOwner,
-} from './test-run-store';
+} from '@openheaders/oracle/test-run/test-run-store';
 import {
   injectTestWidget,
   type PortFinishedPayload,
@@ -192,14 +192,14 @@ function trackingReason(runId: string): string {
 // They now live in test-run-state.ts; re-export here so the existing
 // import sites don't have to move atomically.
 
-export type { ActiveRunSnapshot } from './test-run-state';
+export type { ActiveRunSnapshot } from '@openheaders/oracle/test-run/test-run-state';
 export {
   getActiveRunSnapshots,
   getActiveTestTabIds,
   getTestScopeForTab,
   hasActiveRuns,
   isRuleUnderTest,
-} from './test-run-state';
+} from '@openheaders/oracle/test-run/test-run-state';
 
 // ── Persistence ───────────────────────────────────────────────────
 //

@@ -62,6 +62,10 @@
     "./rule-engine/*": {
       "import": "./src/rule-engine/*.ts",
       "default": "./dist/rule-engine/*.js"
+    },
+    "./test-run/*": {
+      "import": "./src/test-run/*.ts",
+      "default": "./dist/test-run/*.js"
     }
   },
   "scripts": {

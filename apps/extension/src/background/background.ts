@@ -140,7 +140,7 @@ import {
   getTemplates,
   onTemplateStoreChange,
 } from '@openheaders/oracle/entity/template-store';
-import { pruneOrphanOwners } from './modules/test-run-store';
+import { pruneOrphanOwners } from '@openheaders/oracle/test-run/test-run-store';
 import { setupTestRunnerPorts } from './modules/test-runner';
 import { bootstrapTotpScheduler, getCachedTotpCodes, handleTotpAlarm, isTotpAlarm } from './modules/totp-scheduler';
 import { __setSyncWarmRunner, getUnresolvableRuleUids, hydrateLiveCacheMirror } from '@openheaders/oracle/rule-engine/variables-resolver';

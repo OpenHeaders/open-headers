@@ -9,12 +9,6 @@ vi.mock('@openheaders/oracle/entity/rule-store', () => ({
   getCollectionTrees: vi.fn(() => [] as CollectionTree[]),
 }));
 
-// Workspace-store is a singleton; the test-run-store keys its I/O off
-// `getActiveWorkspaceId()`, so we pin a deterministic id per test.
-vi.mock('@/background/modules/workspace-store', () => ({
-  getActiveWorkspaceId: vi.fn(() => 'test-ws'),
-}));
-
 vi.mock('@utils/logger', () => ({
   logger: {
     info: vi.fn(),
@@ -25,6 +19,7 @@ vi.mock('@utils/logger', () => ({
 }));
 
 import { getCollectionTrees, getRules } from '@openheaders/oracle/entity/rule-store';
+import { setOracleHostHooks } from '@openheaders/oracle/sync';
 import {
   computeOwnerHash,
   deleteAllTestRunsForOwner,
@@ -34,7 +29,12 @@ import {
   persistTestRun,
   pruneOrphanOwners,
   type StoredTestRun,
-} from '@/background/modules/test-run-store';
+} from '@openheaders/oracle/test-run/test-run-store';
+
+// test-run-store reads the active workspace id via the oracle host
+// hooks; pin a deterministic id so every test runs against the same
+// per-workspace storage key.
+setOracleHostHooks({ getActiveWorkspaceId: () => 'test-ws' });
 
 const mockGetRules = getRules as unknown as ReturnType<typeof vi.fn>;
 const mockGetTrees = getCollectionTrees as unknown as ReturnType<typeof vi.fn>;

@@ -158,7 +158,7 @@ import {
   pruneOrphanOwners,
   type TestRunOwner,
   type TestRunOwnerType,
-} from './test-run-store';
+} from '@openheaders/oracle/test-run/test-run-store';
 import { startRun } from './test-runner';
 import { getResolvedRules } from '@openheaders/oracle/rule-engine/variables-resolver';
 import { gatherWorkspaceExport } from './workspace-export-gatherer';

@@ -69,7 +69,7 @@ import {
   switchToWorkspace as switchRulesToWorkspace,
 } from '@openheaders/oracle/entity/rule-store';
 import { hydrateTemplatesFromStorage, switchToWorkspace as switchTemplatesToWorkspace } from '@openheaders/oracle/entity/template-store';
-import { purgeWorkspaceTestRuns } from './test-run-store';
+import { purgeWorkspaceTestRuns } from '@openheaders/oracle/test-run/test-run-store';
 import { purgeWorkspaceCooldowns } from '@openheaders/oracle/entity/totp-cooldown-store';
 import { createWorkspace as createWorkspaceMeta, getWorkspace } from './workspace-store';
 
