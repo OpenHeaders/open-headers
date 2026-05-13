@@ -22,7 +22,7 @@ import { tabs } from '@utils/browser-api';
 import { computeVerdict } from '@/shared/verdict';
 import type { ActiveRule, ObservationSource, TrackedResource, TrackedResourceType } from '@/types/browser';
 import { getRules as getRawRules } from '@openheaders/oracle/entity/rule-store';
-import { getResolvedRules, getUnresolvableRuleUids } from './variables-resolver';
+import { getResolvedRules, getUnresolvableRuleUids } from '@openheaders/oracle/rule-engine/variables-resolver';
 
 /** Read the current rule list in resolved form, falling back to the
  *  raw rule-store view before the first compile has populated the

@@ -92,7 +92,7 @@ function makeRun(
 
 // ── Bootstrap the module fresh per test ──────────────────────────
 
-let mod: typeof import('@/background/modules/variables-resolver');
+let mod: typeof import('@openheaders/oracle/rule-engine/variables-resolver');
 
 beforeEach(async () => {
   vi.resetModules();
@@ -102,7 +102,7 @@ beforeEach(async () => {
   getLiveVariablesMock.mockReturnValue([]);
   listWorkflowRunCachesMock.mockResolvedValue([]);
   getActiveEnvironmentIdMock.mockReturnValue(null);
-  mod = await import('@/background/modules/variables-resolver');
+  mod = await import('@openheaders/oracle/rule-engine/variables-resolver');
   mod.__resetForTests();
 });
 

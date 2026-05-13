@@ -65,7 +65,7 @@ import {
 } from '@openheaders/oracle/entity/rule-store';
 import { getTemplateCollections, getTemplateCollectionsForWorkspace } from '@openheaders/oracle/entity/template-store';
 import { checkCooldown as checkTotpCooldown, recordUsage as recordTotpUsage } from '@openheaders/oracle/entity/totp-cooldown-store';
-import { getLiveRegistrySnapshot, getLiveRegistrySnapshotForWorkspace } from './variables-resolver';
+import { getLiveRegistrySnapshot, getLiveRegistrySnapshotForWorkspace } from '@openheaders/oracle/rule-engine/variables-resolver';
 import { getActiveWorkspaceId } from './workspace-store';
 
 const MAX_BODY_BYTES = 2 * 1024 * 1024;

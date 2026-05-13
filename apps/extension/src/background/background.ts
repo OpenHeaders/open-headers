@@ -75,7 +75,7 @@ import { setOracleHostHooks } from '@openheaders/oracle/sync';
 import { scheduleUpdate as scheduleRuleEngineUpdate } from './modules/rule-engine';
 import { bridgeOAuthSyncEngine } from '@openheaders/oracle/entity/oauth-token-store';
 import { hydrateObservabilityLog, recordLog } from './modules/observability-log';
-import { disposeResolverStateForWorkspace } from './modules/variables-resolver';
+import { disposeResolverStateForWorkspace } from '@openheaders/oracle/rule-engine/variables-resolver';
 
 // Wire the lock subsystem's observer to the host observability ring.
 // Done at module-load so any pre-init `withLock` call still routes
@@ -143,7 +143,7 @@ import {
 import { pruneOrphanOwners } from './modules/test-run-store';
 import { setupTestRunnerPorts } from './modules/test-runner';
 import { bootstrapTotpScheduler, getCachedTotpCodes, handleTotpAlarm, isTotpAlarm } from './modules/totp-scheduler';
-import { __setSyncWarmRunner, getUnresolvableRuleUids, hydrateLiveCacheMirror } from './modules/variables-resolver';
+import { __setSyncWarmRunner, getUnresolvableRuleUids, hydrateLiveCacheMirror } from '@openheaders/oracle/rule-engine/variables-resolver';
 import { initializeViewMode } from './modules/view-mode';
 import { isHandoffSweepAlarm, sweepExpiredHandoffs } from './modules/workspace-export-handoff-store';
 import {

@@ -23,9 +23,6 @@ vi.mock('@utils/logger', () => ({
 }));
 
 const recordLogMock = vi.fn();
-vi.mock('@/background/modules/observability-log', () => ({
-  recordLog: (...args: unknown[]) => recordLogMock(...args),
-}));
 
 const refreshSyncMock = vi.fn();
 
@@ -51,10 +48,6 @@ vi.mock('@openheaders/oracle/entity/rule-store', () => ({
   getCollections: () => [],
 }));
 
-vi.mock('@/background/modules/workspace-store', () => ({
-  getActiveWorkspaceId: () => 'ws-test',
-  peekActiveWorkspaceId: () => 'ws-test',
-}));
 
 const activeEnv: { id: string | null } = { id: 'env-prod' };
 vi.mock('@openheaders/oracle/entity/environment-store', () => ({
@@ -65,13 +58,14 @@ vi.mock('@openheaders/oracle/entity/environment-store', () => ({
   getWorkspaceVariables: () => ({ schemaVersion: 5, variables: [] }),
 }));
 
+import { setOracleHostHooks } from '@openheaders/oracle/sync';
 import {
   __setSyncWarmRunner,
   hydrateLiveCacheMirror,
   kickSyncWarmRefreshes,
   __resetForTests as resetResolver,
   SYNC_WARM_TIMEOUT_MS,
-} from '@/background/modules/variables-resolver';
+} from '@openheaders/oracle/rule-engine/variables-resolver';
 
 function makeLv(overrides: Partial<LiveVariable>): LiveVariable {
   return {
@@ -96,11 +90,17 @@ beforeEach(() => {
   recordLogMock.mockReset();
   resetResolver();
   __setSyncWarmRunner(refreshSyncMock);
+  setOracleHostHooks({
+    peekActiveWorkspaceId: () => 'ws-test',
+    getActiveWorkspaceId: () => 'ws-test',
+    recordLog: recordLogMock,
+  });
 });
 
 afterEach(() => {
   __setSyncWarmRunner(null);
   vi.restoreAllMocks();
+  setOracleHostHooks({});
 });
 
 describe('kickSyncWarmRefreshes', () => {

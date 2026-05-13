@@ -53,7 +53,7 @@ vi.mock('@/background/modules/rule-state-observer', () => ({
   observeRuleState: vi.fn(),
 }));
 
-vi.mock('@/background/modules/variables-resolver', () => ({
+vi.mock('@openheaders/oracle/rule-engine/variables-resolver', () => ({
   resolveRulesForCompile: vi.fn((rules: Rule[]) => rules),
   getLastAggregatedResolutionErrors: vi.fn(() => []),
   getLastResolutionErrors: vi.fn(() => new Map<string, unknown>()),
@@ -83,7 +83,7 @@ vi.mock('@/background/inject-manager', () => ({
 
 import { declarativeNetRequest } from '@utils/browser-api';
 import { applyAllRulesAsync, setRulesPaused, updateNetworkRules } from '@/background/dnr-manager';
-import { getLastAggregatedResolutionErrors, getLastResolutionErrors } from '@/background/modules/variables-resolver';
+import { getLastAggregatedResolutionErrors, getLastResolutionErrors } from '@openheaders/oracle/rule-engine/variables-resolver';
 import { __resetStatusForTests, getStatusSnapshot, type StatusSnapshot } from '@/shared/status';
 import { get as getSetting } from '@/workbench/settings/store';
 

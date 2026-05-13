@@ -42,7 +42,7 @@ import {
   getLastResolutionErrors,
   getResolvedRules,
   resolveRulesForCompile,
-} from '@/background/modules/variables-resolver';
+} from '@openheaders/oracle/rule-engine/variables-resolver';
 
 const mockEnvs = getEnvironments as ReturnType<typeof vi.fn>;
 const mockActiveEnvId = getActiveEnvironmentId as ReturnType<typeof vi.fn>;

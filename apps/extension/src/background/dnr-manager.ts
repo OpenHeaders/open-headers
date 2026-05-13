@@ -46,7 +46,7 @@ import {
   getUnresolvableRuleUids,
   kickSyncWarmRefreshes,
   resolveRulesForCompile,
-} from './modules/variables-resolver';
+} from '@openheaders/oracle/rule-engine/variables-resolver';
 
 // ── Paused state ─────────────────────────────────────────────────
 

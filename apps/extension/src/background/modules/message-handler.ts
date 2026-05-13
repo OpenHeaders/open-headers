@@ -160,7 +160,7 @@ import {
   type TestRunOwnerType,
 } from './test-run-store';
 import { startRun } from './test-runner';
-import { getResolvedRules } from './variables-resolver';
+import { getResolvedRules } from '@openheaders/oracle/rule-engine/variables-resolver';
 import { gatherWorkspaceExport } from './workspace-export-gatherer';
 import { consumeImportHandoff, registerImportHandoff } from './workspace-export-handoff-store';
 import { findExportImportMatches } from './workspace-import-dedup';

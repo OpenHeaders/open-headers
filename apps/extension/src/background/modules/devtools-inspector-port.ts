@@ -62,7 +62,7 @@ import type {
   RequestRecord,
 } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
-import { buildRuleSnapshot } from './rule-snapshot';
+import { buildRuleSnapshot } from '@openheaders/oracle/rule-engine/rule-snapshot';
 import { isTracked, startTracking, stopTracking, subscribeFires, subscribeRequestEvents } from './tab-telemetry';
 
 export type {

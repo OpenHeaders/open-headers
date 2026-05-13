@@ -33,7 +33,7 @@ import {
   resolveRuleWithDiagnostics,
   VariableResolver,
 } from '@openheaders/core/variables';
-import { logger } from '@utils/logger';
+import { logger } from '@openheaders/core/utils';
 import {
   getActiveEnvironmentId,
   getDefaultEnvironmentId,
@@ -43,10 +43,8 @@ import {
 } from '@openheaders/oracle/entity/environment-store';
 import { listWorkflowRunCaches, onLiveCacheStoreChange, type WorkflowRunCache } from '@openheaders/oracle/live/live-cache-store';
 import { getLiveVariables, getLiveVariablesForWorkspace } from '@openheaders/oracle/live/live-variable-store';
-import { recordLog } from './observability-log';
+import { getOracleHostHooks, peekActiveWorkspaceId } from '@openheaders/oracle/sync';
 import { getCollections, getRules } from '@openheaders/oracle/entity/rule-store';
-import { getCachedTotpCodes } from './totp-scheduler';
-import { peekActiveWorkspaceId } from './workspace-store';
 
 // ── Per-workspace resolver state ───────────────────────────────────
 //
@@ -437,7 +435,7 @@ export async function kickSyncWarmRefreshes(): Promise<void> {
 
   const outcome = await Promise.race([Promise.all(refreshes).then(() => 'done' as const), deadline]);
   if (outcome === 'timeout') {
-    recordLog({
+    getOracleHostHooks().recordLog?.({
       subsystem: 'live',
       op: 'sync-warm-timeout',
       level: 'warn',
@@ -546,7 +544,10 @@ function syncResolverFromStores(state: ResolverState): void {
   // codes warm by ticking on each window-flip and refreshing on vault
   // edits. Reading the mirror is sync; the actual crypto runs on the
   // scheduler's tick so the compile path stays fast.
-  r.setTotpRegistry(getCachedTotpCodes());
+  const totpCodes = getOracleHostHooks().getCachedTotpCodes?.();
+  if (totpCodes) {
+    r.setTotpRegistry(totpCodes);
+  }
 
   // Collection scope: reset then re-populate from rule-store. Using
   // set/remove on a Map inside VariableResolver means we don't need to

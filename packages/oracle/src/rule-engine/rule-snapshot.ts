@@ -33,7 +33,7 @@
 import type { HeaderModification, HeaderRule } from '@openheaders/core/types';
 import type { RuleSnapshot, RuleSnapshotHeaderMod } from '@openheaders/core/types';
 import { getRules } from '@openheaders/oracle/entity/rule-store';
-import { getResolvedRules } from './variables-resolver';
+import { getResolvedRules } from '@openheaders/oracle/rule-engine/variables-resolver';
 
 /**
  * Build a snapshot for the given ruleUid by reading both the live (raw)
