@@ -6,7 +6,7 @@
 
 import type { MutationEnvelope } from '@openheaders/core/sync';
 import { describe, expect, it } from 'vitest';
-import { InMemoryMutationLog } from '@/background/sync/mutation-log';
+import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 
 const env = (id: string, ms: number, nodeId = 'n0'): MutationEnvelope => ({
   mutationId: id,

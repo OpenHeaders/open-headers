@@ -11,14 +11,14 @@ import {
   setLayoutState,
 } from '@openheaders/core/sync';
 import { describe, expect, it } from 'vitest';
-import { InMemoryBroadcast } from '@/background/sync/broadcast';
+import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
 import {
   projectLayoutStatePostState,
   projectLayoutStateSingleton,
-} from '@/background/sync/layout-state-post-state';
-import { InMemoryMutationLog } from '@/background/sync/mutation-log';
-import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
-import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
+} from '@openheaders/oracle/sync/layout-state-post-state';
+import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
+import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
+import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 import { seedLayoutState } from '@openheaders/oracle/sync-builders/layout-state-projection';
 
 const wsId = 'ws-1';

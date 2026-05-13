@@ -43,18 +43,18 @@ import {
   TEMPLATE_COLLECTION_REGISTRATION,
   TEMPLATE_FOLDER_REGISTRATION,
   TEMPLATE_REGISTRATION,
-} from '../sync/entity-registry';
+} from '@openheaders/oracle/sync/entity-registry';
 import {
   getActiveCacheForRegistration,
   getCacheForWorkspace,
   getOracleForCurrentWorkspace,
   nextSwMutatorContext,
-} from '../sync/service';
-import type { TemplateCache } from '../sync/template-cache';
-import type { TemplateCollectionCache } from '../sync/template-collection-cache';
-import type { TemplateFolderCache } from '../sync/template-folder-cache';
+} from '@openheaders/oracle/sync/service';
+import type { TemplateCache } from '@openheaders/oracle/sync/template-cache';
+import type { TemplateCollectionCache } from '@openheaders/oracle/sync/template-collection-cache';
+import type { TemplateFolderCache } from '@openheaders/oracle/sync/template-folder-cache';
 import type { LocalFolder } from './rule-store';
-import { driftRecorder } from './storage-drift';
+import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
 
 // ── In-memory state (scoped to active workspace) ────────────────────

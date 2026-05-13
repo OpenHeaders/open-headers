@@ -15,7 +15,7 @@ import { buildWorkspaceExport, serializeWorkspaceExport } from '@openheaders/cor
 import { broadcast } from '@utils/bridge';
 import { runtime as browserRuntime, isChrome, isEdge, isFirefox, isSafari, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
-import { snapshotExtensionWorkspacePostStates } from '@/background/sync/global-service';
+import { snapshotExtensionWorkspacePostStates } from '@openheaders/oracle/sync/global-service';
 import {
   applySyncRequest,
   publishAwareness,
@@ -38,7 +38,7 @@ import {
   snapshotTemplatePostStates,
   snapshotVaultPostStates,
   snapshotWorkspaceVariablesPostStates,
-} from '@/background/sync/service';
+} from '@openheaders/oracle/sync/service';
 import { getStatusSnapshot } from '@/shared/status';
 import type { MessageHandlerContext, SendResponse } from '@/types/browser';
 import type { PerfResourceEntry } from '@/types/perf';

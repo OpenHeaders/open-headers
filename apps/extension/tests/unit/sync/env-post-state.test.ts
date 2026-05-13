@@ -15,11 +15,11 @@ import {
 } from '@openheaders/core/sync';
 import type { Environment } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
-import { InMemoryBroadcast } from '@/background/sync/broadcast';
-import { projectEnvironmentByUid, projectEnvironmentPostState } from '@/background/sync/env-post-state';
-import { InMemoryMutationLog } from '@/background/sync/mutation-log';
-import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
-import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
+import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
+import { projectEnvironmentByUid, projectEnvironmentPostState } from '@openheaders/oracle/sync/env-post-state';
+import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
+import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
+import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 import { seedEnvironment } from '@openheaders/oracle/sync-builders/env-projection';
 
 const wsId = 'ws-1';

@@ -16,7 +16,7 @@ import {
   __resetAwarenessLifelineSetupForTests,
   buildLifelinePortName,
   setupAwarenessLifelinePorts,
-} from '@/background/sync/awareness-lifeline';
+} from '@openheaders/oracle/sync/awareness-lifeline';
 
 type DisconnectListener = () => void;
 type MessageListener = (raw: unknown) => void;

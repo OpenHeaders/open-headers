@@ -15,11 +15,11 @@ import {
 } from '@openheaders/core/sync';
 import type { Vault, VaultSecret } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
-import { InMemoryBroadcast } from '@/background/sync/broadcast';
-import { InMemoryMutationLog } from '@/background/sync/mutation-log';
-import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
-import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
-import { projectVaultPostState, projectVaultSingleton } from '@/background/sync/vault-post-state';
+import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
+import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
+import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
+import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
+import { projectVaultPostState, projectVaultSingleton } from '@openheaders/oracle/sync/vault-post-state';
 import { seedVault } from '@openheaders/oracle/sync-builders/vault-projection';
 
 const wsId = 'ws-1';

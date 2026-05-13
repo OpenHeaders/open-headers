@@ -100,6 +100,20 @@ export interface OracleHostHooks {
    * to its bridge `broadcast` with the `awarenessBroadcast` channel.
    */
   broadcastAwareness?: (event: OracleAwarenessBroadcast) => void;
+  /**
+   * Report a single status entry to the host's status pill subsystem.
+   * Hosts wire this to their app-level `Status.report(...)` callable.
+   * Subsystem is a free-form string; host validates against its own
+   * closed set.
+   */
+  reportStatus?: (entry: OracleStatusReport) => void;
+}
+
+export interface OracleStatusReport {
+  subsystem: string;
+  state: 'green' | 'yellow' | 'red';
+  message: string;
+  context?: Record<string, unknown>;
 }
 
 let hooks: OracleHostHooks = {};

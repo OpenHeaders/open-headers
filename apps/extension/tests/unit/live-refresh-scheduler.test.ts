@@ -39,7 +39,7 @@ vi.mock('@/background/modules/observability-log', () => ({
 // would skew the listener-count assertions below). Tests don't need
 // the bracket's behavior; they exercise the scheduler with the active
 // workspace already wired by the mocked stores.
-vi.mock('@/background/sync/service', () => ({
+vi.mock('@openheaders/oracle/sync/service', () => ({
   getOrCreateWorkspaceService: () => ({ hydrated: Promise.resolve() }),
   releaseWorkspaceService: () => {},
 }));

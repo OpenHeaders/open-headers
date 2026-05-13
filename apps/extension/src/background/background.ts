@@ -16,7 +16,7 @@ import { broadcast } from '@utils/bridge';
 import { alarms, isChrome, isEdge, isFirefox, isSafari, runtime, storage, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { bootstrapSettings } from '@utils/settings-bootstrap';
-import { subscribe as subscribeStatus } from '@/shared/status';
+import { report as reportStatus, subscribe as subscribeStatus } from '@/shared/status';
 import { get as getSetting, subscribeKey } from '@/workbench/settings/store';
 import { forgetDelayBypassForTab, markTabForDelayBypass, resolveDelayBypass, setRulesPaused } from './dnr-manager';
 import { setupInjectListener } from './inject-manager';
@@ -91,6 +91,13 @@ setOracleHostHooks({
   disposeResolverStateForWorkspace,
   broadcastSyncEvent: (event) => broadcast('syncBroadcast', event),
   broadcastAwareness: (event) => broadcast('awarenessBroadcast', event),
+  reportStatus: (entry) =>
+    reportStatus({
+      subsystem: entry.subsystem as Parameters<typeof reportStatus>[0]['subsystem'],
+      state: entry.state,
+      message: entry.message,
+      context: entry.context,
+    }),
 });
 import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
 import { bridgePauseMarkersSyncEngine, getPauseMarkers } from './modules/pause-markers-store';
@@ -150,15 +157,15 @@ import {
   peekActiveWorkspaceId,
 } from './modules/workspace-store';
 import { setupWorkspaceTabRegistry } from './modules/workspace-tab-registry';
-import { setupAwarenessLifelinePorts } from './sync/awareness-lifeline';
-import { markBootPhase } from './sync/boot-telemetry';
-import { attachGlobalWorkspaceCoordRunner, initGlobalSyncService } from './sync/global-service';
+import { setupAwarenessLifelinePorts } from '@openheaders/oracle/sync/awareness-lifeline';
+import { markBootPhase } from '@openheaders/oracle/sync/boot-telemetry';
+import { attachGlobalWorkspaceCoordRunner, initGlobalSyncService } from '@openheaders/oracle/sync/global-service';
 import {
   getOrCreateWorkspaceService,
   releaseWorkspaceService,
   removeAwarenessByInstanceId,
   setRuntimeActive,
-} from './sync/service';
+} from '@openheaders/oracle/sync/service';
 import {
   connectWebSocket,
   getReconnectAttempts,

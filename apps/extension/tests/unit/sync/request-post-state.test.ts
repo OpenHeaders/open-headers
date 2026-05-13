@@ -17,11 +17,11 @@ import {
 import type { Request } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { describe, expect, it } from 'vitest';
-import { InMemoryBroadcast } from '@/background/sync/broadcast';
-import { InMemoryMutationLog } from '@/background/sync/mutation-log';
-import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
-import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
-import { projectRequestByUid, projectRequestPostState } from '@/background/sync/request-post-state';
+import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
+import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
+import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
+import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
+import { projectRequestByUid, projectRequestPostState } from '@openheaders/oracle/sync/request-post-state';
 import { seedRequest } from '@openheaders/oracle/sync-builders/request-projection';
 
 const wsId = 'ws-1';

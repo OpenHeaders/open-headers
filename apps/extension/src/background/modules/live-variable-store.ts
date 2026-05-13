@@ -34,15 +34,15 @@ import {
   buildDeleteLiveVariableBatch,
   buildUpdateLiveVariableBatch,
 } from '@openheaders/oracle/sync-builders/live-variable-mutations';
-import { LIVE_VARIABLE_REGISTRATION } from '../sync/entity-registry';
-import type { LiveVariableCache } from '../sync/live-variable-cache';
+import { LIVE_VARIABLE_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
+import type { LiveVariableCache } from '@openheaders/oracle/sync/live-variable-cache';
 import {
   getActiveCacheForRegistration,
   getCacheForWorkspace,
   getOracleForCurrentWorkspace,
   nextSwMutatorContext,
-} from '../sync/service';
-import { driftRecorder } from './storage-drift';
+} from '@openheaders/oracle/sync/service';
+import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
 
 // ── In-memory state (scoped to the active workspace) ───────────────

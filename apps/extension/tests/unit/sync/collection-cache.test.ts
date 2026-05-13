@@ -7,11 +7,11 @@
 import { setCollectionVar } from '@openheaders/core/sync';
 import type { Collection } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { InMemoryBroadcast } from '@/background/sync/broadcast';
-import { createCollectionCache } from '@/background/sync/collection-cache';
-import { InMemoryMutationLog } from '@/background/sync/mutation-log';
-import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
-import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
+import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
+import { createCollectionCache } from '@openheaders/oracle/sync/collection-cache';
+import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
+import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
+import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
 

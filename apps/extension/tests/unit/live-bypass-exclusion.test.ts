@@ -37,7 +37,7 @@ import * as liveVarStore from '@/background/modules/live-variable-store';
 import { LIVE_BYPASS_HEADER, liveBypassHeaderValue } from '@/background/modules/request-executor';
 import { computeRuleLiveBypass, __resetForTests as resetResolver } from '@/background/modules/variables-resolver';
 import * as workspaceStore from '@/background/modules/workspace-store';
-import { __initSyncServiceForTests, dispose as disposeSyncService } from '@/background/sync/service';
+import { __initSyncServiceForTests, dispose as disposeSyncService } from '@openheaders/oracle/sync/service';
 
 const LV_A: LiveVariable = {
   schemaVersion: 5,

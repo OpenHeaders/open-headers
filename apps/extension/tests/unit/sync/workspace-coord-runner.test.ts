@@ -12,11 +12,11 @@ import {
   setActiveExtensionWorkspace,
 } from '@openheaders/core/sync';
 import { describe, expect, it } from 'vitest';
-import { InMemoryBroadcast } from '@/background/sync/broadcast';
-import { InMemoryMutationLog } from '@/background/sync/mutation-log';
-import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
-import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
-import { createWorkspaceCoordRunner } from '@/background/sync/workspace-coord-runner';
+import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
+import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
+import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
+import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
+import { createWorkspaceCoordRunner } from '@openheaders/oracle/sync/workspace-coord-runner';
 
 const sequentialLock: LockAcquirer = async (_ws, _type, _id, fn) => fn();
 

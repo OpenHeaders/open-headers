@@ -48,17 +48,17 @@ import {
   REQUEST_COLLECTION_REGISTRATION,
   REQUEST_FOLDER_REGISTRATION,
   REQUEST_REGISTRATION,
-} from '../sync/entity-registry';
-import type { RequestCache } from '../sync/request-cache';
-import type { RequestCollectionCache } from '../sync/request-collection-cache';
-import type { RequestFolderCache } from '../sync/request-folder-cache';
+} from '@openheaders/oracle/sync/entity-registry';
+import type { RequestCache } from '@openheaders/oracle/sync/request-cache';
+import type { RequestCollectionCache } from '@openheaders/oracle/sync/request-collection-cache';
+import type { RequestFolderCache } from '@openheaders/oracle/sync/request-folder-cache';
 import {
   getActiveCacheForRegistration,
   getCacheForWorkspace,
   getOracleForCurrentWorkspace,
   nextSwMutatorContext,
-} from '../sync/service';
-import { driftRecorder } from './storage-drift';
+} from '@openheaders/oracle/sync/service';
+import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
 
 /** Re-export from rule-store-style shape. Identical runtime layout. */

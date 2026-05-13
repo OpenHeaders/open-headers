@@ -29,15 +29,15 @@ import {
   buildDeleteLiveWorkflowBatch,
   buildUpdateLiveWorkflowBatch,
 } from '@openheaders/oracle/sync-builders/live-workflow-mutations';
-import { LIVE_WORKFLOW_REGISTRATION } from '../sync/entity-registry';
-import type { LiveWorkflowCache } from '../sync/live-workflow-cache';
+import { LIVE_WORKFLOW_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
+import type { LiveWorkflowCache } from '@openheaders/oracle/sync/live-workflow-cache';
 import {
   getActiveCacheForRegistration,
   getCacheForWorkspace,
   getOracleForCurrentWorkspace,
   nextSwMutatorContext,
-} from '../sync/service';
-import { driftRecorder } from './storage-drift';
+} from '@openheaders/oracle/sync/service';
+import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
 
 // ── In-memory state (scoped to the active workspace) ───────────────

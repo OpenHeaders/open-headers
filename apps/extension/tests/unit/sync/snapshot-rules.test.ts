@@ -16,7 +16,7 @@ import {
   dispose as disposeSyncService,
   getOracleForCurrentWorkspace,
   snapshotRulePostStates,
-} from '@/background/sync/service';
+} from '@openheaders/oracle/sync/service';
 import { seedRule } from '@openheaders/oracle/sync-builders/rule-projection';
 
 const wsId = 'ws-snap';

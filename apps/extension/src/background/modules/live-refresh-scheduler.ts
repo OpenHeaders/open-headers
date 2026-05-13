@@ -75,7 +75,7 @@ import { getLiveWorkflowInWorkspace, getLiveWorkflows, onLiveWorkflowStoreChange
 import { recordLog } from './observability-log';
 import { createAlarmNameCodec, type RefreshProvider, RefreshScheduler } from './refresh-scheduler';
 import { getRequest } from './request-store';
-import { getOrCreateWorkspaceService, releaseWorkspaceService } from '../sync/service';
+import { getOrCreateWorkspaceService, releaseWorkspaceService } from '@openheaders/oracle/sync/service';
 import { getActiveWorkspaceId, onActiveWorkspaceChange } from './workspace-store';
 
 /**

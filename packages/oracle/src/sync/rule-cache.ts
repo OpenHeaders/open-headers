@@ -32,7 +32,7 @@ import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Rule } from '@openheaders/core/types';
 import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
 import { projectRule, seedRule } from '@openheaders/oracle/sync-builders/rule-projection';
-import { driftRecorder } from '../modules/storage-drift';
+import { driftRecorder } from './storage-drift';
 import type { InMemoryBroadcast } from './broadcast';
 import { createFlatEntityCache } from './flat-entity-cache';
 import type { EntityOracle } from './oracle';

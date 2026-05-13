@@ -21,7 +21,7 @@ import { type MutationBatch, type MutatorContext, newBatchId, type SideEffectInt
 import type { Collection, Folder } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
 import { extensionStorage, type PersistedLocalFolder, type StorageKey } from '@openheaders/oracle/storage';
-import { driftRecorder } from '../modules/storage-drift';
+import { driftRecorder } from './storage-drift';
 import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';
 import type { EntityOracle } from './oracle';
 import type { SwMutatorContextFactory } from './sw-context';

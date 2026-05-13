@@ -12,11 +12,11 @@ import {
   RULE_ENTITY_TYPE,
 } from '@openheaders/core/sync';
 import { describe, expect, it } from 'vitest';
-import { InMemoryBroadcast } from '@/background/sync/broadcast';
-import { projectFilesPostState, projectFilesSingleton } from '@/background/sync/files-post-state';
-import { InMemoryMutationLog } from '@/background/sync/mutation-log';
-import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
-import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
+import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
+import { projectFilesPostState, projectFilesSingleton } from '@openheaders/oracle/sync/files-post-state';
+import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
+import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
+import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 import { seedFiles } from '@openheaders/oracle/sync-builders/files-projection';
 
 const wsId = 'ws-1';

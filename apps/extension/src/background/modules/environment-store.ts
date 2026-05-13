@@ -28,14 +28,14 @@ import {
   ENVIRONMENT_REGISTRATION,
   VAULT_REGISTRATION,
   WORKSPACE_VARIABLES_REGISTRATION,
-} from '@/background/sync/entity-registry';
-import type { EnvironmentCache } from '@/background/sync/environment-cache';
-import { getActiveCacheForRegistration, getCacheForWorkspace } from '@/background/sync/service';
-import type { VaultCache } from '@/background/sync/vault-cache';
-import type { WorkspaceVariablesCache } from '@/background/sync/workspace-variables-cache';
+} from '@openheaders/oracle/sync/entity-registry';
+import type { EnvironmentCache } from '@openheaders/oracle/sync/environment-cache';
+import { getActiveCacheForRegistration, getCacheForWorkspace } from '@openheaders/oracle/sync/service';
+import type { VaultCache } from '@openheaders/oracle/sync/vault-cache';
+import type { WorkspaceVariablesCache } from '@openheaders/oracle/sync/workspace-variables-cache';
 import { entityLockName, withLock } from '@openheaders/oracle/coordination';
 import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
-import { driftRecorder } from './storage-drift';
+import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
 
 // ── In-memory state ─────────────────────────────────────────────────

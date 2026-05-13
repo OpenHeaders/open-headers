@@ -36,9 +36,9 @@ import {
   buildSetOAuthTokenBatch,
 } from '@openheaders/oracle/sync-builders/oauth-bundle-mutations';
 import type { OAuthBundleSnapshot } from '@openheaders/oracle/sync-builders/oauth-bundle-projection';
-import { OAUTH_BUNDLE_REGISTRATION } from '../sync/entity-registry';
-import type { OAuthBundleCache } from '../sync/oauth-bundle-cache';
-import { getActiveCacheForRegistration, getOracleForCurrentWorkspace, nextSwMutatorContext } from '../sync/service';
+import { OAUTH_BUNDLE_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
+import type { OAuthBundleCache } from '@openheaders/oracle/sync/oauth-bundle-cache';
+import { getActiveCacheForRegistration, getOracleForCurrentWorkspace, nextSwMutatorContext } from '@openheaders/oracle/sync/service';
 import { getActiveWorkspaceId } from './workspace-store';
 
 // ── Storage shape ─────────────────────────────────────────────────

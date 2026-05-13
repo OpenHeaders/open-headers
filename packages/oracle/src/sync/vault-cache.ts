@@ -15,7 +15,7 @@ import { VAULT_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Vault } from '@openheaders/core/types';
 import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
 import { seedVault } from '@openheaders/oracle/sync-builders/vault-projection';
-import { driftRecorder } from '../modules/storage-drift';
+import { driftRecorder } from './storage-drift';
 import type { InMemoryBroadcast } from './broadcast';
 import type { EntityOracle } from './oracle';
 import { createSingletonEntityCache, type SingletonEntityCache } from './singleton-entity-cache';

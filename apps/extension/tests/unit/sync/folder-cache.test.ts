@@ -12,11 +12,11 @@ import {
 } from '@openheaders/core/sync';
 import type { Collection } from '@openheaders/core/types';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { InMemoryBroadcast } from '@/background/sync/broadcast';
-import { createFolderCache } from '@/background/sync/folder-cache';
-import { InMemoryMutationLog } from '@/background/sync/mutation-log';
-import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
-import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
+import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
+import { createFolderCache } from '@openheaders/oracle/sync/folder-cache';
+import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
+import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
+import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 import { seedCollection } from '@openheaders/oracle/sync-builders/collection-projection';
 import type { PersistedLocalFolder } from '@openheaders/oracle/storage';
 

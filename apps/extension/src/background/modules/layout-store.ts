@@ -15,9 +15,9 @@
 
 import { logger } from '@utils/logger';
 import { extensionStorage, type PersistedPanelLayout, wsKeys } from '@openheaders/oracle/storage';
-import { LAYOUT_STATE_REGISTRATION } from '../sync/entity-registry';
-import type { LayoutStateCache } from '../sync/layout-state-cache';
-import { getActiveCacheForRegistration } from '../sync/service';
+import { LAYOUT_STATE_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
+import type { LayoutStateCache } from '@openheaders/oracle/sync/layout-state-cache';
+import { getActiveCacheForRegistration } from '@openheaders/oracle/sync/service';
 import { getActiveWorkspaceId } from './workspace-store';
 
 // ── Hydration / bridge ────────────────────────────────────────────

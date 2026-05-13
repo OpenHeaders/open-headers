@@ -15,14 +15,14 @@ import {
 } from '@openheaders/core/sync';
 import type { Variable, WorkspaceVariables } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
-import { InMemoryBroadcast } from '@/background/sync/broadcast';
-import { InMemoryMutationLog } from '@/background/sync/mutation-log';
-import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
-import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
+import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
+import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
+import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
+import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 import {
   projectWorkspaceVariablesPostState,
   projectWorkspaceVariablesSingleton,
-} from '@/background/sync/workspace-variables-post-state';
+} from '@openheaders/oracle/sync/workspace-variables-post-state';
 import { seedWorkspaceVariables } from '@openheaders/oracle/sync-builders/workspace-variables-projection';
 
 const wsId = 'ws-1';

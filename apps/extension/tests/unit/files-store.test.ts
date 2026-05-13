@@ -65,13 +65,13 @@ vi.mock('@/background/modules/workspace-store', () => ({
 }));
 
 let filesStore: typeof import('@/background/modules/files-store');
-let syncService: typeof import('@/background/sync/service');
+let syncService: typeof import('@openheaders/oracle/sync/service');
 
 beforeEach(async () => {
   store.clear();
   putCounter = 0;
   vi.resetModules();
-  syncService = await import('@/background/sync/service');
+  syncService = await import('@openheaders/oracle/sync/service');
   filesStore = await import('@/background/modules/files-store');
   syncService.__initSyncServiceForTests('ws-files');
   await filesStore.bridgeFilesSyncEngine();

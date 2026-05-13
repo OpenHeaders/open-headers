@@ -15,7 +15,7 @@ describe('boot-telemetry', () => {
     obs.__resetForTests();
     const { setOracleHostHooks } = await import('@openheaders/oracle/sync');
     setOracleHostHooks({ recordLog: obs.recordLog });
-    const { markBootPhase } = await import('@/background/sync/boot-telemetry');
+    const { markBootPhase } = await import('@openheaders/oracle/sync/boot-telemetry');
 
     const swEvalEntries = obs.getObservabilityLog().filter((e) => e.op === 'boot.sw-eval');
     expect(swEvalEntries).toHaveLength(1);
@@ -31,7 +31,7 @@ describe('boot-telemetry', () => {
     obs.__resetForTests();
     const { setOracleHostHooks } = await import('@openheaders/oracle/sync');
     setOracleHostHooks({ recordLog: obs.recordLog });
-    const { markBootPhase } = await import('@/background/sync/boot-telemetry');
+    const { markBootPhase } = await import('@openheaders/oracle/sync/boot-telemetry');
 
     markBootPhase('settings-ready');
     markBootPhase('hydration-done');

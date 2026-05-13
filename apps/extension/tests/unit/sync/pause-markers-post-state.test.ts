@@ -12,14 +12,14 @@ import {
   setPauseMarker,
 } from '@openheaders/core/sync';
 import { describe, expect, it } from 'vitest';
-import { InMemoryBroadcast } from '@/background/sync/broadcast';
-import { InMemoryMutationLog } from '@/background/sync/mutation-log';
-import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
+import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
+import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
+import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
 import {
   projectPauseMarkersPostState,
   projectPauseMarkersSingleton,
-} from '@/background/sync/pause-markers-post-state';
-import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
+} from '@openheaders/oracle/sync/pause-markers-post-state';
+import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 import { seedPauseMarkers } from '@openheaders/oracle/sync-builders/pause-markers-projection';
 
 const wsId = 'ws-1';

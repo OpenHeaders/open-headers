@@ -46,17 +46,17 @@ import {
   buildRenameFolderBatch,
 } from '@openheaders/oracle/sync-builders/folder-mutations';
 import { buildAddBatch, buildDeleteBatch } from '@openheaders/oracle/sync-builders/rule-mutations';
-import type { CollectionCache } from '../sync/collection-cache';
-import { COLLECTION_REGISTRATION, FOLDER_REGISTRATION, RULE_REGISTRATION } from '../sync/entity-registry';
-import type { FolderCache } from '../sync/folder-cache';
-import type { RuleCache } from '../sync/rule-cache';
+import type { CollectionCache } from '@openheaders/oracle/sync/collection-cache';
+import { COLLECTION_REGISTRATION, FOLDER_REGISTRATION, RULE_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
+import type { FolderCache } from '@openheaders/oracle/sync/folder-cache';
+import type { RuleCache } from '@openheaders/oracle/sync/rule-cache';
 import {
   getActiveCacheForRegistration,
   getCacheForWorkspace,
   getOracleForCurrentWorkspace,
   nextSwMutatorContext,
-} from '../sync/service';
-import { driftRecorder } from './storage-drift';
+} from '@openheaders/oracle/sync/service';
+import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
 import { getActiveWorkspaceId } from './workspace-store';
 
 /** Stored folder — same concept as a directory with _folder.yaml on disk.

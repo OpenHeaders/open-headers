@@ -6,7 +6,7 @@
 
 import type { SideEffectIntent } from '@openheaders/core/sync';
 import { describe, expect, it } from 'vitest';
-import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
+import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 
 const intent = (kind: string, key: string, ms: number): SideEffectIntent => ({
   kind,

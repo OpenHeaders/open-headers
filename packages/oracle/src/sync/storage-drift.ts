@@ -17,20 +17,18 @@
 
 import type * as v from 'valibot';
 import type { LogSubsystem } from '@openheaders/core/types';
-import { report as reportStatus } from '@/shared/status';
-import type { StatusSubsystem } from '@/shared/status/types';
-import { recordLog } from './observability-log';
+import { getOracleHostHooks } from './host-hooks';
 
 export interface StorageDriftOptions {
   subsystem: LogSubsystem;
   /**
-   * Optional StatusSubsystem to yellow-pill when drift is detected. When
-   * set, a single `Schema drift` Status entry is reported per recorder
-   * invocation (the store dedupe prevents churn if the same shape fails
-   * repeatedly). Leave unset for subsystems where drift is a triage-only
-   * concern (not user-surfaced).
+   * Optional host-side status subsystem tag to yellow-pill when drift
+   * is detected. When set, a single `Schema drift` entry is reported
+   * via the host's `reportStatus` hook per recorder invocation (the
+   * store dedupe prevents churn on repeats). Leave unset for subsystems
+   * where drift is triage-only.
    */
-  statusSubsystem?: StatusSubsystem;
+  statusSubsystem?: string;
   /** Fully-qualified storage key (e.g. `oh.ws.<id>.rules`). */
   storageKey: string;
   /** Workspace id when the key is workspace-scoped. Optional for global keys. */
@@ -49,7 +47,8 @@ export function driftRecorder(
     const firstIssue = issues[0];
     const path = firstIssue?.path?.map((segment) => String(segment.key)).join('.') ?? '';
     const message = `Dropped entry at ${options.storageKey}${path ? ` (${path})` : ''}: ${firstIssue?.message ?? 'unknown issue'}`;
-    recordLog({
+    const hooks = getOracleHostHooks();
+    hooks.recordLog?.({
       subsystem: options.subsystem,
       op: 'hydrate-drift',
       level: 'warn',
@@ -59,7 +58,7 @@ export function driftRecorder(
       },
     });
     if (options.statusSubsystem) {
-      reportStatus({
+      hooks.reportStatus?.({
         subsystem: options.statusSubsystem,
         state: 'yellow',
         message: `Schema drift: dropped entry from ${options.storageKey}`,

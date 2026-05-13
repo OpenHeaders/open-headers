@@ -11,16 +11,16 @@ import {
 } from '@openheaders/core/sync';
 import type { Collection } from '@openheaders/core/types';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { InMemoryBroadcast } from '@/background/sync/broadcast';
-import { InMemoryMutationLog } from '@/background/sync/mutation-log';
-import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
-import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
-import { createTemplateFolderCache } from '@/background/sync/template-folder-cache';
+import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
+import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
+import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
+import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
+import { createTemplateFolderCache } from '@openheaders/oracle/sync/template-folder-cache';
 import { seedTemplateCollection } from '@openheaders/oracle/sync-builders/template-collection-projection';
 import {
   projectTemplateFolderByUid,
   projectTemplateFolderPostState,
-} from '@/background/sync/template-folder-post-state';
+} from '@openheaders/oracle/sync/template-folder-post-state';
 import type { PersistedLocalFolder } from '@openheaders/oracle/storage';
 
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();

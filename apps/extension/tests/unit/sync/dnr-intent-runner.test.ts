@@ -13,11 +13,11 @@ import {
   toggleEnabled,
 } from '@openheaders/core/sync';
 import { describe, expect, it } from 'vitest';
-import { InMemoryBroadcast } from '@/background/sync/broadcast';
-import { createDnrIntentRunner } from '@/background/sync/dnr-intent-runner';
-import { InMemoryMutationLog } from '@/background/sync/mutation-log';
-import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
-import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
+import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
+import { createDnrIntentRunner } from '@openheaders/oracle/sync/dnr-intent-runner';
+import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
+import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
+import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 
 const wsId = 'ws-1';
 const sequentialLock: LockAcquirer = async (_ws, _type, _id, fn) => fn();

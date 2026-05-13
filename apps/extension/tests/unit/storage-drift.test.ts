@@ -1,16 +1,11 @@
 import * as v from 'valibot';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { recordLogMock } = vi.hoisted(() => ({
-  recordLogMock: vi.fn(),
-}));
+import { setOracleHostHooks } from '@openheaders/oracle/sync';
+import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
+import { __resetStatusForTests, getStatusSnapshot, report as reportStatus } from '@/shared/status';
 
-vi.mock('@/background/modules/observability-log', () => ({
-  recordLog: recordLogMock,
-}));
-
-import { driftRecorder } from '@/background/modules/storage-drift';
-import { __resetStatusForTests, getStatusSnapshot } from '@/shared/status';
+const recordLogMock = vi.fn();
 
 const SampleSchema = v.object({
   name: v.string(),
@@ -26,10 +21,21 @@ describe('storage-drift / driftRecorder', () => {
   beforeEach(() => {
     recordLogMock.mockClear();
     __resetStatusForTests();
+    setOracleHostHooks({
+      recordLog: recordLogMock,
+      reportStatus: (entry) =>
+        reportStatus({
+          subsystem: entry.subsystem as Parameters<typeof reportStatus>[0]['subsystem'],
+          state: entry.state,
+          message: entry.message,
+          context: entry.context,
+        }),
+    });
   });
 
   afterEach(() => {
     __resetStatusForTests();
+    setOracleHostHooks({});
   });
 
   it('records an observability entry on schema failure', () => {

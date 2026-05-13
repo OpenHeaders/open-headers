@@ -8,7 +8,7 @@ import { TEMPLATE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Template } from '@openheaders/core/types';
 import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
 import { projectTemplate, seedTemplate } from '@openheaders/oracle/sync-builders/template-projection';
-import { driftRecorder } from '../modules/storage-drift';
+import { driftRecorder } from './storage-drift';
 import type { InMemoryBroadcast } from './broadcast';
 import { createFlatEntityCache } from './flat-entity-cache';
 import type { EntityOracle } from './oracle';

@@ -5,7 +5,7 @@
 
 import type { AwarenessState, PresenceIdentity } from '@openheaders/core/protocol';
 import { describe, expect, it, vi } from 'vitest';
-import { createAwarenessStore } from '@/background/sync/awareness';
+import { createAwarenessStore } from '@openheaders/oracle/sync/awareness';
 
 function makeIdentity(overrides: Partial<PresenceIdentity> = {}): PresenceIdentity {
   return {

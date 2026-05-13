@@ -49,11 +49,11 @@ import { logger } from '@utils/logger';
 import {
   type ExtensionWorkspaceCache,
   getActiveExtensionWorkspaceCache,
-} from '@/background/sync/extension-workspace-cache';
-import { getGlobalOracle, nextGlobalSwContext } from '@/background/sync/global-service';
+} from '@openheaders/oracle/sync/extension-workspace-cache';
+import { getGlobalOracle, nextGlobalSwContext } from '@openheaders/oracle/sync/global-service';
 import { extensionStorage, OH } from '@openheaders/oracle/storage';
 import { buildSetExtensionWorkspaceBatch } from '@openheaders/oracle/sync-builders/extension-workspace-mutations';
-import { driftRecorder } from './storage-drift';
+import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
 
 const DEFAULT_WORKSPACE_NAME = 'Workspace';
 const DEFAULT_WORKSPACE_COLOR = 'neutral';

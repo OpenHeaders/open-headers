@@ -19,15 +19,15 @@ import {
 } from '@openheaders/core/sync';
 import type { Collection, Folder } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
-import { InMemoryBroadcast } from '@/background/sync/broadcast';
+import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
 import {
   projectAllFolders,
   projectFolderByUid,
   projectFolderPostState,
-} from '@/background/sync/folder-post-state';
-import { InMemoryMutationLog } from '@/background/sync/mutation-log';
-import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
-import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
+} from '@openheaders/oracle/sync/folder-post-state';
+import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
+import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
+import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 import { seedCollection } from '@openheaders/oracle/sync-builders/collection-projection';
 
 const wsId = 'ws-1';

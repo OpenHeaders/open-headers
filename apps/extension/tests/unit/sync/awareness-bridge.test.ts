@@ -5,8 +5,8 @@
 
 import type { AwarenessPublishRequest, AwarenessState, PresenceIdentity } from '@openheaders/core/protocol';
 import { describe, expect, it, vi } from 'vitest';
-import { type AwarenessStore, createAwarenessStore } from '@/background/sync/awareness';
-import { handleAwarenessPublish } from '@/background/sync/awareness-bridge';
+import { type AwarenessStore, createAwarenessStore } from '@openheaders/oracle/sync/awareness';
+import { handleAwarenessPublish } from '@openheaders/oracle/sync/awareness-bridge';
 
 function identity(): PresenceIdentity {
   return {

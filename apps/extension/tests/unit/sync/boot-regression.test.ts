@@ -3,7 +3,7 @@ import {
   CONSECUTIVE_REQUIRED,
   evaluateBootRegression,
   REGRESSION_THRESHOLD,
-} from '@/background/sync/boot-regression';
+} from '@openheaders/oracle/sync/boot-regression';
 
 describe('boot-regression', () => {
   it('does not regress when samples are within threshold', () => {

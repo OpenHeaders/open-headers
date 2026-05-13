@@ -15,9 +15,9 @@
 import type { PauseMarkerKind } from '@openheaders/core/sync';
 import { logger } from '@utils/logger';
 import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
-import { PAUSE_MARKERS_REGISTRATION } from '../sync/entity-registry';
-import type { PauseMarkersCache } from '../sync/pause-markers-cache';
-import { getActiveCacheForRegistration } from '../sync/service';
+import { PAUSE_MARKERS_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
+import type { PauseMarkersCache } from '@openheaders/oracle/sync/pause-markers-cache';
+import { getActiveCacheForRegistration } from '@openheaders/oracle/sync/service';
 import { getActiveWorkspaceId } from './workspace-store';
 
 // ── Type re-export (legacy callers use the local name) ────────────

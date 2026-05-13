@@ -22,7 +22,7 @@ import type { Collection } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
 import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
 import { projectCollection, seedCollection } from '@openheaders/oracle/sync-builders/collection-projection';
-import { driftRecorder } from '../modules/storage-drift';
+import { driftRecorder } from './storage-drift';
 import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';
 import type { EntityOracle } from './oracle';
 import type { SwMutatorContextFactory } from './sw-context';

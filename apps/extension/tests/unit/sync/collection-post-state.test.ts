@@ -19,11 +19,11 @@ import {
 } from '@openheaders/core/sync';
 import type { Collection } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
-import { InMemoryBroadcast } from '@/background/sync/broadcast';
-import { projectCollectionByUid, projectCollectionPostState } from '@/background/sync/collection-post-state';
-import { InMemoryMutationLog } from '@/background/sync/mutation-log';
-import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
-import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
+import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
+import { projectCollectionByUid, projectCollectionPostState } from '@openheaders/oracle/sync/collection-post-state';
+import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
+import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
+import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 import { seedCollection } from '@openheaders/oracle/sync-builders/collection-projection';
 
 const wsId = 'ws-1';

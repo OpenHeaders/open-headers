@@ -16,14 +16,14 @@ import {
   setExtensionWorkspace,
 } from '@openheaders/core/sync';
 import { describe, expect, it } from 'vitest';
-import { InMemoryBroadcast } from '@/background/sync/broadcast';
+import { InMemoryBroadcast } from '@openheaders/oracle/sync/broadcast';
 import {
   projectExtensionWorkspacePostState,
   projectExtensionWorkspaceSingleton,
-} from '@/background/sync/extension-workspace-post-state';
-import { InMemoryMutationLog } from '@/background/sync/mutation-log';
-import { type LockAcquirer, EntityOracle } from '@/background/sync/oracle';
-import { InMemoryPendingIntents } from '@/background/sync/pending-intents';
+} from '@openheaders/oracle/sync/extension-workspace-post-state';
+import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
+import { type LockAcquirer, EntityOracle } from '@openheaders/oracle/sync/oracle';
+import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents';
 import { seedExtensionWorkspaces } from '@openheaders/oracle/sync-builders/extension-workspace-projection';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();

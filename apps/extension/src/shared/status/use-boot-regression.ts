@@ -17,11 +17,11 @@
 import {
   BOOT_BASELINE_MS,
   BOOT_REGRESSION_SAMPLE_WINDOW,
-} from '@/background/sync/boot-baseline';
+} from '@openheaders/oracle/sync/boot-baseline';
 import {
   type BootRegressionVerdict,
   evaluateBootRegression,
-} from '@/background/sync/boot-regression';
+} from '@openheaders/oracle/sync/boot-regression';
 import { useEffect, useState } from 'react';
 import { call, subscribe } from '@utils/bridge';
 
