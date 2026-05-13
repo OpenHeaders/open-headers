@@ -45,7 +45,7 @@ vi.mock('@/shared/storage', async () => {
   };
 });
 
-import { setLockRuntime } from '@/shared/coordination/with-lock';
+import { setLockRuntime } from '@openheaders/oracle/coordination';
 
 class FifoLockRuntime {
   private queues = new Map<string, Array<() => void>>();

@@ -28,7 +28,7 @@ import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
 import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheaders/core/sync';
 import type { OAuth2Auth } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
-import { entityLockName, withLock } from '@/shared/coordination/with-lock';
+import { entityLockName, withLock } from '@openheaders/oracle/coordination';
 import { extensionStorage, OH, wsKeys } from '@/shared/storage';
 import {
   buildDeleteOAuthTokenBatch,

@@ -44,13 +44,13 @@ let store: typeof import('@/background/modules/oauth-token-store');
 beforeEach(async () => {
   installBackingStorage();
   vi.resetModules();
-  const lockModule = await import('@/shared/coordination/with-lock');
+  const lockModule = await import('@openheaders/oracle/coordination');
   lockModule.setLockRuntime(new FifoLockRuntime());
   store = await import('@/background/modules/oauth-token-store');
 });
 
 afterEach(async () => {
-  const lockModule = await import('@/shared/coordination/with-lock');
+  const lockModule = await import('@openheaders/oracle/coordination');
   lockModule.setLockRuntime(null);
 });
 

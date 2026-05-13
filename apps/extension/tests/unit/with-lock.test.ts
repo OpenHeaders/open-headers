@@ -12,26 +12,18 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockRecordLog } = vi.hoisted(() => ({
-  mockRecordLog: vi.fn(),
-}));
-
-vi.mock('@/background/modules/observability-log', () => ({
-  recordLog: mockRecordLog,
-  hydrateObservabilityLog: vi.fn(async () => undefined),
-  getObservabilityLog: vi.fn(() => []),
-  clearObservabilityLog: vi.fn(),
-}));
-
 import {
   entityLockName,
   globalWorkspaceLockName,
   type LockRuntime,
   LockTimeoutError,
   layoutLockName,
+  setLockObserver,
   setLockRuntime,
   withLock,
-} from '@/shared/coordination/with-lock';
+} from '@openheaders/oracle/coordination';
+
+const mockRecordLog = vi.fn();
 
 // ── FIFO runtime — mirrors navigator.locks semantics in a deterministic way ─
 
@@ -111,12 +103,14 @@ let runtime: FifoLockRuntime;
 
 beforeEach(() => {
   mockRecordLog.mockReset();
+  setLockObserver(mockRecordLog);
   runtime = new FifoLockRuntime();
   setLockRuntime(runtime);
 });
 
 afterEach(() => {
   setLockRuntime(null);
+  setLockObserver(null);
 });
 
 // ── Lock-name helpers ──────────────────────────────────────────────

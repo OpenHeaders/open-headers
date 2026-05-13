@@ -46,7 +46,7 @@ import {
 } from '@openheaders/core/live';
 import type { WorkflowRunCache } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
-import { entityLockName, withLock } from '@/shared/coordination/with-lock';
+import { entityLockName, withLock } from '@openheaders/oracle/coordination';
 import { extensionStorage, OH, wsKeys } from '@/shared/storage';
 import { getActiveWorkspaceId } from './workspace-store';
 

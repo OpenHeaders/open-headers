@@ -29,7 +29,7 @@ import type { ImportReport } from '@openheaders/core/import';
 import { ImportReportSchema } from '@openheaders/core/import';
 import { parseEntityArray } from '@openheaders/core/schemas';
 import { logger } from '@utils/logger';
-import { entityLockName, withLock } from '@/shared/coordination/with-lock';
+import { entityLockName, withLock } from '@openheaders/oracle/coordination';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 import { getActiveWorkspaceId } from './workspace-store';
 

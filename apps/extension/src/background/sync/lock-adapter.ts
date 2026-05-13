@@ -13,7 +13,7 @@
  * without bringing in the extension's observability dependencies.
  */
 
-import { entityLockName, withLock } from '@/shared/coordination/with-lock';
+import { entityLockName, withLock } from '@openheaders/oracle/coordination';
 import type { LockAcquirer } from './oracle';
 
 /** The stitched `LockAcquirer` the production oracle uses. */

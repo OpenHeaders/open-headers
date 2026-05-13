@@ -54,7 +54,7 @@ import {
   walkMissingDeps,
 } from '@openheaders/core/workspace-export';
 import { logger } from '@utils/logger';
-import { entityLockName, withLock } from '@/shared/coordination/with-lock';
+import { entityLockName, withLock } from '@openheaders/oracle/coordination';
 import { extensionStorage, type PersistedLocalFolder, type StorageKey, wsKeys } from '@/shared/storage';
 import { reinitForWorkspace } from '../sync/service';
 import {

@@ -34,7 +34,32 @@
  * renderer must agree on them or the mutex is meaningless.
  */
 
-import { recordLog } from '@/background/modules/observability-log';
+import type { LogEntry } from '@openheaders/core/types';
+
+/**
+ * Observer invoked on every structured event the lock subsystem
+ * surfaces (contention, long hold, timeout, missing runtime). Host apps
+ * wire this to their observability ring; tests pass a `vi.fn()` to
+ * assert the shape. When unset, lock events are silently dropped — the
+ * lock semantics themselves do not depend on observation.
+ */
+export type LockObserver = (entry: Omit<LogEntry, 'timestamp'>) => void;
+
+let observer: LockObserver | null = null;
+
+/**
+ * Install (or clear) the lock-event observer. Pass `null` to detach.
+ * Safe to call before any lock attempts — the observer is consulted
+ * lazily per recorded event. The host is responsible for stamping a
+ * timestamp and any version metadata.
+ */
+export function setLockObserver(next: LockObserver | null): void {
+  observer = next;
+}
+
+function recordLog(entry: Omit<LogEntry, 'timestamp'>): void {
+  observer?.(entry);
+}
 
 /** Default timeout for a lock wait before {@link LockTimeoutError} fires. */
 const DEFAULT_TIMEOUT_MS = 2_000;

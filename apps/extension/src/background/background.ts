@@ -70,8 +70,14 @@ import {
   reconcileOAuthSchedules,
   startOAuthScheduler,
 } from './modules/oauth-refresh-scheduler';
+import { setLockObserver } from '@openheaders/oracle/coordination';
 import { bridgeOAuthSyncEngine } from './modules/oauth-token-store';
 import { hydrateObservabilityLog, recordLog } from './modules/observability-log';
+
+// Wire the lock subsystem's observer to the host observability ring.
+// Done at module-load so any pre-init `withLock` call still routes
+// events to the buffered (pre-hydration) ring.
+setLockObserver(recordLog);
 import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
 import { bridgePauseMarkersSyncEngine, getPauseMarkers } from './modules/pause-markers-store';
 import { auditHostPermissions } from './modules/permissions-audit';

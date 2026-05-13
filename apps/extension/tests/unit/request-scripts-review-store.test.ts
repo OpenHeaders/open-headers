@@ -30,7 +30,7 @@ vi.mock('@/shared/storage', async () => {
   };
 });
 
-import { setLockRuntime } from '@/shared/coordination/with-lock';
+import { setLockRuntime } from '@openheaders/oracle/coordination';
 
 class ImmediateLockRuntime {
   async request<T>(_name: string, _options: unknown, callback: () => Promise<T> | T): Promise<T> {
