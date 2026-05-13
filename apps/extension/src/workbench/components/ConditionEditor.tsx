@@ -363,15 +363,28 @@ const ConditionEditor: React.FC<ConditionEditorProps> = ({ value = [], onChange 
   const handleTypeChange = useCallback(
     (index: number, type: ConditionType) => {
       const def = getTypeDef(type);
-      const updates: Partial<RuleCondition> = { type, values: [] };
+      const current = value[index];
       if (def?.inputType !== 'header') {
-        updates.headerName = undefined;
-      } else if (!value[index].headerName) {
-        updates.headerName = '';
+        // Strip headerName entirely for non-header types — leaving it
+        // as `undefined` would survive the spread as an own property
+        // (Object.keys includes undefined-valued keys), and the form's
+        // structural fingerprint would then carry `"headerName":undefined`
+        // that the post-save canonical doesn't have. That residual diff
+        // pinned the editor to a permanent dirty state on type changes.
+        const next = value.map((c, i) => {
+          if (i !== index) return c;
+          const { headerName: _omit, ...rest } = c;
+          void _omit;
+          return { ...rest, type, values: [] };
+        });
+        onChange?.(next);
+        return;
       }
+      const updates: Partial<RuleCondition> = { type, values: [] };
+      if (!current.headerName) updates.headerName = '';
       updateCondition(index, updates);
     },
-    [value, updateCondition],
+    [value, onChange, updateCondition],
   );
 
   const handleValuesText = useCallback(

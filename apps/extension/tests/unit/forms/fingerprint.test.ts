@@ -47,4 +47,24 @@ describe('stableStringify', () => {
     expect(stableStringify(userTyped)).not.toBe(stableStringify(canonical));
     expect(stableStringify(userReverted)).toBe(stableStringify(canonical));
   });
+
+  // Mirrors JSON.stringify's undefined semantics: a key whose value is
+  // `undefined` is dropped, not emitted as `"key":undefined`. The
+  // canonical side round-trips through chrome.storage (JSON) and never
+  // sees those keys — without this, a form whose ConditionEditor /
+  // type-change handler / Reset button left a phantom `undefined`-valued
+  // key on a row would diverge from canonical FOREVER, with no
+  // user-visible way to clear it (regression caught in extension
+  // manual-testing pre Phase E.3).
+  it('drops keys whose value is undefined (matches JSON semantics)', () => {
+    expect(stableStringify({ a: 1, b: undefined })).toBe(stableStringify({ a: 1 }));
+    expect(stableStringify({ a: 1, b: undefined })).toBe('{"a":1}');
+  });
+
+  it('drops undefined keys at any depth — including inside arrays of rows', () => {
+    const formCondition = { uid: 'X', type: 'url-filter', values: ['v'], headerName: undefined };
+    const canonicalCondition = { uid: 'X', type: 'url-filter', values: ['v'] };
+    expect(stableStringify(formCondition)).toBe(stableStringify(canonicalCondition));
+    expect(stableStringify([formCondition])).toBe(stableStringify([canonicalCondition]));
+  });
 });

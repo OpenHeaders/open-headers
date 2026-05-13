@@ -13,6 +13,7 @@ import type { Collection, Rule } from '@openheaders/core/types';
 import { useCallback, useState } from 'react';
 import {
   applyRuleCreate,
+  applyRulePublish,
   type RuleMutationResult,
 } from '@/shared/sync/rule-write-client';
 import type { WorkbenchTab } from '../types';
@@ -73,7 +74,14 @@ async function persist(
     { rule: draft as Omit<Rule, 'uid' | 'path' | 'schemaVersion'>, parentPath },
     { workspaceId, surfaceId },
   );
-  if (result.ok) buildEditTab(tabId, result.rule, replaceTab);
+  if (result.ok) {
+    // Scratch Save is the user's "ship it" gesture — crossing the
+    // publication gate is part of the gesture, not a separate step.
+    // (Edit-mode Save in `RuleEditor` already does both update + publish;
+    // this brings the create flow into parity.)
+    await applyRulePublish(result.rule.uid, { workspaceId, surfaceId });
+    buildEditTab(tabId, result.rule, replaceTab);
+  }
   return result;
 }
 
