@@ -28,57 +28,29 @@
  * id at call time — there is no in-memory cache, so switching is free.
  */
 
-import type { CollectionTree, FolderNode, Rule, TreeNode } from '@openheaders/core/types';
+import type {
+  CollectionTree,
+  FolderNode,
+  LoadedTestRun,
+  Rule,
+  StoredTestRun,
+  TestRunOwner,
+  TestRunOwnerType,
+  TreeNode,
+} from '@openheaders/core/types';
 import { stableStringify } from '@/shared/forms/fingerprint';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 import { getCollectionTrees, getRules } from './rule-store';
-import type { ShadowAttribution } from './shadow-arbitration';
-import type { Evidence } from './tab-telemetry';
 import { getActiveWorkspaceId } from './workspace-store';
 
-// ── Public types ──────────────────────────────────────────────────
-
-export type TestRuleStatus = 'executed' | 'no-fire' | 'skipped';
-
-export type TestRunOwnerType = 'rule' | 'folder' | 'collection' | 'workspace';
-
-export interface TestRunOwner {
-  type: TestRunOwnerType;
-  /** uid of the rule/folder/collection, or the active workspace id when type='workspace'. */
-  id: string;
-}
-
-export interface TestFireEvent {
-  ruleUid: string;
-  url: string;
-  evidence: Evidence;
-  t: number;
-  shadowedBy?: ShadowAttribution;
-}
-
-/**
- * The persisted shape of a finished test run. The owner is stamped
- * at run start; stale detection compares `ownerHashAtRun` against
- * a freshly computed hash of the owner's current content.
- */
-export interface StoredTestRun {
-  id: string;
-  ownerType: TestRunOwnerType;
-  ownerId: string;
-  ownerNameAtRun: string;
-  ruleUids: string[];
-  url: string;
-  startedAt: number;
-  endedAt: number;
-  waitSeconds: number;
-  fires: TestFireEvent[];
-  ruleStatuses: Record<string, TestRuleStatus>;
-  noFireReasons?: Record<string, ShadowAttribution>;
-  ownerHashAtRun: string;
-}
-
-/** A stored run decorated with the freshly computed stale flag. */
-export type LoadedTestRun = StoredTestRun & { isStale: boolean };
+export type {
+  LoadedTestRun,
+  StoredTestRun,
+  TestFireEvent,
+  TestRuleStatus,
+  TestRunOwner,
+  TestRunOwnerType,
+} from '@openheaders/core/types';
 
 // ── Constants ─────────────────────────────────────────────────────
 

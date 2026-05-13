@@ -10,46 +10,14 @@
  * users can re-import the same export as many times as they want.
  */
 
+import type { DedupMatchEntry, DedupMatchesResult, FindMatchesArgs } from '@openheaders/core/types';
 import type { WorkspaceExportImportReport } from '@openheaders/core/import';
 import { ImportReportSchema } from '@openheaders/core/import';
 import { parseEntityArray } from '@openheaders/core/schemas';
-import type { CollisionStrategy } from '@openheaders/core/workspace-export';
 import { extensionStorage, wsKeys } from '@/shared/storage';
 import { listWorkspaces } from './workspace-store';
 
-export interface DedupMatchEntry {
-  workspaceId: string;
-  workspaceName: string;
-  importedAt: string;
-  exportId: string;
-  /**
-   * Snapshot of the prior import's per-entity strategies — keys are
-   * `<entityType>:<uid>`, values are the collision strategy applied.
-   * Carried only on `exportIdSameTarget` matches (the only arm where a
-   * meaningful diff against the incoming envelope makes sense). Drives
-   * the "show changes since last import" affordance in the soft-dedup
-   * banner (design §5.2 + §11 PR 5).
-   */
-  perEntityStrategies?: Record<string, CollisionStrategy>;
-}
-
-export interface DedupMatchesResult {
-  /** Prior imports of the same `exportId` into the current target. */
-  exportIdSameTarget: DedupMatchEntry[];
-  /** Prior imports of the same `exportId` into other workspaces. */
-  exportIdOtherTargets: DedupMatchEntry[];
-  /** Workspaces whose `workspace.uid` matches the export's source workspace
-   *  (and aren't already covered by an `exportId` match). */
-  workspaceUidMatches: { workspaceId: string; workspaceName: string }[];
-}
-
-export interface FindMatchesArgs {
-  exportId: string;
-  /** Source workspace's uid from the incoming export envelope. */
-  workspaceUid: string;
-  /** The currently-selected import target id. `null` when target=new. */
-  currentTargetWorkspaceId: string | null;
-}
+export type { DedupMatchEntry, DedupMatchesResult, FindMatchesArgs } from '@openheaders/core/types';
 
 async function readRing(workspaceId: string): Promise<WorkspaceExportImportReport[]> {
   const key = wsKeys(workspaceId).importReports;

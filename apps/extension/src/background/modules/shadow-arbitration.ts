@@ -75,30 +75,13 @@
  * - There is no `allow` action. That arbitration escape-hatch is N/A here.
  */
 
-import type { Rule } from '@openheaders/core/types';
+import type { Rule, ShadowAttribution, ShadowKind } from '@openheaders/core/types';
 import type { MatchingRule } from './request-tracker';
+
+export type { ShadowAttribution, ShadowKind } from '@openheaders/core/types';
 
 /** Action class used for arbitration. One entry per rule type. */
 export type ActionClass = 'block' | 'redirect' | 'query-param' | 'header' | 'body' | 'mock' | 'delay' | 'inject-csp';
-
-/** The reason a rule was shadowed. Each kind maps to a distinct diagnostic message in the UI. */
-export type ShadowKind =
-  | 'block-terminal'
-  | 'redirect-retarget'
-  | 'query-param-retarget'
-  | 'mock-intercept'
-  | 'header-stacking-ambiguous'
-  | 'delay-page-intercept';
-
-/**
- * Attribution for a shadowed rule. `uid` / `name` point at the rule that
- * caused the shadow (the "shadower"); `kind` classifies why.
- */
-export interface ShadowAttribution {
-  uid: string;
-  name: string;
-  kind: ShadowKind;
-}
 
 /**
  * DNR priority ladder used for arbitration. These are *conceptual*

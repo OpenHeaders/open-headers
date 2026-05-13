@@ -29,7 +29,7 @@
 import { isExpired as isOAuthTokenExpired } from '@openheaders/core/oauth';
 import type { RequestMutation, RequestSnapshot, ResponseSnapshot, TestAssertion } from '@openheaders/core/scripts';
 import { generateTotp } from '@openheaders/core/totp';
-import type { AuthConfig, BodyType, Collection, CredentialsMode, Environment, FormField, HttpMethod, MultipartPart, Request, RequestBody, Vault, VaultSecretTotp, WorkspaceVariables } from '@openheaders/core/types';
+import type { AuthConfig, BodyType, Collection, CredentialsMode, Environment, ExecutedRequestSnapshot, FormField, HttpMethod, MultipartPart, Request, RequestBody, Vault, VaultSecretTotp, WorkspaceVariables } from '@openheaders/core/types';
 import { appendQueryParams, generateUid, isRequestResolvable } from '@openheaders/core/utils';
 import { resolveTemplate, type TotpRegistry, VariableResolver } from '@openheaders/core/variables';
 import { logger } from '@utils/logger';
@@ -72,52 +72,7 @@ const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
 // ── Executor API ───────────────────────────────────────────────────
 
-export interface ExecutedRequestSnapshot {
-  /** HTTP status (e.g. 200). `0` when the request never completed
-   *  (DNS failure, network offline, aborted). */
-  status: number;
-  statusText: string;
-  /** Final URL after redirects — might differ from the submitted one. */
-  url: string;
-  headers: Array<{ key: string; value: string }>;
-  /** Response body as text. Binary payloads get a base64 fallback via
-   *  `bodyEncoding = 'base64'` once we add that — for v1 everything is
-   *  read as text. */
-  body: string;
-  /** True when the body exceeded `MAX_BODY_BYTES` and was truncated. */
-  bodyTruncated: boolean;
-  /** Bytes read from the wire before any truncation. */
-  bodyBytes: number;
-  durationMs: number;
-  /** Non-null when the request failed before producing a response. */
-  error: string | null;
-  /**
-   * Script outcome — `null` when no scripts ran, otherwise carries the
-   * assertions + console + mutation summary surfaced by the pre-request
-   * and/or post-response scripts. Split into two fields so the UI can
-   * render them independently (pre-request logs vs assertions). See
-   * ARCHITECTURE §19.
-   */
-  scripts?: {
-    preRequest?: {
-      succeeded: boolean;
-      error?: { name: string; message: string };
-      consoleLog: import('@openheaders/core/scripts').ScriptConsoleEntry[];
-      durationMs: number;
-      /** Summary of what the pre-request script mutated — useful for
-       *  the UI to show "1 header added" style hints. Non-authoritative;
-       *  the actual fetch uses the merged snapshot. */
-      mutation?: RequestMutation;
-    };
-    postResponse?: {
-      succeeded: boolean;
-      error?: { name: string; message: string };
-      assertions: TestAssertion[];
-      consoleLog: import('@openheaders/core/scripts').ScriptConsoleEntry[];
-      durationMs: number;
-    };
-  } | null;
-}
+export type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 
 export interface ExecuteRequestOptions {
   /**

@@ -1,15 +1,28 @@
 /**
  * Telemetry schema shared across execution contexts.
  *
- * The background's `tab-telemetry` module is the producer; the popup and
- * DevTools panel are consumers. They can't import from the background
- * directly (different processes, bridge RPC boundary), so the shape
- * lives here as the single source of truth for the wire format.
+ * The rule engine's tab-telemetry surface is the producer; UI surfaces
+ * (popup, DevTools panel, workbench) are consumers. They can't import
+ * from the engine directly (different processes / bridge RPC), so the
+ * shape lives here as the single source of truth for the wire format.
  */
 
-import type { HeaderOperation, Rule } from '@openheaders/core/types';
-import type { ShadowAttribution } from '@/background/modules/shadow-arbitration';
-import type { TrackedResourceType } from './browser';
+import type { HeaderOperation, Rule } from './rule';
+import type { ShadowAttribution } from './shadow';
+
+/** Chrome resource type strings used for tracking. */
+export type TrackedResourceType =
+  | 'main_frame'
+  | 'sub_frame'
+  | 'xmlhttprequest'
+  | 'script'
+  | 'stylesheet'
+  | 'image'
+  | 'font'
+  | 'media'
+  | 'websocket'
+  | 'ping'
+  | 'other';
 
 /**
  * Frozen snapshot of the rule that produced a fire, captured at fire-emit
@@ -112,7 +125,7 @@ export interface RequestRecord {
   requestId?: string;
   /** Populated post-fact from `onCompleted.fromCache`. */
   deliveryMode?: DeliveryMode;
-  /** Shadow arbitration verdict — see shadow-arbitration.ts. */
+  /** Shadow arbitration verdict — see `ShadowAttribution`. */
   shadowedBy?: ShadowAttribution;
   /** Rule snapshot frozen at fire time — see `RuleSnapshot` doc. May be
    *  absent only for fires emitted before the snapshotter was wired

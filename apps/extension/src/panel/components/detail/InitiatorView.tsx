@@ -1,4 +1,4 @@
-import type { InspectorHarEntry } from '@/background/modules/devtools-inspector-port';
+import type { InspectorHarEntry } from '@openheaders/core/types';
 
 interface CallFrame {
   functionName?: string;

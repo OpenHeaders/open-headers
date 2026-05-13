@@ -2,7 +2,7 @@ import type { HeaderModification, HeaderRule, Rule, RuleBase } from '@openheader
 import { describe, expect, it } from 'vitest';
 import { attributeHeaders, findCurrentMod, isAttributionEdited } from '@/panel/data/header-attribution';
 import type { InspectorFire } from '@/panel/data/types';
-import type { RuleSnapshot, RuleSnapshotHeaderMod } from '@/types/telemetry';
+import type { RuleSnapshot, RuleSnapshotHeaderMod } from '@openheaders/core/types';
 
 function headerRule(
   uid: string,

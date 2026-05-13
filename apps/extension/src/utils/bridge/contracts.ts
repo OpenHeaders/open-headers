@@ -52,9 +52,9 @@ import type { MutationEnvelope, MutatorOutcome } from '@openheaders/core/sync';
 import type { Collection, CollectionTree, Environment, ExtensionWorkspace, LiveVariable, LiveVariableOverride, LiveWorkflow, OAuth2Auth, RefreshPolicy, Request, Rule, RuleDraft, Template, Variable, Vault, WorkflowStep, WorkspaceVariables } from '@openheaders/core/types';
 import type { IntentCallerContext, WorkspaceIntent } from '@openheaders/core/workspace-intent';
 import type { WorkflowRunCache } from '@/background/modules/live-cache-store';
-import type { ExecutedRequestSnapshot } from '@/background/modules/request-executor';
-import type { TabTelemetrySnapshot } from '@/background/modules/tab-telemetry';
-import type { LoadedTestRun, TestRunOwnerType } from '@/background/modules/test-run-store';
+import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
+import type { TabTelemetrySnapshot } from '@openheaders/core/types';
+import type { LoadedTestRun, TestRunOwnerType } from '@openheaders/core/types';
 import type { LogEntry as ObservabilityLogEntry } from '@/shared/observability/types';
 import type { StatusSnapshot } from '@/shared/status/types';
 import type { ActiveRule } from '@/types/browser';
@@ -133,7 +133,7 @@ export interface BridgeRpcContract {
         | { kind: 'workspace' }
         | {
             kind: 'selection';
-            selection: import('@/background/modules/workspace-export-gatherer').ExportSelection;
+            selection: import('@openheaders/core/types').ExportSelection;
             /**
              * Strict-literal export (design §5.5 Advanced override).
              * When `true`, the gatherer ships exactly the picked uids
@@ -260,7 +260,7 @@ export interface BridgeRpcContract {
    */
   findWorkspaceExportImportMatches: {
     req: { exportId: string; workspaceUid: string; currentTargetWorkspaceId: string | null };
-    res: import('@/background/modules/workspace-import-dedup').DedupMatchesResult;
+    res: import('@openheaders/core/types').DedupMatchesResult;
   };
   /**
    * Stage a YAML payload in the SW's handoff registry (5min TTL).

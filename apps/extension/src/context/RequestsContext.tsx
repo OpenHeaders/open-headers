@@ -38,7 +38,7 @@ import type { BridgeRpcResponse } from '@utils/bridge';
 import { call, subscribe } from '@utils/bridge';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import type { ExecutedRequestSnapshot } from '@/background/modules/request-executor';
+import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import { buildRequestCollectionTrees } from '@/shared/local-tree-builder';
 import { extensionStorage, type PersistedLocalFolder, wsKeys } from '@/shared/storage';
 import {

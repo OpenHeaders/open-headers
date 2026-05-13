@@ -54,10 +54,10 @@
  */
 
 import type { TrackedResourceType } from '@/types/browser';
-import type { DeliveryMode, Evidence, RequestRecord, TabTelemetrySnapshot } from '@/types/telemetry';
+import type { DeliveryMode, Evidence, RequestRecord, TabTelemetrySnapshot } from '@openheaders/core/types';
 import type { ShadowAttribution } from './shadow-arbitration';
 
-export type { DeliveryMode, Evidence, RequestRecord, TabTelemetrySnapshot } from '@/types/telemetry';
+export type { DeliveryMode, Evidence, RequestRecord, TabTelemetrySnapshot } from '@openheaders/core/types';
 
 // ── Tunables ────────────────────────────────────────────────────────
 

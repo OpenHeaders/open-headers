@@ -3,7 +3,7 @@ import { VariableResolver } from '@openheaders/core/variables';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { RuleAttributionContext } from '@/panel/data/header-attribution';
 import { computeRuleApplicability } from '@/panel/data/rule-applicability';
-import type { RuleSnapshotHeaderMod } from '@/types/telemetry';
+import type { RuleSnapshotHeaderMod } from '@openheaders/core/types';
 
 function makeRule(overrides: Partial<HeaderRule> = {}): HeaderRule {
   return {

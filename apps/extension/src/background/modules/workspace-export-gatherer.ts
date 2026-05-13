@@ -23,39 +23,12 @@
  */
 
 import { scanTemplateReferencesMany } from '@openheaders/core/live';
-import type { Collection, Environment, Folder, LiveVariable, LiveWorkflow, Request, Rule, Template, WorkspaceVariables } from '@openheaders/core/types';
+import type { Collection, Environment, ExportSelection, Folder, LiveVariable, LiveWorkflow, Request, Rule, Template, WorkspaceVariables } from '@openheaders/core/types';
 import type { BuildWorkspaceExportInput } from '@openheaders/core/workspace-export';
 import { extensionStorage, type PersistedLocalFolder, wsKeys } from '@/shared/storage';
 import { getWorkspace } from './workspace-store';
 
-/**
- * Per-entity-type uid lists for a `selection` scope. Collections and
- * folders are *expanders*: picking one pulls in every descendant
- * folder/entity plus the parent containers needed for `collectionId` /
- * `folderId` and tree-prefix paths to resolve at import time. Picking a
- * leaf entity (rule / request / template / env / live-*) ships exactly
- * that entity — recipients see missing-deps in the preview if the
- * referenced collection/env/workflow isn't already in their workspace
- * (design §2.3).
- *
- * Transitive dependency expansion (envs / workflows / collection-vars
- * referenced by a selected rule's template strings) runs after the
- * tree-structure expansion above — `expandTransitiveDeps` walks string
- * fields, scans for `{{env.X}}` / `{{live.X}}` / `{{collection.X}}` /
- * `{{workspace.X}}` references, and pulls in matching entities. The
- * Advanced "Strict literal" toggle bypasses both passes (ship exactly
- * what was picked, recipient sees missing-deps).
- */
-export interface ExportSelection {
-  rules?: readonly string[];
-  requests?: readonly string[];
-  templates?: readonly string[];
-  environments?: readonly string[];
-  liveWorkflows?: readonly string[];
-  liveVariables?: readonly string[];
-  collections?: readonly string[];
-  folders?: readonly string[];
-}
+export type { ExportSelection } from '@openheaders/core/types';
 
 export type ExportGatherScope =
   | { kind: 'workspace' }

@@ -155,6 +155,51 @@ export type {
   RuleDraftType,
 } from './rule-draft';
 
+// ── Shadow arbitration ─────────────────────────────────────────────
+export type { ShadowAttribution, ShadowKind } from './shadow';
+
+// ── Telemetry ──────────────────────────────────────────────────────
+export type {
+  DeliveryMode,
+  Evidence,
+  RequestRecord,
+  RuleSnapshot,
+  RuleSnapshotHeaderMod,
+  TabTelemetrySnapshot,
+  TrackedResourceType,
+} from './telemetry';
+
+// ── Test run ───────────────────────────────────────────────────────
+export type {
+  LoadedTestRun,
+  StoredTestRun,
+  TestFireEvent,
+  TestRuleStatus,
+  TestRunOwner,
+  TestRunOwnerType,
+} from './test-run';
+
+// ── Request execution ──────────────────────────────────────────────
+export type { ExecutedRequestSnapshot } from './request-execution';
+
+// ── DevTools inspector wire ────────────────────────────────────────
+export type {
+  HarSourceMessage,
+  InspectorHarBody,
+  InspectorHarEntry,
+  InspectorNavTiming,
+  InspectorPortMessage,
+} from './devtools-inspector';
+
+// ── Workspace import dedup ─────────────────────────────────────────
+export type { DedupMatchEntry, DedupMatchesResult, FindMatchesArgs } from './workspace-import';
+
+// ── Workspace export selection ─────────────────────────────────────
+export type { ExportSelection } from './workspace-export-selection';
+
+// ── Live cache row ─────────────────────────────────────────────────
+export type { WorkflowRunCache } from './live-cache';
+
 // ── Storage ────────────────────────────────────────────────────────
 export { GITIGNORE } from './storage';
 

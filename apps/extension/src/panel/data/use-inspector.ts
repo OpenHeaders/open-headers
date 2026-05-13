@@ -17,7 +17,7 @@
  */
 
 import { useEffect, useRef, useSyncExternalStore } from 'react';
-import type { InspectorPortMessage } from '@/background/modules/devtools-inspector-port';
+import type { InspectorPortMessage } from '@openheaders/core/types';
 import { InspectorStore } from './inspector-store';
 
 /** Backoff for the panel→background port reconnect loop. */

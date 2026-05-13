@@ -10,7 +10,7 @@
  * how the browser reports them.
  */
 
-import type { InspectorHarEntry } from '@/background/modules/devtools-inspector-port';
+import type { InspectorHarEntry } from '@openheaders/core/types';
 import type { InspectorRequest } from './types';
 
 type Header = { name: string; value: string };

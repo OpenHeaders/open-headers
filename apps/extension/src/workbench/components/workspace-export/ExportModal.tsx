@@ -45,7 +45,7 @@ import {
 } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
-import type { ExportSelection } from '@/background/modules/workspace-export-gatherer';
+import type { ExportSelection } from '@openheaders/core/types';
 import { getBrowserAPI } from '@/types/browser';
 import { call } from '@/utils/bridge';
 

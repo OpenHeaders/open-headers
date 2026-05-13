@@ -40,7 +40,7 @@
  */
 
 import type { HeaderModification, HeaderRule, Rule } from '@openheaders/core/types';
-import type { RuleSnapshot, RuleSnapshotHeaderMod } from '@/types/telemetry';
+import type { RuleSnapshot, RuleSnapshotHeaderMod } from '@openheaders/core/types';
 import type { InspectorFire } from './types';
 
 /**

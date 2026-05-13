@@ -47,7 +47,7 @@ import {
 import { Alert, App as AntApp, Button, Drawer, Empty, Modal, Space, Spin, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { DedupMatchesResult } from '@/background/modules/workspace-import-dedup';
+import type { DedupMatchesResult } from '@openheaders/core/types';
 import { call } from '@/utils/bridge';
 import {
   parseCollection,

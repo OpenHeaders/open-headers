@@ -12,7 +12,7 @@
  *   - `data`: text payload (binary frames show as base64/empty string)
  */
 
-import type { InspectorHarEntry } from '@/background/modules/devtools-inspector-port';
+import type { InspectorHarEntry } from '@openheaders/core/types';
 
 interface WsMessage {
   type: 'send' | 'receive';

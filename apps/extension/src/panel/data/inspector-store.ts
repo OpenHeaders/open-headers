@@ -50,8 +50,8 @@ import type {
   InspectorHarBody,
   InspectorHarEntry,
   InspectorNavTiming,
-} from '@/background/modules/devtools-inspector-port';
-import type { RequestRecord } from '@/background/modules/tab-telemetry';
+} from '@openheaders/core/types';
+import type { RequestRecord } from '@openheaders/core/types';
 import { type DanglingFire, type InspectorFire, type InspectorRequest, mergeFireEvidence } from './types';
 
 /** Window for promoting a URL+window dangling fire to a newly-arrived HAR entry. */

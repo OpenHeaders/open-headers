@@ -2,6 +2,10 @@
  * Browser API helper types
  */
 
+import type { TrackedResourceType } from '@openheaders/core/types';
+
+export type { TrackedResourceType } from '@openheaders/core/types';
+
 declare const browser: typeof chrome | undefined;
 
 /** The cross-browser API object (Firefox `browser` or Chrome `chrome`) */
@@ -28,20 +32,6 @@ export interface PendingRequest {
   headersApplied: boolean;
   method: string;
 }
-
-/** Chrome resource type strings used for tracking. */
-export type TrackedResourceType =
-  | 'main_frame'
-  | 'sub_frame'
-  | 'xmlhttprequest'
-  | 'script'
-  | 'stylesheet'
-  | 'image'
-  | 'font'
-  | 'media'
-  | 'websocket'
-  | 'ping'
-  | 'other';
 
 /**
  * Which extension API surfaced a given observation. `webRequest` is the

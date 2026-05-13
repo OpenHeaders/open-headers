@@ -17,7 +17,7 @@
  * used in the Timing detail view.
  */
 
-import type { InspectorHarEntry } from '@/background/modules/devtools-inspector-port';
+import type { InspectorHarEntry } from '@openheaders/core/types';
 import type { InspectorRequest } from '../../data/types';
 
 interface WaterfallBarProps {

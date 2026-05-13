@@ -31,7 +31,7 @@
  */
 
 import type { HeaderModification, HeaderRule } from '@openheaders/core/types';
-import type { RuleSnapshot, RuleSnapshotHeaderMod } from '@/types/telemetry';
+import type { RuleSnapshot, RuleSnapshotHeaderMod } from '@openheaders/core/types';
 import { getRules } from './rule-store';
 import { getResolvedRules } from './variables-resolver';
 

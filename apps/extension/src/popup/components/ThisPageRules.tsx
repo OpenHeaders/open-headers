@@ -94,7 +94,7 @@ const RULE_TYPE_DESCRIPTION: Record<string, string> = {
   mock: 'Override API response (fetch/XHR)',
 };
 
-import type { RequestRecord, TabTelemetrySnapshot as TelemetrySnapshot } from '@/types/telemetry';
+import type { RequestRecord, TabTelemetrySnapshot as TelemetrySnapshot } from '@openheaders/core/types';
 
 const EMPTY_SNAPSHOT: TelemetrySnapshot = {
   counters: {},

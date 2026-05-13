@@ -11,9 +11,9 @@
  * request fired before DevTools was open to capture it).
  */
 
-import type { InspectorHarEntry, InspectorNavTiming } from '@/background/modules/devtools-inspector-port';
-import type { RequestRecord } from '@/background/modules/tab-telemetry';
-import type { RuleSnapshot } from '@/types/telemetry';
+import type { InspectorHarEntry, InspectorNavTiming } from '@openheaders/core/types';
+import type { RequestRecord } from '@openheaders/core/types';
+import type { RuleSnapshot } from '@openheaders/core/types';
 
 export type { InspectorNavTiming };
 

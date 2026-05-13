@@ -48,7 +48,7 @@ import type { GlobalToken } from 'antd/es/theme/interface';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePopoverPlacement } from '@/shared/use-popover-placement';
 import { openWorkspace } from '@/shared/workspace-intent';
-import type { RuleSnapshotHeaderMod } from '@/types/telemetry';
+import type { RuleSnapshotHeaderMod } from '@openheaders/core/types';
 import {
   ConflictDiffChip,
   EntityField,

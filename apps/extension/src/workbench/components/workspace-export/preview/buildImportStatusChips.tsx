@@ -16,7 +16,7 @@ import {
 import { Tag, Typography } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
-import type { DedupMatchesResult } from '@/background/modules/workspace-import-dedup';
+import type { DedupMatchesResult } from '@openheaders/core/types';
 import type { StatusChip } from './StatusChips';
 
 const { Text } = Typography;

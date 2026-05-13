@@ -39,7 +39,7 @@ import { call } from '@utils/bridge';
 import { App, Button, Checkbox, Empty, Space, Spin, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { LoadedTestRun } from '@/background/modules/test-run-store';
+import type { LoadedTestRun } from '@openheaders/core/types';
 import { Connector, Terminus } from './rule-flow/Connector';
 import type { RuleStatusOverlay } from './rule-flow/FlowRuleCard';
 import PriorityGroup, { PRIORITY_TIERS } from './rule-flow/PriorityGroup';
