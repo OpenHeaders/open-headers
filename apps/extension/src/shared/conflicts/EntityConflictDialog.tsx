@@ -50,12 +50,13 @@ const EntityConflictDialog: React.FC<EntityConflictDialogProps> = ({
   onResolveText,
   onClose,
 }) => {
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, monacoTheme } = useTheme();
   if (!open) return null;
   return (
     <MergeConflictModal
       open
       isDarkMode={isDarkMode}
+      monacoTheme={monacoTheme}
       surfaceId="entity-conflict"
       onClose={onClose}
       session={buildEntityMergeSession({

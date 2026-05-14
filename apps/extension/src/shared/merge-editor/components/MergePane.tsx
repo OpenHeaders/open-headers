@@ -28,7 +28,6 @@
  * without us having to track per-hunk drift through edits manually.
  */
 
-import { useTheme } from '@context/ThemeContext';
 import { editor as monacoEditor } from 'monaco-editor/esm/vs/editor/edcore.main';
 import {
   forwardRef,
@@ -82,6 +81,11 @@ export interface MergePaneProps {
   file: MergeFile;
   /** True for dark Monaco theme. The shell decides; the editor reflects. */
   isDarkMode?: boolean;
+  /** Monaco theme id the shell wants applied. The shell owns the theme
+   *  registry; the editor just calls `setTheme`. Falls back to Monaco's
+   *  built-in `vs` / `vs-dark` (per `isDarkMode`) when the shell doesn't
+   *  supply one — keeps the editor self-contained. */
+  monacoTheme?: string;
   /** Caller wants to know when the editable result text changes. */
   onResultChange?: (text: string) => void;
   /** Caller wants live counts for a header pill / navigator. Fired
@@ -151,6 +155,7 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   const {
     file,
     isDarkMode,
+    monacoTheme,
     onResultChange,
     onHunkStatsChange,
     showNonConflicting = true,
@@ -164,9 +169,9 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
     onPickStateChange,
     compactView = false,
   } = props;
-  // Monaco theme id comes from the active variant — the chrome's
-  // `isDarkMode` prop only drives the merge-pane background shading.
-  const { monacoTheme } = useTheme();
+  // The shell supplies the Monaco theme id; `isDarkMode` independently
+  // drives the merge-pane background shading and the built-in fallback.
+  const resolvedMonacoTheme = monacoTheme ?? (isDarkMode ? 'vs-dark' : 'vs');
   const language = file.language ?? 'yaml';
 
   const theirsContainerRef = useRef<HTMLDivElement | null>(null);
@@ -249,8 +254,8 @@ const MergePane = forwardRef<MergePaneHandle, MergePaneProps>(function MergePane
   }, [file.initialResult]);
 
   useEffect(() => {
-    monacoEditor.setTheme(monacoTheme);
-  }, [monacoTheme]);
+    monacoEditor.setTheme(resolvedMonacoTheme);
+  }, [resolvedMonacoTheme]);
 
   // After a layout swap, panes that were hidden may have stale layout
   // metrics inside Monaco (zero-sized container during the hidden

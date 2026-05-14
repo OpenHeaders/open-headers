@@ -30,6 +30,9 @@ export interface MergeConflictModalProps {
   /** Caller provides the dark-mode signal; the editor stays
    *  shell-agnostic. */
   isDarkMode?: boolean;
+  /** Caller provides the Monaco theme id; the editor stays
+   *  shell-agnostic (falls back to built-in `vs` / `vs-dark`). */
+  monacoTheme?: string;
   /** Closes the modal after Apply succeeds for every file. The shell
    *  also calls `session.onCancel()` for explicit cancel. */
   onClose(): void;
@@ -54,6 +57,7 @@ const MergeConflictModal = ({
   open,
   session,
   isDarkMode,
+  monacoTheme,
   onClose,
   surfaceId = 'default',
   headerSlot,
@@ -565,6 +569,7 @@ const MergeConflictModal = ({
                     ref={paneRef}
                     file={activeFile}
                     isDarkMode={isDarkMode}
+                    monacoTheme={monacoTheme}
                     showNonConflicting={showNonConflicting}
                     compactView={compactView}
                     layout={layout}
@@ -585,6 +590,7 @@ const MergeConflictModal = ({
                   ref={paneRef}
                   file={activeFile}
                   isDarkMode={isDarkMode}
+                  monacoTheme={monacoTheme}
                   showNonConflicting={showNonConflicting}
                   singleClickResolve={singleClickResolve}
                   inlineActionLabels={inlineActionLabels}

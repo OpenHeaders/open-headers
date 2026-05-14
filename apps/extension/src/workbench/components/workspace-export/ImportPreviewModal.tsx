@@ -128,7 +128,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
 }) => {
   const { message } = AntApp.useApp();
   const { token } = theme.useToken();
-  const { isDarkMode } = useTheme();
+  const { isDarkMode, monacoTheme } = useTheme();
 
   // Phase 7.3.5: merge editor is the import surface. The legacy
   // diff/strategy-chips body is gone; this modal now serves as the
@@ -768,6 +768,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
         <MergeConflictModal
           open
           isDarkMode={isDarkMode}
+          monacoTheme={monacoTheme}
           surfaceId="workspace-import"
           onClose={() => {
             // Closing the merge editor cancels the whole import (the
