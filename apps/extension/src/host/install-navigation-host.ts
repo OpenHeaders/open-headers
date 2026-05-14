@@ -19,11 +19,11 @@
 
 import { type ActiveTab, type HostNavigation, setHostNavigation } from '@openheaders/core/navigation';
 import type { ViewMode } from '@openheaders/core/types';
-import { setViewMode as persistViewMode } from '@openheaders/oracle/view-mode';
 import { call } from '@utils/bridge';
 import { logger } from '@utils/logger';
 import { getBrowserAPI } from '@/types/browser';
 import { isFirefox } from '@/utils/browser-runtime';
+import { setViewMode as persistViewMode } from './view-mode-storage';
 
 interface SidePanelOpenOptions {
   windowId?: number;

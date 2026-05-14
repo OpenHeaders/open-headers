@@ -5,8 +5,8 @@
  * machines.
  */
 
+import { hostStorage, OH } from '@openheaders/core/storage';
 import { DEFAULT_VIEW_MODE, type ViewMode } from '@openheaders/core/types';
-import { hostStorage, OH } from '../storage';
 
 export async function getViewMode(): Promise<ViewMode> {
   const stored = await hostStorage.get(OH.viewMode);

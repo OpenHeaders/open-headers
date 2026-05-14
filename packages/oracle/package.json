@@ -31,10 +31,6 @@
       "import": "./src/coordination/index.ts",
       "default": "./dist/coordination/index.js"
     },
-    "./view-mode": {
-      "import": "./src/view-mode/index.ts",
-      "default": "./dist/view-mode/index.js"
-    },
     "./entity/*": {
       "import": "./src/entity/*.ts",
       "default": "./dist/entity/*.js"

@@ -10,8 +10,8 @@
  */
 
 import { logger } from '@utils/logger';
-import { getViewMode, onViewModeChanged } from '@openheaders/oracle/view-mode';
 import { applyViewMode } from '@/host/view-mode-applier';
+import { getViewMode, onViewModeChanged } from '@/host/view-mode-storage';
 
 let initialized = false;
 
