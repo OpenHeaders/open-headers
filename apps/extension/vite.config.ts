@@ -74,10 +74,11 @@ function copyAssetsPlugin() {
     { from: 'src/assets/images/icon128.png', to: 'images/icon128.png' },
     { from: 'src/assets/images/companion-app.png', to: 'images/companion-app.png' },
     { from: 'src/assets/images/logo-pixel.svg', to: 'images/logo-pixel.svg' },
-    // Fonts — the .woff2 is emitted by Vite through the CSS pipeline
-    // (see the relative url() in popup.less / rules.less). Only the
-    // license file needs an explicit copy.
-    { from: 'src/assets/fonts/OFL.txt', to: 'fonts/OFL.txt' },
+    // Fonts — the bundled PressStart2P .woff2 lives in @openheaders/ui
+    // (next to the style files that reference it) and is emitted by
+    // Vite through the CSS pipeline. Only its license file needs an
+    // explicit copy.
+    { from: '../../packages/ui/src/assets/fonts/OFL.txt', to: 'fonts/OFL.txt' },
   ];
 
   // Safari-specific
