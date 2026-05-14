@@ -32,7 +32,7 @@
 import type { RuleDraft } from '@openheaders/core/types';
 import { decodeWorkspaceExportDeepLink } from '@openheaders/core/workspace-export';
 import { hashToBoundIntent, type WorkspaceIntent } from '@openheaders/core/workspace-intent';
-import { call, subscribe } from '@utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import { useEffect, useRef } from 'react';
 import type { RuleFlowScope } from '../types';
 
@@ -131,7 +131,7 @@ async function resolveImportIntent(
   }
   if (intent.handoffId !== undefined) {
     try {
-      const { yaml } = await call('consumeImportHandoff', { handoffId: intent.handoffId });
+      const { yaml } = await hostBridge.call('consumeImportHandoff', { handoffId: intent.handoffId });
       if (yaml === null) {
         return {
           error:
@@ -145,7 +145,7 @@ async function resolveImportIntent(
   }
   if (intent.fetchUrl !== undefined) {
     try {
-      const res = await call('fetchWorkspaceExportYaml', { url: intent.fetchUrl });
+      const res = await hostBridge.call('fetchWorkspaceExportYaml', { url: intent.fetchUrl });
       if (res.ok) return { rawText: res.yaml };
       // Map specific reasons to user-facing copy. The reasons are
       // already discrete so the modal can render them verbatim.
@@ -250,7 +250,7 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
           // Absent/expired drafts still open a bare create tab of the
           // requested type — better than a blank screen with no clue.
           if (intent.draftNonce) {
-            call('takeRuleDraft', { nonce: intent.draftNonce })
+            hostBridge.call('takeRuleDraft', { nonce: intent.draftNonce })
               .then((res) => {
                 const draft = (res?.draft ?? null) as RuleDraft | null;
                 o.openCreateTab(intent.ruleType, intent.context, undefined, draft ?? undefined);
@@ -290,7 +290,7 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
         case 'open-run-report':
           // Recover the owner stamp from the persisted run so the bottom
           // panel's contextual Test Runs tab can resolve its bucket.
-          call('getTestRun', { runId: intent.runId })
+          hostBridge.call('getTestRun', { runId: intent.runId })
             .then((data) => {
               const run = data?.run ?? null;
               const owner = run ? { type: run.ownerType, id: run.ownerId } : undefined;
@@ -349,7 +349,7 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
     }
 
     // Warm-path subscription for the lifetime of this workspace tab.
-    const unsubscribe = subscribe('workspace-intent', (payload) => applyIntent(payload.intent));
+    const unsubscribe = hostBridge.subscribe('workspace-intent', (payload) => applyIntent(payload.intent));
     return unsubscribe;
 
     // Intentionally no deps — the effect sets up once and stays live
@@ -381,7 +381,7 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
         return;
       case 'create-rule':
         if (pending.draftNonce) {
-          call('takeRuleDraft', { nonce: pending.draftNonce })
+          hostBridge.call('takeRuleDraft', { nonce: pending.draftNonce })
             .then((res) => {
               const draft = (res?.draft ?? null) as RuleDraft | null;
               o.openCreateTab(pending.ruleType, pending.context, undefined, draft ?? undefined);
@@ -413,7 +413,7 @@ export function useWorkspaceIntentRouter(options: UseWorkspaceIntentRouterOption
         o.openRuleFlow(pending.scope, pending.entityId, undefined, pending.url);
         return;
       case 'open-run-report':
-        call('getTestRun', { runId: pending.runId })
+        hostBridge.call('getTestRun', { runId: pending.runId })
           .then((data) => {
             const run = data?.run ?? null;
             const owner = run ? { type: run.ownerType, id: run.ownerId } : undefined;

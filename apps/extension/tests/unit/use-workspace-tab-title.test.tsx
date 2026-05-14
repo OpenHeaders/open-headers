@@ -4,8 +4,9 @@
  * Two layers:
  *   1. `composeTitle` — pure function, tested without rendering.
  *   2. `useWorkspaceTabTitle` — rendered via `@testing-library/react`,
- *      with a mocked `@utils/bridge` so we control the RPC reply
- *      and the broadcast stream that drives count updates.
+ *      with the `@openheaders/core/bridge` `hostBridge` proxy overridden
+ *      so we control the RPC reply and the broadcast stream that drives
+ *      count updates.
  */
 
 import { act, renderHook, waitFor } from '@testing-library/react';
@@ -18,14 +19,18 @@ const { mockCall, mockSubscribe } = vi.hoisted(() => ({
   mockSubscribe: vi.fn(),
 }));
 
-vi.mock('@utils/bridge', () => ({
-  call: mockCall,
-  subscribe: mockSubscribe,
-  broadcast: vi.fn(),
-  receive: vi.fn(),
-  presence: vi.fn(),
-  tabCall: vi.fn(),
-}));
+vi.mock('@openheaders/core/bridge', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@openheaders/core/bridge')>();
+  return {
+    ...actual,
+    hostBridge: {
+      call: mockCall,
+      subscribe: mockSubscribe,
+      broadcast: vi.fn(),
+      presence: vi.fn(),
+    },
+  };
+});
 
 import { composeTitle, useWorkspaceTabTitle } from '@/workbench/hooks/useWorkspaceTabTitle';
 

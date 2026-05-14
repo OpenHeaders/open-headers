@@ -7,7 +7,7 @@
  * buttons via `action.danger`.
  */
 
-import { call } from '@utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import * as v from 'valibot';
 import { allDefs, registerSetting } from '../registry';
 import { get as getStoreValue, reset as resetSetting, set as setStoreValue } from '../store';
@@ -167,7 +167,7 @@ registerSetting({
   action: {
     label: 'Export log',
     run: async () => {
-      const resp = await call('getObservabilityLog').catch(() => null);
+      const resp = await hostBridge.call('getObservabilityLog').catch(() => null);
       const entries = resp?.entries ?? [];
       downloadJson(`openheaders-log-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`, {
         exportedAt: new Date().toISOString(),
@@ -192,7 +192,7 @@ registerSetting({
     danger: true,
     run: async () => {
       if (!window.confirm('Clear the diagnostic log? This drops every buffered event.')) return;
-      await call('clearObservabilityLog').catch(() => null);
+      await hostBridge.call('clearObservabilityLog').catch(() => null);
     },
   },
 });
@@ -211,7 +211,7 @@ registerSetting({
   action: {
     label: 'Export reports',
     run: async () => {
-      const resp = await call('listImportReports').catch(() => null);
+      const resp = await hostBridge.call('listImportReports').catch(() => null);
       const reports = resp?.reports ?? [];
       downloadJson(`openheaders-import-reports-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`, {
         exportedAt: new Date().toISOString(),
@@ -237,7 +237,7 @@ registerSetting({
     danger: true,
     run: async () => {
       if (!window.confirm('Clear import reports for this workspace? This cannot be undone.')) return;
-      await call('clearImportReports').catch(() => null);
+      await hostBridge.call('clearImportReports').catch(() => null);
     },
   },
 });
@@ -273,7 +273,7 @@ registerSetting({
             binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
           }
           const bytesBase64 = btoa(binary);
-          await call('putFile', {
+          await hostBridge.call('putFile', {
             filename: file.name,
             mimeType: file.type || undefined,
             bytesBase64,
@@ -300,7 +300,7 @@ registerSetting({
   action: {
     label: 'Export manifest',
     run: async () => {
-      const resp = await call('listFiles', {}).catch(() => null);
+      const resp = await hostBridge.call('listFiles', {}).catch(() => null);
       const files = resp?.files ?? [];
       downloadJson(`openheaders-files-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`, {
         exportedAt: new Date().toISOString(),
@@ -340,10 +340,10 @@ registerSetting({
     run: async () => {
       if (!window.confirm('Delete every file in this workspace? Multipart parts referencing them will error on send.'))
         return;
-      const resp = await call('listFiles', {}).catch(() => null);
+      const resp = await hostBridge.call('listFiles', {}).catch(() => null);
       const files = resp?.files ?? [];
       for (const f of files) {
-        await call('deleteFile', { fileId: f.fileId }).catch(() => null);
+        await hostBridge.call('deleteFile', { fileId: f.fileId }).catch(() => null);
       }
     },
   },

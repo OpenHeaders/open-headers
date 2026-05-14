@@ -47,7 +47,7 @@ import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import type { ExportSelection } from '@openheaders/core/types';
 import { hostAssets } from '@openheaders/core/assets';
-import { call } from '@/utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 
 /**
  * Build the deep-link base URL. There is no hosted companion site — the
@@ -172,7 +172,7 @@ const ExportModal: React.FC<ExportModalProps> = ({ open, workspaceId, workspaceN
               selection: scope.selection,
               ...(strictLiteral ? { strictLiteral: true } : {}),
             };
-      const resp = await call('exportWorkspace', {
+      const resp = await hostBridge.call('exportWorkspace', {
         workspaceId,
         scope: swScope,
         vaultMode,

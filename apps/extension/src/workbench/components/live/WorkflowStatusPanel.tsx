@@ -24,9 +24,8 @@ import { useEnvironments } from '@openheaders/ui/shared/hooks/useEnvironments';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { useAllLiveCaches } from '@openheaders/ui/shared/hooks/useLiveCache';
 import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/useLiveWorkflows';
+import { hostBridge, type LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
 import type { RefreshPolicy } from '@openheaders/core/types';
-import type { LiveWorkflowRunSnapshot } from '@utils/bridge';
-import { call } from '@utils/bridge';
 import { App, Badge, Button, Empty, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -134,7 +133,7 @@ const WorkflowStatusPanel: React.FC<Props> = ({ onClose, onOpenWorkflow }) => {
 
   const handleRefresh = useCallback(
     async (workflowUid: string, environmentId: string | null) => {
-      const resp = await call('refreshLiveWorkflowNow', {
+      const resp = await hostBridge.call('refreshLiveWorkflowNow', {
         workflowUid,
         environmentId,
         workspaceId: editingWorkspaceId,
@@ -150,7 +149,7 @@ const WorkflowStatusPanel: React.FC<Props> = ({ onClose, onOpenWorkflow }) => {
 
   const handleResetCircuit = useCallback(
     async (workflowUid: string, environmentId: string | null) => {
-      const resp = await call('resetLiveWorkflowCircuit', {
+      const resp = await hostBridge.call('resetLiveWorkflowCircuit', {
         workflowUid,
         environmentId,
         workspaceId: editingWorkspaceId,

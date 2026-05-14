@@ -1163,7 +1163,7 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({ draft, setDraft }) 
 // `nextAttemptAt` is in the future — no-op for every other state
 // (no React timer, no wasted re-renders on healthy rows).
 
-const CircuitInlineStatus: React.FC<{ run: import('@utils/bridge').LiveWorkflowRunSnapshot }> = ({ run }) => {
+const CircuitInlineStatus: React.FC<{ run: import('@openheaders/core/bridge').LiveWorkflowRunSnapshot }> = ({ run }) => {
   const [, setNow] = useState(Date.now());
   const descriptor = describeCircuit(run);
   const needsTick = descriptor.nextAttemptAt !== null && descriptor.nextAttemptAt > Date.now();

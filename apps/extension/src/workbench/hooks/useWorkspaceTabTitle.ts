@@ -30,7 +30,7 @@
  * ordinal to the new tab id, so the user sees the same prefix.
  */
 
-import { call, subscribe } from '@utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 const DEFAULT_BASE = 'Open Headers';
@@ -107,7 +107,7 @@ export function useWorkspaceTabTitle(): UseWorkspaceTabTitleResult {
   useEffect(() => {
     let cancelled = false;
 
-    call('getWorkspaceTabOrdinal')
+    hostBridge.call('getWorkspaceTabOrdinal')
       .then((res) => {
         if (cancelled) return;
         ordinalRef.current = res.ordinal;
@@ -120,7 +120,7 @@ export function useWorkspaceTabTitle(): UseWorkspaceTabTitleResult {
         // or a caller-provided re-mount.
       });
 
-    const unsubscribe = subscribe('workspaceTabsChanged', (payload) => {
+    const unsubscribe = hostBridge.subscribe('workspaceTabsChanged', (payload) => {
       if (cancelled) return;
       applyTitle(payload.count);
     });

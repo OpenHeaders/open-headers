@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { hostStorage, wsKeys } from '@openheaders/core/storage';
-import { call } from '@/utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 
 /**
  * Subscribe to the active workspace's
@@ -20,7 +20,7 @@ export function useRequestScriptsReviewPending(activeWorkspaceId: string | null)
       return;
     }
     let cancelled = false;
-    void call('getRequestScriptsReviewPending').then((res) => {
+    void hostBridge.call('getRequestScriptsReviewPending').then((res) => {
       if (!cancelled) setUids(res.uids);
     });
     const dispose = hostStorage.subscribe(wsKeys(activeWorkspaceId).requestScriptsReviewPending, (next) => {

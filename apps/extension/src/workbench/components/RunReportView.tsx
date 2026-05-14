@@ -35,7 +35,7 @@ import {
 } from '@ant-design/icons';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import type { Rule } from '@openheaders/core/types';
-import { call } from '@utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import { App, Button, Checkbox, Empty, Space, Spin, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -147,7 +147,7 @@ const RunReportView: React.FC<RunReportViewProps> = ({ runId, onSelectRule, onAf
   useEffect(() => {
     setLoading(true);
     setError(null);
-    call('getTestRun', { runId })
+    hostBridge.call('getTestRun', { runId })
       .then((data) => {
         if (data?.success && data.run) {
           setRun(data.run);
@@ -165,7 +165,7 @@ const RunReportView: React.FC<RunReportViewProps> = ({ runId, onSelectRule, onAf
   }, [runId]);
 
   const handleDelete = useCallback(() => {
-    call('deleteTestRun', { runId })
+    hostBridge.call('deleteTestRun', { runId })
       .then((data) => {
         if (data?.success) {
           message.success('Test run deleted');

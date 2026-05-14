@@ -22,8 +22,7 @@
  */
 
 import { DeleteOutlined, WarningOutlined } from '@ant-design/icons';
-import { call, subscribe } from '@utils/bridge';
-import type { ListedTestRun } from '@utils/bridge/contracts';
+import { hostBridge, type ListedTestRun } from '@openheaders/core/bridge';
 import { App, Button, Empty, Space, Table, Tag, Tooltip, Typography, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
@@ -114,8 +113,8 @@ const BottomPanel: React.FC<BottomPanelProps> = ({
   const loadRuns = useCallback(() => {
     setLoading(true);
     const request = contextOwner
-      ? call('listTestRunsForOwner', { ownerType: contextOwner.type, ownerId: contextOwner.id })
-      : call('listAllTestRuns');
+      ? hostBridge.call('listTestRunsForOwner', { ownerType: contextOwner.type, ownerId: contextOwner.id })
+      : hostBridge.call('listAllTestRuns');
     request
       .then((data) => {
         setRuns(data?.success && data.runs ? data.runs : []);
@@ -135,15 +134,15 @@ const BottomPanel: React.FC<BottomPanelProps> = ({
   // care about the matching owner; in global mode every finish/delete
   // is relevant.
   useEffect(() => {
-    const unsubFinished = subscribe('testRunFinished', (payload) => {
+    const unsubFinished = hostBridge.subscribe('testRunFinished', (payload) => {
       if (!contextOwner) {
         loadRuns();
       } else if (payload.ownerType === contextOwner.type && payload.ownerId === contextOwner.id) {
         loadRuns();
       }
     });
-    const unsubDeleted = subscribe('testRunDeleted', () => loadRuns());
-    const unsubCleared = subscribe('testRunsClearedForOwner', () => loadRuns());
+    const unsubDeleted = hostBridge.subscribe('testRunDeleted', () => loadRuns());
+    const unsubCleared = hostBridge.subscribe('testRunsClearedForOwner', () => loadRuns());
     return () => {
       unsubFinished();
       unsubDeleted();
@@ -153,7 +152,7 @@ const BottomPanel: React.FC<BottomPanelProps> = ({
 
   const handleDelete = useCallback(
     (runId: string) => {
-      call('deleteTestRun', { runId })
+      hostBridge.call('deleteTestRun', { runId })
         .then((data) => {
           if (data?.success) {
             message.success('Deleted');

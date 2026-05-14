@@ -10,7 +10,7 @@ import { closestCenter, DndContext, type DragEndEvent, PointerSensor, useSensor,
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import type { FolderNode, Rule, TreeNode } from '@openheaders/core/types';
 import { isRuleComplete } from '@openheaders/core/utils';
-import { call } from '@utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import { Checkbox, Empty, Segmented, Space, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -75,7 +75,7 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
       setThisPageRuleIds(null);
       return;
     }
-    call('getActiveRulesForTab', { tabId: undefined, tabUrl })
+    hostBridge.call('getActiveRulesForTab', { tabId: undefined, tabUrl })
       .then((data) => {
         // Keep strict semantics here: "This Page" means rules whose
         // pattern actually matches this page or an observed subresource,

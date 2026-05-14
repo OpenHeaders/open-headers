@@ -43,7 +43,7 @@ import {
 } from '@openheaders/core/sync';
 import type { ExtensionRuleType } from '@openheaders/core/types';
 import { isRequestResolvable, isRuleResolvable, slugify } from '@openheaders/core/utils';
-import { call } from '@utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import { focusFirstDropdownItem } from '@openheaders/ui/shared/focus-dropdown-item';
 import type { InputRef } from 'antd';
 import { App as AntApp, theme } from 'antd';
@@ -670,7 +670,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
    */
   const findPreviousImportReport = useCallback(async (sourceHash: string) => {
     try {
-      const { report } = await call('findImportReportBySourceHash', { sourceHash });
+      const { report } = await hostBridge.call('findImportReportBySourceHash', { sourceHash });
       return report;
     } catch {
       return null;
@@ -829,7 +829,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   const openRequestEditTab = useCallback(
     (uid: string, name: string, method?: string, autoRename?: boolean) => {
       if (scriptsReviewPendingUids.has(uid)) {
-        void call('clearRequestScriptsReviewPending', { uid });
+        void hostBridge.call('clearRequestScriptsReviewPending', { uid });
       }
       openRequestEditTabRaw(uid, name, method, autoRename);
     },
@@ -2204,7 +2204,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
               // failure to persist the report is a nice-to-have loss,
               // not a hard error. Surfaces at triage time via the
               // observability log if it matters.
-              void call('recordImportReport', { report }).catch(() => undefined);
+              void hostBridge.call('recordImportReport', { report }).catch(() => undefined);
             }}
           />
 
@@ -2225,7 +2225,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
               // to avoid flooding the tab bar. The user browses the
               // sidebar to find their new entries. The structured report
               // still lands in storage for audit.
-              void call('recordImportReport', { report }).catch(() => undefined);
+              void hostBridge.call('recordImportReport', { report }).catch(() => undefined);
             }}
           />
 
@@ -2255,7 +2255,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
               // auto-open an editor tab. The user navigates to the new
               // collection from the sidebar. Structured report still
               // lands in storage for audit.
-              void call('recordImportReport', { report }).catch(() => undefined);
+              void hostBridge.call('recordImportReport', { report }).catch(() => undefined);
             }}
           />
 

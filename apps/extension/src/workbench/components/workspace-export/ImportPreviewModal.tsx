@@ -48,7 +48,7 @@ import { Alert, App as AntApp, Button, Drawer, Empty, Modal, Space, Spin, Typogr
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DedupMatchesResult } from '@openheaders/core/types';
-import { call } from '@/utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import {
   parseCollection,
   parseEnvironment,
@@ -303,7 +303,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
     const seq = ++requestSeq.current;
     setPreviewing(true);
     setPreviewError(null);
-    void call('previewWorkspaceImport', {
+    void hostBridge.call('previewWorkspaceImport', {
       incoming: effectiveEnvelope,
       target: target,
       backupRestore,
@@ -348,7 +348,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
       return;
     }
     let cancelled = false;
-    void call('getLastImportedSnapshots', { workspaceId: targetWsId })
+    void hostBridge.call('getLastImportedSnapshots', { workspaceId: targetWsId })
       .then((res) => {
         if (cancelled) return;
         setLastImportedSnapshots(res.snapshots ?? {});
@@ -369,7 +369,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
       return;
     }
     let cancelled = false;
-    void call('findWorkspaceExportImportMatches', {
+    void hostBridge.call('findWorkspaceExportImportMatches', {
       exportId: parsed.envelope.exportId,
       workspaceUid: parsed.envelope.workspace.uid,
       currentTargetWorkspaceId: preview.targetWorkspaceId,
@@ -480,7 +480,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
         return failAll(err instanceof Error ? err.message : String(err));
       }
       try {
-        const fresh = await call('previewWorkspaceImport', {
+        const fresh = await hostBridge.call('previewWorkspaceImport', {
           incoming: mergedEnvelope,
           target,
           backupRestore,
@@ -498,7 +498,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
           }
           return failAll('Workspace changed since preview opened. Re-confirm in the legacy preview and retry.');
         }
-        const res = await call('importWorkspace', {
+        const res = await hostBridge.call('importWorkspace', {
           incoming: mergedEnvelope,
           strategies: derivedStrategies,
           backupRestore,

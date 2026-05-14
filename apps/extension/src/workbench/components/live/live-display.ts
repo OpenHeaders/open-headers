@@ -7,7 +7,7 @@
  */
 
 import type { RefreshPolicy } from '@openheaders/core/types';
-import type { LiveWorkflowRunSnapshot } from '@utils/bridge';
+import type { LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
 
 export type LiveStatusLevel = 'green' | 'yellow' | 'red' | 'idle';
 
