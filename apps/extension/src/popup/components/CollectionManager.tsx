@@ -24,7 +24,7 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import { useSurface } from '@openheaders/ui/shared/surface';
-import { openWorkspace } from '@/shared/workspace-intent';
+import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
 import type { PageInfo, RowActions } from '@openheaders/ui/shared/table-shared';
 import { renderActionDetails, renderConditionsSummary } from './columns/sharedColumnRenderers';

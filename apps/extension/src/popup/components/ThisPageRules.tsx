@@ -41,7 +41,7 @@ import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSurface } from '@openheaders/ui/shared/surface';
 import { type RuleVerdict, VERDICT_COLOR, VERDICT_LABEL, VERDICT_RANK, VERDICT_TOOLTIP } from '@openheaders/ui/shared/verdict';
-import { openWorkspace, type WorkspaceIntent } from '@/shared/workspace-intent';
+import { openWorkspace, type WorkspaceIntent } from '@openheaders/ui/shared/workspace-intent';
 import type { SilentMatchRecord } from '@/types/browser';
 import { useSetting, useSettingValue } from '@/workbench/settings/hooks';
 import type { TrackedResourceType } from '@/workbench/settings/schema/rules-engine';

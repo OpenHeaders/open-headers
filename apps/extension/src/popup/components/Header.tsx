@@ -5,8 +5,8 @@ import type React from 'react';
 import { useCallback, useEffect } from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import { useSurface } from '@openheaders/ui/shared/surface';
-import { switchViewMode } from '@/shared/view-mode';
-import { openWorkspace } from '@/shared/workspace-intent';
+import { hostNavigation } from '@openheaders/core/navigation';
+import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { getBrowserAPI } from '@/types/browser';
 import { useSetting } from '@/workbench/settings/hooks';
 import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
@@ -29,7 +29,7 @@ const Header: React.FC = () => {
     const next = surface.mode === 'popup' ? 'sidepanel' : 'popup';
     let result: { opened: boolean };
     try {
-      result = await switchViewMode(next);
+      result = await hostNavigation.switchViewMode(next);
     } catch {
       message.error('Could not switch view');
       return;

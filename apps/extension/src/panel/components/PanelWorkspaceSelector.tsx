@@ -15,7 +15,7 @@ import type React from 'react';
 import { useState } from 'react';
 import { useSurface } from '@openheaders/ui/shared/surface';
 import { WorkspaceDropdownBody } from '@/shared/workspace-dropdown/WorkspaceDropdownBody';
-import { openWorkspace } from '@/shared/workspace-intent';
+import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { renderWorkspacePrefix } from '@/workbench/components/workspace-prefix';
 
 const { Text } = Typography;

@@ -3,6 +3,7 @@ import '@/host/install-host-bridge';
 import '@/host/install-host-logger';
 import '@/host/install-build-info';
 import '@/host/install-awareness-host';
+import '@/host/install-navigation-host';
 import { resolvePopupIdentity } from '@/host/surface-identity-resolvers';
 import { ThemeProvider } from '@context/ThemeContext';
 import { App as AntApp } from 'antd';

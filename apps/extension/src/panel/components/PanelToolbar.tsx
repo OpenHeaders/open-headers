@@ -12,7 +12,7 @@ import type { PanelViewState } from '../data/use-panel-tool-layout';
 import { useSetting, useSettingValue } from '@/workbench/settings/hooks';
 import type { FilterConfig } from '../data/filter-engine';
 import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from '../data/tool-windows';
-import { openWorkspace } from '@/shared/workspace-intent';
+import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import EnvironmentSelector from '@/workbench/components/EnvironmentSelector';
 import { PanelWorkspaceSelector } from './PanelWorkspaceSelector';
 import { RuleExecutionsHint } from './RuleExecutions';

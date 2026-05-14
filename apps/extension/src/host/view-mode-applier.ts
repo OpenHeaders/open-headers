@@ -17,7 +17,7 @@
  */
 
 import { isFirefox } from '@utils/browser-api';
-import type { ViewMode } from './types';
+import type { ViewMode } from '@openheaders/core/types';
 
 const POPUP_PATH = 'popup.html';
 

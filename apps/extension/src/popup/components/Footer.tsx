@@ -8,7 +8,7 @@ import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import type { StatusPillProps } from '@openheaders/ui/shared/status';
 import { productStatusExtras, StatusPill } from '@openheaders/ui/shared/status';
 import { useSurface } from '@openheaders/ui/shared/surface';
-import { openWorkspace } from '@/shared/workspace-intent';
+import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
 import DebugNetworkPanel from './DebugNetworkPanel';
 

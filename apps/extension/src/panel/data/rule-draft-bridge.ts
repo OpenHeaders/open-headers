@@ -10,7 +10,7 @@
 
 import type { HeaderRuleDraft, RuleDraft } from '@openheaders/core/types';
 import { call } from '@utils/bridge';
-import { openWorkspace } from '@/shared/workspace-intent';
+import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import type { InspectorRequest } from './types';
 
 /** Build a RuleDraft for a header rule pre-filled from a request. */

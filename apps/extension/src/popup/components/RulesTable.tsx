@@ -36,7 +36,7 @@ import type { FilterValue, SorterResult } from 'antd/es/table/interface';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSurface } from '@openheaders/ui/shared/surface';
-import { openWorkspace, type WorkspaceIntent } from '@/shared/workspace-intent';
+import { openWorkspace, type WorkspaceIntent } from '@openheaders/ui/shared/workspace-intent';
 import { compareBySortMode, type PageInfo, type RowActions, type SortMode } from '@openheaders/ui/shared/table-shared';
 import { AddRulePalette } from './AddRulePalette';
 import {

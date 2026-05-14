@@ -47,7 +47,7 @@ import { App, Button, Select, Tag, Tooltip, theme } from 'antd';
 import type { GlobalToken } from 'antd/es/theme/interface';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePopoverPlacement } from '@openheaders/ui/shared/popover';
-import { openWorkspace } from '@/shared/workspace-intent';
+import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import type { RuleSnapshotHeaderMod } from '@openheaders/core/types';
 import {
   ConflictDiffChip,

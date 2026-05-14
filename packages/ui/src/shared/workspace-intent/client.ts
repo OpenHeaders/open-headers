@@ -4,14 +4,17 @@
  * when reaching another workspace tab).
  *
  * Enforces the Appendix-C invariant that there is ONE way to reach the
- * workspace from another surface: through this module. No surface
- * should call `chrome.tabs.create('workbench.html#/...')` directly. A
- * grep guard in CI keeps that honest.
+ * workspace from another surface: through this module. No surface opens
+ * a workspace tab directly — the host's SW navigator owns that. A grep
+ * guard in CI keeps that honest.
+ *
+ * Host-agnostic: the SW round-trips go through the `hostBridge` seam and
+ * the caller's window context through `hostNavigation` — no `chrome.*`.
  */
 
+import { hostBridge } from '@openheaders/core/bridge';
+import { hostNavigation } from '@openheaders/core/navigation';
 import type { IntentCallerContext, IntentCallerSurface, WorkspaceIntent } from '@openheaders/core/workspace-intent';
-import { call } from '@utils/bridge';
-import { getBrowserAPI } from '@/types/browser';
 
 export type { WorkspaceIntent };
 
@@ -39,13 +42,13 @@ export async function openWorkspace(
 ): Promise<{ ok: true; tabId: number; path: string } | { ok: false; reason: string }> {
   const callerContext: IntentCallerContext = { surface };
   const [windowId, workspaceId] = await Promise.all([
-    resolveCallerWindowId(),
+    hostNavigation.currentWindowId(),
     options?.workspaceId !== undefined ? Promise.resolve(options.workspaceId) : resolveCallerWorkspaceId(),
   ]);
   if (typeof windowId === 'number') callerContext.callerWindowId = windowId;
   if (typeof workspaceId === 'string') callerContext.callerWorkspaceId = workspaceId;
 
-  const result = await call('openWorkspaceIntent', { intent, callerContext });
+  const result = await hostBridge.call('openWorkspaceIntent', { intent, callerContext });
   if (result.ok) {
     return { ok: true, tabId: result.tabId, path: result.path };
   }
@@ -62,32 +65,8 @@ export async function openWorkspace(
  */
 async function resolveCallerWorkspaceId(): Promise<string | undefined> {
   try {
-    const resp = await call('listWorkspaces');
+    const resp = await hostBridge.call('listWorkspaces');
     return resp.activeWorkspaceId;
-  } catch {
-    return undefined;
-  }
-}
-
-/**
- * Resolve the caller's window id so the navigator can prefer a
- * same-window workspace tab. Uses `chrome.windows.getCurrent` where
- * available; returns undefined otherwise (popup on Firefox, DevTools
- * panel contexts where the hosting window isn't directly queryable —
- * the navigator's fallback path handles this).
- */
-async function resolveCallerWindowId(): Promise<number | undefined> {
-  const api = getBrowserAPI() as unknown as {
-    windows?: {
-      // biome-ignore lint/suspicious/noConfusingVoidType: Chrome API returns void in callback-style; runtime branches on Promise.
-      getCurrent?: (opts?: { populate?: boolean }) => Promise<chrome.windows.Window> | void;
-    };
-  };
-  const getCurrent = api.windows?.getCurrent;
-  if (!getCurrent) return undefined;
-  try {
-    const win = await getCurrent();
-    return typeof win?.id === 'number' ? win.id : undefined;
   } catch {
     return undefined;
   }

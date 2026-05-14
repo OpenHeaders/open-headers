@@ -102,6 +102,10 @@
     "./awareness": {
       "import": "./src/awareness/index.ts",
       "default": "./dist/awareness/index.js"
+    },
+    "./navigation": {
+      "import": "./src/navigation/index.ts",
+      "default": "./dist/navigation/index.js"
     }
   },
   "scripts": {

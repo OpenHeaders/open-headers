@@ -4,7 +4,7 @@ import { Button, Tabs, Tooltip } from 'antd';
 import type React from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import { useSurface } from '@openheaders/ui/shared/surface';
-import { openWorkspace } from '@/shared/workspace-intent';
+import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
 import CollectionManager from './CollectionManager';
 import RulesTable from './RulesTable';
