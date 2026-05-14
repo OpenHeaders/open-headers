@@ -28,8 +28,8 @@
  * `list` / `dispose` methods.
  */
 
+import { hostLogger as logger } from '@openheaders/core/logger';
 import { type BridgeBroadcastPayload, subscribe } from '@utils/bridge';
-import { logger } from '@utils/logger';
 
 /** Shape an adapter receives — the bridge payload, not the wire-level
  *  `SyncBroadcastEvent` (the `type` discriminator is added at the wire

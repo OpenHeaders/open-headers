@@ -1,5 +1,6 @@
 import '@/host/install-host-storage';
 import '@/host/install-host-bridge';
+import '@/host/install-host-logger';
 import { ThemeProvider } from '@context/ThemeContext';
 import { App as AntApp } from 'antd';
 import { createRoot } from 'react-dom/client';

@@ -22,7 +22,7 @@
  * the single call site the MWPT seam needs to touch.
  */
 
-import { logger } from '@utils/logger';
+import { hostLogger as logger } from '@openheaders/core/logger';
 import { hostStorage, OH, type StorageKey, wsKeys } from '@openheaders/core/storage';
 import type { DictStorage, SettingScope, StorageUnsubscribe } from './adapter';
 

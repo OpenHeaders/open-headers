@@ -46,8 +46,9 @@
  * never call write-clients and never hit the lazy-init race.
  */
 
+import { hostLogger as logger } from '@openheaders/core/logger';
 import { call } from '@utils/bridge';
-import { logger } from '@utils/logger';
+import { getActiveAwarenessMirror } from './awareness-mirror';
 import { getCollectionSyncMirrorForWorkspace } from './collection-sync-mirror';
 import { getEnvSyncMirrorForWorkspace } from './env-sync-mirror';
 import { getActiveExtensionWorkspaceSyncMirror } from './extension-workspace-sync-mirror';
@@ -66,7 +67,6 @@ import { getTemplateFolderSyncMirrorForWorkspace } from './template-folder-sync-
 import { getTemplateSyncMirrorForWorkspace } from './template-sync-mirror';
 import { getVaultSyncMirrorForWorkspace } from './vault-sync-mirror';
 import { getWorkspaceVariablesSyncMirrorForWorkspace } from './workspace-variables-sync-mirror';
-import { getActiveAwarenessMirror } from './awareness-mirror';
 
 /**
  * Pre-instantiate every per-workspace mirror for the given workspace.

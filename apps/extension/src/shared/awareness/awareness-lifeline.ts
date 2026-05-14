@@ -22,7 +22,7 @@
  * semantics.
  */
 
-import { logger } from '@utils/logger';
+import { hostLogger as logger } from '@openheaders/core/logger';
 
 const LIFELINE_PREFIX = 'oh.awareness.lifeline:' as const;
 

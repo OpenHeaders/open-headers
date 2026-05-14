@@ -24,8 +24,8 @@
  *      others.
  */
 
+import { hostLogger as logger } from '@openheaders/core/logger';
 import { type BridgeBroadcastPayload, subscribe } from '@utils/bridge';
-import { logger } from '@utils/logger';
 
 /** Bridge payload shape — see {@link ./flat-entity-mirror.ts}. */
 export type SyncBroadcastPayload = BridgeBroadcastPayload<'syncBroadcast'>;

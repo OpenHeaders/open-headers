@@ -26,9 +26,9 @@
  * now", coordinated above the per-component layer.
  */
 
+import { hostLogger as logger } from '@openheaders/core/logger';
 import type { HLC } from '@openheaders/core/sync';
 import { call } from '@utils/bridge';
-import { logger } from '@utils/logger';
 import type { RendererContextHandle } from '@/context/renderer-mutator-context';
 import type { SurfaceIdentityHandle } from './surface-identity';
 

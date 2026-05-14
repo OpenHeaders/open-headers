@@ -25,9 +25,9 @@
  * Firefox 149+ so popup-target works there too.
  */
 
-import { call } from '@utils/bridge';
-import { logger } from '@utils/logger';
+import { hostLogger as logger } from '@openheaders/core/logger';
 import { setViewMode as persistViewMode } from '@openheaders/oracle/view-mode';
+import { call } from '@utils/bridge';
 import type { ViewMode } from './types';
 
 interface SidePanelOpenOptions {

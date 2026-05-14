@@ -24,9 +24,9 @@
  * fire as the presence list rebuilds.
  */
 
+import { hostLogger as logger } from '@openheaders/core/logger';
 import type { AwarenessState } from '@openheaders/core/protocol';
 import { call, subscribe } from '@utils/bridge';
-import { logger } from '@utils/logger';
 
 export type AwarenessListener = () => void;
 

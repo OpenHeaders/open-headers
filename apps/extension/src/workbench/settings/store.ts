@@ -25,7 +25,7 @@
  *      vice versa.
  */
 
-import { logger } from '@utils/logger';
+import { hostLogger as logger } from '@openheaders/core/logger';
 import * as v from 'valibot';
 import { allDefaults, allDefs, getDef, subscribeRegistry } from './registry';
 import type { DictStorage, SettingScope, StorageUnsubscribe } from './storage/adapter';

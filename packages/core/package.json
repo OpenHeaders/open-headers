@@ -82,6 +82,10 @@
     "./bridge": {
       "import": "./src/bridge/index.ts",
       "default": "./dist/bridge/index.js"
+    },
+    "./logger": {
+      "import": "./src/logger/index.ts",
+      "default": "./dist/logger/index.js"
     }
   },
   "scripts": {
