@@ -22,6 +22,7 @@
  * See ./contracts.ts for the message-type registry.
  */
 
+import type { HostBridge } from '@openheaders/core/bridge';
 import { getBrowserAPI } from '@/types/browser';
 // Import `runtime` from the content-safe module — NOT `../browser-api`.
 // The fire-bridge content script pulls this module in transitively,
@@ -268,6 +269,18 @@ export function presence(name: string): () => void {
     port = null;
   };
 }
+
+/**
+ * The browser-extension's `HostBridge` adapter — bundles the chrome
+ * transport functions into the host-agnostic contract that
+ * `@openheaders/core/bridge`'s `hostBridge` proxy delegates to. Wired at
+ * boot by `@/host/install-host-bridge` from every entry point.
+ *
+ * `tabCall` / `receive` (content-script transport) stay off the
+ * contract — they have no live channels and no UI consumers; host-side
+ * code that needs them imports the free functions directly.
+ */
+export const chromeBridge: HostBridge = { call, broadcast, subscribe, presence };
 
 export type { BridgeMessageType, LiveWorkflowRunSnapshot } from './contracts';
 export { BridgeError } from './contracts';

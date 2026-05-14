@@ -78,6 +78,10 @@
     "./storage": {
       "import": "./src/storage/index.ts",
       "default": "./dist/storage/index.js"
+    },
+    "./bridge": {
+      "import": "./src/bridge/index.ts",
+      "default": "./dist/bridge/index.js"
     }
   },
   "scripts": {

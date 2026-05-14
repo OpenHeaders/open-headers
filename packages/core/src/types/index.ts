@@ -169,6 +169,15 @@ export type {
   TrackedResourceType,
 } from './telemetry';
 
+// ── Rule verdict (per-tab "applicable rule" rulings) ──────────────
+export type { ActiveRule, RuleVerdict, SilentMatchRecord } from './verdict';
+
+// ── Resource-timing wire projection ────────────────────────────────
+export type { PerfResourceEntry } from './perf';
+
+// ── Subsystem status snapshot ──────────────────────────────────────
+export type { StatusEntry, StatusLevel, StatusSnapshot, StatusSubsystem } from './status';
+
 // ── Test run ───────────────────────────────────────────────────────
 export type {
   LoadedTestRun,

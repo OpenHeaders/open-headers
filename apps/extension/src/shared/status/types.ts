@@ -5,37 +5,16 @@
  * (see `store.ts`). The footer renders one pill per subsystem; the
  * worst-state subsystem's colour bleeds into the popup/sidepanel's
  * inline indicator. See ARCHITECTURE.md §25.
+ *
+ * The pure data shapes (`StatusSubsystem`, `StatusLevel`, `StatusEntry`,
+ * `StatusSnapshot`) are host-bridge wire payloads and now live in
+ * `@openheaders/core/types`; this module re-exports them and keeps the
+ * UI-side render helpers + listener alias alongside.
  */
 
-/** Which subsystem the entry is about. Closed set — one pill per value. */
-export type StatusSubsystem =
-  | 'sync' // desktop connection / team workspace sync
-  | 'rules' // DNR compile + refresh state
-  | 'requests' // executor telemetry
-  | 'permissions' // host-permission grants for active rules
-  | 'secrets' // vault / cipher state
-  | 'live'; // Live Variable workflow refresh state
+import type { StatusLevel, StatusSnapshot, StatusSubsystem } from '@openheaders/core/types';
 
-/** Traffic-light state. Worst-state subsystem drives the compact pill. */
-export type StatusLevel = 'green' | 'yellow' | 'red';
-
-/**
- * Entry shape. The store keeps the most recent entry per subsystem —
- * Status is a snapshot ("what's going on right now"), not a history.
- * Detailed history lives in the observability log.
- */
-export interface StatusEntry {
-  subsystem: StatusSubsystem;
-  state: StatusLevel;
-  message: string;
-  /** Optional extra context — rule id, error class, host, etc. Rendered under the pill. */
-  context?: Record<string, unknown>;
-  /** `Date.now()` at report time. */
-  timestamp: number;
-}
-
-/** Snapshot of every subsystem. Absent subsystems render as the default 'green · no data yet'. */
-export type StatusSnapshot = Partial<Record<StatusSubsystem, StatusEntry>>;
+export type { StatusEntry, StatusLevel, StatusSnapshot, StatusSubsystem } from '@openheaders/core/types';
 
 export type StatusListener = (snapshot: StatusSnapshot) => void;
 
