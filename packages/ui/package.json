@@ -43,9 +43,9 @@
       "import": "./src/panel/index.ts",
       "default": "./dist/panel/index.js"
     },
-    "./popup": {
-      "import": "./src/popup/index.ts",
-      "default": "./dist/popup/index.js"
+    "./popup/*": {
+      "import": "./src/popup/*",
+      "default": "./dist/popup/*.js"
     },
     "./context": {
       "import": "./src/context/index.ts",

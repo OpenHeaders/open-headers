@@ -6,13 +6,13 @@ import '@/host/install-awareness-host';
 import '@/host/install-navigation-host';
 import '@/host/install-assets-host';
 import { eagerInitRendererMirrors, ThemeProvider } from '@openheaders/ui/context';
+import App from '@openheaders/ui/popup/App';
 import { SurfaceProvider } from '@openheaders/ui/shared/surface';
 import { SettingsProvider } from '@openheaders/ui/workbench/settings';
 import { App as AntApp } from 'antd';
 import { createRoot } from 'react-dom/client';
 import { resolvePopupIdentity } from '@/host/surface-identity-resolvers';
-import App from './App';
-import './styles/popup.less';
+import '@openheaders/ui/popup/styles/popup.less';
 
 // Subscribe every entity mirror to `syncBroadcast` and kick off each
 // snapshot RPC before React mounts — see `eager-mirror-init.ts` for

@@ -1,19 +1,18 @@
 /**
  * Side-panel surface stylesheet.
  *
- * Reuses every popup style verbatim by importing popup.less, then
- * overrides the popup-only fixed-dimension body with fluid sizing so
- * the sidepanel fills whatever width the user dragged it to (Chrome
- * allows roughly 280–700px; the layout adapts down to the smallest
- * sidebar width across all supported browsers).
+ * The side panel reuses every popup style verbatim — `sidepanel/index.tsx`
+ * imports `@openheaders/ui/popup/styles/popup.less` ahead of this file —
+ * then this stylesheet overrides the popup-only fixed-dimension body with
+ * fluid sizing so the sidepanel fills whatever width the user dragged it
+ * to (Chrome allows roughly 280–700px; the layout adapts down to the
+ * smallest sidebar width across all supported browsers).
  *
  * Container-query rules in popup.less drive the responsive collapsing
  * — they query `.app-container`'s inline size and fire the same on
  * either surface. The popup at 800px gets the wide layout; the
  * sidepanel at 320px gets the narrow layout.
  */
-
-@import '../../popup/styles/popup.less';
 
 html,
 body {

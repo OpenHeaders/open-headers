@@ -7,8 +7,9 @@
  * tests lock the contract for every shape the algorithm is meant to
  * handle.
  */
+
+import { truncateValue } from '@openheaders/ui/popup/components/columns/sharedColumnRenderers';
 import { describe, expect, it } from 'vitest';
-import { truncateValue } from '@/popup/components/columns/sharedColumnRenderers';
 
 describe('truncateValue', () => {
   describe('short / no-op cases', () => {

@@ -6,12 +6,13 @@ import '@/host/install-awareness-host';
 import '@/host/install-navigation-host';
 import '@/host/install-assets-host';
 import { ThemeProvider } from '@openheaders/ui/context';
+import App from '@openheaders/ui/popup/App';
 import { SurfaceProvider } from '@openheaders/ui/shared/surface';
 import { SettingsProvider } from '@openheaders/ui/workbench/settings';
 import { App as AntApp } from 'antd';
 import { createRoot } from 'react-dom/client';
 import { resolveSidePanelIdentity } from '@/host/surface-identity-resolvers';
-import App from '../popup/App';
+import '@openheaders/ui/popup/styles/popup.less';
 import './styles/sidepanel.less';
 
 const container = document.getElementById('root');
