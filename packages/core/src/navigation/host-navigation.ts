@@ -48,6 +48,13 @@ export interface HostNavigation {
    * scope.
    */
   activeTabUrl(): Promise<string | undefined>;
+  /**
+   * Open `url` in a new browser tab — for external links (the project
+   * site, docs) a surface wants to send the user to. Fire-and-forget:
+   * opening a tab has no UI-relevant result. Hosts without a tab
+   * concept (or that route links differently) no-op.
+   */
+  openUrl(url: string): void;
 }
 
 /**
@@ -65,6 +72,7 @@ const NULL_HOST_NAVIGATION: HostNavigation = {
   activeTabUrl() {
     return Promise.resolve(undefined);
   },
+  openUrl() {},
 };
 
 let installed: HostNavigation = NULL_HOST_NAVIGATION;

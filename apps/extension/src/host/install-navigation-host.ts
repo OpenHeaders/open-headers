@@ -17,8 +17,8 @@
  * seam degrades to a graceful no-op when no host wires it.
  */
 
-import type { ViewMode } from '@openheaders/core/types';
 import { type HostNavigation, setHostNavigation } from '@openheaders/core/navigation';
+import type { ViewMode } from '@openheaders/core/types';
 import { setViewMode as persistViewMode } from '@openheaders/oracle/view-mode';
 import { call } from '@utils/bridge';
 import { logger } from '@utils/logger';
@@ -150,10 +150,20 @@ async function activeTabUrl(): Promise<string | undefined> {
   }
 }
 
+/**
+ * Open `url` in a new browser tab. Fire-and-forget — the popup's link
+ * affordances don't act on the result. Optional-chains `chrome.tabs` so
+ * a context without the API simply no-ops.
+ */
+function openUrl(url: string): void {
+  void chrome.tabs?.create?.({ url });
+}
+
 const chromeHostNavigation: HostNavigation = {
   switchViewMode,
   currentWindowId,
   activeTabUrl,
+  openUrl,
 };
 
 setHostNavigation(chromeHostNavigation);

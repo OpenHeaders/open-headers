@@ -14,6 +14,7 @@ import {
   ThunderboltTwoTone,
 } from '@ant-design/icons';
 import { hostAssets } from '@openheaders/core/assets';
+import { hostNavigation } from '@openheaders/core/navigation';
 import { hostStorage, UI } from '@openheaders/core/storage';
 import { DockSlotIcon, LayoutMenuIcon } from '@openheaders/ui/shared/dock-layout';
 import { Space, Tour, type TourProps, Typography } from 'antd';
@@ -524,7 +525,7 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({ open, onClose }) => {
                 <button
                   type="button"
                   onClick={() => {
-                    void chrome.tabs.create({ url: 'https://github.com/OpenHeaders/open-headers-app' });
+                    hostNavigation.openUrl('https://github.com/OpenHeaders/open-headers-app');
                   }}
                   style={{
                     cursor: 'pointer',

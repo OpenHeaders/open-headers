@@ -1,5 +1,6 @@
 import { BugOutlined, GlobalOutlined, StarOutlined } from '@ant-design/icons';
 import { BridgeError, hostBridge } from '@openheaders/core/bridge';
+import { hostNavigation } from '@openheaders/core/navigation';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import type { StatusPillProps } from '@openheaders/ui/shared/status';
 import { productStatusExtras, StatusPill } from '@openheaders/ui/shared/status';
@@ -107,7 +108,7 @@ const Footer: React.FC = () => {
               type="text"
               icon={<StarOutlined />}
               onClick={() => {
-                void chrome.tabs.create({ url: 'https://github.com/OpenHeaders/open-headers-app' });
+                hostNavigation.openUrl('https://github.com/OpenHeaders/open-headers-app');
               }}
               size="small"
               style={{ padding: '0 4px', height: '20px', minWidth: 'auto' }}
