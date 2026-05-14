@@ -68,6 +68,10 @@
       "import": "./src/shared/frame-scheduler.ts",
       "default": "./dist/shared/frame-scheduler.js"
     },
+    "./shared/focus-dropdown-item": {
+      "import": "./src/shared/focus-dropdown-item.ts",
+      "default": "./dist/shared/focus-dropdown-item.js"
+    },
     "./shared/merge-editor/*": {
       "import": "./src/shared/merge-editor/*.ts",
       "default": "./dist/shared/merge-editor/*.js"

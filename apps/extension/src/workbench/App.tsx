@@ -44,7 +44,7 @@ import {
 import type { ExtensionRuleType } from '@openheaders/core/types';
 import { isRequestResolvable, isRuleResolvable, slugify } from '@openheaders/core/utils';
 import { call } from '@utils/bridge';
-import { focusFirstDropdownItem } from '@utils/focus-dropdown-item';
+import { focusFirstDropdownItem } from '@openheaders/ui/shared/focus-dropdown-item';
 import type { InputRef } from 'antd';
 import { App as AntApp, theme } from 'antd';
 import type React from 'react';
