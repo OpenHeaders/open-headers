@@ -11,6 +11,7 @@ import {
   SortAscendingOutlined,
 } from '@ant-design/icons';
 import { hostBridge } from '@openheaders/core/bridge';
+import { hostNavigation } from '@openheaders/core/navigation';
 import type { SilentMatchRecord } from '@openheaders/core/types';
 import { resolvePauseState } from '@openheaders/core/utils';
 import { scheduleFrame } from '@openheaders/ui/shared/frame-scheduler';
@@ -59,8 +60,6 @@ import {
   truncateValue,
 } from './columns/sharedColumnRenderers';
 import DeleteConfirmOverlay from './DeleteConfirmOverlay';
-
-declare const browser: typeof chrome | undefined;
 
 const { Text } = Typography;
 
@@ -387,12 +386,10 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
   useEffect(() => {
     const fetchActiveRules = async () => {
       try {
-        const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
-        const tabs = await browserAPI.tabs.query({ active: true, currentWindow: true });
-        if (tabs[0]) {
-          const tab = tabs[0];
+        const tab = await hostNavigation.getActiveTab();
+        if (tab) {
           // `tab.url` may be missing (loading), empty (untyped new tab),
-          // or non-WHATWG-parseable on some Chrome internal pages. The
+          // or non-WHATWG-parseable on some browser-internal pages. The
           // popup never noticed because it closes on blur; the sidepanel
           // stays open across navigations and would log a TypeError every
           // time. Downstream code already handles missing/internal URLs
@@ -411,7 +408,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
             .catch(() => ({
               activeRules: [] as ActiveRule[],
             }));
-          setCurrentTab({ id: tab.id!, url: tab.url ?? '', domain, title: tab.title || '' });
+          setCurrentTab({ id: tab.id, url: tab.url ?? '', domain, title: tab.title || '' });
           setActiveRules(response.activeRules || []);
         }
       } catch (error) {
@@ -424,27 +421,18 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
 
     void fetchActiveRules();
 
-    const browserAPI = typeof browser !== 'undefined' ? browser : chrome;
-    const handleTabUpdate = (_tabId: number, changeInfo: chrome.tabs.OnUpdatedInfo, tab: chrome.tabs.Tab) => {
-      if (changeInfo.status === 'complete' && tab.active) void fetchActiveRules();
-    };
-    browserAPI.tabs.onUpdated.addListener(handleTabUpdate);
-    browserAPI.tabs.onActivated.addListener(fetchActiveRules);
-    const handleStorageChange = () => {
+    // Re-query when the active tab navigates / switches or stored rule
+    // state changes (host seam), and when the request monitor pushes new
+    // tracked URLs from the background.
+    const unobserveTabContext = hostNavigation.observeActiveTabContext(() => {
       void fetchActiveRules();
-    };
-    browserAPI.storage.onChanged.addListener(handleStorageChange);
-
-    // Listen for tracked URL changes pushed from the background
-    // when the request monitor intercepts new requests.
+    });
     const unsubscribeTracked = hostBridge.subscribe('trackedUrlsUpdated', () => {
       void fetchActiveRules();
     });
 
     return () => {
-      browserAPI.tabs.onUpdated.removeListener(handleTabUpdate);
-      browserAPI.tabs.onActivated.removeListener(fetchActiveRules);
-      browserAPI.storage.onChanged.removeListener(handleStorageChange);
+      unobserveTabContext();
       unsubscribeTracked();
     };
   }, []);

@@ -8,6 +8,7 @@
  */
 
 export {
+  type ActiveTab,
   getHostNavigation,
   type HostNavigation,
   hostNavigation,

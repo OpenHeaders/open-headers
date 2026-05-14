@@ -22,6 +22,19 @@
 
 import type { ViewMode } from '../types';
 
+/**
+ * The user's active browsing tab — the subset a surface needs to scope
+ * a view to "this page" and issue tab-scoped host RPCs.
+ */
+export interface ActiveTab {
+  /** Tab id — required for tab-scoped host RPCs. */
+  id: number;
+  /** Current URL, when the tab exposes one. */
+  url?: string;
+  /** Tab title, when available. */
+  title?: string;
+}
+
 export interface HostNavigation {
   /**
    * Switch the extension UI between its `popup` and `sidepanel`
@@ -62,6 +75,22 @@ export interface HostNavigation {
    * concept no-op.
    */
   openShortcutSettings(): void;
+  /**
+   * The user's currently-active browsing tab — id, URL, title — or
+   * `null` when none is resolvable. Unlike {@link activeTabUrl} this
+   * returns the raw tab with no internal-page filtering; callers that
+   * only want a meaningful URL should use `activeTabUrl`. Hosts without
+   * a tab concept resolve `null`.
+   */
+  getActiveTab(): Promise<ActiveTab | null>;
+  /**
+   * Observe the active-tab rule context. `onChange` fires whenever the
+   * active tab navigates or the user switches tabs, or host state that
+   * affects which rules apply to it changes — the cue for a "this page"
+   * surface to re-query. Returns an unsubscribe function; hosts without
+   * the concept return a no-op disposer.
+   */
+  observeActiveTabContext(onChange: () => void): () => void;
 }
 
 /**
@@ -81,6 +110,12 @@ const NULL_HOST_NAVIGATION: HostNavigation = {
   },
   openUrl() {},
   openShortcutSettings() {},
+  getActiveTab() {
+    return Promise.resolve(null);
+  },
+  observeActiveTabContext() {
+    return () => {};
+  },
 };
 
 let installed: HostNavigation = NULL_HOST_NAVIGATION;

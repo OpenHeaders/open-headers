@@ -17,7 +17,7 @@
  * seam degrades to a graceful no-op when no host wires it.
  */
 
-import { type HostNavigation, setHostNavigation } from '@openheaders/core/navigation';
+import { type ActiveTab, type HostNavigation, setHostNavigation } from '@openheaders/core/navigation';
 import type { ViewMode } from '@openheaders/core/types';
 import { setViewMode as persistViewMode } from '@openheaders/oracle/view-mode';
 import { call } from '@utils/bridge';
@@ -169,12 +169,51 @@ function openShortcutSettings(): void {
   void chrome.tabs?.create?.({ url: isFirefox ? 'about:addons' : 'chrome://extensions/shortcuts' });
 }
 
+/**
+ * Resolve the user's active browsing tab — id + URL + title. Returns
+ * `null` when no active tab is resolvable, or it has no id (the caller
+ * needs the id for tab-scoped RPCs).
+ */
+async function getActiveTab(): Promise<ActiveTab | null> {
+  if (typeof chrome === 'undefined' || !chrome.tabs?.query) return null;
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (typeof tab?.id !== 'number') return null;
+    return { id: tab.id, url: tab.url, title: tab.title };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Wire the active-tab rule-context observers. A "this page" surface
+ * should re-query when the active tab finishes loading or the user
+ * switches tabs (`chrome.tabs`), and when stored rule state changes
+ * (`chrome.storage`). Returns a disposer that removes every listener.
+ */
+function observeActiveTabContext(onChange: () => void): () => void {
+  const browserAPI = getBrowserAPI();
+  const handleTabUpdate = (_tabId: number, changeInfo: chrome.tabs.OnUpdatedInfo, tab: chrome.tabs.Tab): void => {
+    if (changeInfo.status === 'complete' && tab.active) onChange();
+  };
+  browserAPI.tabs.onUpdated.addListener(handleTabUpdate);
+  browserAPI.tabs.onActivated.addListener(onChange);
+  browserAPI.storage.onChanged.addListener(onChange);
+  return () => {
+    browserAPI.tabs.onUpdated.removeListener(handleTabUpdate);
+    browserAPI.tabs.onActivated.removeListener(onChange);
+    browserAPI.storage.onChanged.removeListener(onChange);
+  };
+}
+
 const chromeHostNavigation: HostNavigation = {
   switchViewMode,
   currentWindowId,
   activeTabUrl,
   openUrl,
   openShortcutSettings,
+  getActiveTab,
+  observeActiveTabContext,
 };
 
 setHostNavigation(chromeHostNavigation);
