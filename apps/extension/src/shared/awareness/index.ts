@@ -34,13 +34,7 @@ export { surfaceKindColor, surfaceKindLabel } from './surface-label';
 export { default as SurfaceChip, SurfaceDot } from './SurfaceChip';
 export type { SurfaceChipProps, SurfaceDotProps } from './SurfaceChip';
 export { formatAgo } from './format-ago';
-export {
-  resolveDevPanelIdentity,
-  resolvePopupIdentity,
-  resolveSidePanelIdentity,
-  resolveWorkbenchIdentity,
-  type SurfaceIdentityHandle,
-} from './surface-identity';
+export type { SurfaceIdentityHandle } from './surface-identity';
 export { isHandleCoLocated, isPeerNavigable, peerNavigate } from './peer-navigate';
 export { openAwarenessLifeline, type AwarenessLifelineHandle } from './awareness-lifeline';
 export { TabActiveProvider, useTabActive } from './TabActiveContext';

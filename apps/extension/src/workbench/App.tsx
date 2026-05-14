@@ -55,10 +55,10 @@ import {
   ActiveFieldFocusProvider,
   ActiveTabEntityProvider,
   AwarenessIdentityProvider,
-  resolveWorkbenchIdentity,
   SurfaceAwarenessPublisher,
   useSetActiveTabEntity,
 } from '@/shared/awareness';
+import { resolveWorkbenchIdentity } from '@/host/surface-identity-resolvers';
 import 'allotment/dist/style.css';
 import { createShellEventBus, ShellEventBusContext } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
