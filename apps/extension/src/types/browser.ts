@@ -2,12 +2,18 @@
  * Browser API helper types
  */
 
-// Rule-verdict types (`RuleVerdict`, `SilentMatchRecord`, `ActiveRule`)
-// are host-bridge wire payloads — they now live in `@openheaders/core`.
+// Rule-verdict + tracked-resource types are host-bridge wire payloads
+// and shared domain shapes — they now live in `@openheaders/core`.
 // Re-exported here so the historical `@/types/browser` path keeps
 // working until the E.3 codemod sweep repoints consumers at core.
-export type { ActiveRule, RuleVerdict, SilentMatchRecord, TrackedResourceType } from '@openheaders/core/types';
-export type { ObservationSource, TrackedResource } from '@openheaders/oracle/tracking/types';
+export type {
+  ActiveRule,
+  ObservationSource,
+  RuleVerdict,
+  SilentMatchRecord,
+  TrackedResource,
+  TrackedResourceType,
+} from '@openheaders/core/types';
 
 declare const browser: typeof chrome | undefined;
 

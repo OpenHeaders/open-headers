@@ -172,6 +172,9 @@ export type {
 // ── Rule verdict (per-tab "applicable rule" rulings) ──────────────
 export type { ActiveRule, RuleVerdict, SilentMatchRecord } from './verdict';
 
+// ── Per-tab tracked-resource state ─────────────────────────────────
+export type { ObservationSource, TrackedResource } from './tracking';
+
 // ── Resource-timing wire projection ────────────────────────────────
 export type { PerfResourceEntry } from './perf';
 

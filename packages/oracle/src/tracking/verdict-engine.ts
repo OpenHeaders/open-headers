@@ -16,9 +16,8 @@
  * definitions of the five verdict values.
  */
 
-import type { Rule, RuleVerdict, SilentMatchRecord } from '@openheaders/core/types';
+import type { Rule, RuleVerdict, SilentMatchRecord, TrackedResource } from '@openheaders/core/types';
 import { doesUrlMatchEntry, type MatchPattern } from '@openheaders/core/utils';
-import type { TrackedResource } from './types';
 
 /**
  * Result of the verdict engine's evaluation.

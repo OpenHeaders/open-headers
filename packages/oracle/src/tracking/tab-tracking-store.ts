@@ -17,8 +17,7 @@
  * happens incrementally as the host shrinks.
  */
 
-import type { TrackedResourceType } from '@openheaders/core/types';
-import type { ObservationSource, TrackedResource } from './types';
+import type { ObservationSource, TrackedResource, TrackedResourceType } from '@openheaders/core/types';
 
 /**
  * Map<tabId, Map<normalizedUrl, TrackedResource>> — per-tab attribution

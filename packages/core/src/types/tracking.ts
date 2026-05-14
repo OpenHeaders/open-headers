@@ -1,18 +1,26 @@
-import type { TrackedResourceType } from '@openheaders/core/types';
+/**
+ * Per-tab tracked-resource state — the domain shape behind the popup's
+ * "resources seen on this page" list. The producer is the host's
+ * request observer; UI surfaces consume it through the bridge. Shared
+ * here so neither side owns the contract.
+ */
+
+import type { TrackedResourceType } from './telemetry';
 
 /**
  * Source attributing a single tracked-resource observation. Multiple
  * sources may co-attribute the same URL on a single tab — the set is
  * union-merged on each new observation.
  *
- *   `webRequest`   — Chrome's `webRequest.onBeforeRequest`. The most
- *                    authoritative signal: the network actually went
- *                    out and DNR/webRequest had a chance to modify it.
+ *   `webRequest`   — the network observer. The most authoritative
+ *                    signal: the network actually went out and the rule
+ *                    engine had a chance to modify it.
  *   `perfObserver` — Resource Timing entries observed by the in-page
  *                    perf-observer content script. Catches cached + SW-
- *                    shortcutted responses that webRequest misses.
- *   `dnrFeedback`  — `declarativeNetRequest.onRuleMatchedDebug` (optional
- *                    surface, only wired in packaged builds for now).
+ *                    shortcutted responses that the network observer
+ *                    misses.
+ *   `dnrFeedback`  — rule-match debug feedback (optional surface, only
+ *                    wired in packaged builds for now).
  */
 export type ObservationSource = 'webRequest' | 'perfObserver' | 'dnrFeedback';
 
