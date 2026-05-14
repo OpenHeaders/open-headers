@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { __test__, diffLines } from '@/shared/merge-editor/diff/line-diff';
+import { __test__, diffLines } from '@openheaders/ui/shared/merge-editor/diff/line-diff';
 
 describe('diffLines', () => {
   it('returns no hunks for identical input', () => {

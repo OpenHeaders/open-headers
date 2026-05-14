@@ -14,7 +14,7 @@
  * surface (Phase 2 — hunk arrows + table picks).
  */
 
-import type { MergeApplyOutcome, MergeSession } from '../merge-editor';
+import type { MergeApplyOutcome, MergeSession } from '@openheaders/ui/shared/merge-editor';
 
 export interface BuildEntityMergeSessionArgs {
   /** Stable id for the file row (entity uid is the natural choice). */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { classifyConflicts3Way } from '@/shared/merge-editor/diff/conflict-classify';
-import { diffLinesPatience } from '@/shared/merge-editor/diff/patience-diff';
+import { classifyConflicts3Way } from '@openheaders/ui/shared/merge-editor/diff/conflict-classify';
+import { diffLinesPatience } from '@openheaders/ui/shared/merge-editor/diff/patience-diff';
 
 /**
  * 3-way classification flips the 2-way "overlap = conflict" heuristic

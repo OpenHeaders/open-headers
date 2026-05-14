@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import type { Hunk } from '@/shared/merge-editor/diff/line-diff';
-import type { HunkTrackedRangesHandle } from '@/shared/merge-editor/monaco/use-hunk-tracked-ranges';
+import type { Hunk } from '@openheaders/ui/shared/merge-editor/diff/line-diff';
+import type { HunkTrackedRangesHandle } from '@openheaders/ui/shared/merge-editor/monaco/use-hunk-tracked-ranges';
 import {
   createPickStateController,
   type HunkPickState,
   isResolved,
   PENDING_HUNK,
   writeTextFor,
-} from '@/shared/merge-editor/use-hunk-pick-state';
+} from '@openheaders/ui/shared/merge-editor/use-hunk-pick-state';
 
 function makeHunk(overrides: Partial<Hunk> = {}): Hunk {
   return {

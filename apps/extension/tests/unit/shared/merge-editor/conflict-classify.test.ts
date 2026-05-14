@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { classifyConflicts } from '@/shared/merge-editor/diff/conflict-classify';
-import { diffLines } from '@/shared/merge-editor/diff/line-diff';
+import { classifyConflicts } from '@openheaders/ui/shared/merge-editor/diff/conflict-classify';
+import { diffLines } from '@openheaders/ui/shared/merge-editor/diff/line-diff';
 
 describe('classifyConflicts', () => {
   it('marks both sides as conflicting when their result ranges overlap', () => {

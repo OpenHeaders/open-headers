@@ -22,7 +22,7 @@ import type {
   StrategyMap,
   WorkspaceExport,
 } from '@openheaders/core/workspace-export';
-import type { MergeFile } from '@/shared/merge-editor';
+import type { MergeFile } from '@openheaders/ui/shared/merge-editor';
 import type { ImportBundle, ImportBundleEntity, ImportWorkspaceSnapshot } from '@/shared/conflicts';
 
 /** Mirrors `SerializableEntityKind` from `@openheaders/core/workspace-export`.

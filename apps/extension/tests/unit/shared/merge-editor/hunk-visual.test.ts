@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeHunks, type HunkAnalysis } from '@/shared/merge-editor/diff/hunk-analysis';
-import { diffLines } from '@/shared/merge-editor/diff/line-diff';
-import { PENDING_HUNK } from '@/shared/merge-editor/use-hunk-pick-state';
+import { analyzeHunks, type HunkAnalysis } from '@openheaders/ui/shared/merge-editor/diff/hunk-analysis';
+import { diffLines } from '@openheaders/ui/shared/merge-editor/diff/line-diff';
+import { PENDING_HUNK } from '@openheaders/ui/shared/merge-editor/use-hunk-pick-state';
 import {
   frameForResult,
   frameForSide,
@@ -9,7 +9,7 @@ import {
   lineTintFor,
   missingVariantFor,
   resultStatusLabelFor,
-} from '@/shared/merge-editor/view/hunk-visual';
+} from '@openheaders/ui/shared/merge-editor/view/hunk-visual';
 
 function makeDeleteVsModifyAnalysis(): HunkAnalysis {
   const base = 'A\nB\nC\n';

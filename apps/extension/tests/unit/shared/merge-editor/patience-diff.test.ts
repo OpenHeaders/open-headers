@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { diffLinesPatience } from '@/shared/merge-editor/diff/patience-diff';
+import { diffLinesPatience } from '@openheaders/ui/shared/merge-editor/diff/patience-diff';
 
 describe('diffLinesPatience', () => {
   it('returns no hunks for identical input', () => {

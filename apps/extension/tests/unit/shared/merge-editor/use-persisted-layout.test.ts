@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { usePersistedLayout } from '@/shared/merge-editor/use-persisted-layout';
+import { usePersistedLayout } from '@openheaders/ui/shared/merge-editor/use-persisted-layout';
 
 describe('usePersistedLayout', () => {
   beforeEach(() => {

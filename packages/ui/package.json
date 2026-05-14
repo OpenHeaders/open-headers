@@ -35,7 +35,11 @@
       "import": "./src/shared/*/index.ts",
       "default": "./dist/shared/*/index.js"
     },
-    "./shared/*.css": "./src/shared/*.css"
+    "./shared/*.css": "./src/shared/*.css",
+    "./shared/merge-editor/*": {
+      "import": "./src/shared/merge-editor/*.ts",
+      "default": "./dist/shared/merge-editor/*.js"
+    }
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

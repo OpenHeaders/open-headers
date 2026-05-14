@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pairLines } from '@/shared/merge-editor/diff/pair-lines';
+import { pairLines } from '@openheaders/ui/shared/merge-editor/diff/pair-lines';
 
 describe('pairLines', () => {
   it('pairs by index when both sides are length 1', () => {

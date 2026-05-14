@@ -13,7 +13,7 @@
 
 import { useTheme } from '@context/ThemeContext';
 import type React from 'react';
-import { MergeConflictModal } from '@/shared/merge-editor';
+import { MergeConflictModal } from '@openheaders/ui/shared/merge-editor';
 import { buildEntityMergeSession } from './entity-merge-adapter';
 
 export type ConflictResolution = 'theirs' | 'mine';

@@ -20,7 +20,7 @@
  *            omit base to exercise the 2-pane fallback as well.
  */
 
-import type { MergeFile, MergeSession } from '@/shared/merge-editor';
+import type { MergeFile, MergeSession } from '@openheaders/ui/shared/merge-editor';
 
 export interface ShowcaseScenario {
   /** URL slug — also used as the React key. */

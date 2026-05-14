@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { gridTemplate, paneVisibility } from '@/shared/merge-editor/components/layout';
+import { gridTemplate, paneVisibility } from '@openheaders/ui/shared/merge-editor/components/layout';
 
 const RATIOS = { cols: [1, 1, 1] as [number, number, number], rows: [0.35, 0.65] as [number, number] };
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeHunks } from '@/shared/merge-editor/diff/hunk-analysis';
-import { diffLines } from '@/shared/merge-editor/diff/line-diff';
+import { analyzeHunks } from '@openheaders/ui/shared/merge-editor/diff/hunk-analysis';
+import { diffLines } from '@openheaders/ui/shared/merge-editor/diff/line-diff';
 
 describe('analyzeHunks', () => {
   describe('3-pane (base provided)', () => {

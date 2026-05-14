@@ -32,7 +32,7 @@
  * and stays open so the user can fix and retry.
  */
 
-import type { MergeApplyOutcome, MergeFile, MergeSession } from '../merge-editor';
+import type { MergeApplyOutcome, MergeFile, MergeSession } from '@openheaders/ui/shared/merge-editor';
 
 /** One entity inside an import bundle. `entity` is opaque payload —
  *  the adapter only hands it to the caller-supplied serializer. */

@@ -62,8 +62,8 @@ import {
   parseWorkspaceVariables,
 } from '@openheaders/core/codec/yaml';
 import { useTheme } from '@context/ThemeContext';
-import type { MergeApplyOutcome, MergeFile } from '@/shared/merge-editor';
-import { MergeConflictModal } from '@/shared/merge-editor';
+import type { MergeApplyOutcome, MergeFile } from '@openheaders/ui/shared/merge-editor';
+import { MergeConflictModal } from '@openheaders/ui/shared/merge-editor';
 import { renderWorkspacePrefix } from '@/workbench/components/workspace-prefix';
 import { buildImportStatusChips } from './preview/buildImportStatusChips';
 import { AdvancedTogglesList } from './preview/AdvancedPanel';

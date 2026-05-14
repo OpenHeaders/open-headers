@@ -14,7 +14,7 @@
 import { App as AntApp, ConfigProvider, Layout, Menu, theme as antdTheme, Typography } from 'antd';
 import { type ReactElement, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { MergeConflictModal } from '@/shared/merge-editor';
+import { MergeConflictModal } from '@openheaders/ui/shared/merge-editor';
 import { type ShowcaseScenario, SCENARIOS } from './merge-showcase-scenarios';
 
 const { Sider, Content, Header } = Layout;

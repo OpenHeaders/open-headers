@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { useRef } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { useGridResize } from '@/shared/merge-editor/monaco/use-grid-resize';
+import { useGridResize } from '@openheaders/ui/shared/merge-editor/monaco/use-grid-resize';
 
 function setup(onResize?: () => void) {
   return renderHook(() => {

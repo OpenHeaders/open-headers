@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { diffChars, diffWords } from '@/shared/merge-editor/diff/char-diff';
+import { diffChars, diffWords } from '@openheaders/ui/shared/merge-editor/diff/char-diff';
 
 describe('diffChars', () => {
   it('returns no spans for identical input', () => {

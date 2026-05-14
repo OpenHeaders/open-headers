@@ -2,7 +2,7 @@
  * Register merge-editor operations as Monaco actions on the result
  * editor. Each action shows up in Monaco's command palette (F1) under
  * its label and is bound to a browser-safe `Ctrl/Cmd+K`-prefixed chord
- * so it's keyboard-reachable without colliding with browser chrome.
+ * so it's keyboard-reachable without colliding with the browser UI.
  *
  * Chord choice — `Ctrl/Cmd+K` is Monaco's well-known chord prefix
  * (VS Code uses it extensively) and emits no default browser action,
