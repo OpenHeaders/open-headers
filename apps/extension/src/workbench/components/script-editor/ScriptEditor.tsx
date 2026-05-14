@@ -19,7 +19,7 @@
  * deregistered on some Monaco internals).
  */
 
-import { useTheme } from '@context/ThemeContext';
+import { useUiTheme } from '@openheaders/ui/context';
 import Editor, { useMonaco } from '@monaco-editor/react';
 import { theme } from 'antd';
 import type * as monaco from 'monaco-editor';
@@ -63,7 +63,7 @@ const ScriptEditor: React.FC<ScriptEditorProps> = ({
   placeholder,
 }) => {
   const { token } = theme.useToken();
-  const { monacoTheme } = useTheme();
+  const { monacoTheme } = useUiTheme();
   const fontFamilyPreset = useSettingValue('editor.fontFamilyPreset');
   const fontFamily = resolveFontFamily(fontFamilyPreset);
   const fontSize = useSettingValue('editor.fontSize');

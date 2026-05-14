@@ -8,13 +8,13 @@
  */
 
 import { BulbFilled, BulbOutlined } from '@ant-design/icons';
-import { useTheme } from '@context/ThemeContext';
 import { Dropdown, type MenuProps, Space, theme } from 'antd';
 import type React from 'react';
 import { useActiveEditorLifecycle } from '@openheaders/ui/shared/awareness';
 import { LifecyclePill } from '@openheaders/ui/shared/editor-shell';
 import { productStatusExtras, StatusPill } from '@openheaders/ui/shared/status';
 import { useInspectorNav } from '../hooks/useInspectorNav';
+import { setSettingValue } from '../settings';
 import { useSettingValue } from '../settings/hooks';
 import BreadcrumbBar from './BreadcrumbBar';
 import { renderWorkspacePrefix } from './workspace-prefix';
@@ -45,7 +45,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
   autoRenameKey,
 }) => {
   const { token } = theme.useToken();
-  const { themeMode, setThemeMode } = useTheme();
+  const themeMode = useSettingValue('appearance.theme');
   // Mirror TopBar: the footer's left padding expands/contracts with the
   // activity bar so the breadcrumb starts at the same X as "Open Headers"
   // above it, regardless of whether tool-window labels are on.
@@ -119,7 +119,7 @@ const StatusBar: React.FC<StatusBarProps> = ({
                       {themeMode === mode && <span style={{ marginLeft: 4 }}>&#x2713;</span>}
                     </Space>
                   ),
-                  onClick: () => setThemeMode(mode),
+                  onClick: () => setSettingValue('appearance.theme', mode),
                 })) as MenuProps['items'],
               }}
               placement="topRight"

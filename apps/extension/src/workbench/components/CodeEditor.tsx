@@ -15,7 +15,7 @@
  */
 
 import { AlignLeftOutlined } from '@ant-design/icons';
-import { useTheme } from '@context/ThemeContext';
+import { useUiTheme } from '@openheaders/ui/context';
 import Editor from '@monaco-editor/react';
 import { Alert, Button, Tooltip, theme } from 'antd';
 import type * as monaco from 'monaco-editor';
@@ -66,7 +66,7 @@ const CodeEditor: React.FC<CodeEditorProps> = ({
 }) => {
   const registerCompletions = useMonacoVariableCompletions();
   const { token } = theme.useToken();
-  const { monacoTheme } = useTheme();
+  const { monacoTheme } = useUiTheme();
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const valueRef = useRef(value);
   valueRef.current = value;

@@ -61,7 +61,7 @@ import {
   parseVault,
   parseWorkspaceVariables,
 } from '@openheaders/core/codec/yaml';
-import { useTheme } from '@context/ThemeContext';
+import { useUiTheme } from '@openheaders/ui/context';
 import type { MergeApplyOutcome, MergeFile } from '@openheaders/ui/shared/merge-editor';
 import { MergeConflictModal } from '@openheaders/ui/shared/merge-editor';
 import { renderWorkspacePrefix } from '@/workbench/components/workspace-prefix';
@@ -128,7 +128,7 @@ const ImportPreviewModal: React.FC<ImportPreviewModalProps> = ({
 }) => {
   const { message } = AntApp.useApp();
   const { token } = theme.useToken();
-  const { isDarkMode, monacoTheme } = useTheme();
+  const { isDarkMode, monacoTheme } = useUiTheme();
 
   // Phase 7.3.5: merge editor is the import surface. The legacy
   // diff/strategy-chips body is gone; this modal now serves as the

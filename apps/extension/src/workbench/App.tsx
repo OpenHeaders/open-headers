@@ -16,7 +16,7 @@ import { OAuthBundlesProvider } from '@openheaders/ui/context';
 import { PauseMarkersProvider } from '@openheaders/ui/context';
 import { RequestsProvider } from '@openheaders/ui/context';
 import { RuleProvider } from '@openheaders/ui/context';
-import { useTheme } from '@context/ThemeContext';
+import { useUiTheme } from '@openheaders/ui/context';
 import { VaultProvider } from '@openheaders/ui/context';
 import { WorkspaceVariablesProvider } from '@openheaders/ui/context';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/useEnvironments';
@@ -292,7 +292,7 @@ interface WorkbenchInnerProps {
 }
 
 const WorkbenchInner: React.FC<WorkbenchInnerProps> = ({ onLifelineWorkspaceIdChange }) => {
-  const { isDarkMode } = useTheme();
+  const { isDarkMode } = useUiTheme();
   const { token } = theme.useToken();
   const perTab = useWorkbenchEditingScopeViewState();
 
@@ -322,7 +322,7 @@ const WorkbenchTabAware: React.FC<{
   perTab: EditingScopeViewStateApi<WorkbenchViewState>;
   onLifelineWorkspaceIdChange: (workspaceId: string | null) => void;
 }> = ({ perTab, onLifelineWorkspaceIdChange }) => {
-  const { isDarkMode } = useTheme();
+  const { isDarkMode } = useUiTheme();
   const { token } = theme.useToken();
   useWorkbenchWorkspaceSlice(perTab);
   const editingScopeWorkspaceId = useEditingScopeWorkspaceId(perTab);
@@ -414,7 +414,7 @@ interface WorkbenchContentProps {
 }
 
 const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, attachBus }) => {
-  const { isDarkMode } = useTheme();
+  const { isDarkMode } = useUiTheme();
   const { token } = theme.useToken();
   const {
     rules,

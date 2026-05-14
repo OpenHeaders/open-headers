@@ -33,7 +33,7 @@
  *     during unmount before the editor / models go away.
  */
 
-import { useTheme } from '@context/ThemeContext';
+import { useUiTheme } from '@openheaders/ui/context';
 import { Skeleton, theme } from 'antd';
 import type * as monaco from 'monaco-editor';
 import { editor as monacoEditor } from 'monaco-editor/esm/vs/editor/edcore.main';
@@ -64,7 +64,7 @@ const RichDiffEditor: React.FC<Props> = ({
   header,
 }) => {
   const { token } = theme.useToken();
-  const { isDarkMode, monacoTheme } = useTheme();
+  const { isDarkMode, monacoTheme } = useUiTheme();
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<monaco.editor.IStandaloneDiffEditor | null>(null);
