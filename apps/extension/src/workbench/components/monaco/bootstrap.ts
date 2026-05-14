@@ -66,7 +66,7 @@ import {
   ScriptTarget,
   typescriptDefaults,
 } from 'monaco-editor/esm/vs/language/typescript/monaco.contribution';
-import { allVariants } from '@/themes';
+import { allVariants } from '@openheaders/ui/themes';
 import { OH_AMBIENT_DTS } from '../script-editor/oh-types';
 import { registerPrettierFormatters } from './formatters';
 

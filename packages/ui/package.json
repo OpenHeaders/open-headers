@@ -35,6 +35,14 @@
       "import": "./src/shared/index.ts",
       "default": "./dist/shared/index.js"
     },
+    "./themes": {
+      "import": "./src/themes/index.ts",
+      "default": "./dist/themes/index.js"
+    },
+    "./themes/*": {
+      "import": "./src/themes/*",
+      "default": "./dist/themes/*.js"
+    },
     "./shared/*": {
       "import": "./src/shared/*/index.ts",
       "default": "./dist/shared/*/index.js"

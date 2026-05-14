@@ -17,7 +17,7 @@
  */
 
 import * as v from 'valibot';
-import { DARK_VARIANT_IDS, LIGHT_VARIANT_IDS, getDarkVariant, getLightVariant } from '@/themes';
+import { DARK_VARIANT_IDS, LIGHT_VARIANT_IDS, getDarkVariant, getLightVariant } from '@openheaders/ui/themes';
 import { registerSetting } from '../registry';
 
 // ── valibot schemas ──────────────────────────────────────────────────

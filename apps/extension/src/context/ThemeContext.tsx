@@ -25,7 +25,7 @@ import { ConfigProvider, theme } from 'antd';
 import type React from 'react';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { UiThemeProvider } from '@openheaders/ui/context';
-import { getVariant, type ThemeVariant } from '@/themes';
+import { getVariant, type ThemeVariant } from '@openheaders/ui/themes';
 import { setSettingValue, useSettingValue } from '@/workbench/settings';
 import { resolveAppearanceFontFamily } from '@/workbench/settings/schema/appearance';
 
@@ -46,7 +46,7 @@ interface ThemeContextValue {
 
 // Sentinel default — ThemeProvider always overrides this. The variant
 // shape is required so consumers don't need to null-check `variant`.
-import { lightDefault as DEFAULT_VARIANT } from '@/themes/light/default';
+import { lightDefault as DEFAULT_VARIANT } from '@openheaders/ui/themes/light/default';
 
 export const ThemeContext = createContext<ThemeContextValue>({
   isDarkMode: false,
