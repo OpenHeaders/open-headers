@@ -424,9 +424,9 @@ export function handleGeneralMessage(
       const workspaceId = message.workspaceId as string;
       void (async () => {
         try {
-          const { extensionStorage, wsKeys } = await import('@openheaders/oracle/storage');
+          const { hostStorage, wsKeys } = await import('@openheaders/oracle/storage');
           const snapshots =
-            ((await extensionStorage.get(wsKeys(workspaceId).lastImportedSnapshots)) as
+            ((await hostStorage.get(wsKeys(workspaceId).lastImportedSnapshots)) as
               | Record<string, string>
               | undefined) ?? {};
           safeResponse({ snapshots });
@@ -1031,7 +1031,7 @@ export function handleGeneralMessage(
       return true;
 
       // ── OAuth 2.0 / OIDC (Phase 13) ──────────────────────────────
-      // Renderer reads via `extensionStorage.subscribe(wsKeys(ws).oauth)` (MWPT-FULL § 8.3.10);
+      // Renderer reads via `hostStorage.subscribe(wsKeys(ws).oauth)` (MWPT-FULL § 8.3.10);
       // the former `listOAuthTokens` RPC + `oauthTokensChanged` broadcast were deleted.
     } else if (message.type === 'oauthAuthorize') {
       const config = message.config as import('@openheaders/core/types').OAuth2Auth;

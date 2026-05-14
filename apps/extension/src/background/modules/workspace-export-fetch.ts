@@ -21,7 +21,7 @@
  */
 
 import { logger } from '@utils/logger';
-import { ALLOWED_FETCH_HOSTS_SETTING_KEY, DEFAULT_ALLOWED_FETCH_HOSTS, extensionStorage, OH } from '@openheaders/oracle/storage';
+import { ALLOWED_FETCH_HOSTS_SETTING_KEY, DEFAULT_ALLOWED_FETCH_HOSTS, hostStorage, OH } from '@openheaders/oracle/storage';
 import { recordLog } from './observability-log';
 
 /** Hard cap for the URL-fetch source body size — design §5.1. */
@@ -78,7 +78,7 @@ export function parseAllowedHostsList(input: string): string[] {
  * the SW parses it on every fetch.
  */
 export async function getAllowedFetchHosts(): Promise<string[]> {
-  const userSettings = (await extensionStorage.get(OH.settingsUser)) ?? {};
+  const userSettings = (await hostStorage.get(OH.settingsUser)) ?? {};
   const raw = userSettings[ALLOWED_FETCH_HOSTS_SETTING_KEY];
   if (typeof raw === 'string' && raw.trim().length > 0) {
     const parsed = parseAllowedHostsList(raw);

@@ -20,7 +20,7 @@ import { CollectionSchema } from '@openheaders/core/schemas';
 import { type MutationBatch, type MutatorContext, newBatchId, type SideEffectIntent } from '@openheaders/core/sync';
 import type { Collection, Folder } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
-import { extensionStorage, type PersistedLocalFolder, type StorageKey } from '@openheaders/oracle/storage';
+import { hostStorage, type PersistedLocalFolder, type StorageKey } from '@openheaders/oracle/storage';
 import { driftRecorder } from './storage-drift';
 import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';
 import type { EntityOracle } from './oracle';
@@ -156,14 +156,14 @@ export function createFolderTreeCache<P>(
         const collectionStorage = config.collectionStorageKey(workspaceId);
         const folderStorage = config.storageKey(workspaceId);
         const [collections, persistedFolders] = await Promise.all([
-          extensionStorage.getValidatedArray(collectionStorage, CollectionSchema, {
+          hostStorage.getValidatedArray(collectionStorage, CollectionSchema, {
             onError: driftRecorder({
               subsystem: 'rule-engine',
               storageKey: collectionStorage.key,
               workspaceId,
             }),
           }),
-          extensionStorage.get(folderStorage),
+          hostStorage.get(folderStorage),
         ]);
         const folderList = persistedFolders ?? [];
         if (folderList.length === 0) {
@@ -205,7 +205,7 @@ async function persist<P>(workspaceId: string, folders: Folder[], config: Folder
       path: f.path,
       name: f.name,
     }));
-    await extensionStorage.set(config.storageKey(workspaceId), persisted);
+    await hostStorage.set(config.storageKey(workspaceId), persisted);
   } catch (err) {
     logger.info(config.loggerTag, `persist failed (ws=${workspaceId}):`, (err as Error).message);
   }

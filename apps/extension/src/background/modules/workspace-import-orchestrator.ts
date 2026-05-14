@@ -55,7 +55,7 @@ import {
 } from '@openheaders/core/workspace-export';
 import { logger } from '@utils/logger';
 import { entityLockName, withLock } from '@openheaders/oracle/coordination';
-import { extensionStorage, type PersistedLocalFolder, type StorageKey, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, type PersistedLocalFolder, type StorageKey, wsKeys } from '@openheaders/oracle/storage';
 import { reinitForWorkspace } from '@openheaders/oracle/sync/service';
 import {
   bridgeEnvironmentSyncEngine,
@@ -327,7 +327,7 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
       ];
 
       try {
-        await extensionStorage.setMany(writes);
+        await hostStorage.setMany(writes);
       } catch (err) {
         logger.error('WorkspaceImportOrchestrator', 'storage write failed', err);
         throw err;
@@ -338,9 +338,9 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
       // not roll back the import — the worst case is the next import
       // falls back to 2-pane on the affected uids.
       try {
-        const prior = ((await extensionStorage.get(k.lastImportedSnapshots)) as Record<string, string> | undefined) ?? {};
+        const prior = ((await hostStorage.get(k.lastImportedSnapshots)) as Record<string, string> | undefined) ?? {};
         const next = buildLastImportedSnapshots(plan, prior);
-        await extensionStorage.set(k.lastImportedSnapshots, next);
+        await hostStorage.set(k.lastImportedSnapshots, next);
       } catch (err) {
         logger.warn('WorkspaceImportOrchestrator', 'snapshot persist failed', err);
       }
@@ -434,13 +434,13 @@ export async function importWorkspace(args: ImportWorkspaceArgs): Promise<Import
         // Direct ring write for non-active target — mirrors what
         // `recordImportReport` does, scoped to the target's key.
         const ringKey = wsKeys(targetWorkspaceId).importReports;
-        const current = ((await extensionStorage.get(ringKey)) as unknown[] | undefined) ?? [];
+        const current = ((await hostStorage.get(ringKey)) as unknown[] | undefined) ?? [];
         const next = [...current, report];
         // Cap at the same default the store uses (50). Inline the cap
         // rather than re-export it from the store; the value is part of
         // the storage contract, not the store's API.
         const capped = next.length > 50 ? next.slice(next.length - 50) : next;
-        await extensionStorage.set(ringKey, capped);
+        await hostStorage.set(ringKey, capped);
       }
 
       recordLog({
@@ -620,7 +620,7 @@ interface ReadTargetResult {
  *  read-modify-write consistency. */
 export async function readTargetWorkspaceState(workspaceId: string): Promise<ReadTargetResult> {
   const k = wsKeys(workspaceId);
-  const target = await extensionStorage.getMany({
+  const target = await hostStorage.getMany({
     rules: k.rules,
     collections: k.collections,
     folders: k.folders,

@@ -10,7 +10,7 @@
 import { WorkspaceVariablesSchema } from '@openheaders/core/schemas';
 import { WORKSPACE_VARIABLES_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { WorkspaceVariables } from '@openheaders/core/types';
-import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { seedWorkspaceVariables } from '@openheaders/core/sync-builders/workspace-variables-projection';
 import { driftRecorder } from './storage-drift';
 import type { InMemoryBroadcast } from './broadcast';
@@ -52,9 +52,9 @@ export function createWorkspaceVariablesCache(
       emptySnapshot: EMPTY_WORKSPACE_VARIABLES,
       project: (o) => projectWorkspaceVariablesSingleton(o)?.workspaceVariables ?? null,
       buildSeedBatch: (input, ctx) => seedWorkspaceVariables(input, ctx),
-      persist: (scope, vars) => extensionStorage.set(wsKeys(scope).workspaceVars, vars),
+      persist: (scope, vars) => hostStorage.set(wsKeys(scope).workspaceVars, vars),
       loadFromStorage: (scope) =>
-        extensionStorage.getValidated(wsKeys(scope).workspaceVars, WorkspaceVariablesSchema, {
+        hostStorage.getValidated(wsKeys(scope).workspaceVars, WorkspaceVariablesSchema, {
           onError: driftRecorder({
             subsystem: 'environment',
             storageKey: wsKeys(scope).workspaceVars.key,

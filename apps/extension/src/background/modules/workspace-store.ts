@@ -51,7 +51,7 @@ import {
   getActiveExtensionWorkspaceCache,
 } from '@openheaders/oracle/sync/extension-workspace-cache';
 import { getGlobalOracle, nextGlobalSwContext } from '@openheaders/oracle/sync/global-service';
-import { extensionStorage, OH } from '@openheaders/oracle/storage';
+import { hostStorage, OH } from '@openheaders/oracle/storage';
 import { buildSetExtensionWorkspaceBatch } from '@openheaders/core/sync-builders/extension-workspace-mutations';
 import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
 
@@ -250,11 +250,11 @@ function nextOrderKey(): string {
  */
 export async function bootstrap(): Promise<void> {
   const [storedList, storedActive, storedDefault] = await Promise.all([
-    extensionStorage.getValidatedArray(OH.workspaces, ExtensionWorkspaceSchema, {
+    hostStorage.getValidatedArray(OH.workspaces, ExtensionWorkspaceSchema, {
       onError: driftRecorder({ subsystem: 'workspace', storageKey: OH.workspaces.key }),
     }),
-    extensionStorage.get(OH.runtimeActive),
-    extensionStorage.get(OH.preferencesDefaultWorkspace),
+    hostStorage.get(OH.runtimeActive),
+    hostStorage.get(OH.preferencesDefaultWorkspace),
   ]);
 
   if (storedList.length > 0) {
@@ -351,9 +351,9 @@ async function persistFromCache(snap: {
   workspaces: ExtensionWorkspace[];
   activeWorkspaceId: string | null;
 }): Promise<void> {
-  const tasks: Array<Promise<void>> = [extensionStorage.set(OH.workspaces, snap.workspaces)];
+  const tasks: Array<Promise<void>> = [hostStorage.set(OH.workspaces, snap.workspaces)];
   if (snap.activeWorkspaceId) {
-    tasks.push(extensionStorage.set(OH.runtimeActive, snap.activeWorkspaceId));
+    tasks.push(hostStorage.set(OH.runtimeActive, snap.activeWorkspaceId));
   }
   await Promise.all(tasks);
 }

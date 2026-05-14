@@ -25,7 +25,7 @@
 
 import { logger } from '@openheaders/core/utils';
 import { entityLockName, withLock } from '@openheaders/oracle/coordination';
-import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 
 // ── In-memory mirror (active workspace) ────────────────────────────
@@ -52,7 +52,7 @@ export function getPendingScriptsReview(): ReadonlySet<string> {
 }
 
 export async function listPendingScriptsReviewForWorkspace(workspaceId: string): Promise<string[]> {
-  const raw = await extensionStorage.get(wsKeys(workspaceId).requestScriptsReviewPending);
+  const raw = await hostStorage.get(wsKeys(workspaceId).requestScriptsReviewPending);
   return Array.isArray(raw) ? raw.filter((v): v is string => typeof v === 'string') : [];
 }
 
@@ -68,7 +68,7 @@ function assertLoaded(): string {
 async function persistActive(): Promise<void> {
   const workspaceId = assertLoaded();
   const payload = Array.from(pending);
-  await extensionStorage.set(wsKeys(workspaceId).requestScriptsReviewPending, payload);
+  await hostStorage.set(wsKeys(workspaceId).requestScriptsReviewPending, payload);
   notifyChange();
 }
 
@@ -129,7 +129,7 @@ export async function markPendingScriptsReviewForWorkspace(
           mutated = true;
         }
       }
-      if (mutated) await extensionStorage.set(key, Array.from(set));
+      if (mutated) await hostStorage.set(key, Array.from(set));
     },
     { op: 'request-scripts-review-mark-ws' },
   );

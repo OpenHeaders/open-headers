@@ -30,7 +30,7 @@ import { ImportReportSchema } from '@openheaders/core/import';
 import { parseEntityArray } from '@openheaders/core/schemas';
 import { logger } from '@openheaders/core/utils';
 import { entityLockName, withLock } from '@openheaders/oracle/coordination';
-import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 
 const RING_CAP = 50;
@@ -44,7 +44,7 @@ async function withReportsLock<T>(workspaceId: string, fn: () => Promise<T>): Pr
 
 async function readRing(workspaceId: string): Promise<ImportReport[]> {
   const key = wsKeys(workspaceId).importReports;
-  const raw = await extensionStorage.get(key);
+  const raw = await hostStorage.get(key);
   if (!Array.isArray(raw)) return [];
   // Validate each entry with the schema; drop the ones that don't
   // parse rather than letting a corrupt blob poison the list. The
@@ -55,7 +55,7 @@ async function readRing(workspaceId: string): Promise<ImportReport[]> {
 
 async function writeRing(workspaceId: string, reports: ImportReport[]): Promise<void> {
   const key = wsKeys(workspaceId).importReports;
-  await extensionStorage.set(key, reports);
+  await hostStorage.set(key, reports);
 }
 
 /**

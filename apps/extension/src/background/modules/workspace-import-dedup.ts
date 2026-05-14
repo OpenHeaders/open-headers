@@ -14,14 +14,14 @@ import type { DedupMatchEntry, DedupMatchesResult, FindMatchesArgs } from '@open
 import type { WorkspaceExportImportReport } from '@openheaders/core/import';
 import { ImportReportSchema } from '@openheaders/core/import';
 import { parseEntityArray } from '@openheaders/core/schemas';
-import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { listWorkspaces } from './workspace-store';
 
 export type { DedupMatchEntry, DedupMatchesResult, FindMatchesArgs } from '@openheaders/core/types';
 
 async function readRing(workspaceId: string): Promise<WorkspaceExportImportReport[]> {
   const key = wsKeys(workspaceId).importReports;
-  const raw = await extensionStorage.get(key);
+  const raw = await hostStorage.get(key);
   if (!Array.isArray(raw)) return [];
   const parsed = parseEntityArray(ImportReportSchema, raw);
   return parsed.filter((r): r is WorkspaceExportImportReport => r.source === 'workspace-export');

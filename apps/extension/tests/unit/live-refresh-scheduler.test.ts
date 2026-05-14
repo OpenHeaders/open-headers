@@ -169,7 +169,7 @@ vi.mock('@openheaders/oracle/entity/environment-store', () => ({
 // Storage shim for OH.workspaces / OH.runtimeActive + wsKeys reads
 // on inactive workspaces. Using `installBackingStorage` from the shared
 // helper keeps the semantics identical to the real `extensionStorage`.
-import { installBackingStorage, seedStorageMany } from '../helpers/chrome-storage-backing';
+import { installBackingStorage, installHostStorage, seedStorageMany } from '../helpers/chrome-storage-backing';
 
 // ── Fixtures ──────────────────────────────────────────────────────
 
@@ -218,6 +218,7 @@ let scheduler: typeof import('@/background/modules/live-refresh-scheduler');
 beforeEach(async () => {
   installBackingStorage();
   vi.resetModules();
+  await installHostStorage();
   alarmsCreateMock.mockClear();
   alarmsClearMock.mockClear();
   alarmsGetAllMock.mockReset();

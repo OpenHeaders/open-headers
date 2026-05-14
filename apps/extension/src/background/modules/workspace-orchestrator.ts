@@ -30,7 +30,7 @@ import type { Collection, ExtensionWorkspace, LiveVariable, LiveWorkflow, Reques
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { deepCopyHierarchy } from '@openheaders/core/workspace-export';
 import { logger } from '@utils/logger';
-import { extensionStorage, type StorageKey, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, type StorageKey, wsKeys } from '@openheaders/oracle/storage';
 import { getRulesPaused } from '../dnr-manager';
 import {
   hydrateEnvironmentsFromStorage,
@@ -184,7 +184,7 @@ export async function swapPerWorkspaceStores(targetId: string): Promise<void> {
  */
 export async function purgeWorkspaceData(ids: readonly string[]): Promise<void> {
   for (const id of ids) {
-    await extensionStorage.remove(perWorkspaceDataKeys(id));
+    await hostStorage.remove(perWorkspaceDataKeys(id));
     await purgeWorkspaceEnvironmentData(id);
     await purgeWorkspaceTestRuns(id);
     await purgeFilesForWorkspace(id);
@@ -226,7 +226,7 @@ export async function duplicateWorkspace(
   });
 
   const srcK = wsKeys(sourceId);
-  const src = await extensionStorage.getMany({
+  const src = await hostStorage.getMany({
     rules: srcK.rules,
     collections: srcK.collections,
     folders: srcK.folders,
@@ -308,7 +308,7 @@ export async function duplicateWorkspace(
     ...(src.workspaceVars ? [[newK.workspaceVars, src.workspaceVars] as const] : []),
     ...(src.vault ? [[newK.vault, src.vault] as const] : []),
   ];
-  await extensionStorage.setMany(writes);
+  await hostStorage.setMany(writes);
   const newId = newMeta.id;
 
   logger.info(

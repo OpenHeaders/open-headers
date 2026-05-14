@@ -29,6 +29,21 @@ import { chrome } from '../__mocks__/chrome';
 // test starts from an empty backing store.
 const backing = new Map<string, unknown>();
 
+/**
+ * Re-install the chrome-backed host-storage adapter on the
+ * `@openheaders/core/storage` proxy. `tests/setup.ts` installs it once
+ * suite-wide, but `vi.resetModules()` (used by the SW-lifecycle harness
+ * to simulate service-worker eviction) wipes the proxy's module state —
+ * mirroring how a real SW restart re-runs `install-host-storage`. Call
+ * this after every `vi.resetModules()` so post-reset code that reads
+ * through `hostStorage` resolves to the (chrome-mock-backed) adapter.
+ */
+export async function installHostStorage(): Promise<void> {
+  const { setHostStorage } = await import('@openheaders/core/storage');
+  const { extensionStorage } = await import('@openheaders/oracle/storage');
+  setHostStorage(extensionStorage);
+}
+
 /** Change listeners registered via `chrome.storage.onChanged.addListener`. */
 type ChangeListener = (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => void;
 const listeners = new Set<ChangeListener>();

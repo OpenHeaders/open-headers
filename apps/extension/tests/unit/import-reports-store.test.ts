@@ -1,7 +1,7 @@
 /**
  * Coverage for the SW-side import-reports ring (ARCHITECTURE §23).
  * Exercises record/list/find/clear with a Map-backed mock of
- * `extensionStorage`. The withLock runtime is a deterministic FIFO
+ * `hostStorage`. The withLock runtime is a deterministic FIFO
  * mutex so concurrent dedup races are observable.
  */
 
@@ -28,7 +28,7 @@ vi.mock('@openheaders/oracle/storage', async () => {
   const actual = await vi.importActual<typeof import('@openheaders/oracle/storage')>('@openheaders/oracle/storage');
   return {
     ...actual,
-    extensionStorage: {
+    hostStorage: {
       get: vi.fn(async (key: { name: string }) => blobs.get(key.name)),
       set: vi.fn(async (key: { name: string }, value: unknown) => {
         blobs.set(key.name, value);

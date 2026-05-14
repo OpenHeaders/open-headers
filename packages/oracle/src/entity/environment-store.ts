@@ -34,7 +34,7 @@ import { getActiveCacheForRegistration, getCacheForWorkspace } from '@openheader
 import type { VaultCache } from '@openheaders/oracle/sync/vault-cache';
 import type { WorkspaceVariablesCache } from '@openheaders/oracle/sync/workspace-variables-cache';
 import { entityLockName, withLock } from '@openheaders/oracle/coordination';
-import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
 import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 
@@ -166,7 +166,7 @@ export function getWorkspaceVariablesForWorkspace(workspaceId: string): Workspac
  * string.
  */
 export async function getDefaultEnvironmentIdForWorkspace(workspaceId: string): Promise<string | null> {
-  const v = await extensionStorage.get(wsKeys(workspaceId).defaultEnvironmentId);
+  const v = await hostStorage.get(wsKeys(workspaceId).defaultEnvironmentId);
   return typeof v === 'string' ? v : null;
 }
 
@@ -262,7 +262,7 @@ export async function deleteEnvironment(uid: string): Promise<boolean> {
       const prevOverrides = collectionEnvOverrides;
       collectionEnvOverrides = reconcileOverrides(collectionEnvOverrides, environments);
       if (JSON.stringify(prevOverrides) !== JSON.stringify(collectionEnvOverrides)) {
-        await extensionStorage.set(wsKeys(workspaceId).collectionEnvOverrides, collectionEnvOverrides);
+        await hostStorage.set(wsKeys(workspaceId).collectionEnvOverrides, collectionEnvOverrides);
       }
       await persistEnvironments();
       // Auto-clearing the active env after deletion IS a switch — the
@@ -326,7 +326,7 @@ function overridesEqual(
 // (`wsKeys(ws).{activeEnvironmentId, defaultEnvironmentId, manualEnvId,
 // collectionEnvOverrides}`) are written directly by workbench surfaces
 // editing this workspace — both the legacy (no-override) branch and
-// the override branch use `extensionStorage.set` as the canonical
+// the override branch use `hostStorage.set` as the canonical
 // writer. The SW must observe those external writes and apply the
 // same in-memory + side-effect cascade it would for an internal call,
 // so DNR / resolver / live-refresh stay coherent. Stale ids are
@@ -347,7 +347,7 @@ function bindActivePointerSubscriptions(workspaceId: string): void {
   const disposers: Array<() => void> = [];
 
   disposers.push(
-    extensionStorage.subscribe(keys.activeEnvironmentId, (next) => {
+    hostStorage.subscribe(keys.activeEnvironmentId, (next) => {
       const incoming = typeof next === 'string' ? next : null;
       const reconciled = reconcilePointer(incoming, environments);
       if (reconciled === activeEnvironmentId) return;
@@ -356,7 +356,7 @@ function bindActivePointerSubscriptions(workspaceId: string): void {
       if (reconciled !== incoming) {
         // Caller wrote a stale id; correct the stored value so the
         // workbench surface sees the reconciliation in its mirror.
-        void extensionStorage.set(keys.activeEnvironmentId, reconciled);
+        void hostStorage.set(keys.activeEnvironmentId, reconciled);
       }
       notifyActiveChange(reconciled, prev);
       notifyChange();
@@ -364,33 +364,33 @@ function bindActivePointerSubscriptions(workspaceId: string): void {
   );
 
   disposers.push(
-    extensionStorage.subscribe(keys.defaultEnvironmentId, (next) => {
+    hostStorage.subscribe(keys.defaultEnvironmentId, (next) => {
       const incoming = typeof next === 'string' ? next : null;
       const reconciled = reconcilePointer(incoming, environments);
       if (reconciled === defaultEnvironmentId) return;
       defaultEnvironmentId = reconciled;
       if (reconciled !== incoming) {
-        void extensionStorage.set(keys.defaultEnvironmentId, reconciled);
+        void hostStorage.set(keys.defaultEnvironmentId, reconciled);
       }
       notifyChange();
     }),
   );
 
   disposers.push(
-    extensionStorage.subscribe(keys.manualEnvId, (next) => {
+    hostStorage.subscribe(keys.manualEnvId, (next) => {
       const incoming = typeof next === 'string' ? next : null;
       const reconciled = reconcilePointer(incoming, environments);
       if (reconciled === manualEnvId) return;
       manualEnvId = reconciled;
       if (reconciled !== incoming) {
-        void extensionStorage.set(keys.manualEnvId, reconciled);
+        void hostStorage.set(keys.manualEnvId, reconciled);
       }
       notifyChange();
     }),
   );
 
   disposers.push(
-    extensionStorage.subscribe(keys.collectionEnvOverrides, (next) => {
+    hostStorage.subscribe(keys.collectionEnvOverrides, (next) => {
       const incoming: Record<string, string | null> =
         next !== null && next !== undefined && typeof next === 'object' && !Array.isArray(next)
           ? (next as Record<string, string | null>)
@@ -399,7 +399,7 @@ function bindActivePointerSubscriptions(workspaceId: string): void {
       if (overridesEqual(reconciled, collectionEnvOverrides)) return;
       collectionEnvOverrides = reconciled;
       if (!overridesEqual(reconciled, incoming)) {
-        void extensionStorage.set(keys.collectionEnvOverrides, reconciled);
+        void hostStorage.set(keys.collectionEnvOverrides, reconciled);
       }
       notifyChange();
     }),
@@ -414,26 +414,26 @@ function bindActivePointerSubscriptions(workspaceId: string): void {
 
 async function persistEnvironments(): Promise<void> {
   const workspaceId = assertLoaded();
-  await extensionStorage.set(wsKeys(workspaceId).environments, environments);
+  await hostStorage.set(wsKeys(workspaceId).environments, environments);
   logger.debug('EnvironmentStore', `Persisted ${environments.length} envs (ws=${workspaceId})`);
   notifyChange();
 }
 
 async function persistActiveEnvironment(): Promise<void> {
   const workspaceId = assertLoaded();
-  await extensionStorage.set(wsKeys(workspaceId).activeEnvironmentId, activeEnvironmentId);
+  await hostStorage.set(wsKeys(workspaceId).activeEnvironmentId, activeEnvironmentId);
   notifyChange();
 }
 
 async function persistDefaultEnvironment(): Promise<void> {
   const workspaceId = assertLoaded();
-  await extensionStorage.set(wsKeys(workspaceId).defaultEnvironmentId, defaultEnvironmentId);
+  await hostStorage.set(wsKeys(workspaceId).defaultEnvironmentId, defaultEnvironmentId);
   notifyChange();
 }
 
 async function persistManualEnvId(): Promise<void> {
   const workspaceId = assertLoaded();
-  await extensionStorage.set(wsKeys(workspaceId).manualEnvId, manualEnvId);
+  await hostStorage.set(wsKeys(workspaceId).manualEnvId, manualEnvId);
   notifyChange();
 }
 
@@ -471,17 +471,17 @@ async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnap
     rawOverrides,
     manualEnvId,
   ] = await Promise.all([
-    extensionStorage.getValidatedArray(keys.environments, EnvironmentSchema, {
+    hostStorage.getValidatedArray(keys.environments, EnvironmentSchema, {
       onError: drift(keys.environments.key),
     }),
-    extensionStorage.get(keys.activeEnvironmentId),
-    extensionStorage.get(keys.defaultEnvironmentId),
-    extensionStorage.getValidated(keys.workspaceVars, WorkspaceVariablesSchema, {
+    hostStorage.get(keys.activeEnvironmentId),
+    hostStorage.get(keys.defaultEnvironmentId),
+    hostStorage.getValidated(keys.workspaceVars, WorkspaceVariablesSchema, {
       onError: drift(keys.workspaceVars.key),
     }),
-    extensionStorage.getValidated(keys.vault, VaultSchema, { onError: vaultDrift }),
-    extensionStorage.get(keys.collectionEnvOverrides),
-    extensionStorage.get(keys.manualEnvId),
+    hostStorage.getValidated(keys.vault, VaultSchema, { onError: vaultDrift }),
+    hostStorage.get(keys.collectionEnvOverrides),
+    hostStorage.get(keys.manualEnvId),
   ]);
 
   const parsedOverrides: Record<string, string | null> =
@@ -554,7 +554,7 @@ export async function switchToWorkspace(workspaceId: string): Promise<void> {
  */
 export async function purgeWorkspaceEnvironmentData(workspaceId: string): Promise<void> {
   const keys = wsKeys(workspaceId);
-  await extensionStorage.remove([
+  await hostStorage.remove([
     keys.environments,
     keys.activeEnvironmentId,
     keys.defaultEnvironmentId,

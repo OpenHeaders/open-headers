@@ -28,7 +28,7 @@ import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheade
 import type { LiveVariable, LiveVariableOverride } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@openheaders/core/utils';
-import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import {
   buildAddLiveVariableBatch,
   buildDeleteLiveVariableBatch,
@@ -224,7 +224,7 @@ async function applyLiveVariableMutationOrThrow(
 // ── Hydration / workspace switch ────────────────────────────────────
 
 async function readSnapshot(workspaceId: string): Promise<LiveVariable[]> {
-  return extensionStorage.getValidatedArray(wsKeys(workspaceId).liveVariables, LiveVariableSchema, {
+  return hostStorage.getValidatedArray(wsKeys(workspaceId).liveVariables, LiveVariableSchema, {
     onError: driftRecorder({
       subsystem: 'live',
       storageKey: wsKeys(workspaceId).liveVariables.key,
@@ -252,7 +252,7 @@ export async function switchToWorkspace(workspaceId: string): Promise<void> {
 // ── Purge (workspace delete) ────────────────────────────────────────
 
 export async function purgeLiveVariablesForWorkspace(workspaceId: string): Promise<void> {
-  await extensionStorage.remove(wsKeys(workspaceId).liveVariables);
+  await hostStorage.remove(wsKeys(workspaceId).liveVariables);
   logger.info('LiveVariableStore', `Purged variables for workspace ${workspaceId}`);
 }
 

@@ -10,7 +10,7 @@
  */
 
 import { PAUSE_MARKERS_ENTITY_TYPE } from '@openheaders/core/sync';
-import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import {
   EMPTY_PAUSE_MARKERS,
   type PauseMarkersSnapshot,
@@ -51,9 +51,9 @@ export function createPauseMarkersCache(
       return projection ? { markers: projection.markers } : null;
     },
     buildSeedBatch: (input, ctx) => seedPauseMarkers(input, ctx),
-    persist: (scope, snap) => extensionStorage.set(wsKeys(scope).pauseMarkers, snap.markers),
+    persist: (scope, snap) => hostStorage.set(wsKeys(scope).pauseMarkers, snap.markers),
     loadFromStorage: async (scope) => {
-      const raw = await extensionStorage.get(wsKeys(scope).pauseMarkers);
+      const raw = await hostStorage.get(wsKeys(scope).pauseMarkers);
       return raw ?? null;
     },
   });

@@ -25,7 +25,7 @@ import {
 } from '@openheaders/core/sync';
 import type { Collection, CollectionTree, RuleType, Template, TreeNode } from '@openheaders/core/types';
 import { generateUid, logger, toFolderName } from '@openheaders/core/utils';
-import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import {
   buildDeleteTemplateCollectionBatch,
   buildRenameTemplateCollectionBatch,
@@ -509,17 +509,17 @@ interface WorkspaceSnapshot {
 async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnapshot> {
   const keys = wsKeys(workspaceId);
   const [readTemplates, readCollections, readFolders] = await Promise.all([
-    extensionStorage.getValidatedArray(keys.templates, TemplateSchema, {
+    hostStorage.getValidatedArray(keys.templates, TemplateSchema, {
       onError: driftRecorder({ subsystem: 'rule-engine', storageKey: keys.templates.key, workspaceId }),
     }),
-    extensionStorage.getValidatedArray(keys.templateCollections, CollectionSchema, {
+    hostStorage.getValidatedArray(keys.templateCollections, CollectionSchema, {
       onError: driftRecorder({
         subsystem: 'rule-engine',
         storageKey: keys.templateCollections.key,
         workspaceId,
       }),
     }),
-    extensionStorage.getValidatedArray(keys.templateFolders, FolderSchema, {
+    hostStorage.getValidatedArray(keys.templateFolders, FolderSchema, {
       onError: driftRecorder({
         subsystem: 'rule-engine',
         storageKey: keys.templateFolders.key,

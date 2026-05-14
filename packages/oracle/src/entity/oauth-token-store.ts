@@ -29,7 +29,7 @@ import type { MutationBatch, MutatorContext, SideEffectIntent } from '@openheade
 import type { OAuth2Auth } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
 import { entityLockName, withLock } from '@openheaders/oracle/coordination';
-import { extensionStorage, OH, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, OH, wsKeys } from '@openheaders/oracle/storage';
 import {
   buildDeleteOAuthTokenBatch,
   buildRecordOAuthRefreshErrorBatch,
@@ -123,7 +123,7 @@ export interface WorkspaceCredentialEntry {
  * through chrome.storage directly so it covers non-active workspaces.
  */
 export async function listAllWorkspaceCredentials(): Promise<WorkspaceCredentialEntry[]> {
-  const workspaces = (await extensionStorage.get(OH.workspaces)) ?? [];
+  const workspaces = (await hostStorage.get(OH.workspaces)) ?? [];
   const out: WorkspaceCredentialEntry[] = [];
   for (const ws of workspaces) {
     const blob = await readSnapshot(ws.id);
@@ -214,7 +214,7 @@ export async function deleteTokenBundle(credentialRef: string, workspaceId?: str
  * sync service is being torn down for that workspace.
  */
 export async function purgeOAuthForWorkspace(workspaceId: string): Promise<void> {
-  await extensionStorage.remove(wsKeys(workspaceId).oauth);
+  await hostStorage.remove(wsKeys(workspaceId).oauth);
   logger.info('OAuthStore', `Purged all OAuth tokens for workspace ${workspaceId}`);
   if (workspaceId === mirrorWorkspaceId) {
     mirror = EMPTY_SNAPSHOT;
@@ -292,7 +292,7 @@ async function applyOAuthMutationOrThrow(
 // ── Hydration / bridge ────────────────────────────────────────────
 
 async function readSnapshot(workspaceId: string): Promise<OAuthBundleSnapshot> {
-  const raw = await extensionStorage.get(wsKeys(workspaceId).oauth);
+  const raw = await hostStorage.get(wsKeys(workspaceId).oauth);
   return normalizeBlob(raw);
 }
 
@@ -325,7 +325,7 @@ async function applyDirectStorageWrite(
       const current = await readSnapshot(workspaceId);
       const next = mutator(current);
       if (next === current) return;
-      await extensionStorage.set(wsKeys(workspaceId).oauth, next);
+      await hostStorage.set(wsKeys(workspaceId).oauth, next);
     },
     { op: 'oauth-direct-write' },
   );

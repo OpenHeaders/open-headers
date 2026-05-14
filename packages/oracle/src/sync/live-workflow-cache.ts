@@ -6,7 +6,7 @@
 import { LiveWorkflowSchema } from '@openheaders/core/schemas';
 import { LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { LiveWorkflow } from '@openheaders/core/types';
-import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { projectLiveWorkflow, seedLiveWorkflow } from '@openheaders/core/sync-builders/live-workflow-projection';
 import { driftRecorder } from './storage-drift';
 import type { InMemoryBroadcast } from './broadcast';
@@ -43,7 +43,7 @@ export function createLiveWorkflowCache(
       project: projectLiveWorkflow,
       seed: seedLiveWorkflow,
       loadFromStorage: (ws) =>
-        extensionStorage.getValidatedArray(wsKeys(ws).liveWorkflows, LiveWorkflowSchema, {
+        hostStorage.getValidatedArray(wsKeys(ws).liveWorkflows, LiveWorkflowSchema, {
           onError: driftRecorder({
             subsystem: 'live',
             storageKey: wsKeys(ws).liveWorkflows.key,

@@ -19,7 +19,7 @@
 
 import type { MaterializedEntity, MutationBatch, MutatorContext } from '@openheaders/core/sync';
 import { logger } from '@openheaders/core/utils';
-import { extensionStorage, type StorageKey } from '@openheaders/oracle/storage';
+import { hostStorage, type StorageKey } from '@openheaders/oracle/storage';
 import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';
 import type { EntityOracle } from './oracle';
 import type { SwMutatorContextFactory } from './sw-context';
@@ -194,7 +194,7 @@ async function persist<E extends { uid: string }, T extends string>(
   config: FlatEntityCacheConfig<E, T>,
 ): Promise<void> {
   try {
-    await extensionStorage.set(config.storageKey(workspaceId), entities);
+    await hostStorage.set(config.storageKey(workspaceId), entities);
   } catch (err) {
     // chrome.storage.local writes can fail under quota pressure or
     // during extension reload teardown. Log but don't throw — the

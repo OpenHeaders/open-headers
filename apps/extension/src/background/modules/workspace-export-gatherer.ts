@@ -25,7 +25,7 @@
 import { scanTemplateReferencesMany } from '@openheaders/core/live';
 import type { Collection, Environment, ExportSelection, Folder, LiveVariable, LiveWorkflow, Request, Rule, Template, WorkspaceVariables } from '@openheaders/core/types';
 import type { BuildWorkspaceExportInput } from '@openheaders/core/workspace-export';
-import { extensionStorage, type PersistedLocalFolder, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, type PersistedLocalFolder, wsKeys } from '@openheaders/oracle/storage';
 import { getWorkspace } from './workspace-store';
 
 export type { ExportSelection } from '@openheaders/core/types';
@@ -356,7 +356,7 @@ export async function gatherWorkspaceExport(
   if (!meta) return null;
 
   const k = wsKeys(workspaceId);
-  const src = await extensionStorage.getMany({
+  const src = await hostStorage.getMany({
     rules: k.rules,
     collections: k.collections,
     folders: k.folders,

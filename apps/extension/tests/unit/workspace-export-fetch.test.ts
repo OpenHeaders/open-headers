@@ -13,7 +13,7 @@ vi.mock('@openheaders/oracle/storage', async () => {
   const real = await vi.importActual<typeof import('@openheaders/oracle/storage')>('@openheaders/oracle/storage');
   return {
     ...real,
-    extensionStorage: {
+    hostStorage: {
       get: mockGet,
       set: vi.fn(async () => undefined),
       getMany: vi.fn(async () => ({})),

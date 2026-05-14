@@ -6,7 +6,7 @@
 import { RequestSchema } from '@openheaders/core/schemas';
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Request } from '@openheaders/core/types';
-import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { projectRequest, seedRequest } from '@openheaders/core/sync-builders/request-projection';
 import { driftRecorder } from './storage-drift';
 import type { InMemoryBroadcast } from './broadcast';
@@ -48,7 +48,7 @@ export function createRequestCache(
       project: projectRequest,
       seed: seedRequest,
       loadFromStorage: (ws) =>
-        extensionStorage.getValidatedArray(wsKeys(ws).requests, RequestSchema, {
+        hostStorage.getValidatedArray(wsKeys(ws).requests, RequestSchema, {
           onError: driftRecorder({
             subsystem: 'request-executor',
             storageKey: wsKeys(ws).requests.key,

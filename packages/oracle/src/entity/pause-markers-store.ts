@@ -14,7 +14,7 @@
 
 import type { PauseMarkerKind } from '@openheaders/core/sync';
 import { logger } from '@openheaders/core/utils';
-import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { PAUSE_MARKERS_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
 import type { PauseMarkersCache } from '@openheaders/oracle/sync/pause-markers-cache';
 import { getActiveCacheForRegistration } from '@openheaders/oracle/sync/service';
@@ -51,7 +51,7 @@ export function getPauseMarkers(): ReadonlyMap<string, PauseMarker> {
 let cacheUnsubscribe: (() => void) | null = null;
 
 async function readMarkersFor(workspaceId: string): Promise<Record<string, PauseMarker>> {
-  const raw = await extensionStorage.get(wsKeys(workspaceId).pauseMarkers);
+  const raw = await hostStorage.get(wsKeys(workspaceId).pauseMarkers);
   if (raw && typeof raw === 'object') return raw as Record<string, PauseMarker>;
   return {};
 }

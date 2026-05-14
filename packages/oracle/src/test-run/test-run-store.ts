@@ -39,7 +39,7 @@ import type {
   TreeNode,
 } from '@openheaders/core/types';
 import { canonicalJson } from '@openheaders/core/sync';
-import { extensionStorage, wsKeys } from '../storage';
+import { hostStorage, wsKeys } from '../storage';
 import { getCollectionTrees, getRules } from '../entity/rule-store';
 import { requireActiveWorkspaceId } from '../sync/host-hooks';
 
@@ -66,12 +66,12 @@ function ownerKey(owner: TestRunOwner): string {
 }
 
 async function readStore(workspaceId: string): Promise<StoreShape> {
-  const raw = await extensionStorage.get(wsKeys(workspaceId).testRuns);
+  const raw = await hostStorage.get(wsKeys(workspaceId).testRuns);
   return (raw as StoreShape | undefined) ?? {};
 }
 
 function writeStore(workspaceId: string, store: StoreShape): Promise<void> {
-  return extensionStorage.set(wsKeys(workspaceId).testRuns, store as Record<string, unknown>);
+  return hostStorage.set(wsKeys(workspaceId).testRuns, store as Record<string, unknown>);
 }
 
 /**
@@ -312,5 +312,5 @@ export async function pruneOrphanOwners(liveRuleIds: Set<string>, liveEntityIds:
  * workspace too.
  */
 export async function purgeWorkspaceTestRuns(workspaceId: string): Promise<void> {
-  await extensionStorage.remove(wsKeys(workspaceId).testRuns);
+  await hostStorage.remove(wsKeys(workspaceId).testRuns);
 }

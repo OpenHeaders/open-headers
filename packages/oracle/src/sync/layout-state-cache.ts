@@ -4,14 +4,14 @@
  * Thin adapter over the shared `singleton-entity-cache.ts` core. Keeps
  * the entity-named API (`getSnapshot`, `seedFromPersistedLayout`) so
  * call sites (`useResponsiveLayout` / `useDockLayoutStorage` hooks via
- * `extensionStorage.subscribe`) stay unchanged.
+ * `hostStorage.subscribe`) stay unchanged.
  *
  * Layout is pure UX state, not secrets — broadcast + sync transports
  * carry it freely. No sensitivity scrub needed.
  */
 
 import { LAYOUT_STATE_ENTITY_TYPE } from '@openheaders/core/sync';
-import { extensionStorage, type PersistedPanelLayout, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, type PersistedPanelLayout, wsKeys } from '@openheaders/oracle/storage';
 import { EMPTY_LAYOUT_STATE, type LayoutStateSnapshot, seedLayoutState } from '@openheaders/core/sync-builders/layout-state-projection';
 import type { InMemoryBroadcast } from './broadcast';
 import { projectLayoutStateSingleton } from './layout-state-post-state';
@@ -50,10 +50,10 @@ export function createLayoutStateCache(
       buildSeedBatch: (input, ctx) => (input ? seedLayoutState(input, ctx) : null),
       persist: async (scope, snap) => {
         if (snap.layout === null || snap.layout === undefined) return;
-        await extensionStorage.set(wsKeys(scope).panelLayout, snap.layout as PersistedPanelLayout);
+        await hostStorage.set(wsKeys(scope).panelLayout, snap.layout as PersistedPanelLayout);
       },
       loadFromStorage: async (scope) => {
-        const raw = await extensionStorage.get(wsKeys(scope).panelLayout);
+        const raw = await hostStorage.get(wsKeys(scope).panelLayout);
         return raw ?? null;
       },
     });

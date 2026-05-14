@@ -16,7 +16,7 @@
  */
 
 import { OAUTH_BUNDLE_ENTITY_TYPE } from '@openheaders/core/sync';
-import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { type OAuthBundleSnapshot, seedOAuthBundle } from '@openheaders/core/sync-builders/oauth-bundle-projection';
 import type { InMemoryBroadcast } from './broadcast';
 import { projectOAuthBundleSingleton } from './oauth-bundle-post-state';
@@ -82,10 +82,10 @@ export function createOAuthBundleCache(
         };
       },
       buildSeedBatch: (input, ctx) => seedOAuthBundle(input, ctx),
-      persist: (scope, snap) => extensionStorage.set(wsKeys(scope).oauth, snap),
+      persist: (scope, snap) => hostStorage.set(wsKeys(scope).oauth, snap),
       beforeSeed: (input) => input,
       loadFromStorage: async (scope) => {
-        const raw = await extensionStorage.get(wsKeys(scope).oauth);
+        const raw = await hostStorage.get(wsKeys(scope).oauth);
         if (!raw) return null;
         return normalizeBlob(raw);
       },

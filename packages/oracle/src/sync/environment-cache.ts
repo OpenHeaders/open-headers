@@ -6,7 +6,7 @@
 import { EnvironmentSchema } from '@openheaders/core/schemas';
 import { ENVIRONMENT_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Environment } from '@openheaders/core/types';
-import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { projectEnvironment, seedEnvironment } from '@openheaders/core/sync-builders/env-projection';
 import { driftRecorder } from './storage-drift';
 import type { InMemoryBroadcast } from './broadcast';
@@ -43,7 +43,7 @@ export function createEnvironmentCache(
       project: projectEnvironment,
       seed: seedEnvironment,
       loadFromStorage: (ws) =>
-        extensionStorage.getValidatedArray(wsKeys(ws).environments, EnvironmentSchema, {
+        hostStorage.getValidatedArray(wsKeys(ws).environments, EnvironmentSchema, {
           onError: driftRecorder({
             subsystem: 'environment',
             storageKey: wsKeys(ws).environments.key,

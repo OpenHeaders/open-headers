@@ -54,7 +54,7 @@ import type { LiveVariable, LiveWorkflow } from '@openheaders/core/types';
 import { alarms } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { report as reportStatus } from '@openheaders/ui/shared/status';
-import { extensionStorage, OH } from '@openheaders/oracle/storage';
+import { hostStorage, OH } from '@openheaders/oracle/storage';
 import { getActiveEnvironmentId, onActiveEnvironmentChange } from '@openheaders/oracle/entity/environment-store';
 import {
   listCachesForWorkflow,
@@ -266,7 +266,7 @@ interface LiveEntry {
 
 async function collectEntries(): Promise<LiveEntry[]> {
   const activeWorkflows = getLiveWorkflows();
-  const activeId = (await extensionStorage.get(OH.runtimeActive)) ?? '';
+  const activeId = (await hostStorage.get(OH.runtimeActive)) ?? '';
   if (activeWorkflows.length === 0 || typeof activeId !== 'string' || activeId.length === 0) return [];
 
   const out: LiveEntry[] = [];

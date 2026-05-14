@@ -13,7 +13,7 @@
 import { VaultSchema } from '@openheaders/core/schemas';
 import { VAULT_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Vault } from '@openheaders/core/types';
-import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { seedVault } from '@openheaders/core/sync-builders/vault-projection';
 import { driftRecorder } from './storage-drift';
 import type { InMemoryBroadcast } from './broadcast';
@@ -55,9 +55,9 @@ export function createVaultCache(
       emptySnapshot: EMPTY_VAULT,
       project: (o) => projectVaultSingleton(o)?.vault ?? null,
       buildSeedBatch: (vault, ctx) => seedVault(vault, ctx),
-      persist: (scope, vault) => extensionStorage.set(wsKeys(scope).vault, vault),
+      persist: (scope, vault) => hostStorage.set(wsKeys(scope).vault, vault),
       loadFromStorage: (scope) =>
-        extensionStorage.getValidated(wsKeys(scope).vault, VaultSchema, {
+        hostStorage.getValidated(wsKeys(scope).vault, VaultSchema, {
           onError: driftRecorder({
             subsystem: 'vault',
             storageKey: wsKeys(scope).vault.key,

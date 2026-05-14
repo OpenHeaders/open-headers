@@ -1,5 +1,6 @@
 import { setHostBridge } from '@openheaders/core/bridge';
 import { setHostLogger } from '@openheaders/core/logger';
+import { setHostStorage } from '@openheaders/core/storage';
 import { logger } from '@openheaders/core/utils';
 import { vi } from 'vitest';
 import { chrome } from './__mocks__/chrome';
@@ -24,3 +25,12 @@ setHostLogger(logger);
 // dynamic import rather than a hoisted static one.
 const { chromeBridge } = await import('@/utils/bridge');
 setHostBridge(chromeBridge);
+
+// Install the host-storage adapter once for the whole suite — mirrors
+// `install-host-storage` at boot. The chrome-backed `extensionStorage`
+// adapter runs against the mocked chrome API, so any oracle/background
+// code reaching for `hostStorage` resolves exactly as production does.
+// Tests that need a controllable in-memory store override it per-file
+// with `setHostStorage(fake)` in `beforeEach`.
+const { extensionStorage } = await import('@openheaders/oracle/storage');
+setHostStorage(extensionStorage);

@@ -31,7 +31,7 @@ import type { Collection, CollectionTree, Request, TreeNode } from '@openheaders
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { logger } from '@openheaders/core/utils';
 import type { PersistedLocalFolder } from '@openheaders/oracle/storage';
-import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import {
   buildDeleteRequestCollectionBatch,
   buildRenameRequestCollectionBatch,
@@ -552,13 +552,13 @@ interface WorkspaceSnapshot {
 async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnapshot> {
   const keys = wsKeys(workspaceId);
   const [requests, collections, folders] = await Promise.all([
-    extensionStorage.getValidatedArray(keys.requests, RequestSchema, {
+    hostStorage.getValidatedArray(keys.requests, RequestSchema, {
       onError: driftRecorder({ subsystem: 'request-executor', storageKey: keys.requests.key, workspaceId }),
     }),
-    extensionStorage.getValidatedArray(keys.requestCollections, CollectionSchema, {
+    hostStorage.getValidatedArray(keys.requestCollections, CollectionSchema, {
       onError: driftRecorder({ subsystem: 'request-executor', storageKey: keys.requestCollections.key, workspaceId }),
     }),
-    extensionStorage.getValidatedArray(keys.requestFolders, FolderSchema, {
+    hostStorage.getValidatedArray(keys.requestFolders, FolderSchema, {
       onError: driftRecorder({ subsystem: 'request-executor', storageKey: keys.requestFolders.key, workspaceId }),
     }),
   ]);

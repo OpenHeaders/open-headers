@@ -878,7 +878,7 @@ storage.onChanged.addListener((changes: { [key: string]: chrome.storage.StorageC
       // The pause-markers cache owns persistence + drives the in-memory
       // mirror via broadcast; the dnr-intent runner schedules recompile
       // off the same broadcast (RECOMPILE_DNR keyed by the singleton id).
-      // The renderer-side `extensionStorage.subscribe` listener in
+      // The renderer-side `hostStorage.subscribe` listener in
       // RuleContext.tsx still picks up the storage change directly. Only
       // remaining side-effect on this listener is the badge refresh.
       debouncedUpdateBadge();

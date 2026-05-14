@@ -6,7 +6,7 @@
 import { LiveVariableSchema } from '@openheaders/core/schemas';
 import { LIVE_VARIABLE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { LiveVariable } from '@openheaders/core/types';
-import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { projectLiveVariable, seedLiveVariable } from '@openheaders/core/sync-builders/live-variable-projection';
 import { driftRecorder } from './storage-drift';
 import type { InMemoryBroadcast } from './broadcast';
@@ -43,7 +43,7 @@ export function createLiveVariableCache(
       project: projectLiveVariable,
       seed: seedLiveVariable,
       loadFromStorage: (ws) =>
-        extensionStorage.getValidatedArray(wsKeys(ws).liveVariables, LiveVariableSchema, {
+        hostStorage.getValidatedArray(wsKeys(ws).liveVariables, LiveVariableSchema, {
           onError: driftRecorder({
             subsystem: 'live',
             storageKey: wsKeys(ws).liveVariables.key,

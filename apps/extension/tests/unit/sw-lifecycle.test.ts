@@ -26,7 +26,12 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { installBackingStorage, seedStorage, seedStorageMany } from '../helpers/chrome-storage-backing';
+import {
+  installBackingStorage,
+  installHostStorage,
+  seedStorage,
+  seedStorageMany,
+} from '../helpers/chrome-storage-backing';
 
 function workspace(id: string, overrides: Record<string, unknown> = {}) {
   return {
@@ -51,9 +56,10 @@ function makeUid(seed: string): string {
 }
 
 describe('SW lifecycle — persisted stores reconstruct from storage alone', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     installBackingStorage();
     vi.resetModules();
+    await installHostStorage();
   });
 
   // ── observability-log ──────────────────────────────────────────────
@@ -85,6 +91,7 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
 
     // Kill + wake.
     vi.resetModules();
+    await installHostStorage();
     const second = await import('@/background/modules/observability-log');
     expect(second.getObservabilityLog()).toHaveLength(0);
     await second.hydrateObservabilityLog();
@@ -106,6 +113,7 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
     expect(first.getActiveWorkspaceId()).toBe('ws-b');
 
     vi.resetModules();
+    await installHostStorage();
     const second = await import('@/background/modules/workspace-store');
     await second.bootstrap();
     expect(second.listWorkspaces()).toHaveLength(2);
@@ -147,6 +155,7 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
     expect(env.getVault().secrets[0].name).toBe('TOKEN');
 
     vi.resetModules();
+    await installHostStorage();
     ws = await import('@/background/modules/workspace-store');
     await ws.bootstrap();
     oracleSync = await import('@openheaders/oracle/sync');
@@ -203,6 +212,7 @@ describe('SW lifecycle — persisted stores reconstruct from storage alone', () 
     expect(store.getCollections()).toHaveLength(1);
 
     vi.resetModules();
+    await installHostStorage();
     ws = await import('@/background/modules/workspace-store');
     await ws.bootstrap();
     oracleSync = await import('@openheaders/oracle/sync');

@@ -47,7 +47,7 @@ import {
 import type { WorkflowRunCache } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
 import { entityLockName, withLock } from '@openheaders/oracle/coordination';
-import { extensionStorage, OH, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, OH, wsKeys } from '@openheaders/oracle/storage';
 import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 
 export type { WorkflowRunCache } from '@openheaders/core/types';
@@ -108,12 +108,12 @@ function runKey(workflowUid: string, environmentId: string | null): string {
 // ── IO ─────────────────────────────────────────────────────────────
 
 async function readBlob(workspaceId: string): Promise<LiveCacheBlob> {
-  const raw = await extensionStorage.get(wsKeys(workspaceId).liveCache);
+  const raw = await hostStorage.get(wsKeys(workspaceId).liveCache);
   return normalizeBlob(raw);
 }
 
 async function writeBlob(workspaceId: string, blob: LiveCacheBlob): Promise<void> {
-  await extensionStorage.set(wsKeys(workspaceId).liveCache, blob);
+  await hostStorage.set(wsKeys(workspaceId).liveCache, blob);
 }
 
 function resolveWorkspaceId(workspaceId: string | undefined): string {
@@ -481,7 +481,7 @@ export async function clearWorkflowRunCache(workflowUid: string, workspaceId?: s
 
 export async function purgeLiveCacheForWorkspace(workspaceId: string): Promise<void> {
   await withCacheLock(workspaceId, async () => {
-    await extensionStorage.remove(wsKeys(workspaceId).liveCache);
+    await hostStorage.remove(wsKeys(workspaceId).liveCache);
     logger.info('LiveCacheStore', `Purged all workflow-run caches for workspace ${workspaceId}`);
   });
   notifyChange(workspaceId, null, []);
@@ -500,7 +500,7 @@ export interface WorkspaceCacheEntry {
 }
 
 export async function listAllWorkspaceCaches(): Promise<WorkspaceCacheEntry[]> {
-  const workspaces = (await extensionStorage.get(OH.workspaces)) ?? [];
+  const workspaces = (await hostStorage.get(OH.workspaces)) ?? [];
   const out: WorkspaceCacheEntry[] = [];
   for (const ws of workspaces) {
     const blob = await readBlob(ws.id);

@@ -31,7 +31,7 @@ import {
 import type { Collection, CollectionTree, Rule, TreeNode, Variable } from '@openheaders/core/types';
 import { generateUid, logger, toFolderName } from '@openheaders/core/utils';
 import { entityLockName, withLock } from '@openheaders/oracle/coordination';
-import { extensionStorage, type PersistedLocalFolder, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, type PersistedLocalFolder, wsKeys } from '@openheaders/oracle/storage';
 import {
   buildDeleteCollectionBatch,
   buildRenameCollectionBatch,
@@ -632,7 +632,7 @@ interface WorkspaceSnapshot {
 async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnapshot> {
   const keys = wsKeys(workspaceId);
   const [rules, collections, folders] = await Promise.all([
-    extensionStorage.getValidatedArray(keys.rules, RuleSchema, {
+    hostStorage.getValidatedArray(keys.rules, RuleSchema, {
       onError: driftRecorder({
         subsystem: 'rule-engine',
         statusSubsystem: 'rules',
@@ -640,7 +640,7 @@ async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnap
         workspaceId,
       }),
     }),
-    extensionStorage.getValidatedArray(keys.collections, CollectionSchema, {
+    hostStorage.getValidatedArray(keys.collections, CollectionSchema, {
       onError: driftRecorder({
         subsystem: 'rule-engine',
         statusSubsystem: 'rules',
@@ -648,7 +648,7 @@ async function readWorkspaceSnapshot(workspaceId: string): Promise<WorkspaceSnap
         workspaceId,
       }),
     }),
-    extensionStorage.getValidatedArray(keys.folders, FolderSchema, {
+    hostStorage.getValidatedArray(keys.folders, FolderSchema, {
       onError: driftRecorder({
         subsystem: 'rule-engine',
         statusSubsystem: 'rules',

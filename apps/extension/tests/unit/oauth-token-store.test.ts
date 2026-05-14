@@ -15,7 +15,7 @@ vi.mock('@/background/modules/workspace-store', () => ({
   getActiveWorkspaceId: vi.fn(() => 'ws-oauth'),
 }));
 
-import { installBackingStorage, snapshotStorage } from '../helpers/chrome-storage-backing';
+import { installBackingStorage, installHostStorage, snapshotStorage } from '../helpers/chrome-storage-backing';
 
 class FifoLockRuntime {
   private queues = new Map<string, Array<() => void>>();
@@ -44,6 +44,7 @@ let store: typeof import('@openheaders/oracle/entity/oauth-token-store');
 beforeEach(async () => {
   installBackingStorage();
   vi.resetModules();
+  await installHostStorage();
   const lockModule = await import('@openheaders/oracle/coordination');
   lockModule.setLockRuntime(new FifoLockRuntime());
   const { setOracleHostHooks } = await import('@openheaders/oracle/sync');

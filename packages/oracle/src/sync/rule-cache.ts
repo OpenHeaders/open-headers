@@ -30,7 +30,7 @@
 import { RuleSchema } from '@openheaders/core/schemas';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Rule } from '@openheaders/core/types';
-import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { projectRule, seedRule } from '@openheaders/core/sync-builders/rule-projection';
 import { driftRecorder } from './storage-drift';
 import type { InMemoryBroadcast } from './broadcast';
@@ -62,7 +62,7 @@ export function createRuleCache(
     // Re-project only on rule envelopes. The legacy "fire on every
     // broadcast" stance was load-bearing for nothing — `projectRule`
     // is type-filtered, so cross-entity broadcasts (env, collection,
-    // template, …) just produced redundant `extensionStorage.set`
+    // template, …) just produced redundant `hostStorage.set`
     // calls with the same rule list. Worse, those redundant persists
     // could WRITE OVER user data with `[]` if they fired during a
     // narrow window where the oracle had been disposed but the cache
@@ -73,7 +73,7 @@ export function createRuleCache(
     project: projectRule,
     seed: seedRule,
     loadFromStorage: (ws) =>
-      extensionStorage.getValidatedArray(wsKeys(ws).rules, RuleSchema, {
+      hostStorage.getValidatedArray(wsKeys(ws).rules, RuleSchema, {
         onError: driftRecorder({
           subsystem: 'rule-engine',
           statusSubsystem: 'rules',

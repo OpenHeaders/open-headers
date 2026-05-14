@@ -1,6 +1,6 @@
 /**
  * Shared helper for recording schema-drift events emitted by
- * `extensionStorage.getValidatedArray` on hydrate paths.
+ * `hostStorage.getValidatedArray` on hydrate paths.
  *
  * Each store that hydrates persisted entities on SW wake passes a
  * `logDrift(...)` callback to the validator. When a stored entry fails
@@ -38,7 +38,7 @@ export interface StorageDriftOptions {
 /**
  * Factory — returns an `onError` callback matching
  * `ParseEntityOptions.onError`. Suitable for passing straight to
- * `extensionStorage.getValidatedArray(spec, schema, { onError })`.
+ * `hostStorage.getValidatedArray(spec, schema, { onError })`.
  */
 export function driftRecorder(
   options: StorageDriftOptions,

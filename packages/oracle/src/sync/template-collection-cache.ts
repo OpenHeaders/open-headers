@@ -6,7 +6,7 @@
 import { CollectionSchema } from '@openheaders/core/schemas';
 import { TEMPLATE_COLLECTION_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Collection } from '@openheaders/core/types';
-import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { projectTemplateCollection, seedTemplateCollection } from '@openheaders/core/sync-builders/template-collection-projection';
 import { driftRecorder } from './storage-drift';
 import type { InMemoryBroadcast } from './broadcast';
@@ -43,7 +43,7 @@ export function createTemplateCollectionCache(
       project: projectTemplateCollection,
       seed: seedTemplateCollection,
       loadFromStorage: (ws) =>
-        extensionStorage.getValidatedArray(wsKeys(ws).templateCollections, CollectionSchema, {
+        hostStorage.getValidatedArray(wsKeys(ws).templateCollections, CollectionSchema, {
           onError: driftRecorder({
             subsystem: 'rule-engine',
             storageKey: wsKeys(ws).templateCollections.key,

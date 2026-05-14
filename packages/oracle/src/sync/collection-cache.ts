@@ -20,7 +20,7 @@ import type { MaterializedEntity } from '@openheaders/core/sync';
 import { COLLECTION_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Collection } from '@openheaders/core/types';
 import { logger } from '@openheaders/core/utils';
-import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
+import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import { projectCollection, seedCollection } from '@openheaders/core/sync-builders/collection-projection';
 import { driftRecorder } from './storage-drift';
 import type { BroadcastEvent, InMemoryBroadcast } from './broadcast';
@@ -99,7 +99,7 @@ export function createCollectionCache(
 
     async hydrateFromStorage(): Promise<void> {
       try {
-        const persisted = await extensionStorage.getValidatedArray(wsKeys(workspaceId).collections, CollectionSchema, {
+        const persisted = await hostStorage.getValidatedArray(wsKeys(workspaceId).collections, CollectionSchema, {
           onError: driftRecorder({
             subsystem: 'rule-engine',
             storageKey: wsKeys(workspaceId).collections.key,
@@ -143,7 +143,7 @@ function projectAllCollections(materialized: MaterializedEntity[]): Collection[]
 
 async function persist(workspaceId: string, collections: Collection[]): Promise<void> {
   try {
-    await extensionStorage.set(wsKeys(workspaceId).collections, collections);
+    await hostStorage.set(wsKeys(workspaceId).collections, collections);
   } catch (err) {
     logger.info('CollectionCache', `persist failed (ws=${workspaceId}):`, (err as Error).message);
   }

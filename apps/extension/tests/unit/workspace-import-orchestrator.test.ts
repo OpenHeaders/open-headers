@@ -3,7 +3,7 @@
  * (`workspace-import-orchestrator.ts`).
  *
  * Drives an end-to-end import (target = current / new) against a
- * Map-backed `extensionStorage` mock + a deterministic FIFO lock
+ * Map-backed `hostStorage` mock + a deterministic FIFO lock
  * runtime, then asserts:
  *   • Force-disable on Rule / LiveWorkflow / LiveVariable
  *   • Workspace metadata behavior (target=new uses export's name)
@@ -109,7 +109,7 @@ vi.mock('@openheaders/oracle/storage', async () => {
   const actual = await vi.importActual<typeof import('@openheaders/oracle/storage')>('@openheaders/oracle/storage');
   return {
     ...actual,
-    extensionStorage: {
+    hostStorage: {
       get: vi.fn(async (key: { key: string }) => blobs.get(key.key)),
       getMany: vi.fn(async (specs: Record<string, { key: string }>) => {
         const out: Record<string, unknown> = {};

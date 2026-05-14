@@ -29,7 +29,7 @@ import { broadcast } from '@utils/bridge';
 import { logger } from '@utils/logger';
 import { LogRing } from '@/shared/observability/ring';
 import type { LogEntry } from '@openheaders/core/types';
-import { extensionStorage, OH } from '@openheaders/oracle/storage';
+import { hostStorage, OH } from '@openheaders/oracle/storage';
 
 const PERSIST_DEBOUNCE_MS = 250;
 
@@ -58,7 +58,7 @@ function getExtensionVersion(): string | undefined {
 export async function hydrateObservabilityLog(): Promise<void> {
   if (hydrated) return;
   try {
-    const stored = await extensionStorage.get(OH.observabilityLog);
+    const stored = await hostStorage.get(OH.observabilityLog);
     if (Array.isArray(stored)) ring.hydrate(stored);
   } catch (err) {
     // Storage read failed — keep an empty ring and move on. We don't
@@ -105,7 +105,7 @@ function schedulePersist(): void {
   if (persistTimer) return;
   persistTimer = setTimeout(() => {
     persistTimer = null;
-    void extensionStorage.set(OH.observabilityLog, ring.snapshot()).catch((err: unknown) => {
+    void hostStorage.set(OH.observabilityLog, ring.snapshot()).catch((err: unknown) => {
       logger.warn('ObservabilityLog', 'Persist failed', err);
     });
   }, PERSIST_DEBOUNCE_MS);
