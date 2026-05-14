@@ -6,7 +6,7 @@
  */
 
 import { BulbFilled, BulbOutlined } from '@ant-design/icons';
-import { useTheme } from '@context/ThemeContext';
+import { useTheme } from '@openheaders/ui/context';
 import { productStatusExtras, StatusPill } from '@openheaders/ui/shared/status';
 import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import { Dropdown, type MenuProps, Space, theme } from 'antd';

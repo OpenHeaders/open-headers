@@ -13,13 +13,13 @@ import {
   StarTwoTone,
   ThunderboltTwoTone,
 } from '@ant-design/icons';
-import { useKeyboardNav } from '@context/KeyboardNavContext';
+import { hostAssets } from '@openheaders/core/assets';
+import { hostStorage, UI } from '@openheaders/core/storage';
+import { DockSlotIcon, LayoutMenuIcon } from '@openheaders/ui/shared/dock-layout';
 import { Space, Tour, type TourProps, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { DockSlotIcon, LayoutMenuIcon } from '@openheaders/ui/shared/dock-layout';
-import { hostStorage, UI } from '@openheaders/core/storage';
-import { hostAssets } from '@openheaders/core/assets';
+import { useKeyboardNav } from '../shortcuts/KeyboardNavContext';
 
 const logoUrl = hostAssets.resolveUrl('images/logo-pixel.svg');
 

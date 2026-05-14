@@ -10,7 +10,7 @@
  *
  * The variant also publishes a Monaco theme id (`monacoTheme`) so
  * editor surfaces — CodeEditor, ScriptEditor, CodeViewer, MergePane,
- * RichDiffEditor — switch in lockstep with the chrome.
+ * RichDiffEditor — switch in lockstep with the surrounding UI.
  *
  * The `useTheme()` API surface stays compatible with existing callers:
  * `themeMode`, `isDarkMode`, `isCompactMode`, `toggleCompactMode`, etc.
@@ -21,7 +21,7 @@
  * Requires `SettingsProvider` to be mounted above this component.
  */
 
-import { UiThemeProvider } from '@openheaders/ui/context';
+import { UiThemeProvider } from './ui-theme';
 import { getVariant, type ThemeVariant } from '@openheaders/ui/themes';
 import { setSettingValue, useSettingValue } from '@openheaders/ui/workbench/settings';
 import { resolveAppearanceFontFamily } from '@openheaders/ui/workbench/settings/schema/appearance';
@@ -94,9 +94,9 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
 
   // Mirror the resolved theme onto the document element and into
   // localStorage so the next page load can render the correct theme on
-  // its first paint via `src/assets/theme-init.js`. localStorage is the
-  // only synchronous storage available in the pre-mount script — the
-  // settings store itself lives in chrome.storage, which is async.
+  // its first paint via the host's pre-mount theme script. localStorage
+  // is the only synchronous storage available in that pre-mount script —
+  // the settings store itself is host-backed and async.
   useEffect(() => {
     const resolved = isDarkMode ? 'dark' : 'light';
     const root = document.documentElement;

@@ -1,10 +1,10 @@
 import { AppstoreOutlined, AppstoreTwoTone, FolderTwoTone, ThunderboltTwoTone } from '@ant-design/icons';
-import { useKeyboardNav } from '@context/KeyboardNavContext';
-import { Button, Tabs, Tooltip } from 'antd';
-import type React from 'react';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useSurface } from '@openheaders/ui/shared/surface';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
+import { Button, Tabs, Tooltip } from 'antd';
+import type React from 'react';
+import { useKeyboardNav } from '../shortcuts/KeyboardNavContext';
 import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
 import CollectionManager from './CollectionManager';
 import RulesTable from './RulesTable';

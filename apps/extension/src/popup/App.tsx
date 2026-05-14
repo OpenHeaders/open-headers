@@ -1,5 +1,3 @@
-import { KeyboardNavProvider, useKeyboardNav } from '@context/KeyboardNavContext';
-import { useTheme } from '@context/ThemeContext';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import { hostStorage, UI } from '@openheaders/core/storage';
 import ErrorBoundary from '@openheaders/ui/components/ErrorBoundary';
@@ -12,6 +10,7 @@ import {
   PauseMarkersProvider,
   RequestsProvider,
   RuleProvider,
+  useTheme,
   VaultProvider,
   WorkspaceVariablesProvider,
 } from '@openheaders/ui/context';
@@ -29,6 +28,7 @@ import Header from './components/Header';
 import KeyboardShortcutsOverlay from './components/KeyboardShortcutsOverlay';
 import OnboardingTour from './components/OnboardingTour';
 import RulesList from './components/RulesList';
+import { KeyboardNavProvider, useKeyboardNav } from './shortcuts/KeyboardNavContext';
 
 const { Content } = Layout;
 

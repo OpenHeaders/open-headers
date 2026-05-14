@@ -1,5 +1,4 @@
 import { NodeExpandOutlined, SettingOutlined } from '@ant-design/icons';
-import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { hostAssets } from '@openheaders/core/assets';
 import { hostNavigation } from '@openheaders/core/navigation';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
@@ -9,6 +8,7 @@ import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { App, Button, Space, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect } from 'react';
+import { useKeyboardNav } from '../shortcuts/KeyboardNavContext';
 import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
 import { SurfaceTargetIcon } from './SurfaceTargetIcon';
 import WorkspacePill from './WorkspacePill';

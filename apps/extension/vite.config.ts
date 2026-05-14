@@ -152,7 +152,6 @@ function buildFireBridgePlugin() {
             '@assets': path.resolve(__dirname, 'src/assets'),
             '@styles': path.resolve(__dirname, 'src/assets/styles'),
             '@utils': path.resolve(__dirname, 'src/utils'),
-            '@context': path.resolve(__dirname, 'src/context'),
           },
         },
         build: {
@@ -199,7 +198,6 @@ function buildPerfObserverPlugin() {
             '@assets': path.resolve(__dirname, 'src/assets'),
             '@styles': path.resolve(__dirname, 'src/assets/styles'),
             '@utils': path.resolve(__dirname, 'src/utils'),
-            '@context': path.resolve(__dirname, 'src/context'),
           },
         },
         build: {
@@ -239,7 +237,6 @@ export default defineConfig({
       '@assets': path.resolve(__dirname, 'src/assets'),
       '@styles': path.resolve(__dirname, 'src/assets/styles'),
       '@utils': path.resolve(__dirname, 'src/utils'),
-      '@context': path.resolve(__dirname, 'src/context'),
     },
   },
 

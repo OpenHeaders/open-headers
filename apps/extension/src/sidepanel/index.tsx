@@ -5,7 +5,7 @@ import '@/host/install-build-info';
 import '@/host/install-awareness-host';
 import '@/host/install-navigation-host';
 import '@/host/install-assets-host';
-import { ThemeProvider } from '@context/ThemeContext';
+import { ThemeProvider } from '@openheaders/ui/context';
 import { SurfaceProvider } from '@openheaders/ui/shared/surface';
 import { SettingsProvider } from '@openheaders/ui/workbench/settings';
 import { App as AntApp } from 'antd';

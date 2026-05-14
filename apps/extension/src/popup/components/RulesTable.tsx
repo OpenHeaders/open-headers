@@ -7,15 +7,17 @@ import {
   PlusOutlined,
   SortAscendingOutlined,
 } from '@ant-design/icons';
-import { useKeyboardNav } from '@context/KeyboardNavContext';
+import type { ExtensionRuleType, RuleCondition, RuleType } from '@openheaders/core/types';
+import { getActionDetail, isRuleComplete, isRuleDraft, resolvePauseState } from '@openheaders/core/utils';
+import { resolveRule } from '@openheaders/core/variables';
 import { useRowActionRegistration } from '@openheaders/ui/shared/hooks/useRowActionRegistration';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { useTablePagination } from '@openheaders/ui/shared/hooks/useTablePagination';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
-import type { ExtensionRuleType, RuleCondition, RuleType } from '@openheaders/core/types';
-import { getActionDetail, isRuleComplete, isRuleDraft, resolvePauseState } from '@openheaders/core/utils';
-import { resolveRule } from '@openheaders/core/variables';
+import { useSurface } from '@openheaders/ui/shared/surface';
+import { compareBySortMode, type PageInfo, type RowActions, type SortMode } from '@openheaders/ui/shared/table-shared';
+import { openWorkspace, type WorkspaceIntent } from '@openheaders/ui/shared/workspace-intent';
 import {
   App,
   Button,
@@ -35,9 +37,7 @@ import type { ColumnsType } from 'antd/es/table';
 import type { FilterValue, SorterResult } from 'antd/es/table/interface';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useSurface } from '@openheaders/ui/shared/surface';
-import { openWorkspace, type WorkspaceIntent } from '@openheaders/ui/shared/workspace-intent';
-import { compareBySortMode, type PageInfo, type RowActions, type SortMode } from '@openheaders/ui/shared/table-shared';
+import { useKeyboardNav } from '../shortcuts/KeyboardNavContext';
 import { AddRulePalette } from './AddRulePalette';
 import {
   type ActionDetail,

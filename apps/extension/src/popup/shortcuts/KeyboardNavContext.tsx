@@ -1,10 +1,10 @@
 import { useDeleteConfirmation } from '@openheaders/ui/shared/hooks/useDeleteConfirmation';
-import { type FooterActions, type HeaderActions, useKeyboardDispatch } from '@/popup/shortcuts/useKeyboardDispatch';
 import { useKeyboardFocus } from '@openheaders/ui/shared/hooks/useKeyboardFocus';
 import { useKeyboardScrollAndHighlight } from '@openheaders/ui/shared/hooks/useKeyboardScrollAndHighlight';
+import type { PageInfo, RowActions } from '@openheaders/ui/shared/table-shared';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import type { PageInfo, RowActions } from '@openheaders/ui/shared/table-shared';
+import { type FooterActions, type HeaderActions, useKeyboardDispatch } from './useKeyboardDispatch';
 
 export type { FooterActions, HeaderActions };
 

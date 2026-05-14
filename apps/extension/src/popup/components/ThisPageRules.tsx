@@ -10,7 +10,6 @@ import {
   InfoCircleOutlined,
   SortAscendingOutlined,
 } from '@ant-design/icons';
-import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { resolvePauseState } from '@openheaders/core/utils';
 import { scheduleFrame } from '@openheaders/ui/shared/frame-scheduler';
 import { useRowActionRegistration } from '@openheaders/ui/shared/hooks/useRowActionRegistration';
@@ -52,6 +51,7 @@ import type { FilterValue, SorterResult } from 'antd/es/table/interface';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SilentMatchRecord } from '@/types/browser';
+import { useKeyboardNav } from '../shortcuts/KeyboardNavContext';
 import {
   renderActionDetails,
   renderTagOverflow,

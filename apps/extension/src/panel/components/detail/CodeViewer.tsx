@@ -10,8 +10,8 @@
  *     body re-scrolls.
  */
 
-import { useTheme } from '@context';
 import Editor from '@monaco-editor/react';
+import { useTheme } from '@openheaders/ui/context';
 import type * as monaco from 'monaco-editor';
 import { useEffect, useRef } from 'react';
 // Side-effect import: kicks Monaco's bootstrap at module load.

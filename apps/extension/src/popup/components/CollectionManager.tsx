@@ -8,25 +8,25 @@ import {
   PauseCircleOutlined,
   SortAscendingOutlined,
 } from '@ant-design/icons';
-import { useKeyboardNav } from '@context/KeyboardNavContext';
-import { useRowActionRegistration } from '@openheaders/ui/shared/hooks/useRowActionRegistration';
-import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
-import { useRules } from '@openheaders/ui/shared/hooks/useRules';
-import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
 import type { CollectionTree, FolderNode, Rule, RuleCondition, RuleType, TreeNode } from '@openheaders/core/types';
 import type { PauseMarkers } from '@openheaders/core/utils';
 import { type ActionDetail, getActionDetail, isRuleComplete, isRuleDraft } from '@openheaders/core/utils';
 import type { VariableResolver } from '@openheaders/core/variables';
 import { resolveRule } from '@openheaders/core/variables';
+import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
+import { useRowActionRegistration } from '@openheaders/ui/shared/hooks/useRowActionRegistration';
+import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
+import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
+import { useSurface } from '@openheaders/ui/shared/surface';
+import type { PageInfo, RowActions } from '@openheaders/ui/shared/table-shared';
+import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { App, Button, Dropdown, Empty, Input, Space, Switch, Table, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
-import { useSurface } from '@openheaders/ui/shared/surface';
-import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
+import { useKeyboardNav } from '../shortcuts/KeyboardNavContext';
 import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
-import type { PageInfo, RowActions } from '@openheaders/ui/shared/table-shared';
 import { renderActionDetails, renderConditionsSummary } from './columns/sharedColumnRenderers';
 import TestRunModal, { type TestRunOwnerType } from './TestRunModal';
 
