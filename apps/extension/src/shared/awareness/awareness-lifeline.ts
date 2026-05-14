@@ -1,27 +1,28 @@
 /**
  * Renderer-side awareness lifeline.
  *
- * Opens a long-lived `chrome.runtime.Port` named
- * `oh.awareness.lifeline:<instanceId>` for the surface's lifetime.
- * The SW's `awareness-lifeline.ts` handler treats `port.onDisconnect`
+ * Opens a long-lived lifeline port named `oh.awareness.lifeline:<instanceId>`
+ * for the surface's lifetime through the host-agnostic
+ * {@link lifelineTransport} seam. The host treats the port's disconnect
  * as the canonical "this surface is gone" signal — connection-bound
  * liveness instead of the previous heartbeat-with-TTL polling scheme,
  * which flapped under Chrome's background-tab timer throttling.
  *
- * SW eviction is the only case the renderer side has to handle
- * actively: when MV3 evicts the SW, the port disconnects on the
- * renderer side too. We reconnect transparently so the SW's awareness
- * store rebuilds the row as soon as the next publish lands. The
- * `onReconnect` callback gives consumers a chance to re-publish
- * immediately rather than waiting for the next focus/dirty change.
+ * Transport eviction is the only case the renderer side has to handle
+ * actively: when an MV3 service worker is evicted the port disconnects
+ * here too. We reconnect transparently so the host's awareness store
+ * rebuilds the row as soon as the next publish lands. The `onReconnect`
+ * callback gives consumers a chance to re-publish immediately rather
+ * than waiting for the next focus/dirty change.
  *
- * Same shape as the popup/sidepanel `presence(name)` plumbing — the
- * existing pattern in this codebase. For Mode 2/3 (standalone oracle
- * over WebSocket, see `.notes/oracle-arc.md`) the same shape carries
- * over: `WebSocket onclose` replaces `Port.onDisconnect`, identical
- * semantics.
+ * The bind-message + reconnect/backoff orchestration below is
+ * host-agnostic; only the raw port is platform-specific, supplied by
+ * whichever transport the host installed. For Mode 2/3 (standalone
+ * oracle over WebSocket) the same shape carries over: `WebSocket onclose`
+ * replaces `Port.onDisconnect`, identical semantics.
  */
 
+import { type LifelinePort, lifelineTransport } from '@openheaders/core/awareness';
 import { hostLogger as logger } from '@openheaders/core/logger';
 
 const LIFELINE_PREFIX = 'oh.awareness.lifeline:' as const;
@@ -77,11 +78,11 @@ export function openAwarenessLifeline(opts: OpenAwarenessLifelineOptions): Aware
   const portName = `${LIFELINE_PREFIX}${instanceId}`;
 
   let disposed = false;
-  let port: chrome.runtime.Port | null = null;
+  let port: LifelinePort | null = null;
   let reconnectAttempt = 0;
   let firstConnect = true;
 
-  const sendBind = (target: chrome.runtime.Port): void => {
+  const sendBind = (target: LifelinePort): void => {
     if (workspaceId == null) return;
     try {
       target.postMessage({ kind: 'bind', workspaceId });
@@ -93,7 +94,7 @@ export function openAwarenessLifeline(opts: OpenAwarenessLifelineOptions): Aware
   const connect = (): void => {
     if (disposed) return;
     try {
-      port = chrome.runtime.connect({ name: portName });
+      port = lifelineTransport.connect(portName);
     } catch (err) {
       logger.info('AwarenessLifeline', `connect failed: ${(err as Error).message}`);
       port = null;
@@ -104,17 +105,16 @@ export function openAwarenessLifeline(opts: OpenAwarenessLifelineOptions): Aware
     firstConnect = false;
     reconnectAttempt = 0;
 
-    // Send the bind message before any reconnect republish so the SW
+    // Send the bind message before any reconnect republish so the host
     // re-acquires the workspace ref BEFORE awareness state replays
     // through the freshly-rebuilt store.
     sendBind(port);
 
-    port.onDisconnect.addListener(() => {
-      const lastError = chrome.runtime.lastError;
+    port.onDisconnect((info) => {
       port = null;
       if (disposed) return;
-      if (lastError) {
-        logger.info('AwarenessLifeline', `lifeline disconnected: ${lastError.message}`);
+      if (info.errorMessage) {
+        logger.info('AwarenessLifeline', `lifeline disconnected: ${info.errorMessage}`);
       }
       scheduleReconnect();
     });

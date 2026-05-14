@@ -98,6 +98,10 @@
     "./editing-scope": {
       "import": "./src/editing-scope/index.ts",
       "default": "./dist/editing-scope/index.js"
+    },
+    "./awareness": {
+      "import": "./src/awareness/index.ts",
+      "default": "./dist/awareness/index.js"
     }
   },
   "scripts": {

@@ -1,105 +1,30 @@
 /**
- * Peer-navigation helper — given a {@link NavigationHandle} from a
+ * Peer-navigation helpers — given a {@link NavigationHandle} from a
  * remote surface's identity, focus that surface for the user.
  *
- * Each tag dispatches to the appropriate browser API:
- *  - `chrome-tab` → activate the tab + focus its window.
- *  - `devtools-inspected-tab` → activate the tab the DevTools panel
- *     was inspecting; the DevTools window is adjacent to it.
- *  - `side-panel` → re-open the side panel for that window.
- *  - `desktop-window` → reserved for Mode 2/3 desktop transports.
+ * `peerNavigate` / `isPeerNavigable` are thin delegators over the
+ * host-agnostic {@link peerNavigator} seam — the host installs whichever
+ * navigator can actually reach its surfaces (chrome tabs/windows in the
+ * extension, window IPC on desktop). An unwired host degrades to "no
+ * peer is reachable", which renders every peer row as non-clickable.
  *
- * Best-effort: a stale tab id (the user closed the tab since the peer
- * surface published) returns false rather than throwing. Callers can
- * surface a small toast when navigation fails so the user understands
- * the peer surface has gone away.
+ * `isHandleCoLocated` / `extractTabId` are pure handle inspection — no
+ * platform coupling — so they stay here regardless of host.
  */
 
+import { peerNavigator } from '@openheaders/core/awareness';
 import type { NavigationHandle } from '@openheaders/core/protocol';
-
-function activateTab(tabId: number, windowId?: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    try {
-      const tabsApi = chrome.tabs;
-      if (!tabsApi?.update) {
-        resolve(false);
-        return;
-      }
-      tabsApi.update(tabId, { active: true }, (updatedTab) => {
-        const err = chrome.runtime.lastError;
-        if (err || !updatedTab) {
-          resolve(false);
-          return;
-        }
-        if (windowId !== undefined && chrome.windows?.update) {
-          chrome.windows.update(windowId, { focused: true }, () => {
-            // ignore lastError — tab activation already succeeded
-            void chrome.runtime.lastError;
-            resolve(true);
-          });
-          return;
-        }
-        resolve(true);
-      });
-    } catch {
-      resolve(false);
-    }
-  });
-}
-
-function openSidePanel(windowId: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    try {
-      const panel = (chrome as typeof chrome & { sidePanel?: { open?: (opts: { windowId: number }) => Promise<void> } })
-        .sidePanel;
-      if (!panel?.open) {
-        resolve(false);
-        return;
-      }
-      panel
-        .open({ windowId })
-        .then(() => resolve(true))
-        .catch(() => resolve(false));
-    } catch {
-      resolve(false);
-    }
-  });
-}
 
 /** Returns true on successful focus, false when the peer surface can't
  *  be reached (stale tab, missing API, unsupported handle kind). */
-export async function peerNavigate(handle: NavigationHandle): Promise<boolean> {
-  switch (handle.kind) {
-    case 'chrome-tab':
-      return activateTab(handle.tabId, handle.windowId);
-    case 'devtools-inspected-tab':
-      return activateTab(handle.inspectedTabId);
-    case 'side-panel':
-      return openSidePanel(handle.windowId);
-    case 'desktop-window':
-      // Desktop Mode 2/3 — reserved. Returning false here is the right
-      // behavior in extension-only deployments; the desktop renderer
-      // will register its own dispatcher when it lands.
-      return false;
-  }
+export function peerNavigate(handle: NavigationHandle): Promise<boolean> {
+  return peerNavigator.navigate(handle);
 }
 
 /** True when the handle could be acted on in the current realm. UI
  *  uses this to decide whether to render the row as clickable. */
 export function isPeerNavigable(handle: NavigationHandle | undefined): boolean {
-  if (!handle) return false;
-  switch (handle.kind) {
-    case 'chrome-tab':
-    case 'devtools-inspected-tab':
-      return typeof chrome !== 'undefined' && !!chrome.tabs?.update;
-    case 'side-panel':
-      return (
-        typeof chrome !== 'undefined' &&
-        !!(chrome as typeof chrome & { sidePanel?: { open?: unknown } }).sidePanel?.open
-      );
-    case 'desktop-window':
-      return false;
-  }
+  return peerNavigator.canNavigate(handle);
 }
 
 /** Extract the browser tab id a navigation handle resolves to, when
