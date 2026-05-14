@@ -1,12 +1,15 @@
 /**
- * Lifeline-transport contract — the seam between awareness UI code that
- * needs a long-lived liveness channel to the host reactor and the
- * platform-specific transport that actually carries it.
+ * Lifeline-transport contract — the seam between renderer UI code that
+ * needs a long-lived connection-bound channel to the host reactor and
+ * the platform-specific transport that actually carries it.
  *
  * The renderer-side awareness lifeline opens one long-lived connection
  * for a surface's lifetime; the host treats its disconnect as the
  * canonical "this surface is gone" signal (connection-bound liveness
- * instead of heartbeat-with-TTL polling).
+ * instead of heartbeat-with-TTL polling). The same primitive also backs
+ * connection-scoped host→renderer data streams — the DevTools inspector
+ * opens a `devtools-inspector:<tabId>` port and the host streams request
+ * records down it for as long as the panel holds the port open.
  *
  * Each app installs its own implementation once at boot via
  * {@link setLifelineTransport}:
@@ -23,11 +26,19 @@
 
 /**
  * One open lifeline connection. Mirrors the subset of `chrome.runtime.Port`
- * the renderer lifeline actually uses, transport-agnostic.
+ * renderer lifelines actually use, transport-agnostic.
  */
 export interface LifelinePort {
   /** Send a message to the host end of the lifeline. Best-effort. */
   postMessage(message: unknown): void;
+  /**
+   * Register a handler for messages the host streams down this port.
+   * Liveness-only lifelines never call this; ports that also carry a
+   * host→renderer data stream (e.g. the DevTools inspector request feed)
+   * pass the expected message type as `T` — the transport delivers raw
+   * frames, so `T` is the caller's typed assertion about the stream.
+   */
+  onMessage<T = unknown>(handler: (message: T) => void): void;
   /**
    * Register a handler for the host closing the connection (or the
    * transport dropping it — e.g. MV3 service-worker eviction). The
@@ -46,6 +57,7 @@ export interface LifelineTransport {
 
 const NULL_LIFELINE_PORT: LifelinePort = {
   postMessage() {},
+  onMessage() {},
   onDisconnect() {},
   disconnect() {},
 };

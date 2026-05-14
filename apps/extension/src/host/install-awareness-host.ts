@@ -36,6 +36,9 @@ const chromeLifelineTransport: LifelineTransport = {
       postMessage(message: unknown): void {
         port.postMessage(message);
       },
+      onMessage(handler): void {
+        port.onMessage.addListener(handler);
+      },
       onDisconnect(handler): void {
         port.onDisconnect.addListener(() => {
           handler({ errorMessage: runtime.lastError?.message });

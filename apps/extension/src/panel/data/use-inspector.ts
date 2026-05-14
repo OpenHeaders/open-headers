@@ -16,8 +16,9 @@
  * On unmount: disconnects the port and cancels any pending reconnect.
  */
 
-import { useEffect, useRef, useSyncExternalStore } from 'react';
+import { type LifelinePort, lifelineTransport } from '@openheaders/core/awareness';
 import type { InspectorPortMessage } from '@openheaders/core/types';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { InspectorStore } from './inspector-store';
 
 /** Backoff for the panel→background port reconnect loop. */
@@ -54,7 +55,7 @@ export function useInspector(): UseInspectorResult {
     const tabId = tabIdRef.current;
     if (tabId == null) return;
 
-    let activePort: chrome.runtime.Port | null = null;
+    let activePort: LifelinePort | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let disposed = false;
 
@@ -90,14 +91,14 @@ export function useInspector(): UseInspectorResult {
     const connect = () => {
       if (disposed) return;
       readyRef.current = false;
-      // `chrome.runtime.connect` throws "Extension context invalidated"
+      // Opening the lifeline can throw "Extension context invalidated"
       // when the DevTools panel survives an extension reload/update —
       // the old panel context is still running but the background it's
       // trying to reach has been torn down. Swallow and back off; Chrome
       // will close the stale panel when the inspected tab refreshes.
-      let port: chrome.runtime.Port;
+      let port: LifelinePort;
       try {
-        port = chrome.runtime.connect({ name: `devtools-inspector:${tabId}` });
+        port = lifelineTransport.connect(`devtools-inspector:${tabId}`);
       } catch {
         activePort = null;
         if (disposed) return;
@@ -105,8 +106,8 @@ export function useInspector(): UseInspectorResult {
         return;
       }
       activePort = port;
-      port.onMessage.addListener(handler);
-      port.onDisconnect.addListener(() => {
+      port.onMessage<InspectorPortMessage>(handler);
+      port.onDisconnect(() => {
         activePort = null;
         if (disposed) return;
         reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
