@@ -14,7 +14,7 @@ import { useState } from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import { LayoutMenuIcon, RegionToggle, SidebarLayoutIcon } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
-import { instanceLabel, instanceLabelPlural } from '@/shared/host-vocabulary';
+import { instanceLabel, instanceLabelPlural } from '@openheaders/ui/shared/host-vocabulary';
 import { getBrowserAPI } from '@/types/browser';
 import type { ToolLayoutApi, WorkbenchViewState } from '../hooks/useToolLayout';
 import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';

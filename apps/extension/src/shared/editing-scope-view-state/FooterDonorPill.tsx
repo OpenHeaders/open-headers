@@ -9,7 +9,7 @@
 import { ReloadOutlined, ShareAltOutlined } from '@ant-design/icons';
 import { Button, Popover, Space, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { instanceLabel, instanceLabelPlural } from '../host-vocabulary';
+import { instanceLabel, instanceLabelPlural } from '@openheaders/ui/shared/host-vocabulary';
 import type { EditingScopeViewStateApi } from './types';
 
 interface FooterDonorPillProps<T> {

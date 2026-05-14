@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
-  CURRENT_HOST,
+  getCurrentHost,
   instanceLabel,
   instanceLabelPlural,
   instanceLabelTitleCase,
-} from '@/shared/host-vocabulary';
+} from '@openheaders/ui/shared/host-vocabulary';
 
 describe('host-vocabulary', () => {
-  it('CURRENT_HOST is extension in this build', () => {
-    expect(CURRENT_HOST).toBe('extension');
+  it('defaults the current host to extension', () => {
+    expect(getCurrentHost()).toBe('extension');
   });
 
   it('extension + web hosts label instances as "tab"', () => {
@@ -24,8 +24,8 @@ describe('host-vocabulary', () => {
   });
 
   it('default host is the current build host', () => {
-    expect(instanceLabel()).toBe(instanceLabel(CURRENT_HOST));
-    expect(instanceLabelPlural()).toBe(instanceLabelPlural(CURRENT_HOST));
+    expect(instanceLabel()).toBe(instanceLabel(getCurrentHost()));
+    expect(instanceLabelPlural()).toBe(instanceLabelPlural(getCurrentHost()));
   });
 
   it('instanceLabelTitleCase capitalizes the first letter', () => {
