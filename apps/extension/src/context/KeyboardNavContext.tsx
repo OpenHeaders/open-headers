@@ -1,5 +1,5 @@
 import { useDeleteConfirmation } from '@hooks/useDeleteConfirmation';
-import { type FooterActions, type HeaderActions, useKeyboardDispatch } from '@hooks/useKeyboardDispatch';
+import { type FooterActions, type HeaderActions, useKeyboardDispatch } from '@/popup/shortcuts/useKeyboardDispatch';
 import { useKeyboardFocus } from '@hooks/useKeyboardFocus';
 import { useKeyboardScrollAndHighlight } from '@hooks/useKeyboardScrollAndHighlight';
 import type React from 'react';

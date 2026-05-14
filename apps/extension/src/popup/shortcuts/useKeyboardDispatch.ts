@@ -1,6 +1,6 @@
 import type { RefObject } from 'react';
 import { useCallback, useEffect } from 'react';
-import { matchesPopupShortcut } from '@/popup/shortcuts/popup-shortcuts';
+import { matchesPopupShortcut } from './popup-shortcuts';
 import type { RowActions } from '@openheaders/ui/shared/table-shared';
 
 export interface FooterActions {
