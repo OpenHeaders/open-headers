@@ -9,10 +9,10 @@ import {
   SortAscendingOutlined,
 } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
-import { useRowActionRegistration } from '@hooks/useRowActionRegistration';
-import { useRuleMutator } from '@hooks/useRuleMutator';
-import { useRules } from '@hooks/useRules';
-import { useVariableResolver } from '@hooks/useVariableResolver';
+import { useRowActionRegistration } from '@openheaders/ui/shared/hooks/useRowActionRegistration';
+import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
+import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
 import type { CollectionTree, FolderNode, Rule, RuleCondition, RuleType, TreeNode } from '@openheaders/core/types';
 import type { PauseMarkers } from '@openheaders/core/utils';
 import { type ActionDetail, getActionDetail, isRuleComplete, isRuleDraft } from '@openheaders/core/utils';

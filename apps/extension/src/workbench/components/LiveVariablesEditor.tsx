@@ -26,10 +26,10 @@ import {
   PlusOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
-import { useEnvironments } from '@hooks/useEnvironments';
-import { useAllLiveCaches } from '@hooks/useLiveCache';
-import { useLiveVariables } from '@hooks/useLiveVariables';
-import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
+import { useEnvironments } from '@openheaders/ui/shared/hooks/useEnvironments';
+import { useAllLiveCaches } from '@openheaders/ui/shared/hooks/useLiveCache';
+import { useLiveVariables } from '@openheaders/ui/shared/hooks/useLiveVariables';
+import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/useLiveWorkflows';
 import { isLiveVariableDraft } from '@openheaders/core/live';
 import { App, Button, Empty, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';

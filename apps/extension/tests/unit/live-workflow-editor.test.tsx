@@ -56,8 +56,7 @@ beforeAll(() => {
 
 // ── Hook mocks ────────────────────────────────────────────────────
 // Each mock provides the minimum slice LiveWorkflowEditor reads. The
-// module paths match the `@hooks/*` alias configured in the extension
-// package's vite / tsconfig.
+// module paths match the `@openheaders/ui/shared/hooks/*` export.
 const workflowFixture: LiveWorkflow = {
   schemaVersion: 5,
   uid: 'wftestfxt',
@@ -75,7 +74,7 @@ const workflowFixture: LiveWorkflow = {
   ],
 };
 
-vi.mock('@hooks/useLiveWorkflows', () => ({
+vi.mock('@openheaders/ui/shared/hooks/useLiveWorkflows', () => ({
   useLiveWorkflows: () => ({
     workflows: [workflowFixture],
     isReady: true,
@@ -85,16 +84,16 @@ vi.mock('@hooks/useLiveWorkflows', () => ({
     refreshNow: vi.fn(),
   }),
 }));
-vi.mock('@hooks/useLiveVariables', () => ({
+vi.mock('@openheaders/ui/shared/hooks/useLiveVariables', () => ({
   useLiveVariables: () => ({ variables: [], isReady: true }),
 }));
-vi.mock('@hooks/useRequests', () => ({
+vi.mock('@openheaders/ui/shared/hooks/useRequests', () => ({
   useRequests: () => ({ requests: [], isReady: true }),
 }));
-vi.mock('@hooks/useEnvironments', () => ({
+vi.mock('@openheaders/ui/shared/hooks/useEnvironments', () => ({
   useEnvironments: () => ({ activeEnvironmentId: null, environments: [], isReady: true }),
 }));
-vi.mock('@hooks/useLiveCache', () => ({
+vi.mock('@openheaders/ui/shared/hooks/useLiveCache', () => ({
   useLiveWorkflowCache: () => ({ runs: [], isReady: true, reload: vi.fn() }),
 }));
 

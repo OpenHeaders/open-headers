@@ -7,7 +7,7 @@
  * `@openheaders/core/variables/buildSuggestions` against a caller-
  * supplied {@link SuggestionContext}. The heavy subscription cost is
  * amortized via React state in the underlying hooks (`useEnvironments`
- * etc.) — each of those keeps a single chrome.storage listener, so
+ * etc.) — each of those keeps a single host-store listener, so
  * mounting ten {@link TemplateInput} instances on one page fires one
  * effective listener per store, not ten.
  *
@@ -19,12 +19,12 @@
  * See `docs/VARIABLE_AUTOCOMPLETE_PLAN.md` Phase B.
  */
 
-import { useEnvVarVault } from '@hooks/useEnvVarVault';
-import { useAllLiveCaches } from '@hooks/useLiveCache';
-import { useLiveVariables } from '@hooks/useLiveVariables';
-import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
-import { useRequests } from '@hooks/useRequests';
-import { useRules } from '@hooks/useRules';
+import { useEnvVarVault } from './useEnvVarVault';
+import { useAllLiveCaches } from './useLiveCache';
+import { useLiveVariables } from './useLiveVariables';
+import { useLiveWorkflows } from './useLiveWorkflows';
+import { useRequests } from './useRequests';
+import { useRules } from './useRules';
 import { iterateAllCollections } from '@openheaders/ui/shared/variables';
 import { isLiveVariableEffective } from '@openheaders/core/live';
 import {

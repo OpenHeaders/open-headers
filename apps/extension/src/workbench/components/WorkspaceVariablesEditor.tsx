@@ -18,8 +18,8 @@
  * reorder + rename.
  */
 
-import { useWorkspaceVariables } from '@hooks/useWorkspaceVariables';
-import { useVariableMutator } from '@hooks/useVariableMutator';
+import { useWorkspaceVariables } from '@openheaders/ui/shared/hooks/useWorkspaceVariables';
+import { useVariableMutator } from '@openheaders/ui/shared/hooks/useVariableMutator';
 import {
   WORKSPACE_VARIABLES_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ID,

@@ -15,8 +15,8 @@
  * subscribeMirror tick on every commit.
  */
 
+import { hostBridge } from '@openheaders/core/bridge';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
-import { call } from '@utils/bridge';
 import { useCallback, useEffect, useState } from 'react';
 import { getActiveExtensionWorkspaceSyncMirror } from '@openheaders/ui/context';
 import {
@@ -138,7 +138,7 @@ export function useWorkspaces(options: UseWorkspacesOptions = {}): UseWorkspaces
   const duplicateWorkspace = useCallback<UseWorkspacesApi['duplicateWorkspace']>(async (id, name) => {
     // Stays on the bridge: deep-copies SW-owned per-workspace stores
     // (rule / template / files / etc.) the renderer can't touch.
-    const resp = await call('duplicateWorkspace', { id, name }).catch(() => null);
+    const resp = await hostBridge.call('duplicateWorkspace', { id, name }).catch(() => null);
     return resp?.success ? (resp.workspace ?? null) : null;
   }, []);
 

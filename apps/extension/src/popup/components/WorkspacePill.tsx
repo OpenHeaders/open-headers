@@ -12,7 +12,7 @@
  */
 
 import { DownOutlined } from '@ant-design/icons';
-import { useWorkspaces } from '@hooks/useWorkspaces';
+import { useWorkspaces } from '@openheaders/ui/shared/hooks/useWorkspaces';
 import { Dropdown, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';

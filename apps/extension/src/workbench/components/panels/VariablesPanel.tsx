@@ -29,12 +29,12 @@ import {
   EyeOutlined,
   LockOutlined,
 } from '@ant-design/icons';
-import { useEnvVarVault } from '@hooks/useEnvVarVault';
-import { useAllLiveCaches } from '@hooks/useLiveCache';
-import { useLiveVariables } from '@hooks/useLiveVariables';
-import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
-import { useRequests } from '@hooks/useRequests';
-import { useRules } from '@hooks/useRules';
+import { useEnvVarVault } from '@openheaders/ui/shared/hooks/useEnvVarVault';
+import { useAllLiveCaches } from '@openheaders/ui/shared/hooks/useLiveCache';
+import { useLiveVariables } from '@openheaders/ui/shared/hooks/useLiveVariables';
+import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/useLiveWorkflows';
+import { useRequests } from '@openheaders/ui/shared/hooks/useRequests';
+import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { isLiveVariableEffective } from '@openheaders/core/live';
 import type { CollectionTree, Request, Rule, Template, TotpAlgorithm, TreeNode, Variable } from '@openheaders/core/types';
 import type { ResolutionError } from '@openheaders/core/variables';

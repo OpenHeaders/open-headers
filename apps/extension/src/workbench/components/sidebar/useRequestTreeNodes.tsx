@@ -1,5 +1,5 @@
 import { FolderOpenOutlined, FolderOutlined, PlusOutlined } from '@ant-design/icons';
-import type { useVariableResolver } from '@hooks/useVariableResolver';
+import type { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
 import {
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_ENTITY_TYPE,

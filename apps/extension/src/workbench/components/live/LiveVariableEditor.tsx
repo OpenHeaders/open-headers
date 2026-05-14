@@ -28,10 +28,10 @@ import {
   ReloadOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
-import { useEnvironments } from '@hooks/useEnvironments';
-import { useLiveWorkflowCache } from '@hooks/useLiveCache';
-import { useLiveVariables } from '@hooks/useLiveVariables';
-import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
+import { useEnvironments } from '@openheaders/ui/shared/hooks/useEnvironments';
+import { useLiveWorkflowCache } from '@openheaders/ui/shared/hooks/useLiveCache';
+import { useLiveVariables } from '@openheaders/ui/shared/hooks/useLiveVariables';
+import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/useLiveWorkflows';
 import { LIVE_VARIABLE_ENTITY_TYPE } from '@openheaders/core/sync';
 import { EntityScopeProvider, LIVE_VARIABLE_FIELD, useSetActiveFieldFocus } from '@openheaders/ui/shared/awareness';
 import { readFieldPath } from '@openheaders/ui/shared/awareness/field-path';

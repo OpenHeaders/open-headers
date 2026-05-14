@@ -18,7 +18,7 @@
  * no suggestions than wrong suggestions.
  */
 
-import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
+import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/useLiveWorkflows';
 import type { SuggestionContext } from '@openheaders/core/variables';
 import { useMemo } from 'react';
 

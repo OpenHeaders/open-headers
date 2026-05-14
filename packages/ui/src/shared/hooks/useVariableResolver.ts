@@ -15,12 +15,12 @@
  * directly.
  */
 
-import { useEnvVarVault } from '@hooks/useEnvVarVault';
-import { useAllLiveCaches } from '@hooks/useLiveCache';
-import { useLiveVariables } from '@hooks/useLiveVariables';
-import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
-import { useRequests } from '@hooks/useRequests';
-import { useRules } from '@hooks/useRules';
+import { useEnvVarVault } from './useEnvVarVault';
+import { useAllLiveCaches } from './useLiveCache';
+import { useLiveVariables } from './useLiveVariables';
+import { useLiveWorkflows } from './useLiveWorkflows';
+import { useRequests } from './useRequests';
+import { useRules } from './useRules';
 import { isLiveVariableEffective } from '@openheaders/core/live';
 import { type ResolvedLiveValue, VariableResolver } from '@openheaders/core/variables';
 import { useMemo } from 'react';

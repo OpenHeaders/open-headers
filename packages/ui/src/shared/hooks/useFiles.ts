@@ -9,9 +9,8 @@
  * through the editing-scope workspace, regardless of runtime-Active.
  *
  * The byte transport contract is preserved: bytes still cross the
- * bridge as base64 strings (`chrome.runtime.sendMessage` JSON-
- * serializes payloads). The Provider owns the encoding/decoding and
- * the `workspaceId` thread.
+ * host bridge as base64 strings (the bridge JSON-serializes payloads).
+ * The Provider owns the encoding/decoding and the `workspaceId` thread.
  */
 
 import { type FilesContextValue, type RenameFileOutcome, useFilesContext } from '@openheaders/ui/context';

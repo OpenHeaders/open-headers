@@ -20,7 +20,7 @@ import { CopyOutlined, DeleteOutlined, EditOutlined, HolderOutlined, PlusOutline
 import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { UseWorkspacesApi } from '@hooks/useWorkspaces';
+import type { UseWorkspacesApi } from '@openheaders/ui/shared/hooks/useWorkspaces';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { App as AntApp, Button, Form, Input, Modal, Space, Typography, theme } from 'antd';
 import type React from 'react';

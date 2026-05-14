@@ -20,10 +20,10 @@
  */
 
 import { ReloadOutlined, UndoOutlined } from '@ant-design/icons';
-import { useEnvironments } from '@hooks/useEnvironments';
-import { useRules } from '@hooks/useRules';
-import { useAllLiveCaches } from '@hooks/useLiveCache';
-import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
+import { useEnvironments } from '@openheaders/ui/shared/hooks/useEnvironments';
+import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { useAllLiveCaches } from '@openheaders/ui/shared/hooks/useLiveCache';
+import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/useLiveWorkflows';
 import type { RefreshPolicy } from '@openheaders/core/types';
 import type { LiveWorkflowRunSnapshot } from '@utils/bridge';
 import { call } from '@utils/bridge';

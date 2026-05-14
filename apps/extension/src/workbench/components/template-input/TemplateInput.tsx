@@ -21,9 +21,9 @@
  *     unresolved once the caret leaves.
  */
 
-import { useVariableResolver } from '@hooks/useVariableResolver';
-import { useVariableSuggestions } from '@hooks/useVariableSuggestions';
-import { useWorkspaces } from '@hooks/useWorkspaces';
+import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
+import { useVariableSuggestions } from '@openheaders/ui/shared/hooks/useVariableSuggestions';
+import { useWorkspaces } from '@openheaders/ui/shared/hooks/useWorkspaces';
 import { filterSuggestions, type SuggestionContext, type VariableSuggestion } from '@openheaders/core/variables';
 import { theme } from 'antd';
 import type React from 'react';

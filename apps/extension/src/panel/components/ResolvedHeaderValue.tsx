@@ -11,7 +11,7 @@
  * making it visually clear which substring came from which variable.
  */
 
-import { useVariableResolver } from '@hooks/useVariableResolver';
+import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
 import { parseReference } from '@openheaders/core/variables';
 
 interface ResolvedHeaderValueProps {

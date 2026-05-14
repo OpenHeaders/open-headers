@@ -14,7 +14,7 @@ import {
   PlayCircleOutlined,
   PlusOutlined,
 } from '@ant-design/icons';
-import { useRules } from '@hooks/useRules';
+import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import type { TreeNode } from '@openheaders/core/types';
 import { isRuleComplete, isRuleDraft, resolvePauseState } from '@openheaders/core/utils';
 import { Button, Dropdown, Empty, Space, Table, Tag, Tooltip, theme } from 'antd';

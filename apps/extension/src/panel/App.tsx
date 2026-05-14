@@ -9,7 +9,7 @@ import { RequestsProvider } from '@openheaders/ui/context';
 import { VaultProvider } from '@openheaders/ui/context';
 import { WorkspaceVariablesProvider } from '@openheaders/ui/context';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
-import { useEnvironments } from '@hooks/useEnvironments';
+import { useEnvironments } from '@openheaders/ui/shared/hooks/useEnvironments';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {

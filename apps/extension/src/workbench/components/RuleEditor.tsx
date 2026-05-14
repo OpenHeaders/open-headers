@@ -25,8 +25,8 @@ import {
   FolderOutlined,
   InfoCircleOutlined,
 } from '@ant-design/icons';
-import { useRuleMutator } from '@hooks/useRuleMutator';
-import { useRules } from '@hooks/useRules';
+import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
+import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { canonicalizeRule, parseRule, serializeRule } from '@openheaders/core/codec/yaml';
 import { freshDocument } from '@openheaders/core/schemas';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';

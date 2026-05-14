@@ -19,13 +19,13 @@ import { RuleProvider } from '@openheaders/ui/context';
 import { useTheme } from '@context/ThemeContext';
 import { VaultProvider } from '@openheaders/ui/context';
 import { WorkspaceVariablesProvider } from '@openheaders/ui/context';
-import { useEnvironments } from '@hooks/useEnvironments';
-import { useLiveVariables } from '@hooks/useLiveVariables';
-import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
-import { useRequests } from '@hooks/useRequests';
-import { useRules } from '@hooks/useRules';
-import { useVariableResolver } from '@hooks/useVariableResolver';
-import { useWorkspaces } from '@hooks/useWorkspaces';
+import { useEnvironments } from '@openheaders/ui/shared/hooks/useEnvironments';
+import { useLiveVariables } from '@openheaders/ui/shared/hooks/useLiveVariables';
+import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/useLiveWorkflows';
+import { useRequests } from '@openheaders/ui/shared/hooks/useRequests';
+import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
+import { useWorkspaces } from '@openheaders/ui/shared/hooks/useWorkspaces';
 import {
   COLLECTION_ENTITY_TYPE,
   ENVIRONMENT_ENTITY_TYPE,

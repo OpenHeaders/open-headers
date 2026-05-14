@@ -36,9 +36,9 @@
 import { SaveOutlined } from '@ant-design/icons';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
-import { type RuleMutationResult, useRuleMutator } from '@hooks/useRuleMutator';
+import { type RuleMutationResult, useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
 
-import { useRules } from '@hooks/useRules';
+import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { useLiveRule } from '@openheaders/ui/context';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { HeaderModification, HeaderOperation, HeaderRule, Rule } from '@openheaders/core/types';

@@ -17,7 +17,7 @@
  */
 
 import { InfoCircleOutlined } from '@ant-design/icons';
-import { useRules } from '@hooks/useRules';
+import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { canonicalizeTemplate, parseTemplate, serializeTemplate } from '@openheaders/core/codec/yaml';
 import { freshDocument } from '@openheaders/core/schemas';
 import { TEMPLATE_ENTITY_TYPE } from '@openheaders/core/sync';

@@ -23,9 +23,9 @@
  */
 
 import { CaretRightOutlined, DownOutlined, LoadingOutlined, ThunderboltOutlined } from '@ant-design/icons';
-import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
-import { useRequests } from '@hooks/useRequests';
-import { useVariableResolver } from '@hooks/useVariableResolver';
+import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/useLiveWorkflows';
+import { useRequests } from '@openheaders/ui/shared/hooks/useRequests';
+import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
 import { canonicalizeRequest, parseRequest, serializeRequest } from '@openheaders/core/codec/yaml';
 import { freshDocument } from '@openheaders/core/schemas';
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';

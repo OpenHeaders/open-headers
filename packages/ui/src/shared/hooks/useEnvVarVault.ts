@@ -12,9 +12,9 @@
  */
 
 import type { Environment, Vault, WorkspaceVariables } from '@openheaders/core/types';
-import { useEnvironments } from '@hooks/useEnvironments';
-import { useVault } from '@hooks/useVault';
-import { useWorkspaceVariables } from '@hooks/useWorkspaceVariables';
+import { useEnvironments } from './useEnvironments';
+import { useVault } from './useVault';
+import { useWorkspaceVariables } from './useWorkspaceVariables';
 
 export interface UseEnvVarVaultApi {
   environments: Environment[];

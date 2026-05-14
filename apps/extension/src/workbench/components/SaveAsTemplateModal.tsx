@@ -5,7 +5,7 @@
  * Step 2: Pick collection + folder (reuses SaveToCollectionModal pattern)
  */
 
-import { useRules } from '@hooks/useRules';
+import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import type { RuleCondition, RuleType, Template } from '@openheaders/core/types';
 import { Checkbox, Input, Modal, Typography, theme } from 'antd';
 import type React from 'react';

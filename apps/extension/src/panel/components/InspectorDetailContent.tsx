@@ -4,8 +4,8 @@
  * close) and with section state driven by InspectorTab.activeSection.
  */
 
-import { useRules } from '@hooks/useRules';
-import { useVariableResolver } from '@hooks/useVariableResolver';
+import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
 import type { HeaderModification, HeaderOperation, Rule } from '@openheaders/core/types';
 import { validateHeaderName } from '@openheaders/core/utils';
 import { useEffect, useMemo, useRef, useState } from 'react';

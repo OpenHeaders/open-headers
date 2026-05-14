@@ -8,11 +8,11 @@ import {
   SortAscendingOutlined,
 } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
-import { useRowActionRegistration } from '@hooks/useRowActionRegistration';
-import { useRuleMutator } from '@hooks/useRuleMutator';
-import { useRules } from '@hooks/useRules';
-import { useTablePagination } from '@hooks/useTablePagination';
-import { useVariableResolver } from '@hooks/useVariableResolver';
+import { useRowActionRegistration } from '@openheaders/ui/shared/hooks/useRowActionRegistration';
+import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
+import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { useTablePagination } from '@openheaders/ui/shared/hooks/useTablePagination';
+import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
 import type { ExtensionRuleType, RuleCondition, RuleType } from '@openheaders/core/types';
 import { getActionDetail, isRuleComplete, isRuleDraft, resolvePauseState } from '@openheaders/core/utils';
 import { resolveRule } from '@openheaders/core/variables';

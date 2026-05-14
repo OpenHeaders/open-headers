@@ -23,8 +23,8 @@
  * defensively. The entity-level presence chip is the only signal.
  */
 
-import { useVariableMutator } from '@hooks/useVariableMutator';
-import { useVault } from '@hooks/useVault';
+import { useVariableMutator } from '@openheaders/ui/shared/hooks/useVariableMutator';
+import { useVault } from '@openheaders/ui/shared/hooks/useVault';
 import { VAULT_ENTITY_TYPE, VAULT_ID } from '@openheaders/core/sync';
 import type { Vault, VaultSecret } from '@openheaders/core/types';
 import { Alert, App, Typography, theme } from 'antd';

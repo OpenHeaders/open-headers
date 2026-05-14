@@ -27,17 +27,17 @@ import {
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
-import { useEnvironments } from '@hooks/useEnvironments';
-import { useFolderMutator } from '@hooks/useFolderMutator';
-import { useAllLiveCaches } from '@hooks/useLiveCache';
-import { useLiveVariables } from '@hooks/useLiveVariables';
-import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
-import { useRequestFolderMutator } from '@hooks/useRequestFolderMutator';
-import { useRequests } from '@hooks/useRequests';
-import { useRules } from '@hooks/useRules';
-import { useRuleMutator } from '@hooks/useRuleMutator';
-import { useTemplateFolderMutator } from '@hooks/useTemplateFolderMutator';
-import { useVariableResolver } from '@hooks/useVariableResolver';
+import { useEnvironments } from '@openheaders/ui/shared/hooks/useEnvironments';
+import { useFolderMutator } from '@openheaders/ui/shared/hooks/useFolderMutator';
+import { useAllLiveCaches } from '@openheaders/ui/shared/hooks/useLiveCache';
+import { useLiveVariables } from '@openheaders/ui/shared/hooks/useLiveVariables';
+import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/useLiveWorkflows';
+import { useRequestFolderMutator } from '@openheaders/ui/shared/hooks/useRequestFolderMutator';
+import { useRequests } from '@openheaders/ui/shared/hooks/useRequests';
+import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
+import { useTemplateFolderMutator } from '@openheaders/ui/shared/hooks/useTemplateFolderMutator';
+import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
 import {
   COLLECTION_ENTITY_TYPE,
   FOLDER_ENTITY_TYPE,

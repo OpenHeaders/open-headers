@@ -19,10 +19,9 @@
  * (RuleProvider's editing-scope-aware seam) at the workbench surface.
  */
 
-import { useRules } from '@hooks/useRules';
-import type { LiveWorkflowRunSnapshot } from '@utils/bridge';
-import { call, subscribe } from '@utils/bridge';
+import { hostBridge, type LiveWorkflowRunSnapshot } from '@openheaders/core/bridge';
 import { useEffect, useRef, useState } from 'react';
+import { useRules } from './useRules';
 
 export function useLiveWorkflowCache(workflowUid: string | null | undefined): {
   runs: LiveWorkflowRunSnapshot[];
@@ -45,7 +44,9 @@ export function useLiveWorkflowCache(workflowUid: string | null | undefined): {
     }
 
     const load = async () => {
-      const resp = await call('getLiveCacheForWorkflow', { workflowUid, workspaceId: wsId }).catch(() => null);
+      const resp = await hostBridge
+        .call('getLiveCacheForWorkflow', { workflowUid, workspaceId: wsId })
+        .catch(() => null);
       if (cancelled) return;
       setRuns(resp?.runs ?? []);
       setIsReady(true);
@@ -53,10 +54,10 @@ export function useLiveWorkflowCache(workflowUid: string | null | undefined): {
     reloadRef.current = load;
     void load();
 
-    const unsubCache = subscribe('liveCacheChanged', (payload) => {
+    const unsubCache = hostBridge.subscribe('liveCacheChanged', (payload) => {
       if (payload.workflowUid === null || payload.workflowUid === workflowUid) void load();
     });
-    const unsubWs = subscribe('workspaceChanged', () => void load());
+    const unsubWs = hostBridge.subscribe('workspaceChanged', () => void load());
 
     return () => {
       cancelled = true;
@@ -94,7 +95,7 @@ export function useAllLiveCaches(workflowUids: string[]): {
     const loadAll = async () => {
       const entries = await Promise.all(
         uids.map(async (uid) => {
-          const resp = await call('getLiveCacheForWorkflow', { workflowUid: uid, workspaceId: wsId }).catch(
+          const resp = await hostBridge.call('getLiveCacheForWorkflow', { workflowUid: uid, workspaceId: wsId }).catch(
             () => null,
           );
           return [uid, resp?.runs ?? []] as const;
@@ -108,8 +109,8 @@ export function useAllLiveCaches(workflowUids: string[]): {
     };
     void loadAll();
 
-    const unsubCache = subscribe('liveCacheChanged', () => void loadAll());
-    const unsubWs = subscribe('workspaceChanged', () => void loadAll());
+    const unsubCache = hostBridge.subscribe('liveCacheChanged', () => void loadAll());
+    const unsubWs = hostBridge.subscribe('workspaceChanged', () => void loadAll());
 
     return () => {
       cancelled = true;

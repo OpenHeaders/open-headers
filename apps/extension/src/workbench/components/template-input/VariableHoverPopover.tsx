@@ -11,10 +11,10 @@
 
 import { SaveOutlined } from '@ant-design/icons';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
-import { useEnvVarVault } from '@hooks/useEnvVarVault';
-import { useRules } from '@hooks/useRules';
-import { useVariableLookup, type VariableCandidate, type VariableLookupResult } from '@hooks/useVariableLookup';
-import { type MutationResult, useVariableMutator } from '@hooks/useVariableMutator';
+import { useEnvVarVault } from '@openheaders/ui/shared/hooks/useEnvVarVault';
+import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { useVariableLookup, type VariableCandidate, type VariableLookupResult } from '@openheaders/ui/shared/hooks/useVariableLookup';
+import { type MutationResult, useVariableMutator } from '@openheaders/ui/shared/hooks/useVariableMutator';
 import type { Collection, Environment, Variable, VariableScope, Vault, VaultSecret, WorkspaceVariables } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import { App, Button, Dropdown, Input, type MenuProps, Tag, Tooltip, theme } from 'antd';

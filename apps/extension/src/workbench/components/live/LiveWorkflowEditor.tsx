@@ -32,11 +32,11 @@
  */
 
 import { InfoCircleOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
-import { useEnvironments } from '@hooks/useEnvironments';
-import { useLiveWorkflowCache } from '@hooks/useLiveCache';
-import { useLiveVariables } from '@hooks/useLiveVariables';
-import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
-import { useRequests } from '@hooks/useRequests';
+import { useEnvironments } from '@openheaders/ui/shared/hooks/useEnvironments';
+import { useLiveWorkflowCache } from '@openheaders/ui/shared/hooks/useLiveCache';
+import { useLiveVariables } from '@openheaders/ui/shared/hooks/useLiveVariables';
+import { useLiveWorkflows } from '@openheaders/ui/shared/hooks/useLiveWorkflows';
+import { useRequests } from '@openheaders/ui/shared/hooks/useRequests';
 import {
   type DraftStep,
   type DraftWorkflow,

@@ -17,7 +17,7 @@
  * one.
  */
 
-import { useVariableSuggestions } from '@hooks/useVariableSuggestions';
+import { useVariableSuggestions } from '@openheaders/ui/shared/hooks/useVariableSuggestions';
 import type { SuggestionContext, VariableSuggestion } from '@openheaders/core/variables';
 import type * as monacoType from 'monaco-editor';
 import { useCallback, useEffect, useRef } from 'react';

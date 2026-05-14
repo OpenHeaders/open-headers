@@ -9,13 +9,13 @@
  * don't parse (callers render a "Not defined" affordance themselves).
  */
 
-import { useEnvVarVault } from '@hooks/useEnvVarVault';
-import { useAllLiveCaches } from '@hooks/useLiveCache';
-import { useLiveVariables } from '@hooks/useLiveVariables';
-import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
-import { useRequests } from '@hooks/useRequests';
-import { useRules } from '@hooks/useRules';
-import { useVariableResolver } from '@hooks/useVariableResolver';
+import { useEnvVarVault } from './useEnvVarVault';
+import { useAllLiveCaches } from './useLiveCache';
+import { useLiveVariables } from './useLiveVariables';
+import { useLiveWorkflows } from './useLiveWorkflows';
+import { useRequests } from './useRequests';
+import { useRules } from './useRules';
+import { useVariableResolver } from './useVariableResolver';
 import type { LiveVariable, LiveVariableOverride, Variable, VariableScope, VaultSecret } from '@openheaders/core/types';
 import { parseReference, parseStepRefName, type VariableNamespace } from '@openheaders/core/variables';
 import { useMemo } from 'react';

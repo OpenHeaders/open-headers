@@ -9,7 +9,7 @@
 import { DeleteOutlined, EditOutlined, HolderOutlined } from '@ant-design/icons';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useRules } from '@hooks/useRules';
+import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import type { Rule } from '@openheaders/core/types';
 import { getActionDetail, isRuleComplete } from '@openheaders/core/utils';
 import { Button, Popconfirm, Space, Switch, Tag, Tooltip, theme } from 'antd';

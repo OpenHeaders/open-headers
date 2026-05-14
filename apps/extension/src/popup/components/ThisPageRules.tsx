@@ -11,10 +11,10 @@ import {
   SortAscendingOutlined,
 } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
-import { useRowActionRegistration } from '@hooks/useRowActionRegistration';
-import { useRuleMutator } from '@hooks/useRuleMutator';
-import { useRules } from '@hooks/useRules';
-import { useTablePagination } from '@hooks/useTablePagination';
+import { useRowActionRegistration } from '@openheaders/ui/shared/hooks/useRowActionRegistration';
+import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
+import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { useTablePagination } from '@openheaders/ui/shared/hooks/useTablePagination';
 import { resolvePauseState } from '@openheaders/core/utils';
 import { call, subscribe } from '@utils/bridge';
 import { scheduleFrame } from '@openheaders/ui/shared/frame-scheduler';
