@@ -52,6 +52,10 @@
       "import": "./src/shared/table-shared.ts",
       "default": "./dist/shared/table-shared.js"
     },
+    "./shared/frame-scheduler": {
+      "import": "./src/shared/frame-scheduler.ts",
+      "default": "./dist/shared/frame-scheduler.js"
+    },
     "./shared/merge-editor/*": {
       "import": "./src/shared/merge-editor/*.ts",
       "default": "./dist/shared/merge-editor/*.js"

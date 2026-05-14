@@ -1,4 +1,4 @@
-import { scheduleNextFrame } from '@utils/frame-scheduler';
+import { scheduleNextFrame } from '@openheaders/ui/shared/frame-scheduler';
 import type { RefObject } from 'react';
 import { useEffect } from 'react';
 

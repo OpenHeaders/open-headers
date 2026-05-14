@@ -17,7 +17,7 @@ import { useRules } from '@hooks/useRules';
 import { useTablePagination } from '@hooks/useTablePagination';
 import { resolvePauseState } from '@openheaders/core/utils';
 import { call, subscribe } from '@utils/bridge';
-import { scheduleFrame } from '@utils/frame-scheduler';
+import { scheduleFrame } from '@openheaders/ui/shared/frame-scheduler';
 import {
   App,
   Badge,

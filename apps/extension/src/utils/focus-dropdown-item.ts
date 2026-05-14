@@ -9,7 +9,7 @@
  * frame-bounded retry budget instead of hand-rolling three copies.
  */
 
-import { scheduleFrame } from './frame-scheduler';
+import { scheduleFrame } from '@openheaders/ui/shared/frame-scheduler';
 
 const FIRST_ITEM_SELECTOR =
   '.ant-dropdown:not(.ant-dropdown-hidden) .ant-dropdown-menu-item:not(.ant-dropdown-menu-item-disabled)';
