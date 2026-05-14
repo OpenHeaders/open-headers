@@ -7,6 +7,13 @@
   "author": "Open Headers <contact@openheaders.io>",
   "license": "MIT",
   "main": "dist-webpack/main/index.js",
+  "sideEffects": [
+    "**/*.css",
+    "**/*.less",
+    "**/workbench/settings/schema/**",
+    "**/workbench/settings/categories.tsx",
+    "**/workbench/components/monaco/**"
+  ],
   "scripts": {
     "start": "electron .",
     "dev": "electron-vite dev",
@@ -304,6 +311,7 @@
     "@electron/notarize": "^3.0.1",
     "@octokit/rest": "^21.1.1",
     "@openheaders/core": "workspace:*",
+    "@openheaders/ui": "workspace:*",
     "@playwright/test": "^1.58.2",
     "@testing-library/react": "^16.3.2",
     "@types/adm-zip": "^0.5.7",
