@@ -26,7 +26,7 @@ import { useStatus } from '@hooks/useStatus';
 import { Button, Popover, Tag, Tooltip, Typography, theme } from 'antd';
 import type { TooltipPlacement } from 'antd/es/tooltip';
 import React from 'react';
-import { getBuildInfo } from '@/shared/build-info';
+import { getBuildInfo } from '@openheaders/ui/shared/build-info';
 import { type StatusLevel, type StatusSnapshot, type StatusSubsystem, SUBSYSTEM_LABELS } from './types';
 
 export const SUBSYSTEM_ORDER: StatusSubsystem[] = ['sync', 'rules', 'requests', 'permissions', 'secrets', 'live'];

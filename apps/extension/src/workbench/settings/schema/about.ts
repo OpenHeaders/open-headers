@@ -5,7 +5,7 @@
 
 import { MIN_COMPATIBLE_PROTOCOL, PROTOCOL_VERSION } from '@openheaders/core/protocol';
 import * as v from 'valibot';
-import { getBuildInfo } from '@/shared/build-info';
+import { getBuildInfo } from '@openheaders/ui/shared/build-info';
 import { registerSetting } from '../registry';
 
 // valibot schema for info fields is a no-op string — the value is

@@ -44,6 +44,10 @@
       "import": "./src/shared/local-tree-builder.ts",
       "default": "./dist/shared/local-tree-builder.js"
     },
+    "./shared/build-info": {
+      "import": "./src/shared/build-info.ts",
+      "default": "./dist/shared/build-info.js"
+    },
     "./shared/merge-editor/*": {
       "import": "./src/shared/merge-editor/*.ts",
       "default": "./dist/shared/merge-editor/*.js"

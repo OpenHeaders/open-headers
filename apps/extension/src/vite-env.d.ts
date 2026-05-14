@@ -5,8 +5,9 @@ declare const __APP_VERSION__: string;
 
 /**
  * Build metadata injected by Vite at build time. See `vite.config.ts`
- * (`buildInfo` constant) and `src/shared/build-info.ts` for the typed
- * accessor consumers should use.
+ * (`buildInfo` constant); `src/host/install-build-info.ts` feeds this
+ * into `@openheaders/ui/shared/build-info`, the typed accessor seam
+ * consumers should use.
  */
 declare const __BUILD_INFO__: {
   version: string;
