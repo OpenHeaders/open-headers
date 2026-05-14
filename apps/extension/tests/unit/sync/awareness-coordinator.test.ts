@@ -13,13 +13,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockCall } = vi.hoisted(() => ({ mockCall: vi.fn() }));
 
-vi.mock('@utils/bridge', () => ({
-  call: mockCall,
-  subscribe: vi.fn(),
-  broadcast: vi.fn(),
-  receive: vi.fn(),
-  presence: vi.fn(),
-  tabCall: vi.fn(),
+vi.mock('@openheaders/core/bridge', async (importActual) => ({
+  ...(await importActual<typeof import('@openheaders/core/bridge')>()),
+  hostBridge: {
+    call: mockCall,
+    subscribe: vi.fn(),
+    broadcast: vi.fn(),
+    presence: vi.fn(),
+  },
 }));
 
 vi.mock('@utils/logger', () => ({

@@ -7,7 +7,7 @@
  * lockstep automatically.
  */
 
-import { call, subscribe } from '@utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import { useEffect, useMemo, useState } from 'react';
 // Import directly from the submodule (not the `@/shared/status` barrel)
 // to avoid a chunking cycle: StatusPill is exported from the barrel AND
@@ -30,7 +30,7 @@ export function useStatus(): UseStatusApi {
   useEffect(() => {
     let cancelled = false;
 
-    void call('getStatusSnapshot')
+    void hostBridge.call('getStatusSnapshot')
       .catch(() => null)
       .then((resp) => {
         if (cancelled) return;
@@ -38,7 +38,7 @@ export function useStatus(): UseStatusApi {
         setIsReady(true);
       });
 
-    const unsub = subscribe('statusUpdated', (payload) => {
+    const unsub = hostBridge.subscribe('statusUpdated', (payload) => {
       setSnapshot(payload);
     });
 

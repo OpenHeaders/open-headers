@@ -26,9 +26,9 @@
  * now", coordinated above the per-component layer.
  */
 
+import { hostBridge } from '@openheaders/core/bridge';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import type { HLC } from '@openheaders/core/sync';
-import { call } from '@utils/bridge';
 import type { RendererContextHandle } from '@openheaders/ui/context';
 import type { SurfaceIdentityHandle } from './surface-identity';
 
@@ -119,7 +119,7 @@ export function createAwarenessCoordinator(opts: CreateAwarenessCoordinatorOptio
     const hlc: HLC = ctx.next().hlc;
     const identitySnapshot = identity.current();
 
-    void call('oh.awareness.publish', {
+    void hostBridge.call('oh.awareness.publish', {
       workspaceId,
       state: {
         identity: identitySnapshot,

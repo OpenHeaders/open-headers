@@ -14,6 +14,7 @@
  * — `evaluateBootRegression` already guards on `baselineMs <= 0`.
  */
 
+import { hostBridge } from '@openheaders/core/bridge';
 import {
   BOOT_BASELINE_MS,
   BOOT_REGRESSION_SAMPLE_WINDOW,
@@ -21,7 +22,6 @@ import {
   evaluateBootRegression,
 } from '@openheaders/core/sync';
 import { useEffect, useState } from 'react';
-import { call, subscribe } from '@utils/bridge';
 
 const EMPTY_VERDICT: BootRegressionVerdict = { regressed: false, offending: [], ratios: [] };
 
@@ -38,7 +38,7 @@ export function useBootRegression(): UseBootRegressionResult {
     let cancelled = false;
     const refresh = async () => {
       try {
-        const resp = await call('getObservabilityLog');
+        const resp = await hostBridge.call('getObservabilityLog');
         if (cancelled || !resp) return;
         const entries = resp.entries ?? [];
         const samples: number[] = [];
@@ -63,7 +63,7 @@ export function useBootRegression(): UseBootRegressionResult {
     };
 
     void refresh();
-    const unsubscribe = subscribe('observabilityLogUpdated', () => void refresh());
+    const unsubscribe = hostBridge.subscribe('observabilityLogUpdated', () => void refresh());
     return () => {
       cancelled = true;
       unsubscribe();
