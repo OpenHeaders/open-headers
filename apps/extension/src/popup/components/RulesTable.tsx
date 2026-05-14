@@ -8,8 +8,10 @@ import {
   SortAscendingOutlined,
 } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
+import { useRowActionRegistration } from '@hooks/useRowActionRegistration';
 import { useRuleMutator } from '@hooks/useRuleMutator';
 import { useRules } from '@hooks/useRules';
+import { useTablePagination } from '@hooks/useTablePagination';
 import { useVariableResolver } from '@hooks/useVariableResolver';
 import type { ExtensionRuleType, RuleCondition, RuleType } from '@openheaders/core/types';
 import { getActionDetail, isRuleComplete, isRuleDraft, resolvePauseState } from '@openheaders/core/utils';
@@ -33,8 +35,6 @@ import type { ColumnsType } from 'antd/es/table';
 import type { FilterValue, SorterResult } from 'antd/es/table/interface';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRowActionRegistration } from '@/hooks/useRowActionRegistration';
-import { useTablePagination } from '@/hooks/useTablePagination';
 import { useSurface } from '@/shared/surface';
 import { openWorkspace, type WorkspaceIntent } from '@/shared/workspace-intent';
 import { compareBySortMode, type PageInfo, type RowActions, type SortMode } from '../utils/table-shared';

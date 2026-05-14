@@ -153,7 +153,7 @@ function buildFireBridgePlugin() {
             '@styles': path.resolve(__dirname, 'src/assets/styles'),
             '@utils': path.resolve(__dirname, 'src/utils'),
             '@context': path.resolve(__dirname, 'src/context'),
-            '@hooks': path.resolve(__dirname, 'src/hooks'),
+            '@hooks': path.resolve(__dirname, 'src/shared/hooks'),
           },
         },
         build: {
@@ -201,7 +201,7 @@ function buildPerfObserverPlugin() {
             '@styles': path.resolve(__dirname, 'src/assets/styles'),
             '@utils': path.resolve(__dirname, 'src/utils'),
             '@context': path.resolve(__dirname, 'src/context'),
-            '@hooks': path.resolve(__dirname, 'src/hooks'),
+            '@hooks': path.resolve(__dirname, 'src/shared/hooks'),
           },
         },
         build: {
@@ -242,7 +242,7 @@ export default defineConfig({
       '@styles': path.resolve(__dirname, 'src/assets/styles'),
       '@utils': path.resolve(__dirname, 'src/utils'),
       '@context': path.resolve(__dirname, 'src/context'),
-      '@hooks': path.resolve(__dirname, 'src/hooks'),
+      '@hooks': path.resolve(__dirname, 'src/shared/hooks'),
     },
   },
 

@@ -9,6 +9,7 @@ import {
   SortAscendingOutlined,
 } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
+import { useRowActionRegistration } from '@hooks/useRowActionRegistration';
 import { useRuleMutator } from '@hooks/useRuleMutator';
 import { useRules } from '@hooks/useRules';
 import { useVariableResolver } from '@hooks/useVariableResolver';
@@ -22,7 +23,6 @@ import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
-import { useRowActionRegistration } from '@/hooks/useRowActionRegistration';
 import { useSurface } from '@/shared/surface';
 import { openWorkspace } from '@/shared/workspace-intent';
 import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';

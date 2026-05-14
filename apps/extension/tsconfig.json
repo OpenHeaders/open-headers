@@ -16,8 +16,8 @@
       "@utils/*": ["src/utils/*"],
       "@context": ["src/context/index"],
       "@context/*": ["src/context/*"],
-      "@hooks": ["src/hooks/index"],
-      "@hooks/*": ["src/hooks/*"]
+      "@hooks": ["src/shared/hooks/index"],
+      "@hooks/*": ["src/shared/hooks/*"]
     }
   },
   "include": [

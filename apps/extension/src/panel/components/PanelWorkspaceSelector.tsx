@@ -9,13 +9,13 @@
  */
 
 import { DownOutlined } from '@ant-design/icons';
+import { useWorkspaces } from '@hooks/useWorkspaces';
 import { Button, Dropdown, Space, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
-import { useWorkspaces } from '@/hooks/useWorkspaces';
 import { useSurface } from '@/shared/surface';
-import { openWorkspace } from '@/shared/workspace-intent';
 import { WorkspaceDropdownBody } from '@/shared/workspace-dropdown/WorkspaceDropdownBody';
+import { openWorkspace } from '@/shared/workspace-intent';
 import { renderWorkspacePrefix } from '@/workbench/components/workspace-prefix';
 
 const { Text } = Typography;

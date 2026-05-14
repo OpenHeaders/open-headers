@@ -22,10 +22,10 @@
  */
 
 import { InfoCircleOutlined } from '@ant-design/icons';
+import { useStatus } from '@hooks/useStatus';
 import { Button, Popover, Tag, Tooltip, Typography, theme } from 'antd';
 import type { TooltipPlacement } from 'antd/es/tooltip';
 import React from 'react';
-import { useStatus } from '@/hooks/useStatus';
 import { getBuildInfo } from '@/shared/build-info';
 import { type StatusLevel, type StatusSnapshot, type StatusSubsystem, SUBSYSTEM_LABELS } from './types';
 

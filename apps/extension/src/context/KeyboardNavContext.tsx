@@ -1,9 +1,9 @@
+import { useDeleteConfirmation } from '@hooks/useDeleteConfirmation';
+import { type FooterActions, type HeaderActions, useKeyboardDispatch } from '@hooks/useKeyboardDispatch';
+import { useKeyboardFocus } from '@hooks/useKeyboardFocus';
+import { useKeyboardScrollAndHighlight } from '@hooks/useKeyboardScrollAndHighlight';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { useDeleteConfirmation } from '@/hooks/useDeleteConfirmation';
-import { type FooterActions, type HeaderActions, useKeyboardDispatch } from '@/hooks/useKeyboardDispatch';
-import { useKeyboardFocus } from '@/hooks/useKeyboardFocus';
-import { useKeyboardScrollAndHighlight } from '@/hooks/useKeyboardScrollAndHighlight';
 import type { PageInfo, RowActions } from '@/popup/utils/table-shared';
 
 export type { FooterActions, HeaderActions };

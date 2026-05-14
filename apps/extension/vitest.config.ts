@@ -40,7 +40,7 @@ export default defineConfig({
       '@': path.resolve(__dirname, 'src'),
       '@utils': path.resolve(__dirname, 'src/utils'),
       '@context': path.resolve(__dirname, 'src/context'),
-      '@hooks': path.resolve(__dirname, 'src/hooks'),
+      '@hooks': path.resolve(__dirname, 'src/shared/hooks'),
       '@components': path.resolve(__dirname, 'src/components'),
       '@assets': path.resolve(__dirname, 'src/assets'),
       '@styles': path.resolve(__dirname, 'src/assets/styles'),

@@ -11,8 +11,10 @@ import {
   SortAscendingOutlined,
 } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
+import { useRowActionRegistration } from '@hooks/useRowActionRegistration';
 import { useRuleMutator } from '@hooks/useRuleMutator';
 import { useRules } from '@hooks/useRules';
+import { useTablePagination } from '@hooks/useTablePagination';
 import { resolvePauseState } from '@openheaders/core/utils';
 import { call, subscribe } from '@utils/bridge';
 import { scheduleFrame } from '@utils/frame-scheduler';
@@ -37,8 +39,6 @@ import type { ColumnsType } from 'antd/es/table';
 import type { FilterValue, SorterResult } from 'antd/es/table/interface';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRowActionRegistration } from '@/hooks/useRowActionRegistration';
-import { useTablePagination } from '@/hooks/useTablePagination';
 import { useSurface } from '@/shared/surface';
 import { type RuleVerdict, VERDICT_COLOR, VERDICT_LABEL, VERDICT_RANK, VERDICT_TOOLTIP } from '@/shared/verdict';
 import { openWorkspace, type WorkspaceIntent } from '@/shared/workspace-intent';
