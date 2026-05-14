@@ -91,6 +91,14 @@ export interface HostNavigation {
    * the concept return a no-op disposer.
    */
   observeActiveTabContext(onChange: () => void): () => void;
+  /**
+   * The id of the tab this surface is inspecting — set when the surface
+   * is a DevTools-style panel attached to a specific tab, `null`
+   * otherwise. The panel scopes its request feed and per-tab toggles to
+   * this id; non-DevTools hosts (popup, side panel, web app) return
+   * `null` and those panel-only features no-op.
+   */
+  inspectedTabId(): number | null;
 }
 
 /**
@@ -115,6 +123,9 @@ const NULL_HOST_NAVIGATION: HostNavigation = {
   },
   observeActiveTabContext() {
     return () => {};
+  },
+  inspectedTabId() {
+    return null;
   },
 };
 

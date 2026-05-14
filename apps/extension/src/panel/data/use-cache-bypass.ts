@@ -13,19 +13,9 @@
  */
 
 import { hostBridge } from '@openheaders/core/bridge';
+import { hostNavigation } from '@openheaders/core/navigation';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { useCallback, useEffect } from 'react';
-
-/**
- * Inspected-tab id. Available inside a DevTools panel context only;
- * falls back to `null` in other contexts (tests, popup) so the hook
- * becomes a no-op cleanly.
- */
-function getInspectedTabId(): number | null {
-  const ct = chrome as unknown as { devtools?: { inspectedWindow?: { tabId?: number } } };
-  const id = ct.devtools?.inspectedWindow?.tabId;
-  return typeof id === 'number' ? id : null;
-}
 
 export interface UseCacheBypassResult {
   enabled: boolean;
@@ -38,7 +28,7 @@ export function useCacheBypass(): UseCacheBypassResult {
   // Reconcile the DNR rule to match the setting: install when on,
   // remove when off or on unmount. Scoped to the inspected tab.
   useEffect(() => {
-    const tabId = getInspectedTabId();
+    const tabId = hostNavigation.inspectedTabId();
     if (tabId == null) return;
     void hostBridge.call('setCacheBypass', { tabId, enabled }).catch(() => {});
     return () => {

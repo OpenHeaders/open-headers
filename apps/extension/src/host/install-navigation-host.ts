@@ -206,6 +206,18 @@ function observeActiveTabContext(onChange: () => void): () => void {
   };
 }
 
+/**
+ * The tab a DevTools panel is inspecting, read from
+ * `chrome.devtools.inspectedWindow`. `null` outside a DevTools context
+ * (popup, side panel, tests) — `chrome.devtools` is absent there, so the
+ * panel-only hooks that scope to this id no-op cleanly.
+ */
+function inspectedTabId(): number | null {
+  const devtools = (chrome as unknown as { devtools?: { inspectedWindow?: { tabId?: number } } }).devtools;
+  const id = devtools?.inspectedWindow?.tabId;
+  return typeof id === 'number' ? id : null;
+}
+
 const chromeHostNavigation: HostNavigation = {
   switchViewMode,
   currentWindowId,
@@ -214,6 +226,7 @@ const chromeHostNavigation: HostNavigation = {
   openShortcutSettings,
   getActiveTab,
   observeActiveTabContext,
+  inspectedTabId,
 };
 
 setHostNavigation(chromeHostNavigation);

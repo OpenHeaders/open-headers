@@ -17,18 +17,13 @@
  */
 
 import { type LifelinePort, lifelineTransport } from '@openheaders/core/awareness';
+import { hostNavigation } from '@openheaders/core/navigation';
 import type { InspectorPortMessage } from '@openheaders/core/types';
 import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { InspectorStore } from './inspector-store';
 
 /** Backoff for the panel→background port reconnect loop. */
 const RECONNECT_DELAY_MS = 250;
-
-function getInspectedTabId(): number | null {
-  const devtoolsApi = (chrome as unknown as { devtools?: { inspectedWindow?: { tabId?: number } } }).devtools;
-  const tabId = devtoolsApi?.inspectedWindow?.tabId;
-  return typeof tabId === 'number' ? tabId : null;
-}
 
 export interface UseInspectorResult {
   entries: readonly ReturnType<InspectorStore['getSnapshot']>['entries'][number][];
@@ -49,7 +44,7 @@ export function useInspector(): UseInspectorResult {
   const store = storeRef.current;
 
   const readyRef = useRef(false);
-  const tabIdRef = useRef<number | null>(getInspectedTabId());
+  const tabIdRef = useRef<number | null>(hostNavigation.inspectedTabId());
 
   useEffect(() => {
     const tabId = tabIdRef.current;
