@@ -14,7 +14,7 @@ import {
   type LiveVariableMutationResult,
   type LiveVariableSimpleResult,
   type LiveVariableUpdates,
-} from '@/shared/sync/live-variable-write-client';
+} from '@openheaders/ui/shared/sync/live-variable-write-client';
 import { useGuardedMutation } from './use-guarded-mutation';
 
 export type { LiveVariableMutationResult, LiveVariableSimpleResult, LiveVariableUpdates };

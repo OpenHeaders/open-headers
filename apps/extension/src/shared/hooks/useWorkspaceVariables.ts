@@ -16,7 +16,7 @@
 import {
   type WorkspaceVariablesContextValue,
   useWorkspaceVariablesContext,
-} from '@context/WorkspaceVariablesContext';
+} from '@openheaders/ui/context';
 
 export type UseWorkspaceVariablesApi = WorkspaceVariablesContextValue;
 

@@ -17,7 +17,7 @@ import {
   type RuleMutationResult,
   type RuleSimpleResult,
   type RuleUpdates,
-} from '@/shared/sync/rule-write-client';
+} from '@openheaders/ui/shared/sync/rule-write-client';
 import { useGuardedMutation } from './use-guarded-mutation';
 
 export type { RuleMutationResult, RuleSimpleResult, RuleUpdates };

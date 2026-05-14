@@ -12,7 +12,7 @@ import {
   ensureRendererContext,
   getActiveRendererContext,
   setActiveRendererContext,
-} from '@/context/renderer-mutator-context';
+} from '@openheaders/ui/context';
 
 describe('rule mutator context (renderer)', () => {
   it('mints monotonically advancing HLCs', () => {

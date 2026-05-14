@@ -6,7 +6,7 @@
  * switching this tab.
  */
 
-import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
+import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { App, Button, Dropdown, Space, Typography, theme } from 'antd';
 import type React from 'react';

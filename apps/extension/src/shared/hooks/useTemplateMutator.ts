@@ -13,7 +13,7 @@ import {
   type TemplateMutationResult,
   type TemplateSimpleResult,
   type TemplateUpdates,
-} from '@/shared/sync/template-write-client';
+} from '@openheaders/ui/shared/sync/template-write-client';
 import { useGuardedMutation } from './use-guarded-mutation';
 
 export type { TemplateMutationResult, TemplateSimpleResult, TemplateUpdates };

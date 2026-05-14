@@ -7,7 +7,7 @@
  */
 
 import { useMemo } from 'react';
-import { applyLayoutSet, type LayoutStateResult } from '@/shared/sync/layout-state-write-client';
+import { applyLayoutSet, type LayoutStateResult } from '@openheaders/ui/shared/sync/layout-state-write-client';
 import { useGuardedMutation } from './use-guarded-mutation';
 
 export type { LayoutStateResult };

@@ -14,7 +14,7 @@ import {
   type LiveWorkflowMutationResult,
   type LiveWorkflowSimpleResult,
   type LiveWorkflowUpdates,
-} from '@/shared/sync/live-workflow-write-client';
+} from '@openheaders/ui/shared/sync/live-workflow-write-client';
 import { useGuardedMutation } from './use-guarded-mutation';
 
 export type { LiveWorkflowMutationResult, LiveWorkflowSimpleResult, LiveWorkflowUpdates };

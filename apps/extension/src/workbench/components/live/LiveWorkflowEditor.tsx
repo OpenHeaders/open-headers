@@ -68,7 +68,7 @@ import {
   projectLiveWorkflowToForm,
   useLiveWorkflowConflicts,
 } from './use-live-workflow-conflicts';
-import { applyLiveWorkflowPublish } from '@/shared/sync/live-workflow-write-client';
+import { applyLiveWorkflowPublish } from '@openheaders/ui/shared/sync/live-workflow-write-client';
 import { useWorkbenchEditingScopeWorkspaceId } from '../../hooks/EditingScopeWorkspaceContext';
 import type { LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
 import { Alert, App, Button, Switch, Tag, Tooltip, Typography, theme } from 'antd';

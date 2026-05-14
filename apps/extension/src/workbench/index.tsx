@@ -4,7 +4,7 @@ import '@/host/install-host-logger';
 import { ThemeProvider } from '@context/ThemeContext';
 import { App as AntApp } from 'antd';
 import { createRoot } from 'react-dom/client';
-import { eagerInitRendererMirrors } from '@/context/eager-mirror-init';
+import { eagerInitRendererMirrors } from '@openheaders/ui/context';
 import Workbench from './App';
 import { SettingsProvider } from './settings';
 import '@openheaders/ui/shared/dock-layout/dock-layout.css';

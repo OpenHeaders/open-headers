@@ -15,7 +15,7 @@ import {
   applyRuleCreate,
   applyRulePublish,
   type RuleMutationResult,
-} from '@/shared/sync/rule-write-client';
+} from '@openheaders/ui/shared/sync/rule-write-client';
 import type { WorkbenchTab } from '../types';
 
 interface UseSaveRuleFlowOptions {

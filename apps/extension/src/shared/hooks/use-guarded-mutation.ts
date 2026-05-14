@@ -31,7 +31,7 @@
  */
 
 import { useCallback, useRef } from 'react';
-import type { BaseSyncWriteOptions } from '@/shared/sync/apply-payload';
+import type { BaseSyncWriteOptions } from '@openheaders/ui/shared/sync/apply-payload';
 
 /** The `{ ok: false; reason: 'other' }` arm every renderer sync
  *  result carries. `message` is optional because `SyncSimpleResult`

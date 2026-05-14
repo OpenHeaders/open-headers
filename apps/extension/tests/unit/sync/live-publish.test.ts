@@ -43,15 +43,15 @@ import {
   applyLiveVariableCreate,
   applyLiveVariablePublish,
   applyLiveVariableUpdate,
-} from '@/shared/sync/live-variable-write-client';
+} from '@openheaders/ui/shared/sync/live-variable-write-client';
 import {
   applyLiveWorkflowCreate,
   applyLiveWorkflowPublish,
   applyLiveWorkflowUpdate,
-} from '@/shared/sync/live-workflow-write-client';
-import type { LiveVariableSyncMirror } from '@/context/live-variable-sync-mirror';
-import type { LiveWorkflowSyncMirror } from '@/context/live-workflow-sync-mirror';
-import type { RendererContextHandle } from '@/context/renderer-mutator-context';
+} from '@openheaders/ui/shared/sync/live-workflow-write-client';
+import type { LiveVariableSyncMirror } from '@openheaders/ui/context';
+import type { LiveWorkflowSyncMirror } from '@openheaders/ui/context';
+import type { RendererContextHandle } from '@openheaders/ui/context';
 
 function makeContextHandle(workspaceId = 'ws-1', surfaceId = 'workbench'): RendererContextHandle {
   let hlc = initialHlc(`${surfaceId}-test`, 0);

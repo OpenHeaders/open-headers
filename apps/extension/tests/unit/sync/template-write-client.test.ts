@@ -41,9 +41,9 @@ vi.mock('@utils/logger', () => ({
 import {
   applyTemplateDelete,
   applyTemplateUpdate,
-} from '@/shared/sync/template-write-client';
-import type { TemplateSyncMirror } from '@/context/template-sync-mirror';
-import type { RendererContextHandle } from '@/context/renderer-mutator-context';
+} from '@openheaders/ui/shared/sync/template-write-client';
+import type { TemplateSyncMirror } from '@openheaders/ui/context';
+import type { RendererContextHandle } from '@openheaders/ui/context';
 
 const baseTemplate: Template = {
   schemaVersion: 5,

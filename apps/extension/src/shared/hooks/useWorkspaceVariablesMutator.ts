@@ -15,7 +15,7 @@ import {
   applyWorkspaceVarRemove,
   applyWorkspaceVarSet,
   type WorkspaceVariablesSimpleResult,
-} from '@/shared/sync/workspace-variables-write-client';
+} from '@openheaders/ui/shared/sync/workspace-variables-write-client';
 import { useGuardedMutation } from './use-guarded-mutation';
 
 export type { WorkspaceVariablesSimpleResult };

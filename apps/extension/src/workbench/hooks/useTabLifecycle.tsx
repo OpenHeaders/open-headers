@@ -10,7 +10,7 @@ import type { Rule } from '@openheaders/core/types';
 import { isRuleDraft } from '@openheaders/core/utils';
 import { App as AntApp, Button } from 'antd';
 import { useCallback } from 'react';
-import { applyRuleDelete } from '@/shared/sync/rule-write-client';
+import { applyRuleDelete } from '@openheaders/ui/shared/sync/rule-write-client';
 import type { WorkbenchTab } from '../types';
 
 interface UseTabLifecycleOptions {

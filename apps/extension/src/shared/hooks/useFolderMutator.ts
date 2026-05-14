@@ -12,7 +12,7 @@ import {
   applyFolderMove,
   applyFolderRename,
   type FolderSimpleResult,
-} from '@/shared/sync/folder-write-client';
+} from '@openheaders/ui/shared/sync/folder-write-client';
 import { useGuardedMutation } from './use-guarded-mutation';
 
 export type { FolderSimpleResult };

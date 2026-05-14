@@ -18,7 +18,7 @@ import {
   applyEnvVariablesReplacement,
   applyRenameEnvironment,
   type EnvSimpleResult,
-} from '@/shared/sync/env-write-client';
+} from '@openheaders/ui/shared/sync/env-write-client';
 import { useGuardedMutation } from './use-guarded-mutation';
 
 export type { EnvSimpleResult };

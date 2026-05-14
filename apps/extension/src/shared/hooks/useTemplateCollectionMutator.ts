@@ -10,7 +10,7 @@ import {
   applyTemplateCollectionDelete,
   applyTemplateCollectionRename,
   type TemplateCollectionSimpleResult,
-} from '@/shared/sync/template-collection-write-client';
+} from '@openheaders/ui/shared/sync/template-collection-write-client';
 import { useGuardedMutation } from './use-guarded-mutation';
 
 export type { TemplateCollectionSimpleResult };

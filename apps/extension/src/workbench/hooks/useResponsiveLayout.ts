@@ -11,7 +11,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { hostStorage, type PersistedPanelLayout, wsKeys } from '@openheaders/core/storage';
-import { applyLayoutSet } from '@/shared/sync/layout-state-write-client';
+import { applyLayoutSet } from '@openheaders/ui/shared/sync/layout-state-write-client';
 
 // ── Breakpoints (CSS pixels, accounts for browser zoom) ───────────
 

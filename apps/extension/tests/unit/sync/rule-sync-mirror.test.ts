@@ -37,7 +37,7 @@ import {
   createRuleSyncMirror,
   disposeAllRuleSyncMirrors,
   getRuleSyncMirrorForWorkspace,
-} from '@/context/rule-sync-mirror';
+} from '@openheaders/ui/context';
 
 type Handler = (event: {
   envelope: MutationEnvelope;

@@ -8,7 +8,7 @@
 
 import type { FileRefSlot } from '@openheaders/core/sync';
 import { useMemo } from 'react';
-import { applyFileAdd, applyFileRemove, type FilesResult } from '@/shared/sync/files-write-client';
+import { applyFileAdd, applyFileRemove, type FilesResult } from '@openheaders/ui/shared/sync/files-write-client';
 import { useGuardedMutation } from './use-guarded-mutation';
 
 export type { FilesResult };

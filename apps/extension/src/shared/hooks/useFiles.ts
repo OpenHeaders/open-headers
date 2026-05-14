@@ -14,7 +14,7 @@
  * the `workspaceId` thread.
  */
 
-import { type FilesContextValue, type RenameFileOutcome, useFilesContext } from '@/context/FilesContext';
+import { type FilesContextValue, type RenameFileOutcome, useFilesContext } from '@openheaders/ui/context';
 
 export type { RenameFileOutcome };
 

@@ -25,7 +25,7 @@
  */
 
 import { CopyOutlined, DownOutlined, InfoCircleOutlined, RightOutlined } from '@ant-design/icons';
-import { useOAuthBundlesContext } from '@context/OAuthBundlesContext';
+import { useOAuthBundlesContext } from '@openheaders/ui/context';
 import { isExpired, secondsUntilExpiry } from '@openheaders/core/oauth';
 import type { OAuth2Auth, OAuth2Flow } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';

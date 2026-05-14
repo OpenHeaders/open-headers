@@ -14,8 +14,8 @@ import type { Collection, Rule, RuleDraft, RuleType, Template } from '@openheade
 import { buildEmptyRequest, buildEmptyRule, generateUid, toFolderName } from '@openheaders/core/utils';
 import { App } from 'antd';
 import { useCallback, useState } from 'react';
-import { applyRequestCreate } from '@/shared/sync/request-write-client';
-import { applyRuleCreate } from '@/shared/sync/rule-write-client';
+import { applyRequestCreate } from '@openheaders/ui/shared/sync/request-write-client';
+import { applyRuleCreate } from '@openheaders/ui/shared/sync/rule-write-client';
 import type { ClosedTab, RuleFlowScope, WorkbenchTab } from '../types';
 
 /**

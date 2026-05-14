@@ -53,7 +53,7 @@ import {
 import { ConflictsProvider, type FieldConflictsApi } from '@/shared/conflicts/Field';
 import { useEditorShell, useReprime } from '@/shared/editor-shell';
 import { stableStringify } from '@/shared/forms';
-import { applyRuleCreate, applyRulePublish } from '@/shared/sync/rule-write-client';
+import { applyRuleCreate, applyRulePublish } from '@openheaders/ui/shared/sync/rule-write-client';
 import { buildDraftConditions } from '../draft-conditions';
 import { useInspectorNav } from '../hooks/useInspectorNav';
 import type { RuleDraftData } from '../hooks/useSaveRuleFlow';

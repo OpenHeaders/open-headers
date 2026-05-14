@@ -14,7 +14,7 @@
  * Provider mount.
  */
 
-import { type RequestsContextValue, type RequestWriteResult, useRequestsContext } from '@context/RequestsContext';
+import { type RequestsContextValue, type RequestWriteResult, useRequestsContext } from '@openheaders/ui/context';
 
 export type { RequestWriteResult };
 

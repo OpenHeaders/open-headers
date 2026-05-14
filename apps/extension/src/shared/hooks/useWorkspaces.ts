@@ -18,7 +18,7 @@
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { call } from '@utils/bridge';
 import { useCallback, useEffect, useState } from 'react';
-import { getActiveExtensionWorkspaceSyncMirror } from '@/context/extension-workspace-sync-mirror';
+import { getActiveExtensionWorkspaceSyncMirror } from '@openheaders/ui/context';
 import {
   applyCreateWorkspace,
   applyDeleteWorkspace,
@@ -26,7 +26,7 @@ import {
   applyReorderWorkspaces,
   applySetActiveWorkspace,
   applyUpdateWorkspace,
-} from '@/shared/sync/extension-workspace-write-client';
+} from '@openheaders/ui/shared/sync/extension-workspace-write-client';
 
 const DEFAULT_SURFACE_ID = 'workspace-meta';
 

@@ -12,7 +12,7 @@ import {
   applyPauseMarkerSet,
   applyPauseMarkersReplacement,
   type PauseMarkersResult,
-} from '@/shared/sync/pause-markers-write-client';
+} from '@openheaders/ui/shared/sync/pause-markers-write-client';
 import { useGuardedMutation } from './use-guarded-mutation';
 
 export type { PauseMarkersResult };

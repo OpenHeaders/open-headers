@@ -37,9 +37,9 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { applyRequestUpdate } from '@/shared/sync/request-write-client';
-import type { RequestSyncMirror } from '@/context/request-sync-mirror';
-import type { RendererContextHandle } from '@/context/renderer-mutator-context';
+import { applyRequestUpdate } from '@openheaders/ui/shared/sync/request-write-client';
+import type { RequestSyncMirror } from '@openheaders/ui/context';
+import type { RendererContextHandle } from '@openheaders/ui/context';
 
 type LiveOrdered = Array<{ itemId: string; orderKey: string }>;
 

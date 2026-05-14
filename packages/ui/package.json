@@ -27,6 +27,10 @@
       "import": "./src/popup/index.ts",
       "default": "./dist/popup/index.js"
     },
+    "./context": {
+      "import": "./src/context/index.ts",
+      "default": "./dist/context/index.js"
+    },
     "./shared": {
       "import": "./src/shared/index.ts",
       "default": "./dist/shared/index.js"
@@ -36,9 +40,21 @@
       "default": "./dist/shared/*/index.js"
     },
     "./shared/*.css": "./src/shared/*.css",
+    "./shared/local-tree-builder": {
+      "import": "./src/shared/local-tree-builder.ts",
+      "default": "./dist/shared/local-tree-builder.js"
+    },
     "./shared/merge-editor/*": {
       "import": "./src/shared/merge-editor/*.ts",
       "default": "./dist/shared/merge-editor/*.js"
+    },
+    "./shared/sync/*": {
+      "import": "./src/shared/sync/*.ts",
+      "default": "./dist/shared/sync/*.js"
+    },
+    "./shared/hooks/*": {
+      "import": "./src/shared/hooks/*.ts",
+      "default": "./dist/shared/hooks/*.js"
     }
   },
   "scripts": {

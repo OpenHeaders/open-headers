@@ -32,12 +32,12 @@ import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
 import type { LiveVariableOverride, Variable, VaultSecret } from '@openheaders/core/types';
 import { useCallback } from 'react';
-import { applyCollectionVariablesReplacement } from '@/shared/sync/collection-write-client';
-import { applyEnvVariablesReplacement } from '@/shared/sync/env-write-client';
-import { applyRequestCollectionVariablesReplacement } from '@/shared/sync/request-collection-write-client';
-import { applyTemplateCollectionVariablesReplacement } from '@/shared/sync/template-collection-write-client';
-import { applyVaultReplacement } from '@/shared/sync/vault-write-client';
-import { applyWorkspaceVariablesReplacement } from '@/shared/sync/workspace-variables-write-client';
+import { applyCollectionVariablesReplacement } from '@openheaders/ui/shared/sync/collection-write-client';
+import { applyEnvVariablesReplacement } from '@openheaders/ui/shared/sync/env-write-client';
+import { applyRequestCollectionVariablesReplacement } from '@openheaders/ui/shared/sync/request-collection-write-client';
+import { applyTemplateCollectionVariablesReplacement } from '@openheaders/ui/shared/sync/template-collection-write-client';
+import { applyVaultReplacement } from '@openheaders/ui/shared/sync/vault-write-client';
+import { applyWorkspaceVariablesReplacement } from '@openheaders/ui/shared/sync/workspace-variables-write-client';
 
 // ── Result shape ─────────────────────────────────────────────────────
 

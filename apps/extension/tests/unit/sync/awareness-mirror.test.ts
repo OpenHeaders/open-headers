@@ -30,7 +30,7 @@ import {
   createAwarenessMirror,
   disposeActiveAwarenessMirror,
   getActiveAwarenessMirror,
-} from '@/context/awareness-mirror';
+} from '@openheaders/ui/context';
 
 type Handler = (event: { workspaceId: string; presence: AwarenessState[] }) => void;
 

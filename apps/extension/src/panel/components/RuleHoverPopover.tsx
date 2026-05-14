@@ -35,11 +35,11 @@
 
 import { SaveOutlined } from '@ant-design/icons';
 import { ShortcutHintTitle } from '@components/ShortcutKbd';
-import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
+import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
 import { type RuleMutationResult, useRuleMutator } from '@hooks/useRuleMutator';
 
 import { useRules } from '@hooks/useRules';
-import { useLiveRule } from '@/context/rule-sync-mirror';
+import { useLiveRule } from '@openheaders/ui/context';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { HeaderModification, HeaderOperation, HeaderRule, Rule } from '@openheaders/core/types';
 import { getHeaderOperationCapability, validateHeaderName, validateHeaderValue } from '@openheaders/core/utils';

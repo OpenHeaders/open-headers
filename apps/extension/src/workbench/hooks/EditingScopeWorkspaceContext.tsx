@@ -12,7 +12,7 @@
  * See `MULTI_WORKSPACE_PER_WINDOW_OR_TAB_DESIGN.md` § 5.2 + § 6.2.
  */
 
-import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
+import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
 import { createContext, useContext } from 'react';
 import type React from 'react';
 

@@ -13,7 +13,7 @@ import {
   applyRequestCollectionDelete,
   applyRequestCollectionRename,
   type RequestCollectionSimpleResult,
-} from '@/shared/sync/request-collection-write-client';
+} from '@openheaders/ui/shared/sync/request-collection-write-client';
 import { useGuardedMutation } from './use-guarded-mutation';
 
 export type { RequestCollectionSimpleResult };

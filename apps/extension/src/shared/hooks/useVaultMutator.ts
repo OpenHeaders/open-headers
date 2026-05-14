@@ -14,7 +14,7 @@ import {
   applyVaultSecretRemove,
   applyVaultSecretSet,
   type VaultSimpleResult,
-} from '@/shared/sync/vault-write-client';
+} from '@openheaders/ui/shared/sync/vault-write-client';
 import { useGuardedMutation } from './use-guarded-mutation';
 
 export type { VaultSimpleResult };

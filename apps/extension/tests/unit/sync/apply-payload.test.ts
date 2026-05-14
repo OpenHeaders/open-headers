@@ -41,12 +41,12 @@ import {
   type BaseSyncWriteOptions,
   resolveMirror,
   resolveRendererContext,
-} from '@/shared/sync/apply-payload';
+} from '@openheaders/ui/shared/sync/apply-payload';
 import {
   ensureRendererContext,
   setActiveRendererContext,
   type RendererContextHandle,
-} from '@/context/renderer-mutator-context';
+} from '@openheaders/ui/context';
 
 function makeBatch(mutationCount: number): MutationBatch {
   return {

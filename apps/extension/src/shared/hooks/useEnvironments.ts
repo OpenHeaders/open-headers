@@ -18,7 +18,7 @@ import {
   type EnvironmentContextValue,
   type EnvironmentWriteResult,
   useEnvironmentContext,
-} from '@context/EnvironmentContext';
+} from '@openheaders/ui/context';
 
 export type { EnvironmentWriteResult };
 export type UseEnvironmentsApi = EnvironmentContextValue;

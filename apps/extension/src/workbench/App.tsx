@@ -8,17 +8,17 @@
  * render-prop hooks for the editor body and tool-window content.
  */
 
-import { EnvironmentProvider } from '@context/EnvironmentContext';
-import { FilesProvider } from '@context/FilesContext';
-import { LiveVariablesProvider } from '@context/LiveVariablesContext';
-import { LiveWorkflowsProvider } from '@context/LiveWorkflowsContext';
-import { OAuthBundlesProvider } from '@context/OAuthBundlesContext';
-import { PauseMarkersProvider } from '@context/PauseMarkersContext';
-import { RequestsProvider } from '@context/RequestsContext';
-import { RuleProvider } from '@context/RuleContext';
+import { EnvironmentProvider } from '@openheaders/ui/context';
+import { FilesProvider } from '@openheaders/ui/context';
+import { LiveVariablesProvider } from '@openheaders/ui/context';
+import { LiveWorkflowsProvider } from '@openheaders/ui/context';
+import { OAuthBundlesProvider } from '@openheaders/ui/context';
+import { PauseMarkersProvider } from '@openheaders/ui/context';
+import { RequestsProvider } from '@openheaders/ui/context';
+import { RuleProvider } from '@openheaders/ui/context';
 import { useTheme } from '@context/ThemeContext';
-import { VaultProvider } from '@context/VaultContext';
-import { WorkspaceVariablesProvider } from '@context/WorkspaceVariablesContext';
+import { VaultProvider } from '@openheaders/ui/context';
+import { WorkspaceVariablesProvider } from '@openheaders/ui/context';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';

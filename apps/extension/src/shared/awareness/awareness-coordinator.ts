@@ -29,7 +29,7 @@
 import { hostLogger as logger } from '@openheaders/core/logger';
 import type { HLC } from '@openheaders/core/sync';
 import { call } from '@utils/bridge';
-import type { RendererContextHandle } from '@/context/renderer-mutator-context';
+import type { RendererContextHandle } from '@openheaders/ui/context';
 import type { SurfaceIdentityHandle } from './surface-identity';
 
 export interface AwarenessClaim {

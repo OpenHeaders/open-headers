@@ -20,7 +20,7 @@
  * reflect ACTIVE (per design § 5.2 + § 5.4).
  */
 
-import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
+import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
 import type { WorkbenchViewState } from './useToolLayout';
 

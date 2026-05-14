@@ -1,5 +1,5 @@
-import type { RuleContextValue } from '@context/RuleContext';
-import { RuleContext } from '@context/RuleContext';
+import type { RuleContextValue } from '@openheaders/ui/context';
+import { RuleContext } from '@openheaders/ui/context';
 import { useContext } from 'react';
 
 /**

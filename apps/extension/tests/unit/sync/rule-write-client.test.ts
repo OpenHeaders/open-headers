@@ -36,9 +36,9 @@ import {
   applyRuleDelete,
   applyRuleToggle,
   applyRuleUpdate,
-} from '@/shared/sync/rule-write-client';
-import type { RuleSyncMirror } from '@/context/rule-sync-mirror';
-import type { RendererContextHandle } from '@/context/renderer-mutator-context';
+} from '@openheaders/ui/shared/sync/rule-write-client';
+import type { RuleSyncMirror } from '@openheaders/ui/context';
+import type { RendererContextHandle } from '@openheaders/ui/context';
 
 const headerRule: HeaderRule = {
   schemaVersion: 5,

@@ -12,7 +12,7 @@ import {
   type LiveVariablesContextValue,
   type LiveVariableWriteResult,
   useLiveVariablesContext,
-} from '@context/LiveVariablesContext';
+} from '@openheaders/ui/context';
 
 export type { LiveVariableOverrideResult, LiveVariableWriteResult };
 

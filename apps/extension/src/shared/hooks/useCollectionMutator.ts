@@ -18,7 +18,7 @@ import {
   applySetPinnedAndDefault,
   applySetPinnedEnvironments,
   type CollectionSimpleResult,
-} from '@/shared/sync/collection-write-client';
+} from '@openheaders/ui/shared/sync/collection-write-client';
 import { useGuardedMutation } from './use-guarded-mutation';
 
 export type { CollectionSimpleResult };

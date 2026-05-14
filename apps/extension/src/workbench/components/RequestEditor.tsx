@@ -36,7 +36,7 @@ import { App, Button, Dropdown, Select, Tabs, Tag, Tooltip, Typography, theme } 
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
-import { getRequestSyncMirrorForWorkspace } from '@/context/request-sync-mirror';
+import { getRequestSyncMirrorForWorkspace } from '@openheaders/ui/context';
 import { EntityField, EntityScopeProvider, REQUEST_PATHS, useSetActiveFieldFocus } from '@/shared/awareness';
 import { readFieldPath } from '@/shared/awareness/field-path';
 import {

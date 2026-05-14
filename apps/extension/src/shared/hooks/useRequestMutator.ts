@@ -17,7 +17,7 @@ import {
   type RequestMutationResult,
   type RequestSimpleResult,
   type RequestUpdates,
-} from '@/shared/sync/request-write-client';
+} from '@openheaders/ui/shared/sync/request-write-client';
 import { useGuardedMutation } from './use-guarded-mutation';
 
 export type { RequestMutationResult, RequestSimpleResult, RequestUpdates };

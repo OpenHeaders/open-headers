@@ -14,7 +14,7 @@
 
 import type { AwarenessState } from '@openheaders/core/protocol';
 import { useEffect, useState } from 'react';
-import { type EntityRef, type FieldRef, getActiveAwarenessMirror } from '@/context/awareness-mirror';
+import { type EntityRef, type FieldRef, getActiveAwarenessMirror } from '@openheaders/ui/context';
 
 export interface UseEntityPresenceOptions {
   /** Local instance id — filtered out so the tab doesn't see itself. */

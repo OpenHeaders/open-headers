@@ -12,7 +12,7 @@ import {
   applyTemplateFolderMove,
   applyTemplateFolderRename,
   type TemplateFolderSimpleResult,
-} from '@/shared/sync/template-folder-write-client';
+} from '@openheaders/ui/shared/sync/template-folder-write-client';
 import { useGuardedMutation } from './use-guarded-mutation';
 
 export type { TemplateFolderSimpleResult };

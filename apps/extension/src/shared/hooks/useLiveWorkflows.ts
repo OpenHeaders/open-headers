@@ -11,7 +11,7 @@ import {
   type LiveWorkflowsContextValue,
   type LiveWorkflowWriteResult,
   useLiveWorkflowsContext,
-} from '@context/LiveWorkflowsContext';
+} from '@openheaders/ui/context';
 
 export type { LiveWorkflowWriteResult };
 
