@@ -5,16 +5,16 @@ import '@/host/install-build-info';
 import '@/host/install-awareness-host';
 import '@/host/install-navigation-host';
 import '@/host/install-assets-host';
-import { resolveWorkbenchIdentity } from '@/host/surface-identity-resolvers';
 import { ThemeProvider } from '@context/ThemeContext';
+import { eagerInitRendererMirrors } from '@openheaders/ui/context';
+import Workbench from '@openheaders/ui/workbench/App';
+import { SettingsProvider } from '@openheaders/ui/workbench/settings';
 import { App as AntApp } from 'antd';
 import { createRoot } from 'react-dom/client';
-import { eagerInitRendererMirrors } from '@openheaders/ui/context';
-import Workbench from './App';
-import { SettingsProvider } from './settings';
+import { resolveWorkbenchIdentity } from '@/host/surface-identity-resolvers';
 import '@openheaders/ui/shared/dock-layout/dock-layout.css';
-import './styles/rules.less';
-import './styles/rule-flow.less';
+import '@openheaders/ui/workbench/styles/rules.less';
+import '@openheaders/ui/workbench/styles/rule-flow.less';
 
 // Subscribe every entity mirror to `syncBroadcast` and kick off each
 // snapshot RPC before React mounts — see `eager-mirror-init.ts` for

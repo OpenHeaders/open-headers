@@ -3,8 +3,8 @@
  * classifier the FolderDndTree gesture surface uses.
  */
 
+import { classifyDropZone } from '@openheaders/ui/workbench/components/sidebar/folder-dnd-zone';
 import { describe, expect, it } from 'vitest';
-import { classifyDropZone } from '@/workbench/components/sidebar/folder-dnd-zone';
 
 const rect = { top: 100, height: 40 }; // bands: 100–110 'before', 110–130 'into', 130–140 'after'
 

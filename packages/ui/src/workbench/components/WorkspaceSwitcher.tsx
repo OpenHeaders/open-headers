@@ -12,7 +12,7 @@ import { App, Button, Dropdown, Space, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useState } from 'react';
 import { instanceLabel, instanceLabelPlural } from '@openheaders/ui/shared/host-vocabulary';
-import { WorkspaceDropdownBody } from '@/shared/workspace-dropdown/WorkspaceDropdownBody';
+import { WorkspaceDropdownBody } from '../../shared/workspace-dropdown/WorkspaceDropdownBody';
 import { renderWorkspacePrefix } from './workspace-prefix';
 
 const { Text } = Typography;

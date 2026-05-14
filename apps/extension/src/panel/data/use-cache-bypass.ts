@@ -12,9 +12,9 @@
  *     DNR rule to match.
  */
 
+import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { call } from '@utils/bridge';
 import { useCallback, useEffect } from 'react';
-import { useSetting } from '@/workbench/settings/hooks';
 
 /**
  * Inspected-tab id. Available inside a DevTools panel context only;

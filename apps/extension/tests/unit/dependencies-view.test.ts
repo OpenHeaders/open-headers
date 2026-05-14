@@ -12,8 +12,8 @@
  */
 
 import type { LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
+import { buildDependencyRows, MAX_INDENT } from '@openheaders/ui/workbench/components/live/dependencies-view';
 import { describe, expect, it } from 'vitest';
-import { buildDependencyRows, MAX_INDENT } from '@/workbench/components/live/dependencies-view';
 
 function mkWorkflow(steps: WorkflowStep[]): LiveWorkflow {
   return {

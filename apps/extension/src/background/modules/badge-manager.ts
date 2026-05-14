@@ -11,10 +11,10 @@
  * (paused, disconnected) override and are shown with their own glyph.
  */
 
+import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
 import { logger } from '@utils/logger';
 import type { BadgeState } from '@/types/browser';
 import { getBrowserAPI } from '@/types/browser';
-import { get as getSetting } from '@/workbench/settings/store';
 
 const browserAPI = getBrowserAPI();
 

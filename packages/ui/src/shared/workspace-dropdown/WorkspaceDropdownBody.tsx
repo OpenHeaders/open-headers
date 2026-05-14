@@ -20,7 +20,7 @@ import type { InputRef } from 'antd';
 import { Divider, Input, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useRef, useState } from 'react';
-import { renderWorkspacePrefix } from '@/workbench/components/workspace-prefix';
+import { renderWorkspacePrefix } from '../../workbench/components/workspace-prefix';
 import './WorkspaceDropdownBody.css';
 
 const { Text } = Typography;

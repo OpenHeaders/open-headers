@@ -31,13 +31,15 @@ import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const SRC_ROOT = path.resolve(__dirname, '../../../src');
-// The per-tab-state module was lifted to `@openheaders/ui`; the BC-V1
-// source-shape checks read it from its package location. The adopter
-// checks below still read extension-surface files under SRC_ROOT.
-const PER_TAB_MODULE = path.resolve(__dirname, '../../../../../packages/ui/src/shared/editing-scope-view-state');
+const UI_SRC_ROOT = path.resolve(__dirname, '../../../../../packages/ui/src');
+// The per-tab-state module and the workbench surface were lifted to
+// `@openheaders/ui`; their source-shape checks read from the package
+// location. The panel adopter checks still read files under SRC_ROOT.
+const PER_TAB_MODULE = path.resolve(UI_SRC_ROOT, 'shared/editing-scope-view-state');
 
 function readFile(rel: string): string {
-  return readFileSync(path.resolve(SRC_ROOT, rel), 'utf8');
+  const root = rel.startsWith('workbench/') ? UI_SRC_ROOT : SRC_ROOT;
+  return readFileSync(path.resolve(root, rel), 'utf8');
 }
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -75,7 +77,7 @@ describe('per-tab-state lint', () => {
   });
 
   it('outside the per-tab-state module, no source touches the view-state sessionStorage keys', () => {
-    const allSources = walk(SRC_ROOT);
+    const allSources = [...walk(SRC_ROOT), ...walk(UI_SRC_ROOT)];
     const violations: string[] = [];
     for (const file of allSources) {
       if (file.startsWith(PER_TAB_MODULE)) continue;

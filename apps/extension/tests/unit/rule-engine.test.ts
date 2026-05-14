@@ -19,16 +19,16 @@ vi.mock('@utils/logger', () => ({
   },
 }));
 
-vi.mock('@/workbench/settings/store', () => ({
+vi.mock('@openheaders/ui/workbench/settings/store', () => ({
   get: vi.fn((key: string) => {
     if (key === 'rulesEngine.updateDebounceMs') return 150;
     return undefined;
   }),
 }));
 
+import { getRules } from '@openheaders/oracle/entity/rule-store';
 import { updateNetworkRules } from '@/background/dnr-manager';
 import { getLastRulesHash, scheduleUpdate, setLastRulesHash } from '@/background/modules/rule-engine';
-import { getRules } from '@openheaders/oracle/entity/rule-store';
 
 const mockUpdateNetworkRules = updateNetworkRules as ReturnType<typeof vi.fn>;
 const mockGetRules = getRules as ReturnType<typeof vi.fn>;
@@ -47,7 +47,9 @@ function makeHeaderRule(overrides: Partial<HeaderRule> = {}): HeaderRule {
     enabled: true,
     conditions: hostConditions(['*.openheaders.io']),
     action: {
-      requestHeaders: [{ uid: 'thm00082', operation: 'override', headerName: 'Authorization', value: 'Bearer test-token' }],
+      requestHeaders: [
+        { uid: 'thm00082', operation: 'override', headerName: 'Authorization', value: 'Bearer test-token' },
+      ],
       responseHeaders: [],
     },
     ...overrides,

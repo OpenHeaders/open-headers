@@ -15,17 +15,6 @@ import '@/host/install-host-logger';
 import type { Rule, TreeNode } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
 import { isRuleEffective } from '@openheaders/core/utils';
-import { broadcast } from '@utils/bridge';
-import { alarms, isChrome, isEdge, isFirefox, isSafari, runtime, storage, tabs } from '@utils/browser-api';
-import { logger } from '@utils/logger';
-import { bootstrapSettings } from '@utils/settings-bootstrap';
-import { report as reportStatus, subscribe as subscribeStatus } from '@openheaders/ui/shared/status';
-import { get as getSetting, subscribeKey } from '@/workbench/settings/store';
-import { forgetDelayBypassForTab, markTabForDelayBypass, resolveDelayBypass, setRulesPaused } from './dnr-manager';
-import { setupInjectListener } from './inject-manager';
-import { updateExtensionBadge } from './modules/badge-manager';
-import { forgetCacheBypassForTab, rehydrateCacheBypassFromSessionRules } from './modules/cache-bypass';
-import { setupDevtoolsInspectorPorts } from './modules/devtools-inspector-port';
 import {
   bridgeEnvironmentSyncEngine,
   bridgeVaultSyncEngine,
@@ -40,22 +29,26 @@ import {
   onEnvironmentStoreChange,
 } from '@openheaders/oracle/entity/environment-store';
 import { bridgeFilesSyncEngine, listFiles, onFilesStoreChange } from '@openheaders/oracle/entity/files-store';
+import { report as reportStatus, subscribe as subscribeStatus } from '@openheaders/ui/shared/status';
+import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
+import { broadcast } from '@utils/bridge';
+import { alarms, isChrome, isEdge, isFirefox, isSafari, runtime, storage, tabs } from '@utils/browser-api';
+import { logger } from '@utils/logger';
+import { bootstrapSettings } from '@utils/settings-bootstrap';
+import { forgetDelayBypassForTab, markTabForDelayBypass, resolveDelayBypass, setRulesPaused } from './dnr-manager';
+import { setupInjectListener } from './inject-manager';
+import { updateExtensionBadge } from './modules/badge-manager';
+import { forgetCacheBypassForTab, rehydrateCacheBypassFromSessionRules } from './modules/cache-bypass';
+import { setupDevtoolsInspectorPorts } from './modules/devtools-inspector-port';
 // Module-load side effect: registers `liveChainAdapter` with the live
 // scheduler via `__setLiveRefreshAdapter`. Import for its side effect
 // even though we don't name anything from it here — the scheduler's
 // adapter port is filled at eval time so the first alarm fires
 // against a real chain runner rather than the Phase-C stub.
 import './modules/live-chain-adapter';
-import { bridgeLayoutStateSyncEngine } from '@openheaders/oracle/workspace/layout-store';
+import { setLockObserver } from '@openheaders/oracle/coordination';
+import { bridgeOAuthSyncEngine } from '@openheaders/oracle/entity/oauth-token-store';
 import { onLiveCacheStoreChange } from '@openheaders/oracle/live/live-cache-store';
-import {
-  handleLiveAlarm,
-  isLiveRefreshAlarm,
-  kickActiveContextRefresh,
-  reconcileLiveSchedules,
-  refreshLiveWorkflowSynchronously,
-  startLiveScheduler,
-} from './modules/live-refresh-scheduler';
 import {
   bridgeLiveVariableSyncEngine,
   getLiveVariables,
@@ -66,6 +59,17 @@ import {
   getLiveWorkflows,
   onLiveWorkflowStoreChange,
 } from '@openheaders/oracle/live/live-workflow-store';
+import { disposeResolverStateForWorkspace } from '@openheaders/oracle/rule-engine/variables-resolver';
+import { setOracleHostHooks } from '@openheaders/oracle/sync';
+import { bridgeLayoutStateSyncEngine } from '@openheaders/oracle/workspace/layout-store';
+import {
+  handleLiveAlarm,
+  isLiveRefreshAlarm,
+  kickActiveContextRefresh,
+  reconcileLiveSchedules,
+  refreshLiveWorkflowSynchronously,
+  startLiveScheduler,
+} from './modules/live-refresh-scheduler';
 import { handleGeneralMessage } from './modules/message-handler';
 import {
   handleOAuthAlarm,
@@ -73,12 +77,8 @@ import {
   reconcileOAuthSchedules,
   startOAuthScheduler,
 } from './modules/oauth-refresh-scheduler';
-import { setLockObserver } from '@openheaders/oracle/coordination';
-import { setOracleHostHooks } from '@openheaders/oracle/sync';
-import { scheduleUpdate as scheduleRuleEngineUpdate } from './modules/rule-engine';
-import { bridgeOAuthSyncEngine } from '@openheaders/oracle/entity/oauth-token-store';
 import { hydrateObservabilityLog, recordLog } from './modules/observability-log';
-import { disposeResolverStateForWorkspace } from '@openheaders/oracle/rule-engine/variables-resolver';
+import { scheduleUpdate as scheduleRuleEngineUpdate } from './modules/rule-engine';
 
 // Wire the lock subsystem's observer to the host observability ring.
 // Done at module-load so any pre-init `withLock` call still routes
@@ -105,10 +105,8 @@ setOracleHostHooks({
   peekActiveWorkspaceId,
   getCachedTotpCodes,
 });
-import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
+
 import { bridgePauseMarkersSyncEngine, getPauseMarkers } from '@openheaders/oracle/entity/pause-markers-store';
-import { auditHostPermissions } from './modules/permissions-audit';
-import { setupRequestMonitoring } from './modules/request-monitor';
 import { applyExternalSnapshot as applyRequestScriptsReviewSnapshot } from '@openheaders/oracle/entity/request-scripts-review-store';
 import {
   bridgeRequestCollectionSyncEngine,
@@ -118,15 +116,6 @@ import {
   onRequestStoreChange,
 } from '@openheaders/oracle/entity/request-store';
 import {
-  getActiveRulesForTab,
-  precompileRulePatterns,
-  rehydrateTabTracking,
-  restoreTrackingState,
-  revalidateTrackedRequests,
-} from './modules/request-tracker';
-import { scheduleUpdate } from './modules/rule-engine';
-import { rehydrateFromStorage as rehydrateObserverFromStorage } from './modules/rule-state-observer';
-import {
   bridgeCollectionSyncEngine,
   bridgeFolderSyncEngine,
   bridgeToSyncEngine,
@@ -134,7 +123,6 @@ import {
   getRules,
   onStoreChange,
 } from '@openheaders/oracle/entity/rule-store';
-import { initializeActiveTabTracking, setupPeriodicCleanup, setupTabListeners } from './modules/tab-listeners';
 import {
   bridgeTemplateCollectionSyncEngine,
   bridgeTemplateFolderSyncEngine,
@@ -143,10 +131,36 @@ import {
   getTemplates,
   onTemplateStoreChange,
 } from '@openheaders/oracle/entity/template-store';
+import {
+  __setSyncWarmRunner,
+  getUnresolvableRuleUids,
+  hydrateLiveCacheMirror,
+} from '@openheaders/oracle/rule-engine/variables-resolver';
+import { setupAwarenessLifelinePorts } from '@openheaders/oracle/sync/awareness-lifeline';
+import { markBootPhase } from '@openheaders/oracle/sync/boot-telemetry';
+import { attachGlobalWorkspaceCoordRunner, initGlobalSyncService } from '@openheaders/oracle/sync/global-service';
+import {
+  getOrCreateWorkspaceService,
+  releaseWorkspaceService,
+  removeAwarenessByInstanceId,
+  setRuntimeActive,
+} from '@openheaders/oracle/sync/service';
 import { pruneOrphanOwners } from '@openheaders/oracle/test-run/test-run-store';
+import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
+import { auditHostPermissions } from './modules/permissions-audit';
+import { setupRequestMonitoring } from './modules/request-monitor';
+import {
+  getActiveRulesForTab,
+  precompileRulePatterns,
+  rehydrateTabTracking,
+  restoreTrackingState,
+  revalidateTrackedRequests,
+} from './modules/request-tracker';
+import { scheduleUpdate } from './modules/rule-engine';
+import { rehydrateFromStorage as rehydrateObserverFromStorage } from './modules/rule-state-observer';
+import { initializeActiveTabTracking, setupPeriodicCleanup, setupTabListeners } from './modules/tab-listeners';
 import { setupTestRunnerPorts } from './modules/test-runner';
 import { bootstrapTotpScheduler, getCachedTotpCodes, handleTotpAlarm, isTotpAlarm } from './modules/totp-scheduler';
-import { __setSyncWarmRunner, getUnresolvableRuleUids, hydrateLiveCacheMirror } from '@openheaders/oracle/rule-engine/variables-resolver';
 import { initializeViewMode } from './modules/view-mode';
 import { isHandoffSweepAlarm, sweepExpiredHandoffs } from './modules/workspace-export-handoff-store';
 import {
@@ -163,15 +177,6 @@ import {
   peekActiveWorkspaceId,
 } from './modules/workspace-store';
 import { setupWorkspaceTabRegistry } from './modules/workspace-tab-registry';
-import { setupAwarenessLifelinePorts } from '@openheaders/oracle/sync/awareness-lifeline';
-import { markBootPhase } from '@openheaders/oracle/sync/boot-telemetry';
-import { attachGlobalWorkspaceCoordRunner, initGlobalSyncService } from '@openheaders/oracle/sync/global-service';
-import {
-  getOrCreateWorkspaceService,
-  releaseWorkspaceService,
-  removeAwarenessByInstanceId,
-  setRuntimeActive,
-} from '@openheaders/oracle/sync/service';
 import {
   connectWebSocket,
   getReconnectAttempts,
@@ -885,7 +890,6 @@ storage.onChanged.addListener((changes: { [key: string]: chrome.storage.StorageC
       applyRequestScriptsReviewSnapshot(uids);
     }
   }
-
 });
 
 // ── Message listener ──────────────────────────────────────────────

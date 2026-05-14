@@ -90,7 +90,7 @@ export type WordWrap = v.InferOutput<typeof wordWrapSchema>;
 export type RenderWhitespace = v.InferOutput<typeof renderWhitespaceSchema>;
 export type FontFamilyPreset = v.InferOutput<typeof fontFamilyPresetSchema>;
 
-declare module '../types' {
+declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'editor.fontSize': number;
     'editor.fontFamilyPreset': FontFamilyPreset;

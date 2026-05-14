@@ -9,11 +9,11 @@
  */
 
 import type { VariableSuggestion } from '@openheaders/core/variables';
-import { describe, expect, it, vi } from 'vitest';
 import {
   COMPLETION_LANGUAGES,
   registerVariableCompletionProvider,
-} from '@/workbench/components/template-input/monaco-completion';
+} from '@openheaders/ui/workbench/components/template-input/monaco-completion';
+import { describe, expect, it, vi } from 'vitest';
 
 // ── Fake Monaco shim ──────────────────────────────────────────────
 

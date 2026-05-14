@@ -1,6 +1,6 @@
 import type { LiveWorkflow } from '@openheaders/core/types';
+import { projectLiveWorkflowToForm } from '@openheaders/ui/workbench/components/live/use-live-workflow-conflicts';
 import { describe, expect, it } from 'vitest';
-import { projectLiveWorkflowToForm } from '@/workbench/components/live/use-live-workflow-conflicts';
 
 const STEP_UID = 's0000001';
 const CAP_UID = 'c0000001';
@@ -68,7 +68,9 @@ describe('projectLiveWorkflowToForm', () => {
         },
       ],
     });
-    const keys = Object.keys(out).filter((k) => k.startsWith('steps.')).sort();
+    const keys = Object.keys(out)
+      .filter((k) => k.startsWith('steps.'))
+      .sort();
     expect(keys).toEqual([
       `steps.${STEP_UID}.captures.${CAP_UID}.extractor`,
       `steps.${STEP_UID}.captures.${CAP_UID}.name`,

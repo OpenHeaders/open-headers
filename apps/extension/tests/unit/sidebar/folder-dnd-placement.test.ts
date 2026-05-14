@@ -4,14 +4,14 @@
  * move-folder envelope inputs (or null for no-op / rejected drops).
  */
 
-import { describe, expect, it } from 'vitest';
-import { computeDropPlacement } from '@/workbench/components/sidebar/folder-dnd-placement';
-import type { FolderDndParent } from '@/workbench/components/sidebar/folder-dnd-ids';
 import {
   computeSiblingInsertOrderKey,
   isDescendantOf,
-} from '@/workbench/components/sidebar/folder-dnd-helpers';
-import type { TreeNode } from '@/workbench/components/sidebar/types';
+} from '@openheaders/ui/workbench/components/sidebar/folder-dnd-helpers';
+import type { FolderDndParent } from '@openheaders/ui/workbench/components/sidebar/folder-dnd-ids';
+import { computeDropPlacement } from '@openheaders/ui/workbench/components/sidebar/folder-dnd-placement';
+import type { TreeNode } from '@openheaders/ui/workbench/components/sidebar/types';
+import { describe, expect, it } from 'vitest';
 
 const CONFIG = { collectionIdPrefix: 'col-', folderIdPrefix: 'folder-' };
 
@@ -54,9 +54,7 @@ describe('computeDropPlacement', () => {
     const dragged = folder('f', 'col-c1');
     const byId = map([c1, c2, dragged]);
     const lookupSiblings = (parent: FolderDndParent) =>
-      parent.kind === 'collection' && parent.uid === 'c2'
-        ? [{ itemId: 'tail', orderKey: 's' }]
-        : [];
+      parent.kind === 'collection' && parent.uid === 'c2' ? [{ itemId: 'tail', orderKey: 's' }] : [];
 
     const result = computeDropPlacement({
       zone: 'into',
@@ -112,9 +110,7 @@ describe('computeDropPlacement', () => {
     const dragged = folder('f', 'col-c1');
     const byId = map([c1, c2, overTarget, dragged]);
     const lookupSiblings = (parent: FolderDndParent) =>
-      parent.kind === 'collection' && parent.uid === 'c2'
-        ? [{ itemId: 't', orderKey: 'm' }]
-        : [];
+      parent.kind === 'collection' && parent.uid === 'c2' ? [{ itemId: 't', orderKey: 'm' }] : [];
 
     const result = computeDropPlacement({
       zone: 'before',
@@ -138,9 +134,7 @@ describe('computeDropPlacement', () => {
     const dragged = folder('f', 'col-c1');
     const byId = map([c1, c2, overTarget, dragged]);
     const lookupSiblings = (parent: FolderDndParent) =>
-      parent.kind === 'collection' && parent.uid === 'c2'
-        ? [{ itemId: 't', orderKey: 'm' }]
-        : [];
+      parent.kind === 'collection' && parent.uid === 'c2' ? [{ itemId: 't', orderKey: 'm' }] : [];
 
     const result = computeDropPlacement({
       zone: 'after',

@@ -1,6 +1,6 @@
 import type { DraftWorkflow } from '@openheaders/core/live';
+import { rebindCaptureReferences } from '@openheaders/ui/workbench/components/live/rebind-capture-references';
 import { describe, expect, it } from 'vitest';
-import { rebindCaptureReferences } from '@/workbench/components/live/rebind-capture-references';
 
 function makeDraft(overrides: Partial<DraftWorkflow> = {}): DraftWorkflow {
   return {

@@ -1,27 +1,29 @@
-import ErrorBoundary from '@openheaders/ui/components/ErrorBoundary';
-import { EnvironmentProvider } from '@openheaders/ui/context';
-import { FilesProvider } from '@openheaders/ui/context';
 import { KeyboardNavProvider, useKeyboardNav } from '@context/KeyboardNavContext';
-import { LiveVariablesProvider } from '@openheaders/ui/context';
-import { LiveWorkflowsProvider } from '@openheaders/ui/context';
-import { OAuthBundlesProvider } from '@openheaders/ui/context';
-import { PauseMarkersProvider } from '@openheaders/ui/context';
-import { RequestsProvider } from '@openheaders/ui/context';
-import { RuleProvider } from '@openheaders/ui/context';
 import { useTheme } from '@context/ThemeContext';
-import { VaultProvider } from '@openheaders/ui/context';
-import { WorkspaceVariablesProvider } from '@openheaders/ui/context';
-import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import { hostStorage, UI } from '@openheaders/core/storage';
+import ErrorBoundary from '@openheaders/ui/components/ErrorBoundary';
+import {
+  EnvironmentProvider,
+  FilesProvider,
+  LiveVariablesProvider,
+  LiveWorkflowsProvider,
+  OAuthBundlesProvider,
+  PauseMarkersProvider,
+  RequestsProvider,
+  RuleProvider,
+  VaultProvider,
+  WorkspaceVariablesProvider,
+} from '@openheaders/ui/context';
+import { AwarenessIdentityProvider, type SurfaceIdentityHandle } from '@openheaders/ui/shared/awareness';
+import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
+import { useSurface } from '@openheaders/ui/shared/surface';
+import { VariablePopoverProvider } from '@openheaders/ui/workbench/components/template-input/VariablePopoverHost';
+import { EnvSwitcherProvider } from '@openheaders/ui/workbench/services/env-switcher';
 import { call, presence } from '@utils/bridge';
 import { Layout } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AwarenessIdentityProvider, type SurfaceIdentityHandle } from '@openheaders/ui/shared/awareness';
-import { useSurface } from '@openheaders/ui/shared/surface';
-import { VariablePopoverProvider } from '@/workbench/components/template-input/VariablePopoverHost';
-import { EnvSwitcherProvider } from '@/workbench/services/env-switcher';
 import Footer from './components/Footer';
 import Header from './components/Header';
 import KeyboardShortcutsOverlay from './components/KeyboardShortcutsOverlay';

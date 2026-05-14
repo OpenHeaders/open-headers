@@ -1,6 +1,6 @@
 import type { DraftWorkflow } from '@openheaders/core/live';
+import { rebindStepReferences } from '@openheaders/ui/workbench/components/live/rebind-step-references';
 import { describe, expect, it } from 'vitest';
-import { rebindStepReferences } from '@/workbench/components/live/rebind-step-references';
 
 function makeDraft(overrides: Partial<DraftWorkflow> = {}): DraftWorkflow {
   return {

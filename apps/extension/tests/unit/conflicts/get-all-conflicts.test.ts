@@ -8,9 +8,9 @@
  */
 
 import type { Rule } from '@openheaders/core/types';
+import { useRuleConflicts } from '@openheaders/ui/workbench/components/rule-fields/use-rule-conflicts';
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { useRuleConflicts } from '@/workbench/components/rule-fields/use-rule-conflicts';
 
 function makeHeaderRule(req: Array<{ uid: string; headerName: string; value: string }>): Rule {
   return {
@@ -100,17 +100,11 @@ describe('useRuleConflicts.getAllConflicts', () => {
     act(() => result.current.setBaseline(baseline));
     const formProj = result.current.projectRule(baseline);
     // Form has the original (baseline) order; live has a different order.
-    const formOrders = new Map<string, string[]>([
-      ['action.requestHeaders', ['aaaaaaaa', 'bbbbbbbb', 'cccccccc']],
-    ]);
+    const formOrders = new Map<string, string[]>([['action.requestHeaders', ['aaaaaaaa', 'bbbbbbbb', 'cccccccc']]]);
     const all = result.current.getAllConflicts(formProj, formOrders);
     const conflict = all.get('reorder:action.requestHeaders');
     expect(conflict?.kind).toBe('set-reorder');
-    expect((conflict?.rowPayload as { savedOrder: string[] }).savedOrder).toEqual([
-      'cccccccc',
-      'aaaaaaaa',
-      'bbbbbbbb',
-    ]);
+    expect((conflict?.rowPayload as { savedOrder: string[] }).savedOrder).toEqual(['cccccccc', 'aaaaaaaa', 'bbbbbbbb']);
   });
 
   it('does NOT emit reorder when membership differs (covered by add/remove)', () => {

@@ -1,6 +1,6 @@
 import type { Rule } from '@openheaders/core/types';
+import { prettyRulePath } from '@openheaders/ui/workbench/components/rule-fields/pretty-path';
 import { describe, expect, it } from 'vitest';
-import { prettyRulePath } from '@/workbench/components/rule-fields/pretty-path';
 
 const RULE: Rule = {
   uid: 'r-1',

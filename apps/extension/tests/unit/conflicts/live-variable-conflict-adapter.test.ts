@@ -1,9 +1,9 @@
 import type { LiveVariable } from '@openheaders/core/types';
-import { describe, expect, it } from 'vitest';
 import {
   liveVariableConflictAdapter,
   liveVariableResolveAdapter,
-} from '@/workbench/components/live/live-variable-conflict-adapter';
+} from '@openheaders/ui/workbench/components/live/live-variable-conflict-adapter';
+import { describe, expect, it } from 'vitest';
 
 function makeLv(overrides: Partial<LiveVariable> = {}): LiveVariable {
   return {
@@ -72,9 +72,7 @@ describe('liveVariableResolveAdapter', () => {
 
   it('returns false for unrecognized paths', () => {
     const lv = makeLv();
-    expect(
-      liveVariableResolveAdapter.applyResolutionToEntity(lv, 'unknown', { base: '', theirs: 'x' }),
-    ).toBe(false);
+    expect(liveVariableResolveAdapter.applyResolutionToEntity(lv, 'unknown', { base: '', theirs: 'x' })).toBe(false);
   });
 
   it('produces human labels for known leaves', () => {

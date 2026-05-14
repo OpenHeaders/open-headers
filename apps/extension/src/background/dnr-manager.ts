@@ -24,21 +24,8 @@
  */
 
 import type { Rule } from '@openheaders/core/types';
-import { logger } from '@utils/logger';
-import { declarativeNetRequest } from '@utils/browser-api';
-import { report as reportStatus } from '@openheaders/ui/shared/status';
-import { get as getSetting } from '@/workbench/settings/store';
-import { applyDynamicRules, applySessionRules, clearAllDynamicRules, clearAllSessionRules } from '@openheaders/rule-engine/apply';
-import type { DnrRule, EngineCompileSettings } from '@openheaders/rule-engine/builders';
-import { attachLiveBypassExclusion } from '@openheaders/rule-engine/builders';
-import { compileRuleSet } from '@openheaders/rule-engine/compile';
-import { updateScriptableRules } from './inject-manager';
-import { recordLog } from './modules/observability-log';
 import { getPauseMarkers } from '@openheaders/oracle/entity/pause-markers-store';
-import { observeRuleState } from './modules/rule-state-observer';
 import { getRules } from '@openheaders/oracle/entity/rule-store';
-import { getActiveRunSnapshots, getActiveTestTabIds } from './modules/test-runner';
-import { refreshCachedTotpCodes } from './modules/totp-scheduler';
 import {
   computeRuleLiveBypass,
   getLastAggregatedResolutionErrors,
@@ -47,6 +34,24 @@ import {
   kickSyncWarmRefreshes,
   resolveRulesForCompile,
 } from '@openheaders/oracle/rule-engine/variables-resolver';
+import {
+  applyDynamicRules,
+  applySessionRules,
+  clearAllDynamicRules,
+  clearAllSessionRules,
+} from '@openheaders/rule-engine/apply';
+import type { DnrRule, EngineCompileSettings } from '@openheaders/rule-engine/builders';
+import { attachLiveBypassExclusion } from '@openheaders/rule-engine/builders';
+import { compileRuleSet } from '@openheaders/rule-engine/compile';
+import { report as reportStatus } from '@openheaders/ui/shared/status';
+import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
+import { declarativeNetRequest } from '@utils/browser-api';
+import { logger } from '@utils/logger';
+import { updateScriptableRules } from './inject-manager';
+import { recordLog } from './modules/observability-log';
+import { observeRuleState } from './modules/rule-state-observer';
+import { getActiveRunSnapshots, getActiveTestTabIds } from './modules/test-runner';
+import { refreshCachedTotpCodes } from './modules/totp-scheduler';
 
 // ── Paused state ─────────────────────────────────────────────────
 
@@ -342,7 +347,7 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
   const runs = getActiveRunSnapshots();
 
   // Engine-relevant settings, sourced once per rebuild — the engine
-  // package doesn't read `@/workbench/settings/store` directly; the
+  // package doesn't read `@openheaders/ui/workbench/settings/store` directly; the
   // orchestrator threads values through every compile.
   const engineSettings: EngineCompileSettings = {
     liveRulesMode: getSetting('rulesEngine.liveRulesMode'),
@@ -352,12 +357,11 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
   // Compile all enabled rules. Dynamic DNR rules go out globally; session
   // DNR rules will be tagged with excludedTabIds below to keep delay-bypass
   // loop prevention correct.
-  const { dynamic: globalDynamic, session: globalSessionUntagged, scriptables } = compileRuleSet(
-    rules,
-    getPauseMarkers(),
-    1,
-    engineSettings,
-  );
+  const {
+    dynamic: globalDynamic,
+    session: globalSessionUntagged,
+    scriptables,
+  } = compileRuleSet(rules, getPauseMarkers(), 1, engineSettings);
 
   // ── Capacity enforcement ───────────────────────────────────────
   //
@@ -560,4 +564,3 @@ async function rebuildAll(rawRules: Rule[]): Promise<void> {
     });
   });
 }
-

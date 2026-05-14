@@ -16,7 +16,7 @@ import type { SettingKey, SettingsMap } from '../types';
 const logLevelSchema = v.picklist(['error', 'warn', 'info', 'debug']);
 export type LogLevel = v.InferOutput<typeof logLevelSchema>;
 
-declare module '../types' {
+declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'data.logLevel': LogLevel;
     'data.exportSettings': string;

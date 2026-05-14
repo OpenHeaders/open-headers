@@ -20,11 +20,11 @@
  * compiler-API walker; the test contract stays.
  */
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const EDITORS_DIR = path.resolve(__dirname, '../../../src/workbench/components');
+const EDITORS_DIR = path.resolve(__dirname, '../../../../../packages/ui/src/workbench/components');
 
 function listEditorFiles(): string[] {
   const out: string[] = [];

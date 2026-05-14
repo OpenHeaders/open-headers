@@ -1,16 +1,20 @@
-import * as v from 'valibot';
-import { beforeEach, describe, expect, it } from 'vitest';
-import { __resetRegistryForTests, registerCategory, registerSetting } from '@/workbench/settings/registry';
-import { searchSettings } from '@/workbench/settings/search';
-import type { DictStorage, SettingScope } from '@/workbench/settings/storage/adapter';
+import {
+  __resetRegistryForTests,
+  registerCategory,
+  registerSetting,
+} from '@openheaders/ui/workbench/settings/registry';
+import { searchSettings } from '@openheaders/ui/workbench/settings/search';
+import type { DictStorage, SettingScope } from '@openheaders/ui/workbench/settings/storage/adapter';
 import {
   __resetStoreForTests,
   configureSettingsStorage,
   initSettingsStore,
   set as storeSet,
-} from '@/workbench/settings/store';
+} from '@openheaders/ui/workbench/settings/store';
+import * as v from 'valibot';
+import { beforeEach, describe, expect, it } from 'vitest';
 
-declare module '@/workbench/settings/types' {
+declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'search.theme': 'light' | 'dark';
     'search.density': 'compact' | 'cozy';

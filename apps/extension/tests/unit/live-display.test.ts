@@ -9,15 +9,15 @@
 
 import { initialCircuitSnapshot } from '@openheaders/core/live';
 import type { RefreshPolicy } from '@openheaders/core/types';
-import type { LiveWorkflowRunSnapshot } from '@utils/bridge';
-import { describe, expect, it } from 'vitest';
 import {
   describeRunSchedule,
   formatCountdown,
   formatRelativeMs,
   pickActiveRun,
   summarizeRunsByEnv,
-} from '@/workbench/components/live/live-display';
+} from '@openheaders/ui/workbench/components/live/live-display';
+import type { LiveWorkflowRunSnapshot } from '@utils/bridge';
+import { describe, expect, it } from 'vitest';
 
 function makeRun(overrides: Partial<LiveWorkflowRunSnapshot> = {}): LiveWorkflowRunSnapshot {
   return {

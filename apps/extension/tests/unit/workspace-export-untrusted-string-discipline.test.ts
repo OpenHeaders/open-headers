@@ -16,7 +16,19 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const ROOT = join(__dirname, '..', '..', 'src', 'workbench', 'components', 'workspace-export');
+const ROOT = join(
+  __dirname,
+  '..',
+  '..',
+  '..',
+  '..',
+  'packages',
+  'ui',
+  'src',
+  'workbench',
+  'components',
+  'workspace-export',
+);
 
 function listSources(dir: string): string[] {
   const out: string[] = [];

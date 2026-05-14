@@ -11,11 +11,11 @@
  */
 
 import type { DraftStep } from '@openheaders/core/live';
-import { cleanup, render } from '@testing-library/react';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { readFieldPath } from '@openheaders/ui/shared/awareness/field-path';
 import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
-import WorkflowStepEditor from '@/workbench/components/live/WorkflowStepEditor';
+import WorkflowStepEditor from '@openheaders/ui/workbench/components/live/WorkflowStepEditor';
+import { cleanup, render } from '@testing-library/react';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 beforeAll(() => {
   class ResizeObserverStub implements ResizeObserver {

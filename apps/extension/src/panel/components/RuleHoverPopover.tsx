@@ -34,21 +34,17 @@
  */
 
 import { SaveOutlined } from '@ant-design/icons';
-import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
-import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
-import { type RuleMutationResult, useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
-
-import { useRules } from '@openheaders/ui/shared/hooks/useRules';
-import { useLiveRule } from '@openheaders/ui/context';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
-import type { HeaderModification, HeaderOperation, HeaderRule, Rule } from '@openheaders/core/types';
+import type {
+  HeaderModification,
+  HeaderOperation,
+  HeaderRule,
+  Rule,
+  RuleSnapshotHeaderMod,
+} from '@openheaders/core/types';
 import { getHeaderOperationCapability, validateHeaderName, validateHeaderValue } from '@openheaders/core/utils';
-import { App, Button, Select, Tag, Tooltip, theme } from 'antd';
-import type { GlobalToken } from 'antd/es/theme/interface';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { usePopoverPlacement } from '@openheaders/ui/shared/popover';
-import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
-import type { RuleSnapshotHeaderMod } from '@openheaders/core/types';
+import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
+import { useLiveRule } from '@openheaders/ui/context';
 import {
   ConflictDiffChip,
   EntityField,
@@ -60,11 +56,19 @@ import {
   useSetActiveTabEntity,
 } from '@openheaders/ui/shared/awareness';
 import { stableStringify } from '@openheaders/ui/shared/forms';
-import { useRuleConflicts } from '@/workbench/components/rule-fields/use-rule-conflicts';
-import { buildRuleIcon } from '@/workbench/components/shared/rule-icon';
-import { TemplateInput } from '@/workbench/components/template-input';
-import { buildChordsFromEvent, useShortcutLabel } from '@/workbench/hooks/useWorkspaceShortcuts';
-import { useSettingValue } from '@/workbench/settings/hooks';
+import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
+import { type RuleMutationResult, useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
+import { useRules } from '@openheaders/ui/shared/hooks/useRules';
+import { usePopoverPlacement } from '@openheaders/ui/shared/popover';
+import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
+import { useRuleConflicts } from '@openheaders/ui/workbench/components/rule-fields/use-rule-conflicts';
+import { buildRuleIcon } from '@openheaders/ui/workbench/components/shared/rule-icon';
+import { TemplateInput } from '@openheaders/ui/workbench/components/template-input';
+import { buildChordsFromEvent, useShortcutLabel } from '@openheaders/ui/workbench/hooks/useWorkspaceShortcuts';
+import { useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
+import { App, Button, Select, Tag, Tooltip, theme } from 'antd';
+import type { GlobalToken } from 'antd/es/theme/interface';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   findCurrentMod,
   type HeaderAttribution,
@@ -465,9 +469,7 @@ export function RuleHoverPopover({
   // pattern (see `RuleEditor`).
   const [lastPrimedFingerprint, setLastPrimedFingerprint] = useState<string | null>(null);
   const isDirty =
-    lastPrimedFingerprint !== null &&
-    currentModFingerprint !== null &&
-    draftFingerprint !== lastPrimedFingerprint;
+    lastPrimedFingerprint !== null && currentModFingerprint !== null && draftFingerprint !== lastPrimedFingerprint;
 
   // ── Surface awareness wiring ────────────────────────────────────
   //
@@ -506,8 +508,7 @@ export function RuleHoverPopover({
   // render. Returns null when no peer divergence at that path.
   const headerNamePath =
     headerModUid && target ? RULE_FIELD.headerMod(target.direction, headerModUid, 'headerName') : null;
-  const valuePath =
-    headerModUid && target ? RULE_FIELD.headerMod(target.direction, headerModUid, 'value') : null;
+  const valuePath = headerModUid && target ? RULE_FIELD.headerMod(target.direction, headerModUid, 'value') : null;
   const headerNameConflict = headerNamePath ? conflicts.getConflict(headerNamePath, draft.headerName) : null;
   const valueConflict = valuePath ? conflicts.getConflict(valuePath, draft.value) : null;
 
@@ -847,7 +848,9 @@ export function RuleHoverPopover({
             // and corrupted the {{ref}} highlight rendering. Cap the
             // visible area at ~4 lines and scroll vertically inside.
             // `--oh-multiline-cap` is declared in panel.css :root.
-            <div style={{ marginTop: 6, width: '100%', minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 4 }}>
+            <div
+              style={{ marginTop: 6, width: '100%', minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 4 }}
+            >
               {headerModUid && target ? (
                 <EntityField path={RULE_FIELD.headerMod(target.direction, headerModUid, 'value')}>
                   <TemplateInput

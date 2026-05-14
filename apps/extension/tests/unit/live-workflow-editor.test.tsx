@@ -31,7 +31,7 @@ if (typeof document.queryCommandSupported !== 'function') {
 // EditorHeader (rendered inside LiveWorkflowEditor) reads `keyboard.save`
 // via useShortcutLabel; the registry is populated by importing the
 // schema barrel for its side effects.
-import '@/workbench/settings/schema';
+import '@openheaders/ui/workbench/settings/schema';
 
 // AntD Collapse (used inside WorkflowStepEditor) and several other
 // AntD primitives rely on ResizeObserver via rc-resize-observer. jsdom
@@ -98,7 +98,7 @@ vi.mock('@openheaders/ui/shared/hooks/useLiveCache', () => ({
 }));
 
 // Importing after vi.mock so the mocked hook modules resolve first.
-const { default: LiveWorkflowEditor } = await import('@/workbench/components/live/LiveWorkflowEditor');
+const { default: LiveWorkflowEditor } = await import('@openheaders/ui/workbench/components/live/LiveWorkflowEditor');
 const { AwarenessIdentityProvider } = await import('@openheaders/ui/shared/awareness');
 const { resolveWorkbenchIdentity } = await import('@/host/surface-identity-resolvers');
 const testIdentity = resolveWorkbenchIdentity();

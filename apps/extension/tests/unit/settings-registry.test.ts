@@ -1,5 +1,3 @@
-import * as v from 'valibot';
-import { beforeEach, describe, expect, it } from 'vitest';
 import {
   __resetRegistryForTests,
   allCategories,
@@ -11,9 +9,11 @@ import {
   registerCategory,
   registerSetting,
   requireDef,
-} from '@/workbench/settings/registry';
+} from '@openheaders/ui/workbench/settings/registry';
+import * as v from 'valibot';
+import { beforeEach, describe, expect, it } from 'vitest';
 
-declare module '@/workbench/settings/types' {
+declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'test.one': string;
     'test.two': number;

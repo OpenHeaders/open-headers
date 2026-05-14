@@ -13,7 +13,7 @@ import { registerSetting } from '../registry';
 // only guards against accidental writes.
 const infoSchema = v.string();
 
-declare module '../types' {
+declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'about.version': string;
     'about.build': string;

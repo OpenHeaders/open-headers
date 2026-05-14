@@ -4,11 +4,11 @@
  */
 
 import { PROTOCOL_INCOMPATIBLE_CLOSE_CODE, PROTOCOL_VERSION } from '@openheaders/core/protocol';
+import { report as reportStatus } from '@openheaders/ui/shared/status';
+import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
 import { broadcast } from '@utils/bridge';
 import { isChrome, isEdge, isFirefox, isSafari, runtime } from '@utils/browser-api';
 import { logger } from '@utils/logger';
-import { report as reportStatus } from '@openheaders/ui/shared/status';
-import { get as getSetting, subscribeKey } from '@/workbench/settings/store';
 import { adaptWebSocketUrl, safariPreCheck } from './safari-websocket-adapter';
 
 // ── Configuration (live from settings store) ─────────────────────
@@ -258,10 +258,7 @@ function connectStandardWebSocket(url: string): void {
       socket.onclose = (event?: CloseEvent) => {
         clearTimeout(connectionTimeout);
         if (event?.code === PROTOCOL_INCOMPATIBLE_CLOSE_CODE) {
-          logger.warn(
-            'WebSocket',
-            `Desktop rejected protocol v${PROTOCOL_VERSION}: ${event.reason || 'no reason'}`,
-          );
+          logger.warn('WebSocket', `Desktop rejected protocol v${PROTOCOL_VERSION}: ${event.reason || 'no reason'}`);
           protocolIncompatible = true;
           socket = null;
           isConnecting = false;
@@ -400,4 +397,3 @@ export function sendViaWebSocket(data: Record<string, unknown>): boolean {
   }
   return false;
 }
-

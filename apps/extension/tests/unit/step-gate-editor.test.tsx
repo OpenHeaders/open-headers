@@ -20,10 +20,10 @@
 
 import type { StructuralError } from '@openheaders/core/live';
 import type { StepGate } from '@openheaders/core/types';
+import StepGateEditor from '@openheaders/ui/workbench/components/live/StepGateEditor';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import StepGateEditor from '@/workbench/components/live/StepGateEditor';
 
 // AntD Select's dropdown portal mounts with rc-resize-observer, which
 // requires ResizeObserver in the global scope. jsdom doesn't provide one.
@@ -105,9 +105,7 @@ describe('StepGateEditor', () => {
     const { onChange } = renderEditor({ value: undefined });
     fireEvent.click(screen.getByRole('button', { name: /add condition/i }));
     expect(onChange).toHaveBeenCalledWith({
-      all: [
-        { uid: expect.stringMatching(/^[a-z0-9]{8}$/), kind: 'status', stepId: 'introspect', match: '2xx' },
-      ],
+      all: [{ uid: expect.stringMatching(/^[a-z0-9]{8}$/), kind: 'status', stepId: 'introspect', match: '2xx' }],
     });
   });
 

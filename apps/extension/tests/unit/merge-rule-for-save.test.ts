@@ -7,17 +7,14 @@
  */
 
 import type { HeaderModification, HeaderRule, RedirectRule, Rule } from '@openheaders/core/types';
-import { describe, expect, it } from 'vitest';
 import {
   mergeRowsByUid,
   mergeRuleForSave,
   mergeScalarLeaves,
-} from '@/workbench/components/rule-fields/merge-rule-for-save';
+} from '@openheaders/ui/workbench/components/rule-fields/merge-rule-for-save';
+import { describe, expect, it } from 'vitest';
 
-const headerRule = (
-  reqHeaders: HeaderModification[],
-  resHeaders: HeaderModification[] = [],
-): HeaderRule => ({
+const headerRule = (reqHeaders: HeaderModification[], resHeaders: HeaderModification[] = []): HeaderRule => ({
   schemaVersion: 5,
   uid: 'rule-uid',
   path: 'collection/rule.headerrule',

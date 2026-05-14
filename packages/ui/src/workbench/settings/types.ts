@@ -5,7 +5,7 @@
  * key → its value type. Each schema file augments this interface via
  * TypeScript declaration merging:
  *
- *     declare module '../types' {
+ *     declare module '@openheaders/ui/workbench/settings/types' {
  *       interface SettingsMap {
  *         'appearance.theme': 'light' | 'dark' | 'auto';
  *       }

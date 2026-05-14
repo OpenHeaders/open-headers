@@ -14,13 +14,13 @@
  */
 
 import { readFieldPath } from '@openheaders/ui/shared/awareness/field-path';
-import HeadersTab from '@/workbench/components/request-editor/HeadersTab';
-import type { KeyValueRow } from '@/workbench/components/request-editor/KeyValueTable';
-import ParamsTab from '@/workbench/components/request-editor/ParamsTab';
+import HeadersTab from '@openheaders/ui/workbench/components/request-editor/HeadersTab';
+import type { KeyValueRow } from '@openheaders/ui/workbench/components/request-editor/KeyValueTable';
+import ParamsTab from '@openheaders/ui/workbench/components/request-editor/ParamsTab';
 // Side-effect import — TemplateInput (rendered inside the value cell)
 // reads workbench settings via `useSyncExternalStore`; the schema
 // barrel registers default values so tests don't crash on first read.
-import '@/workbench/settings/schema';
+import '@openheaders/ui/workbench/settings/schema';
 import type { RequestBody } from '@openheaders/core/types';
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -102,14 +102,12 @@ describe('HeadersTab — per-row data-field-path', () => {
     // uid; once the user types the ghost materializes with the same uid.
     const rows: KeyValueRow[] = [row('cccccccc', 'X-Token', 'abc')];
     const { container } = render(<HeadersTab rows={rows} onChange={vi.fn()} body={NO_BODY} />);
-    const allHeaderPaths = Array.from(
-      container.querySelectorAll<HTMLElement>('[data-field-path^="headers."]'),
-    ).map((el) => el.dataset.fieldPath ?? '');
+    const allHeaderPaths = Array.from(container.querySelectorAll<HTMLElement>('[data-field-path^="headers."]')).map(
+      (el) => el.dataset.fieldPath ?? '',
+    );
     // First-row cells: 3 (key + value + description)
     // Ghost-row cells: 3 (key + value + description) under a fresh uid
-    const ghostKeyPaths = allHeaderPaths.filter(
-      (p) => p.endsWith('.key') && p !== 'headers.cccccccc.key',
-    );
+    const ghostKeyPaths = allHeaderPaths.filter((p) => p.endsWith('.key') && p !== 'headers.cccccccc.key');
     expect(ghostKeyPaths.length).toBe(1);
     // Ghost uid is 8-char lowercase-alphanumeric per generateUid().
     expect(/^headers\.[a-z0-9]{8}\.key$/.test(ghostKeyPaths[0])).toBe(true);

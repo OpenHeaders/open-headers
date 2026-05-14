@@ -13,13 +13,13 @@
 
 import { DownOutlined } from '@ant-design/icons';
 import { useWorkspaces } from '@openheaders/ui/shared/hooks/useWorkspaces';
+import { useSurface } from '@openheaders/ui/shared/surface';
+import { WorkspaceDropdownBody } from '@openheaders/ui/shared/workspace-dropdown/WorkspaceDropdownBody';
+import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
+import { renderWorkspacePrefix } from '@openheaders/ui/workbench/components/workspace-prefix';
 import { Dropdown, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
-import { useSurface } from '@openheaders/ui/shared/surface';
-import { WorkspaceDropdownBody } from '@/shared/workspace-dropdown/WorkspaceDropdownBody';
-import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
-import { renderWorkspacePrefix } from '@/workbench/components/workspace-prefix';
 
 const WorkspacePill: React.FC = () => {
   const { token } = theme.useToken();

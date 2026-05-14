@@ -32,7 +32,7 @@ vi.mock('@openheaders/core/bridge', async (importOriginal) => {
   };
 });
 
-import { composeTitle, useWorkspaceTabTitle } from '@/workbench/hooks/useWorkspaceTabTitle';
+import { composeTitle, useWorkspaceTabTitle } from '@openheaders/ui/workbench/hooks/useWorkspaceTabTitle';
 
 let broadcastHandler: BroadcastHandler | null = null;
 let unsubscribeMock: ReturnType<typeof vi.fn>;

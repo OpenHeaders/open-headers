@@ -118,7 +118,7 @@ export type AppearanceFontFamilyPreset = v.InferOutput<typeof fontFamilyPresetSc
 
 // ── Type augmentation ────────────────────────────────────────────────
 
-declare module '../types' {
+declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'appearance.theme': Theme;
     'appearance.density': Density;

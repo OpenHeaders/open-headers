@@ -14,7 +14,7 @@ export type DevpanelSidebarLayoutVariantSetting = v.InferOutput<typeof sidebarLa
 const bottomPanelAlignmentSchema = v.picklist(['center', 'left', 'right', 'justify']);
 export type DevpanelBottomPanelAlignmentSetting = v.InferOutput<typeof bottomPanelAlignmentSchema>;
 
-declare module '../types' {
+declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'devpanelLayout.footerShowVersion': boolean;
     'devpanelLayout.footerShowThemeSwitcher': boolean;

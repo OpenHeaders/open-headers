@@ -11,13 +11,25 @@ import {
   SortAscendingOutlined,
 } from '@ant-design/icons';
 import { useKeyboardNav } from '@context/KeyboardNavContext';
+import { resolvePauseState } from '@openheaders/core/utils';
+import { scheduleFrame } from '@openheaders/ui/shared/frame-scheduler';
 import { useRowActionRegistration } from '@openheaders/ui/shared/hooks/useRowActionRegistration';
 import { useRuleMutator } from '@openheaders/ui/shared/hooks/useRuleMutator';
 import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { useTablePagination } from '@openheaders/ui/shared/hooks/useTablePagination';
-import { resolvePauseState } from '@openheaders/core/utils';
+import { useSurface } from '@openheaders/ui/shared/surface';
+import { compareBySortMode, type PageInfo, type RowActions } from '@openheaders/ui/shared/table-shared';
+import {
+  type RuleVerdict,
+  VERDICT_COLOR,
+  VERDICT_LABEL,
+  VERDICT_RANK,
+  VERDICT_TOOLTIP,
+} from '@openheaders/ui/shared/verdict';
+import { openWorkspace, type WorkspaceIntent } from '@openheaders/ui/shared/workspace-intent';
+import { useSetting, useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
+import type { TrackedResourceType } from '@openheaders/ui/workbench/settings/schema/rules-engine';
 import { call, subscribe } from '@utils/bridge';
-import { scheduleFrame } from '@openheaders/ui/shared/frame-scheduler';
 import {
   App,
   Badge,
@@ -39,13 +51,7 @@ import type { ColumnsType } from 'antd/es/table';
 import type { FilterValue, SorterResult } from 'antd/es/table/interface';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useSurface } from '@openheaders/ui/shared/surface';
-import { type RuleVerdict, VERDICT_COLOR, VERDICT_LABEL, VERDICT_RANK, VERDICT_TOOLTIP } from '@openheaders/ui/shared/verdict';
-import { openWorkspace, type WorkspaceIntent } from '@openheaders/ui/shared/workspace-intent';
 import type { SilentMatchRecord } from '@/types/browser';
-import { useSetting, useSettingValue } from '@/workbench/settings/hooks';
-import type { TrackedResourceType } from '@/workbench/settings/schema/rules-engine';
-import { compareBySortMode, type PageInfo, type RowActions } from '@openheaders/ui/shared/table-shared';
 import {
   renderActionDetails,
   renderTagOverflow,

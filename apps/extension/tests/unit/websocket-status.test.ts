@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 let settingsStore: Record<string, unknown> = {};
 
-vi.mock('@/workbench/settings/store', () => ({
+vi.mock('@openheaders/ui/workbench/settings/store', () => ({
   get: vi.fn((key: string) => settingsStore[key]),
   subscribeKey: vi.fn(() => () => undefined),
 }));
@@ -39,8 +39,8 @@ vi.mock('@/background/safari-websocket-adapter', () => ({
   safariPreCheck: vi.fn(() => Promise.resolve(true)),
 }));
 
-import { connectWebSocket } from '@/background/websocket';
 import { __resetStatusForTests, getStatusSnapshot } from '@openheaders/ui/shared/status';
+import { connectWebSocket } from '@/background/websocket';
 
 function syncEntry() {
   return getStatusSnapshot().sync;

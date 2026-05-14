@@ -1,7 +1,5 @@
-import * as v from 'valibot';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { __resetRegistryForTests, registerSetting } from '@/workbench/settings/registry';
-import type { DictStorage, SettingScope } from '@/workbench/settings/storage/adapter';
+import { __resetRegistryForTests, registerSetting } from '@openheaders/ui/workbench/settings/registry';
+import type { DictStorage, SettingScope } from '@openheaders/ui/workbench/settings/storage/adapter';
 import {
   __resetStoreForTests,
   configureSettingsStorage,
@@ -11,9 +9,11 @@ import {
   reset as storeReset,
   set as storeSet,
   subscribeKey,
-} from '@/workbench/settings/store';
+} from '@openheaders/ui/workbench/settings/store';
+import * as v from 'valibot';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-declare module '@/workbench/settings/types' {
+declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'store.name': string;
     'store.count': number;

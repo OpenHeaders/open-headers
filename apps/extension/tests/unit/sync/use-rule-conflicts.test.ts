@@ -10,9 +10,9 @@
  */
 
 import type { Rule } from '@openheaders/core/types';
+import { useRuleConflicts } from '@openheaders/ui/workbench/components/rule-fields/use-rule-conflicts';
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { useRuleConflicts } from '@/workbench/components/rule-fields/use-rule-conflicts';
 
 function makeHeaderRule(value: string, name = 'X-Test', uid = 'rule-1'): Rule {
   return {
@@ -125,9 +125,7 @@ describe('useRuleConflicts', () => {
       const live = ruleWithThreeHeaders(['a0000001', 'c0000003', 'b0000002']);
       const { result } = mount(live, true);
       act(() => result.current.setBaseline(ruleWithThreeHeaders(['a0000001', 'b0000002', 'c0000003'])));
-      const formOrders = new Map([
-        ['action.requestHeaders', ['a0000001', 'b0000002', 'c0000003'] as const],
-      ]);
+      const formOrders = new Map([['action.requestHeaders', ['a0000001', 'b0000002', 'c0000003'] as const]]);
       const auto = result.current.getAutoMergeableSetOrders({}, formOrders);
       expect([...(auto.get('action.requestHeaders') ?? [])]).toEqual(['a0000001', 'c0000003', 'b0000002']);
     });
@@ -136,9 +134,7 @@ describe('useRuleConflicts', () => {
       const live = ruleWithThreeHeaders(['a0000001', 'c0000003', 'b0000002']);
       const { result } = mount(live, true);
       act(() => result.current.setBaseline(ruleWithThreeHeaders(['a0000001', 'b0000002', 'c0000003'])));
-      const formOrders = new Map([
-        ['action.requestHeaders', ['b0000002', 'a0000001', 'c0000003'] as const],
-      ]);
+      const formOrders = new Map([['action.requestHeaders', ['b0000002', 'a0000001', 'c0000003'] as const]]);
       expect(result.current.getAutoMergeableSetOrders({}, formOrders).size).toBe(0);
     });
 
@@ -161,9 +157,7 @@ describe('useRuleConflicts', () => {
       act(() =>
         result.current.setBaseline(ruleWithThreeHeaders(['a0000001', 'b0000002', 'c0000003'], { c0000003: 'v-c' })),
       );
-      const formOrders = new Map([
-        ['action.requestHeaders', ['a0000001', 'b0000002', 'c0000003'] as const],
-      ]);
+      const formOrders = new Map([['action.requestHeaders', ['a0000001', 'b0000002', 'c0000003'] as const]]);
       // Local form has C.value=modified — leaf-dirty in the set.
       const form = {
         'action.requestHeaders.a0000001.headerName': 'X-A0000001',
@@ -191,9 +185,7 @@ describe('useRuleConflicts', () => {
       // Peer reorders again. Form still matches the previously-accepted live1 order.
       const live2 = ruleWithThreeHeaders(['c0000003', 'a0000001', 'b0000002']);
       rerender({ liveRule: live2, dirty: true });
-      const formOrders = new Map([
-        ['action.requestHeaders', ['a0000001', 'c0000003', 'b0000002'] as const],
-      ]);
+      const formOrders = new Map([['action.requestHeaders', ['a0000001', 'c0000003', 'b0000002'] as const]]);
       const auto = result.current.getAutoMergeableSetOrders({}, formOrders);
       expect([...(auto.get('action.requestHeaders') ?? [])]).toEqual(['c0000003', 'a0000001', 'b0000002']);
     });
@@ -210,9 +202,7 @@ describe('useRuleConflicts', () => {
         uid: 'rule-1',
         path: 'rules/rule-1.yaml',
       } as Rule);
-      const formOrders = new Map([
-        ['action.requestHeaders', ['c0000003', 'a0000001', 'b0000002'] as const],
-      ]);
+      const formOrders = new Map([['action.requestHeaders', ['c0000003', 'a0000001', 'b0000002'] as const]]);
       const all = result.current.getAllConflicts(form, formOrders);
       expect(all.has('reorder:action.requestHeaders')).toBe(false);
     });
@@ -228,9 +218,7 @@ describe('useRuleConflicts', () => {
         uid: 'rule-1',
         path: 'rules/rule-1.yaml',
       } as Rule);
-      const formOrders = new Map([
-        ['action.requestHeaders', ['c0000003', 'a0000001', 'b0000002'] as const],
-      ]);
+      const formOrders = new Map([['action.requestHeaders', ['c0000003', 'a0000001', 'b0000002'] as const]]);
       const all = result.current.getAllConflicts(form, formOrders);
       expect(all.has('reorder:action.requestHeaders')).toBe(true);
     });
@@ -250,9 +238,7 @@ describe('useRuleConflicts', () => {
         uid: 'rule-1',
         path: 'rules/rule-1.yaml',
       } as Rule);
-      const formOrders = new Map([
-        ['action.requestHeaders', ['a0000001', 'b0000002', 'c0000003'] as const],
-      ]);
+      const formOrders = new Map([['action.requestHeaders', ['a0000001', 'b0000002', 'c0000003'] as const]]);
       const all = result.current.getAllConflicts(form, formOrders);
       expect(all.has('reorder:action.requestHeaders')).toBe(true);
       const valueConflict = all.get('action.requestHeaders.c0000003.value');
@@ -275,9 +261,7 @@ describe('useRuleConflicts', () => {
         uid: 'rule-1',
         path: 'rules/rule-1.yaml',
       } as Rule);
-      const formOrders = new Map([
-        ['action.requestHeaders', ['a0000001', 'b0000002', 'c0000003'] as const],
-      ]);
+      const formOrders = new Map([['action.requestHeaders', ['a0000001', 'b0000002', 'c0000003'] as const]]);
       const all = result.current.getAllConflicts(form, formOrders);
       expect(all.has('reorder:action.requestHeaders')).toBe(false);
       expect(all.has('action.requestHeaders.c0000003.value')).toBe(false);
@@ -299,9 +283,7 @@ describe('useRuleConflicts', () => {
         uid: 'rule-1',
         path: 'rules/rule-1.yaml',
       } as Rule);
-      const formOrders = new Map([
-        ['action.requestHeaders', ['a0000001', 'b0000002', 'c0000003'] as const],
-      ]);
+      const formOrders = new Map([['action.requestHeaders', ['a0000001', 'b0000002', 'c0000003'] as const]]);
       const all = result.current.getAllConflicts(form, formOrders);
       expect(all.has('reorder:action.requestHeaders')).toBe(true);
       const reorder = all.get('reorder:action.requestHeaders');
@@ -312,9 +294,7 @@ describe('useRuleConflicts', () => {
       const live = ruleWithThreeHeaders(['a0000001', 'c0000003', 'b0000002']);
       const { result } = mount(live, true);
       act(() => result.current.setBaseline(ruleWithThreeHeaders(['a0000001', 'b0000002', 'c0000003'])));
-      const formOrders = new Map([
-        ['action.requestHeaders', ['a0000001', 'b0000002', 'c0000003'] as const],
-      ]);
+      const formOrders = new Map([['action.requestHeaders', ['a0000001', 'b0000002', 'c0000003'] as const]]);
       // Form matches baseline at every leaf — no in-set edits.
       const form = {
         'action.requestHeaders.a0000001.headerName': 'X-A0000001',
@@ -375,9 +355,7 @@ describe('useRuleConflicts', () => {
 
     it('detects redirectTo scalar conflict on schema path', () => {
       const live = makeRedirectRule('https://openheaders.io/theirs');
-      const { result } = renderHook(() =>
-        useRuleConflicts({ liveRule: live, isDirty: true, enabled: true }),
-      );
+      const { result } = renderHook(() => useRuleConflicts({ liveRule: live, isDirty: true, enabled: true }));
       act(() => result.current.setBaseline(makeRedirectRule('https://openheaders.io/base')));
       const conflict = result.current.getConflict('action.redirectTo', 'https://openheaders.io/mine');
       expect(conflict).toEqual({
@@ -388,9 +366,7 @@ describe('useRuleConflicts', () => {
 
     it('detects delayMs numeric scalar conflict (stringified)', () => {
       const live = makeDelayRule(5000);
-      const { result } = renderHook(() =>
-        useRuleConflicts({ liveRule: live, isDirty: true, enabled: true }),
-      );
+      const { result } = renderHook(() => useRuleConflicts({ liveRule: live, isDirty: true, enabled: true }));
       act(() => result.current.setBaseline(makeDelayRule(1000)));
       const conflict = result.current.getConflict('action.delayMs', '2000');
       expect(conflict).toEqual({ base: '1000', theirs: '5000' });
@@ -398,9 +374,7 @@ describe('useRuleConflicts', () => {
 
     it('detects inject code conflict + suppresses on local equals theirs', () => {
       const live = makeInjectRule('console.log("theirs")');
-      const { result } = renderHook(() =>
-        useRuleConflicts({ liveRule: live, isDirty: true, enabled: true }),
-      );
+      const { result } = renderHook(() => useRuleConflicts({ liveRule: live, isDirty: true, enabled: true }));
       act(() => result.current.setBaseline(makeInjectRule('console.log("base")')));
       expect(result.current.getConflict('action.code', 'console.log("mine")')).toEqual({
         base: 'console.log("base")',
@@ -413,9 +387,7 @@ describe('useRuleConflicts', () => {
     it('detects rule.name conflict for any rule type', () => {
       const live: Rule = { ...makeDelayRule(1000), name: 'theirs name' };
       const baseline: Rule = { ...makeDelayRule(1000), name: 'base name' };
-      const { result } = renderHook(() =>
-        useRuleConflicts({ liveRule: live, isDirty: true, enabled: true }),
-      );
+      const { result } = renderHook(() => useRuleConflicts({ liveRule: live, isDirty: true, enabled: true }));
       act(() => result.current.setBaseline(baseline));
       expect(result.current.getConflict('name', 'mine name')).toEqual({
         base: 'base name',
@@ -425,9 +397,7 @@ describe('useRuleConflicts', () => {
 
     it('returns null for path that does not exist on the rule type', () => {
       const live = makeDelayRule(1000);
-      const { result } = renderHook(() =>
-        useRuleConflicts({ liveRule: live, isDirty: true, enabled: true }),
-      );
+      const { result } = renderHook(() => useRuleConflicts({ liveRule: live, isDirty: true, enabled: true }));
       act(() => result.current.setBaseline(makeDelayRule(1000)));
       // delay rule has no `redirectTo`.
       expect(result.current.getConflict('action.redirectTo', 'mine')).toBeNull();

@@ -19,7 +19,7 @@ export type SidebarLayoutVariantSetting = v.InferOutput<typeof sidebarLayoutSche
 const bottomPanelAlignmentSchema = v.picklist(['center', 'left', 'right', 'justify']);
 export type BottomPanelAlignmentSetting = v.InferOutput<typeof bottomPanelAlignmentSchema>;
 
-declare module '../types' {
+declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'workspaceLayout.footerShowVersion': boolean;
     'workspaceLayout.footerShowThemeSwitcher': boolean;

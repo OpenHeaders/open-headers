@@ -15,7 +15,7 @@ export type Language = v.InferOutput<typeof languageSchema>;
 export type SettingsOpenMode = v.InferOutput<typeof settingsOpenModeSchema>;
 export type CollectionEnvAutoSwitch = v.InferOutput<typeof collectionEnvAutoSwitchSchema>;
 
-declare module '../types' {
+declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'general.language': Language;
     'general.confirmOnDelete': boolean;

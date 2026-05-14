@@ -21,10 +21,10 @@
  */
 
 import type { DraftStep } from '@openheaders/core/live';
+import WorkflowStepEditor from '@openheaders/ui/workbench/components/live/WorkflowStepEditor';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import WorkflowStepEditor from '@/workbench/components/live/WorkflowStepEditor';
 
 // jsdom doesn't provide ResizeObserver, which Ant Design's Collapse
 // (via rc-resize-observer) expects. Tests that render a Collapse need

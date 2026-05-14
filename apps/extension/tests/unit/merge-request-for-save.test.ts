@@ -1,9 +1,9 @@
 import type { QueryParam, Request, RequestHeader } from '@openheaders/core/types';
-import { describe, expect, it } from 'vitest';
 import {
   mergeRequestForSave,
   type RequestSaveBatch,
-} from '@/workbench/components/merge-request-for-save';
+} from '@openheaders/ui/workbench/components/merge-request-for-save';
+import { describe, expect, it } from 'vitest';
 
 const hdr = (uid: string, key: string, value: string): RequestHeader => ({ uid, key, value });
 const param = (uid: string, key: string, value: string): QueryParam => ({ uid, key, value });
@@ -69,9 +69,7 @@ describe('mergeRequestForSave', () => {
     const live = makeReq({
       headers: [hdr('a', 'X-A', 'live1'), hdr('b', 'X-B', 'b2')],
     });
-    const form = batchOf(
-      makeReq({ headers: [hdr('a', 'X-A', 'b1'), hdr('b', 'X-B', 'mine2')] }),
-    );
+    const form = batchOf(makeReq({ headers: [hdr('a', 'X-A', 'b1'), hdr('b', 'X-B', 'mine2')] }));
     const merged = mergeRequestForSave(form, baseline, live);
     expect(merged.headers).toEqual([hdr('a', 'X-A', 'live1'), hdr('b', 'X-B', 'mine2')]);
   });

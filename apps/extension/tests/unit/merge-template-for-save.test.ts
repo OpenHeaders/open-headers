@@ -1,9 +1,9 @@
 import type { HeaderModification, RuleCondition, Template } from '@openheaders/core/types';
-import { describe, expect, it } from 'vitest';
 import {
   mergeTemplateForSave,
   type TemplateSaveBatch,
-} from '@/workbench/components/merge-template-for-save';
+} from '@openheaders/ui/workbench/components/merge-template-for-save';
+import { describe, expect, it } from 'vitest';
 
 const hmod = (uid: string, headerName: string, value: string): HeaderModification => ({
   uid,
@@ -85,10 +85,7 @@ describe('mergeTemplateForSave', () => {
       }),
     );
     const merged = mergeTemplateForSave(form, baseline, live);
-    expect(merged.formValues.requestHeaders).toEqual([
-      hmod('a', 'X-A', 'live1'),
-      hmod('b', 'X-B', 'mine2'),
-    ]);
+    expect(merged.formValues.requestHeaders).toEqual([hmod('a', 'X-A', 'live1'), hmod('b', 'X-B', 'mine2')]);
   });
 
   it('per-row merges conditions by uid', () => {

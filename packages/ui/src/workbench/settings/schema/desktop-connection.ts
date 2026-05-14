@@ -11,7 +11,7 @@ import { registerSetting } from '../registry';
 
 const urlSchema = v.pipe(v.string(), v.regex(/^wss?:\/\//i, 'Must start with ws:// or wss://'));
 
-declare module '../types' {
+declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'desktop.connection.autoConnect': boolean;
     'desktop.connection.url': string;

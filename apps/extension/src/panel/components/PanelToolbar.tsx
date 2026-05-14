@@ -1,20 +1,26 @@
 import { LayoutOutlined, ReloadOutlined, SettingOutlined, ShareAltOutlined } from '@ant-design/icons';
+import { hostAssets } from '@openheaders/core/assets';
 import type { Environment } from '@openheaders/core/types';
-import { Dropdown, type MenuProps, Popover, Space, theme, Tooltip } from 'antd';
-import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
 import type { DockLayoutApi } from '@openheaders/ui/shared/dock-layout';
-import { DOCK_LABELS, DockSlotIcon, LayoutMenuIcon, RegionToggle, SidebarLayoutIcon } from '@openheaders/ui/shared/dock-layout';
+import {
+  DOCK_LABELS,
+  DockSlotIcon,
+  LayoutMenuIcon,
+  RegionToggle,
+  SidebarLayoutIcon,
+} from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
 import { instanceLabel, instanceLabelPlural } from '@openheaders/ui/shared/host-vocabulary';
-import { hostAssets } from '@openheaders/core/assets';
+import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
+import EnvironmentSelector from '@openheaders/ui/workbench/components/EnvironmentSelector';
+import { useSetting, useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
+import { Dropdown, type MenuProps, Popover, Space, Tooltip, theme } from 'antd';
+import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getBrowserAPI } from '@/types/browser';
-import type { PanelViewState } from '../data/use-panel-tool-layout';
-import { useSetting, useSettingValue } from '@/workbench/settings/hooks';
 import type { FilterConfig } from '../data/filter-engine';
 import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from '../data/tool-windows';
-import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
-import EnvironmentSelector from '@/workbench/components/EnvironmentSelector';
+import type { PanelViewState } from '../data/use-panel-tool-layout';
 import { PanelWorkspaceSelector } from './PanelWorkspaceSelector';
 import { RuleExecutionsHint } from './RuleExecutions';
 
@@ -446,11 +452,7 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
   return (
     <div className="dt-header">
       <div className={`dt-brand${showToolWindowLabels ? '' : ' dt-brand--compact'}`}>
-        <img
-          src={hostAssets.resolveUrl('images/logo-pixel.svg')}
-          alt="Open Headers"
-          className="dt-brand-logo"
-        />
+        <img src={hostAssets.resolveUrl('images/logo-pixel.svg')} alt="Open Headers" className="dt-brand-logo" />
         {showToolWindowLabels && (
           <span className="dt-brand-title">
             <span className="dt-brand-title-line">Open</span>

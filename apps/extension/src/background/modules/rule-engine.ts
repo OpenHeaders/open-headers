@@ -6,10 +6,10 @@
  * exactly one updateNetworkRules() call per logical change.
  */
 
+import { getRules } from '@openheaders/oracle/entity/rule-store';
+import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
 import { logger } from '@utils/logger';
 import { updateNetworkRules } from '@/background/dnr-manager';
-import { get as getSetting } from '@/workbench/settings/store';
-import { getRules } from '@openheaders/oracle/entity/rule-store';
 import { generateRulesHash } from './utils';
 
 interface ScheduleOptions {

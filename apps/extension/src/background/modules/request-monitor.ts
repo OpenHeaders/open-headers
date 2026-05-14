@@ -16,11 +16,11 @@
  * eventually-committed destination page instead of wiping them on commit.
  */
 
+import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
 import { tabs } from '@utils/browser-api.js';
 import { logger } from '@utils/logger';
 import type { ObservationSource, PendingRequest, TrackedResourceType } from '@/types/browser';
 import { getBrowserAPI } from '@/types/browser';
-import { get as getSetting } from '@/workbench/settings/store';
 import { addTrackedUrl, checkIfUrlMatchesAnyRule, matchRulesToRequest, tabsWithActiveRules } from './request-tracker';
 import { arbitrateWithStrategy } from './shadow-arbitration';
 import {

@@ -28,7 +28,7 @@ const chordSchema = v.pipe(
   v.regex(/^$|^(?:(?:mod|shift|alt|ctrl)\+)*[^\s+]+$/i, 'Must be a chord like "mod+k" or empty'),
 );
 
-declare module '../types' {
+declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'keyboard.popup.toggleShortcutsHelp': string;
     'keyboard.popup.toggleOptionsMenu': string;

@@ -1,24 +1,23 @@
 import 'allotment/dist/style.css';
-import { EnvironmentProvider } from '@openheaders/ui/context';
-import { FilesProvider } from '@openheaders/ui/context';
-import { LiveVariablesProvider } from '@openheaders/ui/context';
-import { LiveWorkflowsProvider } from '@openheaders/ui/context';
-import { OAuthBundlesProvider } from '@openheaders/ui/context';
-import { PauseMarkersProvider } from '@openheaders/ui/context';
-import { RequestsProvider } from '@openheaders/ui/context';
-import { VaultProvider } from '@openheaders/ui/context';
-import { WorkspaceVariablesProvider } from '@openheaders/ui/context';
-import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
-import { useEnvironments } from '@openheaders/ui/shared/hooks/useEnvironments';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  EnvironmentProvider,
+  FilesProvider,
+  LiveVariablesProvider,
+  LiveWorkflowsProvider,
+  OAuthBundlesProvider,
+  PauseMarkersProvider,
+  RequestsProvider,
+  VaultProvider,
+  WorkspaceVariablesProvider,
+} from '@openheaders/ui/context';
 import {
   ActiveEditorDirtyProvider,
   ActiveFieldFocusProvider,
   ActiveTabEntityProvider,
   AwarenessIdentityProvider,
-  type SurfaceIdentityHandle,
   SurfaceAwarenessPublisher,
+  type SurfaceIdentityHandle,
 } from '@openheaders/ui/shared/awareness';
 import type { BottomPanelAlignment, DockSlot, SidebarLayoutVariant } from '@openheaders/ui/shared/dock-layout';
 import {
@@ -29,9 +28,12 @@ import {
   useFocusRegion,
 } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
-import { VariablePopoverProvider } from '@/workbench/components/template-input/VariablePopoverHost';
-import { EnvSwitcherProvider, useEnvSwitcher } from '@/workbench/services/env-switcher';
-import { useSetting } from '@/workbench/settings/hooks';
+import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
+import { useEnvironments } from '@openheaders/ui/shared/hooks/useEnvironments';
+import { VariablePopoverProvider } from '@openheaders/ui/workbench/components/template-input/VariablePopoverHost';
+import { EnvSwitcherProvider, useEnvSwitcher } from '@openheaders/ui/workbench/services/env-switcher';
+import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { FilterDocs } from './components/FilterDocs';
 import { InspectorDetailContent } from './components/InspectorDetailContent';
 import { InspectorEditorGroupRenderer } from './components/InspectorEditorGroupRenderer';

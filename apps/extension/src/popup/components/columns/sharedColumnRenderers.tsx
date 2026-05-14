@@ -1,8 +1,8 @@
 import { CheckOutlined, CopyTwoTone } from '@ant-design/icons';
 import type { ActionDetail } from '@openheaders/core/utils';
+import { buildRuleIcon } from '@openheaders/ui/workbench/components/shared/rule-icon';
 import { Space, Tag, Tooltip, Typography } from 'antd';
 import React from 'react';
-import { buildRuleIcon } from '@/workbench/components/shared/rule-icon';
 
 const { Text } = Typography;
 
@@ -526,7 +526,7 @@ export function truncateValue(value: string, maxLen = 16): string {
 
   for (let i = anchorIdx - 1; i >= 0; i--) {
     const len = chunks[i].text.length;
-    if (used + len + (leftDropped ? 0 : 1 /* … */) > maxLen) {
+    if (used + len + (leftDropped ? 0 : 1) /* … */ > maxLen) {
       leftDropped = leftIdx > 0;
       break;
     }
@@ -535,7 +535,7 @@ export function truncateValue(value: string, maxLen = 16): string {
   }
   for (let i = anchorIdx + 1; i < chunks.length; i++) {
     const len = chunks[i].text.length;
-    if (used + len + (rightDropped ? 0 : 1 /* … */) > maxLen) {
+    if (used + len + (rightDropped ? 0 : 1) /* … */ > maxLen) {
       rightDropped = rightIdx < chunks.length - 1;
       break;
     }

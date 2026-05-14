@@ -21,13 +21,13 @@
  * Requires `SettingsProvider` to be mounted above this component.
  */
 
+import { UiThemeProvider } from '@openheaders/ui/context';
+import { getVariant, type ThemeVariant } from '@openheaders/ui/themes';
+import { setSettingValue, useSettingValue } from '@openheaders/ui/workbench/settings';
+import { resolveAppearanceFontFamily } from '@openheaders/ui/workbench/settings/schema/appearance';
 import { ConfigProvider, theme } from 'antd';
 import type React from 'react';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { UiThemeProvider } from '@openheaders/ui/context';
-import { getVariant, type ThemeVariant } from '@openheaders/ui/themes';
-import { setSettingValue, useSettingValue } from '@/workbench/settings';
-import { resolveAppearanceFontFamily } from '@/workbench/settings/schema/appearance';
 
 type ThemeMode = 'light' | 'dark' | 'auto';
 

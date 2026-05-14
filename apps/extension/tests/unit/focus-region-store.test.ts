@@ -1,10 +1,10 @@
-import { afterEach, describe, expect, it } from 'vitest';
 import {
   getFocusedDock,
   getFocusedRegion,
   setFocusedDock,
   setFocusedRegion,
-} from '@/workbench/stores/focus-region-store';
+} from '@openheaders/ui/workbench/stores/focus-region-store';
+import { afterEach, describe, expect, it } from 'vitest';
 
 afterEach(() => {
   setFocusedRegion(null);

@@ -1,9 +1,9 @@
 import type { LiveWorkflow } from '@openheaders/core/types';
-import { describe, expect, it } from 'vitest';
 import {
   liveWorkflowConflictAdapter,
   liveWorkflowResolveAdapter,
-} from '@/workbench/components/live/live-workflow-conflict-adapter';
+} from '@openheaders/ui/workbench/components/live/live-workflow-conflict-adapter';
+import { describe, expect, it } from 'vitest';
 
 const STEP_UID = 's0000001';
 const CAP_UID = 'c0000001';
@@ -133,24 +133,24 @@ describe('liveWorkflowResolveAdapter', () => {
 
   it('updates interval refresh seconds when kind matches', () => {
     const wf = makeWf();
-    expect(
-      liveWorkflowResolveAdapter.applyResolutionToEntity(wf, 'refresh.seconds', { base: '', theirs: '600' }),
-    ).toBe(true);
+    expect(liveWorkflowResolveAdapter.applyResolutionToEntity(wf, 'refresh.seconds', { base: '', theirs: '600' })).toBe(
+      true,
+    );
     expect(wf.refresh).toEqual({ kind: 'interval', seconds: 600 });
   });
 
   it('rejects refresh.seconds when kind is not interval', () => {
     const wf = makeWf({ refresh: { kind: 'manual' } });
-    expect(
-      liveWorkflowResolveAdapter.applyResolutionToEntity(wf, 'refresh.seconds', { base: '', theirs: '600' }),
-    ).toBe(false);
+    expect(liveWorkflowResolveAdapter.applyResolutionToEntity(wf, 'refresh.seconds', { base: '', theirs: '600' })).toBe(
+      false,
+    );
   });
 
   it('skips refresh.kind transitions (whole-form re-prime owns kind)', () => {
     const wf = makeWf();
-    expect(
-      liveWorkflowResolveAdapter.applyResolutionToEntity(wf, 'refresh.kind', { base: '', theirs: 'manual' }),
-    ).toBe(false);
+    expect(liveWorkflowResolveAdapter.applyResolutionToEntity(wf, 'refresh.kind', { base: '', theirs: 'manual' })).toBe(
+      false,
+    );
     expect(wf.refresh.kind).toBe('interval');
   });
 
@@ -208,9 +208,9 @@ describe('liveWorkflowResolveAdapter', () => {
 
   it('returns false when the step uid does not exist in the entity', () => {
     const wf = makeWf();
-    expect(
-      liveWorkflowResolveAdapter.applyResolutionToEntity(wf, 'steps.zzzzzzzz.id', { base: '', theirs: 'x' }),
-    ).toBe(false);
+    expect(liveWorkflowResolveAdapter.applyResolutionToEntity(wf, 'steps.zzzzzzzz.id', { base: '', theirs: 'x' })).toBe(
+      false,
+    );
   });
 
   it('prettyPath labels per-step + per-capture leaves with their human ids', () => {

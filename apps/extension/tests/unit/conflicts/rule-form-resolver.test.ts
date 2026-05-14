@@ -9,9 +9,12 @@
  */
 
 import type { Rule } from '@openheaders/core/types';
+import {
+  applyResolutionToForm,
+  applyResolutionToRule,
+} from '@openheaders/ui/workbench/components/rule-fields/rule-form-resolver';
 import type { FormInstance } from 'antd';
 import { describe, expect, it, vi } from 'vitest';
-import { applyResolutionToForm, applyResolutionToRule } from '@/workbench/components/rule-fields/rule-form-resolver';
 
 function makeForm(): FormInstance {
   const writes: Array<[unknown, unknown]> = [];
@@ -55,7 +58,12 @@ function leafConflict(theirs: string): import('@openheaders/ui/shared/conflicts/
 describe('applyResolutionToForm', () => {
   it('writes header-row leaf via Form.List index lookup', () => {
     const form = makeForm();
-    const ok = applyResolutionToForm(form, RULE_HEADER, 'action.requestHeaders.aaaaaaaa.value', leafConflict('v-saved'));
+    const ok = applyResolutionToForm(
+      form,
+      RULE_HEADER,
+      'action.requestHeaders.aaaaaaaa.value',
+      leafConflict('v-saved'),
+    );
     expect(ok).toBe(true);
     expect((form.setFieldValue as ReturnType<typeof vi.fn>).mock.calls[0]).toEqual([
       ['requestHeaders', 0, 'value'],
@@ -97,15 +105,15 @@ describe('applyResolutionToForm', () => {
     const form = makeForm();
     expect(applyResolutionToForm(form, RULE_HEADER, 'name', leafConflict('new'))).toBe(false);
     expect(applyResolutionToForm(form, RULE_HEADER, 'conditions.aaaaaaaa.values', leafConflict('x'))).toBe(false);
-    expect((form.setFieldValue as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
+    expect(form.setFieldValue as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
   });
 
   it('returns false when the row uid is not in the rule any more', () => {
     const form = makeForm();
-    expect(
-      applyResolutionToForm(form, RULE_HEADER, 'action.requestHeaders.deadbeef.value', leafConflict('x')),
-    ).toBe(false);
-    expect((form.setFieldValue as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
+    expect(applyResolutionToForm(form, RULE_HEADER, 'action.requestHeaders.deadbeef.value', leafConflict('x'))).toBe(
+      false,
+    );
+    expect(form.setFieldValue as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
   });
 
   it('returns false for mock Record-keyed responseHeaders (out of scope)', () => {
@@ -132,7 +140,7 @@ describe('applyResolutionToForm', () => {
       rowPayload: newRow,
     });
     expect(ok).toBe(true);
-    expect((fake.requestHeaders as Array<{ uid: string }>)).toHaveLength(2);
+    expect(fake.requestHeaders as Array<{ uid: string }>).toHaveLength(2);
     expect((fake.requestHeaders as Array<{ uid: string }>)[1].uid).toBe('newrow12');
   });
 
@@ -211,7 +219,7 @@ describe('applyResolutionToForm', () => {
       theirs: '',
     });
     expect(ok).toBe(true);
-    expect((fake.requestHeaders as Array<{ uid: string }>)).toHaveLength(1);
+    expect(fake.requestHeaders as Array<{ uid: string }>).toHaveLength(1);
     expect((fake.requestHeaders as Array<{ uid: string }>)[0].uid).toBe('aaaaaaaa');
   });
 });

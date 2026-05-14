@@ -11,8 +11,8 @@
  */
 
 import { isValidLogLevel, logger } from './logger';
-import '@/workbench/settings/schema';
-import { get as getSetting, initSettingsStore, subscribeKey } from '@/workbench/settings/store';
+import '@openheaders/ui/workbench/settings/schema';
+import { get as getSetting, initSettingsStore, subscribeKey } from '@openheaders/ui/workbench/settings/store';
 
 let bootstrapPromise: Promise<void> | null = null;
 let loggerWired = false;

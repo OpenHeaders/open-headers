@@ -5,7 +5,7 @@ import {
   type DispatchVariable,
   type ScopeEditorContext,
   type ScopeEditorOpeners,
-} from '@/workbench/components/panels/scope-editor-dispatch';
+} from '@openheaders/ui/workbench/components/panels/scope-editor-dispatch';
 import { describe, expect, it, vi } from 'vitest';
 
 function coll(uid: string, path: string): Collection {

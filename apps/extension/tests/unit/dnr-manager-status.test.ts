@@ -15,7 +15,7 @@ vi.mock('@utils/messaging', () => ({
   sendMessageWithCallback: vi.fn(),
 }));
 
-vi.mock('@/workbench/settings/store', () => ({
+vi.mock('@openheaders/ui/workbench/settings/store', () => ({
   get: vi.fn((key: string) => {
     switch (key) {
       case 'rulesEngine.maxActiveRules':
@@ -81,11 +81,14 @@ vi.mock('@/background/inject-manager', () => ({
   updateScriptableRules: vi.fn(),
 }));
 
+import {
+  getLastAggregatedResolutionErrors,
+  getLastResolutionErrors,
+} from '@openheaders/oracle/rule-engine/variables-resolver';
+import { __resetStatusForTests, getStatusSnapshot, type StatusSnapshot } from '@openheaders/ui/shared/status';
+import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
 import { declarativeNetRequest } from '@utils/browser-api';
 import { applyAllRulesAsync, setRulesPaused, updateNetworkRules } from '@/background/dnr-manager';
-import { getLastAggregatedResolutionErrors, getLastResolutionErrors } from '@openheaders/oracle/rule-engine/variables-resolver';
-import { __resetStatusForTests, getStatusSnapshot, type StatusSnapshot } from '@openheaders/ui/shared/status';
-import { get as getSetting } from '@/workbench/settings/store';
 
 const mockGetDynamicRules = declarativeNetRequest!.getDynamicRules as ReturnType<typeof vi.fn>;
 const mockUpdateDynamicRules = declarativeNetRequest!.updateDynamicRules as ReturnType<typeof vi.fn>;
@@ -110,7 +113,9 @@ function makeHeaderRule(overrides: Partial<HeaderRule> = {}): HeaderRule {
     published: true,
     conditions: hostConditions(['*.openheaders.io']),
     action: {
-      requestHeaders: [{ uid: 'thm00013', operation: 'override', headerName: 'Authorization', value: 'Bearer test-token' }],
+      requestHeaders: [
+        { uid: 'thm00013', operation: 'override', headerName: 'Authorization', value: 'Bearer test-token' },
+      ],
       responseHeaders: [],
     },
     ...overrides,

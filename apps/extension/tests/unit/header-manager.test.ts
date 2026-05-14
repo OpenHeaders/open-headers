@@ -18,7 +18,7 @@ vi.mock('@utils/messaging', () => ({
 // Mock the settings store so dnr-manager's `getSetting` reads resolve to
 // stable defaults instead of throwing "no definition registered". The
 // unit under test is the rule compiler, not the settings layer.
-vi.mock('@/workbench/settings/store', () => ({
+vi.mock('@openheaders/ui/workbench/settings/store', () => ({
   get: vi.fn((key: string) => {
     switch (key) {
       case 'rulesEngine.maxActiveRules':
@@ -47,9 +47,9 @@ vi.mock('@utils/logger', () => ({
 }));
 
 import { formatUrlPattern } from '@openheaders/core/utils';
+import { __setMarkersForTests as setPauseMarkers } from '@openheaders/oracle/entity/pause-markers-store';
 import { declarativeNetRequest } from '@utils/browser-api';
 import { setRulesPaused, updateNetworkRules } from '@/background/dnr-manager';
-import { __setMarkersForTests as setPauseMarkers } from '@openheaders/oracle/entity/pause-markers-store';
 
 const mockGetDynamicRules = declarativeNetRequest!.getDynamicRules as ReturnType<typeof vi.fn>;
 const mockUpdateDynamicRules = declarativeNetRequest!.updateDynamicRules as ReturnType<typeof vi.fn>;
@@ -75,7 +75,9 @@ function makeHeaderRule(overrides: Partial<HeaderRule> = {}): HeaderRule {
     published: true,
     conditions: hostConditions(['*.openheaders.io']),
     action: {
-      requestHeaders: [{ uid: 'thm00018', operation: 'override', headerName: 'Authorization', value: 'Bearer test-token' }],
+      requestHeaders: [
+        { uid: 'thm00018', operation: 'override', headerName: 'Authorization', value: 'Bearer test-token' },
+      ],
       responseHeaders: [],
     },
     ...overrides,
@@ -138,7 +140,10 @@ describe('header-manager', () => {
 
     it('skips rule with no static value (undefined)', async () => {
       const rule = makeHeaderRule({
-        action: { requestHeaders: [{ uid: 'thm00021', operation: 'override', headerName: 'Authorization' }], responseHeaders: [] },
+        action: {
+          requestHeaders: [{ uid: 'thm00021', operation: 'override', headerName: 'Authorization' }],
+          responseHeaders: [],
+        },
       });
 
       updateNetworkRules([rule]);
@@ -212,7 +217,10 @@ describe('header-manager', () => {
 
     it('creates remove rules without needing a value', async () => {
       const rule = makeHeaderRule({
-        action: { requestHeaders: [{ uid: 'thm00025', operation: 'remove', headerName: 'X-Unwanted' }], responseHeaders: [] },
+        action: {
+          requestHeaders: [{ uid: 'thm00025', operation: 'remove', headerName: 'X-Unwanted' }],
+          responseHeaders: [],
+        },
         conditions: hostConditions(['openheaders.io']),
       });
 

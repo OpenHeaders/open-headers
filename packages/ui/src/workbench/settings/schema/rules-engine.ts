@@ -48,7 +48,7 @@ const DEFAULT_VISIBLE_RESOURCE_TYPES: readonly TrackedResourceType[] = [
   'other',
 ];
 
-declare module '../types' {
+declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'rulesEngine.paused': boolean;
     'rulesEngine.evaluationStrategy': EvaluationStrategy;

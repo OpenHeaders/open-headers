@@ -23,10 +23,10 @@
  * and dead-key handling stay consistent across contexts.
  */
 
+import { buildChordsFromEvent } from '@openheaders/ui/workbench/hooks/useWorkspaceShortcuts';
+import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
+import type { SettingKey } from '@openheaders/ui/workbench/settings/types';
 import { useSyncExternalStore } from 'react';
-import { buildChordsFromEvent } from '@/workbench/hooks/useWorkspaceShortcuts';
-import { get as getSetting, subscribeKey } from '@/workbench/settings/store';
-import type { SettingKey } from '@/workbench/settings/types';
 
 export type PopupShortcutId =
   | 'toggle-shortcuts-help'

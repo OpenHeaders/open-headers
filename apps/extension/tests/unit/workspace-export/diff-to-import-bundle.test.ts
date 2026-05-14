@@ -1,12 +1,12 @@
 import type { DiffEntry, DiffResult, WorkspaceExport } from '@openheaders/core/workspace-export';
 import type { MergeFile } from '@openheaders/ui/shared/merge-editor';
-import { describe, expect, it, vi } from 'vitest';
 import {
-  VAULT_SINGLETON_UID,
-  WORKSPACE_VARS_SINGLETON_UID,
   applyMergeResultsToEnvelope,
   diffResultToImportBundle,
-} from '@/workbench/components/workspace-export/preview/diff-to-import-bundle';
+  VAULT_SINGLETON_UID,
+  WORKSPACE_VARS_SINGLETON_UID,
+} from '@openheaders/ui/workbench/components/workspace-export/preview/diff-to-import-bundle';
+import { describe, expect, it, vi } from 'vitest';
 
 function entry<T extends { uid: string }>(entity: T, matchedTarget?: T): DiffEntry<T> {
   return {
@@ -27,7 +27,12 @@ const emptyDiff: DiffResult = {
   environments: [],
   liveWorkflows: [],
   liveVariables: [],
-  workspaceVars: { state: 'no-collision', defaultStrategy: 'skip', allowedStrategies: ['skip'], targetHasContent: false },
+  workspaceVars: {
+    state: 'no-collision',
+    defaultStrategy: 'skip',
+    allowedStrategies: ['skip'],
+    targetHasContent: false,
+  },
   vault: { state: 'no-collision', defaultStrategy: 'skip', allowedStrategies: ['skip'], targetHasContent: false },
 };
 
@@ -98,15 +103,12 @@ describe('diffResultToImportBundle', () => {
     ]);
   });
 
-  it("falls back to entity.name then entity.uid when path is absent", () => {
+  it('falls back to entity.name then entity.uid when path is absent', () => {
     const noPath = { uid: 'rule-x', name: 'Header rule' };
     const noNameOrPath = { uid: 'rule-y' };
     const { bundle } = diffResultToImportBundle({
       ...emptyDiff,
-      rules: [
-        entry(noPath),
-        entry(noNameOrPath),
-      ] as DiffEntry<unknown>[] as DiffResult['rules'],
+      rules: [entry(noPath), entry(noNameOrPath)] as DiffEntry<unknown>[] as DiffResult['rules'],
     });
     expect(bundle.entities[0].path).toBe('Header rule');
     expect(bundle.entities[1].path).toBe('rule-y');
@@ -180,10 +182,9 @@ describe('diffResultToImportBundle', () => {
   });
 
   it('skips workspaceVars when both sides empty (no diff to surface)', () => {
-    const { bundle } = diffResultToImportBundle(
-      emptyDiff,
-      { entities: { workspaceVars: undefined, vault: undefined } } as unknown as WorkspaceExport,
-    );
+    const { bundle } = diffResultToImportBundle(emptyDiff, {
+      entities: { workspaceVars: undefined, vault: undefined },
+    } as unknown as WorkspaceExport);
     expect(bundle.entities).toEqual([]);
   });
 
@@ -280,7 +281,7 @@ describe('applyMergeResultsToEnvelope', () => {
     expect((envelope.entities.rules as unknown as Array<{ uid: string }>)[0]).toBe(original);
   });
 
-  it("non-collision + non-empty result emits strategy=new-uid", () => {
+  it('non-collision + non-empty result emits strategy=new-uid', () => {
     const original = { uid: 'r1', name: 'New rule' };
     const envelope = baseEnvelope({ rules: [original as never] });
     const out = applyMergeResultsToEnvelope({
@@ -416,7 +417,12 @@ describe('applyMergeResultsToEnvelope', () => {
         results: new Map([['r1', 'yaml']]),
         diff: diffWith({
           rules: [
-            { entity: { uid: 'r1', name: 'X' }, state: 'collision-uid', defaultStrategy: 'update', allowedStrategies: ['update'] },
+            {
+              entity: { uid: 'r1', name: 'X' },
+              state: 'collision-uid',
+              defaultStrategy: 'update',
+              allowedStrategies: ['update'],
+            },
           ] as DiffEntry<unknown>[] as DiffResult['rules'],
         }),
         deserialize: () => {

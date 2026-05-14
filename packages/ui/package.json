@@ -19,6 +19,26 @@
       "import": "./src/workbench/index.ts",
       "default": "./dist/workbench/index.js"
     },
+    "./workbench/settings": {
+      "types": "./dist/workbench/settings/index.d.ts",
+      "import": "./src/workbench/settings/index.ts",
+      "default": "./dist/workbench/settings/index.js"
+    },
+    "./workbench/settings/schema": {
+      "types": "./dist/workbench/settings/schema/index.d.ts",
+      "import": "./src/workbench/settings/schema/index.ts",
+      "default": "./dist/workbench/settings/schema/index.js"
+    },
+    "./workbench/components/template-input": {
+      "types": "./dist/workbench/components/template-input/index.d.ts",
+      "import": "./src/workbench/components/template-input/index.ts",
+      "default": "./dist/workbench/components/template-input/index.js"
+    },
+    "./workbench/*": {
+      "types": "./dist/workbench/*.d.ts",
+      "import": "./src/workbench/*",
+      "default": "./dist/workbench/*.js"
+    },
     "./panel": {
       "import": "./src/panel/index.ts",
       "default": "./dist/panel/index.js"
@@ -52,6 +72,11 @@
       "default": "./dist/shared/*/index.js"
     },
     "./shared/*.css": "./src/shared/*.css",
+    "./shared/workspace-dropdown/*": {
+      "types": "./dist/shared/workspace-dropdown/*.d.ts",
+      "import": "./src/shared/workspace-dropdown/*",
+      "default": "./dist/shared/workspace-dropdown/*.js"
+    },
     "./shared/local-tree-builder": {
       "import": "./src/shared/local-tree-builder.ts",
       "default": "./dist/shared/local-tree-builder.js"
@@ -113,9 +138,11 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@monaco-editor/react": "^4.7.0",
     "@openheaders/core": "workspace:*",
+    "@prettier/plugin-xml": "^3.4.2",
     "allotment": "^1.20.5",
     "antd": "^6.3.5",
     "monaco-editor": "^0.55.1",
+    "prettier": "^3.8.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "styled-components": "^6.1.6",

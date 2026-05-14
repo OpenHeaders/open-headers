@@ -21,7 +21,7 @@ import * as v from 'valibot';
 import { ALLOWED_FETCH_HOSTS_SETTING_KEY, DEFAULT_ALLOWED_FETCH_HOSTS } from '@openheaders/core/storage';
 import { registerSetting } from '../registry';
 
-declare module '../types' {
+declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     [ALLOWED_FETCH_HOSTS_SETTING_KEY]: string;
     'workspaceSharing.importPreviewShowMergeStrategy': boolean;

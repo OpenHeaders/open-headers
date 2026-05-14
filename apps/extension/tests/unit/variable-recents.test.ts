@@ -3,7 +3,6 @@
  * TemplateInput (docs/VARIABLE_AUTOCOMPLETE_PLAN.md §Phase B).
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { type HostStorage, setHostStorage } from '@openheaders/core/storage';
 import {
   addRecent,
@@ -12,7 +11,8 @@ import {
   RECENTS_CAP,
   RECENTS_SCHEMA_VERSION,
   type VariableRecents,
-} from '@/workbench/components/template-input/recents';
+} from '@openheaders/ui/workbench/components/template-input/recents';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── chrome.storage.local backed by an in-memory map ────────────────
 

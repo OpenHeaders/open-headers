@@ -1,17 +1,17 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { matchesPopupShortcut, POPUP_SHORTCUTS, popupShortcutChord } from '@/popup/shortcuts/popup-shortcuts';
-import type { DictStorage, SettingScope } from '@/workbench/settings/storage/adapter';
+import type { DictStorage, SettingScope } from '@openheaders/ui/workbench/settings/storage/adapter';
 import {
   __resetStoreForTests,
   configureSettingsStorage,
   initSettingsStore,
   set as storeSet,
-} from '@/workbench/settings/store';
+} from '@openheaders/ui/workbench/settings/store';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { matchesPopupShortcut, POPUP_SHORTCUTS, popupShortcutChord } from '@/popup/shortcuts/popup-shortcuts';
 
 // The registry is side-effect registered via the schema barrel import.
 // The tests below do not reset the registry — they only reset the store
 // so persisted chords start from their registered defaults.
-import '@/workbench/settings/schema';
+import '@openheaders/ui/workbench/settings/schema';
 
 class MemoryDictStorage implements DictStorage {
   state = new Map<SettingScope, Record<string, unknown>>();

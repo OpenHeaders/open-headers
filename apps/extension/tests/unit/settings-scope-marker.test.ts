@@ -9,12 +9,12 @@
  * See `MULTI_WORKSPACE_PER_WINDOW_OR_TAB_DESIGN.md` § 5.3 + § 11.2 BC-MWPT-15.
  */
 
-import { readFileSync, readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { allDefs } from '@openheaders/ui/workbench/settings/registry';
+import type { SettingScope } from '@openheaders/ui/workbench/settings/storage/adapter';
 import { describe, expect, it } from 'vitest';
-import { allDefs } from '@/workbench/settings/registry';
-import type { SettingScope } from '@/workbench/settings/storage/adapter';
-import '@/workbench/settings/schema';
+import '@openheaders/ui/workbench/settings/schema';
 
 const VALID_SCOPES: readonly SettingScope[] = ['user', 'workspace-taste', 'workspace-behavioral'];
 
@@ -27,7 +27,19 @@ describe('settings scope marker (BC-MWPT-15)', () => {
   });
 
   it('no schema source file uses a deprecated bare workspace or collection scope', () => {
-    const schemaDir = join(__dirname, '..', '..', 'src', 'workbench', 'settings', 'schema');
+    const schemaDir = join(
+      __dirname,
+      '..',
+      '..',
+      '..',
+      '..',
+      'packages',
+      'ui',
+      'src',
+      'workbench',
+      'settings',
+      'schema',
+    );
     const files = readdirSync(schemaDir).filter((f) => f.endsWith('.ts'));
     expect(files.length).toBeGreaterThan(0);
     const hits: string[] = [];
