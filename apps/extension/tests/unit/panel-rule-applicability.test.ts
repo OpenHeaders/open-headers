@@ -1,9 +1,8 @@
-import type { HeaderRule, Rule } from '@openheaders/core/types';
+import type { HeaderRule, Rule, RuleSnapshotHeaderMod } from '@openheaders/core/types';
 import { VariableResolver } from '@openheaders/core/variables';
+import type { RuleAttributionContext } from '@openheaders/ui/panel/data/header-attribution';
+import { computeRuleApplicability } from '@openheaders/ui/panel/data/rule-applicability';
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { RuleAttributionContext } from '@/panel/data/header-attribution';
-import { computeRuleApplicability } from '@/panel/data/rule-applicability';
-import type { RuleSnapshotHeaderMod } from '@openheaders/core/types';
 
 function makeRule(overrides: Partial<HeaderRule> = {}): HeaderRule {
   return {
@@ -144,7 +143,13 @@ describe('computeRuleApplicability', () => {
     const liveRule = makeRule({
       action: {
         requestHeaders: [
-          { uid: 'thm00069', operation: 'merge', headerName: 'Cookie', value: 'k=v', mergeSeparator: '{{vault.TOTP_X}}' },
+          {
+            uid: 'thm00069',
+            operation: 'merge',
+            headerName: 'Cookie',
+            value: 'k=v',
+            mergeSeparator: '{{vault.TOTP_X}}',
+          },
         ],
         responseHeaders: [],
       },
@@ -167,7 +172,7 @@ describe('computeRuleApplicability', () => {
     resolver.setDeferredVaultMode('defer');
     resolver.setVault({
       schemaVersion: 5,
-      
+
       secrets: [
         {
           uid: 'sctotpxxx',

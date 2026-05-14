@@ -1,6 +1,6 @@
+import { buildResultView } from '@openheaders/ui/panel/data/search-display';
+import type { SearchGroup, SearchMatch } from '@openheaders/ui/panel/data/search-engine';
 import { describe, expect, it } from 'vitest';
-import { buildResultView } from '@/panel/data/search-display';
-import type { SearchGroup, SearchMatch } from '@/panel/data/search-engine';
 
 function match(
   opts: Partial<SearchMatch> & Pick<SearchMatch, 'section' | 'lineNumber' | 'column' | 'sectionIndex'>,

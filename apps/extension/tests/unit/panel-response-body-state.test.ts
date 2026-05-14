@@ -1,7 +1,7 @@
+import { classifyBodyState } from '@openheaders/ui/panel/data/response-body-state';
+import type { InspectorRequest } from '@openheaders/ui/panel/data/types';
 import { describe, expect, it } from 'vitest';
 import type { InspectorHarEntry } from '@/background/modules/devtools-inspector-port';
-import { classifyBodyState } from '@/panel/data/response-body-state';
-import type { InspectorRequest } from '@/panel/data/types';
 
 function makeHar(overrides: Partial<InspectorHarEntry> = {}): InspectorHarEntry {
   return {

@@ -32,13 +32,13 @@ import { describe, expect, it } from 'vitest';
 
 const SRC_ROOT = path.resolve(__dirname, '../../../src');
 const UI_SRC_ROOT = path.resolve(__dirname, '../../../../../packages/ui/src');
-// The per-tab-state module and the workbench surface were lifted to
-// `@openheaders/ui`; their source-shape checks read from the package
-// location. The panel adopter checks still read files under SRC_ROOT.
+// The per-tab-state module and the workbench + panel surfaces were
+// lifted to `@openheaders/ui`; their source-shape checks read from the
+// package location.
 const PER_TAB_MODULE = path.resolve(UI_SRC_ROOT, 'shared/editing-scope-view-state');
 
 function readFile(rel: string): string {
-  const root = rel.startsWith('workbench/') ? UI_SRC_ROOT : SRC_ROOT;
+  const root = rel.startsWith('workbench/') || rel.startsWith('panel/') ? UI_SRC_ROOT : SRC_ROOT;
   return readFileSync(path.resolve(root, rel), 'utf8');
 }
 

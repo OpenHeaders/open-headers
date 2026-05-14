@@ -1,7 +1,7 @@
+import { classifyRequestState, isErrorState, statusText } from '@openheaders/ui/panel/data/request-state';
+import type { InspectorRequest } from '@openheaders/ui/panel/data/types';
 import { describe, expect, it } from 'vitest';
 import type { InspectorHarEntry } from '@/background/modules/devtools-inspector-port';
-import { classifyRequestState, isErrorState, statusText } from '@/panel/data/request-state';
-import type { InspectorRequest } from '@/panel/data/types';
 
 function entry(opts: Partial<InspectorRequest> & { har?: Partial<InspectorHarEntry> } = {}): InspectorRequest {
   const url = opts.url ?? 'https://api.openheaders.io/x';

@@ -1,7 +1,12 @@
+import {
+  formatCurl,
+  formatFetch,
+  formatRequestHeaders,
+  formatResponseHeaders,
+} from '@openheaders/ui/panel/data/request-formatters';
+import type { InspectorRequest } from '@openheaders/ui/panel/data/types';
 import { describe, expect, it } from 'vitest';
 import type { InspectorHarEntry } from '@/background/modules/devtools-inspector-port';
-import { formatCurl, formatFetch, formatRequestHeaders, formatResponseHeaders } from '@/panel/data/request-formatters';
-import type { InspectorRequest } from '@/panel/data/types';
 
 function makeRequest(
   overrides: Partial<InspectorHarEntry['request']> = {},

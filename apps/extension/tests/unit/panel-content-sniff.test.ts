@@ -1,5 +1,5 @@
+import { isGenericMime, sniffContentFormat, sniffMisdeclared } from '@openheaders/ui/panel/data/content-sniff';
 import { describe, expect, it } from 'vitest';
-import { isGenericMime, sniffContentFormat, sniffMisdeclared } from '@/panel/data/content-sniff';
 
 describe('isGenericMime', () => {
   it.each([

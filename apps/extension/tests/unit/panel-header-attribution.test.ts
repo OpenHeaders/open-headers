@@ -1,15 +1,16 @@
-import type { HeaderModification, HeaderRule, Rule, RuleBase } from '@openheaders/core/types';
+import type {
+  HeaderModification,
+  HeaderRule,
+  Rule,
+  RuleBase,
+  RuleSnapshot,
+  RuleSnapshotHeaderMod,
+} from '@openheaders/core/types';
+import { attributeHeaders, findCurrentMod, isAttributionEdited } from '@openheaders/ui/panel/data/header-attribution';
+import type { InspectorFire } from '@openheaders/ui/panel/data/types';
 import { describe, expect, it } from 'vitest';
-import { attributeHeaders, findCurrentMod, isAttributionEdited } from '@/panel/data/header-attribution';
-import type { InspectorFire } from '@/panel/data/types';
-import type { RuleSnapshot, RuleSnapshotHeaderMod } from '@openheaders/core/types';
 
-function headerRule(
-  uid: string,
-  name: string,
-  mods: HeaderModification[],
-  direction: 'request' | 'response',
-): Rule {
+function headerRule(uid: string, name: string, mods: HeaderModification[], direction: 'request' | 'response'): Rule {
   return {
     uid,
     type: 'header',
@@ -125,7 +126,12 @@ describe('attributeHeaders', () => {
   });
 
   it('drops `remove` silently when the server did not send the named header', () => {
-    const rule = headerRule('r1', 'Strip', [{ uid: 'thm00040', operation: 'remove', headerName: 'X-Missing' }], 'response');
+    const rule = headerRule(
+      'r1',
+      'Strip',
+      [{ uid: 'thm00040', operation: 'remove', headerName: 'X-Missing' }],
+      'response',
+    );
     const result = attributeHeaders(
       [{ name: 'Content-Type', value: 'text/html' }],
       [fire('r1')],
@@ -213,7 +219,12 @@ describe('attributeHeaders', () => {
     // The same rule often appears twice in `fires` — once from
     // Chrome's `onRuleMatchedDebug` (authoritative) and once from
     // URL-pattern inference. Treat as a single application.
-    const rule = headerRule('r1', 'Debug', [{ uid: 'thm00046', operation: 'override', headerName: 'X-Debug', value: 'on' }], 'response');
+    const rule = headerRule(
+      'r1',
+      'Debug',
+      [{ uid: 'thm00046', operation: 'override', headerName: 'X-Debug', value: 'on' }],
+      'response',
+    );
     const result = attributeHeaders(
       [{ name: 'Content-Type', value: 'text/html' }],
       [
@@ -232,8 +243,18 @@ describe('attributeHeaders', () => {
     // Two rules both inject X-Foo with override. In DNR this is
     // "last registered / highest priority wins" — we show one row
     // attributed to the later fire, not two duplicates.
-    const a = headerRule('r1', 'A', [{ uid: 'thm00047', operation: 'override', headerName: 'X-Foo', value: 'a' }], 'response');
-    const b = headerRule('r2', 'B', [{ uid: 'thm00048', operation: 'override', headerName: 'X-Foo', value: 'b' }], 'response');
+    const a = headerRule(
+      'r1',
+      'A',
+      [{ uid: 'thm00047', operation: 'override', headerName: 'X-Foo', value: 'a' }],
+      'response',
+    );
+    const b = headerRule(
+      'r2',
+      'B',
+      [{ uid: 'thm00048', operation: 'override', headerName: 'X-Foo', value: 'b' }],
+      'response',
+    );
     const result = attributeHeaders([], [fire('r1'), fire('r2')], 'response', byUid(a, b));
     expect(result).toHaveLength(1);
     expect(result[0].value).toBe('b');
@@ -246,8 +267,18 @@ describe('attributeHeaders', () => {
     // Two rules both override an existing server header. The
     // `originalValue` must stay the *server* value — not whatever the
     // previous override wrote.
-    const a = headerRule('r1', 'A', [{ uid: 'thm00049', operation: 'override', headerName: 'X-Foo', value: 'a' }], 'response');
-    const b = headerRule('r2', 'B', [{ uid: 'thm00050', operation: 'override', headerName: 'X-Foo', value: 'b' }], 'response');
+    const a = headerRule(
+      'r1',
+      'A',
+      [{ uid: 'thm00049', operation: 'override', headerName: 'X-Foo', value: 'a' }],
+      'response',
+    );
+    const b = headerRule(
+      'r2',
+      'B',
+      [{ uid: 'thm00050', operation: 'override', headerName: 'X-Foo', value: 'b' }],
+      'response',
+    );
     const result = attributeHeaders(
       [{ name: 'X-Foo', value: 'server' }],
       [fire('r1'), fire('r2')],
@@ -266,7 +297,12 @@ describe('attributeHeaders', () => {
     // either rule fired. Attribution points at the remover (DNR's
     // winner); the injecting rule is recorded so the popover can
     // explain the chain.
-    const adder = headerRule('r1', 'Add', [{ uid: 'thm00051', operation: 'override', headerName: 'X-Foo', value: 'x' }], 'response');
+    const adder = headerRule(
+      'r1',
+      'Add',
+      [{ uid: 'thm00051', operation: 'override', headerName: 'X-Foo', value: 'x' }],
+      'response',
+    );
     const remover = headerRule('r2', 'Rm', [{ uid: 'thm00052', operation: 'remove', headerName: 'X-Foo' }], 'response');
     const result = attributeHeaders([], [fire('r1'), fire('r2')], 'response', byUid(adder, remover));
     expect(result).toHaveLength(1);
@@ -593,7 +629,12 @@ describe('attributeHeaders', () => {
     // `ruleSnapshot`. The attributor synthesizes one from the live rule
     // so the row still renders — but never marks it edited (no
     // baseline to compare against).
-    const rule = headerRule('r1', 'X', [{ uid: 'thm00059', operation: 'override', headerName: 'X-Foo', value: 'live' }], 'response');
+    const rule = headerRule(
+      'r1',
+      'X',
+      [{ uid: 'thm00059', operation: 'override', headerName: 'X-Foo', value: 'live' }],
+      'response',
+    );
     const result = attributeHeaders([{ name: 'X-Foo', value: 'server' }], [fire('r1')], 'response', byUid(rule));
     expect(result[0].value).toBe('live');
     if (result[0].attribution.kind === 'modified') {

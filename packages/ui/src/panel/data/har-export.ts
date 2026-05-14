@@ -7,16 +7,11 @@
  */
 
 import type { InspectorHarEntry } from '@openheaders/core/types';
+import { getBuildInfo } from '@openheaders/ui/shared/build-info';
 import type { InspectorRequest } from './types';
 
 function getCreatorVersion(): string {
-  try {
-    const m = chrome?.runtime?.getManifest?.();
-    if (m && typeof m.version === 'string') return m.version;
-  } catch {
-    // Fallthrough to default.
-  }
-  return '0.0.0';
+  return getBuildInfo().version;
 }
 
 /**

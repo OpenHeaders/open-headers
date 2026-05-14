@@ -1,5 +1,5 @@
+import { formatHttpVersion } from '@openheaders/ui/panel/data/http-version';
 import { describe, expect, it } from 'vitest';
-import { formatHttpVersion } from '@/panel/data/http-version';
 
 describe('formatHttpVersion', () => {
   it.each([

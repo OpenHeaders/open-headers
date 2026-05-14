@@ -1,9 +1,9 @@
+import { DEFAULT_FILTER_CONFIG } from '@openheaders/ui/panel/data/filter-engine';
+import { createSearchHandler } from '@openheaders/ui/panel/data/search-worker-handler';
+import type { MainToWorker, WorkerToMain } from '@openheaders/ui/panel/data/search-worker-protocol';
+import type { InspectorRequest } from '@openheaders/ui/panel/data/types';
 import { describe, expect, it } from 'vitest';
 import type { InspectorHarEntry } from '@/background/modules/devtools-inspector-port';
-import { DEFAULT_FILTER_CONFIG } from '@/panel/data/filter-engine';
-import { createSearchHandler } from '@/panel/data/search-worker-handler';
-import type { MainToWorker, WorkerToMain } from '@/panel/data/search-worker-protocol';
-import type { InspectorRequest } from '@/panel/data/types';
 
 function makeRequest(id: string, responseBody: string, displayId = 1): InspectorRequest {
   const url = `https://api.openheaders.io/${id}`;

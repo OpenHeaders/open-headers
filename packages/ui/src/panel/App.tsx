@@ -1,4 +1,5 @@
 import 'allotment/dist/style.css';
+import { hostNavigation } from '@openheaders/core/navigation';
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import {
   EnvironmentProvider,
@@ -478,11 +479,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
               showFilter={showFilter}
               recording={recording}
               onStartRecording={() => setRecording(true)}
-              onReloadPage={() => {
-                (
-                  chrome as unknown as { devtools?: { inspectedWindow?: { reload: () => void } } }
-                ).devtools?.inspectedWindow?.reload();
-              }}
+              onReloadPage={() => hostNavigation.reloadInspectedTab()}
               visibleColumns={visibleColumns}
               onVisibleColumnsChange={setVisibleColumns}
               onSaveAsHar={handleSaveAsHar}

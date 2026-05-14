@@ -1,11 +1,11 @@
+import { DEFAULT_FILTER_CONFIG } from '@openheaders/ui/panel/data/filter-engine';
+import { SearchClient } from '@openheaders/ui/panel/data/search-client';
+import type { SearchGroup, SearchProgress } from '@openheaders/ui/panel/data/search-engine';
+import { createInlineTransport, type SearchTransport } from '@openheaders/ui/panel/data/search-transport';
+import type { MainToWorker, WorkerToMain } from '@openheaders/ui/panel/data/search-worker-protocol';
+import type { InspectorRequest } from '@openheaders/ui/panel/data/types';
 import { describe, expect, it } from 'vitest';
 import type { InspectorHarEntry } from '@/background/modules/devtools-inspector-port';
-import { DEFAULT_FILTER_CONFIG } from '@/panel/data/filter-engine';
-import { SearchClient } from '@/panel/data/search-client';
-import type { SearchGroup, SearchProgress } from '@/panel/data/search-engine';
-import { createInlineTransport, type SearchTransport } from '@/panel/data/search-transport';
-import type { MainToWorker, WorkerToMain } from '@/panel/data/search-worker-protocol';
-import type { InspectorRequest } from '@/panel/data/types';
 
 /** Fake transport with a `fireError()` trigger for crash-recovery tests. */
 function fakeCrashableTransport(): SearchTransport & { fireError(): void } {

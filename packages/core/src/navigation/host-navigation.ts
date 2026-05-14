@@ -99,6 +99,12 @@ export interface HostNavigation {
    * `null` and those panel-only features no-op.
    */
   inspectedTabId(): number | null;
+  /**
+   * Reload the page in the tab this surface is inspecting — the DevTools
+   * panel's "reload page" affordance. Fire-and-forget. Hosts that aren't
+   * a DevTools-style panel (popup, side panel, web app) no-op.
+   */
+  reloadInspectedTab(): void;
 }
 
 /**
@@ -127,6 +133,7 @@ const NULL_HOST_NAVIGATION: HostNavigation = {
   inspectedTabId() {
     return null;
   },
+  reloadInspectedTab() {},
 };
 
 let installed: HostNavigation = NULL_HOST_NAVIGATION;

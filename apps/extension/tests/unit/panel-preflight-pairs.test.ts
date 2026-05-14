@@ -1,7 +1,7 @@
+import { derivePreflightPairs, getRole } from '@openheaders/ui/panel/components/traffic/preflight-pairs';
+import type { InspectorRequest } from '@openheaders/ui/panel/data/types';
 import { describe, expect, it } from 'vitest';
 import type { InspectorHarEntry } from '@/background/modules/devtools-inspector-port';
-import { derivePreflightPairs, getRole } from '@/panel/components/traffic/preflight-pairs';
-import type { InspectorRequest } from '@/panel/data/types';
 
 function entry(
   id: string,

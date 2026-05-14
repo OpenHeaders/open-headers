@@ -1,7 +1,7 @@
+import { DEFAULT_FILTER_CONFIG, passesRowFilters } from '@openheaders/ui/panel/data/filter-engine';
+import type { InspectorRequest } from '@openheaders/ui/panel/data/types';
 import { describe, expect, it } from 'vitest';
 import type { InspectorHarEntry } from '@/background/modules/devtools-inspector-port';
-import { DEFAULT_FILTER_CONFIG, passesRowFilters } from '@/panel/data/filter-engine';
-import type { InspectorRequest } from '@/panel/data/types';
 
 function req(url: string, overrides: Partial<InspectorRequest> = {}): InspectorRequest {
   const har: InspectorHarEntry = {

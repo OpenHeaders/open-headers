@@ -1,8 +1,8 @@
+import type { RequestState } from '@openheaders/ui/panel/data/request-state';
+import { formatSizeInfo, getSizeInfo, sortValueOf } from '@openheaders/ui/panel/data/size-info';
+import type { InspectorRequest } from '@openheaders/ui/panel/data/types';
 import { describe, expect, it } from 'vitest';
 import type { InspectorHarEntry } from '@/background/modules/devtools-inspector-port';
-import type { RequestState } from '@/panel/data/request-state';
-import { formatSizeInfo, getSizeInfo, sortValueOf } from '@/panel/data/size-info';
-import type { InspectorRequest } from '@/panel/data/types';
 
 function entry(opts: Partial<InspectorRequest> & { har?: Partial<InspectorHarEntry> } = {}): InspectorRequest {
   const url = opts.url ?? 'https://api.openheaders.io/x';

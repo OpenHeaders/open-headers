@@ -39,9 +39,9 @@
       "import": "./src/workbench/*",
       "default": "./dist/workbench/*.js"
     },
-    "./panel": {
-      "import": "./src/panel/index.ts",
-      "default": "./dist/panel/index.js"
+    "./panel/*": {
+      "import": "./src/panel/*",
+      "default": "./dist/panel/*.js"
     },
     "./popup/*": {
       "import": "./src/popup/*",

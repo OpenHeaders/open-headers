@@ -218,6 +218,16 @@ function inspectedTabId(): number | null {
   return typeof id === 'number' ? id : null;
 }
 
+/**
+ * Reload the inspected page via `chrome.devtools.inspectedWindow.reload`.
+ * No-ops outside a DevTools context — `chrome.devtools` is absent in the
+ * popup, side panel, and tests.
+ */
+function reloadInspectedTab(): void {
+  const devtools = (chrome as unknown as { devtools?: { inspectedWindow?: { reload?: () => void } } }).devtools;
+  devtools?.inspectedWindow?.reload?.();
+}
+
 const chromeHostNavigation: HostNavigation = {
   switchViewMode,
   currentWindowId,
@@ -227,6 +237,7 @@ const chromeHostNavigation: HostNavigation = {
   getActiveTab,
   observeActiveTabContext,
   inspectedTabId,
+  reloadInspectedTab,
 };
 
 setHostNavigation(chromeHostNavigation);

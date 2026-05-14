@@ -1,6 +1,4 @@
-import { describe, expect, it } from 'vitest';
-import type { InspectorHarEntry } from '@/background/modules/devtools-inspector-port';
-import { DEFAULT_FILTER_CONFIG, type FilterConfig } from '@/panel/data/filter-engine';
+import { DEFAULT_FILTER_CONFIG, type FilterConfig } from '@openheaders/ui/panel/data/filter-engine';
 import {
   buildSearchableText,
   lineMatches,
@@ -8,8 +6,10 @@ import {
   type SearchGroup,
   type SearchProgress,
   scanEntry,
-} from '@/panel/data/search-engine';
-import type { InspectorRequest } from '@/panel/data/types';
+} from '@openheaders/ui/panel/data/search-engine';
+import type { InspectorRequest } from '@openheaders/ui/panel/data/types';
+import { describe, expect, it } from 'vitest';
+import type { InspectorHarEntry } from '@/background/modules/devtools-inspector-port';
 
 function makeRequest(opts: {
   id?: string;

@@ -19,9 +19,9 @@
  *
  *   3. **Wrapper class (BC-D3).** Each surface has an allowed
  *      wrapper-class set:
- *        - `apps/extension/src/workbench/...` → must contain at least
+ *        - `packages/ui/src/workbench/...` → must contain at least
  *          one of: `rules-right-panel`, `rules-bottom-panel`, `rules-sidebar`.
- *        - `apps/extension/src/panel/...` → must contain `dt-panel`.
+ *        - `packages/ui/src/panel/...` → must contain `dt-panel`.
  *      Closes "wrong wrapper class for surface."
  *
  *   4. **No cast escape (BC-D5).** No `as PanelHeaderWiring` (or
@@ -38,14 +38,14 @@
  * assertion #2. The lint walks for the canonical name only.
  */
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const SRC_ROOTS = [
-  path.resolve(__dirname, '../../../src/workbench'),
-  path.resolve(__dirname, '../../../src/panel'),
-];
+// Both the workbench and panel surfaces were lifted to `@openheaders/ui`;
+// their source-shape checks read from the package location.
+const UI_SRC_ROOT = path.resolve(__dirname, '../../../../../packages/ui/src');
+const SRC_ROOTS = [path.resolve(UI_SRC_ROOT, 'workbench'), path.resolve(UI_SRC_ROOT, 'panel')];
 
 const PANEL_HEADER_IMPORT_REGEX =
   /import\s*\{[^}]*\bPanelHeader\b[^}]*\}\s*from\s*['"]@openheaders\/ui\/shared\/dock-layout['"]/;
@@ -81,7 +81,7 @@ function findPanelFiles(): PanelFile[] {
     for (const absolute of files) {
       const source = readFileSync(absolute, 'utf8');
       if (!PANEL_HEADER_IMPORT_REGEX.test(source)) continue;
-      const relative = path.relative(path.resolve(__dirname, '../../../src'), absolute);
+      const relative = path.relative(UI_SRC_ROOT, absolute);
       out.push({ absolute, relative, surface, source });
     }
   }

@@ -42,7 +42,7 @@ interface ComposeOpts {
 
 /**
  * Mirrors the canSave composition in
- * `apps/extension/src/panel/components/RuleHoverPopover.tsx`. Kept in
+ * `packages/ui/src/panel/components/RuleHoverPopover.tsx`. Kept in
  * sync by review — the file's contract section calls out the formula.
  */
 function computeCanSave(draft: Draft, opts: ComposeOpts): boolean {

@@ -1,7 +1,7 @@
+import { buildHar, serializeHar, suggestHarFilename } from '@openheaders/ui/panel/data/har-export';
+import type { InspectorRequest } from '@openheaders/ui/panel/data/types';
 import { describe, expect, it, vi } from 'vitest';
 import type { InspectorHarEntry } from '@/background/modules/devtools-inspector-port';
-import { buildHar, serializeHar, suggestHarFilename } from '@/panel/data/har-export';
-import type { InspectorRequest } from '@/panel/data/types';
 
 function req(url: string, idx = 0): InspectorRequest {
   const har: InspectorHarEntry = {
