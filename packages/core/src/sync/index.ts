@@ -9,6 +9,8 @@
  */
 
 export * from './backend';
+export * from './boot-baseline';
+export * from './boot-regression';
 export * from './envelope';
 export * from './hlc';
 export * from './mutators';

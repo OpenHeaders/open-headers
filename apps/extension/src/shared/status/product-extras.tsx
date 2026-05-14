@@ -51,7 +51,7 @@ export function productStatusExtras(subsystem: StatusSubsystem, _entry: StatusEn
  * and the baseline is pinned. The verdict is computed in the renderer
  * (`use-boot-regression.ts`) by feeding the recent `boot.interactive`
  * samples into the pure decision module
- * (`background/sync/boot-regression.ts`). Suppressed entirely while the
+ * (`@openheaders/core/sync` → `boot-regression`). Suppressed entirely while the
  * baseline is 0 so we don't surface a meaningless "no regression" pill
  * before measurement.
  */

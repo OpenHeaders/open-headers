@@ -25,8 +25,8 @@
  *   6. Update `BOOT_BASELINE_MS` to the rounded average.
  *
  * Three samples averaged keeps cache-prime variance from skewing the
- * baseline. The session-5 framework pins t=0 at SW evaluation, so the
- * value is wall-clock against `Date.now()` from `boot-telemetry.ts`.
+ * baseline. The session-5 telemetry framework pins t=0 at host reactor
+ * evaluation, so the value is wall-clock against `Date.now()`.
  *
  * Until the real measurement lands, the pinned value is 0 and the gate
  * is inert. The renderer-side UI guards on `BOOT_BASELINE_MS > 0` so it

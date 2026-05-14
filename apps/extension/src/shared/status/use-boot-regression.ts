@@ -3,9 +3,9 @@
  *
  * Pulls the most-recent `boot.interactive` samples out of the
  * observability log, feeds them through the pure decision module
- * (`background/sync/boot-regression.ts`), and exposes the verdict so a
- * status pill / footer callout can surface a regression without
- * coupling the gate to a presentation layer.
+ * (`@openheaders/core/sync` → `boot-regression`), and exposes the
+ * verdict so a status pill / footer callout can surface a regression
+ * without coupling the gate to a presentation layer.
  *
  * The hook subscribes to `observabilityLogUpdated` so the verdict
  * refreshes on every cold wake (each wake produces a fresh `boot.
@@ -17,11 +17,9 @@
 import {
   BOOT_BASELINE_MS,
   BOOT_REGRESSION_SAMPLE_WINDOW,
-} from '@openheaders/oracle/sync/boot-baseline';
-import {
   type BootRegressionVerdict,
   evaluateBootRegression,
-} from '@openheaders/oracle/sync/boot-regression';
+} from '@openheaders/core/sync';
 import { useEffect, useState } from 'react';
 import { call, subscribe } from '@utils/bridge';
 
