@@ -4,7 +4,7 @@ import { App, Button, Space, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect } from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
-import { useSurface } from '@/shared/surface';
+import { useSurface } from '@openheaders/ui/shared/surface';
 import { switchViewMode } from '@/shared/view-mode';
 import { openWorkspace } from '@/shared/workspace-intent';
 import { getBrowserAPI } from '@/types/browser';

@@ -23,7 +23,7 @@ import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
-import { useSurface } from '@/shared/surface';
+import { useSurface } from '@openheaders/ui/shared/surface';
 import { openWorkspace } from '@/shared/workspace-intent';
 import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
 import type { PageInfo, RowActions } from '../utils/table-shared';

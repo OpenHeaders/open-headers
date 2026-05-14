@@ -1,6 +1,6 @@
 import { theme } from 'antd';
 import type React from 'react';
-import type { SurfaceMode } from '@/shared/surface';
+import type { SurfaceMode } from '@openheaders/ui/shared/surface';
 
 interface SurfaceTargetIconProps {
   /** Surface the icon depicts — typically the surface the click will switch TO. */

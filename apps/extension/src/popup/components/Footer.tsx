@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import type { StatusPillProps } from '@/shared/status';
 import { productStatusExtras, StatusPill } from '@/shared/status';
-import { useSurface } from '@/shared/surface';
+import { useSurface } from '@openheaders/ui/shared/surface';
 import { openWorkspace } from '@/shared/workspace-intent';
 import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
 import DebugNetworkPanel from './DebugNetworkPanel';

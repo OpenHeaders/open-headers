@@ -5,7 +5,7 @@ import { ThemeProvider } from '@context/ThemeContext';
 import { App as AntApp } from 'antd';
 import { createRoot } from 'react-dom/client';
 import { eagerInitRendererMirrors } from '@/context/eager-mirror-init';
-import { SurfaceProvider } from '@/shared/surface';
+import { SurfaceProvider } from '@openheaders/ui/shared/surface';
 import { SettingsProvider } from '@/workbench/settings';
 import App from './App';
 import '@/shared/dock-layout/dock-layout.css';

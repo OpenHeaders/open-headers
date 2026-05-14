@@ -39,7 +39,7 @@ import type { ColumnsType } from 'antd/es/table';
 import type { FilterValue, SorterResult } from 'antd/es/table/interface';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useSurface } from '@/shared/surface';
+import { useSurface } from '@openheaders/ui/shared/surface';
 import { type RuleVerdict, VERDICT_COLOR, VERDICT_LABEL, VERDICT_RANK, VERDICT_TOOLTIP } from '@/shared/verdict';
 import { openWorkspace, type WorkspaceIntent } from '@/shared/workspace-intent';
 import type { SilentMatchRecord } from '@/types/browser';
