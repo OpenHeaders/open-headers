@@ -28,6 +28,7 @@
  */
 
 import type { OAuth2Auth, OAuth2Flow } from '../types/request';
+import { encodeBase64, encodeBase64Bytes } from '../utils/base64';
 
 // ── Runtime state shape ────────────────────────────────────────────
 
@@ -372,15 +373,9 @@ export function buildRefreshTokenBody(input: { config: OAuth2Auth; refreshToken:
 export function buildClientAuthHeader(config: OAuth2Auth): string | null {
   if (config.clientAuthentication !== 'basic-header') return null;
   if (!config.clientSecret) return null;
-  const encoded = base64UrlSafeBasic(`${config.clientId}:${config.clientSecret}`);
+  // Basic auth uses STANDARD base64 (with `+/=`), not url-safe.
+  const encoded = encodeBase64(`${config.clientId}:${config.clientSecret}`);
   return `Basic ${encoded}`;
-}
-
-function base64UrlSafeBasic(input: string): string {
-  // Basic auth uses STANDARD base64 (with `+/=`), not url-safe. We still
-  // use platform primitives — btoa in browsers, Buffer on node.
-  if (typeof btoa === 'function') return btoa(input);
-  return Buffer.from(input, 'utf-8').toString('base64');
 }
 
 // ── Token response parsing ────────────────────────────────────────
@@ -468,12 +463,7 @@ export async function computeCodeChallenge(
 
 /** Base64url WITHOUT trailing `=` padding per RFC 4648 §5. */
 export function base64UrlEncode(bytes: Uint8Array): string {
-  let binary = '';
-  for (const b of bytes) binary += String.fromCharCode(b);
-  // `btoa` isn't in the Node test env but is everywhere browsers run.
-  // Fall back to Buffer when present.
-  const b64 = typeof btoa === 'function' ? btoa(binary) : Buffer.from(bytes).toString('base64');
-  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return encodeBase64Bytes(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 // ── credentialRef generator ───────────────────────────────────────

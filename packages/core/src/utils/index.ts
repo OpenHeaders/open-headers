@@ -4,6 +4,7 @@ export type {
   ActionValueSeverity,
 } from './action-validation';
 export { validateActionValues } from './action-validation';
+export { decodeBase64, encodeBase64, encodeBase64Bytes } from './base64';
 export type {
   AutoSwitchParams,
   CollectionEnvAutoSwitchMode,

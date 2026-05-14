@@ -47,6 +47,7 @@
  */
 
 import { placeholderFileRef } from '../files';
+import { decodeBase64 } from '../utils/base64';
 import { generateUid } from '../utils/workspace';
 import type {
   AuthConfig,
@@ -674,7 +675,7 @@ function tryPromoteAuthHeaderValue(value: string): AuthConfig | null {
   }
   if (/^Basic\s+/i.test(trimmed)) {
     const b64 = trimmed.replace(/^Basic\s+/i, '');
-    const decoded = safeBase64Decode(b64);
+    const decoded = decodeBase64(b64);
     if (decoded?.includes(':')) {
       const colon = decoded.indexOf(':');
       return {
@@ -685,14 +686,6 @@ function tryPromoteAuthHeaderValue(value: string): AuthConfig | null {
     }
   }
   return null;
-}
-
-function safeBase64Decode(value: string): string | null {
-  try {
-    return typeof atob === 'function' ? atob(value) : Buffer.from(value, 'base64').toString('utf8');
-  } catch {
-    return null;
-  }
 }
 
 function resolveAuth(
