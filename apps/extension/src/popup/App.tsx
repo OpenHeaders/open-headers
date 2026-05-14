@@ -18,8 +18,7 @@ import { call, presence } from '@utils/bridge';
 import { Layout } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AwarenessIdentityProvider } from '@openheaders/ui/shared/awareness';
-import { resolvePopupIdentity, resolveSidePanelIdentity } from '@/host/surface-identity-resolvers';
+import { AwarenessIdentityProvider, type SurfaceIdentityHandle } from '@openheaders/ui/shared/awareness';
 import { useSurface } from '@openheaders/ui/shared/surface';
 import { VariablePopoverProvider } from '@/workbench/components/template-input/VariablePopoverHost';
 import { EnvSwitcherProvider } from '@/workbench/services/env-switcher';
@@ -69,7 +68,17 @@ const AppInner: React.FC<AppInnerProps> = ({ tourOpen, onTourClose }) => {
   );
 };
 
-const AppContent: React.FC = () => {
+interface AppContentProps {
+  /**
+   * Host-supplied surface identity resolver. The popup and side panel
+   * share this component but each entry point binds its own resolver
+   * (`resolvePopupIdentity` / `resolveSidePanelIdentity`) — the chrome
+   * tab/window lookups live in the extension host, not here.
+   */
+  resolveIdentity: () => SurfaceIdentityHandle;
+}
+
+const AppContent: React.FC<AppContentProps> = ({ resolveIdentity }) => {
   const { themeMode, setThemeMode, toggleCompactMode } = useTheme();
   const surface = useSurface();
   const [activeTab, setActiveTab] = useState<string | null>(null);
@@ -115,11 +124,8 @@ const AppContent: React.FC = () => {
 
   // Identity is per-mount: the popup and side panel share this App
   // module but each entry mounts it in its own JS realm, so the
-  // resolver runs exactly once per surface lifetime.
-  const identity = useMemo(
-    () => (surface.mode === 'sidepanel' ? resolveSidePanelIdentity() : resolvePopupIdentity()),
-    [surface.mode],
-  );
+  // host-supplied resolver runs exactly once per surface lifetime.
+  const identity = useMemo(() => resolveIdentity(), [resolveIdentity]);
   const ruleSurfaceId = surface.mode === 'sidepanel' ? 'sidepanel' : 'popup';
   // Active workspace drives the lifeline `bind` message so the SW
   // refcount-acquires this surface's `WorkspaceServiceState` while the

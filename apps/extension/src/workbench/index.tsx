@@ -3,6 +3,7 @@ import '@/host/install-host-bridge';
 import '@/host/install-host-logger';
 import '@/host/install-build-info';
 import '@/host/install-awareness-host';
+import { resolveWorkbenchIdentity } from '@/host/surface-identity-resolvers';
 import { ThemeProvider } from '@context/ThemeContext';
 import { App as AntApp } from 'antd';
 import { createRoot } from 'react-dom/client';
@@ -25,7 +26,7 @@ root.render(
   <SettingsProvider>
     <ThemeProvider>
       <AntApp>
-        <Workbench />
+        <Workbench resolveIdentity={resolveWorkbenchIdentity} />
       </AntApp>
     </ThemeProvider>
   </SettingsProvider>,

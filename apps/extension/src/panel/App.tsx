@@ -17,9 +17,9 @@ import {
   ActiveFieldFocusProvider,
   ActiveTabEntityProvider,
   AwarenessIdentityProvider,
+  type SurfaceIdentityHandle,
   SurfaceAwarenessPublisher,
 } from '@openheaders/ui/shared/awareness';
-import { resolveDevPanelIdentity } from '@/host/surface-identity-resolvers';
 import type { BottomPanelAlignment, DockSlot, SidebarLayoutVariant } from '@openheaders/ui/shared/dock-layout';
 import {
   createShellEventBus,
@@ -128,13 +128,21 @@ function getPanelSizes() {
 
 // ── App (provides the event bus context) ─────────────────────────────
 
-// Per-panel identity. Each DevTools panel page is its own JS realm, so
-// the resolver runs once per panel lifetime. Navigation handle resolves
-// the inspected tab so other surfaces can switch the user back to the
-// page whose DevTools hosts this panel.
-const devPanelIdentity = resolveDevPanelIdentity();
+interface AppProps {
+  /**
+   * Host-supplied surface identity resolver. The chrome
+   * `devtools.inspectedWindow` / `tabs` lookups live in the extension
+   * host (`resolveDevPanelIdentity`); this component stays host-agnostic.
+   */
+  resolveIdentity: () => SurfaceIdentityHandle;
+}
 
-export default function App() {
+export default function App({ resolveIdentity }: AppProps) {
+  // Per-panel identity. Each DevTools panel page is its own JS realm, so
+  // the host resolver runs once per panel lifetime. Its navigation
+  // handle resolves the inspected tab so other surfaces can switch the
+  // user back to the page whose DevTools hosts this panel.
+  const devPanelIdentity = useMemo(() => resolveIdentity(), [resolveIdentity]);
   // Active workspace drives the lifeline `bind` message so the SW
   // refcount-acquires this surface's `WorkspaceServiceState` while the
   // DevTools panel is open (design § 4.0.7). DevPanel always reads

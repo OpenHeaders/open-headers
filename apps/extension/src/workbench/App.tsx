@@ -55,10 +55,10 @@ import {
   ActiveFieldFocusProvider,
   ActiveTabEntityProvider,
   AwarenessIdentityProvider,
+  type SurfaceIdentityHandle,
   SurfaceAwarenessPublisher,
   useSetActiveTabEntity,
 } from '@openheaders/ui/shared/awareness';
-import { resolveWorkbenchIdentity } from '@/host/surface-identity-resolvers';
 import 'allotment/dist/style.css';
 import { createShellEventBus, ShellEventBusContext } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
@@ -2348,11 +2348,19 @@ function ActiveTabEntityWriter({ value }: { value: { entityType: string; entityI
   return null;
 }
 
-// Per-tab identity — each workbench tab opens a fresh React realm, so
-// resolving once at the root is exactly per-tab.
-const workbenchIdentity = resolveWorkbenchIdentity();
+interface WorkbenchProps {
+  /**
+   * Host-supplied surface identity resolver. The chrome
+   * `tabs.getCurrent` lookup lives in the extension host
+   * (`resolveWorkbenchIdentity`); this component stays host-agnostic.
+   */
+  resolveIdentity: () => SurfaceIdentityHandle;
+}
 
-const Workbench: React.FC = () => {
+const Workbench: React.FC<WorkbenchProps> = ({ resolveIdentity }) => {
+  // Per-tab identity — each workbench tab opens a fresh React realm, so
+  // resolving once at the root via the host resolver is exactly per-tab.
+  const [workbenchIdentity] = useState(resolveIdentity);
   // Lifeline workspaceId — driven by {@link WorkbenchTabAware}'s
   // editing-scope read once `useWorkbenchWorkspaceSlice` has finished
   // correcting stale bindings. Starts `null` so the cold-mount lifeline
