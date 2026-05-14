@@ -24,6 +24,7 @@
 import { ConfigProvider, theme } from 'antd';
 import type React from 'react';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { UiThemeProvider } from '@openheaders/ui/context';
 import { getVariant, type ThemeVariant } from '@/themes';
 import { setSettingValue, useSettingValue } from '@/workbench/settings';
 import { resolveAppearanceFontFamily } from '@/workbench/settings/schema/appearance';
@@ -173,7 +174,9 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         monacoTheme: variant.monacoTheme,
       }}
     >
-      <ConfigProvider theme={antTheme}>{children}</ConfigProvider>
+      <ConfigProvider theme={antTheme}>
+        <UiThemeProvider value={{ isDarkMode, monacoTheme: variant.monacoTheme }}>{children}</UiThemeProvider>
+      </ConfigProvider>
     </ThemeContext.Provider>
   );
 };

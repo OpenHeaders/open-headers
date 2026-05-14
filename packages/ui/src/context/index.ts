@@ -13,6 +13,8 @@
  * workbench settings, keyboard hooks) that aren't part of this unit.
  */
 
+export * from './ui-theme';
+
 export * from './EnvironmentContext';
 export * from './FilesContext';
 export * from './LiveVariablesContext';

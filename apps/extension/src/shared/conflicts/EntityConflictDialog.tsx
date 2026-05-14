@@ -11,8 +11,8 @@
  * with it.
  */
 
-import { useTheme } from '@context/ThemeContext';
 import type React from 'react';
+import { useUiTheme } from '@openheaders/ui/context';
 import { MergeConflictModal } from '@openheaders/ui/shared/merge-editor';
 import { buildEntityMergeSession } from './entity-merge-adapter';
 
@@ -50,7 +50,7 @@ const EntityConflictDialog: React.FC<EntityConflictDialogProps> = ({
   onResolveText,
   onClose,
 }) => {
-  const { isDarkMode, monacoTheme } = useTheme();
+  const { isDarkMode, monacoTheme } = useUiTheme();
   if (!open) return null;
   return (
     <MergeConflictModal
