@@ -53,7 +53,7 @@ import {
 import type { LiveVariable, LiveWorkflow } from '@openheaders/core/types';
 import { alarms } from '@utils/browser-api';
 import { logger } from '@utils/logger';
-import { report as reportStatus } from '@/shared/status';
+import { report as reportStatus } from '@openheaders/ui/shared/status';
 import { extensionStorage, OH } from '@openheaders/oracle/storage';
 import { getActiveEnvironmentId, onActiveEnvironmentChange } from '@openheaders/oracle/entity/environment-store';
 import {

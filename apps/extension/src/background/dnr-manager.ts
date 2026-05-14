@@ -26,7 +26,7 @@
 import type { Rule } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import { declarativeNetRequest } from '@utils/browser-api';
-import { report as reportStatus } from '@/shared/status';
+import { report as reportStatus } from '@openheaders/ui/shared/status';
 import { get as getSetting } from '@/workbench/settings/store';
 import { applyDynamicRules, applySessionRules, clearAllDynamicRules, clearAllSessionRules } from '@openheaders/rule-engine/apply';
 import type { DnrRule, EngineCompileSettings } from '@openheaders/rule-engine/builders';

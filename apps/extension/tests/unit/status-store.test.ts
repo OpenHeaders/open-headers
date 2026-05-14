@@ -7,7 +7,7 @@ import {
   type StatusSnapshot,
   subscribe,
   worstLevel,
-} from '@/shared/status';
+} from '@openheaders/ui/shared/status';
 
 beforeEach(() => {
   __resetStatusForTests();

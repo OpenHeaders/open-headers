@@ -7,10 +7,10 @@
  * Status is the *current* snapshot; the log is the *history*. Reloading
  * the SW resets Status — subsystems re-emit on first relevant event.
  *
- * This store lives in `shared/` because both the SW (writes) and the
- * renderer (reads via bridge broadcast) need the same type vocabulary.
- * The UI-side module (`use-status.ts`) mirrors the SW's store over the
- * `statusUpdated` broadcast.
+ * This store lives in `@openheaders/ui` because both the host reactor
+ * (writes) and the renderer (reads via bridge broadcast) need the same
+ * type vocabulary. The UI-side hook (`useStatus`) mirrors the host
+ * store over the `statusUpdated` broadcast.
  */
 
 import type { StatusEntry, StatusLevel, StatusListener, StatusSnapshot, StatusSubsystem } from './types';

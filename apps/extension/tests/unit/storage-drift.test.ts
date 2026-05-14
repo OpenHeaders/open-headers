@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { setOracleHostHooks } from '@openheaders/oracle/sync';
 import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
-import { __resetStatusForTests, getStatusSnapshot, report as reportStatus } from '@/shared/status';
+import { __resetStatusForTests, getStatusSnapshot, report as reportStatus } from '@openheaders/ui/shared/status';
 
 const recordLogMock = vi.fn();
 

@@ -35,7 +35,7 @@ import { resolveTemplate, type TotpRegistry, VariableResolver } from '@openheade
 import { logger } from '@utils/logger';
 import { ensureScheme } from '@/shared/fetch/ensure-scheme';
 import { withHostAccess } from '@/shared/fetch/with-host-access';
-import { report as reportStatus } from '@/shared/status';
+import { report as reportStatus } from '@openheaders/ui/shared/status';
 import { feedCollectionVariablesToResolver } from '@/shared/variables/collection-scope';
 import {
   getActiveEnvironmentId,

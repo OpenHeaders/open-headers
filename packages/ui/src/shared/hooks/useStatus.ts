@@ -14,7 +14,7 @@ import { useEffect, useMemo, useState } from 'react';
 // consumes this hook, so routing the hook through the barrel makes
 // Rollup emit a circular-chunk warning and risks a broken execution
 // order at runtime.
-import { type StatusSnapshot, worstLevel } from '@/shared/status/types';
+import { type StatusSnapshot, worstLevel } from '../status/types';
 
 export interface UseStatusApi {
   snapshot: StatusSnapshot;

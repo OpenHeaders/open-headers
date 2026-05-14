@@ -53,7 +53,7 @@ vi.mock('@openheaders/oracle/live/live-cache-store', () => ({
 }));
 
 import * as scheduler from '@/background/modules/live-refresh-scheduler';
-import { __resetStatusForTests, getStatusSnapshot } from '@/shared/status';
+import { __resetStatusForTests, getStatusSnapshot } from '@openheaders/ui/shared/status';
 import { installBackingStorage } from '../helpers/chrome-storage-backing';
 
 // ── Harness ────────────────────────────────────────────────────────

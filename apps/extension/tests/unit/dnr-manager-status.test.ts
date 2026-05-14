@@ -84,7 +84,7 @@ vi.mock('@/background/inject-manager', () => ({
 import { declarativeNetRequest } from '@utils/browser-api';
 import { applyAllRulesAsync, setRulesPaused, updateNetworkRules } from '@/background/dnr-manager';
 import { getLastAggregatedResolutionErrors, getLastResolutionErrors } from '@openheaders/oracle/rule-engine/variables-resolver';
-import { __resetStatusForTests, getStatusSnapshot, type StatusSnapshot } from '@/shared/status';
+import { __resetStatusForTests, getStatusSnapshot, type StatusSnapshot } from '@openheaders/ui/shared/status';
 import { get as getSetting } from '@/workbench/settings/store';
 
 const mockGetDynamicRules = declarativeNetRequest!.getDynamicRules as ReturnType<typeof vi.fn>;

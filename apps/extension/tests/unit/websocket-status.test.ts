@@ -40,7 +40,7 @@ vi.mock('@/background/safari-websocket-adapter', () => ({
 }));
 
 import { connectWebSocket } from '@/background/websocket';
-import { __resetStatusForTests, getStatusSnapshot } from '@/shared/status';
+import { __resetStatusForTests, getStatusSnapshot } from '@openheaders/ui/shared/status';
 
 function syncEntry() {
   return getStatusSnapshot().sync;

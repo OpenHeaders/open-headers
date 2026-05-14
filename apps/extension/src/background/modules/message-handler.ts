@@ -39,7 +39,7 @@ import {
   snapshotVaultPostStates,
   snapshotWorkspaceVariablesPostStates,
 } from '@openheaders/oracle/sync/service';
-import { getStatusSnapshot } from '@/shared/status';
+import { getStatusSnapshot } from '@openheaders/ui/shared/status';
 import type { MessageHandlerContext, SendResponse } from '@/types/browser';
 import type { PerfResourceEntry } from '@/types/perf';
 import { disableCacheBypassForTab, enableCacheBypassForTab } from './cache-bypass';

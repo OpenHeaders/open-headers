@@ -9,7 +9,7 @@ import { BulbFilled, BulbOutlined } from '@ant-design/icons';
 import { useTheme } from '@context/ThemeContext';
 import { Dropdown, type MenuProps, Space, theme } from 'antd';
 import type React from 'react';
-import { productStatusExtras, StatusPill } from '@/shared/status';
+import { productStatusExtras, StatusPill } from '@openheaders/ui/shared/status';
 import { useSettingValue } from '@/workbench/settings/hooks';
 
 declare const __APP_VERSION__: string;

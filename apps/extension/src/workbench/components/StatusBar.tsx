@@ -13,7 +13,7 @@ import { Dropdown, type MenuProps, Space, theme } from 'antd';
 import type React from 'react';
 import { useActiveEditorLifecycle } from '@/shared/awareness';
 import { LifecyclePill } from '@/shared/editor-shell';
-import { productStatusExtras, StatusPill } from '@/shared/status';
+import { productStatusExtras, StatusPill } from '@openheaders/ui/shared/status';
 import { useInspectorNav } from '../hooks/useInspectorNav';
 import { useSettingValue } from '../settings/hooks';
 import BreadcrumbBar from './BreadcrumbBar';

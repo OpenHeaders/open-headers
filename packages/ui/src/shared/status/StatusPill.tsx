@@ -22,7 +22,7 @@
  */
 
 import { InfoCircleOutlined } from '@ant-design/icons';
-import { useStatus } from '@hooks/useStatus';
+import { useStatus } from '../hooks/useStatus';
 import { Button, Popover, Tag, Tooltip, Typography, theme } from 'antd';
 import type { TooltipPlacement } from 'antd/es/tooltip';
 import React from 'react';

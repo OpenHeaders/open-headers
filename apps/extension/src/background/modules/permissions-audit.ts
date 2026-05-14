@@ -14,7 +14,7 @@
  */
 
 import { logger } from '@utils/logger';
-import { report as reportStatus } from '@/shared/status';
+import { report as reportStatus } from '@openheaders/ui/shared/status';
 import { recordLog } from './observability-log';
 
 export async function auditHostPermissions(): Promise<void> {

@@ -19,7 +19,7 @@ import { broadcast } from '@utils/bridge';
 import { alarms, isChrome, isEdge, isFirefox, isSafari, runtime, storage, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { bootstrapSettings } from '@utils/settings-bootstrap';
-import { report as reportStatus, subscribe as subscribeStatus } from '@/shared/status';
+import { report as reportStatus, subscribe as subscribeStatus } from '@openheaders/ui/shared/status';
 import { get as getSetting, subscribeKey } from '@/workbench/settings/store';
 import { forgetDelayBypassForTab, markTabForDelayBypass, resolveDelayBypass, setRulesPaused } from './dnr-manager';
 import { setupInjectListener } from './inject-manager';

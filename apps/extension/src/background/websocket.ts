@@ -7,7 +7,7 @@ import { PROTOCOL_INCOMPATIBLE_CLOSE_CODE, PROTOCOL_VERSION } from '@openheaders
 import { broadcast } from '@utils/bridge';
 import { isChrome, isEdge, isFirefox, isSafari, runtime } from '@utils/browser-api';
 import { logger } from '@utils/logger';
-import { report as reportStatus } from '@/shared/status';
+import { report as reportStatus } from '@openheaders/ui/shared/status';
 import { get as getSetting, subscribeKey } from '@/workbench/settings/store';
 import { adaptWebSocketUrl, safariPreCheck } from './safari-websocket-adapter';
 
