@@ -1,1 +1,1 @@
-export { default } from '@/shared/dock-layout/SidebarLayoutIcon';
+export { SidebarLayoutIcon as default } from '@openheaders/ui/shared/dock-layout';

@@ -8,7 +8,7 @@ import { eagerInitRendererMirrors } from '@/context/eager-mirror-init';
 import { SurfaceProvider } from '@openheaders/ui/shared/surface';
 import { SettingsProvider } from '@/workbench/settings';
 import App from './App';
-import '@/shared/dock-layout/dock-layout.css';
+import '@openheaders/ui/shared/dock-layout/dock-layout.css';
 import './styles/panel.css';
 
 // Subscribe every entity mirror to `syncBroadcast` and kick off each

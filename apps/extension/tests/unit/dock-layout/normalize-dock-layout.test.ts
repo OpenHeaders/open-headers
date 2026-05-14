@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeDockLayout } from '@/shared/dock-layout/use-dock-layout';
-import type { DockSlot, ToolLayoutState, ToolWindowDef } from '@/shared/dock-layout/types';
+import {
+  type DockSlot,
+  normalizeDockLayout,
+  type ToolLayoutState,
+  type ToolWindowDef,
+} from '@openheaders/ui/shared/dock-layout';
 
 type Id = 'a' | 'b' | 'c' | 'd';
 

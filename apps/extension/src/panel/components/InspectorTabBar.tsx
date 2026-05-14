@@ -6,7 +6,7 @@
  * Features:
  *   - dnd-kit drag-to-reorder via SortableContext
  *   - Right-click context menu (Close, Close Other, Split, etc.) with
- *     layout-aware icons from `@/shared/dock-layout/LayoutMenuIcon`
+ *     layout-aware icons from `@openheaders/ui/shared/dock-layout/LayoutMenuIcon`
  *   - Tab search dropdown with keyboard nav
  *   - Horizontal wheel scroll + auto-scroll active tab into view
  *   - Cross-leaf insertion markers via DragIntentContext
@@ -18,7 +18,7 @@ import { Dropdown } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LayoutMenuIcon } from '@/shared/dock-layout';
+import { LayoutMenuIcon } from '@openheaders/ui/shared/dock-layout';
 import { useDragIntent } from '../data/drag-intent';
 import type { ClosedTab, InspectorTab } from '../data/inspector-tab';
 

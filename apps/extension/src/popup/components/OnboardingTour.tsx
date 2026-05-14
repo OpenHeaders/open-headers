@@ -17,8 +17,7 @@ import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { Space, Tour, type TourProps, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import DockSlotIcon from '@/shared/dock-layout/DockSlotIcon';
-import LayoutMenuIcon from '@/shared/dock-layout/LayoutMenuIcon';
+import { DockSlotIcon, LayoutMenuIcon } from '@openheaders/ui/shared/dock-layout';
 import { hostStorage, UI } from '@openheaders/core/storage';
 import { getBrowserAPI } from '@/types/browser';
 

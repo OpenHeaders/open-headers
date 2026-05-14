@@ -6,7 +6,7 @@
  *
  *   1. **PanelHeader mount (BC-D1).** Every file under
  *      `src/{workbench,panel}/**` that imports `PanelHeader` from
- *      `@/shared/dock-layout` must mount `<PanelHeader …>` somewhere
+ *      `@openheaders/ui/shared/dock-layout` must mount `<PanelHeader …>` somewhere
  *      in its JSX. Closes "imported but didn't render."
  *
  *   2. **Factory call (BC-D2 reinforcement).** Same files must call
@@ -48,7 +48,7 @@ const SRC_ROOTS = [
 ];
 
 const PANEL_HEADER_IMPORT_REGEX =
-  /import\s*\{[^}]*\bPanelHeader\b[^}]*\}\s*from\s*['"]@\/shared\/dock-layout['"]/;
+  /import\s*\{[^}]*\bPanelHeader\b[^}]*\}\s*from\s*['"]@openheaders\/ui\/shared\/dock-layout['"]/;
 
 const WORKBENCH_WRAPPER_CLASSES = ['rules-right-panel', 'rules-bottom-panel', 'rules-sidebar'];
 const PANEL_WRAPPER_CLASSES = ['dt-panel'];

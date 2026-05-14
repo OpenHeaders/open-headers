@@ -1,9 +1,12 @@
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { useDockLayout } from '@/shared/dock-layout/use-dock-layout';
-import { createFocusStore } from '@/shared/dock-layout/focus-store';
-import { ALL_DOCK_SLOTS } from '@/shared/dock-layout/constants';
-import type { DockSlot, ToolWindowDef } from '@/shared/dock-layout/types';
+import {
+  ALL_DOCK_SLOTS,
+  createFocusStore,
+  type DockSlot,
+  type ToolWindowDef,
+  useDockLayout,
+} from '@openheaders/ui/shared/dock-layout';
 
 type Id = 'core' | 'a' | 'b' | 'c' | 'd';
 

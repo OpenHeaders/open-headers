@@ -12,7 +12,7 @@ import { Button, Dropdown, type MenuProps, Space, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
-import { LayoutMenuIcon, RegionToggle, SidebarLayoutIcon } from '@/shared/dock-layout';
+import { LayoutMenuIcon, RegionToggle, SidebarLayoutIcon } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
 import { instanceLabel, instanceLabelPlural } from '@/shared/host-vocabulary';
 import { getBrowserAPI } from '@/types/browser';

@@ -5,7 +5,7 @@
  * Re-exports all methods so existing imports keep working.
  */
 
-import { createFocusStore } from '@/shared/dock-layout';
+import { createFocusStore } from '@openheaders/ui/shared/dock-layout';
 
 const store = createFocusStore();
 

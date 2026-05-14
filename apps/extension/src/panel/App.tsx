@@ -20,14 +20,14 @@ import {
   resolveDevPanelIdentity,
   SurfaceAwarenessPublisher,
 } from '@/shared/awareness';
-import type { BottomPanelAlignment, DockSlot, SidebarLayoutVariant } from '@/shared/dock-layout';
+import type { BottomPanelAlignment, DockSlot, SidebarLayoutVariant } from '@openheaders/ui/shared/dock-layout';
 import {
   createShellEventBus,
   makeEditorTabCollisionDetection,
   ShellEventBusContext,
   ShellLayout,
   useFocusRegion,
-} from '@/shared/dock-layout';
+} from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
 import { VariablePopoverProvider } from '@/workbench/components/template-input/VariablePopoverHost';
 import { EnvSwitcherProvider, useEnvSwitcher } from '@/workbench/services/env-switcher';

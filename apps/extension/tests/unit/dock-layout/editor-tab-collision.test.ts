@@ -18,7 +18,7 @@ vi.mock('@dnd-kit/core', () => ({
   closestCenter: (args: Parameters<CollisionDetection>[0]) => closestCenterMock(args),
 }));
 
-import { makeEditorTabCollisionDetection } from '@/shared/dock-layout/editor-tab-collision';
+import { makeEditorTabCollisionDetection } from '@openheaders/ui/shared/dock-layout';
 
 type Container = {
   id: string;

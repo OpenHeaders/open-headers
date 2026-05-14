@@ -27,7 +27,7 @@ import type { InputRef } from 'antd';
 import { Button, Empty, Input, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPanelHeaderWiring, PanelHeader } from '@/shared/dock-layout';
+import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { resolveDocLink } from '../docs/doc-ids';
 import { DEFAULT_SECTION_ID, DOC_GROUPS, type DocSection, findSection } from '../docs/registry';

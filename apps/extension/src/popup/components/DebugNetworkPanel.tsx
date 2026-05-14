@@ -2,8 +2,7 @@ import { BugFilled, CheckCircleFilled, InfoCircleOutlined, SearchOutlined } from
 import { Modal, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo } from 'react';
-import DockSlotIcon from '@/shared/dock-layout/DockSlotIcon';
-import LayoutMenuIcon from '@/shared/dock-layout/LayoutMenuIcon';
+import { DockSlotIcon, LayoutMenuIcon } from '@openheaders/ui/shared/dock-layout';
 
 const { Text } = Typography;
 

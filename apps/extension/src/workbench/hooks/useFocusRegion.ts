@@ -8,10 +8,10 @@
 
 import { scheduleFrame } from '@utils/frame-scheduler';
 import type { RefObject } from 'react';
-import type { DockSlot, FocusRegion, FocusRegionApi } from '@/shared/dock-layout';
-import { useFocusRegion as useSharedFocusRegion } from '@/shared/dock-layout';
+import type { DockSlot, FocusRegion, FocusRegionApi } from '@openheaders/ui/shared/dock-layout';
+import { useFocusRegion as useSharedFocusRegion } from '@openheaders/ui/shared/dock-layout';
 
-export type { FocusRegionApi } from '@/shared/dock-layout';
+export type { FocusRegionApi } from '@openheaders/ui/shared/dock-layout';
 
 export interface UseFocusRegionOptions {
   shellRef: RefObject<HTMLElement | null>;

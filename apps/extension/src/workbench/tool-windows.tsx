@@ -19,7 +19,7 @@ import {
   ScanOutlined,
   SisternodeOutlined,
 } from '@ant-design/icons';
-import { DOCK_LABELS as _LABELS, type ToolWindowDef as GenericToolWindowDef } from '@/shared/dock-layout';
+import { DOCK_LABELS as _LABELS, type ToolWindowDef as GenericToolWindowDef } from '@openheaders/ui/shared/dock-layout';
 import type { ToolWindowId } from './types';
 
 export type ToolWindowDef = GenericToolWindowDef<ToolWindowId>;
@@ -89,5 +89,5 @@ export const TOOL_WINDOW_MAP: Record<ToolWindowId, ToolWindowDef> = TOOL_WINDOWS
 // Re-export the subset of shared dock-layout constants that workbench
 // surfaces consume directly via `../tool-windows`. Keeping this alias
 // lets `StatusBar.tsx` import `DOCK_LABELS` alongside `TOOL_WINDOW_MAP`
-// without reaching into `@/shared/dock-layout` explicitly.
+// without reaching into `@openheaders/ui/shared/dock-layout` explicitly.
 export const DOCK_LABELS = _LABELS;

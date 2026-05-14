@@ -42,7 +42,7 @@ import { VariableResolver } from '@openheaders/core/variables';
 import { Empty, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { createPanelHeaderWiring, PanelHeader } from '@/shared/dock-layout';
+import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import {
   type CollectionFamilies,
   feedCollectionVariablesToResolver,

@@ -60,7 +60,7 @@ import {
   useSetActiveTabEntity,
 } from '@/shared/awareness';
 import 'allotment/dist/style.css';
-import { createShellEventBus, ShellEventBusContext } from '@/shared/dock-layout';
+import { createShellEventBus, ShellEventBusContext } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
 import { instanceLabel } from '@/shared/host-vocabulary';
 import { findCollectionByPath, findFolderByUid } from '@/shared/variables/collection-scope';

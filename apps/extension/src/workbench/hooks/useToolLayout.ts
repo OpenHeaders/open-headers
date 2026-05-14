@@ -16,8 +16,8 @@
  * file wires the workspace-aware resolver into `useEditingScopeViewState`.
  */
 
-import type { DockLayoutApi, ToolLayoutState } from '@/shared/dock-layout';
-import { normalizeDockLayout, useDockLayout } from '@/shared/dock-layout';
+import type { DockLayoutApi, ToolLayoutState } from '@openheaders/ui/shared/dock-layout';
+import { normalizeDockLayout, useDockLayout } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi, WorkspaceSlice } from '@/shared/editing-scope-view-state';
 import { createWorkspaceAwareResolver, useEditingScopeViewState } from '@/shared/editing-scope-view-state';
 import { hostStorage, type PersistedTabSession, wsKeys } from '@openheaders/core/storage';

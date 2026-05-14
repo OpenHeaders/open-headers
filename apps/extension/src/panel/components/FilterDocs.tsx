@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { createPanelHeaderWiring, PanelHeader } from '@/shared/dock-layout';
+import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 
 interface FilterDocsProps {
   onClose: () => void;

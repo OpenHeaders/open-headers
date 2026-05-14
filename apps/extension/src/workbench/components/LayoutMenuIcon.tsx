@@ -1,1 +1,1 @@
-export { default, type LayoutMenuIconKind } from '@/shared/dock-layout/LayoutMenuIcon';
+export { LayoutMenuIcon as default, type LayoutMenuIconKind } from '@openheaders/ui/shared/dock-layout';

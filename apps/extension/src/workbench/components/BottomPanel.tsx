@@ -28,7 +28,7 @@ import { App, Button, Empty, Space, Table, Tag, Tooltip, Typography, theme } fro
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createPanelHeaderWiring, PanelHeader } from '@/shared/dock-layout';
+import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 
 const { Text } = Typography;
 

@@ -30,7 +30,7 @@ import { call } from '@utils/bridge';
 import { App, Badge, Button, Empty, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createPanelHeaderWiring, PanelHeader } from '@/shared/dock-layout';
+import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { classifyRun, describeCircuit, describeRunSchedule, formatCountdown, statusColor } from './live-display';
 
 const { Text } = Typography;

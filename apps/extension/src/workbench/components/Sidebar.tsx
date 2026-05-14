@@ -26,7 +26,7 @@ import {
   SearchOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
-import { createPanelHeaderWiring, PanelHeader } from '@/shared/dock-layout';
+import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { useEnvironments } from '@hooks/useEnvironments';
 import { useFolderMutator } from '@hooks/useFolderMutator';
 import { useAllLiveCaches } from '@hooks/useLiveCache';

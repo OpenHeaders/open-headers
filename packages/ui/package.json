@@ -34,7 +34,8 @@
     "./shared/*": {
       "import": "./src/shared/*/index.ts",
       "default": "./dist/shared/*/index.js"
-    }
+    },
+    "./shared/*.css": "./src/shared/*.css"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

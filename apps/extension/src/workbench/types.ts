@@ -196,13 +196,13 @@ export interface ClosedTab {
 
 // ── Dockable tool-window model ────────────────────────────────────────
 //
-// Shared dock types are defined in @/shared/dock-layout and re-exported
+// Shared dock types are defined in @openheaders/ui/shared/dock-layout and re-exported
 // here for backwards compatibility. Workspace-specific types (ToolWindowId)
 // stay here because they define which windows THIS surface has.
 
-export type { DockSlot, SidebarLayoutVariant, ToolRegion } from '@/shared/dock-layout';
+export type { DockSlot, SidebarLayoutVariant, ToolRegion } from '@openheaders/ui/shared/dock-layout';
 
-import type { DockState as GenericDockState, ToolLayoutState as GenericToolLayoutState } from '@/shared/dock-layout';
+import type { DockState as GenericDockState, ToolLayoutState as GenericToolLayoutState } from '@openheaders/ui/shared/dock-layout';
 
 /** Identifiers for every tool window known to the extension shell. */
 export type ToolWindowId =

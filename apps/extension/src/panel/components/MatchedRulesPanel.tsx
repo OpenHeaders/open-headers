@@ -12,7 +12,7 @@
 
 import { useMemo } from 'react';
 import type { Rule } from '@openheaders/core/types';
-import { createPanelHeaderWiring, PanelHeader } from '@/shared/dock-layout';
+import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { type InspectorFire, type InspectorRequest, isAppliedFire } from '../data/types';
 import type { RulesByUid } from '../data/use-rules-lookup';
 import { useRulePopover } from './RulePopoverHost';

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPanelHeaderWiring, PanelHeader } from '@/shared/dock-layout';
+import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import type { FilterConfig, FilterToken } from '../data/filter-engine';
 import { matchesUrlFilter, passesRowFilters } from '../data/filter-engine';
 import { classifyRequestState, type RequestState, rowStateClass, statusText } from '../data/request-state';

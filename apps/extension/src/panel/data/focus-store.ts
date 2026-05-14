@@ -4,8 +4,8 @@
  * Thin wrapper around the shared createFocusStore() factory.
  */
 
-import type { FocusRegion } from '@/shared/dock-layout';
-import { createFocusStore } from '@/shared/dock-layout';
+import type { FocusRegion } from '@openheaders/ui/shared/dock-layout';
+import { createFocusStore } from '@openheaders/ui/shared/dock-layout';
 
 const store = createFocusStore();
 

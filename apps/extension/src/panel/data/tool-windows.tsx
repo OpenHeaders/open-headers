@@ -1,7 +1,7 @@
 /**
  * Tool-window registry for the DevTools Inspector panel.
  *
- * Uses shared dock types from @/shared/dock-layout. The panel-specific
+ * Uses shared dock types from @openheaders/ui/shared/dock-layout. The panel-specific
  * window IDs and their icons/labels/default slots are defined here.
  */
 
@@ -12,8 +12,8 @@ import type {
   ToolLayoutState as GenericToolLayoutState,
   ToolWindowDef as GenericToolWindowDef,
   ToolRegion,
-} from '@/shared/dock-layout';
-import { ALL_DOCK_SLOTS, DOCK_LABELS, dockRegion } from '@/shared/dock-layout';
+} from '@openheaders/ui/shared/dock-layout';
+import { ALL_DOCK_SLOTS, DOCK_LABELS, dockRegion } from '@openheaders/ui/shared/dock-layout';
 
 export type PanelToolWindowId = 'network' | 'rules' | 'search' | 'docs' | 'matched-rules';
 export type PanelDockSlot = DockSlot;

@@ -9,8 +9,8 @@
  * passes the resolved `perTab` into `usePanelToolLayout`.
  */
 
-import type { DockLayoutApi, DockState, ToolLayoutState } from '@/shared/dock-layout';
-import { normalizeDockLayout, useDockLayout } from '@/shared/dock-layout';
+import type { DockLayoutApi, DockState, ToolLayoutState } from '@openheaders/ui/shared/dock-layout';
+import { normalizeDockLayout, useDockLayout } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
 import { useEditingScopeViewState } from '@/shared/editing-scope-view-state';
 import type { PersistedTabSession } from '@openheaders/core/storage';

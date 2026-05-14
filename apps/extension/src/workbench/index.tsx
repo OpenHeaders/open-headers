@@ -7,7 +7,7 @@ import { createRoot } from 'react-dom/client';
 import { eagerInitRendererMirrors } from '@/context/eager-mirror-init';
 import Workbench from './App';
 import { SettingsProvider } from './settings';
-import '@/shared/dock-layout/dock-layout.css';
+import '@openheaders/ui/shared/dock-layout/dock-layout.css';
 import './styles/rules.less';
 import './styles/rule-flow.less';
 

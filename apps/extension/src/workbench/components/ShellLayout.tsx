@@ -2,7 +2,7 @@
  * ShellLayout — workbench.html instance of the shared dockable
  * tool-window shell.
  *
- * Binds the generic `@/shared/dock-layout` ShellLayout to the
+ * Binds the generic `@openheaders/ui/shared/dock-layout` ShellLayout to the
  * workspace's concerns:
  *   - `TOOL_WINDOW_MAP` / `ToolWindowId` registry
  *   - workspace `focusStore` instance
@@ -21,7 +21,7 @@ import {
   makeEditorTabCollisionDetection,
   ShellLayout as SharedShellLayout,
   type SidebarLayoutVariant,
-} from '@/shared/dock-layout';
+} from '@openheaders/ui/shared/dock-layout';
 import type { ResponsiveLayout } from '../hooks/useResponsiveLayout';
 import type { ToolLayoutApi } from '../hooks/useToolLayout';
 import { useSetting, useSettingValue } from '../settings/hooks';
