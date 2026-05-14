@@ -19,8 +19,8 @@ import {
 } from '@openheaders/core/utils';
 import { broadcast } from '@utils/bridge';
 import { tabs } from '@utils/browser-api';
-import { computeVerdict } from '@/shared/verdict';
 import type { ActiveRule, ObservationSource, TrackedResource, TrackedResourceType } from '@/types/browser';
+import { computeVerdict } from '@openheaders/oracle/tracking/verdict-engine';
 import { getRules as getRawRules } from '@openheaders/oracle/entity/rule-store';
 import { getResolvedRules, getUnresolvableRuleUids } from '@openheaders/oracle/rule-engine/variables-resolver';
 import {

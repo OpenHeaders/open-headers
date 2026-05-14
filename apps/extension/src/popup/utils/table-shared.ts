@@ -51,7 +51,7 @@ interface Sortable {
    * land on the existing sort paths. When set, it acts as the PRIMARY
    * sort key so firing rules always top silent always top page etc.,
    * regardless of which secondary sort mode the user picked. See
-   * `VERDICT_RANK` in `@/shared/verdict` for the canonical ordering.
+   * `VERDICT_RANK` in `@openheaders/ui/shared/verdict` for the canonical ordering.
    */
   verdictRank?: number;
 }

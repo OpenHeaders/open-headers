@@ -10,7 +10,9 @@
  * new entry is added — no silent drift between engine and UI.
  */
 
-import type { RuleVerdict } from '@/types/browser';
+import type { RuleVerdict } from '@openheaders/core/types';
+
+export type { RuleVerdict } from '@openheaders/core/types';
 
 /**
  * Sort rank — lower = stronger signal. Used by the popup's primary

@@ -7,7 +7,7 @@
 import type { HeaderRule, Rule, RuleCondition } from '@openheaders/core/types';
 import { getRuleMatchPatterns } from '@openheaders/core/utils';
 import { describe, expect, it } from 'vitest';
-import { computeVerdict, registrableDomainOf } from '@/shared/verdict';
+import { computeVerdict, registrableDomainOf } from '@openheaders/oracle/tracking/verdict-engine';
 import type { ObservationSource, TrackedResource } from '@/types/browser';
 
 function hostConditions(domains: string[]): RuleCondition[] {

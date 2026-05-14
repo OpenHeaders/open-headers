@@ -12,13 +12,13 @@
  * patterns, the tab URL, the observed resources, and the "did this rule
  * already fire on this tab?" boolean. No global state is touched here.
  *
- * See `RuleVerdict` in `@/types/browser` for the semantic definitions
- * of the five verdict values.
+ * See `RuleVerdict` in `@openheaders/core/types` for the semantic
+ * definitions of the five verdict values.
  */
 
-import type { Rule } from '@openheaders/core/types';
+import type { Rule, RuleVerdict, SilentMatchRecord } from '@openheaders/core/types';
 import { doesUrlMatchEntry, type MatchPattern } from '@openheaders/core/utils';
-import type { RuleVerdict, SilentMatchRecord, TrackedResource } from '@/types/browser';
+import type { TrackedResource } from './types';
 
 /**
  * Result of the verdict engine's evaluation.

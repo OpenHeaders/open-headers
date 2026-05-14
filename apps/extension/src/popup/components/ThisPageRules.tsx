@@ -40,7 +40,7 @@ import type { FilterValue, SorterResult } from 'antd/es/table/interface';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSurface } from '@openheaders/ui/shared/surface';
-import { type RuleVerdict, VERDICT_COLOR, VERDICT_LABEL, VERDICT_RANK, VERDICT_TOOLTIP } from '@/shared/verdict';
+import { type RuleVerdict, VERDICT_COLOR, VERDICT_LABEL, VERDICT_RANK, VERDICT_TOOLTIP } from '@openheaders/ui/shared/verdict';
 import { openWorkspace, type WorkspaceIntent } from '@/shared/workspace-intent';
 import type { SilentMatchRecord } from '@/types/browser';
 import { useSetting, useSettingValue } from '@/workbench/settings/hooks';
@@ -219,7 +219,7 @@ interface ActiveRule {
   path?: string;
   /**
    * Verdict rendered by the verdict engine for this rule on the
-   * current tab. See `@/shared/verdict` for the canonical taxonomy and
+   * current tab. See `@openheaders/ui/shared/verdict` for the canonical taxonomy and
    * rank / label / tooltip metadata.
    */
   verdict?: RuleVerdict;
@@ -247,7 +247,7 @@ interface TableRecord extends ActiveRule {
    * Primary sort key — lower = stronger signal. Clusters the table
    * into visual sections (firing → silent → page → related → idle)
    * regardless of the secondary sort mode. See `VERDICT_RANK` in
-   * `@/shared/verdict` for the canonical ordering.
+   * `@openheaders/ui/shared/verdict` for the canonical ordering.
    */
   verdictRank: number;
   /** Total fire events for this rule on the current page (from counters). */
