@@ -40,7 +40,7 @@ import {
   buildAddLiveWorkflowBatch,
   buildDeleteLiveWorkflowBatch,
   buildUpdateLiveWorkflowBatch,
-} from '@openheaders/oracle/sync-builders/live-workflow-mutations';
+} from '@openheaders/core/sync-builders/live-workflow-mutations';
 
 export type LiveWorkflowUpdates = Partial<Omit<LiveWorkflow, 'uid' | 'path' | 'schemaVersion'>>;
 

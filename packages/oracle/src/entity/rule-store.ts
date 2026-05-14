@@ -36,15 +36,15 @@ import {
   buildDeleteCollectionBatch,
   buildRenameCollectionBatch,
   buildSetPinnedAndDefaultBatch,
-} from '@openheaders/oracle/sync-builders/collection-mutations';
-import { seedCollection } from '@openheaders/oracle/sync-builders/collection-projection';
+} from '@openheaders/core/sync-builders/collection-mutations';
+import { seedCollection } from '@openheaders/core/sync-builders/collection-projection';
 import {
   buildCreateFolderBatch,
   buildDeleteFolderBatch,
   buildDeleteFolderEntityBatch,
   buildRenameFolderBatch,
-} from '@openheaders/oracle/sync-builders/folder-mutations';
-import { buildAddBatch, buildDeleteBatch } from '@openheaders/oracle/sync-builders/rule-mutations';
+} from '@openheaders/core/sync-builders/folder-mutations';
+import { buildAddBatch, buildDeleteBatch } from '@openheaders/core/sync-builders/rule-mutations';
 import type { CollectionCache } from '@openheaders/oracle/sync/collection-cache';
 import { COLLECTION_REGISTRATION, FOLDER_REGISTRATION, RULE_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
 import type { FolderCache } from '@openheaders/oracle/sync/folder-cache';

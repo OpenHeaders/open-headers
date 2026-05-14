@@ -23,7 +23,7 @@ import {
   projectWorkspaceVariablesPostState,
   projectWorkspaceVariablesSingleton,
 } from '@openheaders/oracle/sync/workspace-variables-post-state';
-import { seedWorkspaceVariables } from '@openheaders/oracle/sync-builders/workspace-variables-projection';
+import { seedWorkspaceVariables } from '@openheaders/core/sync-builders/workspace-variables-projection';
 
 const wsId = 'ws-1';
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();

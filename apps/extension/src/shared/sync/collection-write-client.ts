@@ -45,11 +45,11 @@ import {
   buildSetDefaultEnvironmentIdBatch,
   buildSetPinnedAndDefaultBatch,
   buildSetPinnedEnvironmentsBatch,
-} from '@openheaders/oracle/sync-builders/collection-mutations';
-import { seedCollection } from '@openheaders/oracle/sync-builders/collection-projection';
-import { buildDeleteFolderEntityBatch } from '@openheaders/oracle/sync-builders/folder-mutations';
-import { buildDeleteBatch as buildDeleteRuleBatch } from '@openheaders/oracle/sync-builders/rule-mutations';
-import { buildVariablesReplacement } from '@openheaders/oracle/sync-builders';
+} from '@openheaders/core/sync-builders/collection-mutations';
+import { seedCollection } from '@openheaders/core/sync-builders/collection-projection';
+import { buildDeleteFolderEntityBatch } from '@openheaders/core/sync-builders/folder-mutations';
+import { buildDeleteBatch as buildDeleteRuleBatch } from '@openheaders/core/sync-builders/rule-mutations';
+import { buildVariablesReplacement } from '@openheaders/core/sync-builders';
 
 export { createCollectionSyncMirror } from '@/context/collection-sync-mirror';
 

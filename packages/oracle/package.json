@@ -2,7 +2,7 @@
   "name": "@openheaders/oracle",
   "version": "2026.5.0",
   "private": true,
-  "description": "OpenHeaders oracle — entity-agnostic sync engine, projections + mutation builders, workspace state, conflict resolution",
+  "description": "OpenHeaders oracle — entity-agnostic sync engine, workspace state, conflict resolution",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
@@ -18,14 +18,6 @@
     "./sync/*": {
       "import": "./src/sync/*.ts",
       "default": "./dist/sync/*.js"
-    },
-    "./sync-builders": {
-      "import": "./src/sync-builders/index.ts",
-      "default": "./dist/sync-builders/index.js"
-    },
-    "./sync-builders/*": {
-      "import": "./src/sync-builders/*.ts",
-      "default": "./dist/sync-builders/*.js"
     },
     "./storage": {
       "import": "./src/storage/index.ts",

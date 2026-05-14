@@ -30,7 +30,7 @@ import {
 } from '@openheaders/core/sync';
 import type { Template } from '@openheaders/core/types';
 import { seedTemplate } from './template-projection';
-import { type LiveSetEntry, synthesizeSetDiff } from '@openheaders/oracle/sync-builders';
+import { type LiveSetEntry, synthesizeSetDiff } from '@openheaders/core/sync-builders';
 
 export interface TemplateMutationPayload {
   batch: MutationBatch;

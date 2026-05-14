@@ -52,7 +52,7 @@ import {
 } from '@openheaders/oracle/sync/extension-workspace-cache';
 import { getGlobalOracle, nextGlobalSwContext } from '@openheaders/oracle/sync/global-service';
 import { extensionStorage, OH } from '@openheaders/oracle/storage';
-import { buildSetExtensionWorkspaceBatch } from '@openheaders/oracle/sync-builders/extension-workspace-mutations';
+import { buildSetExtensionWorkspaceBatch } from '@openheaders/core/sync-builders/extension-workspace-mutations';
 import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
 
 const DEFAULT_WORKSPACE_NAME = 'Workspace';

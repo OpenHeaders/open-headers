@@ -18,7 +18,7 @@ import {
   type MutatorContext,
 } from '@openheaders/core/sync';
 import { describe, expect, it } from 'vitest';
-import { buildUpdateBatch, type LiveSetEntries } from '@openheaders/oracle/sync-builders/request-mutations';
+import { buildUpdateBatch, type LiveSetEntries } from '@openheaders/core/sync-builders/request-mutations';
 
 const ctx: MutatorContext = {
   workspaceId: 'ws-1',

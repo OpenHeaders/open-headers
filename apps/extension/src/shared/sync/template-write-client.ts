@@ -27,7 +27,7 @@ import {
   buildAddBatch,
   buildDeleteBatch,
   buildUpdateBatch,
-} from '@openheaders/oracle/sync-builders/template-mutations';
+} from '@openheaders/core/sync-builders/template-mutations';
 
 export type TemplateUpdates = Partial<Omit<Template, 'uid' | 'path' | 'schemaVersion'>>;
 

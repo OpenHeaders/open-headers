@@ -75,6 +75,14 @@
       "import": "./src/sync/index.ts",
       "default": "./dist/sync/index.js"
     },
+    "./sync-builders": {
+      "import": "./src/sync-builders/index.ts",
+      "default": "./dist/sync-builders/index.js"
+    },
+    "./sync-builders/*": {
+      "import": "./src/sync-builders/*.ts",
+      "default": "./dist/sync-builders/*.js"
+    },
     "./storage": {
       "import": "./src/storage/index.ts",
       "default": "./dist/storage/index.js"

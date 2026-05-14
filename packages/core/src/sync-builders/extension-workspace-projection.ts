@@ -2,7 +2,7 @@
  * ExtensionWorkspace projection — `(ExtensionWorkspace[], activeId) ⇄ MutationBatch`.
  *
  * The persisted record lives one layer down: the legacy
- * `oh.workspaces` + `oh.runtimeActive.active` chrome.storage keys (the
+ * `oh.workspaces` + `oh.runtimeActive.active` host-storage keys (the
  * cache writes back to them once the write-site flip lands in commit 3).
  * The sync engine governs only the singleton record's set + active-id
  * scalar.

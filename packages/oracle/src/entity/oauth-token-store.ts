@@ -34,8 +34,8 @@ import {
   buildDeleteOAuthTokenBatch,
   buildRecordOAuthRefreshErrorBatch,
   buildSetOAuthTokenBatch,
-} from '@openheaders/oracle/sync-builders/oauth-bundle-mutations';
-import type { OAuthBundleSnapshot } from '@openheaders/oracle/sync-builders/oauth-bundle-projection';
+} from '@openheaders/core/sync-builders/oauth-bundle-mutations';
+import type { OAuthBundleSnapshot } from '@openheaders/core/sync-builders/oauth-bundle-projection';
 import { OAUTH_BUNDLE_REGISTRATION } from '@openheaders/oracle/sync/entity-registry';
 import type { OAuthBundleCache } from '@openheaders/oracle/sync/oauth-bundle-cache';
 import { getActiveCacheForRegistration, getOracleForCurrentWorkspace, nextSwMutatorContext } from '@openheaders/oracle/sync/service';

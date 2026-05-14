@@ -24,7 +24,7 @@ import {
   type RemoveFromSetMutation,
 } from '@openheaders/core/sync';
 import { describe, expect, it } from 'vitest';
-import { type LiveSetEntry, synthesizeSetDiff } from '@openheaders/oracle/sync-builders';
+import { type LiveSetEntry, synthesizeSetDiff } from '@openheaders/core/sync-builders';
 
 interface Row {
   uid: string;

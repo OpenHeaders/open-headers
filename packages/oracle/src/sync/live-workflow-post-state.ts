@@ -9,7 +9,7 @@
 import type { SyncLiveWorkflowPostState } from '@openheaders/core/protocol';
 import { LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { LiveWorkflow } from '@openheaders/core/types';
-import { projectLiveWorkflow } from '@openheaders/oracle/sync-builders/live-workflow-projection';
+import { projectLiveWorkflow } from '@openheaders/core/sync-builders/live-workflow-projection';
 import { makeFlatEntityProjectors } from './flat-entity-post-state';
 import type { EntityOracle } from './oracle';
 

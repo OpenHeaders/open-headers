@@ -12,8 +12,8 @@ import {
   REQUEST_FOLDER_ENTITY_TYPE,
 } from '@openheaders/core/sync';
 import type { Folder } from '@openheaders/core/types';
-import { projectRequestCollection } from '@openheaders/oracle/sync-builders/request-collection-projection';
-import { projectRequestFolder } from '@openheaders/oracle/sync-builders/request-folder-projection';
+import { projectRequestCollection } from '@openheaders/core/sync-builders/request-collection-projection';
+import { projectRequestFolder } from '@openheaders/core/sync-builders/request-folder-projection';
 import {
   type FolderTreeKinds,
   projectAllFoldersGeneric,

@@ -22,7 +22,7 @@ import { InMemoryPendingIntents } from '@openheaders/oracle/sync/pending-intents
 import {
   type OAuthBundleSnapshot,
   seedOAuthBundle,
-} from '@openheaders/oracle/sync-builders/oauth-bundle-projection';
+} from '@openheaders/core/sync-builders/oauth-bundle-projection';
 
 const wsId = 'ws-1';
 const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();

@@ -27,7 +27,7 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from '@/shared/sync/apply-payload';
-import { buildAddFileRefBatch, buildRemoveFileRefBatch, buildRenameFileRefBatch } from '@openheaders/oracle/sync-builders/files-mutations';
+import { buildAddFileRefBatch, buildRemoveFileRefBatch, buildRenameFileRefBatch } from '@openheaders/core/sync-builders/files-mutations';
 
 // Re-exported so tests can construct a mirror without going through the singleton.
 export { createFilesSyncMirror } from '@/context/files-sync-mirror';

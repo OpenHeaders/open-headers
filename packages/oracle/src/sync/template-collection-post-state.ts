@@ -14,7 +14,7 @@ import {
   TEMPLATE_FOLDER_CHILDREN_PATH,
 } from '@openheaders/core/sync';
 import type { Collection } from '@openheaders/core/types';
-import { projectTemplateCollection } from '@openheaders/oracle/sync-builders/template-collection-projection';
+import { projectTemplateCollection } from '@openheaders/core/sync-builders/template-collection-projection';
 import { buildVarNamesExtras, makeFlatEntityProjectors } from './flat-entity-post-state';
 import { buildFolderChildrenOrderKeys } from './folder-children-order-keys';
 import type { EntityOracle } from './oracle';

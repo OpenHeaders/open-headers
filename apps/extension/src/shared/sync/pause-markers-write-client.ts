@@ -35,7 +35,7 @@ import {
   buildClearPauseMarkerBatch,
   buildReplacePauseMarkersBatch,
   buildSetPauseMarkerBatch,
-} from '@openheaders/oracle/sync-builders/pause-markers-mutations';
+} from '@openheaders/core/sync-builders/pause-markers-mutations';
 
 // Re-exported so tests can construct a mirror without going through the singleton.
 export { createPauseMarkersSyncMirror } from '@/context/pause-markers-sync-mirror';

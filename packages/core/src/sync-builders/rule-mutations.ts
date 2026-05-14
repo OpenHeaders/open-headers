@@ -2,7 +2,7 @@
  * Rule write-site → oracle helpers.
  *
  * `rule-store.ts` historically owned the in-memory `Rule[]` array
- * and persisted it to chrome.storage.local on every write. With the
+ * and persisted it to host storage on every write. With the
  * sync engine activated (Phase A Fw6f), rule writes route through the
  * oracle as `MutationBatch`es; the rule cache projects the oracle's
  * materialized state back to `Rule[]` and persists it.
@@ -40,7 +40,7 @@ import {
 } from '@openheaders/core/sync';
 import type { Rule } from '@openheaders/core/types';
 import { seedRule } from './rule-projection';
-import { type LiveSetEntry, synthesizeSetDiff } from '@openheaders/oracle/sync-builders';
+import { type LiveSetEntry, synthesizeSetDiff } from '@openheaders/core/sync-builders';
 
 export interface RuleMutationPayload {
   batch: MutationBatch;

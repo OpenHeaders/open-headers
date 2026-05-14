@@ -17,7 +17,7 @@ import {
   resolveRendererContext,
   type SyncSimpleResult,
 } from '@/shared/sync/apply-payload';
-import { buildDeleteOAuthTokenBatch } from '@openheaders/oracle/sync-builders/oauth-bundle-mutations';
+import { buildDeleteOAuthTokenBatch } from '@openheaders/core/sync-builders/oauth-bundle-mutations';
 
 export type OAuthBundleSimpleResult = SyncSimpleResult;
 

@@ -7,7 +7,7 @@ import { LiveVariableSchema } from '@openheaders/core/schemas';
 import { LIVE_VARIABLE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { LiveVariable } from '@openheaders/core/types';
 import { extensionStorage, wsKeys } from '@openheaders/oracle/storage';
-import { projectLiveVariable, seedLiveVariable } from '@openheaders/oracle/sync-builders/live-variable-projection';
+import { projectLiveVariable, seedLiveVariable } from '@openheaders/core/sync-builders/live-variable-projection';
 import { driftRecorder } from './storage-drift';
 import type { InMemoryBroadcast } from './broadcast';
 import { createFlatEntityCache } from './flat-entity-cache';

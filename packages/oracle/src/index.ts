@@ -1,10 +1,13 @@
 /**
- * @openheaders/oracle — entity-agnostic sync engine, projections, mutation
- * builders, workspace state, conflict resolution.
+ * @openheaders/oracle — entity-agnostic sync engine, workspace state,
+ * conflict resolution.
+ *
+ * The pure per-entity projection + mutation-batch builders this engine
+ * runs on live in `@openheaders/core/sync-builders` — shared domain
+ * logic depended on by both the engine and the UI write path.
  *
  * Subpath exports (canonical):
  *   - `@openheaders/oracle/sync`         — runtime sync engine (oracle, caches, post-state, broadcast, log, intents)
- *   - `@openheaders/oracle/sync-builders` — pure per-entity projections + mutation batch builders
  *   - `@openheaders/oracle/storage`      — chrome.storage adapter implementing
  *                                          `HostStorage` from `@openheaders/core/storage`
  *                                          (the typed key registry + contract live in core)
