@@ -33,10 +33,10 @@ import type { AuthConfig, BodyType, Collection, CredentialsMode, Environment, Ex
 import { appendQueryParams, generateUid, isRequestResolvable } from '@openheaders/core/utils';
 import { resolveTemplate, type TotpRegistry, VariableResolver } from '@openheaders/core/variables';
 import { logger } from '@utils/logger';
-import { ensureScheme } from '@/shared/fetch/ensure-scheme';
+import { ensureScheme } from '@openheaders/ui/shared/fetch';
 import { withHostAccess } from '@/shared/fetch/with-host-access';
 import { report as reportStatus } from '@openheaders/ui/shared/status';
-import { feedCollectionVariablesToResolver } from '@/shared/variables/collection-scope';
+import { feedCollectionVariablesToResolver } from '@openheaders/ui/shared/variables';
 import {
   getActiveEnvironmentId,
   getDefaultEnvironmentId,
@@ -866,7 +866,7 @@ async function applyAuth(
 // (RequestEditor URL bar) and the executor apply the exact same
 // normalization. Re-exported here so the request-executor unit
 // test keeps importing from one place.
-export { ensureScheme } from '@/shared/fetch/ensure-scheme';
+export { ensureScheme } from '@openheaders/ui/shared/fetch';
 
 /**
  * Default Content-Type for the resolved body shape. `null` for

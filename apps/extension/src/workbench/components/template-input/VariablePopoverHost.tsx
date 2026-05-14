@@ -15,7 +15,7 @@
  * popover appears, but typing still works.
  */
 
-import { createHoverPopoverHost, type HoverPopoverBodyProps } from '@/shared/hover-popover-host';
+import { createHoverPopoverHost, type HoverPopoverBodyProps } from '@openheaders/ui/shared/popover';
 import VariableHoverPopover from './VariableHoverPopover';
 
 interface VariablePopoverState {

@@ -19,7 +19,7 @@ import { useVariableResolver } from '@hooks/useVariableResolver';
 import type { LiveVariable, LiveVariableOverride, Variable, VariableScope, VaultSecret } from '@openheaders/core/types';
 import { parseReference, parseStepRefName, type VariableNamespace } from '@openheaders/core/variables';
 import { useMemo } from 'react';
-import { findCollectionByUid } from '@/shared/variables/collection-scope';
+import { findCollectionByUid } from '@openheaders/ui/shared/variables';
 
 export type VariableCandidate =
   | {

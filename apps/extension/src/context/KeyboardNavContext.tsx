@@ -4,7 +4,7 @@ import { useKeyboardFocus } from '@hooks/useKeyboardFocus';
 import { useKeyboardScrollAndHighlight } from '@hooks/useKeyboardScrollAndHighlight';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import type { PageInfo, RowActions } from '@/popup/utils/table-shared';
+import type { PageInfo, RowActions } from '@openheaders/ui/shared/table-shared';
 
 export type { FooterActions, HeaderActions };
 

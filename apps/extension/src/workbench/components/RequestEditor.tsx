@@ -49,7 +49,7 @@ import {
   useAutoMergeForm,
 } from '@openheaders/ui/shared/conflicts';
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
-import { ensureScheme, needsSchemeNormalization } from '@/shared/fetch/ensure-scheme';
+import { ensureScheme, needsSchemeNormalization } from '@openheaders/ui/shared/fetch';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useWorkbenchEditingScopeWorkspaceId } from '../hooks/EditingScopeWorkspaceContext';
 import EditorHeader from './EditorHeader';

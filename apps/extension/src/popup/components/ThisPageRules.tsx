@@ -45,7 +45,7 @@ import { openWorkspace, type WorkspaceIntent } from '@/shared/workspace-intent';
 import type { SilentMatchRecord } from '@/types/browser';
 import { useSetting, useSettingValue } from '@/workbench/settings/hooks';
 import type { TrackedResourceType } from '@/workbench/settings/schema/rules-engine';
-import { compareBySortMode, type PageInfo, type RowActions } from '../utils/table-shared';
+import { compareBySortMode, type PageInfo, type RowActions } from '@openheaders/ui/shared/table-shared';
 import {
   renderActionDetails,
   renderTagOverflow,

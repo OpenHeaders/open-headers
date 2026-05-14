@@ -9,7 +9,7 @@ import {
   findCollectionWithFamily,
   findFolderByUid,
   iterateAllCollections,
-} from '@/shared/variables/collection-scope';
+} from '@openheaders/ui/shared/variables';
 import { describe, expect, it } from 'vitest';
 
 function coll(uid: string, path: string, vars: Variable[] = []): Collection {

@@ -48,6 +48,10 @@
       "import": "./src/shared/build-info.ts",
       "default": "./dist/shared/build-info.js"
     },
+    "./shared/table-shared": {
+      "import": "./src/shared/table-shared.ts",
+      "default": "./dist/shared/table-shared.js"
+    },
     "./shared/merge-editor/*": {
       "import": "./src/shared/merge-editor/*.ts",
       "default": "./dist/shared/merge-editor/*.js"

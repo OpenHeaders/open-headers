@@ -7,7 +7,7 @@
  */
 
 import type { Rule } from '@openheaders/core/types';
-import { createHoverPopoverHost, type HoverPopoverBodyProps } from '@/shared/hover-popover-host';
+import { createHoverPopoverHost, type HoverPopoverBodyProps } from '@openheaders/ui/shared/popover';
 import type { HeaderAttribution } from '../data/header-attribution';
 import type { RuleApplicability } from '../data/rule-applicability';
 import { RuleHoverPopover, type RuleHoverPopoverTarget } from './RuleHoverPopover';

@@ -24,7 +24,7 @@ import { useRules } from '@hooks/useRules';
 import { isLiveVariableEffective } from '@openheaders/core/live';
 import { type ResolvedLiveValue, VariableResolver } from '@openheaders/core/variables';
 import { useMemo } from 'react';
-import { feedCollectionVariablesToResolver } from '@/shared/variables/collection-scope';
+import { feedCollectionVariablesToResolver } from '@openheaders/ui/shared/variables';
 
 export function useVariableResolver(): VariableResolver {
   const { environments, activeEnvironmentId, defaultEnvironmentId, workspaceVariables, vault } = useEnvVarVault();

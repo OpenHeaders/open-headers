@@ -48,7 +48,7 @@ import {
   feedCollectionVariablesToResolver,
   findCollectionByPath,
   findCollectionByUid,
-} from '@/shared/variables/collection-scope';
+} from '@openheaders/ui/shared/variables';
 import {
   buildScopeEditorDispatch,
   buildVariableEditorDispatch,

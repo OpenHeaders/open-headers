@@ -26,7 +26,7 @@ import type { Environment } from '@openheaders/core/types';
 import {
   type CollectionFamilies,
   findCollectionWithFamily,
-} from '@/shared/variables/collection-scope';
+} from '@openheaders/ui/shared/variables';
 
 /** Mirrors `VariablesPanel.tsx`'s SCOPE_CONFIG keyset. Re-declared here
  *  so this module stays standalone; the test asserts they stay in

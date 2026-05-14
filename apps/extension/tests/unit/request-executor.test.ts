@@ -50,7 +50,7 @@ import {
 } from '@openheaders/oracle/entity/environment-store';
 import { ensureScheme, executeRequestDraft } from '@/background/modules/request-executor';
 import { getRequestCollections } from '@openheaders/oracle/entity/request-store';
-import { needsSchemeNormalization } from '@/shared/fetch/ensure-scheme';
+import { needsSchemeNormalization } from '@openheaders/ui/shared/fetch';
 
 const mockEnvs = getEnvironments as ReturnType<typeof vi.fn>;
 const mockActiveEnvId = getActiveEnvironmentId as ReturnType<typeof vi.fn>;

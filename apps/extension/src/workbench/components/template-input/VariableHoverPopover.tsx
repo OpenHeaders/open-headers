@@ -19,7 +19,7 @@ import type { Collection, Environment, Variable, VariableScope, Vault, VaultSecr
 import { generateUid } from '@openheaders/core/utils';
 import { App, Button, Dropdown, Input, type MenuProps, Tag, Tooltip, theme } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { usePopoverPlacement } from '@/shared/use-popover-placement';
+import { usePopoverPlacement } from '@openheaders/ui/shared/popover';
 import { buildChordsFromEvent, useShortcutLabel } from '../../hooks/useWorkspaceShortcuts';
 import { useEnvSwitcher } from '../../services/env-switcher';
 import { useSettingValue } from '../../settings/hooks';

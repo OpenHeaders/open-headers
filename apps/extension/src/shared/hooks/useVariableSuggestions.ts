@@ -25,7 +25,7 @@ import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { useRequests } from '@hooks/useRequests';
 import { useRules } from '@hooks/useRules';
-import { iterateAllCollections } from '@/shared/variables/collection-scope';
+import { iterateAllCollections } from '@openheaders/ui/shared/variables';
 import { isLiveVariableEffective } from '@openheaders/core/live';
 import {
   buildSuggestions,

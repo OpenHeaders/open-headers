@@ -63,7 +63,7 @@ import 'allotment/dist/style.css';
 import { createShellEventBus, ShellEventBusContext } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
 import { instanceLabel } from '@openheaders/ui/shared/host-vocabulary';
-import { findCollectionByPath, findFolderByUid } from '@/shared/variables/collection-scope';
+import { findCollectionByPath, findFolderByUid } from '@openheaders/ui/shared/variables';
 import { computeBreadcrumbs, scratchLabelForMode } from './breadcrumbs';
 import BottomPanel from './components/BottomPanel';
 import CollectionOverview from './components/CollectionOverview';

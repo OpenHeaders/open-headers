@@ -26,7 +26,7 @@ import { ShortcutHintTitle } from '@/components/ShortcutKbd';
 import { useSurface } from '@openheaders/ui/shared/surface';
 import { openWorkspace } from '@/shared/workspace-intent';
 import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
-import type { PageInfo, RowActions } from '../utils/table-shared';
+import type { PageInfo, RowActions } from '@openheaders/ui/shared/table-shared';
 import { renderActionDetails, renderConditionsSummary } from './columns/sharedColumnRenderers';
 import TestRunModal, { type TestRunOwnerType } from './TestRunModal';
 
