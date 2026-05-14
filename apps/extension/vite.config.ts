@@ -148,7 +148,6 @@ function buildFireBridgePlugin() {
         resolve: {
           alias: {
             '@': path.resolve(__dirname, 'src'),
-            '@components': path.resolve(__dirname, 'src/components'),
             '@assets': path.resolve(__dirname, 'src/assets'),
             '@styles': path.resolve(__dirname, 'src/assets/styles'),
             '@utils': path.resolve(__dirname, 'src/utils'),
@@ -194,7 +193,6 @@ function buildPerfObserverPlugin() {
         resolve: {
           alias: {
             '@': path.resolve(__dirname, 'src'),
-            '@components': path.resolve(__dirname, 'src/components'),
             '@assets': path.resolve(__dirname, 'src/assets'),
             '@styles': path.resolve(__dirname, 'src/assets/styles'),
             '@utils': path.resolve(__dirname, 'src/utils'),
@@ -233,7 +231,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
-      '@components': path.resolve(__dirname, 'src/components'),
       '@assets': path.resolve(__dirname, 'src/assets'),
       '@styles': path.resolve(__dirname, 'src/assets/styles'),
       '@utils': path.resolve(__dirname, 'src/utils'),
