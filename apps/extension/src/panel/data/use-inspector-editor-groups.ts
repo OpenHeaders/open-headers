@@ -5,8 +5,8 @@
  * settings dependency.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   activateTabInLeaf,
   type EditorLeaf,
@@ -133,7 +133,7 @@ export function useInspectorEditorGroups({ perTab }: UseInspectorEditorGroupsArg
   const onPersist = perTab.onPersist;
   const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // First effect run reads the resolved snapshot — skip the persist
-  // write-back so we don't echo it through chrome.storage on mount.
+  // write-back so we don't echo it back to host storage on mount.
   const skipNextPersistRef = useRef<boolean>(true);
 
   useEffect(() => {

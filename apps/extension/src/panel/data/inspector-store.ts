@@ -13,8 +13,8 @@
  * ## Augmentation
  *
  *   - Rule fires (from the background's subscribeFires + onRuleMatchedDebug
- *     paths) are correlated to HAR entries by `chrome.webRequest.requestId`,
- *     which the background attaches to every HAR row by popping the
+ *     paths) are correlated to HAR entries by the host-attached
+ *     `requestId`, which the background attaches to every HAR row by popping the
  *     oldest in-flight observation for that URL. This is the deterministic
  *     primary join: a fire's `requestId` always finds the right HAR row,
  *     regardless of how many concurrent requests target the same URL.
@@ -46,12 +46,7 @@
  * toggle (surfaced in the panel toolbar) disables the clear.
  */
 
-import type {
-  InspectorHarBody,
-  InspectorHarEntry,
-  InspectorNavTiming,
-} from '@openheaders/core/types';
-import type { RequestRecord } from '@openheaders/core/types';
+import type { InspectorHarBody, InspectorHarEntry, InspectorNavTiming, RequestRecord } from '@openheaders/core/types';
 import { type DanglingFire, type InspectorFire, type InspectorRequest, mergeFireEvidence } from './types';
 
 /** Window for promoting a URL+window dangling fire to a newly-arrived HAR entry. */

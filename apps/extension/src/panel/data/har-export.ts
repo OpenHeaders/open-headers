@@ -1,10 +1,9 @@
 /**
  * HAR export — compose a valid HAR 1.2 document from the panel's
  * `InspectorRequest[]` snapshot. The panel stashes the full HAR entry
- * produced by `chrome.devtools.network.onRequestFinished` on each
- * request, so export is purely a matter of wrapping the entry list in
- * the standard HAR envelope. No field remapping — the browser's own
- * HAR shape is canonical.
+ * captured by the host's network inspector on each request, so export is
+ * purely a matter of wrapping the entry list in the standard HAR
+ * envelope. No field remapping — the host's own HAR shape is canonical.
  */
 
 import type { InspectorHarEntry } from '@openheaders/core/types';

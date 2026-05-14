@@ -11,9 +11,7 @@
  * request fired before DevTools was open to capture it).
  */
 
-import type { InspectorHarEntry, InspectorNavTiming } from '@openheaders/core/types';
-import type { RequestRecord } from '@openheaders/core/types';
-import type { RuleSnapshot } from '@openheaders/core/types';
+import type { InspectorHarEntry, InspectorNavTiming, RequestRecord, RuleSnapshot } from '@openheaders/core/types';
 
 export type { InspectorNavTiming };
 
@@ -23,8 +21,8 @@ export type { InspectorNavTiming };
  * told us this rule actually executed) from tab-telemetry's inferred
  * URL-matching path.
  *
- * `requestId` is the chrome.webRequest identifier — present for every
- * webRequest-observed fire and used as the deterministic join key to
+ * `requestId` is the host's network-request identifier — present for
+ * every network-observed fire and used as the deterministic join key to
  * the HAR entry. Absent only for scriptable fires reported from the
  * in-page fire-bridge.
  */
@@ -138,14 +136,14 @@ export interface DanglingFire extends InspectorFire {
 export interface InspectorRequest {
   /** Stable id — synthetic from `method + url + startedDateTime`. */
   id: string;
-  /** Full HAR entry from chrome.devtools.network.onRequestFinished. */
+  /** Full HAR entry captured by the host's network inspector. */
   harEntry: InspectorHarEntry;
   /**
-   * chrome.webRequest identifier attached by the background after
+   * Network-request identifier attached by the background after
    * correlating the HAR with the per-URL FIFO of in-flight observations.
-   * Present whenever the request was observed by webRequest while
-   * tab-telemetry was tracking the tab; absent for HAR rows that
-   * landed before tracking started or for non-webRequest fetches.
+   * Present whenever the request was observed by the host's network
+   * monitor while tab-telemetry was tracking the tab; absent for HAR rows
+   * that landed before tracking started or for unobserved fetches.
    */
   chromeRequestId?: string;
   /** Convenience projections off the HAR entry. Read from `harEntry` where possible. */

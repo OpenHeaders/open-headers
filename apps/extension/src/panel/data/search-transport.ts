@@ -8,7 +8,7 @@
  *   1. **Testability.** jsdom-based vitest doesn't run real Workers.
  *      Swapping in `createInlineTransport()` routes messages through
  *      an in-process handler so the client + hook code can be exercised
- *      end-to-end without a browser.
+ *      end-to-end without a browser Worker.
  *
  *   2. **Graceful fallback.** If `Worker` is unavailable for any reason
  *      (hostile CSP, unusual extension context), `createDefaultTransport`
