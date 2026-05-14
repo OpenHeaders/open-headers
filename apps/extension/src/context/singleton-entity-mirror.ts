@@ -25,7 +25,7 @@
  */
 
 import { hostLogger as logger } from '@openheaders/core/logger';
-import { type BridgeBroadcastPayload, subscribe } from '@utils/bridge';
+import { hostBridge, type BridgeBroadcastPayload } from '@openheaders/core/bridge';
 
 /** Bridge payload shape — see {@link ./flat-entity-mirror.ts}. */
 export type SyncBroadcastPayload = BridgeBroadcastPayload<'syncBroadcast'>;
@@ -51,7 +51,7 @@ export interface SingletonMirrorConfig<E> {
   /** Pure extraction from a wire event into the singleton's entry shape. */
   extractFromBroadcast: (event: SyncBroadcastPayload) => SingletonExtractResult<E>;
   /**
-   * Fetch the bootstrap snapshot. Adapters wrap `call('oh.sync.snapshotX',
+   * Fetch the bootstrap snapshot. Adapters wrap `hostBridge.call('oh.sync.snapshotX',
    * { workspaceId })` here so the typed bridge contract is preserved at
    * the boundary. Returns the entry directly (or `null` when the
    * singleton hasn't been seeded yet) — the core skips applying when
@@ -102,7 +102,7 @@ export function createSingletonEntityMirror<E>(
     }
   };
 
-  const unsubscribe = subscribe('syncBroadcast', (event) => {
+  const unsubscribe = hostBridge.subscribe('syncBroadcast', (event) => {
     if (event.envelope.workspaceId !== config.workspaceId) return;
     const result = config.extractFromBroadcast(event);
     if (result === null) return;

@@ -12,7 +12,7 @@
 
 import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Request } from '@openheaders/core/types';
-import { call } from '@utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import {
   createFlatEntityMirror,
   type CreateFlatMirrorOptions,
@@ -69,7 +69,7 @@ export function createRequestSyncMirror(
         };
       },
       fetchSnapshot: async () => {
-        const resp = await call('oh.sync.snapshotRequests', { workspaceId });
+        const resp = await hostBridge.call('oh.sync.snapshotRequests', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.request.uid,
           entry: {

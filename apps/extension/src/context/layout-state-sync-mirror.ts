@@ -8,7 +8,7 @@
  */
 
 import { LAYOUT_STATE_ENTITY_TYPE } from '@openheaders/core/sync';
-import { call } from '@utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import {
   createSingletonEntityMirror,
   type CreateSingletonMirrorOptions,
@@ -46,7 +46,7 @@ export function createLayoutStateSyncMirror(
         return { layout: layoutStatePostState.layout };
       },
       fetchSnapshot: async () => {
-        const resp = await call('oh.sync.snapshotLayoutState', { workspaceId });
+        const resp = await hostBridge.call('oh.sync.snapshotLayoutState', { workspaceId });
         const first = resp.entries[0];
         return first ? { layout: first.layout } : null;
       },

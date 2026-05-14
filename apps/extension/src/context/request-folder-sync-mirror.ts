@@ -10,7 +10,7 @@
 
 import { REQUEST_FOLDER_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Folder } from '@openheaders/core/types';
-import { call } from '@utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import {
   createFlatEntityMirror,
   type CreateFlatMirrorOptions,
@@ -66,7 +66,7 @@ export function createRequestFolderSyncMirror(
         };
       },
       fetchSnapshot: async () => {
-        const resp = await call('oh.sync.snapshotRequestFolders', { workspaceId });
+        const resp = await hostBridge.call('oh.sync.snapshotRequestFolders', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.folder.uid,
           entry: { folder: e.folder, setOrderKeys: e.setOrderKeys },

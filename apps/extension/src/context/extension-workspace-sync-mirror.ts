@@ -22,7 +22,7 @@ import {
   EXTENSION_WORKSPACE_GLOBAL_SCOPE,
 } from '@openheaders/core/sync';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
-import { call } from '@utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import {
   createSingletonEntityMirror,
   type CreateSingletonMirrorOptions,
@@ -75,7 +75,7 @@ export function createExtensionWorkspaceSyncMirror(
         };
       },
       fetchSnapshot: async () => {
-        const resp = await call('oh.sync.snapshotExtensionWorkspaces');
+        const resp = await hostBridge.call('oh.sync.snapshotExtensionWorkspaces');
         const first = resp.entries[0];
         return first
           ? {

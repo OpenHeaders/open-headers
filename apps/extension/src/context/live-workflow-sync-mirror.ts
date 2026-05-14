@@ -8,7 +8,7 @@
 
 import { LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { LiveWorkflow } from '@openheaders/core/types';
-import { call } from '@utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import {
   createFlatEntityMirror,
   type CreateFlatMirrorOptions,
@@ -48,7 +48,7 @@ export function createLiveWorkflowSyncMirror(
         return { uid, entry: { workflow: liveWorkflowPostState.workflow } };
       },
       fetchSnapshot: async () => {
-        const resp = await call('oh.sync.snapshotLiveWorkflows', { workspaceId });
+        const resp = await hostBridge.call('oh.sync.snapshotLiveWorkflows', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.workflow.uid,
           entry: { workflow: e.workflow },

@@ -13,7 +13,7 @@
  *   - `activeWorkspaceIdOverride` unset ⇒ legacy (system surface)
  *     branch: reads via `listLiveVariables` RPC + `liveVariablesChanged`
  *     broadcast on the SW's runtime-Active workspace; CRUD + override
- *     via the legacy `call('createLiveVariable'|...)` handlers.
+ *     via the legacy `hostBridge.call('createLiveVariable'|...)` handlers.
  *
  * No § 4.1.c residual: live variables have no active/default pointer
  * concept. The per-LV `manualOverride` field is a regular setField
@@ -22,8 +22,7 @@
  */
 
 import type { LiveVariable, LiveVariableOverride } from '@openheaders/core/types';
-import type { BridgeRpcResponse } from '@utils/bridge';
-import { call, subscribe } from '@utils/bridge';
+import { hostBridge, type BridgeRpcResponse } from '@openheaders/core/bridge';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { hostStorage, wsKeys } from '@openheaders/core/storage';
@@ -108,19 +107,19 @@ export const LiveVariablesProvider: React.FC<LiveVariablesProviderProps> = ({
         // effect below seeds state and flips isReady.
         return;
       }
-      const resp = await call('listLiveVariables').catch(() => null);
+      const resp = await hostBridge.call('listLiveVariables').catch(() => null);
       if (cancelled) return;
       setVariables(resp?.variables ?? []);
       setIsReady(true);
     };
     void initialLoad();
 
-    const unsubChange = subscribe('liveVariablesChanged', (payload) => {
+    const unsubChange = hostBridge.subscribe('liveVariablesChanged', (payload) => {
       // Legacy branch consumes the bridge broadcast directly. Override
       // branch ignores it (workspace-scoped storage subscribe owns it).
       if (!isOverridden) setVariables(payload.variables);
     });
-    const unsubWs = subscribe('workspaceChanged', () => {
+    const unsubWs = hostBridge.subscribe('workspaceChanged', () => {
       if (isOverridden) return;
       void initialLoad();
     });
@@ -182,7 +181,7 @@ export const LiveVariablesProvider: React.FC<LiveVariablesProviderProps> = ({
         );
         return result.ok ? result.liveVariable : null;
       }
-      const resp = await call('createLiveVariable', input).catch(() => null);
+      const resp = await hostBridge.call('createLiveVariable', input).catch(() => null);
       return resp?.success ? (resp.variable ?? null) : null;
     },
     [isOverridden, activeWorkspaceIdOverride, surfaceId],
@@ -200,7 +199,7 @@ export const LiveVariablesProvider: React.FC<LiveVariablesProviderProps> = ({
         if (result.reason === 'not-found') return { success: false, reason: 'not-found' };
         return { success: false, reason: 'other', error: result.message ?? '' };
       }
-      return call('updateLiveVariable', { uid, updates }).catch(
+      return hostBridge.call('updateLiveVariable', { uid, updates }).catch(
         (err: Error) => ({ success: false, reason: 'other', error: err.message }) as LiveVariableWriteResult,
       );
     },
@@ -215,7 +214,7 @@ export const LiveVariablesProvider: React.FC<LiveVariablesProviderProps> = ({
         const result = await applyLiveVariableDelete(uid, { workspaceId: wsId, surfaceId });
         return result.ok;
       }
-      const resp = await call('deleteLiveVariable', { uid }).catch(() => null);
+      const resp = await hostBridge.call('deleteLiveVariable', { uid }).catch(() => null);
       return Boolean(resp?.success);
     },
     [isOverridden, activeWorkspaceIdOverride, surfaceId],
@@ -243,7 +242,7 @@ export const LiveVariablesProvider: React.FC<LiveVariablesProviderProps> = ({
         if (result.reason === 'not-found') return { success: false, reason: 'not-found' };
         return { success: false, reason: 'other', error: result.message ?? '' };
       }
-      return call('setLiveVariableOverride', { uid, override }).catch(
+      return hostBridge.call('setLiveVariableOverride', { uid, override }).catch(
         (err: Error) => ({ success: false, reason: 'other', error: err.message }) as LiveVariableOverrideResult,
       );
     },

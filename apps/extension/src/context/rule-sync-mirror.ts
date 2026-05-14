@@ -13,7 +13,7 @@
  */
 
 import type { Rule } from '@openheaders/core/types';
-import { call } from '@utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import {
   createFlatEntityMirror,
   type CreateFlatMirrorOptions,
@@ -73,7 +73,7 @@ export function createRuleSyncMirror(
         };
       },
       fetchSnapshot: async () => {
-        const resp = await call('oh.sync.snapshotRules', { workspaceId });
+        const resp = await hostBridge.call('oh.sync.snapshotRules', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.rule.uid,
           entry: {

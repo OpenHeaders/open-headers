@@ -25,7 +25,7 @@
  * `eagerInitRendererMirrors` resolves the runtime-Active workspaceId
  * via `popupOpen`, then forces every per-workspace mirror to
  * instantiate for that workspace, opening each broadcast subscription
- * synchronously (`subscribe('syncBroadcast', …)` in the shared cores
+ * synchronously (`hostBridge.subscribe('syncBroadcast', …)` in the shared cores
  * fires before `void config.fetchSnapshot(…)`) and kicks off every
  * snapshot RPC in parallel. By the time the user's first gesture
  * lands, every mirror for the runtime-Active workspace has subscribed
@@ -47,7 +47,7 @@
  */
 
 import { hostLogger as logger } from '@openheaders/core/logger';
-import { call } from '@utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import { getActiveAwarenessMirror } from './awareness-mirror';
 import { getCollectionSyncMirrorForWorkspace } from './collection-sync-mirror';
 import { getEnvSyncMirrorForWorkspace } from './env-sync-mirror';
@@ -112,7 +112,7 @@ export function eagerInitRendererMirrors(): void {
   // per-tab editing scope) lazily instantiate their workspace's
   // mirrors on first read; the same race-free property holds because
   // the per-mirror subscription opens synchronously in the core.
-  call('popupOpen')
+  hostBridge.call('popupOpen')
     .then((resp) => {
       const id = resp.activeWorkspaceId;
       if (!id) return;

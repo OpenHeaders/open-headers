@@ -12,7 +12,7 @@
  *   - `activeWorkspaceIdOverride` unset ⇒ legacy (system surface)
  *     branch: reads via `listLiveWorkflows` RPC + `liveWorkflowsChanged`
  *     broadcast on the SW's runtime-Active workspace; CRUD via the
- *     legacy `call('createLiveWorkflow'|...)` handlers. `refreshNow`
+ *     legacy `hostBridge.call('createLiveWorkflow'|...)` handlers. `refreshNow`
  *     stays on the legacy RPC in BOTH branches — the manual-refresh
  *     gesture targets the runtime-Active scheduler, not the editing
  *     scope.
@@ -24,8 +24,7 @@
  */
 
 import type { LiveWorkflow, RefreshPolicy, WorkflowStep } from '@openheaders/core/types';
-import type { BridgeRpcResponse } from '@utils/bridge';
-import { call, subscribe } from '@utils/bridge';
+import { hostBridge, type BridgeRpcResponse } from '@openheaders/core/bridge';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { hostStorage, wsKeys } from '@openheaders/core/storage';
@@ -106,19 +105,19 @@ export const LiveWorkflowsProvider: React.FC<LiveWorkflowsProviderProps> = ({
 
     const initialLoad = async () => {
       if (isOverridden) return;
-      const resp = await call('listLiveWorkflows').catch(() => null);
+      const resp = await hostBridge.call('listLiveWorkflows').catch(() => null);
       if (cancelled) return;
       setWorkflows(resp?.workflows ?? []);
       setIsReady(true);
     };
     void initialLoad();
 
-    const unsubChange = subscribe('liveWorkflowsChanged', (payload) => {
+    const unsubChange = hostBridge.subscribe('liveWorkflowsChanged', (payload) => {
       // Override branch ignores the global broadcast — workspace-scoped
       // storage subscribe owns it.
       if (!isOverridden) setWorkflows(payload.workflows);
     });
-    const unsubWs = subscribe('workspaceChanged', () => {
+    const unsubWs = hostBridge.subscribe('workspaceChanged', () => {
       if (isOverridden) return;
       void initialLoad();
     });
@@ -180,7 +179,7 @@ export const LiveWorkflowsProvider: React.FC<LiveWorkflowsProviderProps> = ({
         );
         return result.ok ? result.workflow : null;
       }
-      const resp = await call('createLiveWorkflow', input).catch(() => null);
+      const resp = await hostBridge.call('createLiveWorkflow', input).catch(() => null);
       return resp?.success ? (resp.workflow ?? null) : null;
     },
     [isOverridden, activeWorkspaceIdOverride, surfaceId],
@@ -198,7 +197,7 @@ export const LiveWorkflowsProvider: React.FC<LiveWorkflowsProviderProps> = ({
         if (result.reason === 'not-found') return { success: false, reason: 'not-found' };
         return { success: false, reason: 'other', error: result.message ?? '' };
       }
-      return call('updateLiveWorkflow', { uid, updates }).catch(
+      return hostBridge.call('updateLiveWorkflow', { uid, updates }).catch(
         (err: Error) => ({ success: false, reason: 'other', error: err.message }) as LiveWorkflowWriteResult,
       );
     },
@@ -213,7 +212,7 @@ export const LiveWorkflowsProvider: React.FC<LiveWorkflowsProviderProps> = ({
         const result = await applyLiveWorkflowDelete(uid, { workspaceId: wsId, surfaceId });
         return result.ok;
       }
-      const resp = await call('deleteLiveWorkflow', { uid }).catch(() => null);
+      const resp = await hostBridge.call('deleteLiveWorkflow', { uid }).catch(() => null);
       return Boolean(resp?.success);
     },
     [isOverridden, activeWorkspaceIdOverride, surfaceId],
@@ -226,7 +225,7 @@ export const LiveWorkflowsProvider: React.FC<LiveWorkflowsProviderProps> = ({
   const refreshNow = useCallback<LiveWorkflowsContextValue['refreshNow']>(
     async (workflowUid, environmentId) => {
       const wsId = isOverridden ? (activeWorkspaceIdOverride ?? undefined) : undefined;
-      return call('refreshLiveWorkflowNow', { workflowUid, environmentId, workspaceId: wsId }).catch(
+      return hostBridge.call('refreshLiveWorkflowNow', { workflowUid, environmentId, workspaceId: wsId }).catch(
         (err: Error) => ({ success: false, error: err.message }) as BridgeRpcResponse<'refreshLiveWorkflowNow'>,
       );
     },

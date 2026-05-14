@@ -19,13 +19,14 @@ const { mockSubscribe, mockCall } = vi.hoisted(() => ({
   mockCall: vi.fn(),
 }));
 
-vi.mock('@utils/bridge', () => ({
-  call: mockCall,
-  subscribe: mockSubscribe,
-  broadcast: vi.fn(),
-  receive: vi.fn(),
-  presence: vi.fn(),
-  tabCall: vi.fn(),
+vi.mock('@openheaders/core/bridge', async (importActual) => ({
+  ...(await importActual<typeof import('@openheaders/core/bridge')>()),
+  hostBridge: {
+    call: mockCall,
+    subscribe: mockSubscribe,
+    broadcast: vi.fn(),
+    presence: vi.fn(),
+  },
 }));
 
 vi.mock('@utils/logger', () => ({

@@ -26,7 +26,7 @@
 
 import { hostLogger as logger } from '@openheaders/core/logger';
 import type { AwarenessState } from '@openheaders/core/protocol';
-import { call, subscribe } from '@utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 
 export type AwarenessListener = () => void;
 
@@ -126,13 +126,13 @@ export function createAwarenessMirror(options: CreateAwarenessMirrorOptions = {}
     notifyEntities(touched);
   }
 
-  const unsubscribe = subscribe('awarenessBroadcast', (event) => {
+  const unsubscribe = hostBridge.subscribe('awarenessBroadcast', (event) => {
     if (disposed) return;
     applyPresence(event.workspaceId, event.presence);
   });
 
   if (bootstrap) {
-    void call('oh.awareness.snapshot')
+    void hostBridge.call('oh.awareness.snapshot')
       .then((resp) => {
         if (disposed) return;
         // A broadcast that landed mid-flight wins; only seed if no

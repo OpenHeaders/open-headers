@@ -7,7 +7,7 @@
 
 import { LIVE_VARIABLE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { LiveVariable } from '@openheaders/core/types';
-import { call } from '@utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import {
   createFlatEntityMirror,
   type CreateFlatMirrorOptions,
@@ -47,7 +47,7 @@ export function createLiveVariableSyncMirror(
         return { uid, entry: { liveVariable: liveVariablePostState.liveVariable } };
       },
       fetchSnapshot: async () => {
-        const resp = await call('oh.sync.snapshotLiveVariables', { workspaceId });
+        const resp = await hostBridge.call('oh.sync.snapshotLiveVariables', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.liveVariable.uid,
           entry: { liveVariable: e.liveVariable },

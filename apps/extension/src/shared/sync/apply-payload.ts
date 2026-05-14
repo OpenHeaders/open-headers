@@ -15,7 +15,7 @@
  */
 
 import type { MutationBatch, SideEffectIntent } from '@openheaders/core/sync';
-import { call } from '@utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import {
   ensureRendererContext,
   type RendererContextHandle,
@@ -93,7 +93,7 @@ export function resolveMirror<M>(
 export async function applySyncPayload(payload: SyncMutationPayload): Promise<SyncSimpleResult> {
   if (payload.batch.mutations.length === 0) return { ok: true };
   try {
-    const resp = await call('oh.sync.apply', {
+    const resp = await hostBridge.call('oh.sync.apply', {
       batch: payload.batch,
       sideEffects: payload.sideEffects,
     });

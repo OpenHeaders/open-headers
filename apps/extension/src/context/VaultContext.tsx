@@ -21,7 +21,7 @@
 
 import type { Vault, VaultSecret } from '@openheaders/core/types';
 import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
-import { call, subscribe } from '@utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { hostStorage, wsKeys } from '@openheaders/core/storage';
@@ -87,19 +87,19 @@ export const VaultProvider: React.FC<VaultProviderProps> = ({ children, surfaceI
 
     const initialLoad = async () => {
       if (isOverridden) return;
-      const resp = await call('getVault').catch(() => null);
+      const resp = await hostBridge.call('getVault').catch(() => null);
       if (cancelled) return;
       if (resp) setVault(resp.vault);
       setIsReady(true);
     };
     void initialLoad();
 
-    const unsub = subscribe('environmentsChanged', (payload) => {
+    const unsub = hostBridge.subscribe('environmentsChanged', (payload) => {
       if (!isOverridden) setVault(payload.vault);
     });
-    const unsubWs = subscribe('workspaceChanged', () => {
+    const unsubWs = hostBridge.subscribe('workspaceChanged', () => {
       if (isOverridden) return;
-      void call('getVault')
+      void hostBridge.call('getVault')
         .then((resp) => {
           setVault(resp.vault);
         })

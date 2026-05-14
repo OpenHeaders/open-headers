@@ -1,3 +1,4 @@
+import { setHostBridge } from '@openheaders/core/bridge';
 import { setHostLogger } from '@openheaders/core/logger';
 import { logger } from '@openheaders/core/utils';
 import { vi } from 'vitest';
@@ -11,3 +12,15 @@ vi.stubGlobal('chrome', chrome);
 // `install-host-logger` boot module installs, so any code reaching for
 // `hostLogger` resolves identically to production.
 setHostLogger(logger);
+
+// Install the host-bridge adapter once for the whole suite — mirrors
+// `install-host-bridge` at boot. Tests that need to assert on bridge
+// traffic override it per-file (`vi.mock('@openheaders/core/bridge', …)`);
+// everything else lands on the chrome-backed transport over the mocked
+// chrome API, exactly as production does.
+//
+// `chromeBridge` pulls in chrome-touching modules at import time, so it
+// must load *after* `vi.stubGlobal('chrome', …)` above — hence the
+// dynamic import rather than a hoisted static one.
+const { chromeBridge } = await import('@/utils/bridge');
+setHostBridge(chromeBridge);

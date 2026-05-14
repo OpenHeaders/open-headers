@@ -32,7 +32,7 @@
  */
 
 import type { FileRef } from '@openheaders/core/files';
-import { call, subscribe } from '@utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { getFilesSyncMirrorForWorkspace } from '@/context/files-sync-mirror';
@@ -94,17 +94,17 @@ export const FilesProvider: React.FC<FilesProviderProps> = ({ children, activeWo
 
     const initialLoad = async () => {
       if (isOverridden) return;
-      const resp = await call('listFiles', {}).catch(() => null);
+      const resp = await hostBridge.call('listFiles', {}).catch(() => null);
       if (cancelled) return;
       setFiles(resp?.files ?? []);
       setIsReady(true);
     };
     void initialLoad();
 
-    const unsub = subscribe('filesChanged', (payload) => {
+    const unsub = hostBridge.subscribe('filesChanged', (payload) => {
       if (!isOverridden) setFiles(payload.files);
     });
-    const unsubWs = subscribe('workspaceChanged', () => {
+    const unsubWs = hostBridge.subscribe('workspaceChanged', () => {
       if (isOverridden) return;
       void initialLoad();
     });
@@ -143,7 +143,7 @@ export const FilesProvider: React.FC<FilesProviderProps> = ({ children, activeWo
     // Kick a snapshot to gate isReady — the mirror also auto-fetches
     // at construction, but the Provider needs an explicit ack so
     // editors can pause spinners until the catalog has landed.
-    void call('oh.sync.snapshotFiles', { workspaceId: wsId })
+    void hostBridge.call('oh.sync.snapshotFiles', { workspaceId: wsId })
       .then((resp) => {
         if (overrideIdRef.current !== wsId) return;
         const first = resp.entries[0];
@@ -173,7 +173,7 @@ export const FilesProvider: React.FC<FilesProviderProps> = ({ children, activeWo
       const bytesBase64 = arrayBufferToBase64(buf);
       const resolvedMime = mimeType ?? (file instanceof File ? file.type || undefined : undefined);
       const wsArg = isOverridden && writeWorkspaceId ? { workspaceId: writeWorkspaceId } : {};
-      const resp = await call('putFile', { filename, mimeType: resolvedMime, bytesBase64, ...wsArg }).catch(() => null);
+      const resp = await hostBridge.call('putFile', { filename, mimeType: resolvedMime, bytesBase64, ...wsArg }).catch(() => null);
       return resp?.success ? (resp.fileRef ?? null) : null;
     },
     [isOverridden, writeWorkspaceId],
@@ -182,7 +182,7 @@ export const FilesProvider: React.FC<FilesProviderProps> = ({ children, activeWo
   const deleteFile = useCallback<FilesContextValue['deleteFile']>(
     async (fileId) => {
       const wsArg = isOverridden && writeWorkspaceId ? { workspaceId: writeWorkspaceId } : {};
-      const resp = await call('deleteFile', { fileId, ...wsArg }).catch(() => null);
+      const resp = await hostBridge.call('deleteFile', { fileId, ...wsArg }).catch(() => null);
       return Boolean(resp?.removed);
     },
     [isOverridden, writeWorkspaceId],
@@ -192,7 +192,7 @@ export const FilesProvider: React.FC<FilesProviderProps> = ({ children, activeWo
     async (fileId, filename, mimeType) => {
       try {
         const wsArg = isOverridden && writeWorkspaceId ? { workspaceId: writeWorkspaceId } : {};
-        const resp = await call('renameFile', { fileId, filename, mimeType, ...wsArg });
+        const resp = await hostBridge.call('renameFile', { fileId, filename, mimeType, ...wsArg });
         if (!resp.success) return { ok: false, reason: 'other', message: resp.error };
         if (!resp.found) return { ok: false, reason: 'not-found' };
         return { ok: true, fileRef: resp.fileRef as FileRef };
@@ -207,7 +207,7 @@ export const FilesProvider: React.FC<FilesProviderProps> = ({ children, activeWo
   const readFile = useCallback<FilesContextValue['readFile']>(
     async (fileId) => {
       const wsArg = isOverridden && writeWorkspaceId ? { workspaceId: writeWorkspaceId } : {};
-      const resp = await call('getFile', { fileId, ...wsArg }).catch(() => null);
+      const resp = await hostBridge.call('getFile', { fileId, ...wsArg }).catch(() => null);
       if (!resp?.found || typeof resp.bytesBase64 !== 'string') return null;
       const buf = base64ToArrayBuffer(resp.bytesBase64);
       const mimeType = resp.mimeType ?? 'application/octet-stream';

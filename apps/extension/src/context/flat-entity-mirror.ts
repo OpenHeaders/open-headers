@@ -29,7 +29,7 @@
  */
 
 import { hostLogger as logger } from '@openheaders/core/logger';
-import { type BridgeBroadcastPayload, subscribe } from '@utils/bridge';
+import { hostBridge, type BridgeBroadcastPayload } from '@openheaders/core/bridge';
 
 /** Shape an adapter receives — the bridge payload, not the wire-level
  *  `SyncBroadcastEvent` (the `type` discriminator is added at the wire
@@ -62,7 +62,7 @@ export interface FlatMirrorConfig<E> {
    */
   extractFromBroadcast: (event: SyncBroadcastPayload) => ExtractResult<E>;
   /**
-   * Fetch the bootstrap snapshot. Adapters wrap `call('oh.sync.snapshotX',
+   * Fetch the bootstrap snapshot. Adapters wrap `hostBridge.call('oh.sync.snapshotX',
    * { workspaceId })` here so the typed bridge contract is preserved at
    * the boundary.
    */
@@ -109,7 +109,7 @@ export function createFlatEntityMirror<E>(
   const anyListeners = new Set<FlatMirrorListener>();
   const seenSinceMount = new Set<string>();
 
-  const unsubscribe = subscribe('syncBroadcast', (event) => {
+  const unsubscribe = hostBridge.subscribe('syncBroadcast', (event) => {
     if (event.envelope.workspaceId !== config.workspaceId) return;
     const result = config.extractFromBroadcast(event);
     if (!result) return;

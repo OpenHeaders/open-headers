@@ -23,7 +23,7 @@ import {
 import type { Collection, CollectionTree, Rule, Template, TreeNode } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
 import { computePausedUids, generateUid, toFolderName } from '@openheaders/core/utils';
-import { call, subscribe } from '@utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import type React from 'react';
 import { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePauseMarkersContext } from '@/context/PauseMarkersContext';
@@ -284,7 +284,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
   //    Connection status still comes from the bridge (system-scoped).
 
   const loadConnection = useCallback(() => {
-    call('popupOpen')
+    hostBridge.call('popupOpen')
       .then((resp) => {
         setIsConnected(resp.connected ?? false);
       })
@@ -310,7 +310,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
       loadConnection();
       return;
     }
-    call('popupOpen')
+    hostBridge.call('popupOpen')
       .then((resp) => {
         setRules(resp.rules ?? []);
         setIsConnected(resp.connected ?? false);
@@ -327,23 +327,23 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
 
   const loadLocalCollections = useCallback(() => {
     if (isOverridden) return; // override branch reads from storage
-    call('getLocalCollections')
+    hostBridge.call('getLocalCollections')
       .then((resp) => setLocalCollections(resp.collections ?? []))
       .catch(() => undefined);
-    call('getLocalCollectionTrees')
+    hostBridge.call('getLocalCollectionTrees')
       .then((resp) => setLocalCollectionTrees(resp.collectionTrees ?? []))
       .catch(() => undefined);
   }, [isOverridden]);
 
   const loadTemplateData = useCallback(() => {
     if (isOverridden) return; // override branch reads from storage
-    call('getTemplates')
+    hostBridge.call('getTemplates')
       .then((resp) => setTemplates(resp.templates ?? []))
       .catch(() => undefined);
-    call('getTemplateCollections')
+    hostBridge.call('getTemplateCollections')
       .then((resp) => setTemplateCollections(resp.collections ?? []))
       .catch(() => undefined);
-    call('getTemplateCollectionTrees')
+    hostBridge.call('getTemplateCollectionTrees')
       .then((resp) => setTemplateCollectionTrees(resp.collectionTrees ?? []))
       .catch(() => undefined);
   }, [isOverridden]);
@@ -369,13 +369,13 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
     // never leak into a diverged tab's display.
     const unsubRules = isOverridden
       ? () => undefined
-      : subscribe('rulesUpdated', (payload) => {
+      : hostBridge.subscribe('rulesUpdated', (payload) => {
           if (Array.isArray(payload.rules)) setRules(payload.rules);
           loadLocalCollections();
         });
     const unsubTemplates = isOverridden
       ? () => undefined
-      : subscribe('templatesUpdated', (payload) => {
+      : hostBridge.subscribe('templatesUpdated', (payload) => {
           if (Array.isArray(payload.templates)) setTemplates(payload.templates);
           loadTemplateData();
         });
@@ -386,14 +386,14 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
     // do not pull the rug from a diverged tab.
     const unsubWorkspace = isOverridden
       ? () => undefined
-      : subscribe('workspaceChanged', (payload) => {
+      : hostBridge.subscribe('workspaceChanged', (payload) => {
           activeWorkspaceIdRef.current = payload.activeWorkspaceId;
           setActiveWorkspaceId(payload.activeWorkspaceId);
           // Full refetch — rules/collections/templates/pauseMarkers all
           // change atomically on workspace switch.
           refreshRules();
         });
-    const unsubConnection = subscribe('connectionStatus', (payload) => {
+    const unsubConnection = hostBridge.subscribe('connectionStatus', (payload) => {
       setIsConnected(payload.connected ?? false);
     });
 
@@ -685,7 +685,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
         }
         return null;
       }
-      const resp = await call('createLocalCollection', { name }).catch(() => null);
+      const resp = await hostBridge.call('createLocalCollection', { name }).catch(() => null);
       if (resp?.success && resp.collection) {
         refreshRules();
         return resp.collection;
@@ -707,7 +707,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
         }
         return false;
       }
-      const resp = await call('renameLocalCollection', { collectionUid: uid, name }).catch(() => null);
+      const resp = await hostBridge.call('renameLocalCollection', { collectionUid: uid, name }).catch(() => null);
       if (resp?.success) {
         refreshRules();
         return true;
@@ -729,7 +729,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
         }
         return false;
       }
-      const resp = await call('deleteLocalCollection', { collectionUid: uid }).catch(() => null);
+      const resp = await hostBridge.call('deleteLocalCollection', { collectionUid: uid }).catch(() => null);
       if (resp?.success) {
         refreshRules();
         return true;
@@ -753,7 +753,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
         refreshRules();
         return { uid: folderUid, path: `${parentPath}/${folderName}`, name };
       }
-      const resp = await call('createLocalFolder', { name, parentPath }).catch(() => null);
+      const resp = await hostBridge.call('createLocalFolder', { name, parentPath }).catch(() => null);
       if (resp?.success && resp.folder) {
         refreshRules();
         return resp.folder;
@@ -775,7 +775,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
         }
         return false;
       }
-      const resp = await call('renameLocalFolder', { folderUid: uid, name }).catch(() => null);
+      const resp = await hostBridge.call('renameLocalFolder', { folderUid: uid, name }).catch(() => null);
       if (resp?.success) {
         refreshRules();
         return true;
@@ -802,7 +802,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
         }
         return false;
       }
-      const resp = await call('deleteLocalFolder', { folderUid: uid }).catch(() => null);
+      const resp = await hostBridge.call('deleteLocalFolder', { folderUid: uid }).catch(() => null);
       if (resp?.success) {
         refreshRules();
         return true;
@@ -842,7 +842,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
         refreshRules();
         return created;
       }
-      const resp = await call('createTemplate', { template, collectionUid, parentPath }).catch(() => null);
+      const resp = await hostBridge.call('createTemplate', { template, collectionUid, parentPath }).catch(() => null);
       if (resp?.success && resp.template) {
         refreshRules();
         return resp.template;
@@ -867,7 +867,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
         }
         return false;
       }
-      const resp = await call('updateTemplate', { templateUid: uid, updates }).catch(() => null);
+      const resp = await hostBridge.call('updateTemplate', { templateUid: uid, updates }).catch(() => null);
       if (resp?.ok) {
         refreshRules();
         return true;
@@ -889,7 +889,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
         }
         return false;
       }
-      const resp = await call('deleteTemplate', { templateUid: uid }).catch(() => null);
+      const resp = await hostBridge.call('deleteTemplate', { templateUid: uid }).catch(() => null);
       if (resp?.success) {
         refreshRules();
         return true;
@@ -911,7 +911,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
         }
         return null;
       }
-      const resp = await call('createTemplateCollection', { name }).catch(() => null);
+      const resp = await hostBridge.call('createTemplateCollection', { name }).catch(() => null);
       if (resp?.success && resp.collection) {
         refreshRules();
         return resp.collection;
@@ -936,7 +936,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
         }
         return false;
       }
-      const resp = await call('renameTemplateCollection', { collectionUid: uid, name }).catch(() => null);
+      const resp = await hostBridge.call('renameTemplateCollection', { collectionUid: uid, name }).catch(() => null);
       if (resp?.success) {
         refreshRules();
         return true;
@@ -958,7 +958,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
         }
         return false;
       }
-      const resp = await call('deleteTemplateCollection', { collectionUid: uid }).catch(() => null);
+      const resp = await hostBridge.call('deleteTemplateCollection', { collectionUid: uid }).catch(() => null);
       if (resp?.success) {
         refreshRules();
         return true;
@@ -982,7 +982,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
         refreshRules();
         return { uid: folderUid, path: `${parentPath}/${folderName}`, name };
       }
-      const resp = await call('createTemplateFolder', { name, parentPath }).catch(() => null);
+      const resp = await hostBridge.call('createTemplateFolder', { name, parentPath }).catch(() => null);
       if (resp?.success && resp.folder) {
         refreshRules();
         return resp.folder;
@@ -1004,7 +1004,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
         }
         return false;
       }
-      const resp = await call('renameTemplateFolder', { folderUid: uid, name }).catch(() => null);
+      const resp = await hostBridge.call('renameTemplateFolder', { folderUid: uid, name }).catch(() => null);
       if (resp?.success) {
         refreshRules();
         return true;
@@ -1031,7 +1031,7 @@ export const RuleProvider: React.FC<RuleProviderProps> = ({ children, surfaceId,
         }
         return false;
       }
-      const resp = await call('deleteTemplateFolder', { folderUid: uid }).catch(() => null);
+      const resp = await hostBridge.call('deleteTemplateFolder', { folderUid: uid }).catch(() => null);
       if (resp?.success) {
         refreshRules();
         return true;

@@ -23,7 +23,7 @@
 
 import type { Variable, WorkspaceVariables } from '@openheaders/core/types';
 import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
-import { call, subscribe } from '@utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { hostStorage, wsKeys } from '@openheaders/core/storage';
@@ -104,22 +104,22 @@ export const WorkspaceVariablesProvider: React.FC<WorkspaceVariablesProviderProp
         // the storage-subscribe effect below seeds state.
         return;
       }
-      const resp = await call('getWorkspaceVariables').catch(() => null);
+      const resp = await hostBridge.call('getWorkspaceVariables').catch(() => null);
       if (cancelled) return;
       if (resp) setWorkspaceVariables(resp.workspaceVariables);
       setIsReady(true);
     };
     void initialLoad();
 
-    const unsub = subscribe('environmentsChanged', (payload) => {
+    const unsub = hostBridge.subscribe('environmentsChanged', (payload) => {
       // Legacy branch consumes the bridge broadcast directly. Override
       // branch ignores ws-vars from this broadcast (workspace-scoped
       // storage subscribe owns it).
       if (!isOverridden) setWorkspaceVariables(payload.workspaceVariables);
     });
-    const unsubWs = subscribe('workspaceChanged', () => {
+    const unsubWs = hostBridge.subscribe('workspaceChanged', () => {
       if (isOverridden) return;
-      void call('getWorkspaceVariables')
+      void hostBridge.call('getWorkspaceVariables')
         .then((resp) => {
           setWorkspaceVariables(resp.workspaceVariables);
         })

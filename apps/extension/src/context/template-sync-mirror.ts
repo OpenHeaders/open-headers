@@ -10,7 +10,7 @@
 
 import { TEMPLATE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Template } from '@openheaders/core/types';
-import { call } from '@utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import {
   createFlatEntityMirror,
   type CreateFlatMirrorOptions,
@@ -63,7 +63,7 @@ export function createTemplateSyncMirror(
         };
       },
       fetchSnapshot: async () => {
-        const resp = await call('oh.sync.snapshotTemplates', { workspaceId });
+        const resp = await hostBridge.call('oh.sync.snapshotTemplates', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.template.uid,
           entry: {

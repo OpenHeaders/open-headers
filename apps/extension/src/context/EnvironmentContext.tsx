@@ -33,8 +33,7 @@
  */
 
 import type { Environment, Variable } from '@openheaders/core/types';
-import type { BridgeRpcResponse } from '@utils/bridge';
-import { call, subscribe } from '@utils/bridge';
+import { hostBridge, type BridgeRpcResponse } from '@openheaders/core/bridge';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { hostStorage, wsKeys } from '@openheaders/core/storage';
@@ -150,7 +149,7 @@ export const EnvironmentProvider: React.FC<EnvironmentProviderProps> = ({
   useEffect(() => {
     if (isOverridden) return;
     let cancelled = false;
-    void call('listWorkspaces')
+    void hostBridge.call('listWorkspaces')
       .then((resp) => {
         if (cancelled) return;
         setLegacyWorkspaceId(resp.activeWorkspaceId ?? null);
@@ -159,7 +158,7 @@ export const EnvironmentProvider: React.FC<EnvironmentProviderProps> = ({
         // Bootstrap failure: nothing to read until a workspaceChanged
         // broadcast carries an id.
       });
-    const unsubWs = subscribe('workspaceChanged', (payload) => {
+    const unsubWs = hostBridge.subscribe('workspaceChanged', (payload) => {
       setLegacyWorkspaceId(payload.activeWorkspaceId ?? null);
     });
     return () => {
@@ -261,7 +260,7 @@ export const EnvironmentProvider: React.FC<EnvironmentProviderProps> = ({
         const result = await applyEnvironmentCreate({ name, variables }, { workspaceId: wsId, surfaceId });
         return result.ok ? result.environment : null;
       }
-      const resp = await call('createEnvironment', { name, variables }).catch(() => null);
+      const resp = await hostBridge.call('createEnvironment', { name, variables }).catch(() => null);
       return resp?.success ? (resp.environment ?? null) : null;
     },
     [isOverridden, activeWorkspaceIdOverride, surfaceId],
@@ -277,7 +276,7 @@ export const EnvironmentProvider: React.FC<EnvironmentProviderProps> = ({
         if (result.reason === 'not-found') return { ok: false, reason: 'not-found' } as const;
         return { ok: false, reason: 'other', message: result.message ?? '' } as EnvironmentWriteResult;
       }
-      return call('renameEnvironment', { uid, name }).catch(
+      return hostBridge.call('renameEnvironment', { uid, name }).catch(
         (err: Error) => ({ ok: false, reason: 'other', message: err.message }) as const,
       );
     },
@@ -296,7 +295,7 @@ export const EnvironmentProvider: React.FC<EnvironmentProviderProps> = ({
         if (result.reason === 'not-found') return { ok: false, reason: 'not-found' } as const;
         return { ok: false, reason: 'other', message: result.message ?? '' } as EnvironmentWriteResult;
       }
-      return call('updateEnvironmentVariables', { uid, variables }).catch(
+      return hostBridge.call('updateEnvironmentVariables', { uid, variables }).catch(
         (err: Error) => ({ ok: false, reason: 'other', message: err.message }) as const,
       );
     },
@@ -311,7 +310,7 @@ export const EnvironmentProvider: React.FC<EnvironmentProviderProps> = ({
         const result = await applyEnvironmentDelete({ envId: uid }, { workspaceId: wsId, surfaceId });
         return result.ok;
       }
-      const resp = await call('deleteEnvironment', { uid }).catch(() => null);
+      const resp = await hostBridge.call('deleteEnvironment', { uid }).catch(() => null);
       return Boolean(resp?.success);
     },
     [isOverridden, activeWorkspaceIdOverride, surfaceId],
@@ -379,7 +378,7 @@ export const EnvironmentProvider: React.FC<EnvironmentProviderProps> = ({
         );
         return result.ok;
       }
-      const resp = await call('setCollectionPinnedEnvs', {
+      const resp = await hostBridge.call('setCollectionPinnedEnvs', {
         collectionUid,
         pinnedEnvironmentIds: pinnedIds,
         defaultEnvironmentId: defaultId,

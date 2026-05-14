@@ -8,7 +8,7 @@
  */
 
 import { PAUSE_MARKERS_ENTITY_TYPE, type PauseMarkerKind } from '@openheaders/core/sync';
-import { call } from '@utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import {
   createSingletonEntityMirror,
   type CreateSingletonMirrorOptions,
@@ -48,7 +48,7 @@ export function createPauseMarkersSyncMirror(
         return { markers: pauseMarkersPostState.markers, paths: pauseMarkersPostState.paths };
       },
       fetchSnapshot: async () => {
-        const resp = await call('oh.sync.snapshotPauseMarkers', { workspaceId });
+        const resp = await hostBridge.call('oh.sync.snapshotPauseMarkers', { workspaceId });
         const first = resp.entries[0];
         return first ? { markers: first.markers, paths: first.paths } : null;
       },

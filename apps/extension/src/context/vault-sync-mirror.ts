@@ -7,7 +7,7 @@
 
 import { VAULT_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Vault } from '@openheaders/core/types';
-import { call } from '@utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import {
   createSingletonEntityMirror,
   type CreateSingletonMirrorOptions,
@@ -48,7 +48,7 @@ export function createVaultSyncMirror(
         return { vault: vaultPostState.vault, secretUids: vaultPostState.secretUids };
       },
       fetchSnapshot: async () => {
-        const resp = await call('oh.sync.snapshotVault', { workspaceId });
+        const resp = await hostBridge.call('oh.sync.snapshotVault', { workspaceId });
         const first = resp.entries[0];
         return first ? { vault: first.vault, secretUids: first.secretUids } : null;
       },

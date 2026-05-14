@@ -16,7 +16,7 @@
  *   - `activeWorkspaceIdOverride` unset ⇒ legacy (system surface)
  *     branch: reads via `getLocalRequests` / `getLocalRequestCollections`
  *     / `getLocalRequestCollectionTrees` RPCs + `requestsUpdated`
- *     broadcast; CRUD via the legacy `call('createLocalRequest'|...)`
+ *     broadcast; CRUD via the legacy `hostBridge.call('createLocalRequest'|...)`
  *     handlers.
  *
  * Override-branch coverage: collection + folder CRUD (create / rename /
@@ -34,8 +34,7 @@ import {
 } from '@openheaders/core/sync';
 import type { Collection, CollectionTree, Request } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
-import type { BridgeRpcResponse } from '@utils/bridge';
-import { call, subscribe } from '@utils/bridge';
+import { hostBridge, type BridgeRpcResponse } from '@openheaders/core/bridge';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
@@ -148,9 +147,9 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
 
   const reloadLegacy = useCallback(async () => {
     const [reqResp, colResp, treesResp] = await Promise.all([
-      call('getLocalRequests').catch(() => null),
-      call('getLocalRequestCollections').catch(() => null),
-      call('getLocalRequestCollectionTrees').catch(() => null),
+      hostBridge.call('getLocalRequests').catch(() => null),
+      hostBridge.call('getLocalRequestCollections').catch(() => null),
+      hostBridge.call('getLocalRequestCollectionTrees').catch(() => null),
     ]);
     if (reqResp) setRequests(reqResp.requests);
     if (colResp) setCollections(colResp.collections);
@@ -164,10 +163,10 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
       if (!cancelled) setIsReady(true);
     });
 
-    const unsub = subscribe('requestsUpdated', () => {
+    const unsub = hostBridge.subscribe('requestsUpdated', () => {
       if (!isOverridden) void reloadLegacy();
     });
-    const unsubWs = subscribe('workspaceChanged', () => {
+    const unsubWs = hostBridge.subscribe('workspaceChanged', () => {
       if (!isOverridden) void reloadLegacy();
     });
 
@@ -256,7 +255,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
   // workspace via `call(...)`.
 
   const getRequest = useCallback<RequestsContextValue['getRequest']>(async (requestUid) => {
-    const resp = await call('getLocalRequest', { requestUid }).catch(() => null);
+    const resp = await hostBridge.call('getLocalRequest', { requestUid }).catch(() => null);
     return resp?.success ? (resp.request ?? null) : null;
   }, []);
 
@@ -276,7 +275,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
           input.parentPath ??
           (input.collectionUid ? collections.find((c) => c.uid === input.collectionUid)?.path : undefined);
         if (!parentPath) {
-          const resp = await call('createLocalRequest', input).catch(() => null);
+          const resp = await hostBridge.call('createLocalRequest', input).catch(() => null);
           return resp?.success ? (resp.request ?? null) : null;
         }
         const uid = generateUid();
@@ -302,7 +301,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
         const result = await applyRequestCreate(created, { workspaceId: wsId, surfaceId });
         return result.ok ? created : null;
       }
-      const resp = await call('createLocalRequest', input).catch(() => null);
+      const resp = await hostBridge.call('createLocalRequest', input).catch(() => null);
       return resp?.success ? (resp.request ?? null) : null;
     },
     [isOverridden, activeWorkspaceIdOverride, surfaceId, collections],
@@ -318,7 +317,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
         if (result.reason === 'not-found') return { ok: false, reason: 'not-found' };
         return { ok: false, reason: 'other', message: result.message ?? '' };
       }
-      return call('updateLocalRequest', { requestUid, updates }).catch(
+      return hostBridge.call('updateLocalRequest', { requestUid, updates }).catch(
         (err: Error) => ({ ok: false, reason: 'other', message: err.message }) as RequestWriteResult,
       );
     },
@@ -333,7 +332,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
         const result = await applyRequestDelete(requestUid, { workspaceId: wsId, surfaceId });
         return result.ok;
       }
-      const resp = await call('deleteLocalRequest', { requestUid }).catch(() => null);
+      const resp = await hostBridge.call('deleteLocalRequest', { requestUid }).catch(() => null);
       return Boolean(resp?.success);
     },
     [isOverridden, activeWorkspaceIdOverride, surfaceId],
@@ -347,7 +346,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
         const result = await applyRequestCollectionCreate({ name }, { workspaceId: wsId, surfaceId });
         return result.ok ? result.collection : null;
       }
-      const resp = await call('createLocalRequestCollection', { name }).catch(() => null);
+      const resp = await hostBridge.call('createLocalRequestCollection', { name }).catch(() => null);
       return resp?.success ? (resp.collection ?? null) : null;
     },
     [isOverridden, activeWorkspaceIdOverride, surfaceId],
@@ -361,7 +360,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
         const result = await applyRequestCollectionRename({ collectionUid, name }, { workspaceId: wsId, surfaceId });
         return result.ok;
       }
-      const resp = await call('renameLocalRequestCollection', { collectionUid, name }).catch(() => null);
+      const resp = await hostBridge.call('renameLocalRequestCollection', { collectionUid, name }).catch(() => null);
       return Boolean(resp?.success);
     },
     [isOverridden, activeWorkspaceIdOverride, surfaceId],
@@ -375,7 +374,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
         const result = await applyRequestCollectionDelete({ collectionUid }, { workspaceId: wsId, surfaceId });
         return result.ok;
       }
-      const resp = await call('deleteLocalRequestCollection', { collectionUid }).catch(() => null);
+      const resp = await hostBridge.call('deleteLocalRequestCollection', { collectionUid }).catch(() => null);
       return Boolean(resp?.success);
     },
     [isOverridden, activeWorkspaceIdOverride, surfaceId],
@@ -410,7 +409,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
         if (!result.ok) return null;
         return { uid: folderUid, path: `${parentPath}/${folderName}`, name };
       }
-      const resp = await call('createLocalRequestFolder', { name, parentPath }).catch(() => null);
+      const resp = await hostBridge.call('createLocalRequestFolder', { name, parentPath }).catch(() => null);
       return resp?.success ? (resp.folder ?? null) : null;
     },
     [isOverridden, activeWorkspaceIdOverride, surfaceId, resolveOverrideFolderParent],
@@ -424,7 +423,7 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
         const result = await applyRequestFolderRename({ folderUid, name }, { workspaceId: wsId, surfaceId });
         return result.ok;
       }
-      const resp = await call('renameLocalRequestFolder', { folderUid, name }).catch(() => null);
+      const resp = await hostBridge.call('renameLocalRequestFolder', { folderUid, name }).catch(() => null);
       return Boolean(resp?.success);
     },
     [isOverridden, activeWorkspaceIdOverride, surfaceId],
@@ -443,14 +442,14 @@ export const RequestsProvider: React.FC<RequestsProviderProps> = ({
         const result = await applyRequestFolderDelete({ folderUid, parent }, { workspaceId: wsId, surfaceId });
         return result.ok;
       }
-      const resp = await call('deleteLocalRequestFolder', { folderUid }).catch(() => null);
+      const resp = await hostBridge.call('deleteLocalRequestFolder', { folderUid }).catch(() => null);
       return Boolean(resp?.success);
     },
     [isOverridden, activeWorkspaceIdOverride, surfaceId, resolveOverrideFolderParent],
   );
 
   const execute = useCallback<RequestsContextValue['execute']>(async (input) => {
-    const resp = await call('executeRequest', input).catch(() => null);
+    const resp = await hostBridge.call('executeRequest', input).catch(() => null);
     return resp?.success ? (resp.snapshot ?? null) : null;
   }, []);
 

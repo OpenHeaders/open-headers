@@ -9,7 +9,7 @@
  */
 
 import type { Environment } from '@openheaders/core/types';
-import { call } from '@utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import {
   createFlatEntityMirror,
   type CreateFlatMirrorOptions,
@@ -59,7 +59,7 @@ export function createEnvSyncMirror(
         };
       },
       fetchSnapshot: async () => {
-        const resp = await call('oh.sync.snapshotEnvironments', { workspaceId });
+        const resp = await hostBridge.call('oh.sync.snapshotEnvironments', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.environment.uid,
           entry: { environment: e.environment, varUids: e.varUids },

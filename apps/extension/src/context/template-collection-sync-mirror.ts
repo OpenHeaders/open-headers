@@ -9,7 +9,7 @@
 
 import { TEMPLATE_COLLECTION_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Collection } from '@openheaders/core/types';
-import { call } from '@utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import {
   createFlatEntityMirror,
   type CreateFlatMirrorOptions,
@@ -68,7 +68,7 @@ export function createTemplateCollectionSyncMirror(
         };
       },
       fetchSnapshot: async () => {
-        const resp = await call('oh.sync.snapshotTemplateCollections', { workspaceId });
+        const resp = await hostBridge.call('oh.sync.snapshotTemplateCollections', { workspaceId });
         return resp.entries.map((e) => ({
           uid: e.collection.uid,
           entry: { collection: e.collection, varUids: e.varUids, setOrderKeys: e.setOrderKeys },

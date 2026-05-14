@@ -25,7 +25,7 @@
 import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
 import type { OAuth2TokenBundle } from '@openheaders/core/oauth';
 import type { OAuth2Auth } from '@openheaders/core/types';
-import { call } from '@utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import type React from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { hostStorage, wsKeys } from '@openheaders/core/storage';
@@ -136,7 +136,7 @@ export const OAuthBundlesProvider: React.FC<OAuthBundlesProviderProps> = ({
 
   useEffect(() => {
     let cancelled = false;
-    void call('oauthGetRedirectUri')
+    void hostBridge.call('oauthGetRedirectUri')
       .then((resp) => {
         if (!cancelled) setRedirectUri(resp.redirectUri ?? null);
       })
@@ -162,7 +162,7 @@ export const OAuthBundlesProvider: React.FC<OAuthBundlesProviderProps> = ({
   const authorize = useCallback<OAuthBundlesContextValue['authorize']>(
     async (config) => {
       const workspaceId = writeWorkspaceId ?? undefined;
-      return call('oauthAuthorize', { config, workspaceId }).catch(
+      return hostBridge.call('oauthAuthorize', { config, workspaceId }).catch(
         (err: Error): OAuthAuthorizeResult => ({ success: false, error: err.message }),
       );
     },
@@ -172,7 +172,7 @@ export const OAuthBundlesProvider: React.FC<OAuthBundlesProviderProps> = ({
   const clientCredentials = useCallback<OAuthBundlesContextValue['clientCredentials']>(
     async (config) => {
       const workspaceId = writeWorkspaceId ?? undefined;
-      return call('oauthClientCredentials', { config, workspaceId }).catch(
+      return hostBridge.call('oauthClientCredentials', { config, workspaceId }).catch(
         (err: Error): OAuthFlowResult => ({ success: false, error: err.message }),
       );
     },
@@ -182,7 +182,7 @@ export const OAuthBundlesProvider: React.FC<OAuthBundlesProviderProps> = ({
   const refresh = useCallback<OAuthBundlesContextValue['refresh']>(
     async (config) => {
       const workspaceId = writeWorkspaceId ?? undefined;
-      return call('oauthRefresh', { config, workspaceId }).catch(
+      return hostBridge.call('oauthRefresh', { config, workspaceId }).catch(
         (err: Error): OAuthFlowResult => ({ success: false, error: err.message }),
       );
     },

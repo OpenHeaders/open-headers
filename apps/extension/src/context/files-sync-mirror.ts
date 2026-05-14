@@ -8,7 +8,7 @@
 
 import type { FileRef } from '@openheaders/core/files';
 import { FILES_ENTITY_TYPE } from '@openheaders/core/sync';
-import { call } from '@utils/bridge';
+import { hostBridge } from '@openheaders/core/bridge';
 import {
   createSingletonEntityMirror,
   type CreateSingletonMirrorOptions,
@@ -48,7 +48,7 @@ export function createFilesSyncMirror(
         return { refs: filesPostState.refs, fileIds: filesPostState.fileIds };
       },
       fetchSnapshot: async () => {
-        const resp = await call('oh.sync.snapshotFiles', { workspaceId });
+        const resp = await hostBridge.call('oh.sync.snapshotFiles', { workspaceId });
         const first = resp.entries[0];
         return first ? { refs: first.refs, fileIds: first.fileIds } : null;
       },
