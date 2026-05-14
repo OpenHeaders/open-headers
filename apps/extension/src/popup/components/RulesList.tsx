@@ -2,7 +2,7 @@ import { AppstoreOutlined, AppstoreTwoTone, FolderTwoTone, ThunderboltTwoTone } 
 import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { Button, Tabs, Tooltip } from 'antd';
 import type React from 'react';
-import { ShortcutHintTitle } from '@/components/ShortcutKbd';
+import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useSurface } from '@openheaders/ui/shared/surface';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';

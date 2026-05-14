@@ -21,7 +21,7 @@ import { Alert, Button, Tooltip, theme } from 'antd';
 import type * as monaco from 'monaco-editor';
 import type React from 'react';
 import { useCallback, useRef, useState } from 'react';
-import { ShortcutHintTitle } from '@/components/ShortcutKbd';
+import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
 import { getLanguage, type LanguageId, toMonacoLanguage } from '../languages/registry';
 import { resolveFontFamily } from '../settings/schema/editor';

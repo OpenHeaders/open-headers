@@ -11,7 +11,7 @@ import type { Collection, Environment, ExtensionWorkspace } from '@openheaders/c
 import { Button, Dropdown, type MenuProps, Space, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
-import { ShortcutHintTitle } from '@/components/ShortcutKbd';
+import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { LayoutMenuIcon, RegionToggle, SidebarLayoutIcon } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
 import { instanceLabel, instanceLabelPlural } from '@openheaders/ui/shared/host-vocabulary';

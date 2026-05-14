@@ -10,7 +10,7 @@
  */
 
 import { SaveOutlined } from '@ant-design/icons';
-import { ShortcutHintTitle } from '@components/ShortcutKbd';
+import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useEnvVarVault } from '@hooks/useEnvVarVault';
 import { useRules } from '@hooks/useRules';
 import { useVariableLookup, type VariableCandidate, type VariableLookupResult } from '@hooks/useVariableLookup';

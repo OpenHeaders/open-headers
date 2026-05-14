@@ -3,7 +3,7 @@ import { useKeyboardNav } from '@context/KeyboardNavContext';
 import { App, Button, Space, Switch, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect } from 'react';
-import { ShortcutHintTitle } from '@/components/ShortcutKbd';
+import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useSurface } from '@openheaders/ui/shared/surface';
 import { hostNavigation } from '@openheaders/core/navigation';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';

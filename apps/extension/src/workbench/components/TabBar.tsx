@@ -37,7 +37,7 @@ import { Dropdown, Input, Tooltip, theme } from 'antd';
 import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ShortcutHintTitle } from '@/components/ShortcutKbd';
+import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { scratchLabelForMode } from '../breadcrumbs';
 import { useDragIntent } from '../drag-intent';
 import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';

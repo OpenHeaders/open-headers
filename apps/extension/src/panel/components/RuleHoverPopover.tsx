@@ -34,7 +34,7 @@
  */
 
 import { SaveOutlined } from '@ant-design/icons';
-import { ShortcutHintTitle } from '@components/ShortcutKbd';
+import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
 import { type RuleMutationResult, useRuleMutator } from '@hooks/useRuleMutator';
 

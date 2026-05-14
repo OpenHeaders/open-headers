@@ -4,7 +4,7 @@ import { BridgeError, call } from '@utils/bridge';
 import { Button, Space, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
-import { ShortcutHintTitle } from '@/components/ShortcutKbd';
+import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import type { StatusPillProps } from '@openheaders/ui/shared/status';
 import { productStatusExtras, StatusPill } from '@openheaders/ui/shared/status';
 import { useSurface } from '@openheaders/ui/shared/surface';

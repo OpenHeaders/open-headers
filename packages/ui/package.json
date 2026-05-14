@@ -31,6 +31,10 @@
       "import": "./src/context/index.ts",
       "default": "./dist/context/index.js"
     },
+    "./components/*": {
+      "import": "./src/components/*",
+      "default": "./dist/components/*.js"
+    },
     "./shared": {
       "import": "./src/shared/index.ts",
       "default": "./dist/shared/index.js"

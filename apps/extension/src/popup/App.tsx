@@ -1,4 +1,4 @@
-import ErrorBoundary from '@components/ErrorBoundary';
+import ErrorBoundary from '@openheaders/ui/components/ErrorBoundary';
 import { EnvironmentProvider } from '@openheaders/ui/context';
 import { FilesProvider } from '@openheaders/ui/context';
 import { KeyboardNavProvider, useKeyboardNav } from '@context/KeyboardNavContext';
