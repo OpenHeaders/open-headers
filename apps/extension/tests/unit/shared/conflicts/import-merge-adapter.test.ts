@@ -3,7 +3,7 @@ import {
   type ImportBundleEntity,
   type ImportWorkspaceSnapshot,
   buildImportMergeSession,
-} from '@/shared/conflicts/import-merge-adapter';
+} from '@openheaders/ui/shared/conflicts/import-merge-adapter';
 
 interface FakeRule {
   uid: string;

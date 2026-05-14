@@ -12,7 +12,7 @@
 
 import { Form } from 'antd';
 import type React from 'react';
-import { ConflictDiffChip } from '@/shared/awareness';
+import { ConflictDiffChip } from '../awareness';
 import { useFieldConflicts } from './Field';
 
 export interface ScalarConflictChipProps {

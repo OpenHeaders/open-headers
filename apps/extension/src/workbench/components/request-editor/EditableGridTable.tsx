@@ -50,8 +50,8 @@ import { CSS } from '@dnd-kit/utilities';
 import { Button, Checkbox, Input, Popover, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
-import { ConflictDiffChip, SetRowConflictChip } from '@/shared/awareness';
-import type { PathConflict } from '@/shared/conflicts/types';
+import { ConflictDiffChip, SetRowConflictChip } from '@openheaders/ui/shared/awareness';
+import type { PathConflict } from '@openheaders/ui/shared/conflicts/types';
 
 /** Read-only informational row rendered above user rows — e.g. Headers'
  *  browser-managed auto-generated entries. Not draggable, not part of

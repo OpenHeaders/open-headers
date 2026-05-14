@@ -42,17 +42,17 @@ import {
   PresenceBadge,
   RULE_ACTION_PATHS,
   useLocalInstanceId,
-} from '@/shared/awareness';
-import type { ConflictResolution } from '@/shared/conflicts';
+} from '@openheaders/ui/shared/awareness';
+import type { ConflictResolution } from '@openheaders/ui/shared/conflicts';
 import {
   EntityConflictBanner,
   EntityConflictDialog,
   hasDialogOnlyConflict,
   useAutoMergeForm,
-} from '@/shared/conflicts';
-import { ConflictsProvider, type FieldConflictsApi } from '@/shared/conflicts/Field';
-import { useEditorShell, useReprime } from '@/shared/editor-shell';
-import { stableStringify } from '@/shared/forms';
+} from '@openheaders/ui/shared/conflicts';
+import { ConflictsProvider, type FieldConflictsApi } from '@openheaders/ui/shared/conflicts/Field';
+import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
+import { stableStringify } from '@openheaders/ui/shared/forms';
 import { applyRuleCreate, applyRulePublish } from '@openheaders/ui/shared/sync/rule-write-client';
 import { buildDraftConditions } from '../draft-conditions';
 import { useInspectorNav } from '../hooks/useInspectorNav';

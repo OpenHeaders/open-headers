@@ -28,8 +28,8 @@ vi.mock('@utils/logger', () => ({
 }));
 
 import type { PresenceIdentity } from '@openheaders/core/protocol';
-import { createAwarenessCoordinator } from '@/shared/awareness/awareness-coordinator';
-import type { SurfaceIdentityHandle } from '@/shared/awareness/surface-identity';
+import { createAwarenessCoordinator } from '@openheaders/ui/shared/awareness/awareness-coordinator';
+import type { SurfaceIdentityHandle } from '@openheaders/ui/shared/awareness/surface-identity';
 
 function makeIdentityHandle(): SurfaceIdentityHandle {
   let identity: PresenceIdentity = {

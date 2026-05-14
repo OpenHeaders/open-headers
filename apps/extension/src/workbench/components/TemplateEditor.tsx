@@ -32,7 +32,7 @@ import {
   PresenceBadge,
   TEMPLATE_ACTION_PATHS,
   useLocalInstanceId,
-} from '@/shared/awareness';
+} from '@openheaders/ui/shared/awareness';
 import {
   type ConflictResolution,
   EntityConflictBanner,
@@ -41,9 +41,9 @@ import {
   type PathConflict,
   prettyPathMap,
   useAutoMergeForm,
-} from '@/shared/conflicts';
-import { useEditorShell, useReprime } from '@/shared/editor-shell';
-import { stableStringify } from '@/shared/forms';
+} from '@openheaders/ui/shared/conflicts';
+import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
+import { stableStringify } from '@openheaders/ui/shared/forms';
 import ConditionEditor from './ConditionEditor';
 import EditorHeader from './EditorHeader';
 import { mergeTemplateForSave } from './merge-template-for-save';

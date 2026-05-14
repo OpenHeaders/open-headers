@@ -21,7 +21,7 @@ import { MoreOutlined, SaveOutlined } from '@ant-design/icons';
 import { Button, Divider, Dropdown, type MenuProps, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { ShortcutHintTitle } from '@/components/ShortcutKbd';
-import type { EditorLifecycleStatus, EditorShellHeaderWiring } from '@/shared/editor-shell';
+import type { EditorLifecycleStatus, EditorShellHeaderWiring } from '@openheaders/ui/shared/editor-shell';
 import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
 
 export interface EditorHeaderProps {

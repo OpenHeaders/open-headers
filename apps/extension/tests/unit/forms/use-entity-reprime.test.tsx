@@ -1,8 +1,8 @@
 import { act, renderHook } from '@testing-library/react';
 import { type ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ActiveFieldFocusProvider, useSetActiveFieldFocus } from '@/shared/awareness/ActiveFieldFocus';
-import { useEntityReprime } from '@/shared/forms/use-entity-reprime';
+import { ActiveFieldFocusProvider, useSetActiveFieldFocus } from '@openheaders/ui/shared/awareness/ActiveFieldFocus';
+import { useEntityReprime } from '@openheaders/ui/shared/forms/use-entity-reprime';
 
 interface RuleLike {
   uid: string;

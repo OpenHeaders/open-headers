@@ -44,7 +44,7 @@
  */
 
 import { useEffect, useMemo, useRef } from 'react';
-import { useActiveFieldFocus } from '@/shared/awareness';
+import { useActiveFieldFocus } from '../awareness';
 
 export interface EntityReprimeScope {
   entityType: string;

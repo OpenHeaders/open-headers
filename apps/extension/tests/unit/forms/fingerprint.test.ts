@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { stableStringify } from '@/shared/forms/fingerprint';
+import { stableStringify } from '@openheaders/ui/shared/forms/fingerprint';
 
 describe('stableStringify', () => {
   it('produces equal strings for objects with different insertion order but same content', () => {

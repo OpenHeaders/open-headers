@@ -32,7 +32,7 @@
 
 import type { AwarenessState } from '@openheaders/core/protocol';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useOptionalLocalInstanceId } from '@/shared/awareness';
+import { useOptionalLocalInstanceId } from '../awareness';
 import { getActiveAwarenessMirror } from '@openheaders/ui/context';
 import {
   decodeReorderConflictKey as _decodeReorder,

@@ -2,7 +2,7 @@
  * Shared cross-editor form primitives.
  *
  * Entity-agnostic React hooks every editor reaches for. Same role as
- * `@/shared/awareness` but for form/state-reconcile concerns.
+ * the sibling `awareness` module but for form/state-reconcile concerns.
  *
  * ─── Universal convention: derived dirty ─────────────────────────────
  *

@@ -33,16 +33,16 @@ import { useLiveWorkflowCache } from '@hooks/useLiveCache';
 import { useLiveVariables } from '@hooks/useLiveVariables';
 import { useLiveWorkflows } from '@hooks/useLiveWorkflows';
 import { LIVE_VARIABLE_ENTITY_TYPE } from '@openheaders/core/sync';
-import { EntityScopeProvider, LIVE_VARIABLE_FIELD, useSetActiveFieldFocus } from '@/shared/awareness';
-import { readFieldPath } from '@/shared/awareness/field-path';
+import { EntityScopeProvider, LIVE_VARIABLE_FIELD, useSetActiveFieldFocus } from '@openheaders/ui/shared/awareness';
+import { readFieldPath } from '@openheaders/ui/shared/awareness/field-path';
 import {
   type ConflictResolution,
   EntityConflictBanner,
   EntityConflictDialog,
   prettyPathMap,
   useAutoMergeForm,
-} from '@/shared/conflicts';
-import { useEditorShell, useReprime } from '@/shared/editor-shell';
+} from '@openheaders/ui/shared/conflicts';
+import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
 import type { LiveVariable } from '@openheaders/core/types';
 import { App, Button, Input, InputNumber, Select, Switch, Tag, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';

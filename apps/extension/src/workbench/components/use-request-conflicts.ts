@@ -9,7 +9,7 @@ import type { Request } from '@openheaders/core/types';
 import {
   type EntityConflictsApi,
   useEntityConflicts,
-} from '@/shared/conflicts/use-entity-conflicts';
+} from '@openheaders/ui/shared/conflicts/use-entity-conflicts';
 import { requestConflictAdapter } from './request-conflict-adapter';
 
 export interface UseRequestConflictsArgs {

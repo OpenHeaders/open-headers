@@ -15,8 +15,8 @@
  */
 
 import { useEffect } from 'react';
-import type { EntityReprimeScope } from '@/shared/forms';
-import type { EditorLifecycleStatus } from '@/shared/editor-shell/types';
+import type { EntityReprimeScope } from '../forms';
+import type { EditorLifecycleStatus } from '../editor-shell/types';
 import { useTabActive } from './TabActiveContext';
 import { useSetActiveEditorLifecycle } from './ActiveEditorLifecycle';
 

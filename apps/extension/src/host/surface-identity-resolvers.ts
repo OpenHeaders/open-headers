@@ -2,7 +2,7 @@
  * Surface identity resolvers — browser-extension host bindings.
  *
  * The host-neutral identity builder lives in
- * `@/shared/awareness/surface-identity`; this module supplies the
+ * `@openheaders/ui/shared/awareness/surface-identity`; this module supplies the
  * platform-specific half for each extension surface:
  *
  * - **Popup** can't be focused programmatically by another surface
@@ -26,7 +26,7 @@ import {
   buildIdentity,
   observeDocumentTitle,
   type SurfaceIdentityHandle,
-} from '@/shared/awareness/surface-identity';
+} from '@openheaders/ui/shared/awareness/surface-identity';
 
 /** Lookup of `chrome.tabs.getCurrent()` (workbench / sidepanel) wrapped
  *  to tolerate Firefox's promise-returning shape. */

@@ -14,7 +14,7 @@
 import { MinusCircleFilled } from '@ant-design/icons';
 import { Button, Popover, Typography } from 'antd';
 import type React from 'react';
-import type { ConflictRemoteInfo } from '@/shared/conflicts/types';
+import type { ConflictRemoteInfo } from '../conflicts/types';
 import SurfaceChip from './SurfaceChip';
 
 const { Text } = Typography;

@@ -18,7 +18,7 @@ import { call, presence } from '@utils/bridge';
 import { Layout } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AwarenessIdentityProvider } from '@/shared/awareness';
+import { AwarenessIdentityProvider } from '@openheaders/ui/shared/awareness';
 import { resolvePopupIdentity, resolveSidePanelIdentity } from '@/host/surface-identity-resolvers';
 import { useSurface } from '@openheaders/ui/shared/surface';
 import { VariablePopoverProvider } from '@/workbench/components/template-input/VariablePopoverHost';

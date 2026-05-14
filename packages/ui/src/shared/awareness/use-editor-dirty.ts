@@ -17,7 +17,7 @@
 import { useEffect } from 'react';
 import { useActiveTabEntity } from './ActiveTabEntity';
 import { useSetActiveEditorDirty } from './ActiveEditorDirty';
-import type { EntityReprimeScope } from '@/shared/forms';
+import type { EntityReprimeScope } from '../forms';
 
 const WILDCARD: readonly string[] = Object.freeze(['*']);
 

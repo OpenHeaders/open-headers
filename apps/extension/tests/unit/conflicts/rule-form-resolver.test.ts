@@ -48,7 +48,7 @@ const RULE_REDIRECT: Rule = {
   action: { redirectTo: 'https://openheaders.io/old' },
 } as unknown as Rule;
 
-function leafConflict(theirs: string): import('@/shared/conflicts/types').PathConflict {
+function leafConflict(theirs: string): import('@openheaders/ui/shared/conflicts/types').PathConflict {
   return { kind: 'leaf', base: '(prev)', theirs };
 }
 

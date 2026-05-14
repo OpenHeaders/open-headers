@@ -37,8 +37,8 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ExecutedRequestSnapshot } from '@openheaders/core/types';
 import { getRequestSyncMirrorForWorkspace } from '@openheaders/ui/context';
-import { EntityField, EntityScopeProvider, REQUEST_PATHS, useSetActiveFieldFocus } from '@/shared/awareness';
-import { readFieldPath } from '@/shared/awareness/field-path';
+import { EntityField, EntityScopeProvider, REQUEST_PATHS, useSetActiveFieldFocus } from '@openheaders/ui/shared/awareness';
+import { readFieldPath } from '@openheaders/ui/shared/awareness/field-path';
 import {
   type ConflictResolution,
   EntityConflictBanner,
@@ -47,10 +47,10 @@ import {
   type PathConflict,
   prettyPathMap,
   useAutoMergeForm,
-} from '@/shared/conflicts';
-import { useEditorShell, useReprime } from '@/shared/editor-shell';
+} from '@openheaders/ui/shared/conflicts';
+import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
 import { ensureScheme, needsSchemeNormalization } from '@/shared/fetch/ensure-scheme';
-import { stableStringify } from '@/shared/forms';
+import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useWorkbenchEditingScopeWorkspaceId } from '../hooks/EditingScopeWorkspaceContext';
 import EditorHeader from './EditorHeader';
 import { useRequestWorkflowStepContext } from './live/useRequestWorkflowStepContext';

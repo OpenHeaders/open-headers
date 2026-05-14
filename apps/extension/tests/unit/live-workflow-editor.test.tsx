@@ -100,7 +100,7 @@ vi.mock('@hooks/useLiveCache', () => ({
 
 // Importing after vi.mock so the mocked hook modules resolve first.
 const { default: LiveWorkflowEditor } = await import('@/workbench/components/live/LiveWorkflowEditor');
-const { AwarenessIdentityProvider } = await import('@/shared/awareness');
+const { AwarenessIdentityProvider } = await import('@openheaders/ui/shared/awareness');
 const { resolveWorkbenchIdentity } = await import('@/host/surface-identity-resolvers');
 const testIdentity = resolveWorkbenchIdentity();
 

@@ -11,9 +11,9 @@
  */
 
 import type { Variable } from '@openheaders/core/types';
-import type { ConflictResolveAdapter, ConflictTrackingAdapter } from '@/shared/conflicts/conflict-adapters';
-import { enumLeaf, leaf, obj, setByUid } from '@/shared/conflicts/field-tree/descriptor';
-import { makeConflictAdapter } from '@/shared/conflicts/field-tree/make-conflict-adapter';
+import type { ConflictResolveAdapter, ConflictTrackingAdapter } from '@openheaders/ui/shared/conflicts/conflict-adapters';
+import { enumLeaf, leaf, obj, setByUid } from '@openheaders/ui/shared/conflicts/field-tree/descriptor';
+import { makeConflictAdapter } from '@openheaders/ui/shared/conflicts/field-tree/make-conflict-adapter';
 
 export interface VariableEntity {
   uid: string;

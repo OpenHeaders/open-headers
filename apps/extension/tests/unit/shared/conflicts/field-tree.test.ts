@@ -14,8 +14,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { enumLeaf, leaf, obj, setByUid, union } from '@/shared/conflicts/field-tree/descriptor';
-import { makeConflictAdapter } from '@/shared/conflicts/field-tree/make-conflict-adapter';
+import { enumLeaf, leaf, obj, setByUid, union } from '@openheaders/ui/shared/conflicts/field-tree/descriptor';
+import { makeConflictAdapter } from '@openheaders/ui/shared/conflicts/field-tree/make-conflict-adapter';
 
 describe('field-tree walker — Session 29 extensions', () => {
   describe('array-comma-space-join coercion', () => {

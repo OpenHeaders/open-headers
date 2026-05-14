@@ -16,19 +16,19 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 afterEach(() => cleanup());
 
-vi.mock('@/shared/awareness/IdentityContext', () => ({
+vi.mock('@openheaders/ui/shared/awareness/IdentityContext', () => ({
   useLocalInstanceId: () => 'test-instance-1',
   useSurfaceIdentity: () => ({ current: () => null }),
 }));
 
-vi.mock('@/shared/awareness/use-entity-presence', () => ({
+vi.mock('@openheaders/ui/shared/awareness/use-entity-presence', () => ({
   useFieldPresence: () => [],
   useEntityPresence: () => [],
 }));
 
-import { ActiveFieldFocusProvider, useActiveFieldFocus } from '@/shared/awareness/ActiveFieldFocus';
-import { EntityField } from '@/shared/awareness/EntityField';
-import { EntityScopeProvider } from '@/shared/awareness/EntityScope';
+import { ActiveFieldFocusProvider, useActiveFieldFocus } from '@openheaders/ui/shared/awareness/ActiveFieldFocus';
+import { EntityField } from '@openheaders/ui/shared/awareness/EntityField';
+import { EntityScopeProvider } from '@openheaders/ui/shared/awareness/EntityScope';
 
 function FocusReader({ onFocus }: { onFocus: (focus: ReturnType<typeof useActiveFieldFocus>) => void }) {
   const focus = useActiveFieldFocus();

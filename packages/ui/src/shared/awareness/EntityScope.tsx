@@ -18,7 +18,7 @@
  */
 
 import { createContext, type ReactNode, useContext, useMemo } from 'react';
-import type { EditorShellScopeWiring } from '@/shared/editor-shell';
+import type { EditorShellScopeWiring } from '../editor-shell';
 
 export interface EntityScopeValue {
   entityType: string;

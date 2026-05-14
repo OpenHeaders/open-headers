@@ -6,7 +6,7 @@
 
 import { TEMPLATE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Template } from '@openheaders/core/types';
-import { type EntityConflictsApi, useEntityConflicts } from '@/shared/conflicts/use-entity-conflicts';
+import { type EntityConflictsApi, useEntityConflicts } from '@openheaders/ui/shared/conflicts/use-entity-conflicts';
 import { templateConflictAdapter } from './template-conflict-adapter';
 
 export interface UseTemplateConflictsArgs {

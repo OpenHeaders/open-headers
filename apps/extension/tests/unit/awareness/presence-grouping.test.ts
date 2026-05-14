@@ -1,6 +1,6 @@
 import type { AwarenessState, PresenceIdentity } from '@openheaders/core/protocol';
 import { describe, expect, it } from 'vitest';
-import { groupPresence, type PresenceTreeNode } from '@/shared/awareness/presence-grouping';
+import { groupPresence, type PresenceTreeNode } from '@openheaders/ui/shared/awareness/presence-grouping';
 
 function id(overrides: Partial<PresenceIdentity> = {}): PresenceIdentity {
   return {

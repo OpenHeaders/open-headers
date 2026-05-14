@@ -32,16 +32,16 @@ import type { Collection, Variable } from '@openheaders/core/types';
 import { App, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { EntityScopeProvider, PresenceBadge, useLocalInstanceId, VARIABLE_PATHS } from '@/shared/awareness';
+import { EntityScopeProvider, PresenceBadge, useLocalInstanceId, VARIABLE_PATHS } from '@openheaders/ui/shared/awareness';
 import {
   type ConflictResolution,
   EntityConflictBanner,
   EntityConflictDialog,
   prettyPathMap,
   useAutoMergeForm,
-} from '@/shared/conflicts';
-import { useEditorShell, useReprime } from '@/shared/editor-shell';
-import { stableStringify } from '@/shared/forms';
+} from '@openheaders/ui/shared/conflicts';
+import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
+import { stableStringify } from '@openheaders/ui/shared/forms';
 import EditorHeader from './EditorHeader';
 import VariableTable, { type VariableTableConflictBridge } from './panels/VariableTable';
 import { scopeBadge } from './shared/scope-colors';

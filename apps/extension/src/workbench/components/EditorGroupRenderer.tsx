@@ -30,7 +30,7 @@ import { Allotment } from 'allotment';
 import { theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { TabActiveProvider } from '@/shared/awareness/TabActiveContext';
+import { TabActiveProvider } from '@openheaders/ui/shared/awareness/TabActiveContext';
 import { type DragIntent, DragIntentContext } from '../drag-intent';
 import { allLeaves, type EditorLeaf, type EditorNode, findLeaf, findParentSplitLink } from '../editor-groups';
 import type { UseEditorGroupsApi } from '../hooks/useEditorGroups';

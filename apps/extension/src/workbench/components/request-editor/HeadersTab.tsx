@@ -20,7 +20,7 @@ import type { RequestBody } from '@openheaders/core/types';
 import { Button, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useState } from 'react';
-import { REQUEST_PATHS } from '@/shared/awareness';
+import { REQUEST_PATHS } from '@openheaders/ui/shared/awareness';
 import KeyValueTable, {
   type KeyValueRow,
   type KeyValueRowConflictBridge,

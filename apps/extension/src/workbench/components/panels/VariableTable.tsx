@@ -40,8 +40,8 @@ import { generateUid } from '@openheaders/core/utils';
 import { Collapse, Input, InputNumber, Select, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ConflictDiffChip, EntityField, SetRowConflictChip } from '@/shared/awareness';
-import type { PathConflict } from '@/shared/conflicts/types';
+import { ConflictDiffChip, EntityField, SetRowConflictChip } from '@openheaders/ui/shared/awareness';
+import type { PathConflict } from '@openheaders/ui/shared/conflicts/types';
 import TotpPreview from '../totp/TotpPreview';
 
 /** Per-row awareness path generator. Editors pass `VARIABLE_PATHS.row`

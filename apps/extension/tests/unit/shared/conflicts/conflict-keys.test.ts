@@ -5,7 +5,7 @@ import {
   reorderConflictKey,
   setConflictKey,
   setValueConflictKey,
-} from '@/shared/conflicts/conflict-keys';
+} from '@openheaders/ui/shared/conflicts/conflict-keys';
 
 describe('conflict-keys codec', () => {
   it('round-trips uid-keyed set entries', () => {

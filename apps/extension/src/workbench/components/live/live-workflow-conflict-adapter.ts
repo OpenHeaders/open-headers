@@ -22,14 +22,14 @@
  */
 
 import type { LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
-import { LIVE_WORKFLOW_FIELD } from '@/shared/awareness/live-paths';
+import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
 import type {
   ConflictResolveAdapter,
   ConflictTrackingAdapter,
   PathMap,
   SetMember,
   SetMemberSnapshot,
-} from '@/shared/conflicts/conflict-adapters';
+} from '@openheaders/ui/shared/conflicts/conflict-adapters';
 
 const PATH_NAME = LIVE_WORKFLOW_FIELD.name;
 const PATH_DESCRIPTION = LIVE_WORKFLOW_FIELD.description;

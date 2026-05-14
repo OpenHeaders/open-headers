@@ -2,7 +2,7 @@ import { RightOutlined } from '@ant-design/icons';
 import { theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { EntityField, useActiveTabEntity } from '@/shared/awareness';
+import { EntityField, useActiveTabEntity } from '@openheaders/ui/shared/awareness';
 
 interface BreadcrumbBarProps {
   /** Optional leading node — rendered before the first segment and followed

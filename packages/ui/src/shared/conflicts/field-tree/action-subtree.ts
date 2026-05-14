@@ -23,7 +23,7 @@
  * accessor (Session 29 walker extension) to read it from the parent.
  */
 
-import type { ActionPathBundle } from '@/shared/awareness';
+import type { ActionPathBundle } from '../../awareness';
 import { enumLeaf, type FieldNode, leaf, obj, setByUid, union } from './descriptor';
 
 const HEADER_OPERATIONS = ['override', 'add', 'remove', 'merge'] as const;

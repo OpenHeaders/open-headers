@@ -18,14 +18,14 @@
 
 import { RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { Rule } from '@openheaders/core/types';
-import type { ConflictBridge, ConflictRemoteInfo, PathConflict } from '@/shared/conflicts/types';
+import type { ConflictBridge, ConflictRemoteInfo, PathConflict } from '@openheaders/ui/shared/conflicts/types';
 import {
   decodeReorderConflictKey,
   decodeSetConflictKey,
   isReorderConflictKey,
   isSetConflictKey,
-} from '@/shared/conflicts/conflict-keys';
-import { type EntityConflictsApi, useEntityConflicts } from '@/shared/conflicts/use-entity-conflicts';
+} from '@openheaders/ui/shared/conflicts/conflict-keys';
+import { type EntityConflictsApi, useEntityConflicts } from '@openheaders/ui/shared/conflicts/use-entity-conflicts';
 import { ruleConflictAdapter } from './rule-conflict-adapter';
 
 export type { ConflictBridge, ConflictRemoteInfo, PathConflict };

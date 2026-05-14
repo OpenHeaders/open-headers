@@ -10,7 +10,7 @@
  */
 
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from 'react';
-import type { EditorLifecycleStatus } from '@/shared/editor-shell/types';
+import type { EditorLifecycleStatus } from '../editor-shell/types';
 
 export interface ActiveEditorLifecycleValue {
   entityType: string;

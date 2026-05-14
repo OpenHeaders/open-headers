@@ -7,7 +7,7 @@ import type { LiveWorkflow, WorkflowStep } from '@openheaders/core/types';
 import {
   type EntityConflictsApi,
   useEntityConflicts,
-} from '@/shared/conflicts/use-entity-conflicts';
+} from '@openheaders/ui/shared/conflicts/use-entity-conflicts';
 import { liveWorkflowConflictAdapter } from './live-workflow-conflict-adapter';
 
 export interface UseLiveWorkflowConflictsArgs {

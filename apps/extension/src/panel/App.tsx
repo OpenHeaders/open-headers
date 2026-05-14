@@ -18,7 +18,7 @@ import {
   ActiveTabEntityProvider,
   AwarenessIdentityProvider,
   SurfaceAwarenessPublisher,
-} from '@/shared/awareness';
+} from '@openheaders/ui/shared/awareness';
 import { resolveDevPanelIdentity } from '@/host/surface-identity-resolvers';
 import type { BottomPanelAlignment, DockSlot, SidebarLayoutVariant } from '@openheaders/ui/shared/dock-layout';
 import {

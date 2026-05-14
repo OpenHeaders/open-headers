@@ -29,7 +29,7 @@ import { createContext, type ReactElement, useContext } from 'react';
 import {
   ConflictDiffChip,
   SetRowConflictChip,
-} from '@/shared/awareness';
+} from '../awareness';
 import type { PathConflict } from './types';
 
 export interface FieldConflictsApi {

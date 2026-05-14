@@ -11,11 +11,11 @@
 import { act, renderHook } from '@testing-library/react';
 import { type ReactNode, useEffect, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { ActiveEditorDirtyProvider, useActiveEditorDirty } from '@/shared/awareness/ActiveEditorDirty';
-import { ActiveFieldFocusProvider } from '@/shared/awareness/ActiveFieldFocus';
-import { ActiveTabEntityProvider, useSetActiveTabEntity } from '@/shared/awareness/ActiveTabEntity';
-import { useEditorShell, useReprime } from '@/shared/editor-shell';
-import type { EditorShellHeaderWiring, EditorShellScopeWiring } from '@/shared/editor-shell';
+import { ActiveEditorDirtyProvider, useActiveEditorDirty } from '@openheaders/ui/shared/awareness/ActiveEditorDirty';
+import { ActiveFieldFocusProvider } from '@openheaders/ui/shared/awareness/ActiveFieldFocus';
+import { ActiveTabEntityProvider, useSetActiveTabEntity } from '@openheaders/ui/shared/awareness/ActiveTabEntity';
+import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
+import type { EditorShellHeaderWiring, EditorShellScopeWiring } from '@openheaders/ui/shared/editor-shell';
 
 interface Env {
   uid: string;

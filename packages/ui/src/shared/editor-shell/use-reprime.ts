@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useEntityReprime, type EntityReprimeScope } from '@/shared/forms';
+import { useEntityReprime, type EntityReprimeScope } from '../forms';
 
 export interface UseReprimeInput<E> {
   liveEntity: E | null | undefined;

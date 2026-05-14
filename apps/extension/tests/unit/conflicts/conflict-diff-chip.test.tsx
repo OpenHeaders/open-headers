@@ -9,7 +9,7 @@
 
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
-import ConflictDiffChip from '@/shared/awareness/ConflictDiffChip';
+import ConflictDiffChip from '@openheaders/ui/shared/awareness/ConflictDiffChip';
 
 beforeAll(() => {
   if (typeof document.queryCommandSupported !== 'function') {

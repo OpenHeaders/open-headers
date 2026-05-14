@@ -21,12 +21,12 @@
 import { CloseOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { Alert, AutoComplete, Button, Form, Input, Radio, Select, Typography } from 'antd';
 import type React from 'react';
-import { EntityField, useActionPaths } from '@/shared/awareness';
+import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import CodeEditor from '../CodeEditor';
 import { getDocId } from '../docs/doc-ids';
 import { TemplateInput } from '../template-input';
-import ScalarConflictChip from '@/shared/conflicts/ScalarConflictChip';
+import ScalarConflictChip from '@openheaders/ui/shared/conflicts/ScalarConflictChip';
 
 const { Text } = Typography;
 

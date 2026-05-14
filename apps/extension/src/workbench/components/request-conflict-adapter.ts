@@ -16,13 +16,13 @@
  */
 
 import type { Request } from '@openheaders/core/types';
-import { REQUEST_PATHS } from '@/shared/awareness';
+import { REQUEST_PATHS } from '@openheaders/ui/shared/awareness';
 import type {
   ConflictResolveAdapter,
   ConflictTrackingAdapter,
-} from '@/shared/conflicts/conflict-adapters';
-import { makeConflictAdapter } from '@/shared/conflicts/field-tree/make-conflict-adapter';
-import { REQUEST_SCHEMA } from '@/shared/conflicts/field-tree/request-schema';
+} from '@openheaders/ui/shared/conflicts/conflict-adapters';
+import { makeConflictAdapter } from '@openheaders/ui/shared/conflicts/field-tree/make-conflict-adapter';
+import { REQUEST_SCHEMA } from '@openheaders/ui/shared/conflicts/field-tree/request-schema';
 
 const HEADER_PATH_RE = /^headers\.([a-z0-9]{8})\.(key|value|description|enabled)$/;
 const PARAM_PATH_RE = /^params\.([a-z0-9]{8})\.(key|value|description|enabled|hasEquals)$/;

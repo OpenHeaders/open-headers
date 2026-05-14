@@ -20,7 +20,7 @@ import {
 import { Dropdown, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { EntityField } from '@/shared/awareness';
+import { EntityField } from '@openheaders/ui/shared/awareness';
 import type { TreeNode } from './types';
 
 interface TreeNodeRowProps {

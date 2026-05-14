@@ -9,9 +9,9 @@
  */
 
 import type { LiveVariable } from '@openheaders/core/types';
-import type { ConflictResolveAdapter, ConflictTrackingAdapter } from '@/shared/conflicts/conflict-adapters';
-import { leaf, obj } from '@/shared/conflicts/field-tree/descriptor';
-import { makeConflictAdapter } from '@/shared/conflicts/field-tree/make-conflict-adapter';
+import type { ConflictResolveAdapter, ConflictTrackingAdapter } from '@openheaders/ui/shared/conflicts/conflict-adapters';
+import { leaf, obj } from '@openheaders/ui/shared/conflicts/field-tree/descriptor';
+import { makeConflictAdapter } from '@openheaders/ui/shared/conflicts/field-tree/make-conflict-adapter';
 
 const LIVE_VARIABLE_SCHEMA = obj({
   name: leaf('string'),

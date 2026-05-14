@@ -58,8 +58,8 @@ import {
   useEditorDirty,
   useLocalInstanceId,
   useSetActiveTabEntity,
-} from '@/shared/awareness';
-import { stableStringify } from '@/shared/forms';
+} from '@openheaders/ui/shared/awareness';
+import { stableStringify } from '@openheaders/ui/shared/forms';
 import { useRuleConflicts } from '@/workbench/components/rule-fields/use-rule-conflicts';
 import { buildRuleIcon } from '@/workbench/components/shared/rule-icon';
 import { TemplateInput } from '@/workbench/components/template-input';

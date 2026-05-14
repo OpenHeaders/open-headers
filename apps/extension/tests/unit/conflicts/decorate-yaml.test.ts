@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decorateYamlForDiff } from '@/shared/conflicts/decorate-yaml';
+import { decorateYamlForDiff } from '@openheaders/ui/shared/conflicts/decorate-yaml';
 
 describe('decorateYamlForDiff', () => {
   it('appends row uid trailers only on lines that have a duplicate sibling — leaves unique lines alone', () => {

@@ -23,7 +23,7 @@ import type {
   WorkspaceExport,
 } from '@openheaders/core/workspace-export';
 import type { MergeFile } from '@openheaders/ui/shared/merge-editor';
-import type { ImportBundle, ImportBundleEntity, ImportWorkspaceSnapshot } from '@/shared/conflicts';
+import type { ImportBundle, ImportBundleEntity, ImportWorkspaceSnapshot } from '@openheaders/ui/shared/conflicts';
 
 /** Mirrors `SerializableEntityKind` from `@openheaders/core/workspace-export`.
  *  Both bucket entities and singletons share the union — the merge

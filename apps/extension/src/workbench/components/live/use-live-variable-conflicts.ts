@@ -8,8 +8,8 @@ import type { LiveVariable } from '@openheaders/core/types';
 import {
   type EntityConflictsApi,
   useEntityConflicts,
-} from '@/shared/conflicts/use-entity-conflicts';
-import { LIVE_VARIABLE_FIELD } from '@/shared/awareness';
+} from '@openheaders/ui/shared/conflicts/use-entity-conflicts';
+import { LIVE_VARIABLE_FIELD } from '@openheaders/ui/shared/awareness';
 import { liveVariableConflictAdapter } from './live-variable-conflict-adapter';
 
 export interface UseLiveVariableConflictsArgs {

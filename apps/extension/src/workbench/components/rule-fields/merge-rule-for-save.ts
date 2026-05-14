@@ -35,7 +35,7 @@
  */
 
 import type { HeaderRule, QueryParamRule, Rule } from '@openheaders/core/types';
-import { mergeRowsByIdentity, mergeScalarLeaves } from '@/shared/forms/per-field-merge';
+import { mergeRowsByIdentity, mergeScalarLeaves } from '@openheaders/ui/shared/forms/per-field-merge';
 
 type RuleFormShape = Omit<Rule, 'uid' | 'path' | 'schemaVersion'>;
 

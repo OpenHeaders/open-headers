@@ -9,8 +9,8 @@ import { CloseOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/ico
 import { generateUid } from '@openheaders/core/utils';
 import { Alert, Button, Form, Input, Select, Typography } from 'antd';
 import type React from 'react';
-import { EntityField, useActionPaths } from '@/shared/awareness';
-import { FieldConflictChip, SetRowChip } from '@/shared/conflicts/Field';
+import { EntityField, useActionPaths } from '@openheaders/ui/shared/awareness';
+import { FieldConflictChip, SetRowChip } from '@openheaders/ui/shared/conflicts/Field';
 import { useInspectorNav } from '../../hooks/useInspectorNav';
 import { getDocId } from '../docs/doc-ids';
 import { TemplateInput } from '../template-input';

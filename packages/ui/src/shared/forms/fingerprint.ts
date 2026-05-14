@@ -10,7 +10,7 @@
  *
  * Mirrors `JSON.stringify`'s undefined-handling: keys whose value is
  * `undefined` are dropped entirely (not emitted as `"key":undefined`).
- * The canonical side round-trips through `chrome.storage` which strips
+ * The canonical side round-trips through host persistence which strips
  * undefined leaves, so a form-side projection that retains an
  * undefined-valued key (e.g. an antd Form.Item spread that left a
  * cleared field as `{... headerName: undefined}`) would otherwise

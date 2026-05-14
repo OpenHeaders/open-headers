@@ -12,7 +12,7 @@ import type { Variable } from '@openheaders/core/types';
 import {
   type EntityConflictsApi,
   useEntityConflicts,
-} from '@/shared/conflicts/use-entity-conflicts';
+} from '@openheaders/ui/shared/conflicts/use-entity-conflicts';
 import {
   type VariableEntity,
   variableConflictAdapter,

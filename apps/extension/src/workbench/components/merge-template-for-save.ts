@@ -9,7 +9,7 @@
  */
 
 import type { RuleCondition, Template } from '@openheaders/core/types';
-import { mergeRowsByIdentity, mergeScalarLeaves } from '@/shared/forms/per-field-merge';
+import { mergeRowsByIdentity, mergeScalarLeaves } from '@openheaders/ui/shared/forms/per-field-merge';
 
 export interface TemplateSaveBatch {
   name: string;

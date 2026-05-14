@@ -13,7 +13,7 @@
  * uid; once the user types it materializes with that same id.
  */
 
-import { readFieldPath } from '@/shared/awareness/field-path';
+import { readFieldPath } from '@openheaders/ui/shared/awareness/field-path';
 import HeadersTab from '@/workbench/components/request-editor/HeadersTab';
 import type { KeyValueRow } from '@/workbench/components/request-editor/KeyValueTable';
 import ParamsTab from '@/workbench/components/request-editor/ParamsTab';

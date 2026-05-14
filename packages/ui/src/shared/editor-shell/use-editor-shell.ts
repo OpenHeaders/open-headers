@@ -24,9 +24,9 @@
  */
 
 import { useEffect, useMemo } from 'react';
-import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
-import { useEditorLifecycle } from '@/shared/awareness/use-editor-lifecycle';
-import type { EntityFieldProps } from '@/shared/awareness/EntityField';
+import { useEditorDirty } from '../awareness/use-editor-dirty';
+import { useEditorLifecycle } from '../awareness/use-editor-lifecycle';
+import type { EntityFieldProps } from '../awareness/EntityField';
 import {
   brandHeaderWiring,
   brandScopeWiring,

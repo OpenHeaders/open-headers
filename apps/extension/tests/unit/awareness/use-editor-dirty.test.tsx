@@ -4,9 +4,9 @@ import { describe, expect, it } from 'vitest';
 import {
   ActiveEditorDirtyProvider,
   useActiveEditorDirty,
-} from '@/shared/awareness/ActiveEditorDirty';
-import { ActiveTabEntityProvider, useSetActiveTabEntity } from '@/shared/awareness/ActiveTabEntity';
-import { useEditorDirty } from '@/shared/awareness/use-editor-dirty';
+} from '@openheaders/ui/shared/awareness/ActiveEditorDirty';
+import { ActiveTabEntityProvider, useSetActiveTabEntity } from '@openheaders/ui/shared/awareness/ActiveTabEntity';
+import { useEditorDirty } from '@openheaders/ui/shared/awareness/use-editor-dirty';
 import { useEffect } from 'react';
 
 interface TestEnvProps {

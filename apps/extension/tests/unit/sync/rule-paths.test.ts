@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { RULE_FIELD } from '@/shared/awareness';
+import { RULE_FIELD } from '@openheaders/ui/shared/awareness';
 
 describe('RULE_FIELD scalar leaves', () => {
   it('exposes top-level + per-action scalar paths', () => {

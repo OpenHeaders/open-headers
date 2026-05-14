@@ -25,7 +25,7 @@
 
 import type { FormInstance } from 'antd';
 import type { Rule, RuleCondition } from '@openheaders/core/types';
-import type { ActionPathBundle } from '@/shared/awareness';
+import type { ActionPathBundle } from '../awareness';
 import { decodeReorderConflictKey, decodeSetConflictKey } from './conflict-keys';
 import type {
   ConflictResolveAdapter,

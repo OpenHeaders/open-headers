@@ -22,9 +22,9 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { useAwarenessCoordinator } from '@/shared/awareness/IdentityContext';
-import type { SurfaceIdentityHandle } from '@/shared/awareness/surface-identity';
-import { useTabActive } from '@/shared/awareness/TabActiveContext';
+import { useAwarenessCoordinator } from '../awareness/IdentityContext';
+import type { SurfaceIdentityHandle } from '../awareness/surface-identity';
+import { useTabActive } from '../awareness/TabActiveContext';
 
 export interface UseAwarenessOptions {
   workspaceId: string | null;
@@ -65,8 +65,8 @@ export function useAwareness(opts: UseAwarenessOptions): void {
   const coordinator = useAwarenessCoordinator();
 
   // Optional manual label override. The default label source is live
-  // (document.title for own-tab surfaces, chrome.tabs.get for the
-  // inspected tab in DevTools panels).
+  // (document.title for own-tab surfaces, the host-resolved inspected
+  // tab for DevTools panels).
   if (opts.label !== undefined) {
     opts.identity.setLabel(opts.label);
   }

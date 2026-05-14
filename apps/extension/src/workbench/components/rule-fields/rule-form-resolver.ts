@@ -9,7 +9,7 @@
 
 import type { FormInstance } from 'antd';
 import type { Rule } from '@openheaders/core/types';
-import type { PathConflict } from '@/shared/conflicts/types';
+import type { PathConflict } from '@openheaders/ui/shared/conflicts/types';
 import { ruleResolveAdapter } from './rule-resolve-adapter';
 
 export function applyResolutionToForm(

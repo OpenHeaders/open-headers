@@ -9,7 +9,7 @@ import type { Vault, VaultSecret } from '@openheaders/core/types';
 import {
   type EntityConflictsApi,
   useEntityConflicts,
-} from '@/shared/conflicts/use-entity-conflicts';
+} from '@openheaders/ui/shared/conflicts/use-entity-conflicts';
 import { vaultConflictAdapter } from './vault-conflict-adapter';
 
 export interface UseVaultConflictsArgs {

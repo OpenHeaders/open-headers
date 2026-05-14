@@ -27,7 +27,7 @@
 
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
-import { useAwareness } from '@hooks/useAwareness';
+import { useAwareness } from '../hooks/useAwareness';
 import { useActiveEditorDirty } from './ActiveEditorDirty';
 import { useActiveFieldFocus } from './ActiveFieldFocus';
 import { useActiveTabEntity } from './ActiveTabEntity';

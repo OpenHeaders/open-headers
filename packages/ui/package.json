@@ -59,6 +59,22 @@
     "./shared/hooks/*": {
       "import": "./src/shared/hooks/*.ts",
       "default": "./dist/shared/hooks/*.js"
+    },
+    "./shared/awareness/*": {
+      "import": "./src/shared/awareness/*",
+      "default": "./dist/shared/awareness/*.js"
+    },
+    "./shared/conflicts/*": {
+      "import": "./src/shared/conflicts/*",
+      "default": "./dist/shared/conflicts/*.js"
+    },
+    "./shared/editor-shell/*": {
+      "import": "./src/shared/editor-shell/*",
+      "default": "./dist/shared/editor-shell/*.js"
+    },
+    "./shared/forms/*": {
+      "import": "./src/shared/forms/*",
+      "default": "./dist/shared/forms/*.js"
     }
   },
   "scripts": {

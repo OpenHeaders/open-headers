@@ -51,7 +51,7 @@ import {
 } from '@openheaders/core/live';
 import { LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
 import { generateUid } from '@openheaders/core/utils';
-import { EntityScopeProvider, useSetActiveFieldFocus } from '@/shared/awareness';
+import { EntityScopeProvider, useSetActiveFieldFocus } from '@openheaders/ui/shared/awareness';
 import {
   type ConflictResolution,
   EntityConflictBanner,
@@ -59,8 +59,8 @@ import {
   EntityConflictDialog,
   prettyPathMap,
   useAutoMergeForm,
-} from '@/shared/conflicts';
-import { useEditorShell, useReprime } from '@/shared/editor-shell';
+} from '@openheaders/ui/shared/conflicts';
+import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
 import { liveWorkflowResolveAdapter } from './live-workflow-conflict-adapter';
 import { rebindCaptureReferences } from './rebind-capture-references';
 import { rebindStepReferences } from './rebind-step-references';
@@ -78,8 +78,8 @@ import { computeRequestTrail } from '../../breadcrumbs';
 import EditorHeader from '../EditorHeader';
 import { buildDependencyRows } from './dependencies-view';
 import { InlineNameDescription, Section } from './layout';
-import { LIVE_WORKFLOW_FIELD } from '@/shared/awareness/live-paths';
-import { readFieldPath } from '@/shared/awareness/field-path';
+import { LIVE_WORKFLOW_FIELD } from '@openheaders/ui/shared/awareness/live-paths';
+import { readFieldPath } from '@openheaders/ui/shared/awareness/field-path';
 import {
   classifyRun,
   describeCircuit,

@@ -5,24 +5,24 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   ActiveEditorDirtyProvider,
   useSetActiveEditorDirty,
-} from '@/shared/awareness/ActiveEditorDirty';
+} from '@openheaders/ui/shared/awareness/ActiveEditorDirty';
 import {
   ActiveFieldFocusProvider,
   useSetActiveFieldFocus,
-} from '@/shared/awareness/ActiveFieldFocus';
-import { ActiveTabEntityProvider, useSetActiveTabEntity } from '@/shared/awareness/ActiveTabEntity';
+} from '@openheaders/ui/shared/awareness/ActiveFieldFocus';
+import { ActiveTabEntityProvider, useSetActiveTabEntity } from '@openheaders/ui/shared/awareness/ActiveTabEntity';
 import { useEffect } from 'react';
 
 // Mock useAwareness so we can observe the publisher's composed claim
 // without spinning up the coordinator + identity stack.
 const useAwarenessMock = vi.fn();
-vi.mock('@hooks/useAwareness', () => ({
+vi.mock('@openheaders/ui/shared/hooks/useAwareness', () => ({
   useAwareness: (opts: unknown) => {
     useAwarenessMock(opts);
   },
 }));
 // Identity context is consumed by the publisher; provide a stub.
-vi.mock('@/shared/awareness/IdentityContext', () => ({
+vi.mock('@openheaders/ui/shared/awareness/IdentityContext', () => ({
   useSurfaceIdentity: () => ({
     current: () => ({
       instanceId: 'inst-1',
@@ -36,7 +36,7 @@ vi.mock('@/shared/awareness/IdentityContext', () => ({
 }));
 
 // Import AFTER mocks so vi.mock applies.
-import { SurfaceAwarenessPublisher } from '@/shared/awareness/SurfaceAwarenessPublisher';
+import { SurfaceAwarenessPublisher } from '@openheaders/ui/shared/awareness/SurfaceAwarenessPublisher';
 
 interface HarnessProps {
   activeTab: { entityType: string; entityId: string } | null;

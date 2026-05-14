@@ -11,10 +11,10 @@
 
 import type { Rule, RuleCondition, Template } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
-import { RULE_ACTION_PATHS, TEMPLATE_ACTION_PATHS } from '@/shared/awareness';
-import { createActionEntityAdapters } from '@/shared/conflicts/action-entity-adapter';
-import { buildActionEntitySchema } from '@/shared/conflicts/field-tree/action-subtree';
-import { makeConflictAdapter } from '@/shared/conflicts/field-tree/make-conflict-adapter';
+import { RULE_ACTION_PATHS, TEMPLATE_ACTION_PATHS } from '@openheaders/ui/shared/awareness';
+import { createActionEntityAdapters } from '@openheaders/ui/shared/conflicts/action-entity-adapter';
+import { buildActionEntitySchema } from '@openheaders/ui/shared/conflicts/field-tree/action-subtree';
+import { makeConflictAdapter } from '@openheaders/ui/shared/conflicts/field-tree/make-conflict-adapter';
 
 const factoryAdapters = createActionEntityAdapters<Rule>(RULE_ACTION_PATHS, {
   signature: (r) => r.uid,

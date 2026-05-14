@@ -54,8 +54,8 @@ import {
 import { Button, Select, Tag, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo } from 'react';
-import { ConflictDiffChip, EntityField, SetRowConflictChip, useActionPaths } from '@/shared/awareness';
-import { useFieldConflicts } from '@/shared/conflicts/Field';
+import { ConflictDiffChip, EntityField, SetRowConflictChip, useActionPaths } from '@openheaders/ui/shared/awareness';
+import { useFieldConflicts } from '@openheaders/ui/shared/conflicts/Field';
 import { useInspectorNav } from '../hooks/useInspectorNav';
 import { getDocId } from './docs/doc-ids';
 import { TemplateInput } from './template-input';

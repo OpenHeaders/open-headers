@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatAgo } from '@/shared/awareness/format-ago';
+import { formatAgo } from '@openheaders/ui/shared/awareness/format-ago';
 
 describe('formatAgo', () => {
   it('treats sub-second deltas as "just now"', () => {

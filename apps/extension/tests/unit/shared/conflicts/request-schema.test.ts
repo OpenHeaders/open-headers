@@ -6,8 +6,8 @@
 
 import type { AuthConfig, Request, RequestBody } from '@openheaders/core/types';
 import { describe, expect, it } from 'vitest';
-import { makeConflictAdapter } from '@/shared/conflicts/field-tree/make-conflict-adapter';
-import { REQUEST_SCHEMA } from '@/shared/conflicts/field-tree/request-schema';
+import { makeConflictAdapter } from '@openheaders/ui/shared/conflicts/field-tree/make-conflict-adapter';
+import { REQUEST_SCHEMA } from '@openheaders/ui/shared/conflicts/field-tree/request-schema';
 
 const adapter = makeConflictAdapter<Request>({
   schema: REQUEST_SCHEMA,

@@ -8,8 +8,8 @@
  */
 
 import type { Rule, RuleCondition } from '@openheaders/core/types';
-import { RULE_ACTION_PATHS } from '@/shared/awareness';
-import { createActionEntityAdapters } from '@/shared/conflicts/action-entity-adapter';
+import { RULE_ACTION_PATHS } from '@openheaders/ui/shared/awareness';
+import { createActionEntityAdapters } from '@openheaders/ui/shared/conflicts/action-entity-adapter';
 
 const adapters = createActionEntityAdapters<Rule>(RULE_ACTION_PATHS, {
   signature: (r) => r.uid,

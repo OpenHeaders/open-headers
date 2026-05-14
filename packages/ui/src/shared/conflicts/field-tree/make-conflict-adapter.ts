@@ -15,14 +15,14 @@ import type {
   PathMap,
   SetMember,
   SetMemberSnapshot,
-} from '@/shared/conflicts/conflict-adapters';
+} from '../conflict-adapters';
 import {
   decodeReorderConflictKey,
   decodeSetConflictKey,
   decodeSetValueConflictKey,
-} from '@/shared/conflicts/conflict-keys';
-import type { PathConflict } from '@/shared/conflicts/types';
-import { stableStringify } from '@/shared/forms/fingerprint';
+} from '../conflict-keys';
+import type { PathConflict } from '../types';
+import { stableStringify } from '../../forms/fingerprint';
 import type { FormInstance } from 'antd';
 import { getPolicy, type FieldNode } from './descriptor';
 

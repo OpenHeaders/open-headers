@@ -9,7 +9,7 @@
  */
 
 import type { Rule } from '@openheaders/core/types';
-import { prettyPathMap } from '@/shared/conflicts/conflict-adapters';
+import { prettyPathMap } from '@openheaders/ui/shared/conflicts/conflict-adapters';
 import { ruleResolveAdapter } from './rule-resolve-adapter';
 
 export function prettyRulePath(rule: Rule, path: string): string {

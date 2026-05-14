@@ -4,7 +4,7 @@
 
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import EntityConflictBanner from '@/shared/conflicts/EntityConflictBanner';
+import EntityConflictBanner from '@openheaders/ui/shared/conflicts/EntityConflictBanner';
 
 beforeAll(() => {
   // antd Alert pulls in Typography helpers that probe these jsdom-missing APIs.

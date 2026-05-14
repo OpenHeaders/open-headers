@@ -57,7 +57,7 @@ import {
   AwarenessIdentityProvider,
   SurfaceAwarenessPublisher,
   useSetActiveTabEntity,
-} from '@/shared/awareness';
+} from '@openheaders/ui/shared/awareness';
 import { resolveWorkbenchIdentity } from '@/host/surface-identity-resolvers';
 import 'allotment/dist/style.css';
 import { createShellEventBus, ShellEventBusContext } from '@openheaders/ui/shared/dock-layout';

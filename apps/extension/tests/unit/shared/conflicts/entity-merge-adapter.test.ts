@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { buildEntityMergeSession } from '@/shared/conflicts/entity-merge-adapter';
+import { buildEntityMergeSession } from '@openheaders/ui/shared/conflicts/entity-merge-adapter';
 
 const baseArgs = {
   fileId: 'rule-abcd1234',

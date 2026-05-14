@@ -15,7 +15,7 @@
  */
 
 import type { AuthConfig, CredentialsMode, HttpMethod, QueryParam, Request, RequestBody, RequestHeader } from '@openheaders/core/types';
-import { deepEqual, mergeRowsByIdentity, mergeScalarLeaves } from '@/shared/forms/per-field-merge';
+import { deepEqual, mergeRowsByIdentity, mergeScalarLeaves } from '@openheaders/ui/shared/forms/per-field-merge';
 
 export interface RequestSaveBatch {
   description: string | undefined;
