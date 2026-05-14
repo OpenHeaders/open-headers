@@ -14,7 +14,7 @@
  * if we ever need them.
  */
 
-import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
+import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
 import type { WorkbenchViewState } from './useToolLayout';
 
 export function useWorkbenchWorkspaceSlice(_perTab: EditingScopeViewStateApi<WorkbenchViewState>): void {

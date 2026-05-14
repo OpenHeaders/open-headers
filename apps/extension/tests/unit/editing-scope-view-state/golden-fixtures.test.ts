@@ -34,7 +34,7 @@ vi.mock('@openheaders/core/storage', async () => {
 });
 
 import { readDonorRecord } from '@openheaders/core/editing-scope';
-import type { SurfaceType } from '@/shared/editing-scope-view-state/types';
+import type { SurfaceType } from '@openheaders/ui/shared/editing-scope-view-state';
 
 const FIXTURE_ROOT = path.resolve(__dirname, '../../__fixtures__/editing-scope-view-state');
 

@@ -15,7 +15,7 @@
 
 import type { Dispatch, SetStateAction } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
+import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
 import type { SidebarView } from '../components/sidebar/types';
 import {
   FACTORY_SIDEBAR_EXPANSIONS,

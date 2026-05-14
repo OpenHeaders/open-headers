@@ -5,7 +5,7 @@ import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import type { DockLayoutApi } from '@openheaders/ui/shared/dock-layout';
 import { DOCK_LABELS, DockSlotIcon, LayoutMenuIcon, RegionToggle, SidebarLayoutIcon } from '@openheaders/ui/shared/dock-layout';
-import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
+import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
 import { instanceLabel, instanceLabelPlural } from '@openheaders/ui/shared/host-vocabulary';
 import { getBrowserAPI } from '@/types/browser';
 import type { PanelViewState } from '../data/use-panel-tool-layout';

@@ -6,7 +6,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
+import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
 import {
   activateTabInLeaf,
   type EditorLeaf,

@@ -157,7 +157,7 @@ export function useEditingScopeViewState<T>(opts: UseEditingScopeViewStateOption
     };
   }, [ready, surface, schemaVersion, publishDonor]);
 
-  // ── Reactive isDonor — chrome.storage.onChanged subscription ────
+  // ── Reactive isDonor — donor-record subscription ────────────────
   useEffect(() => {
     return subscribeDonorRecord<T>(surface, schemaVersion, (rec) => {
       setIsDonor(rec ? rec.donorTabUid === tabUidRef.current : false);

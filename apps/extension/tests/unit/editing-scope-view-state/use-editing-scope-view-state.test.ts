@@ -29,7 +29,7 @@ vi.mock('@openheaders/core/storage', async () => {
   };
 });
 
-import { useEditingScopeViewState } from '@/shared/editing-scope-view-state/use-editing-scope-view-state';
+import { useEditingScopeViewState } from '@openheaders/ui/shared/editing-scope-view-state';
 
 interface ViewState {
   dockLayout: { foo: string };

@@ -21,7 +21,7 @@
  */
 
 import { useActiveWorkspaceId } from '@hooks/useActiveWorkspaceId';
-import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
+import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
 import type { WorkbenchViewState } from './useToolLayout';
 
 export function useEditingScopeWorkspaceId(perTab: EditingScopeViewStateApi<WorkbenchViewState>): string | null {

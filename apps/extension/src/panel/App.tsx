@@ -28,7 +28,7 @@ import {
   ShellLayout,
   useFocusRegion,
 } from '@openheaders/ui/shared/dock-layout';
-import type { EditingScopeViewStateApi } from '@/shared/editing-scope-view-state';
+import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
 import { VariablePopoverProvider } from '@/workbench/components/template-input/VariablePopoverHost';
 import { EnvSwitcherProvider, useEnvSwitcher } from '@/workbench/services/env-switcher';
 import { useSetting } from '@/workbench/settings/hooks';

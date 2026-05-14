@@ -31,7 +31,10 @@ import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const SRC_ROOT = path.resolve(__dirname, '../../../src');
-const PER_TAB_MODULE = path.resolve(SRC_ROOT, 'shared/editing-scope-view-state');
+// The per-tab-state module was lifted to `@openheaders/ui`; the BC-V1
+// source-shape checks read it from its package location. The adopter
+// checks below still read extension-surface files under SRC_ROOT.
+const PER_TAB_MODULE = path.resolve(__dirname, '../../../../../packages/ui/src/shared/editing-scope-view-state');
 
 function readFile(rel: string): string {
   return readFileSync(path.resolve(SRC_ROOT, rel), 'utf8');

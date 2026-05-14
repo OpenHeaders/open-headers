@@ -18,8 +18,8 @@
 
 import type { DockLayoutApi, ToolLayoutState } from '@openheaders/ui/shared/dock-layout';
 import { normalizeDockLayout, useDockLayout } from '@openheaders/ui/shared/dock-layout';
-import type { EditingScopeViewStateApi, WorkspaceSlice } from '@/shared/editing-scope-view-state';
-import { createWorkspaceAwareResolver, useEditingScopeViewState } from '@/shared/editing-scope-view-state';
+import type { EditingScopeViewStateApi, WorkspaceSlice } from '@openheaders/ui/shared/editing-scope-view-state';
+import { createWorkspaceAwareResolver, useEditingScopeViewState } from '@openheaders/ui/shared/editing-scope-view-state';
 import { hostStorage, type PersistedTabSession, wsKeys } from '@openheaders/core/storage';
 import type { SidebarView } from '../components/sidebar/types';
 import { get as getSetting } from '../settings/store';
