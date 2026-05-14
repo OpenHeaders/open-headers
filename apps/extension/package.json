@@ -8,10 +8,7 @@
     "**/*.less",
     "src/background/**",
     "src/offscreen/**",
-    "src/devtools/**",
-    "src/workbench/settings/schema/**",
-    "src/workbench/settings/categories.tsx",
-    "src/workbench/components/monaco/**"
+    "src/devtools/**"
   ],
   "scripts": {
     "build": "pnpm run build:chrome && pnpm run build:firefox && pnpm run build:edge && pnpm run build:safari",

@@ -8,7 +8,10 @@
   "types": "./src/index.ts",
   "sideEffects": [
     "**/*.css",
-    "**/*.less"
+    "**/*.less",
+    "**/workbench/settings/schema/**",
+    "**/workbench/settings/categories.tsx",
+    "**/workbench/components/monaco/**"
   ],
   "exports": {
     ".": {
