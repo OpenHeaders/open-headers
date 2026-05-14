@@ -1,28 +1,29 @@
 /**
- * SW-side awareness lifeline port handler.
+ * Host-side awareness lifeline port handler.
  *
- * Each renderer surface opens a long-lived `chrome.runtime.Port` named
- * `oh.awareness.lifeline:<instanceId>` for its lifetime. The port's
- * `onDisconnect` is the canonical liveness signal — it fires when the
- * surface unmounts, the tab closes, the document navigates away, or
- * the SW is evicted (which auto-reconnects on the renderer side).
+ * Each renderer surface opens a long-lived lifeline connection named
+ * `oh.awareness.lifeline:<instanceId>` for its lifetime. The
+ * connection's disconnect is the canonical liveness signal — it fires
+ * when the surface unmounts, the tab closes, the document navigates
+ * away, or the host reactor is evicted (which auto-reconnects on the
+ * renderer side).
  *
  * Connection-bound liveness replaces the previous heartbeat-with-TTL
  * scheme. Heartbeat-based liveness is fundamentally polling and
- * therefore fails under any timer throttling — Chrome aggressively
- * throttles `setInterval` in background tabs, which used to cause
- * presence rows to flap as surfaces missed heartbeats and got pruned
- * before being re-published. The TTL stays in `awareness.ts` as a
- * defensive backstop only (5 min, see `AWARENESS_TTL_MS`).
+ * therefore fails under any timer throttling — background-tab timer
+ * throttling used to cause presence rows to flap as surfaces missed
+ * heartbeats and got pruned before being re-published. The TTL stays in
+ * `awareness.ts` as a defensive backstop only (5 min, see
+ * `AWARENESS_TTL_MS`).
  *
- * Same shape as the popup/sidepanel `presence(name)` plumbing in
- * `utils/bridge/index.ts` and identical to how every awareness library
- * (Yjs, Liveblocks, Figma, Linear, …) tracks liveness — bound to
- * transport, not polled. The transport here is `chrome.runtime.Port`;
- * for the future Mode 2/3 standalone oracle (`.notes/oracle-arc.md`)
- * the same shape applies with WebSocket close events instead.
+ * The transport is host-agnostic: oracle reaches it through the
+ * `lifelineServer` seam from `@openheaders/core/awareness`. The browser
+ * extension wires a `chrome.runtime.onConnect` adapter; a future Mode
+ * 2/3 standalone oracle wires an incoming-WebSocket adapter with the
+ * same shape (close events instead of `Port.onDisconnect`).
  */
 
+import { lifelineServer } from '@openheaders/core/awareness';
 import { logger } from '@openheaders/core/utils';
 
 const LIFELINE_PREFIX = 'oh.awareness.lifeline:' as const;
@@ -39,12 +40,12 @@ function parseInstanceId(portName: string): string | null {
 
 /**
  * Bind message published by the renderer-side lifeline immediately
- * after `chrome.runtime.connect` resolves. The SW trusts the
- * `workspaceId` field per the lifeline trust contract (design
- * § 4.0.7): workbench's slice resolver corrects stale bindings BEFORE
- * the lifeline fires (lint #14 pins the mount-time ordering); system
- * surfaces send their runtime-Active workspaceId. SW-side validation
- * would duplicate work the renderer already performed.
+ * after the connection resolves. The host trusts the `workspaceId`
+ * field per the lifeline trust contract (design § 4.0.7): workbench's
+ * slice resolver corrects stale bindings BEFORE the lifeline fires (lint
+ * #14 pins the mount-time ordering); system surfaces send their
+ * runtime-Active workspaceId. Host-side validation would duplicate work
+ * the renderer already performed.
  */
 export interface LifelineBindMessage {
   /** Discriminator so future port-message types can land alongside. */
@@ -75,9 +76,9 @@ export interface LifelinePortHooks {
 
 /**
  * Register the lifeline port handler. Idempotent — safe to call
- * multiple times (no-ops on subsequent calls). Wire once at SW boot
- * from `background.ts`, passing the awareness-service mutator and the
- * workspace-service refcount hooks.
+ * multiple times (no-ops on subsequent calls). Wire once at host boot,
+ * passing the awareness-service mutator and the workspace-service
+ * refcount hooks.
  *
  * Lifelines do double duty per design § 4.0.7: liveness (presence
  * cleanup on disconnect) AND `WorkspaceServiceState` refcount handles
@@ -90,17 +91,13 @@ let setupDone = false;
 export function setupAwarenessLifelinePorts(hooks: LifelinePortHooks): void {
   if (setupDone) return;
   setupDone = true;
-  if (!chrome?.runtime?.onConnect?.addListener) {
-    logger.info('AwarenessLifeline', 'runtime.onConnect unavailable — lifeline disabled');
-    return;
-  }
-  chrome.runtime.onConnect.addListener((port) => {
+  lifelineServer.onConnect((port) => {
     const instanceId = parseInstanceId(port.name);
     if (!instanceId) return; // Not an awareness lifeline port — pass through.
 
     let boundWorkspaceId: string | null = null;
 
-    port.onMessage.addListener((raw) => {
+    port.onMessage((raw) => {
       if (!isBindMessage(raw)) return;
       // Rebind: release prior workspace BEFORE acquiring the new one
       // so the refcount on the old workspace can drop to 0 and start
@@ -126,10 +123,9 @@ export function setupAwarenessLifelinePorts(hooks: LifelinePortHooks): void {
       }
     });
 
-    port.onDisconnect.addListener(() => {
-      const lastError = chrome.runtime.lastError;
-      if (lastError) {
-        logger.info('AwarenessLifeline', `lifeline disconnect error: ${lastError.message}`);
+    port.onDisconnect((info) => {
+      if (info.errorMessage) {
+        logger.info('AwarenessLifeline', `lifeline disconnect error: ${info.errorMessage}`);
       }
       if (boundWorkspaceId !== null) {
         const id = boundWorkspaceId;

@@ -1,51 +1,44 @@
 /**
- * SW-side awareness lifeline — connection-bound liveness AND
+ * Host-side awareness lifeline — connection-bound liveness AND
  * `WorkspaceServiceState` refcount handles (design § 4.0.7).
  *
- * Verifies the `chrome.runtime.onConnect` handler:
+ * Verifies the lifeline handler wired through the `lifelineServer` seam:
  *   - parses the `instanceId` out of the port name
  *   - ignores ports whose name doesn't match the prefix
- *   - removes the awareness row on `port.onDisconnect`
- *   - is idempotent (multiple `setupAwarenessLifelinePorts` calls only register one listener)
+ *   - removes the awareness row on port disconnect
+ *   - is idempotent (multiple `setupAwarenessLifelinePorts` calls only register one handler)
  *   - acquires the workspace service on the first `bind` message
  *   - releases on disconnect or rebind (one port ↔ at most one workspace ref)
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { type IncomingLifelinePort, setLifelineServer } from '@openheaders/core/awareness';
 import {
   __resetAwarenessLifelineSetupForTests,
   buildLifelinePortName,
   setupAwarenessLifelinePorts,
 } from '@openheaders/oracle/sync/awareness-lifeline';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-type DisconnectListener = () => void;
-type MessageListener = (raw: unknown) => void;
-
-interface FakePort {
-  name: string;
-  onDisconnect: { addListener: (l: DisconnectListener) => void };
-  onMessage: { addListener: (l: MessageListener) => void };
-  triggerDisconnect: () => void;
+interface FakePort extends IncomingLifelinePort {
+  triggerDisconnect: (info?: { errorMessage?: string }) => void;
   triggerMessage: (m: unknown) => void;
 }
 
 function makePort(name: string): FakePort {
-  const disconnectListeners: DisconnectListener[] = [];
-  const messageListeners: MessageListener[] = [];
+  const disconnectListeners: Array<(info: { errorMessage?: string }) => void> = [];
+  const messageListeners: Array<(message: unknown) => void> = [];
   return {
     name,
-    onDisconnect: {
-      addListener: (l) => {
-        disconnectListeners.push(l);
-      },
+    onMessage(handler) {
+      // The transport delivers raw frames — the handler's `T` is its
+      // own typed assertion about the stream, mirroring the real seam.
+      messageListeners.push(handler as (message: unknown) => void);
     },
-    onMessage: {
-      addListener: (l) => {
-        messageListeners.push(l);
-      },
+    onDisconnect(handler) {
+      disconnectListeners.push(handler);
     },
-    triggerDisconnect: () => {
-      for (const l of disconnectListeners) l();
+    triggerDisconnect: (info = {}) => {
+      for (const l of disconnectListeners) l(info);
     },
     triggerMessage: (m) => {
       for (const l of messageListeners) l(m);
@@ -58,22 +51,17 @@ const noopHooks = {
   releaseWorkspace: () => {},
 };
 
-let connectListeners: Array<(port: FakePort) => void>;
+let connectListeners: Array<(port: IncomingLifelinePort) => void>;
 
 beforeEach(() => {
   __resetAwarenessLifelineSetupForTests();
   connectListeners = [];
-  const chromeStub = {
-    runtime: {
-      onConnect: {
-        addListener: (l: (port: FakePort) => void) => {
-          connectListeners.push(l);
-        },
-      },
-      lastError: undefined as { message: string } | undefined,
+  setLifelineServer({
+    onConnect: (handler) => {
+      connectListeners.push(handler);
+      return () => {};
     },
-  };
-  (globalThis as unknown as { chrome: typeof chromeStub }).chrome = chromeStub;
+  });
 });
 
 afterEach(() => {
@@ -116,7 +104,7 @@ describe('awareness lifeline handler', () => {
     expect(remove).not.toHaveBeenCalled();
   });
 
-  it('is idempotent — repeated setup calls register only one listener', () => {
+  it('is idempotent — repeated setup calls register only one handler', () => {
     const remove = vi.fn();
     setupAwarenessLifelinePorts({ removeByInstanceId: remove, ...noopHooks });
     setupAwarenessLifelinePorts({ removeByInstanceId: remove, ...noopHooks });
