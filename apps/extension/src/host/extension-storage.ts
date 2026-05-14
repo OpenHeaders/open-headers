@@ -2,11 +2,10 @@
  * ExtensionStorage — chrome.storage adapter implementing
  * {@link HostStorage} from `@openheaders/core/storage`. The
  * browser-extension host installs an instance of this class via
- * `setHostStorage(extensionStorage)` at boot so UI code reading
- * through the `hostStorage` proxy lands here. SW-internal modules
- * (oracle, background stores) keep importing `extensionStorage`
- * directly because they only ever run inside the chrome SW context;
- * the indirection matters at the UI seam, not inside the host.
+ * `setHostStorage(extensionStorage)` at boot (see `install-host-storage`)
+ * so every consumer — UI, oracle, background — that reads through the
+ * `hostStorage` proxy lands here. This is the extension's adapter; a
+ * desktop or web build ships its own implementation of the same contract.
  *
  * Callers pass a `StorageKey<T>` from the typed key registry; the
  * adapter:
@@ -20,10 +19,10 @@ import { type ParseEntityOptions, parseEntity, parseEntityArray } from '@openhea
 import type { HostStorage, StorageArea, StorageKey } from '@openheaders/core/storage';
 import type * as v from 'valibot';
 
-// Inlined cross-browser API resolver. Firefox exposes the WebExtension
-// surface as `browser`; everywhere else it's `chrome`. Mirrored from
-// `@/types/browser` so this package does not reach back into the host
-// app's path aliases.
+// Cross-browser API resolver. Firefox exposes the WebExtension surface
+// as `browser`; everywhere else it's `chrome`. Kept inline (rather than
+// `@/types/browser`'s helper) so this adapter stays a self-contained
+// host module with no app-internal coupling beyond `@openheaders/core`.
 declare const browser: typeof chrome | undefined;
 
 function getBrowserAPI(): typeof chrome {

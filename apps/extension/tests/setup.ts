@@ -32,5 +32,5 @@ setHostBridge(chromeBridge);
 // code reaching for `hostStorage` resolves exactly as production does.
 // Tests that need a controllable in-memory store override it per-file
 // with `setHostStorage(fake)` in `beforeEach`.
-const { extensionStorage } = await import('@openheaders/oracle/storage');
+const { extensionStorage } = await import('@/host/extension-storage');
 setHostStorage(extensionStorage);

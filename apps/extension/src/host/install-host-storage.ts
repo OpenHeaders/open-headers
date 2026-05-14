@@ -12,6 +12,6 @@
  */
 
 import { setHostStorage } from '@openheaders/core/storage';
-import { extensionStorage } from '@openheaders/oracle/storage';
+import { extensionStorage } from './extension-storage';
 
 setHostStorage(extensionStorage);

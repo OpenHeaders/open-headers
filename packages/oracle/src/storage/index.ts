@@ -1,9 +1,10 @@
 /**
- * Oracle's storage façade. Re-exports the host-storage contract +
- * typed-key registry from `@openheaders/core/storage` so oracle-internal
- * code keeps a single import path, and adds the chrome.storage-backed
- * `ExtensionStorage` adapter (the host implementation of
- * {@link HostStorage} the browser-extension app wires at boot).
+ * Oracle's storage façade. Re-exports the host-storage contract + typed-key
+ * registry from `@openheaders/core/storage` so oracle-internal code keeps a
+ * single import path. Oracle reads and writes exclusively through the
+ * host-installed `hostStorage` proxy — it owns no concrete adapter. Each host
+ * supplies its own (the browser extension's `ExtensionStorage` lives in
+ * `apps/extension/src/host/`; a desktop build would ship its own).
  */
 
 export {
@@ -26,4 +27,3 @@ export {
   type WorkspaceKeys,
   wsKeys,
 } from '@openheaders/core/storage';
-export { ExtensionStorage, extensionStorage } from './extension-storage';

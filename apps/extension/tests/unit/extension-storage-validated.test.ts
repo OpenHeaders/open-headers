@@ -30,8 +30,9 @@ beforeEach(() => {
   });
 });
 
+import { storageKey } from '@openheaders/core/storage';
 import type { Variable, Vault } from '@openheaders/core/types';
-import { extensionStorage, storageKey } from '@openheaders/oracle/storage';
+import { extensionStorage } from '@/host/extension-storage';
 
 describe('extensionStorage.getValidated', () => {
   it('returns null when the slot is empty', async () => {

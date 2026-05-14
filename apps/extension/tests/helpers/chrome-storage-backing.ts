@@ -40,7 +40,7 @@ const backing = new Map<string, unknown>();
  */
 export async function installHostStorage(): Promise<void> {
   const { setHostStorage } = await import('@openheaders/core/storage');
-  const { extensionStorage } = await import('@openheaders/oracle/storage');
+  const { extensionStorage } = await import('@/host/extension-storage');
   setHostStorage(extensionStorage);
 }
 
