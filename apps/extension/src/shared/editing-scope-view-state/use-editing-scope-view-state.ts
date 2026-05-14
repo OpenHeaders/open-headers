@@ -18,7 +18,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { clearDonorRecord, readDonorRecord, subscribeDonorRecord, writeDonorRecord } from '@openheaders/oracle/editing-scope';
+import { clearDonorRecord, readDonorRecord, subscribeDonorRecord, writeDonorRecord } from '@openheaders/core/editing-scope';
 import { isFocusedAndVisible, subscribeFocus } from './focus-tracker';
 import { clearPerTabState, mintTabUid, readPerTabState, writePerTabState } from './tab-uid';
 import type { DonorRecord, EditingScopeViewStateApi, UseEditingScopeViewStateOptions } from './types';

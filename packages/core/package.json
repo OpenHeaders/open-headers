@@ -86,6 +86,10 @@
     "./logger": {
       "import": "./src/logger/index.ts",
       "default": "./dist/logger/index.js"
+    },
+    "./editing-scope": {
+      "import": "./src/editing-scope/index.ts",
+      "default": "./dist/editing-scope/index.js"
     }
   },
   "scripts": {

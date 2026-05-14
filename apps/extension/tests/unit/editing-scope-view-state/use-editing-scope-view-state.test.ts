@@ -16,11 +16,11 @@ const { mockGet, mockSet, mockRemove } = vi.hoisted(() => ({
   mockRemove: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => undefined),
 }));
 
-vi.mock('@openheaders/oracle/storage', async () => {
-  const real = await vi.importActual<typeof import('@openheaders/oracle/storage')>('@openheaders/oracle/storage');
+vi.mock('@openheaders/core/storage', async () => {
+  const real = await vi.importActual<typeof import('@openheaders/core/storage')>('@openheaders/core/storage');
   return {
     ...real,
-    extensionStorage: {
+    hostStorage: {
       get: mockGet,
       set: mockSet,
       remove: mockRemove,

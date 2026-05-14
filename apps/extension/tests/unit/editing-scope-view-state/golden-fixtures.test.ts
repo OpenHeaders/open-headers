@@ -20,11 +20,11 @@ const { mockGet } = vi.hoisted(() => ({
   mockGet: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => undefined),
 }));
 
-vi.mock('@openheaders/oracle/storage', async () => {
-  const real = await vi.importActual<typeof import('@openheaders/oracle/storage')>('@openheaders/oracle/storage');
+vi.mock('@openheaders/core/storage', async () => {
+  const real = await vi.importActual<typeof import('@openheaders/core/storage')>('@openheaders/core/storage');
   return {
     ...real,
-    extensionStorage: {
+    hostStorage: {
       get: mockGet,
       set: vi.fn(async () => undefined),
       remove: vi.fn(async () => undefined),
@@ -33,7 +33,7 @@ vi.mock('@openheaders/oracle/storage', async () => {
   };
 });
 
-import { readDonorRecord } from '@openheaders/oracle/editing-scope';
+import { readDonorRecord } from '@openheaders/core/editing-scope';
 import type { SurfaceType } from '@/shared/editing-scope-view-state/types';
 
 const FIXTURE_ROOT = path.resolve(__dirname, '../../__fixtures__/editing-scope-view-state');

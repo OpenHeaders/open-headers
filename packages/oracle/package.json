@@ -43,10 +43,6 @@
       "import": "./src/view-mode/index.ts",
       "default": "./dist/view-mode/index.js"
     },
-    "./editing-scope": {
-      "import": "./src/editing-scope/index.ts",
-      "default": "./dist/editing-scope/index.js"
-    },
     "./entity/*": {
       "import": "./src/entity/*.ts",
       "default": "./dist/entity/*.js"

@@ -1,17 +1,20 @@
 /**
- * Donor record — `chrome.storage.local` read / write / subscribe.
+ * Donor record — host-storage read / write / subscribe.
  *
- * One record per surface. The record persists across browser restart
- * (Chrome DevTools semantics — see design § 6, § 17 R1). The footer
- * pill's "Reset to defaults" action is the user-facing escape hatch.
+ * Persisted through the {@link HostStorage} contract, so the store is
+ * host-agnostic: the browser extension backs it with `chrome.storage.
+ * local`, a desktop host with its own persistent store. One record per
+ * surface, persisting across host restart (Chrome DevTools semantics —
+ * see design § 6, § 17 R1). The footer pill's "Reset to defaults"
+ * action is the user-facing escape hatch.
  *
  * Schema-version mismatch is treated as a missing record so the loader
  * falls through to factoryDefault (BC-V2). The golden-fixture test
  * walks every committed `v<N>.json` to lock this in (design § 8.3).
  */
 
-import type { DonorRecord, SurfaceType } from '@openheaders/core/types';
-import { extensionStorage, type StorageKey, storageKey } from '../storage';
+import type { DonorRecord, SurfaceType } from '../types';
+import { hostStorage, type StorageKey, storageKey } from '../storage';
 
 function donorKey(surface: SurfaceType): StorageKey<DonorRecord<unknown>> {
   return storageKey<DonorRecord<unknown>>(`oh.donorRecord.${surface}`);
@@ -26,7 +29,7 @@ export async function readDonorRecord<T>(
   expectedSchemaVersion: number,
 ): Promise<DonorRecord<T> | null> {
   try {
-    const raw = await extensionStorage.get(donorKey(surface));
+    const raw = await hostStorage.get(donorKey(surface));
     if (!isValidRecord(raw, expectedSchemaVersion)) return null;
     return raw as DonorRecord<T>;
   } catch {
@@ -36,7 +39,7 @@ export async function readDonorRecord<T>(
 
 export async function writeDonorRecord<T>(surface: SurfaceType, record: DonorRecord<T>): Promise<void> {
   try {
-    await extensionStorage.set(donorKey(surface), record as DonorRecord<unknown>);
+    await hostStorage.set(donorKey(surface), record as DonorRecord<unknown>);
   } catch {
     // Storage quota / disabled — the tab still owns its sessionStorage
     // snapshot; we just lose donor publish for this edit.
@@ -45,7 +48,7 @@ export async function writeDonorRecord<T>(surface: SurfaceType, record: DonorRec
 
 export async function clearDonorRecord(surface: SurfaceType): Promise<void> {
   try {
-    await extensionStorage.remove(donorKey(surface));
+    await hostStorage.remove(donorKey(surface));
   } catch {
     // ignore — the next reload reads it as empty either way.
   }
@@ -60,7 +63,7 @@ export function subscribeDonorRecord<T>(
   expectedSchemaVersion: number,
   fn: (record: DonorRecord<T> | null) => void,
 ): () => void {
-  return extensionStorage.subscribe(donorKey(surface), (next) => {
+  return hostStorage.subscribe(donorKey(surface), (next) => {
     if (next === undefined) {
       fn(null);
       return;
