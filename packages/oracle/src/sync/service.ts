@@ -110,14 +110,13 @@ import {
   WORKSPACE_VARIABLES_REGISTRATION,
 } from './entity-registry';
 import { getGlobalOracle } from './global-service';
-import { IdbMutationLog } from './idb-mutation-log';
-import { IdbPendingIntents } from './idb-pending-intents';
 import { ruleOracleLockAcquirer } from './lock-adapter';
 import { InMemoryMutationLog, type MutationLog } from './mutation-log';
 import { EntityOracle, type LockAcquirer } from './oracle';
 import { InMemoryPendingIntents, type PendingIntents } from './pending-intents';
 import { createResolverInvalidateRunner } from './resolver-invalidate-runner';
 import { createSwContextHandle, type SwContextHandle } from './sw-context';
+import { getSyncPersistenceProvider } from './sync-persistence-provider';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -840,10 +839,11 @@ export function __setGracePeriodMsForTests(ms: number): void {
 // ── Internals ───────────────────────────────────────────────────────
 
 function productionDepsFactory(workspaceId: string): WireDeps {
+  const persistence = getSyncPersistenceProvider();
   return {
     workspaceId,
-    log: new IdbMutationLog(workspaceId),
-    intents: new IdbPendingIntents(workspaceId),
+    log: persistence.createMutationLog(workspaceId),
+    intents: persistence.createPendingIntents(workspaceId),
     lock: ruleOracleLockAcquirer,
     recompile: (reason) => getOracleHostHooks().scheduleRuleEngineUpdate?.(reason),
     sink: (event) => getOracleHostHooks().broadcastSyncEvent?.(event),

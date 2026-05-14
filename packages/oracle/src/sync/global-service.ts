@@ -43,13 +43,12 @@ import {
   singletonSnapshot,
 } from './entity-registry';
 import { type ExtensionWorkspaceCache, setActiveExtensionWorkspaceCache } from './extension-workspace-cache';
-import { IdbMutationLog } from './idb-mutation-log';
-import { IdbPendingIntents } from './idb-pending-intents';
 import { ruleOracleLockAcquirer } from './lock-adapter';
 import { InMemoryMutationLog, type MutationLog } from './mutation-log';
 import { EntityOracle, type LockAcquirer } from './oracle';
 import { InMemoryPendingIntents, type PendingIntents } from './pending-intents';
 import { createSwContextHandle, type SwContextHandle } from './sw-context';
+import { getSyncPersistenceProvider } from './sync-persistence-provider';
 import { createWorkspaceCoordRunner, type WorkspaceCoordRunner } from './workspace-coord-runner';
 
 interface GlobalServiceState {
@@ -73,9 +72,10 @@ let state: GlobalServiceState | null = null;
  */
 export function initGlobalSyncService(): void {
   if (state) return;
+  const persistence = getSyncPersistenceProvider();
   state = wire({
-    log: new IdbMutationLog(EXTENSION_WORKSPACE_GLOBAL_SCOPE),
-    intents: new IdbPendingIntents(EXTENSION_WORKSPACE_GLOBAL_SCOPE),
+    log: persistence.createMutationLog(EXTENSION_WORKSPACE_GLOBAL_SCOPE),
+    intents: persistence.createPendingIntents(EXTENSION_WORKSPACE_GLOBAL_SCOPE),
     lock: ruleOracleLockAcquirer,
     sink: (event) => getOracleHostHooks().broadcastSyncEvent?.(event),
   });
