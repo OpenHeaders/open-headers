@@ -14,10 +14,10 @@
  *     there; `currentWindowId` maps to the focused BrowserWindow id.
  *   - **Web app** — no surface duality; both methods no-op.
  *
- * Both methods degrade gracefully: an unwired host (or one without the
- * concept) loses the surface-switch affordance and the same-window
- * workspace-tab optimization, but nothing throws — mirrors the
- * lifeline-transport / peer-navigation seams.
+ * Every method degrades gracefully: an unwired host (or one without the
+ * concept) loses the surface-switch affordance, the same-window
+ * workspace-tab optimization, and the active-page scope, but nothing
+ * throws — mirrors the lifeline-transport / peer-navigation seams.
  */
 
 import type { ViewMode } from '../types';
@@ -39,6 +39,15 @@ export interface HostNavigation {
    * candidate tab.
    */
   currentWindowId(): Promise<number | undefined>;
+  /**
+   * URL of the user's currently-active browsing tab, when resolvable and
+   * meaningful — the host filters out its own UI surfaces and
+   * browser-internal pages, returning `undefined` for those. Lets a
+   * surface scope a view to "this page" without reaching for tab APIs.
+   * `undefined` is a safe answer — callers fall back to a host-neutral
+   * scope.
+   */
+  activeTabUrl(): Promise<string | undefined>;
 }
 
 /**
@@ -51,6 +60,9 @@ const NULL_HOST_NAVIGATION: HostNavigation = {
     return Promise.resolve({ opened: false });
   },
   currentWindowId() {
+    return Promise.resolve(undefined);
+  },
+  activeTabUrl() {
     return Promise.resolve(undefined);
   },
 };

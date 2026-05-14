@@ -41,7 +41,7 @@ import {
   WORKSPACE_VARIABLES_ENTITY_TYPE,
   WORKSPACE_VARIABLES_ID,
 } from '@openheaders/core/sync';
-import type { ExtensionRuleType } from '@openheaders/core/types';
+import type { ExportSelection, ExtensionRuleType } from '@openheaders/core/types';
 import { isRequestResolvable, isRuleResolvable, slugify } from '@openheaders/core/utils';
 import { hostBridge } from '@openheaders/core/bridge';
 import { focusFirstDropdownItem } from '@openheaders/ui/shared/focus-dropdown-item';
@@ -234,7 +234,7 @@ function buildEntityExportScope(entity: SidebarExportEntity): ExportModalScope {
  * shape (design §1.2 — one format, three callers).
  */
 function buildSelectionExportScope(entities: SidebarExportEntity[]): ExportModalScope {
-  const sel: import('@/background/modules/workspace-export-gatherer').ExportSelection = {};
+  const sel: ExportSelection = {};
   const pushUid = (key: keyof typeof sel, uid: string) => {
     const arr = (sel[key] as string[] | undefined) ?? [];
     if (!arr.includes(uid)) arr.push(uid);

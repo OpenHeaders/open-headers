@@ -129,9 +129,31 @@ async function currentWindowId(): Promise<number | undefined> {
   }
 }
 
+/**
+ * Resolve the user's active browsing tab URL via `chrome.tabs.query`.
+ * Filters out the extension's own UI surfaces and browser-internal pages
+ * (`chrome-extension://`, `chrome://`) — when the active tab is one of
+ * those, "this page" has no meaningful target, so the answer is
+ * `undefined`. Also `undefined` where the API is unavailable or rejects.
+ */
+async function activeTabUrl(): Promise<string | undefined> {
+  if (typeof chrome === 'undefined' || !chrome.tabs?.query) return undefined;
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const url = tab?.url ?? '';
+    if (!url || url.startsWith('chrome-extension://') || url.startsWith('chrome://')) {
+      return undefined;
+    }
+    return url;
+  } catch {
+    return undefined;
+  }
+}
+
 const chromeHostNavigation: HostNavigation = {
   switchViewMode,
   currentWindowId,
+  activeTabUrl,
 };
 
 setHostNavigation(chromeHostNavigation);

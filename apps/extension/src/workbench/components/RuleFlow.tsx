@@ -11,6 +11,7 @@ import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import type { FolderNode, Rule, TreeNode } from '@openheaders/core/types';
 import { isRuleComplete } from '@openheaders/core/utils';
 import { hostBridge } from '@openheaders/core/bridge';
+import { hostNavigation } from '@openheaders/core/navigation';
 import { Checkbox, Empty, Segmented, Space, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -50,17 +51,19 @@ const RuleFlow: React.FC<RuleFlowProps> = ({
     setHideEmptyTiers(compact);
   }, [compact]);
 
-  // Resolve the tab URL — either provided via prop or fetched from the active tab.
+  // Resolve the tab URL — either provided via prop or fetched from the
+  // host's active browsing tab. The host filters out its own UI surfaces
+  // and browser-internal pages, so an empty answer just means "no real
+  // page in focus" and "This Page" scope stays hidden.
   useEffect(() => {
     if (initialTabUrl) return;
-    if (typeof chrome !== 'undefined' && chrome.tabs?.query) {
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        const url = tabs[0]?.url ?? '';
-        if (url && !url.startsWith('chrome-extension://') && !url.startsWith('chrome://')) {
-          setTabUrl(url);
-        }
-      });
-    }
+    let cancelled = false;
+    void hostNavigation.activeTabUrl().then((url) => {
+      if (!cancelled && url) setTabUrl(url);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [initialTabUrl]);
 
   // Ask the background for which rules match the tab URL.
