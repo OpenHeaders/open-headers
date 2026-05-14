@@ -1,5 +1,6 @@
 import { LayoutOutlined, ReloadOutlined, SettingOutlined, ShareAltOutlined } from '@ant-design/icons';
 import { hostAssets } from '@openheaders/core/assets';
+import { hostNavigation } from '@openheaders/core/navigation';
 import type { Environment } from '@openheaders/core/types';
 import type { DockLayoutApi } from '@openheaders/ui/shared/dock-layout';
 import {
@@ -17,7 +18,6 @@ import { useSetting, useSettingValue } from '@openheaders/ui/workbench/settings/
 import { Dropdown, type MenuProps, Popover, Space, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
-import { getBrowserAPI } from '@/types/browser';
 import type { FilterConfig } from '../data/filter-engine';
 import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from '../data/tool-windows';
 import type { PanelViewState } from '../data/use-panel-tool-layout';
@@ -651,7 +651,7 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
               className="dt-toolbar-icon"
               aria-label="Open settings"
               onClick={() => {
-                void chrome.tabs.create({ url: getBrowserAPI().runtime.getURL('workbench.html#/settings') });
+                hostNavigation.openUrl(hostAssets.resolveUrl('workbench.html#/settings'));
               }}
             >
               <SettingOutlined style={{ fontSize: 14 }} />
