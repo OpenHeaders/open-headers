@@ -10,6 +10,8 @@ import {
   InfoCircleOutlined,
   SortAscendingOutlined,
 } from '@ant-design/icons';
+import { hostBridge } from '@openheaders/core/bridge';
+import type { SilentMatchRecord } from '@openheaders/core/types';
 import { resolvePauseState } from '@openheaders/core/utils';
 import { scheduleFrame } from '@openheaders/ui/shared/frame-scheduler';
 import { useRowActionRegistration } from '@openheaders/ui/shared/hooks/useRowActionRegistration';
@@ -28,7 +30,6 @@ import {
 import { openWorkspace, type WorkspaceIntent } from '@openheaders/ui/shared/workspace-intent';
 import { useSetting, useSettingValue } from '@openheaders/ui/workbench/settings/hooks';
 import type { TrackedResourceType } from '@openheaders/ui/workbench/settings/schema/rules-engine';
-import { call, subscribe } from '@utils/bridge';
 import {
   App,
   Badge,
@@ -50,7 +51,6 @@ import type { ColumnsType } from 'antd/es/table';
 import type { FilterValue, SorterResult } from 'antd/es/table/interface';
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { SilentMatchRecord } from '@/types/browser';
 import { useKeyboardNav } from '../shortcuts/KeyboardNavContext';
 import {
   renderActionDetails,
@@ -406,9 +406,11 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
               /* internal scheme or unparseable — render with empty domain */
             }
           }
-          const response = await call('getActiveRulesForTab', { tabId: tab.id, tabUrl: tab.url }).catch(() => ({
-            activeRules: [] as ActiveRule[],
-          }));
+          const response = await hostBridge
+            .call('getActiveRulesForTab', { tabId: tab.id, tabUrl: tab.url })
+            .catch(() => ({
+              activeRules: [] as ActiveRule[],
+            }));
           setCurrentTab({ id: tab.id!, url: tab.url ?? '', domain, title: tab.title || '' });
           setActiveRules(response.activeRules || []);
         }
@@ -435,7 +437,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
 
     // Listen for tracked URL changes pushed from the background
     // when the request monitor intercepts new requests.
-    const unsubscribeTracked = subscribe('trackedUrlsUpdated', () => {
+    const unsubscribeTracked = hostBridge.subscribe('trackedUrlsUpdated', () => {
       void fetchActiveRules();
     });
 
@@ -462,7 +464,8 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
     let cancelled = false;
     const poll = () => {
       if (cancelled) return;
-      call('getTabTelemetry', { tabId })
+      hostBridge
+        .call('getTabTelemetry', { tabId })
         .then((snap) => {
           if (cancelled) return;
           setSnapshot({
@@ -656,7 +659,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
       void ruleMutator.toggleRule(record.id, !isEnabled).then((resp) => {
         if (resp.ok) {
           // Nudge the SW to revalidate tracked requests + rebuild DNR
-          void call('rulesUpdated').catch(() => undefined);
+          void hostBridge.call('rulesUpdated').catch(() => undefined);
         } else {
           setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled } : r)));
         }
@@ -970,7 +973,7 @@ const ThisPageRules: React.FC<ThisPageRulesProps> = ({
               setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled: !isEnabled } : r)));
               void ruleMutator.toggleRule(record.id, !isEnabled).then((resp) => {
                 if (resp.ok) {
-                  void call('rulesUpdated').catch(() => undefined);
+                  void hostBridge.call('rulesUpdated').catch(() => undefined);
                 } else {
                   setActiveRules((prev) => prev.map((r) => (r.id === record.id ? { ...r, isEnabled } : r)));
                   void message.error('Failed to toggle rule');

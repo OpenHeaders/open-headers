@@ -1,3 +1,4 @@
+import { hostBridge } from '@openheaders/core/bridge';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import { hostStorage, UI } from '@openheaders/core/storage';
 import ErrorBoundary from '@openheaders/ui/components/ErrorBoundary';
@@ -19,7 +20,6 @@ import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWork
 import { useSurface } from '@openheaders/ui/shared/surface';
 import { VariablePopoverProvider } from '@openheaders/ui/workbench/components/template-input/VariablePopoverHost';
 import { EnvSwitcherProvider } from '@openheaders/ui/workbench/services/env-switcher';
-import { call, presence } from '@utils/bridge';
 import { Layout } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -110,14 +110,14 @@ const AppContent: React.FC<AppContentProps> = ({ resolveIdentity }) => {
   useEffect(() => {
     // Presence port: the background's tab-listeners watches for either
     // 'popup' or 'sidepanel' port to disconnect so it can refresh the
-    // badge when the surface closes. Bridge.presence owns the full
+    // badge when the surface closes. `hostBridge.presence` owns the full
     // lifecycle.
-    const disposePresence = presence(surface.presenceName);
+    const disposePresence = hostBridge.presence(surface.presenceName);
 
     // Announce popupOpen so the SW reports connection status + rule set
     // in one round-trip. Fire-and-forget: the periodic poll in
     // RuleContext will refresh if this first call loses the race.
-    call('popupOpen').catch((error: Error) => {
+    hostBridge.call('popupOpen').catch((error: Error) => {
       logger.info(surface.mode, 'popupOpen RPC failed:', error.message);
     });
 

@@ -1,10 +1,10 @@
 import { BugOutlined, GlobalOutlined, StarOutlined } from '@ant-design/icons';
+import { BridgeError, hostBridge } from '@openheaders/core/bridge';
 import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import type { StatusPillProps } from '@openheaders/ui/shared/status';
 import { productStatusExtras, StatusPill } from '@openheaders/ui/shared/status';
 import { useSurface } from '@openheaders/ui/shared/surface';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
-import { BridgeError, call } from '@utils/bridge';
 import { Button, Space, Tooltip, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
@@ -23,7 +23,7 @@ const Footer: React.FC = () => {
 
   const handleOpenWebsite = async () => {
     try {
-      const response = await call('openTab', { url: 'https://openheaders.io' });
+      const response = await hostBridge.call('openTab', { url: 'https://openheaders.io' });
       if (response.success) window.close();
     } catch (error) {
       if (!(error instanceof BridgeError)) throw error;

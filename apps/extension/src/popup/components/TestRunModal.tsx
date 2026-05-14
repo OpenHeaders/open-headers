@@ -8,9 +8,9 @@
  */
 
 import { PlayCircleOutlined } from '@ant-design/icons';
+import { hostBridge } from '@openheaders/core/bridge';
 import type { Rule } from '@openheaders/core/types';
 import { parseTestTargetUrl } from '@openheaders/core/utils';
-import { call } from '@utils/bridge';
 import { App, AutoComplete, Button, Input, Modal, Space, Typography } from 'antd';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
@@ -122,17 +122,19 @@ const TestRunModal: React.FC<TestRunModalProps> = ({
     // popup before the capture window ends, but the background still runs
     // the test and persists the result. The in-page widget on the test
     // tab is the primary feedback surface.
-    void call('startTestRun', {
-      ownerType,
-      ownerId,
-      scopeLabel,
-      ruleUids,
-      // Send the scheme-qualified URL so the background's `tabs.update`
-      // gets a value Chrome will navigate to verbatim. Bare hosts like
-      // `127.0.0.1:3000` would otherwise be interpreted as a file path.
-      url: targetUrl,
-      waitSeconds: waitNumber,
-    }).catch(() => undefined);
+    void hostBridge
+      .call('startTestRun', {
+        ownerType,
+        ownerId,
+        scopeLabel,
+        ruleUids,
+        // Send the scheme-qualified URL so the background's `tabs.update`
+        // gets a value Chrome will navigate to verbatim. Bare hosts like
+        // `127.0.0.1:3000` would otherwise be interpreted as a file path.
+        url: targetUrl,
+        waitSeconds: waitNumber,
+      })
+      .catch(() => undefined);
 
     message.success({
       content: 'Test running — see the floating panel on the new tab',
