@@ -12,8 +12,8 @@
  * so rule edits propagate here without a page reload.
  */
 
+import { hostBridge } from '@openheaders/core/bridge';
 import type { Rule } from '@openheaders/core/types';
-import { call, subscribe } from '@utils/bridge';
 import { useEffect, useState } from 'react';
 
 export type RulesByUid = ReadonlyMap<string, Rule>;
@@ -34,7 +34,8 @@ export function useRulesLookup(): RulesByUid {
 
     // Initial fetch. `popupOpen` also returns `connected`, pause
     // markers, etc. — we only want the rules.
-    call('popupOpen')
+    hostBridge
+      .call('popupOpen')
       .then((resp) => {
         if (cancelled) return;
         setByUid(indexRules(resp.rules ?? []));
@@ -44,7 +45,7 @@ export function useRulesLookup(): RulesByUid {
         // `rulesUpdated` broadcast.
       });
 
-    const unsub = subscribe('rulesUpdated', (payload) => {
+    const unsub = hostBridge.subscribe('rulesUpdated', (payload) => {
       if (cancelled) return;
       if (Array.isArray(payload.rules)) setByUid(indexRules(payload.rules));
     });

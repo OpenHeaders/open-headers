@@ -12,8 +12,8 @@
  *     DNR rule to match.
  */
 
+import { hostBridge } from '@openheaders/core/bridge';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
-import { call } from '@utils/bridge';
 import { useCallback, useEffect } from 'react';
 
 /**
@@ -40,9 +40,9 @@ export function useCacheBypass(): UseCacheBypassResult {
   useEffect(() => {
     const tabId = getInspectedTabId();
     if (tabId == null) return;
-    void call('setCacheBypass', { tabId, enabled }).catch(() => {});
+    void hostBridge.call('setCacheBypass', { tabId, enabled }).catch(() => {});
     return () => {
-      void call('setCacheBypass', { tabId, enabled: false }).catch(() => {});
+      void hostBridge.call('setCacheBypass', { tabId, enabled: false }).catch(() => {});
     };
   }, [enabled]);
 

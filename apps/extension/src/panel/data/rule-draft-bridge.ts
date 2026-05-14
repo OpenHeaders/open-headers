@@ -8,8 +8,8 @@
  * with a tooltip explaining the upcoming release.
  */
 
+import { hostBridge } from '@openheaders/core/bridge';
 import type { HeaderRuleDraft, RuleDraft } from '@openheaders/core/types';
-import { call } from '@utils/bridge';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import type { InspectorRequest } from './types';
 
@@ -46,7 +46,7 @@ export function buildHeaderDraftFromRequest(
  * router does the same via the URL-encoded intent.
  */
 export async function handOffRuleDraft(draft: RuleDraft): Promise<void> {
-  const res = await call('createRuleDraft', { draft });
+  const res = await hostBridge.call('createRuleDraft', { draft });
   if (!res.success || !res.nonce) {
     // Validation failure — surface to the user. In the panel this
     // translates to an AntD message; the caller wires the UX.
