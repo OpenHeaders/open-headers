@@ -19,9 +19,9 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DockSlotIcon, LayoutMenuIcon } from '@openheaders/ui/shared/dock-layout';
 import { hostStorage, UI } from '@openheaders/core/storage';
-import { getBrowserAPI } from '@/types/browser';
+import { hostAssets } from '@openheaders/core/assets';
 
-const logoUrl = getBrowserAPI().runtime.getURL('images/logo-pixel.svg');
+const logoUrl = hostAssets.resolveUrl('images/logo-pixel.svg');
 
 const { Text } = Typography;
 

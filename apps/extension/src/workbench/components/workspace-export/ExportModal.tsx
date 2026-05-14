@@ -46,7 +46,7 @@ import {
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import type { ExportSelection } from '@openheaders/core/types';
-import { getBrowserAPI } from '@/types/browser';
+import { hostAssets } from '@openheaders/core/assets';
 import { call } from '@/utils/bridge';
 
 /**
@@ -63,7 +63,7 @@ import { call } from '@/utils/bridge';
  * file…" instead — the link scheme cannot bridge browsers.
  */
 function buildImportBaseUrl(): string {
-  return getBrowserAPI().runtime.getURL('workbench.html');
+  return hostAssets.resolveUrl('workbench.html');
 }
 
 const { Text, Paragraph } = Typography;

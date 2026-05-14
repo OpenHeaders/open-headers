@@ -15,7 +15,7 @@ import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { LayoutMenuIcon, RegionToggle, SidebarLayoutIcon } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
 import { instanceLabel, instanceLabelPlural } from '@openheaders/ui/shared/host-vocabulary';
-import { getBrowserAPI } from '@/types/browser';
+import { hostAssets } from '@openheaders/core/assets';
 import type { ToolLayoutApi, WorkbenchViewState } from '../hooks/useToolLayout';
 import { useShortcutLabel } from '../hooks/useWorkspaceShortcuts';
 import { useEnvSwitcher } from '../services/env-switcher';
@@ -263,7 +263,7 @@ const TopBar: React.FC<TopBarProps> = ({
         style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       >
         <img
-          src={getBrowserAPI().runtime.getURL('images/logo-pixel.svg')}
+          src={hostAssets.resolveUrl('images/logo-pixel.svg')}
           alt="Open Headers"
           className="rules-topbar-logo"
         />

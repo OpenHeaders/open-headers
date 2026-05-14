@@ -7,7 +7,7 @@ import { ShortcutHintTitle } from '@openheaders/ui/components/ShortcutKbd';
 import { useSurface } from '@openheaders/ui/shared/surface';
 import { hostNavigation } from '@openheaders/core/navigation';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
-import { getBrowserAPI } from '@/types/browser';
+import { hostAssets } from '@openheaders/core/assets';
 import { useSetting } from '@/workbench/settings/hooks';
 import { usePopupShortcutLabel } from '../shortcuts/popup-shortcuts';
 import { SurfaceTargetIcon } from './SurfaceTargetIcon';
@@ -84,7 +84,7 @@ const Header: React.FC = () => {
         {!isSidepanel && (
           <>
             <img
-              src={getBrowserAPI().runtime.getURL('images/logo-pixel.svg')}
+              src={hostAssets.resolveUrl('images/logo-pixel.svg')}
               alt="Open Headers"
               style={{ width: 26, height: 26 }}
             />

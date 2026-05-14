@@ -106,6 +106,10 @@
     "./navigation": {
       "import": "./src/navigation/index.ts",
       "default": "./dist/navigation/index.js"
+    },
+    "./assets": {
+      "import": "./src/assets/index.ts",
+      "default": "./dist/assets/index.js"
     }
   },
   "scripts": {

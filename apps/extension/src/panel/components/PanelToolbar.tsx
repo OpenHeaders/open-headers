@@ -7,6 +7,7 @@ import type { DockLayoutApi } from '@openheaders/ui/shared/dock-layout';
 import { DOCK_LABELS, DockSlotIcon, LayoutMenuIcon, RegionToggle, SidebarLayoutIcon } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
 import { instanceLabel, instanceLabelPlural } from '@openheaders/ui/shared/host-vocabulary';
+import { hostAssets } from '@openheaders/core/assets';
 import { getBrowserAPI } from '@/types/browser';
 import type { PanelViewState } from '../data/use-panel-tool-layout';
 import { useSetting, useSettingValue } from '@/workbench/settings/hooks';
@@ -446,7 +447,7 @@ export const PanelToolbar: React.FC<PanelToolbarProps> = ({
     <div className="dt-header">
       <div className={`dt-brand${showToolWindowLabels ? '' : ' dt-brand--compact'}`}>
         <img
-          src={getBrowserAPI().runtime.getURL('images/logo-pixel.svg')}
+          src={hostAssets.resolveUrl('images/logo-pixel.svg')}
           alt="Open Headers"
           className="dt-brand-logo"
         />
