@@ -55,6 +55,13 @@ export interface HostNavigation {
    * concept (or that route links differently) no-op.
    */
   openUrl(url: string): void;
+  /**
+   * Open the host's keyboard-shortcut customization affordance — the
+   * browser's extension-shortcuts page on an extension host, a settings
+   * pane elsewhere. Fire-and-forget. Hosts without a rebindable-shortcut
+   * concept no-op.
+   */
+  openShortcutSettings(): void;
 }
 
 /**
@@ -73,6 +80,7 @@ const NULL_HOST_NAVIGATION: HostNavigation = {
     return Promise.resolve(undefined);
   },
   openUrl() {},
+  openShortcutSettings() {},
 };
 
 let installed: HostNavigation = NULL_HOST_NAVIGATION;

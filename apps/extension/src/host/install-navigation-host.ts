@@ -23,6 +23,7 @@ import { setViewMode as persistViewMode } from '@openheaders/oracle/view-mode';
 import { call } from '@utils/bridge';
 import { logger } from '@utils/logger';
 import { getBrowserAPI } from '@/types/browser';
+import { isFirefox } from '@/utils/browser-runtime';
 
 interface SidePanelOpenOptions {
   windowId?: number;
@@ -159,11 +160,21 @@ function openUrl(url: string): void {
   void chrome.tabs?.create?.({ url });
 }
 
+/**
+ * Open the browser's extension-shortcut customization page. Chrome and
+ * Edge expose `chrome://extensions/shortcuts`; Firefox routes shortcut
+ * rebinding through `about:addons`. Fire-and-forget.
+ */
+function openShortcutSettings(): void {
+  void chrome.tabs?.create?.({ url: isFirefox ? 'about:addons' : 'chrome://extensions/shortcuts' });
+}
+
 const chromeHostNavigation: HostNavigation = {
   switchViewMode,
   currentWindowId,
   activeTabUrl,
   openUrl,
+  openShortcutSettings,
 };
 
 setHostNavigation(chromeHostNavigation);

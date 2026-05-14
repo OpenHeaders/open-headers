@@ -1,4 +1,4 @@
-import { isFirefox } from '@utils/browser-api';
+import { hostNavigation } from '@openheaders/core/navigation';
 import { Typography } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef } from 'react';
@@ -57,11 +57,7 @@ const BROWSER_SHORTCUT: ShortcutEntry = {
 const BROWSER_HINT = {
   label: 'Customize browser shortcut \u2197',
   onClick: (): void => {
-    if (isFirefox) {
-      void chrome.tabs.create({ url: 'about:addons' });
-    } else {
-      void chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
-    }
+    hostNavigation.openShortcutSettings();
   },
 };
 
