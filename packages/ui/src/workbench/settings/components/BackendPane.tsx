@@ -28,7 +28,7 @@ import { useOptionalInspectorNav } from '../../hooks/useInspectorNav';
 import { useSetting } from '../hooks';
 import type { BackendMode } from '../schema/backend';
 import { backendModeIsPending } from '../schema/backend';
-import type { CategoryPaneProps, SettingDef } from '../types';
+import type { CategoryDef, CategoryPaneProps, SettingDef, SubcategoryDef } from '../types';
 import SettingRow from '../fields/SettingRow';
 import { BackendDetailDiagram } from './backend-details';
 import { type BackendIconKey, BackendIcon } from './backend-icons';
@@ -150,7 +150,13 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
         <BackendDetailDiagram mode={previewScenario.mode} />
       </DetailFrame>
 
-      <ConfigPanel pending={pending} mode={activeScenario.mode} defs={fieldDefs} />
+      <ConfigPanel
+        pending={pending}
+        mode={activeScenario.mode}
+        host={host}
+        defs={fieldDefs}
+        category={category}
+      />
     </div>
   );
 };
@@ -524,23 +530,59 @@ const DocsLink: React.FC = () => {
 
 // ── Config panel ───────────────────────────────────────────────────
 
-const ConfigPanel: React.FC<{ pending: boolean; mode: BackendMode; defs: readonly SettingDef[] }> = ({
-  pending,
-  mode,
-  defs,
-}) => {
+/**
+ * Subsection headings are derived from the category's `subcategories`
+ * registration so the schema is the single source of truth for both
+ * ordering and labels. Falls back to the bare subcategory id if a
+ * setting references an unregistered subcategory.
+ */
+const SUBSECTION_BLURB: Record<string, string> = {
+  connection: 'How this client reaches the back-end.',
+  reliability: 'Auto-connect and reconnection behavior over an unstable wire.',
+  notifications: 'Visual cues when the link is down.',
+};
+
+const ConfigPanel: React.FC<{
+  pending: boolean;
+  mode: BackendMode;
+  host: Host;
+  defs: readonly SettingDef[];
+  category: CategoryDef;
+}> = ({ pending, mode, host, defs, category }) => {
   const { token } = theme.useToken();
 
-  if (mode === 'in-browser') {
+  // Two "host IS the back-end" cases: nothing to configure because the
+  // wire doesn't exist. The picker already disables in-browser on
+  // non-extension hosts, but auto-correction takes a tick — guard both
+  // shapes so we never render reconnect rows when the back-end is us.
+  const hostIsTheBackend =
+    (host === 'extension' && mode === 'in-browser') ||
+    (host === 'desktop' && mode === 'desktop-app');
+
+  if (hostIsTheBackend) {
     return (
       <Alert
         type="success"
         showIcon
         message="Nothing to configure"
-        description="The browser service worker is the back-end. Workspaces, rules, and vault live in this browser only — no external host to point at."
+        description={
+          mode === 'in-browser'
+            ? 'The browser service worker is the back-end. Workspaces, rules, and vault live in this browser only — no external host to point at.'
+            : 'The desktop app process is the back-end. Other clients connect into it; there is no outbound wire to tune.'
+        }
       />
     );
   }
+
+  // Host-conditioned filtering. `backend.showBadgeWhenDisconnected`
+  // toggles a `chrome.action` toolbar badge — meaningless outside the
+  // browser extension, so drop it from the desktop / web surface.
+  const visibleDefs = defs.filter((d) => {
+    if (d.key === 'backend.showBadgeWhenDisconnected' && host !== 'extension') return false;
+    return true;
+  });
+
+  const grouped = groupBySubcategory(visibleDefs, category.subcategories);
 
   return (
     <>
@@ -557,23 +599,82 @@ const ConfigPanel: React.FC<{ pending: boolean; mode: BackendMode; defs: readonl
           style={{ marginBottom: 12 }}
         />
       )}
-      {defs.length > 0 && (
-        <div
-          className="settings-card"
-          style={{
-            background: token.colorBgContainer,
-            border: `1px solid ${token.colorBorderSecondary}`,
-            borderRadius: 10,
-            overflow: 'hidden',
-          }}
-        >
-          {defs.map((def) => (
-            <SettingRow key={def.key} def={def} />
-          ))}
-        </div>
+      {grouped.map(({ id, label, defs: groupDefs }) =>
+        groupDefs.length === 0 ? null : (
+          <section key={id} style={{ marginBottom: 12 }}>
+            <header style={{ marginBottom: 6, padding: '0 2px' }}>
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: 0.3,
+                  textTransform: 'uppercase',
+                  color: token.colorTextSecondary,
+                }}
+              >
+                {label}
+              </h3>
+              {SUBSECTION_BLURB[id] && (
+                <div style={{ fontSize: 11, color: token.colorTextTertiary, marginTop: 1 }}>
+                  {SUBSECTION_BLURB[id]}
+                </div>
+              )}
+            </header>
+            <div
+              className="settings-card"
+              style={{
+                background: token.colorBgContainer,
+                border: `1px solid ${token.colorBorderSecondary}`,
+                borderRadius: 10,
+                overflow: 'hidden',
+              }}
+            >
+              {groupDefs.map((def) => (
+                <SettingRow key={def.key} def={def} />
+              ))}
+            </div>
+          </section>
+        ),
       )}
     </>
   );
 };
+
+interface GroupedSection {
+  id: string;
+  label: string;
+  defs: SettingDef[];
+}
+
+/**
+ * Group settings by their `subcategory` field, ordered by the
+ * category's registered `subcategories` list. Anything missing a
+ * subcategory falls into a synthetic "Other" group at the end — this
+ * keeps the grouping resilient if a new setting forgets to declare
+ * its subcategory.
+ */
+function groupBySubcategory(
+  defs: readonly SettingDef[],
+  subcategories: readonly SubcategoryDef[] | undefined,
+): GroupedSection[] {
+  const byId = new Map<string, SettingDef[]>();
+  const orderedIds = (subcategories ?? []).slice().sort((a, b) => a.order - b.order).map((s) => s.id);
+  const labels = new Map((subcategories ?? []).map((s) => [s.id, s.label]));
+
+  for (const id of orderedIds) byId.set(id, []);
+  for (const def of defs) {
+    const id = def.subcategory ?? '__uncategorized';
+    if (!byId.has(id)) byId.set(id, []);
+    const bucket = byId.get(id);
+    if (bucket) bucket.push(def);
+  }
+
+  return Array.from(byId.entries()).map(([id, list]) => ({
+    id,
+    label: labels.get(id) ?? 'Other',
+    defs: list,
+  }));
+}
 
 export default BackendPane;

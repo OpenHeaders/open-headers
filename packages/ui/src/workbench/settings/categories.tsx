@@ -46,6 +46,13 @@ registerCategory({
   description:
     'Where your workspaces, rules, vault, and history live. Pick the host that matches your reach — local-only either way.',
   renderPane: BackendPane,
+  // Subsections are rendered by BackendPane as section cards beneath
+  // the mode picker. The order here is what drives card sequencing.
+  subcategories: [
+    { id: 'connection', label: 'Connection', order: 10 },
+    { id: 'reliability', label: 'Reliability', order: 20 },
+    { id: 'notifications', label: 'Notifications', order: 30 },
+  ],
 });
 
 registerCategory({
