@@ -27,6 +27,10 @@
       "import": "./src/files/index.ts",
       "default": "./dist/files/index.js"
     },
+    "./files/*": {
+      "import": "./src/files/*.ts",
+      "default": "./dist/files/*.js"
+    },
     "./coordination": {
       "import": "./src/coordination/index.ts",
       "default": "./dist/coordination/index.js"

@@ -67,7 +67,10 @@ import { hydrateActiveWorkspaceStores } from '@openheaders/oracle/workspace/work
 import { setOracleHostHooks } from '@openheaders/oracle/sync';
 import { setSyncPersistenceProvider } from '@openheaders/oracle/sync/sync-persistence-provider';
 import { createSqliteSyncPersistence } from '@openheaders/oracle/sync/sqlite-sync-persistence';
-import { FileSystemBlobBackend, setBlobBackend } from '@openheaders/oracle/files';
+import { setBlobBackend } from '@openheaders/oracle/files';
+// Node-only backend lives behind a deep import so the browser-facing
+// barrel (`@openheaders/oracle/files`) stays free of `node:fs` / `node:path`.
+import { FileSystemBlobBackend } from '@openheaders/oracle/files/fs-blob-backend';
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
 import * as path from 'node:path';
 import { installHostStorage } from './install-host-storage';
