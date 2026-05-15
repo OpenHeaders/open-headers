@@ -43,6 +43,10 @@
       "import": "./src/workspace/*.ts",
       "default": "./dist/workspace/*.js"
     },
+    "./rpc": {
+      "import": "./src/rpc/index.ts",
+      "default": "./dist/rpc/index.js"
+    },
     "./rule-engine/*": {
       "import": "./src/rule-engine/*.ts",
       "default": "./dist/rule-engine/*.js"

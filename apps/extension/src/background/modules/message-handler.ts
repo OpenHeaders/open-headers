@@ -15,30 +15,7 @@ import { buildWorkspaceExport, serializeWorkspaceExport } from '@openheaders/cor
 import { broadcast } from '@utils/bridge';
 import { runtime as browserRuntime, isChrome, isEdge, isFirefox, isSafari, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
-import { snapshotExtensionWorkspacePostStates } from '@openheaders/oracle/sync/global-service';
-import {
-  applySyncRequest,
-  publishAwareness,
-  snapshotAwarenessPresence,
-  snapshotCollectionPostStates,
-  snapshotEnvironmentPostStates,
-  snapshotFilesPostStates,
-  snapshotFolderPostStates,
-  snapshotLayoutStatePostStates,
-  snapshotLiveVariablePostStates,
-  snapshotLiveWorkflowPostStates,
-  snapshotOAuthBundlePostStates,
-  snapshotPauseMarkersPostStates,
-  snapshotRequestCollectionPostStates,
-  snapshotRequestFolderPostStates,
-  snapshotRequestPostStates,
-  snapshotRulePostStates,
-  snapshotTemplateCollectionPostStates,
-  snapshotTemplateFolderPostStates,
-  snapshotTemplatePostStates,
-  snapshotVaultPostStates,
-  snapshotWorkspaceVariablesPostStates,
-} from '@openheaders/oracle/sync/service';
+import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
 import { getStatusSnapshot } from '@openheaders/ui/shared/status';
 import type { MessageHandlerContext, SendResponse } from '@/types/browser';
 import type { PerfResourceEntry } from '@/types/perf';
@@ -249,6 +226,23 @@ export function handleGeneralMessage(
             error: err.message,
           }),
         );
+      return true;
+    }
+
+    // ── Sync + awareness wire channels ─────────────────────────
+    // Host-neutral dispatcher in @openheaders/oracle/rpc. Returns null
+    // for unknown types so we fall through to the chrome-coupled
+    // branches below.
+    const syncResult = dispatchSyncRpc(message);
+    if (syncResult !== null) {
+      if (syncResult.kind === 'sync') {
+        safeResponse(syncResult.response);
+        return undefined;
+      }
+      syncResult.promise.then((response) => safeResponse(response)).catch((err: Error) => {
+        logger.info('MessageHandler', `sync rpc rejected: ${err.message}`);
+        safeResponse({ ok: false, error: err.message });
+      });
       return true;
     }
 
@@ -1253,97 +1247,6 @@ export function handleGeneralMessage(
       // ── Status snapshot ──────────────────────────────────────────
     } else if (message.type === 'getStatusSnapshot') {
       safeResponse({ snapshot: getStatusSnapshot() });
-
-      // ── Awareness (Phase A A1) ─────────────────────────────────
-    } else if (message.type === 'oh.awareness.publish') {
-      const request = message as unknown as import('@openheaders/core/protocol').AwarenessPublishRequest;
-      try {
-        safeResponse(publishAwareness(request));
-      } catch (err) {
-        logger.info('MessageHandler', 'oh.awareness.publish rejected:', (err as Error).message);
-        safeResponse({ ok: true, presence: [] });
-      }
-    } else if (message.type === 'oh.awareness.snapshot') {
-      safeResponse({
-        workspaceId: getActiveWorkspaceId(),
-        presence: snapshotAwarenessPresence(),
-      });
-      // ── Sync engine (Phase A) ──────────────────────────────────
-      // The renderer passes `workspaceId` on every per-workspace
-      // snapshot RPC (commit 2 — renderer mirror plane). Legacy /
-      // unbounded callers omit it; the SW falls back to the runtime-
-      // Active workspace inside `oracleForWorkspace(workspaceId)`.
-    } else if (
-      typeof message.type === 'string' &&
-      message.type.startsWith('oh.sync.snapshot') &&
-      message.type !== 'oh.sync.snapshotExtensionWorkspaces'
-    ) {
-      const wsArg = typeof message.workspaceId === 'string' ? message.workspaceId : undefined;
-      if (message.type === 'oh.sync.snapshotRules') {
-        safeResponse({ entries: snapshotRulePostStates(wsArg) });
-      } else if (message.type === 'oh.sync.snapshotEnvironments') {
-        safeResponse({ entries: snapshotEnvironmentPostStates(wsArg) });
-      } else if (message.type === 'oh.sync.snapshotCollections') {
-        safeResponse({ entries: snapshotCollectionPostStates(wsArg) });
-      } else if (message.type === 'oh.sync.snapshotWorkspaceVariables') {
-        safeResponse({ entries: snapshotWorkspaceVariablesPostStates(wsArg) });
-      } else if (message.type === 'oh.sync.snapshotVault') {
-        safeResponse({ entries: snapshotVaultPostStates(wsArg) });
-      } else if (message.type === 'oh.sync.snapshotFolders') {
-        safeResponse({ entries: snapshotFolderPostStates(wsArg) });
-      } else if (message.type === 'oh.sync.snapshotRequests') {
-        safeResponse({ entries: snapshotRequestPostStates(wsArg) });
-      } else if (message.type === 'oh.sync.snapshotRequestCollections') {
-        safeResponse({ entries: snapshotRequestCollectionPostStates(wsArg) });
-      } else if (message.type === 'oh.sync.snapshotRequestFolders') {
-        safeResponse({ entries: snapshotRequestFolderPostStates(wsArg) });
-      } else if (message.type === 'oh.sync.snapshotTemplates') {
-        safeResponse({ entries: snapshotTemplatePostStates(wsArg) });
-      } else if (message.type === 'oh.sync.snapshotTemplateCollections') {
-        safeResponse({ entries: snapshotTemplateCollectionPostStates(wsArg) });
-      } else if (message.type === 'oh.sync.snapshotTemplateFolders') {
-        safeResponse({ entries: snapshotTemplateFolderPostStates(wsArg) });
-      } else if (message.type === 'oh.sync.snapshotLiveVariables') {
-        safeResponse({ entries: snapshotLiveVariablePostStates(wsArg) });
-      } else if (message.type === 'oh.sync.snapshotLiveWorkflows') {
-        safeResponse({ entries: snapshotLiveWorkflowPostStates(wsArg) });
-      } else if (message.type === 'oh.sync.snapshotOAuthBundle') {
-        safeResponse({ entries: snapshotOAuthBundlePostStates(wsArg) });
-      } else if (message.type === 'oh.sync.snapshotPauseMarkers') {
-        safeResponse({ entries: snapshotPauseMarkersPostStates(wsArg) });
-      } else if (message.type === 'oh.sync.snapshotLayoutState') {
-        safeResponse({ entries: snapshotLayoutStatePostStates(wsArg) });
-      } else if (message.type === 'oh.sync.snapshotFiles') {
-        safeResponse({ entries: snapshotFilesPostStates(wsArg) });
-      }
-    } else if (message.type === 'oh.sync.snapshotExtensionWorkspaces') {
-      safeResponse({ entries: snapshotExtensionWorkspacePostStates() });
-    } else if (message.type === 'oh.sync.apply') {
-      // Wire shape: SyncApplyRequest from @openheaders/core/protocol.
-      // The bridge layer flattens `{ type, ...payload }` onto the
-      // envelope, so we cast the whole envelope back to the request
-      // type and let the service do the actual apply under the
-      // oracle's per-entity lock.
-      const request = message as unknown as import('@openheaders/core/protocol').SyncApplyRequest;
-      applySyncRequest(request)
-        .then((response) => safeResponse(response))
-        .catch((err: Error) => {
-          logger.info('MessageHandler', 'oh.sync.apply rejected:', err.message);
-          // Surface a structured ack so callers don't need a
-          // separate "transport-level error" branch — the oracle
-          // failure path uses the same shape.
-          // Transport-level errors (IDB unavailable, lock timeout)
-          // surface through the same SyncApplyResponse shape — caller
-          // doesn't need a parallel error branch. `schema-rejected` is
-          // the broadest "couldn't apply" status; `detail` carries the
-          // human-readable cause.
-          safeResponse({
-            ok: false,
-            outcomes: [],
-            failure: { mutationId: '', status: 'schema-rejected', detail: err.message },
-          });
-        });
-      return true;
     } else if (message.type && (message.type as string).startsWith('proxy-')) {
       return false;
     } else {
