@@ -33,7 +33,8 @@ import type {
   SyncWorkspaceVariablesPostState,
 } from '@openheaders/core/protocol';
 import type { MutationEnvelope, MutatorOutcome } from '@openheaders/core/sync';
-import type { LogEntry } from '@openheaders/core/types';
+import type { LogEntry, Rule } from '@openheaders/core/types';
+import type { PauseMarker } from '@openheaders/core/utils';
 import type { TotpRegistry } from '@openheaders/core/variables';
 
 /**
@@ -81,9 +82,12 @@ export interface OracleHostHooks {
   /**
    * Notify the rule-engine orchestrator that compiled DNR rules may
    * need to be rebuilt. Reason is a stable short tag carried into the
-   * resulting log entry (e.g. `cache-invalidated`).
+   * resulting log entry (e.g. `cache-invalidated`). `immediate` skips
+   * the debounce — workspace switch + pause-state flips set this so
+   * the rebuild lands inside the same tick and there's no mid-switch
+   * rule leak.
    */
-  scheduleRuleEngineUpdate?: (reason: string) => void;
+  scheduleRuleEngineUpdate?: (reason: string, opts?: { immediate?: boolean }) => void;
   /**
    * Drop the workspace-scoped variables-resolver state. Called when a
    * workspace is torn down (delete, sign-out, switch in test runs) so
@@ -128,6 +132,16 @@ export interface OracleHostHooks {
    * host pre-warms the cache on its own cadence.
    */
   getCachedTotpCodes?: () => TotpRegistry;
+  /**
+   * Notify the host that the active workspace just flipped to a new
+   * rule + pause-marker set. Browser-side hosts use this to drive HTTP
+   * cache invalidation (rule-state observer + cache invalidator); hosts
+   * without a request-modifying runtime no-op. Called from
+   * `swapPerWorkspaceStores` AFTER per-workspace stores have switched
+   * and BEFORE the DNR rebuild fires, so observers see the incoming
+   * workspace's rule view.
+   */
+  onWorkspaceSwitched?: (nextRules: readonly Rule[], pauseMarkers: ReadonlyMap<string, PauseMarker>) => void;
 }
 
 export interface OracleStatusReport {

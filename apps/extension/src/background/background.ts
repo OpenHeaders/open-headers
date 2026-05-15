@@ -36,7 +36,13 @@ import { broadcast } from '@utils/bridge';
 import { alarms, isChrome, isEdge, isFirefox, isSafari, runtime, storage, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { bootstrapSettings } from '@utils/settings-bootstrap';
-import { forgetDelayBypassForTab, markTabForDelayBypass, resolveDelayBypass, setRulesPaused } from './dnr-manager';
+import {
+  forgetDelayBypassForTab,
+  getRulesPaused,
+  markTabForDelayBypass,
+  resolveDelayBypass,
+  setRulesPaused,
+} from './dnr-manager';
 import { setupInjectListener } from './inject-manager';
 import { updateExtensionBadge } from './modules/badge-manager';
 import { forgetCacheBypassForTab, rehydrateCacheBypassFromSessionRules } from './modules/cache-bypass';
@@ -91,7 +97,7 @@ setLockObserver(recordLog);
 // these the moment the first envelope arrives — no init ordering risk.
 setOracleHostHooks({
   recordLog,
-  scheduleRuleEngineUpdate: (reason) => scheduleRuleEngineUpdate(reason, { immediate: false }),
+  scheduleRuleEngineUpdate: (reason, opts) => scheduleRuleEngineUpdate(reason, { immediate: opts?.immediate ?? false }),
   disposeResolverStateForWorkspace,
   broadcastSyncEvent: (event) => broadcast('syncBroadcast', event),
   broadcastAwareness: (event) => broadcast('awarenessBroadcast', event),
@@ -105,6 +111,9 @@ setOracleHostHooks({
   getActiveWorkspaceId,
   peekActiveWorkspaceId,
   getCachedTotpCodes,
+  onWorkspaceSwitched: (nextRules, pauseMarkers) => {
+    seedFromWorkspaceSwitch(nextRules, pauseMarkers, getRulesPaused());
+  },
 });
 
 import { bridgePauseMarkersSyncEngine, getPauseMarkers } from '@openheaders/oracle/entity/pause-markers-store';
@@ -158,7 +167,10 @@ import {
   revalidateTrackedRequests,
 } from './modules/request-tracker';
 import { scheduleUpdate } from './modules/rule-engine';
-import { rehydrateFromStorage as rehydrateObserverFromStorage } from './modules/rule-state-observer';
+import {
+  rehydrateFromStorage as rehydrateObserverFromStorage,
+  seedFromWorkspaceSwitch,
+} from './modules/rule-state-observer';
 import { initializeActiveTabTracking, setupPeriodicCleanup, setupTabListeners } from './modules/tab-listeners';
 import { setupTestRunnerPorts } from './modules/test-runner';
 import { bootstrapTotpScheduler, getCachedTotpCodes, handleTotpAlarm, isTotpAlarm } from './modules/totp-scheduler';

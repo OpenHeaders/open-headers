@@ -31,7 +31,7 @@ import { generateUid, toFolderName } from '@openheaders/core/utils';
 import { deepCopyHierarchy } from '@openheaders/core/workspace-export';
 import { logger } from '@utils/logger';
 import { hostStorage, type StorageKey, wsKeys } from '@openheaders/oracle/storage';
-import { getRulesPaused } from '../dnr-manager';
+import { getOracleHostHooks } from '@openheaders/oracle/sync';
 import {
   hydrateEnvironmentsFromStorage,
   purgeWorkspaceEnvironmentData,
@@ -50,7 +50,6 @@ import {
   switchToWorkspace as switchLiveWorkflowsToWorkspace,
 } from '@openheaders/oracle/live/live-workflow-store';
 import { purgeOAuthForWorkspace } from '@openheaders/oracle/entity/oauth-token-store';
-import { recordLog } from './observability-log';
 import { getPauseMarkers } from '@openheaders/oracle/entity/pause-markers-store';
 import {
   hydrateRequestScriptsReviewFromStorage,
@@ -60,8 +59,6 @@ import {
   hydrateFromStorage as hydrateRequestsFromStorage,
   switchToWorkspace as switchRequestsToWorkspace,
 } from '@openheaders/oracle/entity/request-store';
-import { scheduleUpdate } from './rule-engine';
-import { seedFromWorkspaceSwitch } from './rule-state-observer';
 import {
   getRules,
   hydrateFromStorage as hydrateRulesFromStorage,
@@ -158,13 +155,15 @@ export async function swapPerWorkspaceStores(targetId: string): Promise<void> {
 
   // One broad cache-invalidation baseline reset — the union of
   // outgoing + incoming effective origins. Cheaper than per-rule diffs
-  // when workspace swaps can change dozens of rules at once.
-  seedFromWorkspaceSwitch(getRules(), getPauseMarkers(), getRulesPaused());
+  // when workspace swaps can change dozens of rules at once. Host wires
+  // the rule-state-observer + cache-invalidator; non-browser hosts no-op.
+  const hooks = getOracleHostHooks();
+  hooks.onWorkspaceSwitched?.(getRules(), getPauseMarkers());
 
-  scheduleUpdate('workspace', { immediate: true });
+  hooks.scheduleRuleEngineUpdate?.('workspace', { immediate: true });
 
   logger.info('WorkspaceOrchestrator', `Switched to workspace ${targetId}`);
-  recordLog({
+  hooks.recordLog?.({
     subsystem: 'workspace',
     op: 'switch',
     level: 'info',
