@@ -1,14 +1,16 @@
 /**
- * Boot-time wiring: register the in-memory {@link HostStorage} stub as
- * the global adapter for the desktop renderer.
+ * Boot-time wiring: register the IPC-proxied {@link HostStorage} adapter
+ * as the global adapter for the desktop renderer.
  *
- * Resets on every renderer reload — durable persistence lands with the
- * engine-host milestone (an electron-store-backed adapter owned by the
- * main process, proxied to the renderer via IPC). The contract on the
- * UI side is identical now and after the swap.
+ * Every consumer in `packages/ui` (and elsewhere) reaches storage through
+ * `@openheaders/core/storage`'s `hostStorage` proxy — that proxy
+ * forwards to whichever adapter was installed here. The desktop
+ * renderer's adapter is a thin IPC client of the main-process
+ * {@link FileBackedHostStorage}; sensitive slots are encrypted at rest
+ * via Electron `safeStorage` transparently to UI code.
  */
 
 import { setHostStorage } from '@openheaders/core/storage';
-import { inMemoryHostStorage } from './in-memory-storage';
+import { ipcHostStorage } from './ipc-host-storage';
 
-setHostStorage(inMemoryHostStorage);
+setHostStorage(ipcHostStorage);

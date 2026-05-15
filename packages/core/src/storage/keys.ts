@@ -44,15 +44,43 @@ export type StorageArea = 'local' | 'sync' | 'session';
  * Tagged specification for a single storage slot. The phantom `__value`
  * field carries the payload type through the type system — it is never
  * populated at runtime.
+ *
+ * `sensitive: true` marks slots that hold schema-marked sensitive content
+ * (per SYNC_ENGINE_DESIGN §12.1). Host-storage adapters that support
+ * encryption-at-rest (Electron `safeStorage`, future keytar / KMS impls)
+ * route reads + writes for these slots through their `SecretCipher` seam;
+ * adapters without that capability persist them as plain JSON.
+ *
+ * The flag is a declarative property of the slot — auditing sensitivity
+ * is local to the key definition, not a separate allowlist that drifts.
  */
 export interface StorageKey<T> {
   readonly key: string;
   readonly area: StorageArea;
+  readonly sensitive?: boolean;
   readonly __value?: T;
 }
 
-export function storageKey<T>(key: string, area: StorageArea = 'local'): StorageKey<T> {
-  return { key, area };
+export interface StorageKeyOptions {
+  area?: StorageArea;
+  sensitive?: boolean;
+}
+
+export function storageKey<T>(key: string, area?: StorageArea, sensitive?: boolean): StorageKey<T>;
+export function storageKey<T>(key: string, options: StorageKeyOptions): StorageKey<T>;
+export function storageKey<T>(
+  key: string,
+  areaOrOptions: StorageArea | StorageKeyOptions = 'local',
+  sensitive?: boolean,
+): StorageKey<T> {
+  if (typeof areaOrOptions === 'string') {
+    return { key, area: areaOrOptions, sensitive: sensitive === true ? true : undefined };
+  }
+  return {
+    key,
+    area: areaOrOptions.area ?? 'local',
+    sensitive: areaOrOptions.sensitive === true ? true : undefined,
+  };
 }
 
 // ── UI-specific persisted shapes ─────────────────────────────────────
@@ -260,6 +288,52 @@ export interface WorkspaceKeys {
   manualEnvId: StorageKey<string | null>;
 }
 
+/**
+ * Authoritative "is this key sensitive?" predicate, derived once from
+ * the {@link wsKeys} factory by walking its output with a placeholder
+ * workspace id and converting each `sensitive: true` entry into a regex
+ * pattern. Wire-level adapters (the host-storage dispatcher in
+ * `@openheaders/oracle/host-storage`) use this so the renderer can't
+ * downgrade a sensitive slot by claiming it isn't.
+ *
+ * If a new sensitive slot is added to {@link WorkspaceKeys} or the
+ * {@link OH}/{@link UI} namespaces, no code change is needed here —
+ * the regex set re-derives on first call.
+ */
+let cachedSensitivePatterns: RegExp[] | null = null;
+function getSensitiveKeyPatterns(): RegExp[] {
+  if (cachedSensitivePatterns) return cachedSensitivePatterns;
+  const patterns: RegExp[] = [];
+  const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const PLACEHOLDER = '__oh_sensitive_probe__';
+  const collectFlat = (specs: Record<string, unknown>): void => {
+    for (const spec of Object.values(specs)) {
+      if (spec && typeof spec === 'object' && (spec as StorageKey<unknown>).sensitive === true) {
+        const key = (spec as StorageKey<unknown>).key;
+        patterns.push(new RegExp(`^${escape(key)}$`));
+      }
+    }
+  };
+  const collectWs = (specs: Record<string, unknown>): void => {
+    for (const spec of Object.values(specs)) {
+      if (spec && typeof spec === 'object' && (spec as StorageKey<unknown>).sensitive === true) {
+        const key = (spec as StorageKey<unknown>).key;
+        const pattern = key.split(PLACEHOLDER).map(escape).join('[^.]+');
+        patterns.push(new RegExp(`^${pattern}$`));
+      }
+    }
+  };
+  collectFlat(OH as unknown as Record<string, unknown>);
+  collectFlat(UI as unknown as Record<string, unknown>);
+  collectWs(wsKeys(PLACEHOLDER) as unknown as Record<string, unknown>);
+  cachedSensitivePatterns = patterns;
+  return patterns;
+}
+
+export function isSensitiveKey(key: string): boolean {
+  return getSensitiveKeyPatterns().some((re) => re.test(key));
+}
+
 export function wsKeys(workspaceId: string): WorkspaceKeys {
   const p = `oh.ws.${workspaceId}`;
   return {
@@ -276,7 +350,7 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     activeEnvironmentId: storageKey<string | null>(`${p}.activeEnvironmentId`),
     defaultEnvironmentId: storageKey<string | null>(`${p}.defaultEnvironmentId`),
     workspaceVars: storageKey<WorkspaceVariables>(`${p}.workspaceVars`),
-    vault: storageKey<Vault>(`${p}.vault`),
+    vault: storageKey<Vault>(`${p}.vault`, { sensitive: true }),
     pauseMarkers: storageKey<Record<string, PauseMarker>>(`${p}.pauseMarkers`),
     testRuns: storageKey<Record<string, unknown>>(`${p}.testRuns`),
     tabSession: storageKey<PersistedTabSession>(`${p}.tabSession`),
@@ -284,7 +358,7 @@ export function wsKeys(workspaceId: string): WorkspaceKeys {
     settingsWorkspaceTaste: storageKey<Record<string, unknown>>(`${p}.settings.workspaceTaste`),
     settingsWorkspaceBehavioral: storageKey<Record<string, unknown>>(`${p}.settings.workspaceBehavioral`),
     importReports: storageKey<unknown[]>(`${p}.importReports`),
-    oauth: storageKey<unknown>(`${p}.oauth`),
+    oauth: storageKey<unknown>(`${p}.oauth`, { sensitive: true }),
     liveWorkflows: storageKey<LiveWorkflow[]>(`${p}.liveWorkflows`),
     liveVariables: storageKey<LiveVariable[]>(`${p}.liveVariables`),
     liveCache: storageKey<unknown>(`${p}.liveCache`),

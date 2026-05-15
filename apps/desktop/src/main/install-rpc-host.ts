@@ -16,12 +16,14 @@
  * engine → bridges → coord runner), and registers the IPC RPC + broadcast
  * relay so the renderer's `HostBridge` can drive the engine.
  *
- * Backends installed here are deliberately the simplest viable set:
+ * Backends installed here:
  *
- *   - `HostStorage`: in-memory (Stage 2 commit 5; → electron-store).
- *   - `SyncPersistenceProvider`: in-memory (Stage 2 commit 5; → sqlite).
+ *   - `HostStorage`: file-backed (`<userData>/storage.json`) with Electron
+ *     `safeStorage` encrypting slots flagged `sensitive: true`. Renderers
+ *     reach it via the `oh:storage:*` IPC channels (`installHostStorage`).
+ *   - `SyncPersistenceProvider`: in-memory (→ sqlite in a follow-up commit).
  *   - `LockRuntime`: single-process FIFO mutex (final shape for main).
- *   - `LifelineServer`: unwired (Stage 2 commit 9 lands IPC lifeline).
+ *   - `LifelineServer`: unwired (a follow-up commit lands IPC lifeline).
  *
  * Renderer ↔ main wire:
  *
@@ -48,8 +50,8 @@ import { hydrateActiveWorkspaceStores } from '@openheaders/oracle/workspace/work
 import { setOracleHostHooks } from '@openheaders/oracle/sync';
 import { setSyncPersistenceProvider } from '@openheaders/oracle/sync/sync-persistence-provider';
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
-import { inMemoryHostStorage } from './in-memory-host-storage';
 import { inMemorySyncPersistenceProvider } from './in-memory-sync-persistence';
+import { installHostStorage } from './install-host-storage';
 import { singleProcessLockRuntime } from './single-process-lock-runtime';
 
 const RPC_CHANNEL = 'oh:rpc';
@@ -75,9 +77,11 @@ function broadcastToAllRenderers(type: string, payload: unknown): void {
  */
 export async function installRpcHost(): Promise<void> {
   // 1. Cross-host seams. Order: logger first (so subsequent installs
-  //    can log), then storage, lock, persistence.
+  //    can log), then storage (file-backed, safeStorage-encrypted for
+  //    sensitive slots, IPC-served to the renderer), lock, persistence.
   setHostLogger(consoleLogger);
-  setHostStorage(inMemoryHostStorage);
+  const { backend: hostStorage } = installHostStorage();
+  setHostStorage(hostStorage);
   setLockRuntime(singleProcessLockRuntime);
   setSyncPersistenceProvider(inMemorySyncPersistenceProvider);
 

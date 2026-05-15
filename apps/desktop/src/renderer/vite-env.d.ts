@@ -34,9 +34,27 @@ declare global {
   interface Window {
     oh: {
       invoke(message: Record<string, unknown>): Promise<unknown>;
-      onBroadcast(
-        handler: (envelope: { type: string; payload: unknown }) => void,
-      ): () => void;
+      onBroadcast(handler: (envelope: { type: string; payload: unknown }) => void): () => void;
+      storage: {
+        get(req: { key: string }): Promise<{ value: unknown; seq: number }>;
+        set(req: { key: string; value: unknown }): Promise<{ seq: number }>;
+        getMany(req: { keys: string[] }): Promise<{
+          entries: Array<{ key: string; value: unknown; seq: number }>;
+        }>;
+        setMany(req: { writes: Array<{ key: string; value: unknown }> }): Promise<{
+          seqs: Array<{ key: string; seq: number }>;
+        }>;
+        remove(req: { keys: string[] }): Promise<{
+          seqs: Array<{ key: string; seq: number }>;
+        }>;
+        subscribe(req: { key: string; lastSeenSeq?: number }): Promise<{
+          value: unknown;
+          seq: number;
+          stale: boolean;
+        }>;
+        unsubscribe(req: { key: string }): Promise<void>;
+        onChange(handler: (envelope: { key: string; value: unknown; seq: number }) => void): () => void;
+      };
     };
   }
 }

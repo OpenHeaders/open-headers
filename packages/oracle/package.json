@@ -47,6 +47,10 @@
       "import": "./src/host-runtime/index.ts",
       "default": "./dist/host-runtime/index.js"
     },
+    "./host-storage": {
+      "import": "./src/host-storage/index.ts",
+      "default": "./dist/host-storage/index.js"
+    },
     "./rpc": {
       "import": "./src/rpc/index.ts",
       "default": "./dist/rpc/index.js"
