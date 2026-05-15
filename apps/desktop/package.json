@@ -311,6 +311,7 @@
     "@electron/notarize": "^3.0.1",
     "@octokit/rest": "^21.1.1",
     "@openheaders/core": "workspace:*",
+    "@openheaders/oracle": "workspace:*",
     "@openheaders/ui": "workspace:*",
     "@playwright/test": "^1.58.2",
     "@testing-library/react": "^16.3.2",

@@ -114,6 +114,9 @@ importers:
       '@openheaders/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@openheaders/oracle':
+        specifier: workspace:*
+        version: link:../../packages/oracle
       '@openheaders/ui':
         specifier: workspace:*
         version: link:../../packages/ui
