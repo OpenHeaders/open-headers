@@ -25,6 +25,13 @@ declare global {
   };
 
   /**
+   * App version string injected by electron-vite at build time. See
+   * `electron.vite.config.ts` — the renderer target's `define` block.
+   * Consumed by `@openheaders/ui`'s status bar components.
+   */
+  const __APP_VERSION__: string;
+
+  /**
    * Preload-exposed RPC surface to the main-process engine host. Set up
    * by `apps/desktop/src/preload.ts` through `contextBridge`. Only the
    * IPC `HostBridge` adapter (`renderer/host/ipc-bridge.ts`) should
@@ -33,6 +40,7 @@ declare global {
    */
   interface Window {
     oh: {
+      platform: 'darwin' | 'win32' | 'linux' | 'aix' | 'freebsd' | 'openbsd' | 'sunos' | 'cygwin' | 'netbsd';
       invoke(message: Record<string, unknown>): Promise<unknown>;
       onBroadcast(handler: (envelope: { type: string; payload: unknown }) => void): () => void;
       storage: {
@@ -54,6 +62,15 @@ declare global {
         }>;
         unsubscribe(req: { key: string }): Promise<void>;
         onChange(handler: (envelope: { key: string; value: unknown; seq: number }) => void): () => void;
+      };
+      lifeline: {
+        open(req: { portId: string; name: string }): Promise<{ ok: boolean; error?: string }>;
+        message(req: { portId: string; message: unknown }): void;
+        close(req: { portId: string }): void;
+        onHostMessage(handler: (envelope: { portId: string; message: unknown }) => void): () => void;
+        onHostDisconnect(
+          handler: (envelope: { portId: string; errorMessage?: string }) => void,
+        ): () => void;
       };
     };
   }

@@ -25,7 +25,10 @@
  *     better-sqlite3 with WAL journal; per-scope `MutationLog` and
  *     `PendingIntents` share one database handle.
  *   - `LockRuntime`: single-process FIFO mutex (final shape for main).
- *   - `LifelineServer`: unwired (a follow-up commit lands IPC lifeline).
+ *   - `LifelineServer`: IPC adapter (`installLifelineServer`) — each
+ *     renderer surface holds one long-lived port; webContents destroy
+ *     and renderer-initiated close both fan out as `onDisconnect` to
+ *     oracle's `setupAwarenessLifelinePorts`.
  *
  * Renderer ↔ main wire:
  *
@@ -55,6 +58,7 @@ import { createSqliteSyncPersistence } from '@openheaders/oracle/sync/sqlite-syn
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
 import * as path from 'node:path';
 import { installHostStorage } from './install-host-storage';
+import { installLifelineServer } from './install-lifeline-server';
 import { singleProcessLockRuntime } from './single-process-lock-runtime';
 
 const RPC_CHANNEL = 'oh:rpc';
@@ -86,6 +90,7 @@ export async function installRpcHost(): Promise<void> {
   const { backend: hostStorage } = installHostStorage();
   setHostStorage(hostStorage);
   setLockRuntime(singleProcessLockRuntime);
+  installLifelineServer();
   const syncPersistence = createSqliteSyncPersistence({
     dbPath: path.join(app.getPath('userData'), 'oracle.db'),
   });

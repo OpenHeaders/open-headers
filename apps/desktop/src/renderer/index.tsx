@@ -1,9 +1,11 @@
+import './host/install-host-logger';
+import './host/install-rpc-fallback';
 import './host/install-host-storage';
 import './host/install-host-bridge';
-import './host/install-host-logger';
 import './host/install-build-info';
 import './host/install-navigation-host';
 import './host/install-assets-host';
+import './host/install-awareness-host';
 import { eagerInitRendererMirrors, ThemeProvider } from '@openheaders/ui/context';
 import { setCurrentHost } from '@openheaders/ui/shared/host-vocabulary';
 import Workbench from '@openheaders/ui/workbench/App';
@@ -18,6 +20,17 @@ import '@openheaders/ui/workbench/styles/rule-flow.less';
 // Declare desktop as the running host BEFORE any UI renders so user-facing
 // strings ("window" vs "tab") read from the desktop vocabulary on first paint.
 setCurrentHost('desktop');
+
+// Tag the document body with the OS family so the native-titlebar CSS
+// reservations in `index.html` apply correctly. Uses authoritative
+// `process.platform` exposed via the preload (`window.oh.platform`);
+// `navigator.platform` is unreliable on modern Chromium.
+{
+  const platform = window.oh?.platform ?? 'linux';
+  const platformClass =
+    platform === 'darwin' ? 'host-darwin' : platform === 'win32' ? 'host-win32' : 'host-linux';
+  document.body.classList.add(platformClass);
+}
 
 // Subscribe every entity mirror to `syncBroadcast` and kick off each
 // snapshot RPC before React mounts — see `eager-mirror-init.ts` for the

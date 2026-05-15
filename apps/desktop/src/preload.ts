@@ -33,6 +33,14 @@ const STORAGE_CHANNEL = {
   change: 'oh:storage:change',
 } as const;
 
+const LIFELINE_CHANNEL = {
+  open: 'oh:lifeline:open',
+  message: 'oh:lifeline:message',
+  close: 'oh:lifeline:close',
+  hostMessage: 'oh:lifeline:host-message',
+  hostDisconnect: 'oh:lifeline:host-disconnect',
+} as const;
+
 export interface BroadcastEnvelope {
   type: string;
   payload: unknown;
@@ -45,6 +53,14 @@ export interface StorageChangeEnvelope {
 }
 
 const api = {
+  /**
+   * Authoritative OS family for the renderer. Used by the title-bar
+   * reservation CSS in `src/renderer/index.html` (different inset for
+   * macOS traffic lights vs the Windows/Linux titleBarOverlay
+   * buttons). `navigator.platform` is unreliable on modern Chromium;
+   * `process.platform` is.
+   */
+  platform: process.platform as NodeJS.Platform,
   invoke(message: Record<string, unknown>): Promise<unknown> {
     return ipcRenderer.invoke(RPC_CHANNEL, message);
   },
@@ -101,6 +117,43 @@ const api = {
       ipcRenderer.on(STORAGE_CHANNEL.change, listener);
       return () => {
         ipcRenderer.removeListener(STORAGE_CHANNEL.change, listener);
+      };
+    },
+  },
+  lifeline: {
+    open(req: { portId: string; name: string }): Promise<{ ok: boolean; error?: string }> {
+      return ipcRenderer.invoke(LIFELINE_CHANNEL.open, req) as Promise<{ ok: boolean; error?: string }>;
+    },
+    message(req: { portId: string; message: unknown }): void {
+      ipcRenderer.send(LIFELINE_CHANNEL.message, req);
+    },
+    close(req: { portId: string }): void {
+      ipcRenderer.send(LIFELINE_CHANNEL.close, req);
+    },
+    onHostMessage(handler: (envelope: { portId: string; message: unknown }) => void): () => void {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        envelope: { portId: string; message: unknown },
+      ): void => {
+        handler(envelope);
+      };
+      ipcRenderer.on(LIFELINE_CHANNEL.hostMessage, listener);
+      return () => {
+        ipcRenderer.removeListener(LIFELINE_CHANNEL.hostMessage, listener);
+      };
+    },
+    onHostDisconnect(
+      handler: (envelope: { portId: string; errorMessage?: string }) => void,
+    ): () => void {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        envelope: { portId: string; errorMessage?: string },
+      ): void => {
+        handler(envelope);
+      };
+      ipcRenderer.on(LIFELINE_CHANNEL.hostDisconnect, listener);
+      return () => {
+        ipcRenderer.removeListener(LIFELINE_CHANNEL.hostDisconnect, listener);
       };
     },
   },

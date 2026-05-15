@@ -202,6 +202,10 @@ export default defineConfig({
     define: {
       'process.env.RUNNING_IN_PRODUCTION': JSON.stringify(true),
       __BUILD_INFO__: JSON.stringify(buildInfo),
+      // Used by @openheaders/ui's StatusBar / PanelStatusBar. The
+      // extension's vite.config.ts injects this from its manifest
+      // version; desktop uses its own package.json version (CalVer).
+      __APP_VERSION__: JSON.stringify(pkgVersion),
     },
   },
 });

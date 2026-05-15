@@ -8,8 +8,76 @@
       content="default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; worker-src 'self' blob:;"
     />
     <title>Open Headers</title>
+    <style>
+      /*
+       * Native title-bar reservation. The BrowserWindow is created with
+       * `titleBarStyle: 'hiddenInset'` (macOS) / `titleBarOverlay`
+       * (Windows + Linux) so the OS chrome (traffic lights / min-max-
+       * close) draws over the renderer's top edge — see `src/main.ts`.
+       * We reserve a fixed-height drag region at the top of the
+       * document so the user can still grab "empty" toolbar space to
+       * move the window, and pad the toolbar from the platform edge so
+       * its leftmost item (the OH logo) doesn't sit under the lights.
+       *
+       * Marked `pointer-events: none` so the layer only consumes the
+       * drag affordance; clicks on buttons in the renderer toolbar
+       * pass through normally. Interactive controls inside the
+       * renderer can opt back into being draggable individually by
+       * setting `-webkit-app-region: no-drag` on themselves if needed.
+       */
+      .oh-titlebar-drag-region {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 40px;
+        z-index: 9999;
+        pointer-events: none;
+        -webkit-app-region: drag;
+      }
+
+      /*
+       * Native title-bar reservation on the workbench top toolbar.
+       * `.rules-topbar` is the workbench's chrome row
+       * (`packages/ui/src/workbench/components/TopBar.tsx`); on macOS
+       * we shift its first child past the inset traffic lights, and on
+       * Windows/Linux we reserve room on the right for the
+       * `titleBarOverlay` controls. The chrome row doubles as the
+       * window-drag affordance so the user can grab empty toolbar
+       * space to move the window — interactive controls opt back out
+       * via `no-drag`.
+       *
+       * `!important` is load-bearing: `packages/ui`'s rules.less sets
+       * `.rules-topbar { padding: 4px 0; }` later in the cascade,
+       * which would otherwise zero our `padding-left` /
+       * `padding-right`. The reservation is structural and MUST win.
+       */
+      body.host-darwin .rules-topbar {
+        padding-left: 84px !important;
+      }
+      body.host-win32 .rules-topbar,
+      body.host-linux .rules-topbar {
+        padding-right: 144px !important;
+      }
+      .rules-topbar {
+        -webkit-app-region: drag;
+      }
+      .rules-topbar button,
+      .rules-topbar a,
+      .rules-topbar input,
+      .rules-topbar select,
+      .rules-topbar .ant-select,
+      .rules-topbar .ant-input,
+      .rules-topbar .ant-input-affix-wrapper,
+      .rules-topbar .ant-btn,
+      .rules-topbar .rules-topbar-search,
+      .rules-topbar .rules-panel-toggle {
+        -webkit-app-region: no-drag;
+      }
+    </style>
   </head>
   <body>
+    <div class="oh-titlebar-drag-region" aria-hidden="true"></div>
     <div id="root"></div>
     <script type="module" src="./index.tsx"></script>
   </body>

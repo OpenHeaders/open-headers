@@ -12,7 +12,9 @@
     "**/*.less",
     "**/workbench/settings/schema/**",
     "**/workbench/settings/categories.tsx",
-    "**/workbench/components/monaco/**"
+    "**/workbench/components/monaco/**",
+    "src/renderer/host/install-*.ts",
+    "src/main/install-*.ts"
   ],
   "scripts": {
     "start": "electron .",
