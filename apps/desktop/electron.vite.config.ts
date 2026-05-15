@@ -1,6 +1,27 @@
+import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 import copy from 'rollup-plugin-copy';
+
+function git(args: string, fallback: string): string {
+  try {
+    return execSync(`git ${args}`, { encoding: 'utf8' }).trim() || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+const pkgVersion = (JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')) as { version: string })
+  .version;
+const buildInfo = {
+  version: pkgVersion,
+  commit: git('rev-parse --short=7 HEAD', '0000000'),
+  commitFull: git('rev-parse HEAD', '0'.repeat(40)),
+  build: Number.parseInt(git('rev-list --count HEAD', '0'), 10) || 0,
+  date: new Date().toISOString(),
+  channel: 'stable' as const,
+};
 
 export default defineConfig({
   // Main process
@@ -180,6 +201,7 @@ export default defineConfig({
     },
     define: {
       'process.env.RUNNING_IN_PRODUCTION': JSON.stringify(true),
+      __BUILD_INFO__: JSON.stringify(buildInfo),
     },
   },
 });
