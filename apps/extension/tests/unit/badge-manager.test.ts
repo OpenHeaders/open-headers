@@ -8,9 +8,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('@openheaders/ui/workbench/settings/store', () => ({
   get: vi.fn((key: string) => {
     switch (key) {
-      case 'desktop.connection.showBadgeWhenDisconnected':
+      case 'backend.showBadgeWhenDisconnected':
         return true;
-      case 'desktop.connection.autoConnect':
+      case 'backend.autoConnect':
         return true;
       default:
         return undefined;

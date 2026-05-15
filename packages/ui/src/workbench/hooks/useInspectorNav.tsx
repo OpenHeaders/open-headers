@@ -89,3 +89,14 @@ export function useInspectorNav() {
   if (!ctx) throw new Error('useInspectorNav must be used within InspectorNavProvider');
   return ctx;
 }
+
+/**
+ * Non-throwing variant — returns `null` when no `InspectorNavProvider`
+ * is mounted above (e.g. the settings shell hosted outside the
+ * workbench tree, isolated tests). Use this from optional UI like
+ * "Learn more in the docs" links that should silently no-op when
+ * the docs panel isn't reachable.
+ */
+export function useOptionalInspectorNav(): InspectorNavContextValue | null {
+  return useContext(InspectorNavContext);
+}

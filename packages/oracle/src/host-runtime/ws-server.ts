@@ -21,7 +21,7 @@
  *     extension surfaces "update extension" instead of generic
  *     disconnect noise.
  *   - **Keep-alive.** The extension sends
- *     `{ type: 'ping', t: <ms> }` on `desktop.connection.pingIntervalMs`.
+ *     `{ type: 'ping', t: <ms> }` on `backend.pingIntervalMs`.
  *     The server replies with `{ type: 'pong', t: <ms> }` so the client
  *     can measure round-trip if it ever cares; today it doesn't use
  *     pong but a silent server would have to choose between idle-

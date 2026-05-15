@@ -14,15 +14,15 @@ import { adaptWebSocketUrl, safariPreCheck } from './safari-websocket-adapter';
 // ── Configuration (live from settings store) ─────────────────────
 
 function getWsServerUrl(): string {
-  return getSetting('desktop.connection.url');
+  return getSetting('backend.url');
 }
 
 function getReconnectDelayMs(): number {
-  return getSetting('desktop.connection.reconnectDelayMs');
+  return getSetting('backend.reconnectDelayMs');
 }
 
 function getMaxReconnectDelayMs(): number {
-  return getSetting('desktop.connection.maxReconnectDelayMs');
+  return getSetting('backend.maxReconnectDelayMs');
 }
 
 // ── State ─────────────────────────────────────────────────────────
@@ -42,7 +42,7 @@ let protocolIncompatible = false;
 //
 // Strict corporate proxies and idle-timeouts will silently kill a WS
 // connection that sees no traffic. A periodic application-level ping
-// (driven by `desktop.connection.pingIntervalMs`) keeps the pipe warm
+// (driven by `backend.pingIntervalMs`) keeps the pipe warm
 // and gives us a fast-fail detection if the socket has been torn down
 // underneath us — `socket.send` will throw and we fall through to
 // `handleConnectionFailure`, which triggers the usual reconnect loop.
@@ -56,7 +56,7 @@ function clearPingTimer(): void {
 
 function startPingTimer(): void {
   clearPingTimer();
-  const interval = getSetting('desktop.connection.pingIntervalMs');
+  const interval = getSetting('backend.pingIntervalMs');
   if (interval <= 0) return;
   pingTimer = setInterval(() => {
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
@@ -126,17 +126,26 @@ function broadcastConnectionStatus(): void {
  * Mirror the socket's state into the `sync` Status subsystem.
  *
  * Semantic intent vs actual state:
- *   - autoConnect OFF  → green "Desktop sync disabled" (user opted out, not a failure)
- *   - autoConnect ON + connected → green "Connected to desktop"
+ *   - mode = in-browser → green "Running in this browser" (the SW IS the back-end)
+ *   - autoConnect OFF   → green "Back-end sync disabled" (user opted out, not a failure)
+ *   - autoConnect ON + connected → green "Connected to back-end"
  *   - autoConnect ON + disconnected + attempts=0 → yellow "Connecting…"
  *   - autoConnect ON + disconnected + attempts>0 → yellow "Reconnecting (attempt N)"
  */
 function reportSyncStatus(): void {
-  if (!getSetting('desktop.connection.autoConnect')) {
+  if (getSetting('backend.mode') === 'in-browser') {
     reportStatus({
       subsystem: 'sync',
       state: 'green',
-      message: 'Desktop sync disabled',
+      message: 'Running in this browser',
+    });
+    return;
+  }
+  if (!getSetting('backend.autoConnect')) {
+    reportStatus({
+      subsystem: 'sync',
+      state: 'green',
+      message: 'Back-end sync disabled',
     });
     return;
   }
@@ -144,7 +153,7 @@ function reportSyncStatus(): void {
     reportStatus({
       subsystem: 'sync',
       state: 'green',
-      message: 'Connected to desktop',
+      message: 'Connected to back-end',
     });
     return;
   }
@@ -152,7 +161,7 @@ function reportSyncStatus(): void {
   reportStatus({
     subsystem: 'sync',
     state: 'yellow',
-    message: attempts <= 1 ? 'Connecting to desktop…' : `Reconnecting (attempt ${attempts})`,
+    message: attempts <= 1 ? 'Connecting to back-end…' : `Reconnecting (attempt ${attempts})`,
     context: { attempts },
   });
 }
@@ -187,7 +196,7 @@ function handleConnectionFailure(): void {
 
   // Auto-connect off → don't schedule a reconnect. A failed manual
   // connect should NOT silently transition into a retry loop.
-  if (!getSetting('desktop.connection.autoConnect')) {
+  if (!getSetting('backend.autoConnect')) {
     reconnectAttempts = 0;
     reportSyncStatus();
     return;
@@ -289,13 +298,19 @@ function connectStandardWebSocket(url: string): void {
 // ── Public API ────────────────────────────────────────────────────
 
 export function connectWebSocket(): Promise<boolean> {
+  // `in-browser` mode means the extension's own service worker is the
+  // back-end — no external host to reach. Skip the wire entirely.
+  if (getSetting('backend.mode') === 'in-browser') {
+    reportSyncStatus();
+    return Promise.resolve(false);
+  }
   // Single autoConnect chokepoint. Every entry path — initial boot,
   // `wsReconnect` alarm, URL-change subscriber, reconnect scheduler,
   // autoConnect-flip subscriber — funnels through here. If the user
   // has Auto-Connect off, no path can sneak a socket open. Previously
   // each call site had to remember to gate, and the URL-change
   // subscriber + reconnect-on-failure both bypassed it.
-  if (!getSetting('desktop.connection.autoConnect')) {
+  if (!getSetting('backend.autoConnect')) {
     reportSyncStatus();
     return Promise.resolve(false);
   }
@@ -337,7 +352,7 @@ export function connectWebSocket(): Promise<boolean> {
 
 /**
  * Force-close the current connection and (if autoConnect is on) start
- * a fresh one. Used when `desktop.connection.url` or TLS requirement
+ * a fresh one. Used when `backend.url` or TLS requirement
  * changes at runtime. The connect call itself enforces the autoConnect
  * gate, so passing through here when the setting is off cleanly tears
  * down the old socket without opening a new one.
@@ -365,13 +380,29 @@ export function reconnectWebSocket(): void {
   void connectWebSocket();
 }
 
-// Any change to the desktop URL forces a reconnect against the new endpoint.
-subscribeKey('desktop.connection.url', () => reconnectWebSocket());
+// Any change to the back-end URL forces a reconnect against the new endpoint.
+subscribeKey('backend.url', () => reconnectWebSocket());
+// Mode changes (in-browser ↔ desktop-app / daemon / remote) require a
+// transport flip — tear down the current socket and let `connectWebSocket`
+// re-evaluate. `in-browser` short-circuits early so we close cleanly.
+subscribeKey('backend.mode', () => reconnectWebSocket());
 // Ping interval changes take effect on the next tick without a reconnect —
 // restart the timer with the new cadence.
-subscribeKey('desktop.connection.pingIntervalMs', () => {
+subscribeKey('backend.pingIntervalMs', () => {
   if (isConnected) startPingTimer();
 });
+
+/**
+ * Should the extension attempt a real back-end connection given the
+ * current settings? `in-browser` mode means there's nothing to connect
+ * to; `autoConnect=false` means the user opted out. Other call sites
+ * use this to gate alarms / re-subscriptions so they stay idle when
+ * the wire isn't wanted.
+ */
+export function shouldAttemptBackendConnection(): boolean {
+  if (getSetting('backend.mode') === 'in-browser') return false;
+  return Boolean(getSetting('backend.autoConnect'));
+}
 
 export function isWebSocketConnected(): boolean {
   return isConnected && socket !== null && socket.readyState === WebSocket.OPEN;

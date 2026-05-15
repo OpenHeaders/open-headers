@@ -50,11 +50,11 @@ describe('websocket sync Status subsystem', () => {
   beforeEach(() => {
     __resetStatusForTests();
     settingsStore = {
-      'desktop.connection.autoConnect': true,
-      'desktop.connection.url': 'ws://127.0.0.1:59210',
-      'desktop.connection.reconnectDelayMs': 1000,
-      'desktop.connection.maxReconnectDelayMs': 30000,
-      'desktop.connection.pingIntervalMs': 0,
+      'backend.autoConnect': true,
+      'backend.url': 'ws://127.0.0.1:59210',
+      'backend.reconnectDelayMs': 1000,
+      'backend.maxReconnectDelayMs': 30000,
+      'backend.pingIntervalMs': 0,
     };
     vi.clearAllMocks();
   });
@@ -63,17 +63,17 @@ describe('websocket sync Status subsystem', () => {
     __resetStatusForTests();
   });
 
-  it('reports green "Desktop sync disabled" when autoConnect is off', async () => {
-    settingsStore['desktop.connection.autoConnect'] = false;
+  it('reports green "Back-end sync disabled" when autoConnect is off', async () => {
+    settingsStore['backend.autoConnect'] = false;
     const result = await connectWebSocket();
     expect(result).toBe(false);
     const entry = syncEntry();
     expect(entry?.state).toBe('green');
-    expect(entry?.message).toBe('Desktop sync disabled');
+    expect(entry?.message).toBe('Back-end sync disabled');
   });
 
   it('reports yellow "URL rejected" when settings returns empty url', async () => {
-    settingsStore['desktop.connection.url'] = '';
+    settingsStore['backend.url'] = '';
     const result = await connectWebSocket();
     expect(result).toBe(false);
     const entry = syncEntry();
@@ -81,7 +81,7 @@ describe('websocket sync Status subsystem', () => {
     expect(entry?.message).toBe('Desktop URL rejected by settings');
   });
 
-  it('reports green "Connected to desktop" when the socket opens', async () => {
+  it('reports green "Connected to back-end" when the socket opens', async () => {
     const fakeSockets: FakeSocket[] = [];
     class FakeSocket {
       onopen: (() => void) | null = null;
@@ -115,7 +115,7 @@ describe('websocket sync Status subsystem', () => {
       fakeSockets[0].onopen?.();
       const entry = syncEntry();
       expect(entry?.state).toBe('green');
-      expect(entry?.message).toBe('Connected to desktop');
+      expect(entry?.message).toBe('Connected to back-end');
     } finally {
       globalThis.WebSocket = prevWS;
       globalThis.fetch = prevFetch;
@@ -155,7 +155,7 @@ describe('websocket sync Status subsystem', () => {
       fakeSockets[0].onclose?.();
       let entry = syncEntry();
       expect(entry?.state).toBe('yellow');
-      expect(entry?.message).toBe('Connecting to desktop…');
+      expect(entry?.message).toBe('Connecting to back-end…');
       // Force another attempt sequence; fast-forward by directly calling connectWebSocket again
       await connectWebSocket();
       await new Promise((r) => setTimeout(r, 0));

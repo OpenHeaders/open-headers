@@ -10,7 +10,7 @@
 import { UndoOutlined } from '@ant-design/icons';
 import { Button, type InputRef, Popconfirm, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useModifiedCount, useResetAllSettings } from '../hooks';
 import { allCategories, getDef } from '../registry';
 import { searchSettings } from '../search';
@@ -192,7 +192,19 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
           {isSearching ? (
             <SearchResultsPane results={results} query={query} onJumpToCategory={handleSelectCategory} />
           ) : activeCategory ? (
-            <CategoryPane category={activeCategory} defs={activeDefs} />
+            (() => {
+              const Pane = activeCategory.renderPane ?? CategoryPane;
+              // `renderPane` may be a React.lazy component — categories
+              // that need heavy UI (Monaco / large form trees) defer
+              // their pane import so the settings-bootstrap path stays
+              // light. Wrap unconditionally; the default `CategoryPane`
+              // resolves synchronously and Suspense is a no-op for it.
+              return (
+                <Suspense fallback={null}>
+                  <Pane category={activeCategory} defs={activeDefs} />
+                </Suspense>
+              );
+            })()
           ) : (
             <div style={{ padding: 64, textAlign: 'center', color: token.colorTextSecondary, fontSize: 13 }}>
               No settings registered.

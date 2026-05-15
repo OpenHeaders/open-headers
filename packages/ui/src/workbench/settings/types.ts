@@ -19,7 +19,7 @@
  * is metadata for one category in the left nav.
  */
 
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import type * as v from 'valibot';
 import type { SettingScope } from './storage/adapter';
 
@@ -150,6 +150,11 @@ export interface SubcategoryDef {
   order: number;
 }
 
+export interface CategoryPaneProps {
+  category: CategoryDef;
+  defs: readonly SettingDef[];
+}
+
 export interface CategoryDef {
   id: string;
   label: string;
@@ -158,4 +163,12 @@ export interface CategoryDef {
   order: number;
   description?: string;
   subcategories?: readonly SubcategoryDef[];
+  /**
+   * Optional custom renderer for the right-hand pane. When omitted the
+   * default `CategoryPane` (rows-in-cards) is used. Categories with
+   * UX requirements beyond a flat field list register their own —
+   * e.g. the Backend category uses {@link BackendPane} so users pick
+   * a hosting scenario before the relevant config surfaces.
+   */
+  renderPane?: ComponentType<CategoryPaneProps>;
 }

@@ -54,11 +54,15 @@ export async function updateExtensionBadge(input: BadgeUpdateInput): Promise<voi
 
   // Determine badge state and count
   let badgeState: BadgeState = 'none';
+  // The "back-end disconnected" badge only applies when there's a
+  // back-end to be disconnected FROM. In `in-browser` mode, the SW IS
+  // the back-end and the concept doesn't exist.
   const showDisconnected =
     !connected &&
     reconnectAttempts >= DISCONNECTED_BADGE_THRESHOLD &&
-    getSetting('desktop.connection.showBadgeWhenDisconnected') &&
-    getSetting('desktop.connection.autoConnect');
+    getSetting('backend.mode') !== 'in-browser' &&
+    getSetting('backend.showBadgeWhenDisconnected') &&
+    getSetting('backend.autoConnect');
 
   // Priority: paused > disconnected > active > none. "Active" means at
   // least one of the user's active rules has matched a request on this tab.

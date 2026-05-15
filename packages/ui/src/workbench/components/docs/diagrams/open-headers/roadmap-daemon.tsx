@@ -1,5 +1,5 @@
 import type React from 'react';
-import { ArrowDefs, FILL_BLUE, FILL_PURPLE, STROKE_BLUE, STROKE_PURPLE, TEXT, TEXT_DIM } from '../_shared';
+import { ArrowDefs, BrowserWindow, FILL_BLUE, FILL_PURPLE, STROKE_BLUE, STROKE_PURPLE, TEXT, TEXT_DIM } from '../_shared';
 import { OH_GREEN } from './_shared';
 
 /**
@@ -37,48 +37,18 @@ export const RoadmapDaemonDiagram: React.FC = () => {
       <text x={x + CLIENT_W / 2} y={y - 5} textAnchor="middle" fontSize={8.5} fontStyle="italic" fill={TEXT_DIM}>
         {sideLabel}
       </text>
-      <rect
-        x={x}
-        y={y}
-        width={CLIENT_W}
-        height={CLIENT_H}
-        rx={6}
-        fill="var(--ant-color-bg-container)"
-        stroke={STROKE_BLUE}
-        strokeWidth={1.3}
-      />
-      <rect
-        x={x}
-        y={y}
-        width={CLIENT_W}
-        height={CHROME_H}
-        rx={6}
-        fill="var(--ant-color-fill-secondary)"
-        stroke={STROKE_BLUE}
-      />
-      <circle cx={x + 9} cy={y + CHROME_H / 2} r={3} fill="#ff5f57" />
-      <circle cx={x + 18} cy={y + CHROME_H / 2} r={3} fill="#febc2e" />
-      <circle cx={x + 27} cy={y + CHROME_H / 2} r={3} fill="#28c840" />
-      <text
-        x={x + CLIENT_W / 2 + 14}
-        y={y + CHROME_H / 2 + 4}
-        textAnchor="middle"
-        fontSize={10}
-        fontWeight={700}
-        fill={TEXT}
-      >
-        {title}
-      </text>
-      <text
-        x={x + CLIENT_W / 2}
-        y={y + CHROME_H + 22}
-        textAnchor="middle"
-        fontSize={9}
-        fontStyle="italic"
-        fill={TEXT_DIM}
-      >
-        {surfaces}
-      </text>
+      <BrowserWindow x={x} y={y} w={CLIENT_W} h={CLIENT_H} chromeH={CHROME_H} title={title}>
+        <text
+          x={x + CLIENT_W / 2}
+          y={y + CHROME_H + 22}
+          textAnchor="middle"
+          fontSize={9}
+          fontStyle="italic"
+          fill={TEXT_DIM}
+        >
+          {surfaces}
+        </text>
+      </BrowserWindow>
     </g>
   );
 

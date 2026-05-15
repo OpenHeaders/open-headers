@@ -11,8 +11,8 @@ import {
   ApiOutlined,
   BgColorsOutlined,
   CloudDownloadOutlined,
+  CloudServerOutlined,
   DatabaseOutlined,
-  DesktopOutlined,
   EditOutlined,
   FunctionOutlined,
   InfoCircleOutlined,
@@ -20,7 +20,15 @@ import {
   LayoutOutlined,
   SettingOutlined,
 } from '@ant-design/icons';
+import { lazy } from 'react';
 import { registerCategory } from './registry';
+
+// Lazy so the schema-bootstrap path stays free of Monaco / Ant Design
+// component code at module-load time. Importing BackendPane eagerly
+// here would pull `SettingRow` → `CodeField` → monaco/bootstrap.ts into
+// every test that touches the settings registry, breaking jsdom-based
+// suites on `document.queryCommandSupported`.
+const BackendPane = lazy(() => import('./components/BackendPane'));
 
 registerCategory({
   id: 'general',
@@ -28,6 +36,16 @@ registerCategory({
   icon: <SettingOutlined />,
   order: 5,
   description: 'App-wide behavior, startup, and locale.',
+});
+
+registerCategory({
+  id: 'backend',
+  label: 'Backend',
+  icon: <CloudServerOutlined />,
+  order: 7,
+  description:
+    'Where your workspaces, rules, vault, and history live. Pick the host that matches your reach — local-only either way.',
+  renderPane: BackendPane,
 });
 
 registerCategory({
@@ -68,14 +86,6 @@ registerCategory({
   icon: <FunctionOutlined />,
   order: 30,
   description: 'How rules are evaluated, compiled, and arbitrated.',
-});
-
-registerCategory({
-  id: 'desktopConnection',
-  label: 'Desktop Connection',
-  icon: <DesktopOutlined />,
-  order: 70,
-  description: 'WebSocket link to the Open Headers desktop app.',
 });
 
 registerCategory({

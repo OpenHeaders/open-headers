@@ -7,8 +7,19 @@
  */
 
 import { join } from 'node:path';
-import { BrowserWindow, app } from 'electron';
+import { BrowserWindow, app, screen } from 'electron';
 import { installRpcHost } from './main/install-rpc-host';
+
+/**
+ * First-launch default fraction of the work area (display minus dock /
+ * menu bar / taskbar) the window occupies on each axis. The user resizes
+ * freely afterwards — Electron remembers the new size only if we persist
+ * it ourselves, which is a separate concern (TODO once a window-state
+ * setting lands).
+ */
+const DEFAULT_WINDOW_FRACTION = 0.8;
+const MIN_WIDTH = 880;
+const MIN_HEIGHT = 600;
 
 function createWindow(): void {
   // Hide the native title bar so the renderer's own top toolbar
@@ -38,9 +49,20 @@ function createWindow(): void {
           },
         });
 
+  // Size against the user's primary display's work area (excludes dock
+  // / menu bar / taskbar). 80% on each axis is comfortable on 13"
+  // laptops up through 4K externals; clamp to a sensible floor so the
+  // workbench layout always has room to breathe on tiny screens.
+  const { width: workW, height: workH } = screen.getPrimaryDisplay().workAreaSize;
+  const width = Math.max(MIN_WIDTH, Math.floor(workW * DEFAULT_WINDOW_FRACTION));
+  const height = Math.max(MIN_HEIGHT, Math.floor(workH * DEFAULT_WINDOW_FRACTION));
+
   const win = new BrowserWindow({
-    width: 1024,
-    height: 720,
+    width,
+    height,
+    minWidth: MIN_WIDTH,
+    minHeight: MIN_HEIGHT,
+    center: true,
     show: false,
     ...platformChrome,
     webPreferences: {

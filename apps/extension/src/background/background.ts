@@ -151,6 +151,7 @@ import {
   isWebSocketConnected,
   isWebSocketConnecting,
   sendViaWebSocket,
+  shouldAttemptBackendConnection,
 } from './websocket';
 
 // Workspace list must be bootstrapped first — every per-workspace store
@@ -286,7 +287,7 @@ async function initializeExtension(): Promise<void> {
   // compile / websocket connect sees persisted values instead of defaults.
   await settingsReady;
   if (extensionInitialized) {
-    if (getSetting('desktop.connection.autoConnect')) await connectWebSocket();
+    if (shouldAttemptBackendConnection()) await connectWebSocket();
     return;
   }
   extensionInitialized = true;
@@ -550,10 +551,12 @@ async function initializeExtension(): Promise<void> {
     didInitialApply = true;
   }
 
-  if (getSetting('desktop.connection.autoConnect')) {
+  if (shouldAttemptBackendConnection()) {
     await connectWebSocket();
+  } else if (getSetting('backend.mode') === 'in-browser') {
+    logger.info('Background', 'backend.mode = in-browser — service worker is the back-end, no wire to open');
   } else {
-    logger.info('Background', 'desktop.connection.autoConnect is off — skipping initial connect');
+    logger.info('Background', 'backend.autoConnect is off — skipping initial connect');
   }
 
   // Fallback: when storage had no rules AND the WebSocket didn't connect,
@@ -570,7 +573,7 @@ async function initializeExtension(): Promise<void> {
 // ── Alarms ────────────────────────────────────────────────────────
 //
 // `updateBadge` is always-on — the icon badge is a core UX surface.
-// `wsReconnect` is conditional on `desktop.connection.autoConnect`
+// `wsReconnect` is conditional on `backend.autoConnect`
 // because its *only* job is to retry the websocket to the desktop
 // companion; when the feature is off it's pure wake-up noise (every
 // 30 s the SW would spin up just to log "skipping" and bail). We
@@ -586,7 +589,7 @@ function applyWsReconnectAlarm(enabled: boolean): void {
   }
 }
 
-applyWsReconnectAlarm(getSetting('desktop.connection.autoConnect'));
+applyWsReconnectAlarm(shouldAttemptBackendConnection());
 alarms!.create('updateBadge', { delayInMinutes: 0.01, periodInMinutes: 0.033 });
 
 // ── Network online/offline recovery ────────────────────────────────
@@ -643,17 +646,18 @@ self.addEventListener('offline', () => {
   logger.info('Background', 'Network offline — refreshes in flight will likely fail and enter backoff');
 });
 
-subscribeKey('desktop.connection.autoConnect', () => {
-  // Listener is a bare signal; read the fresh value via `getSetting`.
-  const enabled = Boolean(getSetting('desktop.connection.autoConnect'));
+function syncBackendConnectionGate(): void {
+  const enabled = shouldAttemptBackendConnection();
   applyWsReconnectAlarm(enabled);
-  // Flipping the setting on shouldn't leave the user waiting up to
-  // 30 s for the first reconnect-alarm tick. `connectWebSocket` is
-  // idempotent (bails if already connected / connecting) so calling
-  // unconditionally is safe — the function itself re-checks the
-  // `autoConnect` guard before actually opening a socket.
+  // Flipping a gate on shouldn't leave the user waiting up to 30 s for
+  // the first reconnect-alarm tick. `connectWebSocket` is idempotent
+  // (bails if already connected / connecting) so calling unconditionally
+  // is safe — the function itself re-checks `mode` + `autoConnect`
+  // before actually opening a socket.
   if (enabled) void connectWebSocket();
-});
+}
+subscribeKey('backend.autoConnect', syncBackendConnectionGate);
+subscribeKey('backend.mode', syncBackendConnectionGate);
 
 alarms!.onAlarm.addListener(async (alarm: chrome.alarms.Alarm) => {
   // Fast path — alarms that don't depend on hydrated in-memory state
@@ -661,9 +665,9 @@ alarms!.onAlarm.addListener(async (alarm: chrome.alarms.Alarm) => {
   // few seconds to mask SW eviction; blocking them on init would
   // turn the barrier into a cold-start latency bomb.
   if (alarm.name === WS_RECONNECT_ALARM) {
-    // Guard against a stale alarm firing after autoConnect flipped off
+    // Guard against a stale alarm firing after the gate flipped off
     // between `onAlarm` scheduling and this handler running.
-    if (!getSetting('desktop.connection.autoConnect')) return;
+    if (!shouldAttemptBackendConnection()) return;
     if (!isWebSocketConnected() && !isWebSocketConnecting()) {
       const attempts = getReconnectAttempts();
       const log = attempts <= 1 ? logger.info : logger.debug;

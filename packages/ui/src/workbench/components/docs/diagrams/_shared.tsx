@@ -43,6 +43,75 @@ export function ArrowDefs({ id }: { id: string }) {
   );
 }
 
+/**
+ * macOS-style browser window — rounded outer rect, a chrome bar across
+ * the top with three real Apple traffic-light dots (`#ff5f57`,
+ * `#febc2e`, `#28c840`), an optional title in the chrome, and an
+ * optional caption rendered below the window.
+ *
+ * Lifted from the inline `renderClient` pattern in
+ * `roadmap-daemon.tsx` so back-end / front-end diagrams in both the
+ * docs and the settings pane share one definition of "what a browser
+ * looks like in our diagrams." Pass children to render arbitrary
+ * content inside the window content area.
+ */
+export function BrowserWindow({
+  x,
+  y,
+  w,
+  h,
+  chromeH = 20,
+  title,
+  caption,
+  children,
+}: {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  chromeH?: number;
+  title?: string;
+  caption?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <g>
+      <rect
+        x={x}
+        y={y}
+        width={w}
+        height={h}
+        rx={6}
+        fill="var(--ant-color-bg-container)"
+        stroke={STROKE_BLUE}
+        strokeWidth={1.3}
+      />
+      <rect x={x} y={y} width={w} height={chromeH} rx={6} fill="var(--ant-color-fill-secondary)" stroke={STROKE_BLUE} />
+      <circle cx={x + 9} cy={y + chromeH / 2} r={3} fill="#ff5f57" />
+      <circle cx={x + 18} cy={y + chromeH / 2} r={3} fill="#febc2e" />
+      <circle cx={x + 27} cy={y + chromeH / 2} r={3} fill="#28c840" />
+      {title && (
+        <text
+          x={x + w / 2 + 14}
+          y={y + chromeH / 2 + 4}
+          textAnchor="middle"
+          fontSize={10}
+          fontWeight={700}
+          fill={TEXT}
+        >
+          {title}
+        </text>
+      )}
+      {caption && (
+        <text x={x + w / 2} y={y + h + 12} textAnchor="middle" fontSize={9} fontStyle="italic" fill={TEXT_DIM}>
+          {caption}
+        </text>
+      )}
+      {children}
+    </g>
+  );
+}
+
 /** Small text-on-rect helper — clean labels without re-typing common props. */
 export function Box({
   x,
