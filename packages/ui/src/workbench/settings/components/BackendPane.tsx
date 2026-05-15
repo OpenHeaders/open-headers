@@ -19,10 +19,11 @@
  */
 
 import { ArrowRightOutlined } from '@ant-design/icons';
-import { Alert, theme, Typography } from 'antd';
+import { Alert, Select, theme, Typography } from 'antd';
 import type React from 'react';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { getCurrentHost, type Host } from '../../../shared/host-vocabulary';
+import { getStatusSnapshot, subscribe as subscribeStatus } from '../../../shared/status';
 import { useOptionalInspectorNav } from '../../hooks/useInspectorNav';
 import { useSetting } from '../hooks';
 import type { BackendMode } from '../schema/backend';
@@ -37,8 +38,6 @@ interface ScenarioDescriptor {
   /** Matches the back-end-tier glyph key. */
   icon: BackendIconKey;
   title: string;
-  /** One-line copy beside the button title. */
-  caption: string;
   /**
    * Hosts where this scenario is selectable. The browser extension can
    * be any of the four; the desktop app can't run `in-browser` (no SW
@@ -52,37 +51,33 @@ const SCENARIOS: readonly ScenarioDescriptor[] = [
   {
     mode: 'in-browser',
     icon: 'browser',
-    title: 'In this browser',
-    caption: 'SW is the back-end · zero setup',
+    title: 'Browser',
     validHosts: ['extension'],
   },
   {
     mode: 'desktop-app',
     icon: 'desktop',
-    title: 'Desktop app',
-    caption: 'Shared back-end on this machine',
+    title: 'Desktop App',
     validHosts: ['extension', 'desktop', 'web'],
   },
   {
     mode: 'local-self-hosted',
     icon: 'daemon',
-    title: 'Local / LAN daemon',
-    caption: 'Cross-device on your LAN',
+    title: 'Local / LAN',
     validHosts: ['extension', 'desktop', 'web'],
   },
   {
     mode: 'remote-self-hosted',
     icon: 'vm',
-    title: 'Remote (self-hosted)',
-    caption: 'Your VM · anywhere · TLS + auth',
+    title: 'Remote / WAN',
     validHosts: ['extension', 'desktop', 'web'],
   },
 ];
 
 const HOST_INTRO: Record<Host, string> = {
-  extension: 'Pick where the back-end lives — every option is local-only; you stay in control of your data.',
-  desktop: 'The desktop app IS the back-end by default; you can also point it at a daemon or your VM if other devices need to share the workspace.',
-  web: 'A web tab has no service-worker workspace store — it talks to a back-end you host (the desktop app on this machine, a LAN daemon, or your VM).',
+  extension: 'Process and store your data local or remote.',
+  desktop: 'Process and store your data local or remote.',
+  web: 'Process and store your data local or remote.',
 };
 
 function firstValidMode(host: Host): BackendMode {
@@ -93,21 +88,40 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   const { token } = theme.useToken();
   const [mode, setMode] = useSetting('backend.mode');
   const host = getCurrentHost();
-  const visibleScenarios = useMemo(
-    () => SCENARIOS.filter((s) => s.validHosts.includes(host)),
-    [host],
-  );
 
+  // The system setting is `mode`. The 4-tile picker is a PREVIEW
+  // explorer — clicking a tile updates a local `previewMode` so the
+  // detail diagram + scenario copy switch, but the active back-end
+  // doesn't change until the user picks one from the dropdown below
+  // the tiles. This lets users compare scenarios visually without
+  // committing.
+  const [previewMode, setPreviewMode] = useState<BackendMode>(mode);
+
+  // All 4 scenarios show in the tile row on every host so users can
+  // see the full picture. Tiles for modes that aren't valid for the
+  // running host render as disabled (greyed). The dropdown filters
+  // them out entirely — you can preview an unavailable mode visually,
+  // but you can't activate it.
   useEffect(() => {
-    if (!visibleScenarios.some((s) => s.mode === mode)) {
-      setMode(firstValidMode(host));
+    const stored = SCENARIOS.find((s) => s.mode === mode);
+    if (!stored || !stored.validHosts.includes(host)) {
+      const fallback = firstValidMode(host);
+      setMode(fallback);
+      setPreviewMode(fallback);
     }
-  }, [host, mode, setMode, visibleScenarios]);
+  }, [host, mode, setMode]);
 
-  const activeScenario =
-    visibleScenarios.find((s) => s.mode === mode) ?? visibleScenarios[0] ?? SCENARIOS[0];
+  const activeScenario = SCENARIOS.find((s) => s.mode === mode) ?? SCENARIOS[0];
+  const previewScenario = SCENARIOS.find((s) => s.mode === previewMode) ?? activeScenario;
   const fieldDefs = defs.filter((d) => d.key !== 'backend.mode');
   const pending = backendModeIsPending(activeScenario.mode);
+  const liveBackend = useBackendLive(activeScenario.mode, host);
+  const previewingNonActive = previewMode !== mode;
+
+  const handleDropdownChange = (next: BackendMode): void => {
+    setMode(next);
+    setPreviewMode(next);
+  };
 
   return (
     <div style={{ padding: '20px 24px 28px', maxWidth: 760 }}>
@@ -115,15 +129,25 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
         <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: token.colorText, letterSpacing: -0.1 }}>
           {category.label}
         </h2>
-        <p style={{ margin: '2px 0 0', fontSize: 12, color: token.colorTextSecondary, maxWidth: 720 }}>
-          {HOST_INTRO[host]} <DocsLink />
-        </p>
       </header>
 
-      <ModePicker scenarios={visibleScenarios} value={activeScenario.mode} onChange={setMode} />
+      <ActiveBackendSelect
+        host={host}
+        intro={HOST_INTRO[host]}
+        value={mode}
+        onChange={handleDropdownChange}
+      />
 
-      <DetailFrame>
-        <BackendDetailDiagram mode={activeScenario.mode} />
+      <ModePicker
+        scenarios={SCENARIOS}
+        previewMode={previewScenario.mode}
+        activeMode={mode}
+        liveMode={liveBackend ? mode : null}
+        onPreview={setPreviewMode}
+      />
+
+      <DetailFrame previewingNonActive={previewingNonActive}>
+        <BackendDetailDiagram mode={previewScenario.mode} />
       </DetailFrame>
 
       <ConfigPanel pending={pending} mode={activeScenario.mode} defs={fieldDefs} />
@@ -131,11 +155,67 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   );
 };
 
-const DetailFrame: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+/**
+ * Card combining the intro copy (left) with the "Active back-end"
+ * dropdown (right). Single row to save vertical space.
+ */
+const ActiveBackendSelect: React.FC<{
+  host: Host;
+  intro: string;
+  value: BackendMode;
+  onChange: (next: BackendMode) => void;
+}> = ({ host, intro, value, onChange }) => {
   const { token } = theme.useToken();
   return (
     <div
       style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 16,
+        padding: '8px 14px',
+        marginBottom: 14,
+        background: token.colorBgContainer,
+        border: `1px solid ${token.colorBorderSecondary}`,
+        borderRadius: 10,
+      }}
+    >
+      <div style={{ flex: 1, minWidth: 0, fontSize: 12, color: token.colorTextSecondary }}>
+        {intro} <DocsLink />
+      </div>
+      <span style={{ flex: 'none', fontSize: 12, fontWeight: 600, color: token.colorText }}>
+        Active back-end:
+      </span>
+      <Select<BackendMode>
+        size="small"
+        value={value}
+        onChange={onChange}
+        style={{ minWidth: 200, flex: 'none' }}
+        options={SCENARIOS.map((s) => {
+          const available = s.validHosts.includes(host);
+          const pending = backendModeIsPending(s.mode);
+          // Pending modes stay selectable (the user pre-selects ahead
+          // of the daemon/VM shipping), only host-incompatible modes
+          // are hard-disabled.
+          return {
+            value: s.mode,
+            label: `${s.title}${pending ? ' · coming soon' : ''}`,
+            disabled: !available,
+          };
+        })}
+      />
+    </div>
+  );
+};
+
+const DetailFrame: React.FC<{ children: React.ReactNode; previewingNonActive: boolean }> = ({
+  children,
+  previewingNonActive,
+}) => {
+  const { token } = theme.useToken();
+  return (
+    <div
+      style={{
+        position: 'relative',
         background: token.colorBgContainer,
         border: `1px solid ${token.colorBorderSecondary}`,
         borderRadius: 10,
@@ -143,6 +223,28 @@ const DetailFrame: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         marginBottom: 14,
       }}
     >
+      {previewingNonActive && (
+        <span
+          style={{
+            position: 'absolute',
+            top: 5,
+            right: 6,
+            padding: '0 5px',
+            fontSize: 8,
+            fontWeight: 700,
+            letterSpacing: 0.3,
+            textTransform: 'uppercase',
+            borderRadius: 999,
+            background: token.colorFillTertiary,
+            color: token.colorTextTertiary,
+            border: `1px solid ${token.colorBorder}`,
+            pointerEvents: 'none',
+            lineHeight: '14px',
+          }}
+        >
+          Preview · Not Active
+        </span>
+      )}
       {children}
     </div>
   );
@@ -152,14 +254,30 @@ const DetailFrame: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 interface ModePickerProps {
   scenarios: readonly ScenarioDescriptor[];
-  value: BackendMode;
-  onChange: (next: BackendMode) => void;
+  /** The mode the tile row is previewing right now (purely visual). */
+  previewMode: BackendMode;
+  /** The mode that's actually persisted to `backend.mode` (the system setting). */
+  activeMode: BackendMode;
+  /**
+   * The mode whose back-end is currently confirmed live (SW running
+   * for `in-browser`, WS green for others). `null` while connecting
+   * or when sync is disabled.
+   */
+  liveMode: BackendMode | null;
+  /** Tile click — updates the local preview only, not the setting. */
+  onPreview: (next: BackendMode) => void;
 }
 
-const ModePicker: React.FC<ModePickerProps> = ({ scenarios, value, onChange }) => (
+const ModePicker: React.FC<ModePickerProps> = ({
+  scenarios,
+  previewMode,
+  activeMode,
+  liveMode,
+  onPreview,
+}) => (
   <div
     role="radiogroup"
-    aria-label="Backend mode"
+    aria-label="Backend mode preview"
     style={{
       display: 'grid',
       gridTemplateColumns: `repeat(${Math.min(scenarios.length, 4)}, minmax(0, 1fr))`,
@@ -168,82 +286,218 @@ const ModePicker: React.FC<ModePickerProps> = ({ scenarios, value, onChange }) =
     }}
   >
     {scenarios.map((s) => (
-      <PickerButton key={s.mode} descriptor={s} active={value === s.mode} onSelect={() => onChange(s.mode)} />
+      <PickerButton
+        key={s.mode}
+        descriptor={s}
+        /** "Previewing this tile" — primary border + tint. */
+        preview={previewMode === s.mode}
+        /** This is the active back-end (independent of preview). */
+        active={activeMode === s.mode}
+        /** Active AND its connection is live. */
+        live={liveMode === s.mode}
+        onSelect={() => onPreview(s.mode)}
+      />
     ))}
   </div>
 );
 
 const PickerButton: React.FC<{
   descriptor: ScenarioDescriptor;
+  /** Currently being previewed by the user (purely visual). */
+  preview: boolean;
+  /** Currently the active system back-end. Drives the ACTIVE chip together with `live`. */
   active: boolean;
+  /** Back-end for this mode is actually connected. */
+  live: boolean;
   onSelect: () => void;
-}> = ({ descriptor, active, onSelect }) => {
+}> = ({ descriptor, preview, active, live, onSelect }) => {
   const { token } = theme.useToken();
   const pending = backendModeIsPending(descriptor.mode);
   return (
     <button
       type="button"
       role="radio"
-      aria-checked={active}
+      aria-checked={preview}
       onClick={onSelect}
       style={{
         position: 'relative',
         display: 'flex',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         gap: 10,
-        padding: '10px 12px',
+        padding: '8px 10px 8px 10px',
         borderRadius: 8,
-        background: active ? token.colorPrimaryBg : token.colorBgContainer,
-        border: `1px solid ${active ? token.colorPrimary : token.colorBorderSecondary}`,
+        background: preview ? token.colorPrimaryBg : token.colorBgContainer,
+        border: `1px solid ${preview ? token.colorPrimary : token.colorBorderSecondary}`,
         cursor: 'pointer',
         transition: 'border-color 120ms, background 120ms',
         fontFamily: 'inherit',
         color: token.colorText,
         textAlign: 'left',
-        minHeight: 56,
+        // Anchor for the absolute-positioned status chip; keeps the
+        // chip out of the title's flex track so "Desktop App" /
+        // "Remote / WAN" stay on one line.
+        overflow: 'hidden',
       }}
     >
-      {pending && (
-        <span
-          style={{
-            position: 'absolute',
-            top: 6,
-            right: 6,
-            padding: '0 5px',
-            fontSize: 9,
-            fontWeight: 700,
-            letterSpacing: 0.3,
-            textTransform: 'uppercase',
-            borderRadius: 999,
-            background: token.colorWarningBg,
-            color: token.colorWarningText,
-            border: `1px solid ${token.colorWarningBorder}`,
-          }}
-        >
-          Soon
-        </span>
-      )}
       <div
         style={{
           flex: 'none',
-          width: 36,
-          height: 36,
+          width: 30,
+          height: 30,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          filter: active ? 'none' : 'grayscale(0.7) opacity(0.7)',
+          filter: preview ? 'none' : 'grayscale(0.7) opacity(0.7)',
           transition: 'filter 120ms',
         }}
       >
-        <BackendIcon kind={descriptor.icon} size={32} />
+        <BackendIcon kind={descriptor.icon} size={28} />
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 1 }}>{descriptor.title}</div>
-        <div style={{ fontSize: 11, color: token.colorTextSecondary, lineHeight: 1.35 }}>{descriptor.caption}</div>
+      <div
+        style={{
+          flex: 1,
+          minWidth: 0,
+          fontSize: 12.5,
+          fontWeight: 600,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}
+      >
+        {descriptor.title}
       </div>
+      <CornerTag active={active} live={live} pending={pending} />
     </button>
   );
 };
+
+/**
+ * Status tag overlay on a picker tile. Absolute-positioned at the
+ * top-right so it doesn't compete with the title text for flex space —
+ * "Desktop App" / "Remote / WAN" stay on one line.
+ *
+ * "ACTIVE" (green) only when the back-end for THIS mode is the active
+ * one AND its connection is live; "SELECTED" (primary) when active but
+ * still connecting; "SOON" marks not-yet-shipped scenarios.
+ */
+const CornerTag: React.FC<{
+  /** This mode is the persisted system back-end. */
+  active: boolean;
+  /** The active back-end is actually connected. Pairs with `active`. */
+  live: boolean;
+  pending: boolean;
+}> = ({ active, live, pending }) => {
+  const { token } = theme.useToken();
+  const tags: Array<{ label: string; bg: string; color: string; border: string }> = [];
+  if (active && live) {
+    // Configured AND connected — the strong "this is serving you right now" signal.
+    tags.push({
+      label: 'Active',
+      bg: token.colorSuccess,
+      color: token.colorTextLightSolid,
+      border: token.colorSuccess,
+    });
+  } else if (active) {
+    // Configured but not yet live — useful while the WS is connecting.
+    tags.push({
+      label: 'Selected',
+      bg: token.colorPrimary,
+      color: token.colorTextLightSolid,
+      border: token.colorPrimary,
+    });
+  }
+  if (pending) {
+    tags.push({
+      label: 'Soon',
+      bg: token.colorWarningBg,
+      color: token.colorWarningText,
+      border: token.colorWarningBorder,
+    });
+  }
+  if (tags.length === 0) return null;
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top: 4,
+        right: 4,
+        display: 'inline-flex',
+        gap: 4,
+        pointerEvents: 'none',
+      }}
+    >
+      {tags.map((t) => (
+        <span
+          key={t.label}
+          style={{
+            padding: '0 4px',
+            fontSize: 7.5,
+            fontWeight: 700,
+            letterSpacing: 0.2,
+            textTransform: 'uppercase',
+            borderRadius: 999,
+            background: t.bg,
+            color: t.color,
+            border: `1px solid ${t.border}`,
+            lineHeight: '11px',
+          }}
+        >
+          {t.label}
+        </span>
+      ))}
+    </div>
+  );
+};
+
+// ── Live-back-end check ────────────────────────────────────────────
+
+/**
+ * `true` when the back-end for the active mode is actually live right
+ * now. Two flavors:
+ *
+ *   1. **Host-implicit live.** When the current host IS the back-end
+ *      for the selected mode — extension on `in-browser`, desktop app
+ *      on `desktop-app` — the back-end is alive by definition (the SW
+ *      / desktop main is running this very code). No status check
+ *      needed; we'd just be asking the host whether it's running.
+ *   2. **Wire-driven live.** When the current host is a CLIENT of an
+ *      external back-end (e.g. extension talking to desktop, or any
+ *      host talking to a daemon / VM), liveness is whatever the `sync`
+ *      Status subsystem reports — green + "Connected to back-end".
+ *
+ * `useSyncExternalStore` isn't used because `getStatusSnapshot()`
+ * returns a fresh object every call (would trip the snapshot-stability
+ * invariant and loop). A simple `useState` + manual subscription works
+ * fine for a single boolean derivative.
+ */
+function useBackendLive(mode: BackendMode, host: Host): boolean {
+  const [live, setLive] = useState(() => computeLive(mode, host, getStatusSnapshot().sync));
+  useEffect(() => {
+    setLive(computeLive(mode, host, getStatusSnapshot().sync));
+    return subscribeStatus(() => {
+      setLive(computeLive(mode, host, getStatusSnapshot().sync));
+    });
+  }, [mode, host]);
+  return live;
+}
+
+function isHostImplicitlyLive(mode: BackendMode, host: Host): boolean {
+  if (host === 'extension' && mode === 'in-browser') return true;
+  if (host === 'desktop' && mode === 'desktop-app') return true;
+  return false;
+}
+
+function computeLive(
+  mode: BackendMode,
+  host: Host,
+  sync: import('../../../shared/status').StatusEntry | undefined,
+): boolean {
+  if (isHostImplicitlyLive(mode, host)) return true;
+  if (!sync) return false;
+  if (sync.state !== 'green') return false;
+  if (mode === 'in-browser') return sync.message === 'Running in this browser';
+  return sync.message === 'Connected to back-end';
+}
 
 // ── Docs link ──────────────────────────────────────────────────────
 

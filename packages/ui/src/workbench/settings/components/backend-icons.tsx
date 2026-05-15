@@ -1,34 +1,38 @@
 /**
- * Compact back-end-tier icons for the settings picker.
+ * Back-end-tier icons + glyphs for the settings picker and the detail
+ * diagrams. Two ways to render:
  *
- * Each glyph mirrors the artwork in the docs' `paradigm-local-first.tsx`
- * `renderIcon` switch (the four tiers: browser / desktop / daemon / vm)
- * so the visual identity is identical between the docs and the
- * settings UI. The docs render them inside a much larger card; here we
- * inline-size them via the SVG `viewBox` so each one fits a compact
- * 32×24 button icon without re-drawing the geometry.
+ *   - `<BackendIcon kind size />` — standalone `<svg>` for the picker
+ *     buttons.
+ *   - `<BackendGlyph kind cx cy scale />` — embeddable `<g>` for use
+ *     inside parent SVGs (the detail diagrams).
  *
- * Renders as standalone `<svg>` elements — no surrounding diagram
- * frame, no labels. The settings picker adds its own title + caption
- * beside the icon.
+ * Geometry mirrors the docs' artwork in
+ * `paradigm-local-first.tsx`'s `renderIcon` + the `cli` case in
+ * `paradigm-front-ends.tsx`, so the visual identity is identical
+ * between the docs and the settings UI.
  */
 
 import type React from 'react';
 import { FILL_BLUE, FILL_PURPLE, STROKE_BLUE, STROKE_PURPLE } from '../../components/docs/diagrams/_shared';
 import { OH_GREEN } from '../../components/docs/diagrams/open-headers/_shared';
 
-export type BackendIconKey = 'browser' | 'desktop' | 'daemon' | 'vm';
-
-interface IconProps {
-  /** Rendered size on the long axis; the SVG viewBox preserves aspect. */
-  size?: number;
-}
+export type BackendIconKey = 'browser' | 'desktop' | 'laptop' | 'daemon' | 'vm' | 'cli' | 'web';
 
 const STROKE = STROKE_BLUE;
 const FILL = FILL_BLUE;
 
-const InBrowserGlyph: React.FC<IconProps> = ({ size = 32 }) => (
-  <svg viewBox="-26 -18 52 36" width={size} height={size * (36 / 52)} role="presentation">
+// ── Embeddable groups (use inside parent SVGs) ──────────────────────
+
+interface GlyphProps {
+  cx: number;
+  cy: number;
+  /** Visual scale; 1 = the docs' default ~52px-wide icon. */
+  scale?: number;
+}
+
+const BrowserG: React.FC<GlyphProps> = ({ cx, cy, scale = 1 }) => (
+  <g transform={`translate(${cx} ${cy}) scale(${scale})`}>
     <rect x={-22} y={-14} width={44} height={28} rx={3} fill="var(--ant-color-bg-container)" stroke={STROKE} />
     <rect x={-22} y={-14} width={44} height={7} rx={3} fill={FILL} stroke={STROKE} />
     <circle cx={-18} cy={-10.5} r={1.2} fill={STROKE} />
@@ -45,11 +49,11 @@ const InBrowserGlyph: React.FC<IconProps> = ({ size = 32 }) => (
         fill="var(--ant-color-fill-tertiary)"
       />
     ))}
-  </svg>
+  </g>
 );
 
-const DesktopGlyph: React.FC<IconProps> = ({ size = 32 }) => (
-  <svg viewBox="-26 -20 52 40" width={size} height={size * (40 / 52)} role="presentation">
+const DesktopG: React.FC<GlyphProps> = ({ cx, cy, scale = 1 }) => (
+  <g transform={`translate(${cx} ${cy}) scale(${scale})`}>
     <rect x={-22} y={-16} width={44} height={26} rx={2} fill="var(--ant-color-bg-container)" stroke={STROKE} />
     <rect x={-19} y={-13} width={38} height={20} fill={FILL} stroke={STROKE} />
     {[0, 1, 2].map((i) => (
@@ -66,11 +70,11 @@ const DesktopGlyph: React.FC<IconProps> = ({ size = 32 }) => (
     ))}
     <rect x={-4} y={10} width={8} height={4} fill={STROKE} />
     <rect x={-10} y={14} width={20} height={2} rx={1} fill={STROKE} />
-  </svg>
+  </g>
 );
 
-const DaemonGlyph: React.FC<IconProps> = ({ size = 32 }) => (
-  <svg viewBox="-26 -20 52 40" width={size} height={size * (40 / 52)} role="presentation">
+const DaemonG: React.FC<GlyphProps> = ({ cx, cy, scale = 1 }) => (
+  <g transform={`translate(${cx} ${cy}) scale(${scale})`}>
     {[0, 1, 2].map((i) => (
       <g key={i}>
         <rect
@@ -86,11 +90,11 @@ const DaemonGlyph: React.FC<IconProps> = ({ size = 32 }) => (
         <rect x={-12} y={-13 + i * 11} width={28} height={2} rx={1} fill="var(--ant-color-fill-tertiary)" />
       </g>
     ))}
-  </svg>
+  </g>
 );
 
-const VmGlyph: React.FC<IconProps> = ({ size = 32 }) => (
-  <svg viewBox="-26 -18 52 36" width={size} height={size * (36 / 52)} role="presentation">
+const VmG: React.FC<GlyphProps> = ({ cx, cy, scale = 1 }) => (
+  <g transform={`translate(${cx} ${cy}) scale(${scale})`}>
     <path
       d="M -18 6
          c -8 0 -8 -10 0 -10
@@ -103,18 +107,128 @@ const VmGlyph: React.FC<IconProps> = ({ size = 32 }) => (
     />
     <rect x={-4} y={-2} width={8} height={6} rx={1} fill={FILL} stroke={STROKE} />
     <path d="M -3 -2 v -2 a 3 3 0 0 1 6 0 v 2" fill="none" stroke={STROKE} strokeWidth={1.2} />
-  </svg>
+  </g>
 );
 
-export const BackendIcon: React.FC<{ kind: BackendIconKey; size?: number }> = ({ kind, size }) => {
+/**
+ * Laptop glyph — inspired by the desktop's monitor+content layering but
+ * shaped like an open clam-shell: thin screen on top, trapezoidal
+ * keyboard deck below, trackpad notch on the front edge. Same color
+ * tokens as the desktop so the two read as members of the same
+ * visual family.
+ */
+const LaptopG: React.FC<GlyphProps> = ({ cx, cy, scale = 1 }) => (
+  <g transform={`translate(${cx} ${cy}) scale(${scale})`}>
+    {/* Screen body */}
+    <rect x={-22} y={-16} width={44} height={22} rx={2} fill="var(--ant-color-bg-container)" stroke={STROKE} />
+    {/* Screen content area */}
+    <rect x={-19} y={-13} width={38} height={16} fill={FILL} stroke={STROKE} />
+    {[0, 1, 2].map((i) => (
+      <rect
+        key={i}
+        x={-16}
+        y={-10 + i * 4}
+        width={32 - i * 6}
+        height={1.6}
+        rx={0.8}
+        fill="var(--ant-color-bg-container)"
+        opacity={0.7}
+      />
+    ))}
+    {/* Keyboard deck — trapezoid wider than the screen */}
+    <path
+      d="M -25 6 L 25 6 L 22 12 L -22 12 Z"
+      fill="var(--ant-color-bg-container)"
+      stroke={STROKE}
+      strokeWidth={1}
+    />
+    {/* Trackpad notch */}
+    <rect x={-5} y={9} width={10} height={1.5} rx={0.5} fill={STROKE} opacity={0.6} />
+  </g>
+);
+
+/**
+ * Web app glyph — browser frame with a globe inside the content area.
+ * Lifted from `paradigm-front-ends.tsx`'s `web` case.
+ */
+const WebG: React.FC<GlyphProps> = ({ cx, cy, scale = 1 }) => (
+  <g transform={`translate(${cx} ${cy}) scale(${scale})`}>
+    <rect x={-22} y={-14} width={44} height={28} rx={3} fill="var(--ant-color-bg-container)" stroke={STROKE} />
+    <rect x={-22} y={-14} width={44} height={7} rx={3} fill={FILL} stroke={STROKE} />
+    <circle cx={-18} cy={-10.5} r={1.2} fill={STROKE} />
+    <circle cx={-14} cy={-10.5} r={1.2} fill={STROKE} />
+    <circle cx={-10} cy={-10.5} r={1.2} fill={STROKE} />
+    {/* Globe — meridians/parallels on the body */}
+    <circle cx={0} cy={3} r={7} fill="var(--ant-color-bg-container)" stroke={STROKE_BLUE} strokeWidth={1.2} />
+    <ellipse cx={0} cy={3} rx={3} ry={7} fill="none" stroke={STROKE_BLUE} strokeWidth={1} />
+    <line x1={-7} y1={3} x2={7} y2={3} stroke={STROKE_BLUE} strokeWidth={1} />
+  </g>
+);
+
+/**
+ * CLI terminal glyph — solid dark body with three traffic-light dots
+ * and a `$ _` monospace prompt. Lifted from `paradigm-front-ends.tsx`'s
+ * `cli` case. No `animate` here — the docs version has a blinking
+ * cursor; an inline-SVG embedded inside a settings panel doesn't need
+ * the eye candy.
+ */
+const CliG: React.FC<GlyphProps> = ({ cx, cy, scale = 1 }) => (
+  <g transform={`translate(${cx} ${cy}) scale(${scale})`}>
+    <rect x={-22} y={-14} width={44} height={28} rx={3} fill="var(--ant-color-text)" stroke={STROKE} />
+    <rect x={-22} y={-14} width={44} height={6} rx={3} fill={FILL} stroke={STROKE} />
+    <circle cx={-18} cy={-11} r={1} fill="#ff5f57" />
+    <circle cx={-14} cy={-11} r={1} fill="#febc2e" />
+    <circle cx={-10} cy={-11} r={1} fill="#28c840" />
+    <text x={-18} y={4} fontFamily="monospace" fontSize={10} fontWeight={800} fill={OH_GREEN}>
+      $ _
+    </text>
+    <rect x={-2} y={7} width={6} height={2} fill={OH_GREEN} />
+  </g>
+);
+
+export const BackendGlyph: React.FC<GlyphProps & { kind: BackendIconKey }> = ({ kind, ...rest }) => {
   switch (kind) {
     case 'browser':
-      return <InBrowserGlyph size={size} />;
+      return <BrowserG {...rest} />;
     case 'desktop':
-      return <DesktopGlyph size={size} />;
+      return <DesktopG {...rest} />;
+    case 'laptop':
+      return <LaptopG {...rest} />;
     case 'daemon':
-      return <DaemonGlyph size={size} />;
+      return <DaemonG {...rest} />;
     case 'vm':
-      return <VmGlyph size={size} />;
+      return <VmG {...rest} />;
+    case 'cli':
+      return <CliG {...rest} />;
+    case 'web':
+      return <WebG {...rest} />;
   }
+};
+
+// ── Standalone (use for the picker buttons) ─────────────────────────
+
+/**
+ * `BackendIcon` wraps a glyph in its own `<svg>` so the picker buttons
+ * can drop it in as a simple inline element. ViewBox auto-sized per
+ * kind to preserve the docs' aspect ratios.
+ */
+export const BackendIcon: React.FC<{ kind: BackendIconKey; size?: number }> = ({ kind, size = 32 }) => {
+  const { vb, ratio } = ICON_VIEWBOX[kind];
+  const w = size;
+  const h = Math.round(size * ratio);
+  return (
+    <svg viewBox={vb} width={w} height={h} role="presentation">
+      <BackendGlyph kind={kind} cx={0} cy={0} scale={1} />
+    </svg>
+  );
+};
+
+const ICON_VIEWBOX: Record<BackendIconKey, { vb: string; ratio: number }> = {
+  browser: { vb: '-26 -18 52 36', ratio: 36 / 52 },
+  desktop: { vb: '-26 -20 52 40', ratio: 40 / 52 },
+  laptop: { vb: '-28 -18 56 34', ratio: 34 / 56 },
+  daemon: { vb: '-26 -20 52 40', ratio: 40 / 52 },
+  vm: { vb: '-26 -18 52 36', ratio: 36 / 52 },
+  cli: { vb: '-26 -18 52 36', ratio: 36 / 52 },
+  web: { vb: '-26 -18 52 36', ratio: 36 / 52 },
 };

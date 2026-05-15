@@ -385,18 +385,23 @@ export function OnThisPage({ entries }: { entries: { id: string; title: string }
 export type DocSurface = 'popup' | 'side-panel' | 'workbench' | 'devtools';
 
 const SURFACE_ORDER: DocSurface[] = ['popup', 'side-panel', 'workbench', 'devtools'];
-const SURFACE_LABELS: Record<DocSurface, string> = {
+export const SURFACE_LABELS: Record<DocSurface, string> = {
   popup: 'Popup',
   'side-panel': 'Side panel',
   workbench: 'Workbench',
   devtools: 'DevTools',
 };
 
-function SurfaceGlyph({ surface, accent }: { surface: DocSurface; accent: string }) {
-  // Browser frame is shared; the surface-specific shape sits on top of it.
+/**
+ * Body of the surface glyph as an SVG `<g>` — usable both as the
+ * subject of a standalone glyph (`SurfaceGlyph` wraps this in an
+ * `<svg>` for the docs context) and as an inline element inside a
+ * larger parent SVG (the settings back-end details).
+ */
+export function SurfaceGlyphBody({ surface, accent }: { surface: DocSurface; accent: string }) {
   const frameStroke = 'var(--ant-color-border)';
   return (
-    <svg width={42} height={32} viewBox="0 0 42 32" aria-hidden="true">
+    <g>
       <title>{SURFACE_LABELS[surface]}</title>
       <rect x={1} y={1} width={40} height={30} rx={3} fill="var(--ant-color-bg-container)" stroke={frameStroke} />
       {/* Tab strip / address bar separator */}
@@ -408,6 +413,14 @@ function SurfaceGlyph({ surface, accent }: { surface: DocSurface; accent: string
       {surface === 'side-panel' && <rect x={32} y={9} width={8} height={21} rx={1} fill={accent} />}
       {surface === 'workbench' && <rect x={3} y={9} width={36} height={21} rx={1} fill={accent} />}
       {surface === 'devtools' && <rect x={3} y={22} width={36} height={8} rx={1} fill={accent} />}
+    </g>
+  );
+}
+
+export function SurfaceGlyph({ surface, accent }: { surface: DocSurface; accent: string }) {
+  return (
+    <svg width={42} height={32} viewBox="0 0 42 32" aria-hidden="true">
+      <SurfaceGlyphBody surface={surface} accent={accent} />
     </svg>
   );
 }
