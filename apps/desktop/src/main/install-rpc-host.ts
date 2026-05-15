@@ -29,6 +29,9 @@
  *     renderer surface holds one long-lived port; webContents destroy
  *     and renderer-initiated close both fan out as `onDisconnect` to
  *     oracle's `setupAwarenessLifelinePorts`.
+ *   - `BlobBackend`: filesystem-backed (`<userData>/blobs/<wsId>/<fileId>.bin`)
+ *     with metadata living in the same `oracle.db` SQLite handle as the
+ *     sync persistence layer.
  *
  * Renderer ↔ main wire:
  *
@@ -55,6 +58,7 @@ import { hydrateActiveWorkspaceStores } from '@openheaders/oracle/workspace/work
 import { setOracleHostHooks } from '@openheaders/oracle/sync';
 import { setSyncPersistenceProvider } from '@openheaders/oracle/sync/sync-persistence-provider';
 import { createSqliteSyncPersistence } from '@openheaders/oracle/sync/sqlite-sync-persistence';
+import { FileSystemBlobBackend, setBlobBackend } from '@openheaders/oracle/files';
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
 import * as path from 'node:path';
 import { installHostStorage } from './install-host-storage';
@@ -95,6 +99,16 @@ export async function installRpcHost(): Promise<void> {
     dbPath: path.join(app.getPath('userData'), 'oracle.db'),
   });
   setSyncPersistenceProvider(syncPersistence);
+  // Blob bytes live on the filesystem alongside the SQLite metadata so
+  // large files don't bloat the DB and incremental backups stay
+  // straightforward. The metadata table rides on the same handle as the
+  // sync persistence — `oracle.db` already opens once at boot.
+  setBlobBackend(
+    new FileSystemBlobBackend({
+      rootDir: path.join(app.getPath('userData'), 'blobs'),
+      db: syncPersistence.db,
+    }),
+  );
   app.on('before-quit', () => {
     syncPersistence.close();
   });

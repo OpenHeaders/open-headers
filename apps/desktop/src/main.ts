@@ -49,7 +49,16 @@ function createWindow(): void {
       nodeIntegration: false,
     },
   });
-  void win.loadFile(join(__dirname, '..', 'renderer', 'index.html'));
+  // electron-vite sets `ELECTRON_RENDERER_URL` to its dev server in
+  // `pnpm dev` mode (Vite HMR over http://localhost:<port>). In
+  // production builds the variable is absent and the renderer loads
+  // from disk under `dist-webpack/renderer/`.
+  const devUrl = process.env.ELECTRON_RENDERER_URL;
+  if (devUrl) {
+    void win.loadURL(devUrl);
+  } else {
+    void win.loadFile(join(__dirname, '..', 'renderer', 'index.html'));
+  }
   win.once('ready-to-show', () => win.show());
 }
 
