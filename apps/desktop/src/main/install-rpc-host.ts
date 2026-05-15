@@ -21,7 +21,9 @@
  *   - `HostStorage`: file-backed (`<userData>/storage.json`) with Electron
  *     `safeStorage` encrypting slots flagged `sensitive: true`. Renderers
  *     reach it via the `oh:storage:*` IPC channels (`installHostStorage`).
- *   - `SyncPersistenceProvider`: in-memory (→ sqlite in a follow-up commit).
+ *   - `SyncPersistenceProvider`: SQLite-backed (`<userData>/oracle.db`),
+ *     better-sqlite3 with WAL journal; per-scope `MutationLog` and
+ *     `PendingIntents` share one database handle.
  *   - `LockRuntime`: single-process FIFO mutex (final shape for main).
  *   - `LifelineServer`: unwired (a follow-up commit lands IPC lifeline).
  *
@@ -49,8 +51,9 @@ import {
 import { hydrateActiveWorkspaceStores } from '@openheaders/oracle/workspace/workspace-coordinator';
 import { setOracleHostHooks } from '@openheaders/oracle/sync';
 import { setSyncPersistenceProvider } from '@openheaders/oracle/sync/sync-persistence-provider';
+import { createSqliteSyncPersistence } from '@openheaders/oracle/sync/sqlite-sync-persistence';
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
-import { inMemorySyncPersistenceProvider } from './in-memory-sync-persistence';
+import * as path from 'node:path';
 import { installHostStorage } from './install-host-storage';
 import { singleProcessLockRuntime } from './single-process-lock-runtime';
 
@@ -83,7 +86,13 @@ export async function installRpcHost(): Promise<void> {
   const { backend: hostStorage } = installHostStorage();
   setHostStorage(hostStorage);
   setLockRuntime(singleProcessLockRuntime);
-  setSyncPersistenceProvider(inMemorySyncPersistenceProvider);
+  const syncPersistence = createSqliteSyncPersistence({
+    dbPath: path.join(app.getPath('userData'), 'oracle.db'),
+  });
+  setSyncPersistenceProvider(syncPersistence);
+  app.on('before-quit', () => {
+    syncPersistence.close();
+  });
 
   // 2. Oracle host hooks. Desktop has no DNR engine, no resolver-state
   //    runner, no rule-state-observer cache invalidation. All optional

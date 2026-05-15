@@ -21,6 +21,7 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "@openheaders/windows-foreground",
+      "better-sqlite3",
       "bufferutil",
       "electron",
       "esbuild",
