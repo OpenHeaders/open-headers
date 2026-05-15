@@ -33,13 +33,21 @@
  *     with metadata living in the same `oracle.db` SQLite handle as the
  *     sync persistence layer.
  *
- * Renderer ↔ main wire:
+ * Inbound wires:
  *
  *   - `ipcMain.handle('oh:rpc', payload)` → `dispatchSyncRpc` for the 22
- *     sync+awareness channels. Non-sync RPCs reject with a clear error
- *     until a desktop-side dispatcher lands.
- *   - Oracle broadcasts (`syncBroadcast`, `awarenessBroadcast`) are
- *     fan'd out to every open renderer via `webContents.send`.
+ *     sync+awareness channels (renderer ↔ main).
+ *   - `startOracleWsServer` on `127.0.0.1:59210` → same `dispatchSyncRpc`
+ *     for connected extension SWs / future daemons / future remote
+ *     surfaces. Handshake validates protocol version against
+ *     `@openheaders/core/protocol`'s `PROTOCOL_VERSION`.
+ *
+ * Outbound (oracle → world):
+ *
+ *   - Oracle broadcasts (`syncBroadcast`, `awarenessBroadcast`) fan out
+ *     to every open renderer via `webContents.send` AND to every WS
+ *     peer past handshake. One oracle event, two transports, same
+ *     payload shape.
  */
 
 import { app, BrowserWindow, ipcMain } from 'electron';
@@ -49,6 +57,7 @@ import { setHostLogger } from '@openheaders/core/logger';
 import { setHostStorage } from '@openheaders/core/storage';
 import { setLockRuntime } from '@openheaders/oracle/coordination';
 import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
+import { type OracleWsServer, startOracleWsServer } from '@openheaders/oracle/host-runtime/ws-server';
 import {
   bootstrap as bootstrapWorkspaces,
   getActiveWorkspaceId,
@@ -68,6 +77,12 @@ import { singleProcessLockRuntime } from './single-process-lock-runtime';
 const RPC_CHANNEL = 'oh:rpc';
 const BROADCAST_CHANNEL = 'oh:broadcast';
 
+// Captured at boot. The host-hook closures below fan to both renderers
+// and connected WS peers; the WS server is null until `startOracleWsServer`
+// resolves (early-fire broadcasts hit renderers only, which is harmless —
+// no peer has handshook yet).
+let wsServer: OracleWsServer | null = null;
+
 function broadcastToAllRenderers(type: string, payload: unknown): void {
   // Fan out to every open BrowserWindow. Single-window desktop today;
   // safe-by-construction for multi-window down the line.
@@ -80,6 +95,11 @@ function broadcastToAllRenderers(type: string, payload: unknown): void {
       // best-effort. Swallow.
     }
   }
+}
+
+function broadcastEverywhere(type: string, payload: unknown): void {
+  broadcastToAllRenderers(type, payload);
+  wsServer?.broadcast(type, payload);
 }
 
 /**
@@ -119,8 +139,8 @@ export async function installRpcHost(): Promise<void> {
   setOracleHostHooks({
     getActiveWorkspaceId,
     peekActiveWorkspaceId,
-    broadcastSyncEvent: (event) => broadcastToAllRenderers('syncBroadcast', event),
-    broadcastAwareness: (event) => broadcastToAllRenderers('awarenessBroadcast', event),
+    broadcastSyncEvent: (event) => broadcastEverywhere('syncBroadcast', event),
+    broadcastAwareness: (event) => broadcastEverywhere('awarenessBroadcast', event),
   });
 
   // 3. The main process drives writes through the same `hostBridge`
@@ -158,9 +178,29 @@ export async function installRpcHost(): Promise<void> {
     return await result.promise;
   });
 
-  // 6. Clean up the renderer-bound dispatch on app quit so a reload
-  //    cycle doesn't leak a stale ipcMain.handle registration.
+  // 6. WS server on 127.0.0.1:59210 — the extension-as-client pipe.
+  //    The browser SW connects here on boot; same `dispatchSyncRpc`
+  //    routes its messages, and oracle broadcasts fan out to every
+  //    connected peer via `broadcastEverywhere`. Failure to bind
+  //    (another instance running, port held by something else) is
+  //    logged but not fatal; the IPC engine keeps serving the
+  //    renderer.
+  try {
+    wsServer = await startOracleWsServer();
+  } catch (err) {
+    consoleLogger.error(
+      'install-rpc-host',
+      'WS server failed to start; continuing without the extension pipe',
+      err,
+    );
+  }
+
+  // 7. Clean up the renderer-bound dispatch + WS server on app quit so a
+  //    reload cycle doesn't leak a stale ipcMain.handle registration or
+  //    a half-open server socket.
   app.on('before-quit', () => {
     ipcMain.removeHandler(RPC_CHANNEL);
+    void wsServer?.close();
+    wsServer = null;
   });
 }
