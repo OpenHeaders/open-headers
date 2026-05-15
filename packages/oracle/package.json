@@ -43,6 +43,10 @@
       "import": "./src/workspace/*.ts",
       "default": "./dist/workspace/*.js"
     },
+    "./host-runtime": {
+      "import": "./src/host-runtime/index.ts",
+      "default": "./dist/host-runtime/index.js"
+    },
     "./rpc": {
       "import": "./src/rpc/index.ts",
       "default": "./dist/rpc/index.js"

@@ -17,9 +17,6 @@ import type { Rule, TreeNode } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
 import { isRuleEffective } from '@openheaders/core/utils';
 import {
-  bridgeEnvironmentSyncEngine,
-  bridgeVaultSyncEngine,
-  bridgeWorkspaceVariablesSyncEngine,
   getActiveEnvironmentId,
   getCollectionEnvOverrides,
   getDefaultEnvironmentId,
@@ -29,7 +26,7 @@ import {
   getWorkspaceVariables,
   onEnvironmentStoreChange,
 } from '@openheaders/oracle/entity/environment-store';
-import { bridgeFilesSyncEngine, listFiles, onFilesStoreChange } from '@openheaders/oracle/entity/files-store';
+import { listFiles, onFilesStoreChange } from '@openheaders/oracle/entity/files-store';
 import { report as reportStatus, subscribe as subscribeStatus } from '@openheaders/ui/shared/status';
 import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
 import { broadcast } from '@utils/bridge';
@@ -54,21 +51,12 @@ import { setupDevtoolsInspectorPorts } from './modules/devtools-inspector-port';
 // against a real chain runner rather than the Phase-C stub.
 import './modules/live-chain-adapter';
 import { setLockObserver } from '@openheaders/oracle/coordination';
-import { bridgeOAuthSyncEngine } from '@openheaders/oracle/entity/oauth-token-store';
 import { onLiveCacheStoreChange } from '@openheaders/oracle/live/live-cache-store';
-import {
-  bridgeLiveVariableSyncEngine,
-  getLiveVariables,
-  onLiveVariableStoreChange,
-} from '@openheaders/oracle/live/live-variable-store';
-import {
-  bridgeLiveWorkflowSyncEngine,
-  getLiveWorkflows,
-  onLiveWorkflowStoreChange,
-} from '@openheaders/oracle/live/live-workflow-store';
+import { getLiveVariables, onLiveVariableStoreChange } from '@openheaders/oracle/live/live-variable-store';
+import { getLiveWorkflows, onLiveWorkflowStoreChange } from '@openheaders/oracle/live/live-workflow-store';
 import { disposeResolverStateForWorkspace } from '@openheaders/oracle/rule-engine/variables-resolver';
+import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
 import { setOracleHostHooks } from '@openheaders/oracle/sync';
-import { bridgeLayoutStateSyncEngine } from '@openheaders/oracle/workspace/layout-store';
 import {
   handleLiveAlarm,
   isLiveRefreshAlarm,
@@ -116,45 +104,17 @@ setOracleHostHooks({
   },
 });
 
-import { bridgePauseMarkersSyncEngine, getPauseMarkers } from '@openheaders/oracle/entity/pause-markers-store';
+import { getPauseMarkers } from '@openheaders/oracle/entity/pause-markers-store';
 import { applyExternalSnapshot as applyRequestScriptsReviewSnapshot } from '@openheaders/oracle/entity/request-scripts-review-store';
-import {
-  bridgeRequestCollectionSyncEngine,
-  bridgeRequestFolderSyncEngine,
-  bridgeRequestSyncEngine,
-  getRequests,
-  onRequestStoreChange,
-} from '@openheaders/oracle/entity/request-store';
-import {
-  bridgeCollectionSyncEngine,
-  bridgeFolderSyncEngine,
-  bridgeToSyncEngine,
-  getCollectionTrees,
-  getRules,
-  onStoreChange,
-} from '@openheaders/oracle/entity/rule-store';
-import {
-  bridgeTemplateCollectionSyncEngine,
-  bridgeTemplateFolderSyncEngine,
-  bridgeTemplateSyncEngine,
-  ensureDefaultTemplateCollection,
-  getTemplates,
-  onTemplateStoreChange,
-} from '@openheaders/oracle/entity/template-store';
+import { getRequests, onRequestStoreChange } from '@openheaders/oracle/entity/request-store';
+import { getCollectionTrees, getRules, onStoreChange } from '@openheaders/oracle/entity/rule-store';
+import { getTemplates, onTemplateStoreChange } from '@openheaders/oracle/entity/template-store';
 import {
   __setSyncWarmRunner,
   getUnresolvableRuleUids,
   hydrateLiveCacheMirror,
 } from '@openheaders/oracle/rule-engine/variables-resolver';
-import { setupAwarenessLifelinePorts } from '@openheaders/oracle/sync/awareness-lifeline';
 import { markBootPhase } from '@openheaders/oracle/sync/boot-telemetry';
-import { attachGlobalWorkspaceCoordRunner, initGlobalSyncService } from '@openheaders/oracle/sync/global-service';
-import {
-  getOrCreateWorkspaceService,
-  releaseWorkspaceService,
-  removeAwarenessByInstanceId,
-  setRuntimeActive,
-} from '@openheaders/oracle/sync/service';
 import { pruneOrphanOwners } from '@openheaders/oracle/test-run/test-run-store';
 import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
 import { auditHostPermissions } from './modules/permissions-audit';
@@ -176,14 +136,9 @@ import { setupTestRunnerPorts } from './modules/test-runner';
 import { bootstrapTotpScheduler, getCachedTotpCodes, handleTotpAlarm, isTotpAlarm } from './modules/totp-scheduler';
 import { initializeViewMode } from './modules/view-mode';
 import { isHandoffSweepAlarm, sweepExpiredHandoffs } from './modules/workspace-export-handoff-store';
-import {
-  hydrateActiveWorkspaceStores,
-  purgeWorkspaceData,
-  swapPerWorkspaceStores,
-} from './modules/workspace-orchestrator';
+import { hydrateActiveWorkspaceStores } from './modules/workspace-orchestrator';
 import {
   bootstrap as bootstrapWorkspaces,
-  bridgeExtensionWorkspaceSyncEngine,
   getActiveWorkspaceId,
   listWorkspaces,
   onWorkspaceStoreChange,
@@ -227,40 +182,6 @@ const settingsReady = workspacesReady.then(bootstrapSettings).then(() => {
  * after every rule-store change so deletions cascade-clean orphan
  * test-run buckets.
  */
-/**
- * Re-seed every per-workspace sync engine for the currently-active
- * workspace. Used both at boot and by the workspace-coord runner after
- * an active-flip swap. Bridges that depend on a parent (folders need
- * their collection seeded first; templates depth-first; live workflows
- * before live variables; requests → request-collections → request-
- * folders) are awaited in order; independent bridges run in parallel.
- */
-async function reseedAllPerWorkspaceBridges(): Promise<void> {
-  const log = (label: string) => (err: unknown) => {
-    logger.warn('Background', `${label} after workspace switch failed`, err);
-  };
-  await Promise.all([
-    bridgeToSyncEngine().catch(log('bridgeToSyncEngine')),
-    bridgeEnvironmentSyncEngine().catch(log('bridgeEnvironmentSyncEngine')),
-    bridgeCollectionSyncEngine().then(bridgeFolderSyncEngine).catch(log('bridgeCollectionSyncEngine/Folder')),
-    bridgeWorkspaceVariablesSyncEngine().catch(log('bridgeWorkspaceVariablesSyncEngine')),
-    bridgeVaultSyncEngine().catch(log('bridgeVaultSyncEngine')),
-    bridgeRequestSyncEngine()
-      .then(bridgeRequestCollectionSyncEngine)
-      .then(bridgeRequestFolderSyncEngine)
-      .catch(log('bridgeRequest/RequestCollection/RequestFolder')),
-    bridgeTemplateCollectionSyncEngine()
-      .then(bridgeTemplateFolderSyncEngine)
-      .then(bridgeTemplateSyncEngine)
-      .catch(log('bridgeTemplate/Collection/Folder')),
-    bridgeLiveWorkflowSyncEngine().then(bridgeLiveVariableSyncEngine).catch(log('bridgeLiveWorkflow/LiveVariable')),
-    bridgeOAuthSyncEngine().catch(log('bridgeOAuthSyncEngine')),
-    bridgePauseMarkersSyncEngine().catch(log('bridgePauseMarkersSyncEngine')),
-    bridgeLayoutStateSyncEngine().catch(log('bridgeLayoutStateSyncEngine')),
-    bridgeFilesSyncEngine().catch(log('bridgeFilesSyncEngine')),
-  ]);
-}
-
 function pruneOrphanTestRunOwnersFromStore(): void {
   const liveRules = new Set<string>();
   const liveEntities = new Set<string>();
@@ -414,20 +335,8 @@ async function initializeExtension(): Promise<void> {
   setupDelayBypassCleanup();
   setupTestRunnerPorts();
   setupDevtoolsInspectorPorts();
-  setupAwarenessLifelinePorts({
-    removeByInstanceId: removeAwarenessByInstanceId,
-    acquireWorkspace: (workspaceId) => {
-      // Lifelines are refcount handles per design § 4.0.7. The acquire
-      // bumps the workspace's service refcount; the matching release
-      // fires from `port.onDisconnect` (or on a rebind). The acquire's
-      // return value is intentionally ignored — we keep no per-port
-      // service handle on the SW side beyond the refcount itself.
-      getOrCreateWorkspaceService(workspaceId);
-    },
-    releaseWorkspace: (workspaceId) => {
-      releaseWorkspaceService(workspaceId);
-    },
-  });
+  // Awareness lifeline ports + workspace-coord runner are attached
+  // inside `bootSyncEngine` below.
   setupOnRuleMatchedDebugBridge();
 
   // Broadcast rule changes to all open extension pages (popup, workspace)
@@ -570,98 +479,14 @@ async function initializeExtension(): Promise<void> {
   await hydrateActiveWorkspaceStores();
   markBootPhase('hydration-done');
 
-  // Global-scope sync engine — the cross-workspace `extensionWorkspace`
-  // entity (workspaces list + active pointer) lives ABOVE the
-  // per-workspace oracle, so it gets its own one-time-init service.
-  // Booted before per-workspace `initSyncService` purely for
-  // dependency-graph cleanliness; no envelope coupling between the two
-  // scopes. The seed bridge sources from the in-memory workspace-store
-  // populated by `bootstrapWorkspaces()` (already resolved by the time
-  // hydration completes).
-  initGlobalSyncService();
-  await bridgeExtensionWorkspaceSyncEngine();
-
-  // Sync engine (Phase A) — instantiate the local oracle for the
-  // active workspace once hydration has resolved a workspace id. The
-  // service holds the oracle, IDB-backed mutation log, IDB-backed
-  // pending intents, and the broadcast bus that re-publishes
-  // committed envelopes as `syncBroadcast` chrome.runtime events.
-  // Until the W-series write-site flips land, no production surface
-  // routes mutations through the service, so the oracle stays inert
-  // — but the IDB connections + bridge handler are live so W1 has
-  // nothing to bootstrap.
-  // Boot is the atomicity backstop: same code path as a runtime Active
-  // flip. workspace-store.bootstrap already walked Active → Default →
-  // first valid workspace, so `getActiveWorkspaceId()` returns a
-  // resolved id by this point.
-  const bootSetActive = await setRuntimeActive(getActiveWorkspaceId());
-  if (!bootSetActive.ok) {
-    // Boot failure is rare but recoverable — the next extensionWorkspace
-    // mutation routes through the workspace-coord runner which will
-    // re-attempt setRuntimeActive. Log and continue so the rest of
-    // bridge wiring proceeds (bridge handlers tolerate a null Active
-    // briefly via the snapshot fallback in service.ts).
-    logger.warn('Background', `boot setRuntimeActive failed: ${bootSetActive.reason}`);
-  }
+  // Host-neutral sync-engine boot sequence — init global service, seed
+  // the extensionWorkspace oracle, setRuntimeActive, seed every
+  // per-workspace bridge, ensure default template collection, attach the
+  // workspace-coord runner + awareness lifeline ports. Same code path on
+  // the desktop main process; lives in `@openheaders/oracle/host-runtime`.
+  await bootSyncEngine();
   markBootPhase('sync-init-done');
-  // Bridge the rule-store to the sync engine: seed the oracle from
-  // the hydrated `Rule[]` and subscribe to the cache so subsequent
-  // mutations (in-process today, remote in Phase C) flow back into
-  // the local mirror. After this call rule writes route through the
-  // oracle; reads stay synchronous off the local mirror.
-  await bridgeToSyncEngine();
-  await bridgeEnvironmentSyncEngine();
-  await bridgeCollectionSyncEngine();
-  await bridgeFolderSyncEngine();
-  await bridgeWorkspaceVariablesSyncEngine();
-  await bridgeVaultSyncEngine();
-  await bridgeRequestSyncEngine();
-  await bridgeRequestCollectionSyncEngine();
-  await bridgeRequestFolderSyncEngine();
-  await bridgeTemplateCollectionSyncEngine();
-  await bridgeTemplateFolderSyncEngine();
-  await bridgeTemplateSyncEngine();
-  await bridgeLiveWorkflowSyncEngine();
-  await bridgeLiveVariableSyncEngine();
-  await bridgeOAuthSyncEngine();
-  await bridgePauseMarkersSyncEngine();
-  await bridgeLayoutStateSyncEngine();
-  await bridgeFilesSyncEngine();
   markBootPhase('bridge-done');
-
-  // Seed the default "User Templates" collection so the Templates
-  // section is non-empty on first run. Idempotent — no-op if a
-  // collection with that name already exists.
-  await ensureDefaultTemplateCollection().catch((err: unknown) => {
-    logger.warn('Background', 'ensureDefaultTemplateCollection at boot failed', err);
-  });
-
-  // Workspace coordination runner — drains SWAP_PER_WORKSPACE_STORES +
-  // PURGE_WORKSPACE_DATA intents on every `extensionWorkspace`
-  // broadcast and routes them through the orchestrator + per-workspace
-  // sync engine reinit + bridge re-seed chain. Wired AFTER the initial
-  // per-workspace bridges so the runner doesn't fire its own
-  // (redundant) re-seed pass on the boot-time seed broadcast — the
-  // per-workspace bridges have already run by this point. Subsequent
-  // renderer-driven setActive / delete commits route entirely through
-  // the runner.
-  attachGlobalWorkspaceCoordRunner({
-    getActiveWorkspaceId: peekActiveWorkspaceId,
-    swap: async (newId) => {
-      await swapPerWorkspaceStores(newId);
-      const result = await setRuntimeActive(newId);
-      if (!result.ok) {
-        logger.warn('Background', `workspace-coord setRuntimeActive(${newId}) failed: ${result.reason}`);
-      }
-      await reseedAllPerWorkspaceBridges();
-      await ensureDefaultTemplateCollection().catch((err: unknown) => {
-        logger.warn('Background', 'ensureDefaultTemplateCollection on workspace switch failed', err);
-      });
-    },
-    purge: async (workspaceId) => {
-      await purgeWorkspaceData([workspaceId]);
-    },
-  });
   // Release the hydration barrier — alarm handlers waiting on
   // `backgroundReady` can now safely read the in-memory workflow /
   // variable / rule stores. Fired here (rather than at end-of-init)
