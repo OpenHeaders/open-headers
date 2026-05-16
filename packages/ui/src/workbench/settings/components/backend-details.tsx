@@ -442,46 +442,140 @@ const BackEndPill: React.FC<{
 interface FrontEndItem {
   label: string;
   glyph: React.ReactNode;
+  /** Optional sub-line listing access methods for this surface (e.g.
+   *  "desktop · website"). Rendered as italic muted text under the label. */
+  via?: string;
 }
 
-const FrontEndPill: React.FC<{ x: number; y: number; w: number; items: readonly FrontEndItem[] }> = ({
-  x,
-  y,
-  w,
-  items,
-}) => {
+interface FrontEndPillProps {
+  x: number;
+  y: number;
+  w: number;
+  items: readonly FrontEndItem[];
+  /** Optional list of programmatic / headless client types. When set,
+   *  the pill splits into two halves: UI surfaces on the left, API
+   *  clients on the right, separated by a dashed vertical line. */
+  apiClients?: readonly string[];
+  /** Marks the surfaces section as opt-in (tier 3/4 are headless by
+   *  default; exposing the website is a deliberate choice). */
+  surfacesOptional?: boolean;
+}
+
+const FrontEndPill: React.FC<FrontEndPillProps> = ({ x, y, w, items, apiClients, surfacesOptional }) => {
   // Vertical rhythm with explicit paddings so title + glyphs + labels
   // have visible breathing room from the rect edges:
-  //   top pad → title (~14) → gap → glyph (32) → label (14) → bottom pad
+  //   top pad → title (~14) → gap → glyph (32) → label (14) → [via?]
+  //   → bottom pad
   const padTop = 10;
   const titleH = 14;
   const titleToGlyphGap = 10;
   const glyphH = 32;
   const labelH = 14;
+  const hasVia = items.some((it) => Boolean(it.via));
+  const viaH = hasVia ? 12 : 0;
   const padBottom = 12;
   const glyphTop = y + padTop + titleH + titleToGlyphGap;
-  const h = padTop + titleH + titleToGlyphGap + glyphH + labelH + padBottom;
-  const startX = x + 10;
-  const endX = x + w - 10;
-  const slotW = (endX - startX) / items.length;
+  const h = padTop + titleH + titleToGlyphGap + glyphH + labelH + viaH + padBottom;
+
+  // Two-half layout when apiClients is present: surfaces on the left,
+  // API clients on the right. A dashed vertical line marks the split.
+  const split = Boolean(apiClients && apiClients.length > 0);
+  const sepX = split ? x + w / 2 : null;
+  const leftEndX = split ? sepX! - 4 : x + w - 10;
+  const leftStartX = x + 10;
+  const rightStartX = split ? sepX! + 8 : x + w;
+  const rightEndX = x + w - 8;
+
+  const slotW = (leftEndX - leftStartX) / items.length;
+
+  // Chip row geometry (API clients section). Bottom-aligned within the
+  // pill so the right half hugs the floor and leaves the upper-right
+  // area free — keeps long "served on …" text on the left from
+  // visually colliding with the chips when it overflows its slot.
+  const chipH = 20;
+  const chipGap = 4;
+  const chipRowY = y + h - padBottom - chipH;
+  const apiTitleY = chipRowY - 6;
+  const apiBulletCy = apiTitleY - 4;
+  const apiInnerW = rightEndX - rightStartX;
+  const chipW = apiClients && apiClients.length > 0
+    ? (apiInnerW - chipGap * (apiClients.length - 1)) / apiClients.length
+    : 0;
+
   return (
     <g>
       <rect x={x} y={y} width={w} height={h} rx={6} fill={FILL_BLUE} stroke={STROKE_BLUE} strokeWidth={1.5} />
+
+      {/* Left section title + surfaces */}
       <circle cx={x + 16} cy={y + padTop + 6} r={4} fill={STROKE_BLUE} />
       <text x={x + 28} y={y + padTop + 10} fontSize={10.5} fontWeight={700} fill={TEXT}>
-        Front-end = {items.length} surface{items.length === 1 ? '' : 's'}
+        {`Front-end = ${items.length} hosted surface${items.length === 1 ? '' : 's'}`}
+        {surfacesOptional && (
+          <tspan fontWeight={400} fontStyle="italic" fill={TEXT_DIM}>
+            {'  (opt-in)'}
+          </tspan>
+        )}
       </text>
       {items.map((it, i) => {
-        const cx = startX + slotW * i + slotW / 2;
+        const cx = leftStartX + slotW * i + slotW / 2;
         return (
           <g key={it.label} transform={`translate(${cx - 21} ${glyphTop})`}>
             {it.glyph}
             <text x={21} y={glyphH + 14} textAnchor="middle" fontSize={9.5} fontWeight={600} fill={TEXT}>
               {it.label}
             </text>
+            {it.via && (
+              <text
+                x={21}
+                y={glyphH + 26}
+                textAnchor="middle"
+                fontSize={8.5}
+                fontStyle="italic"
+                fill={TEXT_DIM}
+              >
+                served on {it.via}
+              </text>
+            )}
           </g>
         );
       })}
+
+      {/* Right section: API clients (bottom-aligned) */}
+      {split && apiClients && (
+        <g>
+          <circle cx={rightStartX - 4} cy={apiBulletCy} r={4} fill={STROKE_BLUE} />
+          <text x={rightStartX + 8} y={apiTitleY} fontSize={10.5} fontWeight={700} fill={TEXT}>
+            API clients = {apiClients.length}
+          </text>
+          {apiClients.map((c, i) => {
+            const cx = rightStartX + i * (chipW + chipGap);
+            return (
+              <g key={c}>
+                <rect
+                  x={cx}
+                  y={chipRowY}
+                  width={chipW}
+                  height={chipH}
+                  rx={4}
+                  fill="var(--ant-color-bg-container)"
+                  stroke={STROKE_BLUE}
+                  strokeWidth={0.8}
+                />
+                <text
+                  x={cx + chipW / 2}
+                  y={chipRowY + chipH - 6}
+                  textAnchor="middle"
+                  fontSize={9}
+                  fontWeight={600}
+                  fill={TEXT}
+                >
+                  {c}
+                </text>
+              </g>
+            );
+          })}
+        </g>
+      )}
     </g>
   );
 };
@@ -611,17 +705,18 @@ const DesktopAppDetail: React.FC = () => {
         <BrowserWindow x={290} y={50} w={264} h={224} chromeH={20} title="Open Headers" corner="Desktop App">
           <FrontEndPill
             x={302}
-            y={90}
+            y={84}
             w={240}
             items={[
               {
                 label: 'Workbench',
                 glyph: <SurfaceGlyphBody surface="workbench" accent="var(--ant-color-primary)" />,
+                via: 'desktop · website',
               },
-              { label: 'Web App', glyph: <WebAppGlyphBody accent="var(--ant-color-primary)" /> },
             ]}
+            apiClients={['CLI']}
           />
-          <BackEndPill x={302} y={192} w={240} engine="Embedded server" where="localhost" />
+          <BackEndPill x={302} y={196} w={240} engine="Embedded server" where="localhost" />
         </BrowserWindow>
 
         {/* Connectors from each browser + the CLI right edge to the back-end window. */}
@@ -711,11 +806,16 @@ const LocalSelfHostedDetail: React.FC = () => {
           y={178}
           w={236}
           items={[
-            { label: 'Web App', glyph: <WebAppGlyphBody accent="var(--ant-color-primary)" /> },
-            { label: 'Headless', glyph: <HeadlessGlyphBody accent="var(--ant-color-primary)" /> },
+            {
+              label: 'Workbench',
+              glyph: <SurfaceGlyphBody surface="workbench" accent="var(--ant-color-primary)" />,
+              via: 'website',
+            },
           ]}
+          apiClients={['CLI']}
+          surfacesOptional
         />
-        <BackEndPill x={332} y={278} w={236} engine="Local server" where="Localhost/LAN" />
+        <BackEndPill x={332} y={290} w={236} engine="Local server" where="Localhost/LAN" />
       </ServerContainer>
 
       {/* Connectors — clean geometry, no overlap with container labels:
@@ -843,11 +943,16 @@ const RemoteSelfHostedDetail: React.FC = () => {
           y={178}
           w={236}
           items={[
-            { label: 'Web App', glyph: <WebAppGlyphBody accent="var(--ant-color-primary)" /> },
-            { label: 'Headless', glyph: <HeadlessGlyphBody accent="var(--ant-color-primary)" /> },
+            {
+              label: 'Workbench',
+              glyph: <SurfaceGlyphBody surface="workbench" accent="var(--ant-color-primary)" />,
+              via: 'website',
+            },
           ]}
+          apiClients={['CLI', 'CI/CD']}
+          surfacesOptional
         />
-        <BackEndPill x={332} y={278} w={236} engine="Remote server" where="Internet/WAN" />
+        <BackEndPill x={332} y={290} w={236} engine="Remote server" where="Internet/WAN" />
       </ServerContainer>
 
       {/* TLS connectors — all client → VM links cross the public

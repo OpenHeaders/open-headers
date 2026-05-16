@@ -147,6 +147,7 @@ const TIERS: Partial<Record<BackendMode, TierDef>> = {
       { text: 'LAN-reachable', status: 'new' },
       { text: 'multi-app instances', status: 'new' },
       { text: 'multiple devices', status: 'new' },
+      { text: 'headless by default · website opt-in', status: 'new' },
     ],
     platforms: [
       { label: 'All OS', items: [{ label: 'macOS' }, { label: 'Windows' }, { label: 'Linux' }] },
@@ -221,6 +222,7 @@ const TIERS: Partial<Record<BackendMode, TierDef>> = {
       { text: 'browser ext · desktop app · CLI', status: 'carried' },
       { text: 'Localhost-supported', status: 'carried' },
       { text: 'LAN-reachable', status: 'carried' },
+      { text: 'headless by default · website opt-in', status: 'carried' },
       { text: 'standard setup', status: 'new' },
       { text: 'WAN/Internet-reachable', status: 'new' },
       { text: 'team-ready', status: 'new' },
