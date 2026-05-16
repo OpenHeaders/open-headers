@@ -52,8 +52,9 @@ describe('WorkspaceSnapshotSchema', () => {
   });
 
   it('accepts opaque payloads in entity arrays', () => {
+    const opaqueRule = { rule: { totally: 'unknown' }, setItemIds: {}, setOrderKeys: {} };
     const snap = makeSnapshot({
-      rules: [{ rule: { totally: 'unknown' }, setItemIds: {}, setOrderKeys: {} } as unknown],
+      rules: [opaqueRule as unknown as WorkspaceSnapshot['rules'][number]],
     });
     expect(() => v.parse(WorkspaceSnapshotSchema, snap)).not.toThrow();
   });
