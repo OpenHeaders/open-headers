@@ -5,6 +5,10 @@ export {
 } from './activity-log';
 export { IdbActivityLog, __closeIdbActivityLogForTests } from './idb-activity-log';
 export { SqliteActivityLog, ensureActivityLogSchema } from './sqlite-activity-log';
+export {
+  classifyEnvelopeForActivity,
+  type ClassifyActivityInput,
+} from './activity-classifier';
 export { computeStateVectorFromLog, readWorkspaceStateVector } from './state-vector-reader';
 export { readDeltaStreamFromLog, readWorkspaceDeltaStream } from './delta-stream-reader';
 export {
