@@ -517,8 +517,6 @@ const DesktopAppDetail: React.FC = () => {
           the in-browser scenario), with a compact "Localhost" cloud
           + loopback URL parked on the right edge so the middle stays
           devoted to the one-line summary. */}
-      <Cloud cx={520} cy={247} scale={0.6} label="Localhost" />
-      <UrlLabel x={520} y={265} text="ws://127.0.0.1:59210" />
     </svg>
   );
 };
@@ -606,12 +604,6 @@ const LocalSelfHostedDetail: React.FC = () => {
       <line x1={420} y1={88} x2={420} y2={148} stroke={STROKE} strokeWidth={1.4} markerEnd={`url(#${ID})`} />
       <line x1={220} y1={184} x2={380} y2={200} stroke={STROKE} strokeWidth={1.4} markerEnd={`url(#${ID})`} />
 
-      {/* Footer band — compact LAN cloud stacked above the URL
-          pattern in the ~30px below the server label. The cloud's
-          "LAN" label and the URL together convey "this is the medium
-          and the address" without a third sub-label line. */}
-      <Cloud cx={300} cy={308} scale={0.6} label="LAN" />
-      <UrlLabel x={300} y={324} text="ws://192.168.x.x:59210" />
     </svg>
   );
 };
@@ -687,13 +679,6 @@ const RemoteSelfHostedDetail: React.FC = () => {
       <ConnectorTls id={ID} x1={420} y1={88} x2={420} y2={148} />
       <ConnectorTls id={ID} x1={220} y1={184} x2={380} y2={200} />
 
-      {/* Footer band — compact WAN cloud stacked above the URL
-          pattern in the ~30px below the server label. The cloud's
-          "WAN" label and the `wss://` URL together convey
-          "internet · TLS · this is the address" without a third
-          sub-label line. */}
-      <Cloud cx={300} cy={308} scale={0.6} label="WAN" />
-      <UrlLabel x={300} y={324} text="wss://oh.your-domain.com" />
     </svg>
   );
 };

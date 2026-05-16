@@ -1,8 +1,11 @@
+import { Tooltip } from 'antd';
 import type React from 'react';
 import {
   FILL_BLUE,
+  FILL_GREEN,
   FILL_PURPLE,
   STROKE_BLUE,
+  STROKE_GREEN,
   STROKE_PURPLE,
   TEXT,
   TEXT_DIM,
@@ -15,6 +18,14 @@ type Bullet = { text: string; status: 'carried' | 'new' };
 type PlatformItem = { label: string; note?: string };
 type PlatformGroup = { label?: string; items: PlatformItem[] };
 
+type FooterCategory = { label: string; items: { range: string; note?: string }[] };
+type FooterInfo = {
+  kind: 'cloud' | 'local';
+  label: string;
+  url: string;
+  categories?: FooterCategory[];
+};
+
 type TierDef = {
   title: string;
   sub: string;
@@ -23,6 +34,7 @@ type TierDef = {
   inheritsFrom?: string;
   bullets: Bullet[];
   platforms: PlatformGroup[];
+  footer?: FooterInfo;
 };
 
 const TIERS: Partial<Record<BackendMode, TierDef>> = {
@@ -38,11 +50,44 @@ const TIERS: Partial<Record<BackendMode, TierDef>> = {
       { text: 'multi-surface concurrent editing', status: 'new' },
       { text: 'multi-window concurrent editing', status: 'new' },
       { text: 'Localhost-only', status: 'new' },
-      { text: 'browser.storage.local', status: 'new' },
     ],
     platforms: [
       { items: [{ label: 'Chrome' }, { label: 'Firefox' }, { label: 'Edge' }, { label: 'Safari', note: 'soon' }] },
     ],
+    footer: {
+      kind: 'local',
+      label: 'No wire',
+      url: '(in-process — no clients)',
+      categories: [
+        {
+          label: 'Why no wire?',
+          items: [
+            {
+              range: 'The back-end IS the browser service worker',
+              note: 'no port to listen on, no IPC surface exposed to other devices',
+            },
+          ],
+        },
+        {
+          label: 'Same-browser surfaces',
+          items: [
+            {
+              range: 'chrome.runtime messaging',
+              note: 'popup / workbench / DevTools / side-panel talk to the SW in-process',
+            },
+          ],
+        },
+        {
+          label: 'Per-browser instance',
+          items: [
+            {
+              range: 'browser.storage.local',
+              note: 'Chrome ≠ Firefox ≠ Edge — separate data per browser, no cross-device, no cross-browser',
+            },
+          ],
+        },
+      ],
+    },
   },
   'desktop-app': {
     title: 'Desktop app',
@@ -63,6 +108,25 @@ const TIERS: Partial<Record<BackendMode, TierDef>> = {
       { text: 'git integration (local/remote)', status: 'new' },
     ],
     platforms: [{ items: [{ label: 'macOS' }, { label: 'Windows' }, { label: 'Linux' }] }],
+    footer: {
+      kind: 'cloud',
+      label: 'Localhost',
+      url: 'ws://localhost:<port>',
+      categories: [
+        {
+          label: 'IPv4 loopback',
+          items: [{ range: '127.0.0.0/8', note: 'typically 127.0.0.1' }],
+        },
+        {
+          label: 'IPv6 loopback',
+          items: [{ range: '::1/128' }],
+        },
+        {
+          label: 'Default port',
+          items: [{ range: '59210', note: 'override in Backend → Connection' }],
+        },
+      ],
+    },
   },
   'local-self-hosted': {
     title: 'Local daemon',
@@ -96,6 +160,40 @@ const TIERS: Partial<Record<BackendMode, TierDef>> = {
         ],
       },
     ],
+    footer: {
+      kind: 'cloud',
+      label: 'LAN',
+      url: 'ws://<lan-host>:<port>',
+      categories: [
+        {
+          label: 'RFC1918 private IPv4',
+          items: [
+            { range: '10.0.0.0/8' },
+            { range: '172.16.0.0/12' },
+            { range: '192.168.0.0/16' },
+          ],
+        },
+        {
+          label: 'CGNAT / overlay (Tailscale, etc.)',
+          items: [{ range: '100.64.0.0/10' }],
+        },
+        {
+          label: 'Link-local',
+          items: [
+            { range: '169.254.0.0/16', note: 'IPv4 link-local' },
+            { range: 'fe80::/10', note: 'IPv6 link-local' },
+          ],
+        },
+        {
+          label: 'IPv6 ULA',
+          items: [{ range: 'fc00::/7', note: 'practically fd00::/8' }],
+        },
+        {
+          label: 'mDNS hostnames',
+          items: [{ range: '*.local', note: 'Bonjour / Avahi' }],
+        },
+      ],
+    },
   },
   'remote-self-hosted': {
     title: 'Your VM',
@@ -129,6 +227,29 @@ const TIERS: Partial<Record<BackendMode, TierDef>> = {
       { label: 'Other', items: [{ label: 'DigitalOcean' }, { label: 'Heroku' }] },
       { label: 'Enterprise', items: [{ label: 'Your cloud' }, { label: 'On-prem' }] },
     ],
+    footer: {
+      kind: 'cloud',
+      label: 'WAN',
+      url: 'wss://<your-host>',
+      categories: [
+        {
+          label: 'Public DNS hostname',
+          items: [{ range: 'oh.example.com', note: 'recommended — TLS cert' }],
+        },
+        {
+          label: 'Public IPv4',
+          items: [{ range: 'a.b.c.d', note: 'anything outside RFC1918 / 100.64/10' }],
+        },
+        {
+          label: 'Public IPv6',
+          items: [{ range: '2000::/3', note: 'globally routable' }],
+        },
+        {
+          label: 'Transport',
+          items: [{ range: 'wss:// (TLS)', note: 'required — clients refuse ws:// to a non-loopback host' }],
+        },
+      ],
+    },
   },
 };
 
@@ -137,16 +258,12 @@ interface Props {
 }
 
 const VB_W = 600;
-// Two heights matching the right-side topology SVG per mode:
-//   - in-browser / desktop-app diagrams use viewBox 600×270 (single monitor)
-//   - local-self-hosted / remote-self-hosted use 600×330 (2×2 device grid)
-// The card rectangle aligns with the right diagram's main content bounds.
-const VB_H_SHORT = 310;
+// Shared card geometry across all tiers — constant height keeps the
+// left column from jumping when the user previews different modes.
 const VB_H_TALL = 370;
 const RECT_X = 30;
 const RECT_Y = 18;
 const RECT_W = 540;
-const RECT_H_SHORT = 220;
 const RECT_H_TALL = 280;
 
 const HEADER_COL_W = 140;
@@ -172,6 +289,55 @@ const PLATFORM_GROUP_GAP = 5;
 
 const MUTED = 'var(--ant-color-text-tertiary)';
 const MUTED_DOT = 'var(--ant-color-text-quaternary)';
+
+const FooterDetails: React.FC<{ categories: FooterCategory[] }> = ({ categories }) => (
+  <div style={{ fontSize: 12, lineHeight: 1.5 }}>
+    {categories.map((cat) => (
+      <div key={cat.label} style={{ marginBottom: 6 }}>
+        <div style={{ fontWeight: 700, fontSize: 11, opacity: 0.85, marginBottom: 2 }}>{cat.label}</div>
+        <ul style={{ margin: 0, paddingLeft: 16 }}>
+          {cat.items.map((it) => (
+            <li key={it.range}>
+              <code style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11 }}>
+                {it.range}
+              </code>
+              {it.note && <span style={{ opacity: 0.7 }}> — {it.note}</span>}
+            </li>
+          ))}
+        </ul>
+      </div>
+    ))}
+  </div>
+);
+
+const CloudGlyph: React.FC<{ cx: number; cy: number; scale?: number; label?: string }> = ({
+  cx,
+  cy,
+  scale = 0.6,
+  label,
+}) => {
+  const s = scale;
+  const d = `
+    M ${cx - 28 * s} ${cy + 6 * s}
+    a ${10 * s} ${10 * s} 0 0 1 ${4 * s} ${-18 * s}
+    a ${12 * s} ${12 * s} 0 0 1 ${22 * s} ${-4 * s}
+    a ${10 * s} ${10 * s} 0 0 1 ${20 * s} ${4 * s}
+    a ${10 * s} ${10 * s} 0 0 1 ${4 * s} ${20 * s}
+    h ${-50 * s}
+    a ${8 * s} ${8 * s} 0 0 1 0 ${-2 * s}
+    z
+  `;
+  return (
+    <g>
+      <path d={d} fill={FILL_BLUE} stroke={STROKE_BLUE} strokeWidth={1} strokeDasharray="3 2" />
+      {label && (
+        <text x={cx} y={cy + 2} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>
+          {label}
+        </text>
+      )}
+    </g>
+  );
+};
 
 const IconArt: React.FC<{ kind: Icon; cx: number; cy: number }> = ({ kind, cx, cy }) => {
   switch (kind) {
@@ -275,12 +441,18 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
   const tier = TIERS[mode];
   if (!tier) return null;
 
-  const tall = mode === 'local-self-hosted' || mode === 'remote-self-hosted';
-  const VB_H = tall ? VB_H_TALL : VB_H_SHORT;
-  const RECT_H = tall ? RECT_H_TALL : RECT_H_SHORT;
+  // All tiers share the taller card geometry so the left rectangle is
+  // a consistent height across modes. The right-side topology still
+  // varies (single-monitor vs 2x2 device grid) — only the card is fixed.
+  const VB_H = VB_H_TALL;
+  const RECT_H = RECT_H_TALL;
 
   const isToday = tier.badge === 'TODAY';
-  const accent = isToday ? STROKE_BLUE : 'var(--ant-color-border)';
+  // Card border is always a neutral grey — the TODAY / ROADMAP signal
+  // lives in the header badge, not the frame, so all four cards read as
+  // siblings rather than the first two grabbing attention with a blue
+  // outline.
+  const accent = 'var(--ant-color-border)';
   const badgeStroke = isToday ? OH_GREEN : 'rgba(212, 145, 0, 1)';
   const badgeBg = isToday ? OH_GREEN_TINT : 'rgba(250, 173, 20, 0.18)';
 
@@ -311,7 +483,7 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
         rx={10}
         fill="var(--ant-color-bg-container)"
         stroke={accent}
-        strokeWidth={isToday ? 2 : 1.2}
+        strokeWidth={1.2}
       />
 
       <line
@@ -446,6 +618,83 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
           );
         })()
       )}
+
+      {tier.footer && (() => {
+        const footer = tier.footer;
+        const cx = (BULLETS_X + SEPARATOR_2_X) / 2;
+        const cy = RECT_Y + RECT_H - 32;
+        const glyph =
+          footer.kind === 'cloud' ? (
+            <CloudGlyph cx={cx} cy={cy} scale={0.6} label={footer.label} />
+          ) : (
+            <g>
+              <rect
+                x={cx - 44}
+                y={cy - 9}
+                width={88}
+                height={18}
+                rx={9}
+                fill={FILL_GREEN}
+                stroke={STROKE_GREEN}
+                strokeWidth={1}
+              />
+              <text x={cx} y={cy + 3} textAnchor="middle" fontSize={9} fontWeight={700} fill={TEXT}>
+                {footer.label}
+              </text>
+            </g>
+          );
+        const urlY = cy + 22;
+        // Estimate URL text width to position the (i) icon right after.
+        // Monospace at fontSize=10 ≈ 6px/char; centered text, so info
+        // icon sits a half-width + 8px to the right of cx.
+        const urlHalfW = (footer.url.length * 6) / 2;
+        const infoCx = cx + urlHalfW + 10;
+        const infoCy = urlY - 4;
+        return (
+          <g>
+            {glyph}
+            <text
+              x={cx}
+              y={urlY}
+              textAnchor="middle"
+              fontSize={10}
+              fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
+              fill={TEXT}
+            >
+              {footer.url}
+            </text>
+            {footer.categories && (
+              <Tooltip
+                title={<FooterDetails categories={footer.categories} />}
+                placement="top"
+                overlayStyle={{ maxWidth: 340 }}
+              >
+                <g style={{ cursor: 'help' }}>
+                  <circle
+                    cx={infoCx}
+                    cy={infoCy}
+                    r={6}
+                    fill="var(--ant-color-fill-tertiary)"
+                    stroke="var(--ant-color-border)"
+                    strokeWidth={0.8}
+                  />
+                  <text
+                    x={infoCx}
+                    y={infoCy + 3}
+                    textAnchor="middle"
+                    fontSize={8}
+                    fontWeight={700}
+                    fontStyle="italic"
+                    fill={TEXT_DIM}
+                  >
+                    i
+                  </text>
+                </g>
+              </Tooltip>
+            )}
+          </g>
+        );
+      })()}
 
       <text x={PLATFORM_X} y={platformsStartY + 8} fontSize={9} fontWeight={800} fill={MUTED} letterSpacing={0.6}>
         SUPPORTS
