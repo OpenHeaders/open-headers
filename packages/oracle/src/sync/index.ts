@@ -6,6 +6,14 @@ export {
 export { IdbActivityLog, __closeIdbActivityLogForTests } from './idb-activity-log';
 export { SqliteActivityLog, ensureActivityLogSchema } from './sqlite-activity-log';
 export {
+  ACTIVITY_PRUNE_DEFAULT_PERIOD_MS,
+  ACTIVITY_PRUNE_DEFAULT_RETENTION_MS,
+  runActivityPruneSweep,
+  type ActivityPruneSweepResult,
+  type ActivityPruneWorkspaceResult,
+  type RunActivityPruneSweepInput,
+} from './activity-prune-scheduler';
+export {
   InMemoryActivityMuteStore,
   type ActivityMuteStore,
 } from './activity-mute-store';
