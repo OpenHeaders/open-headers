@@ -26,6 +26,7 @@ import type { ActivityEntry } from '@openheaders/core/sync';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
 import { useActivityFeed } from '@openheaders/ui/shared/hooks/useActivityFeed';
+import { useActivityMutes } from '@openheaders/ui/shared/hooks/useActivityMutes';
 import { groupActivityEntriesByMutation } from './activity-feed-group';
 import ActivityFeedCard from './ActivityFeedCard';
 
@@ -45,6 +46,7 @@ const ActivityFeedPanel: React.FC<ActivityFeedPanelProps> = ({ onClose, onViewEn
   const { token } = theme.useToken();
   const workspaceId = useActiveWorkspaceId();
   const { entries, isLoading, markRead } = useActivityFeed(workspaceId);
+  const { isMuted, mute, unmute } = useActivityMutes(workspaceId);
   const groups = useMemo(() => groupActivityEntriesByMutation(entries), [entries]);
 
   // Mark cards read after a short dwell. The list is short and renders
@@ -118,7 +120,13 @@ const ActivityFeedPanel: React.FC<ActivityFeedPanelProps> = ({ onClose, onViewEn
             style={{ overflow: 'auto', flex: '1 1 auto' }}
             renderItem={(group) => (
               <List.Item style={{ display: 'block', padding: '6px 10px' }}>
-                <ActivityFeedCard group={group} onView={onViewEntity} />
+                <ActivityFeedCard
+                  group={group}
+                  onView={onViewEntity}
+                  onMute={mute}
+                  onUnmute={unmute}
+                  isMuted={isMuted(group.primary.entityType, group.primary.entityId)}
+                />
               </List.Item>
             )}
             // Disable antd's split borders; the card draws its own.

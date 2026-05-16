@@ -25,6 +25,12 @@ export interface ActivityFeedCardProps {
   /** Open the entity in its editor tab. Hidden when undefined or when
    *  the entity type has no editor surface. */
   onView?: (entityType: string, entityId: string) => void;
+  /** Mute future inbound activity for this entity. Hidden when undefined. */
+  onMute?: (entityType: string, entityId: string) => void;
+  /** Inverse of {@link onMute}. Surfaces only when the entity is muted. */
+  onUnmute?: (entityType: string, entityId: string) => void;
+  /** True when the entity is already muted in this workspace. */
+  isMuted?: boolean;
 }
 
 interface KindMeta {
@@ -68,7 +74,13 @@ function entityLabel(entityType: string, entityId: string): string {
   return `${entityType} · ${tail}`;
 }
 
-const ActivityFeedCard: React.FC<ActivityFeedCardProps> = ({ group, onView }) => {
+const ActivityFeedCard: React.FC<ActivityFeedCardProps> = ({
+  group,
+  onView,
+  onMute,
+  onUnmute,
+  isMuted = false,
+}) => {
   const { token } = theme.useToken();
   const { primary, kinds, read } = group;
   const time = formatRelativeMs(primary.observedAt);
@@ -78,6 +90,8 @@ const ActivityFeedCard: React.FC<ActivityFeedCardProps> = ({ group, onView }) =>
   // delete row stays in the feed for context, just without the button.
   const canView =
     onView !== undefined && isViewableEntityType(primary.entityType) && !kinds.includes('delete-entity');
+  const canMute = onMute !== undefined && onUnmute !== undefined;
+  const hasFooter = canView || canMute;
 
   return (
     <div
@@ -122,16 +136,38 @@ const ActivityFeedCard: React.FC<ActivityFeedCardProps> = ({ group, onView }) =>
           {primary.summary}
         </Text>
       )}
-      {canView && (
-        <Space size={4} style={{ marginTop: 2 }}>
-          <Button
-            size="small"
-            type="link"
-            style={{ padding: 0, height: 'auto', fontSize: 12 }}
-            onClick={() => onView?.(primary.entityType, primary.entityId)}
-          >
-            View
-          </Button>
+      {hasFooter && (
+        <Space size={8} style={{ marginTop: 2 }}>
+          {canView && (
+            <Button
+              size="small"
+              type="link"
+              style={{ padding: 0, height: 'auto', fontSize: 12 }}
+              onClick={() => onView?.(primary.entityType, primary.entityId)}
+            >
+              View
+            </Button>
+          )}
+          {canMute && (
+            <Tooltip
+              title={
+                isMuted
+                  ? 'Stop suppressing inbound activity for this entity.'
+                  : 'Suppress further inbound activity rows for this entity. Past rows are kept.'
+              }
+            >
+              <Button
+                size="small"
+                type="link"
+                style={{ padding: 0, height: 'auto', fontSize: 12 }}
+                onClick={() =>
+                  (isMuted ? onUnmute : onMute)?.(primary.entityType, primary.entityId)
+                }
+              >
+                {isMuted ? 'Unmute' : 'Mute'}
+              </Button>
+            </Tooltip>
+          )}
         </Space>
       )}
     </div>
