@@ -1,5 +1,5 @@
+import type { ModeSwitchInput, ModeSwitchVerdict } from '@openheaders/core/sync';
 import { isPresenceEmpty } from './data-presence';
-import type { ModeSwitchInput, ModeSwitchVerdict } from './types';
 
 /**
  * Mode-switch decision state machine. Pure of host runtime — call sites

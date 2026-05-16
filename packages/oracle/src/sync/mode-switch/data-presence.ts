@@ -1,4 +1,4 @@
-import type { DataPresenceSummary, WorkspaceContentSnapshot } from './types';
+import type { DataPresenceSummary, WorkspaceContentSnapshot } from '@openheaders/core/sync';
 
 /**
  * Roll workspace snapshots up into a host-level presence summary. Pure;

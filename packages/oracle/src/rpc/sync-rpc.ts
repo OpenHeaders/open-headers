@@ -49,6 +49,8 @@ import {
 } from '../sync/activity-mute-cache';
 import { generateInverseMutation } from '../sync/activity-revert';
 import { snapshotExtensionWorkspacePostStates } from '../sync/global-service';
+import { collectLocalDataPresence } from '../sync/mode-switch';
+import { listWorkspaces } from '../workspace/extension-workspace-store';
 import { requireActiveWorkspaceId } from '../sync';
 import { getSyncPersistenceProvider } from '../sync/sync-persistence-provider';
 import {
@@ -226,6 +228,22 @@ export function dispatchSyncRpc(message: Record<string, unknown>): SyncRpcResult
   if (type === 'oh.sync.revertActivity') {
     const result = dispatchRevertActivity(message);
     return { kind: 'async', promise: result };
+  }
+
+  if (type === 'oh.sync.getDataPresence') {
+    try {
+      const workspaces = collectLocalDataPresence({
+        workspaces: listWorkspaces().map((ws) => ({ id: ws.id, name: ws.name })),
+        getOracle: (workspaceId) => getOracleForWorkspace(workspaceId),
+      });
+      return { kind: 'sync', response: { workspaces } };
+    } catch (err) {
+      // The workspace store throws before bootstrap; downgrading to an
+      // empty list lets the caller treat this host as empty and fall
+      // through to the silent commit branch.
+      logger.info('SyncRpc', `oh.sync.getDataPresence failed: ${(err as Error).message}`);
+      return { kind: 'sync', response: { workspaces: [] } };
+    }
   }
 
   if (type === 'oh.sync.unmuteActivityEntity') {

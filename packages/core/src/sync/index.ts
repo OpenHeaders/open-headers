@@ -14,6 +14,7 @@ export * from './boot-baseline';
 export * from './boot-regression';
 export * from './envelope';
 export * from './hlc';
+export * from './mode-switch';
 export * from './mutators';
 export * from './order';
 export * from './path';

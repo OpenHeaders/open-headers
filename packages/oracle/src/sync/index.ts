@@ -95,12 +95,11 @@ export {
 } from './host-hooks';
 
 export {
+  USER_CONTENT_ENTITY_TYPES,
+  collectLocalDataPresence,
   decideModeSwitch,
   isPresenceEmpty,
   summarizeWorkspaces,
-  type DataPresenceSummary,
-  type EntityCounts,
-  type ModeSwitchInput,
-  type ModeSwitchVerdict,
-  type WorkspaceContentSnapshot,
+  type CollectLocalDataPresenceInput,
+  type DataPresenceOracle,
 } from './mode-switch';

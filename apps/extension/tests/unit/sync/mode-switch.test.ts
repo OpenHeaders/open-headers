@@ -6,12 +6,14 @@
  * on `backend.mode`, peer-presence RPC, dialog UI — lands in M2/M3.
  */
 
+import type { DataPresenceSummary, WorkspaceContentSnapshot } from '@openheaders/core/sync';
 import {
+  USER_CONTENT_ENTITY_TYPES,
+  collectLocalDataPresence,
   decideModeSwitch,
   isPresenceEmpty,
   summarizeWorkspaces,
-  type DataPresenceSummary,
-  type WorkspaceContentSnapshot,
+  type DataPresenceOracle,
 } from '@openheaders/oracle/sync';
 import { describe, expect, it } from 'vitest';
 
@@ -172,5 +174,102 @@ describe('decideModeSwitch', () => {
       target: populatedPresence(),
     });
     expect(verdict.kind).toBe('silent-use-target');
+  });
+});
+
+describe('collectLocalDataPresence', () => {
+  function makeOracle(entities: ReadonlyArray<{ type: string }>): DataPresenceOracle {
+    return { materializeAll: () => entities };
+  }
+
+  it('returns an empty snapshot list when no workspaces are resident', () => {
+    const snaps = collectLocalDataPresence({
+      workspaces: [],
+      getOracle: () => null,
+    });
+    expect(snaps).toEqual([]);
+  });
+
+  it('emits a zero-count snapshot for a workspace whose oracle is null', () => {
+    const snaps = collectLocalDataPresence({
+      workspaces: [{ id: WS_A, name: 'Workspace' }],
+      getOracle: () => null,
+    });
+    expect(snaps).toEqual([
+      { workspaceId: WS_A, workspaceName: 'Workspace', entityCounts: {} },
+    ]);
+  });
+
+  it('counts user-content entity types and groups by type', () => {
+    const oracle = makeOracle([
+      { type: 'rule' },
+      { type: 'rule' },
+      { type: 'environment' },
+      { type: 'template' },
+      { type: 'template' },
+      { type: 'template' },
+    ]);
+    const snaps = collectLocalDataPresence({
+      workspaces: [{ id: WS_A, name: 'Workspace' }],
+      getOracle: () => oracle,
+    });
+    expect(snaps[0].entityCounts).toEqual({ rule: 2, environment: 1, template: 3 });
+  });
+
+  it('excludes singletons (workspace-variables, vault, layout-state, pause-markers, files)', () => {
+    const oracle = makeOracle([
+      { type: 'workspace-variables' },
+      { type: 'vault' },
+      { type: 'layout-state' },
+      { type: 'pause-markers' },
+      { type: 'files' },
+      { type: 'rule' },
+    ]);
+    const snaps = collectLocalDataPresence({
+      workspaces: [{ id: WS_A, name: 'Workspace' }],
+      getOracle: () => oracle,
+    });
+    expect(snaps[0].entityCounts).toEqual({ rule: 1 });
+  });
+
+  it('preserves workspace input order in the snapshot list', () => {
+    const oracle = makeOracle([{ type: 'rule' }]);
+    const snaps = collectLocalDataPresence({
+      workspaces: [
+        { id: WS_B, name: 'Beta' },
+        { id: WS_A, name: 'Alpha' },
+      ],
+      getOracle: () => oracle,
+    });
+    expect(snaps.map((s) => s.workspaceId)).toEqual([WS_B, WS_A]);
+  });
+
+  it('routes each workspace through its own oracle accessor', () => {
+    const calls: string[] = [];
+    const snaps = collectLocalDataPresence({
+      workspaces: [
+        { id: WS_A, name: 'Alpha' },
+        { id: WS_B, name: 'Beta' },
+      ],
+      getOracle: (id) => {
+        calls.push(id);
+        return makeOracle(id === WS_A ? [{ type: 'rule' }] : [{ type: 'rule' }, { type: 'rule' }]);
+      },
+    });
+    expect(calls).toEqual([WS_A, WS_B]);
+    expect(snaps[0].entityCounts).toEqual({ rule: 1 });
+    expect(snaps[1].entityCounts).toEqual({ rule: 2 });
+  });
+
+  it('exports a stable USER_CONTENT_ENTITY_TYPES set covering the core user-facing types', () => {
+    // Tripwire — if a new user-facing entity type lands, intentionally
+    // update this allowlist so the mode-switch gate counts it.
+    expect(USER_CONTENT_ENTITY_TYPES.has('rule')).toBe(true);
+    expect(USER_CONTENT_ENTITY_TYPES.has('environment')).toBe(true);
+    expect(USER_CONTENT_ENTITY_TYPES.has('template')).toBe(true);
+    expect(USER_CONTENT_ENTITY_TYPES.has('request')).toBe(true);
+    expect(USER_CONTENT_ENTITY_TYPES.has('live-variable')).toBe(true);
+    expect(USER_CONTENT_ENTITY_TYPES.has('workspace-variables')).toBe(false);
+    expect(USER_CONTENT_ENTITY_TYPES.has('vault')).toBe(false);
   });
 });

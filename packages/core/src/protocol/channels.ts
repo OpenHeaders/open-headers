@@ -33,6 +33,7 @@ import type {
   InverseEnvelopeContext,
   MutationEnvelope,
   MutatorOutcome,
+  WorkspaceContentSnapshot,
 } from '../sync';
 import type {
   ActiveRule,
@@ -1117,6 +1118,26 @@ export interface BridgeRpcContract {
       inverse: InverseEnvelopeContext;
     };
     res: { ok: true; mutationId: string } | { ok: false; reason: string };
+  };
+
+  /**
+   * Walk every resident workspace on the responding host and return the
+   * per-workspace user-content tally. Powers the Phase C M-series
+   * mode-switch gate: a host invokes this against its peer (via the
+   * bridge) and against itself, hands both summaries to
+   * `decideModeSwitch`, and lets the verdict drive silent commit vs. the
+   * three-option dialog (`docs/DATA_PLANE_TOPOLOGIES.md` §11.2).
+   *
+   * Empty response when the host hasn't hydrated its workspace store yet
+   * — callers treat that as "this host has no data" and let the verdict
+   * fall through to the silent path. The response is intentionally
+   * detail-rich (per-workspace, per-type counts) so the M2 dialog can
+   * render copy like "12 rules + 3 environments + 5 templates" without a
+   * second round-trip.
+   */
+  'oh.sync.getDataPresence': {
+    req: Record<string, never>;
+    res: { workspaces: WorkspaceContentSnapshot[] };
   };
 
   // ── Sync engine (Phase A) ────────────────────────────────────────
