@@ -45,9 +45,9 @@
  * the next one catches the duplicate. Non-negotiable per the design
  * doc; tests in `mutation-id-dedup.test.ts` pin the WS-redelivery path.
  */
-import type { MutationBatch, MutationEnvelope } from '@openheaders/core/sync';
+import { compareHlc, type MutationBatch, type MutationEnvelope } from '@openheaders/core/sync';
 
-import { applySyncRequest } from './service';
+import { applySyncRequest, getOrCreateWorkspaceService, releaseWorkspaceService } from './service';
 
 const SEEN_MUTATION_IDS = new Set<string>();
 const SEEN_CAP = 10_000;
@@ -92,6 +92,12 @@ export async function applyInboundMutationEnvelope(envelope: MutationEnvelope): 
  * already known. Successful apply records each envelope in the seen
  * set; a failed apply leaves the seen set untouched so a subsequent
  * redelivery can retry.
+ *
+ * After a successful apply, folds the highest inbound HLC per
+ * workspace into the local sequencer (Phase C C12). Guarantees that
+ * the NEXT local mint strictly exceeds every envelope this peer has
+ * observed — non-negotiable for cross-host LWW convergence when
+ * the local wall clock has drifted (machine sleep, NTP step, etc.).
  */
 export async function applyInboundMutationBatch(batch: MutationBatch): Promise<void> {
   const allKnown = batch.mutations.every((e) => SEEN_MUTATION_IDS.has(e.mutationId));
@@ -99,4 +105,30 @@ export async function applyInboundMutationBatch(batch: MutationBatch): Promise<v
   const response = await applySyncRequest({ type: 'oh.sync.apply', batch, sideEffects: [] });
   if (!response.ok) return;
   for (const env of batch.mutations) rememberApplied(env);
+  observeHighestPerWorkspace(batch);
+}
+
+/**
+ * Fold the highest HLC per workspace into the local sequencer.
+ * Walks the batch once to find the highest HLC for each
+ * workspaceId, then calls `observe` on the service handle. Acquires
+ * + releases the service refcount so concurrent dispose can't tear
+ * the handle down mid-observe.
+ */
+function observeHighestPerWorkspace(batch: MutationBatch): void {
+  const highest = new Map<string, MutationEnvelope>();
+  for (const env of batch.mutations) {
+    const current = highest.get(env.workspaceId);
+    if (!current || compareHlc(env.hlc, current.hlc) > 0) {
+      highest.set(env.workspaceId, env);
+    }
+  }
+  for (const [workspaceId, env] of highest) {
+    const svc = getOrCreateWorkspaceService(workspaceId);
+    try {
+      svc.context.observe(env.hlc);
+    } finally {
+      releaseWorkspaceService(workspaceId);
+    }
+  }
 }

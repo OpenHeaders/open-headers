@@ -41,6 +41,16 @@ export interface SwContextOptions {
 export interface SwContextHandle {
   /** Mint a fresh `MutatorContext` for a single envelope. */
   next(opts?: SwContextOptions): MutatorContext;
+  /**
+   * Fold an externally-observed HLC into the local sequencer WITHOUT
+   * minting a context. Used by the inbound mutation-stream bridge
+   * (Phase C C12) so that after applying a remote envelope at
+   * HLC X, the NEXT local mint strictly exceeds X. Maintains the
+   * cross-host monotonicity invariant — necessary even when the
+   * local wall clock drifts or jumps backwards (e.g. machine sleep,
+   * NTP step, manual time change).
+   */
+  observe(observed: HLC): void;
   /** Take the latest HLC (for observability / awareness — never the
    *  source of HLCs on the wire; that comes from `next`). */
   peekHlc(): HLC;
@@ -65,6 +75,9 @@ export function createSwContextHandle(workspaceId: string): SwContextHandle {
         deviceId: nodeId,
         ...(opts.batchId ? { batchId: opts.batchId } : {}),
       };
+    },
+    observe(observed: HLC): void {
+      hlc = advanceHlc(hlc, clock.now(), observed);
     },
   };
 }
