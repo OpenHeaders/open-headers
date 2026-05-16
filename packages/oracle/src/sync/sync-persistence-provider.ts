@@ -22,6 +22,8 @@
  * swap it at boot.
  */
 
+import type { ActivityLog } from './activity-log';
+import { IdbActivityLog } from './idb-activity-log';
 import { IdbMutationLog } from './idb-mutation-log';
 import { IdbPendingIntents } from './idb-pending-intents';
 import { IdbPendingOutQueue } from './idb-pending-out-queue';
@@ -48,6 +50,14 @@ export interface SyncPersistenceProvider {
    * non-default provider don't yet exercise this path.
    */
   createPendingOutQueue?(): PendingOutQueue;
+  /**
+   * Build the activity log (Phase C F1). Host-singleton; per-workspace
+   * isolation is enforced inside the log by the `workspaceId` argument
+   * on every method. Provider is expected to return the same handle on
+   * repeated calls. Optional for forward-compat: tests that don't
+   * install a non-default provider don't yet exercise this path.
+   */
+  createActivityLog?(): ActivityLog;
 }
 
 /**
@@ -56,6 +66,7 @@ export interface SyncPersistenceProvider {
  * install a replacement.
  */
 let idbPendingOutSingleton: IdbPendingOutQueue | null = null;
+let idbActivityLogSingleton: IdbActivityLog | null = null;
 
 const IDB_SYNC_PERSISTENCE: SyncPersistenceProvider = {
   createMutationLog: (scope) => new IdbMutationLog(scope),
@@ -63,6 +74,10 @@ const IDB_SYNC_PERSISTENCE: SyncPersistenceProvider = {
   createPendingOutQueue: () => {
     if (!idbPendingOutSingleton) idbPendingOutSingleton = new IdbPendingOutQueue();
     return idbPendingOutSingleton;
+  },
+  createActivityLog: () => {
+    if (!idbActivityLogSingleton) idbActivityLogSingleton = new IdbActivityLog();
+    return idbActivityLogSingleton;
   },
 };
 

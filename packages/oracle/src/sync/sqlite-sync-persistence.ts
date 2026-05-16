@@ -25,9 +25,11 @@
 import Database from 'better-sqlite3';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import type { ActivityLog } from './activity-log';
 import type { MutationLog } from './mutation-log';
 import type { PendingIntents } from './pending-intents';
 import type { PendingOutQueue } from './pending-out-queue';
+import { ensureActivityLogSchema, SqliteActivityLog } from './sqlite-activity-log';
 import { ensureMutationLogSchema, SqliteMutationLog } from './sqlite-mutation-log';
 import { ensurePendingIntentsSchema, SqlitePendingIntents } from './sqlite-pending-intents';
 import { ensurePendingOutQueueSchema, SqlitePendingOutQueue } from './sqlite-pending-out-queue';
@@ -60,10 +62,12 @@ export function createSqliteSyncPersistence(
   ensureMutationLogSchema(db);
   ensurePendingIntentsSchema(db);
   ensurePendingOutQueueSchema(db);
+  ensureActivityLogSchema(db);
 
   const logs = new Map<string, MutationLog>();
   const intents = new Map<string, PendingIntents>();
   let pendingOut: PendingOutQueue | null = null;
+  let activityLog: ActivityLog | null = null;
   let closed = false;
 
   return {
@@ -87,6 +91,10 @@ export function createSqliteSyncPersistence(
     createPendingOutQueue(): PendingOutQueue {
       if (!pendingOut) pendingOut = new SqlitePendingOutQueue(db);
       return pendingOut;
+    },
+    createActivityLog(): ActivityLog {
+      if (!activityLog) activityLog = new SqliteActivityLog(db);
+      return activityLog;
     },
     close(): void {
       if (closed) return;
