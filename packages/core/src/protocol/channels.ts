@@ -27,7 +27,13 @@
 import type { FileRef } from '../files';
 import type { ImportReport } from '../import';
 import type { OAuth2TokenBundle } from '../oauth';
-import type { ActivityEntry, ActivityMuteEntry, MutationEnvelope, MutatorOutcome } from '../sync';
+import type {
+  ActivityEntry,
+  ActivityMuteEntry,
+  InverseEnvelopeContext,
+  MutationEnvelope,
+  MutatorOutcome,
+} from '../sync';
 import type {
   ActiveRule,
   Collection,
@@ -1087,6 +1093,30 @@ export interface BridgeRpcContract {
   'oh.sync.unmuteActivityEntity': {
     req: { workspaceId: string; entityType: string; entityId: string };
     res: { ok: true };
+  };
+  /**
+   * Emit the inverse of an inbound mutation captured in the workspace's
+   * activity feed (F6.d Revert). The renderer carries the
+   * {@link InverseEnvelopeContext} the F2 classifier embedded on the
+   * structural entry; the host validates against current state, mints
+   * an envelope, and routes through {@link oh.sync.apply} so the
+   * inverse is HLC-stamped + broadcast + persisted like any local
+   * mutation. The local emit is NOT in the wire-side seen set, so the
+   * revert itself does not appear in the activity feed.
+   *
+   * Returns `{ ok: false }` with a structured reason on validation
+   * failure (e.g. entity has been tombstoned since the prior was
+   * captured, set member moved away). The UI maps reasons to
+   * user-facing copy.
+   */
+  'oh.sync.revertActivity': {
+    req: {
+      workspaceId: string;
+      entityType: string;
+      entityId: string;
+      inverse: InverseEnvelopeContext;
+    };
+    res: { ok: true; mutationId: string } | { ok: false; reason: string };
   };
 
   // ── Sync engine (Phase A) ────────────────────────────────────────
