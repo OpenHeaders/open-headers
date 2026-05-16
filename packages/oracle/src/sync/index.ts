@@ -1,6 +1,8 @@
 export { computeStateVectorFromLog, readWorkspaceStateVector } from './state-vector-reader';
 export { readDeltaStreamFromLog, readWorkspaceDeltaStream } from './delta-stream-reader';
 export { buildSnapshotForWorkspace, buildSnapshotFromOracle } from './snapshot-builder';
+export { applyWorkspaceSnapshot } from './snapshot-applier';
+export type { ApplySnapshotOptions, ApplySnapshotResult } from './snapshot-applier';
 
 export {
   getOracleHostHooks,
