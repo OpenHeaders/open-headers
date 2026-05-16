@@ -580,7 +580,7 @@ const ConfigPanel: React.FC<{
         description={
           mode === 'in-browser'
             ? 'The browser service worker is the back-end. Workspaces, rules, and vault live in this browser only — no external host to point at.'
-            : 'The desktop app process is the back-end. Other clients connect into it; there is no outbound wire to tune.'
+            : 'The desktop app process is the back-end. Other localhost clients connect into it; there is no outbound wire to tune.'
         }
       />
     );
