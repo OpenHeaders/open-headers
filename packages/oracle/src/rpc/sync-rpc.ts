@@ -43,6 +43,7 @@ import {
 import { logger } from '@openheaders/core/utils';
 import { snapshotExtensionWorkspacePostStates } from '../sync/global-service';
 import { requireActiveWorkspaceId } from '../sync';
+import { getSyncPersistenceProvider } from '../sync/sync-persistence-provider';
 import {
   applySyncRequest,
   publishAwareness,
@@ -138,6 +139,40 @@ export function dispatchSyncRpc(message: Record<string, unknown>): SyncRpcResult
   if (snapshotHandler) {
     const wsArg = typeof message.workspaceId === 'string' ? message.workspaceId : undefined;
     return { kind: 'sync', response: snapshotHandler(wsArg) };
+  }
+
+  if (type === 'oh.sync.listActivity') {
+    const ws = typeof message.workspaceId === 'string' ? message.workspaceId : null;
+    if (!ws) return { kind: 'sync', response: { entries: [] } };
+    const log = getSyncPersistenceProvider().createActivityLog?.();
+    if (!log) return { kind: 'sync', response: { entries: [] } };
+    const limit = typeof message.limit === 'number' ? message.limit : 100;
+    const sinceHlcKey = typeof message.sinceHlcKey === 'string' ? message.sinceHlcKey : undefined;
+    const unreadOnly = message.unreadOnly === true;
+    const promise = log
+      .list(ws, { limit, sinceHlcKey, unreadOnly })
+      .then((entries) => ({ entries }))
+      .catch((err: Error) => {
+        logger.info('SyncRpc', `oh.sync.listActivity failed: ${err.message}`);
+        return { entries: [] };
+      });
+    return { kind: 'async', promise };
+  }
+
+  if (type === 'oh.sync.markActivityRead') {
+    const ws = typeof message.workspaceId === 'string' ? message.workspaceId : null;
+    const ids = Array.isArray(message.ids) ? (message.ids.filter((x) => typeof x === 'string') as string[]) : [];
+    if (!ws || ids.length === 0) return { kind: 'sync', response: { ok: true } };
+    const log = getSyncPersistenceProvider().createActivityLog?.();
+    if (!log) return { kind: 'sync', response: { ok: true } };
+    const promise = log
+      .markRead(ws, ids)
+      .then(() => ({ ok: true }) as const)
+      .catch((err: Error) => {
+        logger.info('SyncRpc', `oh.sync.markActivityRead failed: ${err.message}`);
+        return { ok: true } as const;
+      });
+    return { kind: 'async', promise };
   }
 
   if (type === 'oh.awareness.publish') {

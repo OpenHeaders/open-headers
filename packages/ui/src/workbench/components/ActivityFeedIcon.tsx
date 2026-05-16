@@ -12,7 +12,7 @@
  * here means {@link tool-windows} stays a flat declarative table.
  */
 
-import { BellOutlined } from '@ant-design/icons';
+import { HistoryOutlined } from '@ant-design/icons';
 import { Badge } from 'antd';
 import { useStatus } from '@openheaders/ui/shared/hooks/useStatus';
 
@@ -30,7 +30,7 @@ const ActivityFeedIcon: React.FC = () => {
       // number so a runaway feed never breaks the bar's width budget.
       overflowCount={99}
     >
-      <BellOutlined />
+      <HistoryOutlined />
     </Badge>
   );
 };

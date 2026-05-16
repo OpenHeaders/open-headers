@@ -84,6 +84,7 @@ import {
 import {
   observeForActivityFeed,
   setActivityLog,
+  subscribeActivityEntries,
 } from './sync-activity-installer';
 
 const RPC_CHANNEL = 'oh:rpc';
@@ -135,6 +136,12 @@ export async function installRpcHost(): Promise<void> {
   // tolerates a missing log (counts drops) until this resolves, so
   // ordering here is for readability rather than correctness.
   setActivityLog(syncPersistence.createActivityLog?.() ?? null);
+  // F5 — live tail for the panel. Each classified entry the installer
+  // produces is also pushed onto the renderer bridge so the panel can
+  // prepend without re-fetching.
+  subscribeActivityEntries((entry) => {
+    broadcastToAllRenderers('activityEntry', entry);
+  });
   // Blob bytes live on the filesystem alongside the SQLite metadata so
   // large files don't bloat the DB and incremental backups stay
   // straightforward. The metadata table rides on the same handle as the

@@ -27,7 +27,7 @@
 import type { FileRef } from '../files';
 import type { ImportReport } from '../import';
 import type { OAuth2TokenBundle } from '../oauth';
-import type { MutationEnvelope, MutatorOutcome } from '../sync';
+import type { ActivityEntry, MutationEnvelope, MutatorOutcome } from '../sync';
 import type {
   ActiveRule,
   Collection,
@@ -1037,6 +1037,31 @@ export interface BridgeRpcContract {
     res: { snapshot: StatusSnapshot };
   };
 
+  // ── Activity Feed (Phase C F5/F8) ────────────────────────────────
+  /**
+   * Read the workspace-wide activity feed — newest-first list of
+   * inbound mutation classifications produced by the F2 receiver-side
+   * classifier. `limit` defaults to 100 if omitted; `sinceHlcKey`
+   * filters to entries strictly newer than the cursor (paging for
+   * live tails); `unreadOnly` restricts to entries the user has not
+   * yet acknowledged.
+   *
+   * Returns an empty list when no activity log is installed yet
+   * (boot race) — callers re-fetch on the `activityEntry` broadcast.
+   */
+  'oh.sync.listActivity': {
+    req: { workspaceId: string; limit?: number; sinceHlcKey?: string; unreadOnly?: boolean };
+    res: { entries: ActivityEntry[] };
+  };
+  /**
+   * Flip the `read` flag on the given entry ids. Used by the panel to
+   * mark rows as the user views them (F8). Idempotent.
+   */
+  'oh.sync.markActivityRead': {
+    req: { workspaceId: string; ids: readonly string[] };
+    res: { ok: true };
+  };
+
   // ── Sync engine (Phase A) ────────────────────────────────────────
   /**
    * Apply a `MutationBatch` against the local oracle all-or-nothing
@@ -1321,6 +1346,17 @@ export interface BridgeBroadcastContract {
    * listeners don't have to re-query after each event.
    */
   statusUpdated: StatusSnapshot;
+
+  /**
+   * Phase C F5 — live tail for the Activity Feed panel. Fires per
+   * classified entry the receiver-side installer produces (one or
+   * more per inbound envelope, depending on highlight kinds). The
+   * payload is the same {@link ActivityEntry} the `oh.sync.listActivity`
+   * RPC returns, so the panel can prepend without re-fetching.
+   * Listeners filter on `entry.workspaceId` against the surface's
+   * active workspace.
+   */
+  activityEntry: ActivityEntry;
 
   /**
    * Workspace Intent — warm-path delivery from the SW navigator to an

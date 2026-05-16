@@ -195,6 +195,14 @@ installActivityStatusReporter({
   getActiveWorkspaceId: () => peekActiveWorkspaceId(),
   subscribeActiveWorkspace: (listener) => onActiveWorkspaceChange(listener),
 });
+
+// F5 — live tail for the Activity Feed panel. Each classified entry
+// the installer produces is also pushed onto the renderer bridge so
+// the panel can prepend without re-fetching. The status reporter
+// reads from the same source via its own subscription.
+subscribeActivityEntries((entry) => {
+  broadcast('activityEntry', entry);
+});
 import {
   handleLiveAlarm,
   isLiveRefreshAlarm,
