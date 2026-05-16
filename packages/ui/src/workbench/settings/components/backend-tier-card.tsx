@@ -71,7 +71,7 @@ const TIERS: Partial<Record<BackendMode, TierDef>> = {
           label: 'Same-browser surfaces',
           items: [
             {
-              range: 'chrome.runtime messaging',
+              range: 'browser.runtime messaging',
               note: 'popup / workbench / DevTools / side-panel talk to the SW in-process',
             },
           ],
