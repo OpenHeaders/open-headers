@@ -1,5 +1,12 @@
 export { computeStateVectorFromLog, readWorkspaceStateVector } from './state-vector-reader';
 export { readDeltaStreamFromLog, readWorkspaceDeltaStream } from './delta-stream-reader';
+export {
+  __resetMutationStreamBridgeForTests,
+  __seenMutationStreamCountForTests,
+  applyInboundMutationBatch,
+  applyInboundMutationEnvelope,
+  hasRecentlyApplied,
+} from './mutation-stream-bridge';
 export { buildSnapshotForWorkspace, buildSnapshotFromOracle } from './snapshot-builder';
 export { applyWorkspaceSnapshot } from './snapshot-applier';
 export type { ApplySnapshotOptions, ApplySnapshotResult } from './snapshot-applier';

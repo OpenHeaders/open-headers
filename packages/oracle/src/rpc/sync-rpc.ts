@@ -32,7 +32,14 @@ import type {
   AwarenessState,
   SyncApplyRequest,
   SyncApplyResponse,
+  SyncMutationBatchMessage,
+  SyncMutationMessage,
 } from '@openheaders/core/protocol';
+import { SYNC_MUTATION_BATCH_TYPE, SYNC_MUTATION_TYPE } from '@openheaders/core/protocol';
+import {
+  applyInboundMutationBatch,
+  applyInboundMutationEnvelope,
+} from '../sync/mutation-stream-bridge';
 import { logger } from '@openheaders/core/utils';
 import { snapshotExtensionWorkspacePostStates } from '../sync/global-service';
 import { requireActiveWorkspaceId } from '../sync';
@@ -93,6 +100,18 @@ const SYNC_SNAPSHOT_DISPATCH: Record<string, (workspaceId?: string) => { entries
 export function dispatchSyncRpc(message: Record<string, unknown>): SyncRpcResult | null {
   const type = message.type;
   if (typeof type !== 'string') return null;
+
+  if (type === SYNC_MUTATION_TYPE) {
+    const msg = message as unknown as SyncMutationMessage;
+    const promise = applyInboundMutationEnvelope(msg.envelope).then(() => ({ ok: true }) as const);
+    return { kind: 'async', promise };
+  }
+
+  if (type === SYNC_MUTATION_BATCH_TYPE) {
+    const msg = message as unknown as SyncMutationBatchMessage;
+    const promise = applyInboundMutationBatch(msg.batch).then(() => ({ ok: true }) as const);
+    return { kind: 'async', promise };
+  }
 
   if (type === 'oh.sync.apply') {
     const request = message as unknown as SyncApplyRequest;

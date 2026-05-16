@@ -1,0 +1,103 @@
+/**
+ * Phase C C9 — host-neutral inbound mutation-stream bridge.
+ *
+ * Exercises the shared `applyInboundMutationEnvelope` /
+ * `applyInboundMutationBatch` + seen-set used by every host (extension
+ * SW, desktop main, daemon). Same shape as the extension's receiver
+ * test but invoked at the oracle-package layer.
+ */
+
+import { type MutatorContext, RULE_ENTITY_TYPE } from '@openheaders/core/sync';
+import type { Rule } from '@openheaders/core/types';
+import { generateUid } from '@openheaders/core/utils';
+import { seedRule } from '@openheaders/core/sync-builders/rule-projection';
+import {
+  __initSyncServiceForTests,
+  dispose as disposeSyncService,
+  getOracleForCurrentWorkspace,
+} from '@openheaders/oracle/sync/service';
+import {
+  __resetMutationStreamBridgeForTests,
+  __seenMutationStreamCountForTests,
+  applyInboundMutationBatch,
+  applyInboundMutationEnvelope,
+  hasRecentlyApplied,
+} from '@openheaders/oracle/sync';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+const wsId = 'ws-bridge';
+
+const ctx = (ms: number, nodeId = 'peer'): MutatorContext => ({
+  workspaceId: wsId,
+  hlc: { physicalMs: ms, logical: 0, nodeId },
+  surfaceId: 's',
+  deviceId: 'peer-device',
+});
+
+const makeRule = (uid: string): Rule =>
+  ({
+    schemaVersion: 5,
+    uid,
+    path: `rules/x/${uid}`,
+    type: 'header',
+    name: 'r',
+    enabled: true,
+    conditions: [{ uid: 'cnd00001', kind: 'url-pattern', urlPattern: 'https://openheaders.io/*' }],
+    action: {
+      requestHeaders: [{ uid: 'hmd00001', headerName: 'X-A', operation: 'set', value: '1' }],
+      responseHeaders: [],
+    },
+  }) as unknown as Rule;
+
+beforeEach(() => {
+  __initSyncServiceForTests(wsId);
+  __resetMutationStreamBridgeForTests();
+});
+
+afterEach(() => {
+  __resetMutationStreamBridgeForTests();
+  disposeSyncService();
+});
+
+describe('applyInboundMutationEnvelope', () => {
+  it('applies a peer envelope and records it in the seen set', async () => {
+    const r = makeRule(generateUid());
+    const envelope = seedRule(r, ctx(1_000)).mutations[0]!;
+
+    await applyInboundMutationEnvelope(envelope);
+    expect(hasRecentlyApplied(envelope.mutationId)).toBe(true);
+  });
+
+  it('short-circuits a re-delivered envelope (idempotent)', async () => {
+    const r = makeRule(generateUid());
+    const envelope = seedRule(r, ctx(2_000)).mutations[0]!;
+
+    await applyInboundMutationEnvelope(envelope);
+    const after = __seenMutationStreamCountForTests();
+    await applyInboundMutationEnvelope(envelope);
+    expect(__seenMutationStreamCountForTests()).toBe(after);
+  });
+});
+
+describe('applyInboundMutationBatch', () => {
+  it('applies every envelope and materializes the rule end-to-end', async () => {
+    const r = makeRule(generateUid());
+    const batch = seedRule(r, ctx(3_000));
+
+    await applyInboundMutationBatch(batch);
+    for (const env of batch.mutations) expect(hasRecentlyApplied(env.mutationId)).toBe(true);
+
+    const oracle = getOracleForCurrentWorkspace();
+    expect(oracle?.materializeOne(RULE_ENTITY_TYPE, r.uid)).toBeDefined();
+  });
+
+  it('short-circuits when every envelope is already known', async () => {
+    const r = makeRule(generateUid());
+    const batch = seedRule(r, ctx(4_000));
+
+    await applyInboundMutationBatch(batch);
+    const before = __seenMutationStreamCountForTests();
+    await applyInboundMutationBatch(batch);
+    expect(__seenMutationStreamCountForTests()).toBe(before);
+  });
+});
