@@ -13,7 +13,8 @@
  */
 
 import { Button, Space, Tag, Tooltip, Typography, theme } from 'antd';
-import type { ActivityEntryKind } from '@openheaders/core/sync';
+import type { ActivityEntry, ActivityEntryKind } from '@openheaders/core/sync';
+import { canRevertEntry, getEntryInverse, getEntryRevertUnavailableReason } from '@openheaders/ui/shared/hooks/useActivityRevert';
 import { formatRelativeMs } from '../live/live-display';
 import type { ActivityFeedGroup } from './activity-feed-group';
 import { isViewableEntityType } from './activity-view-router';
@@ -31,6 +32,27 @@ export interface ActivityFeedCardProps {
   onUnmute?: (entityType: string, entityId: string) => void;
   /** True when the entity is already muted in this workspace. */
   isMuted?: boolean;
+  /**
+   * Emit the inverse of this group's underlying mutation. Hidden when
+   * undefined; disabled (with a tooltip) when the structural entry
+   * carries an `unavailable` inverse spec (e.g. delete-irreversible).
+   * Triggered against the structural entry within the group — there is
+   * one inverse per mutationId.
+   */
+  onRevert?: (entry: ActivityEntry) => void;
+}
+
+/**
+ * Find the entry within the group whose `context.inverse` was stamped
+ * by the classifier (the structural row). Returns `null` when no entry
+ * in the group carries an inverse — the card hides the Revert button
+ * entirely in that case.
+ */
+function pickRevertEntry(group: ActivityFeedGroup): ActivityEntry | null {
+  for (const entry of group.entries) {
+    if (getEntryInverse(entry) !== null) return entry;
+  }
+  return null;
 }
 
 interface KindMeta {
@@ -80,6 +102,7 @@ const ActivityFeedCard: React.FC<ActivityFeedCardProps> = ({
   onMute,
   onUnmute,
   isMuted = false,
+  onRevert,
 }) => {
   const { token } = theme.useToken();
   const { primary, kinds, read } = group;
@@ -91,7 +114,15 @@ const ActivityFeedCard: React.FC<ActivityFeedCardProps> = ({
   const canView =
     onView !== undefined && isViewableEntityType(primary.entityType) && !kinds.includes('delete-entity');
   const canMute = onMute !== undefined && onUnmute !== undefined;
-  const hasFooter = canView || canMute;
+  // Revert acts on the structural entry's inverse-mutation spec. The
+  // sentinel `unavailable` variant renders the button as disabled
+  // rather than hidden so the user understands why this particular
+  // mutation can't be reverted (e.g. deletes are permanent).
+  const revertEntry = onRevert !== undefined ? pickRevertEntry(group) : null;
+  const revertEnabled = revertEntry !== null && canRevertEntry(revertEntry);
+  const revertUnavailableReason = revertEntry !== null ? getEntryRevertUnavailableReason(revertEntry) : null;
+  const canRevert = revertEntry !== null;
+  const hasFooter = canView || canMute || canRevert;
 
   return (
     <div
@@ -165,6 +196,27 @@ const ActivityFeedCard: React.FC<ActivityFeedCardProps> = ({
                 }
               >
                 {isMuted ? 'Unmute' : 'Mute'}
+              </Button>
+            </Tooltip>
+          )}
+          {canRevert && (
+            <Tooltip
+              title={
+                revertEnabled
+                  ? 'Apply the inverse of this change. Emits a new mutation that brings the entity back to its pre-inbound state.'
+                  : revertUnavailableReason === 'delete-irreversible'
+                    ? 'Deletes are permanent and cannot be reverted (§7.2 delete-wins).'
+                    : 'This change cannot be reverted.'
+              }
+            >
+              <Button
+                size="small"
+                type="link"
+                style={{ padding: 0, height: 'auto', fontSize: 12 }}
+                disabled={!revertEnabled}
+                onClick={() => revertEntry && onRevert?.(revertEntry)}
+              >
+                Revert
               </Button>
             </Tooltip>
           )}

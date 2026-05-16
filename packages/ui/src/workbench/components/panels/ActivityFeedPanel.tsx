@@ -21,12 +21,13 @@
 
 import { HistoryOutlined } from '@ant-design/icons';
 import { Empty, List, Spin, theme } from 'antd';
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ActivityEntry } from '@openheaders/core/sync';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
 import { useActivityFeed } from '@openheaders/ui/shared/hooks/useActivityFeed';
 import { useActivityMutes } from '@openheaders/ui/shared/hooks/useActivityMutes';
+import { useActivityRevert } from '@openheaders/ui/shared/hooks/useActivityRevert';
 import { groupActivityEntriesByMutation } from './activity-feed-group';
 import ActivityFeedCard from './ActivityFeedCard';
 
@@ -47,6 +48,12 @@ const ActivityFeedPanel: React.FC<ActivityFeedPanelProps> = ({ onClose, onViewEn
   const workspaceId = useActiveWorkspaceId();
   const { entries, isLoading, markRead } = useActivityFeed(workspaceId);
   const { isMuted, mute, unmute } = useActivityMutes(workspaceId);
+  const { revert } = useActivityRevert(workspaceId);
+  // Fire-and-forget at the panel; failed reverts surface to telemetry
+  // via the bridge layer. A future polish slice may attach a toast.
+  const handleRevert = useCallback((entry: ActivityEntry) => {
+    void revert(entry);
+  }, [revert]);
   const groups = useMemo(() => groupActivityEntriesByMutation(entries), [entries]);
 
   // Mark cards read after a short dwell. The list is short and renders
@@ -126,6 +133,7 @@ const ActivityFeedPanel: React.FC<ActivityFeedPanelProps> = ({ onClose, onViewEn
                   onMute={mute}
                   onUnmute={unmute}
                   isMuted={isMuted(group.primary.entityType, group.primary.entityId)}
+                  onRevert={handleRevert}
                 />
               </List.Item>
             )}
