@@ -393,10 +393,11 @@ const ConnectorTls: React.FC<{ id: string; x1: number; y1: number; x2: number; y
  * One layout for the dot + main + sub so every diagram speaks the
  * same visual language.
  *
- * `engine` fills the X — "Service worker" / "Desktop app" / "Daemon"
- * / "Your VM". `where` is appended after "oracle · sync · vault — "
- * to convey deployment context ("in-process" vs "on your LAN" vs
- * "on the internet" etc.).
+ * `engine` fills the X — "Service worker" / "Embedded server" /
+ * "Local server" / "Remote server". `where` is appended after
+ * "oracle · rule-engine · sync-engine · vault — " and conveys the
+ * reach (no wire / localhost / LAN / WAN), matching the tier card's
+ * footer cloud label.
  */
 const BackEndPill: React.FC<{
   x: number;
@@ -405,46 +406,72 @@ const BackEndPill: React.FC<{
   h?: number;
   engine: string;
   where: string;
-}> = ({ x, y, w, h = 32, engine, where }) => (
-  <g>
-    <rect x={x} y={y} width={w} height={h} rx={6} fill={FILL_GREEN} stroke={STROKE_GREEN} strokeWidth={1.5} />
-    <circle cx={x + 16} cy={y + h / 2 + 1} r={4} fill={OH_GREEN} />
-    <text x={x + 28} y={y + h / 2 - 1} fontSize={10.5} fontWeight={700} fill={TEXT}>
-      {engine} = back-end
-    </text>
-    <text x={x + 28} y={y + h / 2 + 11} fontSize={8.5} fill={TEXT_DIM}>
-      oracle · sync · vault — {where}
-    </text>
-  </g>
-);
+}> = ({ x, y, w, h = 76, engine, where }) => {
+  const bulletX = x + 30;
+  const textX = x + 36;
+  return (
+    <g>
+      <rect x={x} y={y} width={w} height={h} rx={6} fill={FILL_GREEN} stroke={STROKE_GREEN} strokeWidth={1.5} />
+      <circle cx={x + 16} cy={y + 18} r={4} fill={OH_GREEN} />
+      <text x={x + 28} y={y + 22} fontSize={10.5} fontWeight={700} fill={TEXT}>
+        Back-end = {engine}
+      </text>
+      <circle cx={bulletX} cy={y + 36} r={1.4} fill={TEXT_DIM} />
+      <text x={textX} y={y + 39} fontSize={8.5} fill={TEXT_DIM}>
+        sync-engine · rule-engine
+      </text>
+      <circle cx={bulletX} cy={y + 50} r={1.4} fill={TEXT_DIM} />
+      <text x={textX} y={y + 53} fontSize={8.5} fill={TEXT_DIM}>
+        oracle · vault
+      </text>
+      <circle cx={bulletX} cy={y + 64} r={1.4} fill={TEXT_DIM} />
+      <text x={textX} y={y + 67} fontSize={8.5} fill={TEXT_DIM}>
+        {where}
+      </text>
+    </g>
+  );
+};
 
 /**
- * Surfaces row used inside the in-browser detail. Each item is the
- * docs' `SurfaceGlyph` (browser frame + highlight region per surface)
- * plus the matching label below, evenly distributed across the
- * browser's content area. Reusing the docs art so the user
- * recognizes the surfaces visually instead of reading abbreviations.
+ * Front-end pill — blue rounded container mirroring `BackEndPill`'s
+ * silhouette. Shows the 4 user-facing surfaces of the extension
+ * (popup / workbench / DevTools / side-panel) underneath a "Front-end
+ * = N surfaces" title so the in-browser scenario reads as a balanced
+ * front-end + back-end pair.
  */
-const SurfacesRow: React.FC<{ y: number; surfaces: readonly DocSurface[] }> = ({ y, surfaces }) => {
-  const startX = 70;
-  const endX = 530; // matches the SW pill width below
+const FrontEndPill: React.FC<{ x: number; y: number; w: number; surfaces: readonly DocSurface[] }> = ({
+  x,
+  y,
+  w,
+  surfaces,
+}) => {
+  // Vertical rhythm with explicit paddings so title + glyphs + labels
+  // have visible breathing room from the rect edges:
+  //   top pad → title (~14) → gap → glyph (32) → label (14) → bottom pad
+  const padTop = 10;
+  const titleH = 14;
+  const titleToGlyphGap = 10;
+  const glyphH = 32;
+  const labelH = 14;
+  const padBottom = 12;
+  const glyphTop = y + padTop + titleH + titleToGlyphGap;
+  const h = padTop + titleH + titleToGlyphGap + glyphH + labelH + padBottom;
+  const startX = x + 10;
+  const endX = x + w - 10;
   const slotW = (endX - startX) / surfaces.length;
   return (
     <g>
+      <rect x={x} y={y} width={w} height={h} rx={6} fill={FILL_BLUE} stroke={STROKE_BLUE} strokeWidth={1.5} />
+      <circle cx={x + 16} cy={y + padTop + 6} r={4} fill={STROKE_BLUE} />
+      <text x={x + 28} y={y + padTop + 10} fontSize={10.5} fontWeight={700} fill={TEXT}>
+        Front-end = {surfaces.length} surfaces
+      </text>
       {surfaces.map((s, i) => {
         const cx = startX + slotW * i + slotW / 2;
-        // Glyph is 42×32; center it horizontally in its slot.
         return (
-          <g key={s} transform={`translate(${cx - 21} ${y})`}>
+          <g key={s} transform={`translate(${cx - 21} ${glyphTop})`}>
             <SurfaceGlyphBody surface={s} accent="var(--ant-color-primary)" />
-            <text
-              x={21}
-              y={46}
-              textAnchor="middle"
-              fontSize={9.5}
-              fontWeight={600}
-              fill={TEXT}
-            >
+            <text x={21} y={glyphH + 14} textAnchor="middle" fontSize={9.5} fontWeight={600} fill={TEXT}>
               {SURFACE_LABELS[s]}
             </text>
           </g>
@@ -457,14 +484,11 @@ const SurfacesRow: React.FC<{ y: number; surfaces: readonly DocSurface[] }> = ({
 // ── In-browser ─────────────────────────────────────────────────────
 
 const InBrowserDetail: React.FC = () => (
-  <svg viewBox="0 0 600 270" width="100%" role="img" aria-label="In-browser back-end">
-    <DesktopContainer x={30} y={18} w={540} h={180} label="Your device">
-      <BrowserWindow x={56} y={42} w={488} h={132} chromeH={20} title="Open Headers — Chrome / Edge / Firefox" corner="Browser">
-        {/* Surfaces row — reuse the same SurfaceGlyph art from the docs'
-            "Where you'll see this" so the user recognizes each surface
-            visually instead of reading "Popup / Workbench / ...". */}
-        <SurfacesRow y={70} surfaces={['popup', 'workbench', 'devtools', 'side-panel']} />
-        <BackEndPill x={70} y={130} w={460} engine="Browser service worker" where="in-process" />
+  <svg viewBox="0 0 600 350" width="100%" role="img" aria-label="In-browser back-end">
+    <DesktopContainer x={30} y={18} w={540} h={280} label="Your device">
+      <BrowserWindow x={56} y={42} w={488} h={240} chromeH={20} title="Open Headers — Chrome / Edge / Firefox" corner="Browser">
+        <FrontEndPill x={70} y={82} w={460} surfaces={['popup', 'workbench', 'devtools', 'side-panel']} />
+        <BackEndPill x={70} y={196} w={460} engine="Embedded browser service worker" where="no wire" />
       </BrowserWindow>
     </DesktopContainer>
   </svg>
@@ -480,37 +504,37 @@ const DesktopAppDetail: React.FC = () => {
   //   monitor at (30, 18) → (570, 228), screen inset 10 →
   //   usable screen area (40, 28) → (560, 218).
   return (
-    <svg viewBox="0 0 600 270" width="100%" role="img" aria-label="Desktop app back-end">
+    <svg viewBox="0 0 600 350" width="100%" role="img" aria-label="Desktop app back-end">
       <ArrowDefs id={ID} />
 
-      <DesktopContainer x={30} y={18} w={540} h={180} label="Your device">
+      <DesktopContainer x={30} y={18} w={540} h={280} label="Your device">
         {/* Screen content lives inside the inset (y ∈ [28, 188]). The
             monitor's height was tightened so the screen wraps the
             content with even margins — no big empty band at the bottom. */}
-        <BrowserWindow x={56} y={40} w={166} h={36} chromeH={18} title="Chrome" corner="Browser" />
-        <BrowserWindow x={56} y={86} w={166} h={36} chromeH={18} title="Firefox" corner="Browser" />
-        <BrowserWindow x={56} y={132} w={166} h={36} chromeH={18} title="Edge" corner="Browser" />
+        <BrowserWindow x={56} y={94} w={166} h={36} chromeH={18} title="Chrome" corner="Browser" />
+        <BrowserWindow x={56} y={140} w={166} h={36} chromeH={18} title="Firefox" corner="Browser" />
+        <BrowserWindow x={56} y={186} w={166} h={36} chromeH={18} title="Edge" corner="Browser" />
 
         {/* Back-end window on the right — same chrome shape as the
             browsers with "Desktop App" corner. Inside: the Workbench
-            surface glyph (mirrors the in-browser layout) above a
-            compact green SW-style back-end pill. */}
-        <BrowserWindow x={350} y={46} w={204} h={120} chromeH={20} title="Open Headers" corner="Desktop App">
+            surface glyph stacked above the green back-end pill, both
+            vertically centered in the taller window. */}
+        <BrowserWindow x={350} y={50} w={204} h={224} chromeH={20} title="Open Headers" corner="Desktop App">
           {/* Workbench glyph centered horizontally — translate origin
               is glyph top-left; glyph is 42×32. */}
-          <g transform="translate(431 72)">
+          <g transform="translate(431 110)">
             <SurfaceGlyphBody surface="workbench" accent="var(--ant-color-primary)" />
             <text x={21} y={46} textAnchor="middle" fontSize={9.5} fontWeight={600} fill={TEXT}>
               Workbench
             </text>
           </g>
-          <BackEndPill x={360} y={128} w={184} engine="Desktop app" where="on this device" />
+          <BackEndPill x={360} y={188} w={184} engine="Embedded server" where="localhost" />
         </BrowserWindow>
 
-        {/* Connectors from each browser's right edge to the back-end. */}
-        <line x1={222} y1={58} x2={350} y2={70} stroke={STROKE} strokeWidth={1.4} markerEnd={`url(#${ID})`} />
-        <line x1={222} y1={104} x2={350} y2={106} stroke={STROKE} strokeWidth={1.4} markerEnd={`url(#${ID})`} />
-        <line x1={222} y1={150} x2={350} y2={142} stroke={STROKE} strokeWidth={1.4} markerEnd={`url(#${ID})`} />
+        {/* Connectors from each browser's right edge to the back-end window. */}
+        <line x1={222} y1={112} x2={350} y2={130} stroke={STROKE} strokeWidth={1.4} markerEnd={`url(#${ID})`} />
+        <line x1={222} y1={158} x2={350} y2={162} stroke={STROKE} strokeWidth={1.4} markerEnd={`url(#${ID})`} />
+        <line x1={222} y1={204} x2={350} y2={194} stroke={STROKE} strokeWidth={1.4} markerEnd={`url(#${ID})`} />
       </DesktopContainer>
 
       {/* Footer — descriptive sub-label centered (same pattern as
@@ -586,12 +610,12 @@ const LocalSelfHostedDetail: React.FC = () => {
         </BrowserWindow>
       </DesktopContainer>
 
-      <ServerContainer x={380} y={148} w={200} h={130} label="Server">
+      <ServerContainer x={380} y={148} w={200} h={142} label="Local server">
         {/* Stack daemon glyph above the back-end pill so the pill
             can span the full inner width — long sub-text fits without
             getting clipped. */}
         <BackendGlyph kind="daemon" cx={480} cy={188} scale={1.05} />
-        <BackEndPill x={388} y={230} w={184} engine="Daemon" where="on your LAN" />
+        <BackEndPill x={388} y={230} w={184} engine="Local server" where="LAN" />
       </ServerContainer>
 
       {/* Connectors — clean geometry, no overlap with container labels:
@@ -660,12 +684,12 @@ const RemoteSelfHostedDetail: React.FC = () => {
         </BrowserWindow>
       </DesktopContainer>
 
-      <ServerContainer x={380} y={148} w={200} h={130} label="Your VM">
+      <ServerContainer x={380} y={148} w={200} h={142} label="Remote server">
         {/* Stack VM glyph above the back-end pill so the pill can
             span the full inner width — same composition as the
             daemon container in Local/LAN. */}
         <BackendGlyph kind="vm" cx={480} cy={188} scale={1.05} />
-        <BackEndPill x={388} y={230} w={184} engine="Your VM" where="on the internet" />
+        <BackEndPill x={388} y={230} w={184} engine="Remote server" where="WAN" />
       </ServerContainer>
 
       {/* TLS connectors — all client → VM links cross the public

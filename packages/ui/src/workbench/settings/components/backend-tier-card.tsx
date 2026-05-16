@@ -91,7 +91,7 @@ const TIERS: Partial<Record<BackendMode, TierDef>> = {
   },
   'desktop-app': {
     title: 'Desktop app',
-    sub: 'embedded back-end',
+    sub: 'embedded server',
     badge: 'TODAY',
     icon: 'desktop',
     inheritsFrom: 'In-browser',
@@ -129,8 +129,8 @@ const TIERS: Partial<Record<BackendMode, TierDef>> = {
     },
   },
   'local-self-hosted': {
-    title: 'Local daemon',
-    sub: 'standalone process',
+    title: 'Local server',
+    sub: 'on your LAN',
     badge: 'ROADMAP',
     icon: 'daemon',
     inheritsFrom: 'Desktop app',
@@ -196,11 +196,11 @@ const TIERS: Partial<Record<BackendMode, TierDef>> = {
     },
   },
   'remote-self-hosted': {
-    title: 'Your VM',
-    sub: 'host it anywhere',
+    title: 'Remote server',
+    sub: 'on the WAN',
     badge: 'ROADMAP',
     icon: 'vm',
-    inheritsFrom: 'Local daemon',
+    inheritsFrom: 'Local server',
     bullets: [
       { text: 'multiple devices', status: 'carried' },
       { text: 'multi-browser instances', status: 'carried' },
