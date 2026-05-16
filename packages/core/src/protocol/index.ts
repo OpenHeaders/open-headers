@@ -18,6 +18,33 @@ export {
   isCompatibleProtocol,
 } from './version';
 
+export {
+  HANDSHAKE_REJECT_REASONS,
+  HANDSHAKE_ROLES,
+  SYNC_HELLO_TYPE,
+  SYNC_STATE_VECTOR_TYPE,
+  SYNC_SYNCED_TYPE,
+  SYNC_WELCOME_TYPE,
+  StateVectorSchema,
+  SyncHandshakeMessageSchema,
+  SyncHelloMessageSchema,
+  SyncStateVectorMessageSchema,
+  SyncSyncedMessageSchema,
+  SyncWelcomeMessageSchema,
+} from './handshake';
+export type {
+  HandshakeRejectReason,
+  HandshakeRole,
+  StateVector,
+  SyncHandshakeMessage,
+  SyncHelloMessage,
+  SyncStateVectorMessage,
+  SyncSyncedMessage,
+  SyncWelcomeAccept,
+  SyncWelcomeMessage,
+  SyncWelcomeReject,
+} from './handshake';
+
 export { SYNC_APPLY_TYPE, SYNC_BROADCAST_TYPE } from './sync-bridge';
 export type {
   SyncApplyAckErr,

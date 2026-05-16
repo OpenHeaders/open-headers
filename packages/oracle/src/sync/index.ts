@@ -1,3 +1,5 @@
+export { computeStateVectorFromLog } from './state-vector-reader';
+
 export {
   getOracleHostHooks,
   peekActiveWorkspaceId,
