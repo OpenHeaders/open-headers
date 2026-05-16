@@ -4,6 +4,7 @@ export {
   type ActivityLogListOptions,
 } from './activity-log';
 export { IdbActivityLog, __closeIdbActivityLogForTests } from './idb-activity-log';
+export { SqliteActivityLog, ensureActivityLogSchema } from './sqlite-activity-log';
 export { computeStateVectorFromLog, readWorkspaceStateVector } from './state-vector-reader';
 export { readDeltaStreamFromLog, readWorkspaceDeltaStream } from './delta-stream-reader';
 export {
