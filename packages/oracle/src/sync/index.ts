@@ -1,3 +1,8 @@
+export {
+  InMemoryActivityLog,
+  type ActivityLog,
+  type ActivityLogListOptions,
+} from './activity-log';
 export { computeStateVectorFromLog, readWorkspaceStateVector } from './state-vector-reader';
 export { readDeltaStreamFromLog, readWorkspaceDeltaStream } from './delta-stream-reader';
 export {
