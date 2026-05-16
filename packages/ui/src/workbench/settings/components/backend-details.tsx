@@ -517,7 +517,6 @@ const DesktopAppDetail: React.FC = () => {
           the in-browser scenario), with a compact "Localhost" cloud
           + loopback URL parked on the right edge so the middle stays
           devoted to the one-line summary. */}
-      <SubLabel x={300} y={255} text="One machine · multiple browsers · localhost · no auth" />
       <Cloud cx={520} cy={247} scale={0.6} label="Localhost" />
       <UrlLabel x={520} y={265} text="ws://127.0.0.1:59210" />
     </svg>

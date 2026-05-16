@@ -129,8 +129,12 @@ const CategoryNav = forwardRef<CategoryNavHandle, CategoryNavProps>(function Cat
                 marginBottom: 1,
                 border: 'none',
                 borderRadius: 6,
-                background: active ? token.colorFillSecondary : 'transparent',
-                color: dimmed ? token.colorTextTertiary : active ? token.colorText : token.colorTextSecondary,
+                background: active ? `${token.colorPrimary}cc` : 'transparent',
+                color: dimmed
+                  ? token.colorTextTertiary
+                  : active
+                    ? token.colorTextLightSolid
+                    : token.colorTextSecondary,
                 cursor: 'pointer',
                 textAlign: 'left',
                 fontSize: 13,
