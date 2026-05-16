@@ -97,6 +97,15 @@ export interface OracleWsServerOptions {
 export interface OracleWsServer {
   /** Fan a typed broadcast to every connected peer past handshake. */
   broadcast(type: string, payload: unknown): void;
+  /**
+   * Fan a pre-shaped JSON-serializable frame to every connected peer
+   * past handshake — used by senders whose wire shape is NOT a
+   * `{ type, payload }` envelope (e.g. mutation-stream frames carry
+   * `workspaceId` + `envelope` at the top level). The frame must
+   * already include a top-level `type` field; this method does not
+   * wrap or rename anything.
+   */
+  broadcastFrame(frame: Record<string, unknown>): void;
   /** Number of connected peers past handshake — used for status logs. */
   connectedCount(): number;
   /** Stop accepting connections and close all open ones. Idempotent. */
@@ -240,18 +249,25 @@ export async function startOracleWsServer(options: OracleWsServerOptions = {}): 
     });
   });
 
+  function sendFrameToReady(serialized: string): void {
+    for (const socket of ready) {
+      if (socket.readyState !== WebSocket.OPEN) continue;
+      try {
+        socket.send(serialized);
+      } catch (err) {
+        logger.warn(SCOPE, 'broadcast to peer failed', err);
+      }
+    }
+  }
+
   return {
     broadcast(type, payload) {
       if (closed) return;
-      const frame = JSON.stringify({ type, payload });
-      for (const socket of ready) {
-        if (socket.readyState !== WebSocket.OPEN) continue;
-        try {
-          socket.send(frame);
-        } catch (err) {
-          logger.warn(SCOPE, 'broadcast to peer failed', err);
-        }
-      }
+      sendFrameToReady(JSON.stringify({ type, payload }));
+    },
+    broadcastFrame(frame) {
+      if (closed) return;
+      sendFrameToReady(JSON.stringify(frame));
     },
     connectedCount() {
       return ready.size;

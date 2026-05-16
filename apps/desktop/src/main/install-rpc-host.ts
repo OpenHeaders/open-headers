@@ -76,6 +76,10 @@ import * as path from 'node:path';
 import { installHostStorage } from './install-host-storage';
 import { installLifelineServer } from './install-lifeline-server';
 import { singleProcessLockRuntime } from './single-process-lock-runtime';
+import {
+  forwardMutationToWsPeers,
+  setMutationForwarderWsServer,
+} from './sync-mutation-forwarder';
 
 const RPC_CHANNEL = 'oh:rpc';
 const BROADCAST_CHANNEL = 'oh:broadcast';
@@ -142,7 +146,16 @@ export async function installRpcHost(): Promise<void> {
   setOracleHostHooks({
     getActiveWorkspaceId,
     peekActiveWorkspaceId,
-    broadcastSyncEvent: (event) => broadcastEverywhere('syncBroadcast', event),
+    broadcastSyncEvent: (event) => {
+      // Renderers keep the legacy `syncBroadcast` IPC channel — they
+      // consume the full `OracleSyncBroadcastEvent` (envelope +
+      // outcome + per-entity post-states) to fold into mirrors.
+      // Cross-host WS peers get the flat `oh.sync.mutation` wire
+      // shape from the C10 forwarder (with echo-prevention via the
+      // shared seen-set).
+      broadcastToAllRenderers('syncBroadcast', event);
+      forwardMutationToWsPeers(event);
+    },
     broadcastAwareness: (event) => broadcastEverywhere('awarenessBroadcast', event),
   });
 
@@ -190,6 +203,7 @@ export async function installRpcHost(): Promise<void> {
   //    renderer.
   try {
     wsServer = await startOracleWsServer();
+    setMutationForwarderWsServer(wsServer);
   } catch (err) {
     consoleLogger.error(
       'install-rpc-host',
@@ -203,6 +217,7 @@ export async function installRpcHost(): Promise<void> {
   //    a half-open server socket.
   app.on('before-quit', () => {
     ipcMain.removeHandler(RPC_CHANNEL);
+    setMutationForwarderWsServer(null);
     void wsServer?.close();
     wsServer = null;
   });
