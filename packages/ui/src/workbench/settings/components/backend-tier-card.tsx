@@ -13,6 +13,7 @@ import type { BackendMode } from '../schema/backend';
 type Icon = 'browser' | 'desktop' | 'daemon' | 'vm';
 type Bullet = { text: string; status: 'carried' | 'new' };
 type PlatformItem = { label: string; note?: string };
+type PlatformGroup = { label?: string; items: PlatformItem[] };
 
 type TierDef = {
   title: string;
@@ -21,7 +22,7 @@ type TierDef = {
   icon: Icon;
   inheritsFrom?: string;
   bullets: Bullet[];
-  platforms: PlatformItem[];
+  platforms: PlatformGroup[];
 };
 
 const TIERS: Partial<Record<BackendMode, TierDef>> = {
@@ -39,7 +40,9 @@ const TIERS: Partial<Record<BackendMode, TierDef>> = {
       { text: 'Localhost-only', status: 'new' },
       { text: 'browser.storage.local', status: 'new' },
     ],
-    platforms: [{ label: 'Chrome' }, { label: 'Firefox' }, { label: 'Edge' }, { label: 'Safari', note: 'soon' }],
+    platforms: [
+      { items: [{ label: 'Chrome' }, { label: 'Firefox' }, { label: 'Edge' }, { label: 'Safari', note: 'soon' }] },
+    ],
   },
   'desktop-app': {
     title: 'Desktop app',
@@ -59,7 +62,40 @@ const TIERS: Partial<Record<BackendMode, TierDef>> = {
       { text: 'YAML on disk', status: 'new' },
       { text: 'git integration (local/remote)', status: 'new' },
     ],
-    platforms: [{ label: 'macOS' }, { label: 'Windows' }, { label: 'Linux' }],
+    platforms: [{ items: [{ label: 'macOS' }, { label: 'Windows' }, { label: 'Linux' }] }],
+  },
+  'local-self-hosted': {
+    title: 'Local daemon',
+    sub: 'standalone process',
+    badge: 'ROADMAP',
+    icon: 'daemon',
+    inheritsFrom: 'Desktop app',
+    bullets: [
+      { text: 'multi-browser instances', status: 'carried' },
+      { text: 'multi-surface concurrent editing', status: 'carried' },
+      { text: 'multi-window concurrent editing', status: 'carried' },
+      { text: 'native filesystem', status: 'carried' },
+      { text: 'YAML on disk', status: 'carried' },
+      { text: 'git integration (local/remote)', status: 'carried' },
+      { text: 'minimal setup', status: 'new' },
+      { text: 'LAN-reachable', status: 'new' },
+      { text: 'multi-app instances', status: 'new' },
+      { text: 'multiple devices', status: 'new' },
+      { text: 'browser ext · desktop app · CLI', status: 'new' },
+    ],
+    platforms: [
+      { label: 'All OS', items: [{ label: 'macOS' }, { label: 'Windows' }, { label: 'Linux' }] },
+      {
+        label: 'Embedded',
+        items: [
+          { label: 'Raspberry Pi' },
+          { label: 'NAS' },
+          { label: 'Mini PC' },
+          { label: 'Home server' },
+          { label: 'Old laptop' },
+        ],
+      },
+    ],
   },
 };
 
@@ -88,8 +124,13 @@ const SEPARATOR_2_X = PLATFORM_X - COL_GAP;
 const BULLET_X = BULLETS_X + 16;
 const BULLET_H = 14;
 const BULLET_H_TIGHT = 12;
+const BULLET_H_DENSE = 11;
 const PLATFORM_CHIP_H = 16;
+const PLATFORM_CHIP_H_DENSE = 13;
 const PLATFORM_CHIP_GAP = 4;
+const PLATFORM_CHIP_GAP_DENSE = 2;
+const PLATFORM_GROUP_LABEL_H = 12;
+const PLATFORM_GROUP_GAP = 4;
 
 const MUTED = 'var(--ant-color-text-tertiary)';
 const MUTED_DOT = 'var(--ant-color-text-quaternary)';
@@ -210,8 +251,18 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
   const carried = tier.bullets.filter((b) => b.status === 'carried');
   const newOnes = tier.bullets.filter((b) => b.status === 'new');
 
-  const platformsBlockH =
-    14 + tier.platforms.length * (PLATFORM_CHIP_H + PLATFORM_CHIP_GAP) - PLATFORM_CHIP_GAP;
+  const dense = tier.bullets.length > 10;
+  const lineH = dense ? BULLET_H_DENSE : BULLET_H_TIGHT;
+  const hasGroupLabels = tier.platforms.some((g) => g.label);
+  const chipH = dense || hasGroupLabels ? PLATFORM_CHIP_H_DENSE : PLATFORM_CHIP_H;
+  const chipGap = dense || hasGroupLabels ? PLATFORM_CHIP_GAP_DENSE : PLATFORM_CHIP_GAP;
+
+  let platformsBlockH = 14;
+  tier.platforms.forEach((g, gi) => {
+    if (g.label) platformsBlockH += PLATFORM_GROUP_LABEL_H;
+    platformsBlockH += g.items.length * (chipH + chipGap) - chipGap;
+    if (gi < tier.platforms.length - 1) platformsBlockH += PLATFORM_GROUP_GAP;
+  });
   const platformsStartY = RECT_Y + (RECT_H - platformsBlockH) / 2;
 
   return (
@@ -294,13 +345,13 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
         (() => {
           const captionY = RECT_Y + 18;
           const carriedStartY = captionY + 12;
-          const carriedEndY = carriedStartY + carried.length * BULLET_H_TIGHT;
+          const carriedEndY = carriedStartY + carried.length * lineH;
           const dottedY = carriedEndY + 2;
           const dottedX = BULLETS_X + 8;
           const dottedW = SEPARATOR_2_X - BULLETS_X - 16;
           const newCaptionY = dottedY + 12;
           const newStartY = newCaptionY + 8;
-          const dottedH = newOnes.length * BULLET_H_TIGHT + 18;
+          const dottedH = newOnes.length * lineH + 18;
           return (
             <g>
               <text
@@ -315,8 +366,8 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
               </text>
               {carried.map((b, j) => (
                 <g key={`c-${j}`}>
-                  <circle cx={BULLET_X} cy={carriedStartY + j * BULLET_H_TIGHT} r={1.6} fill={MUTED_DOT} />
-                  <text x={BULLET_X + 8} y={carriedStartY + 3 + j * BULLET_H_TIGHT} fontSize={9} fill={MUTED}>
+                  <circle cx={BULLET_X} cy={carriedStartY + j * lineH} r={1.6} fill={MUTED_DOT} />
+                  <text x={BULLET_X + 8} y={carriedStartY + 3 + j * lineH} fontSize={9} fill={MUTED}>
                     {b.text}
                   </text>
                 </g>
@@ -344,11 +395,11 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
               </text>
               {newOnes.map((b, j) => (
                 <g key={`n-${j}`}>
-                  <circle cx={BULLET_X} cy={newStartY + j * BULLET_H_TIGHT} r={2} fill={STROKE_BLUE} />
+                  <circle cx={BULLET_X} cy={newStartY + j * lineH} r={2} fill={STROKE_BLUE} />
                   <text
                     x={BULLET_X + 8}
-                    y={newStartY + 3 + j * BULLET_H_TIGHT}
-                    fontSize={10}
+                    y={newStartY + 3 + j * lineH}
+                    fontSize={dense ? 9.5 : 10}
                     fontWeight={600}
                     fill={TEXT}
                   >
@@ -364,38 +415,63 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
       <text x={PLATFORM_X} y={platformsStartY + 8} fontSize={9} fontWeight={800} fill={MUTED} letterSpacing={0.6}>
         SUPPORTS
       </text>
-      {tier.platforms.map((p, i) => {
-        const chipY = platformsStartY + 14 + i * (PLATFORM_CHIP_H + PLATFORM_CHIP_GAP);
-        return (
-          <g key={`p-${i}`}>
-            <rect
-              x={PLATFORM_X}
-              y={chipY}
-              width={PLATFORM_COL_W}
-              height={PLATFORM_CHIP_H}
-              rx={3}
-              fill={FILL_BLUE}
-              stroke={STROKE_BLUE}
-              strokeWidth={0.8}
-            />
-            <text x={PLATFORM_X + 6} y={chipY + 11} fontSize={9} fontWeight={700} fill={TEXT}>
-              {p.label}
-            </text>
-            {p.note && (
+      {(() => {
+        const els: React.ReactNode[] = [];
+        let cursorY = platformsStartY + 14;
+        tier.platforms.forEach((group, gi) => {
+          if (group.label) {
+            els.push(
               <text
-                x={PLATFORM_X + PLATFORM_COL_W - 6}
-                y={chipY + 11}
-                textAnchor="end"
-                fontSize={7}
-                fontStyle="italic"
+                key={`gl-${gi}`}
+                x={PLATFORM_X}
+                y={cursorY + 9}
+                fontSize={8}
+                fontWeight={700}
                 fill={MUTED}
+                letterSpacing={0.4}
               >
-                {p.note}
-              </text>
-            )}
-          </g>
-        );
-      })}
+                {group.label.toUpperCase()}
+              </text>,
+            );
+            cursorY += PLATFORM_GROUP_LABEL_H;
+          }
+          group.items.forEach((p, pi) => {
+            const chipY = cursorY;
+            els.push(
+              <g key={`p-${gi}-${pi}`}>
+                <rect
+                  x={PLATFORM_X}
+                  y={chipY}
+                  width={PLATFORM_COL_W}
+                  height={chipH}
+                  rx={3}
+                  fill={FILL_BLUE}
+                  stroke={STROKE_BLUE}
+                  strokeWidth={0.8}
+                />
+                <text x={PLATFORM_X + 6} y={chipY + chipH - 4} fontSize={chipH <= 13 ? 8.5 : 9} fontWeight={700} fill={TEXT}>
+                  {p.label}
+                </text>
+                {p.note && (
+                  <text
+                    x={PLATFORM_X + PLATFORM_COL_W - 6}
+                    y={chipY + chipH - 4}
+                    textAnchor="end"
+                    fontSize={7}
+                    fontStyle="italic"
+                    fill={MUTED}
+                  >
+                    {p.note}
+                  </text>
+                )}
+              </g>,
+            );
+            cursorY += chipH + chipGap;
+          });
+          if (gi < tier.platforms.length - 1) cursorY += PLATFORM_GROUP_GAP;
+        });
+        return els;
+      })()}
     </svg>
   );
 };
