@@ -74,6 +74,7 @@ import {
   setShouldForwardMutation,
 } from './sync-mutation-forwarder';
 import { handleIncomingMutationFrame, hasRecentlyApplied } from './sync-mutation-receiver';
+import { observeForActivityFeed, setActivityLog } from './sync-activity-installer';
 import { createSyncHandshakeInitiator } from './sync-handshake-initiator';
 import { installHandshakeStatusReporter } from './sync-status-reporter';
 import {
@@ -94,6 +95,13 @@ setShouldForwardMutation((event) => !hasRecentlyApplied(event.envelope.mutationI
 // already saw the envelope before the disconnect.
 const pendingOutQueue = getSyncPersistenceProvider().createPendingOutQueue?.() ?? null;
 setPendingOutQueue(pendingOutQueue);
+
+// Activity Feed (F1/F2): every inbound envelope the bridge applies
+// flows through the classifier and lands in the per-workspace
+// activity log. Writes are fire-and-forget; apply latency is
+// unaffected by IDB latency.
+const activityLog = getSyncPersistenceProvider().createActivityLog?.() ?? null;
+setActivityLog(activityLog);
 
 // State-vector handshake — Phase C natural close-out. On every WS
 // connect, the initiator sends HELLO + STATE_VECTOR; on SYNCED it
@@ -196,6 +204,7 @@ setOracleHostHooks({
   broadcastSyncEvent: (event) => {
     broadcast('syncBroadcast', event);
     forwardMutationToBackend(event);
+    observeForActivityFeed(event);
   },
   broadcastAwareness: (event) => broadcast('awarenessBroadcast', event),
   reportStatus: (entry) =>
