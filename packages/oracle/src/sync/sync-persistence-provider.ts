@@ -24,8 +24,10 @@
 
 import { IdbMutationLog } from './idb-mutation-log';
 import { IdbPendingIntents } from './idb-pending-intents';
+import { IdbPendingOutQueue } from './idb-pending-out-queue';
 import type { MutationLog } from './mutation-log';
 import type { PendingIntents } from './pending-intents';
+import type { PendingOutQueue } from './pending-out-queue';
 
 /**
  * The contract a host's durable-store backend must satisfy. The oracle
@@ -37,6 +39,15 @@ export interface SyncPersistenceProvider {
   createMutationLog(scope: string): MutationLog;
   /** Build the pending side-effect intents store for `scope`. */
   createPendingIntents(scope: string): PendingIntents;
+  /**
+   * Build the pending-out queue (Phase C C13/C14). Host-singleton —
+   * NOT per-workspace. The queue keys on `(remoteId, workspaceId,
+   * hlcKey, mutationId)`; one instance per host suffices, and the
+   * provider is expected to return the same handle on repeated calls.
+   * Optional for forward-compat: the SW + tests that don't install a
+   * non-default provider don't yet exercise this path.
+   */
+  createPendingOutQueue?(): PendingOutQueue;
 }
 
 /**
@@ -44,9 +55,15 @@ export interface SyncPersistenceProvider {
  * extension) runs on this as-is; only hosts without `indexedDB` need to
  * install a replacement.
  */
+let idbPendingOutSingleton: IdbPendingOutQueue | null = null;
+
 const IDB_SYNC_PERSISTENCE: SyncPersistenceProvider = {
   createMutationLog: (scope) => new IdbMutationLog(scope),
   createPendingIntents: (scope) => new IdbPendingIntents(scope),
+  createPendingOutQueue: () => {
+    if (!idbPendingOutSingleton) idbPendingOutSingleton = new IdbPendingOutQueue();
+    return idbPendingOutSingleton;
+  },
 };
 
 let installed: SyncPersistenceProvider = IDB_SYNC_PERSISTENCE;

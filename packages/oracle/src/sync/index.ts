@@ -14,6 +14,7 @@ export {
   type PendingOutQueue,
 } from './pending-out-queue';
 export { IdbPendingOutQueue, __closeIdbPendingOutQueueForTests } from './idb-pending-out-queue';
+export { SqlitePendingOutQueue, ensurePendingOutQueueSchema } from './sqlite-pending-out-queue';
 export { buildSnapshotForWorkspace, buildSnapshotFromOracle } from './snapshot-builder';
 export { applyWorkspaceSnapshot } from './snapshot-applier';
 export type { ApplySnapshotOptions, ApplySnapshotResult } from './snapshot-applier';

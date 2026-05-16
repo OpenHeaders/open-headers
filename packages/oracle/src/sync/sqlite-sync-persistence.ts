@@ -27,8 +27,10 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { MutationLog } from './mutation-log';
 import type { PendingIntents } from './pending-intents';
+import type { PendingOutQueue } from './pending-out-queue';
 import { ensureMutationLogSchema, SqliteMutationLog } from './sqlite-mutation-log';
 import { ensurePendingIntentsSchema, SqlitePendingIntents } from './sqlite-pending-intents';
+import { ensurePendingOutQueueSchema, SqlitePendingOutQueue } from './sqlite-pending-out-queue';
 import type { SyncPersistenceProvider } from './sync-persistence-provider';
 
 export interface SqliteSyncPersistenceOptions {
@@ -57,9 +59,11 @@ export function createSqliteSyncPersistence(
 
   ensureMutationLogSchema(db);
   ensurePendingIntentsSchema(db);
+  ensurePendingOutQueueSchema(db);
 
   const logs = new Map<string, MutationLog>();
   const intents = new Map<string, PendingIntents>();
+  let pendingOut: PendingOutQueue | null = null;
   let closed = false;
 
   return {
@@ -79,6 +83,10 @@ export function createSqliteSyncPersistence(
         intents.set(scope, store);
       }
       return store;
+    },
+    createPendingOutQueue(): PendingOutQueue {
+      if (!pendingOut) pendingOut = new SqlitePendingOutQueue(db);
+      return pendingOut;
     },
     close(): void {
       if (closed) return;
