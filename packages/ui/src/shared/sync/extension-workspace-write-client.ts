@@ -42,7 +42,7 @@ import {
   type SideEffectIntent,
 } from '@openheaders/core/sync';
 import type { ExtensionWorkspace, ExtensionWorkspaceKind } from '@openheaders/core/types';
-import { generateUid } from '@openheaders/core/utils';
+import { generateWorkspaceId } from '@openheaders/core/utils';
 import {
   type ExtensionWorkspaceSyncMirror,
   getActiveExtensionWorkspaceSyncMirror,
@@ -116,7 +116,7 @@ export async function applyCreateWorkspace(
   const mirror = opts.mirror ?? getActiveExtensionWorkspaceSyncMirror();
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const now = new Date().toISOString();
-  const id = generateUid();
+  const id = generateWorkspaceId();
   const slot: ExtensionWorkspaceSlot = {
     id,
     kind: input.kind ?? 'personal',

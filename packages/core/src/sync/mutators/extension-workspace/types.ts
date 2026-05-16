@@ -47,10 +47,10 @@ export const EXTENSION_WORKSPACE_ACTIVE_ID_PATH = 'activeId';
 
 /**
  * Sentinel `workspaceId` used by the global-scope oracle. Distinct
- * from any user-mintable id (those come from `generateUid` and never
- * collide with this fixed string). The IDB mutation log + pending
- * intents stripe by this key so global-scope state survives
- * workspace-switch dispose+init cycles.
+ * from any user-mintable id (those come from `generateWorkspaceId`
+ * — canonical UUIDv7 — and never collide with this fixed string).
+ * The IDB mutation log + pending intents stripe by this key so
+ * global-scope state survives workspace-switch dispose+init cycles.
  */
 export const EXTENSION_WORKSPACE_GLOBAL_SCOPE = '__global__';
 

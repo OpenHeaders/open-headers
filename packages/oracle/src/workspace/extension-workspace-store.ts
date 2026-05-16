@@ -45,7 +45,7 @@ import {
 } from '@openheaders/core/sync';
 import { buildSetExtensionWorkspaceBatch } from '@openheaders/core/sync-builders/extension-workspace-mutations';
 import type { ExtensionWorkspace, ExtensionWorkspaceKind } from '@openheaders/core/types';
-import { generateUid, logger } from '@openheaders/core/utils';
+import { generateWorkspaceId, logger } from '@openheaders/core/utils';
 import { hostStorage, OH } from '../storage';
 import { type ExtensionWorkspaceCache, getActiveExtensionWorkspaceCache } from '../sync/extension-workspace-cache';
 import { getGlobalOracle, nextGlobalSwContext } from '../sync/global-service';
@@ -172,7 +172,7 @@ export interface CreateWorkspaceInput {
  */
 export async function createWorkspace(input: CreateWorkspaceInput): Promise<ExtensionWorkspace> {
   const now = new Date().toISOString();
-  const id = generateUid();
+  const id = generateWorkspaceId();
   const slot: ExtensionWorkspaceSlot = {
     id,
     kind: input.kind ?? 'personal',
@@ -274,7 +274,7 @@ export async function bootstrap(): Promise<void> {
   const now = new Date().toISOString();
   const defaultWorkspace: ExtensionWorkspace = {
     schemaVersion: 5,
-    id: generateUid(),
+    id: generateWorkspaceId(),
     kind: 'personal',
     name: DEFAULT_WORKSPACE_NAME,
     color: DEFAULT_WORKSPACE_COLOR,
