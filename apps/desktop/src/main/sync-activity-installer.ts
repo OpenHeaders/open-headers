@@ -97,7 +97,7 @@ export function observeForActivityFeed(event: OracleSyncBroadcastEvent): void {
   // Drain the prior unconditionally so it cannot leak when an envelope
   // turns out to be non-inbound or non-applied — the bridge captured it
   // speculatively for every wire-delivered envelope.
-  const prior = consumePriorForMutation(event.envelope.mutationId);
+  const { prior, inverse } = consumePriorForMutation(event.envelope.mutationId);
   const next = isInbound ? readNextMaterialized(event) : null;
   // Trigger lazy mute-cache hydration on first inbound observation so
   // the synchronous gate below is hot. The promise is fire-and-forget;
@@ -116,6 +116,7 @@ export function observeForActivityFeed(event: OracleSyncBroadcastEvent): void {
     observedAt: clock(),
     prior,
     next,
+    inverse,
   });
   if (entries.length === 0) return;
 

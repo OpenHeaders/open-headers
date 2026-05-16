@@ -103,7 +103,7 @@ export function observeForActivityFeed(event: OracleSyncBroadcastEvent): void {
   // envelope turns out to be non-inbound or non-applied — the bridge
   // captured it speculatively for every wire-delivered envelope, and a
   // skipped consumer would leak entries until the FIFO cap kicked in.
-  const prior = consumePriorForMutation(event.envelope.mutationId);
+  const { prior, inverse } = consumePriorForMutation(event.envelope.mutationId);
   const next = isInbound ? readNextMaterialized(event) : null;
   // Trigger lazy mute-cache hydration for this workspace on first
   // inbound observation. Subsequent envelopes hit the synchronous
@@ -121,6 +121,7 @@ export function observeForActivityFeed(event: OracleSyncBroadcastEvent): void {
     observedAt: clock(),
     prior,
     next,
+    inverse,
   });
   if (entries.length === 0) return;
 

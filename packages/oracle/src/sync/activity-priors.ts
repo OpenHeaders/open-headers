@@ -16,6 +16,12 @@
  * `consumePriorForMutation` deletes on read (typical path), and the
  * cap evicts the oldest entry if the consumer side ever misses.
  *
+ * The record also carries the {@link InverseSpec} for the F6.d Revert
+ * action — computed at bridge time from the same pre-apply oracle
+ * view, so both pieces of derived state ride together and stay
+ * mutually consistent. The installer hands both to the classifier;
+ * the classifier embeds the spec on the structural entry's `context`.
+ *
  * Why not also hand back the post-apply state from this store: the
  * installer can read `materializeOne` itself via
  * `getOracleForWorkspace(workspaceId)`. Stashing both here would
@@ -23,10 +29,14 @@
  * between apply and observe. The prior is the only piece that the
  * apply step destroys; the next is always reconstructible.
  */
-import type { MaterializedEntity } from '@openheaders/core/sync';
+import type { InverseEnvelopeContext, MaterializedEntity } from '@openheaders/core/sync';
 
-interface PriorRecord {
+export interface PriorCapture {
   prior: MaterializedEntity | null;
+  inverse: InverseEnvelopeContext | null;
+}
+
+interface PriorRecord extends PriorCapture {
   workspaceId: string;
 }
 
@@ -37,8 +47,9 @@ export function rememberPriorForMutation(
   mutationId: string,
   workspaceId: string,
   prior: MaterializedEntity | null,
+  inverse: InverseEnvelopeContext | null,
 ): void {
-  PRIORS.set(mutationId, { prior, workspaceId });
+  PRIORS.set(mutationId, { prior, inverse, workspaceId });
   if (PRIORS.size > PRIORS_CAP) {
     const first = PRIORS.keys().next().value;
     if (first !== undefined) PRIORS.delete(first);
@@ -46,15 +57,17 @@ export function rememberPriorForMutation(
 }
 
 /**
- * Read + evict the prior captured for `mutationId`. Returns `null`
- * when no prior was captured (the envelope was a `create`, the entity
- * didn't exist yet, or the priors map was bypassed by a unit test).
+ * Read + evict the prior captured for `mutationId`. Returns a `null`
+ * capture when nothing was stashed (the envelope was a `create`, the
+ * entity didn't exist yet, or the priors map was bypassed by a unit
+ * test); shape is preserved so callers don't need a parallel
+ * "missing" branch.
  */
-export function consumePriorForMutation(mutationId: string): MaterializedEntity | null {
+export function consumePriorForMutation(mutationId: string): PriorCapture {
   const record = PRIORS.get(mutationId);
-  if (!record) return null;
+  if (!record) return { prior: null, inverse: null };
   PRIORS.delete(mutationId);
-  return record.prior;
+  return { prior: record.prior, inverse: record.inverse };
 }
 
 /** Test-only — reset state between cases. */

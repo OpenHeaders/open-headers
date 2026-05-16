@@ -30,7 +30,12 @@
  *     (F2.h).
  */
 
-import type { MaterializedEntity, MutationEnvelope, MutatorOutcome } from '@openheaders/core/sync';
+import type {
+  InverseEnvelopeContext,
+  MaterializedEntity,
+  MutationEnvelope,
+  MutatorOutcome,
+} from '@openheaders/core/sync';
 import {
   activityEntryId,
   detectSensitiveRotation,
@@ -64,10 +69,20 @@ export interface ClassifyActivityInput {
    * oracle. Required to emit the highlight kinds.
    */
   next?: MaterializedEntity | null;
+  /**
+   * Inverse-mutation context captured by the bridge at pre-apply time
+   * alongside the prior. When present, the classifier attaches it to
+   * the structural entry's `context.inverse` so the F6.d Revert action
+   * can mint an inverse envelope without re-reading the (now-mutated)
+   * pre-apply state. Absent on local-emit envelopes and on first-touch
+   * inbound where the bridge skipped capture; `Revert` simply degrades
+   * to disabled when the entry has no spec.
+   */
+  inverse?: InverseEnvelopeContext | null;
 }
 
 export function classifyEnvelopeForActivity(input: ClassifyActivityInput): ActivityEntry[] {
-  const { envelope, outcome, isInbound, observedAt, prior = null, next = null } = input;
+  const { envelope, outcome, isInbound, observedAt, prior = null, next = null, inverse = null } = input;
   if (!isInbound) return [];
   if (outcome.status !== 'applied') return [];
 
@@ -75,9 +90,15 @@ export function classifyEnvelopeForActivity(input: ClassifyActivityInput): Activ
   if (structuralKind === null) return [];
 
   const body = envelope.body;
-  const context: Record<string, unknown> = {};
-  if ('path' in body && typeof body.path === 'string') context.path = body.path;
-  if ('itemId' in body && typeof body.itemId === 'string') context.itemId = body.itemId;
+  // Base context shared by every kind on this envelope — path / itemId
+  // are derivable from `body` and identify the affected leaf for diff
+  // tooling. The inverse spec rides only on the structural row: the
+  // highlight rows (sensitive / scope-expansion) share the same
+  // mutationId and the panel groups by mutationId, so a single
+  // `Revert` button per group has one spec to consult.
+  const sharedContext: Record<string, unknown> = {};
+  if ('path' in body && typeof body.path === 'string') sharedContext.path = body.path;
+  if ('itemId' in body && typeof body.itemId === 'string') sharedContext.itemId = body.itemId;
 
   const baseFields = {
     workspaceId: envelope.workspaceId,
@@ -89,10 +110,13 @@ export function classifyEnvelopeForActivity(input: ClassifyActivityInput): Activ
     observedAt,
     read: false,
   } as const;
-  const contextField = Object.keys(context).length > 0 ? { context } : {};
 
+  const kinds = kindsToEmit(structuralKind, body.type, prior, next);
   const entries: ActivityEntry[] = [];
-  for (const kind of kindsToEmit(structuralKind, body.type, prior, next)) {
+  for (const kind of kinds) {
+    const context: Record<string, unknown> = { ...sharedContext };
+    if (kind === structuralKind && inverse !== null) context.inverse = inverse;
+    const contextField = Object.keys(context).length > 0 ? { context } : {};
     const partial: Omit<ActivityEntry, 'id'> = { ...baseFields, kind, ...contextField };
     entries.push({ ...partial, id: activityEntryId(partial) });
   }

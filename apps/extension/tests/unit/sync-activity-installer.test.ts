@@ -180,7 +180,7 @@ describe('observeForActivityFeed', () => {
       id: 'vault',
       data: { secrets: [{ uid: 's1', kind: 'string', value: 'new' }] },
     };
-    rememberPriorForMutation('m1', WS, prior);
+    rememberPriorForMutation('m1', WS, prior, null);
     materializeOneMock.mockReturnValue(next);
 
     observeForActivityFeed(event('m1', { kind: 'setField', type: 'vault', id: 'vault', path: 'secrets.s1.value', value: 'new' }));
@@ -212,7 +212,7 @@ describe('observeForActivityFeed', () => {
         conditions: [{ uid: 'c1', type: 'url-filter', values: ['*.openheaders.io'] }],
       },
     };
-    rememberPriorForMutation('m1', WS, prior);
+    rememberPriorForMutation('m1', WS, prior, null);
     materializeOneMock.mockReturnValue(next);
 
     observeForActivityFeed(event('m1', { kind: 'removeFromSet', type: 'rule', id: 'r1', path: 'conditions', itemId: 'c2' }));

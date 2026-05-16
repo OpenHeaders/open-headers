@@ -212,6 +212,66 @@ describe('classifyEnvelopeForActivity', () => {
     expect(out.map((e) => e.kind)).toEqual(['edit-entity']);
   });
 
+  it('attaches inverse spec to the structural entry only when provided', () => {
+    const out = classifyEnvelopeForActivity({
+      envelope: envelope({ kind: 'setField', type: 'rule', id: 'r1', path: 'name', value: 'next' }),
+      outcome: applied,
+      isInbound: true,
+      observedAt: 0,
+      inverse: {
+        mutatorVersion: 1,
+        spec: { kind: 'setField', path: 'name', priorExists: true, priorValue: 'prev' },
+      },
+    });
+    expect(out.length).toBe(1);
+    expect(out[0].kind).toBe('edit-entity');
+    expect(out[0].context?.inverse).toEqual({
+      mutatorVersion: 1,
+      spec: { kind: 'setField', path: 'name', priorExists: true, priorValue: 'prev' },
+    });
+  });
+
+  it('omits context.inverse when no inverse is provided', () => {
+    const out = classifyEnvelopeForActivity({
+      envelope: envelope({ kind: 'setField', type: 'rule', id: 'r1', path: 'name', value: 'next' }),
+      outcome: applied,
+      isInbound: true,
+      observedAt: 0,
+    });
+    expect(out[0].context?.inverse).toBeUndefined();
+  });
+
+  it('puts the inverse only on the structural row, not on highlight rows', () => {
+    // A sensitive-field rotation alongside the structural edit; the
+    // inverse should ride exclusively on the structural row so the
+    // panel's per-group Revert button has a single source of truth.
+    const prior: MaterializedEntity = {
+      type: 'vault',
+      id: 'vault',
+      data: { secrets: [{ uid: 's1', kind: 'string', value: 'old' }] },
+    };
+    const next: MaterializedEntity = {
+      type: 'vault',
+      id: 'vault',
+      data: { secrets: [{ uid: 's1', kind: 'string', value: 'new' }] },
+    };
+    const out = classifyEnvelopeForActivity({
+      envelope: envelope({ kind: 'setField', type: 'vault', id: 'vault', path: 'secrets.s1.value', value: 'new' }),
+      outcome: applied,
+      isInbound: true,
+      observedAt: 0,
+      prior,
+      next,
+      inverse: {
+        mutatorVersion: 1,
+        spec: { kind: 'setField', path: 'secrets.s1.value', priorExists: true, priorValue: 'old' },
+      },
+    });
+    expect(out.map((e) => e.kind)).toEqual(['edit-entity', 'sensitive-field-rotation']);
+    expect(out[0].context?.inverse).toBeDefined();
+    expect(out[1].context?.inverse).toBeUndefined();
+  });
+
   it('encodes a deterministic id derived from (hlc, mutationId, kind)', () => {
     const env = envelope({ kind: 'create', type: 'rule', id: 'r1', payload: {} });
     const a = classifyEnvelopeForActivity({

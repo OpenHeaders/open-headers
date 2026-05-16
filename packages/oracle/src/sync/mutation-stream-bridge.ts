@@ -45,8 +45,9 @@
  * the next one catches the duplicate. Non-negotiable per the design
  * doc; tests in `mutation-id-dedup.test.ts` pin the WS-redelivery path.
  */
-import { compareHlc, type MutationBatch, type MutationEnvelope } from '@openheaders/core/sync';
+import { compareHlc, computeInverseSpec, type MutationBatch, type MutationEnvelope } from '@openheaders/core/sync';
 
+import { makeOracleInverseAccess } from './activity-inverse-builder';
 import { rememberPriorForMutation } from './activity-priors';
 import { applySyncRequest, getOracleForWorkspace, getOrCreateWorkspaceService, releaseWorkspaceService } from './service';
 
@@ -127,7 +128,15 @@ function capturePriorsForActivity(batch: MutationBatch): void {
     if (SEEN_MUTATION_IDS.has(env.mutationId)) continue;
     const oracle = getOracleForWorkspace(env.workspaceId);
     const prior = oracle ? oracle.materializeOne(env.body.type, env.body.id) : null;
-    rememberPriorForMutation(env.mutationId, env.workspaceId, prior);
+    const access = makeOracleInverseAccess({
+      oracle,
+      entityType: env.body.type,
+      entityId: env.body.id,
+      prior,
+    });
+    const spec = computeInverseSpec(env.body, access);
+    const inverse = spec === null ? null : { mutatorVersion: env.mutatorVersion, spec };
+    rememberPriorForMutation(env.mutationId, env.workspaceId, prior, inverse);
   }
 }
 

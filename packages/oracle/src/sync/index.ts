@@ -27,6 +27,13 @@ export {
   classifyEnvelopeForActivity,
   type ClassifyActivityInput,
 } from './activity-classifier';
+export {
+  generateInverseMutation,
+  type GenerateInverseInput,
+  type GenerateInverseReason,
+  type GenerateInverseResult,
+} from './activity-revert';
+export { makeOracleInverseAccess, type OracleInverseAccessInput } from './activity-inverse-builder';
 export { computeStateVectorFromLog, readWorkspaceStateVector } from './state-vector-reader';
 export { readDeltaStreamFromLog, readWorkspaceDeltaStream } from './delta-stream-reader';
 export {
@@ -41,6 +48,7 @@ export {
   __resetActivityPriorsForTests,
   consumePriorForMutation,
   rememberPriorForMutation,
+  type PriorCapture,
 } from './activity-priors';
 export { getOracleForWorkspace } from './service';
 

@@ -171,7 +171,7 @@ describe('observeForActivityFeed (desktop)', () => {
       id: 'vault',
       data: { secrets: [{ uid: 's1', kind: 'string', value: 'new' }] },
     };
-    rememberPriorForMutation('m1', WS, prior);
+    rememberPriorForMutation('m1', WS, prior, null);
     materializeOneMock.mockReturnValue(next);
 
     observeForActivityFeed(
@@ -205,7 +205,7 @@ describe('observeForActivityFeed (desktop)', () => {
         conditions: [{ uid: 'c1', type: 'url-filter', values: ['*.openheaders.io'] }],
       },
     };
-    rememberPriorForMutation('m1', WS, prior);
+    rememberPriorForMutation('m1', WS, prior, null);
     materializeOneMock.mockReturnValue(next);
 
     observeForActivityFeed(

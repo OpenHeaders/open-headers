@@ -36,6 +36,7 @@ import type {
   SyncMutationMessage,
 } from '@openheaders/core/protocol';
 import { SYNC_MUTATION_BATCH_TYPE, SYNC_MUTATION_TYPE } from '@openheaders/core/protocol';
+import type { InverseEnvelopeContext } from '@openheaders/core/sync';
 import {
   applyInboundMutationBatch,
   applyInboundMutationEnvelope,
@@ -46,11 +47,14 @@ import {
   muteActivityEntity,
   unmuteActivityEntity,
 } from '../sync/activity-mute-cache';
+import { generateInverseMutation } from '../sync/activity-revert';
 import { snapshotExtensionWorkspacePostStates } from '../sync/global-service';
 import { requireActiveWorkspaceId } from '../sync';
 import { getSyncPersistenceProvider } from '../sync/sync-persistence-provider';
 import {
   applySyncRequest,
+  getOracleForWorkspace,
+  nextSwMutatorContextForWorkspace,
   publishAwareness,
   snapshotAwarenessPresence,
   snapshotCollectionPostStates,
@@ -219,6 +223,11 @@ export function dispatchSyncRpc(message: Record<string, unknown>): SyncRpcResult
     return { kind: 'async', promise };
   }
 
+  if (type === 'oh.sync.revertActivity') {
+    const result = dispatchRevertActivity(message);
+    return { kind: 'async', promise: result };
+  }
+
   if (type === 'oh.sync.unmuteActivityEntity') {
     const ws = typeof message.workspaceId === 'string' ? message.workspaceId : null;
     const entityType = typeof message.entityType === 'string' ? message.entityType : null;
@@ -258,4 +267,56 @@ export function dispatchSyncRpc(message: Record<string, unknown>): SyncRpcResult
   }
 
   return null;
+}
+
+/**
+ * Resolve an `oh.sync.revertActivity` request to a structured response.
+ *
+ * The renderer carries the {@link InverseEnvelopeContext} the F2
+ * classifier embedded on the structural activity entry; this handler:
+ *   1. validates the payload shape,
+ *   2. resolves the workspace's oracle + a fresh `MutatorContext`,
+ *   3. asks {@link generateInverseMutation} for an apply-ready batch
+ *      or a structured refusal,
+ *   4. routes the batch through {@link applySyncRequest} so it gets
+ *      HLC-stamped + broadcast + persisted like any local mutation.
+ *
+ * The local emit is not in the wire-side seen set, so the revert itself
+ * does not enter the activity feed — the user sees the entity update
+ * back to its pre-inbound state without a phantom "you reverted X"
+ * row appearing in the feed.
+ */
+async function dispatchRevertActivity(
+  message: Record<string, unknown>,
+): Promise<{ ok: true; mutationId: string } | { ok: false; reason: string }> {
+  const ws = typeof message.workspaceId === 'string' ? message.workspaceId : null;
+  const entityType = typeof message.entityType === 'string' ? message.entityType : null;
+  const entityId = typeof message.entityId === 'string' ? message.entityId : null;
+  const inverse = message.inverse as InverseEnvelopeContext | undefined;
+  if (!ws || !entityType || !entityId || !inverse || typeof inverse !== 'object') {
+    return { ok: false, reason: 'malformed-payload' };
+  }
+
+  const oracle = getOracleForWorkspace(ws);
+  if (!oracle) return { ok: false, reason: 'no-oracle-for-workspace' };
+
+  const ctx = nextSwMutatorContextForWorkspace(ws);
+  if (!ctx) return { ok: false, reason: 'no-oracle-for-workspace' };
+
+  const generated = generateInverseMutation({ entityType, entityId, inverse, oracle, ctx });
+  if (!generated.ok) return { ok: false, reason: generated.reason };
+
+  try {
+    const response = await applySyncRequest({ type: 'oh.sync.apply', batch: generated.batch, sideEffects: [] });
+    if (!response.ok) {
+      const detail = response.failure?.detail ?? response.failure?.status ?? 'apply-failed';
+      logger.info('SyncRpc', `oh.sync.revertActivity apply rejected: ${detail}`);
+      return { ok: false, reason: detail };
+    }
+    return { ok: true, mutationId: generated.batch.mutations[0].mutationId };
+  } catch (err) {
+    const detail = (err as Error).message;
+    logger.info('SyncRpc', `oh.sync.revertActivity apply threw: ${detail}`);
+    return { ok: false, reason: detail };
+  }
 }
