@@ -32,6 +32,7 @@ import type { CategoryDef, CategoryPaneProps, SettingDef, SubcategoryDef } from 
 import SettingRow from '../fields/SettingRow';
 import { BackendDetailDiagram } from './backend-details';
 import { type BackendIconKey, BackendIcon } from './backend-icons';
+import { BackendTierCard } from './backend-tier-card';
 
 interface ScenarioDescriptor {
   mode: BackendMode;
@@ -124,7 +125,7 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   };
 
   return (
-    <div style={{ padding: '20px 24px 28px', maxWidth: 760 }}>
+    <div style={{ padding: '20px 24px 28px' }}>
       <header style={{ marginBottom: 14 }}>
         <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: token.colorText, letterSpacing: -0.1 }}>
           {category.label}
@@ -147,7 +148,14 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
       />
 
       <DetailFrame previewingNonActive={previewingNonActive}>
-        <BackendDetailDiagram mode={previewScenario.mode} />
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 360px', minWidth: 320 }}>
+            <BackendTierCard mode={previewScenario.mode} />
+          </div>
+          <div style={{ flex: '1 1 360px', minWidth: 320 }}>
+            <BackendDetailDiagram mode={previewScenario.mode} />
+          </div>
+        </div>
       </DetailFrame>
 
       <ConfigPanel
@@ -225,7 +233,7 @@ const DetailFrame: React.FC<{ children: React.ReactNode; previewingNonActive: bo
         background: token.colorBgContainer,
         border: `1px solid ${token.colorBorderSecondary}`,
         borderRadius: 10,
-        padding: '10px 12px',
+        padding: '28px 12px 10px',
         marginBottom: 14,
       }}
     >

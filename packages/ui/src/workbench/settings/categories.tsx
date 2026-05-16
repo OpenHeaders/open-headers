@@ -31,18 +31,10 @@ import { registerCategory } from './registry';
 const BackendPane = lazy(() => import('./components/BackendPane'));
 
 registerCategory({
-  id: 'general',
-  label: 'General',
-  icon: <SettingOutlined />,
-  order: 5,
-  description: 'App-wide behavior, startup, and locale.',
-});
-
-registerCategory({
   id: 'backend',
   label: 'Backend',
   icon: <CloudServerOutlined />,
-  order: 7,
+  order: 3,
   description:
     'Where your workspaces, rules, vault, and history live. Pick the host that matches your reach — local-only either way.',
   renderPane: BackendPane,
@@ -53,6 +45,14 @@ registerCategory({
     { id: 'reliability', label: 'Reliability', order: 20 },
     { id: 'notifications', label: 'Notifications', order: 30 },
   ],
+});
+
+registerCategory({
+  id: 'general',
+  label: 'General',
+  icon: <SettingOutlined />,
+  order: 5,
+  description: 'App-wide behavior, startup, and locale.',
 });
 
 registerCategory({

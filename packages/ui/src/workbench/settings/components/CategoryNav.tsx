@@ -7,9 +7,11 @@
  * the user can pivot directly into the matching surface.
  */
 
-import { theme } from 'antd';
+import { Dropdown, Tooltip, theme } from 'antd';
+import type { ItemType } from 'antd/es/menu/interface';
 import type React from 'react';
 import { forwardRef, useImperativeHandle, useRef } from 'react';
+import { useSetting } from '../hooks';
 import type { CategoryDef } from '../types';
 
 interface CategoryNavProps {
@@ -34,6 +36,20 @@ const CategoryNav = forwardRef<CategoryNavHandle, CategoryNavProps>(function Cat
 ) {
   const { token } = theme.useToken();
   const buttonsRef = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const [showLabels, setShowLabels] = useSetting('general.settingsShowCategoryLabels');
+
+  const contextMenu: ItemType[] = [
+    {
+      key: 'labels',
+      label: (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ width: 12, display: 'inline-block' }}>{showLabels ? '✓' : ''}</span>
+          Show Category Names
+        </span>
+      ),
+      onClick: () => setShowLabels(!showLabels),
+    },
+  ];
 
   const computeNavigable = (): string[] =>
     categories.filter((c) => !isSearching || (matchCount.get(c.id) ?? 0) > 0).map((c) => c.id);
@@ -72,83 +88,103 @@ const CategoryNav = forwardRef<CategoryNavHandle, CategoryNavProps>(function Cat
   };
 
   return (
-    <nav
-      className="settings-category-nav"
-      aria-label="Settings categories"
-      style={{
-        width: 220,
-        flexShrink: 0,
-        padding: 8,
-        borderRight: `1px solid ${token.colorBorderSecondary}`,
-        overflowY: 'auto',
-        background: token.colorBgContainer,
-      }}
-    >
-      {categories.map((cat: CategoryDef) => {
-        const active = cat.id === activeCategoryId;
-        const count = matchCount.get(cat.id) ?? 0;
-        const dimmed = isSearching && count === 0;
-        return (
-          <button
-            key={cat.id}
-            ref={(el) => {
-              if (el) buttonsRef.current.set(cat.id, el);
-              else buttonsRef.current.delete(cat.id);
-            }}
-            type="button"
-            onClick={() => onSelect(cat.id)}
-            onKeyDown={(e) => handleKeyDown(e, cat.id)}
-            aria-current={active ? 'true' : undefined}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              width: '100%',
-              padding: '6px 10px',
-              marginBottom: 1,
-              border: 'none',
-              borderRadius: 6,
-              background: active ? token.colorFillSecondary : 'transparent',
-              color: dimmed ? token.colorTextTertiary : active ? token.colorText : token.colorTextSecondary,
-              cursor: 'pointer',
-              textAlign: 'left',
-              fontSize: 13,
-              fontWeight: active ? 500 : 400,
-              transition: 'background 80ms ease, color 80ms ease',
-            }}
-            onMouseEnter={(e) => {
-              if (!active) e.currentTarget.style.background = token.colorBgTextHover;
-            }}
-            onMouseLeave={(e) => {
-              if (!active) e.currentTarget.style.background = 'transparent';
-            }}
-          >
-            <span style={{ fontSize: 14, opacity: 0.85, flex: 'none' }}>{cat.icon}</span>
-            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {cat.label}
-            </span>
-            {isSearching && count > 0 && (
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 500,
-                  color: token.colorTextSecondary,
-                  background: token.colorFillSecondary,
-                  padding: '0 6px',
-                  borderRadius: 8,
-                  lineHeight: '16px',
-                  minWidth: 18,
-                  textAlign: 'center',
-                  flex: 'none',
-                }}
-              >
-                {count}
-              </span>
-            )}
-          </button>
-        );
-      })}
-    </nav>
+    <Dropdown menu={{ items: contextMenu }} trigger={['contextMenu']}>
+      <nav
+        className="settings-category-nav"
+        aria-label="Settings categories"
+        style={{
+          width: showLabels ? 220 : 44,
+          flexShrink: 0,
+          padding: showLabels ? 8 : 4,
+          borderRight: `1px solid ${token.colorBorderSecondary}`,
+          overflowY: 'auto',
+          background: token.colorBgContainer,
+          transition: 'width 120ms ease, padding 120ms ease',
+        }}
+      >
+        {categories.map((cat: CategoryDef) => {
+          const active = cat.id === activeCategoryId;
+          const count = matchCount.get(cat.id) ?? 0;
+          const dimmed = isSearching && count === 0;
+          const button = (
+            <button
+              key={cat.id}
+              ref={(el) => {
+                if (el) buttonsRef.current.set(cat.id, el);
+                else buttonsRef.current.delete(cat.id);
+              }}
+              type="button"
+              onClick={() => onSelect(cat.id)}
+              onKeyDown={(e) => handleKeyDown(e, cat.id)}
+              aria-current={active ? 'true' : undefined}
+              aria-label={showLabels ? undefined : cat.label}
+              style={{
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: showLabels ? 'flex-start' : 'center',
+                gap: showLabels ? 10 : 0,
+                width: '100%',
+                padding: showLabels ? '6px 10px' : '8px 0',
+                marginBottom: 1,
+                border: 'none',
+                borderRadius: 6,
+                background: active ? token.colorFillSecondary : 'transparent',
+                color: dimmed ? token.colorTextTertiary : active ? token.colorText : token.colorTextSecondary,
+                cursor: 'pointer',
+                textAlign: 'left',
+                fontSize: 13,
+                fontWeight: active ? 500 : 400,
+                transition: 'background 80ms ease, color 80ms ease',
+              }}
+              onMouseEnter={(e) => {
+                if (!active) e.currentTarget.style.background = token.colorBgTextHover;
+              }}
+              onMouseLeave={(e) => {
+                if (!active) e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              <span style={{ fontSize: 14, opacity: 0.85, flex: 'none' }}>{cat.icon}</span>
+              {showLabels && (
+                <span
+                  style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                >
+                  {cat.label}
+                </span>
+              )}
+              {isSearching && count > 0 && (
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 500,
+                    color: token.colorTextSecondary,
+                    background: token.colorFillSecondary,
+                    padding: showLabels ? '0 6px' : '0 4px',
+                    borderRadius: 8,
+                    lineHeight: '16px',
+                    minWidth: showLabels ? 18 : 14,
+                    textAlign: 'center',
+                    flex: 'none',
+                    position: showLabels ? 'static' : 'absolute',
+                    top: showLabels ? undefined : 2,
+                    right: showLabels ? undefined : 2,
+                  }}
+                >
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+          return showLabels ? (
+            button
+          ) : (
+            <Tooltip key={cat.id} title={cat.label} placement="right">
+              {button}
+            </Tooltip>
+          );
+        })}
+      </nav>
+    </Dropdown>
   );
 });
 

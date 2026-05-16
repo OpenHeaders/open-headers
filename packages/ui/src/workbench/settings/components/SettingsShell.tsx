@@ -8,7 +8,7 @@
  */
 
 import { UndoOutlined } from '@ant-design/icons';
-import { Button, type InputRef, Popconfirm, theme } from 'antd';
+import { Button, type InputRef, Popconfirm, Skeleton, theme } from 'antd';
 import type React from 'react';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useModifiedCount, useResetAllSettings } from '../hooks';
@@ -200,7 +200,7 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
               // light. Wrap unconditionally; the default `CategoryPane`
               // resolves synchronously and Suspense is a no-op for it.
               return (
-                <Suspense fallback={null}>
+                <Suspense fallback={<CategoryPaneSkeleton />}>
                   <Pane category={activeCategory} defs={activeDefs} />
                 </Suspense>
               );
@@ -232,6 +232,59 @@ const SettingsShell: React.FC<SettingsShellProps> = ({ initialSettingKey, initia
         <div style={{ flex: 1 }} />
         <ResetAllButton />
       </footer>
+    </div>
+  );
+};
+
+const CategoryPaneSkeleton: React.FC = () => {
+  const { token } = theme.useToken();
+  return (
+    <div style={{ padding: '20px 24px 28px', maxWidth: 760 }}>
+      <Skeleton.Input active size="small" style={{ width: 140, marginBottom: 14 }} />
+      <div
+        style={{
+          background: token.colorBgContainer,
+          border: `1px solid ${token.colorBorderSecondary}`,
+          borderRadius: 10,
+          padding: '12px 14px',
+          marginBottom: 14,
+        }}
+      >
+        <Skeleton active paragraph={{ rows: 1, width: '90%' }} title={false} />
+      </div>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+          gap: 8,
+          marginBottom: 14,
+        }}
+      >
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton.Button key={i} active block style={{ height: 48 }} />
+        ))}
+      </div>
+      <div
+        style={{
+          background: token.colorBgContainer,
+          border: `1px solid ${token.colorBorderSecondary}`,
+          borderRadius: 10,
+          padding: '14px 16px',
+          marginBottom: 14,
+        }}
+      >
+        <Skeleton active paragraph={{ rows: 3 }} />
+      </div>
+      <div
+        style={{
+          background: token.colorBgContainer,
+          border: `1px solid ${token.colorBorderSecondary}`,
+          borderRadius: 10,
+          padding: '14px 16px',
+        }}
+      >
+        <Skeleton active paragraph={{ rows: 2 }} />
+      </div>
     </div>
   );
 };

@@ -22,6 +22,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'general.showEmptyStateHints': boolean;
     'general.restoreTabsOnStartup': boolean;
     'general.settingsOpenMode': SettingsOpenMode;
+    'general.settingsShowCategoryLabels': boolean;
     'general.collectionEnvAutoSwitch': CollectionEnvAutoSwitch;
   }
 }
@@ -114,7 +115,7 @@ registerSetting({
 registerSetting({
   key: 'general.settingsOpenMode',
   type: 'enum',
-  default: 'modal',
+  default: 'modal-maximized',
   schema: settingsOpenModeSchema,
   label: 'Settings Open Mode',
   description: 'How the Settings page opens when launched from the toolbar, popup, or command palette.',
@@ -126,4 +127,17 @@ registerSetting({
     { value: 'modal-maximized', label: 'Modal (maximized)', description: 'Overlay that fills most of the viewport' },
     { value: 'tab', label: 'Editor tab', description: 'Open as a full editor tab in the workspace' },
   ],
+});
+
+registerSetting({
+  key: 'general.settingsShowCategoryLabels',
+  type: 'boolean',
+  default: false,
+  schema: v.boolean(),
+  label: 'Show Category Names in Settings Sidebar',
+  description:
+    'Render text labels next to category icons in the Settings sidebar. Right-click the sidebar to toggle. Disable for an icon-only compact rail.',
+  category: 'general',
+  tags: ['settings', 'sidebar', 'labels', 'compact'],
+  scope: 'user',
 });

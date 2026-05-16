@@ -458,7 +458,7 @@ const SurfacesRow: React.FC<{ y: number; surfaces: readonly DocSurface[] }> = ({
 
 const InBrowserDetail: React.FC = () => (
   <svg viewBox="0 0 600 270" width="100%" role="img" aria-label="In-browser back-end">
-    <DesktopContainer x={30} y={18} w={540} h={180} label="Your machine">
+    <DesktopContainer x={30} y={18} w={540} h={180} label="Your device">
       <BrowserWindow x={56} y={42} w={488} h={132} chromeH={20} title="Open Headers — Chrome / Edge / Firefox" corner="Browser">
         {/* Surfaces row — reuse the same SurfaceGlyph art from the docs'
             "Where you'll see this" so the user recognizes each surface
@@ -467,8 +467,6 @@ const InBrowserDetail: React.FC = () => (
         <BackEndPill x={70} y={130} w={460} engine="Browser service worker" where="in-process" />
       </BrowserWindow>
     </DesktopContainer>
-
-    <SubLabel x={300} y={desktopContainerBottomY(18, 180) + 18} text="No external host · single browser · single device" />
   </svg>
 );
 
@@ -485,7 +483,7 @@ const DesktopAppDetail: React.FC = () => {
     <svg viewBox="0 0 600 270" width="100%" role="img" aria-label="Desktop app back-end">
       <ArrowDefs id={ID} />
 
-      <DesktopContainer x={30} y={18} w={540} h={180} label="Your machine">
+      <DesktopContainer x={30} y={18} w={540} h={180} label="Your device">
         {/* Screen content lives inside the inset (y ∈ [28, 188]). The
             monitor's height was tightened so the screen wraps the
             content with even margins — no big empty band at the bottom. */}
