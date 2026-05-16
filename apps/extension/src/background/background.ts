@@ -56,16 +56,30 @@ import { getLiveVariables, onLiveVariableStoreChange } from '@openheaders/oracle
 import { getLiveWorkflows, onLiveWorkflowStoreChange } from '@openheaders/oracle/live/live-workflow-store';
 import { disposeResolverStateForWorkspace } from '@openheaders/oracle/rule-engine/variables-resolver';
 import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
-import { setOracleHostHooks } from '@openheaders/oracle/sync';
+import {
+  applyWorkspaceSnapshot,
+  readWorkspaceStateVector,
+  setOracleHostHooks,
+} from '@openheaders/oracle/sync';
+import {
+  getOrCreateWorkspaceService,
+  releaseWorkspaceService,
+} from '@openheaders/oracle/sync/service';
 import { getSyncPersistenceProvider } from '@openheaders/oracle/sync/sync-persistence-provider';
 import {
+  applyPeerStateVectorToPendingOut,
   flushPendingOutToBackend,
   forwardMutationToBackend,
   setPendingOutQueue,
   setShouldForwardMutation,
 } from './sync-mutation-forwarder';
-import { hasRecentlyApplied } from './sync-mutation-receiver';
-import { subscribeOnWebSocketOpen } from './websocket';
+import { handleIncomingMutationFrame, hasRecentlyApplied } from './sync-mutation-receiver';
+import { createSyncHandshakeInitiator } from './sync-handshake-initiator';
+import {
+  registerInboundFrameHandler,
+  subscribeOnWebSocketClose,
+  subscribeOnWebSocketOpen,
+} from './websocket';
 
 // Don't bounce envelopes that arrived from the backend back to it.
 // The receiver records every applied mutationId; the forwarder skips
@@ -79,8 +93,59 @@ setShouldForwardMutation((event) => !hasRecentlyApplied(event.envelope.mutationI
 // already saw the envelope before the disconnect.
 const pendingOutQueue = getSyncPersistenceProvider().createPendingOutQueue?.() ?? null;
 setPendingOutQueue(pendingOutQueue);
+
+// State-vector handshake — Phase C natural close-out. On every WS
+// connect, the initiator sends HELLO + STATE_VECTOR; on SYNCED it
+// prunes pending-out against the peer's post-catch-up vector + flushes
+// what remains. The WS-open flush (immediately below) is a defensive
+// fallback for the legacy `browserInfo` path where SYNCED never fires.
+const syncHandshakeInitiator = createSyncHandshakeInitiator({
+  send: (frame) => sendViaWebSocket(frame as Record<string, unknown>),
+  getActiveWorkspaceId: () => peekActiveWorkspaceId(),
+  getExtensionNodeId: (workspaceId) => {
+    const svc = getOrCreateWorkspaceService(workspaceId);
+    try {
+      return svc.context.nodeId;
+    } finally {
+      releaseWorkspaceService(workspaceId);
+    }
+  },
+  getExtensionAgent: () => `@openheaders/extension@${runtime.getManifest().version}`,
+  readStateVector: (workspaceId) => readWorkspaceStateVector(workspaceId),
+  applySnapshot: async (snapshot) => {
+    const svc = getOrCreateWorkspaceService(snapshot.workspaceId);
+    try {
+      await svc.hydrated;
+      await applyWorkspaceSnapshot(snapshot, { makeContext: () => svc.context.next() });
+    } finally {
+      releaseWorkspaceService(snapshot.workspaceId);
+    }
+  },
+  onSynced: async (peerVector) => {
+    await applyPeerStateVectorToPendingOut(peerVector);
+    await flushPendingOutToBackend();
+  },
+  onRejected: (reason, detail) => {
+    logger.warn('Background', `sync handshake rejected: ${reason}${detail ? ` — ${detail}` : ''}`);
+  },
+});
+
+// Inbound frame routing — handshake initiator first (claims HELLO-flow
+// types), mutation receiver second (claims oh.sync.mutation /
+// oh.sync.mutationBatch). Anything unclaimed (e.g. the pre-handshake
+// `pong`) drops silently.
+registerInboundFrameHandler(async (frame) => {
+  if (!syncHandshakeInitiator.handles(frame)) return false;
+  await syncHandshakeInitiator.handle(frame);
+  return true;
+});
+registerInboundFrameHandler(handleIncomingMutationFrame);
+
 subscribeOnWebSocketOpen(() => {
-  void flushPendingOutToBackend();
+  void syncHandshakeInitiator.start();
+});
+subscribeOnWebSocketClose(() => {
+  syncHandshakeInitiator.reset();
 });
 import {
   handleLiveAlarm,

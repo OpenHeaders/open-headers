@@ -12,31 +12,32 @@
  *
  * Wire shape:
  *
- *   - **Handshake.** First message from each peer is
- *     `{ type: 'browserInfo', protocolVersion, browser, version,
- *     extensionVersion }` (the extension client's `sendBrowserInfo`).
- *     If `protocolVersion` falls outside
- *     `[MIN_COMPATIBLE_PROTOCOL, PROTOCOL_VERSION]`, the server closes
- *     the socket with `PROTOCOL_INCOMPATIBLE_CLOSE_CODE` (4001) so the
- *     extension surfaces "update extension" instead of generic
+ *   - **Handshake.** First message from each peer is `oh.sync.hello`
+ *     carrying `{ protocolVersion, role, nodeId, workspaceId, agent }`.
+ *     The server validates against the compatibility band and replies
+ *     `oh.sync.welcome` (accept | reject). A successful HELLO produces
+ *     a {@link PeerConnection} bound to this socket; rejected peers
+ *     get a `PROTOCOL_INCOMPATIBLE_CLOSE_CODE` (4001) close so the
+ *     client surfaces "update extension" instead of generic
  *     disconnect noise.
- *   - **Keep-alive.** The extension sends
- *     `{ type: 'ping', t: <ms> }` on `backend.pingIntervalMs`.
- *     The server replies with `{ type: 'pong', t: <ms> }` so the client
- *     can measure round-trip if it ever cares; today it doesn't use
- *     pong but a silent server would have to choose between idle-
- *     timeout disconnects and never-cleaning-up half-dead sockets, and
- *     this is cheaper.
+ *   - **State-vector catch-up.** After WELCOME, the peer sends
+ *     `oh.sync.stateVector`; the server streams a SNAPSHOT (cold
+ *     receiver) and/or a delta of `oh.sync.mutation` frames against
+ *     the peer's vector, terminated by `oh.sync.synced`. See
+ *     {@link handleStateVector} + {@link respondToStateVector}.
+ *   - **Keep-alive.** The peer sends `{ type: 'ping', t: <ms> }` on
+ *     `backend.pingIntervalMs`. The server replies with
+ *     `{ type: 'pong', t: <ms> }` so half-dead sockets get cleaned up
+ *     rather than accumulating until idle-timeout disconnects fire.
  *   - **Sync RPCs.** Anything else routes through {@link dispatchSyncRpc}
  *     (the same dispatcher the IPC handler uses). When the dispatcher
  *     recognizes the channel and returns a response, the server sends
  *     `{ type: '<rpc>:response', ...payload }` back over the same
  *     connection. Channels outside the 22 sync+awareness ones are
- *     silently ignored — same "ignore-extension-internal-messages"
- *     semantics the chrome adapter has.
- *   - **Broadcasts.** {@link broadcast} fans an oracle event out to
- *     every connected peer that has completed its handshake. The host
- *     wires this into `OracleHostHooks.broadcastSyncEvent` /
+ *     silently ignored.
+ *   - **Broadcasts.** {@link broadcast} / {@link broadcastFrame} fan
+ *     an oracle event out to every connected peer past handshake. The
+ *     host wires this into `OracleHostHooks.broadcastSyncEvent` /
  *     `broadcastAwareness` so renderers (over IPC) and remote peers
  *     (over WS) see the same stream.
  *
@@ -51,9 +52,7 @@
  */
 
 import {
-  isCompatibleProtocol,
   PROTOCOL_INCOMPATIBLE_CLOSE_CODE,
-  PROTOCOL_VERSION,
   SYNC_HELLO_TYPE,
   SYNC_STATE_VECTOR_TYPE,
 } from '@openheaders/core/protocol';
@@ -74,14 +73,6 @@ import {
 const SCOPE = 'OracleWsServer';
 const HANDSHAKE_TIMEOUT_MS = 5_000;
 
-interface BrowserInfoMessage {
-  type: 'browserInfo';
-  protocolVersion: number;
-  browser?: string;
-  version?: string;
-  extensionVersion?: string;
-}
-
 interface PingMessage {
   type: 'ping';
   t?: number;
@@ -92,9 +83,6 @@ interface RpcMessage {
   [key: string]: unknown;
 }
 
-function isBrowserInfo(m: unknown): m is BrowserInfoMessage {
-  return Boolean(m && typeof m === 'object' && (m as { type?: unknown }).type === 'browserInfo');
-}
 function isPing(m: unknown): m is PingMessage {
   return Boolean(m && typeof m === 'object' && (m as { type?: unknown }).type === 'ping');
 }
@@ -105,12 +93,12 @@ export interface OracleWsServerOptions {
   /** TCP port; default 59210 matches the extension's setting. */
   port?: number;
   /**
-   * Identity this server announces in WELCOME frames. Required when
-   * the host wants to advertise the modern handshake — without it,
-   * connections fall through to the legacy `browserInfo` path. The
-   * host typically passes `{ role: 'desktop', nodeId, agent: '@openheaders/desktop@<ver>' }`.
+   * Identity this server announces in WELCOME frames. The host
+   * typically passes `{ role: 'desktop', nodeId, agent: '@openheaders/desktop@<ver>' }`.
+   * Required — without it the server has no identity to advertise and
+   * the state-vector handshake can't run.
    */
-  handshakeIdentity?: LocalHandshakeIdentity;
+  handshakeIdentity: LocalHandshakeIdentity;
 }
 
 export interface OracleWsServer {
@@ -136,9 +124,10 @@ export interface OracleWsServer {
  * rejects if `port` is already in use (callers should surface a clear
  * "another instance running" message rather than crashing).
  */
-export async function startOracleWsServer(options: OracleWsServerOptions = {}): Promise<OracleWsServer> {
+export async function startOracleWsServer(options: OracleWsServerOptions): Promise<OracleWsServer> {
   const host = options.host ?? '127.0.0.1';
   const port = options.port ?? 59210;
+  const handshakeIdentity = options.handshakeIdentity;
 
   const wss = new WebSocketServer({ host, port });
   await new Promise<void>((resolve, reject) => {
@@ -158,25 +147,10 @@ export async function startOracleWsServer(options: OracleWsServerOptions = {}): 
 
   // Connections past handshake. Only these receive broadcasts.
   const ready = new Set<WebSocket>();
-  // PeerConnection per socket — populated only for connections that
-  // completed the modern HELLO/WELCOME exchange. Legacy `browserInfo`
-  // peers have no entry; their handshake doesn't carry workspace
-  // identity so they can't drive state-vector catch-up.
+  // PeerConnection per socket — every accepted connection has one.
+  // Created on successful HELLO; disposed on socket close.
   const peerBySocket = new Map<WebSocket, PeerConnection>();
   let closed = false;
-
-  function rejectIncompatible(socket: WebSocket, peerVersion: number): void {
-    const reason = JSON.stringify({
-      type: 'incompatible-protocol',
-      peerVersion,
-      ourVersion: PROTOCOL_VERSION,
-    });
-    try {
-      socket.close(PROTOCOL_INCOMPATIBLE_CLOSE_CODE, reason);
-    } catch {
-      // socket already half-closed; nothing to do
-    }
-  }
 
   function send(socket: WebSocket, payload: unknown): void {
     if (socket.readyState !== WebSocket.OPEN) return;
@@ -209,98 +183,61 @@ export async function startOracleWsServer(options: OracleWsServerOptions = {}): 
       }
 
       if (!handshakeDone) {
-        // Accept either the legacy `browserInfo` greeting or the modern
-        // `oh.sync.hello` handshake. The two paths share the same
-        // compatibility band; only the HELLO path carries enough
-        // identity (workspaceId + nodeId) to power state-vector catch-up.
         const frameType = (parsed as { type?: unknown })?.type;
-        if (frameType === SYNC_HELLO_TYPE) {
-          if (!options.handshakeIdentity) {
-            // Host didn't opt into the modern handshake — refuse the
-            // HELLO so the client falls back to its compatibility path
-            // (or surfaces an error to the user).
-            logger.warn(SCOPE, 'received HELLO but server has no handshakeIdentity configured; closing');
+        if (frameType !== SYNC_HELLO_TYPE) {
+          logger.warn(SCOPE, `pre-handshake message ${String(frameType)}; expected ${SYNC_HELLO_TYPE}; closing`);
+          try {
+            socket.close(1002, `expected ${SYNC_HELLO_TYPE}`);
+          } catch {
+            // ignore
+          }
+          return;
+        }
+        const outcome = evaluateHello(parsed as Record<string, unknown>, handshakeIdentity);
+        send(socket, outcome.welcome);
+        if (outcome.kind === 'reject') {
+          logger.info(SCOPE, `HELLO rejected: ${outcome.reason}`);
+          try {
+            socket.close(PROTOCOL_INCOMPATIBLE_CLOSE_CODE, outcome.reason);
+          } catch {
+            // ignore
+          }
+          return;
+        }
+        const peerId = randomUUID();
+        const peerConn = createPeerConnection({
+          peerId,
+          nodeId: outcome.hello.nodeId,
+          role: outcome.hello.role,
+          agent: outcome.hello.agent,
+          workspaceId: outcome.hello.workspaceId,
+          protocolVersion: outcome.hello.protocolVersion,
+          send: (frame) => {
+            if (socket.readyState !== WebSocket.OPEN) return false;
             try {
-              socket.close(1002, 'handshake not supported');
+              socket.send(JSON.stringify(frame));
+              return true;
+            } catch (err) {
+              logger.warn(SCOPE, `peer ${peerId} reply failed`, err);
+              return false;
+            }
+          },
+          close: (code, reason) => {
+            try {
+              socket.close(code ?? 1000, reason);
             } catch {
               // ignore
             }
-            return;
-          }
-          const outcome = evaluateHello(parsed as Record<string, unknown>, options.handshakeIdentity);
-          send(socket, outcome.welcome);
-          if (outcome.kind === 'reject') {
-            logger.info(SCOPE, `HELLO rejected: ${outcome.reason}`);
-            try {
-              socket.close(PROTOCOL_INCOMPATIBLE_CLOSE_CODE, outcome.reason);
-            } catch {
-              // ignore
-            }
-            return;
-          }
-          const peerId = randomUUID();
-          const peerConn = createPeerConnection({
-            peerId,
-            nodeId: outcome.hello.nodeId,
-            role: outcome.hello.role,
-            agent: outcome.hello.agent,
-            workspaceId: outcome.hello.workspaceId,
-            protocolVersion: outcome.hello.protocolVersion,
-            send: (frame) => {
-              if (socket.readyState !== WebSocket.OPEN) return false;
-              try {
-                socket.send(JSON.stringify(frame));
-                return true;
-              } catch (err) {
-                logger.warn(SCOPE, `peer ${peerId} reply failed`, err);
-                return false;
-              }
-            },
-            close: (code, reason) => {
-              try {
-                socket.close(code ?? 1000, reason);
-              } catch {
-                // ignore
-              }
-            },
-          });
-          peerBySocket.set(socket, peerConn);
-          handshakeDone = true;
-          clearTimeout(handshakeTimer);
-          ready.add(socket);
-          logger.info(
-            SCOPE,
-            `peer connected via HELLO (role=${peerConn.role} agent=${peerConn.agent} ws=${peerConn.workspaceId} node=${peerConn.nodeId} protocol=v${peerConn.protocolVersion})`,
-          );
-          return;
-        }
-        if (isBrowserInfo(parsed)) {
-          if (!isCompatibleProtocol(parsed.protocolVersion)) {
-            logger.info(
-              SCOPE,
-              `rejecting peer (protocol v${parsed.protocolVersion}; we speak v${PROTOCOL_VERSION})`,
-            );
-            rejectIncompatible(socket, parsed.protocolVersion);
-            return;
-          }
-          handshakeDone = true;
-          clearTimeout(handshakeTimer);
-          ready.add(socket);
-          logger.info(
-            SCOPE,
-            `peer connected via browserInfo (${parsed.browser ?? 'unknown'} ${parsed.version ?? ''}, ext ${parsed.extensionVersion ?? '?'}, protocol v${parsed.protocolVersion})`,
-          );
-          return;
-        }
-        // Pre-handshake messages other than browserInfo / HELLO are
-        // protocol violations. Close hard so the client surfaces
-        // "Connecting…" → "Reconnecting".
-        logger.warn(SCOPE, `pre-handshake message ${String(frameType)}; closing`);
-        try {
-          socket.close(1002, 'expected browserInfo or oh.sync.hello');
-        } catch {
-          // ignore
-        }
+          },
+        });
+        peerBySocket.set(socket, peerConn);
+        handshakeDone = true;
+        clearTimeout(handshakeTimer);
+        ready.add(socket);
+        logger.info(
+          SCOPE,
+          `peer connected (role=${peerConn.role} agent=${peerConn.agent} ws=${peerConn.workspaceId} node=${peerConn.nodeId} protocol=v${peerConn.protocolVersion})`,
+        );
         return;
       }
 

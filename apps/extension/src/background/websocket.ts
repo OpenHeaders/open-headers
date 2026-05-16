@@ -7,10 +7,9 @@ import { PROTOCOL_INCOMPATIBLE_CLOSE_CODE, PROTOCOL_VERSION } from '@openheaders
 import { report as reportStatus } from '@openheaders/ui/shared/status';
 import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
 import { broadcast } from '@utils/bridge';
-import { isChrome, isEdge, isFirefox, isSafari, runtime } from '@utils/browser-api';
+import { isSafari } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { adaptWebSocketUrl, safariPreCheck } from './safari-websocket-adapter';
-import { handleIncomingMutationFrame } from './sync-mutation-receiver';
 
 // ── Configuration (live from settings store) ─────────────────────
 
@@ -75,48 +74,6 @@ function startPingTimer(): void {
   }, interval);
 }
 
-// ── Browser info ──────────────────────────────────────────────────
-
-function getBrowserName(): string {
-  if (isFirefox) return 'firefox';
-  if (isChrome) return 'chrome';
-  if (isEdge) return 'edge';
-  if (isSafari) return 'safari';
-  return 'unknown';
-}
-
-function getBrowserVersion(): string {
-  try {
-    if (navigator?.userAgent) {
-      const ua = navigator.userAgent;
-      let match: RegExpMatchArray | null = null;
-      if (isFirefox) match = ua.match(/Firefox\/(\S+)/);
-      else if (isEdge) match = ua.match(/Edg\/(\S+)/);
-      else if (isChrome) match = ua.match(/Chrome\/(\S+)/);
-      else if (isSafari) match = ua.match(/Version\/(\S+)/);
-      if (match?.[1]) return match[1];
-    }
-  } catch (_e) {
-    /* ignore */
-  }
-  return '';
-}
-
-function sendBrowserInfo(): void {
-  if (socket && socket.readyState === WebSocket.OPEN) {
-    socket.send(
-      JSON.stringify({
-        type: 'browserInfo',
-        browser: getBrowserName(),
-        version: getBrowserVersion(),
-        extensionVersion: runtime.getManifest().version,
-        protocolVersion: PROTOCOL_VERSION,
-      }),
-    );
-    logger.info('WebSocket', `Sent browser info (protocol v${PROTOCOL_VERSION})`);
-  }
-}
-
 // ── Connection status ─────────────────────────────────────────────
 
 function broadcastConnectionStatus(): void {
@@ -126,13 +83,25 @@ function broadcastConnectionStatus(): void {
 /**
  * Subscribers fired on each WS connect transition (after the
  * post-open setup but before any inbound message). Phase C C15
- * uses this to drain the pending-out queue once the wire is back.
+ * uses this to drain the pending-out queue once the wire is back;
+ * the handshake initiator drives HELLO + STATE_VECTOR from here.
  */
 const onConnectSubscribers = new Set<() => void>();
+const onCloseSubscribers = new Set<() => void>();
 
 export function subscribeOnWebSocketOpen(cb: () => void): () => void {
   onConnectSubscribers.add(cb);
   return () => onConnectSubscribers.delete(cb);
+}
+
+/**
+ * Subscribers fired when the socket transitions from any state into
+ * closed. The handshake initiator uses this to reset its FSM so the
+ * next reconnect re-runs HELLO + STATE_VECTOR from `idle`.
+ */
+export function subscribeOnWebSocketClose(cb: () => void): () => void {
+  onCloseSubscribers.add(cb);
+  return () => onCloseSubscribers.delete(cb);
 }
 
 function fireOnWebSocketOpen(): void {
@@ -143,6 +112,43 @@ function fireOnWebSocketOpen(): void {
       logger.warn('WebSocket', 'onOpen subscriber threw', err);
     }
   }
+}
+
+function fireOnWebSocketClose(): void {
+  for (const cb of [...onCloseSubscribers]) {
+    try {
+      cb();
+    } catch (err) {
+      logger.warn('WebSocket', 'onClose subscriber threw', err);
+    }
+  }
+}
+
+/**
+ * Inbound frame handlers — tried in registration order. The first
+ * handler to return `true` (or resolve to `true`) wins; the rest are
+ * skipped. Handlers MUST return `false` for frames they don't own so
+ * the next handler can claim them.
+ *
+ * Phase C registers two handlers in order:
+ *
+ *   1. handshake initiator — claims HELLO/WELCOME/STATE_VECTOR/SNAPSHOT/SYNCED.
+ *   2. mutation receiver — claims `oh.sync.mutation` + `oh.sync.mutationBatch`.
+ *
+ * The legacy pre-handshake `pong` (server reply to ping) is unowned
+ * and silently drops out the bottom; that matches the prior
+ * behavior where `handleIncomingMutationFrame` returned `false` for
+ * it without surfacing.
+ */
+type InboundFrameHandler = (frame: unknown) => boolean | Promise<boolean>;
+const inboundFrameHandlers: InboundFrameHandler[] = [];
+
+export function registerInboundFrameHandler(handler: InboundFrameHandler): () => void {
+  inboundFrameHandlers.push(handler);
+  return () => {
+    const i = inboundFrameHandlers.indexOf(handler);
+    if (i >= 0) inboundFrameHandlers.splice(i, 1);
+  };
 }
 
 /**
@@ -206,18 +212,31 @@ function createMessageHandler(): (event: MessageEvent) => void {
       logger.warn('WebSocket', 'Error parsing message:', err);
       return;
     }
-    void handleIncomingMutationFrame(parsed);
+    void routeInboundFrame(parsed);
   };
+}
+
+async function routeInboundFrame(frame: unknown): Promise<void> {
+  for (const handler of [...inboundFrameHandlers]) {
+    try {
+      const handled = await handler(frame);
+      if (handled) return;
+    } catch (err) {
+      logger.warn('WebSocket', 'inbound frame handler threw', err);
+    }
+  }
 }
 
 // ── Connection management ─────────────────────────────────────────
 
 function handleConnectionFailure(): void {
+  const wasConnected = isConnected;
   socket = null;
   isConnecting = false;
   isConnected = false;
   clearPingTimer();
   broadcastConnectionStatus();
+  if (wasConnected) fireOnWebSocketClose();
 
   if (reconnectTimer) clearTimeout(reconnectTimer);
 
@@ -285,8 +304,10 @@ function connectStandardWebSocket(url: string): void {
         reconnectAttempts = 0;
         broadcastConnectionStatus();
         reportSyncStatus();
-        sendBrowserInfo();
         startPingTimer();
+        // Subscribers fire after status reporting + ping timer so any
+        // handler reading wire state observes a consistent view. The
+        // handshake initiator drives HELLO + STATE_VECTOR from here.
         fireOnWebSocketOpen();
       };
 
