@@ -54,10 +54,22 @@ import {
   isCompatibleProtocol,
   PROTOCOL_INCOMPATIBLE_CLOSE_CODE,
   PROTOCOL_VERSION,
+  SYNC_HELLO_TYPE,
+  SYNC_STATE_VECTOR_TYPE,
 } from '@openheaders/core/protocol';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import { WebSocketServer, WebSocket, type RawData } from 'ws';
+import { randomUUID } from 'node:crypto';
 import { dispatchSyncRpc } from '../rpc';
+import {
+  evaluateHello,
+  handleStateVector,
+  type LocalHandshakeIdentity,
+} from '../rpc/handshake-dispatch';
+import {
+  createPeerConnection,
+  type PeerConnection,
+} from './peer-connection';
 
 const SCOPE = 'OracleWsServer';
 const HANDSHAKE_TIMEOUT_MS = 5_000;
@@ -92,6 +104,13 @@ export interface OracleWsServerOptions {
   host?: string;
   /** TCP port; default 59210 matches the extension's setting. */
   port?: number;
+  /**
+   * Identity this server announces in WELCOME frames. Required when
+   * the host wants to advertise the modern handshake — without it,
+   * connections fall through to the legacy `browserInfo` path. The
+   * host typically passes `{ role: 'desktop', nodeId, agent: '@openheaders/desktop@<ver>' }`.
+   */
+  handshakeIdentity?: LocalHandshakeIdentity;
 }
 
 export interface OracleWsServer {
@@ -139,6 +158,11 @@ export async function startOracleWsServer(options: OracleWsServerOptions = {}): 
 
   // Connections past handshake. Only these receive broadcasts.
   const ready = new Set<WebSocket>();
+  // PeerConnection per socket — populated only for connections that
+  // completed the modern HELLO/WELCOME exchange. Legacy `browserInfo`
+  // peers have no entry; their handshake doesn't carry workspace
+  // identity so they can't drive state-vector catch-up.
+  const peerBySocket = new Map<WebSocket, PeerConnection>();
   let closed = false;
 
   function rejectIncompatible(socket: WebSocket, peerVersion: number): void {
@@ -185,38 +209,120 @@ export async function startOracleWsServer(options: OracleWsServerOptions = {}): 
       }
 
       if (!handshakeDone) {
-        if (!isBrowserInfo(parsed)) {
-          // Pre-handshake messages other than browserInfo are protocol
-          // violations from the client's side. Close hard so the client
-          // shows "Connecting…" → "Reconnecting".
-          logger.warn(SCOPE, `pre-handshake message ${(parsed as RpcMessage)?.type}; closing`);
-          try {
-            socket.close(1002, 'expected browserInfo');
-          } catch {
-            // ignore
+        // Accept either the legacy `browserInfo` greeting or the modern
+        // `oh.sync.hello` handshake. The two paths share the same
+        // compatibility band; only the HELLO path carries enough
+        // identity (workspaceId + nodeId) to power state-vector catch-up.
+        const frameType = (parsed as { type?: unknown })?.type;
+        if (frameType === SYNC_HELLO_TYPE) {
+          if (!options.handshakeIdentity) {
+            // Host didn't opt into the modern handshake — refuse the
+            // HELLO so the client falls back to its compatibility path
+            // (or surfaces an error to the user).
+            logger.warn(SCOPE, 'received HELLO but server has no handshakeIdentity configured; closing');
+            try {
+              socket.close(1002, 'handshake not supported');
+            } catch {
+              // ignore
+            }
+            return;
           }
-          return;
-        }
-        if (!isCompatibleProtocol(parsed.protocolVersion)) {
+          const outcome = evaluateHello(parsed as Record<string, unknown>, options.handshakeIdentity);
+          send(socket, outcome.welcome);
+          if (outcome.kind === 'reject') {
+            logger.info(SCOPE, `HELLO rejected: ${outcome.reason}`);
+            try {
+              socket.close(PROTOCOL_INCOMPATIBLE_CLOSE_CODE, outcome.reason);
+            } catch {
+              // ignore
+            }
+            return;
+          }
+          const peerId = randomUUID();
+          const peerConn = createPeerConnection({
+            peerId,
+            nodeId: outcome.hello.nodeId,
+            role: outcome.hello.role,
+            agent: outcome.hello.agent,
+            workspaceId: outcome.hello.workspaceId,
+            protocolVersion: outcome.hello.protocolVersion,
+            send: (frame) => {
+              if (socket.readyState !== WebSocket.OPEN) return false;
+              try {
+                socket.send(JSON.stringify(frame));
+                return true;
+              } catch (err) {
+                logger.warn(SCOPE, `peer ${peerId} reply failed`, err);
+                return false;
+              }
+            },
+            close: (code, reason) => {
+              try {
+                socket.close(code ?? 1000, reason);
+              } catch {
+                // ignore
+              }
+            },
+          });
+          peerBySocket.set(socket, peerConn);
+          handshakeDone = true;
+          clearTimeout(handshakeTimer);
+          ready.add(socket);
           logger.info(
             SCOPE,
-            `rejecting peer (protocol v${parsed.protocolVersion}; we speak v${PROTOCOL_VERSION})`,
+            `peer connected via HELLO (role=${peerConn.role} agent=${peerConn.agent} ws=${peerConn.workspaceId} node=${peerConn.nodeId} protocol=v${peerConn.protocolVersion})`,
           );
-          rejectIncompatible(socket, parsed.protocolVersion);
           return;
         }
-        handshakeDone = true;
-        clearTimeout(handshakeTimer);
-        ready.add(socket);
-        logger.info(
-          SCOPE,
-          `peer connected (${parsed.browser ?? 'unknown'} ${parsed.version ?? ''}, ext ${parsed.extensionVersion ?? '?'}, protocol v${parsed.protocolVersion})`,
-        );
+        if (isBrowserInfo(parsed)) {
+          if (!isCompatibleProtocol(parsed.protocolVersion)) {
+            logger.info(
+              SCOPE,
+              `rejecting peer (protocol v${parsed.protocolVersion}; we speak v${PROTOCOL_VERSION})`,
+            );
+            rejectIncompatible(socket, parsed.protocolVersion);
+            return;
+          }
+          handshakeDone = true;
+          clearTimeout(handshakeTimer);
+          ready.add(socket);
+          logger.info(
+            SCOPE,
+            `peer connected via browserInfo (${parsed.browser ?? 'unknown'} ${parsed.version ?? ''}, ext ${parsed.extensionVersion ?? '?'}, protocol v${parsed.protocolVersion})`,
+          );
+          return;
+        }
+        // Pre-handshake messages other than browserInfo / HELLO are
+        // protocol violations. Close hard so the client surfaces
+        // "Connecting…" → "Reconnecting".
+        logger.warn(SCOPE, `pre-handshake message ${String(frameType)}; closing`);
+        try {
+          socket.close(1002, 'expected browserInfo or oh.sync.hello');
+        } catch {
+          // ignore
+        }
         return;
       }
 
       if (isPing(parsed)) {
         send(socket, { type: 'pong', t: parsed.t });
+        return;
+      }
+
+      // STATE_VECTOR is handshake-flow, not RPC — needs streaming reply
+      // bound to this socket via the PeerConnection. Only valid for
+      // HELLO-connected peers; browserInfo-connected peers (no
+      // workspace binding) get a hard reject so the client knows to
+      // upgrade.
+      if ((parsed as { type?: unknown })?.type === SYNC_STATE_VECTOR_TYPE) {
+        const peerConn = peerBySocket.get(socket);
+        if (!peerConn) {
+          logger.warn(SCOPE, 'STATE_VECTOR from a peer that connected via legacy browserInfo; dropping');
+          return;
+        }
+        void handleStateVector(parsed as Record<string, unknown>, peerConn).catch((err) => {
+          logger.warn(SCOPE, `handleStateVector threw for peer ${peerConn.peerId}`, err);
+        });
         return;
       }
 
@@ -242,6 +348,14 @@ export async function startOracleWsServer(options: OracleWsServerOptions = {}): 
     socket.on('close', () => {
       clearTimeout(handshakeTimer);
       ready.delete(socket);
+      const peerConn = peerBySocket.get(socket);
+      if (peerConn) {
+        peerBySocket.delete(socket);
+        // Flip the PeerConnection's open flag so any in-flight
+        // streaming responder iterating its delta stream stops cleanly
+        // on the next `reply.send`.
+        peerConn.close();
+      }
     });
 
     socket.on('error', (err) => {
@@ -275,6 +389,8 @@ export async function startOracleWsServer(options: OracleWsServerOptions = {}): 
     async close() {
       if (closed) return;
       closed = true;
+      for (const peerConn of peerBySocket.values()) peerConn.close(1001, 'server shutting down');
+      peerBySocket.clear();
       for (const socket of ready) {
         try {
           socket.close(1001, 'server shutting down');

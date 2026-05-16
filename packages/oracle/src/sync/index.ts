@@ -17,6 +17,12 @@ export { IdbPendingOutQueue, __closeIdbPendingOutQueueForTests } from './idb-pen
 export { SqlitePendingOutQueue, ensurePendingOutQueueSchema } from './sqlite-pending-out-queue';
 export { prunePendingOutByPeerVector, type PrunePendingOutResult } from './pending-out-prune';
 export { buildSnapshotForWorkspace, buildSnapshotFromOracle } from './snapshot-builder';
+export {
+  respondToStateVector,
+  type HandshakeReply,
+  type RespondToStateVectorOptions,
+  type RespondToStateVectorResult,
+} from './handshake-responder';
 export { applyWorkspaceSnapshot } from './snapshot-applier';
 export type { ApplySnapshotOptions, ApplySnapshotResult } from './snapshot-applier';
 export {

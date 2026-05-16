@@ -73,6 +73,7 @@ import { setBlobBackend } from '@openheaders/oracle/files';
 import { FileSystemBlobBackend } from '@openheaders/oracle/files/fs-blob-backend';
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
 import * as path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import { installHostStorage } from './install-host-storage';
 import { installLifelineServer } from './install-lifeline-server';
 import { singleProcessLockRuntime } from './single-process-lock-runtime';
@@ -202,7 +203,17 @@ export async function installRpcHost(): Promise<void> {
   //    logged but not fatal; the IPC engine keeps serving the
   //    renderer.
   try {
-    wsServer = await startOracleWsServer();
+    wsServer = await startOracleWsServer({
+      handshakeIdentity: {
+        role: 'desktop',
+        // HLC writer identity for the main process. Distinct from any
+        // renderer's surfaceId; lives only for this process lifetime so
+        // a per-boot UUID is sufficient. Phase D persists a stable
+        // deviceId at the host-settings layer.
+        nodeId: `desktop-${randomUUID()}`,
+        agent: `@openheaders/desktop@${app.getVersion()}`,
+      },
+    });
     setMutationForwarderWsServer(wsServer);
   } catch (err) {
     consoleLogger.error(
