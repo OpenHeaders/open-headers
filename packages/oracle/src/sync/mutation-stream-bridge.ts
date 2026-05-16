@@ -24,6 +24,26 @@
  *     {@link hasRecentlyApplied} to skip echoes
  *   - apply the seen-set to outbound. Outbound forwarders consult
  *     {@link hasRecentlyApplied} themselves.
+ *
+ * **C11 dedup contract — three layers, all idempotent:**
+ *
+ *   1. **This bridge** — early return on `hasRecentlyApplied`. Avoids
+ *      the round-trip into `applySyncRequest` + the redundant
+ *      broadcast cascade. Wire-level (this is the only layer that
+ *      knows about transport echo).
+ *   2. **Document store** (`core/sync/store`) — its own
+ *      `appliedMutationIds` set; `apply()` short-circuits on a
+ *      known id and returns the prior outcome. Store-level.
+ *   3. **Mutation log** (`oracle/sync/mutation-log`) — `append` and
+ *      `appendAll` are dedup-safe via the log's own seen set. Storage-
+ *      level, also feeds `MutationLog.hasMutation()` for cheap "did we
+ *      already see this?" queries from any transport.
+ *
+ * Any redelivery path — wire echo, multi-transport, reconnect replay,
+ * snapshot+delta overlap — is a no-op by composition: even if one
+ * layer is bypassed (e.g. a unit test calls `oracle.apply` directly),
+ * the next one catches the duplicate. Non-negotiable per the design
+ * doc; tests in `mutation-id-dedup.test.ts` pin the WS-redelivery path.
  */
 import type { MutationBatch, MutationEnvelope } from '@openheaders/core/sync';
 
