@@ -67,8 +67,15 @@ export type InitiatorState =
   | 'welcomed'
   | 'catching-up'
   | 'synced'
-  | 'rejected'
-  | 'aborted';
+  // Terminal failure states. Distinct shapes so the status reporter
+  // renders the right pill colour + message without parsing a string.
+  | 'rejected' // peer rejected our HELLO; details via rejectReason()
+  | 'timed-out' // local timer fired before SYNCED arrived
+  | 'failed' // catch-up application error; detail via failureDetail()
+  | 'aborted'; // no active workspace at start() time
+
+/** Default handshake timeout — generous enough for a large snapshot, tight enough to surface a dead wire. */
+export const DEFAULT_HANDSHAKE_TIMEOUT_MS = 10_000;
 
 export interface SyncHandshakeInitiatorDeps {
   /** Write one frame to the backend. Returns false if the wire is gone. */
@@ -91,6 +98,15 @@ export interface SyncHandshakeInitiatorDeps {
   readonly onSynced: (peerVector: StateVector) => Promise<void>;
   /** Optional — fired on a rejected WELCOME so the UI can surface the reason. */
   readonly onRejected?: (reason: HandshakeRejectReason, detail?: string) => void;
+  /**
+   * Wall-clock budget between HELLO and SYNCED. After the budget
+   * elapses the FSM transitions to `timed-out`. Defaults to
+   * {@link DEFAULT_HANDSHAKE_TIMEOUT_MS}.
+   */
+  readonly timeoutMs?: number;
+  /** Test seam — swap setTimeout / clearTimeout for fake timers. */
+  readonly setTimer?: (fn: () => void, ms: number) => unknown;
+  readonly clearTimer?: (handle: unknown) => void;
 }
 
 export interface SyncHandshakeInitiator {
@@ -98,6 +114,8 @@ export interface SyncHandshakeInitiator {
   state(): InitiatorState;
   /** Most-recent rejection reason; null unless `state() === 'rejected'`. */
   rejectReason(): HandshakeRejectReason | null;
+  /** Detail message for a `failed` terminal state (e.g. catch-up apply error). */
+  failureDetail(): string | null;
   /** True iff `frame` is a handshake-flow type the initiator handles. */
   handles(frame: unknown): boolean;
   /** Process one inbound handshake frame. No-op for non-handshake frames. */
@@ -106,6 +124,13 @@ export interface SyncHandshakeInitiator {
   start(): Promise<void>;
   /** Reset to `idle` — called by the WS layer on socket close so the next open re-runs the handshake. */
   reset(): void;
+  /**
+   * Register an observer that fires on every state transition (after
+   * the FSM commits the new state). Returns an unsubscribe function.
+   * Subscribers MUST NOT throw — exceptions are caught + logged so a
+   * misbehaving subscriber can't wedge the FSM.
+   */
+  subscribe(cb: (state: InitiatorState) => void): () => void;
 }
 
 const HANDSHAKE_INBOUND_TYPES: ReadonlySet<string> = new Set([
@@ -119,22 +144,66 @@ const HANDSHAKE_INBOUND_TYPES: ReadonlySet<string> = new Set([
   SYNC_STATE_VECTOR_TYPE,
 ]);
 
+/** Terminal states — `handle()` and `start()` short-circuit when reached. */
+const TERMINAL_STATES: ReadonlySet<InitiatorState> = new Set(['rejected', 'timed-out', 'failed', 'aborted', 'synced']);
+
 export function createSyncHandshakeInitiator(deps: SyncHandshakeInitiatorDeps): SyncHandshakeInitiator {
   let state: InitiatorState = 'idle';
   let rejectReason: HandshakeRejectReason | null = null;
+  let failureDetail: string | null = null;
+  let timeoutHandle: unknown = null;
+
+  const subscribers = new Set<(state: InitiatorState) => void>();
+  const setTimer = deps.setTimer ?? ((fn, ms) => setTimeout(fn, ms));
+  const clearTimer = deps.clearTimer ?? ((h) => clearTimeout(h as ReturnType<typeof setTimeout>));
+  const timeoutMs = deps.timeoutMs ?? DEFAULT_HANDSHAKE_TIMEOUT_MS;
+
+  function clearHandshakeTimer(): void {
+    if (timeoutHandle !== null) {
+      clearTimer(timeoutHandle);
+      timeoutHandle = null;
+    }
+  }
 
   function transition(next: InitiatorState): void {
     if (state === next) return;
     logger.debug(SCOPE, `${state} → ${next}`);
     state = next;
+    if (TERMINAL_STATES.has(next)) clearHandshakeTimer();
+    for (const cb of [...subscribers]) {
+      try {
+        cb(next);
+      } catch (err) {
+        logger.warn(SCOPE, 'subscriber threw', err);
+      }
+    }
+  }
+
+  function startHandshakeTimer(): void {
+    clearHandshakeTimer();
+    timeoutHandle = setTimer(() => {
+      timeoutHandle = null;
+      // Only fire the timeout if we're still mid-handshake; terminal
+      // states (the responder beat the timer) leave the FSM alone.
+      if (state === 'hello-sent' || state === 'welcomed' || state === 'catching-up') {
+        logger.warn(SCOPE, `handshake timed out after ${timeoutMs}ms in state ${state}`);
+        transition('timed-out');
+      }
+    }, timeoutMs);
   }
 
   async function start(): Promise<void> {
-    if (state === 'hello-sent' || state === 'welcomed' || state === 'catching-up' || state === 'synced') {
+    if (
+      state === 'hello-sent' ||
+      state === 'welcomed' ||
+      state === 'catching-up' ||
+      state === 'synced'
+    ) {
       // Already mid-handshake or done for this socket lifetime.
       return;
     }
     rejectReason = null;
+    failureDetail = null;
     const workspaceId = deps.getActiveWorkspaceId();
     if (!workspaceId) {
       logger.info(SCOPE, 'no active workspace — skipping handshake');
@@ -156,6 +225,7 @@ export function createSyncHandshakeInitiator(deps: SyncHandshakeInitiatorDeps): 
       return;
     }
     transition('hello-sent');
+    startHandshakeTimer();
     let perNodeMaxHlc: StateVector;
     try {
       perNodeMaxHlc = await deps.readStateVector(workspaceId);
@@ -183,6 +253,10 @@ export function createSyncHandshakeInitiator(deps: SyncHandshakeInitiatorDeps): 
 
   async function handle(frame: unknown): Promise<void> {
     if (!frame || typeof frame !== 'object') return;
+    // Late frames after a terminal state are dropped — re-entry would
+    // confuse subscribers. Reconnect runs `reset()` to clear back to
+    // `idle` for the next handshake.
+    if (TERMINAL_STATES.has(state)) return;
     const t = (frame as { type?: unknown }).type;
     if (t === SYNC_WELCOME_TYPE) {
       handleWelcome(frame);
@@ -227,7 +301,10 @@ export function createSyncHandshakeInitiator(deps: SyncHandshakeInitiatorDeps): 
     try {
       await deps.applySnapshot(parsed.output.snapshot as unknown as WorkspaceSnapshot);
     } catch (err) {
-      logger.warn(SCOPE, 'applySnapshot threw; remaining stream still processes', err);
+      const message = (err as Error)?.message ?? String(err);
+      logger.warn(SCOPE, 'applySnapshot threw — catch-up failed', err);
+      failureDetail = `snapshot apply failed: ${message}`;
+      transition('failed');
     }
   }
 
@@ -240,22 +317,44 @@ export function createSyncHandshakeInitiator(deps: SyncHandshakeInitiatorDeps): 
     try {
       await deps.onSynced(parsed.output.stateVectorAfter);
     } catch (err) {
-      logger.warn(SCOPE, 'onSynced threw', err);
+      const message = (err as Error)?.message ?? String(err);
+      logger.warn(SCOPE, 'onSynced threw — catch-up post-flush failed', err);
+      failureDetail = `post-sync flush failed: ${message}`;
+      transition('failed');
+      return;
     }
     transition('synced');
   }
 
   function reset(): void {
+    clearHandshakeTimer();
     state = 'idle';
     rejectReason = null;
+    failureDetail = null;
+    for (const cb of [...subscribers]) {
+      try {
+        cb(state);
+      } catch (err) {
+        logger.warn(SCOPE, 'subscriber threw on reset', err);
+      }
+    }
+  }
+
+  function subscribe(cb: (state: InitiatorState) => void): () => void {
+    subscribers.add(cb);
+    return () => {
+      subscribers.delete(cb);
+    };
   }
 
   return {
     state: () => state,
     rejectReason: () => rejectReason,
+    failureDetail: () => failureDetail,
     handles,
     handle,
     start,
     reset,
+    subscribe,
   };
 }

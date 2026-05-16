@@ -222,4 +222,166 @@ describe('createSyncHandshakeInitiator — inbound handle()', () => {
     await initiator.handle({ type: SYNC_STATE_VECTOR_TYPE });
     expect(initiator.state()).toBe('hello-sent');
   });
+
+  it('drops late frames after a terminal state (rejected)', async () => {
+    const { deps, applySnapshot } = makeDeps();
+    const initiator = createSyncHandshakeInitiator(deps);
+    await initiator.start();
+    await initiator.handle({
+      type: SYNC_WELCOME_TYPE,
+      accepted: false,
+      reason: HANDSHAKE_REJECT_REASONS.WORKSPACE_UNKNOWN,
+      protocolVersion: PROTOCOL_VERSION,
+    });
+    expect(initiator.state()).toBe('rejected');
+    // A late snapshot should NOT re-enter the FSM.
+    await initiator.handle({
+      type: SYNC_SNAPSHOT_TYPE,
+      workspaceId: 'ws-1',
+      snapshot: emptySnapshot('ws-1'),
+    });
+    expect(applySnapshot).not.toHaveBeenCalled();
+    expect(initiator.state()).toBe('rejected');
+  });
+});
+
+describe('createSyncHandshakeInitiator — subscribe()', () => {
+  it('fires the observer on every transition with the new state', async () => {
+    const { deps } = makeDeps();
+    const initiator = createSyncHandshakeInitiator(deps);
+    const observed: string[] = [];
+    initiator.subscribe((s) => observed.push(s));
+    await initiator.start();
+    await initiator.handle(welcomeAccept);
+    await initiator.handle({
+      type: SYNC_SYNCED_TYPE,
+      workspaceId: 'ws-1',
+      stateVectorAfter: {},
+    });
+    expect(observed).toEqual(['hello-sent', 'welcomed', 'synced']);
+  });
+
+  it('unsubscribe stops further notifications', async () => {
+    const { deps } = makeDeps();
+    const initiator = createSyncHandshakeInitiator(deps);
+    const observed: string[] = [];
+    const unsubscribe = initiator.subscribe((s) => observed.push(s));
+    await initiator.start();
+    unsubscribe();
+    await initiator.handle(welcomeAccept);
+    expect(observed).toEqual(['hello-sent']);
+  });
+
+  it('reset() fires the observer with idle', async () => {
+    const { deps } = makeDeps();
+    const initiator = createSyncHandshakeInitiator(deps);
+    await initiator.start();
+    const observed: string[] = [];
+    initiator.subscribe((s) => observed.push(s));
+    initiator.reset();
+    expect(observed).toEqual(['idle']);
+  });
+
+  it('a throwing observer does not wedge the FSM', async () => {
+    const { deps } = makeDeps();
+    const initiator = createSyncHandshakeInitiator(deps);
+    initiator.subscribe(() => {
+      throw new Error('boom');
+    });
+    await expect(initiator.start()).resolves.toBeUndefined();
+    expect(initiator.state()).toBe('hello-sent');
+  });
+});
+
+describe('createSyncHandshakeInitiator — handshake timeout', () => {
+  it('transitions to timed-out when WELCOME / SYNCED never arrive', async () => {
+    let fired: (() => void) | null = null;
+    const setTimer = vi.fn((fn: () => void) => {
+      fired = fn;
+      return 1 as unknown;
+    });
+    const clearTimer = vi.fn();
+    const { deps } = makeDeps({ setTimer, clearTimer, timeoutMs: 50 });
+    const initiator = createSyncHandshakeInitiator(deps);
+    await initiator.start();
+    expect(setTimer).toHaveBeenCalledTimes(1);
+    expect(initiator.state()).toBe('hello-sent');
+    fired!();
+    expect(initiator.state()).toBe('timed-out');
+  });
+
+  it('clears the timer when SYNCED arrives in time', async () => {
+    const clearTimer = vi.fn();
+    const setTimer = vi.fn(() => 1 as unknown);
+    const { deps } = makeDeps({ setTimer, clearTimer, timeoutMs: 5000 });
+    const initiator = createSyncHandshakeInitiator(deps);
+    await initiator.start();
+    await initiator.handle(welcomeAccept);
+    await initiator.handle({
+      type: SYNC_SYNCED_TYPE,
+      workspaceId: 'ws-1',
+      stateVectorAfter: {},
+    });
+    expect(initiator.state()).toBe('synced');
+    expect(clearTimer).toHaveBeenCalled();
+  });
+
+  it('timeout firing AFTER a terminal state is a no-op', async () => {
+    let fired: (() => void) | null = null;
+    const setTimer = vi.fn((fn: () => void) => {
+      fired = fn;
+      return 1 as unknown;
+    });
+    const clearTimer = vi.fn();
+    const { deps } = makeDeps({ setTimer, clearTimer, timeoutMs: 50 });
+    const initiator = createSyncHandshakeInitiator(deps);
+    await initiator.start();
+    await initiator.handle(welcomeAccept);
+    await initiator.handle({
+      type: SYNC_SYNCED_TYPE,
+      workspaceId: 'ws-1',
+      stateVectorAfter: {},
+    });
+    expect(initiator.state()).toBe('synced');
+    fired!();
+    expect(initiator.state()).toBe('synced');
+  });
+});
+
+describe('createSyncHandshakeInitiator — catch-up failure', () => {
+  it('transitions to failed when applySnapshot throws', async () => {
+    const { deps } = makeDeps({
+      applySnapshot: vi.fn(async () => {
+        throw new Error('seed builder rejected');
+      }),
+    });
+    const initiator = createSyncHandshakeInitiator(deps);
+    await initiator.start();
+    await initiator.handle(welcomeAccept);
+    await initiator.handle({
+      type: SYNC_SNAPSHOT_TYPE,
+      workspaceId: 'ws-1',
+      snapshot: emptySnapshot('ws-1'),
+    });
+    expect(initiator.state()).toBe('failed');
+    expect(initiator.failureDetail()).toMatch(/seed builder rejected/);
+  });
+
+  it('transitions to failed when onSynced throws (post-flush failure)', async () => {
+    const { deps } = makeDeps({
+      onSynced: vi.fn(async () => {
+        throw new Error('queue write failed');
+      }),
+    });
+    const initiator = createSyncHandshakeInitiator(deps);
+    await initiator.start();
+    await initiator.handle(welcomeAccept);
+    await initiator.handle({
+      type: SYNC_SYNCED_TYPE,
+      workspaceId: 'ws-1',
+      stateVectorAfter: {},
+    });
+    expect(initiator.state()).toBe('failed');
+    expect(initiator.failureDetail()).toMatch(/queue write failed/);
+  });
 });

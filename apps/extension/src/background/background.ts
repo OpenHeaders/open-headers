@@ -75,6 +75,7 @@ import {
 } from './sync-mutation-forwarder';
 import { handleIncomingMutationFrame, hasRecentlyApplied } from './sync-mutation-receiver';
 import { createSyncHandshakeInitiator } from './sync-handshake-initiator';
+import { installHandshakeStatusReporter } from './sync-status-reporter';
 import {
   registerInboundFrameHandler,
   subscribeOnWebSocketClose,
@@ -146,6 +147,21 @@ subscribeOnWebSocketOpen(() => {
 });
 subscribeOnWebSocketClose(() => {
   syncHandshakeInitiator.reset();
+});
+
+// Status pill — handshake phase overrides the wire-level reporter's
+// "Connected to back-end" once HELLO is in flight. Wire-level writes
+// stay authoritative for the disconnected / connecting / in-browser
+// states (websocket.ts owns those).
+installHandshakeStatusReporter({
+  initiator: syncHandshakeInitiator,
+  report: (entry) =>
+    reportStatus({
+      subsystem: 'sync',
+      state: entry.state,
+      message: entry.message,
+      context: entry.context,
+    }),
 });
 import {
   handleLiveAlarm,
