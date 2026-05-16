@@ -79,7 +79,7 @@ export function createCollectionCache(
   const seedFromPersistedCollections = async (persisted: Collection[]): Promise<void> => {
     for (const coll of persisted) {
       const batch = seedCollection(coll, contextFactory());
-      const result = await oracle.apply(batch, []);
+      const result = await oracle.apply(batch, [], 'inbound');
       if (!result.ok) {
         logger.info(
           'CollectionCache',

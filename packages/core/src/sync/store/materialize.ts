@@ -30,23 +30,37 @@ import type { EntityType } from '../envelope';
 import { compareHlc } from '../hlc';
 import { type Leaf, unflattenLeaves } from '../mutators';
 import { liveOrderedItemsAt } from '../mutators/state';
-import type { EntityState } from '../mutators/types';
+import type { EntityState, FieldOrigin } from '../mutators/types';
 import type { EntitySchema } from '../schema';
 
 export interface MaterializedEntity {
   type: EntityType;
   id: string;
   data: unknown;
+  /**
+   * Per-leaf-path provenance for currently-live field writes. Mirrors
+   * the keys present in {@link MaterializedEntity.data}'s leaves and
+   * tracks whether the last write at each path came from a local user
+   * gesture (`'local'`) or arrived inbound from a peer / hydration /
+   * snapshot replay (`'inbound'`). Consumed by the Activity Feed
+   * classifier to emit `supersede-local-edit` (F2.h) and by tests; set
+   * members (paths whose value is an array) are omitted because set
+   * provenance is per-item rather than per-path. Empty object when no
+   * live leaf paths exist.
+   */
+  fieldOrigins: Record<string, FieldOrigin>;
 }
 
 export function materializeEntity(state: EntityState, schema?: EntitySchema): MaterializedEntity | null {
   if (state.tombstone) return null;
 
   const fieldLeaves: Leaf[] = [];
+  const fieldOrigins: Record<string, FieldOrigin> = {};
   for (const [path, entry] of state.fieldValues) {
     const tombstoneHlc = state.fieldTombstones.get(path);
     if (tombstoneHlc && compareHlc(tombstoneHlc, entry.hlc) >= 0) continue;
     fieldLeaves.push({ path, value: entry.value });
+    fieldOrigins[path] = entry.origin;
   }
 
   // Resolve schema-declared set paths. Function form gets the
@@ -74,7 +88,7 @@ export function materializeEntity(state: EntityState, schema?: EntitySchema): Ma
     leaves.push({ path: setPath, value: live.map((l) => l.item) });
   }
 
-  return { type: state.type, id: state.id, data: unflattenLeaves(sortedLeaves(leaves)) };
+  return { type: state.type, id: state.id, data: unflattenLeaves(sortedLeaves(leaves)), fieldOrigins };
 }
 
 // Sort leaves by path so unflattenLeaves builds containers in a

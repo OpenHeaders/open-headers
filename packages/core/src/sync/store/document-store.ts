@@ -16,7 +16,7 @@
 import type { EntityType, MutationEnvelope } from '../envelope';
 import { applyMutation } from '../mutators';
 import { liveOrderedItemsAt, newEntityState } from '../mutators/state';
-import type { EntityState, MutatorOutcome } from '../mutators/types';
+import type { EntityState, FieldOrigin, MutatorOutcome } from '../mutators/types';
 import { EMPTY_ENTITY_SCHEMA_REGISTRY, type EntitySchemaRegistry } from '../schema';
 import { canonicalJson } from './canonical';
 import { type MaterializedEntity, materializeEntity } from './materialize';
@@ -43,7 +43,7 @@ export class InMemoryDocumentStore {
     this.schemas = schemas;
   }
 
-  apply(envelope: MutationEnvelope): MutatorOutcome {
+  apply(envelope: MutationEnvelope, applyOrigin: FieldOrigin = 'local'): MutatorOutcome {
     if (this.appliedMutationIds.has(envelope.mutationId)) {
       return { status: 'duplicate' };
     }
@@ -55,7 +55,7 @@ export class InMemoryDocumentStore {
       this.entities.set(key, state);
     }
 
-    const outcome = applyMutation(state, envelope);
+    const outcome = applyMutation(state, envelope, applyOrigin);
     this.appliedMutationIds.add(envelope.mutationId);
     return outcome;
   }

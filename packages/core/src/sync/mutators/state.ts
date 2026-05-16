@@ -11,7 +11,7 @@ import type { EntityType } from '../envelope';
 import type { HLC } from '../hlc';
 import { compareHlc } from '../hlc';
 import { seedKey } from '../order';
-import type { EntityState } from './types';
+import type { EntityState, FieldOrigin } from './types';
 
 export function newEntityState(type: EntityType, id: string): EntityState {
   return {
@@ -27,10 +27,16 @@ export function newEntityState(type: EntityType, id: string): EntityState {
 }
 
 /** Write a field value if `hlc` exceeds the existing entry's HLC. Returns true on apply. */
-export function writeFieldIfNewer(state: EntityState, path: string, value: unknown, hlc: HLC): boolean {
+export function writeFieldIfNewer(
+  state: EntityState,
+  path: string,
+  value: unknown,
+  hlc: HLC,
+  origin: FieldOrigin,
+): boolean {
   const existing = state.fieldValues.get(path);
   if (existing && compareHlc(hlc, existing.hlc) <= 0) return false;
-  state.fieldValues.set(path, { value, hlc });
+  state.fieldValues.set(path, { value, hlc, origin });
   return true;
 }
 

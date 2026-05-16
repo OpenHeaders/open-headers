@@ -134,7 +134,7 @@ export function createFolderTreeCache<P>(
         },
         ctx,
       );
-      const result = await oracle.apply(intent.batch, intent.sideEffects);
+      const result = await oracle.apply(intent.batch, intent.sideEffects, 'inbound');
       if (!result.ok) {
         logger.info(
           config.loggerTag,

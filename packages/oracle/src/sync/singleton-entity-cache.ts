@@ -131,7 +131,7 @@ export function createSingletonEntityCache<T, I>(
         snapshot = override;
       }
     }
-    const result = await oracle.apply(batch, []);
+    const result = await oracle.apply(batch, [], 'inbound');
     if (!result.ok) {
       logger.info(
         config.loggerTag,

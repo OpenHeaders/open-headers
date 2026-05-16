@@ -10,7 +10,7 @@
  * shared contract is here.
  */
 
-import type { MutationBatch, MutationEnvelope, MutatorOutcome, SideEffectIntent } from '../sync';
+import type { FieldOrigin, MutationBatch, MutationEnvelope, MutatorOutcome, SideEffectIntent } from '../sync';
 import type { Collection, Environment, ExtensionWorkspace, FileRef, Folder, LiveVariable, LiveWorkflow, OAuth2Auth, Request, Rule, Template, Vault, WorkspaceVariables } from '../types';
 /** Surface → oracle: apply this batch all-or-nothing under the per-entity lock. */
 export interface SyncApplyRequest {
@@ -22,6 +22,15 @@ export interface SyncApplyRequest {
    * batches drop them along with the state delta.
    */
   sideEffects: SideEffectIntent[];
+  /**
+   * Per-write provenance tag stamped on every {@link EntityState.fieldValues}
+   * entry the batch writes. Defaults to `'local'` so user-gesture
+   * dispatch paths can omit it; the inbound mutation bridge and
+   * hydration / snapshot replay paths pass `'inbound'` so a peer-driven
+   * write doesn't masquerade as a fresh local edit (F2.h supersede-
+   * local-edit signal).
+   */
+  applyOrigin?: FieldOrigin;
 }
 
 export interface SyncApplyAckOk {

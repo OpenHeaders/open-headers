@@ -31,6 +31,7 @@
 
 import {
   type EntitySchemaRegistry,
+  type FieldOrigin,
   InMemoryDocumentStore,
   type MutationBatch,
   type MutationEnvelope,
@@ -85,12 +86,16 @@ export class EntityOracle {
    * touches. A batch that targets multiple entities acquires their
    * locks in deterministic order to avoid deadlock.
    */
-  async apply(batch: MutationBatch, sideEffects: SideEffectIntent[] = []): Promise<OracleApplyResult> {
+  async apply(
+    batch: MutationBatch,
+    sideEffects: SideEffectIntent[] = [],
+    applyOrigin: FieldOrigin = 'local',
+  ): Promise<OracleApplyResult> {
     if (batch.mutations.length === 0) {
       return { ok: true, outcomes: [] };
     }
     const targets = collectEntityTargets(batch);
-    return this.lockChain(targets, async () => this.applyUnderLock(batch, sideEffects));
+    return this.lockChain(targets, async () => this.applyUnderLock(batch, sideEffects, applyOrigin));
   }
 
   /** Direct snapshot read for surfaces that need the materialized view. */
@@ -134,12 +139,16 @@ export class EntityOracle {
 
   // ── internals ────────────────────────────────────────────────────
 
-  private async applyUnderLock(batch: MutationBatch, sideEffects: SideEffectIntent[]): Promise<OracleApplyResult> {
+  private async applyUnderLock(
+    batch: MutationBatch,
+    sideEffects: SideEffectIntent[],
+    applyOrigin: FieldOrigin,
+  ): Promise<OracleApplyResult> {
     const snapshot = this.store.snapshot();
     const outcomes: Array<{ envelope: MutationEnvelope; outcome: MutatorOutcome }> = [];
 
     for (const env of batch.mutations) {
-      const outcome = this.store.apply(env);
+      const outcome = this.store.apply(env, applyOrigin);
       outcomes.push({ envelope: env, outcome });
       if (ROLLBACK_STATUSES.has(outcome.status)) {
         this.store.restore(snapshot);

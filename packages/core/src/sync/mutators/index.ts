@@ -282,6 +282,7 @@ export {
 export { liveOrderedItemsAt, newEntityState, writeSetOrderIfNewer } from './state';
 export type {
   EntityState,
+  FieldOrigin,
   MutatorContext,
   MutatorIntent,
   MutatorOutcome,

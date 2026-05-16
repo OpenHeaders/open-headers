@@ -85,7 +85,7 @@ export function composeProjectors(...projectors: BroadcastProjector[]): Broadcas
 
 /** Glue: oracle apply result → on-the-wire {@link SyncApplyResponse}. */
 export async function handleSyncApply(oracle: EntityOracle, request: SyncApplyRequest): Promise<SyncApplyResponse> {
-  const result = await oracle.apply(request.batch, request.sideEffects);
+  const result = await oracle.apply(request.batch, request.sideEffects, request.applyOrigin);
   if (result.ok) {
     return { ok: true, outcomes: result.outcomes };
   }

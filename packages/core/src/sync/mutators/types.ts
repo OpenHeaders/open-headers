@@ -29,6 +29,18 @@ export interface SideEffectIntent {
   payload?: unknown;
 }
 
+/**
+ * Per-write provenance tag used by the Activity Feed classifier (F2.h
+ * supersede-local-edit). Recorded on every {@link EntityState.fieldValues}
+ * entry; supplied by the apply path's `applyOrigin` parameter.
+ *
+ *  - `'local'`  — the write came from a user gesture on this device.
+ *  - `'inbound'` — the write came from a peer over the wire, or from
+ *    hydration / snapshot replay (conservative default — we don't know
+ *    whether the persisted value's last writer was this device).
+ */
+export type FieldOrigin = 'local' | 'inbound';
+
 export type MutatorStatus =
   | 'applied'
   | 'duplicate'
@@ -57,8 +69,17 @@ export interface EntityState {
   id: string;
   /** Tombstone HLC if this entity has been deleted. Permanent under v1 (§7.2). */
   tombstone: HLC | null;
-  /** Per-path field values; max-HLC-wins. Path is a dotted string (§7.3). */
-  fieldValues: Map<string, { value: unknown; hlc: HLC }>;
+  /**
+   * Per-path field values; max-HLC-wins. Path is a dotted string (§7.3).
+   *
+   * `origin` records whether the last successful write at this path
+   * came from a local user gesture or a peer over the wire — used by
+   * the Activity Feed classifier to emit `supersede-local-edit` when
+   * an inbound mutation overrides a path the local device just edited
+   * (F2.h). Hydration seeds default to `'inbound'` so a restart doesn't
+   * resurrect a stale-local signal.
+   */
+  fieldValues: Map<string, { value: unknown; hlc: HLC; origin: FieldOrigin }>;
   /** Per-path field tombstones; max-HLC-wins. */
   fieldTombstones: Map<string, HLC>;
   /** Per-(setPath, itemId) add records; max-HLC-wins. */

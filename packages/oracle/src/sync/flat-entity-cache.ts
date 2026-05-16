@@ -115,7 +115,7 @@ export function createFlatEntityCache<E extends { uid: string }, T extends strin
   const seedFromPersisted = async (persisted: readonly E[]): Promise<void> => {
     for (const entity of persisted) {
       const batch = config.seed(entity, contextFactory());
-      const result = await oracle.apply(batch, []);
+      const result = await oracle.apply(batch, [], 'inbound');
       if (!result.ok) {
         logger.info(
           config.loggerTag,

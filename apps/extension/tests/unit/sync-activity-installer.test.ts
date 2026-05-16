@@ -174,11 +174,13 @@ describe('observeForActivityFeed', () => {
       type: 'vault',
       id: 'vault',
       data: { secrets: [{ uid: 's1', kind: 'string', value: 'old' }] },
+      fieldOrigins: {},
     };
     const next: MaterializedEntity = {
       type: 'vault',
       id: 'vault',
       data: { secrets: [{ uid: 's1', kind: 'string', value: 'new' }] },
+      fieldOrigins: {},
     };
     rememberPriorForMutation('m1', WS, prior, null);
     materializeOneMock.mockReturnValue(next);
@@ -204,6 +206,7 @@ describe('observeForActivityFeed', () => {
           { uid: 'c2', type: 'request-methods', values: ['GET'] },
         ],
       },
+      fieldOrigins: {},
     };
     const next: MaterializedEntity = {
       type: 'rule',
@@ -211,6 +214,7 @@ describe('observeForActivityFeed', () => {
       data: {
         conditions: [{ uid: 'c1', type: 'url-filter', values: ['*.openheaders.io'] }],
       },
+      fieldOrigins: {},
     };
     rememberPriorForMutation('m1', WS, prior, null);
     materializeOneMock.mockReturnValue(next);

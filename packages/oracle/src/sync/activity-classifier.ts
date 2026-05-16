@@ -33,6 +33,7 @@
 import type {
   InverseEnvelopeContext,
   MaterializedEntity,
+  MutationBody,
   MutationEnvelope,
   MutatorOutcome,
 } from '@openheaders/core/sync';
@@ -111,7 +112,7 @@ export function classifyEnvelopeForActivity(input: ClassifyActivityInput): Activ
     read: false,
   } as const;
 
-  const kinds = kindsToEmit(structuralKind, body.type, prior, next);
+  const kinds = kindsToEmit(structuralKind, body, prior, next);
   const entries: ActivityEntry[] = [];
   for (const kind of kinds) {
     const context: Record<string, unknown> = { ...sharedContext };
@@ -131,25 +132,44 @@ export function classifyEnvelopeForActivity(input: ClassifyActivityInput): Activ
  * Highlight kinds only emit on `edit-entity` — create / delete are
  * already strong signals on their own and the diff would be one-sided
  * (no prior on create; no next on delete).
+ *
+ * `supersede-local-edit` fires when an inbound `setField` / `unsetField`
+ * overwrites a path whose prior write originated locally on this
+ * device. Origin is read from {@link MaterializedEntity.fieldOrigins}
+ * — populated by the materializer from {@link EntityState.fieldValues}.
+ * Set mutators (`addToSet` / `removeFromSet` / `moveBefore`) don't
+ * touch leaf field values, so they can't supersede a per-path local
+ * edit and don't emit this kind.
  */
 function kindsToEmit(
   structural: ActivityEntryKind,
-  entityType: string,
+  body: MutationBody,
   prior: MaterializedEntity | null,
   next: MaterializedEntity | null,
 ): ActivityEntryKind[] {
   const out: ActivityEntryKind[] = [structural];
   if (structural !== 'edit-entity') return out;
+
+  if (supersedesLocalEdit(body, prior)) {
+    out.push('supersede-local-edit');
+  }
+
   const priorData = prior?.data ?? null;
   const nextData = next?.data ?? null;
   if (priorData === null || nextData === null) return out;
-  if (detectSensitiveRotation(entityType, priorData, nextData)) {
+  if (detectSensitiveRotation(body.type, priorData, nextData)) {
     out.push('sensitive-field-rotation');
   }
-  if (widensScope(entityType, priorData, nextData)) {
+  if (widensScope(body.type, priorData, nextData)) {
     out.push('permission-scope-expansion');
   }
   return out;
+}
+
+function supersedesLocalEdit(body: MutationBody, prior: MaterializedEntity | null): boolean {
+  if (prior === null) return false;
+  if (body.kind !== 'setField' && body.kind !== 'unsetField') return false;
+  return prior.fieldOrigins[body.path] === 'local';
 }
 
 function structuralKindFor(envelope: MutationEnvelope): ActivityEntryKind | null {

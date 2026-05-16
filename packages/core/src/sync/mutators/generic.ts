@@ -23,9 +23,13 @@ import {
   writeSetOrderIfNewer,
   writeSetTombstoneIfNewer,
 } from './state';
-import type { EntityState, MutatorOutcome } from './types';
+import type { EntityState, FieldOrigin, MutatorOutcome } from './types';
 
-export function applyMutation(state: EntityState, envelope: MutationEnvelope): MutatorOutcome {
+export function applyMutation(
+  state: EntityState,
+  envelope: MutationEnvelope,
+  applyOrigin: FieldOrigin = 'local',
+): MutatorOutcome {
   // Delete-wins absolutely (§7.2): once tombstoned, every later mutation drops.
   // Note: tombstone applies regardless of HLC compare — see "no HLC escape hatch".
   if (state.tombstone && envelope.body.kind !== 'delete') {
@@ -39,7 +43,7 @@ export function applyMutation(state: EntityState, envelope: MutationEnvelope): M
       const leaves = flattenToLeaves(body.payload);
       let any = false;
       for (const { path, value } of leaves) {
-        if (writeFieldIfNewer(state, path, value, hlc)) any = true;
+        if (writeFieldIfNewer(state, path, value, hlc, applyOrigin)) any = true;
       }
       return { status: any ? 'applied' : 'superseded-by-hlc' };
     }
@@ -48,7 +52,7 @@ export function applyMutation(state: EntityState, envelope: MutationEnvelope): M
       return { status: applied ? 'applied' : 'superseded-by-hlc' };
     }
     case 'setField': {
-      const applied = writeFieldIfNewer(state, body.path, body.value, hlc);
+      const applied = writeFieldIfNewer(state, body.path, body.value, hlc, applyOrigin);
       return { status: applied ? 'applied' : 'superseded-by-hlc' };
     }
     case 'unsetField': {

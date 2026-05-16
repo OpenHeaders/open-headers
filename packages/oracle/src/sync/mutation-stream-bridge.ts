@@ -105,7 +105,12 @@ export async function applyInboundMutationBatch(batch: MutationBatch): Promise<v
   const allKnown = batch.mutations.every((e) => SEEN_MUTATION_IDS.has(e.mutationId));
   if (allKnown) return;
   capturePriorsForActivity(batch);
-  const response = await applySyncRequest({ type: 'oh.sync.apply', batch, sideEffects: [] });
+  const response = await applySyncRequest({
+    type: 'oh.sync.apply',
+    batch,
+    sideEffects: [],
+    applyOrigin: 'inbound',
+  });
   if (!response.ok) return;
   for (const env of batch.mutations) rememberApplied(env);
   observeHighestPerWorkspace(batch);

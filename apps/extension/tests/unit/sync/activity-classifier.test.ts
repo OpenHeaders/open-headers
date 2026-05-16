@@ -141,11 +141,13 @@ describe('classifyEnvelopeForActivity', () => {
       type: 'vault',
       id: 'vault',
       data: { secrets: [{ uid: 's1', kind: 'string', value: 'old' }] },
+      fieldOrigins: {},
     };
     const next: MaterializedEntity = {
       type: 'vault',
       id: 'vault',
       data: { secrets: [{ uid: 's1', kind: 'string', value: 'new' }] },
+      fieldOrigins: {},
     };
     const out = classifyEnvelopeForActivity({
       envelope: envelope({ kind: 'setField', type: 'vault', id: 'vault', path: 'secrets.s1.value', value: 'new' }),
@@ -168,6 +170,7 @@ describe('classifyEnvelopeForActivity', () => {
           { uid: 'c2', type: 'request-methods', values: ['GET'] },
         ],
       },
+      fieldOrigins: {},
     };
     const next: MaterializedEntity = {
       type: 'rule',
@@ -175,6 +178,7 @@ describe('classifyEnvelopeForActivity', () => {
       data: {
         conditions: [{ uid: 'c1', type: 'url-filter', values: ['*.openheaders.io'] }],
       },
+      fieldOrigins: {},
     };
     const out = classifyEnvelopeForActivity({
       envelope: envelope({ kind: 'removeFromSet', type: 'rule', id: 'r1', path: 'conditions', itemId: 'c2' }),
@@ -188,7 +192,7 @@ describe('classifyEnvelopeForActivity', () => {
   });
 
   it('omits highlight kinds on create / delete envelopes even with prior+next supplied', () => {
-    const next: MaterializedEntity = { type: 'rule', id: 'r1', data: { conditions: [] } };
+    const next: MaterializedEntity = { type: 'rule', id: 'r1', data: { conditions: [] }, fieldOrigins: {} };
     const out = classifyEnvelopeForActivity({
       envelope: envelope({ kind: 'create', type: 'rule', id: 'r1', payload: {} }),
       outcome: applied,
@@ -249,11 +253,13 @@ describe('classifyEnvelopeForActivity', () => {
       type: 'vault',
       id: 'vault',
       data: { secrets: [{ uid: 's1', kind: 'string', value: 'old' }] },
+      fieldOrigins: {},
     };
     const next: MaterializedEntity = {
       type: 'vault',
       id: 'vault',
       data: { secrets: [{ uid: 's1', kind: 'string', value: 'new' }] },
+      fieldOrigins: {},
     };
     const out = classifyEnvelopeForActivity({
       envelope: envelope({ kind: 'setField', type: 'vault', id: 'vault', path: 'secrets.s1.value', value: 'new' }),
@@ -270,6 +276,104 @@ describe('classifyEnvelopeForActivity', () => {
     expect(out.map((e) => e.kind)).toEqual(['edit-entity', 'sensitive-field-rotation']);
     expect(out[0].context?.inverse).toBeDefined();
     expect(out[1].context?.inverse).toBeUndefined();
+  });
+
+  it('emits supersede-local-edit when an inbound setField overrides a local-origin path', () => {
+    const prior: MaterializedEntity = {
+      type: 'rule',
+      id: 'r1',
+      data: { name: 'mine' },
+      fieldOrigins: { name: 'local' },
+    };
+    const next: MaterializedEntity = {
+      type: 'rule',
+      id: 'r1',
+      data: { name: 'theirs' },
+      fieldOrigins: { name: 'inbound' },
+    };
+    const out = classifyEnvelopeForActivity({
+      envelope: envelope({ kind: 'setField', type: 'rule', id: 'r1', path: 'name', value: 'theirs' }),
+      outcome: applied,
+      isInbound: true,
+      observedAt: 0,
+      prior,
+      next,
+    });
+    expect(out.map((e) => e.kind)).toEqual(['edit-entity', 'supersede-local-edit']);
+  });
+
+  it('emits supersede-local-edit on unsetField when prior origin at path was local', () => {
+    const prior: MaterializedEntity = {
+      type: 'rule',
+      id: 'r1',
+      data: { name: 'mine' },
+      fieldOrigins: { name: 'local' },
+    };
+    const next: MaterializedEntity = { type: 'rule', id: 'r1', data: {}, fieldOrigins: {} };
+    const out = classifyEnvelopeForActivity({
+      envelope: envelope({ kind: 'unsetField', type: 'rule', id: 'r1', path: 'name' }),
+      outcome: applied,
+      isInbound: true,
+      observedAt: 0,
+      prior,
+      next,
+    });
+    expect(out.map((e) => e.kind)).toEqual(['edit-entity', 'supersede-local-edit']);
+  });
+
+  it('does NOT emit supersede-local-edit when prior origin at the affected path is inbound', () => {
+    const prior: MaterializedEntity = {
+      type: 'rule',
+      id: 'r1',
+      data: { name: 'previous' },
+      fieldOrigins: { name: 'inbound' },
+    };
+    const next: MaterializedEntity = {
+      type: 'rule',
+      id: 'r1',
+      data: { name: 'newer' },
+      fieldOrigins: { name: 'inbound' },
+    };
+    const out = classifyEnvelopeForActivity({
+      envelope: envelope({ kind: 'setField', type: 'rule', id: 'r1', path: 'name', value: 'newer' }),
+      outcome: applied,
+      isInbound: true,
+      observedAt: 0,
+      prior,
+      next,
+    });
+    expect(out.map((e) => e.kind)).toEqual(['edit-entity']);
+  });
+
+  it('does NOT emit supersede-local-edit for set mutators (addToSet / removeFromSet / moveBefore)', () => {
+    const prior: MaterializedEntity = {
+      type: 'environment',
+      id: 'e1',
+      data: { variables: [{ uid: 'v1', name: 'KEY', value: 'old' }] },
+      fieldOrigins: {},
+    };
+    const next: MaterializedEntity = {
+      type: 'environment',
+      id: 'e1',
+      data: { variables: [{ uid: 'v1', name: 'KEY', value: 'new' }] },
+      fieldOrigins: {},
+    };
+    const out = classifyEnvelopeForActivity({
+      envelope: envelope({
+        kind: 'addToSet',
+        type: 'environment',
+        id: 'e1',
+        path: 'variables',
+        itemId: 'v1',
+        item: { uid: 'v1', name: 'KEY', value: 'new' },
+      }),
+      outcome: applied,
+      isInbound: true,
+      observedAt: 0,
+      prior,
+      next,
+    });
+    expect(out.every((e) => e.kind !== 'supersede-local-edit')).toBe(true);
   });
 
   it('encodes a deterministic id derived from (hlc, mutationId, kind)', () => {
