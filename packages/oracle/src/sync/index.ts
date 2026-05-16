@@ -1,4 +1,5 @@
 export { computeStateVectorFromLog, readWorkspaceStateVector } from './state-vector-reader';
+export { readDeltaStreamFromLog, readWorkspaceDeltaStream } from './delta-stream-reader';
 
 export {
   getOracleHostHooks,
