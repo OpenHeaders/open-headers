@@ -12,22 +12,23 @@
  * Data flow:
  *   - {@link useActivityFeed} seeds the list via `oh.sync.listActivity`
  *     and live-tails via `bridge.subscribe('activityEntry')`.
- *   - Mark-read fires when a card scrolls into view (IntersectionObserver)
- *     so the unread badge decays passively.
- *
- * F6 actions (View / Revert / Mute) and F7 auto-decay land in their own
- * slices.
+ *   - Mark-read fires per-card via an IntersectionObserver in
+ *     {@link ActivityFeedCard}: only rows the user actually scrolled
+ *     into view (≥50% intersection for ~400ms) flip read. A short
+ *     panel-level still exists as a fallback for environments without
+ *     IntersectionObserver (jsdom / very old browsers).
+ *   - Revert results surface as toasts so failures aren't silent.
  */
 
 import { HistoryOutlined } from '@ant-design/icons';
-import { Empty, List, Spin, theme } from 'antd';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { App as AntApp, Empty, List, Spin, theme } from 'antd';
+import { useCallback, useMemo } from 'react';
 import type { ActivityEntry } from '@openheaders/core/sync';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
 import { useActivityFeed } from '@openheaders/ui/shared/hooks/useActivityFeed';
 import { useActivityMutes } from '@openheaders/ui/shared/hooks/useActivityMutes';
-import { useActivityRevert } from '@openheaders/ui/shared/hooks/useActivityRevert';
+import { humanizeRevertReason, useActivityRevert } from '@openheaders/ui/shared/hooks/useActivityRevert';
 import { groupActivityEntriesByMutation } from './activity-feed-group';
 import ActivityFeedCard from './ActivityFeedCard';
 
@@ -49,27 +50,26 @@ const ActivityFeedPanel: React.FC<ActivityFeedPanelProps> = ({ onClose, onViewEn
   const { entries, isLoading, markRead } = useActivityFeed(workspaceId);
   const { isMuted, mute, unmute } = useActivityMutes(workspaceId);
   const { revert } = useActivityRevert(workspaceId);
-  // Fire-and-forget at the panel; failed reverts surface to telemetry
-  // via the bridge layer. A future polish slice may attach a toast.
-  const handleRevert = useCallback((entry: ActivityEntry) => {
-    void revert(entry);
-  }, [revert]);
+  const { message } = AntApp.useApp();
+  const handleRevert = useCallback(
+    async (entry: ActivityEntry) => {
+      const result = await revert(entry);
+      if (result.ok) {
+        message.success('Change reverted');
+      } else {
+        message.error(`Revert failed: ${humanizeRevertReason(result.reason)}`);
+      }
+    },
+    [revert, message],
+  );
+  const handleCardSeen = useCallback(
+    (entryIds: readonly string[]) => {
+      if (entryIds.length === 0) return;
+      markRead(entryIds);
+    },
+    [markRead],
+  );
   const groups = useMemo(() => groupActivityEntriesByMutation(entries), [entries]);
-
-  // Mark cards read after a short dwell. The list is short and renders
-  // newest-first, so the visible rows are exactly the ones the user is
-  // looking at — no IntersectionObserver gymnastics needed for F5.
-  const seenRef = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    if (entries.length === 0) return;
-    const handle = window.setTimeout(() => {
-      const unread = entries.filter((e) => !e.read && !seenRef.current.has(e.id));
-      if (unread.length === 0) return;
-      for (const e of unread) seenRef.current.add(e.id);
-      markRead(unread.map((e) => e.id));
-    }, 750);
-    return () => window.clearTimeout(handle);
-  }, [entries, markRead]);
 
   return (
     <div
@@ -134,6 +134,7 @@ const ActivityFeedPanel: React.FC<ActivityFeedPanelProps> = ({ onClose, onViewEn
                   onUnmute={unmute}
                   isMuted={isMuted(group.primary.entityType, group.primary.entityId)}
                   onRevert={handleRevert}
+                  onSeen={handleCardSeen}
                 />
               </List.Item>
             )}

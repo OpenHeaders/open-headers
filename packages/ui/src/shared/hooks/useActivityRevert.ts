@@ -25,6 +25,34 @@ export type RevertResult =
   | { ok: true; mutationId: string }
   | { ok: false; reason: string };
 
+/**
+ * Map a {@link RevertResult.reason} code to a single-line, end-user-
+ * facing string suitable for a toast. Unknown codes fall through to the
+ * raw reason so a wire change doesn't show "Revert failed: undefined".
+ */
+export function humanizeRevertReason(reason: string): string {
+  switch (reason) {
+    case 'delete-irreversible':
+      return 'Deletes are permanent and cannot be reverted.';
+    case 'already-tombstoned':
+      return 'The entity was deleted after this change landed.';
+    case 'set-item-missing':
+      return 'The item this change touched no longer exists.';
+    case 'no-op':
+      return 'Nothing to revert — the prior state already matches.';
+    case 'no-inverse-recorded':
+      return 'No inverse was captured for this change.';
+    case 'no-oracle-for-workspace':
+      return 'Workspace is not ready.';
+    case 'no-workspace':
+      return 'No active workspace.';
+    case 'malformed-payload':
+      return 'Internal error: malformed revert payload.';
+    default:
+      return reason;
+  }
+}
+
 export interface UseActivityRevertApi {
   revert: (entry: ActivityEntry) => Promise<RevertResult>;
 }

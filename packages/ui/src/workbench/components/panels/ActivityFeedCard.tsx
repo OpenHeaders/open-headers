@@ -13,6 +13,7 @@
  */
 
 import { Button, Space, Tag, Tooltip, Typography, theme } from 'antd';
+import { useEffect, useMemo, useRef } from 'react';
 import type { ActivityEntry, ActivityEntryKind } from '@openheaders/core/sync';
 import { canRevertEntry, getEntryInverse, getEntryRevertUnavailableReason } from '@openheaders/ui/shared/hooks/useActivityRevert';
 import { formatRelativeMs } from '../live/live-display';
@@ -40,7 +41,19 @@ export interface ActivityFeedCardProps {
    * one inverse per mutationId.
    */
   onRevert?: (entry: ActivityEntry) => void;
+  /**
+   * Fired once per card lifetime when the card has been continuously
+   * visible (≥50% intersection) for {@link SEEN_DWELL_MS}. Receives the
+   * still-unread entry ids the panel should mark read. Skipped entirely
+   * when the card has no unread entries or when IntersectionObserver
+   * isn't available (jsdom, ancient browsers — read state stays
+   * unchanged in those cases, which is the safe default).
+   */
+  onSeen?: (entryIds: readonly string[]) => void;
 }
+
+/** Continuous-visibility dwell before a card is considered "seen". */
+const SEEN_DWELL_MS = 400;
 
 /**
  * Find the entry within the group whose `context.inverse` was stamped
@@ -103,9 +116,57 @@ const ActivityFeedCard: React.FC<ActivityFeedCardProps> = ({
   onUnmute,
   isMuted = false,
   onRevert,
+  onSeen,
 }) => {
   const { token } = theme.useToken();
   const { primary, kinds, read } = group;
+  const cardRef = useRef<HTMLDivElement>(null);
+  // Unread entries within this group. Joined as a stable string key so
+  // the observer effect's dependency array doesn't re-fire on every
+  // render — only on real membership changes.
+  const unreadIds = useMemo(
+    () => group.entries.filter((e) => !e.read).map((e) => e.id),
+    [group.entries],
+  );
+  const unreadKey = unreadIds.join('|');
+  const seenFiredRef = useRef(false);
+
+  useEffect(() => {
+    if (!onSeen || unreadIds.length === 0 || seenFiredRef.current) return;
+    const el = cardRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    let dwellTimer: number | null = null;
+    const clearDwell = (): void => {
+      if (dwellTimer !== null) {
+        window.clearTimeout(dwellTimer);
+        dwellTimer = null;
+      }
+    };
+    const observer = new IntersectionObserver(
+      (records) => {
+        const visible = records.some((r) => r.isIntersecting && r.intersectionRatio >= 0.5);
+        if (visible) {
+          if (dwellTimer === null && !seenFiredRef.current) {
+            dwellTimer = window.setTimeout(() => {
+              dwellTimer = null;
+              seenFiredRef.current = true;
+              onSeen(unreadIds);
+            }, SEEN_DWELL_MS);
+          }
+        } else {
+          clearDwell();
+        }
+      },
+      { threshold: [0, 0.5, 1] },
+    );
+    observer.observe(el);
+    return () => {
+      clearDwell();
+      observer.disconnect();
+    };
+    // unreadKey covers id-set membership changes; the array reference
+    // changes every render but the key only changes when reads land.
+  }, [onSeen, unreadKey, unreadIds]);
   const time = formatRelativeMs(primary.observedAt);
   const isoTime = new Date(primary.observedAt).toISOString();
   // Hide the View affordance for deleted entities — the editor tab
@@ -126,6 +187,7 @@ const ActivityFeedCard: React.FC<ActivityFeedCardProps> = ({
 
   return (
     <div
+      ref={cardRef}
       style={{
         display: 'flex',
         flexDirection: 'column',
