@@ -74,7 +74,13 @@ import {
   setShouldForwardMutation,
 } from './sync-mutation-forwarder';
 import { handleIncomingMutationFrame, hasRecentlyApplied } from './sync-mutation-receiver';
-import { observeForActivityFeed, setActivityLog } from './sync-activity-installer';
+import {
+  countUnreadActivityEntries,
+  observeForActivityFeed,
+  setActivityLog,
+  subscribeActivityEntries,
+} from './sync-activity-installer';
+import { installActivityStatusReporter } from './activity-status-reporter';
 import { createSyncHandshakeInitiator } from './sync-handshake-initiator';
 import { installHandshakeStatusReporter } from './sync-status-reporter';
 import {
@@ -171,6 +177,24 @@ installHandshakeStatusReporter({
       context: entry.context,
     }),
 });
+
+// Activity Feed pill — F3. Pulses yellow with an unread count whenever
+// inbound mutations land for the active workspace; baselines on every
+// active-workspace switch so the badge reflects "this workspace's
+// pending activity" only.
+installActivityStatusReporter({
+  report: (entry) =>
+    reportStatus({
+      subsystem: 'activity',
+      state: entry.state,
+      message: entry.message,
+      context: entry.context,
+    }),
+  subscribeActivityEntries,
+  countUnread: countUnreadActivityEntries,
+  getActiveWorkspaceId: () => peekActiveWorkspaceId(),
+  subscribeActiveWorkspace: (listener) => onActiveWorkspaceChange(listener),
+});
 import {
   handleLiveAlarm,
   isLiveRefreshAlarm,
@@ -259,6 +283,7 @@ import {
   bootstrap as bootstrapWorkspaces,
   getActiveWorkspaceId,
   listWorkspaces,
+  onActiveWorkspaceChange,
   onWorkspaceStoreChange,
   peekActiveWorkspaceId,
 } from './modules/workspace-store';

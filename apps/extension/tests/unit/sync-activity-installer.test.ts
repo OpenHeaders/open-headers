@@ -27,9 +27,11 @@ vi.mock('@/background/sync-mutation-receiver', () => ({
 import {
   __getDroppedNoLogCount,
   __resetActivityInstallerForTests,
+  countUnreadActivityEntries,
   observeForActivityFeed,
   setActivityClockForTests,
   setActivityLog,
+  subscribeActivityEntries,
 } from '../../src/background/sync-activity-installer';
 
 const WS = '0193a8ff-c000-7000-8000-000000000001';
@@ -112,5 +114,39 @@ describe('observeForActivityFeed', () => {
     observeForActivityFeed(event('m2', { kind: 'delete', type: 'rule', id: 'r1' }));
 
     expect(__getDroppedNoLogCount()).toBe(2);
+  });
+
+  it('notifies subscribers per classified entry', () => {
+    const log = new InMemoryActivityLog();
+    setActivityLog(log);
+    hasRecentlyAppliedMock.mockReturnValue(true);
+
+    const seen: string[] = [];
+    const unsubscribe = subscribeActivityEntries((entry) => seen.push(entry.kind));
+
+    observeForActivityFeed(event('m1', { kind: 'create', type: 'rule', id: 'r1', payload: {} }));
+    observeForActivityFeed(event('m2', { kind: 'delete', type: 'rule', id: 'r1' }));
+
+    expect(seen).toEqual(['create-entity', 'delete-entity']);
+
+    unsubscribe();
+    observeForActivityFeed(event('m3', { kind: 'create', type: 'rule', id: 'r2', payload: {} }));
+    expect(seen).toEqual(['create-entity', 'delete-entity']);
+  });
+
+  it('countUnreadActivityEntries returns 0 when no log is installed', async () => {
+    setActivityLog(null);
+    await expect(countUnreadActivityEntries(WS)).resolves.toBe(0);
+  });
+
+  it('countUnreadActivityEntries delegates to the installed log', async () => {
+    const log = new InMemoryActivityLog();
+    setActivityLog(log);
+    hasRecentlyAppliedMock.mockReturnValue(true);
+
+    observeForActivityFeed(event('m1', { kind: 'create', type: 'rule', id: 'r1', payload: {} }));
+    await Promise.resolve();
+
+    await expect(countUnreadActivityEntries(WS)).resolves.toBe(1);
   });
 });

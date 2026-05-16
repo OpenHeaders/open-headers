@@ -17,7 +17,8 @@ export type StatusSubsystem =
   | 'requests' // executor telemetry
   | 'permissions' // host-permission grants for active rules
   | 'secrets' // vault / cipher state
-  | 'live'; // Live Variable workflow refresh state
+  | 'live' // Live Variable workflow refresh state
+  | 'activity'; // workspace-wide Activity Feed pulse + unread count
 
 /** Traffic-light state. Worst-state subsystem drives the compact pill. */
 export type StatusLevel = 'green' | 'yellow' | 'red';

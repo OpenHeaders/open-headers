@@ -29,7 +29,15 @@ import React from 'react';
 import { getBuildInfo } from '@openheaders/ui/shared/build-info';
 import { type StatusLevel, type StatusSnapshot, type StatusSubsystem, SUBSYSTEM_LABELS } from './types';
 
-export const SUBSYSTEM_ORDER: StatusSubsystem[] = ['sync', 'rules', 'requests', 'permissions', 'secrets', 'live'];
+export const SUBSYSTEM_ORDER: StatusSubsystem[] = [
+  'sync',
+  'activity',
+  'rules',
+  'requests',
+  'permissions',
+  'secrets',
+  'live',
+];
 
 /**
  * Fixed tag width shared by every row in the Status popover —

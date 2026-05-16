@@ -29,6 +29,7 @@ export const SUBSYSTEM_LABELS: Record<StatusSubsystem, string> = {
   permissions: 'Permissions',
   secrets: 'Secrets',
   live: 'Live',
+  activity: 'Activity',
 };
 
 /** Worst-state aggregator (red > yellow > green). Used for the compact
