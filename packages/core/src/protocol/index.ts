@@ -45,6 +45,17 @@ export type {
   SyncWelcomeReject,
 } from './handshake';
 
+export {
+  MIN_SNAPSHOT_SCHEMA_VERSION,
+  SENSITIVE_SNAPSHOT_KEYS,
+  SNAPSHOT_SCHEMA_VERSION,
+  SYNC_SNAPSHOT_TYPE,
+  SyncSnapshotMessageSchema,
+  WorkspaceSnapshotSchema,
+  redactSensitiveSnapshotKeys,
+} from './snapshot';
+export type { SensitiveSnapshotKey, SyncSnapshotMessage, WorkspaceSnapshot } from './snapshot';
+
 export { SYNC_APPLY_TYPE, SYNC_BROADCAST_TYPE } from './sync-bridge';
 export type {
   SyncApplyAckErr,
