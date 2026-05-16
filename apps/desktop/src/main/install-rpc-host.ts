@@ -61,6 +61,7 @@ import { type OracleWsServer, startOracleWsServer } from '@openheaders/oracle/ho
 import {
   bootstrap as bootstrapWorkspaces,
   getActiveWorkspaceId,
+  listWorkspaces,
   peekActiveWorkspaceId,
 } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { hydrateActiveWorkspaceStores } from '@openheaders/oracle/workspace/workspace-coordinator';
@@ -90,6 +91,7 @@ import {
   setActivityLog,
   subscribeActivityEntries,
 } from './sync-activity-installer';
+import { installActivityPruneScheduler } from './activity-prune-scheduler';
 
 const RPC_CHANNEL = 'oh:rpc';
 const BROADCAST_CHANNEL = 'oh:broadcast';
@@ -139,7 +141,15 @@ export async function installRpcHost(): Promise<void> {
   // Activity Feed log — workspace-wide, SQLite-backed. The installer
   // tolerates a missing log (counts drops) until this resolves, so
   // ordering here is for readability rather than correctness.
-  setActivityLog(syncPersistence.createActivityLog?.() ?? null);
+  const activityLog = syncPersistence.createActivityLog?.() ?? null;
+  setActivityLog(activityLog);
+  // F7 — auto-decay. Hourly setInterval prunes every resident workspace
+  // down to the 7-day retention window. Listing workspaces lazily at
+  // tick time picks up additions/removals without a re-install.
+  const stopActivityPruneScheduler = installActivityPruneScheduler({
+    getLog: () => activityLog,
+    listWorkspaceIds: () => listWorkspaces().map((ws) => ws.id),
+  });
   // F6.b — per-entity mute store. The cache module is the runtime
   // source of truth; the persisted store rehydrates it per workspace
   // lazily on first observation inside the installer.
@@ -256,6 +266,7 @@ export async function installRpcHost(): Promise<void> {
   //    reload cycle doesn't leak a stale ipcMain.handle registration or
   //    a half-open server socket.
   app.on('before-quit', () => {
+    stopActivityPruneScheduler();
     ipcMain.removeHandler(RPC_CHANNEL);
     setMutationForwarderWsServer(null);
     setActivityLog(null);

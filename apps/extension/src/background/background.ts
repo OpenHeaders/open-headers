@@ -82,6 +82,11 @@ import {
   setActivityLog,
   subscribeActivityEntries,
 } from './sync-activity-installer';
+import {
+  handleActivityPruneAlarm,
+  installActivityPruneScheduler,
+  isActivityPruneAlarm,
+} from './activity-prune-scheduler';
 import { installActivityStatusReporter } from './activity-status-reporter';
 import { createSyncHandshakeInitiator } from './sync-handshake-initiator';
 import { installHandshakeStatusReporter } from './sync-status-reporter';
@@ -110,6 +115,16 @@ setPendingOutQueue(pendingOutQueue);
 // unaffected by IDB latency.
 const activityLog = getSyncPersistenceProvider().createActivityLog?.() ?? null;
 setActivityLog(activityLog);
+
+// F7 — auto-decay sweep. A single recurring chrome.alarms tick prunes
+// every resident workspace down to the 7-day retention window. Alarms
+// survive SW eviction so the log can't grow unbounded across long
+// idle stretches; the handler iterates `listWorkspaces()` so workspaces
+// added or removed after install are picked up by the next tick.
+installActivityPruneScheduler({
+  getLog: () => activityLog,
+  listWorkspaceIds: () => listWorkspaces().map((ws) => ws.id),
+});
 
 // F6.b — the per-entity mute store gates the classifier so muted
 // entities never reach the log or the unread badge. The cache module
@@ -871,6 +886,8 @@ alarms!.onAlarm.addListener(async (alarm: chrome.alarms.Alarm) => {
     await handleTotpAlarm();
   } else if (isHandoffSweepAlarm(alarm)) {
     await sweepExpiredHandoffs();
+  } else if (isActivityPruneAlarm(alarm)) {
+    await handleActivityPruneAlarm();
   }
 });
 
