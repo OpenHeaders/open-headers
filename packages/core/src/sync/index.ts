@@ -8,6 +8,7 @@
  * phase but live in their respective apps.
  */
 
+export * from './activity';
 export * from './backend';
 export * from './boot-baseline';
 export * from './boot-regression';
