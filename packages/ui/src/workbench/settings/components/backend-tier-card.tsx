@@ -303,17 +303,48 @@ const MUTED = 'var(--ant-color-text-tertiary)';
 const MUTED_DOT = 'var(--ant-color-text-quaternary)';
 
 const FooterDetails: React.FC<{ categories: FooterCategory[] }> = ({ categories }) => (
-  <div style={{ fontSize: 12, lineHeight: 1.5 }}>
-    {categories.map((cat) => (
-      <div key={cat.label} style={{ marginBottom: 6 }}>
-        <div style={{ fontWeight: 700, fontSize: 11, opacity: 0.85, marginBottom: 2 }}>{cat.label}</div>
-        <ul style={{ margin: 0, paddingLeft: 16 }}>
+  <div style={{ fontSize: 12, lineHeight: 1.55 }}>
+    {categories.map((cat, ci) => (
+      <div
+        key={cat.label}
+        style={{
+          marginBottom: ci === categories.length - 1 ? 0 : 10,
+          paddingBottom: ci === categories.length - 1 ? 0 : 8,
+          borderBottom: ci === categories.length - 1 ? 'none' : '1px solid var(--ant-color-border-secondary)',
+        }}
+      >
+        <div
+          style={{
+            fontWeight: 700,
+            fontSize: 10.5,
+            letterSpacing: 0.4,
+            textTransform: 'uppercase',
+            color: 'var(--ant-color-primary)',
+            marginBottom: 4,
+          }}
+        >
+          {cat.label}
+        </div>
+        <ul style={{ margin: 0, paddingLeft: 0, listStyle: 'none' }}>
           {cat.items.map((it) => (
-            <li key={it.range} style={{ whiteSpace: 'nowrap' }}>
-              <code style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11 }}>
+            <li key={it.range} style={{ marginBottom: 2, display: 'flex', alignItems: 'baseline', gap: 6 }}>
+              <span style={{ color: 'var(--ant-color-primary)', flex: 'none' }}>•</span>
+              <code
+                style={{
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                  fontSize: 11.5,
+                  padding: '1px 6px',
+                  borderRadius: 3,
+                  background: 'var(--ant-color-fill-tertiary)',
+                  color: 'var(--ant-color-text)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
                 {it.range}
               </code>
-              {it.note && <span style={{ opacity: 0.7 }}> — {it.note}</span>}
+              {it.note && (
+                <span style={{ color: 'var(--ant-color-text-secondary)', marginLeft: 6 }}>— {it.note}</span>
+              )}
             </li>
           ))}
         </ul>
@@ -679,7 +710,14 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
               <Tooltip
                 title={<FooterDetails categories={footer.categories} />}
                 placement="top"
+                color="var(--ant-color-bg-elevated)"
                 overlayStyle={{ maxWidth: 560 }}
+                overlayInnerStyle={{
+                  backgroundColor: 'var(--ant-color-bg-elevated)',
+                  color: 'var(--ant-color-text)',
+                  boxShadow: 'var(--ant-box-shadow-secondary)',
+                  border: '1px solid var(--ant-color-border-secondary)',
+                }}
                 styles={{ root: { maxWidth: 560 } }}
               >
                 <g style={{ cursor: 'help' }}>
