@@ -10,6 +10,7 @@ import { broadcast } from '@utils/bridge';
 import { isChrome, isEdge, isFirefox, isSafari, runtime } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { adaptWebSocketUrl, safariPreCheck } from './safari-websocket-adapter';
+import { handleIncomingMutationFrame } from './sync-mutation-receiver';
 
 // ── Configuration (live from settings store) ─────────────────────
 
@@ -168,18 +169,22 @@ function reportSyncStatus(): void {
 
 // ── Message handling ──────────────────────────────────────────────
 //
-// Team-workspace data sync (rules/collections/vars) lands in v2 — when
-// it does, it'll go through a workspace-scoped channel that writes to
-// the per-workspace stores, not a global rules-push like the pre-rewrite
-// "desktop pushes rules" flow.
+// Inbound frames route through the mutation-stream receiver
+// (C8). Frames that don't match a known mutation kind are dropped
+// silently — the pre-handshake `pong` is the only other expected
+// inbound message in v1, and the C8 receiver ignores it by
+// returning `false` from `handleIncomingMutationFrame`.
 
 function createMessageHandler(): (event: MessageEvent) => void {
   return (event: MessageEvent) => {
+    let parsed: unknown;
     try {
-      JSON.parse(event.data as string);
+      parsed = JSON.parse(event.data as string);
     } catch (err) {
       logger.warn('WebSocket', 'Error parsing message:', err);
+      return;
     }
+    void handleIncomingMutationFrame(parsed);
   };
 }
 

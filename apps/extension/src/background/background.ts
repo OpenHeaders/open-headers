@@ -57,7 +57,17 @@ import { getLiveWorkflows, onLiveWorkflowStoreChange } from '@openheaders/oracle
 import { disposeResolverStateForWorkspace } from '@openheaders/oracle/rule-engine/variables-resolver';
 import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
 import { setOracleHostHooks } from '@openheaders/oracle/sync';
-import { forwardMutationToBackend } from './sync-mutation-forwarder';
+import {
+  forwardMutationToBackend,
+  setShouldForwardMutation,
+} from './sync-mutation-forwarder';
+import { hasRecentlyApplied } from './sync-mutation-receiver';
+
+// Don't bounce envelopes that arrived from the backend back to it.
+// The receiver records every applied mutationId; the forwarder skips
+// re-broadcasting any envelope already in that set. Pairs with the
+// receiver's own seen-set dedup — together they break the echo loop.
+setShouldForwardMutation((event) => !hasRecentlyApplied(event.envelope.mutationId));
 import {
   handleLiveAlarm,
   isLiveRefreshAlarm,
