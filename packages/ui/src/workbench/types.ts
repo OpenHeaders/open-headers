@@ -214,7 +214,8 @@ export type ToolWindowId =
   | 'docs'
   | 'var-scope'
   | 'page-traffic'
-  | 'test-runs';
+  | 'test-runs'
+  | 'activity';
 
 /** Runtime state for one dock, bound to workspace's ToolWindowId. */
 export type DockState = GenericDockState<ToolWindowId>;

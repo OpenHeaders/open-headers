@@ -34,6 +34,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'keyboard.toggleLeftSidebar': string;
     'keyboard.toggleBottomPanel': string;
     'keyboard.toggleRightSidebar': string;
+    'keyboard.toggleActivityFeed': string;
     'keyboard.newRule': string;
     'keyboard.save': string;
     'keyboard.closeTab': string;
@@ -114,6 +115,19 @@ registerSetting({
   category: 'keyboard',
   subcategory: 'workbench-layout',
   tags: ['bottom', 'panel', 'layout', 'console'],
+  scope: 'user',
+});
+
+registerSetting({
+  key: 'keyboard.toggleActivityFeed',
+  type: 'keybinding',
+  default: 'mod+shift+a',
+  schema: chordSchema,
+  label: 'Toggle Activity Feed',
+  description: 'Show or hide the Activity Feed panel.',
+  category: 'keyboard',
+  subcategory: 'workbench-layout',
+  tags: ['activity', 'feed', 'inbound', 'notifications'],
   scope: 'user',
 });
 

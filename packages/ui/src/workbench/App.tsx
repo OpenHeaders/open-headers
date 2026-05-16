@@ -80,6 +80,7 @@ import LiveVariablesEditor from './components/LiveVariablesEditor';
 import LiveVariableEditor from './components/live/LiveVariableEditor';
 import LiveWorkflowEditor from './components/live/LiveWorkflowEditor';
 import WorkflowStatusPanel from './components/live/WorkflowStatusPanel';
+import ActivityFeedPanel from './components/panels/ActivityFeedPanel';
 import DocsPanel from './components/panels/DocsPanel';
 import VariablesPanel from './components/panels/VariablesPanel';
 import RequestCollectionOverview from './components/RequestCollectionOverview';
@@ -1383,6 +1384,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     openVault,
     onOpenCreateMenu: openCreateMenu,
     onTogglePanel: togglePanel,
+    onToggleActivityFeed: () => tl.toggleWindow('activity'),
     onShowShortcuts: handleShowShortcuts,
     onOpenSettings: openSettings,
   });
@@ -1400,6 +1402,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
     onToggleSidebar: () => togglePanel('sidebar'),
     onToggleBottomPanel: () => togglePanel('bottomPanel'),
     onToggleInspector: () => togglePanel('inspector'),
+    onToggleActivityFeed: () => tl.toggleWindow('activity'),
     onCloseTab: handleCloseActiveTab,
     onPrevTab: handlePrevTab,
     onNextTab: handleNextTab,
@@ -1903,6 +1906,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
               }}
             />
           );
+        case 'activity':
+          return <ActivityFeedPanel onClose={() => tl.toggleWindow('activity')} />;
         case 'docs':
           return <DocsPanel onClose={() => tl.toggleWindow('docs')} />;
         case 'var-scope':

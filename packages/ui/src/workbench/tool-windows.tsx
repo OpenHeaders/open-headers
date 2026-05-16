@@ -20,6 +20,7 @@ import {
   SisternodeOutlined,
 } from '@ant-design/icons';
 import { DOCK_LABELS as _LABELS, type ToolWindowDef as GenericToolWindowDef } from '@openheaders/ui/shared/dock-layout';
+import ActivityFeedIcon from './components/ActivityFeedIcon';
 import type { ToolWindowId } from './types';
 
 export type ToolWindowDef = GenericToolWindowDef<ToolWindowId>;
@@ -76,6 +77,21 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
     defaultSlot: 'bottom-left',
   },
   { id: 'test-runs', label: 'Test Runs', icon: <ExperimentOutlined />, core: false, defaultSlot: 'bottom-left' },
+  // Workspace-wide Activity Feed — inbound mutation log with classifier
+  // highlights (sensitive-field rotations, permission-scope expansions,
+  // local-edit supersedes). Bottom-right slot pairs it with Page Traffic
+  // so both inbound surfaces sit together; `openByDefault` is false so
+  // the panel stays dormant until the user opens it via Ctrl+Shift+A or
+  // the bar icon — discoverability rides the badge instead.
+  {
+    id: 'activity',
+    label: 'Activity',
+    tooltip: 'Activity Feed — inbound changes from peers',
+    icon: <ActivityFeedIcon />,
+    core: false,
+    defaultSlot: 'bottom-right',
+    openByDefault: false,
+  },
 ];
 
 export const TOOL_WINDOW_MAP: Record<ToolWindowId, ToolWindowDef> = TOOL_WINDOWS.reduce(

@@ -35,6 +35,7 @@ interface UseCommandPaletteDataOptions {
   openVault: () => void;
   onOpenCreateMenu: () => void;
   onTogglePanel: (panel: 'sidebar' | 'bottomPanel' | 'inspector') => void;
+  onToggleActivityFeed: () => void;
   onShowShortcuts: () => void;
   onOpenSettings: (target?: { settingKey?: string; categoryId?: string }) => void;
 }
@@ -61,6 +62,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     openVault,
     onOpenCreateMenu,
     onTogglePanel,
+    onToggleActivityFeed,
     onShowShortcuts,
     onOpenSettings,
   } = opts;
@@ -231,6 +233,7 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
   const toggleLeftSidebarLabel = useShortcutLabel('toggle-left-sidebar');
   const toggleBottomPanelLabel = useShortcutLabel('toggle-bottom-panel');
   const toggleRightSidebarLabel = useShortcutLabel('toggle-right-sidebar');
+  const toggleActivityFeedLabel = useShortcutLabel('toggle-activity-feed');
   const openSettingsLabel = useShortcutLabel('open-settings');
 
   const sections = useMemo((): CommandPaletteSection[] => {
@@ -278,6 +281,12 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
           onSelect: () => onTogglePanel('bottomPanel'),
         },
         {
+          id: 'cmd-toggle-activity-feed',
+          label: 'Toggle Activity Feed',
+          shortcut: toggleActivityFeedLabel,
+          onSelect: onToggleActivityFeed,
+        },
+        {
           id: 'cmd-shortcuts',
           label: 'Keyboard Shortcuts',
           shortcut: '?',
@@ -323,12 +332,14 @@ export function useCommandPaletteData(opts: UseCommandPaletteDataOptions): Comma
     openCreateTab,
     onOpenCreateMenu,
     onTogglePanel,
+    onToggleActivityFeed,
     onShowShortcuts,
     onOpenSettings,
     newRuleLabel,
     toggleLeftSidebarLabel,
     toggleBottomPanelLabel,
     toggleRightSidebarLabel,
+    toggleActivityFeedLabel,
     openSettingsLabel,
     environments,
     openEnvironmentEdit,

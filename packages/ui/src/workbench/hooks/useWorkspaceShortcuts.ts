@@ -38,6 +38,7 @@ export interface WorkspaceShortcutHandlers {
   onToggleSidebar: () => void;
   onToggleBottomPanel: () => void;
   onToggleInspector: () => void;
+  onToggleActivityFeed: () => void;
   onCloseTab: () => void;
   onPrevTab: () => void;
   onNextTab: () => void;
@@ -124,6 +125,13 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
     settingKey: 'keyboard.toggleBottomPanel',
     category: 'panels',
     handler: { kind: 'direct', name: 'onToggleBottomPanel' },
+  },
+  {
+    id: 'toggle-activity-feed',
+    label: 'Toggle activity feed',
+    settingKey: 'keyboard.toggleActivityFeed',
+    category: 'panels',
+    handler: { kind: 'direct', name: 'onToggleActivityFeed' },
   },
 
   // Tabs
