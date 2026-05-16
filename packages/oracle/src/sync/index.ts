@@ -3,6 +3,11 @@ export { readDeltaStreamFromLog, readWorkspaceDeltaStream } from './delta-stream
 export { buildSnapshotForWorkspace, buildSnapshotFromOracle } from './snapshot-builder';
 export { applyWorkspaceSnapshot } from './snapshot-applier';
 export type { ApplySnapshotOptions, ApplySnapshotResult } from './snapshot-applier';
+export {
+  computeSnapshotThresholdInputsForWorkspace,
+  computeSnapshotThresholdInputsFromLog,
+} from './snapshot-threshold-reader';
+export type { ComputeSnapshotThresholdInputsOptions } from './snapshot-threshold-reader';
 
 export {
   getOracleHostHooks,
