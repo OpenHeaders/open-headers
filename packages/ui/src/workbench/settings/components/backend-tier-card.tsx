@@ -97,6 +97,39 @@ const TIERS: Partial<Record<BackendMode, TierDef>> = {
       },
     ],
   },
+  'remote-self-hosted': {
+    title: 'Your VM',
+    sub: 'host it anywhere',
+    badge: 'ROADMAP',
+    icon: 'vm',
+    inheritsFrom: 'Local daemon',
+    bullets: [
+      { text: 'multiple devices', status: 'carried' },
+      { text: 'multi-browser instances', status: 'carried' },
+      { text: 'multi-app instances', status: 'carried' },
+      { text: 'multi-surface concurrent editing', status: 'carried' },
+      { text: 'multi-window concurrent editing', status: 'carried' },
+      { text: 'native filesystem', status: 'carried' },
+      { text: 'YAML on disk', status: 'carried' },
+      { text: 'git integration (local/remote)', status: 'carried' },
+      { text: 'browser ext · desktop app · CLI', status: 'carried' },
+      { text: 'standard setup', status: 'new' },
+      { text: 'WAN/Internet-reachable', status: 'new' },
+      { text: 'team-ready', status: 'new' },
+      { text: 'SSO Auth', status: 'new' },
+      { text: 'RBAC user management', status: 'new' },
+      { text: 'audit logs & reports', status: 'new' },
+    ],
+    platforms: [
+      { label: 'Hyperscalers', items: [{ label: 'AWS' }, { label: 'Azure' }, { label: 'Google Cloud' }] },
+      {
+        label: 'EU-native',
+        items: [{ label: 'Scaleway' }, { label: 'OVHcloud' }, { label: 'Hetzner' }, { label: 'IONOS' }],
+      },
+      { label: 'Other', items: [{ label: 'DigitalOcean' }, { label: 'Heroku' }] },
+      { label: 'Enterprise', items: [{ label: 'Your cloud' }, { label: 'On-prem' }] },
+    ],
+  },
 };
 
 interface Props {
@@ -104,12 +137,17 @@ interface Props {
 }
 
 const VB_W = 600;
-const VB_H = 270;
-
+// Two heights matching the right-side topology SVG per mode:
+//   - in-browser / desktop-app diagrams use viewBox 600×270 (single monitor)
+//   - local-self-hosted / remote-self-hosted use 600×330 (2×2 device grid)
+// The card rectangle aligns with the right diagram's main content bounds.
+const VB_H_SHORT = 310;
+const VB_H_TALL = 370;
 const RECT_X = 30;
 const RECT_Y = 18;
 const RECT_W = 540;
-const RECT_H = 180;
+const RECT_H_SHORT = 220;
+const RECT_H_TALL = 280;
 
 const HEADER_COL_W = 140;
 const PLATFORM_COL_W = 95;
@@ -127,10 +165,10 @@ const BULLET_H_TIGHT = 12;
 const BULLET_H_DENSE = 11;
 const PLATFORM_CHIP_H = 16;
 const PLATFORM_CHIP_H_DENSE = 13;
-const PLATFORM_CHIP_GAP = 4;
-const PLATFORM_CHIP_GAP_DENSE = 2;
+const PLATFORM_CHIP_GAP = 5;
+const PLATFORM_CHIP_GAP_DENSE = 3;
 const PLATFORM_GROUP_LABEL_H = 12;
-const PLATFORM_GROUP_GAP = 4;
+const PLATFORM_GROUP_GAP = 5;
 
 const MUTED = 'var(--ant-color-text-tertiary)';
 const MUTED_DOT = 'var(--ant-color-text-quaternary)';
@@ -237,6 +275,10 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
   const tier = TIERS[mode];
   if (!tier) return null;
 
+  const tall = mode === 'local-self-hosted' || mode === 'remote-self-hosted';
+  const VB_H = tall ? VB_H_TALL : VB_H_SHORT;
+  const RECT_H = tall ? RECT_H_TALL : RECT_H_SHORT;
+
   const isToday = tier.badge === 'TODAY';
   const accent = isToday ? STROKE_BLUE : 'var(--ant-color-border)';
   const badgeStroke = isToday ? OH_GREEN : 'rgba(212, 145, 0, 1)';
@@ -257,13 +299,7 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
   const chipH = dense || hasGroupLabels ? PLATFORM_CHIP_H_DENSE : PLATFORM_CHIP_H;
   const chipGap = dense || hasGroupLabels ? PLATFORM_CHIP_GAP_DENSE : PLATFORM_CHIP_GAP;
 
-  let platformsBlockH = 14;
-  tier.platforms.forEach((g, gi) => {
-    if (g.label) platformsBlockH += PLATFORM_GROUP_LABEL_H;
-    platformsBlockH += g.items.length * (chipH + chipGap) - chipGap;
-    if (gi < tier.platforms.length - 1) platformsBlockH += PLATFORM_GROUP_GAP;
-  });
-  const platformsStartY = RECT_Y + (RECT_H - platformsBlockH) / 2;
+  const platformsStartY = RECT_Y + 14;
 
   return (
     <svg viewBox={`0 0 ${VB_W} ${VB_H}`} width="100%" role="img" aria-label={`${tier.title} tier card`}>
@@ -326,8 +362,7 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
 
       {!tier.inheritsFrom ? (
         (() => {
-          const bulletsBlockH = tier.bullets.length * BULLET_H;
-          const startY = RECT_Y + (RECT_H - bulletsBlockH) / 2 + 6;
+          const startY = RECT_Y + 24;
           return (
             <g>
               {tier.bullets.map((b, j) => (
@@ -344,7 +379,7 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
       ) : (
         (() => {
           const captionY = RECT_Y + 18;
-          const carriedStartY = captionY + 12;
+          const carriedStartY = captionY + 20;
           const carriedEndY = carriedStartY + carried.length * lineH;
           const dottedY = carriedEndY + 2;
           const dottedX = BULLETS_X + 8;
@@ -417,7 +452,7 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
       </text>
       {(() => {
         const els: React.ReactNode[] = [];
-        let cursorY = platformsStartY + 14;
+        let cursorY = platformsStartY + 22;
         tier.platforms.forEach((group, gi) => {
           if (group.label) {
             els.push(
