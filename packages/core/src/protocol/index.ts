@@ -46,6 +46,19 @@ export type {
 } from './handshake';
 
 export {
+  SYNC_MUTATION_BATCH_TYPE,
+  SYNC_MUTATION_TYPE,
+  SyncMutationBatchMessageSchema,
+  SyncMutationMessageSchema,
+  SyncMutationStreamMessageSchema,
+} from './mutation-stream';
+export type {
+  SyncMutationBatchMessage,
+  SyncMutationMessage,
+  SyncMutationStreamMessage,
+} from './mutation-stream';
+
+export {
   MIN_SNAPSHOT_SCHEMA_VERSION,
   SENSITIVE_SNAPSHOT_KEYS,
   SNAPSHOT_SCHEMA_VERSION,
