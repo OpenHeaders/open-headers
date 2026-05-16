@@ -52,13 +52,13 @@ const SCENARIOS: readonly ScenarioDescriptor[] = [
   {
     mode: 'in-browser',
     icon: 'browser',
-    title: 'Browser',
+    title: 'Browser Extension',
     validHosts: ['extension'],
   },
   {
     mode: 'desktop-app',
     icon: 'desktop',
-    title: 'Desktop App',
+    title: 'Desktop Application',
     validHosts: ['extension', 'desktop', 'web'],
   },
   {
@@ -75,10 +75,15 @@ const SCENARIOS: readonly ScenarioDescriptor[] = [
   },
 ];
 
-const HOST_INTRO: Record<Host, string> = {
-  extension: 'Process and store your data local or remote.',
-  desktop: 'Process and store your data local or remote.',
-  web: 'Process and store your data local or remote.',
+const INTRO_TEXT: React.ReactNode = (
+  <>
+    <strong>Who:</strong> processes and stores your data. <strong>Where:</strong> local or remote.
+  </>
+);
+const HOST_INTRO: Record<Host, React.ReactNode> = {
+  extension: INTRO_TEXT,
+  desktop: INTRO_TEXT,
+  web: INTRO_TEXT,
 };
 
 function firstValidMode(host: Host): BackendMode {
@@ -169,12 +174,12 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
 };
 
 /**
- * Card combining the intro copy (left) with the "Active back-end"
- * dropdown (right). Single row to save vertical space.
+ * Card combining the "Active back-end" dropdown (left) with the intro
+ * copy (right). Single row to save vertical space.
  */
 const ActiveBackendSelect: React.FC<{
   host: Host;
-  intro: string;
+  intro: React.ReactNode;
   value: BackendMode;
   onChange: (next: BackendMode) => void;
 }> = ({ host, intro, value, onChange }) => {
@@ -192,9 +197,6 @@ const ActiveBackendSelect: React.FC<{
         borderRadius: 10,
       }}
     >
-      <div style={{ flex: 1, minWidth: 0, fontSize: 12, color: token.colorTextSecondary }}>
-        {intro} <DocsLink />
-      </div>
       <span style={{ flex: 'none', fontSize: 12, fontWeight: 600, color: token.colorText }}>
         Active back-end:
       </span>
@@ -216,6 +218,9 @@ const ActiveBackendSelect: React.FC<{
           };
         })}
       />
+      <div style={{ flex: 1, minWidth: 0, fontSize: 12, color: token.colorTextSecondary, textAlign: 'right' }}>
+        {intro} <DocsLink />
+      </div>
     </div>
   );
 };

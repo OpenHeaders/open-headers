@@ -49,14 +49,13 @@ const TIERS: Partial<Record<BackendMode, TierDef>> = {
       { text: 'per-browser instance', status: 'new' },
       { text: 'multi-surface concurrent editing', status: 'new' },
       { text: 'multi-window concurrent editing', status: 'new' },
-      { text: 'Localhost-only', status: 'new' },
     ],
     platforms: [
       { items: [{ label: 'Chrome' }, { label: 'Firefox' }, { label: 'Edge' }, { label: 'Safari', note: 'soon' }] },
     ],
     footer: {
-      kind: 'local',
-      label: 'No wire',
+      kind: 'cloud',
+      label: 'N/A',
       url: '(in-process — no clients)',
       categories: [
         {
@@ -100,12 +99,13 @@ const TIERS: Partial<Record<BackendMode, TierDef>> = {
       { text: 'single device', status: 'carried' },
       { text: 'multi-surface concurrent editing', status: 'carried' },
       { text: 'multi-window concurrent editing', status: 'carried' },
-      { text: 'Localhost-only', status: 'carried' },
+      { text: 'Localhost-only', status: 'new' },
       { text: 'multi-browser instances', status: 'new' },
       { text: 'per-app instance', status: 'new' },
       { text: 'native filesystem', status: 'new' },
       { text: 'YAML on disk', status: 'new' },
       { text: 'git integration (local/remote)', status: 'new' },
+      { text: 'browser ext · desktop app · CLI', status: 'new' },
     ],
     platforms: [{ items: [{ label: 'macOS' }, { label: 'Windows' }, { label: 'Linux' }] }],
     footer: {
@@ -141,11 +141,12 @@ const TIERS: Partial<Record<BackendMode, TierDef>> = {
       { text: 'native filesystem', status: 'carried' },
       { text: 'YAML on disk', status: 'carried' },
       { text: 'git integration (local/remote)', status: 'carried' },
+      { text: 'browser ext · desktop app · CLI', status: 'carried' },
       { text: 'minimal setup', status: 'new' },
+      { text: 'Localhost-supported', status: 'new' },
       { text: 'LAN-reachable', status: 'new' },
       { text: 'multi-app instances', status: 'new' },
       { text: 'multiple devices', status: 'new' },
-      { text: 'browser ext · desktop app · CLI', status: 'new' },
     ],
     platforms: [
       { label: 'All OS', items: [{ label: 'macOS' }, { label: 'Windows' }, { label: 'Linux' }] },
@@ -162,9 +163,16 @@ const TIERS: Partial<Record<BackendMode, TierDef>> = {
     ],
     footer: {
       kind: 'cloud',
-      label: 'LAN',
+      label: 'Localhost/LAN',
       url: 'ws://<lan-host>:<port>',
       categories: [
+        {
+          label: 'Localhost / loopback',
+          items: [
+            { range: '127.0.0.0/8', note: 'IPv4 — daemon on your own box (Docker, sidecar)' },
+            { range: '::1/128', note: 'IPv6' },
+          ],
+        },
         {
           label: 'RFC1918 private IPv4',
           items: [
@@ -174,19 +182,19 @@ const TIERS: Partial<Record<BackendMode, TierDef>> = {
           ],
         },
         {
-          label: 'CGNAT / overlay (Tailscale, etc.)',
-          items: [{ range: '100.64.0.0/10' }],
-        },
-        {
-          label: 'Link-local',
-          items: [
-            { range: '169.254.0.0/16', note: 'IPv4 link-local' },
-            { range: 'fe80::/10', note: 'IPv6 link-local' },
-          ],
-        },
-        {
           label: 'IPv6 ULA',
-          items: [{ range: 'fc00::/7', note: 'practically fd00::/8' }],
+          items: [{ range: 'fc00::/7', note: 'practically fd00::/8 — IPv6 private allocation' }],
+        },
+        {
+          label: 'CGNAT / overlay',
+          items: [{ range: '100.64.0.0/10', note: 'Tailscale, etc.' }],
+        },
+        {
+          label: 'Zero-config / no-DHCP fallback',
+          items: [
+            { range: '169.254.0.0/16', note: 'IPv4 link-local (APIPA)' },
+            { range: 'fe80::/10', note: 'IPv6 link-local — every interface auto-assigns one' },
+          ],
         },
         {
           label: 'mDNS hostnames',
@@ -211,6 +219,8 @@ const TIERS: Partial<Record<BackendMode, TierDef>> = {
       { text: 'YAML on disk', status: 'carried' },
       { text: 'git integration (local/remote)', status: 'carried' },
       { text: 'browser ext · desktop app · CLI', status: 'carried' },
+      { text: 'Localhost-supported', status: 'carried' },
+      { text: 'LAN-reachable', status: 'carried' },
       { text: 'standard setup', status: 'new' },
       { text: 'WAN/Internet-reachable', status: 'new' },
       { text: 'team-ready', status: 'new' },
@@ -229,7 +239,7 @@ const TIERS: Partial<Record<BackendMode, TierDef>> = {
     ],
     footer: {
       kind: 'cloud',
-      label: 'WAN',
+      label: 'Internet/WAN',
       url: 'wss://<your-host>',
       categories: [
         {
@@ -297,7 +307,7 @@ const FooterDetails: React.FC<{ categories: FooterCategory[] }> = ({ categories 
         <div style={{ fontWeight: 700, fontSize: 11, opacity: 0.85, marginBottom: 2 }}>{cat.label}</div>
         <ul style={{ margin: 0, paddingLeft: 16 }}>
           {cat.items.map((it) => (
-            <li key={it.range}>
+            <li key={it.range} style={{ whiteSpace: 'nowrap' }}>
               <code style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 11 }}>
                 {it.range}
               </code>
@@ -453,8 +463,8 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
   // siblings rather than the first two grabbing attention with a blue
   // outline.
   const accent = 'var(--ant-color-border)';
-  const badgeStroke = isToday ? OH_GREEN : 'rgba(212, 145, 0, 1)';
-  const badgeBg = isToday ? OH_GREEN_TINT : 'rgba(250, 173, 20, 0.18)';
+  const badgeStroke = isToday ? STROKE_BLUE : 'rgba(212, 145, 0, 1)';
+  const badgeBg = isToday ? FILL_BLUE : 'rgba(250, 173, 20, 0.18)';
 
   const headerCX = HEADER_X + HEADER_COL_W / 2;
   const iconCY = RECT_Y + 38;
@@ -526,7 +536,7 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
         textAnchor="middle"
         fontSize={9}
         fontWeight={800}
-        fill={badgeStroke}
+        fill={isToday ? TEXT : badgeStroke}
         letterSpacing={1}
       >
         {tier.badge}
@@ -621,11 +631,11 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
 
       {tier.footer && (() => {
         const footer = tier.footer;
-        const cx = (BULLETS_X + SEPARATOR_2_X) / 2;
+        const cx = HEADER_X + HEADER_COL_W / 2;
         const cy = RECT_Y + RECT_H - 32;
         const glyph =
           footer.kind === 'cloud' ? (
-            <CloudGlyph cx={cx} cy={cy} scale={0.6} label={footer.label} />
+            <CloudGlyph cx={cx} cy={cy} scale={1.3} label={footer.label} />
           ) : (
             <g>
               <rect
@@ -667,7 +677,8 @@ export const BackendTierCard: React.FC<Props> = ({ mode }) => {
               <Tooltip
                 title={<FooterDetails categories={footer.categories} />}
                 placement="top"
-                overlayStyle={{ maxWidth: 340 }}
+                overlayStyle={{ maxWidth: 560 }}
+                styles={{ root: { maxWidth: 560 } }}
               >
                 <g style={{ cursor: 'help' }}>
                   <circle
