@@ -81,6 +81,10 @@ import {
   forwardMutationToWsPeers,
   setMutationForwarderWsServer,
 } from './sync-mutation-forwarder';
+import {
+  observeForActivityFeed,
+  setActivityLog,
+} from './sync-activity-installer';
 
 const RPC_CHANNEL = 'oh:rpc';
 const BROADCAST_CHANNEL = 'oh:broadcast';
@@ -127,6 +131,10 @@ export async function installRpcHost(): Promise<void> {
     dbPath: path.join(app.getPath('userData'), 'oracle.db'),
   });
   setSyncPersistenceProvider(syncPersistence);
+  // Activity Feed log — workspace-wide, SQLite-backed. The installer
+  // tolerates a missing log (counts drops) until this resolves, so
+  // ordering here is for readability rather than correctness.
+  setActivityLog(syncPersistence.createActivityLog?.() ?? null);
   // Blob bytes live on the filesystem alongside the SQLite metadata so
   // large files don't bloat the DB and incremental backups stay
   // straightforward. The metadata table rides on the same handle as the
@@ -156,6 +164,7 @@ export async function installRpcHost(): Promise<void> {
       // shared seen-set).
       broadcastToAllRenderers('syncBroadcast', event);
       forwardMutationToWsPeers(event);
+      observeForActivityFeed(event);
     },
     broadcastAwareness: (event) => broadcastEverywhere('awarenessBroadcast', event),
   });
@@ -229,6 +238,7 @@ export async function installRpcHost(): Promise<void> {
   app.on('before-quit', () => {
     ipcMain.removeHandler(RPC_CHANNEL);
     setMutationForwarderWsServer(null);
+    setActivityLog(null);
     void wsServer?.close();
     wsServer = null;
   });
