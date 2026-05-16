@@ -23,13 +23,352 @@
 
 import { DeleteOutlined, WarningOutlined } from '@ant-design/icons';
 import { hostBridge, type ListedTestRun } from '@openheaders/core/bridge';
-import { App, Button, Empty, Space, Table, Tag, Tooltip, Typography, theme } from 'antd';
+import { App, Button, Empty, Segmented, Space, Table, Tag, Tooltip, Typography, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
 
 const { Text } = Typography;
+
+// ── Deep Network Inspection placeholder (desktop-only feature preview) ─────────
+
+const LAYER_COLORS: Record<string, string> = {
+  L2: 'magenta',
+  L3: 'purple',
+  L4: 'geekblue',
+  TLS: 'gold',
+  L7: 'green',
+};
+
+interface PacketLine {
+  layer: keyof typeof LAYER_COLORS;
+  text: string;
+}
+
+const PACKET_LINES: PacketLine[] = [
+  { layer: 'L2', text: 'Ethernet frame, ~1500 bytes' },
+  { layer: 'L3', text: 'IPv4 192.168.1.5 → 93.184.216.34, TTL 64' },
+  { layer: 'L4', text: 'TCP seq 1245, port 51234 → 443, window 65535, ACK' },
+  { layer: 'TLS', text: 'TLSv1.3 application_data, encrypted (44 bytes payload)' },
+];
+
+const HTTP2_LINES: string[] = [
+  ':method = GET',
+  ':path = /api/users',
+  ':authority = api.example.com',
+  '(+ decoded HPACK contents shown)',
+];
+
+const STATS: { label: string; value: string; tone: 'ok' | 'info' | 'warn' }[] = [
+  { label: 'TCP retransmissions', value: '0', tone: 'ok' },
+  { label: 'Round-trip time', value: '47 ms', tone: 'info' },
+  { label: 'TLS handshake', value: '124 ms', tone: 'info' },
+  { label: 'Waiting for response', value: '89 ms', tone: 'info' },
+  { label: 'Receiving body', value: '12 ms', tone: 'info' },
+];
+
+interface TierSpec {
+  num: 1 | 2 | 3;
+  title: string;
+  color: string;
+  accentToken: 'colorInfo' | 'colorPrimary' | 'colorWarning';
+  solves: string;
+  trust: string;
+  power: string;
+  friction: string;
+  wall?: string[];
+}
+
+const TIERS: TierSpec[] = [
+  {
+    num: 1,
+    title: 'Browser extension (free, instant install)',
+    color: 'blue',
+    accentToken: 'colorInfo',
+    solves: '"I want to see and modify some HTTP requests from this page right now."',
+    trust: '"Allow this extension on this site"',
+    power: 'Limited (URLs, headers, declarative rules)',
+    friction: '~10 seconds to install from Chrome store',
+    wall: [
+      '"I need to see the response body"',
+      '"I need to debug a WebSocket"',
+      '"I need to modify a POST payload"',
+    ],
+  },
+  {
+    num: 2,
+    title: 'Desktop app — HTTPS Inspection (MITM proxy)',
+    color: 'geekblue',
+    accentToken: 'colorPrimary',
+    solves: '"I want to see and modify any HTTPS traffic from my browser, with full body access."',
+    trust: 'Install CA cert + admin permission',
+    power: 'High (full L7 visibility, modification, replay, mock)',
+    friction: '~2 minutes to install app + accept cert',
+    wall: [
+      '"Why is this connection slow?"',
+      '"What\'s the TCP-level behavior here?"',
+      '"What about traffic from apps that pin certs?"',
+      '"I need to see DNS, QUIC, raw TCP."',
+    ],
+  },
+  {
+    num: 3,
+    title: 'Desktop app — Network Capture (packet capture)',
+    color: 'volcano',
+    accentToken: 'colorWarning',
+    solves: '"I want to see ALL network activity on my machine at every layer."',
+    trust: 'Admin/sudo + Npcap on Windows',
+    power: 'Maximum (L2–L7, including non-HTTP, encrypted streams, network anomalies)',
+    friction: '~5 minutes additional setup, more education needed',
+  },
+];
+
+type TrafficView = 'packet' | 'tiers';
+
+function DeepNetworkInspectionPlaceholder() {
+  const { token } = theme.useToken();
+  const [view, setView] = useState<TrafficView>('packet');
+  const toneColor = (tone: 'ok' | 'info' | 'warn'): string =>
+    tone === 'ok' ? token.colorSuccess : tone === 'warn' ? token.colorWarning : token.colorInfo;
+
+  const layerBadge = (layer: keyof typeof LAYER_COLORS): React.ReactNode => (
+    <Tag color={LAYER_COLORS[layer]} style={{ marginInlineEnd: 8, minWidth: 42, textAlign: 'center', fontWeight: 600 }}>
+      {layer}
+    </Tag>
+  );
+
+  return (
+    <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      <div
+        style={{
+          flex: '0 0 auto',
+          padding: '10px 14px',
+          background: token.colorFillQuaternary,
+          borderBottom: `1px solid ${token.colorBorderSecondary}`,
+        }}
+      >
+        <Space size={8} align="center" wrap>
+          <Tag color="blue" style={{ margin: 0, fontWeight: 600 }}>
+            EXAMPLE PREVIEW
+          </Tag>
+          <Tag color="orange" style={{ margin: 0, fontWeight: 600 }}>
+            COMING SOON — DESKTOP APP
+          </Tag>
+          <Text strong style={{ fontSize: 13 }}>
+            MITM Proxy (L7) + Packet Capture (L2–L4)
+          </Text>
+        </Space>
+        <div style={{ marginTop: 4 }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            Unified view of the entire network stack — easy to inspect and modify. Not yet live; sample data shown below.
+          </Text>
+        </div>
+        <div style={{ marginTop: 10 }}>
+          <Segmented<TrafficView>
+            size="small"
+            value={view}
+            onChange={(v) => setView(v)}
+            options={[
+              { label: 'Packet view', value: 'packet' },
+              { label: 'Tier roadmap', value: 'tiers' },
+            ]}
+          />
+        </div>
+      </div>
+      <div
+        style={{
+          flex: '1 1 auto',
+          minHeight: 0,
+          overflow: 'auto',
+          padding: '14px 16px',
+          fontFamily:
+            'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace',
+          fontSize: 12.5,
+          lineHeight: 1.7,
+        }}
+      >
+        {view === 'packet' && <PacketView token={token} layerBadge={layerBadge} toneColor={toneColor} />}
+        {view === 'tiers' && <TierRoadmapView token={token} />}
+      </div>
+    </div>
+  );
+}
+
+interface PacketViewProps {
+  token: ReturnType<typeof theme.useToken>['token'];
+  layerBadge: (layer: keyof typeof LAYER_COLORS) => React.ReactNode;
+  toneColor: (tone: 'ok' | 'info' | 'warn') => string;
+}
+
+function PacketView({ token, layerBadge, toneColor }: PacketViewProps) {
+  return (
+    <>
+        {PACKET_LINES.map((line) => (
+          <div key={line.layer} style={{ display: 'flex', alignItems: 'baseline' }}>
+            {layerBadge(line.layer)}
+            <span style={{ color: token.colorText }}>{line.text}</span>
+          </div>
+        ))}
+
+        <div style={{ margin: '8px 0 4px 54px', color: token.colorTextTertiary }}>│</div>
+        <div style={{ margin: '0 0 4px 54px', color: token.colorTextTertiary, fontStyle: 'italic' }}>
+          │  correlated with proxy's record ↓
+        </div>
+        <div style={{ margin: '0 0 8px 54px', color: token.colorTextTertiary }}>│</div>
+
+        <div style={{ display: 'flex', alignItems: 'baseline' }}>
+          {layerBadge('L7')}
+          <span style={{ color: token.colorText }}>
+            HTTP/2 stream <span style={{ color: token.colorPrimary, fontWeight: 600 }}>5</span> HEADERS frame
+          </span>
+        </div>
+        <div
+          style={{
+            marginLeft: 54,
+            marginTop: 4,
+            padding: '8px 12px',
+            background: token.colorFillQuaternary,
+            border: `1px solid ${token.colorBorderSecondary}`,
+            borderRadius: token.borderRadius,
+          }}
+        >
+          {HTTP2_LINES.map((line) => {
+            const [key, ...rest] = line.split(' = ');
+            const value = rest.join(' = ');
+            if (!value) {
+              return (
+                <div key={line} style={{ color: token.colorTextTertiary, fontStyle: 'italic' }}>
+                  {line}
+                </div>
+              );
+            }
+            return (
+              <div key={line}>
+                <span style={{ color: token.colorPrimary }}>{key}</span>
+                <span style={{ color: token.colorTextTertiary }}> = </span>
+                <span style={{ color: token.colorSuccess }}>{value}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        <div style={{ marginTop: 18 }}>
+          <Text strong style={{ fontSize: 12 }}>
+            Stats
+          </Text>
+          <div
+            style={{
+              marginTop: 6,
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+              gap: 8,
+            }}
+          >
+            {STATS.map((s) => (
+              <div
+                key={s.label}
+                style={{
+                  padding: '8px 12px',
+                  background: token.colorBgContainer,
+                  border: `1px solid ${token.colorBorderSecondary}`,
+                  borderRadius: token.borderRadius,
+                  borderLeft: `3px solid ${toneColor(s.tone)}`,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'baseline',
+                }}
+              >
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  {s.label}
+                </Text>
+                <span style={{ fontWeight: 600, color: toneColor(s.tone), fontSize: 13 }}>{s.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+    </>
+  );
+}
+
+interface TierRoadmapViewProps {
+  token: ReturnType<typeof theme.useToken>['token'];
+}
+
+function TierRoadmapView({ token }: TierRoadmapViewProps) {
+  const accent = (key: TierSpec['accentToken']): string =>
+    key === 'colorInfo' ? token.colorInfo : key === 'colorPrimary' ? token.colorPrimary : token.colorWarning;
+
+  return (
+    <div style={{ fontFamily: token.fontFamily, fontSize: 13, lineHeight: 1.6 }}>
+      {TIERS.map((tier, idx) => (
+        <div key={tier.num}>
+          <div
+            style={{
+              border: `1px solid ${token.colorBorderSecondary}`,
+              borderLeft: `4px solid ${accent(tier.accentToken)}`,
+              borderRadius: token.borderRadius,
+              padding: '12px 14px',
+              background: token.colorBgContainer,
+            }}
+          >
+            <Space size={8} align="center" wrap style={{ marginBottom: 8 }}>
+              <Tag color={tier.color} style={{ margin: 0, fontWeight: 700, fontSize: 12 }}>
+                TIER {tier.num}
+              </Tag>
+              <Text strong style={{ fontSize: 13 }}>
+                {tier.title}
+              </Text>
+            </Space>
+            <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr', rowGap: 6, columnGap: 12 }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                Solves
+              </Text>
+              <span style={{ fontStyle: 'italic', color: token.colorText }}>{tier.solves}</span>
+
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                Trust required
+              </Text>
+              <span style={{ color: token.colorText }}>{tier.trust}</span>
+
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                Power
+              </Text>
+              <span style={{ color: token.colorText }}>{tier.power}</span>
+
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                Friction
+              </Text>
+              <span style={{ color: token.colorText }}>{tier.friction}</span>
+            </div>
+          </div>
+
+          {tier.wall && idx < TIERS.length - 1 && (
+            <div
+              style={{
+                margin: '10px 0 10px 20px',
+                paddingLeft: 14,
+                borderLeft: `2px dashed ${token.colorBorderSecondary}`,
+              }}
+            >
+              <Text type="secondary" style={{ fontSize: 12, fontWeight: 600 }}>
+                User hits a wall:
+              </Text>
+              <ul style={{ margin: '4px 0 6px 0', paddingLeft: 18 }}>
+                {tier.wall.map((q) => (
+                  <li key={q} style={{ color: token.colorTextSecondary, fontStyle: 'italic' }}>
+                    {q}
+                  </li>
+                ))}
+              </ul>
+              <div style={{ color: token.colorTextTertiary, fontSize: 16, lineHeight: 1 }}>▼</div>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 // ── Types (mirror background test-run-store) ────────────────────────
 
@@ -50,9 +389,9 @@ interface BottomTab {
 }
 
 const STATIC_TABS: BottomTab[] = [
-  // Page Traffic — desktop-only placeholder for the live request feed.
-  // The left-bottom activity-bar "Page Traffic" launcher routes here.
-  { key: 'traffic', label: 'Page Traffic' },
+  // Deep Network Inspection — desktop-only placeholder for the live request feed.
+  // The left-bottom activity-bar "Deep Network Inspection" launcher routes here.
+  { key: 'inspection', label: 'Deep Network Inspection' },
   // Test Runs — always present. Contextual mode filters to the active
   // entity's bucket; global mode lists every persisted run.
   { key: 'test-runs', label: 'Test Runs' },
@@ -287,13 +626,13 @@ const BottomPanel: React.FC<BottomPanelProps> = ({
     <div className="rules-bottom-panel">
       <PanelHeader
         wiring={headerWiring}
-        title={<strong>{activeTab === 'test-runs' ? 'Test Runs' : 'Page Traffic'}</strong>}
+        title={<strong>{activeTab === 'test-runs' ? 'Test Runs' : 'Deep Network Inspection'}</strong>}
       />
       <div
-        className={`rules-bottom-content${activeTab === 'test-runs' ? ' is-table' : ''}`}
+        className={`rules-bottom-content${activeTab === 'test-runs' ? ' is-table' : ''}${activeTab === 'inspection' ? ' is-fill' : ''}`}
         style={{ color: token.colorTextTertiary }}
       >
-        {activeTab === 'traffic' && <Text type="secondary">Page traffic monitoring available in desktop app.</Text>}
+        {activeTab === 'inspection' && <DeepNetworkInspectionPlaceholder />}
         {activeTab === 'test-runs' && (
           <div style={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             {runs.length === 0 && !loading ? (

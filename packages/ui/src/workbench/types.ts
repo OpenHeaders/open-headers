@@ -151,7 +151,7 @@ export type LeftPanelKey =
   | 'variables'
   | 'workflows'
   | 'workflow-status'
-  | 'page-traffic'
+  | 'deep-network-inspection'
   | 'test-runs';
 
 /**
@@ -213,7 +213,7 @@ export type ToolWindowId =
   | 'workflow-status'
   | 'docs'
   | 'var-scope'
-  | 'page-traffic'
+  | 'deep-network-inspection'
   | 'test-runs'
   | 'activity';
 

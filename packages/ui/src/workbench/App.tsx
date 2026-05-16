@@ -1972,11 +1972,11 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
               onOpenTemplateCollectionVariables={openTemplateCollectionVariables}
             />
           );
-        case 'page-traffic':
+        case 'deep-network-inspection':
         case 'test-runs':
           return (
             <BottomPanel
-              activeTab={id === 'test-runs' ? 'test-runs' : 'traffic'}
+              activeTab={id === 'test-runs' ? 'test-runs' : 'inspection'}
               onTabChange={() => {
                 /* BottomPanel is now slot-scoped — tab strip lives on the dock */
               }}

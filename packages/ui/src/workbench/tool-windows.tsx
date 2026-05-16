@@ -57,8 +57,8 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
   { id: 'variables', label: 'Variables', icon: <CodeOutlined />, core: false, defaultSlot: 'right-top' },
   { id: 'api-requests', label: 'API Requests', icon: <ApiOutlined />, core: false, defaultSlot: 'right-bottom' },
   {
-    id: 'page-traffic',
-    label: 'Page Traffic',
+    id: 'deep-network-inspection',
+    label: 'Deep Network Inspection',
     icon: <FundViewOutlined />,
     core: false,
     defaultSlot: 'bottom-right',
@@ -79,7 +79,7 @@ export const TOOL_WINDOWS: readonly ToolWindowDef[] = [
   { id: 'test-runs', label: 'Test Runs', icon: <ExperimentOutlined />, core: false, defaultSlot: 'bottom-left' },
   // Workspace-wide Activity Feed — inbound mutation log with classifier
   // highlights (sensitive-field rotations, permission-scope expansions,
-  // local-edit supersedes). Bottom-right slot pairs it with Page Traffic
+  // local-edit supersedes). Bottom-right slot pairs it with Deep Network Inspection
   // so both inbound surfaces sit together; `openByDefault` is false so
   // the panel stays dormant until the user opens it via Ctrl+Shift+A or
   // the bar icon — discoverability rides the badge instead.

@@ -37,11 +37,11 @@ import type { FocusRegion, LeftPanelKey, RightPanelKey, WorkspaceLayout } from '
 // back to its default tab.
 
 export const BOTTOM_TAB_TEST_RUNS = 'test-runs';
-export const BOTTOM_TAB_TRAFFIC = 'traffic';
+export const BOTTOM_TAB_INSPECTION = 'inspection';
 
 /** Map from a left-bottom activity-bar key to its bottom-tab target. */
 export const LEFT_BOTTOM_LAUNCHERS: Partial<Record<LeftPanelKey, string>> = {
-  'page-traffic': BOTTOM_TAB_TRAFFIC,
+  'deep-network-inspection': BOTTOM_TAB_INSPECTION,
   'test-runs': BOTTOM_TAB_TEST_RUNS,
 };
 
@@ -123,7 +123,7 @@ export interface WorkspaceLayoutApi {
 
 export function useWorkspaceLayout({
   initial,
-  initialBottomTab = BOTTOM_TAB_TRAFFIC,
+  initialBottomTab = BOTTOM_TAB_INSPECTION,
   onPersist,
 }: UseWorkspaceLayoutOptions = {}): WorkspaceLayoutApi {
   const [layout, setLayoutState] = useState<WorkspaceLayout>(() => ({
