@@ -1,4 +1,4 @@
-export { computeStateVectorFromLog } from './state-vector-reader';
+export { computeStateVectorFromLog, readWorkspaceStateVector } from './state-vector-reader';
 
 export {
   getOracleHostHooks,
