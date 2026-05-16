@@ -27,7 +27,7 @@
 import type { FileRef } from '../files';
 import type { ImportReport } from '../import';
 import type { OAuth2TokenBundle } from '../oauth';
-import type { ActivityEntry, MutationEnvelope, MutatorOutcome } from '../sync';
+import type { ActivityEntry, ActivityMuteEntry, MutationEnvelope, MutatorOutcome } from '../sync';
 import type {
   ActiveRule,
   Collection,
@@ -1061,6 +1061,33 @@ export interface BridgeRpcContract {
     req: { workspaceId: string; ids: readonly string[] };
     res: { ok: true };
   };
+  /**
+   * Read the workspace's mute list. The classifier-installer gate
+   * checks the cache populated from this list — RPC handlers and the
+   * cache share the same source of truth in the host process.
+   */
+  'oh.sync.listActivityMutes': {
+    req: { workspaceId: string };
+    res: { mutes: ActivityMuteEntry[] };
+  };
+  /**
+   * Mute `(entityType, entityId)` in `workspaceId`. The installer drops
+   * further inbound activity rows for the pair until an
+   * {@link oh.sync.unmuteActivityEntity} call clears it. Idempotent —
+   * re-muting refreshes `mutedAt` but does not double-count.
+   */
+  'oh.sync.muteActivityEntity': {
+    req: { workspaceId: string; entityType: string; entityId: string };
+    res: { ok: true; entry: ActivityMuteEntry };
+  };
+  /**
+   * Unmute `(entityType, entityId)` in `workspaceId`. Idempotent —
+   * unmuting an absent pair is `ok: true` with no side-effect.
+   */
+  'oh.sync.unmuteActivityEntity': {
+    req: { workspaceId: string; entityType: string; entityId: string };
+    res: { ok: true };
+  };
 
   // ── Sync engine (Phase A) ────────────────────────────────────────
   /**
@@ -1357,6 +1384,22 @@ export interface BridgeBroadcastContract {
    * active workspace.
    */
   activityEntry: ActivityEntry;
+
+  /**
+   * Phase C F6.b — live tail for the per-entity mute list. Fires
+   * whenever the host's mute cache observes a mute / unmute (RPC or
+   * otherwise). Renderer surfaces filter on `workspaceId`; the panel
+   * uses the change to flip its local "muted" badge without re-fetching.
+   */
+  activityMuteChanged: {
+    workspaceId: string;
+    entityType: string;
+    entityId: string;
+    /** True for mute, false for unmute. */
+    muted: boolean;
+    /** Wall-clock millis the change happened. */
+    at: number;
+  };
 
   /**
    * Workspace Intent — warm-path delivery from the SW navigator to an

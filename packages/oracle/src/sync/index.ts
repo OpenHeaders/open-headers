@@ -6,6 +6,24 @@ export {
 export { IdbActivityLog, __closeIdbActivityLogForTests } from './idb-activity-log';
 export { SqliteActivityLog, ensureActivityLogSchema } from './sqlite-activity-log';
 export {
+  InMemoryActivityMuteStore,
+  type ActivityMuteStore,
+} from './activity-mute-store';
+export { IdbActivityMuteStore, __closeIdbActivityMuteStoreForTests } from './idb-activity-mute-store';
+export { SqliteActivityMuteStore, ensureActivityMuteSchema } from './sqlite-activity-mute-store';
+export {
+  __resetActivityMuteCacheForTests,
+  ensureMutesLoaded,
+  isMutedForActivityFeed,
+  listMutedActivityEntities,
+  muteActivityEntity,
+  setActivityMuteClockForTests,
+  setActivityMuteStore,
+  subscribeActivityMuteChanges,
+  unmuteActivityEntity,
+  type ActivityMuteChange,
+} from './activity-mute-cache';
+export {
   classifyEnvelopeForActivity,
   type ClassifyActivityInput,
 } from './activity-classifier';

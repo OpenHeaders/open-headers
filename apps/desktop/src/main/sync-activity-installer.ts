@@ -29,8 +29,10 @@ import type { ActivityEntry } from '@openheaders/core/sync';
 import {
   classifyEnvelopeForActivity,
   consumePriorForMutation,
+  ensureMutesLoaded,
   getOracleForWorkspace,
   hasRecentlyApplied,
+  isMutedForActivityFeed,
   type ActivityLog,
   type OracleSyncBroadcastEvent,
 } from '@openheaders/oracle/sync';
@@ -97,6 +99,15 @@ export function observeForActivityFeed(event: OracleSyncBroadcastEvent): void {
   // speculatively for every wire-delivered envelope.
   const prior = consumePriorForMutation(event.envelope.mutationId);
   const next = isInbound ? readNextMaterialized(event) : null;
+  // Trigger lazy mute-cache hydration on first inbound observation so
+  // the synchronous gate below is hot. The promise is fire-and-forget;
+  // subsequent envelopes for the same workspace dedup on the cached
+  // promise.
+  if (isInbound) {
+    void ensureMutesLoaded(event.envelope.workspaceId).catch((err: Error) => {
+      logger.warn(SCOPE, 'activity mute cache hydrate failed', err);
+    });
+  }
 
   const entries = classifyEnvelopeForActivity({
     envelope: event.envelope,
@@ -108,12 +119,20 @@ export function observeForActivityFeed(event: OracleSyncBroadcastEvent): void {
   });
   if (entries.length === 0) return;
 
-  for (const entry of entries) {
+  // Drop muted-entity rows before they reach subscribers + log. The
+  // panel cannot see them and the badge ignores them; an unmute does
+  // NOT resurrect dropped rows — that's by design.
+  const filtered = entries.filter(
+    (entry) => !isMutedForActivityFeed(entry.workspaceId, entry.entityType, entry.entityId),
+  );
+  if (filtered.length === 0) return;
+
+  for (const entry of filtered) {
     fanOutToSubscribers(entry);
   }
 
   if (!activityLog) {
-    droppedNoLog += entries.length;
+    droppedNoLog += filtered.length;
     if (!loggedNoLogOnce) {
       logger.info(SCOPE, 'no activity log installed; entry dropped');
       loggedNoLogOnce = true;
@@ -122,7 +141,7 @@ export function observeForActivityFeed(event: OracleSyncBroadcastEvent): void {
   }
 
   const log = activityLog;
-  for (const entry of entries) {
+  for (const entry of filtered) {
     void log.append(entry).catch((err) => {
       logger.warn(SCOPE, 'activity log append failed', err);
     });

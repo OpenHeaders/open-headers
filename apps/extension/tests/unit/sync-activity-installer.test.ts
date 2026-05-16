@@ -13,8 +13,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MaterializedEntity, MutationEnvelope } from '@openheaders/core/sync';
 import {
   InMemoryActivityLog,
+  InMemoryActivityMuteStore,
+  __resetActivityMuteCacheForTests,
   __resetActivityPriorsForTests,
+  ensureMutesLoaded,
+  muteActivityEntity,
   rememberPriorForMutation,
+  setActivityMuteStore,
 } from '@openheaders/oracle/sync';
 import type { OracleSyncBroadcastEvent } from '@openheaders/oracle/sync';
 
@@ -76,12 +81,14 @@ beforeEach(() => {
   materializeOneMock.mockReturnValue(null);
   __resetActivityInstallerForTests();
   __resetActivityPriorsForTests();
+  __resetActivityMuteCacheForTests();
   setActivityClockForTests(() => 1_700_000_000_000);
 });
 
 afterEach(() => {
   __resetActivityInstallerForTests();
   __resetActivityPriorsForTests();
+  __resetActivityMuteCacheForTests();
 });
 
 describe('observeForActivityFeed', () => {
@@ -213,6 +220,61 @@ describe('observeForActivityFeed', () => {
 
     const rows = await log.list(WS);
     expect(rows.map((r) => r.kind).sort()).toEqual(['edit-entity', 'permission-scope-expansion'].sort());
+  });
+
+  it('drops entries for entities muted in the workspace', async () => {
+    const log = new InMemoryActivityLog();
+    setActivityLog(log);
+    const muteStore = new InMemoryActivityMuteStore();
+    setActivityMuteStore(muteStore);
+    await muteActivityEntity(WS, 'rule', 'r1');
+    hasRecentlyAppliedMock.mockReturnValue(true);
+
+    observeForActivityFeed(event('m1', { kind: 'create', type: 'rule', id: 'r1', payload: {} }));
+    observeForActivityFeed(event('m2', { kind: 'create', type: 'rule', id: 'r2', payload: {} }));
+    await Promise.resolve();
+
+    const rows = await log.list(WS);
+    expect(rows.map((r) => r.entityId)).toEqual(['r2']);
+  });
+
+  it('subscribers do not fire for muted entries', async () => {
+    const log = new InMemoryActivityLog();
+    setActivityLog(log);
+    const muteStore = new InMemoryActivityMuteStore();
+    setActivityMuteStore(muteStore);
+    await muteActivityEntity(WS, 'rule', 'r1');
+    hasRecentlyAppliedMock.mockReturnValue(true);
+
+    const seen: string[] = [];
+    subscribeActivityEntries((entry) => seen.push(entry.entityId));
+
+    observeForActivityFeed(event('m1', { kind: 'create', type: 'rule', id: 'r1', payload: {} }));
+    observeForActivityFeed(event('m2', { kind: 'create', type: 'rule', id: 'r2', payload: {} }));
+    await Promise.resolve();
+
+    expect(seen).toEqual(['r2']);
+  });
+
+  it('hydrates the mute cache from the persisted store on first observe', async () => {
+    const log = new InMemoryActivityLog();
+    setActivityLog(log);
+    const muteStore = new InMemoryActivityMuteStore();
+    await muteStore.put({ workspaceId: WS, entityType: 'rule', entityId: 'r1', mutedAt: 100 });
+    setActivityMuteStore(muteStore);
+    hasRecentlyAppliedMock.mockReturnValue(true);
+
+    // First observation triggers ensureMutesLoaded; await to materialize the cache.
+    observeForActivityFeed(event('m1', { kind: 'create', type: 'rule', id: 'r1', payload: {} }));
+    await ensureMutesLoaded(WS);
+    // Second observation hits the now-warm cache and drops the row.
+    observeForActivityFeed(event('m2', { kind: 'create', type: 'rule', id: 'r1', payload: {} }));
+    await Promise.resolve();
+
+    const rows = await log.list(WS);
+    // The first observation may have raced past the gate; the second
+    // definitively does not. Assert no row carries m2.
+    expect(rows.some((r) => r.mutationId === 'm2')).toBe(false);
   });
 
   it('countUnreadActivityEntries delegates to the installed log', async () => {

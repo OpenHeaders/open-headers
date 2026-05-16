@@ -59,7 +59,9 @@ import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
 import {
   applyWorkspaceSnapshot,
   readWorkspaceStateVector,
+  setActivityMuteStore,
   setOracleHostHooks,
+  subscribeActivityMuteChanges,
 } from '@openheaders/oracle/sync';
 import {
   getOrCreateWorkspaceService,
@@ -108,6 +110,12 @@ setPendingOutQueue(pendingOutQueue);
 // unaffected by IDB latency.
 const activityLog = getSyncPersistenceProvider().createActivityLog?.() ?? null;
 setActivityLog(activityLog);
+
+// F6.b — the per-entity mute store gates the classifier so muted
+// entities never reach the log or the unread badge. The cache module
+// is the runtime source of truth; the persisted store rehydrates it
+// per workspace lazily on first observation.
+setActivityMuteStore(getSyncPersistenceProvider().createActivityMuteStore?.() ?? null);
 
 // State-vector handshake — Phase C natural close-out. On every WS
 // connect, the initiator sends HELLO + STATE_VECTOR; on SYNCED it
@@ -202,6 +210,13 @@ installActivityStatusReporter({
 // reads from the same source via its own subscription.
 subscribeActivityEntries((entry) => {
   broadcast('activityEntry', entry);
+});
+
+// F6.b — every mute/unmute the host cache observes fans out as a
+// renderer-side broadcast so open panels keep their muted-state badges
+// in lockstep without polling the RPC.
+subscribeActivityMuteChanges((change) => {
+  broadcast('activityMuteChanged', change);
 });
 import {
   handleLiveAlarm,

@@ -23,7 +23,9 @@
  */
 
 import type { ActivityLog } from './activity-log';
+import type { ActivityMuteStore } from './activity-mute-store';
 import { IdbActivityLog } from './idb-activity-log';
+import { IdbActivityMuteStore } from './idb-activity-mute-store';
 import { IdbMutationLog } from './idb-mutation-log';
 import { IdbPendingIntents } from './idb-pending-intents';
 import { IdbPendingOutQueue } from './idb-pending-out-queue';
@@ -58,6 +60,15 @@ export interface SyncPersistenceProvider {
    * install a non-default provider don't yet exercise this path.
    */
   createActivityLog?(): ActivityLog;
+  /**
+   * Build the activity mute store (Phase C F6.b). Host-singleton;
+   * per-workspace isolation is enforced inside the store by the
+   * `workspaceId` argument on every method. Provider is expected to
+   * return the same handle on repeated calls. Optional for forward-
+   * compat: tests that don't install a non-default provider don't yet
+   * exercise this path.
+   */
+  createActivityMuteStore?(): ActivityMuteStore;
 }
 
 /**
@@ -67,6 +78,7 @@ export interface SyncPersistenceProvider {
  */
 let idbPendingOutSingleton: IdbPendingOutQueue | null = null;
 let idbActivityLogSingleton: IdbActivityLog | null = null;
+let idbActivityMuteSingleton: IdbActivityMuteStore | null = null;
 
 const IDB_SYNC_PERSISTENCE: SyncPersistenceProvider = {
   createMutationLog: (scope) => new IdbMutationLog(scope),
@@ -78,6 +90,10 @@ const IDB_SYNC_PERSISTENCE: SyncPersistenceProvider = {
   createActivityLog: () => {
     if (!idbActivityLogSingleton) idbActivityLogSingleton = new IdbActivityLog();
     return idbActivityLogSingleton;
+  },
+  createActivityMuteStore: () => {
+    if (!idbActivityMuteSingleton) idbActivityMuteSingleton = new IdbActivityMuteStore();
+    return idbActivityMuteSingleton;
   },
 };
 

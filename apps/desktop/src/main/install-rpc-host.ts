@@ -64,7 +64,11 @@ import {
   peekActiveWorkspaceId,
 } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { hydrateActiveWorkspaceStores } from '@openheaders/oracle/workspace/workspace-coordinator';
-import { setOracleHostHooks } from '@openheaders/oracle/sync';
+import {
+  setActivityMuteStore,
+  setOracleHostHooks,
+  subscribeActivityMuteChanges,
+} from '@openheaders/oracle/sync';
 import { setSyncPersistenceProvider } from '@openheaders/oracle/sync/sync-persistence-provider';
 import { createSqliteSyncPersistence } from '@openheaders/oracle/sync/sqlite-sync-persistence';
 import { setBlobBackend } from '@openheaders/oracle/files';
@@ -136,11 +140,20 @@ export async function installRpcHost(): Promise<void> {
   // tolerates a missing log (counts drops) until this resolves, so
   // ordering here is for readability rather than correctness.
   setActivityLog(syncPersistence.createActivityLog?.() ?? null);
+  // F6.b — per-entity mute store. The cache module is the runtime
+  // source of truth; the persisted store rehydrates it per workspace
+  // lazily on first observation inside the installer.
+  setActivityMuteStore(syncPersistence.createActivityMuteStore?.() ?? null);
   // F5 — live tail for the panel. Each classified entry the installer
   // produces is also pushed onto the renderer bridge so the panel can
   // prepend without re-fetching.
   subscribeActivityEntries((entry) => {
     broadcastToAllRenderers('activityEntry', entry);
+  });
+  // F6.b — fan out mute/unmute observations so every open renderer
+  // surface keeps its muted-state badges in lockstep without polling.
+  subscribeActivityMuteChanges((change) => {
+    broadcastToAllRenderers('activityMuteChanged', change);
   });
   // Blob bytes live on the filesystem alongside the SQLite metadata so
   // large files don't bloat the DB and incremental backups stay
@@ -246,6 +259,7 @@ export async function installRpcHost(): Promise<void> {
     ipcMain.removeHandler(RPC_CHANNEL);
     setMutationForwarderWsServer(null);
     setActivityLog(null);
+    setActivityMuteStore(null);
     void wsServer?.close();
     wsServer = null;
   });

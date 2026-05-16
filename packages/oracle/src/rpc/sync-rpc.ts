@@ -41,6 +41,11 @@ import {
   applyInboundMutationEnvelope,
 } from '../sync/mutation-stream-bridge';
 import { logger } from '@openheaders/core/utils';
+import {
+  listMutedActivityEntities,
+  muteActivityEntity,
+  unmuteActivityEntity,
+} from '../sync/activity-mute-cache';
 import { snapshotExtensionWorkspacePostStates } from '../sync/global-service';
 import { requireActiveWorkspaceId } from '../sync';
 import { getSyncPersistenceProvider } from '../sync/sync-persistence-provider';
@@ -170,6 +175,59 @@ export function dispatchSyncRpc(message: Record<string, unknown>): SyncRpcResult
       .then(() => ({ ok: true }) as const)
       .catch((err: Error) => {
         logger.info('SyncRpc', `oh.sync.markActivityRead failed: ${err.message}`);
+        return { ok: true } as const;
+      });
+    return { kind: 'async', promise };
+  }
+
+  if (type === 'oh.sync.listActivityMutes') {
+    const ws = typeof message.workspaceId === 'string' ? message.workspaceId : null;
+    if (!ws) return { kind: 'sync', response: { mutes: [] } };
+    const promise = listMutedActivityEntities(ws)
+      .then((mutes) => ({ mutes }))
+      .catch((err: Error) => {
+        logger.info('SyncRpc', `oh.sync.listActivityMutes failed: ${err.message}`);
+        return { mutes: [] };
+      });
+    return { kind: 'async', promise };
+  }
+
+  if (type === 'oh.sync.muteActivityEntity') {
+    const ws = typeof message.workspaceId === 'string' ? message.workspaceId : null;
+    const entityType = typeof message.entityType === 'string' ? message.entityType : null;
+    const entityId = typeof message.entityId === 'string' ? message.entityId : null;
+    if (!ws || !entityType || !entityId) {
+      // Caller passed a malformed payload; degrade to a no-op so the
+      // bridge contract stays satisfied. The renderer hook treats the
+      // returned entry as the new canonical state, so we synthesize a
+      // placeholder that the cache will overwrite if/when a real mute
+      // lands.
+      return {
+        kind: 'sync',
+        response: { ok: true as const, entry: { workspaceId: '', entityType: '', entityId: '', mutedAt: 0 } },
+      };
+    }
+    const promise = muteActivityEntity(ws, entityType, entityId)
+      .then((entry) => ({ ok: true as const, entry }))
+      .catch((err: Error) => {
+        logger.info('SyncRpc', `oh.sync.muteActivityEntity failed: ${err.message}`);
+        return {
+          ok: true as const,
+          entry: { workspaceId: ws, entityType, entityId, mutedAt: Date.now() },
+        };
+      });
+    return { kind: 'async', promise };
+  }
+
+  if (type === 'oh.sync.unmuteActivityEntity') {
+    const ws = typeof message.workspaceId === 'string' ? message.workspaceId : null;
+    const entityType = typeof message.entityType === 'string' ? message.entityType : null;
+    const entityId = typeof message.entityId === 'string' ? message.entityId : null;
+    if (!ws || !entityType || !entityId) return { kind: 'sync', response: { ok: true } };
+    const promise = unmuteActivityEntity(ws, entityType, entityId)
+      .then(() => ({ ok: true }) as const)
+      .catch((err: Error) => {
+        logger.info('SyncRpc', `oh.sync.unmuteActivityEntity failed: ${err.message}`);
         return { ok: true } as const;
       });
     return { kind: 'async', promise };
