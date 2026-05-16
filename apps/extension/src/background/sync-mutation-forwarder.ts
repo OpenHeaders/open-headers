@@ -24,7 +24,8 @@
  * stepping on each other across reconnect storms.
  */
 
-import { DEFAULT_REMOTE_ID } from '@openheaders/oracle/sync';
+import { DEFAULT_REMOTE_ID, prunePendingOutByPeerVector } from '@openheaders/oracle/sync';
+import type { StateVector } from '@openheaders/core/sync';
 import {
   SYNC_MUTATION_TYPE,
   type SyncMutationMessage,
@@ -132,6 +133,19 @@ export function flushPendingOutToBackend(): Promise<void> {
     }
   })();
   return inflightFlush;
+}
+
+/**
+ * Apply a peer's state vector to the pending-out queue (Phase C C16):
+ * envelopes the peer already has are dropped from the queue so the
+ * subsequent flush doesn't re-send them. Called by the handshake
+ * post-SYNCED hook once STATE_VECTOR wiring is live; today it's a
+ * directly callable function so tests + future call sites can drive
+ * it explicitly. No-op when no queue is installed.
+ */
+export async function applyPeerStateVectorToPendingOut(peerVector: StateVector): Promise<void> {
+  if (!pendingQueue) return;
+  await prunePendingOutByPeerVector(pendingQueue, DEFAULT_REMOTE_ID, peerVector);
 }
 
 /** Test-only — counts envelopes dropped because no queue was installed. */
