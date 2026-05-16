@@ -26,7 +26,13 @@
  */
 
 import type { ActivityEntry } from '@openheaders/core/sync';
-import { classifyEnvelopeForActivity, type ActivityLog, type OracleSyncBroadcastEvent } from '@openheaders/oracle/sync';
+import {
+  classifyEnvelopeForActivity,
+  consumePriorForMutation,
+  getOracleForWorkspace,
+  type ActivityLog,
+  type OracleSyncBroadcastEvent,
+} from '@openheaders/oracle/sync';
 
 import { logger } from '@utils/logger';
 import { hasRecentlyApplied } from './sync-mutation-receiver';
@@ -90,11 +96,21 @@ export async function countUnreadActivityEntries(workspaceId: string): Promise<n
  * window.
  */
 export function observeForActivityFeed(event: OracleSyncBroadcastEvent): void {
+  const isInbound = hasRecentlyApplied(event.envelope.mutationId);
+  // Consume the prior unconditionally so it cannot accumulate when an
+  // envelope turns out to be non-inbound or non-applied — the bridge
+  // captured it speculatively for every wire-delivered envelope, and a
+  // skipped consumer would leak entries until the FIFO cap kicked in.
+  const prior = consumePriorForMutation(event.envelope.mutationId);
+  const next = isInbound ? readNextMaterialized(event) : null;
+
   const entries = classifyEnvelopeForActivity({
     envelope: event.envelope,
     outcome: event.outcome,
-    isInbound: hasRecentlyApplied(event.envelope.mutationId),
+    isInbound,
     observedAt: clock(),
+    prior,
+    next,
   });
   if (entries.length === 0) return;
 
@@ -117,6 +133,19 @@ export function observeForActivityFeed(event: OracleSyncBroadcastEvent): void {
       logger.warn(SCOPE, 'activity log append failed', err);
     });
   }
+}
+
+/**
+ * Snapshot the post-apply materialized entity for the envelope's
+ * target. The classifier needs this paired with the bridge-captured
+ * prior to detect highlight kinds. Returns `null` for delete envelopes
+ * (the entity is tombstoned by apply time) or when no oracle exists
+ * yet for the workspace.
+ */
+function readNextMaterialized(event: OracleSyncBroadcastEvent) {
+  const oracle = getOracleForWorkspace(event.envelope.workspaceId);
+  if (!oracle) return null;
+  return oracle.materializeOne(event.envelope.body.type, event.envelope.body.id);
 }
 
 function fanOutToSubscribers(entry: ActivityEntry): void {

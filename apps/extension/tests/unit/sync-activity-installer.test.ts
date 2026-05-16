@@ -10,11 +10,16 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { MutationEnvelope } from '@openheaders/core/sync';
-import { InMemoryActivityLog } from '@openheaders/oracle/sync';
+import type { MaterializedEntity, MutationEnvelope } from '@openheaders/core/sync';
+import {
+  InMemoryActivityLog,
+  __resetActivityPriorsForTests,
+  rememberPriorForMutation,
+} from '@openheaders/oracle/sync';
 import type { OracleSyncBroadcastEvent } from '@openheaders/oracle/sync';
 
 const hasRecentlyAppliedMock = vi.fn<(id: string) => boolean>(() => false);
+const materializeOneMock = vi.fn<(type: string, id: string) => MaterializedEntity | null>(() => null);
 
 vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -23,6 +28,16 @@ vi.mock('@utils/logger', () => ({
 vi.mock('@/background/sync-mutation-receiver', () => ({
   hasRecentlyApplied: (id: string) => hasRecentlyAppliedMock(id),
 }));
+
+vi.mock('@openheaders/oracle/sync', async () => {
+  const actual = await vi.importActual<typeof import('@openheaders/oracle/sync')>('@openheaders/oracle/sync');
+  return {
+    ...actual,
+    getOracleForWorkspace: () => ({
+      materializeOne: (type: string, id: string) => materializeOneMock(type, id),
+    }),
+  };
+});
 
 import {
   __getDroppedNoLogCount,
@@ -57,12 +72,16 @@ function event(
 beforeEach(() => {
   hasRecentlyAppliedMock.mockReset();
   hasRecentlyAppliedMock.mockReturnValue(false);
+  materializeOneMock.mockReset();
+  materializeOneMock.mockReturnValue(null);
   __resetActivityInstallerForTests();
+  __resetActivityPriorsForTests();
   setActivityClockForTests(() => 1_700_000_000_000);
 });
 
 afterEach(() => {
   __resetActivityInstallerForTests();
+  __resetActivityPriorsForTests();
 });
 
 describe('observeForActivityFeed', () => {
@@ -137,6 +156,63 @@ describe('observeForActivityFeed', () => {
   it('countUnreadActivityEntries returns 0 when no log is installed', async () => {
     setActivityLog(null);
     await expect(countUnreadActivityEntries(WS)).resolves.toBe(0);
+  });
+
+  it('emits sensitive-field-rotation when a prior + post-apply rotation is detected', async () => {
+    const log = new InMemoryActivityLog();
+    setActivityLog(log);
+    hasRecentlyAppliedMock.mockReturnValue(true);
+
+    const prior: MaterializedEntity = {
+      type: 'vault',
+      id: 'vault',
+      data: { secrets: [{ uid: 's1', kind: 'string', value: 'old' }] },
+    };
+    const next: MaterializedEntity = {
+      type: 'vault',
+      id: 'vault',
+      data: { secrets: [{ uid: 's1', kind: 'string', value: 'new' }] },
+    };
+    rememberPriorForMutation('m1', WS, prior);
+    materializeOneMock.mockReturnValue(next);
+
+    observeForActivityFeed(event('m1', { kind: 'setField', type: 'vault', id: 'vault', path: 'secrets.s1.value', value: 'new' }));
+    await Promise.resolve();
+
+    const rows = await log.list(WS);
+    expect(rows.map((r) => r.kind).sort()).toEqual(['edit-entity', 'sensitive-field-rotation']);
+  });
+
+  it('emits permission-scope-expansion when a rule condition is removed', async () => {
+    const log = new InMemoryActivityLog();
+    setActivityLog(log);
+    hasRecentlyAppliedMock.mockReturnValue(true);
+
+    const prior: MaterializedEntity = {
+      type: 'rule',
+      id: 'r1',
+      data: {
+        conditions: [
+          { uid: 'c1', type: 'url-filter', values: ['*.openheaders.io'] },
+          { uid: 'c2', type: 'request-methods', values: ['GET'] },
+        ],
+      },
+    };
+    const next: MaterializedEntity = {
+      type: 'rule',
+      id: 'r1',
+      data: {
+        conditions: [{ uid: 'c1', type: 'url-filter', values: ['*.openheaders.io'] }],
+      },
+    };
+    rememberPriorForMutation('m1', WS, prior);
+    materializeOneMock.mockReturnValue(next);
+
+    observeForActivityFeed(event('m1', { kind: 'removeFromSet', type: 'rule', id: 'r1', path: 'conditions', itemId: 'c2' }));
+    await Promise.resolve();
+
+    const rows = await log.list(WS);
+    expect(rows.map((r) => r.kind).sort()).toEqual(['edit-entity', 'permission-scope-expansion'].sort());
   });
 
   it('countUnreadActivityEntries delegates to the installed log', async () => {

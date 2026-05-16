@@ -18,6 +18,13 @@ export {
   applyInboundMutationEnvelope,
   hasRecentlyApplied,
 } from './mutation-stream-bridge';
+export {
+  __activityPriorsSizeForTests,
+  __resetActivityPriorsForTests,
+  consumePriorForMutation,
+  rememberPriorForMutation,
+} from './activity-priors';
+export { getOracleForWorkspace } from './service';
 
 export {
   DEFAULT_REMOTE_ID,

@@ -1,5 +1,5 @@
 /**
- * Activity Feed classifier — Phase C F2 (first cut).
+ * Activity Feed classifier — Phase C F2.
  *
  * Pure function: given an applied mutation envelope + outcome, decide
  * whether the receiver should record a workspace-wide Activity Feed
@@ -8,7 +8,7 @@
  * {@link OracleSyncBroadcastEvent} stream and persists each result
  * via {@link ActivityLog}.
  *
- * Scope of this first cut:
+ * Scope:
  *
  *   - **Receiver-only.** Only envelopes the host received over the
  *     wire (`isInbound: true`) enter the feed. The caller decides
@@ -19,20 +19,25 @@
  *     `superseded-by-hlc`, `tombstoned`, `invalid-path`, schema /
  *     version rejections) yield nothing. The feed is a record of
  *     state changes the user can observe, not engine no-ops.
- *   - **Structural kinds only.** Three categories — `create-entity`,
- *     `delete-entity`, `edit-entity`. The highlight kinds
- *     (`supersede-local-edit`, `sensitive-field-rotation`,
- *     `permission-scope-expansion`) need priors and ride on a
- *     follow-up slice that wires the document-store's pre-apply
- *     snapshot into the classifier inputs.
- *
- * Public shape returns an array so a single envelope can fan out to
- * multiple highlight kinds once those land. F2 first cut returns at
- * most one entry.
+ *   - **One structural row + zero or more highlight rows.** Every
+ *     applied + inbound envelope produces exactly one structural row
+ *     (`create-entity` / `delete-entity` / `edit-entity`). When the
+ *     caller passes pre/post materialized snapshots, the classifier
+ *     additionally emits `sensitive-field-rotation` (a secret-bearing
+ *     leaf changed value) and / or `permission-scope-expansion` (a
+ *     rule's match surface widened). The `supersede-local-edit`
+ *     highlight needs per-field origin tracking and is deferred
+ *     (F2.h).
  */
 
-import type { MutationEnvelope, MutatorOutcome } from '@openheaders/core/sync';
-import { activityEntryId, type ActivityEntry, type ActivityEntryKind } from '@openheaders/core/sync';
+import type { MaterializedEntity, MutationEnvelope, MutatorOutcome } from '@openheaders/core/sync';
+import {
+  activityEntryId,
+  detectSensitiveRotation,
+  widensScope,
+  type ActivityEntry,
+  type ActivityEntryKind,
+} from '@openheaders/core/sync';
 
 export interface ClassifyActivityInput {
   envelope: MutationEnvelope;
@@ -46,35 +51,81 @@ export interface ClassifyActivityInput {
   isInbound: boolean;
   /** Wall-clock millis to stamp on the entry. Inject for tests. */
   observedAt: number;
+  /**
+   * Materialized view of the entity BEFORE the inbound mutation was
+   * applied. Captured by the mutation-stream bridge pre-apply and
+   * handed in by the installer. Required to emit the highlight kinds;
+   * absent in unit tests that exercise the structural path only.
+   */
+  prior?: MaterializedEntity | null;
+  /**
+   * Materialized view of the entity AFTER the inbound mutation was
+   * applied. The installer reads it via `materializeOne` on the local
+   * oracle. Required to emit the highlight kinds.
+   */
+  next?: MaterializedEntity | null;
 }
 
 export function classifyEnvelopeForActivity(input: ClassifyActivityInput): ActivityEntry[] {
-  const { envelope, outcome, isInbound, observedAt } = input;
+  const { envelope, outcome, isInbound, observedAt, prior = null, next = null } = input;
   if (!isInbound) return [];
   if (outcome.status !== 'applied') return [];
 
-  const kind = structuralKindFor(envelope);
-  if (kind === null) return [];
+  const structuralKind = structuralKindFor(envelope);
+  if (structuralKind === null) return [];
 
   const body = envelope.body;
   const context: Record<string, unknown> = {};
   if ('path' in body && typeof body.path === 'string') context.path = body.path;
   if ('itemId' in body && typeof body.itemId === 'string') context.itemId = body.itemId;
 
-  const base: Omit<ActivityEntry, 'id'> = {
+  const baseFields = {
     workspaceId: envelope.workspaceId,
     mutationId: envelope.mutationId,
     hlc: envelope.hlc,
-    kind,
     entityType: body.type,
     entityId: body.id,
     origin: envelope.origin,
     observedAt,
     read: false,
-    ...(Object.keys(context).length > 0 ? { context } : {}),
-  };
+  } as const;
+  const contextField = Object.keys(context).length > 0 ? { context } : {};
 
-  return [{ ...base, id: activityEntryId(base) }];
+  const entries: ActivityEntry[] = [];
+  for (const kind of kindsToEmit(structuralKind, body.type, prior, next)) {
+    const partial: Omit<ActivityEntry, 'id'> = { ...baseFields, kind, ...contextField };
+    entries.push({ ...partial, id: activityEntryId(partial) });
+  }
+  return entries;
+}
+
+/**
+ * Compose the kinds this envelope produces. Always begins with the
+ * structural kind; appends highlight kinds when their detectors fire
+ * on the pre/post snapshots.
+ *
+ * Highlight kinds only emit on `edit-entity` — create / delete are
+ * already strong signals on their own and the diff would be one-sided
+ * (no prior on create; no next on delete).
+ */
+function kindsToEmit(
+  structural: ActivityEntryKind,
+  entityType: string,
+  prior: MaterializedEntity | null,
+  next: MaterializedEntity | null,
+): ActivityEntryKind[] {
+  const out: ActivityEntryKind[] = [structural];
+  if (structural !== 'edit-entity') return out;
+  const priorData = prior?.data ?? null;
+  const nextData = next?.data ?? null;
+  if (priorData === null || nextData === null) return out;
+  if (detectSensitiveRotation(entityType, priorData, nextData)) {
+    out.push('sensitive-field-rotation');
+  }
+  if (widensScope(entityType, priorData, nextData)) {
+    out.push('permission-scope-expansion');
+  }
+  return out;
 }
 
 function structuralKindFor(envelope: MutationEnvelope): ActivityEntryKind | null {

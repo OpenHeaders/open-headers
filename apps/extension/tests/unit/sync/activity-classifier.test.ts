@@ -6,7 +6,13 @@
  * cut emits.
  */
 
-import type { MutationBody, MutationEnvelope, MutatorOutcome, MutatorStatus } from '@openheaders/core/sync';
+import type {
+  MaterializedEntity,
+  MutationBody,
+  MutationEnvelope,
+  MutatorOutcome,
+  MutatorStatus,
+} from '@openheaders/core/sync';
 import { classifyEnvelopeForActivity } from '@openheaders/oracle/sync';
 import { describe, expect, it } from 'vitest';
 
@@ -128,6 +134,82 @@ describe('classifyEnvelopeForActivity', () => {
       });
       expect(out).toEqual([]);
     }
+  });
+
+  it('emits sensitive-field-rotation alongside edit-entity when a vault secret value changes', () => {
+    const prior: MaterializedEntity = {
+      type: 'vault',
+      id: 'vault',
+      data: { secrets: [{ uid: 's1', kind: 'string', value: 'old' }] },
+    };
+    const next: MaterializedEntity = {
+      type: 'vault',
+      id: 'vault',
+      data: { secrets: [{ uid: 's1', kind: 'string', value: 'new' }] },
+    };
+    const out = classifyEnvelopeForActivity({
+      envelope: envelope({ kind: 'setField', type: 'vault', id: 'vault', path: 'secrets.s1.value', value: 'new' }),
+      outcome: applied,
+      isInbound: true,
+      observedAt: 0,
+      prior,
+      next,
+    });
+    expect(out.map((e) => e.kind)).toEqual(['edit-entity', 'sensitive-field-rotation']);
+  });
+
+  it('emits permission-scope-expansion alongside edit-entity when a rule condition is removed', () => {
+    const prior: MaterializedEntity = {
+      type: 'rule',
+      id: 'r1',
+      data: {
+        conditions: [
+          { uid: 'c1', type: 'url-filter', values: ['*.openheaders.io'] },
+          { uid: 'c2', type: 'request-methods', values: ['GET'] },
+        ],
+      },
+    };
+    const next: MaterializedEntity = {
+      type: 'rule',
+      id: 'r1',
+      data: {
+        conditions: [{ uid: 'c1', type: 'url-filter', values: ['*.openheaders.io'] }],
+      },
+    };
+    const out = classifyEnvelopeForActivity({
+      envelope: envelope({ kind: 'removeFromSet', type: 'rule', id: 'r1', path: 'conditions', itemId: 'c2' }),
+      outcome: applied,
+      isInbound: true,
+      observedAt: 0,
+      prior,
+      next,
+    });
+    expect(out.map((e) => e.kind)).toEqual(['edit-entity', 'permission-scope-expansion']);
+  });
+
+  it('omits highlight kinds on create / delete envelopes even with prior+next supplied', () => {
+    const next: MaterializedEntity = { type: 'rule', id: 'r1', data: { conditions: [] } };
+    const out = classifyEnvelopeForActivity({
+      envelope: envelope({ kind: 'create', type: 'rule', id: 'r1', payload: {} }),
+      outcome: applied,
+      isInbound: true,
+      observedAt: 0,
+      prior: null,
+      next,
+    });
+    expect(out.map((e) => e.kind)).toEqual(['create-entity']);
+  });
+
+  it('emits structural row alone when prior or next is null', () => {
+    const out = classifyEnvelopeForActivity({
+      envelope: envelope({ kind: 'setField', type: 'vault', id: 'vault', path: 'secrets.s1.value', value: 'new' }),
+      outcome: applied,
+      isInbound: true,
+      observedAt: 0,
+      prior: null,
+      next: null,
+    });
+    expect(out.map((e) => e.kind)).toEqual(['edit-entity']);
   });
 
   it('encodes a deterministic id derived from (hlc, mutationId, kind)', () => {

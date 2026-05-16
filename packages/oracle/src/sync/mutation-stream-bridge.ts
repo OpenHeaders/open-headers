@@ -47,7 +47,8 @@
  */
 import { compareHlc, type MutationBatch, type MutationEnvelope } from '@openheaders/core/sync';
 
-import { applySyncRequest, getOrCreateWorkspaceService, releaseWorkspaceService } from './service';
+import { rememberPriorForMutation } from './activity-priors';
+import { applySyncRequest, getOracleForWorkspace, getOrCreateWorkspaceService, releaseWorkspaceService } from './service';
 
 const SEEN_MUTATION_IDS = new Set<string>();
 const SEEN_CAP = 10_000;
@@ -102,10 +103,32 @@ export async function applyInboundMutationEnvelope(envelope: MutationEnvelope): 
 export async function applyInboundMutationBatch(batch: MutationBatch): Promise<void> {
   const allKnown = batch.mutations.every((e) => SEEN_MUTATION_IDS.has(e.mutationId));
   if (allKnown) return;
+  capturePriorsForActivity(batch);
   const response = await applySyncRequest({ type: 'oh.sync.apply', batch, sideEffects: [] });
   if (!response.ok) return;
   for (const env of batch.mutations) rememberApplied(env);
   observeHighestPerWorkspace(batch);
+}
+
+/**
+ * Per-envelope: read the materialized entity from the local oracle
+ * BEFORE {@link applySyncRequest} mutates it, and stash it by
+ * mutationId for the Activity Feed classifier. Read is lock-free
+ * (`materializeOne` walks the in-memory store; no `acquire`), so this
+ * step adds no apply-path latency.
+ *
+ * Skipped silently when no oracle is materialized for the workspace
+ * (e.g. inbound for a workspace that hasn't been touched yet — the
+ * apply will create it). In that case the classifier sees `prior:
+ * null`, which is correct: there was no prior state to compare.
+ */
+function capturePriorsForActivity(batch: MutationBatch): void {
+  for (const env of batch.mutations) {
+    if (SEEN_MUTATION_IDS.has(env.mutationId)) continue;
+    const oracle = getOracleForWorkspace(env.workspaceId);
+    const prior = oracle ? oracle.materializeOne(env.body.type, env.body.id) : null;
+    rememberPriorForMutation(env.mutationId, env.workspaceId, prior);
+  }
 }
 
 /**
