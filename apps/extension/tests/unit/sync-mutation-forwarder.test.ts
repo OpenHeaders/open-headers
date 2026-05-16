@@ -1,13 +1,15 @@
 /**
- * Phase C C7 — outbound mutation forwarder.
+ * Phase C C7 / C15 — outbound mutation forwarder + reconnect-flush.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SYNC_MUTATION_TYPE } from '@openheaders/core/protocol';
+import { DEFAULT_REMOTE_ID, InMemoryPendingOutQueue } from '@openheaders/oracle/sync';
 import type { OracleSyncBroadcastEvent } from '@openheaders/oracle/sync';
 
 const sendMock = vi.fn<(data: Record<string, unknown>) => boolean>(() => true);
+const isConnectedMock = vi.fn<() => boolean>(() => true);
 
 vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -15,12 +17,15 @@ vi.mock('@utils/logger', () => ({
 
 vi.mock('@/background/websocket', () => ({
   sendViaWebSocket: (data: Record<string, unknown>) => sendMock(data),
+  isWebSocketConnected: () => isConnectedMock(),
 }));
 
 import {
-  __getDroppedOfflineCount,
+  __getDroppedNoQueueCount,
   __resetMutationForwarderForTests,
+  flushPendingOutToBackend,
   forwardMutationToBackend,
+  setPendingOutQueue,
   setShouldForwardMutation,
 } from '../../src/background/sync-mutation-forwarder';
 
@@ -38,9 +43,14 @@ const event = (overrides: Partial<OracleSyncBroadcastEvent> = {}): OracleSyncBro
     ...overrides,
   }) as OracleSyncBroadcastEvent;
 
+const eventWith = (mutationId: string, ms: number): OracleSyncBroadcastEvent =>
+  event({ envelope: { ...event().envelope, mutationId, hlc: { physicalMs: ms, logical: 0, nodeId: 'sw' } } });
+
 beforeEach(() => {
-  sendMock.mockClear();
+  sendMock.mockReset();
   sendMock.mockReturnValue(true);
+  isConnectedMock.mockReset();
+  isConnectedMock.mockReturnValue(true);
   __resetMutationForwarderForTests();
 });
 
@@ -64,20 +74,95 @@ describe('forwardMutationToBackend', () => {
     expect(sendMock).not.toHaveBeenCalled();
   });
 
-  it('counts drops while the backend is offline', () => {
+  it('enqueues to pending-out queue on send failure when queue is installed', async () => {
+    const queue = new InMemoryPendingOutQueue();
+    setPendingOutQueue(queue);
     sendMock.mockReturnValue(false);
-    forwardMutationToBackend(event({ envelope: { ...event().envelope, mutationId: 'm-a' } }));
-    forwardMutationToBackend(event({ envelope: { ...event().envelope, mutationId: 'm-b' } }));
-    expect(__getDroppedOfflineCount()).toBe(2);
+    forwardMutationToBackend(eventWith('m-offline', 1_000));
+    // Enqueue is fire-and-forget — yield to microtasks.
+    await Promise.resolve();
+    expect(await queue.size(DEFAULT_REMOTE_ID)).toBe(1);
+    expect(await queue.has(DEFAULT_REMOTE_ID, 'm-offline')).toBe(true);
   });
 
-  it('resets the offline counter once a send succeeds', () => {
+  it('counts drops only when no queue is installed', async () => {
     sendMock.mockReturnValue(false);
-    forwardMutationToBackend(event());
-    expect(__getDroppedOfflineCount()).toBe(1);
+    forwardMutationToBackend(eventWith('m-a', 1_000));
+    forwardMutationToBackend(eventWith('m-b', 2_000));
+    expect(__getDroppedNoQueueCount()).toBe(2);
+  });
+});
+
+describe('flushPendingOutToBackend', () => {
+  it('drains queued envelopes in HLC order and acks each', async () => {
+    const queue = new InMemoryPendingOutQueue();
+    setPendingOutQueue(queue);
+    sendMock.mockReturnValue(false);
+    isConnectedMock.mockReturnValue(false);
+
+    forwardMutationToBackend(eventWith('m-2', 2_000));
+    forwardMutationToBackend(eventWith('m-1', 1_000));
+    forwardMutationToBackend(eventWith('m-3', 3_000));
+    await Promise.resolve();
+    expect(await queue.size(DEFAULT_REMOTE_ID)).toBe(3);
+
+    // Reconnect: send + isConnected now return true; flush drains.
+    sendMock.mockClear();
+    sendMock.mockReturnValue(true);
+    isConnectedMock.mockReturnValue(true);
+    await flushPendingOutToBackend();
+
+    const orderedSentIds = sendMock.mock.calls
+      .filter((c) => (c[0]! as { type?: string }).type === SYNC_MUTATION_TYPE)
+      .map((c) => ((c[0]! as { envelope: { mutationId: string } }).envelope.mutationId));
+    expect(orderedSentIds).toEqual(['m-1', 'm-2', 'm-3']);
+    expect(await queue.size(DEFAULT_REMOTE_ID)).toBe(0);
+  });
+
+  it('stops mid-drain if the connection drops; remainder stays queued', async () => {
+    const queue = new InMemoryPendingOutQueue();
+    setPendingOutQueue(queue);
+    sendMock.mockReturnValue(false);
+    isConnectedMock.mockReturnValue(false);
+
+    forwardMutationToBackend(eventWith('m-1', 1_000));
+    forwardMutationToBackend(eventWith('m-2', 2_000));
+    forwardMutationToBackend(eventWith('m-3', 3_000));
+    await Promise.resolve();
+
+    // Reconnect: first send succeeds, second send fails (transport breaks
+    // mid-drain). isConnected stays true for both attempts; flush should
+    // still stop after the failing send.
+    isConnectedMock.mockReturnValue(true);
+    sendMock.mockReturnValueOnce(true).mockReturnValueOnce(false).mockReturnValue(true);
+    await flushPendingOutToBackend();
+
+    // m-1 acked, m-2 + m-3 still pending.
+    expect(await queue.has(DEFAULT_REMOTE_ID, 'm-1')).toBe(false);
+    expect(await queue.has(DEFAULT_REMOTE_ID, 'm-2')).toBe(true);
+    expect(await queue.has(DEFAULT_REMOTE_ID, 'm-3')).toBe(true);
+  });
+
+  it('is a no-op when no queue is installed', async () => {
+    await flushPendingOutToBackend();
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it('coalesces concurrent flush calls onto one in-flight promise', async () => {
+    const queue = new InMemoryPendingOutQueue();
+    setPendingOutQueue(queue);
+    sendMock.mockReturnValue(false);
+    isConnectedMock.mockReturnValue(false);
+    forwardMutationToBackend(eventWith('m-1', 1_000));
+    await Promise.resolve();
 
     sendMock.mockReturnValue(true);
-    forwardMutationToBackend(event());
-    expect(__getDroppedOfflineCount()).toBe(0);
+    isConnectedMock.mockReturnValue(true);
+
+    const a = flushPendingOutToBackend();
+    const b = flushPendingOutToBackend();
+    expect(a).toBe(b);
+    await a;
+    expect(await queue.size(DEFAULT_REMOTE_ID)).toBe(0);
   });
 });

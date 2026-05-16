@@ -57,17 +57,31 @@ import { getLiveWorkflows, onLiveWorkflowStoreChange } from '@openheaders/oracle
 import { disposeResolverStateForWorkspace } from '@openheaders/oracle/rule-engine/variables-resolver';
 import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
 import { setOracleHostHooks } from '@openheaders/oracle/sync';
+import { getSyncPersistenceProvider } from '@openheaders/oracle/sync/sync-persistence-provider';
 import {
+  flushPendingOutToBackend,
   forwardMutationToBackend,
+  setPendingOutQueue,
   setShouldForwardMutation,
 } from './sync-mutation-forwarder';
 import { hasRecentlyApplied } from './sync-mutation-receiver';
+import { subscribeOnWebSocketOpen } from './websocket';
 
 // Don't bounce envelopes that arrived from the backend back to it.
 // The receiver records every applied mutationId; the forwarder skips
 // re-broadcasting any envelope already in that set. Pairs with the
 // receiver's own seen-set dedup — together they break the echo loop.
 setShouldForwardMutation((event) => !hasRecentlyApplied(event.envelope.mutationId));
+
+// Persistent pending-out queue (C13) so offline edits survive the
+// disconnect window. Drained on WS reconnect (C15) in HLC order;
+// wire-side dedup (C11) makes the replay safe even if the backend
+// already saw the envelope before the disconnect.
+const pendingOutQueue = getSyncPersistenceProvider().createPendingOutQueue?.() ?? null;
+setPendingOutQueue(pendingOutQueue);
+subscribeOnWebSocketOpen(() => {
+  void flushPendingOutToBackend();
+});
 import {
   handleLiveAlarm,
   isLiveRefreshAlarm,

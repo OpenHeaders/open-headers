@@ -124,6 +124,28 @@ function broadcastConnectionStatus(): void {
 }
 
 /**
+ * Subscribers fired on each WS connect transition (after the
+ * post-open setup but before any inbound message). Phase C C15
+ * uses this to drain the pending-out queue once the wire is back.
+ */
+const onConnectSubscribers = new Set<() => void>();
+
+export function subscribeOnWebSocketOpen(cb: () => void): () => void {
+  onConnectSubscribers.add(cb);
+  return () => onConnectSubscribers.delete(cb);
+}
+
+function fireOnWebSocketOpen(): void {
+  for (const cb of [...onConnectSubscribers]) {
+    try {
+      cb();
+    } catch (err) {
+      logger.warn('WebSocket', 'onOpen subscriber threw', err);
+    }
+  }
+}
+
+/**
  * Mirror the socket's state into the `sync` Status subsystem.
  *
  * Semantic intent vs actual state:
@@ -265,6 +287,7 @@ function connectStandardWebSocket(url: string): void {
         reportSyncStatus();
         sendBrowserInfo();
         startPingTimer();
+        fireOnWebSocketOpen();
       };
 
       socket.onmessage = createMessageHandler();

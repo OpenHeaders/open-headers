@@ -1,45 +1,41 @@
 /**
- * Outbound mutation forwarder — Phase C C7.
+ * Outbound mutation forwarder — Phase C C7 / C15.
  *
- * Every envelope the local SW oracle commits flows through here, and
- * the forwarder writes it to the backend WS as an
- * {@link SYNC_MUTATION_TYPE} frame. The receiver (desktop main /
- * daemon) routes the envelope into its own oracle via the symmetric
- * receive handler (C9), so a single user gesture on the extension
- * shows up on the desktop within one WS round-trip.
- *
- * Composition:
+ * Every envelope the local SW oracle commits flows through here:
  *
  *   1. The oracle's `broadcastSyncEvent` host hook fires per committed
  *      envelope (see `background.ts`).
- *   2. The hook also calls {@link forwardMutationToBackend}.
+ *   2. The hook calls {@link forwardMutationToBackend}.
  *   3. {@link forwardMutationToBackend} consults the configurable
- *      {@link shouldForwardMutation} predicate, then hands the
- *      envelope to `sendViaWebSocket`.
+ *      {@link shouldForwardMutation} predicate (C11 echo guard), then
+ *      writes the envelope to the backend WS via
+ *      `sendViaWebSocket`. On failure, the envelope is enqueued in
+ *      the persistent pending-out queue (C13).
  *
- * The predicate seam exists so the C11 dedup layer can plug in
- * without rewriting this module — it will fail-closed on envelopes
- * whose `mutationId` is already in the "seen from peer" set,
- * breaking the echo loop. Until C11 lands, the default predicate
- * forwards everything; this is safe today because the inbound apply
- * path (C8) is still stubbed at `websocket.ts:176`, so no inbound
- * envelopes reach the oracle in the first place.
+ * Reconnect-flush ({@link flushPendingOutToBackend}, C15) drains the
+ * queue in HLC order, re-sends each envelope, and acks on success.
+ * Wire-side dedup (C11) makes the replay safe even if the backend
+ * already received the envelope before the disconnect.
  *
- * Failure model: `sendViaWebSocket` returns `false` when the socket
- * is not open. The forwarder treats that as "queue for later" —
- * which today means dropping (the pending-out queue lands at C13).
- * Logging happens once per drop, not per envelope, to avoid
- * flooding when the SW is offline for an extended period.
+ * **Threading.** `broadcastSyncEvent` fires synchronously from
+ * applies, but enqueue + flush are async. The forwarder uses a
+ * fire-and-forget pattern for enqueue (preserves apply latency); a
+ * single in-flight `flush` promise prevents concurrent drains from
+ * stepping on each other across reconnect storms.
  */
 
+import { DEFAULT_REMOTE_ID } from '@openheaders/oracle/sync';
 import {
   SYNC_MUTATION_TYPE,
   type SyncMutationMessage,
 } from '@openheaders/core/protocol';
 import type { OracleSyncBroadcastEvent } from '@openheaders/oracle/sync';
+import type { PendingOutQueue } from '@openheaders/oracle/sync';
 
 import { logger } from '@utils/logger';
-import { sendViaWebSocket } from './websocket';
+import { isWebSocketConnected, sendViaWebSocket } from './websocket';
+
+const SCOPE = 'SyncForwarder';
 
 export type ShouldForwardMutation = (event: OracleSyncBroadcastEvent) => boolean;
 
@@ -54,49 +50,100 @@ export function setShouldForwardMutation(predicate: ShouldForwardMutation): void
   shouldForward = predicate;
 }
 
-let droppedWhileOffline = 0;
-let loggedOfflineDrop = false;
+let pendingQueue: PendingOutQueue | null = null;
 
-export function forwardMutationToBackend(event: OracleSyncBroadcastEvent): void {
-  if (!shouldForward(event)) return;
-  // Rolled-back envelopes never reach the broadcast bus in the first
-  // place (the oracle filters them before firing the hook), so we
-  // don't need to recheck outcome status here. The envelope's
-  // workspaceId carries the routing key.
-  const msg: SyncMutationMessage = {
+/**
+ * Install the pending-out queue. Called once during boot wiring
+ * after the persistence provider has been chosen (default IDB on
+ * the extension SW). Without this, the forwarder falls back to
+ * count-only drop telemetry.
+ */
+export function setPendingOutQueue(queue: PendingOutQueue | null): void {
+  pendingQueue = queue;
+}
+
+let droppedNoQueue = 0;
+let loggedDropOnce = false;
+let inflightFlush: Promise<void> | null = null;
+
+function envelopeToFrame(event: OracleSyncBroadcastEvent): SyncMutationMessage {
+  return {
     type: SYNC_MUTATION_TYPE,
     workspaceId: event.envelope.workspaceId,
     envelope: event.envelope,
   };
-  const sent = sendViaWebSocket(msg as unknown as Record<string, unknown>);
-  if (!sent) {
-    droppedWhileOffline++;
-    if (!loggedOfflineDrop) {
-      logger.info(
-        'SyncForwarder',
-        'Backend not connected — outbound envelope queued (pending-out queue lands at C13)',
-      );
-      loggedOfflineDrop = true;
-    }
+}
+
+export function forwardMutationToBackend(event: OracleSyncBroadcastEvent): void {
+  if (!shouldForward(event)) return;
+  const frame = envelopeToFrame(event);
+  const sent = sendViaWebSocket(frame as unknown as Record<string, unknown>);
+  if (sent) return;
+
+  if (pendingQueue) {
+    void pendingQueue.enqueue(DEFAULT_REMOTE_ID, event.envelope).catch((err) => {
+      logger.warn(SCOPE, 'enqueue to pending-out queue failed', err);
+    });
     return;
   }
-  // Reset the once-per-offline-window logging gate once a send
-  // succeeds, so the next disconnect window logs once again.
-  if (loggedOfflineDrop) {
-    logger.info('SyncForwarder', `Backend reconnected; ${droppedWhileOffline} envelope(s) had been dropped`);
-    droppedWhileOffline = 0;
-    loggedOfflineDrop = false;
+  // No queue installed (test harness, cold boot). Count drops for
+  // telemetry; once-per-window log to avoid flooding.
+  droppedNoQueue++;
+  if (!loggedDropOnce) {
+    logger.info(SCOPE, 'no pending-out queue installed; outbound envelope dropped');
+    loggedDropOnce = true;
   }
 }
 
-/** Test-only accessor — counts envelopes dropped during offline windows. */
-export function __getDroppedOfflineCount(): number {
-  return droppedWhileOffline;
+/**
+ * Drain the pending-out queue in HLC order and re-send each
+ * envelope. Acks on successful send so a partial drain (WS dies
+ * mid-flush) leaves the remainder intact for the next flush. Safe
+ * to call repeatedly; concurrent calls coalesce onto one in-flight
+ * promise.
+ */
+export function flushPendingOutToBackend(): Promise<void> {
+  if (inflightFlush) return inflightFlush;
+  inflightFlush = (async () => {
+    try {
+      if (!pendingQueue) return;
+      if (!isWebSocketConnected()) return;
+
+      const acked: string[] = [];
+      for await (const env of pendingQueue.drain(DEFAULT_REMOTE_ID)) {
+        if (!isWebSocketConnected()) break;
+        const frame: SyncMutationMessage = {
+          type: SYNC_MUTATION_TYPE,
+          workspaceId: env.workspaceId,
+          envelope: env,
+        };
+        const sent = sendViaWebSocket(frame as unknown as Record<string, unknown>);
+        if (!sent) break;
+        acked.push(env.mutationId);
+      }
+      if (acked.length > 0) {
+        await pendingQueue.ackAll(DEFAULT_REMOTE_ID, acked);
+        logger.info(SCOPE, `flushed ${acked.length} pending envelope(s) to backend`);
+      }
+    } catch (err) {
+      logger.warn(SCOPE, 'pending-out flush failed mid-drain', err);
+    } finally {
+      inflightFlush = null;
+    }
+  })();
+  return inflightFlush;
+}
+
+/** Test-only — counts envelopes dropped because no queue was installed. */
+export function __getDroppedNoQueueCount(): number {
+  return droppedNoQueue;
 }
 
 /** Test-only — reset internal counters between cases. */
 export function __resetMutationForwarderForTests(): void {
   shouldForward = () => true;
-  droppedWhileOffline = 0;
-  loggedOfflineDrop = false;
+  pendingQueue = null;
+  droppedNoQueue = 0;
+  loggedDropOnce = false;
+  inflightFlush = null;
 }
