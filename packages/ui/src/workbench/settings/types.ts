@@ -87,6 +87,14 @@ export interface SettingDef<K extends SettingKey = SettingKey> {
   key: K;
   type: SettingType;
   default: SettingsMap[K];
+  /**
+   * Host-aware default. When set, this is the value used for `isModified`
+   * comparison, reset, and unset reads — `default` becomes a fallback for
+   * tests / non-runtime consumers that read the static definition. Use
+   * when the same setting needs different defaults per host (e.g. a
+   * picker whose schema-default option isn't valid on every host).
+   */
+  getDefault?: () => SettingsMap[K];
   /** valibot schema used to validate values at read and write time. */
   schema: v.BaseSchema<SettingsMap[K], SettingsMap[K], v.BaseIssue<unknown>>;
 

@@ -98,11 +98,10 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   // committing.
   const [previewMode, setPreviewMode] = useState<BackendMode>(mode);
 
-  // All 4 scenarios show in the tile row on every host so users can
-  // see the full picture. Tiles for modes that aren't valid for the
-  // running host render as disabled (greyed). The dropdown filters
-  // them out entirely — you can preview an unavailable mode visually,
-  // but you can't activate it.
+  // If the stored value isn't valid for the current host (e.g. user
+  // imported a config from a different host), correct it. The store's
+  // host-aware default keeps `isModified` honest, so this write only
+  // happens for genuinely-invalid stored values.
   useEffect(() => {
     const stored = SCENARIOS.find((s) => s.mode === mode);
     if (!stored || !stored.validHosts.includes(host)) {

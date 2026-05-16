@@ -82,15 +82,20 @@ function validate<K extends SettingKey>(def: SettingDef<K>, raw: unknown): Setti
   return result.output;
 }
 
+function effectiveDefault<K extends SettingKey>(def: SettingDef<K>): SettingsMap[K] {
+  return def.getDefault ? def.getDefault() : def.default;
+}
+
 function isDefault<K extends SettingKey>(def: SettingDef<K>, value: unknown): boolean {
   // Shallow equality is sufficient for the primitive setting types we
   // ship today (string, number, boolean, enum). Object-valued settings
   // (keyvalue, multi-select) use JSON equality for simplicity — they're
   // low-write surfaces and the cost is negligible.
-  if (value === def.default) return true;
-  if (typeof value === 'object' && value !== null && typeof def.default === 'object') {
+  const dflt = effectiveDefault(def);
+  if (value === dflt) return true;
+  if (typeof value === 'object' && value !== null && typeof dflt === 'object') {
     try {
-      return JSON.stringify(value) === JSON.stringify(def.default);
+      return JSON.stringify(value) === JSON.stringify(dflt);
     } catch {
       return false;
     }
@@ -201,7 +206,7 @@ subscribeRegistry(() => {
   const scopesToReload = new Set<SettingScope>();
   for (const def of allDefs()) {
     if (!state.values.has(def.key)) {
-      state.values.set(def.key, def.default);
+      state.values.set(def.key, effectiveDefault(def));
       seededAny = true;
       scopesToReload.add(def.scope);
     }
@@ -232,7 +237,7 @@ export function get<K extends SettingKey>(key: K): SettingsMap[K] {
   if (state.values.has(key)) return state.values.get(key) as SettingsMap[K];
   const def = getDef(key);
   if (!def) throw new Error(`Settings: no definition registered for key "${key}"`);
-  return def.default;
+  return effectiveDefault(def);
 }
 
 export function isReady(): boolean {
@@ -283,7 +288,7 @@ async function flushScope(scope: SettingScope): Promise<void> {
 export function reset<K extends SettingKey>(key: K): void {
   const def = getDef(key);
   if (!def) return;
-  set(key, def.default);
+  set(key, effectiveDefault(def));
 }
 
 /**
@@ -295,7 +300,7 @@ export function resetAll(): number {
   let resetCount = 0;
   for (const def of allDefs()) {
     if (state.modified.has(def.key)) {
-      set(def.key, def.default);
+      set(def.key, effectiveDefault(def));
       resetCount++;
     }
   }

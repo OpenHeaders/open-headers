@@ -79,7 +79,7 @@ export function byCategory(categoryId: string): readonly SettingDef[] {
 export function allDefaults(): Partial<SettingsMap> {
   const out: Record<string, unknown> = {};
   for (const def of defs.values()) {
-    out[def.key] = def.default;
+    out[def.key] = def.getDefault ? def.getDefault() : def.default;
   }
   return out as Partial<SettingsMap>;
 }

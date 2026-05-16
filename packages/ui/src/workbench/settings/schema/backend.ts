@@ -21,6 +21,7 @@
  */
 
 import * as v from 'valibot';
+import { getCurrentHost } from '../../../shared/host-vocabulary';
 import { registerSetting } from '../registry';
 
 export const BACKEND_MODES = ['in-browser', 'desktop-app', 'local-self-hosted', 'remote-self-hosted'] as const;
@@ -55,6 +56,11 @@ registerSetting({
   key: 'backend.mode',
   type: 'enum',
   default: 'in-browser',
+  // Schema default is `in-browser` (only valid on the extension host).
+  // On desktop / web the back-end can't live inside a service worker, so
+  // the host-aware default falls back to `desktop-app`, which is valid
+  // everywhere. Drives `isModified` comparison and Reset behavior.
+  getDefault: () => (getCurrentHost() === 'extension' ? 'in-browser' : 'desktop-app'),
   schema: modeSchema,
   label: 'Backend mode',
   description: 'Where your workspaces live. Pick the host that matches your reach.',
