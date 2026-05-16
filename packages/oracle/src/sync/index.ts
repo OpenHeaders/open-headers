@@ -93,3 +93,14 @@ export {
   type OracleStatusReport,
   type OracleSyncBroadcastEvent,
 } from './host-hooks';
+
+export {
+  decideModeSwitch,
+  isPresenceEmpty,
+  summarizeWorkspaces,
+  type DataPresenceSummary,
+  type EntityCounts,
+  type ModeSwitchInput,
+  type ModeSwitchVerdict,
+  type WorkspaceContentSnapshot,
+} from './mode-switch';
