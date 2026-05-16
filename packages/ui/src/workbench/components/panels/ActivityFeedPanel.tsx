@@ -31,9 +31,16 @@ import ActivityFeedCard from './ActivityFeedCard';
 
 interface ActivityFeedPanelProps {
   onClose: () => void;
+  /**
+   * Open the entity in its editor tab. Wired by the workbench shell
+   * (App.tsx) via `viewActivityEntity` from `activity-view-router.ts`.
+   * Optional so the panel can render in isolation (storybook /
+   * standalone hosts) without a viewer.
+   */
+  onViewEntity?: (entityType: string, entityId: string) => void;
 }
 
-const ActivityFeedPanel: React.FC<ActivityFeedPanelProps> = ({ onClose }) => {
+const ActivityFeedPanel: React.FC<ActivityFeedPanelProps> = ({ onClose, onViewEntity }) => {
   const wiring = useMemo(() => createPanelHeaderWiring({ onHide: onClose }), [onClose]);
   const { token } = theme.useToken();
   const workspaceId = useActiveWorkspaceId();
@@ -111,7 +118,7 @@ const ActivityFeedPanel: React.FC<ActivityFeedPanelProps> = ({ onClose }) => {
             style={{ overflow: 'auto', flex: '1 1 auto' }}
             renderItem={(group) => (
               <List.Item style={{ display: 'block', padding: '6px 10px' }}>
-                <ActivityFeedCard group={group} />
+                <ActivityFeedCard group={group} onView={onViewEntity} />
               </List.Item>
             )}
             // Disable antd's split borders; the card draws its own.

@@ -81,6 +81,7 @@ import LiveVariableEditor from './components/live/LiveVariableEditor';
 import LiveWorkflowEditor from './components/live/LiveWorkflowEditor';
 import WorkflowStatusPanel from './components/live/WorkflowStatusPanel';
 import ActivityFeedPanel from './components/panels/ActivityFeedPanel';
+import { viewActivityEntity } from './components/panels/activity-view-router';
 import DocsPanel from './components/panels/DocsPanel';
 import VariablesPanel from './components/panels/VariablesPanel';
 import RequestCollectionOverview from './components/RequestCollectionOverview';
@@ -1823,6 +1824,47 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
 
   const renderEmpty = useCallback(() => <EmptyState onCreateRule={openCreateTab} />, [openCreateTab]);
 
+  // Bound `View` handler for ActivityFeedPanel — routes per
+  // entityType to the matching tab-opener via the pure helper in
+  // `activity-view-router.ts`. Lifted out of renderToolWindow so the
+  // bound callback keeps a stable identity across non-opener renders.
+  const handleViewActivityEntity = useCallback(
+    (entityType: string, entityId: string) => {
+      viewActivityEntity(entityType, entityId, {
+        openEditTab,
+        openEnvironmentEdit,
+        openRequestEditTab,
+        openTemplateEditTab,
+        openLiveVariableEdit,
+        openLiveWorkflowEdit,
+        openVault,
+        openWorkspaceVariables,
+        openCollectionOverview,
+        openRequestCollectionOverview,
+        openTemplateCollectionOverview,
+        openFolderOverview,
+        openRequestFolderOverview,
+        openTemplateFolderOverview,
+      });
+    },
+    [
+      openEditTab,
+      openEnvironmentEdit,
+      openRequestEditTab,
+      openTemplateEditTab,
+      openLiveVariableEdit,
+      openLiveWorkflowEdit,
+      openVault,
+      openWorkspaceVariables,
+      openCollectionOverview,
+      openRequestCollectionOverview,
+      openTemplateCollectionOverview,
+      openFolderOverview,
+      openRequestFolderOverview,
+      openTemplateFolderOverview,
+    ],
+  );
+
   // ── Tool window renderer ──────────────────────────────────────
   //
   // The three left-top tool windows (`http-workbench`, `api-requests`,
@@ -1907,7 +1949,12 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
             />
           );
         case 'activity':
-          return <ActivityFeedPanel onClose={() => tl.toggleWindow('activity')} />;
+          return (
+            <ActivityFeedPanel
+              onClose={() => tl.toggleWindow('activity')}
+              onViewEntity={handleViewActivityEntity}
+            />
+          );
         case 'docs':
           return <DocsPanel onClose={() => tl.toggleWindow('docs')} />;
         case 'var-scope':
@@ -1981,6 +2028,7 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
       handleCloseTab,
       sidebarState,
       openLiveVariableEdit,
+      handleViewActivityEntity,
     ],
   );
 

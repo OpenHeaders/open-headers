@@ -3,20 +3,28 @@
  *
  * Renders a single {@link ActivityFeedGroup} (one mutationId, one or
  * more classified kinds): entity descriptor + relative time + a chip
- * per distinct kind. Unread groups carry a left accent stripe; read
- * groups render flat. Per-entry actions (View / Revert / Mute) land
- * in F6 as additions to the card's footer.
+ * per distinct kind + a footer of per-entry actions. Unread groups
+ * carry a left accent stripe; read groups render flat.
+ *
+ * F6 actions surface as buttons in the footer when their callbacks
+ * are wired. `onView` is hidden when the entity has no editor surface
+ * (singletons that ride ambient UI, files catalogue, etc.) — see
+ * `isViewableEntityType` in `activity-view-router.ts`.
  */
 
-import { Tag, Tooltip, Typography, theme } from 'antd';
+import { Button, Space, Tag, Tooltip, Typography, theme } from 'antd';
 import type { ActivityEntryKind } from '@openheaders/core/sync';
 import { formatRelativeMs } from '../live/live-display';
 import type { ActivityFeedGroup } from './activity-feed-group';
+import { isViewableEntityType } from './activity-view-router';
 
 const { Text } = Typography;
 
-interface ActivityFeedCardProps {
+export interface ActivityFeedCardProps {
   group: ActivityFeedGroup;
+  /** Open the entity in its editor tab. Hidden when undefined or when
+   *  the entity type has no editor surface. */
+  onView?: (entityType: string, entityId: string) => void;
 }
 
 interface KindMeta {
@@ -60,11 +68,16 @@ function entityLabel(entityType: string, entityId: string): string {
   return `${entityType} · ${tail}`;
 }
 
-const ActivityFeedCard: React.FC<ActivityFeedCardProps> = ({ group }) => {
+const ActivityFeedCard: React.FC<ActivityFeedCardProps> = ({ group, onView }) => {
   const { token } = theme.useToken();
   const { primary, kinds, read } = group;
   const time = formatRelativeMs(primary.observedAt);
   const isoTime = new Date(primary.observedAt).toISOString();
+  // Hide the View affordance for deleted entities — the editor tab
+  // would open against a tombstoned id and render an empty form. The
+  // delete row stays in the feed for context, just without the button.
+  const canView =
+    onView !== undefined && isViewableEntityType(primary.entityType) && !kinds.includes('delete-entity');
 
   return (
     <div
@@ -108,6 +121,18 @@ const ActivityFeedCard: React.FC<ActivityFeedCardProps> = ({ group }) => {
         <Text type="secondary" style={{ fontSize: 12 }}>
           {primary.summary}
         </Text>
+      )}
+      {canView && (
+        <Space size={4} style={{ marginTop: 2 }}>
+          <Button
+            size="small"
+            type="link"
+            style={{ padding: 0, height: 'auto', fontSize: 12 }}
+            onClick={() => onView?.(primary.entityType, primary.entityId)}
+          >
+            View
+          </Button>
+        </Space>
       )}
     </div>
   );
