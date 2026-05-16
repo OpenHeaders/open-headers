@@ -83,17 +83,18 @@ interface TierSpec {
 const TIERS: TierSpec[] = [
   {
     num: 1,
-    title: 'Browser extension (free, instant install)',
+    title: 'Browser extension (instant install)',
     color: 'blue',
     accentToken: 'colorInfo',
     solves: '"I want to see and modify some HTTP requests from this page right now."',
     trust: '"Allow this extension on this site"',
-    power: 'Limited (URLs, headers, declarative rules)',
-    friction: '~10 seconds to install from Chrome store',
+    power: 'Medium (URLs, headers, cookies, redirects, request/response shaping via the full rule-action set)',
+    friction: 'One click — install from the browser store and it is live',
     wall: [
-      '"I need to see the response body"',
-      '"I need to debug a WebSocket"',
-      '"I need to modify a POST payload"',
+      '"I need to capture traffic from a native app, CLI tool, or mobile simulator"',
+      '"I need to inspect or rewrite streaming response bodies (SSE, chunked, gRPC)"',
+      '"I need to replay and mock requests offline, not just modify them in-flight"',
+      '"I need to see traffic the browser hides from extensions (service workers, prefetch, etc.)"',
     ],
   },
   {
@@ -104,7 +105,7 @@ const TIERS: TierSpec[] = [
     solves: '"I want to see and modify any HTTPS traffic from my browser, with full body access."',
     trust: 'Install CA cert + admin permission',
     power: 'High (full L7 visibility, modification, replay, mock)',
-    friction: '~2 minutes to install app + accept cert',
+    friction: 'One click — app installs the CA and wires the proxy for you',
     wall: [
       '"Why is this connection slow?"',
       '"What\'s the TCP-level behavior here?"',
@@ -119,8 +120,8 @@ const TIERS: TierSpec[] = [
     accentToken: 'colorWarning',
     solves: '"I want to see ALL network activity on my machine at every layer."',
     trust: 'Admin/sudo + Npcap on Windows',
-    power: 'Maximum (L2–L7, including non-HTTP, encrypted streams, network anomalies)',
-    friction: '~5 minutes additional setup, more education needed',
+    power: 'Highest (L2–L7, including non-HTTP, encrypted streams, network anomalies)',
+    friction: 'One click — app fetches Npcap/drivers and prompts for the elevation it actually needs',
   },
 ];
 
@@ -352,7 +353,7 @@ function TierRoadmapView({ token }: TierRoadmapViewProps) {
               }}
             >
               <Text type="secondary" style={{ fontSize: 12, fontWeight: 600 }}>
-                User hits a wall:
+                You hit a wall:
               </Text>
               <ul style={{ margin: '4px 0 6px 0', paddingLeft: 18 }}>
                 {tier.wall.map((q) => (
