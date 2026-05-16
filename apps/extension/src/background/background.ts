@@ -57,6 +57,7 @@ import { getLiveWorkflows, onLiveWorkflowStoreChange } from '@openheaders/oracle
 import { disposeResolverStateForWorkspace } from '@openheaders/oracle/rule-engine/variables-resolver';
 import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
 import { setOracleHostHooks } from '@openheaders/oracle/sync';
+import { forwardMutationToBackend } from './sync-mutation-forwarder';
 import {
   handleLiveAlarm,
   isLiveRefreshAlarm,
@@ -87,7 +88,10 @@ setOracleHostHooks({
   recordLog,
   scheduleRuleEngineUpdate: (reason, opts) => scheduleRuleEngineUpdate(reason, { immediate: opts?.immediate ?? false }),
   disposeResolverStateForWorkspace,
-  broadcastSyncEvent: (event) => broadcast('syncBroadcast', event),
+  broadcastSyncEvent: (event) => {
+    broadcast('syncBroadcast', event);
+    forwardMutationToBackend(event);
+  },
   broadcastAwareness: (event) => broadcast('awarenessBroadcast', event),
   reportStatus: (entry) =>
     reportStatus({
