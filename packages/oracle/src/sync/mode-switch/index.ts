@@ -39,3 +39,16 @@ export {
   setImportPeerPusher,
   type ImportPeerPusher,
 } from './import-peer-pusher';
+export {
+  collectDiscardArchive,
+  type CollectDiscardArchiveInput,
+} from './discard-collector';
+export {
+  getBackupWriter,
+  setBackupWriter,
+  type BackupWriter,
+} from './backup-writer';
+export {
+  orchestrateDiscardWithBackup,
+  type OrchestrateDiscardDeps,
+} from './discard-orchestrator';

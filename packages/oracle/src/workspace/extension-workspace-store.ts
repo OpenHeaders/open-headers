@@ -43,7 +43,11 @@ import {
   type SideEffectIntent,
   seedKey,
 } from '@openheaders/core/sync';
-import { buildSetExtensionWorkspaceBatch } from '@openheaders/core/sync-builders/extension-workspace-mutations';
+import {
+  buildRemoveExtensionWorkspaceBatch,
+  buildSetActiveExtensionWorkspaceBatch,
+  buildSetExtensionWorkspaceBatch,
+} from '@openheaders/core/sync-builders/extension-workspace-mutations';
 import type { ExtensionWorkspace, ExtensionWorkspaceKind } from '@openheaders/core/types';
 import { generateWorkspaceId, logger } from '@openheaders/core/utils';
 import { hostStorage, OH } from '../storage';
@@ -194,6 +198,70 @@ export async function createWorkspace(input: CreateWorkspaceInput): Promise<Exte
   }
   logger.info('WorkspaceStore', `Created workspace ${id} "${slot.name}"`);
   return created;
+}
+
+// ── SW-internal delete ────────────────────────────────────────────────
+
+export interface DeleteWorkspaceResult {
+  /** True when the workspace was found and the remove batch committed. */
+  ok: boolean;
+  /** Active workspace id after the commit. `null` when the deleted entry was the last one (list is now empty). */
+  activeWorkspaceId: string | null;
+}
+
+/**
+ * SW-internal workspace deletion. Symmetric to {@link createWorkspace};
+ * goes through the same global-oracle mutator path that the renderer's
+ * `applyDeleteWorkspace` uses, so listeners + mirrors converge through
+ * the standard broadcast pipeline.
+ *
+ * When the deleted workspace is the currently-active one AND there are
+ * other workspaces remaining, the remove batch is bundled with a
+ * `setActive(neighbour)` mutation under the same `batchId` so the
+ * active pointer never references a deleted id mid-broadcast.
+ *
+ * When the deleted workspace is the LAST one in the list (e.g. M5
+ * Discard wiping every workspace before the user pivots to a different
+ * back-end) the active pointer is intentionally left dangling — the
+ * next SW boot's {@link bootstrap} reseeds a fresh default workspace.
+ * Renderer-driven deletes still go through `applyDeleteWorkspace` which
+ * gates this case with `last-workspace`; the SW-only path skips the
+ * gate so destructive flows the user has explicitly opted into (Discard)
+ * can complete.
+ *
+ * Resolves to `{ ok: false, activeWorkspaceId }` when the workspace is
+ * not in the in-memory list. Rejects when the oracle rejects the batch
+ * — the caller (M5 orchestrator) should report `delete-failed` and
+ * preserve the already-written backup.
+ */
+export async function deleteWorkspace(id: string): Promise<DeleteWorkspaceResult> {
+  const target = workspaces.find((w) => w.id === id);
+  if (!target) {
+    return { ok: false, activeWorkspaceId };
+  }
+
+  const wasActive = activeWorkspaceId === id;
+  const remaining = workspaces.filter((w) => w.id !== id).sort(compareWorkspaces);
+  const neighbourId = wasActive && remaining.length > 0 ? remaining[0].id : null;
+
+  await applyExtensionWorkspaceMutationOrThrow((ctx) => {
+    const remove = buildRemoveExtensionWorkspaceBatch({ id }, ctx);
+    if (!neighbourId) return remove;
+    // Bundle the active-pointer flip under the same batchId so the
+    // global oracle commits both mutations atomically — listeners
+    // never observe the active pointer aimed at the deleted id.
+    const sharedCtx: MutatorContext = { ...ctx, batchId: remove.batch.batchId };
+    const setActive = buildSetActiveExtensionWorkspaceBatch({ id: neighbourId }, sharedCtx);
+    const merged: MutationBatch = {
+      batchId: remove.batch.batchId,
+      mutations: [...remove.batch.mutations, ...setActive.batch.mutations],
+    };
+    const sideEffects: SideEffectIntent[] = [...remove.sideEffects, ...setActive.sideEffects];
+    return { batch: merged, sideEffects };
+  }, 'deleteWorkspace');
+
+  logger.info('WorkspaceStore', `Deleted workspace ${id} "${target.name}"`);
+  return { ok: true, activeWorkspaceId };
 }
 
 // ── Sync engine plumbing ──────────────────────────────────────────────

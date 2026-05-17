@@ -39,6 +39,7 @@ import { SYNC_MUTATION_BATCH_TYPE, SYNC_MUTATION_TYPE } from '@openheaders/core/
 import type {
   CoexistPayload,
   CoexistResult,
+  DiscardResult,
   ImportPayload,
   ImportResult,
   InverseEnvelopeContext,
@@ -60,11 +61,17 @@ import {
   applyImportPayload,
   collectLocalDataPresence,
   orchestrateCoexistToPeer,
+  orchestrateDiscardWithBackup,
   orchestrateImportToPeer,
 } from '../sync/mode-switch';
 import { buildSnapshotForWorkspace } from '../sync/snapshot-builder';
 import { applyWorkspaceSnapshot } from '../sync/snapshot-applier';
-import { createWorkspace, getWorkspace, listWorkspaces } from '../workspace/extension-workspace-store';
+import {
+  createWorkspace,
+  deleteWorkspace,
+  getWorkspace,
+  listWorkspaces,
+} from '../workspace/extension-workspace-store';
 import { getOrCreateWorkspaceService, releaseWorkspaceService } from '../sync/service';
 import { requireActiveWorkspaceId } from '../sync';
 import { getSyncPersistenceProvider } from '../sync/sync-persistence-provider';
@@ -279,6 +286,10 @@ export function dispatchSyncRpc(message: Record<string, unknown>): SyncRpcResult
     return { kind: 'async', promise: dispatchExecuteImportToPeer() };
   }
 
+  if (type === 'oh.sync.executeDiscardWithBackup') {
+    return { kind: 'async', promise: dispatchExecuteDiscardWithBackup() };
+  }
+
   if (type === 'oh.sync.unmuteActivityEntity') {
     const ws = typeof message.workspaceId === 'string' ? message.workspaceId : null;
     const entityType = typeof message.entityType === 'string' ? message.entityType : null;
@@ -488,5 +499,25 @@ async function dispatchExecuteImportToPeer(): Promise<ImportResult> {
     workspaces: listWorkspaces().map((ws) => ({ id: ws.id, name: ws.name })),
     getOracle: (workspaceId) => getOracleForWorkspace(workspaceId),
     buildSnapshot: (workspaceId) => buildSnapshotForWorkspace(workspaceId),
+  });
+}
+
+/**
+ * Resolve an `oh.sync.executeDiscardWithBackup` request — local-only,
+ * source-side of M5.
+ *
+ * No payload crosses the wire. The orchestrator runs the
+ * collect → write-archive → delete-workspaces sequence under the host-
+ * installed {@link BackupWriter}; this shim just injects the production
+ * deps (workspace list, snapshot builder, delete path, clock). The
+ * orchestrator owns all routing — backup-writer-unavailable, no-source-
+ * data, backup-failed, delete-failed.
+ */
+async function dispatchExecuteDiscardWithBackup(): Promise<DiscardResult> {
+  return orchestrateDiscardWithBackup({
+    workspaces: listWorkspaces().map((ws) => ({ id: ws.id, name: ws.name })),
+    buildSnapshot: (workspaceId) => buildSnapshotForWorkspace(workspaceId),
+    deleteWorkspace: (workspaceId) => deleteWorkspace(workspaceId),
+    now: () => new Date().toISOString(),
   });
 }

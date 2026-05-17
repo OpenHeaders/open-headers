@@ -88,6 +88,7 @@ import {
   isActivityPruneAlarm,
 } from './activity-prune-scheduler';
 import { installActivityStatusReporter } from './activity-status-reporter';
+import { installBackupWriter } from './install-backup-writer';
 import { installCoexistPeerPusher } from './install-coexist-peer-pusher';
 import { installImportPeerPusher } from './install-import-peer-pusher';
 import { createSyncHandshakeInitiator } from './sync-handshake-initiator';
@@ -145,6 +146,12 @@ installCoexistPeerPusher();
 // orchestrator returns `peer-write-unavailable` without it so the user
 // falls back to Discard-with-backup.
 installImportPeerPusher();
+
+// M5 — mode-switch Discard backup-writer. The orchestrator builds the
+// archive and asks the host to put it on disk; the SW writes via
+// chrome.downloads. Without this the orchestrator returns
+// `backup-writer-unavailable` and the dialog warns the user.
+installBackupWriter();
 
 // State-vector handshake — Phase C natural close-out. On every WS
 // connect, the initiator sends HELLO + STATE_VECTOR; on SYNCED it
