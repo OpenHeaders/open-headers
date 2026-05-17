@@ -6,13 +6,16 @@
  * on `backend.mode`, peer-presence RPC, dialog UI — lands in M2/M3.
  */
 
-import type { DataPresenceSummary, WorkspaceContentSnapshot } from '@openheaders/core/sync';
 import {
-  USER_CONTENT_ENTITY_TYPES,
-  collectLocalDataPresence,
   decideModeSwitch,
   isPresenceEmpty,
   summarizeWorkspaces,
+  type DataPresenceSummary,
+  type WorkspaceContentSnapshot,
+} from '@openheaders/core/sync';
+import {
+  USER_CONTENT_ENTITY_TYPES,
+  collectLocalDataPresence,
   type DataPresenceOracle,
 } from '@openheaders/oracle/sync';
 import { describe, expect, it } from 'vitest';

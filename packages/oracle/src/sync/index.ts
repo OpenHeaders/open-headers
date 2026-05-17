@@ -97,9 +97,6 @@ export {
 export {
   USER_CONTENT_ENTITY_TYPES,
   collectLocalDataPresence,
-  decideModeSwitch,
-  isPresenceEmpty,
-  summarizeWorkspaces,
   type CollectLocalDataPresenceInput,
   type DataPresenceOracle,
 } from './mode-switch';
