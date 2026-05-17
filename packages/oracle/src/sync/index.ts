@@ -95,8 +95,20 @@ export {
 } from './host-hooks';
 
 export {
+  COEXIST_IMPORTED_NAME_SUFFIX,
   USER_CONTENT_ENTITY_TYPES,
+  applyCoexistPayload,
+  collectCoexistPayload,
   collectLocalDataPresence,
+  getCoexistPeerPusher,
+  orchestrateCoexistToPeer,
+  setCoexistPeerPusher,
+  type ApplyCoexistPayloadDeps,
+  type CollectCoexistPayloadInput,
   type CollectLocalDataPresenceInput,
+  type CoexistPeerPusher,
+  type CoexistSourceOracle,
+  type CoexistTargetMinter,
   type DataPresenceOracle,
+  type OrchestrateCoexistDeps,
 } from './mode-switch';

@@ -36,7 +36,7 @@ import type {
   SyncMutationMessage,
 } from '@openheaders/core/protocol';
 import { SYNC_MUTATION_BATCH_TYPE, SYNC_MUTATION_TYPE } from '@openheaders/core/protocol';
-import type { InverseEnvelopeContext } from '@openheaders/core/sync';
+import type { CoexistPayload, CoexistResult, InverseEnvelopeContext } from '@openheaders/core/sync';
 import {
   applyInboundMutationBatch,
   applyInboundMutationEnvelope,
@@ -49,8 +49,15 @@ import {
 } from '../sync/activity-mute-cache';
 import { generateInverseMutation } from '../sync/activity-revert';
 import { snapshotExtensionWorkspacePostStates } from '../sync/global-service';
-import { collectLocalDataPresence } from '../sync/mode-switch';
-import { listWorkspaces } from '../workspace/extension-workspace-store';
+import {
+  applyCoexistPayload,
+  collectLocalDataPresence,
+  orchestrateCoexistToPeer,
+} from '../sync/mode-switch';
+import { buildSnapshotForWorkspace } from '../sync/snapshot-builder';
+import { applyWorkspaceSnapshot } from '../sync/snapshot-applier';
+import { createWorkspace, listWorkspaces } from '../workspace/extension-workspace-store';
+import { getOrCreateWorkspaceService, releaseWorkspaceService } from '../sync/service';
 import { requireActiveWorkspaceId } from '../sync';
 import { getSyncPersistenceProvider } from '../sync/sync-persistence-provider';
 import {
@@ -246,6 +253,15 @@ export function dispatchSyncRpc(message: Record<string, unknown>): SyncRpcResult
     }
   }
 
+  if (type === 'oh.sync.applyCoexistImport') {
+    const payload = message as unknown as { workspaces?: unknown };
+    return { kind: 'async', promise: dispatchApplyCoexistImport(payload) };
+  }
+
+  if (type === 'oh.sync.executeCoexistToPeer') {
+    return { kind: 'async', promise: dispatchExecuteCoexistToPeer() };
+  }
+
   if (type === 'oh.sync.unmuteActivityEntity') {
     const ws = typeof message.workspaceId === 'string' ? message.workspaceId : null;
     const entityType = typeof message.entityType === 'string' ? message.entityType : null;
@@ -337,4 +353,59 @@ async function dispatchRevertActivity(
     logger.info('SyncRpc', `oh.sync.revertActivity apply threw: ${detail}`);
     return { ok: false, reason: detail };
   }
+}
+
+/**
+ * Resolve an `oh.sync.applyCoexistImport` request — target-side of M3.
+ *
+ * The payload is opaque on the wire; this handler validates the
+ * `workspaces` array shape, then defers to {@link applyCoexistPayload}.
+ * The applier mints a fresh UUIDv7 per source workspace via
+ * {@link createWorkspace}, retargets the wire-supplied snapshot at the
+ * new id, and replays through {@link applyWorkspaceSnapshot} under the
+ * per-workspace service.
+ */
+async function dispatchApplyCoexistImport(raw: { workspaces?: unknown }): Promise<CoexistResult> {
+  const payload: CoexistPayload = {
+    workspaces: Array.isArray(raw.workspaces)
+      ? (raw.workspaces as CoexistPayload['workspaces'])
+      : [],
+  };
+
+  return applyCoexistPayload(payload, {
+    createWorkspace: async ({ name }) => {
+      const ws = await createWorkspace({ name });
+      return { id: ws.id, name: ws.name };
+    },
+    applySnapshot: async (snapshot) => {
+      // Mirror background.ts's snapshot-apply dance: acquire the
+      // per-workspace service, await hydration, replay through the same
+      // mutator-context factory the cold-receiver bootstrap uses, then
+      // release. The freshly-created workspace's oracle hasn't been
+      // touched, so this is the first writer to its mutation log.
+      const svc = getOrCreateWorkspaceService(snapshot.workspaceId);
+      try {
+        await svc.hydrated;
+        return await applyWorkspaceSnapshot(snapshot, { makeContext: () => svc.context.next() });
+      } finally {
+        releaseWorkspaceService(snapshot.workspaceId);
+      }
+    },
+  });
+}
+
+/**
+ * Resolve an `oh.sync.executeCoexistToPeer` request — source-side of M3.
+ *
+ * Wires the local user-content workspaces into the host-installed peer
+ * pusher (extension SW registers one over `wsRequest`; desktop main
+ * doesn't yet). The orchestrator handles all the routing — this thin
+ * shim just injects the production collection seams.
+ */
+async function dispatchExecuteCoexistToPeer(): Promise<CoexistResult> {
+  return orchestrateCoexistToPeer({
+    workspaces: listWorkspaces().map((ws) => ({ id: ws.id, name: ws.name })),
+    getOracle: (workspaceId) => getOracleForWorkspace(workspaceId),
+    buildSnapshot: (workspaceId) => buildSnapshotForWorkspace(workspaceId),
+  });
 }

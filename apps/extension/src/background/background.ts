@@ -88,6 +88,7 @@ import {
   isActivityPruneAlarm,
 } from './activity-prune-scheduler';
 import { installActivityStatusReporter } from './activity-status-reporter';
+import { installCoexistPeerPusher } from './install-coexist-peer-pusher';
 import { createSyncHandshakeInitiator } from './sync-handshake-initiator';
 import { installHandshakeStatusReporter } from './sync-status-reporter';
 import {
@@ -131,6 +132,13 @@ installActivityPruneScheduler({
 // is the runtime source of truth; the persisted store rehydrates it
 // per workspace lazily on first observation.
 setActivityMuteStore(getSyncPersistenceProvider().createActivityMuteStore?.() ?? null);
+
+// M3 — mode-switch Coexist push path. The orchestrator collects local
+// user-content workspaces and asks for a pusher to ship them to the
+// peer; we install the SW's wsRequest-backed pusher here. Without this
+// the orchestrator returns `peer-write-unavailable` and the user falls
+// back to Discard-with-backup.
+installCoexistPeerPusher();
 
 // State-vector handshake — Phase C natural close-out. On every WS
 // connect, the initiator sends HELLO + STATE_VECTOR; on SYNCED it
