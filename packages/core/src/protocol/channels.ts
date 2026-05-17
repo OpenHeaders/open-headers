@@ -1240,9 +1240,17 @@ export interface BridgeRpcContract {
    * the dialog tells the user to fall back to Discard-with-backup. No
    * partial writes either way: failure before push leaves both hosts
    * untouched.
+   *
+   * `workspaceIdRemap` (M4b) carries the user's resolution for name-
+   * collision rows surfaced in the dialog: when present, the orchestrator
+   * stamps it onto the {@link ImportPayload} before push, and the peer
+   * applier retargets each mapped source's snapshot at the chosen target
+   * workspace id before lookup. Missing/empty ⇒ same-id only (legacy).
    */
   'oh.sync.executeImportToPeer': {
-    req: Record<string, never>;
+    req: {
+      workspaceIdRemap?: Record<string, string>;
+    };
     res: ImportResult;
   };
 

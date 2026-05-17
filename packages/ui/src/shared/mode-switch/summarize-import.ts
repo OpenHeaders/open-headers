@@ -35,11 +35,17 @@ export function summarizeImportSuccess(
     result.totalConflicts > 0
       ? ` ${plural(result.totalConflicts, 'conflict')} merged (newer wins).`
       : '';
+  const renamedCount = result.mergedWorkspaces.reduce(
+    (n, row) => (row.renamedFromSourceId !== undefined ? n + 1 : n),
+    0,
+  );
+  const renamedCopy =
+    renamedCount > 0 ? ` ${plural(renamedCount, 'name-matched workspace')} merged by id.` : '';
   const ignoredCopy =
     result.ignored.length > 0
       ? ` Skipped ${plural(result.ignored.length, 'workspace')} with no match on ${toLabel}; use Coexist to copy them as new workspaces.`
       : '';
-  return `Merged ${wsCopy} (${entCopy}) from ${fromLabel} into ${toLabel}.${conflictCopy}${ignoredCopy}`;
+  return `Merged ${wsCopy} (${entCopy}) from ${fromLabel} into ${toLabel}.${conflictCopy}${renamedCopy}${ignoredCopy}`;
 }
 
 /**

@@ -41,6 +41,7 @@ import { getCurrentHost, type Host } from '../../../shared/host-vocabulary';
 import { getStatusSnapshot, subscribe as subscribeStatus } from '../../../shared/status';
 import ModeSwitchDialog, {
   type ModeSwitchChoice,
+  type ModeSwitchChooseOptions,
 } from '../../components/dialogs/ModeSwitchDialog';
 import { useOptionalInspectorNav } from '../../hooks/useInspectorNav';
 import { useSetting } from '../hooks';
@@ -189,7 +190,10 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   // valid backup on disk. The dialog itself prevents the silent-commit-
   // on-data-loss anti-pattern §11.2 calls out; Cancel from the dialog
   // never commits.
-  const handleDialogChoose = async (choice: ModeSwitchChoice): Promise<void> => {
+  const handleDialogChoose = async (
+    choice: ModeSwitchChoice,
+    options?: ModeSwitchChooseOptions,
+  ): Promise<void> => {
     const state = dialogState;
     if (!state) return;
     setDialogState(null);
@@ -206,7 +210,7 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
     }
 
     if (choice === 'import') {
-      const result = await executeImport();
+      const result = await executeImport({ workspaceIdRemap: options?.workspaceIdRemap });
       if (result.ok) {
         commitMode(state.to);
         message.success(summarizeImportSuccess(result, labelForMode(state.from), labelForMode(state.to)));
@@ -281,8 +285,8 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
           source={dialogState.verdict.source}
           target={dialogState.verdict.target}
           nameCollisions={dialogState.verdict.nameCollisions}
-          onChoose={(c) => {
-            void handleDialogChoose(c);
+          onChoose={(c, options) => {
+            void handleDialogChoose(c, options);
           }}
           onCancel={handleDialogCancel}
         />

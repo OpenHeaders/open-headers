@@ -62,7 +62,7 @@ import type { NameCollision } from '@openheaders/core/sync';
 
 function renderDialog(overrides: {
   open?: boolean;
-  onChoose?: (c: ModeSwitchChoice) => void;
+  onChoose?: (c: ModeSwitchChoice, options?: { workspaceIdRemap?: Readonly<Record<string, string>> }) => void;
   onCancel?: () => void;
   nameCollisions?: readonly NameCollision[];
 } = {}) {
@@ -160,7 +160,78 @@ describe('ModeSwitchDialog', () => {
     expect(screen.getAllByText('production').length).toBeGreaterThan(0);
     expect(screen.getByText('Staging')).toBeTruthy();
     expect(screen.getAllByText('staging').length).toBeGreaterThan(0);
-    expect(screen.getByText(/Choose/)).toBeTruthy();
+    // The merge-by-id checkbox is rendered, labeled, and checked by default.
+    expect(screen.getByText(/Treat them as the same workspace/)).toBeTruthy();
+  });
+
+  it('forwards the workspaceIdRemap on Import when collisions exist and the merge checkbox is checked (default)', () => {
+    const onChoose = vi.fn();
+    renderDialog({
+      onChoose,
+      nameCollisions: [
+        {
+          sourceWorkspaceId: 'src-a',
+          sourceWorkspaceName: 'Production',
+          targetWorkspaceId: 'tgt-a',
+          targetWorkspaceName: 'Production',
+          normalizedName: 'production',
+        },
+        {
+          sourceWorkspaceId: 'src-b',
+          sourceWorkspaceName: 'Staging',
+          targetWorkspaceId: 'tgt-b',
+          targetWorkspaceName: 'Staging',
+          normalizedName: 'staging',
+        },
+      ],
+    });
+    screen.getByText('Import source data into the target workspace').click();
+    expect(onChoose).toHaveBeenCalledWith('import', {
+      workspaceIdRemap: { 'src-a': 'tgt-a', 'src-b': 'tgt-b' },
+    });
+  });
+
+  it('omits the workspaceIdRemap when the user clears the merge checkbox before choosing Import', () => {
+    const onChoose = vi.fn();
+    renderDialog({
+      onChoose,
+      nameCollisions: [
+        {
+          sourceWorkspaceId: 'src-a',
+          sourceWorkspaceName: 'Production',
+          targetWorkspaceId: 'tgt-a',
+          targetWorkspaceName: 'Production',
+          normalizedName: 'production',
+        },
+      ],
+    });
+    // Toggle the checkbox off.
+    const checkbox = screen.getByRole('checkbox') as HTMLInputElement;
+    expect(checkbox.checked).toBe(true);
+    checkbox.click();
+    expect(checkbox.checked).toBe(false);
+    screen.getByText('Import source data into the target workspace').click();
+    expect(onChoose).toHaveBeenCalledWith('import');
+  });
+
+  it('does not pass workspaceIdRemap on Coexist or Discard even when collisions exist', () => {
+    const onChoose = vi.fn();
+    renderDialog({
+      onChoose,
+      nameCollisions: [
+        {
+          sourceWorkspaceId: 'src-a',
+          sourceWorkspaceName: 'Production',
+          targetWorkspaceId: 'tgt-a',
+          targetWorkspaceName: 'Production',
+          normalizedName: 'production',
+        },
+      ],
+    });
+    screen.getByText('Keep both as separate workspaces').click();
+    expect(onChoose).toHaveBeenLastCalledWith('coexist');
+    screen.getByText('Discard source data, use the target').click();
+    expect(onChoose).toHaveBeenLastCalledWith('discard');
   });
 
   it('uses the singular "1 workspace looks like" phrasing for a single collision', () => {

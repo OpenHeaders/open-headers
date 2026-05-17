@@ -244,6 +244,96 @@ describe('applyImportPayload', () => {
     expect(result.totalConflicts).toBe(2);
   });
 
+  it('honors workspaceIdRemap: retargets the snapshot at the mapped target id and records renamedFromSourceId', async () => {
+    const captured: WorkspaceSnapshot[] = [];
+    const applySnapshot = vi.fn(async (snap: WorkspaceSnapshot) => {
+      captured.push(snap);
+      return { entitiesApplied: 6 };
+    });
+    const result = await applyImportPayload(
+      {
+        workspaces: [
+          { sourceWorkspaceId: WS_A, sourceWorkspaceName: 'Production', snapshot: makeSnapshot(WS_A) },
+        ],
+        workspaceIdRemap: { [WS_A]: WS_B },
+      },
+      {
+        // Only WS_B exists on the target; without the remap this row would be ignored.
+        lookupWorkspace: (id: string) => (id === WS_B ? { id: WS_B, name: 'Production (target)' } : null),
+        listEntityIds: () => [],
+        applySnapshot,
+      },
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.mergedWorkspaces).toHaveLength(1);
+    expect(result.mergedWorkspaces[0]).toMatchObject({
+      workspaceId: WS_B,
+      workspaceName: 'Production (target)',
+      entitiesApplied: 6,
+      renamedFromSourceId: WS_A,
+    });
+    expect(result.ignored).toEqual([]);
+    // The snapshot routed into applySnapshot must carry the target id, not the source's.
+    expect(captured[0].workspaceId).toBe(WS_B);
+  });
+
+  it('records remap-pointing-at-missing-target as ignored (same channel as legacy no-match)', async () => {
+    const applySnapshot = vi.fn();
+    const result = await applyImportPayload(
+      {
+        workspaces: [
+          { sourceWorkspaceId: WS_A, sourceWorkspaceName: 'Production', snapshot: makeSnapshot(WS_A) },
+        ],
+        // Remap points at WS_B but lookupWorkspace returns null for it.
+        workspaceIdRemap: { [WS_A]: WS_B },
+      },
+      {
+        lookupWorkspace: () => null,
+        listEntityIds: () => [],
+        applySnapshot,
+      },
+    );
+    expect(applySnapshot).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ ok: false, reason: 'no-matching-workspace' });
+  });
+
+  it('leaves non-remapped sources on the same-id path while remapping others', async () => {
+    const captured: WorkspaceSnapshot[] = [];
+    const applySnapshot = vi.fn(async (snap: WorkspaceSnapshot) => {
+      captured.push(snap);
+      return { entitiesApplied: 1 };
+    });
+    const result = await applyImportPayload(
+      {
+        workspaces: [
+          // Remapped source: WS_A → WS_B
+          { sourceWorkspaceId: WS_A, sourceWorkspaceName: 'Production', snapshot: makeSnapshot(WS_A) },
+          // Same-id source: ws-c → ws-c
+          { sourceWorkspaceId: 'ws-c', sourceWorkspaceName: 'Staging', snapshot: makeSnapshot('ws-c') },
+        ],
+        workspaceIdRemap: { [WS_A]: WS_B },
+      },
+      {
+        lookupWorkspace: (id: string) => {
+          if (id === WS_B) return { id: WS_B, name: 'Production (target)' };
+          if (id === 'ws-c') return { id: 'ws-c', name: 'Staging (target)' };
+          return null;
+        },
+        listEntityIds: () => [],
+        applySnapshot,
+      },
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.mergedWorkspaces).toHaveLength(2);
+    expect(result.mergedWorkspaces[0]).toMatchObject({ workspaceId: WS_B, renamedFromSourceId: WS_A });
+    expect(result.mergedWorkspaces[1]).toMatchObject({ workspaceId: 'ws-c' });
+    expect(result.mergedWorkspaces[1].renamedFromSourceId).toBeUndefined();
+    expect(captured[0].workspaceId).toBe(WS_B);
+    expect(captured[1].workspaceId).toBe('ws-c');
+  });
+
   it('returns apply-failed and short-circuits on the first applySnapshot rejection', async () => {
     const applySnapshot = vi
       .fn()
@@ -331,6 +421,41 @@ describe('orchestrateImportToPeer', () => {
     expect(result.detail).toBe('not-connected');
   });
 
+  it('stamps the workspaceIdRemap onto the payload before push when provided', async () => {
+    const received: ImportPayload[] = [];
+    setImportPeerPusher(async (payload) => {
+      received.push(payload);
+      return {
+        ok: true,
+        mergedWorkspaces: [],
+        ignored: [],
+        totalEntitiesApplied: 0,
+        totalConflicts: 0,
+      };
+    });
+    await orchestrateImportToPeer({
+      ...noopDeps(),
+      workspaceIdRemap: { [WS_A]: WS_B },
+    });
+    expect(received[0].workspaceIdRemap).toEqual({ [WS_A]: WS_B });
+  });
+
+  it('omits the workspaceIdRemap field when the input remap is empty', async () => {
+    const received: ImportPayload[] = [];
+    setImportPeerPusher(async (payload) => {
+      received.push(payload);
+      return {
+        ok: true,
+        mergedWorkspaces: [],
+        ignored: [],
+        totalEntitiesApplied: 0,
+        totalConflicts: 0,
+      };
+    });
+    await orchestrateImportToPeer({ ...noopDeps(), workspaceIdRemap: {} });
+    expect(received[0].workspaceIdRemap).toBeUndefined();
+  });
+
   it('propagates an explicit { ok: false } from the peer verbatim', async () => {
     const peerFailure: ImportResult = {
       ok: false,
@@ -357,15 +482,38 @@ describe('executeImport (renderer bridge wrapper)', () => {
       totalEntitiesApplied: 0,
       totalConflicts: 0,
     };
-    const result = await executeImport({ bridgeCall: async () => stub });
+    const result = await executeImport({}, { bridgeCall: async () => stub });
     expect(result).toBe(stub);
+  });
+
+  it('forwards the workspaceIdRemap input to the bridge call', async () => {
+    const { executeImport } = await import('@openheaders/ui/shared/mode-switch');
+    const received: Array<{ workspaceIdRemap?: Readonly<Record<string, string>> }> = [];
+    const stub: ImportResult = {
+      ok: true,
+      mergedWorkspaces: [],
+      ignored: [],
+      totalEntitiesApplied: 0,
+      totalConflicts: 0,
+    };
+    await executeImport(
+      { workspaceIdRemap: { 'src-1': 'tgt-1' } },
+      {
+        bridgeCall: async (input) => {
+          received.push(input);
+          return stub;
+        },
+      },
+    );
+    expect(received).toEqual([{ workspaceIdRemap: { 'src-1': 'tgt-1' } }]);
   });
 
   it('folds bridge rejections into peer-write-unavailable', async () => {
     const { executeImport } = await import('@openheaders/ui/shared/mode-switch');
-    const result = await executeImport({
-      bridgeCall: () => Promise.reject(new Error('ipc-down')),
-    });
+    const result = await executeImport(
+      {},
+      { bridgeCall: () => Promise.reject(new Error('ipc-down')) },
+    );
     expect(result).toMatchObject({ ok: false, reason: 'peer-write-unavailable' });
     if (result.ok) return;
     expect(result.detail).toBe('ipc-down');
@@ -373,9 +521,10 @@ describe('executeImport (renderer bridge wrapper)', () => {
 
   it('coerces non-Error throws into a string detail', async () => {
     const { executeImport } = await import('@openheaders/ui/shared/mode-switch');
-    const result = await executeImport({
-      bridgeCall: () => Promise.reject('nope'),
-    });
+    const result = await executeImport(
+      {},
+      { bridgeCall: () => Promise.reject('nope') },
+    );
     expect(result).toMatchObject({ ok: false, reason: 'peer-write-unavailable', detail: 'nope' });
   });
 });
@@ -428,6 +577,58 @@ describe('summarizeImport toast copy', () => {
     expect(withConflicts).toContain('3 conflicts');
     expect(withConflicts).toContain('Skipped 1 workspace');
     expect(withConflicts).toContain('Coexist');
+  });
+
+  it('includes a rename trailer in success copy when at least one row was remapped', async () => {
+    const { summarizeImportSuccess } = await import('@openheaders/ui/shared/mode-switch');
+    const single = summarizeImportSuccess(
+      {
+        ok: true,
+        mergedWorkspaces: [
+          {
+            workspaceId: WS_B,
+            workspaceName: 'Production',
+            entitiesApplied: 5,
+            conflicts: [],
+            renamedFromSourceId: WS_A,
+          },
+        ],
+        ignored: [],
+        totalEntitiesApplied: 5,
+        totalConflicts: 0,
+      },
+      'Browser Extension',
+      'Desktop Application',
+    );
+    expect(single).toContain('1 name-matched workspace');
+
+    const many = summarizeImportSuccess(
+      {
+        ok: true,
+        mergedWorkspaces: [
+          {
+            workspaceId: WS_A,
+            workspaceName: 'Production',
+            entitiesApplied: 2,
+            conflicts: [],
+            renamedFromSourceId: 'src-1',
+          },
+          {
+            workspaceId: WS_B,
+            workspaceName: 'Staging',
+            entitiesApplied: 3,
+            conflicts: [],
+            renamedFromSourceId: 'src-2',
+          },
+        ],
+        ignored: [],
+        totalEntitiesApplied: 5,
+        totalConflicts: 0,
+      },
+      'Browser Extension',
+      'Desktop Application',
+    );
+    expect(many).toContain('2 name-matched workspaces');
   });
 
   it('renders a distinct line per failure reason', async () => {

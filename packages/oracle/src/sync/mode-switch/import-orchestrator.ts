@@ -28,7 +28,16 @@ import {
 } from './import-collector';
 import { getImportPeerPusher } from './import-peer-pusher';
 
-export type OrchestrateImportDeps = CollectImportPayloadInput;
+export interface OrchestrateImportDeps extends CollectImportPayloadInput {
+  /**
+   * Source→target workspace id remap (M4b) sourced from the dialog's
+   * name-collision resolution. When present, the orchestrator stamps it
+   * onto the {@link ImportPayload} before push so the target applier
+   * retargets each mapped source's snapshot at the chosen target id.
+   * Missing/empty ⇒ same-id only.
+   */
+  readonly workspaceIdRemap?: Readonly<Record<string, string>>;
+}
 
 export async function orchestrateImportToPeer(deps: OrchestrateImportDeps): Promise<ImportResult> {
   const push = getImportPeerPusher();
@@ -41,8 +50,12 @@ export async function orchestrateImportToPeer(deps: OrchestrateImportDeps): Prom
     return { ok: false, reason: 'no-source-data' };
   }
 
+  const remap = deps.workspaceIdRemap;
+  const withRemap =
+    remap && Object.keys(remap).length > 0 ? { ...payload, workspaceIdRemap: remap } : payload;
+
   try {
-    return await push(payload);
+    return await push(withRemap);
   } catch (err) {
     return {
       ok: false,

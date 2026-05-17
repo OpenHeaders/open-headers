@@ -17,11 +17,23 @@
  * callback the caller plugs into the eventual handlers.
  */
 
-import { Alert, Modal, Typography, theme } from 'antd';
+import { Alert, Checkbox, Modal, Typography, theme } from 'antd';
 import type React from 'react';
+import { useState } from 'react';
 import type { DataPresenceSummary, NameCollision } from '@openheaders/core/sync';
 
 export type ModeSwitchChoice = 'coexist' | 'import' | 'discard';
+
+/**
+ * Optional per-choice payload surfaced alongside the user's primary
+ * action. M4b uses {@link ModeSwitchChooseOptions.workspaceIdRemap} to
+ * thread the dialog's name-collision resolution to the Import executor;
+ * Coexist + Discard ignore it for now (Coexist always mints fresh ids,
+ * Discard is local-only).
+ */
+export interface ModeSwitchChooseOptions {
+  readonly workspaceIdRemap?: Readonly<Record<string, string>>;
+}
 
 export interface ModeSwitchDialogProps {
   open: boolean;
@@ -34,12 +46,14 @@ export interface ModeSwitchDialogProps {
   /**
    * Source ↔ target workspace pairs whose names collapse to the same
    * canonical form (post-NFC + case-fold). When non-empty the dialog
-   * renders a banner ABOVE the action cards so the user can decide
-   * before Coexist mints a duplicate. M7 surfaces the hint only; the
-   * "Rename + import" affordance lands in M4b.
+   * renders a banner ABOVE the action cards with a "Treat these as the
+   * same workspace and merge by id" checkbox (default ON). On Import
+   * with the checkbox ON, the dialog forwards a `workspaceIdRemap` so
+   * the target applier retargets each source's snapshot at the matching
+   * target workspace id rather than dropping it as ignored.
    */
   nameCollisions?: readonly NameCollision[];
-  onChoose: (choice: ModeSwitchChoice) => void;
+  onChoose: (choice: ModeSwitchChoice, options?: ModeSwitchChooseOptions) => void;
   onCancel: () => void;
 }
 
@@ -82,6 +96,23 @@ const ModeSwitchDialog: React.FC<ModeSwitchDialogProps> = ({
 }) => {
   const { token } = theme.useToken();
   const collisions = nameCollisions ?? [];
+  const [mergeCollisions, setMergeCollisions] = useState<boolean>(true);
+
+  // Compose the per-choice options envelope. Only Import consumes the
+  // remap; Coexist + Discard ignore it. Computing here keeps the
+  // ActionCard click handler trivially a pass-through.
+  const handleChoose = (choice: ModeSwitchChoice): void => {
+    if (choice === 'import' && collisions.length > 0 && mergeCollisions) {
+      const remap: Record<string, string> = {};
+      for (const c of collisions) {
+        remap[c.sourceWorkspaceId] = c.targetWorkspaceId;
+      }
+      onChoose(choice, { workspaceIdRemap: remap });
+      return;
+    }
+    onChoose(choice);
+  };
+
   return (
     <Modal
       open={open}
@@ -104,7 +135,13 @@ const ModeSwitchDialog: React.FC<ModeSwitchDialogProps> = ({
           token={token}
         />
         {collisions.length > 0 && (
-          <NameCollisionBanner collisions={collisions} fromLabel={fromLabel} toLabel={toLabel} />
+          <NameCollisionBanner
+            collisions={collisions}
+            fromLabel={fromLabel}
+            toLabel={toLabel}
+            mergeCollisions={mergeCollisions}
+            onToggleMerge={setMergeCollisions}
+          />
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {ACTION_OPTIONS.map((opt) => (
@@ -114,7 +151,7 @@ const ModeSwitchDialog: React.FC<ModeSwitchDialogProps> = ({
               title={opt.title}
               description={opt.helpFrom(fromLabel, toLabel)}
               recommended={opt.recommended === true}
-              onChoose={onChoose}
+              onChoose={handleChoose}
               token={token}
             />
           ))}
@@ -143,16 +180,20 @@ const ModeSwitchDialog: React.FC<ModeSwitchDialogProps> = ({
 
 /**
  * Inline banner that lists each source/target workspace pair whose
- * names match after Unicode canonicalization. Nudges the user toward
- * Import (HLC merge) rather than Coexist (which would mint a duplicate
- * workspace per collision). The "Rename + import" affordance is M4b
- * territory; this slice surfaces information only.
+ * names match after Unicode canonicalization. Surfaces a checkbox that
+ * controls whether Import treats the pairs as the same workspace
+ * (M4b cross-id merge) — default ON so users opt OUT of the merge
+ * rather than opting in to a destructive cross-id rewrite. When OFF,
+ * Import behaves as v1 (same-id only) and the unmatched sources land
+ * in the result's `ignored` list.
  */
 const NameCollisionBanner: React.FC<{
   collisions: readonly NameCollision[];
   fromLabel: string;
   toLabel: string;
-}> = ({ collisions, fromLabel, toLabel }) => {
+  mergeCollisions: boolean;
+  onToggleMerge: (next: boolean) => void;
+}> = ({ collisions, fromLabel, toLabel, mergeCollisions, onToggleMerge }) => {
   const headline =
     collisions.length === 1
       ? '1 workspace looks like the same one on both sides.'
@@ -163,7 +204,7 @@ const NameCollisionBanner: React.FC<{
       showIcon
       message={<span style={{ fontSize: 12, fontWeight: 600 }}>{headline}</span>}
       description={
-        <div style={{ fontSize: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ fontSize: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <ul style={{ margin: 0, paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 2 }}>
             {collisions.map((c) => (
               <li key={`${c.sourceWorkspaceId}→${c.targetWorkspaceId}`}>
@@ -174,10 +215,13 @@ const NameCollisionBanner: React.FC<{
               </li>
             ))}
           </ul>
-          <span>
-            Choose <Typography.Text strong>Import</Typography.Text> to merge them by edit history. Coexist will create
-            separate copies instead.
-          </span>
+          <Checkbox
+            checked={mergeCollisions}
+            onChange={(e) => onToggleMerge(e.target.checked)}
+            style={{ fontSize: 12 }}
+          >
+            Treat them as the same workspace and merge by edit history when I choose Import
+          </Checkbox>
         </div>
       }
     />

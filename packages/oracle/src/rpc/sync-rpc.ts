@@ -282,12 +282,16 @@ export function dispatchSyncRpc(message: Record<string, unknown>): SyncRpcResult
   }
 
   if (type === 'oh.sync.applyImport') {
-    const payload = message as unknown as { workspaces?: unknown };
+    const payload = message as unknown as {
+      workspaces?: unknown;
+      workspaceIdRemap?: unknown;
+    };
     return { kind: 'async', promise: dispatchApplyImport(payload) };
   }
 
   if (type === 'oh.sync.executeImportToPeer') {
-    return { kind: 'async', promise: dispatchExecuteImportToPeer() };
+    const raw = message as unknown as { workspaceIdRemap?: unknown };
+    return { kind: 'async', promise: dispatchExecuteImportToPeer(raw) };
   }
 
   if (type === 'oh.sync.executeDiscardWithBackup') {
@@ -457,11 +461,17 @@ async function dispatchExecuteCoexistToPeer(): Promise<CoexistResult> {
  * the target's already-hydrated oracle so the conflict count reflects
  * the user's view at confirmation time, not the post-merge union.
  */
-async function dispatchApplyImport(raw: { workspaces?: unknown }): Promise<ImportResult> {
+async function dispatchApplyImport(raw: {
+  workspaces?: unknown;
+  workspaceIdRemap?: unknown;
+}): Promise<ImportResult> {
   const payload: ImportPayload = {
     workspaces: Array.isArray(raw.workspaces)
       ? (raw.workspaces as ImportPayload['workspaces'])
       : [],
+    ...(isStringRecord(raw.workspaceIdRemap)
+      ? { workspaceIdRemap: raw.workspaceIdRemap }
+      : {}),
   };
 
   return applyImportPayload(payload, {
@@ -502,12 +512,32 @@ async function dispatchApplyImport(raw: { workspaces?: unknown }): Promise<Impor
  * orchestrator owns the no-pusher / no-source / push-failure routing.
  * Only the channel differs (and via that, the registered pusher).
  */
-async function dispatchExecuteImportToPeer(): Promise<ImportResult> {
+async function dispatchExecuteImportToPeer(raw: {
+  workspaceIdRemap?: unknown;
+}): Promise<ImportResult> {
   return orchestrateImportToPeer({
     workspaces: listWorkspaces().map((ws) => ({ id: ws.id, name: ws.name })),
     getOracle: (workspaceId) => getOracleForWorkspace(workspaceId),
     buildSnapshot: (workspaceId) => buildSnapshotForWorkspace(workspaceId),
+    ...(isStringRecord(raw.workspaceIdRemap)
+      ? { workspaceIdRemap: raw.workspaceIdRemap }
+      : {}),
   });
+}
+
+/**
+ * Guard: confirm a wire-side field is a plain `Record<string, string>`.
+ * Used at the trust boundary on M4b remap inputs to keep malformed
+ * client frames from reaching the applier (which would treat a non-
+ * string value as a target id and route the source to ignored).
+ */
+function isStringRecord(value: unknown): value is Record<string, string> {
+  if (value === null || typeof value !== 'object') return false;
+  if (Array.isArray(value)) return false;
+  for (const v of Object.values(value as Record<string, unknown>)) {
+    if (typeof v !== 'string' || v.length === 0) return false;
+  }
+  return true;
 }
 
 /**
