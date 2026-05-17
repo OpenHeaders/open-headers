@@ -225,12 +225,39 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     entries,
     danglingFires,
     navTiming,
+    initiatorChildren,
     clear: clearStore,
     preserveLog,
     setPreserveLog,
     recording,
     setRecording,
   } = useInspector();
+  // Lookup table used by `getInitiatorChildren` to resolve child entry
+  // ids (from the store's inverted initiator index) into full
+  // `InspectorRequest` rows the InitiatorView can render. Built once per
+  // entries-array identity — the store hands us a fresh slice on every
+  // bump so the dependency is sound.
+  const entriesById = useMemo(() => {
+    const m = new Map<string, InspectorRequest>();
+    for (const e of entries) m.set(e.id, e);
+    return m;
+  }, [entries]);
+  // Resolver passed down to InitiatorView. Pure projection over the
+  // store-owned index — no traversal of `entries` at render time, no
+  // graph computation in the leaf component.
+  const getInitiatorChildren = useCallback(
+    (url: string): readonly InspectorRequest[] => {
+      const ids = initiatorChildren.get(url);
+      if (!ids || ids.length === 0) return [];
+      const out: InspectorRequest[] = [];
+      for (const id of ids) {
+        const e = entriesById.get(id);
+        if (e) out.push(e);
+      }
+      return out;
+    },
+    [entriesById, initiatorChildren],
+  );
   const groups = useInspectorEditorGroups({ perTab });
   const tl = usePanelToolLayout(perTab);
   const panelSizes = useMemo(getPanelSizes, []);
@@ -383,6 +410,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
         <InspectorDetailContent
           request={request}
           rulesByUid={rulesByUid}
+          getInitiatorChildren={getInitiatorChildren}
           cacheBypassEnabled={cacheBypass.enabled}
           liveRulesMode={liveRulesMode}
           activeSection={tab.activeSection}
@@ -401,6 +429,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       entries,
       groups,
       rulesByUid,
+      getInitiatorChildren,
       cacheBypass.enabled,
       liveRulesMode,
       searchHighlight,

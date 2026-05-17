@@ -503,6 +503,13 @@
 .dt-initiator-chain-item--target .dt-initiator-chain-url {
   color: var(--dt-text);
 }
+.dt-initiator-chain-children {
+  padding-left: 16px;
+}
+.dt-initiator-chain-node {
+  display: flex;
+  flex-direction: column;
+}
 
 /* ── Timing view ─────────────────────────────────────────── */
 .dt-timing-view {

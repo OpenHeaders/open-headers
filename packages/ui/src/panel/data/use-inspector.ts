@@ -29,6 +29,7 @@ export interface UseInspectorResult {
   entries: readonly ReturnType<InspectorStore['getSnapshot']>['entries'][number][];
   danglingFires: readonly ReturnType<InspectorStore['getSnapshot']>['danglingFires'][number][];
   navTiming: ReturnType<InspectorStore['getSnapshot']>['navTiming'];
+  initiatorChildren: ReturnType<InspectorStore['getSnapshot']>['initiatorChildren'];
   tabId: number | null;
   ready: boolean;
   preserveLog: boolean;
@@ -134,6 +135,7 @@ export function useInspector(): UseInspectorResult {
     entries: snapshot.entries,
     danglingFires: snapshot.danglingFires,
     navTiming: snapshot.navTiming,
+    initiatorChildren: snapshot.initiatorChildren,
     tabId: tabIdRef.current,
     ready: readyRef.current,
     preserveLog: store.getPreserveLog(),

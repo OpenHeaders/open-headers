@@ -39,6 +39,11 @@ interface InspectorDetailContentProps {
   /** Rule registry used to attribute request/response header rows to
    *  the Open Headers rule that added, modified, or removed them. */
   rulesByUid: RulesByUid;
+  /** Resolves the immediate downstream-initiator children of a request
+   *  URL — i.e. siblings whose `_initiator` attributes them to this URL.
+   *  Backed by the store's inverted initiator index so this leaf view
+   *  never walks the full entries array itself. */
+  getInitiatorChildren: (url: string) => readonly InspectorRequest[];
   /** True while the "Disable Cache" toolbar toggle is on for the
    *  inspected tab. Tags `Cache-Control: no-cache` / `Pragma: no-cache`
    *  request headers as system-injected (yellow) instead of server. */
@@ -351,6 +356,7 @@ function EditedSinceFireChip({ kind }: { kind: 'rule' | 'value' }) {
 export function InspectorDetailContent({
   request,
   rulesByUid,
+  getInitiatorChildren,
   cacheBypassEnabled,
   liveRulesMode,
   activeSection,
@@ -637,7 +643,9 @@ export function InspectorDetailContent({
 
         {section === 'eventstream' && showEventStream && <EventStreamView request={request} />}
 
-        {section === 'initiator' && <InitiatorView har={har} requestUrl={request.url} />}
+        {section === 'initiator' && (
+          <InitiatorView har={har} requestUrl={request.url} getInitiatorChildren={getInitiatorChildren} />
+        )}
 
         {section === 'timing' && <TimingView har={har} />}
 

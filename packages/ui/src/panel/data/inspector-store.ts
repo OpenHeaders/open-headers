@@ -47,6 +47,7 @@
  */
 
 import type { InspectorHarBody, InspectorHarEntry, InspectorNavTiming, RequestRecord } from '@openheaders/core/types';
+import { resolveInitiatorRootUrl } from './initiator-graph';
 import { type DanglingFire, type InspectorFire, type InspectorRequest, mergeFireEvidence } from './types';
 
 /** Window for promoting a URL+window dangling fire to a newly-arrived HAR entry. */
@@ -79,6 +80,16 @@ export interface InspectorSnapshot {
   entries: readonly InspectorRequest[];
   danglingFires: readonly DanglingFire[];
   navTiming: InspectorNavTiming | null;
+  /**
+   * Parent-URL → child-entry-ids map. Built incrementally in
+   * `ingestHarEntry` by inverting each entry's `_initiator` attribution
+   * (see `resolveInitiatorRootUrl`). Used by the Initiator detail view
+   * to render Chrome-style downstream initiator trees without scanning
+   * the full entries list on each render. Reference identity changes
+   * whenever the map's contents change, so useMemo/useSyncExternalStore
+   * consumers correctly invalidate.
+   */
+  initiatorChildren: ReadonlyMap<string, readonly string[]>;
   version: number;
 }
 
@@ -98,6 +109,12 @@ export class InspectorStore {
    * mis-attach to the `https://b/` redirect target hop.
    */
   private byRequestId: Map<string, number[]> = new Map();
+  /**
+   * Inverted initiator index: parent URL → entry ids whose `_initiator`
+   * attributes them to that URL. Clone-on-write per parent so snapshot
+   * consumers that captured a previous array don't observe mutation.
+   */
+  private initiatorChildren: Map<string, readonly string[]> = new Map();
   /** Per-entry fire dedup, keyed by entry id → set of fire dedup keys. */
   private firesByEntry: Map<string, Set<string>> = new Map();
   /** Dedup for dangling fires so port-buffer replays don't duplicate them. */
@@ -108,7 +125,13 @@ export class InspectorStore {
   private displayCounter = 1;
   /** Cached snapshot — rebuilt only on bump() so useSyncExternalStore is stable. */
   private navTiming: InspectorNavTiming | null = null;
-  private snapshot: InspectorSnapshot = { entries: [], danglingFires: [], navTiming: null, version: 0 };
+  private snapshot: InspectorSnapshot = {
+    entries: [],
+    danglingFires: [],
+    navTiming: null,
+    initiatorChildren: new Map(),
+    version: 0,
+  };
   /**
    * Preserve-log toggle. Defaults to `true` for power-user workflows
    * where losing history on every refresh is the opposite of helpful.
@@ -147,6 +170,7 @@ export class InspectorStore {
     this.danglingFires = [];
     this.byHarKey.clear();
     this.byRequestId.clear();
+    this.initiatorChildren.clear();
     this.firesByEntry.clear();
     this.danglingFireKeys.clear();
     this.displayCounter = 1;
@@ -262,6 +286,16 @@ export class InspectorStore {
       if (list) list.push(idx);
       else this.byRequestId.set(chromeRequestId, [idx]);
     }
+
+    // Invert the entry's `_initiator` attribution into the parent → children
+    // index. Self-loops are silently dropped (a request shouldn't be its
+    // own initiator, but malformed HARs occasionally claim it).
+    const parentUrl = resolveInitiatorRootUrl(har);
+    if (parentUrl && parentUrl !== url) {
+      const prev = this.initiatorChildren.get(parentUrl);
+      this.initiatorChildren.set(parentUrl, prev ? [...prev, key] : [key]);
+    }
+
     this.bump();
   }
 
@@ -404,6 +438,7 @@ export class InspectorStore {
       entries: this.entries.slice(),
       danglingFires: this.danglingFires.slice(),
       navTiming: this.navTiming,
+      initiatorChildren: new Map(this.initiatorChildren),
       version: this.version,
     };
     for (const listener of this.listeners) {

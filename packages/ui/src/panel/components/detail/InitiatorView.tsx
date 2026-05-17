@@ -1,4 +1,5 @@
 import type { InspectorHarEntry } from '@openheaders/core/types';
+import type { InspectorRequest } from '../../data/types';
 
 interface CallFrame {
   functionName?: string;
@@ -65,38 +66,62 @@ function CallStack({ stack, label }: { stack: StackTrace; label?: string }) {
   );
 }
 
-function InitiatorChain({ initiator, requestUrl }: { initiator: Initiator; requestUrl: string }) {
-  const urls: string[] = [];
+/**
+ * Recursive downstream-initiator tree. `seen` guards against cycles in
+ * malformed HARs (a request that nominally initiates one of its own
+ * ancestors).
+ */
+function InitiatorChainTree({
+  url,
+  getChildren,
+  seen,
+}: {
+  url: string;
+  getChildren: (url: string) => readonly InspectorRequest[];
+  seen: ReadonlySet<string>;
+}) {
+  const children = getChildren(url);
+  if (children.length === 0) return null;
+  const next = new Set(seen);
+  next.add(url);
+  return (
+    <div className="dt-initiator-chain-children">
+      {children.map((child) => (
+        <div key={child.id} className="dt-initiator-chain-node">
+          <div className="dt-initiator-chain-item">
+            <span className="dt-initiator-chain-arrow">{'↓ '}</span>
+            <span className="dt-initiator-chain-url" title={child.url}>
+              {child.url}
+            </span>
+          </div>
+          {!seen.has(child.url) && <InitiatorChainTree url={child.url} getChildren={getChildren} seen={next} />}
+        </div>
+      ))}
+    </div>
+  );
+}
 
-  if (initiator.url) urls.push(initiator.url);
-
-  const stack = initiator.stack;
-  if (stack?.callFrames) {
-    for (const frame of stack.callFrames) {
-      if (frame.url && !urls.includes(frame.url)) urls.push(frame.url);
-    }
-  }
-
-  if (urls.length === 0) return null;
-
+function InitiatorChain({
+  requestUrl,
+  getChildren,
+}: {
+  requestUrl: string;
+  getChildren: (url: string) => readonly InspectorRequest[];
+}) {
+  // Only render the section when the selected request actually initiated
+  // something — leaf resources (an image, a JS chunk with no further
+  // imports) shouldn't show an empty "chain" affordance.
+  if (getChildren(requestUrl).length === 0) return null;
   return (
     <details className="dt-section" open>
       <summary>Request initiator chain</summary>
       <div className="dt-initiator-chain">
-        {urls.map((url, i) => (
-          <div key={`${url}-${i}`} className="dt-initiator-chain-item">
-            <span className="dt-initiator-chain-arrow">{i === 0 ? '' : '\u2193 '}</span>
-            <span className="dt-initiator-chain-url" title={url}>
-              {url}
-            </span>
-          </div>
-        ))}
         <div className="dt-initiator-chain-item dt-initiator-chain-item--target">
-          <span className="dt-initiator-chain-arrow">{'\u2193 '}</span>
           <span className="dt-initiator-chain-url" title={requestUrl}>
             <strong>{requestUrl}</strong>
           </span>
         </div>
+        <InitiatorChainTree url={requestUrl} getChildren={getChildren} seen={new Set()} />
       </div>
     </details>
   );
@@ -105,12 +130,14 @@ function InitiatorChain({ initiator, requestUrl }: { initiator: Initiator; reque
 interface InitiatorViewProps {
   har: InspectorHarEntry;
   requestUrl: string;
+  getInitiatorChildren: (url: string) => readonly InspectorRequest[];
 }
 
-export default function InitiatorView({ har, requestUrl }: InitiatorViewProps) {
+export default function InitiatorView({ har, requestUrl, getInitiatorChildren }: InitiatorViewProps) {
   const raw = har._initiator as Initiator | undefined;
+  const hasChildren = getInitiatorChildren(requestUrl).length > 0;
 
-  if (!raw) {
+  if (!raw && !hasChildren) {
     return (
       <span className="dt-col-muted" style={{ padding: 12 }}>
         No initiator data available.
@@ -120,9 +147,11 @@ export default function InitiatorView({ har, requestUrl }: InitiatorViewProps) {
 
   return (
     <div className="dt-initiator-view">
-      {raw.stack && <CallStack stack={raw.stack} />}
+      <InitiatorChain requestUrl={requestUrl} getChildren={getInitiatorChildren} />
 
-      {!raw.stack && raw.url && (
+      {raw?.stack && <CallStack stack={raw.stack} />}
+
+      {raw && !raw.stack && raw.url && (
         <details className="dt-section" open>
           <summary>Initiator</summary>
           <div className="dt-initiator-frame">
@@ -135,7 +164,7 @@ export default function InitiatorView({ har, requestUrl }: InitiatorViewProps) {
         </details>
       )}
 
-      {!raw.stack && !raw.url && (
+      {raw && !raw.stack && !raw.url && !hasChildren && (
         <details className="dt-section" open>
           <summary>Initiator</summary>
           <div className="dt-kv">
@@ -144,8 +173,6 @@ export default function InitiatorView({ har, requestUrl }: InitiatorViewProps) {
           </div>
         </details>
       )}
-
-      <InitiatorChain initiator={raw} requestUrl={requestUrl} />
     </div>
   );
 }
