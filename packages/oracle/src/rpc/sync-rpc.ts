@@ -39,11 +39,14 @@ import { SYNC_MUTATION_BATCH_TYPE, SYNC_MUTATION_TYPE } from '@openheaders/core/
 import type {
   CoexistPayload,
   CoexistResult,
+  DiscardBackupArchive,
   DiscardResult,
   ImportPayload,
   ImportResult,
   InverseEnvelopeContext,
+  RestoreResult,
 } from '@openheaders/core/sync';
+import { isDiscardBackupArchiveShape } from '@openheaders/core/sync';
 import {
   applyInboundMutationBatch,
   applyInboundMutationEnvelope,
@@ -58,6 +61,7 @@ import { generateInverseMutation } from '../sync/activity-revert';
 import { snapshotExtensionWorkspacePostStates } from '../sync/global-service';
 import {
   applyCoexistPayload,
+  applyDiscardRestoreArchive,
   applyImportPayload,
   collectLocalDataPresence,
   orchestrateCoexistToPeer,
@@ -290,6 +294,10 @@ export function dispatchSyncRpc(message: Record<string, unknown>): SyncRpcResult
     return { kind: 'async', promise: dispatchExecuteDiscardWithBackup() };
   }
 
+  if (type === 'oh.sync.applyDiscardRestore') {
+    return { kind: 'async', promise: dispatchApplyDiscardRestore(message) };
+  }
+
   if (type === 'oh.sync.unmuteActivityEntity') {
     const ws = typeof message.workspaceId === 'string' ? message.workspaceId : null;
     const entityType = typeof message.entityType === 'string' ? message.entityType : null;
@@ -519,5 +527,46 @@ async function dispatchExecuteDiscardWithBackup(): Promise<DiscardResult> {
     buildSnapshot: (workspaceId) => buildSnapshotForWorkspace(workspaceId),
     deleteWorkspace: (workspaceId) => deleteWorkspace(workspaceId),
     now: () => new Date().toISOString(),
+  });
+}
+
+/**
+ * Resolve an `oh.sync.applyDiscardRestore` request — local-only,
+ * source-side of M6.
+ *
+ * The renderer ships the parsed archive verbatim. This dispatcher
+ * validates the shape (a hand-edited or unrelated JSON file would
+ * otherwise tear down the applier mid-mint), then defers to
+ * {@link applyDiscardRestoreArchive} with production deps: mint via
+ * {@link createWorkspace}, replay via the per-workspace service +
+ * {@link applyWorkspaceSnapshot} pair Coexist already uses.
+ */
+async function dispatchApplyDiscardRestore(raw: Record<string, unknown>): Promise<RestoreResult> {
+  if (!isDiscardBackupArchiveShape(raw)) {
+    return {
+      ok: false,
+      reason: 'invalid-archive',
+      detail: 'archive failed shape validation',
+    };
+  }
+  const archive: DiscardBackupArchive = raw;
+
+  return applyDiscardRestoreArchive(archive, {
+    createWorkspace: async ({ name }) => {
+      const ws = await createWorkspace({ name });
+      return { id: ws.id, name: ws.name };
+    },
+    applySnapshot: async (snapshot) => {
+      // Same per-workspace service dance as Coexist's applier: the
+      // freshly-minted workspace hasn't been touched, so this is the
+      // first writer to its mutation log.
+      const svc = getOrCreateWorkspaceService(snapshot.workspaceId);
+      try {
+        await svc.hydrated;
+        return await applyWorkspaceSnapshot(snapshot, { makeContext: () => svc.context.next() });
+      } finally {
+        releaseWorkspaceService(snapshot.workspaceId);
+      }
+    },
   });
 }

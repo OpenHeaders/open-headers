@@ -98,6 +98,7 @@ export {
   COEXIST_IMPORTED_NAME_SUFFIX,
   USER_CONTENT_ENTITY_TYPES,
   applyCoexistPayload,
+  applyDiscardRestoreArchive,
   applyImportPayload,
   collectCoexistPayload,
   collectDiscardArchive,
@@ -115,6 +116,7 @@ export {
   setImportPeerPusher,
   type ApplyCoexistPayloadDeps,
   type ApplyImportPayloadDeps,
+  type ApplyRestoreDeps,
   type BackupWriter,
   type CollectCoexistPayloadInput,
   type CollectDiscardArchiveInput,
@@ -131,4 +133,5 @@ export {
   type OrchestrateCoexistDeps,
   type OrchestrateDiscardDeps,
   type OrchestrateImportDeps,
+  type RestoreTargetMinter,
 } from './mode-switch';

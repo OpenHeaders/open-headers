@@ -52,3 +52,8 @@ export {
   orchestrateDiscardWithBackup,
   type OrchestrateDiscardDeps,
 } from './discard-orchestrator';
+export {
+  applyDiscardRestoreArchive,
+  type ApplyRestoreDeps,
+  type RestoreTargetMinter,
+} from './restore-applier';
