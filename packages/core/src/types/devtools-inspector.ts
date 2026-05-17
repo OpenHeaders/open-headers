@@ -67,6 +67,10 @@ export interface InspectorHarEntry {
     wait?: number;
     receive?: number;
     ssl?: number;
+    /** Chrome-exporter extension: portion of `blocked` spent in the
+     *  resource-scheduler queue (vs raw connection-level stalling).
+     *  Subtracting from `blocked` yields the Stalled duration. */
+    _blocked_queueing?: number;
   };
   serverIPAddress?: string;
   connection?: string;

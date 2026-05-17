@@ -44,6 +44,15 @@ interface InspectorDetailContentProps {
    *  Backed by the store's inverted initiator index so this leaf view
    *  never walks the full entries array itself. */
   getInitiatorChildren: (url: string) => readonly InspectorRequest[];
+  /** Connection-reuse lookup for the Timing tab — App composes this
+   *  over the entries array so the leaf view stays decoupled. */
+  getConnectionReuse: (request: InspectorRequest) => import('../data/connection-reuse').ConnectionReuseInfo;
+  /** Repeat-URL stats lookup for the Timing tab. Null when the URL is
+   *  unique in this session (no comparison set). */
+  getRepeatStats: (request: InspectorRequest) => import('../data/timing-repeats').RepeatStats | null;
+  /** Session baseline (ms) — typically the timestamp of the first
+   *  observed entry, used to render "Started +X ms" on the Timing tab. */
+  baselineMs: number | null;
   /** True while the "Disable Cache" toolbar toggle is on for the
    *  inspected tab. Tags `Cache-Control: no-cache` / `Pragma: no-cache`
    *  request headers as system-injected (yellow) instead of server. */
@@ -357,6 +366,9 @@ export function InspectorDetailContent({
   request,
   rulesByUid,
   getInitiatorChildren,
+  getConnectionReuse,
+  getRepeatStats,
+  baselineMs,
   cacheBypassEnabled,
   liveRulesMode,
   activeSection,
@@ -647,7 +659,14 @@ export function InspectorDetailContent({
           <InitiatorView request={request} getInitiatorChildren={getInitiatorChildren} />
         )}
 
-        {section === 'timing' && <TimingView har={har} />}
+        {section === 'timing' && (
+          <TimingView
+            request={request}
+            connectionReuse={getConnectionReuse(request)}
+            repeatStats={getRepeatStats(request)}
+            baselineMs={baselineMs}
+          />
+        )}
 
         {section === 'cookies' && <CookiesView har={har} />}
 

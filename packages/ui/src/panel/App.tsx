@@ -49,7 +49,9 @@ import type { ColumnKey } from './components/traffic/columns';
 import { DEFAULT_VISIBLE_COLUMNS } from './components/traffic/columns';
 import type { FilterConfig } from './data/filter-engine';
 import { DEFAULT_FILTER_CONFIG, hasFilterError, parseFilter } from './data/filter-engine';
+import { computeConnectionReuse } from './data/connection-reuse';
 import { focusStore, setFocusedDock, setFocusedRegion } from './data/focus-store';
+import { computeRepeatStats } from './data/timing-repeats';
 import { serializeHar, suggestHarFilename } from './data/har-export';
 import type { DetailSection } from './data/inspector-tab';
 import { buildInspectorTab } from './data/inspector-tab';
@@ -258,6 +260,14 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     },
     [entriesById, initiatorChildren],
   );
+  // Timing-tab lookups — App owns the closure over `entries` so the
+  // leaf view stays decoupled from the global list (same pattern as
+  // `getInitiatorChildren`).
+  const getConnectionReuse = useCallback((req: InspectorRequest) => computeConnectionReuse(req, entries), [entries]);
+  const getRepeatStats = useCallback((req: InspectorRequest) => computeRepeatStats(req, entries), [entries]);
+  // Session baseline for "Started +X ms" — first observed entry's
+  // timestamp. Resets when `clear()` empties the entries list.
+  const baselineMs = useMemo(() => (entries.length > 0 ? entries[0].timestamp : null), [entries]);
   const groups = useInspectorEditorGroups({ perTab });
   const tl = usePanelToolLayout(perTab);
   const panelSizes = useMemo(getPanelSizes, []);
@@ -411,6 +421,9 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
           request={request}
           rulesByUid={rulesByUid}
           getInitiatorChildren={getInitiatorChildren}
+          getConnectionReuse={getConnectionReuse}
+          getRepeatStats={getRepeatStats}
+          baselineMs={baselineMs}
           cacheBypassEnabled={cacheBypass.enabled}
           liveRulesMode={liveRulesMode}
           activeSection={tab.activeSection}
@@ -430,6 +443,9 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       groups,
       rulesByUid,
       getInitiatorChildren,
+      getConnectionReuse,
+      getRepeatStats,
+      baselineMs,
       cacheBypass.enabled,
       liveRulesMode,
       searchHighlight,
