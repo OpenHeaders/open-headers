@@ -25,8 +25,11 @@ import { useEffect, useState } from 'react';
 import type { ModeSwitchVerdict } from '@openheaders/core/sync';
 import {
   applyModeSwitchVerdict,
+  executeCoexist,
   queryPeerDataPresenceFromBridge,
   requestModeSwitchVerdict,
+  summarizeCoexistFailure,
+  summarizeCoexistSuccess,
 } from '../../../shared/mode-switch';
 import { getCurrentHost, type Host } from '../../../shared/host-vocabulary';
 import { getStatusSnapshot, subscribe as subscribeStatus } from '../../../shared/status';
@@ -173,24 +176,37 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
     });
   };
 
-  // Until M3-M5 wire Coexist/Import/Discard, every choice still commits
-  // the new mode (the actual data movement is the deferred work) and a
-  // toast tells the user what would have happened. The dialog itself
-  // already prevents the silent-commit-on-data-loss anti-pattern that
-  // §11.2 calls out — once M3-M5 land, only the toast copy + an
-  // additional dispatch on `choice` changes.
-  const handleDialogChoose = (choice: ModeSwitchChoice): void => {
+  // Coexist (M3) runs the executor end-to-end; Import (M4) and Discard
+  // (M5) still stub. The mode is only committed AFTER a successful
+  // executor run — partial failures must not strand the user on a
+  // back-end that has half the imported data. The dialog itself
+  // prevents the silent-commit-on-data-loss anti-pattern §11.2 calls
+  // out; Cancel from the dialog never commits.
+  const handleDialogChoose = async (choice: ModeSwitchChoice): Promise<void> => {
     const state = dialogState;
     if (!state) return;
     setDialogState(null);
+
+    if (choice === 'coexist') {
+      const result = await executeCoexist();
+      if (result.ok) {
+        commitMode(state.to);
+        message.success(summarizeCoexistSuccess(result, state.from, state.to));
+      } else {
+        message.warning(summarizeCoexistFailure(result, state.to));
+      }
+      return;
+    }
+
+    // M4/M5 stubs: commit the mode + advise the user that the deeper
+    // handler isn't shipped yet. Source data stays where it was; no
+    // destructive side effects.
     commitMode(state.to);
-    const action =
-      choice === 'coexist'
-        ? `Kept both workspaces — ${labelForMode(state.from)} data will appear as an imported workspace once that handler ships.`
-        : choice === 'import'
-          ? 'Import-merge handler not yet shipped; mode switched, your existing target data is untouched.'
-          : 'Discard-with-backup handler not yet shipped; mode switched, source data is still on the original host.';
-    message.info(action);
+    message.info(
+      choice === 'import'
+        ? 'Import-merge handler not yet shipped; mode switched, your existing target data is untouched.'
+        : 'Discard-with-backup handler not yet shipped; mode switched, source data is still on the original host.',
+    );
   };
 
   const handleDialogCancel = (): void => {
@@ -248,7 +264,9 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
           toLabel={labelForMode(dialogState.to)}
           source={dialogState.verdict.source}
           target={dialogState.verdict.target}
-          onChoose={handleDialogChoose}
+          onChoose={(c) => {
+            void handleDialogChoose(c);
+          }}
           onCancel={handleDialogCancel}
         />
       )}
