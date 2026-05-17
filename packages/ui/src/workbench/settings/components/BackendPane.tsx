@@ -116,6 +116,29 @@ interface DialogState {
   to: BackendMode;
 }
 
+/**
+ * Tracks the executor running behind a closed dialog. Coexist / Import /
+ * Discard each issue a single bridge call but the work can take a second
+ * or two when many workspaces are in flight; without this state the user
+ * gets no feedback between "dialog closes" and "toast appears". The
+ * `kind` drives both the loading-toast copy and the disabled-dropdown
+ * tooltip; `targetMode` carries the destination so a successful run can
+ * commit the right value.
+ */
+interface InFlightState {
+  kind: ModeSwitchChoice;
+  from: BackendMode;
+  to: BackendMode;
+}
+
+const IN_FLIGHT_TOAST_KEY = 'backend-pane-mode-switch';
+
+function inFlightCopy(kind: ModeSwitchChoice): string {
+  if (kind === 'coexist') return 'Keeping both as separate workspaces…';
+  if (kind === 'import') return 'Importing source data into the target workspace…';
+  return 'Discarding source data…';
+}
+
 function labelForMode(mode: BackendMode): string {
   return SCENARIOS.find((s) => s.mode === mode)?.title ?? mode;
 }
@@ -134,6 +157,7 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   // committing.
   const [previewMode, setPreviewMode] = useState<BackendMode>(mode);
   const [dialogState, setDialogState] = useState<DialogState | null>(null);
+  const [inFlight, setInFlight] = useState<InFlightState | null>(null);
 
   // If the stored value isn't valid for the current host (e.g. user
   // imported a config from a different host), correct it. The store's
@@ -167,6 +191,10 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   // Local query failures degrade to "empty" in the orchestrator so a
   // transient bridge hiccup never permanently traps the user.
   const handleDropdownChange = async (next: BackendMode): Promise<void> => {
+    // A second dropdown change while an executor is still resolving
+    // would race two commits at the new mode; lock until the in-flight
+    // run lands its success/warning toast.
+    if (inFlight) return;
     const verdict = await requestModeSwitchVerdict(mode, next, {
       queryPeerPresence: queryPeerDataPresenceFromBridge,
     });
@@ -198,34 +226,66 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
     if (!state) return;
     setDialogState(null);
 
-    if (choice === 'coexist') {
-      const result = await executeCoexist();
+    setInFlight({ kind: choice, from: state.from, to: state.to });
+    // Single keyed toast that survives the executor await — replaced
+    // in-place by the success/warning message below so users see one
+    // continuous status line rather than a flash + replace.
+    message.loading({
+      key: IN_FLIGHT_TOAST_KEY,
+      content: inFlightCopy(choice),
+      duration: 0,
+    });
+
+    try {
+      if (choice === 'coexist') {
+        const result = await executeCoexist();
+        if (result.ok) {
+          commitMode(state.to);
+          message.success({
+            key: IN_FLIGHT_TOAST_KEY,
+            content: summarizeCoexistSuccess(result, labelForMode(state.from), labelForMode(state.to)),
+          });
+        } else {
+          message.warning({
+            key: IN_FLIGHT_TOAST_KEY,
+            content: summarizeCoexistFailure(result, labelForMode(state.to)),
+          });
+        }
+        return;
+      }
+
+      if (choice === 'import') {
+        const result = await executeImport({ workspaceIdRemap: options?.workspaceIdRemap });
+        if (result.ok) {
+          commitMode(state.to);
+          message.success({
+            key: IN_FLIGHT_TOAST_KEY,
+            content: summarizeImportSuccess(result, labelForMode(state.from), labelForMode(state.to)),
+          });
+        } else {
+          message.warning({
+            key: IN_FLIGHT_TOAST_KEY,
+            content: summarizeImportFailure(result, labelForMode(state.to)),
+          });
+        }
+        return;
+      }
+
+      const result = await executeDiscard();
       if (result.ok) {
         commitMode(state.to);
-        message.success(summarizeCoexistSuccess(result, labelForMode(state.from), labelForMode(state.to)));
+        message.success({
+          key: IN_FLIGHT_TOAST_KEY,
+          content: summarizeDiscardSuccess(result, labelForMode(state.to)),
+        });
       } else {
-        message.warning(summarizeCoexistFailure(result, labelForMode(state.to)));
+        message.warning({
+          key: IN_FLIGHT_TOAST_KEY,
+          content: summarizeDiscardFailure(result),
+        });
       }
-      return;
-    }
-
-    if (choice === 'import') {
-      const result = await executeImport({ workspaceIdRemap: options?.workspaceIdRemap });
-      if (result.ok) {
-        commitMode(state.to);
-        message.success(summarizeImportSuccess(result, labelForMode(state.from), labelForMode(state.to)));
-      } else {
-        message.warning(summarizeImportFailure(result, labelForMode(state.to)));
-      }
-      return;
-    }
-
-    const result = await executeDiscard();
-    if (result.ok) {
-      commitMode(state.to);
-      message.success(summarizeDiscardSuccess(result, labelForMode(state.to)));
-    } else {
-      message.warning(summarizeDiscardFailure(result));
+    } finally {
+      setInFlight(null);
     }
   };
 
@@ -245,6 +305,7 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
         host={host}
         intro={HOST_INTRO[host]}
         value={mode}
+        disabled={inFlight !== null}
         onChange={(next) => {
           void handleDropdownChange(next);
         }}
@@ -303,8 +364,9 @@ const ActiveBackendSelect: React.FC<{
   host: Host;
   intro: React.ReactNode;
   value: BackendMode;
+  disabled?: boolean;
   onChange: (next: BackendMode) => void;
-}> = ({ host, intro, value, onChange }) => {
+}> = ({ host, intro, value, disabled, onChange }) => {
   const { token } = theme.useToken();
   return (
     <div
@@ -326,6 +388,7 @@ const ActiveBackendSelect: React.FC<{
         size="small"
         value={value}
         onChange={onChange}
+        disabled={disabled}
         style={{ minWidth: 200, flex: 'none' }}
         options={SCENARIOS.map((s) => {
           const available = s.validHosts.includes(host);
