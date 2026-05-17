@@ -8,7 +8,15 @@
  */
 
 import { hostBridge } from '@openheaders/core/bridge';
+import { isDiscardBackupArchiveShape } from '@openheaders/core/sync';
+import type { DiscardBackupArchive } from '@openheaders/core/sync';
+import { message } from 'antd';
 import * as v from 'valibot';
+import {
+  executeRestore,
+  summarizeRestoreFailure,
+  summarizeRestoreSuccess,
+} from '@openheaders/ui/shared/mode-switch';
 import { allDefs, registerSetting } from '../registry';
 import { get as getStoreValue, reset as resetSetting, set as setStoreValue } from '../store';
 import type { SettingKey, SettingsMap } from '../types';
@@ -30,6 +38,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'data.exportFilesManifest': string;
     'data.clearAllFiles': string;
     'data.filesBrowser': string;
+    'data.restoreFromBackup': string;
   }
 }
 
@@ -78,6 +87,40 @@ function downloadJson(filename: string, payload: unknown): void {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+/**
+ * File-picker variant that differentiates user-cancel from malformed
+ * JSON. Restore needs this so a wrong-file pick can surface a toast
+ * instead of silently dismissing (which is the right behavior when the
+ * user simply hit Esc, but a hostile UX when they meant to pick a
+ * specific file that turned out to be unparsable).
+ */
+type ArchivePick = { kind: 'cancelled' } | { kind: 'invalid-json' } | { kind: 'ok'; parsed: unknown };
+
+function pickArchiveFile(): Promise<ArchivePick> {
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json';
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) {
+        resolve({ kind: 'cancelled' });
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          resolve({ kind: 'ok', parsed: JSON.parse(String(reader.result)) });
+        } catch {
+          resolve({ kind: 'invalid-json' });
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  });
 }
 
 function pickJsonFile(): Promise<unknown | null> {
@@ -148,6 +191,37 @@ registerSetting({
         if (result.success) {
           setStoreValue(def.key as SettingKey, result.output as SettingsMap[SettingKey]);
         }
+      }
+    },
+  },
+});
+
+registerSetting({
+  key: 'data.restoreFromBackup',
+  type: 'action',
+  default: '',
+  schema: actionSchema,
+  label: 'Restore from Backup',
+  description:
+    'Recover workspaces from a Discard backup archive. Pick the JSON file the back-end switcher wrote when you discarded data; every workspace it carries is recreated under a fresh id and seeded with its snapshot. Your existing workspaces are not touched — restore is additive.',
+  category: 'data',
+  tags: ['restore', 'backup', 'recovery', 'workspace', 'discard', 'archive'],
+  scope: 'user',
+  action: {
+    label: 'Restore…',
+    run: async () => {
+      const pick = await pickArchiveFile();
+      if (pick.kind === 'cancelled') return;
+      if (pick.kind === 'invalid-json' || !isDiscardBackupArchiveShape(pick.parsed)) {
+        message.warning("That file isn't a valid backup archive. Pick a JSON file produced by a Discard run.");
+        return;
+      }
+      const archive: DiscardBackupArchive = pick.parsed;
+      const result = await executeRestore({ archive });
+      if (result.ok) {
+        message.success(summarizeRestoreSuccess(result));
+      } else {
+        message.warning(summarizeRestoreFailure(result));
       }
     },
   },
