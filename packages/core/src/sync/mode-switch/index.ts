@@ -21,6 +21,12 @@ export type {
   DiscardResult,
   DiscardedWorkspace,
 } from './discard-types';
+export type {
+  RestoreFailureReason,
+  RestoreResult,
+  RestoredWorkspace,
+} from './restore-types';
+export { isDiscardBackupArchiveShape } from './restore-types';
 export { isPresenceEmpty, summarizeWorkspaces } from './data-presence';
 export { decideModeSwitch } from './decide';
 export type {

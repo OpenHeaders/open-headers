@@ -32,9 +32,11 @@ import type {
   ActivityMuteEntry,
   CoexistPayload,
   CoexistResult,
+  DiscardBackupArchive,
   DiscardResult,
   ImportPayload,
   ImportResult,
+  RestoreResult,
   InverseEnvelopeContext,
   MutationEnvelope,
   MutatorOutcome,
@@ -1266,6 +1268,31 @@ export interface BridgeRpcContract {
   'oh.sync.executeDiscardWithBackup': {
     req: Record<string, never>;
     res: DiscardResult;
+  };
+
+  /**
+   * Mode-switch Restore (Phase C M6) — local recovery from a
+   * {@link DiscardBackupArchive} the user picked from disk.
+   *
+   * The renderer reads the JSON file, parses + validates the shape,
+   * then ships the parsed archive verbatim on this channel. The oracle
+   * mints a FRESH UUIDv7 workspace per archive entry (the archive's
+   * source-host ids are informational), retargets each snapshot at its
+   * newly-minted id, and replays through {@link applyWorkspaceSnapshot}
+   * — the same path Coexist + the cold-receiver bootstrap use.
+   *
+   * Local-only by construction: no wire frame, no peer hop. Restore
+   * runs against the host the user is sitting on; there is no symmetric
+   * "applyRestore on the peer" — the peer is irrelevant to recovery.
+   *
+   * Partial-apply stance matches Coexist + Import: the first per-
+   * workspace rejection short-circuits with `apply-failed`; earlier
+   * workspaces in the archive that did mount stay mounted and are
+   * reported in `restoredWorkspaces` on the failure branch.
+   */
+  'oh.sync.applyDiscardRestore': {
+    req: DiscardBackupArchive;
+    res: RestoreResult;
   };
 
   // ── Sync engine (Phase A) ────────────────────────────────────────
