@@ -77,6 +77,7 @@ describe('applyModeSwitchVerdict', () => {
       kind: 'show-dialog',
       source: summary(12),
       target: summary(4),
+      nameCollisions: [],
     };
     applyModeSwitchVerdict(verdict, h);
     expect(h.__open).toHaveBeenCalledTimes(1);

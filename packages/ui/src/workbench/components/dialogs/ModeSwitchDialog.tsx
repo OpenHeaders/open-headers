@@ -17,9 +17,9 @@
  * callback the caller plugs into the eventual handlers.
  */
 
-import { Modal, Typography, theme } from 'antd';
+import { Alert, Modal, Typography, theme } from 'antd';
 import type React from 'react';
-import type { DataPresenceSummary } from '@openheaders/core/sync';
+import type { DataPresenceSummary, NameCollision } from '@openheaders/core/sync';
 
 export type ModeSwitchChoice = 'coexist' | 'import' | 'discard';
 
@@ -31,6 +31,14 @@ export interface ModeSwitchDialogProps {
   toLabel: string;
   source: DataPresenceSummary;
   target: DataPresenceSummary;
+  /**
+   * Source ↔ target workspace pairs whose names collapse to the same
+   * canonical form (post-NFC + case-fold). When non-empty the dialog
+   * renders a banner ABOVE the action cards so the user can decide
+   * before Coexist mints a duplicate. M7 surfaces the hint only; the
+   * "Rename + import" affordance lands in M4b.
+   */
+  nameCollisions?: readonly NameCollision[];
   onChoose: (choice: ModeSwitchChoice) => void;
   onCancel: () => void;
 }
@@ -68,10 +76,12 @@ const ModeSwitchDialog: React.FC<ModeSwitchDialogProps> = ({
   toLabel,
   source,
   target,
+  nameCollisions,
   onChoose,
   onCancel,
 }) => {
   const { token } = theme.useToken();
+  const collisions = nameCollisions ?? [];
   return (
     <Modal
       open={open}
@@ -93,6 +103,9 @@ const ModeSwitchDialog: React.FC<ModeSwitchDialogProps> = ({
           target={target}
           token={token}
         />
+        {collisions.length > 0 && (
+          <NameCollisionBanner collisions={collisions} fromLabel={fromLabel} toLabel={toLabel} />
+        )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {ACTION_OPTIONS.map((opt) => (
             <ActionCard
@@ -125,6 +138,49 @@ const ModeSwitchDialog: React.FC<ModeSwitchDialogProps> = ({
         </div>
       </div>
     </Modal>
+  );
+};
+
+/**
+ * Inline banner that lists each source/target workspace pair whose
+ * names match after Unicode canonicalization. Nudges the user toward
+ * Import (HLC merge) rather than Coexist (which would mint a duplicate
+ * workspace per collision). The "Rename + import" affordance is M4b
+ * territory; this slice surfaces information only.
+ */
+const NameCollisionBanner: React.FC<{
+  collisions: readonly NameCollision[];
+  fromLabel: string;
+  toLabel: string;
+}> = ({ collisions, fromLabel, toLabel }) => {
+  const headline =
+    collisions.length === 1
+      ? '1 workspace looks like the same one on both sides.'
+      : `${collisions.length} workspaces look like the same ones on both sides.`;
+  return (
+    <Alert
+      type="info"
+      showIcon
+      message={<span style={{ fontSize: 12, fontWeight: 600 }}>{headline}</span>}
+      description={
+        <div style={{ fontSize: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <ul style={{ margin: 0, paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {collisions.map((c) => (
+              <li key={`${c.sourceWorkspaceId}→${c.targetWorkspaceId}`}>
+                <Typography.Text strong>{c.sourceWorkspaceName}</Typography.Text>
+                {` (${fromLabel}) ↔ `}
+                <Typography.Text strong>{c.targetWorkspaceName}</Typography.Text>
+                {` (${toLabel})`}
+              </li>
+            ))}
+          </ul>
+          <span>
+            Choose <Typography.Text strong>Import</Typography.Text> to merge them by edit history. Coexist will create
+            separate copies instead.
+          </span>
+        </div>
+      }
+    />
   );
 };
 

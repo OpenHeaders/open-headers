@@ -1,4 +1,5 @@
 import { isPresenceEmpty } from './data-presence';
+import { findNameCollisions } from './name-collision';
 import type { ModeSwitchInput, ModeSwitchVerdict } from './types';
 
 /**
@@ -27,5 +28,6 @@ export function decideModeSwitch(input: ModeSwitchInput): ModeSwitchVerdict {
   if (sourceEmpty && targetEmpty) return { kind: 'both-empty' };
   if (sourceEmpty) return { kind: 'silent-use-target' };
   if (targetEmpty) return { kind: 'silent-import-source' };
-  return { kind: 'show-dialog', source: input.source, target: input.target };
+  const nameCollisions = findNameCollisions({ source: input.source, target: input.target });
+  return { kind: 'show-dialog', source: input.source, target: input.target, nameCollisions };
 }

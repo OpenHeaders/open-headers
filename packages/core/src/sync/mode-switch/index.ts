@@ -29,6 +29,8 @@ export type {
 export { isDiscardBackupArchiveShape } from './restore-types';
 export { isPresenceEmpty, summarizeWorkspaces } from './data-presence';
 export { decideModeSwitch } from './decide';
+export { findNameCollisions, normalizeWorkspaceNameForCollision } from './name-collision';
+export type { FindNameCollisionsInput, NameCollision } from './name-collision';
 export type {
   DataPresenceSummary,
   EntityCounts,

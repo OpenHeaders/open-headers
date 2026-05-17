@@ -7,6 +7,8 @@
  * spec and short-circuits (source-empty / target-empty / both-empty).
  */
 
+import type { NameCollision } from './name-collision';
+
 /** Per-workspace entity tally. Keys are entity types ('rule', 'environment', etc.). */
 export type EntityCounts = Readonly<Record<string, number>>;
 
@@ -47,6 +49,14 @@ export type ModeSwitchVerdict =
       kind: 'show-dialog';
       source: DataPresenceSummary;
       target: DataPresenceSummary;
+      /**
+       * Source ↔ target workspace pairs whose display names collapse to
+       * the same canonical form (NFC + trim + case-fold). Surfaced by
+       * the dialog so the user can spot "this is the same workspace I
+       * authored on both hosts" before Coexist mints duplicates. Empty
+       * array when no collisions detected. See {@link NameCollision}.
+       */
+      nameCollisions: readonly NameCollision[];
     };
 
 export interface ModeSwitchInput {

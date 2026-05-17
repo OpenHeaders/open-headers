@@ -280,6 +280,7 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
           toLabel={labelForMode(dialogState.to)}
           source={dialogState.verdict.source}
           target={dialogState.verdict.target}
+          nameCollisions={dialogState.verdict.nameCollisions}
           onChoose={(c) => {
             void handleDialogChoose(c);
           }}

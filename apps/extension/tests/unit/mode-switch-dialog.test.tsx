@@ -58,7 +58,14 @@ function presence(workspaces: WorkspaceContentSnapshot[]): DataPresenceSummary {
   };
 }
 
-function renderDialog(overrides: { open?: boolean; onChoose?: (c: ModeSwitchChoice) => void; onCancel?: () => void } = {}) {
+import type { NameCollision } from '@openheaders/core/sync';
+
+function renderDialog(overrides: {
+  open?: boolean;
+  onChoose?: (c: ModeSwitchChoice) => void;
+  onCancel?: () => void;
+  nameCollisions?: readonly NameCollision[];
+} = {}) {
   return render(
     <ModeSwitchDialog
       open={overrides.open ?? true}
@@ -66,6 +73,7 @@ function renderDialog(overrides: { open?: boolean; onChoose?: (c: ModeSwitchChoi
       toLabel="Desktop App"
       source={presence([workspace({ rule: 12, environment: 3 })])}
       target={presence([workspace({ rule: 8 })])}
+      nameCollisions={overrides.nameCollisions}
       onChoose={overrides.onChoose ?? (() => {})}
       onCancel={overrides.onCancel ?? (() => {})}
     />,
@@ -120,5 +128,53 @@ describe('ModeSwitchDialog', () => {
     renderDialog({ onCancel });
     screen.getByText('Cancel').click();
     expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('omits the name-collision banner when no collisions are provided', () => {
+    renderDialog();
+    expect(screen.queryByText(/look like the same one/)).toBeNull();
+    expect(screen.queryByText(/look like the same ones/)).toBeNull();
+  });
+
+  it('renders the name-collision banner with each colliding workspace pair', () => {
+    renderDialog({
+      nameCollisions: [
+        {
+          sourceWorkspaceId: '0193a8ff-c000-7000-8000-00000000000a',
+          sourceWorkspaceName: 'PRODUCTION',
+          targetWorkspaceId: '0193a8ff-c000-7000-8000-00000000000b',
+          targetWorkspaceName: 'production',
+          normalizedName: 'production',
+        },
+        {
+          sourceWorkspaceId: '0193a8ff-c000-7000-8000-00000000000c',
+          sourceWorkspaceName: 'Staging',
+          targetWorkspaceId: '0193a8ff-c000-7000-8000-00000000000d',
+          targetWorkspaceName: 'staging',
+          normalizedName: 'staging',
+        },
+      ],
+    });
+    expect(screen.getByText(/2 workspaces look like the same ones/)).toBeTruthy();
+    expect(screen.getByText('PRODUCTION')).toBeTruthy();
+    expect(screen.getAllByText('production').length).toBeGreaterThan(0);
+    expect(screen.getByText('Staging')).toBeTruthy();
+    expect(screen.getAllByText('staging').length).toBeGreaterThan(0);
+    expect(screen.getByText(/Choose/)).toBeTruthy();
+  });
+
+  it('uses the singular "1 workspace looks like" phrasing for a single collision', () => {
+    renderDialog({
+      nameCollisions: [
+        {
+          sourceWorkspaceId: '0193a8ff-c000-7000-8000-00000000000a',
+          sourceWorkspaceName: 'Production',
+          targetWorkspaceId: '0193a8ff-c000-7000-8000-00000000000b',
+          targetWorkspaceName: 'Production',
+          normalizedName: 'production',
+        },
+      ],
+    });
+    expect(screen.getByText(/1 workspace looks like the same one/)).toBeTruthy();
   });
 });
