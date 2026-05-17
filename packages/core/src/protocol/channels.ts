@@ -32,6 +32,7 @@ import type {
   ActivityMuteEntry,
   CoexistPayload,
   CoexistResult,
+  DiscardResult,
   ImportPayload,
   ImportResult,
   InverseEnvelopeContext,
@@ -1241,6 +1242,30 @@ export interface BridgeRpcContract {
   'oh.sync.executeImportToPeer': {
     req: Record<string, never>;
     res: ImportResult;
+  };
+
+  /**
+   * Mode-switch Discard (Phase C M5) — source-side, local-only.
+   *
+   * No payload crosses the wire. The host (a) collects every resident
+   * workspace into a {@link DiscardBackupArchive}, (b) hands the archive
+   * to the host-installed {@link BackupWriter} seam, then (c) deletes
+   * every workspace through the standard mutator path. Atomicity is
+   * one-way: the archive lands on disk BEFORE any delete runs, so a
+   * writer rejection short-circuits before mutating in-memory state.
+   * Once the archive is written, partial delete failures still report
+   * `delete-failed` but the backup remains valid for M6 restore.
+   *
+   * Same channel runs on both hosts — extension SW installs a
+   * `chrome.downloads`-backed writer; desktop main will install a Node
+   * `fs.writeFile`-backed writer. Hosts without a writer (test
+   * environments, bootstrap races) return `{ ok: false, reason:
+   * 'backup-writer-unavailable' }` and the dialog leaves the user on
+   * their original back-end.
+   */
+  'oh.sync.executeDiscardWithBackup': {
+    req: Record<string, never>;
+    res: DiscardResult;
   };
 
   // ── Sync engine (Phase A) ────────────────────────────────────────

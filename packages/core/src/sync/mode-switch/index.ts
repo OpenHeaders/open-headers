@@ -14,6 +14,13 @@ export type {
   ImportResult,
   ImportSourceWorkspace,
 } from './import-types';
+export type {
+  DiscardBackupArchive,
+  DiscardBackupWorkspace,
+  DiscardFailureReason,
+  DiscardResult,
+  DiscardedWorkspace,
+} from './discard-types';
 export { isPresenceEmpty, summarizeWorkspaces } from './data-presence';
 export { decideModeSwitch } from './decide';
 export type {
