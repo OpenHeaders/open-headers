@@ -19,11 +19,16 @@
  */
 
 import { ArrowRightOutlined } from '@ant-design/icons';
-import { Alert, Select, theme, Typography } from 'antd';
+import { Alert, App as AntApp, Select, theme, Typography } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import type { ModeSwitchVerdict } from '@openheaders/core/sync';
+import { applyModeSwitchVerdict, requestModeSwitchVerdict } from '../../../shared/mode-switch';
 import { getCurrentHost, type Host } from '../../../shared/host-vocabulary';
 import { getStatusSnapshot, subscribe as subscribeStatus } from '../../../shared/status';
+import ModeSwitchDialog, {
+  type ModeSwitchChoice,
+} from '../../components/dialogs/ModeSwitchDialog';
 import { useOptionalInspectorNav } from '../../hooks/useInspectorNav';
 import { useSetting } from '../hooks';
 import type { BackendMode } from '../schema/backend';
@@ -90,10 +95,22 @@ function firstValidMode(host: Host): BackendMode {
   return (SCENARIOS.find((s) => s.validHosts.includes(host))?.mode ?? SCENARIOS[0].mode) as BackendMode;
 }
 
+/** State held while the mode-switch dialog is mounted. */
+interface DialogState {
+  verdict: Extract<ModeSwitchVerdict, { kind: 'show-dialog' }>;
+  from: BackendMode;
+  to: BackendMode;
+}
+
+function labelForMode(mode: BackendMode): string {
+  return SCENARIOS.find((s) => s.mode === mode)?.title ?? mode;
+}
+
 const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   const { token } = theme.useToken();
   const [mode, setMode] = useSetting('backend.mode');
   const host = getCurrentHost();
+  const { message } = AntApp.useApp();
 
   // The system setting is `mode`. The 4-tile picker is a PREVIEW
   // explorer — clicking a tile updates a local `previewMode` so the
@@ -102,6 +119,7 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   // the tiles. This lets users compare scenarios visually without
   // committing.
   const [previewMode, setPreviewMode] = useState<BackendMode>(mode);
+  const [dialogState, setDialogState] = useState<DialogState | null>(null);
 
   // If the stored value isn't valid for the current host (e.g. user
   // imported a config from a different host), correct it. The store's
@@ -123,9 +141,54 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   const liveBackend = useBackendLive(activeScenario.mode, host);
   const previewingNonActive = previewMode !== mode;
 
-  const handleDropdownChange = (next: BackendMode): void => {
+  const commitMode = (next: BackendMode): void => {
     setMode(next);
     setPreviewMode(next);
+  };
+
+  // §11.2: route every mode change through the orchestrator. Silent
+  // verdicts commit immediately; `peer-unreachable` blocks the switch
+  // and surfaces a toast (the user must connect the target host first);
+  // `show-dialog` mounts the Coexist/Import/Discard resolution modal.
+  // Local query failures degrade to "empty" in the orchestrator so a
+  // transient bridge hiccup never permanently traps the user.
+  const handleDropdownChange = async (next: BackendMode): Promise<void> => {
+    const verdict = await requestModeSwitchVerdict(mode, next);
+    applyModeSwitchVerdict(verdict, {
+      commitMode: () => commitMode(next),
+      warnPeerUnreachable: () => {
+        message.warning(
+          `Connect ${labelForMode(next)} first — the mode-switch needs to inspect both sides before committing.`,
+        );
+      },
+      openDialog: (showDialog) => {
+        setDialogState({ verdict: showDialog, from: mode, to: next });
+      },
+    });
+  };
+
+  // Until M3-M5 wire Coexist/Import/Discard, every choice still commits
+  // the new mode (the actual data movement is the deferred work) and a
+  // toast tells the user what would have happened. The dialog itself
+  // already prevents the silent-commit-on-data-loss anti-pattern that
+  // §11.2 calls out — once M3-M5 land, only the toast copy + an
+  // additional dispatch on `choice` changes.
+  const handleDialogChoose = (choice: ModeSwitchChoice): void => {
+    const state = dialogState;
+    if (!state) return;
+    setDialogState(null);
+    commitMode(state.to);
+    const action =
+      choice === 'coexist'
+        ? `Kept both workspaces — ${labelForMode(state.from)} data will appear as an imported workspace once that handler ships.`
+        : choice === 'import'
+          ? 'Import-merge handler not yet shipped; mode switched, your existing target data is untouched.'
+          : 'Discard-with-backup handler not yet shipped; mode switched, source data is still on the original host.';
+    message.info(action);
+  };
+
+  const handleDialogCancel = (): void => {
+    setDialogState(null);
   };
 
   return (
@@ -140,7 +203,9 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
         host={host}
         intro={HOST_INTRO[host]}
         value={mode}
-        onChange={handleDropdownChange}
+        onChange={(next) => {
+          void handleDropdownChange(next);
+        }}
       />
 
       <ModePicker
@@ -169,6 +234,18 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
         defs={fieldDefs}
         category={category}
       />
+
+      {dialogState && (
+        <ModeSwitchDialog
+          open
+          fromLabel={labelForMode(dialogState.from)}
+          toLabel={labelForMode(dialogState.to)}
+          source={dialogState.verdict.source}
+          target={dialogState.verdict.target}
+          onChoose={handleDialogChoose}
+          onCancel={handleDialogCancel}
+        />
+      )}
     </div>
   );
 };
