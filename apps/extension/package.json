@@ -61,6 +61,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.7.0",
     "archiver": "^5.3.2",
+    "fast-check": "^4.8.0",
     "jsdom": "^29.0.1",
     "less": "^4.2.0",
     "terser": "^5.46.1",
