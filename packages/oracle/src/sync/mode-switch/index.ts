@@ -21,3 +21,21 @@ export {
   type CollectLocalDataPresenceInput,
   type DataPresenceOracle,
 } from './data-presence-collector';
+export {
+  applyImportPayload,
+  enumerateSnapshotEntities,
+  type ApplyImportPayloadDeps,
+  type ImportTargetEntityReader,
+  type ImportTargetWorkspaceLookup,
+} from './import-applier';
+export {
+  collectImportPayload,
+  type CollectImportPayloadInput,
+  type ImportSourceOracle,
+} from './import-collector';
+export { orchestrateImportToPeer, type OrchestrateImportDeps } from './import-orchestrator';
+export {
+  getImportPeerPusher,
+  setImportPeerPusher,
+  type ImportPeerPusher,
+} from './import-peer-pusher';

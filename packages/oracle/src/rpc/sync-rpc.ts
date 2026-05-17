@@ -36,7 +36,13 @@ import type {
   SyncMutationMessage,
 } from '@openheaders/core/protocol';
 import { SYNC_MUTATION_BATCH_TYPE, SYNC_MUTATION_TYPE } from '@openheaders/core/protocol';
-import type { CoexistPayload, CoexistResult, InverseEnvelopeContext } from '@openheaders/core/sync';
+import type {
+  CoexistPayload,
+  CoexistResult,
+  ImportPayload,
+  ImportResult,
+  InverseEnvelopeContext,
+} from '@openheaders/core/sync';
 import {
   applyInboundMutationBatch,
   applyInboundMutationEnvelope,
@@ -51,12 +57,14 @@ import { generateInverseMutation } from '../sync/activity-revert';
 import { snapshotExtensionWorkspacePostStates } from '../sync/global-service';
 import {
   applyCoexistPayload,
+  applyImportPayload,
   collectLocalDataPresence,
   orchestrateCoexistToPeer,
+  orchestrateImportToPeer,
 } from '../sync/mode-switch';
 import { buildSnapshotForWorkspace } from '../sync/snapshot-builder';
 import { applyWorkspaceSnapshot } from '../sync/snapshot-applier';
-import { createWorkspace, listWorkspaces } from '../workspace/extension-workspace-store';
+import { createWorkspace, getWorkspace, listWorkspaces } from '../workspace/extension-workspace-store';
 import { getOrCreateWorkspaceService, releaseWorkspaceService } from '../sync/service';
 import { requireActiveWorkspaceId } from '../sync';
 import { getSyncPersistenceProvider } from '../sync/sync-persistence-provider';
@@ -262,6 +270,15 @@ export function dispatchSyncRpc(message: Record<string, unknown>): SyncRpcResult
     return { kind: 'async', promise: dispatchExecuteCoexistToPeer() };
   }
 
+  if (type === 'oh.sync.applyImport') {
+    const payload = message as unknown as { workspaces?: unknown };
+    return { kind: 'async', promise: dispatchApplyImport(payload) };
+  }
+
+  if (type === 'oh.sync.executeImportToPeer') {
+    return { kind: 'async', promise: dispatchExecuteImportToPeer() };
+  }
+
   if (type === 'oh.sync.unmuteActivityEntity') {
     const ws = typeof message.workspaceId === 'string' ? message.workspaceId : null;
     const entityType = typeof message.entityType === 'string' ? message.entityType : null;
@@ -404,6 +421,70 @@ async function dispatchApplyCoexistImport(raw: { workspaces?: unknown }): Promis
  */
 async function dispatchExecuteCoexistToPeer(): Promise<CoexistResult> {
   return orchestrateCoexistToPeer({
+    workspaces: listWorkspaces().map((ws) => ({ id: ws.id, name: ws.name })),
+    getOracle: (workspaceId) => getOracleForWorkspace(workspaceId),
+    buildSnapshot: (workspaceId) => buildSnapshotForWorkspace(workspaceId),
+  });
+}
+
+/**
+ * Resolve an `oh.sync.applyImport` request — target-side of M4.
+ *
+ * Replays the wire payload into the EXISTING target workspaces with
+ * matching ids; per-leaf HLC compare (§11.7) decides field-by-field
+ * winners. Source workspaces whose id doesn't already exist on this
+ * host are reported as `ignored` and skipped (v1 — no rename, no
+ * Coexist fallthrough). The pre-apply id-intersection is computed under
+ * the target's already-hydrated oracle so the conflict count reflects
+ * the user's view at confirmation time, not the post-merge union.
+ */
+async function dispatchApplyImport(raw: { workspaces?: unknown }): Promise<ImportResult> {
+  const payload: ImportPayload = {
+    workspaces: Array.isArray(raw.workspaces)
+      ? (raw.workspaces as ImportPayload['workspaces'])
+      : [],
+  };
+
+  return applyImportPayload(payload, {
+    lookupWorkspace: (workspaceId) => {
+      const ws = getWorkspace(workspaceId);
+      return ws ? { id: ws.id, name: ws.name } : null;
+    },
+    listEntityIds: (workspaceId) => {
+      const oracle = getOracleForWorkspace(workspaceId);
+      if (!oracle) return [];
+      // Project the full materialized view down to `(type, id)` so the
+      // applier's conflict-diff doesn't pay the cost of carrying field
+      // bodies it never inspects. The oracle returns one row per live
+      // entity; the applier filters to user-content types.
+      return oracle.materializeAll().map((ent) => ({ type: ent.type, id: ent.id }));
+    },
+    applySnapshot: async (snapshot) => {
+      // Same per-workspace service dance as the cold-receiver bootstrap
+      // and Coexist's applier — acquire the EXISTING service for this
+      // workspace, await hydration, replay through the same mutator-
+      // context factory. Unlike Coexist this workspace already has a
+      // mutation log; the seed batches HLC-merge against it.
+      const svc = getOrCreateWorkspaceService(snapshot.workspaceId);
+      try {
+        await svc.hydrated;
+        return await applyWorkspaceSnapshot(snapshot, { makeContext: () => svc.context.next() });
+      } finally {
+        releaseWorkspaceService(snapshot.workspaceId);
+      }
+    },
+  });
+}
+
+/**
+ * Resolve an `oh.sync.executeImportToPeer` request — source-side of M4.
+ *
+ * Symmetric mirror of {@link dispatchExecuteCoexistToPeer}; the
+ * orchestrator owns the no-pusher / no-source / push-failure routing.
+ * Only the channel differs (and via that, the registered pusher).
+ */
+async function dispatchExecuteImportToPeer(): Promise<ImportResult> {
+  return orchestrateImportToPeer({
     workspaces: listWorkspaces().map((ws) => ({ id: ws.id, name: ws.name })),
     getOracle: (workspaceId) => getOracleForWorkspace(workspaceId),
     buildSnapshot: (workspaceId) => buildSnapshotForWorkspace(workspaceId),

@@ -89,6 +89,7 @@ import {
 } from './activity-prune-scheduler';
 import { installActivityStatusReporter } from './activity-status-reporter';
 import { installCoexistPeerPusher } from './install-coexist-peer-pusher';
+import { installImportPeerPusher } from './install-import-peer-pusher';
 import { createSyncHandshakeInitiator } from './sync-handshake-initiator';
 import { installHandshakeStatusReporter } from './sync-status-reporter';
 import {
@@ -139,6 +140,11 @@ setActivityMuteStore(getSyncPersistenceProvider().createActivityMuteStore?.() ??
 // the orchestrator returns `peer-write-unavailable` and the user falls
 // back to Discard-with-backup.
 installCoexistPeerPusher();
+
+// M4 — mode-switch Import push path. Same registry pattern as Coexist;
+// orchestrator returns `peer-write-unavailable` without it so the user
+// falls back to Discard-with-backup.
+installImportPeerPusher();
 
 // State-vector handshake — Phase C natural close-out. On every WS
 // connect, the initiator sends HELLO + STATE_VECTOR; on SYNCED it
