@@ -16,7 +16,9 @@ import { broadcast } from '@utils/bridge';
 import { runtime as browserRuntime, isChrome, isEdge, isFirefox, isSafari, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
+import type { WorkspaceContentSnapshot } from '@openheaders/core/sync';
 import { getStatusSnapshot } from '@openheaders/ui/shared/status';
+import { wsRequest } from '../ws-request';
 import type { MessageHandlerContext, SendResponse } from '@/types/browser';
 import type { PerfResourceEntry } from '@/types/perf';
 import { disableCacheBypassForTab, enableCacheBypassForTab } from './cache-bypass';
@@ -226,6 +228,32 @@ export function handleGeneralMessage(
             error: err.message,
           }),
         );
+      return true;
+    }
+
+    // ── Peer data-presence relay (Phase C M2c.2) ──────────────
+    // The renderer can't talk to the desktop directly; this branch
+    // bounces the request over the WS and forwards the response back.
+    // Three flavors of `available: false`:
+    //   - WS not currently connected           (target offline, or in-browser mode)
+    //   - relay throws / times out              (bridge failure)
+    //   - `__error` echoed by the server        (handled inside wsRequest)
+    // The mode-switch orchestrator routes any of these to
+    // `peer-unreachable` so the user is told to connect first rather
+    // than silently committing a destructive merge.
+    if (message.type === 'oh.sync.getPeerDataPresence') {
+      if (!isWebSocketConnected()) {
+        safeResponse({ available: false });
+        return undefined;
+      }
+      void wsRequest<{ workspaces: WorkspaceContentSnapshot[] }>(
+        { type: 'oh.sync.getDataPresence' },
+      )
+        .then((resp) => safeResponse({ available: true, workspaces: resp.workspaces }))
+        .catch((err: Error) => {
+          logger.info('MessageHandler', `oh.sync.getPeerDataPresence relay failed: ${err.message}`);
+          safeResponse({ available: false });
+        });
       return true;
     }
 

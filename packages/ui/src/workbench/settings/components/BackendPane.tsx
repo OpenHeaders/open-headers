@@ -23,7 +23,11 @@ import { Alert, App as AntApp, Select, theme, Typography } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import type { ModeSwitchVerdict } from '@openheaders/core/sync';
-import { applyModeSwitchVerdict, requestModeSwitchVerdict } from '../../../shared/mode-switch';
+import {
+  applyModeSwitchVerdict,
+  queryPeerDataPresenceFromBridge,
+  requestModeSwitchVerdict,
+} from '../../../shared/mode-switch';
 import { getCurrentHost, type Host } from '../../../shared/host-vocabulary';
 import { getStatusSnapshot, subscribe as subscribeStatus } from '../../../shared/status';
 import ModeSwitchDialog, {
@@ -153,7 +157,9 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   // Local query failures degrade to "empty" in the orchestrator so a
   // transient bridge hiccup never permanently traps the user.
   const handleDropdownChange = async (next: BackendMode): Promise<void> => {
-    const verdict = await requestModeSwitchVerdict(mode, next);
+    const verdict = await requestModeSwitchVerdict(mode, next, {
+      queryPeerPresence: queryPeerDataPresenceFromBridge,
+    });
     applyModeSwitchVerdict(verdict, {
       commitMode: () => commitMode(next),
       warnPeerUnreachable: () => {

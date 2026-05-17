@@ -42,6 +42,24 @@ async function defaultLocalQuery(): Promise<{ workspaces: WorkspaceContentSnapsh
 }
 
 /**
+ * Resolve peer presence via the SW's WS relay. Returns `null` for any
+ * `available: false` shape (in-browser mode / target offline / relay
+ * failure) so the orchestrator funnels those uniformly into
+ * `peer-unreachable`. Production BackendPane wiring passes this as
+ * `queryPeerPresence`; tests inject their own callbacks instead so the
+ * default never fires under vitest mocks.
+ */
+export async function queryPeerDataPresenceFromBridge(): Promise<DataPresenceSummary | null> {
+  try {
+    const resp = await hostBridge.call('oh.sync.getPeerDataPresence');
+    if (!resp.available) return null;
+    return summarizeWorkspaces(resp.workspaces);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Resolve a `ModeSwitchVerdict` for the dropdown change. Pure of UI —
  * the BackendPane consumes the verdict and decides whether to commit
  * the new mode silently, surface the dialog, or show a "connect peer

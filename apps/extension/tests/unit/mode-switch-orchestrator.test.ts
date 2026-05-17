@@ -24,7 +24,7 @@ vi.mock('@openheaders/core/bridge', async (importActual) => ({
   },
 }));
 
-import { requestModeSwitchVerdict } from '@openheaders/ui/shared/mode-switch';
+import { queryPeerDataPresenceFromBridge, requestModeSwitchVerdict } from '@openheaders/ui/shared/mode-switch';
 
 const WS_A = '0193a8ff-c000-7000-8000-00000000000a';
 
@@ -138,5 +138,29 @@ describe('requestModeSwitchVerdict', () => {
     });
     expect(verdict.kind).toBe('silent-use-target');
     expect(mockCall).not.toHaveBeenCalled();
+  });
+});
+
+describe('queryPeerDataPresenceFromBridge', () => {
+  it('returns null when the relay reports unavailable', async () => {
+    mockCall.mockResolvedValueOnce({ available: false });
+    expect(await queryPeerDataPresenceFromBridge()).toBeNull();
+    expect(mockCall).toHaveBeenCalledWith('oh.sync.getPeerDataPresence');
+  });
+
+  it('summarizes the peer workspaces when the relay returns available: true', async () => {
+    mockCall.mockResolvedValueOnce({
+      available: true,
+      workspaces: [workspace({ rule: 4, environment: 1 })],
+    });
+    const summary = await queryPeerDataPresenceFromBridge();
+    expect(summary).not.toBeNull();
+    expect(summary?.totalEntityCount).toBe(5);
+    expect(summary?.hasUserContent).toBe(true);
+  });
+
+  it('falls back to null when the bridge call itself throws', async () => {
+    mockCall.mockRejectedValueOnce(new Error('bridge offline'));
+    expect(await queryPeerDataPresenceFromBridge()).toBeNull();
   });
 });

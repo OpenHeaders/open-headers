@@ -25,6 +25,16 @@ beforeAll(() => {
   if (typeof scope.ResizeObserver === 'undefined') {
     scope.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
   }
+  // jsdom doesn't implement `getComputedStyle(el, pseudo)`; antd's Modal
+  // triggers it during render and floods the console with notImplemented
+  // warnings. Route the pseudo overload through the element-only path
+  // — declarations are empty either way under jsdom, so consumers get
+  // the same `CSSStyleDeclaration` either way.
+  const originalGetComputedStyle = window.getComputedStyle.bind(window);
+  window.getComputedStyle = ((
+    el: Element,
+    _pseudo?: string | null,
+  ): CSSStyleDeclaration => originalGetComputedStyle(el)) as typeof window.getComputedStyle;
 });
 
 afterEach(() => cleanup());

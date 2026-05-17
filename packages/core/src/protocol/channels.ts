@@ -1140,6 +1140,29 @@ export interface BridgeRpcContract {
     res: { workspaces: WorkspaceContentSnapshot[] };
   };
 
+  /**
+   * Same shape as `oh.sync.getDataPresence` but the SW relays the
+   * request to the connected peer over the WebSocket (Phase C wire) and
+   * forwards the response. The renderer never calls into the wire
+   * directly — the SW owns the WS lifecycle, so the relay lives there.
+   *
+   * `available: false` covers three cases the renderer handles
+   * identically:
+   *   - `backend.mode === 'in-browser'`            (no peer in this topology)
+   *   - the WS is not currently connected           (target offline)
+   *   - the relay timed out or threw                (transient failure)
+   *
+   * The mode-switch orchestrator translates `available: false` to
+   * `peer-unreachable`, which fires the "Connect the target first"
+   * toast — never silently commits a destructive merge.
+   */
+  'oh.sync.getPeerDataPresence': {
+    req: Record<string, never>;
+    res:
+      | { available: false }
+      | { available: true; workspaces: WorkspaceContentSnapshot[] };
+  };
+
   // ── Sync engine (Phase A) ────────────────────────────────────────
   /**
    * Apply a `MutationBatch` against the local oracle all-or-nothing
