@@ -26,10 +26,13 @@ import type { ModeSwitchVerdict } from '@openheaders/core/sync';
 import {
   applyModeSwitchVerdict,
   executeCoexist,
+  executeImport,
   queryPeerDataPresenceFromBridge,
   requestModeSwitchVerdict,
   summarizeCoexistFailure,
   summarizeCoexistSuccess,
+  summarizeImportFailure,
+  summarizeImportSuccess,
 } from '../../../shared/mode-switch';
 import { getCurrentHost, type Host } from '../../../shared/host-vocabulary';
 import { getStatusSnapshot, subscribe as subscribeStatus } from '../../../shared/status';
@@ -176,8 +179,8 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
     });
   };
 
-  // Coexist (M3) runs the executor end-to-end; Import (M4) and Discard
-  // (M5) still stub. The mode is only committed AFTER a successful
+  // Coexist (M3) and Import (M4) run the executor end-to-end; Discard
+  // (M5) still stubs. The mode is only committed AFTER a successful
   // executor run — partial failures must not strand the user on a
   // back-end that has half the imported data. The dialog itself
   // prevents the silent-commit-on-data-loss anti-pattern §11.2 calls
@@ -191,21 +194,30 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
       const result = await executeCoexist();
       if (result.ok) {
         commitMode(state.to);
-        message.success(summarizeCoexistSuccess(result, state.from, state.to));
+        message.success(summarizeCoexistSuccess(result, labelForMode(state.from), labelForMode(state.to)));
       } else {
-        message.warning(summarizeCoexistFailure(result, state.to));
+        message.warning(summarizeCoexistFailure(result, labelForMode(state.to)));
       }
       return;
     }
 
-    // M4/M5 stubs: commit the mode + advise the user that the deeper
+    if (choice === 'import') {
+      const result = await executeImport();
+      if (result.ok) {
+        commitMode(state.to);
+        message.success(summarizeImportSuccess(result, labelForMode(state.from), labelForMode(state.to)));
+      } else {
+        message.warning(summarizeImportFailure(result, labelForMode(state.to)));
+      }
+      return;
+    }
+
+    // M5 stub: commit the mode + advise the user that the deeper
     // handler isn't shipped yet. Source data stays where it was; no
     // destructive side effects.
     commitMode(state.to);
     message.info(
-      choice === 'import'
-        ? 'Import-merge handler not yet shipped; mode switched, your existing target data is untouched.'
-        : 'Discard-with-backup handler not yet shipped; mode switched, source data is still on the original host.',
+      'Discard-with-backup handler not yet shipped; mode switched, source data is still on the original host.',
     );
   };
 
