@@ -244,6 +244,15 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     for (const e of entries) m.set(e.id, e);
     return m;
   }, [entries]);
+  // URL → entry for upstream-chain ancestor lookups. First arrival wins
+  // when duplicates exist (matches the cascade-summary tree-build
+  // semantics — we walk upstream from the first observed parent).
+  const entriesByUrl = useMemo(() => {
+    const m = new Map<string, InspectorRequest>();
+    for (const e of entries) if (!m.has(e.url)) m.set(e.url, e);
+    return m;
+  }, [entries]);
+  const getRequestByUrl = useCallback((url: string) => entriesByUrl.get(url) ?? null, [entriesByUrl]);
   // Resolver passed down to InitiatorView. Pure projection over the
   // store-owned index — no traversal of `entries` at render time, no
   // graph computation in the leaf component.
@@ -424,6 +433,9 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
           getConnectionReuse={getConnectionReuse}
           getRepeatStats={getRepeatStats}
           baselineMs={baselineMs}
+          pageOrigin={filterConfig.pageOrigin}
+          onOpenRequest={handleCrossNav}
+          getRequestByUrl={getRequestByUrl}
           cacheBypassEnabled={cacheBypass.enabled}
           liveRulesMode={liveRulesMode}
           activeSection={tab.activeSection}
@@ -446,6 +458,9 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       getConnectionReuse,
       getRepeatStats,
       baselineMs,
+      filterConfig.pageOrigin,
+      handleCrossNav,
+      getRequestByUrl,
       cacheBypass.enabled,
       liveRulesMode,
       searchHighlight,

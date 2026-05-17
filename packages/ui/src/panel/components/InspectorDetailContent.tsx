@@ -53,6 +53,16 @@ interface InspectorDetailContentProps {
   /** Session baseline (ms) — typically the timestamp of the first
    *  observed entry, used to render "Started +X ms" on the Timing tab. */
   baselineMs: number | null;
+  /** Inspected-window origin — passed into InitiatorView for third-party
+   *  classification in cascade chips and insights. */
+  pageOrigin: string | null;
+  /** Open a request as a new editor tab. Used by InitiatorView so the
+   *  cascade tree doubles as a navigation surface. */
+  onOpenRequest?: (entryId: string) => void;
+  /** URL → entry lookup used by InitiatorView's upstream-chain walk.
+   *  App owns the closure over `entries` so this leaf view stays
+   *  decoupled from the global list. */
+  getRequestByUrl: (url: string) => InspectorRequest | null;
   /** True while the "Disable Cache" toolbar toggle is on for the
    *  inspected tab. Tags `Cache-Control: no-cache` / `Pragma: no-cache`
    *  request headers as system-injected (yellow) instead of server. */
@@ -369,6 +379,9 @@ export function InspectorDetailContent({
   getConnectionReuse,
   getRepeatStats,
   baselineMs,
+  pageOrigin,
+  onOpenRequest,
+  getRequestByUrl,
   cacheBypassEnabled,
   liveRulesMode,
   activeSection,
@@ -656,7 +669,13 @@ export function InspectorDetailContent({
         {section === 'eventstream' && showEventStream && <EventStreamView request={request} />}
 
         {section === 'initiator' && (
-          <InitiatorView request={request} getInitiatorChildren={getInitiatorChildren} />
+          <InitiatorView
+            request={request}
+            getInitiatorChildren={getInitiatorChildren}
+            getRequestByUrl={getRequestByUrl}
+            pageOrigin={pageOrigin}
+            onOpenRequest={onOpenRequest}
+          />
         )}
 
         {section === 'timing' && (

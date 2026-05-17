@@ -105,6 +105,14 @@ export interface HostNavigation {
    * a DevTools-style panel (popup, side panel, web app) no-op.
    */
   reloadInspectedTab(): void;
+  /**
+   * Open a JS / CSS resource at the given line/column in the host's
+   * source viewer — the DevTools "open in Sources" affordance used by
+   * call-stack frames to jump to the originating source line. Hosts
+   * without a Sources-panel concept (popup, side panel, web app) no-op.
+   * Fire-and-forget.
+   */
+  openResource(url: string, lineNumber?: number, columnNumber?: number): void;
 }
 
 /**
@@ -134,6 +142,7 @@ const NULL_HOST_NAVIGATION: HostNavigation = {
     return null;
   },
   reloadInspectedTab() {},
+  openResource() {},
 };
 
 let installed: HostNavigation = NULL_HOST_NAVIGATION;

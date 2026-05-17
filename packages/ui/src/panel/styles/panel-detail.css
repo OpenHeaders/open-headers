@@ -470,17 +470,167 @@
   line-height: 1.8;
 }
 .dt-initiator-frame {
-  display: flex;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: minmax(0, max-content) 1fr;
+  gap: 10px;
   align-items: baseline;
+  padding: 0 8px;
+}
+.dt-initiator-frame[data-noise='true'] {
+  opacity: 0.65;
 }
 .dt-initiator-fn {
   color: var(--dt-text);
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dt-initiator-fn--anonymous {
+  color: var(--dt-text-muted);
+  font-style: italic;
+  font-weight: 400;
+}
+.dt-initiator-fn--minified {
+  color: var(--dt-text-muted);
+  font-weight: 400;
+}
+.dt-initiator-fn--first-party {
+  color: var(--dt-text);
+  font-weight: 600;
+}
+.dt-initiator-fn--third-party {
+  color: var(--dt-text-muted);
 }
 .dt-initiator-loc {
+  justify-self: end;
   color: var(--dt-text-muted);
-  font-size: 10px;
+  font-size: 11px;
+  font-family: monospace;
+  display: inline-flex;
+  align-items: baseline;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+.dt-initiator-loc-file {
+  color: var(--dt-link);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dt-initiator-loc-line {
+  color: var(--dt-text-muted);
+  flex-shrink: 0;
+}
+.dt-initiator-loc--link {
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+.dt-initiator-loc--link:hover .dt-initiator-loc-file {
+  text-decoration: underline;
+}
+.dt-initiator-stack-heading {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.dt-initiator-stack-count {
+  color: var(--dt-text-muted);
+  font-weight: 400;
+  font-size: 11px;
+}
+.dt-initiator-stack-count--resolved {
+  color: var(--dt-status-green);
+}
+.dt-initiator-fn--resolved {
+  /* Resolved names stay regular weight + default text color. The
+   * per-row `12 resolved` chip and the parenthetical suffix carry the
+   * resolution signal; bolding the name here would collide with the
+   * async-section dividers underneath. */
+  color: var(--dt-text);
+  font-weight: 400;
+  font-style: normal;
+}
+.dt-initiator-fn-resolved-suffix {
+  /* Parenthetical resolved name appended after the V8 identifier —
+   * e.g. `C (requestAnimationFrame)`. Visually de-emphasized so the
+   * primary V8 name (which matches what the user sees in the bundle)
+   * still reads first. */
+  color: var(--dt-text-muted);
+  font-weight: 400;
+  font-style: italic;
+}
+.dt-initiator-stack-actions {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: 12px;
+  font-size: 11px;
+  font-weight: 400;
+}
+.dt-initiator-stack-toggle {
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--dt-border);
+  border-radius: 3px;
+  padding: 1px 6px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--dt-text-muted);
+  cursor: pointer;
+}
+.dt-initiator-stack-toggle:hover {
+  background: var(--dt-row-hover);
+  color: var(--dt-text);
+}
+.dt-initiator-stack-toggle[data-active='true'] {
+  background: var(--dt-row-selected);
+  border-color: var(--dt-link);
+  color: var(--dt-text);
+}
+.dt-initiator-stack-section + .dt-initiator-stack-section {
+  margin-top: 4px;
+}
+.dt-initiator-stack-async-label {
+  padding: 4px 8px 0;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--dt-text);
+}
+.dt-initiator-stack-hidden-stub {
+  padding: 2px 8px;
+  color: var(--dt-text-muted);
+  font-style: italic;
+}
+.dt-initiator-stack-filter {
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--dt-border);
+  background: var(--dt-bg);
+}
+.dt-initiator-stack-filter-input {
+  width: 100%;
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 6px;
+  color: var(--dt-text);
+  background: var(--dt-row-hover);
+  border: 1px solid transparent;
+  border-radius: 3px;
+  outline: none;
+}
+.dt-initiator-stack-filter-input:focus {
+  border-color: var(--dt-link);
+  background: var(--dt-bg);
+}
+.dt-initiator-stack-status {
+  padding: 4px 12px;
+  font-size: 11px;
 }
 .dt-initiator-chain {
   padding: 4px 0 4px 12px;
@@ -570,6 +720,144 @@
   flex-shrink: 0;
   color: var(--dt-text-muted);
   font-size: 11px;
+}
+
+/* ── Cascade summary header ──────────────────────────────── */
+.dt-initiator-cascade-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 14px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--dt-border);
+  background: var(--dt-bg-alt);
+  font-size: 12px;
+}
+.dt-initiator-cascade-stat {
+  color: var(--dt-text);
+}
+.dt-initiator-cascade-stat[data-tone='warn'] {
+  color: var(--dt-status-red);
+}
+
+/* ── Cascade insight callouts ───────────────────────────── */
+.dt-initiator-insight {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 6px 12px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--dt-border);
+  background: var(--dt-bg-alt);
+}
+.dt-initiator-insight[data-kind='failure'] {
+  border-color: var(--dt-status-red);
+}
+.dt-initiator-insight[data-kind='host'] {
+  border-color: var(--dt-link);
+}
+.dt-initiator-insight[data-kind='third-party'] {
+  border-color: var(--dt-status-orange);
+}
+.dt-initiator-insight-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.dt-initiator-insight-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.dt-initiator-insight-headline {
+  font-size: 12px;
+  line-height: 1.4;
+}
+.dt-initiator-insight-hint {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--dt-text-muted);
+}
+
+/* ── Quick filter toggles + sort ─────────────────────────── */
+.dt-initiator-quick-toggles {
+  display: inline-flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.dt-initiator-quick-toggle {
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--dt-border);
+  background: var(--dt-bg);
+  color: var(--dt-text);
+  cursor: pointer;
+}
+.dt-initiator-quick-toggle:hover {
+  background: var(--dt-row-hover);
+}
+.dt-initiator-quick-toggle[data-active='true'] {
+  background: var(--dt-row-selected);
+  border-color: var(--dt-link);
+  color: var(--dt-text);
+}
+.dt-initiator-sort-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--dt-text-muted);
+}
+.dt-initiator-sort-select select {
+  font: inherit;
+  font-size: 11px;
+  padding: 1px 4px;
+  background: var(--dt-bg);
+  color: var(--dt-text);
+  border: 1px solid var(--dt-border);
+  border-radius: 3px;
+}
+
+/* ── Row icons + chips ───────────────────────────────────── */
+.dt-initiator-chain-row {
+  flex-wrap: wrap;
+}
+.dt-initiator-row-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  color: var(--dt-text-muted);
+}
+.dt-initiator-row-chips {
+  margin-left: auto;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  flex-shrink: 0;
+  padding-right: 8px;
+}
+.dt-initiator-row-chip {
+  display: inline-block;
+  padding: 0 5px;
+  border-radius: 3px;
+  background: var(--dt-row-hover);
+  color: var(--dt-text);
+  font-size: 10px;
+  line-height: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.dt-initiator-row-chip[data-tone='warn'] {
+  background: rgba(230, 138, 0, 0.18);
+  color: var(--dt-status-red);
+}
+.dt-initiator-row-chip[data-tone='good'] {
+  background: rgba(0, 168, 0, 0.15);
+}
+.dt-initiator-row-chip[data-tone='muted'] {
+  background: var(--dt-row-hover);
+  color: var(--dt-text-muted);
 }
 
 /* ── Timing view ─────────────────────────────────────────── */

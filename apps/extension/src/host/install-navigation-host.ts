@@ -228,6 +228,35 @@ function reloadInspectedTab(): void {
   devtools?.inspectedWindow?.reload?.();
 }
 
+/**
+ * Open `url` at the given line/column in the DevTools Sources panel via
+ * `chrome.devtools.panels.openResource`. The Sources panel handles
+ * source-map resolution for us, so a frame whose URL points at minified
+ * JS still lands at the right original line when a map is available.
+ * No-ops cleanly outside a DevTools context.
+ */
+function openResource(url: string, lineNumber?: number, columnNumber?: number): void {
+  if (!url) return;
+  const devtools = (
+    chrome as unknown as {
+      devtools?: {
+        panels?: { openResource?: (url: string, line: number, column?: number, cb?: () => void) => void };
+      };
+    }
+  ).devtools;
+  const fn = devtools?.panels?.openResource;
+  if (!fn) return;
+  try {
+    // openResource expects a line number (0-indexed in some Chrome versions).
+    // Our frames carry the 0-indexed value from V8 stack traces, which is
+    // what the API takes — no off-by-one adjustment.
+    fn(url, lineNumber ?? 0, columnNumber);
+  } catch {
+    // The API throws when called with an unsupported URL scheme; swallow
+    // since the click is best-effort.
+  }
+}
+
 const chromeHostNavigation: HostNavigation = {
   switchViewMode,
   currentWindowId,
@@ -238,6 +267,7 @@ const chromeHostNavigation: HostNavigation = {
   observeActiveTabContext,
   inspectedTabId,
   reloadInspectedTab,
+  openResource,
 };
 
 setHostNavigation(chromeHostNavigation);

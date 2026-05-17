@@ -22,6 +22,7 @@ import { wsRequest } from '../ws-request';
 import type { MessageHandlerContext, SendResponse } from '@/types/browser';
 import type { PerfResourceEntry } from '@/types/perf';
 import { disableCacheBypassForTab, enableCacheBypassForTab } from './cache-bypass';
+import { fetchSourceMapText as fetchSourceMapTextHandler } from './fetch-source-map';
 import {
   createEnvironment,
   deleteEnvironment,
@@ -417,6 +418,14 @@ export function handleGeneralMessage(
       consumeImportHandoff(message.handoffId as string)
         .then((yaml) => safeResponse({ yaml }))
         .catch(() => safeResponse({ yaml: null }));
+      return true;
+    } else if (message.type === 'fetchSourceMapText') {
+      fetchSourceMapTextHandler(message.jsUrl as string)
+        .then((res) => safeResponse(res))
+        .catch((err: Error) => {
+          logger.info('SourceMapFetch', `handler threw: ${err.message}`);
+          safeResponse({ mapText: null });
+        });
       return true;
     } else if (message.type === 'fetchWorkspaceExportYaml') {
       import('./workspace-export-fetch')

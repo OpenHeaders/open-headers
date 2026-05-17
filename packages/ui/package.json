@@ -42,6 +42,10 @@
       "import": "./src/workbench/*",
       "default": "./dist/workbench/*.js"
     },
+    "./panel/host-source-map-fetcher": {
+      "import": "./src/panel/host-source-map-fetcher.ts",
+      "default": "./dist/panel/host-source-map-fetcher.js"
+    },
     "./panel/*": {
       "import": "./src/panel/*",
       "default": "./dist/panel/*.js"
