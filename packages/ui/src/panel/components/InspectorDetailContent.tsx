@@ -644,7 +644,7 @@ export function InspectorDetailContent({
         {section === 'eventstream' && showEventStream && <EventStreamView request={request} />}
 
         {section === 'initiator' && (
-          <InitiatorView har={har} requestUrl={request.url} getInitiatorChildren={getInitiatorChildren} />
+          <InitiatorView request={request} getInitiatorChildren={getInitiatorChildren} />
         )}
 
         {section === 'timing' && <TimingView har={har} />}

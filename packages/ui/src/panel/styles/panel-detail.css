@@ -492,23 +492,84 @@
   align-items: baseline;
   gap: 4px;
 }
-.dt-initiator-chain-arrow {
-  color: var(--dt-text-muted);
-  flex-shrink: 0;
-}
 .dt-initiator-chain-url {
   word-break: break-all;
-  color: var(--dt-link);
-}
-.dt-initiator-chain-item--target .dt-initiator-chain-url {
   color: var(--dt-text);
 }
-.dt-initiator-chain-children {
-  padding-left: 16px;
+.dt-initiator-chain-url--anchor {
+  font-weight: 600;
 }
-.dt-initiator-chain-node {
+.dt-initiator-chain-url--failed {
+  color: var(--dt-status-red);
+}
+.dt-initiator-chain-row {
   display: flex;
-  flex-direction: column;
+  align-items: baseline;
+  gap: 4px;
+  outline: none;
+  cursor: default;
+}
+.dt-initiator-chain-row:hover {
+  background: var(--dt-row-hover);
+}
+.dt-initiator-chain-row--focused,
+.dt-initiator-chain-row--focused:hover {
+  background: var(--dt-row-selected);
+}
+.dt-initiator-chain-toggle {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--dt-text-muted);
+  font-size: 9px;
+  line-height: 12px;
+  text-align: center;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  appearance: none;
+}
+.dt-initiator-chain-toggle:hover {
+  color: var(--dt-text);
+}
+.dt-initiator-chain-toggle--leaf {
+  cursor: default;
+  visibility: hidden;
+}
+.dt-initiator-chain-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--dt-bg);
+  border-bottom: 1px solid var(--dt-border);
+}
+.dt-initiator-chain-filter-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: inherit;
+  color: var(--dt-text);
+  background: var(--dt-row-hover);
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 2px 6px;
+  outline: none;
+}
+.dt-initiator-chain-filter-input:focus {
+  border-color: var(--dt-link);
+  background: var(--dt-bg);
+}
+.dt-initiator-chain-filter-count {
+  flex-shrink: 0;
+  color: var(--dt-text-muted);
+  font-size: 11px;
 }
 
 /* ── Timing view ─────────────────────────────────────────── */

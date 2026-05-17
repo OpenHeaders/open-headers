@@ -1,5 +1,8 @@
 import type { InspectorHarEntry } from '@openheaders/core/types';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { classifyRequestState } from '../../data/request-state';
 import type { InspectorRequest } from '../../data/types';
+import { HighlightedText } from './HighlightedText';
 
 interface CallFrame {
   functionName?: string;
@@ -32,11 +35,12 @@ function extractFilename(url: string): string {
   }
 }
 
+// ── Upstream call-stack ──────────────────────────────────────────────
+
 function FrameRow({ frame }: { frame: CallFrame }) {
   const name = frame.functionName || '(anonymous)';
   const file = frame.url ? extractFilename(frame.url) : '';
   const loc = frame.lineNumber != null ? `${file}:${frame.lineNumber + 1}` : file;
-
   return (
     <div className="dt-initiator-frame">
       <span className="dt-initiator-fn">{name}</span>
@@ -52,7 +56,6 @@ function FrameRow({ frame }: { frame: CallFrame }) {
 function CallStack({ stack, label }: { stack: StackTrace; label?: string }) {
   const frames = stack.callFrames ?? [];
   if (frames.length === 0 && !stack.parent) return null;
-
   return (
     <details className="dt-section" open>
       <summary>{label ?? stack.description ?? 'Request call stack'}</summary>
@@ -66,76 +69,278 @@ function CallStack({ stack, label }: { stack: StackTrace; label?: string }) {
   );
 }
 
-/**
- * Recursive downstream-initiator tree. `seen` guards against cycles in
- * malformed HARs (a request that nominally initiates one of its own
- * ancestors).
- */
-function InitiatorChainTree({
-  url,
-  getChildren,
-  seen,
-}: {
+// ── Downstream initiator tree ────────────────────────────────────────
+
+interface FlatRow {
+  key: string;
   url: string;
-  getChildren: (url: string) => readonly InspectorRequest[];
-  seen: ReadonlySet<string>;
-}) {
-  const children = getChildren(url);
-  if (children.length === 0) return null;
-  const next = new Set(seen);
-  next.add(url);
-  return (
-    <div className="dt-initiator-chain-children">
-      {children.map((child) => (
-        <div key={child.id} className="dt-initiator-chain-node">
-          <div className="dt-initiator-chain-item">
-            <span className="dt-initiator-chain-arrow">{'↓ '}</span>
-            <span className="dt-initiator-chain-url" title={child.url}>
-              {child.url}
-            </span>
-          </div>
-          {!seen.has(child.url) && <InitiatorChainTree url={child.url} getChildren={getChildren} seen={next} />}
-        </div>
-      ))}
-    </div>
-  );
+  request: InspectorRequest;
+  depth: number;
+  hasChildren: boolean;
+  expanded: boolean;
+  parentKey: string | null;
+  isAnchor: boolean;
+  matches: boolean;
 }
 
-function InitiatorChain({
-  requestUrl,
+interface TreeNode {
+  key: string;
+  request: InspectorRequest;
+  children: TreeNode[];
+  matches: boolean;
+  hasMatchInSubtree: boolean;
+  parentKey: string | null;
+  depth: number;
+}
+
+function isFailureState(entry: InspectorRequest): boolean {
+  const s = classifyRequestState(entry);
+  return s.kind === 'failed' || s.kind === 'blocked';
+}
+
+function buildTree(
+  root: InspectorRequest,
+  getChildren: (url: string) => readonly InspectorRequest[],
+  needle: string,
+): TreeNode {
+  function build(req: InspectorRequest, parentKey: string | null, depth: number, seen: ReadonlySet<string>): TreeNode {
+    const key = parentKey === null ? req.id : `${parentKey}/${req.id}`;
+    const matches = needle.length > 0 && req.url.toLowerCase().includes(needle);
+    let children: TreeNode[] = [];
+    if (!seen.has(req.url)) {
+      const nextSeen = new Set(seen);
+      nextSeen.add(req.url);
+      children = getChildren(req.url).map((c) => build(c, key, depth + 1, nextSeen));
+    }
+    const hasMatchInSubtree = matches || children.some((c) => c.hasMatchInSubtree);
+    return { key, request: req, children, matches, hasMatchInSubtree, parentKey, depth };
+  }
+  return build(root, null, 0, new Set());
+}
+
+function flattenTree(
+  tree: TreeNode,
+  expanded: ReadonlyMap<string, boolean>,
+  filtering: boolean,
+): FlatRow[] {
+  const out: FlatRow[] = [];
+  function walk(node: TreeNode) {
+    if (filtering && !node.hasMatchInSubtree) return;
+    const visibleChildren = filtering ? node.children.filter((c) => c.hasMatchInSubtree) : node.children;
+    const hasChildren = visibleChildren.length > 0;
+    // Filtering force-expands so the user can see what matched without
+    // hunting through collapsed branches; user-toggled state resumes
+    // when the filter clears.
+    const isExpanded = filtering ? true : (expanded.get(node.key) ?? true);
+    out.push({
+      key: node.key,
+      url: node.request.url,
+      request: node.request,
+      depth: node.depth,
+      hasChildren,
+      expanded: isExpanded,
+      parentKey: node.parentKey,
+      isAnchor: node.parentKey === null,
+      matches: node.matches,
+    });
+    if (hasChildren && isExpanded) {
+      for (const c of visibleChildren) walk(c);
+    }
+  }
+  walk(tree);
+  return out;
+}
+
+function InitiatorTreeView({
+  request,
   getChildren,
 }: {
-  requestUrl: string;
+  request: InspectorRequest;
   getChildren: (url: string) => readonly InspectorRequest[];
 }) {
-  // Only render the section when the selected request actually initiated
-  // something — leaf resources (an image, a JS chunk with no further
-  // imports) shouldn't show an empty "chain" affordance.
-  if (getChildren(requestUrl).length === 0) return null;
+  const [filter, setFilter] = useState('');
+  const [expanded, setExpanded] = useState<ReadonlyMap<string, boolean>>(() => new Map());
+  const [focusedKey, setFocusedKey] = useState<string>(request.id);
+  const rowRefs = useRef(new Map<string, HTMLDivElement>());
+  const lastFocusedRef = useRef<string>(focusedKey);
+
+  const needle = filter.trim().toLowerCase();
+  const filtering = needle.length > 0;
+
+  const tree = useMemo(() => buildTree(request, getChildren, needle), [request, getChildren, needle]);
+  const rows = useMemo(() => flattenTree(tree, expanded, filtering), [tree, expanded, filtering]);
+
+  // Keep focused row valid as rows change (filter typing, collapse hiding it).
+  useEffect(() => {
+    if (rows.length === 0) return;
+    if (!rows.some((r) => r.key === focusedKey)) {
+      setFocusedKey(rows[0].key);
+    }
+  }, [rows, focusedKey]);
+
+  // Scroll focused row into view only when it actually changes — guards
+  // against the first-mount scroll-jacking the section into focus.
+  useEffect(() => {
+    if (lastFocusedRef.current === focusedKey) return;
+    lastFocusedRef.current = focusedKey;
+    const el = rowRefs.current.get(focusedKey);
+    if (el) el.scrollIntoView({ block: 'nearest' });
+  }, [focusedKey]);
+
+  const setExpandedFor = useCallback((key: string, val: boolean) => {
+    setExpanded((prev) => {
+      const next = new Map(prev);
+      next.set(key, val);
+      return next;
+    });
+  }, []);
+
+  const focusedIdx = rows.findIndex((r) => r.key === focusedKey);
+  const focusedRow = focusedIdx >= 0 ? rows[focusedIdx] : null;
+
+  const onKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (!focusedRow) return;
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          if (focusedIdx < rows.length - 1) setFocusedKey(rows[focusedIdx + 1].key);
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          if (focusedIdx > 0) setFocusedKey(rows[focusedIdx - 1].key);
+          break;
+        case 'ArrowRight':
+          // Expand-only — never navigates. If already expanded (or a
+          // leaf), the keypress is a no-op so users don't accidentally
+          // jump down a tree they've already opened. Use Down to
+          // descend.
+          if (focusedRow.hasChildren && !focusedRow.expanded) {
+            e.preventDefault();
+            setExpandedFor(focusedRow.key, true);
+          }
+          break;
+        case 'ArrowLeft':
+          // Collapse if expanded; otherwise move focus to the parent so
+          // Left repeatedly walks up the tree.
+          if (focusedRow.hasChildren && focusedRow.expanded) {
+            e.preventDefault();
+            setExpandedFor(focusedRow.key, false);
+          } else if (focusedRow.parentKey) {
+            e.preventDefault();
+            setFocusedKey(focusedRow.parentKey);
+          }
+          break;
+        case 'Home':
+          e.preventDefault();
+          if (rows.length) setFocusedKey(rows[0].key);
+          break;
+        case 'End':
+          e.preventDefault();
+          if (rows.length) setFocusedKey(rows[rows.length - 1].key);
+          break;
+        case 'Enter':
+        case ' ':
+          if (focusedRow.hasChildren) {
+            e.preventDefault();
+            setExpandedFor(focusedRow.key, !focusedRow.expanded);
+          }
+          break;
+      }
+    },
+    [focusedIdx, focusedRow, rows, setExpandedFor],
+  );
+
   return (
     <details className="dt-section" open>
       <summary>Request initiator chain</summary>
-      <div className="dt-initiator-chain">
-        <div className="dt-initiator-chain-item dt-initiator-chain-item--target">
-          <span className="dt-initiator-chain-url" title={requestUrl}>
-            <strong>{requestUrl}</strong>
+      <div className="dt-initiator-chain-filter">
+        <input
+          type="search"
+          placeholder="Filter by URL…"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="dt-initiator-chain-filter-input"
+          aria-label="Filter initiator chain"
+        />
+        {filtering && (
+          <span className="dt-initiator-chain-filter-count">
+            {rows.filter((r) => r.matches).length} match{rows.filter((r) => r.matches).length === 1 ? '' : 'es'}
           </span>
-        </div>
-        <InitiatorChainTree url={requestUrl} getChildren={getChildren} seen={new Set()} />
+        )}
+      </div>
+      {/* biome-ignore lint/a11y/useSemanticElements: tree role is intentional */}
+      <div
+        role="tree"
+        aria-label="Request initiator chain"
+        className="dt-initiator-chain"
+        onKeyDown={onKeyDown}
+      >
+        {rows.map((row) => {
+          const failed = isFailureState(row.request);
+          const urlClass = [
+            'dt-initiator-chain-url',
+            row.isAnchor ? 'dt-initiator-chain-url--anchor' : null,
+            failed ? 'dt-initiator-chain-url--failed' : null,
+          ]
+            .filter(Boolean)
+            .join(' ');
+          const isFocused = row.key === focusedKey;
+          return (
+            <div
+              key={row.key}
+              ref={(el) => {
+                if (el) rowRefs.current.set(row.key, el);
+                else rowRefs.current.delete(row.key);
+              }}
+              role="treeitem"
+              tabIndex={isFocused ? 0 : -1}
+              aria-level={row.depth + 1}
+              aria-expanded={row.hasChildren ? row.expanded : undefined}
+              aria-selected={isFocused}
+              className={`dt-initiator-chain-row${isFocused ? ' dt-initiator-chain-row--focused' : ''}`}
+              style={{ paddingLeft: 4 + row.depth * 16 }}
+              onClick={() => setFocusedKey(row.key)}
+              onFocus={() => setFocusedKey(row.key)}
+            >
+              {row.hasChildren ? (
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  className="dt-initiator-chain-toggle"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpandedFor(row.key, !row.expanded);
+                  }}
+                  aria-label={row.expanded ? 'Collapse' : 'Expand'}
+                >
+                  {row.expanded ? '▼' : '▶'}
+                </button>
+              ) : (
+                <span className="dt-initiator-chain-toggle dt-initiator-chain-toggle--leaf" aria-hidden="true" />
+              )}
+              <span className={urlClass} title={row.url}>
+                <HighlightedText text={row.url} query={filtering ? filter : undefined} />
+              </span>
+            </div>
+          );
+        })}
       </div>
     </details>
   );
 }
 
+// ── Container ────────────────────────────────────────────────────────
+
 interface InitiatorViewProps {
-  har: InspectorHarEntry;
-  requestUrl: string;
+  request: InspectorRequest;
   getInitiatorChildren: (url: string) => readonly InspectorRequest[];
 }
 
-export default function InitiatorView({ har, requestUrl, getInitiatorChildren }: InitiatorViewProps) {
+export default function InitiatorView({ request, getInitiatorChildren }: InitiatorViewProps) {
+  const har: InspectorHarEntry = request.harEntry;
   const raw = har._initiator as Initiator | undefined;
-  const hasChildren = getInitiatorChildren(requestUrl).length > 0;
+  const hasChildren = getInitiatorChildren(request.url).length > 0;
 
   if (!raw && !hasChildren) {
     return (
@@ -147,7 +352,7 @@ export default function InitiatorView({ har, requestUrl, getInitiatorChildren }:
 
   return (
     <div className="dt-initiator-view">
-      <InitiatorChain requestUrl={requestUrl} getChildren={getInitiatorChildren} />
+      {hasChildren && <InitiatorTreeView request={request} getChildren={getInitiatorChildren} />}
 
       {raw?.stack && <CallStack stack={raw.stack} />}
 
