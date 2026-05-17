@@ -32,6 +32,8 @@ import type {
   ActivityMuteEntry,
   CoexistPayload,
   CoexistResult,
+  ImportPayload,
+  ImportResult,
   InverseEnvelopeContext,
   MutationEnvelope,
   MutatorOutcome,
@@ -1201,6 +1203,44 @@ export interface BridgeRpcContract {
   'oh.sync.executeCoexistToPeer': {
     req: Record<string, never>;
     res: CoexistResult;
+  };
+
+  /**
+   * Mode-switch Import (Phase C M4) — target-side handler. Replays the
+   * source host's user-content snapshots INTO existing target workspaces
+   * with the same workspaceId, letting the standard per-leaf HLC compare
+   * resolve overlaps (§11.7). No new workspaces are minted; a source
+   * workspace whose id isn't already on the target is recorded under
+   * {@link ImportResult.ignored} and skipped (v1; M4b queues the cross-id
+   * branch).
+   *
+   * Same channel runs on both hosts — desktop main's WS server routes
+   * incoming `oh.sync.applyImport` frames here, and the extension SW
+   * inherits the symmetric direction once a server-push transport lands
+   * (Phase C MVP wires SW-as-source only; see
+   * `oh.sync.executeImportToPeer`).
+   */
+  'oh.sync.applyImport': {
+    req: ImportPayload;
+    res: ImportResult;
+  };
+
+  /**
+   * Mode-switch Import (Phase C M4) — source-side orchestrator. The UI
+   * invokes this on its own host's bridge; the host (a) collects its own
+   * user-content workspaces into an {@link ImportPayload} and (b) pushes
+   * the payload to the peer via the host-installed `importPeerPusher`
+   * seam. The seam is wired only on hosts that have a client-side wire
+   * transport — Phase C MVP wires the extension SW via `wsRequest`.
+   * Hosts without a pusher (desktop main, until Phase D server-push
+   * lands) return `{ ok: false, reason: 'peer-write-unavailable' }`, and
+   * the dialog tells the user to fall back to Discard-with-backup. No
+   * partial writes either way: failure before push leaves both hosts
+   * untouched.
+   */
+  'oh.sync.executeImportToPeer': {
+    req: Record<string, never>;
+    res: ImportResult;
   };
 
   // ── Sync engine (Phase A) ────────────────────────────────────────
