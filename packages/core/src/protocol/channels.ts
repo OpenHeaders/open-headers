@@ -30,6 +30,8 @@ import type { OAuth2TokenBundle } from '../oauth';
 import type {
   ActivityEntry,
   ActivityMuteEntry,
+  CoexistPayload,
+  CoexistResult,
   InverseEnvelopeContext,
   MutationEnvelope,
   MutatorOutcome,
@@ -1161,6 +1163,44 @@ export interface BridgeRpcContract {
     res:
       | { available: false }
       | { available: true; workspaces: WorkspaceContentSnapshot[] };
+  };
+
+  /**
+   * Mode-switch Coexist (Phase C M3) — target-side handler. Applies a
+   * source host's user-content snapshots as freshly-minted UUIDv7
+   * workspaces (one per source workspace, named `"<source> (imported)"`)
+   * without touching the target's existing data. The dispatcher mints
+   * the new workspaceId, rewrites the snapshot's `workspaceId` onto the
+   * new id, and replays through {@link applyWorkspaceSnapshot}; the
+   * source's snapshots cross the wire opaquely.
+   *
+   * Same channel runs on both hosts — desktop main's WS server routes
+   * any incoming `oh.sync.applyCoexistImport` frame here, and the
+   * extension SW receives the symmetric direction once a server-push
+   * transport lands (Phase C MVP wires SW-as-source only; see
+   * `oh.sync.executeCoexistToPeer`).
+   */
+  'oh.sync.applyCoexistImport': {
+    req: CoexistPayload;
+    res: CoexistResult;
+  };
+
+  /**
+   * Mode-switch Coexist (Phase C M3) — source-side orchestrator. The
+   * UI invokes this on its own host's bridge; the host (a) collects its
+   * own user-content workspaces into a {@link CoexistPayload} and (b)
+   * pushes the payload to the peer via the host-installed
+   * `coexistPeerPusher` seam. The seam is wired only on hosts that have
+   * a client-side wire transport — Phase C MVP wires the extension SW
+   * via `wsRequest`. Hosts without a pusher (desktop main, until Phase
+   * D server-push lands) return `{ ok: false, reason:
+   * 'peer-write-unavailable' }`, and the dialog tells the user to fall
+   * back to Discard-with-backup. No partial writes either way: failure
+   * before push leaves both hosts untouched.
+   */
+  'oh.sync.executeCoexistToPeer': {
+    req: Record<string, never>;
+    res: CoexistResult;
   };
 
   // ── Sync engine (Phase A) ────────────────────────────────────────
