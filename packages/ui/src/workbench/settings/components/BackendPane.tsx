@@ -26,11 +26,14 @@ import type { ModeSwitchVerdict } from '@openheaders/core/sync';
 import {
   applyModeSwitchVerdict,
   executeCoexist,
+  executeDiscard,
   executeImport,
   queryPeerDataPresenceFromBridge,
   requestModeSwitchVerdict,
   summarizeCoexistFailure,
   summarizeCoexistSuccess,
+  summarizeDiscardFailure,
+  summarizeDiscardSuccess,
   summarizeImportFailure,
   summarizeImportSuccess,
 } from '../../../shared/mode-switch';
@@ -179,12 +182,13 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
     });
   };
 
-  // Coexist (M3) and Import (M4) run the executor end-to-end; Discard
-  // (M5) still stubs. The mode is only committed AFTER a successful
-  // executor run — partial failures must not strand the user on a
-  // back-end that has half the imported data. The dialog itself
-  // prevents the silent-commit-on-data-loss anti-pattern §11.2 calls
-  // out; Cancel from the dialog never commits.
+  // Coexist (M3), Import (M4), and Discard (M5) all run the executor
+  // end-to-end. The mode is only committed AFTER a successful executor
+  // run — partial failures must not strand the user on a back-end that
+  // has half the imported data or a host that's been wiped without a
+  // valid backup on disk. The dialog itself prevents the silent-commit-
+  // on-data-loss anti-pattern §11.2 calls out; Cancel from the dialog
+  // never commits.
   const handleDialogChoose = async (choice: ModeSwitchChoice): Promise<void> => {
     const state = dialogState;
     if (!state) return;
@@ -212,13 +216,13 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
       return;
     }
 
-    // M5 stub: commit the mode + advise the user that the deeper
-    // handler isn't shipped yet. Source data stays where it was; no
-    // destructive side effects.
-    commitMode(state.to);
-    message.info(
-      'Discard-with-backup handler not yet shipped; mode switched, source data is still on the original host.',
-    );
+    const result = await executeDiscard();
+    if (result.ok) {
+      commitMode(state.to);
+      message.success(summarizeDiscardSuccess(result, labelForMode(state.to)));
+    } else {
+      message.warning(summarizeDiscardFailure(result));
+    }
   };
 
   const handleDialogCancel = (): void => {
