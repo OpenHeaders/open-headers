@@ -30,6 +30,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'devpanelHeaders.ruleOnly': boolean;
     'devpanelHeaders.securityOnly': boolean;
     'devpanelHeaders.overridableOnly': boolean;
+    'devpanelHeaders.showChips': boolean;
   }
 }
 
@@ -88,6 +89,20 @@ registerSetting({
     { value: 'train', label: 'Train-Case', description: 'Content-Type, Set-Cookie, ETag (Chrome-style).' },
     { value: 'original', label: 'Original', description: 'Exactly what the server sent (often lowercase on HTTP/2+).' },
   ],
+});
+
+registerSetting({
+  key: 'devpanelHeaders.showChips',
+  type: 'boolean',
+  default: true,
+  schema: v.boolean(),
+  label: 'Show Value Tags',
+  description:
+    'Show the per-value tags on header rows (Cache-Control / Set-Cookie / HSTS / JWT decode, …). Turn off for a tight, value-only view.',
+  category: 'devpanelHeaders',
+  subcategory: 'View',
+  tags: ['headers', 'tags', 'chips', 'view', 'devtools'],
+  scope: 'user',
 });
 
 registerSetting({

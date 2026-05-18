@@ -88,6 +88,7 @@ export function HeadersView({
   const [sortMode, setSortMode] = useSetting('devpanelHeaders.sortMode');
   const [nameCase, setNameCase] = useSetting('devpanelHeaders.nameCase');
   const [showInsights, setShowInsights] = useSetting('devpanelHeaders.showInsights');
+  const [showChips, setShowChips] = useSetting('devpanelHeaders.showChips');
   const toggleRuleOnly = useCallback(() => setRuleOnly(!ruleOnly), [ruleOnly, setRuleOnly]);
   const toggleSecurityOnly = useCallback(() => setSecurityOnly(!securityOnly), [securityOnly, setSecurityOnly]);
   const toggleOverridableOnly = useCallback(
@@ -96,6 +97,7 @@ export function HeadersView({
   );
   const toggleHideNoise = useCallback(() => setHideNoise(!hideNoise), [hideNoise, setHideNoise]);
   const toggleShowInsights = useCallback(() => setShowInsights(!showInsights), [showInsights, setShowInsights]);
+  const toggleShowChips = useCallback(() => setShowChips(!showChips), [showChips, setShowChips]);
 
   const compiledQuery = useMemo<readonly HeaderFilterToken[]>(() => {
     const parts: string[] = [];
@@ -234,10 +236,12 @@ export function HeadersView({
           sortMode={sortMode}
           nameCase={nameCase}
           showInsights={showInsights}
+          showChips={showChips}
           onLayoutChange={setLayout}
           onSortChange={setSortMode}
           onNameCaseChange={setNameCase}
           onToggleShowInsights={toggleShowInsights}
+          onToggleShowChips={toggleShowChips}
         />
       </div>
 
@@ -298,6 +302,7 @@ export function HeadersView({
         layout={layout}
         sortMode={sortMode}
         nameCase={nameCase}
+        showChips={showChips}
         driftedRows={driftedRows}
         onCreateHeaderRule={onCreateHeaderRule}
         searchHighlight={searchHighlight}
@@ -317,6 +322,7 @@ export function HeadersView({
         layout={layout}
         sortMode={sortMode}
         nameCase={nameCase}
+        showChips={showChips}
         driftedRows={driftedRows}
         onCreateHeaderRule={onCreateHeaderRule}
         searchHighlight={searchHighlight}

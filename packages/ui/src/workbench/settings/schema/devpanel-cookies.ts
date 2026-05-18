@@ -28,6 +28,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'devpanelCookies.thirdPartyOnly': boolean;
     'devpanelCookies.ruleOnly': boolean;
     'devpanelCookies.groupByRole': boolean;
+    'devpanelCookies.showChips': boolean;
   }
 }
 
@@ -69,6 +70,20 @@ registerSetting({
     { value: 'relative', label: 'Relative', description: 'in 2d / 30s ago / Session.' },
     { value: 'absolute', label: 'Absolute', description: 'UTC date.' },
   ],
+});
+
+registerSetting({
+  key: 'devpanelCookies.showChips',
+  type: 'boolean',
+  default: true,
+  schema: v.boolean(),
+  label: 'Show Tags',
+  description:
+    'Show the role / lifecycle / context tags next to each cookie name (auth? / tracking? / pref / just set / dropped / 3rd-party / partitioned / …). Turn off for a tight, columns-only view.',
+  category: 'devpanelCookies',
+  subcategory: 'View',
+  tags: ['cookies', 'tags', 'chips', 'view', 'devtools'],
+  scope: 'user',
 });
 
 registerSetting({

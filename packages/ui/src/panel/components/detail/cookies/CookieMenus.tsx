@@ -69,11 +69,13 @@ export interface CookieViewMenuProps {
   expiresFormat: DevpanelCookiesExpiresFormatSetting;
   decodeValues: boolean;
   showInsights: boolean;
+  showChips: boolean;
   groupByRole: boolean;
   onSortChange: (v: DevpanelCookiesSortSetting) => void;
   onExpiresFormatChange: (v: DevpanelCookiesExpiresFormatSetting) => void;
   onToggleDecodeValues: () => void;
   onToggleShowInsights: () => void;
+  onToggleShowChips: () => void;
   onToggleGroupByRole: () => void;
 }
 
@@ -83,6 +85,7 @@ export function CookieViewMenu(props: CookieViewMenuProps) {
     (props.expiresFormat !== 'relative' ? 1 : 0) +
     (props.decodeValues ? 1 : 0) +
     (!props.showInsights ? 1 : 0) +
+    (!props.showChips ? 1 : 0) +
     (props.groupByRole ? 1 : 0);
   const active = activeCount > 0;
 
@@ -116,6 +119,10 @@ export function CookieViewMenu(props: CookieViewMenuProps) {
         Group by role (auth / pref / tracking)
       </label>
       <div className="dt-morefilters-divider" />
+      <label className="dt-morefilters-item">
+        <input type="checkbox" checked={props.showChips} onChange={props.onToggleShowChips} />
+        Show tags
+      </label>
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={props.showInsights} onChange={props.onToggleShowInsights} />
         Show suggestions

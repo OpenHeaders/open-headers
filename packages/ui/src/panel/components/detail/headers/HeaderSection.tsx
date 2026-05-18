@@ -31,6 +31,7 @@ interface HeaderSectionProps {
   layout: HeaderLayoutMode;
   sortMode: HeaderSortMode;
   nameCase: HeaderNameCase;
+  showChips: boolean;
   driftedRows: ReadonlySet<AnnotatedHeader>;
   onCreateHeaderRule: (direction: 'request' | 'response', headerName: string, value?: string) => void;
   searchHighlight?: string;
@@ -67,6 +68,7 @@ export function HeaderSection({
   layout,
   sortMode,
   nameCase,
+  showChips,
   driftedRows,
   onCreateHeaderRule,
   searchHighlight,
@@ -247,6 +249,7 @@ export function HeaderSection({
                   requestUrl={request.url}
                   rulesByUid={rulesByUid}
                   nameCase={nameCase}
+                  showChips={showChips}
                   onNameClick={(name, value) => onCreateHeaderRule(direction, name, value)}
                 />
               ))}
@@ -272,6 +275,7 @@ export function HeaderSection({
                     requestUrl={request.url}
                     rulesByUid={rulesByUid}
                     nameCase={nameCase}
+                    showChips={showChips}
                     onNameClick={(name, value) => onCreateHeaderRule(direction, name, value)}
                   />
                 ))}

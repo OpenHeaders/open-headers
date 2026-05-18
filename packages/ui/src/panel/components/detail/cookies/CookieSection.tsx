@@ -12,7 +12,7 @@ import { useMemo, type RefObject } from 'react';
 import type { CookieRow as CookieRowModel } from '../../../data/cookie-model';
 import type { CookieFilterToken, CookieRowMeta } from '../../../data/cookie-filter';
 import { matchesCookieQuery } from '../../../data/cookie-filter';
-import { classifyCookieRole, roleSectionLabel, roleSortOrder, type CookieRole } from '../../../data/cookie-role';
+import { classifyCookie, roleSectionLabel, roleSortOrder, type CookieRole } from '../../../data/cookie-role';
 import { introspectCookieValue } from '../../../data/cookie-value-introspect';
 import type { DevpanelCookiesSortSetting } from '../../../../workbench/settings/schema/devpanel-cookies';
 import { CookieColumnInfo } from './CookieColumnInfo';
@@ -31,6 +31,7 @@ interface Props {
   sortMode: DevpanelCookiesSortSetting;
   expiresFormat: 'relative' | 'absolute';
   decodeValues: boolean;
+  showChips: boolean;
   groupByRole: boolean;
   now: number;
   summaryRef?: RefObject<HTMLElement | null>;
@@ -98,6 +99,7 @@ function sortRows(rows: readonly CookieRowModel[], mode: DevpanelCookiesSortSett
 interface PreparedRow {
   row: CookieRowModel;
   role: CookieRole;
+  vendor: string | undefined;
   meta: CookieRowMeta;
   introspection: ReturnType<typeof introspectCookieValue>;
 }
@@ -113,6 +115,7 @@ export function CookieSection({
   sortMode,
   expiresFormat,
   decodeValues,
+  showChips,
   groupByRole,
   now,
   summaryRef,
@@ -121,7 +124,7 @@ export function CookieSection({
   const prepared = useMemo<readonly PreparedRow[]>(() => {
     return rows.map((row) => {
       const meta = metaFor(row, problemNames, pageOrigin, now);
-      const role = classifyCookieRole({
+      const classification = classifyCookie({
         name: row.name,
         value: row.value,
         httpOnly: row.httpOnly,
@@ -129,7 +132,7 @@ export function CookieSection({
         thirdParty: meta.thirdParty,
       });
       const introspection = introspectCookieValue(row.value);
-      return { row, role, meta, introspection };
+      return { row, role: classification.role, vendor: classification.vendor, meta, introspection };
     });
   }, [rows, problemNames, pageOrigin, now]);
 
@@ -156,12 +159,14 @@ export function CookieSection({
       key={p.row.id}
       row={p.row}
       role={p.role}
+      vendor={p.vendor}
       problem={p.meta.problem}
       thirdParty={p.meta.thirdParty}
       prefixHint={p.meta.hostPrefix ? 'host' : p.meta.securePrefix ? 'secure' : null}
       dropped={droppedNames.has(p.row.name) && p.row.attribution === 'response-set'}
       expiresFormat={expiresFormat}
       decodeValues={decodeValues}
+      showChips={showChips}
       introspection={p.introspection}
       now={now}
       columnSpan={COLUMN_SPAN}

@@ -60,6 +60,7 @@ export default function CookiesView({ request, pageOrigin, onCreateHeaderRule }:
   const [sortMode, setSortMode] = useSetting('devpanelCookies.sortMode');
   const [expiresFormat, setExpiresFormat] = useSetting('devpanelCookies.expiresFormat');
   const [showInsights, setShowInsights] = useSetting('devpanelCookies.showInsights');
+  const [showChips, setShowChips] = useSetting('devpanelCookies.showChips');
   const [showFilteredOut, setShowFilteredOut] = useSetting('devpanelCookies.showFilteredOut');
   const [decodeValues, setDecodeValues] = useSetting('devpanelCookies.decodeValues');
   const [groupByRole, setGroupByRole] = useSetting('devpanelCookies.groupByRole');
@@ -73,6 +74,7 @@ export default function CookiesView({ request, pageOrigin, onCreateHeaderRule }:
   const toggleShowFilteredOut = useCallback(() => setShowFilteredOut(!showFilteredOut), [showFilteredOut, setShowFilteredOut]);
   const toggleDecodeValues = useCallback(() => setDecodeValues(!decodeValues), [decodeValues, setDecodeValues]);
   const toggleShowInsights = useCallback(() => setShowInsights(!showInsights), [showInsights, setShowInsights]);
+  const toggleShowChips = useCallback(() => setShowChips(!showChips), [showChips, setShowChips]);
   const toggleGroupByRole = useCallback(() => setGroupByRole(!groupByRole), [groupByRole, setGroupByRole]);
 
   // ── Jar lookup ─────────────────────────────────────────────────
@@ -211,11 +213,13 @@ export default function CookiesView({ request, pageOrigin, onCreateHeaderRule }:
           expiresFormat={expiresFormat}
           decodeValues={decodeValues}
           showInsights={showInsights}
+          showChips={showChips}
           groupByRole={groupByRole}
           onSortChange={setSortMode}
           onExpiresFormatChange={setExpiresFormat}
           onToggleDecodeValues={toggleDecodeValues}
           onToggleShowInsights={toggleShowInsights}
+          onToggleShowChips={toggleShowChips}
           onToggleGroupByRole={toggleGroupByRole}
         />
       </div>
@@ -231,6 +235,7 @@ export default function CookiesView({ request, pageOrigin, onCreateHeaderRule }:
         sortMode={sortMode}
         expiresFormat={expiresFormat}
         decodeValues={decodeValues}
+        showChips={showChips}
         groupByRole={groupByRole}
         now={now}
         summaryRef={firstSummaryRef}
@@ -248,6 +253,7 @@ export default function CookiesView({ request, pageOrigin, onCreateHeaderRule }:
         sortMode={sortMode}
         expiresFormat={expiresFormat}
         decodeValues={decodeValues}
+        showChips={showChips}
         groupByRole={groupByRole}
         now={now}
         onMakeRule={onMakeRule}

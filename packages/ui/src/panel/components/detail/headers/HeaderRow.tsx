@@ -31,6 +31,7 @@ interface AttributedHeaderRowProps {
   requestUrl: string;
   rulesByUid: RulesByUid;
   nameCase: HeaderNameCase;
+  showChips: boolean;
   onNameClick: (name: string, value: string) => void;
 }
 
@@ -95,6 +96,7 @@ export function AttributedHeaderRow({
   requestUrl,
   rulesByUid,
   nameCase,
+  showChips,
   onNameClick,
 }: AttributedHeaderRowProps) {
   const rulePopover = useRulePopover();
@@ -225,7 +227,7 @@ export function AttributedHeaderRow({
       <span className="dt-kv-oh-value">
         : {showResolvedValue ? <ResolvedHeaderValue value={value} collectionId={ruleCollectionId} /> : value}
       </span>
-      <ValueChips name={name} value={value} />
+      {showChips && <ValueChips name={name} value={value} />}
       {editedSinceFire && <EditedSinceFireChip kind={ruleEdited ? 'rule' : 'value'} />}
       <span className="dt-kv-row-actions">
         <button

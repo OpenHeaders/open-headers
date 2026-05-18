@@ -30,6 +30,7 @@ import { SecurityGlyphs } from './SecurityGlyphs';
 interface Props {
   row: CookieRowModel;
   role: CookieRole;
+  vendor?: string;
   problem: boolean;
   thirdParty: boolean;
   /** `__Host-` / `__Secure-` / null — drives the name-cell tooltip
@@ -38,6 +39,7 @@ interface Props {
   dropped: boolean;
   expiresFormat: 'relative' | 'absolute';
   decodeValues: boolean;
+  showChips: boolean;
   introspection: CookieValueIntrospection;
   now: number;
   /** Column count for the expander's colSpan — derived from the
@@ -58,12 +60,14 @@ function expiresUrgencyClass(row: CookieRowModel, now: number): string {
 export function CookieRow({
   row,
   role,
+  vendor,
   problem,
   thirdParty,
   prefixHint,
   dropped,
   expiresFormat,
   decodeValues,
+  showChips,
   introspection,
   now,
   columnSpan,
@@ -118,13 +122,16 @@ export function CookieRow({
           >
             {row.name}
           </span>
-          <CookieChips
-            row={row}
-            role={role}
-            problem={problem}
-            thirdParty={thirdParty}
-            dropped={dropped}
-          />
+          {showChips && (
+            <CookieChips
+              row={row}
+              role={role}
+              vendor={vendor}
+              problem={problem}
+              thirdParty={thirdParty}
+              dropped={dropped}
+            />
+          )}
         </td>
         <td className="dt-cookie-value">
           {canExpand && (

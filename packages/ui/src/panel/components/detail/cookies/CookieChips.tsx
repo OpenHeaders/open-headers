@@ -23,6 +23,9 @@ import { roleChipLabel } from '../../../data/cookie-role';
 interface CookieChipsProps {
   row: CookieRow;
   role: CookieRole;
+  /** Vendor / source attribution from the classifier — surfaced in the
+   *  role chip's tooltip ("Google Analytics" instead of just "tracking"). */
+  vendor?: string;
   problem: boolean;
   thirdParty: boolean;
   /** True when a Set-Cookie response landed but the browser will
@@ -39,22 +42,25 @@ function Chip({ tone, label, title }: { tone: 'ok' | 'warn' | 'err' | 'info' | '
   );
 }
 
-export function CookieChips({ row, role, problem, thirdParty, dropped }: CookieChipsProps) {
+export function CookieChips({ row, role, vendor, problem, thirdParty, dropped }: CookieChipsProps) {
   const roleLabel = roleChipLabel(role);
+  const roleTooltip = (() => {
+    if (vendor) {
+      const noun =
+        role === 'auth' ? 'auth / session'
+        : role === 'tracking' ? 'analytics / tracking'
+        : role === 'pref' ? 'preference / consent'
+        : 'cookie';
+      return `${vendor} — ${noun} cookie.`;
+    }
+    if (role === 'auth') return 'Looks like an auth / session cookie (heuristic).';
+    if (role === 'tracking') return 'Looks like an analytics / tracking cookie (heuristic).';
+    if (role === 'pref') return 'A user-preference cookie.';
+    return '';
+  })();
   return (
     <span className="dt-cookie-chips">
-      {roleLabel && (
-        <Chip
-          tone="role"
-          label={roleLabel}
-          title={
-            role === 'auth' ? 'Looks like an auth / session cookie (heuristic).'
-            : role === 'tracking' ? 'Looks like an analytics / tracking cookie (heuristic).'
-            : role === 'pref' ? 'A user-preference cookie.'
-            : ''
-          }
-        />
-      )}
+      {roleLabel && <Chip tone="role" label={roleLabel} title={roleTooltip} />}
       {row.partitionKey && <Chip tone="info" label="partitioned" title={`Isolated to top-level site: ${row.partitionKey}`} />}
       {thirdParty && <Chip tone="warn" label="3rd-party" />}
       {row.attribution === 'response-set' && !dropped && (

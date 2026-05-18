@@ -72,25 +72,30 @@ export function HeaderViewMenu({
   sortMode,
   nameCase,
   showInsights,
+  showChips,
   onLayoutChange,
   onSortChange,
   onNameCaseChange,
   onToggleShowInsights,
+  onToggleShowChips,
 }: {
   layout: HeaderLayoutMode;
   sortMode: HeaderSortMode;
   nameCase: HeaderNameCase;
   showInsights: boolean;
+  showChips: boolean;
   onLayoutChange: (mode: HeaderLayoutMode) => void;
   onSortChange: (mode: HeaderSortMode) => void;
   onNameCaseChange: (mode: HeaderNameCase) => void;
   onToggleShowInsights: () => void;
+  onToggleShowChips: () => void;
 }) {
   const activeCount =
     (layout !== 'grouped' ? 1 : 0) +
     (sortMode !== 'original' ? 1 : 0) +
     (nameCase !== 'train' ? 1 : 0) +
-    (!showInsights ? 1 : 0);
+    (!showInsights ? 1 : 0) +
+    (!showChips ? 1 : 0);
   const active = activeCount > 0;
   const content = (
     <div className="dt-morefilters-menu">
@@ -117,6 +122,10 @@ export function HeaderViewMenu({
         </select>
       </label>
       <div className="dt-morefilters-divider" />
+      <label className="dt-morefilters-item">
+        <input type="checkbox" checked={showChips} onChange={onToggleShowChips} />
+        Show tags
+      </label>
       <label className="dt-morefilters-item">
         <input type="checkbox" checked={showInsights} onChange={onToggleShowInsights} />
         Show suggestions
