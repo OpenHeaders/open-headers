@@ -34,7 +34,12 @@ import {
   ThunderboltOutlined,
   WarningOutlined,
 } from '@ant-design/icons';
-import type React from 'react';
+import {
+  buildSectionIndex,
+  type DocGroup,
+  type DocSection,
+  flattenGroups,
+} from '@openheaders/ui/shared/docs/registry';
 import {
   ActionsSection,
   BlockSection,
@@ -58,25 +63,7 @@ import {
   SystemStatusSection,
 } from './sections';
 
-export interface DocSection {
-  id: string;
-  title: string;
-  /**
-   * One-line orientation, written for a reader who has never opened
-   * this section. Surfaces as a subtitle under each TOC row and as
-   * additional text the filter matches against.
-   */
-  summary: string;
-  group: string;
-  icon: React.ReactNode;
-  Component: React.FC;
-}
-
-export interface DocGroup {
-  id: string;
-  label: string;
-  sections: DocSection[];
-}
+export type { DocGroup, DocSection };
 
 export const DOC_GROUPS: DocGroup[] = [
   {
@@ -277,8 +264,9 @@ export const DOC_GROUPS: DocGroup[] = [
   },
 ];
 
-const FLAT_SECTIONS: DocSection[] = DOC_GROUPS.flatMap((g) => g.sections);
-const SECTION_BY_ID: Map<string, DocSection> = new Map(FLAT_SECTIONS.map((s) => [s.id, s]));
+const SECTION_BY_ID = buildSectionIndex(DOC_GROUPS);
+
+export const FLAT_SECTIONS = flattenGroups(DOC_GROUPS);
 
 export function findSection(id: string): DocSection | null {
   return SECTION_BY_ID.get(id) ?? null;

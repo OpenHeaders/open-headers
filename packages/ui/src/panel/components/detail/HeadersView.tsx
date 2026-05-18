@@ -15,6 +15,8 @@
  *   - header-footprint       (top-of-section rule-impact summary)
  */
 
+import { useOptionalDocsNav } from '@openheaders/ui/shared/docs/use-docs-nav';
+import { getHeaderDocSectionId, hasHeaderDoc } from '@openheaders/ui/shared/docs/sections/http-headers';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
 import type { HeaderModification, HeaderOperation, Rule } from '@openheaders/core/types';
 import { validateHeaderName } from '@openheaders/core/utils';
@@ -747,6 +749,7 @@ function AttributedHeaderRow({
       onMouseOver={ruleCtx ? handleRowMouseOver : undefined}
       onMouseOut={ruleCtx ? handleRowMouseOut : undefined}
     >
+      <HeaderInfoTrigger name={name} />
       {isProtected ? (
         <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{name}</span>
       ) : (
@@ -766,6 +769,35 @@ function AttributedHeaderRow({
       <ValueChips name={name} value={value} />
       {editedSinceFire && <EditedSinceFireChip kind={ruleEdited ? 'rule' : 'value'} />}
     </div>
+  );
+}
+
+/**
+ * `(i)` glyph prefixed to a header name. Hidden by default — revealed
+ * on row hover via CSS. Click opens the panel's docs window and deep-
+ * links to the `http-header:<lowercase>` section for this header.
+ *
+ * Silently renders nothing for headers we have no doc for, or when no
+ * `DocsNavProvider` is mounted (e.g. tests). Stops click propagation
+ * so it doesn't trigger the row-level "Create rule" name button.
+ */
+function HeaderInfoTrigger({ name }: { name: string }) {
+  const docsNav = useOptionalDocsNav();
+  if (!docsNav || !hasHeaderDoc(name)) return null;
+  return (
+    <button
+      type="button"
+      className="dt-header-info-trigger"
+      aria-label={`About ${name}`}
+      title={`About ${name}`}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        docsNav.openDocs(getHeaderDocSectionId(name));
+      }}
+    >
+      i
+    </button>
   );
 }
 

@@ -29,13 +29,15 @@ import {
   useFocusRegion,
 } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
+import DocsPanel from '@openheaders/ui/shared/docs/DocsPanel';
+import { DocsNavProvider, useDocsNav } from '@openheaders/ui/shared/docs/use-docs-nav';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/useEnvironments';
 import { VariablePopoverProvider } from '@openheaders/ui/workbench/components/template-input/VariablePopoverHost';
 import { EnvSwitcherProvider, useEnvSwitcher } from '@openheaders/ui/workbench/services/env-switcher';
 import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { FilterDocs } from './components/FilterDocs';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { PANEL_DEFAULT_SECTION_ID, PANEL_DOC_GROUPS } from './components/docs/registry';
 import { InspectorDetailContent } from './components/InspectorDetailContent';
 import { InspectorEditorGroupRenderer } from './components/InspectorEditorGroupRenderer';
 import { MatchedRulesPanel } from './components/MatchedRulesPanel';
@@ -184,7 +186,9 @@ export default function App({ resolveIdentity }: AppProps) {
                                 <EnvSwitcherProvider>
                                   <VariablePopoverProvider>
                                     <RulePopoverProvider>
-                                      <PanelContent />
+                                      <DocsNavProvider>
+                                        <PanelContent />
+                                      </DocsNavProvider>
                                     </RulePopoverProvider>
                                   </VariablePopoverProvider>
                                 </EnvSwitcherProvider>
@@ -279,6 +283,19 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   const baselineMs = useMemo(() => (entries.length > 0 ? entries[0].timestamp : null), [entries]);
   const groups = useInspectorEditorGroups({ perTab });
   const tl = usePanelToolLayout(perTab);
+  // Make `openDocs(sectionId)` from anywhere in the panel tree open the
+  // docs tool-window. Effect runs on every `tl` identity change so the
+  // ref always points at the current controller.
+  const { onOpenDocs: onOpenDocsRef } = useDocsNav();
+  useEffect(() => {
+    onOpenDocsRef.current = () => {
+      if (tl.state.hidden.includes('docs')) tl.restoreWindow('docs');
+      tl.activateWindow('docs');
+    };
+    return () => {
+      onOpenDocsRef.current = null;
+    };
+  }, [tl, onOpenDocsRef]);
   const panelSizes = useMemo(getPanelSizes, []);
   // Search session lives at the panel level — SearchPanel itself
   // mounts/unmounts as the user toggles the Search tool window, and
@@ -568,7 +585,13 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
             />
           );
         case 'docs':
-          return <FilterDocs onClose={() => tl.toggleWindow('docs')} />;
+          return (
+            <DocsPanel
+              groups={PANEL_DOC_GROUPS}
+              defaultSectionId={PANEL_DEFAULT_SECTION_ID}
+              onClose={() => tl.toggleWindow('docs')}
+            />
+          );
         case 'matched-rules': {
           const selectedRequest = selectedId ? (entries.find((e) => e.id === selectedId) ?? null) : null;
           return (

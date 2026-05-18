@@ -775,8 +775,8 @@ const WorkbenchContent: React.FC<WorkbenchContentProps> = ({ layout, perTab, att
   );
 
   // Right-pane-open callback for useInspectorNav.
-  const { onOpenInspector, openDocs, currentSectionRef: docsCurrentSectionRef } = useInspectorNav();
-  onOpenInspector.current = useCallback(() => {
+  const { onOpenDocs, openDocs, currentSectionRef: docsCurrentSectionRef } = useInspectorNav();
+  onOpenDocs.current = useCallback(() => {
     if (tl.state.hidden.includes('docs')) tl.restoreWindow('docs');
     tl.activateWindow('docs');
   }, [tl]);

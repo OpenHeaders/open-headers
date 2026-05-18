@@ -120,6 +120,14 @@
       "import": "./src/shared/awareness/*",
       "default": "./dist/shared/awareness/*.js"
     },
+    "./shared/docs/sections/*": {
+      "import": "./src/shared/docs/sections/*",
+      "default": "./dist/shared/docs/sections/*.js"
+    },
+    "./shared/docs/*": {
+      "import": "./src/shared/docs/*",
+      "default": "./dist/shared/docs/*.js"
+    },
     "./shared/conflicts/*": {
       "import": "./src/shared/conflicts/*",
       "default": "./dist/shared/conflicts/*.js"
