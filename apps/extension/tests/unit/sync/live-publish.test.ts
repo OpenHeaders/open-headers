@@ -41,11 +41,13 @@ vi.mock('@utils/logger', () => ({
 
 import {
   applyLiveVariableCreate,
+  applyLiveVariableDelete,
   applyLiveVariablePublish,
   applyLiveVariableUpdate,
 } from '@openheaders/ui/shared/sync/live-variable-write-client';
 import {
   applyLiveWorkflowCreate,
+  applyLiveWorkflowDelete,
   applyLiveWorkflowPublish,
   applyLiveWorkflowUpdate,
 } from '@openheaders/ui/shared/sync/live-workflow-write-client';
@@ -328,5 +330,71 @@ describe('applyLiveVariableUpdate auto-unpublish', () => {
     );
     const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
     expect(batch.mutations).toHaveLength(1);
+  });
+});
+
+describe('applyLiveVariableDelete', () => {
+  it('emits a delete envelope on the live-variable entity when the mirror has the entry', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const mirror = makeVariableMirror({ ...baseLv, published: false });
+    const result = await applyLiveVariableDelete('lvxxxxx1', {
+      workspaceId: 'ws-1',
+      surfaceId: 'workbench',
+      mirror,
+      context: makeContextHandle(),
+    });
+    expect(result).toEqual({ ok: true });
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    expect(batch.mutations).toHaveLength(1);
+    expect(batch.mutations[0].body).toMatchObject({
+      kind: 'delete',
+      type: LIVE_VARIABLE_ENTITY_TYPE,
+      id: 'lvxxxxx1',
+    });
+  });
+
+  it('returns not-found and does not fire the bridge when the mirror has no entry', async () => {
+    const mirror = makeVariableMirror(null);
+    const result = await applyLiveVariableDelete('missing', {
+      workspaceId: 'ws-1',
+      surfaceId: 'workbench',
+      mirror,
+      context: makeContextHandle(),
+    });
+    expect(result).toEqual({ ok: false, reason: 'not-found' });
+    expect(mockCall).not.toHaveBeenCalled();
+  });
+});
+
+describe('applyLiveWorkflowDelete', () => {
+  it('emits a delete envelope on the live-workflow entity when the mirror has the entry', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const mirror = makeWorkflowMirror({ ...baseWorkflow, published: false });
+    const result = await applyLiveWorkflowDelete('wflow001', {
+      workspaceId: 'ws-1',
+      surfaceId: 'workbench',
+      mirror,
+      context: makeContextHandle(),
+    });
+    expect(result).toEqual({ ok: true });
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    expect(batch.mutations).toHaveLength(1);
+    expect(batch.mutations[0].body).toMatchObject({
+      kind: 'delete',
+      type: LIVE_WORKFLOW_ENTITY_TYPE,
+      id: 'wflow001',
+    });
+  });
+
+  it('returns not-found and does not fire the bridge when the mirror has no entry', async () => {
+    const mirror = makeWorkflowMirror(null);
+    const result = await applyLiveWorkflowDelete('missing', {
+      workspaceId: 'ws-1',
+      surfaceId: 'workbench',
+      mirror,
+      context: makeContextHandle(),
+    });
+    expect(result).toEqual({ ok: false, reason: 'not-found' });
+    expect(mockCall).not.toHaveBeenCalled();
   });
 });
