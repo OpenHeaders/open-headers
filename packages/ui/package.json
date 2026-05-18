@@ -128,6 +128,18 @@
       "import": "./src/shared/docs/*",
       "default": "./dist/shared/docs/*.js"
     },
+    "./shared/info-popover": {
+      "import": "./src/shared/info-popover/index.ts",
+      "default": "./dist/shared/info-popover/index.js"
+    },
+    "./shared/info-popover/data/*": {
+      "import": "./src/shared/info-popover/data/*",
+      "default": "./dist/shared/info-popover/data/*.js"
+    },
+    "./shared/info-popover/*": {
+      "import": "./src/shared/info-popover/*",
+      "default": "./dist/shared/info-popover/*.js"
+    },
     "./shared/conflicts/*": {
       "import": "./src/shared/conflicts/*",
       "default": "./dist/shared/conflicts/*.js"

@@ -1645,31 +1645,18 @@
   font-size: 11px;
 }
 
-/* ── Headers tab: (i) doc trigger ───────────────────────── */
+/* ── Headers tab: (i) info trigger ────────────────────────
+ * Built on top of the shared `.oh-info-trigger` glyph from
+ * @openheaders/ui/shared/info-popover. This class adds the
+ * hover-reveal behavior specific to the dense Headers row layout —
+ * the glyph is hidden until the row is hovered, the trigger is
+ * focused, or the popover is open.
+ */
 .dt-header-info-trigger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 12px;
-  height: 12px;
-  margin-right: 4px;
-  padding: 0;
-  border: 1px solid var(--dt-text-muted);
-  border-radius: 50%;
-  background: transparent;
-  color: var(--dt-text-muted);
-  font: italic 600 9px/1 serif;
-  cursor: pointer;
   opacity: 0;
-  transition: opacity 80ms linear;
-  flex-shrink: 0;
 }
 .dt-kv:hover .dt-header-info-trigger,
-.dt-header-info-trigger:focus-visible {
-  opacity: 0.85;
-}
-.dt-header-info-trigger:hover {
+.dt-header-info-trigger:focus-visible,
+.dt-header-info-trigger[aria-expanded='true'] {
   opacity: 1;
-  border-color: var(--dt-link);
-  color: var(--dt-link);
 }

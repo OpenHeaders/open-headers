@@ -2,18 +2,15 @@
  * Docs registry for the DevTools panel surface. Surfaced through the
  * panel's docs tool-window via the shared `DocsPanel` component.
  *
- * The workbench has its own (much larger) registry covering rule
- * mechanics, conditions, and concepts. The panel keeps its surface
- * focused on what users encounter inside DevTools:
- *
- *   1. Filter Syntax     — how the traffic filter input works.
- *   2. HTTP Headers      — what each common header means; deep-linked
- *                          from the Headers tab's `(i)` triggers.
+ * Per-header reference lives in inline `<InfoPopover>` triggers on the
+ * Headers tab — NOT in this docs registry. Keeping header info out of
+ * the docs panel preserves the user's debugging flow: clicking `(i)`
+ * pops anchored context instead of shoving them into a separate
+ * reading surface.
  */
 
 import { FilterOutlined } from '@ant-design/icons';
 import type { DocGroup } from '@openheaders/ui/shared/docs/registry';
-import { HTTP_HEADERS_GROUP } from '@openheaders/ui/shared/docs/sections/http-headers';
 import { FilterSyntaxSection } from './sections/filter-syntax';
 
 const FILTER_SYNTAX_GROUP: DocGroup = {
@@ -31,7 +28,7 @@ const FILTER_SYNTAX_GROUP: DocGroup = {
   ],
 };
 
-export const PANEL_DOC_GROUPS: readonly DocGroup[] = [FILTER_SYNTAX_GROUP, HTTP_HEADERS_GROUP];
+export const PANEL_DOC_GROUPS: readonly DocGroup[] = [FILTER_SYNTAX_GROUP];
 
 /** Section opened on first mount when no deep-link is pending. */
 export const PANEL_DEFAULT_SECTION_ID = 'filter-syntax';

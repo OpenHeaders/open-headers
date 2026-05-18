@@ -1,0 +1,133 @@
+/* ── InfoPopover content layout ──────────────────────────── */
+.oh-info-popover {
+  max-width: 360px;
+  min-width: 240px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ant-color-text);
+}
+.oh-info-popover-kicker {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ant-color-text-tertiary);
+  margin-bottom: 2px;
+}
+.oh-info-popover-title {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--ant-color-text);
+  margin-bottom: 6px;
+}
+.oh-info-popover-diagram {
+  margin: 6px 0 8px;
+  display: flex;
+  justify-content: center;
+}
+.oh-info-popover-summary {
+  font-size: 12px;
+  color: var(--ant-color-text);
+  margin-bottom: 6px;
+}
+.oh-info-popover-description {
+  font-size: 12px;
+  color: var(--ant-color-text-secondary);
+  margin-bottom: 6px;
+}
+.oh-info-popover-description > p {
+  margin: 0 0 4px;
+}
+.oh-info-popover-section {
+  margin-top: 8px;
+}
+.oh-info-popover-section-heading {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ant-color-text-tertiary);
+  margin-bottom: 4px;
+}
+.oh-info-popover-section-item {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 1px 0;
+}
+.oh-info-popover-section-item-label {
+  flex-shrink: 0;
+  font-family: var(--ant-font-family-code, monospace);
+  font-size: 11px;
+  color: var(--ant-color-text);
+  background: var(--ant-color-fill-quaternary);
+  padding: 0 4px;
+  border-radius: 3px;
+}
+.oh-info-popover-section-item-desc {
+  color: var(--ant-color-text-secondary);
+}
+.oh-info-popover-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--ant-color-border-secondary);
+}
+.oh-info-popover-action {
+  font: inherit;
+  font-size: 11px;
+  padding: 3px 10px;
+  border: 1px solid var(--ant-color-border);
+  border-radius: 4px;
+  background: var(--ant-color-bg-container);
+  color: var(--ant-color-text);
+  cursor: pointer;
+}
+.oh-info-popover-action:hover {
+  background: var(--ant-color-fill-tertiary);
+}
+.oh-info-popover-action--primary {
+  background: var(--ant-color-primary);
+  border-color: var(--ant-color-primary);
+  color: var(--ant-color-white, #fff);
+}
+.oh-info-popover-action--primary:hover {
+  background: var(--ant-color-primary-hover);
+  border-color: var(--ant-color-primary-hover);
+}
+
+/* AntD popover-overlay tweak: tighten the default padding for a denser feel. */
+.oh-info-popover-overlay .ant-popover-inner {
+  padding: 10px 12px;
+}
+
+/* ── InfoTrigger (i) glyph ────────────────────────────── */
+.oh-info-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  margin: 0 4px 0 0;
+  padding: 0;
+  border: 1px solid var(--ant-color-text-tertiary, currentColor);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ant-color-text-tertiary, currentColor);
+  font: italic 600 9px/1 serif;
+  cursor: pointer;
+  flex-shrink: 0;
+  vertical-align: middle;
+  transition: opacity 80ms linear, color 80ms linear, border-color 80ms linear;
+}
+.oh-info-trigger:hover,
+.oh-info-trigger:focus-visible {
+  color: var(--ant-color-primary);
+  border-color: var(--ant-color-primary);
+  outline: none;
+}

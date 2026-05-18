@@ -15,8 +15,8 @@
  *   - header-footprint       (top-of-section rule-impact summary)
  */
 
-import { useOptionalDocsNav } from '@openheaders/ui/shared/docs/use-docs-nav';
-import { getHeaderDocSectionId, hasHeaderDoc } from '@openheaders/ui/shared/docs/sections/http-headers';
+import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
+import { getHeaderInfoContent, hasHeaderInfo } from '@openheaders/ui/shared/info-popover/data/http-headers';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
 import type { HeaderModification, HeaderOperation, Rule } from '@openheaders/core/types';
 import { validateHeaderName } from '@openheaders/core/utils';
@@ -774,31 +774,17 @@ function AttributedHeaderRow({
 
 /**
  * `(i)` glyph prefixed to a header name. Hidden by default — revealed
- * on row hover via CSS. Click opens the panel's docs window and deep-
- * links to the `http-header:<lowercase>` section for this header.
+ * on row hover via CSS. Click anchors an `<InfoPopover>` with the
+ * header's documentation — no docs-window detour.
  *
- * Silently renders nothing for headers we have no doc for, or when no
- * `DocsNavProvider` is mounted (e.g. tests). Stops click propagation
- * so it doesn't trigger the row-level "Create rule" name button.
+ * Silently renders nothing for headers we have no documentation for
+ * (so the row stays clean and the column doesn't reserve space for an
+ * affordance that won't appear).
  */
 function HeaderInfoTrigger({ name }: { name: string }) {
-  const docsNav = useOptionalDocsNav();
-  if (!docsNav || !hasHeaderDoc(name)) return null;
-  return (
-    <button
-      type="button"
-      className="dt-header-info-trigger"
-      aria-label={`About ${name}`}
-      title={`About ${name}`}
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        docsNav.openDocs(getHeaderDocSectionId(name));
-      }}
-    >
-      i
-    </button>
-  );
+  const content = hasHeaderInfo(name) ? getHeaderInfoContent(name) : null;
+  if (!content) return null;
+  return <InfoTrigger content={content} className="dt-header-info-trigger" />;
 }
 
 function EditedSinceFireChip({ kind }: { kind: 'rule' | 'value' }) {

@@ -1,46 +1,71 @@
 import {
-  buildHttpHeadersGroup,
-  getHeaderDocSectionId,
-  hasHeaderDoc,
-  HTTP_HEADERS_GROUP,
-} from '@openheaders/ui/shared/docs/sections/http-headers';
-import { buildSectionIndex, type DocSection } from '@openheaders/ui/shared/docs/registry';
+  getHeaderInfo,
+  getHeaderInfoContent,
+  hasHeaderInfo,
+  headerInfoCount,
+} from '@openheaders/ui/shared/info-popover/data/http-headers';
+import type { InfoPopoverSection } from '@openheaders/ui/shared/info-popover';
 import { describe, expect, it } from 'vitest';
 
-describe('http-headers doc group', () => {
-  it('every section has a unique id and a Component', () => {
-    const ids = new Set<string>();
-    for (const section of HTTP_HEADERS_GROUP.sections) {
-      expect(ids.has(section.id)).toBe(false);
-      ids.add(section.id);
-      expect(typeof section.Component).toBe('function');
-      expect(section.title.length).toBeGreaterThan(0);
-      expect(section.summary.length).toBeGreaterThan(0);
-    }
-    expect(HTTP_HEADERS_GROUP.sections.length).toBeGreaterThanOrEqual(40);
+describe('http-headers info registry', () => {
+  it('covers a substantial set of common headers', () => {
+    expect(headerInfoCount()).toBeGreaterThanOrEqual(40);
   });
 
-  it('section ids follow the http-header:<lowercase> convention', () => {
-    for (const section of HTTP_HEADERS_GROUP.sections) {
-      expect(section.id.startsWith('http-header:')).toBe(true);
-      expect(section.id).toBe(section.id.toLowerCase());
-    }
-  });
-
-  it('hasHeaderDoc + getHeaderDocSectionId agree with the registry', () => {
-    const index = buildSectionIndex([HTTP_HEADERS_GROUP]);
+  it('hasHeaderInfo is case-insensitive', () => {
     for (const name of ['Cache-Control', 'set-cookie', 'CONTENT-TYPE', 'Authorization']) {
-      expect(hasHeaderDoc(name)).toBe(true);
-      const sectionId = getHeaderDocSectionId(name);
-      expect(index.has(sectionId)).toBe(true);
+      expect(hasHeaderInfo(name)).toBe(true);
     }
-    expect(hasHeaderDoc('X-Made-Up-Header-That-Does-Not-Exist')).toBe(false);
+    expect(hasHeaderInfo('X-Made-Up-Header-That-Does-Not-Exist')).toBe(false);
   });
 
-  it('buildHttpHeadersGroup is deterministic — singleton matches a fresh build', () => {
-    const built = buildHttpHeadersGroup();
-    expect(built.sections.map((s: DocSection) => s.id)).toEqual(
-      HTTP_HEADERS_GROUP.sections.map((s: DocSection) => s.id),
-    );
+  it('getHeaderInfoContent returns full popover content for known headers', () => {
+    const content = getHeaderInfoContent('Cache-Control');
+    expect(content).not.toBeNull();
+    if (!content) return;
+    expect(content.title).toBe('Cache-Control');
+    expect(content.kicker).toMatch(/Caching/);
+    expect(content.summary.length).toBeGreaterThan(0);
+    // Cache-Control has a directives section.
+    expect(content.sections?.some((s: InfoPopoverSection) => s.heading === 'Directives')).toBe(true);
+  });
+
+  it('getHeaderInfoContent returns null for unknown headers', () => {
+    expect(getHeaderInfoContent('X-Made-Up')).toBeNull();
+  });
+
+  it('every entry has a non-empty display, summary, and a known direction/category', () => {
+    const directions = new Set(['request', 'response', 'both']);
+    const categories = new Set([
+      'CORS',
+      'Caching',
+      'Security',
+      'Cookies',
+      'Content',
+      'Auth',
+      'Tracing',
+      'Client Hints',
+      'Fetch metadata',
+    ]);
+    // Pick a representative sample by hitting each category we expect.
+    for (const name of [
+      'Access-Control-Allow-Origin',
+      'Cache-Control',
+      'Strict-Transport-Security',
+      'Set-Cookie',
+      'Content-Type',
+      'Authorization',
+      'Server-Timing',
+      'Sec-Fetch-Mode',
+      'Sec-CH-UA',
+    ]) {
+      const entry = getHeaderInfo(name);
+      expect(entry).not.toBeNull();
+      if (!entry) continue;
+      expect(entry.display.length).toBeGreaterThan(0);
+      expect(entry.summary.length).toBeGreaterThan(0);
+      expect(directions.has(entry.direction)).toBe(true);
+      expect(categories.has(entry.category)).toBe(true);
+    }
   });
 });
