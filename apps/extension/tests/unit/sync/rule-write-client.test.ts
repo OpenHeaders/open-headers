@@ -33,6 +33,7 @@ vi.mock('@utils/logger', () => ({
 }));
 
 import {
+  applyRuleCreate,
   applyRuleDelete,
   applyRuleToggle,
   applyRuleUpdate,
@@ -268,6 +269,83 @@ describe('applyRuleToggle', () => {
     });
     expect(result).toEqual({ ok: false, reason: 'not-found' });
     expect(mockCall).not.toHaveBeenCalled();
+  });
+});
+
+describe('applyRuleCreate', () => {
+  const createSeed: Omit<HeaderRule, 'uid' | 'path' | 'schemaVersion'> = {
+    name: 'New Header Rule',
+    enabled: true,
+    type: 'header',
+    conditions: [],
+    action: { requestHeaders: [], responseHeaders: [] },
+  };
+
+  it('mints a Create envelope with generated uid + path under parentPath and published:false', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const result = await applyRuleCreate(
+      { rule: createSeed, parentPath: 'rules/coll-abcd1234' },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle() },
+    );
+    expect(result.ok).toBe(true);
+    expect(mockCall).toHaveBeenCalledTimes(1);
+    const [type, payload] = mockCall.mock.calls[0];
+    expect(type).toBe('oh.sync.apply');
+    const batch = (payload as { batch: MutationBatch }).batch;
+    const createEnv = batch.mutations.find((m) => m.body.kind === 'create');
+    expect(createEnv).toBeTruthy();
+    expect(createEnv?.body).toMatchObject({ kind: 'create', type: RULE_ENTITY_TYPE });
+    const created = (createEnv?.body as { payload: HeaderRule }).payload;
+    expect(created.uid).toMatch(/^[0-9a-z]{8,}$/);
+    expect(created.path.startsWith('rules/coll-abcd1234/')).toBe(true);
+    expect(created.path.endsWith(created.uid)).toBe(true);
+    expect(created.schemaVersion).toBe(5);
+    expect(created.published).toBe(false);
+    expect(result.ok && result.rule.uid).toBe(created.uid);
+  });
+
+  it('overrides caller-supplied published:true with false — drafts must not arrive published', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const result = await applyRuleCreate(
+      // Seed type omits `published` but we cast through to assert the override path.
+      { rule: { ...createSeed, published: true } as typeof createSeed, parentPath: 'rules/c-1' },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle() },
+    );
+    expect(result.ok).toBe(true);
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    const createEnv = batch.mutations.find((m) => m.body.kind === 'create');
+    const created = (createEnv?.body as { payload: HeaderRule }).payload;
+    expect(created.published).toBe(false);
+  });
+
+  it('emits one addToSet envelope per set-modeled member (conditions, headers)', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const seedWithMembers: typeof createSeed = {
+      ...createSeed,
+      conditions: [{ uid: 'tcd00099', type: 'request-domains', values: ['*.openheaders.io'] }],
+      action: {
+        requestHeaders: [{ uid: 'thm00099', operation: 'override', headerName: 'X-Foo', value: 'bar' }],
+        responseHeaders: [],
+      },
+    };
+    await applyRuleCreate(
+      { rule: seedWithMembers, parentPath: 'rules/c-1' },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle() },
+    );
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    const adds = batch.mutations.filter((m) => m.body.kind === 'addToSet');
+    expect(adds).toHaveLength(2);
+    const paths = adds.map((m) => (m.body as { path: string }).path).sort();
+    expect(paths).toEqual(['action.requestHeaders', 'conditions']);
+  });
+
+  it('returns the bridge error as `other` on transport failure', async () => {
+    mockCall.mockRejectedValue(new Error('bridge dead'));
+    const result = await applyRuleCreate(
+      { rule: createSeed, parentPath: 'rules/c-1' },
+      { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle() },
+    );
+    expect(result).toEqual({ ok: false, reason: 'other', message: 'bridge dead' });
   });
 });
 
