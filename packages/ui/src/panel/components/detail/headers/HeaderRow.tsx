@@ -1,8 +1,9 @@
+import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
 import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
 import { getHeaderInfoContentForRow } from '@openheaders/ui/shared/info-popover/data/http-headers';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
 import type { HeaderModification, HeaderOperation, Rule } from '@openheaders/core/types';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   type AnnotatedHeader,
   findCurrentMod,
@@ -100,6 +101,15 @@ export function AttributedHeaderRow({
   const { name, value, attribution } = row;
   const displayName = formatHeaderName(name, nameCase);
   const kind = attribution.kind;
+
+  const [copied, setCopied] = useState(false);
+  const handleCopy = (e: React.MouseEvent<HTMLButtonElement>): void => {
+    e.stopPropagation();
+    void navigator.clipboard?.writeText(value).then(() => {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1200);
+    });
+  };
 
   const direction: 'request' | 'response' = sectionLabel === 'Response Headers' ? 'response' : 'request';
   const isProtected = meta.protectedHeader;
@@ -218,6 +228,15 @@ export function AttributedHeaderRow({
       <ValueChips name={name} value={value} />
       {editedSinceFire && <EditedSinceFireChip kind={ruleEdited ? 'rule' : 'value'} />}
       <span className="dt-kv-row-actions">
+        <button
+          type="button"
+          className="dt-btn dt-btn-primary dt-kv-action dt-kv-action--icon"
+          title={copied ? 'Copied' : 'Copy value'}
+          aria-label={copied ? 'Copied' : 'Copy value'}
+          onClick={handleCopy}
+        >
+          {copied ? <CheckOutlined /> : <CopyOutlined />}
+        </button>
         <button
           type="button"
           className="dt-btn dt-btn-primary dt-kv-action"

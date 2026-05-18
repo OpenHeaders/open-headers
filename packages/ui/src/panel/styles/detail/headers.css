@@ -325,6 +325,18 @@
   border-radius: 3px;
   font-weight: 400;
 }
+/* Icon-only variant (Copy) — square, just the glyph. */
+.dt-kv-action--icon.dt-btn {
+  padding: 0;
+  width: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.dt-kv-action--icon .anticon {
+  font-size: 11px;
+  line-height: 1;
+}
 .dt-kv-action.dt-btn[disabled],
 .dt-kv-action.dt-btn[aria-disabled='true'] {
   /* Protected headers (host / content-length / sec-ch-ua / …) can't be
