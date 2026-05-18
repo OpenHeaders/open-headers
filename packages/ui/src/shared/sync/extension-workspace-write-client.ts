@@ -11,15 +11,11 @@
  * Per-batch all-or-nothing at the global oracle (§11.2) keeps observers
  * from seeing a half-applied delete (slot removed, active dangling).
  *
- * NOT YET WIRED INTO `useWorkspaces.ts` — scaffold lands ahead of the
- * call-site migration so the diff is reviewable in isolation. Until
- * `useWorkspaces.ts` flips, the bridge RPC path stays authoritative
- * and these helpers are dead code.
- *
  * `duplicateWorkspace` stays on the bridge: it copies per-workspace
  * data across SW-owned stores (rule / template / files / etc.) which
  * the renderer can't touch. The other six write paths (create / update
- * / delete / setActive / reorder / rename) are renderer-direct here.
+ * / delete / setActive / reorder / rename) are renderer-direct here
+ * and are the authoritative path used by `useWorkspaces.ts`.
  */
 
 import {

@@ -10,11 +10,12 @@
  *      `EXTENSION_WORKSPACE_GLOBAL_SCOPE` ('__global__') used by the
  *      global oracle's IDB stripe; it survives workspace-switch
  *      dispose+init cycles.
- *   2. **No persistence sink yet.** Until commit 3 flips the legacy
- *      `workspace-store.ts` writers, the durable record at the
- *      `oh.workspaces` + `oh.runtimeActive.active` chrome storage keys is
- *      owned by the legacy direct-write path. The cache mirrors the
- *      post-broadcast projection in memory only.
+ *   2. **No built-in persistence sink.** The cache mirrors the
+ *      post-broadcast projection in memory only. Durable writes to
+ *      `oh.workspaces` + `oh.runtimeActive.active` are owned by
+ *      `installCacheSink` in `extension-workspace-store.ts`, which
+ *      registers a `cache.onChange` listener that calls
+ *      `persistFromCache(snap)` on every commit.
  *
  * Workspace-meta is user-visible (names + colors), not secrets — the
  * broadcast carries records freely.
