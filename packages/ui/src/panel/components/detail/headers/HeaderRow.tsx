@@ -217,6 +217,21 @@ export function AttributedHeaderRow({
       </span>
       <ValueChips name={name} value={value} />
       {editedSinceFire && <EditedSinceFireChip kind={ruleEdited ? 'rule' : 'value'} />}
+      {!isProtected && (
+        <span className="dt-kv-row-actions">
+          <button
+            type="button"
+            className="dt-btn dt-btn-primary dt-kv-action"
+            title="Create a rule to override this header"
+            onClick={(e) => {
+              e.stopPropagation();
+              onNameClick(name, value);
+            }}
+          >
+            Override
+          </button>
+        </span>
+      )}
     </div>
   );
 }

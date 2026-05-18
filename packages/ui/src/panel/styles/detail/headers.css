@@ -280,6 +280,52 @@
   opacity: 1;
 }
 
+/* Hover-revealed per-row Override — mirrors the Cookies tab's
+ * `.dt-cookie-row-actions` pattern so users get the same affordance
+ * across both inspector surfaces. The blue header-name link stays
+ * primary; this overlay just makes the override action visible
+ * without requiring the user to discover that the name is clickable.
+ *
+ * Anchored to the row's right edge, fades in on row hover, sits on
+ * a transparent → row-hover gradient so it reads cleanly over the
+ * chip strip / edited-since label behind it. */
+.dt-headers-pane .dt-kv {
+  position: relative;
+}
+.dt-kv-row-actions {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  white-space: nowrap;
+  padding: 2px 4px 2px 24px;
+  background: linear-gradient(
+    to right,
+    transparent 0,
+    var(--dt-row-hover) 20px,
+    var(--dt-row-hover) 100%
+  );
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2;
+  transition: opacity 80ms ease-out;
+}
+.dt-kv:hover .dt-kv-row-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+.dt-kv-action.dt-btn {
+  font-size: 10px;
+  height: 18px;
+  line-height: 18px;
+  padding: 0 8px;
+  border-radius: 3px;
+  font-weight: 400;
+}
+
 /* More-filters popover — `--select` variant rows arrange a label +
  * native select horizontally so Layout / Sort fit alongside the
  * checkbox toggles in the same menu. */
