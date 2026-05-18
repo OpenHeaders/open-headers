@@ -376,4 +376,15 @@ describe('applyRuleDelete', () => {
     });
     expect(result).toEqual({ ok: false, reason: 'other', message: 'bridge dead' });
   });
+
+  it('returns not-found and does not fire the bridge when the mirror has no entry', async () => {
+    const result = await applyRuleDelete('missing', {
+      workspaceId: 'ws-1',
+      surfaceId: 'popup',
+      mirror: makeMirror(null),
+      context: makeContextHandle('ws-1', 'popup'),
+    });
+    expect(result).toEqual({ ok: false, reason: 'not-found' });
+    expect(mockCall).not.toHaveBeenCalled();
+  });
 });
