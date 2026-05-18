@@ -43,6 +43,7 @@ import {
 } from '@openheaders/oracle/sync/service';
 import fc from 'fast-check';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { stressNumRuns } from './property-stress';
 
 const wsId = 'ws-prop';
 const NODE_POOL = ['sw', 'desktop', 'peer-a'] as const;
@@ -153,7 +154,7 @@ describe('respondToStateVector — property: frame accounting + ordering', () =>
         const mutationFrames = frames.filter((f) => f.type === SYNC_MUTATION_TYPE);
         expect(mutationFrames.length).toBe(result.deltasSent);
       }),
-      { numRuns: 60 },
+      { numRuns: stressNumRuns(60) },
     );
   });
 });
@@ -185,7 +186,7 @@ describe('respondToStateVector — property: cutoff respected', () => {
           }
         },
       ),
-      { numRuns: 60 },
+      { numRuns: stressNumRuns(60) },
     );
   });
 });
@@ -216,7 +217,7 @@ describe('respondToStateVector — property: caught-up peer', () => {
         expect(frames).toHaveLength(1);
         expect(frames[0]?.type).toBe(SYNC_SYNCED_TYPE);
       }),
-      { numRuns: 40 },
+      { numRuns: stressNumRuns(40) },
     );
   });
 });
@@ -243,7 +244,7 @@ describe('respondToStateVector — property: cold peer forces snapshot', () => {
           expect(frames[frames.length - 1]?.type).toBe(SYNC_SYNCED_TYPE);
         },
       ),
-      { numRuns: 40 },
+      { numRuns: stressNumRuns(40) },
     );
   });
 });
@@ -279,7 +280,7 @@ describe('respondToStateVector — property: reconnect idempotency', () => {
         expect(r2.syncedSent).toBe(r1.syncedSent);
         expect(frameTypes(b.frames)).toEqual(frameTypes(a.frames));
       }),
-      { numRuns: 40 },
+      { numRuns: stressNumRuns(40) },
     );
   });
 });
@@ -319,7 +320,7 @@ describe('respondToStateVector — property: state-vector dominance', () => {
         }
         expect(dominatesAll(result.stateVectorAfter, restricted)).toBe(true);
       }),
-      { numRuns: 40 },
+      { numRuns: stressNumRuns(40) },
     );
   });
 });

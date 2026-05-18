@@ -24,6 +24,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:stress": "STRESS_PROPERTY_TESTS=1 vitest run tests/unit/sync/*.property.test.ts --test-timeout=900000",
     "test:e2e": "pnpm exec playwright test",
     "test:e2e:headed": "pnpm exec playwright test --headed",
     "typecheck": "tsc --noEmit",

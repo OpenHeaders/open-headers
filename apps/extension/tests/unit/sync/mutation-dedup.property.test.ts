@@ -43,6 +43,7 @@ import {
 } from '@openheaders/oracle/sync/service';
 import fc from 'fast-check';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { stressNumRuns } from './property-stress';
 
 const wsId = 'ws-dedup-prop';
 
@@ -172,7 +173,7 @@ describe('dedup — property: apply-once + universal apply', () => {
         // applied regardless of whether it arrived via single or batch.
         for (const id of uniques) expect(hasRecentlyApplied(id)).toBe(true);
       }),
-      { numRuns: 20 },
+      { numRuns: stressNumRuns(20) },
     );
   });
 });
@@ -201,7 +202,7 @@ describe('dedup — property: random redelivery schedule converges', () => {
           }
         },
       ),
-      { numRuns: 20 },
+      { numRuns: stressNumRuns(20) },
     );
   });
 });
@@ -254,7 +255,7 @@ describe('dedup — property: order independence', () => {
           expect(matB).toEqual(expectedUids);
         },
       ),
-      { numRuns: 15 },
+      { numRuns: stressNumRuns(15) },
     );
   });
 });

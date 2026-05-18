@@ -26,6 +26,7 @@ import { hlcToString, type MutationEnvelope } from '@openheaders/core/sync';
 import { InMemoryMutationLog } from '@openheaders/oracle/sync/mutation-log';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
+import { stressNumRuns } from './property-stress';
 
 const NODE_POOL = ['a', 'b', 'c'] as const;
 type NodeId = (typeof NODE_POOL)[number];
@@ -102,7 +103,7 @@ describe('mutation-log — property: FIFO by HLC regardless of append order', ()
         const sortedKeys = [...readKeys].sort();
         expect(readKeys).toEqual(sortedKeys);
       }),
-      { numRuns: 60 },
+      { numRuns: stressNumRuns(60) },
     );
   });
 });
@@ -120,7 +121,7 @@ describe('mutation-log — property: append is idempotent on mutationId', () => 
         const ids = new Set(read.map((e) => e.mutationId));
         expect(ids.size).toBe(specs.length);
       }),
-      { numRuns: 60 },
+      { numRuns: stressNumRuns(60) },
     );
   });
 });
@@ -145,7 +146,7 @@ describe('mutation-log — property: hasMutation tracks appends + truncations', 
           expect(await log.hasMutation(s.mutationId)).toBe(expected);
         }
       }),
-      { numRuns: 60 },
+      { numRuns: stressNumRuns(60) },
     );
   });
 });
@@ -167,7 +168,7 @@ describe('mutation-log — property: readSince watermark cutoff', () => {
         const got = read.map((e) => e.mutationId);
         expect(new Set(got)).toEqual(new Set(expected));
       }),
-      { numRuns: 60 },
+      { numRuns: stressNumRuns(60) },
     );
   });
 });
@@ -189,7 +190,7 @@ describe('mutation-log — property: truncateBefore preserves tail order', () =>
         const keys = survivors.map((e) => hlcToString(e.hlc));
         expect(keys).toEqual([...keys].sort());
       }),
-      { numRuns: 60 },
+      { numRuns: stressNumRuns(60) },
     );
   });
 });
@@ -208,7 +209,7 @@ describe('mutation-log — property: appendAll equivalent to sequential append',
         const rb = (await collect(b.readSince(null))).map((e) => e.mutationId);
         expect(ra).toEqual(rb);
       }),
-      { numRuns: 60 },
+      { numRuns: stressNumRuns(60) },
     );
   });
 });

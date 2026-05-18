@@ -40,6 +40,7 @@ import {
 } from '@openheaders/oracle/sync';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
+import { stressNumRuns } from './property-stress';
 
 const NODE_POOL = ['a', 'b', 'c'] as const;
 type NodeId = (typeof NODE_POOL)[number];
@@ -134,7 +135,7 @@ describe('reconnect — property: survival predicate after prune', () => {
           }
         }
       }),
-      { numRuns: 80 },
+      { numRuns: stressNumRuns(80) },
     );
   });
 });
@@ -149,7 +150,7 @@ describe('reconnect — property: idempotent prune', () => {
         const second = await prunePendingOutByPeerVector(q, DEFAULT_REMOTE_ID, peer);
         expect(second.pruned).toBe(0);
       }),
-      { numRuns: 60 },
+      { numRuns: stressNumRuns(60) },
     );
   });
 });
@@ -176,7 +177,7 @@ describe('reconnect — property: monotone prune', () => {
         const resB = await prunePendingOutByPeerVector(qB, DEFAULT_REMOTE_ID, combined);
         expect(resB.pruned).toBeGreaterThanOrEqual(resA.pruned);
       }),
-      { numRuns: 60 },
+      { numRuns: stressNumRuns(60) },
     );
   });
 });
@@ -195,7 +196,7 @@ describe('reconnect — property: drain ordering preserved', () => {
           expect(prev <= cur).toBe(true);
         }
       }),
-      { numRuns: 60 },
+      { numRuns: stressNumRuns(60) },
     );
   });
 });
@@ -210,7 +211,7 @@ describe('reconnect — property: enqueue idempotency across reconnect', () => {
         await enqueueAll(q, specs);
         expect(await q.size(DEFAULT_REMOTE_ID)).toBe(specs.length);
       }),
-      { numRuns: 60 },
+      { numRuns: stressNumRuns(60) },
     );
   });
 });
@@ -259,7 +260,7 @@ describe('reconnect — property: convergence under packet loss', () => {
           expect(await q.size(DEFAULT_REMOTE_ID)).toBe(0);
         },
       ),
-      { numRuns: 50 },
+      { numRuns: stressNumRuns(50) },
     );
   });
 });
