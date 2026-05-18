@@ -39,6 +39,7 @@ vi.mock('@utils/logger', () => ({
 }));
 
 import {
+  applyTemplateCreate,
   applyTemplateDelete,
   applyTemplateUpdate,
 } from '@openheaders/ui/shared/sync/template-write-client';
@@ -295,5 +296,28 @@ describe('applyTemplateDelete', () => {
     });
     expect(result).toEqual({ ok: false, reason: 'not-found' });
     expect(mockCall).not.toHaveBeenCalled();
+  });
+});
+
+describe('applyTemplateCreate', () => {
+  it('emits a create envelope on the template entity, plus one addToSet per condition row', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const tpl: Template = {
+      ...baseTemplate,
+      uid: 'tpl-new',
+      conditions: [cond('cnd00010', 'foo')],
+    };
+    const result = await applyTemplateCreate(tpl, {
+      workspaceId: 'ws-1',
+      surfaceId: 'workbench',
+      context: makeContextHandle(),
+    });
+    expect(result).toEqual({ ok: true });
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    const createEnv = batch.mutations.find((m) => m.body.kind === 'create');
+    expect(createEnv?.body).toMatchObject({ kind: 'create', type: TEMPLATE_ENTITY_TYPE, id: 'tpl-new' });
+    const adds = batch.mutations.filter((m) => m.body.kind === 'addToSet');
+    expect(adds).toHaveLength(1);
+    expect(adds[0].body).toMatchObject({ path: 'conditions', itemId: 'cnd00010' });
   });
 });
