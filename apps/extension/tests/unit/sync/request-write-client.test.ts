@@ -37,7 +37,12 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-import { applyRequestUpdate } from '@openheaders/ui/shared/sync/request-write-client';
+import {
+  applyRequestCreate,
+  applyRequestDelete,
+  applyRequestUpdate,
+} from '@openheaders/ui/shared/sync/request-write-client';
+import { REQUEST_ENTITY_TYPE } from '@openheaders/core/sync';
 import type { RequestSyncMirror } from '@openheaders/ui/context';
 import type { RendererContextHandle } from '@openheaders/ui/context';
 
@@ -243,5 +248,54 @@ describe('applyRequestUpdate — set-modeled paths via shared synthesizer', () =
       { workspaceId: 'ws-1', surfaceId: 'workbench', mirror, context: makeContextHandle() },
     );
     expect(result).toEqual({ ok: false, reason: 'other', message: 'lock timeout' });
+  });
+});
+
+describe('applyRequestCreate', () => {
+  it('emits a create envelope with the caller-supplied uid + path and a scalar shell', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const request = baseRequest([header('h1', 'X-Auth', 'token')]);
+    const result = await applyRequestCreate(request, {
+      workspaceId: 'ws-1',
+      surfaceId: 'workbench',
+      context: makeContextHandle(),
+    });
+    expect(result).toEqual({ ok: true });
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    const createEnv = batch.mutations.find((m) => m.body.kind === 'create');
+    expect(createEnv?.body).toMatchObject({ kind: 'create', type: REQUEST_ENTITY_TYPE, id: 'rq-1' });
+    const adds = batch.mutations.filter((m) => m.body.kind === 'addToSet');
+    // One addToSet per set-modeled member — headers carries one row.
+    expect(adds).toHaveLength(1);
+    expect(adds[0].body).toMatchObject({ path: 'headers', itemId: 'h1' });
+  });
+});
+
+describe('applyRequestDelete', () => {
+  it('returns not-found and does not fire the bridge when the mirror has no entry', async () => {
+    const mirror = makeMirror(baseRequest([]), {});
+    const result = await applyRequestDelete('missing', {
+      workspaceId: 'ws-1',
+      surfaceId: 'workbench',
+      mirror,
+      context: makeContextHandle(),
+    });
+    expect(result).toEqual({ ok: false, reason: 'not-found' });
+    expect(mockCall).not.toHaveBeenCalled();
+  });
+
+  it('emits one delete envelope on the request entity', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const mirror = makeMirror(baseRequest([]), {});
+    const result = await applyRequestDelete('rq-1', {
+      workspaceId: 'ws-1',
+      surfaceId: 'workbench',
+      mirror,
+      context: makeContextHandle(),
+    });
+    expect(result).toEqual({ ok: true });
+    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
+    expect(batch.mutations).toHaveLength(1);
+    expect(batch.mutations[0].body).toMatchObject({ kind: 'delete', type: REQUEST_ENTITY_TYPE, id: 'rq-1' });
   });
 });
