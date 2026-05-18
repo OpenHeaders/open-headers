@@ -96,6 +96,14 @@ registerCategory({
 });
 
 registerCategory({
+  id: 'devpanelCookies',
+  label: 'DevTools Panel · Cookies',
+  icon: <ApiOutlined />,
+  order: 19,
+  description: 'Defaults for the Cookies tab in the DevTools panel — columns, sort, filters, suggestions.',
+});
+
+registerCategory({
   id: 'editor',
   label: 'Code Editor',
   icon: <EditOutlined />,

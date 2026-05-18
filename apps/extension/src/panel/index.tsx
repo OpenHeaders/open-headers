@@ -5,6 +5,7 @@ import '@/host/install-build-info';
 import '@/host/install-awareness-host';
 import '@/host/install-navigation-host';
 import '@/host/install-source-map-fetcher';
+import '@/host/install-cookie-jar-fetcher';
 import '@/host/install-assets-host';
 import { eagerInitRendererMirrors, ThemeProvider } from '@openheaders/ui/context';
 import App from '@openheaders/ui/panel/App';

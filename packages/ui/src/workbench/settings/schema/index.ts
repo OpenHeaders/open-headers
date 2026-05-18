@@ -16,6 +16,7 @@ import './workspace-layout';
 import './devpanel-layout';
 import './devpanel-headers';
 import './devpanel-initiator';
+import './devpanel-cookies';
 import './editor';
 import './rules-engine';
 import './backend';

@@ -23,6 +23,7 @@ import type { MessageHandlerContext, SendResponse } from '@/types/browser';
 import type { PerfResourceEntry } from '@/types/perf';
 import { disableCacheBypassForTab, enableCacheBypassForTab } from './cache-bypass';
 import { fetchSourceMapText as fetchSourceMapTextHandler } from './fetch-source-map';
+import { fetchCookieJarForUrl as fetchCookieJarForUrlHandler } from './fetch-cookie-jar';
 import {
   createEnvironment,
   deleteEnvironment,
@@ -425,6 +426,14 @@ export function handleGeneralMessage(
         .catch((err: Error) => {
           logger.info('SourceMapFetch', `handler threw: ${err.message}`);
           safeResponse({ mapText: null });
+        });
+      return true;
+    } else if (message.type === 'fetchCookieJarForUrl') {
+      fetchCookieJarForUrlHandler(message.url as string)
+        .then((res) => safeResponse(res))
+        .catch((err: Error) => {
+          logger.info('CookieJarFetch', `handler threw: ${err.message}`);
+          safeResponse({ cookies: null });
         });
       return true;
     } else if (message.type === 'fetchWorkspaceExportYaml') {

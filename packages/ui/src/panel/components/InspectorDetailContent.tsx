@@ -263,7 +263,9 @@ export function InspectorDetailContent({
           />
         )}
 
-        {section === 'cookies' && <CookiesView har={har} />}
+        {section === 'cookies' && (
+          <CookiesView request={request} pageOrigin={pageOrigin} onCreateHeaderRule={createHeaderRule} />
+        )}
 
         {section === 'har' && (
           <div className="dt-panel-mono" style={{ fontSize: 12, lineHeight: 1.6 }}>

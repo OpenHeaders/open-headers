@@ -1,8 +1,38 @@
-/* Cookies tab — set-cookie / sent-cookie table. */
+/* Cookies tab — request / response cookie table + per-row chips.
+ * Mirrors the Headers-tab structure so the two tabs share visual
+ * vocabulary (filter toolbar, footprint line, insight cards). */
 
-.dt-cookies-view {
-  padding: 4px 0;
+.dt-cookies-pane {
+  /* Section summaries (Response / Request) stick BELOW the filter
+   * toolbar — same trick as `.dt-headers-pane`. `--oh-cookies-toolbar-h`
+   * is published by `useMeasuredCssHeights` (see CookiesView.tsx); the
+   * fallback covers the unmeasured first paint. */
+  --dt-section-sticky-top: calc(var(--oh-cookies-toolbar-h, 30px) - 1px);
+  --oh-cookies-sticky-offset: calc(var(--oh-cookies-toolbar-h, 30px) + var(--oh-cookies-summary-h, 24px));
 }
+
+/* Section summary line — count + size badge. */
+.dt-cookie-section > summary {
+  position: sticky;
+  top: var(--dt-section-sticky-top, 0);
+  z-index: 1;
+  background: var(--dt-bg);
+  border-bottom: 1px solid var(--dt-border);
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 12px;
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--dt-text);
+}
+.dt-cookie-section-count {
+  margin-left: 8px;
+  font-weight: 400;
+  color: var(--dt-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Table — read-dense but not crammed. */
 .dt-cookie-table-wrap {
   overflow-x: auto;
   padding: 0 12px;
@@ -12,6 +42,7 @@
   border-collapse: collapse;
   font-size: 11px;
   font-family: monospace;
+  table-layout: auto;
 }
 .dt-cookie-table th {
   text-align: left;
@@ -21,18 +52,110 @@
   white-space: nowrap;
   color: var(--dt-text-muted);
   font-size: 10px;
+  background: var(--dt-bg);
 }
 .dt-cookie-table td {
   padding: 2px 6px;
   border-bottom: 1px solid color-mix(in srgb, var(--dt-border) 50%, transparent);
   white-space: nowrap;
-  max-width: 200px;
+  max-width: 240px;
   overflow: hidden;
   text-overflow: ellipsis;
+  vertical-align: top;
 }
+.dt-cookie-row[data-problem='true'] {
+  background: color-mix(in srgb, var(--dt-status-red) 8%, transparent);
+}
+.dt-cookie-row--dim {
+  opacity: 0.6;
+}
+.dt-cookie-row--dim td {
+  font-style: italic;
+}
+
 .dt-cookie-name {
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  /* Reserve enough width that the name + a few chips fit before
+   * ellipsis kicks in; tweakable per-design. */
+  min-width: 0;
+  max-width: 360px;
+}
+.dt-cookie-name-text {
+  flex: 0 0 auto;
 }
 .dt-cookie-value {
-  max-width: 280px;
+  max-width: 320px;
+}
+.dt-col-center {
+  text-align: center;
+}
+
+/* Per-row chips — single line, clipped at the right edge of the cell
+ * rather than wrapped onto a second row (wrapping was throwing off
+ * vertical alignment across columns). The row's `title` already
+ * carries the long-form text, so anything clipped is still hover-
+ * discoverable. */
+.dt-cookie-chips {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 3px;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+}
+.dt-cookie-chip {
+  flex: 0 0 auto;
+}
+.dt-cookie-chip {
+  display: inline-block;
+  padding: 0 4px;
+  height: 14px;
+  line-height: 14px;
+  font-size: 9px;
+  font-weight: 600;
+  border-radius: 2px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  text-transform: none;
+  font-family: var(--dt-font-sans, system-ui);
+}
+.dt-cookie-chip--ok {
+  background: color-mix(in srgb, var(--dt-status-green) 14%, transparent);
+  color: var(--dt-status-green);
+  border-color: color-mix(in srgb, var(--dt-status-green) 30%, transparent);
+}
+.dt-cookie-chip--warn {
+  background: color-mix(in srgb, var(--dt-status-yellow) 14%, transparent);
+  color: var(--dt-status-yellow);
+  border-color: color-mix(in srgb, var(--dt-status-yellow) 30%, transparent);
+}
+.dt-cookie-chip--err {
+  background: color-mix(in srgb, var(--dt-status-red) 14%, transparent);
+  color: var(--dt-status-red);
+  border-color: color-mix(in srgb, var(--dt-status-red) 30%, transparent);
+}
+.dt-cookie-chip--info {
+  background: color-mix(in srgb, var(--dt-link) 12%, transparent);
+  color: var(--dt-link);
+  border-color: color-mix(in srgb, var(--dt-link) 28%, transparent);
+}
+
+/* Right-edge action buttons. */
+.dt-cookie-actions {
+  text-align: right;
+  white-space: nowrap;
+  width: 1%;
+}
+.dt-cookie-action {
+  font-size: 10px;
+  padding: 0 4px;
+  margin-left: 4px;
+}
+.dt-cookie-action--danger {
+  color: var(--dt-status-red);
 }

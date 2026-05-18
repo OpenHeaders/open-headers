@@ -46,6 +46,10 @@
       "import": "./src/panel/host-source-map-fetcher.ts",
       "default": "./dist/panel/host-source-map-fetcher.js"
     },
+    "./panel/host-cookie-jar": {
+      "import": "./src/panel/host-cookie-jar.ts",
+      "default": "./dist/panel/host-cookie-jar.js"
+    },
     "./panel/*": {
       "import": "./src/panel/*",
       "default": "./dist/panel/*.js"

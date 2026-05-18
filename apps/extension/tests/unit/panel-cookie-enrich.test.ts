@@ -1,0 +1,157 @@
+import type { InspectorHarEntry } from '@openheaders/core/types';
+import { enrichCookies, parseSetCookieLine } from '@openheaders/ui/panel/data/cookie-enrich';
+import type { JarCookie } from '@openheaders/ui/panel/host-cookie-jar';
+import { describe, expect, it } from 'vitest';
+
+const NOW = Date.UTC(2026, 4, 18, 23, 0, 0); // 2026-05-18T23:00:00Z
+
+function jar(over: Partial<JarCookie> = {}): JarCookie {
+  return {
+    name: 'session',
+    value: 'cached-value',
+    domain: '.openheaders.io',
+    path: '/',
+    hostOnly: false,
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    session: false,
+    expirationDate: Math.floor(NOW / 1000) + 86400,
+    ...over,
+  };
+}
+
+function har(over: Partial<InspectorHarEntry> = {}): InspectorHarEntry {
+  return {
+    startedDateTime: new Date(NOW).toISOString(),
+    time: 0,
+    request: { method: 'GET', url: 'https://openheaders.io/', httpVersion: '', cookies: [], headers: [], queryString: [], headersSize: -1, bodySize: -1 },
+    response: { status: 200, statusText: 'OK', httpVersion: '', cookies: [], headers: [], content: { size: 0, mimeType: '' }, redirectURL: '', headersSize: -1, bodySize: -1 },
+    cache: {},
+    timings: { send: 0, wait: 0, receive: 0 },
+    ...over,
+  } as InspectorHarEntry;
+}
+
+describe('parseSetCookieLine', () => {
+  it('parses a basic Set-Cookie with Secure / HttpOnly / SameSite', () => {
+    const row = parseSetCookieLine('sid=abc; Path=/; Secure; HttpOnly; SameSite=None', NOW);
+    expect(row).toMatchObject({
+      name: 'sid',
+      value: 'abc',
+      path: '/',
+      secure: true,
+      httpOnly: true,
+      sameSite: 'no_restriction',
+      session: true,
+    });
+    expect(row?.attribution).toBe('response-set');
+  });
+
+  it('translates Max-Age to expirationDate, overriding Expires', () => {
+    const row = parseSetCookieLine('s=1; Expires=Wed, 01 Jan 2020 00:00:00 GMT; Max-Age=120', NOW);
+    expect(row?.maxAge).toBe(120);
+    expect(row?.expirationDate).toBe(Math.floor(NOW / 1000) + 120);
+    expect(row?.session).not.toBe(true);
+  });
+
+  it('flags session cookies when neither Expires nor Max-Age is present', () => {
+    const row = parseSetCookieLine('s=1; Secure', NOW);
+    expect(row?.session).toBe(true);
+    expect(row?.expirationDate).toBeUndefined();
+  });
+
+  it('captures Priority and Partitioned', () => {
+    const row = parseSetCookieLine('s=1; Priority=High; Partitioned; Secure', NOW);
+    expect(row?.priority).toBe('High');
+    expect(row?.partitionKey).toBeDefined();
+  });
+
+  it('returns null on empty input', () => {
+    expect(parseSetCookieLine('', NOW)).toBeNull();
+    expect(parseSetCookieLine('   ', NOW)).toBeNull();
+  });
+});
+
+describe('enrichCookies', () => {
+  it('joins HAR request cookies against the jar by name', () => {
+    const result = enrichCookies({
+      url: 'https://openheaders.io/api',
+      har: har({
+        request: {
+          method: 'GET', url: 'https://openheaders.io/api', httpVersion: '', queryString: [], headers: [], headersSize: -1, bodySize: -1,
+          cookies: [{ name: 'session', value: 'request-sent-value' }],
+        },
+      }),
+      jar: [jar()],
+      showFilteredOut: false,
+      now: NOW,
+    });
+    expect(result.request).toHaveLength(1);
+    expect(result.request[0]).toMatchObject({
+      name: 'session',
+      value: 'request-sent-value', // HAR's value beats jar's cached value
+      domain: '.openheaders.io',
+      secure: true,
+      httpOnly: true,
+      attribution: 'request-jar',
+    });
+  });
+
+  it('falls back to har-only attribution when no jar match', () => {
+    const result = enrichCookies({
+      url: 'https://openheaders.io/api',
+      har: har({
+        request: {
+          method: 'GET', url: 'https://openheaders.io/api', httpVersion: '', queryString: [], headers: [], headersSize: -1, bodySize: -1,
+          cookies: [{ name: 'orphan', value: 'v' }],
+        },
+      }),
+      jar: [jar({ name: 'session' })],
+      showFilteredOut: false,
+      now: NOW,
+    });
+    expect(result.request[0].attribution).toBe('request-har');
+    expect(result.request[0].domain).toBeUndefined();
+  });
+
+  it('surfaces filtered-out jar cookies when toggle is on', () => {
+    const result = enrichCookies({
+      url: 'http://openheaders.io/api', // http triggers Secure-only filter reason
+      har: har({
+        request: {
+          method: 'GET', url: 'http://openheaders.io/api', httpVersion: '', queryString: [], headers: [], headersSize: -1, bodySize: -1,
+          cookies: [],
+        },
+      }),
+      jar: [jar({ name: 'secure-only', secure: true })],
+      showFilteredOut: true,
+      now: NOW,
+    });
+    expect(result.request).toHaveLength(1);
+    expect(result.request[0].attribution).toBe('filtered-out');
+    expect(result.request[0].filteredReason).toMatch(/Secure/i);
+  });
+
+  it('parses every Set-Cookie response header into its own row', () => {
+    const result = enrichCookies({
+      url: 'https://openheaders.io/',
+      har: har({
+        response: {
+          status: 200, statusText: 'OK', httpVersion: '', cookies: [], content: { size: 0, mimeType: '' }, redirectURL: '', headersSize: -1, bodySize: -1,
+          headers: [
+            { name: 'Set-Cookie', value: 'a=1; Path=/; Secure' },
+            { name: 'set-cookie', value: 'b=2; HttpOnly' },
+            { name: 'Content-Type', value: 'text/html' },
+          ],
+        },
+      }),
+      jar: null,
+      showFilteredOut: false,
+      now: NOW,
+    });
+    expect(result.response).toHaveLength(2);
+    expect(result.response.map((r) => r.name).sort()).toEqual(['a', 'b']);
+    expect(result.responseBytes).toBeGreaterThan(0);
+  });
+});

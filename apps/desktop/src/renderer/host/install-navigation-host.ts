@@ -56,6 +56,10 @@ const desktopHostNavigation: HostNavigation = {
   reloadInspectedTab() {
     // DevTools panel surface only.
   },
+  openResource() {
+    // No DevTools Sources-panel surface on desktop; call-stack frames
+    // fall back to inline rendering.
+  },
 };
 
 setHostNavigation(desktopHostNavigation);
