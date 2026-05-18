@@ -89,6 +89,10 @@
      values wrap inside the row instead of pushing the row wider than
      the panel and breaking the rule-applied highlight. */
   align-items: flex-start;
+  /* Search-result `scrollIntoView` lands KV rows below the sticky
+   * filter toolbar + section summary stack — defaults to 0 so other
+   * surfaces (where the variable isn't set) are unaffected. */
+  scroll-margin-top: var(--oh-headers-sticky-offset, 0);
 }
 
 .dt-kv-key {
@@ -662,6 +666,12 @@
   gap: 4px;
   outline: none;
   cursor: default;
+  /* Any `scrollIntoView` on a row lands it BELOW the sticky chrome
+   * (section summary + filter toolbar + ancestor stack) instead of
+   * behind it. Keyboard nav, focus restore, and search-result jumps
+   * all share this anchor — one place to keep in sync with the
+   * measured offset. */
+  scroll-margin-top: var(--oh-init-sticky-offset, 55px);
 }
 .dt-initiator-chain-row:hover {
   background: var(--dt-row-hover);
@@ -694,6 +704,20 @@
   cursor: default;
   visibility: hidden;
 }
+/* ── Initiator: pane wrapper ──────────────────────────────
+ * `--oh-init-summary-h` / `--oh-init-toolbar-h` / `--oh-init-stack-h`
+ * are published by `useMeasuredCssHeights` (see InitiatorTree.tsx).
+ * Fallbacks let the unmeasured first paint still look right.
+ *
+ * `--oh-init-sticky-offset` is the composed value — exposed for JS
+ * (the scroll-listener threshold) so there's exactly one source of
+ * truth for "how much vertical space is occupied by sticky chrome". */
+.dt-initiator-pane {
+  --oh-init-sticky-offset: calc(
+    var(--oh-init-summary-h, 24px) + var(--oh-init-toolbar-h, 30px) + var(--oh-init-stack-h, 0px) + 1px
+  );
+}
+
 /* ── Initiator: ancestor sticky stack ────────────────────
  * As the user scrolls deeper into the tree, the chain of ancestors of
  * the row currently at the top of the viewport renders as a stack of
@@ -702,10 +726,9 @@
  * — they're plain `position: static` rows within the sticky parent. */
 .dt-initiator-sticky-stack {
   position: sticky;
-  /* Sits below the filter toolbar (top: 24px + ~30px content + 1px
-   * border-bottom = 55px). Without the +1 the stack overlaps the
-   * toolbar's bottom divider. */
-  top: 55px;
+  /* Sits flush under the filter toolbar — the +1 accounts for the
+   * toolbar's 1px border-bottom so the stack doesn't overlap it. */
+  top: calc(var(--oh-init-summary-h, 24px) + var(--oh-init-toolbar-h, 30px) + 1px);
   z-index: 2;
   display: flex;
   flex-direction: column;
@@ -750,10 +773,10 @@
   gap: 8px;
   padding: 4px 12px;
   position: sticky;
-  /* Match the section summary's effective height so the toolbar sits
-   * flush below it. Summary is `padding: 4px 8px` + ~14px line ≈ 22px;
-   * 24px gives a tiny visual gap that reads as separation. */
-  top: 24px;
+  /* Sits flush below the section summary — height is published by
+   * useMeasuredCssHeights so adjustments to summary padding/line-height
+   * never desync this anchor. Fallback 24px matches the legacy value. */
+  top: var(--oh-init-summary-h, 24px);
   z-index: 2;
   background: var(--dt-bg);
   border-bottom: 1px solid var(--dt-border);
@@ -1519,9 +1542,11 @@
 /* ── Headers tab: pane wrapper ──────────────────────────── */
 .dt-headers-pane {
   /* Section summaries (General / Response / Request) stick BELOW
-   * the filter toolbar instead of overlapping it. Match the
-   * toolbar's effective height (input 22px + 8px vertical padding). */
-  --dt-section-sticky-top: 30px;
+   * the filter toolbar instead of overlapping it. `--oh-headers-toolbar-h`
+   * is published by `useMeasuredCssHeights` (see HeadersView.tsx); the
+   * fallback covers the unmeasured first paint. */
+  --dt-section-sticky-top: var(--oh-headers-toolbar-h, 30px);
+  --oh-headers-sticky-offset: calc(var(--oh-headers-toolbar-h, 30px) + var(--oh-headers-summary-h, 24px) + 1px);
 }
 
 /* ── Headers tab: filter bar ────────────────────────────── */
