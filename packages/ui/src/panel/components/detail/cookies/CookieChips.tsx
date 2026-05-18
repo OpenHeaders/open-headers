@@ -1,22 +1,37 @@
 /**
- * Per-row chip strip — semantic labels that float to the right of the
- * cookie name. Each chip is small enough to scan in the corner of the
- * eye; the row's title prop still carries the long-form explanation
- * so hover stays useful.
+ * Per-row chip strip — semantic + lifecycle labels only. Chips that
+ * duplicate the cookie name (`__Host-` / `__Secure-` prefixes are
+ * already visible in the Name column) or the table columns (Secure /
+ * HttpOnly / SameSite / Session / Expired) are intentionally absent.
+ *
+ * Each chip is one short word/phrase in plain English. The prefix
+ * meanings (`__Host-` / `__Secure-`) are surfaced via a tooltip on
+ * the cookie name itself in `CookieRow`, not echoed back as a chip.
+ *
+ * What this strip is for: surfacing facts NOT in any column.
+ *
+ *   - role chips   `auth?` `tracking?` `pref` — heuristic guesses.
+ *   - lifecycle    `just set` `dropped` `filtered out`.
+ *   - context      `3rd-party` `partitioned`.
+ *   - problem      `!` — has an insight; the top callout explains why.
  */
 
 import type { CookieRow } from '../../../data/cookie-model';
+import type { CookieRole } from '../../../data/cookie-role';
+import { roleChipLabel } from '../../../data/cookie-role';
 
 interface CookieChipsProps {
   row: CookieRow;
+  role: CookieRole;
   problem: boolean;
   thirdParty: boolean;
-  hostPrefix: boolean;
-  securePrefix: boolean;
-  expired: boolean;
+  /** True when a Set-Cookie response landed but the browser will
+   *  reject it (missing Secure + SameSite=None, __Host- violation, …).
+   *  Inferred at insight-compute time from the same rules. */
+  dropped: boolean;
 }
 
-function Chip({ tone, label, title }: { tone: 'ok' | 'warn' | 'err' | 'info'; label: string; title?: string }) {
+function Chip({ tone, label, title }: { tone: 'ok' | 'warn' | 'err' | 'info' | 'role'; label: string; title?: string }) {
   return (
     <span className={`dt-cookie-chip dt-cookie-chip--${tone}`} title={title}>
       {label}
@@ -24,42 +39,30 @@ function Chip({ tone, label, title }: { tone: 'ok' | 'warn' | 'err' | 'info'; la
   );
 }
 
-export function CookieChips({ row, problem, thirdParty, hostPrefix, securePrefix, expired }: CookieChipsProps) {
-  const ss = row.sameSite ? String(row.sameSite).toLowerCase() : '';
-  const sameSiteLabel =
-    ss === 'no_restriction' || ss === 'none' ? 'SameSite=None'
-    : ss === 'lax' ? 'SameSite=Lax'
-    : ss === 'strict' ? 'SameSite=Strict'
-    : null;
-
+export function CookieChips({ row, role, problem, thirdParty, dropped }: CookieChipsProps) {
+  const roleLabel = roleChipLabel(role);
   return (
     <span className="dt-cookie-chips">
-      {hostPrefix && (
-        <Chip tone="info" label="__Host-" title="Host-locked: must be Secure, Path=/, no Domain." />
-      )}
-      {securePrefix && (
-        <Chip tone="info" label="__Secure-" title="Secure-prefix: must be Secure." />
-      )}
-      {row.secure && <Chip tone="ok" label="Secure" title="Sent only over HTTPS." />}
-      {row.httpOnly && <Chip tone="ok" label="HttpOnly" title="Not readable from JavaScript." />}
-      {sameSiteLabel && (
+      {roleLabel && (
         <Chip
-          tone={ss === 'no_restriction' || ss === 'none' ? (row.secure ? 'info' : 'err') : 'ok'}
-          label={sameSiteLabel}
+          tone="role"
+          label={roleLabel}
           title={
-            ss === 'no_restriction' || ss === 'none'
-              ? 'Cross-site sendable — must also be Secure.'
-              : 'Restricted to same-site contexts.'
+            role === 'auth' ? 'Looks like an auth / session cookie (heuristic).'
+            : role === 'tracking' ? 'Looks like an analytics / tracking cookie (heuristic).'
+            : role === 'pref' ? 'A user-preference cookie.'
+            : ''
           }
         />
       )}
-      {row.partitionKey && <Chip tone="info" label="Partitioned" title={`Partitioned to ${row.partitionKey}`} />}
-      {row.session && <Chip tone="info" label="Session" />}
-      {expired && <Chip tone="err" label="Expired" />}
+      {row.partitionKey && <Chip tone="info" label="partitioned" title={`Isolated to top-level site: ${row.partitionKey}`} />}
       {thirdParty && <Chip tone="warn" label="3rd-party" />}
-      {row.attribution === 'response-set' && <Chip tone="info" label="Just set" />}
+      {row.attribution === 'response-set' && !dropped && (
+        <Chip tone="info" label="just set" title="Set by this response." />
+      )}
+      {dropped && <Chip tone="err" label="dropped" title="The browser will reject this Set-Cookie." />}
       {row.attribution === 'filtered-out' && (
-        <Chip tone="warn" label="Filtered out" title={row.filteredReason ?? 'Not sent on this request'} />
+        <Chip tone="warn" label="filtered out" title={row.filteredReason ?? 'Not sent on this request.'} />
       )}
       {problem && <Chip tone="err" label="!" title="See suggestion above." />}
     </span>

@@ -69,36 +69,21 @@ export interface CookieViewMenuProps {
   expiresFormat: DevpanelCookiesExpiresFormatSetting;
   decodeValues: boolean;
   showInsights: boolean;
-  columns: {
-    domain: boolean;
-    path: boolean;
-    expires: boolean;
-    size: boolean;
-    httpOnly: boolean;
-    secure: boolean;
-    sameSite: boolean;
-    partition: boolean;
-    priority: boolean;
-  };
+  groupByRole: boolean;
   onSortChange: (v: DevpanelCookiesSortSetting) => void;
   onExpiresFormatChange: (v: DevpanelCookiesExpiresFormatSetting) => void;
   onToggleDecodeValues: () => void;
   onToggleShowInsights: () => void;
-  onToggleColumn: (key: keyof CookieViewMenuProps['columns']) => void;
+  onToggleGroupByRole: () => void;
 }
 
 export function CookieViewMenu(props: CookieViewMenuProps) {
-  const defaultCols = { domain: true, path: true, expires: true, size: true, httpOnly: true, secure: true, sameSite: true, partition: false, priority: false } as const;
-  const nonDefaultCols = (Object.keys(defaultCols) as Array<keyof typeof defaultCols>).reduce(
-    (n, k) => n + (props.columns[k] !== defaultCols[k] ? 1 : 0),
-    0,
-  );
   const activeCount =
-    (props.sortMode !== 'original' ? 1 : 0) +
+    (props.sortMode !== 'az' ? 1 : 0) +
     (props.expiresFormat !== 'relative' ? 1 : 0) +
     (props.decodeValues ? 1 : 0) +
     (!props.showInsights ? 1 : 0) +
-    nonDefaultCols;
+    (props.groupByRole ? 1 : 0);
   const active = activeCount > 0;
 
   const content = (
@@ -127,33 +112,14 @@ export function CookieViewMenu(props: CookieViewMenuProps) {
         Decode URL-encoded values
       </label>
       <label className="dt-morefilters-item">
+        <input type="checkbox" checked={props.groupByRole} onChange={props.onToggleGroupByRole} />
+        Group by role (auth / pref / tracking)
+      </label>
+      <div className="dt-morefilters-divider" />
+      <label className="dt-morefilters-item">
         <input type="checkbox" checked={props.showInsights} onChange={props.onToggleShowInsights} />
         Show suggestions
       </label>
-      <div className="dt-morefilters-divider" />
-      <div className="dt-morefilters-section-label">Columns</div>
-      {(
-        [
-          ['domain', 'Domain'],
-          ['path', 'Path'],
-          ['expires', 'Expires'],
-          ['size', 'Size'],
-          ['httpOnly', 'HttpOnly'],
-          ['secure', 'Secure'],
-          ['sameSite', 'SameSite'],
-          ['partition', 'Partition Key'],
-          ['priority', 'Priority'],
-        ] as Array<[keyof CookieViewMenuProps['columns'], string]>
-      ).map(([key, label]) => (
-        <label className="dt-morefilters-item" key={key}>
-          <input
-            type="checkbox"
-            checked={props.columns[key]}
-            onChange={() => props.onToggleColumn(key)}
-          />
-          {label}
-        </label>
-      ))}
     </div>
   );
 

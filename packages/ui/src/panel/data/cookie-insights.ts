@@ -18,7 +18,7 @@ export type CookieInsightAction =
       label: string;
     }
   | {
-      kind: 'strip-cookie';
+      kind: 'remove-cookie';
       cookieName: string;
       label: string;
     }
@@ -206,5 +206,29 @@ export function computeCookieInsights(input: CookieInsightInputs): readonly Cook
 export function problemCookieNames(insights: readonly CookieInsight[]): ReadonlySet<string> {
   const out = new Set<string>();
   for (const ins of insights) for (const n of ins.cookieNames) out.add(n);
+  return out;
+}
+
+/**
+ * Cookie names whose Set-Cookie line will be **rejected by the
+ * browser** before it's even stored — `dropped` chip's source of
+ * truth. Derived from the insight rules that imply rejection.
+ *
+ * The chip is meaningful in a way the columns aren't: the columns say
+ * "the server sent it"; this says "but the browser refused".
+ */
+export function droppedCookieNames(insights: readonly CookieInsight[]): ReadonlySet<string> {
+  const out = new Set<string>();
+  const REJECTING_IDS: ReadonlySet<string> = new Set([
+    'samesite-none-no-secure',
+    'host-prefix-violation',
+    'secure-prefix-violation',
+    'partitioned-no-secure',
+  ]);
+  for (const ins of insights) {
+    if (REJECTING_IDS.has(ins.id)) {
+      for (const n of ins.cookieNames) out.add(n);
+    }
+  }
   return out;
 }

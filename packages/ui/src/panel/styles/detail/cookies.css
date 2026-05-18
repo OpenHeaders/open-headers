@@ -1,17 +1,17 @@
-/* Cookies tab — request / response cookie table + per-row chips.
- * Mirrors the Headers-tab structure so the two tabs share visual
- * vocabulary (filter toolbar, footprint line, insight cards). */
+/* Cookies tab.
+ *
+ * Visual goals:
+ *   - Dense single-line rows (no chip wrapping).
+ *   - Columns encode raw facts; chips encode facts not in columns;
+ *     insights live above. No layer duplicates another.
+ *   - Security gets a 3-glyph cell (S H L) — colour carries the load. */
 
 .dt-cookies-pane {
-  /* Section summaries (Response / Request) stick BELOW the filter
-   * toolbar — same trick as `.dt-headers-pane`. `--oh-cookies-toolbar-h`
-   * is published by `useMeasuredCssHeights` (see CookiesView.tsx); the
-   * fallback covers the unmeasured first paint. */
   --dt-section-sticky-top: calc(var(--oh-cookies-toolbar-h, 30px) - 1px);
   --oh-cookies-sticky-offset: calc(var(--oh-cookies-toolbar-h, 30px) + var(--oh-cookies-summary-h, 24px));
 }
 
-/* Section summary line — count + size badge. */
+/* Section summary. */
 .dt-cookie-section > summary {
   position: sticky;
   top: var(--dt-section-sticky-top, 0);
@@ -32,9 +32,12 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Table — read-dense but not crammed. */
+/* Table. */
 .dt-cookie-table-wrap {
-  overflow-x: auto;
+  /* No overflow scroll context here — `table-layout: fixed` keeps the
+   * table inside the parent width, and a scroll context here would
+   * trap the sticky `<th>` row (it would dock against this wrap, not
+   * the outer pane, and visually float in the middle of the rows). */
   padding: 0 12px;
 }
 .dt-cookie-table {
@@ -42,8 +45,22 @@
   border-collapse: collapse;
   font-size: 11px;
   font-family: monospace;
-  table-layout: auto;
+  /* `fixed` so the Request / Response tables (each in its own
+   * <details>) compute identical column widths from the shared
+   * <colgroup> — without this, each table sizes columns from its own
+   * content and the two stack visually mis-aligned. */
+  table-layout: fixed;
 }
+/* Shared column widths — applied to both tables via the <colgroup>
+ * in CookieSection.tsx so Response Cookies and Request Cookies line
+ * up vertically. */
+.dt-cookie-col--name { width: 26%; }
+.dt-cookie-col--value { width: auto; }
+.dt-cookie-col--scope { width: 180px; }
+.dt-cookie-col--expires { width: 90px; }
+.dt-cookie-col--size { width: 56px; }
+.dt-cookie-col--sec { width: 56px; }
+.dt-cookie-col--actions { width: 170px; }
 .dt-cookie-table th {
   text-align: left;
   font-weight: 600;
@@ -53,16 +70,49 @@
   color: var(--dt-text-muted);
   font-size: 10px;
   background: var(--dt-bg);
+  /* Sticky column-header row, docked below the section summary.
+   * The summary sticks at `--dt-section-sticky-top` (≈ toolbar height);
+   * the thead sticks at `--oh-cookies-sticky-offset` (toolbar + summary).
+   * Each <details> contains its own table, so the browser exits the
+   * sticky state for one section's thead as the table scrolls past
+   * and docks the next section's thead in turn. */
+  position: sticky;
+  top: var(--oh-cookies-sticky-offset, 54px);
+  z-index: 2;
+}
+/* Column head — label + always-visible `(i)` trigger sit on one line.
+ * Override the Headers tab's hover-reveal pattern (.dt-header-info-trigger
+ * is `opacity: 0` until hover) because column headers are the user's
+ * first scan point and the (i) needs to be discoverable. */
+.dt-cookie-col-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.dt-cookie-col-head--right {
+  justify-content: flex-end;
+}
+.dt-cookie-col-head--center {
+  justify-content: center;
+}
+.dt-cookie-table th .dt-cookie-col-info-trigger.dt-header-info-trigger {
+  opacity: 0.55;
+}
+.dt-cookie-table th .dt-cookie-col-info-trigger.dt-header-info-trigger:hover,
+.dt-cookie-table th .dt-cookie-col-info-trigger.dt-header-info-trigger:focus-visible,
+.dt-cookie-table th .dt-cookie-col-info-trigger.dt-header-info-trigger[aria-expanded='true'] {
+  opacity: 1;
 }
 .dt-cookie-table td {
   padding: 2px 6px;
   border-bottom: 1px solid color-mix(in srgb, var(--dt-border) 50%, transparent);
   white-space: nowrap;
-  max-width: 240px;
   overflow: hidden;
   text-overflow: ellipsis;
-  vertical-align: top;
+  vertical-align: middle;
 }
+
+/* Row state. */
 .dt-cookie-row[data-problem='true'] {
   background: color-mix(in srgb, var(--dt-status-red) 8%, transparent);
 }
@@ -72,7 +122,19 @@
 .dt-cookie-row--dim td {
   font-style: italic;
 }
+/* Hover applies to every row — gives the user a clear pointer target
+ * when aiming at Override / Remove and a stable scan reference when
+ * reading across columns. Expandable rows additionally get a cursor
+ * hint so it's obvious they react to a click. */
+.dt-cookie-row:hover {
+  background: var(--dt-row-hover);
+}
+.dt-cookie-row--expandable {
+  cursor: pointer;
+}
 
+/* Name cell — name on the left, chips pushed to the right edge of
+ * the cell. `margin-left: auto` on the chip strip is what does it. */
 .dt-cookie-name {
   font-weight: 600;
   display: flex;
@@ -80,26 +142,74 @@
   gap: 6px;
   white-space: nowrap;
   overflow: hidden;
-  /* Reserve enough width that the name + a few chips fit before
-   * ellipsis kicks in; tweakable per-design. */
   min-width: 0;
-  max-width: 360px;
 }
 .dt-cookie-name-text {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dt-cookie-name .dt-cookie-chips {
+  margin-left: auto;
 }
 .dt-cookie-value {
-  max-width: 320px;
+  /* Width governed by the colgroup; just clip overflow. */
+}
+.dt-cookie-value-text {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
+.dt-cookie-value-hint {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 4px;
+  height: 14px;
+  line-height: 14px;
+  font-size: 9px;
+  font-weight: 600;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--dt-link) 12%, transparent);
+  color: var(--dt-link);
+  font-family: var(--dt-font-sans, system-ui);
+}
+.dt-cookie-caret {
+  display: inline-block;
+  width: 10px;
+  margin-right: 2px;
+  color: var(--dt-text-muted);
 }
 .dt-col-center {
   text-align: center;
 }
 
-/* Per-row chips — single line, clipped at the right edge of the cell
- * rather than wrapped onto a second row (wrapping was throwing off
- * vertical alignment across columns). The row's `title` already
- * carries the long-form text, so anything clipped is still hover-
- * discoverable. */
+/* Scope cell. */
+.dt-cookie-scope {
+  color: var(--dt-text);
+  max-width: 220px;
+}
+
+/* Expires colour-coding by urgency. */
+.dt-cookie-exp--session {
+  color: var(--dt-text-muted);
+  font-style: italic;
+}
+.dt-cookie-exp--expired {
+  color: var(--dt-status-red);
+}
+.dt-cookie-exp--soon {
+  color: var(--dt-status-red);
+}
+.dt-cookie-exp--day {
+  color: var(--dt-status-yellow);
+}
+.dt-cookie-exp--ok {
+  color: var(--dt-text);
+}
+
+/* Per-row chips — single line, clipped at the right edge. */
 .dt-cookie-chips {
   display: inline-flex;
   flex-wrap: nowrap;
@@ -107,9 +217,6 @@
   align-items: center;
   min-width: 0;
   overflow: hidden;
-}
-.dt-cookie-chip {
-  flex: 0 0 auto;
 }
 .dt-cookie-chip {
   display: inline-block;
@@ -121,8 +228,8 @@
   border-radius: 2px;
   border: 1px solid transparent;
   white-space: nowrap;
-  text-transform: none;
   font-family: var(--dt-font-sans, system-ui);
+  flex: 0 0 auto;
 }
 .dt-cookie-chip--ok {
   background: color-mix(in srgb, var(--dt-status-green) 14%, transparent);
@@ -144,18 +251,164 @@
   color: var(--dt-link);
   border-color: color-mix(in srgb, var(--dt-link) 28%, transparent);
 }
+/* Role chip — distinct from semantic chips, neutral tone. */
+.dt-cookie-chip--role {
+  background: color-mix(in srgb, var(--dt-text) 8%, transparent);
+  color: var(--dt-text);
+  border-color: color-mix(in srgb, var(--dt-text) 20%, transparent);
+}
 
-/* Right-edge action buttons. */
+/* Security 3-glyph cell. */
+.dt-cookie-sec-cell {
+  text-align: center;
+  font-family: monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+.dt-cookie-sec {
+  display: inline-block;
+  white-space: nowrap;
+}
+.dt-cookie-glyph {
+  display: inline-block;
+  width: 11px;
+  text-align: center;
+}
+.dt-cookie-glyph--good {
+  color: var(--dt-status-green);
+}
+.dt-cookie-glyph--warn {
+  color: var(--dt-status-yellow);
+}
+.dt-cookie-glyph--err {
+  color: var(--dt-status-red);
+}
+.dt-cookie-glyph--on {
+  color: var(--dt-text);
+}
+.dt-cookie-glyph--off {
+  color: color-mix(in srgb, var(--dt-text-muted) 60%, transparent);
+}
+
+/* Role group headings (inside tbody) when Group by role is on. */
+.dt-cookie-role-heading > td {
+  padding: 4px 6px 2px 6px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--dt-text-muted);
+  background: color-mix(in srgb, var(--dt-row-hover) 70%, transparent);
+  border-bottom: 1px solid var(--dt-border);
+}
+.dt-cookie-role-count {
+  margin-left: 6px;
+  font-weight: 400;
+}
+
+/* Right-edge action buttons — small primary rectangles, matching the
+ * top-of-tab CTA row (Override Cookie / Override Set-Cookie / Strip
+ * all cookies) but compact for the per-row context. */
 .dt-cookie-actions {
   text-align: right;
   white-space: nowrap;
   width: 1%;
+  padding-right: 4px;
 }
-.dt-cookie-action {
+.dt-cookie-action.dt-btn {
   font-size: 10px;
-  padding: 0 4px;
+  height: 18px;
+  line-height: 18px;
+  padding: 0 8px;
   margin-left: 4px;
+  border-radius: 3px;
+  font-weight: 400;
 }
-.dt-cookie-action--danger {
+.dt-cookie-action--danger.dt-btn-primary {
+  background: var(--dt-status-red);
+  border-color: var(--dt-status-red);
+  color: #fff;
+}
+.dt-cookie-action--danger.dt-btn-primary:hover {
+  background: color-mix(in srgb, var(--dt-status-red) 88%, white);
+  border-color: color-mix(in srgb, var(--dt-status-red) 88%, white);
+}
+
+/* Value-expander row — second-row panel under an expanded row. */
+.dt-cookie-expand-row > .dt-cookie-expand-cell {
+  background: var(--dt-row-hover);
+  padding: 8px 12px 10px 22px;
+  border-bottom: 1px solid var(--dt-border);
+  white-space: normal;
+  max-width: none;
+  overflow: visible;
+}
+.dt-cookie-expand-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--dt-text-muted);
+  margin-bottom: 3px;
+}
+.dt-cookie-expand-pre {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--dt-text);
+}
+.dt-cookie-expand-decoded {
+  display: block;
+}
+.dt-cookie-jwt {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dt-cookie-jwt-section {
+  display: block;
+}
+.dt-cookie-jwt-label {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--dt-text-muted);
+  margin-bottom: 2px;
+}
+.dt-cookie-jwt-pre {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--dt-text);
+  background: var(--dt-bg);
+  border: 1px solid var(--dt-border);
+  border-radius: 3px;
+  padding: 4px 6px;
+}
+.dt-cookie-jwt-sig {
+  color: var(--dt-text-muted);
+}
+.dt-cookie-jwt-claims {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--dt-text-muted);
+}
+.dt-cookie-jwt-claims em {
+  font-style: normal;
+  color: var(--dt-text);
+}
+.dt-cookie-jwt-claim-expired em {
   color: var(--dt-status-red);
+}
+.dt-cookie-jwt-claim-warn em {
+  color: var(--dt-status-yellow);
 }

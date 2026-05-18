@@ -27,18 +27,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
     'devpanelCookies.problemsOnly': boolean;
     'devpanelCookies.thirdPartyOnly': boolean;
     'devpanelCookies.ruleOnly': boolean;
-    // Column visibility — each column has its own toggle so the user
-    // can mirror Chrome's column-context-menu behaviour from the View
-    // dropdown. Defaults match what's useful at a glance.
-    'devpanelCookies.col.domain': boolean;
-    'devpanelCookies.col.path': boolean;
-    'devpanelCookies.col.expires': boolean;
-    'devpanelCookies.col.size': boolean;
-    'devpanelCookies.col.httpOnly': boolean;
-    'devpanelCookies.col.secure': boolean;
-    'devpanelCookies.col.sameSite': boolean;
-    'devpanelCookies.col.partition': boolean;
-    'devpanelCookies.col.priority': boolean;
+    'devpanelCookies.groupByRole': boolean;
   }
 }
 
@@ -47,7 +36,7 @@ declare module '@openheaders/ui/workbench/settings/types' {
 registerSetting({
   key: 'devpanelCookies.sortMode',
   type: 'enum',
-  default: 'original',
+  default: 'az',
   schema: sortSchema,
   label: 'Cookies Sort',
   description:
@@ -110,6 +99,20 @@ registerSetting({
   scope: 'user',
 });
 
+registerSetting({
+  key: 'devpanelCookies.groupByRole',
+  type: 'boolean',
+  default: false,
+  schema: v.boolean(),
+  label: 'Group by Role',
+  description:
+    'Group cookies by their inferred role inside each section — Auth & session first, then Functional, Preferences, Analytics & tracking. Heuristic-driven; the role chips (auth? / tracking? / pref) carry the question mark as a reminder.',
+  category: 'devpanelCookies',
+  subcategory: 'View',
+  tags: ['cookies', 'group', 'role', 'auth', 'tracking', 'devtools'],
+  scope: 'user',
+});
+
 // ── Filter defaults ─────────────────────────────────────────────────
 
 registerSetting({
@@ -164,32 +167,3 @@ registerSetting({
   tags: ['cookies', 'rule', 'filter', 'devtools'],
   scope: 'user',
 });
-
-// ── Column visibility ──────────────────────────────────────────────
-
-const COLUMNS: ReadonlyArray<readonly [string, string, boolean]> = [
-  ['domain', 'Domain', true],
-  ['path', 'Path', true],
-  ['expires', 'Expires', true],
-  ['size', 'Size', true],
-  ['httpOnly', 'HttpOnly', true],
-  ['secure', 'Secure', true],
-  ['sameSite', 'SameSite', true],
-  ['partition', 'Partition Key', false],
-  ['priority', 'Priority', false],
-];
-
-for (const [key, label, def] of COLUMNS) {
-  registerSetting({
-    key: `devpanelCookies.col.${key}` as keyof import('@openheaders/ui/workbench/settings/types').SettingsMap,
-    type: 'boolean',
-    default: def,
-    schema: v.boolean(),
-    label: `Show ${label} column`,
-    description: `Toggle the ${label} column in the cookies table.`,
-    category: 'devpanelCookies',
-    subcategory: 'Columns',
-    tags: ['cookies', 'column', 'visibility', 'devtools'],
-    scope: 'user',
-  });
-}
