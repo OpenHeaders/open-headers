@@ -137,10 +137,6 @@ export default function CookiesView({ request, pageOrigin, onCreateHeaderRule }:
     if (row.direction === 'request') onCreateHeaderRule('request', 'Cookie');
     else onCreateHeaderRule('response', 'Set-Cookie');
   };
-  const onRemoveCookieRow = (row: CookieRowModel): void => {
-    if (row.direction === 'request') onCreateHeaderRule('request', 'Cookie', '');
-    else onCreateHeaderRule('response', 'Set-Cookie', '');
-  };
 
   // ── Measured sticky offsets ────────────────────────────────────
   const paneRef = useRef<HTMLDivElement | null>(null);
@@ -239,7 +235,6 @@ export default function CookiesView({ request, pageOrigin, onCreateHeaderRule }:
         now={now}
         summaryRef={firstSummaryRef}
         onMakeRule={onMakeRule}
-        onRemoveCookie={onRemoveCookieRow}
       />
 
       <CookieSection
@@ -256,7 +251,6 @@ export default function CookiesView({ request, pageOrigin, onCreateHeaderRule }:
         groupByRole={groupByRole}
         now={now}
         onMakeRule={onMakeRule}
-        onRemoveCookie={onRemoveCookieRow}
       />
     </div>
   );

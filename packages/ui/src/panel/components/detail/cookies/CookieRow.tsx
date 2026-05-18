@@ -40,10 +40,9 @@ interface Props {
   introspection: CookieValueIntrospection;
   now: number;
   /** Column count for the expander's colSpan — derived from the
-   *  fixed slot count (Name/Value/Scope/Expires/Size/Sec/Actions = 7). */
+   *  fixed slot count (Name/Value/Scope/Expires/Size/Sec = 6). */
   columnSpan: number;
   onMakeRule: () => void;
-  onRemoveCookie: () => void;
 }
 
 function expiresUrgencyClass(row: CookieRowModel, now: number): string {
@@ -68,7 +67,6 @@ export function CookieRow({
   now,
   columnSpan,
   onMakeRule,
-  onRemoveCookie,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const canExpand = introspectionHasDepth(introspection);
@@ -123,6 +121,16 @@ export function CookieRow({
             thirdParty={thirdParty}
             dropped={dropped}
           />
+          <span className="dt-cookie-row-actions" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="dt-btn dt-btn-primary dt-cookie-action"
+              title={row.direction === 'response' ? 'Create a rule to override this Set-Cookie' : 'Create a rule to override this Cookie value'}
+              onClick={onMakeRule}
+            >
+              Override
+            </button>
+          </span>
         </td>
         <td className="dt-cookie-value" title={valueTitle}>
           {canExpand && (
@@ -142,24 +150,6 @@ export function CookieRow({
         <td className="dt-col-right">{row.size}</td>
         <td className="dt-cookie-sec-cell">
           <SecurityGlyphs row={row} />
-        </td>
-        <td className="dt-cookie-actions" onClick={(e) => e.stopPropagation()}>
-          <button
-            type="button"
-            className="dt-btn dt-btn-primary dt-cookie-action"
-            title={row.direction === 'response' ? 'Create a rule to override this Set-Cookie' : 'Create a rule to override this Cookie value'}
-            onClick={onMakeRule}
-          >
-            Override
-          </button>
-          <button
-            type="button"
-            className="dt-btn dt-btn-primary dt-cookie-action dt-cookie-action--danger"
-            title={row.direction === 'response' ? 'Remove this cookie from the response' : 'Remove this cookie from the request'}
-            onClick={onRemoveCookie}
-          >
-            Remove
-          </button>
         </td>
       </tr>
       {expanded && canExpand && (

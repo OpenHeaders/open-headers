@@ -18,8 +18,32 @@ const COOKIE_COLUMN_INFO: Record<CookieColumnInfoKey, InfoPopoverContent> = {
     kicker: 'Cookies',
     summary: 'The cookie identifier. Browsers key on (name, domain, path) — two cookies with the same name but different scope are distinct.',
     description:
-      'Chips next to the name surface things that are not in any column: heuristic role (auth? / tracking? / pref), lifecycle (just set / dropped / filtered out), and cross-cell warnings (3rd-party / partitioned / !).',
+      'Chips on the right of the name surface things that are not in any column. Hover a row to swap the chips out for the Override action.',
     sections: [
+      {
+        heading: 'Role (heuristic)',
+        items: [
+          { label: 'auth?', desc: 'Looks like an auth / session cookie — name matches sess / session / auth / sid / token / csrf / xsrf / __Host- / __Secure-, or the cookie is HttpOnly with a long random value.' },
+          { label: 'tracking?', desc: 'Looks like an analytics / tracking cookie — name matches a known tracker (_ga, _gid, _fbp, NID, IDE, MUID, _hjid, …), or the cookie is third-party with no other classification.' },
+          { label: 'pref', desc: 'A user-preference cookie — tz, lang, locale, theme, color-mode, currency, cpu-bucket, font-size, …' },
+        ],
+      },
+      {
+        heading: 'Lifecycle',
+        items: [
+          { label: 'just set', desc: 'Set-Cookie landed on this response and the browser accepted it.' },
+          { label: 'dropped', desc: 'Set-Cookie landed but the browser will reject it — failed a rule like SameSite=None without Secure, __Host- prefix violation, __Secure- prefix without Secure, or Partitioned without Secure.' },
+          { label: 'filtered out', desc: 'The jar holds this cookie but it was not sent on this request (path mismatch, Secure on http, expired, SameSite restriction, …). Only appears when "Show filtered-out request cookies" is on.' },
+        ],
+      },
+      {
+        heading: 'Context',
+        items: [
+          { label: '3rd-party', desc: 'The cookie\'s domain is cross-site to the page\'s top-frame origin.' },
+          { label: 'partitioned', desc: 'CHIPS-style isolation — the cookie is keyed to the top-level site as well as its own scope. Hover for the partition key.' },
+          { label: '!', desc: 'This cookie triggered an insight (the warning cards at the top of the tab). See the callout to know why.' },
+        ],
+      },
       {
         heading: 'Prefixes (visible in the name)',
         items: [

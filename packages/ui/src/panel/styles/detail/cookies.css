@@ -60,7 +60,6 @@
 .dt-cookie-col--expires { width: 90px; }
 .dt-cookie-col--size { width: 56px; }
 .dt-cookie-col--sec { width: 56px; }
-.dt-cookie-col--actions { width: 170px; }
 .dt-cookie-table th {
   text-align: left;
   font-weight: 600;
@@ -113,6 +112,12 @@
 }
 
 /* Row state. */
+.dt-cookie-row {
+  /* Positioning context for the absolutely-placed hover-action overlay
+   * (Override / Remove). `<tr>` accepts `position: relative` in every
+   * Chromium-based browser we ship to. */
+  position: relative;
+}
 .dt-cookie-row[data-problem='true'] {
   background: color-mix(in srgb, var(--dt-status-red) 8%, transparent);
 }
@@ -134,7 +139,10 @@
 }
 
 /* Name cell — name on the left, chips pushed to the right edge of
- * the cell. `margin-left: auto` on the chip strip is what does it. */
+ * the cell via `margin-left: auto`. On row hover, chips fade out and
+ * the action overlay (Override / Remove) fades in at the same right-
+ * edge slot, so the actions stay anchored to the cookie they belong
+ * to and don't compete with the other columns for attention. */
 .dt-cookie-name {
   font-weight: 600;
   display: flex;
@@ -143,6 +151,7 @@
   white-space: nowrap;
   overflow: hidden;
   min-width: 0;
+  position: relative;
 }
 .dt-cookie-name-text {
   flex: 0 1 auto;
@@ -151,6 +160,10 @@
 }
 .dt-cookie-name .dt-cookie-chips {
   margin-left: auto;
+  transition: opacity 80ms ease-out;
+}
+.dt-cookie-row:hover .dt-cookie-name .dt-cookie-chips {
+  opacity: 0;
 }
 .dt-cookie-value {
   /* Width governed by the colgroup; just clip overflow. */
@@ -307,32 +320,42 @@
   font-weight: 400;
 }
 
-/* Right-edge action buttons — small primary rectangles, matching the
- * top-of-tab CTA row (Override Cookie / Override Set-Cookie / Strip
- * all cookies) but compact for the per-row context. */
-.dt-cookie-actions {
-  text-align: right;
+/* Hover-revealed row actions — anchored to the Name cell's right edge
+ * and rendered ON TOP of the chips, which fade out on row hover so
+ * the actions sit on a clean background. No reserved column, no
+ * displacement. */
+.dt-cookie-row-actions {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
   white-space: nowrap;
-  width: 1%;
-  padding-right: 4px;
+  padding: 2px 4px 2px 24px;
+  background: linear-gradient(
+    to right,
+    transparent 0,
+    var(--dt-row-hover) 20px,
+    var(--dt-row-hover) 100%
+  );
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2;
+  transition: opacity 80ms ease-out;
+}
+.dt-cookie-row:hover .dt-cookie-row-actions {
+  opacity: 1;
+  pointer-events: auto;
 }
 .dt-cookie-action.dt-btn {
   font-size: 10px;
   height: 18px;
   line-height: 18px;
   padding: 0 8px;
-  margin-left: 4px;
   border-radius: 3px;
   font-weight: 400;
-}
-.dt-cookie-action--danger.dt-btn-primary {
-  background: var(--dt-status-red);
-  border-color: var(--dt-status-red);
-  color: #fff;
-}
-.dt-cookie-action--danger.dt-btn-primary:hover {
-  background: color-mix(in srgb, var(--dt-status-red) 88%, white);
-  border-color: color-mix(in srgb, var(--dt-status-red) 88%, white);
 }
 
 /* Value-expander row — second-row panel under an expanded row. */

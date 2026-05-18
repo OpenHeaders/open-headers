@@ -18,7 +18,7 @@ import type { DevpanelCookiesSortSetting } from '../../../../workbench/settings/
 import { CookieColumnInfo } from './CookieColumnInfo';
 import { CookieRow } from './CookieRow';
 
-const COLUMN_SPAN = 7;
+const COLUMN_SPAN = 6;
 
 interface Props {
   label: string;
@@ -35,7 +35,6 @@ interface Props {
   now: number;
   summaryRef?: RefObject<HTMLElement | null>;
   onMakeRule: (row: CookieRowModel) => void;
-  onRemoveCookie: (row: CookieRowModel) => void;
 }
 
 function isHostPrefix(name: string): boolean {
@@ -118,7 +117,6 @@ export function CookieSection({
   now,
   summaryRef,
   onMakeRule,
-  onRemoveCookie,
 }: Props) {
   const prepared = useMemo<readonly PreparedRow[]>(() => {
     return rows.map((row) => {
@@ -168,7 +166,6 @@ export function CookieSection({
       now={now}
       columnSpan={COLUMN_SPAN}
       onMakeRule={() => onMakeRule(p.row)}
-      onRemoveCookie={() => onRemoveCookie(p.row)}
     />
   );
 
@@ -214,7 +211,6 @@ export function CookieSection({
             <col className="dt-cookie-col--expires" />
             <col className="dt-cookie-col--size" />
             <col className="dt-cookie-col--sec" />
-            <col className="dt-cookie-col--actions" />
           </colgroup>
           <thead>
             <tr>
@@ -254,7 +250,6 @@ export function CookieSection({
                   <CookieColumnInfo infoKey="sec" />
                 </span>
               </th>
-              <th aria-label="Actions" />
             </tr>
           </thead>
           {bodyRows}
