@@ -132,6 +132,10 @@
       "import": "./src/shared/info-popover/index.ts",
       "default": "./dist/shared/info-popover/index.js"
     },
+    "./shared/info-popover/data/http-headers": {
+      "import": "./src/shared/info-popover/data/http-headers/index.tsx",
+      "default": "./dist/shared/info-popover/data/http-headers/index.js"
+    },
     "./shared/info-popover/data/*": {
       "import": "./src/shared/info-popover/data/*",
       "default": "./dist/shared/info-popover/data/*.js"

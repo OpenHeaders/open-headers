@@ -48,23 +48,31 @@ export function InfoPopover({ content, children, placement = 'bottomLeft', maxWi
 
 function InfoPopoverBody({ content }: { content: InfoPopoverContent }) {
   return (
+    // Outer is a flex column with a bounded max-height — the title and
+    // actions stay pinned, and the middle scrolls. Critical for the
+    // DevTools panel where the host frame can be ~200px tall and a
+    // freely-sizing popover would overflow off-screen.
     <div className="oh-info-popover">
-      {content.kicker && <div className="oh-info-popover-kicker">{content.kicker}</div>}
-      <div className="oh-info-popover-title">{content.title}</div>
-      {content.diagram && <div className="oh-info-popover-diagram">{content.diagram}</div>}
-      <div className="oh-info-popover-summary">{content.summary}</div>
-      {content.description && <div className="oh-info-popover-description">{content.description}</div>}
-      {content.sections?.map((section) => (
-        <div className="oh-info-popover-section" key={section.heading}>
-          <div className="oh-info-popover-section-heading">{section.heading}</div>
-          {section.items.map((item) => (
-            <div className="oh-info-popover-section-item" key={item.label}>
-              <code className="oh-info-popover-section-item-label">{item.label}</code>
-              <span className="oh-info-popover-section-item-desc">{item.desc}</span>
-            </div>
-          ))}
-        </div>
-      ))}
+      <div className="oh-info-popover-header">
+        {content.kicker && <div className="oh-info-popover-kicker">{content.kicker}</div>}
+        <div className="oh-info-popover-title">{content.title}</div>
+      </div>
+      <div className="oh-info-popover-scroll">
+        {content.diagram && <div className="oh-info-popover-diagram">{content.diagram}</div>}
+        <div className="oh-info-popover-summary">{content.summary}</div>
+        {content.description && <div className="oh-info-popover-description">{content.description}</div>}
+        {content.sections?.map((section) => (
+          <div className="oh-info-popover-section" key={section.heading}>
+            <div className="oh-info-popover-section-heading">{section.heading}</div>
+            {section.items.map((item) => (
+              <div className="oh-info-popover-section-item" key={item.label}>
+                <code className="oh-info-popover-section-item-label">{item.label}</code>
+                <span className="oh-info-popover-section-item-desc">{item.desc}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
       {content.actions && content.actions.length > 0 && (
         <div className="oh-info-popover-actions">
           {content.actions.map((action) => (

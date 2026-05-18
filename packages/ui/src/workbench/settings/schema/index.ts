@@ -14,6 +14,8 @@ import './general';
 import './appearance';
 import './workspace-layout';
 import './devpanel-layout';
+import './devpanel-headers';
+import './devpanel-initiator';
 import './editor';
 import './rules-engine';
 import './backend';

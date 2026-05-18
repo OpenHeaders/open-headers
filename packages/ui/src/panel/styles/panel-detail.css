@@ -61,12 +61,16 @@
 .dt-section > summary {
   cursor: pointer;
   font-weight: 600;
-  padding: 3px 8px 3px 0;
+  padding: 4px 8px 4px 0;
   list-style-type: disclosure-closed;
   user-select: none;
   position: sticky;
-  top: 0;
+  /* Surface-defined offset so summaries can sit BELOW another sticky
+   * bar (e.g. the Headers tab's filter toolbar). Defaults to 0 for
+   * surfaces that don't set the variable. */
+  top: var(--dt-section-sticky-top, 0);
   background: var(--dt-bg);
+  border-bottom: 1px solid var(--dt-border);
   z-index: 1;
 }
 
@@ -690,14 +694,67 @@
   cursor: default;
   visibility: hidden;
 }
+/* ── Initiator: ancestor sticky stack ────────────────────
+ * As the user scrolls deeper into the tree, the chain of ancestors of
+ * the row currently at the top of the viewport renders as a stack of
+ * sticky rows above the tree (VS Code-style sticky scroll). The stack
+ * itself is sticky so the rows pinned inside it stay glued at the top
+ * — they're plain `position: static` rows within the sticky parent. */
+.dt-initiator-sticky-stack {
+  position: sticky;
+  /* Sits below the filter toolbar (top: 24px + ~30px content + 1px
+   * border-bottom = 55px). Without the +1 the stack overlaps the
+   * toolbar's bottom divider. */
+  top: 55px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  background: var(--dt-bg);
+  border-bottom: 1px solid var(--dt-border);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+[data-theme='dark'] .dt-initiator-sticky-stack {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+.dt-initiator-sticky-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: transparent;
+  border: none;
+  font: inherit;
+  color: var(--dt-text);
+  text-align: left;
+  cursor: pointer;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+.dt-initiator-sticky-row:hover {
+  background: var(--dt-row-hover);
+}
+.dt-initiator-sticky-row .dt-initiator-chain-url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Initiator pane — section summary comes BEFORE the filter toolbar
+ * in DOM, so the summary stays at `top: 0` and the toolbar sticks
+ * BELOW it. (Reverse of Headers tab, where toolbar precedes sections.) */
 .dt-initiator-chain-filter {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 4px 12px;
   position: sticky;
-  top: 0;
-  z-index: 1;
+  /* Match the section summary's effective height so the toolbar sits
+   * flush below it. Summary is `padding: 4px 8px` + ~14px line ≈ 22px;
+   * 24px gives a tiny visual gap that reads as separation. */
+  top: 24px;
+  z-index: 2;
   background: var(--dt-bg);
   border-bottom: 1px solid var(--dt-border);
 }
@@ -1459,6 +1516,14 @@
   font-size: 11px;
 }
 
+/* ── Headers tab: pane wrapper ──────────────────────────── */
+.dt-headers-pane {
+  /* Section summaries (General / Response / Request) stick BELOW
+   * the filter toolbar instead of overlapping it. Match the
+   * toolbar's effective height (input 22px + 8px vertical padding). */
+  --dt-section-sticky-top: 30px;
+}
+
 /* ── Headers tab: filter bar ────────────────────────────── */
 .dt-header-filter {
   display: flex;
@@ -1467,7 +1532,9 @@
   padding: 4px 12px;
   position: sticky;
   top: 0;
-  z-index: 1;
+  /* Stack ABOVE section summaries so they slide under, not over,
+   * the toolbar. Section summaries use z-index: 1; this uses 3. */
+  z-index: 3;
   background: var(--dt-bg);
   border-bottom: 1px solid var(--dt-border);
 }
@@ -1486,29 +1553,6 @@
   border-color: var(--dt-link);
   background: var(--dt-bg);
 }
-.dt-header-quick-toggles {
-  display: inline-flex;
-  gap: 4px;
-  flex-shrink: 0;
-}
-.dt-header-quick-toggle {
-  font: inherit;
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 10px;
-  border: 1px solid var(--dt-border);
-  background: var(--dt-bg);
-  color: var(--dt-text);
-  cursor: pointer;
-}
-.dt-header-quick-toggle:hover {
-  background: var(--dt-row-hover);
-}
-.dt-header-quick-toggle[data-active='true'] {
-  background: var(--dt-row-selected);
-  border-color: var(--dt-link);
-}
-
 /* ── Headers tab: section header controls ───────────────── */
 .dt-header-section-count {
   margin-left: 8px;
@@ -1629,6 +1673,15 @@
   color: var(--dt-link);
 }
 
+/* Chip wrapper — keeps the prefix `(i)` trigger and the chip itself
+ * on the same baseline; the InfoTrigger gets its hover-reveal styling
+ * from `.dt-header-info-trigger` (same as header-name (i) prefixes). */
+.dt-header-chip-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
 /* ── Headers tab: raw view + noise hint ─────────────────── */
 .dt-header-raw {
   margin: 0;
@@ -1659,4 +1712,45 @@
 .dt-header-info-trigger:focus-visible,
 .dt-header-info-trigger[aria-expanded='true'] {
   opacity: 1;
+}
+
+/* ── Headers tab: More-filters popover — `--select` variant rows
+ *    arrange a label + native select horizontally so Layout / Sort
+ *    fit alongside the checkbox toggles in the same menu. */
+.dt-morefilters-item.dt-morefilters-item--select {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.dt-morefilters-item--select .dt-morefilters-item-label {
+  color: var(--ant-color-text-secondary);
+  font-size: 12px;
+}
+.dt-morefilters-item--select select {
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 4px;
+  background: var(--ant-color-bg-container);
+  color: var(--ant-color-text);
+  border: 1px solid var(--ant-color-border);
+  border-radius: 3px;
+}
+
+/* ── Headers tab: hidden-noise popover content ──────────── */
+.dt-header-noise-hint {
+  cursor: help;
+}
+.dt-header-noise-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 240px;
+  overflow-y: auto;
+  min-width: 180px;
+}
+.dt-header-noise-name {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--ant-color-text);
 }

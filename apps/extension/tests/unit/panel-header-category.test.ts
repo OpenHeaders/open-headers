@@ -28,11 +28,11 @@ describe('categorizeHeader', () => {
     expect(categorizeHeader('Pragma')).toBe<HeaderCategory>('caching');
   });
 
-  it('classifies security headers including Sec-Fetch-* and Sec-CH-UA*', () => {
+  it('classifies security headers, Sec-Fetch-* (fetch-metadata) and Sec-CH-UA* (client-hints)', () => {
     expect(categorizeHeader('Content-Security-Policy')).toBe<HeaderCategory>('security');
     expect(categorizeHeader('Strict-Transport-Security')).toBe<HeaderCategory>('security');
-    expect(categorizeHeader('Sec-Fetch-Mode')).toBe<HeaderCategory>('security');
-    expect(categorizeHeader('sec-ch-ua-mobile')).toBe<HeaderCategory>('security');
+    expect(categorizeHeader('Sec-Fetch-Mode')).toBe<HeaderCategory>('fetch-metadata');
+    expect(categorizeHeader('sec-ch-ua-mobile')).toBe<HeaderCategory>('client-hints');
   });
 
   it('classifies cookies, content, tracing', () => {
@@ -43,9 +43,23 @@ describe('categorizeHeader', () => {
     expect(categorizeHeader('cf-ray')).toBe<HeaderCategory>('tracing');
   });
 
-  it('falls back to other for unknown headers', () => {
+  it('falls back to other for truly unknown headers', () => {
     expect(categorizeHeader('X-Custom-Random')).toBe<HeaderCategory>('other');
-    expect(categorizeHeader('Server')).toBe<HeaderCategory>('other');
+    expect(categorizeHeader('X-Some-Vendor-Header')).toBe<HeaderCategory>('other');
+  });
+
+  it('classifies Server/X-Powered-By as server-id, Via as proxy', () => {
+    expect(categorizeHeader('Server')).toBe<HeaderCategory>('server-id');
+    expect(categorizeHeader('X-Powered-By')).toBe<HeaderCategory>('server-id');
+    expect(categorizeHeader('Via')).toBe<HeaderCategory>('proxy');
+    expect(categorizeHeader('X-Forwarded-For')).toBe<HeaderCategory>('proxy');
+  });
+
+  it('classifies HTTP/2 pseudo-headers and host as routing', () => {
+    expect(categorizeHeader(':authority')).toBe<HeaderCategory>('routing');
+    expect(categorizeHeader(':method')).toBe<HeaderCategory>('routing');
+    expect(categorizeHeader('Host')).toBe<HeaderCategory>('routing');
+    expect(categorizeHeader('Location')).toBe<HeaderCategory>('routing');
   });
 
   it('exposes a stable rendering order with other last', () => {

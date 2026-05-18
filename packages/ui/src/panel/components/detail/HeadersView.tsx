@@ -15,12 +15,14 @@
  *   - header-footprint       (top-of-section rule-impact summary)
  */
 
-import { InfoTrigger } from '@openheaders/ui/shared/info-popover';
-import { getHeaderInfoContent, hasHeaderInfo } from '@openheaders/ui/shared/info-popover/data/http-headers';
+import { Popover } from 'antd';
+import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
+import { getHeaderInfoContentForRow } from '@openheaders/ui/shared/info-popover/data/http-headers';
 import { useVariableResolver } from '@openheaders/ui/shared/hooks/useVariableResolver';
+import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import type { HeaderModification, HeaderOperation, Rule } from '@openheaders/core/types';
 import { validateHeaderName } from '@openheaders/core/utils';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   type AnnotatedHeader,
   findCurrentMod,
@@ -39,6 +41,7 @@ import {
   parseHeaderQuery,
 } from '../../data/header-filter';
 import { computeHeaderFootprint, formatHeaderFootprint } from '../../data/header-footprint';
+import { formatHeaderName, type HeaderNameCase } from '../../data/header-name-case';
 import { computeHeaderInsights, type HeaderInsight, type HeaderInsightAction } from '../../data/header-insights';
 import {
   parseAuthorization,
@@ -54,6 +57,17 @@ import type { InspectorRequest } from '../../data/types';
 import type { RulesByUid } from '../../data/use-rules-lookup';
 import { ResolvedHeaderValue } from '../ResolvedHeaderValue';
 import { useRulePopover } from '../RulePopoverHost';
+
+/** Layout mode for the header lists — `grouped` keeps the existing
+ *  per-category collapsible sections; `flat` renders a single list in
+ *  the chosen sort order (matches Chrome's behavior). */
+export type HeaderLayoutMode = 'grouped' | 'flat';
+
+/** Sort applied to header rows. `original` preserves the order the
+ *  server sent + rule-added rows appended (HAR order). `az` sorts by
+ *  name. `rule-first` floats rule-modified rows to the top, preserving
+ *  HAR order within each bucket. Stable in all modes. */
+export type HeaderSortMode = 'original' | 'az' | 'rule-first';
 
 // Headers commonly carried on every fetch — folded by the hide-noise toggle.
 const NOISE_HEADERS: ReadonlySet<string> = new Set([
@@ -117,11 +131,27 @@ export function HeadersView({
   searchSection,
   searchLineNumber,
 }: HeadersViewProps) {
+  // Filter text stays per-tab — it's request-specific scratch state.
   const [filter, setFilter] = useState('');
-  const [ruleOnly, setRuleOnly] = useState(false);
-  const [securityOnly, setSecurityOnly] = useState(false);
-  const [overridableOnly, setOverridableOnly] = useState(false);
-  const [hideNoise, setHideNoise] = useState(false);
+  // Everything below is panel-wide and persisted via the shared
+  // settings store so the user sets defaults once and they carry across
+  // requests, tabs, and panel reopens.
+  const [ruleOnly, setRuleOnly] = useSetting('devpanelHeaders.ruleOnly');
+  const [securityOnly, setSecurityOnly] = useSetting('devpanelHeaders.securityOnly');
+  const [overridableOnly, setOverridableOnly] = useSetting('devpanelHeaders.overridableOnly');
+  const [hideNoise, setHideNoise] = useSetting('devpanelHeaders.hideNoise');
+  const [layout, setLayout] = useSetting('devpanelHeaders.layout');
+  const [sortMode, setSortMode] = useSetting('devpanelHeaders.sortMode');
+  const [nameCase, setNameCase] = useSetting('devpanelHeaders.nameCase');
+  const [showInsights, setShowInsights] = useSetting('devpanelHeaders.showInsights');
+  const toggleRuleOnly = useCallback(() => setRuleOnly(!ruleOnly), [ruleOnly, setRuleOnly]);
+  const toggleSecurityOnly = useCallback(() => setSecurityOnly(!securityOnly), [securityOnly, setSecurityOnly]);
+  const toggleOverridableOnly = useCallback(
+    () => setOverridableOnly(!overridableOnly),
+    [overridableOnly, setOverridableOnly],
+  );
+  const toggleHideNoise = useCallback(() => setHideNoise(!hideNoise), [hideNoise, setHideNoise]);
+  const toggleShowInsights = useCallback(() => setShowInsights(!showInsights), [showInsights, setShowInsights]);
 
   const compiledQuery = useMemo<readonly HeaderFilterToken[]>(() => {
     const parts: string[] = [];
@@ -188,7 +218,7 @@ export function HeadersView({
   const remoteAddr = request.harEntry.serverIPAddress;
 
   return (
-    <>
+    <div className="dt-headers-pane">
       {/* Rule-creation CTA row — Headers tab is the primary surface for
         * "I see something I want to change → make a rule for it". */}
       <div className="dt-cta-row dt-header-cta-row">
@@ -216,7 +246,7 @@ export function HeadersView({
         </div>
       )}
 
-      {insights.length > 0 && (
+      {showInsights && insights.length > 0 && (
         <div className="dt-header-insights">
           {insights.map((ins) => (
             <InsightCard key={ins.id} insight={ins} onAction={handleInsightAction} />
@@ -224,7 +254,11 @@ export function HeadersView({
         </div>
       )}
 
-      {/* Filter toolbar */}
+      {/* Filter toolbar — input + a single "More filters ▾" popover.
+        * Mirrors the pattern in `PanelToolbar` so the panel feels
+        * coherent across surfaces; everything beyond the input lives
+        * behind the dropdown so the search field has room to breathe
+        * on narrow DevTools docks. */}
       <div className="dt-header-filter">
         <input
           type="search"
@@ -234,100 +268,70 @@ export function HeadersView({
           className="dt-header-filter-input"
           aria-label="Filter headers"
         />
-        <div className="dt-header-quick-toggles" role="group" aria-label="Quick filters">
-          <button
-            type="button"
-            className="dt-header-quick-toggle"
-            data-active={ruleOnly}
-            aria-pressed={ruleOnly}
-            onClick={() => setRuleOnly((v) => !v)}
-            title="Show only headers added, modified, or removed by an Open Headers rule"
-          >
-            Rule-modified
-          </button>
-          <button
-            type="button"
-            className="dt-header-quick-toggle"
-            data-active={securityOnly}
-            aria-pressed={securityOnly}
-            onClick={() => setSecurityOnly((v) => !v)}
-            title="Show only security-related headers (CSP, HSTS, X-Frame-Options, Sec-Fetch-*, …)"
-          >
-            Security
-          </button>
-          <button
-            type="button"
-            className="dt-header-quick-toggle"
-            data-active={overridableOnly}
-            aria-pressed={overridableOnly}
-            onClick={() => setOverridableOnly((v) => !v)}
-            title="Hide protected headers (host, content-length, sec-ch-ua, …) the browser won't let rules override"
-          >
-            Overridable
-          </button>
-          <button
-            type="button"
-            className="dt-header-quick-toggle"
-            data-active={hideNoise}
-            aria-pressed={hideNoise}
-            onClick={() => setHideNoise((v) => !v)}
-            title="Fold low-signal headers (Accept-*, Sec-Fetch-*, Sec-CH-UA-*, User-Agent, …)"
-          >
-            Hide noise
-          </button>
-        </div>
+        <HeaderMoreFiltersMenu
+          ruleOnly={ruleOnly}
+          securityOnly={securityOnly}
+          overridableOnly={overridableOnly}
+          hideNoise={hideNoise}
+          onToggleRuleOnly={toggleRuleOnly}
+          onToggleSecurityOnly={toggleSecurityOnly}
+          onToggleOverridableOnly={toggleOverridableOnly}
+          onToggleHideNoise={toggleHideNoise}
+        />
+        <HeaderViewMenu
+          layout={layout}
+          sortMode={sortMode}
+          nameCase={nameCase}
+          showInsights={showInsights}
+          onLayoutChange={setLayout}
+          onSortChange={setSortMode}
+          onNameCaseChange={setNameCase}
+          onToggleShowInsights={toggleShowInsights}
+        />
       </div>
 
       <details className="dt-section" open>
         <summary>General</summary>
-        <div className="dt-kv">
-          <span className="dt-kv-key">Request URL:</span>
+        <GeneralRow label="Request URL" infoKey="request-url">
           <span className="dt-kv-val" style={{ wordBreak: 'break-all' }}>{request.url}</span>
-        </div>
-        <div className="dt-kv">
-          <span className="dt-kv-key">Request Method:</span>
+        </GeneralRow>
+        <GeneralRow label="Request Method" infoKey="request-method">
           <span className="dt-kv-val">{request.method}</span>
-        </div>
+        </GeneralRow>
         {request.statusCode != null && (
-          <div className="dt-kv">
-            <span className="dt-kv-key">Status Code:</span>
+          <GeneralRow label="Status Code" infoKey="status-code">
             <span className={`dt-kv-val ${statusOk ? 'dt-kv-val--status-ok' : 'dt-kv-val--status-err'}`}>
               {request.statusCode} {request.statusText ?? ''}
             </span>
-          </div>
+          </GeneralRow>
         )}
         {remoteAddr && (
-          <div className="dt-kv">
-            <span className="dt-kv-key">Remote Address:</span>
+          <GeneralRow label="Remote Address" infoKey="remote-address">
             <span className="dt-kv-val">{remoteAddr}</span>
-          </div>
+          </GeneralRow>
         )}
         {httpVersion && (
-          <div className="dt-kv">
-            <span className="dt-kv-key">HTTP Version:</span>
+          <GeneralRow label="HTTP Version" infoKey="http-version">
             <span className="dt-kv-val" title={`ALPN: ${httpVersion}`}>{formatHttpVersion(httpVersion)}</span>
-          </div>
+          </GeneralRow>
         )}
         {contentEncoding && (
-          <div className="dt-kv">
-            <span className="dt-kv-key">Compression:</span>
+          <GeneralRow label="Compression" infoKey="compression">
             <span className="dt-kv-val">{contentEncoding}</span>
-          </div>
+          </GeneralRow>
         )}
         {bytesIn != null && bytesIn > 0 && (
-          <div className="dt-kv">
-            <span className="dt-kv-key">Transferred:</span>
+          <GeneralRow label="Transferred" infoKey="transferred">
             <span className="dt-kv-val">
               {formatBytes(bytesIn)}
               {decodedSize != null && decodedSize > 0 && decodedSize !== bytesIn ? ` (decoded ${formatBytes(decodedSize)})` : ''}
             </span>
-          </div>
+          </GeneralRow>
         )}
         {referrerPolicy && (
-          <div className="dt-kv">
-            <span className="dt-kv-key">Referrer Policy:</span>
+          <GeneralRow label="Referrer Policy" infoKey="referrer-policy">
             <span className="dt-kv-val">{referrerPolicy}</span>
-          </div>
+          </GeneralRow>
         )}
       </details>
 
@@ -340,6 +344,9 @@ export function HeadersView({
         collectionIdFor={collectionIdFor}
         compiledQuery={compiledQuery}
         hideNoise={hideNoise}
+        layout={layout}
+        sortMode={sortMode}
+        nameCase={nameCase}
         driftedRows={driftedRows}
         onCreateHeaderRule={onCreateHeaderRule}
         searchHighlight={searchHighlight}
@@ -356,13 +363,16 @@ export function HeadersView({
         collectionIdFor={collectionIdFor}
         compiledQuery={compiledQuery}
         hideNoise={hideNoise}
+        layout={layout}
+        sortMode={sortMode}
+        nameCase={nameCase}
         driftedRows={driftedRows}
         onCreateHeaderRule={onCreateHeaderRule}
         searchHighlight={searchHighlight}
         searchSection={searchSection}
         searchLineNumber={searchLineNumber}
       />
-    </>
+    </div>
   );
 }
 
@@ -414,11 +424,39 @@ interface HeaderSectionProps {
   collectionIdFor: (h: AnnotatedHeader) => string | undefined;
   compiledQuery: readonly HeaderFilterToken[];
   hideNoise: boolean;
+  layout: HeaderLayoutMode;
+  sortMode: HeaderSortMode;
+  nameCase: HeaderNameCase;
   driftedRows: ReadonlySet<AnnotatedHeader>;
   onCreateHeaderRule: (direction: 'request' | 'response', headerName: string, value?: string) => void;
   searchHighlight?: string;
   searchSection?: string;
   searchLineNumber?: number;
+}
+
+/** A header row paired with its meta and its position in the original
+ *  (un-filtered, un-sorted) annotated array. `originalIndex` is what
+ *  the search engine indexes against — the first `harHeaders.length`
+ *  rows match the raw HAR order 1:1 (see `attributeHeaders`); rule-
+ *  added rows past that range have no search correspondence, so a
+ *  search match on them simply never highlights (correct behavior). */
+type RowItem = { row: AnnotatedHeader; meta: HeaderRowMeta; originalIndex: number };
+
+function sortRows(items: readonly RowItem[], mode: HeaderSortMode): RowItem[] {
+  // Array.prototype.sort is stable in modern engines, so returning 0
+  // from the comparator preserves the original (HAR) order within
+  // equal buckets — exactly what `original` and the rule-first
+  // tie-breaker need.
+  if (mode === 'original') return items.slice();
+  if (mode === 'az') {
+    return items.slice().sort((a, b) => a.row.name.toLowerCase().localeCompare(b.row.name.toLowerCase()));
+  }
+  // rule-first: rule + system origins float to the top
+  return items.slice().sort((a, b) => {
+    const ar = a.meta.origin === 'server' ? 1 : 0;
+    const br = b.meta.origin === 'server' ? 1 : 0;
+    return ar - br;
+  });
 }
 
 function HeaderSection({
@@ -430,6 +468,9 @@ function HeaderSection({
   collectionIdFor,
   compiledQuery,
   hideNoise,
+  layout,
+  sortMode,
+  nameCase,
   driftedRows,
   onCreateHeaderRule,
   searchHighlight,
@@ -439,10 +480,12 @@ function HeaderSection({
   const [rawView, setRawView] = useState(false);
   const [copyOpen, setCopyOpen] = useState(false);
 
-  // Build per-row meta once for filter + categorization.
-  const rowMetas = useMemo(
+  // Build per-row meta once for filter + categorization. `originalIndex`
+  // is captured BEFORE any filter/sort so the search-highlight machinery
+  // can still locate the right row after the user reorders / hides.
+  const rowMetas = useMemo<RowItem[]>(
     () =>
-      rows.map((row) => {
+      rows.map((row, originalIndex) => {
         const meta: HeaderRowMeta = {
           name: row.name,
           value: row.value,
@@ -452,25 +495,38 @@ function HeaderSection({
           protectedHeader: !validateHeaderName(row.name, direction === 'response').valid,
           drifted: driftedRows.has(row),
         };
-        return { row, meta };
+        return { row, meta, originalIndex };
       }),
     [rows, direction, driftedRows],
   );
 
+  // Two-stage filter so we know exactly what `hide noise` is hiding
+  // (the popover under the hint lists the actual names — no guessing).
+  const filteredByQuery = useMemo(
+    () => rowMetas.filter(({ meta }) => compiledQuery.length === 0 || matchesHeaderQuery(meta, compiledQuery)),
+    [rowMetas, compiledQuery],
+  );
+  const hiddenNoiseItems = useMemo<RowItem[]>(
+    () =>
+      hideNoise ? filteredByQuery.filter(({ row, meta }) => meta.origin === 'server' && isNoiseHeader(row.name)) : [],
+    [filteredByQuery, hideNoise],
+  );
   const filtered = useMemo(
     () =>
-      rowMetas.filter(({ row, meta }) => {
-        if (hideNoise && meta.origin === 'server' && isNoiseHeader(row.name)) return false;
-        if (compiledQuery.length === 0) return true;
-        return matchesHeaderQuery(meta, compiledQuery);
-      }),
-    [rowMetas, compiledQuery, hideNoise],
+      hideNoise
+        ? filteredByQuery.filter(({ row, meta }) => !(meta.origin === 'server' && isNoiseHeader(row.name)))
+        : filteredByQuery,
+    [filteredByQuery, hideNoise],
   );
 
-  // Group by category for the categorized view.
+  // Sort the visible items per the chosen mode.
+  const sortedItems = useMemo(() => sortRows(filtered, sortMode), [filtered, sortMode]);
+
+  // Group by category for the grouped layout. Items within a group
+  // keep the sort order applied above.
   const grouped = useMemo(() => {
-    const byCat = new Map<HeaderCategory, { row: AnnotatedHeader; meta: HeaderRowMeta }[]>();
-    for (const item of filtered) {
+    const byCat = new Map<HeaderCategory, RowItem[]>();
+    for (const item of sortedItems) {
       const bucket = byCat.get(item.meta.category);
       if (bucket) bucket.push(item);
       else byCat.set(item.meta.category, [item]);
@@ -480,13 +536,9 @@ function HeaderSection({
       if (!items || items.length === 0) return [];
       return [{ cat, items }];
     });
-  }, [filtered]);
+  }, [sortedItems]);
 
   const hiddenByFilter = rows.length - filtered.length;
-  const hiddenNoiseCount = useMemo(() => {
-    if (!hideNoise) return 0;
-    return rowMetas.filter(({ row, meta }) => meta.origin === 'server' && isNoiseHeader(row.name)).length;
-  }, [rowMetas, hideNoise]);
 
   const handleCopy = async (mode: 'all' | 'filtered' | 'curl' | 'fetch'): Promise<void> => {
     let text = '';
@@ -565,11 +617,33 @@ function HeaderSection({
       {rows.length === 0 ? (
         <div className="dt-kv dt-col-muted">None captured.</div>
       ) : rawView ? (
-        <pre className="dt-header-raw">{formatHeadersBlock(filtered.map((f) => f.row))}</pre>
+        <pre className="dt-header-raw">
+          {formatHeadersBlock(sortedItems.map((f) => ({ name: formatHeaderName(f.row.name, nameCase), value: f.row.value })))}
+        </pre>
       ) : (
         <>
-          {grouped.length === 0 ? (
+          {sortedItems.length === 0 ? (
             <div className="dt-kv dt-col-muted">No headers match the filter.</div>
+          ) : layout === 'flat' ? (
+            <div className="dt-header-category">
+              {sortedItems.map(({ row, meta, originalIndex }) => (
+                <AttributedHeaderRow
+                  key={`${direction}-flat-${originalIndex}-${row.name}`}
+                  row={row}
+                  meta={meta}
+                  index={originalIndex}
+                  sectionLabel={label}
+                  searchSection={searchSection}
+                  searchLineNumber={searchLineNumber}
+                  searchHighlight={searchHighlight}
+                  ruleCollectionId={collectionIdFor(row)}
+                  requestUrl={request.url}
+                  rulesByUid={rulesByUid}
+                  nameCase={nameCase}
+                  onNameClick={(name, value) => onCreateHeaderRule(direction, name, value)}
+                />
+              ))}
+            </div>
           ) : (
             grouped.map(({ cat, items }) => (
               <div className="dt-header-category" key={`${direction}-${cat}`}>
@@ -577,12 +651,12 @@ function HeaderSection({
                   <span className="dt-header-category-label">{HEADER_CATEGORY_LABEL[cat]}</span>
                   <span className="dt-header-category-count">{items.length}</span>
                 </div>
-                {items.map(({ row, meta }, i) => (
+                {items.map(({ row, meta, originalIndex }) => (
                   <AttributedHeaderRow
-                    key={`${direction}-${cat}-${i}-${row.name}`}
+                    key={`${direction}-${cat}-${originalIndex}-${row.name}`}
                     row={row}
                     meta={meta}
-                    index={i}
+                    index={originalIndex}
                     sectionLabel={label}
                     searchSection={searchSection}
                     searchLineNumber={searchLineNumber}
@@ -590,18 +664,176 @@ function HeaderSection({
                     ruleCollectionId={collectionIdFor(row)}
                     requestUrl={request.url}
                     rulesByUid={rulesByUid}
+                    nameCase={nameCase}
                     onNameClick={(name, value) => onCreateHeaderRule(direction, name, value)}
                   />
                 ))}
               </div>
             ))
           )}
-          {hiddenNoiseCount > 0 && (
-            <div className="dt-header-noise-hint dt-col-muted">{hiddenNoiseCount} noise header{hiddenNoiseCount === 1 ? '' : 's'} hidden.</div>
-          )}
+          {hiddenNoiseItems.length > 0 && <HiddenNoiseHint items={hiddenNoiseItems} />}
         </>
       )}
     </details>
+  );
+}
+
+/**
+ * `More filters ▾` dropdown — checkbox-only toggles that narrow the
+ * visible header set. Layout / sort live in the sibling `View ▾`
+ * popover so this menu stays focused on "what do I want to hide?".
+ */
+function HeaderMoreFiltersMenu({
+  ruleOnly,
+  securityOnly,
+  overridableOnly,
+  hideNoise,
+  onToggleRuleOnly,
+  onToggleSecurityOnly,
+  onToggleOverridableOnly,
+  onToggleHideNoise,
+}: {
+  ruleOnly: boolean;
+  securityOnly: boolean;
+  overridableOnly: boolean;
+  hideNoise: boolean;
+  onToggleRuleOnly: () => void;
+  onToggleSecurityOnly: () => void;
+  onToggleOverridableOnly: () => void;
+  onToggleHideNoise: () => void;
+}) {
+  const activeCount = [ruleOnly, securityOnly, overridableOnly, hideNoise].reduce((n, v) => n + (v ? 1 : 0), 0);
+  const active = activeCount > 0;
+  const content = (
+    <div className="dt-morefilters-menu">
+      <label className="dt-morefilters-item">
+        <input type="checkbox" checked={ruleOnly} onChange={onToggleRuleOnly} />
+        Rule-modified only
+      </label>
+      <label className="dt-morefilters-item">
+        <input type="checkbox" checked={securityOnly} onChange={onToggleSecurityOnly} />
+        Security headers only
+      </label>
+      <label className="dt-morefilters-item">
+        <input type="checkbox" checked={overridableOnly} onChange={onToggleOverridableOnly} />
+        Overridable only
+      </label>
+      <label className="dt-morefilters-item">
+        <input type="checkbox" checked={hideNoise} onChange={onToggleHideNoise} />
+        Hide noise (Accept-*, Sec-Fetch-*, User-Agent, …)
+      </label>
+    </div>
+  );
+  return (
+    <Popover content={content} trigger="click" placement="bottomRight" arrow={false} overlayClassName="dt-morefilters-popover">
+      <button type="button" className={`dt-toolbar-dropdown${active ? ' dt-toolbar-dropdown--active' : ''}`}>
+        More filters
+        {activeCount > 0 && <span className="dt-toolbar-dropdown-count">{activeCount}</span>}
+        <span className="dt-toolbar-dropdown-caret" aria-hidden="true">
+          ▾
+        </span>
+      </button>
+    </Popover>
+  );
+}
+
+/**
+ * `View ▾` dropdown — layout + sort options. Kept separate from More
+ * filters so changing how the list is presented doesn't read as a
+ * filtering action. The badge counts non-default values, so the user
+ * always knows the list shape isn't its default.
+ */
+function HeaderViewMenu({
+  layout,
+  sortMode,
+  nameCase,
+  showInsights,
+  onLayoutChange,
+  onSortChange,
+  onNameCaseChange,
+  onToggleShowInsights,
+}: {
+  layout: HeaderLayoutMode;
+  sortMode: HeaderSortMode;
+  nameCase: HeaderNameCase;
+  showInsights: boolean;
+  onLayoutChange: (mode: HeaderLayoutMode) => void;
+  onSortChange: (mode: HeaderSortMode) => void;
+  onNameCaseChange: (mode: HeaderNameCase) => void;
+  onToggleShowInsights: () => void;
+}) {
+  const activeCount =
+    (layout !== 'grouped' ? 1 : 0) +
+    (sortMode !== 'original' ? 1 : 0) +
+    (nameCase !== 'train' ? 1 : 0) +
+    (!showInsights ? 1 : 0);
+  const active = activeCount > 0;
+  const content = (
+    <div className="dt-morefilters-menu">
+      <label className="dt-morefilters-item dt-morefilters-item--select">
+        <span className="dt-morefilters-item-label">Layout</span>
+        <select value={layout} onChange={(e) => onLayoutChange(e.target.value as HeaderLayoutMode)}>
+          <option value="grouped">Grouped</option>
+          <option value="flat">Flat</option>
+        </select>
+      </label>
+      <label className="dt-morefilters-item dt-morefilters-item--select">
+        <span className="dt-morefilters-item-label">Sort</span>
+        <select value={sortMode} onChange={(e) => onSortChange(e.target.value as HeaderSortMode)}>
+          <option value="original">Original</option>
+          <option value="az">A → Z</option>
+          <option value="rule-first">Rule-modified first</option>
+        </select>
+      </label>
+      <label className="dt-morefilters-item dt-morefilters-item--select">
+        <span className="dt-morefilters-item-label">Name case</span>
+        <select value={nameCase} onChange={(e) => onNameCaseChange(e.target.value as HeaderNameCase)}>
+          <option value="train">Train-Case</option>
+          <option value="original">Original (raw)</option>
+        </select>
+      </label>
+      <div className="dt-morefilters-divider" />
+      <label className="dt-morefilters-item">
+        <input type="checkbox" checked={showInsights} onChange={onToggleShowInsights} />
+        Show suggestions
+      </label>
+    </div>
+  );
+  return (
+    <Popover content={content} trigger="click" placement="bottomRight" arrow={false} overlayClassName="dt-morefilters-popover">
+      <button type="button" className={`dt-toolbar-dropdown${active ? ' dt-toolbar-dropdown--active' : ''}`}>
+        View
+        {activeCount > 0 && <span className="dt-toolbar-dropdown-count">{activeCount}</span>}
+        <span className="dt-toolbar-dropdown-caret" aria-hidden="true">
+          ▾
+        </span>
+      </button>
+    </Popover>
+  );
+}
+
+/** Hint below a header section showing how many noise rows the
+ *  `Hide noise` toggle is currently hiding. Hover opens a popover
+ *  listing the actual names so the user never has to guess. */
+function HiddenNoiseHint({ items }: { items: readonly RowItem[] }) {
+  return (
+    <Popover
+      trigger="hover"
+      mouseEnterDelay={0.05}
+      content={
+        <div className="dt-header-noise-list">
+          {items.map(({ row }) => (
+            <code key={row.name} className="dt-header-noise-name">
+              {row.name}
+            </code>
+          ))}
+        </div>
+      }
+    >
+      <div className="dt-header-noise-hint dt-col-muted">
+        {items.length} noise header{items.length === 1 ? '' : 's'} hidden — hover for names
+      </div>
+    </Popover>
   );
 }
 
@@ -618,6 +850,7 @@ interface AttributedHeaderRowProps {
   ruleCollectionId?: string;
   requestUrl: string;
   rulesByUid: RulesByUid;
+  nameCase: HeaderNameCase;
   onNameClick: (name: string, value: string) => void;
 }
 
@@ -646,10 +879,12 @@ function AttributedHeaderRow({
   ruleCollectionId,
   requestUrl,
   rulesByUid,
+  nameCase,
   onNameClick,
 }: AttributedHeaderRowProps) {
   const rulePopover = useRulePopover();
   const { name, value, attribution } = row;
+  const displayName = formatHeaderName(name, nameCase);
   const kind = attribution.kind;
 
   const direction: 'request' | 'response' = sectionLabel === 'Response Headers' ? 'response' : 'request';
@@ -749,9 +984,9 @@ function AttributedHeaderRow({
       onMouseOver={ruleCtx ? handleRowMouseOver : undefined}
       onMouseOut={ruleCtx ? handleRowMouseOut : undefined}
     >
-      <HeaderInfoTrigger name={name} />
+      <HeaderInfoTrigger name={name} direction={meta.direction} category={meta.category} />
       {isProtected ? (
-        <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{name}</span>
+        <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{displayName}</span>
       ) : (
         <button
           type="button"
@@ -760,7 +995,7 @@ function AttributedHeaderRow({
           onClick={() => onNameClick(name, value)}
           title={serverTitle ?? systemTitle}
         >
-          {name}
+          {displayName}
         </button>
       )}
       <span className="dt-kv-oh-value">
@@ -772,18 +1007,135 @@ function AttributedHeaderRow({
   );
 }
 
+type GeneralInfoKey =
+  | 'request-url'
+  | 'request-method'
+  | 'status-code'
+  | 'remote-address'
+  | 'http-version'
+  | 'compression'
+  | 'transferred'
+  | 'referrer-policy';
+
+const GENERAL_INFO: Record<GeneralInfoKey, import('@openheaders/ui/shared/info-popover').InfoPopoverContent> = {
+  'request-url': {
+    title: 'Request URL',
+    kicker: 'General',
+    summary: 'The full URL the browser issued the request against — scheme, host, path, and query string.',
+  },
+  'request-method': {
+    title: 'Request Method',
+    kicker: 'General',
+    summary: 'The HTTP method used (`GET`, `POST`, `PUT`, `DELETE`, …).',
+  },
+  'status-code': {
+    title: 'Status Code',
+    kicker: 'General',
+    summary: 'The numeric response code returned by the server.',
+    sections: [
+      {
+        heading: 'Ranges',
+        items: [
+          { label: '1xx', desc: 'Informational (rare — `100 Continue`, `103 Early Hints`).' },
+          { label: '2xx', desc: 'Success.' },
+          { label: '3xx', desc: 'Redirection (look at the `Location` header).' },
+          { label: '4xx', desc: 'Client error — request was malformed or unauthorized.' },
+          { label: '5xx', desc: 'Server error — the server failed to fulfill a valid request.' },
+        ],
+      },
+    ],
+  },
+  'remote-address': {
+    title: 'Remote Address',
+    kicker: 'General',
+    summary: 'The IP address and port the request was actually sent to.',
+    description: 'Different from the URL host when DNS resolves to multiple IPs, a CDN routes via anycast, or a local proxy intercepts the connection.',
+  },
+  'http-version': {
+    title: 'HTTP Version',
+    kicker: 'General',
+    summary: 'The HTTP protocol version the connection negotiated.',
+    description: 'Picked at TLS time via ALPN. The actual on-the-wire value (e.g. `h2`, `h3`) is shown in the tooltip when it differs from the friendly label.',
+    sections: [
+      {
+        heading: 'Common values',
+        items: [
+          { label: 'HTTP/1.1', desc: 'Text-based, one request per connection by default.' },
+          { label: 'HTTP/2', desc: 'Binary, multiplexed over a single TCP connection.' },
+          { label: 'HTTP/3', desc: 'Built on QUIC over UDP — faster handshakes, better loss recovery.' },
+        ],
+      },
+    ],
+  },
+  compression: {
+    title: 'Compression',
+    kicker: 'General',
+    summary: 'The encoding the server applied to the response body — the browser decodes before exposing it to JavaScript.',
+    sections: [
+      {
+        heading: 'Common values',
+        items: [
+          { label: 'gzip', desc: 'Universally supported, modest compression ratio.' },
+          { label: 'br', desc: 'Brotli — better ratio than gzip, supported by all modern browsers.' },
+          { label: 'zstd', desc: 'Newer high-ratio compression; growing browser support.' },
+          { label: 'deflate', desc: 'Legacy, rarely used today.' },
+        ],
+      },
+    ],
+  },
+  transferred: {
+    title: 'Transferred',
+    kicker: 'General',
+    summary: 'Bytes that actually crossed the wire, including compression overhead.',
+    description: 'The decoded size shown in parentheses is what JavaScript sees after the browser decompresses the body. A big gap between the two is the compression win.',
+  },
+  'referrer-policy': {
+    title: 'Referrer Policy',
+    kicker: 'General',
+    summary: 'How much of the URL the browser sends in `Referer` on outgoing navigations and requests from this page.',
+    description: 'Set via the `Referrer-Policy` response header, the `<meta name="referrer">` tag, or per-request via the `referrerpolicy` attribute.',
+  },
+};
+
+function GeneralRow({
+  label,
+  infoKey,
+  children,
+}: {
+  label: string;
+  infoKey: GeneralInfoKey;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="dt-kv">
+      <span className="dt-kv-key">
+        <InfoTrigger content={GENERAL_INFO[infoKey]} className="dt-header-info-trigger" />
+        {label}:
+      </span>
+      {children}
+    </div>
+  );
+}
+
 /**
  * `(i)` glyph prefixed to a header name. Hidden by default — revealed
  * on row hover via CSS. Click anchors an `<InfoPopover>` with the
- * header's documentation — no docs-window detour.
+ * header's documentation.
  *
- * Silently renders nothing for headers we have no documentation for
- * (so the row stays clean and the column doesn't reserve space for an
- * affordance that won't appear).
+ * Always renders — even unknown headers get an honest fallback popover
+ * (name + direction + the category the row was bucketed into) so the
+ * user gets *something* useful for every row, not just curated ones.
  */
-function HeaderInfoTrigger({ name }: { name: string }) {
-  const content = hasHeaderInfo(name) ? getHeaderInfoContent(name) : null;
-  if (!content) return null;
+function HeaderInfoTrigger({
+  name,
+  direction,
+  category,
+}: {
+  name: string;
+  direction: 'request' | 'response';
+  category: HeaderCategory;
+}) {
+  const content = getHeaderInfoContentForRow(name, direction, HEADER_CATEGORY_LABEL[category]);
   return <InfoTrigger content={content} className="dt-header-info-trigger" />;
 }
 
@@ -815,35 +1167,241 @@ function ValueChips({ name, value }: { name: string; value: string }) {
   return null;
 }
 
-function Chip({ tone, title, children }: { tone?: 'ok' | 'warn' | 'info' | 'muted'; title?: string; children: React.ReactNode }) {
+/**
+ * Inline value chip. When `info` is supplied, an `<InfoTrigger>` (the
+ * same shared `(i)` glyph used by header rows) is rendered *before*
+ * the chip — hover-revealed by the row, click opens an `<InfoPopover>`.
+ * Without `info`, the chip stays as plain text and uses the native
+ * `title` tooltip.
+ */
+function Chip({
+  tone,
+  title,
+  info,
+  children,
+}: {
+  tone?: 'ok' | 'warn' | 'info' | 'muted';
+  title?: string;
+  info?: InfoPopoverContent;
+  children: React.ReactNode;
+}) {
   return (
-    <span className="dt-header-chip" data-tone={tone ?? 'info'} title={title}>
-      {children}
+    <span className="dt-header-chip-wrap">
+      {info && <InfoTrigger content={info} className="dt-header-info-trigger" />}
+      <span className="dt-header-chip" data-tone={tone ?? 'info'} title={info ? undefined : title}>
+        {children}
+      </span>
     </span>
   );
+}
+
+// ── Inline content builders for value chips ─────────────────
+// Kept inline because the prose is tightly coupled to the chip's
+// rendering and these helpers are short. Each returns an
+// `InfoPopoverContent` for the matching chip kind.
+
+function cookieFlagInfo(flag: 'HttpOnly' | 'Secure' | 'Partitioned'): InfoPopoverContent {
+  if (flag === 'HttpOnly') {
+    return {
+      title: 'HttpOnly',
+      kicker: 'Set-Cookie flag',
+      summary: 'Cookie is hidden from JavaScript (cannot be read via `document.cookie`).',
+      description: 'Mitigates XSS — an injected script can no longer exfiltrate the cookie. Doesn’t help with CSRF.',
+    };
+  }
+  if (flag === 'Secure') {
+    return {
+      title: 'Secure',
+      kicker: 'Set-Cookie flag',
+      summary: 'Cookie only sent over HTTPS. Never leaks over plain HTTP.',
+    };
+  }
+  return {
+    title: 'Partitioned',
+    kicker: 'Set-Cookie flag',
+    summary: 'CHIPS — cookie is partitioned per top-level site.',
+    description:
+      'Each top-level site gets its own copy of the cookie, so embedded contexts cannot use cookies to track the user across sites.',
+  };
+}
+
+function sameSiteInfo(value: 'Strict' | 'Lax' | 'None'): InfoPopoverContent {
+  const summaries: Record<'Strict' | 'Lax' | 'None', string> = {
+    Strict: 'Cookie only sent on same-site requests. Strongest CSRF protection — even links from another site arrive cookieless.',
+    Lax: 'Cookie sent on same-site requests and top-level cross-site navigations (link clicks). Default in modern browsers.',
+    None: 'Cookie sent on all cross-site requests. Requires `Secure`. Use intentionally — recipients can correlate the cookie across sites.',
+  };
+  return {
+    title: `SameSite=${value}`,
+    kicker: 'Set-Cookie flag',
+    summary: summaries[value],
+  };
+}
+
+function cookieExpiryInfo(expiresAtMs: number, remainingSec: number): InfoPopoverContent {
+  return {
+    title: 'Cookie expiry',
+    kicker: 'Set-Cookie attribute',
+    summary:
+      remainingSec <= 0
+        ? 'Cookie has already expired. The browser will not send it.'
+        : `Cookie expires in ${humanSec(remainingSec)} (at ${new Date(expiresAtMs).toISOString()}).`,
+    description:
+      'Cookies without `Max-Age` or `Expires` are session cookies and disappear when the browser quits. Set one to make the cookie persistent.',
+  };
+}
+
+const SESSION_COOKIE_INFO: InfoPopoverContent = {
+  title: 'Session cookie',
+  kicker: 'Set-Cookie attribute',
+  summary: 'No `Max-Age` or `Expires` — the browser discards this cookie when it quits.',
+  description: 'Add `Max-Age=<seconds>` or `Expires=<date>` to make it persistent across browser sessions.',
+};
+
+function missingFlagInfo(flag: 'Secure' | 'HttpOnly' | 'SameSite'): InfoPopoverContent {
+  const reasons: Record<'Secure' | 'HttpOnly' | 'SameSite', string> = {
+    Secure: 'Without `Secure`, this cookie can leak over plain HTTP. Always set on HTTPS cookies.',
+    HttpOnly: 'Without `HttpOnly`, JavaScript can read this cookie via `document.cookie` — an XSS bug exfiltrates it.',
+    SameSite:
+      'Without an explicit `SameSite`, browsers fall back to `Lax`. Be explicit so the policy is obvious in code review.',
+  };
+  return {
+    title: `Missing ${flag}`,
+    kicker: 'Best practice',
+    summary: reasons[flag],
+    description: 'Most production cookies should carry `Secure`, `HttpOnly`, and an explicit `SameSite`.',
+  };
+}
+
+function cacheControlInfo(value: string, parsed: ReturnType<typeof parseCacheControl>): InfoPopoverContent {
+  const directives: { label: string; desc: string }[] = [];
+  if (parsed.noStore) directives.push({ label: 'no-store', desc: 'Do not cache, anywhere.' });
+  if (parsed.noCache) directives.push({ label: 'no-cache', desc: 'May cache, but revalidate every time before reuse.' });
+  if (parsed.isPublic) directives.push({ label: 'public', desc: 'Any cache may store, including CDNs.' });
+  if (parsed.isPrivate) directives.push({ label: 'private', desc: 'Only the user’s browser may store.' });
+  if (parsed.immutable) directives.push({ label: 'immutable', desc: 'Promise the body will not change for max-age.' });
+  if (parsed.mustRevalidate) directives.push({ label: 'must-revalidate', desc: 'Once stale, revalidate before serving.' });
+  if (parsed.maxAgeSec != null) directives.push({ label: `max-age=${parsed.maxAgeSec}`, desc: `Fresh for ${humanSec(parsed.maxAgeSec)}.` });
+  if (parsed.sMaxAgeSec != null) directives.push({ label: `s-maxage=${parsed.sMaxAgeSec}`, desc: `Shared-cache freshness: ${humanSec(parsed.sMaxAgeSec)}.` });
+  if (parsed.staleWhileRevalidateSec != null) {
+    directives.push({
+      label: `stale-while-revalidate=${parsed.staleWhileRevalidateSec}`,
+      desc: `Allow stale reuse for ${humanSec(parsed.staleWhileRevalidateSec)} while a background revalidation runs.`,
+    });
+  }
+  return {
+    title: `Cache-Control: ${parsed.summary}`,
+    kicker: 'Cache directive',
+    summary: `Raw value: \`${value}\`.`,
+    sections: directives.length > 0 ? [{ heading: 'Active directives', items: directives }] : undefined,
+  };
+}
+
+function charsetInfo(charset: string): InfoPopoverContent {
+  return {
+    title: `charset=${charset}`,
+    kicker: 'Content-Type parameter',
+    summary: 'Character encoding the body uses.',
+    description: 'For `text/*` types, modern stacks default to `utf-8`. Wrong values cause mojibake.',
+  };
+}
+
+const BOUNDARY_INFO: InfoPopoverContent = {
+  title: 'Multipart boundary',
+  kicker: 'Content-Type parameter',
+  summary: 'Token that separates parts of a multipart body (file uploads, multipart/form-data).',
+  description: 'Generated by the client; must not appear inside any part’s body.',
+};
+
+function hstsInfo(value: string, parsed: NonNullable<ReturnType<typeof parseHsts>>): InfoPopoverContent {
+  return {
+    title: 'Strict-Transport-Security',
+    kicker: 'Security policy',
+    summary: `Browser will use HTTPS for this host for ${humanSec(parsed.maxAgeSec)}.`,
+    description: `Raw value: \`${value}\`.`,
+    sections: [
+      {
+        heading: 'Directives',
+        items: [
+          { label: `max-age=${parsed.maxAgeSec}`, desc: 'Remember HTTPS-only for this long.' },
+          ...(parsed.includeSubDomains ? [{ label: 'includeSubDomains', desc: 'Apply to every subdomain.' }] : []),
+          ...(parsed.preload ? [{ label: 'preload', desc: 'Eligibility for the browser preload list.' }] : []),
+        ],
+      },
+    ],
+  };
+}
+
+const JWT_INFO: InfoPopoverContent = {
+  title: 'JWT',
+  kicker: 'Authorization scheme',
+  summary: 'JSON Web Token — a base64-encoded `<header>.<payload>.<signature>` triple.',
+  description:
+    'The signature proves the token was issued by someone holding the signing key. The header (alg, typ) and payload (claims) are NOT encrypted — they are simply base64-encoded and readable by anyone.',
+};
+
+function jwtAlgInfo(alg: string): InfoPopoverContent {
+  return {
+    title: `JWT alg: ${alg}`,
+    kicker: 'JWT header',
+    summary: 'Signing algorithm declared in the JWT header.',
+    description:
+      'Common values: `HS256` (HMAC-SHA256, symmetric), `RS256` (RSA, asymmetric), `ES256` (ECDSA). `none` (no signature) should always be rejected by validators.',
+  };
+}
+
+function jwtExpInfo(secondsRemaining: number): InfoPopoverContent {
+  if (secondsRemaining < 0) {
+    return {
+      title: 'JWT expired',
+      kicker: 'JWT claim',
+      summary: `Token expired ${humanSec(-secondsRemaining)} ago. The server should reject it.`,
+    };
+  }
+  return {
+    title: `JWT expires in ${humanSec(secondsRemaining)}`,
+    kicker: 'JWT claim',
+    summary:
+      secondsRemaining < 300
+        ? 'Token is close to expiry — refresh it or expect a 401 soon.'
+        : 'Time until the JWT `exp` claim is reached.',
+  };
+}
+
+function bearerSchemeInfo(scheme: string): InfoPopoverContent {
+  return {
+    title: scheme,
+    kicker: 'Authorization scheme',
+    summary:
+      scheme === 'Bearer'
+        ? 'Opaque bearer credential (OAuth 2.0 / API token). Treat it like a password — anyone who has it can authenticate as the user.'
+        : scheme === 'Basic'
+          ? 'HTTP Basic auth — `base64(username:password)`. Only safe over HTTPS.'
+          : 'Authentication scheme name. The credential format depends on the scheme.',
+  };
 }
 
 function SetCookieChips({ value }: { value: string }) {
   const info = useMemo(() => parseSetCookie(value), [value]);
   if (!info) return null;
   const chips: React.ReactNode[] = [];
-  if (info.httpOnly) chips.push(<Chip key="ho" tone="ok" title="Cookie is hidden from JavaScript">HttpOnly</Chip>);
-  if (info.secure) chips.push(<Chip key="sec" tone="ok" title="Cookie only sent over HTTPS">Secure</Chip>);
-  if (info.partitioned) chips.push(<Chip key="part" tone="ok" title="Cookie partitioned per top-level site (CHIPS)">Partitioned</Chip>);
-  if (info.sameSite) chips.push(<Chip key="ss" tone="info" title={`SameSite=${info.sameSite}`}>SameSite={info.sameSite}</Chip>);
+  if (info.httpOnly) chips.push(<Chip key="ho" tone="ok" info={cookieFlagInfo('HttpOnly')}>HttpOnly</Chip>);
+  if (info.secure) chips.push(<Chip key="sec" tone="ok" info={cookieFlagInfo('Secure')}>Secure</Chip>);
+  if (info.partitioned) chips.push(<Chip key="part" tone="ok" info={cookieFlagInfo('Partitioned')}>Partitioned</Chip>);
+  if (info.sameSite) chips.push(<Chip key="ss" tone="info" info={sameSiteInfo(info.sameSite)}>SameSite={info.sameSite}</Chip>);
   if (info.expiresAtMs != null) {
     const remainingSec = Math.max(0, Math.round((info.expiresAtMs - Date.now()) / 1000));
     chips.push(
-      <Chip key="exp" tone={remainingSec < 60 ? 'warn' : 'muted'} title={`Expires at ${new Date(info.expiresAtMs).toISOString()}`}>
+      <Chip key="exp" tone={remainingSec < 60 ? 'warn' : 'muted'} info={cookieExpiryInfo(info.expiresAtMs, remainingSec)}>
         expires {humanSec(remainingSec)}
       </Chip>,
     );
   } else if (info.session) {
-    chips.push(<Chip key="sess" tone="muted" title="Session cookie — discarded when the browser quits">session</Chip>);
+    chips.push(<Chip key="sess" tone="muted" info={SESSION_COOKIE_INFO}>session</Chip>);
   }
   for (const missing of info.missingFlags) {
     chips.push(
-      <Chip key={`miss-${missing}`} tone="warn" title={`Missing ${missing} flag — best practice would set it`}>
+      <Chip key={`miss-${missing}`} tone="warn" info={missingFlagInfo(missing)}>
         ⚠ no {missing}
       </Chip>,
     );
@@ -852,10 +1410,16 @@ function SetCookieChips({ value }: { value: string }) {
 }
 
 function CacheControlChip({ value }: { value: string }) {
-  const info = useMemo(() => parseCacheControl(value), [value]);
-  if (!info.summary) return null;
-  const tone = info.noStore || info.noCache ? 'warn' : info.immutable ? 'ok' : 'info';
-  return <span className="dt-header-chips"><Chip tone={tone}>{info.summary}</Chip></span>;
+  const parsed = useMemo(() => parseCacheControl(value), [value]);
+  if (!parsed.summary) return null;
+  const tone = parsed.noStore || parsed.noCache ? 'warn' : parsed.immutable ? 'ok' : 'info';
+  return (
+    <span className="dt-header-chips">
+      <Chip tone={tone} info={cacheControlInfo(value, parsed)}>
+        {parsed.summary}
+      </Chip>
+    </span>
+  );
 }
 
 function ContentTypeChip({ value }: { value: string }) {
@@ -863,28 +1427,68 @@ function ContentTypeChip({ value }: { value: string }) {
   if (!info.charset && !info.boundary) return null;
   return (
     <span className="dt-header-chips">
-      {info.charset && <Chip tone="muted" title="Character set">{info.charset}</Chip>}
-      {info.boundary && <Chip tone="muted" title="Multipart boundary">boundary</Chip>}
+      {info.charset && (
+        <Chip tone="muted" info={charsetInfo(info.charset)}>
+          {info.charset}
+        </Chip>
+      )}
+      {info.boundary && (
+        <Chip tone="muted" info={BOUNDARY_INFO}>
+          boundary
+        </Chip>
+      )}
     </span>
   );
 }
 
 function HstsChip({ value }: { value: string }) {
-  const info = useMemo(() => parseHsts(value), [value]);
-  if (!info) return null;
-  return <span className="dt-header-chips"><Chip tone="ok">{info.summary}</Chip></span>;
+  const parsed = useMemo(() => parseHsts(value), [value]);
+  if (!parsed) return null;
+  return (
+    <span className="dt-header-chips">
+      <Chip tone="ok" info={hstsInfo(value, parsed)}>
+        {parsed.summary}
+      </Chip>
+    </span>
+  );
 }
 
 function AuthorizationChip({ value }: { value: string }) {
   const info = useMemo(() => parseAuthorization(value), [value]);
   if (!info) return null;
-  if (!info.isJwt) return <span className="dt-header-chips"><Chip tone="info">{info.scheme}</Chip></span>;
+  if (!info.isJwt) {
+    return (
+      <span className="dt-header-chips">
+        <Chip tone="info" info={bearerSchemeInfo(info.scheme)}>
+          {info.scheme}
+        </Chip>
+      </span>
+    );
+  }
   const alg = typeof info.jwtHeader?.alg === 'string' ? info.jwtHeader.alg : 'unknown';
-  const chips: React.ReactNode[] = [<Chip key="jwt" tone="info" title="JSON Web Token">JWT</Chip>, <Chip key="alg" tone="muted" title="JWT alg header">{alg}</Chip>];
+  const chips: React.ReactNode[] = [
+    <Chip key="jwt" tone="info" info={JWT_INFO}>
+      JWT
+    </Chip>,
+    <Chip key="alg" tone="muted" info={jwtAlgInfo(alg)}>
+      {alg}
+    </Chip>,
+  ];
   const exp = info.jwtExpSecondsRemaining;
   if (exp != null) {
-    if (exp < 0) chips.push(<Chip key="exp" tone="warn" title="JWT has expired">expired</Chip>);
-    else chips.push(<Chip key="exp" tone={exp < 300 ? 'warn' : 'muted'} title={`Expires in ${humanSec(exp)}`}>exp {humanSec(exp)}</Chip>);
+    if (exp < 0) {
+      chips.push(
+        <Chip key="exp" tone="warn" info={jwtExpInfo(exp)}>
+          expired
+        </Chip>,
+      );
+    } else {
+      chips.push(
+        <Chip key="exp" tone={exp < 300 ? 'warn' : 'muted'} info={jwtExpInfo(exp)}>
+          exp {humanSec(exp)}
+        </Chip>,
+      );
+    }
   }
   return <span className="dt-header-chips">{chips}</span>;
 }

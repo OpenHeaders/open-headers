@@ -1,5 +1,7 @@
 import { hostNavigation } from '@openheaders/core/navigation';
 import type { InspectorHarEntry } from '@openheaders/core/types';
+import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
+import { Popover } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type CallFrameLike,
@@ -559,9 +561,18 @@ function InitiatorTreeView({
   onOpenRequest?: (entryId: string) => void;
 }) {
   const [filter, setFilter] = useState('');
-  const [failuresOnly, setFailuresOnly] = useState(false);
-  const [thirdPartyOnly, setThirdPartyOnly] = useState(false);
-  const [sortMode, setSortMode] = useState<SortMode>('initiator');
+  // Filter text stays per-tab (request-specific); the toggles + sort
+  // + show-insights persist panel-wide via the shared settings store.
+  const [failuresOnly, setFailuresOnly] = useSetting('devpanelInitiator.failuresOnly');
+  const [thirdPartyOnly, setThirdPartyOnly] = useSetting('devpanelInitiator.thirdPartyOnly');
+  const [sortMode, setSortMode] = useSetting('devpanelInitiator.sortMode');
+  const [showInsights, setShowInsights] = useSetting('devpanelInitiator.showInsights');
+  const toggleFailuresOnly = useCallback(() => setFailuresOnly(!failuresOnly), [failuresOnly, setFailuresOnly]);
+  const toggleThirdPartyOnly = useCallback(
+    () => setThirdPartyOnly(!thirdPartyOnly),
+    [thirdPartyOnly, setThirdPartyOnly],
+  );
+  const toggleShowInsights = useCallback(() => setShowInsights(!showInsights), [showInsights, setShowInsights]);
   const [expanded, setExpanded] = useState<ReadonlyMap<string, boolean>>(() => new Map());
   const [focusedKey, setFocusedKey] = useState<string>(request.id);
   const rowRefs = useRef(new Map<string, HTMLDivElement>());
@@ -591,6 +602,69 @@ function InitiatorTreeView({
     () => flattenTree(tree, expanded, filtering, pageOrigin, summary.subtreeStats),
     [tree, expanded, filtering, pageOrigin, summary.subtreeStats],
   );
+
+  // Sticky-ancestor stack: as the user scrolls, the chain of ancestors
+  // for the row currently at the top of the viewport renders as a
+  // stack at the top of the tree (VS Code-style "sticky scroll").
+  // Empty when the root row is still visible — nothing above to stick.
+  const [stickyAncestorKeys, setStickyAncestorKeys] = useState<readonly string[]>([]);
+  const stickyStackRef = useRef<HTMLDivElement | null>(null);
+  const rowsByKey = useMemo(() => {
+    const m = new Map<string, FlatRow>();
+    for (const r of rows) m.set(r.key, r);
+    return m;
+  }, [rows]);
+
+  useEffect(() => {
+    if (rows.length === 0) {
+      setStickyAncestorKeys([]);
+      return;
+    }
+    // Find the scroll ancestor (`.dt-tab-body`) from any rendered row.
+    const probe = rowRefs.current.values().next().value as HTMLElement | undefined;
+    const scroll = probe?.closest('.dt-tab-body') as HTMLElement | null | undefined;
+    if (!scroll) return;
+    const update = () => {
+      const containerTop = scroll.getBoundingClientRect().top;
+      // Section summary (~24px) + filter toolbar (~30px) + the sticky
+      // stack itself. Including the stack's measured height is what
+      // makes ancestors stack as you descend — without it, the row
+      // hidden BEHIND the stack reads as "topmost" and only its
+      // parent enters the chain, never the row itself.
+      const stackHeight = stickyStackRef.current?.offsetHeight ?? 0;
+      const threshold = containerTop + 54 + stackHeight;
+      let topmost: FlatRow | null = null;
+      for (const row of rows) {
+        const el = rowRefs.current.get(row.key);
+        if (!el) continue;
+        const rect = el.getBoundingClientRect();
+        if (rect.bottom > threshold) {
+          topmost = row;
+          break;
+        }
+      }
+      if (!topmost) {
+        setStickyAncestorKeys([]);
+        return;
+      }
+      const chain: string[] = [];
+      let cur: string | null = topmost.parentKey;
+      while (cur) {
+        chain.unshift(cur);
+        const parentRow = rowsByKey.get(cur);
+        cur = parentRow?.parentKey ?? null;
+      }
+      // Only update when the chain actually changes — avoids
+      // re-rendering the stack on every scroll tick.
+      setStickyAncestorKeys((prev) => {
+        if (prev.length === chain.length && prev.every((k, i) => k === chain[i])) return prev;
+        return chain;
+      });
+    };
+    scroll.addEventListener('scroll', update, { passive: true });
+    update();
+    return () => scroll.removeEventListener('scroll', update);
+  }, [rows, rowsByKey]);
 
   useEffect(() => {
     if (rows.length === 0) return;
@@ -671,12 +745,12 @@ function InitiatorTreeView({
   );
 
   return (
+    <div className="dt-initiator-pane">
     <details className="dt-section" open>
       <summary>Request initiator chain</summary>
       <CascadeSummaryHeader summary={summary} />
-      {insights.map((ins, i) => (
-        <InsightCallout key={`${ins.kind}-${i}`} insight={ins} />
-      ))}
+      {showInsights &&
+        insights.map((ins, i) => <InsightCallout key={`${ins.kind}-${i}`} insight={ins} />)}
       <div className="dt-initiator-chain-filter">
         <input
           type="search"
@@ -686,44 +760,85 @@ function InitiatorTreeView({
           className="dt-initiator-chain-filter-input"
           aria-label="Filter initiator chain"
         />
-        <div className="dt-initiator-quick-toggles" role="group" aria-label="Quick filters">
-          <button
-            type="button"
-            className="dt-initiator-quick-toggle"
-            data-active={failuresOnly}
-            onClick={() => setFailuresOnly((v) => !v)}
-            aria-pressed={failuresOnly}
-            title="Show only failed / blocked rows"
-          >
-            Failures
-          </button>
-          <button
-            type="button"
-            className="dt-initiator-quick-toggle"
-            data-active={thirdPartyOnly}
-            onClick={() => setThirdPartyOnly((v) => !v)}
-            aria-pressed={thirdPartyOnly}
-            title="Show only rows from a different origin than the page"
-          >
-            3rd-party
-          </button>
-        </div>
-        <label className="dt-initiator-sort-select" title="Sort children by">
-          <span className="dt-initiator-sort-label">Sort</span>
-          <select value={sortMode} onChange={(e) => setSortMode(e.target.value as SortMode)}>
-            <option value="initiator">Initiator order</option>
-            <option value="chronological">Chronological</option>
-            <option value="largest">Largest subtree</option>
-          </select>
-        </label>
         {filtering && (
           <span className="dt-initiator-chain-filter-count">
             {rows.filter((r) => r.matches).length} match{rows.filter((r) => r.matches).length === 1 ? '' : 'es'}
           </span>
         )}
+        <InitiatorMoreFiltersMenu
+          failuresOnly={failuresOnly}
+          thirdPartyOnly={thirdPartyOnly}
+          onToggleFailuresOnly={toggleFailuresOnly}
+          onToggleThirdPartyOnly={toggleThirdPartyOnly}
+        />
+        <InitiatorViewMenu
+          sortMode={sortMode}
+          showInsights={showInsights}
+          onSortChange={setSortMode}
+          onToggleShowInsights={toggleShowInsights}
+        />
       </div>
       {/* biome-ignore lint/a11y/useSemanticElements: tree role is intentional */}
       <div role="tree" aria-label="Request initiator chain" className="dt-initiator-chain" onKeyDown={onKeyDown}>
+        {stickyAncestorKeys.length > 0 && (
+          <div ref={stickyStackRef} className="dt-initiator-sticky-stack" aria-hidden="true">
+            {stickyAncestorKeys.map((key, indexInStack) => {
+              const row = rowsByKey.get(key);
+              if (!row) return null;
+              return (
+                <button
+                  key={`sticky-${key}`}
+                  type="button"
+                  className="dt-initiator-sticky-row"
+                  style={{ paddingLeft: 4 + row.depth * 16 }}
+                  title={row.url}
+                  onClick={() => {
+                    const targetEl = rowRefs.current.get(key);
+                    const scroll = targetEl?.closest('.dt-tab-body') as HTMLElement | null;
+                    if (!targetEl || !scroll) return;
+                    // Land the target just below: section summary (~24px) +
+                    // filter toolbar (~30px + 1px border) + whichever
+                    // ancestors REMAIN in the stack after the navigation
+                    // (everything above the clicked row in the chain).
+                    // Each sticky row is ~22px tall. Without this offset
+                    // the row drops behind the stack itself.
+                    const stickyOffsetPx = 55 + indexInStack * 22;
+                    const targetTop = targetEl.getBoundingClientRect().top;
+                    const scrollTop = scroll.getBoundingClientRect().top;
+                    scroll.scrollBy({ top: targetTop - scrollTop - stickyOffsetPx, behavior: 'smooth' });
+                    // Force the chain to its post-navigation shape
+                    // immediately — keep only ancestors ABOVE the clicked
+                    // row, drop the rest. The scroll listener can't infer
+                    // this on its own: the threshold it uses depends on
+                    // the stack height, which depends on the chain, so
+                    // when the chain is stale it converges to a wrong
+                    // fixed point that leaves the navigated row hidden
+                    // behind the stack.
+                    setStickyAncestorKeys(stickyAncestorKeys.slice(0, indexInStack));
+                    // Suppress the focused-row scroll effect — its
+                    // `scrollIntoView({ block: 'nearest' })` doesn't know
+                    // about the sticky stack and would override our
+                    // carefully-offset scrollBy with a misaligned scroll.
+                    lastFocusedRef.current = key;
+                    setFocusedKey(key);
+                  }}
+                >
+                  <span className="dt-initiator-chain-toggle" aria-hidden="true">
+                    {row.expanded ? '▼' : '▶'}
+                  </span>
+                  {!row.isAnchor && row.request.resourceType && (
+                    <span className="dt-initiator-row-icon" aria-hidden="true">
+                      <ResourceIcon type={row.request.resourceType} />
+                    </span>
+                  )}
+                  <span className="dt-initiator-chain-url" title={row.url}>
+                    {shortUrl(row.url)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
         {rows.map((row) => {
           const isFocused = row.key === focusedKey;
           const urlClass = [
@@ -783,6 +898,92 @@ function InitiatorTreeView({
         })}
       </div>
     </details>
+    </div>
+  );
+}
+
+// ── Dropdown menus ──────────────────────────────────────────────────
+
+/** `More filters ▾` — boolean toggles that narrow the visible rows. */
+function InitiatorMoreFiltersMenu({
+  failuresOnly,
+  thirdPartyOnly,
+  onToggleFailuresOnly,
+  onToggleThirdPartyOnly,
+}: {
+  failuresOnly: boolean;
+  thirdPartyOnly: boolean;
+  onToggleFailuresOnly: () => void;
+  onToggleThirdPartyOnly: () => void;
+}) {
+  const activeCount = [failuresOnly, thirdPartyOnly].reduce((n, v) => n + (v ? 1 : 0), 0);
+  const active = activeCount > 0;
+  const content = (
+    <div className="dt-morefilters-menu">
+      <label className="dt-morefilters-item">
+        <input type="checkbox" checked={failuresOnly} onChange={onToggleFailuresOnly} />
+        Failures only
+      </label>
+      <label className="dt-morefilters-item">
+        <input type="checkbox" checked={thirdPartyOnly} onChange={onToggleThirdPartyOnly} />
+        3rd-party only
+      </label>
+    </div>
+  );
+  return (
+    <Popover content={content} trigger="click" placement="bottomRight" arrow={false} overlayClassName="dt-morefilters-popover">
+      <button type="button" className={`dt-toolbar-dropdown${active ? ' dt-toolbar-dropdown--active' : ''}`}>
+        More filters
+        {activeCount > 0 && <span className="dt-toolbar-dropdown-count">{activeCount}</span>}
+        <span className="dt-toolbar-dropdown-caret" aria-hidden="true">
+          ▾
+        </span>
+      </button>
+    </Popover>
+  );
+}
+
+/** `View ▾` — children sort + show-suggestions toggle. */
+function InitiatorViewMenu({
+  sortMode,
+  showInsights,
+  onSortChange,
+  onToggleShowInsights,
+}: {
+  sortMode: SortMode;
+  showInsights: boolean;
+  onSortChange: (mode: SortMode) => void;
+  onToggleShowInsights: () => void;
+}) {
+  const activeCount = (sortMode !== 'initiator' ? 1 : 0) + (!showInsights ? 1 : 0);
+  const active = activeCount > 0;
+  const content = (
+    <div className="dt-morefilters-menu">
+      <label className="dt-morefilters-item dt-morefilters-item--select">
+        <span className="dt-morefilters-item-label">Sort</span>
+        <select value={sortMode} onChange={(e) => onSortChange(e.target.value as SortMode)}>
+          <option value="initiator">Initiator order</option>
+          <option value="chronological">Chronological</option>
+          <option value="largest">Largest subtree</option>
+        </select>
+      </label>
+      <div className="dt-morefilters-divider" />
+      <label className="dt-morefilters-item">
+        <input type="checkbox" checked={showInsights} onChange={onToggleShowInsights} />
+        Show suggestions
+      </label>
+    </div>
+  );
+  return (
+    <Popover content={content} trigger="click" placement="bottomRight" arrow={false} overlayClassName="dt-morefilters-popover">
+      <button type="button" className={`dt-toolbar-dropdown${active ? ' dt-toolbar-dropdown--active' : ''}`}>
+        View
+        {activeCount > 0 && <span className="dt-toolbar-dropdown-count">{activeCount}</span>}
+        <span className="dt-toolbar-dropdown-caret" aria-hidden="true">
+          ▾
+        </span>
+      </button>
+    </Popover>
   );
 }
 

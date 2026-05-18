@@ -60,12 +60,21 @@ const KNOWN_IS: ReadonlySet<string> = new Set([
   'request',
   'response',
   'drifted',
+  // Category tokens — match the keys in `header-category.ts`.
+  'routing',
   'auth',
   'cors',
   'caching',
   'security',
-  'content',
   'cookies',
+  'content',
+  'connection',
+  'client-hints',
+  'fetch-metadata',
+  'performance',
+  'privacy',
+  'server-id',
+  'proxy',
   'tracing',
   'other',
 ]);
@@ -160,12 +169,20 @@ function matchOne(meta: HeaderRowMeta, token: HeaderFilterToken): boolean {
       return meta.direction === 'response';
     case 'drifted':
       return meta.drifted;
+    case 'routing':
     case 'auth':
     case 'cors':
     case 'caching':
     case 'security':
     case 'content':
     case 'cookies':
+    case 'connection':
+    case 'client-hints':
+    case 'fetch-metadata':
+    case 'performance':
+    case 'privacy':
+    case 'server-id':
+    case 'proxy':
     case 'tracing':
     case 'other':
       return meta.category === token.value;

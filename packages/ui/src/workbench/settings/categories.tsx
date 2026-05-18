@@ -80,6 +80,22 @@ registerCategory({
 });
 
 registerCategory({
+  id: 'devpanelHeaders',
+  label: 'DevTools Panel · Headers',
+  icon: <ApiOutlined />,
+  order: 17,
+  description: 'Defaults for the Headers tab in the DevTools panel — layout, sort, filters, suggestions.',
+});
+
+registerCategory({
+  id: 'devpanelInitiator',
+  label: 'DevTools Panel · Initiator',
+  icon: <ApiOutlined />,
+  order: 18,
+  description: 'Defaults for the Initiator tab in the DevTools panel — sort, filters, suggestions.',
+});
+
+registerCategory({
   id: 'editor',
   label: 'Code Editor',
   icon: <EditOutlined />,
