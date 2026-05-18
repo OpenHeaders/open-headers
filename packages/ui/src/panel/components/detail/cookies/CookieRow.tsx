@@ -16,6 +16,7 @@
  * URL-encoded).
  */
 
+import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import type { CookieRow as CookieRowModel } from '../../../data/cookie-model';
 import { formatAbsoluteExpiry, formatRelativeExpiry, urlDecodeSafe } from '../../../data/cookie-format';
@@ -72,12 +73,15 @@ export function CookieRow({
   const canExpand = introspectionHasDepth(introspection);
 
   const valueText = decodeValues ? urlDecodeSafe(row.value) : row.value;
-  const valueTitle =
-    decodeValues && valueText !== row.value
-      ? `raw: ${row.value}\nclick row to expand`
-      : canExpand
-        ? `${row.value}\nclick row to expand`
-        : row.value;
+
+  const [copied, setCopied] = useState(false);
+  const handleCopy = (e: React.MouseEvent<HTMLButtonElement>): void => {
+    e.stopPropagation();
+    void navigator.clipboard?.writeText(row.value).then(() => {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1200);
+    });
+  };
 
   const expiresCell =
     expiresFormat === 'absolute'
@@ -121,18 +125,8 @@ export function CookieRow({
             thirdParty={thirdParty}
             dropped={dropped}
           />
-          <span className="dt-cookie-row-actions" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              className="dt-btn dt-btn-primary dt-cookie-action"
-              title={row.direction === 'response' ? 'Create a rule to override this Set-Cookie' : 'Create a rule to override this Cookie value'}
-              onClick={onMakeRule}
-            >
-              Override
-            </button>
-          </span>
         </td>
-        <td className="dt-cookie-value" title={valueTitle}>
+        <td className="dt-cookie-value">
           {canExpand && (
             <span className="dt-cookie-caret" aria-hidden="true">
               {expanded ? '▾' : '▸'}
@@ -142,6 +136,25 @@ export function CookieRow({
           {introspection.kind === 'jwt' && <span className="dt-cookie-value-hint">JWT</span>}
           {introspection.kind === 'json' && <span className="dt-cookie-value-hint">JSON</span>}
           {introspection.kind === 'base64' && <span className="dt-cookie-value-hint">b64</span>}
+          <span className="dt-cookie-row-actions" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="dt-btn dt-btn-primary dt-cookie-action dt-cookie-action--icon"
+              title={copied ? 'Copied' : 'Copy value'}
+              aria-label={copied ? 'Copied' : 'Copy value'}
+              onClick={handleCopy}
+            >
+              {copied ? <CheckOutlined /> : <CopyOutlined />}
+            </button>
+            <button
+              type="button"
+              className="dt-btn dt-btn-primary dt-cookie-action"
+              title={row.direction === 'response' ? 'Create a rule to override this Set-Cookie' : 'Create a rule to override this Cookie value'}
+              onClick={onMakeRule}
+            >
+              Override
+            </button>
+          </span>
         </td>
         <td className="dt-cookie-scope">{scope}</td>
         <td className={`dt-cookie-exp ${expiresUrgencyClass(row, now)}`} title={formatAbsoluteExpiry(row.expirationDate, row.session)}>

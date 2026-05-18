@@ -30,6 +30,7 @@ import {
 } from '@openheaders/ui/shared/dock-layout';
 import type { EditingScopeViewStateApi } from '@openheaders/ui/shared/editing-scope-view-state';
 import DocsPanel from '@openheaders/ui/shared/docs/DocsPanel';
+import { InfoPopoverContainerProvider } from '@openheaders/ui/shared/info-popover';
 import { DocsNavProvider, useDocsNav } from '@openheaders/ui/shared/docs/use-docs-nav';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
 import { useEnvironments } from '@openheaders/ui/shared/hooks/useEnvironments';
@@ -187,7 +188,13 @@ export default function App({ resolveIdentity }: AppProps) {
                                   <VariablePopoverProvider>
                                     <RulePopoverProvider>
                                       <DocsNavProvider>
-                                        <PanelContent />
+                                        <InfoPopoverContainerProvider
+                                          resolver={(trigger) =>
+                                            trigger.closest<HTMLElement>('.dt-panel-root') ?? null
+                                          }
+                                        >
+                                          <PanelContent />
+                                        </InfoPopoverContainerProvider>
                                       </DocsNavProvider>
                                     </RulePopoverProvider>
                                   </VariablePopoverProvider>

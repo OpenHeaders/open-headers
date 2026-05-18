@@ -217,21 +217,26 @@ export function AttributedHeaderRow({
       </span>
       <ValueChips name={name} value={value} />
       {editedSinceFire && <EditedSinceFireChip kind={ruleEdited ? 'rule' : 'value'} />}
-      {!isProtected && (
-        <span className="dt-kv-row-actions">
-          <button
-            type="button"
-            className="dt-btn dt-btn-primary dt-kv-action"
-            title="Create a rule to override this header"
-            onClick={(e) => {
-              e.stopPropagation();
-              onNameClick(name, value);
-            }}
-          >
-            Override
-          </button>
-        </span>
-      )}
+      <span className="dt-kv-row-actions">
+        <button
+          type="button"
+          className="dt-btn dt-btn-primary dt-kv-action"
+          disabled={isProtected}
+          aria-disabled={isProtected || undefined}
+          title={
+            isProtected
+              ? `${displayName} is a protected header — the browser's Declarative Net Request engine refuses to let extensions override it. Common protected names include host, content-length, connection, sec-fetch-*, sec-ch-ua-*.`
+              : 'Create a rule to override this header'
+          }
+          onClick={(e) => {
+            e.stopPropagation();
+            if (isProtected) return;
+            onNameClick(name, value);
+          }}
+        >
+          Override
+        </button>
+      </span>
     </div>
   );
 }

@@ -14,7 +14,8 @@
 
 import { Popover } from 'antd';
 import type React from 'react';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+import { useInfoPopoverContainer } from './InfoPopoverContainerContext';
 import type { InfoPopoverContent } from './types';
 import './info-popover.css';
 
@@ -30,6 +31,15 @@ export interface InfoPopoverProps {
 
 export function InfoPopover({ content, children, placement = 'bottomLeft', maxWidth = 360 }: InfoPopoverProps) {
   const [open, setOpen] = useState(false);
+  const resolveContainer = useInfoPopoverContainer();
+  // Adapter: AntD's `getPopupContainer` receives the trigger element
+  // and must return a parent DOM node. When no provider is installed
+  // we leave the prop undefined so AntD's default (document.body)
+  // kicks in unchanged.
+  const getPopupContainer = useCallback(
+    (triggerNode: HTMLElement) => resolveContainer?.(triggerNode) ?? document.body,
+    [resolveContainer],
+  );
   return (
     <Popover
       open={open}
@@ -39,6 +49,7 @@ export function InfoPopover({ content, children, placement = 'bottomLeft', maxWi
       placement={placement}
       overlayClassName="oh-info-popover-overlay"
       overlayStyle={{ maxWidth }}
+      {...(resolveContainer ? { getPopupContainer } : {})}
       content={<InfoPopoverBody content={content} />}
     >
       {children}

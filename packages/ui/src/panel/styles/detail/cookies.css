@@ -74,9 +74,15 @@
    * the thead sticks at `--oh-cookies-sticky-offset` (toolbar + summary).
    * Each <details> contains its own table, so the browser exits the
    * sticky state for one section's thead as the table scrolls past
-   * and docks the next section's thead in turn. */
+   * and docks the next section's thead in turn.
+   *
+   * `-1px` overlaps the summary's bottom border — same trick as the
+   * Initiator chain-filter — to absorb the sub-pixel rounding of
+   * integer `offsetHeight` published by `useMeasuredCssHeights`. The
+   * thead's opaque background covers the 1px overlap so the join
+   * reads as a single seam, never a transparent hairline. */
   position: sticky;
-  top: var(--oh-cookies-sticky-offset, 54px);
+  top: calc(var(--oh-cookies-sticky-offset, 54px) - 1px);
   z-index: 2;
 }
 /* Column head — label + always-visible `(i)` trigger sit on one line.
@@ -139,10 +145,8 @@
 }
 
 /* Name cell — name on the left, chips pushed to the right edge of
- * the cell via `margin-left: auto`. On row hover, chips fade out and
- * the action overlay (Override / Remove) fades in at the same right-
- * edge slot, so the actions stay anchored to the cookie they belong
- * to and don't compete with the other columns for attention. */
+ * the cell via `margin-left: auto`. Chips stay visible at all times
+ * because the Override action lives in the Value cell, not here. */
 .dt-cookie-name {
   font-weight: 600;
   display: flex;
@@ -151,7 +155,6 @@
   white-space: nowrap;
   overflow: hidden;
   min-width: 0;
-  position: relative;
 }
 .dt-cookie-name-text {
   flex: 0 1 auto;
@@ -160,10 +163,12 @@
 }
 .dt-cookie-name .dt-cookie-chips {
   margin-left: auto;
-  transition: opacity 80ms ease-out;
 }
-.dt-cookie-row:hover .dt-cookie-name .dt-cookie-chips {
-  opacity: 0;
+/* Value cell — becomes the positioning context for the row-hover
+ * Override overlay (anchored to its right edge, over the value's
+ * tail). */
+.dt-cookie-value {
+  position: relative;
 }
 .dt-cookie-value {
   /* Width governed by the colgroup; just clip overflow. */
@@ -356,6 +361,18 @@
   padding: 0 8px;
   border-radius: 3px;
   font-weight: 400;
+}
+/* Icon-only variant (Copy) — square, just the glyph. */
+.dt-cookie-action--icon.dt-btn {
+  padding: 0;
+  width: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.dt-cookie-action--icon .anticon {
+  font-size: 11px;
+  line-height: 1;
 }
 
 /* Value-expander row — second-row panel under an expanded row. */

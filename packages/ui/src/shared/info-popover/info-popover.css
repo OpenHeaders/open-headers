@@ -13,9 +13,15 @@
   color: var(--ant-color-text);
   display: flex;
   flex-direction: column;
-  /* Account for AntD's overlay padding when picking the max-height
-   * (the inner overlay padding is ~20px, leave a little breathing room). */
-  max-height: min(70vh, 480px);
+  /* Half the host surface — `vh` resolves against the host iframe's
+   * own viewport (the DevTools panel pane, the popup window, the
+   * workbench frame), so this is half the panel when running in the
+   * DevTools panel, half the popup when running in the popup, etc.
+   * The absolute 360px ceiling covers detached / pop-out scenarios
+   * where the panel is huge. The header + actions stay pinned and
+   * `.oh-info-popover-scroll` handles the inner scroll, so popovers
+   * with long content stay readable without ever extending the host. */
+  max-height: min(50vh, 360px);
   min-height: 0;
 }
 .oh-info-popover-header {

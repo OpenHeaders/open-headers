@@ -15,6 +15,14 @@
   flex-direction: column;
   height: 100vh;
   position: relative;
+  /* `overflow: hidden` is load-bearing: the panel is also the popover
+   * portal container (see InfoPopoverContainerProvider in App.tsx),
+   * and without it, an AntD overlay portalled here whose content
+   * extends past 100vh would push the panel iframe's document.body
+   * scroll, painting a vertical scrollbar on the panel itself.
+   * Internal dock layout and tab bodies manage their own scrolling
+   * — nothing inside relies on the root letting content overflow. */
+  overflow: hidden;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, '.SFNSText-Regular', sans-serif;
   font-size: 11px;
   line-height: 1.4;

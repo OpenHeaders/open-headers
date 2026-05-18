@@ -325,6 +325,16 @@
   border-radius: 3px;
   font-weight: 400;
 }
+.dt-kv-action.dt-btn[disabled],
+.dt-kv-action.dt-btn[aria-disabled='true'] {
+  /* Protected headers (host / content-length / sec-ch-ua / …) can't be
+   * overridden by DNR — show the button so the affordance stays
+   * discoverable, but make it visually inert. The tooltip explains
+   * why on hover. */
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(1);
+}
 
 /* More-filters popover — `--select` variant rows arrange a label +
  * native select horizontally so Layout / Sort fit alongside the
