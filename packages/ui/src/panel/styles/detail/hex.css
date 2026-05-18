@@ -1,0 +1,27 @@
+/* Hex-dump viewer (binary response bodies). */
+
+.dt-hex-viewer {
+  font-family: monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  overflow: auto;
+  flex: 1;
+  padding: 4px 8px;
+}
+.dt-hex-row {
+  display: flex;
+  gap: 12px;
+  white-space: pre;
+  line-height: 20px;
+}
+.dt-hex-offset {
+  color: var(--dt-text-muted);
+  user-select: none;
+}
+.dt-hex-bytes {
+  letter-spacing: 0.5px;
+}
+.dt-hex-ascii {
+  color: var(--dt-text-muted);
+  letter-spacing: 0.5px;
+}

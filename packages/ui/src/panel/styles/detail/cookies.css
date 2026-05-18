@@ -1,0 +1,38 @@
+/* Cookies tab — set-cookie / sent-cookie table. */
+
+.dt-cookies-view {
+  padding: 4px 0;
+}
+.dt-cookie-table-wrap {
+  overflow-x: auto;
+  padding: 0 12px;
+}
+.dt-cookie-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  font-family: monospace;
+}
+.dt-cookie-table th {
+  text-align: left;
+  font-weight: 600;
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--dt-border);
+  white-space: nowrap;
+  color: var(--dt-text-muted);
+  font-size: 10px;
+}
+.dt-cookie-table td {
+  padding: 2px 6px;
+  border-bottom: 1px solid color-mix(in srgb, var(--dt-border) 50%, transparent);
+  white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dt-cookie-name {
+  font-weight: 600;
+}
+.dt-cookie-value {
+  max-width: 280px;
+}

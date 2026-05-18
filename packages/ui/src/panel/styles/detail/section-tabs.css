@@ -1,0 +1,33 @@
+/* Detail section sub-tab strip (inside a tab's body). */
+
+.dt-detail-sections {
+  display: flex;
+  align-items: stretch;
+  height: 26px;
+  min-height: 26px;
+  border-bottom: 1px solid var(--dt-border);
+  background: var(--dt-bg);
+  overflow-x: auto;
+}
+
+.dt-detail-section-tab {
+  border: none;
+  background: transparent;
+  color: var(--dt-text-muted);
+  font: inherit;
+  font-size: 11px;
+  padding: 0 8px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+
+.dt-detail-section-tab:hover {
+  color: var(--dt-text);
+}
+
+.dt-detail-section-tab[aria-selected='true'] {
+  color: var(--dt-text);
+  border-bottom-color: var(--dt-tab-active-border);
+  font-weight: 600;
+}

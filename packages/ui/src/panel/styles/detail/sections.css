@@ -1,0 +1,25 @@
+/* Disclosure sections used throughout the detail pane. */
+
+.dt-section {
+  margin-bottom: 2px;
+}
+
+.dt-section > summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 4px 8px 4px 0;
+  list-style-type: disclosure-closed;
+  user-select: none;
+  position: sticky;
+  /* Surface-defined offset so summaries can sit BELOW another sticky
+   * bar (e.g. the Headers tab's filter toolbar). Defaults to 0 for
+   * surfaces that don't set the variable. */
+  top: var(--dt-section-sticky-top, 0);
+  background: var(--dt-bg);
+  border-bottom: 1px solid var(--dt-border);
+  z-index: 1;
+}
+
+.dt-section[open] > summary {
+  list-style-type: disclosure-open;
+}

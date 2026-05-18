@@ -1,0 +1,89 @@
+/* Rule activity view — fired-rule groups + per-URL rows. */
+
+.dt-executions {
+  flex: 1;
+  overflow: auto;
+  padding: 6px 8px;
+}
+
+.dt-executions-hint {
+  color: var(--dt-text-muted);
+  font-size: 11px;
+  padding: 4px 8px;
+  background: var(--dt-bg-alt);
+  border: 1px solid var(--dt-border);
+  border-radius: 2px;
+}
+
+.dt-exec-group {
+  margin-bottom: 4px;
+}
+
+.dt-exec-group > summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 2px 0;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  list-style-type: disclosure-closed;
+}
+
+.dt-exec-group[open] > summary {
+  list-style-type: disclosure-open;
+}
+
+.dt-exec-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 0 4px;
+  border-radius: 2px;
+  line-height: 1.6;
+}
+
+.dt-exec-badge--auth {
+  color: var(--dt-fire-auth);
+  background: color-mix(in srgb, var(--dt-fire-auth) 12%, transparent);
+}
+
+.dt-exec-badge--inferred {
+  color: var(--dt-fire-inferred);
+  background: color-mix(in srgb, var(--dt-fire-inferred) 12%, transparent);
+}
+
+.dt-exec-badge--dangling {
+  color: var(--dt-status-orange);
+  background: color-mix(in srgb, var(--dt-status-orange) 12%, transparent);
+}
+
+.dt-exec-url {
+  display: block;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 11px;
+  color: var(--dt-link);
+  padding: 1px 0 1px 16px;
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.dt-exec-url:hover {
+  text-decoration: underline;
+}
+
+.dt-exec-url--muted {
+  color: var(--dt-text-muted);
+  cursor: default;
+  text-decoration: none;
+  font-style: italic;
+}
+
+.dt-exec-url--muted:hover {
+  text-decoration: none;
+}

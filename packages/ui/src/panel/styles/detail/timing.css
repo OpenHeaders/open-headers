@@ -1,0 +1,163 @@
+/* Timing tab — waterfall bar, insights, context chips, Server-Timing rows. */
+
+.dt-timing-view {
+  padding: 4px 0;
+}
+.dt-timing-bar-section {
+  padding: 8px 12px;
+}
+.dt-timing-bar {
+  display: flex;
+  height: 16px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--dt-border);
+}
+.dt-timing-bar-segment {
+  min-width: 1px;
+  transition: width 0.2s;
+}
+.dt-timing-bar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--dt-text-muted);
+}
+.dt-timing-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.dt-timing-legend-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.dt-timing-total {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-top: 1px solid var(--dt-border);
+}
+
+/* Timing insight callouts. */
+.dt-timing-insight {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 8px 12px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--dt-border);
+  background: var(--dt-bg-alt);
+}
+.dt-timing-insight[data-kind='bottleneck'] {
+  border-color: var(--dt-link);
+}
+.dt-timing-insight[data-kind='warning'] {
+  border-color: var(--dt-status-orange);
+}
+.dt-timing-insight-icon {
+  font-size: 14px;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+.dt-timing-insight-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.dt-timing-insight-headline {
+  font-size: 12px;
+  line-height: 1.4;
+}
+.dt-timing-insight-hint {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--dt-text-muted);
+}
+
+/* Context strip. */
+.dt-timing-context-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--dt-border);
+}
+.dt-timing-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--dt-row-hover);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.dt-timing-chip[data-tone='good'] {
+  background: rgba(0, 168, 0, 0.15);
+}
+.dt-timing-chip[data-tone='warn'] {
+  background: rgba(230, 138, 0, 0.18);
+}
+.dt-timing-chip[data-tone='muted'] {
+  background: var(--dt-row-hover);
+  color: var(--dt-text-muted);
+}
+.dt-timing-chip-label {
+  color: var(--dt-text-muted);
+}
+.dt-timing-chip-label:empty {
+  display: none;
+}
+.dt-timing-chip-value {
+  color: inherit;
+  font-weight: 500;
+}
+.dt-timing-rate {
+  margin-left: 8px;
+  color: var(--dt-text-muted);
+  font-size: 11px;
+}
+
+/* Server Timing. */
+.dt-server-timing {
+  padding: 4px 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dt-server-timing-row {
+  display: grid;
+  grid-template-columns: 200px 1fr 80px;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+.dt-server-timing-name {
+  color: var(--dt-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dt-server-timing-desc {
+  color: var(--dt-text-muted);
+}
+.dt-server-timing-track {
+  position: relative;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--dt-row-hover);
+  overflow: hidden;
+}
+.dt-server-timing-bar {
+  height: 100%;
+  background: var(--dt-status-green);
+}
+.dt-server-timing-dur {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--dt-text);
+}

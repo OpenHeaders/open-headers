@@ -1,0 +1,236 @@
+/* Response body + preview viewers (Monaco / image / font / hex-pre / skeleton). */
+
+.dt-body-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 4px;
+  font-size: 11px;
+}
+
+.dt-body-tag {
+  background: var(--dt-bg-alt);
+  border: 1px solid var(--dt-border);
+  border-radius: 2px;
+  padding: 0 4px;
+  font-size: 10px;
+  color: var(--dt-text-muted);
+}
+
+.dt-body-pre {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+  max-height: 480px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.dt-body-info {
+  padding: 6px 8px;
+  background: var(--dt-bg-alt);
+  border: 1px solid var(--dt-border);
+  border-radius: 2px;
+  font-size: 11px;
+  color: var(--dt-text-muted);
+}
+
+/* Centered "no body" notice for the Response / Preview tabs when the
+ * classifier returns `not-applicable` / `unavailable` / `empty`.
+ * Mirrors Chrome Network's "Failed to load response data" layout. */
+.dt-response-notice {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 24px;
+  text-align: center;
+  font-size: 12px;
+}
+
+.dt-response-notice strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* CTA buttons row. */
+.dt-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 0;
+}
+
+/* Response body search highlight. */
+.dt-body-pre mark {
+  background: #fdd835;
+  color: #000;
+  border-radius: 1px;
+  padding: 0 1px;
+}
+
+[data-theme='dark'] .dt-body-pre mark {
+  background: #7b6b00;
+  color: #fff;
+}
+
+/* Response/Preview view layout. */
+.dt-response-view,
+.dt-preview-image-wrap,
+.dt-preview-font-wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.dt-response-view-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 8px;
+  /*
+   * Flex column so a single Monaco viewer child (`.dt-codemirror-wrap`)
+   * can fill the pane via `flex: 1`. Monaco's `<Editor height="100%">`
+   * collapses to 0 inside a plain block container, which rendered as a
+   * 1px strip before this rule. Block children (`<pre>`) still stack
+   * naturally and the outer `overflow: auto` keeps long-body scroll.
+   */
+  display: flex;
+  flex-direction: column;
+}
+
+.dt-response-toolbar,
+.dt-preview-meta-bar {
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  font-size: 11px;
+  flex-shrink: 0;
+  height: 22px;
+  border-top: 1px solid var(--dt-border);
+  background: var(--dt-bg);
+  color: var(--dt-text-muted);
+}
+.dt-response-toolbar {
+  justify-content: space-between;
+}
+.dt-response-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dt-preview-meta-bar {
+  gap: 16px;
+}
+.dt-response-toolbar-info {
+  color: var(--dt-text-muted);
+}
+.dt-response-toolbar-modes {
+  display: flex;
+  gap: 2px;
+}
+.dt-response-toolbar-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 1px 6px;
+  font-size: 11px;
+  cursor: pointer;
+  color: var(--dt-text-muted);
+}
+.dt-response-toolbar-btn:hover {
+  background: var(--dt-row-hover);
+}
+.dt-response-toolbar-btn.active {
+  background: var(--dt-link);
+  color: #fff;
+  border-color: var(--dt-link);
+}
+
+/* Monaco viewer wrapper. */
+.dt-codemirror-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+}
+.dt-codemirror-wrap > * {
+  flex: 1;
+  min-height: 0;
+}
+.dt-monaco-search {
+  background: rgba(255, 200, 0, 0.35);
+  border-radius: 2px;
+}
+.dt-monaco-search-active {
+  background: rgba(255, 150, 0, 0.6);
+  outline: 1px solid rgba(255, 150, 0, 0.8);
+}
+
+/* Preview content. */
+.dt-preview-image-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+  background: repeating-conic-gradient(#f0f0f0 0% 25%, transparent 0% 50%) 50%/16px 16px;
+}
+[data-theme='dark'] .dt-preview-image-container {
+  background: repeating-conic-gradient(#333 0% 25%, #2a2a2a 0% 50%) 50%/16px 16px;
+}
+.dt-preview-svg svg {
+  max-width: 100%;
+  max-height: 100%;
+}
+.dt-body-image {
+  max-width: 100%;
+  max-height: 480px;
+  display: block;
+  object-fit: contain;
+}
+.dt-font-glyphs {
+  padding: 16px 24px;
+  font-size: 36px;
+  line-height: 1.4;
+  letter-spacing: 2px;
+}
+.dt-font-glyph-row {
+  white-space: nowrap;
+}
+
+/* Base64 pre. */
+.dt-body-pre--base64 {
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+.dt-body-pre--virtual {
+  overflow: auto;
+  line-height: 16px;
+}
+
+/* Skeleton loader. */
+.dt-response-skeleton {
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.dt-skeleton-line {
+  height: 12px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--dt-border) 25%, var(--dt-bg-alt) 50%, var(--dt-border) 75%);
+  background-size: 200% 100%;
+  animation: dt-skeleton-shimmer 1.5s ease-in-out infinite;
+}
+@keyframes dt-skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

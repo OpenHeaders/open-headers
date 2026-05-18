@@ -1,0 +1,319 @@
+/* Headers tab — pane wrapper, filter bar, footprint chip, insights,
+ * category groups, value chips, raw view, More-filters popover. */
+
+/* Rule-creation CTA row. */
+.dt-header-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--dt-border);
+}
+
+/* Footprint chip. */
+.dt-header-footprint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  font-size: 11px;
+  color: var(--dt-text-muted);
+  border-bottom: 1px solid var(--dt-border);
+  background: var(--dt-bg-alt);
+}
+.dt-header-footprint-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--dt-link);
+}
+.dt-header-footprint-text {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Insight cards. */
+.dt-header-insights {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 12px;
+}
+.dt-header-insight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--dt-border);
+  background: var(--dt-bg-alt);
+  font-size: 12px;
+}
+.dt-header-insight[data-severity='warn'] {
+  border-color: var(--dt-status-orange);
+}
+.dt-header-insight[data-severity='err'] {
+  border-color: var(--dt-status-red);
+}
+.dt-header-insight-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  width: 14px;
+  text-align: center;
+}
+.dt-header-insight-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.dt-header-insight-title {
+  line-height: 1.4;
+}
+.dt-header-insight-detail {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--dt-text-muted);
+}
+.dt-header-insight-action {
+  flex-shrink: 0;
+  font-size: 11px;
+}
+
+/* Pane wrapper. */
+.dt-headers-pane {
+  /* Section summaries (General / Response / Request) stick BELOW
+   * the filter toolbar instead of overlapping it. `--oh-headers-toolbar-h`
+   * is published by `useMeasuredCssHeights` (see HeadersView.tsx); the
+   * fallback covers the unmeasured first paint. */
+  /* -1px overlaps the filter toolbar's bottom border to absorb the
+   * sub-pixel rounding of integer `offsetHeight` — see initiator.css
+   * for the same trick on the ancestor sticky stack. */
+  --dt-section-sticky-top: calc(var(--oh-headers-toolbar-h, 30px) - 1px);
+  --oh-headers-sticky-offset: calc(var(--oh-headers-toolbar-h, 30px) + var(--oh-headers-summary-h, 24px));
+}
+
+/* Filter bar. */
+.dt-header-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  position: sticky;
+  top: 0;
+  /* Stack ABOVE section summaries so they slide under, not over,
+   * the toolbar. Section summaries use z-index: 1; this uses 3. */
+  z-index: 3;
+  background: var(--dt-bg);
+  border-bottom: 1px solid var(--dt-border);
+}
+.dt-header-filter-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: inherit;
+  color: var(--dt-text);
+  background: var(--dt-row-hover);
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 2px 6px;
+  outline: none;
+}
+.dt-header-filter-input:focus {
+  border-color: var(--dt-link);
+  background: var(--dt-bg);
+}
+
+/* Section header controls. */
+.dt-header-section-count {
+  margin-left: 8px;
+  font-size: 11px;
+  color: var(--dt-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.dt-header-section-add {
+  margin-left: 8px;
+  font-size: 10px;
+  height: 16px;
+  padding: 0 4px;
+}
+.dt-header-section-raw {
+  margin-left: 6px;
+  font-size: 10px;
+  height: 16px;
+  padding: 0 6px;
+}
+.dt-header-section-raw[data-active='true'] {
+  background: var(--dt-row-selected);
+  border-color: var(--dt-link);
+}
+.dt-header-section-copy {
+  position: relative;
+  display: inline-block;
+  margin-left: 6px;
+}
+.dt-header-section-copy .dt-btn {
+  font-size: 10px;
+  height: 16px;
+  padding: 0 6px;
+}
+.dt-header-copy-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 2px);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  background: var(--dt-bg);
+  border: 1px solid var(--dt-border);
+  border-radius: 3px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18);
+  min-width: 140px;
+}
+.dt-header-copy-menu button {
+  text-align: left;
+  font: inherit;
+  font-size: 11px;
+  padding: 4px 10px;
+  background: transparent;
+  color: var(--dt-text);
+  border: none;
+  cursor: pointer;
+}
+.dt-header-copy-menu button:hover:not(:disabled) {
+  background: var(--dt-row-hover);
+}
+.dt-header-copy-menu button:disabled {
+  color: var(--dt-text-muted);
+  cursor: default;
+}
+
+/* Category groups. */
+.dt-header-category {
+  padding-top: 2px;
+}
+.dt-header-category-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 12px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--dt-text-muted);
+}
+.dt-header-category-count {
+  font-size: 10px;
+  color: var(--dt-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Value chips. */
+.dt-header-chips {
+  margin-left: 8px;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  vertical-align: middle;
+}
+.dt-header-chip {
+  display: inline-block;
+  padding: 0 5px;
+  border-radius: 3px;
+  background: var(--dt-row-hover);
+  color: var(--dt-text);
+  font-size: 10px;
+  line-height: 14px;
+  font-family: var(--dt-font-ui, system-ui, sans-serif);
+  font-variant-numeric: tabular-nums;
+}
+.dt-header-chip[data-tone='ok'] {
+  background: rgba(0, 168, 0, 0.15);
+  color: var(--dt-status-green);
+}
+.dt-header-chip[data-tone='warn'] {
+  background: rgba(230, 138, 0, 0.18);
+  color: var(--dt-status-orange);
+}
+.dt-header-chip[data-tone='muted'] {
+  background: var(--dt-row-hover);
+  color: var(--dt-text-muted);
+}
+.dt-header-chip[data-tone='info'] {
+  background: color-mix(in srgb, var(--dt-link) 12%, transparent);
+  color: var(--dt-link);
+}
+
+/* Chip wrapper — keeps the prefix `(i)` trigger and the chip itself
+ * on the same baseline; the InfoTrigger gets its hover-reveal styling
+ * from `.dt-header-info-trigger` (same as header-name (i) prefixes). */
+.dt-header-chip-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Raw view + noise hint. */
+.dt-header-raw {
+  margin: 0;
+  padding: 6px 12px;
+  font: inherit;
+  font-family: monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--dt-text);
+}
+.dt-header-noise-hint {
+  padding: 4px 12px;
+  font-size: 11px;
+  cursor: help;
+}
+
+/* (i) info trigger — built on top of the shared `.oh-info-trigger`
+ * glyph from @openheaders/ui/shared/info-popover. This class adds the
+ * hover-reveal behavior specific to the dense Headers row layout —
+ * the glyph is hidden until the row is hovered, the trigger is
+ * focused, or the popover is open. */
+.dt-header-info-trigger {
+  opacity: 0;
+}
+.dt-kv:hover .dt-header-info-trigger,
+.dt-header-info-trigger:focus-visible,
+.dt-header-info-trigger[aria-expanded='true'] {
+  opacity: 1;
+}
+
+/* More-filters popover — `--select` variant rows arrange a label +
+ * native select horizontally so Layout / Sort fit alongside the
+ * checkbox toggles in the same menu. */
+.dt-morefilters-item.dt-morefilters-item--select {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.dt-morefilters-item--select .dt-morefilters-item-label {
+  color: var(--ant-color-text-secondary);
+  font-size: 12px;
+}
+.dt-morefilters-item--select select {
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 4px;
+  background: var(--ant-color-bg-container);
+  color: var(--ant-color-text);
+  border: 1px solid var(--ant-color-border);
+  border-radius: 3px;
+}
+
+/* Hidden-noise popover content. */
+.dt-header-noise-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 240px;
+  overflow-y: auto;
+  min-width: 180px;
+}
+.dt-header-noise-name {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--ant-color-text);
+}

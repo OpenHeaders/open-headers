@@ -1,0 +1,187 @@
+/* Key-value rows + Open Headers rule-fire attribution styling. */
+
+.dt-kv {
+  display: flex;
+  gap: 4px;
+  padding: 1px 0;
+  padding-left: 12px;
+  line-height: 1.5;
+  /* Allow flex children to shrink past their content size so long
+     values wrap inside the row instead of pushing the row wider than
+     the panel and breaking the rule-applied highlight. */
+  align-items: flex-start;
+  /* Search-result `scrollIntoView` lands KV rows below the sticky
+   * filter toolbar + section summary stack — defaults to 0 so other
+   * surfaces (where the variable isn't set) are unaffected. */
+  scroll-margin-top: var(--oh-headers-sticky-offset, 0);
+}
+
+.dt-kv-key {
+  color: var(--dt-text-muted);
+  flex-shrink: 0;
+}
+
+.dt-kv-val,
+.dt-kv-oh-value {
+  /* Long token-style values (JWTs, base64 blobs, cookies) used to
+     overflow horizontally — that scrolled the whole row sideways and
+     broke the rule-applied {{ref}} highlight. Wrap-and-break inside
+     the value, cap visible height at ~4 lines, and scroll vertically
+     inside the value cell. */
+  flex: 1;
+  min-width: 0;
+  word-break: break-all;
+  white-space: pre-wrap;
+  /* Visible-height cap; defined in panel.css :root. */
+  max-height: var(--oh-multiline-cap, 96px);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.dt-kv--highlighted {
+  background: #fdd835;
+  color: #000;
+  border-radius: 2px;
+}
+
+[data-theme='dark'] .dt-kv--highlighted {
+  background: #7b6b00;
+  color: #fff;
+}
+
+/* Attributed header rows (Open Headers rule fires) ─────────────
+ * A request/response header that Open Headers added, modified, or
+ * removed gets a coloured left indicator + glyph + tinted row
+ * background so the user can scan a long header list and instantly
+ * tell which rows came from their own rules.
+ *
+ *   Blue  → user rule added/modified the header
+ *   Gray  → user rule removed a server-sent header
+ *   Yellow → a system feature (Disable Cache toggle, future cache-
+ *            bust, etc.) injected the header. Distinct from user
+ *            rules so power users can tell "this came from the toolbar,
+ *            not from my ruleset".
+ *
+ * Search-highlight yellow still wins when both apply. */
+/* Attributed-row backgrounds (the faint tint that flags rule/system
+ * activity) hug the row's content rather than the row's width — empty
+ * space to the right of a short header value used to read as part of
+ * the highlight band, which made values look longer than they were and
+ * the whole row visually heavier than necessary. `width: max-content`
+ * shrinks to content; `max-width: 100%` keeps long values clipped to
+ * the panel width (the value cell's own `max-height` + `overflow-y`
+ * handles wrapping inside).
+ *
+ * When multiple attributed rows stack vertically, a 2px gap separates
+ * each blue/red/grey "pill" so they read as discrete entries instead
+ * of merging into one solid band. The non-attributed `.dt-kv` rows
+ * keep their tight 1px padding — the gap is purely a contrast helper
+ * for the highlighted variants. */
+.dt-kv--oh-added,
+.dt-kv--oh-modified {
+  position: relative;
+  padding-left: 20px;
+  background: var(--dt-row-attributed);
+  border-radius: 2px;
+  width: max-content;
+  max-width: 100%;
+  margin: 1px 0;
+}
+
+.dt-kv--oh-removed {
+  position: relative;
+  padding-left: 20px;
+  background: var(--dt-row-attributed-removed);
+  border-radius: 2px;
+  width: max-content;
+  max-width: 100%;
+  margin: 1px 0;
+}
+
+.dt-kv--oh-system {
+  position: relative;
+  padding-left: 20px;
+  background: var(--dt-row-attributed-system);
+  border-radius: 2px;
+  width: max-content;
+  max-width: 100%;
+  margin: 1px 0;
+}
+
+.dt-kv--oh-added::before,
+.dt-kv--oh-modified::before,
+.dt-kv--oh-removed::before,
+.dt-kv--oh-system::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 2px;
+  bottom: 2px;
+  width: 3px;
+  border-radius: 2px;
+}
+
+.dt-kv--oh-added::before,
+.dt-kv--oh-modified::before {
+  background: var(--dt-link, #1677ff);
+}
+
+.dt-kv--oh-removed::before {
+  background: var(--dt-row-attributed-removed-accent);
+}
+
+.dt-kv--oh-system::before {
+  background: var(--dt-accent-system);
+}
+
+.dt-kv--oh-system .dt-btn-link,
+.dt-kv--oh-system .dt-kv-oh-value {
+  color: var(--dt-accent-system);
+}
+
+/* Modified/added header name + value share the link blue so the
+ * row reads at a glance as "this one's ours". */
+.dt-kv--oh-added .dt-btn-link,
+.dt-kv--oh-modified .dt-btn-link {
+  color: var(--dt-link, #1677ff);
+}
+
+.dt-kv--oh-added .dt-kv-oh-value,
+.dt-kv--oh-modified .dt-kv-oh-value {
+  color: var(--dt-link, #1677ff);
+}
+
+/* Removed headers stay in the list but render in red with strikethrough
+ * on the value — "the page never saw this". Covers both the server-sent
+ * case (server header stripped by a remove rule) and the cancelled-
+ * injection case (one rule injected, another rule removed). */
+.dt-kv--oh-removed .dt-btn-link,
+.dt-kv--oh-removed .dt-kv-oh-value {
+  color: var(--dt-row-attributed-removed-accent);
+}
+.dt-kv--oh-removed .dt-kv-oh-value {
+  text-decoration: line-through;
+  text-decoration-color: var(--dt-row-attributed-removed-accent);
+}
+
+.dt-kv-val--status-ok::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--dt-status-green);
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.dt-kv-val--status-err::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--dt-status-red);
+  margin-right: 4px;
+  vertical-align: middle;
+}

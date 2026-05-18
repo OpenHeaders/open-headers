@@ -1,0 +1,48 @@
+/* Empty state + detail-pane tab body wrapper. */
+
+.dt-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--dt-text-muted);
+  font-size: 12px;
+  padding: 24px;
+}
+
+.dt-empty-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 8px;
+  padding: 48px 24px;
+  text-align: center;
+  font-size: 13px;
+}
+
+.dt-empty-hero strong {
+  font-size: 14px;
+  color: var(--dt-text);
+}
+
+.dt-empty-hero-sub {
+  color: var(--dt-text-muted);
+  font-size: 12px;
+  max-width: 300px;
+}
+
+/* Detail-pane tab body — scroll container for the inspector tabs
+   (Headers / Payload / Response). Tab bar itself uses Ant Design's
+   <Tabs /> so only the body wrapper lives here.
+   Solid background masks anything behind the detail pane from bleeding
+   through gaps in the sticky-row stack while scrolling. Horizontal
+   padding only — vertical padding would create a transparent strip
+   above the first sticky child when pinned. */
+.dt-tab-body {
+  flex: 1;
+  overflow: auto;
+  padding: 0 8px;
+  background: var(--dt-bg);
+}

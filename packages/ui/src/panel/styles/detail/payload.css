@@ -1,0 +1,44 @@
+/* Payload tab — request body / form data table. */
+
+.dt-payload-view {
+  padding: 4px 0;
+}
+.dt-payload-toggles {
+  display: inline-flex;
+  gap: 8px;
+  margin-left: 12px;
+}
+.dt-payload-toggle-btn {
+  background: none;
+  border: 1px solid var(--dt-border);
+  border-radius: 12px;
+  padding: 2px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  color: var(--dt-link);
+}
+.dt-payload-toggle-btn:hover {
+  background: var(--dt-row-hover);
+}
+.dt-payload-table {
+  font-family: monospace;
+  font-size: 11px;
+}
+.dt-payload-row {
+  display: grid;
+  grid-template-columns: minmax(80px, auto) 1fr;
+  gap: 16px;
+  padding: 4px 12px;
+  align-items: baseline;
+  border-bottom: 1px solid var(--dt-border);
+}
+.dt-payload-row:last-child {
+  border-bottom: none;
+}
+.dt-payload-key {
+  font-weight: 600;
+  word-break: break-all;
+}
+.dt-payload-val {
+  word-break: break-all;
+}

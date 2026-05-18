@@ -1,0 +1,95 @@
+/* Long-lived stream views — WebSocket messages + SSE EventStream. */
+
+.dt-ws-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.dt-ws-row {
+  display: grid;
+  grid-template-columns: 20px 1fr 64px 92px;
+  gap: 8px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--dt-border);
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 11px;
+  align-items: center;
+}
+
+.dt-ws-row-header {
+  font-family: inherit;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  background: var(--dt-bg);
+}
+
+.dt-ws-list {
+  flex: 1;
+  overflow: auto;
+}
+
+.dt-ws-data {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dt-ws-len,
+.dt-ws-time {
+  color: var(--dt-text-muted);
+  text-align: right;
+}
+
+.dt-ws-dir {
+  text-align: center;
+  font-weight: 700;
+}
+
+.dt-ws-dir--send .dt-ws-dir {
+  color: var(--dt-status-orange);
+}
+
+.dt-ws-dir--recv .dt-ws-dir {
+  color: var(--dt-status-green);
+}
+
+/* SSE EventStream view. */
+.dt-sse-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.dt-sse-row {
+  display: grid;
+  grid-template-columns: 64px 96px 1fr;
+  gap: 8px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--dt-border);
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 11px;
+  align-items: start;
+}
+
+.dt-sse-row-header {
+  font-family: inherit;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  background: var(--dt-bg);
+}
+
+.dt-sse-list {
+  flex: 1;
+  overflow: auto;
+}
+
+.dt-sse-data {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

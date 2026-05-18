@@ -1,0 +1,477 @@
+/* Initiator tab — stack frames, chain tree, sticky ancestor scroll. */
+
+.dt-initiator-view {
+  padding: 4px 0;
+}
+.dt-initiator-stack {
+  padding: 2px 0 2px 12px;
+  font-family: monospace;
+  font-size: 11px;
+  line-height: 1.8;
+}
+.dt-initiator-frame {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) 1fr;
+  gap: 10px;
+  align-items: baseline;
+  padding: 0 8px;
+}
+.dt-initiator-frame[data-noise='true'] {
+  opacity: 0.65;
+}
+.dt-initiator-fn {
+  color: var(--dt-text);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dt-initiator-fn--anonymous {
+  color: var(--dt-text-muted);
+  font-style: italic;
+  font-weight: 400;
+}
+.dt-initiator-fn--minified {
+  color: var(--dt-text-muted);
+  font-weight: 400;
+}
+.dt-initiator-fn--first-party {
+  color: var(--dt-text);
+  font-weight: 600;
+}
+.dt-initiator-fn--third-party {
+  color: var(--dt-text-muted);
+}
+.dt-initiator-loc {
+  justify-self: end;
+  color: var(--dt-text-muted);
+  font-size: 11px;
+  font-family: monospace;
+  display: inline-flex;
+  align-items: baseline;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+.dt-initiator-loc-file {
+  color: var(--dt-link);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dt-initiator-loc-line {
+  color: var(--dt-text-muted);
+  flex-shrink: 0;
+}
+.dt-initiator-loc--link {
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+.dt-initiator-loc--link:hover .dt-initiator-loc-file {
+  text-decoration: underline;
+}
+.dt-initiator-stack-heading {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.dt-initiator-stack-count {
+  color: var(--dt-text-muted);
+  font-weight: 400;
+  font-size: 11px;
+}
+.dt-initiator-stack-count--resolved {
+  color: var(--dt-status-green);
+}
+.dt-initiator-fn--resolved {
+  /* Resolved names stay regular weight + default text color. The
+   * per-row `12 resolved` chip and the parenthetical suffix carry the
+   * resolution signal; bolding the name here would collide with the
+   * async-section dividers underneath. */
+  color: var(--dt-text);
+  font-weight: 400;
+  font-style: normal;
+}
+.dt-initiator-fn-resolved-suffix {
+  /* Parenthetical resolved name appended after the V8 identifier —
+   * e.g. `C (requestAnimationFrame)`. Visually de-emphasized so the
+   * primary V8 name (which matches what the user sees in the bundle)
+   * still reads first. */
+  color: var(--dt-text-muted);
+  font-weight: 400;
+  font-style: italic;
+}
+.dt-initiator-stack-actions {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: 12px;
+  font-size: 11px;
+  font-weight: 400;
+}
+.dt-initiator-stack-toggle {
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--dt-border);
+  border-radius: 3px;
+  padding: 1px 6px;
+  font: inherit;
+  font-size: 11px;
+  color: var(--dt-text-muted);
+  cursor: pointer;
+}
+.dt-initiator-stack-toggle:hover {
+  background: var(--dt-row-hover);
+  color: var(--dt-text);
+}
+.dt-initiator-stack-toggle[data-active='true'] {
+  background: var(--dt-row-selected);
+  border-color: var(--dt-link);
+  color: var(--dt-text);
+}
+.dt-initiator-stack-section + .dt-initiator-stack-section {
+  margin-top: 4px;
+}
+.dt-initiator-stack-async-label {
+  padding: 4px 8px 0;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--dt-text);
+}
+.dt-initiator-stack-hidden-stub {
+  padding: 2px 8px;
+  color: var(--dt-text-muted);
+  font-style: italic;
+}
+.dt-initiator-stack-filter {
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--dt-border);
+  background: var(--dt-bg);
+}
+.dt-initiator-stack-filter-input {
+  width: 100%;
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 6px;
+  color: var(--dt-text);
+  background: var(--dt-row-hover);
+  border: 1px solid transparent;
+  border-radius: 3px;
+  outline: none;
+}
+.dt-initiator-stack-filter-input:focus {
+  border-color: var(--dt-link);
+  background: var(--dt-bg);
+}
+.dt-initiator-stack-status {
+  padding: 4px 12px;
+  font-size: 11px;
+}
+.dt-initiator-chain {
+  padding: 4px 0 4px 12px;
+  font-size: 11px;
+  line-height: 2;
+}
+.dt-initiator-chain-item {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.dt-initiator-chain-url {
+  word-break: break-all;
+  color: var(--dt-text);
+}
+.dt-initiator-chain-url--anchor {
+  font-weight: 600;
+}
+.dt-initiator-chain-url--failed {
+  color: var(--dt-status-red);
+}
+.dt-initiator-chain-row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  outline: none;
+  cursor: default;
+  /* Any `scrollIntoView` on a row lands it BELOW the sticky chrome
+   * (section summary + filter toolbar + ancestor stack) instead of
+   * behind it. Keyboard nav, focus restore, and search-result jumps
+   * all share this anchor — one place to keep in sync with the
+   * measured offset. */
+  scroll-margin-top: var(--oh-init-sticky-offset, 55px);
+}
+.dt-initiator-chain-row:hover {
+  background: var(--dt-row-hover);
+}
+.dt-initiator-chain-row--focused,
+.dt-initiator-chain-row--focused:hover {
+  background: var(--dt-row-selected);
+}
+.dt-initiator-chain-toggle {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--dt-text-muted);
+  font-size: 9px;
+  line-height: 12px;
+  text-align: center;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  appearance: none;
+}
+.dt-initiator-chain-toggle:hover {
+  color: var(--dt-text);
+}
+.dt-initiator-chain-toggle--leaf {
+  cursor: default;
+  visibility: hidden;
+}
+/* Initiator: pane wrapper.
+ * `--oh-init-summary-h` / `--oh-init-toolbar-h` / `--oh-init-stack-h`
+ * are published by `useMeasuredCssHeights` (see InitiatorTree.tsx).
+ * Fallbacks let the unmeasured first paint still look right.
+ *
+ * `--oh-init-sticky-offset` is the composed value — exposed for JS
+ * (the scroll-listener threshold) so there's exactly one source of
+ * truth for "how much vertical space is occupied by sticky chrome". */
+.dt-initiator-pane {
+  --oh-init-sticky-offset: calc(
+    var(--oh-init-summary-h, 24px) + var(--oh-init-toolbar-h, 30px) + var(--oh-init-stack-h, 0px)
+  );
+}
+
+/* Initiator: ancestor sticky stack.
+ * As the user scrolls deeper into the tree, the chain of ancestors of
+ * the row currently at the top of the viewport renders as a stack of
+ * sticky rows above the tree (VS Code-style sticky scroll). The stack
+ * itself is sticky so the rows pinned inside it stay glued at the top
+ * — they're plain `position: static` rows within the sticky parent. */
+.dt-initiator-sticky-stack {
+  position: sticky;
+  /* Sits flush under the filter toolbar. `useMeasuredCssHeights`
+   * publishes integer `offsetHeight` values, so sub-pixel filter
+   * heights would round-trip to a hairline gap. Pin 1px ABOVE the
+   * reported bottom so the stack's opaque bg overlaps the toolbar's
+   * border-bottom — guaranteed no bleed-through. */
+  top: calc(var(--oh-init-summary-h, 24px) + var(--oh-init-toolbar-h, 30px) - 1px);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  background: var(--dt-bg);
+  border-bottom: 1px solid var(--dt-border);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+[data-theme='dark'] .dt-initiator-sticky-stack {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+.dt-initiator-sticky-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: transparent;
+  border: none;
+  font: inherit;
+  color: var(--dt-text);
+  text-align: left;
+  cursor: pointer;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+.dt-initiator-sticky-row:hover {
+  background: var(--dt-row-hover);
+}
+.dt-initiator-sticky-row .dt-initiator-chain-url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Initiator pane — section summary comes BEFORE the filter toolbar
+ * in DOM, so the summary stays at `top: 0` and the toolbar sticks
+ * BELOW it. (Reverse of Headers tab, where toolbar precedes sections.) */
+.dt-initiator-chain-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  position: sticky;
+  /* Sits flush below the section summary — height is published by
+   * useMeasuredCssHeights. Integer `offsetHeight` can round below
+   * the real sub-pixel summary height, so pin 1px higher and let the
+   * toolbar's opaque bg overlap the summary's border-bottom. */
+  top: calc(var(--oh-init-summary-h, 24px) - 1px);
+  z-index: 2;
+  background: var(--dt-bg);
+  border-bottom: 1px solid var(--dt-border);
+}
+.dt-initiator-chain-filter-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: inherit;
+  color: var(--dt-text);
+  background: var(--dt-row-hover);
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 2px 6px;
+  outline: none;
+}
+.dt-initiator-chain-filter-input:focus {
+  border-color: var(--dt-link);
+  background: var(--dt-bg);
+}
+.dt-initiator-chain-filter-count {
+  flex-shrink: 0;
+  color: var(--dt-text-muted);
+  font-size: 11px;
+}
+
+/* Cascade summary header. */
+.dt-initiator-cascade-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 14px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--dt-border);
+  background: var(--dt-bg-alt);
+  font-size: 12px;
+}
+.dt-initiator-cascade-stat {
+  color: var(--dt-text);
+}
+.dt-initiator-cascade-stat[data-tone='warn'] {
+  color: var(--dt-status-red);
+}
+
+/* Cascade insight callouts. */
+.dt-initiator-insight {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 6px 12px;
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--dt-border);
+  background: var(--dt-bg-alt);
+}
+.dt-initiator-insight[data-kind='failure'] {
+  border-color: var(--dt-status-red);
+}
+.dt-initiator-insight[data-kind='host'] {
+  border-color: var(--dt-link);
+}
+.dt-initiator-insight[data-kind='third-party'] {
+  border-color: var(--dt-status-orange);
+}
+.dt-initiator-insight-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.dt-initiator-insight-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.dt-initiator-insight-headline {
+  font-size: 12px;
+  line-height: 1.4;
+}
+.dt-initiator-insight-hint {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--dt-text-muted);
+}
+
+/* Quick filter toggles + sort. */
+.dt-initiator-quick-toggles {
+  display: inline-flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.dt-initiator-quick-toggle {
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--dt-border);
+  background: var(--dt-bg);
+  color: var(--dt-text);
+  cursor: pointer;
+}
+.dt-initiator-quick-toggle:hover {
+  background: var(--dt-row-hover);
+}
+.dt-initiator-quick-toggle[data-active='true'] {
+  background: var(--dt-row-selected);
+  border-color: var(--dt-link);
+  color: var(--dt-text);
+}
+.dt-initiator-sort-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--dt-text-muted);
+}
+.dt-initiator-sort-select select {
+  font: inherit;
+  font-size: 11px;
+  padding: 1px 4px;
+  background: var(--dt-bg);
+  color: var(--dt-text);
+  border: 1px solid var(--dt-border);
+  border-radius: 3px;
+}
+
+/* Row icons + chips. */
+.dt-initiator-chain-row {
+  flex-wrap: wrap;
+}
+.dt-initiator-row-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  color: var(--dt-text-muted);
+}
+.dt-initiator-row-chips {
+  margin-left: auto;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  flex-shrink: 0;
+  padding-right: 8px;
+}
+.dt-initiator-row-chip {
+  display: inline-block;
+  padding: 0 5px;
+  border-radius: 3px;
+  background: var(--dt-row-hover);
+  color: var(--dt-text);
+  font-size: 10px;
+  line-height: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.dt-initiator-row-chip[data-tone='warn'] {
+  background: rgba(230, 138, 0, 0.18);
+  color: var(--dt-status-red);
+}
+.dt-initiator-row-chip[data-tone='good'] {
+  background: rgba(0, 168, 0, 0.15);
+}
+.dt-initiator-row-chip[data-tone='muted'] {
+  background: var(--dt-row-hover);
+  color: var(--dt-text-muted);
+}
