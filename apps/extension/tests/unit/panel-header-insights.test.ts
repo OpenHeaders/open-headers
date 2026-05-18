@@ -79,7 +79,7 @@ describe('computeHeaderInsights', () => {
     expect(ins?.title).toMatch(/`a`/);
   });
 
-  it('produces a cache summary for max-age', () => {
+  it('does not emit an info-only cache summary (chip on the row carries it)', () => {
     const out = computeHeaderInsights({
       url: 'https://api.openheaders.io/x',
       mimeType: 'application/json',
@@ -87,10 +87,10 @@ describe('computeHeaderInsights', () => {
       requestHeaders: [],
       responseHeaders: [h('Cache-Control', 'public, max-age=3600')],
     });
-    expect(findInsight(out, 'cache-summary')?.title).toBe('Cache: fresh 1h');
+    expect(findInsight(out, 'cache-summary')).toBeUndefined();
   });
 
-  it('decodes a JWT in the Authorization header and reports exp', () => {
+  it('does not emit info-only JWT details (row chip carries alg/exp)', () => {
     const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
     const exp = 1_700_000_000;
     const payload = Buffer.from(JSON.stringify({ sub: 'u', exp })).toString('base64url');
@@ -104,9 +104,7 @@ describe('computeHeaderInsights', () => {
       },
       exp * 1000 - 3600 * 1000,
     );
-    const info = findInsight(out, 'jwt-info');
-    expect(info?.title).toMatch(/RS256/);
-    expect(info?.title).toMatch(/1h/);
+    expect(findInsight(out, 'jwt-info')).toBeUndefined();
   });
 
   it('flags expired JWT as err', () => {
@@ -126,14 +124,18 @@ describe('computeHeaderInsights', () => {
     expect(findInsight(out, 'jwt-expired')?.severity).toBe('err');
   });
 
-  it('reports compression encoding', () => {
+  it('does not emit a compression insight (General row + chip carry it)', () => {
     const out = computeHeaderInsights({
       url: 'https://www.openheaders.io',
       mimeType: 'text/html',
       statusCode: 200,
       requestHeaders: [],
-      responseHeaders: [h('Content-Encoding', 'br'), h('Content-Security-Policy', "default-src 'self'"), h('Strict-Transport-Security', 'max-age=31536000')],
+      responseHeaders: [
+        h('Content-Encoding', 'br'),
+        h('Content-Security-Policy', "default-src 'self'"),
+        h('Strict-Transport-Security', 'max-age=31536000'),
+      ],
     });
-    expect(findInsight(out, 'compression')?.title).toBe('Compressed: br');
+    expect(findInsight(out, 'compression')).toBeUndefined();
   });
 });

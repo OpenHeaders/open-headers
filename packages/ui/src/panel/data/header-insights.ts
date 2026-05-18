@@ -10,7 +10,7 @@
  * unambiguous. Don't nag.
  */
 
-import { parseAuthorization, parseCacheControl, parseContentType, parseHsts, parseSetCookie } from './header-value-introspection';
+import { parseAuthorization, parseHsts, parseSetCookie } from './header-value-introspection';
 
 export type InsightSeverity = 'info' | 'warn' | 'err';
 
@@ -146,19 +146,6 @@ export function computeHeaderInsights(inputs: HeaderInsightInputs, nowMs = Date.
     }
   }
 
-  // ── Cache-Control: fresh / no-store / bypassed summary ──────
-  const cc = lookup(responseHeaders, 'cache-control');
-  if (cc) {
-    const parsed = parseCacheControl(cc);
-    if (parsed.summary) {
-      out.push({
-        id: 'cache-summary',
-        severity: 'info',
-        title: `Cache: ${parsed.summary}`,
-      });
-    }
-  }
-
   // ── Missing CSP on HTML response ────────────────────────────
   if (isHtmlResponse(mimeType)) {
     const hasCsp = !!lookup(responseHeaders, 'content-security-policy');
@@ -227,27 +214,11 @@ export function computeHeaderInsights(inputs: HeaderInsightInputs, nowMs = Date.
             severity: 'warn',
             title: `JWT expires in ${formatRelative(exp)}`,
           });
-        } else {
-          const alg = typeof parsed.jwtHeader?.alg === 'string' ? parsed.jwtHeader.alg : 'unknown';
-          out.push({
-            id: 'jwt-info',
-            severity: 'info',
-            title: `Auth: Bearer JWT (alg ${alg}, exp ${formatRelative(exp)})`,
-          });
         }
-      } else {
-        const alg = typeof parsed.jwtHeader?.alg === 'string' ? parsed.jwtHeader.alg : 'unknown';
-        out.push({ id: 'jwt-info', severity: 'info', title: `Auth: Bearer JWT (alg ${alg})` });
+        // Non-expired JWT: row chips already show alg + exp; no insight.
       }
-    } else if (parsed) {
-      out.push({ id: 'auth-info', severity: 'info', title: `Auth: ${parsed.scheme}` });
+      // Non-JWT / no-exp JWT details live on the row chip; no insight.
     }
-  }
-
-  // ── Compression: encoding summary ──────────────────────────
-  const enc = lookup(responseHeaders, 'content-encoding');
-  if (enc) {
-    out.push({ id: 'compression', severity: 'info', title: `Compressed: ${enc}` });
   }
 
   // ── Content-Type missing on response body ──────────────────
@@ -265,15 +236,6 @@ export function computeHeaderInsights(inputs: HeaderInsightInputs, nowMs = Date.
         label: 'Add Content-Type',
       },
     });
-  } else if (ct) {
-    const parsed = parseContentType(ct);
-    if (parsed.type.startsWith('text/') && !parsed.charset) {
-      out.push({
-        id: 'text-no-charset',
-        severity: 'info',
-        title: `Content-Type \`${parsed.type}\` has no charset`,
-      });
-    }
   }
 
   return out;
