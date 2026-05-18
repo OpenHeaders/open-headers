@@ -79,14 +79,12 @@
 
 /* Pane wrapper. */
 .dt-headers-pane {
-  /* Section summaries (General / Response / Request) stick BELOW
-   * the filter toolbar instead of overlapping it. `--oh-headers-toolbar-h`
-   * is published by `useMeasuredCssHeights` (see HeadersView.tsx); the
-   * fallback covers the unmeasured first paint. */
-  /* -1px overlaps the filter toolbar's bottom border to absorb the
-   * sub-pixel rounding of integer `offsetHeight` — see initiator.css
-   * for the same trick on the ancestor sticky stack. */
-  --dt-section-sticky-top: calc(var(--oh-headers-toolbar-h, 30px) - 1px);
+  /* Section summaries (General / Response / Request) stick BELOW the
+   * filter toolbar. `--oh-headers-toolbar-h` is published by
+   * `useMeasuredCssHeights` (see HeadersView.tsx) with subpixel
+   * precision via getBoundingClientRect, so the join is flush — no
+   * `-1px` overlap needed to absorb integer rounding. */
+  --dt-section-sticky-top: var(--oh-headers-toolbar-h, 30px);
   --oh-headers-sticky-offset: calc(var(--oh-headers-toolbar-h, 30px) + var(--oh-headers-summary-h, 24px));
 }
 

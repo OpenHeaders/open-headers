@@ -117,7 +117,7 @@ registerSetting({
 registerSetting({
   key: 'devpanelCookies.groupByRole',
   type: 'boolean',
-  default: false,
+  default: true,
   schema: v.boolean(),
   label: 'Group by Role',
   description:

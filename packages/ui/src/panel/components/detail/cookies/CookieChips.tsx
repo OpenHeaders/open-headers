@@ -32,6 +32,10 @@ interface CookieChipsProps {
    *  reject it (missing Secure + SameSite=None, __Host- violation, …).
    *  Inferred at insight-compute time from the same rules. */
   dropped: boolean;
+  /** When the surface groups rows by role, the role chip duplicates
+   *  the group heading on every row. The lifecycle and context chips
+   *  still carry unique signal and stay visible. */
+  suppressRoleChip?: boolean;
 }
 
 function Chip({ tone, label, title }: { tone: 'ok' | 'warn' | 'err' | 'info' | 'role'; label: string; title?: string }) {
@@ -42,8 +46,8 @@ function Chip({ tone, label, title }: { tone: 'ok' | 'warn' | 'err' | 'info' | '
   );
 }
 
-export function CookieChips({ row, role, vendor, problem, thirdParty, dropped }: CookieChipsProps) {
-  const roleLabel = roleChipLabel(role);
+export function CookieChips({ row, role, vendor, problem, thirdParty, dropped, suppressRoleChip }: CookieChipsProps) {
+  const roleLabel = suppressRoleChip ? '' : roleChipLabel(role);
   const roleTooltip = (() => {
     if (vendor) {
       const noun =

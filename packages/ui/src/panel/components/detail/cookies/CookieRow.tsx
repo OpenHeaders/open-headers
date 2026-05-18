@@ -40,6 +40,9 @@ interface Props {
   expiresFormat: 'relative' | 'absolute';
   decodeValues: boolean;
   showChips: boolean;
+  /** Hide just the role chip — the surface groups by role and the
+   *  group heading already names it. Lifecycle / context chips stay. */
+  suppressRoleChip: boolean;
   introspection: CookieValueIntrospection;
   now: number;
   /** Column count for the expander's colSpan — derived from the
@@ -68,6 +71,7 @@ export function CookieRow({
   expiresFormat,
   decodeValues,
   showChips,
+  suppressRoleChip,
   introspection,
   now,
   columnSpan,
@@ -130,6 +134,7 @@ export function CookieRow({
               problem={problem}
               thirdParty={thirdParty}
               dropped={dropped}
+              suppressRoleChip={suppressRoleChip}
             />
           )}
         </td>

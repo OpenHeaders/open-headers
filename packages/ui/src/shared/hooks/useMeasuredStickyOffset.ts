@@ -1,14 +1,24 @@
 import { useEffect, type RefObject } from 'react';
 
 /**
- * Publishes each element's `offsetHeight` as a CSS custom property on
- * `targetRef`, refreshed whenever any source element resizes.
+ * Publishes each element's rendered height as a CSS custom property
+ * on `targetRef`, refreshed whenever any source element resizes.
  *
  * Use this to drive `position: sticky` / `scroll-margin-top` values
  * from the actual rendered height of a header/toolbar/stack instead
  * of hand-measured constants. Once published, downstream CSS can
  * `top: var(--my-toolbar-h)` and `scroll-margin-top: calc(...)` from
  * the same source of truth.
+ *
+ * **Subpixel-precise.** We use `getBoundingClientRect().height` rather
+ * than `offsetHeight` so the published value carries the fractional
+ * part. `offsetHeight` rounds to an integer, which leaves a 0.5-1px
+ * transparent hairline between stacked sticky rows whenever the real
+ * content height isn't a whole pixel (common with non-integer
+ * font-size / line-height / border combinations). Subpixel
+ * measurement removes the rounding gap at the source — surfaces that
+ * stack sticky elements no longer need the `top: calc(... - 1px)`
+ * overlap trick to absorb the error.
  *
  * When a ref is null the variable is removed; when an element resizes
  * to 0px the variable is set to `0px` (so consumers can always rely on
@@ -32,7 +42,9 @@ export function useMeasuredCssHeights(
         target.style.removeProperty(cssVar);
         return;
       }
-      target.style.setProperty(cssVar, `${el.offsetHeight}px`);
+      // Subpixel-precise. See the doc comment above.
+      const h = el.getBoundingClientRect().height;
+      target.style.setProperty(cssVar, `${h}px`);
     };
 
     for (const { ref, cssVar } of entries) {

@@ -258,12 +258,10 @@
  * — they're plain `position: static` rows within the sticky parent. */
 .dt-initiator-sticky-stack {
   position: sticky;
-  /* Sits flush under the filter toolbar. `useMeasuredCssHeights`
-   * publishes integer `offsetHeight` values, so sub-pixel filter
-   * heights would round-trip to a hairline gap. Pin 1px ABOVE the
-   * reported bottom so the stack's opaque bg overlaps the toolbar's
-   * border-bottom — guaranteed no bleed-through. */
-  top: calc(var(--oh-init-summary-h, 24px) + var(--oh-init-toolbar-h, 30px) - 1px);
+  /* Sits flush under the filter toolbar. `useMeasuredCssHeights` now
+   * publishes subpixel-precise heights via getBoundingClientRect, so
+   * no `-1px` overlap is needed to absorb integer-rounding hairlines. */
+  top: calc(var(--oh-init-summary-h, 24px) + var(--oh-init-toolbar-h, 30px));
   z-index: 2;
   display: flex;
   flex-direction: column;
@@ -309,10 +307,9 @@
   padding: 4px 12px;
   position: sticky;
   /* Sits flush below the section summary — height is published by
-   * useMeasuredCssHeights. Integer `offsetHeight` can round below
-   * the real sub-pixel summary height, so pin 1px higher and let the
-   * toolbar's opaque bg overlap the summary's border-bottom. */
-  top: calc(var(--oh-init-summary-h, 24px) - 1px);
+   * useMeasuredCssHeights with subpixel precision (getBoundingClientRect),
+   * so no `-1px` overlap is needed to absorb rounding. */
+  top: var(--oh-init-summary-h, 24px);
   z-index: 2;
   background: var(--dt-bg);
   border-bottom: 1px solid var(--dt-border);

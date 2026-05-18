@@ -7,7 +7,11 @@
  *   - Security gets a 3-glyph cell (S H L) — colour carries the load. */
 
 .dt-cookies-pane {
-  --dt-section-sticky-top: calc(var(--oh-cookies-toolbar-h, 30px) - 1px);
+  /* Subpixel-precise heights from `useMeasuredCssHeights` (see the
+   * hook's doc comment) — no `-1px` overlap needed to absorb integer
+   * `offsetHeight` rounding. Sticky rows land flush against each
+   * other. */
+  --dt-section-sticky-top: var(--oh-cookies-toolbar-h, 30px);
   --oh-cookies-sticky-offset: calc(var(--oh-cookies-toolbar-h, 30px) + var(--oh-cookies-summary-h, 24px));
 }
 
@@ -71,18 +75,15 @@
   background: var(--dt-bg);
   /* Sticky column-header row, docked below the section summary.
    * The summary sticks at `--dt-section-sticky-top` (≈ toolbar height);
-   * the thead sticks at `--oh-cookies-sticky-offset` (toolbar + summary).
-   * Each <details> contains its own table, so the browser exits the
-   * sticky state for one section's thead as the table scrolls past
-   * and docks the next section's thead in turn.
+   * the thead sticks at `--oh-cookies-sticky-offset` (toolbar +
+   * summary). Each <details> contains its own table, so the browser
+   * exits the sticky state for one section's thead as the table
+   * scrolls past and docks the next section's thead in turn.
    *
-   * `-1px` overlaps the summary's bottom border — same trick as the
-   * Initiator chain-filter — to absorb the sub-pixel rounding of
-   * integer `offsetHeight` published by `useMeasuredCssHeights`. The
-   * thead's opaque background covers the 1px overlap so the join
-   * reads as a single seam, never a transparent hairline. */
+   * No `-1px` overlap — `useMeasuredCssHeights` publishes subpixel-
+   * precise values via getBoundingClientRect, so the join is flush. */
   position: sticky;
-  top: calc(var(--oh-cookies-sticky-offset, 54px) - 1px);
+  top: var(--oh-cookies-sticky-offset, 54px);
   z-index: 2;
 }
 /* Column head — label + always-visible `(i)` trigger sit on one line.
@@ -309,7 +310,29 @@
   color: color-mix(in srgb, var(--dt-text-muted) 60%, transparent);
 }
 
-/* Role group headings (inside tbody) when Group by role is on. */
+/* Role group headings (inside tbody) when Group by role is on.
+ *
+ * Sticky stack on this surface, top to bottom:
+ *   1. filter toolbar          (`top: 0`)
+ *   2. section summary         (`top: --dt-section-sticky-top`)
+ *   3. column-header `<th>`    (`top: --oh-cookies-sticky-offset - 1px`)
+ *   4. role group heading      (this rule)
+ *
+ * The 1px overlap trick (same as the thead row) absorbs the sub-pixel
+ * rounding from integer `offsetHeight`. `--oh-cookies-thead-h`
+ * defaults to the rendered thead height — overridable from JS later
+ * if it ever drifts (kept as a CSS var so the dock-resize doesn't
+ * desync the offset). */
+.dt-cookie-role-heading {
+  /* `<tr>` accepts position:sticky in every Chromium browser we ship
+   * to; otherwise the `<td>` inside would have to carry sticky.
+   * `--oh-cookies-thead-h` is published per-section with subpixel
+   * precision by useMeasuredCssHeights, so the heading lands flush
+   * under the column-header row — no `-1px` workaround. */
+  position: sticky;
+  top: calc(var(--oh-cookies-sticky-offset, 54px) + var(--oh-cookies-thead-h, 20px));
+  z-index: 1;
+}
 .dt-cookie-role-heading > td {
   padding: 4px 6px 2px 6px;
   font-size: 9px;
@@ -317,7 +340,10 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--dt-text-muted);
-  background: color-mix(in srgb, var(--dt-row-hover) 70%, transparent);
+  /* Solid background, NOT a color-mix with transparency — sticky rows
+   * overlap rows below them as the user scrolls, so any translucency
+   * here leaks the underlying cookie row through the heading. */
+  background: var(--dt-bg);
   border-bottom: 1px solid var(--dt-border);
 }
 .dt-cookie-role-count {

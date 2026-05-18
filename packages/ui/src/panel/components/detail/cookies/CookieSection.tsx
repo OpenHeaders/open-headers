@@ -8,7 +8,8 @@
  * columns into one glyph cell.
  */
 
-import { useMemo, type RefObject } from 'react';
+import { useMemo, useRef, type RefObject } from 'react';
+import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/useMeasuredStickyOffset';
 import type { CookieRow as CookieRowModel } from '../../../data/cookie-model';
 import type { CookieFilterToken, CookieRowMeta } from '../../../data/cookie-filter';
 import { matchesCookieQuery } from '../../../data/cookie-filter';
@@ -121,6 +122,18 @@ export function CookieSection({
   summaryRef,
   onMakeRule,
 }: Props) {
+  // Measure the actual rendered thead height so the sticky role
+  // heading's `top: …` lands flush against the column-header row,
+  // not 0.5-1px above or below it (the gap the hardcoded 20px
+  // fallback used to leave when fonts / borders rendered at
+  // fractional heights). Published to the section's own root so the
+  // var inherits to descendants — siblings get their own value.
+  const sectionRef = useRef<HTMLDetailsElement | null>(null);
+  const theadRef = useRef<HTMLTableSectionElement | null>(null);
+  useMeasuredCssHeights(sectionRef as RefObject<HTMLElement | null>, [
+    { ref: theadRef as RefObject<HTMLElement | null>, cssVar: '--oh-cookies-thead-h' },
+  ]);
+
   const prepared = useMemo<readonly PreparedRow[]>(() => {
     return rows.map((row) => {
       const meta = metaFor(row, problemNames, pageOrigin, now);
@@ -167,6 +180,7 @@ export function CookieSection({
       expiresFormat={expiresFormat}
       decodeValues={decodeValues}
       showChips={showChips}
+      suppressRoleChip={groupByRole}
       introspection={p.introspection}
       now={now}
       columnSpan={COLUMN_SPAN}
@@ -198,7 +212,7 @@ export function CookieSection({
   }
 
   return (
-    <details className="dt-section dt-cookie-section" open data-direction={direction}>
+    <details className="dt-section dt-cookie-section" open data-direction={direction} ref={sectionRef}>
       <summary ref={summaryRef ?? undefined}>
         <span className="dt-cookie-section-title">{label}</span>
         <span className="dt-cookie-section-count">
@@ -217,7 +231,7 @@ export function CookieSection({
             <col className="dt-cookie-col--size" />
             <col className="dt-cookie-col--sec" />
           </colgroup>
-          <thead>
+          <thead ref={theadRef}>
             <tr>
               <th>
                 <span className="dt-cookie-col-head">

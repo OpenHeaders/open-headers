@@ -86,7 +86,7 @@ export function CookieViewMenu(props: CookieViewMenuProps) {
     (props.decodeValues ? 1 : 0) +
     (!props.showInsights ? 1 : 0) +
     (!props.showChips ? 1 : 0) +
-    (props.groupByRole ? 1 : 0);
+    (!props.groupByRole ? 1 : 0);
   const active = activeCount > 0;
 
   const content = (
