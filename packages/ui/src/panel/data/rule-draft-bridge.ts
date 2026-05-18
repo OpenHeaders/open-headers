@@ -9,9 +9,17 @@
  */
 
 import { hostBridge } from '@openheaders/core/bridge';
-import type { HeaderRuleDraft, RuleDraft } from '@openheaders/core/types';
+import type {
+  BlockRuleDraft,
+  DelayRuleDraft,
+  HeaderRuleDraft,
+  RedirectRuleDraft,
+  RuleDraft,
+} from '@openheaders/core/types';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import type { InspectorRequest } from './types';
+
+const HOST_PLACEHOLDER = 'NEW_HOST';
 
 /** Build a RuleDraft for a header rule pre-filled from a request. */
 export function buildHeaderDraftFromRequest(
@@ -34,6 +42,41 @@ export function buildHeaderDraftFromRequest(
     return { ...base, requestHeaders: [mod] };
   }
   return { ...base, responseHeaders: [mod] };
+}
+
+/** Build a draft for a redirect rule pointing at the SAME url — the
+ *  editor's redirectTo field opens empty for the user to fill. */
+export function buildRedirectDraftFromRequest(request: InspectorRequest): RedirectRuleDraft {
+  return { type: 'redirect', url: request.url, redirectTo: '' };
+}
+
+/** Build a "replace host" redirect — preserves path/query but swaps
+ *  the host for a clearly-marked placeholder so the user only has to
+ *  replace one chunk. */
+export function buildReplaceHostDraftFromRequest(request: InspectorRequest): RedirectRuleDraft {
+  let target = request.url;
+  try {
+    const u = new URL(request.url);
+    u.host = HOST_PLACEHOLDER;
+    target = u.toString();
+  } catch {
+    // leave target as-is for non-URL values
+  }
+  return { type: 'redirect', url: request.url, redirectTo: target };
+}
+
+/** Build a "replace URL part" redirect — copies the request URL into
+ *  the target verbatim, so the user can edit any segment in place. */
+export function buildReplaceUrlPartDraftFromRequest(request: InspectorRequest): RedirectRuleDraft {
+  return { type: 'redirect', url: request.url, redirectTo: request.url };
+}
+
+export function buildDelayDraftFromRequest(request: InspectorRequest, delayMs = 1000): DelayRuleDraft {
+  return { type: 'delay', url: request.url, delayMs };
+}
+
+export function buildBlockDraftFromRequest(request: InspectorRequest): BlockRuleDraft {
+  return { type: 'block', url: request.url };
 }
 
 /**
