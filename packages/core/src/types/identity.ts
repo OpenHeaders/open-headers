@@ -14,6 +14,7 @@ import type {
   OrgSchema,
   SessionSchema,
   SessionSourceSchema,
+  SyntheticIdentityRecordSchema,
   UserIdentityKindSchema,
   UserIdentitySchema,
   UserSchema,
@@ -27,3 +28,11 @@ export type User = v.InferOutput<typeof UserSchema>;
 export type Org = v.InferOutput<typeof OrgSchema>;
 export type UserIdentity = v.InferOutput<typeof UserIdentitySchema>;
 export type Session = v.InferOutput<typeof SessionSchema>;
+
+/**
+ * Persisted synthetic-identity row tuple (User + Org + UserIdentity +
+ * Session + OrgMembership + Principal + LocalAdmin). Lives under
+ * `OH.syntheticIdentity`; produced by `bootstrapSyntheticIdentity` and
+ * consumed by every host-side resolver call once Phase U2 lands.
+ */
+export type SyntheticIdentityRecord = v.InferOutput<typeof SyntheticIdentityRecordSchema>;

@@ -13,6 +13,7 @@ import '@/host/install-host-storage';
 import '@/host/install-host-bridge';
 import '@/host/install-host-logger';
 import '@/host/install-lifeline-server';
+import { ensureSyntheticIdentity } from '@openheaders/core/identity';
 import type { Rule, TreeNode } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
 import { isRuleEffective } from '@openheaders/core/utils';
@@ -505,6 +506,19 @@ async function initializeExtension(): Promise<void> {
     return;
   }
   extensionInitialized = true;
+
+  // U1.6 — materialize the synthetic identity-row tuple before any
+  // privileged-path code runs (UNIFIED_ORACLE_MODEL.md §5.2 / §12 step 2).
+  // Idempotent across SW cold-wakes; first-boot mints `host-install-id`
+  // too. Browsers don't surface an OS username from the SW context, so
+  // the synthetic User starts with the default `displayName: 'Local'`
+  // and updates only via promotion (§5.4 step 1) — never touching
+  // `User.id`. Failures here are best-effort: the resolver wire-up
+  // (Phase U2) will fall back to ALLOW until the row tuple is present,
+  // matching the spec's "synthetic rows resolve to ALLOW" contract.
+  await ensureSyntheticIdentity().catch((err: unknown) => {
+    logger.warn('Background', 'ensureSyntheticIdentity failed', err);
+  });
 
   // Pull the observability ring back into memory before subsystems
   // record their first post-wake events — a dropped startup window

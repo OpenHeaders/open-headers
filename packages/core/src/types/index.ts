@@ -246,6 +246,7 @@ export type {
   OrgDeploymentMode,
   Session,
   SessionSource,
+  SyntheticIdentityRecord,
   User,
   UserIdentity,
   UserIdentityKind,

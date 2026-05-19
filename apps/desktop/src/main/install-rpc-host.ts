@@ -54,6 +54,7 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import { setHostBridge } from '@openheaders/core/bridge';
 import { SYNC_AWARENESS_PRESENCE_TYPE } from '@openheaders/core/protocol';
 import type { AwarenessState } from '@openheaders/core/protocol';
+import { ensureSyntheticIdentity } from '@openheaders/core/identity';
 import { logger as consoleLogger } from '@openheaders/core/utils';
 import { setHostLogger } from '@openheaders/core/logger';
 import { setHostStorage } from '@openheaders/core/storage';
@@ -80,6 +81,7 @@ import { setBlobBackend } from '@openheaders/oracle/files';
 import { FileSystemBlobBackend } from '@openheaders/oracle/files/fs-blob-backend';
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
 import * as path from 'node:path';
+import * as os from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { installHostStorage } from './install-host-storage';
 import { installLifelineServer } from './install-lifeline-server';
@@ -97,6 +99,19 @@ import { installActivityPruneScheduler } from './activity-prune-scheduler';
 
 const RPC_CHANNEL = 'oh:rpc';
 const BROADCAST_CHANNEL = 'oh:broadcast';
+
+/**
+ * Best-effort OS username for seeding the synthetic User's
+ * `displayName` on first boot. Falls back to `'Local'` if `os.userInfo`
+ * throws (rare; happens in some sandboxed CI environments).
+ */
+function safeOsUsername(): string {
+  try {
+    return os.userInfo().username || 'Local';
+  } catch {
+    return 'Local';
+  }
+}
 
 // Captured at boot. The host-hook closures below fan to both renderers
 // and connected WS peers; the WS server is null until `startOracleWsServer`
@@ -134,6 +149,13 @@ export async function installRpcHost(): Promise<void> {
   setHostLogger(consoleLogger);
   const { backend: hostStorage } = installHostStorage();
   setHostStorage(hostStorage);
+  // U1.6 / U1.7 — materialize the synthetic identity-row tuple before
+  // any privileged-path code runs (UNIFIED_ORACLE_MODEL.md §5.2 / §12
+  // step 2). Idempotent across boots; first-boot mints the
+  // host-install-id seed too. Display name seeds the synthetic User
+  // row's `displayName` on first boot only — promotion (§5.4 step 1)
+  // overwrites it without touching `User.id`.
+  await ensureSyntheticIdentity({ displayName: safeOsUsername() });
   setLockRuntime(singleProcessLockRuntime);
   installLifelineServer();
   const syncPersistence = createSqliteSyncPersistence({

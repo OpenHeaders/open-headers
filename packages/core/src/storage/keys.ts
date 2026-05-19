@@ -30,6 +30,7 @@ import type {
   LogEntry,
   Request,
   Rule,
+  SyntheticIdentityRecord,
   Template,
   Vault,
   ViewMode,
@@ -168,6 +169,17 @@ export const OH = {
    * `ensureDaemonConfig` (in `../identity`) is the host-neutral writer.
    */
   daemonConfig: storageKey<DaemonConfig>('oh.daemonConfig'),
+  /**
+   * Synthetic identity-row tuple materialized at host boot (User + Org +
+   * UserIdentity + Session + OrgMembership + Principal + LocalAdmin per
+   * UNIFIED_ORACLE_MODEL.md §5.2). Persisted as one blob so a single
+   * storage write satisfies the §5.2 "single transaction" requirement
+   * even on backends without multi-row transactionality.
+   *
+   * `ensureSyntheticIdentity` (in `../identity`) is the host-neutral
+   * writer; deterministic in `OH.daemonConfig.hostInstallId`.
+   */
+  syntheticIdentity: storageKey<SyntheticIdentityRecord>('oh.syntheticIdentity'),
 } as const;
 
 /**

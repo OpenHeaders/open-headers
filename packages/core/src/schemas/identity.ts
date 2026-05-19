@@ -15,6 +15,11 @@
 
 import * as v from 'valibot';
 import { UuidV7Schema } from './common';
+import {
+  DaemonAdminSchema,
+  OrgMembershipSchema,
+  PrincipalSchema,
+} from './identity-acl';
 
 // ── Enums ──────────────────────────────────────────────────────────
 
@@ -103,4 +108,30 @@ export const SessionSchema = v.object({
   source: SessionSourceSchema,
   createdAt: v.string(),
   revokedAt: v.nullable(v.string()),
+});
+
+// ── Persistence shape for the synthetic-identity bootstrap tuple ───
+
+/**
+ * The full row tuple every host materializes at boot
+ * (UNIFIED_ORACLE_MODEL.md §5.2 — User + Org + UserIdentity + Session +
+ * OrgMembership + Principal + LocalAdmin). Composed from the per-entity
+ * schemas so a single boundary parse validates the whole record.
+ *
+ * Persisted as one blob under `OH.syntheticIdentity` (see
+ * `../storage/keys.ts`) — one storage write satisfies the §5.2
+ * "single transaction" implementation note on hosts whose backend
+ * doesn't natively offer multi-row transactionality.
+ *
+ * Per-workspace `WorkspaceRoleAssignment` rows ride their own slot
+ * (U1.8) and are not part of this record.
+ */
+export const SyntheticIdentityRecordSchema = v.object({
+  user: UserSchema,
+  org: OrgSchema,
+  userIdentity: UserIdentitySchema,
+  session: SessionSchema,
+  membership: OrgMembershipSchema,
+  principal: PrincipalSchema,
+  localAdmin: DaemonAdminSchema,
 });

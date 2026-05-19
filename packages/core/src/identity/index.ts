@@ -23,4 +23,8 @@ export {
 } from './bootstrap';
 export { deriveSyntheticUuidV7, SYNTHETIC_SEEDS } from './derive-uuid';
 export { ensureDaemonConfig } from './ensure-daemon-config';
+export {
+  ensureSyntheticIdentity,
+  type EnsureSyntheticIdentityInput,
+} from './ensure-synthetic-identity';
 export { mintHostInstallId } from './host-install-id';

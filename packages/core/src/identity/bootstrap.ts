@@ -25,6 +25,7 @@ import type {
   OrgMembership,
   Principal,
   Session,
+  SyntheticIdentityRecord,
   User,
   UserIdentity,
 } from '../types';
@@ -55,17 +56,14 @@ export interface BootstrapSyntheticIdentityInput {
   now: string;
 }
 
-/** The synthetic-row tuple every host materializes at boot. */
-export interface BootstrapSyntheticIdentityResult {
-  user: User;
-  org: Org;
-  userIdentity: UserIdentity;
-  session: Session;
-  membership: OrgMembership;
-  principal: Principal;
-  /** Auto-assigned LocalAdmin row (`isLocal: true`) per §9.4. */
-  localAdmin: DaemonAdmin;
-}
+/**
+ * The synthetic-row tuple every host materializes at boot. Identical in
+ * shape to the persisted `SyntheticIdentityRecord` (see
+ * `../schemas/identity.ts`) — the alias documents call-site intent
+ * (return-value of a pure helper) without diverging from the persisted
+ * shape.
+ */
+export type BootstrapSyntheticIdentityResult = SyntheticIdentityRecord;
 
 /**
  * Compute the synthetic identity-row tuple for a host. Deterministic in

@@ -6,6 +6,7 @@ export {
   OrgSchema,
   SessionSchema,
   SessionSourceSchema,
+  SyntheticIdentityRecordSchema,
   UserIdentityKindSchema,
   UserIdentitySchema,
   UserSchema,
