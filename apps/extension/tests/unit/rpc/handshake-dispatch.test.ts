@@ -63,6 +63,8 @@ describe('evaluateHello', () => {
     const outcome = await evaluateHello(validHello as unknown as Record<string, unknown>, localIdentity);
     expect(outcome.kind).toBe('accept');
     if (outcome.kind !== 'accept') return;
+    // Loopback bind — trust-by-process, no token gate, null join key.
+    expect(outcome.tokenId).toBeNull();
     expect(outcome.welcome.accepted).toBe(true);
     expect(outcome.welcome.type).toBe(SYNC_WELCOME_TYPE);
     if (outcome.welcome.accepted) {
@@ -165,6 +167,9 @@ describe('evaluateHello', () => {
         },
       );
       expect(outcome.kind).toBe('accept');
+      // The validated token id is threaded onto the accept outcome so
+      // the host can stamp it on the PeerConnection (U3.4 join key).
+      if (outcome.kind === 'accept') expect(outcome.tokenId).toBe('token-123');
     });
 
     it('is a no-op when requireAuth is false even without a token', async () => {
@@ -174,6 +179,7 @@ describe('evaluateHello', () => {
         { requireAuth: false },
       );
       expect(outcome.kind).toBe('accept');
+      if (outcome.kind === 'accept') expect(outcome.tokenId).toBeNull();
     });
   });
 });

@@ -349,6 +349,13 @@ export async function installRpcHost(): Promise<void> {
       if (code) pairingService.cancel(code);
       return { ok: true };
     }
+    if (type === 'oh.daemon.tokens.connected') {
+      // Live ws-server state, not hostStorage — projected for the
+      // "Known devices" admin surface (U3.4). Empty while loopback-only
+      // (`wsServer` non-null but no LAN peers) or mid-rebind (null).
+      const ids = wsServer?.connectedTokenIds();
+      return { tokenIds: ids ? [...ids] : [] };
+    }
     const result = dispatchSyncRpc(message);
     if (result === null) {
       // Anything outside the 22 sync+awareness channels — chrome.tabs,

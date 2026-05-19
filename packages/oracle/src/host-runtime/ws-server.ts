@@ -120,6 +120,13 @@ export interface OracleWsServer {
   broadcastFrame(frame: Record<string, unknown>): void;
   /** Number of connected peers past handshake — used for status logs. */
   connectedCount(): number;
+  /**
+   * The set of `DaemonAuthToken` ids that map to a peer connected
+   * right now. Derived live from the peer registry — no independent
+   * bookkeeping. Loopback peers (no token gate) carry a null tokenId
+   * and are excluded. Feeds the admin "Known devices" surface (U3.4).
+   */
+  connectedTokenIds(): ReadonlySet<string>;
   /** Stop accepting connections and close all open ones. Idempotent. */
   close(): Promise<void>;
 }
@@ -247,6 +254,7 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
             agent: outcome.hello.agent,
             workspaceId: outcome.hello.workspaceId,
             protocolVersion: outcome.hello.protocolVersion,
+            tokenId: outcome.tokenId,
             send: (frame) => {
               if (socket.readyState !== WebSocket.OPEN) return false;
               try {
@@ -358,6 +366,13 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
     },
     connectedCount() {
       return ready.size;
+    },
+    connectedTokenIds() {
+      const ids = new Set<string>();
+      for (const peer of peerBySocket.values()) {
+        if (peer.tokenId !== null) ids.add(peer.tokenId);
+      }
+      return ids;
     },
     async close() {
       if (closed) return;

@@ -77,6 +77,13 @@ export interface PeerConnection {
   readonly connectedAt: number;
   /** Phase-D auth context; null in Phase C. */
   readonly claims: PeerClaims | null;
+  /**
+   * The `DaemonAuthToken` id this peer authenticated with at HELLO, or
+   * null for loopback connections (trust-by-process, no token gate).
+   * This is the join key the admin "Known devices" surface (U3.4) uses
+   * to mark which ledger entries map to a peer connected right now.
+   */
+  readonly tokenId: string | null;
 
   /** False once `close` has been called or the underlying transport reported a close. */
   isOpen(): boolean;
@@ -106,6 +113,8 @@ export interface PeerConnectionSpec {
   readonly workspaceId: string;
   readonly protocolVersion: number;
   readonly claims?: PeerClaims | null;
+  /** Validated daemon-auth-token id, or null for loopback peers. */
+  readonly tokenId?: string | null;
   /** Underlying transport write. Returning false signals a closed/errored socket. */
   readonly send: (frame: object) => boolean;
   /** Underlying transport close. */
@@ -126,6 +135,7 @@ export function createPeerConnection(spec: PeerConnectionSpec): PeerConnection {
     protocolVersion: spec.protocolVersion,
     connectedAt,
     claims: spec.claims ?? null,
+    tokenId: spec.tokenId ?? null,
     isOpen: () => open,
     reply: (frame) => {
       if (!open) return false;

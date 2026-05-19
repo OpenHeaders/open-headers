@@ -79,6 +79,13 @@ export type EvaluateHelloOutcome =
       readonly kind: 'accept';
       readonly hello: SyncHelloMessage;
       readonly welcome: SyncWelcomeMessage;
+      /**
+       * The `DaemonAuthToken` id the peer authenticated with, or null
+       * when the bind is loopback (`requireAuth` off — trust-by-process).
+       * The host stamps this onto the {@link PeerConnection} so the
+       * admin "Known devices" surface can join live peers to the ledger.
+       */
+      readonly tokenId: string | null;
     }
   | {
       readonly kind: 'reject';
@@ -150,6 +157,7 @@ export async function evaluateHello(
     };
     return { kind: 'reject', welcome, reason };
   }
+  let tokenId: string | null = null;
   if (options.requireAuth) {
     const snapshot = getIdentitySnapshot();
     const validate = options.validate ?? validateDaemonAuthToken;
@@ -182,6 +190,7 @@ export async function evaluateHello(
       };
       return { kind: 'reject', welcome, reason: HANDSHAKE_REJECT_REASONS.AUTH_REQUIRED };
     }
+    tokenId = result.tokenId;
   }
 
   const welcome: SyncWelcomeMessage = {
@@ -193,7 +202,7 @@ export async function evaluateHello(
     workspaceId: hello.workspaceId,
     agent: identity.agent,
   };
-  return { kind: 'accept', hello, welcome };
+  return { kind: 'accept', hello, welcome, tokenId };
 }
 
 export type HandleStateVectorOutcome =

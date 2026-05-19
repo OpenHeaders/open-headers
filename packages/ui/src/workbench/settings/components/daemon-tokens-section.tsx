@@ -1,22 +1,27 @@
 /**
- * Daemon access-token admin surface (U3.2,
- * `UNIFIED_ORACLE_MODEL.md` §4.2 + `DATA_PLANE_TOPOLOGIES.md` §11.4).
+ * Daemon "Known devices" admin surface (U3.4,
+ * `UNIFIED_ORACLE_MODEL.md` §4.2 step 4 + `DATA_PLANE_TOPOLOGIES.md` §11.4).
  *
  * Visible only on the desktop daemon's LAN-peers section while
  * `backend.bindAddress === '0.0.0.0'` — when the daemon is loopback-only
- * there's no token gate to administer. The component is purely a
- * minting + revoke front-end; validation lives in the handshake
- * dispatcher and never touches this UI.
+ * there's no token gate to administer. Each access token is one device;
+ * the list highlights tokens whose peer is connected right now and
+ * offers a per-device rotate (mint a replacement, revoke the old one).
  *
- * Minted secrets are shown exactly once. The "Copy secret" dialog is
- * deliberately styled so the admin can't dismiss it accidentally; once
- * closed, only the hash remains on disk and the secret is recoverable
- * only by minting a fresh one.
+ * The connected-peer set is runtime ws-server state, polled over the
+ * `oh.daemon.tokens.connected` RPC. The token ledger itself lives in
+ * `hostStorage` and is read / mutated directly here — validation lives
+ * in the handshake dispatcher and never touches this UI.
+ *
+ * Minted secrets are shown exactly once. The "Copy this token" dialog
+ * is deliberately styled so the admin can't dismiss it accidentally;
+ * once closed, only the hash remains on disk.
  */
 
 import { App as AntApp, Button, Form, Input, List, Modal, Popconfirm, Tag, Typography, theme } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
 import type React from 'react';
+import { hostBridge } from '@openheaders/core/bridge';
 import { hostStorage, OH } from '@openheaders/core/storage';
 import {
   listDaemonAuthTokens,
@@ -26,11 +31,16 @@ import {
 import type { DaemonAuthToken } from '@openheaders/core/types';
 import PairDeviceModal from './pair-device-modal';
 
+/** How often the connected-peer set is re-polled while this pane is open. */
+const CONNECTED_POLL_INTERVAL_MS = 3_000;
+
 interface MintModalState {
   open: boolean;
   /** The raw secret returned at mint time. Cleared when the modal closes. */
   secret: string;
   tokenId: string;
+  /** Distinguishes a fresh mint from a rotation in the dialog copy. */
+  rotated: boolean;
 }
 
 function formatTimestamp(ms: number | null | undefined): string {
@@ -50,9 +60,16 @@ const DaemonTokensSection: React.FC = () => {
   const { token: themeToken } = theme.useToken();
   const { message } = AntApp.useApp();
   const [tokens, setTokens] = useState<readonly DaemonAuthToken[]>([]);
+  const [connectedIds, setConnectedIds] = useState<ReadonlySet<string>>(new Set());
   const [mintForm] = Form.useForm<{ label: string }>();
   const [minting, setMinting] = useState(false);
-  const [mintResult, setMintResult] = useState<MintModalState>({ open: false, secret: '', tokenId: '' });
+  const [rotatingId, setRotatingId] = useState<string | null>(null);
+  const [mintResult, setMintResult] = useState<MintModalState>({
+    open: false,
+    secret: '',
+    tokenId: '',
+    rotated: false,
+  });
   const [pairOpen, setPairOpen] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -70,12 +87,33 @@ const DaemonTokensSection: React.FC = () => {
     return unsubscribe;
   }, [refresh]);
 
+  // Poll the live connected-peer set. The daemon doesn't broadcast
+  // connect/disconnect events; polling keeps the IPC surface tiny and a
+  // 3s lag on the "Connected" badge is imperceptible for an admin view.
+  useEffect(() => {
+    let cancelled = false;
+    const poll = (): void => {
+      void hostBridge
+        .call('oh.daemon.tokens.connected')
+        .then((resp) => {
+          if (!cancelled) setConnectedIds(new Set(resp.tokenIds));
+        })
+        .catch(() => undefined);
+    };
+    poll();
+    const interval = window.setInterval(poll, CONNECTED_POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, []);
+
   async function handleMint(values: { label: string }): Promise<void> {
     setMinting(true);
     try {
       const result = await mintDaemonAuthToken({ label: values.label?.trim() || undefined });
       mintForm.resetFields();
-      setMintResult({ open: true, secret: result.secret, tokenId: result.record.id });
+      setMintResult({ open: true, secret: result.secret, tokenId: result.record.id, rotated: false });
       await refresh();
     } catch (err) {
       message.error(`Failed to mint token: ${(err as Error).message}`);
@@ -94,8 +132,25 @@ const DaemonTokensSection: React.FC = () => {
     }
   }
 
+  // Rotate = mint a replacement carrying the same label, THEN revoke the
+  // old one. Mint-first means a mid-rotation failure leaves the device's
+  // existing token still valid rather than locking it out.
+  async function handleRotate(t: DaemonAuthToken): Promise<void> {
+    setRotatingId(t.id);
+    try {
+      const result = await mintDaemonAuthToken({ label: t.label });
+      await revokeDaemonAuthToken(t.id);
+      setMintResult({ open: true, secret: result.secret, tokenId: result.record.id, rotated: true });
+      await refresh();
+    } catch (err) {
+      message.error(`Failed to rotate: ${(err as Error).message}`);
+    } finally {
+      setRotatingId(null);
+    }
+  }
+
   function dismissMintModal(): void {
-    setMintResult({ open: false, secret: '', tokenId: '' });
+    setMintResult({ open: false, secret: '', tokenId: '', rotated: false });
   }
 
   async function copySecret(): Promise<void> {
@@ -120,10 +175,11 @@ const DaemonTokensSection: React.FC = () => {
             color: themeToken.colorTextSecondary,
           }}
         >
-          Access tokens
+          Known devices
         </h3>
         <div style={{ fontSize: 11, color: themeToken.colorTextTertiary, marginTop: 1 }}>
-          Long-lived secrets the daemon recognizes. Share one with each peer that needs to connect.
+          Each device that connects to this daemon authenticates with an access token. Connected devices are
+          highlighted; rotate a token to issue a fresh secret and retire the old one.
         </div>
       </header>
       <div
@@ -156,7 +212,8 @@ const DaemonTokensSection: React.FC = () => {
         </Form>
         {tokens.length === 0 ? (
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            No tokens issued yet. Generate one and paste it into the peer's Settings → Backend → Daemon auth token.
+            No devices yet. Generate a token and paste it into the peer's Settings → Backend → Daemon auth token, or
+            pair a device to walk it through a browser.
           </Typography.Text>
         ) : (
           <List
@@ -164,39 +221,62 @@ const DaemonTokensSection: React.FC = () => {
             dataSource={[...tokens].sort((a, b) => b.createdAt - a.createdAt)}
             renderItem={(t) => {
               const isRevoked = t.revokedAt !== null;
+              const isConnected = !isRevoked && connectedIds.has(t.id);
               return (
                 <List.Item
-                  actions={[
-                    isRevoked ? (
-                      <Tag key="revoked" color="default">
-                        Revoked {formatTimestamp(t.revokedAt)}
-                      </Tag>
-                    ) : (
-                      <Popconfirm
-                        key="revoke"
-                        title="Revoke this token?"
-                        description="Any peer currently using it will be rejected on its next HELLO."
-                        okText="Revoke"
-                        cancelText="Cancel"
-                        okButtonProps={{ danger: true }}
-                        onConfirm={() => handleRevoke(t.id)}
-                      >
-                        <Button type="link" size="small" danger>
-                          Revoke
-                        </Button>
-                      </Popconfirm>
-                    ),
-                  ]}
+                  actions={
+                    isRevoked
+                      ? [
+                          <Tag key="revoked" color="default">
+                            Revoked {formatTimestamp(t.revokedAt)}
+                          </Tag>,
+                        ]
+                      : [
+                          <Popconfirm
+                            key="rotate"
+                            title="Rotate this token?"
+                            description="A fresh secret is minted and the current one is revoked. The device must be given the new token before it can reconnect."
+                            okText="Rotate"
+                            cancelText="Cancel"
+                            onConfirm={() => handleRotate(t)}
+                          >
+                            <Button type="link" size="small" loading={rotatingId === t.id}>
+                              Rotate
+                            </Button>
+                          </Popconfirm>,
+                          <Popconfirm
+                            key="revoke"
+                            title="Revoke this token?"
+                            description="Any peer currently using it will be rejected on its next HELLO."
+                            okText="Revoke"
+                            cancelText="Cancel"
+                            okButtonProps={{ danger: true }}
+                            onConfirm={() => handleRevoke(t.id)}
+                          >
+                            <Button type="link" size="small" danger>
+                              Revoke
+                            </Button>
+                          </Popconfirm>,
+                        ]
+                  }
                 >
                   <List.Item.Meta
                     title={
-                      <span style={{ fontSize: 13 }}>
-                        {t.label || <Typography.Text type="secondary">(unlabeled)</Typography.Text>}
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 13 }}>
+                          {t.label || <Typography.Text type="secondary">(unlabeled)</Typography.Text>}
+                        </span>
+                        {isConnected && (
+                          <Tag color="green" style={{ marginInlineEnd: 0 }}>
+                            Connected
+                          </Tag>
+                        )}
                       </span>
                     }
                     description={
                       <span style={{ fontSize: 11, color: themeToken.colorTextTertiary }}>
-                        id {shortenId(t.id)} · created {formatTimestamp(t.createdAt)} · last used {formatTimestamp(t.lastUsedAt)}
+                        id {shortenId(t.id)} · created {formatTimestamp(t.createdAt)} · last used{' '}
+                        {formatTimestamp(t.lastUsedAt)}
                       </span>
                     }
                   />
@@ -209,7 +289,7 @@ const DaemonTokensSection: React.FC = () => {
 
       <Modal
         open={mintResult.open}
-        title="Copy this token now"
+        title={mintResult.rotated ? 'Copy the rotated token now' : 'Copy this token now'}
         closable={false}
         maskClosable={false}
         keyboard={false}
@@ -225,6 +305,9 @@ const DaemonTokensSection: React.FC = () => {
         width={520}
       >
         <Typography.Paragraph>
+          {mintResult.rotated
+            ? 'The previous token is now revoked — give this new secret to the device so it can reconnect. '
+            : ''}
           The daemon stores only a hash of this value. Once this dialog closes the secret cannot be recovered — if you
           lose it, revoke the token and mint a new one.
         </Typography.Paragraph>

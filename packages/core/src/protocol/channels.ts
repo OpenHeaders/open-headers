@@ -1648,6 +1648,26 @@ export interface BridgeRpcContract {
     req: { code: string };
     res: { ok: true };
   };
+
+  // ── Daemon known-devices surface (U3.4) ────────────────────────
+  //
+  // Admin-only. The access-token ledger lives in `hostStorage` and is
+  // read / mutated by the renderer directly (`listDaemonAuthTokens` /
+  // `mintDaemonAuthToken` / `revokeDaemonAuthToken`). What the renderer
+  // cannot see is runtime ws-server state — which tokens map to a peer
+  // connected right now. This RPC projects that live set so the "Known
+  // devices" list can highlight connected entries.
+
+  /**
+   * The `DaemonAuthToken` ids that map to a peer connected right now.
+   * Empty when the daemon is loopback-only (no token gate, no LAN
+   * peers). The renderer polls this while the LAN-peers settings pane
+   * is open.
+   */
+  'oh.daemon.tokens.connected': {
+    req: Record<string, never>;
+    res: { tokenIds: readonly string[] };
+  };
 }
 
 /**

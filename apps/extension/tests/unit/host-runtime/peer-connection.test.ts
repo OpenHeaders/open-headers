@@ -37,7 +37,14 @@ describe('PeerConnection', () => {
     expect(conn.protocolVersion).toBe(1);
     expect(conn.connectedAt).toBe(1_700_000_000_000);
     expect(conn.claims).toBeNull();
+    // Defaults to null — loopback peers carry no token gate.
+    expect(conn.tokenId).toBeNull();
     expect(conn.isOpen()).toBe(true);
+  });
+
+  it('carries the validated tokenId for the U3.4 known-devices join key', () => {
+    const { conn } = makeConn({ tokenId: 'token-abc' });
+    expect(conn.tokenId).toBe('token-abc');
   });
 
   it('forwards reply() to the transport when open', () => {
