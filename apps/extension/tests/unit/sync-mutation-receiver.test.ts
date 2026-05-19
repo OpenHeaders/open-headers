@@ -24,6 +24,7 @@ import {
   handleIncomingMutationFrame,
   hasRecentlyApplied,
 } from '../../src/background/sync-mutation-receiver';
+import { installSyntheticIdentityForTests } from './sync/_identity-test-setup';
 
 const wsId = 'ws-recv';
 
@@ -49,7 +50,10 @@ const makeRule = (uid: string, name: string): Rule =>
     },
   }) as unknown as Rule;
 
-beforeEach(() => {
+let teardownIdentity: () => void = () => undefined;
+
+beforeEach(async () => {
+  teardownIdentity = await installSyntheticIdentityForTests([]);
   __initSyncServiceForTests(wsId);
   __resetMutationReceiverForTests();
 });
@@ -57,6 +61,7 @@ beforeEach(() => {
 afterEach(() => {
   __resetMutationReceiverForTests();
   disposeSyncService();
+  teardownIdentity();
 });
 
 describe('handleIncomingMutationFrame', () => {

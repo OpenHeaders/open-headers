@@ -30,6 +30,11 @@ import {
   SYNC_MUTATION_TYPE,
   type SyncMutationMessage,
 } from '@openheaders/core/protocol';
+import {
+  emitAuditEntry,
+  getIdentitySnapshot,
+  hasCapability,
+} from '@openheaders/core/identity';
 import type { OracleSyncBroadcastEvent } from '@openheaders/oracle/sync';
 import type { PendingOutQueue } from '@openheaders/oracle/sync';
 
@@ -75,8 +80,35 @@ function envelopeToFrame(event: OracleSyncBroadcastEvent): SyncMutationMessage {
   };
 }
 
+/**
+ * Per-envelope SW→peer gate (Phase U2.3). The local user must hold
+ * `workspace.write` on the envelope's workspaceId before the SW
+ * forwards the envelope upstream. Synthetic LocalAdmin always allows;
+ * post-promotion this becomes the real WRA check.
+ *
+ * Deny is silent + logged — the envelope was already committed locally
+ * (this gate runs *after* the local oracle's apply), so denying simply
+ * prevents wire propagation. The audit entry is the forensic record.
+ */
+function isForwardAllowed(workspaceId: string): boolean {
+  const snapshot = getIdentitySnapshot();
+  const decision = hasCapability(snapshot, 'workspace.write', { workspaceId });
+  emitAuditEntry({
+    actorUserId: snapshot?.user.id ?? 'unknown',
+    capability: 'workspace.write',
+    workspaceId,
+    decision,
+  });
+  if (!decision.allow) {
+    logger.warn(SCOPE, `outbound envelope dropped: ${decision.reason ?? 'denied'} on ws ${workspaceId}`);
+    return false;
+  }
+  return true;
+}
+
 export function forwardMutationToBackend(event: OracleSyncBroadcastEvent): void {
   if (!shouldForward(event)) return;
+  if (!isForwardAllowed(event.envelope.workspaceId)) return;
   const frame = envelopeToFrame(event);
   const sent = sendViaWebSocket(frame as unknown as Record<string, unknown>);
   if (sent) return;
@@ -113,6 +145,13 @@ export function flushPendingOutToBackend(): Promise<void> {
       const acked: string[] = [];
       for await (const env of pendingQueue.drain(DEFAULT_REMOTE_ID)) {
         if (!isWebSocketConnected()) break;
+        if (!isForwardAllowed(env.workspaceId)) {
+          // Privilege revoked between enqueue and flush. Ack to drop
+          // the envelope from the queue rather than re-flushing
+          // forever; the audit log already records the deny.
+          acked.push(env.mutationId);
+          continue;
+        }
         const frame: SyncMutationMessage = {
           type: SYNC_MUTATION_TYPE,
           workspaceId: env.workspaceId,

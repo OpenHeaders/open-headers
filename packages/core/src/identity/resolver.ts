@@ -17,7 +17,11 @@ import type { DaemonAdmin, OrgMembership, Principal, User, WorkspaceRoleAssignme
  * `rule.publish`) layer on top in later slices without changing the
  * resolver contract.
  */
-export type Capability = 'workspace.read' | 'workspace.write' | 'daemon.admin';
+export type Capability =
+  | 'workspace.read'
+  | 'workspace.write'
+  | 'workspace.list'
+  | 'daemon.admin';
 
 export interface CapabilityContext {
   /** Required for `workspace.*` capabilities; ignored for `daemon.*`. */
@@ -69,6 +73,13 @@ export function hasCapability(
 
   if (capability === 'daemon.admin') {
     return snapshot.localAdmin ? { allow: true } : { allow: false, reason: 'not-daemon-admin' };
+  }
+
+  if (capability === 'workspace.list') {
+    // Metadata-list read: any installed snapshot is allowed. The list is
+    // scoped to "which workspaces exist on this host"; per-workspace
+    // visibility is enforced by `workspace.read` downstream.
+    return { allow: true };
   }
 
   if (capability === 'workspace.read' || capability === 'workspace.write') {

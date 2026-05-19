@@ -21,11 +21,15 @@ import {
 } from '@openheaders/oracle/sync';
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
 
+import { installSyntheticIdentityForTests } from './_identity-test-setup';
+
 const WS = '0193a8ff-c000-7000-8000-000000000001';
 
 let store: InMemoryActivityMuteStore;
+let teardownIdentity: () => void;
 
-beforeEach(() => {
+beforeEach(async () => {
+  teardownIdentity = await installSyntheticIdentityForTests([WS]);
   __resetActivityMuteCacheForTests();
   store = new InMemoryActivityMuteStore();
   setActivityMuteStore(store);
@@ -33,6 +37,7 @@ beforeEach(() => {
 
 afterEach(() => {
   __resetActivityMuteCacheForTests();
+  teardownIdentity?.();
 });
 
 async function dispatchAsync(message: Record<string, unknown>): Promise<unknown> {

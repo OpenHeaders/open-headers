@@ -124,13 +124,64 @@ describe('sync-rpc permission gate', () => {
     expect(audits[0]?.capability).toBe('workspace.write');
   });
 
-  it('skips the gate for non-gated message types (slice 1 scope)', async () => {
-    // `oh.sync.listActivityMutes` is not gated yet — no snapshot installed,
-    // no throw, no audit entry.
-    const result = dispatchSyncRpc({ type: 'oh.sync.listActivityMutes', workspaceId: WS });
+  it('skips the gate for explicitly ungated types', async () => {
+    // `oh.sync.getDataPresence` is local-only metadata used by the
+    // mode-switch dialog before any identity may be resolved; the gate
+    // pass-through is by design.
+    const result = dispatchSyncRpc({ type: 'oh.sync.getDataPresence' });
     expect(result).not.toBeNull();
     if (result?.kind === 'async') await result.promise.catch(() => undefined);
     expect(audits).toHaveLength(0);
+  });
+
+  it('skips the gate for peer-driven mutation-stream types', async () => {
+    // SYNC_MUTATION_TYPE / BATCH_TYPE / AWARENESS_PRESENCE_TYPE ride the
+    // SW→peer handshake gate + per-envelope forwarder/receiver gate; the
+    // renderer-side dispatcher must NOT re-gate them.
+    const result = dispatchSyncRpc({
+      type: 'oh.sync.mutation',
+      workspaceId: WS,
+      envelope: {} as never,
+    });
+    // The mutation receiver may reject the malformed envelope downstream,
+    // but the gate itself did not throw and did not audit.
+    if (result?.kind === 'async') await result.promise.catch(() => undefined);
+    expect(audits).toHaveLength(0);
+  });
+
+  it('denies a snapshot read when no identity snapshot is installed', () => {
+    expect(() => dispatchSyncRpc({ type: 'oh.sync.snapshotRules', workspaceId: WS })).toThrow(
+      PermissionDeniedError,
+    );
+    expect(audits).toHaveLength(1);
+    expect(audits[0]?.capability).toBe('workspace.read');
+    expect(audits[0]?.decision.allow).toBe(false);
+  });
+
+  it('denies a mode-switch orchestrator without LocalAdmin context', () => {
+    // No snapshot installed → daemon.admin resolves to no-current-user.
+    expect(() => dispatchSyncRpc({ type: 'oh.sync.executeCoexistToPeer' })).toThrow(
+      PermissionDeniedError,
+    );
+    expect(audits).toHaveLength(1);
+    expect(audits[0]?.capability).toBe('daemon.admin');
+  });
+
+  it('allows workspace.list snapshot read for any installed snapshot', async () => {
+    await ensureSyntheticIdentity({ now: NOW });
+    await refreshIdentitySnapshotFromHostStorage();
+
+    let threw: unknown = null;
+    try {
+      const result = dispatchSyncRpc({ type: 'oh.sync.snapshotExtensionWorkspaces' });
+      if (result && result.kind === 'async') await result.promise.catch(() => undefined);
+    } catch (err) {
+      threw = err;
+    }
+    expect(threw).not.toBeInstanceOf(PermissionDeniedError);
+    expect(audits).toHaveLength(1);
+    expect(audits[0]?.capability).toBe('workspace.list');
+    expect(audits[0]?.decision.allow).toBe(true);
   });
 
   it('audit entry carries the synthetic user id once the snapshot is installed', async () => {

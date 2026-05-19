@@ -35,6 +35,11 @@ import {
   SyncMutationBatchMessageSchema,
   SyncMutationMessageSchema,
 } from '@openheaders/core/protocol';
+import {
+  emitAuditEntry,
+  getIdentitySnapshot,
+  hasCapability,
+} from '@openheaders/core/identity';
 import type { MutationBatch, MutationEnvelope } from '@openheaders/core/sync';
 import * as v from 'valibot';
 
@@ -122,6 +127,34 @@ function parseOrLog<TSchema extends v.GenericSchema>(
   return result.output;
 }
 
+/**
+ * Per-envelope inbound gate (Phase U2.3). Mirror of the SW→peer
+ * forwarder gate: the local user must hold `workspace.write` on the
+ * envelope's workspaceId before the SW applies an envelope received
+ * from a peer. Synthetic LocalAdmin always allows; post-promotion this
+ * becomes the real WRA check.
+ *
+ * Deny is silent + audited — we don't tear the socket down on a single
+ * disallowed envelope because a future newer-protocol sender might be
+ * shipping a workspace the local user no longer has access to (e.g.,
+ * mid-revocation race). The audit log is the forensic record.
+ */
+function isReceiveAllowed(workspaceId: string): boolean {
+  const snapshot = getIdentitySnapshot();
+  const decision = hasCapability(snapshot, 'workspace.write', { workspaceId });
+  emitAuditEntry({
+    actorUserId: snapshot?.user.id ?? 'unknown',
+    capability: 'workspace.write',
+    workspaceId,
+    decision,
+  });
+  if (!decision.allow) {
+    logger.warn(SCOPE, `inbound envelope dropped: ${decision.reason ?? 'denied'} on ws ${workspaceId}`);
+    return false;
+  }
+  return true;
+}
+
 async function applySingleEnvelope(envelope: MutationEnvelope): Promise<void> {
   if (SEEN_MUTATION_IDS.has(envelope.mutationId)) {
     // C11 dedup at receive — own-echo or replay. The oracle's mutator
@@ -129,6 +162,7 @@ async function applySingleEnvelope(envelope: MutationEnvelope): Promise<void> {
     // round-trip + redundant broadcast.
     return;
   }
+  if (!isReceiveAllowed(envelope.workspaceId)) return;
   const batch: MutationBatch = { batchId: `wire-${envelope.mutationId}`, mutations: [envelope] };
   await applyAndRemember(batch);
 }
@@ -139,6 +173,10 @@ async function applyBatch(batch: MutationBatch): Promise<void> {
   // oracle's per-envelope idempotency handles the dup envelopes.
   const allKnown = batch.mutations.every((e) => SEEN_MUTATION_IDS.has(e.mutationId));
   if (allKnown) return;
+  // All envelopes in a batch share the same workspaceId per the
+  // mutation log invariant; check the first.
+  const ws = batch.mutations[0]?.workspaceId;
+  if (ws && !isReceiveAllowed(ws)) return;
   await applyAndRemember(batch);
 }
 

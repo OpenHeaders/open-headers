@@ -28,6 +28,7 @@ import {
   setPendingOutQueue,
   setShouldForwardMutation,
 } from '../../src/background/sync-mutation-forwarder';
+import { installSyntheticIdentityForTests } from './sync/_identity-test-setup';
 
 const event = (overrides: Partial<OracleSyncBroadcastEvent> = {}): OracleSyncBroadcastEvent =>
   ({
@@ -46,7 +47,10 @@ const event = (overrides: Partial<OracleSyncBroadcastEvent> = {}): OracleSyncBro
 const eventWith = (mutationId: string, ms: number): OracleSyncBroadcastEvent =>
   event({ envelope: { ...event().envelope, mutationId, hlc: { physicalMs: ms, logical: 0, nodeId: 'sw' } } });
 
-beforeEach(() => {
+let teardownIdentity: () => void = () => undefined;
+
+beforeEach(async () => {
+  teardownIdentity = await installSyntheticIdentityForTests([]);
   sendMock.mockReset();
   sendMock.mockReturnValue(true);
   isConnectedMock.mockReset();
@@ -56,6 +60,7 @@ beforeEach(() => {
 
 afterEach(() => {
   __resetMutationForwarderForTests();
+  teardownIdentity();
 });
 
 describe('forwardMutationToBackend', () => {

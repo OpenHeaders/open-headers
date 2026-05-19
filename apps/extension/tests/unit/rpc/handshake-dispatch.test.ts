@@ -23,7 +23,10 @@ import {
   handleStateVector,
   type LocalHandshakeIdentity,
 } from '@openheaders/oracle/rpc';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { installSyntheticIdentityForTests } from '../sync/_identity-test-setup';
+import { clearIdentitySnapshot } from '@openheaders/core/identity';
 
 const localIdentity: LocalHandshakeIdentity = {
   role: HANDSHAKE_ROLES.DESKTOP,
@@ -97,6 +100,49 @@ describe('evaluateHello', () => {
   it('publishes the canonical set of handshake message types', () => {
     expect(HANDSHAKE_MESSAGE_TYPES.has(SYNC_HELLO_TYPE)).toBe(true);
     expect(HANDSHAKE_MESSAGE_TYPES.has(SYNC_STATE_VECTOR_TYPE)).toBe(true);
+  });
+
+  describe('with requireAuth enabled (non-loopback bind)', () => {
+    let teardown: () => void = () => undefined;
+
+    afterEach(() => {
+      teardown();
+      clearIdentitySnapshot();
+    });
+
+    it('rejects with AUTH_REQUIRED when no identity snapshot is installed', () => {
+      clearIdentitySnapshot();
+      const outcome = evaluateHello(
+        validHello as unknown as Record<string, unknown>,
+        localIdentity,
+        { requireAuth: true },
+      );
+      expect(outcome.kind).toBe('reject');
+      if (outcome.kind === 'reject') {
+        expect(outcome.reason).toBe(HANDSHAKE_REJECT_REASONS.AUTH_REQUIRED);
+        expect(outcome.welcome.accepted).toBe(false);
+      }
+    });
+
+    it('accepts when the local LocalAdmin snapshot resolves daemon.admin to ALLOW', async () => {
+      teardown = await installSyntheticIdentityForTests([]);
+      const outcome = evaluateHello(
+        validHello as unknown as Record<string, unknown>,
+        localIdentity,
+        { requireAuth: true },
+      );
+      expect(outcome.kind).toBe('accept');
+    });
+
+    it('is a no-op when requireAuth is false even without a snapshot', () => {
+      clearIdentitySnapshot();
+      const outcome = evaluateHello(
+        validHello as unknown as Record<string, unknown>,
+        localIdentity,
+        { requireAuth: false },
+      );
+      expect(outcome.kind).toBe('accept');
+    });
   });
 });
 

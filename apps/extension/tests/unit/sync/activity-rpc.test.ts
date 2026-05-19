@@ -19,10 +19,13 @@ import {
 } from '@openheaders/oracle/sync/sync-persistence-provider';
 import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
 
+import { installSyntheticIdentityForTests } from './_identity-test-setup';
+
 const WS = '0193a8ff-c000-7000-8000-000000000001';
 
 let log: InMemoryActivityLog;
 let provider: SyncPersistenceProvider;
+let teardownIdentity: () => void;
 
 function entry(overrides: Partial<ActivityEntry>): ActivityEntry {
   return {
@@ -41,6 +44,7 @@ function entry(overrides: Partial<ActivityEntry>): ActivityEntry {
 }
 
 beforeEach(async () => {
+  teardownIdentity = await installSyntheticIdentityForTests([WS]);
   log = new InMemoryActivityLog();
   provider = {
     createMutationLog: () => ({
@@ -78,9 +82,7 @@ beforeEach(async () => {
 });
 
 afterEach(() => {
-  // Reset by reinstalling the default IDB provider (the SW default).
-  // Re-importing actual would be ideal; reset by `null`-ish is enough
-  // for our single-suite case — every test re-installs in beforeEach.
+  teardownIdentity?.();
 });
 
 describe('oh.sync.listActivity', () => {

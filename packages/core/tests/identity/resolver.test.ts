@@ -156,6 +156,20 @@ describe('hasCapability', () => {
     });
   });
 
+  it('allows workspace.list for any installed snapshot regardless of LocalAdmin', () => {
+    const synthetic = makeSnapshot();
+    const noLocalAdmin = makeSnapshot({ localAdmin: null });
+    expect(hasCapability(synthetic, 'workspace.list', {})).toEqual({ allow: true });
+    expect(hasCapability(noLocalAdmin, 'workspace.list', {})).toEqual({ allow: true });
+  });
+
+  it('denies workspace.list when no snapshot is installed', () => {
+    expect(hasCapability(null, 'workspace.list', {})).toEqual({
+      allow: false,
+      reason: 'no-current-user',
+    });
+  });
+
   it('does not consult isSynthetic — real-user with same shape resolves identically', () => {
     const synthetic = makeSnapshot({ user: { isSynthetic: true } });
     const real = makeSnapshot({ user: { isSynthetic: false } });

@@ -45,6 +45,7 @@ import {
   emitAuditEntry,
   getIdentitySnapshot,
   hasCapability,
+  type Capability,
 } from '@openheaders/core/identity';
 import type {
   CoexistPayload,
@@ -92,7 +93,7 @@ import {
   getOrCreateWorkspaceService,
   releaseWorkspaceService,
 } from '../sync/service';
-import { requireActiveWorkspaceId } from '../sync';
+import { peekActiveWorkspaceId, requireActiveWorkspaceId } from '../sync';
 import { getSyncPersistenceProvider } from '../sync/sync-persistence-provider';
 import {
   applySyncRequest,
@@ -146,32 +147,142 @@ export class PermissionDeniedError extends Error {
 }
 
 /**
- * Renderer→SW capability gate (UNIFIED_ORACLE_MODEL.md §5.8). Slice 1 of
- * Phase U2 wires `oh.sync.apply` — the canonical mutation entry point.
- * Other message types fall through ungated for now; subsequent slices
- * extend the type→capability map (snapshot reads, activity-log mutations,
- * mode-switch orchestration).
+ * Renderer→SW capability gate (UNIFIED_ORACLE_MODEL.md §5.8).
+ *
+ * Every renderer-originated message type in the table below maps to a
+ * capability + a workspaceId extractor. `gateDispatch` consults
+ * {@link getIdentitySnapshot} via {@link hasCapability}, emits an audit
+ * entry on every decision (allow or deny), and throws
+ * {@link PermissionDeniedError} on deny so the outer message-handler /
+ * `ipcMain.handle` surfaces a uniform error frame.
  *
  * Peer-driven entry points (`SYNC_MUTATION_TYPE`, `SYNC_MUTATION_BATCH_TYPE`,
  * `SYNC_AWARENESS_PRESENCE_TYPE`) deliberately skip this gate — those ride
- * the SW→peer handshake gate that lands with U2.3.
+ * the SW→peer handshake gate + per-envelope mutation forwarder gate
+ * (U2.3, sync-mutation-forwarder.ts + sync-mutation-receiver.ts).
+ *
+ * `oh.sync.getDataPresence` is explicitly ungated: it's a local-only
+ * metadata read used during mode-switch dialogs ("what's already on this
+ * host?") before any identity is necessarily resolved. Returning empty
+ * is the correct degraded behavior.
  */
+interface GateRule {
+  readonly capability: Capability;
+  /**
+   * Resolve the workspaceId to gate against. Return `null` for
+   * workspace-id-less capabilities (`workspace.list`, `daemon.admin`).
+   * Return `undefined` to skip the check (handler will degrade
+   * gracefully — e.g. snapshot reads with no workspaceId and no active
+   * workspace return an empty list).
+   */
+  readonly resolveWorkspaceId: (message: Record<string, unknown>) => string | null | undefined;
+}
+
+const WORKSPACE_ID_FROM_MESSAGE: GateRule['resolveWorkspaceId'] = (msg) => {
+  const ws = msg.workspaceId;
+  if (typeof ws === 'string' && ws.length > 0) return ws;
+  return peekActiveWorkspaceId() ?? undefined;
+};
+
+const APPLY_WORKSPACE_ID: GateRule['resolveWorkspaceId'] = (msg) => {
+  const request = msg as unknown as SyncApplyRequest;
+  return request.batch?.mutations?.[0]?.workspaceId;
+};
+
+const NO_WORKSPACE: GateRule['resolveWorkspaceId'] = () => null;
+
+const GATE_RULES: ReadonlyMap<string, GateRule> = new Map<string, GateRule>([
+  // Canonical write entry point.
+  ['oh.sync.apply', { capability: 'workspace.write', resolveWorkspaceId: APPLY_WORKSPACE_ID }],
+
+  // Per-workspace snapshot reads (the 18 entity types).
+  ...(
+    [
+      'oh.sync.snapshotRules',
+      'oh.sync.snapshotEnvironments',
+      'oh.sync.snapshotCollections',
+      'oh.sync.snapshotWorkspaceVariables',
+      'oh.sync.snapshotVault',
+      'oh.sync.snapshotFolders',
+      'oh.sync.snapshotRequests',
+      'oh.sync.snapshotRequestCollections',
+      'oh.sync.snapshotRequestFolders',
+      'oh.sync.snapshotTemplates',
+      'oh.sync.snapshotTemplateCollections',
+      'oh.sync.snapshotTemplateFolders',
+      'oh.sync.snapshotLiveVariables',
+      'oh.sync.snapshotLiveWorkflows',
+      'oh.sync.snapshotOAuthBundle',
+      'oh.sync.snapshotPauseMarkers',
+      'oh.sync.snapshotLayoutState',
+      'oh.sync.snapshotFiles',
+    ] as const
+  ).map(
+    (t) =>
+      [t, { capability: 'workspace.read', resolveWorkspaceId: WORKSPACE_ID_FROM_MESSAGE }] as const,
+  ),
+
+  // Workspace metadata list — "which workspaces exist on this host".
+  // Allow for any installed snapshot; per-workspace visibility enforced
+  // downstream via `workspace.read` on each snapshot read.
+  ['oh.sync.snapshotExtensionWorkspaces', { capability: 'workspace.list', resolveWorkspaceId: NO_WORKSPACE }],
+
+  // Activity-log reads + writes (per-workspace).
+  ['oh.sync.listActivity', { capability: 'workspace.read', resolveWorkspaceId: WORKSPACE_ID_FROM_MESSAGE }],
+  ['oh.sync.listActivityMutes', { capability: 'workspace.read', resolveWorkspaceId: WORKSPACE_ID_FROM_MESSAGE }],
+  ['oh.sync.markActivityRead', { capability: 'workspace.write', resolveWorkspaceId: WORKSPACE_ID_FROM_MESSAGE }],
+  ['oh.sync.muteActivityEntity', { capability: 'workspace.write', resolveWorkspaceId: WORKSPACE_ID_FROM_MESSAGE }],
+  ['oh.sync.unmuteActivityEntity', { capability: 'workspace.write', resolveWorkspaceId: WORKSPACE_ID_FROM_MESSAGE }],
+  ['oh.sync.revertActivity', { capability: 'workspace.write', resolveWorkspaceId: WORKSPACE_ID_FROM_MESSAGE }],
+
+  // Mode-switch orchestrators cross workspaces; gated coarsely at the
+  // dispatcher entry with `daemon.admin`. A non-admin caller is denied
+  // before the orchestrator fans over its workspace set — matches the
+  // blast-radius posture spec'd in `UNIFIED_ORACLE_STATUS.md` Session 3
+  // "Next-session input" §1.
+  ['oh.sync.applyCoexistImport', { capability: 'daemon.admin', resolveWorkspaceId: NO_WORKSPACE }],
+  ['oh.sync.executeCoexistToPeer', { capability: 'daemon.admin', resolveWorkspaceId: NO_WORKSPACE }],
+  ['oh.sync.applyImport', { capability: 'daemon.admin', resolveWorkspaceId: NO_WORKSPACE }],
+  ['oh.sync.executeImportToPeer', { capability: 'daemon.admin', resolveWorkspaceId: NO_WORKSPACE }],
+  ['oh.sync.executeDiscardWithBackup', { capability: 'daemon.admin', resolveWorkspaceId: NO_WORKSPACE }],
+  ['oh.sync.applyDiscardRestore', { capability: 'daemon.admin', resolveWorkspaceId: NO_WORKSPACE }],
+
+  // Awareness — presence-plane reads. Bounded; `workspace.read` suffices
+  // since presence carries no privileged content.
+  ['oh.awareness.publish', { capability: 'workspace.read', resolveWorkspaceId: WORKSPACE_ID_FROM_MESSAGE }],
+  ['oh.awareness.snapshot', { capability: 'workspace.read', resolveWorkspaceId: WORKSPACE_ID_FROM_MESSAGE }],
+]);
+
 function gateDispatch(message: Record<string, unknown>): void {
   const type = message.type;
-  if (type !== 'oh.sync.apply') return;
+  if (typeof type !== 'string') return;
+  const rule = GATE_RULES.get(type);
+  if (!rule) return;
 
-  const request = message as unknown as SyncApplyRequest;
-  const workspaceId = request.batch?.mutations?.[0]?.workspaceId;
+  const workspaceId = rule.resolveWorkspaceId(message);
+  if (workspaceId === undefined) {
+    // No workspace context resolvable; handler will degrade (empty
+    // list / no-op / throw on its own require). Skip the gate rather
+    // than synthesize a deny that doesn't reflect a real privilege
+    // decision.
+    return;
+  }
+
   const snapshot = getIdentitySnapshot();
-  const decision = hasCapability(snapshot, 'workspace.write', { workspaceId });
+  const ctx = workspaceId === null ? {} : { workspaceId };
+  const decision = hasCapability(snapshot, rule.capability, ctx);
   emitAuditEntry({
     actorUserId: snapshot?.user.id ?? 'unknown',
-    capability: 'workspace.write',
+    capability: rule.capability,
     ...(workspaceId ? { workspaceId } : {}),
     decision,
   });
   if (!decision.allow) {
-    throw new PermissionDeniedError('workspace.write', decision.reason ?? 'denied', workspaceId);
+    throw new PermissionDeniedError(
+      rule.capability,
+      decision.reason ?? 'denied',
+      workspaceId ?? undefined,
+    );
   }
 }
 

@@ -124,10 +124,19 @@ export interface OracleWsServer {
  * rejects if `port` is already in use (callers should surface a clear
  * "another instance running" message rather than crashing).
  */
+/**
+ * Loopback bind addresses that stay trust-by-process per
+ * `UNIFIED_ORACLE_MODEL.md` §4.2 + §11.4. Anything else implies a LAN
+ * (or tunneled) bind and switches the handshake into auth-required
+ * mode via {@link evaluateHello}'s `requireAuth` option.
+ */
+const LOOPBACK_BINDS: ReadonlySet<string> = new Set(['127.0.0.1', '::1', 'localhost']);
+
 export async function startOracleWsServer(options: OracleWsServerOptions): Promise<OracleWsServer> {
   const host = options.host ?? '127.0.0.1';
   const port = options.port ?? 59210;
   const handshakeIdentity = options.handshakeIdentity;
+  const requireAuth = !LOOPBACK_BINDS.has(host);
 
   const wss = new WebSocketServer({ host, port });
   await new Promise<void>((resolve, reject) => {
@@ -193,7 +202,9 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
           }
           return;
         }
-        const outcome = evaluateHello(parsed as Record<string, unknown>, handshakeIdentity);
+        const outcome = evaluateHello(parsed as Record<string, unknown>, handshakeIdentity, {
+          requireAuth,
+        });
         send(socket, outcome.welcome);
         if (outcome.kind === 'reject') {
           logger.info(SCOPE, `HELLO rejected: ${outcome.reason}`);

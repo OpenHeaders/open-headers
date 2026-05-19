@@ -46,6 +46,11 @@ import {
   type SyncStateVectorMessage,
   type SyncWelcomeMessage,
 } from '@openheaders/core/protocol';
+import {
+  emitAuditEntry,
+  getIdentitySnapshot,
+  hasCapability,
+} from '@openheaders/core/identity';
 import { logger } from '@openheaders/core/utils';
 import * as v from 'valibot';
 
@@ -81,6 +86,24 @@ export type EvaluateHelloOutcome =
     };
 
 /**
+ * Per-handshake gating options. When `requireAuth` is true (set by the
+ * host when its bind address is non-loopback), the dispatcher consults
+ * the {@link hasCapability} resolver against the local identity
+ * snapshot's `daemon.admin` capability. A deny becomes a WELCOME with
+ * `reason: 'auth-required'` — the peer surfaces "this daemon requires
+ * pairing" rather than a generic protocol-incompatible close.
+ *
+ * Loopback bind (`127.0.0.1`) stays trust-by-process per
+ * `UNIFIED_ORACLE_MODEL.md` §4.2 — the host passes `requireAuth: false`
+ * and the gate is a no-op. Phase U3.2 wires the toggle into the
+ * Settings → Sync → Allow LAN peers surface; until then every host
+ * binds loopback and runs ungated.
+ */
+export interface EvaluateHelloOptions {
+  readonly requireAuth?: boolean;
+}
+
+/**
  * Inspect a parsed inbound frame against {@link SyncHelloMessageSchema}
  * and the local protocol compatibility band. Pure: no I/O, no socket
  * interaction. The host applies the outcome — sends the welcome frame,
@@ -93,6 +116,7 @@ export type EvaluateHelloOutcome =
 export function evaluateHello(
   frame: Record<string, unknown>,
   identity: LocalHandshakeIdentity,
+  options: EvaluateHelloOptions = {},
 ): EvaluateHelloOutcome {
   if (frame.type !== SYNC_HELLO_TYPE) {
     throw new Error(`evaluateHello: expected ${SYNC_HELLO_TYPE}, got ${String(frame.type)}`);
@@ -123,6 +147,27 @@ export function evaluateHello(
     };
     return { kind: 'reject', welcome, reason };
   }
+  if (options.requireAuth) {
+    const snapshot = getIdentitySnapshot();
+    const decision = hasCapability(snapshot, 'daemon.admin', {});
+    emitAuditEntry({
+      actorUserId: snapshot?.user.id ?? 'unknown',
+      capability: 'daemon.admin',
+      decision,
+    });
+    if (!decision.allow) {
+      logger.info(SCOPE, `HELLO rejected: auth required (${decision.reason ?? 'denied'})`);
+      const welcome: SyncWelcomeMessage = {
+        type: SYNC_WELCOME_TYPE,
+        accepted: false,
+        reason: HANDSHAKE_REJECT_REASONS.AUTH_REQUIRED,
+        protocolVersion: PROTOCOL_VERSION,
+        detail: decision.reason ?? 'auth required',
+      };
+      return { kind: 'reject', welcome, reason: HANDSHAKE_REJECT_REASONS.AUTH_REQUIRED };
+    }
+  }
+
   const welcome: SyncWelcomeMessage = {
     type: SYNC_WELCOME_TYPE,
     accepted: true,
