@@ -33,7 +33,21 @@ export type SurfaceKind = 'workbench' | 'popup' | 'devpanel' | 'sidepanel';
 
 /** Application carrying the surface. `extension` today; `desktop` and
  *  `cli` arrive with multi-device topologies. */
-export type AppKind = 'extension' | 'desktop' | 'cli';
+/**
+ * App kind a surface is mounted in. Drives presence grouping +
+ * appropriate "this surface" decoration in the awareness popover.
+ *
+ *   - `extension` — browser extension contexts (popup, sidepanel,
+ *     devpanel, full-page workbench tab). Carries `browserContext`.
+ *   - `desktop`   — Electron main window. No `browserContext`.
+ *   - `web`       — the openheaders.io web bundle, when shipped.
+ *     Hosted in a real browser, so carries `browserContext`, but
+ *     bucketed separately from extension surfaces in the same
+ *     browser so the popover can disambiguate.
+ *   - `cli`       — reserved for the CLI sync peer; CLI has no
+ *     surface today, so it never appears as a presence row.
+ */
+export type AppKind = 'extension' | 'desktop' | 'cli' | 'web';
 
 /** Browser identifier — populated only when the surface lives inside a
  *  browser (`appId === 'extension'`). `profile` is best-effort: Chrome's

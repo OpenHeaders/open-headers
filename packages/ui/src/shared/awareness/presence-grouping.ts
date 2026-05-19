@@ -1,38 +1,49 @@
 /**
  * Presence grouping — turn a flat list of `AwarenessState` into a tree
  * keyed by the natural identity hierarchy (`userId` → `deviceId` →
- * `browserContext` → instance).
+ * host → instance).
+ *
+ * "Host" composes `appId` + (when present) `browserContext`. It
+ * answers "where does this surface run?":
+ *   - browser extension in Chrome     → `extension:chrome`
+ *   - browser extension in Firefox    → `extension:firefox`
+ *   - openheaders.io web tab in Chrome → `web:chrome`     (future)
+ *   - desktop Electron app            → `app:desktop`
+ * Naming this level "host" (not "browser") matters once Mode 2+ has
+ * desktop and web surfaces coexisting in the same identity tree — a
+ * desktop surface is not "a browser bucket."
  *
  * The same UI primitive must scale across every deployment topology
  * the system targets without per-mode forks:
  *
  *   - Mode 1 (single browser, multi-surface — today). Every peer
- *     shares the same undefined `userId` / `deviceId` / `browserContext`,
+ *     shares the same undefined `userId` / `deviceId` and one host,
  *     so all upper levels collapse and the popover renders today's
  *     flat list of surfaces.
- *   - Mode 2 (local oracle — solo user, multiple browsers / devices).
- *     `browserContext` (and possibly `deviceId`) diverges. Headers
- *     surface only at the levels that actually carry diversity.
+ *   - Mode 2 (local oracle — solo user, multiple browsers / devices /
+ *     apps). Host (and possibly `deviceId`) diverges. Headers surface
+ *     only at the levels that actually carry diversity.
  *   - Mode 3 (cloud — team workspace). `userId` diverges. The user
- *     level becomes the outermost grouping; per-user devices /
- *     browsers nest underneath.
+ *     level becomes the outermost grouping; per-user devices / hosts
+ *     nest underneath.
  *
  * Architectural rule: every level always renders, even when it
  *   contains a single bucket. The popover is the user's window into
  *   the system's identity model; collapsing levels because they
  *   happen to be uniform today would hide the fact that user /
- *   device / browser are independent axes that diverge in Mode 2/3.
+ *   device / host are independent axes that diverge in Mode 2/3.
  *   A single-bucket header tagged "you" / "this device" / "this
- *   browser" reads as progressive disclosure of capability — readers
- *   learn the structure before they meet the divergence.
+ *   browser" / "this app" reads as progressive disclosure of
+ *   capability — readers learn the structure before they meet the
+ *   divergence.
  *
  * Pure module, no React. The renderer (`AwarenessPill`) walks the
  * tree and decides indentation / labels.
  */
 
-import type { AwarenessState, BrowserContext, PresenceIdentity } from '@openheaders/core/protocol';
+import type { AppKind, AwarenessState, BrowserContext, PresenceIdentity } from '@openheaders/core/protocol';
 
-export type PresenceGroupLevel = 'user' | 'device' | 'browser';
+export type PresenceGroupLevel = 'user' | 'device' | 'host';
 
 /** Internal grouping node. Either an inner group (`children` set) or a
  *  leaf (`state` set). Leaves are the per-instance `AwarenessState`
@@ -59,7 +70,7 @@ export type PresenceTreeNode =
 
 const USER_BUCKET_FALLBACK = '__no-user__';
 const DEVICE_BUCKET_FALLBACK = '__no-device__';
-const BROWSER_BUCKET_FALLBACK = '__no-browser__';
+const HOST_BUCKET_FALLBACK = '__no-host__';
 
 /**
  * Build the presence tree.
@@ -108,7 +119,7 @@ function groupAtLevel(
 
 function nextLevelOf(level: PresenceGroupLevel): PresenceGroupLevel | null {
   if (level === 'user') return 'device';
-  if (level === 'device') return 'browser';
+  if (level === 'device') return 'host';
   return null;
 }
 
@@ -146,17 +157,52 @@ function identifyLevel(
     const id = identity.deviceId ?? DEVICE_BUCKET_FALLBACK;
     return { key: id, label: identity.deviceId ? formatDeviceLabel(identity.deviceId) : 'This device' };
   }
-  // browser
+  return identifyHost(identity);
+}
+
+/**
+ * Host-level bucketing. The host axis composes `appId` + (when
+ * present) `browserContext`, so two surfaces in the same browser but
+ * different apps (the extension and a future openheaders.io web tab in
+ * Chrome) end up in different buckets, and a desktop surface never
+ * lands in a "Chrome" bucket inherited from Electron's user-agent.
+ */
+function identifyHost(identity: PresenceIdentity): { key: string; label: string } {
   const ctx = identity.browserContext;
-  if (!ctx) return { key: BROWSER_BUCKET_FALLBACK, label: 'This browser' };
-  return { key: formatBrowserKey(ctx), label: formatBrowserLabel(ctx) };
+  if (ctx) {
+    if (identity.appId === 'web') {
+      return { key: `web:${formatBrowserKey(ctx)}`, label: `${formatBrowserLabel(ctx)} (web)` };
+    }
+    return { key: `extension:${formatBrowserKey(ctx)}`, label: formatBrowserLabel(ctx) };
+  }
+  if (identity.appId === 'desktop') return { key: 'app:desktop', label: 'Desktop app' };
+  if (identity.appId === 'web') return { key: 'app:web', label: 'Web' };
+  if (identity.appId === 'cli') return { key: 'app:cli', label: 'CLI' };
+  // Extension surface that never picked up its BrowserContext (older
+  // test fixtures, or a render before observeLabel resolved). The
+  // legacy "This browser" label keeps existing UX intact for that
+  // narrow case; the bucket key is fallback-only.
+  return { key: HOST_BUCKET_FALLBACK, label: 'This browser' };
 }
 
 function localKeyForLevel(local: PresenceIdentity, level: PresenceGroupLevel): string | null {
   if (level === 'user') return local.userId ?? USER_BUCKET_FALLBACK;
   if (level === 'device') return local.deviceId ?? DEVICE_BUCKET_FALLBACK;
-  if (!local.browserContext) return BROWSER_BUCKET_FALLBACK;
-  return formatBrowserKey(local.browserContext);
+  return identifyHost(local).key;
+}
+
+/**
+ * Pick the right "this is you" decoration for a local host-level
+ * bucket. Used by the popover renderer so the local host tag matches
+ * the surface kind the user is actually looking at — "this browser"
+ * for an extension surface, "this app" for the desktop window, "this
+ * tab" for the future web bundle.
+ */
+export function localHostTag(appId: AppKind): string {
+  if (appId === 'extension') return 'this browser';
+  if (appId === 'desktop') return 'this app';
+  if (appId === 'web') return 'this tab';
+  return 'this surface';
 }
 
 function toLeaf(state: AwarenessState): PresenceTreeNode {

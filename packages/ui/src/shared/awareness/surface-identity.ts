@@ -38,7 +38,14 @@ function detectBrowser(): BrowserContext['browser'] {
   return 'other';
 }
 
-const BROWSER_CONTEXT: BrowserContext = { browser: detectBrowser() };
+// `browserContext` is only meaningful for surfaces hosted inside a
+// real browser (the browser extension). Desktop (Electron) and CLI
+// surfaces leave it undefined per the PresenceIdentity contract;
+// grouping/labelling then routes them by `appId` rather than by a
+// fake "Chrome" bucket inherited from Electron's user-agent string.
+function browserContextForApp(appId: AppKind): BrowserContext | undefined {
+  return appId === 'extension' ? { browser: detectBrowser() } : undefined;
+}
 
 function defaultLabel(kind: SurfaceKind): string {
   switch (kind) {
@@ -99,7 +106,7 @@ export function buildIdentity(opts: ResolveOptions): SurfaceIdentityHandle {
     instanceId,
     surfaceKind: opts.surfaceKind,
     appId: opts.appId,
-    browserContext: BROWSER_CONTEXT,
+    browserContext: browserContextForApp(opts.appId),
     label: opts.initialLabel ?? defaultLabel(opts.surfaceKind),
   };
   const labelListeners = new Set<LabelChangeListener>();

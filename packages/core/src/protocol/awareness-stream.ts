@@ -62,7 +62,7 @@ const FieldRefShape = v.object({
 const PresenceIdentityShape = v.looseObject({
   instanceId: v.pipe(v.string(), v.minLength(1)),
   surfaceKind: v.picklist(['workbench', 'popup', 'devpanel', 'sidepanel']),
-  appId: v.picklist(['extension', 'desktop', 'cli']),
+  appId: v.picklist(['extension', 'desktop', 'cli', 'web']),
   label: v.string(),
 });
 

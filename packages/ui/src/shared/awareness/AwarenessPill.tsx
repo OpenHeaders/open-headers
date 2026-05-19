@@ -22,12 +22,12 @@
  * information you couldn't infer from its parent.
  */
 
-import type { AwarenessState } from '@openheaders/core/protocol';
+import type { AwarenessState, PresenceIdentity } from '@openheaders/core/protocol';
 import { Popover } from 'antd';
 import type React from 'react';
 import { useSurfaceIdentity } from './IdentityContext';
 import { isHandleCoLocated, isPeerNavigable, peerNavigate } from './peer-navigate';
-import { groupPresence, type PresenceTreeNode } from './presence-grouping';
+import { groupPresence, localHostTag, type PresenceTreeNode } from './presence-grouping';
 import { surfaceKindColor, surfaceKindLabel } from './surface-label';
 
 export interface AwarenessPillProps {
@@ -124,7 +124,7 @@ function renderNode(
   const headerKey = `g:${node.level}:${node.groupKey}`;
   return (
     <li key={headerKey} style={{ listStyle: 'none' }}>
-      <GroupHeader label={node.label} hint={hintForGroup(node)} depth={depth} />
+      <GroupHeader label={node.label} hint={hintForGroup(node, localIdentity)} depth={depth} />
       <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
         {node.children.map((child) => renderNode(child, localIdentity, depth + 1))}
       </ul>
@@ -132,11 +132,14 @@ function renderNode(
   );
 }
 
-function hintForGroup(node: Extract<PresenceTreeNode, { kind: 'group' }>): string | null {
+function hintForGroup(
+  node: Extract<PresenceTreeNode, { kind: 'group' }>,
+  localIdentity: PresenceIdentity,
+): string | null {
   if (!node.isLocal) return null;
   if (node.level === 'user') return 'you';
   if (node.level === 'device') return 'this device';
-  return 'this browser';
+  return localHostTag(localIdentity.appId);
 }
 
 interface GroupHeaderProps {

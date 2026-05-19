@@ -49,11 +49,11 @@ describe('groupPresence', () => {
     expect(groupPresence([], localId)).toEqual([]);
   });
 
-  it('Mode 1: all peers share undefined user/device/browser → still renders all three header levels', () => {
+  it('Mode 1: all peers share undefined user/device/host → still renders all three header levels', () => {
     // Architectural choice: never collapse single-bucket levels. The
     // popover is the window into the identity model; communicating
-    // user / device / browser as independent axes from day one
-    // matters even when they happen to be uniform today.
+    // user / device / host as independent axes from day one matters
+    // even when they happen to be uniform today.
     const peers = [
       state(id({ instanceId: 'p1', surfaceKind: 'popup' })),
       state(id({ instanceId: 'p2', surfaceKind: 'devpanel' })),
@@ -70,14 +70,14 @@ describe('groupPresence', () => {
     expect(deviceNode.label).toBe('This device');
     expect(deviceNode.isLocal).toBe(true);
     expect(deviceNode.children).toHaveLength(1);
-    const browserNode = asGroup(deviceNode.children[0]);
-    expect(browserNode.level).toBe('browser');
-    expect(browserNode.label).toBe('This browser');
-    expect(browserNode.isLocal).toBe(true);
-    expect(leafIds(browserNode.children)).toEqual(['p1', 'p2']);
+    const hostNode = asGroup(deviceNode.children[0]);
+    expect(hostNode.level).toBe('host');
+    expect(hostNode.label).toBe('This browser');
+    expect(hostNode.isLocal).toBe(true);
+    expect(leafIds(hostNode.children)).toEqual(['p1', 'p2']);
   });
 
-  it('Mode 2: same device, two browsers → user/device single-bucket headers + two browser buckets', () => {
+  it('Mode 2: same device, two browsers → user/device single-bucket headers + two host buckets', () => {
     const peers = [
       state(id({ instanceId: 'chr-1', browserContext: { browser: 'chrome' } })),
       state(id({ instanceId: 'chr-2', surfaceKind: 'popup', browserContext: { browser: 'chrome' } })),
@@ -95,6 +95,46 @@ describe('groupPresence', () => {
     expect(edge.isLocal).toBe(false);
     expect(leafIds(chrome.children)).toEqual(['chr-1', 'chr-2']);
     expect(leafIds(edge.children)).toEqual(['edge-1']);
+  });
+
+  it('Mode 2: extension surface in Chrome + desktop surface coexist as distinct host buckets', () => {
+    // The case the docs call T2 (same user, same machine, ext+desktop
+    // on localhost). Desktop surface has no browserContext and must
+    // not get lumped into the extension's Chrome bucket.
+    const peers = [
+      state(id({ instanceId: 'ext', appId: 'extension', browserContext: { browser: 'chrome' } })),
+      state(id({ instanceId: 'desk', appId: 'desktop' })),
+    ];
+    const tree = groupPresence(
+      peers,
+      id({ instanceId: 'local-ext', appId: 'extension', browserContext: { browser: 'chrome' } }),
+    );
+    const device = asGroup(asGroup(tree[0]).children[0]);
+    expect(device.children).toHaveLength(2);
+    const ext = asGroup(device.children[0]);
+    const desk = asGroup(device.children[1]);
+    expect(ext.label).toBe('Chrome');
+    expect(ext.isLocal).toBe(true);
+    expect(desk.label).toBe('Desktop app');
+    expect(desk.isLocal).toBe(false);
+    expect(leafIds(ext.children)).toEqual(['ext']);
+    expect(leafIds(desk.children)).toEqual(['desk']);
+  });
+
+  it('future: openheaders.io web bundle in Chrome buckets separately from extension in Chrome', () => {
+    const peers = [
+      state(id({ instanceId: 'ext', appId: 'extension', browserContext: { browser: 'chrome' } })),
+      state(id({ instanceId: 'web', appId: 'web', browserContext: { browser: 'chrome' } })),
+    ];
+    const tree = groupPresence(peers, localId);
+    const device = asGroup(asGroup(tree[0]).children[0]);
+    expect(device.children).toHaveLength(2);
+    const ext = asGroup(device.children[0]);
+    const web = asGroup(device.children[1]);
+    expect(ext.label).toBe('Chrome');
+    expect(web.label).toBe('Chrome (web)');
+    expect(leafIds(ext.children)).toEqual(['ext']);
+    expect(leafIds(web.children)).toEqual(['web']);
   });
 
   it('Mode 3: two users → top-level user buckets; per-user device + browser layers always render', () => {
@@ -142,16 +182,16 @@ describe('groupPresence', () => {
     expect(personal.isLocal).toBe(false);
   });
 
-  it('keeps insertion order of incoming presence within each browser bucket', () => {
+  it('keeps insertion order of incoming presence within each host bucket', () => {
     const peers = [
       state(id({ instanceId: 'a', browserContext: { browser: 'chrome' } })),
       state(id({ instanceId: 'b', browserContext: { browser: 'edge' } })),
       state(id({ instanceId: 'c', browserContext: { browser: 'chrome' } })),
     ];
     const tree = groupPresence(peers, localId);
-    const browsers = asGroup(asGroup(asGroup(tree[0]).children[0])).children;
-    const chrome = asGroup(browsers[0]);
-    const edge = asGroup(browsers[1]);
+    const hosts = asGroup(asGroup(asGroup(tree[0]).children[0])).children;
+    const chrome = asGroup(hosts[0]);
+    const edge = asGroup(hosts[1]);
     expect(leafIds(chrome.children)).toEqual(['a', 'c']);
     expect(leafIds(edge.children)).toEqual(['b']);
   });
