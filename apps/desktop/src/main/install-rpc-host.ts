@@ -53,28 +53,39 @@
  *     payload shape.
  */
 
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { randomUUID } from 'node:crypto';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { setHostBridge } from '@openheaders/core/bridge';
-import { SYNC_AWARENESS_PRESENCE_TYPE } from '@openheaders/core/protocol';
-import type { AwarenessState } from '@openheaders/core/protocol';
 import {
+  createDaemonPairingService,
   ensureSyntheticIdentity,
   ensureWorkspaceRoleAssignments,
   getIdentitySnapshot,
   refreshIdentitySnapshotFromHostStorage,
 } from '@openheaders/core/identity';
+import { setHostLogger } from '@openheaders/core/logger';
+import type { AwarenessState } from '@openheaders/core/protocol';
+import { SYNC_AWARENESS_PRESENCE_TYPE, WS_PORT } from '@openheaders/core/protocol';
+import { setHostStorage } from '@openheaders/core/storage';
 import {
   EXTENSION_WORKSPACE_GLOBAL_SCOPE,
   invalidateAllWorkspaceOrgCache,
   setWorkspaceOrgResolver,
 } from '@openheaders/core/sync';
 import { logger as consoleLogger } from '@openheaders/core/utils';
-import { setHostLogger } from '@openheaders/core/logger';
-import { setHostStorage } from '@openheaders/core/storage';
 import { setLockRuntime } from '@openheaders/oracle/coordination';
+import { setBlobBackend } from '@openheaders/oracle/files';
+// Node-only backend lives behind a deep import so the browser-facing
+// barrel (`@openheaders/oracle/files`) stays free of `node:fs` / `node:path`.
+import { FileSystemBlobBackend } from '@openheaders/oracle/files/fs-blob-backend';
 import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
+import { createPairingHttpHandler } from '@openheaders/oracle/host-runtime/pairing-http';
 import type { OracleWsServer } from '@openheaders/oracle/host-runtime/ws-server';
-import { type DaemonBindSupervisor, startDaemonBindSupervisor } from './daemon-bind-supervisor';
+import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
+import { setActivityMuteStore, setOracleHostHooks, subscribeActivityMuteChanges } from '@openheaders/oracle/sync';
+import { createSqliteSyncPersistence } from '@openheaders/oracle/sync/sqlite-sync-persistence';
+import { setSyncPersistenceProvider } from '@openheaders/oracle/sync/sync-persistence-provider';
 import {
   bootstrap as bootstrapWorkspaces,
   getActiveWorkspaceId,
@@ -84,34 +95,15 @@ import {
   peekActiveWorkspaceId,
 } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { hydrateActiveWorkspaceStores } from '@openheaders/oracle/workspace/workspace-coordinator';
-import {
-  setActivityMuteStore,
-  setOracleHostHooks,
-  subscribeActivityMuteChanges,
-} from '@openheaders/oracle/sync';
-import { setSyncPersistenceProvider } from '@openheaders/oracle/sync/sync-persistence-provider';
-import { createSqliteSyncPersistence } from '@openheaders/oracle/sync/sqlite-sync-persistence';
-import { setBlobBackend } from '@openheaders/oracle/files';
-// Node-only backend lives behind a deep import so the browser-facing
-// barrel (`@openheaders/oracle/files`) stays free of `node:fs` / `node:path`.
-import { FileSystemBlobBackend } from '@openheaders/oracle/files/fs-blob-backend';
-import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
-import * as path from 'node:path';
-import * as os from 'node:os';
-import { randomUUID } from 'node:crypto';
+import { app, BrowserWindow, ipcMain } from 'electron';
+import { installActivityPruneScheduler } from './activity-prune-scheduler';
+import { type DaemonBindSupervisor, startDaemonBindSupervisor } from './daemon-bind-supervisor';
 import { installHostStorage } from './install-host-storage';
 import { installLifelineServer } from './install-lifeline-server';
+import { listLanIpv4Addresses } from './lan-addresses';
 import { singleProcessLockRuntime } from './single-process-lock-runtime';
-import {
-  forwardMutationToWsPeers,
-  setMutationForwarderWsServer,
-} from './sync-mutation-forwarder';
-import {
-  observeForActivityFeed,
-  setActivityLog,
-  subscribeActivityEntries,
-} from './sync-activity-installer';
-import { installActivityPruneScheduler } from './activity-prune-scheduler';
+import { observeForActivityFeed, setActivityLog, subscribeActivityEntries } from './sync-activity-installer';
+import { forwardMutationToWsPeers, setMutationForwarderWsServer } from './sync-mutation-forwarder';
 
 const RPC_CHANNEL = 'oh:rpc';
 const BROADCAST_CHANNEL = 'oh:broadcast';
@@ -308,9 +300,55 @@ export async function installRpcHost(): Promise<void> {
   await hydrateActiveWorkspaceStores();
   await bootSyncEngine();
 
-  // 5. IPC RPC dispatch.
+  // 4b. Daemon device-flow pairing surface (U3.3). One service instance
+  //     per process; the HTTP handler is rebuilt with that service and
+  //     handed to every bind the supervisor opens. Polling-only IPC
+  //     contract — see `BridgeRpcContract['oh.daemon.pairing.*']`.
+  const pairingService = createDaemonPairingService();
+  const pairingHttpHandler = createPairingHttpHandler({ pairing: pairingService });
+
+  // 5. IPC RPC dispatch. Pairing channels are intercepted ahead of
+  //    `dispatchSyncRpc` — they're admin-only renderer RPCs, not part
+  //    of the 22 sync+awareness channels, so we don't pollute the
+  //    sync dispatcher with surface-specific routes.
   ipcMain.handle(RPC_CHANNEL, async (_event, raw: unknown) => {
     const message = (raw ?? {}) as Record<string, unknown>;
+    const type = message.type;
+    if (type === 'oh.daemon.pairing.start') {
+      try {
+        const deviceLabel =
+          typeof message.deviceLabel === 'string' ? message.deviceLabel.trim() || undefined : undefined;
+        const { code, expiresAt } = pairingService.startPair({ deviceLabel });
+        const addresses = listLanIpv4Addresses();
+        const pairingUrls = [
+          { host: '127.0.0.1', url: `http://127.0.0.1:${WS_PORT}/pair/${code}` },
+          ...addresses.map((a) => ({
+            host: a.host,
+            iface: a.iface,
+            url: `http://${a.host}:${WS_PORT}/pair/${code}`,
+          })),
+        ];
+        return { ok: true, code, expiresAt, port: WS_PORT, pairingUrls };
+      } catch (err) {
+        return { ok: false, error: (err as Error).message };
+      }
+    }
+    if (type === 'oh.daemon.pairing.list') {
+      return {
+        pairs: pairingService.list().map((p) => ({
+          code: p.code,
+          deviceLabel: p.deviceLabel,
+          createdAt: p.createdAt,
+          expiresAt: p.expiresAt,
+          status: p.status,
+        })),
+      };
+    }
+    if (type === 'oh.daemon.pairing.cancel') {
+      const code = typeof message.code === 'string' ? message.code : '';
+      if (code) pairingService.cancel(code);
+      return { ok: true };
+    }
     const result = dispatchSyncRpc(message);
     if (result === null) {
       // Anything outside the 22 sync+awareness channels — chrome.tabs,
@@ -347,6 +385,7 @@ export async function installRpcHost(): Promise<void> {
         nodeId: `desktop-${randomUUID()}`,
         agent: `@openheaders/desktop@${app.getVersion()}`,
       },
+      httpRequestHandler: pairingHttpHandler,
       onServerChange: (next) => {
         wsServer = next;
         setMutationForwarderWsServer(next);
@@ -369,6 +408,7 @@ export async function installRpcHost(): Promise<void> {
     setMutationForwarderWsServer(null);
     setActivityLog(null);
     setActivityMuteStore(null);
+    pairingService.dispose();
     void bindSupervisor?.dispose();
     bindSupervisor = null;
     wsServer = null;

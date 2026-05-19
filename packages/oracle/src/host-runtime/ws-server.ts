@@ -51,25 +51,20 @@
  * (out of scope here).
  */
 
+import { randomUUID } from 'node:crypto';
+import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
+import { hostLogger as logger } from '@openheaders/core/logger';
 import {
   PROTOCOL_INCOMPATIBLE_CLOSE_CODE,
   SYNC_HELLO_TYPE,
   SYNC_STATE_VECTOR_TYPE,
   WS_PORT,
 } from '@openheaders/core/protocol';
-import { hostLogger as logger } from '@openheaders/core/logger';
-import { WebSocketServer, WebSocket, type RawData } from 'ws';
-import { randomUUID } from 'node:crypto';
+import { type RawData, WebSocket, WebSocketServer } from 'ws';
 import { dispatchSyncRpc } from '../rpc';
-import {
-  evaluateHello,
-  handleStateVector,
-  type LocalHandshakeIdentity,
-} from '../rpc/handshake-dispatch';
-import {
-  createPeerConnection,
-  type PeerConnection,
-} from './peer-connection';
+import { evaluateHello, handleStateVector, type LocalHandshakeIdentity } from '../rpc/handshake-dispatch';
+import type { PairingHttpHandler } from './pairing-http';
+import { createPeerConnection, type PeerConnection } from './peer-connection';
 
 const SCOPE = 'OracleWsServer';
 const HANDSHAKE_TIMEOUT_MS = 5_000;
@@ -100,6 +95,15 @@ export interface OracleWsServerOptions {
    * the state-vector handshake can't run.
    */
   handshakeIdentity: LocalHandshakeIdentity;
+  /**
+   * Optional sibling HTTP handler — invoked on every non-upgrade
+   * request that hits the bound socket. The handler must return
+   * `true` when it owns the response (sync or pending async); the
+   * server emits a bare 400 fallback when it returns `false`. Used
+   * by the pairing device-flow surface (U3.3) to expose `/pair/<code>`
+   * without spinning a second port. See {@link createPairingHttpHandler}.
+   */
+  httpRequestHandler?: PairingHttpHandler;
 }
 
 export interface OracleWsServer {
@@ -137,20 +141,35 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
   const host = options.host ?? '127.0.0.1';
   const port = options.port ?? WS_PORT;
   const handshakeIdentity = options.handshakeIdentity;
+  const httpRequestHandler = options.httpRequestHandler;
   const requireAuth = !LOOPBACK_BINDS.has(host);
 
-  const wss = new WebSocketServer({ host, port });
+  // Own the underlying http.Server so the pairing surface (U3.3) can
+  // attach to non-upgrade `request` events on the same bind. Without
+  // this, `new WebSocketServer({ host, port })` would spin its own
+  // listener and the pairing routes would have to live on a separate
+  // port — `data-plane.md` §11.4 calls out single-bind explicitly.
+  const httpServer: HttpServer = createHttpServer((req, res) => {
+    if (httpRequestHandler && httpRequestHandler(req, res)) return;
+    // Default: anything that isn't an upgrade and isn't claimed by the
+    // pairing handler gets the same 400 the `ws` package emits on its
+    // own — that's what the extension's reachability check expects.
+    res.statusCode = 400;
+    res.end();
+  });
+  const wss = new WebSocketServer({ server: httpServer });
   await new Promise<void>((resolve, reject) => {
     const onListening = (): void => {
-      wss.off('error', onError);
+      httpServer.off('error', onError);
       resolve();
     };
     const onError = (err: Error): void => {
-      wss.off('listening', onListening);
+      httpServer.off('listening', onListening);
       reject(err);
     };
-    wss.once('listening', onListening);
-    wss.once('error', onError);
+    httpServer.once('listening', onListening);
+    httpServer.once('error', onError);
+    httpServer.listen({ host, port });
   });
 
   logger.info(SCOPE, `listening on ws://${host}:${port}`);
@@ -188,114 +207,114 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
       // await the token-store read. Post-handshake branches stay
       // synchronous; only the one async edge runs through the IIFE.
       void (async () => {
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(raw.toString('utf-8'));
-      } catch (err) {
-        logger.warn(SCOPE, 'dropping unparseable frame', err);
-        return;
-      }
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(raw.toString('utf-8'));
+        } catch (err) {
+          logger.warn(SCOPE, 'dropping unparseable frame', err);
+          return;
+        }
 
-      if (!handshakeDone) {
-        const frameType = (parsed as { type?: unknown })?.type;
-        if (frameType !== SYNC_HELLO_TYPE) {
-          logger.warn(SCOPE, `pre-handshake message ${String(frameType)}; expected ${SYNC_HELLO_TYPE}; closing`);
-          try {
-            socket.close(1002, `expected ${SYNC_HELLO_TYPE}`);
-          } catch {
-            // ignore
-          }
-          return;
-        }
-        const outcome = await evaluateHello(parsed as Record<string, unknown>, handshakeIdentity, {
-          requireAuth,
-        });
-        send(socket, outcome.welcome);
-        if (outcome.kind === 'reject') {
-          logger.info(SCOPE, `HELLO rejected: ${outcome.reason}`);
-          try {
-            socket.close(PROTOCOL_INCOMPATIBLE_CLOSE_CODE, outcome.reason);
-          } catch {
-            // ignore
-          }
-          return;
-        }
-        const peerId = randomUUID();
-        const peerConn = createPeerConnection({
-          peerId,
-          nodeId: outcome.hello.nodeId,
-          role: outcome.hello.role,
-          agent: outcome.hello.agent,
-          workspaceId: outcome.hello.workspaceId,
-          protocolVersion: outcome.hello.protocolVersion,
-          send: (frame) => {
-            if (socket.readyState !== WebSocket.OPEN) return false;
+        if (!handshakeDone) {
+          const frameType = (parsed as { type?: unknown })?.type;
+          if (frameType !== SYNC_HELLO_TYPE) {
+            logger.warn(SCOPE, `pre-handshake message ${String(frameType)}; expected ${SYNC_HELLO_TYPE}; closing`);
             try {
-              socket.send(JSON.stringify(frame));
-              return true;
-            } catch (err) {
-              logger.warn(SCOPE, `peer ${peerId} reply failed`, err);
-              return false;
-            }
-          },
-          close: (code, reason) => {
-            try {
-              socket.close(code ?? 1000, reason);
+              socket.close(1002, `expected ${SYNC_HELLO_TYPE}`);
             } catch {
               // ignore
             }
-          },
-        });
-        peerBySocket.set(socket, peerConn);
-        handshakeDone = true;
-        clearTimeout(handshakeTimer);
-        ready.add(socket);
-        logger.info(
-          SCOPE,
-          `peer connected (role=${peerConn.role} agent=${peerConn.agent} ws=${peerConn.workspaceId} node=${peerConn.nodeId} protocol=v${peerConn.protocolVersion})`,
-        );
-        return;
-      }
-
-      if (isPing(parsed)) {
-        send(socket, { type: 'pong', t: parsed.t });
-        return;
-      }
-
-      // STATE_VECTOR is handshake-flow, not RPC — needs streaming reply
-      // bound to this socket via the PeerConnection. Only valid for
-      // HELLO-connected peers; browserInfo-connected peers (no
-      // workspace binding) get a hard reject so the client knows to
-      // upgrade.
-      if ((parsed as { type?: unknown })?.type === SYNC_STATE_VECTOR_TYPE) {
-        const peerConn = peerBySocket.get(socket);
-        if (!peerConn) {
-          logger.warn(SCOPE, 'STATE_VECTOR from a peer that connected via legacy browserInfo; dropping');
+            return;
+          }
+          const outcome = await evaluateHello(parsed as Record<string, unknown>, handshakeIdentity, {
+            requireAuth,
+          });
+          send(socket, outcome.welcome);
+          if (outcome.kind === 'reject') {
+            logger.info(SCOPE, `HELLO rejected: ${outcome.reason}`);
+            try {
+              socket.close(PROTOCOL_INCOMPATIBLE_CLOSE_CODE, outcome.reason);
+            } catch {
+              // ignore
+            }
+            return;
+          }
+          const peerId = randomUUID();
+          const peerConn = createPeerConnection({
+            peerId,
+            nodeId: outcome.hello.nodeId,
+            role: outcome.hello.role,
+            agent: outcome.hello.agent,
+            workspaceId: outcome.hello.workspaceId,
+            protocolVersion: outcome.hello.protocolVersion,
+            send: (frame) => {
+              if (socket.readyState !== WebSocket.OPEN) return false;
+              try {
+                socket.send(JSON.stringify(frame));
+                return true;
+              } catch (err) {
+                logger.warn(SCOPE, `peer ${peerId} reply failed`, err);
+                return false;
+              }
+            },
+            close: (code, reason) => {
+              try {
+                socket.close(code ?? 1000, reason);
+              } catch {
+                // ignore
+              }
+            },
+          });
+          peerBySocket.set(socket, peerConn);
+          handshakeDone = true;
+          clearTimeout(handshakeTimer);
+          ready.add(socket);
+          logger.info(
+            SCOPE,
+            `peer connected (role=${peerConn.role} agent=${peerConn.agent} ws=${peerConn.workspaceId} node=${peerConn.nodeId} protocol=v${peerConn.protocolVersion})`,
+          );
           return;
         }
-        void handleStateVector(parsed as Record<string, unknown>, peerConn).catch((err) => {
-          logger.warn(SCOPE, `handleStateVector threw for peer ${peerConn.peerId}`, err);
-        });
-        return;
-      }
 
-      const dispatched = dispatchSyncRpc(parsed as Record<string, unknown>);
-      if (dispatched === null) {
-        // Channel outside the 22 sync+awareness ones. Silently ignore —
-        // matches the chrome adapter's pass-through semantics.
-        return;
-      }
-      const responseChannel = `${(parsed as RpcMessage).type}:response`;
-      if (dispatched.kind === 'sync') {
-        send(socket, { type: responseChannel, payload: dispatched.response });
-      } else {
-        void dispatched.promise
-          .then((resp) => send(socket, { type: responseChannel, payload: resp }))
-          .catch((err) => {
-            logger.warn(SCOPE, `RPC ${(parsed as RpcMessage).type} threw`, err);
-            send(socket, { type: responseChannel, __error: (err as Error)?.message ?? String(err) });
+        if (isPing(parsed)) {
+          send(socket, { type: 'pong', t: parsed.t });
+          return;
+        }
+
+        // STATE_VECTOR is handshake-flow, not RPC — needs streaming reply
+        // bound to this socket via the PeerConnection. Only valid for
+        // HELLO-connected peers; browserInfo-connected peers (no
+        // workspace binding) get a hard reject so the client knows to
+        // upgrade.
+        if ((parsed as { type?: unknown })?.type === SYNC_STATE_VECTOR_TYPE) {
+          const peerConn = peerBySocket.get(socket);
+          if (!peerConn) {
+            logger.warn(SCOPE, 'STATE_VECTOR from a peer that connected via legacy browserInfo; dropping');
+            return;
+          }
+          void handleStateVector(parsed as Record<string, unknown>, peerConn).catch((err) => {
+            logger.warn(SCOPE, `handleStateVector threw for peer ${peerConn.peerId}`, err);
           });
-      }
+          return;
+        }
+
+        const dispatched = dispatchSyncRpc(parsed as Record<string, unknown>);
+        if (dispatched === null) {
+          // Channel outside the 22 sync+awareness ones. Silently ignore —
+          // matches the chrome adapter's pass-through semantics.
+          return;
+        }
+        const responseChannel = `${(parsed as RpcMessage).type}:response`;
+        if (dispatched.kind === 'sync') {
+          send(socket, { type: responseChannel, payload: dispatched.response });
+        } else {
+          void dispatched.promise
+            .then((resp) => send(socket, { type: responseChannel, payload: resp }))
+            .catch((err) => {
+              logger.warn(SCOPE, `RPC ${(parsed as RpcMessage).type} threw`, err);
+              send(socket, { type: responseChannel, __error: (err as Error)?.message ?? String(err) });
+            });
+        }
       })();
     });
 
@@ -355,6 +374,13 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
       ready.clear();
       await new Promise<void>((resolve) => {
         wss.close(() => resolve());
+      });
+      // `wss.close()` doesn't close the underlying http.Server when the
+      // server was supplied by the caller, so the bind would linger
+      // until the http.Server's idle-timeout. Close it explicitly so a
+      // rebind on the same port doesn't trip EADDRINUSE.
+      await new Promise<void>((resolve) => {
+        httpServer.close(() => resolve());
       });
       logger.info(SCOPE, 'closed');
     },

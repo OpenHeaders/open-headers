@@ -15,8 +15,8 @@
  * always sees a single up-to-date `OracleWsServer` reference.
  */
 
-import { hostStorage, OH } from '@openheaders/core/storage';
 import { hostLogger as logger } from '@openheaders/core/logger';
+import { hostStorage, OH } from '@openheaders/core/storage';
 import {
   type OracleWsServer,
   type OracleWsServerOptions,
@@ -33,6 +33,13 @@ type BindAddress = '127.0.0.1' | '0.0.0.0';
 interface SupervisorOptions {
   /** Identity announced in WELCOME frames; passes straight through to `startOracleWsServer`. */
   handshakeIdentity: OracleWsServerOptions['handshakeIdentity'];
+  /**
+   * Optional sibling HTTP handler — invoked on every non-upgrade
+   * request that hits the bound socket. Passes straight through to
+   * `startOracleWsServer`; the supervisor owns the lifecycle but does
+   * not interpret the handler. Used by the U3.3 pairing surface.
+   */
+  httpRequestHandler?: OracleWsServerOptions['httpRequestHandler'];
   /**
    * Receives every up-to-date server handle (or null while a rebind is
    * in flight). Wires onto `setMutationForwarderWsServer` and the
@@ -58,9 +65,7 @@ function readBindAddressFromSettings(values: Record<string, unknown> | undefined
  * a rapid toggle can't race two `startOracleWsServer` calls onto the
  * same port.
  */
-export async function startDaemonBindSupervisor(
-  options: SupervisorOptions,
-): Promise<DaemonBindSupervisor> {
+export async function startDaemonBindSupervisor(options: SupervisorOptions): Promise<DaemonBindSupervisor> {
   const initialSettings = (await hostStorage.get(OH.settingsUser)) ?? {};
   let desiredBind: BindAddress = readBindAddressFromSettings(initialSettings);
   let currentBind: BindAddress | null = null;
@@ -92,6 +97,7 @@ export async function startDaemonBindSupervisor(
       const next = await startOracleWsServer({
         host: target,
         handshakeIdentity: options.handshakeIdentity,
+        httpRequestHandler: options.httpRequestHandler,
       });
       if (disposed) {
         await next.close().catch(() => undefined);
@@ -106,11 +112,7 @@ export async function startDaemonBindSupervisor(
         await reconcile();
       }
     } catch (err) {
-      logger.error(
-        SCOPE,
-        `failed to bind on ${target}; daemon is offline until the setting is corrected`,
-        err,
-      );
+      logger.error(SCOPE, `failed to bind on ${target}; daemon is offline until the setting is corrected`, err);
       currentBind = null;
       setServer(null);
     }

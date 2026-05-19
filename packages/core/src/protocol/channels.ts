@@ -36,10 +36,10 @@ import type {
   DiscardResult,
   ImportPayload,
   ImportResult,
-  RestoreResult,
   InverseEnvelopeContext,
   MutationEnvelope,
   MutatorOutcome,
+  RestoreResult,
   WorkspaceContentSnapshot,
 } from '../sync';
 import type {
@@ -1165,9 +1165,7 @@ export interface BridgeRpcContract {
    */
   'oh.sync.getPeerDataPresence': {
     req: Record<string, never>;
-    res:
-      | { available: false }
-      | { available: true; workspaces: WorkspaceContentSnapshot[] };
+    res: { available: false } | { available: true; workspaces: WorkspaceContentSnapshot[] };
   };
 
   /**
@@ -1595,6 +1593,60 @@ export interface BridgeRpcContract {
         storeId?: string;
       }> | null;
     };
+  };
+
+  // ── Daemon device-flow pairing (U3.3) ──────────────────────────
+  //
+  // Admin-only surface for issuing a short-lived pairing code that a
+  // peer can confirm by opening a daemon-hosted URL. The peer never
+  // sees these RPCs — they hit the HTTP routes attached to the same
+  // ws-server bind. Only the daemon's renderer (Settings → Backend →
+  // LAN peers) calls these. See `data-plane.md` §11.4 hybrid pattern.
+
+  /**
+   * Allocate a fresh pairing code + URL. Returns the candidate URLs
+   * the admin can read aloud / show as a QR. `pairingUrls` carries
+   * every non-loopback interface address — useful when the daemon
+   * binds on `0.0.0.0` and the admin doesn't know which network the
+   * peer is on. Loopback (`127.0.0.1`) is included as a fallback so
+   * the admin can pair a same-machine browser.
+   */
+  'oh.daemon.pairing.start': {
+    req: { deviceLabel?: string };
+    res:
+      | {
+          ok: true;
+          code: string;
+          expiresAt: number;
+          port: number;
+          pairingUrls: ReadonlyArray<{ host: string; url: string; iface?: string }>;
+        }
+      | { ok: false; error: string };
+  };
+
+  /**
+   * Snapshot of in-flight pairing codes — the modal polls this every
+   * second so it can transition to "Paired" when the peer confirms
+   * (the daemon doesn't broadcast pairing events; polling keeps the
+   * IPC surface tiny).
+   */
+  'oh.daemon.pairing.list': {
+    req: Record<string, never>;
+    res: {
+      pairs: ReadonlyArray<{
+        code: string;
+        deviceLabel?: string;
+        createdAt: number;
+        expiresAt: number;
+        status: 'pending' | 'confirmed' | 'expired' | 'consumed';
+      }>;
+    };
+  };
+
+  /** Cancel a pending pair (admin closed the modal without waiting). */
+  'oh.daemon.pairing.cancel': {
+    req: { code: string };
+    res: { ok: true };
   };
 }
 

@@ -64,3 +64,13 @@ export {
   type ValidateDaemonAuthTokenSuccess,
   type ValidateDaemonAuthTokenFailure,
 } from './daemon-auth-tokens';
+export {
+  createDaemonPairingService,
+  type ConfirmPairResult,
+  type DaemonPairingService,
+  type DaemonPairingServiceOptions,
+  type PendingPair,
+  type PendingPairStatus,
+  type StartPairInput,
+  type StartPairResult,
+} from './daemon-pairing';

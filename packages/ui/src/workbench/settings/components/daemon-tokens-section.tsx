@@ -24,6 +24,7 @@ import {
   revokeDaemonAuthToken,
 } from '@openheaders/core/identity';
 import type { DaemonAuthToken } from '@openheaders/core/types';
+import PairDeviceModal from './pair-device-modal';
 
 interface MintModalState {
   open: boolean;
@@ -52,6 +53,7 @@ const DaemonTokensSection: React.FC = () => {
   const [mintForm] = Form.useForm<{ label: string }>();
   const [minting, setMinting] = useState(false);
   const [mintResult, setMintResult] = useState<MintModalState>({ open: false, secret: '', tokenId: '' });
+  const [pairOpen, setPairOpen] = useState(false);
 
   const refresh = useCallback(async () => {
     const current = await listDaemonAuthTokens();
@@ -148,6 +150,9 @@ const DaemonTokensSection: React.FC = () => {
               Generate token
             </Button>
           </Form.Item>
+          <Form.Item style={{ marginBottom: 0, marginLeft: 8 }}>
+            <Button onClick={() => setPairOpen(true)}>Pair a device</Button>
+          </Form.Item>
         </Form>
         {tokens.length === 0 ? (
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
@@ -231,6 +236,14 @@ const DaemonTokensSection: React.FC = () => {
           onFocus={(e) => e.currentTarget.select()}
         />
       </Modal>
+
+      <PairDeviceModal
+        open={pairOpen}
+        onClose={() => {
+          setPairOpen(false);
+          void refresh();
+        }}
+      />
     </section>
   );
 };
