@@ -18,16 +18,19 @@
  * the first valid mode and persist.
  */
 
-import { ArrowRightOutlined } from '@ant-design/icons';
-import { Alert, Select, theme, Typography } from 'antd';
+import { ArrowRightOutlined, ExperimentOutlined, SwapOutlined } from '@ant-design/icons';
+import { Alert, App as AntApp, Button, theme, Typography } from 'antd';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { generateUid } from '@openheaders/core/utils';
+import { probeBackendConnection } from '../../../shared/backend/probe-connection';
 import { getCurrentHost, type Host } from '../../../shared/host-vocabulary';
 import { getStatusSnapshot, subscribe as subscribeStatus } from '../../../shared/status';
 import { useOptionalInspectorNav } from '../../hooks/useInspectorNav';
 import type { BackendMode } from '../schema/backend';
-import { backendModeIsPending } from '../schema/backend';
-import { backendModeSelectOptions, useBackendModeSwitch } from './backend-mode-switch';
+import { backendModeIsPending, backendModeNeedsConnection } from '../schema/backend';
+import { useSettingValue } from '../hooks';
+import { useBackendModeSwitch } from './backend-mode-switch';
 import type { CategoryDef, CategoryPaneProps, SettingDef, SubcategoryDef } from '../types';
 import SettingRow from '../fields/SettingRow';
 import { BackendDetailDiagram } from './backend-details';
@@ -124,27 +127,28 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   const activeScenario = SCENARIOS.find((s) => s.mode === mode) ?? SCENARIOS[0];
   const previewScenario = SCENARIOS.find((s) => s.mode === previewMode) ?? activeScenario;
   const fieldDefs = defs.filter((d) => d.key !== 'backend.mode');
-  const pending = backendModeIsPending(activeScenario.mode);
+  const previewPending = backendModeIsPending(previewScenario.mode);
   const liveBackend = useBackendLive(activeScenario.mode, host);
   const previewingNonActive = previewMode !== mode;
 
   return (
     <div style={{ padding: '20px 24px 28px' }}>
-      <header style={{ marginBottom: 14 }}>
+      <header
+        style={{
+          display: 'flex',
+          alignItems: 'baseline',
+          justifyContent: 'space-between',
+          gap: 12,
+          marginBottom: 14,
+        }}
+      >
         <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: token.colorText, letterSpacing: -0.1 }}>
           {category.label}
         </h2>
+        <div style={{ fontSize: 12, color: token.colorTextSecondary }}>
+          {HOST_INTRO[host]} <DocsLink />
+        </div>
       </header>
-
-      <ActiveBackendSelect
-        host={host}
-        intro={HOST_INTRO[host]}
-        value={mode}
-        disabled={disabled}
-        onChange={(next) => {
-          void attemptChange(next);
-        }}
-      />
 
       <ModePicker
         scenarios={SCENARIOS}
@@ -165,12 +169,32 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
         </div>
       </DetailFrame>
 
+      {/*
+        Config inputs follow the PREVIEW mode, not the active mode.
+        Users edit (URL, autoConnect, etc.) freely while exploring;
+        nothing commits until they click "Switch to ...". This is the
+        JetBrains DB-tools pattern — configuration is decoupled from
+        activation, so the user can configure a backend they're not
+        yet connected to without tripping the destructive-action
+        orchestrator.
+      */}
       <ConfigPanel
-        pending={pending}
-        mode={activeScenario.mode}
+        pending={previewPending}
+        mode={previewScenario.mode}
         host={host}
         defs={fieldDefs}
         category={category}
+      />
+
+      <ApplyBar
+        previewMode={previewScenario.mode}
+        activeMode={mode}
+        previewLabel={previewScenario.title}
+        host={host}
+        disabled={disabled}
+        onApply={() => {
+          void attemptChange(previewScenario.mode);
+        }}
       />
 
       {dialogElement}
@@ -179,47 +203,139 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
 };
 
 /**
- * Card combining the "Active back-end" dropdown (left) with the intro
- * copy (right). Single row to save vertical space.
+ * Bottom action bar — the explicit commit point. The dropdown that
+ * lived here in earlier sessions silently committed on every change,
+ * which conflated configuration with activation; clicking a tile to
+ * "preview" a mode would block on the destructive-action orchestrator
+ * the moment the dropdown ticked over. Splitting tile-preview from
+ * tile-commit (this button) lets the user explore + configure freely.
  */
-const ActiveBackendSelect: React.FC<{
+const ApplyBar: React.FC<{
+  previewMode: BackendMode;
+  activeMode: BackendMode;
+  previewLabel: string;
   host: Host;
-  intro: React.ReactNode;
-  value: BackendMode;
   disabled?: boolean;
-  onChange: (next: BackendMode) => void;
-}> = ({ host, intro, value, disabled, onChange }) => {
+  onApply: () => void;
+}> = ({ previewMode, activeMode, previewLabel, host, disabled, onApply }) => {
   const { token } = theme.useToken();
+  const { message } = AntApp.useApp();
+  const url = useSettingValue('backend.url');
+  const [testing, setTesting] = useState(false);
+  const isActive = previewMode === activeMode;
+  const showTest = backendModeNeedsConnection(previewMode);
+  // `previewMode` matches the previewed Connection-target, so the
+  // probe sends a HELLO that role-claims this host. The peer's
+  // workspaceId field is unused for the probe's reachability check —
+  // it's still required by the schema, so we mint a per-probe synthetic
+  // id rather than leaking the local active workspace. A peer that
+  // doesn't know that id replies with `workspace-unknown` which we
+  // surface as "Reachable, but doesn't share a workspace yet."
+  const probe = useMemo(() => {
+    const role = host === 'desktop' ? 'desktop' : host === 'web' ? 'web' : 'extension';
+    return async (): Promise<void> => {
+      setTesting(true);
+      const key = 'backend-probe';
+      message.loading({ key, content: `Probing ${url}…`, duration: 0 });
+      const result = await probeBackendConnection(url, {
+        agent: `${role}-probe`,
+        nodeId: `probe-${generateUid()}`,
+        workspaceId: `probe-${generateUid()}`,
+        role,
+      });
+      setTesting(false);
+      if (result.ok) {
+        message.success({
+          key,
+          content: `Reachable — ${result.role} v${result.protocolVersion} responded in ${result.latencyMs}ms`,
+        });
+        return;
+      }
+      message.error({ key, content: humanizeProbeFailure(result) });
+    };
+  }, [host, url, message]);
   return (
     <div
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 16,
-        padding: '8px 14px',
-        marginBottom: 14,
+        justifyContent: 'flex-end',
+        gap: 10,
+        marginTop: 14,
+        padding: '10px 12px',
         background: token.colorBgContainer,
         border: `1px solid ${token.colorBorderSecondary}`,
         borderRadius: 10,
       }}
     >
-      <span style={{ flex: 'none', fontSize: 12, fontWeight: 600, color: token.colorText }}>
-        Active back-end:
+      <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: token.colorTextSecondary }}>
+        {isActive ? (
+          <>
+            <strong style={{ color: token.colorText }}>{previewLabel}</strong> is the active back-end.
+          </>
+        ) : (
+          <>
+            Previewing <strong style={{ color: token.colorText }}>{previewLabel}</strong>. Apply to switch.
+          </>
+        )}
       </span>
-      <Select<BackendMode>
-        size="small"
-        value={value}
-        onChange={onChange}
-        disabled={disabled}
-        style={{ minWidth: 200, flex: 'none' }}
-        options={backendModeSelectOptions(host)}
-      />
-      <div style={{ flex: 1, minWidth: 0, fontSize: 12, color: token.colorTextSecondary, textAlign: 'right' }}>
-        {intro} <DocsLink />
-      </div>
+      {showTest && (
+        <Button
+          icon={<ExperimentOutlined />}
+          onClick={() => {
+            void probe();
+          }}
+          loading={testing}
+        >
+          Test connection
+        </Button>
+      )}
+      <Button
+        type="primary"
+        icon={<SwapOutlined />}
+        onClick={onApply}
+        disabled={isActive || disabled}
+      >
+        Switch to {previewLabel}
+      </Button>
     </div>
   );
 };
+
+function humanizeProbeFailure(
+  result: Extract<Awaited<ReturnType<typeof probeBackendConnection>>, { ok: false }>,
+): string {
+  switch (result.reason) {
+    case 'invalid-url':
+      return `Invalid URL. ${result.detail ?? ''}`.trim();
+    case 'timeout':
+      return 'Timed out waiting for a response — is the back-end running?';
+    case 'closed-before-welcome':
+      return 'Connection closed before the handshake — back-end likely not running on that port.';
+    case 'open-failed':
+      return `Could not open WebSocket${result.detail ? `: ${result.detail}` : ''}.`;
+    case 'protocol-mismatch':
+      return 'Reachable, but protocol versions are incompatible — update both apps.';
+    case 'handshake-rejected':
+      if (result.rejectReason === 'workspace-unknown') {
+        return 'Reachable — the back-end is up but doesn\'t share this workspace yet. Switching will pair the two.';
+      }
+      if (result.rejectReason === 'protocol-too-old') {
+        return 'Reachable — but this app is older than the back-end. Update this side.';
+      }
+      if (result.rejectReason === 'protocol-too-new') {
+        return 'Reachable — but the back-end is older than this app. Update the back-end.';
+      }
+      if (result.rejectReason === 'auth-required') {
+        return 'Reachable — but requires authentication (Phase D).';
+      }
+      return `Rejected: ${result.rejectReason ?? 'unknown reason'}`;
+    case 'malformed-welcome':
+      return 'Reached a server, but it didn\'t speak the Open Headers protocol.';
+    default:
+      return 'Probe failed.';
+  }
+}
 
 const DetailFrame: React.FC<{ children: React.ReactNode; previewingNonActive: boolean }> = ({
   children,
