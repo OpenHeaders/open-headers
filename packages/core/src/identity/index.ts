@@ -50,4 +50,5 @@ export {
   setAuditSink,
   type AuditEntryInput,
   type AuditSink,
+  type ResolvedAuditEntry,
 } from './audit';

@@ -254,6 +254,10 @@ export type {
 
 // ── Identity ACL (membership, principal, workspace-role, daemon-admin) ─
 export type {
+  AuditCapability,
+  AuditCapabilityDenyReason,
+  AuditDecision,
+  AuditLogEntry,
   DaemonAdmin,
   OrgMembership,
   OrgPrimaryRole,

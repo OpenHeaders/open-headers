@@ -83,3 +83,52 @@ export const DaemonAdminSchema = v.object({
   userId: UuidV7Schema,
   isLocal: v.boolean(),
 });
+
+/**
+ * Capability key + deny-reason wire-shapes. Mirror the runtime
+ * `Capability` / `CapabilityDenyReason` unions from
+ * `../identity/resolver.ts`; the schema-side picklists let persisted
+ * audit rows be re-parsed back into the same TypeScript types.
+ *
+ * Kept here (not in `identity.ts`) because audit log entries live on the
+ * ACL axis — they're the forensic record of permission decisions.
+ */
+export const CapabilitySchema = v.picklist([
+  'workspace.read',
+  'workspace.write',
+  'workspace.list',
+  'daemon.admin',
+]);
+
+export const CapabilityDenyReasonSchema = v.picklist([
+  'no-current-user',
+  'workspace-id-required',
+  'no-workspace-role-assignment',
+  'insufficient-workspace-role',
+  'not-daemon-admin',
+  'unknown-capability',
+]);
+
+export const AuditDecisionSchema = v.object({
+  allow: v.boolean(),
+  reason: v.optional(CapabilityDenyReasonSchema),
+});
+
+/**
+ * `AuditLogEntry` — one row per capability check, gapless within an Org
+ * (UNIFIED_ORACLE_MODEL.md §9.5). `seq` is the per-Org sequence number;
+ * `id` is `${orgId}:${seq}` so the row's key is content-addressable.
+ *
+ * `actorUserId` is immutable — the display layer always resolves
+ * through `User.displayName` at view time (§9.3).
+ */
+export const AuditLogEntrySchema = v.object({
+  id: v.pipe(v.string(), v.minLength(1)),
+  orgId: UuidV7Schema,
+  seq: v.pipe(v.number(), v.integer(), v.minValue(1)),
+  actorUserId: v.pipe(v.string(), v.minLength(1)),
+  capability: CapabilitySchema,
+  workspaceId: v.optional(UuidV7Schema),
+  decision: AuditDecisionSchema,
+  occurredAt: v.string(),
+});

@@ -4,6 +4,13 @@ export {
   type ActivityLogListOptions,
 } from './activity-log';
 export { IdbActivityLog, __closeIdbActivityLogForTests } from './idb-activity-log';
+export {
+  InMemoryAuditLog,
+  type AuditLog,
+  type AuditLogAppendInput,
+  type AuditLogListOptions,
+} from './audit-log';
+export { IdbAuditLog, __closeIdbAuditLogForTests } from './idb-audit-log';
 export { SqliteActivityLog, ensureActivityLogSchema } from './sqlite-activity-log';
 export {
   ACTIVITY_PRUNE_DEFAULT_PERIOD_MS,

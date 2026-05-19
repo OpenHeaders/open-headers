@@ -12,6 +12,10 @@ export {
   UserSchema,
 } from './identity';
 export {
+  AuditDecisionSchema,
+  AuditLogEntrySchema,
+  CapabilityDenyReasonSchema,
+  CapabilitySchema,
   DaemonAdminSchema,
   OrgMembershipSchema,
   OrgPrimaryRoleSchema,

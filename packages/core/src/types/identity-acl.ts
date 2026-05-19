@@ -7,6 +7,10 @@
 
 import type * as v from 'valibot';
 import type {
+  AuditDecisionSchema,
+  AuditLogEntrySchema,
+  CapabilityDenyReasonSchema,
+  CapabilitySchema,
   DaemonAdminSchema,
   OrgMembershipSchema,
   OrgPrimaryRoleSchema,
@@ -22,3 +26,8 @@ export type OrgMembership = v.InferOutput<typeof OrgMembershipSchema>;
 export type Principal = v.InferOutput<typeof PrincipalSchema>;
 export type WorkspaceRoleAssignment = v.InferOutput<typeof WorkspaceRoleAssignmentSchema>;
 export type DaemonAdmin = v.InferOutput<typeof DaemonAdminSchema>;
+
+export type AuditDecision = v.InferOutput<typeof AuditDecisionSchema>;
+export type AuditLogEntry = v.InferOutput<typeof AuditLogEntrySchema>;
+export type AuditCapability = v.InferOutput<typeof CapabilitySchema>;
+export type AuditCapabilityDenyReason = v.InferOutput<typeof CapabilityDenyReasonSchema>;

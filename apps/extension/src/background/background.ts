@@ -17,7 +17,9 @@ import {
   ensureSyntheticIdentity,
   ensureWorkspaceRoleAssignments,
   refreshIdentitySnapshotFromHostStorage,
+  setAuditSink,
 } from '@openheaders/core/identity';
+import { IdbAuditLog } from '@openheaders/oracle/sync';
 import type { Rule, TreeNode } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
 import { isRuleEffective } from '@openheaders/core/utils';
@@ -536,6 +538,27 @@ async function initializeExtension(): Promise<void> {
   // is enough; the workspace-store listener below repeats it on changes.
   await refreshIdentitySnapshotFromHostStorage().catch((err: unknown) => {
     logger.warn('Background', 'refreshIdentitySnapshotFromHostStorage failed', err);
+  });
+
+  // U2.4 — install the durable audit-log sink. Every capability decision
+  // the resolver emits gets persisted into `oh.identity.audit` via the
+  // `audit_counters`-keyed IDB pattern from UNIFIED_ORACLE_MODEL.md §9.5.
+  // Failures during append are logged but never throw — audit must not
+  // tear down the call chain it observes.
+  const auditLog = new IdbAuditLog();
+  setAuditSink((entry) => {
+    void auditLog
+      .append({
+        orgId: entry.orgId,
+        actorUserId: entry.actorUserId,
+        capability: entry.capability,
+        ...(entry.workspaceId ? { workspaceId: entry.workspaceId } : {}),
+        decision: entry.decision,
+        occurredAt: entry.occurredAt,
+      })
+      .catch((err: unknown) => {
+        logger.warn('Background', 'audit log append failed', err);
+      });
   });
 
   // Pull the observability ring back into memory before subsystems

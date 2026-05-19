@@ -20,7 +20,7 @@ import {
   refreshIdentitySnapshotFromHostStorage,
   resetAuditSink,
   setAuditSink,
-  type AuditEntryInput,
+  type ResolvedAuditEntry,
 } from '@openheaders/core/identity';
 import { hostStorage, setHostStorage, type HostStorage } from '@openheaders/core/storage';
 import type { MutationBatch } from '@openheaders/core/sync';
@@ -77,7 +77,7 @@ function makeApplyBatch(workspaceId: string): MutationBatch {
 }
 
 describe('sync-rpc permission gate', () => {
-  let audits: AuditEntryInput[];
+  let audits: ResolvedAuditEntry[];
 
   beforeEach(() => {
     clearIdentitySnapshot();
