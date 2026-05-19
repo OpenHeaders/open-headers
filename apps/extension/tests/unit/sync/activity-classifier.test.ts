@@ -24,6 +24,7 @@ function envelope(body: MutationBody, overrides: Partial<MutationEnvelope> = {})
     hlc: { physicalMs: 1_000, logical: 0, nodeId: 'sw' },
     origin: { surfaceId: 'popup', deviceId: 'device-peer' },
     workspaceId: WS,
+    orgId: 'org-test',
     mutatorVersion: 1,
     body,
     ...overrides,

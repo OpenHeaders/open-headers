@@ -3,7 +3,7 @@
  */
 
 import * as v from 'valibot';
-import { SchemaVersionSchema, UidSchema } from './common';
+import { SchemaVersionSchema, UidSchema, UuidV7Schema } from './common';
 
 /**
  * On-disk `workspace.yaml` + runtime `Workspace`. `rootPath` is
@@ -22,6 +22,13 @@ export const WorkspaceSchema = v.object({
   description: v.optional(v.string()),
   defaultEnvironmentId: v.optional(v.string()),
   rootPath: v.optional(v.string()),
+  /**
+   * Org binding (UNIFIED_ORACLE_MODEL.md §6.1). Canonical source-of-truth
+   * for which Org's authorized set the workspace's envelopes ride on.
+   * Stamped onto every mutation envelope at mint time; never rewritten on
+   * workspace re-binding (§8.2).
+   */
+  orgId: UuidV7Schema,
 });
 
 // ── Extension-side workspace record ──────────────────────────────
@@ -45,4 +52,6 @@ export const ExtensionWorkspaceSchema = v.object({
   createdAt: v.string(),
   updatedAt: v.string(),
   source: v.optional(ExtensionWorkspaceSourceSchema),
+  /** Org binding (see {@link WorkspaceSchema.orgId}). */
+  orgId: UuidV7Schema,
 });

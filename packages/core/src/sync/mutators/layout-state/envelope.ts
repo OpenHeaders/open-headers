@@ -3,7 +3,7 @@
  * arguments. Mirrors `pause-markers/envelope.ts`.
  */
 
-import { type MutationBatch, type MutationBody, type MutationEnvelope, newBatchId, newMutationId } from '../../envelope';
+import { type MutationBatch, type MutationBody, type MutationEnvelope, newBatchId, newMutationId, PRE_BOOTSTRAP_ORG_ID } from '../../envelope';
 import type { MutatorContext } from '../types';
 
 /** Layout-state mutator catalog version — bump on any wire-incompatible change (§13.4). */
@@ -15,6 +15,7 @@ export function mintEnvelope(ctx: MutatorContext, body: MutationBody): MutationE
     hlc: ctx.hlc,
     origin: { surfaceId: ctx.surfaceId, deviceId: ctx.deviceId, userId: ctx.userId },
     workspaceId: ctx.workspaceId,
+    orgId: ctx.orgId ?? PRE_BOOTSTRAP_ORG_ID,
     mutatorVersion: LAYOUT_STATE_MUTATOR_VERSION,
     body,
   };

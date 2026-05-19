@@ -36,6 +36,7 @@
 import {
   newBatchId,
   newMutationId,
+  PRE_BOOTSTRAP_ORG_ID,
   type InverseEnvelopeContext,
   type InverseSpec,
   type MutationBatch,
@@ -99,6 +100,7 @@ export function generateInverseMutation(input: GenerateInverseInput): GenerateIn
     hlc: ctx.hlc,
     origin: { surfaceId: ctx.surfaceId, deviceId: ctx.deviceId, userId: ctx.userId },
     workspaceId: ctx.workspaceId,
+    orgId: ctx.orgId ?? PRE_BOOTSTRAP_ORG_ID,
     mutatorVersion: inverse.mutatorVersion,
     body,
   };

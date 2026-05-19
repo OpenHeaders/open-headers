@@ -20,6 +20,7 @@ import {
   type MutatorContext,
   type MutatorIntent,
   newBatchId,
+  PRE_BOOTSTRAP_ORG_ID,
   newMutationId,
   renameFolder,
 } from '@openheaders/core/sync';
@@ -43,6 +44,7 @@ export function buildDeleteFolderEntityBatch(folderUid: string, ctx: MutatorCont
         hlc: ctx.hlc,
         origin: { surfaceId: ctx.surfaceId, deviceId: ctx.deviceId, userId: ctx.userId },
         workspaceId: ctx.workspaceId,
+        orgId: ctx.orgId ?? PRE_BOOTSTRAP_ORG_ID,
         mutatorVersion: FOLDER_MUTATOR_VERSION,
         body: { kind: 'delete', type: FOLDER_ENTITY_TYPE, id: folderUid },
       },

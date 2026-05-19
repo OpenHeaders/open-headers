@@ -43,6 +43,7 @@ function workspace(id: string, overrides: Record<string, unknown> = {}) {
     sortIndex: 0,
     createdAt: '2026-04-19T00:00:00.000Z',
     updatedAt: '2026-04-19T00:00:00.000Z',
+    orgId: '01890000-0000-7000-8000-000000000000',
     ...overrides,
   };
 }

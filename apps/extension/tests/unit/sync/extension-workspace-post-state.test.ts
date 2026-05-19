@@ -42,6 +42,7 @@ const ws = (overrides: Partial<ExtensionWorkspace> = {}): ExtensionWorkspace => 
   sortIndex: 0,
   createdAt: '2026-04-30T10:00:00.000Z',
   updatedAt: '2026-04-30T10:00:00.000Z',
+  orgId: 'org-test',
   ...overrides,
 });
 
@@ -51,6 +52,7 @@ const slot = (overrides: Partial<ExtensionWorkspaceSlot> = {}): ExtensionWorkspa
   name: 'Workspace A',
   createdAt: '2026-04-30T10:00:00.000Z',
   updatedAt: '2026-04-30T10:00:00.000Z',
+  orgId: 'org-test',
   ...overrides,
 });
 
@@ -156,6 +158,7 @@ describe('projectExtensionWorkspacePostState', () => {
       hlc: { physicalMs: 1, logical: 0, nodeId: 'n' },
       origin: { surfaceId: 's', deviceId: 'd' },
       workspaceId: EXTENSION_WORKSPACE_GLOBAL_SCOPE,
+      orgId: 'org-test',
       mutatorVersion: 1,
       body: { kind: 'setField', type: RULE_ENTITY_TYPE, id: 'r', path: 'name', value: 'x' },
     };

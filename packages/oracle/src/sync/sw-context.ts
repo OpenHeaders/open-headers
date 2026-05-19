@@ -15,7 +15,14 @@
  * deviceId once cross-device sync ships.
  */
 
-import { advanceHlc, createDefaultWallClock, type HLC, initialHlc, type MutatorContext } from '@openheaders/core/sync';
+import {
+  advanceHlc,
+  createDefaultWallClock,
+  type HLC,
+  initialHlc,
+  type MutatorContext,
+  resolveWorkspaceOrgId,
+} from '@openheaders/core/sync';
 import { generateUid } from '@openheaders/core/utils';
 
 export type SwMutatorContextFactory = () => MutatorContext;
@@ -70,6 +77,7 @@ export function createSwContextHandle(workspaceId: string): SwContextHandle {
       hlc = advanceHlc(hlc, clock.now(), opts.observed);
       return {
         workspaceId,
+        orgId: resolveWorkspaceOrgId(workspaceId),
         hlc,
         surfaceId: opts.surfaceId ?? 'sw',
         deviceId: nodeId,

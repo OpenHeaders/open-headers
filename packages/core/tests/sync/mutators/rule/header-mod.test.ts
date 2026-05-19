@@ -20,6 +20,7 @@ import {
 
 const ctx = (): MutatorContext => ({
   workspaceId: 'ws-1',
+  orgId: 'org-test',
   hlc: { physicalMs: 1_000, logical: 0, nodeId: 'node-a' },
   surfaceId: 'surface-popup',
   deviceId: 'device-a',

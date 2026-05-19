@@ -57,8 +57,14 @@ import type { AwarenessState } from '@openheaders/core/protocol';
 import {
   ensureSyntheticIdentity,
   ensureWorkspaceRoleAssignments,
+  getIdentitySnapshot,
   refreshIdentitySnapshotFromHostStorage,
 } from '@openheaders/core/identity';
+import {
+  EXTENSION_WORKSPACE_GLOBAL_SCOPE,
+  invalidateAllWorkspaceOrgCache,
+  setWorkspaceOrgResolver,
+} from '@openheaders/core/sync';
 import { logger as consoleLogger } from '@openheaders/core/utils';
 import { setHostLogger } from '@openheaders/core/logger';
 import { setHostStorage } from '@openheaders/core/storage';
@@ -68,6 +74,7 @@ import { type OracleWsServer, startOracleWsServer } from '@openheaders/oracle/ho
 import {
   bootstrap as bootstrapWorkspaces,
   getActiveWorkspaceId,
+  getWorkspace,
   listWorkspaces,
   onWorkspaceStoreChange,
   peekActiveWorkspaceId,
@@ -274,12 +281,25 @@ export async function installRpcHost(): Promise<void> {
   await refreshIdentitySnapshotFromHostStorage().catch((err: unknown) => {
     consoleLogger.warn('install-rpc-host', 'refreshIdentitySnapshotFromHostStorage failed', err);
   });
+  // U2.6 — install the workspaceId → orgId resolver consulted by every
+  // envelope mint site (UNIFIED_ORACLE_MODEL.md §6.1). Per-workspace
+  // mutations resolve through `workspace.orgId`; global-scope metadata
+  // mutations ride the user's home-org channel per §6.5. The resolver
+  // is invalidated on every workspace-store change.
+  setWorkspaceOrgResolver((workspaceId) => {
+    const snapshot = getIdentitySnapshot();
+    if (workspaceId === EXTENSION_WORKSPACE_GLOBAL_SCOPE) {
+      return snapshot?.user.homeOrgId;
+    }
+    return getWorkspace(workspaceId)?.orgId ?? snapshot?.user.homeOrgId;
+  });
   onWorkspaceStoreChange(() => {
     void ensureWorkspaceRoleAssignments(listWorkspaces().map((ws) => ws.id))
       .then(() => refreshIdentitySnapshotFromHostStorage())
       .catch((err: unknown) => {
         consoleLogger.warn('install-rpc-host', 'ensureWorkspaceRoleAssignments reconcile failed', err);
       });
+    invalidateAllWorkspaceOrgCache();
   });
   await hydrateActiveWorkspaceStores();
   await bootSyncEngine();

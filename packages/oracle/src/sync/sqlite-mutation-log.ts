@@ -7,6 +7,7 @@
  *
  *     CREATE TABLE mutation_log (
  *       scope         TEXT NOT NULL,
+ *       org_id        TEXT NOT NULL,
  *       hlc_key       TEXT NOT NULL,
  *       mutation_id   TEXT NOT NULL,
  *       envelope_json TEXT NOT NULL,
@@ -14,6 +15,14 @@
  *     );
  *     CREATE UNIQUE INDEX mutation_log_dedup
  *       ON mutation_log (scope, mutation_id);
+ *     CREATE INDEX mutation_log_workspace_org
+ *       ON mutation_log (scope, org_id);
+ *
+ *   - **`org_id`** is denormalized per UNIFIED_ORACLE_MODEL.md §8.2 so
+ *     transport filters can run `WHERE org_id IN (authorized set)`
+ *     without unpacking each envelope blob (U2.7-U2.9). V5 has zero
+ *     users (per `project_v5_fresh_start.md`); no backfill code path
+ *     because there is no pre-v5 data.
  *
  * Design notes:
  *
@@ -47,6 +56,7 @@ import type { MutationLog } from './mutation-log';
 const SCHEMA_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS mutation_log (
     scope         TEXT NOT NULL,
+    org_id        TEXT NOT NULL,
     hlc_key       TEXT NOT NULL,
     mutation_id   TEXT NOT NULL,
     envelope_json TEXT NOT NULL,
@@ -54,6 +64,8 @@ const SCHEMA_STATEMENTS = [
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS mutation_log_dedup
     ON mutation_log (scope, mutation_id)`,
+  `CREATE INDEX IF NOT EXISTS mutation_log_workspace_org
+    ON mutation_log (scope, org_id)`,
 ] as const;
 
 /**
@@ -65,7 +77,7 @@ export function ensureMutationLogSchema(db: Database.Database): void {
 }
 
 interface MutationLogStatements {
-  append: Database.Statement<[string, string, string, string]>;
+  append: Database.Statement<[string, string, string, string, string]>;
   hasMutation: Database.Statement<[string, string]>;
   readSinceAll: Database.Statement<[string]>;
   readSinceFrom: Database.Statement<[string, string]>;
@@ -75,8 +87,8 @@ interface MutationLogStatements {
 function prepareStatements(db: Database.Database): MutationLogStatements {
   return {
     append: db.prepare(
-      `INSERT OR IGNORE INTO mutation_log (scope, hlc_key, mutation_id, envelope_json)
-       VALUES (?, ?, ?, ?)`,
+      `INSERT OR IGNORE INTO mutation_log (scope, org_id, hlc_key, mutation_id, envelope_json)
+       VALUES (?, ?, ?, ?, ?)`,
     ),
     hasMutation: db.prepare(
       `SELECT 1 FROM mutation_log WHERE scope = ? AND mutation_id = ? LIMIT 1`,
@@ -117,14 +129,14 @@ export class SqliteMutationLog implements MutationLog {
     // constructing transactions once and calling them many times.
     this.appendBatch = db.transaction((envs: MutationEnvelope[]) => {
       for (const env of envs) {
-        stmts.append.run(scope, hlcToString(env.hlc), env.mutationId, JSON.stringify(env));
+        stmts.append.run(scope, env.orgId, hlcToString(env.hlc), env.mutationId, JSON.stringify(env));
       }
     });
   }
 
   async append(env: MutationEnvelope): Promise<void> {
     const stmts = statementsFor(this.db);
-    stmts.append.run(this.scope, hlcToString(env.hlc), env.mutationId, JSON.stringify(env));
+    stmts.append.run(this.scope, env.orgId, hlcToString(env.hlc), env.mutationId, JSON.stringify(env));
   }
 
   async appendAll(envs: MutationEnvelope[]): Promise<void> {

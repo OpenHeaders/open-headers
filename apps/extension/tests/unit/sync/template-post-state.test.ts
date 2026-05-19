@@ -86,6 +86,7 @@ describe('projectTemplatePostState', () => {
       hlc: { physicalMs: 1, logical: 0, nodeId: 'n0' },
       origin: { surfaceId: 's', deviceId: 'd' },
       workspaceId: wsId,
+      orgId: 'org-test',
       mutatorVersion: 1,
       body: { kind: 'setField', type: 'rule', id: 'rule-x', path: 'name', value: 'x' },
     };

@@ -108,9 +108,18 @@ describe('EnvironmentSchema', () => {
   });
 });
 
+const TEST_ORG_ID = '01890000-0000-7000-8000-000000000000';
+
 describe('WorkspaceSchema', () => {
   it('accepts the minimal manifest', () => {
-    expect(v.parse(WorkspaceSchema, { schemaVersion: 5, uid: 'abcd1234', name: 'My Workspace' })).toBeTruthy();
+    expect(
+      v.parse(WorkspaceSchema, {
+        schemaVersion: 5,
+        uid: 'abcd1234',
+        name: 'My Workspace',
+        orgId: TEST_ORG_ID,
+      }),
+    ).toBeTruthy();
   });
 
   it('accepts defaultEnvironmentId', () => {
@@ -120,8 +129,15 @@ describe('WorkspaceSchema', () => {
         uid: 'abcd1234',
         name: 'x',
         defaultEnvironmentId: 'abcd1234',
+        orgId: TEST_ORG_ID,
       }),
     ).toBeTruthy();
+  });
+
+  it('rejects a missing orgId', () => {
+    expect(
+      v.safeParse(WorkspaceSchema, { schemaVersion: 5, uid: 'abcd1234', name: 'x' }).success,
+    ).toBe(false);
   });
 
   it('rejects a missing uid (Phase 0 invariant #1)', () => {
@@ -144,6 +160,7 @@ describe('ExtensionWorkspaceSchema', () => {
         sortIndex: 0,
         createdAt: '2026-04-18T00:00:00Z',
         updatedAt: '2026-04-18T00:00:00Z',
+        orgId: TEST_ORG_ID,
       }),
     ).toBeTruthy();
   });

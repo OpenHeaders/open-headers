@@ -14,6 +14,7 @@ const mintBatch = (ctx: MutatorContext, bodies: MutationBody[]): MutationBatch =
     hlc: ctx.hlc,
     origin: { surfaceId: ctx.surfaceId, deviceId: ctx.deviceId, userId: ctx.userId },
     workspaceId: ctx.workspaceId,
+    orgId: ctx.orgId ?? 'org-test',
     mutatorVersion: 99,
     body,
   })),
@@ -32,6 +33,7 @@ const factories = makeVariableMutators({
 
 const ctx = (overrides: Partial<MutatorContext> = {}): MutatorContext => ({
   workspaceId: 'ws-1',
+  orgId: 'org-test',
   hlc: { physicalMs: 1_000, logical: 0, nodeId: 'node-x' },
   surfaceId: 'workbench',
   deviceId: 'device-a',

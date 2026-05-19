@@ -64,7 +64,8 @@ const isExtensionWorkspaceSlot = (v: unknown): v is ExtensionWorkspaceSlot => {
     (r.kind === 'personal' || r.kind === 'team') &&
     typeof r.name === 'string' &&
     typeof r.createdAt === 'string' &&
-    typeof r.updatedAt === 'string'
+    typeof r.updatedAt === 'string' &&
+    typeof r.orgId === 'string'
   );
 };
 
@@ -81,5 +82,6 @@ function toExtensionWorkspace(slot: ExtensionWorkspaceSlot, sortIndex: number): 
     createdAt: slot.createdAt,
     updatedAt: slot.updatedAt,
     source: slot.source,
+    orgId: slot.orgId,
   };
 }

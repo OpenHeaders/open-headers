@@ -42,6 +42,7 @@ const ws = (overrides: Partial<ExtensionWorkspace> = {}): ExtensionWorkspace => 
   sortIndex: 0,
   createdAt: '2026-04-30T10:00:00.000Z',
   updatedAt: '2026-04-30T10:00:00.000Z',
+  orgId: 'org-test',
   ...overrides,
 });
 
@@ -51,6 +52,7 @@ const slot = (overrides: Partial<ExtensionWorkspaceSlot> = {}): ExtensionWorkspa
   name: 'A',
   createdAt: '2026-04-30T10:00:00.000Z',
   updatedAt: '2026-04-30T10:00:00.000Z',
+  orgId: 'org-test',
   ...overrides,
 });
 

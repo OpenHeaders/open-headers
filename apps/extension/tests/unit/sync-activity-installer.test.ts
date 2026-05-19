@@ -67,6 +67,7 @@ function event(
       hlc: { physicalMs: 1_000, logical: 0, nodeId: 'sw' },
       origin: { surfaceId: 'sw', deviceId: 'self' },
       workspaceId: WS,
+      orgId: 'org-test',
       mutatorVersion: 1,
       body,
     },

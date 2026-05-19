@@ -9,6 +9,7 @@ import {
   type MutationEnvelope,
   newBatchId,
   newMutationId,
+  PRE_BOOTSTRAP_ORG_ID,
 } from '../../envelope';
 import type { MutatorContext } from '../types';
 
@@ -21,6 +22,7 @@ export function mintEnvelope(ctx: MutatorContext, body: MutationBody): MutationE
     hlc: ctx.hlc,
     origin: { surfaceId: ctx.surfaceId, deviceId: ctx.deviceId, userId: ctx.userId },
     workspaceId: ctx.workspaceId,
+    orgId: ctx.orgId ?? PRE_BOOTSTRAP_ORG_ID,
     mutatorVersion: FILES_MUTATOR_VERSION,
     body,
   };

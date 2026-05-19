@@ -3,6 +3,7 @@ import { RECOMPILE_DNR, RULE_ENTITY_TYPE, type MutatorContext, toggleEnabled } f
 
 const ctx = (): MutatorContext => ({
   workspaceId: 'ws-1',
+  orgId: 'org-test',
   hlc: { physicalMs: 2_000, logical: 0, nodeId: 'node-c' },
   surfaceId: 'surface-popup',
   deviceId: 'device-a',

@@ -79,6 +79,7 @@ describe('projectRulePostState', () => {
       hlc: { physicalMs: 1, logical: 0, nodeId: 'n' },
       origin: { surfaceId: 's', deviceId: 'd' },
       workspaceId: wsId,
+      orgId: 'org-test',
       mutatorVersion: 1,
       body: { kind: 'create', type: 'environment', id: 'e1', payload: {} },
     };
@@ -115,6 +116,7 @@ describe('projectRulePostState', () => {
       hlc: { physicalMs: 1, logical: 0, nodeId: 'n' },
       origin: { surfaceId: 's', deviceId: 'd' },
       workspaceId: wsId,
+      orgId: 'org-test',
       mutatorVersion: 1,
       body: { kind: 'setField', type: RULE_ENTITY_TYPE, id: 'unknown', path: 'name', value: 'x' },
     };

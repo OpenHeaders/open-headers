@@ -50,6 +50,7 @@ const makeRequest = (uid: string): Request =>
 async function newOracle(): Promise<EntityOracle> {
   return new EntityOracle({
     workspaceId: wsId,
+    orgId: 'org-test',
     lock,
     log: new InMemoryMutationLog(),
     intents: new InMemoryPendingIntents(),
@@ -84,6 +85,7 @@ describe('projectRequestPostState', () => {
       hlc: { physicalMs: 1, logical: 0, nodeId: 'n0' },
       origin: { surfaceId: 's', deviceId: 'd' },
       workspaceId: wsId,
+      orgId: 'org-test',
       mutatorVersion: 1,
       body: { kind: 'setField', type: 'rule', id: 'rule-x', path: 'name', value: 'x' },
     };

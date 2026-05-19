@@ -13,23 +13,29 @@
  *     `hlcToString`), mutationId tail-disambiguates the rare case of
  *     two envelopes with identical HLC + workspace.
  *   • Index `by_mutation_id` for the dedup query.
+ *   • Index `by_workspace_org` on `(workspaceId, orgId)` — denormalized
+ *     per UNIFIED_ORACLE_MODEL.md §8.2 so transport filters can run
+ *     `WHERE orgId IN (authorized set)` without unpacking each
+ *     envelope blob (U2.7-U2.9).
  *
- * No upgrades yet — first version. Future schema bumps follow the
- * §13 forward-compat-with-pass-through discipline applied at the
- * envelope layer; this module won't see them.
+ * V5 fresh-start: no migration code path. The DB schema below is the
+ * shape every install ships with.
  */
 
 import { hlcToString, type MutationEnvelope } from '@openheaders/core/sync';
 import type { MutationLog } from './mutation-log';
 
 const DB_NAME = 'oh.sync.mutations';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE = 'entries';
 const IDX_MUTATION_ID = 'by_mutation_id';
+const IDX_WORKSPACE_ORG = 'by_workspace_org';
 
 interface StoredEntry {
   pk: string;
   workspaceId: string;
+  /** Denormalized from `envelope.orgId` for the transport-boundary filter. */
+  orgId: string;
   hlcKey: string;
   mutationId: string;
   envelope: MutationEnvelope;
@@ -49,6 +55,7 @@ function openDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORE)) {
         const store = db.createObjectStore(STORE, { keyPath: 'pk' });
         store.createIndex(IDX_MUTATION_ID, 'mutationId', { unique: false });
+        store.createIndex(IDX_WORKSPACE_ORG, ['workspaceId', 'orgId'], { unique: false });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -73,6 +80,7 @@ export class IdbMutationLog implements MutationLog {
     const entry: StoredEntry = {
       pk: pkOf(this.workspaceId, env),
       workspaceId: this.workspaceId,
+      orgId: env.orgId,
       hlcKey: hlcToString(env.hlc),
       mutationId: env.mutationId,
       envelope: env,
@@ -89,6 +97,7 @@ export class IdbMutationLog implements MutationLog {
       store.put({
         pk: pkOf(this.workspaceId, env),
         workspaceId: this.workspaceId,
+        orgId: env.orgId,
         hlcKey: hlcToString(env.hlc),
         mutationId: env.mutationId,
         envelope: env,

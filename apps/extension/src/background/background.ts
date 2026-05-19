@@ -16,9 +16,15 @@ import '@/host/install-lifeline-server';
 import {
   ensureSyntheticIdentity,
   ensureWorkspaceRoleAssignments,
+  getIdentitySnapshot,
   refreshIdentitySnapshotFromHostStorage,
   setAuditSink,
 } from '@openheaders/core/identity';
+import {
+  EXTENSION_WORKSPACE_GLOBAL_SCOPE,
+  invalidateAllWorkspaceOrgCache,
+  setWorkspaceOrgResolver,
+} from '@openheaders/core/sync';
 import { IdbAuditLog } from '@openheaders/oracle/sync';
 import type { Rule, TreeNode } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
@@ -360,6 +366,7 @@ import { hydrateActiveWorkspaceStores } from './modules/workspace-orchestrator';
 import {
   bootstrap as bootstrapWorkspaces,
   getActiveWorkspaceId,
+  getWorkspace,
   listWorkspaces,
   onActiveWorkspaceChange,
   onWorkspaceStoreChange,
@@ -540,6 +547,19 @@ async function initializeExtension(): Promise<void> {
     logger.warn('Background', 'refreshIdentitySnapshotFromHostStorage failed', err);
   });
 
+  // U2.6 — install the workspaceId → orgId resolver consulted by every
+  // envelope mint site (UNIFIED_ORACLE_MODEL.md §6.1). Per-workspace
+  // mutations resolve through `workspace.orgId`; global-scope metadata
+  // mutations ride the user's home-org channel per §6.5. The resolver
+  // is invalidated on every workspace-store change (see listener below).
+  setWorkspaceOrgResolver((workspaceId) => {
+    const snapshot = getIdentitySnapshot();
+    if (workspaceId === EXTENSION_WORKSPACE_GLOBAL_SCOPE) {
+      return snapshot?.user.homeOrgId;
+    }
+    return getWorkspace(workspaceId)?.orgId ?? snapshot?.user.homeOrgId;
+  });
+
   // U2.4 — install the durable audit-log sink. Every capability decision
   // the resolver emits gets persisted into `oh.identity.audit` via the
   // `audit_counters`-keyed IDB pattern from UNIFIED_ORACLE_MODEL.md §9.5.
@@ -652,6 +672,10 @@ async function initializeExtension(): Promise<void> {
       .catch((err: unknown) => {
         logger.warn('Background', 'ensureWorkspaceRoleAssignments reconcile failed', err);
       });
+    // U2.6 — workspace metadata may have shifted (rename, reorder, or a
+    // future orgId flip per §6.5). Drop the workspaceId → orgId cache so
+    // the next envelope mint reads through.
+    invalidateAllWorkspaceOrgCache();
   });
 
   // Env / workspace vars / vault / active-env mutations drive DNR

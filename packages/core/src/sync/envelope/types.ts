@@ -112,6 +112,15 @@ export interface MutationEnvelope {
   hlc: HLC;
   origin: MutationOrigin;
   workspaceId: string;
+  /**
+   * Org binding stamped at mint time from the workspace's `orgId`
+   * (UNIFIED_ORACLE_MODEL.md §6.1, §8.2). Denormalized onto every
+   * mutation log row so transports filter by `org_id IN (authorized
+   * set)` without joining back to the workspace table. Never rewritten
+   * when the workspace's binding flips — historical envelopes carry
+   * historical Org context.
+   */
+  orgId: string;
   /** Per-mutator-kind schema version (§13.4). */
   mutatorVersion: number;
   body: MutationBody;

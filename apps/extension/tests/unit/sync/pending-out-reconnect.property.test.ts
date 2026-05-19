@@ -90,6 +90,7 @@ const toEnvelope = (s: EnvSpec): MutationEnvelope => ({
   hlc: { physicalMs: s.physicalMs, logical: 0, nodeId: s.nodeId },
   origin: { surfaceId: 's', deviceId: 'd' },
   workspaceId: 'ws-1',
+  orgId: 'org-test',
   mutatorVersion: 1,
   body: { kind: 'setField', type: 'rule', id: 'r1', path: 'name', value: s.mutationId },
 });

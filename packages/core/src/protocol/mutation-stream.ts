@@ -78,6 +78,7 @@ const MutationEnvelopeShape = v.object({
   hlc: HlcShape,
   origin: MutationOriginShape,
   workspaceId: v.pipe(v.string(), v.minLength(1)),
+  orgId: v.pipe(v.string(), v.minLength(1)),
   mutatorVersion: v.pipe(v.number(), v.integer(), v.minValue(1)),
   body: v.looseObject({ kind: v.string() }),
 });

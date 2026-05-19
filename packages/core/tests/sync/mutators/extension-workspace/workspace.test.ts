@@ -17,6 +17,7 @@ import {
 
 const ctx = (overrides: Partial<MutatorContext> = {}): MutatorContext => ({
   workspaceId: '__global__',
+  orgId: 'org-test',
   hlc: { physicalMs: 1_000, logical: 0, nodeId: 'node-x' },
   surfaceId: 'workbench',
   deviceId: 'device-a',
@@ -30,6 +31,7 @@ const slot = (overrides: Partial<ExtensionWorkspaceSlot> = {}): ExtensionWorkspa
   color: 'blue',
   createdAt: '2026-04-30T10:00:00.000Z',
   updatedAt: '2026-04-30T10:00:00.000Z',
+  orgId: 'org-test',
   ...overrides,
 });
 

@@ -19,6 +19,7 @@ import {
   type HLC,
   initialHlc,
   type MutatorContext,
+  resolveWorkspaceOrgId,
 } from '@openheaders/core/sync';
 import { generateUid } from '@openheaders/core/utils';
 
@@ -66,6 +67,7 @@ export function createRendererContextHandle(opts: CreateRendererContextOptions):
       hlc = advanceHlc(hlc, clock.now(), callOpts.observed);
       return {
         workspaceId: opts.workspaceId,
+        orgId: resolveWorkspaceOrgId(opts.workspaceId),
         hlc,
         surfaceId: callOpts.surfaceId ?? opts.surfaceId,
         deviceId: nodeId,

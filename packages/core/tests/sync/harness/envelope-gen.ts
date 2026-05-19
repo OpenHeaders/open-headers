@@ -9,12 +9,16 @@ import type { HLC, MutationBody, MutationEnvelope } from '../../../src/sync';
 
 export interface MintArgs {
   workspaceId: string;
+  orgId?: string;
   surfaceId?: string;
   deviceId?: string;
   hlc: HLC;
   body: MutationBody;
   mutationId: string;
 }
+
+/** Deterministic synthetic-org UUIDv7 used as the default in harness envelopes. */
+export const TEST_ORG_ID = '01890000-0000-7000-8000-000000000000';
 
 export function mintEnvelope(args: MintArgs): MutationEnvelope {
   return {
@@ -25,6 +29,7 @@ export function mintEnvelope(args: MintArgs): MutationEnvelope {
       deviceId: args.deviceId ?? args.hlc.nodeId,
     },
     workspaceId: args.workspaceId,
+    orgId: args.orgId ?? TEST_ORG_ID,
     mutatorVersion: 1,
     body: args.body,
   };

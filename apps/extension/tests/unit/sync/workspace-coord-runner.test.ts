@@ -163,6 +163,7 @@ describe('WorkspaceCoordRunner', () => {
         hlc: { physicalMs: 1000, logical: 0, nodeId: 'node-x' },
         origin: { surfaceId: 's', deviceId: 'd' },
         workspaceId: 'ws-1',
+        orgId: 'org-test',
         mutatorVersion: 1,
         body: { kind: 'create', type: 'rule', id: 'r-1', payload: {} },
       },

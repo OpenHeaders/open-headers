@@ -105,6 +105,19 @@ export interface EntityState {
  */
 export interface MutatorContext {
   workspaceId: string;
+  /**
+   * Org binding for `workspaceId` (UNIFIED_ORACLE_MODEL.md §6.1).
+   * Resolved by the per-surface context handle via the
+   * `workspaceOrgResolver` registered at boot; stamped onto every
+   * envelope this context mints. Equal to `snapshot.user.homeOrgId`
+   * for the synthetic metadata channel (global-scope ExtensionWorkspace
+   * mutations) and to `workspace.orgId` for per-workspace data
+   * mutations. Optional on the context shape so tests that construct
+   * minimal contexts don't have to thread it; the mint helpers default
+   * a missing value to `PRE_BOOTSTRAP_ORG_ID` (matching the audit
+   * emitter's sentinel pattern). Production contexts always populate it.
+   */
+  orgId?: string;
   hlc: HLC;
   surfaceId: string;
   deviceId: string;

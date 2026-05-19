@@ -29,11 +29,13 @@ import {
   buildSetActiveExtensionWorkspaceBatch,
   buildSetExtensionWorkspaceBatch,
 } from '@openheaders/core/sync-builders/extension-workspace-mutations';
+import { getIdentitySnapshot } from '@openheaders/core/identity';
 import {
   type ExtensionWorkspaceSlot,
   keyBetween,
   type MutationBatch,
   type MutatorContext,
+  PRE_BOOTSTRAP_ORG_ID,
   seedKey,
   type SideEffectIntent,
 } from '@openheaders/core/sync';
@@ -110,6 +112,11 @@ export async function applyCreateWorkspace(
   opts: ExtensionWorkspaceWriteOptions,
 ): Promise<ApplyCreateWorkspaceResult> {
   const mirror = opts.mirror ?? getActiveExtensionWorkspaceSyncMirror();
+  // Per UNIFIED_ORACLE_MODEL.md §6.4 new workspaces default to the user's
+  // home-org. Falls back to the `PRE_BOOTSTRAP_ORG_ID` sentinel when the
+  // identity snapshot isn't installed yet (boot race / test harness) —
+  // same convention the audit emitter and envelope mint helpers use.
+  const orgId = getIdentitySnapshot()?.user.homeOrgId ?? PRE_BOOTSTRAP_ORG_ID;
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const now = new Date().toISOString();
   const id = generateWorkspaceId();
@@ -122,6 +129,7 @@ export async function applyCreateWorkspace(
     icon: input.icon,
     createdAt: now,
     updatedAt: now,
+    orgId,
   };
   const orderKey = tailOrderKey(mirror);
   const payload = buildSetExtensionWorkspaceBatch({ slot, orderKey }, ctx);
@@ -142,6 +150,7 @@ export async function applyCreateWorkspace(
     sortIndex,
     createdAt: now,
     updatedAt: now,
+    orgId,
   };
   return { ok: true, workspace };
 }
@@ -194,6 +203,7 @@ export async function applyUpdateWorkspace(
     createdAt: prev.createdAt,
     updatedAt: new Date().toISOString(),
     source: prev.source,
+    orgId: prev.orgId,
   };
   const payload = buildSetExtensionWorkspaceBatch({ slot: next, orderKey }, ctx);
   const result = await applySyncPayload(payload);
@@ -213,6 +223,7 @@ export async function applyUpdateWorkspace(
     createdAt: next.createdAt,
     updatedAt: next.updatedAt,
     source: next.source,
+    orgId: next.orgId,
   };
   return { ok: true, workspace };
 }

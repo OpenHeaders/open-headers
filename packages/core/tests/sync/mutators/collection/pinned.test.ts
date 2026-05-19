@@ -9,6 +9,7 @@ import {
 
 const ctx = (overrides: Partial<MutatorContext> = {}): MutatorContext => ({
   workspaceId: 'ws-1',
+  orgId: 'org-test',
   hlc: { physicalMs: 1_000, logical: 0, nodeId: 'node-x' },
   surfaceId: 'workbench',
   deviceId: 'device-a',

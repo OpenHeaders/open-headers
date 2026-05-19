@@ -72,4 +72,6 @@ export interface ExtensionWorkspaceSlot {
   createdAt: string;
   updatedAt: string;
   source?: { desktopWorkspaceId: string; displayPath?: string };
+  /** Org binding stamped at workspace creation (UNIFIED_ORACLE_MODEL.md §6.1). */
+  orgId: string;
 }

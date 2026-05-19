@@ -49,6 +49,7 @@ describe('global-service', () => {
           sortIndex: 0,
           createdAt: '2026-04-30T10:00:00.000Z',
           updatedAt: '2026-04-30T10:00:00.000Z',
+          orgId: 'org-test',
         },
       ],
       activeWorkspaceId: 'ws-a',
@@ -74,6 +75,7 @@ describe('global-service', () => {
         name: 'X',
         createdAt: '2026-04-30T10:00:00.000Z',
         updatedAt: '2026-04-30T10:00:00.000Z',
+        orgId: 'org-test',
       },
       orderKey: 'm',
     });

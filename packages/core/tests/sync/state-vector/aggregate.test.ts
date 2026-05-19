@@ -15,6 +15,7 @@ function envAt(nodeId: string, physicalMs: number, logical = 0): MutationEnvelop
     hlc: { physicalMs, logical, nodeId },
     origin: { surfaceId: 's', deviceId: 'd' },
     workspaceId: 'w',
+    orgId: 'org-test',
     mutatorVersion: 1,
     body: { kind: 'delete', type: 'rule', id: 'r' },
   };

@@ -34,6 +34,7 @@ const lock: LockAcquirer = async (_ws, _t, _id, fn) => fn();
 function ctx(physicalMs: number, logical = 0, surfaceId = 'test'): MutatorContext {
   return {
     workspaceId: WS,
+    orgId: 'org-test',
     hlc: { physicalMs, logical, nodeId: 'n-local' },
     surfaceId,
     deviceId: 'd-local',
@@ -46,6 +47,7 @@ function batchOf(c: MutatorContext, body: MutationBody): MutationBatch {
     hlc: c.hlc,
     origin: { surfaceId: c.surfaceId, deviceId: c.deviceId, userId: c.userId },
     workspaceId: c.workspaceId,
+    orgId: 'org-test',
     mutatorVersion: 1,
     body,
   };

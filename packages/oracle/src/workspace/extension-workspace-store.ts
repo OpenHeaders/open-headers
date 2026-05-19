@@ -33,6 +33,12 @@
 
 import { ExtensionWorkspaceSchema } from '@openheaders/core/schemas';
 import {
+  deriveSyntheticUuidV7,
+  ensureDaemonConfig,
+  getIdentitySnapshot,
+  SYNTHETIC_SEEDS,
+} from '@openheaders/core/identity';
+import {
   EXTENSION_WORKSPACE_ENTITY_TYPE,
   EXTENSION_WORKSPACE_ID,
   EXTENSION_WORKSPACES_SET_PATH,
@@ -40,6 +46,7 @@ import {
   keyBetween,
   type MutationBatch,
   type MutatorContext,
+  PRE_BOOTSTRAP_ORG_ID,
   type SideEffectIntent,
   seedKey,
 } from '@openheaders/core/sync';
@@ -177,6 +184,11 @@ export interface CreateWorkspaceInput {
 export async function createWorkspace(input: CreateWorkspaceInput): Promise<ExtensionWorkspace> {
   const now = new Date().toISOString();
   const id = generateWorkspaceId();
+  // Per §6.4 new workspaces default to the user's home-org. Falls back
+  // to the `PRE_BOOTSTRAP_ORG_ID` sentinel when the snapshot isn't
+  // installed yet (boot race / test harness); matches the envelope
+  // mint helpers' sentinel convention.
+  const orgId = getIdentitySnapshot()?.user.homeOrgId ?? PRE_BOOTSTRAP_ORG_ID;
   const slot: ExtensionWorkspaceSlot = {
     id,
     kind: input.kind ?? 'personal',
@@ -186,6 +198,7 @@ export async function createWorkspace(input: CreateWorkspaceInput): Promise<Exte
     icon: input.icon,
     createdAt: now,
     updatedAt: now,
+    orgId,
   };
   const orderKey = nextOrderKey();
   await applyExtensionWorkspaceMutationOrThrow(
@@ -339,6 +352,17 @@ export async function bootstrap(): Promise<void> {
   // First boot — seed a default personal workspace IN MEMORY ONLY.
   // The bridge's cache.seedFromPersistedState fires the broadcast that
   // ultimately writes both storage keys via the cache.onChange sink.
+  //
+  // `bootstrap()` may run before `ensureSyntheticIdentity` has installed
+  // the in-memory identity snapshot (each host's init sequence orders
+  // workspace hydration earlier than identity hydration), so the
+  // synthetic home-org id is derived deterministically here from the
+  // host-install-id seed — same input `ensureSyntheticIdentity` will
+  // use moments later, so the two end up referencing identical UUIDs.
+  // Per UNIFIED_ORACLE_MODEL.md §5.1 this derivation is the recovery
+  // key for orphan-data reconnection too.
+  const config = await ensureDaemonConfig();
+  const orgId = await deriveSyntheticUuidV7(SYNTHETIC_SEEDS.org(config.hostInstallId));
   const now = new Date().toISOString();
   const defaultWorkspace: ExtensionWorkspace = {
     schemaVersion: 5,
@@ -349,6 +373,7 @@ export async function bootstrap(): Promise<void> {
     sortIndex: 0,
     createdAt: now,
     updatedAt: now,
+    orgId,
   };
   workspaces = [defaultWorkspace];
   activeWorkspaceId = defaultWorkspace.id;

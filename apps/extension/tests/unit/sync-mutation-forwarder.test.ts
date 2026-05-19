@@ -37,6 +37,7 @@ const event = (overrides: Partial<OracleSyncBroadcastEvent> = {}): OracleSyncBro
       hlc: { physicalMs: 1000, logical: 0, nodeId: 'sw' },
       origin: { surfaceId: 's', deviceId: 'd' },
       workspaceId: 'ws-1',
+      orgId: 'org-test',
       mutatorVersion: 1,
       body: { kind: 'delete', type: 'rule', id: 'r' },
     },

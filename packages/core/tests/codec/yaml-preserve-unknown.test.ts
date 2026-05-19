@@ -45,6 +45,7 @@ const WORKSPACE_WITH_UNKNOWN = `schemaVersion: 5
 uid: a1b2c3d4
 name: OpenHeaders Demo
 description: Sample workspace exercising the v5 codec.
+orgId: 01890000-0000-7000-8000-000000000000
 teamNotes: from-the-future
 `;
 

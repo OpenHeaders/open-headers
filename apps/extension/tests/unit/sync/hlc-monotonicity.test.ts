@@ -29,6 +29,7 @@ const wsId = 'ws-monotonic';
 
 const ctx = (ms: number, nodeId = 'peer'): MutatorContext => ({
   workspaceId: wsId,
+  orgId: 'org-test',
   hlc: { physicalMs: ms, logical: 0, nodeId },
   surfaceId: 's',
   deviceId: 'peer-d',
