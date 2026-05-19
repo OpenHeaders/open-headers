@@ -19,7 +19,8 @@
 .dt-cookie-section > summary {
   position: sticky;
   top: var(--dt-section-sticky-top, 0);
-  z-index: 1;
+  /* >=2 keeps it above row hover overlays (z-index 1). */
+  z-index: 2;
   background: var(--dt-bg);
   border-bottom: 1px solid var(--dt-border);
   cursor: pointer;
@@ -326,12 +327,19 @@
 .dt-cookie-role-heading {
   /* `<tr>` accepts position:sticky in every Chromium browser we ship
    * to; otherwise the `<td>` inside would have to carry sticky.
-   * `--oh-cookies-thead-h` is published per-section with subpixel
-   * precision by useMeasuredCssHeights, so the heading lands flush
-   * under the column-header row — no `-1px` workaround. */
+   *
+   * The `-1px` is NOT a measurement workaround — `--oh-cookies-thead-h`
+   * is already subpixel-precise via getBoundingClientRect. It's the
+   * standard absorber for the browser's physical-pixel rounding:
+   * sticky elements are positioned to integer Y values when painted,
+   * and the thead's bottom edge can round to a different physical
+   * pixel than the role heading's top edge, leaving a 1px hairline.
+   * Pinning 1px higher and letting the opaque td-bg overlap the
+   * thead's border guarantees a flush join under any DPR / zoom. */
   position: sticky;
-  top: calc(var(--oh-cookies-sticky-offset, 54px) + var(--oh-cookies-thead-h, 20px));
-  z-index: 1;
+  top: calc(var(--oh-cookies-sticky-offset, 54px) + var(--oh-cookies-thead-h, 20px) - 1px);
+  /* Above the thead so the 1px overlap covers, not gets covered. */
+  z-index: 3;
 }
 .dt-cookie-role-heading > td {
   padding: 4px 6px 2px 6px;
@@ -373,7 +381,12 @@
   );
   opacity: 0;
   pointer-events: none;
-  z-index: 2;
+  /* `z-index: 1` keeps the overlay above the row's own cells but
+   * BELOW every sticky surface (toolbar, summary, thead, role
+   * heading — all z-index >= 2). Without this, a row hovered just
+   * before it scrolls under a sticky row would keep painting the
+   * Copy / Override buttons on top of the sticky stack. */
+  z-index: 1;
   transition: opacity 80ms ease-out;
 }
 .dt-cookie-row:hover .dt-cookie-row-actions {

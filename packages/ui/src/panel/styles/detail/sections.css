@@ -17,7 +17,10 @@
   top: var(--dt-section-sticky-top, 0);
   background: var(--dt-bg);
   border-bottom: 1px solid var(--dt-border);
-  z-index: 1;
+  /* >=2 keeps sticky summaries above row hover overlays (z-index 1)
+   * so the Copy / Override buttons don't paint through the summary
+   * when their row scrolls under it. */
+  z-index: 2;
 }
 
 .dt-section[open] > summary {

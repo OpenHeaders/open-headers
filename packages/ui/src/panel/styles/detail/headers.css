@@ -96,9 +96,17 @@
   padding: 4px 12px;
   position: sticky;
   top: 0;
-  /* Stack ABOVE section summaries so they slide under, not over,
-   * the toolbar. Section summaries use z-index: 1; this uses 3. */
-  z-index: 3;
+  /* Top of the per-pane sticky stack. Every other surface that the
+   * toolbar shares a viewport with (section summaries / column-header
+   * rows / role-group headings) must paint UNDER the toolbar as the
+   * user scrolls past them, so this is the highest sticky z-index in
+   * the pane. Hierarchy (bottom → top of paint order):
+   *   row hover overlay (1) < summary (2) < thead (2) <
+   *   role-heading (3) < toolbar (5).
+   * The gap above 3 is intentional — future per-pane sticky elements
+   * can slot between role-heading and toolbar without rejiggering
+   * this rule. */
+  z-index: 5;
   background: var(--dt-bg);
   border-bottom: 1px solid var(--dt-border);
 }
@@ -308,7 +316,12 @@
   );
   opacity: 0;
   pointer-events: none;
-  z-index: 2;
+  /* `z-index: 1` keeps the overlay above the row's own content but
+   * BELOW every sticky surface in this pane (toolbar / summaries /
+   * sticky stacks). Without this, a row hovered just before it
+   * scrolls under a sticky row would keep painting Copy / Override
+   * on top of the sticky stack. */
+  z-index: 1;
   transition: opacity 80ms ease-out;
 }
 .dt-kv:hover .dt-kv-row-actions {
