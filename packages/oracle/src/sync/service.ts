@@ -710,6 +710,16 @@ export function getAwarenessStoreForCurrentWorkspace(): AwarenessStore | null {
 }
 
 /**
+ * Workspace-targeted accessor — used by the cross-host awareness
+ * receiver to route inbound peer presence into the right per-workspace
+ * store. Returns null when no service exists for the id (workspace not
+ * resident on this host yet); receivers degrade silently in that case.
+ */
+export function getAwarenessStoreForWorkspace(workspaceId: string): AwarenessStore | null {
+  return services.get(workspaceId)?.awareness ?? null;
+}
+
+/**
  * Snapshot the canonical presence list for the Active workspace — used
  * by renderer surfaces on mount so they have a starting view before
  * the next publish/broadcast.

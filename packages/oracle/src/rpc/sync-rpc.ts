@@ -35,7 +35,12 @@ import type {
   SyncMutationBatchMessage,
   SyncMutationMessage,
 } from '@openheaders/core/protocol';
-import { SYNC_MUTATION_BATCH_TYPE, SYNC_MUTATION_TYPE } from '@openheaders/core/protocol';
+import {
+  SYNC_AWARENESS_PRESENCE_TYPE,
+  SYNC_MUTATION_BATCH_TYPE,
+  SYNC_MUTATION_TYPE,
+  type SyncAwarenessPresenceMessage,
+} from '@openheaders/core/protocol';
 import type {
   CoexistPayload,
   CoexistResult,
@@ -51,6 +56,7 @@ import {
   applyInboundMutationBatch,
   applyInboundMutationEnvelope,
 } from '../sync/mutation-stream-bridge';
+import { applyInboundAwarenessFrame } from '../sync/awareness-inbound';
 import { logger } from '@openheaders/core/utils';
 import {
   listMutedActivityEntities,
@@ -76,7 +82,11 @@ import {
   getWorkspace,
   listWorkspaces,
 } from '../workspace/extension-workspace-store';
-import { getOrCreateWorkspaceService, releaseWorkspaceService } from '../sync/service';
+import {
+  getAwarenessStoreForWorkspace,
+  getOrCreateWorkspaceService,
+  releaseWorkspaceService,
+} from '../sync/service';
 import { requireActiveWorkspaceId } from '../sync';
 import { getSyncPersistenceProvider } from '../sync/sync-persistence-provider';
 import {
@@ -149,6 +159,12 @@ export function dispatchSyncRpc(message: Record<string, unknown>): SyncRpcResult
     const msg = message as unknown as SyncMutationBatchMessage;
     const promise = applyInboundMutationBatch(msg.batch).then(() => ({ ok: true }) as const);
     return { kind: 'async', promise };
+  }
+
+  if (type === SYNC_AWARENESS_PRESENCE_TYPE) {
+    const msg = message as unknown as SyncAwarenessPresenceMessage;
+    applyInboundAwarenessFrame(msg, { resolveStore: getAwarenessStoreForWorkspace });
+    return { kind: 'sync', response: { ok: true } };
   }
 
   if (type === 'oh.sync.apply') {

@@ -52,6 +52,8 @@
 
 import { app, BrowserWindow, ipcMain } from 'electron';
 import { setHostBridge } from '@openheaders/core/bridge';
+import { SYNC_AWARENESS_PRESENCE_TYPE } from '@openheaders/core/protocol';
+import type { AwarenessState } from '@openheaders/core/protocol';
 import { logger as consoleLogger } from '@openheaders/core/utils';
 import { setHostLogger } from '@openheaders/core/logger';
 import { setHostStorage } from '@openheaders/core/storage';
@@ -196,7 +198,24 @@ export async function installRpcHost(): Promise<void> {
       forwardMutationToWsPeers(event);
       observeForActivityFeed(event);
     },
-    broadcastAwareness: (event) => broadcastEverywhere('awarenessBroadcast', event),
+    broadcastAwareness: (event) => {
+      // Renderers in this process: legacy IPC channel for the
+      // existing awareness mirror (`packages/ui/src/context/
+      // awareness-mirror.ts` subscribes to `awarenessBroadcast`).
+      broadcastToAllRenderers('awarenessBroadcast', event);
+      // Cross-host: forward only DESKTOP-originated presence onto the
+      // wire. Peer-received states (e.g. extension surfaces folded into
+      // the local store from an inbound frame) are filtered out by
+      // `identity.appId` so the wire never loops.
+      const localOnly = event.presence.filter((s: AwarenessState) => s.identity.appId === 'desktop');
+      if (localOnly.length > 0 || event.presence.length === 0) {
+        wsServer?.broadcastFrame({
+          type: SYNC_AWARENESS_PRESENCE_TYPE,
+          workspaceId: event.workspaceId,
+          presence: localOnly,
+        });
+      }
+    },
   });
 
   // 3. The main process drives writes through the same `hostBridge`

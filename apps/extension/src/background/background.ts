@@ -76,6 +76,8 @@ import {
   setShouldForwardMutation,
 } from './sync-mutation-forwarder';
 import { handleIncomingMutationFrame, hasRecentlyApplied } from './sync-mutation-receiver';
+import { forwardAwarenessToBackend, forwardCurrentAwarenessOnConnect } from './awareness-forwarder';
+import { handleIncomingAwarenessFrame } from './awareness-receiver';
 import {
   countUnreadActivityEntries,
   observeForActivityFeed,
@@ -183,6 +185,12 @@ const syncHandshakeInitiator = createSyncHandshakeInitiator({
   onSynced: async (peerVector) => {
     await applyPeerStateVectorToPendingOut(peerVector);
     await flushPendingOutToBackend();
+    // Awareness is ephemeral; only flows on local publish events. On
+    // a fresh connect the peer has no view of our presence until the
+    // next local surface activity — push the current snapshot now
+    // that the handshake is past so the desktop folds extension
+    // surfaces into its store immediately.
+    forwardCurrentAwarenessOnConnect();
   },
   onRejected: (reason, detail) => {
     logger.warn('Background', `sync handshake rejected: ${reason}${detail ? ` — ${detail}` : ''}`);
@@ -199,6 +207,7 @@ registerInboundFrameHandler(async (frame) => {
   return true;
 });
 registerInboundFrameHandler(handleIncomingMutationFrame);
+registerInboundFrameHandler(handleIncomingAwarenessFrame);
 
 subscribeOnWebSocketOpen(() => {
   void syncHandshakeInitiator.start();
@@ -289,7 +298,10 @@ setOracleHostHooks({
     forwardMutationToBackend(event);
     observeForActivityFeed(event);
   },
-  broadcastAwareness: (event) => broadcast('awarenessBroadcast', event),
+  broadcastAwareness: (event) => {
+    broadcast('awarenessBroadcast', event);
+    forwardAwarenessToBackend(event);
+  },
   reportStatus: (entry) =>
     reportStatus({
       subsystem: entry.subsystem as Parameters<typeof reportStatus>[0]['subsystem'],

@@ -58,6 +58,9 @@ export type {
   SyncMutationStreamMessage,
 } from './mutation-stream';
 
+export { SYNC_AWARENESS_PRESENCE_TYPE, SyncAwarenessPresenceMessageSchema } from './awareness-stream';
+export type { SyncAwarenessPresenceMessage } from './awareness-stream';
+
 export {
   MIN_SNAPSHOT_SCHEMA_VERSION,
   SENSITIVE_SNAPSHOT_KEYS,

@@ -58,7 +58,13 @@ export {
   rememberPriorForMutation,
   type PriorCapture,
 } from './activity-priors';
-export { getOracleForWorkspace } from './service';
+export {
+  getAwarenessStoreForWorkspace,
+  getOracleForWorkspace,
+  snapshotAwarenessPresence,
+} from './service';
+export { applyInboundAwarenessFrame } from './awareness-inbound';
+export type { ApplyInboundAwarenessFrameDeps } from './awareness-inbound';
 
 export {
   DEFAULT_REMOTE_ID,
