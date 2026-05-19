@@ -598,6 +598,7 @@ async function dispatchApplyCoexistImport(raw: { workspaces?: unknown }): Promis
   };
 
   return applyCoexistPayload(payload, {
+    existingWorkspaceNames: () => listWorkspaces().map((ws) => ws.name),
     createWorkspace: async ({ name }) => {
       const ws = await createWorkspace({ name });
       return { id: ws.id, name: ws.name };

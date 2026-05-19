@@ -2,9 +2,17 @@
  * Mode-switch Coexist (M3) — target-side applier.
  *
  * Given a {@link CoexistPayload} shipped from the source host, mint a
- * fresh UUIDv7 workspace per entry, rename it to `"<source> (imported)"`,
- * and replay the source's snapshot into the new workspace. Existing
- * target workspaces are NEVER touched.
+ * fresh UUIDv7 workspace per entry under the source's own name, and
+ * replay the source's snapshot into the new workspace. Existing target
+ * workspaces are NEVER touched.
+ *
+ * **Naming.** Coexist keeps both copies as separate workspaces, so the
+ * imported workspace takes the source name verbatim — an imported
+ * workspace is not "lesser", and a decorative suffix on every import is
+ * noise the user did not ask for. A numeric suffix (`"<name> (2)"`,
+ * `"<name> (3)"`, …) is added ONLY to break a genuine name collision —
+ * with a workspace already resident on the target host, or with another
+ * workspace imported earlier in the same payload.
  *
  * The seed path reuses the same {@link applyWorkspaceSnapshot} that
  * Phase C's cold-receiver bootstrap uses (C5), so cache + log +
@@ -46,15 +54,28 @@ export interface ApplyCoexistPayloadDeps extends CoexistTargetMinter {
    * deterministic stub. Throws → applier aborts with `apply-failed`.
    */
   applySnapshot: (snapshot: WorkspaceSnapshot) => Promise<{ entitiesApplied: number }>;
+  /**
+   * Names of the workspaces already resident on the target host. Used
+   * to detect a genuine name collision so the imported workspace can be
+   * disambiguated; absent / empty means "no collisions possible".
+   */
+  existingWorkspaceNames?: () => ReadonlyArray<string>;
 }
 
-/** Suffix appended to the source workspace name when minting the target replica. */
-export const COEXIST_IMPORTED_NAME_SUFFIX = ' (imported)';
-
-function importedNameFor(sourceName: string): string {
+/**
+ * Resolve a non-colliding name for an imported workspace. Returns the
+ * trimmed source name when it is free; otherwise appends the lowest
+ * `" (n)"` (n ≥ 2) that is not already taken.
+ */
+function disambiguateName(sourceName: string, taken: ReadonlySet<string>): string {
   // Defensive trim — the source store already normalizes whitespace on
   // create, but a hand-imported workspace could carry trailing spaces.
-  return `${sourceName.trim()}${COEXIST_IMPORTED_NAME_SUFFIX}`;
+  const base = sourceName.trim();
+  if (!taken.has(base)) return base;
+  for (let n = 2; ; n += 1) {
+    const candidate = `${base} (${n})`;
+    if (!taken.has(candidate)) return candidate;
+  }
 }
 
 /**
@@ -79,9 +100,16 @@ export async function applyCoexistPayload(
   const imported: CoexistImportedWorkspace[] = [];
   let totalEntitiesApplied = 0;
 
+  // Names already in play on the target — resident workspaces plus the
+  // ones minted earlier in this same payload. Trimmed to match
+  // `disambiguateName`'s comparison basis.
+  const taken = new Set<string>((deps.existingWorkspaceNames?.() ?? []).map((n) => n.trim()));
+
   for (const src of payload.workspaces) {
+    const newName = disambiguateName(src.sourceWorkspaceName, taken);
+    taken.add(newName);
     try {
-      const result = await importOne(src, deps);
+      const result = await importOne(src, newName, deps);
       imported.push(result);
       totalEntitiesApplied += result.entitiesApplied;
     } catch (err) {
@@ -98,9 +126,9 @@ export async function applyCoexistPayload(
 
 async function importOne(
   src: CoexistSourceWorkspace,
+  newName: string,
   deps: ApplyCoexistPayloadDeps,
 ): Promise<CoexistImportedWorkspace> {
-  const newName = importedNameFor(src.sourceWorkspaceName);
   const created = await deps.createWorkspace({ name: newName });
   const rewritten = retargetSnapshot(src.snapshot, created.id);
   const { entitiesApplied } = await deps.applySnapshot(rewritten);

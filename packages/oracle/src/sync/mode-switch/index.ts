@@ -1,5 +1,4 @@
 export {
-  COEXIST_IMPORTED_NAME_SUFFIX,
   applyCoexistPayload,
   type ApplyCoexistPayloadDeps,
   type CoexistTargetMinter,

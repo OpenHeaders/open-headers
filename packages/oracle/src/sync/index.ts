@@ -108,7 +108,6 @@ export {
 } from './host-hooks';
 
 export {
-  COEXIST_IMPORTED_NAME_SUFFIX,
   USER_CONTENT_ENTITY_TYPES,
   applyCoexistPayload,
   applyDiscardRestoreArchive,

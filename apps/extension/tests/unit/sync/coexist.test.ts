@@ -9,7 +9,6 @@
 
 import type { CoexistPayload, CoexistResult } from '@openheaders/core/sync';
 import {
-  COEXIST_IMPORTED_NAME_SUFFIX,
   applyCoexistPayload,
   collectCoexistPayload,
   type CoexistSourceOracle,
@@ -177,7 +176,7 @@ describe('applyCoexistPayload', () => {
     expect(applied[1].workspaceId).toBe('new-2');
   });
 
-  it('suffixes the source name with " (imported)" when minting', async () => {
+  it('mints the imported workspace under the source name verbatim when there is no collision', async () => {
     const createWorkspace = vi.fn(async ({ name }: { name: string }) => ({ id: 'new-1', name }));
     await applyCoexistPayload(
       {
@@ -187,15 +186,14 @@ describe('applyCoexistPayload', () => {
       },
       {
         createWorkspace,
+        existingWorkspaceNames: () => ['Beta'],
         applySnapshot: () => Promise.resolve({ entitiesApplied: 0 }),
       },
     );
-    expect(createWorkspace).toHaveBeenCalledWith({
-      name: `Alpha${COEXIST_IMPORTED_NAME_SUFFIX}`,
-    });
+    expect(createWorkspace).toHaveBeenCalledWith({ name: 'Alpha' });
   });
 
-  it('trims trailing whitespace before appending the suffix', async () => {
+  it('trims surrounding whitespace from the imported name', async () => {
     const createWorkspace = vi.fn(async ({ name }: { name: string }) => ({ id: 'new', name }));
     await applyCoexistPayload(
       {
@@ -205,9 +203,29 @@ describe('applyCoexistPayload', () => {
       },
       { createWorkspace, applySnapshot: () => Promise.resolve({ entitiesApplied: 0 }) },
     );
-    expect(createWorkspace).toHaveBeenCalledWith({
-      name: `Alpha${COEXIST_IMPORTED_NAME_SUFFIX}`,
-    });
+    expect(createWorkspace).toHaveBeenCalledWith({ name: 'Alpha' });
+  });
+
+  it('disambiguates with a numeric suffix on a genuine name collision', async () => {
+    const createWorkspace = vi.fn(async ({ name }: { name: string }) => ({ id: `new-${name}`, name }));
+    await applyCoexistPayload(
+      {
+        workspaces: [
+          // Collides with a workspace already on the target...
+          { sourceWorkspaceId: WS_A, sourceWorkspaceName: 'Alpha', snapshot: makeSnapshot(WS_A) },
+          // ...and a second source workspace also named Alpha collides
+          // with the one imported just above.
+          { sourceWorkspaceId: WS_B, sourceWorkspaceName: 'Alpha', snapshot: makeSnapshot(WS_B) },
+        ],
+      },
+      {
+        createWorkspace,
+        existingWorkspaceNames: () => ['Alpha'],
+        applySnapshot: () => Promise.resolve({ entitiesApplied: 0 }),
+      },
+    );
+    expect(createWorkspace).toHaveBeenNthCalledWith(1, { name: 'Alpha (2)' });
+    expect(createWorkspace).toHaveBeenNthCalledWith(2, { name: 'Alpha (3)' });
   });
 
   it('returns apply-failed and short-circuits on the first applySnapshot rejection', async () => {
@@ -252,7 +270,7 @@ describe('applyCoexistPayload', () => {
     );
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.imported[0].newWorkspaceName).toBe(`Alpha${COEXIST_IMPORTED_NAME_SUFFIX} [stored]`);
+    expect(result.imported[0].newWorkspaceName).toBe('Alpha [stored]');
   });
 });
 
@@ -293,7 +311,7 @@ describe('orchestrateCoexistToPeer', () => {
           sourceWorkspaceId: WS_A,
           sourceWorkspaceName: 'Alpha',
           newWorkspaceId: 'peer-new-1',
-          newWorkspaceName: `Alpha${COEXIST_IMPORTED_NAME_SUFFIX}`,
+          newWorkspaceName: 'Alpha',
           entitiesApplied: 4,
         },
       ],
@@ -379,7 +397,7 @@ describe('summarizeCoexist toast copy', () => {
             sourceWorkspaceId: WS_A,
             sourceWorkspaceName: 'Alpha',
             newWorkspaceId: 'new-1',
-            newWorkspaceName: 'Alpha (imported)',
+            newWorkspaceName: 'Alpha',
             entitiesApplied: 1,
           },
         ],
@@ -401,14 +419,14 @@ describe('summarizeCoexist toast copy', () => {
             sourceWorkspaceId: WS_A,
             sourceWorkspaceName: 'Alpha',
             newWorkspaceId: 'new-1',
-            newWorkspaceName: 'Alpha (imported)',
+            newWorkspaceName: 'Alpha',
             entitiesApplied: 5,
           },
           {
             sourceWorkspaceId: WS_B,
             sourceWorkspaceName: 'Beta',
             newWorkspaceId: 'new-2',
-            newWorkspaceName: 'Beta (imported)',
+            newWorkspaceName: 'Beta',
             entitiesApplied: 7,
           },
         ],
