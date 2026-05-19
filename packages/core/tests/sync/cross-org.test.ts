@@ -222,3 +222,102 @@ describe('U2.10 — cross-org property test', () => {
     }
   });
 });
+
+/**
+ * Phase U4.1 — Coexist double-import, receiver side (UNIFIED_ORACLE_MODEL.md
+ * §6.3).
+ *
+ * Models the desktop receiver after a mode-switch to "keep both as
+ * separate workspaces". The desktop ingest stream carries:
+ *
+ *   1. the desktop's own workspace data (orgId = desktop home-org),
+ *   2. the explicit Coexist push that mints "W1 (imported)" on the
+ *      desktop (orgId = desktop home-org — the workspace was created
+ *      locally), and
+ *   3. the LEAK: the live WS link replays the extension's W1 data plus
+ *      the extension's `__global__` workspace-list singleton, all
+ *      stamped with the extension's home-org.
+ *
+ * The sender-side transport readers never block (3) — a host's own log
+ * always carries its own Orgs. The receiver-side filter the ingest path
+ * now composes ({@link filterEnvelopesByOrg} over the host's authorized
+ * set) is what drops it. Property: after the filter, exactly the
+ * desktop-org envelopes survive — so the desktop's `__global__` registers
+ * exactly ONE imported copy of W1 and the extension's `__global__` row
+ * never lands as a bare duplicate.
+ */
+describe('U4.1 — Coexist double-import (receiver-side org filter)', () => {
+  const GLOBAL_SCOPE = '__global__';
+  const DESKTOP_ORG = ORG_HOME;
+  const EXT_ORG = ORG_LOCAL_A;
+
+  it('ext W1 + desktop W2 → exactly ONE imported copy on desktop (1024 scenarios)', () => {
+    const SCENARIOS = 1024;
+    for (let s = 0; s < SCENARIOS; s += 1) {
+      const rng = makeRng(0xc0ec51 ^ s);
+      const ingest: MutationEnvelope[] = [];
+      let physicalMs = s * 10_000;
+
+      const mint = (workspaceId: string, orgId: string, node: string, i: number): void => {
+        ingest.push(
+          mintEnvelope({
+            workspaceId,
+            orgId,
+            hlc: hlcAt(physicalMs, 0, node),
+            body: pickBody(rng),
+            mutationId: `${node}-${workspaceId}-${i}`,
+          }),
+        );
+        physicalMs += 1;
+      };
+
+      // (1) The desktop's own workspaces, registered through the
+      // desktop's `__global__` singleton.
+      const desktopWorkspaceCount = 1 + rng.int(3);
+      const desktopRegistered: string[] = [];
+      for (let w = 0; w < desktopWorkspaceCount; w += 1) {
+        const ws = `desktop-ws-${w}`;
+        desktopRegistered.push(ws);
+        const dataCount = 1 + rng.int(5);
+        for (let i = 0; i < dataCount; i += 1) mint(ws, DESKTOP_ORG, 'desktop-node', i);
+      }
+      // (2) Coexist push: "W1 (imported)" minted locally on the desktop.
+      const importedWs = 'w1-imported';
+      desktopRegistered.push(importedWs);
+      const importedCount = 1 + rng.int(5);
+      for (let i = 0; i < importedCount; i += 1) mint(importedWs, DESKTOP_ORG, 'desktop-node', i);
+      for (let i = 0; i < desktopRegistered.length; i += 1) {
+        mint(GLOBAL_SCOPE, DESKTOP_ORG, 'desktop-node', i);
+      }
+
+      // (3) The leak: the extension replays its own W1 data + its
+      // `__global__` workspace-list row over the live link.
+      const extDataCount = 1 + rng.int(5);
+      for (let i = 0; i < extDataCount; i += 1) mint('ext-w1', EXT_ORG, 'ext-node', i);
+      mint(GLOBAL_SCOPE, EXT_ORG, 'ext-node', 0);
+
+      // The desktop's ingest path filters by ITS authorized set.
+      const accepted = [...filterEnvelopesByOrg(ingest, authorize(DESKTOP_ORG))];
+
+      const seed = 0xc0ec51 ^ s;
+      // No foreign-org envelope survives.
+      for (const env of accepted) {
+        if (env.orgId !== DESKTOP_ORG) {
+          throw new Error(`scenario ${s} (seed=${seed}): leaked envelope ${env.mutationId} orgId=${env.orgId}`);
+        }
+      }
+      // The extension's `__global__` row never lands — no bare duplicate.
+      const leakedGlobal = accepted.filter(
+        (e) => e.workspaceId === GLOBAL_SCOPE && e.origin.deviceId === 'ext-node',
+      );
+      expect(leakedGlobal).toEqual([]);
+      // The extension's W1 data never lands.
+      expect(accepted.some((e) => e.workspaceId === 'ext-w1')).toBe(false);
+      // Exactly the desktop's own `__global__` rows survive → the
+      // imported W1 has exactly one copy (the explicit Coexist push).
+      const survivingGlobal = accepted.filter((e) => e.workspaceId === GLOBAL_SCOPE);
+      expect(survivingGlobal).toHaveLength(desktopRegistered.length);
+      expect(accepted.filter((e) => e.workspaceId === importedWs)).toHaveLength(importedCount);
+    }
+  });
+});

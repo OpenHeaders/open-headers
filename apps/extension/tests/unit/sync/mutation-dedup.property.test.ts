@@ -44,6 +44,7 @@ import {
 import fc from 'fast-check';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { stressNumRuns } from './property-stress';
+import { clearTestIdentitySnapshot, installTestIdentitySnapshot } from '../../helpers/identity-snapshot';
 
 const wsId = 'ws-dedup-prop';
 
@@ -137,6 +138,11 @@ function uniqueMutationIds(seeded: Seeded[]): Set<string> {
 }
 
 beforeEach(() => {
+  // The inbound bridge's receiver-side org filter denies all envelopes
+  // when no identity is installed. The ctx factory stamps no `orgId`,
+  // so envelopes carry the pre-bootstrap sentinel — pin the snapshot's
+  // home-org to the same value so they pass the filter.
+  installTestIdentitySnapshot();
   __initSyncServiceForTests(wsId);
   __resetMutationStreamBridgeForTests();
 });
@@ -144,6 +150,7 @@ beforeEach(() => {
 afterEach(() => {
   __resetMutationStreamBridgeForTests();
   disposeSyncService();
+  clearTestIdentitySnapshot();
 });
 
 describe('dedup — property: apply-once + universal apply', () => {

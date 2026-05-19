@@ -24,12 +24,21 @@ import {
   handleIncomingMutationFrame,
   hasRecentlyApplied,
 } from '../../src/background/sync-mutation-receiver';
+import { getIdentitySnapshot } from '@openheaders/core/identity';
 import { installSyntheticIdentityForTests } from './sync/_identity-test-setup';
 
 const wsId = 'ws-recv';
 
+// Captured from the installed synthetic identity in `beforeEach`. The
+// receiver's org filter (UNIFIED_ORACLE_MODEL.md §6.1 / §6.3) drops
+// inbound envelopes outside the host's authorized Org set, so the ctx
+// must stamp envelopes with the host's own home-org — the in-trust-zone
+// case where extension and desktop share the user's home Org.
+let homeOrgId = '';
+
 const ctx = (ms: number, nodeId = 'peer'): MutatorContext => ({
   workspaceId: wsId,
+  orgId: homeOrgId,
   hlc: { physicalMs: ms, logical: 0, nodeId },
   surfaceId: 's',
   deviceId: 'peer-device',
@@ -54,6 +63,7 @@ let teardownIdentity: () => void = () => undefined;
 
 beforeEach(async () => {
   teardownIdentity = await installSyntheticIdentityForTests([]);
+  homeOrgId = getIdentitySnapshot()?.user.homeOrgId ?? '';
   __initSyncServiceForTests(wsId);
   __resetMutationReceiverForTests();
 });

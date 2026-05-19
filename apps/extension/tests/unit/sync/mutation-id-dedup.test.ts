@@ -30,6 +30,7 @@ import {
   hasRecentlyApplied,
 } from '@openheaders/oracle/sync';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { clearTestIdentitySnapshot, installTestIdentitySnapshot } from '../../helpers/identity-snapshot';
 
 const wsId = 'ws-dedup';
 
@@ -56,6 +57,11 @@ const makeRule = (uid: string): Rule =>
   }) as unknown as Rule;
 
 beforeEach(() => {
+  // The inbound bridge's receiver-side org filter denies all envelopes
+  // when no identity is installed (empty authorized set). The ctx
+  // factory stamps no `orgId`, so envelopes carry the pre-bootstrap
+  // sentinel — pin the snapshot's home-org to the same value.
+  installTestIdentitySnapshot();
   __initSyncServiceForTests(wsId);
   __resetMutationStreamBridgeForTests();
 });
@@ -63,6 +69,7 @@ beforeEach(() => {
 afterEach(() => {
   __resetMutationStreamBridgeForTests();
   disposeSyncService();
+  clearTestIdentitySnapshot();
 });
 
 describe('C11: mutationId dedup at receive', () => {

@@ -36,11 +36,12 @@ import {
   SyncMutationMessageSchema,
 } from '@openheaders/core/protocol';
 import {
+  authorizedOrgIds,
   emitAuditEntry,
   getIdentitySnapshot,
   hasCapability,
 } from '@openheaders/core/identity';
-import type { MutationBatch, MutationEnvelope } from '@openheaders/core/sync';
+import { filterEnvelopesByOrg, type MutationBatch, type MutationEnvelope } from '@openheaders/core/sync';
 import * as v from 'valibot';
 
 import { logger } from '@utils/logger';
@@ -155,6 +156,29 @@ function isReceiveAllowed(workspaceId: string): boolean {
   return true;
 }
 
+/**
+ * Receiver-side org filter (UNIFIED_ORACLE_MODEL.md §6.1 / §6.3).
+ * Symmetric to the oracle-side `applyInboundMutationBatch` gate: the
+ * sender-side transport readers filter the sender's own log by the
+ * sender's own authorized set, which never blocks a peer's own data
+ * from going out. Cross-host isolation is enforced here, on ingest —
+ * an envelope whose `orgId` is outside this host's authorized Org set
+ * is dropped before apply, so a peer's workspace (and its `__global__`
+ * workspace-list row) cannot materialize as a duplicate after a
+ * mode-switch.
+ */
+function acceptedByOrg(mutations: readonly MutationEnvelope[]): MutationEnvelope[] {
+  const authorized = authorizedOrgIds(getIdentitySnapshot());
+  const accepted = [...filterEnvelopesByOrg(mutations, authorized)];
+  if (accepted.length < mutations.length) {
+    logger.warn(
+      SCOPE,
+      `dropped ${mutations.length - accepted.length}/${mutations.length} inbound envelope(s) outside the host's authorized Org set`,
+    );
+  }
+  return accepted;
+}
+
 async function applySingleEnvelope(envelope: MutationEnvelope): Promise<void> {
   if (SEEN_MUTATION_IDS.has(envelope.mutationId)) {
     // C11 dedup at receive — own-echo or replay. The oracle's mutator
@@ -162,6 +186,7 @@ async function applySingleEnvelope(envelope: MutationEnvelope): Promise<void> {
     // round-trip + redundant broadcast.
     return;
   }
+  if (acceptedByOrg([envelope]).length === 0) return;
   if (!isReceiveAllowed(envelope.workspaceId)) return;
   const batch: MutationBatch = { batchId: `wire-${envelope.mutationId}`, mutations: [envelope] };
   await applyAndRemember(batch);
@@ -173,11 +198,15 @@ async function applyBatch(batch: MutationBatch): Promise<void> {
   // oracle's per-envelope idempotency handles the dup envelopes.
   const allKnown = batch.mutations.every((e) => SEEN_MUTATION_IDS.has(e.mutationId));
   if (allKnown) return;
+  const accepted = acceptedByOrg(batch.mutations);
+  if (accepted.length === 0) return;
+  const effective: MutationBatch =
+    accepted.length === batch.mutations.length ? batch : { batchId: batch.batchId, mutations: accepted };
   // All envelopes in a batch share the same workspaceId per the
   // mutation log invariant; check the first.
-  const ws = batch.mutations[0]?.workspaceId;
+  const ws = effective.mutations[0]?.workspaceId;
   if (ws && !isReceiveAllowed(ws)) return;
-  await applyAndRemember(batch);
+  await applyAndRemember(effective);
 }
 
 async function applyAndRemember(batch: MutationBatch): Promise<void> {

@@ -49,9 +49,12 @@ import {
   compareHlc,
   computeInverseSpec,
   deriveSideEffectsForEnvelope,
+  filterEnvelopesByOrg,
   type MutationBatch,
   type MutationEnvelope,
 } from '@openheaders/core/sync';
+import { authorizedOrgIds, getIdentitySnapshot } from '@openheaders/core/identity';
+import { logger } from '@openheaders/core/utils';
 
 import { makeOracleInverseAccess } from './activity-inverse-builder';
 import { rememberPriorForMutation } from './activity-priors';
@@ -101,15 +104,44 @@ export async function applyInboundMutationEnvelope(envelope: MutationEnvelope): 
  * set; a failed apply leaves the seen set untouched so a subsequent
  * redelivery can retry.
  *
+ * **Receiver-side org filter (UNIFIED_ORACLE_MODEL.md §6.1 / §6.3).**
+ * The sender-side transport readers (state-vector / delta-stream /
+ * snapshot-threshold) filter the *sender's own* log by the *sender's
+ * own* authorized Org set — a no-op for cross-host isolation, since a
+ * host's log always carries its own Orgs. Cross-host isolation is
+ * enforced HERE, on ingest: every envelope whose `orgId` is outside
+ * THIS host's authorized set is dropped before apply. This covers both
+ * the handshake snapshot-bootstrap tail and the live delta stream —
+ * both arrive as {@link MutationEnvelope}s through this one path — and
+ * in particular the `__global__` workspace-list singleton, whose row
+ * is what would otherwise materialize a peer's workspace as a bare
+ * duplicate on a Coexist "keep both" mode-switch.
+ *
  * After a successful apply, folds the highest inbound HLC per
  * workspace into the local sequencer (Phase C C12). Guarantees that
  * the NEXT local mint strictly exceeds every envelope this peer has
  * observed — non-negotiable for cross-host LWW convergence when
  * the local wall clock has drifted (machine sleep, NTP step, etc.).
  */
-export async function applyInboundMutationBatch(batch: MutationBatch): Promise<void> {
-  const allKnown = batch.mutations.every((e) => SEEN_MUTATION_IDS.has(e.mutationId));
+export async function applyInboundMutationBatch(input: MutationBatch): Promise<void> {
+  const allKnown = input.mutations.every((e) => SEEN_MUTATION_IDS.has(e.mutationId));
   if (allKnown) return;
+
+  const authorized = authorizedOrgIds(getIdentitySnapshot());
+  const accepted = [...filterEnvelopesByOrg(input.mutations, authorized)];
+  if (accepted.length < input.mutations.length) {
+    const dropped = input.mutations.length - accepted.length;
+    logger.info(
+      'MutationStreamBridge',
+      `inbound batch ${input.batchId}: dropped ${dropped}/${input.mutations.length} envelope(s) outside the host's authorized Org set`,
+    );
+  }
+  if (accepted.length === 0) return;
+  const batch: MutationBatch =
+    accepted.length === input.mutations.length
+      ? input
+      : { batchId: input.batchId, mutations: accepted };
+
   capturePriorsForActivity(batch);
   // Side effects are HOST-LOCAL runtime concerns that need to fire on
   // every host that applies the envelope (active-flip → per-workspace

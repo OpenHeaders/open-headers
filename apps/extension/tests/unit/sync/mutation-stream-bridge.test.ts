@@ -24,12 +24,18 @@ import {
   hasRecentlyApplied,
 } from '@openheaders/oracle/sync';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { clearTestIdentitySnapshot, installTestIdentitySnapshot } from '../../helpers/identity-snapshot';
 
 const wsId = 'ws-bridge';
+// The inbound bridge's receiver-side org filter (UNIFIED_ORACLE_MODEL.md
+// §6.1 / §6.3) drops envelopes whose `orgId` is outside the host's
+// authorized Org set. Pin the test snapshot's home-org to the same
+// `orgId` the ctx factory stamps so the in-trust-zone envelopes apply.
+const TEST_ORG_ID = 'org-test';
 
 const ctx = (ms: number, nodeId = 'peer'): MutatorContext => ({
   workspaceId: wsId,
-  orgId: 'org-test',
+  orgId: TEST_ORG_ID,
   hlc: { physicalMs: ms, logical: 0, nodeId },
   surfaceId: 's',
   deviceId: 'peer-device',
@@ -51,6 +57,7 @@ const makeRule = (uid: string): Rule =>
   }) as unknown as Rule;
 
 beforeEach(() => {
+  installTestIdentitySnapshot(TEST_ORG_ID);
   __initSyncServiceForTests(wsId);
   __resetMutationStreamBridgeForTests();
 });
@@ -58,6 +65,7 @@ beforeEach(() => {
 afterEach(() => {
   __resetMutationStreamBridgeForTests();
   disposeSyncService();
+  clearTestIdentitySnapshot();
 });
 
 describe('applyInboundMutationEnvelope', () => {
