@@ -284,13 +284,13 @@ const ApplyBar: React.FC<{
       if (result.ok) {
         message.success({
           key,
-          content: `Reachable — ${result.role} v${result.protocolVersion} responded in ${result.latencyMs}ms`,
+          content: `${previewLabel} is reachable.`,
         });
         return;
       }
       message.error({ key, content: humanizeProbeFailure(result) });
     };
-  }, [host, url, message]);
+  }, [host, url, message, previewLabel]);
   let statusCopy: React.ReactNode;
   if (isActive) {
     statusCopy = (
