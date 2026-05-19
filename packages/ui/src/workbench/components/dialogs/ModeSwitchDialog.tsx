@@ -17,10 +17,12 @@
  * callback the caller plugs into the eventual handlers.
  */
 
+import { ArrowRightOutlined, DeleteOutlined, ForkOutlined, MergeCellsOutlined } from '@ant-design/icons';
 import { Alert, Checkbox, Modal, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import type { DataPresenceSummary, NameCollision } from '@openheaders/core/sync';
+import { BackendIcon, type BackendIconKey } from '../../settings/components/backend-icons';
 
 export type ModeSwitchChoice = 'coexist' | 'import' | 'discard';
 
@@ -41,6 +43,11 @@ export interface ModeSwitchDialogProps {
   fromLabel: string;
   /** Display label for the target mode (e.g. "Desktop App"). */
   toLabel: string;
+  /** Icon glyphs for the source / target panels. Drives the visual
+   *  identity of each side so users see at a glance what they're
+   *  switching FROM vs TO instead of parsing labels. */
+  fromIcon?: BackendIconKey;
+  toIcon?: BackendIconKey;
   source: DataPresenceSummary;
   target: DataPresenceSummary;
   /**
@@ -57,15 +64,20 @@ export interface ModeSwitchDialogProps {
   onCancel: () => void;
 }
 
-const ACTION_OPTIONS: ReadonlyArray<{
+interface ActionOption {
   choice: ModeSwitchChoice;
   title: string;
+  icon: React.ReactNode;
   helpFrom: (fromLabel: string, toLabel: string) => string;
   recommended?: boolean;
-}> = [
+  danger?: boolean;
+}
+
+const ACTION_OPTIONS: readonly ActionOption[] = [
   {
     choice: 'coexist',
     title: 'Keep both as separate workspaces',
+    icon: <ForkOutlined />,
     helpFrom: (fromLabel, toLabel) =>
       `Your ${fromLabel} data appears on the ${toLabel} side as an additional workspace. The existing ${toLabel} workspaces stay untouched.`,
     recommended: true,
@@ -73,14 +85,17 @@ const ACTION_OPTIONS: ReadonlyArray<{
   {
     choice: 'import',
     title: 'Import source data into the target workspace',
+    icon: <MergeCellsOutlined />,
     helpFrom: (_fromLabel, toLabel) =>
       `Mutations merge by HLC into the ${toLabel} workspace. Conflicts resolve automatically; you'll see a summary of what landed.`,
   },
   {
     choice: 'discard',
     title: 'Discard source data, use the target',
+    icon: <DeleteOutlined />,
     helpFrom: (fromLabel) =>
       `${fromLabel} data is exported to a local backup file first so it can be restored from Settings → Data.`,
+    danger: true,
   },
 ];
 
@@ -88,6 +103,8 @@ const ModeSwitchDialog: React.FC<ModeSwitchDialogProps> = ({
   open,
   fromLabel,
   toLabel,
+  fromIcon,
+  toIcon,
   source,
   target,
   nameCollisions,
@@ -97,21 +114,27 @@ const ModeSwitchDialog: React.FC<ModeSwitchDialogProps> = ({
   const { token } = theme.useToken();
   const collisions = nameCollisions ?? [];
   const [mergeCollisions, setMergeCollisions] = useState<boolean>(true);
+  // Default to the recommended action so the user has a sensible
+  // commit-on-Enter target. Cards are selectable; nothing applies
+  // until the explicit Apply button below.
+  const [selected, setSelected] = useState<ModeSwitchChoice>(
+    ACTION_OPTIONS.find((o) => o.recommended)?.choice ?? ACTION_OPTIONS[0].choice,
+  );
 
-  // Compose the per-choice options envelope. Only Import consumes the
-  // remap; Coexist + Discard ignore it. Computing here keeps the
-  // ActionCard click handler trivially a pass-through.
-  const handleChoose = (choice: ModeSwitchChoice): void => {
-    if (choice === 'import' && collisions.length > 0 && mergeCollisions) {
+  const handleApply = (): void => {
+    if (selected === 'import' && collisions.length > 0 && mergeCollisions) {
       const remap: Record<string, string> = {};
       for (const c of collisions) {
         remap[c.sourceWorkspaceId] = c.targetWorkspaceId;
       }
-      onChoose(choice, { workspaceIdRemap: remap });
+      onChoose(selected, { workspaceIdRemap: remap });
       return;
     }
-    onChoose(choice);
+    onChoose(selected);
   };
+
+  const selectedOption = ACTION_OPTIONS.find((o) => o.choice === selected) ?? ACTION_OPTIONS[0];
+  const applyDanger = selectedOption.danger === true;
 
   return (
     <Modal
@@ -122,14 +145,19 @@ const ModeSwitchDialog: React.FC<ModeSwitchDialogProps> = ({
         </span>
       }
       onCancel={onCancel}
-      footer={null}
-      width={620}
+      onOk={handleApply}
+      okText={applyDanger ? 'Apply (with backup)' : 'Apply'}
+      okButtonProps={{ danger: applyDanger }}
+      cancelText="Cancel"
+      width={680}
       destroyOnClose
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <PresenceColumns
+        <PresenceFlow
           fromLabel={fromLabel}
           toLabel={toLabel}
+          fromIcon={fromIcon}
+          toIcon={toIcon}
           source={source}
           target={target}
           token={token}
@@ -143,35 +171,21 @@ const ModeSwitchDialog: React.FC<ModeSwitchDialogProps> = ({
             onToggleMerge={setMergeCollisions}
           />
         )}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div
+          role="radiogroup"
+          aria-label="Mode-switch action"
+          style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+        >
           {ACTION_OPTIONS.map((opt) => (
             <ActionCard
               key={opt.choice}
-              choice={opt.choice}
-              title={opt.title}
+              option={opt}
               description={opt.helpFrom(fromLabel, toLabel)}
-              recommended={opt.recommended === true}
-              onChoose={handleChoose}
+              selected={selected === opt.choice}
+              onSelect={() => setSelected(opt.choice)}
               token={token}
             />
           ))}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
-            <button
-              type="button"
-              onClick={onCancel}
-              style={{
-                fontSize: 12,
-                padding: '4px 12px',
-                background: 'transparent',
-                color: token.colorTextSecondary,
-                border: `1px solid ${token.colorBorderSecondary}`,
-                borderRadius: 6,
-                cursor: 'pointer',
-              }}
-            >
-              Cancel
-            </button>
-          </div>
         </div>
       </div>
     </Modal>
@@ -228,45 +242,126 @@ const NameCollisionBanner: React.FC<{
   );
 };
 
-const PresenceColumns: React.FC<{
+const PresenceFlow: React.FC<{
   fromLabel: string;
   toLabel: string;
+  fromIcon?: BackendIconKey;
+  toIcon?: BackendIconKey;
   source: DataPresenceSummary;
   target: DataPresenceSummary;
   token: ReturnType<typeof theme.useToken>['token'];
-}> = ({ fromLabel, toLabel, source, target, token }) => (
-  <div style={{ display: 'flex', gap: 12 }}>
-    <PresenceColumn label={fromLabel} summary={source} token={token} />
-    <PresenceColumn label={toLabel} summary={target} token={token} />
+}> = ({ fromLabel, toLabel, fromIcon, toIcon, source, target, token }) => (
+  <div style={{ display: 'flex', alignItems: 'stretch', gap: 8 }}>
+    <PresenceCard role="source" label={fromLabel} icon={fromIcon} summary={source} token={token} />
+    <div
+      style={{
+        flex: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 32,
+        color: token.colorTextTertiary,
+      }}
+      aria-hidden="true"
+    >
+      <ArrowRightOutlined style={{ fontSize: 18 }} />
+    </div>
+    <PresenceCard role="target" label={toLabel} icon={toIcon} summary={target} token={token} />
   </div>
 );
 
-const PresenceColumn: React.FC<{
+const PresenceCard: React.FC<{
+  role: 'source' | 'target';
   label: string;
+  icon?: BackendIconKey;
   summary: DataPresenceSummary;
   token: ReturnType<typeof theme.useToken>['token'];
-}> = ({ label, summary, token }) => (
-  <div
-    style={{
-      flex: 1,
-      padding: 10,
-      background: token.colorFillTertiary,
-      border: `1px solid ${token.colorBorderSecondary}`,
-      borderRadius: 8,
-    }}
-  >
-    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: token.colorTextSecondary }}>
-      {label}
+}> = ({ role, label, icon, summary, token }) => {
+  const isSource = role === 'source';
+  const accent = isSource ? token.colorWarning : token.colorSuccess;
+  const accentBg = isSource ? token.colorWarningBg : token.colorSuccessBg;
+  return (
+    <div
+      style={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+        padding: 12,
+        background: token.colorBgContainer,
+        border: `1px solid ${token.colorBorderSecondary}`,
+        borderRadius: 10,
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      <span
+        style={{
+          alignSelf: 'flex-start',
+          padding: '1px 8px',
+          fontSize: 9,
+          fontWeight: 700,
+          letterSpacing: 0.5,
+          textTransform: 'uppercase',
+          borderRadius: 999,
+          background: accentBg,
+          color: accent,
+          lineHeight: '14px',
+        }}
+      >
+        {isSource ? 'Source · from' : 'Target · to'}
+      </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div
+          style={{
+            flex: 'none',
+            width: 36,
+            height: 36,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {icon ? (
+            <BackendIcon kind={icon} size={32} />
+          ) : (
+            <span
+              style={{
+                width: 32,
+                height: 32,
+                display: 'block',
+                borderRadius: 8,
+                background: token.colorFillSecondary,
+              }}
+              aria-hidden="true"
+            />
+          )}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: token.colorText,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {label}
+          </div>
+        </div>
+      </div>
+      <div style={{ fontSize: 12, color: token.colorText }}>
+        {summary.workspaceCount === 0 ? (
+          <span style={{ color: token.colorTextTertiary }}>No workspaces</span>
+        ) : (
+          <PresenceBreakdown summary={summary} />
+        )}
+      </div>
     </div>
-    <div style={{ marginTop: 6, fontSize: 12, color: token.colorText }}>
-      {summary.workspaceCount === 0 ? (
-        <span style={{ color: token.colorTextTertiary }}>No workspaces</span>
-      ) : (
-        <PresenceBreakdown summary={summary} />
-      )}
-    </div>
-  </div>
-);
+  );
+};
 
 const PresenceBreakdown: React.FC<{ summary: DataPresenceSummary }> = ({ summary }) => {
   const totals: Record<string, number> = {};
@@ -293,51 +388,107 @@ function pluralize(entityType: string, count: number): string {
 }
 
 const ActionCard: React.FC<{
-  choice: ModeSwitchChoice;
-  title: string;
+  option: ActionOption;
   description: string;
-  recommended: boolean;
-  onChoose: (choice: ModeSwitchChoice) => void;
+  selected: boolean;
+  onSelect: () => void;
   token: ReturnType<typeof theme.useToken>['token'];
-}> = ({ choice, title, description, recommended, onChoose, token }) => (
-  <button
-    type="button"
-    onClick={() => onChoose(choice)}
-    style={{
-      display: 'block',
-      width: '100%',
-      textAlign: 'left',
-      padding: '10px 12px',
-      background: recommended ? token.colorPrimaryBg : token.colorBgContainer,
-      border: `1px solid ${recommended ? token.colorPrimary : token.colorBorderSecondary}`,
-      borderRadius: 8,
-      cursor: 'pointer',
-      fontFamily: 'inherit',
-      color: token.colorText,
-    }}
-  >
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <Typography.Text style={{ fontSize: 13, fontWeight: 600 }}>{title}</Typography.Text>
-      {recommended && (
-        <span
-          style={{
-            padding: '0 6px',
-            fontSize: 9,
-            fontWeight: 700,
-            letterSpacing: 0.4,
-            textTransform: 'uppercase',
-            borderRadius: 999,
-            background: token.colorPrimary,
-            color: token.colorTextLightSolid,
-            lineHeight: '14px',
-          }}
-        >
-          Recommended
+}> = ({ option, description, selected, onSelect, token }) => {
+  const borderColor = selected
+    ? option.danger
+      ? token.colorError
+      : token.colorPrimary
+    : token.colorBorderSecondary;
+  const background = selected
+    ? option.danger
+      ? token.colorErrorBg
+      : token.colorPrimaryBg
+    : token.colorBgContainer;
+  const iconColor = option.danger ? token.colorError : token.colorPrimary;
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      onClick={onSelect}
+      style={{
+        display: 'flex',
+        gap: 12,
+        alignItems: 'flex-start',
+        width: '100%',
+        textAlign: 'left',
+        padding: '12px 14px',
+        background,
+        border: `1px solid ${borderColor}`,
+        borderRadius: 10,
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        color: token.colorText,
+        transition: 'border-color 120ms, background 120ms',
+      }}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          flex: 'none',
+          width: 32,
+          height: 32,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: 8,
+          background: selected ? 'transparent' : token.colorFillTertiary,
+          color: selected ? iconColor : token.colorTextSecondary,
+          fontSize: 16,
+          transition: 'color 120ms, background 120ms',
+        }}
+      >
+        {option.icon}
+      </span>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Typography.Text style={{ fontSize: 13, fontWeight: 600 }}>{option.title}</Typography.Text>
+          {option.recommended && (
+            <span
+              style={{
+                padding: '0 6px',
+                fontSize: 9,
+                fontWeight: 700,
+                letterSpacing: 0.4,
+                textTransform: 'uppercase',
+                borderRadius: 999,
+                background: token.colorPrimary,
+                color: token.colorTextLightSolid,
+                lineHeight: '14px',
+              }}
+            >
+              Recommended
+            </span>
+          )}
+          {option.danger && (
+            <span
+              style={{
+                padding: '0 6px',
+                fontSize: 9,
+                fontWeight: 700,
+                letterSpacing: 0.4,
+                textTransform: 'uppercase',
+                borderRadius: 999,
+                background: token.colorErrorBg,
+                color: token.colorError,
+                lineHeight: '14px',
+              }}
+            >
+              Destructive
+            </span>
+          )}
         </span>
-      )}
-    </div>
-    <div style={{ marginTop: 4, fontSize: 12, color: token.colorTextSecondary }}>{description}</div>
-  </button>
-);
+        <span style={{ display: 'block', marginTop: 4, fontSize: 12, color: token.colorTextSecondary }}>
+          {description}
+        </span>
+      </span>
+    </button>
+  );
+};
 
 export default ModeSwitchDialog;

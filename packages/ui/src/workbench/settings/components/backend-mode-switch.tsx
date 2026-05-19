@@ -41,6 +41,7 @@ import {
 } from '../../../shared/mode-switch';
 import { probeBackendDataPresence } from '../../../shared/backend/probe-connection';
 import { getCurrentHost, type Host } from '../../../shared/host-vocabulary';
+import type { BackendIconKey } from './backend-icons';
 import ModeSwitchDialog, {
   type ModeSwitchChoice,
   type ModeSwitchChooseOptions,
@@ -55,18 +56,27 @@ import type { SettingDef } from '../types';
 interface ModeDescriptor {
   mode: BackendMode;
   title: string;
+  /** Picker glyph key (browser / desktop / daemon / vm) — drives the
+   *  visual identity in the ModeSwitchDialog so users see each side's
+   *  icon, not just the label. Matches the SCENARIOS table in
+   *  BackendPane (kept in sync; both consume the same icon set). */
+  icon: BackendIconKey;
   validHosts: readonly Host[];
 }
 
 const MODE_DESCRIPTORS: readonly ModeDescriptor[] = [
-  { mode: 'in-browser', title: 'Browser Extension', validHosts: ['extension'] },
-  { mode: 'desktop-app', title: 'Desktop Application', validHosts: ['extension', 'desktop', 'web'] },
-  { mode: 'local-self-hosted', title: 'Local / LAN', validHosts: ['extension', 'desktop', 'web'] },
-  { mode: 'remote-self-hosted', title: 'Remote / WAN', validHosts: ['extension', 'desktop', 'web'] },
+  { mode: 'in-browser', title: 'Browser Extension', icon: 'browser', validHosts: ['extension'] },
+  { mode: 'desktop-app', title: 'Desktop Application', icon: 'desktop', validHosts: ['extension', 'desktop', 'web'] },
+  { mode: 'local-self-hosted', title: 'Local / LAN', icon: 'daemon', validHosts: ['extension', 'desktop', 'web'] },
+  { mode: 'remote-self-hosted', title: 'Remote / WAN', icon: 'vm', validHosts: ['extension', 'desktop', 'web'] },
 ];
 
 export function labelForMode(mode: BackendMode): string {
   return MODE_DESCRIPTORS.find((d) => d.mode === mode)?.title ?? mode;
+}
+
+export function iconForMode(mode: BackendMode): BackendIconKey | undefined {
+  return MODE_DESCRIPTORS.find((d) => d.mode === mode)?.icon;
 }
 
 /**
@@ -248,6 +258,8 @@ export function useBackendModeSwitch(): BackendModeSwitchHandle {
       open
       fromLabel={labelForMode(dialogState.from)}
       toLabel={labelForMode(dialogState.to)}
+      fromIcon={iconForMode(dialogState.from)}
+      toIcon={iconForMode(dialogState.to)}
       source={dialogState.verdict.source}
       target={dialogState.verdict.target}
       nameCollisions={dialogState.verdict.nameCollisions}

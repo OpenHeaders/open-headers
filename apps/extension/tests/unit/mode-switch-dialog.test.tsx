@@ -8,7 +8,7 @@
  *   - Coexist is flagged as the recommended option
  */
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { DataPresenceSummary, WorkspaceContentSnapshot } from '@openheaders/core/sync';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import ModeSwitchDialog, {
@@ -38,6 +38,36 @@ beforeAll(() => {
 });
 
 afterEach(() => cleanup());
+
+/**
+ * Find the dialog's Apply button. The Modal renders both Cancel and OK
+ * (renamed to "Apply" / "Apply (with backup)" depending on whether
+ * Discard is selected). Anchor to the "Apply" prefix so the Cancel
+ * button is never matched by accident.
+ */
+function clickApply(): void {
+  const buttons = screen.getAllByRole('button');
+  const apply = buttons.find((b) => /^Apply\b/.test(b.textContent?.trim() ?? ''));
+  if (!apply) throw new Error('Apply button not found');
+  apply.click();
+}
+
+/**
+ * Select an action card by its title. The card root is the button with
+ * `role="radio"` — clicking its text descendant works through bubbling
+ * in JSDOM but the button is the canonical click target for React event
+ * delegation, so we walk up to it.
+ */
+function selectAction(title: string): void {
+  const textEl = screen.getByText(title);
+  const button = textEl.closest('button');
+  if (!button) throw new Error(`No button ancestor for action "${title}"`);
+  // `fireEvent.click` dispatches React's synthetic event directly; the
+  // native `Element.click()` doesn't always propagate through React's
+  // delegated handlers in JSDOM when the click target is a nested
+  // span — switching to fireEvent keeps the assertion deterministic.
+  fireEvent.click(button);
+}
 
 const WS_A = '0193a8ff-c000-7000-8000-00000000000a';
 
@@ -102,25 +132,37 @@ describe('ModeSwitchDialog', () => {
     expect(screen.getByText('Recommended')).toBeTruthy();
   });
 
-  it('dispatches the Coexist choice', () => {
+  it('dispatches the Coexist choice on Apply (default selection)', () => {
     const onChoose = vi.fn();
     renderDialog({ onChoose });
-    screen.getByText('Keep both as separate workspaces').click();
+    // Cards are now SELECTABLE — Coexist is selected by default
+    // (recommended). Apply is the explicit commit gesture.
+    clickApply();
     expect(onChoose).toHaveBeenCalledWith('coexist');
   });
 
-  it('dispatches the Import choice', () => {
+  it('dispatches the Import choice when the user selects Import then Applies', () => {
     const onChoose = vi.fn();
     renderDialog({ onChoose });
-    screen.getByText('Import source data into the target workspace').click();
+    selectAction('Import source data into the target workspace');
+    clickApply();
     expect(onChoose).toHaveBeenCalledWith('import');
   });
 
-  it('dispatches the Discard choice', () => {
+  it('dispatches the Discard choice when the user selects Discard then Applies', () => {
     const onChoose = vi.fn();
     renderDialog({ onChoose });
-    screen.getByText('Discard source data, use the target').click();
+    selectAction('Discard source data, use the target');
+    clickApply();
     expect(onChoose).toHaveBeenCalledWith('discard');
+  });
+
+  it('clicking a card does NOT commit — Apply is the explicit gesture', () => {
+    const onChoose = vi.fn();
+    renderDialog({ onChoose });
+    selectAction('Import source data into the target workspace');
+    selectAction('Discard source data, use the target');
+    expect(onChoose).not.toHaveBeenCalled();
   });
 
   it('routes the Cancel button through onCancel', () => {
@@ -185,13 +227,14 @@ describe('ModeSwitchDialog', () => {
         },
       ],
     });
-    screen.getByText('Import source data into the target workspace').click();
+    selectAction('Import source data into the target workspace');
+    clickApply();
     expect(onChoose).toHaveBeenCalledWith('import', {
       workspaceIdRemap: { 'src-a': 'tgt-a', 'src-b': 'tgt-b' },
     });
   });
 
-  it('omits the workspaceIdRemap when the user clears the merge checkbox before choosing Import', () => {
+  it('omits the workspaceIdRemap when the user clears the merge checkbox before applying Import', () => {
     const onChoose = vi.fn();
     renderDialog({
       onChoose,
@@ -210,7 +253,8 @@ describe('ModeSwitchDialog', () => {
     expect(checkbox.checked).toBe(true);
     checkbox.click();
     expect(checkbox.checked).toBe(false);
-    screen.getByText('Import source data into the target workspace').click();
+    selectAction('Import source data into the target workspace');
+    clickApply();
     expect(onChoose).toHaveBeenCalledWith('import');
   });
 
@@ -228,9 +272,11 @@ describe('ModeSwitchDialog', () => {
         },
       ],
     });
-    screen.getByText('Keep both as separate workspaces').click();
+    selectAction('Keep both as separate workspaces');
+    clickApply();
     expect(onChoose).toHaveBeenLastCalledWith('coexist');
-    screen.getByText('Discard source data, use the target').click();
+    selectAction('Discard source data, use the target');
+    clickApply();
     expect(onChoose).toHaveBeenLastCalledWith('discard');
   });
 

@@ -265,12 +265,21 @@ const ApplyBar: React.FC<{
       setTesting(true);
       const key = 'backend-probe';
       message.loading({ key, content: `Probing ${url}…`, duration: 0 });
-      const result = await probeBackendConnection(url, {
-        agent: `${role}-probe`,
-        nodeId: `probe-${generateUid()}`,
-        workspaceId: `probe-${generateUid()}`,
-        role,
-      });
+      // Race the probe against a minimum dwell so a successful localhost
+      // round-trip (often <10ms) doesn't flash through the loading state
+      // too fast to read. Users perceive instant-toast as "did anything
+      // happen?"; the 500ms floor turns it into a deliberate "I tried,
+      // here's the result" beat.
+      const MIN_LOADING_MS = 500;
+      const [result] = await Promise.all([
+        probeBackendConnection(url, {
+          agent: `${role}-probe`,
+          nodeId: `probe-${generateUid()}`,
+          workspaceId: `probe-${generateUid()}`,
+          role,
+        }),
+        new Promise<void>((resolve) => setTimeout(resolve, MIN_LOADING_MS)),
+      ]);
       setTesting(false);
       if (result.ok) {
         message.success({
