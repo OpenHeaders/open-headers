@@ -243,12 +243,15 @@ const ApplyBar: React.FC<{
   const isActive = previewMode === activeMode;
   const validForHost = isModeValidForHost(previewMode, host);
   const localHostIsBackend = hostIsTheBackend(previewMode, host);
+  const pending = backendModeIsPending(previewMode);
   // Test connection only when the host would be a CLIENT of this
   // back-end. Suppressed for in-browser on the extension (the SW IS
   // the back-end) and for desktop-app on the desktop host (the main
   // process IS the back-end). Suppressed entirely for host-invalid
-  // previews (e.g. desktop previewing in-browser).
-  const showTest = validForHost && !localHostIsBackend && backendModeNeedsConnection(previewMode);
+  // previews (e.g. desktop previewing in-browser) and for pending
+  // modes that don't have a shipped daemon to probe yet.
+  const showTest =
+    validForHost && !localHostIsBackend && !pending && backendModeNeedsConnection(previewMode);
   // `previewMode` matches the previewed Connection-target, so the
   // probe sends a HELLO that role-claims this host. The peer's
   // workspaceId field is unused for the probe's reachability check —
@@ -290,6 +293,12 @@ const ApplyBar: React.FC<{
     statusCopy = (
       <>
         <strong style={{ color: token.colorText }}>{previewLabel}</strong> isn't available on this host.
+      </>
+    );
+  } else if (pending) {
+    statusCopy = (
+      <>
+        <strong style={{ color: token.colorText }}>{previewLabel}</strong> is coming soon.
       </>
     );
   } else {
@@ -339,7 +348,7 @@ const ApplyBar: React.FC<{
         type="primary"
         icon={<SwapOutlined />}
         onClick={onApply}
-        disabled={isActive || disabled || !validForHost}
+        disabled={isActive || disabled || !validForHost || pending}
       >
         Switch to {previewLabel}
       </Button>
@@ -464,24 +473,24 @@ const ModePicker: React.FC<ModePickerProps> = ({
       marginBottom: 14,
     }}
   >
-    {scenarios.map((s) => {
-      const validForHost = s.validHosts.includes(host);
-      return (
-        <PickerButton
-          key={s.mode}
-          descriptor={s}
-          /** "Previewing this tile" — primary border + tint. */
-          preview={previewMode === s.mode}
-          /** This is the active back-end (independent of preview). */
-          active={activeMode === s.mode}
-          /** Active AND its connection is live. */
-          live={liveMode === s.mode}
-          /** Tile is selectable on this host. */
-          validForHost={validForHost}
-          onSelect={validForHost ? () => onPreview(s.mode) : undefined}
-        />
-      );
-    })}
+    {scenarios.map((s) => (
+      <PickerButton
+        key={s.mode}
+        descriptor={s}
+        /** "Previewing this tile" — primary border + tint. */
+        preview={previewMode === s.mode}
+        /** This is the active back-end (independent of preview). */
+        active={activeMode === s.mode}
+        /** Active AND its connection is live. */
+        live={liveMode === s.mode}
+        /** Selectable on this host — controls visual dim, NOT click.
+         *  The tile is always previewable so users can read about
+         *  modes their host can't run; downstream UI (Apply, Test,
+         *  config inputs) handles the actual gating. */
+        validForHost={s.validHosts.includes(host)}
+        onSelect={() => onPreview(s.mode)}
+      />
+    ))}
   </div>
 );
 
@@ -493,10 +502,11 @@ const PickerButton: React.FC<{
   active: boolean;
   /** Back-end for this mode is actually connected. */
   live: boolean;
-  /** Whether this tile is selectable on the current host. */
+  /** Whether this tile can be SWITCHED INTO on this host. Click still
+   *  previews (so users can read about modes their host can't run);
+   *  visual dim + tooltip communicate that switching is gated downstream. */
   validForHost: boolean;
-  /** Undefined when not selectable — click handler is suppressed. */
-  onSelect?: () => void;
+  onSelect: () => void;
 }> = ({ descriptor, preview, active, live, validForHost, onSelect }) => {
   const { token } = theme.useToken();
   const pending = backendModeIsPending(descriptor.mode);
@@ -505,12 +515,10 @@ const PickerButton: React.FC<{
       type="button"
       role="radio"
       aria-checked={preview}
-      aria-disabled={!validForHost}
-      disabled={!validForHost}
       title={
         validForHost
           ? undefined
-          : 'Not available on this host — this back-end mode is for a different surface.'
+          : "Can't switch to this back-end from this host. Click to preview the docs anyway."
       }
       onClick={onSelect}
       style={{
@@ -522,8 +530,8 @@ const PickerButton: React.FC<{
         borderRadius: 8,
         background: preview ? token.colorPrimaryBg : token.colorBgContainer,
         border: `1px solid ${preview ? token.colorPrimary : token.colorBorderSecondary}`,
-        cursor: validForHost ? 'pointer' : 'not-allowed',
-        opacity: validForHost ? 1 : 0.45,
+        cursor: 'pointer',
+        opacity: validForHost ? 1 : 0.55,
         transition: 'border-color 120ms, background 120ms, opacity 120ms',
         fontFamily: 'inherit',
         color: token.colorText,
