@@ -42,6 +42,15 @@ const SettingRow: React.FC<SettingRowProps> = ({ def }) => {
     return null;
   }
 
+  // A def-level customEditor takes priority over type-based dispatch.
+  // Used by settings whose write needs guardrails the generic field
+  // can't enforce (e.g. backend.mode runs a peer-inspection +
+  // Coexist/Import/Discard dialog before committing).
+  if (def.customEditor) {
+    const Editor = def.customEditor;
+    return <Editor def={def} />;
+  }
+
   // Font-family preset enums get their own field component so each
   // option can carry a live "installed" / "falls back" badge based on
   // `document.fonts.check()`. The component dispatches on the setting

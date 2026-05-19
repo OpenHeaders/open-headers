@@ -147,6 +147,17 @@ export interface SettingDef<K extends SettingKey = SettingKey> {
   action?: ActionSpec;
   /** info only — read-only display resolver. */
   infoValue?: () => ReactNode;
+
+  /**
+   * Opt-in override for the row editor. When present, SettingRow renders
+   * this component instead of dispatching on `type`. Use sparingly: only
+   * for settings whose write has cross-cutting side effects (peer
+   * inspection, data migration, backups) that the generic field renderer
+   * can't safely model — e.g. `backend.mode`, where a silent value swap
+   * could strand or wipe data. The custom editor is responsible for the
+   * full FieldRow chrome and any confirmation flow.
+   */
+  customEditor?: ComponentType<{ def: SettingDef }>;
 }
 
 // ── Category definition ──────────────────────────────────────────────

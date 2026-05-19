@@ -20,9 +20,14 @@
  * "Local-first by design" and "What we're building next".
  */
 
+import { lazy } from 'react';
 import * as v from 'valibot';
 import { getCurrentHost } from '../../../shared/host-vocabulary';
 import { registerSetting } from '../registry';
+
+// Lazy import breaks the schema → component → schema cycle (the editor
+// re-imports BackendMode/backendModeIsPending from this file).
+const BackendModeFieldEditor = lazy(() => import('../components/backend-mode-switch'));
 
 export const BACKEND_MODES = ['in-browser', 'desktop-app', 'local-self-hosted', 'remote-self-hosted'] as const;
 export type BackendMode = (typeof BACKEND_MODES)[number];
@@ -85,6 +90,11 @@ registerSetting({
       description: 'A back-end you host on your own VM. Reach anywhere. Coming soon.',
     },
   ],
+  // Writing to backend.mode can be destructive (data move, wipe + backup).
+  // The custom editor routes every write through the request-verdict +
+  // Coexist/Import/Discard dialog so the generic enum field can't bypass
+  // the orchestrator from a settings-search hit.
+  customEditor: BackendModeFieldEditor,
 });
 
 registerSetting({
