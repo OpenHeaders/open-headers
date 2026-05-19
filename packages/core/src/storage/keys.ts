@@ -22,6 +22,7 @@
 
 import type {
   Collection,
+  DaemonConfig,
   Environment,
   ExtensionWorkspace,
   LiveVariable,
@@ -158,6 +159,15 @@ export const OH = {
    * so subsystem-level events during workspace switches aren't lost.
    */
   observabilityLog: storageKey<LogEntry[]>('oh.observability.log'),
+  /**
+   * Per-host daemon configuration record. Carries `hostInstallId` — the
+   * seed for deterministic synthetic identity UUIDs
+   * (UNIFIED_ORACLE_MODEL.md §5.1). Minted once at first boot, persisted
+   * here, never regenerated except on reinstall (§11 OQ1).
+   *
+   * `ensureDaemonConfig` (in `../identity`) is the host-neutral writer.
+   */
+  daemonConfig: storageKey<DaemonConfig>('oh.daemonConfig'),
 } as const;
 
 /**

@@ -1,0 +1,83 @@
+/**
+ * Identity-ACL valibot validators — membership, principal, workspace-role,
+ * and daemon-admin rows. Sit alongside the entity-level shapes in
+ * `./identity.ts` (User, Org, UserIdentity, Session).
+ *
+ * Per UNIFIED_ORACLE_MODEL.md §5.2, every host materializes one
+ * `OrgMembership(synthetic-user, synthetic-org, role='owner')`, one
+ * `Principal(synthetic-user-in-synthetic-org)`, one `WRA` per workspace
+ * (owner role on the synthetic principal), and a `DaemonAdmin` row whose
+ * scope is "LocalAdmin" when the user owns the install (per §9.4 —
+ * `LocalAdmin` is a logical role distinction, not a separate table).
+ */
+
+import * as v from 'valibot';
+import { UuidV7Schema } from './common';
+
+/**
+ * Primary org-membership role. Functional roles (a future axis) ride on
+ * top via the `functionalRoles` array; left empty on synthetic bootstrap.
+ */
+export const OrgPrimaryRoleSchema = v.picklist(['owner', 'admin', 'member']);
+
+/**
+ * Workspace-scoped role granted to a Principal. Mirrors the identity-doc
+ * three-tier model; finer functional axes layer on top later.
+ */
+export const WorkspaceRoleSchema = v.picklist(['owner', 'editor', 'viewer']);
+
+/**
+ * `OrgMembership` — anchors a User in an Org with a primary role.
+ * `functionalRoles` is the open-ended axis (e.g., `'billing-admin'`,
+ * `'security-reviewer'`); empty on synthetic bootstrap.
+ */
+export const OrgMembershipSchema = v.object({
+  id: UuidV7Schema,
+  userId: UuidV7Schema,
+  orgId: UuidV7Schema,
+  primaryRole: OrgPrimaryRoleSchema,
+  functionalRoles: v.array(v.string()),
+});
+
+/**
+ * `Principal` — (User, Org) binding used as the subject of every
+ * `WorkspaceRoleAssignment`. Decoupling principals from raw user ids lets
+ * the same User have distinct WRAs in distinct Orgs without ambiguity
+ * (identity doc §3 / UNIFIED_ORACLE_MODEL.md §5.2).
+ */
+export const PrincipalSchema = v.object({
+  id: UuidV7Schema,
+  userId: UuidV7Schema,
+  orgId: UuidV7Schema,
+});
+
+/**
+ * `WorkspaceRoleAssignment` — per-workspace grant. `workspaceUid` keys to
+ * the workspace manifest's 8-char uid (Phase 0 invariant #1); the WRA is
+ * minted on every workspace creation (U1.8) with `role='owner'` for the
+ * synthetic principal.
+ */
+export const WorkspaceRoleAssignmentSchema = v.object({
+  id: UuidV7Schema,
+  principalId: UuidV7Schema,
+  workspaceUid: v.pipe(v.string(), v.regex(/^[a-z0-9]{8}$/)),
+  role: WorkspaceRoleSchema,
+});
+
+/**
+ * `DaemonAdmin` — operator-of-the-install role. Per UNIFIED_ORACLE_MODEL.md
+ * §9.4 the same row schema covers two logical scopes:
+ *
+ *   - `LocalAdmin`  — auto-assigned to the synthetic user on every host;
+ *                     `isLocal: true`.
+ *   - `DaemonAdmin` — operator of a real multi-user daemon;
+ *                     `isLocal: false`.
+ *
+ * The flag carries the distinction in-band; resolvers can branch on it
+ * without consulting a separate table.
+ */
+export const DaemonAdminSchema = v.object({
+  id: UuidV7Schema,
+  userId: UuidV7Schema,
+  isLocal: v.boolean(),
+});

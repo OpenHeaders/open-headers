@@ -251,6 +251,16 @@ export type {
   UserIdentityKind,
 } from './identity';
 
+// ── Identity ACL (membership, principal, workspace-role, daemon-admin) ─
+export type {
+  DaemonAdmin,
+  OrgMembership,
+  OrgPrimaryRole,
+  Principal,
+  WorkspaceRole,
+  WorkspaceRoleAssignment,
+} from './identity-acl';
+
 // ── Daemon config (per-host configuration; carries host-install-id) ────
 export type { DaemonConfig } from './daemon-config';
 

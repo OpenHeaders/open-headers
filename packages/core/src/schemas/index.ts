@@ -10,6 +10,14 @@ export {
   UserIdentitySchema,
   UserSchema,
 } from './identity';
+export {
+  DaemonAdminSchema,
+  OrgMembershipSchema,
+  OrgPrimaryRoleSchema,
+  PrincipalSchema,
+  WorkspaceRoleAssignmentSchema,
+  WorkspaceRoleSchema,
+} from './identity-acl';
 export type { ParsedDocument, WriteableDocument } from './document';
 export { freshDocument, makeParsed, mergePatch } from './document';
 export {

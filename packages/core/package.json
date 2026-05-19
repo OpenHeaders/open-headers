@@ -23,6 +23,10 @@
       "import": "./src/schemas/index.ts",
       "default": "./dist/schemas/index.js"
     },
+    "./identity": {
+      "import": "./src/identity/index.ts",
+      "default": "./dist/identity/index.js"
+    },
     "./utils": {
       "import": "./src/utils/index.ts",
       "default": "./dist/utils/index.js"
