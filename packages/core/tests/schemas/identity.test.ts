@@ -89,21 +89,9 @@ describe('OrgSchema — isSynthetic landed (U1.1)', () => {
       v.parse(OrgSchema, {
         id: ORG_UUID,
         name: 'Local',
-        deploymentMode: 'single_org',
         isSynthetic: true,
       }),
     ).toMatchObject({ isSynthetic: true });
-  });
-
-  it('rejects an unknown deployment mode', () => {
-    expect(
-      v.safeParse(OrgSchema, {
-        id: ORG_UUID,
-        name: 'Local',
-        deploymentMode: 'unknown_mode',
-        isSynthetic: true,
-      }).success,
-    ).toBe(false);
   });
 
   it('rejects a missing isSynthetic field', () => {
@@ -111,7 +99,6 @@ describe('OrgSchema — isSynthetic landed (U1.1)', () => {
       v.safeParse(OrgSchema, {
         id: ORG_UUID,
         name: 'Local',
-        deploymentMode: 'single_org',
       }).success,
     ).toBe(false);
   });

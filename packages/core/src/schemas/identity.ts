@@ -46,12 +46,6 @@ export const UserIdentityKindSchema = v.picklist(['email', 'sso_subject', 'api_t
  */
 export const SessionSourceSchema = v.picklist(['password', 'sso', 'api_token', 'local']);
 
-/**
- * Org deployment mode. `single_org` covers every host below the multi-org
- * Mode-3 case; `multi_org` is only set on multi-tenant daemons.
- */
-export const OrgDeploymentModeSchema = v.picklist(['single_org', 'multi_org']);
-
 // ── Entities ───────────────────────────────────────────────────────
 
 /**
@@ -73,11 +67,14 @@ export const UserSchema = v.object({
  * deterministically from `host-install-id` and is the `org_id` stamped on
  * every Mode-1 mutation envelope. Becomes the `org_id` filter at the
  * transport boundary (UNIFIED_ORACLE_MODEL.md §6.1 / §8.2).
+ *
+ * Every Org is multi-org-capable — there is no static single-vs-multi
+ * mode flag. Whether an Org reads as "personal" or "team" is derived at
+ * view time from identity state (home-org vs. not), not stamped here.
  */
 export const OrgSchema = v.object({
   id: UuidV7Schema,
   name: v.string(),
-  deploymentMode: OrgDeploymentModeSchema,
   isSynthetic: v.boolean(),
 });
 

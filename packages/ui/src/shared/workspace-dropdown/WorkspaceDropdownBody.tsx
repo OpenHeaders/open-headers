@@ -15,12 +15,14 @@
  */
 
 import { CheckCircleFilled, CheckCircleOutlined, ExportOutlined, ImportOutlined, SettingOutlined } from '@ant-design/icons';
+import type { OrgDescriptor } from '@openheaders/core/identity';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import type { InputRef } from 'antd';
 import { Divider, Input, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useRef, useState } from 'react';
 import { renderWorkspacePrefix } from '../../workbench/components/workspace-prefix';
+import { WorkspaceSyncScopePicker } from '../workspace-org/WorkspaceSyncScopePicker';
 import './WorkspaceDropdownBody.css';
 
 const { Text } = Typography;
@@ -52,6 +54,19 @@ export interface WorkspaceDropdownBodyProps {
    * input.
    */
   searchRowExtra?: React.ReactNode;
+  /**
+   * Org-binding surface (U3.5 + U3.7). When supplied, each row carries a
+   * "where does this live?" badge that doubles as the sync-scope picker.
+   * Omit to render the dropdown without org affordances.
+   */
+  orgBinding?: {
+    /** Every Org a workspace can be bound to. */
+    catalogue: OrgDescriptor[];
+    /** Resolve a workspace's `orgId` to its descriptor; `null` pre-bootstrap. */
+    describe: (orgId: string) => OrgDescriptor | null;
+    /** Flip a workspace's Org binding (§6.5 metadata mutation). */
+    onPickOrg: (workspaceId: string, orgId: string) => void;
+  };
 }
 
 const baseRowStyle: React.CSSProperties = {
@@ -76,6 +91,7 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
   onOpenManager,
   onClose,
   searchRowExtra,
+  orgBinding,
 }) => {
   const { token } = theme.useToken();
   const [searchText, setSearchText] = useState('');
@@ -167,6 +183,16 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
             >
               {w.name}
             </Text>
+            {orgBinding && (
+              <WorkspaceSyncScopePicker
+                workspaceName={w.name}
+                currentOrgId={w.orgId}
+                currentDescriptor={orgBinding.describe(w.orgId)}
+                catalogue={orgBinding.catalogue}
+                onPick={(orgId) => orgBinding.onPickOrg(w.id, orgId)}
+                compact
+              />
+            )}
             {isActive && (
               <Text
                 style={{

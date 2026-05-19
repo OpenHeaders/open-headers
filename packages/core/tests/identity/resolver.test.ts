@@ -77,7 +77,10 @@ function makeSnapshot(overrides: {
   for (const wra of overrides.wras ?? []) {
     wraByWorkspaceId.set(wra.workspaceId, wra);
   }
-  return { user, principal, membership, localAdmin, wraByWorkspaceId };
+  const orgs = new Map([
+    [user.homeOrgId, { id: user.homeOrgId, name: 'Local', isSynthetic: true } as const],
+  ]);
+  return { user, principal, membership, localAdmin, wraByWorkspaceId, orgs };
 }
 
 function makeWra(workspaceId: string, role: WorkspaceRoleAssignment['role']): WorkspaceRoleAssignment {

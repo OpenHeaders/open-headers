@@ -57,7 +57,7 @@ export interface UseWorkspacesApi {
    */
   updateWorkspace: (
     id: string,
-    updates: { name?: string; description?: string; color?: string; icon?: string | null },
+    updates: { name?: string; description?: string; color?: string; icon?: string | null; orgId?: string },
   ) => Promise<WorkspaceUpdateResult>;
   deleteWorkspace: (id: string) => Promise<{ success: boolean; error?: string; activeWorkspaceId?: string }>;
   duplicateWorkspace: (id: string, name?: string) => Promise<ExtensionWorkspace | null>;

@@ -243,7 +243,6 @@ export type { Workspace, WorkspaceSection } from './workspace';
 // ── Identity (universal schema; synthetic in Mode 1 / Mode 2 localhost) ─
 export type {
   Org,
-  OrgDeploymentMode,
   Session,
   SessionSource,
   SyntheticIdentityRecord,

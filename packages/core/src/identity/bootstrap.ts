@@ -98,7 +98,6 @@ export async function bootstrapSyntheticIdentity(
   const org: Org = {
     id: orgId,
     name: orgName,
-    deploymentMode: 'single_org',
     isSynthetic: true,
   };
 

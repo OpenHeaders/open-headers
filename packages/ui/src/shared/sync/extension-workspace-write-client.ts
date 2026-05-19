@@ -18,37 +18,31 @@
  * and are the authoritative path used by `useWorkspaces.ts`.
  */
 
-import {
-  applySyncPayload,
-  type SyncMutationPayload,
-  type SyncSimpleResult,
-} from './apply-payload';
-import {
-  buildMoveExtensionWorkspaceBeforeBatch,
-  buildRemoveExtensionWorkspaceBatch,
-  buildSetActiveExtensionWorkspaceBatch,
-  buildSetExtensionWorkspaceBatch,
-} from '@openheaders/core/sync-builders/extension-workspace-mutations';
-import { getIdentitySnapshot } from '@openheaders/core/identity';
+import { defaultNewWorkspaceOrgId, getIdentitySnapshot } from '@openheaders/core/identity';
+import { getHostStorage, OH } from '@openheaders/core/storage';
 import {
   type ExtensionWorkspaceSlot,
   keyBetween,
   type MutationBatch,
   type MutatorContext,
   PRE_BOOTSTRAP_ORG_ID,
-  seedKey,
   type SideEffectIntent,
+  seedKey,
 } from '@openheaders/core/sync';
+import {
+  buildMoveExtensionWorkspaceBeforeBatch,
+  buildRemoveExtensionWorkspaceBatch,
+  buildSetActiveExtensionWorkspaceBatch,
+  buildSetExtensionWorkspaceBatch,
+} from '@openheaders/core/sync-builders/extension-workspace-mutations';
 import type { ExtensionWorkspace, ExtensionWorkspaceKind } from '@openheaders/core/types';
 import { generateWorkspaceId } from '@openheaders/core/utils';
 import {
   type ExtensionWorkspaceSyncMirror,
   getActiveExtensionWorkspaceSyncMirror,
 } from '../../context/extension-workspace-sync-mirror';
-import {
-  ensureGlobalRendererContext,
-  type RendererContextHandle,
-} from '../../context/renderer-mutator-context';
+import { ensureGlobalRendererContext, type RendererContextHandle } from '../../context/renderer-mutator-context';
+import { applySyncPayload, type SyncMutationPayload, type SyncSimpleResult } from './apply-payload';
 
 export type ExtensionWorkspaceSimpleResult = SyncSimpleResult;
 
@@ -112,11 +106,14 @@ export async function applyCreateWorkspace(
   opts: ExtensionWorkspaceWriteOptions,
 ): Promise<ApplyCreateWorkspaceResult> {
   const mirror = opts.mirror ?? getActiveExtensionWorkspaceSyncMirror();
-  // Per UNIFIED_ORACLE_MODEL.md §6.4 new workspaces default to the user's
-  // home-org. Falls back to the `PRE_BOOTSTRAP_ORG_ID` sentinel when the
-  // identity snapshot isn't installed yet (boot race / test harness) —
-  // same convention the audit emitter and envelope mint helpers use.
-  const orgId = getIdentitySnapshot()?.user.homeOrgId ?? PRE_BOOTSTRAP_ORG_ID;
+  // Org binding for the new workspace (UNIFIED_ORACLE_MODEL.md §6.2):
+  // the user's stored "default for new workspaces" preference when it
+  // still names an authorized Org, else the home-org. Falls back to the
+  // `PRE_BOOTSTRAP_ORG_ID` sentinel when the identity snapshot isn't
+  // installed yet (boot race / test harness) — same convention the audit
+  // emitter and envelope mint helpers use.
+  const storedDefaultOrgId = (await getHostStorage()?.get(OH.orgBindingPrefs))?.defaultNewWorkspaceOrgId ?? null;
+  const orgId = defaultNewWorkspaceOrgId(getIdentitySnapshot(), storedDefaultOrgId) ?? PRE_BOOTSTRAP_ORG_ID;
   const ctx = resolveContext(opts).next(opts.batchId ? { batchId: opts.batchId } : undefined);
   const now = new Date().toISOString();
   const id = generateWorkspaceId();
@@ -134,7 +131,8 @@ export async function applyCreateWorkspace(
   const orderKey = tailOrderKey(mirror);
   const payload = buildSetExtensionWorkspaceBatch({ slot, orderKey }, ctx);
   const result = await applySyncPayload(payload);
-  if (!result.ok) return { ok: false, reason: 'other', message: result.reason === 'other' ? result.message : undefined };
+  if (!result.ok)
+    return { ok: false, reason: 'other', message: result.reason === 'other' ? result.message : undefined };
   // Synthetic projection — sortIndex matches post-state's monotonic
   // assignment for the new tail position. The mirror will overwrite
   // this on the next broadcast tick.
@@ -163,12 +161,17 @@ export interface ApplyUpdateWorkspaceInput {
    * Patch shape mirrors `UpdateWorkspaceInput` from `workspace-store`.
    * Icon `null` clears the icon; `undefined` leaves it untouched; a
    * string value sets it.
+   *
+   * `orgId` flips the workspace's Org binding (U3.7 sync-scope picker,
+   * UNIFIED_ORACLE_MODEL.md §6.5). It rides the `extensionWorkspace`
+   * singleton — the metadata channel — exactly like the other fields.
    */
   updates: {
     name?: string;
     description?: string;
     color?: string;
     icon?: string | null;
+    orgId?: string;
   };
 }
 
@@ -194,16 +197,11 @@ export async function applyUpdateWorkspace(
     name: updates.name !== undefined ? updates.name.trim() || prev.name : prev.name,
     description: updates.description !== undefined ? updates.description : prev.description,
     color: updates.color !== undefined ? updates.color : prev.color,
-    icon:
-      updates.icon === null
-        ? undefined
-        : updates.icon !== undefined
-          ? updates.icon
-          : prev.icon,
+    icon: updates.icon === null ? undefined : updates.icon !== undefined ? updates.icon : prev.icon,
     createdAt: prev.createdAt,
     updatedAt: new Date().toISOString(),
     source: prev.source,
-    orgId: prev.orgId,
+    orgId: updates.orgId !== undefined ? updates.orgId : prev.orgId,
   };
   const payload = buildSetExtensionWorkspaceBatch({ slot: next, orderKey }, ctx);
   const result = await applySyncPayload(payload);
@@ -375,12 +373,8 @@ export async function applyReorderWorkspaces(
   let combined: MutationBatch | null = null;
   const sideEffects: SideEffectIntent[] = [];
   for (let i = 0; i < finalOrder.length; i++) {
-    const ctx: MutatorContext =
-      combined === null ? baseCtx : { ...baseCtx, batchId: combined.batchId };
-    const intent = buildMoveExtensionWorkspaceBeforeBatch(
-      { id: finalOrder[i], orderKey: newKeys[i] },
-      ctx,
-    );
+    const ctx: MutatorContext = combined === null ? baseCtx : { ...baseCtx, batchId: combined.batchId };
+    const intent = buildMoveExtensionWorkspaceBeforeBatch({ id: finalOrder[i], orderKey: newKeys[i] }, ctx);
     if (combined === null) {
       combined = intent.batch;
     } else {

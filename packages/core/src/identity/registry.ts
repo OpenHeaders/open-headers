@@ -33,6 +33,10 @@ export function installIdentitySnapshot(input: InstallIdentitySnapshotInput): Id
     membership: input.record.membership,
     localAdmin: input.record.localAdmin,
     wraByWorkspaceId,
+    // Multi-org-native: `orgs` is a set on every host. V5 seeds the one
+    // synthetic home-org row; real Orgs joined later fold in here with
+    // no change to the resolver or the org-catalogue helpers downstream.
+    orgs: new Map([[input.record.org.id, input.record.org]]),
   };
   return current;
 }

@@ -120,6 +120,20 @@ export interface PersistedPanelLayout {
   bottomRatio: number;
 }
 
+/**
+ * Per-user org-binding preferences (UNIFIED_ORACLE_MODEL.md §6.2).
+ * Drives the two-personal-Orgs onboarding (U3.6): once acknowledged the
+ * onboarding modal stops surfacing, and `defaultNewWorkspaceOrgId` is the
+ * Org newly-created workspaces bind to (falling back to the home-org when
+ * unset or stale). Plain JSON — not security-sensitive.
+ */
+export interface OrgBindingPrefs {
+  /** ISO timestamp the user dismissed the two-personal-Orgs onboarding; null = not yet seen. */
+  onboardingAcknowledgedAt: string | null;
+  /** Org id new workspaces bind to; null = use the home-org. */
+  defaultNewWorkspaceOrgId: string | null;
+}
+
 export interface PersistedLocalFolder {
   /** Persisted format version for each `_folder.yaml` once the codec lands. */
   schemaVersion: number;
@@ -199,6 +213,12 @@ export const OH = {
    * trust-by-process and never consult this list.
    */
   daemonAuthTokens: storageKey<DaemonAuthToken[]>('oh.daemonAuthTokens', { sensitive: true }),
+  /**
+   * Per-user org-binding preferences (UNIFIED_ORACLE_MODEL.md §6.2 / U3.6)
+   * — the two-personal-Orgs onboarding acknowledgement + the default Org
+   * for newly-created workspaces. See {@link OrgBindingPrefs}.
+   */
+  orgBindingPrefs: storageKey<OrgBindingPrefs>('oh.orgBindingPrefs'),
 } as const;
 
 /**

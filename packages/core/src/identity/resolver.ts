@@ -9,7 +9,7 @@
  * `isSynthetic` flag is informational per §5.3).
  */
 
-import type { DaemonAdmin, OrgMembership, Principal, User, WorkspaceRoleAssignment } from '../types';
+import type { DaemonAdmin, Org, OrgMembership, Principal, User, WorkspaceRoleAssignment } from '../types';
 
 /**
  * The capability axis. Slice 1 ships the three privileges the renderer→SW
@@ -57,6 +57,14 @@ export interface IdentitySnapshot {
   localAdmin?: DaemonAdmin;
   /** Workspace-id → WRA for this user's principal. */
   wraByWorkspaceId: ReadonlyMap<string, WorkspaceRoleAssignment>;
+  /**
+   * Org-id → Org row for every Org this identity belongs to. V5 ships a
+   * single synthetic home-org; multi-org membership (real team Orgs
+   * joined via a daemon) folds more rows in without changing the shape.
+   * Consulted by the org-catalogue helpers that drive the workspace
+   * org-binding UI (UNIFIED_ORACLE_MODEL.md §6.2 / §6.4).
+   */
+  orgs: ReadonlyMap<string, Org>;
 }
 
 /**

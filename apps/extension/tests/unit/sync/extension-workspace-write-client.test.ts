@@ -42,6 +42,7 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+import type { ExtensionWorkspaceSyncMirror, RendererContextHandle } from '@openheaders/ui/context';
 import {
   applyCreateWorkspace,
   applyDeleteWorkspace,
@@ -50,10 +51,6 @@ import {
   applySetActiveWorkspace,
   applyUpdateWorkspace,
 } from '@openheaders/ui/shared/sync/extension-workspace-write-client';
-import type {
-  ExtensionWorkspaceSyncMirror,
-  RendererContextHandle,
-} from '@openheaders/ui/context';
 
 function makeWorkspace(id: string, sortIndex: number, overrides: Partial<ExtensionWorkspace> = {}): ExtensionWorkspace {
   return {
@@ -208,6 +205,32 @@ describe('applyUpdateWorkspace / applyRenameWorkspace', () => {
     const slot = (body as { item: { icon?: string } }).item;
     expect(slot.icon).toBeUndefined();
   });
+
+  it('orgId flips the workspace org binding on the emitted slot (U3.7)', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const existing = makeWorkspace('ws-a', 0, { orgId: 'org-old' });
+    const mirror = makeMirror([existing], 'ws-a');
+    await applyUpdateWorkspace(
+      { id: 'ws-a', updates: { orgId: 'org-new' } },
+      { surfaceId: 'workbench', mirror, context: makeContextHandle('workbench') },
+    );
+    const body = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch.mutations[0].body;
+    const slot = (body as { item: { orgId: string } }).item;
+    expect(slot.orgId).toBe('org-new');
+  });
+
+  it('leaves the org binding untouched when orgId is absent from the patch', async () => {
+    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
+    const existing = makeWorkspace('ws-a', 0, { orgId: 'org-old' });
+    const mirror = makeMirror([existing], 'ws-a');
+    await applyUpdateWorkspace(
+      { id: 'ws-a', updates: { name: 'Renamed' } },
+      { surfaceId: 'workbench', mirror, context: makeContextHandle('workbench') },
+    );
+    const body = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch.mutations[0].body;
+    const slot = (body as { item: { orgId: string } }).item;
+    expect(slot.orgId).toBe('org-old');
+  });
 });
 
 describe('applyDeleteWorkspace', () => {
@@ -222,10 +245,7 @@ describe('applyDeleteWorkspace', () => {
   });
 
   it('returns not-found when the id is absent from the live list', async () => {
-    const mirror = makeMirror(
-      [makeWorkspace('ws-a', 0), makeWorkspace('ws-b', 1)],
-      'ws-a',
-    );
+    const mirror = makeMirror([makeWorkspace('ws-a', 0), makeWorkspace('ws-b', 1)], 'ws-a');
     const result = await applyDeleteWorkspace(
       { id: 'missing' },
       { surfaceId: 'workbench', mirror, context: makeContextHandle('workbench') },
@@ -236,10 +256,7 @@ describe('applyDeleteWorkspace', () => {
 
   it('bundles removeFromSet + setActive(neighbour) under the same batchId when deleting the active workspace', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
-    const mirror = makeMirror(
-      [makeWorkspace('ws-a', 0), makeWorkspace('ws-b', 1), makeWorkspace('ws-c', 2)],
-      'ws-b',
-    );
+    const mirror = makeMirror([makeWorkspace('ws-a', 0), makeWorkspace('ws-b', 1), makeWorkspace('ws-c', 2)], 'ws-b');
     const result = await applyDeleteWorkspace(
       { id: 'ws-b' },
       { surfaceId: 'workbench', mirror, context: makeContextHandle('workbench') },
@@ -258,10 +275,7 @@ describe('applyDeleteWorkspace', () => {
 
   it('emits a single removeFromSet when deleting a non-active workspace', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
-    const mirror = makeMirror(
-      [makeWorkspace('ws-a', 0), makeWorkspace('ws-b', 1)],
-      'ws-a',
-    );
+    const mirror = makeMirror([makeWorkspace('ws-a', 0), makeWorkspace('ws-b', 1)], 'ws-a');
     const result = await applyDeleteWorkspace(
       { id: 'ws-b' },
       { surfaceId: 'workbench', mirror, context: makeContextHandle('workbench') },
@@ -326,10 +340,7 @@ describe('applyReorderWorkspaces', () => {
 
   it('emits a moveBefore per workspace in the resolved final order (desired first, then missing appended)', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
-    const mirror = makeMirror(
-      [makeWorkspace('ws-a', 0), makeWorkspace('ws-b', 1), makeWorkspace('ws-c', 2)],
-      'ws-a',
-    );
+    const mirror = makeMirror([makeWorkspace('ws-a', 0), makeWorkspace('ws-b', 1), makeWorkspace('ws-c', 2)], 'ws-a');
     const result = await applyReorderWorkspaces(
       // Caller asked for c,a — b should land at the tail.
       { idOrder: ['ws-c', 'ws-a'] },

@@ -4,15 +4,28 @@
  * `WorkspaceDropdownBody` in `mode='workbench'`: row click switches
  * THIS tab; per-row check icon promotes a workspace to ACTIVE without
  * switching this tab.
+ *
+ * Also the home of the org-binding UX cluster (U3.5–U3.7,
+ * UNIFIED_ORACLE_MODEL.md §6.2 / §6.4): each dropdown row carries a
+ * "where does this live?" badge that doubles as the sync-scope picker,
+ * the trigger shows the selected workspace's binding, and the
+ * two-personal-Orgs onboarding surfaces here the first time a user
+ * holds more than one Org.
  */
 
+import { describeOrg, orgCatalogue, shouldShowOrgOnboarding } from '@openheaders/core/identity';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { App, Button, Dropdown, Space, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { instanceLabel, instanceLabelPlural } from '@openheaders/ui/shared/host-vocabulary';
+import { useIdentitySnapshot } from '../../shared/hooks/useIdentitySnapshot';
+import { useOrgBindingPrefs } from '../../shared/hooks/useOrgBindingPrefs';
+import { useWorkspaces } from '../../shared/hooks/useWorkspaces';
 import { WorkspaceDropdownBody } from '../../shared/workspace-dropdown/WorkspaceDropdownBody';
+import { OrgOnboardingModal } from '../../shared/workspace-org/OrgOnboardingModal';
+import { WorkspaceOrgBadge } from '../../shared/workspace-org/WorkspaceOrgBadge';
 import { renderWorkspacePrefix } from './workspace-prefix';
 
 const { Text } = Typography;
@@ -44,6 +57,11 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
   const [open, setOpen] = useState(false);
   const activeGlobalId = useActiveWorkspaceId();
 
+  const snapshot = useIdentitySnapshot();
+  const catalogue = useMemo(() => orgCatalogue(snapshot), [snapshot]);
+  const { prefs, isReady: prefsReady, acknowledgeOnboarding } = useOrgBindingPrefs();
+  const { updateWorkspace } = useWorkspaces();
+
   const selected = workspaces.find((w) => w.id === activeWorkspaceId) ?? null;
 
   const promoteWorkspaceToActive = useCallback(
@@ -64,52 +82,87 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
     [workspaces, modal, message, setActiveWorkspace],
   );
 
+  const handlePickOrg = useCallback(
+    async (workspaceId: string, orgId: string) => {
+      const target = workspaces.find((w) => w.id === workspaceId);
+      const result = await updateWorkspace(workspaceId, { orgId });
+      if (result.success) {
+        const descriptor = describeOrg(snapshot, orgId);
+        message.success(
+          `"${target?.name ?? 'Workspace'}" now lives in ${descriptor?.name ?? 'the selected scope'}`,
+        );
+      } else {
+        message.error('Could not change where this workspace lives');
+      }
+    },
+    [workspaces, updateWorkspace, snapshot, message],
+  );
+
+  // Gate on `prefsReady` so an already-acknowledged user never sees the
+  // modal flash in the window before `OH.orgBindingPrefs` loads.
+  const showOnboarding = prefsReady && shouldShowOrgOnboarding(snapshot, prefs.onboardingAcknowledgedAt);
+
   if (!selected) return null;
 
   return (
-    <Dropdown
-      open={open}
-      onOpenChange={setOpen}
-      popupRender={() => (
-        <WorkspaceDropdownBody
-          workspaces={workspaces}
-          selectedId={activeWorkspaceId}
-          activeId={activeGlobalId}
-          mode="workbench"
-          onSwitch={onSwitch}
-          onPromoteActive={promoteWorkspaceToActive}
-          onExport={onExport}
-          onImport={onImport}
-          onOpenManager={onOpenManager}
-          onClose={() => setOpen(false)}
-        />
-      )}
-      trigger={['click']}
-      placement="bottomLeft"
-    >
-      <Button
-        type="text"
-        size="small"
-        aria-label={`This ${instanceLabel()} is editing workspace: ${selected.name}. Click to switch.`}
-        style={{
-          padding: '0 8px',
-          height: 28,
-          display: 'inline-flex',
-          alignItems: 'center',
-          border: 'none',
-          background: 'transparent',
-          boxShadow: 'none',
-          color: token.colorText,
-        }}
+    <>
+      <Dropdown
+        open={open}
+        onOpenChange={setOpen}
+        popupRender={() => (
+          <WorkspaceDropdownBody
+            workspaces={workspaces}
+            selectedId={activeWorkspaceId}
+            activeId={activeGlobalId}
+            mode="workbench"
+            onSwitch={onSwitch}
+            onPromoteActive={promoteWorkspaceToActive}
+            onExport={onExport}
+            onImport={onImport}
+            onOpenManager={onOpenManager}
+            onClose={() => setOpen(false)}
+            orgBinding={{
+              catalogue,
+              describe: (orgId) => describeOrg(snapshot, orgId),
+              onPickOrg: handlePickOrg,
+            }}
+          />
+        )}
+        trigger={['click']}
+        placement="bottomLeft"
       >
-        <Space size={6}>
-          {renderWorkspacePrefix({ icon: selected.icon, color: selected.color }, token, { size: 18 })}
-          <Text style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {selected.name}
-          </Text>
-        </Space>
-      </Button>
-    </Dropdown>
+        <Button
+          type="text"
+          size="small"
+          aria-label={`This ${instanceLabel()} is editing workspace: ${selected.name}. Click to switch.`}
+          style={{
+            padding: '0 8px',
+            height: 28,
+            display: 'inline-flex',
+            alignItems: 'center',
+            border: 'none',
+            background: 'transparent',
+            boxShadow: 'none',
+            color: token.colorText,
+          }}
+        >
+          <Space size={6}>
+            {renderWorkspacePrefix({ icon: selected.icon, color: selected.color }, token, { size: 18 })}
+            <Text style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {selected.name}
+            </Text>
+            <WorkspaceOrgBadge descriptor={describeOrg(snapshot, selected.orgId)} compact />
+          </Space>
+        </Button>
+      </Dropdown>
+
+      <OrgOnboardingModal
+        open={showOnboarding}
+        catalogue={catalogue}
+        homeOrgId={snapshot?.user.homeOrgId ?? ''}
+        onAcknowledge={acknowledgeOnboarding}
+      />
+    </>
   );
 };
 

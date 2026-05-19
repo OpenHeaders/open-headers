@@ -17,56 +17,32 @@
  */
 
 export {
-  bootstrapSyntheticIdentity,
-  type BootstrapSyntheticIdentityInput,
-  type BootstrapSyntheticIdentityResult,
-} from './bootstrap';
-export { deriveSyntheticUuidV7, SYNTHETIC_SEEDS } from './derive-uuid';
-export { ensureDaemonConfig } from './ensure-daemon-config';
-export {
-  ensureSyntheticIdentity,
-  type EnsureSyntheticIdentityInput,
-} from './ensure-synthetic-identity';
-export { ensureWorkspaceRoleAssignments } from './ensure-workspace-role-assignments';
-export { mintHostInstallId } from './host-install-id';
-export {
-  authorizedOrgIds,
-  hasCapability,
-  type Capability,
-  type CapabilityContext,
-  type CapabilityDecision,
-  type CapabilityDenyReason,
-  type IdentitySnapshot,
-} from './resolver';
-export {
-  clearIdentitySnapshot,
-  getIdentitySnapshot,
-  installIdentitySnapshot,
-  refreshIdentitySnapshotFromHostStorage,
-  type InstallIdentitySnapshotInput,
-} from './registry';
-export {
-  emitAuditEntry,
-  resetAuditSink,
-  setAuditSink,
   type AuditEntryInput,
   type AuditSink,
+  emitAuditEntry,
   type ResolvedAuditEntry,
+  resetAuditSink,
+  setAuditSink,
 } from './audit';
 export {
+  type BootstrapSyntheticIdentityInput,
+  type BootstrapSyntheticIdentityResult,
+  bootstrapSyntheticIdentity,
+} from './bootstrap';
+export {
   listDaemonAuthTokens,
-  mintDaemonAuthToken,
-  revokeDaemonAuthToken,
-  validateDaemonAuthToken,
   type MintDaemonAuthTokenInput,
   type MintDaemonAuthTokenResult,
+  mintDaemonAuthToken,
+  revokeDaemonAuthToken,
+  type ValidateDaemonAuthTokenFailure,
   type ValidateDaemonAuthTokenResult,
   type ValidateDaemonAuthTokenSuccess,
-  type ValidateDaemonAuthTokenFailure,
+  validateDaemonAuthToken,
 } from './daemon-auth-tokens';
 export {
-  createDaemonPairingService,
   type ConfirmPairResult,
+  createDaemonPairingService,
   type DaemonPairingService,
   type DaemonPairingServiceOptions,
   type PendingPair,
@@ -74,3 +50,35 @@ export {
   type StartPairInput,
   type StartPairResult,
 } from './daemon-pairing';
+export { deriveSyntheticUuidV7, SYNTHETIC_SEEDS } from './derive-uuid';
+export { ensureDaemonConfig } from './ensure-daemon-config';
+export {
+  type EnsureSyntheticIdentityInput,
+  ensureSyntheticIdentity,
+} from './ensure-synthetic-identity';
+export { ensureWorkspaceRoleAssignments } from './ensure-workspace-role-assignments';
+export { mintHostInstallId } from './host-install-id';
+export {
+  defaultNewWorkspaceOrgId,
+  describeOrg,
+  type OrgDescriptor,
+  type OrgScopeKind,
+  orgCatalogue,
+  shouldShowOrgOnboarding,
+} from './org-catalogue';
+export {
+  clearIdentitySnapshot,
+  getIdentitySnapshot,
+  type InstallIdentitySnapshotInput,
+  installIdentitySnapshot,
+  refreshIdentitySnapshotFromHostStorage,
+} from './registry';
+export {
+  authorizedOrgIds,
+  type Capability,
+  type CapabilityContext,
+  type CapabilityDecision,
+  type CapabilityDenyReason,
+  hasCapability,
+  type IdentitySnapshot,
+} from './resolver';
