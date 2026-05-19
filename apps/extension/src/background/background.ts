@@ -185,6 +185,14 @@ const syncHandshakeInitiator = createSyncHandshakeInitiator({
     }
   },
   getExtensionAgent: () => `@openheaders/extension@${runtime.getManifest().version}`,
+  // U3.2 — send the user-pasted daemon auth token on every HELLO so
+  // daemons bound non-loopback can validate the peer. Empty string is
+  // treated as "no token configured" so loopback peers (the default)
+  // don't carry a useless field.
+  getAuthToken: () => {
+    const raw = getSetting('backend.authToken');
+    return raw && raw.length > 0 ? raw : null;
+  },
   readStateVector: (workspaceId) => readWorkspaceStateVector(workspaceId),
   applySnapshot: async (snapshot) => {
     const svc = getOrCreateWorkspaceService(snapshot.workspaceId);

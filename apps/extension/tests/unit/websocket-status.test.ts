@@ -51,7 +51,7 @@ describe('websocket sync Status subsystem', () => {
     __resetStatusForTests();
     settingsStore = {
       'backend.autoConnect': true,
-      'backend.url': 'ws://127.0.0.1:59210',
+      'backend.url': 'ws://127.0.0.1:8137',
       'backend.reconnectDelayMs': 1000,
       'backend.maxReconnectDelayMs': 30000,
       'backend.pingIntervalMs': 0,

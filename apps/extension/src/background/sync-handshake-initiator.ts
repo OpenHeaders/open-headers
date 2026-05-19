@@ -86,6 +86,14 @@ export interface SyncHandshakeInitiatorDeps {
   readonly getExtensionNodeId: (workspaceId: string) => string;
   /** Diagnostic agent string (e.g. `'@openheaders/extension@5.0.0'`). */
   readonly getExtensionAgent: () => string;
+  /**
+   * Returns the long-lived daemon auth token the user pasted into
+   * settings, or null when none is configured. Sent on every HELLO so
+   * daemons bound non-loopback can validate the peer (U3.2). Loopback
+   * daemons ignore the field; passing a token to a loopback peer is
+   * harmless.
+   */
+  readonly getAuthToken?: () => string | null;
   /** Folds the local log into a state vector. */
   readonly readStateVector: (workspaceId: string) => Promise<StateVector>;
   /** Applies an inbound snapshot blob to local stores. */
@@ -211,6 +219,7 @@ export function createSyncHandshakeInitiator(deps: SyncHandshakeInitiatorDeps): 
       return;
     }
     const nodeId = deps.getExtensionNodeId(workspaceId);
+    const authToken = deps.getAuthToken?.() ?? null;
     const hello: SyncHelloMessage = {
       type: SYNC_HELLO_TYPE,
       protocolVersion: PROTOCOL_VERSION,
@@ -218,6 +227,7 @@ export function createSyncHandshakeInitiator(deps: SyncHandshakeInitiatorDeps): 
       nodeId,
       workspaceId,
       agent: deps.getExtensionAgent(),
+      ...(authToken ? { authToken } : {}),
     };
     if (!deps.send(hello)) {
       logger.warn(SCOPE, 'HELLO send failed — wire gone');

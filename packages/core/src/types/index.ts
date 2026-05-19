@@ -269,6 +269,9 @@ export type {
 // ── Daemon config (per-host configuration; carries host-install-id) ────
 export type { DaemonConfig } from './daemon-config';
 
+// ── Daemon auth token (long-lived peer credential; hashed) ──────────
+export type { DaemonAuthToken } from './daemon-auth-token';
+
 // ── View mode (popup vs sidepanel) ────────────────────────────────
 export type { ViewMode } from './view-mode';
 export { DEFAULT_VIEW_MODE, VIEW_MODE_STORAGE_KEY } from './view-mode';

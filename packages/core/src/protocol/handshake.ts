@@ -64,7 +64,7 @@ export type HandshakeRejectReason = (typeof HANDSHAKE_REJECT_REASONS)[keyof type
 /**
  * Role of the peer announcing itself in HELLO/WELCOME. Used by the
  * receiver for telemetry + UI ("connected to: desktop app on this
- * machine" vs. "connected to: daemon at lan.local:59210"). Not a
+ * machine" vs. "connected to: daemon at lan.local:8137"). Not a
  * trust signal — Phase C is trust-by-process within a single user
  * boundary; auth lands in Phase D (§11.4).
  */
@@ -112,6 +112,15 @@ export interface SyncHelloMessage {
   workspaceId: string;
   /** Free-form software version (`@openheaders/extension@5.0.0-pre.42`) for diagnostics only. */
   agent: string;
+  /**
+   * Long-lived daemon access token presented by the peer when the
+   * daemon is bound non-loopback (U3.2, `UNIFIED_ORACLE_MODEL.md` §4.2
+   * / `DATA_PLANE_TOPOLOGIES.md` §11.4). Omitted on loopback handshakes
+   * (trust-by-process); a missing or wrong token on a non-loopback
+   * daemon yields a `AUTH_REQUIRED` reject. Secret material — never
+   * logged.
+   */
+  authToken?: string;
 }
 
 export const SyncHelloMessageSchema = v.object({
@@ -121,6 +130,7 @@ export const SyncHelloMessageSchema = v.object({
   nodeId: v.pipe(v.string(), v.minLength(1)),
   workspaceId: v.pipe(v.string(), v.minLength(1)),
   agent: v.string(),
+  authToken: v.optional(v.pipe(v.string(), v.minLength(1))),
 }) satisfies v.GenericSchema<SyncHelloMessage>;
 
 // ── WELCOME ───────────────────────────────────────────────────────────

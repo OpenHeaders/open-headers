@@ -70,7 +70,7 @@ export const ParadigmFrontEndsDiagram: React.FC = () => {
       icon: 'web',
       surfaces: [{ label: 'Workbench' }],
       backEnds: [
-        { label: 'Desktop app', note: 'localhost:59210' },
+        { label: 'Desktop app', note: 'localhost:8137' },
         { label: 'Local daemon', note: 'LAN' },
         { label: 'Your VM', note: 'WAN', isDefault: true },
       ],

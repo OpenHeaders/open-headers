@@ -4,7 +4,7 @@ import { SUCCESS,WARNING,ERROR,SUCCESS_BG,WARNING_BG,ERROR_BG,GREY,BORDER,FILL_S
 
 /**
  * Topology: the extension's background SW maintains a single
- * WebSocket to the desktop app on `127.0.0.1:59210`. The line in the
+ * WebSocket to the desktop app on `127.0.0.1:8137`. The line in the
  * middle carries the actual data shapes — keeping it labeled keeps
  * "what does syncing actually do?" answerable without reading prose.
  */
@@ -16,7 +16,7 @@ export const SyncTopologyDiagram: React.FC = () => {
       width="100%"
       style={{ maxWidth: 360 }}
       role="img"
-      aria-label="Sync topology — the extension service worker holds one WebSocket to the desktop app on 127.0.0.1:59210, exchanging workspaces, variables, and team sync data."
+      aria-label="Sync topology — the extension service worker holds one WebSocket to the desktop app on 127.0.0.1:8137, exchanging workspaces, variables, and team sync data."
     >
       <ArrowDefs id={ID} />
       <text x={160} y={14} textAnchor="middle" fontSize={10} fontWeight={700} fill={TEXT}>
@@ -74,7 +74,7 @@ export const SyncTopologyDiagram: React.FC = () => {
         WebSocket
       </text>
       <text x={160} y={124} textAnchor="middle" fontFamily="monospace" fontSize={8} fill={TEXT_DIM}>
-        127.0.0.1:59210
+        127.0.0.1:8137
       </text>
 
       <text x={160} y={166} textAnchor="middle" fontSize={9} fontWeight={600} fill={TEXT}>

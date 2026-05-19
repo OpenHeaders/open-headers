@@ -107,6 +107,7 @@ export const CapabilityDenyReasonSchema = v.picklist([
   'insufficient-workspace-role',
   'not-daemon-admin',
   'unknown-capability',
+  'auth-required',
 ]);
 
 export const AuditDecisionSchema = v.object({

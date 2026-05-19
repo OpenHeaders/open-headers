@@ -22,6 +22,7 @@
 
 import type {
   Collection,
+  DaemonAuthToken,
   DaemonConfig,
   Environment,
   ExtensionWorkspace,
@@ -189,6 +190,15 @@ export const OH = {
    * `ensureWorkspaceRoleAssignments` (in `../identity`).
    */
   workspaceRoleAssignments: storageKey<WorkspaceRoleAssignment[]>('oh.workspaceRoleAssignments'),
+  /**
+   * Long-lived peer access tokens recognized by this daemon (U3.2,
+   * `UNIFIED_ORACLE_MODEL.md` §4.2 + `DATA_PLANE_TOPOLOGIES.md` §11.4).
+   * Stores only hashes — the raw secret is returned to the admin exactly
+   * once at mint time. Used exclusively when the daemon binds non-loopback
+   * (`backend.bindAddress === '0.0.0.0'`); loopback handshakes stay
+   * trust-by-process and never consult this list.
+   */
+  daemonAuthTokens: storageKey<DaemonAuthToken[]>('oh.daemonAuthTokens', { sensitive: true }),
 } as const;
 
 /**

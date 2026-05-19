@@ -44,6 +44,7 @@ registerCategory({
     { id: 'connection', label: 'Connection', order: 10 },
     { id: 'reliability', label: 'Reliability', order: 20 },
     { id: 'notifications', label: 'Notifications', order: 30 },
+    { id: 'lan-peers', label: 'LAN peers', order: 40 },
   ],
 });
 

@@ -406,7 +406,7 @@ export const SystemStatusSection: React.FC = () => (
     <SubsystemHeading name="Sync" subtitle="Desktop-app connection" />
     <DocParagraph>
       Mirrors the WebSocket connection between the extension's service worker and the OpenHeaders desktop app running on
-      your machine. The link is loopback-only (<code>127.0.0.1:59210</code>) and carries dynamic variables, team
+      your machine. The link is loopback-only (<code>127.0.0.1:8137</code>) and carries dynamic variables, team
       workspace data, and presence — nothing leaves your device.
     </DocParagraph>
     <DiagramFrame caption="Single WebSocket between the extension and the desktop app on localhost.">

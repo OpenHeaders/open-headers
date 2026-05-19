@@ -49,7 +49,8 @@ import {
 import {
   emitAuditEntry,
   getIdentitySnapshot,
-  hasCapability,
+  validateDaemonAuthToken,
+  type ValidateDaemonAuthTokenResult,
 } from '@openheaders/core/identity';
 import { logger } from '@openheaders/core/utils';
 import * as v from 'valibot';
@@ -87,20 +88,22 @@ export type EvaluateHelloOutcome =
 
 /**
  * Per-handshake gating options. When `requireAuth` is true (set by the
- * host when its bind address is non-loopback), the dispatcher consults
- * the {@link hasCapability} resolver against the local identity
- * snapshot's `daemon.admin` capability. A deny becomes a WELCOME with
+ * host when its bind address is non-loopback per
+ * `UNIFIED_ORACLE_MODEL.md` §4.2), the dispatcher hashes
+ * `hello.authToken` and constant-time-compares against the persisted
+ * daemon auth-token ledger. A miss becomes a WELCOME with
  * `reason: 'auth-required'` — the peer surfaces "this daemon requires
  * pairing" rather than a generic protocol-incompatible close.
  *
- * Loopback bind (`127.0.0.1`) stays trust-by-process per
- * `UNIFIED_ORACLE_MODEL.md` §4.2 — the host passes `requireAuth: false`
- * and the gate is a no-op. Phase U3.2 wires the toggle into the
- * Settings → Sync → Allow LAN peers surface; until then every host
- * binds loopback and runs ungated.
+ * Loopback bind (`127.0.0.1`) stays trust-by-process — the host passes
+ * `requireAuth: false` and the gate is a no-op.
+ *
+ * `validate` is an optional test seam — swap in a stubbed validator to
+ * exercise dispatch wiring without round-tripping `hostStorage`.
  */
 export interface EvaluateHelloOptions {
   readonly requireAuth?: boolean;
+  readonly validate?: (token: string | undefined) => Promise<ValidateDaemonAuthTokenResult>;
 }
 
 /**
@@ -113,11 +116,11 @@ export interface EvaluateHelloOptions {
  * is expected to route only matching frames here; any miss is a wiring
  * bug at the host level, not a runtime protocol error.
  */
-export function evaluateHello(
+export async function evaluateHello(
   frame: Record<string, unknown>,
   identity: LocalHandshakeIdentity,
   options: EvaluateHelloOptions = {},
-): EvaluateHelloOutcome {
+): Promise<EvaluateHelloOutcome> {
   if (frame.type !== SYNC_HELLO_TYPE) {
     throw new Error(`evaluateHello: expected ${SYNC_HELLO_TYPE}, got ${String(frame.type)}`);
   }
@@ -149,20 +152,33 @@ export function evaluateHello(
   }
   if (options.requireAuth) {
     const snapshot = getIdentitySnapshot();
-    const decision = hasCapability(snapshot, 'daemon.admin', {});
+    const validate = options.validate ?? validateDaemonAuthToken;
+    const result = await validate(hello.authToken);
+    // Audit the gate decision. `daemon.admin` is the capability the
+    // local resolver maps the gate to — successful peer auth means the
+    // peer is permitted to operate against this daemon; a miss is a
+    // denial recorded against the local synthetic actor for ledger
+    // continuity. The token id (if any) goes on the audit context
+    // rather than the actor — the peer's identity isn't resolved until
+    // after handshake.
     emitAuditEntry({
       actorUserId: snapshot?.user.id ?? 'unknown',
       capability: 'daemon.admin',
-      decision,
+      decision: result.ok
+        ? { allow: true }
+        : { allow: false, reason: 'auth-required' },
     });
-    if (!decision.allow) {
-      logger.info(SCOPE, `HELLO rejected: auth required (${decision.reason ?? 'denied'})`);
+    if (!result.ok) {
+      logger.info(SCOPE, `HELLO rejected: auth required (${result.reason})`);
       const welcome: SyncWelcomeMessage = {
         type: SYNC_WELCOME_TYPE,
         accepted: false,
         reason: HANDSHAKE_REJECT_REASONS.AUTH_REQUIRED,
         protocolVersion: PROTOCOL_VERSION,
-        detail: decision.reason ?? 'auth required',
+        // Never echo the presented secret. `reason` is a coarse enum
+        // safe for the client to render ("paired token revoked",
+        // "unknown token", "no token presented").
+        detail: result.reason,
       };
       return { kind: 'reject', welcome, reason: HANDSHAKE_REJECT_REASONS.AUTH_REQUIRED };
     }

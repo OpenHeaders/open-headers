@@ -431,6 +431,9 @@ export function reconnectWebSocket(): void {
 
 // Any change to the back-end URL forces a reconnect against the new endpoint.
 subscribeKey('backend.url', () => reconnectWebSocket());
+// Auth-token change reflects a fresh pairing (or revoke) — re-handshake
+// so the next HELLO carries the new token (U3.2).
+subscribeKey('backend.authToken', () => reconnectWebSocket());
 // Mode changes (in-browser ↔ desktop-app / daemon / remote) require a
 // transport flip — tear down the current socket and let `connectWebSocket`
 // re-evaluate. `in-browser` short-circuits early so we close cleanly.

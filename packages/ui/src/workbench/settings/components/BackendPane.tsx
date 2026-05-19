@@ -36,6 +36,7 @@ import SettingRow from '../fields/SettingRow';
 import { BackendDetailDiagram } from './backend-details';
 import { type BackendIconKey, BackendIcon } from './backend-icons';
 import { BackendTierCard } from './backend-tier-card';
+import DaemonTokensSection from './daemon-tokens-section';
 
 interface ScenarioDescriptor {
   mode: BackendMode;
@@ -746,6 +747,19 @@ const SUBSECTION_BLURB: Record<string, string> = {
   connection: 'How this client reaches the back-end.',
   reliability: 'Auto-connect and reconnection behavior over an unstable wire.',
   notifications: 'Visual cues when the link is down.',
+  'lan-peers': 'Who outside this machine can reach the daemon.',
+};
+
+/**
+ * Token issuance only matters when the daemon is bound non-loopback —
+ * loopback peers are trust-by-process. Subscribing inline keeps the
+ * section reactive to the LAN-peers toggle without lifting state into
+ * ConfigPanel.
+ */
+const DaemonTokensGate: React.FC = () => {
+  const bindAddress = useSettingValue('backend.bindAddress');
+  if (bindAddress !== '0.0.0.0') return null;
+  return <DaemonTokensSection />;
 };
 
 const ConfigPanel: React.FC<{
@@ -777,20 +791,69 @@ const ConfigPanel: React.FC<{
     );
   }
 
-  // Two "host IS the back-end" cases: nothing to configure because the
-  // wire doesn't exist.
+  // Two "host IS the back-end" cases: there's no outbound wire to tune,
+  // but the desktop daemon still has inbound-side knobs (bind address
+  // and, later, the auth token surface) for peers reaching IN. Render
+  // just those rows — every other config field is outbound.
   if (hostIsTheBackend(mode, host)) {
+    // LAN-peers config is meaningful only on the desktop daemon. Gate
+    // the whole section at the branch level; strip each row's `when`
+    // since the schema's `when` reads the *active* mode (not the
+    // previewed mode this pane renders) and would hide rows we want
+    // visible while the user is configuring a desktop-app preview.
+    const isDaemonContext = host === 'desktop' && mode === 'desktop-app';
+    const daemonDefs = isDaemonContext
+      ? defs.filter((d) => d.subcategory === 'lan-peers').map((d) => (d.when ? { ...d, when: undefined } : d))
+      : [];
     return (
-      <Alert
-        type="success"
-        showIcon
-        message="Nothing to configure"
-        description={
-          mode === 'in-browser'
-            ? 'The browser service worker is the back-end. Workspaces, rules, and vault live in this browser only — no external host to point at.'
-            : 'The desktop app process is the back-end. Other localhost clients connect into it; there is no outbound wire to tune.'
-        }
-      />
+      <>
+        <Alert
+          type="success"
+          showIcon
+          message="Nothing outbound to configure"
+          description={
+            mode === 'in-browser'
+              ? 'The browser service worker is the back-end. Workspaces, rules, and vault live in this browser only — no external host to point at.'
+              : 'The desktop app process is the back-end. Other localhost clients connect into it; there is no outbound wire to tune.'
+          }
+          style={{ marginBottom: 12 }}
+        />
+        {daemonDefs.length > 0 && (
+          <section style={{ marginBottom: 12 }}>
+            <header style={{ marginBottom: 6, padding: '0 2px' }}>
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: 0.3,
+                  textTransform: 'uppercase',
+                  color: token.colorTextSecondary,
+                }}
+              >
+                LAN peers
+              </h3>
+              <div style={{ fontSize: 11, color: token.colorTextTertiary, marginTop: 1 }}>
+                {SUBSECTION_BLURB['lan-peers']}
+              </div>
+            </header>
+            <div
+              className="settings-card"
+              style={{
+                background: token.colorBgContainer,
+                border: `1px solid ${token.colorBorderSecondary}`,
+                borderRadius: 10,
+                overflow: 'hidden',
+              }}
+            >
+              {daemonDefs.map((def) => (
+                <SettingRow key={def.key} def={def} />
+              ))}
+            </div>
+          </section>
+        )}
+        {isDaemonContext && <DaemonTokensGate />}
+      </>
     );
   }
 

@@ -123,7 +123,7 @@ const TIERS: Partial<Record<BackendMode, TierDef>> = {
         },
         {
           label: 'Default port',
-          items: [{ range: '59210', note: 'override in Backend → Connection' }],
+          items: [{ range: '8137', note: 'override in Backend → Connection' }],
         },
       ],
     },

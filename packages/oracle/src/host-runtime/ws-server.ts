@@ -55,6 +55,7 @@ import {
   PROTOCOL_INCOMPATIBLE_CLOSE_CODE,
   SYNC_HELLO_TYPE,
   SYNC_STATE_VECTOR_TYPE,
+  WS_PORT,
 } from '@openheaders/core/protocol';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import { WebSocketServer, WebSocket, type RawData } from 'ws';
@@ -90,7 +91,7 @@ function isPing(m: unknown): m is PingMessage {
 export interface OracleWsServerOptions {
   /** Bind address — `127.0.0.1` for local-only, `0.0.0.0` for LAN. */
   host?: string;
-  /** TCP port; default 59210 matches the extension's setting. */
+  /** TCP port; defaults to {@link WS_PORT} so all components agree. */
   port?: number;
   /**
    * Identity this server announces in WELCOME frames. The host
@@ -134,7 +135,7 @@ const LOOPBACK_BINDS: ReadonlySet<string> = new Set(['127.0.0.1', '::1', 'localh
 
 export async function startOracleWsServer(options: OracleWsServerOptions): Promise<OracleWsServer> {
   const host = options.host ?? '127.0.0.1';
-  const port = options.port ?? 59210;
+  const port = options.port ?? WS_PORT;
   const handshakeIdentity = options.handshakeIdentity;
   const requireAuth = !LOOPBACK_BINDS.has(host);
 
@@ -183,6 +184,10 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
     }, HANDSHAKE_TIMEOUT_MS);
 
     socket.on('message', (raw: RawData) => {
+      // The handler is wrapped in an async IIFE so the HELLO gate can
+      // await the token-store read. Post-handshake branches stay
+      // synchronous; only the one async edge runs through the IIFE.
+      void (async () => {
       let parsed: unknown;
       try {
         parsed = JSON.parse(raw.toString('utf-8'));
@@ -202,7 +207,7 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
           }
           return;
         }
-        const outcome = evaluateHello(parsed as Record<string, unknown>, handshakeIdentity, {
+        const outcome = await evaluateHello(parsed as Record<string, unknown>, handshakeIdentity, {
           requireAuth,
         });
         send(socket, outcome.welcome);
@@ -291,6 +296,7 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
             send(socket, { type: responseChannel, __error: (err as Error)?.message ?? String(err) });
           });
       }
+      })();
     });
 
     socket.on('close', () => {

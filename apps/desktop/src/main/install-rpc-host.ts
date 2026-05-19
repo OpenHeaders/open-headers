@@ -37,10 +37,13 @@
  *
  *   - `ipcMain.handle('oh:rpc', payload)` → `dispatchSyncRpc` for the 22
  *     sync+awareness channels (renderer ↔ main).
- *   - `startOracleWsServer` on `127.0.0.1:59210` → same `dispatchSyncRpc`
- *     for connected extension SWs / future daemons / future remote
- *     surfaces. Handshake validates protocol version against
- *     `@openheaders/core/protocol`'s `PROTOCOL_VERSION`.
+ *   - `startDaemonBindSupervisor` on `:8137`, bound to either `127.0.0.1`
+ *     or `0.0.0.0` per the user-controlled `backend.bindAddress` setting
+ *     (U3.1, `UNIFIED_ORACLE_MODEL.md` §4.2) → same `dispatchSyncRpc` for
+ *     connected extension SWs / future daemons / future remote surfaces.
+ *     Handshake validates protocol version against
+ *     `@openheaders/core/protocol`'s `PROTOCOL_VERSION`, and flips into
+ *     auth-required mode whenever the bind isn't loopback.
  *
  * Outbound (oracle → world):
  *
@@ -70,7 +73,8 @@ import { setHostLogger } from '@openheaders/core/logger';
 import { setHostStorage } from '@openheaders/core/storage';
 import { setLockRuntime } from '@openheaders/oracle/coordination';
 import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
-import { type OracleWsServer, startOracleWsServer } from '@openheaders/oracle/host-runtime/ws-server';
+import type { OracleWsServer } from '@openheaders/oracle/host-runtime/ws-server';
+import { type DaemonBindSupervisor, startDaemonBindSupervisor } from './daemon-bind-supervisor';
 import {
   bootstrap as bootstrapWorkspaces,
   getActiveWorkspaceId,
@@ -321,15 +325,19 @@ export async function installRpcHost(): Promise<void> {
     return await result.promise;
   });
 
-  // 6. WS server on 127.0.0.1:59210 — the extension-as-client pipe.
-  //    The browser SW connects here on boot; same `dispatchSyncRpc`
-  //    routes its messages, and oracle broadcasts fan out to every
-  //    connected peer via `broadcastEverywhere`. Failure to bind
-  //    (another instance running, port held by something else) is
-  //    logged but not fatal; the IPC engine keeps serving the
-  //    renderer.
+  // 6. WS server — the extension-as-client pipe. The supervisor owns
+  //    the bind lifecycle so the user-controlled `backend.bindAddress`
+  //    setting can flip between loopback and LAN at runtime without an
+  //    app restart (U3.1, `UNIFIED_ORACLE_MODEL.md` §4.2). The browser
+  //    SW connects here on boot; same `dispatchSyncRpc` routes its
+  //    messages, and oracle broadcasts fan out to every connected peer
+  //    via `broadcastEverywhere`. Failure to bind (another instance
+  //    running, port held by something else) is logged but not fatal;
+  //    the IPC engine keeps serving the renderer, and the supervisor
+  //    retries on the next setting change.
+  let bindSupervisor: DaemonBindSupervisor | null = null;
   try {
-    wsServer = await startOracleWsServer({
+    bindSupervisor = await startDaemonBindSupervisor({
       handshakeIdentity: {
         role: 'desktop',
         // HLC writer identity for the main process. Distinct from any
@@ -339,12 +347,15 @@ export async function installRpcHost(): Promise<void> {
         nodeId: `desktop-${randomUUID()}`,
         agent: `@openheaders/desktop@${app.getVersion()}`,
       },
+      onServerChange: (next) => {
+        wsServer = next;
+        setMutationForwarderWsServer(next);
+      },
     });
-    setMutationForwarderWsServer(wsServer);
   } catch (err) {
     consoleLogger.error(
       'install-rpc-host',
-      'WS server failed to start; continuing without the extension pipe',
+      'WS supervisor failed to start; continuing without the extension pipe',
       err,
     );
   }
@@ -358,7 +369,8 @@ export async function installRpcHost(): Promise<void> {
     setMutationForwarderWsServer(null);
     setActivityLog(null);
     setActivityMuteStore(null);
-    void wsServer?.close();
+    void bindSupervisor?.dispose();
+    bindSupervisor = null;
     wsServer = null;
   });
 }

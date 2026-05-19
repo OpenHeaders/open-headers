@@ -53,3 +53,14 @@ export {
   type AuditSink,
   type ResolvedAuditEntry,
 } from './audit';
+export {
+  listDaemonAuthTokens,
+  mintDaemonAuthToken,
+  revokeDaemonAuthToken,
+  validateDaemonAuthToken,
+  type MintDaemonAuthTokenInput,
+  type MintDaemonAuthTokenResult,
+  type ValidateDaemonAuthTokenResult,
+  type ValidateDaemonAuthTokenSuccess,
+  type ValidateDaemonAuthTokenFailure,
+} from './daemon-auth-tokens';

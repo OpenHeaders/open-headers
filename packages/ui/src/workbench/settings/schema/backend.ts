@@ -28,9 +28,19 @@ import { registerSetting } from '../registry';
 // Lazy import breaks the schema → component → schema cycle (the editor
 // re-imports BackendMode/backendModeIsPending from this file).
 const BackendModeFieldEditor = lazy(() => import('../components/backend-mode-switch'));
+const LanPeersToggleEditor = lazy(() => import('../components/lan-peers-toggle'));
 
 export const BACKEND_MODES = ['in-browser', 'desktop-app', 'local-self-hosted', 'remote-self-hosted'] as const;
 export type BackendMode = (typeof BACKEND_MODES)[number];
+
+/**
+ * Bind address for the desktop daemon's WebSocket server (UNIFIED_ORACLE_MODEL.md §4.2).
+ * `127.0.0.1` keeps the daemon loopback-only (trust-by-process); `0.0.0.0` opens it to
+ * every local interface, at which point the handshake responder flips into auth-required
+ * mode (per ws-server's `LOOPBACK_BINDS` check + `evaluateHello`'s `requireAuth` option).
+ */
+export const BACKEND_BIND_ADDRESSES = ['127.0.0.1', '0.0.0.0'] as const;
+export type BackendBindAddress = (typeof BACKEND_BIND_ADDRESSES)[number];
 
 /** Modes that need a wire — everything except `in-browser`. */
 export function backendModeNeedsConnection(mode: BackendMode): boolean {
@@ -43,12 +53,15 @@ export function backendModeIsPending(mode: BackendMode): boolean {
 }
 
 const modeSchema = v.picklist(BACKEND_MODES);
+const bindAddressSchema = v.picklist(BACKEND_BIND_ADDRESSES);
 const urlSchema = v.pipe(v.string(), v.regex(/^wss?:\/\//i, 'Must start with ws:// or wss://'));
 
 declare module '@openheaders/ui/workbench/settings/types' {
   interface SettingsMap {
     'backend.mode': BackendMode;
+    'backend.bindAddress': BackendBindAddress;
     'backend.url': string;
+    'backend.authToken': string;
     'backend.autoConnect': boolean;
     'backend.reconnectDelayMs': number;
     'backend.maxReconnectDelayMs': number;
@@ -98,15 +111,66 @@ registerSetting({
 });
 
 registerSetting({
+  key: 'backend.bindAddress',
+  type: 'enum',
+  default: '127.0.0.1',
+  schema: bindAddressSchema,
+  label: 'Allow LAN peers',
+  description:
+    'Bind the desktop daemon to every local interface so other devices on your network can connect. Loopback-only by default.',
+  category: 'backend',
+  subcategory: 'lan-peers',
+  tags: ['lan', 'daemon', 'bind', 'peers', 'network', 'host'],
+  scope: 'user',
+  enumOptions: [
+    { value: '127.0.0.1', label: 'Loopback only (127.0.0.1)', description: 'Only this machine can connect. Default.' },
+    { value: '0.0.0.0', label: 'All interfaces (LAN)', description: 'Other devices on the local network can connect. Requires the auth token from U3.2.' },
+  ],
+  // Surface only on the desktop host while previewing/active mode is
+  // `desktop-app` — the only (host, mode) pair where this process IS the
+  // daemon. BackendPane strips `when` from its field list because the
+  // pane renders the previewed-mode's config; the daemon-side toggle is
+  // rendered out of the dedicated "host IS the back-end" branch instead
+  // (see BackendPane's `hostIsTheBackend` arm). The `when` is still
+  // honored by search hits and by SettingRow's own visibility check.
+  when: (get) => getCurrentHost() === 'desktop' && get('backend.mode') === 'desktop-app',
+  // Custom editor surfaces the boolean-shaped affordance (a single
+  // Switch) and the first-flip confirmation dialog. The underlying
+  // value remains the explicit address string so future deliverables
+  // (interface-specific binds, IPv6) extend the enum without remodeling.
+  customEditor: LanPeersToggleEditor,
+});
+
+registerSetting({
   key: 'backend.url',
   type: 'string',
-  default: 'ws://127.0.0.1:59210',
+  default: 'ws://127.0.0.1:8137',
   schema: urlSchema,
   label: 'Backend URL',
   description: 'WebSocket address of the back-end. `ws://` for local hosts, `wss://` for remote.',
   category: 'backend',
   subcategory: 'connection',
   tags: ['url', 'websocket', 'address', 'port', 'host'],
+  scope: 'user',
+  when: (get) => backendModeNeedsConnection(get('backend.mode')),
+});
+
+registerSetting({
+  key: 'backend.authToken',
+  type: 'string',
+  default: '',
+  // Empty string is allowed for loopback peers (trust-by-process); the
+  // daemon's `requireAuth` flip only enforces presence on non-loopback
+  // binds. We don't constrain the format here because tokens may be
+  // pasted from a future device-flow surface (U3.3) whose shape this
+  // client doesn't dictate.
+  schema: v.string(),
+  label: 'Daemon auth token',
+  description:
+    'Long-lived token issued by the daemon when LAN peers are allowed. Paste the value the daemon admin shared with you; the desktop / extension sends it on every HELLO.',
+  category: 'backend',
+  subcategory: 'connection',
+  tags: ['auth', 'token', 'pair', 'daemon', 'secret'],
   scope: 'user',
   when: (get) => backendModeNeedsConnection(get('backend.mode')),
 });

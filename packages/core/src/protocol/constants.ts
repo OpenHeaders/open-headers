@@ -3,7 +3,7 @@
  */
 
 /** WebSocket server port for desktop app ↔ extension/CLI communication */
-export const WS_PORT = 59210;
+export const WS_PORT = 8137;
 
 /** WebSocket server URL */
 export const WS_SERVER_URL = `ws://127.0.0.1:${WS_PORT}`;

@@ -40,7 +40,8 @@ export type CapabilityDenyReason =
   | 'no-workspace-role-assignment'
   | 'insufficient-workspace-role'
   | 'not-daemon-admin'
-  | 'unknown-capability';
+  | 'unknown-capability'
+  | 'auth-required';
 
 /**
  * The view of identity state the resolver consults. The registry produces

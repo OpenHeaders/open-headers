@@ -1,10 +1,10 @@
 /**
  * Phase C handshake dispatcher — `evaluateHello` + `handleStateVector`.
  *
- * Pure unit coverage. `evaluateHello` is synchronous and only touches
- * schema + protocol-band math. `handleStateVector` is async but its
- * responder is stubbed via the `respond` option so the test stays
- * isolated from the per-workspace service registry.
+ * Pure unit coverage. `evaluateHello` is async (it reads the daemon
+ * auth-token ledger under `requireAuth`) but touches no transport.
+ * `handleStateVector`'s responder is stubbed via the `respond` option
+ * so the test stays isolated from the per-workspace service registry.
  */
 import {
   HANDSHAKE_REJECT_REASONS,
@@ -23,9 +23,8 @@ import {
   handleStateVector,
   type LocalHandshakeIdentity,
 } from '@openheaders/oracle/rpc';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { installSyntheticIdentityForTests } from '../sync/_identity-test-setup';
 import { clearIdentitySnapshot } from '@openheaders/core/identity';
 
 const localIdentity: LocalHandshakeIdentity = {
@@ -60,8 +59,8 @@ function makePeer(workspaceId = 'ws-1') {
 }
 
 describe('evaluateHello', () => {
-  it('accepts a well-formed HELLO at the current protocol version', () => {
-    const outcome = evaluateHello(validHello as unknown as Record<string, unknown>, localIdentity);
+  it('accepts a well-formed HELLO at the current protocol version', async () => {
+    const outcome = await evaluateHello(validHello as unknown as Record<string, unknown>, localIdentity);
     expect(outcome.kind).toBe('accept');
     if (outcome.kind !== 'accept') return;
     expect(outcome.welcome.accepted).toBe(true);
@@ -73,8 +72,8 @@ describe('evaluateHello', () => {
     }
   });
 
-  it('rejects HELLO that fails schema validation', () => {
-    const outcome = evaluateHello({ type: SYNC_HELLO_TYPE, protocolVersion: 'oops' }, localIdentity);
+  it('rejects HELLO that fails schema validation', async () => {
+    const outcome = await evaluateHello({ type: SYNC_HELLO_TYPE, protocolVersion: 'oops' }, localIdentity);
     expect(outcome.kind).toBe('reject');
     if (outcome.kind === 'reject') {
       expect(outcome.welcome.accepted).toBe(false);
@@ -82,8 +81,8 @@ describe('evaluateHello', () => {
     }
   });
 
-  it('rejects HELLO with a future protocol version using PROTOCOL_TOO_NEW', () => {
-    const outcome = evaluateHello(
+  it('rejects HELLO with a future protocol version using PROTOCOL_TOO_NEW', async () => {
+    const outcome = await evaluateHello(
       { ...validHello, protocolVersion: PROTOCOL_VERSION + 1 } as unknown as Record<string, unknown>,
       localIdentity,
     );
@@ -93,8 +92,8 @@ describe('evaluateHello', () => {
     }
   });
 
-  it('throws when called with a non-HELLO frame (caller wiring bug)', () => {
-    expect(() => evaluateHello({ type: 'oh.sync.welcome' }, localIdentity)).toThrow();
+  it('throws when called with a non-HELLO frame (caller wiring bug)', async () => {
+    await expect(evaluateHello({ type: 'oh.sync.welcome' }, localIdentity)).rejects.toThrow();
   });
 
   it('publishes the canonical set of handshake message types', () => {
@@ -103,40 +102,73 @@ describe('evaluateHello', () => {
   });
 
   describe('with requireAuth enabled (non-loopback bind)', () => {
-    let teardown: () => void = () => undefined;
-
     afterEach(() => {
-      teardown();
       clearIdentitySnapshot();
     });
 
-    it('rejects with AUTH_REQUIRED when no identity snapshot is installed', () => {
-      clearIdentitySnapshot();
-      const outcome = evaluateHello(
+    it('rejects with AUTH_REQUIRED when the peer presents no token', async () => {
+      const outcome = await evaluateHello(
         validHello as unknown as Record<string, unknown>,
         localIdentity,
-        { requireAuth: true },
+        {
+          requireAuth: true,
+          validate: async () => ({ ok: false, reason: 'no-token' }),
+        },
       );
       expect(outcome.kind).toBe('reject');
       if (outcome.kind === 'reject') {
         expect(outcome.reason).toBe(HANDSHAKE_REJECT_REASONS.AUTH_REQUIRED);
         expect(outcome.welcome.accepted).toBe(false);
+        if (!outcome.welcome.accepted) {
+          expect(outcome.welcome.detail).toBe('no-token');
+        }
       }
     });
 
-    it('accepts when the local LocalAdmin snapshot resolves daemon.admin to ALLOW', async () => {
-      teardown = await installSyntheticIdentityForTests([]);
-      const outcome = evaluateHello(
-        validHello as unknown as Record<string, unknown>,
+    it('rejects with AUTH_REQUIRED when the peer presents an unknown token', async () => {
+      const outcome = await evaluateHello(
+        { ...validHello, authToken: 'oh_garbage' } as unknown as Record<string, unknown>,
         localIdentity,
-        { requireAuth: true },
+        {
+          requireAuth: true,
+          validate: async () => ({ ok: false, reason: 'unknown' }),
+        },
+      );
+      expect(outcome.kind).toBe('reject');
+      if (outcome.kind === 'reject' && !outcome.welcome.accepted) {
+        expect(outcome.welcome.detail).toBe('unknown');
+      }
+    });
+
+    it('rejects with AUTH_REQUIRED when the peer presents a revoked token', async () => {
+      const outcome = await evaluateHello(
+        { ...validHello, authToken: 'oh_revoked' } as unknown as Record<string, unknown>,
+        localIdentity,
+        {
+          requireAuth: true,
+          validate: async () => ({ ok: false, reason: 'revoked' }),
+        },
+      );
+      expect(outcome.kind).toBe('reject');
+      if (outcome.kind === 'reject' && !outcome.welcome.accepted) {
+        expect(outcome.welcome.detail).toBe('revoked');
+      }
+    });
+
+    it('accepts when the peer presents a valid daemon auth token', async () => {
+      const outcome = await evaluateHello(
+        { ...validHello, authToken: 'oh_valid' } as unknown as Record<string, unknown>,
+        localIdentity,
+        {
+          requireAuth: true,
+          validate: async () => ({ ok: true, tokenId: 'token-123', label: 'phone' }),
+        },
       );
       expect(outcome.kind).toBe('accept');
     });
 
-    it('is a no-op when requireAuth is false even without a snapshot', () => {
-      clearIdentitySnapshot();
-      const outcome = evaluateHello(
+    it('is a no-op when requireAuth is false even without a token', async () => {
+      const outcome = await evaluateHello(
         validHello as unknown as Record<string, unknown>,
         localIdentity,
         { requireAuth: false },
