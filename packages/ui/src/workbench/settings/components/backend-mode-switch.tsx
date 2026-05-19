@@ -23,13 +23,14 @@
 import { App as AntApp, Select } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
-import type { ModeSwitchVerdict } from '@openheaders/core/sync';
+import type { DataPresenceSummary, ModeSwitchVerdict } from '@openheaders/core/sync';
+import { summarizeWorkspaces } from '@openheaders/core/sync';
+import { generateUid } from '@openheaders/core/utils';
 import {
   applyModeSwitchVerdict,
   executeCoexist,
   executeDiscard,
   executeImport,
-  queryPeerDataPresenceFromBridge,
   requestModeSwitchVerdict,
   summarizeCoexistFailure,
   summarizeCoexistSuccess,
@@ -38,11 +39,13 @@ import {
   summarizeImportFailure,
   summarizeImportSuccess,
 } from '../../../shared/mode-switch';
+import { probeBackendDataPresence } from '../../../shared/backend/probe-connection';
 import { getCurrentHost, type Host } from '../../../shared/host-vocabulary';
 import ModeSwitchDialog, {
   type ModeSwitchChoice,
   type ModeSwitchChooseOptions,
 } from '../../components/dialogs/ModeSwitchDialog';
+import { get as getSettingValue } from '../store';
 import { useSetting } from '../hooks';
 import FieldRow from '../fields/FieldRow';
 import type { BackendMode } from '../schema/backend';
@@ -64,6 +67,45 @@ const MODE_DESCRIPTORS: readonly ModeDescriptor[] = [
 
 export function labelForMode(mode: BackendMode): string {
   return MODE_DESCRIPTORS.find((d) => d.mode === mode)?.title ?? mode;
+}
+
+/**
+ * Resolve the target back-end's data presence for the mode-switch
+ * orchestrator. The orchestrator asks this so its verdict can compare
+ * source vs. target data BEFORE the live WS opens.
+ *
+ * The right transport for this question is a fresh probe — not the
+ * live SW WS (which might not be open yet — first-time switch from
+ * in-browser into the desktop back-end is exactly that chicken-and-
+ * egg). The probe opens its own WebSocket, sends HELLO, runs the
+ * `oh.sync.getDataPresence` RPC, then closes. No effect on the live
+ * connection lifecycle.
+ *
+ * Returns `null` for cases where the question has no real answer:
+ *   - target mode IS this host (e.g. switching back to in-browser on
+ *     the extension — there's no remote peer to query; the
+ *     orchestrator's chicken-and-egg branch handles it via source
+ *     emptiness).
+ *   - target mode is pending (no daemon to probe yet).
+ *   - probe fails (URL invalid, server not running, handshake reject).
+ */
+async function probePeerPresenceForMode(targetMode: BackendMode): Promise<DataPresenceSummary | null> {
+  // In-browser target means the local SW IS the target — no remote
+  // peer to query. The orchestrator's source-empty fast-path handles
+  // this case; otherwise it falls through to peer-unreachable, which
+  // is correct because there's no separate "peer state" to inspect.
+  if (targetMode === 'in-browser') return null;
+  if (backendModeIsPending(targetMode)) return null;
+  const url = getSettingValue('backend.url');
+  const role = getCurrentHost() === 'desktop' ? 'desktop' : getCurrentHost() === 'web' ? 'web' : 'extension';
+  const result = await probeBackendDataPresence(url, {
+    agent: `${role}-mode-switch-probe`,
+    nodeId: `probe-${generateUid()}`,
+    workspaceId: `probe-${generateUid()}`,
+    role,
+  });
+  if (!result.ok) return null;
+  return summarizeWorkspaces(result.workspaces);
 }
 
 interface DialogState {
@@ -118,7 +160,7 @@ export function useBackendModeSwitch(): BackendModeSwitchHandle {
     if (inFlight) return;
     if (next === mode) return;
     const verdict = await requestModeSwitchVerdict(mode, next, {
-      queryPeerPresence: queryPeerDataPresenceFromBridge,
+      queryPeerPresence: () => probePeerPresenceForMode(next),
     });
     applyModeSwitchVerdict(verdict, {
       commitMode: () => commitMode(next),

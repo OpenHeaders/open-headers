@@ -1,20 +1,25 @@
 /**
- * Probe a back-end's reachability with a one-shot HELLO/WELCOME
- * handshake — no shared state with the live sync WebSocket.
+ * Probe a back-end with a one-shot WebSocket session — no shared state
+ * with the live sync WebSocket.
  *
- * Used by the BackendPane "Test connection" button so users can verify
- * a URL works BEFORE committing to switch back-ends. The probe opens a
- * brand-new WebSocket, sends a single HELLO, awaits WELCOME, then
- * closes. It does not subscribe to syncBroadcast, doesn't queue
- * pending-out, doesn't update the status pill, doesn't touch any
- * mirror — it's a pure reachability + protocol-handshake check.
+ * Two probes share one engine:
  *
- * Why renderer-side and not bridged through the SW: the SW's existing
- * WebSocket is the LIVE one. Adding a "probe" RPC would either share
- * the socket (defeats the no-side-effects requirement) or open a
- * second one (same complexity as just opening here). Browser
- * extensions and the workbench tab can open WS to localhost from the
- * renderer directly.
+ *   - {@link probeBackendConnection} — reachability + protocol
+ *     handshake only. Used by the BackendPane "Test connection"
+ *     button so users can verify a URL works BEFORE committing to
+ *     switch back-ends.
+ *   - {@link probeBackendDataPresence} — same handshake plus one
+ *     follow-up `oh.sync.getDataPresence` RPC. Used by the mode-switch
+ *     orchestrator's `queryPeerPresence` so the destructive-action
+ *     dialog can compare data on both sides BEFORE the live WS opens.
+ *     The orchestrator can't use the live SW WS for this — it might
+ *     not be open yet (first-time switch from in-browser into the
+ *     desktop back-end is exactly that chicken-and-egg).
+ *
+ * Both open a brand-new WebSocket, drive the protocol from scratch,
+ * close cleanly. They never subscribe to syncBroadcast, never queue
+ * pending-out, never update the status pill, never touch any mirror —
+ * pure one-shot diagnostic + query channels.
  *
  * Failure modes are surfaced as discriminated unions so the UI can
  * render specific copy per cause ("protocol mismatch" vs "host
@@ -29,53 +34,136 @@ import {
   SyncWelcomeMessageSchema,
   type HandshakeRejectReason,
   type SyncHelloMessage,
-  type SyncWelcomeMessage,
+  type SyncWelcomeAccept,
 } from '@openheaders/core/protocol';
+import type { WorkspaceContentSnapshot } from '@openheaders/core/sync';
 import * as v from 'valibot';
 
-export type ProbeConnectionResult =
-  | {
-      ok: true;
-      latencyMs: number;
-      protocolVersion: number;
-      role: string;
-      agent: string;
-    }
-  | {
-      ok: false;
-      reason:
-        | 'invalid-url'
-        | 'open-failed'
-        | 'protocol-mismatch'
-        | 'handshake-rejected'
-        | 'malformed-welcome'
-        | 'closed-before-welcome'
-        | 'timeout';
-      /** Human-readable detail; not load-bearing for logic. */
-      detail?: string;
-      /** Populated when the peer returned a structured reject. */
-      rejectReason?: HandshakeRejectReason;
-    };
+export type ProbeFailureReason =
+  | 'invalid-url'
+  | 'open-failed'
+  | 'protocol-mismatch'
+  | 'handshake-rejected'
+  | 'malformed-welcome'
+  | 'malformed-response'
+  | 'closed-before-welcome'
+  | 'closed-before-response'
+  | 'timeout';
 
-export interface ProbeConnectionOptions {
+export interface ProbeFailure {
+  ok: false;
+  reason: ProbeFailureReason;
+  detail?: string;
+  rejectReason?: HandshakeRejectReason;
+}
+
+export type ProbeConnectionResult =
+  | { ok: true; latencyMs: number; protocolVersion: number; role: string; agent: string }
+  | ProbeFailure;
+
+export type ProbeDataPresenceResult =
+  | { ok: true; latencyMs: number; workspaces: WorkspaceContentSnapshot[] }
+  | ProbeFailure;
+
+export interface ProbeOptions {
   /** Free-form software-version string the probe announces. Diagnostics only. */
   agent: string;
   /** Stable per-call nodeId. The probe never enters the local seen-set. */
   nodeId: string;
-  /** Workspace id the probe asks about — peer rejects with `workspace-unknown` if it doesn't have it. */
+  /**
+   * Workspace id the probe announces. For the reachability test ANY
+   * id works (the server doesn't gate handshake on workspace match).
+   * For the data-presence query the server returns ALL its workspaces
+   * regardless of the announced id, so this is purely for diagnostics
+   * on the receiver side.
+   */
   workspaceId: string;
-  /** Hard cap on time from `new WebSocket()` to WELCOME. Default 5_000ms. */
+  /** Hard cap on total probe duration. Default 5_000ms. */
   timeoutMs?: number;
-  /** Role to claim in HELLO. Defaults to `extension`; web bundle / cli set their own. */
+  /** Role to claim in HELLO. Defaults to `extension`. */
   role?: 'extension' | 'desktop' | 'cli' | 'web';
 }
 
 const DEFAULT_TIMEOUT_MS = 5_000;
 
+/** Reachability + protocol handshake only. Used by Test connection. */
 export async function probeBackendConnection(
   url: string,
-  opts: ProbeConnectionOptions,
+  opts: ProbeOptions,
 ): Promise<ProbeConnectionResult> {
+  return runProbe<ProbeConnectionResult>(url, opts, {
+    onAccepted: (welcome, ctx) => ({
+      ok: true,
+      latencyMs: ctx.elapsedMs(),
+      protocolVersion: welcome.protocolVersion,
+      role: welcome.role,
+      agent: welcome.agent,
+    }),
+  });
+}
+
+/**
+ * Handshake + `oh.sync.getDataPresence` RPC. Used by the mode-switch
+ * orchestrator's peer-presence query — the live SW WS is the wrong
+ * transport for this question (it might not be open yet), so we open
+ * a fresh one for the query and close it immediately after.
+ */
+export async function probeBackendDataPresence(
+  url: string,
+  opts: ProbeOptions,
+): Promise<ProbeDataPresenceResult> {
+  return runProbe<ProbeDataPresenceResult>(url, opts, {
+    /**
+     * After WELCOME accept, send the RPC frame and continue listening
+     * for its `:response`. The engine wires the listener for us.
+     */
+    nextSend: () => ({ type: 'oh.sync.getDataPresence' }),
+    expectResponseType: 'oh.sync.getDataPresence:response',
+    onResponse: (payload, ctx) => {
+      const workspaces = (payload as { workspaces?: unknown } | null | undefined)?.workspaces;
+      if (!Array.isArray(workspaces)) {
+        return {
+          ok: false,
+          reason: 'malformed-response' as const,
+          detail: 'Response missing `workspaces` array',
+        };
+      }
+      return {
+        ok: true,
+        latencyMs: ctx.elapsedMs(),
+        workspaces: workspaces as WorkspaceContentSnapshot[],
+      };
+    },
+  });
+}
+
+// ── Internal engine ───────────────────────────────────────────────────
+
+interface ProbeContext {
+  elapsedMs(): number;
+}
+
+interface AcceptOnlyContract<R> {
+  onAccepted: (welcome: SyncWelcomeAccept, ctx: ProbeContext) => R;
+  nextSend?: undefined;
+  expectResponseType?: undefined;
+  onResponse?: undefined;
+}
+
+interface FollowUpContract<R> {
+  onAccepted?: undefined;
+  nextSend: () => Record<string, unknown>;
+  expectResponseType: string;
+  onResponse: (payload: unknown, ctx: ProbeContext) => R | ProbeFailure;
+}
+
+type ProbeContract<R> = AcceptOnlyContract<R> | FollowUpContract<R>;
+
+async function runProbe<R extends { ok: boolean }>(
+  url: string,
+  opts: ProbeOptions,
+  contract: ProbeContract<R>,
+): Promise<R | ProbeFailure> {
   if (!isValidWsUrl(url)) {
     return { ok: false, reason: 'invalid-url', detail: `Expected ws:// or wss:// URL, got: ${url}` };
   }
@@ -94,11 +182,13 @@ export async function probeBackendConnection(
     };
   }
 
-  return new Promise<ProbeConnectionResult>((resolve) => {
+  return new Promise<R | ProbeFailure>((resolve) => {
     const startedAt = performance.now();
+    const ctx: ProbeContext = { elapsedMs: () => Math.round(performance.now() - startedAt) };
     let settled = false;
+    let phase: 'awaiting-welcome' | 'awaiting-response' = 'awaiting-welcome';
 
-    const settle = (result: ProbeConnectionResult): void => {
+    const settle = (result: R | ProbeFailure): void => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
@@ -111,7 +201,11 @@ export async function probeBackendConnection(
     };
 
     const timer = setTimeout(() => {
-      settle({ ok: false, reason: 'timeout', detail: `No WELCOME within ${timeoutMs}ms` });
+      const detail =
+        phase === 'awaiting-welcome'
+          ? `No WELCOME within ${timeoutMs}ms`
+          : `No ${contract.expectResponseType ?? 'response'} within ${timeoutMs}ms`;
+      settle({ ok: false, reason: 'timeout', detail });
     }, timeoutMs);
 
     socket.addEventListener('open', () => {
@@ -140,39 +234,57 @@ export async function probeBackendConnection(
       try {
         parsed = JSON.parse(typeof event.data === 'string' ? event.data : '');
       } catch {
-        // Ignore unparseable frames — peer might send a ping before
-        // WELCOME on some transports; we wait for the real reply.
+        // Pre-handshake pings or other noise — wait for the real frame.
         return;
       }
       if (!parsed || typeof parsed !== 'object') return;
-      if ((parsed as { type?: unknown }).type !== SYNC_WELCOME_TYPE) return;
+      const type = (parsed as { type?: unknown }).type;
 
-      const validated = v.safeParse(SyncWelcomeMessageSchema, parsed);
-      if (!validated.success) {
-        settle({
-          ok: false,
-          reason: 'malformed-welcome',
-          detail: validated.issues.map((i) => i.message).join('; '),
-        });
+      if (phase === 'awaiting-welcome') {
+        if (type !== SYNC_WELCOME_TYPE) return;
+        const validated = v.safeParse(SyncWelcomeMessageSchema, parsed);
+        if (!validated.success) {
+          settle({
+            ok: false,
+            reason: 'malformed-welcome',
+            detail: validated.issues.map((i) => i.message).join('; '),
+          });
+          return;
+        }
+        const welcome = validated.output;
+        if (!welcome.accepted) {
+          settle({
+            ok: false,
+            reason: 'handshake-rejected',
+            rejectReason: welcome.reason,
+            detail: welcome.detail,
+          });
+          return;
+        }
+        if (contract.onAccepted) {
+          settle(contract.onAccepted(welcome, ctx));
+          return;
+        }
+        // Follow-up RPC: send and transition.
+        phase = 'awaiting-response';
+        try {
+          socket.send(JSON.stringify(contract.nextSend()));
+        } catch (err) {
+          settle({
+            ok: false,
+            reason: 'open-failed',
+            detail: err instanceof Error ? err.message : String(err),
+          });
+        }
         return;
       }
-      const welcome = validated.output as SyncWelcomeMessage;
-      if (!welcome.accepted) {
-        settle({
-          ok: false,
-          reason: 'handshake-rejected',
-          rejectReason: welcome.reason,
-          detail: welcome.detail,
-        });
-        return;
-      }
-      settle({
-        ok: true,
-        latencyMs: Math.round(performance.now() - startedAt),
-        protocolVersion: welcome.protocolVersion,
-        role: welcome.role,
-        agent: welcome.agent,
-      });
+
+      // Awaiting RPC :response. Only `contract` of follow-up shape
+      // lands here — guard above ensures `onResponse` is present.
+      if (!contract.onResponse || !contract.expectResponseType) return;
+      if (type !== contract.expectResponseType) return;
+      const payload = (parsed as { payload?: unknown }).payload;
+      settle(contract.onResponse(payload, ctx));
     });
 
     socket.addEventListener('error', () => {
@@ -186,11 +298,11 @@ export async function probeBackendConnection(
 
     socket.addEventListener('close', (event) => {
       if (settled) return;
-      // Closed before WELCOME — typical for "nothing listening on this
-      // port" (browsers fire `error` then `close` synchronously).
+      const reason: ProbeFailureReason =
+        phase === 'awaiting-welcome' ? 'closed-before-welcome' : 'closed-before-response';
       settle({
         ok: false,
-        reason: 'closed-before-welcome',
+        reason,
         detail: event.reason || `WebSocket closed with code ${event.code}`,
       });
     });
