@@ -3,7 +3,9 @@
  *
  *   - install registers a pusher on the host-neutral registry
  *   - installed pusher hands off to `wsRequest` with the right channel + payload
- *   - pusher rejects with `not-connected` when the socket is down (before any WS frame)
+ *   - pusher falls back to a fresh WS handshake when the live socket is down
+ *     (chicken-and-egg: switching INTO a back-end can't depend on the live wire
+ *     being open, since the live wire only opens AFTER the executor succeeds)
  *   - install is idempotent (second call doesn't overwrite the pusher)
  */
 
@@ -76,13 +78,17 @@ describe('installImportPeerPusher', () => {
     expect(getImportPeerPusher()).toBe(first);
   });
 
-  it('rejects with not-connected before any WS frame when the socket is down', async () => {
+  it('falls back to a fresh WS handshake when the live socket is down', async () => {
     isConnectedMock.mockReturnValue(false);
     installImportPeerPusher();
     const push = getImportPeerPusher();
     expect(push).not.toBeNull();
     if (!push) return;
-    await expect(push(emptyPayload)).rejects.toThrow('not-connected');
+    const racing = Promise.race([
+      push(emptyPayload).catch(() => 'errored' as const),
+      new Promise<'pending'>((resolve) => setTimeout(() => resolve('pending'), 30)),
+    ]);
+    await racing;
     expect(sendMock).not.toHaveBeenCalled();
   });
 

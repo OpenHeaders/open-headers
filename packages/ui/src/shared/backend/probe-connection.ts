@@ -137,6 +137,39 @@ export async function probeBackendDataPresence(
   });
 }
 
+/**
+ * Run an arbitrary HELLO-gated RPC over a fresh WebSocket. Generic
+ * cousin of {@link probeBackendDataPresence} — used by mode-switch
+ * EXECUTORS (Coexist push, Import push) that also need to talk to the
+ * peer without depending on the live SW socket. The same chicken-and-
+ * egg applies: switching INTO a back-end can't rely on the live WS
+ * because the live WS won't be open until the mode flips, which won't
+ * happen until the executor succeeds.
+ *
+ * Caller supplies a typed contract (request frame + expected response
+ * type + payload parser) and a long-enough timeout for the heavy
+ * workspace-pushing payloads. Failures fold uniformly into
+ * {@link ProbeFailure} so callers can decide whether to fallback or
+ * surface to the user.
+ */
+export async function runBackendRpc<T>(
+  url: string,
+  opts: ProbeOptions,
+  request: Record<string, unknown>,
+  expectResponseType: string,
+  parseResponse: (payload: unknown) => { ok: true; value: T } | { ok: false; reason: 'malformed-response'; detail?: string },
+): Promise<{ ok: true; value: T } | ProbeFailure> {
+  return runProbe<{ ok: true; value: T } | ProbeFailure>(url, opts, {
+    nextSend: () => request,
+    expectResponseType,
+    onResponse: (payload) => {
+      const parsed = parseResponse(payload);
+      if (parsed.ok) return { ok: true, value: parsed.value };
+      return { ok: false, reason: parsed.reason, detail: parsed.detail };
+    },
+  });
+}
+
 // ── Internal engine ───────────────────────────────────────────────────
 
 interface ProbeContext {

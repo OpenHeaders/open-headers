@@ -23,7 +23,10 @@
  */
 
 import type { CoexistPayload, CoexistResult } from '@openheaders/core/sync';
+import { generateUid } from '@openheaders/core/utils';
 import { setCoexistPeerPusher } from '@openheaders/oracle/sync';
+import { runBackendRpc } from '@openheaders/ui/shared/backend';
+import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
 import { wsRequest } from './ws-request';
 import { isWebSocketConnected } from './websocket';
 
@@ -37,16 +40,43 @@ import { isWebSocketConnected } from './websocket';
 const COEXIST_PUSH_TIMEOUT_MS = 30_000;
 
 const swCoexistPusher = async (payload: CoexistPayload): Promise<CoexistResult> => {
-  // Fast-fail if the wire is down — the wsRequest helper does this too,
-  // but skipping the request avoids enqueueing a slot that the timeout
-  // would have to drain.
-  if (!isWebSocketConnected()) {
-    throw new Error('not-connected');
+  if (isWebSocketConnected()) {
+    // Live wire is up — reuse it. Spares an extra TCP/handshake roundtrip
+    // for the steady-state case (user already on a connected backend
+    // switching to coexist with another).
+    return wsRequest<CoexistResult>(
+      { type: 'oh.sync.applyCoexistImport', workspaces: payload.workspaces },
+      { timeoutMs: COEXIST_PUSH_TIMEOUT_MS },
+    );
   }
-  return wsRequest<CoexistResult>(
+  // Live wire isn't up — typically because we're SWITCHING INTO this
+  // backend from a mode that doesn't keep a WS open (in-browser).
+  // Open a fresh, side-effect-free WS just for this push: HELLO →
+  // applyCoexistImport → :response → close. Same engine the Test
+  // Connection button and the orchestrator's peer-presence query use.
+  const url = getSetting('backend.url');
+  const result = await runBackendRpc<CoexistResult>(
+    url,
+    {
+      agent: 'extension-coexist-push',
+      nodeId: `coexist-${generateUid()}`,
+      workspaceId: `coexist-${generateUid()}`,
+      role: 'extension',
+      timeoutMs: COEXIST_PUSH_TIMEOUT_MS,
+    },
     { type: 'oh.sync.applyCoexistImport', workspaces: payload.workspaces },
-    { timeoutMs: COEXIST_PUSH_TIMEOUT_MS },
+    'oh.sync.applyCoexistImport:response',
+    (responsePayload: unknown) => {
+      if (!responsePayload || typeof responsePayload !== 'object') {
+        return { ok: false, reason: 'malformed-response', detail: 'Empty response payload' };
+      }
+      return { ok: true, value: responsePayload as CoexistResult };
+    },
   );
+  if (result.ok) return result.value;
+  // Surface the probe failure as a wsRequest-shape throw so the
+  // orchestrator's existing catch folds it into `peer-write-unavailable`.
+  throw new Error(`coexist-push-failed: ${result.reason}${result.detail ? ` — ${result.detail}` : ''}`);
 };
 
 let installed = false;

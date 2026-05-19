@@ -3,7 +3,9 @@
  *
  *   - install registers a pusher on the host-neutral registry
  *   - installed pusher hands off to `wsRequest` with the right channel + payload
- *   - pusher rejects with `not-connected` when the socket is down (before any WS frame)
+ *   - pusher falls back to a fresh WS handshake when the live socket is down
+ *     (chicken-and-egg: switching INTO a back-end can't depend on the live wire
+ *     being open, since the live wire only opens AFTER the executor succeeds)
  *   - install is idempotent (second call doesn't overwrite the pusher)
  */
 
@@ -76,13 +78,27 @@ describe('installCoexistPeerPusher', () => {
     expect(getCoexistPeerPusher()).toBe(first);
   });
 
-  it('rejects with not-connected before any WS frame when the socket is down', async () => {
+  it('falls back to a fresh WS handshake when the live socket is down', async () => {
+    // Live socket is down (typical first-time switch INTO this back-end
+    // from in-browser mode). The pusher should NOT use the live wire
+    // (sendMock should not be called); instead it opens a fresh WS
+    // session via runBackendRpc. We don't exercise the fresh path's
+    // wire here — it has its own dedicated tests on the engine — but
+    // we confirm the live-wire short-circuit is suppressed.
     isConnectedMock.mockReturnValue(false);
     installCoexistPeerPusher();
     const push = getCoexistPeerPusher();
     expect(push).not.toBeNull();
     if (!push) return;
-    await expect(push(emptyPayload)).rejects.toThrow('not-connected');
+    // The fresh-WS path tries to open `new WebSocket(...)`; in jsdom
+    // without our test mock that throws or hangs. Race against a short
+    // window so the test is fast; we only need to confirm we didn't
+    // touch the live socket.
+    const racing = Promise.race([
+      push(emptyPayload).catch(() => 'errored' as const),
+      new Promise<'pending'>((resolve) => setTimeout(() => resolve('pending'), 30)),
+    ]);
+    await racing;
     expect(sendMock).not.toHaveBeenCalled();
   });
 

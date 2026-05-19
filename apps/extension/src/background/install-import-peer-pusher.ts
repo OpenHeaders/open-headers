@@ -22,7 +22,10 @@
  */
 
 import type { ImportPayload, ImportResult } from '@openheaders/core/sync';
+import { generateUid } from '@openheaders/core/utils';
 import { setImportPeerPusher } from '@openheaders/oracle/sync';
+import { runBackendRpc } from '@openheaders/ui/shared/backend';
+import { get as getSetting } from '@openheaders/ui/workbench/settings/store';
 import { wsRequest } from './ws-request';
 import { isWebSocketConnected } from './websocket';
 
@@ -34,13 +37,37 @@ import { isWebSocketConnected } from './websocket';
 const IMPORT_PUSH_TIMEOUT_MS = 30_000;
 
 const swImportPusher = async (payload: ImportPayload): Promise<ImportResult> => {
-  if (!isWebSocketConnected()) {
-    throw new Error('not-connected');
+  if (isWebSocketConnected()) {
+    return wsRequest<ImportResult>(
+      { type: 'oh.sync.applyImport', workspaces: payload.workspaces },
+      { timeoutMs: IMPORT_PUSH_TIMEOUT_MS },
+    );
   }
-  return wsRequest<ImportResult>(
+  // Fresh-WS fallback — same rationale as the Coexist pusher (see
+  // `install-coexist-peer-pusher.ts`): switching INTO a back-end can't
+  // wait for the live WS to open because the live WS only opens AFTER
+  // the executor succeeds.
+  const url = getSetting('backend.url');
+  const result = await runBackendRpc<ImportResult>(
+    url,
+    {
+      agent: 'extension-import-push',
+      nodeId: `import-${generateUid()}`,
+      workspaceId: `import-${generateUid()}`,
+      role: 'extension',
+      timeoutMs: IMPORT_PUSH_TIMEOUT_MS,
+    },
     { type: 'oh.sync.applyImport', workspaces: payload.workspaces },
-    { timeoutMs: IMPORT_PUSH_TIMEOUT_MS },
+    'oh.sync.applyImport:response',
+    (responsePayload: unknown) => {
+      if (!responsePayload || typeof responsePayload !== 'object') {
+        return { ok: false, reason: 'malformed-response', detail: 'Empty response payload' };
+      }
+      return { ok: true, value: responsePayload as ImportResult };
+    },
   );
+  if (result.ok) return result.value;
+  throw new Error(`import-push-failed: ${result.reason}${result.detail ? ` — ${result.detail}` : ''}`);
 };
 
 let installed = false;
