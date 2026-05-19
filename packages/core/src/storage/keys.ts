@@ -34,6 +34,7 @@ import type {
   Template,
   Vault,
   ViewMode,
+  WorkspaceRoleAssignment,
   WorkspaceVariables,
 } from '../types';
 import type { PauseMarker } from '../utils';
@@ -180,6 +181,14 @@ export const OH = {
    * writer; deterministic in `OH.daemonConfig.hostInstallId`.
    */
   syntheticIdentity: storageKey<SyntheticIdentityRecord>('oh.syntheticIdentity'),
+  /**
+   * Per-workspace `WorkspaceRoleAssignment` rows minted on every
+   * workspace creation (UNIFIED_ORACLE_MODEL.md §5.2 row 'WRA' / U1.8).
+   * One owner-role row per (synthetic-principal, workspaceId); the list
+   * is reconciled against the live workspace set by
+   * `ensureWorkspaceRoleAssignments` (in `../identity`).
+   */
+  workspaceRoleAssignments: storageKey<WorkspaceRoleAssignment[]>('oh.workspaceRoleAssignments'),
 } as const;
 
 /**

@@ -54,7 +54,7 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import { setHostBridge } from '@openheaders/core/bridge';
 import { SYNC_AWARENESS_PRESENCE_TYPE } from '@openheaders/core/protocol';
 import type { AwarenessState } from '@openheaders/core/protocol';
-import { ensureSyntheticIdentity } from '@openheaders/core/identity';
+import { ensureSyntheticIdentity, ensureWorkspaceRoleAssignments } from '@openheaders/core/identity';
 import { logger as consoleLogger } from '@openheaders/core/utils';
 import { setHostLogger } from '@openheaders/core/logger';
 import { setHostStorage } from '@openheaders/core/storage';
@@ -65,6 +65,7 @@ import {
   bootstrap as bootstrapWorkspaces,
   getActiveWorkspaceId,
   listWorkspaces,
+  onWorkspaceStoreChange,
   peekActiveWorkspaceId,
 } from '@openheaders/oracle/workspace/extension-workspace-store';
 import { hydrateActiveWorkspaceStores } from '@openheaders/oracle/workspace/workspace-coordinator';
@@ -255,6 +256,19 @@ export async function installRpcHost(): Promise<void> {
   // 4. Boot sequence — workspace bootstrap, hydrate active workspace,
   //    init sync engine + bridges + coord runner + lifeline.
   await bootstrapWorkspaces();
+  // U1.8 — every workspace owns an owner-role WRA for the synthetic
+  // principal. Reconcile once after `bootstrapWorkspaces` resolves
+  // the list; the subscription below covers creates / deletes during
+  // the process lifetime. Errors are logged but non-fatal — the next
+  // mutation re-fires the reconcile.
+  await ensureWorkspaceRoleAssignments(listWorkspaces().map((ws) => ws.id)).catch((err: unknown) => {
+    consoleLogger.warn('install-rpc-host', 'ensureWorkspaceRoleAssignments failed', err);
+  });
+  onWorkspaceStoreChange(() => {
+    void ensureWorkspaceRoleAssignments(listWorkspaces().map((ws) => ws.id)).catch((err: unknown) => {
+      consoleLogger.warn('install-rpc-host', 'ensureWorkspaceRoleAssignments reconcile failed', err);
+    });
+  });
   await hydrateActiveWorkspaceStores();
   await bootSyncEngine();
 

@@ -27,4 +27,5 @@ export {
   ensureSyntheticIdentity,
   type EnsureSyntheticIdentityInput,
 } from './ensure-synthetic-identity';
+export { ensureWorkspaceRoleAssignments } from './ensure-workspace-role-assignments';
 export { mintHostInstallId } from './host-install-id';

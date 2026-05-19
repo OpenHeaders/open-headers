@@ -13,7 +13,7 @@ import '@/host/install-host-storage';
 import '@/host/install-host-bridge';
 import '@/host/install-host-logger';
 import '@/host/install-lifeline-server';
-import { ensureSyntheticIdentity } from '@openheaders/core/identity';
+import { ensureSyntheticIdentity, ensureWorkspaceRoleAssignments } from '@openheaders/core/identity';
 import type { Rule, TreeNode } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
 import { isRuleEffective } from '@openheaders/core/utils';
@@ -519,6 +519,14 @@ async function initializeExtension(): Promise<void> {
   await ensureSyntheticIdentity().catch((err: unknown) => {
     logger.warn('Background', 'ensureSyntheticIdentity failed', err);
   });
+  // U1.8 — every workspace owns an owner-role WRA for the synthetic
+  // principal. `bootstrapWorkspaces` already resolved (it chains
+  // ahead of `settingsReady`) so the workspace list is hydrated;
+  // reconcile once here, then again on every workspace-store change
+  // below to cover creates / deletes during the SW lifetime.
+  await ensureWorkspaceRoleAssignments(listWorkspaces().map((w) => w.id)).catch((err: unknown) => {
+    logger.warn('Background', 'ensureWorkspaceRoleAssignments failed', err);
+  });
 
   // Pull the observability ring back into memory before subsystems
   // record their first post-wake events — a dropped startup window
@@ -601,6 +609,13 @@ async function initializeExtension(): Promise<void> {
     broadcast('workspaceChanged', {
       workspaces: listWorkspaces(),
       activeWorkspaceId: getActiveWorkspaceId(),
+    });
+    // U1.8 — keep the WRA list in lockstep with the live workspace
+    // set. New workspaces get an owner-role WRA; deleted workspaces'
+    // WRAs are pruned. Fire-and-forget — the next reconcile retries
+    // on the next mutation if this one rejects.
+    void ensureWorkspaceRoleAssignments(listWorkspaces().map((w) => w.id)).catch((err: unknown) => {
+      logger.warn('Background', 'ensureWorkspaceRoleAssignments reconcile failed', err);
     });
   });
 

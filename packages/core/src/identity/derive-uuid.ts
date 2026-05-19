@@ -63,4 +63,13 @@ export const SYNTHETIC_SEEDS = {
   membership: (hostInstallId: string): string => `local-membership@${hostInstallId}`,
   principal: (hostInstallId: string): string => `local-principal@${hostInstallId}`,
   daemonAdmin: (hostInstallId: string): string => `local-daemon-admin@${hostInstallId}`,
+  /**
+   * `WorkspaceRoleAssignment` row id. Seeded by `(hostInstallId,
+   * workspaceId)` so re-running U1.8 reconciliation against the same
+   * workspace list reproduces the same WRA ids — orphan-data adoption
+   * after a wipe-with-surviving-host-install-id (§11 OQ1) reconnects
+   * automatically.
+   */
+  workspaceRoleAssignment: (hostInstallId: string, workspaceId: string): string =>
+    `local-wra@${hostInstallId}:${workspaceId}`,
 } as const;

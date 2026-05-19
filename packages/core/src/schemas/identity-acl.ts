@@ -52,15 +52,17 @@ export const PrincipalSchema = v.object({
 });
 
 /**
- * `WorkspaceRoleAssignment` — per-workspace grant. `workspaceUid` keys to
- * the workspace manifest's 8-char uid (Phase 0 invariant #1); the WRA is
- * minted on every workspace creation (U1.8) with `role='owner'` for the
- * synthetic principal.
+ * `WorkspaceRoleAssignment` — per-workspace grant. `workspaceId` keys to
+ * the canonical workspace id (UUIDv7 per
+ * `packages/core/src/utils/workspace-id.ts` — the value that travels on
+ * the wire in `oh.sync.hello`, not the 8-char manifest uid). Minted on
+ * every workspace creation (U1.8) with `role='owner'` for the synthetic
+ * principal.
  */
 export const WorkspaceRoleAssignmentSchema = v.object({
   id: UuidV7Schema,
   principalId: UuidV7Schema,
-  workspaceUid: v.pipe(v.string(), v.regex(/^[a-z0-9]{8}$/)),
+  workspaceId: UuidV7Schema,
   role: WorkspaceRoleSchema,
 });
 
