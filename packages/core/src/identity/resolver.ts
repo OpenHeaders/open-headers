@@ -104,3 +104,26 @@ export function hasCapability(
 
   return { allow: false, reason: 'unknown-capability' };
 }
+
+/**
+ * The set of org ids this host is authorized to read envelopes for at
+ * the transport boundary (UNIFIED_ORACLE_MODEL.md §6.1, §8.2, §10.2 —
+ * "one sync filter"). State-vector reader, delta-stream reader, and
+ * snapshot builder all enforce `envelope.orgId ∈ authorizedOrgIds(...)`
+ * before yielding.
+ *
+ * V5 ships with a single home Org per identity. Multi-org membership
+ * (real team Orgs alongside the home-org) layers on later by extending
+ * this helper to fold `snapshot.membership` and any future team-Org
+ * memberships into the set — the call sites never need to change.
+ *
+ * Pre-bootstrap / null snapshot → empty set → deny-all. Matches the
+ * resolver's `no-current-user` branch; envelopes minted before identity
+ * hydration carry the {@link PRE_BOOTSTRAP_ORG_ID} sentinel from
+ * `@openheaders/core/sync` and are filtered out by the empty set
+ * without a special case.
+ */
+export function authorizedOrgIds(snapshot: IdentitySnapshot | null): ReadonlySet<string> {
+  if (!snapshot) return new Set();
+  return new Set([snapshot.user.homeOrgId]);
+}

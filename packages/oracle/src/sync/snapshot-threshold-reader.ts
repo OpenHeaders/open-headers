@@ -13,8 +13,10 @@
  * default — the count threshold is sufficient for v1 and the
  * stringify cost is non-trivial on cold-start large workspaces.
  */
+import { authorizedOrgIds, getIdentitySnapshot } from '@openheaders/core/identity';
 import {
   filterEnvelopesAgainstPeerAsync,
+  filterEnvelopesByOrgAsync,
   type SnapshotThresholdInputs,
   type StateVector,
 } from '@openheaders/core/sync';
@@ -31,9 +33,13 @@ export async function computeSnapshotThresholdInputsFromLog(
   peerVector: StateVector,
   options: ComputeSnapshotThresholdInputsOptions = {},
 ): Promise<SnapshotThresholdInputs> {
+  const authorized = authorizedOrgIds(getIdentitySnapshot());
   let count = 0;
   let bytes = 0;
-  for await (const env of filterEnvelopesAgainstPeerAsync(log.readSince(null), peerVector)) {
+  for await (const env of filterEnvelopesAgainstPeerAsync(
+    filterEnvelopesByOrgAsync(log.readSince(null), authorized),
+    peerVector,
+  )) {
     count++;
     if (options.withByteEstimate) bytes += JSON.stringify(env).length;
   }

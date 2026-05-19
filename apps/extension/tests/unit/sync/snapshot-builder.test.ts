@@ -25,6 +25,7 @@ import {
 } from '@openheaders/oracle/sync/service';
 import { buildSnapshotForWorkspace } from '@openheaders/oracle/sync';
 import { seedRule } from '@openheaders/core/sync-builders/rule-projection';
+import { clearTestIdentitySnapshot, installTestIdentitySnapshot } from '../../helpers/identity-snapshot';
 
 const wsId = 'ws-snap';
 
@@ -52,15 +53,18 @@ const makeRule = (uid: string, name: string): Rule =>
 
 beforeEach(() => {
   __initSyncServiceForTests(wsId);
+  installTestIdentitySnapshot();
 });
 
 afterEach(() => {
   disposeSyncService();
+  clearTestIdentitySnapshot();
 });
 
 describe('buildSnapshotForWorkspace', () => {
   it('emits a well-formed empty snapshot for a fresh workspace', async () => {
     const snap = await buildSnapshotForWorkspace(wsId);
+    if (snap === null) throw new Error('expected snapshot for authorized workspace');
 
     expect(snap.schemaVersion).toBe(SNAPSHOT_SCHEMA_VERSION);
     expect(snap.workspaceId).toBe(wsId);
@@ -80,6 +84,7 @@ describe('buildSnapshotForWorkspace', () => {
     await applySyncRequest({ type: 'oh.sync.apply', batch: r2, sideEffects: [] });
 
     const snap = await buildSnapshotForWorkspace(wsId);
+    if (snap === null) throw new Error('expected snapshot for authorized workspace');
 
     expect(snap.rules.map((r) => r.rule.name).sort()).toEqual(['one', 'two']);
     expect(snap.takenAtHlc.sw?.physicalMs).toBe(2_500);
@@ -91,6 +96,7 @@ describe('buildSnapshotForWorkspace', () => {
 
   it('all sensitive arrays present (transport-layer strips, not producer)', async () => {
     const snap = await buildSnapshotForWorkspace(wsId);
+    if (snap === null) throw new Error('expected snapshot for authorized workspace');
     for (const key of SENSITIVE_SNAPSHOT_KEYS) {
       expect(snap[key]).toBeDefined();
     }

@@ -43,6 +43,7 @@ import {
 } from '@openheaders/oracle/sync/service';
 import fc from 'fast-check';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { clearTestIdentitySnapshot, installTestIdentitySnapshot } from '../../helpers/identity-snapshot';
 import { stressNumRuns } from './property-stress';
 
 const wsId = 'ws-prop';
@@ -122,10 +123,12 @@ function dominatesAll(after: StateVector, peer: StateVector): boolean {
 
 beforeEach(() => {
   __initSyncServiceForTests(wsId);
+  installTestIdentitySnapshot();
 });
 
 afterEach(() => {
   disposeSyncService();
+  clearTestIdentitySnapshot();
 });
 
 describe('respondToStateVector — property: frame accounting + ordering', () => {

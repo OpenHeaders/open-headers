@@ -1,4 +1,5 @@
 export { newBatchId, newMutationId } from './ids';
+export { filterEnvelopesByOrg, filterEnvelopesByOrgAsync } from './org-filter';
 export {
   invalidateAllWorkspaceOrgCache,
   invalidateWorkspaceOrgCache,

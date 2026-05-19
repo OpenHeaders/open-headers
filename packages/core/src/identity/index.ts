@@ -30,6 +30,7 @@ export {
 export { ensureWorkspaceRoleAssignments } from './ensure-workspace-role-assignments';
 export { mintHostInstallId } from './host-install-id';
 export {
+  authorizedOrgIds,
   hasCapability,
   type Capability,
   type CapabilityContext,

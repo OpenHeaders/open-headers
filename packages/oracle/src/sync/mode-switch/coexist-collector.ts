@@ -31,8 +31,11 @@ export interface CollectCoexistPayloadInput {
    * worth shipping. Async because the production builder may need to
    * await per-workspace service hydration. Rejections bubble — the
    * caller treats them as fatal so we never partially-export a host.
+   * Returns `null` when the workspace is outside the host's authorized
+   * Org set (UNIFIED_ORACLE_MODEL.md §6.1) — those workspaces are
+   * silently dropped from the payload, same as singleton-only ones.
    */
-  readonly buildSnapshot: (workspaceId: string) => Promise<CoexistSourceWorkspace['snapshot']>;
+  readonly buildSnapshot: (workspaceId: string) => Promise<CoexistSourceWorkspace['snapshot'] | null>;
 }
 
 /**
@@ -62,6 +65,7 @@ export async function collectCoexistPayload(
     if (!oracle) continue;
     if (!hasUserContent(oracle)) continue;
     const snapshot = await input.buildSnapshot(ws.id);
+    if (snapshot === null) continue;
     workspaces.push({
       sourceWorkspaceId: ws.id,
       sourceWorkspaceName: ws.name,

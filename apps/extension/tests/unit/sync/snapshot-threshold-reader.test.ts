@@ -20,6 +20,7 @@ import {
   readWorkspaceStateVector,
 } from '@openheaders/oracle/sync';
 import { seedRule } from '@openheaders/core/sync-builders/rule-projection';
+import { clearTestIdentitySnapshot, installTestIdentitySnapshot } from '../../helpers/identity-snapshot';
 
 const wsId = 'ws-thresh';
 
@@ -47,10 +48,12 @@ const makeRule = (uid: string): Rule =>
 
 beforeEach(() => {
   __initSyncServiceForTests(wsId);
+  installTestIdentitySnapshot();
 });
 
 afterEach(() => {
   disposeSyncService();
+  clearTestIdentitySnapshot();
 });
 
 describe('computeSnapshotThresholdInputsForWorkspace', () => {

@@ -12,13 +12,20 @@
  *   in `finally`. Same shape on extension SW and desktop main, so the
  *   eventual handshake handler is host-agnostic.
  *
- * Composed from two pieces:
+ * Composed from three pieces:
  *
  * - {@link MutationLog.readSince} — streams every envelope ever
  *   applied (the log is append-only; compaction drops only the
  *   pre-watermark tail and snapshot bootstrap covers the rest).
- * - {@link foldStateVector} in core/sync — pure fold; same function
- *   reused across hosts and tests.
+ * - {@link filterEnvelopesByOrgAsync} — transport-boundary org filter
+ *   (UNIFIED_ORACLE_MODEL.md §6.1, §8.2). Envelopes whose `orgId` is
+ *   not in the host's authorized Org set are skipped. With the
+ *   denormalized `(workspaceId, orgId)` index this is the cheap
+ *   "WHERE org_id IN (authorized set)" predicate the doc calls for;
+ *   we apply it here instead of in the storage backend so the rule
+ *   lives in one place (core, host-neutral) for both IDB and SQLite.
+ * - {@link foldStateVector} in core/sync — pure fold over the
+ *   filtered stream.
  *
  * The fold is O(N) in mutation count but I/O-bound by the IDB cursor
  * (or SQLite cursor on the desktop side). Handshake is rare (connect +
@@ -27,15 +34,23 @@
  * later shows cold-start latency, the natural optimization is a
  * maintained `Record<nodeId, HLC>` updated on every `append` via
  * {@link advanceStateVector}, not a heavier read path.
+ *
+ * Pre-bootstrap / null identity snapshot → empty authorized set →
+ * empty state vector. Matches §6.5.3 step 4 ("new team peers see
+ * snapshot-bootstrap, not history-replay").
  */
-import { foldStateVector, type StateVector } from '@openheaders/core/sync';
+import { authorizedOrgIds, getIdentitySnapshot } from '@openheaders/core/identity';
+import { filterEnvelopesByOrgAsync, foldStateVector, type StateVector } from '@openheaders/core/sync';
 
 import type { MutationLog } from './mutation-log';
 import { getOrCreateWorkspaceService, releaseWorkspaceService } from './service';
 
 export async function computeStateVectorFromLog(log: MutationLog): Promise<StateVector> {
+  const authorized = authorizedOrgIds(getIdentitySnapshot());
   const envelopes = [];
-  for await (const env of log.readSince(null)) envelopes.push(env);
+  for await (const env of filterEnvelopesByOrgAsync(log.readSince(null), authorized)) {
+    envelopes.push(env);
+  }
   return foldStateVector(envelopes);
 }
 

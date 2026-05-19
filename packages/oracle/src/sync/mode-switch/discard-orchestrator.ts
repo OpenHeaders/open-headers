@@ -38,8 +38,13 @@ import type { WorkspaceSnapshot } from '@openheaders/core/protocol';
 export interface OrchestrateDiscardDeps {
   /** Resident workspaces on this host. Order is preserved into the archive + delete loop. */
   readonly workspaces: ReadonlyArray<{ id: string; name: string }>;
-  /** Produces a full {@link WorkspaceSnapshot} for a workspace. Rejections → `backup-failed`. */
-  readonly buildSnapshot: (workspaceId: string) => Promise<WorkspaceSnapshot>;
+  /**
+   * Produces a full {@link WorkspaceSnapshot} for a workspace. Rejections
+   * → `backup-failed`. Returns `null` for workspaces outside the host's
+   * authorized Org set (UNIFIED_ORACLE_MODEL.md §6.1) — the collector
+   * silently drops those from the archive.
+   */
+  readonly buildSnapshot: (workspaceId: string) => Promise<WorkspaceSnapshot | null>;
   /**
    * Removes the workspace through the standard mutator path. Rejections
    * → `delete-failed` with the resolved backup path preserved on the

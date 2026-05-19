@@ -32,9 +32,12 @@ export interface CollectImportPayloadInput {
   /**
    * Produces a full {@link WorkspaceSnapshot} for a workspace deemed
    * worth shipping. Rejections bubble — the caller treats them as fatal
-   * so we never partially-export a host.
+   * so we never partially-export a host. Returns `null` when the
+   * workspace is outside the host's authorized Org set
+   * (UNIFIED_ORACLE_MODEL.md §6.1) — those workspaces are silently
+   * dropped from the payload.
    */
-  readonly buildSnapshot: (workspaceId: string) => Promise<ImportSourceWorkspace['snapshot']>;
+  readonly buildSnapshot: (workspaceId: string) => Promise<ImportSourceWorkspace['snapshot'] | null>;
 }
 
 function hasUserContent(oracle: ImportSourceOracle): boolean {
@@ -53,6 +56,7 @@ export async function collectImportPayload(
     if (!oracle) continue;
     if (!hasUserContent(oracle)) continue;
     const snapshot = await input.buildSnapshot(ws.id);
+    if (snapshot === null) continue;
     workspaces.push({
       sourceWorkspaceId: ws.id,
       sourceWorkspaceName: ws.name,

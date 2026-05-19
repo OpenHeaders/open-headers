@@ -24,6 +24,7 @@ import {
   dispose as disposeSyncService,
 } from '@openheaders/oracle/sync/service';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { clearTestIdentitySnapshot, installTestIdentitySnapshot } from '../../helpers/identity-snapshot';
 
 const wsId = 'ws-resp';
 
@@ -67,10 +68,12 @@ function makeReply() {
 
 beforeEach(() => {
   __initSyncServiceForTests(wsId);
+  installTestIdentitySnapshot();
 });
 
 afterEach(() => {
   disposeSyncService();
+  clearTestIdentitySnapshot();
 });
 
 describe('respondToStateVector — delta path', () => {

@@ -19,6 +19,7 @@ import {
 } from '@openheaders/oracle/sync/service';
 import { readWorkspaceDeltaStream, readWorkspaceStateVector } from '@openheaders/oracle/sync';
 import { seedRule } from '@openheaders/core/sync-builders/rule-projection';
+import { clearTestIdentitySnapshot, installTestIdentitySnapshot } from '../../helpers/identity-snapshot';
 
 const wsId = 'ws-delta';
 
@@ -52,10 +53,12 @@ async function collect<T>(it: AsyncIterable<T>): Promise<T[]> {
 
 beforeEach(() => {
   __initSyncServiceForTests(wsId);
+  installTestIdentitySnapshot();
 });
 
 afterEach(() => {
   disposeSyncService();
+  clearTestIdentitySnapshot();
 });
 
 describe('readWorkspaceDeltaStream', () => {

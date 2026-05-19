@@ -30,9 +30,12 @@ export interface CollectDiscardArchiveInput {
   /**
    * Produces a full {@link WorkspaceSnapshot} for a workspace. Rejections
    * bubble — the orchestrator treats them as fatal (no partial archive
-   * lands on disk) and reports `backup-failed` upstream.
+   * lands on disk) and reports `backup-failed` upstream. Returns `null`
+   * for workspaces outside the host's authorized Org set
+   * (UNIFIED_ORACLE_MODEL.md §6.1) — those are silently dropped from
+   * the archive.
    */
-  readonly buildSnapshot: (workspaceId: string) => Promise<WorkspaceSnapshot>;
+  readonly buildSnapshot: (workspaceId: string) => Promise<WorkspaceSnapshot | null>;
   /**
    * ISO-8601 timestamp the host minted at backup time. Injected so the
    * orchestrator can pin the same clock used in the writer-resolved
@@ -47,6 +50,7 @@ export async function collectDiscardArchive(
   const workspaces: DiscardBackupWorkspace[] = [];
   for (const ws of input.workspaces) {
     const snapshot = await input.buildSnapshot(ws.id);
+    if (snapshot === null) continue;
     workspaces.push({
       workspaceId: ws.id,
       workspaceName: ws.name,

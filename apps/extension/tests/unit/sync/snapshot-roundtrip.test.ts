@@ -23,6 +23,7 @@ import {
   buildSnapshotForWorkspace,
 } from '@openheaders/oracle/sync';
 import { seedRule } from '@openheaders/core/sync-builders/rule-projection';
+import { clearTestIdentitySnapshot, installTestIdentitySnapshot } from '../../helpers/identity-snapshot';
 
 const wsId = 'ws-roundtrip';
 let clock = 0;
@@ -52,10 +53,12 @@ const makeRule = (uid: string, name: string): Rule =>
 beforeEach(() => {
   clock = 0;
   __initSyncServiceForTests(wsId);
+  installTestIdentitySnapshot();
 });
 
 afterEach(() => {
   disposeSyncService();
+  clearTestIdentitySnapshot();
 });
 
 describe('snapshot build → apply round-trip', () => {
@@ -66,6 +69,7 @@ describe('snapshot build → apply round-trip', () => {
     await applySyncRequest({ type: 'oh.sync.apply', batch: seedRule(r2, ctx('source')), sideEffects: [] });
 
     const snap = await buildSnapshotForWorkspace(wsId);
+    if (snap === null) throw new Error('expected snapshot for authorized workspace');
     expect(snap.rules.length).toBe(2);
 
     // Tear down + re-init: simulate a fresh receiver workspace.
@@ -77,6 +81,7 @@ describe('snapshot build → apply round-trip', () => {
     expect(result.byType).toEqual({ rules: 2 });
 
     const reSnap = await buildSnapshotForWorkspace(wsId);
+    if (reSnap === null) throw new Error('expected snapshot for authorized workspace');
     expect(reSnap.rules.map((r) => r.rule.name).sort()).toEqual(['rule-one', 'rule-two']);
     // Rule uids preserved end-to-end (the seed mutators key on the persisted uid).
     expect(reSnap.rules.map((r) => r.rule.uid).sort()).toEqual([r1.uid, r2.uid].sort());
@@ -84,6 +89,7 @@ describe('snapshot build → apply round-trip', () => {
 
   it('rejects a snapshot with an unknown schemaVersion', async () => {
     const snap = await buildSnapshotForWorkspace(wsId);
+    if (snap === null) throw new Error('expected snapshot for authorized workspace');
     await expect(
       applyWorkspaceSnapshot({ ...snap, schemaVersion: 99 }, { makeContext: () => ctx() }),
     ).rejects.toThrow(/schemaVersion/);
@@ -91,6 +97,7 @@ describe('snapshot build → apply round-trip', () => {
 
   it('applies cleanly to an empty workspace with an empty snapshot', async () => {
     const snap = await buildSnapshotForWorkspace(wsId);
+    if (snap === null) throw new Error('expected snapshot for authorized workspace');
     const result = await applyWorkspaceSnapshot(snap, { makeContext: () => ctx() });
     expect(result.entitiesApplied).toBe(0);
     expect(result.byType).toEqual({});

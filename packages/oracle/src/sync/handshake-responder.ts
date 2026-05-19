@@ -105,23 +105,36 @@ export async function respondToStateVector(
   const thresholds = options.thresholds ?? DEFAULT_SNAPSHOT_THRESHOLDS;
 
   const inputs = await computeSnapshotThresholdInputsForWorkspace(workspaceId, peerVector);
-  const useSnapshot = shouldBootstrapWithSnapshot(inputs, thresholds);
+  const wantsSnapshot = shouldBootstrapWithSnapshot(inputs, thresholds);
 
   let deltasSent = 0;
   let resumeFromVector = peerVector;
+  let sentSnapshot = false;
 
-  if (useSnapshot) {
-    let snapshot: WorkspaceSnapshot = await buildSnapshotForWorkspace(workspaceId);
-    if (options.redactSensitive) snapshot = redactSensitiveSnapshotKeys(snapshot);
-    const snapshotFrame: SyncSnapshotMessage = {
-      type: SYNC_SNAPSHOT_TYPE,
-      workspaceId,
-      snapshot,
-    };
-    if (!reply.send(snapshotFrame)) {
-      return { sentSnapshot: true, deltasSent: 0, syncedSent: false, stateVectorAfter: snapshot.takenAtHlc };
+  // Snapshot builder returns `null` when the workspace's `orgId` is
+  // outside the host's authorized Org set (UNIFIED_ORACLE_MODEL.md §6.1
+  // / §6.5.3 step 4). In that case skip the snapshot frame — the
+  // delta-stream reader applies the same org gate and will yield
+  // nothing, so the responder falls through to a SYNCED frame with the
+  // empty (post-filter) state vector. Cross-org peers see "you're
+  // caught up against an empty workspace" instead of any historical
+  // data stamped with the foreign Org.
+  if (wantsSnapshot) {
+    const built = await buildSnapshotForWorkspace(workspaceId);
+    if (built !== null) {
+      let snapshot: WorkspaceSnapshot = built;
+      if (options.redactSensitive) snapshot = redactSensitiveSnapshotKeys(snapshot);
+      const snapshotFrame: SyncSnapshotMessage = {
+        type: SYNC_SNAPSHOT_TYPE,
+        workspaceId,
+        snapshot,
+      };
+      if (!reply.send(snapshotFrame)) {
+        return { sentSnapshot: true, deltasSent: 0, syncedSent: false, stateVectorAfter: snapshot.takenAtHlc };
+      }
+      sentSnapshot = true;
+      resumeFromVector = snapshot.takenAtHlc;
     }
-    resumeFromVector = snapshot.takenAtHlc;
   }
 
   for await (const envelope of readWorkspaceDeltaStream(workspaceId, resumeFromVector)) {
@@ -132,7 +145,7 @@ export async function respondToStateVector(
     };
     if (!reply.send(frame)) {
       const partialVector = await readWorkspaceStateVector(workspaceId);
-      return { sentSnapshot: useSnapshot, deltasSent, syncedSent: false, stateVectorAfter: partialVector };
+      return { sentSnapshot, deltasSent, syncedSent: false, stateVectorAfter: partialVector };
     }
     deltasSent++;
   }
@@ -144,5 +157,5 @@ export async function respondToStateVector(
     stateVectorAfter,
   };
   const syncedSent = reply.send(syncedFrame);
-  return { sentSnapshot: useSnapshot, deltasSent, syncedSent, stateVectorAfter };
+  return { sentSnapshot, deltasSent, syncedSent, stateVectorAfter };
 }
