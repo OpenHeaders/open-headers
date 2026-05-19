@@ -93,6 +93,23 @@ function firstValidMode(host: Host): BackendMode {
   return (SCENARIOS.find((s) => s.validHosts.includes(host))?.mode ?? SCENARIOS[0].mode) as BackendMode;
 }
 
+function isModeValidForHost(mode: BackendMode, host: Host): boolean {
+  return SCENARIOS.find((s) => s.mode === mode)?.validHosts.includes(host) ?? false;
+}
+
+/**
+ * True when the host IS the back-end for this mode. There's nothing to
+ * configure, no wire to test, no peer to reach — the local process is
+ * the source of truth. Used to suppress connection-tier UI (URL field,
+ * Test connection button) on those (host, mode) pairs.
+ */
+function hostIsTheBackend(mode: BackendMode, host: Host): boolean {
+  if (host === 'extension' && mode === 'in-browser') return true;
+  if (host === 'desktop' && mode === 'desktop-app') return true;
+  if (host === 'web' && mode === 'desktop-app') return false; // web is always a client
+  return false;
+}
+
 const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
   const { token } = theme.useToken();
   const host = getCurrentHost();
@@ -155,6 +172,7 @@ const BackendPane: React.FC<CategoryPaneProps> = ({ category, defs }) => {
         previewMode={previewScenario.mode}
         activeMode={mode}
         liveMode={liveBackend ? mode : null}
+        host={host}
         onPreview={setPreviewMode}
       />
 
@@ -223,7 +241,14 @@ const ApplyBar: React.FC<{
   const url = useSettingValue('backend.url');
   const [testing, setTesting] = useState(false);
   const isActive = previewMode === activeMode;
-  const showTest = backendModeNeedsConnection(previewMode);
+  const validForHost = isModeValidForHost(previewMode, host);
+  const localHostIsBackend = hostIsTheBackend(previewMode, host);
+  // Test connection only when the host would be a CLIENT of this
+  // back-end. Suppressed for in-browser on the extension (the SW IS
+  // the back-end) and for desktop-app on the desktop host (the main
+  // process IS the back-end). Suppressed entirely for host-invalid
+  // previews (e.g. desktop previewing in-browser).
+  const showTest = validForHost && !localHostIsBackend && backendModeNeedsConnection(previewMode);
   // `previewMode` matches the previewed Connection-target, so the
   // probe sends a HELLO that role-claims this host. The peer's
   // workspaceId field is unused for the probe's reachability check —
@@ -254,9 +279,38 @@ const ApplyBar: React.FC<{
       message.error({ key, content: humanizeProbeFailure(result) });
     };
   }, [host, url, message]);
+  let statusCopy: React.ReactNode;
+  if (isActive) {
+    statusCopy = (
+      <>
+        <strong style={{ color: token.colorText }}>{previewLabel}</strong> is the active back-end.
+      </>
+    );
+  } else if (!validForHost) {
+    statusCopy = (
+      <>
+        <strong style={{ color: token.colorText }}>{previewLabel}</strong> isn't available on this host.
+      </>
+    );
+  } else {
+    statusCopy = (
+      <>
+        Previewing <strong style={{ color: token.colorText }}>{previewLabel}</strong>. Apply to switch.
+      </>
+    );
+  }
   return (
     <div
       style={{
+        // Sticky to the bottom of the scrollable settings pane so the
+        // main actions stay reachable no matter how far the user has
+        // scrolled into the config panel. `bottom: 0` anchors to the
+        // pane viewport; the parent has its own padding which we
+        // counter-act with a small negative bottom margin so the bar
+        // hugs the edge without a gap.
+        position: 'sticky',
+        bottom: 0,
+        zIndex: 1,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'flex-end',
@@ -266,19 +320,10 @@ const ApplyBar: React.FC<{
         background: token.colorBgContainer,
         border: `1px solid ${token.colorBorderSecondary}`,
         borderRadius: 10,
+        boxShadow: `0 -4px 12px -8px ${token.colorBgLayout}`,
       }}
     >
-      <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: token.colorTextSecondary }}>
-        {isActive ? (
-          <>
-            <strong style={{ color: token.colorText }}>{previewLabel}</strong> is the active back-end.
-          </>
-        ) : (
-          <>
-            Previewing <strong style={{ color: token.colorText }}>{previewLabel}</strong>. Apply to switch.
-          </>
-        )}
-      </span>
+      <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: token.colorTextSecondary }}>{statusCopy}</span>
       {showTest && (
         <Button
           icon={<ExperimentOutlined />}
@@ -294,7 +339,7 @@ const ApplyBar: React.FC<{
         type="primary"
         icon={<SwapOutlined />}
         onClick={onApply}
-        disabled={isActive || disabled}
+        disabled={isActive || disabled || !validForHost}
       >
         Switch to {previewLabel}
       </Button>
@@ -394,6 +439,9 @@ interface ModePickerProps {
    * or when sync is disabled.
    */
   liveMode: BackendMode | null;
+  /** Current host — drives per-tile validity (extension can pick any;
+   *  desktop / web can't host an in-browser back-end). */
+  host: Host;
   /** Tile click — updates the local preview only, not the setting. */
   onPreview: (next: BackendMode) => void;
 }
@@ -403,6 +451,7 @@ const ModePicker: React.FC<ModePickerProps> = ({
   previewMode,
   activeMode,
   liveMode,
+  host,
   onPreview,
 }) => (
   <div
@@ -415,19 +464,24 @@ const ModePicker: React.FC<ModePickerProps> = ({
       marginBottom: 14,
     }}
   >
-    {scenarios.map((s) => (
-      <PickerButton
-        key={s.mode}
-        descriptor={s}
-        /** "Previewing this tile" — primary border + tint. */
-        preview={previewMode === s.mode}
-        /** This is the active back-end (independent of preview). */
-        active={activeMode === s.mode}
-        /** Active AND its connection is live. */
-        live={liveMode === s.mode}
-        onSelect={() => onPreview(s.mode)}
-      />
-    ))}
+    {scenarios.map((s) => {
+      const validForHost = s.validHosts.includes(host);
+      return (
+        <PickerButton
+          key={s.mode}
+          descriptor={s}
+          /** "Previewing this tile" — primary border + tint. */
+          preview={previewMode === s.mode}
+          /** This is the active back-end (independent of preview). */
+          active={activeMode === s.mode}
+          /** Active AND its connection is live. */
+          live={liveMode === s.mode}
+          /** Tile is selectable on this host. */
+          validForHost={validForHost}
+          onSelect={validForHost ? () => onPreview(s.mode) : undefined}
+        />
+      );
+    })}
   </div>
 );
 
@@ -439,8 +493,11 @@ const PickerButton: React.FC<{
   active: boolean;
   /** Back-end for this mode is actually connected. */
   live: boolean;
-  onSelect: () => void;
-}> = ({ descriptor, preview, active, live, onSelect }) => {
+  /** Whether this tile is selectable on the current host. */
+  validForHost: boolean;
+  /** Undefined when not selectable — click handler is suppressed. */
+  onSelect?: () => void;
+}> = ({ descriptor, preview, active, live, validForHost, onSelect }) => {
   const { token } = theme.useToken();
   const pending = backendModeIsPending(descriptor.mode);
   return (
@@ -448,6 +505,13 @@ const PickerButton: React.FC<{
       type="button"
       role="radio"
       aria-checked={preview}
+      aria-disabled={!validForHost}
+      disabled={!validForHost}
+      title={
+        validForHost
+          ? undefined
+          : 'Not available on this host — this back-end mode is for a different surface.'
+      }
       onClick={onSelect}
       style={{
         position: 'relative',
@@ -458,8 +522,9 @@ const PickerButton: React.FC<{
         borderRadius: 8,
         background: preview ? token.colorPrimaryBg : token.colorBgContainer,
         border: `1px solid ${preview ? token.colorPrimary : token.colorBorderSecondary}`,
-        cursor: 'pointer',
-        transition: 'border-color 120ms, background 120ms',
+        cursor: validForHost ? 'pointer' : 'not-allowed',
+        opacity: validForHost ? 1 : 0.45,
+        transition: 'border-color 120ms, background 120ms, opacity 120ms',
         fontFamily: 'inherit',
         color: token.colorText,
         textAlign: 'left',
@@ -675,15 +740,29 @@ const ConfigPanel: React.FC<{
 }> = ({ pending, mode, host, defs, category }) => {
   const { token } = theme.useToken();
 
-  // Two "host IS the back-end" cases: nothing to configure because the
-  // wire doesn't exist. The picker already disables in-browser on
-  // non-extension hosts, but auto-correction takes a tick — guard both
-  // shapes so we never render reconnect rows when the back-end is us.
-  const hostIsTheBackend =
-    (host === 'extension' && mode === 'in-browser') ||
-    (host === 'desktop' && mode === 'desktop-app');
+  // Host can't host this back-end mode — e.g. the desktop app or a
+  // web bundle previewing `in-browser`, which only makes sense in a
+  // browser extension. Render a hard-stop alert; no config inputs, no
+  // Apply path. The picker already grays the tile, this alert is the
+  // second backstop for users who reached the mode via search.
+  if (!isModeValidForHost(mode, host)) {
+    return (
+      <Alert
+        type="warning"
+        showIcon
+        message="Not available on this host"
+        description={
+          mode === 'in-browser'
+            ? 'Only the browser extension can host an in-browser back-end (its service worker is the back-end). To use this mode, open the Open Headers extension popup on this machine.'
+            : `${SCENARIOS.find((s) => s.mode === mode)?.title ?? mode} isn't selectable from this surface.`
+        }
+      />
+    );
+  }
 
-  if (hostIsTheBackend) {
+  // Two "host IS the back-end" cases: nothing to configure because the
+  // wire doesn't exist.
+  if (hostIsTheBackend(mode, host)) {
     return (
       <Alert
         type="success"
@@ -701,10 +780,18 @@ const ConfigPanel: React.FC<{
   // Host-conditioned filtering. `backend.showBadgeWhenDisconnected`
   // toggles a `chrome.action` toolbar badge — meaningless outside the
   // browser extension, so drop it from the desktop / web surface.
-  const visibleDefs = defs.filter((d) => {
-    if (d.key === 'backend.showBadgeWhenDisconnected' && host !== 'extension') return false;
-    return true;
-  });
+  // Also strip each def's `when` predicate: the schema's `when` reads
+  // the GLOBAL `backend.mode` setting (= the active mode), but we
+  // render the PREVIEWED mode's config so the user can configure a
+  // back-end they haven't switched into yet. The previewed-mode guards
+  // above (host-validity + host-is-backend + pending) already gate the
+  // section as a whole.
+  const visibleDefs = defs
+    .filter((d) => {
+      if (d.key === 'backend.showBadgeWhenDisconnected' && host !== 'extension') return false;
+      return true;
+    })
+    .map((d) => (d.when ? { ...d, when: undefined } : d));
 
   const grouped = groupBySubcategory(visibleDefs, category.subcategories);
 
