@@ -114,7 +114,7 @@ describe('decideModeSwitch', () => {
     expect(verdict).toEqual({ kind: 'no-change' });
   });
 
-  it('reports peer-unreachable when the target presence is null', () => {
+  it('reports peer-unreachable when the target is null AND source has data to lose', () => {
     const verdict = decideModeSwitch({
       fromMode: 'in-browser',
       toMode: 'desktop-app',
@@ -122,6 +122,21 @@ describe('decideModeSwitch', () => {
       target: null,
     });
     expect(verdict).toEqual({ kind: 'peer-unreachable' });
+  });
+
+  it('commits when target is null but source has nothing to lose (first-time switch into a peer)', () => {
+    // The chicken-and-egg case: a fresh extension can't reach the
+    // desktop-app peer until backend.mode flips, so blocking on
+    // unreachability would trap the user. Source is empty → no data
+    // can be silently abandoned; let the mode flip and let the WS
+    // handshake bring in the peer's state.
+    const verdict = decideModeSwitch({
+      fromMode: 'in-browser',
+      toMode: 'desktop-app',
+      source: emptyPresence(),
+      target: null,
+    });
+    expect(verdict).toEqual({ kind: 'both-empty' });
   });
 
   it('short-circuits to both-empty when neither side has data', () => {

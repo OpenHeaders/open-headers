@@ -72,10 +72,15 @@ describe('requestModeSwitchVerdict', () => {
     expect(verdict).toEqual({ kind: 'peer-unreachable' });
   });
 
-  it('routes to peer-unreachable when source is empty too — decide handles the order', async () => {
+  it('commits with both-empty when source is empty and no peer query is provided (first-time switch)', async () => {
+    // First-time switch from in-browser → desktop-app on a fresh
+    // extension: the WS can't reach the desktop peer until the mode
+    // flips, so blocking on unreachability is a chicken-and-egg. With
+    // source empty there's nothing to lose; let the mode flip and the
+    // handshake bring in the peer's state.
     mockCall.mockResolvedValueOnce({ workspaces: [] });
     const verdict = await requestModeSwitchVerdict('in-browser', 'desktop-app');
-    expect(verdict).toEqual({ kind: 'peer-unreachable' });
+    expect(verdict).toEqual({ kind: 'both-empty' });
   });
 
   it('routes to silent-use-target when source is empty and peer reports data', async () => {
