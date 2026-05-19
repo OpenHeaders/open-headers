@@ -26,8 +26,14 @@
  */
 
 import type { HLC } from '../../hlc';
+import type { MutationEnvelope } from '../../envelope';
 import type { SideEffectIntent } from '../types';
-import { EXTENSION_WORKSPACE_ID } from './types';
+import {
+  EXTENSION_WORKSPACE_ACTIVE_ID_PATH,
+  EXTENSION_WORKSPACE_ENTITY_TYPE,
+  EXTENSION_WORKSPACE_ID,
+  EXTENSION_WORKSPACES_SET_PATH,
+} from './types';
 
 export const SWAP_PER_WORKSPACE_STORES = 'swap-per-workspace-stores';
 export const PURGE_WORKSPACE_DATA = 'purge-workspace-data';
@@ -54,4 +60,32 @@ export function swapPerWorkspaceStoresIntent(hlc: HLC): SideEffectIntent {
  */
 export function purgeWorkspaceDataIntent(workspaceId: string, hlc: HLC): SideEffectIntent {
   return { kind: PURGE_WORKSPACE_DATA, key: workspaceId, hlc };
+}
+
+/**
+ * Pure derivation: given a committed envelope, return the
+ * `extensionWorkspace` side-effect intents the host must enqueue.
+ *
+ * Used in two directions:
+ *   1. Mint-time, inside the mutator functions (`setActiveExtensionWorkspace`,
+ *      `removeExtensionWorkspace`) — they call this on their own
+ *      minted envelope so the intent list in their {@link MutatorIntent}
+ *      result derives from the envelope rather than a parallel computation.
+ *   2. Receive-time, in the inbound mutation-stream bridge — same
+ *      function, same envelope shape, so a peer's setActive flip
+ *      lands the SWAP intent on every host that applies the mutation.
+ *
+ * Pure (no IO, no state). Returns `[]` for envelope kinds that don't
+ * map to a side effect (set / move / unrelated entity types).
+ */
+export function deriveExtensionWorkspaceSideEffects(envelope: MutationEnvelope): SideEffectIntent[] {
+  if (envelope.body.type !== EXTENSION_WORKSPACE_ENTITY_TYPE) return [];
+  const { hlc, body } = envelope;
+  if (body.kind === 'setField' && body.path === EXTENSION_WORKSPACE_ACTIVE_ID_PATH) {
+    return [swapPerWorkspaceStoresIntent(hlc)];
+  }
+  if (body.kind === 'removeFromSet' && body.path === EXTENSION_WORKSPACES_SET_PATH) {
+    return [purgeWorkspaceDataIntent(body.itemId, hlc)];
+  }
+  return [];
 }

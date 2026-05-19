@@ -45,7 +45,13 @@
  * the next one catches the duplicate. Non-negotiable per the design
  * doc; tests in `mutation-id-dedup.test.ts` pin the WS-redelivery path.
  */
-import { compareHlc, computeInverseSpec, type MutationBatch, type MutationEnvelope } from '@openheaders/core/sync';
+import {
+  compareHlc,
+  computeInverseSpec,
+  deriveSideEffectsForEnvelope,
+  type MutationBatch,
+  type MutationEnvelope,
+} from '@openheaders/core/sync';
 
 import { makeOracleInverseAccess } from './activity-inverse-builder';
 import { rememberPriorForMutation } from './activity-priors';
@@ -105,10 +111,19 @@ export async function applyInboundMutationBatch(batch: MutationBatch): Promise<v
   const allKnown = batch.mutations.every((e) => SEEN_MUTATION_IDS.has(e.mutationId));
   if (allKnown) return;
   capturePriorsForActivity(batch);
+  // Side effects are HOST-LOCAL runtime concerns that need to fire on
+  // every host that applies the envelope (active-flip → per-workspace
+  // store swap; workspace remove → per-workspace data purge). The
+  // wire frame carries only the envelope; each host re-derives the
+  // intents from the same pure mapping function the mutator used at
+  // mint time. Singleton-keyed intents (SWAP) coalesce by their key
+  // so multiple inbound envelopes touching the active-flip path
+  // collapse to a single drain whose latest HLC wins.
+  const sideEffects = batch.mutations.flatMap(deriveSideEffectsForEnvelope);
   const response = await applySyncRequest({
     type: 'oh.sync.apply',
     batch,
-    sideEffects: [],
+    sideEffects,
     applyOrigin: 'inbound',
   });
   if (!response.ok) return;

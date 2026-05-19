@@ -18,7 +18,7 @@
 
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
-import { swapPerWorkspaceStoresIntent } from './side-effects';
+import { deriveExtensionWorkspaceSideEffects } from './side-effects';
 import {
   EXTENSION_WORKSPACE_ACTIVE_ID_PATH,
   EXTENSION_WORKSPACE_ENTITY_TYPE,
@@ -33,16 +33,22 @@ export function setActiveExtensionWorkspace(
   ctx: MutatorContext,
   args: SetActiveExtensionWorkspaceArgs,
 ): MutatorIntent {
+  const batch = mintBatch(ctx, [
+    {
+      kind: 'setField',
+      type: EXTENSION_WORKSPACE_ENTITY_TYPE,
+      id: EXTENSION_WORKSPACE_ID,
+      path: EXTENSION_WORKSPACE_ACTIVE_ID_PATH,
+      value: args.id,
+    },
+  ]);
+  // Derive side effects from the minted envelope so the SAME function
+  // is canonical at mint AND at peer-receive. The inbound mutation-
+  // stream bridge calls `deriveExtensionWorkspaceSideEffects` on every
+  // peer-applied envelope — identical mapping, identical intents, no
+  // parallel computation.
   return {
-    batch: mintBatch(ctx, [
-      {
-        kind: 'setField',
-        type: EXTENSION_WORKSPACE_ENTITY_TYPE,
-        id: EXTENSION_WORKSPACE_ID,
-        path: EXTENSION_WORKSPACE_ACTIVE_ID_PATH,
-        value: args.id,
-      },
-    ]),
-    sideEffects: [swapPerWorkspaceStoresIntent(ctx.hlc)],
+    batch,
+    sideEffects: batch.mutations.flatMap(deriveExtensionWorkspaceSideEffects),
   };
 }

@@ -16,6 +16,7 @@ export {
   type ExtensionWorkspaceSlot,
 } from './types';
 export {
+  deriveExtensionWorkspaceSideEffects,
   PURGE_WORKSPACE_DATA,
   purgeWorkspaceDataIntent,
   SWAP_PER_WORKSPACE_STORES,

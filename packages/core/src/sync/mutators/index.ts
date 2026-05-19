@@ -269,6 +269,7 @@ export {
   WORKSPACE_VARIABLES_MUTATOR_VERSION,
   WORKSPACE_VARIABLES_PATH,
 } from './workspace-variables';
+export { deriveSideEffectsForEnvelope } from './derive-side-effects';
 export { flattenToLeaves, type Leaf, unflattenLeaves } from './flatten';
 export { applyMutation } from './generic';
 export * from './rule';
