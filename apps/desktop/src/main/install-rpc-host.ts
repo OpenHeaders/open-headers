@@ -54,7 +54,11 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import { setHostBridge } from '@openheaders/core/bridge';
 import { SYNC_AWARENESS_PRESENCE_TYPE } from '@openheaders/core/protocol';
 import type { AwarenessState } from '@openheaders/core/protocol';
-import { ensureSyntheticIdentity, ensureWorkspaceRoleAssignments } from '@openheaders/core/identity';
+import {
+  ensureSyntheticIdentity,
+  ensureWorkspaceRoleAssignments,
+  refreshIdentitySnapshotFromHostStorage,
+} from '@openheaders/core/identity';
 import { logger as consoleLogger } from '@openheaders/core/utils';
 import { setHostLogger } from '@openheaders/core/logger';
 import { setHostStorage } from '@openheaders/core/storage';
@@ -264,10 +268,18 @@ export async function installRpcHost(): Promise<void> {
   await ensureWorkspaceRoleAssignments(listWorkspaces().map((ws) => ws.id)).catch((err: unknown) => {
     consoleLogger.warn('install-rpc-host', 'ensureWorkspaceRoleAssignments failed', err);
   });
+  // U2.1 — hydrate the in-memory identity snapshot the resolver reads
+  // from. One refresh after both ensure-* runs is sufficient at boot;
+  // the workspace-store listener below repeats it on changes.
+  await refreshIdentitySnapshotFromHostStorage().catch((err: unknown) => {
+    consoleLogger.warn('install-rpc-host', 'refreshIdentitySnapshotFromHostStorage failed', err);
+  });
   onWorkspaceStoreChange(() => {
-    void ensureWorkspaceRoleAssignments(listWorkspaces().map((ws) => ws.id)).catch((err: unknown) => {
-      consoleLogger.warn('install-rpc-host', 'ensureWorkspaceRoleAssignments reconcile failed', err);
-    });
+    void ensureWorkspaceRoleAssignments(listWorkspaces().map((ws) => ws.id))
+      .then(() => refreshIdentitySnapshotFromHostStorage())
+      .catch((err: unknown) => {
+        consoleLogger.warn('install-rpc-host', 'ensureWorkspaceRoleAssignments reconcile failed', err);
+      });
   });
   await hydrateActiveWorkspaceStores();
   await bootSyncEngine();

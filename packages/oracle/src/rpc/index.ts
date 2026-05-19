@@ -1,4 +1,4 @@
-export { dispatchSyncRpc, type SyncRpcResult } from './sync-rpc';
+export { dispatchSyncRpc, PermissionDeniedError, type SyncRpcResult } from './sync-rpc';
 export {
   evaluateHello,
   handleStateVector,

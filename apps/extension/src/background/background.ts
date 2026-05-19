@@ -13,7 +13,11 @@ import '@/host/install-host-storage';
 import '@/host/install-host-bridge';
 import '@/host/install-host-logger';
 import '@/host/install-lifeline-server';
-import { ensureSyntheticIdentity, ensureWorkspaceRoleAssignments } from '@openheaders/core/identity';
+import {
+  ensureSyntheticIdentity,
+  ensureWorkspaceRoleAssignments,
+  refreshIdentitySnapshotFromHostStorage,
+} from '@openheaders/core/identity';
 import type { Rule, TreeNode } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
 import { isRuleEffective } from '@openheaders/core/utils';
@@ -527,6 +531,12 @@ async function initializeExtension(): Promise<void> {
   await ensureWorkspaceRoleAssignments(listWorkspaces().map((w) => w.id)).catch((err: unknown) => {
     logger.warn('Background', 'ensureWorkspaceRoleAssignments failed', err);
   });
+  // U2.1 — hydrate the in-memory identity snapshot the resolver reads
+  // from (`getIdentitySnapshot()`). One refresh after both ensure-* runs
+  // is enough; the workspace-store listener below repeats it on changes.
+  await refreshIdentitySnapshotFromHostStorage().catch((err: unknown) => {
+    logger.warn('Background', 'refreshIdentitySnapshotFromHostStorage failed', err);
+  });
 
   // Pull the observability ring back into memory before subsystems
   // record their first post-wake events — a dropped startup window
@@ -614,9 +624,11 @@ async function initializeExtension(): Promise<void> {
     // set. New workspaces get an owner-role WRA; deleted workspaces'
     // WRAs are pruned. Fire-and-forget — the next reconcile retries
     // on the next mutation if this one rejects.
-    void ensureWorkspaceRoleAssignments(listWorkspaces().map((w) => w.id)).catch((err: unknown) => {
-      logger.warn('Background', 'ensureWorkspaceRoleAssignments reconcile failed', err);
-    });
+    void ensureWorkspaceRoleAssignments(listWorkspaces().map((w) => w.id))
+      .then(() => refreshIdentitySnapshotFromHostStorage())
+      .catch((err: unknown) => {
+        logger.warn('Background', 'ensureWorkspaceRoleAssignments reconcile failed', err);
+      });
   });
 
   // Env / workspace vars / vault / active-env mutations drive DNR

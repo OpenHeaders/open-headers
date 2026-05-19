@@ -29,3 +29,25 @@ export {
 } from './ensure-synthetic-identity';
 export { ensureWorkspaceRoleAssignments } from './ensure-workspace-role-assignments';
 export { mintHostInstallId } from './host-install-id';
+export {
+  hasCapability,
+  type Capability,
+  type CapabilityContext,
+  type CapabilityDecision,
+  type CapabilityDenyReason,
+  type IdentitySnapshot,
+} from './resolver';
+export {
+  clearIdentitySnapshot,
+  getIdentitySnapshot,
+  installIdentitySnapshot,
+  refreshIdentitySnapshotFromHostStorage,
+  type InstallIdentitySnapshotInput,
+} from './registry';
+export {
+  emitAuditEntry,
+  resetAuditSink,
+  setAuditSink,
+  type AuditEntryInput,
+  type AuditSink,
+} from './audit';

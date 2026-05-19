@@ -41,6 +41,11 @@ import {
   SYNC_MUTATION_TYPE,
   type SyncAwarenessPresenceMessage,
 } from '@openheaders/core/protocol';
+import {
+  emitAuditEntry,
+  getIdentitySnapshot,
+  hasCapability,
+} from '@openheaders/core/identity';
 import type {
   CoexistPayload,
   CoexistResult,
@@ -119,6 +124,57 @@ export type SyncRpcResult =
   | { kind: 'sync'; response: unknown }
   | { kind: 'async'; promise: Promise<unknown> };
 
+/**
+ * Surfaced when the host-neutral resolver denies a privileged RPC. The
+ * outer message-handler / ipcMain caller catches this and surfaces a
+ * uniform error to the renderer (rather than the dispatcher fabricating
+ * a per-type permission-denied response shape).
+ */
+export class PermissionDeniedError extends Error {
+  readonly capability: string;
+  readonly reason: string;
+  readonly workspaceId?: string;
+
+  constructor(capability: string, reason: string, workspaceId?: string) {
+    const where = workspaceId ? ` on ${workspaceId}` : '';
+    super(`permission denied: ${capability}${where} (${reason})`);
+    this.name = 'PermissionDeniedError';
+    this.capability = capability;
+    this.reason = reason;
+    if (workspaceId !== undefined) this.workspaceId = workspaceId;
+  }
+}
+
+/**
+ * Renderer→SW capability gate (UNIFIED_ORACLE_MODEL.md §5.8). Slice 1 of
+ * Phase U2 wires `oh.sync.apply` — the canonical mutation entry point.
+ * Other message types fall through ungated for now; subsequent slices
+ * extend the type→capability map (snapshot reads, activity-log mutations,
+ * mode-switch orchestration).
+ *
+ * Peer-driven entry points (`SYNC_MUTATION_TYPE`, `SYNC_MUTATION_BATCH_TYPE`,
+ * `SYNC_AWARENESS_PRESENCE_TYPE`) deliberately skip this gate — those ride
+ * the SW→peer handshake gate that lands with U2.3.
+ */
+function gateDispatch(message: Record<string, unknown>): void {
+  const type = message.type;
+  if (type !== 'oh.sync.apply') return;
+
+  const request = message as unknown as SyncApplyRequest;
+  const workspaceId = request.batch?.mutations?.[0]?.workspaceId;
+  const snapshot = getIdentitySnapshot();
+  const decision = hasCapability(snapshot, 'workspace.write', { workspaceId });
+  emitAuditEntry({
+    actorUserId: snapshot?.user.id ?? 'unknown',
+    capability: 'workspace.write',
+    ...(workspaceId ? { workspaceId } : {}),
+    decision,
+  });
+  if (!decision.allow) {
+    throw new PermissionDeniedError('workspace.write', decision.reason ?? 'denied', workspaceId);
+  }
+}
+
 const SYNC_SNAPSHOT_DISPATCH: Record<string, (workspaceId?: string) => { entries: unknown[] }> = {
   'oh.sync.snapshotRules': (ws) => ({ entries: snapshotRulePostStates(ws) }),
   'oh.sync.snapshotEnvironments': (ws) => ({ entries: snapshotEnvironmentPostStates(ws) }),
@@ -148,6 +204,8 @@ const SYNC_SNAPSHOT_DISPATCH: Record<string, (workspaceId?: string) => { entries
 export function dispatchSyncRpc(message: Record<string, unknown>): SyncRpcResult | null {
   const type = message.type;
   if (typeof type !== 'string') return null;
+
+  gateDispatch(message);
 
   if (type === SYNC_MUTATION_TYPE) {
     const msg = message as unknown as SyncMutationMessage;
