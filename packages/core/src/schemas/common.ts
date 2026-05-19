@@ -24,6 +24,19 @@ export const SchemaVersionSchema = v.pipe(v.number(), v.integer(), v.minValue(MI
 export const UidSchema = v.pipe(v.string(), v.regex(/^[a-z0-9]{8}$/));
 
 /**
+ * UUIDv7 — RFC 9562 §5.7 layout (version nibble = 7, variant bits = 10).
+ * Identity-schema rows (User, Org, UserIdentity, Session, OrgMembership,
+ * Principal, WorkspaceRoleAssignment, AuditLogEntry) are keyed by UUIDv7.
+ * Synthetic rows use deterministic UUIDv7s seeded from `host-install-id`
+ * (per UNIFIED_ORACLE_MODEL.md §5.1); the regex accepts those identically
+ * since the seed expands to a valid v7 layout.
+ */
+export const UuidV7Schema = v.pipe(
+  v.string(),
+  v.regex(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i),
+);
+
+/**
  * Relative workspace path with forward-slash segments, no leading slash.
  * Empty string is disallowed — every persisted entity owns a path.
  * Matches Phase 0 invariant #12.

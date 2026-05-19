@@ -240,6 +240,20 @@ export type {
 // ── Workspace ──────────────────────────────────────────────────────
 export type { Workspace, WorkspaceSection } from './workspace';
 
+// ── Identity (universal schema; synthetic in Mode 1 / Mode 2 localhost) ─
+export type {
+  Org,
+  OrgDeploymentMode,
+  Session,
+  SessionSource,
+  User,
+  UserIdentity,
+  UserIdentityKind,
+} from './identity';
+
+// ── Daemon config (per-host configuration; carries host-install-id) ────
+export type { DaemonConfig } from './daemon-config';
+
 // ── View mode (popup vs sidepanel) ────────────────────────────────
 export type { ViewMode } from './view-mode';
 export { DEFAULT_VIEW_MODE, VIEW_MODE_STORAGE_KEY } from './view-mode';
