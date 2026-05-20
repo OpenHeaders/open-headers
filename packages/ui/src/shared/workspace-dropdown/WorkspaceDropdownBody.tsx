@@ -66,6 +66,12 @@ export interface WorkspaceDropdownBodyProps {
     describe: (orgId: string) => OrgDescriptor | null;
     /** Flip a workspace's Org binding (§6.5 metadata mutation). */
     onPickOrg: (workspaceId: string, orgId: string) => void;
+    /**
+     * Publish a workspace into a team Org (U5.6) — the permission-gated
+     * path for a team-scoped pick. Omit on surfaces with no
+     * authenticated backend.
+     */
+    onPublishOrg?: (workspaceId: string, orgId: string) => void;
   };
 }
 
@@ -190,6 +196,9 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
                 currentDescriptor={orgBinding.describe(w.orgId)}
                 catalogue={orgBinding.catalogue}
                 onPick={(orgId) => orgBinding.onPickOrg(w.id, orgId)}
+                {...(orgBinding.onPublishOrg
+                  ? { onPublish: (orgId: string) => orgBinding.onPublishOrg?.(w.id, orgId) }
+                  : {})}
                 compact
               />
             )}

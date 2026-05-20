@@ -124,6 +124,7 @@ export {
   orchestrateCombine,
   orchestrateDiscardWithBackup,
   orchestrateImportToPeer,
+  orchestratePublish,
   orchestrateUseTarget,
   setBackupWriter,
   setCoexistPeerPusher,
@@ -149,7 +150,9 @@ export {
   type OrchestrateCombineDeps,
   type OrchestrateDiscardDeps,
   type OrchestrateImportDeps,
+  type OrchestratePublishDeps,
   type OrchestrateUseTargetDeps,
+  type PublishWorkspaceInput,
   type UseTargetWorkspaceInput,
   type RestoreTargetMinter,
 } from './mode-switch';

@@ -108,6 +108,7 @@ export const CapabilityDenyReasonSchema = v.picklist([
   'not-daemon-admin',
   'unknown-capability',
   'auth-required',
+  'target-org-not-authorized',
 ]);
 
 export const AuditDecisionSchema = v.object({

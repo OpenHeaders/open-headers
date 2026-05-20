@@ -62,6 +62,11 @@ export {
   type UseTargetWorkspaceInput,
 } from './use-target-orchestrator';
 export {
+  orchestratePublish,
+  type OrchestratePublishDeps,
+  type PublishWorkspaceInput,
+} from './publish-orchestrator';
+export {
   applyDiscardRestoreArchive,
   type ApplyRestoreDeps,
   type RestoreTargetMinter,

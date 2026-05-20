@@ -20,6 +20,7 @@ import { App, Button, Dropdown, Space, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { instanceLabel, instanceLabelPlural } from '@openheaders/ui/shared/host-vocabulary';
+import { executePublish } from '../../shared/mode-switch';
 import { useIdentitySnapshot } from '../../shared/hooks/useIdentitySnapshot';
 import { useOrgBindingPrefs } from '../../shared/hooks/useOrgBindingPrefs';
 import { useWorkspaces } from '../../shared/hooks/useWorkspaces';
@@ -98,6 +99,30 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
     [workspaces, updateWorkspace, snapshot, message],
   );
 
+  // Publishing into a team Org (U5.6) pushes the workspace's data up to
+  // an authenticated backend — it goes through the permission-gated
+  // `oh.sync.publishWorkspace` channel, not the raw `orgId` flip
+  // `handlePickOrg` uses for local/personal scopes.
+  const handlePublishOrg = useCallback(
+    async (workspaceId: string, orgId: string) => {
+      const target = workspaces.find((w) => w.id === workspaceId);
+      const descriptor = describeOrg(snapshot, orgId);
+      const result = await executePublish({ workspaceId, targetOrgId: orgId });
+      if (result.ok) {
+        message.success(
+          `"${target?.name ?? 'Workspace'}" is now published to ${descriptor?.name ?? 'the team'}`,
+        );
+      } else {
+        message.error(
+          result.reason === 'target-not-authorized'
+            ? 'You do not have permission to publish to this team'
+            : 'Could not publish this workspace',
+        );
+      }
+    },
+    [workspaces, snapshot, message],
+  );
+
   // Gate on `prefsReady` so an already-acknowledged user never sees the
   // modal flash in the window before `OH.orgBindingPrefs` loads.
   const showOnboarding = prefsReady && shouldShowOrgOnboarding(snapshot, prefs.onboardingAcknowledgedAt);
@@ -125,6 +150,7 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
               catalogue,
               describe: (orgId) => describeOrg(snapshot, orgId),
               onPickOrg: handlePickOrg,
+              onPublishOrg: handlePublishOrg,
             }}
           />
         )}

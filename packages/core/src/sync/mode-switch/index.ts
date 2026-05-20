@@ -27,6 +27,11 @@ export type {
   CombinedWorkspace,
 } from './combine-types';
 export type {
+  PublishFailureReason,
+  PublishResult,
+  PublishedWorkspace,
+} from './publish-types';
+export type {
   RestoreFailureReason,
   RestoreResult,
   RestoredWorkspace,

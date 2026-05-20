@@ -76,10 +76,12 @@ export {
 } from './registry';
 export {
   authorizedOrgIds,
+  canPublishWorkspace,
   type Capability,
   type CapabilityContext,
   type CapabilityDecision,
   type CapabilityDenyReason,
   hasCapability,
   type IdentitySnapshot,
+  type PublishGateContext,
 } from './resolver';

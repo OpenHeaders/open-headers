@@ -19,6 +19,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   authorizedOrgIds,
+  canPublishWorkspace,
   clearIdentitySnapshot,
   ensureSyntheticIdentity,
   ensureWorkspaceRoleAssignments,
@@ -270,5 +271,42 @@ describe('authorizedOrgIds', () => {
     const joinedB = '01900000-cccc-7000-8000-000000000002';
     const snap = makeSnapshot({ extraOrgIds: [joinedA, joinedB] });
     expect(authorizedOrgIds(snap)).toEqual(new Set([snap.user.homeOrgId, joinedA, joinedB]));
+  });
+});
+
+describe('canPublishWorkspace (U5.6 Publish gate)', () => {
+  const JOINED = '01900000-cccc-7000-8000-000000000001';
+
+  it('denies a null snapshot with no-current-user', () => {
+    expect(canPublishWorkspace(null, { workspaceId: W1, targetOrgId: JOINED })).toEqual({
+      allow: false,
+      reason: 'no-current-user',
+    });
+  });
+
+  it('denies when the caller lacks workspace.write on the workspace', () => {
+    const snap = makeSnapshot({ localAdmin: null, wras: [makeWra(W1, 'viewer')] });
+    expect(canPublishWorkspace(snap, { workspaceId: W1, targetOrgId: snap.user.homeOrgId })).toEqual({
+      allow: false,
+      reason: 'insufficient-workspace-role',
+    });
+  });
+
+  it('denies when the target Org is not in the authorized set', () => {
+    const snap = makeSnapshot({ localAdmin: null, wras: [makeWra(W1, 'editor')] });
+    expect(canPublishWorkspace(snap, { workspaceId: W1, targetOrgId: JOINED })).toEqual({
+      allow: false,
+      reason: 'target-org-not-authorized',
+    });
+  });
+
+  it('allows when the caller can write the workspace and the target Org is joined', () => {
+    const snap = makeSnapshot({ localAdmin: null, wras: [makeWra(W1, 'editor')], extraOrgIds: [JOINED] });
+    expect(canPublishWorkspace(snap, { workspaceId: W1, targetOrgId: JOINED })).toEqual({ allow: true });
+  });
+
+  it('allows a LocalAdmin to publish into any joined Org', () => {
+    const snap = makeSnapshot({ extraOrgIds: [JOINED] });
+    expect(canPublishWorkspace(snap, { workspaceId: W1, targetOrgId: JOINED })).toEqual({ allow: true });
   });
 });

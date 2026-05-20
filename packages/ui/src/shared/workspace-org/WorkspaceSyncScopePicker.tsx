@@ -15,6 +15,15 @@
  * the "Shared with team" scope unlocks once the user joins a team —
  * the option is surfaced, not hidden, so the model reads as
  * multi-org-native from the first run.
+ *
+ * Picking a team Org is a Publish (U5.6): moving a workspace into an
+ * authenticated backend's `Org` pushes its data UP, which must go
+ * through the permission-gated `oh.sync.publishWorkspace` channel — not
+ * the raw `orgId` flip a local/personal pick uses. When {@link
+ * WorkspaceSyncScopePickerProps.onPublish} is supplied the team pick
+ * routes through it; without it the team pick falls back to {@link
+ * WorkspaceSyncScopePickerProps.onPick} (callers with no authenticated
+ * backend in the catalogue).
  */
 
 import { CheckOutlined, TeamOutlined } from '@ant-design/icons';
@@ -38,6 +47,13 @@ export interface WorkspaceSyncScopePickerProps {
   catalogue: OrgDescriptor[];
   /** Flip `Workspace.orgId` to the chosen Org (§6.5 metadata mutation). */
   onPick: (orgId: string) => void | Promise<void>;
+  /**
+   * Publish the workspace into a team Org (U5.6). When supplied, picking
+   * a team-scoped Org routes here instead of {@link onPick} — the
+   * permission-gated `oh.sync.publishWorkspace` path. Omit on surfaces
+   * with no authenticated backend in the catalogue.
+   */
+  onPublish?: (orgId: string) => void | Promise<void>;
   compact?: boolean;
 }
 
@@ -65,6 +81,7 @@ export const WorkspaceSyncScopePicker: React.FC<WorkspaceSyncScopePickerProps> =
   currentDescriptor,
   catalogue,
   onPick,
+  onPublish,
   compact,
 }) => {
   const { token } = theme.useToken();
@@ -76,19 +93,22 @@ export const WorkspaceSyncScopePicker: React.FC<WorkspaceSyncScopePickerProps> =
     (descriptor: OrgDescriptor): void => {
       if (descriptor.id === currentOrgId) return;
       if (descriptor.scopeKind === 'team') {
+        // Publishing into a team Org pushes the workspace's data up to
+        // an authenticated backend — the permission-gated U5.6 path.
+        const commit = onPublish ?? onPick;
         modal.confirm({
-          title: `Move "${workspaceName}" to ${descriptor.name}?`,
+          title: `Publish "${workspaceName}" to ${descriptor.name}?`,
           content:
-            'Everyone in this team gains access to the workspace. Its history stays private — team members see it from this point forward.',
-          okText: 'Move to team',
+            'The workspace and its data sync up to this team. Everyone in the team gains access from this point forward; its earlier history stays on this device.',
+          okText: 'Publish',
           cancelText: 'Cancel',
-          onOk: () => onPick(descriptor.id),
+          onOk: () => commit(descriptor.id),
         });
         return;
       }
       void onPick(descriptor.id);
     },
-    [currentOrgId, workspaceName, modal, onPick],
+    [currentOrgId, workspaceName, modal, onPick, onPublish],
   );
 
   const items: MenuProps['items'] = catalogue.map((descriptor) => ({

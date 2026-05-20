@@ -41,7 +41,8 @@ export type CapabilityDenyReason =
   | 'insufficient-workspace-role'
   | 'not-daemon-admin'
   | 'unknown-capability'
-  | 'auth-required';
+  | 'auth-required'
+  | 'target-org-not-authorized';
 
 /**
  * The view of identity state the resolver consults. The registry produces
@@ -140,4 +141,42 @@ export function hasCapability(
 export function authorizedOrgIds(snapshot: IdentitySnapshot | null): ReadonlySet<string> {
   if (!snapshot) return new Set();
   return new Set(snapshot.orgs.keys());
+}
+
+/** Inputs for {@link canPublishWorkspace} — the workspace + the Org to publish into. */
+export interface PublishGateContext {
+  /** The workspace whose `orgId` would be re-homed. */
+  workspaceId: string;
+  /** The authenticated backend's `Org` the workspace would be published into. */
+  targetOrgId: string;
+}
+
+/**
+ * The Phase U5.6 Publish gate — whether this identity may re-home a
+ * workspace into an authenticated backend's `Org` (UNIFIED_ORACLE_
+ * MODEL.md §6.5). Publish is the only path data travels UP to a LAN /
+ * WAN backend, so it carries a stricter gate than the local-only
+ * Combine: BOTH conditions must hold.
+ *
+ *   1. `workspace.write` on the workspace — the caller owns/edits the
+ *      data it is about to push up.
+ *   2. The target `Org` is in the authorized (joined) set — a join
+ *      (U5.2) must have landed the backend's `Org` first. Publishing
+ *      into an unjoined `Org` would strand the workspace under a
+ *      binding that won't sync.
+ *
+ * Pure over the snapshot; the dispatcher resolves it via
+ * `getIdentitySnapshot()` and maps a deny onto the `target-not-
+ * authorized` Publish failure reason.
+ */
+export function canPublishWorkspace(
+  snapshot: IdentitySnapshot | null,
+  ctx: PublishGateContext,
+): CapabilityDecision {
+  const write = hasCapability(snapshot, 'workspace.write', { workspaceId: ctx.workspaceId });
+  if (!write.allow) return write;
+  if (!authorizedOrgIds(snapshot).has(ctx.targetOrgId)) {
+    return { allow: false, reason: 'target-org-not-authorized' };
+  }
+  return { allow: true };
 }

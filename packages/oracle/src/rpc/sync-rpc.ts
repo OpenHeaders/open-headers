@@ -43,6 +43,7 @@ import {
 } from '@openheaders/core/protocol';
 import {
   authorizedOrgIds,
+  canPublishWorkspace,
   emitAuditEntry,
   getIdentitySnapshot,
   hasCapability,
@@ -57,6 +58,7 @@ import type {
   ImportPayload,
   ImportResult,
   InverseEnvelopeContext,
+  PublishResult,
   RestoreResult,
 } from '@openheaders/core/sync';
 import { isDiscardBackupArchiveShape } from '@openheaders/core/sync';
@@ -82,6 +84,7 @@ import {
   orchestrateCombine,
   orchestrateDiscardWithBackup,
   orchestrateImportToPeer,
+  orchestratePublish,
   orchestrateUseTarget,
 } from '../sync/mode-switch';
 import { buildSnapshotForWorkspace } from '../sync/snapshot-builder';
@@ -253,6 +256,12 @@ const GATE_RULES: ReadonlyMap<string, GateRule> = new Map<string, GateRule>([
   ['oh.sync.applyDiscardRestore', { capability: 'daemon.admin', resolveWorkspaceId: NO_WORKSPACE }],
   ['oh.sync.executeCombine', { capability: 'daemon.admin', resolveWorkspaceId: NO_WORKSPACE }],
   ['oh.sync.executeUseTarget', { capability: 'daemon.admin', resolveWorkspaceId: NO_WORKSPACE }],
+
+  // Publish is a single-workspace gesture, not a cross-workspace
+  // orchestrator — gated at `workspace.write` on the published
+  // workspace. The dispatcher layers the U5.6 target-Org authorization
+  // check on top via `canPublishWorkspace`.
+  ['oh.sync.publishWorkspace', { capability: 'workspace.write', resolveWorkspaceId: WORKSPACE_ID_FROM_MESSAGE }],
 
   // Awareness — presence-plane reads. Bounded; `workspace.read` suffices
   // since presence carries no privileged content.
@@ -502,6 +511,11 @@ export function dispatchSyncRpc(message: Record<string, unknown>): SyncRpcResult
   if (type === 'oh.sync.executeUseTarget') {
     const raw = message as unknown as { targetOrgId?: unknown };
     return { kind: 'async', promise: dispatchExecuteUseTarget(raw) };
+  }
+
+  if (type === 'oh.sync.publishWorkspace') {
+    const raw = message as unknown as { workspaceId?: unknown; targetOrgId?: unknown };
+    return { kind: 'async', promise: dispatchPublishWorkspace(raw) };
   }
 
   if (type === 'oh.sync.unmuteActivityEntity') {
@@ -813,6 +827,41 @@ async function dispatchExecuteUseTarget(raw: { targetOrgId?: unknown }): Promise
     buildSnapshot: (workspaceId) => buildSnapshotForWorkspace(workspaceId),
     deleteWorkspace: (workspaceId) => deleteWorkspace(workspaceId),
     now: () => new Date().toISOString(),
+  });
+}
+
+/**
+ * Resolve an `oh.sync.publishWorkspace` request — local-only, the
+ * Phase U5.6 per-workspace Publish.
+ *
+ * Publish re-homes ONE workspace into an authenticated backend's `Org`
+ * by flipping its `Workspace.orgId` (UNIFIED_ORACLE_MODEL.md §6.5) — it
+ * is the only path a workspace's data travels UP to a LAN / WAN
+ * backend. The renderer carries only the workspace + target `orgId`;
+ * this shim applies the U5.6 gate (`canPublishWorkspace` — caller holds
+ * `workspace.write` on the workspace AND the target `Org` is in the
+ * authorized/joined set) before handing the host workspace list + the
+ * SW `setWorkspaceOrgId` mint path to {@link orchestratePublish}. A
+ * stale or forged frame collapses to `target-not-authorized`.
+ */
+async function dispatchPublishWorkspace(raw: {
+  workspaceId?: unknown;
+  targetOrgId?: unknown;
+}): Promise<PublishResult> {
+  const workspaceId = typeof raw.workspaceId === 'string' ? raw.workspaceId : '';
+  const targetOrgId = typeof raw.targetOrgId === 'string' ? raw.targetOrgId : '';
+  if (targetOrgId.length === 0) {
+    return { ok: false, reason: 'no-target-org' };
+  }
+  const decision = canPublishWorkspace(getIdentitySnapshot(), { workspaceId, targetOrgId });
+  if (!decision.allow) {
+    return { ok: false, reason: 'target-not-authorized', detail: decision.reason };
+  }
+  return orchestratePublish({
+    targetOrgId,
+    workspaceId,
+    workspaces: listWorkspaces().map((ws) => ({ id: ws.id, name: ws.name, orgId: ws.orgId })),
+    rehomeWorkspace: (wid, orgId) => setWorkspaceOrgId(wid, orgId),
   });
 }
 
