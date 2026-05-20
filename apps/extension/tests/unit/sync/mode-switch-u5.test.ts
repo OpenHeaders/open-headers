@@ -187,6 +187,22 @@ describe('awaitJoinedOrg', () => {
     expect(await pending).toBe(true);
   });
 
+  it('catches a join that lands before the initial read resolves (race regression)', async () => {
+    // Reproduces the check-then-subscribe race: under a mode-commit
+    // reconnect storm the contended read lags behind the join write.
+    // A check-then-subscribe order would miss the write; subscribe-first
+    // must catch it even though the read returns stale-empty.
+    const storage = fakeStorage([]);
+    let resolveGet: (value: Org[]) => void = () => {};
+    storage.get = vi.fn(() => new Promise<Org[]>((r) => (resolveGet = r)));
+    mockGetHostStorage.mockReturnValue(storage);
+
+    const pending = awaitJoinedOrg(ORG_ID, 5_000);
+    storage.push([org(ORG_ID)]); // join lands while the read is still in flight
+    resolveGet([]); // read resolves stale-empty
+    expect(await pending).toBe(true);
+  });
+
   it('resolves false when the join never lands within the timeout', async () => {
     mockGetHostStorage.mockReturnValue(fakeStorage([]));
     expect(await awaitJoinedOrg(ORG_ID, 30)).toBe(false);

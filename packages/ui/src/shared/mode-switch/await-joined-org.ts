@@ -14,6 +14,15 @@
  * backend is already on file (reconnecting to a known backend), or
  * `false` on timeout (the backend never came online — the executor
  * surfaces a "your data is unchanged" toast).
+ *
+ * The subscription is registered BEFORE the initial read. A mode commit
+ * triggers a reconnect storm in the SW (handshake, pending-out flush,
+ * identity refresh) that contends `chrome.storage`, so the renderer's
+ * read can lag tens of ms behind the join write. A check-then-subscribe
+ * order would lose a write that lands in that gap — the join would be
+ * on disk yet the helper would wait out the full timeout. Subscribing
+ * first closes the gap: any write after the subscription is caught by
+ * it, any write before is caught by the read.
  */
 
 import { getHostStorage, OH } from '@openheaders/core/storage';
@@ -29,9 +38,6 @@ export async function awaitJoinedOrg(orgId: string, timeoutMs: number = DEFAULT_
   const storage = getHostStorage();
   if (!storage) return false;
 
-  const existing = (await storage.get(OH.joinedOrgs)) ?? [];
-  if (existing.some((org) => org.id === orgId)) return true;
-
   return new Promise<boolean>((resolve) => {
     let settled = false;
     let unsubscribe: (() => void) | undefined;
@@ -45,8 +51,22 @@ export async function awaitJoinedOrg(orgId: string, timeoutMs: number = DEFAULT_
     };
 
     const timer = setTimeout(() => finish(false), timeoutMs);
+
+    // Subscribe first — see the module note on the check-then-subscribe race.
     unsubscribe = storage.subscribe(OH.joinedOrgs, (next) => {
       if ((next ?? []).some((org) => org.id === orgId)) finish(true);
     });
+
+    // Then read: catches an Org already on file, or one that landed
+    // just before the subscription registered.
+    void storage.get(OH.joinedOrgs).then(
+      (existing) => {
+        if ((existing ?? []).some((org) => org.id === orgId)) finish(true);
+      },
+      () => {
+        // A failed read is non-fatal — the subscription still covers
+        // any join that lands before the timeout.
+      },
+    );
   });
 }
