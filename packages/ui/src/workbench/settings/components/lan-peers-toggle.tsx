@@ -7,7 +7,8 @@
  * remodeling. The affordance is a single Switch because users think
  * "allow LAN peers? yes/no", not "pick a bind address." A confirmation
  * Modal fires on first opt-in to surface the LAN-exposure tradeoff;
- * U3.2 lands the token gate that the wire enforces past this toggle.
+ * flipping it on reveals the "Known devices" section (token generation
+ * + device pairing) in the same pane.
  *
  * The auth-required handshake flip is already wired in U2.3: ws-server
  * inspects `LOOPBACK_BINDS` on its current bind and passes the resulting
@@ -57,8 +58,9 @@ const LanPeersToggleEditor: React.FC<{ def: SettingDef }> = ({ def }) => {
         <Typography.Paragraph style={{ marginBottom: 0 }}>
           The desktop daemon will bind every local network interface so other
           devices on your network can connect. Connections from non-loopback
-          peers will be rejected until you generate and share an auth token
-          (coming next). Loopback connections from this machine stay
+          peers are rejected until you generate and share an auth token —
+          use the "Known devices" section below to issue one or pair a
+          device. Loopback connections from this machine stay
           trust-by-process.
         </Typography.Paragraph>
       ),
