@@ -22,6 +22,11 @@ export type {
   DiscardedWorkspace,
 } from './discard-types';
 export type {
+  CombineFailureReason,
+  CombineResult,
+  CombinedWorkspace,
+} from './combine-types';
+export type {
   RestoreFailureReason,
   RestoreResult,
   RestoredWorkspace,

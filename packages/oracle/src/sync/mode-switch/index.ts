@@ -52,6 +52,11 @@ export {
   type OrchestrateDiscardDeps,
 } from './discard-orchestrator';
 export {
+  orchestrateCombine,
+  type CombineWorkspaceInput,
+  type OrchestrateCombineDeps,
+} from './combine-orchestrator';
+export {
   applyDiscardRestoreArchive,
   type ApplyRestoreDeps,
   type RestoreTargetMinter,

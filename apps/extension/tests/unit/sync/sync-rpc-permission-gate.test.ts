@@ -167,6 +167,14 @@ describe('sync-rpc permission gate', () => {
     expect(audits[0]?.capability).toBe('daemon.admin');
   });
 
+  it('gates the Combine orchestrator behind daemon.admin (U5.3)', () => {
+    expect(() => dispatchSyncRpc({ type: 'oh.sync.executeCombine', targetOrgId: 'org-x' })).toThrow(
+      PermissionDeniedError,
+    );
+    expect(audits).toHaveLength(1);
+    expect(audits[0]?.capability).toBe('daemon.admin');
+  });
+
   it('allows workspace.list snapshot read for any installed snapshot', async () => {
     await ensureSyntheticIdentity({ now: NOW });
     await refreshIdentitySnapshotFromHostStorage();
