@@ -1,22 +1,18 @@
 /**
- * Phase U5.5 — `ModeSwitchDialog` posture-aware redesign. Pins:
+ * Phase U5 — `ModeSwitchDialog` consume-only redesign. Pins:
  *
  *   - opens / closes via the `open` prop
  *   - both per-host columns render their summary line
- *   - trust-by-process posture shows Combine + Use-Target
- *   - authenticated posture shows Keep-my-data-here + Use-Target
+ *   - the same two cards show regardless of backend: Keep my workspaces
+ *     + Discard my workspaces
  *   - selecting a card then Apply dispatches the typed choice
  *   - clicking a card alone does NOT commit
  *   - Cancel routes through `onCancel`
- *   - an unknown target `Org` disables the Org-dependent cards and
- *     offers Keep-my-data-here as the fallback
+ *   - an unknown target `Org` disables Discard; Keep stays available
  */
 
 import type { DataPresenceSummary, WorkspaceContentSnapshot } from '@openheaders/core/sync';
-import ModeSwitchDialog, {
-  type ConnectionPosture,
-  type ModeSwitchChoice,
-} from '@openheaders/ui/workbench/components/dialogs/ModeSwitchDialog';
+import ModeSwitchDialog, { type ModeSwitchChoice } from '@openheaders/ui/workbench/components/dialogs/ModeSwitchDialog';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -75,7 +71,6 @@ function presence(workspaces: WorkspaceContentSnapshot[]): DataPresenceSummary {
 function renderDialog(
   overrides: {
     open?: boolean;
-    posture?: ConnectionPosture;
     targetOrgKnown?: boolean;
     onChoose?: (c: ModeSwitchChoice) => void;
     onCancel?: () => void;
@@ -86,7 +81,6 @@ function renderDialog(
       open={overrides.open ?? true}
       fromLabel="In-Browser"
       toLabel="Desktop App"
-      posture={overrides.posture ?? 'trust-by-process'}
       targetOrgKnown={overrides.targetOrgKnown ?? true}
       source={presence([workspace({ rule: 12, environment: 3 })])}
       target={presence([workspace({ rule: 8 })])}
@@ -111,47 +105,32 @@ describe('ModeSwitchDialog', () => {
     expect(screen.getByText(/1 workspace · 8 rules/)).toBeTruthy();
   });
 
-  it('shows Combine + Use-Target on a trust-by-process target', () => {
-    renderDialog({ posture: 'trust-by-process' });
-    expect(screen.getByText(/Combine into one workspace set/)).toBeTruthy();
-    expect(screen.getByText(/Use the target backend/)).toBeTruthy();
-    expect(screen.queryByText(/Keep my data on this device/)).toBeNull();
+  it('shows Keep + Discard — the same two consume-only cards for any backend', () => {
+    renderDialog();
+    expect(screen.getByText(/Keep my workspaces/)).toBeTruthy();
+    expect(screen.getByText(/Discard my workspaces/)).toBeTruthy();
   });
 
-  it('shows Keep-my-data-here + Use-Target on an authenticated target', () => {
-    renderDialog({ posture: 'authenticated' });
-    expect(screen.getByText(/Keep my data on this device/)).toBeTruthy();
-    expect(screen.getByText(/Use the target backend/)).toBeTruthy();
-    expect(screen.queryByText(/Combine into one workspace set/)).toBeNull();
-  });
-
-  it('dispatches the Combine choice on Apply (trust-by-process default)', () => {
+  it('dispatches the Keep choice on Apply (the default)', () => {
     const onChoose = vi.fn();
-    renderDialog({ posture: 'trust-by-process', onChoose });
-    clickApply();
-    expect(onChoose).toHaveBeenCalledWith('combine');
-  });
-
-  it('dispatches the Keep-local choice on Apply (authenticated default)', () => {
-    const onChoose = vi.fn();
-    renderDialog({ posture: 'authenticated', onChoose });
+    renderDialog({ onChoose });
     clickApply();
     expect(onChoose).toHaveBeenCalledWith('keep-local');
   });
 
-  it('dispatches Use-Target when the user selects it then Applies', () => {
+  it('dispatches the Discard choice when the user selects it then Applies', () => {
     const onChoose = vi.fn();
-    renderDialog({ posture: 'trust-by-process', onChoose });
-    selectAction(/Use the target backend/);
+    renderDialog({ onChoose });
+    selectAction(/Discard my workspaces/);
     clickApply();
     expect(onChoose).toHaveBeenCalledWith('use-target');
   });
 
   it('clicking a card does NOT commit — Apply is the explicit gesture', () => {
     const onChoose = vi.fn();
-    renderDialog({ posture: 'trust-by-process', onChoose });
-    selectAction(/Use the target backend/);
-    selectAction(/Combine into one workspace set/);
+    renderDialog({ onChoose });
+    selectAction(/Discard my workspaces/);
+    selectAction(/Keep my workspaces/);
     expect(onChoose).not.toHaveBeenCalled();
   });
 
@@ -162,18 +141,17 @@ describe('ModeSwitchDialog', () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
-  it('marks Use-Target as a destructive action', () => {
-    renderDialog({ posture: 'trust-by-process' });
+  it('marks Discard as a destructive action', () => {
+    renderDialog();
     expect(screen.getByText('Destructive')).toBeTruthy();
   });
 
-  it('warns and offers Keep-local as the fallback when the target Org is unknown', () => {
+  it('warns and disables Discard when the target Org is unknown, leaving Keep', () => {
     const onChoose = vi.fn();
-    renderDialog({ posture: 'trust-by-process', targetOrgKnown: false, onChoose });
-    // The org-dependent outcomes can't run — Keep-my-data-here is added.
+    renderDialog({ targetOrgKnown: false, onChoose });
     expect(screen.getByText(/didn't report a workspace identity/)).toBeTruthy();
-    expect(screen.getByText(/Keep my data on this device/)).toBeTruthy();
-    // Apply commits the fallback, not the disabled Combine.
+    expect(screen.getByText(/Keep my workspaces/)).toBeTruthy();
+    // Apply commits Keep, not the disabled Discard.
     clickApply();
     expect(onChoose).toHaveBeenCalledWith('keep-local');
   });

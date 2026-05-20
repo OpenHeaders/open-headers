@@ -8,12 +8,10 @@
  * sender-side + receiver-side org filters converge it with the target's
  * data — both directions live.
  *
- * Publish is the per-workspace analog of {@link orchestrateCombine}
- * (U5.3): same mechanism, narrower scope. Combine re-homes EVERY
- * resident workspace on a trust-by-process backend; Publish re-homes a
- * SINGLE workspace and is the explicit, permission-gated opt-in for
- * pushing data up to an authenticated LAN / WAN backend — the one path
- * by which a workspace's data travels up.
+ * Publish is the explicit, permission-gated opt-in for pushing a
+ * SINGLE workspace's data up to a backend — the one and only path by
+ * which a workspace's data travels up. Joining a backend never pushes
+ * anything up; Publish is a separate, deliberate per-workspace gesture.
  *
  * The orchestrator owns the sequencing decisions:
  *

@@ -1,14 +1,14 @@
 /**
- * Phase U5.5 — renderer-side Combine / Use-Target machinery. Pins:
+ * Phase U5 — renderer-side mode-switch machinery. Pins:
  *
- *   - executeCombine / executeUseTarget surface the bridge result and
- *     fold transport errors into the right structured failure
- *   - summarizeCombine / summarizeUseTarget toast copy per outcome
+ *   - executeUseTarget surfaces the bridge result and folds transport
+ *     errors into the right structured failure
+ *   - summarizeUseTarget toast copy per outcome
  *   - awaitJoinedOrg resolves on an already-present Org, on a later
  *     arrival, and times out when the join never lands
  */
 
-import type { CombineResult, DiscardResult } from '@openheaders/core/sync';
+import type { DiscardResult } from '@openheaders/core/sync';
 import type { Org } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -21,10 +21,7 @@ vi.mock('@openheaders/core/storage', async (importActual) => ({
 
 import {
   awaitJoinedOrg,
-  executeCombine,
   executeUseTarget,
-  summarizeCombineFailure,
-  summarizeCombineSuccess,
   summarizeUseTargetFailure,
   summarizeUseTargetSuccess,
 } from '@openheaders/ui/shared/mode-switch';
@@ -37,27 +34,6 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.clearAllMocks();
-});
-
-describe('executeCombine (renderer bridge wrapper)', () => {
-  it('returns the bridge response on success', async () => {
-    const stub: CombineResult = { ok: true, targetOrgId: ORG_ID, combinedWorkspaces: [] };
-    const result = await executeCombine({ targetOrgId: ORG_ID }, { bridgeCall: async () => stub });
-    expect(result).toBe(stub);
-  });
-
-  it('folds bridge rejections into rehome-failed', async () => {
-    const result = await executeCombine(
-      { targetOrgId: ORG_ID },
-      { bridgeCall: () => Promise.reject(new Error('ipc-down')) },
-    );
-    expect(result).toMatchObject({ ok: false, reason: 'rehome-failed', detail: 'ipc-down' });
-  });
-
-  it('coerces non-Error throws into a string detail', async () => {
-    const result = await executeCombine({ targetOrgId: ORG_ID }, { bridgeCall: () => Promise.reject('nope') });
-    expect(result).toMatchObject({ ok: false, reason: 'rehome-failed', detail: 'nope' });
-  });
 });
 
 describe('executeUseTarget (renderer bridge wrapper)', () => {
@@ -73,55 +49,6 @@ describe('executeUseTarget (renderer bridge wrapper)', () => {
       { bridgeCall: () => Promise.reject(new Error('ipc-down')) },
     );
     expect(result).toMatchObject({ ok: false, reason: 'backup-failed', detail: 'ipc-down' });
-  });
-});
-
-describe('summarizeCombine toast copy', () => {
-  it('counts the moved workspaces in the success line', () => {
-    const copy = summarizeCombineSuccess(
-      {
-        ok: true,
-        targetOrgId: ORG_ID,
-        combinedWorkspaces: [
-          { workspaceId: 'w1', workspaceName: 'Alpha', fromOrgId: 'home' },
-          { workspaceId: 'w2', workspaceName: 'Beta', fromOrgId: 'home' },
-        ],
-      },
-      'Browser Extension',
-      'Desktop Application',
-    );
-    expect(copy).toContain('2 workspaces');
-    expect(copy).toContain('Browser Extension');
-    expect(copy).toContain('Desktop Application');
-  });
-
-  it('says "already part of" when nothing needed moving', () => {
-    const copy = summarizeCombineSuccess(
-      { ok: true, targetOrgId: ORG_ID, combinedWorkspaces: [] },
-      'Browser Extension',
-      'Desktop Application',
-    );
-    expect(copy).toContain('already part of');
-  });
-
-  it('renders a distinct line per failure reason', () => {
-    expect(summarizeCombineFailure({ ok: false, reason: 'no-target-org' }, 'Desktop')).toContain(
-      'no workspace identity',
-    );
-    expect(summarizeCombineFailure({ ok: false, reason: 'target-not-authorized' }, 'Desktop')).toContain(
-      "didn't come online",
-    );
-    expect(summarizeCombineFailure({ ok: false, reason: 'no-source-data' }, 'Desktop')).toContain('No workspaces');
-    expect(
-      summarizeCombineFailure(
-        {
-          ok: false,
-          reason: 'rehome-failed',
-          combinedWorkspaces: [{ workspaceId: 'w1', workspaceName: 'A', fromOrgId: 'h' }],
-        },
-        'Desktop',
-      ),
-    ).toContain('1 workspace moved');
   });
 });
 

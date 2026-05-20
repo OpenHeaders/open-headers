@@ -22,7 +22,7 @@ import type { ModeSwitchInput, ModeSwitchVerdict } from './types';
  *   4. both empty                      ⇒ both-empty (silent commit, nothing to merge)
  *   5. source empty                    ⇒ silent-use-target
  *   6. target empty                    ⇒ silent-import-source
- *   7. both populated                  ⇒ show-dialog (Combine / Keep-local / Use-target)
+ *   7. both populated                  ⇒ show-dialog (Keep-mine / Discard-mine)
  */
 export function decideModeSwitch(input: ModeSwitchInput): ModeSwitchVerdict {
   if (input.fromMode === input.toMode) {

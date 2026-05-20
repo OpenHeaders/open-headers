@@ -4,11 +4,6 @@ export {
   setBackupWriter,
 } from './backup-writer';
 export {
-  type CombineWorkspaceInput,
-  type OrchestrateCombineDeps,
-  orchestrateCombine,
-} from './combine-orchestrator';
-export {
   type CollectLocalDataPresenceInput,
   collectLocalDataPresence,
   type DataPresenceOracle,

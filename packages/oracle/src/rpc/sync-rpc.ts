@@ -51,7 +51,6 @@ import {
   type SyncAwarenessPresenceMessage,
 } from '@openheaders/core/protocol';
 import type {
-  CombineResult,
   DiscardBackupArchive,
   DiscardResult,
   InverseEnvelopeContext,
@@ -68,7 +67,6 @@ import { snapshotExtensionWorkspacePostStates } from '../sync/global-service';
 import {
   applyDiscardRestoreArchive,
   collectLocalDataPresence,
-  orchestrateCombine,
   orchestrateDiscardWithBackup,
   orchestratePublish,
   orchestrateUseTarget,
@@ -228,7 +226,6 @@ const GATE_RULES: ReadonlyMap<string, GateRule> = new Map<string, GateRule>([
   // "Next-session input" §1.
   ['oh.sync.executeDiscardWithBackup', { capability: 'daemon.admin', resolveWorkspaceId: NO_WORKSPACE }],
   ['oh.sync.applyDiscardRestore', { capability: 'daemon.admin', resolveWorkspaceId: NO_WORKSPACE }],
-  ['oh.sync.executeCombine', { capability: 'daemon.admin', resolveWorkspaceId: NO_WORKSPACE }],
   ['oh.sync.executeUseTarget', { capability: 'daemon.admin', resolveWorkspaceId: NO_WORKSPACE }],
 
   // Publish is a single-workspace gesture, not a cross-workspace
@@ -451,11 +448,6 @@ export function dispatchSyncRpc(message: Record<string, unknown>): SyncRpcResult
     return { kind: 'async', promise: dispatchApplyDiscardRestore(message) };
   }
 
-  if (type === 'oh.sync.executeCombine') {
-    const raw = message as unknown as { targetOrgId?: unknown };
-    return { kind: 'async', promise: dispatchExecuteCombine(raw) };
-  }
-
   if (type === 'oh.sync.executeUseTarget') {
     const raw = message as unknown as { targetOrgId?: unknown };
     return { kind: 'async', promise: dispatchExecuteUseTarget(raw) };
@@ -576,32 +568,6 @@ async function dispatchExecuteDiscardWithBackup(): Promise<DiscardResult> {
     buildSnapshot: (workspaceId) => buildSnapshotForWorkspace(workspaceId),
     deleteWorkspace: (workspaceId) => deleteWorkspace(workspaceId),
     now: () => new Date().toISOString(),
-  });
-}
-
-/**
- * Resolve an `oh.sync.executeCombine` request — local-only, the
- * trust-by-process arm of the Phase U5 mode-switch model (U5.3).
- *
- * No payload of substance crosses the wire — Combine re-homes this
- * host's workspaces into a joined backend's `Org` by flipping each
- * `Workspace.orgId` (UNIFIED_ORACLE_MODEL.md §6.5). The renderer
- * carries only the target `orgId`; this shim verifies it is an `Org`
- * this host actually joined (`authorizedOrgIds`, U5.2) before handing
- * the host workspace list + the SW `setWorkspaceOrgId` mint path to
- * {@link orchestrateCombine}. The authorized-set guard keeps a stale
- * or forged frame from stranding workspaces under an `Org` that won't
- * sync.
- */
-async function dispatchExecuteCombine(raw: { targetOrgId?: unknown }): Promise<CombineResult> {
-  const targetOrgId = typeof raw.targetOrgId === 'string' ? raw.targetOrgId : '';
-  if (targetOrgId.length > 0 && !authorizedOrgIds(getIdentitySnapshot()).has(targetOrgId)) {
-    return { ok: false, reason: 'target-not-authorized' };
-  }
-  return orchestrateCombine({
-    targetOrgId,
-    workspaces: listWorkspaces().map((ws) => ({ id: ws.id, name: ws.name, orgId: ws.orgId })),
-    rehomeWorkspace: (workspaceId, orgId) => setWorkspaceOrgId(workspaceId, orgId),
   });
 }
 

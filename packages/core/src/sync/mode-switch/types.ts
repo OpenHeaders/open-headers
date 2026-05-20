@@ -51,11 +51,11 @@ export type ModeSwitchVerdict =
       target: DataPresenceSummary;
       /**
        * The target backend's home `Org`, read from the verdict probe's
-       * WELCOME (Phase U5.2 carries it). The dialog's Combine / Use-
-       * Target executors re-home into / retire against this `Org` id.
-       * `null` when the target backend's handshake carried no `Org`
-       * (a backend that doesn't bootstrap a synthetic identity) — the
-       * dialog then disables the outcomes that need a target `Org`.
+       * WELCOME (Phase U5.2 carries it). The dialog's Discard executor
+       * tells the joiner's workspaces apart from this `Org`'s before
+       * retiring them. `null` when the target backend's handshake
+       * carried no `Org` (a backend that doesn't bootstrap a synthetic
+       * identity) — the dialog then disables the Discard outcome.
        */
       targetOrg: Org | null;
     };
@@ -71,9 +71,9 @@ export interface ModeSwitchInput {
   /**
    * The target backend's home `Org`, as carried by the probe's WELCOME
    * (Phase U5.2). Forwarded verbatim onto a `show-dialog` verdict so
-   * the Combine / Use-Target executors know which `Org` to re-home
-   * into. `null` / omitted when the target is unreachable or carried
-   * no `Org`.
+   * the Discard executor knows which `Org`'s workspaces to keep when
+   * retiring the joiner's own. `null` / omitted when the target is
+   * unreachable or carried no `Org`.
    */
   readonly targetOrg?: Org | null;
 }

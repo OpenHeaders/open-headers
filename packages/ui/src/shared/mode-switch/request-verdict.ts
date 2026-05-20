@@ -11,8 +11,8 @@
  *
  * The peer query resolves both the target's data presence AND its home
  * `Org` (Phase U5.2 — the WELCOME carries it). The `Org` rides onto a
- * `show-dialog` verdict so the dialog's Combine / Use-Target executors
- * know which `Org` to re-home into.
+ * `show-dialog` verdict so the dialog's Discard executor knows which
+ * `Org`'s workspaces to keep when retiring the joiner's own.
  */
 
 import { hostBridge } from '@openheaders/core/bridge';

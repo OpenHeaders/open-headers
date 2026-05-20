@@ -1,45 +1,37 @@
 /**
- * Mode-switch dialog — Phase U5.5 (posture-aware redesign).
+ * Mode-switch dialog — Phase U5 (consume-only redesign).
  *
  * Fires when the user changes `backend.mode` and both the source and
- * target hosts have user-authored content. The dialog presents exactly
- * TWO outcome-named cards, selected by the target backend's connection
- * posture (`docs/UNIFIED_ORACLE_MODEL.md` §6 / `UNIFIED_ORACLE_STATUS.md`
- * Phase U5):
+ * target hosts have user-authored content. Joining a backend is always
+ * consume-only (`docs/UNIFIED_ORACLE_MODEL.md` §6, ADR-9): the target's
+ * workspaces sync down and become active; the joiner's own data is
+ * never pushed up as a side effect of the switch. The dialog presents
+ * exactly TWO outcome-named cards, the same regardless of backend:
  *
- *   - **Trust-by-process** (loopback backend): "Combine" — re-home this
- *     device's workspaces into the target `Org` so they sync both ways
- *     — and "Use the target's data only".
- *   - **Authenticated** (LAN / WAN backend): "Keep my data on this
- *     device" — the join consumes the target's data, nothing of the
- *     joiner's is pushed up — and "Use the target's data only".
+ *   - **Keep my workspaces** (default) — the joiner's workspaces stay on
+ *     this device under their own Org; the user switches Org to reach
+ *     them. The target's workspaces sync down and become active.
+ *   - **Discard my workspaces** — the joiner's workspaces are exported
+ *     to a local backup file, then deleted, for a clean slate.
  *
- * Cards are outcome-named, never mechanism-named. Pushing data up to an
- * authenticated backend is never a join-time side effect — that is the
- * explicit per-workspace Publish action (U5.6).
+ * Pushing a local workspace UP to a backend is a separate, deliberate
+ * per-workspace action the user takes afterwards — never a join-time
+ * choice surfaced here.
  *
  * Pure presentational. The caller (`useBackendModeSwitch`) owns the
  * open flag, the post-choice commit, and the executors; this component
  * just surfaces the decision.
  */
 
-import { ArrowRightOutlined, DeleteOutlined, HddOutlined, MergeCellsOutlined } from '@ant-design/icons';
+import { ArrowRightOutlined, DeleteOutlined, HddOutlined } from '@ant-design/icons';
 import { Alert, Modal, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
 import type { DataPresenceSummary } from '@openheaders/core/sync';
 import { BackendIcon, type BackendIconKey } from '../../settings/components/backend-icons';
 
-/** The three outcomes the dialog can resolve to (Phase U5.5). */
-export type ModeSwitchChoice = 'combine' | 'keep-local' | 'use-target';
-
-/**
- * Connection posture of the target backend. `trust-by-process` is a
- * loopback backend (same machine, no auth — the desktop app or a
- * loopback daemon); `authenticated` is a token-gated LAN / WAN backend.
- * Drives which two cards the dialog shows.
- */
-export type ConnectionPosture = 'trust-by-process' | 'authenticated';
+/** The two outcomes the dialog can resolve to. */
+export type ModeSwitchChoice = 'keep-local' | 'use-target';
 
 export interface ModeSwitchDialogProps {
   open: boolean;
@@ -52,14 +44,12 @@ export interface ModeSwitchDialogProps {
   toIcon?: BackendIconKey;
   source: DataPresenceSummary;
   target: DataPresenceSummary;
-  /** Target backend posture — selects the two cards shown. */
-  posture: ConnectionPosture;
   /**
    * Whether the target backend reported a home `Org` on its handshake
-   * (Phase U5.2). When `false`, the outcomes that re-home into / retire
-   * against that `Org` (Combine, Use-Target) can't run — they render
-   * disabled and "Keep my data on this device" is offered as the
-   * always-safe fallback.
+   * (Phase U5.2). When `false` the destructive "Discard" outcome is
+   * disabled — without a target `Org` the consume side can't be relied
+   * on, so retiring the joiner's data would risk leaving them empty.
+   * "Keep my workspaces" stays available; it is always safe.
    */
   targetOrgKnown: boolean;
   onChoose: (choice: ModeSwitchChoice) => void;
@@ -77,27 +67,18 @@ interface ActionOption {
   danger?: boolean;
 }
 
-const COMBINE_OPTION: ActionOption = {
-  choice: 'combine',
-  title: 'Combine into one workspace set',
-  icon: <MergeCellsOutlined />,
-  describe: (fromLabel, toLabel) =>
-    `Your ${fromLabel} workspaces move into ${toLabel} and sync both ways. Nothing is lost.`,
-  needsTargetOrg: true,
-};
-
 const KEEP_LOCAL_OPTION: ActionOption = {
   choice: 'keep-local',
-  title: 'Keep my data on this device',
+  title: 'Keep my workspaces',
   icon: <HddOutlined />,
   describe: (fromLabel, toLabel) =>
-    `Your ${fromLabel} workspaces stay private to this device. ${toLabel}'s workspaces sync down to you; yours are never pushed up.`,
+    `Your ${fromLabel} workspaces stay on this device under your own org. ${toLabel}'s workspaces sync down and become active — switch org anytime to return to your own.`,
   needsTargetOrg: false,
 };
 
 const USE_TARGET_OPTION: ActionOption = {
   choice: 'use-target',
-  title: 'Use the target backend’s data only',
+  title: 'Discard my workspaces',
   icon: <DeleteOutlined />,
   describe: (fromLabel, toLabel) =>
     `Your ${fromLabel} workspaces are exported to a local backup file, then removed. You'll work only with ${toLabel}'s data.`,
@@ -105,15 +86,7 @@ const USE_TARGET_OPTION: ActionOption = {
   danger: true,
 };
 
-/**
- * The two outcome cards for a posture. Trust-by-process offers Combine;
- * authenticated offers Keep-my-data-here. Both offer Use-Target.
- */
-function optionsForPosture(posture: ConnectionPosture): readonly ActionOption[] {
-  return posture === 'trust-by-process'
-    ? [COMBINE_OPTION, USE_TARGET_OPTION]
-    : [KEEP_LOCAL_OPTION, USE_TARGET_OPTION];
-}
+const OPTIONS: readonly ActionOption[] = [KEEP_LOCAL_OPTION, USE_TARGET_OPTION];
 
 const ModeSwitchDialog: React.FC<ModeSwitchDialogProps> = ({
   open,
@@ -123,22 +96,13 @@ const ModeSwitchDialog: React.FC<ModeSwitchDialogProps> = ({
   toIcon,
   source,
   target,
-  posture,
   targetOrgKnown,
   onChoose,
   onCancel,
 }) => {
   const { token } = theme.useToken();
 
-  // The two posture cards, plus Keep-my-data-here as an always-safe
-  // fallback when the target `Org` is unknown and would otherwise leave
-  // no runnable outcome.
-  const postureOptions = optionsForPosture(posture);
-  const needsFallback = !targetOrgKnown && postureOptions.every((o) => o.needsTargetOrg);
-  const options: readonly ActionOption[] = needsFallback
-    ? [KEEP_LOCAL_OPTION, ...postureOptions]
-    : postureOptions;
-
+  const options = OPTIONS;
   const isDisabled = (opt: ActionOption): boolean => opt.needsTargetOrg && !targetOrgKnown;
   const firstEnabled = options.find((o) => !isDisabled(o)) ?? options[0];
 
@@ -185,8 +149,8 @@ const ModeSwitchDialog: React.FC<ModeSwitchDialogProps> = ({
             }
             description={
               <span style={{ fontSize: 12 }}>
-                Combining or retiring your workspaces needs one. Keep your data on this device for now;
-                you can move it later once the backend is online.
+                Discarding your workspaces needs one. Keep your workspaces for now; you can switch
+                later once the backend is online.
               </span>
             }
           />

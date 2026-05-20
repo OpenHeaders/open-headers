@@ -5,7 +5,6 @@
  */
 
 import type {
-  CombineResult,
   DiscardBackupArchive,
   DiscardResult,
   PublishResult,
@@ -105,32 +104,6 @@ export interface ModeSwitchRpc {
   };
 
   /**
-   * Mode-switch Combine (Phase U5.3) — source-side, local-only, the
-   * trust-by-process arm of the Phase U5 mode-switch model.
-   *
-   * After a join (U5.2) folds the target backend's `Org` into this
-   * host's authorized set, Combine re-homes this host's own workspaces
-   * into that `Org` by flipping each `Workspace.orgId`
-   * (UNIFIED_ORACLE_MODEL.md §6.5) — so the joiner's workspaces sync
-   * UP and converge with the target's, both directions live.
-   *
-   * No payload of substance crosses the wire: the request carries only
-   * the target `orgId`, and the work is a sequence of local `orgId`
-   * metadata mutations. The oracle verifies the target `Org` is in the
-   * authorized set (a stale frame asking to re-home into an unjoined
-   * `Org` is refused) before flipping anything.
-   *
-   * Offered ONLY on trust-by-process (loopback) backends — pushing data
-   * up to an authenticated backend is the explicit per-workspace
-   * "Publish" path (U5.6), never a Combine side effect. The posture
-   * gate lives in the mode-switch dialog (U5.5).
-   */
-  'oh.sync.executeCombine': {
-    req: { targetOrgId: string };
-    res: CombineResult;
-  };
-
-  /**
    * Mode-switch Use-Target (Phase U5.4) — source-side, local-only.
    *
    * The "use the target's data only" arm of the Phase U5 mode-switch
@@ -157,13 +130,13 @@ export interface ModeSwitchRpc {
    * deliberate per-workspace gesture that re-homes ONE workspace into an
    * authenticated backend's `Org`.
    *
-   * Publish is the ONLY path a workspace's data travels UP to a LAN /
-   * WAN backend: a join (U5.2) never pushes the joiner's data up (the
-   * receiver-side org filter drops it structurally), and Combine (U5.3)
-   * is offered solely on trust-by-process backends. Publish is the
-   * explicit opt-in for the authenticated case.
+   * Publish is the ONLY path a workspace's data travels UP to a
+   * backend: a join (U5.2) never pushes the joiner's data up (the
+   * receiver-side org filter drops it structurally). Publish is the
+   * explicit, deliberate opt-in — invoked per workspace, never a
+   * join-time side effect.
    *
-   * Mechanically a single-workspace Combine — one `Workspace.orgId` flip
+   * Mechanically one `Workspace.orgId` flip
    * (UNIFIED_ORACLE_MODEL.md §6.5), no wire payload of substance. The
    * request carries the workspace + the target `orgId`; the oracle
    * applies the U5.6 Publish gate (`canPublishWorkspace`) — the caller
