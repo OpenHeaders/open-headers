@@ -230,6 +230,14 @@ export const OH = {
    * stored here — it already rides {@link OH.syntheticIdentity}.
    */
   joinedOrgs: storageKey<Org[]>('oh.joinedOrgs'),
+  /**
+   * The Org the user is currently working in (Phase U5.9 — the org
+   * switcher). The workspace switcher scopes its list to this Org; the
+   * Org dropdown writes it. Defaults to the user's home-org when unset
+   * or stale (`resolveActiveOrgId` in `../identity`). Joining a backend
+   * adopts its Org by writing this slot (consume-only join, U5.9).
+   */
+  activeOrgId: storageKey<string>('oh.activeOrgId'),
 } as const;
 
 /**

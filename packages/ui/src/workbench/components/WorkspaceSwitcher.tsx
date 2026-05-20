@@ -21,6 +21,7 @@ import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { instanceLabel, instanceLabelPlural } from '@openheaders/ui/shared/host-vocabulary';
 import { executePublish } from '../../shared/mode-switch';
+import { useActiveOrg } from '../../shared/hooks/useActiveOrg';
 import { useIdentitySnapshot } from '../../shared/hooks/useIdentitySnapshot';
 import { useOrgBindingPrefs } from '../../shared/hooks/useOrgBindingPrefs';
 import { useWorkspaces } from '../../shared/hooks/useWorkspaces';
@@ -61,6 +62,7 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
   const snapshot = useIdentitySnapshot();
   const catalogue = useMemo(() => orgCatalogue(snapshot), [snapshot]);
   const { prefs, isReady: prefsReady, acknowledgeOnboarding } = useOrgBindingPrefs();
+  const { activeOrgId, setActiveOrg } = useActiveOrg(snapshot);
   const { updateWorkspace } = useWorkspaces();
 
   const selected = workspaces.find((w) => w.id === activeWorkspaceId) ?? null;
@@ -151,6 +153,13 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
               describe: (orgId) => describeOrg(snapshot, orgId),
               onPickOrg: handlePickOrg,
               onPublishOrg: handlePublishOrg,
+            }}
+            orgScope={{
+              catalogue,
+              activeOrgId,
+              onSwitchOrg: (orgId) => {
+                void setActiveOrg(orgId);
+              },
             }}
           />
         )}

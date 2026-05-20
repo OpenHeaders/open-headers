@@ -124,3 +124,20 @@ export function defaultNewWorkspaceOrgId(
   if (storedDefault && snapshot.orgs.has(storedDefault)) return storedDefault;
   return snapshot.user.homeOrgId;
 }
+
+/**
+ * The Org the workspace switcher should currently scope to (Phase U5.9).
+ * The persisted `OH.activeOrgId` when it still names an authorized Org,
+ * otherwise the home-org — so a joined Org that later drops out of the
+ * catalogue (backend forgotten) degrades cleanly to the user's own Org.
+ * Returns `null` for a null snapshot so the caller can defer until
+ * identity hydrates.
+ */
+export function resolveActiveOrgId(
+  snapshot: IdentitySnapshot | null,
+  storedActiveOrgId: string | null,
+): string | null {
+  if (!snapshot) return null;
+  if (storedActiveOrgId && snapshot.orgs.has(storedActiveOrgId)) return storedActiveOrgId;
+  return snapshot.user.homeOrgId;
+}

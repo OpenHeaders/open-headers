@@ -9,6 +9,9 @@
  */
 
 import { DownOutlined } from '@ant-design/icons';
+import { orgCatalogue } from '@openheaders/core/identity';
+import { useActiveOrg } from '@openheaders/ui/shared/hooks/useActiveOrg';
+import { useIdentitySnapshot } from '@openheaders/ui/shared/hooks/useIdentitySnapshot';
 import { useWorkspaces } from '@openheaders/ui/shared/hooks/useWorkspaces';
 import { useSurface } from '@openheaders/ui/shared/surface';
 import { WorkspaceDropdownBody } from '@openheaders/ui/shared/workspace-dropdown/WorkspaceDropdownBody';
@@ -16,7 +19,7 @@ import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { renderWorkspacePrefix } from '@openheaders/ui/workbench/components/workspace-prefix';
 import { Button, Dropdown, Space, Typography, theme } from 'antd';
 import type React from 'react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 const { Text } = Typography;
 
@@ -24,6 +27,9 @@ export const PanelWorkspaceSelector: React.FC = () => {
   const { token } = theme.useToken();
   const surface = useSurface();
   const { workspaces, activeWorkspaceId, activeWorkspace, setActiveWorkspace } = useWorkspaces();
+  const snapshot = useIdentitySnapshot();
+  const catalogue = useMemo(() => orgCatalogue(snapshot), [snapshot]);
+  const { activeOrgId, setActiveOrg } = useActiveOrg(snapshot);
   const [open, setOpen] = useState(false);
 
   if (!activeWorkspace) return null;
@@ -51,6 +57,13 @@ export const PanelWorkspaceSelector: React.FC = () => {
             void openWorkspace({ kind: 'open-workspace-manager' }, surface.mode);
           }}
           onClose={() => setOpen(false)}
+          orgScope={{
+            catalogue,
+            activeOrgId,
+            onSwitchOrg: (orgId) => {
+              void setActiveOrg(orgId);
+            },
+          }}
         />
       )}
       trigger={['click']}

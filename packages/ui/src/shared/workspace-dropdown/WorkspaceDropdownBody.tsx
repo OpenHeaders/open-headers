@@ -22,6 +22,7 @@ import { Divider, Input, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useRef, useState } from 'react';
 import { renderWorkspacePrefix } from '../../workbench/components/workspace-prefix';
+import { OrgSwitcherMenu } from '../workspace-org/OrgSwitcherMenu';
 import { WorkspaceSyncScopePicker } from '../workspace-org/WorkspaceSyncScopePicker';
 import './WorkspaceDropdownBody.css';
 
@@ -73,6 +74,21 @@ export interface WorkspaceDropdownBodyProps {
      */
     onPublishOrg?: (workspaceId: string, orgId: string) => void;
   };
+  /**
+   * Org switcher (U5.9). When supplied, an Org selector header renders
+   * above the search row and the workspace list scopes to {@link
+   * orgScope.activeOrgId} — Org is the top-level container, so the
+   * switcher only ever shows the active Org's workspaces. Omit to render
+   * the full unscoped list.
+   */
+  orgScope?: {
+    /** Every Org the identity belongs to, local → personal → team. */
+    catalogue: OrgDescriptor[];
+    /** The Org the list is scoped to; `null` pre-bootstrap (no scoping). */
+    activeOrgId: string | null;
+    /** Switch the active Org — re-scopes the list. */
+    onSwitchOrg: (orgId: string) => void;
+  };
 }
 
 const baseRowStyle: React.CSSProperties = {
@@ -98,16 +114,26 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
   onClose,
   searchRowExtra,
   orgBinding,
+  orgScope,
 }) => {
   const { token } = theme.useToken();
   const [searchText, setSearchText] = useState('');
   const searchRef = useRef<InputRef>(null);
 
+  // Org is the top-level container — when an Org switcher is wired, the
+  // list only ever shows the active Org's workspaces. A null
+  // `activeOrgId` (pre-bootstrap) leaves the list unscoped.
+  const orgScoped = useMemo(() => {
+    const activeOrgId = orgScope?.activeOrgId ?? null;
+    if (!activeOrgId) return workspaces;
+    return workspaces.filter((w) => w.orgId === activeOrgId);
+  }, [workspaces, orgScope?.activeOrgId]);
+
   const filtered = useMemo(() => {
     const q = searchText.toLowerCase().trim();
-    if (!q) return workspaces;
-    return workspaces.filter((w) => w.name.toLowerCase().includes(q));
-  }, [workspaces, searchText]);
+    if (!q) return orgScoped;
+    return orgScoped.filter((w) => w.name.toLowerCase().includes(q));
+  }, [orgScoped, searchText]);
 
   const handleClose = (): void => {
     setSearchText('');
@@ -126,6 +152,14 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
       }}
       onClick={(e) => e.stopPropagation()}
     >
+      {orgScope && orgScope.catalogue.length > 0 && (
+        <OrgSwitcherMenu
+          catalogue={orgScope.catalogue}
+          activeOrgId={orgScope.activeOrgId}
+          onSwitchOrg={orgScope.onSwitchOrg}
+        />
+      )}
+
       <div style={{ padding: '0 4px 6px', display: 'flex', alignItems: 'center', gap: 4 }}>
         <Input
           ref={searchRef}
@@ -140,7 +174,19 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
         {searchRowExtra}
       </div>
 
-      {filtered.length > 0 && <Divider style={{ margin: '4px 0' }} />}
+      <Divider style={{ margin: '4px 0' }} />
+
+      {filtered.length === 0 && (
+        <div style={{ padding: '8px 8px 10px', textAlign: 'center' }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {searchText.trim()
+              ? 'No workspaces match your search.'
+              : orgScope
+                ? 'No workspaces in this organization yet.'
+                : 'No workspaces yet.'}
+          </Text>
+        </div>
+      )}
 
       <div
         // Cap the visible rows at 3 — taller lists scroll. Each row is
