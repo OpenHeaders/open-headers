@@ -94,7 +94,9 @@ const WorkspacePill: React.FC = () => {
         >
           {activeWorkspace.name}
         </span>
-        <WorkspaceOrgBadge descriptor={describeOrg(snapshot, activeWorkspace.orgId)} compact />
+        {catalogue.length > 1 && (
+          <WorkspaceOrgBadge descriptor={describeOrg(snapshot, activeWorkspace.orgId)} compact />
+        )}
         <DownOutlined style={{ fontSize: 8, color: token.colorTextTertiary }} />
       </button>
     </Dropdown>

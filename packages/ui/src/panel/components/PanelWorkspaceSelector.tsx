@@ -92,7 +92,9 @@ export const PanelWorkspaceSelector: React.FC = () => {
           >
             {activeWorkspace.name}
           </Text>
-          <WorkspaceOrgBadge descriptor={describeOrg(snapshot, activeWorkspace.orgId)} compact />
+          {catalogue.length > 1 && (
+            <WorkspaceOrgBadge descriptor={describeOrg(snapshot, activeWorkspace.orgId)} compact />
+          )}
           <DownOutlined style={{ fontSize: 9, color: token.colorTextTertiary }} />
         </Space>
       </Button>

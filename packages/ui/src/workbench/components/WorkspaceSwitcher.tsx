@@ -130,7 +130,9 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
             <Text style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {selected.name}
             </Text>
-            <WorkspaceOrgBadge descriptor={describeOrg(snapshot, selected.orgId)} compact />
+            {catalogue.length > 1 && (
+              <WorkspaceOrgBadge descriptor={describeOrg(snapshot, selected.orgId)} compact />
+            )}
           </Space>
         </Button>
       </Dropdown>

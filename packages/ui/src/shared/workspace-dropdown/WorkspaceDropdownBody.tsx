@@ -115,9 +115,10 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
   // Org is the top-level container — group the (already search-filtered)
   // list by Org, ordered by the catalogue. No filtering: every Org's
   // workspaces are reachable so a tab can switch to anything. `null`
-  // when no catalogue is wired (pre-bootstrap) — the list renders flat.
+  // (flat list) until the identity actually holds more than one Org —
+  // with a single Org the headers + switch gesture would be noise.
   const groups = useMemo(() => {
-    if (!orgGrouping || orgGrouping.catalogue.length === 0) return null;
+    if (!orgGrouping || orgGrouping.catalogue.length <= 1) return null;
     const byOrg = new Map<string, ExtensionWorkspace[]>();
     for (const w of filtered) {
       const arr = byOrg.get(w.orgId);
@@ -334,7 +335,7 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
           : filtered.map(renderRow)}
       </div>
 
-      {orgGrouping && activeWorkspace && (
+      {orgGrouping && orgGrouping.catalogue.length > 1 && activeWorkspace && (
         <>
           <Divider style={{ margin: '4px 0' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 8px' }}>
