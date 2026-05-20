@@ -318,6 +318,27 @@ export async function setWorkspaceOrgId(id: string, orgId: string): Promise<void
   logger.info('WorkspaceStore', `Re-homed workspace ${id} to org ${orgId}`);
 }
 
+/**
+ * Promote a workspace to ACTIVE from SW-internal code (Phase U5.9 —
+ * "join → adopt"). Emits the same `setActiveExtensionWorkspace` mutation
+ * the renderer's switcher path uses, so listeners + the per-workspace
+ * store swap converge through the standard pipeline. A no-op when the
+ * workspace is already active. Rejects when the workspace is unknown —
+ * the caller (the join-adopt wiring) only calls this once the target
+ * has synced down, so an unknown id is a real bug worth surfacing.
+ */
+export async function setActiveWorkspaceById(id: string): Promise<void> {
+  if (!workspaces.some((w) => w.id === id)) {
+    throw new Error(`WorkspaceStore.setActiveWorkspaceById: unknown workspace ${id}`);
+  }
+  if (activeWorkspaceId === id) return;
+  await applyExtensionWorkspaceMutationOrThrow(
+    (ctx) => buildSetActiveExtensionWorkspaceBatch({ id }, ctx),
+    'setActiveWorkspaceById',
+  );
+  logger.info('WorkspaceStore', `Promoted workspace ${id} to active`);
+}
+
 // ── Sync engine plumbing ──────────────────────────────────────────────
 
 async function applyExtensionWorkspaceMutationOrThrow(

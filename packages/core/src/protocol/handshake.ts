@@ -167,6 +167,17 @@ export interface SyncWelcomeAccept {
    * (pre-bootstrap). The joiner skips the fold in that case.
    */
   org?: Org;
+  /**
+   * The responding backend's currently-active workspace id (Phase U5.9
+   * — "join → adopt"). A consume-only join adopts the backend: the
+   * joiner switches its active Org to {@link org} and, once this
+   * workspace has synced down, promotes it to active. Distinct from
+   * {@link workspaceId}, which echoes the joiner's own connection
+   * workspace.
+   *
+   * Optional: absent when the responder has no active workspace.
+   */
+  activeWorkspaceId?: string;
 }
 
 export interface SyncWelcomeReject {
@@ -188,6 +199,7 @@ const SyncWelcomeAcceptSchema = v.object({
   workspaceId: v.pipe(v.string(), v.minLength(1)),
   agent: v.string(),
   org: v.optional(OrgSchema),
+  activeWorkspaceId: v.optional(v.pipe(v.string(), v.minLength(1))),
 }) satisfies v.GenericSchema<SyncWelcomeAccept>;
 
 const SyncWelcomeRejectSchema = v.object({

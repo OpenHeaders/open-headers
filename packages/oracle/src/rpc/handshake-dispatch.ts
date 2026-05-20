@@ -56,6 +56,7 @@ import { logger } from '@openheaders/core/utils';
 import * as v from 'valibot';
 
 import type { PeerConnection } from '../host-runtime/peer-connection';
+import { peekActiveWorkspaceId } from '../sync';
 import {
   respondToStateVector,
   type RespondToStateVectorOptions,
@@ -202,6 +203,10 @@ export async function evaluateHello(
   // reach the joiner.
   const localSnapshot = getIdentitySnapshot();
   const homeOrg = localSnapshot?.orgs.get(localSnapshot.user.homeOrgId);
+  // U5.9 — carry this backend's active workspace so a consume-only join
+  // can adopt it (switch the joiner's active workspace once it has
+  // synced down). Absent when no workspace is active on this host.
+  const backendActiveWorkspaceId = peekActiveWorkspaceId();
   const welcome: SyncWelcomeMessage = {
     type: SYNC_WELCOME_TYPE,
     accepted: true,
@@ -211,6 +216,7 @@ export async function evaluateHello(
     workspaceId: hello.workspaceId,
     agent: identity.agent,
     ...(homeOrg ? { org: homeOrg } : {}),
+    ...(backendActiveWorkspaceId ? { activeWorkspaceId: backendActiveWorkspaceId } : {}),
   };
   return { kind: 'accept', hello, welcome, tokenId };
 }

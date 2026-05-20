@@ -114,8 +114,13 @@ export interface SyncHandshakeInitiatorDeps {
    * backend's workspaces sync down. Awaited before the next handshake
    * frame is processed so the catch-up snapshot/deltas aren't dropped
    * by the receiver-side org filter.
+   *
+   * `backendActiveWorkspaceId` is the backend's currently-active
+   * workspace (Phase U5.9 "join → adopt") when the WELCOME carries it —
+   * the wiring adopts it as the active workspace once it has synced
+   * down. Absent when the backend has no active workspace.
    */
-  readonly onJoinedOrg?: (org: Org) => Promise<void>;
+  readonly onJoinedOrg?: (org: Org, backendActiveWorkspaceId?: string) => Promise<void>;
   /**
    * Wall-clock budget between HELLO and SYNCED. After the budget
    * elapses the FSM transitions to `timed-out`. Defaults to
@@ -308,10 +313,10 @@ export function createSyncHandshakeInitiator(deps: SyncHandshakeInitiatorDeps): 
       // filter. A throw here is logged but never fails the handshake —
       // the org filter degrades to "drop until the next reconnect
       // re-sends WELCOME," not a desync.
-      const { org } = parsed.output;
+      const { org, activeWorkspaceId } = parsed.output;
       if (org && deps.onJoinedOrg) {
         try {
-          await deps.onJoinedOrg(org);
+          await deps.onJoinedOrg(org, activeWorkspaceId);
         } catch (err) {
           logger.warn(SCOPE, 'onJoinedOrg threw — backend Org not recorded', err);
         }

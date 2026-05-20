@@ -149,6 +149,22 @@ setActivityMuteStore(getSyncPersistenceProvider().createActivityMuteStore?.() ??
 // `backup-writer-unavailable` and the dialog warns the user.
 installBackupWriter();
 
+// U5.9 "join → adopt" — the backend's active workspace id from the
+// WELCOME, held until that workspace has synced down. The handshake
+// fires before the joined Org's workspaces arrive, so adoption is
+// deferred to the next `onWorkspaceStoreChange` once the target exists.
+let pendingAdoptWorkspaceId: string | null = null;
+
+function tryAdoptPendingWorkspace(): void {
+  if (!pendingAdoptWorkspaceId) return;
+  if (!getWorkspace(pendingAdoptWorkspaceId)) return; // not synced down yet
+  const id = pendingAdoptWorkspaceId;
+  pendingAdoptWorkspaceId = null;
+  void setActiveWorkspaceById(id).catch((err: unknown) => {
+    logger.warn('Background', 'join → adopt: could not promote the backend workspace to active', err);
+  });
+}
+
 // State-vector handshake — Phase C natural close-out. On every WS
 // connect, the initiator sends HELLO + STATE_VECTOR; on SYNCED it
 // prunes pending-out against the peer's post-catch-up vector + flushes
@@ -202,13 +218,19 @@ const syncHandshakeInitiator = createSyncHandshakeInitiator({
   // `authorizedOrgIds` filter. This host's own workspaces are never
   // pushed up — the receiver-side org filter on the backend enforces
   // that structurally.
-  onJoinedOrg: async (org) => {
+  onJoinedOrg: async (org, backendActiveWorkspaceId) => {
     await recordJoinedOrg(org);
     // U5.9 — joining is consume-only: adopt the backend by switching the
     // active Org to it, so the org switcher lands the user in the
     // backend's workspaces. Their own workspaces stay under their own
     // Org, one Org-switch away.
     await setActiveOrgId(org.id);
+    // Adopt the backend's active workspace too — deferred until it has
+    // synced down (see `tryAdoptPendingWorkspace`).
+    if (backendActiveWorkspaceId) {
+      pendingAdoptWorkspaceId = backendActiveWorkspaceId;
+      tryAdoptPendingWorkspace();
+    }
     logger.info('Background', `joined backend Org ${org.id} — adopted as active Org, its workspaces will sync down`);
   },
 });
@@ -375,6 +397,7 @@ import {
   onActiveWorkspaceChange,
   onWorkspaceStoreChange,
   peekActiveWorkspaceId,
+  setActiveWorkspaceById,
 } from './modules/workspace-store';
 import { setupWorkspaceTabRegistry } from './modules/workspace-tab-registry';
 import {
@@ -680,6 +703,9 @@ async function initializeExtension(): Promise<void> {
     // future orgId flip per §6.5). Drop the workspaceId → orgId cache so
     // the next envelope mint reads through.
     invalidateAllWorkspaceOrgCache();
+    // U5.9 — a join's backend workspaces may have just synced down;
+    // promote the pending adopt target if it has now landed.
+    tryAdoptPendingWorkspace();
   });
 
   // Env / workspace vars / vault / active-env mutations drive DNR
