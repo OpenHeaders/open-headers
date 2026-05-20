@@ -88,6 +88,11 @@
       "import": "./src/shared/workspace-dropdown/*",
       "default": "./dist/shared/workspace-dropdown/*.js"
     },
+    "./shared/workspace-org/*": {
+      "types": "./dist/shared/workspace-org/*.d.ts",
+      "import": "./src/shared/workspace-org/*",
+      "default": "./dist/shared/workspace-org/*.js"
+    },
     "./shared/local-tree-builder": {
       "import": "./src/shared/local-tree-builder.ts",
       "default": "./dist/shared/local-tree-builder.js"
