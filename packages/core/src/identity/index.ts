@@ -71,6 +71,7 @@ export {
   getIdentitySnapshot,
   type InstallIdentitySnapshotInput,
   installIdentitySnapshot,
+  recordJoinedOrg,
   refreshIdentitySnapshotFromHostStorage,
 } from './registry';
 export {

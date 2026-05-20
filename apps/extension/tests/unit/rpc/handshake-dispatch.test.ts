@@ -27,6 +27,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { clearIdentitySnapshot } from '@openheaders/core/identity';
 
+import { installTestIdentitySnapshot } from '../../helpers/identity-snapshot';
+
 const localIdentity: LocalHandshakeIdentity = {
   role: HANDSHAKE_ROLES.DESKTOP,
   nodeId: 'desktop-test',
@@ -72,6 +74,31 @@ describe('evaluateHello', () => {
       expect(outcome.welcome.workspaceId).toBe('ws-1');
       expect(outcome.welcome.nodeId).toBe(localIdentity.nodeId);
     }
+  });
+
+  it('omits the backend Org from WELCOME when no identity snapshot is hydrated', async () => {
+    // Pre-bootstrap responder — nothing to authorize the joiner against.
+    const outcome = await evaluateHello(validHello as unknown as Record<string, unknown>, localIdentity);
+    expect(outcome.kind).toBe('accept');
+    if (outcome.kind === 'accept' && outcome.welcome.accepted) {
+      expect(outcome.welcome.org).toBeUndefined();
+    }
+  });
+
+  describe('U5.2 — backend home Org in WELCOME accept', () => {
+    afterEach(() => {
+      clearIdentitySnapshot();
+    });
+
+    it('carries the responding backend home Org so the joiner can authorize it', async () => {
+      const homeOrgId = '01900000-0000-7000-8000-0000000000aa';
+      installTestIdentitySnapshot(homeOrgId);
+      const outcome = await evaluateHello(validHello as unknown as Record<string, unknown>, localIdentity);
+      expect(outcome.kind).toBe('accept');
+      if (outcome.kind === 'accept' && outcome.welcome.accepted) {
+        expect(outcome.welcome.org).toEqual({ id: homeOrgId, name: 'Test Org', isSynthetic: true });
+      }
+    });
   });
 
   it('rejects HELLO that fails schema validation', async () => {

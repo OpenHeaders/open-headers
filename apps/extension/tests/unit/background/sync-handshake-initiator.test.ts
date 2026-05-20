@@ -58,6 +58,7 @@ function makeDeps(overrides: Partial<Parameters<typeof createSyncHandshakeInitia
   const applySnapshot = vi.fn<(snapshot: WorkspaceSnapshot) => Promise<void>>(async () => {});
   const onSynced = vi.fn<(peerVector: unknown) => Promise<void>>(async () => {});
   const onRejected = vi.fn<(reason: string, detail?: string) => void>();
+  const onJoinedOrg = vi.fn<(org: unknown) => Promise<void>>(async () => {});
   const deps = {
     send,
     getActiveWorkspaceId: () => 'ws-1',
@@ -67,10 +68,13 @@ function makeDeps(overrides: Partial<Parameters<typeof createSyncHandshakeInitia
     applySnapshot,
     onSynced,
     onRejected,
+    onJoinedOrg,
     ...overrides,
   };
-  return { deps, send, applySnapshot, onSynced, onRejected };
+  return { deps, send, applySnapshot, onSynced, onRejected, onJoinedOrg };
 }
+
+const TEST_BACKEND_ORG = { id: '01900000-0000-7000-8000-0000000000bb', name: 'Backend Org', isSynthetic: true };
 
 const welcomeAccept: SyncWelcomeAccept = {
   type: SYNC_WELCOME_TYPE,
@@ -146,12 +150,35 @@ describe('createSyncHandshakeInitiator — inbound handle()', () => {
   });
 
   it('WELCOME (accept) transitions to welcomed without firing onRejected', async () => {
-    const { deps, onRejected } = makeDeps();
+    const { deps, onRejected, onJoinedOrg } = makeDeps();
     const initiator = createSyncHandshakeInitiator(deps);
     await initiator.start();
     await initiator.handle(welcomeAccept);
     expect(initiator.state()).toBe('welcomed');
     expect(onRejected).not.toHaveBeenCalled();
+    // No `org` on this WELCOME — nothing to join (U5.2).
+    expect(onJoinedOrg).not.toHaveBeenCalled();
+  });
+
+  it('WELCOME (accept) carrying a backend Org fires onJoinedOrg before welcomed (U5.2)', async () => {
+    const { deps, onJoinedOrg } = makeDeps();
+    const initiator = createSyncHandshakeInitiator(deps);
+    await initiator.start();
+    await initiator.handle({ ...welcomeAccept, org: TEST_BACKEND_ORG });
+    expect(onJoinedOrg).toHaveBeenCalledWith(TEST_BACKEND_ORG);
+    expect(initiator.state()).toBe('welcomed');
+  });
+
+  it('WELCOME (accept) still reaches welcomed when onJoinedOrg throws (U5.2)', async () => {
+    const onJoinedOrg = vi.fn<(org: unknown) => Promise<void>>(async () => {
+      throw new Error('storage write failed');
+    });
+    const { deps } = makeDeps({ onJoinedOrg });
+    const initiator = createSyncHandshakeInitiator(deps);
+    await initiator.start();
+    await initiator.handle({ ...welcomeAccept, org: TEST_BACKEND_ORG });
+    expect(onJoinedOrg).toHaveBeenCalledTimes(1);
+    expect(initiator.state()).toBe('welcomed');
   });
 
   it('WELCOME (reject) transitions to rejected + fires onRejected with the reason', async () => {

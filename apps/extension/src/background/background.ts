@@ -17,6 +17,7 @@ import {
   ensureSyntheticIdentity,
   ensureWorkspaceRoleAssignments,
   getIdentitySnapshot,
+  recordJoinedOrg,
   refreshIdentitySnapshotFromHostStorage,
   setAuditSink,
 } from '@openheaders/core/identity';
@@ -215,6 +216,15 @@ const syncHandshakeInitiator = createSyncHandshakeInitiator({
   },
   onRejected: (reason, detail) => {
     logger.warn('Background', `sync handshake rejected: ${reason}${detail ? ` — ${detail}` : ''}`);
+  },
+  // U5.2 — connecting to a backend is consume-first: record the
+  // backend's home Org so its workspaces sync down through the existing
+  // `authorizedOrgIds` filter. This host's own workspaces are never
+  // pushed up — the receiver-side org filter on the backend enforces
+  // that structurally.
+  onJoinedOrg: async (org) => {
+    await recordJoinedOrg(org);
+    logger.info('Background', `joined backend Org ${org.id} — its workspaces will sync down`);
   },
 });
 

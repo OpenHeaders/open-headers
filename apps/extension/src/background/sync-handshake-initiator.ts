@@ -54,6 +54,7 @@ import {
   type SyncStateVectorMessage,
   type WorkspaceSnapshot,
 } from '@openheaders/core/protocol';
+import type { Org } from '@openheaders/core/types';
 import type { StateVector } from '@openheaders/core/sync';
 import * as v from 'valibot';
 
@@ -106,6 +107,15 @@ export interface SyncHandshakeInitiatorDeps {
   readonly onSynced: (peerVector: StateVector) => Promise<void>;
   /** Optional — fired on a rejected WELCOME so the UI can surface the reason. */
   readonly onRejected?: (reason: HandshakeRejectReason, detail?: string) => void;
+  /**
+   * Optional — fired on an accepted WELCOME that carries the backend's
+   * home `Org` (Phase U5.2 "consume-first join"). The wiring records the
+   * Org into this host's authorized set (`recordJoinedOrg`) so the
+   * backend's workspaces sync down. Awaited before the next handshake
+   * frame is processed so the catch-up snapshot/deltas aren't dropped
+   * by the receiver-side org filter.
+   */
+  readonly onJoinedOrg?: (org: Org) => Promise<void>;
   /**
    * Wall-clock budget between HELLO and SYNCED. After the budget
    * elapses the FSM transitions to `timed-out`. Defaults to
@@ -269,7 +279,7 @@ export function createSyncHandshakeInitiator(deps: SyncHandshakeInitiatorDeps): 
     if (TERMINAL_STATES.has(state)) return;
     const t = (frame as { type?: unknown }).type;
     if (t === SYNC_WELCOME_TYPE) {
-      handleWelcome(frame);
+      await handleWelcome(frame);
       return;
     }
     if (t === SYNC_SNAPSHOT_TYPE) {
@@ -285,13 +295,27 @@ export function createSyncHandshakeInitiator(deps: SyncHandshakeInitiatorDeps): 
     }
   }
 
-  function handleWelcome(frame: object): void {
+  async function handleWelcome(frame: object): Promise<void> {
     const parsed = v.safeParse(SyncWelcomeMessageSchema, frame);
     if (!parsed.success) {
       logger.warn(SCOPE, 'malformed WELCOME; dropping', parsed.issues);
       return;
     }
     if (parsed.output.accepted) {
+      // U5.2 — fold the backend's home Org into this host's authorized
+      // set before catch-up frames arrive, so the snapshot/deltas the
+      // responder streams aren't dropped by the receiver-side org
+      // filter. A throw here is logged but never fails the handshake —
+      // the org filter degrades to "drop until the next reconnect
+      // re-sends WELCOME," not a desync.
+      const { org } = parsed.output;
+      if (org && deps.onJoinedOrg) {
+        try {
+          await deps.onJoinedOrg(org);
+        } catch (err) {
+          logger.warn(SCOPE, 'onJoinedOrg threw — backend Org not recorded', err);
+        }
+      }
       transition('welcomed');
       return;
     }

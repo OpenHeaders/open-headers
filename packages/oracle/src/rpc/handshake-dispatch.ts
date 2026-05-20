@@ -193,6 +193,15 @@ export async function evaluateHello(
     tokenId = result.tokenId;
   }
 
+  // U5.2 — carry this backend's home `Org` so the joining peer folds it
+  // into its authorized Org set ("consume-first join", §6.2). Absent
+  // when no identity snapshot is hydrated yet (pre-bootstrap); the
+  // joiner simply skips the fold. The home-org is the right grain:
+  // trust-zone-scoped workspaces bind to it, so authorizing it lets the
+  // backend's synced workspaces — but not its local-org-pinned ones —
+  // reach the joiner.
+  const localSnapshot = getIdentitySnapshot();
+  const homeOrg = localSnapshot?.orgs.get(localSnapshot.user.homeOrgId);
   const welcome: SyncWelcomeMessage = {
     type: SYNC_WELCOME_TYPE,
     accepted: true,
@@ -201,6 +210,7 @@ export async function evaluateHello(
     nodeId: identity.nodeId,
     workspaceId: hello.workspaceId,
     agent: identity.agent,
+    ...(homeOrg ? { org: homeOrg } : {}),
   };
   return { kind: 'accept', hello, welcome, tokenId };
 }

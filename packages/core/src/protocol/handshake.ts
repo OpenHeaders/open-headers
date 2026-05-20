@@ -32,7 +32,9 @@
 
 import * as v from 'valibot';
 
+import { OrgSchema } from '../schemas/identity';
 import { StateVectorSchema, type StateVector } from '../sync/state-vector';
+import type { Org } from '../types/identity';
 
 export { StateVectorSchema };
 export type { StateVector };
@@ -153,6 +155,18 @@ export interface SyncWelcomeAccept {
   nodeId: string;
   workspaceId: string;
   agent: string;
+  /**
+   * The responding backend's home `Org` (UNIFIED_ORACLE_MODEL.md §6.2).
+   * The joining peer folds this into its identity snapshot's authorized
+   * Org set (Phase U5.2 — "consume-first join") so the backend's
+   * workspaces sync down through the existing `authorizedOrgIds` filter.
+   * The joiner's own data is never pushed up — the receiver-side org
+   * filter on the backend enforces that structurally (§6.1).
+   *
+   * Optional: absent when the responder has no identity snapshot yet
+   * (pre-bootstrap). The joiner skips the fold in that case.
+   */
+  org?: Org;
 }
 
 export interface SyncWelcomeReject {
@@ -173,6 +187,7 @@ const SyncWelcomeAcceptSchema = v.object({
   nodeId: v.pipe(v.string(), v.minLength(1)),
   workspaceId: v.pipe(v.string(), v.minLength(1)),
   agent: v.string(),
+  org: v.optional(OrgSchema),
 }) satisfies v.GenericSchema<SyncWelcomeAccept>;
 
 const SyncWelcomeRejectSchema = v.object({
