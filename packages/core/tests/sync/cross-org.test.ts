@@ -321,3 +321,116 @@ describe('U4.1 — Coexist double-import (receiver-side org filter)', () => {
     }
   });
 });
+
+/**
+ * Phase U5.8 — a join never lands a joiner-`Org` envelope on an
+ * authenticated target (UNIFIED_ORACLE_MODEL.md §6.1, Phase U5).
+ *
+ * Models the authenticated-backend join. The joiner connects to a
+ * target it does NOT control. Per U5.2 the join is consume-first: the
+ * joiner folds the *target's* `Org` into ITS authorized set so the
+ * target's workspaces sync down — but the target never folds the
+ * joiner's `Org` into the *target's* set.
+ *
+ * The joiner forwards its full live stream: its own workspace data and
+ * its `__global__` workspace-list singleton, all stamped with the
+ * joiner's `Org`, plus any target-`Org` data that synced down and gets
+ * echoed back. The target's receiver-side ingest filter runs over the
+ * TARGET's authorized set.
+ *
+ * Property: every joiner-`Org` envelope is dropped — the joiner's
+ * workspaces never materialize on the authenticated target, and the
+ * joiner's `__global__` row never registers a workspace there. The
+ * echoed target-`Org` data still flows (the filter is a precise org
+ * gate, not a blanket drop). Pushing the joiner's data up is the
+ * explicit, permission-gated per-workspace Publish (U5.6) — never a
+ * join side effect; trust-by-process Combine (U5.3), which re-homes
+ * the joiner's workspaces onto the target `Org` first, is the only
+ * other path and is offered on loopback alone.
+ */
+describe('U5.8 — join never leaks joiner-Org data to an authenticated target', () => {
+  const GLOBAL_SCOPE = '__global__';
+  const JOINER_ORG = ORG_LOCAL_A;
+  // Org ids a target legitimately holds — never the joiner's.
+  const TARGET_ORG_POOL = [ORG_HOME, ORG_TEAM, ORG_FOREIGN] as const;
+
+  it('drops every joiner-Org envelope across 1024 join scenarios', () => {
+    const SCENARIOS = 1024;
+    let totalJoinerEnvelopes = 0;
+    let totalEchoedEnvelopes = 0;
+    for (let s = 0; s < SCENARIOS; s += 1) {
+      const seed = 0x501501 ^ s;
+      const rng = makeRng(seed);
+      const stream: MutationEnvelope[] = [];
+      let physicalMs = s * 10_000;
+
+      const mint = (workspaceId: string, orgId: string, node: string, i: number): string => {
+        const mutationId = `${node}-${workspaceId}-${i}`;
+        stream.push(
+          mintEnvelope({
+            workspaceId,
+            orgId,
+            hlc: hlcAt(physicalMs, 0, node),
+            body: pickBody(rng),
+            mutationId,
+          }),
+        );
+        physicalMs += 1;
+        return mutationId;
+      };
+
+      // The joiner's own workspaces + the `__global__` rows that
+      // register them — all stamped with the joiner's Org.
+      const joinerWsCount = 1 + rng.int(4);
+      for (let w = 0; w < joinerWsCount; w += 1) {
+        const ws = `joiner-ws-${w}`;
+        const dataCount = 1 + rng.int(5);
+        for (let i = 0; i < dataCount; i += 1) {
+          mint(ws, JOINER_ORG, 'joiner-node', i);
+          totalJoinerEnvelopes += 1;
+        }
+        mint(GLOBAL_SCOPE, JOINER_ORG, 'joiner-node', w);
+        totalJoinerEnvelopes += 1;
+      }
+
+      // The target the joiner consumed (U5.2): some target-Org data
+      // synced down and the joiner echoes it back over the live link.
+      const targetOrg = rng.pick(TARGET_ORG_POOL);
+      const echoedMutationIds = new Set<string>();
+      const echoCount = rng.int(5);
+      for (let i = 0; i < echoCount; i += 1) {
+        echoedMutationIds.add(mint('target-ws', targetOrg, 'joiner-node', i));
+        totalEchoedEnvelopes += 1;
+      }
+
+      // The target authorizes ITS OWN Orgs — a non-empty subset of the
+      // target pool that always includes the Org the joiner consumed,
+      // and NEVER the joiner's Org.
+      const extra = rng.shuffle(TARGET_ORG_POOL.filter((o) => o !== targetOrg).slice());
+      const authorized = authorize(targetOrg, ...extra.slice(0, rng.int(extra.length + 1)));
+      expect(authorized.has(JOINER_ORG)).toBe(false);
+
+      const accepted = [...filterEnvelopesByOrg(stream, authorized)];
+
+      // Invariant: zero joiner-Org envelopes survive on the target.
+      for (const env of accepted) {
+        if (env.orgId === JOINER_ORG) {
+          throw new Error(
+            `scenario ${s} (seed=${seed}): joiner-Org envelope ${env.mutationId} ` +
+              `landed on the authenticated target (authorized=${[...authorized].join(',')})`,
+          );
+        }
+      }
+      // The joiner's `__global__` workspace-list rows never register a
+      // workspace on the target.
+      expect(accepted.some((e) => e.workspaceId === GLOBAL_SCOPE)).toBe(false);
+      // Sanity — the echoed target-Org data still flows through; the
+      // filter is a precise org gate, not a blanket drop.
+      for (const id of echoedMutationIds) {
+        expect(accepted.some((e) => e.mutationId === id)).toBe(true);
+      }
+    }
+    expect(totalJoinerEnvelopes).toBeGreaterThan(0);
+    expect(totalEchoedEnvelopes).toBeGreaterThan(0);
+  });
+});
