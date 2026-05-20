@@ -28,15 +28,16 @@
  */
 
 import {
+  type HandshakeRejectReason,
   PROTOCOL_VERSION,
   SYNC_HELLO_TYPE,
   SYNC_WELCOME_TYPE,
-  SyncWelcomeMessageSchema,
-  type HandshakeRejectReason,
   type SyncHelloMessage,
   type SyncWelcomeAccept,
+  SyncWelcomeMessageSchema,
 } from '@openheaders/core/protocol';
 import type { WorkspaceContentSnapshot } from '@openheaders/core/sync';
+import type { Org } from '@openheaders/core/types';
 import * as v from 'valibot';
 
 export type ProbeFailureReason =
@@ -62,7 +63,18 @@ export type ProbeConnectionResult =
   | ProbeFailure;
 
 export type ProbeDataPresenceResult =
-  | { ok: true; latencyMs: number; workspaces: WorkspaceContentSnapshot[] }
+  | {
+      ok: true;
+      latencyMs: number;
+      workspaces: WorkspaceContentSnapshot[];
+      /**
+       * The target backend's home `Org`, as carried on the WELCOME
+       * (Phase U5.2). `null` when the backend's handshake omitted it.
+       * The mode-switch dialog's Combine / Use-Target executors need
+       * this id to re-home into / retire against the joined `Org`.
+       */
+      org: Org | null;
+    }
   | ProbeFailure;
 
 export interface ProbeOptions {
@@ -87,10 +99,7 @@ export interface ProbeOptions {
 const DEFAULT_TIMEOUT_MS = 5_000;
 
 /** Reachability + protocol handshake only. Used by Test connection. */
-export async function probeBackendConnection(
-  url: string,
-  opts: ProbeOptions,
-): Promise<ProbeConnectionResult> {
+export async function probeBackendConnection(url: string, opts: ProbeOptions): Promise<ProbeConnectionResult> {
   return runProbe<ProbeConnectionResult>(url, opts, {
     onAccepted: (welcome, ctx) => ({
       ok: true,
@@ -108,15 +117,19 @@ export async function probeBackendConnection(
  * transport for this question (it might not be open yet), so we open
  * a fresh one for the query and close it immediately after.
  */
-export async function probeBackendDataPresence(
-  url: string,
-  opts: ProbeOptions,
-): Promise<ProbeDataPresenceResult> {
+export async function probeBackendDataPresence(url: string, opts: ProbeOptions): Promise<ProbeDataPresenceResult> {
+  // Captured from the WELCOME so the data-presence result can carry the
+  // target backend's `Org` (Phase U5.2) alongside its workspace tally —
+  // the mode-switch dialog's Combine / Use-Target executors key off it.
+  let welcomeOrg: Org | null = null;
   return runProbe<ProbeDataPresenceResult>(url, opts, {
     /**
      * After WELCOME accept, send the RPC frame and continue listening
      * for its `:response`. The engine wires the listener for us.
      */
+    observeWelcome: (welcome) => {
+      welcomeOrg = welcome.org ?? null;
+    },
     nextSend: () => ({ type: 'oh.sync.getDataPresence' }),
     expectResponseType: 'oh.sync.getDataPresence:response',
     onResponse: (payload, ctx) => {
@@ -132,6 +145,7 @@ export async function probeBackendDataPresence(
         ok: true,
         latencyMs: ctx.elapsedMs(),
         workspaces: workspaces as WorkspaceContentSnapshot[],
+        org: welcomeOrg,
       };
     },
   });
@@ -157,7 +171,9 @@ export async function runBackendRpc<T>(
   opts: ProbeOptions,
   request: Record<string, unknown>,
   expectResponseType: string,
-  parseResponse: (payload: unknown) => { ok: true; value: T } | { ok: false; reason: 'malformed-response'; detail?: string },
+  parseResponse: (
+    payload: unknown,
+  ) => { ok: true; value: T } | { ok: false; reason: 'malformed-response'; detail?: string },
 ): Promise<{ ok: true; value: T } | ProbeFailure> {
   return runProbe<{ ok: true; value: T } | ProbeFailure>(url, opts, {
     nextSend: () => request,
@@ -185,6 +201,13 @@ interface AcceptOnlyContract<R> {
 
 interface FollowUpContract<R> {
   onAccepted?: undefined;
+  /**
+   * Optional read-only hook fired with the accepted WELCOME before the
+   * follow-up RPC is sent. Lets a contract carry a handshake fact
+   * (e.g. the backend's `Org`) into its `onResponse` without a second
+   * round-trip. Pure observation — never settles the probe.
+   */
+  observeWelcome?: (welcome: SyncWelcomeAccept) => void;
   nextSend: () => Record<string, unknown>;
   expectResponseType: string;
   onResponse: (payload: unknown, ctx: ProbeContext) => R | ProbeFailure;
@@ -298,7 +321,8 @@ async function runProbe<R extends { ok: boolean }>(
           settle(contract.onAccepted(welcome, ctx));
           return;
         }
-        // Follow-up RPC: send and transition.
+        // Follow-up RPC: surface the WELCOME, then send and transition.
+        contract.observeWelcome?.(welcome);
         phase = 'awaiting-response';
         try {
           socket.send(JSON.stringify(contract.nextSend()));

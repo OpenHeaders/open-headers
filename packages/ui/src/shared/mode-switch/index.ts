@@ -1,21 +1,20 @@
+export { applyModeSwitchVerdict, type ModeSwitchVerdictHandlers } from './apply-verdict';
+export { awaitJoinedOrg } from './await-joined-org';
+export { type ExecuteCombineDeps, type ExecuteCombineInput, executeCombine } from './execute-combine';
+export { type ExecuteDiscardDeps, executeDiscard } from './execute-discard';
+export { type ExecuteRestoreDeps, executeRestore } from './execute-restore';
 export {
-  applyModeSwitchVerdict,
-  type ModeSwitchVerdictHandlers,
-} from './apply-verdict';
-export { executeCoexist, type ExecuteCoexistDeps } from './execute-coexist';
-export { executeDiscard, type ExecuteDiscardDeps } from './execute-discard';
+  type ExecuteUseTargetDeps,
+  type ExecuteUseTargetInput,
+  executeUseTarget,
+} from './execute-use-target';
 export {
-  executeImport,
-  type ExecuteImportDeps,
-  type ExecuteImportInput,
-} from './execute-import';
-export { executeRestore, type ExecuteRestoreDeps } from './execute-restore';
-export { summarizeCoexistFailure, summarizeCoexistSuccess } from './summarize-coexist';
-export { summarizeDiscardFailure, summarizeDiscardSuccess } from './summarize-discard';
-export { summarizeImportFailure, summarizeImportSuccess } from './summarize-import';
-export { summarizeRestoreFailure, summarizeRestoreSuccess } from './summarize-restore';
-export {
+  type ModeSwitchOrchestratorDeps,
+  type PeerPresenceProbe,
   queryPeerDataPresenceFromBridge,
   requestModeSwitchVerdict,
-  type ModeSwitchOrchestratorDeps,
 } from './request-verdict';
+export { summarizeCombineFailure, summarizeCombineSuccess } from './summarize-combine';
+export { summarizeDiscardFailure, summarizeDiscardSuccess } from './summarize-discard';
+export { summarizeRestoreFailure, summarizeRestoreSuccess } from './summarize-restore';
+export { summarizeUseTargetFailure, summarizeUseTargetSuccess } from './summarize-use-target';

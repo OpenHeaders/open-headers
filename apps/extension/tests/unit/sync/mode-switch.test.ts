@@ -7,17 +7,13 @@
  */
 
 import {
+  type DataPresenceSummary,
   decideModeSwitch,
   isPresenceEmpty,
   summarizeWorkspaces,
-  type DataPresenceSummary,
   type WorkspaceContentSnapshot,
 } from '@openheaders/core/sync';
-import {
-  USER_CONTENT_ENTITY_TYPES,
-  collectLocalDataPresence,
-  type DataPresenceOracle,
-} from '@openheaders/oracle/sync';
+import { collectLocalDataPresence, type DataPresenceOracle, USER_CONTENT_ENTITY_TYPES } from '@openheaders/oracle/sync';
 import { describe, expect, it } from 'vitest';
 
 const WS_A = '0193a8ff-c000-7000-8000-00000000000a';
@@ -184,6 +180,21 @@ describe('decideModeSwitch', () => {
     expect(verdict.target).toBe(target);
     // M7: show-dialog ALWAYS carries the nameCollisions array.
     expect(Array.isArray(verdict.nameCollisions)).toBe(true);
+    // U5.5: targetOrg defaults to null when no probe Org is supplied.
+    expect(verdict.targetOrg).toBeNull();
+  });
+
+  it('forwards the probe targetOrg onto the show-dialog verdict (U5.5)', () => {
+    const targetOrg = { id: WS_B, name: 'Desktop home', isSynthetic: true };
+    const verdict = decideModeSwitch({
+      fromMode: 'in-browser',
+      toMode: 'desktop-app',
+      source: populatedPresence(),
+      target: summarizeWorkspaces([workspace({ workspaceId: WS_B, entityCounts: { rule: 1 } })]),
+      targetOrg,
+    });
+    if (verdict.kind !== 'show-dialog') throw new Error('expected show-dialog');
+    expect(verdict.targetOrg).toEqual(targetOrg);
   });
 
   it('attaches name collisions on show-dialog when source/target names collide post-NFC + case-fold', () => {
@@ -237,9 +248,7 @@ describe('collectLocalDataPresence', () => {
       workspaces: [{ id: WS_A, name: 'Workspace' }],
       getOracle: () => null,
     });
-    expect(snaps).toEqual([
-      { workspaceId: WS_A, workspaceName: 'Workspace', entityCounts: {} },
-    ]);
+    expect(snaps).toEqual([{ workspaceId: WS_A, workspaceName: 'Workspace', entityCounts: {} }]);
   });
 
   it('counts user-content entity types and groups by type', () => {

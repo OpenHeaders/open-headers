@@ -20,11 +20,7 @@
  * nameCollisions identity through every hop.
  */
 
-import type {
-  DataPresenceSummary,
-  ModeSwitchVerdict,
-  WorkspaceContentSnapshot,
-} from '@openheaders/core/sync';
+import type { DataPresenceSummary, ModeSwitchVerdict, WorkspaceContentSnapshot } from '@openheaders/core/sync';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockCall } = vi.hoisted(() => ({ mockCall: vi.fn() }));
@@ -41,8 +37,8 @@ vi.mock('@openheaders/core/bridge', async (importActual) => ({
 
 import {
   applyModeSwitchVerdict,
-  requestModeSwitchVerdict,
   type ModeSwitchVerdictHandlers,
+  requestModeSwitchVerdict,
 } from '@openheaders/ui/shared/mode-switch';
 
 const WS_A = '0193a8ff-c000-7000-8000-00000000000a';
@@ -50,19 +46,12 @@ const WS_B = '0193a8ff-c000-7000-8000-00000000000b';
 const WS_C = '0193a8ff-c000-7000-8000-00000000000c';
 const WS_D = '0193a8ff-c000-7000-8000-00000000000d';
 
-function workspace(
-  id: string,
-  name: string,
-  entityCounts: Record<string, number> = {},
-): WorkspaceContentSnapshot {
+function workspace(id: string, name: string, entityCounts: Record<string, number> = {}): WorkspaceContentSnapshot {
   return { workspaceId: id, workspaceName: name, entityCounts };
 }
 
 function presence(workspaces: WorkspaceContentSnapshot[]): DataPresenceSummary {
-  const total = workspaces.reduce(
-    (a, w) => a + Object.values(w.entityCounts).reduce((s, n) => s + n, 0),
-    0,
-  );
+  const total = workspaces.reduce((a, w) => a + Object.values(w.entityCounts).reduce((s, n) => s + n, 0), 0);
   return {
     workspaceCount: workspaces.length,
     hasUserContent: total > 0,
@@ -98,7 +87,7 @@ async function drive(
 }> {
   mockCall.mockResolvedValueOnce({ workspaces: localWorkspaces });
   const verdict = await requestModeSwitchVerdict('in-browser', 'desktop-app', {
-    queryPeerPresence: async () => peer,
+    queryPeerPresence: async () => (peer === null ? null : { presence: peer, org: null }),
   });
   const handlers = makeHandlers();
   applyModeSwitchVerdict(verdict, handlers);
@@ -127,10 +116,7 @@ describe('mode-switch verdict matrix — id-match × data-match quadrants', () =
     });
 
     it('treats zero-workspace local + single-empty peer as both-empty', async () => {
-      const { verdict, handlers } = await drive(
-        [],
-        presence([workspace(WS_A, 'Workspace')]),
-      );
+      const { verdict, handlers } = await drive([], presence([workspace(WS_A, 'Workspace')]));
       expect(verdict.kind).toBe('both-empty');
       expect(handlers.__commit).toHaveBeenCalledTimes(1);
     });
@@ -184,20 +170,11 @@ describe('mode-switch verdict matrix — id-match × data-match quadrants', () =
 
     it('emits one collision per id-mismatched name match, in source order', async () => {
       const { verdict } = await drive(
-        [
-          workspace(WS_A, 'Production', { rule: 2 }),
-          workspace(WS_C, 'Staging', { rule: 1 }),
-        ],
-        presence([
-          workspace(WS_B, 'production', { rule: 3 }),
-          workspace(WS_D, 'STAGING', { rule: 4 }),
-        ]),
+        [workspace(WS_A, 'Production', { rule: 2 }), workspace(WS_C, 'Staging', { rule: 1 })],
+        presence([workspace(WS_B, 'production', { rule: 3 }), workspace(WS_D, 'STAGING', { rule: 4 })]),
       );
       if (verdict.kind !== 'show-dialog') throw new Error('expected show-dialog');
-      expect(verdict.nameCollisions.map((c) => c.normalizedName)).toEqual([
-        'production',
-        'staging',
-      ]);
+      expect(verdict.nameCollisions.map((c) => c.normalizedName)).toEqual(['production', 'staging']);
       expect(verdict.nameCollisions[0].sourceWorkspaceId).toBe(WS_A);
       expect(verdict.nameCollisions[0].targetWorkspaceId).toBe(WS_B);
       expect(verdict.nameCollisions[1].sourceWorkspaceId).toBe(WS_C);
@@ -233,14 +210,8 @@ describe('mode-switch verdict matrix — id-match × data-match quadrants', () =
 
     it('mixes colliding + non-colliding pairs — only the matching names attach', async () => {
       const { verdict } = await drive(
-        [
-          workspace(WS_A, 'Production', { rule: 1 }),
-          workspace(WS_C, 'Sandbox', { rule: 1 }),
-        ],
-        presence([
-          workspace(WS_B, 'production', { rule: 1 }),
-          workspace(WS_D, 'Beta', { rule: 1 }),
-        ]),
+        [workspace(WS_A, 'Production', { rule: 1 }), workspace(WS_C, 'Sandbox', { rule: 1 })],
+        presence([workspace(WS_B, 'production', { rule: 1 }), workspace(WS_D, 'Beta', { rule: 1 })]),
       );
       if (verdict.kind !== 'show-dialog') throw new Error('expected show-dialog');
       expect(verdict.nameCollisions).toHaveLength(1);
@@ -271,10 +242,7 @@ describe('mode-switch verdict matrix — id-match × data-match quadrants', () =
     });
 
     it('routes to peer-unreachable when peer query yields null, regardless of source data', async () => {
-      const { verdict, handlers } = await drive(
-        [workspace(WS_A, 'Production', { rule: 5 })],
-        null,
-      );
+      const { verdict, handlers } = await drive([workspace(WS_A, 'Production', { rule: 5 })], null);
       expect(verdict).toEqual({ kind: 'peer-unreachable' });
       expect(handlers.__warn).toHaveBeenCalledTimes(1);
       expect(handlers.__commit).not.toHaveBeenCalled();

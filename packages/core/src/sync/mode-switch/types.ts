@@ -7,6 +7,7 @@
  * spec and short-circuits (source-empty / target-empty / both-empty).
  */
 
+import type { Org } from '../../types';
 import type { NameCollision } from './name-collision';
 
 /** Per-workspace entity tally. Keys are entity types ('rule', 'environment', etc.). */
@@ -44,19 +45,27 @@ export type ModeSwitchVerdict =
   | { kind: 'both-empty' }
   /** Peer host couldn't be queried (e.g. desktop not running). */
   | { kind: 'peer-unreachable' }
-  /** Both sides have data — M2 dialog handles the resolution. */
+  /** Both sides have data — the Phase U5 mode-switch dialog resolves it. */
   | {
       kind: 'show-dialog';
       source: DataPresenceSummary;
       target: DataPresenceSummary;
       /**
        * Source ↔ target workspace pairs whose display names collapse to
-       * the same canonical form (NFC + trim + case-fold). Surfaced by
-       * the dialog so the user can spot "this is the same workspace I
-       * authored on both hosts" before Coexist mints duplicates. Empty
+       * the same canonical form (NFC + trim + case-fold). Carried for
+       * the per-workspace Publish flow (U5.6 — collision-merge). Empty
        * array when no collisions detected. See {@link NameCollision}.
        */
       nameCollisions: readonly NameCollision[];
+      /**
+       * The target backend's home `Org`, read from the verdict probe's
+       * WELCOME (Phase U5.2 carries it). The dialog's Combine / Use-
+       * Target executors re-home into / retire against this `Org` id.
+       * `null` when the target backend's handshake carried no `Org`
+       * (a backend that doesn't bootstrap a synthetic identity) — the
+       * dialog then disables the outcomes that need a target `Org`.
+       */
+      targetOrg: Org | null;
     };
 
 export interface ModeSwitchInput {
@@ -67,4 +76,12 @@ export interface ModeSwitchInput {
   readonly source: DataPresenceSummary;
   /** Presence on the host the new mode points to. `null` ⇒ unreachable. */
   readonly target: DataPresenceSummary | null;
+  /**
+   * The target backend's home `Org`, as carried by the probe's WELCOME
+   * (Phase U5.2). Forwarded verbatim onto a `show-dialog` verdict so
+   * the Combine / Use-Target executors know which `Org` to re-home
+   * into. `null` / omitted when the target is unreachable or carried
+   * no `Org`.
+   */
+  readonly targetOrg?: Org | null;
 }

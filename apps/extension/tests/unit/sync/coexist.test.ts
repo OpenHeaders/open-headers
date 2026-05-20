@@ -7,16 +7,16 @@
  * benefit from sharing fixtures with the oracle-side helpers.
  */
 
+import type { WorkspaceSnapshot } from '@openheaders/core/protocol';
 import type { CoexistPayload, CoexistResult } from '@openheaders/core/sync';
 import {
   applyCoexistPayload,
-  collectCoexistPayload,
   type CoexistSourceOracle,
+  collectCoexistPayload,
   orchestrateCoexistToPeer,
   setCoexistPeerPusher,
 } from '@openheaders/oracle/sync';
-import type { WorkspaceSnapshot } from '@openheaders/core/protocol';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const WS_A = '0193a8ff-c000-7000-8000-00000000000a';
 const WS_B = '0193a8ff-c000-7000-8000-00000000000b';
@@ -180,9 +180,7 @@ describe('applyCoexistPayload', () => {
     const createWorkspace = vi.fn(async ({ name }: { name: string }) => ({ id: 'new-1', name }));
     await applyCoexistPayload(
       {
-        workspaces: [
-          { sourceWorkspaceId: WS_A, sourceWorkspaceName: 'Alpha', snapshot: makeSnapshot(WS_A) },
-        ],
+        workspaces: [{ sourceWorkspaceId: WS_A, sourceWorkspaceName: 'Alpha', snapshot: makeSnapshot(WS_A) }],
       },
       {
         createWorkspace,
@@ -197,9 +195,7 @@ describe('applyCoexistPayload', () => {
     const createWorkspace = vi.fn(async ({ name }: { name: string }) => ({ id: 'new', name }));
     await applyCoexistPayload(
       {
-        workspaces: [
-          { sourceWorkspaceId: WS_A, sourceWorkspaceName: '  Alpha   ', snapshot: makeSnapshot(WS_A) },
-        ],
+        workspaces: [{ sourceWorkspaceId: WS_A, sourceWorkspaceName: '  Alpha   ', snapshot: makeSnapshot(WS_A) }],
       },
       { createWorkspace, applySnapshot: () => Promise.resolve({ entitiesApplied: 0 }) },
     );
@@ -262,9 +258,7 @@ describe('applyCoexistPayload', () => {
     }));
     const result = await applyCoexistPayload(
       {
-        workspaces: [
-          { sourceWorkspaceId: WS_A, sourceWorkspaceName: 'Alpha', snapshot: makeSnapshot(WS_A) },
-        ],
+        workspaces: [{ sourceWorkspaceId: WS_A, sourceWorkspaceName: 'Alpha', snapshot: makeSnapshot(WS_A) }],
       },
       { createWorkspace, applySnapshot: () => Promise.resolve({ entitiesApplied: 1 }) },
     );
@@ -346,109 +340,5 @@ describe('orchestrateCoexistToPeer', () => {
     setCoexistPeerPusher(async () => peerFailure);
     const result = await orchestrateCoexistToPeer(noopDeps());
     expect(result).toEqual(peerFailure);
-  });
-});
-
-describe('executeCoexist (renderer bridge wrapper)', () => {
-  // Imported lazily so the vi.mock above doesn't catch the bridge module
-  // used by the host-neutral suites in this file.
-  beforeEach(() => {
-    vi.resetModules();
-  });
-
-  it('returns the bridge response on success', async () => {
-    const { executeCoexist } = await import('@openheaders/ui/shared/mode-switch');
-    const stub: CoexistResult = { ok: true, imported: [], totalEntitiesApplied: 0 };
-    const result = await executeCoexist({ bridgeCall: async () => stub });
-    expect(result).toBe(stub);
-  });
-
-  it('folds bridge rejections into peer-write-unavailable', async () => {
-    const { executeCoexist } = await import('@openheaders/ui/shared/mode-switch');
-    const result = await executeCoexist({
-      bridgeCall: () => Promise.reject(new Error('ipc-down')),
-    });
-    expect(result).toMatchObject({ ok: false, reason: 'peer-write-unavailable' });
-    if (result.ok) return;
-    expect(result.detail).toBe('ipc-down');
-  });
-
-  it('coerces non-Error throws into a string detail', async () => {
-    const { executeCoexist } = await import('@openheaders/ui/shared/mode-switch');
-    const result = await executeCoexist({
-      bridgeCall: () => Promise.reject('nope'),
-    });
-    expect(result).toMatchObject({ ok: false, reason: 'peer-write-unavailable', detail: 'nope' });
-  });
-});
-
-describe('summarizeCoexist toast copy', () => {
-  beforeEach(() => {
-    vi.resetModules();
-  });
-
-  it('singular + plural counts in success copy', async () => {
-    const { summarizeCoexistSuccess } = await import('@openheaders/ui/shared/mode-switch');
-    const one = summarizeCoexistSuccess(
-      {
-        ok: true,
-        imported: [
-          {
-            sourceWorkspaceId: WS_A,
-            sourceWorkspaceName: 'Alpha',
-            newWorkspaceId: 'new-1',
-            newWorkspaceName: 'Alpha',
-            entitiesApplied: 1,
-          },
-        ],
-        totalEntitiesApplied: 1,
-      },
-      'Browser Extension',
-      'Desktop Application',
-    );
-    expect(one).toContain('1 workspace');
-    expect(one).toContain('1 item');
-    expect(one).toContain('Browser Extension');
-    expect(one).toContain('Desktop Application');
-
-    const many = summarizeCoexistSuccess(
-      {
-        ok: true,
-        imported: [
-          {
-            sourceWorkspaceId: WS_A,
-            sourceWorkspaceName: 'Alpha',
-            newWorkspaceId: 'new-1',
-            newWorkspaceName: 'Alpha',
-            entitiesApplied: 5,
-          },
-          {
-            sourceWorkspaceId: WS_B,
-            sourceWorkspaceName: 'Beta',
-            newWorkspaceId: 'new-2',
-            newWorkspaceName: 'Beta',
-            entitiesApplied: 7,
-          },
-        ],
-        totalEntitiesApplied: 12,
-      },
-      'Browser Extension',
-      'Desktop Application',
-    );
-    expect(many).toContain('2 workspaces');
-    expect(many).toContain('12 items');
-  });
-
-  it('renders a distinct line per failure reason', async () => {
-    const { summarizeCoexistFailure } = await import('@openheaders/ui/shared/mode-switch');
-    expect(summarizeCoexistFailure({ ok: false, reason: 'peer-write-unavailable' }, 'Desktop')).toContain(
-      'connect',
-    );
-    expect(summarizeCoexistFailure({ ok: false, reason: 'no-source-data' }, 'Desktop')).toContain(
-      'No source data',
-    );
-    expect(summarizeCoexistFailure({ ok: false, reason: 'apply-failed' }, 'Desktop')).toContain(
-      'Discard',
-    );
   });
 });

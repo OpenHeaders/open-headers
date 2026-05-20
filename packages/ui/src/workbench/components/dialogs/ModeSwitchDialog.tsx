@@ -1,66 +1,68 @@
 /**
- * Mode-switch dialog — Phase C M2.
+ * Mode-switch dialog — Phase U5.5 (posture-aware redesign).
  *
  * Fires when the user changes `backend.mode` and both the source and
- * target hosts have user-authored content. Renders the four-option
- * resolution per `docs/DATA_PLANE_TOPOLOGIES.md` §11.2:
+ * target hosts have user-authored content. The dialog presents exactly
+ * TWO outcome-named cards, selected by the target backend's connection
+ * posture (`docs/UNIFIED_ORACLE_MODEL.md` §6 / `UNIFIED_ORACLE_STATUS.md`
+ * Phase U5):
  *
- *   - Coexist  (recommended, non-destructive): keep both as separate workspaces.
- *   - Import   (HLC-merged): fold source data into the target.
- *   - Discard  (destructive, always-backup): drop the source after a snapshot.
- *   - Cancel   (no-op).
+ *   - **Trust-by-process** (loopback backend): "Combine" — re-home this
+ *     device's workspaces into the target `Org` so they sync both ways
+ *     — and "Use the target's data only".
+ *   - **Authenticated** (LAN / WAN backend): "Keep my data on this
+ *     device" — the join consumes the target's data, nothing of the
+ *     joiner's is pushed up — and "Use the target's data only".
  *
- * Pure presentational. The caller (BackendPane in M2c) owns the open
- * flag and the post-choice commit; this component just surfaces the
- * decision. Action execution (Coexist namespacing, Import merge,
- * Discard backup) lands in M3-M5 — for now `onChoose` is a typed
- * callback the caller plugs into the eventual handlers.
+ * Cards are outcome-named, never mechanism-named. Pushing data up to an
+ * authenticated backend is never a join-time side effect — that is the
+ * explicit per-workspace Publish action (U5.6).
+ *
+ * Pure presentational. The caller (`useBackendModeSwitch`) owns the
+ * open flag, the post-choice commit, and the executors; this component
+ * just surfaces the decision.
  */
 
-import { ArrowRightOutlined, DeleteOutlined, ForkOutlined, MergeCellsOutlined } from '@ant-design/icons';
-import { Alert, Checkbox, Modal, Typography, theme } from 'antd';
+import { ArrowRightOutlined, DeleteOutlined, HddOutlined, MergeCellsOutlined } from '@ant-design/icons';
+import { Alert, Modal, Typography, theme } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
-import type { DataPresenceSummary, NameCollision } from '@openheaders/core/sync';
+import type { DataPresenceSummary } from '@openheaders/core/sync';
 import { BackendIcon, type BackendIconKey } from '../../settings/components/backend-icons';
 
-export type ModeSwitchChoice = 'coexist' | 'import' | 'discard';
+/** The three outcomes the dialog can resolve to (Phase U5.5). */
+export type ModeSwitchChoice = 'combine' | 'keep-local' | 'use-target';
 
 /**
- * Optional per-choice payload surfaced alongside the user's primary
- * action. M4b uses {@link ModeSwitchChooseOptions.workspaceIdRemap} to
- * thread the dialog's name-collision resolution to the Import executor;
- * Coexist + Discard ignore it for now (Coexist always mints fresh ids,
- * Discard is local-only).
+ * Connection posture of the target backend. `trust-by-process` is a
+ * loopback backend (same machine, no auth — the desktop app or a
+ * loopback daemon); `authenticated` is a token-gated LAN / WAN backend.
+ * Drives which two cards the dialog shows.
  */
-export interface ModeSwitchChooseOptions {
-  readonly workspaceIdRemap?: Readonly<Record<string, string>>;
-}
+export type ConnectionPosture = 'trust-by-process' | 'authenticated';
 
 export interface ModeSwitchDialogProps {
   open: boolean;
-  /** Display label for the source mode (e.g. "In-Browser"). */
+  /** Display label for the source mode (e.g. "Browser Extension"). */
   fromLabel: string;
-  /** Display label for the target mode (e.g. "Desktop App"). */
+  /** Display label for the target mode (e.g. "Desktop Application"). */
   toLabel: string;
-  /** Icon glyphs for the source / target panels. Drives the visual
-   *  identity of each side so users see at a glance what they're
-   *  switching FROM vs TO instead of parsing labels. */
+  /** Icon glyphs for the source / target panels. */
   fromIcon?: BackendIconKey;
   toIcon?: BackendIconKey;
   source: DataPresenceSummary;
   target: DataPresenceSummary;
+  /** Target backend posture — selects the two cards shown. */
+  posture: ConnectionPosture;
   /**
-   * Source ↔ target workspace pairs whose names collapse to the same
-   * canonical form (post-NFC + case-fold). When non-empty the dialog
-   * renders a banner ABOVE the action cards with a "Treat these as the
-   * same workspace and merge by id" checkbox (default ON). On Import
-   * with the checkbox ON, the dialog forwards a `workspaceIdRemap` so
-   * the target applier retargets each source's snapshot at the matching
-   * target workspace id rather than dropping it as ignored.
+   * Whether the target backend reported a home `Org` on its handshake
+   * (Phase U5.2). When `false`, the outcomes that re-home into / retire
+   * against that `Org` (Combine, Use-Target) can't run — they render
+   * disabled and "Keep my data on this device" is offered as the
+   * always-safe fallback.
    */
-  nameCollisions?: readonly NameCollision[];
-  onChoose: (choice: ModeSwitchChoice, options?: ModeSwitchChooseOptions) => void;
+  targetOrgKnown: boolean;
+  onChoose: (choice: ModeSwitchChoice) => void;
   onCancel: () => void;
 }
 
@@ -68,36 +70,50 @@ interface ActionOption {
   choice: ModeSwitchChoice;
   title: string;
   icon: React.ReactNode;
-  helpFrom: (fromLabel: string, toLabel: string) => string;
-  recommended?: boolean;
+  /** Builds the card body copy from the host labels. */
+  describe: (fromLabel: string, toLabel: string) => string;
+  /** True for outcomes that need the target backend's `Org` to run. */
+  needsTargetOrg: boolean;
   danger?: boolean;
 }
 
-const ACTION_OPTIONS: readonly ActionOption[] = [
-  {
-    choice: 'coexist',
-    title: 'Keep both as separate workspaces',
-    icon: <ForkOutlined />,
-    helpFrom: (fromLabel, toLabel) =>
-      `Your ${fromLabel} data appears on the ${toLabel} side as an additional workspace. The existing ${toLabel} workspaces stay untouched.`,
-    recommended: true,
-  },
-  {
-    choice: 'import',
-    title: 'Import source data into the target workspace',
-    icon: <MergeCellsOutlined />,
-    helpFrom: (_fromLabel, toLabel) =>
-      `Mutations merge by HLC into the ${toLabel} workspace. Conflicts resolve automatically; you'll see a summary of what landed.`,
-  },
-  {
-    choice: 'discard',
-    title: 'Discard source data, use the target',
-    icon: <DeleteOutlined />,
-    helpFrom: (fromLabel) =>
-      `${fromLabel} data is exported to a local backup file first so it can be restored from Settings → Data.`,
-    danger: true,
-  },
-];
+const COMBINE_OPTION: ActionOption = {
+  choice: 'combine',
+  title: 'Combine into one workspace set',
+  icon: <MergeCellsOutlined />,
+  describe: (fromLabel, toLabel) =>
+    `Your ${fromLabel} workspaces move into ${toLabel} and sync both ways. Nothing is lost.`,
+  needsTargetOrg: true,
+};
+
+const KEEP_LOCAL_OPTION: ActionOption = {
+  choice: 'keep-local',
+  title: 'Keep my data on this device',
+  icon: <HddOutlined />,
+  describe: (fromLabel, toLabel) =>
+    `Your ${fromLabel} workspaces stay private to this device. ${toLabel}'s workspaces sync down to you; yours are never pushed up.`,
+  needsTargetOrg: false,
+};
+
+const USE_TARGET_OPTION: ActionOption = {
+  choice: 'use-target',
+  title: 'Use the target backend’s data only',
+  icon: <DeleteOutlined />,
+  describe: (fromLabel, toLabel) =>
+    `Your ${fromLabel} workspaces are exported to a local backup file, then removed. You'll work only with ${toLabel}'s data.`,
+  needsTargetOrg: true,
+  danger: true,
+};
+
+/**
+ * The two outcome cards for a posture. Trust-by-process offers Combine;
+ * authenticated offers Keep-my-data-here. Both offer Use-Target.
+ */
+function optionsForPosture(posture: ConnectionPosture): readonly ActionOption[] {
+  return posture === 'trust-by-process'
+    ? [COMBINE_OPTION, USE_TARGET_OPTION]
+    : [KEEP_LOCAL_OPTION, USE_TARGET_OPTION];
+}
 
 const ModeSwitchDialog: React.FC<ModeSwitchDialogProps> = ({
   open,
@@ -107,33 +123,29 @@ const ModeSwitchDialog: React.FC<ModeSwitchDialogProps> = ({
   toIcon,
   source,
   target,
-  nameCollisions,
+  posture,
+  targetOrgKnown,
   onChoose,
   onCancel,
 }) => {
   const { token } = theme.useToken();
-  const collisions = nameCollisions ?? [];
-  const [mergeCollisions, setMergeCollisions] = useState<boolean>(true);
-  // Default to the recommended action so the user has a sensible
-  // commit-on-Enter target. Cards are selectable; nothing applies
-  // until the explicit Apply button below.
-  const [selected, setSelected] = useState<ModeSwitchChoice>(
-    ACTION_OPTIONS.find((o) => o.recommended)?.choice ?? ACTION_OPTIONS[0].choice,
-  );
 
-  const handleApply = (): void => {
-    if (selected === 'import' && collisions.length > 0 && mergeCollisions) {
-      const remap: Record<string, string> = {};
-      for (const c of collisions) {
-        remap[c.sourceWorkspaceId] = c.targetWorkspaceId;
-      }
-      onChoose(selected, { workspaceIdRemap: remap });
-      return;
-    }
-    onChoose(selected);
-  };
+  // The two posture cards, plus Keep-my-data-here as an always-safe
+  // fallback when the target `Org` is unknown and would otherwise leave
+  // no runnable outcome.
+  const postureOptions = optionsForPosture(posture);
+  const needsFallback = !targetOrgKnown && postureOptions.every((o) => o.needsTargetOrg);
+  const options: readonly ActionOption[] = needsFallback
+    ? [KEEP_LOCAL_OPTION, ...postureOptions]
+    : postureOptions;
 
-  const selectedOption = ACTION_OPTIONS.find((o) => o.choice === selected) ?? ACTION_OPTIONS[0];
+  const isDisabled = (opt: ActionOption): boolean => opt.needsTargetOrg && !targetOrgKnown;
+  const firstEnabled = options.find((o) => !isDisabled(o)) ?? options[0];
+
+  const [selected, setSelected] = useState<ModeSwitchChoice>(firstEnabled.choice);
+
+  const selectedOption = options.find((o) => o.choice === selected) ?? firstEnabled;
+  const applyDisabled = isDisabled(selectedOption);
   const applyDanger = selectedOption.danger === true;
 
   return (
@@ -145,9 +157,9 @@ const ModeSwitchDialog: React.FC<ModeSwitchDialogProps> = ({
         </span>
       }
       onCancel={onCancel}
-      onOk={handleApply}
+      onOk={() => onChoose(selected)}
       okText={applyDanger ? 'Apply (with backup)' : 'Apply'}
-      okButtonProps={{ danger: applyDanger }}
+      okButtonProps={{ danger: applyDanger, disabled: applyDisabled }}
       cancelText="Cancel"
       width={680}
       destroyOnClose
@@ -162,13 +174,21 @@ const ModeSwitchDialog: React.FC<ModeSwitchDialogProps> = ({
           target={target}
           token={token}
         />
-        {collisions.length > 0 && (
-          <NameCollisionBanner
-            collisions={collisions}
-            fromLabel={fromLabel}
-            toLabel={toLabel}
-            mergeCollisions={mergeCollisions}
-            onToggleMerge={setMergeCollisions}
+        {!targetOrgKnown && (
+          <Alert
+            type="warning"
+            showIcon
+            message={
+              <span style={{ fontSize: 12, fontWeight: 600 }}>
+                {`${toLabel} didn't report a workspace identity.`}
+              </span>
+            }
+            description={
+              <span style={{ fontSize: 12 }}>
+                Combining or retiring your workspaces needs one. Keep your data on this device for now;
+                you can move it later once the backend is online.
+              </span>
+            }
           />
         )}
         <div
@@ -176,12 +196,13 @@ const ModeSwitchDialog: React.FC<ModeSwitchDialogProps> = ({
           aria-label="Mode-switch action"
           style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
         >
-          {ACTION_OPTIONS.map((opt) => (
+          {options.map((opt) => (
             <ActionCard
               key={opt.choice}
               option={opt}
-              description={opt.helpFrom(fromLabel, toLabel)}
+              description={opt.describe(fromLabel, toLabel)}
               selected={selected === opt.choice}
+              disabled={isDisabled(opt)}
               onSelect={() => setSelected(opt.choice)}
               token={token}
             />
@@ -189,56 +210,6 @@ const ModeSwitchDialog: React.FC<ModeSwitchDialogProps> = ({
         </div>
       </div>
     </Modal>
-  );
-};
-
-/**
- * Inline banner that lists each source/target workspace pair whose
- * names match after Unicode canonicalization. Surfaces a checkbox that
- * controls whether Import treats the pairs as the same workspace
- * (M4b cross-id merge) — default ON so users opt OUT of the merge
- * rather than opting in to a destructive cross-id rewrite. When OFF,
- * Import behaves as v1 (same-id only) and the unmatched sources land
- * in the result's `ignored` list.
- */
-const NameCollisionBanner: React.FC<{
-  collisions: readonly NameCollision[];
-  fromLabel: string;
-  toLabel: string;
-  mergeCollisions: boolean;
-  onToggleMerge: (next: boolean) => void;
-}> = ({ collisions, fromLabel, toLabel, mergeCollisions, onToggleMerge }) => {
-  const headline =
-    collisions.length === 1
-      ? '1 workspace looks like the same one on both sides.'
-      : `${collisions.length} workspaces look like the same ones on both sides.`;
-  return (
-    <Alert
-      type="info"
-      showIcon
-      message={<span style={{ fontSize: 12, fontWeight: 600 }}>{headline}</span>}
-      description={
-        <div style={{ fontSize: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <ul style={{ margin: 0, paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {collisions.map((c) => (
-              <li key={`${c.sourceWorkspaceId}→${c.targetWorkspaceId}`}>
-                <Typography.Text strong>{c.sourceWorkspaceName}</Typography.Text>
-                {` (${fromLabel}) ↔ `}
-                <Typography.Text strong>{c.targetWorkspaceName}</Typography.Text>
-                {` (${toLabel})`}
-              </li>
-            ))}
-          </ul>
-          <Checkbox
-            checked={mergeCollisions}
-            onChange={(e) => onToggleMerge(e.target.checked)}
-            style={{ fontSize: 12 }}
-          >
-            Treat them as the same workspace and merge by edit history when I choose Import
-          </Checkbox>
-        </div>
-      }
-    />
   );
 };
 
@@ -391,9 +362,10 @@ const ActionCard: React.FC<{
   option: ActionOption;
   description: string;
   selected: boolean;
+  disabled: boolean;
   onSelect: () => void;
   token: ReturnType<typeof theme.useToken>['token'];
-}> = ({ option, description, selected, onSelect, token }) => {
+}> = ({ option, description, selected, disabled, onSelect, token }) => {
   const borderColor = selected
     ? option.danger
       ? token.colorError
@@ -410,6 +382,7 @@ const ActionCard: React.FC<{
       type="button"
       role="radio"
       aria-checked={selected}
+      disabled={disabled}
       onClick={onSelect}
       style={{
         display: 'flex',
@@ -421,7 +394,8 @@ const ActionCard: React.FC<{
         background,
         border: `1px solid ${borderColor}`,
         borderRadius: 10,
-        cursor: 'pointer',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.5 : 1,
         fontFamily: 'inherit',
         color: token.colorText,
         transition: 'border-color 120ms, background 120ms',
@@ -448,23 +422,6 @@ const ActionCard: React.FC<{
       <span style={{ flex: 1, minWidth: 0 }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Typography.Text style={{ fontSize: 13, fontWeight: 600 }}>{option.title}</Typography.Text>
-          {option.recommended && (
-            <span
-              style={{
-                padding: '0 6px',
-                fontSize: 9,
-                fontWeight: 700,
-                letterSpacing: 0.4,
-                textTransform: 'uppercase',
-                borderRadius: 999,
-                background: token.colorPrimary,
-                color: token.colorTextLightSolid,
-                lineHeight: '14px',
-              }}
-            >
-              Recommended
-            </span>
-          )}
           {option.danger && (
             <span
               style={{

@@ -8,6 +8,7 @@
  * and don't benefit from sharing fixtures with the oracle-side helpers.
  */
 
+import type { WorkspaceSnapshot } from '@openheaders/core/protocol';
 import type { ImportPayload, ImportResult } from '@openheaders/core/sync';
 import {
   applyImportPayload,
@@ -17,8 +18,7 @@ import {
   orchestrateImportToPeer,
   setImportPeerPusher,
 } from '@openheaders/oracle/sync';
-import type { WorkspaceSnapshot } from '@openheaders/core/protocol';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const WS_A = '0193a8ff-c000-7000-8000-00000000000a';
 const WS_B = '0193a8ff-c000-7000-8000-00000000000b';
@@ -79,12 +79,7 @@ describe('collectImportPayload', () => {
     const buildSnapshot = vi.fn();
     const payload = await collectImportPayload({
       workspaces: [{ id: WS_A, name: 'Alpha' }],
-      getOracle: () =>
-        makeOracle([
-          { type: 'workspace-variables' },
-          { type: 'vault' },
-          { type: 'layout-state' },
-        ]),
+      getOracle: () => makeOracle([{ type: 'workspace-variables' }, { type: 'vault' }, { type: 'layout-state' }]),
       buildSnapshot,
     });
     expect(payload.workspaces).toHaveLength(0);
@@ -167,9 +162,7 @@ describe('applyImportPayload', () => {
     const applySnapshot = vi.fn();
     const result = await applyImportPayload(
       {
-        workspaces: [
-          { sourceWorkspaceId: WS_A, sourceWorkspaceName: 'Alpha', snapshot: makeSnapshot(WS_A) },
-        ],
+        workspaces: [{ sourceWorkspaceId: WS_A, sourceWorkspaceName: 'Alpha', snapshot: makeSnapshot(WS_A) }],
       },
       {
         lookupWorkspace: () => null,
@@ -252,9 +245,7 @@ describe('applyImportPayload', () => {
     });
     const result = await applyImportPayload(
       {
-        workspaces: [
-          { sourceWorkspaceId: WS_A, sourceWorkspaceName: 'Production', snapshot: makeSnapshot(WS_A) },
-        ],
+        workspaces: [{ sourceWorkspaceId: WS_A, sourceWorkspaceName: 'Production', snapshot: makeSnapshot(WS_A) }],
         workspaceIdRemap: { [WS_A]: WS_B },
       },
       {
@@ -282,9 +273,7 @@ describe('applyImportPayload', () => {
     const applySnapshot = vi.fn();
     const result = await applyImportPayload(
       {
-        workspaces: [
-          { sourceWorkspaceId: WS_A, sourceWorkspaceName: 'Production', snapshot: makeSnapshot(WS_A) },
-        ],
+        workspaces: [{ sourceWorkspaceId: WS_A, sourceWorkspaceName: 'Production', snapshot: makeSnapshot(WS_A) }],
         // Remap points at WS_B but lookupWorkspace returns null for it.
         workspaceIdRemap: { [WS_A]: WS_B },
       },
@@ -394,9 +383,7 @@ describe('orchestrateImportToPeer', () => {
     const received: ImportPayload[] = [];
     const peerResponse: ImportResult = {
       ok: true,
-      mergedWorkspaces: [
-        { workspaceId: WS_A, workspaceName: 'Alpha', entitiesApplied: 4, conflicts: [] },
-      ],
+      mergedWorkspaces: [{ workspaceId: WS_A, workspaceName: 'Alpha', entitiesApplied: 4, conflicts: [] }],
       ignored: [],
       totalEntitiesApplied: 4,
       totalConflicts: 0,
@@ -465,185 +452,5 @@ describe('orchestrateImportToPeer', () => {
     setImportPeerPusher(async () => peerFailure);
     const result = await orchestrateImportToPeer(noopDeps());
     expect(result).toEqual(peerFailure);
-  });
-});
-
-describe('executeImport (renderer bridge wrapper)', () => {
-  beforeEach(() => {
-    vi.resetModules();
-  });
-
-  it('returns the bridge response on success', async () => {
-    const { executeImport } = await import('@openheaders/ui/shared/mode-switch');
-    const stub: ImportResult = {
-      ok: true,
-      mergedWorkspaces: [],
-      ignored: [],
-      totalEntitiesApplied: 0,
-      totalConflicts: 0,
-    };
-    const result = await executeImport({}, { bridgeCall: async () => stub });
-    expect(result).toBe(stub);
-  });
-
-  it('forwards the workspaceIdRemap input to the bridge call', async () => {
-    const { executeImport } = await import('@openheaders/ui/shared/mode-switch');
-    const received: Array<{ workspaceIdRemap?: Readonly<Record<string, string>> }> = [];
-    const stub: ImportResult = {
-      ok: true,
-      mergedWorkspaces: [],
-      ignored: [],
-      totalEntitiesApplied: 0,
-      totalConflicts: 0,
-    };
-    await executeImport(
-      { workspaceIdRemap: { 'src-1': 'tgt-1' } },
-      {
-        bridgeCall: async (input) => {
-          received.push(input);
-          return stub;
-        },
-      },
-    );
-    expect(received).toEqual([{ workspaceIdRemap: { 'src-1': 'tgt-1' } }]);
-  });
-
-  it('folds bridge rejections into peer-write-unavailable', async () => {
-    const { executeImport } = await import('@openheaders/ui/shared/mode-switch');
-    const result = await executeImport(
-      {},
-      { bridgeCall: () => Promise.reject(new Error('ipc-down')) },
-    );
-    expect(result).toMatchObject({ ok: false, reason: 'peer-write-unavailable' });
-    if (result.ok) return;
-    expect(result.detail).toBe('ipc-down');
-  });
-
-  it('coerces non-Error throws into a string detail', async () => {
-    const { executeImport } = await import('@openheaders/ui/shared/mode-switch');
-    const result = await executeImport(
-      {},
-      { bridgeCall: () => Promise.reject('nope') },
-    );
-    expect(result).toMatchObject({ ok: false, reason: 'peer-write-unavailable', detail: 'nope' });
-  });
-});
-
-describe('summarizeImport toast copy', () => {
-  beforeEach(() => {
-    vi.resetModules();
-  });
-
-  it('singular + plural counts in success copy, with conflict + ignored trailers when relevant', async () => {
-    const { summarizeImportSuccess } = await import('@openheaders/ui/shared/mode-switch');
-    const clean = summarizeImportSuccess(
-      {
-        ok: true,
-        mergedWorkspaces: [
-          { workspaceId: WS_A, workspaceName: 'Alpha', entitiesApplied: 1, conflicts: [] },
-        ],
-        ignored: [],
-        totalEntitiesApplied: 1,
-        totalConflicts: 0,
-      },
-      'Browser Extension',
-      'Desktop Application',
-    );
-    expect(clean).toContain('1 workspace');
-    expect(clean).toContain('1 item');
-    expect(clean).toContain('Browser Extension');
-    expect(clean).toContain('Desktop Application');
-    expect(clean).not.toContain('conflict');
-    expect(clean).not.toContain('Skipped');
-
-    const withConflicts = summarizeImportSuccess(
-      {
-        ok: true,
-        mergedWorkspaces: [
-          { workspaceId: WS_A, workspaceName: 'Alpha', entitiesApplied: 5, conflicts: [] },
-          { workspaceId: WS_B, workspaceName: 'Beta', entitiesApplied: 7, conflicts: [] },
-        ],
-        ignored: [
-          { sourceWorkspaceId: 'ws-c', sourceWorkspaceName: 'Gamma', reason: 'no-matching-target' },
-        ],
-        totalEntitiesApplied: 12,
-        totalConflicts: 3,
-      },
-      'Browser Extension',
-      'Desktop Application',
-    );
-    expect(withConflicts).toContain('2 workspaces');
-    expect(withConflicts).toContain('12 items');
-    expect(withConflicts).toContain('3 conflicts');
-    expect(withConflicts).toContain('Skipped 1 workspace');
-    expect(withConflicts).toContain('Coexist');
-  });
-
-  it('includes a rename trailer in success copy when at least one row was remapped', async () => {
-    const { summarizeImportSuccess } = await import('@openheaders/ui/shared/mode-switch');
-    const single = summarizeImportSuccess(
-      {
-        ok: true,
-        mergedWorkspaces: [
-          {
-            workspaceId: WS_B,
-            workspaceName: 'Production',
-            entitiesApplied: 5,
-            conflicts: [],
-            renamedFromSourceId: WS_A,
-          },
-        ],
-        ignored: [],
-        totalEntitiesApplied: 5,
-        totalConflicts: 0,
-      },
-      'Browser Extension',
-      'Desktop Application',
-    );
-    expect(single).toContain('1 name-matched workspace');
-
-    const many = summarizeImportSuccess(
-      {
-        ok: true,
-        mergedWorkspaces: [
-          {
-            workspaceId: WS_A,
-            workspaceName: 'Production',
-            entitiesApplied: 2,
-            conflicts: [],
-            renamedFromSourceId: 'src-1',
-          },
-          {
-            workspaceId: WS_B,
-            workspaceName: 'Staging',
-            entitiesApplied: 3,
-            conflicts: [],
-            renamedFromSourceId: 'src-2',
-          },
-        ],
-        ignored: [],
-        totalEntitiesApplied: 5,
-        totalConflicts: 0,
-      },
-      'Browser Extension',
-      'Desktop Application',
-    );
-    expect(many).toContain('2 name-matched workspaces');
-  });
-
-  it('renders a distinct line per failure reason', async () => {
-    const { summarizeImportFailure } = await import('@openheaders/ui/shared/mode-switch');
-    expect(summarizeImportFailure({ ok: false, reason: 'peer-write-unavailable' }, 'Desktop')).toContain(
-      'connect',
-    );
-    expect(summarizeImportFailure({ ok: false, reason: 'no-source-data' }, 'Desktop')).toContain(
-      'No source data',
-    );
-    expect(summarizeImportFailure({ ok: false, reason: 'no-matching-workspace' }, 'Desktop')).toContain(
-      'Coexist',
-    );
-    expect(summarizeImportFailure({ ok: false, reason: 'apply-failed' }, 'Desktop')).toContain(
-      'Discard',
-    );
   });
 });

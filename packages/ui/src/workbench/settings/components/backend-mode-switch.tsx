@@ -3,48 +3,50 @@
  * `backend.mode` setting.
  *
  * Switching back-ends can be destructive (data movement, wipe + backup,
- * peer pairing). §11.2 of DATA_PLANE_TOPOLOGIES calls out the silent-
- * commit-on-data-loss anti-pattern; every write to `backend.mode` must
- * route through the request-verdict / apply-verdict / dialog state
- * machine so the user gets a Coexist / Import / Discard choice when
- * both sides have data, and we never strand them on an unreachable
- * peer.
+ * peer pairing). Every write to `backend.mode` routes through the
+ * request-verdict / apply-verdict / dialog state machine so the user
+ * gets the Phase U5 mode-switch choice when both sides have data, and
+ * we never strand them on an unreachable peer.
+ *
+ * Phase U5.5 — the dialog is posture-aware. A loopback (trust-by-
+ * process) target offers Combine; an authenticated LAN/WAN target
+ * offers Keep-my-data-here. Both offer Use-Target. Combine and
+ * Use-Target are local-only operations the host runs AFTER the mode
+ * commits and the live connection records the join (U5.2) — so the
+ * router commits the mode first, waits for the target `Org` to land in
+ * the authorized set, then fires the executor.
  *
  * Two consumers share the same hook:
- *   - BackendPane: full-bleed picker UI with an "Active back-end"
- *     dropdown card and tile preview row.
+ *   - BackendPane: full-bleed picker UI.
  *   - BackendModeFieldEditor: FieldRow-wrapped Select for the generic
- *     settings/search path. Registered as `customEditor` on
- *     `backend.mode`, so a search hit on "backend" or "mode" lands
- *     users on the same guarded dropdown — not the bare enum picker
- *     that bypassed the orchestrator.
+ *     settings/search path.
  */
 
 import { App as AntApp, Select } from 'antd';
 import type React from 'react';
 import { useState } from 'react';
-import type { DataPresenceSummary, ModeSwitchVerdict } from '@openheaders/core/sync';
+import type { ModeSwitchVerdict } from '@openheaders/core/sync';
 import { summarizeWorkspaces } from '@openheaders/core/sync';
+import type { Org } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
 import {
   applyModeSwitchVerdict,
-  executeCoexist,
-  executeDiscard,
-  executeImport,
+  awaitJoinedOrg,
+  executeCombine,
+  executeUseTarget,
+  type PeerPresenceProbe,
   requestModeSwitchVerdict,
-  summarizeCoexistFailure,
-  summarizeCoexistSuccess,
-  summarizeDiscardFailure,
-  summarizeDiscardSuccess,
-  summarizeImportFailure,
-  summarizeImportSuccess,
+  summarizeCombineFailure,
+  summarizeCombineSuccess,
+  summarizeUseTargetFailure,
+  summarizeUseTargetSuccess,
 } from '../../../shared/mode-switch';
 import { probeBackendDataPresence } from '../../../shared/backend/probe-connection';
 import { getCurrentHost, type Host } from '../../../shared/host-vocabulary';
 import type { BackendIconKey } from './backend-icons';
 import ModeSwitchDialog, {
+  type ConnectionPosture,
   type ModeSwitchChoice,
-  type ModeSwitchChooseOptions,
 } from '../../components/dialogs/ModeSwitchDialog';
 import { get as getSettingValue } from '../store';
 import { useSetting } from '../hooks';
@@ -79,31 +81,52 @@ export function iconForMode(mode: BackendMode): BackendIconKey | undefined {
   return MODE_DESCRIPTORS.find((d) => d.mode === mode)?.icon;
 }
 
+/** Hostnames a loopback WebSocket bind can serve — mirrors the daemon's
+ *  `LOOPBACK_BINDS` set (UNIFIED_ORACLE_MODEL.md §4.2 / U2.3). */
+const LOOPBACK_HOSTS = new Set(['127.0.0.1', '::1', '[::1]', 'localhost']);
+
+/** True when `url`'s host resolves to a loopback interface. */
+function isLoopbackWsUrl(url: string): boolean {
+  try {
+    return LOOPBACK_HOSTS.has(new URL(url).hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Resolve the target back-end's data presence for the mode-switch
- * orchestrator. The orchestrator asks this so its verdict can compare
- * source vs. target data BEFORE the live WS opens.
- *
- * The right transport for this question is a fresh probe — not the
- * live SW WS (which might not be open yet — first-time switch from
- * in-browser into the desktop back-end is exactly that chicken-and-
- * egg). The probe opens its own WebSocket, sends HELLO, runs the
- * `oh.sync.getDataPresence` RPC, then closes. No effect on the live
- * connection lifecycle.
- *
- * Returns `null` for cases where the question has no real answer:
- *   - target mode IS this host (e.g. switching back to in-browser on
- *     the extension — there's no remote peer to query; the
- *     orchestrator's chicken-and-egg branch handles it via source
- *     emptiness).
- *   - target mode is pending (no daemon to probe yet).
- *   - probe fails (URL invalid, server not running, handshake reject).
+ * Connection posture of the target backend. A loopback connection only
+ * ever hits a loopback bind — which is trust-by-process by definition
+ * (no auth gate; UNIFIED_ORACLE_MODEL.md §4.2). A non-loopback URL
+ * necessarily hit a non-loopback bind, which requires a token. The
+ * in-browser target is the SW itself — same process, inherently
+ * trusted. Posture is needed at dialog time (pre-commit, before any
+ * live connection), so it derives from `backend.url`, not connection
+ * state.
  */
-async function probePeerPresenceForMode(targetMode: BackendMode): Promise<DataPresenceSummary | null> {
+function connectionPostureForMode(toMode: BackendMode, backendUrl: string): ConnectionPosture {
+  if (toMode === 'in-browser') return 'trust-by-process';
+  return isLoopbackWsUrl(backendUrl) ? 'trust-by-process' : 'authenticated';
+}
+
+/**
+ * Resolve the target back-end's data presence + home `Org` for the
+ * mode-switch orchestrator. The orchestrator asks this so its verdict
+ * can compare source vs. target data BEFORE the live WS opens.
+ *
+ * The right transport is a fresh probe — not the live SW WS (which
+ * might not be open yet). The probe opens its own WebSocket, sends
+ * HELLO, runs `oh.sync.getDataPresence`, then closes; the WELCOME's
+ * `Org` (Phase U5.2) rides back so the dialog's Combine / Use-Target
+ * executors know which `Org` to re-home into.
+ *
+ * Returns `null` when the question has no real answer (target IS this
+ * host, target mode pending, or probe failure).
+ */
+async function probePeerPresenceForMode(targetMode: BackendMode): Promise<PeerPresenceProbe | null> {
   // In-browser target means the local SW IS the target — no remote
   // peer to query. The orchestrator's source-empty fast-path handles
-  // this case; otherwise it falls through to peer-unreachable, which
-  // is correct because there's no separate "peer state" to inspect.
+  // this case; otherwise it falls through to peer-unreachable.
   if (targetMode === 'in-browser') return null;
   if (backendModeIsPending(targetMode)) return null;
   const url = getSettingValue('backend.url');
@@ -115,13 +138,15 @@ async function probePeerPresenceForMode(targetMode: BackendMode): Promise<DataPr
     role,
   });
   if (!result.ok) return null;
-  return summarizeWorkspaces(result.workspaces);
+  return { presence: summarizeWorkspaces(result.workspaces), org: result.org };
 }
 
 interface DialogState {
   verdict: Extract<ModeSwitchVerdict, { kind: 'show-dialog' }>;
   from: BackendMode;
   to: BackendMode;
+  /** Posture of the target backend — selects the dialog's two cards. */
+  posture: ConnectionPosture;
 }
 
 interface InFlightState {
@@ -133,9 +158,9 @@ interface InFlightState {
 const IN_FLIGHT_TOAST_KEY = 'backend-mode-switch';
 
 function inFlightCopy(kind: ModeSwitchChoice): string {
-  if (kind === 'coexist') return 'Keeping both as separate workspaces…';
-  if (kind === 'import') return 'Importing source data into the target workspace…';
-  return 'Discarding source data…';
+  if (kind === 'combine') return 'Switching back-end and combining workspaces…';
+  if (kind === 'use-target') return 'Switching back-end and backing up your workspaces…';
+  return 'Switching back-end…';
 }
 
 export interface BackendModeSwitchHandle {
@@ -153,7 +178,7 @@ export interface BackendModeSwitchHandle {
 /**
  * One-stop hook for routing a backend.mode change through the
  * destructive-action orchestrator. Holds dialog state + in-flight
- * executor state, mounts the Coexist/Import/Discard modal, and surfaces
+ * executor state, mounts the posture-aware modal, and surfaces
  * loading/success/warning toasts via Ant's App message API.
  */
 export function useBackendModeSwitch(): BackendModeSwitchHandle {
@@ -180,73 +205,74 @@ export function useBackendModeSwitch(): BackendModeSwitchHandle {
         );
       },
       openDialog: (showDialog) => {
-        setDialogState({ verdict: showDialog, from: mode, to: next });
+        setDialogState({
+          verdict: showDialog,
+          from: mode,
+          to: next,
+          posture: connectionPostureForMode(next, getSettingValue('backend.url')),
+        });
       },
     });
   };
 
-  const handleDialogChoose = async (
-    choice: ModeSwitchChoice,
-    options?: ModeSwitchChooseOptions,
-  ): Promise<void> => {
+  const handleDialogChoose = async (choice: ModeSwitchChoice): Promise<void> => {
     const state = dialogState;
     if (!state) return;
     setDialogState(null);
 
+    const fromLabel = labelForMode(state.from);
+    const toLabel = labelForMode(state.to);
+    const targetOrg: Org | null = state.verdict.targetOrg;
+
     setInFlight({ kind: choice, from: state.from, to: state.to });
-    message.loading({
-      key: IN_FLIGHT_TOAST_KEY,
-      content: inFlightCopy(choice),
-      duration: 0,
-    });
+    message.loading({ key: IN_FLIGHT_TOAST_KEY, content: inFlightCopy(choice), duration: 0 });
 
     try {
-      if (choice === 'coexist') {
-        const result = await executeCoexist();
-        if (result.ok) {
-          commitMode(state.to);
-          message.success({
-            key: IN_FLIGHT_TOAST_KEY,
-            content: summarizeCoexistSuccess(result, labelForMode(state.from), labelForMode(state.to)),
-          });
-        } else {
-          message.warning({
-            key: IN_FLIGHT_TOAST_KEY,
-            content: summarizeCoexistFailure(result, labelForMode(state.to)),
-          });
-        }
-        return;
-      }
+      // Every outcome commits the mode first — the live connection then
+      // joins the target backend (U5.2). Combine / Use-Target are
+      // local-only operations the host runs once that join lands.
+      commitMode(state.to);
 
-      if (choice === 'import') {
-        const result = await executeImport({ workspaceIdRemap: options?.workspaceIdRemap });
-        if (result.ok) {
-          commitMode(state.to);
-          message.success({
-            key: IN_FLIGHT_TOAST_KEY,
-            content: summarizeImportSuccess(result, labelForMode(state.from), labelForMode(state.to)),
-          });
-        } else {
-          message.warning({
-            key: IN_FLIGHT_TOAST_KEY,
-            content: summarizeImportFailure(result, labelForMode(state.to)),
-          });
-        }
-        return;
-      }
-
-      const result = await executeDiscard();
-      if (result.ok) {
-        commitMode(state.to);
+      if (choice === 'keep-local') {
         message.success({
           key: IN_FLIGHT_TOAST_KEY,
-          content: summarizeDiscardSuccess(result, labelForMode(state.to)),
+          content: `Switched to ${toLabel}. Your ${fromLabel} workspaces stay on this device.`,
         });
-      } else {
+        return;
+      }
+
+      if (!targetOrg) {
         message.warning({
           key: IN_FLIGHT_TOAST_KEY,
-          content: summarizeDiscardFailure(result),
+          content: `Switched to ${toLabel}, but it reported no workspace identity — your workspaces stayed on this device.`,
         });
+        return;
+      }
+
+      const joined = await awaitJoinedOrg(targetOrg.id);
+      if (!joined) {
+        message.warning({
+          key: IN_FLIGHT_TOAST_KEY,
+          content: `Switched to ${toLabel}, but it didn't come online in time — your workspaces stayed on this device. Retry from Settings once connected.`,
+        });
+        return;
+      }
+
+      if (choice === 'combine') {
+        const result = await executeCombine({ targetOrgId: targetOrg.id });
+        if (result.ok) {
+          message.success({ key: IN_FLIGHT_TOAST_KEY, content: summarizeCombineSuccess(result, fromLabel, toLabel) });
+        } else {
+          message.warning({ key: IN_FLIGHT_TOAST_KEY, content: summarizeCombineFailure(result, toLabel) });
+        }
+        return;
+      }
+
+      const result = await executeUseTarget({ targetOrgId: targetOrg.id });
+      if (result.ok) {
+        message.success({ key: IN_FLIGHT_TOAST_KEY, content: summarizeUseTargetSuccess(result, toLabel) });
+      } else {
+        message.warning({ key: IN_FLIGHT_TOAST_KEY, content: summarizeUseTargetFailure(result, toLabel) });
       }
     } finally {
       setInFlight(null);
@@ -262,9 +288,10 @@ export function useBackendModeSwitch(): BackendModeSwitchHandle {
       toIcon={iconForMode(dialogState.to)}
       source={dialogState.verdict.source}
       target={dialogState.verdict.target}
-      nameCollisions={dialogState.verdict.nameCollisions}
-      onChoose={(c, options) => {
-        void handleDialogChoose(c, options);
+      posture={dialogState.posture}
+      targetOrgKnown={dialogState.verdict.targetOrg !== null}
+      onChoose={(c) => {
+        void handleDialogChoose(c);
       }}
       onCancel={() => setDialogState(null)}
     />
