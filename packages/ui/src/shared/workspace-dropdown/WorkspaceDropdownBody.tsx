@@ -12,18 +12,26 @@
  *     gesture is "set active". Row click promotes the workspace to
  *     ACTIVE; the per-row check icon is hidden because it would be
  *     redundant. Selected ≡ active here.
+ *
+ * Org switcher (Phase U5.9): when {@link WorkspaceDropdownBodyProps.orgGrouping}
+ * is supplied the list is GROUPED by Org — every Org, no filter — so a
+ * workbench tab can roam to any workspace in any Org. Clicking an Org
+ * header switches to that Org (per the surface's mode). A footer shows
+ * the globally active workspace + its Org.
  */
 
 import { CheckCircleFilled, CheckCircleOutlined, ExportOutlined, ImportOutlined, SettingOutlined } from '@ant-design/icons';
 import type { OrgDescriptor } from '@openheaders/core/identity';
+import { resolveOrgActiveWorkspace } from '@openheaders/core/identity';
+import { getHostStorage, OH } from '@openheaders/core/storage';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import type { InputRef } from 'antd';
 import { Divider, Input, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useRef, useState } from 'react';
 import { renderWorkspacePrefix } from '../../workbench/components/workspace-prefix';
-import { OrgSwitcherMenu } from '../workspace-org/OrgSwitcherMenu';
-import { WorkspaceSyncScopePicker } from '../workspace-org/WorkspaceSyncScopePicker';
+import { WorkspaceOrgBadge } from '../workspace-org/WorkspaceOrgBadge';
+import { orgBadgeLabel, orgScopeVisual } from '../workspace-org/org-scope-vocabulary';
 import './WorkspaceDropdownBody.css';
 
 const { Text } = Typography;
@@ -56,38 +64,17 @@ export interface WorkspaceDropdownBodyProps {
    */
   searchRowExtra?: React.ReactNode;
   /**
-   * Org-binding surface (U3.5 + U3.7). When supplied, each row carries a
-   * "where does this live?" badge that doubles as the sync-scope picker.
-   * Omit to render the dropdown without org affordances.
+   * Org switcher (U5.9). When supplied, the list is grouped by Org —
+   * every Org, no filter — so tabs roam free. An Org header switches to
+   * that Org: it resolves the Org's remembered / default / first
+   * workspace and routes it through the surface's normal pick handler.
+   * A footer shows the globally active workspace + its Org.
    */
-  orgBinding?: {
-    /** Every Org a workspace can be bound to. */
-    catalogue: OrgDescriptor[];
-    /** Resolve a workspace's `orgId` to its descriptor; `null` pre-bootstrap. */
-    describe: (orgId: string) => OrgDescriptor | null;
-    /** Flip a workspace's Org binding (§6.5 metadata mutation). */
-    onPickOrg: (workspaceId: string, orgId: string) => void;
-    /**
-     * Publish a workspace into a team Org (U5.6) — the permission-gated
-     * path for a team-scoped pick. Omit on surfaces with no
-     * authenticated backend.
-     */
-    onPublishOrg?: (workspaceId: string, orgId: string) => void;
-  };
-  /**
-   * Org switcher (U5.9). When supplied, an Org selector header renders
-   * above the search row and the workspace list scopes to {@link
-   * orgScope.activeOrgId} — Org is the top-level container, so the
-   * switcher only ever shows the active Org's workspaces. Omit to render
-   * the full unscoped list.
-   */
-  orgScope?: {
+  orgGrouping?: {
     /** Every Org the identity belongs to, local → personal → team. */
     catalogue: OrgDescriptor[];
-    /** The Org the list is scoped to; `null` pre-bootstrap (no scoping). */
-    activeOrgId: string | null;
-    /** Switch the active Org — re-scopes the list. */
-    onSwitchOrg: (orgId: string) => void;
+    /** Resolve an `orgId` to its descriptor; `null` pre-bootstrap. */
+    describe: (orgId: string) => OrgDescriptor | null;
   };
 }
 
@@ -113,31 +100,191 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
   onOpenManager,
   onClose,
   searchRowExtra,
-  orgBinding,
-  orgScope,
+  orgGrouping,
 }) => {
   const { token } = theme.useToken();
   const [searchText, setSearchText] = useState('');
   const searchRef = useRef<InputRef>(null);
 
-  // Org is the top-level container — when an Org switcher is wired, the
-  // list only ever shows the active Org's workspaces. A null
-  // `activeOrgId` (pre-bootstrap) leaves the list unscoped.
-  const orgScoped = useMemo(() => {
-    const activeOrgId = orgScope?.activeOrgId ?? null;
-    if (!activeOrgId) return workspaces;
-    return workspaces.filter((w) => w.orgId === activeOrgId);
-  }, [workspaces, orgScope?.activeOrgId]);
-
   const filtered = useMemo(() => {
     const q = searchText.toLowerCase().trim();
-    if (!q) return orgScoped;
-    return orgScoped.filter((w) => w.name.toLowerCase().includes(q));
-  }, [orgScoped, searchText]);
+    if (!q) return workspaces;
+    return workspaces.filter((w) => w.name.toLowerCase().includes(q));
+  }, [workspaces, searchText]);
+
+  // Org is the top-level container — group the (already search-filtered)
+  // list by Org, ordered by the catalogue. No filtering: every Org's
+  // workspaces are reachable so a tab can switch to anything. `null`
+  // when no catalogue is wired (pre-bootstrap) — the list renders flat.
+  const groups = useMemo(() => {
+    if (!orgGrouping || orgGrouping.catalogue.length === 0) return null;
+    const byOrg = new Map<string, ExtensionWorkspace[]>();
+    for (const w of filtered) {
+      const arr = byOrg.get(w.orgId);
+      if (arr) arr.push(w);
+      else byOrg.set(w.orgId, [w]);
+    }
+    const ordered: Array<{ orgId: string; descriptor: OrgDescriptor | null; items: ExtensionWorkspace[] }> = [];
+    for (const descriptor of orgGrouping.catalogue) {
+      const items = byOrg.get(descriptor.id);
+      if (items && items.length > 0) ordered.push({ orgId: descriptor.id, descriptor, items });
+      byOrg.delete(descriptor.id);
+    }
+    // Workspaces whose Org isn't in the catalogue (e.g. the pre-bootstrap
+    // sentinel) still get a group so they're never unreachable.
+    for (const [orgId, items] of byOrg) ordered.push({ orgId, descriptor: null, items });
+    return ordered;
+  }, [orgGrouping, filtered]);
+
+  const activeWorkspace = useMemo(
+    () => (activeId ? (workspaces.find((w) => w.id === activeId) ?? null) : null),
+    [workspaces, activeId],
+  );
 
   const handleClose = (): void => {
     setSearchText('');
     onClose();
+  };
+
+  const pickWorkspace = (id: string, isSelected: boolean, isActive: boolean): void => {
+    if (mode === 'workbench') {
+      if (!isSelected) onSwitch?.(id);
+    } else {
+      if (!isActive) onPromoteActive(id);
+    }
+    handleClose();
+  };
+
+  // Switching to an Org lands on its remembered → default → first
+  // workspace (`resolveOrgActiveWorkspace`), then routes through the
+  // surface's normal pick handler — per-tab in workbench, global active
+  // in system mode.
+  const handleSwitchOrg = (orgId: string): void => {
+    const storage = getHostStorage();
+    void Promise.all([
+      storage?.get(OH.orgActiveWorkspace) ?? Promise.resolve(undefined),
+      storage?.get(OH.preferencesDefaultWorkspace) ?? Promise.resolve(undefined),
+    ]).then(([remembered, defaults]) => {
+      const target = resolveOrgActiveWorkspace(orgId, workspaces, remembered ?? {}, defaults ?? {});
+      if (!target) return;
+      const targetWs = workspaces.find((w) => w.id === target);
+      if (!targetWs) return;
+      pickWorkspace(target, target === selectedId, target === activeId);
+    });
+  };
+
+  const renderRow = (w: ExtensionWorkspace): React.ReactNode => {
+    const isSelected = w.id === selectedId;
+    const isActive = w.id === activeId;
+    const rowStyle: React.CSSProperties = isSelected
+      ? { ...baseRowStyle, background: token.colorPrimaryBg, color: token.colorPrimaryText }
+      : { ...baseRowStyle };
+    return (
+      <div
+        key={w.id}
+        role="menuitem"
+        aria-current={isSelected ? 'true' : undefined}
+        className="oh-env-row"
+        style={rowStyle}
+        onClick={() => pickWorkspace(w.id, isSelected, isActive)}
+      >
+        {renderWorkspacePrefix({ icon: w.icon, color: w.color }, token, { size: 16 })}
+        <Text
+          style={{
+            flex: 1,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            fontSize: 13,
+            color: 'inherit',
+            fontWeight: isSelected ? 500 : 400,
+          }}
+        >
+          {w.name}
+        </Text>
+        {isActive && (
+          <Text
+            style={{
+              fontSize: 10,
+              color: isSelected ? token.colorPrimaryText : token.colorTextTertiary,
+              flexShrink: 0,
+              letterSpacing: 0.5,
+            }}
+          >
+            ACTIVE
+          </Text>
+        )}
+        {mode === 'workbench' ? (
+          <div className="oh-env-row-actions">
+            <Tooltip title={isActive ? 'Active workspace' : 'Set active'} placement="top" mouseEnterDelay={0.3}>
+              <span
+                role="button"
+                tabIndex={-1}
+                aria-label={isActive ? 'Active workspace' : `Make "${w.name}" the active workspace`}
+                className="oh-env-row-action"
+                style={isActive ? { opacity: 1, cursor: 'default' } : undefined}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isActive) return;
+                  onPromoteActive(w.id);
+                  handleClose();
+                }}
+              >
+                {isActive ? (
+                  <CheckCircleFilled style={{ fontSize: 14, color: token.colorPrimary }} />
+                ) : (
+                  <CheckCircleOutlined style={{ fontSize: 14, color: token.colorTextTertiary }} />
+                )}
+              </span>
+            </Tooltip>
+          </div>
+        ) : (
+          isActive && <CheckCircleFilled style={{ fontSize: 14, color: token.colorPrimary, flexShrink: 0 }} />
+        )}
+      </div>
+    );
+  };
+
+  const renderOrgHeader = (orgId: string, descriptor: OrgDescriptor | null): React.ReactNode => {
+    const visual = descriptor ? orgScopeVisual(descriptor.scopeKind) : null;
+    const Icon = visual?.icon;
+    const label = descriptor ? orgBadgeLabel(descriptor) : 'Other workspaces';
+    return (
+      <Tooltip title={`Switch to ${label}`} placement="left" mouseEnterDelay={0.4}>
+        <div
+          role="button"
+          aria-label={`Switch to ${label}`}
+          className="oh-env-row"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '4px 8px',
+            margin: '2px 0 0',
+            borderRadius: 4,
+            cursor: 'pointer',
+          }}
+          onClick={() => handleSwitchOrg(orgId)}
+        >
+          {Icon && <Icon style={{ fontSize: 12, color: token.colorTextTertiary }} />}
+          <Text
+            style={{
+              flex: 1,
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: 0.3,
+              textTransform: 'uppercase',
+              color: token.colorTextTertiary,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {label}
+          </Text>
+        </div>
+      </Tooltip>
+    );
   };
 
   return (
@@ -152,14 +299,6 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
       }}
       onClick={(e) => e.stopPropagation()}
     >
-      {orgScope && orgScope.catalogue.length > 0 && (
-        <OrgSwitcherMenu
-          catalogue={orgScope.catalogue}
-          activeOrgId={orgScope.activeOrgId}
-          onSwitchOrg={orgScope.onSwitchOrg}
-        />
-      )}
-
       <div style={{ padding: '0 4px 6px', display: 'flex', alignItems: 'center', gap: 4 }}>
         <Input
           ref={searchRef}
@@ -179,124 +318,36 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
       {filtered.length === 0 && (
         <div style={{ padding: '8px 8px 10px', textAlign: 'center' }}>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            {searchText.trim()
-              ? 'No workspaces match your search.'
-              : orgScope
-                ? 'No workspaces in this organization yet.'
-                : 'No workspaces yet.'}
+            {searchText.trim() ? 'No workspaces match your search.' : 'No workspaces yet.'}
           </Text>
         </div>
       )}
 
-      <div
-        // Cap the visible rows at 3 — taller lists scroll. Each row is
-        // ~32px (5px padding × 2 + 22px content); the cap is computed
-        // generously so the third row never feels half-clipped behind a
-        // border.
-        style={{ maxHeight: 108, overflowY: 'auto' }}
-      >
-      {filtered.map((w) => {
-        const isSelected = w.id === selectedId;
-        const isActive = w.id === activeId;
-        const rowStyle: React.CSSProperties = isSelected
-          ? {
-              ...baseRowStyle,
-              background: token.colorPrimaryBg,
-              color: token.colorPrimaryText,
-            }
-          : { ...baseRowStyle };
-        return (
-          <div
-            key={w.id}
-            role="menuitem"
-            aria-current={isSelected ? 'true' : undefined}
-            className="oh-env-row"
-            style={rowStyle}
-            onClick={() => {
-              if (mode === 'workbench') {
-                if (!isSelected) onSwitch?.(w.id);
-              } else {
-                if (!isActive) onPromoteActive(w.id);
-              }
-              handleClose();
-            }}
-          >
-            {renderWorkspacePrefix({ icon: w.icon, color: w.color }, token, { size: 16 })}
-            <Text
-              style={{
-                flex: 1,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                fontSize: 13,
-                color: 'inherit',
-                fontWeight: isSelected ? 500 : 400,
-              }}
-            >
-              {w.name}
-            </Text>
-            {orgBinding && (
-              <WorkspaceSyncScopePicker
-                workspaceName={w.name}
-                currentOrgId={w.orgId}
-                currentDescriptor={orgBinding.describe(w.orgId)}
-                catalogue={orgBinding.catalogue}
-                onPick={(orgId) => orgBinding.onPickOrg(w.id, orgId)}
-                {...(orgBinding.onPublishOrg
-                  ? { onPublish: (orgId: string) => orgBinding.onPublishOrg?.(w.id, orgId) }
-                  : {})}
-                compact
-              />
-            )}
-            {isActive && (
-              <Text
-                style={{
-                  fontSize: 10,
-                  color: isSelected ? token.colorPrimaryText : token.colorTextTertiary,
-                  flexShrink: 0,
-                  letterSpacing: 0.5,
-                }}
-              >
-                ACTIVE
-              </Text>
-            )}
-            {mode === 'workbench' ? (
-              <div className="oh-env-row-actions">
-                <Tooltip
-                  title={isActive ? 'Active workspace' : 'Set active'}
-                  placement="top"
-                  mouseEnterDelay={0.3}
-                >
-                  <span
-                    role="button"
-                    tabIndex={-1}
-                    aria-label={isActive ? 'Active workspace' : `Make "${w.name}" the active workspace`}
-                    className="oh-env-row-action"
-                    style={isActive ? { opacity: 1, cursor: 'default' } : undefined}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (isActive) return;
-                      onPromoteActive(w.id);
-                      handleClose();
-                    }}
-                  >
-                    {isActive ? (
-                      <CheckCircleFilled style={{ fontSize: 14, color: token.colorPrimary }} />
-                    ) : (
-                      <CheckCircleOutlined style={{ fontSize: 14, color: token.colorTextTertiary }} />
-                    )}
-                  </span>
-                </Tooltip>
+      <div style={{ maxHeight: groups ? 220 : 108, overflowY: 'auto' }}>
+        {groups
+          ? groups.map((group) => (
+              <div key={group.orgId}>
+                {renderOrgHeader(group.orgId, group.descriptor)}
+                {group.items.map(renderRow)}
               </div>
-            ) : (
-              isActive && (
-                <CheckCircleFilled style={{ fontSize: 14, color: token.colorPrimary, flexShrink: 0 }} />
-              )
-            )}
-          </div>
-        );
-      })}
+            ))
+          : filtered.map(renderRow)}
       </div>
+
+      {orgGrouping && activeWorkspace && (
+        <>
+          <Divider style={{ margin: '4px 0' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 8px' }}>
+            <Text type="secondary" style={{ fontSize: 11, flexShrink: 0 }}>
+              Active:
+            </Text>
+            <Text style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {activeWorkspace.name}
+            </Text>
+            <WorkspaceOrgBadge descriptor={orgGrouping.describe(activeWorkspace.orgId)} compact />
+          </div>
+        </>
+      )}
 
       <Divider style={{ margin: '4px 0' }} />
 

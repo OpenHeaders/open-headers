@@ -158,14 +158,14 @@ export const OH = {
    */
   runtimeActive: storageKey<string>('oh.runtimeActive.active'),
   /**
-   * Default workspace user preference — seed for new workbench tabs
-   * that don't inherit a tab binding, and the second link in the
-   * stale-Active boot fallback chain (Active → Default → first
-   * workspace). Independent of {@link OH.runtimeActive}; rarely
-   * changed once set. Null means "no explicit default; fall through
-   * to the first workspace in the list."
+   * Per-Org default workspace preference — `orgId → workspaceId`. The
+   * Org is the top-level container; each Org keeps its own default (the
+   * workspace an Org-switch lands on when that Org has no remembered
+   * active workspace yet). A missing entry means "fall through to the
+   * Org's first workspace." Independent of {@link OH.runtimeActive} and
+   * {@link OH.orgActiveWorkspace}.
    */
-  preferencesDefaultWorkspace: storageKey<string | null>('oh.preferences.defaultWorkspace'),
+  preferencesDefaultWorkspace: storageKey<Record<string, string>>('oh.preferences.defaultWorkspace'),
   /** Toolbar-action view mode (popup vs sidepanel). Synced across devices. */
   viewMode: storageKey<ViewMode>('oh.viewMode', 'sync'),
   /** User-scope settings dict (global — never per-workspace). */
@@ -231,13 +231,15 @@ export const OH = {
    */
   joinedOrgs: storageKey<Org[]>('oh.joinedOrgs'),
   /**
-   * The Org the user is currently working in (Phase U5.9 — the org
-   * switcher). The workspace switcher scopes its list to this Org; the
-   * Org dropdown writes it. Defaults to the user's home-org when unset
-   * or stale (`resolveActiveOrgId` in `../identity`). Joining a backend
-   * adopts its Org by writing this slot (consume-only join, U5.9).
+   * Per-Org remembered active workspace — `orgId → workspaceId` (Phase
+   * U5.9, the org switcher). Each Org keeps its own last-active
+   * workspace; switching the active Org restores its entry here so the
+   * user lands back where they left off. Stamped by the workspace store
+   * on every active-pointer flip. The *globally* active workspace stays
+   * {@link OH.runtimeActive}; the active Org is derived from its
+   * workspace's `orgId` — never stored as a separate pointer.
    */
-  activeOrgId: storageKey<string>('oh.activeOrgId'),
+  orgActiveWorkspace: storageKey<Record<string, string>>('oh.orgActiveWorkspace'),
 } as const;
 
 /**

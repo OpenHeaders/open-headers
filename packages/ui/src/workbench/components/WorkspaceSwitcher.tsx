@@ -5,12 +5,10 @@
  * THIS tab; per-row check icon promotes a workspace to ACTIVE without
  * switching this tab.
  *
- * Also the home of the org-binding UX cluster (U3.5–U3.7,
- * UNIFIED_ORACLE_MODEL.md §6.2 / §6.4): each dropdown row carries a
- * "where does this live?" badge that doubles as the sync-scope picker,
- * the trigger shows the selected workspace's binding, and the
- * two-personal-Orgs onboarding surfaces here the first time a user
- * holds more than one Org.
+ * Org switcher (U5.9): the dropdown groups workspaces by Org and the
+ * trigger shows the selected workspace's Org badge. The
+ * two-personal-Orgs onboarding (U3.6) surfaces here the first time a
+ * user holds more than one Org.
  */
 
 import { describeOrg, orgCatalogue, shouldShowOrgOnboarding } from '@openheaders/core/identity';
@@ -20,11 +18,8 @@ import { App, Button, Dropdown, Space, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { instanceLabel, instanceLabelPlural } from '@openheaders/ui/shared/host-vocabulary';
-import { executePublish } from '../../shared/mode-switch';
-import { useActiveOrg } from '../../shared/hooks/useActiveOrg';
 import { useIdentitySnapshot } from '../../shared/hooks/useIdentitySnapshot';
 import { useOrgBindingPrefs } from '../../shared/hooks/useOrgBindingPrefs';
-import { useWorkspaces } from '../../shared/hooks/useWorkspaces';
 import { WorkspaceDropdownBody } from '../../shared/workspace-dropdown/WorkspaceDropdownBody';
 import { OrgOnboardingModal } from '../../shared/workspace-org/OrgOnboardingModal';
 import { WorkspaceOrgBadge } from '../../shared/workspace-org/WorkspaceOrgBadge';
@@ -62,8 +57,6 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
   const snapshot = useIdentitySnapshot();
   const catalogue = useMemo(() => orgCatalogue(snapshot), [snapshot]);
   const { prefs, isReady: prefsReady, acknowledgeOnboarding } = useOrgBindingPrefs();
-  const { activeOrgId, setActiveOrg } = useActiveOrg(snapshot);
-  const { updateWorkspace } = useWorkspaces();
 
   const selected = workspaces.find((w) => w.id === activeWorkspaceId) ?? null;
 
@@ -83,46 +76,6 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
       });
     },
     [workspaces, modal, message, setActiveWorkspace],
-  );
-
-  const handlePickOrg = useCallback(
-    async (workspaceId: string, orgId: string) => {
-      const target = workspaces.find((w) => w.id === workspaceId);
-      const result = await updateWorkspace(workspaceId, { orgId });
-      if (result.success) {
-        const descriptor = describeOrg(snapshot, orgId);
-        message.success(
-          `"${target?.name ?? 'Workspace'}" now lives in ${descriptor?.name ?? 'the selected scope'}`,
-        );
-      } else {
-        message.error('Could not change where this workspace lives');
-      }
-    },
-    [workspaces, updateWorkspace, snapshot, message],
-  );
-
-  // Publishing into a team Org (U5.6) pushes the workspace's data up to
-  // an authenticated backend — it goes through the permission-gated
-  // `oh.sync.publishWorkspace` channel, not the raw `orgId` flip
-  // `handlePickOrg` uses for local/personal scopes.
-  const handlePublishOrg = useCallback(
-    async (workspaceId: string, orgId: string) => {
-      const target = workspaces.find((w) => w.id === workspaceId);
-      const descriptor = describeOrg(snapshot, orgId);
-      const result = await executePublish({ workspaceId, targetOrgId: orgId });
-      if (result.ok) {
-        message.success(
-          `"${target?.name ?? 'Workspace'}" is now published to ${descriptor?.name ?? 'the team'}`,
-        );
-      } else {
-        message.error(
-          result.reason === 'target-not-authorized'
-            ? 'You do not have permission to publish to this team'
-            : 'Could not publish this workspace',
-        );
-      }
-    },
-    [workspaces, snapshot, message],
   );
 
   // Gate on `prefsReady` so an already-acknowledged user never sees the
@@ -148,18 +101,9 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
             onImport={onImport}
             onOpenManager={onOpenManager}
             onClose={() => setOpen(false)}
-            orgBinding={{
+            orgGrouping={{
               catalogue,
               describe: (orgId) => describeOrg(snapshot, orgId),
-              onPickOrg: handlePickOrg,
-              onPublishOrg: handlePublishOrg,
-            }}
-            orgScope={{
-              catalogue,
-              activeOrgId,
-              onSwitchOrg: (orgId) => {
-                void setActiveOrg(orgId);
-              },
             }}
           />
         )}

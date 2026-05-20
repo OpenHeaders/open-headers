@@ -40,25 +40,24 @@
  */
 import {
   HANDSHAKE_ROLES,
+  type HandshakeRejectReason,
   PROTOCOL_VERSION,
   SYNC_HELLO_TYPE,
+  SYNC_SNAPSHOT_TYPE,
   SYNC_STATE_VECTOR_TYPE,
   SYNC_SYNCED_TYPE,
   SYNC_WELCOME_TYPE,
-  SYNC_SNAPSHOT_TYPE,
+  type SyncHelloMessage,
   SyncSnapshotMessageSchema,
+  type SyncStateVectorMessage,
   SyncSyncedMessageSchema,
   SyncWelcomeMessageSchema,
-  type HandshakeRejectReason,
-  type SyncHelloMessage,
-  type SyncStateVectorMessage,
   type WorkspaceSnapshot,
 } from '@openheaders/core/protocol';
-import type { Org } from '@openheaders/core/types';
 import type { StateVector } from '@openheaders/core/sync';
-import * as v from 'valibot';
-
+import type { Org } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
+import * as v from 'valibot';
 
 const SCOPE = 'SyncHandshakeInitiator';
 
@@ -216,12 +215,7 @@ export function createSyncHandshakeInitiator(deps: SyncHandshakeInitiatorDeps): 
   }
 
   async function start(): Promise<void> {
-    if (
-      state === 'hello-sent' ||
-      state === 'welcomed' ||
-      state === 'catching-up' ||
-      state === 'synced'
-    ) {
+    if (state === 'hello-sent' || state === 'welcomed' || state === 'catching-up' || state === 'synced') {
       // Already mid-handshake or done for this socket lifetime.
       return;
     }

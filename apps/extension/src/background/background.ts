@@ -19,7 +19,6 @@ import {
   getIdentitySnapshot,
   recordJoinedOrg,
   refreshIdentitySnapshotFromHostStorage,
-  setActiveOrgId,
   setAuditSink,
 } from '@openheaders/core/identity';
 import {
@@ -220,18 +219,15 @@ const syncHandshakeInitiator = createSyncHandshakeInitiator({
   // that structurally.
   onJoinedOrg: async (org, backendActiveWorkspaceId) => {
     await recordJoinedOrg(org);
-    // U5.9 — joining is consume-only: adopt the backend by switching the
-    // active Org to it, so the org switcher lands the user in the
-    // backend's workspaces. Their own workspaces stay under their own
-    // Org, one Org-switch away.
-    await setActiveOrgId(org.id);
-    // Adopt the backend's active workspace too — deferred until it has
-    // synced down (see `tryAdoptPendingWorkspace`).
+    // U5.9 — joining is consume-only: adopt the backend by promoting its
+    // active workspace to globally active once it has synced down (see
+    // `tryAdoptPendingWorkspace`). The active Org is derived from the
+    // active workspace, so adopting the workspace adopts the Org too.
     if (backendActiveWorkspaceId) {
       pendingAdoptWorkspaceId = backendActiveWorkspaceId;
       tryAdoptPendingWorkspace();
     }
-    logger.info('Background', `joined backend Org ${org.id} — adopted as active Org, its workspaces will sync down`);
+    logger.info('Background', `joined backend Org ${org.id} — its workspaces will sync down`);
   },
 });
 

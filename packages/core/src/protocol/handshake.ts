@@ -33,11 +33,11 @@
 import * as v from 'valibot';
 
 import { OrgSchema } from '../schemas/identity';
-import { StateVectorSchema, type StateVector } from '../sync/state-vector';
+import { type StateVector, StateVectorSchema } from '../sync/state-vector';
 import type { Org } from '../types/identity';
 
-export { StateVectorSchema };
 export type { StateVector };
+export { StateVectorSchema };
 
 // ── Constants ─────────────────────────────────────────────────────────
 
@@ -279,11 +279,7 @@ export const SyncSyncedMessageSchema = v.object({
  * mutation-streaming envelopes are intentionally NOT included here —
  * they're a separate concern routed through `SyncBridgeMessage`.
  */
-export type SyncHandshakeMessage =
-  | SyncHelloMessage
-  | SyncWelcomeMessage
-  | SyncStateVectorMessage
-  | SyncSyncedMessage;
+export type SyncHandshakeMessage = SyncHelloMessage | SyncWelcomeMessage | SyncStateVectorMessage | SyncSyncedMessage;
 
 export const SyncHandshakeMessageSchema = v.variant('type', [
   SyncHelloMessageSchema,

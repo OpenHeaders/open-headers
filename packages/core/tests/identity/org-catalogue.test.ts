@@ -9,7 +9,6 @@ import {
   defaultNewWorkspaceOrgId,
   describeOrg,
   orgCatalogue,
-  resolveActiveOrgId,
   shouldShowOrgOnboarding,
 } from '../../src/identity/org-catalogue';
 import type { IdentitySnapshot } from '../../src/identity/resolver';
@@ -113,26 +112,5 @@ describe('defaultNewWorkspaceOrgId', () => {
 
   it('returns null for a null snapshot', () => {
     expect(defaultNewWorkspaceOrgId(null, HOME_ORG)).toBeNull();
-  });
-});
-
-describe('resolveActiveOrgId', () => {
-  it('returns the stored active Org when it names an authorized Org', () => {
-    const snap = makeSnapshot([syntheticLocal, realHome, realTeam], HOME_ORG);
-    expect(resolveActiveOrgId(snap, TEAM_ORG)).toBe(TEAM_ORG);
-  });
-
-  it('falls back to the home-org when the stored active Org dropped out of the catalogue', () => {
-    const snap = makeSnapshot([syntheticLocal, realHome], HOME_ORG);
-    expect(resolveActiveOrgId(snap, TEAM_ORG)).toBe(HOME_ORG);
-  });
-
-  it('falls back to the home-org when no active Org is stored', () => {
-    const snap = makeSnapshot([syntheticLocal], LOCAL_ORG);
-    expect(resolveActiveOrgId(snap, null)).toBe(LOCAL_ORG);
-  });
-
-  it('returns null for a null snapshot', () => {
-    expect(resolveActiveOrgId(null, HOME_ORG)).toBeNull();
   });
 });

@@ -31,13 +31,13 @@
  *     neighbour-pointing setActive in the same all-or-nothing batch
  */
 
-import { ExtensionWorkspaceSchema } from '@openheaders/core/schemas';
 import {
   deriveSyntheticUuidV7,
   ensureDaemonConfig,
   getIdentitySnapshot,
   SYNTHETIC_SEEDS,
 } from '@openheaders/core/identity';
+import { ExtensionWorkspaceSchema } from '@openheaders/core/schemas';
 import {
   EXTENSION_WORKSPACE_ENTITY_TYPE,
   EXTENSION_WORKSPACE_ID,
@@ -405,25 +405,23 @@ function currentOrderKey(workspaceId: string): string | null {
  * oracle, and the cache.onChange listener writes back.
  */
 export async function bootstrap(): Promise<void> {
-  const [storedList, storedActive, storedDefault] = await Promise.all([
+  const [storedList, storedActive] = await Promise.all([
     hostStorage.getValidatedArray(OH.workspaces, ExtensionWorkspaceSchema, {
       onError: driftRecorder({ subsystem: 'workspace', storageKey: OH.workspaces.key }),
     }),
     hostStorage.get(OH.runtimeActive),
-    hostStorage.get(OH.preferencesDefaultWorkspace),
   ]);
 
   if (storedList.length > 0) {
     workspaces = storedList;
-    // Stale-Active boot fallback: walk Active → Default → first valid
-    // workspace. `OH.runtimeActive` may point at a deleted workspace
-    // after unclean SW shutdown; `OH.preferencesDefaultWorkspace` is
-    // the user-preference fallback before falling through to the first
-    // workspace in sort order.
+    // Stale-Active boot fallback: the stored global active workspace, or
+    // the first workspace in sort order. `OH.runtimeActive` may point at
+    // a deleted workspace after unclean SW shutdown. The per-Org default
+    // (`OH.preferencesDefaultWorkspace`) is not consulted here — boot has
+    // no active-Org context; it feeds the runtime Org-switch chain only.
     const validFor = (candidate: unknown): string | null =>
       typeof candidate === 'string' && workspaces.some((w) => w.id === candidate) ? candidate : null;
-    activeWorkspaceId =
-      validFor(storedActive) ?? validFor(storedDefault) ?? [...workspaces].sort(compareWorkspaces)[0].id;
+    activeWorkspaceId = validFor(storedActive) ?? [...workspaces].sort(compareWorkspaces)[0].id;
     logger.info('WorkspaceStore', `Loaded ${workspaces.length} workspace(s), active=${activeWorkspaceId}`);
     return;
   }
@@ -522,8 +520,23 @@ async function persistFromCache(snap: {
   const tasks: Array<Promise<void>> = [hostStorage.set(OH.workspaces, snap.workspaces)];
   if (snap.activeWorkspaceId) {
     tasks.push(hostStorage.set(OH.runtimeActive, snap.activeWorkspaceId));
+    tasks.push(stampOrgActiveWorkspace(snap.activeWorkspaceId, snap.workspaces));
   }
   await Promise.all(tasks);
+}
+
+/**
+ * Record the globally active workspace as its Org's remembered active
+ * workspace (`OH.orgActiveWorkspace`, Phase U5.9). Switching the active
+ * Org later restores this entry, so each Org keeps its own "where I left
+ * off." A no-op when the entry is already current.
+ */
+async function stampOrgActiveWorkspace(activeId: string, list: ExtensionWorkspace[]): Promise<void> {
+  const active = list.find((w) => w.id === activeId);
+  if (!active) return;
+  const map = (await hostStorage.get(OH.orgActiveWorkspace)) ?? {};
+  if (map[active.orgId] === activeId) return;
+  await hostStorage.set(OH.orgActiveWorkspace, { ...map, [active.orgId]: activeId });
 }
 
 // ── Test helpers ──────────────────────────────────────────────────────

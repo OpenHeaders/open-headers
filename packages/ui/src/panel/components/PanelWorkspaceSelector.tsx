@@ -9,11 +9,11 @@
  */
 
 import { DownOutlined } from '@ant-design/icons';
-import { orgCatalogue } from '@openheaders/core/identity';
-import { useActiveOrg } from '@openheaders/ui/shared/hooks/useActiveOrg';
+import { describeOrg, orgCatalogue } from '@openheaders/core/identity';
 import { useIdentitySnapshot } from '@openheaders/ui/shared/hooks/useIdentitySnapshot';
 import { useWorkspaces } from '@openheaders/ui/shared/hooks/useWorkspaces';
 import { useSurface } from '@openheaders/ui/shared/surface';
+import { WorkspaceOrgBadge } from '@openheaders/ui/shared/workspace-org/WorkspaceOrgBadge';
 import { WorkspaceDropdownBody } from '@openheaders/ui/shared/workspace-dropdown/WorkspaceDropdownBody';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
 import { renderWorkspacePrefix } from '@openheaders/ui/workbench/components/workspace-prefix';
@@ -29,7 +29,6 @@ export const PanelWorkspaceSelector: React.FC = () => {
   const { workspaces, activeWorkspaceId, activeWorkspace, setActiveWorkspace } = useWorkspaces();
   const snapshot = useIdentitySnapshot();
   const catalogue = useMemo(() => orgCatalogue(snapshot), [snapshot]);
-  const { activeOrgId, setActiveOrg } = useActiveOrg(snapshot);
   const [open, setOpen] = useState(false);
 
   if (!activeWorkspace) return null;
@@ -57,12 +56,9 @@ export const PanelWorkspaceSelector: React.FC = () => {
             void openWorkspace({ kind: 'open-workspace-manager' }, surface.mode);
           }}
           onClose={() => setOpen(false)}
-          orgScope={{
+          orgGrouping={{
             catalogue,
-            activeOrgId,
-            onSwitchOrg: (orgId) => {
-              void setActiveOrg(orgId);
-            },
+            describe: (orgId) => describeOrg(snapshot, orgId),
           }}
         />
       )}
@@ -96,6 +92,7 @@ export const PanelWorkspaceSelector: React.FC = () => {
           >
             {activeWorkspace.name}
           </Text>
+          <WorkspaceOrgBadge descriptor={describeOrg(snapshot, activeWorkspace.orgId)} compact />
           <DownOutlined style={{ fontSize: 9, color: token.colorTextTertiary }} />
         </Space>
       </Button>

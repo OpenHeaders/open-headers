@@ -16,7 +16,6 @@
  *      (U1.6 / U1.7 — next slices).
  */
 
-export { getActiveOrgId, setActiveOrgId } from './active-org';
 export {
   type AuditEntryInput,
   type AuditSink,
@@ -65,9 +64,9 @@ export {
   type OrgDescriptor,
   type OrgScopeKind,
   orgCatalogue,
-  resolveActiveOrgId,
   shouldShowOrgOnboarding,
 } from './org-catalogue';
+export { resolveOrgActiveWorkspace } from './org-workspace';
 export {
   clearIdentitySnapshot,
   getIdentitySnapshot,
@@ -78,11 +77,11 @@ export {
 } from './registry';
 export {
   authorizedOrgIds,
-  canPublishWorkspace,
   type Capability,
   type CapabilityContext,
   type CapabilityDecision,
   type CapabilityDenyReason,
+  canPublishWorkspace,
   hasCapability,
   type IdentitySnapshot,
   type PublishGateContext,

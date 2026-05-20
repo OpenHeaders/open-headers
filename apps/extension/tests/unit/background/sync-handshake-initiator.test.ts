@@ -140,7 +140,13 @@ describe('createSyncHandshakeInitiator — inbound handle()', () => {
   it('handles() claims only the five handshake-flow types', () => {
     const { deps } = makeDeps();
     const initiator = createSyncHandshakeInitiator(deps);
-    for (const t of [SYNC_HELLO_TYPE, SYNC_WELCOME_TYPE, SYNC_STATE_VECTOR_TYPE, SYNC_SNAPSHOT_TYPE, SYNC_SYNCED_TYPE]) {
+    for (const t of [
+      SYNC_HELLO_TYPE,
+      SYNC_WELCOME_TYPE,
+      SYNC_STATE_VECTOR_TYPE,
+      SYNC_SNAPSHOT_TYPE,
+      SYNC_SYNCED_TYPE,
+    ]) {
       expect(initiator.handles({ type: t })).toBe(true);
     }
     expect(initiator.handles({ type: 'oh.sync.mutation' })).toBe(false);
@@ -165,8 +171,17 @@ describe('createSyncHandshakeInitiator — inbound handle()', () => {
     const initiator = createSyncHandshakeInitiator(deps);
     await initiator.start();
     await initiator.handle({ ...welcomeAccept, org: TEST_BACKEND_ORG });
-    expect(onJoinedOrg).toHaveBeenCalledWith(TEST_BACKEND_ORG);
+    // No `activeWorkspaceId` on this WELCOME — second arg is undefined.
+    expect(onJoinedOrg).toHaveBeenCalledWith(TEST_BACKEND_ORG, undefined);
     expect(initiator.state()).toBe('welcomed');
+  });
+
+  it('WELCOME (accept) passes the backend active workspace id to onJoinedOrg (U5.9)', async () => {
+    const { deps, onJoinedOrg } = makeDeps();
+    const initiator = createSyncHandshakeInitiator(deps);
+    await initiator.start();
+    await initiator.handle({ ...welcomeAccept, org: TEST_BACKEND_ORG, activeWorkspaceId: 'backend-ws-7' });
+    expect(onJoinedOrg).toHaveBeenCalledWith(TEST_BACKEND_ORG, 'backend-ws-7');
   });
 
   it('WELCOME (accept) still reaches welcomed when onJoinedOrg throws (U5.2)', async () => {

@@ -30,37 +30,38 @@
  *      PeerConnection, runs the responder and streams via
  *      `peerConn.reply`. Returns the post-stream telemetry.
  */
+
 import {
-  PROTOCOL_VERSION,
+  emitAuditEntry,
+  getIdentitySnapshot,
+  type ValidateDaemonAuthTokenResult,
+  validateDaemonAuthToken,
+} from '@openheaders/core/identity';
+import {
   HANDSHAKE_REJECT_REASONS,
   HANDSHAKE_ROLES,
+  type HandshakeRole,
+  isCompatibleProtocol,
+  PROTOCOL_VERSION,
   SYNC_HELLO_TYPE,
   SYNC_STATE_VECTOR_TYPE,
   SYNC_SYNCED_TYPE,
   SYNC_WELCOME_TYPE,
-  SyncHelloMessageSchema,
-  SyncStateVectorMessageSchema,
-  isCompatibleProtocol,
-  type HandshakeRole,
   type SyncHelloMessage,
+  SyncHelloMessageSchema,
   type SyncStateVectorMessage,
+  SyncStateVectorMessageSchema,
   type SyncWelcomeMessage,
 } from '@openheaders/core/protocol';
-import {
-  emitAuditEntry,
-  getIdentitySnapshot,
-  validateDaemonAuthToken,
-  type ValidateDaemonAuthTokenResult,
-} from '@openheaders/core/identity';
 import { logger } from '@openheaders/core/utils';
 import * as v from 'valibot';
 
 import type { PeerConnection } from '../host-runtime/peer-connection';
 import { peekActiveWorkspaceId } from '../sync';
 import {
-  respondToStateVector,
   type RespondToStateVectorOptions,
   type RespondToStateVectorResult,
+  respondToStateVector,
 } from '../sync/handshake-responder';
 
 const SCOPE = 'HandshakeDispatch';
@@ -173,9 +174,7 @@ export async function evaluateHello(
     emitAuditEntry({
       actorUserId: snapshot?.user.id ?? 'unknown',
       capability: 'daemon.admin',
-      decision: result.ok
-        ? { allow: true }
-        : { allow: false, reason: 'auth-required' },
+      decision: result.ok ? { allow: true } : { allow: false, reason: 'auth-required' },
     });
     if (!result.ok) {
       logger.info(SCOPE, `HELLO rejected: auth required (${result.reason})`);
