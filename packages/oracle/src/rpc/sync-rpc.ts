@@ -82,6 +82,7 @@ import {
   orchestrateCombine,
   orchestrateDiscardWithBackup,
   orchestrateImportToPeer,
+  orchestrateUseTarget,
 } from '../sync/mode-switch';
 import { buildSnapshotForWorkspace } from '../sync/snapshot-builder';
 import { applyWorkspaceSnapshot } from '../sync/snapshot-applier';
@@ -251,6 +252,7 @@ const GATE_RULES: ReadonlyMap<string, GateRule> = new Map<string, GateRule>([
   ['oh.sync.executeDiscardWithBackup', { capability: 'daemon.admin', resolveWorkspaceId: NO_WORKSPACE }],
   ['oh.sync.applyDiscardRestore', { capability: 'daemon.admin', resolveWorkspaceId: NO_WORKSPACE }],
   ['oh.sync.executeCombine', { capability: 'daemon.admin', resolveWorkspaceId: NO_WORKSPACE }],
+  ['oh.sync.executeUseTarget', { capability: 'daemon.admin', resolveWorkspaceId: NO_WORKSPACE }],
 
   // Awareness — presence-plane reads. Bounded; `workspace.read` suffices
   // since presence carries no privileged content.
@@ -495,6 +497,11 @@ export function dispatchSyncRpc(message: Record<string, unknown>): SyncRpcResult
   if (type === 'oh.sync.executeCombine') {
     const raw = message as unknown as { targetOrgId?: unknown };
     return { kind: 'async', promise: dispatchExecuteCombine(raw) };
+  }
+
+  if (type === 'oh.sync.executeUseTarget') {
+    const raw = message as unknown as { targetOrgId?: unknown };
+    return { kind: 'async', promise: dispatchExecuteUseTarget(raw) };
   }
 
   if (type === 'oh.sync.unmuteActivityEntity') {
@@ -779,6 +786,33 @@ async function dispatchExecuteCombine(raw: { targetOrgId?: unknown }): Promise<C
     targetOrgId,
     workspaces: listWorkspaces().map((ws) => ({ id: ws.id, name: ws.name, orgId: ws.orgId })),
     rehomeWorkspace: (workspaceId, orgId) => setWorkspaceOrgId(workspaceId, orgId),
+  });
+}
+
+/**
+ * Resolve an `oh.sync.executeUseTarget` request — local-only, the
+ * "use the target's data only" arm of the Phase U5 mode-switch model
+ * (U5.4).
+ *
+ * Retires this host's own workspaces — exports them to a backup file,
+ * then deletes them — so the user works purely against a joined
+ * backend's data. Workspaces already synced down from the target are
+ * kept. The renderer carries only the target `orgId`; this shim
+ * verifies it is an `Org` this host joined (`authorizedOrgIds`, U5.2)
+ * before retiring anything — `backup-failed` is the "stopped before
+ * any delete, you're intact" status for a stale or forged frame.
+ */
+async function dispatchExecuteUseTarget(raw: { targetOrgId?: unknown }): Promise<DiscardResult> {
+  const targetOrgId = typeof raw.targetOrgId === 'string' ? raw.targetOrgId : '';
+  if (targetOrgId.length === 0 || !authorizedOrgIds(getIdentitySnapshot()).has(targetOrgId)) {
+    return { ok: false, reason: 'backup-failed', detail: 'target Org not joined' };
+  }
+  return orchestrateUseTarget({
+    targetOrgId,
+    workspaces: listWorkspaces().map((ws) => ({ id: ws.id, name: ws.name, orgId: ws.orgId })),
+    buildSnapshot: (workspaceId) => buildSnapshotForWorkspace(workspaceId),
+    deleteWorkspace: (workspaceId) => deleteWorkspace(workspaceId),
+    now: () => new Date().toISOString(),
   });
 }
 

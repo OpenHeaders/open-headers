@@ -1328,6 +1328,28 @@ export interface BridgeRpcContract {
     res: CombineResult;
   };
 
+  /**
+   * Mode-switch Use-Target (Phase U5.4) — source-side, local-only.
+   *
+   * The "use the target's data only" arm of the Phase U5 mode-switch
+   * model. Retires this host's own workspaces — exports them to a
+   * backup file via the host-installed {@link BackupWriter}, then
+   * deletes them — so the user works purely against a joined backend's
+   * data. Workspaces already synced down from the target (those bound
+   * to the target `Org`) are kept; deleting them would discard the
+   * data the user chose to adopt.
+   *
+   * Mechanically a Discard restricted to this host's own workspace
+   * subset — same archive-before-delete atomicity, same
+   * {@link DiscardResult} contract. The request carries only the
+   * target `orgId`; the oracle verifies it is in the authorized set
+   * before retiring anything.
+   */
+  'oh.sync.executeUseTarget': {
+    req: { targetOrgId: string };
+    res: DiscardResult;
+  };
+
   // ── Sync engine (Phase A) ────────────────────────────────────────
   /**
    * Apply a `MutationBatch` against the local oracle all-or-nothing
