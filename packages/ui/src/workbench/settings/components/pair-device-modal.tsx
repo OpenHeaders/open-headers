@@ -196,9 +196,27 @@ const PairDeviceModal: React.FC<Props> = ({ open, onClose }) => {
       {status === 'pending' && active && primary && (
         <div>
           <Typography.Paragraph style={{ marginBottom: 8 }}>
-            Read the code aloud — or share the URL / QR — with the peer.
-            They open the URL in any browser, click Confirm, and copy
-            the token the daemon hands them.
+            Hand the URL or QR below to whoever is setting up the other
+            device. On <em>that</em> device:
+          </Typography.Paragraph>
+          <ol style={{ margin: '0 0 12px', paddingLeft: 20, fontSize: 13, lineHeight: 1.6 }}>
+            <li>
+              Open the pairing URL in a web browser (scan the QR, paste
+              the URL, or type it with the {active.code.length}-digit
+              code on the end). It opens a page served by this daemon —
+              nothing to install.
+            </li>
+            <li>Optionally name the device, then click <strong>Confirm pairing</strong>.</li>
+            <li>The page shows an access token — copy it.</li>
+            <li>
+              Paste that token into the device's Open Headers app under
+              Settings → Backend → Daemon auth token.
+            </li>
+          </ol>
+          <Typography.Paragraph type="secondary" style={{ marginBottom: 8, fontSize: 12 }}>
+            There is no code to type into a field — the code is already
+            part of the URL. Reading the code aloud only helps if the
+            other person is typing the URL by hand.
           </Typography.Paragraph>
 
           <div

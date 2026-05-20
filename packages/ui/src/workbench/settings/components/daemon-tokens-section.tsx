@@ -210,6 +210,11 @@ const DaemonTokensSection: React.FC = () => {
             <Button onClick={() => setPairOpen(true)}>Pair a device</Button>
           </Form.Item>
         </Form>
+        <div style={{ fontSize: 11, color: themeToken.colorTextTertiary, marginBottom: tokens.length > 0 ? 12 : 0 }}>
+          Both add a token below. <strong>Generate token</strong> shows you the secret to copy and paste into the
+          device yourself. <strong>Pair a device</strong> shows a link the device opens in a browser to collect its
+          own token — use it when someone else sets up the device.
+        </div>
         {tokens.length === 0 ? (
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
             No devices yet. Generate a token and paste it into the peer's Settings → Backend → Daemon auth token, or

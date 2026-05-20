@@ -7,9 +7,10 @@
  * when the "Allow LAN peers" toggle is on). On change, tears the
  * server down and starts a fresh one on the new bind — no app restart.
  *
- * The current bind is what drives `evaluateHello`'s `requireAuth` flip
- * (already wired in U2.3): the ws-server inspects its bind against
- * `LOOPBACK_BINDS`, and any non-loopback bind requires HELLO auth. The
+ * The bind only controls reachability, not auth: the ws-server decides
+ * `evaluateHello`'s `requireAuth` per-connection from each socket's
+ * remote address, so a `0.0.0.0` bind still serves same-machine
+ * loopback clients trust-by-process and gates only LAN peers. The
  * supervisor doesn't read or enforce auth itself — it only owns the
  * lifecycle so the rest of the wire (handshake, forwarder, broadcasts)
  * always sees a single up-to-date `OracleWsServer` reference.

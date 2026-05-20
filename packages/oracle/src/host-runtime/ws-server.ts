@@ -47,8 +47,8 @@
  * upgrade requests) cover that — no separate HTTP server needed.
  *
  * Bind address: defaults to `127.0.0.1` (localhost-only). LAN/tunneled
- * Mode 2 deployments override with `host: '0.0.0.0'` + their own auth
- * (out of scope here).
+ * deployments override with `host: '0.0.0.0'`; auth is then enforced
+ * per-connection on HELLO for non-loopback peers (see `isLoopbackRemote`).
  */
 
 import { randomUUID } from 'node:crypto';
@@ -137,19 +137,27 @@ export interface OracleWsServer {
  * "another instance running" message rather than crashing).
  */
 /**
- * Loopback bind addresses that stay trust-by-process per
- * `UNIFIED_ORACLE_MODEL.md` §4.2 + §11.4. Anything else implies a LAN
- * (or tunneled) bind and switches the handshake into auth-required
- * mode via {@link evaluateHello}'s `requireAuth` option.
+ * True when an incoming socket's remote address is a loopback address —
+ * the peer is a process on this same machine. Such peers stay
+ * trust-by-process even when the daemon binds a LAN interface: the
+ * trust model for a loopback-origin connection is identical to a pure
+ * loopback bind, so a `0.0.0.0`-bound daemon still waves through
+ * same-machine clients token-free and only requires a token from
+ * genuine LAN peers. Auth is decided per-connection, not server-wide
+ * (`UNIFIED_ORACLE_MODEL.md` §4.2 + §11.4). IPv4-mapped IPv6 loopback
+ * (`::ffff:127.0.0.1`) is normalized before the check.
  */
-const LOOPBACK_BINDS: ReadonlySet<string> = new Set(['127.0.0.1', '::1', 'localhost']);
+function isLoopbackRemote(remoteAddress: string | undefined): boolean {
+  if (!remoteAddress) return false;
+  const addr = remoteAddress.startsWith('::ffff:') ? remoteAddress.slice('::ffff:'.length) : remoteAddress;
+  return addr === '::1' || addr.startsWith('127.');
+}
 
 export async function startOracleWsServer(options: OracleWsServerOptions): Promise<OracleWsServer> {
   const host = options.host ?? '127.0.0.1';
   const port = options.port ?? WS_PORT;
   const handshakeIdentity = options.handshakeIdentity;
   const httpRequestHandler = options.httpRequestHandler;
-  const requireAuth = !LOOPBACK_BINDS.has(host);
 
   // Own the underlying http.Server so the pairing surface (U3.3) can
   // attach to non-upgrade `request` events on the same bind. Without
@@ -197,7 +205,12 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
     }
   }
 
-  wss.on('connection', (socket) => {
+  wss.on('connection', (socket, request) => {
+    // Auth posture is per-connection: a loopback-origin socket stays
+    // trust-by-process even on a LAN bind; only non-loopback peers must
+    // present a token. A pure loopback bind only ever sees loopback
+    // remotes, so this collapses to "no auth" there with no special case.
+    const requireAuth = !isLoopbackRemote(request.socket.remoteAddress);
     let handshakeDone = false;
     const handshakeTimer = setTimeout(() => {
       if (handshakeDone) return;

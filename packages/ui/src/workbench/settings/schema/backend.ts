@@ -36,8 +36,8 @@ export type BackendMode = (typeof BACKEND_MODES)[number];
 /**
  * Bind address for the desktop daemon's WebSocket server (UNIFIED_ORACLE_MODEL.md §4.2).
  * `127.0.0.1` keeps the daemon loopback-only (trust-by-process); `0.0.0.0` opens it to
- * every local interface, at which point the handshake responder flips into auth-required
- * mode (per ws-server's `LOOPBACK_BINDS` check + `evaluateHello`'s `requireAuth` option).
+ * every local interface. Auth is then decided per-connection: loopback-origin peers
+ * stay trust-by-process, non-loopback peers must present a token on HELLO.
  */
 export const BACKEND_BIND_ADDRESSES = ['127.0.0.1', '0.0.0.0'] as const;
 export type BackendBindAddress = (typeof BACKEND_BIND_ADDRESSES)[number];
