@@ -115,16 +115,21 @@ export function hasCapability(
 }
 
 /**
- * The set of org ids this host is authorized to read envelopes for at
- * the transport boundary (UNIFIED_ORACLE_MODEL.md §6.1, §8.2, §10.2 —
- * "one sync filter"). State-vector reader, delta-stream reader, and
- * snapshot builder all enforce `envelope.orgId ∈ authorizedOrgIds(...)`
- * before yielding.
+ * The set of org ids this host is authorized to read envelopes for —
+ * both at the sender-side transport readers and at the receiver-side
+ * ingest filter (UNIFIED_ORACLE_MODEL.md §6.1, §8.2, §10.2 — "one sync
+ * filter"). State-vector reader, delta-stream reader, snapshot builder,
+ * and the inbound `applyInboundMutationBatch` ingest path all enforce
+ * `envelope.orgId ∈ authorizedOrgIds(...)`.
  *
- * V5 ships with a single home Org per identity. Multi-org membership
- * (real team Orgs alongside the home-org) layers on later by extending
- * this helper to fold `snapshot.membership` and any future team-Org
- * memberships into the set — the call sites never need to change.
+ * The authorized set is **every Org the identity belongs to** —
+ * `snapshot.orgs`, which the registry keeps in lockstep with the
+ * persisted membership rows. A fresh V5 install carries exactly one
+ * (the synthetic home Org). Joining another backend adds that backend's
+ * Org to `snapshot.orgs` (Phase U5), and this helper folds it in with
+ * no change at the call sites — that is what lets a joined backend's
+ * workspaces sync down while the joiner's own Org stays unauthorized on
+ * the target.
  *
  * Pre-bootstrap / null snapshot → empty set → deny-all. Matches the
  * resolver's `no-current-user` branch; envelopes minted before identity
@@ -134,5 +139,5 @@ export function hasCapability(
  */
 export function authorizedOrgIds(snapshot: IdentitySnapshot | null): ReadonlySet<string> {
   if (!snapshot) return new Set();
-  return new Set([snapshot.user.homeOrgId]);
+  return new Set(snapshot.orgs.keys());
 }

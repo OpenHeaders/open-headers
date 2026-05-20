@@ -18,6 +18,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  authorizedOrgIds,
   clearIdentitySnapshot,
   ensureSyntheticIdentity,
   ensureWorkspaceRoleAssignments,
@@ -33,6 +34,7 @@ import { hostStorage, setHostStorage } from '../../src/storage/host-storage';
 import { OH } from '../../src/storage/keys';
 import type {
   DaemonAdmin,
+  Org,
   OrgMembership,
   Principal,
   SyntheticIdentityRecord,
@@ -49,6 +51,8 @@ function makeSnapshot(overrides: {
   localAdmin?: DaemonAdmin | null;
   wras?: ReadonlyArray<WorkspaceRoleAssignment>;
   user?: Partial<User>;
+  /** Extra Org ids folded into `snapshot.orgs` — the multi-org / joined-backend case (Phase U5). */
+  extraOrgIds?: ReadonlyArray<string>;
 } = {}): IdentitySnapshot {
   const user: User = {
     id: '01900000-aaaa-7000-8000-000000000aaa',
@@ -77,9 +81,12 @@ function makeSnapshot(overrides: {
   for (const wra of overrides.wras ?? []) {
     wraByWorkspaceId.set(wra.workspaceId, wra);
   }
-  const orgs = new Map([
-    [user.homeOrgId, { id: user.homeOrgId, name: 'Local', isSynthetic: true } as const],
+  const orgs = new Map<string, Org>([
+    [user.homeOrgId, { id: user.homeOrgId, name: 'Local', isSynthetic: true }],
   ]);
+  for (const orgId of overrides.extraOrgIds ?? []) {
+    orgs.set(orgId, { id: orgId, name: `Joined ${orgId}`, isSynthetic: false });
+  }
   return { user, principal, membership, localAdmin, wraByWorkspaceId, orgs };
 }
 
@@ -245,5 +252,23 @@ describe('synthetic identity resolves via the same path as real', () => {
     const recovered = await refreshIdentitySnapshotFromHostStorage();
     expect(recovered?.user.id).toBe(record.user.id);
     expect(hasCapability(recovered, 'workspace.write', { workspaceId: W1 }).allow).toBe(true);
+  });
+});
+
+describe('authorizedOrgIds', () => {
+  it('returns the empty set for a null snapshot (pre-bootstrap deny-all)', () => {
+    expect([...authorizedOrgIds(null)]).toEqual([]);
+  });
+
+  it('returns the single home Org for a fresh V5 install', () => {
+    const snap = makeSnapshot();
+    expect([...authorizedOrgIds(snap)]).toEqual([snap.user.homeOrgId]);
+  });
+
+  it('folds every joined Org into the set (multi-org / joined backend)', () => {
+    const joinedA = '01900000-cccc-7000-8000-000000000001';
+    const joinedB = '01900000-cccc-7000-8000-000000000002';
+    const snap = makeSnapshot({ extraOrgIds: [joinedA, joinedB] });
+    expect(authorizedOrgIds(snap)).toEqual(new Set([snap.user.homeOrgId, joinedA, joinedB]));
   });
 });
