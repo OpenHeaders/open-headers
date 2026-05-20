@@ -2,7 +2,7 @@
  * Renderer-side safety net for RPCs the desktop main hasn't implemented
  * yet.
  *
- * Stage 2's `dispatchSyncRpc` only covers the 22 sync+awareness channels;
+ * `dispatchSyncRpc` only covers the sync+awareness channels;
  * anything else (entity CRUD, popup lifecycle, request-scripts review,
  * etc.) rejects with `desktop main: RPC '<name>' is not implemented`
  * until later commits lift more handlers out of the extension's

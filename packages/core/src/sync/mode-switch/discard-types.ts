@@ -1,17 +1,17 @@
 /**
- * Mode-switch Discard (M5) — wire + archive shapes.
+ * Mode-switch Discard — wire + archive shapes.
  *
- * Discard is the local-only arm of the §11.2 three-option dialog: the
- * user's CURRENT-host data is BACKED UP TO DISK then DROPPED. Unlike
- * Coexist (M3) and Import (M4), no payload crosses the wire — the entire
- * sequence runs against the source host's own oracle. The peer is never
- * contacted; the user picks Discard precisely BECAUSE the peer is
- * authoritative for their working set going forward.
+ * Discard is the local-only arm of the §11.2 mode-switch dialog: the
+ * user's CURRENT-host data is BACKED UP TO DISK then DROPPED. No payload
+ * crosses the wire — the entire sequence runs against the source host's
+ * own oracle. The peer is never contacted; the user picks Discard
+ * precisely BECAUSE the peer is authoritative for their working set
+ * going forward.
  *
  * Two contracts live here:
  *
  *   - {@link DiscardBackupArchive} — the on-disk shape the host-installed
- *     {@link BackupWriter} serializes. M6's restore reads the same shape
+ *     {@link BackupWriter} serializes. Restore reads the same shape
  *     back. Versioned at the archive level so a future field addition
  *     can carry a schema bump without touching the channel surface.
  *   - {@link DiscardResult} — the orchestrator's return contract. Carries
@@ -23,17 +23,16 @@
  * → partial delete combination would strand the user with no recovery
  * path, so any writer rejection short-circuits before any workspace is
  * removed. Once the archive is on disk, delete failures still report
- * `delete-failed` but the backup remains valid for M6 restore.
+ * `delete-failed` but the backup remains valid for restore.
  */
 
 import type { WorkspaceSnapshot } from '../../protocol/snapshot';
 
 /**
  * One workspace as it appears inside a {@link DiscardBackupArchive}. The
- * snapshot is the full materialized post-state — same shape M3 Coexist
- * + M4 Import ship over the wire — so restore (M6) can replay it through
- * the standard {@link applyWorkspaceSnapshot} path against a freshly
- * minted workspace.
+ * snapshot is the full materialized post-state — so restore can replay
+ * it through the standard {@link applyWorkspaceSnapshot} path against a
+ * freshly minted workspace.
  */
 export interface DiscardBackupWorkspace {
   /** Source-host workspace id at backup time. Preserved for telemetry / restore-with-same-id flows. */

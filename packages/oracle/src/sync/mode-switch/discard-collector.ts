@@ -1,15 +1,15 @@
 /**
- * Mode-switch Discard (M5) — source-side collector.
+ * Mode-switch Discard — source-side collector.
  *
  * Walks every resident workspace on the local host and packs the full
- * post-state of EACH workspace into a {@link DiscardBackupArchive} —
- * including singleton-only workspaces, unlike M3 Coexist / M4 Import
- * which skip them. Rationale: Discard wipes the host outright, so the
- * archive must capture every workspace shell the user had so M6 restore
- * can reconstitute the host's pre-discard layout.
+ * post-state of EACH workspace into a {@link DiscardBackupArchive},
+ * including singleton-only (empty) workspaces. Rationale: Discard wipes
+ * the host outright, so the archive must capture every workspace shell
+ * the user had so restore can reconstitute the host's pre-discard
+ * layout.
  *
- * The M1 dialog gate ensures Discard only ever surfaces when at least
- * one workspace carries user content; once the user opts in, the
+ * The mode-switch dialog gate ensures Discard only ever surfaces when at
+ * least one workspace carries user content; once the user opts in, the
  * collector still backs up the singleton-only workspaces around the
  * user-content ones so the post-restore layout matches the pre-discard
  * one exactly.

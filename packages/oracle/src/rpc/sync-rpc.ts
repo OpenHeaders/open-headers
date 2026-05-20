@@ -1,29 +1,30 @@
 /**
  * Host-neutral RPC dispatcher for the sync + awareness wire channels.
  *
- * Covers the 22 channels that every host must expose to its renderer
- * for the per-workspace mirror plane to function:
+ * Covers the sync + awareness channels that every host must expose to
+ * its renderer for the per-workspace mirror plane to function:
  *
  *   - `oh.sync.apply`                       — write path
- *   - `oh.sync.snapshot*` (19 entity types) — per-workspace mirror seed
+ *   - `oh.sync.snapshot*` (per entity type) — per-workspace mirror seed
  *   - `oh.sync.snapshotExtensionWorkspaces` — global-scope mirror seed
+ *   - `oh.sync.*` mode-switch + publish      — mode-switch executors
  *   - `oh.awareness.publish`                — presence write
  *   - `oh.awareness.snapshot`               — presence seed
  *
  * Everything is read from the oracle's already-host-neutral exports —
  * this module owns no state, no chrome.* coupling, and no host-specific
  * transport. The extension's `runtime.onMessage` listener and the
- * desktop main's `ipcMain.handle` (Stage 2 commit 6) both delegate the
- * 22 types here, then route their host-specific RPCs (chrome.tabs,
- * chrome.identity, etc.) in their own dispatchers.
+ * desktop main's `ipcMain.handle` both delegate these types here, then
+ * route their host-specific RPCs (chrome.tabs, chrome.identity, etc.)
+ * in their own dispatchers.
  *
  * Return contract:
  *   - `{ kind: 'sync', response }`   — caller resolves synchronously
  *   - `{ kind: 'async', promise }`   — caller awaits + responds
- *   - `null`                          — message type is not one of the
- *                                       22 sync/awareness channels;
- *                                       caller continues its own
- *                                       dispatcher chain
+ *   - `null`                          — message type is not a
+ *                                       sync/awareness channel this
+ *                                       dispatcher owns; caller
+ *                                       continues its own dispatcher chain
  */
 
 import {
@@ -294,8 +295,8 @@ const SYNC_SNAPSHOT_DISPATCH: Record<string, (workspaceId?: string) => { entries
 
 /**
  * Dispatch a sync/awareness message. Returns `null` when `message.type`
- * is not one of the 22 channels this dispatcher owns; the caller routes
- * those onward through its host-specific message chain.
+ * is not a channel this dispatcher owns; the caller routes those onward
+ * through its host-specific message chain.
  */
 export function dispatchSyncRpc(message: Record<string, unknown>): SyncRpcResult | null {
   const type = message.type;

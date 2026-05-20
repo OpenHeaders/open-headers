@@ -9,9 +9,9 @@
  * so the joiner's workspaces sync UP and converge with the target's,
  * both directions live.
  *
- * Unlike Coexist (M3) and Import (M4) nothing crosses the wire from
- * here: Combine is a sequence of local `orgId` metadata mutations
- * (§6.5). Once each workspace carries the target `Org`, the existing
+ * Nothing crosses the wire directly from here: Combine is a sequence
+ * of local `orgId` metadata mutations (§6.5). Once each workspace
+ * carries the target `Org`, the existing
  * sender-side + receiver-side org filters carry it to the peer with
  * no further plumbing.
  *

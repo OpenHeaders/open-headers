@@ -3,21 +3,20 @@
  *
  * Drives `requestModeSwitchVerdict` (which composes `decideModeSwitch`
  * over local + peer presence) through `applyModeSwitchVerdict` end-to-end
- * across the four (id-match, data-match) quadrants that DATA_PLANE_TOPOLOGIES
+ * across the (id-match, data-match) quadrants that DATA_PLANE_TOPOLOGIES
  * §11.2 calls out as the mode-switch gate's truth table:
  *
- *   - same-id  + both empty       ⇒ both-empty            ⇒ commitMode
- *   - same-id  + both populated   ⇒ show-dialog (no collisions — same-id excluded)
- *   - diff-id  + same name        ⇒ show-dialog (collision pair attached)
- *   - diff-id  + different names  ⇒ show-dialog (no collisions)
+ *   - both empty       ⇒ both-empty            ⇒ commitMode
+ *   - both populated   ⇒ show-dialog
+ *   - source empty     ⇒ silent-use-target
+ *   - target empty     ⇒ silent-import-source
+ *   - peer unreachable ⇒ peer-unreachable
  *
  * Per-layer behavior is pinned in mode-switch.test.ts (decide),
- * mode-switch-orchestrator.test.ts (request-verdict),
- * name-collision.test.ts (helper) and mode-switch-apply-verdict.test.ts
- * (dispatcher). This file pins that the layers compose: a local
- * bridge response + peer summary flows end-to-end into the right
- * dispatcher branch with the right verdict shape, including
- * nameCollisions identity through every hop.
+ * mode-switch-orchestrator.test.ts (request-verdict) and
+ * mode-switch-apply-verdict.test.ts (dispatcher). This file pins that
+ * the layers compose: a local bridge response + peer summary flows
+ * end-to-end into the right dispatcher branch with the right verdict shape.
  */
 
 import type { DataPresenceSummary, ModeSwitchVerdict, WorkspaceContentSnapshot } from '@openheaders/core/sync';
@@ -43,8 +42,6 @@ import {
 
 const WS_A = '0193a8ff-c000-7000-8000-00000000000a';
 const WS_B = '0193a8ff-c000-7000-8000-00000000000b';
-const WS_C = '0193a8ff-c000-7000-8000-00000000000c';
-const WS_D = '0193a8ff-c000-7000-8000-00000000000d';
 
 function workspace(id: string, name: string, entityCounts: Record<string, number> = {}): WorkspaceContentSnapshot {
   return { workspaceId: id, workspaceName: name, entityCounts };
@@ -102,8 +99,8 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe('mode-switch verdict matrix — id-match × data-match quadrants', () => {
-  describe('same-id + both empty', () => {
+describe('mode-switch verdict matrix — data-presence quadrants', () => {
+  describe('both empty', () => {
     it('commits silently — both-empty short-circuits before any dialog', async () => {
       const { verdict, handlers } = await drive(
         [workspace(WS_A, 'Workspace')],
@@ -122,101 +119,19 @@ describe('mode-switch verdict matrix — id-match × data-match quadrants', () =
     });
   });
 
-  describe('same-id + both populated', () => {
-    it('routes to show-dialog with no name collisions — same-id pairs are excluded from the banner', async () => {
+  describe('both populated', () => {
+    it('routes to show-dialog carrying both presence summaries intact', async () => {
       const { verdict, handlers } = await drive(
         [workspace(WS_A, 'Production', { rule: 12 })],
-        presence([workspace(WS_A, 'Production', { rule: 4 })]),
+        presence([workspace(WS_B, 'production', { rule: 4 })]),
       );
       if (verdict.kind !== 'show-dialog') throw new Error('expected show-dialog');
       expect(verdict.source.totalEntityCount).toBe(12);
       expect(verdict.target.totalEntityCount).toBe(4);
-      expect(verdict.nameCollisions).toEqual([]);
-      expect(handlers.__open).toHaveBeenCalledTimes(1);
-      const arg = handlers.__open.mock.calls[0][0];
-      expect(arg.nameCollisions).toEqual([]);
-      expect(handlers.__commit).not.toHaveBeenCalled();
-    });
-
-    it('keeps nameCollisions empty even when the same-id workspaces share a normalized name', async () => {
-      const { verdict } = await drive(
-        [workspace(WS_A, 'PRODUCTION', { rule: 1 })],
-        presence([workspace(WS_A, 'production', { rule: 1 })]),
-      );
-      if (verdict.kind !== 'show-dialog') throw new Error('expected show-dialog');
-      expect(verdict.nameCollisions).toEqual([]);
-    });
-  });
-
-  describe('different-id + same name (post-NFC + case-fold)', () => {
-    it('routes to show-dialog with a collision pair attached', async () => {
-      const { verdict, handlers } = await drive(
-        [workspace(WS_A, 'Production', { rule: 5 })],
-        presence([workspace(WS_B, 'production', { rule: 7 })]),
-      );
-      if (verdict.kind !== 'show-dialog') throw new Error('expected show-dialog');
-      expect(verdict.nameCollisions).toHaveLength(1);
-      expect(verdict.nameCollisions[0]).toEqual({
-        sourceWorkspaceId: WS_A,
-        sourceWorkspaceName: 'Production',
-        targetWorkspaceId: WS_B,
-        targetWorkspaceName: 'production',
-        normalizedName: 'production',
-      });
       expect(handlers.__open).toHaveBeenCalledTimes(1);
       // openDialog receives the SAME verdict reference — no copy or re-shape between layers.
       expect(handlers.__open.mock.calls[0][0]).toBe(verdict);
-    });
-
-    it('emits one collision per id-mismatched name match, in source order', async () => {
-      const { verdict } = await drive(
-        [workspace(WS_A, 'Production', { rule: 2 }), workspace(WS_C, 'Staging', { rule: 1 })],
-        presence([workspace(WS_B, 'production', { rule: 3 }), workspace(WS_D, 'STAGING', { rule: 4 })]),
-      );
-      if (verdict.kind !== 'show-dialog') throw new Error('expected show-dialog');
-      expect(verdict.nameCollisions.map((c) => c.normalizedName)).toEqual(['production', 'staging']);
-      expect(verdict.nameCollisions[0].sourceWorkspaceId).toBe(WS_A);
-      expect(verdict.nameCollisions[0].targetWorkspaceId).toBe(WS_B);
-      expect(verdict.nameCollisions[1].sourceWorkspaceId).toBe(WS_C);
-      expect(verdict.nameCollisions[1].targetWorkspaceId).toBe(WS_D);
-    });
-
-    it('survives Unicode equivalence — NFC + trim + locale-insensitive fold all compose', async () => {
-      // Decomposed "é" (e + COMBINING ACUTE) on the source vs. precomposed "É" on the target,
-      // with surrounding whitespace and different casing.
-      const decomposed = '  Pré-prod  ';
-      const precomposed = 'PRÉ-PROD';
-      const { verdict } = await drive(
-        [workspace(WS_A, decomposed, { rule: 1 })],
-        presence([workspace(WS_B, precomposed, { rule: 1 })]),
-      );
-      if (verdict.kind !== 'show-dialog') throw new Error('expected show-dialog');
-      expect(verdict.nameCollisions).toHaveLength(1);
-      expect(verdict.nameCollisions[0].sourceWorkspaceName).toBe(decomposed);
-      expect(verdict.nameCollisions[0].targetWorkspaceName).toBe(precomposed);
-    });
-  });
-
-  describe('different-id + different names', () => {
-    it('routes to show-dialog with no collisions', async () => {
-      const { verdict, handlers } = await drive(
-        [workspace(WS_A, 'Alpha', { rule: 3 })],
-        presence([workspace(WS_B, 'Beta', { rule: 2 })]),
-      );
-      if (verdict.kind !== 'show-dialog') throw new Error('expected show-dialog');
-      expect(verdict.nameCollisions).toEqual([]);
-      expect(handlers.__open).toHaveBeenCalledTimes(1);
-    });
-
-    it('mixes colliding + non-colliding pairs — only the matching names attach', async () => {
-      const { verdict } = await drive(
-        [workspace(WS_A, 'Production', { rule: 1 }), workspace(WS_C, 'Sandbox', { rule: 1 })],
-        presence([workspace(WS_B, 'production', { rule: 1 }), workspace(WS_D, 'Beta', { rule: 1 })]),
-      );
-      if (verdict.kind !== 'show-dialog') throw new Error('expected show-dialog');
-      expect(verdict.nameCollisions).toHaveLength(1);
-      expect(verdict.nameCollisions[0].sourceWorkspaceId).toBe(WS_A);
-      expect(verdict.nameCollisions[0].targetWorkspaceId).toBe(WS_B);
+      expect(handlers.__commit).not.toHaveBeenCalled();
     });
   });
 

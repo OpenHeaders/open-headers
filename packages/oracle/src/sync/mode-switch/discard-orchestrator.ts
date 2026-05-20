@@ -1,5 +1,5 @@
 /**
- * Mode-switch Discard (M5) — local-only orchestrator.
+ * Mode-switch Discard — local-only orchestrator.
  *
  * Glues {@link collectDiscardArchive} → {@link BackupWriter} → per-
  * workspace {@link deleteWorkspace}. The orchestrator owns three
@@ -16,8 +16,8 @@
  *
  * Order matters: the archive lands on disk BEFORE any workspace is
  * removed. A partial-write into a partial-delete would strand the user
- * with no recovery path. The same atomicity stance that M3 Coexist + M4
- * Import take for the apply path applies here for the destructive path.
+ * with no recovery path — so the write fully resolves before the
+ * destructive path begins.
  *
  * Host-neutral: extension SW + desktop main both call this through the
  * `oh.sync.executeDiscardWithBackup` channel and get the right behavior

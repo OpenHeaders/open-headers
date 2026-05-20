@@ -1,5 +1,5 @@
 /**
- * Mode-switch Restore (M6) — local-only applier for a discard archive.
+ * Mode-switch Restore — local-only applier for a discard archive.
  *
  * Reads a {@link DiscardBackupArchive} the user picked from disk and
  * replays every workspace it carries through the standard
@@ -11,13 +11,8 @@
  * irretrievably gone and a clean restore must NOT collide with any
  * unrelated workspace that happens to live on the target host today.
  *
- * Structurally identical to {@link applyCoexistPayload} for that
- * reason — the only differences are the source of the snapshots (a
- * parsed file rather than a wire payload) and the per-workspace
- * success-row shape ({@link RestoredWorkspace}).
- *
  * Per-workspace error isolation is INTENTIONALLY ABSENT in the v1
- * slice (matches Coexist + Import). The first apply rejection short-
+ * slice. The first apply rejection short-
  * circuits with `apply-failed`; earlier workspaces that already mounted
  * stay mounted, and their rows are surfaced on the failure branch so
  * the toast can quote partial recovery. A rerun against the same
@@ -56,9 +51,8 @@ export interface ApplyRestoreDeps extends RestoreTargetMinter {
 
 /**
  * Rewrite a snapshot's `workspaceId` to point at the freshly-minted
- * target workspace. Matches the Coexist applier's retarget — per-entity
- * post-state arrays don't carry their own workspaceId, so a shallow
- * rewrite is sufficient.
+ * target workspace. Per-entity post-state arrays don't carry their own
+ * workspaceId, so a shallow rewrite is sufficient.
  */
 function retargetSnapshot(snapshot: WorkspaceSnapshot, newWorkspaceId: string): WorkspaceSnapshot {
   return { ...snapshot, workspaceId: newWorkspaceId };

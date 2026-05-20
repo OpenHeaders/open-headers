@@ -1,5 +1,5 @@
 /**
- * Mode-switch Discard (M5) — host-coupled backup-writer registry.
+ * Mode-switch Discard — host-coupled backup-writer registry.
  *
  * The discard orchestrator produces a {@link DiscardBackupArchive} but
  * the act of putting it on disk is host-specific:
@@ -10,8 +10,7 @@
  *   - Desktop main writes through `fs.writeFile` into
  *     `<userData>/oh-backups/<timestamp>.json`.
  *
- * Same registry pattern as {@link setCoexistPeerPusher} /
- * {@link setImportPeerPusher} — each host calls {@link setBackupWriter}
+ * A host-installed registry seam — each host calls {@link setBackupWriter}
  * at boot to install its own writer; absent registration ⇒ orchestrator
  * returns `backup-writer-unavailable`.
  */

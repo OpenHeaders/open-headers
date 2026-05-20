@@ -35,7 +35,7 @@
  *
  * Inbound wires:
  *
- *   - `ipcMain.handle('oh:rpc', payload)` → `dispatchSyncRpc` for the 22
+ *   - `ipcMain.handle('oh:rpc', payload)` → `dispatchSyncRpc` for the
  *     sync+awareness channels (renderer ↔ main).
  *   - `startDaemonBindSupervisor` on `:8137`, bound to either `127.0.0.1`
  *     or `0.0.0.0` per the user-controlled `backend.bindAddress` setting
@@ -309,7 +309,7 @@ export async function installRpcHost(): Promise<void> {
 
   // 5. IPC RPC dispatch. Pairing channels are intercepted ahead of
   //    `dispatchSyncRpc` — they're admin-only renderer RPCs, not part
-  //    of the 22 sync+awareness channels, so we don't pollute the
+  //    of the sync+awareness channels, so we don't pollute the
   //    sync dispatcher with surface-specific routes.
   ipcMain.handle(RPC_CHANNEL, async (_event, raw: unknown) => {
     const message = (raw ?? {}) as Record<string, unknown>;
@@ -358,7 +358,7 @@ export async function installRpcHost(): Promise<void> {
     }
     const result = dispatchSyncRpc(message);
     if (result === null) {
-      // Anything outside the 22 sync+awareness channels — chrome.tabs,
+      // Anything outside the sync+awareness channels — chrome.tabs,
       // chrome.identity, etc. — has no desktop implementation yet.
       // Surface a clear error so the renderer can degrade with intent
       // rather than hang waiting for a response.

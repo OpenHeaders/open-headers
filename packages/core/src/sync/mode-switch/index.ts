@@ -12,8 +12,6 @@ export type {
   DiscardFailureReason,
   DiscardResult,
 } from './discard-types';
-export type { FindNameCollisionsInput, NameCollision } from './name-collision';
-export { findNameCollisions, normalizeWorkspaceNameForCollision } from './name-collision';
 export type {
   PublishedWorkspace,
   PublishFailureReason,

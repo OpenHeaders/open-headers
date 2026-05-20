@@ -1,12 +1,12 @@
 /**
- * Mode-switch Restore (M6) — local recovery from a Discard archive.
+ * Mode-switch Restore — local recovery from a Discard archive.
  *
- * Restore is the inverse of M5 Discard: the user picks a previously
+ * Restore is the inverse of Discard: the user picks a previously
  * written {@link DiscardBackupArchive} from disk and the host replays
  * every workspace it carries into freshly-minted target workspaces.
- * Unlike M3 Coexist + M4 Import, no payload crosses the wire by way of
- * the peer — the archive is read renderer-side from a file picker and
- * shipped through a single local channel.
+ * No payload crosses the wire by way of the peer — the archive is read
+ * renderer-side from a file picker and shipped through a single local
+ * channel.
  *
  * Two contracts live here:
  *
@@ -20,13 +20,13 @@
  *
  * **Cross-id semantic.** Restore mints a FRESH UUIDv7 per workspace via
  * the host's `createWorkspace` seam — the source-host ids the archive
- * preserves are informational only. This matches Coexist's apply path
- * exactly and means restore can run on the same host that wrote the
- * archive, on a different browser profile, or after a full extension
- * reinstall, without colliding with any workspaces the target now has.
+ * preserves are informational only. Minting fresh ids means restore can
+ * run on the same host that wrote the archive, on a different browser
+ * profile, or after a full extension reinstall, without colliding with
+ * any workspaces the target now has.
  *
- * **Partial-apply stance.** Same as Coexist + Import: the first per-
- * workspace apply rejection short-circuits and returns `apply-failed`.
+ * **Partial-apply stance.** The first per-workspace apply rejection
+ * short-circuits and returns `apply-failed`.
  * Earlier workspaces in the archive stay mounted (their seeds already
  * committed); the user can rerun restore against the same archive and
  * skip the survivors manually, or accept the partial recovery.

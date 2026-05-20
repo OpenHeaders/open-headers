@@ -8,7 +8,6 @@
  */
 
 import type { Org } from '../../types';
-import type { NameCollision } from './name-collision';
 
 /** Per-workspace entity tally. Keys are entity types ('rule', 'environment', etc.). */
 export type EntityCounts = Readonly<Record<string, number>>;
@@ -50,13 +49,6 @@ export type ModeSwitchVerdict =
       kind: 'show-dialog';
       source: DataPresenceSummary;
       target: DataPresenceSummary;
-      /**
-       * Source ↔ target workspace pairs whose display names collapse to
-       * the same canonical form (NFC + trim + case-fold). Carried for
-       * the per-workspace Publish flow (U5.6 — collision-merge). Empty
-       * array when no collisions detected. See {@link NameCollision}.
-       */
-      nameCollisions: readonly NameCollision[];
       /**
        * The target backend's home `Org`, read from the verdict probe's
        * WELCOME (Phase U5.2 carries it). The dialog's Combine / Use-

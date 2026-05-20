@@ -178,8 +178,6 @@ describe('decideModeSwitch', () => {
     if (verdict.kind !== 'show-dialog') throw new Error('expected show-dialog');
     expect(verdict.source).toBe(source);
     expect(verdict.target).toBe(target);
-    // M7: show-dialog ALWAYS carries the nameCollisions array.
-    expect(Array.isArray(verdict.nameCollisions)).toBe(true);
     // U5.5: targetOrg defaults to null when no probe Org is supplied.
     expect(verdict.targetOrg).toBeNull();
   });
@@ -195,28 +193,6 @@ describe('decideModeSwitch', () => {
     });
     if (verdict.kind !== 'show-dialog') throw new Error('expected show-dialog');
     expect(verdict.targetOrg).toEqual(targetOrg);
-  });
-
-  it('attaches name collisions on show-dialog when source/target names collide post-NFC + case-fold', () => {
-    const source = summarizeWorkspaces([
-      workspace({ workspaceId: WS_A, workspaceName: 'Production', entityCounts: { rule: 4 } }),
-    ]);
-    const target = summarizeWorkspaces([
-      workspace({ workspaceId: WS_B, workspaceName: 'production', entityCounts: { rule: 2 } }),
-    ]);
-    const verdict = decideModeSwitch({
-      fromMode: 'in-browser',
-      toMode: 'desktop-app',
-      source,
-      target,
-    });
-    if (verdict.kind !== 'show-dialog') throw new Error('expected show-dialog');
-    expect(verdict.nameCollisions).toHaveLength(1);
-    expect(verdict.nameCollisions[0]).toMatchObject({
-      sourceWorkspaceId: WS_A,
-      targetWorkspaceId: WS_B,
-      normalizedName: 'production',
-    });
   });
 
   it('treats a single empty workspace on the source as empty even if the user is switching away from it', () => {
