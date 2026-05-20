@@ -11,20 +11,19 @@
  *   - The audit-emit hook fires once per gate evaluation (allow or deny).
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
 import {
   clearIdentitySnapshot,
   ensureSyntheticIdentity,
   ensureWorkspaceRoleAssignments,
+  type ResolvedAuditEntry,
   refreshIdentitySnapshotFromHostStorage,
   resetAuditSink,
   setAuditSink,
-  type ResolvedAuditEntry,
 } from '@openheaders/core/identity';
-import { hostStorage, setHostStorage, type HostStorage } from '@openheaders/core/storage';
+import { type HostStorage, hostStorage, setHostStorage } from '@openheaders/core/storage';
 import type { MutationBatch } from '@openheaders/core/sync';
-import { PermissionDeniedError, dispatchSyncRpc } from '@openheaders/oracle/rpc';
+import { dispatchSyncRpc, PermissionDeniedError } from '@openheaders/oracle/rpc';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const WS = '0193a8ff-c000-7000-8000-000000000001';
 const NOW = '2026-05-19T00:00:00.000Z';
@@ -92,9 +91,9 @@ describe('sync-rpc permission gate', () => {
   });
 
   it('denies oh.sync.apply when no identity snapshot is installed', () => {
-    expect(() =>
-      dispatchSyncRpc({ type: 'oh.sync.apply', batch: makeApplyBatch(WS), sideEffects: [] }),
-    ).toThrow(PermissionDeniedError);
+    expect(() => dispatchSyncRpc({ type: 'oh.sync.apply', batch: makeApplyBatch(WS), sideEffects: [] })).toThrow(
+      PermissionDeniedError,
+    );
     expect(audits).toHaveLength(1);
     expect(audits[0]?.decision.allow).toBe(false);
     expect(audits[0]?.decision.reason).toBe('no-current-user');
@@ -150,9 +149,7 @@ describe('sync-rpc permission gate', () => {
   });
 
   it('denies a snapshot read when no identity snapshot is installed', () => {
-    expect(() => dispatchSyncRpc({ type: 'oh.sync.snapshotRules', workspaceId: WS })).toThrow(
-      PermissionDeniedError,
-    );
+    expect(() => dispatchSyncRpc({ type: 'oh.sync.snapshotRules', workspaceId: WS })).toThrow(PermissionDeniedError);
     expect(audits).toHaveLength(1);
     expect(audits[0]?.capability).toBe('workspace.read');
     expect(audits[0]?.decision.allow).toBe(false);
@@ -160,9 +157,7 @@ describe('sync-rpc permission gate', () => {
 
   it('denies a mode-switch orchestrator without LocalAdmin context', () => {
     // No snapshot installed → daemon.admin resolves to no-current-user.
-    expect(() => dispatchSyncRpc({ type: 'oh.sync.executeCoexistToPeer' })).toThrow(
-      PermissionDeniedError,
-    );
+    expect(() => dispatchSyncRpc({ type: 'oh.sync.executeDiscardWithBackup' })).toThrow(PermissionDeniedError);
     expect(audits).toHaveLength(1);
     expect(audits[0]?.capability).toBe('daemon.admin');
   });

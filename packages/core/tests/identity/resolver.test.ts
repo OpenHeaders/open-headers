@@ -17,6 +17,7 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
+import type { IdentitySnapshot } from '../../src/identity';
 import {
   authorizedOrgIds,
   canPublishWorkspace,
@@ -27,9 +28,6 @@ import {
   hasCapability,
   installIdentitySnapshot,
   refreshIdentitySnapshotFromHostStorage,
-} from '../../src/identity';
-import type {
-  IdentitySnapshot,
 } from '../../src/identity';
 import { hostStorage, setHostStorage } from '../../src/storage/host-storage';
 import { OH } from '../../src/storage/keys';
@@ -48,13 +46,15 @@ const NOW = '2026-05-19T00:00:00.000Z';
 const W1 = '01900000-aaaa-7000-8000-000000000001';
 const W2 = '01900000-aaaa-7000-8000-000000000002';
 
-function makeSnapshot(overrides: {
-  localAdmin?: DaemonAdmin | null;
-  wras?: ReadonlyArray<WorkspaceRoleAssignment>;
-  user?: Partial<User>;
-  /** Extra Org ids folded into `snapshot.orgs` — the multi-org / joined-backend case (Phase U5). */
-  extraOrgIds?: ReadonlyArray<string>;
-} = {}): IdentitySnapshot {
+function makeSnapshot(
+  overrides: {
+    localAdmin?: DaemonAdmin | null;
+    wras?: ReadonlyArray<WorkspaceRoleAssignment>;
+    user?: Partial<User>;
+    /** Extra Org ids folded into `snapshot.orgs` — the multi-org / joined-backend case (Phase U5). */
+    extraOrgIds?: ReadonlyArray<string>;
+  } = {},
+): IdentitySnapshot {
   const user: User = {
     id: '01900000-aaaa-7000-8000-000000000aaa',
     displayName: 'Local',
@@ -74,17 +74,16 @@ function makeSnapshot(overrides: {
     primaryRole: 'owner',
     functionalRoles: [],
   };
-  const localAdmin = overrides.localAdmin === undefined
-    ? ({ id: '01900000-aaaa-7000-8000-000000000eee', userId: user.id, isLocal: true } satisfies DaemonAdmin)
-    : (overrides.localAdmin ?? undefined);
+  const localAdmin =
+    overrides.localAdmin === undefined
+      ? ({ id: '01900000-aaaa-7000-8000-000000000eee', userId: user.id, isLocal: true } satisfies DaemonAdmin)
+      : (overrides.localAdmin ?? undefined);
 
   const wraByWorkspaceId = new Map<string, WorkspaceRoleAssignment>();
   for (const wra of overrides.wras ?? []) {
     wraByWorkspaceId.set(wra.workspaceId, wra);
   }
-  const orgs = new Map<string, Org>([
-    [user.homeOrgId, { id: user.homeOrgId, name: 'Local', isSynthetic: true }],
-  ]);
+  const orgs = new Map<string, Org>([[user.homeOrgId, { id: user.homeOrgId, name: 'Local', isSynthetic: true }]]);
   for (const orgId of overrides.extraOrgIds ?? []) {
     orgs.set(orgId, { id: orgId, name: `Joined ${orgId}`, isSynthetic: false });
   }
@@ -247,7 +246,7 @@ describe('synthetic identity resolves via the same path as real', () => {
   it('end-to-end: snapshot persists across a wipe-and-refresh cycle', async () => {
     const record = await ensureSyntheticIdentity({ now: NOW });
     await ensureWorkspaceRoleAssignments([W1]);
-    installIdentitySnapshot({ record, wras: await hostStorage.get(OH.workspaceRoleAssignments) ?? [] });
+    installIdentitySnapshot({ record, wras: (await hostStorage.get(OH.workspaceRoleAssignments)) ?? [] });
 
     clearIdentitySnapshot();
     const recovered = await refreshIdentitySnapshotFromHostStorage();

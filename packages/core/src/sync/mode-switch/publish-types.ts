@@ -44,11 +44,7 @@ export interface PublishedWorkspace {
  * - `rehome-failed` — the `orgId` flip rejected. The workspace keeps
  *   its old binding; {@link PublishResult.detail} carries the cause.
  */
-export type PublishFailureReason =
-  | 'no-target-org'
-  | 'target-not-authorized'
-  | 'workspace-not-found'
-  | 'rehome-failed';
+export type PublishFailureReason = 'no-target-org' | 'target-not-authorized' | 'workspace-not-found' | 'rehome-failed';
 
 export type PublishResult =
   | {

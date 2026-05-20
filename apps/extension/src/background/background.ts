@@ -26,7 +26,6 @@ import {
   invalidateAllWorkspaceOrgCache,
   setWorkspaceOrgResolver,
 } from '@openheaders/core/sync';
-import { IdbAuditLog } from '@openheaders/oracle/sync';
 import type { Rule, TreeNode } from '@openheaders/core/types';
 import type { PauseMarker } from '@openheaders/core/utils';
 import { isRuleEffective } from '@openheaders/core/utils';
@@ -41,6 +40,7 @@ import {
   onEnvironmentStoreChange,
 } from '@openheaders/oracle/entity/environment-store';
 import { listFiles, onFilesStoreChange } from '@openheaders/oracle/entity/files-store';
+import { IdbAuditLog } from '@openheaders/oracle/sync';
 import { report as reportStatus, subscribe as subscribeStatus } from '@openheaders/ui/shared/status';
 import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
 import { broadcast } from '@utils/bridge';
@@ -65,11 +65,11 @@ import { setupDevtoolsInspectorPorts } from './modules/devtools-inspector-port';
 // against a real chain runner rather than the Phase-C stub.
 import './modules/live-chain-adapter';
 import { setLockObserver } from '@openheaders/oracle/coordination';
+import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
 import { onLiveCacheStoreChange } from '@openheaders/oracle/live/live-cache-store';
 import { getLiveVariables, onLiveVariableStoreChange } from '@openheaders/oracle/live/live-variable-store';
 import { getLiveWorkflows, onLiveWorkflowStoreChange } from '@openheaders/oracle/live/live-workflow-store';
 import { disposeResolverStateForWorkspace } from '@openheaders/oracle/rule-engine/variables-resolver';
-import { bootSyncEngine } from '@openheaders/oracle/host-runtime';
 import {
   applyWorkspaceSnapshot,
   readWorkspaceStateVector,
@@ -77,11 +77,24 @@ import {
   setOracleHostHooks,
   subscribeActivityMuteChanges,
 } from '@openheaders/oracle/sync';
-import {
-  getOrCreateWorkspaceService,
-  releaseWorkspaceService,
-} from '@openheaders/oracle/sync/service';
+import { getOrCreateWorkspaceService, releaseWorkspaceService } from '@openheaders/oracle/sync/service';
 import { getSyncPersistenceProvider } from '@openheaders/oracle/sync/sync-persistence-provider';
+import {
+  handleActivityPruneAlarm,
+  installActivityPruneScheduler,
+  isActivityPruneAlarm,
+} from './activity-prune-scheduler';
+import { installActivityStatusReporter } from './activity-status-reporter';
+import { forwardAwarenessToBackend, forwardCurrentAwarenessOnConnect } from './awareness-forwarder';
+import { handleIncomingAwarenessFrame } from './awareness-receiver';
+import { installBackupWriter } from './install-backup-writer';
+import {
+  countUnreadActivityEntries,
+  observeForActivityFeed,
+  setActivityLog,
+  subscribeActivityEntries,
+} from './sync-activity-installer';
+import { createSyncHandshakeInitiator } from './sync-handshake-initiator';
 import {
   applyPeerStateVectorToPendingOut,
   flushPendingOutToBackend,
@@ -90,30 +103,8 @@ import {
   setShouldForwardMutation,
 } from './sync-mutation-forwarder';
 import { handleIncomingMutationFrame, hasRecentlyApplied } from './sync-mutation-receiver';
-import { forwardAwarenessToBackend, forwardCurrentAwarenessOnConnect } from './awareness-forwarder';
-import { handleIncomingAwarenessFrame } from './awareness-receiver';
-import {
-  countUnreadActivityEntries,
-  observeForActivityFeed,
-  setActivityLog,
-  subscribeActivityEntries,
-} from './sync-activity-installer';
-import {
-  handleActivityPruneAlarm,
-  installActivityPruneScheduler,
-  isActivityPruneAlarm,
-} from './activity-prune-scheduler';
-import { installActivityStatusReporter } from './activity-status-reporter';
-import { installBackupWriter } from './install-backup-writer';
-import { installCoexistPeerPusher } from './install-coexist-peer-pusher';
-import { installImportPeerPusher } from './install-import-peer-pusher';
-import { createSyncHandshakeInitiator } from './sync-handshake-initiator';
 import { installHandshakeStatusReporter } from './sync-status-reporter';
-import {
-  registerInboundFrameHandler,
-  subscribeOnWebSocketClose,
-  subscribeOnWebSocketOpen,
-} from './websocket';
+import { registerInboundFrameHandler, subscribeOnWebSocketClose, subscribeOnWebSocketOpen } from './websocket';
 
 // Don't bounce envelopes that arrived from the backend back to it.
 // The receiver records every applied mutationId; the forwarder skips
@@ -150,18 +141,6 @@ installActivityPruneScheduler({
 // is the runtime source of truth; the persisted store rehydrates it
 // per workspace lazily on first observation.
 setActivityMuteStore(getSyncPersistenceProvider().createActivityMuteStore?.() ?? null);
-
-// M3 — mode-switch Coexist push path. The orchestrator collects local
-// user-content workspaces and asks for a pusher to ship them to the
-// peer; we install the SW's wsRequest-backed pusher here. Without this
-// the orchestrator returns `peer-write-unavailable` and the user falls
-// back to Discard-with-backup.
-installCoexistPeerPusher();
-
-// M4 — mode-switch Import push path. Same registry pattern as Coexist;
-// orchestrator returns `peer-write-unavailable` without it so the user
-// falls back to Discard-with-backup.
-installImportPeerPusher();
 
 // M5 — mode-switch Discard backup-writer. The orchestrator builds the
 // archive and asks the host to put it on disk; the SW writes via
@@ -294,6 +273,7 @@ subscribeActivityEntries((entry) => {
 subscribeActivityMuteChanges((change) => {
   broadcast('activityMuteChanged', change);
 });
+
 import {
   handleLiveAlarm,
   isLiveRefreshAlarm,

@@ -5,13 +5,9 @@
  */
 
 import type {
-  CoexistPayload,
-  CoexistResult,
   CombineResult,
   DiscardBackupArchive,
   DiscardResult,
-  ImportPayload,
-  ImportResult,
   PublishResult,
   RestoreResult,
   WorkspaceContentSnapshot,
@@ -57,90 +53,6 @@ export interface ModeSwitchRpc {
   'oh.sync.getPeerDataPresence': {
     req: Record<string, never>;
     res: { available: false } | { available: true; workspaces: WorkspaceContentSnapshot[] };
-  };
-
-  /**
-   * Mode-switch Coexist (Phase C M3) — target-side handler. Applies a
-   * source host's user-content snapshots as freshly-minted UUIDv7
-   * workspaces (one per source workspace, named `"<source> (imported)"`)
-   * without touching the target's existing data. The dispatcher mints
-   * the new workspaceId, rewrites the snapshot's `workspaceId` onto the
-   * new id, and replays through {@link applyWorkspaceSnapshot}; the
-   * source's snapshots cross the wire opaquely.
-   *
-   * Same channel runs on both hosts — desktop main's WS server routes
-   * any incoming `oh.sync.applyCoexistImport` frame here, and the
-   * extension SW receives the symmetric direction once a server-push
-   * transport lands (Phase C MVP wires SW-as-source only; see
-   * `oh.sync.executeCoexistToPeer`).
-   */
-  'oh.sync.applyCoexistImport': {
-    req: CoexistPayload;
-    res: CoexistResult;
-  };
-
-  /**
-   * Mode-switch Coexist (Phase C M3) — source-side orchestrator. The
-   * UI invokes this on its own host's bridge; the host (a) collects its
-   * own user-content workspaces into a {@link CoexistPayload} and (b)
-   * pushes the payload to the peer via the host-installed
-   * `coexistPeerPusher` seam. The seam is wired only on hosts that have
-   * a client-side wire transport — Phase C MVP wires the extension SW
-   * via `wsRequest`. Hosts without a pusher (desktop main, until Phase
-   * D server-push lands) return `{ ok: false, reason:
-   * 'peer-write-unavailable' }`, and the dialog tells the user to fall
-   * back to Discard-with-backup. No partial writes either way: failure
-   * before push leaves both hosts untouched.
-   */
-  'oh.sync.executeCoexistToPeer': {
-    req: Record<string, never>;
-    res: CoexistResult;
-  };
-
-  /**
-   * Mode-switch Import (Phase C M4) — target-side handler. Replays the
-   * source host's user-content snapshots INTO existing target workspaces
-   * with the same workspaceId, letting the standard per-leaf HLC compare
-   * resolve overlaps (§11.7). No new workspaces are minted; a source
-   * workspace whose id isn't already on the target is recorded under
-   * {@link ImportResult.ignored} and skipped (v1; M4b queues the cross-id
-   * branch).
-   *
-   * Same channel runs on both hosts — desktop main's WS server routes
-   * incoming `oh.sync.applyImport` frames here, and the extension SW
-   * inherits the symmetric direction once a server-push transport lands
-   * (Phase C MVP wires SW-as-source only; see
-   * `oh.sync.executeImportToPeer`).
-   */
-  'oh.sync.applyImport': {
-    req: ImportPayload;
-    res: ImportResult;
-  };
-
-  /**
-   * Mode-switch Import (Phase C M4) — source-side orchestrator. The UI
-   * invokes this on its own host's bridge; the host (a) collects its own
-   * user-content workspaces into an {@link ImportPayload} and (b) pushes
-   * the payload to the peer via the host-installed `importPeerPusher`
-   * seam. The seam is wired only on hosts that have a client-side wire
-   * transport — Phase C MVP wires the extension SW via `wsRequest`.
-   * Hosts without a pusher (desktop main, until Phase D server-push
-   * lands) return `{ ok: false, reason: 'peer-write-unavailable' }`, and
-   * the dialog tells the user to fall back to Discard-with-backup. No
-   * partial writes either way: failure before push leaves both hosts
-   * untouched.
-   *
-   * `workspaceIdRemap` (M4b) carries the user's resolution for name-
-   * collision rows surfaced in the dialog: when present, the orchestrator
-   * stamps it onto the {@link ImportPayload} before push, and the peer
-   * applier retargets each mapped source's snapshot at the chosen target
-   * workspace id before lookup. Missing/empty ⇒ same-id only (legacy).
-   */
-  'oh.sync.executeImportToPeer': {
-    req: {
-      workspaceIdRemap?: Record<string, string>;
-    };
-    res: ImportResult;
   };
 
   /**

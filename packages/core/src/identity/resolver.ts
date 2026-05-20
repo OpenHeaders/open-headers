@@ -17,11 +17,7 @@ import type { DaemonAdmin, Org, OrgMembership, Principal, User, WorkspaceRoleAss
  * `rule.publish`) layer on top in later slices without changing the
  * resolver contract.
  */
-export type Capability =
-  | 'workspace.read'
-  | 'workspace.write'
-  | 'workspace.list'
-  | 'daemon.admin';
+export type Capability = 'workspace.read' | 'workspace.write' | 'workspace.list' | 'daemon.admin';
 
 export interface CapabilityContext {
   /** Required for `workspace.*` capabilities; ignored for `daemon.*`. */
@@ -169,10 +165,7 @@ export interface PublishGateContext {
  * `getIdentitySnapshot()` and maps a deny onto the `target-not-
  * authorized` Publish failure reason.
  */
-export function canPublishWorkspace(
-  snapshot: IdentitySnapshot | null,
-  ctx: PublishGateContext,
-): CapabilityDecision {
+export function canPublishWorkspace(snapshot: IdentitySnapshot | null, ctx: PublishGateContext): CapabilityDecision {
   const write = hasCapability(snapshot, 'workspace.write', { workspaceId: ctx.workspaceId });
   if (!write.allow) return write;
   if (!authorizedOrgIds(snapshot).has(ctx.targetOrgId)) {

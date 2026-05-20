@@ -26,6 +26,14 @@
  *                                       dispatcher chain
  */
 
+import {
+  authorizedOrgIds,
+  type Capability,
+  canPublishWorkspace,
+  emitAuditEntry,
+  getIdentitySnapshot,
+  hasCapability,
+} from '@openheaders/core/identity';
 import type {
   AwarenessPublishRequest,
   AwarenessPublishResponse,
@@ -41,73 +49,38 @@ import {
   SYNC_MUTATION_TYPE,
   type SyncAwarenessPresenceMessage,
 } from '@openheaders/core/protocol';
-import {
-  authorizedOrgIds,
-  canPublishWorkspace,
-  emitAuditEntry,
-  getIdentitySnapshot,
-  hasCapability,
-  type Capability,
-} from '@openheaders/core/identity';
 import type {
-  CoexistPayload,
-  CoexistResult,
   CombineResult,
   DiscardBackupArchive,
   DiscardResult,
-  ImportPayload,
-  ImportResult,
   InverseEnvelopeContext,
   PublishResult,
   RestoreResult,
 } from '@openheaders/core/sync';
 import { isDiscardBackupArchiveShape } from '@openheaders/core/sync';
-import {
-  applyInboundMutationBatch,
-  applyInboundMutationEnvelope,
-} from '../sync/mutation-stream-bridge';
-import { applyInboundAwarenessFrame } from '../sync/awareness-inbound';
 import { logger } from '@openheaders/core/utils';
-import {
-  listMutedActivityEntities,
-  muteActivityEntity,
-  unmuteActivityEntity,
-} from '../sync/activity-mute-cache';
+import { peekActiveWorkspaceId, requireActiveWorkspaceId } from '../sync';
+import { listMutedActivityEntities, muteActivityEntity, unmuteActivityEntity } from '../sync/activity-mute-cache';
 import { generateInverseMutation } from '../sync/activity-revert';
+import { applyInboundAwarenessFrame } from '../sync/awareness-inbound';
 import { snapshotExtensionWorkspacePostStates } from '../sync/global-service';
 import {
-  applyCoexistPayload,
   applyDiscardRestoreArchive,
-  applyImportPayload,
   collectLocalDataPresence,
-  orchestrateCoexistToPeer,
   orchestrateCombine,
   orchestrateDiscardWithBackup,
-  orchestrateImportToPeer,
   orchestratePublish,
   orchestrateUseTarget,
 } from '../sync/mode-switch';
-import { buildSnapshotForWorkspace } from '../sync/snapshot-builder';
-import { applyWorkspaceSnapshot } from '../sync/snapshot-applier';
-import {
-  createWorkspace,
-  deleteWorkspace,
-  getWorkspace,
-  listWorkspaces,
-  setWorkspaceOrgId,
-} from '../workspace/extension-workspace-store';
-import {
-  getAwarenessStoreForWorkspace,
-  getOrCreateWorkspaceService,
-  releaseWorkspaceService,
-} from '../sync/service';
-import { peekActiveWorkspaceId, requireActiveWorkspaceId } from '../sync';
-import { getSyncPersistenceProvider } from '../sync/sync-persistence-provider';
+import { applyInboundMutationBatch, applyInboundMutationEnvelope } from '../sync/mutation-stream-bridge';
 import {
   applySyncRequest,
+  getAwarenessStoreForWorkspace,
   getOracleForWorkspace,
+  getOrCreateWorkspaceService,
   nextSwMutatorContextForWorkspace,
   publishAwareness,
+  releaseWorkspaceService,
   snapshotAwarenessPresence,
   snapshotCollectionPostStates,
   snapshotEnvironmentPostStates,
@@ -128,10 +101,17 @@ import {
   snapshotVaultPostStates,
   snapshotWorkspaceVariablesPostStates,
 } from '../sync/service';
+import { applyWorkspaceSnapshot } from '../sync/snapshot-applier';
+import { buildSnapshotForWorkspace } from '../sync/snapshot-builder';
+import { getSyncPersistenceProvider } from '../sync/sync-persistence-provider';
+import {
+  createWorkspace,
+  deleteWorkspace,
+  listWorkspaces,
+  setWorkspaceOrgId,
+} from '../workspace/extension-workspace-store';
 
-export type SyncRpcResult =
-  | { kind: 'sync'; response: unknown }
-  | { kind: 'async'; promise: Promise<unknown> };
+export type SyncRpcResult = { kind: 'sync'; response: unknown } | { kind: 'async'; promise: Promise<unknown> };
 
 /**
  * Surfaced when the host-neutral resolver denies a privileged RPC. The
@@ -225,10 +205,7 @@ const GATE_RULES: ReadonlyMap<string, GateRule> = new Map<string, GateRule>([
       'oh.sync.snapshotLayoutState',
       'oh.sync.snapshotFiles',
     ] as const
-  ).map(
-    (t) =>
-      [t, { capability: 'workspace.read', resolveWorkspaceId: WORKSPACE_ID_FROM_MESSAGE }] as const,
-  ),
+  ).map((t) => [t, { capability: 'workspace.read', resolveWorkspaceId: WORKSPACE_ID_FROM_MESSAGE }] as const),
 
   // Workspace metadata list — "which workspaces exist on this host".
   // Allow for any installed snapshot; per-workspace visibility enforced
@@ -248,10 +225,6 @@ const GATE_RULES: ReadonlyMap<string, GateRule> = new Map<string, GateRule>([
   // before the orchestrator fans over its workspace set — matches the
   // blast-radius posture spec'd in `UNIFIED_ORACLE_STATUS.md` Session 3
   // "Next-session input" §1.
-  ['oh.sync.applyCoexistImport', { capability: 'daemon.admin', resolveWorkspaceId: NO_WORKSPACE }],
-  ['oh.sync.executeCoexistToPeer', { capability: 'daemon.admin', resolveWorkspaceId: NO_WORKSPACE }],
-  ['oh.sync.applyImport', { capability: 'daemon.admin', resolveWorkspaceId: NO_WORKSPACE }],
-  ['oh.sync.executeImportToPeer', { capability: 'daemon.admin', resolveWorkspaceId: NO_WORKSPACE }],
   ['oh.sync.executeDiscardWithBackup', { capability: 'daemon.admin', resolveWorkspaceId: NO_WORKSPACE }],
   ['oh.sync.applyDiscardRestore', { capability: 'daemon.admin', resolveWorkspaceId: NO_WORKSPACE }],
   ['oh.sync.executeCombine', { capability: 'daemon.admin', resolveWorkspaceId: NO_WORKSPACE }],
@@ -294,11 +267,7 @@ function gateDispatch(message: Record<string, unknown>): void {
     decision,
   });
   if (!decision.allow) {
-    throw new PermissionDeniedError(
-      rule.capability,
-      decision.reason ?? 'denied',
-      workspaceId ?? undefined,
-    );
+    throw new PermissionDeniedError(rule.capability, decision.reason ?? 'denied', workspaceId ?? undefined);
   }
 }
 
@@ -473,28 +442,6 @@ export function dispatchSyncRpc(message: Record<string, unknown>): SyncRpcResult
     }
   }
 
-  if (type === 'oh.sync.applyCoexistImport') {
-    const payload = message as unknown as { workspaces?: unknown };
-    return { kind: 'async', promise: dispatchApplyCoexistImport(payload) };
-  }
-
-  if (type === 'oh.sync.executeCoexistToPeer') {
-    return { kind: 'async', promise: dispatchExecuteCoexistToPeer() };
-  }
-
-  if (type === 'oh.sync.applyImport') {
-    const payload = message as unknown as {
-      workspaces?: unknown;
-      workspaceIdRemap?: unknown;
-    };
-    return { kind: 'async', promise: dispatchApplyImport(payload) };
-  }
-
-  if (type === 'oh.sync.executeImportToPeer') {
-    const raw = message as unknown as { workspaceIdRemap?: unknown };
-    return { kind: 'async', promise: dispatchExecuteImportToPeer(raw) };
-  }
-
   if (type === 'oh.sync.executeDiscardWithBackup') {
     return { kind: 'async', promise: dispatchExecuteDiscardWithBackup() };
   }
@@ -612,152 +559,6 @@ async function dispatchRevertActivity(
 }
 
 /**
- * Resolve an `oh.sync.applyCoexistImport` request — target-side of M3.
- *
- * The payload is opaque on the wire; this handler validates the
- * `workspaces` array shape, then defers to {@link applyCoexistPayload}.
- * The applier mints a fresh UUIDv7 per source workspace via
- * {@link createWorkspace}, retargets the wire-supplied snapshot at the
- * new id, and replays through {@link applyWorkspaceSnapshot} under the
- * per-workspace service.
- */
-async function dispatchApplyCoexistImport(raw: { workspaces?: unknown }): Promise<CoexistResult> {
-  const payload: CoexistPayload = {
-    workspaces: Array.isArray(raw.workspaces)
-      ? (raw.workspaces as CoexistPayload['workspaces'])
-      : [],
-  };
-
-  return applyCoexistPayload(payload, {
-    existingWorkspaceNames: () => listWorkspaces().map((ws) => ws.name),
-    createWorkspace: async ({ name }) => {
-      const ws = await createWorkspace({ name });
-      return { id: ws.id, name: ws.name };
-    },
-    applySnapshot: async (snapshot) => {
-      // Mirror background.ts's snapshot-apply dance: acquire the
-      // per-workspace service, await hydration, replay through the same
-      // mutator-context factory the cold-receiver bootstrap uses, then
-      // release. The freshly-created workspace's oracle hasn't been
-      // touched, so this is the first writer to its mutation log.
-      const svc = getOrCreateWorkspaceService(snapshot.workspaceId);
-      try {
-        await svc.hydrated;
-        return await applyWorkspaceSnapshot(snapshot, { makeContext: () => svc.context.next() });
-      } finally {
-        releaseWorkspaceService(snapshot.workspaceId);
-      }
-    },
-  });
-}
-
-/**
- * Resolve an `oh.sync.executeCoexistToPeer` request — source-side of M3.
- *
- * Wires the local user-content workspaces into the host-installed peer
- * pusher (extension SW registers one over `wsRequest`; desktop main
- * doesn't yet). The orchestrator handles all the routing — this thin
- * shim just injects the production collection seams.
- */
-async function dispatchExecuteCoexistToPeer(): Promise<CoexistResult> {
-  return orchestrateCoexistToPeer({
-    workspaces: listWorkspaces().map((ws) => ({ id: ws.id, name: ws.name })),
-    getOracle: (workspaceId) => getOracleForWorkspace(workspaceId),
-    buildSnapshot: (workspaceId) => buildSnapshotForWorkspace(workspaceId),
-  });
-}
-
-/**
- * Resolve an `oh.sync.applyImport` request — target-side of M4.
- *
- * Replays the wire payload into the EXISTING target workspaces with
- * matching ids; per-leaf HLC compare (§11.7) decides field-by-field
- * winners. Source workspaces whose id doesn't already exist on this
- * host are reported as `ignored` and skipped (v1 — no rename, no
- * Coexist fallthrough). The pre-apply id-intersection is computed under
- * the target's already-hydrated oracle so the conflict count reflects
- * the user's view at confirmation time, not the post-merge union.
- */
-async function dispatchApplyImport(raw: {
-  workspaces?: unknown;
-  workspaceIdRemap?: unknown;
-}): Promise<ImportResult> {
-  const payload: ImportPayload = {
-    workspaces: Array.isArray(raw.workspaces)
-      ? (raw.workspaces as ImportPayload['workspaces'])
-      : [],
-    ...(isStringRecord(raw.workspaceIdRemap)
-      ? { workspaceIdRemap: raw.workspaceIdRemap }
-      : {}),
-  };
-
-  return applyImportPayload(payload, {
-    lookupWorkspace: (workspaceId) => {
-      const ws = getWorkspace(workspaceId);
-      return ws ? { id: ws.id, name: ws.name } : null;
-    },
-    listEntityIds: (workspaceId) => {
-      const oracle = getOracleForWorkspace(workspaceId);
-      if (!oracle) return [];
-      // Project the full materialized view down to `(type, id)` so the
-      // applier's conflict-diff doesn't pay the cost of carrying field
-      // bodies it never inspects. The oracle returns one row per live
-      // entity; the applier filters to user-content types.
-      return oracle.materializeAll().map((ent) => ({ type: ent.type, id: ent.id }));
-    },
-    applySnapshot: async (snapshot) => {
-      // Same per-workspace service dance as the cold-receiver bootstrap
-      // and Coexist's applier — acquire the EXISTING service for this
-      // workspace, await hydration, replay through the same mutator-
-      // context factory. Unlike Coexist this workspace already has a
-      // mutation log; the seed batches HLC-merge against it.
-      const svc = getOrCreateWorkspaceService(snapshot.workspaceId);
-      try {
-        await svc.hydrated;
-        return await applyWorkspaceSnapshot(snapshot, { makeContext: () => svc.context.next() });
-      } finally {
-        releaseWorkspaceService(snapshot.workspaceId);
-      }
-    },
-  });
-}
-
-/**
- * Resolve an `oh.sync.executeImportToPeer` request — source-side of M4.
- *
- * Symmetric mirror of {@link dispatchExecuteCoexistToPeer}; the
- * orchestrator owns the no-pusher / no-source / push-failure routing.
- * Only the channel differs (and via that, the registered pusher).
- */
-async function dispatchExecuteImportToPeer(raw: {
-  workspaceIdRemap?: unknown;
-}): Promise<ImportResult> {
-  return orchestrateImportToPeer({
-    workspaces: listWorkspaces().map((ws) => ({ id: ws.id, name: ws.name })),
-    getOracle: (workspaceId) => getOracleForWorkspace(workspaceId),
-    buildSnapshot: (workspaceId) => buildSnapshotForWorkspace(workspaceId),
-    ...(isStringRecord(raw.workspaceIdRemap)
-      ? { workspaceIdRemap: raw.workspaceIdRemap }
-      : {}),
-  });
-}
-
-/**
- * Guard: confirm a wire-side field is a plain `Record<string, string>`.
- * Used at the trust boundary on M4b remap inputs to keep malformed
- * client frames from reaching the applier (which would treat a non-
- * string value as a target id and route the source to ignored).
- */
-function isStringRecord(value: unknown): value is Record<string, string> {
-  if (value === null || typeof value !== 'object') return false;
-  if (Array.isArray(value)) return false;
-  for (const v of Object.values(value as Record<string, unknown>)) {
-    if (typeof v !== 'string' || v.length === 0) return false;
-  }
-  return true;
-}
-
-/**
  * Resolve an `oh.sync.executeDiscardWithBackup` request — local-only,
  * source-side of M5.
  *
@@ -844,10 +645,7 @@ async function dispatchExecuteUseTarget(raw: { targetOrgId?: unknown }): Promise
  * SW `setWorkspaceOrgId` mint path to {@link orchestratePublish}. A
  * stale or forged frame collapses to `target-not-authorized`.
  */
-async function dispatchPublishWorkspace(raw: {
-  workspaceId?: unknown;
-  targetOrgId?: unknown;
-}): Promise<PublishResult> {
+async function dispatchPublishWorkspace(raw: { workspaceId?: unknown; targetOrgId?: unknown }): Promise<PublishResult> {
   const workspaceId = typeof raw.workspaceId === 'string' ? raw.workspaceId : '';
   const targetOrgId = typeof raw.targetOrgId === 'string' ? raw.targetOrgId : '';
   if (targetOrgId.length === 0) {

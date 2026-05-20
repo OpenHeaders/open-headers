@@ -9,10 +9,10 @@
  * lives in the dispatcher.
  */
 
+import type { PublishResult } from '@openheaders/core/sync';
 import type { PublishWorkspaceInput } from '@openheaders/oracle/sync';
 import { orchestratePublish } from '@openheaders/oracle/sync';
 import { executePublish } from '@openheaders/ui/shared/mode-switch';
-import type { PublishResult } from '@openheaders/core/sync';
 import { describe, expect, it, vi } from 'vitest';
 
 const HOME_ORG = '0193a8ff-c000-7000-8000-0000000000a0';

@@ -25,15 +25,11 @@
  * the writer was wired to.
  */
 
-import type {
-  DiscardBackupArchive,
-  DiscardResult,
-  DiscardedWorkspace,
-} from '@openheaders/core/sync';
-import { collectDiscardArchive } from './discard-collector';
-import { getBackupWriter } from './backup-writer';
-import { enumerateSnapshotEntities } from './import-applier';
 import type { WorkspaceSnapshot } from '@openheaders/core/protocol';
+import type { DiscardBackupArchive, DiscardedWorkspace, DiscardResult } from '@openheaders/core/sync';
+import { getBackupWriter } from './backup-writer';
+import { collectDiscardArchive } from './discard-collector';
+import { enumerateSnapshotEntities } from './snapshot-entities';
 
 export interface OrchestrateDiscardDeps {
   /** Resident workspaces on this host. Order is preserved into the archive + delete loop. */
@@ -63,9 +59,7 @@ export interface OrchestrateDiscardDeps {
   readonly now: () => string;
 }
 
-export async function orchestrateDiscardWithBackup(
-  deps: OrchestrateDiscardDeps,
-): Promise<DiscardResult> {
+export async function orchestrateDiscardWithBackup(deps: OrchestrateDiscardDeps): Promise<DiscardResult> {
   const writer = getBackupWriter();
   if (!writer) {
     return {
