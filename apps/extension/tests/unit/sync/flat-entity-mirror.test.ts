@@ -84,6 +84,7 @@ function makeEvent(uid: string, workspaceId = 'ws-1'): SyncBroadcastPayload {
     hlc: { physicalMs: 1, logical: 0, nodeId: 'n' },
     origin: { surfaceId: 's', deviceId: 'd' },
     workspaceId,
+    orgId: 'org-test',
     mutatorVersion: 1,
     body: { kind: 'setField', type: RULE_ENTITY_TYPE, id: uid, path: 'name', value: 'x' },
   };

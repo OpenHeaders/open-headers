@@ -50,7 +50,6 @@ const makeRequest = (uid: string): Request =>
 async function newOracle(): Promise<EntityOracle> {
   return new EntityOracle({
     workspaceId: wsId,
-    orgId: 'org-test',
     lock,
     log: new InMemoryMutationLog(),
     intents: new InMemoryPendingIntents(),

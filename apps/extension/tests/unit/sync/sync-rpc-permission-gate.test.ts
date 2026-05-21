@@ -63,6 +63,7 @@ function makeApplyBatch(workspaceId: string): MutationBatch {
         hlc: { physicalMs: 0, logical: 0, nodeId: 'dev' },
         origin: { surfaceId: 'test', deviceId: 'dev' },
         workspaceId,
+        orgId: 'org-test',
         mutatorVersion: 1,
         body: {
           kind: 'create',

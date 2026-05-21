@@ -29,7 +29,6 @@ function makeEntry(overrides: Partial<ActivityEntry> = {}): ActivityEntry {
   const base: ActivityEntry = {
     id: 'id-1',
     workspaceId: WS_A,
-    orgId: 'org-test',
     mutationId: 'm1',
     hlc: { physicalMs: 1_000, logical: 0, nodeId: 'sw' },
     kind: 'edit-entity',

@@ -20,7 +20,6 @@ function entry(overrides: Partial<ActivityEntry>): ActivityEntry {
   return {
     id: overrides.id ?? '',
     workspaceId: WS,
-    orgId: 'org-test',
     mutationId: 'm1',
     hlc: { physicalMs: 1_000, logical: 0, nodeId: 'peer' },
     kind: 'edit-entity',

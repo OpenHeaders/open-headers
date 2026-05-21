@@ -58,6 +58,7 @@ function makeWorkspace(id: string, sortIndex: number, overrides: Partial<Extensi
     id,
     kind: 'personal',
     name: `Workspace ${id}`,
+    orgId: 'org-test',
     sortIndex,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
