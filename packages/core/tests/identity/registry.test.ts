@@ -105,4 +105,31 @@ describe('identity registry — joined-Org folding (U5.2)', () => {
     const stored = (await hostStorage.get(OH.joinedOrgs)) ?? [];
     expect(stored.map((o) => o.id).sort()).toEqual([BACKEND_ORG.id, OTHER_ORG.id].sort());
   });
+
+  it('serializes concurrent snapshot refreshes — their reads never interleave', async () => {
+    // Cross-phase audit Q3: `refreshIdentitySnapshotFromHostStorage` is a
+    // three-`get`-then-install sequence funnelled by three writers (boot,
+    // the WRA reconcile, `recordJoinedOrg`). Two concurrent refreshes
+    // must not interleave their reads — otherwise a refresh that read a
+    // stale `OH.joinedOrgs` can install last and drop a joined Org.
+    await ensureSyntheticIdentity({ now: NOW });
+    const reads: string[] = [];
+    const base = fake.get.bind(fake);
+    fake.get = async (spec) => {
+      reads.push(spec.key);
+      // Yield so an unserialized peer refresh could slip a read in.
+      await Promise.resolve();
+      await Promise.resolve();
+      return base(spec);
+    };
+    await Promise.all([refreshIdentitySnapshotFromHostStorage(), refreshIdentitySnapshotFromHostStorage()]);
+    // Each refresh reads syntheticIdentity → workspaceRoleAssignments →
+    // joinedOrgs. Serialized: the first refresh's three reads form a
+    // contiguous block, identical to the second's.
+    expect(reads.length).toBe(6);
+    expect(reads.slice(0, 3)).toEqual(reads.slice(3, 6));
+    // The first key reappears at index 3 (block boundary), not index 1
+    // (which an interleaved pair of refreshes would produce).
+    expect(reads.indexOf(reads[0], 1)).toBe(3);
+  });
 });

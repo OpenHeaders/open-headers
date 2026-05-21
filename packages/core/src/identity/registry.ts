@@ -2,16 +2,17 @@
  * In-memory mirror of the persisted identity rows (`OH.syntheticIdentity`
  * + `OH.workspaceRoleAssignments`). The resolver reads from here
  * synchronously; the host's boot path keeps it warm by calling
- * `installIdentitySnapshot` after each `ensureSyntheticIdentity` /
- * `ensureWorkspaceRoleAssignments` cycle.
+ * `refreshIdentitySnapshotFromHostStorage` after each
+ * `ensureSyntheticIdentity` / `ensureWorkspaceRoleAssignments` cycle.
  *
  * Lives in core (not oracle) so the UI can consult the same snapshot for
  * button-gating without depending on the engine package.
  */
 
-import type { Org, SyntheticIdentityRecord, WorkspaceRoleAssignment } from '../types';
 import { hostStorage } from '../storage/host-storage';
 import { OH } from '../storage/keys';
+import type { Org, SyntheticIdentityRecord, WorkspaceRoleAssignment } from '../types';
+import { createMutex } from '../utils/mutex';
 import type { IdentitySnapshot } from './resolver';
 
 let current: IdentitySnapshot | null = null;
@@ -65,38 +66,45 @@ export function clearIdentitySnapshot(): void {
 }
 
 /**
+ * Serializes `refreshIdentitySnapshotFromHostStorage`. The refresh is a
+ * three-`get`-then-`installIdentitySnapshot` sequence with no atomicity,
+ * and all three snapshot writers — boot, the WRA reconcile, and
+ * `recordJoinedOrg` — funnel into it. Two concurrent refreshes can
+ * interleave: a refresh that read `OH.joinedOrgs` *before* a join write
+ * landed can `installIdentitySnapshot` *after* the refresh that read it
+ * correctly, reverting the in-memory snapshot to drop the joined Org —
+ * `authorizedOrgIds` then loses that Org and the joined backend's
+ * envelopes are filtered out. The mutex makes each refresh read-then-
+ * install atomically, so the last refresh (always queued after its
+ * writer's store write) installs the converged storage state.
+ */
+const refreshLock = createMutex();
+
+/**
  * Refresh from `HostStorage` — useful when the snapshot is consumed in a
  * context that hasn't seen a boot-time install (e.g. a worker that
  * survives across SW restarts). Returns the resulting snapshot.
  */
-export async function refreshIdentitySnapshotFromHostStorage(): Promise<IdentitySnapshot | null> {
-  const record = await hostStorage.get(OH.syntheticIdentity);
-  if (!record) {
-    current = null;
-    return null;
-  }
-  const wras = (await hostStorage.get(OH.workspaceRoleAssignments)) ?? [];
-  const joinedOrgs = (await hostStorage.get(OH.joinedOrgs)) ?? [];
-  return installIdentitySnapshot({ record, wras, joinedOrgs });
+export function refreshIdentitySnapshotFromHostStorage(): Promise<IdentitySnapshot | null> {
+  return refreshLock(async () => {
+    const record = await hostStorage.get(OH.syntheticIdentity);
+    if (!record) {
+      current = null;
+      return null;
+    }
+    const wras = (await hostStorage.get(OH.workspaceRoleAssignments)) ?? [];
+    const joinedOrgs = (await hostStorage.get(OH.joinedOrgs)) ?? [];
+    return installIdentitySnapshot({ record, wras, joinedOrgs });
+  });
 }
 
 /**
  * Serializes `OH.joinedOrgs` read-modify-write cycles. The slot is a
  * non-atomic `get`-then-`set`; two `recordJoinedOrg` calls racing the
  * same empty slot would each append over an independent read and the
- * last write would drop the other join. Same RMW class as the Session
- * 21 `ensureWorkspaceRoleAssignments` / Session 23 token-store fixes —
- * funnel every cycle through one tail-promise chain.
+ * last write would drop the other join.
  */
-let joinedOrgsTail: Promise<unknown> = Promise.resolve();
-function withJoinedOrgsLock<T>(fn: () => Promise<T>): Promise<T> {
-  const run = joinedOrgsTail.then(fn, fn);
-  joinedOrgsTail = run.then(
-    () => {},
-    () => {},
-  );
-  return run;
-}
+const withJoinedOrgsLock = createMutex();
 
 /**
  * Record an Org joined by connecting to another backend (Phase U5.2).

@@ -211,6 +211,12 @@ export function createConnectionHandshake(deps: ConnectionHandshakeDeps): Connec
       deps.onRejected?.(parsed.output.reason, parsed.output.detail);
       return;
     }
+    // WELCOME delivered — the HELLO→WELCOME wire phase is complete.
+    // Clear the timer before the post-accept work (the onJoinedOrg
+    // snapshot refresh, the onConnected catch-up kick) so a slow refresh
+    // can't trip a spurious `timed-out` that the trailing `connected`
+    // transition then silently has to override.
+    clearConnectionTimer();
     // U5.2 — fold the backend's home Org into this host's authorized
     // set before any catch-up frame arrives. A throw here is logged but
     // never fails the handshake — the org filter degrades to "drop

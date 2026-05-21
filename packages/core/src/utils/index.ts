@@ -15,8 +15,8 @@ export type { ConditionTypeMeta, ConditionValueLogic, ConditionValueShape } from
 export {
   CONDITION_META,
   getConditionSlotKey,
-  getConditionTypesByShape,
   getConditionTypeSlotKey,
+  getConditionTypesByShape,
   isConditionSupportedByDnr,
   isDomainListConditionType,
   isListShapedConditionType,
@@ -57,22 +57,25 @@ export {
   validateHeaderName,
   validateHeaderValue,
 } from './headers';
+export type { BuildEmptyLiveVariableArgs, LiveVariableSeed, LiveWorkflowSeed } from './live-defaults';
+export { buildEmptyLiveVariable, buildEmptyLiveWorkflow } from './live-defaults';
 export type { LogLevel } from './logger';
 export { isValidLogLevel, logger } from './logger';
+export type { Mutex } from './mutex';
+export { createMutex } from './mutex';
 export type { PauseMarker, PauseMarkers } from './pause';
 export { computePausedUids, hasNestedPauseMarkers, resolvePauseState } from './pause';
+export { shouldAutoUnpublishOnUpdate, UNIVERSAL_METADATA_KEYS } from './publication-gate';
+export type { BuildEmptyRequestInput } from './request-defaults';
+export { buildEmptyRequest } from './request-defaults';
 export type { RequestIncompleteReason } from './request-validation';
 export { isRequestComplete, isRequestResolvable, requestIncompleteReason } from './request-validation';
+export type { RuleSeed } from './rule-defaults';
+export { buildEmptyRule } from './rule-defaults';
 export type { ActionDetail } from './rule-display';
 export { DNR_PRIORITY, getActionDetail } from './rule-display';
 export type { DraftUrlStrategy } from './rule-draft';
 export { DRAFT_URL_STRATEGIES, deriveUrlFilter } from './rule-draft';
-export type { BuildEmptyLiveVariableArgs, LiveVariableSeed, LiveWorkflowSeed } from './live-defaults';
-export { buildEmptyLiveVariable, buildEmptyLiveWorkflow } from './live-defaults';
-export type { BuildEmptyRequestInput } from './request-defaults';
-export { buildEmptyRequest } from './request-defaults';
-export type { RuleSeed } from './rule-defaults';
-export { buildEmptyRule } from './rule-defaults';
 export type { MatchPattern, MatchPatternKind } from './rule-matcher';
 export {
   compilePatternToRegexSource,
@@ -83,7 +86,6 @@ export {
   getRuleMatchPatterns,
 } from './rule-matcher';
 export { isRuleComplete, isRuleDraft, isRuleEffective, isRuleResolvable } from './rule-validation';
-export { shouldAutoUnpublishOnUpdate, UNIVERSAL_METADATA_KEYS } from './publication-gate';
 export type { TestTargetUrlResult } from './test-target-url';
 export { parseTestTargetUrl } from './test-target-url';
 export {
@@ -92,6 +94,7 @@ export {
 } from './tree';
 export type { ParsedUrl, QueryParam } from './url';
 export { appendQueryParams, buildUrlDisplay, parseUrlQuery } from './url';
+export { isUuidV7, UUIDV7_LENGTH, uuidV7Timestamp, uuidv7 } from './uuidv7';
 export {
   extractUid,
   generateUid,
@@ -99,4 +102,3 @@ export {
   toFolderName,
 } from './workspace';
 export { generateWorkspaceId, isCanonicalWorkspaceId } from './workspace-id';
-export { isUuidV7, uuidv7, uuidV7Timestamp, UUIDV7_LENGTH } from './uuidv7';

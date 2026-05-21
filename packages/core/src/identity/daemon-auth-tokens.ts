@@ -21,6 +21,7 @@
 
 import { hostStorage, OH } from '../storage';
 import type { DaemonAuthToken } from '../types';
+import { createMutex } from '../utils/mutex';
 import { uuidv7 } from '../utils/uuidv7';
 
 const SECRET_BYTES = 32; // 256 bits of entropy; rendered as base64url
@@ -52,9 +53,7 @@ export interface ValidateDaemonAuthTokenFailure {
   readonly reason: 'no-token' | 'unknown' | 'revoked';
 }
 
-export type ValidateDaemonAuthTokenResult =
-  | ValidateDaemonAuthTokenSuccess
-  | ValidateDaemonAuthTokenFailure;
+export type ValidateDaemonAuthTokenResult = ValidateDaemonAuthTokenSuccess | ValidateDaemonAuthTokenFailure;
 
 async function readTokens(): Promise<DaemonAuthToken[]> {
   return (await hostStorage.get(OH.daemonAuthTokens)) ?? [];
@@ -80,18 +79,7 @@ async function writeTokens(tokens: DaemonAuthToken[]): Promise<void> {
  * tracked as a separate finding (route mutations through a single
  * realm, or serialize at the storage layer).
  */
-let tokenStoreTail: Promise<unknown> = Promise.resolve();
-
-function withTokenStoreLock<T>(op: () => Promise<T>): Promise<T> {
-  const run = tokenStoreTail.then(op, op);
-  // Keep the chain alive whatever this op's outcome — a rejection still
-  // lets the next queued op run; the rejection surfaces to the caller.
-  tokenStoreTail = run.then(
-    () => undefined,
-    () => undefined,
-  );
-  return run;
-}
+const withTokenStoreLock = createMutex();
 
 function bytesToBase64Url(bytes: Uint8Array): string {
   let binary = '';
@@ -136,9 +124,7 @@ function constantTimeEqual(a: string, b: string): boolean {
  * Mint a new daemon auth token. Persists the hash; returns the raw
  * secret exactly once.
  */
-export async function mintDaemonAuthToken(
-  input: MintDaemonAuthTokenInput = {},
-): Promise<MintDaemonAuthTokenResult> {
+export async function mintDaemonAuthToken(input: MintDaemonAuthTokenInput = {}): Promise<MintDaemonAuthTokenResult> {
   const now = (input.now ?? Date.now)();
   const secret = mintRawSecret();
   const tokenHash = await sha256Hex(secret);
@@ -166,10 +152,7 @@ export async function listDaemonAuthTokens(): Promise<readonly DaemonAuthToken[]
 }
 
 /** Mark a token revoked. No-op if the id is unknown or already revoked. */
-export async function revokeDaemonAuthToken(
-  tokenId: string,
-  now: () => number = Date.now,
-): Promise<void> {
+export async function revokeDaemonAuthToken(tokenId: string, now: () => number = Date.now): Promise<void> {
   await withTokenStoreLock(async () => {
     const current = await readTokens();
     let dirty = false;

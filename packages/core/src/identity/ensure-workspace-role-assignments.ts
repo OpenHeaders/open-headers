@@ -22,24 +22,24 @@
  * in that order.
  */
 
-import type { Principal, WorkspaceRoleAssignment } from '../types';
 import { hostStorage } from '../storage/host-storage';
 import { OH } from '../storage/keys';
-import { ensureDaemonConfig } from './ensure-daemon-config';
+import type { Principal, WorkspaceRoleAssignment } from '../types';
+import { createMutex } from '../utils/mutex';
 import { deriveSyntheticUuidV7, SYNTHETIC_SEEDS } from './derive-uuid';
+import { ensureDaemonConfig } from './ensure-daemon-config';
 
 /**
- * Serialization tail. Both hosts fire this reconcile fire-and-forget
- * from `onWorkspaceStoreChange`; a burst of workspace mutations would
- * otherwise overlap two `get`-compute-`set` cycles, and the one that
- * *completes* last wins — not the one that read the latest workspace
- * list — leaving `OH.workspaceRoleAssignments` stale until the next
- * change. Chaining each call off the previous keeps reconciles strictly
+ * Serializes the `OH.workspaceRoleAssignments` read-modify-write. Both
+ * hosts fire this reconcile fire-and-forget from `onWorkspaceStoreChange`;
+ * a burst of workspace mutations would otherwise overlap two
+ * `get`-compute-`set` cycles, and the one that *completes* last wins —
+ * not the one that read the latest workspace list — leaving the slot
+ * stale until the next change. The mutex keeps reconciles strictly
  * ordered, so the last-fired call (which carries the latest list) also
- * writes last. A rejection is swallowed on the chain so it never blocks
- * a following reconcile; the caller still observes its own rejection.
+ * writes last.
  */
-let chain: Promise<unknown> = Promise.resolve();
+const reconcileLock = createMutex();
 
 /**
  * Reconcile the persisted WRA list against `workspaceIds`. Returns the
@@ -49,10 +49,7 @@ let chain: Promise<unknown> = Promise.resolve();
 export function ensureWorkspaceRoleAssignments(
   workspaceIds: ReadonlyArray<string>,
 ): Promise<WorkspaceRoleAssignment[]> {
-  const run = (): Promise<WorkspaceRoleAssignment[]> => reconcileWorkspaceRoleAssignments(workspaceIds);
-  const result = chain.then(run, run);
-  chain = result.catch(() => undefined);
-  return result;
+  return reconcileLock(() => reconcileWorkspaceRoleAssignments(workspaceIds));
 }
 
 async function reconcileWorkspaceRoleAssignments(
@@ -72,9 +69,7 @@ async function reconcileWorkspaceRoleAssignments(
     // duplicated entry in `workspaceIds` mints exactly one WRA.
     if (haveWorkspaceIds.has(workspaceId)) continue;
     haveWorkspaceIds.add(workspaceId);
-    const id = await deriveSyntheticUuidV7(
-      SYNTHETIC_SEEDS.workspaceRoleAssignment(hostInstallId, workspaceId),
-    );
+    const id = await deriveSyntheticUuidV7(SYNTHETIC_SEEDS.workspaceRoleAssignment(hostInstallId, workspaceId));
     additions.push({
       id,
       principalId: principal.id,

@@ -229,6 +229,13 @@ export function createScopeCatchupDriver(deps: ScopeCatchupDeps): ScopeCatchupDr
       logger.warn(SCOPE, `SYNCED scope ${parsed.output.workspaceId} != ${scope}; dropping stale frame`);
       return;
     }
+    // SYNCED is the terminal wire frame for this scope — the
+    // STATE_VECTOR → SYNCED wire phase is complete. Clear the timer
+    // before the (possibly slow) onSynced pending-out flush so it can't
+    // trip a spurious `timed-out`; that stale transition would advance
+    // the fan-out and then corrupt the next scope's run when this
+    // handler resumes and transitions to `synced`.
+    clearCatchupTimer();
     try {
       await deps.onSynced(parsed.output.workspaceId, parsed.output.stateVectorAfter);
     } catch (err) {

@@ -147,6 +147,34 @@ describe('createScopeCatchupDriver', () => {
     expect(driver.state()).toBe('timed-out');
   });
 
+  it('disarms the catch-up timer when SYNCED arrives, before the onSynced flush', async () => {
+    // Cross-phase audit (U6): SYNCED is the terminal wire frame — the
+    // phase is done. A slow `onSynced` pending-out flush must not leave
+    // the timer armed, or it trips a spurious `timed-out` mid-flush that
+    // corrupts the next fanned-out scope's run.
+    const clearTimer = vi.fn();
+    let releaseFlush: (() => void) | null = null;
+    const onSynced = vi.fn(
+      async () =>
+        await new Promise<void>((resolve) => {
+          releaseFlush = resolve;
+        }),
+    );
+    const { deps } = makeDeps({ setTimer: vi.fn(() => 1 as unknown), clearTimer, onSynced });
+    const driver = createScopeCatchupDriver(deps);
+    await driver.start('ws-7');
+    await driver.handle({ type: SYNC_SNAPSHOT_TYPE, workspaceId: 'ws-7', snapshot: emptySnapshot('ws-7') });
+    expect(driver.state()).toBe('catching-up');
+    // SYNCED received — handleSynced clears the timer, then awaits the
+    // (still-pending) flush.
+    const handled = driver.handle({ type: SYNC_SYNCED_TYPE, workspaceId: 'ws-7', stateVectorAfter: {} });
+    expect(clearTimer).toHaveBeenCalled();
+    expect(driver.state()).toBe('catching-up'); // mid-flush, not timed-out
+    releaseFlush!();
+    await handled;
+    expect(driver.state()).toBe('synced');
+  });
+
   it('handles() claims SNAPSHOT / SYNCED / STATE_VECTOR only', () => {
     const { deps } = makeDeps();
     const driver = createScopeCatchupDriver(deps);
