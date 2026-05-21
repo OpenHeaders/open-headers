@@ -81,6 +81,24 @@ export async function refreshIdentitySnapshotFromHostStorage(): Promise<Identity
 }
 
 /**
+ * Serializes `OH.joinedOrgs` read-modify-write cycles. The slot is a
+ * non-atomic `get`-then-`set`; two `recordJoinedOrg` calls racing the
+ * same empty slot would each append over an independent read and the
+ * last write would drop the other join. Same RMW class as the Session
+ * 21 `ensureWorkspaceRoleAssignments` / Session 23 token-store fixes —
+ * funnel every cycle through one tail-promise chain.
+ */
+let joinedOrgsTail: Promise<unknown> = Promise.resolve();
+function withJoinedOrgsLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = joinedOrgsTail.then(fn, fn);
+  joinedOrgsTail = run.then(
+    () => {},
+    () => {},
+  );
+  return run;
+}
+
+/**
  * Record an Org joined by connecting to another backend (Phase U5.2).
  * Appends `org` to the persisted `OH.joinedOrgs` set (deduplicated by
  * id; the synthetic home-org is never stored here — it already rides
@@ -89,7 +107,9 @@ export async function refreshIdentitySnapshotFromHostStorage(): Promise<Identity
  * backend's workspaces sync down.
  *
  * Idempotent: re-joining the same backend (every reconnect re-sends
- * WELCOME) is a no-op once the Org is already on file.
+ * WELCOME) is a no-op once the Org is already on file. The `OH.joinedOrgs`
+ * read-modify-write is serialized through {@link withJoinedOrgsLock} so
+ * concurrent joins of distinct Orgs can't clobber each other.
  */
 export async function recordJoinedOrg(org: Org): Promise<IdentitySnapshot | null> {
   const record = await hostStorage.get(OH.syntheticIdentity);
@@ -98,17 +118,19 @@ export async function recordJoinedOrg(org: Org): Promise<IdentitySnapshot | null
     // host somehow handshakes against itself; harmless to ignore.
     return refreshIdentitySnapshotFromHostStorage();
   }
-  const existing = (await hostStorage.get(OH.joinedOrgs)) ?? [];
-  const known = existing.find((o) => o.id === org.id);
-  if (!known) {
-    await hostStorage.set(OH.joinedOrgs, [...existing, org]);
-  } else if (known.name !== org.name || known.isSynthetic !== org.isSynthetic) {
-    // The backend renamed its Org since the last join — keep the
-    // freshest copy so the org-catalogue UI doesn't render a stale name.
-    await hostStorage.set(
-      OH.joinedOrgs,
-      existing.map((o) => (o.id === org.id ? org : o)),
-    );
-  }
+  await withJoinedOrgsLock(async () => {
+    const existing = (await hostStorage.get(OH.joinedOrgs)) ?? [];
+    const known = existing.find((o) => o.id === org.id);
+    if (!known) {
+      await hostStorage.set(OH.joinedOrgs, [...existing, org]);
+    } else if (known.name !== org.name || known.isSynthetic !== org.isSynthetic) {
+      // The backend renamed its Org since the last join — keep the
+      // freshest copy so the org-catalogue UI doesn't render a stale name.
+      await hostStorage.set(
+        OH.joinedOrgs,
+        existing.map((o) => (o.id === org.id ? org : o)),
+      );
+    }
+  });
   return refreshIdentitySnapshotFromHostStorage();
 }

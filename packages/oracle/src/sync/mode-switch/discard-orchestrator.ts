@@ -17,7 +17,10 @@
  * Order matters: the archive lands on disk BEFORE any workspace is
  * removed. A partial-write into a partial-delete would strand the user
  * with no recovery path — so the write fully resolves before the
- * destructive path begins.
+ * destructive path begins. The delete loop walks the ARCHIVE, not the
+ * input list: a workspace the collector dropped (a `null` snapshot —
+ * outside the host's authorized Org set, §6.1) is never in the archive,
+ * so it is never deleted. "Delete only what was backed up" is structural.
  *
  * Host-neutral: extension SW + desktop main both call this through the
  * `oh.sync.executeDiscardWithBackup` channel and get the right behavior
@@ -110,14 +113,14 @@ export async function orchestrateDiscardWithBackup(deps: OrchestrateDiscardDeps)
     entityCount: enumerateSnapshotEntities(w.snapshot).length,
   }));
 
-  for (const ws of deps.workspaces) {
+  for (const ws of archive.workspaces) {
     try {
-      await deps.deleteWorkspace(ws.id);
+      await deps.deleteWorkspace(ws.workspaceId);
     } catch (err) {
       return {
         ok: false,
         reason: 'delete-failed',
-        detail: `${ws.name}: ${err instanceof Error ? err.message : String(err)}`,
+        detail: `${ws.workspaceName}: ${err instanceof Error ? err.message : String(err)}`,
         backupPath,
       };
     }

@@ -95,4 +95,14 @@ describe('identity registry — joined-Org folding (U5.2)', () => {
     await recordJoinedOrg(record.org);
     expect(await hostStorage.get(OH.joinedOrgs)).toBeUndefined();
   });
+
+  it('serializes concurrent joins of distinct backends — neither write is clobbered', async () => {
+    await ensureSyntheticIdentity({ now: NOW });
+    // Both calls race the same empty `OH.joinedOrgs` slot. Without the
+    // RMW serializer each reads `[]`, appends its own Org, and the last
+    // write drops the other join.
+    await Promise.all([recordJoinedOrg(BACKEND_ORG), recordJoinedOrg(OTHER_ORG)]);
+    const stored = (await hostStorage.get(OH.joinedOrgs)) ?? [];
+    expect(stored.map((o) => o.id).sort()).toEqual([BACKEND_ORG.id, OTHER_ORG.id].sort());
+  });
 });

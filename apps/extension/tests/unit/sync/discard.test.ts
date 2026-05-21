@@ -225,6 +225,30 @@ describe('orchestrateDiscardWithBackup', () => {
     expect(result.discardedWorkspaces[0].entityCount).toBe(3);
   });
 
+  it('never deletes a workspace the collector dropped (null snapshot — outside the authorized Org set)', async () => {
+    setBackupWriter(async () => ({ backupPath: '/tmp/oh-backup-Y.json' }));
+    const deleteWorkspace = vi.fn(async () => undefined);
+    const result = await orchestrateDiscardWithBackup({
+      workspaces: [
+        { id: WS_A, name: 'Alpha' },
+        { id: WS_B, name: 'Beta' },
+      ],
+      // WS_B is outside the authorized Org set — buildSnapshot returns null,
+      // the collector drops it from the archive. It must NOT be deleted:
+      // deleting an un-backed-up workspace is unrecoverable data loss.
+      buildSnapshot: async (id) => (id === WS_B ? null : makeSnapshot(id)),
+      deleteWorkspace,
+      now: () => FIXED_NOW,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.discardedWorkspaces).toEqual([
+      { workspaceId: WS_A, workspaceName: 'Alpha', entityCount: 0 },
+    ]);
+    expect(deleteWorkspace).toHaveBeenCalledTimes(1);
+    expect(deleteWorkspace).toHaveBeenCalledWith(WS_A);
+  });
+
   it('returns delete-failed with the preserved backupPath when a delete rejects mid-loop', async () => {
     setBackupWriter(async () => ({ backupPath: '/tmp/oh-backup-X.json' }));
     const deleteWorkspace = vi
