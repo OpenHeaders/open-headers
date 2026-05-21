@@ -450,6 +450,9 @@ describe('createSyncHandshakeInitiator — consumed-workspace fan-out (U6.4 / U6
     return { type: SYNC_SYNCED_TYPE, workspaceId: id, stateVectorAfter: {} };
   }
 
+  /** Drain microtasks so a non-awaited `catchup.start` reaches its send. */
+  const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
+
   /** STATE_VECTOR scopes the initiator has put on the wire, in order. */
   function vectorScopes(send: ReturnType<typeof vi.fn>): string[] {
     return send.mock.calls
@@ -511,6 +514,72 @@ describe('createSyncHandshakeInitiator — consumed-workspace fan-out (U6.4 / U6
     expect(vectorScopes(send)).toEqual([GLOBAL, 'ws-b']);
     await initiator.handle(wsSynced('ws-b'));
     expect(initiator.state()).toBe('synced');
+  });
+
+  it('refreshFanOut before __global__ synced is a no-op', async () => {
+    const { deps, send } = makeDeps({ listConsumedWorkspaceIds: () => ['ws-a'] });
+    const initiator = createSyncHandshakeInitiator(deps);
+    await initiator.start();
+    await initiator.handle(welcomeAccept);
+    // __global__ catch-up is still in flight — refreshFanOut must not
+    // fan out a workspace scope yet.
+    initiator.refreshFanOut();
+    expect(vectorScopes(send)).toEqual([GLOBAL]);
+  });
+
+  it('refreshFanOut picks up a consumed workspace that arrived after __global__ SYNCED', async () => {
+    // Models the real race: the __global__ workspace list lands as
+    // MUTATION frames applied after SYNCED, so the enumeration at
+    // SYNCED time sees an empty list.
+    let consumed: string[] = [];
+    const { deps, send } = makeDeps({ listConsumedWorkspaceIds: () => consumed });
+    const initiator = createSyncHandshakeInitiator(deps);
+    await initiator.start();
+    await initiator.handle(welcomeAccept);
+    await initiator.handle(globalSynced());
+    // Nothing fanned out — the workspace list had not applied yet.
+    expect(vectorScopes(send)).toEqual([GLOBAL]);
+    // The workspace store catches up; the host re-runs the fan-out.
+    consumed = ['ws-late'];
+    initiator.refreshFanOut();
+    await flush();
+    expect(vectorScopes(send)).toEqual([GLOBAL, 'ws-late']);
+    await initiator.handle(wsSynced('ws-late'));
+    expect(initiator.state()).toBe('synced');
+  });
+
+  it('refreshFanOut does not re-queue an already-caught-up workspace', async () => {
+    let consumed = ['ws-a'];
+    const { deps, send } = makeDeps({ listConsumedWorkspaceIds: () => consumed });
+    const initiator = createSyncHandshakeInitiator(deps);
+    await initiator.start();
+    await initiator.handle(welcomeAccept);
+    await initiator.handle(globalSynced());
+    await initiator.handle(wsSynced('ws-a'));
+    // ws-a is done; a refresh that still lists ws-a + a new ws-b only
+    // fans out ws-b.
+    consumed = ['ws-a', 'ws-b'];
+    initiator.refreshFanOut();
+    await flush();
+    expect(vectorScopes(send)).toEqual([GLOBAL, 'ws-a', 'ws-b']);
+  });
+
+  it('refreshFanOut while a catch-up is in flight appends without double-starting', async () => {
+    let consumed = ['ws-a'];
+    const { deps, send } = makeDeps({ listConsumedWorkspaceIds: () => consumed });
+    const initiator = createSyncHandshakeInitiator(deps);
+    await initiator.start();
+    await initiator.handle(welcomeAccept);
+    await initiator.handle(globalSynced());
+    // ws-a is mid-catch-up (STATE_VECTOR sent, no SYNCED yet).
+    expect(vectorScopes(send)).toEqual([GLOBAL, 'ws-a']);
+    consumed = ['ws-a', 'ws-b'];
+    initiator.refreshFanOut();
+    // ws-b queued, not started — the wire still shows only ws-a.
+    expect(vectorScopes(send)).toEqual([GLOBAL, 'ws-a']);
+    await initiator.handle(wsSynced('ws-a'));
+    // ws-a's SYNCED drains the queue → ws-b's STATE_VECTOR goes out.
+    expect(vectorScopes(send)).toEqual([GLOBAL, 'ws-a', 'ws-b']);
   });
 
   it('reset() drops a queued fan-out so the next socket re-enumerates', async () => {

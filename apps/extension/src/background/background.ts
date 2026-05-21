@@ -727,6 +727,10 @@ async function initializeExtension(): Promise<void> {
     // U5.9 — a join's backend workspaces may have just synced down;
     // promote the pending adopt target if it has now landed.
     tryAdoptPendingWorkspace();
+    // U6.4 — the `__global__` workspace list lands as MUTATION frames
+    // applied after the handshake's enumeration; re-run the fan-out so
+    // a late-arriving consumed workspace still gets its data catch-up.
+    syncHandshakeInitiator.refreshFanOut();
   });
 
   // Env / workspace vars / vault / active-env mutations drive DNR
