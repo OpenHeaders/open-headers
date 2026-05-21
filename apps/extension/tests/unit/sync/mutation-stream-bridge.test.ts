@@ -7,15 +7,11 @@
  * test but invoked at the oracle-package layer.
  */
 
+import { type ResolvedAuditEntry, resetAuditSink, setAuditSink } from '@openheaders/core/identity';
 import { type MutatorContext, RULE_ENTITY_TYPE } from '@openheaders/core/sync';
+import { seedRule } from '@openheaders/core/sync-builders/rule-projection';
 import type { Rule } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
-import { seedRule } from '@openheaders/core/sync-builders/rule-projection';
-import {
-  __initSyncServiceForTests,
-  dispose as disposeSyncService,
-  getOracleForCurrentWorkspace,
-} from '@openheaders/oracle/sync/service';
 import {
   __resetMutationStreamBridgeForTests,
   __seenMutationStreamCountForTests,
@@ -23,6 +19,11 @@ import {
   applyInboundMutationEnvelope,
   hasRecentlyApplied,
 } from '@openheaders/oracle/sync';
+import {
+  __initSyncServiceForTests,
+  dispose as disposeSyncService,
+  getOracleForCurrentWorkspace,
+} from '@openheaders/oracle/sync/service';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { clearTestIdentitySnapshot, installTestIdentitySnapshot } from '../../helpers/identity-snapshot';
 
@@ -108,5 +109,25 @@ describe('applyInboundMutationBatch', () => {
     const before = __seenMutationStreamCountForTests();
     await applyInboundMutationBatch(batch);
     expect(__seenMutationStreamCountForTests()).toBe(before);
+  });
+
+  it('runs the receiver-side workspace.write gate and audits the decision', async () => {
+    // Symmetric with the extension SW receiver: every inbound batch is
+    // gated on workspace.write for its workspace before apply. Synthetic
+    // LocalAdmin allows; the audit entry is the wiring proof.
+    const audits: ResolvedAuditEntry[] = [];
+    setAuditSink((entry) => audits.push(entry));
+    try {
+      const r = makeRule(generateUid());
+      const batch = seedRule(r, ctx(5_000));
+      await applyInboundMutationBatch(batch);
+
+      const writeGate = audits.find((a) => a.capability === 'workspace.write' && a.workspaceId === wsId);
+      expect(writeGate).toBeDefined();
+      expect(writeGate?.decision.allow).toBe(true);
+      for (const env of batch.mutations) expect(hasRecentlyApplied(env.mutationId)).toBe(true);
+    } finally {
+      resetAuditSink();
+    }
   });
 });

@@ -8,20 +8,19 @@
  *   - No log installed → entry dropped, count incremented.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
 import type { MaterializedEntity, MutationEnvelope } from '@openheaders/core/sync';
+import type { OracleSyncBroadcastEvent } from '@openheaders/oracle/sync';
 import {
-  InMemoryActivityLog,
-  InMemoryActivityMuteStore,
   __resetActivityMuteCacheForTests,
   __resetActivityPriorsForTests,
   ensureMutesLoaded,
+  InMemoryActivityLog,
+  InMemoryActivityMuteStore,
   muteActivityEntity,
   rememberPriorForMutation,
   setActivityMuteStore,
 } from '@openheaders/oracle/sync';
-import type { OracleSyncBroadcastEvent } from '@openheaders/oracle/sync';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const hasRecentlyAppliedMock = vi.fn<(id: string) => boolean>(() => false);
 const materializeOneMock = vi.fn<(type: string, id: string) => MaterializedEntity | null>(() => null);
@@ -30,14 +29,11 @@ vi.mock('@utils/logger', () => ({
   logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock('@/background/sync-mutation-receiver', () => ({
-  hasRecentlyApplied: (id: string) => hasRecentlyAppliedMock(id),
-}));
-
 vi.mock('@openheaders/oracle/sync', async () => {
   const actual = await vi.importActual<typeof import('@openheaders/oracle/sync')>('@openheaders/oracle/sync');
   return {
     ...actual,
+    hasRecentlyApplied: (id: string) => hasRecentlyAppliedMock(id),
     getOracleForWorkspace: () => ({
       materializeOne: (type: string, id: string) => materializeOneMock(type, id),
     }),
@@ -125,9 +121,7 @@ describe('observeForActivityFeed', () => {
     setActivityLog(log);
     hasRecentlyAppliedMock.mockReturnValue(true);
 
-    observeForActivityFeed(
-      event('m1', { kind: 'create', type: 'rule', id: 'r1', payload: {} }, 'superseded-by-hlc'),
-    );
+    observeForActivityFeed(event('m1', { kind: 'create', type: 'rule', id: 'r1', payload: {} }, 'superseded-by-hlc'));
     await Promise.resolve();
 
     expect((await log.list(WS)).length).toBe(0);
@@ -186,7 +180,9 @@ describe('observeForActivityFeed', () => {
     rememberPriorForMutation('m1', WS, prior, null);
     materializeOneMock.mockReturnValue(next);
 
-    observeForActivityFeed(event('m1', { kind: 'setField', type: 'vault', id: 'vault', path: 'secrets.s1.value', value: 'new' }));
+    observeForActivityFeed(
+      event('m1', { kind: 'setField', type: 'vault', id: 'vault', path: 'secrets.s1.value', value: 'new' }),
+    );
     await Promise.resolve();
 
     const rows = await log.list(WS);
@@ -220,7 +216,9 @@ describe('observeForActivityFeed', () => {
     rememberPriorForMutation('m1', WS, prior, null);
     materializeOneMock.mockReturnValue(next);
 
-    observeForActivityFeed(event('m1', { kind: 'removeFromSet', type: 'rule', id: 'r1', path: 'conditions', itemId: 'c2' }));
+    observeForActivityFeed(
+      event('m1', { kind: 'removeFromSet', type: 'rule', id: 'r1', path: 'conditions', itemId: 'c2' }),
+    );
     await Promise.resolve();
 
     const rows = await log.list(WS);

@@ -73,6 +73,7 @@ import { getLiveWorkflows, onLiveWorkflowStoreChange } from '@openheaders/oracle
 import { disposeResolverStateForWorkspace } from '@openheaders/oracle/rule-engine/variables-resolver';
 import {
   applyWorkspaceSnapshot,
+  hasRecentlyApplied,
   readWorkspaceStateVector,
   setActivityMuteStore,
   setOracleHostHooks,
@@ -103,15 +104,14 @@ import {
   forwardMutationToBackend,
   setPendingOutQueue,
 } from './sync-mutation-forwarder';
-import { handleIncomingMutationFrame, hasRecentlyApplied } from './sync-mutation-receiver';
+import { handleIncomingMutationFrame } from './sync-mutation-receiver';
 import { installHandshakeStatusReporter } from './sync-status-reporter';
 import { registerInboundFrameHandler, subscribeOnWebSocketClose, subscribeOnWebSocketOpen } from './websocket';
 
 // Don't bounce envelopes that arrived from the backend back to it.
-// The receiver records every applied mutationId; the outbound gate's
-// echo layer skips re-broadcasting any envelope already in that set.
-// Pairs with the receiver's own seen-set dedup — together they break
-// the echo loop.
+// The inbound bridge records every applied mutationId; the outbound
+// gate's echo layer skips re-broadcasting any envelope already in that
+// set — together they break the echo loop.
 setOutboundEchoGuard(hasRecentlyApplied);
 
 // Persistent pending-out queue (C13) so offline edits survive the

@@ -45,6 +45,8 @@
  * the next one catches the duplicate. Non-negotiable per the design
  * doc; tests in `mutation-id-dedup.test.ts` pin the WS-redelivery path.
  */
+
+import { authorizedOrgIds, emitAuditEntry, getIdentitySnapshot, hasCapability } from '@openheaders/core/identity';
 import {
   compareHlc,
   computeInverseSpec,
@@ -53,12 +55,16 @@ import {
   type MutationBatch,
   type MutationEnvelope,
 } from '@openheaders/core/sync';
-import { authorizedOrgIds, getIdentitySnapshot } from '@openheaders/core/identity';
 import { logger } from '@openheaders/core/utils';
 
 import { makeOracleInverseAccess } from './activity-inverse-builder';
 import { rememberPriorForMutation } from './activity-priors';
-import { applySyncRequest, getOracleForWorkspace, getOrCreateWorkspaceService, releaseWorkspaceService } from './service';
+import {
+  applySyncRequest,
+  getOracleForWorkspace,
+  getOrCreateWorkspaceService,
+  releaseWorkspaceService,
+} from './service';
 
 const SEEN_MUTATION_IDS = new Set<string>();
 const SEEN_CAP = 10_000;
@@ -74,6 +80,34 @@ function rememberApplied(envelope: MutationEnvelope): void {
 /** True if this mutationId is in the per-host receive-side seen set. */
 export function hasRecentlyApplied(mutationId: string): boolean {
   return SEEN_MUTATION_IDS.has(mutationId);
+}
+
+/**
+ * Per-batch inbound workspace.write gate (Phase U2.3) — symmetric with
+ * the extension SW receiver's `isReceiveAllowed`. The local user must
+ * hold `workspace.write` on the envelope's workspaceId before this host
+ * applies a peer-sourced envelope. Synthetic LocalAdmin always allows;
+ * post-promotion this becomes the real WRA check.
+ *
+ * Deny is silent + audited — a single disallowed batch never tears the
+ * socket down (a future newer-protocol sender may ship a workspace the
+ * local user no longer has access to mid-revocation). The audit log is
+ * the forensic record.
+ */
+function isReceiveAllowed(workspaceId: string): boolean {
+  const snapshot = getIdentitySnapshot();
+  const decision = hasCapability(snapshot, 'workspace.write', { workspaceId });
+  emitAuditEntry({
+    actorUserId: snapshot?.user.id ?? 'unknown',
+    capability: 'workspace.write',
+    workspaceId,
+    decision,
+  });
+  if (!decision.allow) {
+    logger.info('MutationStreamBridge', `inbound batch dropped: ${decision.reason ?? 'denied'} on ws ${workspaceId}`);
+    return false;
+  }
+  return true;
 }
 
 /** Test-only — clear state between cases. */
@@ -117,6 +151,12 @@ export async function applyInboundMutationEnvelope(envelope: MutationEnvelope): 
  * is what would otherwise materialize a peer's workspace as a bare
  * duplicate on a Coexist "keep both" mode-switch.
  *
+ * **Receiver-side workspace.write gate (Phase U2.3).** After the org
+ * filter, the surviving batch is gated on the local user's
+ * `workspace.write` capability for its workspace — symmetric with the
+ * extension SW receiver. Synthetic LocalAdmin always allows today; the
+ * gate becomes load-bearing once per-WRA gating lands post-promotion.
+ *
  * After a successful apply, folds the highest inbound HLC per
  * workspace into the local sequencer (Phase C C12). Guarantees that
  * the NEXT local mint strictly exceeds every envelope this peer has
@@ -138,9 +178,12 @@ export async function applyInboundMutationBatch(input: MutationBatch): Promise<v
   }
   if (accepted.length === 0) return;
   const batch: MutationBatch =
-    accepted.length === input.mutations.length
-      ? input
-      : { batchId: input.batchId, mutations: accepted };
+    accepted.length === input.mutations.length ? input : { batchId: input.batchId, mutations: accepted };
+
+  // All envelopes in a batch share one workspaceId per the mutation-log
+  // invariant; gate the batch on the first.
+  const ws = batch.mutations[0]?.workspaceId;
+  if (ws && !isReceiveAllowed(ws)) return;
 
   capturePriorsForActivity(batch);
   // Side effects are HOST-LOCAL runtime concerns that need to fire on

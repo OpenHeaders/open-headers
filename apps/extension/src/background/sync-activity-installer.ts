@@ -27,17 +27,17 @@
 
 import type { ActivityEntry } from '@openheaders/core/sync';
 import {
+  type ActivityLog,
   classifyEnvelopeForActivity,
   consumePriorForMutation,
   ensureMutesLoaded,
   getOracleForWorkspace,
+  hasRecentlyApplied,
   isMutedForActivityFeed,
-  type ActivityLog,
   type OracleSyncBroadcastEvent,
 } from '@openheaders/oracle/sync';
 
 import { logger } from '@utils/logger';
-import { hasRecentlyApplied } from './sync-mutation-receiver';
 
 const SCOPE = 'SyncActivity';
 

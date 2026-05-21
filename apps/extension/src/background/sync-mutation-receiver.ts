@@ -1,32 +1,26 @@
 /**
- * Inbound mutation receiver — Phase C C8.
+ * Inbound mutation-stream wire boundary — Phase C C8.
  *
  * Parses {@link SYNC_MUTATION_TYPE} / {@link SYNC_MUTATION_BATCH_TYPE}
- * frames arriving over the backend WS and feeds them into the local
- * SW oracle via `applySyncRequest`. Symmetric to the C7 forwarder on
- * the outbound path; together they form the live data plane within
- * the trust zone (extension ↔ desktop / daemon).
+ * frames arriving over the backend WS, then hands the typed envelope /
+ * batch to the host-neutral inbound bridge
+ * ({@link applyInboundMutationEnvelope} / {@link applyInboundMutationBatch})
+ * in `@openheaders/oracle`.
  *
- * **Single-envelope frames** are wrapped into a synthetic one-mutation
- * `MutationBatch` before apply. The oracle's all-or-nothing semantics
- * are identical for a one-element batch and a multi-element one — the
- * synthetic `batchId` preserves traceability without forcing the
- * sender to bundle.
+ * The bridge owns the apply pipeline shared by every host (extension
+ * SW, desktop main, future daemon) — the seen-set echo dedup, the
+ * receiver-side org filter, the `workspace.write` gate, side-effect
+ * derivation, and the C12 HLC fold. This module is purely the extension
+ * SW's WS boundary: validate the frame shape, then delegate. Keeping the
+ * apply pipeline in one place is what stops the two hosts' receivers
+ * from drifting apart (they previously each re-implemented the seen-set
+ * + filters independently).
  *
  * **Validation.** Frames are parsed against the wire-shape valibot
  * schema at boundary. Failures log + drop; we don't tear the socket
  * down on a single malformed message because a future newer-protocol
  * sender might be sending us a frame kind we don't yet understand
  * (additive evolution of the protocol — see `version.ts`).
- *
- * **Echo prevention.** The receiver maintains a "recently seen
- * mutationId" set so a frame that originated locally and bounced
- * back from the peer (because the peer re-broadcasts everything it
- * applies) doesn't get re-applied + re-forwarded. Cleared once the
- * mutationId ages out of the window. The seen-set is the same data
- * the C11 dedup layer needs on the outbound forwarder; this module
- * registers itself with the forwarder so both sides share one
- * source of truth.
  */
 
 import {
@@ -35,63 +29,18 @@ import {
   SyncMutationBatchMessageSchema,
   SyncMutationMessageSchema,
 } from '@openheaders/core/protocol';
-import {
-  authorizedOrgIds,
-  emitAuditEntry,
-  getIdentitySnapshot,
-  hasCapability,
-} from '@openheaders/core/identity';
-import { filterEnvelopesByOrg, type MutationBatch, type MutationEnvelope } from '@openheaders/core/sync';
-import * as v from 'valibot';
-
+import type { MutationBatch, MutationEnvelope } from '@openheaders/core/sync';
+import { applyInboundMutationBatch, applyInboundMutationEnvelope } from '@openheaders/oracle/sync';
 import { logger } from '@utils/logger';
-import { applySyncRequest } from '@openheaders/oracle/sync/service';
+import * as v from 'valibot';
 
 const SCOPE = 'SyncReceiver';
 
 /**
- * Recently-seen mutationIds — populated by every successful apply
- * (whether the envelope originated locally or arrived from the peer).
- * Read by the outbound forwarder (via {@link hasRecentlyApplied}) to
- * skip re-broadcasting the same envelope back to its source.
- *
- * Cap is generous: a typical user gesture is 1-20 envelopes; ten
- * thousand entries covers ≈500 large gestures while bounding memory
- * at well under 1MB on a typical SW.
- */
-const SEEN_MUTATION_IDS = new Set<string>();
-const SEEN_CAP = 10_000;
-
-function rememberApplied(envelope: MutationEnvelope): void {
-  SEEN_MUTATION_IDS.add(envelope.mutationId);
-  if (SEEN_MUTATION_IDS.size > SEEN_CAP) {
-    // Drop the oldest insertion. JS Set preserves insertion order;
-    // we lean on that for O(1) eviction without a parallel queue.
-    const first = SEEN_MUTATION_IDS.values().next().value;
-    if (first !== undefined) SEEN_MUTATION_IDS.delete(first);
-  }
-}
-
-/** True if this mutationId was applied within the seen-set window. */
-export function hasRecentlyApplied(mutationId: string): boolean {
-  return SEEN_MUTATION_IDS.has(mutationId);
-}
-
-/** Test-only — clear state between cases. */
-export function __resetMutationReceiverForTests(): void {
-  SEEN_MUTATION_IDS.clear();
-}
-
-/** Test-only — peek the seen set. */
-export function __seenMutationCountForTests(): number {
-  return SEEN_MUTATION_IDS.size;
-}
-
-/**
  * Attempt to handle one parsed WS message. Returns `true` if the
  * message matched a known mutation-stream kind (and was either
- * applied or dropped as a duplicate), `false` otherwise so the
- * caller can route to other handlers.
+ * delegated to the bridge or dropped after a parse failure), `false`
+ * otherwise so the caller can route to other handlers.
  */
 export async function handleIncomingMutationFrame(raw: unknown): Promise<boolean> {
   if (!isMutationStreamFrame(raw)) return false;
@@ -99,13 +48,13 @@ export async function handleIncomingMutationFrame(raw: unknown): Promise<boolean
   if (raw.type === SYNC_MUTATION_TYPE) {
     const parsed = parseOrLog(SyncMutationMessageSchema, raw, 'oh.sync.mutation');
     if (!parsed) return true;
-    await applySingleEnvelope(parsed.envelope as unknown as MutationEnvelope);
+    await applyInboundMutationEnvelope(parsed.envelope as unknown as MutationEnvelope);
     return true;
   }
 
   const parsed = parseOrLog(SyncMutationBatchMessageSchema, raw, 'oh.sync.mutationBatch');
   if (!parsed) return true;
-  await applyBatch(parsed.batch as unknown as MutationBatch);
+  await applyInboundMutationBatch(parsed.batch as unknown as MutationBatch);
   return true;
 }
 
@@ -126,102 +75,4 @@ function parseOrLog<TSchema extends v.GenericSchema>(
     return null;
   }
   return result.output;
-}
-
-/**
- * Per-envelope inbound gate (Phase U2.3). Mirror of the SW→peer
- * forwarder gate: the local user must hold `workspace.write` on the
- * envelope's workspaceId before the SW applies an envelope received
- * from a peer. Synthetic LocalAdmin always allows; post-promotion this
- * becomes the real WRA check.
- *
- * Deny is silent + audited — we don't tear the socket down on a single
- * disallowed envelope because a future newer-protocol sender might be
- * shipping a workspace the local user no longer has access to (e.g.,
- * mid-revocation race). The audit log is the forensic record.
- */
-function isReceiveAllowed(workspaceId: string): boolean {
-  const snapshot = getIdentitySnapshot();
-  const decision = hasCapability(snapshot, 'workspace.write', { workspaceId });
-  emitAuditEntry({
-    actorUserId: snapshot?.user.id ?? 'unknown',
-    capability: 'workspace.write',
-    workspaceId,
-    decision,
-  });
-  if (!decision.allow) {
-    logger.warn(SCOPE, `inbound envelope dropped: ${decision.reason ?? 'denied'} on ws ${workspaceId}`);
-    return false;
-  }
-  return true;
-}
-
-/**
- * Receiver-side org filter (UNIFIED_ORACLE_MODEL.md §6.1 / §6.3).
- * Symmetric to the oracle-side `applyInboundMutationBatch` gate: the
- * sender-side transport readers filter the sender's own log by the
- * sender's own authorized set, which never blocks a peer's own data
- * from going out. Cross-host isolation is enforced here, on ingest —
- * an envelope whose `orgId` is outside this host's authorized Org set
- * is dropped before apply, so a peer's workspace (and its `__global__`
- * workspace-list row) cannot materialize as a duplicate after a
- * mode-switch.
- */
-function acceptedByOrg(mutations: readonly MutationEnvelope[]): MutationEnvelope[] {
-  const authorized = authorizedOrgIds(getIdentitySnapshot());
-  const accepted = [...filterEnvelopesByOrg(mutations, authorized)];
-  if (accepted.length < mutations.length) {
-    logger.warn(
-      SCOPE,
-      `dropped ${mutations.length - accepted.length}/${mutations.length} inbound envelope(s) outside the host's authorized Org set`,
-    );
-  }
-  return accepted;
-}
-
-async function applySingleEnvelope(envelope: MutationEnvelope): Promise<void> {
-  if (SEEN_MUTATION_IDS.has(envelope.mutationId)) {
-    // C11 dedup at receive — own-echo or replay. The oracle's mutator
-    // commit path is also idempotent, but skipping early avoids the
-    // round-trip + redundant broadcast.
-    return;
-  }
-  if (acceptedByOrg([envelope]).length === 0) return;
-  if (!isReceiveAllowed(envelope.workspaceId)) return;
-  const batch: MutationBatch = { batchId: `wire-${envelope.mutationId}`, mutations: [envelope] };
-  await applyAndRemember(batch);
-}
-
-async function applyBatch(batch: MutationBatch): Promise<void> {
-  // A batch is all-or-nothing; if every envelope in it is already
-  // known we can short-circuit. Mixed batches go through apply — the
-  // oracle's per-envelope idempotency handles the dup envelopes.
-  const allKnown = batch.mutations.every((e) => SEEN_MUTATION_IDS.has(e.mutationId));
-  if (allKnown) return;
-  const accepted = acceptedByOrg(batch.mutations);
-  if (accepted.length === 0) return;
-  const effective: MutationBatch =
-    accepted.length === batch.mutations.length ? batch : { batchId: batch.batchId, mutations: accepted };
-  // All envelopes in a batch share the same workspaceId per the
-  // mutation log invariant; check the first.
-  const ws = effective.mutations[0]?.workspaceId;
-  if (ws && !isReceiveAllowed(ws)) return;
-  await applyAndRemember(effective);
-}
-
-async function applyAndRemember(batch: MutationBatch): Promise<void> {
-  try {
-    const response = await applySyncRequest({
-      type: 'oh.sync.apply',
-      batch,
-      sideEffects: [],
-    });
-    if (!response.ok) {
-      logger.warn(SCOPE, `inbound batch ${batch.batchId} rejected`, response.failure);
-      return;
-    }
-    for (const env of batch.mutations) rememberApplied(env);
-  } catch (err) {
-    logger.warn(SCOPE, `apply failed for ${batch.batchId}`, err);
-  }
 }

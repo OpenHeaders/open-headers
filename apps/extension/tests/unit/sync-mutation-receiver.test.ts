@@ -5,11 +5,17 @@
  * WS layer (the receiver is a pure function of `applySyncRequest`).
  */
 
-import { type MutatorContext, RULE_ENTITY_TYPE, mintBatch } from '@openheaders/core/sync';
+import { getIdentitySnapshot } from '@openheaders/core/identity';
 import { SYNC_MUTATION_BATCH_TYPE, SYNC_MUTATION_TYPE } from '@openheaders/core/protocol';
-import { generateUid } from '@openheaders/core/utils';
-import type { Rule } from '@openheaders/core/types';
+import { type MutatorContext, mintBatch, RULE_ENTITY_TYPE } from '@openheaders/core/sync';
 import { seedRule } from '@openheaders/core/sync-builders/rule-projection';
+import type { Rule } from '@openheaders/core/types';
+import { generateUid } from '@openheaders/core/utils';
+import {
+  __resetMutationStreamBridgeForTests,
+  __seenMutationStreamCountForTests,
+  hasRecentlyApplied,
+} from '@openheaders/oracle/sync';
 import {
   __initSyncServiceForTests,
   applySyncRequest,
@@ -17,14 +23,7 @@ import {
   getOracleForCurrentWorkspace,
 } from '@openheaders/oracle/sync/service';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-
-import {
-  __resetMutationReceiverForTests,
-  __seenMutationCountForTests,
-  handleIncomingMutationFrame,
-  hasRecentlyApplied,
-} from '../../src/background/sync-mutation-receiver';
-import { getIdentitySnapshot } from '@openheaders/core/identity';
+import { handleIncomingMutationFrame } from '../../src/background/sync-mutation-receiver';
 import { installSyntheticIdentityForTests } from './sync/_identity-test-setup';
 
 const wsId = 'ws-recv';
@@ -65,11 +64,11 @@ beforeEach(async () => {
   teardownIdentity = await installSyntheticIdentityForTests([]);
   homeOrgId = getIdentitySnapshot()?.user.homeOrgId ?? '';
   __initSyncServiceForTests(wsId);
-  __resetMutationReceiverForTests();
+  __resetMutationStreamBridgeForTests();
 });
 
 afterEach(() => {
-  __resetMutationReceiverForTests();
+  __resetMutationStreamBridgeForTests();
   disposeSyncService();
   teardownIdentity();
 });
@@ -111,13 +110,13 @@ describe('handleIncomingMutationFrame', () => {
     const envelope = batch.mutations[0]!;
 
     await handleIncomingMutationFrame({ type: SYNC_MUTATION_TYPE, workspaceId: wsId, envelope });
-    const seenAfterFirst = __seenMutationCountForTests();
+    const seenAfterFirst = __seenMutationStreamCountForTests();
 
     // Same envelope re-delivered — should not grow the seen set or
     // re-apply (idempotent at the oracle layer too, but the receiver
     // short-circuits before the round-trip).
     await handleIncomingMutationFrame({ type: SYNC_MUTATION_TYPE, workspaceId: wsId, envelope });
-    expect(__seenMutationCountForTests()).toBe(seenAfterFirst);
+    expect(__seenMutationStreamCountForTests()).toBe(seenAfterFirst);
   });
 
   it('short-circuits a batch where every envelope is already known', async () => {
@@ -125,10 +124,10 @@ describe('handleIncomingMutationFrame', () => {
     const batch = seedRule(r, ctx(4_000));
 
     await handleIncomingMutationFrame({ type: SYNC_MUTATION_BATCH_TYPE, workspaceId: wsId, batch });
-    const before = __seenMutationCountForTests();
+    const before = __seenMutationStreamCountForTests();
 
     await handleIncomingMutationFrame({ type: SYNC_MUTATION_BATCH_TYPE, workspaceId: wsId, batch });
-    expect(__seenMutationCountForTests()).toBe(before);
+    expect(__seenMutationStreamCountForTests()).toBe(before);
   });
 
   it('drops malformed frames without throwing', async () => {
