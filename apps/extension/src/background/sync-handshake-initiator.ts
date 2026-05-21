@@ -96,6 +96,18 @@ export interface SyncHandshakeInitiatorDeps {
    */
   readonly onJoinedOrg?: (org: Org, backendActiveWorkspaceId?: string) => Promise<void>;
   /**
+   * U6.4 — enumerates the workspace ids whose `orgId` is a *consumed*
+   * Org. Read once after the `__global__` scope's SYNCED (the backend's
+   * workspace list is local by then); the coordinator fans a
+   * per-workspace catch-up out for each over the single socket.
+   *
+   * Order is honoured: the caller should place the adopted active
+   * workspace first so a mid-fan-out SW death still leaves the user on
+   * a synced workspace (Session 19 SW-lifetime finding). Absent → no
+   * fan-out (only the `__global__` scope syncs).
+   */
+  readonly listConsumedWorkspaceIds?: () => readonly string[];
+  /**
    * Wall-clock budget for each handshake phase (HELLO→WELCOME, and
    * STATE_VECTOR→SYNCED). Defaults to {@link DEFAULT_HANDSHAKE_TIMEOUT_MS}.
    */
@@ -168,6 +180,11 @@ export function createSyncHandshakeInitiator(deps: SyncHandshakeInitiatorDeps): 
   const subscribers = new Set<(state: InitiatorState) => void>();
   let lastEmitted: InitiatorState = 'idle';
 
+  // U6.4 — consumed-workspace scopes still awaiting a catch-up. Filled
+  // when the `__global__` scope reaches SYNCED; drained one scope at a
+  // time, each `start` chained off the prior scope's terminal state.
+  let fanOutQueue: string[] = [];
+
   const catchup = createScopeCatchupDriver({
     send: deps.send,
     readStateVector: deps.readStateVector,
@@ -212,6 +229,40 @@ export function createSyncHandshakeInitiator(deps: SyncHandshakeInitiatorDeps): 
   connection.subscribe(emitIfChanged);
   catchup.subscribe(emitIfChanged);
 
+  /**
+   * U6.5 — start the next consumed-workspace catch-up, if any. One
+   * socket, one scope at a time: the driver serializes (a fresh
+   * `start` is ignored while a catch-up is running), and chaining each
+   * call off the prior scope's terminal state keeps the fan-out
+   * sequential.
+   */
+  function startNextFanOutScope(): void {
+    const next = fanOutQueue.shift();
+    if (next === undefined) return;
+    logger.debug(SCOPE, `fan-out → catching up consumed workspace scope ${next}`);
+    void catchup.start(next);
+  }
+
+  // U6.4 — drive the multi-scope fan-out off each catch-up's terminal
+  // state. After the `__global__` scope SYNCED the backend's workspace
+  // list is local: enumerate the consumed-Org workspaces and queue a
+  // per-workspace catch-up for each. A consumed workspace that fails or
+  // times out must not strand the rest of the queue — advance anyway.
+  catchup.subscribe((catchupState) => {
+    if (catchupState === 'synced') {
+      if (catchup.currentScope() === EXTENSION_WORKSPACE_GLOBAL_SCOPE) {
+        fanOutQueue = [...(deps.listConsumedWorkspaceIds?.() ?? [])];
+        logger.info(SCOPE, `__global__ synced — fanning out ${fanOutQueue.length} consumed workspace(s)`);
+      }
+      startNextFanOutScope();
+      return;
+    }
+    if ((catchupState === 'failed' || catchupState === 'timed-out') && fanOutQueue.length > 0) {
+      logger.warn(SCOPE, `scope ${catchup.currentScope()} catch-up ${catchupState}; continuing fan-out`);
+      startNextFanOutScope();
+    }
+  });
+
   function handles(frame: unknown): boolean {
     return connection.handles(frame) || catchup.handles(frame);
   }
@@ -232,8 +283,14 @@ export function createSyncHandshakeInitiator(deps: SyncHandshakeInitiatorDeps): 
     failureDetail: () => catchup.failureDetail(),
     handles,
     handle,
-    start: () => connection.start(),
+    start: () => {
+      // A fresh socket re-runs the whole handshake — drop any fan-out
+      // scopes left queued from the prior socket's lifetime.
+      fanOutQueue = [];
+      return connection.start();
+    },
     reset: () => {
+      fanOutQueue = [];
       connection.reset();
       catchup.reset();
     },

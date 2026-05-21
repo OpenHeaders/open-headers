@@ -14,6 +14,7 @@ import '@/host/install-host-bridge';
 import '@/host/install-host-logger';
 import '@/host/install-lifeline-server';
 import {
+  consumedOrgIds,
   ensureSyntheticIdentity,
   ensureWorkspaceRoleAssignments,
   getIdentitySnapshot,
@@ -193,6 +194,23 @@ const syncHandshakeInitiator = createSyncHandshakeInitiator({
     return raw && raw.length > 0 ? raw : null;
   },
   readStateVector: (workspaceId) => readWorkspaceStateVector(workspaceId),
+  // U6.4 — after the `__global__` scope syncs the backend's workspace
+  // list down, enumerate the workspaces under a consumed Org so the
+  // coordinator can fan a per-workspace catch-up out for each. The
+  // adopted active workspace (U6.6) is sequenced first so a mid-fan-out
+  // SW death still leaves the user on a synced workspace.
+  listConsumedWorkspaceIds: () => {
+    const consumed = consumedOrgIds(getIdentitySnapshot());
+    if (consumed.size === 0) return [];
+    const ids = listWorkspaces()
+      .filter((ws) => consumed.has(ws.orgId))
+      .map((ws) => ws.id);
+    if (pendingAdoptWorkspaceId && ids.includes(pendingAdoptWorkspaceId)) {
+      const adopt = pendingAdoptWorkspaceId;
+      return [adopt, ...ids.filter((id) => id !== adopt)];
+    }
+    return ids;
+  },
   applySnapshot: async (snapshot) => {
     const svc = getOrCreateWorkspaceService(snapshot.workspaceId);
     try {
@@ -205,6 +223,10 @@ const syncHandshakeInitiator = createSyncHandshakeInitiator({
   onSynced: async (_scope, peerVector) => {
     await applyPeerStateVectorToPendingOut(peerVector);
     await flushPendingOutToBackend();
+    // U6.6 — a consumed workspace's data may have just landed via the
+    // U6.4 fan-out. Promote the deferred adopt target now that it
+    // exists locally; idempotent + no-op until the target syncs down.
+    tryAdoptPendingWorkspace();
     // Awareness is ephemeral; only flows on local publish events. On
     // a fresh connect the peer has no view of our presence until the
     // next local surface activity — push the current snapshot now

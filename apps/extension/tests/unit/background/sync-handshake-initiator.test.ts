@@ -444,3 +444,89 @@ describe('createSyncHandshakeInitiator — catch-up failure', () => {
     expect(initiator.failureDetail()).toMatch(/log unreachable/);
   });
 });
+
+describe('createSyncHandshakeInitiator — consumed-workspace fan-out (U6.4 / U6.5)', () => {
+  function wsSynced(id: string): SyncSyncedMessage {
+    return { type: SYNC_SYNCED_TYPE, workspaceId: id, stateVectorAfter: {} };
+  }
+
+  /** STATE_VECTOR scopes the initiator has put on the wire, in order. */
+  function vectorScopes(send: ReturnType<typeof vi.fn>): string[] {
+    return send.mock.calls
+      .map((c) => c[0] as { type: string; workspaceId?: string })
+      .filter((f) => f.type === SYNC_STATE_VECTOR_TYPE)
+      .map((f) => f.workspaceId as string);
+  }
+
+  it('fans a STATE_VECTOR out for each consumed workspace after __global__ SYNCED', async () => {
+    const { deps, send } = makeDeps({ listConsumedWorkspaceIds: () => ['ws-a', 'ws-b'] });
+    const initiator = createSyncHandshakeInitiator(deps);
+    await initiator.start();
+    await initiator.handle(welcomeAccept);
+    expect(vectorScopes(send)).toEqual([GLOBAL]);
+    await initiator.handle(globalSynced());
+    // First consumed scope starts immediately; the second waits.
+    expect(vectorScopes(send)).toEqual([GLOBAL, 'ws-a']);
+    await initiator.handle(wsSynced('ws-a'));
+    expect(vectorScopes(send)).toEqual([GLOBAL, 'ws-a', 'ws-b']);
+    await initiator.handle(wsSynced('ws-b'));
+    expect(initiator.state()).toBe('synced');
+  });
+
+  it('sequences one scope at a time — the next start waits for the prior SYNCED', async () => {
+    const { deps, send } = makeDeps({ listConsumedWorkspaceIds: () => ['ws-a', 'ws-b'] });
+    const initiator = createSyncHandshakeInitiator(deps);
+    await initiator.start();
+    await initiator.handle(welcomeAccept);
+    await initiator.handle(globalSynced());
+    // ws-b's STATE_VECTOR must not be on the wire while ws-a is catching up.
+    expect(vectorScopes(send)).toEqual([GLOBAL, 'ws-a']);
+  });
+
+  it('no fan-out when no workspaces are consumed', async () => {
+    const { deps, send } = makeDeps({ listConsumedWorkspaceIds: () => [] });
+    const initiator = createSyncHandshakeInitiator(deps);
+    await initiator.start();
+    await initiator.handle(welcomeAccept);
+    await initiator.handle(globalSynced());
+    expect(vectorScopes(send)).toEqual([GLOBAL]);
+    expect(initiator.state()).toBe('synced');
+  });
+
+  it('a failed consumed-workspace catch-up does not strand the rest of the queue', async () => {
+    let firstStateVector = true;
+    const readStateVector = vi.fn(async (scope: string) => {
+      if (scope === 'ws-a' && firstStateVector) {
+        firstStateVector = false;
+        throw new Error('log unreachable');
+      }
+      return {};
+    });
+    const { deps, send } = makeDeps({ listConsumedWorkspaceIds: () => ['ws-a', 'ws-b'], readStateVector });
+    const initiator = createSyncHandshakeInitiator(deps);
+    await initiator.start();
+    await initiator.handle(welcomeAccept);
+    await initiator.handle(globalSynced());
+    // ws-a's catch-up failed at STATE_VECTOR read — ws-b still runs.
+    expect(vectorScopes(send)).toEqual([GLOBAL, 'ws-b']);
+    await initiator.handle(wsSynced('ws-b'));
+    expect(initiator.state()).toBe('synced');
+  });
+
+  it('reset() drops a queued fan-out so the next socket re-enumerates', async () => {
+    const { deps, send } = makeDeps({ listConsumedWorkspaceIds: () => ['ws-a', 'ws-b'] });
+    const initiator = createSyncHandshakeInitiator(deps);
+    await initiator.start();
+    await initiator.handle(welcomeAccept);
+    await initiator.handle(globalSynced());
+    expect(vectorScopes(send)).toEqual([GLOBAL, 'ws-a']);
+    initiator.reset();
+    send.mockClear();
+    // A fresh socket: ws-b must NOT auto-resume — the next __global__
+    // SYNCED re-enumerates from scratch.
+    await initiator.start();
+    await initiator.handle(welcomeAccept);
+    await initiator.handle(globalSynced());
+    expect(vectorScopes(send)).toEqual([GLOBAL, 'ws-a']);
+  });
+});
