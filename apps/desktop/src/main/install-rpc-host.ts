@@ -162,8 +162,13 @@ export async function installRpcHost(): Promise<void> {
   // step 2). Idempotent across boots; first-boot mints the
   // host-install-id seed too. Display name seeds the synthetic User
   // row's `displayName` on first boot only — promotion (§5.4 step 1)
-  // overwrites it without touching `User.id`.
-  await ensureSyntheticIdentity({ displayName: safeOsUsername() });
+  // overwrites it without touching `User.id`. Failures are logged, not
+  // fatal: a hard throw here would abort the whole host install (no
+  // oracle, no WS server). The resolver denies privileged sync actions
+  // while the snapshot is absent; the next boot re-runs this idempotently.
+  await ensureSyntheticIdentity({ displayName: safeOsUsername() }).catch((err: unknown) => {
+    consoleLogger.warn('install-rpc-host', 'ensureSyntheticIdentity failed', err);
+  });
   setLockRuntime(singleProcessLockRuntime);
   installLifelineServer();
   const syncPersistence = createSqliteSyncPersistence({

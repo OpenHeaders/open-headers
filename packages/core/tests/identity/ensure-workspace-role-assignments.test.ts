@@ -114,6 +114,22 @@ describe('ensureWorkspaceRoleAssignments', () => {
     await expect(ensureWorkspaceRoleAssignments([W1])).rejects.toThrow(/synthetic identity/);
   });
 
+  it('mints exactly one WRA for a duplicated workspace id', async () => {
+    const wras = await ensureWorkspaceRoleAssignments([W1, W1, W2]);
+    expect(wras).toHaveLength(2);
+    expect(new Set(wras.map((w) => w.workspaceId))).toEqual(new Set([W1, W2]));
+  });
+
+  it('serializes concurrent reconciles — the last-fired call wins the persisted state', async () => {
+    await Promise.all([
+      ensureWorkspaceRoleAssignments([W1]),
+      ensureWorkspaceRoleAssignments([W1, W2]),
+      ensureWorkspaceRoleAssignments([W1, W2, W3]),
+    ]);
+    const persisted = await hostStorage.get(OH.workspaceRoleAssignments);
+    expect(persisted?.map((w) => w.workspaceId).sort()).toEqual([W1, W2, W3]);
+  });
+
   it('handles an empty workspace list (no-op when persisted list is also empty)', async () => {
     const result = await ensureWorkspaceRoleAssignments([]);
     expect(result).toEqual([]);

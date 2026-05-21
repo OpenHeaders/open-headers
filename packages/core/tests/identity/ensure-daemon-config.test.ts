@@ -42,6 +42,12 @@ describe('ensureDaemonConfig', () => {
     expect(cfg.hostInstallId).toBe('preexisting-host-id');
   });
 
+  it('concurrent first-boot calls share one mint (no divergent ids)', async () => {
+    const [a, b, c] = await Promise.all([ensureDaemonConfig(), ensureDaemonConfig(), ensureDaemonConfig()]);
+    expect(a.hostInstallId).toBe(b.hostInstallId);
+    expect(b.hostInstallId).toBe(c.hostInstallId);
+  });
+
   it('distinct hosts (fresh storages) mint distinct ids', async () => {
     const first = await ensureDaemonConfig();
     // Simulate a different host with a fresh storage backend.

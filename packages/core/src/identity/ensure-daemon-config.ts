@@ -26,17 +26,37 @@ import { OH } from '../storage/keys';
 import { mintHostInstallId } from './host-install-id';
 
 /**
+ * In-flight call dedup. `ensureDaemonConfig` is a get-then-set pair, so
+ * two callers racing the first boot would each read an empty slot, mint
+ * a *different* `hostInstallId`, and write — the loser's id silently
+ * overwrites the winner's, and every deterministic synthetic UUID
+ * derived from it diverges. Sharing one in-flight promise collapses
+ * concurrent calls onto a single mint; the slot is cleared once settled
+ * so a later call (e.g. after a host-storage swap) reads through fresh.
+ */
+let inFlight: Promise<DaemonConfig> | null = null;
+
+/**
  * Read the persisted daemon config; mint + persist on first boot. Safe
- * to call multiple times — subsequent calls return the same record.
+ * to call multiple times — subsequent calls return the same record, and
+ * concurrent calls share one mint.
  *
  * Requires `setHostStorage` to have been called by the host first.
  */
-export async function ensureDaemonConfig(): Promise<DaemonConfig> {
-  const existing = await hostStorage.get(OH.daemonConfig);
-  if (existing !== undefined) {
-    return existing;
-  }
-  const fresh: DaemonConfig = { hostInstallId: mintHostInstallId() };
-  await hostStorage.set(OH.daemonConfig, fresh);
-  return fresh;
+export function ensureDaemonConfig(): Promise<DaemonConfig> {
+  if (inFlight) return inFlight;
+  inFlight = (async (): Promise<DaemonConfig> => {
+    try {
+      const existing = await hostStorage.get(OH.daemonConfig);
+      if (existing !== undefined) {
+        return existing;
+      }
+      const fresh: DaemonConfig = { hostInstallId: mintHostInstallId() };
+      await hostStorage.set(OH.daemonConfig, fresh);
+      return fresh;
+    } finally {
+      inFlight = null;
+    }
+  })();
+  return inFlight;
 }

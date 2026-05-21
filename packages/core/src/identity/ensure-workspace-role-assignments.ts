@@ -29,11 +29,33 @@ import { ensureDaemonConfig } from './ensure-daemon-config';
 import { deriveSyntheticUuidV7, SYNTHETIC_SEEDS } from './derive-uuid';
 
 /**
+ * Serialization tail. Both hosts fire this reconcile fire-and-forget
+ * from `onWorkspaceStoreChange`; a burst of workspace mutations would
+ * otherwise overlap two `get`-compute-`set` cycles, and the one that
+ * *completes* last wins — not the one that read the latest workspace
+ * list — leaving `OH.workspaceRoleAssignments` stale until the next
+ * change. Chaining each call off the previous keeps reconciles strictly
+ * ordered, so the last-fired call (which carries the latest list) also
+ * writes last. A rejection is swallowed on the chain so it never blocks
+ * a following reconcile; the caller still observes its own rejection.
+ */
+let chain: Promise<unknown> = Promise.resolve();
+
+/**
  * Reconcile the persisted WRA list against `workspaceIds`. Returns the
  * new list (post-reconciliation). Pure of any per-host transport beyond
- * the `HostStorage` proxy.
+ * the `HostStorage` proxy. Concurrent calls are serialized.
  */
-export async function ensureWorkspaceRoleAssignments(
+export function ensureWorkspaceRoleAssignments(
+  workspaceIds: ReadonlyArray<string>,
+): Promise<WorkspaceRoleAssignment[]> {
+  const run = (): Promise<WorkspaceRoleAssignment[]> => reconcileWorkspaceRoleAssignments(workspaceIds);
+  const result = chain.then(run, run);
+  chain = result.catch(() => undefined);
+  return result;
+}
+
+async function reconcileWorkspaceRoleAssignments(
   workspaceIds: ReadonlyArray<string>,
 ): Promise<WorkspaceRoleAssignment[]> {
   const principal = await readSyntheticPrincipalOrThrow();
@@ -46,7 +68,10 @@ export async function ensureWorkspaceRoleAssignments(
 
   const additions: WorkspaceRoleAssignment[] = [];
   for (const workspaceId of workspaceIds) {
+    // `haveWorkspaceIds` also absorbs ids minted in this pass so a
+    // duplicated entry in `workspaceIds` mints exactly one WRA.
     if (haveWorkspaceIds.has(workspaceId)) continue;
+    haveWorkspaceIds.add(workspaceId);
     const id = await deriveSyntheticUuidV7(
       SYNTHETIC_SEEDS.workspaceRoleAssignment(hostInstallId, workspaceId),
     );

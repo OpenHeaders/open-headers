@@ -574,9 +574,10 @@ async function initializeExtension(): Promise<void> {
   // too. Browsers don't surface an OS username from the SW context, so
   // the synthetic User starts with the default `displayName: 'Local'`
   // and updates only via promotion (§5.4 step 1) — never touching
-  // `User.id`. Failures here are best-effort: the resolver wire-up
-  // (Phase U2) will fall back to ALLOW until the row tuple is present,
-  // matching the spec's "synthetic rows resolve to ALLOW" contract.
+  // `User.id`. Failures here are logged, not fatal — the SW still boots
+  // so header-rule delivery is unaffected. While the snapshot is absent
+  // the resolver denies privileged sync actions (`no-current-user`); the
+  // next cold-wake re-runs this idempotently.
   await ensureSyntheticIdentity().catch((err: unknown) => {
     logger.warn('Background', 'ensureSyntheticIdentity failed', err);
   });
