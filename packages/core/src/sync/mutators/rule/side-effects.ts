@@ -7,8 +7,10 @@
  * time (S4) so it picks up every batched change.
  */
 
+import type { MutationEnvelope } from '../../envelope';
 import type { HLC } from '../../hlc';
 import type { SideEffectIntent } from '../types';
+import { RULE_ENTITY_TYPE } from './types';
 
 export const RECOMPILE_DNR = 'recompile-dnr';
 
@@ -19,4 +21,20 @@ export const RECOMPILE_DNR = 'recompile-dnr';
  */
 export function recompileDnrIntent(ruleUid: string, hlc: HLC): SideEffectIntent {
   return { kind: RECOMPILE_DNR, key: ruleUid, hlc };
+}
+
+/**
+ * Pure derivation: the side-effect intents a host must enqueue for a
+ * committed rule envelope. Every rule mutation reshapes the effective
+ * DNR rule set, so each emits one `RECOMPILE_DNR` intent keyed by the
+ * rule uid.
+ *
+ * Used receive-side by `deriveSideEffectsForEnvelope` so a peer's rule
+ * edit drives the DNR recompile on every host that applies it — not
+ * only the host that minted it. Mint-side, the rule mutators emit the
+ * identical intent inline.
+ */
+export function deriveRuleSideEffects(envelope: MutationEnvelope): SideEffectIntent[] {
+  if (envelope.body.type !== RULE_ENTITY_TYPE) return [];
+  return [recompileDnrIntent(envelope.body.id, envelope.hlc)];
 }

@@ -15,13 +15,26 @@
  * to one DNR write.
  */
 
+import type { MutationEnvelope } from '../../envelope';
 import type { HLC } from '../../hlc';
-import type { SideEffectIntent } from '../types';
 import { RECOMPILE_DNR } from '../rule/side-effects';
-import { PAUSE_MARKERS_ID } from './types';
+import type { SideEffectIntent } from '../types';
+import { PAUSE_MARKERS_ENTITY_TYPE, PAUSE_MARKERS_ID } from './types';
 
 export { RECOMPILE_DNR };
 
 export function recompileDnrIntent(hlc: HLC): SideEffectIntent {
   return { kind: RECOMPILE_DNR, key: PAUSE_MARKERS_ID, hlc };
+}
+
+/**
+ * Pure derivation: the side-effect intents a host must enqueue for a
+ * committed pause-markers envelope. Every marker change reshapes the
+ * effective rule set, so each emits one `RECOMPILE_DNR` intent keyed
+ * by the singleton id. Receive-side counterpart of the inline emission
+ * the pause-markers mutators do at mint time.
+ */
+export function derivePauseMarkersSideEffects(envelope: MutationEnvelope): SideEffectIntent[] {
+  if (envelope.body.type !== PAUSE_MARKERS_ENTITY_TYPE) return [];
+  return [recompileDnrIntent(envelope.hlc)];
 }

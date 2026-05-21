@@ -33,16 +33,32 @@
 import type { MutationEnvelope } from '../envelope';
 import { deriveExtensionWorkspaceSideEffects } from './extension-workspace/side-effects';
 import { EXTENSION_WORKSPACE_ENTITY_TYPE } from './extension-workspace/types';
+import { derivePauseMarkersSideEffects } from './pause-markers/side-effects';
+import { PAUSE_MARKERS_ENTITY_TYPE } from './pause-markers/types';
+import { deriveRuleSideEffects } from './rule/side-effects';
+import { RULE_ENTITY_TYPE } from './rule/types';
 import type { SideEffectIntent } from './types';
 
 export function deriveSideEffectsForEnvelope(envelope: MutationEnvelope): SideEffectIntent[] {
-  if (envelope.body.type === EXTENSION_WORKSPACE_ENTITY_TYPE) {
-    return deriveExtensionWorkspaceSideEffects(envelope);
+  switch (envelope.body.type) {
+    case EXTENSION_WORKSPACE_ENTITY_TYPE:
+      return deriveExtensionWorkspaceSideEffects(envelope);
+    // A rule / pause-marker edit reshapes the effective DNR rule set; the
+    // intent must be enqueued on every host that applies the envelope so
+    // the dnr-intent runner recompiles. Without this, a peer-synced rule
+    // edit updates the store + editor but never reaches the browser's
+    // declarativeNetRequest rules.
+    case RULE_ENTITY_TYPE:
+      return deriveRuleSideEffects(envelope);
+    case PAUSE_MARKERS_ENTITY_TYPE:
+      return derivePauseMarkersSideEffects(envelope);
+    default:
+      // INVALIDATE_RESOLVER-emitting entity types (collection, environment,
+      // live-variable, vault, workspace-variables, …) are NOT yet wired
+      // here — inbound edits to those still skip the host-local resolver-
+      // cache flush. Their mint-time emission is conditional per body kind
+      // (e.g. a collection rename does not invalidate), so each needs a
+      // per-entity derive that mirrors those conditions. Tracked separately.
+      return [];
   }
-  // Other entity types have no cross-host side effects yet. Their
-  // host-local side effects (DNR recompile on rule edits, resolver
-  // invalidation on collection edits) currently ride local broadcast
-  // subscribers, not pending-intents, so peer-applied envelopes
-  // already drive them via the broadcast pipeline.
-  return [];
 }
