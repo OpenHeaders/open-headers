@@ -1,11 +1,12 @@
 /**
- * Phase C handshake initiator — FSM coverage.
+ * Handshake coordinator — composed FSM coverage (U6.3 Part B).
  *
  * Pure unit; every dep is mocked. Verifies the lifecycle the wiring
- * in `background.ts` relies on: HELLO+STATE_VECTOR on `start()`,
- * WELCOME → 'welcomed', SNAPSHOT → 'catching-up' + applies, SYNCED →
- * 'synced' + drives the C16 post-flush hook, REJECT → 'rejected' +
- * notifies the caller, missing workspace → 'aborted'.
+ * in `background.ts` relies on after the FSM split: HELLO on `start()`,
+ * WELCOME → connection `connected` → the `__global__` catch-up scope
+ * auto-starts (STATE_VECTOR sent), SNAPSHOT → 'catching-up' + applies,
+ * SYNCED → 'synced' + drives the C16 post-flush hook, REJECT →
+ * 'rejected', missing workspace → 'aborted'.
  */
 import {
   HANDSHAKE_REJECT_REASONS,
@@ -23,9 +24,12 @@ import {
   type SyncWelcomeReject,
   type WorkspaceSnapshot,
 } from '@openheaders/core/protocol';
+import { EXTENSION_WORKSPACE_GLOBAL_SCOPE } from '@openheaders/core/sync';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createSyncHandshakeInitiator } from '@/background/sync-handshake-initiator';
+
+const GLOBAL = EXTENSION_WORKSPACE_GLOBAL_SCOPE;
 
 function emptySnapshot(workspaceId: string): WorkspaceSnapshot {
   return {
@@ -56,9 +60,9 @@ function emptySnapshot(workspaceId: string): WorkspaceSnapshot {
 function makeDeps(overrides: Partial<Parameters<typeof createSyncHandshakeInitiator>[0]> = {}) {
   const send = vi.fn<(frame: object) => boolean>(() => true);
   const applySnapshot = vi.fn<(snapshot: WorkspaceSnapshot) => Promise<void>>(async () => {});
-  const onSynced = vi.fn<(peerVector: unknown) => Promise<void>>(async () => {});
+  const onSynced = vi.fn<(scope: string, peerVector: unknown) => Promise<void>>(async () => {});
   const onRejected = vi.fn<(reason: string, detail?: string) => void>();
-  const onJoinedOrg = vi.fn<(org: unknown) => Promise<void>>(async () => {});
+  const onJoinedOrg = vi.fn<(org: unknown, activeWorkspaceId?: string) => Promise<void>>(async () => {});
   const deps = {
     send,
     getActiveWorkspaceId: () => 'ws-1',
@@ -86,18 +90,21 @@ const welcomeAccept: SyncWelcomeAccept = {
   agent: '@openheaders/desktop@0.0.0-test',
 };
 
+function globalSynced(stateVectorAfter: SyncSyncedMessage['stateVectorAfter'] = {}): SyncSyncedMessage {
+  return { type: SYNC_SYNCED_TYPE, workspaceId: GLOBAL, stateVectorAfter };
+}
+
+function globalSnapshot(): SyncSnapshotMessage {
+  return { type: SYNC_SNAPSHOT_TYPE, workspaceId: GLOBAL, snapshot: emptySnapshot(GLOBAL) };
+}
+
 describe('createSyncHandshakeInitiator — outbound start()', () => {
-  it('sends HELLO then STATE_VECTOR on start; transitions hello-sent', async () => {
+  it('sends HELLO only on start; transitions hello-sent', async () => {
     const { deps, send } = makeDeps();
     const initiator = createSyncHandshakeInitiator(deps);
     await initiator.start();
-    expect(send).toHaveBeenCalledTimes(2);
+    expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0][0]).toMatchObject({ type: SYNC_HELLO_TYPE, workspaceId: 'ws-1', nodeId: 'sw-1' });
-    expect(send.mock.calls[1][0]).toMatchObject({
-      type: SYNC_STATE_VECTOR_TYPE,
-      workspaceId: 'ws-1',
-      perNodeMaxHlc: {},
-    });
     expect(initiator.state()).toBe('hello-sent');
   });
 
@@ -106,17 +113,6 @@ describe('createSyncHandshakeInitiator — outbound start()', () => {
     const initiator = createSyncHandshakeInitiator(deps);
     await initiator.start();
     expect(send).not.toHaveBeenCalled();
-    expect(initiator.state()).toBe('aborted');
-  });
-
-  it('aborts when readStateVector throws', async () => {
-    const { deps } = makeDeps({
-      readStateVector: async () => {
-        throw new Error('log unreachable');
-      },
-    });
-    const initiator = createSyncHandshakeInitiator(deps);
-    await initiator.start();
     expect(initiator.state()).toBe('aborted');
   });
 
@@ -132,11 +128,11 @@ describe('createSyncHandshakeInitiator — outbound start()', () => {
     const initiator = createSyncHandshakeInitiator(deps);
     await initiator.start();
     await initiator.start();
-    expect(send).toHaveBeenCalledTimes(2);
+    expect(send).toHaveBeenCalledTimes(1);
   });
 });
 
-describe('createSyncHandshakeInitiator — inbound handle()', () => {
+describe('createSyncHandshakeInitiator — WELCOME → __global__ catch-up', () => {
   it('handles() claims only the five handshake-flow types', () => {
     const { deps } = makeDeps();
     const initiator = createSyncHandshakeInitiator(deps);
@@ -155,23 +151,26 @@ describe('createSyncHandshakeInitiator — inbound handle()', () => {
     expect(initiator.handles('x')).toBe(false);
   });
 
-  it('WELCOME (accept) transitions to welcomed without firing onRejected', async () => {
-    const { deps, onRejected, onJoinedOrg } = makeDeps();
+  it('WELCOME (accept) reaches welcomed + sends STATE_VECTOR for the __global__ scope', async () => {
+    const { deps, send, onRejected } = makeDeps();
     const initiator = createSyncHandshakeInitiator(deps);
     await initiator.start();
     await initiator.handle(welcomeAccept);
     expect(initiator.state()).toBe('welcomed');
     expect(onRejected).not.toHaveBeenCalled();
-    // No `org` on this WELCOME — nothing to join (U5.2).
-    expect(onJoinedOrg).not.toHaveBeenCalled();
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(send.mock.calls[1][0]).toMatchObject({
+      type: SYNC_STATE_VECTOR_TYPE,
+      workspaceId: GLOBAL,
+      perNodeMaxHlc: {},
+    });
   });
 
-  it('WELCOME (accept) carrying a backend Org fires onJoinedOrg before welcomed (U5.2)', async () => {
+  it('WELCOME (accept) carrying a backend Org fires onJoinedOrg before catch-up (U5.2)', async () => {
     const { deps, onJoinedOrg } = makeDeps();
     const initiator = createSyncHandshakeInitiator(deps);
     await initiator.start();
     await initiator.handle({ ...welcomeAccept, org: TEST_BACKEND_ORG });
-    // No `activeWorkspaceId` on this WELCOME — second arg is undefined.
     expect(onJoinedOrg).toHaveBeenCalledWith(TEST_BACKEND_ORG, undefined);
     expect(initiator.state()).toBe('welcomed');
   });
@@ -213,34 +212,45 @@ describe('createSyncHandshakeInitiator — inbound handle()', () => {
     expect(onRejected).toHaveBeenCalledWith(HANDSHAKE_REJECT_REASONS.PROTOCOL_TOO_NEW, 'server is older');
   });
 
-  it('SNAPSHOT lands on applySnapshot + transitions to catching-up', async () => {
+  it('SNAPSHOT for the __global__ scope lands on applySnapshot + transitions to catching-up', async () => {
     const { deps, applySnapshot } = makeDeps();
     const initiator = createSyncHandshakeInitiator(deps);
     await initiator.start();
     await initiator.handle(welcomeAccept);
-    const snap: SyncSnapshotMessage = {
-      type: SYNC_SNAPSHOT_TYPE,
-      workspaceId: 'ws-1',
-      snapshot: emptySnapshot('ws-1'),
-    };
-    await initiator.handle(snap);
+    await initiator.handle(globalSnapshot());
     expect(applySnapshot).toHaveBeenCalledTimes(1);
     expect(initiator.state()).toBe('catching-up');
   });
 
-  it('SYNCED fires onSynced with the peer vector + transitions to synced', async () => {
+  it('drops a SNAPSHOT whose scope does not match the catch-up scope', async () => {
+    const { deps, applySnapshot } = makeDeps();
+    const initiator = createSyncHandshakeInitiator(deps);
+    await initiator.start();
+    await initiator.handle(welcomeAccept);
+    await initiator.handle({ type: SYNC_SNAPSHOT_TYPE, workspaceId: 'ws-other', snapshot: emptySnapshot('ws-other') });
+    expect(applySnapshot).not.toHaveBeenCalled();
+    expect(initiator.state()).toBe('welcomed');
+  });
+
+  it('SYNCED fires onSynced with the scope + peer vector + transitions to synced', async () => {
     const { deps, onSynced } = makeDeps();
     const initiator = createSyncHandshakeInitiator(deps);
     await initiator.start();
     await initiator.handle(welcomeAccept);
-    const synced: SyncSyncedMessage = {
-      type: SYNC_SYNCED_TYPE,
-      workspaceId: 'ws-1',
-      stateVectorAfter: { 'desktop-1': { physicalMs: 1_000, logical: 0, nodeId: 'desktop-1' } },
-    };
+    const synced = globalSynced({ 'desktop-1': { physicalMs: 1_000, logical: 0, nodeId: 'desktop-1' } });
     await initiator.handle(synced);
-    expect(onSynced).toHaveBeenCalledWith(synced.stateVectorAfter);
+    expect(onSynced).toHaveBeenCalledWith(GLOBAL, synced.stateVectorAfter);
     expect(initiator.state()).toBe('synced');
+  });
+
+  it('drops a SYNCED whose scope does not match the catch-up scope', async () => {
+    const { deps, onSynced } = makeDeps();
+    const initiator = createSyncHandshakeInitiator(deps);
+    await initiator.start();
+    await initiator.handle(welcomeAccept);
+    await initiator.handle({ type: SYNC_SYNCED_TYPE, workspaceId: 'ws-other', stateVectorAfter: {} });
+    expect(onSynced).not.toHaveBeenCalled();
+    expect(initiator.state()).toBe('welcomed');
   });
 
   it('reset() returns FSM to idle so the next reconnect re-runs start()', async () => {
@@ -253,7 +263,7 @@ describe('createSyncHandshakeInitiator — inbound handle()', () => {
     expect(initiator.rejectReason()).toBeNull();
     send.mockClear();
     await initiator.start();
-    expect(send).toHaveBeenCalledTimes(2);
+    expect(send).toHaveBeenCalledTimes(1);
   });
 
   it('drops server-only frames (HELLO / STATE_VECTOR) without state change', async () => {
@@ -276,30 +286,22 @@ describe('createSyncHandshakeInitiator — inbound handle()', () => {
       protocolVersion: PROTOCOL_VERSION,
     });
     expect(initiator.state()).toBe('rejected');
-    // A late snapshot should NOT re-enter the FSM.
-    await initiator.handle({
-      type: SYNC_SNAPSHOT_TYPE,
-      workspaceId: 'ws-1',
-      snapshot: emptySnapshot('ws-1'),
-    });
+    // A late snapshot should NOT re-enter the FSM — catch-up never started.
+    await initiator.handle(globalSnapshot());
     expect(applySnapshot).not.toHaveBeenCalled();
     expect(initiator.state()).toBe('rejected');
   });
 });
 
 describe('createSyncHandshakeInitiator — subscribe()', () => {
-  it('fires the observer on every transition with the new state', async () => {
+  it('fires the observer on every composed transition with the new state', async () => {
     const { deps } = makeDeps();
     const initiator = createSyncHandshakeInitiator(deps);
     const observed: string[] = [];
     initiator.subscribe((s) => observed.push(s));
     await initiator.start();
     await initiator.handle(welcomeAccept);
-    await initiator.handle({
-      type: SYNC_SYNCED_TYPE,
-      workspaceId: 'ws-1',
-      stateVectorAfter: {},
-    });
+    await initiator.handle(globalSynced());
     expect(observed).toEqual(['hello-sent', 'welcomed', 'synced']);
   });
 
@@ -336,7 +338,7 @@ describe('createSyncHandshakeInitiator — subscribe()', () => {
 });
 
 describe('createSyncHandshakeInitiator — handshake timeout', () => {
-  it('transitions to timed-out when WELCOME / SYNCED never arrive', async () => {
+  it('transitions to timed-out when WELCOME never arrives', async () => {
     let fired: (() => void) | null = null;
     const setTimer = vi.fn((fn: () => void) => {
       fired = fn;
@@ -352,6 +354,24 @@ describe('createSyncHandshakeInitiator — handshake timeout', () => {
     expect(initiator.state()).toBe('timed-out');
   });
 
+  it('transitions to timed-out when SYNCED never arrives during catch-up', async () => {
+    let fired: (() => void) | null = null;
+    const setTimer = vi.fn((fn: () => void) => {
+      fired = fn;
+      return 1 as unknown;
+    });
+    const clearTimer = vi.fn();
+    const { deps } = makeDeps({ setTimer, clearTimer, timeoutMs: 50 });
+    const initiator = createSyncHandshakeInitiator(deps);
+    await initiator.start();
+    await initiator.handle(welcomeAccept);
+    // setTimer fired twice — connection then catch-up; `fired` is the catch-up timer.
+    expect(setTimer).toHaveBeenCalledTimes(2);
+    expect(initiator.state()).toBe('welcomed');
+    fired!();
+    expect(initiator.state()).toBe('timed-out');
+  });
+
   it('clears the timer when SYNCED arrives in time', async () => {
     const clearTimer = vi.fn();
     const setTimer = vi.fn(() => 1 as unknown);
@@ -359,11 +379,7 @@ describe('createSyncHandshakeInitiator — handshake timeout', () => {
     const initiator = createSyncHandshakeInitiator(deps);
     await initiator.start();
     await initiator.handle(welcomeAccept);
-    await initiator.handle({
-      type: SYNC_SYNCED_TYPE,
-      workspaceId: 'ws-1',
-      stateVectorAfter: {},
-    });
+    await initiator.handle(globalSynced());
     expect(initiator.state()).toBe('synced');
     expect(clearTimer).toHaveBeenCalled();
   });
@@ -379,11 +395,7 @@ describe('createSyncHandshakeInitiator — handshake timeout', () => {
     const initiator = createSyncHandshakeInitiator(deps);
     await initiator.start();
     await initiator.handle(welcomeAccept);
-    await initiator.handle({
-      type: SYNC_SYNCED_TYPE,
-      workspaceId: 'ws-1',
-      stateVectorAfter: {},
-    });
+    await initiator.handle(globalSynced());
     expect(initiator.state()).toBe('synced');
     fired!();
     expect(initiator.state()).toBe('synced');
@@ -400,11 +412,7 @@ describe('createSyncHandshakeInitiator — catch-up failure', () => {
     const initiator = createSyncHandshakeInitiator(deps);
     await initiator.start();
     await initiator.handle(welcomeAccept);
-    await initiator.handle({
-      type: SYNC_SNAPSHOT_TYPE,
-      workspaceId: 'ws-1',
-      snapshot: emptySnapshot('ws-1'),
-    });
+    await initiator.handle(globalSnapshot());
     expect(initiator.state()).toBe('failed');
     expect(initiator.failureDetail()).toMatch(/seed builder rejected/);
   });
@@ -418,12 +426,21 @@ describe('createSyncHandshakeInitiator — catch-up failure', () => {
     const initiator = createSyncHandshakeInitiator(deps);
     await initiator.start();
     await initiator.handle(welcomeAccept);
-    await initiator.handle({
-      type: SYNC_SYNCED_TYPE,
-      workspaceId: 'ws-1',
-      stateVectorAfter: {},
-    });
+    await initiator.handle(globalSynced());
     expect(initiator.state()).toBe('failed');
     expect(initiator.failureDetail()).toMatch(/queue write failed/);
+  });
+
+  it('transitions to failed when readStateVector throws at catch-up start', async () => {
+    const { deps } = makeDeps({
+      readStateVector: async () => {
+        throw new Error('log unreachable');
+      },
+    });
+    const initiator = createSyncHandshakeInitiator(deps);
+    await initiator.start();
+    await initiator.handle(welcomeAccept);
+    expect(initiator.state()).toBe('failed');
+    expect(initiator.failureDetail()).toMatch(/log unreachable/);
   });
 });

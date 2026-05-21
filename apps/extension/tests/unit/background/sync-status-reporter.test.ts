@@ -110,7 +110,7 @@ describe('installHandshakeStatusReporter', () => {
     await initiator.handle(welcomeAccept);
     await initiator.handle({
       type: SYNC_SYNCED_TYPE,
-      workspaceId: 'ws-1',
+      workspaceId: '__global__',
       stateVectorAfter: {},
     });
     // hello-sent → welcomed → synced = 3 entries
@@ -154,10 +154,10 @@ describe('installHandshakeStatusReporter', () => {
     await initiator.handle(welcomeAccept);
     await initiator.handle({
       type: 'oh.sync.snapshot',
-      workspaceId: 'ws-1',
+      workspaceId: '__global__',
       snapshot: {
         schemaVersion: SNAPSHOT_SCHEMA_VERSION,
-        workspaceId: 'ws-1',
+        workspaceId: '__global__',
         takenAtHlc: {},
         rules: [],
         environments: [],

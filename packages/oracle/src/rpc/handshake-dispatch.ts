@@ -228,7 +228,7 @@ export type HandleStateVectorOutcome =
     }
   | {
       readonly kind: 'rejected';
-      readonly reason: 'schema-invalid' | 'workspace-mismatch' | 'connection-closed';
+      readonly reason: 'schema-invalid' | 'connection-closed';
       readonly detail?: string;
     };
 
@@ -262,18 +262,13 @@ export async function handleStateVector(
     logger.warn(SCOPE, `malformed STATE_VECTOR from peer ${peerConn.peerId}`, parseResult.issues);
     return { kind: 'rejected', reason: 'schema-invalid', detail: 'state-vector schema validation failed' };
   }
+  // The PeerConnection is bound to the workspace named in HELLO, but a
+  // single socket carries catch-up for many scopes (U6.3): `__global__`
+  // then each consumed workspace. Each STATE_VECTOR names its own
+  // scope; the responder reads + streams that scope's log directly, so
+  // the guard is per-frame (the scope on the message) — never the
+  // connection's HELLO workspace.
   const message = parseResult.output;
-  if (message.workspaceId !== peerConn.workspaceId) {
-    logger.warn(
-      SCOPE,
-      `STATE_VECTOR workspaceId ${message.workspaceId} doesn't match peer's HELLO workspace ${peerConn.workspaceId}; rejecting`,
-    );
-    return {
-      kind: 'rejected',
-      reason: 'workspace-mismatch',
-      detail: `connection bound to ${peerConn.workspaceId}, got ${message.workspaceId}`,
-    };
-  }
   const respond = options.respond ?? respondToStateVector;
   const result = await respond(message, { send: (f) => peerConn.reply(f) }, options.responder);
   return { kind: 'ok', message, result };

@@ -6,6 +6,8 @@
  * `handleStateVector`'s responder is stubbed via the `respond` option
  * so the test stays isolated from the per-workspace service registry.
  */
+
+import { clearIdentitySnapshot } from '@openheaders/core/identity';
 import {
   HANDSHAKE_REJECT_REASONS,
   HANDSHAKE_ROLES,
@@ -18,14 +20,12 @@ import {
 } from '@openheaders/core/protocol';
 import { createPeerConnection } from '@openheaders/oracle/host-runtime/peer-connection';
 import {
-  HANDSHAKE_MESSAGE_TYPES,
   evaluateHello,
+  HANDSHAKE_MESSAGE_TYPES,
   handleStateVector,
   type LocalHandshakeIdentity,
 } from '@openheaders/oracle/rpc';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-
-import { clearIdentitySnapshot } from '@openheaders/core/identity';
 
 import { installTestIdentitySnapshot } from '../../helpers/identity-snapshot';
 
@@ -136,14 +136,10 @@ describe('evaluateHello', () => {
     });
 
     it('rejects with AUTH_REQUIRED when the peer presents no token', async () => {
-      const outcome = await evaluateHello(
-        validHello as unknown as Record<string, unknown>,
-        localIdentity,
-        {
-          requireAuth: true,
-          validate: async () => ({ ok: false, reason: 'no-token' }),
-        },
-      );
+      const outcome = await evaluateHello(validHello as unknown as Record<string, unknown>, localIdentity, {
+        requireAuth: true,
+        validate: async () => ({ ok: false, reason: 'no-token' }),
+      });
       expect(outcome.kind).toBe('reject');
       if (outcome.kind === 'reject') {
         expect(outcome.reason).toBe(HANDSHAKE_REJECT_REASONS.AUTH_REQUIRED);
@@ -200,11 +196,9 @@ describe('evaluateHello', () => {
     });
 
     it('is a no-op when requireAuth is false even without a token', async () => {
-      const outcome = await evaluateHello(
-        validHello as unknown as Record<string, unknown>,
-        localIdentity,
-        { requireAuth: false },
-      );
+      const outcome = await evaluateHello(validHello as unknown as Record<string, unknown>, localIdentity, {
+        requireAuth: false,
+      });
       expect(outcome.kind).toBe('accept');
       if (outcome.kind === 'accept') expect(outcome.tokenId).toBeNull();
     });
@@ -233,15 +227,22 @@ describe('handleStateVector', () => {
     expect(respond).toHaveBeenCalledTimes(1);
   });
 
-  it('rejects when the inbound workspaceId does not match the peer connection', async () => {
+  it('routes a STATE_VECTOR whose scope differs from the HELLO workspace (U6.3 per-frame scope)', async () => {
+    // A single socket carries catch-up for many scopes — `__global__`
+    // then each consumed workspace. The connection binds to the HELLO
+    // workspace, but each STATE_VECTOR names its own scope.
     const { conn } = makePeer('ws-other');
-    const respond = vi.fn();
+    const respond = vi.fn(async () => ({
+      sentSnapshot: false,
+      deltasSent: 0,
+      syncedSent: true,
+      stateVectorAfter: {},
+    }));
     const outcome = await handleStateVector(stateVector as unknown as Record<string, unknown>, conn, {
       respond,
     });
-    expect(outcome.kind).toBe('rejected');
-    if (outcome.kind === 'rejected') expect(outcome.reason).toBe('workspace-mismatch');
-    expect(respond).not.toHaveBeenCalled();
+    expect(outcome.kind).toBe('ok');
+    expect(respond).toHaveBeenCalledTimes(1);
   });
 
   it('rejects when the frame fails schema validation', async () => {

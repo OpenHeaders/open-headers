@@ -165,11 +165,13 @@ function tryAdoptPendingWorkspace(): void {
   });
 }
 
-// State-vector handshake — Phase C natural close-out. On every WS
-// connect, the initiator sends HELLO + STATE_VECTOR; on SYNCED it
-// prunes pending-out against the peer's post-catch-up vector + flushes
-// what remains. The WS-open flush (immediately below) is a defensive
-// fallback for the legacy `browserInfo` path where SYNCED never fires.
+// Sync handshake — Phase C / U6.3. On every WS connect the initiator
+// runs the connection handshake (HELLO/WELCOME); once connected it
+// catches up the `__global__` workspace-list scope. On each scope's
+// SYNCED it prunes pending-out against the peer's post-catch-up vector
+// + flushes what remains. The WS-open flush (immediately below) is a
+// defensive fallback for the legacy `browserInfo` path where SYNCED
+// never fires.
 const syncHandshakeInitiator = createSyncHandshakeInitiator({
   send: (frame) => sendViaWebSocket(frame as Record<string, unknown>),
   getActiveWorkspaceId: () => peekActiveWorkspaceId(),
@@ -200,7 +202,7 @@ const syncHandshakeInitiator = createSyncHandshakeInitiator({
       releaseWorkspaceService(snapshot.workspaceId);
     }
   },
-  onSynced: async (peerVector) => {
+  onSynced: async (_scope, peerVector) => {
     await applyPeerStateVectorToPendingOut(peerVector);
     await flushPendingOutToBackend();
     // Awareness is ephemeral; only flows on local publish events. On
