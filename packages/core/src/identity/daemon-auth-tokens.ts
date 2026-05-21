@@ -64,6 +64,35 @@ async function writeTokens(tokens: DaemonAuthToken[]): Promise<void> {
   await hostStorage.set(OH.daemonAuthTokens, tokens);
 }
 
+/**
+ * Serializes every read-modify-write against `OH.daemonAuthTokens`. The
+ * `get`-then-`set` pair each mutating helper runs is not atomic: two
+ * overlapping calls each read the pre-mutation array and the one that
+ * writes last clobbers the other's change — a fresh mint lost, or a
+ * revoke silently undone by a concurrent `validate` writing back its
+ * `lastUsedAt` bump over a stale (non-revoked) row. All three mutating
+ * helpers funnel their store access through this tail-promise chain so
+ * each one reads what the previous one wrote.
+ *
+ * Scope is one JS realm. On desktop the admin UI mutates tokens from
+ * the renderer realm while HELLO validation runs in main — that
+ * cross-realm pair shares the backing store but not this chain, and is
+ * tracked as a separate finding (route mutations through a single
+ * realm, or serialize at the storage layer).
+ */
+let tokenStoreTail: Promise<unknown> = Promise.resolve();
+
+function withTokenStoreLock<T>(op: () => Promise<T>): Promise<T> {
+  const run = tokenStoreTail.then(op, op);
+  // Keep the chain alive whatever this op's outcome — a rejection still
+  // lets the next queued op run; the rejection surfaces to the caller.
+  tokenStoreTail = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
 function bytesToBase64Url(bytes: Uint8Array): string {
   let binary = '';
   for (const byte of bytes) binary += String.fromCharCode(byte);
@@ -121,8 +150,10 @@ export async function mintDaemonAuthToken(
     lastUsedAt: null,
     revokedAt: null,
   };
-  const current = await readTokens();
-  await writeTokens([...current, record]);
+  await withTokenStoreLock(async () => {
+    const current = await readTokens();
+    await writeTokens([...current, record]);
+  });
   return { record, secret };
 }
 
@@ -139,14 +170,16 @@ export async function revokeDaemonAuthToken(
   tokenId: string,
   now: () => number = Date.now,
 ): Promise<void> {
-  const current = await readTokens();
-  let dirty = false;
-  const next = current.map((t) => {
-    if (t.id !== tokenId || t.revokedAt !== null) return t;
-    dirty = true;
-    return { ...t, revokedAt: now() };
+  await withTokenStoreLock(async () => {
+    const current = await readTokens();
+    let dirty = false;
+    const next = current.map((t) => {
+      if (t.id !== tokenId || t.revokedAt !== null) return t;
+      dirty = true;
+      return { ...t, revokedAt: now() };
+    });
+    if (dirty) await writeTokens(next);
   });
-  if (dirty) await writeTokens(next);
 }
 
 /**
@@ -162,27 +195,32 @@ export async function validateDaemonAuthToken(
 ): Promise<ValidateDaemonAuthTokenResult> {
   if (!presented) return { ok: false, reason: 'no-token' };
   const presentedHash = await sha256Hex(presented);
-  const current = await readTokens();
-  let matchIdx = -1;
-  let sawRevokedMatch = false;
-  for (let i = 0; i < current.length; i++) {
-    const candidate = current[i];
-    if (!constantTimeEqual(candidate.tokenHash, presentedHash)) continue;
-    if (candidate.revokedAt !== null) {
-      sawRevokedMatch = true;
-      continue;
+  // Inside the store lock so the scan reads — and the lastUsedAt bump
+  // writes back — atomically with respect to a concurrent same-realm
+  // revoke; otherwise the write-back would resurrect the revoked row.
+  return withTokenStoreLock(async () => {
+    const current = await readTokens();
+    let matchIdx = -1;
+    let sawRevokedMatch = false;
+    for (let i = 0; i < current.length; i++) {
+      const candidate = current[i];
+      if (!constantTimeEqual(candidate.tokenHash, presentedHash)) continue;
+      if (candidate.revokedAt !== null) {
+        sawRevokedMatch = true;
+        continue;
+      }
+      matchIdx = i;
+      break;
     }
-    matchIdx = i;
-    break;
-  }
-  if (matchIdx === -1) {
-    return { ok: false, reason: sawRevokedMatch ? 'revoked' : 'unknown' };
-  }
-  const match = current[matchIdx];
-  // Persist the lastUsedAt bump; tolerate write failures so a transient
-  // storage hiccup doesn't reject an otherwise-valid peer.
-  const next = current.slice();
-  next[matchIdx] = { ...match, lastUsedAt: now() };
-  await writeTokens(next).catch(() => undefined);
-  return { ok: true, tokenId: match.id, label: match.label };
+    if (matchIdx === -1) {
+      return { ok: false, reason: sawRevokedMatch ? 'revoked' : 'unknown' };
+    }
+    const match = current[matchIdx];
+    // Persist the lastUsedAt bump; tolerate write failures so a transient
+    // storage hiccup doesn't reject an otherwise-valid peer.
+    const next = current.slice();
+    next[matchIdx] = { ...match, lastUsedAt: now() };
+    await writeTokens(next).catch(() => undefined);
+    return { ok: true, tokenId: match.id, label: match.label };
+  });
 }

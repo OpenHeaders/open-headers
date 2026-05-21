@@ -100,4 +100,42 @@ describe('daemon auth tokens', () => {
     const persisted = (await hostStorage.get(OH.daemonAuthTokens)) ?? [];
     expect(persisted[0].revokedAt).toBeNull();
   });
+
+  // Concurrency regressions (Session 23 audit): mint / revoke / validate
+  // each run a non-atomic get-then-set; without the store lock an
+  // overlapping pair loses one another's write.
+
+  it('concurrent mints both persist (no last-write-wins loss)', async () => {
+    const [a, b] = await Promise.all([
+      mintDaemonAuthToken({ label: 'first' }),
+      mintDaemonAuthToken({ label: 'second' }),
+    ]);
+    const persisted = (await hostStorage.get(OH.daemonAuthTokens)) ?? [];
+    expect(persisted).toHaveLength(2);
+    const ids = new Set(persisted.map((t) => t.id));
+    expect(ids.has(a.record.id)).toBe(true);
+    expect(ids.has(b.record.id)).toBe(true);
+  });
+
+  it('a validate racing a revoke never resurrects the revoked token', async () => {
+    const { record, secret } = await mintDaemonAuthToken();
+    // validate writes back a lastUsedAt bump; revoke writes back
+    // revokedAt. Run together — the token must end up revoked whichever
+    // order the lock grants.
+    await Promise.all([validateDaemonAuthToken(secret), revokeDaemonAuthToken(record.id, () => 9999)]);
+    const persisted = (await hostStorage.get(OH.daemonAuthTokens)) ?? [];
+    expect(persisted[0].revokedAt).toBe(9999);
+    // And a subsequent validate sees it as revoked.
+    const after = await validateDaemonAuthToken(secret);
+    expect(after.ok).toBe(false);
+    if (!after.ok) expect(after.reason).toBe('revoked');
+  });
+
+  it('concurrent revokes of distinct tokens both land', async () => {
+    const a = await mintDaemonAuthToken({ label: 'a' });
+    const b = await mintDaemonAuthToken({ label: 'b' });
+    await Promise.all([revokeDaemonAuthToken(a.record.id, () => 1), revokeDaemonAuthToken(b.record.id, () => 2)]);
+    const persisted = (await hostStorage.get(OH.daemonAuthTokens)) ?? [];
+    expect(persisted.every((t) => t.revokedAt !== null)).toBe(true);
+  });
 });

@@ -246,9 +246,33 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
             }
             return;
           }
-          const outcome = await evaluateHello(parsed as Record<string, unknown>, handshakeIdentity, {
-            requireAuth,
-          });
+          let outcome: Awaited<ReturnType<typeof evaluateHello>>;
+          try {
+            outcome = await evaluateHello(parsed as Record<string, unknown>, handshakeIdentity, {
+              requireAuth,
+            });
+          } catch (err) {
+            // The HELLO gate awaits a token-store read; a storage fault
+            // there must not leave the socket hanging until the 5s
+            // handshake timeout. Close it now with an internal-error code.
+            logger.warn(SCOPE, 'evaluateHello threw; closing connection', err);
+            try {
+              socket.close(1011, 'handshake evaluation failed');
+            } catch {
+              // ignore
+            }
+            return;
+          }
+          // The await above (token-store I/O on a LAN bind) is a window
+          // in which the peer can drop the socket. The 'close' handler
+          // already ran and found no peer to clean up, so registering
+          // one now would strand a ghost in `peerBySocket` / `ready`
+          // that no future event ever removes — inflating
+          // `connectedCount()` / `connectedTokenIds()` permanently.
+          if (socket.readyState !== WebSocket.OPEN) {
+            logger.info(SCOPE, 'peer closed during HELLO evaluation; abandoning handshake');
+            return;
+          }
           send(socket, outcome.welcome);
           if (outcome.kind === 'reject') {
             logger.info(SCOPE, `HELLO rejected: ${outcome.reason}`);
