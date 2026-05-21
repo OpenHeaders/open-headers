@@ -57,7 +57,7 @@ import type {
   PublishResult,
   RestoreResult,
 } from '@openheaders/core/sync';
-import { isDiscardBackupArchiveShape } from '@openheaders/core/sync';
+import { isDiscardBackupArchiveShape, resolveWorkspaceOrgId } from '@openheaders/core/sync';
 import { logger } from '@openheaders/core/utils';
 import { peekActiveWorkspaceId, requireActiveWorkspaceId } from '../sync';
 import { listMutedActivityEntities, muteActivityEntity, unmuteActivityEntity } from '../sync/activity-mute-cache';
@@ -269,6 +269,39 @@ function gateDispatch(message: Record<string, unknown>): void {
   }
 }
 
+/**
+ * Re-stamp `orgId` on a renderer-originated `oh.sync.apply` batch from
+ * the host's authoritative workspace→Org resolver (UNIFIED_ORACLE_MODEL.md
+ * §6.1 / §8.2).
+ *
+ * The renderer mints envelopes through `createRendererContextHandle`,
+ * which reads `resolveWorkspaceOrgId` — but the workspace→Org resolver is
+ * installed only in the SW / desktop main, never in a renderer realm. A
+ * renderer mint therefore always stamps the `pre-bootstrap` sentinel,
+ * which no authorized Org set contains, so every renderer-originated
+ * envelope would be dropped at the transport org filter. `orgId` is a
+ * denormalized routing field the host owns; stamping the authoritative
+ * value here — before the batch is ever persisted or forwarded —
+ * completes the mint rather than rewriting history.
+ *
+ * Only `oh.sync.apply` (renderer→host) reaches this path. Peer-inbound
+ * envelopes ride {@link applyInboundMutationBatch}, so their historical
+ * Org context is left untouched.
+ */
+export function restampApplyOrgIds(request: SyncApplyRequest): SyncApplyRequest {
+  if (request.batch.mutations.length === 0) return request;
+  return {
+    ...request,
+    batch: {
+      ...request.batch,
+      mutations: request.batch.mutations.map((env) => ({
+        ...env,
+        orgId: resolveWorkspaceOrgId(env.workspaceId),
+      })),
+    },
+  };
+}
+
 const SYNC_SNAPSHOT_DISPATCH: Record<string, (workspaceId?: string) => { entries: unknown[] }> = {
   'oh.sync.snapshotRules': (ws) => ({ entries: snapshotRulePostStates(ws) }),
   'oh.sync.snapshotEnvironments': (ws) => ({ entries: snapshotEnvironmentPostStates(ws) }),
@@ -320,7 +353,7 @@ export function dispatchSyncRpc(message: Record<string, unknown>): SyncRpcResult
   }
 
   if (type === 'oh.sync.apply') {
-    const request = message as unknown as SyncApplyRequest;
+    const request = restampApplyOrgIds(message as unknown as SyncApplyRequest);
     const promise = applySyncRequest(request).catch((err: Error): SyncApplyResponse => {
       logger.info('SyncRpc', `oh.sync.apply rejected: ${err.message}`);
       // Transport-level error surfaces through the same SyncApplyResponse
