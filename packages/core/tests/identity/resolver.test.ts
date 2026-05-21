@@ -22,6 +22,7 @@ import {
   authorizedOrgIds,
   canPublishWorkspace,
   clearIdentitySnapshot,
+  consumedOrgIds,
   ensureSyntheticIdentity,
   ensureWorkspaceRoleAssignments,
   getIdentitySnapshot,
@@ -36,7 +37,6 @@ import type {
   Org,
   OrgMembership,
   Principal,
-  SyntheticIdentityRecord,
   User,
   WorkspaceRoleAssignment,
 } from '../../src/types';
@@ -270,6 +270,24 @@ describe('authorizedOrgIds', () => {
     const joinedB = '01900000-cccc-7000-8000-000000000002';
     const snap = makeSnapshot({ extraOrgIds: [joinedA, joinedB] });
     expect(authorizedOrgIds(snap)).toEqual(new Set([snap.user.homeOrgId, joinedA, joinedB]));
+  });
+});
+
+describe('consumedOrgIds (U6.1 — outbound tenancy allow-set)', () => {
+  it('returns the empty set for a null snapshot', () => {
+    expect([...consumedOrgIds(null)]).toEqual([]);
+  });
+
+  it('returns the empty set for a fresh V5 install (only the home Org — nothing consumed)', () => {
+    expect([...consumedOrgIds(makeSnapshot())]).toEqual([]);
+  });
+
+  it('returns every joined Org but never the home Org', () => {
+    const joinedA = '01900000-cccc-7000-8000-000000000001';
+    const joinedB = '01900000-cccc-7000-8000-000000000002';
+    const snap = makeSnapshot({ extraOrgIds: [joinedA, joinedB] });
+    expect(consumedOrgIds(snap)).toEqual(new Set([joinedA, joinedB]));
+    expect(consumedOrgIds(snap).has(snap.user.homeOrgId)).toBe(false);
   });
 });
 

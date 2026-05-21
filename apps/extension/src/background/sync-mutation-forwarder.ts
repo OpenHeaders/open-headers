@@ -6,16 +6,19 @@
  *   1. The oracle's `broadcastSyncEvent` host hook fires per committed
  *      envelope (see `background.ts`).
  *   2. The hook calls {@link forwardMutationToBackend}.
- *   3. {@link forwardMutationToBackend} consults the configurable
- *      {@link shouldForwardMutation} predicate (C11 echo guard), then
- *      writes the envelope to the backend WS via
- *      `sendViaWebSocket`. On failure, the envelope is enqueued in
- *      the persistent pending-out queue (C13).
+ *   3. {@link forwardMutationToBackend} runs the envelope through the
+ *      shared outbound transport gate (`evaluateOutboundEnvelope` —
+ *      echo guard / consumed-Org tenancy / `workspace.write` authz),
+ *      then writes it to the backend WS via `sendViaWebSocket`. On
+ *      send failure the envelope is enqueued in the persistent
+ *      pending-out queue (C13).
  *
  * Reconnect-flush ({@link flushPendingOutToBackend}, C15) drains the
- * queue in HLC order, re-sends each envelope, and acks on success.
- * Wire-side dedup (C11) makes the replay safe even if the backend
- * already received the envelope before the disconnect.
+ * queue in HLC order, re-runs the same gate, re-sends each allowed
+ * envelope, and acks on success. An envelope the gate now withholds
+ * (echo / own-Org / revoked privilege) is ack-dropped rather than
+ * re-flushed forever. Wire-side dedup (C11) makes the replay safe even
+ * if the backend already received the envelope before the disconnect.
  *
  * **Threading.** `broadcastSyncEvent` fires synchronously from
  * applies, but enqueue + flush are async. The forwarder uses a
@@ -24,37 +27,15 @@
  * stepping on each other across reconnect storms.
  */
 
-import { DEFAULT_REMOTE_ID, prunePendingOutByPeerVector } from '@openheaders/oracle/sync';
+import { SYNC_MUTATION_TYPE, type SyncMutationMessage } from '@openheaders/core/protocol';
 import type { StateVector } from '@openheaders/core/sync';
-import {
-  SYNC_MUTATION_TYPE,
-  type SyncMutationMessage,
-} from '@openheaders/core/protocol';
-import {
-  emitAuditEntry,
-  getIdentitySnapshot,
-  hasCapability,
-} from '@openheaders/core/identity';
-import type { OracleSyncBroadcastEvent } from '@openheaders/oracle/sync';
-import type { PendingOutQueue } from '@openheaders/oracle/sync';
+import type { OracleSyncBroadcastEvent, PendingOutQueue } from '@openheaders/oracle/sync';
+import { DEFAULT_REMOTE_ID, evaluateOutboundEnvelope, prunePendingOutByPeerVector } from '@openheaders/oracle/sync';
 
 import { logger } from '@utils/logger';
 import { isWebSocketConnected, sendViaWebSocket } from './websocket';
 
 const SCOPE = 'SyncForwarder';
-
-export type ShouldForwardMutation = (event: OracleSyncBroadcastEvent) => boolean;
-
-let shouldForward: ShouldForwardMutation = () => true;
-
-/**
- * Swap the predicate used by {@link forwardMutationToBackend}. The
- * C11 dedup layer calls this at module-load to install the
- * seen-from-peer filter.
- */
-export function setShouldForwardMutation(predicate: ShouldForwardMutation): void {
-  shouldForward = predicate;
-}
 
 let pendingQueue: PendingOutQueue | null = null;
 
@@ -80,35 +61,17 @@ function envelopeToFrame(event: OracleSyncBroadcastEvent): SyncMutationMessage {
   };
 }
 
-/**
- * Per-envelope SW→peer gate (Phase U2.3). The local user must hold
- * `workspace.write` on the envelope's workspaceId before the SW
- * forwards the envelope upstream. Synthetic LocalAdmin always allows;
- * post-promotion this becomes the real WRA check.
- *
- * Deny is silent + logged — the envelope was already committed locally
- * (this gate runs *after* the local oracle's apply), so denying simply
- * prevents wire propagation. The audit entry is the forensic record.
- */
-function isForwardAllowed(workspaceId: string): boolean {
-  const snapshot = getIdentitySnapshot();
-  const decision = hasCapability(snapshot, 'workspace.write', { workspaceId });
-  emitAuditEntry({
-    actorUserId: snapshot?.user.id ?? 'unknown',
-    capability: 'workspace.write',
-    workspaceId,
-    decision,
-  });
-  if (!decision.allow) {
-    logger.warn(SCOPE, `outbound envelope dropped: ${decision.reason ?? 'denied'} on ws ${workspaceId}`);
-    return false;
-  }
-  return true;
-}
-
 export function forwardMutationToBackend(event: OracleSyncBroadcastEvent): void {
-  if (!shouldForward(event)) return;
-  if (!isForwardAllowed(event.envelope.workspaceId)) return;
+  const verdict = evaluateOutboundEnvelope(event.envelope);
+  if (!verdict.allow) {
+    // Echo drops are high-frequency and benign — stay silent. Tenancy +
+    // authz drops are rarer and worth a debug line; the gate already
+    // audits the authz decision.
+    if (verdict.layer !== 'echo') {
+      logger.debug(SCOPE, `outbound envelope withheld (${verdict.layer}): ${verdict.reason ?? ''}`);
+    }
+    return;
+  }
   const frame = envelopeToFrame(event);
   const sent = sendViaWebSocket(frame as unknown as Record<string, unknown>);
   if (sent) return;
@@ -145,10 +108,12 @@ export function flushPendingOutToBackend(): Promise<void> {
       const acked: string[] = [];
       for await (const env of pendingQueue.drain(DEFAULT_REMOTE_ID)) {
         if (!isWebSocketConnected()) break;
-        if (!isForwardAllowed(env.workspaceId)) {
-          // Privilege revoked between enqueue and flush. Ack to drop
-          // the envelope from the queue rather than re-flushing
-          // forever; the audit log already records the deny.
+        const verdict = evaluateOutboundEnvelope(env);
+        if (!verdict.allow) {
+          // The gate now withholds this envelope — it echoes a frame the
+          // backend already sent, its Org is no longer consumed, or
+          // `workspace.write` was revoked between enqueue and flush. Ack
+          // to drop it from the queue rather than re-flushing forever.
           acked.push(env.mutationId);
           continue;
         }
@@ -194,7 +159,6 @@ export function __getDroppedNoQueueCount(): number {
 
 /** Test-only — reset internal counters between cases. */
 export function __resetMutationForwarderForTests(): void {
-  shouldForward = () => true;
   pendingQueue = null;
   droppedNoQueue = 0;
   loggedDropOnce = false;

@@ -139,6 +139,33 @@ export function authorizedOrgIds(snapshot: IdentitySnapshot | null): ReadonlySet
   return new Set(snapshot.orgs.keys());
 }
 
+/**
+ * The subset of {@link authorizedOrgIds} this identity *consumes* from a
+ * joined backend — every authorized Org minus the identity's own home Org
+ * (UNIFIED_ORACLE_MODEL.md §6.5, Phase U6).
+ *
+ * A fresh V5 install carries only its synthetic home Org, so this set is
+ * empty — nothing is consumed, nothing syncs down. After a join (U5.2)
+ * the backend's Org folds into `snapshot.orgs`; it is authorized but not
+ * the home Org, so it appears here.
+ *
+ * This is the Phase U6 outbound filter's allow-set: the joiner emits an
+ * envelope onto the wire only when its `orgId` is a consumed Org. Own-Org
+ * envelopes never go up (the backend would drop them anyway — U6 stops
+ * the wasteful send at the source).
+ *
+ * Pre-bootstrap / null snapshot → empty set.
+ */
+export function consumedOrgIds(snapshot: IdentitySnapshot | null): ReadonlySet<string> {
+  if (!snapshot) return new Set();
+  const homeOrgId = snapshot.user.homeOrgId;
+  const consumed = new Set<string>();
+  for (const orgId of snapshot.orgs.keys()) {
+    if (orgId !== homeOrgId) consumed.add(orgId);
+  }
+  return consumed;
+}
+
 /** Inputs for {@link canPublishWorkspace} — the workspace + the Org to publish into. */
 export interface PublishGateContext {
   /** The workspace whose `orgId` would be re-homed. */

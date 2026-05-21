@@ -2,11 +2,15 @@
  * Phase C C7 / C15 — outbound mutation forwarder + reconnect-flush.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
 import { SYNC_MUTATION_TYPE } from '@openheaders/core/protocol';
-import { DEFAULT_REMOTE_ID, InMemoryPendingOutQueue } from '@openheaders/oracle/sync';
 import type { OracleSyncBroadcastEvent } from '@openheaders/oracle/sync';
+import {
+  __resetOutboundGateForTests,
+  DEFAULT_REMOTE_ID,
+  InMemoryPendingOutQueue,
+  setOutboundEchoGuard,
+} from '@openheaders/oracle/sync';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const sendMock = vi.fn<(data: Record<string, unknown>) => boolean>(() => true);
 const isConnectedMock = vi.fn<() => boolean>(() => true);
@@ -26,9 +30,14 @@ import {
   flushPendingOutToBackend,
   forwardMutationToBackend,
   setPendingOutQueue,
-  setShouldForwardMutation,
 } from '../../src/background/sync-mutation-forwarder';
 import { installSyntheticIdentityForTests } from './sync/_identity-test-setup';
+
+// Every test envelope is stamped `orgId: 'org-test'`; the outbound gate
+// only forwards envelopes whose Org is *consumed* (a joined backend's
+// Org). Joining `org-test` puts it in the consumed set so the forward /
+// flush mechanics under test aren't tenancy-filtered away.
+const CONSUMED_TEST_ORG = { id: 'org-test', name: 'Test Backend Org', isSynthetic: false };
 
 const event = (overrides: Partial<OracleSyncBroadcastEvent> = {}): OracleSyncBroadcastEvent =>
   ({
@@ -51,16 +60,18 @@ const eventWith = (mutationId: string, ms: number): OracleSyncBroadcastEvent =>
 let teardownIdentity: () => void = () => undefined;
 
 beforeEach(async () => {
-  teardownIdentity = await installSyntheticIdentityForTests([]);
+  teardownIdentity = await installSyntheticIdentityForTests([], [CONSUMED_TEST_ORG]);
   sendMock.mockReset();
   sendMock.mockReturnValue(true);
   isConnectedMock.mockReset();
   isConnectedMock.mockReturnValue(true);
   __resetMutationForwarderForTests();
+  __resetOutboundGateForTests();
 });
 
 afterEach(() => {
   __resetMutationForwarderForTests();
+  __resetOutboundGateForTests();
   teardownIdentity();
 });
 
@@ -74,9 +85,14 @@ describe('forwardMutationToBackend', () => {
     expect((sent.envelope as { mutationId: string }).mutationId).toBe('m-1');
   });
 
-  it('respects the shouldForward predicate (C11 plug-in seam)', () => {
-    setShouldForwardMutation(() => false);
+  it('skips an envelope the outbound gate flags as a wire echo (C11)', () => {
+    setOutboundEchoGuard(() => true);
     forwardMutationToBackend(event());
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it('withholds an envelope whose Org is not consumed (U6.2 tenancy filter)', () => {
+    forwardMutationToBackend(event({ envelope: { ...event().envelope, orgId: 'org-home-not-consumed' } }));
     expect(sendMock).not.toHaveBeenCalled();
   });
 
@@ -120,7 +136,7 @@ describe('flushPendingOutToBackend', () => {
 
     const orderedSentIds = sendMock.mock.calls
       .filter((c) => (c[0]! as { type?: string }).type === SYNC_MUTATION_TYPE)
-      .map((c) => ((c[0]! as { envelope: { mutationId: string } }).envelope.mutationId));
+      .map((c) => (c[0]! as { envelope: { mutationId: string } }).envelope.mutationId);
     expect(orderedSentIds).toEqual(['m-1', 'm-2', 'm-3']);
     expect(await queue.size(DEFAULT_REMOTE_ID)).toBe(0);
   });

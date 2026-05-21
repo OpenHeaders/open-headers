@@ -75,6 +75,7 @@ import {
   readWorkspaceStateVector,
   setActivityMuteStore,
   setOracleHostHooks,
+  setOutboundEchoGuard,
   subscribeActivityMuteChanges,
 } from '@openheaders/oracle/sync';
 import { getOrCreateWorkspaceService, releaseWorkspaceService } from '@openheaders/oracle/sync/service';
@@ -100,17 +101,17 @@ import {
   flushPendingOutToBackend,
   forwardMutationToBackend,
   setPendingOutQueue,
-  setShouldForwardMutation,
 } from './sync-mutation-forwarder';
 import { handleIncomingMutationFrame, hasRecentlyApplied } from './sync-mutation-receiver';
 import { installHandshakeStatusReporter } from './sync-status-reporter';
 import { registerInboundFrameHandler, subscribeOnWebSocketClose, subscribeOnWebSocketOpen } from './websocket';
 
 // Don't bounce envelopes that arrived from the backend back to it.
-// The receiver records every applied mutationId; the forwarder skips
-// re-broadcasting any envelope already in that set. Pairs with the
-// receiver's own seen-set dedup — together they break the echo loop.
-setShouldForwardMutation((event) => !hasRecentlyApplied(event.envelope.mutationId));
+// The receiver records every applied mutationId; the outbound gate's
+// echo layer skips re-broadcasting any envelope already in that set.
+// Pairs with the receiver's own seen-set dedup — together they break
+// the echo loop.
+setOutboundEchoGuard(hasRecentlyApplied);
 
 // Persistent pending-out queue (C13) so offline edits survive the
 // disconnect window. Drained on WS reconnect (C15) in HLC order;

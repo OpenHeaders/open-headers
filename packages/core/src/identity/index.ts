@@ -82,6 +82,7 @@ export {
   type CapabilityDecision,
   type CapabilityDenyReason,
   canPublishWorkspace,
+  consumedOrgIds,
   hasCapability,
   type IdentitySnapshot,
   type PublishGateContext,

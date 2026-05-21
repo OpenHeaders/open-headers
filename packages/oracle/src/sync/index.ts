@@ -104,6 +104,13 @@ export {
   applyInboundMutationEnvelope,
   hasRecentlyApplied,
 } from './mutation-stream-bridge';
+export {
+  __resetOutboundGateForTests,
+  evaluateOutboundEnvelope,
+  type OutboundDropLayer,
+  type OutboundVerdict,
+  setOutboundEchoGuard,
+} from './outbound-gate';
 export { type PrunePendingOutResult, prunePendingOutByPeerVector } from './pending-out-prune';
 export {
   DEFAULT_REMOTE_ID,

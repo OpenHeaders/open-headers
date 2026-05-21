@@ -12,9 +12,11 @@ import {
   clearIdentitySnapshot,
   ensureSyntheticIdentity,
   ensureWorkspaceRoleAssignments,
+  recordJoinedOrg,
   refreshIdentitySnapshotFromHostStorage,
 } from '@openheaders/core/identity';
-import { setHostStorage, type HostStorage } from '@openheaders/core/storage';
+import { type HostStorage, setHostStorage } from '@openheaders/core/storage';
+import type { Org } from '@openheaders/core/types';
 
 const NOW = '2026-05-19T00:00:00.000Z';
 
@@ -43,12 +45,21 @@ function createHostStorageFake(): HostStorage {
   };
 }
 
-export async function installSyntheticIdentityForTests(workspaceIds: readonly string[] = []): Promise<() => void> {
+export async function installSyntheticIdentityForTests(
+  workspaceIds: readonly string[] = [],
+  joinedOrgs: readonly Org[] = [],
+): Promise<() => void> {
   clearIdentitySnapshot();
   setHostStorage(createHostStorageFake());
   await ensureSyntheticIdentity({ now: NOW });
   if (workspaceIds.length > 0) {
     await ensureWorkspaceRoleAssignments([...workspaceIds]);
+  }
+  // Phase U5.2 — fold in Orgs joined from other backends so tests can
+  // exercise the consumed-Org transport paths (outbound gate, receiver
+  // filter). `recordJoinedOrg` rebuilds the snapshot on each call.
+  for (const org of joinedOrgs) {
+    await recordJoinedOrg(org);
   }
   await refreshIdentitySnapshotFromHostStorage();
   return () => {
