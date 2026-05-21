@@ -53,6 +53,7 @@ import { createWorkspaceCoordRunner, type WorkspaceCoordRunner } from './workspa
 
 interface GlobalServiceState {
   oracle: EntityOracle;
+  log: MutationLog;
   broadcast: InMemoryBroadcast;
   intents: PendingIntents;
   caches: EntityCacheLike[];
@@ -132,6 +133,15 @@ export function getGlobalOracle(): EntityOracle | null {
   return state?.oracle ?? null;
 }
 
+/**
+ * The global-scope append-only mutation log. The handshake readers
+ * fold + stream this for the `__global__` workspace-list scope (U6.3).
+ * Returns null before the service is initialized.
+ */
+export function getGlobalMutationLog(): MutationLog | null {
+  return state?.log ?? null;
+}
+
 /** Mint a `MutatorContext` for SW-internal global-scope emissions. */
 export function nextGlobalSwContext(opts?: Parameters<SwContextHandle['next']>[0]) {
   if (!state) {
@@ -208,6 +218,7 @@ function wire(deps: WireDeps): GlobalServiceState {
   const unsubscribeBroadcast = wireBroadcastToSink(broadcast, deps.sink, projector);
   return {
     oracle,
+    log: deps.log,
     broadcast,
     intents: deps.intents,
     caches,

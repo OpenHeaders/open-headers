@@ -44,7 +44,7 @@ import {
   SNAPSHOT_SCHEMA_VERSION,
   type WorkspaceSnapshot,
 } from '@openheaders/core/protocol';
-import { resolveWorkspaceOrgId } from '@openheaders/core/sync';
+import { EXTENSION_WORKSPACE_GLOBAL_SCOPE, resolveWorkspaceOrgId } from '@openheaders/core/sync';
 
 import {
   getOrCreateWorkspaceService,
@@ -76,6 +76,10 @@ function isWorkspaceAuthorized(workspaceId: string): boolean {
 }
 
 export async function buildSnapshotForWorkspace(workspaceId: string): Promise<WorkspaceSnapshot | null> {
+  // The `__global__` workspace-list scope syncs delta-only —
+  // `WorkspaceSnapshot` deliberately excludes `extensionWorkspace`
+  // (see protocol/snapshot.ts). Returning null forces the delta path.
+  if (workspaceId === EXTENSION_WORKSPACE_GLOBAL_SCOPE) return null;
   if (!isWorkspaceAuthorized(workspaceId)) return null;
   const svc = getOrCreateWorkspaceService(workspaceId);
   try {
@@ -106,6 +110,7 @@ export function buildSnapshotFromOracle(
   workspaceId: string,
   takenAtHlc: WorkspaceSnapshot['takenAtHlc'],
 ): WorkspaceSnapshot | null {
+  if (workspaceId === EXTENSION_WORKSPACE_GLOBAL_SCOPE) return null;
   if (!isWorkspaceAuthorized(workspaceId)) return null;
   return {
     schemaVersion: SNAPSHOT_SCHEMA_VERSION,

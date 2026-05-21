@@ -43,7 +43,7 @@ import { authorizedOrgIds, getIdentitySnapshot } from '@openheaders/core/identit
 import { filterEnvelopesByOrgAsync, foldStateVector, type StateVector } from '@openheaders/core/sync';
 
 import type { MutationLog } from './mutation-log';
-import { getOrCreateWorkspaceService, releaseWorkspaceService } from './service';
+import { acquireScopeLog } from './scope-log-accessor';
 
 export async function computeStateVectorFromLog(log: MutationLog): Promise<StateVector> {
   const authorized = authorizedOrgIds(getIdentitySnapshot());
@@ -55,21 +55,22 @@ export async function computeStateVectorFromLog(log: MutationLog): Promise<State
 }
 
 /**
- * Acquire the workspace service, await its hydration, fold its
- * mutation log into a state vector, and release. Safe to call from
- * any host that has booted the sync engine.
+ * Acquire the scope's log (per-workspace or the `__global__`
+ * workspace-list scope), await hydration, fold into a state vector,
+ * and release. Safe to call from any host that has booted the sync
+ * engine.
  *
  * Mirrors the acquire/release contract used by `applySyncRequest`:
  * the refcount bump survives until the read completes, so a
- * concurrent {@link releaseWorkspaceService} from another caller
- * can't tear the service down mid-fold.
+ * concurrent release from another caller can't tear the service down
+ * mid-fold.
  */
 export async function readWorkspaceStateVector(workspaceId: string): Promise<StateVector> {
-  const svc = getOrCreateWorkspaceService(workspaceId);
+  const handle = acquireScopeLog(workspaceId);
   try {
-    await svc.hydrated;
-    return await computeStateVectorFromLog(svc.log);
+    await handle.hydrated;
+    return await computeStateVectorFromLog(handle.log);
   } finally {
-    releaseWorkspaceService(workspaceId);
+    handle.release();
   }
 }

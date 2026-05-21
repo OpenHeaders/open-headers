@@ -22,7 +22,7 @@ import {
 } from '@openheaders/core/sync';
 
 import type { MutationLog } from './mutation-log';
-import { getOrCreateWorkspaceService, releaseWorkspaceService } from './service';
+import { acquireScopeLog } from './scope-log-accessor';
 
 export interface ComputeSnapshotThresholdInputsOptions {
   withByteEstimate?: boolean;
@@ -53,11 +53,11 @@ export async function computeSnapshotThresholdInputsForWorkspace(
   peerVector: StateVector,
   options: ComputeSnapshotThresholdInputsOptions = {},
 ): Promise<SnapshotThresholdInputs> {
-  const svc = getOrCreateWorkspaceService(workspaceId);
+  const handle = acquireScopeLog(workspaceId);
   try {
-    await svc.hydrated;
-    return await computeSnapshotThresholdInputsFromLog(svc.log, peerVector, options);
+    await handle.hydrated;
+    return await computeSnapshotThresholdInputsFromLog(handle.log, peerVector, options);
   } finally {
-    releaseWorkspaceService(workspaceId);
+    handle.release();
   }
 }

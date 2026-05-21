@@ -44,7 +44,7 @@ import {
 } from '@openheaders/core/sync';
 
 import type { MutationLog } from './mutation-log';
-import { getOrCreateWorkspaceService, releaseWorkspaceService } from './service';
+import { acquireScopeLog } from './scope-log-accessor';
 
 export async function* readDeltaStreamFromLog(
   log: MutationLog,
@@ -61,11 +61,11 @@ export async function* readWorkspaceDeltaStream(
   workspaceId: string,
   peer: StateVector,
 ): AsyncGenerator<MutationEnvelope> {
-  const svc = getOrCreateWorkspaceService(workspaceId);
+  const handle = acquireScopeLog(workspaceId);
   try {
-    await svc.hydrated;
-    yield* readDeltaStreamFromLog(svc.log, peer);
+    await handle.hydrated;
+    yield* readDeltaStreamFromLog(handle.log, peer);
   } finally {
-    releaseWorkspaceService(workspaceId);
+    handle.release();
   }
 }
