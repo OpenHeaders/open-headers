@@ -17,9 +17,9 @@
 
 import { generateUid } from '../../../utils/workspace';
 import type { MutationBody } from '../../envelope';
-import { mintBatch } from './envelope';
-import { recompileDnrIntent } from './side-effects';
 import type { MutatorContext, MutatorIntent } from '../types';
+import { mintBatch } from './envelope';
+import { deriveRuleSideEffects } from './side-effects';
 import { RULE_ENTITY_TYPE } from './types';
 
 export interface RuleConditionLike {
@@ -50,10 +50,8 @@ export function addCondition(ctx: MutatorContext, args: AddConditionArgs): Mutat
   const bodies: MutationBody[] = [
     { kind: 'addToSet', type: RULE_ENTITY_TYPE, id: args.ruleUid, path: 'conditions', itemId, item: args.condition },
   ];
-  return {
-    batch: mintBatch(ctx, bodies),
-    sideEffects: [recompileDnrIntent(args.ruleUid, ctx.hlc)],
-  };
+  const batch = mintBatch(ctx, bodies);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveRuleSideEffects) };
 }
 
 export interface RemoveConditionArgs {
@@ -62,18 +60,16 @@ export interface RemoveConditionArgs {
 }
 
 export function removeCondition(ctx: MutatorContext, args: RemoveConditionArgs): MutatorIntent {
-  return {
-    batch: mintBatch(ctx, [
-      {
-        kind: 'removeFromSet',
-        type: RULE_ENTITY_TYPE,
-        id: args.ruleUid,
-        path: 'conditions',
-        itemId: args.itemId,
-      },
-    ]),
-    sideEffects: [recompileDnrIntent(args.ruleUid, ctx.hlc)],
-  };
+  const batch = mintBatch(ctx, [
+    {
+      kind: 'removeFromSet',
+      type: RULE_ENTITY_TYPE,
+      id: args.ruleUid,
+      path: 'conditions',
+      itemId: args.itemId,
+    },
+  ]);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveRuleSideEffects) };
 }
 
 export interface SetConditionFieldArgs {
@@ -84,17 +80,15 @@ export interface SetConditionFieldArgs {
 }
 
 export function setConditionField(ctx: MutatorContext, args: SetConditionFieldArgs): MutatorIntent {
-  return {
-    batch: mintBatch(ctx, [
-      {
-        kind: 'addToSet',
-        type: RULE_ENTITY_TYPE,
-        id: args.ruleUid,
-        path: 'conditions',
-        itemId: args.itemId,
-        item: args.condition,
-      },
-    ]),
-    sideEffects: [recompileDnrIntent(args.ruleUid, ctx.hlc)],
-  };
+  const batch = mintBatch(ctx, [
+    {
+      kind: 'addToSet',
+      type: RULE_ENTITY_TYPE,
+      id: args.ruleUid,
+      path: 'conditions',
+      itemId: args.itemId,
+      item: args.condition,
+    },
+  ]);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveRuleSideEffects) };
 }

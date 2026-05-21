@@ -28,15 +28,14 @@
  * instead of separate name/value/type fields.
  *
  * Singleton variable scopes (workspace-variables, vault) plug in by
- * binding `entityUid` to a fixed constant in the wrapper and ignoring
- * the uid arg in `makeSideEffects`. Vault-secrets stays parallel because
- * the secret shape includes TOTP variants with non-`{name,value,type}`
- * fields; vault uses its own concrete factory in `vault/secret.ts`.
+ * binding `entityUid` to a fixed constant in the wrapper. Vault-secrets
+ * stays parallel because the secret shape includes TOTP variants with
+ * non-`{name,value,type}` fields; vault uses its own concrete factory
+ * in `vault/secret.ts`.
  */
 
-import type { HLC } from '../../hlc';
-import type { MutationBatch, MutationBody } from '../../envelope';
 import type { Variable } from '../../../types/variable';
+import type { MutationBatch, MutationBody, MutationEnvelope } from '../../envelope';
 import type { MutatorContext, MutatorIntent, SideEffectIntent } from '../types';
 
 export type VariableType = 'default' | 'secret';
@@ -44,15 +43,18 @@ export type VariableType = 'default' | 'secret';
 /**
  * Per-catalog binding. The shared factory closes over an `entityType` /
  * `varsPath` constant pair, the catalog's `mintBatch` (carries its own
- * mutatorVersion), and a side-effect intent factory keyed on the entity
- * uid (e.g. `invalidateResolverIntent`).
+ * mutatorVersion), and the catalog's pure `derive*SideEffects` function.
+ *
+ * Side effects are derived from the MINTED envelopes via the same
+ * function `deriveSideEffectsForEnvelope` runs on peer-received
+ * envelopes — so mint-side and receive-side cannot drift.
  */
 export interface VariableMutatorBindings {
   entityType: string;
   varsPath: string;
   mintBatch: (ctx: MutatorContext, bodies: MutationBody[]) => MutationBatch;
-  /** Side effects to fire alongside every variable-write batch. */
-  makeSideEffects: (entityUid: string, hlc: HLC) => SideEffectIntent[];
+  /** The catalog's pure envelope → side-effect derivation. */
+  deriveSideEffects: (envelope: MutationEnvelope) => SideEffectIntent[];
 }
 
 export interface SetVariableInput {
@@ -80,7 +82,7 @@ export interface VariableMutators {
 }
 
 export function makeVariableMutators(bindings: VariableMutatorBindings): VariableMutators {
-  const { entityType, varsPath, mintBatch, makeSideEffects } = bindings;
+  const { entityType, varsPath, mintBatch, deriveSideEffects } = bindings;
 
   return {
     setVariable(ctx, input) {
@@ -93,10 +95,8 @@ export function makeVariableMutators(bindings: VariableMutatorBindings): Variabl
         item: input.variable,
         orderKey: input.orderKey,
       };
-      return {
-        batch: mintBatch(ctx, [body]),
-        sideEffects: makeSideEffects(input.entityUid, ctx.hlc),
-      };
+      const batch = mintBatch(ctx, [body]);
+      return { batch, sideEffects: batch.mutations.flatMap(deriveSideEffects) };
     },
     removeVariable(ctx, input) {
       const body: MutationBody = {
@@ -106,10 +106,8 @@ export function makeVariableMutators(bindings: VariableMutatorBindings): Variabl
         path: varsPath,
         itemId: input.uid,
       };
-      return {
-        batch: mintBatch(ctx, [body]),
-        sideEffects: makeSideEffects(input.entityUid, ctx.hlc),
-      };
+      const batch = mintBatch(ctx, [body]);
+      return { batch, sideEffects: batch.mutations.flatMap(deriveSideEffects) };
     },
   };
 }

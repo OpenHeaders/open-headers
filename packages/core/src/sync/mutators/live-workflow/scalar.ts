@@ -15,7 +15,7 @@
 
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
-import { invalidateResolverIntent } from './side-effects';
+import { deriveLiveWorkflowSideEffects } from './side-effects';
 import { LIVE_WORKFLOW_ENTITY_TYPE } from './types';
 
 /**
@@ -40,22 +40,17 @@ export interface SetLiveWorkflowFieldArgs {
   value: unknown;
 }
 
-export function setLiveWorkflowField(
-  ctx: MutatorContext,
-  args: SetLiveWorkflowFieldArgs,
-): MutatorIntent {
-  return {
-    batch: mintBatch(ctx, [
-      {
-        kind: 'setField',
-        type: LIVE_WORKFLOW_ENTITY_TYPE,
-        id: args.workflowUid,
-        path: args.path,
-        value: args.value,
-      },
-    ]),
-    sideEffects: [invalidateResolverIntent(args.workflowUid, ctx.hlc)],
-  };
+export function setLiveWorkflowField(ctx: MutatorContext, args: SetLiveWorkflowFieldArgs): MutatorIntent {
+  const batch = mintBatch(ctx, [
+    {
+      kind: 'setField',
+      type: LIVE_WORKFLOW_ENTITY_TYPE,
+      id: args.workflowUid,
+      path: args.path,
+      value: args.value,
+    },
+  ]);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveLiveWorkflowSideEffects) };
 }
 
 export interface UnsetLiveWorkflowFieldArgs {
@@ -63,19 +58,14 @@ export interface UnsetLiveWorkflowFieldArgs {
   path: LiveWorkflowScalarPath;
 }
 
-export function unsetLiveWorkflowField(
-  ctx: MutatorContext,
-  args: UnsetLiveWorkflowFieldArgs,
-): MutatorIntent {
-  return {
-    batch: mintBatch(ctx, [
-      {
-        kind: 'unsetField',
-        type: LIVE_WORKFLOW_ENTITY_TYPE,
-        id: args.workflowUid,
-        path: args.path,
-      },
-    ]),
-    sideEffects: [invalidateResolverIntent(args.workflowUid, ctx.hlc)],
-  };
+export function unsetLiveWorkflowField(ctx: MutatorContext, args: UnsetLiveWorkflowFieldArgs): MutatorIntent {
+  const batch = mintBatch(ctx, [
+    {
+      kind: 'unsetField',
+      type: LIVE_WORKFLOW_ENTITY_TYPE,
+      id: args.workflowUid,
+      path: args.path,
+    },
+  ]);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveLiveWorkflowSideEffects) };
 }

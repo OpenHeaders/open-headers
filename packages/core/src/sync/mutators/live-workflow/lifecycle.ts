@@ -21,7 +21,7 @@
 
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
-import { invalidateResolverIntent } from './side-effects';
+import { deriveLiveWorkflowSideEffects } from './side-effects';
 import { LIVE_WORKFLOW_ENTITY_TYPE } from './types';
 
 export interface CreateLiveWorkflowArgs {
@@ -30,35 +30,23 @@ export interface CreateLiveWorkflowArgs {
   payload: unknown;
 }
 
-export function createLiveWorkflow(
-  ctx: MutatorContext,
-  args: CreateLiveWorkflowArgs,
-): MutatorIntent {
-  return {
-    batch: mintBatch(ctx, [
-      {
-        kind: 'create',
-        type: LIVE_WORKFLOW_ENTITY_TYPE,
-        id: args.workflowUid,
-        payload: args.payload,
-      },
-    ]),
-    sideEffects: [invalidateResolverIntent(args.workflowUid, ctx.hlc)],
-  };
+export function createLiveWorkflow(ctx: MutatorContext, args: CreateLiveWorkflowArgs): MutatorIntent {
+  const batch = mintBatch(ctx, [
+    {
+      kind: 'create',
+      type: LIVE_WORKFLOW_ENTITY_TYPE,
+      id: args.workflowUid,
+      payload: args.payload,
+    },
+  ]);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveLiveWorkflowSideEffects) };
 }
 
 export interface DeleteLiveWorkflowArgs {
   workflowUid: string;
 }
 
-export function deleteLiveWorkflow(
-  ctx: MutatorContext,
-  args: DeleteLiveWorkflowArgs,
-): MutatorIntent {
-  return {
-    batch: mintBatch(ctx, [
-      { kind: 'delete', type: LIVE_WORKFLOW_ENTITY_TYPE, id: args.workflowUid },
-    ]),
-    sideEffects: [invalidateResolverIntent(args.workflowUid, ctx.hlc)],
-  };
+export function deleteLiveWorkflow(ctx: MutatorContext, args: DeleteLiveWorkflowArgs): MutatorIntent {
+  const batch = mintBatch(ctx, [{ kind: 'delete', type: LIVE_WORKFLOW_ENTITY_TYPE, id: args.workflowUid }]);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveLiveWorkflowSideEffects) };
 }

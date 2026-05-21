@@ -18,10 +18,10 @@
  */
 
 import type { Variable } from '../../../types/variable';
-import type { MutatorContext, MutatorIntent } from '../types';
 import { makeVariableMutators, type VariableType } from '../shared/variable-mutators';
+import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
-import { invalidateResolverIntent } from './side-effects';
+import { deriveCollectionSideEffects } from './side-effects';
 import { COLLECTION_ENTITY_TYPE, COLLECTION_VARS_PATH } from './types';
 
 export type { VariableType };
@@ -30,7 +30,7 @@ const factories = makeVariableMutators({
   entityType: COLLECTION_ENTITY_TYPE,
   varsPath: COLLECTION_VARS_PATH,
   mintBatch,
-  makeSideEffects: (uid, hlc) => [invalidateResolverIntent(uid, hlc)],
+  deriveSideEffects: deriveCollectionSideEffects,
 });
 
 export interface SetCollectionVarArgs {

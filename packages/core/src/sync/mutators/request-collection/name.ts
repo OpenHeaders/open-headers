@@ -7,6 +7,7 @@
 
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
+import { deriveRequestCollectionSideEffects } from './side-effects';
 import { REQUEST_COLLECTION_ENTITY_TYPE } from './types';
 
 export interface RenameRequestCollectionArgs {
@@ -14,20 +15,15 @@ export interface RenameRequestCollectionArgs {
   name: string;
 }
 
-export function renameRequestCollection(
-  ctx: MutatorContext,
-  args: RenameRequestCollectionArgs,
-): MutatorIntent {
-  return {
-    batch: mintBatch(ctx, [
-      {
-        kind: 'setField',
-        type: REQUEST_COLLECTION_ENTITY_TYPE,
-        id: args.collectionUid,
-        path: 'name',
-        value: args.name,
-      },
-    ]),
-    sideEffects: [],
-  };
+export function renameRequestCollection(ctx: MutatorContext, args: RenameRequestCollectionArgs): MutatorIntent {
+  const batch = mintBatch(ctx, [
+    {
+      kind: 'setField',
+      type: REQUEST_COLLECTION_ENTITY_TYPE,
+      id: args.collectionUid,
+      path: 'name',
+      value: args.name,
+    },
+  ]);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveRequestCollectionSideEffects) };
 }

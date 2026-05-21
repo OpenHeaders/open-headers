@@ -9,6 +9,7 @@
 
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
+import { deriveEnvironmentSideEffects } from './side-effects';
 import { ENVIRONMENT_ENTITY_TYPE } from './types';
 
 export interface RenameEnvironmentArgs {
@@ -16,14 +17,9 @@ export interface RenameEnvironmentArgs {
   name: string;
 }
 
-export function renameEnvironment(
-  ctx: MutatorContext,
-  args: RenameEnvironmentArgs,
-): MutatorIntent {
-  return {
-    batch: mintBatch(ctx, [
-      { kind: 'setField', type: ENVIRONMENT_ENTITY_TYPE, id: args.envId, path: 'name', value: args.name },
-    ]),
-    sideEffects: [],
-  };
+export function renameEnvironment(ctx: MutatorContext, args: RenameEnvironmentArgs): MutatorIntent {
+  const batch = mintBatch(ctx, [
+    { kind: 'setField', type: ENVIRONMENT_ENTITY_TYPE, id: args.envId, path: 'name', value: args.name },
+  ]);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveEnvironmentSideEffects) };
 }

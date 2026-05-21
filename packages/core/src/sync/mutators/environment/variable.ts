@@ -17,7 +17,7 @@ import type { Variable } from '../../../types/variable';
 import { makeVariableMutators, type VariableType } from '../shared/variable-mutators';
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
-import { invalidateResolverIntent } from './side-effects';
+import { deriveEnvironmentSideEffects } from './side-effects';
 import { ENV_VARS_PATH, ENVIRONMENT_ENTITY_TYPE } from './types';
 
 export type { VariableType };
@@ -26,7 +26,7 @@ const factories = makeVariableMutators({
   entityType: ENVIRONMENT_ENTITY_TYPE,
   varsPath: ENV_VARS_PATH,
   mintBatch,
-  makeSideEffects: (uid, hlc) => [invalidateResolverIntent(uid, hlc)],
+  deriveSideEffects: deriveEnvironmentSideEffects,
 });
 
 export interface SetEnvVarArgs {

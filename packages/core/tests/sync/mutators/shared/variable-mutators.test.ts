@@ -1,11 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { MutationBatch, MutationBody } from '../../../../src/sync';
+import type { MutationBatch, MutationBody, MutationEnvelope } from '../../../../src/sync';
+import { type MutatorContext, makeVariableMutators, type SideEffectIntent } from '../../../../src/sync';
 import type { Variable } from '../../../../src/types/variable';
-import {
-  type MutatorContext,
-  type SideEffectIntent,
-  makeVariableMutators,
-} from '../../../../src/sync';
 
 const mintBatch = (ctx: MutatorContext, bodies: MutationBody[]): MutationBatch => ({
   batchId: ctx.batchId ?? 'test-batch',
@@ -20,15 +16,17 @@ const mintBatch = (ctx: MutatorContext, bodies: MutationBody[]): MutationBatch =
   })),
 });
 
-const makeSideEffects = (uid: string, hlc: { physicalMs: number; logical: number; nodeId: string }): SideEffectIntent[] => [
-  { kind: 'invalidate-test', key: uid, hlc },
+// Stand-in for a catalog's `derive*SideEffects` — keyed off the minted
+// envelope, the same shape the real derivations use.
+const deriveSideEffects = (envelope: MutationEnvelope): SideEffectIntent[] => [
+  { kind: 'invalidate-test', key: envelope.body.id, hlc: envelope.hlc },
 ];
 
 const factories = makeVariableMutators({
   entityType: 'test-entity',
   varsPath: 'variables',
   mintBatch,
-  makeSideEffects,
+  deriveSideEffects,
 });
 
 const ctx = (overrides: Partial<MutatorContext> = {}): MutatorContext => ({

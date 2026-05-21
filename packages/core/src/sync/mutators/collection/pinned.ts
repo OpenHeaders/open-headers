@@ -19,6 +19,7 @@
 import type { MutationBody } from '../../envelope';
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
+import { deriveCollectionSideEffects } from './side-effects';
 import { COLLECTION_ENTITY_TYPE } from './types';
 
 export interface SetPinnedEnvironmentsArgs {
@@ -27,18 +28,16 @@ export interface SetPinnedEnvironmentsArgs {
 }
 
 export function setPinnedEnvironments(ctx: MutatorContext, args: SetPinnedEnvironmentsArgs): MutatorIntent {
-  return {
-    batch: mintBatch(ctx, [
-      {
-        kind: 'setField',
-        type: COLLECTION_ENTITY_TYPE,
-        id: args.collectionUid,
-        path: 'pinnedEnvironmentIds',
-        value: [...args.pinnedEnvironmentIds],
-      },
-    ]),
-    sideEffects: [],
-  };
+  const batch = mintBatch(ctx, [
+    {
+      kind: 'setField',
+      type: COLLECTION_ENTITY_TYPE,
+      id: args.collectionUid,
+      path: 'pinnedEnvironmentIds',
+      value: [...args.pinnedEnvironmentIds],
+    },
+  ]);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveCollectionSideEffects) };
 }
 
 export interface SetDefaultEnvironmentIdArgs {
@@ -46,22 +45,17 @@ export interface SetDefaultEnvironmentIdArgs {
   defaultEnvironmentId: string | null;
 }
 
-export function setDefaultEnvironmentId(
-  ctx: MutatorContext,
-  args: SetDefaultEnvironmentIdArgs,
-): MutatorIntent {
-  return {
-    batch: mintBatch(ctx, [
-      {
-        kind: 'setField',
-        type: COLLECTION_ENTITY_TYPE,
-        id: args.collectionUid,
-        path: 'defaultEnvironmentId',
-        value: args.defaultEnvironmentId,
-      },
-    ]),
-    sideEffects: [],
-  };
+export function setDefaultEnvironmentId(ctx: MutatorContext, args: SetDefaultEnvironmentIdArgs): MutatorIntent {
+  const batch = mintBatch(ctx, [
+    {
+      kind: 'setField',
+      type: COLLECTION_ENTITY_TYPE,
+      id: args.collectionUid,
+      path: 'defaultEnvironmentId',
+      value: args.defaultEnvironmentId,
+    },
+  ]);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveCollectionSideEffects) };
 }
 
 export interface SetPinnedAndDefaultArgs {
@@ -91,5 +85,6 @@ export function setPinnedAndDefault(ctx: MutatorContext, args: SetPinnedAndDefau
       value: args.defaultEnvironmentId,
     },
   ];
-  return { batch: mintBatch(ctx, bodies), sideEffects: [] };
+  const batch = mintBatch(ctx, bodies);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveCollectionSideEffects) };
 }

@@ -22,7 +22,7 @@
 import type { MutationBody } from '../../envelope';
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
-import { recompileDnrIntent } from './side-effects';
+import { derivePauseMarkersSideEffects } from './side-effects';
 import {
   PAUSE_MARKERS_ENTITY_TYPE,
   PAUSE_MARKERS_ID,
@@ -38,19 +38,17 @@ export interface SetPauseMarkerArgs {
 
 export function setPauseMarker(ctx: MutatorContext, args: SetPauseMarkerArgs): MutatorIntent {
   const item: PauseMarkerSlot = { path: args.path, marker: args.marker };
-  return {
-    batch: mintBatch(ctx, [
-      {
-        kind: 'addToSet',
-        type: PAUSE_MARKERS_ENTITY_TYPE,
-        id: PAUSE_MARKERS_ID,
-        path: PAUSE_MARKERS_PATH,
-        itemId: args.path,
-        item,
-      },
-    ]),
-    sideEffects: [recompileDnrIntent(ctx.hlc)],
-  };
+  const batch = mintBatch(ctx, [
+    {
+      kind: 'addToSet',
+      type: PAUSE_MARKERS_ENTITY_TYPE,
+      id: PAUSE_MARKERS_ID,
+      path: PAUSE_MARKERS_PATH,
+      itemId: args.path,
+      item,
+    },
+  ]);
+  return { batch, sideEffects: batch.mutations.flatMap(derivePauseMarkersSideEffects) };
 }
 
 export interface ClearPauseMarkerArgs {
@@ -58,18 +56,16 @@ export interface ClearPauseMarkerArgs {
 }
 
 export function clearPauseMarker(ctx: MutatorContext, args: ClearPauseMarkerArgs): MutatorIntent {
-  return {
-    batch: mintBatch(ctx, [
-      {
-        kind: 'removeFromSet',
-        type: PAUSE_MARKERS_ENTITY_TYPE,
-        id: PAUSE_MARKERS_ID,
-        path: PAUSE_MARKERS_PATH,
-        itemId: args.path,
-      },
-    ]),
-    sideEffects: [recompileDnrIntent(ctx.hlc)],
-  };
+  const batch = mintBatch(ctx, [
+    {
+      kind: 'removeFromSet',
+      type: PAUSE_MARKERS_ENTITY_TYPE,
+      id: PAUSE_MARKERS_ID,
+      path: PAUSE_MARKERS_PATH,
+      itemId: args.path,
+    },
+  ]);
+  return { batch, sideEffects: batch.mutations.flatMap(derivePauseMarkersSideEffects) };
 }
 
 export interface ReplacePauseMarkersArgs {
@@ -104,11 +100,13 @@ export function replacePauseMarkers(ctx: MutatorContext, args: ReplacePauseMarke
       item,
     });
   }
-  if (bodies.length === 0) return { batch: mintBatch(ctx, []), sideEffects: [] };
-  return {
-    batch: mintBatch(ctx, bodies),
-    sideEffects: [recompileDnrIntent(ctx.hlc)],
-  };
+  // An empty batch derives no intents; a non-empty one derives one
+  // recompile per envelope, all singleton-keyed so the runner
+  // coalesces them. Routing through the derivation keeps mint-side
+  // identical to what `deriveSideEffectsForEnvelope` produces on the
+  // inbound path.
+  const batch = mintBatch(ctx, bodies);
+  return { batch, sideEffects: batch.mutations.flatMap(derivePauseMarkersSideEffects) };
 }
 
 function toMap(

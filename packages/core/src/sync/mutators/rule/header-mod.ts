@@ -21,9 +21,9 @@
 
 import { generateUid } from '../../../utils/workspace';
 import type { MutationBody } from '../../envelope';
-import { mintBatch } from './envelope';
-import { recompileDnrIntent } from './side-effects';
 import type { MutatorContext, MutatorIntent } from '../types';
+import { mintBatch } from './envelope';
+import { deriveRuleSideEffects } from './side-effects';
 import { RULE_ENTITY_TYPE } from './types';
 
 /** Which side of the request lifecycle the mod targets. */
@@ -78,10 +78,8 @@ export function addHeaderMod(ctx: MutatorContext, args: AddHeaderModArgs): Mutat
     },
   ];
 
-  return {
-    batch: mintBatch(ctx, bodies),
-    sideEffects: [recompileDnrIntent(args.ruleUid, ctx.hlc)],
-  };
+  const batch = mintBatch(ctx, bodies);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveRuleSideEffects) };
 }
 
 export interface RemoveHeaderModArgs {
@@ -92,12 +90,10 @@ export interface RemoveHeaderModArgs {
 
 export function removeHeaderMod(ctx: MutatorContext, args: RemoveHeaderModArgs): MutatorIntent {
   const path = setPath(args.side);
-  return {
-    batch: mintBatch(ctx, [
-      { kind: 'removeFromSet', type: RULE_ENTITY_TYPE, id: args.ruleUid, path, itemId: args.itemId },
-    ]),
-    sideEffects: [recompileDnrIntent(args.ruleUid, ctx.hlc)],
-  };
+  const batch = mintBatch(ctx, [
+    { kind: 'removeFromSet', type: RULE_ENTITY_TYPE, id: args.ruleUid, path, itemId: args.itemId },
+  ]);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveRuleSideEffects) };
 }
 
 export interface ReorderHeaderModArgs {
@@ -113,17 +109,15 @@ export interface ReorderHeaderModArgs {
 
 export function reorderHeaderMod(ctx: MutatorContext, args: ReorderHeaderModArgs): MutatorIntent {
   const path = setPath(args.side);
-  return {
-    batch: mintBatch(ctx, [
-      {
-        kind: 'moveBefore',
-        type: RULE_ENTITY_TYPE,
-        id: args.ruleUid,
-        path,
-        itemId: args.itemId,
-        orderKey: args.orderKey,
-      },
-    ]),
-    sideEffects: [recompileDnrIntent(args.ruleUid, ctx.hlc)],
-  };
+  const batch = mintBatch(ctx, [
+    {
+      kind: 'moveBefore',
+      type: RULE_ENTITY_TYPE,
+      id: args.ruleUid,
+      path,
+      itemId: args.itemId,
+      orderKey: args.orderKey,
+    },
+  ]);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveRuleSideEffects) };
 }

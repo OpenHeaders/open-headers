@@ -10,7 +10,7 @@
 
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
-import { recompileDnrIntent } from './side-effects';
+import { deriveRuleSideEffects } from './side-effects';
 import { RULE_ENTITY_TYPE } from './types';
 
 export interface ToggleEnabledArgs {
@@ -19,10 +19,8 @@ export interface ToggleEnabledArgs {
 }
 
 export function toggleEnabled(ctx: MutatorContext, args: ToggleEnabledArgs): MutatorIntent {
-  return {
-    batch: mintBatch(ctx, [
-      { kind: 'setField', type: RULE_ENTITY_TYPE, id: args.ruleUid, path: 'enabled', value: args.enabled },
-    ]),
-    sideEffects: [recompileDnrIntent(args.ruleUid, ctx.hlc)],
-  };
+  const batch = mintBatch(ctx, [
+    { kind: 'setField', type: RULE_ENTITY_TYPE, id: args.ruleUid, path: 'enabled', value: args.enabled },
+  ]);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveRuleSideEffects) };
 }

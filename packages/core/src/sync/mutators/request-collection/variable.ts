@@ -21,7 +21,7 @@ import type { Variable } from '../../../types/variable';
 import { makeVariableMutators, type VariableType } from '../shared/variable-mutators';
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
-import { invalidateResolverIntent } from './side-effects';
+import { deriveRequestCollectionSideEffects } from './side-effects';
 import { REQUEST_COLLECTION_ENTITY_TYPE, REQUEST_COLLECTION_VARS_PATH } from './types';
 
 export type { VariableType };
@@ -30,7 +30,7 @@ const factories = makeVariableMutators({
   entityType: REQUEST_COLLECTION_ENTITY_TYPE,
   varsPath: REQUEST_COLLECTION_VARS_PATH,
   mintBatch,
-  makeSideEffects: (uid, hlc) => [invalidateResolverIntent(uid, hlc)],
+  deriveSideEffects: deriveRequestCollectionSideEffects,
 });
 
 export interface SetRequestCollectionVarArgs {

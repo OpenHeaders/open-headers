@@ -25,10 +25,9 @@
  */
 
 import type { VaultSecret } from '../../../types';
-import type { MutationBody } from '../../envelope';
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
-import { invalidateResolverIntent } from './side-effects';
+import { deriveVaultSideEffects } from './side-effects';
 import { VAULT_ENTITY_TYPE, VAULT_ID, VAULT_PATH } from './types';
 
 export interface SetVaultSecretArgs {
@@ -46,20 +45,18 @@ export interface SetVaultSecretArgs {
  * versa) fall out for free since the union is the item.
  */
 export function setVaultSecret(ctx: MutatorContext, args: SetVaultSecretArgs): MutatorIntent {
-  return {
-    batch: mintBatch(ctx, [
-      {
-        kind: 'addToSet',
-        type: VAULT_ENTITY_TYPE,
-        id: VAULT_ID,
-        path: VAULT_PATH,
-        itemId: args.secret.uid,
-        item: args.secret,
-        orderKey: args.orderKey,
-      },
-    ]),
-    sideEffects: [invalidateResolverIntent(ctx.hlc)],
-  };
+  const batch = mintBatch(ctx, [
+    {
+      kind: 'addToSet',
+      type: VAULT_ENTITY_TYPE,
+      id: VAULT_ID,
+      path: VAULT_PATH,
+      itemId: args.secret.uid,
+      item: args.secret,
+      orderKey: args.orderKey,
+    },
+  ]);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveVaultSideEffects) };
 }
 
 export interface RemoveVaultSecretArgs {
@@ -73,16 +70,14 @@ export interface RemoveVaultSecretArgs {
  * via a stale `setVaultSecret` at lower HLC.
  */
 export function removeVaultSecret(ctx: MutatorContext, args: RemoveVaultSecretArgs): MutatorIntent {
-  return {
-    batch: mintBatch(ctx, [
-      {
-        kind: 'removeFromSet',
-        type: VAULT_ENTITY_TYPE,
-        id: VAULT_ID,
-        path: VAULT_PATH,
-        itemId: args.uid,
-      },
-    ]),
-    sideEffects: [invalidateResolverIntent(ctx.hlc)],
-  };
+  const batch = mintBatch(ctx, [
+    {
+      kind: 'removeFromSet',
+      type: VAULT_ENTITY_TYPE,
+      id: VAULT_ID,
+      path: VAULT_PATH,
+      itemId: args.uid,
+    },
+  ]);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveVaultSideEffects) };
 }

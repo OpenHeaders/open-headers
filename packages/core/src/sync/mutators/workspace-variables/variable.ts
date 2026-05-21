@@ -5,8 +5,6 @@
  * vars are singleton (one entity per workspace, fixed id =
  * `WORKSPACE_VARIABLES_ID`), so the wrapper binds the fixed id
  * internally and exposes arg shapes without an `entityUid` field.
- * `makeSideEffects` ignores the uid arg since the resolver-invalidate
- * intent for workspace-vars carries no key.
  *
  * Set-member identity = `variable.uid`. Per-(setPath, uid) LWW handles
  * concurrent same-row edits; concurrent same-row renames converge on
@@ -18,12 +16,8 @@ import type { Variable } from '../../../types/variable';
 import { makeVariableMutators, type VariableType } from '../shared/variable-mutators';
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
-import { invalidateResolverIntent } from './side-effects';
-import {
-  WORKSPACE_VARIABLES_ENTITY_TYPE,
-  WORKSPACE_VARIABLES_ID,
-  WORKSPACE_VARIABLES_PATH,
-} from './types';
+import { deriveWorkspaceVariablesSideEffects } from './side-effects';
+import { WORKSPACE_VARIABLES_ENTITY_TYPE, WORKSPACE_VARIABLES_ID, WORKSPACE_VARIABLES_PATH } from './types';
 
 export type { VariableType };
 
@@ -31,7 +25,7 @@ const factories = makeVariableMutators({
   entityType: WORKSPACE_VARIABLES_ENTITY_TYPE,
   varsPath: WORKSPACE_VARIABLES_PATH,
   mintBatch,
-  makeSideEffects: (_uid, hlc) => [invalidateResolverIntent(hlc)],
+  deriveSideEffects: deriveWorkspaceVariablesSideEffects,
 });
 
 export interface SetWorkspaceVarArgs {
@@ -54,9 +48,6 @@ export interface RemoveWorkspaceVarArgs {
   uid: string;
 }
 
-export function removeWorkspaceVar(
-  ctx: MutatorContext,
-  args: RemoveWorkspaceVarArgs,
-): MutatorIntent {
+export function removeWorkspaceVar(ctx: MutatorContext, args: RemoveWorkspaceVarArgs): MutatorIntent {
   return factories.removeVariable(ctx, { entityUid: WORKSPACE_VARIABLES_ID, uid: args.uid });
 }

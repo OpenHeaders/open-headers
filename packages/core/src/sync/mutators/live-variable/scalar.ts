@@ -17,7 +17,7 @@
 
 import type { MutatorContext, MutatorIntent } from '../types';
 import { mintBatch } from './envelope';
-import { invalidateResolverIntent } from './side-effects';
+import { deriveLiveVariableSideEffects } from './side-effects';
 import { LIVE_VARIABLE_ENTITY_TYPE } from './types';
 
 /**
@@ -44,22 +44,17 @@ export interface SetLiveVariableFieldArgs {
   value: unknown;
 }
 
-export function setLiveVariableField(
-  ctx: MutatorContext,
-  args: SetLiveVariableFieldArgs,
-): MutatorIntent {
-  return {
-    batch: mintBatch(ctx, [
-      {
-        kind: 'setField',
-        type: LIVE_VARIABLE_ENTITY_TYPE,
-        id: args.liveVariableUid,
-        path: args.path,
-        value: args.value,
-      },
-    ]),
-    sideEffects: [invalidateResolverIntent(args.liveVariableUid, ctx.hlc)],
-  };
+export function setLiveVariableField(ctx: MutatorContext, args: SetLiveVariableFieldArgs): MutatorIntent {
+  const batch = mintBatch(ctx, [
+    {
+      kind: 'setField',
+      type: LIVE_VARIABLE_ENTITY_TYPE,
+      id: args.liveVariableUid,
+      path: args.path,
+      value: args.value,
+    },
+  ]);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveLiveVariableSideEffects) };
 }
 
 /**
@@ -73,19 +68,14 @@ export interface UnsetLiveVariableFieldArgs {
   path: LiveVariableScalarPath;
 }
 
-export function unsetLiveVariableField(
-  ctx: MutatorContext,
-  args: UnsetLiveVariableFieldArgs,
-): MutatorIntent {
-  return {
-    batch: mintBatch(ctx, [
-      {
-        kind: 'unsetField',
-        type: LIVE_VARIABLE_ENTITY_TYPE,
-        id: args.liveVariableUid,
-        path: args.path,
-      },
-    ]),
-    sideEffects: [invalidateResolverIntent(args.liveVariableUid, ctx.hlc)],
-  };
+export function unsetLiveVariableField(ctx: MutatorContext, args: UnsetLiveVariableFieldArgs): MutatorIntent {
+  const batch = mintBatch(ctx, [
+    {
+      kind: 'unsetField',
+      type: LIVE_VARIABLE_ENTITY_TYPE,
+      id: args.liveVariableUid,
+      path: args.path,
+    },
+  ]);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveLiveVariableSideEffects) };
 }
