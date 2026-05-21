@@ -429,15 +429,31 @@ export function reconnectWebSocket(): void {
   void connectWebSocket();
 }
 
+// U6.8 — a mode-switch commit writes `backend.mode` + `backend.url`
+// (+ `backend.authToken`) in one synchronous burst; reconnecting per
+// key would open and kill two or three sockets back-to-back, each
+// logging a spurious `HELLO send failed — wire gone` as it dies
+// mid-handshake. Coalesce the burst into a single reconnect on the
+// microtask after the writes settle.
+let reconnectQueued = false;
+function scheduleReconnect(): void {
+  if (reconnectQueued) return;
+  reconnectQueued = true;
+  queueMicrotask(() => {
+    reconnectQueued = false;
+    reconnectWebSocket();
+  });
+}
+
 // Any change to the back-end URL forces a reconnect against the new endpoint.
-subscribeKey('backend.url', () => reconnectWebSocket());
+subscribeKey('backend.url', scheduleReconnect);
 // Auth-token change reflects a fresh pairing (or revoke) — re-handshake
 // so the next HELLO carries the new token (U3.2).
-subscribeKey('backend.authToken', () => reconnectWebSocket());
+subscribeKey('backend.authToken', scheduleReconnect);
 // Mode changes (in-browser ↔ desktop-app / daemon / remote) require a
 // transport flip — tear down the current socket and let `connectWebSocket`
 // re-evaluate. `in-browser` short-circuits early so we close cleanly.
-subscribeKey('backend.mode', () => reconnectWebSocket());
+subscribeKey('backend.mode', scheduleReconnect);
 // Ping interval changes take effect on the next tick without a reconnect —
 // restart the timer with the new cadence.
 subscribeKey('backend.pingIntervalMs', () => {
