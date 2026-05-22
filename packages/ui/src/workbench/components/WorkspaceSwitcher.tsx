@@ -30,6 +30,8 @@ interface WorkspaceSwitcherProps {
   /** Switch the editing-scope workspace for this tab. */
   onSwitch: (id: string) => void;
   onOpenManager: () => void;
+  /** Open the back-end Settings category (the reach-nudge footer target). */
+  onOpenBackendSettings: () => void;
   onExport: () => void;
   onImport: () => void;
   /** Promote a workspace id to ACTIVE (popup/sidepanel/devpanel follow). */
@@ -41,6 +43,7 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
   activeWorkspaceId,
   onSwitch,
   onOpenManager,
+  onOpenBackendSettings,
   onExport,
   onImport,
   setActiveWorkspace,
@@ -90,6 +93,7 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
             onExport={onExport}
             onImport={onImport}
             onOpenManager={onOpenManager}
+            onOpenBackendSettings={onOpenBackendSettings}
             onClose={() => setOpen(false)}
             orgGrouping={{
               catalogue,

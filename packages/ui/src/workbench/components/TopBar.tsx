@@ -35,6 +35,7 @@ interface TopBarProps {
   onSwitchWorkspace: (id: string, opts?: { makeActive?: boolean }) => void;
   onSetActiveWorkspace: (id: string) => Promise<boolean>;
   onOpenWorkspaceManager: () => void;
+  onOpenBackendSettings: () => void;
   onExportWorkspace: () => void;
   onImportWorkspace: () => void;
   environments: Environment[];
@@ -59,6 +60,7 @@ const TopBar: React.FC<TopBarProps> = ({
   onSwitchWorkspace,
   onSetActiveWorkspace,
   onOpenWorkspaceManager,
+  onOpenBackendSettings,
   onExportWorkspace,
   onImportWorkspace,
   environments,
@@ -276,6 +278,7 @@ const TopBar: React.FC<TopBarProps> = ({
           onSwitch={onSwitchWorkspace}
           setActiveWorkspace={onSetActiveWorkspace}
           onOpenManager={onOpenWorkspaceManager}
+          onOpenBackendSettings={onOpenBackendSettings}
           onExport={onExportWorkspace}
           onImport={onImportWorkspace}
         />

@@ -56,6 +56,9 @@ const WorkspacePill: React.FC = () => {
           onOpenManager={() => {
             void openWorkspace({ kind: 'open-workspace-manager' }, surface.mode);
           }}
+          onOpenBackendSettings={() => {
+            void openWorkspace({ kind: 'open-settings', target: { categoryId: 'backend' } }, surface.mode);
+          }}
           onClose={() => setOpen(false)}
           orgGrouping={{
             catalogue,

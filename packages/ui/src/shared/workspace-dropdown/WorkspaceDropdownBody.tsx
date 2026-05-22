@@ -20,13 +20,20 @@
  * the globally active workspace + its Org.
  */
 
-import { CheckCircleFilled, CheckCircleOutlined, ExportOutlined, ImportOutlined, SettingOutlined } from '@ant-design/icons';
+import {
+  CheckCircleFilled,
+  CheckCircleOutlined,
+  ExportOutlined,
+  GlobalOutlined,
+  ImportOutlined,
+  SettingOutlined,
+} from '@ant-design/icons';
 import type { OrgDescriptor } from '@openheaders/core/identity';
 import { orgIdentityLabel, resolveOrgActiveWorkspace } from '@openheaders/core/identity';
 import { getHostStorage, OH } from '@openheaders/core/storage';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import type { InputRef } from 'antd';
-import { Divider, Input, Tooltip, Typography, theme } from 'antd';
+import { Divider, Input, Popover, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { renderWorkspacePrefix } from '../../workbench/components/workspace-prefix';
@@ -76,6 +83,13 @@ export interface WorkspaceDropdownBodyProps {
     /** Resolve an `orgId` to its descriptor; `null` pre-bootstrap. */
     describe: (orgId: string) => OrgDescriptor | null;
   };
+  /**
+   * Opens the back-end Settings category. When supplied — and the
+   * identity has not yet reached a daemon-tier (LAN/WAN) Org — the
+   * dropdown shows a footer nudging the user toward multi-browser /
+   * multi-device sync. Omit it to hide the nudge.
+   */
+  onOpenBackendSettings?: () => void;
 }
 
 const baseRowStyle: React.CSSProperties = {
@@ -101,6 +115,7 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
   onClose,
   searchRowExtra,
   orgGrouping,
+  onOpenBackendSettings,
 }) => {
   const { token } = theme.useToken();
   const [searchText, setSearchText] = useState('');
@@ -148,11 +163,12 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
 
   // Org is the top-level container — group the (already search-filtered)
   // list by Org, ordered by the catalogue. No filtering: every Org's
-  // workspaces are reachable so a tab can switch to anything. `null`
-  // (flat list) until the identity actually holds more than one Org —
-  // with a single Org the headers + switch gesture would be noise.
+  // workspaces are reachable so a tab can switch to anything. The header
+  // shows even with a single Org: it names where the workspaces live and
+  // signals that the binding can be extended. `null` (flat list) only
+  // when there is no catalogue at all (pre-bootstrap).
   const groups = useMemo(() => {
-    if (!orgGrouping || orgGrouping.catalogue.length <= 1) return null;
+    if (!orgGrouping || orgGrouping.catalogue.length < 1) return null;
     const byOrg = new Map<string, ExtensionWorkspace[]>();
     for (const w of filtered) {
       const arr = byOrg.get(w.orgId);
@@ -175,6 +191,12 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
     () => (activeId ? (workspaces.find((w) => w.id === activeId) ?? null) : null),
     [workspaces, activeId],
   );
+
+  // The reach-nudge footer shows until the identity holds a daemon-tier
+  // Org — i.e. LAN/WAN sync is already on. Browser-only and
+  // browser+desktop users still have a tier to climb.
+  const canExtendReach =
+    !!onOpenBackendSettings && !(orgGrouping?.catalogue ?? []).some((o) => o.hostKind === 'daemon');
 
   const handleClose = (): void => {
     setSearchText('');
@@ -423,6 +445,53 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
         <SettingOutlined style={{ fontSize: 12 }} />
         <Text style={{ fontSize: 13 }}>Manage workspaces…</Text>
       </div>
+
+      {canExtendReach && (
+        <>
+          <Divider style={{ margin: '4px 0' }} />
+          <Popover
+            placement="right"
+            mouseEnterDelay={0.3}
+            content={
+              <div style={{ maxWidth: 260 }}>
+                <div style={{ marginBottom: 8 }}>
+                  <Text strong style={{ fontSize: 12 }}>
+                    Multi-browser
+                  </Text>
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      Install the desktop app — its workspaces sync to every browser on this computer.
+                    </Text>
+                  </div>
+                </div>
+                <div>
+                  <Text strong style={{ fontSize: 12 }}>
+                    Multi-device
+                  </Text>
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      Turn on device sync in the desktop app to reach your other computers.
+                    </Text>
+                  </div>
+                </div>
+              </div>
+            }
+          >
+            <div
+              role="menuitem"
+              className="oh-env-row"
+              style={{ ...baseRowStyle, color: token.colorTextSecondary }}
+              onClick={() => {
+                onOpenBackendSettings?.();
+                handleClose();
+              }}
+            >
+              <GlobalOutlined style={{ fontSize: 12 }} />
+              <Text style={{ fontSize: 13 }}>Want multi-device or multi-browser?</Text>
+            </div>
+          </Popover>
+        </>
+      )}
     </div>
   );
 };
