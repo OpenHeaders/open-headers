@@ -74,7 +74,7 @@ import {
 import { getLiveWorkflowInWorkspace, getLiveWorkflows, onLiveWorkflowStoreChange } from '@openheaders/oracle/live/live-workflow-store';
 import { recordLog } from './observability-log';
 import { createAlarmNameCodec, type RefreshProvider, RefreshScheduler } from './refresh-scheduler';
-import { getRequest } from '@openheaders/oracle/entity/request-store';
+import { getRequest, onRequestStoreChange } from '@openheaders/oracle/entity/request-store';
 import { getOrCreateWorkspaceService, releaseWorkspaceService } from '@openheaders/oracle/sync/service';
 import { getActiveWorkspaceId, onActiveWorkspaceChange } from './workspace-store';
 
@@ -484,6 +484,12 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
       onLiveWorkflowStoreChange(combined),
       onLiveVariableStoreChange(combined),
       onLiveCacheStoreChange(combined),
+      // A request edit can add or drop a `{{live.X}}` template ref,
+      // which reshapes the cross-workflow dependency DAG that
+      // `computeWorkflowDependencies` derives from each step's request.
+      // Reconcile to re-derive the edges; no status recompute — a
+      // request edit touches no cache row.
+      onRequestStoreChange(callback),
     ];
     return () => {
       for (const unsub of unsubscribers) unsub();

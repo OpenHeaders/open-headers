@@ -79,13 +79,18 @@ let storeState: {
   variables: LiveVariable[];
   requests: Map<string, Request>;
   caches: TestCacheRow[];
-  listeners: { workflow: Set<() => void>; variable: Set<() => void>; cache: Set<() => void> };
+  listeners: {
+    workflow: Set<() => void>;
+    variable: Set<() => void>;
+    cache: Set<() => void>;
+    request: Set<() => void>;
+  };
 } = {
   workflows: [],
   variables: [],
   requests: new Map(),
   caches: [],
-  listeners: { workflow: new Set(), variable: new Set(), cache: new Set() },
+  listeners: { workflow: new Set(), variable: new Set(), cache: new Set(), request: new Set() },
 };
 
 vi.mock('@openheaders/oracle/live/live-workflow-store', () => ({
@@ -122,6 +127,10 @@ vi.mock('@openheaders/oracle/live/live-variable-store', () => ({
 // seed `storeState.requests` explicitly.
 vi.mock('@openheaders/oracle/entity/request-store', () => ({
   getRequest: (uid: string) => storeState.requests.get(uid) ?? null,
+  onRequestStoreChange: (fn: () => void) => {
+    storeState.listeners.request.add(fn);
+    return () => storeState.listeners.request.delete(fn);
+  },
 }));
 
 vi.mock('@openheaders/oracle/live/live-cache-store', () => ({
@@ -230,7 +239,7 @@ beforeEach(async () => {
     variables: [],
     requests: new Map(),
     caches: [],
-    listeners: { workflow: new Set(), variable: new Set(), cache: new Set() },
+    listeners: { workflow: new Set(), variable: new Set(), cache: new Set(), request: new Set() },
   };
   activeSwitchState.workspaceListeners.clear();
   activeSwitchState.envListeners.clear();
@@ -584,11 +593,25 @@ describe('startLiveScheduler', () => {
     expect(storeState.listeners.workflow.size).toBe(1);
     expect(storeState.listeners.variable.size).toBe(1);
     expect(storeState.listeners.cache.size).toBe(1);
+    expect(storeState.listeners.request.size).toBe(1);
 
     alarmsCreateMock.mockClear();
     // Simulate a workflow-store mutation.
     for (const fn of storeState.listeners.workflow) fn();
     // Reconcile is async (fire-and-forget); wait a microtask.
+    await new Promise((r) => setTimeout(r, 0));
+    expect(alarmsCreateMock).toHaveBeenCalled();
+  });
+
+  it('reconciles when a request-store mutation reshapes the dependency DAG', async () => {
+    storeState.workflows = [makeWorkflow()];
+    storeState.variables = [makeVariable()];
+    scheduler.startLiveScheduler();
+    expect(storeState.listeners.request.size).toBe(1);
+
+    alarmsCreateMock.mockClear();
+    // Simulate a request edit (e.g. a `{{live.X}}` ref added/removed).
+    for (const fn of storeState.listeners.request) fn();
     await new Promise((r) => setTimeout(r, 0));
     expect(alarmsCreateMock).toHaveBeenCalled();
   });
@@ -600,6 +623,7 @@ describe('startLiveScheduler', () => {
     expect(storeState.listeners.workflow.size).toBe(0);
     expect(storeState.listeners.variable.size).toBe(0);
     expect(storeState.listeners.cache.size).toBe(0);
+    expect(storeState.listeners.request.size).toBe(0);
   });
 
   it('is idempotent — a second start call does not double-subscribe', () => {
