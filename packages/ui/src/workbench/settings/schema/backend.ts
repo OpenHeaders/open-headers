@@ -115,12 +115,12 @@ registerSetting({
   type: 'enum',
   default: '127.0.0.1',
   schema: bindAddressSchema,
-  label: 'Allow LAN peers',
+  label: 'Sync with devices on your network',
   description:
-    'Bind the desktop daemon to every local interface so other devices on your network can connect. Loopback-only by default.',
+    'Lets other computers and browsers on the same network connect to this app and share its workspaces. Off by default — only this computer can reach it.',
   category: 'backend',
   subcategory: 'lan-peers',
-  tags: ['lan', 'daemon', 'bind', 'peers', 'network', 'host'],
+  tags: ['lan', 'daemon', 'bind', 'peers', 'network', 'host', 'devices', 'sync'],
   scope: 'user',
   enumOptions: [
     { value: '127.0.0.1', label: 'Loopback only (127.0.0.1)', description: 'Only this machine can connect. Default.' },

@@ -470,7 +470,8 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
                   </Text>
                   <div>
                     <Text type="secondary" style={{ fontSize: 12 }}>
-                      Turn on device sync in the desktop app to reach your other computers.
+                      In the desktop app, turn on “Sync with devices on your network” so your computers on the
+                      same network share workspaces.
                     </Text>
                   </div>
                 </div>
