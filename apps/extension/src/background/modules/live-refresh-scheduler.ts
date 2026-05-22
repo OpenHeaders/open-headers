@@ -256,6 +256,10 @@ export function toCacheSummary(run: WorkflowRunCache | null | undefined): CacheS
     // get the 5s±5s tier. The fallback to `initialCircuitSnapshot`
     // mirrors `normalizeBlob`'s per-row tolerant read.
     circuit: run.circuit ?? initialCircuitSnapshot(),
+    // A definitionally-stale row's recipe changed — the cadence math
+    // overrides the healthy tick to "fire ASAP" so the wrong-recipe
+    // value is not served until natural expiry.
+    definitionallyStale: run.definitionallyStale,
   };
 }
 
@@ -465,22 +469,28 @@ function canReachDownstream(from: string, target: string, downstream: ReadonlyMa
 // up to a full refresh interval. For env-gated auth that is a hard
 // blocker, not stale-but-fine.
 //
-// A material request edit therefore triggers, for each non-manual
-// workflow that embeds the request:
-//   • an immediate refresh of the ACTIVE env — the old value keeps
-//     serving until the refresh lands, so there is no withhold gap;
-//   • invalidation of every OTHER env's cache row, so a later switch
-//     re-warms via `kickActiveContextRefresh` instead of serving a
-//     definitionally-stale value.
+// A material request edit therefore flags every embedding workflow's
+// env cache rows definitionally stale (`markWorkflowDefinitionallyStale`).
+// The flag does double duty: the LV picker / inspector badge "needs
+// re-run", AND `computeNextFireAt` treats a flagged row as due now, so
+// the reconcile + cadence path refreshes every flagged row as soon as
+// the alarm floor allows — including the non-active envs, and including
+// a workflow that is not runnable at the moment of the edit (disabled /
+// unpublished) but becomes schedulable later. A successful refresh
+// clears the flag.
+//
+// On top of the flag, a non-manual workflow that IS runnable right now
+// also gets an immediate refresh of the ACTIVE env — the old value
+// keeps serving until that refresh lands, so the env the user is
+// actually resolving has no wrong-recipe window rather than waiting out
+// the ~30s alarm floor.
 //
 // Manual-trigger workflows must NOT auto-run — the user opted out of
-// automation — but must not keep silently serving a wrong-recipe
-// token either. For those, the material edit flags every env cache
-// row definitionally stale (`markWorkflowDefinitionallyStale`); the
-// LV picker / inspector then badge "needs re-run" and a successful
-// manual refresh clears the flag. Cosmetic edits (rename, description,
-// folder move) never change the fingerprint, so they never reach this
-// path at all.
+// automation. The flag is their whole treatment: `computeNextFireAt`
+// returns null for a manual policy regardless, so the row is badged but
+// never auto-refreshed; a successful manual refresh clears it. Cosmetic
+// edits (rename, description, folder move) never change the
+// fingerprint, so they never reach this path at all.
 
 /** Debounce window collapsing a burst of request saves into one pass. */
 let requestEditRefreshDebounceMs = 600;
@@ -536,7 +546,7 @@ async function settleRequestEditRefresh(): Promise<void> {
   await refreshWorkflowsForChangedRequests(changed);
 }
 
-/** Kick the active env + invalidate other envs for every non-manual workflow embedding a changed request. */
+/** Flag every embedding workflow definitionally stale; refresh the active env of those runnable now. */
 async function refreshWorkflowsForChangedRequests(changedRequestUids: ReadonlySet<string>): Promise<void> {
   let workspaceId: string;
   try {
@@ -547,30 +557,25 @@ async function refreshWorkflowsForChangedRequests(changedRequestUids: ReadonlySe
   const activeEnvironmentId = getActiveEnvironmentId();
   for (const workflow of getLiveWorkflows()) {
     if (!workflow.steps.some((step) => changedRequestUids.has(step.requestUid))) continue;
-    // Manual workflows: never auto-run on an edit. Instead flag every
-    // env cache row definitionally stale so the value is surfaced as
-    // wrong-recipe ("needs re-run") until the user refreshes manually.
-    // An interval / expires-* workflow auto-refreshes (below).
-    if (workflow.refresh.kind === 'manual') {
-      try {
-        await markWorkflowDefinitionallyStale(workflow.uid, workspaceId);
-      } catch (err) {
-        logger.info('LiveScheduler', `definitional-stale flag failed for ${workflow.uid}: ${(err as Error).message}`);
-      }
-      continue;
+    // Flag every env cache row definitionally stale. This surfaces the
+    // "needs re-run" badge AND — via `computeNextFireAt` — makes each
+    // row due now, so the reconcile + cadence path refreshes it even
+    // for a workflow that can't run at this instant (disabled,
+    // unpublished) but becomes schedulable later.
+    try {
+      await markWorkflowDefinitionallyStale(workflow.uid, workspaceId);
+    } catch (err) {
+      logger.info('LiveScheduler', `definitional-stale flag failed for ${workflow.uid}: ${(err as Error).message}`);
     }
+    // Manual workflows never auto-run — the flag is the whole treatment
+    // (`computeNextFireAt` returns null for a manual policy).
+    if (workflow.refresh.kind === 'manual') continue;
+    // Non-manual + runnable now: refresh the ACTIVE env immediately so
+    // the value the user is actually resolving has no wrong-recipe
+    // window. Non-active envs — and a workflow not schedulable right
+    // now — re-warm via the due-now alarm the flag drives.
     const boundVariables = getLiveVariablesForWorkflow(workflow.uid);
     if (!canScheduleWorkflow(workflow, boundVariables)) continue;
-    // Drop every env's cached value EXCEPT the active env's — that row
-    // keeps serving while the immediate refresh below runs.
-    try {
-      await clearWorkflowRunCache(workflow.uid, workspaceId, { keepEnvironmentId: activeEnvironmentId });
-    } catch (err) {
-      logger.info(
-        'LiveScheduler',
-        `request-edit cache invalidation failed for ${workflow.uid}: ${(err as Error).message}`,
-      );
-    }
     void refreshLiveWorkflowSynchronously(workspaceId, workflow.uid, activeEnvironmentId).catch((err) => {
       logger.info('LiveScheduler', `request-edit refresh failed for ${workflow.uid}: ${(err as Error).message}`);
     });

@@ -155,3 +155,36 @@ describe('computeNextFireAt — backoff', () => {
     expect(computeNextFireAt(wf, cache, NOW)).toBe(NOW + MIN_ALARM_DELAY_MS);
   });
 });
+
+describe('computeNextFireAt — definitionally stale', () => {
+  it('fires ASAP for a flagged row whose interval has not elapsed', () => {
+    const wf = makeWorkflow({ kind: 'interval', seconds: 300 });
+    // Healthy cadence would be extractedAt + 300s — far in the future.
+    const cache = makeCache({ extractedAt: NOW - 10_000, definitionallyStale: true });
+    expect(computeNextFireAt(wf, cache, NOW)).toBe(NOW + MIN_ALARM_DELAY_MS);
+  });
+
+  it('fires ASAP for a flagged expires-at row not yet near expiry', () => {
+    const wf = makeWorkflow({ kind: 'expires-at', stepId: 'fetch', captureName: 'exp', leadSeconds: 30 });
+    const cache = makeCache({
+      extractedAt: NOW - 10_000,
+      stepCaptures: { fetch: { exp: String(NOW + 3_600_000) } },
+      definitionallyStale: true,
+    });
+    expect(computeNextFireAt(wf, cache, NOW)).toBe(NOW + MIN_ALARM_DELAY_MS);
+  });
+
+  it('still returns null for a flagged manual workflow — the flag never auto-runs', () => {
+    const wf = makeWorkflow({ kind: 'manual' });
+    const cache = makeCache({ definitionallyStale: true });
+    expect(computeNextFireAt(wf, cache, NOW)).toBeNull();
+  });
+
+  it('backoff takes precedence over the flag — a failing flagged row stays on its curve', () => {
+    const wf = makeWorkflow({ kind: 'interval', seconds: 300 });
+    const cache = makeCache({ consecutiveFailures: 1, lastErrorAt: NOW, definitionallyStale: true });
+    // Without precedence the flag would hot-loop a failing workflow at
+    // the alarm floor; the backoff tick (60s) must win.
+    expect(computeNextFireAt(wf, cache, NOW)).toBe(NOW + 60_000);
+  });
+});

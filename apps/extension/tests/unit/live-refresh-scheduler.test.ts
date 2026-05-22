@@ -756,24 +756,43 @@ describe('material request-edit refresh', () => {
     await flushAsync();
   }
 
-  it('refreshes the active env + invalidates other envs on a material edit', async () => {
+  it('flags every env row + refreshes the active env on a material edit', async () => {
     type RefreshArgs = { workspaceId: string; workflow: LiveWorkflow; environmentId: string | null };
     const refreshSpy = vi.fn<(args: RefreshArgs) => Promise<void>>(async () => {});
     scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
     activeSwitchState.activeEnvId = 'env-dev';
     await startPrimed();
-    expect(clearWorkflowRunCacheMock).not.toHaveBeenCalled();
+    expect(markWorkflowDefinitionallyStaleMock).not.toHaveBeenCalled();
 
     // Material edit — the request URL changed.
     storeState.requests.set('reqfetch1', makeRequest({ url: 'https://api.openheaders.io/token-v2' }));
     for (const fn of storeState.listeners.request) fn();
     await flushAsync();
 
-    // Other envs invalidated, the active env's row preserved.
-    expect(clearWorkflowRunCacheMock).toHaveBeenCalledWith('wflow001', 'ws-live', { keepEnvironmentId: 'env-dev' });
-    // Active env refreshed immediately.
+    // Every env row flagged definitionally stale — the flag drives the
+    // due-now alarm for the non-active envs. No bare cache clear.
+    expect(markWorkflowDefinitionallyStaleMock).toHaveBeenCalledWith('wflow001', 'ws-live');
+    expect(clearWorkflowRunCacheMock).not.toHaveBeenCalled();
+    // Active env refreshed immediately so it has no wrong-recipe window.
     expect(refreshSpy).toHaveBeenCalledOnce();
     expect(refreshSpy.mock.calls[0]?.[0]).toMatchObject({ environmentId: 'env-dev' });
+  });
+
+  it('flags a disabled non-manual workflow without refreshing it', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    await startPrimed(makeWorkflow({ enabled: false }));
+
+    storeState.requests.set('reqfetch1', makeRequest({ method: 'POST' }));
+    for (const fn of storeState.listeners.request) fn();
+    await flushAsync();
+
+    // A disabled workflow can't run now — but the flag persists on its
+    // cache rows so a re-enable refreshes them via the due-now path
+    // instead of serving the wrong-recipe value out to natural expiry.
+    expect(markWorkflowDefinitionallyStaleMock).toHaveBeenCalledWith('wflow001', 'ws-live');
+    expect(refreshSpy).not.toHaveBeenCalled();
+    expect(clearWorkflowRunCacheMock).not.toHaveBeenCalled();
   });
 
   it('ignores a cosmetic edit (rename) — fingerprint unchanged', async () => {

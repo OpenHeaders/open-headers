@@ -42,6 +42,17 @@ export interface CacheSummary {
    * `60·2^(n-1)` curve (kept for tests + callers without circuit state).
    */
   circuit?: CircuitSnapshot;
+  /**
+   * The cached value was minted by a recipe that no longer exists — a
+   * material request edit, a referenced variable change, or an upstream
+   * live value the workflow consumes (the definitional-freshness
+   * detectors set this). When true the healthy-path cadence is
+   * overridden to "fire as soon as the alarm floor allows" so the
+   * wrong-recipe value is not served until natural expiry. The circuit
+   * tiers still take precedence — a failing workflow stays on its
+   * backoff curve rather than hot-looping.
+   */
+  definitionallyStale?: boolean;
 }
 
 // ── Constants ─────────────────────────────────────────────────────
@@ -123,7 +134,19 @@ export function computeNextFireAt(workflow: LiveWorkflow, cache: CacheSummary | 
     return Math.max(target, nowMs + MIN_ALARM_DELAY_MS);
   }
 
-  // 2. Healthy path — per refresh policy.
+  // 2. Definitional staleness — the cached value's recipe changed.
+  //    Once the circuit/backoff tiers above have cleared (a flagged
+  //    row that is also failing stays on its backoff curve, never
+  //    hot-loops), a flagged row is due as soon as the alarm floor
+  //    allows: serving the wrong-recipe value until the policy's
+  //    natural expiry is exactly the staleness the detectors exist to
+  //    close. Manual workflows are excluded — they return null below;
+  //    the flag is a "needs re-run" badge, not an auto-run trigger.
+  if (workflow.refresh.kind !== 'manual' && cache?.definitionallyStale) {
+    return nowMs + MIN_ALARM_DELAY_MS;
+  }
+
+  // 3. Healthy path — per refresh policy.
   const policy = workflow.refresh;
   switch (policy.kind) {
     case 'manual':
