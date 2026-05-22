@@ -19,26 +19,33 @@
  * share one code path. Hosts wire `setHostStorage` *before* calling this.
  */
 
-import type { SyntheticIdentityRecord } from '../types';
+import type { HostKind, SyntheticIdentityRecord } from '../types';
 import { hostStorage } from '../storage/host-storage';
 import { OH } from '../storage/keys';
 import { bootstrapSyntheticIdentity } from './bootstrap';
 import { ensureDaemonConfig } from './ensure-daemon-config';
 
 /**
- * Optional bootstrap inputs threaded through to `bootstrapSyntheticIdentity`.
- * Defaults keep the helper a one-line call (`await ensureSyntheticIdentity()`)
- * for the common case where the host has no OS-derived display name /
- * email to surface.
+ * Bootstrap inputs threaded through to `bootstrapSyntheticIdentity`.
+ * `hostKind` is required — every host knows which kind it is; the rest
+ * are best-effort and consulted on the first boot only.
  */
 export interface EnsureSyntheticIdentityInput {
+  /**
+   * Which kind of host process is calling. Stamped onto the `Org` row at
+   * bootstrap; never changes.
+   */
+  hostKind: HostKind;
   /**
    * Best-effort display name (OS username). Only consulted on the first
    * boot — subsequent boots return the persisted record verbatim and the
    * display name updates only via promotion (§5.4 step 1).
    */
   displayName?: string;
-  /** Local-org name; defaults to `'Local'`. First-boot only. */
+  /**
+   * Best-effort descriptive local-org name (hostname / browser name).
+   * First-boot only; defaults to `'Local'` when unavailable.
+   */
   orgName?: string;
   /** Best-effort OS-derived email or `null`. First-boot only. */
   email?: string | null;
@@ -58,7 +65,7 @@ export interface EnsureSyntheticIdentityInput {
  * Requires `setHostStorage` to have been called by the host first.
  */
 export async function ensureSyntheticIdentity(
-  input: EnsureSyntheticIdentityInput = {},
+  input: EnsureSyntheticIdentityInput,
 ): Promise<SyntheticIdentityRecord> {
   const config = await ensureDaemonConfig();
   const existing = await hostStorage.get(OH.syntheticIdentity);
@@ -67,6 +74,7 @@ export async function ensureSyntheticIdentity(
   }
   const fresh = await bootstrapSyntheticIdentity({
     hostInstallId: config.hostInstallId,
+    hostKind: input.hostKind,
     displayName: input.displayName,
     orgName: input.orgName,
     email: input.email,

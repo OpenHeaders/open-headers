@@ -117,6 +117,7 @@ describe('requestModeSwitchVerdict', () => {
     const targetOrg: Org = {
       id: '0193a8ff-c000-7000-8000-0000000000ff',
       name: 'Desktop home',
+      hostKind: 'desktop',
       isSynthetic: true,
     };
     mockCall.mockResolvedValueOnce({ workspaces: [workspace({ rule: 1 })] });

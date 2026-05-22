@@ -28,8 +28,18 @@ import { createHostStorageFake, type HostStorageFake } from './_host-storage-fak
 
 const NOW = '2026-05-20T00:00:00.000Z';
 
-const BACKEND_ORG: Org = { id: '01900000-0000-7000-8000-0000000000bb', name: 'Backend Org', isSynthetic: true };
-const OTHER_ORG: Org = { id: '01900000-0000-7000-8000-0000000000cc', name: 'Other Backend', isSynthetic: true };
+const BACKEND_ORG: Org = {
+  id: '01900000-0000-7000-8000-0000000000bb',
+  name: 'Backend Org',
+  hostKind: 'desktop',
+  isSynthetic: true,
+};
+const OTHER_ORG: Org = {
+  id: '01900000-0000-7000-8000-0000000000cc',
+  name: 'Other Backend',
+  hostKind: 'desktop',
+  isSynthetic: true,
+};
 
 describe('identity registry — joined-Org folding (U5.2)', () => {
   let fake: HostStorageFake;
@@ -41,14 +51,14 @@ describe('identity registry — joined-Org folding (U5.2)', () => {
   });
 
   it('installIdentitySnapshot folds joinedOrgs in alongside the home-org', async () => {
-    const record = await ensureSyntheticIdentity({ now: NOW });
+    const record = await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     const snapshot = installIdentitySnapshot({ record, wras: [], joinedOrgs: [BACKEND_ORG] });
     expect([...snapshot.orgs.keys()].sort()).toEqual([record.org.id, BACKEND_ORG.id].sort());
     expect(authorizedOrgIds(snapshot).has(BACKEND_ORG.id)).toBe(true);
   });
 
   it('recordJoinedOrg persists the backend Org and authorizes it on refresh', async () => {
-    await ensureSyntheticIdentity({ now: NOW });
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     await refreshIdentitySnapshotFromHostStorage();
 
     const snapshot = await recordJoinedOrg(BACKEND_ORG);
@@ -58,7 +68,7 @@ describe('identity registry — joined-Org folding (U5.2)', () => {
   });
 
   it('survives a snapshot rebuild — the joined Org is read back from storage', async () => {
-    await ensureSyntheticIdentity({ now: NOW });
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     await recordJoinedOrg(BACKEND_ORG);
     clearIdentitySnapshot();
 
@@ -67,14 +77,14 @@ describe('identity registry — joined-Org folding (U5.2)', () => {
   });
 
   it('is idempotent — re-joining the same backend does not duplicate the row', async () => {
-    await ensureSyntheticIdentity({ now: NOW });
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     await recordJoinedOrg(BACKEND_ORG);
     await recordJoinedOrg(BACKEND_ORG);
     expect(await hostStorage.get(OH.joinedOrgs)).toEqual([BACKEND_ORG]);
   });
 
   it('accumulates distinct backends', async () => {
-    await ensureSyntheticIdentity({ now: NOW });
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     await recordJoinedOrg(BACKEND_ORG);
     const snapshot = await recordJoinedOrg(OTHER_ORG);
     expect(await hostStorage.get(OH.joinedOrgs)).toEqual([BACKEND_ORG, OTHER_ORG]);
@@ -83,7 +93,7 @@ describe('identity registry — joined-Org folding (U5.2)', () => {
   });
 
   it('refreshes a renamed backend Org in place rather than appending', async () => {
-    await ensureSyntheticIdentity({ now: NOW });
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     await recordJoinedOrg(BACKEND_ORG);
     const renamed: Org = { ...BACKEND_ORG, name: 'Backend Org (renamed)' };
     await recordJoinedOrg(renamed);
@@ -91,13 +101,13 @@ describe('identity registry — joined-Org folding (U5.2)', () => {
   });
 
   it('never stores the joiner own home-org as a joined Org', async () => {
-    const record = await ensureSyntheticIdentity({ now: NOW });
+    const record = await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     await recordJoinedOrg(record.org);
     expect(await hostStorage.get(OH.joinedOrgs)).toBeUndefined();
   });
 
   it('serializes concurrent joins of distinct backends — neither write is clobbered', async () => {
-    await ensureSyntheticIdentity({ now: NOW });
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     // Both calls race the same empty `OH.joinedOrgs` slot. Without the
     // RMW serializer each reads `[]`, appends its own Org, and the last
     // write drops the other join.
@@ -112,7 +122,7 @@ describe('identity registry — joined-Org folding (U5.2)', () => {
     // the WRA reconcile, `recordJoinedOrg`). Two concurrent refreshes
     // must not interleave their reads — otherwise a refresh that read a
     // stale `OH.joinedOrgs` can install last and drop a joined Org.
-    await ensureSyntheticIdentity({ now: NOW });
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     const reads: string[] = [];
     const base = fake.get.bind(fake);
     fake.get = async (spec) => {

@@ -10,6 +10,7 @@
 
 import type * as v from 'valibot';
 import type {
+  HostKindSchema,
   OrgSchema,
   SessionSchema,
   SessionSourceSchema,
@@ -21,6 +22,7 @@ import type {
 
 export type UserIdentityKind = v.InferOutput<typeof UserIdentityKindSchema>;
 export type SessionSource = v.InferOutput<typeof SessionSourceSchema>;
+export type HostKind = v.InferOutput<typeof HostKindSchema>;
 
 export type User = v.InferOutput<typeof UserSchema>;
 export type Org = v.InferOutput<typeof OrgSchema>;

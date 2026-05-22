@@ -121,6 +121,20 @@ function safeOsUsername(): string {
   }
 }
 
+/**
+ * Best-effort machine name for the synthetic local-org's descriptive
+ * name on first boot. The trailing `.local` macOS appends is stripped so
+ * a joined peer reads `Daniels-MacBook-Pro`, not `Daniels-MacBook-Pro.local`.
+ * Falls back to `'Local'` when `os.hostname` throws or is empty.
+ */
+function safeOsHostname(): string {
+  try {
+    return os.hostname().replace(/\.local$/, '') || 'Local';
+  } catch {
+    return 'Local';
+  }
+}
+
 // Captured at boot. The host-hook closures below fan to both renderers
 // and connected WS peers; the WS server is null until `startOracleWsServer`
 // resolves (early-fire broadcasts hit renderers only, which is harmless —
@@ -160,13 +174,19 @@ export async function installRpcHost(): Promise<void> {
   // U1.6 / U1.7 — materialize the synthetic identity-row tuple before
   // any privileged-path code runs (UNIFIED_ORACLE_MODEL.md §5.2 / §12
   // step 2). Idempotent across boots; first-boot mints the
-  // host-install-id seed too. Display name seeds the synthetic User
-  // row's `displayName` on first boot only — promotion (§5.4 step 1)
+  // host-install-id seed too. `hostKind: 'desktop'` + the machine name
+  // as the local-org name make this host's Org distinguishable from a
+  // joined peer's. Display name seeds the synthetic User row's
+  // `displayName` on first boot only — promotion (§5.4 step 1)
   // overwrites it without touching `User.id`. Failures are logged, not
   // fatal: a hard throw here would abort the whole host install (no
   // oracle, no WS server). The resolver denies privileged sync actions
   // while the snapshot is absent; the next boot re-runs this idempotently.
-  await ensureSyntheticIdentity({ displayName: safeOsUsername() }).catch((err: unknown) => {
+  await ensureSyntheticIdentity({
+    hostKind: 'desktop',
+    displayName: safeOsUsername(),
+    orgName: safeOsHostname(),
+  }).catch((err: unknown) => {
     consoleLogger.warn('install-rpc-host', 'ensureSyntheticIdentity failed', err);
   });
   setLockRuntime(singleProcessLockRuntime);

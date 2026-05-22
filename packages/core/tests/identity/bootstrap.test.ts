@@ -30,7 +30,7 @@ const NOW = '2026-05-19T00:00:00.000Z';
 
 describe('bootstrapSyntheticIdentity', () => {
   it('produces a row tuple that conforms to every entity schema', async () => {
-    const rows = await bootstrapSyntheticIdentity({ hostInstallId: 'host-abc', now: NOW });
+    const rows = await bootstrapSyntheticIdentity({ hostInstallId: 'host-abc', hostKind: 'desktop', now: NOW });
     expect(v.safeParse(UserSchema, rows.user).success).toBe(true);
     expect(v.safeParse(OrgSchema, rows.org).success).toBe(true);
     expect(v.safeParse(UserIdentitySchema, rows.userIdentity).success).toBe(true);
@@ -41,7 +41,7 @@ describe('bootstrapSyntheticIdentity', () => {
   });
 
   it('connects the FK graph (user ↔ org ↔ identity ↔ session ↔ membership ↔ principal ↔ localAdmin)', async () => {
-    const r = await bootstrapSyntheticIdentity({ hostInstallId: 'host-abc', now: NOW });
+    const r = await bootstrapSyntheticIdentity({ hostInstallId: 'host-abc', hostKind: 'desktop', now: NOW });
     expect(r.user.homeOrgId).toBe(r.org.id);
     expect(r.userIdentity.userId).toBe(r.user.id);
     expect(r.session.userId).toBe(r.user.id);
@@ -53,7 +53,7 @@ describe('bootstrapSyntheticIdentity', () => {
   });
 
   it('marks the synthetic axes (User.isSynthetic, Org.isSynthetic, kind=local, source=local, isLocal)', async () => {
-    const r = await bootstrapSyntheticIdentity({ hostInstallId: 'host-abc', now: NOW });
+    const r = await bootstrapSyntheticIdentity({ hostInstallId: 'host-abc', hostKind: 'desktop', now: NOW });
     expect(r.user.isSynthetic).toBe(true);
     expect(r.org.isSynthetic).toBe(true);
     expect(r.userIdentity.kind).toBe('local');
@@ -64,14 +64,14 @@ describe('bootstrapSyntheticIdentity', () => {
   });
 
   it('is deterministic in hostInstallId (rerun yields byte-identical rows)', async () => {
-    const a = await bootstrapSyntheticIdentity({ hostInstallId: 'host-abc', now: NOW });
-    const b = await bootstrapSyntheticIdentity({ hostInstallId: 'host-abc', now: NOW });
+    const a = await bootstrapSyntheticIdentity({ hostInstallId: 'host-abc', hostKind: 'desktop', now: NOW });
+    const b = await bootstrapSyntheticIdentity({ hostInstallId: 'host-abc', hostKind: 'desktop', now: NOW });
     expect(a).toEqual(b);
   });
 
   it('produces disjoint id sets for distinct hostInstallIds', async () => {
-    const a = await bootstrapSyntheticIdentity({ hostInstallId: 'host-abc', now: NOW });
-    const b = await bootstrapSyntheticIdentity({ hostInstallId: 'host-xyz', now: NOW });
+    const a = await bootstrapSyntheticIdentity({ hostInstallId: 'host-abc', hostKind: 'desktop', now: NOW });
+    const b = await bootstrapSyntheticIdentity({ hostInstallId: 'host-xyz', hostKind: 'desktop', now: NOW });
     const idsA = new Set([
       a.user.id, a.org.id, a.userIdentity.id, a.session.id,
       a.membership.id, a.principal.id, a.localAdmin.id,
@@ -88,6 +88,7 @@ describe('bootstrapSyntheticIdentity', () => {
   it('uses caller-supplied displayName / orgName / email when given', async () => {
     const r = await bootstrapSyntheticIdentity({
       hostInstallId: 'host-abc',
+      hostKind: 'desktop',
       displayName: 'Alice',
       orgName: 'alice-laptop',
       email: 'alice@openheaders.io',
@@ -98,15 +99,22 @@ describe('bootstrapSyntheticIdentity', () => {
     expect(r.userIdentity.value).toBe('alice@openheaders.io');
   });
 
+  it('stamps the caller-supplied hostKind onto the Org row', async () => {
+    const browser = await bootstrapSyntheticIdentity({ hostInstallId: 'host-abc', hostKind: 'browser', now: NOW });
+    const daemon = await bootstrapSyntheticIdentity({ hostInstallId: 'host-abc', hostKind: 'daemon', now: NOW });
+    expect(browser.org.hostKind).toBe('browser');
+    expect(daemon.org.hostKind).toBe('daemon');
+  });
+
   it('defaults displayName/orgName to "Local" and email to null', async () => {
-    const r = await bootstrapSyntheticIdentity({ hostInstallId: 'host-abc', now: NOW });
+    const r = await bootstrapSyntheticIdentity({ hostInstallId: 'host-abc', hostKind: 'desktop', now: NOW });
     expect(r.user.displayName).toBe('Local');
     expect(r.org.name).toBe('Local');
     expect(r.userIdentity.value).toBeNull();
   });
 
   it('threads `now` into verifiedAt and createdAt and leaves revokedAt null', async () => {
-    const r = await bootstrapSyntheticIdentity({ hostInstallId: 'host-abc', now: NOW });
+    const r = await bootstrapSyntheticIdentity({ hostInstallId: 'host-abc', hostKind: 'desktop', now: NOW });
     expect(r.userIdentity.verifiedAt).toBe(NOW);
     expect(r.session.createdAt).toBe(NOW);
     expect(r.session.revokedAt).toBeNull();

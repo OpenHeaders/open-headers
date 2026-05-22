@@ -13,6 +13,7 @@ import {
   summarizeWorkspaces,
   type WorkspaceContentSnapshot,
 } from '@openheaders/core/sync';
+import type { Org } from '@openheaders/core/types';
 import { collectLocalDataPresence, type DataPresenceOracle, USER_CONTENT_ENTITY_TYPES } from '@openheaders/oracle/sync';
 import { describe, expect, it } from 'vitest';
 
@@ -183,7 +184,7 @@ describe('decideModeSwitch', () => {
   });
 
   it('forwards the probe targetOrg onto the show-dialog verdict (U5.5)', () => {
-    const targetOrg = { id: WS_B, name: 'Desktop home', isSynthetic: true };
+    const targetOrg: Org = { id: WS_B, name: 'Desktop home', hostKind: 'desktop', isSynthetic: true };
     const verdict = decideModeSwitch({
       fromMode: 'in-browser',
       toMode: 'desktop-app',

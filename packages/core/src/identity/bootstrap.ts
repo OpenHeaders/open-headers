@@ -21,6 +21,7 @@
 
 import type {
   DaemonAdmin,
+  HostKind,
   Org,
   OrgMembership,
   Principal,
@@ -36,12 +37,22 @@ export interface BootstrapSyntheticIdentityInput {
   /** Stable per-host identifier; see `./host-install-id.ts`. */
   hostInstallId: string;
   /**
+   * Which kind of host process is running the bootstrap. Stamped onto
+   * the `Org` row and never changes; classifies the host so a joined
+   * peer can render the correct identity icon.
+   */
+  hostKind: HostKind;
+  /**
    * Best-effort display name (OS username or equivalent). Defaults to
    * `'Local'` when the host can't read one cheaply — the user-visible
    * name updates on promotion (§5.4 step 1) without changing `User.id`.
    */
   displayName?: string;
-  /** Local-org name; defaults to `'Local'` (§5.2 row 'Org'). */
+  /**
+   * Local-org name. Hosts pass a descriptive value (desktop → OS
+   * hostname, extension → browser name, daemon → hostname); defaults to
+   * `'Local'` only when the host can't read one (§5.2 row 'Org').
+   */
   orgName?: string;
   /**
    * Best-effort OS-derived email or `null` if unavailable
@@ -98,6 +109,7 @@ export async function bootstrapSyntheticIdentity(
   const org: Org = {
     id: orgId,
     name: orgName,
+    hostKind: input.hostKind,
     isSynthetic: true,
   };
 

@@ -42,7 +42,7 @@ describe('ensureWorkspaceRoleAssignments', () => {
   beforeEach(async () => {
     fake = createHostStorageFake();
     setHostStorage(fake);
-    await ensureSyntheticIdentity({ now: NOW });
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
   });
 
   it('mints one owner-role WRA per workspace on first reconcile', async () => {
@@ -104,7 +104,7 @@ describe('ensureWorkspaceRoleAssignments', () => {
   it('distinct hostInstallIds produce distinct WRA ids for the same workspace', async () => {
     const a = await ensureWorkspaceRoleAssignments([W1]);
     setHostStorage(createHostStorageFake());
-    await ensureSyntheticIdentity({ now: NOW });
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     const b = await ensureWorkspaceRoleAssignments([W1]);
     expect(b[0]?.id).not.toBe(a[0]?.id);
   });

@@ -46,6 +46,19 @@ export const UserIdentityKindSchema = v.picklist(['email', 'sso_subject', 'api_t
  */
 export const SessionSourceSchema = v.picklist(['password', 'sso', 'api_token', 'local']);
 
+/**
+ * The kind of host process that minted an `Org`. Stamped once at
+ * bootstrap and never changes (V5 fresh-start — no migration). It
+ * classifies the host *process*, not the Org's membership: whether an
+ * Org reads as personal or team is a separate, derived `OrgScopeKind`
+ * fact (see `../identity/org-catalogue.ts`).
+ *
+ *   browser — a browser extension's service worker
+ *   desktop — the desktop app's main process
+ *   daemon  — a headless standalone daemon
+ */
+export const HostKindSchema = v.picklist(['browser', 'desktop', 'daemon']);
+
 // ── Entities ───────────────────────────────────────────────────────
 
 /**
@@ -71,10 +84,16 @@ export const UserSchema = v.object({
  * Every Org is multi-org-capable — there is no static single-vs-multi
  * mode flag. Whether an Org reads as "personal" or "team" is derived at
  * view time from identity state (home-org vs. not), not stamped here.
+ *
+ * `hostKind` records which kind of host process minted the Org — it is
+ * the one host-classification fact that *cannot* be derived after the
+ * fact, so it is stamped at bootstrap and travels with the row when the
+ * Org is joined. It drives the identity-label icon.
  */
 export const OrgSchema = v.object({
   id: UuidV7Schema,
   name: v.string(),
+  hostKind: HostKindSchema,
   isSynthetic: v.boolean(),
 });
 

@@ -9,12 +9,13 @@
 
 import { getIdentitySnapshot } from '@openheaders/core/identity';
 import type { MutationEnvelope } from '@openheaders/core/sync';
+import type { Org } from '@openheaders/core/types';
 import { __resetOutboundGateForTests, evaluateOutboundEnvelope, setOutboundEchoGuard } from '@openheaders/oracle/sync';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { installSyntheticIdentityForTests } from './_identity-test-setup';
 
-const CONSUMED_ORG = { id: 'org-backend', name: 'Backend Org', isSynthetic: false };
+const CONSUMED_ORG: Org = { id: 'org-backend', name: 'Backend Org', hostKind: 'desktop', isSynthetic: false };
 
 const envelope = (overrides: Partial<MutationEnvelope> = {}): MutationEnvelope =>
   ({

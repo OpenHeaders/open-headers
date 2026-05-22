@@ -558,6 +558,20 @@ let resolveBackgroundReady: () => void = () => {};
 const backgroundReady: Promise<void> = new Promise((resolve) => {
   resolveBackgroundReady = resolve;
 });
+
+/**
+ * Human-readable name of the browser running this service worker — the
+ * descriptive name stamped on the synthetic local-org at first boot so a
+ * joined peer can tell one host's Org from another's.
+ */
+function browserDisplayName(): string {
+  if (isFirefox) return 'Firefox';
+  if (isChrome) return 'Chrome';
+  if (isEdge) return 'Edge';
+  if (isSafari) return 'Safari';
+  return 'Browser';
+}
+
 async function initializeExtension(): Promise<void> {
   // All init paths must wait for the settings store so the first DNR
   // compile / websocket connect sees persisted values instead of defaults.
@@ -571,14 +585,16 @@ async function initializeExtension(): Promise<void> {
   // U1.6 — materialize the synthetic identity-row tuple before any
   // privileged-path code runs (UNIFIED_ORACLE_MODEL.md §5.2 / §12 step 2).
   // Idempotent across SW cold-wakes; first-boot mints `host-install-id`
-  // too. Browsers don't surface an OS username from the SW context, so
-  // the synthetic User starts with the default `displayName: 'Local'`
-  // and updates only via promotion (§5.4 step 1) — never touching
-  // `User.id`. Failures here are logged, not fatal — the SW still boots
-  // so header-rule delivery is unaffected. While the snapshot is absent
-  // the resolver denies privileged sync actions (`no-current-user`); the
-  // next cold-wake re-runs this idempotently.
-  await ensureSyntheticIdentity().catch((err: unknown) => {
+  // too. `hostKind: 'browser'` + the browser name as the local-org name
+  // make this host's Org distinguishable from a joined peer's. Browsers
+  // don't surface an OS username from the SW context, so the synthetic
+  // User keeps the default `displayName: 'Local'`, updated only via
+  // promotion (§5.4 step 1) — never touching `User.id`. Failures here
+  // are logged, not fatal — the SW still boots so header-rule delivery
+  // is unaffected. While the snapshot is absent the resolver denies
+  // privileged sync actions (`no-current-user`); the next cold-wake
+  // re-runs this idempotently.
+  await ensureSyntheticIdentity({ hostKind: 'browser', orgName: browserDisplayName() }).catch((err: unknown) => {
     logger.warn('Background', 'ensureSyntheticIdentity failed', err);
   });
   // U1.8 — every workspace owns an owner-role WRA for the synthetic

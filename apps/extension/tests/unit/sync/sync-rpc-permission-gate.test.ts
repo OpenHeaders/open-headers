@@ -103,7 +103,7 @@ describe('sync-rpc permission gate', () => {
   });
 
   it('allows oh.sync.apply for the synthetic LocalAdmin', async () => {
-    await ensureSyntheticIdentity({ now: NOW });
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     await ensureWorkspaceRoleAssignments([WS]);
     await refreshIdentitySnapshotFromHostStorage();
 
@@ -172,7 +172,7 @@ describe('sync-rpc permission gate', () => {
   });
 
   it('allows workspace.list snapshot read for any installed snapshot', async () => {
-    await ensureSyntheticIdentity({ now: NOW });
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     await refreshIdentitySnapshotFromHostStorage();
 
     let threw: unknown = null;
@@ -189,7 +189,7 @@ describe('sync-rpc permission gate', () => {
   });
 
   it('audit entry carries the synthetic user id once the snapshot is installed', async () => {
-    const record = await ensureSyntheticIdentity({ now: NOW });
+    const record = await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     await ensureWorkspaceRoleAssignments([WS]);
     await refreshIdentitySnapshotFromHostStorage();
 

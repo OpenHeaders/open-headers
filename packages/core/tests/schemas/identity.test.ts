@@ -83,15 +83,22 @@ describe('UserSchema — isSynthetic landed (U1.1)', () => {
   });
 });
 
-describe('OrgSchema — isSynthetic landed (U1.1)', () => {
+describe('OrgSchema — isSynthetic + hostKind landed (U1.1 / Bug B)', () => {
   it('accepts a synthetic org row', () => {
     expect(
       v.parse(OrgSchema, {
         id: ORG_UUID,
         name: 'Local',
+        hostKind: 'browser',
         isSynthetic: true,
       }),
-    ).toMatchObject({ isSynthetic: true });
+    ).toMatchObject({ isSynthetic: true, hostKind: 'browser' });
+  });
+
+  it('accepts every hostKind picklist value', () => {
+    for (const hostKind of ['browser', 'desktop', 'daemon'] as const) {
+      expect(v.safeParse(OrgSchema, { id: ORG_UUID, name: 'Local', hostKind, isSynthetic: true }).success).toBe(true);
+    }
   });
 
   it('rejects a missing isSynthetic field', () => {
@@ -99,6 +106,28 @@ describe('OrgSchema — isSynthetic landed (U1.1)', () => {
       v.safeParse(OrgSchema, {
         id: ORG_UUID,
         name: 'Local',
+        hostKind: 'desktop',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects a missing hostKind field', () => {
+    expect(
+      v.safeParse(OrgSchema, {
+        id: ORG_UUID,
+        name: 'Local',
+        isSynthetic: true,
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects an unknown hostKind value', () => {
+    expect(
+      v.safeParse(OrgSchema, {
+        id: ORG_UUID,
+        name: 'Local',
+        hostKind: 'team',
+        isSynthetic: true,
       }).success,
     ).toBe(false);
   });

@@ -38,9 +38,9 @@ function makeSnapshot(orgs: Org[], homeOrgId: string): IdentitySnapshot {
   };
 }
 
-const syntheticLocal: Org = { id: LOCAL_ORG, name: 'This device', isSynthetic: true };
-const realHome: Org = { id: HOME_ORG, name: 'My account', isSynthetic: false };
-const realTeam: Org = { id: TEAM_ORG, name: 'Acme', isSynthetic: false };
+const syntheticLocal: Org = { id: LOCAL_ORG, name: 'This device', hostKind: 'browser', isSynthetic: true };
+const realHome: Org = { id: HOME_ORG, name: 'My account', hostKind: 'desktop', isSynthetic: false };
+const realTeam: Org = { id: TEAM_ORG, name: 'Acme', hostKind: 'daemon', isSynthetic: false };
 
 describe('orgCatalogue', () => {
   it('returns an empty list for a null snapshot', () => {

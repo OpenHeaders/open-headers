@@ -35,7 +35,7 @@ describe('ensureSyntheticIdentity', () => {
   });
 
   it('mints + persists daemonConfig and syntheticIdentity on first boot', async () => {
-    const record = await ensureSyntheticIdentity({ now: NOW });
+    const record = await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     const cfg = await hostStorage.get(OH.daemonConfig);
     const persisted = await hostStorage.get(OH.syntheticIdentity);
     expect(cfg?.hostInstallId).toBeTruthy();
@@ -43,18 +43,19 @@ describe('ensureSyntheticIdentity', () => {
   });
 
   it('persisted record passes the SyntheticIdentityRecordSchema boundary', async () => {
-    const record = await ensureSyntheticIdentity({ now: NOW });
+    const record = await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     expect(v.safeParse(SyntheticIdentityRecordSchema, record).success).toBe(true);
   });
 
   it('is idempotent across boots (subsequent calls return persisted record)', async () => {
-    const first = await ensureSyntheticIdentity({ now: NOW });
-    const second = await ensureSyntheticIdentity({ now: NOW });
+    const first = await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
+    const second = await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     expect(second).toEqual(first);
   });
 
   it('threads first-boot inputs into the persisted record', async () => {
     const r = await ensureSyntheticIdentity({
+      hostKind: 'desktop',
       displayName: 'Alice',
       orgName: 'alice-laptop',
       email: 'alice@openheaders.io',
@@ -62,21 +63,26 @@ describe('ensureSyntheticIdentity', () => {
     });
     expect(r.user.displayName).toBe('Alice');
     expect(r.org.name).toBe('alice-laptop');
+    expect(r.org.hostKind).toBe('desktop');
     expect(r.userIdentity.value).toBe('alice@openheaders.io');
     expect(r.userIdentity.verifiedAt).toBe(NOW);
     expect(r.session.createdAt).toBe(NOW);
   });
 
   it('ignores inputs on subsequent calls — persisted record wins', async () => {
-    const first = await ensureSyntheticIdentity({ displayName: 'Alice', now: NOW });
-    const second = await ensureSyntheticIdentity({ displayName: 'Bob', now: '2027-01-01T00:00:00.000Z' });
+    const first = await ensureSyntheticIdentity({ hostKind: 'browser', displayName: 'Alice', now: NOW });
+    const second = await ensureSyntheticIdentity({
+      hostKind: 'browser',
+      displayName: 'Bob',
+      now: '2027-01-01T00:00:00.000Z',
+    });
     expect(second).toEqual(first);
     expect(second.user.displayName).toBe('Alice');
   });
 
   it('defaults `now` to a real timestamp when omitted', async () => {
     const before = Date.now();
-    const r = await ensureSyntheticIdentity();
+    const r = await ensureSyntheticIdentity({ hostKind: 'browser' });
     const after = Date.now();
     const ts = Date.parse(r.session.createdAt);
     expect(Number.isNaN(ts)).toBe(false);
@@ -86,10 +92,10 @@ describe('ensureSyntheticIdentity', () => {
 
   it('uses the hostInstallId from the persisted daemonConfig (deterministic in it)', async () => {
     await hostStorage.set(OH.daemonConfig, { hostInstallId: 'pinned-host-id' });
-    const r1 = await ensureSyntheticIdentity({ now: NOW });
+    const r1 = await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     // Clear only the synthetic-identity record; daemonConfig stays.
     await hostStorage.remove(OH.syntheticIdentity);
-    const r2 = await ensureSyntheticIdentity({ now: NOW });
+    const r2 = await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     // Same hostInstallId → same row UUIDs (deterministic). User-visible
     // fields seeded from the second call's input (the record was rebuilt).
     expect(r2.user.id).toBe(r1.user.id);

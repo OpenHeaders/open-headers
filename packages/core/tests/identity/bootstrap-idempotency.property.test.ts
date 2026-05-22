@@ -30,8 +30,8 @@ describe('U1.9 — bootstrap idempotency at 1000-host scale', () => {
     for (let i = 0; i < SAMPLE_SIZE; i++) {
       const hostInstallId = `probe-host-${i}`;
       const [a, b] = await Promise.all([
-        bootstrapSyntheticIdentity({ hostInstallId, now: NOW }),
-        bootstrapSyntheticIdentity({ hostInstallId, now: NOW }),
+        bootstrapSyntheticIdentity({ hostInstallId, hostKind: 'desktop', now: NOW }),
+        bootstrapSyntheticIdentity({ hostInstallId, hostKind: 'desktop', now: NOW }),
       ]);
       // toEqual is a deep-equality check on the row tuple; any byte
       // drift across re-runs would surface here.
@@ -42,7 +42,7 @@ describe('U1.9 — bootstrap idempotency at 1000-host scale', () => {
   it('1000 distinct hostInstallIds produce 1000 distinct user ids (no collisions)', async () => {
     const userIds = new Set<string>();
     for (let i = 0; i < SAMPLE_SIZE; i++) {
-      const r = await bootstrapSyntheticIdentity({ hostInstallId: `probe-host-${i}`, now: NOW });
+      const r = await bootstrapSyntheticIdentity({ hostInstallId: `probe-host-${i}`, hostKind: 'desktop', now: NOW });
       userIds.add(r.user.id);
     }
     expect(userIds.size).toBe(SAMPLE_SIZE);
@@ -51,14 +51,14 @@ describe('U1.9 — bootstrap idempotency at 1000-host scale', () => {
   it('1000 distinct hostInstallIds produce 1000 distinct org ids (no collisions)', async () => {
     const orgIds = new Set<string>();
     for (let i = 0; i < SAMPLE_SIZE; i++) {
-      const r = await bootstrapSyntheticIdentity({ hostInstallId: `probe-host-${i}`, now: NOW });
+      const r = await bootstrapSyntheticIdentity({ hostInstallId: `probe-host-${i}`, hostKind: 'desktop', now: NOW });
       orgIds.add(r.org.id);
     }
     expect(orgIds.size).toBe(SAMPLE_SIZE);
   });
 
   it('within a single record, the 7 row ids are pairwise distinct', async () => {
-    const r = await bootstrapSyntheticIdentity({ hostInstallId: 'spot-check-host', now: NOW });
+    const r = await bootstrapSyntheticIdentity({ hostInstallId: 'spot-check-host', hostKind: 'desktop', now: NOW });
     const ids = [
       r.user.id, r.org.id, r.userIdentity.id, r.session.id,
       r.membership.id, r.principal.id, r.localAdmin.id,

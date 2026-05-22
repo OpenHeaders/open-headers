@@ -83,9 +83,11 @@ function makeSnapshot(
   for (const wra of overrides.wras ?? []) {
     wraByWorkspaceId.set(wra.workspaceId, wra);
   }
-  const orgs = new Map<string, Org>([[user.homeOrgId, { id: user.homeOrgId, name: 'Local', isSynthetic: true }]]);
+  const orgs = new Map<string, Org>([
+    [user.homeOrgId, { id: user.homeOrgId, name: 'Local', hostKind: 'browser', isSynthetic: true }],
+  ]);
   for (const orgId of overrides.extraOrgIds ?? []) {
-    orgs.set(orgId, { id: orgId, name: `Joined ${orgId}`, isSynthetic: false });
+    orgs.set(orgId, { id: orgId, name: `Joined ${orgId}`, hostKind: 'desktop', isSynthetic: false });
   }
   return { user, principal, membership, localAdmin, wraByWorkspaceId, orgs };
 }
@@ -196,7 +198,7 @@ describe('identity registry', () => {
   });
 
   it('installIdentitySnapshot wires WRAs onto a workspace-id map', async () => {
-    const record = await ensureSyntheticIdentity({ now: NOW });
+    const record = await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     const wras = [makeWra(W1, 'owner'), makeWra(W2, 'editor')];
     const snap = installIdentitySnapshot({ record, wras });
     expect(snap.wraByWorkspaceId.get(W1)?.role).toBe('owner');
@@ -205,7 +207,7 @@ describe('identity registry', () => {
   });
 
   it('refreshIdentitySnapshotFromHostStorage hydrates from persisted record + WRAs', async () => {
-    await ensureSyntheticIdentity({ now: NOW });
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     await ensureWorkspaceRoleAssignments([W1]);
     clearIdentitySnapshot();
     const snap = await refreshIdentitySnapshotFromHostStorage();
@@ -219,7 +221,7 @@ describe('identity registry', () => {
   });
 
   it('clearIdentitySnapshot drops the in-memory mirror', async () => {
-    const record = await ensureSyntheticIdentity({ now: NOW });
+    const record = await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     installIdentitySnapshot({ record, wras: [] });
     expect(getIdentitySnapshot()).not.toBeNull();
     clearIdentitySnapshot();
@@ -234,7 +236,7 @@ describe('synthetic identity resolves via the same path as real', () => {
   });
 
   it('end-to-end synthetic boot → LocalAdmin → workspace.write ALLOW', async () => {
-    const record = await ensureSyntheticIdentity({ now: NOW });
+    const record = await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     const wras = await ensureWorkspaceRoleAssignments([W1]);
     installIdentitySnapshot({ record, wras });
 
@@ -244,7 +246,7 @@ describe('synthetic identity resolves via the same path as real', () => {
   });
 
   it('end-to-end: snapshot persists across a wipe-and-refresh cycle', async () => {
-    const record = await ensureSyntheticIdentity({ now: NOW });
+    const record = await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     await ensureWorkspaceRoleAssignments([W1]);
     installIdentitySnapshot({ record, wras: (await hostStorage.get(OH.workspaceRoleAssignments)) ?? [] });
 

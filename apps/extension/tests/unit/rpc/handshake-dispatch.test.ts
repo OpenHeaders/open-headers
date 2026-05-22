@@ -96,7 +96,12 @@ describe('evaluateHello', () => {
       const outcome = await evaluateHello(validHello as unknown as Record<string, unknown>, localIdentity);
       expect(outcome.kind).toBe('accept');
       if (outcome.kind === 'accept' && outcome.welcome.accepted) {
-        expect(outcome.welcome.org).toEqual({ id: homeOrgId, name: 'Test Org', isSynthetic: true });
+        expect(outcome.welcome.org).toEqual({
+          id: homeOrgId,
+          name: 'Test Org',
+          hostKind: 'browser',
+          isSynthetic: true,
+        });
       }
     });
   });

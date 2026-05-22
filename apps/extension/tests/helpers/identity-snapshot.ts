@@ -33,7 +33,7 @@ const TEST_LOCAL_ADMIN_ID = '01900000-0000-7000-8000-000000000015';
 export function installTestIdentitySnapshot(homeOrgId: string = PRE_BOOTSTRAP_ORG_ID): void {
   const record: SyntheticIdentityRecord = {
     user: { id: TEST_USER_ID, displayName: 'Test', homeOrgId, isSynthetic: true },
-    org: { id: homeOrgId, name: 'Test Org', isSynthetic: true },
+    org: { id: homeOrgId, name: 'Test Org', hostKind: 'browser', isSynthetic: true },
     userIdentity: {
       id: TEST_USER_IDENTITY_ID,
       userId: TEST_USER_ID,

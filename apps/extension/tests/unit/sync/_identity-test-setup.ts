@@ -51,7 +51,7 @@ export async function installSyntheticIdentityForTests(
 ): Promise<() => void> {
   clearIdentitySnapshot();
   setHostStorage(createHostStorageFake());
-  await ensureSyntheticIdentity({ now: NOW });
+  await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
   if (workspaceIds.length > 0) {
     await ensureWorkspaceRoleAssignments([...workspaceIds]);
   }
