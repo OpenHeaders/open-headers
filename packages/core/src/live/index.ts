@@ -66,6 +66,7 @@ export { scanTemplateReferences, scanTemplateReferencesMany } from './template-s
 export type { VariableFingerprint, VariableScopeSnapshot } from './variable-scan';
 export { workflowVariableFingerprint } from './variable-scan';
 export { isLiveVariableDraft, isLiveVariableEffective } from './variable-state';
+export { workflowDefinitionFingerprint } from './workflow-scan';
 export {
   isWorkflowComplete,
   isWorkflowDraft,

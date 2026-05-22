@@ -12,6 +12,7 @@ import type {
   Request,
   Vault,
   WorkflowRunCache,
+  WorkflowStep,
   WorkspaceVariables,
 } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -1031,21 +1032,41 @@ describe('variable-edit refresh (LF2)', () => {
   });
 });
 
-// ── Workflow-delete cascade-purge (LF3) ───────────────────────────
+// ── Workflow delete + definition-edit (LF3) ───────────────────────
 
-describe('workflow-delete cascade-purge (LF3)', () => {
+describe('workflow delete + definition-edit (LF3)', () => {
   function fireWorkflowChange(): void {
     for (const fn of storeState.listeners.workflow) fn();
   }
 
+  /** A workflow step with a single whole-body capture. */
+  function step(uid: string, id: string, requestUid: string): WorkflowStep {
+    return { uid, id, requestUid, captures: [{ uid: 'cap00001', name: 'v', extractor: { kind: 'whole-body' } }] };
+  }
+
   /** Start the scheduler with the given workflows + fire one workflow-
-   *  store event so the uid baseline is primed (hydration broadcast). */
+   *  store event so the definition baseline is primed (hydration). */
   async function startPrimed(uids: string[]): Promise<void> {
     storeState.workflows = uids.map((uid) => makeWorkflow({ uid }));
     scheduler.startLiveScheduler();
     fireWorkflowChange();
     await flushAsync();
     clearWorkflowRunCacheMock.mockClear();
+  }
+
+  /** Start the scheduler with one runnable workflow whose definition the
+   *  caller then mutates. The step's request is hydrated so the
+   *  `canScheduleWorkflow` deleted-request guard passes. */
+  async function startPrimedRunnable(workflow: LiveWorkflow): Promise<void> {
+    storeState.requests.set('reqfetch1', makeRequest());
+    storeState.requests.set('reqother1', makeRequest({ uid: 'reqother1' }));
+    storeState.workflows = [workflow];
+    storeState.variables = [makeVariable({ workflowUid: workflow.uid })];
+    scheduler.startLiveScheduler();
+    fireWorkflowChange();
+    await flushAsync();
+    clearWorkflowRunCacheMock.mockClear();
+    markWorkflowDefinitionallyStaleMock.mockClear();
   }
 
   it('purges the cache rows of a deleted workflow', async () => {
@@ -1078,16 +1099,6 @@ describe('workflow-delete cascade-purge (LF3)', () => {
     expect(clearWorkflowRunCacheMock).not.toHaveBeenCalled();
   });
 
-  it('does not purge when a workflow is edited (uid unchanged)', async () => {
-    await startPrimed(['wflowAAA']);
-
-    storeState.workflows = [makeWorkflow({ uid: 'wflowAAA', name: 'Renamed' })];
-    fireWorkflowChange();
-    await flushAsync();
-
-    expect(clearWorkflowRunCacheMock).not.toHaveBeenCalled();
-  });
-
   it('purges every deleted workflow when several vanish at once', async () => {
     await startPrimed(['wflowAAA', 'wflowBBB', 'wflowCCC']);
 
@@ -1097,6 +1108,131 @@ describe('workflow-delete cascade-purge (LF3)', () => {
 
     const purged = clearWorkflowRunCacheMock.mock.calls.map((c) => c[0]).sort();
     expect(purged).toEqual(['wflowBBB', 'wflowCCC']);
+  });
+
+  it('flags + refreshes the active env when a step extractor changes', async () => {
+    type RefreshArgs = { workspaceId: string; workflow: LiveWorkflow; environmentId: string | null };
+    const refreshSpy = vi.fn<(args: RefreshArgs) => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    activeSwitchState.activeEnvId = 'env-dev';
+    await startPrimedRunnable(makeWorkflow({ uid: 'wflowAAA', steps: [step('stp00001', 'fetch', 'reqfetch1')] }));
+
+    const editedStep: WorkflowStep = {
+      uid: 'stp00001',
+      id: 'fetch',
+      requestUid: 'reqfetch1',
+      captures: [{ uid: 'cap00001', name: 'v', extractor: { kind: 'json-path', path: '$.token' } }],
+    };
+    storeState.workflows = [makeWorkflow({ uid: 'wflowAAA', steps: [editedStep] })];
+    fireWorkflowChange();
+    await flushAsync();
+
+    expect(markWorkflowDefinitionallyStaleMock).toHaveBeenCalledWith('wflowAAA', 'ws-live');
+    expect(clearWorkflowRunCacheMock).not.toHaveBeenCalled();
+    expect(refreshSpy).toHaveBeenCalledOnce();
+    expect(refreshSpy.mock.calls[0]?.[0]).toMatchObject({ environmentId: 'env-dev' });
+  });
+
+  it('detects a step re-pointed at a different request', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    await startPrimedRunnable(makeWorkflow({ uid: 'wflowAAA', steps: [step('stp00001', 'fetch', 'reqfetch1')] }));
+
+    storeState.workflows = [makeWorkflow({ uid: 'wflowAAA', steps: [step('stp00001', 'fetch', 'reqother1')] })];
+    fireWorkflowChange();
+    await flushAsync();
+
+    expect(markWorkflowDefinitionallyStaleMock).toHaveBeenCalledWith('wflowAAA', 'ws-live');
+    expect(refreshSpy).toHaveBeenCalledOnce();
+  });
+
+  it('detects a step added to the workflow', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    await startPrimedRunnable(makeWorkflow({ uid: 'wflowAAA', steps: [step('stp00001', 'fetch', 'reqfetch1')] }));
+
+    storeState.workflows = [
+      makeWorkflow({
+        uid: 'wflowAAA',
+        steps: [step('stp00001', 'fetch', 'reqfetch1'), step('stp00002', 'second', 'reqother1')],
+      }),
+    ];
+    fireWorkflowChange();
+    await flushAsync();
+
+    expect(markWorkflowDefinitionallyStaleMock).toHaveBeenCalledWith('wflowAAA', 'ws-live');
+  });
+
+  it('ignores a cosmetic edit (rename) — definition fingerprint unchanged', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    await startPrimedRunnable(makeWorkflow({ uid: 'wflowAAA', steps: [step('stp00001', 'fetch', 'reqfetch1')] }));
+
+    storeState.workflows = [
+      makeWorkflow({
+        uid: 'wflowAAA',
+        name: 'Renamed',
+        description: 'docs',
+        steps: [step('stp00001', 'fetch', 'reqfetch1')],
+      }),
+    ];
+    fireWorkflowChange();
+    await flushAsync();
+
+    expect(markWorkflowDefinitionallyStaleMock).not.toHaveBeenCalled();
+    expect(clearWorkflowRunCacheMock).not.toHaveBeenCalled();
+    expect(refreshSpy).not.toHaveBeenCalled();
+  });
+
+  it('ignores a scheduling-axis edit (enabled / refresh cadence)', async () => {
+    await startPrimedRunnable(makeWorkflow({ uid: 'wflowAAA', steps: [step('stp00001', 'fetch', 'reqfetch1')] }));
+
+    storeState.workflows = [
+      makeWorkflow({
+        uid: 'wflowAAA',
+        enabled: false,
+        refresh: { kind: 'interval', seconds: 600 },
+        steps: [step('stp00001', 'fetch', 'reqfetch1')],
+      }),
+    ];
+    fireWorkflowChange();
+    await flushAsync();
+
+    expect(markWorkflowDefinitionallyStaleMock).not.toHaveBeenCalled();
+  });
+
+  it('flags a manual-trigger workflow definitionally stale instead of auto-running it', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    await startPrimedRunnable(
+      makeWorkflow({ uid: 'wflowAAA', refresh: { kind: 'manual' }, steps: [step('stp00001', 'fetch', 'reqfetch1')] }),
+    );
+
+    storeState.workflows = [
+      makeWorkflow({ uid: 'wflowAAA', refresh: { kind: 'manual' }, steps: [step('stp00001', 'fetch', 'reqother1')] }),
+    ];
+    fireWorkflowChange();
+    await flushAsync();
+
+    expect(markWorkflowDefinitionallyStaleMock).toHaveBeenCalledWith('wflowAAA', 'ws-live');
+    expect(refreshSpy).not.toHaveBeenCalled();
+  });
+
+  it('flags a disabled non-manual workflow without refreshing it', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    await startPrimedRunnable(
+      makeWorkflow({ uid: 'wflowAAA', enabled: false, steps: [step('stp00001', 'fetch', 'reqfetch1')] }),
+    );
+
+    storeState.workflows = [
+      makeWorkflow({ uid: 'wflowAAA', enabled: false, steps: [step('stp00001', 'fetch', 'reqother1')] }),
+    ];
+    fireWorkflowChange();
+    await flushAsync();
+
+    expect(markWorkflowDefinitionallyStaleMock).toHaveBeenCalledWith('wflowAAA', 'ws-live');
+    expect(refreshSpy).not.toHaveBeenCalled();
   });
 });
 

@@ -51,6 +51,7 @@ import {
   MIN_ALARM_DELAY_MS,
   requestExecutableFingerprint,
   scanTemplateReferencesMany,
+  workflowDefinitionFingerprint,
   workflowVariableFingerprint,
 } from '@openheaders/core/live';
 import type { LiveVariable, LiveWorkflow } from '@openheaders/core/types';
@@ -787,53 +788,111 @@ async function refreshWorkflowsForChangedVariables(changed: ReadonlyArray<Change
   }
 }
 
-// ── Definitional-freshness — workflow-delete cascade-purge (LF3) ───
+// ── Definitional-freshness — workflow delete + definition edit (LF3) ─
 //
-// Deleting a live workflow leaves its `liveCache` rows orphaned: a
-// bound `{{live.X}}` would otherwise resolve a frozen, never-refreshed
-// value forever — the workflow that minted it no longer exists, so the
-// cadence timer never reaches it. A deleted workflow must therefore
-// cascade-purge every env-keyed cache row it owns.
+// A workflow's cached token is minted from a third recipe input beyond
+// the request its steps embed (LF1) and the variables that request
+// resolves (LF2): the workflow DEFINITION itself — which steps run, in
+// what order, under what gates, capturing what. Two definition changes
+// invalidate that token:
 //
-// Detection mirrors LF1/LF2: a `Set<uid>` baseline of the active
-// workspace's workflows, self-primed off the first store-change
-// broadcast (hydration always precedes a human delete). A uid present
-// in the baseline but absent from the current set is a delete →
-// `clearWorkflowRunCache` drops its rows. The baseline is workspace-
-// tagged because `getLiveWorkflows()` is the active-workspace view: a
-// workspace switch swaps the whole set, so the diff re-primes silently
-// instead of purging every old-workspace uid as if it were deleted.
+//   • Delete — the workflow is gone; its `liveCache` rows are orphaned.
+//     A bound `{{live.X}}` would otherwise resolve a frozen, never-
+//     refreshed value forever (the cadence timer never reaches a
+//     deleted workflow). Every env-keyed cache row it owns is purged.
+//   • Definition edit — re-pointing a step at a different request,
+//     changing a step's extractor, adding / removing / reordering
+//     steps. The cached value was minted by a recipe that no longer
+//     exists, exactly like a material request edit (LF1) — so the
+//     treatment is LF1's: flag every env row definitionally stale
+//     (`computeNextFireAt` then makes each due now, re-warming even a
+//     workflow not runnable at the instant of the edit) and, for a
+//     non-manual workflow runnable now, refresh the active env at once.
+//
+// Both are detected off the same `onLiveWorkflowStoreChange` broadcast
+// against one workspace-tagged baseline of `uid → workflowDefinition
+// Fingerprint`. The fingerprint excludes cosmetic + scheduling fields
+// (`name`, `description`, `enabled`, `published`, `refresh`), so a
+// rename / enable-toggle / cadence change never fires. The baseline
+// self-primes off the first broadcast (hydration always precedes a
+// human change); a workspace switch swaps the whole map and re-primes
+// silently (`getLiveWorkflows()` is the active-workspace view). No
+// debounce — a delete or a save is atomic, not a keystroke burst.
 
-let workflowUidBaseline: { workspaceId: string; uids: Set<string> } | null = null;
+let workflowDefinitionBaseline: { workspaceId: string; defs: Map<string, string> } | null = null;
 
-/** Test-only: drop the workflow-uid baseline so the next change re-primes. */
-export function __resetWorkflowDeleteBaseline(): void {
-  workflowUidBaseline = null;
+/** Test-only: drop the workflow-definition baseline so the next change re-primes. */
+export function __resetWorkflowDefinitionBaseline(): void {
+  workflowDefinitionBaseline = null;
 }
 
-/** Diff the active workspace's workflow uids; purge cache rows for any that vanished. */
-function settleWorkflowDeleteCascade(): void {
+/** Fingerprint every active-workspace workflow's executable definition. */
+function snapshotWorkflowDefinitions(): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const wf of getLiveWorkflows()) out.set(wf.uid, workflowDefinitionFingerprint(wf));
+  return out;
+}
+
+/** Diff the active workspace's workflow definitions; purge deletes, refresh edits. */
+async function settleWorkflowDefinitionChanges(): Promise<void> {
   let workspaceId: string;
   try {
     workspaceId = getActiveWorkspaceId();
   } catch {
     return; // bootstrap race — workspace pointer not hydrated yet
   }
-  const current = new Set(getLiveWorkflows().map((w) => w.uid));
-  // First sight, or a workspace switch — adopt the new set without a
-  // purge (any vanished uid belongs to the other workspace, not a delete).
-  if (!workflowUidBaseline || workflowUidBaseline.workspaceId !== workspaceId) {
-    workflowUidBaseline = { workspaceId, uids: current };
+  const current = snapshotWorkflowDefinitions();
+  // First sight, or a workspace switch — adopt the new map without
+  // acting (any vanished uid belongs to the other workspace, not a
+  // delete; any fingerprint shift is the hydration broadcast).
+  if (!workflowDefinitionBaseline || workflowDefinitionBaseline.workspaceId !== workspaceId) {
+    workflowDefinitionBaseline = { workspaceId, defs: current };
     return;
   }
   const deleted: string[] = [];
-  for (const uid of workflowUidBaseline.uids) {
-    if (!current.has(uid)) deleted.push(uid);
+  const edited: string[] = [];
+  for (const [uid, fingerprint] of workflowDefinitionBaseline.defs) {
+    const next = current.get(uid);
+    if (next === undefined) deleted.push(uid);
+    else if (next !== fingerprint) edited.push(uid);
   }
-  workflowUidBaseline = { workspaceId, uids: current };
+  workflowDefinitionBaseline = { workspaceId, defs: current };
+
   for (const uid of deleted) {
     void clearWorkflowRunCache(uid, workspaceId).catch((err) => {
       logger.info('LiveScheduler', `workflow-delete cache purge failed for ${uid}: ${(err as Error).message}`);
+    });
+  }
+  if (edited.length > 0) await refreshWorkflowsForChangedDefinitions(edited, workspaceId);
+}
+
+/** Flag every edited workflow definitionally stale; refresh the active env of those runnable now. */
+async function refreshWorkflowsForChangedDefinitions(
+  editedUids: readonly string[],
+  workspaceId: string,
+): Promise<void> {
+  const activeEnvironmentId = getActiveEnvironmentId();
+  const workflowsByUid = new Map(getLiveWorkflows().map((w) => [w.uid, w]));
+  for (const uid of editedUids) {
+    const workflow = workflowsByUid.get(uid);
+    if (!workflow) continue;
+    // Flag every env cache row definitionally stale, before any gate —
+    // the whole treatment for manual workflows and for one not
+    // schedulable right now; `computeNextFireAt` honors the flag so a
+    // flagged row is due as soon as the workflow can run again.
+    try {
+      await markWorkflowDefinitionallyStale(uid, workspaceId);
+    } catch (err) {
+      logger.info('LiveScheduler', `definitional-stale flag failed for ${uid}: ${(err as Error).message}`);
+    }
+    // Manual workflows never auto-run — the flag is the whole treatment.
+    if (workflow.refresh.kind === 'manual') continue;
+    // Non-manual + runnable now: refresh the ACTIVE env immediately so
+    // the value the user is resolving has no wrong-recipe window.
+    const boundVariables = getLiveVariablesForWorkflow(uid);
+    if (!canScheduleWorkflow(workflow, boundVariables)) continue;
+    void refreshLiveWorkflowSynchronously(workspaceId, uid, activeEnvironmentId).catch((err) => {
+      logger.info('LiveScheduler', `workflow-definition refresh failed for ${uid}: ${(err as Error).message}`);
     });
   }
 }
@@ -1179,12 +1238,15 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
     };
     const unsubscribers: Array<() => void> = [
       // A workflow-store change drives the shared reconcile plus the
-      // LF3 delete-cascade: a workflow that vanished since the last
-      // pass had its `liveCache` rows purged so a bound `{{live.X}}`
-      // can't resolve a frozen orphaned value.
+      // LF3 delete + definition-edit detector: a workflow that vanished
+      // has its `liveCache` rows purged (no frozen orphaned value); a
+      // workflow whose executable definition changed is flagged
+      // definitionally stale + refreshed.
       onLiveWorkflowStoreChange(() => {
         combined();
-        settleWorkflowDeleteCascade();
+        void settleWorkflowDefinitionChanges().catch((err) => {
+          logger.info('LiveScheduler', `workflow-definition settle failed: ${(err as Error).message}`);
+        });
       }),
       onLiveVariableStoreChange(combined),
       // A live-cache change drives the shared reconcile + status
@@ -1228,7 +1290,7 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
         variableEditDebounceTimer = null;
       }
       variableSurfaceBaseline = new Map();
-      workflowUidBaseline = null;
+      workflowDefinitionBaseline = null;
       if (cascadeDebounceTimer) {
         clearTimeout(cascadeDebounceTimer);
         cascadeDebounceTimer = null;
