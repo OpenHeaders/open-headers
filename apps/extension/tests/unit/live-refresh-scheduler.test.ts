@@ -189,7 +189,9 @@ const activeSwitchState = {
   activeEnvId: null as string | null,
 };
 
-const ACTIVE_WORKSPACE_ID = 'ws-live';
+// Mutable so cross-workspace cases can simulate a switch — most tests
+// leave it at the default `'ws-live'`.
+let ACTIVE_WORKSPACE_ID = 'ws-live';
 
 vi.mock('@/background/modules/workspace-store', () => ({
   // The scheduler reads the active workspace synchronously from this
@@ -323,6 +325,7 @@ beforeEach(async () => {
   activeSwitchState.workspaceListeners.clear();
   activeSwitchState.envListeners.clear();
   activeSwitchState.activeEnvId = null;
+  ACTIVE_WORKSPACE_ID = 'ws-live';
   // Seed an active workspace so `collectEntries` can route the
   // in-memory path.
   seedStorageMany({
@@ -1578,6 +1581,167 @@ describe('chained-workflow cascade (LF4)', () => {
     await flushAsync();
 
     expect(refreshSpy.mock.calls.map((c) => c[0].workflow.uid)).toEqual(['wflowBBB']);
+  });
+});
+
+// ── Cross-workspace switch recovery (LF1 / LF2 / LF4) ──────────────
+//
+// The three debounced detectors hold per-workspace baselines + pending
+// queues so a detection landing just before a workspace switch is not
+// lost. LF1/LF2 re-diff against the originating workspace's preserved
+// baseline once it is active again; LF4's per-workspace cascade bucket
+// is drained by the `onActiveWorkspaceChange` hook. (LF3 has no
+// debounce, so it is structurally immune and not exercised here.)
+
+describe('cross-workspace switch recovery (LF1/LF2/LF4)', () => {
+  function wfStep(uid: string, requestUid: string): WorkflowStep {
+    return {
+      uid,
+      id: 'fetch',
+      requestUid,
+      captures: [{ uid: 'cap00001', name: 'v', extractor: { kind: 'whole-body' } }],
+    };
+  }
+  function requestRef(uid: string, refValue: string): Request {
+    return makeRequest({ uid, headers: [{ uid: 'hdrauth01', key: 'Authorization', value: refValue, enabled: true }] });
+  }
+  function makeEnvironment(uid: string, vars: Array<{ name: string; value: string }>): Environment {
+    return {
+      schemaVersion: 5,
+      uid,
+      name: uid,
+      variables: vars.map((v, i) => ({ uid: `${uid}var${i}`, name: v.name, value: v.value, type: 'default' as const })),
+    };
+  }
+  /** Point the harness at `wsId` and fire the broadcasts a real switch
+   *  emits — the active-workspace listeners + the store re-hydration. */
+  function switchWorkspace(wsId: string, prev: string): void {
+    ACTIVE_WORKSPACE_ID = wsId;
+    for (const fn of activeSwitchState.workspaceListeners) fn(wsId, prev);
+    for (const fn of storeState.listeners.request) fn();
+    for (const fn of storeState.listeners.environment) fn();
+    for (const fn of storeState.listeners.workflow) fn();
+  }
+
+  it('recovers a request edit made while another workspace was active (LF1)', async () => {
+    scheduler.__setRequestEditRefreshDebounceMs(0);
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: vi.fn(async () => {}) });
+
+    // Workspace A — workflow WA embeds request RA.
+    storeState.requests = new Map([['reqAAAA1', makeRequest({ uid: 'reqAAAA1' })]]);
+    storeState.workflows = [makeWorkflow({ uid: 'wflowAAA', steps: [wfStep('stpA', 'reqAAAA1')] })];
+    storeState.variables = [makeVariable({ uid: 'lvAAAA1', workflowUid: 'wflowAAA' })];
+    scheduler.startLiveScheduler();
+    for (const fn of storeState.listeners.request) fn(); // prime A's baseline
+    await flushAsync();
+
+    // Switch to workspace B — its own request + workflow.
+    storeState.requests = new Map([['reqBBBB1', makeRequest({ uid: 'reqBBBB1' })]]);
+    storeState.workflows = [makeWorkflow({ uid: 'wflowBBB', steps: [wfStep('stpB', 'reqBBBB1')] })];
+    storeState.variables = [makeVariable({ uid: 'lvBBBB1', workflowUid: 'wflowBBB' })];
+    switchWorkspace('ws-b', 'ws-live');
+    await flushAsync();
+    markWorkflowDefinitionallyStaleMock.mockClear();
+
+    // Back to A — RA carries a material edit landed during the B excursion.
+    storeState.requests = new Map([
+      ['reqAAAA1', makeRequest({ uid: 'reqAAAA1', url: 'https://api.openheaders.io/token-v2' })],
+    ]);
+    storeState.workflows = [makeWorkflow({ uid: 'wflowAAA', steps: [wfStep('stpA', 'reqAAAA1')] })];
+    storeState.variables = [makeVariable({ uid: 'lvAAAA1', workflowUid: 'wflowAAA' })];
+    switchWorkspace('ws-live', 'ws-b');
+    await flushAsync();
+
+    // A's pre-edit baseline survived the excursion — the edit is caught
+    // (a global baseline would have been clobbered by the B snapshot).
+    expect(markWorkflowDefinitionallyStaleMock).toHaveBeenCalledWith('wflowAAA', 'ws-live');
+  });
+
+  it('recovers a variable edit made while another workspace was active (LF2)', async () => {
+    scheduler.__setVariableEditRefreshDebounceMs(0);
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: vi.fn(async () => {}) });
+    activeSwitchState.activeEnvId = 'env-a';
+
+    // Workspace A — WA's request resolves `{{env.token}}` in env-a.
+    storeState.requests = new Map([['reqAAAA1', requestRef('reqAAAA1', '{{env.token}}')]]);
+    storeState.workflows = [makeWorkflow({ uid: 'wflowAAA', steps: [wfStep('stpA', 'reqAAAA1')] })];
+    storeState.variables = [makeVariable({ uid: 'lvAAAA1', workflowUid: 'wflowAAA' })];
+    storeState.environments = [makeEnvironment('env-a', [{ name: 'token', value: 'v1' }])];
+    scheduler.startLiveScheduler();
+    for (const fn of storeState.listeners.environment) fn(); // prime A's baseline
+    await flushAsync();
+
+    // Switch to workspace B.
+    storeState.requests = new Map([['reqBBBB1', requestRef('reqBBBB1', '{{env.other}}')]]);
+    storeState.workflows = [makeWorkflow({ uid: 'wflowBBB', steps: [wfStep('stpB', 'reqBBBB1')] })];
+    storeState.variables = [makeVariable({ uid: 'lvBBBB1', workflowUid: 'wflowBBB' })];
+    storeState.environments = [makeEnvironment('env-b', [{ name: 'other', value: 'x' }])];
+    switchWorkspace('ws-b', 'ws-live');
+    await flushAsync();
+    markRunDefinitionallyStaleMock.mockClear();
+
+    // Back to A — env-a's `token` was edited during the B excursion.
+    storeState.requests = new Map([['reqAAAA1', requestRef('reqAAAA1', '{{env.token}}')]]);
+    storeState.workflows = [makeWorkflow({ uid: 'wflowAAA', steps: [wfStep('stpA', 'reqAAAA1')] })];
+    storeState.variables = [makeVariable({ uid: 'lvAAAA1', workflowUid: 'wflowAAA' })];
+    storeState.environments = [makeEnvironment('env-a', [{ name: 'token', value: 'v2-CHANGED' }])];
+    switchWorkspace('ws-live', 'ws-b');
+    await flushAsync();
+
+    expect(markRunDefinitionallyStaleMock).toHaveBeenCalledWith('wflowAAA', 'env-a', 'ws-live');
+  });
+
+  it('recovers a cascade detected just before a switch away (LF4)', async () => {
+    scheduler.__setLiveCascadeRefreshDebounceMs(0);
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: vi.fn(async () => {}) });
+    activeSwitchState.activeEnvId = 'env-dev';
+    storeState.requests.set('reqA00001', makeRequest({ uid: 'reqA00001' }));
+    storeState.requests.set('reqB00001', requestRef('reqB00001', '{{live.authToken}}'));
+    storeState.workflows = [
+      makeWorkflow({ uid: 'wflowAAA', steps: [wfStep('stpA0001', 'reqA00001')] }),
+      makeWorkflow({ uid: 'wflowBBB', steps: [wfStep('stpB0001', 'reqB00001')] }),
+    ];
+    storeState.variables = [
+      makeVariable({ uid: 'lvauth01', name: 'authToken', workflowUid: 'wflowAAA' }),
+      makeVariable({ uid: 'lvbbb001', name: 'bToken', workflowUid: 'wflowBBB' }),
+    ];
+    scheduler.startLiveScheduler();
+
+    // Each broadcast carries the full post-write run list (the
+    // `live-cache-store` contract) so the `extractedAt` baseline tracks.
+    const fireCache = (extractedAt: number): void => {
+      const runs = [
+        {
+          workflowUid: 'wflowAAA',
+          environmentId: 'env-dev',
+          stepCaptures: {},
+          stepResponseBytes: {},
+          extractedAt,
+          expiresAt: null,
+          consecutiveFailures: 0,
+          lastExtractorOk: true,
+        },
+      ] as WorkflowRunCache[];
+      for (const fn of storeState.listeners.cache) fn('ws-live', 'wflowAAA', runs);
+    };
+    fireCache(1); // priming broadcast
+    await flushAsync();
+
+    // Upstream A advances → a cascade is queued for ws-live → the user
+    // switches away before the debounced settle drains the bucket.
+    fireCache(2);
+    ACTIVE_WORKSPACE_ID = 'ws-b';
+    for (const fn of activeSwitchState.workspaceListeners) fn('ws-b', 'ws-live');
+    await flushAsync();
+    // The settle fired while ws-b was active — it found ws-b's bucket
+    // empty and left ws-live's bucket intact, so nothing was flagged.
+    expect(markRunDefinitionallyStaleMock).not.toHaveBeenCalled();
+
+    // Switch back — the workspace-switch hook drains ws-live's bucket.
+    ACTIVE_WORKSPACE_ID = 'ws-live';
+    for (const fn of activeSwitchState.workspaceListeners) fn('ws-live', 'ws-b');
+    await flushAsync();
+    expect(markRunDefinitionallyStaleMock).toHaveBeenCalledWith('wflowBBB', 'env-dev', 'ws-live');
   });
 });
 

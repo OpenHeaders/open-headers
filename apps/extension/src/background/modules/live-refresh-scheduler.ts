@@ -500,13 +500,16 @@ export function __setRequestEditRefreshDebounceMs(ms: number): void {
   requestEditRefreshDebounceMs = ms;
 }
 
-// Fingerprint of every request embedded by an active-workspace
-// workflow, as of the last settled pass. A uid present here with a
-// changed fingerprint is a material edit; a uid absent (newly
-// referenced, or the first pass after SW wake) is adopted without a
-// trigger — the baseline self-primes off the request-store hydration
-// broadcast, which always precedes any human edit.
-let requestExecBaseline = new Map<string, string>();
+// Per-workspace fingerprint of every request embedded by that
+// workspace's workflows, as of its last settled pass. Keyed by
+// workspaceId so a baseline survives a workspace switch: an edit made
+// just before switching away is still diffed against the correct
+// pre-edit baseline when the user returns. Within a workspace, a uid
+// present with a changed fingerprint is a material edit; a uid absent
+// (newly referenced, or the first pass after SW wake) is adopted
+// without a trigger. The first settle for a workspace self-primes off
+// its hydration broadcast, which always precedes any human edit.
+let requestExecBaseline = new Map<string, Map<string, string>>();
 let requestEditDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 /** Fingerprint each request embedded by an active-workspace workflow. */
@@ -533,15 +536,25 @@ function onRequestStoreChangeForRefresh(): void {
   }, requestEditRefreshDebounceMs);
 }
 
-/** Diff fingerprints against the baseline; refresh workflows whose embedded request materially changed. */
+/** Diff fingerprints against the active workspace's baseline; refresh workflows whose embedded request materially changed. */
 async function settleRequestEditRefresh(): Promise<void> {
+  let workspaceId: string;
+  try {
+    workspaceId = getActiveWorkspaceId();
+  } catch {
+    return; // bootstrap race — workspace pointer not hydrated, can't key the baseline
+  }
   const current = snapshotActiveRequestFingerprints();
+  const prevForWs = requestExecBaseline.get(workspaceId);
+  requestExecBaseline.set(workspaceId, current);
+  // First settle for this workspace — adopt its snapshot without a
+  // trigger (the hydration broadcast precedes any human edit).
+  if (!prevForWs) return;
   const changed = new Set<string>();
   for (const [uid, fingerprint] of current) {
-    const prev = requestExecBaseline.get(uid);
+    const prev = prevForWs.get(uid);
     if (prev !== undefined && prev !== fingerprint) changed.add(uid);
   }
-  requestExecBaseline = current;
   if (changed.size === 0) return;
   await refreshWorkflowsForChangedRequests(changed);
 }
@@ -624,11 +637,15 @@ export function __setVariableEditRefreshDebounceMs(ms: number): void {
   variableEditRefreshDebounceMs = ms;
 }
 
-// Per-(workflow, env) variable-surface fingerprint as of the last
-// settled pass. Like the request-edit baseline it self-primes off the
-// first store-change broadcast (hydration always precedes a human
-// edit) — a (workflow, env) absent here is adopted without a trigger.
-let variableSurfaceBaseline = new Map<string, Map<string | null, VariableFingerprint>>();
+// Per-workspace, per-(workflow, env) variable-surface fingerprint as of
+// that workspace's last settled pass. Keyed by workspaceId so a baseline
+// survives a workspace switch (same reasoning as `requestExecBaseline`):
+// a variable edit made just before switching away is still diffed
+// against the correct pre-edit baseline on return. The first settle for
+// a workspace self-primes off its hydration broadcast; within a
+// workspace, a (workflow, env) absent from the baseline is adopted
+// without a trigger.
+let variableSurfaceBaseline = new Map<string, Map<string, Map<string | null, VariableFingerprint>>>();
 let variableEditDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 /** Reduce the vault to name → recipe — a TOTP entry contributes its seed + params, never the rotating code. */
@@ -711,12 +728,22 @@ interface ChangedWorkflowEnv {
   environmentId: string | null;
 }
 
-/** Diff the variable surface against the baseline; act on workflows whose resolved variables changed. */
+/** Diff the variable surface against the active workspace's baseline; act on workflows whose resolved variables changed. */
 async function settleVariableEditRefresh(): Promise<void> {
+  let workspaceId: string;
+  try {
+    workspaceId = getActiveWorkspaceId();
+  } catch {
+    return; // bootstrap race — workspace pointer not hydrated, can't key the baseline
+  }
   const current = snapshotWorkflowVariableFingerprints();
+  const prevForWs = variableSurfaceBaseline.get(workspaceId);
+  variableSurfaceBaseline.set(workspaceId, current);
+  // First settle for this workspace — adopt without a trigger.
+  if (!prevForWs) return;
   const changed: ChangedWorkflowEnv[] = [];
   for (const [workflowUid, perEnv] of current) {
-    const prevPerEnv = variableSurfaceBaseline.get(workflowUid);
+    const prevPerEnv = prevForWs.get(workflowUid);
     if (!prevPerEnv) continue; // first sight — adopt without a trigger
     for (const [environmentId, fingerprint] of perEnv) {
       const prev = prevPerEnv.get(environmentId);
@@ -728,7 +755,6 @@ async function settleVariableEditRefresh(): Promise<void> {
       if (prev.valuesKey !== fingerprint.valuesKey) changed.push({ workflowUid, environmentId });
     }
   }
-  variableSurfaceBaseline = current;
   if (changed.length === 0) return;
   await refreshWorkflowsForChangedVariables(changed);
 }
@@ -946,15 +972,21 @@ export function __setLiveCascadeRefreshDebounceMs(ms: number): void {
   liveCascadeRefreshDebounceMs = ms;
 }
 
-/** Per-(workflow, env) `extractedAt` as of the last settled pass, workspace-tagged. */
-let liveValueExtractedAtBaseline: { workspaceId: string; byRunKey: Map<string, number> } | null = null;
+/** Per-workspace, per-(workflow, env) `extractedAt` as of that workspace's last settled pass. */
+let liveValueExtractedAtBaseline = new Map<string, Map<string, number>>();
 let cascadeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-/** Upstream (workflow, env) pairs whose live value advanced since the last settle. */
-let pendingCascadeUpstreams: ChangedWorkflowEnv[] = [];
+/**
+ * Upstream (workflow, env) pairs whose live value advanced since the
+ * last settle, bucketed by workspaceId. A bucket survives a switch away
+ * from its workspace and is drained when that workspace is active again
+ * — both the debounced cascade settle and the workspace-switch hook
+ * settle only the active workspace's bucket.
+ */
+let pendingCascadeUpstreams = new Map<string, ChangedWorkflowEnv[]>();
 
 /** Test-only: drop the cascade baseline so the next cache change re-primes. */
 export function __resetLiveCascadeBaseline(): void {
-  liveValueExtractedAtBaseline = null;
+  liveValueExtractedAtBaseline = new Map();
 }
 
 function cascadeRowKey(workflowUid: string, environmentId: string | null): string {
@@ -984,53 +1016,61 @@ function onLiveCacheChangeForCascade(
   const current = new Map<string, number>();
   for (const run of runs) current.set(cascadeRowKey(run.workflowUid, run.environmentId), run.extractedAt ?? 0);
 
-  // First sight, or a workspace switch — adopt the baseline without a
-  // cascade (any apparent advance belongs to the other workspace, or
-  // is the hydration broadcast that always precedes a human action).
-  if (!liveValueExtractedAtBaseline || liveValueExtractedAtBaseline.workspaceId !== workspaceId) {
-    liveValueExtractedAtBaseline = { workspaceId, byRunKey: current };
-    return;
-  }
+  // First sight of this workspace — adopt its baseline without a
+  // cascade (any apparent advance is the hydration broadcast that
+  // always precedes a human action).
+  const prevForWs = liveValueExtractedAtBaseline.get(workspaceId);
+  liveValueExtractedAtBaseline.set(workspaceId, current);
+  if (!prevForWs) return;
 
   // `workflowUid === null` is a bulk mutation (workspace purge) — no
-  // single upstream to cascade from; re-sync the baseline and bail.
+  // single upstream to cascade from; the baseline was re-synced above.
+  const bucket = pendingCascadeUpstreams.get(workspaceId) ?? [];
   if (workflowUid !== null) {
     for (const run of runs) {
       if (run.workflowUid !== workflowUid) continue;
       const key = cascadeRowKey(run.workflowUid, run.environmentId);
-      const prev = liveValueExtractedAtBaseline.byRunKey.get(key) ?? 0;
+      const prev = prevForWs.get(key) ?? 0;
       const next = run.extractedAt ?? 0;
       // `extractedAt` advanced — a successful `putWorkflowRunCache`
       // minted a new value (a row's first-ever write counts: `prev`
       // defaults to 0). A failed first refresh writes `extractedAt: 0`,
       // so `next > 0` also screens that out.
       if (next > prev) {
-        pendingCascadeUpstreams.push({ workflowUid: run.workflowUid, environmentId: run.environmentId });
+        bucket.push({ workflowUid: run.workflowUid, environmentId: run.environmentId });
       }
     }
   }
-  liveValueExtractedAtBaseline = { workspaceId, byRunKey: current };
 
-  if (pendingCascadeUpstreams.length === 0) return;
+  if (bucket.length === 0) return;
+  pendingCascadeUpstreams.set(workspaceId, bucket);
   if (cascadeDebounceTimer) clearTimeout(cascadeDebounceTimer);
   cascadeDebounceTimer = setTimeout(() => {
     cascadeDebounceTimer = null;
-    const batch = pendingCascadeUpstreams;
-    pendingCascadeUpstreams = [];
-    void settleLiveValueCascade(batch).catch((err) => {
+    void settleLiveValueCascade().catch((err) => {
       logger.info('LiveScheduler', `live-value cascade settle failed: ${(err as Error).message}`);
     });
   }, liveCascadeRefreshDebounceMs);
 }
 
-/** Walk downstream of each refreshed upstream (workflow, env); refresh / invalidate the consumers. */
-async function settleLiveValueCascade(upstreams: ReadonlyArray<ChangedWorkflowEnv>): Promise<void> {
+/**
+ * Walk downstream of each refreshed upstream (workflow, env) for the
+ * active workspace; flag / refresh the consumers. Drains only the
+ * active workspace's `pendingCascadeUpstreams` bucket — a bucket for a
+ * workspace switched away from waits in the map and is drained by the
+ * `onActiveWorkspaceChange` hook once that workspace is active again,
+ * so a cascade detected just before a switch is never lost.
+ */
+async function settleLiveValueCascade(): Promise<void> {
   let workspaceId: string;
   try {
     workspaceId = getActiveWorkspaceId();
   } catch {
     return; // bootstrap race — workspace pointer not hydrated yet
   }
+  const upstreams = pendingCascadeUpstreams.get(workspaceId);
+  if (!upstreams || upstreams.length === 0) return;
+  pendingCascadeUpstreams.delete(workspaceId);
   const downstream = computeWorkflowDownstreamMap();
   if (downstream.size === 0) return;
 
@@ -1081,7 +1121,10 @@ async function settleLiveValueCascade(upstreams: ReadonlyArray<ChangedWorkflowEn
       try {
         await markRunDefinitionallyStale(childUid, environmentId, workspaceId);
       } catch (err) {
-        logger.info('LiveScheduler', `cascade definitional-stale flag failed for ${childUid}: ${(err as Error).message}`);
+        logger.info(
+          'LiveScheduler',
+          `cascade definitional-stale flag failed for ${childUid}: ${(err as Error).message}`,
+        );
       }
     }
     // Manual workflows never auto-run on an upstream refresh — the flag
@@ -1296,8 +1339,8 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
         clearTimeout(cascadeDebounceTimer);
         cascadeDebounceTimer = null;
       }
-      pendingCascadeUpstreams = [];
-      liveValueExtractedAtBaseline = null;
+      pendingCascadeUpstreams = new Map();
+      liveValueExtractedAtBaseline = new Map();
     };
   },
   onFired(payload) {
@@ -1852,6 +1895,18 @@ function installSwitchWarmSubscriptions(): void {
     void kickActiveContextRefresh(newWsId, getActiveEnvironmentId()).catch((err) => {
       logger.info('LiveScheduler', `kickActiveContextRefresh after workspace switch failed: ${(err as Error).message}`);
     });
+    // A chained-workflow cascade detected just before a switch away
+    // from `newWsId` stays queued in its per-workspace bucket. Now that
+    // the workspace is active again, drain it — `settleLiveValueCascade`
+    // settles the active workspace's bucket.
+    if ((pendingCascadeUpstreams.get(newWsId)?.length ?? 0) > 0) {
+      void settleLiveValueCascade().catch((err) => {
+        logger.info(
+          'LiveScheduler',
+          `deferred cascade settle after workspace switch failed: ${(err as Error).message}`,
+        );
+      });
+    }
   });
   const onEnv = onActiveEnvironmentChange((newEnvId) => {
     // Workspace doesn't change on an env switch — read the current
