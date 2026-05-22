@@ -25,6 +25,7 @@ import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { App as AntApp, Button, Form, Input, Modal, Space, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useState } from 'react';
+import HomeOrgIdentityCard from './HomeOrgIdentityCard';
 import WorkspaceIdentityPicker, { type WorkspaceIdentity } from './WorkspaceIdentityPicker';
 import { DEFAULT_WORKSPACE_ICON } from './workspace-colors';
 
@@ -112,6 +113,8 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
         Each workspace holds its own rules, collections, folders, templates, variables, and test run history. Drag to
         reorder.
       </Text>
+
+      <HomeOrgIdentityCard />
 
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         <SortableContext items={api.workspaces.map((w) => w.id)} strategy={verticalListSortingStrategy}>

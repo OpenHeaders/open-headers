@@ -8,7 +8,9 @@ import { describe, expect, it } from 'vitest';
 import {
   defaultNewWorkspaceOrgId,
   describeOrg,
+  type OrgDescriptor,
   orgCatalogue,
+  orgHostKindHint,
   orgIdentityLabel,
   shouldShowOrgOnboarding,
 } from '../../src/identity/org-catalogue';
@@ -103,15 +105,12 @@ describe('shouldShowOrgOnboarding', () => {
 });
 
 describe('orgIdentityLabel', () => {
-  it('labels a home Org in the second person by host kind', () => {
+  it('labels the home Org by its stored (renameable) name', () => {
     const browserHome = describeOrg(makeSnapshot([syntheticLocal], LOCAL_ORG), LOCAL_ORG);
-    expect(browserHome && orgIdentityLabel(browserHome)).toBe('This browser');
+    expect(browserHome && orgIdentityLabel(browserHome)).toBe('This device');
 
     const desktopHome = describeOrg(makeSnapshot([realHome], HOME_ORG), HOME_ORG);
-    expect(desktopHome && orgIdentityLabel(desktopHome)).toBe('This computer');
-
-    const daemonHome = describeOrg(makeSnapshot([realTeam], TEAM_ORG), TEAM_ORG);
-    expect(daemonHome && orgIdentityLabel(daemonHome)).toBe('This server');
+    expect(desktopHome && orgIdentityLabel(desktopHome)).toBe('My account');
   });
 
   it('labels a joined (non-home) Org by its stored name', () => {
@@ -125,6 +124,25 @@ describe('orgIdentityLabel', () => {
     const joinedSynthetic = describeOrg(snap, LOCAL_ORG);
     expect(joinedSynthetic?.isSynthetic).toBe(true);
     expect(joinedSynthetic && orgIdentityLabel(joinedSynthetic)).toBe('This device');
+  });
+});
+
+describe('orgHostKindHint', () => {
+  it('gives the home Org a second-person host-kind hint', () => {
+    const browserHome = describeOrg(makeSnapshot([syntheticLocal], LOCAL_ORG), LOCAL_ORG);
+    expect(browserHome && orgHostKindHint(browserHome)).toBe('This browser');
+
+    const desktopHome = describeOrg(makeSnapshot([realHome], HOME_ORG), HOME_ORG);
+    expect(desktopHome && orgHostKindHint(desktopHome)).toBe('This computer');
+
+    const daemonHome = describeOrg(makeSnapshot([realTeam], TEAM_ORG), TEAM_ORG);
+    expect(daemonHome && orgHostKindHint(daemonHome)).toBe('This server');
+  });
+
+  it('gives a joined (non-home) Org no hint', () => {
+    const snap = makeSnapshot([syntheticLocal, realHome, realTeam], HOME_ORG);
+    expect(orgHostKindHint(describeOrg(snap, TEAM_ORG) as OrgDescriptor)).toBeNull();
+    expect(orgHostKindHint(describeOrg(snap, LOCAL_ORG) as OrgDescriptor)).toBeNull();
   });
 });
 

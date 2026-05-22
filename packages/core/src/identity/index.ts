@@ -64,6 +64,7 @@ export {
   type OrgDescriptor,
   type OrgScopeKind,
   orgCatalogue,
+  orgHostKindHint,
   orgIdentityLabel,
   shouldShowOrgOnboarding,
 } from './org-catalogue';

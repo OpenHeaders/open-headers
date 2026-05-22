@@ -114,24 +114,31 @@ export function shouldShowOrgOnboarding(snapshot: IdentitySnapshot | null, ackno
 }
 
 /**
- * Second-person label for the *home* Org, by the running host's kind.
- * "This browser" / "This computer" / "This server" — short form, the
- * Org the user is currently working from.
+ * The identity label for an Org — its display name. The home Org and a
+ * joined Org both read by their stored `name`; the user renames the home
+ * Org through `renameHomeOrg`. Home-ness is conveyed separately by the
+ * Org icon and the {@link orgHostKindHint} sub-label, never baked into
+ * the name. `isSynthetic` plays no part — it records trust-by-process,
+ * not whose Org it is.
  */
-const HOME_LABEL_BY_HOST_KIND: Record<HostKind, string> = {
+export function orgIdentityLabel(descriptor: OrgDescriptor): string {
+  return descriptor.name;
+}
+
+/**
+ * Second-person host-kind hint for the *home* Org — "This browser" /
+ * "This computer" / "This server" — shown as a secondary sub-label
+ * beneath {@link orgIdentityLabel} where space allows. `null` for a
+ * joined Org: a backend the user joined isn't "this" anything.
+ */
+const HOST_KIND_HINT: Record<HostKind, string> = {
   browser: 'This browser',
   desktop: 'This computer',
   daemon: 'This server',
 };
 
-/**
- * The identity label for an Org. The home Org reads in the second person
- * by the host kind that minted it; a joined Org reads by its stored
- * `name`. `isSynthetic` deliberately plays no part — it records
- * trust-by-process, not whose Org it is.
- */
-export function orgIdentityLabel(descriptor: OrgDescriptor): string {
-  return descriptor.isHome ? HOME_LABEL_BY_HOST_KIND[descriptor.hostKind] : descriptor.name;
+export function orgHostKindHint(descriptor: OrgDescriptor): string | null {
+  return descriptor.isHome ? HOST_KIND_HINT[descriptor.hostKind] : null;
 }
 
 /**

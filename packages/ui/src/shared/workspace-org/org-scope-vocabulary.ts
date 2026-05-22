@@ -7,9 +7,10 @@
  *   - host-kind     — keyed by {@link HostKind}: the base identity glyph
  *                     for the host process that minted the Org.
  *
- * The identity *label* itself is `orgIdentityLabel` from core — the home
- * Org reads in the second person by host kind, a joined Org by its name.
- * `isSynthetic` drives neither vocabulary; it records trust-by-process.
+ * The identity *label* itself is `orgIdentityLabel` from core — every Org
+ * reads by its stored `name`; `orgHostKindHint` adds the home Org's
+ * second-person host-kind sub-label. `isSynthetic` drives neither
+ * vocabulary; it records trust-by-process.
  */
 
 import { CloudServerOutlined, DesktopOutlined, GlobalOutlined } from '@ant-design/icons';
