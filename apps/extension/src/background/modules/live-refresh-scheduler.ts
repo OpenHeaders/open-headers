@@ -48,6 +48,7 @@ import {
   isWorkflowEffective,
   MAX_BACKOFF_SECONDS,
   MIN_ALARM_DELAY_MS,
+  requestExecutableFingerprint,
   scanTemplateReferencesMany,
 } from '@openheaders/core/live';
 import type { LiveVariable, LiveWorkflow } from '@openheaders/core/types';
@@ -57,6 +58,7 @@ import { report as reportStatus } from '@openheaders/ui/shared/status';
 import { hostStorage, OH } from '@openheaders/oracle/storage';
 import { getActiveEnvironmentId, onActiveEnvironmentChange } from '@openheaders/oracle/entity/environment-store';
 import {
+  clearWorkflowRunCache,
   listCachesForWorkflow,
   listWorkflowRunCaches,
   markProbeStartForRun,
@@ -352,6 +354,115 @@ function computeWorkflowDependencies(entries: LiveEntry[]): Map<string, string[]
   return out;
 }
 
+// ── Definitional-freshness — material request-edit detector ───────
+//
+// A workflow's cached token is a function of the request its steps
+// embed. When that request's EXECUTABLE surface changes (URL, headers,
+// auth, body, scripts — see `requestExecutableFingerprint`), every
+// value the workflow cached was minted by a recipe that no longer
+// exists. Waiting for the next cadence tick re-runs only the new
+// recipe — until then, live traffic carries a wrong-recipe token for
+// up to a full refresh interval. For env-gated auth that is a hard
+// blocker, not stale-but-fine.
+//
+// A material request edit therefore triggers, for each non-manual
+// workflow that embeds the request:
+//   • an immediate refresh of the ACTIVE env — the old value keeps
+//     serving until the refresh lands, so there is no withhold gap;
+//   • invalidation of every OTHER env's cache row, so a later switch
+//     re-warms via `kickActiveContextRefresh` instead of serving a
+//     definitionally-stale value.
+//
+// Manual-trigger workflows are out of scope here (Slice 1b) — they
+// must not auto-run. Cosmetic edits (rename, description, folder
+// move) never change the fingerprint, so they never reach this path.
+
+/** Debounce window collapsing a burst of request saves into one pass. */
+let requestEditRefreshDebounceMs = 600;
+
+/** Test-only: shrink the debounce so settle runs on the next macrotask. */
+export function __setRequestEditRefreshDebounceMs(ms: number): void {
+  requestEditRefreshDebounceMs = ms;
+}
+
+// Fingerprint of every request embedded by an active-workspace
+// workflow, as of the last settled pass. A uid present here with a
+// changed fingerprint is a material edit; a uid absent (newly
+// referenced, or the first pass after SW wake) is adopted without a
+// trigger — the baseline self-primes off the request-store hydration
+// broadcast, which always precedes any human edit.
+let requestExecBaseline = new Map<string, string>();
+let requestEditDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Fingerprint each request embedded by an active-workspace workflow. */
+function snapshotActiveRequestFingerprints(): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const workflow of getLiveWorkflows()) {
+    for (const step of workflow.steps) {
+      if (out.has(step.requestUid)) continue;
+      const request = getRequest(step.requestUid);
+      if (request) out.set(step.requestUid, requestExecutableFingerprint(request));
+    }
+  }
+  return out;
+}
+
+/** Debounced entry point — (re)arm the settle timer on every request-store change. */
+function onRequestStoreChangeForRefresh(): void {
+  if (requestEditDebounceTimer) clearTimeout(requestEditDebounceTimer);
+  requestEditDebounceTimer = setTimeout(() => {
+    requestEditDebounceTimer = null;
+    void settleRequestEditRefresh().catch((err) => {
+      logger.info('LiveScheduler', `request-edit refresh settle failed: ${(err as Error).message}`);
+    });
+  }, requestEditRefreshDebounceMs);
+}
+
+/** Diff fingerprints against the baseline; refresh workflows whose embedded request materially changed. */
+async function settleRequestEditRefresh(): Promise<void> {
+  const current = snapshotActiveRequestFingerprints();
+  const changed = new Set<string>();
+  for (const [uid, fingerprint] of current) {
+    const prev = requestExecBaseline.get(uid);
+    if (prev !== undefined && prev !== fingerprint) changed.add(uid);
+  }
+  requestExecBaseline = current;
+  if (changed.size === 0) return;
+  await refreshWorkflowsForChangedRequests(changed);
+}
+
+/** Kick the active env + invalidate other envs for every non-manual workflow embedding a changed request. */
+async function refreshWorkflowsForChangedRequests(changedRequestUids: ReadonlySet<string>): Promise<void> {
+  let workspaceId: string;
+  try {
+    workspaceId = getActiveWorkspaceId();
+  } catch {
+    return; // bootstrap race — workspace pointer not hydrated yet
+  }
+  const activeEnvironmentId = getActiveEnvironmentId();
+  for (const workflow of getLiveWorkflows()) {
+    if (!workflow.steps.some((step) => changedRequestUids.has(step.requestUid))) continue;
+    // Manual workflows: deliberately not auto-run (Slice 1b adds the
+    // stale-flag path). An interval / expires-* workflow auto-refreshes.
+    if (workflow.refresh.kind === 'manual') continue;
+    const boundVariables = getLiveVariablesForWorkflow(workflow.uid);
+    if (!canScheduleWorkflow(workflow, boundVariables)) continue;
+    // Drop every env's cached value EXCEPT the active env's — that row
+    // keeps serving while the immediate refresh below runs.
+    try {
+      await clearWorkflowRunCache(workflow.uid, workspaceId, { keepEnvironmentId: activeEnvironmentId });
+    } catch (err) {
+      logger.info(
+        'LiveScheduler',
+        `request-edit cache invalidation failed for ${workflow.uid}: ${(err as Error).message}`,
+      );
+    }
+    void refreshLiveWorkflowSynchronously(workspaceId, workflow.uid, activeEnvironmentId).catch((err) => {
+      logger.info('LiveScheduler', `request-edit refresh failed for ${workflow.uid}: ${(err as Error).message}`);
+    });
+  }
+}
+
 // ── Provider — fills in the subsystem-specific bits ───────────────
 
 const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | null> = {
@@ -484,15 +595,27 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
       onLiveWorkflowStoreChange(combined),
       onLiveVariableStoreChange(combined),
       onLiveCacheStoreChange(combined),
-      // A request edit can add or drop a `{{live.X}}` template ref,
-      // which reshapes the cross-workflow dependency DAG that
-      // `computeWorkflowDependencies` derives from each step's request.
-      // Reconcile to re-derive the edges; no status recompute — a
-      // request edit touches no cache row.
-      onRequestStoreChange(callback),
+      // A request edit drives two things. (1) It can add or drop a
+      // `{{live.X}}` template ref, reshaping the cross-workflow
+      // dependency DAG `computeWorkflowDependencies` derives from each
+      // step's request — `callback` reconciles to re-derive the edges
+      // (no status recompute; a request edit touches no cache row).
+      // (2) A *material* edit (executable surface changed) makes every
+      // cached value for the embedding workflows definitionally stale —
+      // `onRequestStoreChangeForRefresh` debounces, fingerprint-diffs,
+      // and refreshes them.
+      onRequestStoreChange(() => {
+        callback();
+        onRequestStoreChangeForRefresh();
+      }),
     ];
     return () => {
       for (const unsub of unsubscribers) unsub();
+      if (requestEditDebounceTimer) {
+        clearTimeout(requestEditDebounceTimer);
+        requestEditDebounceTimer = null;
+      }
+      requestExecBaseline = new Map();
     };
   },
   onFired(payload) {

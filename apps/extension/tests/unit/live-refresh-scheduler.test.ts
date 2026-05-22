@@ -14,6 +14,7 @@ const alarmsClearMock = vi.fn<(name: string) => void>();
 const alarmsGetAllMock = vi.fn<() => Promise<chrome.alarms.Alarm[]>>();
 const recordLogMock = vi.fn();
 const recordRefreshErrorMock = vi.fn();
+const clearWorkflowRunCacheMock = vi.fn<(...args: unknown[]) => Promise<number>>(async () => 0);
 
 vi.mock('@utils/browser-api', () => ({
   alarms: {
@@ -141,6 +142,7 @@ vi.mock('@openheaders/oracle/live/live-cache-store', () => ({
     return () => storeState.listeners.cache.delete(fn);
   },
   recordRefreshError: (...args: unknown[]) => recordRefreshErrorMock(...args),
+  clearWorkflowRunCache: (...args: unknown[]) => clearWorkflowRunCacheMock(...args),
 }));
 
 // Active-pointer change listeners — the scheduler subscribes to these
@@ -220,6 +222,27 @@ function makeVariable(overrides: Partial<LiveVariable> = {}): LiveVariable {
   };
 }
 
+function makeRequest(overrides: Partial<Request> = {}): Request {
+  return {
+    schemaVersion: 5,
+    uid: 'reqfetch1',
+    path: 'requests/demo-reqfetch1',
+    name: 'Fetch token',
+    method: 'GET',
+    url: 'https://api.openheaders.io/token',
+    headers: [],
+    params: [],
+    auth: { type: 'none' },
+    body: { type: 'none' },
+    ...overrides,
+  };
+}
+
+/** Drain the debounce timer + the chain of detached async hops. */
+async function flushAsync(): Promise<void> {
+  for (let i = 0; i < 8; i++) await new Promise((r) => setTimeout(r, 0));
+}
+
 // ── Test harness ──────────────────────────────────────────────────
 
 let scheduler: typeof import('@/background/modules/live-refresh-scheduler');
@@ -234,6 +257,7 @@ beforeEach(async () => {
   alarmsGetAllMock.mockResolvedValue([]);
   recordLogMock.mockClear();
   recordRefreshErrorMock.mockClear();
+  clearWorkflowRunCacheMock.mockClear();
   storeState = {
     workflows: [],
     variables: [],
@@ -639,6 +663,70 @@ describe('startLiveScheduler', () => {
     scheduler.stopLiveScheduler();
     expect(activeSwitchState.workspaceListeners.size).toBe(0);
     expect(activeSwitchState.envListeners.size).toBe(0);
+  });
+});
+
+// ── Definitional freshness — material request-edit refresh ────────
+
+describe('material request-edit refresh', () => {
+  /** Start the scheduler with a workflow embedding `reqfetch1`, then
+   *  fire one request-store event to prime the fingerprint baseline. */
+  async function startPrimed(workflow = makeWorkflow()): Promise<void> {
+    scheduler.__setRequestEditRefreshDebounceMs(0);
+    storeState.requests.set('reqfetch1', makeRequest());
+    storeState.workflows = [workflow];
+    storeState.variables = [makeVariable()];
+    scheduler.startLiveScheduler();
+    // First request-store event = hydration broadcast — primes the
+    // baseline, never triggers a refresh.
+    for (const fn of storeState.listeners.request) fn();
+    await flushAsync();
+  }
+
+  it('refreshes the active env + invalidates other envs on a material edit', async () => {
+    type RefreshArgs = { workspaceId: string; workflow: LiveWorkflow; environmentId: string | null };
+    const refreshSpy = vi.fn<(args: RefreshArgs) => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    activeSwitchState.activeEnvId = 'env-dev';
+    await startPrimed();
+    expect(clearWorkflowRunCacheMock).not.toHaveBeenCalled();
+
+    // Material edit — the request URL changed.
+    storeState.requests.set('reqfetch1', makeRequest({ url: 'https://api.openheaders.io/token-v2' }));
+    for (const fn of storeState.listeners.request) fn();
+    await flushAsync();
+
+    // Other envs invalidated, the active env's row preserved.
+    expect(clearWorkflowRunCacheMock).toHaveBeenCalledWith('wflow001', 'ws-live', { keepEnvironmentId: 'env-dev' });
+    // Active env refreshed immediately.
+    expect(refreshSpy).toHaveBeenCalledOnce();
+    expect(refreshSpy.mock.calls[0]?.[0]).toMatchObject({ environmentId: 'env-dev' });
+  });
+
+  it('ignores a cosmetic edit (rename) — fingerprint unchanged', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    await startPrimed();
+
+    storeState.requests.set('reqfetch1', makeRequest({ name: 'Renamed', description: 'docs' }));
+    for (const fn of storeState.listeners.request) fn();
+    await flushAsync();
+
+    expect(clearWorkflowRunCacheMock).not.toHaveBeenCalled();
+    expect(refreshSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not auto-run a manual-trigger workflow', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    await startPrimed(makeWorkflow({ refresh: { kind: 'manual' } }));
+
+    storeState.requests.set('reqfetch1', makeRequest({ method: 'POST' }));
+    for (const fn of storeState.listeners.request) fn();
+    await flushAsync();
+
+    expect(clearWorkflowRunCacheMock).not.toHaveBeenCalled();
+    expect(refreshSpy).not.toHaveBeenCalled();
   });
 });
 

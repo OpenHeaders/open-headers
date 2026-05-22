@@ -444,12 +444,32 @@ export async function resetCircuitForRun(
   return latest;
 }
 
+export interface ClearWorkflowRunCacheOptions {
+  /**
+   * When set, the cache row for THIS environment is preserved and only
+   * the workflow's OTHER env-keyed rows are dropped. Used by the
+   * definitional-staleness path: a material request edit invalidates
+   * every env's cached value, but the active env keeps serving its
+   * (now stale) value until an immediate refresh lands — so it is
+   * preserved here while the inactive envs re-warm on the next switch.
+   *
+   * `null` is a valid value — it preserves the "No environment" row.
+   * Omitting the whole options object drops every row (the default).
+   */
+  keepEnvironmentId: string | null;
+}
+
 /**
- * Drop every cached run for one workflow (all env-keyed entries).
- * Called when a workflow definition is deleted, or when the user
- * hits "Clear cache" from the editor.
+ * Drop cached runs for one workflow. With no options, every env-keyed
+ * entry is removed — called when a workflow definition is deleted, or
+ * when the user hits "Clear cache" from the editor. With
+ * `keepEnvironmentId`, every entry EXCEPT that env's row is removed.
  */
-export async function clearWorkflowRunCache(workflowUid: string, workspaceId?: string): Promise<number> {
+export async function clearWorkflowRunCache(
+  workflowUid: string,
+  workspaceId?: string,
+  opts?: ClearWorkflowRunCacheOptions,
+): Promise<number> {
   const wsId = resolveWorkspaceId(workspaceId);
   let removed = 0;
   let postWriteRuns: WorkflowRunCache[] = [];
@@ -458,6 +478,10 @@ export async function clearWorkflowRunCache(workflowUid: string, workspaceId?: s
     const nextRuns: Record<string, WorkflowRunCache> = {};
     for (const [key, entry] of Object.entries(current.runs)) {
       if (entry.workflowUid === workflowUid) {
+        if (opts && entry.environmentId === opts.keepEnvironmentId) {
+          nextRuns[key] = entry;
+          continue;
+        }
         removed++;
         continue;
       }

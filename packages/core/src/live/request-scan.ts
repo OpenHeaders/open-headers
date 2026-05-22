@@ -13,6 +13,7 @@
  * the step-reference validator (Phase A) silently under-report refs.
  */
 
+import { canonicalJson } from '../sync/store/canonical';
 import type { Request } from '../types';
 
 /**
@@ -102,4 +103,38 @@ export function collectRequestTemplateStrings(request: Request): string[] {
   }
 
   return out;
+}
+
+/**
+ * Stable fingerprint of a request's EXECUTABLE surface — every field
+ * that influences the response a workflow step extracts from. Two
+ * requests with the same fingerprint produce the same value from the
+ * same upstream; a fingerprint change means the cached value was
+ * minted by a recipe that no longer exists ("definitional staleness").
+ *
+ * Excluded as non-executable: `schemaVersion` (format axis), `uid`
+ * (identity), `path` (folder placement), `name` + `description`
+ * (cosmetic). Editing any of those must NOT trigger a refresh — it
+ * cannot change the produced value.
+ *
+ * Scripts ARE included: `preRequestScript` / `postResponseScript` can
+ * rewrite the request or the captured response, so they are part of
+ * the recipe.
+ *
+ * Keyed through `canonicalJson` so structurally-equal requests
+ * serialize byte-identically regardless of object key order.
+ */
+export function requestExecutableFingerprint(request: Request): string {
+  return canonicalJson({
+    method: request.method,
+    url: request.url,
+    headers: request.headers,
+    params: request.params,
+    auth: request.auth,
+    credentialsMode: request.credentialsMode ?? null,
+    followRedirects: request.followRedirects ?? null,
+    body: request.body,
+    preRequestScript: request.preRequestScript ?? null,
+    postResponseScript: request.postResponseScript ?? null,
+  });
 }
