@@ -18,6 +18,7 @@ import type { OrgDescriptor } from '@openheaders/core/identity';
 import { Modal, Radio, Space, Typography } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { OrgIcon } from './OrgIcon';
 import { orgScopeVisual } from './org-scope-vocabulary';
 
 const { Text, Paragraph } = Typography;
@@ -78,11 +79,10 @@ export const OrgOnboardingModal: React.FC<OrgOnboardingModalProps> = ({
       <Space direction="vertical" size={10} style={{ width: '100%', marginBottom: 12 }}>
         {catalogue.map((descriptor) => {
           const visual = orgScopeVisual(descriptor.scopeKind);
-          const Icon = visual.icon;
           const title = descriptor.scopeKind === 'team' ? descriptor.name : visual.pickerLabel;
           return (
             <div key={descriptor.id} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-              <Icon style={{ fontSize: 15, marginTop: 2 }} />
+              <OrgIcon descriptor={descriptor} size={15} style={{ marginTop: 2 }} />
               <div>
                 <Text strong style={{ fontSize: 13 }}>
                   {title}

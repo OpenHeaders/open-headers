@@ -12,10 +12,11 @@
  * badge as its trigger.
  */
 
-import type { OrgDescriptor } from '@openheaders/core/identity';
+import { type OrgDescriptor, orgIdentityLabel } from '@openheaders/core/identity';
 import { Tag, Tooltip } from 'antd';
 import type React from 'react';
-import { orgBadgeLabel, orgScopeVisual } from './org-scope-vocabulary';
+import { OrgIcon } from './OrgIcon';
+import { orgScopeVisual } from './org-scope-vocabulary';
 
 export interface WorkspaceOrgBadgeProps {
   /** Resolved Org for the workspace; `null` during the pre-bootstrap window. */
@@ -28,14 +29,13 @@ export const WorkspaceOrgBadge: React.FC<WorkspaceOrgBadgeProps> = ({ descriptor
   if (!descriptor) return null;
 
   const visual = orgScopeVisual(descriptor.scopeKind);
-  const Icon = visual.icon;
-  const label = orgBadgeLabel(descriptor);
+  const label = orgIdentityLabel(descriptor);
 
   return (
     <Tooltip title={visual.description} placement="top" mouseEnterDelay={0.4}>
       <Tag
         color={visual.tagColor}
-        icon={<Icon />}
+        icon={<OrgIcon descriptor={descriptor} size={compact ? 11 : 12} />}
         style={{
           margin: 0,
           fontSize: compact ? 10 : 11,

@@ -22,7 +22,7 @@
 
 import { CheckCircleFilled, CheckCircleOutlined, ExportOutlined, ImportOutlined, SettingOutlined } from '@ant-design/icons';
 import type { OrgDescriptor } from '@openheaders/core/identity';
-import { resolveOrgActiveWorkspace } from '@openheaders/core/identity';
+import { orgIdentityLabel, resolveOrgActiveWorkspace } from '@openheaders/core/identity';
 import { getHostStorage, OH } from '@openheaders/core/storage';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import type { InputRef } from 'antd';
@@ -30,8 +30,8 @@ import { Divider, Input, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useMemo, useRef, useState } from 'react';
 import { renderWorkspacePrefix } from '../../workbench/components/workspace-prefix';
+import { OrgIcon } from '../workspace-org/OrgIcon';
 import { WorkspaceOrgBadge } from '../workspace-org/WorkspaceOrgBadge';
-import { orgBadgeLabel, orgScopeVisual } from '../workspace-org/org-scope-vocabulary';
 import './WorkspaceDropdownBody.css';
 
 const { Text } = Typography;
@@ -247,9 +247,7 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
   };
 
   const renderOrgHeader = (orgId: string, descriptor: OrgDescriptor | null): React.ReactNode => {
-    const visual = descriptor ? orgScopeVisual(descriptor.scopeKind) : null;
-    const Icon = visual?.icon;
-    const label = descriptor ? orgBadgeLabel(descriptor) : 'Other workspaces';
+    const label = descriptor ? orgIdentityLabel(descriptor) : 'Other workspaces';
     return (
       <Tooltip title={`Switch to ${label}`} placement="left" mouseEnterDelay={0.4}>
         <div
@@ -267,7 +265,9 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
           }}
           onClick={() => handleSwitchOrg(orgId)}
         >
-          {Icon && <Icon style={{ fontSize: 12, color: token.colorTextTertiary }} />}
+          {descriptor && (
+            <OrgIcon descriptor={descriptor} size={12} style={{ color: token.colorTextTertiary }} />
+          )}
           <Text
             style={{
               flex: 1,

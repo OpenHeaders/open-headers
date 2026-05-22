@@ -32,6 +32,7 @@ import { App, Dropdown, Typography, theme } from 'antd';
 import type { MenuProps } from 'antd';
 import type React from 'react';
 import { useCallback } from 'react';
+import { OrgIcon } from './OrgIcon';
 import { WorkspaceOrgBadge } from './WorkspaceOrgBadge';
 import { orgScopeVisual } from './org-scope-vocabulary';
 
@@ -59,11 +60,10 @@ export interface WorkspaceSyncScopePickerProps {
 
 function scopeRowLabel(descriptor: OrgDescriptor, selected: boolean): React.ReactNode {
   const visual = orgScopeVisual(descriptor.scopeKind);
-  const Icon = visual.icon;
   const title = descriptor.scopeKind === 'team' ? descriptor.name : visual.pickerLabel;
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '2px 0', minWidth: 240 }}>
-      <Icon style={{ fontSize: 14, marginTop: 2 }} />
+      <OrgIcon descriptor={descriptor} size={14} style={{ marginTop: 2 }} />
       <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
         <Text style={{ fontSize: 13, fontWeight: selected ? 600 : 400 }}>{title}</Text>
         <Text type="secondary" style={{ fontSize: 11 }}>
