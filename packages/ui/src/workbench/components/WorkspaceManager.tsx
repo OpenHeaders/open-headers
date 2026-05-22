@@ -20,12 +20,19 @@ import { CopyOutlined, DeleteOutlined, EditOutlined, HolderOutlined, PlusOutline
 import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { type OrgDescriptor, orgCatalogue, orgIdentityLabel } from '@openheaders/core/identity';
+import {
+  defaultNewWorkspaceOrgId,
+  type IdentitySnapshot,
+  type OrgDescriptor,
+  orgCatalogue,
+  orgIdentityLabel,
+} from '@openheaders/core/identity';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { useIdentitySnapshot } from '@openheaders/ui/shared/hooks/useIdentitySnapshot';
+import { useOrgBindingPrefs } from '@openheaders/ui/shared/hooks/useOrgBindingPrefs';
 import type { UseWorkspacesApi } from '@openheaders/ui/shared/hooks/useWorkspaces';
 import { OrgIcon } from '@openheaders/ui/shared/workspace-org/OrgIcon';
-import { App as AntApp, Button, Form, Input, Modal, Space, Typography, theme } from 'antd';
+import { App as AntApp, Button, Form, Input, Modal, Select, Space, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import HomeOrgIdentityCard from './HomeOrgIdentityCard';
@@ -169,6 +176,8 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
 
       <HomeOrgIdentityCard />
 
+      <NewWorkspaceOrgPreference snapshot={snapshot} catalogue={catalogue} />
+
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         <SortableContext items={orderedIds} strategy={verticalListSortingStrategy}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -228,6 +237,61 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
           return false;
         }}
       />
+    </div>
+  );
+};
+
+// ── New-workspace Org preference ────────────────────────────────────
+//
+// Where newly-created workspaces bind by default. Shown only once the
+// identity holds more than one Org — with a single Org there is nothing
+// to choose. The resolved value falls back to the widest-reach Org
+// (`defaultNewWorkspaceOrgId`) when the user has set no explicit
+// preference, so the control always reflects what creation will do.
+
+const NewWorkspaceOrgPreference: React.FC<{
+  snapshot: IdentitySnapshot | null;
+  catalogue: OrgDescriptor[];
+}> = ({ snapshot, catalogue }) => {
+  const { token } = theme.useToken();
+  const { prefs, isReady, setDefaultNewWorkspaceOrgId } = useOrgBindingPrefs();
+
+  if (catalogue.length <= 1) return null;
+  const resolved = prefs.defaultNewWorkspaceOrgId ?? defaultNewWorkspaceOrgId(snapshot, null);
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        flexWrap: 'wrap',
+        margin: '4px 0 16px',
+        padding: '8px 12px',
+        border: `1px solid ${token.colorBorderSecondary}`,
+        borderRadius: token.borderRadius,
+      }}
+    >
+      <Text style={{ fontSize: 13, flexShrink: 0 }}>New workspaces go to</Text>
+      <Select
+        size="small"
+        value={resolved ?? undefined}
+        disabled={!isReady}
+        onChange={(orgId) => void setDefaultNewWorkspaceOrgId(orgId)}
+        style={{ minWidth: 200 }}
+        options={catalogue.map((descriptor) => ({
+          value: descriptor.id,
+          label: (
+            <Space size={6}>
+              <OrgIcon descriptor={descriptor} size={13} />
+              {orgIdentityLabel(descriptor)}
+            </Space>
+          ),
+        }))}
+      />
+      <Text type="secondary" style={{ fontSize: 12 }}>
+        Change it anytime — existing workspaces stay where they are.
+      </Text>
     </div>
   );
 };

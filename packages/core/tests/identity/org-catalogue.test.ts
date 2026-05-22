@@ -12,7 +12,6 @@ import {
   orgCatalogue,
   orgHostKindHint,
   orgIdentityLabel,
-  shouldShowOrgOnboarding,
 } from '../../src/identity/org-catalogue';
 import type { IdentitySnapshot } from '../../src/identity/resolver';
 import type { Org, OrgMembership, Principal, User } from '../../src/types';
@@ -89,21 +88,6 @@ describe('describeOrg', () => {
   });
 });
 
-describe('shouldShowOrgOnboarding', () => {
-  it('is false with a single Org', () => {
-    expect(shouldShowOrgOnboarding(makeSnapshot([syntheticLocal], LOCAL_ORG), null)).toBe(false);
-  });
-
-  it('is true with two Orgs and no acknowledgement', () => {
-    expect(shouldShowOrgOnboarding(makeSnapshot([syntheticLocal, realHome], HOME_ORG), null)).toBe(true);
-  });
-
-  it('is false once acknowledged', () => {
-    const snap = makeSnapshot([syntheticLocal, realHome], HOME_ORG);
-    expect(shouldShowOrgOnboarding(snap, '2026-05-20T00:00:00.000Z')).toBe(false);
-  });
-});
-
 describe('orgIdentityLabel', () => {
   it('labels the home Org by its stored (renameable) name', () => {
     const browserHome = describeOrg(makeSnapshot([syntheticLocal], LOCAL_ORG), LOCAL_ORG);
@@ -152,14 +136,37 @@ describe('defaultNewWorkspaceOrgId', () => {
     expect(defaultNewWorkspaceOrgId(snap, LOCAL_ORG)).toBe(LOCAL_ORG);
   });
 
-  it('falls back to the home-org when the stored default is stale', () => {
+  it('ignores a stale stored default and picks the widest-reach Org', () => {
+    // realHome is a desktop Org — wider reach than the browser local-org.
     const snap = makeSnapshot([syntheticLocal, realHome], HOME_ORG);
     expect(defaultNewWorkspaceOrgId(snap, TEAM_ORG)).toBe(HOME_ORG);
   });
 
-  it('falls back to the home-org when no default is stored', () => {
+  it('defaults new workspaces to the widest-reach host, not the local browser', () => {
+    // Home is the browser; a desktop Org was joined — new workspaces
+    // follow the user up to the desktop rather than staying browser-local.
+    const browserHome: Org = { id: LOCAL_ORG, name: 'Chrome', hostKind: 'browser', isSynthetic: true };
+    const joinedDesktop: Org = { id: HOME_ORG, name: 'MacBook', hostKind: 'desktop', isSynthetic: true };
+    const snap = makeSnapshot([browserHome, joinedDesktop], LOCAL_ORG);
+    expect(defaultNewWorkspaceOrgId(snap, null)).toBe(HOME_ORG);
+  });
+
+  it('prefers a daemon Org over desktop and browser', () => {
+    // realTeam is a daemon Org — the widest reach of the three.
+    const snap = makeSnapshot([syntheticLocal, realHome, realTeam], HOME_ORG);
+    expect(defaultNewWorkspaceOrgId(snap, null)).toBe(TEAM_ORG);
+  });
+
+  it('defaults to the only Org when the identity holds just one', () => {
     const snap = makeSnapshot([syntheticLocal], LOCAL_ORG);
     expect(defaultNewWorkspaceOrgId(snap, null)).toBe(LOCAL_ORG);
+  });
+
+  it('on a same-reach tie, prefers the joined Org over the home-org', () => {
+    const browserHome: Org = { id: LOCAL_ORG, name: 'Chrome', hostKind: 'browser', isSynthetic: true };
+    const joinedBrowser: Org = { id: HOME_ORG, name: 'Firefox', hostKind: 'browser', isSynthetic: true };
+    const snap = makeSnapshot([browserHome, joinedBrowser], LOCAL_ORG);
+    expect(defaultNewWorkspaceOrgId(snap, null)).toBe(HOME_ORG);
   });
 
   it('returns null for a null snapshot', () => {

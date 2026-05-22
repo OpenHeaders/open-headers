@@ -100,20 +100,6 @@ export function describeOrg(snapshot: IdentitySnapshot | null, orgId: string): O
 }
 
 /**
- * Whether the two-personal-Orgs onboarding (U3.6) should surface. True
- * once the identity holds more than one Org — i.e. the user has joined
- * a daemon and now sees both the synthetic local-org and a real Org —
- * and they haven't acknowledged the explanation yet.
- *
- * The `> 1` test is inherent to the onboarding's meaning — a user can
- * only be confused by Orgs they actually hold — not a single-org code
- * branch. With one Org seeded it is simply false today.
- */
-export function shouldShowOrgOnboarding(snapshot: IdentitySnapshot | null, acknowledgedAt: string | null): boolean {
-  return !acknowledgedAt && orgCatalogue(snapshot).length > 1;
-}
-
-/**
  * The identity label for an Org — its display name. The home Org and a
  * joined Org both read by their stored `name`; the user renames the home
  * Org through `renameHomeOrg`. Home-ness is conveyed separately by the
@@ -142,10 +128,53 @@ export function orgHostKindHint(descriptor: OrgDescriptor): string | null {
 }
 
 /**
+ * Reach of a host kind — how far the workspaces bound to its Org travel.
+ * A browser Org is single-profile; a desktop Org reaches one machine; a
+ * daemon Org reaches a LAN/WAN server. Higher = wider reach.
+ */
+const HOST_KIND_REACH: Record<HostKind, number> = {
+  browser: 0,
+  desktop: 1,
+  daemon: 2,
+};
+
+/**
+ * The widest-reach Org the identity holds. Ties (two Orgs of the same
+ * host kind) resolve to a joined Org over the home-org — the user
+ * connected to it on purpose — then lexically for determinism.
+ */
+function highestReachOrgId(snapshot: IdentitySnapshot): string {
+  let best: Org | null = null;
+  for (const org of snapshot.orgs.values()) {
+    if (!best) {
+      best = org;
+      continue;
+    }
+    const delta = HOST_KIND_REACH[org.hostKind] - HOST_KIND_REACH[best.hostKind];
+    if (delta > 0) {
+      best = org;
+      continue;
+    }
+    if (delta < 0) continue;
+    const bestIsHome = best.id === snapshot.user.homeOrgId;
+    const orgIsHome = org.id === snapshot.user.homeOrgId;
+    if (bestIsHome !== orgIsHome) {
+      if (bestIsHome) best = org;
+      continue;
+    }
+    if (org.id < best.id) best = org;
+  }
+  return best ? best.id : snapshot.user.homeOrgId;
+}
+
+/**
  * The Org id a newly-created workspace should bind to: the user's stored
  * default when it is still a member of the authorized catalogue,
- * otherwise the home-org. Returns `null` for a null snapshot so the
- * caller can fall back to its own sentinel.
+ * otherwise the widest-reach Org. Connecting to a desktop / LAN / WAN
+ * backend is a deliberate act — new workspaces follow the user up to the
+ * highest-reach host rather than staying pinned to the local browser.
+ * Returns `null` for a null snapshot so the caller can fall back to its
+ * own sentinel.
  */
 export function defaultNewWorkspaceOrgId(
   snapshot: IdentitySnapshot | null,
@@ -153,5 +182,5 @@ export function defaultNewWorkspaceOrgId(
 ): string | null {
   if (!snapshot) return null;
   if (storedDefault && snapshot.orgs.has(storedDefault)) return storedDefault;
-  return snapshot.user.homeOrgId;
+  return highestReachOrgId(snapshot);
 }

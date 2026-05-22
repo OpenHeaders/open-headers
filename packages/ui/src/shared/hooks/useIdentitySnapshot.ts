@@ -6,8 +6,9 @@
  * boot path (the extension SW's `ensureSyntheticIdentity` cycle); the
  * registry's in-memory mirror is per-context, so a renderer surface
  * hydrates its own copy via `refreshIdentitySnapshotFromHostStorage`
- * and re-hydrates whenever the persisted `OH.syntheticIdentity` slot
- * changes (e.g. identity promotion, a daemon-join adding a real Org).
+ * and re-hydrates whenever a persisted identity slot changes —
+ * `OH.syntheticIdentity` (home-org rename / identity promotion) or
+ * `OH.joinedOrgs` (a daemon-join adding a real Org).
  *
  * Returns `null` until the first hydration completes — callers render
  * an org-agnostic fallback in that window.
@@ -36,10 +37,18 @@ export function useIdentitySnapshot(): IdentitySnapshot | null {
         });
     };
     hydrate();
-    const unsubscribe = getHostStorage()?.subscribe(OH.syntheticIdentity, hydrate);
+    // Re-hydrate on either identity slot. Subscribing to only
+    // `OH.syntheticIdentity` left a long-lived surface (a workbench tab
+    // open across a daemon-join) showing a stale single-Org catalogue —
+    // the join appends to `OH.joinedOrgs`, never touching the former.
+    const storage = getHostStorage();
+    const unsubscribers = [
+      storage?.subscribe(OH.syntheticIdentity, hydrate),
+      storage?.subscribe(OH.joinedOrgs, hydrate),
+    ];
     return () => {
       cancelled = true;
-      unsubscribe?.();
+      for (const unsubscribe of unsubscribers) unsubscribe?.();
     };
   }, []);
 

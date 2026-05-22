@@ -6,12 +6,10 @@
  * switching this tab.
  *
  * Org switcher (U5.9): the dropdown groups workspaces by Org and the
- * trigger shows the selected workspace's Org badge. The
- * two-personal-Orgs onboarding (U3.6) surfaces here the first time a
- * user holds more than one Org.
+ * trigger shows the selected workspace's Org badge.
  */
 
-import { describeOrg, orgCatalogue, shouldShowOrgOnboarding } from '@openheaders/core/identity';
+import { describeOrg, orgCatalogue } from '@openheaders/core/identity';
 import { useActiveWorkspaceId } from '@openheaders/ui/shared/hooks/useActiveWorkspaceId';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import { App, Button, Dropdown, Space, Typography, theme } from 'antd';
@@ -19,9 +17,7 @@ import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import { instanceLabel, instanceLabelPlural } from '@openheaders/ui/shared/host-vocabulary';
 import { useIdentitySnapshot } from '../../shared/hooks/useIdentitySnapshot';
-import { useOrgBindingPrefs } from '../../shared/hooks/useOrgBindingPrefs';
 import { WorkspaceDropdownBody } from '../../shared/workspace-dropdown/WorkspaceDropdownBody';
-import { OrgOnboardingModal } from '../../shared/workspace-org/OrgOnboardingModal';
 import { WorkspaceOrgBadge } from '../../shared/workspace-org/WorkspaceOrgBadge';
 import { renderWorkspacePrefix } from './workspace-prefix';
 
@@ -56,7 +52,6 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
 
   const snapshot = useIdentitySnapshot();
   const catalogue = useMemo(() => orgCatalogue(snapshot), [snapshot]);
-  const { prefs, isReady: prefsReady, acknowledgeOnboarding } = useOrgBindingPrefs();
 
   const selected = workspaces.find((w) => w.id === activeWorkspaceId) ?? null;
 
@@ -78,15 +73,10 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
     [workspaces, modal, message, setActiveWorkspace],
   );
 
-  // Gate on `prefsReady` so an already-acknowledged user never sees the
-  // modal flash in the window before `OH.orgBindingPrefs` loads.
-  const showOnboarding = prefsReady && shouldShowOrgOnboarding(snapshot, prefs.onboardingAcknowledgedAt);
-
   if (!selected) return null;
 
   return (
-    <>
-      <Dropdown
+    <Dropdown
         open={open}
         onOpenChange={setOpen}
         popupRender={() => (
@@ -136,14 +126,6 @@ const WorkspaceSwitcher: React.FC<WorkspaceSwitcherProps> = ({
           </Space>
         </Button>
       </Dropdown>
-
-      <OrgOnboardingModal
-        open={showOnboarding}
-        catalogue={catalogue}
-        homeOrgId={snapshot?.user.homeOrgId ?? ''}
-        onAcknowledge={acknowledgeOnboarding}
-      />
-    </>
   );
 };
 

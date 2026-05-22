@@ -66,7 +66,6 @@ export {
   orgCatalogue,
   orgHostKindHint,
   orgIdentityLabel,
-  shouldShowOrgOnboarding,
 } from './org-catalogue';
 export { resolveOrgActiveWorkspace } from './org-workspace';
 export {

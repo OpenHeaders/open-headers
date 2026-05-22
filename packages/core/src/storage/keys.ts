@@ -123,15 +123,12 @@ export interface PersistedPanelLayout {
 
 /**
  * Per-user org-binding preferences (UNIFIED_ORACLE_MODEL.md §6.2).
- * Drives the two-personal-Orgs onboarding (U3.6): once acknowledged the
- * onboarding modal stops surfacing, and `defaultNewWorkspaceOrgId` is the
- * Org newly-created workspaces bind to (falling back to the home-org when
- * unset or stale). Plain JSON — not security-sensitive.
+ * `defaultNewWorkspaceOrgId` is the Org newly-created workspaces bind to;
+ * when unset or stale the resolver falls back to the widest-reach Org.
+ * Plain JSON — not security-sensitive.
  */
 export interface OrgBindingPrefs {
-  /** ISO timestamp the user dismissed the two-personal-Orgs onboarding; null = not yet seen. */
-  onboardingAcknowledgedAt: string | null;
-  /** Org id new workspaces bind to; null = use the home-org. */
+  /** Org id new workspaces bind to; null = use the widest-reach Org. */
   defaultNewWorkspaceOrgId: string | null;
 }
 
@@ -386,13 +383,13 @@ let cachedSensitivePatterns: RegExp[] | null = null;
 function getSensitiveKeyPatterns(): RegExp[] {
   if (cachedSensitivePatterns) return cachedSensitivePatterns;
   const patterns: RegExp[] = [];
-  const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const PLACEHOLDER = '__oh_sensitive_probe__';
   const collectFlat = (specs: Record<string, unknown>): void => {
     for (const spec of Object.values(specs)) {
       if (spec && typeof spec === 'object' && (spec as StorageKey<unknown>).sensitive === true) {
         const key = (spec as StorageKey<unknown>).key;
-        patterns.push(new RegExp(`^${escape(key)}$`));
+        patterns.push(new RegExp(`^${escapeRegExp(key)}$`));
       }
     }
   };
@@ -400,7 +397,7 @@ function getSensitiveKeyPatterns(): RegExp[] {
     for (const spec of Object.values(specs)) {
       if (spec && typeof spec === 'object' && (spec as StorageKey<unknown>).sensitive === true) {
         const key = (spec as StorageKey<unknown>).key;
-        const pattern = key.split(PLACEHOLDER).map(escape).join('[^.]+');
+        const pattern = key.split(PLACEHOLDER).map(escapeRegExp).join('[^.]+');
         patterns.push(new RegExp(`^${pattern}$`));
       }
     }
