@@ -8,18 +8,19 @@
  *
  * LV is fully flat-scalar — there are no set-modeled paths — so the
  * update helper is a flat per-key loop emitting `setField` envelopes.
- * Every write emits an `INVALIDATE_RESOLVER` intent (catalog already
- * stamps it on each scalar / lifecycle factory) to keep the resolver
- * cache in lockstep with binding/override flips.
+ * Side effects single-source from the minted batch through
+ * {@link deriveSideEffectsForEnvelope} — the same function the inbound
+ * bridge runs — so every host that applies an LV write invalidates the
+ * resolver, mint-side and receive-side alike.
  */
 
 import {
-  liveVariableInvalidateResolverIntent,
+  deriveSideEffectsForEnvelope,
   LIVE_VARIABLE_ENTITY_TYPE,
-  mintBatch,
   type MutationBatch,
   type MutationBody,
   type MutatorContext,
+  mintBatch,
   type SideEffectIntent,
 } from '@openheaders/core/sync';
 import type { LiveVariable } from '@openheaders/core/types';
@@ -34,23 +35,17 @@ export function buildAddLiveVariableBatch(
   liveVariable: LiveVariable,
   ctx: MutatorContext,
 ): LiveVariableMutationPayload {
-  return {
-    batch: seedLiveVariable(liveVariable, ctx),
-    sideEffects: [liveVariableInvalidateResolverIntent(liveVariable.uid, ctx.hlc)],
-  };
+  const batch = seedLiveVariable(liveVariable, ctx);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveSideEffectsForEnvelope) };
 }
 
 export function buildDeleteLiveVariableBatch(
   liveVariableUid: string,
   ctx: MutatorContext,
 ): LiveVariableMutationPayload {
-  const bodies: MutationBody[] = [
-    { kind: 'delete', type: LIVE_VARIABLE_ENTITY_TYPE, id: liveVariableUid },
-  ];
-  return {
-    batch: mintBatch(ctx, bodies),
-    sideEffects: [liveVariableInvalidateResolverIntent(liveVariableUid, ctx.hlc)],
-  };
+  const bodies: MutationBody[] = [{ kind: 'delete', type: LIVE_VARIABLE_ENTITY_TYPE, id: liveVariableUid }];
+  const batch = mintBatch(ctx, bodies);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveSideEffectsForEnvelope) };
 }
 
 /**
@@ -75,8 +70,6 @@ export function buildUpdateLiveVariableBatch(
       value,
     });
   }
-  return {
-    batch: mintBatch(ctx, bodies),
-    sideEffects: [liveVariableInvalidateResolverIntent(liveVariableUid, ctx.hlc)],
-  };
+  const batch = mintBatch(ctx, bodies);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveSideEffectsForEnvelope) };
 }

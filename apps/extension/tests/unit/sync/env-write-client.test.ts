@@ -86,7 +86,7 @@ afterEach(() => {
 });
 
 describe('applyEnvironmentCreate', () => {
-  it('emits a create envelope with a generated uid + trimmed name and an INVALIDATE_RESOLVER side-effect', async () => {
+  it('emits a create envelope with a generated uid + trimmed name; an empty environment derives no side-effect', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const result = await applyEnvironmentCreate(
       { name: '  dev  ' },
@@ -100,7 +100,9 @@ describe('applyEnvironmentCreate', () => {
     expect(created.uid).toMatch(/^[0-9a-z]{8,}$/);
     expect(created.name).toBe('dev');
     expect(result.ok && result.environment.uid).toBe(created.uid);
-    expect(payload.sideEffects).toHaveLength(1);
+    // A bare create-shell carries no variables, so the resolver is
+    // unaffected — side effects single-source from the minted batch.
+    expect(payload.sideEffects).toHaveLength(0);
   });
 
   it('falls back to "Untitled Environment" on a whitespace-only name', async () => {
@@ -125,11 +127,14 @@ describe('applyEnvironmentCreate', () => {
       },
       { workspaceId: 'ws-1', surfaceId: 'workbench', context: makeContextHandle() },
     );
-    const batch = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch;
-    const adds = batch.mutations.filter((m) => m.body.kind === 'addToSet');
+    const payload = mockCall.mock.calls[0][1] as { batch: MutationBatch; sideEffects: SideEffectIntent[] };
+    const adds = payload.batch.mutations.filter((m) => m.body.kind === 'addToSet');
     expect(adds).toHaveLength(2);
     const ids = adds.map((m) => (m.body as { itemId: string }).itemId).sort();
     expect(ids).toEqual(['v1', 'v2']);
+    // A seeded variable invalidates the resolver — single-sourced from
+    // the addToSet envelopes the seed batch carries.
+    expect(payload.sideEffects.length).toBeGreaterThan(0);
   });
 });
 

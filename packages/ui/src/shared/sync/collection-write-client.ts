@@ -17,11 +17,7 @@
 
 import { MIN_SCHEMA_VERSION } from '@openheaders/core/schemas';
 import type { MutationEnvelope } from '@openheaders/core/sync';
-import {
-  COLLECTION_ENTITY_TYPE,
-  COLLECTION_VARS_PATH,
-  collectionInvalidateResolverIntent,
-} from '@openheaders/core/sync';
+import { COLLECTION_ENTITY_TYPE, COLLECTION_VARS_PATH } from '@openheaders/core/sync';
 import type { Collection, Variable } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
 import {
@@ -177,10 +173,7 @@ export async function applyCollectionDelete(
   const ctx = baseCtx.next(
     opts.batchId ? { batchId: opts.batchId } : { batchId: `collection-delete-${input.collectionUid}` },
   );
-  return applySyncPayload({
-    batch: buildDeleteCollectionBatch(input.collectionUid, ctx),
-    sideEffects: [],
-  });
+  return applySyncPayload(buildDeleteCollectionBatch(input.collectionUid, ctx));
 }
 
 export interface ApplyRenameCollectionInput {
@@ -254,7 +247,6 @@ export async function applyCollectionVariablesReplacement(
     {
       entityType: COLLECTION_ENTITY_TYPE,
       varsPath: COLLECTION_VARS_PATH,
-      makeSideEffects: (uid, hlc) => [collectionInvalidateResolverIntent(uid, hlc)],
     },
     ctx,
     { entityUid: collectionUid, newVars, oldVars },

@@ -11,21 +11,22 @@
  * (compare pre-image to post-image, fold into per-uid primitives,
  * bundle under one batchId) is identical across every per-uid variable
  * scope (rule-collection, request-collection, template-collection). The
- * per-scope write client wraps this helper with its own `entityType`,
- * `varsPath`, side-effect intent factory, and `mintBatch`.
+ * per-scope write client supplies its own `entityType` + `varsPath`;
+ * the resolver-invalidation side effects are single-sourced from the
+ * minted batch through {@link deriveSideEffectsForEnvelope} — the same
+ * function the inbound bridge runs — so mint-side equals receive-side.
  *
  * Singleton scopes (workspace-vars, vault) intentionally don't fold in:
- * their `id` is a fixed constant and their side-effect intent doesn't
- * take a key. Their replacement helpers stay parallel until a third
- * singleton justifies a shared variant.
+ * their `id` is a fixed constant. Their replacement helpers stay
+ * parallel until a third singleton justifies a shared variant.
  */
 
-import type { HLC } from '@openheaders/core/sync';
 import {
-  mintBatch,
+  deriveSideEffectsForEnvelope,
   type MutationBatch,
   type MutationBody,
   type MutatorContext,
+  mintBatch,
   type SideEffectIntent,
 } from '@openheaders/core/sync';
 
@@ -41,9 +42,6 @@ export interface VariableLike {
 export interface VariablesReplacementBindings {
   entityType: string;
   varsPath: string;
-  /** Side effect to fire alongside the replacement batch (resolver
-   *  invalidation). Returns `[]` to skip. */
-  makeSideEffects: (entityUid: string, hlc: HLC) => SideEffectIntent[];
 }
 
 export interface VariablesReplacementInput {
@@ -63,7 +61,7 @@ export function buildVariablesReplacement(
   ctx: MutatorContext,
   input: VariablesReplacementInput,
 ): { batch: MutationBatch; sideEffects: SideEffectIntent[] } | null {
-  const { entityType, varsPath, makeSideEffects } = bindings;
+  const { entityType, varsPath } = bindings;
   const { entityUid, newVars, oldVars } = input;
 
   const oldByUid = new Map<string, VariableLike>();
@@ -108,8 +106,6 @@ export function buildVariablesReplacement(
 
   if (bodies.length === 0) return null;
 
-  return {
-    batch: mintBatch(ctx, bodies),
-    sideEffects: makeSideEffects(entityUid, ctx.hlc),
-  };
+  const batch = mintBatch(ctx, bodies);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveSideEffectsForEnvelope) };
 }

@@ -13,12 +13,12 @@
  */
 
 import {
-  liveWorkflowInvalidateResolverIntent,
+  deriveSideEffectsForEnvelope,
   LIVE_WORKFLOW_ENTITY_TYPE,
-  mintBatch,
   type MutationBatch,
   type MutationBody,
   type MutatorContext,
+  mintBatch,
   type SideEffectIntent,
 } from '@openheaders/core/sync';
 import type { LiveWorkflow } from '@openheaders/core/types';
@@ -29,27 +29,15 @@ export interface LiveWorkflowMutationPayload {
   sideEffects: SideEffectIntent[];
 }
 
-export function buildAddLiveWorkflowBatch(
-  workflow: LiveWorkflow,
-  ctx: MutatorContext,
-): LiveWorkflowMutationPayload {
-  return {
-    batch: seedLiveWorkflow(workflow, ctx),
-    sideEffects: [liveWorkflowInvalidateResolverIntent(workflow.uid, ctx.hlc)],
-  };
+export function buildAddLiveWorkflowBatch(workflow: LiveWorkflow, ctx: MutatorContext): LiveWorkflowMutationPayload {
+  const batch = seedLiveWorkflow(workflow, ctx);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveSideEffectsForEnvelope) };
 }
 
-export function buildDeleteLiveWorkflowBatch(
-  workflowUid: string,
-  ctx: MutatorContext,
-): LiveWorkflowMutationPayload {
-  const bodies: MutationBody[] = [
-    { kind: 'delete', type: LIVE_WORKFLOW_ENTITY_TYPE, id: workflowUid },
-  ];
-  return {
-    batch: mintBatch(ctx, bodies),
-    sideEffects: [liveWorkflowInvalidateResolverIntent(workflowUid, ctx.hlc)],
-  };
+export function buildDeleteLiveWorkflowBatch(workflowUid: string, ctx: MutatorContext): LiveWorkflowMutationPayload {
+  const bodies: MutationBody[] = [{ kind: 'delete', type: LIVE_WORKFLOW_ENTITY_TYPE, id: workflowUid }];
+  const batch = mintBatch(ctx, bodies);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveSideEffectsForEnvelope) };
 }
 
 export function buildUpdateLiveWorkflowBatch(
@@ -68,8 +56,6 @@ export function buildUpdateLiveWorkflowBatch(
       value,
     });
   }
-  return {
-    batch: mintBatch(ctx, bodies),
-    sideEffects: [liveWorkflowInvalidateResolverIntent(workflowUid, ctx.hlc)],
-  };
+  const batch = mintBatch(ctx, bodies);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveSideEffectsForEnvelope) };
 }

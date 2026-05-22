@@ -12,7 +12,6 @@ import {
   type MutationEnvelope,
   REQUEST_COLLECTION_ENTITY_TYPE,
   REQUEST_COLLECTION_VARS_PATH,
-  requestCollectionInvalidateResolverIntent,
 } from '@openheaders/core/sync';
 import type { Collection, Variable } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
@@ -162,10 +161,7 @@ export async function applyRequestCollectionDelete(
   const ctx = baseCtx.next(
     opts.batchId ? { batchId: opts.batchId } : { batchId: `request-collection-delete-${input.collectionUid}` },
   );
-  return applySyncPayload({
-    batch: buildDeleteRequestCollectionBatch(input.collectionUid, ctx),
-    sideEffects: [],
-  });
+  return applySyncPayload(buildDeleteRequestCollectionBatch(input.collectionUid, ctx));
 }
 
 export interface ApplyRequestCollectionSetVarInput {
@@ -214,7 +210,6 @@ export async function applyRequestCollectionVariablesReplacement(
     {
       entityType: REQUEST_COLLECTION_ENTITY_TYPE,
       varsPath: REQUEST_COLLECTION_VARS_PATH,
-      makeSideEffects: (uid, hlc) => [requestCollectionInvalidateResolverIntent(uid, hlc)],
     },
     ctx,
     { entityUid: collectionUid, newVars, oldVars },

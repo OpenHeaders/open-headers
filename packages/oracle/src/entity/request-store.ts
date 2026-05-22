@@ -246,7 +246,7 @@ export async function deleteRequestCollection(uid: string): Promise<boolean> {
   // Tombstone the collection through the oracle — the broadcast drives
   // the cache + local mirror update.
   await applyRequestCollectionMutationOrThrow(
-    (ctx) => ({ batch: buildDeleteRequestCollectionBatch(uid, ctx), sideEffects: [] }),
+    (ctx) => buildDeleteRequestCollectionBatch(uid, ctx),
     'deleteRequestCollection',
   );
   return true;

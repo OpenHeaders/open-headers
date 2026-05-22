@@ -8,32 +8,39 @@
  * (boot-time hydration) and the renderer (variable write client).
  */
 
-import type { Variable } from '@openheaders/core/types';
 import {
+  deriveSideEffectsForEnvelope,
   type MutationBatch,
   type MutatorContext,
   type MutatorIntent,
   newBatchId,
-  PRE_BOOTSTRAP_ORG_ID,
   newMutationId,
+  PRE_BOOTSTRAP_ORG_ID,
   removeTemplateCollectionVar,
   renameTemplateCollection,
   setTemplateCollectionVar,
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_COLLECTION_MUTATOR_VERSION,
 } from '@openheaders/core/sync';
+import type { Variable } from '@openheaders/core/types';
 
 export type TemplateCollectionMutationPayload = MutatorIntent;
 
 /**
  * Build a `delete` envelope for a template collection. Generic primitive
  * — no dedicated catalog factory, identical shape across entities.
+ *
+ * Deleting a template collection drops its variables from resolver
+ * scope, so the payload carries the `INVALIDATE_RESOLVER` side effect —
+ * single-sourced through {@link deriveSideEffectsForEnvelope} so the
+ * deleting host's own resolver cache flushes, as a peer's does on
+ * receive.
  */
 export function buildDeleteTemplateCollectionBatch(
   collectionUid: string,
   ctx: MutatorContext,
-): MutationBatch {
-  return {
+): TemplateCollectionMutationPayload {
+  const batch: MutationBatch = {
     batchId: ctx.batchId ?? newBatchId(),
     mutations: [
       {
@@ -47,6 +54,7 @@ export function buildDeleteTemplateCollectionBatch(
       },
     ],
   };
+  return { batch, sideEffects: batch.mutations.flatMap(deriveSideEffectsForEnvelope) };
 }
 
 export interface RenameTemplateCollectionInput {

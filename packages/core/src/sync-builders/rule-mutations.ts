@@ -29,18 +29,18 @@
  */
 
 import {
-  mintBatch,
+  deriveSideEffectsForEnvelope,
   type MutationBatch,
   type MutationBody,
-  recompileDnrIntent,
-  RULE_ENTITY_TYPE,
   type MutatorContext,
+  mintBatch,
+  RULE_ENTITY_TYPE,
   type SideEffectIntent,
   toggleEnabled,
 } from '@openheaders/core/sync';
+import { type LiveSetEntry, synthesizeSetDiff } from '@openheaders/core/sync-builders';
 import type { Rule } from '@openheaders/core/types';
 import { seedRule } from './rule-projection';
-import { type LiveSetEntry, synthesizeSetDiff } from '@openheaders/core/sync-builders';
 
 export interface RuleMutationPayload {
   batch: MutationBatch;
@@ -56,17 +56,12 @@ export interface RuleMutationPayload {
  * `oracle.liveOrderedSetItems` and `RuleSyncMirror.liveOrderedSetItems`
  * combined with the rule snapshot for `item` resolution.
  */
-export type LiveSetEntries = (
-  ruleUid: string,
-  setPath: string,
-) => ReadonlyArray<LiveSetEntry>;
+export type LiveSetEntries = (ruleUid: string, setPath: string) => ReadonlyArray<LiveSetEntry>;
 
 /** New rule → seed batch + DNR recompile intent. */
 export function buildAddBatch(rule: Rule, ctx: MutatorContext): RuleMutationPayload {
-  return {
-    batch: seedRule(rule, ctx),
-    sideEffects: [recompileDnrIntent(rule.uid, ctx.hlc)],
-  };
+  const batch = seedRule(rule, ctx);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveSideEffectsForEnvelope) };
 }
 
 /** Toggle a rule's `enabled` flag. */
@@ -78,10 +73,8 @@ export function buildToggleBatch(ruleUid: string, enabled: boolean, ctx: Mutator
 /** Delete a rule. Tombstone is permanent under §7.2 delete-wins. */
 export function buildDeleteBatch(ruleUid: string, ctx: MutatorContext): RuleMutationPayload {
   const bodies: MutationBody[] = [{ kind: 'delete', type: RULE_ENTITY_TYPE, id: ruleUid }];
-  return {
-    batch: mintBatch(ctx, bodies),
-    sideEffects: [recompileDnrIntent(ruleUid, ctx.hlc)],
-  };
+  const batch = mintBatch(ctx, bodies);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveSideEffectsForEnvelope) };
 }
 
 /**
@@ -178,10 +171,8 @@ export function buildUpdateBatch(
     bodies.push({ kind: 'setField', type: RULE_ENTITY_TYPE, id: ruleUid, path: key, value });
   }
 
-  return {
-    batch: mintBatch(ctx, bodies),
-    sideEffects: bodies.length > 0 ? [recompileDnrIntent(ruleUid, ctx.hlc)] : [],
-  };
+  const batch = mintBatch(ctx, bodies);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveSideEffectsForEnvelope) };
 }
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> =>

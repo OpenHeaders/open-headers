@@ -9,16 +9,16 @@
  * (`useCollectionMutator` write client).
  */
 
-import type { Variable } from '@openheaders/core/types';
 import {
   COLLECTION_ENTITY_TYPE,
   COLLECTION_MUTATOR_VERSION,
+  deriveSideEffectsForEnvelope,
   type MutationBatch,
   type MutatorContext,
   type MutatorIntent,
   newBatchId,
-  PRE_BOOTSTRAP_ORG_ID,
   newMutationId,
+  PRE_BOOTSTRAP_ORG_ID,
   removeCollectionVar,
   renameCollection,
   setCollectionVar,
@@ -26,6 +26,7 @@ import {
   setPinnedAndDefault,
   setPinnedEnvironments,
 } from '@openheaders/core/sync';
+import type { Variable } from '@openheaders/core/types';
 
 export type CollectionMutationPayload = MutatorIntent;
 
@@ -34,9 +35,14 @@ export type CollectionMutationPayload = MutatorIntent;
  * a dedicated factory because delete is the generic primitive — the
  * envelope shape is uniform across entities. Lifted here so the SW
  * call site doesn't have to assemble envelope fields by hand.
+ *
+ * Deleting a collection drops its variables from resolver scope, so the
+ * payload carries the `INVALIDATE_RESOLVER` side effect — single-sourced
+ * through {@link deriveSideEffectsForEnvelope} so the deleting host's
+ * own resolver cache flushes, exactly as a peer's does on receive.
  */
-export function buildDeleteCollectionBatch(collectionUid: string, ctx: MutatorContext): MutationBatch {
-  return {
+export function buildDeleteCollectionBatch(collectionUid: string, ctx: MutatorContext): CollectionMutationPayload {
+  const batch: MutationBatch = {
     batchId: ctx.batchId ?? newBatchId(),
     mutations: [
       {
@@ -50,6 +56,7 @@ export function buildDeleteCollectionBatch(collectionUid: string, ctx: MutatorCo
       },
     ],
   };
+  return { batch, sideEffects: batch.mutations.flatMap(deriveSideEffectsForEnvelope) };
 }
 
 export interface SetCollectionVarInput {

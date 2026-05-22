@@ -259,7 +259,7 @@ export async function deleteTemplateCollection(uid: string): Promise<boolean> {
     );
   }
   await applyTemplateCollectionMutationOrThrow(
-    (ctx) => ({ batch: buildDeleteTemplateCollectionBatch(uid, ctx), sideEffects: [] }),
+    (ctx) => buildDeleteTemplateCollectionBatch(uid, ctx),
     'deleteTemplateCollection',
   );
   return true;

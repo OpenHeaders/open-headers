@@ -14,10 +14,9 @@
  * by uid. Per-(setPath, uid) LWW handles convergence.
  */
 
-import type { Environment, Variable } from '@openheaders/core/types';
 import {
+  deriveSideEffectsForEnvelope,
   ENVIRONMENT_ENTITY_TYPE,
-  invalidateResolverIntent,
   type MutationBatch,
   type MutationBody,
   type MutatorContext,
@@ -28,6 +27,7 @@ import {
   type SideEffectIntent,
   setEnvVar,
 } from '@openheaders/core/sync';
+import type { Environment, Variable } from '@openheaders/core/types';
 import { seedEnvironment } from './env-projection';
 
 export type EnvMutationPayload = MutatorIntent;
@@ -79,10 +79,7 @@ export interface EnvMutationBatchPayload {
 
 export function buildAddEnvironmentBatch(input: AddEnvironmentInput, ctx: MutatorContext): EnvMutationBatchPayload {
   const batch = seedEnvironment(input.environment, ctx);
-  return {
-    batch,
-    sideEffects: [invalidateResolverIntent(input.environment.uid, ctx.hlc)],
-  };
+  return { batch, sideEffects: batch.mutations.flatMap(deriveSideEffectsForEnvelope) };
 }
 
 export interface DeleteEnvironmentInput {
@@ -97,8 +94,6 @@ export function buildDeleteEnvironmentBatch(
   ctx: MutatorContext,
 ): EnvMutationBatchPayload {
   const bodies: MutationBody[] = [{ kind: 'delete', type: ENVIRONMENT_ENTITY_TYPE, id: input.envId }];
-  return {
-    batch: mintBatch(ctx, bodies),
-    sideEffects: [invalidateResolverIntent(input.envId, ctx.hlc)],
-  };
+  const batch = mintBatch(ctx, bodies);
+  return { batch, sideEffects: batch.mutations.flatMap(deriveSideEffectsForEnvelope) };
 }

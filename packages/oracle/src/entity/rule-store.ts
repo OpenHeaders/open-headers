@@ -305,7 +305,7 @@ export async function deleteCollection(uid: string): Promise<boolean> {
       // Tombstone the collection through the oracle — the broadcast
       // drives the cache + local mirror update.
       await applyCollectionMutationOrThrow(
-        (ctx) => ({ batch: buildDeleteCollectionBatch(uid, ctx), sideEffects: [] }),
+        (ctx) => buildDeleteCollectionBatch(uid, ctx),
         'deleteCollection',
       );
       return true;

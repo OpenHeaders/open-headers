@@ -11,7 +11,6 @@ import {
   type MutationEnvelope,
   TEMPLATE_COLLECTION_ENTITY_TYPE,
   TEMPLATE_COLLECTION_VARS_PATH,
-  templateCollectionInvalidateResolverIntent,
 } from '@openheaders/core/sync';
 import type { Collection, Variable } from '@openheaders/core/types';
 import { generateUid, toFolderName } from '@openheaders/core/utils';
@@ -150,10 +149,7 @@ export async function applyTemplateCollectionDelete(
   const ctx = baseCtx.next(
     opts.batchId ? { batchId: opts.batchId } : { batchId: `template-collection-delete-${input.collectionUid}` },
   );
-  return applySyncPayload({
-    batch: buildDeleteTemplateCollectionBatch(input.collectionUid, ctx),
-    sideEffects: [],
-  });
+  return applySyncPayload(buildDeleteTemplateCollectionBatch(input.collectionUid, ctx));
 }
 
 export interface ApplyTemplateCollectionSetVarInput {
@@ -202,7 +198,6 @@ export async function applyTemplateCollectionVariablesReplacement(
     {
       entityType: TEMPLATE_COLLECTION_ENTITY_TYPE,
       varsPath: TEMPLATE_COLLECTION_VARS_PATH,
-      makeSideEffects: (uid, hlc) => [templateCollectionInvalidateResolverIntent(uid, hlc)],
     },
     ctx,
     { entityUid: collectionUid, newVars, oldVars },

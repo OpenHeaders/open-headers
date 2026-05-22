@@ -82,7 +82,7 @@ describe('TemplateCollectionCache', () => {
   it('drops collection on delete', async () => {
     const cache = createTemplateCollectionCache('ws-1', oracle, broadcast, ctxFactory);
     await cache.seedFromPersistedTemplateCollections([makeCollection('c1'), makeCollection('c2')]);
-    await oracle.apply(buildDeleteTemplateCollectionBatch('c1', ctxFactory()), []);
+    await oracle.apply(buildDeleteTemplateCollectionBatch('c1', ctxFactory()).batch, []);
     expect(cache.getTemplateCollections().map((c) => c.uid)).toEqual(['c2']);
     cache.dispose();
   });
