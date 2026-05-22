@@ -28,7 +28,7 @@ import type { ExtensionWorkspace } from '@openheaders/core/types';
 import type { InputRef } from 'antd';
 import { Divider, Input, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { renderWorkspacePrefix } from '../../workbench/components/workspace-prefix';
 import { OrgIcon } from '../workspace-org/OrgIcon';
 import { WorkspaceOrgBadge } from '../workspace-org/WorkspaceOrgBadge';
@@ -106,6 +106,40 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
   const [searchText, setSearchText] = useState('');
   const searchRef = useRef<InputRef>(null);
 
+  // The per-Org `orgId → workspaceId` maps that resolve which workspace
+  // an Org-switch lands on. Used both to label the Org header (naming
+  // the workspace it switches to) and to perform the switch — one
+  // snapshot keeps the two in sync. Subscribed (not one-shot): the
+  // dropdown body stays mounted across open/close, and `OH.orgActiveWorkspace`
+  // is rewritten on every workspace switch — a one-shot load would go
+  // stale and the header would name the wrong target.
+  const [orgPrefs, setOrgPrefs] = useState<{
+    remembered: Record<string, string>;
+    defaults: Record<string, string>;
+  }>({ remembered: {}, defaults: {} });
+
+  useEffect(() => {
+    const storage = getHostStorage();
+    if (!storage) return;
+    let cancelled = false;
+    const hydrate = (): void => {
+      void Promise.all([storage.get(OH.orgActiveWorkspace), storage.get(OH.preferencesDefaultWorkspace)]).then(
+        ([remembered, defaults]) => {
+          if (!cancelled) setOrgPrefs({ remembered: remembered ?? {}, defaults: defaults ?? {} });
+        },
+      );
+    };
+    hydrate();
+    const unsubscribers = [
+      storage.subscribe(OH.orgActiveWorkspace, hydrate),
+      storage.subscribe(OH.preferencesDefaultWorkspace, hydrate),
+    ];
+    return () => {
+      cancelled = true;
+      for (const unsubscribe of unsubscribers) unsubscribe?.();
+    };
+  }, []);
+
   const filtered = useMemo(() => {
     const q = searchText.toLowerCase().trim();
     if (!q) return workspaces;
@@ -156,22 +190,19 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
     handleClose();
   };
 
-  // Switching to an Org lands on its remembered → default → first
-  // workspace (`resolveOrgActiveWorkspace`), then routes through the
-  // surface's normal pick handler — per-tab in workbench, global active
-  // in system mode.
+  // The workspace an Org-header click would switch to — its remembered →
+  // default → first workspace (`resolveOrgActiveWorkspace`).
+  const resolveOrgTarget = (orgId: string): ExtensionWorkspace | null => {
+    const id = resolveOrgActiveWorkspace(orgId, workspaces, orgPrefs.remembered, orgPrefs.defaults);
+    return id ? (workspaces.find((w) => w.id === id) ?? null) : null;
+  };
+
+  // Switching to an Org routes its resolved target through the surface's
+  // normal pick handler — per-tab in workbench, global active in system.
   const handleSwitchOrg = (orgId: string): void => {
-    const storage = getHostStorage();
-    void Promise.all([
-      storage?.get(OH.orgActiveWorkspace) ?? Promise.resolve(undefined),
-      storage?.get(OH.preferencesDefaultWorkspace) ?? Promise.resolve(undefined),
-    ]).then(([remembered, defaults]) => {
-      const target = resolveOrgActiveWorkspace(orgId, workspaces, remembered ?? {}, defaults ?? {});
-      if (!target) return;
-      const targetWs = workspaces.find((w) => w.id === target);
-      if (!targetWs) return;
-      pickWorkspace(target, target === selectedId, target === activeId);
-    });
+    const targetWs = resolveOrgTarget(orgId);
+    if (!targetWs) return;
+    pickWorkspace(targetWs.id, targetWs.id === selectedId, targetWs.id === activeId);
   };
 
   const renderRow = (w: ExtensionWorkspace): React.ReactNode => {
@@ -248,11 +279,15 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
 
   const renderOrgHeader = (orgId: string, descriptor: OrgDescriptor | null): React.ReactNode => {
     const label = descriptor ? orgIdentityLabel(descriptor) : 'Other workspaces';
+    // Name the workspace the switch lands on — the header shows the Org's
+    // intent; the tooltip makes the concrete consequence visible.
+    const targetWs = resolveOrgTarget(orgId);
+    const tooltip = targetWs ? `Switch to ${label} → ${targetWs.name}` : `Switch to ${label}`;
     return (
-      <Tooltip title={`Switch to ${label}`} placement="left" mouseEnterDelay={0.4}>
+      <Tooltip title={tooltip} placement="left" mouseEnterDelay={0.4}>
         <div
           role="button"
-          aria-label={`Switch to ${label}`}
+          aria-label={tooltip}
           className="oh-env-row"
           style={{
             display: 'flex',
