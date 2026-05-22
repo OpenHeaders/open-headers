@@ -71,7 +71,6 @@ import {
 } from '@openheaders/oracle/entity/request-store';
 import {
   clearWorkflowRunCache,
-  clearWorkflowRunCacheForEnvironment,
   listCachesForWorkflow,
   listWorkflowRunCaches,
   markProbeStartForRun,
@@ -917,10 +916,18 @@ async function refreshWorkflowsForChangedDefinitions(
 //
 // Per-(workflow, env) precision (like LF2): `{{live.X}}` resolves
 // against A's cache row for the resolution env, so A's env-`e` refresh
-// only makes B's env-`e` row stale. The downstream action mirrors LF2:
-//   • non-manual, the ACTIVE env  — refresh immediately;
-//   • non-manual, a NON-active env — drop that env's cache row;
-//   • manual — flag that env's row "needs re-run" (no auto-run).
+// only makes B's env-`e` row stale. The downstream action mirrors LF2's
+// post-audit shape — every affected env row is flagged definitionally
+// stale BEFORE any gate (the whole treatment for a manual workflow and
+// for one not schedulable at the instant of the cascade — disabled,
+// unpublished, deleted-request step); then, for a non-manual workflow
+// runnable now, the ACTIVE env is refreshed immediately. The flag — not
+// a cache drop — is the non-active-env treatment: the row keeps serving
+// AND stays scheduled, so `computeNextFireAt`'s due-now override re-warms
+// it on the next reconcile (advancing `extractedAt`, which re-fires this
+// cascade onward) rather than only on the next env switch. Dropping the
+// row would strip it from `collectEntries`, so the non-active env would
+// go dark and the cascade would stop dead at one hop.
 //
 // Propagation is HOP-BY-HOP: a cascade refresh of B writes B's cache,
 // which fires this same broadcast, which walks downstream of B to C.
@@ -1062,43 +1069,37 @@ async function settleLiveValueCascade(upstreams: ReadonlyArray<ChangedWorkflowEn
   for (const [childUid, environmentIds] of affected) {
     const workflow = workflowsByUid.get(childUid);
     if (!workflow) continue;
-    // Manual workflows: never auto-run on an upstream refresh. Flag
-    // only the env rows whose upstream value changed "needs re-run".
-    if (workflow.refresh.kind === 'manual') {
-      for (const environmentId of environmentIds) {
-        try {
-          await markRunDefinitionallyStale(childUid, environmentId, workspaceId);
-        } catch (err) {
-          logger.info(
-            'LiveScheduler',
-            `cascade definitional-stale flag failed for ${childUid}: ${(err as Error).message}`,
-          );
-        }
+    // Flag every affected env cache row definitionally stale, before any
+    // gate. This is the whole treatment for a manual workflow and for one
+    // not schedulable at this instant (disabled, unpublished,
+    // deleted-request step) — `computeNextFireAt` honors the flag, so a
+    // flagged row is due as soon as the workflow can run again. The row
+    // is KEPT (it keeps serving so live traffic doesn't gap, and it stays
+    // in `collectEntries` so a non-active env re-warms via the due-now
+    // reconcile alarm). A successful refresh clears the flag.
+    for (const environmentId of environmentIds) {
+      try {
+        await markRunDefinitionallyStale(childUid, environmentId, workspaceId);
+      } catch (err) {
+        logger.info('LiveScheduler', `cascade definitional-stale flag failed for ${childUid}: ${(err as Error).message}`);
       }
-      continue;
     }
+    // Manual workflows never auto-run on an upstream refresh — the flag
+    // is the whole treatment (`computeNextFireAt` returns null for a
+    // manual policy regardless).
+    if (workflow.refresh.kind === 'manual') continue;
+    // Non-manual + runnable now: refresh the ACTIVE env immediately when
+    // its upstream value changed, so the value the user is resolving has
+    // no wrong-input window. The stale row keeps serving until the new
+    // value lands; the resulting cache write fires the next hop of the
+    // cascade. Non-active envs re-warm via the due-now alarm the flag
+    // drives.
     const boundVariables = getLiveVariablesForWorkflow(childUid);
     if (!canScheduleWorkflow(workflow, boundVariables)) continue;
-    for (const environmentId of environmentIds) {
-      if (environmentId === activeEnvironmentId) {
-        // The active env's upstream value changed — refresh now. The
-        // stale row keeps serving until the new value lands; the
-        // resulting cache write fires the next hop of the cascade.
-        void refreshLiveWorkflowSynchronously(workspaceId, childUid, activeEnvironmentId).catch((err) => {
-          logger.info('LiveScheduler', `live-value cascade refresh failed for ${childUid}: ${(err as Error).message}`);
-        });
-      } else {
-        // A non-active env's upstream value changed — drop that env's
-        // row so it re-warms (and cascades onward) on the next switch.
-        try {
-          await clearWorkflowRunCacheForEnvironment(childUid, environmentId, workspaceId);
-        } catch (err) {
-          logger.info(
-            'LiveScheduler',
-            `live-value cascade cache invalidation failed for ${childUid}: ${(err as Error).message}`,
-          );
-        }
-      }
+    if (environmentIds.has(activeEnvironmentId)) {
+      void refreshLiveWorkflowSynchronously(workspaceId, childUid, activeEnvironmentId).catch((err) => {
+        logger.info('LiveScheduler', `live-value cascade refresh failed for ${childUid}: ${(err as Error).message}`);
+      });
     }
   }
 }

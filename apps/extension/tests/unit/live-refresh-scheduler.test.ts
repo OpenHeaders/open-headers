@@ -1316,7 +1316,7 @@ describe('chained-workflow cascade (LF4)', () => {
     expect(refreshSpy.mock.calls[0]?.[0]).toMatchObject({ workflow: { uid: 'wflowBBB' }, environmentId: 'env-dev' });
   });
 
-  it('drops a non-active env row of a downstream workflow', async () => {
+  it('flags a non-active env row of a downstream workflow definitionally stale (never drops it)', async () => {
     const refreshSpy = vi.fn<(args: RefreshArgs) => Promise<void>>(async () => {});
     scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
     scheduler.__setLiveCascadeRefreshDebounceMs(0);
@@ -1339,8 +1339,43 @@ describe('chained-workflow cascade (LF4)', () => {
     cache.bumpAndFire('wflowAAA', 'env-dev', 2);
     await flushAsync();
 
+    // The downstream env is not the active env — the row is flagged
+    // (kept + scheduled, re-warms via the due-now reconcile alarm), not
+    // dropped. Dropping would strip it from `collectEntries`.
     expect(refreshSpy).not.toHaveBeenCalled();
-    expect(clearWorkflowRunCacheForEnvironmentMock).toHaveBeenCalledWith('wflowBBB', 'env-dev', 'ws-live');
+    expect(clearWorkflowRunCacheForEnvironmentMock).not.toHaveBeenCalled();
+    expect(markRunDefinitionallyStaleMock).toHaveBeenCalledWith('wflowBBB', 'env-dev', 'ws-live');
+  });
+
+  it('flags a downstream workflow that is not schedulable right now (disabled)', async () => {
+    // Finding-A shape: a non-manual downstream that can't run at the
+    // instant of the cascade (here, disabled) must still be flagged
+    // definitionally stale so it re-warms once it becomes schedulable —
+    // the flag precedes the `canScheduleWorkflow` gate.
+    const refreshSpy = vi.fn<(args: RefreshArgs) => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    scheduler.__setLiveCascadeRefreshDebounceMs(0);
+    activeSwitchState.activeEnvId = 'env-dev';
+    storeState.requests.set('reqA00001', makeRequest({ uid: 'reqA00001' }));
+    storeState.requests.set('reqB00001', requestRef('reqB00001', '{{live.authToken}}'));
+    storeState.workflows = [
+      makeWorkflow({ uid: 'wflowAAA', steps: [step('stpA0001', 'reqA00001')] }),
+      makeWorkflow({ uid: 'wflowBBB', enabled: false, steps: [step('stpB0001', 'reqB00001')] }),
+    ];
+    storeState.variables = [
+      makeVariable({ uid: 'lvauth01', name: 'authToken', workflowUid: 'wflowAAA' }),
+      makeVariable({ uid: 'lvbbb001', name: 'bToken', workflowUid: 'wflowBBB' }),
+    ];
+    scheduler.startLiveScheduler();
+    const cache = makeCacheTable();
+    cache.bumpAndFire('wflowAAA', 'env-dev', 1);
+    await flushAsync();
+
+    cache.bumpAndFire('wflowAAA', 'env-dev', 2);
+    await flushAsync();
+
+    expect(refreshSpy).not.toHaveBeenCalled();
+    expect(markRunDefinitionallyStaleMock).toHaveBeenCalledWith('wflowBBB', 'env-dev', 'ws-live');
   });
 
   it('flags a manual downstream workflow definitionally stale instead of refreshing', async () => {
