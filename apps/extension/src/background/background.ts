@@ -244,12 +244,15 @@ const syncHandshakeInitiator = createSyncHandshakeInitiator({
   // pushed up — the receiver-side org filter on the backend enforces
   // that structurally.
   onJoinedOrg: async (org, backendActiveWorkspaceId) => {
-    await recordJoinedOrg(org);
-    // U5.9 — joining is consume-only: adopt the backend by promoting its
-    // active workspace to globally active once it has synced down (see
-    // `tryAdoptPendingWorkspace`). The active Org is derived from the
-    // active workspace, so adopting the workspace adopts the Org too.
-    if (backendActiveWorkspaceId) {
+    const { firstJoin } = await recordJoinedOrg(org);
+    // U5.9 — joining is consume-only: on the FIRST join of this backend,
+    // adopt it by promoting its active workspace to globally active once
+    // it has synced down (see `tryAdoptPendingWorkspace`). The active Org
+    // is derived from the active workspace, so adopting the workspace
+    // adopts the Org too. A reconnect (`firstJoin` false) must NOT
+    // re-adopt — a local active-workspace switch the user made since the
+    // first join has to survive the WELCOME that every reconnect re-sends.
+    if (firstJoin && backendActiveWorkspaceId) {
       pendingAdoptWorkspaceId = backendActiveWorkspaceId;
       tryAdoptPendingWorkspace();
     }

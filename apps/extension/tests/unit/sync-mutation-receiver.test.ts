@@ -5,9 +5,22 @@
  * WS layer (the receiver is a pure function of `applySyncRequest`).
  */
 
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+// The receiver consults `isLoopbackBackend` (→ the settings store) to
+// gate inbound active-workspace pointer envelopes. Mock the store so the
+// loopback verdict is controllable per test; default to loopback so the
+// pre-existing cases keep their behavior.
+let settingsStore: Record<string, unknown> = {};
+
+vi.mock('@openheaders/ui/workbench/settings/store', () => ({
+  get: vi.fn((key: string) => settingsStore[key]),
+  subscribeKey: vi.fn(() => () => undefined),
+}));
+
 import { getIdentitySnapshot } from '@openheaders/core/identity';
 import { SYNC_MUTATION_BATCH_TYPE, SYNC_MUTATION_TYPE } from '@openheaders/core/protocol';
-import { type MutatorContext, mintBatch, RULE_ENTITY_TYPE } from '@openheaders/core/sync';
+import { type MutatorContext, mintBatch, RULE_ENTITY_TYPE, setActiveExtensionWorkspace } from '@openheaders/core/sync';
 import { seedRule } from '@openheaders/core/sync-builders/rule-projection';
 import type { Rule } from '@openheaders/core/types';
 import { generateUid } from '@openheaders/core/utils';
@@ -22,7 +35,6 @@ import {
   dispose as disposeSyncService,
   getOracleForCurrentWorkspace,
 } from '@openheaders/oracle/sync/service';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { handleIncomingMutationFrame } from '../../src/background/sync-mutation-receiver';
 import { installSyntheticIdentityForTests } from './sync/_identity-test-setup';
 
@@ -61,6 +73,9 @@ const makeRule = (uid: string, name: string): Rule =>
 let teardownIdentity: () => void = () => undefined;
 
 beforeEach(async () => {
+  // Loopback backend by default — the active-workspace pointer gate is a
+  // no-op, so the pre-existing cases below behave exactly as before.
+  settingsStore = { 'backend.mode': 'desktop-app', 'backend.url': 'ws://127.0.0.1:59210' };
   teardownIdentity = await installSyntheticIdentityForTests([]);
   homeOrgId = getIdentitySnapshot()?.user.homeOrgId ?? '';
   __initSyncServiceForTests(wsId);
@@ -133,6 +148,38 @@ describe('handleIncomingMutationFrame', () => {
   it('drops malformed frames without throwing', async () => {
     const handled = await handleIncomingMutationFrame({ type: SYNC_MUTATION_TYPE, workspaceId: 'x' });
     expect(handled).toBe(true); // matched the type, then dropped after parse failure
+  });
+
+  it('drops an inbound active-workspace pointer envelope from a non-loopback backend', async () => {
+    settingsStore['backend.url'] = 'ws://192.168.1.50:59210';
+    const { batch } = setActiveExtensionWorkspace(ctx(6_000), { id: 'ws-from-lan-peer' });
+    const pointer = batch.mutations[0]!;
+
+    const handled = await handleIncomingMutationFrame({
+      type: SYNC_MUTATION_TYPE,
+      workspaceId: wsId,
+      envelope: pointer,
+    });
+    expect(handled).toBe(true);
+    // Gated before the bridge — never applied, never recorded as seen.
+    expect(hasRecentlyApplied(pointer.mutationId)).toBe(false);
+  });
+
+  it('strips only the pointer from a non-loopback batch, applying the rest', async () => {
+    settingsStore['backend.url'] = 'ws://10.0.0.7:59210';
+    const r = makeRule(generateUid(), 'mixed');
+    const ruleBatch = seedRule(r, ctx(7_000));
+    const { batch: pointerBatch } = setActiveExtensionWorkspace(ctx(7_100), { id: 'ws-from-lan-peer' });
+    const pointer = pointerBatch.mutations[0]!;
+
+    await handleIncomingMutationFrame({
+      type: SYNC_MUTATION_BATCH_TYPE,
+      workspaceId: wsId,
+      batch: { batchId: 'mixed-1', mutations: [...ruleBatch.mutations, pointer] },
+    });
+
+    for (const env of ruleBatch.mutations) expect(hasRecentlyApplied(env.mutationId)).toBe(true);
+    expect(hasRecentlyApplied(pointer.mutationId)).toBe(false);
   });
 
   it('records mutationIds applied via the local oracle path so the forwarder can skip echo', async () => {

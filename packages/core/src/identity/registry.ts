@@ -107,6 +107,18 @@ export function refreshIdentitySnapshotFromHostStorage(): Promise<IdentitySnapsh
 const withJoinedOrgsLock = createMutex();
 
 /**
+ * Outcome of {@link recordJoinedOrg}. `firstJoin` is true only when the
+ * Org was not already on file — it lets the join-adopt wiring inherit
+ * the backend's active workspace once (on the first join) without
+ * re-adopting on every reconnect's WELCOME.
+ */
+export interface RecordJoinedOrgResult {
+  snapshot: IdentitySnapshot | null;
+  /** True iff this Org was newly recorded — a first join, not a reconnect. */
+  firstJoin: boolean;
+}
+
+/**
  * Record an Org joined by connecting to another backend (Phase U5.2).
  * Appends `org` to the persisted `OH.joinedOrgs` set (deduplicated by
  * id; the synthetic home-org is never stored here — it already rides
@@ -115,21 +127,24 @@ const withJoinedOrgsLock = createMutex();
  * backend's workspaces sync down.
  *
  * Idempotent: re-joining the same backend (every reconnect re-sends
- * WELCOME) is a no-op once the Org is already on file. The `OH.joinedOrgs`
- * read-modify-write is serialized through {@link withJoinedOrgsLock} so
- * concurrent joins of distinct Orgs can't clobber each other.
+ * WELCOME) is a no-op once the Org is already on file — `firstJoin` is
+ * then false. The `OH.joinedOrgs` read-modify-write is serialized through
+ * {@link withJoinedOrgsLock} so concurrent joins of distinct Orgs can't
+ * clobber each other.
  */
-export async function recordJoinedOrg(org: Org): Promise<IdentitySnapshot | null> {
+export async function recordJoinedOrg(org: Org): Promise<RecordJoinedOrgResult> {
   const record = await hostStorage.get(OH.syntheticIdentity);
   if (record && record.org.id === org.id) {
-    // The joiner's own home-org — nothing to record. Reached only if a
-    // host somehow handshakes against itself; harmless to ignore.
-    return refreshIdentitySnapshotFromHostStorage();
+    // The joiner's own home-org — nothing to record, not a join. Reached
+    // only if a host somehow handshakes against itself; harmless to ignore.
+    return { snapshot: await refreshIdentitySnapshotFromHostStorage(), firstJoin: false };
   }
+  let firstJoin = false;
   await withJoinedOrgsLock(async () => {
     const existing = (await hostStorage.get(OH.joinedOrgs)) ?? [];
     const known = existing.find((o) => o.id === org.id);
     if (!known) {
+      firstJoin = true;
       await hostStorage.set(OH.joinedOrgs, [...existing, org]);
     } else if (known.name !== org.name || known.isSynthetic !== org.isSynthetic) {
       // The backend renamed its Org since the last join — keep the
@@ -140,7 +155,7 @@ export async function recordJoinedOrg(org: Org): Promise<IdentitySnapshot | null
       );
     }
   });
-  return refreshIdentitySnapshotFromHostStorage();
+  return { snapshot: await refreshIdentitySnapshotFromHostStorage(), firstJoin };
 }
 
 /** Longest accepted home-Org name; the rename UI caps its input to match. */

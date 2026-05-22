@@ -75,6 +75,7 @@ export {
   type InstallIdentitySnapshotInput,
   installIdentitySnapshot,
   MAX_ORG_NAME_LENGTH,
+  type RecordJoinedOrgResult,
   type RenameHomeOrgResult,
   recordJoinedOrg,
   refreshIdentitySnapshotFromHostStorage,

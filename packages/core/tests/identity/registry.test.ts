@@ -64,10 +64,28 @@ describe('identity registry — joined-Org folding (U5.2)', () => {
     await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     await refreshIdentitySnapshotFromHostStorage();
 
-    const snapshot = await recordJoinedOrg(BACKEND_ORG);
-    expect(snapshot).not.toBeNull();
-    expect(authorizedOrgIds(snapshot).has(BACKEND_ORG.id)).toBe(true);
+    const result = await recordJoinedOrg(BACKEND_ORG);
+    expect(result.snapshot).not.toBeNull();
+    expect(authorizedOrgIds(result.snapshot).has(BACKEND_ORG.id)).toBe(true);
     expect(await hostStorage.get(OH.joinedOrgs)).toEqual([BACKEND_ORG]);
+  });
+
+  it('reports firstJoin true on a new backend, false on every reconnect', async () => {
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
+    await refreshIdentitySnapshotFromHostStorage();
+
+    expect((await recordJoinedOrg(BACKEND_ORG)).firstJoin).toBe(true);
+    // A reconnect re-sends the same WELCOME — not a first join.
+    expect((await recordJoinedOrg(BACKEND_ORG)).firstJoin).toBe(false);
+    // A renamed-in-place reconnect is still a reconnect.
+    expect((await recordJoinedOrg({ ...BACKEND_ORG, name: 'Renamed' })).firstJoin).toBe(false);
+    // A distinct backend is its own first join.
+    expect((await recordJoinedOrg(OTHER_ORG)).firstJoin).toBe(true);
+  });
+
+  it('reports firstJoin false for the joiner own home-org', async () => {
+    const record = await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
+    expect((await recordJoinedOrg(record.org)).firstJoin).toBe(false);
   });
 
   it('survives a snapshot rebuild — the joined Org is read back from storage', async () => {
@@ -89,10 +107,10 @@ describe('identity registry — joined-Org folding (U5.2)', () => {
   it('accumulates distinct backends', async () => {
     await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     await recordJoinedOrg(BACKEND_ORG);
-    const snapshot = await recordJoinedOrg(OTHER_ORG);
+    const result = await recordJoinedOrg(OTHER_ORG);
     expect(await hostStorage.get(OH.joinedOrgs)).toEqual([BACKEND_ORG, OTHER_ORG]);
-    expect(authorizedOrgIds(snapshot).has(BACKEND_ORG.id)).toBe(true);
-    expect(authorizedOrgIds(snapshot).has(OTHER_ORG.id)).toBe(true);
+    expect(authorizedOrgIds(result.snapshot).has(BACKEND_ORG.id)).toBe(true);
+    expect(authorizedOrgIds(result.snapshot).has(OTHER_ORG.id)).toBe(true);
   });
 
   it('refreshes a renamed backend Org in place rather than appending', async () => {
