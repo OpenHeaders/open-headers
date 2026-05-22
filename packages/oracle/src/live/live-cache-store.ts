@@ -29,6 +29,10 @@
  *     cache).
  *   - `clearWorkflowRunCache` wipes every env-keyed entry for a
  *     workflow. Called when the workflow definition is deleted.
+ *   - `markWorkflowDefinitionallyStale` flags every env-keyed entry
+ *     for a workflow as wrong-recipe (a material edit landed) without
+ *     re-extracting. Used for manual-trigger workflows, which must not
+ *     auto-run; a later successful `putWorkflowRunCache` clears it.
  *
  * This store does NOT perform the refresh itself. The chain runner
  * (Phase D) calls the store's write methods after executing a
@@ -295,6 +299,10 @@ export async function recordRefreshError(input: RefreshErrorInput, workspaceId?:
       lastErrorStepId: input.failedStepId,
       lastExtractorOk: input.extractorOk ?? false,
       circuit: nextCircuit,
+      // A failed refresh did NOT re-extract the value, so a definitional-
+      // staleness flag must survive — only a successful `putWorkflowRun
+      // Cache` clears it.
+      definitionallyStale: previous?.definitionallyStale,
     };
     const next: LiveCacheBlob = {
       schemaVersion: current.schemaVersion,
@@ -499,6 +507,49 @@ export async function clearWorkflowRunCache(
   });
   if (removed > 0) notifyChange(wsId, workflowUid, postWriteRuns);
   return removed;
+}
+
+/**
+ * Flag every env-keyed cache row for one workflow as definitionally
+ * stale — an input to the cached value's production recipe changed (a
+ * material request edit, a workflow-definition change) but the value
+ * has not been re-extracted. Unlike {@link clearWorkflowRunCache} the
+ * rows are KEPT — the (now wrong-recipe) value keeps serving so live
+ * traffic doesn't gap; the flag drives a "needs re-run" badge instead.
+ *
+ * Used for MANUAL-trigger workflows: a material edit must not auto-run
+ * them, but must not silently keep serving a wrong-recipe token either.
+ * A successful {@link putWorkflowRunCache} writes a row without the
+ * flag, clearing it. No-op (returns 0) when the workflow has no cached
+ * rows, or when every row is already flagged.
+ */
+export async function markWorkflowDefinitionallyStale(workflowUid: string, workspaceId?: string): Promise<number> {
+  const wsId = resolveWorkspaceId(workspaceId);
+  let flagged = 0;
+  let postWriteRuns: WorkflowRunCache[] = [];
+  await withCacheLock(wsId, async () => {
+    const current = await readBlob(wsId);
+    const nextRuns: Record<string, WorkflowRunCache> = {};
+    for (const [key, entry] of Object.entries(current.runs)) {
+      if (entry.workflowUid === workflowUid && entry.definitionallyStale !== true) {
+        nextRuns[key] = { ...entry, definitionallyStale: true };
+        flagged++;
+        continue;
+      }
+      nextRuns[key] = entry;
+    }
+    if (flagged === 0) return;
+    const next: LiveCacheBlob = {
+      schemaVersion: current.schemaVersion,
+      version: current.version + 1,
+      runs: nextRuns,
+    };
+    await writeBlob(wsId, next);
+    postWriteRuns = Object.values(next.runs);
+    logger.debug('LiveCacheStore', `Flagged ${flagged} cache row(s) definitionally stale for workflow ${workflowUid}`);
+  });
+  if (flagged > 0) notifyChange(wsId, workflowUid, postWriteRuns);
+  return flagged;
 }
 
 // ── Purge (workspace delete) ────────────────────────────────────────

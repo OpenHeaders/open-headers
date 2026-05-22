@@ -39,7 +39,10 @@ function vault(name: string, value: string): VaultSecretEntry {
   return { kind: 'string', name, value };
 }
 
-function live(value: string, opts: { stale?: boolean; workflowUid?: string } = {}): LiveSuggestionEntry {
+function live(
+  value: string,
+  opts: { stale?: boolean; definitionallyStale?: boolean; workflowUid?: string } = {},
+): LiveSuggestionEntry {
   return { value, ...opts };
 }
 
@@ -278,6 +281,22 @@ describe('buildSuggestions', () => {
       expect(stale.preview).toMatchObject({ kind: 'stale' });
       expect(fresh.preview).toMatchObject({ kind: 'value' });
       expect(stale.priority).toBeLessThan(fresh.priority);
+    });
+
+    it('carries definitionallyStale through the preview, orthogonal to expiry staleness', () => {
+      const liveReg = new Map<string, LiveSuggestionEntry>([
+        ['fresh', live('f')],
+        ['needsRerun', live('n', { definitionallyStale: true })],
+        ['both', live('b', { stale: true, definitionallyStale: true })],
+      ]);
+      const out = buildSuggestions(makeRegistries({ liveRegistry: liveReg }), {});
+      const byRef = (r: string) => out.find((s) => s.reference === r)!;
+      // definitionallyStale rides the preview as an orthogonal flag —
+      // a needs-re-run value that hasn't expired keeps `kind: 'value'`.
+      expect(byRef('live.fresh').preview).toMatchObject({ kind: 'value' });
+      expect(byRef('live.fresh').preview).not.toHaveProperty('definitionallyStale');
+      expect(byRef('live.needsRerun').preview).toMatchObject({ kind: 'value', definitionallyStale: true });
+      expect(byRef('live.both').preview).toMatchObject({ kind: 'stale', definitionallyStale: true });
     });
 
     it('maskAll=true masks every scope regardless of per-scope defaults', () => {

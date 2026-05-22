@@ -41,7 +41,11 @@ import {
   getVault,
   getWorkspaceVariables,
 } from '@openheaders/oracle/entity/environment-store';
-import { listWorkflowRunCaches, onLiveCacheStoreChange, type WorkflowRunCache } from '@openheaders/oracle/live/live-cache-store';
+import {
+  listWorkflowRunCaches,
+  onLiveCacheStoreChange,
+  type WorkflowRunCache,
+} from '@openheaders/oracle/live/live-cache-store';
 import { getLiveVariables, getLiveVariablesForWorkspace } from '@openheaders/oracle/live/live-variable-store';
 import { getOracleHostHooks, peekActiveWorkspaceId } from '@openheaders/oracle/sync';
 import { getCollections, getRules } from '@openheaders/oracle/entity/rule-store';
@@ -514,10 +518,14 @@ function buildLiveRegistryFor(
     const value = run?.stepCaptures?.[lv.stepId]?.[lv.captureName];
     if (value === undefined) continue;
     const stale = run?.expiresAt != null && run.expiresAt < now;
+    // `definitionallyStale` is orthogonal to `stale`: the former flags a
+    // wrong-recipe value (a material edit landed on a manual workflow);
+    // the latter flags an expired-but-fine one.
     registry.set(lv.name, {
       value,
       workflowUid: lv.workflowUid,
       ...(stale ? { stale: true } : {}),
+      ...(run?.definitionallyStale === true ? { definitionallyStale: true } : {}),
     });
   }
   return registry;

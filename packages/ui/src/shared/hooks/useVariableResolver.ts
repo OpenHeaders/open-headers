@@ -61,6 +61,7 @@ export function useVariableResolver(): VariableResolver {
         value,
         workflowUid: lv.workflowUid,
         stale: run.expiresAt !== null && run.expiresAt < nowMs,
+        definitionallyStale: run.definitionallyStale === true,
       });
     }
     return registry;

@@ -37,10 +37,14 @@ describe('requestExecutableFingerprint', () => {
     expect(requestExecutableFingerprint(makeRequest({ method: 'POST' }))).not.toBe(base);
     expect(requestExecutableFingerprint(makeRequest({ url: 'https://api.openheaders.io/token-v2' }))).not.toBe(base);
     expect(
-      requestExecutableFingerprint(makeRequest({ headers: [{ key: 'X-Env', value: 'qa', enabled: true }] })),
+      requestExecutableFingerprint(
+        makeRequest({ headers: [{ uid: 'hdrenv01', key: 'X-Env', value: 'qa', enabled: true }] }),
+      ),
     ).not.toBe(base);
     expect(
-      requestExecutableFingerprint(makeRequest({ params: [{ key: 'scope', value: 'admin', enabled: true }] })),
+      requestExecutableFingerprint(
+        makeRequest({ params: [{ uid: 'prmscp01', key: 'scope', value: 'admin', enabled: true }] }),
+      ),
     ).not.toBe(base);
     expect(requestExecutableFingerprint(makeRequest({ auth: { type: 'bearer', token: '{{env.SEED}}' } }))).not.toBe(
       base,

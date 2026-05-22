@@ -15,6 +15,7 @@ const alarmsGetAllMock = vi.fn<() => Promise<chrome.alarms.Alarm[]>>();
 const recordLogMock = vi.fn();
 const recordRefreshErrorMock = vi.fn();
 const clearWorkflowRunCacheMock = vi.fn<(...args: unknown[]) => Promise<number>>(async () => 0);
+const markWorkflowDefinitionallyStaleMock = vi.fn<(...args: unknown[]) => Promise<number>>(async () => 0);
 
 vi.mock('@utils/browser-api', () => ({
   alarms: {
@@ -143,6 +144,7 @@ vi.mock('@openheaders/oracle/live/live-cache-store', () => ({
   },
   recordRefreshError: (...args: unknown[]) => recordRefreshErrorMock(...args),
   clearWorkflowRunCache: (...args: unknown[]) => clearWorkflowRunCacheMock(...args),
+  markWorkflowDefinitionallyStale: (...args: unknown[]) => markWorkflowDefinitionallyStaleMock(...args),
 }));
 
 // Active-pointer change listeners — the scheduler subscribes to these
@@ -258,6 +260,7 @@ beforeEach(async () => {
   recordLogMock.mockClear();
   recordRefreshErrorMock.mockClear();
   clearWorkflowRunCacheMock.mockClear();
+  markWorkflowDefinitionallyStaleMock.mockClear();
   storeState = {
     workflows: [],
     variables: [],
@@ -716,7 +719,7 @@ describe('material request-edit refresh', () => {
     expect(refreshSpy).not.toHaveBeenCalled();
   });
 
-  it('does not auto-run a manual-trigger workflow', async () => {
+  it('flags a manual-trigger workflow definitionally stale instead of auto-running it', async () => {
     const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
     scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
     await startPrimed(makeWorkflow({ refresh: { kind: 'manual' } }));
@@ -725,8 +728,23 @@ describe('material request-edit refresh', () => {
     for (const fn of storeState.listeners.request) fn();
     await flushAsync();
 
-    expect(clearWorkflowRunCacheMock).not.toHaveBeenCalled();
+    // Manual workflow: no auto-run, no env-row clear — but every env
+    // cache row is flagged definitionally stale so the UI badges it.
     expect(refreshSpy).not.toHaveBeenCalled();
+    expect(clearWorkflowRunCacheMock).not.toHaveBeenCalled();
+    expect(markWorkflowDefinitionallyStaleMock).toHaveBeenCalledWith('wflow001', 'ws-live');
+  });
+
+  it('does not flag a manual workflow on a cosmetic edit', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    await startPrimed(makeWorkflow({ refresh: { kind: 'manual' } }));
+
+    storeState.requests.set('reqfetch1', makeRequest({ name: 'Renamed' }));
+    for (const fn of storeState.listeners.request) fn();
+    await flushAsync();
+
+    expect(markWorkflowDefinitionallyStaleMock).not.toHaveBeenCalled();
   });
 });
 

@@ -89,7 +89,10 @@ function renderPreview(suggestion: VariableSuggestion, reveal: boolean): React.R
 const SuggestionRow: React.FC<SuggestionRowProps> = ({ suggestion, reveal }) => {
   const scopeKey = namespaceToScopeKey(suggestion.scope);
   const label = scopeKey ? SCOPE_COLORS[scopeKey].label : suggestion.scope;
-  const isStale = suggestion.preview.kind === 'stale';
+  const { preview } = suggestion;
+  const isStale = preview.kind === 'stale';
+  const needsRerun =
+    (preview.kind === 'value' || preview.kind === 'stale') && preview.definitionallyStale === true;
   return (
     <div
       role="group"
@@ -119,6 +122,11 @@ const SuggestionRow: React.FC<SuggestionRowProps> = ({ suggestion, reveal }) => 
         {isStale && (
           <Text type="warning" style={{ fontSize: 10 }}>
             stale
+          </Text>
+        )}
+        {needsRerun && (
+          <Text type="danger" style={{ fontSize: 10 }}>
+            needs re-run
           </Text>
         )}
       </span>

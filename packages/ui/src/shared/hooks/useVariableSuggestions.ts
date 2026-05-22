@@ -87,6 +87,7 @@ export function useVariableSuggestions(context: SuggestionContext): UseVariableS
       registry.set(lv.name, {
         value,
         stale: run.expiresAt !== null && run.expiresAt < nowMs,
+        definitionallyStale: run.definitionallyStale === true,
         workflowUid: lv.workflowUid,
       });
     }

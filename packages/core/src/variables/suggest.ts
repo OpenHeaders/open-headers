@@ -104,6 +104,10 @@ export interface CollectionEntry {
 export interface LiveSuggestionEntry {
   value: string;
   stale?: boolean;
+  /** When true, the backing recipe changed and the value is wrong-
+   *  recipe until the (manual) workflow is re-run. Orthogonal to
+   *  {@link stale}, which only signals expiry. */
+  definitionallyStale?: boolean;
   workflowUid?: string;
 }
 
@@ -142,10 +146,14 @@ export interface SuggestionRegistries {
  *   - `step-runtime` — step captures have no value until the chain
  *     runs, so previews carry no value; the UI shows "Captured at
  *     runtime" or similar.
+ *
+ * `definitionallyStale` rides the `value` / `stale` variants as an
+ * orthogonal flag (a value can be expiry-stale, definitionally stale,
+ * both, or neither): the UI badges "needs re-run" when it is set.
  */
 export type SuggestionPreview =
-  | { kind: 'value'; value: string; masked: boolean }
-  | { kind: 'stale'; value: string; masked: boolean }
+  | { kind: 'value'; value: string; masked: boolean; definitionallyStale?: boolean }
+  | { kind: 'stale'; value: string; masked: boolean; definitionallyStale?: boolean }
   | { kind: 'reserved'; subtitle: string }
   | { kind: 'step-runtime' }
   /** Vault TOTP entry — UI shows "TOTP" badge + algorithm/digits/period
@@ -229,8 +237,9 @@ function maskForScope(scope: SuggestionScope, entry: VariableEntry | null, maskA
   }
 }
 
-function valuePreview(value: string, masked: boolean, stale: boolean): SuggestionPreview {
-  return stale ? { kind: 'stale', value, masked } : { kind: 'value', value, masked };
+function valuePreview(value: string, masked: boolean, stale: boolean, definitionallyStale = false): SuggestionPreview {
+  const kind = stale ? 'stale' : 'value';
+  return definitionallyStale ? { kind, value, masked, definitionallyStale: true } : { kind, value, masked };
 }
 
 function buildEnvSuggestion(
@@ -362,7 +371,12 @@ export function buildSuggestions(registries: SuggestionRegistries, context: Sugg
         reference: `live.${name}`,
         scope: 'live',
         name,
-        preview: valuePreview(entry.value, maskForScope('live', null, maskAll), stale),
+        preview: valuePreview(
+          entry.value,
+          maskForScope('live', null, maskAll),
+          stale,
+          entry.definitionallyStale === true,
+        ),
         priority: BASE_PRIORITY - order - (stale ? STALE_PENALTY : 0),
         workflowUid: entry.workflowUid,
       });

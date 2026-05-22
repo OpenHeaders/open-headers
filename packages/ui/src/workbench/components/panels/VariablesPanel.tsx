@@ -139,6 +139,10 @@ interface DisplayVariable {
    *  per-row dispatcher uses it to open the LV's edit tab directly
    *  instead of falling back to the LiveVariables list page. */
   liveVariableUid?: string;
+  /** Present only on `live` rows — true when the backing workflow's
+   *  recipe changed since the cached value was extracted. The row
+   *  badges "needs re-run". */
+  definitionallyStale?: boolean;
 }
 
 // `TEMPLATE_RX` + `collectTemplateStrings` live in `../../variable-references`
@@ -303,7 +307,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({
     const nowMs = Date.now();
     const registry = new Map<
       string,
-      { value: string; expiresAt: number | null; stale: boolean; workflowUid: string }
+      { value: string; expiresAt: number | null; stale: boolean; definitionallyStale: boolean; workflowUid: string }
     >();
     for (const lv of liveVariables) {
       if (!isLiveVariableEffective(lv)) continue;
@@ -314,6 +318,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({
             value: lv.manualOverride.value,
             expiresAt: lv.manualOverride.until ?? null,
             stale: false,
+            definitionallyStale: false,
             workflowUid: lv.workflowUid,
           });
           continue;
@@ -329,6 +334,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({
         value,
         expiresAt: run.expiresAt,
         stale: run.expiresAt !== null && run.expiresAt < nowMs,
+        definitionallyStale: run.definitionallyStale === true,
         workflowUid: lv.workflowUid,
       });
     }
@@ -563,6 +569,7 @@ const VariablesPanel: React.FC<VariablesPanelProps> = ({
           isSensitive: true,
           resolved: entry !== undefined,
           liveVariableUid: lv.uid,
+          definitionallyStale: entry?.definitionallyStale === true,
         };
       });
     return {
@@ -1084,6 +1091,13 @@ function VariableRow({
             </>
           ) : (
             <Text style={{ fontSize: 10, color: token.colorError }}>unresolved</Text>
+          )}
+          {variable.definitionallyStale && (
+            <Tooltip title="The backing workflow's definition changed since this value was captured — re-run it to refresh.">
+              <Tag color="error" style={{ fontSize: 9, margin: 0 }}>
+                needs re-run
+              </Tag>
+            </Tooltip>
           )}
         </div>
         <Tag color={scopeConfig.color} style={{ fontSize: 9, marginRight: 0 }}>

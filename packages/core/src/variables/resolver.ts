@@ -46,6 +46,14 @@ export interface ResolvedLiveValue {
   workflowUid: string;
   /** When true, the value is past its expiry but still served (async-warm). */
   stale?: boolean;
+  /**
+   * When true, an input to the value's production recipe changed (the
+   * embedded request, workflow, or a resolved variable) and it has not
+   * been re-extracted since. Distinct from {@link stale}: that flags an
+   * expired-but-fine value; this flags a wrong-recipe one. Only manual-
+   * trigger workflows carry it — automatic workflows self-heal on edit.
+   */
+  definitionallyStale?: boolean;
   /** Override the default `true` sensitivity. Rare — most LVs are tokens. */
   isSensitive?: boolean;
 }

@@ -49,4 +49,16 @@ export interface WorkflowRunCache {
    * "paused · next attempt in 12m" signals.
    */
   circuit: CircuitSnapshot;
+  /**
+   * `true` when an input to this value's production recipe changed —
+   * the embedded request's executable surface, the workflow definition,
+   * or a variable it resolves — but the value has NOT been re-extracted
+   * since. Distinct from time-staleness (`expiresAt`): a definitionally-
+   * stale value is wrong-recipe, not merely old. Set on a *manual*-
+   * trigger workflow's rows when a material edit lands (the workflow
+   * must not auto-run), so the LV picker / inspector can badge "needs
+   * re-run." A successful `putWorkflowRunCache` writes a row without
+   * this flag, clearing it.
+   */
+  definitionallyStale?: boolean;
 }

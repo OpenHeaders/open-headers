@@ -62,6 +62,7 @@ import {
   listCachesForWorkflow,
   listWorkflowRunCaches,
   markProbeStartForRun,
+  markWorkflowDefinitionallyStale,
   onLiveCacheStoreChange,
   recordRefreshError,
   resetCircuitForRun,
@@ -73,7 +74,11 @@ import {
   getLiveVariablesForWorkflowInWorkspace,
   onLiveVariableStoreChange,
 } from '@openheaders/oracle/live/live-variable-store';
-import { getLiveWorkflowInWorkspace, getLiveWorkflows, onLiveWorkflowStoreChange } from '@openheaders/oracle/live/live-workflow-store';
+import {
+  getLiveWorkflowInWorkspace,
+  getLiveWorkflows,
+  onLiveWorkflowStoreChange,
+} from '@openheaders/oracle/live/live-workflow-store';
 import { recordLog } from './observability-log';
 import { createAlarmNameCodec, type RefreshProvider, RefreshScheduler } from './refresh-scheduler';
 import { getRequest, onRequestStoreChange } from '@openheaders/oracle/entity/request-store';
@@ -373,9 +378,14 @@ function computeWorkflowDependencies(entries: LiveEntry[]): Map<string, string[]
 //     re-warms via `kickActiveContextRefresh` instead of serving a
 //     definitionally-stale value.
 //
-// Manual-trigger workflows are out of scope here (Slice 1b) — they
-// must not auto-run. Cosmetic edits (rename, description, folder
-// move) never change the fingerprint, so they never reach this path.
+// Manual-trigger workflows must NOT auto-run — the user opted out of
+// automation — but must not keep silently serving a wrong-recipe
+// token either. For those, the material edit flags every env cache
+// row definitionally stale (`markWorkflowDefinitionallyStale`); the
+// LV picker / inspector then badge "needs re-run" and a successful
+// manual refresh clears the flag. Cosmetic edits (rename, description,
+// folder move) never change the fingerprint, so they never reach this
+// path at all.
 
 /** Debounce window collapsing a burst of request saves into one pass. */
 let requestEditRefreshDebounceMs = 600;
@@ -442,9 +452,18 @@ async function refreshWorkflowsForChangedRequests(changedRequestUids: ReadonlySe
   const activeEnvironmentId = getActiveEnvironmentId();
   for (const workflow of getLiveWorkflows()) {
     if (!workflow.steps.some((step) => changedRequestUids.has(step.requestUid))) continue;
-    // Manual workflows: deliberately not auto-run (Slice 1b adds the
-    // stale-flag path). An interval / expires-* workflow auto-refreshes.
-    if (workflow.refresh.kind === 'manual') continue;
+    // Manual workflows: never auto-run on an edit. Instead flag every
+    // env cache row definitionally stale so the value is surfaced as
+    // wrong-recipe ("needs re-run") until the user refreshes manually.
+    // An interval / expires-* workflow auto-refreshes (below).
+    if (workflow.refresh.kind === 'manual') {
+      try {
+        await markWorkflowDefinitionallyStale(workflow.uid, workspaceId);
+      } catch (err) {
+        logger.info('LiveScheduler', `definitional-stale flag failed for ${workflow.uid}: ${(err as Error).message}`);
+      }
+      continue;
+    }
     const boundVariables = getLiveVariablesForWorkflow(workflow.uid);
     if (!canScheduleWorkflow(workflow, boundVariables)) continue;
     // Drop every env's cached value EXCEPT the active env's — that row
