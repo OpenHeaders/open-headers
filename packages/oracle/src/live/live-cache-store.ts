@@ -552,6 +552,88 @@ export async function markWorkflowDefinitionallyStale(workflowUid: string, works
   return flagged;
 }
 
+/**
+ * Drop the cached run for ONE `(workflow, environment)` pair. Unlike
+ * {@link clearWorkflowRunCache} (whole-workflow) this targets a single
+ * env-keyed row — the LF2 path uses it when a variable edit makes one
+ * NON-active environment's cached value definitionally stale: the row
+ * is dropped so it re-warms on the next switch instead of serving a
+ * wrong-recipe token. Returns `true` when a row was removed, `false`
+ * when the workflow had no cached run for that env.
+ */
+export async function clearWorkflowRunCacheForEnvironment(
+  workflowUid: string,
+  environmentId: string | null,
+  workspaceId?: string,
+): Promise<boolean> {
+  const wsId = resolveWorkspaceId(workspaceId);
+  const key = runKey(workflowUid, environmentId);
+  let removed = false;
+  let postWriteRuns: WorkflowRunCache[] = [];
+  await withCacheLock(wsId, async () => {
+    const current = await readBlob(wsId);
+    if (!(key in current.runs)) return;
+    const nextRuns: Record<string, WorkflowRunCache> = {};
+    for (const [k, entry] of Object.entries(current.runs)) {
+      if (k !== key) nextRuns[k] = entry;
+    }
+    const next: LiveCacheBlob = {
+      schemaVersion: current.schemaVersion,
+      version: current.version + 1,
+      runs: nextRuns,
+    };
+    await writeBlob(wsId, next);
+    postWriteRuns = Object.values(next.runs);
+    removed = true;
+    logger.debug('LiveCacheStore', `Cleared cache entry for ${workflowUid} (env=${envKey(environmentId)}, ws=${wsId})`);
+  });
+  if (removed) notifyChange(wsId, workflowUid, postWriteRuns);
+  return removed;
+}
+
+/**
+ * Flag ONE `(workflow, environment)` cache row as definitionally stale.
+ * The per-env counterpart of {@link markWorkflowDefinitionallyStale}
+ * (whole-workflow): the LF2 path uses it when a variable edit makes a
+ * MANUAL-trigger workflow's value in one specific environment
+ * wrong-recipe — only that env's resolution carried the changed
+ * variable, so only its row is flagged "needs re-run". The row is KEPT
+ * (it keeps serving so live traffic doesn't gap); a successful
+ * {@link putWorkflowRunCache} clears the flag. No-op (returns `false`)
+ * when the workflow has no cached run for that env, or the row is
+ * already flagged.
+ */
+export async function markRunDefinitionallyStale(
+  workflowUid: string,
+  environmentId: string | null,
+  workspaceId?: string,
+): Promise<boolean> {
+  const wsId = resolveWorkspaceId(workspaceId);
+  const key = runKey(workflowUid, environmentId);
+  let flagged = false;
+  let postWriteRuns: WorkflowRunCache[] = [];
+  await withCacheLock(wsId, async () => {
+    const current = await readBlob(wsId);
+    const previous: WorkflowRunCache | undefined = current.runs[key];
+    if (!previous || previous.definitionallyStale === true) return;
+    const latest: WorkflowRunCache = { ...previous, definitionallyStale: true };
+    const next: LiveCacheBlob = {
+      schemaVersion: current.schemaVersion,
+      version: current.version + 1,
+      runs: { ...current.runs, [key]: latest },
+    };
+    await writeBlob(wsId, next);
+    postWriteRuns = Object.values(next.runs);
+    flagged = true;
+    logger.debug(
+      'LiveCacheStore',
+      `Flagged cache row definitionally stale for ${workflowUid} (env=${envKey(environmentId)}, ws=${wsId})`,
+    );
+  });
+  if (flagged) notifyChange(wsId, workflowUid, postWriteRuns);
+  return flagged;
+}
+
 // ── Purge (workspace delete) ────────────────────────────────────────
 
 export async function purgeLiveCacheForWorkspace(workspaceId: string): Promise<void> {

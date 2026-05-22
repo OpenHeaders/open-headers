@@ -4,7 +4,7 @@
  * and `observability-log` so each phase is exercised in isolation.
  */
 
-import type { LiveVariable, LiveWorkflow, Request } from '@openheaders/core/types';
+import type { Collection, Environment, LiveVariable, LiveWorkflow, Request, Vault, WorkspaceVariables } from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Global mocks ──────────────────────────────────────────────────
@@ -15,7 +15,9 @@ const alarmsGetAllMock = vi.fn<() => Promise<chrome.alarms.Alarm[]>>();
 const recordLogMock = vi.fn();
 const recordRefreshErrorMock = vi.fn();
 const clearWorkflowRunCacheMock = vi.fn<(...args: unknown[]) => Promise<number>>(async () => 0);
+const clearWorkflowRunCacheForEnvironmentMock = vi.fn<(...args: unknown[]) => Promise<boolean>>(async () => true);
 const markWorkflowDefinitionallyStaleMock = vi.fn<(...args: unknown[]) => Promise<number>>(async () => 0);
+const markRunDefinitionallyStaleMock = vi.fn<(...args: unknown[]) => Promise<boolean>>(async () => true);
 
 vi.mock('@utils/browser-api', () => ({
   alarms: {
@@ -76,23 +78,35 @@ interface TestCacheRow {
   };
 }
 
+const EMPTY_VAULT: Vault = { schemaVersion: 5, secrets: [] };
+const EMPTY_WORKSPACE_VARS: WorkspaceVariables = { schemaVersion: 5, variables: [] };
+
 let storeState: {
   workflows: LiveWorkflow[];
   variables: LiveVariable[];
   requests: Map<string, Request>;
   caches: TestCacheRow[];
+  environments: Environment[];
+  vault: Vault;
+  workspaceVars: WorkspaceVariables;
+  requestCollections: Collection[];
   listeners: {
     workflow: Set<() => void>;
     variable: Set<() => void>;
     cache: Set<() => void>;
     request: Set<() => void>;
+    environment: Set<() => void>;
   };
 } = {
   workflows: [],
   variables: [],
   requests: new Map(),
   caches: [],
-  listeners: { workflow: new Set(), variable: new Set(), cache: new Set(), request: new Set() },
+  environments: [],
+  vault: EMPTY_VAULT,
+  workspaceVars: EMPTY_WORKSPACE_VARS,
+  requestCollections: [],
+  listeners: { workflow: new Set(), variable: new Set(), cache: new Set(), request: new Set(), environment: new Set() },
 };
 
 vi.mock('@openheaders/oracle/live/live-workflow-store', () => ({
@@ -129,6 +143,7 @@ vi.mock('@openheaders/oracle/live/live-variable-store', () => ({
 // seed `storeState.requests` explicitly.
 vi.mock('@openheaders/oracle/entity/request-store', () => ({
   getRequest: (uid: string) => storeState.requests.get(uid) ?? null,
+  getRequestCollections: () => storeState.requestCollections,
   onRequestStoreChange: (fn: () => void) => {
     storeState.listeners.request.add(fn);
     return () => storeState.listeners.request.delete(fn);
@@ -144,7 +159,9 @@ vi.mock('@openheaders/oracle/live/live-cache-store', () => ({
   },
   recordRefreshError: (...args: unknown[]) => recordRefreshErrorMock(...args),
   clearWorkflowRunCache: (...args: unknown[]) => clearWorkflowRunCacheMock(...args),
+  clearWorkflowRunCacheForEnvironment: (...args: unknown[]) => clearWorkflowRunCacheForEnvironmentMock(...args),
   markWorkflowDefinitionallyStale: (...args: unknown[]) => markWorkflowDefinitionallyStaleMock(...args),
+  markRunDefinitionallyStale: (...args: unknown[]) => markRunDefinitionallyStaleMock(...args),
 }));
 
 // Active-pointer change listeners — the scheduler subscribes to these
@@ -173,9 +190,16 @@ vi.mock('@/background/modules/workspace-store', () => ({
 
 vi.mock('@openheaders/oracle/entity/environment-store', () => ({
   getActiveEnvironmentId: () => activeSwitchState.activeEnvId,
+  getEnvironments: () => storeState.environments,
+  getVault: () => storeState.vault,
+  getWorkspaceVariables: () => storeState.workspaceVars,
   onActiveEnvironmentChange: (fn: (newId: string | null, prevId: string | null) => void) => {
     activeSwitchState.envListeners.add(fn);
     return () => activeSwitchState.envListeners.delete(fn);
+  },
+  onEnvironmentStoreChange: (fn: () => void) => {
+    storeState.listeners.environment.add(fn);
+    return () => storeState.listeners.environment.delete(fn);
   },
 }));
 
@@ -260,13 +284,19 @@ beforeEach(async () => {
   recordLogMock.mockClear();
   recordRefreshErrorMock.mockClear();
   clearWorkflowRunCacheMock.mockClear();
+  clearWorkflowRunCacheForEnvironmentMock.mockClear();
   markWorkflowDefinitionallyStaleMock.mockClear();
+  markRunDefinitionallyStaleMock.mockClear();
   storeState = {
     workflows: [],
     variables: [],
     requests: new Map(),
     caches: [],
-    listeners: { workflow: new Set(), variable: new Set(), cache: new Set(), request: new Set() },
+    environments: [],
+    vault: EMPTY_VAULT,
+    workspaceVars: EMPTY_WORKSPACE_VARS,
+    requestCollections: [],
+    listeners: { workflow: new Set(), variable: new Set(), cache: new Set(), request: new Set(), environment: new Set() },
   };
   activeSwitchState.workspaceListeners.clear();
   activeSwitchState.envListeners.clear();
@@ -745,6 +775,167 @@ describe('material request-edit refresh', () => {
     await flushAsync();
 
     expect(markWorkflowDefinitionallyStaleMock).not.toHaveBeenCalled();
+  });
+});
+
+// ── Variable-edit refresh (LF2) ───────────────────────────────────
+
+describe('variable-edit refresh (LF2)', () => {
+  type RefreshArgs = { workspaceId: string; workflow: LiveWorkflow; environmentId: string | null };
+
+  function makeEnvironment(uid: string, vars: Array<{ name: string; value: string }>): Environment {
+    return {
+      schemaVersion: 5,
+      uid,
+      name: uid,
+      variables: vars.map((v, i) => ({ uid: `${uid}var${i}`, name: v.name, value: v.value, type: 'default' as const })),
+    };
+  }
+
+  /** A request whose Authorization header carries `refValue`. */
+  function requestRef(refValue: string): Request {
+    return makeRequest({ headers: [{ uid: 'hdrauth01', key: 'Authorization', value: refValue, enabled: true }] });
+  }
+
+  /** Start the scheduler with a workflow embedding a request that
+   *  resolves `refValue`, then fire one env-store event to prime the
+   *  variable-surface fingerprint baseline. */
+  async function startPrimed(refValue = '{{env.token}}', workflow = makeWorkflow()): Promise<void> {
+    scheduler.__setVariableEditRefreshDebounceMs(0);
+    storeState.requests.set('reqfetch1', requestRef(refValue));
+    storeState.workflows = [workflow];
+    storeState.variables = [makeVariable()];
+    storeState.environments = [
+      makeEnvironment('env-dev', [{ name: 'token', value: 'dev-aaa' }]),
+      makeEnvironment('env-prod', [{ name: 'token', value: 'prod-aaa' }]),
+    ];
+    scheduler.startLiveScheduler();
+    // First env-store event = hydration broadcast — primes the
+    // baseline, never triggers a refresh.
+    for (const fn of storeState.listeners.environment) fn();
+    await flushAsync();
+  }
+
+  function fireEnvChange(): void {
+    for (const fn of storeState.listeners.environment) fn();
+  }
+
+  it('refreshes the active env when one of its variables changes', async () => {
+    const refreshSpy = vi.fn<(args: RefreshArgs) => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    activeSwitchState.activeEnvId = 'env-dev';
+    await startPrimed();
+
+    storeState.environments = [
+      makeEnvironment('env-dev', [{ name: 'token', value: 'dev-CHANGED' }]),
+      makeEnvironment('env-prod', [{ name: 'token', value: 'prod-aaa' }]),
+    ];
+    fireEnvChange();
+    await flushAsync();
+
+    expect(refreshSpy).toHaveBeenCalledOnce();
+    expect(refreshSpy.mock.calls[0]?.[0]).toMatchObject({ environmentId: 'env-dev' });
+    // env-dev is active → refreshed in place, never cleared.
+    expect(clearWorkflowRunCacheForEnvironmentMock).not.toHaveBeenCalled();
+  });
+
+  it('drops a non-active env row when that env variable changes', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    activeSwitchState.activeEnvId = 'env-prod';
+    await startPrimed();
+
+    storeState.environments = [
+      makeEnvironment('env-dev', [{ name: 'token', value: 'dev-CHANGED' }]),
+      makeEnvironment('env-prod', [{ name: 'token', value: 'prod-aaa' }]),
+    ];
+    fireEnvChange();
+    await flushAsync();
+
+    expect(clearWorkflowRunCacheForEnvironmentMock).toHaveBeenCalledWith('wflow001', 'env-dev', 'ws-live');
+    expect(refreshSpy).not.toHaveBeenCalled();
+  });
+
+  it('flips every env row when an environment-independent vault secret changes', async () => {
+    const refreshSpy = vi.fn<(args: RefreshArgs) => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    activeSwitchState.activeEnvId = 'env-dev';
+    storeState.vault = { schemaVersion: 5, secrets: [{ uid: 'vlt00001', kind: 'string', name: 'secret', value: 'aaa' }] };
+    await startPrimed('{{vault.secret}}');
+
+    storeState.vault = {
+      schemaVersion: 5,
+      secrets: [{ uid: 'vlt00001', kind: 'string', name: 'secret', value: 'CHANGED' }],
+    };
+    fireEnvChange();
+    await flushAsync();
+
+    // Active env refreshed; the two non-active rows (env-prod + "No
+    // environment") dropped.
+    expect(refreshSpy).toHaveBeenCalledOnce();
+    expect(refreshSpy.mock.calls[0]?.[0]).toMatchObject({ environmentId: 'env-dev' });
+    expect(clearWorkflowRunCacheForEnvironmentMock).toHaveBeenCalledTimes(2);
+    const clearedEnvs = clearWorkflowRunCacheForEnvironmentMock.mock.calls.map((c) => c[1]);
+    expect(clearedEnvs).toContain('env-prod');
+    expect(clearedEnvs).toContain(null);
+  });
+
+  it('flags a manual workflow affected env rows instead of refreshing', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    activeSwitchState.activeEnvId = 'env-dev';
+    await startPrimed('{{env.token}}', makeWorkflow({ refresh: { kind: 'manual' } }));
+
+    storeState.environments = [
+      makeEnvironment('env-dev', [{ name: 'token', value: 'dev-CHANGED' }]),
+      makeEnvironment('env-prod', [{ name: 'token', value: 'prod-aaa' }]),
+    ];
+    fireEnvChange();
+    await flushAsync();
+
+    expect(refreshSpy).not.toHaveBeenCalled();
+    expect(clearWorkflowRunCacheForEnvironmentMock).not.toHaveBeenCalled();
+    // Only env-dev's row carried the changed variable.
+    expect(markRunDefinitionallyStaleMock).toHaveBeenCalledWith('wflow001', 'env-dev', 'ws-live');
+  });
+
+  it('ignores an edit to a variable the workflow does not reference', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    activeSwitchState.activeEnvId = 'env-dev';
+    await startPrimed();
+
+    storeState.environments = [
+      makeEnvironment('env-dev', [
+        { name: 'token', value: 'dev-aaa' },
+        { name: 'unrelated', value: 'new' },
+      ]),
+      makeEnvironment('env-prod', [{ name: 'token', value: 'prod-aaa' }]),
+    ];
+    fireEnvChange();
+    await flushAsync();
+
+    expect(refreshSpy).not.toHaveBeenCalled();
+    expect(clearWorkflowRunCacheForEnvironmentMock).not.toHaveBeenCalled();
+    expect(markRunDefinitionallyStaleMock).not.toHaveBeenCalled();
+  });
+
+  it('does not trigger on a request edit that changes the variable ref set', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    activeSwitchState.activeEnvId = 'env-dev';
+    await startPrimed();
+    clearWorkflowRunCacheForEnvironmentMock.mockClear();
+    markRunDefinitionallyStaleMock.mockClear();
+
+    // The request gains a NEW variable reference — `refsKey` shifts.
+    // LF2 re-baselines silently; LF1's request-edit path owns this.
+    storeState.requests.set('reqfetch1', requestRef('{{env.token}}{{env.added}}'));
+    for (const fn of storeState.listeners.request) fn();
+    await flushAsync();
+
+    expect(clearWorkflowRunCacheForEnvironmentMock).not.toHaveBeenCalled();
+    expect(markRunDefinitionallyStaleMock).not.toHaveBeenCalled();
   });
 });
 

@@ -50,18 +50,29 @@ import {
   MIN_ALARM_DELAY_MS,
   requestExecutableFingerprint,
   scanTemplateReferencesMany,
+  workflowVariableFingerprint,
 } from '@openheaders/core/live';
+import type { VariableFingerprint } from '@openheaders/core/live';
 import type { LiveVariable, LiveWorkflow } from '@openheaders/core/types';
 import { alarms } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { report as reportStatus } from '@openheaders/ui/shared/status';
 import { hostStorage, OH } from '@openheaders/oracle/storage';
-import { getActiveEnvironmentId, onActiveEnvironmentChange } from '@openheaders/oracle/entity/environment-store';
+import {
+  getActiveEnvironmentId,
+  getEnvironments,
+  getVault,
+  getWorkspaceVariables,
+  onActiveEnvironmentChange,
+  onEnvironmentStoreChange,
+} from '@openheaders/oracle/entity/environment-store';
 import {
   clearWorkflowRunCache,
+  clearWorkflowRunCacheForEnvironment,
   listCachesForWorkflow,
   listWorkflowRunCaches,
   markProbeStartForRun,
+  markRunDefinitionallyStale,
   markWorkflowDefinitionallyStale,
   onLiveCacheStoreChange,
   recordRefreshError,
@@ -81,7 +92,7 @@ import {
 } from '@openheaders/oracle/live/live-workflow-store';
 import { recordLog } from './observability-log';
 import { createAlarmNameCodec, type RefreshProvider, RefreshScheduler } from './refresh-scheduler';
-import { getRequest, onRequestStoreChange } from '@openheaders/oracle/entity/request-store';
+import { getRequest, getRequestCollections, onRequestStoreChange } from '@openheaders/oracle/entity/request-store';
 import { getOrCreateWorkspaceService, releaseWorkspaceService } from '@openheaders/oracle/sync/service';
 import { getActiveWorkspaceId, onActiveWorkspaceChange } from './workspace-store';
 
@@ -482,6 +493,212 @@ async function refreshWorkflowsForChangedRequests(changedRequestUids: ReadonlySe
   }
 }
 
+// ── Definitional-freshness — variable-edit detector (LF2) ──────────
+//
+// A workflow's cached token is minted not only from the request its
+// steps embed but from the VALUES that request's `{{var}}` references
+// resolve to. When a referenced variable changes — an `{{env.X}}` /
+// `{{vault.X}}` / `{{workspace.X}}` / `{{collection.X}}` edit — every
+// value the workflow cached was minted by a recipe that no longer
+// exists. The DNR resolver keeps serving that wrong-recipe token until
+// the next cadence tick.
+//
+// `{{env.X}}` resolves per environment, so each (workflow, env) pair
+// is fingerprinted independently: an edit to a non-active env's
+// variables makes only that env's cache row stale, even while the user
+// sits in another env. `{{vault/workspace/collection.X}}` are
+// environment-independent and flip every env row at once.
+//
+// The fingerprint is split (`refsKey` / `valuesKey`, see
+// `@openheaders/core/live/variable-scan`). A request edit that adds or
+// drops a `{{var}}` reference shifts `refsKey` — that is LF1's path,
+// not LF2's, so a `refsKey` change re-baselines silently. Only a
+// `valuesKey` change under a stable `refsKey` is a variable edit, and
+// triggers, per affected (workflow, env):
+//   • non-manual, the ACTIVE env  — refresh immediately (the old value
+//     keeps serving until the new one lands, so there is no gap);
+//   • non-manual, a NON-active env — drop that env's cache row so it
+//     re-warms on the next switch instead of serving wrong-recipe;
+//   • manual — flag that env's row "needs re-run" (no auto-run; the
+//     user opted out of automation).
+
+/** Debounce window collapsing a burst of variable saves into one pass. */
+let variableEditRefreshDebounceMs = 600;
+
+/** Test-only: shrink the debounce so settle runs on the next macrotask. */
+export function __setVariableEditRefreshDebounceMs(ms: number): void {
+  variableEditRefreshDebounceMs = ms;
+}
+
+// Per-(workflow, env) variable-surface fingerprint as of the last
+// settled pass. Like the request-edit baseline it self-primes off the
+// first store-change broadcast (hydration always precedes a human
+// edit) — a (workflow, env) absent here is adopted without a trigger.
+let variableSurfaceBaseline = new Map<string, Map<string | null, VariableFingerprint>>();
+let variableEditDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Reduce the vault to name → recipe — a TOTP entry contributes its seed + params, never the rotating code. */
+function snapshotVaultVars(): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const secret of getVault().secrets) {
+    out.set(
+      secret.name,
+      secret.kind === 'string'
+        ? secret.value
+        : `totp:${secret.seed}:${secret.algorithm}:${secret.digits}:${secret.period}`,
+    );
+  }
+  return out;
+}
+
+/** Map a flat variable list to name → value (later entries win on a duplicate name). */
+function toVarMap(variables: ReadonlyArray<{ name: string; value: string }>): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const v of variables) out.set(v.name, v.value);
+  return out;
+}
+
+/** Merge every request collection's variables into one name → value map. */
+function snapshotCollectionVars(): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const collection of getRequestCollections()) {
+    for (const v of collection.variables ?? []) out.set(v.name, v.value);
+  }
+  return out;
+}
+
+/** Fingerprint every active-workspace workflow's variable surface, per environment (incl. "No environment"). */
+function snapshotWorkflowVariableFingerprints(): Map<string, Map<string | null, VariableFingerprint>> {
+  const out = new Map<string, Map<string | null, VariableFingerprint>>();
+  const workflows = getLiveWorkflows();
+  if (workflows.length === 0) return out;
+
+  // Environment-independent scopes — computed once, shared across envs.
+  const vaultVars = snapshotVaultVars();
+  const workspaceVars = toVarMap(getWorkspaceVariables().variables);
+  const collectionVars = snapshotCollectionVars();
+  // The "No environment" state plus every defined environment — each
+  // has its own cache row, so each is fingerprinted independently.
+  const envContexts: Array<{ id: string | null; vars: Map<string, string> }> = [{ id: null, vars: new Map() }];
+  for (const env of getEnvironments()) envContexts.push({ id: env.uid, vars: toVarMap(env.variables) });
+
+  for (const workflow of workflows) {
+    const templates: string[] = [];
+    for (const step of workflow.steps) {
+      const request = getRequest(step.requestUid);
+      if (request) templates.push(...collectRequestTemplateStrings(request));
+    }
+    const perEnv = new Map<string | null, VariableFingerprint>();
+    for (const ctx of envContexts) {
+      perEnv.set(
+        ctx.id,
+        workflowVariableFingerprint(templates, { envVars: ctx.vars, vaultVars, workspaceVars, collectionVars }),
+      );
+    }
+    out.set(workflow.uid, perEnv);
+  }
+  return out;
+}
+
+/** Debounced entry point — (re)arm the settle timer on every variable / collection store change. */
+function onVariableStoreChangeForRefresh(): void {
+  if (variableEditDebounceTimer) clearTimeout(variableEditDebounceTimer);
+  variableEditDebounceTimer = setTimeout(() => {
+    variableEditDebounceTimer = null;
+    void settleVariableEditRefresh().catch((err) => {
+      logger.info('LiveScheduler', `variable-edit refresh settle failed: ${(err as Error).message}`);
+    });
+  }, variableEditRefreshDebounceMs);
+}
+
+/** One changed (workflow, env) pair — a variable its embedded request resolves was edited. */
+interface ChangedWorkflowEnv {
+  workflowUid: string;
+  environmentId: string | null;
+}
+
+/** Diff the variable surface against the baseline; act on workflows whose resolved variables changed. */
+async function settleVariableEditRefresh(): Promise<void> {
+  const current = snapshotWorkflowVariableFingerprints();
+  const changed: ChangedWorkflowEnv[] = [];
+  for (const [workflowUid, perEnv] of current) {
+    const prevPerEnv = variableSurfaceBaseline.get(workflowUid);
+    if (!prevPerEnv) continue; // first sight — adopt without a trigger
+    for (const [environmentId, fingerprint] of perEnv) {
+      const prev = prevPerEnv.get(environmentId);
+      if (!prev) continue;
+      // A `refsKey` shift means the embedded request gained or lost a
+      // `{{var}}` reference — LF1's request-edit path already handled
+      // it. Re-baseline silently; only a value change is LF2's.
+      if (prev.refsKey !== fingerprint.refsKey) continue;
+      if (prev.valuesKey !== fingerprint.valuesKey) changed.push({ workflowUid, environmentId });
+    }
+  }
+  variableSurfaceBaseline = current;
+  if (changed.length === 0) return;
+  await refreshWorkflowsForChangedVariables(changed);
+}
+
+/** Apply the LF1/LF1b refresh/invalidate path per affected (workflow, env). */
+async function refreshWorkflowsForChangedVariables(changed: ReadonlyArray<ChangedWorkflowEnv>): Promise<void> {
+  let workspaceId: string;
+  try {
+    workspaceId = getActiveWorkspaceId();
+  } catch {
+    return; // bootstrap race — workspace pointer not hydrated yet
+  }
+  const activeEnvironmentId = getActiveEnvironmentId();
+
+  // Group the changed envs by workflow so each workflow is gated once.
+  const byWorkflow = new Map<string, Array<string | null>>();
+  for (const { workflowUid, environmentId } of changed) {
+    const envs = byWorkflow.get(workflowUid);
+    if (envs) envs.push(environmentId);
+    else byWorkflow.set(workflowUid, [environmentId]);
+  }
+
+  const workflowsByUid = new Map(getLiveWorkflows().map((w) => [w.uid, w]));
+  for (const [workflowUid, environmentIds] of byWorkflow) {
+    const workflow = workflowsByUid.get(workflowUid);
+    if (!workflow) continue;
+    // Manual workflows: never auto-run on an edit. Flag only the env
+    // rows whose resolved variables actually changed "needs re-run" —
+    // other envs' cached values are still correct.
+    if (workflow.refresh.kind === 'manual') {
+      for (const environmentId of environmentIds) {
+        try {
+          await markRunDefinitionallyStale(workflowUid, environmentId, workspaceId);
+        } catch (err) {
+          logger.info('LiveScheduler', `definitional-stale flag failed for ${workflowUid}: ${(err as Error).message}`);
+        }
+      }
+      continue;
+    }
+    const boundVariables = getLiveVariablesForWorkflow(workflowUid);
+    if (!canScheduleWorkflow(workflow, boundVariables)) continue;
+    for (const environmentId of environmentIds) {
+      if (environmentId === activeEnvironmentId) {
+        // The active env's recipe changed — refresh now. The stale row
+        // keeps serving until the new value lands, so there is no gap.
+        void refreshLiveWorkflowSynchronously(workspaceId, workflowUid, activeEnvironmentId).catch((err) => {
+          logger.info('LiveScheduler', `variable-edit refresh failed for ${workflowUid}: ${(err as Error).message}`);
+        });
+      } else {
+        // A non-active env's recipe changed — drop its row so it
+        // re-warms on the next switch instead of serving wrong-recipe.
+        try {
+          await clearWorkflowRunCacheForEnvironment(workflowUid, environmentId, workspaceId);
+        } catch (err) {
+          logger.info(
+            'LiveScheduler',
+            `variable-edit cache invalidation failed for ${workflowUid}: ${(err as Error).message}`,
+          );
+        }
+      }
+    }
+  }
+}
+
 // ── Provider — fills in the subsystem-specific bits ───────────────
 
 const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | null> = {
@@ -609,12 +826,17 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
     const combined = (): void => {
       callback();
       void recomputeLiveStatus().catch(() => {});
+      // A workflow-definition edit can re-point a step at a different
+      // request, shifting the variable-surface `refsKey`. Re-baseline
+      // (no trigger — a `refsKey` shift is LF1's path) so a later
+      // variable edit's diff isn't masked.
+      onVariableStoreChangeForRefresh();
     };
     const unsubscribers: Array<() => void> = [
       onLiveWorkflowStoreChange(combined),
       onLiveVariableStoreChange(combined),
       onLiveCacheStoreChange(combined),
-      // A request edit drives two things. (1) It can add or drop a
+      // A request edit drives three things. (1) It can add or drop a
       // `{{live.X}}` template ref, reshaping the cross-workflow
       // dependency DAG `computeWorkflowDependencies` derives from each
       // step's request — `callback` reconciles to re-derive the edges
@@ -622,11 +844,18 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
       // (2) A *material* edit (executable surface changed) makes every
       // cached value for the embedding workflows definitionally stale —
       // `onRequestStoreChangeForRefresh` debounces, fingerprint-diffs,
-      // and refreshes them.
+      // and refreshes them (LF1). (3) A request-collection variable
+      // edit changes the resolved value behind a `{{collection.X}}`
+      // reference — `onVariableStoreChangeForRefresh` picks it up (LF2).
       onRequestStoreChange(() => {
         callback();
         onRequestStoreChangeForRefresh();
+        onVariableStoreChangeForRefresh();
       }),
+      // An environment / vault / workspace-variable edit changes the
+      // resolved value behind an `{{env.X}}` / `{{vault.X}}` /
+      // `{{workspace.X}}` reference — the LF2 variable-edit detector.
+      onEnvironmentStoreChange(onVariableStoreChangeForRefresh),
     ];
     return () => {
       for (const unsub of unsubscribers) unsub();
@@ -635,6 +864,11 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
         requestEditDebounceTimer = null;
       }
       requestExecBaseline = new Map();
+      if (variableEditDebounceTimer) {
+        clearTimeout(variableEditDebounceTimer);
+        variableEditDebounceTimer = null;
+      }
+      variableSurfaceBaseline = new Map();
     };
   },
   onFired(payload) {

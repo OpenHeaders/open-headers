@@ -58,5 +58,7 @@ export type { RequestInfoProvider, StepRequestInfo, StructuralError, StructuralI
 export { computeTransitiveAncestors, validateStepReferences, validateWorkflowShape } from './step-validation';
 export type { StepRef, TemplateScanResult } from './template-scan';
 export { scanTemplateReferences, scanTemplateReferencesMany } from './template-scan';
+export type { VariableFingerprint, VariableScopeSnapshot } from './variable-scan';
+export { workflowVariableFingerprint } from './variable-scan';
 export { isLiveVariableDraft, isLiveVariableEffective } from './variable-state';
 export { isWorkflowComplete, isWorkflowDraft, isWorkflowEffective } from './workflow-state';
