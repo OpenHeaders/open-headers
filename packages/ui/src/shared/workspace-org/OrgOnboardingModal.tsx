@@ -14,12 +14,11 @@
  * `OH.orgBindingPrefs.onboardingAcknowledgedAt` so it never re-surfaces.
  */
 
-import type { OrgDescriptor } from '@openheaders/core/identity';
+import { type OrgDescriptor, orgHostKindHint, orgIdentityLabel } from '@openheaders/core/identity';
 import { Modal, Radio, Space, Typography } from 'antd';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { OrgIcon } from './OrgIcon';
-import { orgScopeVisual } from './org-scope-vocabulary';
 
 const { Text, Paragraph } = Typography;
 
@@ -78,20 +77,21 @@ export const OrgOnboardingModal: React.FC<OrgOnboardingModalProps> = ({
 
       <Space direction="vertical" size={10} style={{ width: '100%', marginBottom: 12 }}>
         {catalogue.map((descriptor) => {
-          const visual = orgScopeVisual(descriptor.scopeKind);
-          const title = descriptor.scopeKind === 'team' ? descriptor.name : visual.pickerLabel;
+          const hint = orgHostKindHint(descriptor);
           return (
             <div key={descriptor.id} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
               <OrgIcon descriptor={descriptor} size={15} style={{ marginTop: 2 }} />
               <div>
                 <Text strong style={{ fontSize: 13 }}>
-                  {title}
+                  {orgIdentityLabel(descriptor)}
                 </Text>
-                <div>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    {visual.description}
-                  </Text>
-                </div>
+                {hint && (
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {hint}
+                    </Text>
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -106,20 +106,16 @@ export const OrgOnboardingModal: React.FC<OrgOnboardingModalProps> = ({
         onChange={(e) => setDefaultOrgId(e.target.value)}
         style={{ display: 'flex', flexDirection: 'column', gap: 6 }}
       >
-        {catalogue.map((descriptor) => {
-          const visual = orgScopeVisual(descriptor.scopeKind);
-          const title = descriptor.scopeKind === 'team' ? descriptor.name : visual.pickerLabel;
-          return (
-            <Radio key={descriptor.id} value={descriptor.id}>
-              {title}
-              {descriptor.id === homeOrgId && (
-                <Text type="secondary" style={{ fontSize: 11, marginLeft: 6 }}>
-                  recommended
-                </Text>
-              )}
-            </Radio>
-          );
-        })}
+        {catalogue.map((descriptor) => (
+          <Radio key={descriptor.id} value={descriptor.id}>
+            {orgIdentityLabel(descriptor)}
+            {descriptor.id === homeOrgId && (
+              <Text type="secondary" style={{ fontSize: 11, marginLeft: 6 }}>
+                recommended
+              </Text>
+            )}
+          </Radio>
+        ))}
       </Radio.Group>
     </Modal>
   );

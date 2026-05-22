@@ -20,11 +20,14 @@ import { CopyOutlined, DeleteOutlined, EditOutlined, HolderOutlined, PlusOutline
 import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { UseWorkspacesApi } from '@openheaders/ui/shared/hooks/useWorkspaces';
+import { type OrgDescriptor, orgCatalogue, orgIdentityLabel } from '@openheaders/core/identity';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
+import { useIdentitySnapshot } from '@openheaders/ui/shared/hooks/useIdentitySnapshot';
+import type { UseWorkspacesApi } from '@openheaders/ui/shared/hooks/useWorkspaces';
+import { OrgIcon } from '@openheaders/ui/shared/workspace-org/OrgIcon';
 import { App as AntApp, Button, Form, Input, Modal, Space, Typography, theme } from 'antd';
 import type React from 'react';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import HomeOrgIdentityCard from './HomeOrgIdentityCard';
 import WorkspaceIdentityPicker, { type WorkspaceIdentity } from './WorkspaceIdentityPicker';
 import { DEFAULT_WORKSPACE_ICON } from './workspace-colors';
@@ -57,18 +60,47 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
 
   const canDelete = api.workspaces.length > 1;
 
+  const snapshot = useIdentitySnapshot();
+  const catalogue = useMemo(() => orgCatalogue(snapshot), [snapshot]);
+
+  // Org is the top-level container — group the workspace list by Org so a
+  // foreign-Org workspace never reads as belonging to the home-Org card.
+  // `null` (flat list) until the identity holds more than one Org.
+  const groups = useMemo(() => {
+    if (catalogue.length <= 1) return null;
+    const byOrg = new Map<string, ExtensionWorkspace[]>();
+    for (const w of api.workspaces) {
+      const arr = byOrg.get(w.orgId);
+      if (arr) arr.push(w);
+      else byOrg.set(w.orgId, [w]);
+    }
+    const ordered: Array<{ orgId: string; descriptor: OrgDescriptor | null; items: ExtensionWorkspace[] }> = [];
+    for (const descriptor of catalogue) {
+      const items = byOrg.get(descriptor.id);
+      if (items && items.length > 0) ordered.push({ orgId: descriptor.id, descriptor, items });
+      byOrg.delete(descriptor.id);
+    }
+    // Workspaces whose Org isn't in the catalogue still get a group.
+    for (const [orgId, items] of byOrg) ordered.push({ orgId, descriptor: null, items });
+    return ordered;
+  }, [catalogue, api.workspaces]);
+
+  // The SortableContext id order must match render order.
+  const orderedIds = useMemo(
+    () => (groups ? groups.flatMap((g) => g.items.map((w) => w.id)) : api.workspaces.map((w) => w.id)),
+    [groups, api.workspaces],
+  );
+
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       const { active, over } = event;
       if (!over || active.id === over.id) return;
-      const ids = api.workspaces.map((w) => w.id);
-      const oldIndex = ids.indexOf(String(active.id));
-      const newIndex = ids.indexOf(String(over.id));
+      const oldIndex = orderedIds.indexOf(String(active.id));
+      const newIndex = orderedIds.indexOf(String(over.id));
       if (oldIndex < 0 || newIndex < 0) return;
-      const next = arrayMove(ids, oldIndex, newIndex);
-      void api.reorderWorkspaces(next);
+      void api.reorderWorkspaces(arrayMove(orderedIds, oldIndex, newIndex));
     },
-    [api],
+    [api, orderedIds],
   );
 
   const handleDelete = useCallback(
@@ -98,6 +130,27 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
     [api, message],
   );
 
+  const renderRow = (w: ExtensionWorkspace): React.ReactNode => (
+    <SortableRow
+      key={w.id}
+      workspace={w}
+      isActive={w.id === activeWorkspaceId}
+      canDelete={canDelete}
+      onEdit={() => setEditTarget(w)}
+      onDelete={() => handleDelete(w)}
+      onDuplicate={() => void handleDuplicate(w)}
+      onSwitch={() => onSwitch(w.id)}
+      onIdentityChange={(identity) => {
+        // Coerce undefined icon → null so the backend's "clear" path
+        // runs instead of "leave unchanged".
+        void api.updateWorkspace(w.id, { color: identity.color, icon: identity.icon ?? null });
+      }}
+      tokenColorBorder={token.colorBorderSecondary}
+      tokenColorBg={token.colorBgContainer}
+      tokenColorPrimary={token.colorPrimary}
+    />
+  );
+
   return (
     <div style={{ padding: 24, maxWidth: 920, margin: '0 auto', height: '100%', overflow: 'auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -117,31 +170,18 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
       <HomeOrgIdentityCard />
 
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-        <SortableContext items={api.workspaces.map((w) => w.id)} strategy={verticalListSortingStrategy}>
+        <SortableContext items={orderedIds} strategy={verticalListSortingStrategy}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {api.workspaces.map((w) => (
-              <SortableRow
-                key={w.id}
-                workspace={w}
-                isActive={w.id === activeWorkspaceId}
-                canDelete={canDelete}
-                onEdit={() => setEditTarget(w)}
-                onDelete={() => handleDelete(w)}
-                onDuplicate={() => void handleDuplicate(w)}
-                onSwitch={() => onSwitch(w.id)}
-                onIdentityChange={(identity) => {
-                  // Coerce undefined icon → null so the backend's
-                  // "clear" path runs instead of "leave unchanged".
-                  void api.updateWorkspace(w.id, {
-                    color: identity.color,
-                    icon: identity.icon ?? null,
-                  });
-                }}
-                tokenColorBorder={token.colorBorderSecondary}
-                tokenColorBg={token.colorBgContainer}
-                tokenColorPrimary={token.colorPrimary}
-              />
-            ))}
+            {groups
+              ? groups.map((group) => (
+                  <div key={group.orgId} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {/* The home Org is already headed by HomeOrgIdentityCard
+                        above; every other Org gets its own section header. */}
+                    {!group.descriptor?.isHome && <OrgGroupHeader descriptor={group.descriptor} />}
+                    {group.items.map(renderRow)}
+                  </div>
+                ))
+              : api.workspaces.map(renderRow)}
           </div>
         </SortableContext>
       </DndContext>
@@ -188,6 +228,28 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
           return false;
         }}
       />
+    </div>
+  );
+};
+
+// ── Org section header ──────────────────────────────────────────────
+
+const OrgGroupHeader: React.FC<{ descriptor: OrgDescriptor | null }> = ({ descriptor }) => {
+  const { token } = theme.useToken();
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 4px 2px' }}>
+      {descriptor && <OrgIcon descriptor={descriptor} size={14} style={{ color: token.colorTextTertiary }} />}
+      <Text
+        style={{
+          fontSize: 11,
+          fontWeight: 600,
+          letterSpacing: 0.3,
+          textTransform: 'uppercase',
+          color: token.colorTextTertiary,
+        }}
+      >
+        {descriptor ? orgIdentityLabel(descriptor) : 'Other workspaces'}
+      </Text>
     </div>
   );
 };
