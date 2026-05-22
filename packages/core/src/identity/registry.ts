@@ -142,3 +142,54 @@ export async function recordJoinedOrg(org: Org): Promise<IdentitySnapshot | null
   });
   return refreshIdentitySnapshotFromHostStorage();
 }
+
+/** Longest accepted home-Org name; the rename UI caps its input to match. */
+export const MAX_ORG_NAME_LENGTH = 60;
+
+/** Outcome of {@link renameHomeOrg} — distinguishes the two failure modes from success. */
+export type RenameHomeOrgResult = { ok: true } | { ok: false; reason: 'empty-name' | 'no-identity' };
+
+/**
+ * Serializes `OH.syntheticIdentity` rename writes. The slot is a
+ * non-atomic `get`-then-`set`; the only other writer (`ensureSyntheticIdentity`)
+ * runs once at boot before any rename is reachable, but the lock keeps
+ * two racing renames from clobbering each other.
+ */
+const withHomeOrgLock = createMutex();
+
+/**
+ * Rename this host's own (home) Org. Edits `Org.name` inside the
+ * persisted `OH.syntheticIdentity` blob — the home Org rides that record,
+ * not `OH.joinedOrgs` — then refreshes the in-memory snapshot so the
+ * resolver and the org-catalogue UI pick up the new name.
+ *
+ * Local-only: the extension is always a sync *client*, so no peer ever
+ * joins its home Org and there is nothing to re-broadcast (a backend's
+ * own rename re-propagates via the `recordJoinedOrg` rename-in-place
+ * branch on the next reconnect's WELCOME).
+ *
+ * The trimmed name is capped to {@link MAX_ORG_NAME_LENGTH}; an
+ * all-whitespace name is rejected rather than persisted. A no-op rename
+ * (same name) still reports `ok` without a write.
+ */
+export function renameHomeOrg(name: string): Promise<RenameHomeOrgResult> {
+  return withHomeOrgLock(async () => {
+    const trimmed = name.trim().slice(0, MAX_ORG_NAME_LENGTH);
+    if (trimmed.length === 0) {
+      return { ok: false, reason: 'empty-name' };
+    }
+    const record = await hostStorage.get(OH.syntheticIdentity);
+    if (!record) {
+      return { ok: false, reason: 'no-identity' };
+    }
+    if (record.org.name === trimmed) {
+      return { ok: true };
+    }
+    await hostStorage.set(OH.syntheticIdentity, {
+      ...record,
+      org: { ...record.org, name: trimmed },
+    });
+    await refreshIdentitySnapshotFromHostStorage();
+    return { ok: true };
+  });
+}

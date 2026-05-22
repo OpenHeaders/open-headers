@@ -73,8 +73,11 @@ export {
   getIdentitySnapshot,
   type InstallIdentitySnapshotInput,
   installIdentitySnapshot,
+  MAX_ORG_NAME_LENGTH,
+  type RenameHomeOrgResult,
   recordJoinedOrg,
   refreshIdentitySnapshotFromHostStorage,
+  renameHomeOrg,
 } from './registry';
 export {
   authorizedOrgIds,

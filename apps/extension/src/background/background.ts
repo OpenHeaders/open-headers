@@ -22,6 +22,7 @@ import {
   refreshIdentitySnapshotFromHostStorage,
   setAuditSink,
 } from '@openheaders/core/identity';
+import { getHostStorage, OH } from '@openheaders/core/storage';
 import {
   EXTENSION_WORKSPACE_GLOBAL_SCOPE,
   invalidateAllWorkspaceOrgCache,
@@ -610,6 +611,17 @@ async function initializeExtension(): Promise<void> {
   // is enough; the workspace-store listener below repeats it on changes.
   await refreshIdentitySnapshotFromHostStorage().catch((err: unknown) => {
     logger.warn('Background', 'refreshIdentitySnapshotFromHostStorage failed', err);
+  });
+
+  // Bug B 2c — the home Org is renamable from the UI (`renameHomeOrg`
+  // writes `OH.syntheticIdentity` directly, the UI-editor tier). The SW
+  // is the reactor: re-hydrate the in-memory snapshot whenever the slot
+  // changes so the resolver and org-catalogue read the new name without
+  // waiting for a cold-wake.
+  getHostStorage()?.subscribe(OH.syntheticIdentity, () => {
+    void refreshIdentitySnapshotFromHostStorage().catch((err: unknown) => {
+      logger.warn('Background', 'identity snapshot refresh after rename failed', err);
+    });
   });
 
   // U2.6 — install the workspaceId → orgId resolver consulted by every

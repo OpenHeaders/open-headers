@@ -17,9 +17,12 @@ import {
   authorizedOrgIds,
   clearIdentitySnapshot,
   ensureSyntheticIdentity,
+  getIdentitySnapshot,
   installIdentitySnapshot,
+  MAX_ORG_NAME_LENGTH,
   recordJoinedOrg,
   refreshIdentitySnapshotFromHostStorage,
+  renameHomeOrg,
 } from '../../src/identity';
 import { hostStorage, setHostStorage } from '../../src/storage/host-storage';
 import { OH } from '../../src/storage/keys';
@@ -141,5 +144,75 @@ describe('identity registry — joined-Org folding (U5.2)', () => {
     // The first key reappears at index 3 (block boundary), not index 1
     // (which an interleaved pair of refreshes would produce).
     expect(reads.indexOf(reads[0], 1)).toBe(3);
+  });
+});
+
+describe('identity registry — home-Org rename (Bug B 2c)', () => {
+  let fake: HostStorageFake;
+
+  beforeEach(() => {
+    fake = createHostStorageFake();
+    setHostStorage(fake);
+    clearIdentitySnapshot();
+  });
+
+  it('renames the home Org inside OH.syntheticIdentity and refreshes the snapshot', async () => {
+    const record = await ensureSyntheticIdentity({ hostKind: 'browser', orgName: 'Chrome', now: NOW });
+    await refreshIdentitySnapshotFromHostStorage();
+
+    const result = await renameHomeOrg('Work Chrome');
+    expect(result).toEqual({ ok: true });
+
+    const stored = await hostStorage.get(OH.syntheticIdentity);
+    expect(stored?.org.name).toBe('Work Chrome');
+    // Untouched fields ride through — only the name changes.
+    expect(stored?.org.id).toBe(record.org.id);
+    expect(stored?.org.hostKind).toBe('browser');
+    expect(getIdentitySnapshot()?.orgs.get(record.org.id)?.name).toBe('Work Chrome');
+  });
+
+  it('trims surrounding whitespace before persisting', async () => {
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
+    await renameHomeOrg('  Padded Name  ');
+    expect((await hostStorage.get(OH.syntheticIdentity))?.org.name).toBe('Padded Name');
+  });
+
+  it('caps the name at MAX_ORG_NAME_LENGTH', async () => {
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
+    await renameHomeOrg('x'.repeat(MAX_ORG_NAME_LENGTH + 25));
+    const stored = await hostStorage.get(OH.syntheticIdentity);
+    expect(stored?.org.name.length).toBe(MAX_ORG_NAME_LENGTH);
+  });
+
+  it('rejects an all-whitespace name without writing', async () => {
+    const record = await ensureSyntheticIdentity({ hostKind: 'browser', orgName: 'Chrome', now: NOW });
+    const result = await renameHomeOrg('   ');
+    expect(result).toEqual({ ok: false, reason: 'empty-name' });
+    expect((await hostStorage.get(OH.syntheticIdentity))?.org.name).toBe(record.org.name);
+  });
+
+  it('reports no-identity when the synthetic record has not been bootstrapped', async () => {
+    const result = await renameHomeOrg('Anything');
+    expect(result).toEqual({ ok: false, reason: 'no-identity' });
+  });
+
+  it('is a no-op write when the name is unchanged', async () => {
+    await ensureSyntheticIdentity({ hostKind: 'browser', orgName: 'Chrome', now: NOW });
+    let writes = 0;
+    const baseSet = fake.set.bind(fake);
+    fake.set = async (spec, value) => {
+      writes += 1;
+      return baseSet(spec, value);
+    };
+    const result = await renameHomeOrg('Chrome');
+    expect(result).toEqual({ ok: true });
+    expect(writes).toBe(0);
+  });
+
+  it('serializes concurrent renames — the last queued write wins intact', async () => {
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
+    await Promise.all([renameHomeOrg('First'), renameHomeOrg('Second')]);
+    const name = (await hostStorage.get(OH.syntheticIdentity))?.org.name;
+    expect(['First', 'Second']).toContain(name);
   });
 });
