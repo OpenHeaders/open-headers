@@ -602,14 +602,19 @@ async function refreshWorkflowsForChangedRequests(changedRequestUids: ReadonlySe
 // `@openheaders/core/live/variable-scan`). A request edit that adds or
 // drops a `{{var}}` reference shifts `refsKey` — that is LF1's path,
 // not LF2's, so a `refsKey` change re-baselines silently. Only a
-// `valuesKey` change under a stable `refsKey` is a variable edit, and
-// triggers, per affected (workflow, env):
-//   • non-manual, the ACTIVE env  — refresh immediately (the old value
-//     keeps serving until the new one lands, so there is no gap);
-//   • non-manual, a NON-active env — drop that env's cache row so it
-//     re-warms on the next switch instead of serving wrong-recipe;
-//   • manual — flag that env's row "needs re-run" (no auto-run; the
-//     user opted out of automation).
+// `valuesKey` change under a stable `refsKey` is a variable edit.
+//
+// The treatment mirrors LF1 (`refreshWorkflowsForChangedRequests`):
+// every affected (workflow, env) cache row is flagged definitionally
+// stale — manual or not, schedulable now or not. The flag surfaces the
+// "needs re-run" badge AND, via `computeNextFireAt`, makes the row due
+// now, so a workflow that can't run at the moment of the edit
+// (disabled, unpublished, deleted-request step) still re-warms once it
+// becomes schedulable again. On top of the flag, a non-manual workflow
+// runnable right now gets an immediate refresh of the ACTIVE env when
+// that env's variables changed — the old value keeps serving until the
+// refresh lands, so there is no wrong-recipe gap. Manual workflows
+// never auto-run; the flag is their whole treatment.
 
 /** Debounce window collapsing a burst of variable saves into one pass. */
 let variableEditRefreshDebounceMs = 600;
@@ -728,7 +733,7 @@ async function settleVariableEditRefresh(): Promise<void> {
   await refreshWorkflowsForChangedVariables(changed);
 }
 
-/** Apply the LF1/LF1b refresh/invalidate path per affected (workflow, env). */
+/** Flag every affected (workflow, env) row definitionally stale; refresh the active env of those runnable now. */
 async function refreshWorkflowsForChangedVariables(changed: ReadonlyArray<ChangedWorkflowEnv>): Promise<void> {
   let workspaceId: string;
   try {
@@ -750,40 +755,34 @@ async function refreshWorkflowsForChangedVariables(changed: ReadonlyArray<Change
   for (const [workflowUid, environmentIds] of byWorkflow) {
     const workflow = workflowsByUid.get(workflowUid);
     if (!workflow) continue;
-    // Manual workflows: never auto-run on an edit. Flag only the env
-    // rows whose resolved variables actually changed "needs re-run" —
-    // other envs' cached values are still correct.
-    if (workflow.refresh.kind === 'manual') {
-      for (const environmentId of environmentIds) {
-        try {
-          await markRunDefinitionallyStale(workflowUid, environmentId, workspaceId);
-        } catch (err) {
-          logger.info('LiveScheduler', `definitional-stale flag failed for ${workflowUid}: ${(err as Error).message}`);
-        }
+    // Flag every changed env cache row definitionally stale, before any
+    // gate. This is the whole treatment for manual workflows and for a
+    // workflow not schedulable right now (disabled, unpublished,
+    // deleted-request step) — `computeNextFireAt` honors the flag, so a
+    // flagged row is due as soon as the workflow can run again. A
+    // successful refresh clears the flag.
+    for (const environmentId of environmentIds) {
+      try {
+        await markRunDefinitionallyStale(workflowUid, environmentId, workspaceId);
+      } catch (err) {
+        logger.info('LiveScheduler', `definitional-stale flag failed for ${workflowUid}: ${(err as Error).message}`);
       }
-      continue;
     }
+    // Manual workflows never auto-run on an edit — the flag is the
+    // whole treatment (`computeNextFireAt` returns null for a manual
+    // policy regardless).
+    if (workflow.refresh.kind === 'manual') continue;
+    // Non-manual + runnable now: refresh the ACTIVE env immediately when
+    // its variables changed, so the value the user is resolving has no
+    // wrong-recipe window. Non-active envs — and a workflow not
+    // schedulable right now — re-warm via the due-now alarm the flag
+    // drives.
     const boundVariables = getLiveVariablesForWorkflow(workflowUid);
     if (!canScheduleWorkflow(workflow, boundVariables)) continue;
-    for (const environmentId of environmentIds) {
-      if (environmentId === activeEnvironmentId) {
-        // The active env's recipe changed — refresh now. The stale row
-        // keeps serving until the new value lands, so there is no gap.
-        void refreshLiveWorkflowSynchronously(workspaceId, workflowUid, activeEnvironmentId).catch((err) => {
-          logger.info('LiveScheduler', `variable-edit refresh failed for ${workflowUid}: ${(err as Error).message}`);
-        });
-      } else {
-        // A non-active env's recipe changed — drop its row so it
-        // re-warms on the next switch instead of serving wrong-recipe.
-        try {
-          await clearWorkflowRunCacheForEnvironment(workflowUid, environmentId, workspaceId);
-        } catch (err) {
-          logger.info(
-            'LiveScheduler',
-            `variable-edit cache invalidation failed for ${workflowUid}: ${(err as Error).message}`,
-          );
-        }
-      }
+    if (environmentIds.includes(activeEnvironmentId)) {
+      void refreshLiveWorkflowSynchronously(workspaceId, workflowUid, activeEnvironmentId).catch((err) => {
+        logger.info('LiveScheduler', `variable-edit refresh failed for ${workflowUid}: ${(err as Error).message}`);
+      });
     }
   }
 }

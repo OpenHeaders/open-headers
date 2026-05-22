@@ -894,11 +894,14 @@ describe('variable-edit refresh (LF2)', () => {
 
     expect(refreshSpy).toHaveBeenCalledOnce();
     expect(refreshSpy.mock.calls[0]?.[0]).toMatchObject({ environmentId: 'env-dev' });
-    // env-dev is active → refreshed in place, never cleared.
+    // env-dev's row is flagged definitionally stale (a failed refresh
+    // leaves the flag for the due-now alarm to retry; a successful one
+    // clears it) and is refreshed in place — never dropped.
+    expect(markRunDefinitionallyStaleMock).toHaveBeenCalledWith('wflow001', 'env-dev', 'ws-live');
     expect(clearWorkflowRunCacheForEnvironmentMock).not.toHaveBeenCalled();
   });
 
-  it('drops a non-active env row when that env variable changes', async () => {
+  it('flags a non-active env row when that env variable changes', async () => {
     const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
     scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
     activeSwitchState.activeEnvId = 'env-prod';
@@ -911,7 +914,10 @@ describe('variable-edit refresh (LF2)', () => {
     fireEnvChange();
     await flushAsync();
 
-    expect(clearWorkflowRunCacheForEnvironmentMock).toHaveBeenCalledWith('wflow001', 'env-dev', 'ws-live');
+    // env-dev is non-active — its row is flagged definitionally stale
+    // (kept, not dropped) so the due-now alarm re-warms it.
+    expect(markRunDefinitionallyStaleMock).toHaveBeenCalledWith('wflow001', 'env-dev', 'ws-live');
+    expect(clearWorkflowRunCacheForEnvironmentMock).not.toHaveBeenCalled();
     expect(refreshSpy).not.toHaveBeenCalled();
   });
 
@@ -932,14 +938,17 @@ describe('variable-edit refresh (LF2)', () => {
     fireEnvChange();
     await flushAsync();
 
-    // Active env refreshed; the two non-active rows (env-prod + "No
-    // environment") dropped.
+    // A vault secret is environment-independent — every env row flips.
+    // The active env (env-dev) is refreshed; all three rows (env-dev,
+    // env-prod, "No environment") are flagged definitionally stale,
+    // never dropped.
     expect(refreshSpy).toHaveBeenCalledOnce();
     expect(refreshSpy.mock.calls[0]?.[0]).toMatchObject({ environmentId: 'env-dev' });
-    expect(clearWorkflowRunCacheForEnvironmentMock).toHaveBeenCalledTimes(2);
-    const clearedEnvs = clearWorkflowRunCacheForEnvironmentMock.mock.calls.map((c) => c[1]);
-    expect(clearedEnvs).toContain('env-prod');
-    expect(clearedEnvs).toContain(null);
+    expect(clearWorkflowRunCacheForEnvironmentMock).not.toHaveBeenCalled();
+    const flaggedEnvs = markRunDefinitionallyStaleMock.mock.calls.map((c) => c[1]);
+    expect(flaggedEnvs).toContain('env-dev');
+    expect(flaggedEnvs).toContain('env-prod');
+    expect(flaggedEnvs).toContain(null);
   });
 
   it('flags a manual workflow affected env rows instead of refreshing', async () => {
@@ -998,6 +1007,27 @@ describe('variable-edit refresh (LF2)', () => {
 
     expect(clearWorkflowRunCacheForEnvironmentMock).not.toHaveBeenCalled();
     expect(markRunDefinitionallyStaleMock).not.toHaveBeenCalled();
+  });
+
+  it('flags an ineffective non-manual workflow without refreshing it', async () => {
+    const refreshSpy = vi.fn<() => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    activeSwitchState.activeEnvId = 'env-dev';
+    // A disabled workflow is not schedulable — but a variable edit must
+    // still flag its row definitionally stale so the value re-warms on
+    // re-enable rather than serving wrong-recipe until cadence expiry.
+    await startPrimed('{{env.token}}', makeWorkflow({ enabled: false }));
+
+    storeState.environments = [
+      makeEnvironment('env-dev', [{ name: 'token', value: 'dev-CHANGED' }]),
+      makeEnvironment('env-prod', [{ name: 'token', value: 'prod-aaa' }]),
+    ];
+    fireEnvChange();
+    await flushAsync();
+
+    expect(markRunDefinitionallyStaleMock).toHaveBeenCalledWith('wflow001', 'env-dev', 'ws-live');
+    expect(refreshSpy).not.toHaveBeenCalled();
+    expect(clearWorkflowRunCacheForEnvironmentMock).not.toHaveBeenCalled();
   });
 });
 
