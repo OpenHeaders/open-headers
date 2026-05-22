@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { isWorkflowComplete, isWorkflowDraft, isWorkflowEffective } from '../../src/live/workflow-state';
+import {
+  isWorkflowComplete,
+  isWorkflowDraft,
+  isWorkflowEffective,
+  workflowStepsResolvable,
+} from '../../src/live/workflow-state';
 import type { LiveWorkflow, WorkflowStep } from '../../src/types/live';
 
 function wf(overrides: Partial<LiveWorkflow> = {}): LiveWorkflow {
@@ -88,5 +93,21 @@ describe('isWorkflowEffective', () => {
 
   it('returns false when incomplete, even if published + enabled', () => {
     expect(isWorkflowEffective(wf({ steps: [] }))).toBe(false);
+  });
+});
+
+describe('workflowStepsResolvable', () => {
+  it('true when every step requestUid is in the known set', () => {
+    const workflow = wf({ steps: [step('step1', 'reqaaaaa'), step('step2', 'reqbbbbb')] });
+    expect(workflowStepsResolvable(workflow, new Set(['reqaaaaa', 'reqbbbbb']))).toBe(true);
+  });
+
+  it('false when a step requestUid is absent from the known set', () => {
+    const workflow = wf({ steps: [step('step1', 'reqaaaaa'), step('step2', 'reqgone1')] });
+    expect(workflowStepsResolvable(workflow, new Set(['reqaaaaa']))).toBe(false);
+  });
+
+  it('true when a step requestUid is empty — the not-yet-picked placeholder is not a deleted request', () => {
+    expect(workflowStepsResolvable(wf({ steps: [step('step1', '')] }), new Set())).toBe(true);
   });
 });

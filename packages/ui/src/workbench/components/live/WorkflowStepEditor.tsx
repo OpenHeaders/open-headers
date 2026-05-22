@@ -148,6 +148,9 @@ const WorkflowStepEditor: React.FC<Props> = ({
     () => errors.find((e) => e.issue === 'step-unknown-dep' || e.issue === 'depends-on-cycle'),
     [errors],
   );
+  // The step's backing request was deleted out from under it — the
+  // workflow can't run until the user re-points or removes the step.
+  const requestError = useMemo(() => errors.find((e) => e.issue === 'step-request-missing'), [errors]);
 
   // ── dependsOn helpers ───────────────────────────────────────────
   // `undefined` = implicit prior-step dep; `[]` = explicit root; array
@@ -220,7 +223,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
   return (
     <div
       style={{
-        border: `1px solid ${stepLevelError ? token.colorError : token.colorBorderSecondary}`,
+        border: `1px solid ${stepLevelError || requestError ? token.colorError : token.colorBorderSecondary}`,
         borderRadius: 6,
         padding: 12,
         marginBottom: 12,
@@ -342,10 +345,12 @@ const WorkflowStepEditor: React.FC<Props> = ({
          *  text breadcrumb via `filterOption` against the option `title`. */}
         <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
           <span data-field-path={LIVE_WORKFLOW_FIELD.step(index, 'requestUid')} style={{ display: 'contents' }}>
+          <Tooltip open={requestError ? undefined : false} title={requestError?.message}>
           <Select
             size="small"
             style={{ flex: '1 1 60%', minWidth: 0 }}
             showSearch
+            status={requestError ? 'error' : undefined}
             filterOption={(input, option) => {
               if (!option) return true;
               const haystack = String(option.title ?? '').toLowerCase();
@@ -400,6 +405,7 @@ const WorkflowStepEditor: React.FC<Props> = ({
               };
             })}
           />
+          </Tooltip>
           </span>
           <Input
             size="small"

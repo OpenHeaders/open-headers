@@ -16,14 +16,16 @@
  *      request executor's own resolver.
  */
 
-import type { LiveVariable } from '@openheaders/core/types';
+import type { LiveVariable, LiveWorkflow } from '@openheaders/core/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Mocks for the stores + environment-store ─────────────────────
 
 const getLiveVariablesMock = vi.fn<() => LiveVariable[]>(() => []);
+const getLiveWorkflowsMock = vi.fn<() => LiveWorkflow[]>(() => []);
 const listWorkflowRunCachesMock = vi.fn<() => Promise<unknown[]>>(() => Promise.resolve([]));
 const getActiveEnvironmentIdMock = vi.fn<() => string | null>(() => null);
+const getRequestUidsMock = vi.fn<() => ReadonlySet<string> | null>(() => null);
 
 vi.mock('@openheaders/oracle/entity/environment-store', () => ({
   getEnvironments: vi.fn(() => []),
@@ -40,7 +42,18 @@ vi.mock('@openheaders/oracle/entity/rule-store', () => ({
 
 vi.mock('@openheaders/oracle/live/live-variable-store', () => ({
   getLiveVariables: () => getLiveVariablesMock(),
+  getLiveVariablesForWorkspace: () => getLiveVariablesMock(),
   onLiveVariableStoreChange: vi.fn(() => () => {}),
+}));
+
+vi.mock('@openheaders/oracle/live/live-workflow-store', () => ({
+  getLiveWorkflows: () => getLiveWorkflowsMock(),
+  getLiveWorkflowsForWorkspace: () => getLiveWorkflowsMock(),
+  onLiveWorkflowStoreChange: vi.fn(() => () => {}),
+}));
+
+vi.mock('@openheaders/oracle/entity/request-store', () => ({
+  getRequestUidsForWorkspace: () => getRequestUidsMock(),
 }));
 
 vi.mock('@openheaders/oracle/live/live-cache-store', () => ({
@@ -65,6 +78,27 @@ function makeLV(overrides: Partial<LiveVariable> = {}): LiveVariable {
     captureName: overrides.captureName ?? 'token',
     enabled: overrides.enabled ?? true,
     published: overrides.published ?? true,
+    ...overrides,
+  };
+}
+
+function makeWorkflow(overrides: Partial<LiveWorkflow> = {}): LiveWorkflow {
+  return {
+    schemaVersion: 5,
+    uid: 'wflow001',
+    path: 'live-workflows/wflow001',
+    name: 'Login flow',
+    enabled: true,
+    published: true,
+    refresh: { kind: 'manual' },
+    steps: [
+      {
+        uid: 'stplogin',
+        id: 'login',
+        requestUid: 'reqlogin1',
+        captures: [{ uid: 'caploginx', name: 'token', extractor: { kind: 'whole-body' } }],
+      },
+    ],
     ...overrides,
   };
 }
@@ -97,11 +131,19 @@ let mod: typeof import('@openheaders/oracle/rule-engine/variables-resolver');
 beforeEach(async () => {
   vi.resetModules();
   getLiveVariablesMock.mockReset();
+  getLiveWorkflowsMock.mockReset();
   listWorkflowRunCachesMock.mockReset();
   getActiveEnvironmentIdMock.mockReset();
+  getRequestUidsMock.mockReset();
   getLiveVariablesMock.mockReturnValue([]);
+  // Backing workflow is effective by default so the cached-capture path
+  // is reachable; per-test overrides flip enabled/published/steps.
+  getLiveWorkflowsMock.mockReturnValue([makeWorkflow()]);
   listWorkflowRunCachesMock.mockResolvedValue([]);
   getActiveEnvironmentIdMock.mockReturnValue(null);
+  // `null` = request registry not materialized → the deleted-request
+  // gate stays dormant, so the non-gate cases resolve unchanged.
+  getRequestUidsMock.mockReturnValue(null);
   mod = await import('@openheaders/oracle/rule-engine/variables-resolver');
   mod.__resetForTests();
 });
@@ -233,5 +275,46 @@ describe('buildLiveRegistry semantics', () => {
     const r = mod.getLiveRegistrySnapshot();
     expect(r.get('accessToken')?.value).toBe('T');
     expect(r.get('refreshToken')?.value).toBe('R');
+  });
+});
+
+describe('deleted-request gate', () => {
+  beforeEach(async () => {
+    await mod.hydrateLiveCacheMirror();
+  });
+
+  it('workflow whose step request still exists → cached value resolves', async () => {
+    listWorkflowRunCachesMock.mockResolvedValue([makeRun()]);
+    await mod.hydrateLiveCacheMirror();
+    getLiveVariablesMock.mockReturnValue([makeLV()]);
+    getRequestUidsMock.mockReturnValue(new Set(['reqlogin1']));
+    expect(mod.getLiveRegistrySnapshot().get('token')?.value).toBe('tok-abc');
+  });
+
+  it('workflow whose step request was deleted → frozen value stops feeding rules', async () => {
+    listWorkflowRunCachesMock.mockResolvedValue([makeRun()]);
+    await mod.hydrateLiveCacheMirror();
+    getLiveVariablesMock.mockReturnValue([makeLV()]);
+    // Registry hydrated but `reqlogin1` is gone — the workflow can never
+    // re-run that step, so its frozen cached value must not resolve.
+    getRequestUidsMock.mockReturnValue(new Set(['reqother1']));
+    expect(mod.getLiveRegistrySnapshot().size).toBe(0);
+  });
+
+  it('cold request registry (null) → gate dormant, value still resolves', async () => {
+    listWorkflowRunCachesMock.mockResolvedValue([makeRun()]);
+    await mod.hydrateLiveCacheMirror();
+    getLiveVariablesMock.mockReturnValue([makeLV()]);
+    getRequestUidsMock.mockReturnValue(null);
+    expect(mod.getLiveRegistrySnapshot().get('token')?.value).toBe('tok-abc');
+  });
+
+  it('manual override survives a deleted backing request', async () => {
+    listWorkflowRunCachesMock.mockResolvedValue([makeRun()]);
+    await mod.hydrateLiveCacheMirror();
+    getLiveVariablesMock.mockReturnValue([makeLV({ manualOverride: { value: 'PINNED' } })]);
+    getRequestUidsMock.mockReturnValue(new Set(['reqother1']));
+    // The override is a user-set value independent of workflow execution.
+    expect(mod.getLiveRegistrySnapshot().get('token')?.value).toBe('PINNED');
   });
 });

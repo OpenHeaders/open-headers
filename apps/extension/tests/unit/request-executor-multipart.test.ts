@@ -31,6 +31,7 @@ vi.mock('@openheaders/oracle/entity/environment-store', () => ({
 vi.mock('@openheaders/oracle/entity/request-store', () => ({
   getRequest: vi.fn(() => null),
   getRequestCollections: vi.fn(() => [] as Collection[]),
+  getRequestUidsForWorkspace: vi.fn(() => null),
 }));
 
 vi.mock('@openheaders/oracle/entity/rule-store', () => ({

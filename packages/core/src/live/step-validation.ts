@@ -430,6 +430,51 @@ export interface StepRequestInfo {
  */
 export type RequestInfoProvider = (requestUid: string) => StepRequestInfo | null;
 
+/**
+ * Build the `step-request-missing` error for one step. Single emitter
+ * of the issue's shape + message — both {@link validateStepRequestsExist}
+ * (editor-time, set-backed) and {@link validateStepReferences}
+ * (save-time, provider-backed) route their missing-request reporting
+ * through here so the two validators never drift.
+ */
+function stepRequestMissingError(step: WorkflowStep): StructuralError {
+  return {
+    issue: 'step-request-missing',
+    stepId: step.id,
+    referencedStepId: step.requestUid,
+    message: `Step "${step.id}" references a request that no longer exists (uid "${step.requestUid}").`,
+  };
+}
+
+/**
+ * Editor-time cross-request check: does every step's `requestUid`
+ * still resolve to a persisted request? A step whose backing request
+ * was deleted only fails at run time today — this surfaces it as a
+ * static workflow-validity error instead.
+ *
+ * Lighter than {@link validateStepReferences}: the caller passes a
+ * plain `Set` of known request uids rather than a full
+ * {@link RequestInfoProvider}, since existence is the only fact
+ * needed. An empty `requestUid` is the editor's not-yet-picked
+ * placeholder — skipped here (incompleteness is `isWorkflowComplete`'s
+ * concern, not a "deleted request").
+ *
+ * The caller MUST only invoke this once the request registry has
+ * hydrated; an empty `knownRequestUids` during load would false-flag
+ * every step.
+ */
+export function validateStepRequestsExist(
+  workflow: LiveWorkflow,
+  knownRequestUids: ReadonlySet<string>,
+): StructuralError[] {
+  const errors: StructuralError[] = [];
+  for (const step of workflow.steps) {
+    if (step.requestUid.length === 0) continue;
+    if (!knownRequestUids.has(step.requestUid)) errors.push(stepRequestMissingError(step));
+  }
+  return errors;
+}
+
 export function validateStepReferences(workflow: LiveWorkflow, requestInfo: RequestInfoProvider): StructuralError[] {
   const errors: StructuralError[] = [];
 
@@ -449,12 +494,7 @@ export function validateStepReferences(workflow: LiveWorkflow, requestInfo: Requ
     const step = workflow.steps[i];
     const info = requestInfo(step.requestUid);
     if (info == null) {
-      errors.push({
-        issue: 'step-request-missing',
-        stepId: step.id,
-        referencedStepId: step.requestUid,
-        message: `Step "${step.id}" references a request that no longer exists (uid "${step.requestUid}").`,
-      });
+      errors.push(stepRequestMissingError(step));
       continue;
     }
 

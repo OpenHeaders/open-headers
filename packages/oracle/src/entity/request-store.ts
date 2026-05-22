@@ -27,11 +27,6 @@ import {
   REQUEST_FOLDER_ENTITY_TYPE,
   type RequestFolderParentRef,
 } from '@openheaders/core/sync';
-import type { Collection, CollectionTree, Request, TreeNode } from '@openheaders/core/types';
-import { generateUid, toFolderName } from '@openheaders/core/utils';
-import { logger } from '@openheaders/core/utils';
-import type { PersistedLocalFolder } from '@openheaders/oracle/storage';
-import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
 import {
   buildDeleteRequestCollectionBatch,
   buildRenameRequestCollectionBatch,
@@ -44,6 +39,11 @@ import {
   buildRenameRequestFolderBatch,
 } from '@openheaders/core/sync-builders/request-folder-mutations';
 import { buildAddBatch, buildDeleteBatch, buildUpdateBatch } from '@openheaders/core/sync-builders/request-mutations';
+import type { Collection, CollectionTree, Request, TreeNode } from '@openheaders/core/types';
+import { generateUid, logger, toFolderName } from '@openheaders/core/utils';
+import type { PersistedLocalFolder } from '@openheaders/oracle/storage';
+import { hostStorage, wsKeys } from '@openheaders/oracle/storage';
+import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 import {
   REQUEST_COLLECTION_REGISTRATION,
   REQUEST_FOLDER_REGISTRATION,
@@ -59,7 +59,6 @@ import {
   nextSwMutatorContext,
 } from '@openheaders/oracle/sync/service';
 import { driftRecorder } from '@openheaders/oracle/sync/storage-drift';
-import { requireActiveWorkspaceId } from '@openheaders/oracle/sync';
 
 /** Re-export from rule-store-style shape. Identical runtime layout. */
 export type LocalFolder = PersistedLocalFolder;
@@ -391,6 +390,30 @@ export function getRequestInWorkspace(uid: string, workspaceId: string): Request
   const cache = getCacheForWorkspace<RequestCache>(REQUEST_REGISTRATION, workspaceId);
   if (!cache) return null;
   return cache.getRequests().find((r) => r.uid === uid) ?? null;
+}
+
+/**
+ * Set of every request uid in an explicit workspace, or `null` when no
+ * service is materialized for that workspace. Callers that gate on
+ * request existence (`workflowStepsResolvable`) treat `null` as
+ * "registry not hydrated — skip the gate", so a workflow step is never
+ * false-flagged as referencing a deleted request just because the
+ * store hasn't loaded yet.
+ */
+export function getRequestUidsForWorkspace(workspaceId: string): ReadonlySet<string> | null {
+  const cache = getCacheForWorkspace<RequestCache>(REQUEST_REGISTRATION, workspaceId);
+  if (!cache) return null;
+  return new Set(cache.getRequests().map((r) => r.uid));
+}
+
+/**
+ * Has the active-workspace request mirror hydrated at least once?
+ * Scheduler-side gates consult this so a cold-wake window (before the
+ * first workspace load) skips the request-resolution check rather than
+ * dropping every workflow's alarm.
+ */
+export function isRequestStoreHydrated(): boolean {
+  return loadedWorkspaceId !== null;
 }
 
 /**

@@ -99,6 +99,7 @@ let storeState: {
   vault: Vault;
   workspaceVars: WorkspaceVariables;
   requestCollections: Collection[];
+  requestStoreHydrated: boolean;
   listeners: {
     workflow: Set<() => void>;
     variable: Set<() => void>;
@@ -115,6 +116,7 @@ let storeState: {
   vault: EMPTY_VAULT,
   workspaceVars: EMPTY_WORKSPACE_VARS,
   requestCollections: [],
+  requestStoreHydrated: false,
   listeners: { workflow: new Set(), variable: new Set(), cache: new Set(), request: new Set(), environment: new Set() },
 };
 
@@ -153,6 +155,7 @@ vi.mock('@openheaders/oracle/live/live-variable-store', () => ({
 vi.mock('@openheaders/oracle/entity/request-store', () => ({
   getRequest: (uid: string) => storeState.requests.get(uid) ?? null,
   getRequestCollections: () => storeState.requestCollections,
+  isRequestStoreHydrated: () => storeState.requestStoreHydrated,
   onRequestStoreChange: (fn: () => void) => {
     storeState.listeners.request.add(fn);
     return () => storeState.listeners.request.delete(fn);
@@ -307,6 +310,7 @@ beforeEach(async () => {
     vault: EMPTY_VAULT,
     workspaceVars: EMPTY_WORKSPACE_VARS,
     requestCollections: [],
+    requestStoreHydrated: false,
     listeners: {
       workflow: new Set(),
       variable: new Set(),
@@ -377,6 +381,25 @@ describe('canScheduleWorkflow', () => {
   it('false when no enabled LV is bound to the workflow', () => {
     expect(scheduler.canScheduleWorkflow(makeWorkflow(), [])).toBe(false);
     expect(scheduler.canScheduleWorkflow(makeWorkflow(), [makeVariable({ enabled: false })])).toBe(false);
+  });
+
+  it('false when a step references a request that was deleted', () => {
+    storeState.requestStoreHydrated = true;
+    // `reqfetch1` deliberately not seeded — the backing request is gone.
+    expect(scheduler.canScheduleWorkflow(makeWorkflow(), [makeVariable()])).toBe(false);
+  });
+
+  it('true when every step still resolves to an existing request', () => {
+    storeState.requestStoreHydrated = true;
+    storeState.requests.set('reqfetch1', makeRequest());
+    expect(scheduler.canScheduleWorkflow(makeWorkflow(), [makeVariable()])).toBe(true);
+  });
+
+  it('skips the request-resolution check while the request store is cold', () => {
+    // Not hydrated + `reqfetch1` unseeded — a cold-wake window must not
+    // strip the alarm; the resolution gate stays dormant until hydrate.
+    storeState.requestStoreHydrated = false;
+    expect(scheduler.canScheduleWorkflow(makeWorkflow(), [makeVariable()])).toBe(true);
   });
 });
 

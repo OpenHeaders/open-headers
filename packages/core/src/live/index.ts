@@ -55,10 +55,20 @@ export type { CacheSummary } from './refresh-cadence';
 export { computeNextFireAt, DEFAULT_REFRESH_LEAD_MS, MAX_BACKOFF_SECONDS, MIN_ALARM_DELAY_MS } from './refresh-cadence';
 export { collectRequestTemplateStrings, requestExecutableFingerprint } from './request-scan';
 export type { RequestInfoProvider, StepRequestInfo, StructuralError, StructuralIssue } from './step-validation';
-export { computeTransitiveAncestors, validateStepReferences, validateWorkflowShape } from './step-validation';
+export {
+  computeTransitiveAncestors,
+  validateStepReferences,
+  validateStepRequestsExist,
+  validateWorkflowShape,
+} from './step-validation';
 export type { StepRef, TemplateScanResult } from './template-scan';
 export { scanTemplateReferences, scanTemplateReferencesMany } from './template-scan';
 export type { VariableFingerprint, VariableScopeSnapshot } from './variable-scan';
 export { workflowVariableFingerprint } from './variable-scan';
 export { isLiveVariableDraft, isLiveVariableEffective } from './variable-state';
-export { isWorkflowComplete, isWorkflowDraft, isWorkflowEffective } from './workflow-state';
+export {
+  isWorkflowComplete,
+  isWorkflowDraft,
+  isWorkflowEffective,
+  workflowStepsResolvable,
+} from './workflow-state';

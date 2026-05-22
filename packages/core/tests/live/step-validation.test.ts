@@ -3,6 +3,7 @@ import type { RequestInfoProvider, StepRequestInfo } from '../../src/live/step-v
 import {
   computeTransitiveAncestors,
   validateStepReferences,
+  validateStepRequestsExist,
   validateWorkflowShape,
 } from '../../src/live/step-validation';
 import type { LiveWorkflow, RefreshPolicy, WorkflowStep } from '../../src/types/live';
@@ -204,6 +205,41 @@ describe('validateStepReferences — request existence + completeness', () => {
       reqb0001: { templates: [], incompleteReason: null },
     });
     expect(validateStepReferences(wflow, provider)).toEqual([]);
+  });
+});
+
+describe('validateStepRequestsExist', () => {
+  it('returns [] when every step requestUid is in the known set', () => {
+    const wflow = wf([step('a', 'reqa0001'), step('b', 'reqb0001')]);
+    expect(validateStepRequestsExist(wflow, new Set(['reqa0001', 'reqb0001']))).toEqual([]);
+  });
+
+  it('reports step-request-missing for a requestUid absent from the known set', () => {
+    const wflow = wf([step('a', 'reqghost0')]);
+    const errors = validateStepRequestsExist(wflow, new Set());
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({
+      issue: 'step-request-missing',
+      stepId: 'a',
+      referencedStepId: 'reqghost0',
+    });
+  });
+
+  it('skips an empty requestUid — the not-yet-picked placeholder is not a deleted request', () => {
+    expect(validateStepRequestsExist(wf([step('a', '')]), new Set())).toEqual([]);
+  });
+
+  it('reports one error per missing step', () => {
+    const wflow = wf([step('a', 'reqgone1'), step('b', 'reqb0001'), step('c', 'reqgone2')]);
+    const errors = validateStepRequestsExist(wflow, new Set(['reqb0001']));
+    expect(errors.map((e) => e.referencedStepId).sort()).toEqual(['reqgone1', 'reqgone2']);
+  });
+
+  it('agrees with validateStepReferences on the missing-request shape', () => {
+    const wflow = wf([step('a', 'reqghost0')]);
+    const viaSet = validateStepRequestsExist(wflow, new Set());
+    const viaProvider = validateStepReferences(wflow, () => null);
+    expect(viaSet[0]).toEqual(viaProvider[0]);
   });
 });
 

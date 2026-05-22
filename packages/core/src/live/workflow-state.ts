@@ -13,7 +13,7 @@
  */
 
 import type { LiveWorkflow } from '../types/live';
-import { validateWorkflowShape } from './step-validation';
+import { validateStepRequestsExist, validateWorkflowShape } from './step-validation';
 
 /**
  * Is this workflow complete enough to actually run? An incomplete
@@ -35,6 +35,24 @@ export function isWorkflowComplete(wf: LiveWorkflow): boolean {
   if (wf.steps.some((s) => !s.requestUid || s.requestUid.length === 0)) return false;
   if (validateWorkflowShape(wf).length > 0) return false;
   return true;
+}
+
+/**
+ * Does every step still point at a request that exists? Unlike
+ * {@link isWorkflowComplete}, this is deliberately NOT a pure function
+ * of the workflow alone — runnability genuinely depends on the request
+ * registry, and `isWorkflowComplete`'s `requestUid !== ''` check only
+ * catches the never-picked case, not a request deleted out from under
+ * a populated `requestUid`. Consumers that hold a request registry
+ * (the SW scheduler, the rule-feed resolver) compose
+ * `isWorkflowEffective(wf) && workflowStepsResolvable(wf, registry)`;
+ * the registry dependency stays explicit at exactly those call sites.
+ *
+ * Callers MUST only invoke this once the request registry has
+ * hydrated — see {@link validateStepRequestsExist}.
+ */
+export function workflowStepsResolvable(wf: LiveWorkflow, knownRequestUids: ReadonlySet<string>): boolean {
+  return validateStepRequestsExist(wf, knownRequestUids).length === 0;
 }
 
 /**

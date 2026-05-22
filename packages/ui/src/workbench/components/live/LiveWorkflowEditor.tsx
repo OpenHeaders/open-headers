@@ -47,6 +47,7 @@ import {
   planLiveVariableReconcile,
   stripDraftSteps,
   toDraftCapture,
+  validateStepRequestsExist,
   validateWorkflowShape,
 } from '@openheaders/core/live';
 import { LIVE_WORKFLOW_ENTITY_TYPE } from '@openheaders/core/sync';
@@ -869,7 +870,7 @@ interface WorkflowFormBodyProps {
 
 const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({ draft, setDraft }) => {
   const { token } = theme.useToken();
-  const { requests, collectionTrees: requestCollectionTrees } = useRequests();
+  const { requests, collectionTrees: requestCollectionTrees, isReady: requestsReady } = useRequests();
 
   // Construct a full LiveWorkflow shape so the validator + layout
   // helper see a coherent object. Synthetic `uid` / `path` /
@@ -890,7 +891,16 @@ const WorkflowFormBody: React.FC<WorkflowFormBodyProps> = ({ draft, setDraft }) 
     [draft],
   );
 
-  const validationErrors = useMemo(() => validateWorkflowShape(draftWorkflow), [draftWorkflow]);
+  // `step-request-missing` is a cross-request check the local shape
+  // validator can't make — it needs the request registry. Guarded by
+  // `requestsReady` so a not-yet-hydrated request store never
+  // false-flags every step as referencing a deleted request.
+  const knownRequestUids = useMemo(() => new Set(requests.map((r) => r.uid)), [requests]);
+  const validationErrors = useMemo(() => {
+    const shape = validateWorkflowShape(draftWorkflow);
+    if (!requestsReady) return shape;
+    return [...shape, ...validateStepRequestsExist(draftWorkflow, knownRequestUids)];
+  }, [draftWorkflow, requestsReady, knownRequestUids]);
 
   const errorsByStepId = useMemo(() => {
     const map = new Map<string, typeof validationErrors>();

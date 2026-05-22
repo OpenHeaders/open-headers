@@ -15,7 +15,7 @@
  * state is exposed via `aria-disabled` + the native `disabled` property.
  */
 
-import type { LiveWorkflow } from '@openheaders/core/types';
+import type { LiveWorkflow, Request } from '@openheaders/core/types';
 import { cleanup, render, screen } from '@testing-library/react';
 import { App } from 'antd';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -87,8 +87,33 @@ vi.mock('@openheaders/ui/shared/hooks/useLiveWorkflows', () => ({
 vi.mock('@openheaders/ui/shared/hooks/useLiveVariables', () => ({
   useLiveVariables: () => ({ variables: [], isReady: true }),
 }));
+function makeRequest(overrides: Partial<Request> = {}): Request {
+  return {
+    schemaVersion: 5,
+    uid: overrides.uid ?? 'reqtestfxt',
+    path: `api-requests/fixture-${overrides.uid ?? 'reqtestfxt'}`,
+    name: overrides.name ?? 'Fixture request',
+    method: 'GET',
+    url: 'https://openheaders.io/fixture',
+    headers: [],
+    params: [],
+    body: { type: 'none' },
+    auth: { type: 'none' },
+    ...overrides,
+  };
+}
+
+// Mutable so a test can simulate the fixture step's request being
+// deleted. Defaults to the request the workflow fixture's step points
+// at, so the non-deletion cases render with no validity error.
+let requestsState: { requests: Request[]; collectionTrees: unknown[]; isReady: boolean } = {
+  requests: [makeRequest()],
+  collectionTrees: [],
+  isReady: true,
+};
+
 vi.mock('@openheaders/ui/shared/hooks/useRequests', () => ({
-  useRequests: () => ({ requests: [], isReady: true }),
+  useRequests: () => requestsState,
 }));
 vi.mock('@openheaders/ui/shared/hooks/useEnvironments', () => ({
   useEnvironments: () => ({ activeEnvironmentId: null, environments: [], isReady: true }),
@@ -105,21 +130,47 @@ const testIdentity = resolveWorkbenchIdentity();
 
 afterEach(() => {
   cleanup();
+  requestsState = { requests: [makeRequest()], collectionTrees: [], isReady: true };
 });
+
+function renderEditor() {
+  return render(
+    <App>
+      <AwarenessIdentityProvider value={testIdentity}>
+        <LiveWorkflowEditor mode="edit" workflowUid={workflowFixture.uid} />
+      </AwarenessIdentityProvider>
+    </App>,
+  );
+}
 
 describe('LiveWorkflowEditor — show-but-disable', () => {
   it('renders the "Run independent steps in parallel" Switch as disabled + unchecked', () => {
-    render(
-      <App>
-        <AwarenessIdentityProvider value={testIdentity}>
-          <LiveWorkflowEditor mode="edit" workflowUid={workflowFixture.uid} />
-        </AwarenessIdentityProvider>
-      </App>,
-    );
+    renderEditor();
 
     const parallelSwitch = screen.getByRole('switch', { name: /Run independent steps in parallel/i });
     // AntD Switch disables both the native button and the ARIA state.
     expect(parallelSwitch).toHaveProperty('disabled', true);
     expect(parallelSwitch.getAttribute('aria-checked')).toBe('false');
+  });
+});
+
+describe('LiveWorkflowEditor — deleted-request validity', () => {
+  it('no validity error while the step request still exists', () => {
+    const { container } = renderEditor();
+    expect(container.querySelector('.ant-select-status-error')).toBeNull();
+  });
+
+  it('flags the step when its backing request was deleted', () => {
+    // Request gone from the store, registry hydrated (`isReady`).
+    requestsState = { requests: [], collectionTrees: [], isReady: true };
+    const { container } = renderEditor();
+    expect(container.querySelector('.ant-select-status-error')).not.toBeNull();
+  });
+
+  it('does not flag the step while the request store is still loading', () => {
+    // Empty requests but NOT ready — a cold store must not false-flag.
+    requestsState = { requests: [], collectionTrees: [], isReady: false };
+    const { container } = renderEditor();
+    expect(container.querySelector('.ant-select-status-error')).toBeNull();
   });
 });

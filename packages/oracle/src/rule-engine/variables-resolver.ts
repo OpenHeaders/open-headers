@@ -22,8 +22,14 @@
  * should have one) resolve without a collection scope.
  */
 
-import { isLiveVariableEffective, isWorkflowEffective, scanTemplateReferencesMany } from '@openheaders/core/live';
+import {
+  isLiveVariableEffective,
+  isWorkflowEffective,
+  scanTemplateReferencesMany,
+  workflowStepsResolvable,
+} from '@openheaders/core/live';
 import type { Collection, LiveVariable, LiveWorkflow, Rule } from '@openheaders/core/types';
+import { logger } from '@openheaders/core/utils';
 import {
   collectRuleTemplateStrings,
   EMPTY_LIVE_REGISTRY,
@@ -33,7 +39,6 @@ import {
   resolveRuleWithDiagnostics,
   VariableResolver,
 } from '@openheaders/core/variables';
-import { logger } from '@openheaders/core/utils';
 import {
   getActiveEnvironmentId,
   getDefaultEnvironmentId,
@@ -41,6 +46,8 @@ import {
   getVault,
   getWorkspaceVariables,
 } from '@openheaders/oracle/entity/environment-store';
+import { getRequestUidsForWorkspace } from '@openheaders/oracle/entity/request-store';
+import { getCollections, getRules } from '@openheaders/oracle/entity/rule-store';
 import {
   listWorkflowRunCaches,
   onLiveCacheStoreChange,
@@ -49,7 +56,6 @@ import {
 import { getLiveVariables, getLiveVariablesForWorkspace } from '@openheaders/oracle/live/live-variable-store';
 import { getLiveWorkflows, getLiveWorkflowsForWorkspace } from '@openheaders/oracle/live/live-workflow-store';
 import { getOracleHostHooks, peekActiveWorkspaceId } from '@openheaders/oracle/sync';
-import { getCollections, getRules } from '@openheaders/oracle/entity/rule-store';
 
 // ── Per-workspace resolver state ───────────────────────────────────
 //
@@ -296,6 +302,7 @@ export function getLiveRegistrySnapshotForWorkspace(
     getLiveVariablesForWorkspace(workspaceId),
     getLiveWorkflowsForWorkspace(workspaceId),
     activeEnvironmentId,
+    getRequestUidsForWorkspace(workspaceId),
   );
 }
 
@@ -477,7 +484,13 @@ export async function kickSyncWarmRefreshes(): Promise<void> {
  *     for the `live` subsystem yellow-threshold.
  */
 function buildLiveRegistry(state: ResolverState): LiveRegistry {
-  return buildLiveRegistryFor(state, getLiveVariables(), getLiveWorkflows(), getActiveEnvironmentId());
+  return buildLiveRegistryFor(
+    state,
+    getLiveVariables(),
+    getLiveWorkflows(),
+    getActiveEnvironmentId(),
+    getRequestUidsForWorkspace(state.workspaceId),
+  );
 }
 
 /**
@@ -485,12 +498,18 @@ function buildLiveRegistry(state: ResolverState): LiveRegistry {
  * {@link getLiveRegistrySnapshotForWorkspace} so non-Active workspace
  * dispatches consult per-workspace LVs + workflows + an explicit env,
  * not the Active-bound module-level reads.
+ *
+ * `knownRequestUids` is the set of request uids in the workspace, or
+ * `null` when the request registry has not materialized yet. `null`
+ * skips the deleted-request gate so a cold registry never blanks every
+ * live value out of the rule feed.
  */
 function buildLiveRegistryFor(
   state: ResolverState,
   liveVariables: readonly LiveVariable[],
   liveWorkflows: readonly LiveWorkflow[],
   activeEnv: string | null,
+  knownRequestUids: ReadonlySet<string> | null,
 ): LiveRegistry {
   // Effective LVs only (published + enabled). Mirrors the renderer-side
   // `useVariableResolver` + `VariablesPanel.liveRegistry` filters so the
@@ -499,14 +518,18 @@ function buildLiveRegistryFor(
   if (lvs.length === 0) return EMPTY_LIVE_REGISTRY;
 
   // A cached capture must stop feeding rules once its backing workflow
-  // is no longer effective (disabled, unpublished, or made incomplete).
-  // The cache row is intentionally KEPT — re-enabling the workflow
-  // restores the last cached value without forcing a re-run — it just
-  // does not resolve while the workflow is switched off. Mirrors how a
-  // disabled LV is skipped rather than purged.
+  // is no longer effective (disabled, unpublished, or made incomplete)
+  // OR once one of its steps references a request that was deleted —
+  // such a workflow can never re-run that step, so its cached value is
+  // frozen-stale and must not keep feeding env-gated traffic. The cache
+  // row is intentionally KEPT — fixing the step (or re-enabling the
+  // workflow) restores the last cached value without forcing a re-run.
+  // Mirrors how a disabled LV is skipped rather than purged.
   const effectiveWorkflowUids = new Set<string>();
   for (const wf of liveWorkflows) {
-    if (isWorkflowEffective(wf)) effectiveWorkflowUids.add(wf.uid);
+    if (!isWorkflowEffective(wf)) continue;
+    if (knownRequestUids !== null && !workflowStepsResolvable(wf, knownRequestUids)) continue;
+    effectiveWorkflowUids.add(wf.uid);
   }
 
   const now = Date.now();

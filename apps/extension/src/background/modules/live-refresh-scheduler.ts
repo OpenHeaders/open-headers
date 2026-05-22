@@ -62,7 +62,12 @@ import {
   onActiveEnvironmentChange,
   onEnvironmentStoreChange,
 } from '@openheaders/oracle/entity/environment-store';
-import { getRequest, getRequestCollections, onRequestStoreChange } from '@openheaders/oracle/entity/request-store';
+import {
+  getRequest,
+  getRequestCollections,
+  isRequestStoreHydrated,
+  onRequestStoreChange,
+} from '@openheaders/oracle/entity/request-store';
 import {
   clearWorkflowRunCache,
   clearWorkflowRunCacheForEnvironment,
@@ -222,6 +227,15 @@ export function canScheduleWorkflow(workflow: LiveWorkflow, boundVariables: Live
   if (!isWorkflowEffective(workflow)) return false;
   const hasEffectiveBinding = boundVariables.some((v) => isLiveVariableEffective(v));
   if (!hasEffectiveBinding) return false;
+  // A step whose backing request was deleted can never run — drop the
+  // workflow from scheduling rather than firing alarms that fail every
+  // cycle. Skipped until the request store has hydrated (cold-wake
+  // window) so a transient empty store never strips a live alarm.
+  if (isRequestStoreHydrated()) {
+    for (const step of workflow.steps) {
+      if (step.requestUid.length > 0 && !getRequest(step.requestUid)) return false;
+    }
+  }
   return true;
 }
 
