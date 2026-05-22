@@ -28,8 +28,7 @@ import {
   invalidateAllWorkspaceOrgCache,
   setWorkspaceOrgResolver,
 } from '@openheaders/core/sync';
-import type { Rule, TreeNode } from '@openheaders/core/types';
-import type { PauseMarker } from '@openheaders/core/utils';
+import type { TreeNode } from '@openheaders/core/types';
 import { isRuleEffective } from '@openheaders/core/utils';
 import {
   getActiveEnvironmentId,
@@ -273,6 +272,12 @@ registerInboundFrameHandler(handleIncomingMutationFrame);
 registerInboundFrameHandler(handleIncomingAwarenessFrame);
 
 subscribeOnWebSocketOpen(() => {
+  // A fresh transport socket is a fresh handshake session. Reset the
+  // initiator before `start()` so a prior socket's terminal state
+  // (e.g. `aborted` from a HELLO that lost a connect race) cannot wedge
+  // this one — the close-side reset only fires for a socket that had
+  // already connected, so it can't be relied on as the sole boundary.
+  syncHandshakeInitiator.reset();
   void syncHandshakeInitiator.start();
 });
 subscribeOnWebSocketClose(() => {
@@ -1035,18 +1040,16 @@ self.addEventListener('offline', () => {
   logger.info('Background', 'Network offline — refreshes in flight will likely fail and enter backoff');
 });
 
-function syncBackendConnectionGate(): void {
-  const enabled = shouldAttemptBackendConnection();
-  applyWsReconnectAlarm(enabled);
-  // Flipping a gate on shouldn't leave the user waiting up to 30 s for
-  // the first reconnect-alarm tick. `connectWebSocket` is idempotent
-  // (bails if already connected / connecting) so calling unconditionally
-  // is safe — the function itself re-checks `mode` + `autoConnect`
-  // before actually opening a socket.
-  if (enabled) void connectWebSocket();
+// Keep the `wsReconnect` SW-eviction safety-net alarm in lockstep with
+// whether a backend connection is wanted. The connection itself —
+// including the immediate (re)connect on a setting flip — is owned
+// solely by `websocket.ts`, which subscribes to the same settings and
+// drives the transport directly; this gate touches only the alarm.
+function syncWsReconnectAlarm(): void {
+  applyWsReconnectAlarm(shouldAttemptBackendConnection());
 }
-subscribeKey('backend.autoConnect', syncBackendConnectionGate);
-subscribeKey('backend.mode', syncBackendConnectionGate);
+subscribeKey('backend.autoConnect', syncWsReconnectAlarm);
+subscribeKey('backend.mode', syncWsReconnectAlarm);
 
 alarms!.onAlarm.addListener(async (alarm: chrome.alarms.Alarm) => {
   // Fast path — alarms that don't depend on hydrated in-memory state

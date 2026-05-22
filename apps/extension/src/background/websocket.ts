@@ -1,15 +1,23 @@
 /**
- * WebSocket connection management — connects to the desktop app
- * and receives resolved rules.
+ * WebSocket wiring — the thin shell around {@link createTransportConnection}.
+ *
+ * The transport state machine (`transport-connection.ts`) owns the
+ * socket lifecycle: probe, open, ping, backoff, the protocol latch.
+ * This module owns everything *around* the socket — inbound frame
+ * routing, the open/close subscriber fan-out, sync-status reporting —
+ * and is the single owner of the settings that decide *whether* a
+ * connection is wanted (`backend.url` / `mode` / `authToken` /
+ * `autoConnect`). Every one of those funnels through `scheduleReconnect`
+ * here; no other module opens sockets.
  */
 
-import { PROTOCOL_INCOMPATIBLE_CLOSE_CODE, PROTOCOL_VERSION } from '@openheaders/core/protocol';
 import { report as reportStatus } from '@openheaders/ui/shared/status';
 import { get as getSetting, subscribeKey } from '@openheaders/ui/workbench/settings/store';
 import { broadcast } from '@utils/bridge';
 import { isSafari } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { adaptWebSocketUrl, safariPreCheck } from './safari-websocket-adapter';
+import { createTransportConnection } from './transport-connection';
 
 // ── Configuration (live from settings store) ─────────────────────
 
@@ -17,67 +25,10 @@ function getWsServerUrl(): string {
   return getSetting('backend.url');
 }
 
-function getReconnectDelayMs(): number {
-  return getSetting('backend.reconnectDelayMs');
-}
-
-function getMaxReconnectDelayMs(): number {
-  return getSetting('backend.maxReconnectDelayMs');
-}
-
-// ── State ─────────────────────────────────────────────────────────
-
-let socket: WebSocket | null = null;
-let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-let pingTimer: ReturnType<typeof setInterval> | null = null;
-let isConnecting = false;
-let isConnected = false;
-let reconnectAttempts = 0;
-// Set once the desktop app has rejected this build's protocol version.
-// Suppresses the reconnect loop until either the extension updates
-// (extension restart wipes this) or the setting URL changes.
-let protocolIncompatible = false;
-
-// ── Keep-alive ────────────────────────────────────────────────────
-//
-// Strict corporate proxies and idle-timeouts will silently kill a WS
-// connection that sees no traffic. A periodic application-level ping
-// (driven by `backend.pingIntervalMs`) keeps the pipe warm
-// and gives us a fast-fail detection if the socket has been torn down
-// underneath us — `socket.send` will throw and we fall through to
-// `handleConnectionFailure`, which triggers the usual reconnect loop.
-
-function clearPingTimer(): void {
-  if (pingTimer) {
-    clearInterval(pingTimer);
-    pingTimer = null;
-  }
-}
-
-function startPingTimer(): void {
-  clearPingTimer();
-  const interval = getSetting('backend.pingIntervalMs');
-  if (interval <= 0) return;
-  pingTimer = setInterval(() => {
-    if (!socket || socket.readyState !== WebSocket.OPEN) return;
-    try {
-      socket.send(JSON.stringify({ type: 'ping', t: Date.now() }));
-    } catch (err) {
-      logger.debug('WebSocket', 'ping failed, treating as disconnect:', (err as Error).message);
-      try {
-        socket.close();
-      } catch {
-        /* ignore */
-      }
-      handleConnectionFailure();
-    }
-  }, interval);
-}
-
 // ── Connection status ─────────────────────────────────────────────
 
 function broadcastConnectionStatus(): void {
-  broadcast('connectionStatus', { connected: isConnected });
+  broadcast('connectionStatus', { connected: transport.isConnected() });
 }
 
 /**
@@ -136,9 +87,7 @@ function fireOnWebSocketClose(): void {
  *   2. mutation receiver — claims `oh.sync.mutation` + `oh.sync.mutationBatch`.
  *
  * The legacy pre-handshake `pong` (server reply to ping) is unowned
- * and silently drops out the bottom; that matches the prior
- * behavior where `handleIncomingMutationFrame` returned `false` for
- * it without surfacing.
+ * and silently drops out the bottom.
  */
 type InboundFrameHandler = (frame: unknown) => boolean | Promise<boolean>;
 const inboundFrameHandlers: InboundFrameHandler[] = [];
@@ -151,6 +100,17 @@ export function registerInboundFrameHandler(handler: InboundFrameHandler): () =>
   };
 }
 
+async function routeInboundFrame(frame: unknown): Promise<void> {
+  for (const handler of [...inboundFrameHandlers]) {
+    try {
+      const handled = await handler(frame);
+      if (handled) return;
+    } catch (err) {
+      logger.warn('WebSocket', 'inbound frame handler threw', err);
+    }
+  }
+}
+
 /**
  * Mirror the socket's state into the `sync` Status subsystem.
  *
@@ -158,6 +118,7 @@ export function registerInboundFrameHandler(handler: InboundFrameHandler): () =>
  *   - mode = in-browser → green "Running in this browser" (the SW IS the back-end)
  *   - autoConnect OFF   → green "Back-end sync disabled" (user opted out, not a failure)
  *   - autoConnect ON + connected → green "Connected to back-end"
+ *   - autoConnect ON + URL rejected → yellow "Desktop URL rejected by settings"
  *   - autoConnect ON + disconnected + attempts=0 → yellow "Connecting…"
  *   - autoConnect ON + disconnected + attempts>0 → yellow "Reconnecting (attempt N)"
  */
@@ -178,7 +139,7 @@ function reportSyncStatus(): void {
     });
     return;
   }
-  if (isConnected) {
+  if (transport.isConnected()) {
     reportStatus({
       subsystem: 'sync',
       state: 'green',
@@ -186,7 +147,15 @@ function reportSyncStatus(): void {
     });
     return;
   }
-  const attempts = reconnectAttempts;
+  if (!getWsServerUrl()) {
+    reportStatus({
+      subsystem: 'sync',
+      state: 'yellow',
+      message: 'Desktop URL rejected by settings',
+    });
+    return;
+  }
+  const attempts = transport.reconnectAttempts();
   reportStatus({
     subsystem: 'sync',
     state: 'yellow',
@@ -195,68 +164,7 @@ function reportSyncStatus(): void {
   });
 }
 
-// ── Message handling ──────────────────────────────────────────────
-//
-// Inbound frames route through the mutation-stream receiver
-// (C8). Frames that don't match a known mutation kind are dropped
-// silently — the pre-handshake `pong` is the only other expected
-// inbound message in v1, and the C8 receiver ignores it by
-// returning `false` from `handleIncomingMutationFrame`.
-
-function createMessageHandler(): (event: MessageEvent) => void {
-  return (event: MessageEvent) => {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(event.data as string);
-    } catch (err) {
-      logger.warn('WebSocket', 'Error parsing message:', err);
-      return;
-    }
-    void routeInboundFrame(parsed);
-  };
-}
-
-async function routeInboundFrame(frame: unknown): Promise<void> {
-  for (const handler of [...inboundFrameHandlers]) {
-    try {
-      const handled = await handler(frame);
-      if (handled) return;
-    } catch (err) {
-      logger.warn('WebSocket', 'inbound frame handler threw', err);
-    }
-  }
-}
-
-// ── Connection management ─────────────────────────────────────────
-
-function handleConnectionFailure(): void {
-  const wasConnected = isConnected;
-  socket = null;
-  isConnecting = false;
-  isConnected = false;
-  clearPingTimer();
-  broadcastConnectionStatus();
-  if (wasConnected) fireOnWebSocketClose();
-
-  if (reconnectTimer) clearTimeout(reconnectTimer);
-
-  // Auto-connect off → don't schedule a reconnect. A failed manual
-  // connect should NOT silently transition into a retry loop.
-  if (!getSetting('backend.autoConnect')) {
-    reconnectAttempts = 0;
-    reportSyncStatus();
-    return;
-  }
-
-  reconnectAttempts++;
-  reportSyncStatus();
-  const delay = Math.min(getReconnectDelayMs() * 2 ** (reconnectAttempts - 1), getMaxReconnectDelayMs());
-
-  logger.debug('WebSocket', `Scheduling reconnection attempt ${reconnectAttempts} in ${delay}ms`);
-  reconnectTimer = setTimeout(() => {
-    void connectWebSocket();
-  }, delay);
-}
+// ── Reachability probe ────────────────────────────────────────────
 
 async function checkServerReachable(wsUrl: string): Promise<boolean> {
   try {
@@ -271,170 +179,88 @@ async function checkServerReachable(wsUrl: string): Promise<boolean> {
   }
 }
 
-function connectStandardWebSocket(url: string): void {
-  const log = reconnectAttempts === 0 ? logger.info : logger.debug;
-  log.call(logger, 'WebSocket', 'Starting WebSocket connection:', url);
+// ── Transport ─────────────────────────────────────────────────────
 
-  checkServerReachable(url).then((isReachable) => {
-    if (!isReachable) {
-      logger.debug('WebSocket', 'Server not reachable, will retry');
-      handleConnectionFailure();
+const transport = createTransportConnection({
+  getUrl: () => getWsServerUrl() || null,
+  shouldConnect: shouldAttemptBackendConnection,
+  getReconnectDelayMs: () => getSetting('backend.reconnectDelayMs'),
+  getMaxReconnectDelayMs: () => getSetting('backend.maxReconnectDelayMs'),
+  getPingIntervalMs: () => getSetting('backend.pingIntervalMs'),
+  // Safari folds its pre-check into the reachability probe and its URL
+  // adaptation into socket construction, so the transport itself stays
+  // browser-agnostic.
+  probeReachable: (url) => (isSafari ? safariPreCheck(url) : checkServerReachable(url)),
+  createSocket: (url) => new WebSocket(isSafari ? adaptWebSocketUrl(url) : url),
+  onOpen: () => {
+    logger.info('WebSocket', 'Connected successfully');
+    broadcastConnectionStatus();
+    reportSyncStatus();
+    // Subscribers fire after status reporting so any handler reading
+    // wire state observes a consistent view. The handshake initiator
+    // drives HELLO + STATE_VECTOR from here.
+    fireOnWebSocketOpen();
+  },
+  onClose: (info) => {
+    logger.info('WebSocket', 'Connection closed');
+    broadcastConnectionStatus();
+    if (info.protocolIncompatible) {
+      reportStatus({
+        subsystem: 'sync',
+        state: 'red',
+        message: 'Desktop app speaks a newer protocol — update extension',
+        context: { closeCode: info.code, reason: info.reason },
+      });
+    } else {
+      reportSyncStatus();
+    }
+    if (info.wasOpen) fireOnWebSocketClose();
+  },
+  onMessage: (data) => {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(data);
+    } catch (err) {
+      logger.warn('WebSocket', 'Error parsing message:', err);
       return;
     }
-
-    let connectionTimeout: ReturnType<typeof setTimeout> | undefined;
-    try {
-      connectionTimeout = setTimeout(() => {
-        logger.debug('WebSocket', 'Connection timed out');
-        handleConnectionFailure();
-      }, 3000);
-
-      socket = new WebSocket(url);
-
-      socket.onerror = () => {
-        clearTimeout(connectionTimeout);
-        logger.debug('WebSocket', 'Connection issue detected');
-      };
-
-      socket.onopen = () => {
-        clearTimeout(connectionTimeout);
-        logger.info('WebSocket', 'Connected successfully');
-        isConnecting = false;
-        isConnected = true;
-        reconnectAttempts = 0;
-        broadcastConnectionStatus();
-        reportSyncStatus();
-        startPingTimer();
-        // Subscribers fire after status reporting + ping timer so any
-        // handler reading wire state observes a consistent view. The
-        // handshake initiator drives HELLO + STATE_VECTOR from here.
-        fireOnWebSocketOpen();
-      };
-
-      socket.onmessage = createMessageHandler();
-
-      socket.onclose = (event?: CloseEvent) => {
-        clearTimeout(connectionTimeout);
-        if (event?.code === PROTOCOL_INCOMPATIBLE_CLOSE_CODE) {
-          logger.warn('WebSocket', `Desktop rejected protocol v${PROTOCOL_VERSION}: ${event.reason || 'no reason'}`);
-          protocolIncompatible = true;
-          socket = null;
-          isConnecting = false;
-          isConnected = false;
-          clearPingTimer();
-          if (reconnectTimer) clearTimeout(reconnectTimer);
-          reconnectAttempts = 0;
-          broadcastConnectionStatus();
-          reportStatus({
-            subsystem: 'sync',
-            state: 'red',
-            message: 'Desktop app speaks a newer protocol — update extension',
-            context: { closeCode: event.code, reason: event.reason },
-          });
-          return;
-        }
-        logger.info('WebSocket', 'Connection closed');
-        handleConnectionFailure();
-      };
-    } catch (_e) {
-      clearTimeout(connectionTimeout);
-      logger.debug('WebSocket', 'Error creating connection');
-      handleConnectionFailure();
-    }
-  });
-}
+    void routeInboundFrame(parsed);
+  },
+  onStateChange: () => reportSyncStatus(),
+});
 
 // ── Public API ────────────────────────────────────────────────────
 
+/**
+ * Ensure a backend connection exists if one is wanted. Idempotent —
+ * the transport coalesces concurrent / repeat calls down to one socket.
+ * Used by initial boot and the `wsReconnect` SW-eviction safety-net
+ * alarm.
+ */
 export function connectWebSocket(): Promise<boolean> {
-  // `in-browser` mode means the extension's own service worker is the
-  // back-end — no external host to reach. Skip the wire entirely.
-  if (getSetting('backend.mode') === 'in-browser') {
-    reportSyncStatus();
-    return Promise.resolve(false);
-  }
-  // Single autoConnect chokepoint. Every entry path — initial boot,
-  // `wsReconnect` alarm, URL-change subscriber, reconnect scheduler,
-  // autoConnect-flip subscriber — funnels through here. If the user
-  // has Auto-Connect off, no path can sneak a socket open. Previously
-  // each call site had to remember to gate, and the URL-change
-  // subscriber + reconnect-on-failure both bypassed it.
-  if (!getSetting('backend.autoConnect')) {
-    reportSyncStatus();
-    return Promise.resolve(false);
-  }
-
-  if (protocolIncompatible) return Promise.resolve(false);
-  if (socket && socket.readyState === WebSocket.OPEN) return Promise.resolve(true);
-  if (isConnecting) return Promise.resolve(false);
-
-  const url = getWsServerUrl();
-  if (!url) {
-    // Settings rejected the URL (e.g. requireTls violation). Don't
-    // schedule a reconnect until the setting changes.
-    reportStatus({
-      subsystem: 'sync',
-      state: 'yellow',
-      message: 'Desktop URL rejected by settings',
-    });
-    return Promise.resolve(false);
-  }
-
-  isConnecting = true;
-
-  return new Promise<boolean>((resolve) => {
-    if (isSafari) {
-      safariPreCheck(url).then((canConnect) => {
-        if (canConnect) {
-          connectStandardWebSocket(adaptWebSocketUrl(url));
-        } else {
-          handleConnectionFailure();
-        }
-        resolve(canConnect);
-      });
-    } else {
-      connectStandardWebSocket(url);
-      resolve(true);
-    }
-  });
+  // Report explicitly: the pill message depends on `mode` / `autoConnect`
+  // / `url`, and `ensureConnected()` may not move the transport's state
+  // (e.g. autoConnect off keeps the machine idle), so `onStateChange`
+  // alone would not refresh a settings-derived message.
+  reportSyncStatus();
+  transport.ensureConnected();
+  return Promise.resolve(transport.isConnected());
 }
 
 /**
- * Force-close the current connection and (if autoConnect is on) start
- * a fresh one. Used when `backend.url` or TLS requirement
- * changes at runtime. The connect call itself enforces the autoConnect
- * gate, so passing through here when the setting is off cleanly tears
- * down the old socket without opening a new one.
+ * Force-close the current connection and (if a connection is still
+ * wanted) start a fresh one. Funnels every `backend.*` settings change
+ * that invalidates the current socket.
  */
 export function reconnectWebSocket(): void {
-  if (reconnectTimer) {
-    clearTimeout(reconnectTimer);
-    reconnectTimer = null;
-  }
-  if (socket) {
-    try {
-      socket.close();
-    } catch {
-      // ignore
-    }
-    socket = null;
-  }
-  isConnected = false;
-  isConnecting = false;
-  reconnectAttempts = 0;
-  // URL change is the user reacting to a problem — clear the
-  // incompatibility latch so they can re-try (e.g. after updating
-  // the desktop app or pointing at a different host).
-  protocolIncompatible = false;
-  void connectWebSocket();
+  transport.reconnect();
 }
 
-// U6.8 — a mode-switch commit writes `backend.mode` + `backend.url`
-// (+ `backend.authToken`) in one synchronous burst; reconnecting per
-// key would open and kill two or three sockets back-to-back, each
-// logging a spurious `HELLO send failed — wire gone` as it dies
-// mid-handshake. Coalesce the burst into a single reconnect on the
-// microtask after the writes settle.
+// A mode-switch commit writes `backend.mode` + `backend.url` (+
+// `backend.authToken`) in one synchronous burst; reconnecting per key
+// would tear down and re-open two or three sockets back-to-back.
+// Coalesce the burst into a single reconnect on the microtask after
+// the writes settle.
 let reconnectQueued = false;
 function scheduleReconnect(): void {
   if (reconnectQueued) return;
@@ -445,27 +271,33 @@ function scheduleReconnect(): void {
   });
 }
 
-// Any change to the back-end URL forces a reconnect against the new endpoint.
-subscribeKey('backend.url', scheduleReconnect);
-// Auth-token change reflects a fresh pairing (or revoke) — re-handshake
-// so the next HELLO carries the new token (U3.2).
-subscribeKey('backend.authToken', scheduleReconnect);
-// Mode changes (in-browser ↔ desktop-app / daemon / remote) require a
-// transport flip — tear down the current socket and let `connectWebSocket`
-// re-evaluate. `in-browser` short-circuits early so we close cleanly.
-subscribeKey('backend.mode', scheduleReconnect);
-// Ping interval changes take effect on the next tick without a reconnect —
-// restart the timer with the new cadence.
-subscribeKey('backend.pingIntervalMs', () => {
-  if (isConnected) startPingTimer();
-});
+// A connection-shaping setting changed: re-evaluate the transport, and
+// refresh the status pill alongside — its message depends on `mode` /
+// `autoConnect` / `url` directly, and flipping one of those may leave
+// the transport in the same state (so `onStateChange` would not fire).
+function onConnectionSettingsChanged(): void {
+  reportSyncStatus();
+  scheduleReconnect();
+}
+
+// Single owner of every connection-triggering setting. `backend.url` /
+// `mode` / `authToken` invalidate the current endpoint; `autoConnect`
+// flips whether a connection is wanted at all — `transport.reconnect`
+// handles both directions (it re-evaluates `shouldConnect` and stays
+// idle when the answer is "no"). Previously `autoConnect` was owned by
+// a second subscriber in `background.ts` that *also* opened sockets, so
+// a `backend.mode` change raced two connect paths into two sockets.
+subscribeKey('backend.url', onConnectionSettingsChanged);
+subscribeKey('backend.authToken', onConnectionSettingsChanged);
+subscribeKey('backend.mode', onConnectionSettingsChanged);
+subscribeKey('backend.autoConnect', onConnectionSettingsChanged);
+// Ping cadence changes take effect on the next tick without a reconnect.
+subscribeKey('backend.pingIntervalMs', () => transport.restartPing());
 
 /**
  * Should the extension attempt a real back-end connection given the
  * current settings? `in-browser` mode means there's nothing to connect
- * to; `autoConnect=false` means the user opted out. Other call sites
- * use this to gate alarms / re-subscriptions so they stay idle when
- * the wire isn't wanted.
+ * to; `autoConnect=false` means the user opted out.
  */
 export function shouldAttemptBackendConnection(): boolean {
   if (getSetting('backend.mode') === 'in-browser') return false;
@@ -473,26 +305,17 @@ export function shouldAttemptBackendConnection(): boolean {
 }
 
 export function isWebSocketConnected(): boolean {
-  return isConnected && socket !== null && socket.readyState === WebSocket.OPEN;
+  return transport.isConnected();
 }
 
 export function isWebSocketConnecting(): boolean {
-  return isConnecting;
+  return transport.isConnecting();
 }
 
 export function getReconnectAttempts(): number {
-  return reconnectAttempts;
+  return transport.reconnectAttempts();
 }
 
 export function sendViaWebSocket(data: Record<string, unknown>): boolean {
-  if (socket && socket.readyState === WebSocket.OPEN) {
-    try {
-      socket.send(JSON.stringify(data));
-      return true;
-    } catch (error) {
-      logger.error('WebSocket', 'Error sending:', error);
-      return false;
-    }
-  }
-  return false;
+  return transport.send(data);
 }

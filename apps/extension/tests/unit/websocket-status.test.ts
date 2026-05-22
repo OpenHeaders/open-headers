@@ -1,3 +1,12 @@
+/**
+ * websocket.ts — sync Status subsystem wiring.
+ *
+ * The transport state machine is a module-level singleton, so each case
+ * `resetModules()` + re-imports `websocket.ts` and the status module
+ * together: a fresh import graph means a fresh transport + a status
+ * snapshot the re-imported `websocket.ts` writes into the same instance
+ * the test reads back.
+ */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 let settingsStore: Record<string, unknown> = {};
@@ -22,35 +31,74 @@ vi.mock('@utils/browser-api', () => ({
 }));
 
 vi.mock('@utils/logger', () => ({
-  logger: {
-    info: vi.fn(),
-    debug: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-  },
+  logger: { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock('@utils/bridge', () => ({
-  broadcast: vi.fn(),
-}));
+vi.mock('@utils/bridge', () => ({ broadcast: vi.fn() }));
 
 vi.mock('@/background/safari-websocket-adapter', () => ({
   adaptWebSocketUrl: vi.fn((url: string) => url),
   safariPreCheck: vi.fn(() => Promise.resolve(true)),
 }));
 
-import { __resetStatusForTests, getStatusSnapshot } from '@openheaders/ui/shared/status';
-import { connectWebSocket } from '@/background/websocket';
+/** A re-import of `websocket.ts` plus the status reader it shares. */
+async function loadWebsocket() {
+  vi.resetModules();
+  const status = await import('@openheaders/ui/shared/status');
+  status.__resetStatusForTests();
+  const { connectWebSocket } = await import('@/background/websocket');
+  return { connectWebSocket, syncEntry: () => status.getStatusSnapshot().sync };
+}
 
-function syncEntry() {
-  return getStatusSnapshot().sync;
+/** A WebSocket stand-in the transport drives via the handlers it assigns. */
+class FakeSocket {
+  static instances: FakeSocket[] = [];
+  onopen: (() => void) | null = null;
+  onerror: ((e: Event) => void) | null = null;
+  onclose: ((e?: CloseEvent) => void) | null = null;
+  onmessage: ((e: MessageEvent) => void) | null = null;
+  readyState = 0;
+  url: string;
+
+  constructor(url: string) {
+    this.url = url;
+    FakeSocket.instances.push(this);
+  }
+
+  send(): void {}
+
+  close(): void {
+    this.readyState = 3;
+    this.onclose?.();
+  }
+}
+
+/** Run `fn` with `WebSocket` + `fetch` faked so the connect path resolves. */
+async function withFakeSocket<T>(fn: () => Promise<T>): Promise<T> {
+  FakeSocket.instances = [];
+  const prevWS = globalThis.WebSocket;
+  const prevFetch = globalThis.fetch;
+  globalThis.WebSocket = FakeSocket as unknown as typeof WebSocket;
+  globalThis.fetch = vi.fn(() => Promise.resolve(new Response())) as typeof fetch;
+  try {
+    return await fn();
+  } finally {
+    globalThis.WebSocket = prevWS;
+    globalThis.fetch = prevFetch;
+  }
+}
+
+/** Let the `probeReachable` → `openSocket` async chain settle. */
+async function flushMicrotasks(): Promise<void> {
+  await new Promise((r) => setTimeout(r, 0));
+  await new Promise((r) => setTimeout(r, 0));
 }
 
 describe('websocket sync Status subsystem', () => {
   beforeEach(() => {
-    __resetStatusForTests();
     settingsStore = {
       'backend.autoConnect': true,
+      'backend.mode': 'desktop-app',
       'backend.url': 'ws://127.0.0.1:8137',
       'backend.reconnectDelayMs': 1000,
       'backend.maxReconnectDelayMs': 30000,
@@ -59,115 +107,60 @@ describe('websocket sync Status subsystem', () => {
     vi.clearAllMocks();
   });
 
-  afterEach(() => {
-    __resetStatusForTests();
+  afterEach(async () => {
+    const status = await import('@openheaders/ui/shared/status');
+    status.__resetStatusForTests();
   });
 
   it('reports green "Back-end sync disabled" when autoConnect is off', async () => {
     settingsStore['backend.autoConnect'] = false;
+    const { connectWebSocket, syncEntry } = await loadWebsocket();
     const result = await connectWebSocket();
     expect(result).toBe(false);
-    const entry = syncEntry();
-    expect(entry?.state).toBe('green');
-    expect(entry?.message).toBe('Back-end sync disabled');
+    expect(syncEntry()?.state).toBe('green');
+    expect(syncEntry()?.message).toBe('Back-end sync disabled');
   });
 
-  it('reports yellow "URL rejected" when settings returns empty url', async () => {
+  it('reports yellow "URL rejected" when settings returns an empty url', async () => {
     settingsStore['backend.url'] = '';
+    const { connectWebSocket, syncEntry } = await loadWebsocket();
     const result = await connectWebSocket();
     expect(result).toBe(false);
-    const entry = syncEntry();
-    expect(entry?.state).toBe('yellow');
-    expect(entry?.message).toBe('Desktop URL rejected by settings');
+    expect(syncEntry()?.state).toBe('yellow');
+    expect(syncEntry()?.message).toBe('Desktop URL rejected by settings');
   });
 
   it('reports green "Connected to back-end" when the socket opens', async () => {
-    const fakeSockets: FakeSocket[] = [];
-    class FakeSocket {
-      onopen: (() => void) | null = null;
-      onerror: ((e: Event) => void) | null = null;
-      onclose: (() => void) | null = null;
-      onmessage: ((e: MessageEvent) => void) | null = null;
-      readyState = 0;
-      url: string;
-      constructor(url: string) {
-        this.url = url;
-        fakeSockets.push(this);
-      }
-      send(): void {}
-      close(): void {
-        this.readyState = 3;
-        this.onclose?.();
-      }
-    }
-    const prevWS = globalThis.WebSocket;
-    const prevFetch = globalThis.fetch;
-    globalThis.WebSocket = FakeSocket as unknown as typeof WebSocket;
-    globalThis.fetch = vi.fn(() => Promise.resolve(new Response())) as typeof fetch;
-
-    try {
+    const { connectWebSocket, syncEntry } = await loadWebsocket();
+    await withFakeSocket(async () => {
       await connectWebSocket();
-      // Let the `checkServerReachable` → `connectStandardWebSocket` chain resolve.
-      await new Promise((r) => setTimeout(r, 0));
-      await new Promise((r) => setTimeout(r, 0));
-      expect(fakeSockets).toHaveLength(1);
-      fakeSockets[0].readyState = 1;
-      fakeSockets[0].onopen?.();
-      const entry = syncEntry();
-      expect(entry?.state).toBe('green');
-      expect(entry?.message).toBe('Connected to back-end');
-    } finally {
-      globalThis.WebSocket = prevWS;
-      globalThis.fetch = prevFetch;
-    }
+      await flushMicrotasks();
+      expect(FakeSocket.instances).toHaveLength(1);
+      FakeSocket.instances[0].readyState = 1;
+      FakeSocket.instances[0].onopen?.();
+      expect(syncEntry()?.state).toBe('green');
+      expect(syncEntry()?.message).toBe('Connected to back-end');
+    });
   });
 
-  it('reports yellow "Connecting…" on first failure, "Reconnecting (attempt N)" after more', async () => {
-    const fakeSockets: FakeSocket[] = [];
-    class FakeSocket {
-      onopen: (() => void) | null = null;
-      onerror: ((e: Event) => void) | null = null;
-      onclose: (() => void) | null = null;
-      onmessage: ((e: MessageEvent) => void) | null = null;
-      readyState = 0;
-      url: string;
-      constructor(url: string) {
-        this.url = url;
-        fakeSockets.push(this);
-      }
-      send(): void {}
-      close(): void {
-        this.readyState = 3;
-        this.onclose?.();
-      }
-    }
-    const prevWS = globalThis.WebSocket;
-    const prevFetch = globalThis.fetch;
-    globalThis.WebSocket = FakeSocket as unknown as typeof WebSocket;
-    globalThis.fetch = vi.fn(() => Promise.resolve(new Response())) as typeof fetch;
+  it('reports "Connecting…" on the first failure, "Reconnecting (attempt N)" after more', async () => {
+    const { connectWebSocket, syncEntry } = await loadWebsocket();
+    await withFakeSocket(async () => {
+      await connectWebSocket();
+      await flushMicrotasks();
+      expect(FakeSocket.instances.length).toBeGreaterThanOrEqual(1);
 
-    try {
+      // First close → backoff, attempts = 1.
+      FakeSocket.instances[0].close();
+      expect(syncEntry()?.state).toBe('yellow');
+      expect(syncEntry()?.message).toBe('Connecting to back-end…');
+
+      // Fast-forward the pending backoff with a fresh connect, then fail again.
       await connectWebSocket();
-      await new Promise((r) => setTimeout(r, 0));
-      await new Promise((r) => setTimeout(r, 0));
-      expect(fakeSockets.length).toBeGreaterThanOrEqual(1);
-      // First close — handleConnectionFailure runs, attempts becomes 1
-      fakeSockets[0].onclose?.();
-      let entry = syncEntry();
-      expect(entry?.state).toBe('yellow');
-      expect(entry?.message).toBe('Connecting to back-end…');
-      // Force another attempt sequence; fast-forward by directly calling connectWebSocket again
-      await connectWebSocket();
-      await new Promise((r) => setTimeout(r, 0));
-      await new Promise((r) => setTimeout(r, 0));
-      const latest = fakeSockets[fakeSockets.length - 1];
-      latest.onclose?.();
-      entry = syncEntry();
-      expect(entry?.state).toBe('yellow');
-      expect(entry?.message).toMatch(/Reconnecting \(attempt \d+\)/);
-    } finally {
-      globalThis.WebSocket = prevWS;
-      globalThis.fetch = prevFetch;
-    }
+      await flushMicrotasks();
+      FakeSocket.instances[FakeSocket.instances.length - 1].close();
+      expect(syncEntry()?.state).toBe('yellow');
+      expect(syncEntry()?.message).toMatch(/Reconnecting \(attempt \d+\)/);
+    });
   });
 });
