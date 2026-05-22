@@ -1,4 +1,16 @@
-import type { Collection, Environment, HeaderRule, LiveVariable, Rule, Variable, Vault, WorkspaceVariables } from '@openheaders/core/types';
+import { initialCircuitSnapshot } from '@openheaders/core/live';
+import type {
+  Collection,
+  Environment,
+  HeaderRule,
+  LiveVariable,
+  LiveWorkflow,
+  Rule,
+  Variable,
+  Vault,
+  WorkflowRunCache,
+  WorkspaceVariables,
+} from '@openheaders/core/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@openheaders/oracle/entity/environment-store', () => {
@@ -28,6 +40,10 @@ vi.mock('@openheaders/oracle/live/live-cache-store', () => ({
   listWorkflowRunCaches: vi.fn(() => Promise.resolve([])),
   onLiveCacheStoreChange: vi.fn(() => () => {}),
 }));
+vi.mock('@openheaders/oracle/live/live-workflow-store', () => ({
+  getLiveWorkflows: vi.fn(() => [] as LiveWorkflow[]),
+  getLiveWorkflowsForWorkspace: vi.fn(() => [] as LiveWorkflow[]),
+}));
 
 import {
   getActiveEnvironmentId,
@@ -35,12 +51,16 @@ import {
   getVault,
   getWorkspaceVariables,
 } from '@openheaders/oracle/entity/environment-store';
+import { getLiveVariables } from '@openheaders/oracle/live/live-variable-store';
+import { listWorkflowRunCaches } from '@openheaders/oracle/live/live-cache-store';
+import { getLiveWorkflows } from '@openheaders/oracle/live/live-workflow-store';
 import { getCollections, getRules } from '@openheaders/oracle/entity/rule-store';
 import {
   __resetForTests,
   getLastAggregatedResolutionErrors,
   getLastResolutionErrors,
   getResolvedRules,
+  hydrateLiveCacheMirror,
   resolveRulesForCompile,
 } from '@openheaders/oracle/rule-engine/variables-resolver';
 
@@ -50,6 +70,9 @@ const mockWsVars = getWorkspaceVariables as ReturnType<typeof vi.fn>;
 const mockVault = getVault as ReturnType<typeof vi.fn>;
 const mockCollections = getCollections as ReturnType<typeof vi.fn>;
 const mockStoreRules = getRules as ReturnType<typeof vi.fn>;
+const mockLiveVars = getLiveVariables as ReturnType<typeof vi.fn>;
+const mockLiveWorkflows = getLiveWorkflows as ReturnType<typeof vi.fn>;
+const mockListCaches = listWorkflowRunCaches as ReturnType<typeof vi.fn>;
 
 // ── Helpers ────────────────────────────────────────────────────────
 
@@ -83,6 +106,9 @@ describe('VariablesResolver (extension)', () => {
     mockVault.mockReturnValue({ schemaVersion: 5, secrets: [] });
     mockCollections.mockReturnValue([]);
     mockStoreRules.mockReturnValue([]);
+    mockLiveVars.mockReturnValue([]);
+    mockLiveWorkflows.mockReturnValue([]);
+    mockListCaches.mockResolvedValue([]);
   });
 
   it('resolves workspace variable when no higher scope defines it', () => {
@@ -352,6 +378,125 @@ describe('VariablesResolver (extension)', () => {
       // Subset compile — snapshot must NOT be replaced with the partial view.
       resolveRulesForCompile([r1]);
       expect(getLastResolutionErrors().size).toBe(2);
+    });
+  });
+
+  // ── {{live.X}} resolution gated by workflow effectiveness (LF3) ────
+  describe('live-variable resolution — backing workflow effectiveness (LF3)', () => {
+    function liveVar(overrides: Partial<LiveVariable> = {}): LiveVariable {
+      return {
+        schemaVersion: 5,
+        uid: 'livvar01',
+        path: 'live-variables/lv-livvar01',
+        name: 'LIVETOKEN',
+        workflowUid: 'wflowAAA',
+        stepId: 'fetch',
+        captureName: 'v',
+        enabled: true,
+        published: true,
+        ...overrides,
+      };
+    }
+
+    function liveWorkflow(overrides: Partial<LiveWorkflow> = {}): LiveWorkflow {
+      return {
+        schemaVersion: 5,
+        uid: 'wflowAAA',
+        path: 'live-workflows/wf-wflowAAA',
+        name: 'WF',
+        enabled: true,
+        published: true,
+        refresh: { kind: 'interval', seconds: 300 },
+        steps: [
+          {
+            uid: 'stpfetch',
+            id: 'fetch',
+            requestUid: 'reqfetch1',
+            captures: [{ uid: 'capvxxxx', name: 'v', extractor: { kind: 'whole-body' } }],
+          },
+        ],
+        ...overrides,
+      };
+    }
+
+    function cachedRun(): WorkflowRunCache {
+      return {
+        workflowUid: 'wflowAAA',
+        environmentId: null,
+        stepCaptures: { fetch: { v: 'cached-token' } },
+        stepResponseBytes: { fetch: 10 },
+        extractedAt: 1_700_000_000_000,
+        expiresAt: null,
+        consecutiveFailures: 0,
+        lastExtractorOk: true,
+        circuit: initialCircuitSnapshot(),
+      };
+    }
+
+    function liveRule(): HeaderRule {
+      return makeHeaderRule({
+        uid: 'r1',
+        path: 'rules/my-coll-abcd/r1',
+        action: {
+          requestHeaders: [
+            { uid: 'thm00105', operation: 'override', headerName: 'Authorization', value: 'Bearer {{live.LIVETOKEN}}' },
+          ],
+          responseHeaders: [],
+        },
+      });
+    }
+
+    it('resolves {{live.X}} when the backing workflow is effective', async () => {
+      mockLiveVars.mockReturnValue([liveVar()]);
+      mockLiveWorkflows.mockReturnValue([liveWorkflow()]);
+      mockListCaches.mockResolvedValue([cachedRun()]);
+      await hydrateLiveCacheMirror();
+
+      const [resolved] = resolveRulesForCompile([liveRule()]) as HeaderRule[];
+      expect(resolved.action.requestHeaders?.[0].value).toBe('Bearer cached-token');
+    });
+
+    it('does not feed a cached value when the backing workflow is disabled', async () => {
+      mockLiveVars.mockReturnValue([liveVar()]);
+      mockLiveWorkflows.mockReturnValue([liveWorkflow({ enabled: false })]);
+      mockListCaches.mockResolvedValue([cachedRun()]);
+      await hydrateLiveCacheMirror();
+
+      resolveRulesForCompile([liveRule()]);
+      // LV skipped → `{{live.LIVETOKEN}}` unresolved → the rule is blocked.
+      expect(getLastResolutionErrors().get('r1')?.length ?? 0).toBeGreaterThan(0);
+    });
+
+    it('does not feed a cached value when the backing workflow is an unpublished draft', async () => {
+      mockLiveVars.mockReturnValue([liveVar()]);
+      mockLiveWorkflows.mockReturnValue([liveWorkflow({ published: false })]);
+      mockListCaches.mockResolvedValue([cachedRun()]);
+      await hydrateLiveCacheMirror();
+
+      resolveRulesForCompile([liveRule()]);
+      expect(getLastResolutionErrors().get('r1')?.length ?? 0).toBeGreaterThan(0);
+    });
+
+    it('does not feed a cached value when the backing workflow no longer exists', async () => {
+      mockLiveVars.mockReturnValue([liveVar()]);
+      mockLiveWorkflows.mockReturnValue([]);
+      mockListCaches.mockResolvedValue([cachedRun()]);
+      await hydrateLiveCacheMirror();
+
+      resolveRulesForCompile([liveRule()]);
+      expect(getLastResolutionErrors().get('r1')?.length ?? 0).toBeGreaterThan(0);
+    });
+
+    it('still serves a manual override when the backing workflow is disabled', async () => {
+      // An override is a user-set value independent of workflow execution —
+      // disabling the workflow stops the cache feed, not the override.
+      mockLiveVars.mockReturnValue([liveVar({ manualOverride: { value: 'override-token' } })]);
+      mockLiveWorkflows.mockReturnValue([liveWorkflow({ enabled: false })]);
+      mockListCaches.mockResolvedValue([cachedRun()]);
+      await hydrateLiveCacheMirror();
+
+      const [resolved] = resolveRulesForCompile([liveRule()]) as HeaderRule[];
+      expect(resolved.action.requestHeaders?.[0].value).toBe('Bearer override-token');
     });
   });
 });

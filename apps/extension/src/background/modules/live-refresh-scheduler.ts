@@ -699,6 +699,57 @@ async function refreshWorkflowsForChangedVariables(changed: ReadonlyArray<Change
   }
 }
 
+// ── Definitional-freshness — workflow-delete cascade-purge (LF3) ───
+//
+// Deleting a live workflow leaves its `liveCache` rows orphaned: a
+// bound `{{live.X}}` would otherwise resolve a frozen, never-refreshed
+// value forever — the workflow that minted it no longer exists, so the
+// cadence timer never reaches it. A deleted workflow must therefore
+// cascade-purge every env-keyed cache row it owns.
+//
+// Detection mirrors LF1/LF2: a `Set<uid>` baseline of the active
+// workspace's workflows, self-primed off the first store-change
+// broadcast (hydration always precedes a human delete). A uid present
+// in the baseline but absent from the current set is a delete →
+// `clearWorkflowRunCache` drops its rows. The baseline is workspace-
+// tagged because `getLiveWorkflows()` is the active-workspace view: a
+// workspace switch swaps the whole set, so the diff re-primes silently
+// instead of purging every old-workspace uid as if it were deleted.
+
+let workflowUidBaseline: { workspaceId: string; uids: Set<string> } | null = null;
+
+/** Test-only: drop the workflow-uid baseline so the next change re-primes. */
+export function __resetWorkflowDeleteBaseline(): void {
+  workflowUidBaseline = null;
+}
+
+/** Diff the active workspace's workflow uids; purge cache rows for any that vanished. */
+function settleWorkflowDeleteCascade(): void {
+  let workspaceId: string;
+  try {
+    workspaceId = getActiveWorkspaceId();
+  } catch {
+    return; // bootstrap race — workspace pointer not hydrated yet
+  }
+  const current = new Set(getLiveWorkflows().map((w) => w.uid));
+  // First sight, or a workspace switch — adopt the new set without a
+  // purge (any vanished uid belongs to the other workspace, not a delete).
+  if (!workflowUidBaseline || workflowUidBaseline.workspaceId !== workspaceId) {
+    workflowUidBaseline = { workspaceId, uids: current };
+    return;
+  }
+  const deleted: string[] = [];
+  for (const uid of workflowUidBaseline.uids) {
+    if (!current.has(uid)) deleted.push(uid);
+  }
+  workflowUidBaseline = { workspaceId, uids: current };
+  for (const uid of deleted) {
+    void clearWorkflowRunCache(uid, workspaceId).catch((err) => {
+      logger.info('LiveScheduler', `workflow-delete cache purge failed for ${uid}: ${(err as Error).message}`);
+    });
+  }
+}
+
 // ── Provider — fills in the subsystem-specific bits ───────────────
 
 const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | null> = {
@@ -833,7 +884,14 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
       onVariableStoreChangeForRefresh();
     };
     const unsubscribers: Array<() => void> = [
-      onLiveWorkflowStoreChange(combined),
+      // A workflow-store change drives the shared reconcile plus the
+      // LF3 delete-cascade: a workflow that vanished since the last
+      // pass had its `liveCache` rows purged so a bound `{{live.X}}`
+      // can't resolve a frozen orphaned value.
+      onLiveWorkflowStoreChange(() => {
+        combined();
+        settleWorkflowDeleteCascade();
+      }),
       onLiveVariableStoreChange(combined),
       onLiveCacheStoreChange(combined),
       // A request edit drives three things. (1) It can add or drop a
@@ -869,6 +927,7 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
         variableEditDebounceTimer = null;
       }
       variableSurfaceBaseline = new Map();
+      workflowUidBaseline = null;
     };
   },
   onFired(payload) {

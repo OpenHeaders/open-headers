@@ -22,8 +22,8 @@
  * should have one) resolve without a collection scope.
  */
 
-import { isLiveVariableEffective, scanTemplateReferencesMany } from '@openheaders/core/live';
-import type { Collection, LiveVariable, Rule } from '@openheaders/core/types';
+import { isLiveVariableEffective, isWorkflowEffective, scanTemplateReferencesMany } from '@openheaders/core/live';
+import type { Collection, LiveVariable, LiveWorkflow, Rule } from '@openheaders/core/types';
 import {
   collectRuleTemplateStrings,
   EMPTY_LIVE_REGISTRY,
@@ -47,6 +47,7 @@ import {
   type WorkflowRunCache,
 } from '@openheaders/oracle/live/live-cache-store';
 import { getLiveVariables, getLiveVariablesForWorkspace } from '@openheaders/oracle/live/live-variable-store';
+import { getLiveWorkflows, getLiveWorkflowsForWorkspace } from '@openheaders/oracle/live/live-workflow-store';
 import { getOracleHostHooks, peekActiveWorkspaceId } from '@openheaders/oracle/sync';
 import { getCollections, getRules } from '@openheaders/oracle/entity/rule-store';
 
@@ -290,7 +291,12 @@ export function getLiveRegistrySnapshotForWorkspace(
   activeEnvironmentId: string | null,
 ): LiveRegistry {
   const state = getOrCreateState(workspaceId);
-  return buildLiveRegistryFor(state, getLiveVariablesForWorkspace(workspaceId), activeEnvironmentId);
+  return buildLiveRegistryFor(
+    state,
+    getLiveVariablesForWorkspace(workspaceId),
+    getLiveWorkflowsForWorkspace(workspaceId),
+    activeEnvironmentId,
+  );
 }
 
 /**
@@ -471,18 +477,19 @@ export async function kickSyncWarmRefreshes(): Promise<void> {
  *     for the `live` subsystem yellow-threshold.
  */
 function buildLiveRegistry(state: ResolverState): LiveRegistry {
-  return buildLiveRegistryFor(state, getLiveVariables(), getActiveEnvironmentId());
+  return buildLiveRegistryFor(state, getLiveVariables(), getLiveWorkflows(), getActiveEnvironmentId());
 }
 
 /**
  * Parameterized variant of {@link buildLiveRegistry}. Used by
  * {@link getLiveRegistrySnapshotForWorkspace} so non-Active workspace
- * dispatches consult per-workspace LVs + an explicit env, not the
- * Active-bound module-level reads.
+ * dispatches consult per-workspace LVs + workflows + an explicit env,
+ * not the Active-bound module-level reads.
  */
 function buildLiveRegistryFor(
   state: ResolverState,
   liveVariables: readonly LiveVariable[],
+  liveWorkflows: readonly LiveWorkflow[],
   activeEnv: string | null,
 ): LiveRegistry {
   // Effective LVs only (published + enabled). Mirrors the renderer-side
@@ -490,6 +497,17 @@ function buildLiveRegistryFor(
   // SW compile path agrees with what the user sees in the editor.
   const lvs = liveVariables.filter((v) => isLiveVariableEffective(v));
   if (lvs.length === 0) return EMPTY_LIVE_REGISTRY;
+
+  // A cached capture must stop feeding rules once its backing workflow
+  // is no longer effective (disabled, unpublished, or made incomplete).
+  // The cache row is intentionally KEPT — re-enabling the workflow
+  // restores the last cached value without forcing a re-run — it just
+  // does not resolve while the workflow is switched off. Mirrors how a
+  // disabled LV is skipped rather than purged.
+  const effectiveWorkflowUids = new Set<string>();
+  for (const wf of liveWorkflows) {
+    if (isWorkflowEffective(wf)) effectiveWorkflowUids.add(wf.uid);
+  }
 
   const now = Date.now();
 
@@ -513,6 +531,11 @@ function buildLiveRegistryFor(
         continue;
       }
     }
+
+    // Skip the cached-capture path for a non-effective workflow. The
+    // manual-override branch above is deliberately NOT gated — an
+    // override is a user-set value independent of workflow execution.
+    if (!effectiveWorkflowUids.has(lv.workflowUid)) continue;
 
     const run = runByWorkflow.get(lv.workflowUid);
     const value = run?.stepCaptures?.[lv.stepId]?.[lv.captureName];

@@ -939,6 +939,75 @@ describe('variable-edit refresh (LF2)', () => {
   });
 });
 
+// ── Workflow-delete cascade-purge (LF3) ───────────────────────────
+
+describe('workflow-delete cascade-purge (LF3)', () => {
+  function fireWorkflowChange(): void {
+    for (const fn of storeState.listeners.workflow) fn();
+  }
+
+  /** Start the scheduler with the given workflows + fire one workflow-
+   *  store event so the uid baseline is primed (hydration broadcast). */
+  async function startPrimed(uids: string[]): Promise<void> {
+    storeState.workflows = uids.map((uid) => makeWorkflow({ uid }));
+    scheduler.startLiveScheduler();
+    fireWorkflowChange();
+    await flushAsync();
+    clearWorkflowRunCacheMock.mockClear();
+  }
+
+  it('purges the cache rows of a deleted workflow', async () => {
+    await startPrimed(['wflowAAA', 'wflowBBB']);
+
+    storeState.workflows = [makeWorkflow({ uid: 'wflowAAA' })];
+    fireWorkflowChange();
+    await flushAsync();
+
+    expect(clearWorkflowRunCacheMock).toHaveBeenCalledTimes(1);
+    expect(clearWorkflowRunCacheMock).toHaveBeenCalledWith('wflowBBB', 'ws-live');
+  });
+
+  it('does not purge on the first (priming) workflow-store event', async () => {
+    storeState.workflows = [makeWorkflow({ uid: 'wflowAAA' })];
+    scheduler.startLiveScheduler();
+    fireWorkflowChange();
+    await flushAsync();
+
+    expect(clearWorkflowRunCacheMock).not.toHaveBeenCalled();
+  });
+
+  it('does not purge when a workflow is added', async () => {
+    await startPrimed(['wflowAAA']);
+
+    storeState.workflows = [makeWorkflow({ uid: 'wflowAAA' }), makeWorkflow({ uid: 'wflowBBB' })];
+    fireWorkflowChange();
+    await flushAsync();
+
+    expect(clearWorkflowRunCacheMock).not.toHaveBeenCalled();
+  });
+
+  it('does not purge when a workflow is edited (uid unchanged)', async () => {
+    await startPrimed(['wflowAAA']);
+
+    storeState.workflows = [makeWorkflow({ uid: 'wflowAAA', name: 'Renamed' })];
+    fireWorkflowChange();
+    await flushAsync();
+
+    expect(clearWorkflowRunCacheMock).not.toHaveBeenCalled();
+  });
+
+  it('purges every deleted workflow when several vanish at once', async () => {
+    await startPrimed(['wflowAAA', 'wflowBBB', 'wflowCCC']);
+
+    storeState.workflows = [makeWorkflow({ uid: 'wflowAAA' })];
+    fireWorkflowChange();
+    await flushAsync();
+
+    const purged = clearWorkflowRunCacheMock.mock.calls.map((c) => c[0]).sort();
+    expect(purged).toEqual(['wflowBBB', 'wflowCCC']);
+  });
+});
+
 // ── Active-workspace-only contract ────────────────────────────────
 
 describe('active-workspace-only', () => {
