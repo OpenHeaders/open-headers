@@ -16,7 +16,7 @@
  * which point every consumer lights up without a code change.
  */
 
-import type { Org } from '../types';
+import type { HostKind, Org } from '../types';
 import type { IdentitySnapshot } from './resolver';
 
 /**
@@ -35,6 +35,8 @@ export interface OrgDescriptor {
   id: string;
   name: string;
   scopeKind: OrgScopeKind;
+  /** The kind of host process that minted the Org — drives the identity label + icon. */
+  hostKind: HostKind;
   isSynthetic: boolean;
   /** True for the user's home-org — the default binding for new workspaces. */
   isHome: boolean;
@@ -60,6 +62,7 @@ function toDescriptor(org: Org, homeOrgId: string): OrgDescriptor {
     id: org.id,
     name: org.name,
     scopeKind: classifyOrg(org, homeOrgId),
+    hostKind: org.hostKind,
     isSynthetic: org.isSynthetic,
     isHome: org.id === homeOrgId,
   };
@@ -108,6 +111,27 @@ export function describeOrg(snapshot: IdentitySnapshot | null, orgId: string): O
  */
 export function shouldShowOrgOnboarding(snapshot: IdentitySnapshot | null, acknowledgedAt: string | null): boolean {
   return !acknowledgedAt && orgCatalogue(snapshot).length > 1;
+}
+
+/**
+ * Second-person label for the *home* Org, by the running host's kind.
+ * "This browser" / "This computer" / "This server" — short form, the
+ * Org the user is currently working from.
+ */
+const HOME_LABEL_BY_HOST_KIND: Record<HostKind, string> = {
+  browser: 'This browser',
+  desktop: 'This computer',
+  daemon: 'This server',
+};
+
+/**
+ * The identity label for an Org. The home Org reads in the second person
+ * by the host kind that minted it; a joined Org reads by its stored
+ * `name`. `isSynthetic` deliberately plays no part — it records
+ * trust-by-process, not whose Org it is.
+ */
+export function orgIdentityLabel(descriptor: OrgDescriptor): string {
+  return descriptor.isHome ? HOME_LABEL_BY_HOST_KIND[descriptor.hostKind] : descriptor.name;
 }
 
 /**

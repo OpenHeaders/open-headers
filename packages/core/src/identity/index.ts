@@ -64,6 +64,7 @@ export {
   type OrgDescriptor,
   type OrgScopeKind,
   orgCatalogue,
+  orgIdentityLabel,
   shouldShowOrgOnboarding,
 } from './org-catalogue';
 export { resolveOrgActiveWorkspace } from './org-workspace';

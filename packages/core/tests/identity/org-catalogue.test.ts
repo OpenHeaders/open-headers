@@ -9,6 +9,7 @@ import {
   defaultNewWorkspaceOrgId,
   describeOrg,
   orgCatalogue,
+  orgIdentityLabel,
   shouldShowOrgOnboarding,
 } from '../../src/identity/org-catalogue';
 import type { IdentitySnapshot } from '../../src/identity/resolver';
@@ -72,6 +73,13 @@ describe('describeOrg', () => {
     expect(describeOrg(snap, LOCAL_ORG)?.name).toBe('This device');
   });
 
+  it('carries the Org hostKind onto the descriptor', () => {
+    const snap = makeSnapshot([syntheticLocal, realHome, realTeam], HOME_ORG);
+    expect(describeOrg(snap, LOCAL_ORG)?.hostKind).toBe('browser');
+    expect(describeOrg(snap, HOME_ORG)?.hostKind).toBe('desktop');
+    expect(describeOrg(snap, TEAM_ORG)?.hostKind).toBe('daemon');
+  });
+
   it('returns null for an org-id outside the authorized set', () => {
     const snap = makeSnapshot([syntheticLocal], LOCAL_ORG);
     expect(describeOrg(snap, TEAM_ORG)).toBeNull();
@@ -91,6 +99,32 @@ describe('shouldShowOrgOnboarding', () => {
   it('is false once acknowledged', () => {
     const snap = makeSnapshot([syntheticLocal, realHome], HOME_ORG);
     expect(shouldShowOrgOnboarding(snap, '2026-05-20T00:00:00.000Z')).toBe(false);
+  });
+});
+
+describe('orgIdentityLabel', () => {
+  it('labels a home Org in the second person by host kind', () => {
+    const browserHome = describeOrg(makeSnapshot([syntheticLocal], LOCAL_ORG), LOCAL_ORG);
+    expect(browserHome && orgIdentityLabel(browserHome)).toBe('This browser');
+
+    const desktopHome = describeOrg(makeSnapshot([realHome], HOME_ORG), HOME_ORG);
+    expect(desktopHome && orgIdentityLabel(desktopHome)).toBe('This computer');
+
+    const daemonHome = describeOrg(makeSnapshot([realTeam], TEAM_ORG), TEAM_ORG);
+    expect(daemonHome && orgIdentityLabel(daemonHome)).toBe('This server');
+  });
+
+  it('labels a joined (non-home) Org by its stored name', () => {
+    const snap = makeSnapshot([syntheticLocal, realHome, realTeam], HOME_ORG);
+    const joined = describeOrg(snap, TEAM_ORG);
+    expect(joined && orgIdentityLabel(joined)).toBe('Acme');
+  });
+
+  it('ignores isSynthetic — a synthetic non-home Org still reads by name', () => {
+    const snap = makeSnapshot([syntheticLocal, realHome], HOME_ORG);
+    const joinedSynthetic = describeOrg(snap, LOCAL_ORG);
+    expect(joinedSynthetic?.isSynthetic).toBe(true);
+    expect(joinedSynthetic && orgIdentityLabel(joinedSynthetic)).toBe('This device');
   });
 });
 
