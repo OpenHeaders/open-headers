@@ -4,7 +4,16 @@
  * and `observability-log` so each phase is exercised in isolation.
  */
 
-import type { Collection, Environment, LiveVariable, LiveWorkflow, Request, Vault, WorkspaceVariables } from '@openheaders/core/types';
+import type {
+  Collection,
+  Environment,
+  LiveVariable,
+  LiveWorkflow,
+  Request,
+  Vault,
+  WorkflowRunCache,
+  WorkspaceVariables,
+} from '@openheaders/core/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Global mocks ──────────────────────────────────────────────────
@@ -93,7 +102,7 @@ let storeState: {
   listeners: {
     workflow: Set<() => void>;
     variable: Set<() => void>;
-    cache: Set<() => void>;
+    cache: Set<(workspaceId: string, workflowUid: string | null, runs: readonly WorkflowRunCache[]) => void>;
     request: Set<() => void>;
     environment: Set<() => void>;
   };
@@ -153,7 +162,9 @@ vi.mock('@openheaders/oracle/entity/request-store', () => ({
 vi.mock('@openheaders/oracle/live/live-cache-store', () => ({
   listCachesForWorkflow: async (workflowUid: string) => storeState.caches.filter((c) => c.workflowUid === workflowUid),
   listWorkflowRunCaches: async () => storeState.caches.slice(),
-  onLiveCacheStoreChange: (fn: () => void) => {
+  onLiveCacheStoreChange: (
+    fn: (workspaceId: string, workflowUid: string | null, runs: readonly WorkflowRunCache[]) => void,
+  ) => {
     storeState.listeners.cache.add(fn);
     return () => storeState.listeners.cache.delete(fn);
   },
@@ -296,7 +307,13 @@ beforeEach(async () => {
     vault: EMPTY_VAULT,
     workspaceVars: EMPTY_WORKSPACE_VARS,
     requestCollections: [],
-    listeners: { workflow: new Set(), variable: new Set(), cache: new Set(), request: new Set(), environment: new Set() },
+    listeners: {
+      workflow: new Set(),
+      variable: new Set(),
+      cache: new Set(),
+      request: new Set(),
+      environment: new Set(),
+    },
   };
   activeSwitchState.workspaceListeners.clear();
   activeSwitchState.envListeners.clear();
@@ -860,7 +877,10 @@ describe('variable-edit refresh (LF2)', () => {
     const refreshSpy = vi.fn<(args: RefreshArgs) => Promise<void>>(async () => {});
     scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
     activeSwitchState.activeEnvId = 'env-dev';
-    storeState.vault = { schemaVersion: 5, secrets: [{ uid: 'vlt00001', kind: 'string', name: 'secret', value: 'aaa' }] };
+    storeState.vault = {
+      schemaVersion: 5,
+      secrets: [{ uid: 'vlt00001', kind: 'string', name: 'secret', value: 'aaa' }],
+    };
     await startPrimed('{{vault.secret}}');
 
     storeState.vault = {
@@ -1005,6 +1025,316 @@ describe('workflow-delete cascade-purge (LF3)', () => {
 
     const purged = clearWorkflowRunCacheMock.mock.calls.map((c) => c[0]).sort();
     expect(purged).toEqual(['wflowBBB', 'wflowCCC']);
+  });
+});
+
+// ── Chained-workflow cascade (LF4) ────────────────────────────────
+
+describe('chained-workflow cascade (LF4)', () => {
+  type RefreshArgs = { workspaceId: string; workflow: LiveWorkflow; environmentId: string | null };
+
+  /** A request whose Authorization header carries `refValue`. */
+  function requestRef(uid: string, refValue: string): Request {
+    return makeRequest({ uid, headers: [{ uid: 'hdrauth01', key: 'Authorization', value: refValue, enabled: true }] });
+  }
+
+  function step(uid: string, requestUid: string) {
+    return { uid, id: 'fetch', requestUid, captures: [] };
+  }
+
+  /**
+   * Workspace cache mirror. Every `onLiveCacheStoreChange` broadcast
+   * carries the FULL post-write run list for the workspace (see
+   * `notifyChange` in `live-cache-store`) — this table reproduces that
+   * contract so the LF4 `extractedAt` baseline tracks every workflow.
+   */
+  function makeCacheTable() {
+    const rows = new Map<string, WorkflowRunCache>();
+    const key = (uid: string, env: string | null) => `${uid}::${env ?? '__none__'}`;
+    const set = (uid: string, env: string | null, extractedAt: number): void => {
+      rows.set(key(uid, env), {
+        workflowUid: uid,
+        environmentId: env,
+        stepCaptures: {},
+        stepResponseBytes: {},
+        extractedAt,
+        expiresAt: null,
+        consecutiveFailures: 0,
+        lastExtractorOk: true,
+      } as WorkflowRunCache);
+    };
+    const fire = (changedUid: string): void => {
+      const snapshot = [...rows.values()];
+      for (const fn of storeState.listeners.cache) fn('ws-live', changedUid, snapshot);
+    };
+    return {
+      /** Seed several rows, then fire one (priming) broadcast carrying all of them. */
+      prime(entries: Array<[string, string | null, number]>): void {
+        for (const [uid, env, extractedAt] of entries) set(uid, env, extractedAt);
+        fire(entries[0]?.[0] ?? 'wflowAAA');
+      },
+      /** Set a row's `extractedAt`, then fire the broadcast for `changedUid`. */
+      bumpAndFire(changedUid: string, env: string | null, extractedAt: number): void {
+        set(changedUid, env, extractedAt);
+        fire(changedUid);
+      },
+    };
+  }
+
+  it('cascade-refreshes a downstream workflow when its upstream live value is refreshed', async () => {
+    const refreshSpy = vi.fn<(args: RefreshArgs) => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    scheduler.__setLiveCascadeRefreshDebounceMs(0);
+    activeSwitchState.activeEnvId = 'env-dev';
+    storeState.requests.set('reqA00001', makeRequest({ uid: 'reqA00001' }));
+    storeState.requests.set('reqB00001', requestRef('reqB00001', '{{live.authToken}}'));
+    storeState.workflows = [
+      makeWorkflow({ uid: 'wflowAAA', steps: [step('stpA0001', 'reqA00001')] }),
+      makeWorkflow({ uid: 'wflowBBB', steps: [step('stpB0001', 'reqB00001')] }),
+    ];
+    storeState.variables = [
+      makeVariable({ uid: 'lvauth01', name: 'authToken', workflowUid: 'wflowAAA' }),
+      makeVariable({ uid: 'lvbbb001', name: 'bToken', workflowUid: 'wflowBBB' }),
+    ];
+    scheduler.startLiveScheduler();
+    const cache = makeCacheTable();
+    cache.bumpAndFire('wflowAAA', 'env-dev', 1); // priming broadcast
+    await flushAsync();
+
+    cache.bumpAndFire('wflowAAA', 'env-dev', 2); // a real refresh
+    await flushAsync();
+
+    expect(refreshSpy).toHaveBeenCalledOnce();
+    expect(refreshSpy.mock.calls[0]?.[0]).toMatchObject({ workflow: { uid: 'wflowBBB' }, environmentId: 'env-dev' });
+  });
+
+  it('drops a non-active env row of a downstream workflow', async () => {
+    const refreshSpy = vi.fn<(args: RefreshArgs) => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    scheduler.__setLiveCascadeRefreshDebounceMs(0);
+    activeSwitchState.activeEnvId = 'env-prod';
+    storeState.requests.set('reqA00001', makeRequest({ uid: 'reqA00001' }));
+    storeState.requests.set('reqB00001', requestRef('reqB00001', '{{live.authToken}}'));
+    storeState.workflows = [
+      makeWorkflow({ uid: 'wflowAAA', steps: [step('stpA0001', 'reqA00001')] }),
+      makeWorkflow({ uid: 'wflowBBB', steps: [step('stpB0001', 'reqB00001')] }),
+    ];
+    storeState.variables = [
+      makeVariable({ uid: 'lvauth01', name: 'authToken', workflowUid: 'wflowAAA' }),
+      makeVariable({ uid: 'lvbbb001', name: 'bToken', workflowUid: 'wflowBBB' }),
+    ];
+    scheduler.startLiveScheduler();
+    const cache = makeCacheTable();
+    cache.bumpAndFire('wflowAAA', 'env-dev', 1);
+    await flushAsync();
+
+    cache.bumpAndFire('wflowAAA', 'env-dev', 2);
+    await flushAsync();
+
+    expect(refreshSpy).not.toHaveBeenCalled();
+    expect(clearWorkflowRunCacheForEnvironmentMock).toHaveBeenCalledWith('wflowBBB', 'env-dev', 'ws-live');
+  });
+
+  it('flags a manual downstream workflow definitionally stale instead of refreshing', async () => {
+    const refreshSpy = vi.fn<(args: RefreshArgs) => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    scheduler.__setLiveCascadeRefreshDebounceMs(0);
+    activeSwitchState.activeEnvId = 'env-dev';
+    storeState.requests.set('reqA00001', makeRequest({ uid: 'reqA00001' }));
+    storeState.requests.set('reqB00001', requestRef('reqB00001', '{{live.authToken}}'));
+    storeState.workflows = [
+      makeWorkflow({ uid: 'wflowAAA', steps: [step('stpA0001', 'reqA00001')] }),
+      makeWorkflow({ uid: 'wflowBBB', refresh: { kind: 'manual' }, steps: [step('stpB0001', 'reqB00001')] }),
+    ];
+    storeState.variables = [
+      makeVariable({ uid: 'lvauth01', name: 'authToken', workflowUid: 'wflowAAA' }),
+      makeVariable({ uid: 'lvbbb001', name: 'bToken', workflowUid: 'wflowBBB' }),
+    ];
+    scheduler.startLiveScheduler();
+    const cache = makeCacheTable();
+    cache.bumpAndFire('wflowAAA', 'env-dev', 1);
+    await flushAsync();
+
+    cache.bumpAndFire('wflowAAA', 'env-dev', 2);
+    await flushAsync();
+
+    expect(refreshSpy).not.toHaveBeenCalled();
+    expect(markRunDefinitionallyStaleMock).toHaveBeenCalledWith('wflowBBB', 'env-dev', 'ws-live');
+  });
+
+  it('does not cascade when extractedAt did not advance (a failed refresh)', async () => {
+    const refreshSpy = vi.fn<(args: RefreshArgs) => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    scheduler.__setLiveCascadeRefreshDebounceMs(0);
+    activeSwitchState.activeEnvId = 'env-dev';
+    storeState.requests.set('reqA00001', makeRequest({ uid: 'reqA00001' }));
+    storeState.requests.set('reqB00001', requestRef('reqB00001', '{{live.authToken}}'));
+    storeState.workflows = [
+      makeWorkflow({ uid: 'wflowAAA', steps: [step('stpA0001', 'reqA00001')] }),
+      makeWorkflow({ uid: 'wflowBBB', steps: [step('stpB0001', 'reqB00001')] }),
+    ];
+    storeState.variables = [
+      makeVariable({ uid: 'lvauth01', name: 'authToken', workflowUid: 'wflowAAA' }),
+      makeVariable({ uid: 'lvbbb001', name: 'bToken', workflowUid: 'wflowBBB' }),
+    ];
+    scheduler.startLiveScheduler();
+    const cache = makeCacheTable();
+    cache.bumpAndFire('wflowAAA', 'env-dev', 5);
+    await flushAsync();
+
+    // A's row rewritten (e.g. recordRefreshError) — extractedAt unchanged.
+    cache.bumpAndFire('wflowAAA', 'env-dev', 5);
+    await flushAsync();
+
+    expect(refreshSpy).not.toHaveBeenCalled();
+    expect(clearWorkflowRunCacheForEnvironmentMock).not.toHaveBeenCalled();
+  });
+
+  it('does not cascade on the first (priming) cache event', async () => {
+    const refreshSpy = vi.fn<(args: RefreshArgs) => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    scheduler.__setLiveCascadeRefreshDebounceMs(0);
+    activeSwitchState.activeEnvId = 'env-dev';
+    storeState.requests.set('reqA00001', makeRequest({ uid: 'reqA00001' }));
+    storeState.requests.set('reqB00001', requestRef('reqB00001', '{{live.authToken}}'));
+    storeState.workflows = [
+      makeWorkflow({ uid: 'wflowAAA', steps: [step('stpA0001', 'reqA00001')] }),
+      makeWorkflow({ uid: 'wflowBBB', steps: [step('stpB0001', 'reqB00001')] }),
+    ];
+    storeState.variables = [makeVariable({ uid: 'lvauth01', name: 'authToken', workflowUid: 'wflowAAA' })];
+    scheduler.startLiveScheduler();
+    const cache = makeCacheTable();
+
+    // The very first broadcast — even with a high extractedAt — only primes.
+    cache.bumpAndFire('wflowAAA', 'env-dev', 99);
+    await flushAsync();
+
+    expect(refreshSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not cascade to a workflow that does not consume the upstream live value', async () => {
+    const refreshSpy = vi.fn<(args: RefreshArgs) => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    scheduler.__setLiveCascadeRefreshDebounceMs(0);
+    activeSwitchState.activeEnvId = 'env-dev';
+    // B's request embeds no `{{live.X}}` reference — no downstream edge.
+    storeState.requests.set('reqA00001', makeRequest({ uid: 'reqA00001' }));
+    storeState.requests.set('reqB00001', makeRequest({ uid: 'reqB00001' }));
+    storeState.workflows = [
+      makeWorkflow({ uid: 'wflowAAA', steps: [step('stpA0001', 'reqA00001')] }),
+      makeWorkflow({ uid: 'wflowBBB', steps: [step('stpB0001', 'reqB00001')] }),
+    ];
+    storeState.variables = [makeVariable({ uid: 'lvauth01', name: 'authToken', workflowUid: 'wflowAAA' })];
+    scheduler.startLiveScheduler();
+    const cache = makeCacheTable();
+    cache.bumpAndFire('wflowAAA', 'env-dev', 1);
+    await flushAsync();
+
+    cache.bumpAndFire('wflowAAA', 'env-dev', 2);
+    await flushAsync();
+
+    expect(refreshSpy).not.toHaveBeenCalled();
+  });
+
+  it('walks a chain hop-by-hop — refreshing B then cascading to C', async () => {
+    const refreshSpy = vi.fn<(args: RefreshArgs) => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    scheduler.__setLiveCascadeRefreshDebounceMs(0);
+    activeSwitchState.activeEnvId = 'env-dev';
+    // A → B → C: B embeds {{live.authToken}} (A's LV); C embeds {{live.bToken}} (B's LV).
+    storeState.requests.set('reqA00001', makeRequest({ uid: 'reqA00001' }));
+    storeState.requests.set('reqB00001', requestRef('reqB00001', '{{live.authToken}}'));
+    storeState.requests.set('reqC00001', requestRef('reqC00001', '{{live.bToken}}'));
+    storeState.workflows = [
+      makeWorkflow({ uid: 'wflowAAA', steps: [step('stpA0001', 'reqA00001')] }),
+      makeWorkflow({ uid: 'wflowBBB', steps: [step('stpB0001', 'reqB00001')] }),
+      makeWorkflow({ uid: 'wflowCCC', steps: [step('stpC0001', 'reqC00001')] }),
+    ];
+    storeState.variables = [
+      makeVariable({ uid: 'lvauth01', name: 'authToken', workflowUid: 'wflowAAA' }),
+      makeVariable({ uid: 'lvbbb001', name: 'bToken', workflowUid: 'wflowBBB' }),
+      makeVariable({ uid: 'lvccc001', name: 'cToken', workflowUid: 'wflowCCC' }),
+    ];
+    scheduler.startLiveScheduler();
+    const cache = makeCacheTable();
+    cache.bumpAndFire('wflowAAA', 'env-dev', 1);
+    await flushAsync();
+
+    // A refreshes → cascade refreshes B.
+    cache.bumpAndFire('wflowAAA', 'env-dev', 2);
+    await flushAsync();
+    expect(refreshSpy.mock.calls.map((c) => c[0].workflow.uid)).toEqual(['wflowBBB']);
+
+    // The stub adapter doesn't write the cache; emulate B's refresh
+    // landing — its cache row advances, which is the next hop to C.
+    cache.bumpAndFire('wflowBBB', 'env-dev', 3);
+    await flushAsync();
+    expect(refreshSpy.mock.calls.map((c) => c[0].workflow.uid)).toEqual(['wflowBBB', 'wflowCCC']);
+  });
+
+  it('skips a dependency cycle without looping', async () => {
+    const refreshSpy = vi.fn<(args: RefreshArgs) => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    scheduler.__setLiveCascadeRefreshDebounceMs(0);
+    activeSwitchState.activeEnvId = 'env-dev';
+    // A ↔ B cycle: A embeds {{live.bToken}}, B embeds {{live.authToken}}.
+    storeState.requests.set('reqA00001', requestRef('reqA00001', '{{live.bToken}}'));
+    storeState.requests.set('reqB00001', requestRef('reqB00001', '{{live.authToken}}'));
+    storeState.workflows = [
+      makeWorkflow({ uid: 'wflowAAA', steps: [step('stpA0001', 'reqA00001')] }),
+      makeWorkflow({ uid: 'wflowBBB', steps: [step('stpB0001', 'reqB00001')] }),
+    ];
+    storeState.variables = [
+      makeVariable({ uid: 'lvauth01', name: 'authToken', workflowUid: 'wflowAAA' }),
+      makeVariable({ uid: 'lvbbb001', name: 'bToken', workflowUid: 'wflowBBB' }),
+    ];
+    scheduler.startLiveScheduler();
+    const cache = makeCacheTable();
+    cache.bumpAndFire('wflowAAA', 'env-dev', 1);
+    await flushAsync();
+
+    cache.bumpAndFire('wflowAAA', 'env-dev', 2);
+    await flushAsync();
+
+    // The A→B edge closes a cycle (B reaches A) — refused, no refresh.
+    expect(refreshSpy).not.toHaveBeenCalled();
+    expect(clearWorkflowRunCacheForEnvironmentMock).not.toHaveBeenCalled();
+  });
+
+  it('coalesces — a downstream of two refreshed upstreams refreshes once', async () => {
+    const refreshSpy = vi.fn<(args: RefreshArgs) => Promise<void>>(async () => {});
+    scheduler.__setLiveRefreshAdapter({ refreshWorkflow: refreshSpy });
+    scheduler.__setLiveCascadeRefreshDebounceMs(0);
+    activeSwitchState.activeEnvId = 'env-dev';
+    // A1 + A2 both upstream of B (B embeds both LVs).
+    storeState.requests.set('reqA00001', makeRequest({ uid: 'reqA00001' }));
+    storeState.requests.set('reqA00002', makeRequest({ uid: 'reqA00002' }));
+    storeState.requests.set('reqB00001', requestRef('reqB00001', '{{live.tokenOne}}{{live.tokenTwo}}'));
+    storeState.workflows = [
+      makeWorkflow({ uid: 'wflowAA1', steps: [step('stpA0001', 'reqA00001')] }),
+      makeWorkflow({ uid: 'wflowAA2', steps: [step('stpA0002', 'reqA00002')] }),
+      makeWorkflow({ uid: 'wflowBBB', steps: [step('stpB0001', 'reqB00001')] }),
+    ];
+    storeState.variables = [
+      makeVariable({ uid: 'lvone001', name: 'tokenOne', workflowUid: 'wflowAA1' }),
+      makeVariable({ uid: 'lvtwo001', name: 'tokenTwo', workflowUid: 'wflowAA2' }),
+      makeVariable({ uid: 'lvbbb001', name: 'bToken', workflowUid: 'wflowBBB' }),
+    ];
+    scheduler.startLiveScheduler();
+    const cache = makeCacheTable();
+    cache.prime([
+      ['wflowAA1', 'env-dev', 1],
+      ['wflowAA2', 'env-dev', 1],
+    ]);
+    await flushAsync();
+
+    // Both upstreams refresh inside one debounce window — the two
+    // synchronous events re-arm the same timer before it fires.
+    cache.bumpAndFire('wflowAA1', 'env-dev', 2);
+    cache.bumpAndFire('wflowAA2', 'env-dev', 2);
+    await flushAsync();
+
+    expect(refreshSpy.mock.calls.map((c) => c[0].workflow.uid)).toEqual(['wflowBBB']);
   });
 });
 

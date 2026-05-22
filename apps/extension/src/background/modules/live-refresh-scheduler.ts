@@ -38,6 +38,7 @@
  * Phase G).
  */
 
+import type { VariableFingerprint } from '@openheaders/core/live';
 import {
   type CacheSummary,
   canAttempt as canCircuitAttempt,
@@ -52,12 +53,7 @@ import {
   scanTemplateReferencesMany,
   workflowVariableFingerprint,
 } from '@openheaders/core/live';
-import type { VariableFingerprint } from '@openheaders/core/live';
 import type { LiveVariable, LiveWorkflow } from '@openheaders/core/types';
-import { alarms } from '@utils/browser-api';
-import { logger } from '@utils/logger';
-import { report as reportStatus } from '@openheaders/ui/shared/status';
-import { hostStorage, OH } from '@openheaders/oracle/storage';
 import {
   getActiveEnvironmentId,
   getEnvironments,
@@ -66,6 +62,7 @@ import {
   onActiveEnvironmentChange,
   onEnvironmentStoreChange,
 } from '@openheaders/oracle/entity/environment-store';
+import { getRequest, getRequestCollections, onRequestStoreChange } from '@openheaders/oracle/entity/request-store';
 import {
   clearWorkflowRunCache,
   clearWorkflowRunCacheForEnvironment,
@@ -90,10 +87,13 @@ import {
   getLiveWorkflows,
   onLiveWorkflowStoreChange,
 } from '@openheaders/oracle/live/live-workflow-store';
+import { hostStorage, OH } from '@openheaders/oracle/storage';
+import { getOrCreateWorkspaceService, releaseWorkspaceService } from '@openheaders/oracle/sync/service';
+import { report as reportStatus } from '@openheaders/ui/shared/status';
+import { alarms } from '@utils/browser-api';
+import { logger } from '@utils/logger';
 import { recordLog } from './observability-log';
 import { createAlarmNameCodec, type RefreshProvider, RefreshScheduler } from './refresh-scheduler';
-import { getRequest, getRequestCollections, onRequestStoreChange } from '@openheaders/oracle/entity/request-store';
-import { getOrCreateWorkspaceService, releaseWorkspaceService } from '@openheaders/oracle/sync/service';
 import { getActiveWorkspaceId, onActiveWorkspaceChange } from './workspace-store';
 
 /**
@@ -320,18 +320,49 @@ async function collectEntries(): Promise<LiveEntry[]> {
 // scheduling in definition order (the plan's documented fallback when
 // a graph can't be resolved).
 
+/**
+ * Index every effective live variable by name → its producer workflow
+ * uid. Only effective LVs (published + enabled) produce values that
+ * would trigger a rebuild of the consuming rule set, so a draft /
+ * disabled binding doesn't warrant a dependency edge.
+ */
+function buildEffectiveLvNameToWorkflowIndex(): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const lv of getLiveVariables()) {
+    if (isLiveVariableEffective(lv)) out.set(lv.name, lv.workflowUid);
+  }
+  return out;
+}
+
+/**
+ * The producer workflow uids whose `{{live.X}}` values a workflow's
+ * step requests consume. A self-reference never forms an edge — a
+ * workflow can't be its own upstream.
+ */
+function collectWorkflowLiveParentUids(
+  workflow: LiveWorkflow,
+  lvNameToWorkflow: ReadonlyMap<string, string>,
+): Set<string> {
+  const parents = new Set<string>();
+  for (const step of workflow.steps) {
+    const request = getRequest(step.requestUid);
+    if (!request) continue;
+    const templates = collectRequestTemplateStrings(request);
+    if (templates.length === 0) continue;
+    const { live } = scanTemplateReferencesMany(templates);
+    for (const name of live) {
+      const producerUid = lvNameToWorkflow.get(name);
+      if (producerUid && producerUid !== workflow.uid) parents.add(producerUid);
+    }
+  }
+  return parents;
+}
+
 function computeWorkflowDependencies(entries: LiveEntry[]): Map<string, string[]> {
   const out = new Map<string, string[]>();
   if (entries.length === 0) return out;
 
-  // Build an LV-name → workflow-uid index ONCE per reconcile. Only
-  // effective LVs (published + enabled) produce values that would
-  // trigger a rebuild of the consuming rule set, so a draft / disabled
-  // binding doesn't warrant a dep edge.
-  const lvNameToWorkflow = new Map<string, string>();
-  for (const lv of getLiveVariables()) {
-    if (isLiveVariableEffective(lv)) lvNameToWorkflow.set(lv.name, lv.workflowUid);
-  }
+  const lvNameToWorkflow = buildEffectiveLvNameToWorkflowIndex();
   if (lvNameToWorkflow.size === 0) return out;
 
   const entryAlarmByWorkflowKey = new Map<string, string>();
@@ -344,23 +375,12 @@ function computeWorkflowDependencies(entries: LiveEntry[]): Map<string, string[]
   }
 
   for (const entry of entries) {
+    const parentUids = collectWorkflowLiveParentUids(entry.workflow, lvNameToWorkflow);
+    if (parentUids.size === 0) continue;
     const parents: string[] = [];
-    const seen = new Set<string>();
-    for (const step of entry.workflow.steps) {
-      const request = getRequest(step.requestUid);
-      if (!request) continue;
-      const templates = collectRequestTemplateStrings(request);
-      if (templates.length === 0) continue;
-      const { live } = scanTemplateReferencesMany(templates);
-      for (const name of live) {
-        const producerUid = lvNameToWorkflow.get(name);
-        if (!producerUid || producerUid === entry.workflow.uid) continue; // self-ref doesn't form an edge
-        const parentAlarm = entryAlarmByWorkflowKey.get(`${entry.workspaceId}:${producerUid}`);
-        if (parentAlarm && !seen.has(parentAlarm)) {
-          seen.add(parentAlarm);
-          parents.push(parentAlarm);
-        }
-      }
+    for (const producerUid of parentUids) {
+      const parentAlarm = entryAlarmByWorkflowKey.get(`${entry.workspaceId}:${producerUid}`);
+      if (parentAlarm) parents.push(parentAlarm);
     }
     if (parents.length === 0) continue;
     const selfAlarm = codec.encode({ w: entry.workspaceId, u: entry.workflow.uid, e: entry.environmentId });
@@ -368,6 +388,56 @@ function computeWorkflowDependencies(entries: LiveEntry[]): Map<string, string[]
   }
 
   return out;
+}
+
+/**
+ * Map each workflow uid to the set of workflow uids DOWNSTREAM of it —
+ * the workflows whose step requests consume a `{{live.X}}` bound to it.
+ * This is the inverse of the upstream edges `computeWorkflowDependencies`
+ * derives; the LF4 cascade walks it to find the consumers a workflow's
+ * just-refreshed live value made stale. Active-workspace view only
+ * (`getLiveWorkflows` / `getRequest` are the active-workspace stores).
+ */
+function computeWorkflowDownstreamMap(): Map<string, Set<string>> {
+  const downstream = new Map<string, Set<string>>();
+  const lvNameToWorkflow = buildEffectiveLvNameToWorkflowIndex();
+  if (lvNameToWorkflow.size === 0) return downstream;
+  for (const workflow of getLiveWorkflows()) {
+    for (const parentUid of collectWorkflowLiveParentUids(workflow, lvNameToWorkflow)) {
+      let children = downstream.get(parentUid);
+      if (!children) {
+        children = new Set();
+        downstream.set(parentUid, children);
+      }
+      children.add(workflow.uid);
+    }
+  }
+  return downstream;
+}
+
+/**
+ * True when `target` is reachable downstream from `from` by walking
+ * the downstream edge map. Used as the LF4 cycle guard — an edge
+ * `upstream → child` is a cycle back-edge when the child can itself
+ * reach the upstream, and the cascade refuses to traverse it.
+ */
+function canReachDownstream(from: string, target: string, downstream: ReadonlyMap<string, Set<string>>): boolean {
+  const stack: string[] = [from];
+  const seen = new Set<string>([from]);
+  while (stack.length > 0) {
+    const node = stack.pop();
+    if (node === undefined) break;
+    const children = downstream.get(node);
+    if (!children) continue;
+    for (const child of children) {
+      if (child === target) return true;
+      if (!seen.has(child)) {
+        seen.add(child);
+        stack.push(child);
+      }
+    }
+  }
+  return false;
 }
 
 // ── Definitional-freshness — material request-edit detector ───────
@@ -750,6 +820,212 @@ function settleWorkflowDeleteCascade(): void {
   }
 }
 
+// ── Definitional-freshness — chained-workflow cascade (LF4) ────────
+//
+// A workflow's cached token is minted not only from its request's
+// executable surface (LF1) and the variables that request resolves
+// (LF2), but from any UPSTREAM live value its request embeds. When
+// workflow A's `liveCache` row is rewritten by a real refresh, every
+// workflow B whose step request resolves a `{{live.X}}` bound to A is
+// downstream-stale: B's cached token was extracted from a request that
+// carried A's OLD value. The DNR resolver keeps serving that wrong-
+// input token until B's own cadence tick.
+//
+// Detection: the cache-store change broadcast carries the full post-
+// write run list. A row whose `extractedAt` ADVANCED since the last
+// settled baseline was rewritten by a successful `putWorkflowRunCache`
+// — a real new value. Failures (`recordRefreshError`), probe-start
+// transitions, and invalidations all preserve `extractedAt`, so they
+// never spuriously cascade.
+//
+// Per-(workflow, env) precision (like LF2): `{{live.X}}` resolves
+// against A's cache row for the resolution env, so A's env-`e` refresh
+// only makes B's env-`e` row stale. The downstream action mirrors LF2:
+//   • non-manual, the ACTIVE env  — refresh immediately;
+//   • non-manual, a NON-active env — drop that env's cache row;
+//   • manual — flag that env's row "needs re-run" (no auto-run).
+//
+// Propagation is HOP-BY-HOP: a cascade refresh of B writes B's cache,
+// which fires this same broadcast, which walks downstream of B to C.
+// A chain A→B→C refreshes in topological order because each hop only
+// fires once its upstream's new value has actually landed — no topo-
+// sort, no await-chain. A dependency cycle has no convergent fixpoint;
+// the cycle guard (`canReachDownstream`) refuses to traverse a back-
+// edge so the walk always terminates, and the cadence timer still
+// refreshes every workflow in the cycle on its own schedule.
+
+/** Debounce window collapsing a burst of upstream refreshes into one cascade pass. */
+let liveCascadeRefreshDebounceMs = 600;
+
+/** Test-only: shrink the debounce so the cascade settles on the next macrotask. */
+export function __setLiveCascadeRefreshDebounceMs(ms: number): void {
+  liveCascadeRefreshDebounceMs = ms;
+}
+
+/** Per-(workflow, env) `extractedAt` as of the last settled pass, workspace-tagged. */
+let liveValueExtractedAtBaseline: { workspaceId: string; byRunKey: Map<string, number> } | null = null;
+let cascadeDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+/** Upstream (workflow, env) pairs whose live value advanced since the last settle. */
+let pendingCascadeUpstreams: ChangedWorkflowEnv[] = [];
+
+/** Test-only: drop the cascade baseline so the next cache change re-primes. */
+export function __resetLiveCascadeBaseline(): void {
+  liveValueExtractedAtBaseline = null;
+}
+
+function cascadeRowKey(workflowUid: string, environmentId: string | null): string {
+  return `${workflowUid}::${environmentId ?? '__none__'}`;
+}
+
+/**
+ * LF4 detector — on every live-cache change, diff the changed
+ * workflow's rows against the `extractedAt` baseline; a row that
+ * advanced is a real refresh whose consumers must cascade-refresh.
+ */
+function onLiveCacheChangeForCascade(
+  workspaceId: string,
+  workflowUid: string | null,
+  runs: readonly WorkflowRunCache[],
+): void {
+  let activeWorkspaceId: string;
+  try {
+    activeWorkspaceId = getActiveWorkspaceId();
+  } catch {
+    return; // bootstrap race — workspace pointer not hydrated yet
+  }
+  // Active-workspace-only: a write to another workspace's cache can't
+  // be cascaded — the workflow / request stores are the active view.
+  if (workspaceId !== activeWorkspaceId) return;
+
+  const current = new Map<string, number>();
+  for (const run of runs) current.set(cascadeRowKey(run.workflowUid, run.environmentId), run.extractedAt ?? 0);
+
+  // First sight, or a workspace switch — adopt the baseline without a
+  // cascade (any apparent advance belongs to the other workspace, or
+  // is the hydration broadcast that always precedes a human action).
+  if (!liveValueExtractedAtBaseline || liveValueExtractedAtBaseline.workspaceId !== workspaceId) {
+    liveValueExtractedAtBaseline = { workspaceId, byRunKey: current };
+    return;
+  }
+
+  // `workflowUid === null` is a bulk mutation (workspace purge) — no
+  // single upstream to cascade from; re-sync the baseline and bail.
+  if (workflowUid !== null) {
+    for (const run of runs) {
+      if (run.workflowUid !== workflowUid) continue;
+      const key = cascadeRowKey(run.workflowUid, run.environmentId);
+      const prev = liveValueExtractedAtBaseline.byRunKey.get(key) ?? 0;
+      const next = run.extractedAt ?? 0;
+      // `extractedAt` advanced — a successful `putWorkflowRunCache`
+      // minted a new value (a row's first-ever write counts: `prev`
+      // defaults to 0). A failed first refresh writes `extractedAt: 0`,
+      // so `next > 0` also screens that out.
+      if (next > prev) {
+        pendingCascadeUpstreams.push({ workflowUid: run.workflowUid, environmentId: run.environmentId });
+      }
+    }
+  }
+  liveValueExtractedAtBaseline = { workspaceId, byRunKey: current };
+
+  if (pendingCascadeUpstreams.length === 0) return;
+  if (cascadeDebounceTimer) clearTimeout(cascadeDebounceTimer);
+  cascadeDebounceTimer = setTimeout(() => {
+    cascadeDebounceTimer = null;
+    const batch = pendingCascadeUpstreams;
+    pendingCascadeUpstreams = [];
+    void settleLiveValueCascade(batch).catch((err) => {
+      logger.info('LiveScheduler', `live-value cascade settle failed: ${(err as Error).message}`);
+    });
+  }, liveCascadeRefreshDebounceMs);
+}
+
+/** Walk downstream of each refreshed upstream (workflow, env); refresh / invalidate the consumers. */
+async function settleLiveValueCascade(upstreams: ReadonlyArray<ChangedWorkflowEnv>): Promise<void> {
+  let workspaceId: string;
+  try {
+    workspaceId = getActiveWorkspaceId();
+  } catch {
+    return; // bootstrap race — workspace pointer not hydrated yet
+  }
+  const downstream = computeWorkflowDownstreamMap();
+  if (downstream.size === 0) return;
+
+  // Collect the affected downstream (workflow, env) pairs, deduped — a
+  // consumer of two upstreams that both refreshed is acted on once.
+  const affected = new Map<string, Set<string | null>>();
+  let skippedCycle = false;
+  for (const { workflowUid: upstreamUid, environmentId } of upstreams) {
+    const children = downstream.get(upstreamUid);
+    if (!children) continue;
+    for (const childUid of children) {
+      // Cycle guard: an `upstream → child` edge is a back-edge when the
+      // child can itself reach the upstream downstream. A cyclic live-
+      // workflow config has no convergent fixpoint — refuse to traverse
+      // the cycle so the hop-by-hop walk terminates. Each workflow in
+      // the cycle still refreshes on its own cadence timer.
+      if (canReachDownstream(childUid, upstreamUid, downstream)) {
+        skippedCycle = true;
+        continue;
+      }
+      let envs = affected.get(childUid);
+      if (!envs) {
+        envs = new Set();
+        affected.set(childUid, envs);
+      }
+      envs.add(environmentId);
+    }
+  }
+  if (skippedCycle) {
+    logger.info('LiveScheduler', 'live-value cascade skipped a workflow dependency cycle');
+  }
+  if (affected.size === 0) return;
+
+  const activeEnvironmentId = getActiveEnvironmentId();
+  const workflowsByUid = new Map(getLiveWorkflows().map((w) => [w.uid, w]));
+  for (const [childUid, environmentIds] of affected) {
+    const workflow = workflowsByUid.get(childUid);
+    if (!workflow) continue;
+    // Manual workflows: never auto-run on an upstream refresh. Flag
+    // only the env rows whose upstream value changed "needs re-run".
+    if (workflow.refresh.kind === 'manual') {
+      for (const environmentId of environmentIds) {
+        try {
+          await markRunDefinitionallyStale(childUid, environmentId, workspaceId);
+        } catch (err) {
+          logger.info(
+            'LiveScheduler',
+            `cascade definitional-stale flag failed for ${childUid}: ${(err as Error).message}`,
+          );
+        }
+      }
+      continue;
+    }
+    const boundVariables = getLiveVariablesForWorkflow(childUid);
+    if (!canScheduleWorkflow(workflow, boundVariables)) continue;
+    for (const environmentId of environmentIds) {
+      if (environmentId === activeEnvironmentId) {
+        // The active env's upstream value changed — refresh now. The
+        // stale row keeps serving until the new value lands; the
+        // resulting cache write fires the next hop of the cascade.
+        void refreshLiveWorkflowSynchronously(workspaceId, childUid, activeEnvironmentId).catch((err) => {
+          logger.info('LiveScheduler', `live-value cascade refresh failed for ${childUid}: ${(err as Error).message}`);
+        });
+      } else {
+        // A non-active env's upstream value changed — drop that env's
+        // row so it re-warms (and cascades onward) on the next switch.
+        try {
+          await clearWorkflowRunCacheForEnvironment(childUid, environmentId, workspaceId);
+        } catch (err) {
+          logger.info(
+            'LiveScheduler',
+            `live-value cascade cache invalidation failed for ${childUid}: ${(err as Error).message}`,
+          );
+        }
+      }
+    }
+  }
+}
+
 // ── Provider — fills in the subsystem-specific bits ───────────────
 
 const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | null> = {
@@ -893,7 +1169,14 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
         settleWorkflowDeleteCascade();
       }),
       onLiveVariableStoreChange(combined),
-      onLiveCacheStoreChange(combined),
+      // A live-cache change drives the shared reconcile + status
+      // recompute, plus the LF4 chained-workflow cascade: a workflow
+      // whose live value was rewritten by a real refresh cascade-
+      // refreshes the downstream workflows that embed `{{live.X}}`.
+      onLiveCacheStoreChange((workspaceId, workflowUid, runs) => {
+        combined();
+        onLiveCacheChangeForCascade(workspaceId, workflowUid, runs);
+      }),
       // A request edit drives three things. (1) It can add or drop a
       // `{{live.X}}` template ref, reshaping the cross-workflow
       // dependency DAG `computeWorkflowDependencies` derives from each
@@ -928,6 +1211,12 @@ const provider: RefreshProvider<LiveAlarmPayload, LiveEntry, WorkflowRunCache | 
       }
       variableSurfaceBaseline = new Map();
       workflowUidBaseline = null;
+      if (cascadeDebounceTimer) {
+        clearTimeout(cascadeDebounceTimer);
+        cascadeDebounceTimer = null;
+      }
+      pendingCascadeUpstreams = [];
+      liveValueExtractedAtBaseline = null;
     };
   },
   onFired(payload) {
