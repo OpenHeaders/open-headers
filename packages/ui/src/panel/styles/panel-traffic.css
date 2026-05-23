@@ -39,6 +39,30 @@
 .dt-table {
   flex: 1;
   overflow: auto;
+  /* Single-column grid wrapper: every child (header + rows) lives in
+   * one shared column whose width is `max(max-content of any row,
+   * viewport)`. This is what keeps columns aligned across rows when
+   * the body has a long-name row — without the shared column, each
+   * row would resolve its own `1fr` tracks against its own intrinsic
+   * width and the grid template would drift row-by-row. As a side
+   * benefit, every row's box now spans the full scroll width, so
+   * hover + selection backgrounds cover columns scrolled into view
+   * and the sticky header paints opaque across the same range. */
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr);
+  grid-auto-rows: auto;
+  align-content: start;
+}
+
+/* Compact mode: drop the max-content wrapper so the shared column
+ * caps at viewport width. Stretchy row tracks (Name, Waterfall) are
+ * emitted as `minmax(min, 1fr)` by `columnTrack(compact: true)`, so
+ * they absorb any slack and the table fits without horizontal scroll.
+ * The dt-row + dt-table-header `width: 100%` rule still aligns them
+ * to the column, so hover + sticky-bg fixes are preserved. */
+.dt-table--compact {
+  grid-template-columns: minmax(0, 1fr);
+  overflow-x: hidden;
 }
 
 /* Column header row — smooth white inside the dock-body card. The only
@@ -59,11 +83,6 @@
   top: 0;
   z-index: 2;
   user-select: none;
-  /* Stretch to the grid's intrinsic content width so the opaque sticky
-   * background covers every column when the table is scrolled
-   * horizontally — otherwise headers scrolled into view paint over the
-   * body rows with no fill behind them. */
-  min-width: max-content;
 }
 
 .dt-table-header span {
@@ -85,11 +104,6 @@
   cursor: pointer;
   text-align: left;
   width: 100%;
-  /* Stretch the row box to the grid's intrinsic content width so the
-   * hover + selected backgrounds cover every column when the table is
-   * scrolled horizontally — width:100% alone clips them to the visible
-   * viewport, leaving scrolled-into-view cells without any highlight. */
-  min-width: max-content;
 }
 
 .dt-row:hover {

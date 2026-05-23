@@ -56,8 +56,15 @@ export interface ColumnDef {
   defaultWidth: number;
   /** Hard floor for user resizing. Defaults to 40 when omitted. */
   minWidth?: number;
-  /** When true, the column absorbs remaining space via `1fr`. */
+  /** When true, the column absorbs remaining space up to `maxWidth`.
+   * Without a cap, a single long-content row (e.g. a 1.5 KB URL in the
+   * Name column) would push the grid template wider than every other
+   * row, breaking column alignment under the shared-width scroll
+   * wrapper. The cap also gives long values somewhere to ellipsize. */
   stretch?: boolean;
+  /** Upper bound for stretchy columns. Ignored for non-stretchy
+   * columns. Defaults to `defaultWidth * 3` when omitted. */
+  maxWidth?: number;
   align?: 'left' | 'right';
   /** Whether this column participates in sorting. */
   sortable: boolean;
@@ -73,9 +80,18 @@ export const DEFAULT_COLUMN_MIN_WIDTH = 40;
  * use `minmax(<default>, 1fr)` so they absorb remaining space;
  * everything else is a fixed pixel track that the user can drag.
  */
-export function columnTrack(col: ColumnDef, override: number | undefined): string {
+export function columnTrack(col: ColumnDef, override: number | undefined, compact: boolean = false): string {
   if (override != null) return `${Math.max(override, col.minWidth ?? DEFAULT_COLUMN_MIN_WIDTH)}px`;
-  if (col.stretch) return `minmax(${col.defaultWidth}px, 1fr)`;
+  if (col.stretch) {
+    // Compact mode drops the maxWidth cap so stretchy columns absorb
+    // remaining viewport space, which (combined with the outer table
+    // grid being viewport-bounded) is what makes the table fit without
+    // horizontal scroll. Normal mode caps so a single long-content row
+    // can't blow the column past `maxWidth`.
+    if (compact) return `minmax(${col.minWidth ?? col.defaultWidth}px, 1fr)`;
+    const max = col.maxWidth ?? col.defaultWidth * 3;
+    return `minmax(${col.defaultWidth}px, ${max}px)`;
+  }
   return `${col.defaultWidth}px`;
 }
 
@@ -124,9 +140,10 @@ export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
   name: {
     key: 'name',
     label: 'Name',
-    defaultWidth: 220,
+    defaultWidth: 110,
     minWidth: 100,
     stretch: true,
+    maxWidth: 320,
     sortable: true,
     extract: (e) => e.url,
     getSortValue: (e) => e.url.toLowerCase(),
@@ -309,9 +326,10 @@ export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
   waterfall: {
     key: 'waterfall',
     label: 'Waterfall',
-    defaultWidth: 220,
+    defaultWidth: 120,
     minWidth: 120,
     stretch: true,
+    maxWidth: 280,
     sortable: false,
     // Waterfall is rendered by a dedicated component — extract/sort
     // are unused but present for registry uniformity.

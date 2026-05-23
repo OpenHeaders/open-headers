@@ -248,6 +248,9 @@
   --oh-init-sticky-offset: calc(
     var(--oh-init-summary-h, 24px) + var(--oh-init-toolbar-h, 30px) + var(--oh-init-stack-h, 0px)
   );
+  /* Toolbar sits flush with the tab strip; the section summary sticks
+   * beneath the toolbar via the shared sections.css rule. */
+  --dt-section-sticky-top: var(--oh-init-toolbar-h, 30px);
 }
 
 /* Initiator: ancestor sticky stack.
@@ -297,20 +300,17 @@
   text-overflow: ellipsis;
 }
 
-/* Initiator pane — section summary comes BEFORE the filter toolbar
- * in DOM, so the summary stays at `top: 0` and the toolbar sticks
- * BELOW it. (Reverse of Headers tab, where toolbar precedes sections.) */
+/* Initiator pane — toolbar comes FIRST in DOM (mirrors Headers /
+ * Cookies / Timing) so it sticks at top:0 and the section summary
+ * docks beneath it via `--dt-section-sticky-top`. */
 .dt-initiator-chain-filter {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 4px 12px;
   position: sticky;
-  /* Sits flush below the section summary — height is published by
-   * useMeasuredCssHeights with subpixel precision (getBoundingClientRect),
-   * so no `-1px` overlap is needed to absorb rounding. */
-  top: var(--oh-init-summary-h, 24px);
-  z-index: 2;
+  top: 0;
+  z-index: 5;
   background: var(--dt-bg);
   border-bottom: 1px solid var(--dt-border);
 }

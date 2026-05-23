@@ -193,37 +193,37 @@ export function InitiatorTreeView({
 
   return (
     <div className="dt-initiator-pane" ref={paneRef}>
+      <div className="dt-initiator-chain-filter" ref={toolbarRef}>
+        <input
+          type="search"
+          placeholder="Filter — text, is:failed, is:third-party, type:js, status:404, size:>50kb"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="dt-initiator-chain-filter-input"
+          aria-label="Filter initiator chain"
+        />
+        {filtering && (
+          <span className="dt-initiator-chain-filter-count">
+            {rows.filter((r) => r.matches).length} match{rows.filter((r) => r.matches).length === 1 ? '' : 'es'}
+          </span>
+        )}
+        <InitiatorMoreFiltersMenu
+          failuresOnly={failuresOnly}
+          thirdPartyOnly={thirdPartyOnly}
+          onToggleFailuresOnly={toggleFailuresOnly}
+          onToggleThirdPartyOnly={toggleThirdPartyOnly}
+        />
+        <InitiatorViewMenu
+          sortMode={sortMode}
+          showInsights={showInsights}
+          onSortChange={setSortMode}
+          onToggleShowInsights={toggleShowInsights}
+        />
+      </div>
       <details className="dt-section" open>
         <summary ref={summaryRef}>Request initiator chain</summary>
         <CascadeSummaryHeader summary={summary} />
         {showInsights && insights.map((ins, i) => <InsightCallout key={`${ins.kind}-${i}`} insight={ins} />)}
-        <div className="dt-initiator-chain-filter" ref={toolbarRef}>
-          <input
-            type="search"
-            placeholder="Filter — text, is:failed, is:third-party, type:js, status:404, size:>50kb"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="dt-initiator-chain-filter-input"
-            aria-label="Filter initiator chain"
-          />
-          {filtering && (
-            <span className="dt-initiator-chain-filter-count">
-              {rows.filter((r) => r.matches).length} match{rows.filter((r) => r.matches).length === 1 ? '' : 'es'}
-            </span>
-          )}
-          <InitiatorMoreFiltersMenu
-            failuresOnly={failuresOnly}
-            thirdPartyOnly={thirdPartyOnly}
-            onToggleFailuresOnly={toggleFailuresOnly}
-            onToggleThirdPartyOnly={toggleThirdPartyOnly}
-          />
-          <InitiatorViewMenu
-            sortMode={sortMode}
-            showInsights={showInsights}
-            onSortChange={setSortMode}
-            onToggleShowInsights={toggleShowInsights}
-          />
-        </div>
         {/* biome-ignore lint/a11y/useSemanticElements: tree role is intentional */}
         <div role="tree" aria-label="Request initiator chain" className="dt-initiator-chain" onKeyDown={onKeyDown}>
           {stickyAncestorKeys.length > 0 && (

@@ -18,6 +18,7 @@ import './devpanel-headers';
 import './devpanel-initiator';
 import './devpanel-cookies';
 import './devpanel-timing';
+import './devpanel-network';
 import './editor';
 import './rules-engine';
 import './backend';

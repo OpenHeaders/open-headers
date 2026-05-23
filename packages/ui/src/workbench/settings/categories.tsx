@@ -113,6 +113,14 @@ registerCategory({
 });
 
 registerCategory({
+  id: 'devpanelNetwork',
+  label: 'DevTools Panel · Network',
+  icon: <ApiOutlined />,
+  order: 16,
+  description: 'Defaults for the Network requests table in the DevTools panel — layout, sort, dot column.',
+});
+
+registerCategory({
   id: 'editor',
   label: 'Code Editor',
   icon: <EditOutlined />,

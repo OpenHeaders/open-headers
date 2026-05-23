@@ -71,8 +71,7 @@ registerSetting({
   default: true,
   schema: v.boolean(),
   label: 'Show Timing Bar',
-  description:
-    'Show the proportional segmented bar with the per-phase legend (and the Total row beneath it).',
+  description: 'Show the proportional segmented bar with the per-phase legend (and the Total row beneath it).',
   category: 'devpanelTiming',
   subcategory: 'View',
   tags: ['timing', 'bar', 'waterfall', 'devtools'],
@@ -85,8 +84,7 @@ registerSetting({
   default: true,
   schema: v.boolean(),
   label: 'Show Server-Timing',
-  description:
-    'Show the parsed `Server-Timing` response-header metrics when the server sent any.',
+  description: 'Show the parsed `Server-Timing` response-header metrics when the server sent any.',
   category: 'devpanelTiming',
   subcategory: 'View',
   tags: ['timing', 'server-timing', 'devtools'],

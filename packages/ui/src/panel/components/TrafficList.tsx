@@ -1,5 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPanelHeaderWiring, PanelHeader } from '@openheaders/ui/shared/dock-layout';
+import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
+import type {
+  DevpanelNetworkSortBySetting,
+  DevpanelNetworkSortDirSetting,
+} from '@openheaders/ui/workbench/settings/schema/devpanel-network';
+import { NetworkViewMenu } from './traffic/NetworkViewMenu';
+import {
+  buildCustomNestedComparator,
+  NETWORK_SORT_MODE_COMPARATORS,
+  type NetworkSortMode,
+} from '../data/network-sort-modes';
+import type { NetworkCustomNestedLevel } from '@openheaders/ui/workbench/settings/schema/devpanel-network';
 import type { FilterConfig, FilterToken } from '../data/filter-engine';
 import { matchesUrlFilter, passesRowFilters } from '../data/filter-engine';
 import { classifyRequestState, type RequestState, rowStateClass, statusText } from '../data/request-state';
@@ -17,14 +29,14 @@ import ResourceIcon from './traffic/ResourceIcon';
 import { matchesResourceType, normalizeResourceType, RESOURCE_LABEL } from './traffic/resource-types';
 import { WaterfallBar } from './traffic/WaterfallBar';
 
-type SortDir = 'asc' | 'desc';
+type SortDir = DevpanelNetworkSortDirSetting;
 
 /**
  * Sort target. `'id'` is the synthetic leading `#` column — not part
  * of the toggleable registry but always sortable. Everything else
  * maps to a `ColumnKey` in `COLUMN_DEFS`.
  */
-type SortTarget = ColumnKey | 'id';
+type SortTarget = DevpanelNetworkSortBySetting;
 
 function sortValueOf(entry: InspectorRequest, target: SortTarget): string | number {
   if (target === 'id') return entry.arrivalIndex;
@@ -75,6 +87,7 @@ interface NetworkPanelHeaderProps {
    *  filter icon on the top toolbar. */
   showFilter: boolean;
   onHide: () => void;
+  viewMenu: React.ReactNode;
 }
 
 /**
@@ -101,6 +114,7 @@ function NetworkPanelHeader({
   onFilterChange,
   showFilter,
   onHide,
+  viewMenu,
 }: NetworkPanelHeaderProps) {
   const headerWiring = useMemo(() => createPanelHeaderWiring({ onHide }), [onHide]);
   if (!showFilter) {
@@ -144,14 +158,20 @@ function NetworkPanelHeader({
           </button>
           <div className="dt-filter-separator" />
           <ResourceFilter value={filter} onChange={onFilterChange} compact />
+          {viewMenu}
         </div>
       }
     />
   );
 }
 
-function sortIndicator(col: SortTarget, sortKey: SortTarget, sortDir: SortDir): string {
-  if (col !== sortKey) return '';
+function sortIndicator(
+  col: SortTarget,
+  sortKey: SortTarget,
+  sortDir: SortDir,
+  active: boolean,
+): string {
+  if (!active || col !== sortKey) return '';
   return sortDir === 'asc' ? ' \u25b4' : ' \u25be';
 }
 
@@ -331,6 +351,49 @@ export function TrafficList({
   onCopyAllAsHar,
   onHide,
 }: TrafficListProps) {
+  const [layout, setLayout] = useSetting('devpanelNetwork.layout');
+  const [sortKind, setSortKind] = useSetting('devpanelNetwork.sortKind');
+  const [sortMode, setSortMode] = useSetting('devpanelNetwork.sortMode');
+  const [sortKey, setSortKey] = useSetting('devpanelNetwork.sortBy');
+  const [sortDir, setSortDir] = useSetting('devpanelNetwork.sortDir');
+  const [showFireDots, setShowFireDots] = useSetting('devpanelNetwork.showFireDots');
+  // Custom-nested levels are session-scoped scratch state (the
+  // settings registry doesn't carry arbitrary JSON). If the persisted
+  // sortKind is 'customNested' but the levels array is empty after a
+  // panel reload, the comparator falls back to plain arrival.
+  const [customNested, setCustomNested] = useState<NetworkCustomNestedLevel[]>([]);
+  const compact = layout === 'compact';
+  const toggleShowFireDots = useCallback(() => setShowFireDots(!showFireDots), [showFireDots, setShowFireDots]);
+  const handleSortModeChange = useCallback(
+    (m: NetworkSortMode) => {
+      setSortKind('mode');
+      setSortMode(m);
+    },
+    [setSortKind, setSortMode],
+  );
+  const handleUseColumnSort = useCallback(() => setSortKind('column'), [setSortKind]);
+  const handleUseCustomNested = useCallback(() => setSortKind('customNested'), [setSortKind]);
+  const sortByLabel = sortKey === 'id' ? '# (Arrival)' : COLUMN_DEFS[sortKey].label;
+
+  const viewMenu = (
+    <NetworkViewMenu
+      layout={layout}
+      sortKind={sortKind}
+      sortMode={sortMode}
+      sortBy={sortKey}
+      sortDir={sortDir}
+      customNested={customNested}
+      showFireDots={showFireDots}
+      sortByLabel={sortByLabel}
+      onLayoutChange={setLayout}
+      onSortModeChange={handleSortModeChange}
+      onUseColumnSort={handleUseColumnSort}
+      onCustomNestedChange={setCustomNested}
+      onUseCustomNested={handleUseCustomNested}
+      onToggleShowFireDots={toggleShowFireDots}
+    />
+  );
+
   const headerProps = {
     urlFilter,
     onUrlFilterChange,
@@ -343,9 +406,8 @@ export function TrafficList({
     onFilterChange,
     showFilter,
     onHide,
+    viewMenu,
   };
-  const [sortKey, setSortKey] = useState<SortTarget>('id');
-  const [sortDir, setSortDir] = useState<SortDir>('asc');
   const tableRef = useRef<HTMLDivElement>(null);
   const prevCountRef = useRef(0);
 
@@ -376,13 +438,15 @@ export function TrafficList({
   }, [visibleColumns]);
 
   const gridTemplate = useMemo(() => {
-    // Leading fixed columns: rule-fire dot (empty or colored) then
-    // the sequential display id. Keep them narrow — status surface
-    // only, not content-driven.
-    const tracks = ['14px', '32px'];
-    for (const c of columns) tracks.push(columnTrack(c, columnWidths[c.key]));
+    // Leading fixed columns: rule-fire dot (empty or colored, gated by
+    // the showFireDots setting) then the sequential display id. Keep
+    // them narrow — status surface only, not content-driven.
+    const tracks: string[] = [];
+    if (showFireDots) tracks.push('14px');
+    tracks.push('32px');
+    for (const c of columns) tracks.push(columnTrack(c, columnWidths[c.key], compact));
     return tracks.join(' ');
-  }, [columns, columnWidths]);
+  }, [columns, columnWidths, compact, showFireDots]);
 
   // Per-column-header refs. A Map rather than an object so the "set
   // callback ref" closure doesn't depend on the key set at compile
@@ -447,8 +511,12 @@ export function TrafficList({
   }, []);
 
   const handleSortTarget = (target: SortTarget) => {
-    if (target === sortKey) {
-      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    // Any column-header click pulls the table out of mode-sort and
+    // into column-sort. The previously-active mode is left intact so
+    // the user can switch back to it from the View menu.
+    setSortKind('column');
+    if (sortKind === 'column' && target === sortKey) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
     } else {
       setSortKey(target);
       setSortDir('asc');
@@ -471,9 +539,18 @@ export function TrafficList({
 
   const sorted = useMemo(() => {
     const arr = [...filtered];
-    arr.sort((a, b) => sortCompare(a, b, sortKey, sortDir));
+    if (sortKind === 'column') {
+      arr.sort((a, b) => sortCompare(a, b, sortKey, sortDir));
+    } else if (sortKind === 'customNested' && customNested.length > 0) {
+      arr.sort(buildCustomNestedComparator(customNested));
+    } else {
+      // 'mode', or 'customNested' with an empty level list (e.g. after
+      // a panel reload that lost the session state) — fall back to the
+      // configured mode comparator.
+      arr.sort(NETWORK_SORT_MODE_COMPARATORS[sortMode]);
+    }
     return arr;
-  }, [filtered, sortKey, sortDir]);
+  }, [filtered, sortKind, sortKey, sortDir, sortMode, customNested]);
 
   // Preflight pairing — derived from all entries (not filtered) so a
   // preflight whose parent is filtered out still renders as "preflight"
@@ -562,7 +639,7 @@ export function TrafficList({
       {/* Header + rows share one scroll container so horizontal scroll
           moves them in lockstep — the header uses `position: sticky`
           on its top edge to stay pinned against vertical scroll. */}
-      <div className="dt-table" ref={tableRef}>
+      <div className={`dt-table${compact ? ' dt-table--compact' : ''}`} ref={tableRef}>
         {/* biome-ignore lint/a11y/noStaticElementInteractions: header row has a right-click menu but no primary action */}
         <div
           className="dt-table-header dt-cols"
@@ -572,14 +649,14 @@ export function TrafficList({
             setColMenu({ x: e.clientX, y: e.clientY });
           }}
         >
-          <span />
+          {showFireDots && <span />}
           <button
             type="button"
             className="dt-col-sort dt-col-sort--hash"
             onClick={() => handleSortTarget('id')}
             title="Sort by arrival order"
           >
-            #{sortIndicator('id', sortKey, sortDir)}
+            #{sortIndicator('id', sortKey, sortDir, sortKind === 'column')}
           </button>
           {columns.map((col) => (
             <div key={col.key} ref={registerCellRef(col.key)} className="dt-col-header-cell">
@@ -590,7 +667,7 @@ export function TrafficList({
                 disabled={!col.sortable}
               >
                 {col.label}
-                {col.sortable && sortIndicator(col.key, sortKey, sortDir)}
+                {col.sortable && sortIndicator(col.key, sortKey, sortDir, sortKind === 'column')}
               </button>
               {/* Resize grip — every column is resizable; double-click
                   restores the registry default width. Modeled as a
@@ -629,13 +706,15 @@ export function TrafficList({
               title={entry.url}
               style={{ gridTemplateColumns: gridTemplate }}
             >
-              <span className="dt-col-dot">
-                {entry.fires.length > 0 && (
-                  <span
-                    className={`dt-fire-dot ${entry.fires.some(isAppliedFire) ? 'dt-fire-dot--auth' : 'dt-fire-dot--inferred'}`}
-                  />
-                )}
-              </span>
+              {showFireDots && (
+                <span className="dt-col-dot">
+                  {entry.fires.length > 0 && (
+                    <span
+                      className={`dt-fire-dot ${entry.fires.some(isAppliedFire) ? 'dt-fire-dot--auth' : 'dt-fire-dot--inferred'}`}
+                    />
+                  )}
+                </span>
+              )}
               <span className="dt-col-muted" style={{ textAlign: 'right' }}>
                 {entry.displayId}
               </span>

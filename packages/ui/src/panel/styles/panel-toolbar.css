@@ -202,6 +202,12 @@
   display: flex;
   flex-direction: column;
   min-width: 180px;
+  /* Cap the popover so a tall menu (Network View with its mode rows +
+   * builder) can't push the whole DevTools panel into a vertical
+   * scroll. The popover is portal-rendered to body, so its container
+   * has no implicit height cap. Matches the InfoPopover cap pattern. */
+  max-height: min(60vh, 480px);
+  overflow-y: auto;
 }
 
 .dt-morefilters-item {
@@ -235,6 +241,237 @@
   height: 1px;
   background: var(--dt-border);
   margin: 4px 0;
+}
+
+/* Network sort-mode picker: a labeled radio list inside the View
+ * popover. Each row is a `title + subtitle` button (matching the popup
+ * sort menu) with a right-aligned checkmark on the active mode. The
+ * Network View menu is wider than the default (220px) so subtitles
+ * have room to breathe. */
+.dt-network-view-menu {
+  min-width: 320px;
+  max-width: 360px;
+}
+
+.dt-sortmode-heading {
+  padding: 6px 12px 2px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--dt-text-muted);
+}
+
+.dt-sortmode-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  color: var(--dt-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+}
+
+.dt-sortmode-item:hover:not(:disabled) {
+  background: var(--dt-row-hover);
+}
+
+.dt-sortmode-item:disabled {
+  cursor: default;
+}
+
+.dt-sortmode-item-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.dt-sortmode-item-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dt-text);
+}
+
+.dt-sortmode-item-subtitle {
+  font-size: 11px;
+  color: var(--dt-text-muted);
+  margin-top: 1px;
+  white-space: normal;
+  line-height: 1.35;
+}
+
+.dt-sortmode-item-hint {
+  color: var(--dt-text-muted);
+  font-style: italic;
+}
+
+.dt-sortmode-item-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: var(--dt-link);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.dt-sortmode-item--column .dt-sortmode-item-title {
+  font-weight: 500;
+}
+
+/* Closed-state "active" snapshot — shows which mode is currently
+ * driving the table, even when its group is collapsed. Mimics a quiet
+ * status row above the picker. */
+.dt-sortmode-active {
+  padding: 4px 12px 8px;
+  border-bottom: 1px solid var(--dt-border);
+  margin-bottom: 2px;
+}
+.dt-sortmode-active-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--dt-text);
+}
+.dt-sortmode-active-subtitle {
+  font-size: 10px;
+  color: var(--dt-text-muted);
+  margin-top: 1px;
+  line-height: 1.35;
+}
+
+/* Group row + hover submenu. The grouprow is `position: relative` so
+ * the submenu can flank it on the right via `left: 100%`. Submenu has
+ * its own background + border + shadow so it reads as a popover that
+ * happens to be flush with the parent. */
+.dt-sortmode-grouprow {
+  position: relative;
+}
+.dt-sortmode-item--group {
+  display: flex;
+}
+.dt-sortmode-item-chevron {
+  display: inline-flex;
+  align-items: center;
+  color: var(--dt-text-muted);
+  font-size: 10px;
+  margin-left: 4px;
+}
+.dt-sortmode-submenu {
+  position: absolute;
+  top: -4px;
+  left: 100%;
+  min-width: 320px;
+  max-width: 380px;
+  background: var(--dt-bg);
+  border: 1px solid var(--dt-border);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.32);
+  padding: 4px 0;
+  z-index: 10;
+  /* Submenu can also outgrow the viewport (the builder + four
+   * subtitled mode rows together). Cap + scroll so the host popover
+   * stays bounded. Matches the InfoPopover cap pattern. */
+  max-height: min(60vh, 480px);
+  overflow-y: auto;
+}
+
+/* Custom-nested builder submenu — needs more padding for the row of
+ * selects + remove button to breathe. */
+.dt-sortmode-submenu--builder {
+  padding: 8px 12px;
+}
+.dt-sortmode-builder-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--dt-text);
+  margin-bottom: 6px;
+}
+.dt-sortmode-builder-empty {
+  font-size: 11px;
+  color: var(--dt-text-muted);
+  font-style: italic;
+  padding: 4px 0;
+}
+.dt-sortmode-builder-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.dt-sortmode-builder-step {
+  font-size: 11px;
+  color: var(--dt-text-muted);
+  width: 18px;
+}
+.dt-sortmode-builder-row select {
+  font-size: 11px;
+  padding: 2px 4px;
+}
+.dt-sortmode-builder-row select:first-of-type {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.dt-sortmode-builder-remove {
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: var(--dt-text-muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 3px;
+}
+.dt-sortmode-builder-remove:hover {
+  background: var(--dt-row-hover);
+  color: var(--dt-text);
+}
+.dt-sortmode-builder-add {
+  margin-top: 4px;
+  padding: 4px 8px;
+  border: 1px dashed var(--dt-border);
+  background: transparent;
+  color: var(--dt-text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: 3px;
+  width: 100%;
+  text-align: left;
+}
+.dt-sortmode-builder-add:hover {
+  color: var(--dt-text);
+  border-color: var(--dt-link);
+}
+.dt-sortmode-builder-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--dt-border);
+}
+.dt-sortmode-builder-tiebreak {
+  font-size: 10px;
+  color: var(--dt-text-muted);
+  font-style: italic;
+}
+.dt-sortmode-builder-apply {
+  padding: 3px 10px;
+  border: 1px solid var(--dt-link);
+  background: var(--dt-link);
+  color: var(--dt-bg);
+  font-size: 11px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.dt-sortmode-builder-apply:disabled {
+  background: transparent;
+  color: var(--dt-text-muted);
+  border-color: var(--dt-border);
+  cursor: default;
 }
 
 /* Filter row rendered inside the Network panel's PanelHeader title
