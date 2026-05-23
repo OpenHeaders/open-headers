@@ -59,6 +59,7 @@ const WorkspacePill: React.FC = () => {
           onOpenBackendSettings={() => {
             void openWorkspace({ kind: 'open-settings', target: { categoryId: 'backend' } }, surface.mode);
           }}
+          popoverPlacement="top"
           onClose={() => setOpen(false)}
           orgGrouping={{
             catalogue,

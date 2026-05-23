@@ -117,10 +117,14 @@ describe('orgHostKindHint', () => {
     expect(browserHome && orgHostKindHint(browserHome)).toBe('This browser');
 
     const desktopHome = describeOrg(makeSnapshot([realHome], HOME_ORG), HOME_ORG);
-    expect(desktopHome && orgHostKindHint(desktopHome)).toBe('This computer');
+    expect(desktopHome && orgHostKindHint(desktopHome)).toBe('This device');
 
     const daemonHome = describeOrg(makeSnapshot([realTeam], TEAM_ORG), TEAM_ORG);
-    expect(daemonHome && orgHostKindHint(daemonHome)).toBe('This server');
+    // Daemon hint disambiguates by reach — unknown / loopback / lan all
+    // read as "Local server"; only wan deployments report "Remote server".
+    expect(daemonHome && orgHostKindHint(daemonHome)).toBe('Local server');
+    expect(daemonHome && orgHostKindHint(daemonHome, 'lan')).toBe('Local server');
+    expect(daemonHome && orgHostKindHint(daemonHome, 'wan')).toBe('Remote server');
   });
 
   it('gives a joined (non-home) Org no hint', () => {

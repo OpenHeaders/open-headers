@@ -9,6 +9,7 @@
 
 import { clearIdentitySnapshot } from '@openheaders/core/identity';
 import {
+  BACKEND_REACH,
   HANDSHAKE_REJECT_REASONS,
   HANDSHAKE_ROLES,
   PROTOCOL_VERSION,
@@ -128,6 +129,24 @@ describe('evaluateHello', () => {
 
   it('throws when called with a non-HELLO frame (caller wiring bug)', async () => {
     await expect(evaluateHello({ type: 'oh.sync.welcome' }, localIdentity)).rejects.toThrow();
+  });
+
+  it('stamps `reach` from options onto the accept', async () => {
+    const outcome = await evaluateHello(validHello as unknown as Record<string, unknown>, localIdentity, {
+      reach: BACKEND_REACH.LAN,
+    });
+    expect(outcome.kind).toBe('accept');
+    if (outcome.kind === 'accept' && outcome.welcome.accepted) {
+      expect(outcome.welcome.reach).toBe(BACKEND_REACH.LAN);
+    }
+  });
+
+  it('omits `reach` from the accept when no option is passed', async () => {
+    const outcome = await evaluateHello(validHello as unknown as Record<string, unknown>, localIdentity);
+    expect(outcome.kind).toBe('accept');
+    if (outcome.kind === 'accept' && outcome.welcome.accepted) {
+      expect(outcome.welcome.reach).toBeUndefined();
+    }
   });
 
   it('publishes the canonical set of handshake message types', () => {

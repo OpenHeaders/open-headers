@@ -1,20 +1,5 @@
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
-
-import {
-  HANDSHAKE_REJECT_REASONS,
-  HANDSHAKE_ROLES,
-  SYNC_HELLO_TYPE,
-  SYNC_STATE_VECTOR_TYPE,
-  SYNC_SYNCED_TYPE,
-  SYNC_WELCOME_TYPE,
-  StateVectorSchema,
-  SyncHandshakeMessageSchema,
-  SyncHelloMessageSchema,
-  SyncStateVectorMessageSchema,
-  SyncSyncedMessageSchema,
-  SyncWelcomeMessageSchema,
-} from '../../src/protocol';
 import type {
   StateVector,
   SyncHelloMessage,
@@ -22,6 +7,21 @@ import type {
   SyncSyncedMessage,
   SyncWelcomeAccept,
   SyncWelcomeReject,
+} from '../../src/protocol';
+import {
+  BACKEND_REACH,
+  HANDSHAKE_REJECT_REASONS,
+  HANDSHAKE_ROLES,
+  StateVectorSchema,
+  SYNC_HELLO_TYPE,
+  SYNC_STATE_VECTOR_TYPE,
+  SYNC_SYNCED_TYPE,
+  SYNC_WELCOME_TYPE,
+  SyncHandshakeMessageSchema,
+  SyncHelloMessageSchema,
+  SyncStateVectorMessageSchema,
+  SyncSyncedMessageSchema,
+  SyncWelcomeMessageSchema,
 } from '../../src/protocol';
 
 const sampleVector: StateVector = {
@@ -93,6 +93,15 @@ describe('SyncWelcomeMessageSchema', () => {
     expect(v.parse(SyncWelcomeMessageSchema, accept)).toEqual(accept);
   });
 
+  it('round-trips an accept carrying a reach tier', () => {
+    const withReach = { ...accept, reach: BACKEND_REACH.LAN };
+    expect(v.parse(SyncWelcomeMessageSchema, withReach)).toEqual(withReach);
+  });
+
+  it('rejects an unknown reach value', () => {
+    expect(() => v.parse(SyncWelcomeMessageSchema, { ...accept, reach: 'mesh' })).toThrow();
+  });
+
   it('round-trips a reject', () => {
     expect(v.parse(SyncWelcomeMessageSchema, reject)).toEqual(reject);
   });
@@ -135,7 +144,15 @@ describe('SyncHandshakeMessageSchema (union)', () => {
   it('routes each of the four message types by discriminator', () => {
     const messages = [
       { type: SYNC_HELLO_TYPE, protocolVersion: 1, role: 'extension', nodeId: 'a', workspaceId: 'w', agent: '' },
-      { type: SYNC_WELCOME_TYPE, accepted: true, protocolVersion: 1, role: 'desktop', nodeId: 'b', workspaceId: 'w', agent: '' },
+      {
+        type: SYNC_WELCOME_TYPE,
+        accepted: true,
+        protocolVersion: 1,
+        role: 'desktop',
+        nodeId: 'b',
+        workspaceId: 'w',
+        agent: '',
+      },
       { type: SYNC_STATE_VECTOR_TYPE, workspaceId: 'w', perNodeMaxHlc: {} },
       { type: SYNC_SYNCED_TYPE, workspaceId: 'w', stateVectorAfter: {} },
     ];

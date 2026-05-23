@@ -20,6 +20,7 @@
  * modules and declared in the respective module — not registered here.
  */
 
+import type { BackendReach } from '../protocol';
 import type {
   Collection,
   DaemonAuthToken,
@@ -237,6 +238,14 @@ export const OH = {
    * workspace's `orgId` — never stored as a separate pointer.
    */
   orgActiveWorkspace: storageKey<Record<string, string>>('oh.orgActiveWorkspace'),
+  /**
+   * Reach tier of the currently-connected backend ({@link BackendReach}),
+   * or null when nothing is connected. Live connection state, not a
+   * preference: the extension SW rewrites it from each handshake WELCOME
+   * and clears it on disconnect. Renderer surfaces read it (via
+   * `useBackendReach`) to render accurate "extend your reach" guidance.
+   */
+  backendReach: storageKey<BackendReach | null>('oh.backendReach'),
 } as const;
 
 /**

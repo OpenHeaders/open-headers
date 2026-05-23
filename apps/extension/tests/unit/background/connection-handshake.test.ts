@@ -6,6 +6,7 @@
  * (see scope-catchup-driver.test.ts).
  */
 import {
+  BACKEND_REACH,
   HANDSHAKE_REJECT_REASONS,
   HANDSHAKE_ROLES,
   PROTOCOL_VERSION,
@@ -130,6 +131,24 @@ describe('createConnectionHandshake', () => {
     expect(handshake.rejectReason()).toBe(HANDSHAKE_REJECT_REASONS.AUTH_REQUIRED);
     expect(onRejected).toHaveBeenCalledWith(HANDSHAKE_REJECT_REASONS.AUTH_REQUIRED, 'pairing required');
     expect(onConnected).not.toHaveBeenCalled();
+  });
+
+  it('fires onReach with the WELCOME reach value', async () => {
+    const onReach = vi.fn();
+    const { deps } = makeDeps({ onReach });
+    const handshake = createConnectionHandshake(deps);
+    await handshake.start();
+    await handshake.handle({ ...welcomeAccept, reach: BACKEND_REACH.LAN });
+    expect(onReach).toHaveBeenCalledWith(BACKEND_REACH.LAN);
+  });
+
+  it('fires onReach with null when the WELCOME omits reach', async () => {
+    const onReach = vi.fn();
+    const { deps } = makeDeps({ onReach });
+    const handshake = createConnectionHandshake(deps);
+    await handshake.start();
+    await handshake.handle(welcomeAccept);
+    expect(onReach).toHaveBeenCalledWith(null);
   });
 
   it('times out when WELCOME never arrives', async () => {

@@ -55,11 +55,14 @@ import { randomUUID } from 'node:crypto';
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
 import { hostLogger as logger } from '@openheaders/core/logger';
 import {
+  BACKEND_REACH,
+  type BackendReach,
   PROTOCOL_INCOMPATIBLE_CLOSE_CODE,
   SYNC_HELLO_TYPE,
   SYNC_STATE_VECTOR_TYPE,
   WS_PORT,
 } from '@openheaders/core/protocol';
+import { getHostStorage, OH } from '@openheaders/core/storage';
 import { type RawData, WebSocket, WebSocketServer } from 'ws';
 import { dispatchSyncRpc } from '../rpc';
 import { evaluateHello, handleStateVector, type LocalHandshakeIdentity } from '../rpc/handshake-dispatch';
@@ -153,6 +156,18 @@ function isLoopbackRemote(remoteAddress: string | undefined): boolean {
   return addr === '::1' || addr.startsWith('127.');
 }
 
+/**
+ * Classify this server's *bind* address into a {@link BackendReach}
+ * tier. Loopback binds (`127.*` / `::1` / `localhost`) only ever serve
+ * this machine; any broader bind is reachable by LAN peers. `wan` is not
+ * inferred here — a process can't tell NAT / public reachability from
+ * its bind alone; a wide-area daemon deployment sets that explicitly.
+ */
+function bindReach(host: string): BackendReach {
+  if (host === '::1' || host === 'localhost' || host.startsWith('127.')) return BACKEND_REACH.LOOPBACK;
+  return BACKEND_REACH.LAN;
+}
+
 export async function startOracleWsServer(options: OracleWsServerOptions): Promise<OracleWsServer> {
   const host = options.host ?? '127.0.0.1';
   const port = options.port ?? WS_PORT;
@@ -165,7 +180,7 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
   // listener and the pairing routes would have to live on a separate
   // port — `data-plane.md` §11.4 calls out single-bind explicitly.
   const httpServer: HttpServer = createHttpServer((req, res) => {
-    if (httpRequestHandler && httpRequestHandler(req, res)) return;
+    if (httpRequestHandler?.(req, res)) return;
     // Default: anything that isn't an upgrade and isn't claimed by the
     // pairing handler gets the same 400 the `ws` package emits on its
     // own — that's what the extension's reachability check expects.
@@ -188,6 +203,16 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
   });
 
   logger.info(SCOPE, `listening on ws://${host}:${port}`);
+
+  // Surface this host's reach as live state so its OWN renderer surfaces
+  // (desktop workbench / popup) light up the right contextual rows in
+  // `useBackendReach` — without piping through the WELCOME path, which
+  // only fires for external peers. A bind-change restart overwrites the
+  // slot, so flipping the LAN setting flows through automatically.
+  const reach = bindReach(host);
+  void getHostStorage()
+    ?.set(OH.backendReach, reach)
+    .catch((err: unknown) => logger.warn(SCOPE, 'failed to publish backendReach', err));
 
   // Connections past handshake. Only these receive broadcasts.
   const ready = new Set<WebSocket>();
@@ -250,6 +275,7 @@ export async function startOracleWsServer(options: OracleWsServerOptions): Promi
           try {
             outcome = await evaluateHello(parsed as Record<string, unknown>, handshakeIdentity, {
               requireAuth,
+              reach,
             });
           } catch (err) {
             // The HELLO gate awaits a token-store read; a storage fault

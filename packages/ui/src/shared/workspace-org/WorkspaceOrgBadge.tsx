@@ -15,6 +15,8 @@
 import { type OrgDescriptor, orgIdentityLabel } from '@openheaders/core/identity';
 import { Tag, Tooltip } from 'antd';
 import type React from 'react';
+import { useBackendMode } from '../hooks/useBackendMode';
+import { useBackendReach } from '../hooks/useBackendReach';
 import { OrgIcon } from './OrgIcon';
 import { orgScopeVisual } from './org-scope-vocabulary';
 
@@ -26,9 +28,11 @@ export interface WorkspaceOrgBadgeProps {
 }
 
 export const WorkspaceOrgBadge: React.FC<WorkspaceOrgBadgeProps> = ({ descriptor, compact }) => {
+  const reach = useBackendReach();
+  const mode = useBackendMode();
   if (!descriptor) return null;
 
-  const visual = orgScopeVisual(descriptor.scopeKind);
+  const visual = orgScopeVisual(descriptor, { mode, reach });
   const label = orgIdentityLabel(descriptor);
 
   return (

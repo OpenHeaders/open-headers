@@ -16,6 +16,7 @@
  * which point every consumer lights up without a code change.
  */
 
+import type { BackendReach } from '../protocol';
 import type { HostKind, Org } from '../types';
 import type { IdentitySnapshot } from './resolver';
 
@@ -113,18 +114,39 @@ export function orgIdentityLabel(descriptor: OrgDescriptor): string {
 
 /**
  * Second-person host-kind hint for the *home* Org — "This browser" /
- * "This computer" / "This server" — shown as a secondary sub-label
- * beneath {@link orgIdentityLabel} where space allows. `null` for a
- * joined Org: a backend the user joined isn't "this" anything.
+ * "This device" / "Local server" / "Remote server" — shown as a
+ * secondary sub-label beneath {@link orgIdentityLabel} where space
+ * allows. `null` for a joined Org: a backend the user joined isn't
+ * "this" anything.
+ *
+ * Daemon hosts disambiguate by `reach` ({@link BackendReach}):
+ * `wan` → "Remote server" (a public deployment), anything else →
+ * "Local server" (loopback / LAN bind). The two non-daemon kinds
+ * ignore `reach`; they read the same regardless of binding.
  */
-const HOST_KIND_HINT: Record<HostKind, string> = {
+const HOST_KIND_HINT: Record<Exclude<HostKind, 'daemon'>, string> = {
   browser: 'This browser',
-  desktop: 'This computer',
-  daemon: 'This server',
+  desktop: 'This device',
 };
 
-export function orgHostKindHint(descriptor: OrgDescriptor): string | null {
-  return descriptor.isHome ? HOST_KIND_HINT[descriptor.hostKind] : null;
+export function orgHostKindHint(descriptor: OrgDescriptor, reach?: BackendReach | null): string | null {
+  if (!descriptor.isHome) return null;
+  if (descriptor.hostKind === 'daemon') {
+    return reach === 'wan' ? 'Remote server' : 'Local server';
+  }
+  return HOST_KIND_HINT[descriptor.hostKind];
+}
+
+/**
+ * Full single-line label combining {@link orgHostKindHint} with the Org's
+ * stored name — `"This browser: Chrome"`, `"This device: my-mac"`. Used
+ * by surfaces (workspace dropdown, workspace manager) where there is room
+ * to spell out which machine the home Org represents, instead of just
+ * the rename-able name. Joined Orgs (no hint) fall through to the name.
+ */
+export function orgFullLabel(descriptor: OrgDescriptor, reach?: BackendReach | null): string {
+  const hint = orgHostKindHint(descriptor, reach);
+  return hint ? `${hint}: ${descriptor.name}` : descriptor.name;
 }
 
 /**

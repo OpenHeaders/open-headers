@@ -38,6 +38,7 @@ import {
   validateDaemonAuthToken,
 } from '@openheaders/core/identity';
 import {
+  type BackendReach,
   HANDSHAKE_REJECT_REASONS,
   HANDSHAKE_ROLES,
   type HandshakeRole,
@@ -113,6 +114,14 @@ export type EvaluateHelloOutcome =
 export interface EvaluateHelloOptions {
   readonly requireAuth?: boolean;
   readonly validate?: (token: string | undefined) => Promise<ValidateDaemonAuthTokenResult>;
+  /**
+   * This backend's reach tier, derived by the host from its own listen
+   * binding (loopback vs lan) or deployment (wan). Stamped onto the
+   * WELCOME so the joining peer can render accurate reach guidance.
+   * Omitted → the WELCOME carries no `reach` and the joiner treats it
+   * as unknown.
+   */
+  readonly reach?: BackendReach;
 }
 
 /**
@@ -216,6 +225,7 @@ export async function evaluateHello(
     agent: identity.agent,
     ...(homeOrg ? { org: homeOrg } : {}),
     ...(backendActiveWorkspaceId ? { activeWorkspaceId: backendActiveWorkspaceId } : {}),
+    ...(options.reach ? { reach: options.reach } : {}),
   };
   return { kind: 'accept', hello, welcome, tokenId };
 }

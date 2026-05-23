@@ -23,13 +23,15 @@
 import {
   CheckCircleFilled,
   CheckCircleOutlined,
+  DesktopOutlined,
   ExportOutlined,
   GlobalOutlined,
   ImportOutlined,
   SettingOutlined,
+  TeamOutlined,
 } from '@ant-design/icons';
 import type { OrgDescriptor } from '@openheaders/core/identity';
-import { orgIdentityLabel, resolveOrgActiveWorkspace } from '@openheaders/core/identity';
+import { orgFullLabel, resolveOrgActiveWorkspace } from '@openheaders/core/identity';
 import { getHostStorage, OH } from '@openheaders/core/storage';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
 import type { InputRef } from 'antd';
@@ -37,6 +39,7 @@ import { Divider, Input, Popover, Tooltip, Typography, theme } from 'antd';
 import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { renderWorkspacePrefix } from '../../workbench/components/workspace-prefix';
+import { useBackendReach } from '../hooks/useBackendReach';
 import { OrgIcon } from '../workspace-org/OrgIcon';
 import { WorkspaceOrgBadge } from '../workspace-org/WorkspaceOrgBadge';
 import './WorkspaceDropdownBody.css';
@@ -84,12 +87,36 @@ export interface WorkspaceDropdownBodyProps {
     describe: (orgId: string) => OrgDescriptor | null;
   };
   /**
-   * Opens the back-end Settings category. When supplied — and the
-   * identity has not yet reached a daemon-tier (LAN/WAN) Org — the
-   * dropdown shows a footer nudging the user toward multi-browser /
-   * multi-device sync. Omit it to hide the nudge.
+   * Opens the back-end Settings category. When supplied, the dropdown
+   * shows the "extend your reach" footer — rows contextual to the
+   * connected backend's {@link BackendReach} tier. Omit it to hide the
+   * footer entirely.
    */
   onOpenBackendSettings?: () => void;
+  /**
+   * Placement for popovers inside this dropdown body (the reach-row
+   * footer and the "ACTIVE" tag explainer). Narrow surfaces (popup /
+   * sidepanel) prefer `top` — `right` would overflow the viewport on a
+   * 350-400px window. Wide surfaces (workbench / devpanel) keep the
+   * default `right` so the popover doesn't cover the rows above it.
+   */
+  popoverPlacement?: 'top' | 'right';
+}
+
+/** Title + body content block for any popover this dropdown renders. */
+function renderPopoverBlock(title: string, body: string): React.ReactNode {
+  return (
+    <div style={{ maxWidth: 260 }}>
+      <Text strong style={{ fontSize: 12 }}>
+        {title}
+      </Text>
+      <div>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          {body}
+        </Text>
+      </div>
+    </div>
+  );
 }
 
 const baseRowStyle: React.CSSProperties = {
@@ -116,8 +143,10 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
   searchRowExtra,
   orgGrouping,
   onOpenBackendSettings,
+  popoverPlacement = 'right',
 }) => {
   const { token } = theme.useToken();
+  const reach = useBackendReach();
   const [searchText, setSearchText] = useState('');
   const searchRef = useRef<InputRef>(null);
 
@@ -192,11 +221,49 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
     [workspaces, activeId],
   );
 
-  // The reach-nudge footer shows until the identity holds a daemon-tier
-  // Org — i.e. LAN/WAN sync is already on. Browser-only and
-  // browser+desktop users still have a tier to climb.
-  const canExtendReach =
-    !!onOpenBackendSettings && !(orgGrouping?.catalogue ?? []).some((o) => o.hostKind === 'daemon');
+  // "Extend your reach" footer — contextual to the connected backend's
+  // reach tier (`null` = no backend). Each row names the *benefit*; its
+  // popover explains the *how*. A tier the user has already reached
+  // drops out, so the footer only ever points at genuine next steps;
+  // at `wan` reach there is nothing above, so the footer disappears.
+  const reachRows = useMemo(() => {
+    if (!onOpenBackendSettings) return [];
+    const rows: Array<{ key: string; icon: React.ReactNode; label: string; popover: React.ReactNode }> = [];
+    if (reach === null) {
+      rows.push({
+        key: 'multi-browser',
+        icon: <GlobalOutlined style={{ fontSize: 12 }} />,
+        label: 'Sync across browsers on this device',
+        popover: renderPopoverBlock(
+          'Multi-browser',
+          'Install the desktop app — every browser on this device then shares the same workspaces.',
+        ),
+      });
+    }
+    if (reach === 'loopback') {
+      rows.push({
+        key: 'multi-device',
+        icon: <DesktopOutlined style={{ fontSize: 12 }} />,
+        label: 'Sync across your devices',
+        popover: renderPopoverBlock(
+          'Multi-device',
+          'In the desktop app, turn on “Sync with devices on your network” so your devices on the same network share workspaces.',
+        ),
+      });
+    }
+    if (reach !== 'wan') {
+      rows.push({
+        key: 'multi-user',
+        icon: <TeamOutlined style={{ fontSize: 12 }} />,
+        label: 'Sync with your team',
+        popover: renderPopoverBlock(
+          'Multi-user',
+          'Connect to a shared server — on your network or over the internet — so everyone on it works in the same workspaces.',
+        ),
+      });
+    }
+    return rows;
+  }, [reach, onOpenBackendSettings]);
 
   const handleClose = (): void => {
     setSearchText('');
@@ -257,16 +324,28 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
           {w.name}
         </Text>
         {isActive && (
-          <Text
-            style={{
-              fontSize: 10,
-              color: isSelected ? token.colorPrimaryText : token.colorTextTertiary,
-              flexShrink: 0,
-              letterSpacing: 0.5,
-            }}
+          <Popover
+            placement={popoverPlacement}
+            mouseEnterDelay={0.3}
+            zIndex={token.zIndexPopupBase + 100}
+            content={renderPopoverBlock(
+              'Active workspace',
+              'The rule engine is injecting this workspace’s http rules for changing live traffic. Only one workspace can be active at a time, per browser.',
+            )}
           >
-            ACTIVE
-          </Text>
+            <Text
+              style={{
+                fontSize: 10,
+                color: isSelected ? token.colorPrimaryText : token.colorTextTertiary,
+                flexShrink: 0,
+                letterSpacing: 0.5,
+                cursor: 'help',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              ACTIVE
+            </Text>
+          </Popover>
         )}
         {mode === 'workbench' ? (
           <div className="oh-env-row-actions">
@@ -300,7 +379,7 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
   };
 
   const renderOrgHeader = (orgId: string, descriptor: OrgDescriptor | null): React.ReactNode => {
-    const label = descriptor ? orgIdentityLabel(descriptor) : 'Other workspaces';
+    const label = descriptor ? orgFullLabel(descriptor, reach) : 'Other workspaces';
     // Name the workspace the switch lands on — the header shows the Org's
     // intent; the tooltip makes the concrete consequence visible.
     const targetWs = resolveOrgTarget(orgId);
@@ -446,51 +525,34 @@ export const WorkspaceDropdownBody: React.FC<WorkspaceDropdownBodyProps> = ({
         <Text style={{ fontSize: 13 }}>Manage workspaces…</Text>
       </div>
 
-      {canExtendReach && (
+      {reachRows.length > 0 && (
         <>
           <Divider style={{ margin: '4px 0' }} />
-          <Popover
-            placement="right"
-            mouseEnterDelay={0.3}
-            content={
-              <div style={{ maxWidth: 260 }}>
-                <div style={{ marginBottom: 8 }}>
-                  <Text strong style={{ fontSize: 12 }}>
-                    Multi-browser
-                  </Text>
-                  <div>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      Install the desktop app — its workspaces sync to every browser on this computer.
-                    </Text>
-                  </div>
-                </div>
-                <div>
-                  <Text strong style={{ fontSize: 12 }}>
-                    Multi-device
-                  </Text>
-                  <div>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      In the desktop app, turn on “Sync with devices on your network” so your computers on the
-                      same network share workspaces.
-                    </Text>
-                  </div>
-                </div>
-              </div>
-            }
-          >
-            <div
-              role="menuitem"
-              className="oh-env-row"
-              style={{ ...baseRowStyle, color: token.colorTextSecondary }}
-              onClick={() => {
-                onOpenBackendSettings?.();
-                handleClose();
-              }}
+          {reachRows.map((row) => (
+            <Popover
+              key={row.key}
+              placement={popoverPlacement}
+              mouseEnterDelay={0.3}
+              content={row.popover}
+              // The Dropdown panel this body lives in portals at
+              // `zIndexPopupBase + 50`; lift the popover above it so it
+              // doesn't render behind the rows it explains.
+              zIndex={token.zIndexPopupBase + 100}
             >
-              <GlobalOutlined style={{ fontSize: 12 }} />
-              <Text style={{ fontSize: 13 }}>Want multi-device or multi-browser?</Text>
-            </div>
-          </Popover>
+              <div
+                role="menuitem"
+                className="oh-env-row"
+                style={{ ...baseRowStyle, color: token.colorTextSecondary }}
+                onClick={() => {
+                  onOpenBackendSettings?.();
+                  handleClose();
+                }}
+              >
+                {row.icon}
+                <Text style={{ fontSize: 13 }}>{row.label}</Text>
+              </div>
+            </Popover>
+          ))}
         </>
       )}
     </div>

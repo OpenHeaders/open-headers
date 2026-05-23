@@ -64,6 +64,7 @@ export {
   type OrgDescriptor,
   type OrgScopeKind,
   orgCatalogue,
+  orgFullLabel,
   orgHostKindHint,
   orgIdentityLabel,
 } from './org-catalogue';

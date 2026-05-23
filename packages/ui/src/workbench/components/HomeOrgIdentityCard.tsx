@@ -22,6 +22,7 @@ import {
   orgIdentityLabel,
   renameHomeOrg,
 } from '@openheaders/core/identity';
+import { useBackendReach } from '@openheaders/ui/shared/hooks/useBackendReach';
 import { useIdentitySnapshot } from '@openheaders/ui/shared/hooks/useIdentitySnapshot';
 import { OrgIcon } from '@openheaders/ui/shared/workspace-org/OrgIcon';
 import { App as AntApp, Button, Form, Input, Modal, Typography, theme } from 'antd';
@@ -33,12 +34,13 @@ const { Text } = Typography;
 const HomeOrgIdentityCard: React.FC = () => {
   const { token } = theme.useToken();
   const snapshot = useIdentitySnapshot();
+  const reach = useBackendReach();
   const [renameOpen, setRenameOpen] = useState(false);
 
   const home = useMemo(() => orgCatalogue(snapshot).find((d) => d.isHome) ?? null, [snapshot]);
   if (!home) return null;
 
-  const hint = orgHostKindHint(home);
+  const hint = orgHostKindHint(home, reach);
 
   return (
     <>

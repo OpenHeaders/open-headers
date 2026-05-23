@@ -32,9 +32,11 @@ import { App, Dropdown, Typography, theme } from 'antd';
 import type { MenuProps } from 'antd';
 import type React from 'react';
 import { useCallback } from 'react';
+import { useBackendMode } from '../hooks/useBackendMode';
+import { useBackendReach } from '../hooks/useBackendReach';
 import { OrgIcon } from './OrgIcon';
 import { WorkspaceOrgBadge } from './WorkspaceOrgBadge';
-import { orgScopeVisual } from './org-scope-vocabulary';
+import { type OrgScopeContext, orgScopeVisual } from './org-scope-vocabulary';
 
 const { Text } = Typography;
 
@@ -58,8 +60,8 @@ export interface WorkspaceSyncScopePickerProps {
   compact?: boolean;
 }
 
-function scopeRowLabel(descriptor: OrgDescriptor, selected: boolean): React.ReactNode {
-  const visual = orgScopeVisual(descriptor.scopeKind);
+function scopeRowLabel(descriptor: OrgDescriptor, selected: boolean, ctx: OrgScopeContext): React.ReactNode {
+  const visual = orgScopeVisual(descriptor, ctx);
   const title = descriptor.scopeKind === 'team' ? descriptor.name : visual.pickerLabel;
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '2px 0', minWidth: 240 }}>
@@ -86,6 +88,9 @@ export const WorkspaceSyncScopePicker: React.FC<WorkspaceSyncScopePickerProps> =
 }) => {
   const { token } = theme.useToken();
   const { modal } = App.useApp();
+  const reach = useBackendReach();
+  const mode = useBackendMode();
+  const scopeCtx: OrgScopeContext = { mode, reach };
 
   const hasTeamOrg = catalogue.some((o) => o.scopeKind === 'team');
 
@@ -113,7 +118,7 @@ export const WorkspaceSyncScopePicker: React.FC<WorkspaceSyncScopePickerProps> =
 
   const items: MenuProps['items'] = catalogue.map((descriptor) => ({
     key: descriptor.id,
-    label: scopeRowLabel(descriptor, descriptor.id === currentOrgId),
+    label: scopeRowLabel(descriptor, descriptor.id === currentOrgId, scopeCtx),
     onClick: () => commitPick(descriptor),
   }));
 

@@ -82,6 +82,40 @@ export const HANDSHAKE_ROLES = {
 
 export type HandshakeRole = (typeof HANDSHAKE_ROLES)[keyof typeof HANDSHAKE_ROLES];
 
+// ── Backend reach ─────────────────────────────────────────────────────
+
+/**
+ * How far the responding backend is reachable — a property of its own
+ * listen binding + deployment, NOT of its {@link HandshakeRole} or host
+ * kind. A desktop app bound to every interface is `lan`-reach even
+ * though it is still a "desktop"; a daemon bound to loopback is
+ * `loopback`-reach even though it is a "daemon". Reach is the binding,
+ * role is the process — orthogonal axes.
+ *
+ *   loopback — only this machine can connect (`127.0.0.1` / `::1`).
+ *   lan      — other devices on the local network can connect
+ *              (bound to `0.0.0.0` / a non-loopback interface).
+ *   wan      — reachable beyond the local network — a daemon explicitly
+ *              deployed for wide-area access.
+ *
+ * A backend reports the tier it can honestly determine: loopback vs lan
+ * from its bind address; `wan` only when the deployment is explicitly
+ * wide-area (a public daemon), since a process cannot infer NAT / public
+ * reachability from its bind alone.
+ *
+ * Carried in WELCOME so the joining peer can surface accurate "extend
+ * your reach" guidance without guessing from the role.
+ */
+export const BACKEND_REACH = {
+  LOOPBACK: 'loopback',
+  LAN: 'lan',
+  WAN: 'wan',
+} as const;
+
+export type BackendReach = (typeof BACKEND_REACH)[keyof typeof BACKEND_REACH];
+
+const BackendReachSchema = v.picklist([BACKEND_REACH.LOOPBACK, BACKEND_REACH.LAN, BACKEND_REACH.WAN]);
+
 const HandshakeRoleSchema = v.picklist([
   HANDSHAKE_ROLES.EXTENSION,
   HANDSHAKE_ROLES.DESKTOP,
@@ -178,6 +212,13 @@ export interface SyncWelcomeAccept {
    * Optional: absent when the responder has no active workspace.
    */
   activeWorkspaceId?: string;
+  /**
+   * How far this backend is reachable ({@link BackendReach}), derived
+   * from its listen binding. The joiner surfaces it in the "extend your
+   * reach" guidance. Optional: absent from a responder that predates the
+   * field — the joiner then treats reach as unknown.
+   */
+  reach?: BackendReach;
 }
 
 export interface SyncWelcomeReject {
@@ -200,6 +241,7 @@ const SyncWelcomeAcceptSchema = v.object({
   agent: v.string(),
   org: v.optional(OrgSchema),
   activeWorkspaceId: v.optional(v.pipe(v.string(), v.minLength(1))),
+  reach: v.optional(BackendReachSchema),
 }) satisfies v.GenericSchema<SyncWelcomeAccept>;
 
 const SyncWelcomeRejectSchema = v.object({

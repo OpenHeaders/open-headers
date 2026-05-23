@@ -23,6 +23,7 @@
  * this handshake reaches `connected`.
  */
 import {
+  type BackendReach,
   HANDSHAKE_ROLES,
   type HandshakeRejectReason,
   PROTOCOL_VERSION,
@@ -78,6 +79,12 @@ export interface ConnectionHandshakeDeps {
    * the WELCOME carries it (U5.9 join → adopt).
    */
   readonly onJoinedOrg?: (org: Org, backendActiveWorkspaceId?: string) => Promise<void>;
+  /**
+   * Fired on an accepted WELCOME with the backend's advertised reach
+   * tier — `null` when the WELCOME omits it. Org-independent (unlike
+   * {@link onJoinedOrg}) so reach is surfaced even pre-bootstrap.
+   */
+  readonly onReach?: (reach: BackendReach | null) => void;
   /** Fired on a rejected WELCOME so the UI can surface the reason. */
   readonly onRejected?: (reason: HandshakeRejectReason, detail?: string) => void;
   /** Budget between HELLO and WELCOME. Defaults to {@link DEFAULT_CONNECTION_TIMEOUT_MS}. */
@@ -221,7 +228,8 @@ export function createConnectionHandshake(deps: ConnectionHandshakeDeps): Connec
     // set before any catch-up frame arrives. A throw here is logged but
     // never fails the handshake — the org filter degrades to "drop
     // until the next reconnect re-sends WELCOME," not a desync.
-    const { org, activeWorkspaceId } = parsed.output;
+    const { org, activeWorkspaceId, reach } = parsed.output;
+    deps.onReach?.(reach ?? null);
     if (org && deps.onJoinedOrg) {
       try {
         await deps.onJoinedOrg(org, activeWorkspaceId);

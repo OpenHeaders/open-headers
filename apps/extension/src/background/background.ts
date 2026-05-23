@@ -237,6 +237,15 @@ const syncHandshakeInitiator = createSyncHandshakeInitiator({
   onRejected: (reason, detail) => {
     logger.warn('Background', `sync handshake rejected: ${reason}${detail ? ` — ${detail}` : ''}`);
   },
+  // Persist the backend's advertised reach tier as live connection
+  // state. Renderer surfaces read `OH.backendReach` (via `useBackendReach`)
+  // to render accurate "extend your reach" guidance. Cleared on
+  // disconnect + at SW init so a stale tier never outlives its socket.
+  onReach: (reach) => {
+    void getHostStorage()
+      ?.set(OH.backendReach, reach)
+      .catch((err: unknown) => logger.warn('Background', 'backendReach write failed', err));
+  },
   // U5.2 — connecting to a backend is consume-first: record the
   // backend's home Org so its workspaces sync down through the existing
   // `authorizedOrgIds` filter. This host's own workspaces are never
@@ -282,6 +291,12 @@ subscribeOnWebSocketOpen(() => {
 });
 subscribeOnWebSocketClose(() => {
   syncHandshakeInitiator.reset();
+  // The socket is gone — no backend, no reach.
+  void getHostStorage()
+    ?.set(OH.backendReach, null)
+    .catch(() => {
+      /* best-effort — the SW-init clear and the next WELCOME both re-converge it */
+    });
 });
 
 // Status pill — handshake phase overrides the wire-level reporter's
@@ -944,6 +959,15 @@ async function initializeExtension(): Promise<void> {
     scheduleUpdate('init', { immediate: true });
     didInitialApply = true;
   }
+
+  // Reach is live connection state — drop any value left by a prior SW
+  // lifetime before (re)connecting; a handshake WELCOME repopulates it,
+  // and a mode with no socket (e.g. in-browser) correctly leaves it null.
+  void getHostStorage()
+    ?.set(OH.backendReach, null)
+    .catch(() => {
+      /* best-effort */
+    });
 
   if (shouldAttemptBackendConnection()) {
     await connectWebSocket();

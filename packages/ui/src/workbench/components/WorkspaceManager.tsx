@@ -25,9 +25,11 @@ import {
   type IdentitySnapshot,
   type OrgDescriptor,
   orgCatalogue,
-  orgIdentityLabel,
+  orgFullLabel,
 } from '@openheaders/core/identity';
+import type { BackendReach } from '@openheaders/core/protocol';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
+import { useBackendReach } from '@openheaders/ui/shared/hooks/useBackendReach';
 import { useIdentitySnapshot } from '@openheaders/ui/shared/hooks/useIdentitySnapshot';
 import { useOrgBindingPrefs } from '@openheaders/ui/shared/hooks/useOrgBindingPrefs';
 import type { UseWorkspacesApi } from '@openheaders/ui/shared/hooks/useWorkspaces';
@@ -68,6 +70,7 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
   const canDelete = api.workspaces.length > 1;
 
   const snapshot = useIdentitySnapshot();
+  const reach = useBackendReach();
   const catalogue = useMemo(() => orgCatalogue(snapshot), [snapshot]);
 
   // Org is the top-level container — group the workspace list by Org so a
@@ -176,7 +179,7 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
 
       <HomeOrgIdentityCard />
 
-      <NewWorkspaceOrgPreference snapshot={snapshot} catalogue={catalogue} />
+      <NewWorkspaceOrgPreference snapshot={snapshot} catalogue={catalogue} reach={reach} />
 
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         <SortableContext items={orderedIds} strategy={verticalListSortingStrategy}>
@@ -186,7 +189,7 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
                   <div key={group.orgId} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     {/* The home Org is already headed by HomeOrgIdentityCard
                         above; every other Org gets its own section header. */}
-                    {!group.descriptor?.isHome && <OrgGroupHeader descriptor={group.descriptor} />}
+                    {!group.descriptor?.isHome && <OrgGroupHeader descriptor={group.descriptor} reach={reach} />}
                     {group.items.map(renderRow)}
                   </div>
                 ))
@@ -252,7 +255,8 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
 const NewWorkspaceOrgPreference: React.FC<{
   snapshot: IdentitySnapshot | null;
   catalogue: OrgDescriptor[];
-}> = ({ snapshot, catalogue }) => {
+  reach: BackendReach | null;
+}> = ({ snapshot, catalogue, reach }) => {
   const { token } = theme.useToken();
   const { prefs, isReady, setDefaultNewWorkspaceOrgId } = useOrgBindingPrefs();
 
@@ -284,7 +288,7 @@ const NewWorkspaceOrgPreference: React.FC<{
           label: (
             <Space size={6}>
               <OrgIcon descriptor={descriptor} size={13} />
-              {orgIdentityLabel(descriptor)}
+              {orgFullLabel(descriptor, reach)}
             </Space>
           ),
         }))}
@@ -298,7 +302,10 @@ const NewWorkspaceOrgPreference: React.FC<{
 
 // ── Org section header ──────────────────────────────────────────────
 
-const OrgGroupHeader: React.FC<{ descriptor: OrgDescriptor | null }> = ({ descriptor }) => {
+const OrgGroupHeader: React.FC<{ descriptor: OrgDescriptor | null; reach: BackendReach | null }> = ({
+  descriptor,
+  reach,
+}) => {
   const { token } = theme.useToken();
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 4px 2px' }}>
@@ -312,7 +319,7 @@ const OrgGroupHeader: React.FC<{ descriptor: OrgDescriptor | null }> = ({ descri
           color: token.colorTextTertiary,
         }}
       >
-        {descriptor ? orgIdentityLabel(descriptor) : 'Other workspaces'}
+        {descriptor ? orgFullLabel(descriptor, reach) : 'Other workspaces'}
       </Text>
     </div>
   );
