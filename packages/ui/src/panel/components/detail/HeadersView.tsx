@@ -177,6 +177,39 @@ export function HeadersView({
 
   return (
     <div className="dt-headers-pane" ref={paneRef}>
+      <div className="dt-header-filter" ref={toolbarRef}>
+        <input
+          type="search"
+          placeholder="Filter — text, name:cookie, value:no-cache, is:rule, is:security, is:overridable, …"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="dt-header-filter-input"
+          aria-label="Filter headers"
+        />
+        <HeaderMoreFiltersMenu
+          ruleOnly={ruleOnly}
+          securityOnly={securityOnly}
+          overridableOnly={overridableOnly}
+          hideNoise={hideNoise}
+          onToggleRuleOnly={toggleRuleOnly}
+          onToggleSecurityOnly={toggleSecurityOnly}
+          onToggleOverridableOnly={toggleOverridableOnly}
+          onToggleHideNoise={toggleHideNoise}
+        />
+        <HeaderViewMenu
+          layout={layout}
+          sortMode={sortMode}
+          nameCase={nameCase}
+          showInsights={showInsights}
+          showChips={showChips}
+          onLayoutChange={setLayout}
+          onSortChange={setSortMode}
+          onNameCaseChange={setNameCase}
+          onToggleShowInsights={toggleShowInsights}
+          onToggleShowChips={toggleShowChips}
+        />
+      </div>
+
       {/* Rule-creation CTA row — Headers tab is the primary surface for
         * "I see something I want to change → make a rule for it". */}
       <div className="dt-cta-row dt-header-cta-row">
@@ -211,39 +244,6 @@ export function HeadersView({
           ))}
         </div>
       )}
-
-      <div className="dt-header-filter" ref={toolbarRef}>
-        <input
-          type="search"
-          placeholder="Filter — text, name:cookie, value:no-cache, is:rule, is:security, is:overridable, …"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="dt-header-filter-input"
-          aria-label="Filter headers"
-        />
-        <HeaderMoreFiltersMenu
-          ruleOnly={ruleOnly}
-          securityOnly={securityOnly}
-          overridableOnly={overridableOnly}
-          hideNoise={hideNoise}
-          onToggleRuleOnly={toggleRuleOnly}
-          onToggleSecurityOnly={toggleSecurityOnly}
-          onToggleOverridableOnly={toggleOverridableOnly}
-          onToggleHideNoise={toggleHideNoise}
-        />
-        <HeaderViewMenu
-          layout={layout}
-          sortMode={sortMode}
-          nameCase={nameCase}
-          showInsights={showInsights}
-          showChips={showChips}
-          onLayoutChange={setLayout}
-          onSortChange={setSortMode}
-          onNameCaseChange={setNameCase}
-          onToggleShowInsights={toggleShowInsights}
-          onToggleShowChips={toggleShowChips}
-        />
-      </div>
 
       <details className="dt-section" open>
         <summary ref={firstSummaryRef}>General</summary>
