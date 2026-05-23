@@ -59,6 +59,11 @@
   top: 0;
   z-index: 2;
   user-select: none;
+  /* Stretch to the grid's intrinsic content width so the opaque sticky
+   * background covers every column when the table is scrolled
+   * horizontally — otherwise headers scrolled into view paint over the
+   * body rows with no fill behind them. */
+  min-width: max-content;
 }
 
 .dt-table-header span {
@@ -80,6 +85,11 @@
   cursor: pointer;
   text-align: left;
   width: 100%;
+  /* Stretch the row box to the grid's intrinsic content width so the
+   * hover + selected backgrounds cover every column when the table is
+   * scrolled horizontally — width:100% alone clips them to the visible
+   * viewport, leaving scrolled-into-view cells without any highlight. */
+  min-width: max-content;
 }
 
 .dt-row:hover {
