@@ -1,4 +1,3 @@
-import './close-sidebar-on-mount';
 import '@/host/install-host-storage';
 import '@/host/install-host-bridge';
 import '@/host/install-host-logger';

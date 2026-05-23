@@ -37,7 +37,21 @@
  * Must stay small: this file runs every time DevTools opens on any tab.
  */
 
-chrome.devtools.panels.create('🟦 Open Headers', 'images/icon16.png', 'panel.html');
+// Per-engine quirks for the panel tab visual:
+//   - Chromium ignores the `iconPath` argument entirely (no icon ever
+//     renders next to the panel title), so we rely on a Unicode glyph
+//     prefix in the title for a visual marker.
+//   - Firefox honors `iconPath` AND falls back to the manifest icon
+//     when the argument is empty. The fallback path renders the
+//     extension icon at a larger, crisper size than the explicit 16px
+//     asset — so we pass an empty string and skip the title prefix to
+//     avoid a doubled-icon tab.
+const isFirefox = /Firefox/.test(navigator.userAgent);
+chrome.devtools.panels.create(
+  isFirefox ? 'Open Headers' : '🟦 Open Headers',
+  isFirefox ? '' : 'images/icon16.png',
+  'panel.html',
+);
 
 const tabId = chrome.devtools.inspectedWindow.tabId;
 

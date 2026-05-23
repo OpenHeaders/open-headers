@@ -6,11 +6,11 @@
  * that reaches for `@openheaders/core/navigation`'s `hostNavigation`
  * proxy lands on the chrome-backed adapter:
  *
- *  - `switchViewMode` opens the destination surface in the user-gesture
- *    stack (mandatory on Firefox), persists the new mode directly to
- *    storage so the choice is durable even if the popup auto-closes,
- *    then hands off to the SW controller for toolbar re-bind + source
- *    surface close + (Chromium popup destination) action.openPopup.
+ *  - `switchViewMode` invokes the gesture-bound surface ops (Firefox
+ *    sidebar open/close) synchronously inside the click handler, then
+ *    dispatches a `switchViewMode` RPC carrying `{next, source}`. The
+ *    SW controller handles persistence, toolbar re-binding, and the
+ *    SW-callable surface ops (Chromium sidePanel + action.openPopup).
  *  - `currentWindowId` resolves the caller's window so the workspace
  *    navigator can prefer a same-window workspace tab.
  *
@@ -23,26 +23,24 @@ import { type ActiveTab, type HostNavigation, setHostNavigation } from '@openhea
 import type { ViewMode } from '@openheaders/core/types';
 import { call } from '@utils/bridge';
 import { logger } from '@utils/logger';
+import { selectViewModeAdapter } from '@/background/view-mode/select-adapter';
 import { getBrowserAPI } from '@/types/browser';
 import { isFirefox } from '@/utils/browser-runtime';
-import { selectViewModeAdapter } from '@/background/view-mode/select-adapter';
-import { setViewMode as persistViewMode } from './view-mode-storage';
 
 /**
  * Renderer-side view-mode transition.
  *
- *   - popup → sidepanel: open the destination surface FIRST, synchronously
- *     in the user-gesture stack (this is mandatory on Firefox; Chromium
- *     tolerates an awaited query before its sidePanel.open, but we keep
- *     a single code path that works for both).
- *   - sidepanel → popup: hand off to the SW immediately — the controller
- *     closes the sidebar and (on Chromium) calls action.openPopup. On
- *     Firefox no popup-open API exists; the controller returns
- *     `opened: false` and the caller surfaces a hint pointing at the toolbar.
+ * The renderer owns gesture-bound surface ops (Firefox sidebar
+ * open/close). The SW owns persistence, toolbar re-binding, and the
+ * SW-callable surface ops (Chromium sidePanel + action.openPopup).
  *
- * The active-tab query is intentionally placed AFTER the gesture-critical
- * `openSurface('sidepanel')` call so persistence / lookup latency can't
- * eat the user gesture on Firefox.
+ * Awaiting the RPC is source-dependent:
+ *   - source === 'popup'      → safe to await; popup stays alive.
+ *   - source === 'sidepanel'  → fire-and-forget; SW closing the sidebar
+ *     (Chromium) or our own close-from-renderer (Firefox) tears down
+ *     this JS context, so an awaited response can't arrive. The message
+ *     is dispatched synchronously by `runtime.sendMessage`, so the SW
+ *     still receives it.
  */
 function getCurrentSurface(): ViewMode | null {
   if (typeof window === 'undefined') return null;
@@ -56,67 +54,59 @@ async function switchViewMode(next: ViewMode): Promise<{ opened: boolean }> {
   const adapter = selectViewModeAdapter();
   const source = getCurrentSurface();
 
-  // Gesture-critical synchronous kickoff. Calling these (not awaiting)
-  // runs the adapter method's sync prefix — including the actual
-  // sidebar.open()/.close() invocation — inside the click-handler stack,
-  // before any await can consume the Firefox user gesture. We capture
-  // the promise and await it later, after the gesture-sensitive work
-  // is already in flight.
-  let kickoff: Promise<{ opened: boolean } | void> | null = null;
-  if (next === 'sidepanel') {
-    kickoff = adapter.openSurface('sidepanel', {});
-  } else if (source === 'sidepanel') {
-    kickoff = adapter.closeSurface('sidepanel', {});
-  }
+  // 1. Kick off destination open in the gesture stack. Each adapter's
+  //    openFromRenderer is the live path for its browser's gesture-bound
+  //    surfaces (Chromium sidePanel.open + action.openPopup; Firefox
+  //    sidebar.open). The async function's sync prefix gets us to the
+  //    first internal await before control returns here.
+  const openP = next !== source ? adapter.openFromRenderer(next) : null;
 
-  // Durability: persist while we still have a live renderer. On
-  // popup→sidepanel the popup may auto-close on focus loss; on
-  // sidepanel→popup the kickoff close will tear down this renderer
-  // once it resolves. The storage write is dispatched synchronously
-  // inside set(), so it lands even if our promise never resolves
-  // because the page goes away.
-  try {
-    await persistViewMode(next);
-  } catch (error) {
-    logger.info('ViewMode', 'renderer-side persist failed:', (error as Error).message);
-  }
+  // 2. Dispatch RPC synchronously so the SW can persist + bind in parallel.
+  //    Survives even if our JS context dies before the response arrives.
+  const rpc = call('switchViewMode', { next, source });
 
-  let openedInRenderer: boolean | undefined;
-  if (kickoff && next === 'sidepanel') {
+  // 3. Await open while the renderer is still alive. Source surface
+  //    hasn't been closed yet — both popup and sidepanel sources are
+  //    safe to use.
+  let opened = false;
+  if (openP) {
     try {
-      const result = (await kickoff) as { opened: boolean };
-      openedInRenderer = result.opened;
+      opened = (await openP).opened;
     } catch (error) {
-      logger.info('ViewMode', 'open side panel failed:', (error as Error).message);
-      openedInRenderer = false;
-    }
-  } else if (kickoff) {
-    // closeSurface — ignore the void result, but let it settle so the
-    // RPC below sees an already-closed sidebar.
-    try {
-      await kickoff;
-    } catch (error) {
-      logger.info('ViewMode', 'close side panel failed:', (error as Error).message);
+      logger.info('ViewMode', 'openFromRenderer failed:', (error as Error).message);
     }
   }
 
-  let windowId: number | undefined;
-  let tabId: number | undefined;
-  try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    windowId = tab?.windowId;
-    tabId = tab?.id;
-  } catch {
-    // Best-effort context resolution; the SW falls back to defaults.
+  // 4. Source close. For Firefox sidepanel-source this kills our JS
+  //    context; the RPC was already dispatched in step 2 so the SW
+  //    still gets it. For Chromium sidepanel-source the SW does the
+  //    close via the RPC (closeFromRenderer is a no-op here). For
+  //    popup source the caller (Header.tsx) calls window.close().
+  if (source && source !== next) {
+    try {
+      await adapter.closeFromRenderer(source);
+    } catch (error) {
+      logger.info('ViewMode', 'closeFromRenderer failed:', (error as Error).message);
+    }
   }
 
-  try {
-    const resp = await call('switchViewMode', { next, windowId, tabId });
-    return { opened: openedInRenderer ?? resp.opened };
-  } catch (error) {
-    logger.info('ViewMode', 'switchViewMode RPC failed:', (error as Error).message);
-    return { opened: openedInRenderer ?? false };
+  // 5. Await the RPC only when our JS is sure to outlive it. Sidepanel-
+  //    source either died in step 4 (Firefox) or will be closed by the
+  //    SW (Chromium, mid-RPC) — either way an awaited response can't
+  //    reach us, so we just observe its rejection if any.
+  if (source === 'sidepanel') {
+    rpc.catch((error: Error) => {
+      logger.info('ViewMode', 'switchViewMode RPC rejected (sidebar source):', error.message);
+    });
+  } else {
+    try {
+      const r = await rpc;
+      opened = opened || r.opened;
+    } catch (error) {
+      logger.info('ViewMode', 'switchViewMode RPC failed:', (error as Error).message);
+    }
   }
+  return { opened };
 }
 
 /**

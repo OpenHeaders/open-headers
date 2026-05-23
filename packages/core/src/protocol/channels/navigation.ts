@@ -65,15 +65,18 @@ export interface NavigationRpc {
   };
 
   // ── View-mode ────────────────────────────────────────────────
-  // Single generic transition RPC. The renderer opens the destination
-  // surface itself when entering sidepanel mode (sidebar/panel open
-  // APIs are gesture-bound, must come from the click handler). The
-  // SW handles the rest: persist, re-bind the toolbar action, close
-  // the source surface, and — for popup-on-Chromium — call
-  // action.openPopup. Firefox returns { opened: false } for the
-  // popup destination since there's no API to open it programmatically.
+  // Single generic transition RPC. The SW owns persistence, toolbar
+  // re-binding, and the SW-callable surface ops (Chromium sidePanel +
+  // action.openPopup). The renderer drives the gesture-bound
+  // surface ops in its click handler (Firefox sidebar open/close) and
+  // sends this RPC fire-and-forget when the source surface is about
+  // to die mid-transition.
+  //
+  // `source` lets the SW close the leaving surface without having to
+  // diff old vs. new persisted state (the renderer knows authoritatively
+  // which surface it's leaving). `null` covers external callers.
   switchViewMode: {
-    req: { next: ViewMode; windowId?: number; tabId?: number };
+    req: { next: ViewMode; source: ViewMode | null; windowId?: number; tabId?: number };
     res: { opened: boolean };
   };
 }

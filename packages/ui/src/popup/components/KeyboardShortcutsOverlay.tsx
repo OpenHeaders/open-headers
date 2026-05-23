@@ -49,13 +49,13 @@ const GROUP_TITLES: Record<PopupShortcutGroup, string> = {
 const GROUP_ORDER: readonly PopupShortcutGroup[] = ['navigation', 'actions', 'row', 'tourGuide', 'browser'];
 
 const BROWSER_SHORTCUT: ShortcutEntry = {
-  keys: isMac ? ['\u2318', '\u21E7', '.'] : ['Ctrl', 'Shift', '.'],
+  keys: isMac ? ['\u2318', '\u21E7', ','] : ['Ctrl', 'Shift', ','],
   combo: true,
-  description: 'Open popup',
+  description: 'Open extension',
 };
 
 const BROWSER_HINT = {
-  label: 'Customize browser shortcut \u2197',
+  label: 'Customize extension shortcut \u2197',
   onClick: (): void => {
     hostNavigation.openShortcutSettings();
   },

@@ -1,21 +1,29 @@
 /**
  * Per-browser seam for the action button's view-mode (popup vs sidepanel).
  *
- * The two browser families implement the same four operations against
- * very different native APIs:
+ * Each browser owns a different set of the open/close operations:
  *
- *   - Chromium (chrome.sidePanel + setPanelBehavior + action.openPopup)
- *   - Firefox  (browser.sidebarAction.{open,close,isOpen} + action.onClicked)
+ *  - Chromium (`chrome.sidePanel`, `action.openPopup`): both open+close
+ *    are SW-callable; gesture flows across `runtime.sendMessage` so the
+ *    SW can act on a click-originated RPC.
+ *  - Firefox (`browser.sidebarAction`): `open()` and `close()` are
+ *    gesture-bound and only runnable in the click-originating renderer.
+ *    The SW has no working gesture context.
  *
- * Higher layers (the controller + the renderer's transition stub) never
- * touch chrome.sidePanel or browser.sidebarAction directly — every
- * browser quirk lives behind this interface.
+ * The interface splits open/close into renderer-side and SW-side methods
+ * so each adapter declares which context it owns the call from. The
+ * "wrong" context returns `{opened:false}` / no-ops cleanly — orchestration
+ * code calls both pairs and trusts the right one to be the live path.
  *
- * Some methods have a context restriction:
- *   - `bindToolbarForMode` is SW-only (registers/removes action.onClicked).
- *   - `openSurface('sidepanel')` must be called from a user gesture
- *     (renderer click handler) — synchronously before any unrelated await.
- *   - `openSurface('popup')` is SW-side (action.openPopup); no-op on Firefox.
+ *   - `openFromRenderer` MUST be invoked synchronously inside the click
+ *     handler (sync prefix invokes the gesture-bound API before any
+ *     await can consume the gesture).
+ *   - `closeFromRenderer` is the only legal close for Firefox sidebar
+ *     when the click originated outside the sidebar (sidebar self-close
+ *     is allowed; SW close is not).
+ *   - `openFromSW` / `closeFromSW` handle Chromium's SW-owned ops and
+ *     are no-ops on Firefox.
+ *   - `bindToolbarForMode` is always SW-only.
  */
 
 import type { ViewMode } from '@openheaders/core/types';
@@ -33,8 +41,17 @@ export interface OpenResult {
 
 export interface ViewModeAdapter {
   bindToolbarForMode(mode: ViewMode): Promise<void>;
-  openSurface(surface: Surface, ctx: OpenContext): Promise<OpenResult>;
-  closeSurface(surface: Surface, ctx: OpenContext): Promise<void>;
+
+  /** Renderer-side, gesture-critical. No-op when the SW owns this surface. */
+  openFromRenderer(surface: Surface): Promise<OpenResult>;
+  /** Renderer-side, gesture-critical. No-op when the SW owns this surface. */
+  closeFromRenderer(surface: Surface): Promise<void>;
+
+  /** SW-side. No-op when only the renderer can drive this surface. */
+  openFromSW(surface: Surface, ctx: OpenContext): Promise<OpenResult>;
+  /** SW-side. No-op when only the renderer can drive this surface. */
+  closeFromSW(surface: Surface, ctx: OpenContext): Promise<void>;
+
   /** Returns null when the browser can't report the answer. */
   surfaceIsOpen(surface: Surface, ctx: OpenContext): Promise<boolean | null>;
 }

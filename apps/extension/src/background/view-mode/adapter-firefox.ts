@@ -1,29 +1,35 @@
 /**
  * Firefox implementation of ViewModeAdapter.
  *
- * Firefox has no `chrome.sidePanel` and no `action.openPopup`. Instead:
- *   - `browser.sidebarAction.{open,close,isOpen}` drive the sidebar.
- *   - `sidebarAction.open()` is strictly gesture-bound. The renderer
- *     calls `openSurface('sidepanel')` synchronously inside its click
- *     handler — DO NOT await anything else first.
- *   - There is no native toggle equivalent of Chrome's
- *     `setPanelBehavior({openPanelOnActionClick:true})`. We attach an
- *     `action.onClicked` listener that mimics the toggle by acting on a
- *     locally-cached "is open?" guess (see `sidebarOpenGuess` below) —
- *     a workaround forced by Firefox's API not exposing a synchronous
- *     state query. We refresh the guess on bind, flip it ourselves on
- *     adapter open/close, and accept that the user opening/closing the
- *     sidebar via Firefox's own UI can briefly desync it (self-heals
- *     within ~1-2 toolbar clicks).
- *   - There is no API to open the popup programmatically. `openSurface
- *     ('popup')` returns `{ opened: false }`; the user clicks the
- *     toolbar themselves once the binding has been switched back.
+ * Firefox exposes both extension surfaces natively at all times:
+ *
+ *   - the toolbar `action` icon opens the popup (manifest `default_popup`);
+ *   - Firefox automatically pins the extension's sidebar in its sidebar
+ *     rail when the manifest declares `sidebar_action`, and the user
+ *     toggles the sidebar from that rail icon.
+ *
+ * Both controls are always visible and always functional. There is no
+ * cross-surface "view mode" to toggle on Firefox — the user picks the
+ * surface they want by clicking the corresponding icon.
+ *
+ * Implications for this adapter:
+ *
+ *   - `bindToolbarForMode` is a no-op. The manifest's `default_popup`
+ *     is the toolbar binding; runtime `setPopup({popup:''})` doesn't
+ *     reliably override it AND Firefox suppresses `action.onClicked`
+ *     while `sidebar_action` is declared, so the Chromium "toolbar
+ *     toggles the sidebar" pattern is not available.
+ *   - `openFromRenderer('sidepanel')` is the live path used by the
+ *     in-app "open sidebar" affordance. It's the only API that requires
+ *     a fresh user gesture in the renderer's own click handler.
+ *   - Everything else is a no-op. SW-side ops can't carry gesture; the
+ *     sidebar's `close()` requires gesture even from its own scripts
+ *     (Firefox-specific restriction); Chrome-style toolbar rebinding
+ *     does not apply.
  */
 
 import type { ViewMode } from '@openheaders/core/types';
 import type { OpenContext, OpenResult, Surface, ViewModeAdapter } from './adapter';
-
-const POPUP_PATH = 'popup.html';
 
 interface SidebarActionLike {
   open?: () => Promise<void>;
@@ -39,100 +45,52 @@ function getSidebarAction(): SidebarActionLike | null {
   return api.sidebarAction ?? null;
 }
 
-// SW-owned state for the toolbar binding.
-let onClickedListener: ((tab: chrome.tabs.Tab) => void) | null = null;
-
-// Cached "is the sidebar open right now?" guess. Firefox's
-// `sidebarAction.open` is gesture-bound, so the onClicked handler can't
-// `await sidebar.isOpen()` before deciding what to do — the await
-// consumes the gesture. Instead we cache the state and act on it
-// synchronously. The guess is kept honest by:
-//   - refreshing from `sidebar.isOpen()` when we bind/initialize,
-//   - flipping it ourselves whenever we open or close the sidebar,
-//   - self-correcting within ~1-2 toolbar clicks if the user opens or
-//     closes the sidebar via Firefox's own UI (a stale guess just
-//     means one click is a no-op; the next click does the right thing).
-let sidebarOpenGuess = false;
-
-async function refreshSidebarOpenGuess(): Promise<void> {
-  const sidebar = getSidebarAction();
-  if (!sidebar?.isOpen) return;
-  try {
-    sidebarOpenGuess = await sidebar.isOpen({});
-  } catch {
-    // Leave guess as-is; next user click will self-correct.
-  }
-}
-
-function attachToolbarClickToSidebar(): void {
-  if (onClickedListener) return;
-  // Sync the guess to reality before the user can click.
-  void refreshSidebarOpenGuess();
-  onClickedListener = (): void => {
-    const sidebar = getSidebarAction();
-    if (!sidebar) return;
-    // Gesture-critical: act synchronously on the cached guess so the
-    // first awaited API call after the gesture IS sidebar.open/close().
-    if (sidebarOpenGuess) {
-      sidebarOpenGuess = false;
-      void sidebar.close?.();
-    } else {
-      sidebarOpenGuess = true;
-      void sidebar.open?.();
-    }
-  };
-  chrome.action.onClicked.addListener(onClickedListener);
-}
-
-function detachToolbarClickFromSidebar(): void {
-  if (!onClickedListener) return;
-  chrome.action.onClicked.removeListener(onClickedListener);
-  onClickedListener = null;
-}
-
 export const firefoxViewModeAdapter: ViewModeAdapter = {
-  async bindToolbarForMode(mode: ViewMode): Promise<void> {
-    if (mode === 'popup') {
-      await chrome.action.setPopup({ popup: POPUP_PATH });
-      detachToolbarClickFromSidebar();
-      return;
-    }
-    // sidepanel mode: empty popup so action.onClicked fires, and route
-    // those clicks into sidebarAction.open().
-    await chrome.action.setPopup({ popup: '' });
-    attachToolbarClickToSidebar();
+  async bindToolbarForMode(_mode: ViewMode): Promise<void> {
+    // No-op. The manifest's `default_popup` permanently binds the
+    // toolbar to the popup, and Firefox's sidebar rail icon handles
+    // the sidebar toggle without any runtime configuration.
   },
 
-  async openSurface(surface: Surface, _ctx: OpenContext): Promise<OpenResult> {
-    if (surface !== 'sidepanel') {
-      // No programmatic popup-open exists in Firefox.
-      return { opened: false };
-    }
+  async openFromRenderer(surface: Surface): Promise<OpenResult> {
+    if (surface !== 'sidepanel') return { opened: false };
     const sidebar = getSidebarAction();
     if (!sidebar?.open) return { opened: false };
     try {
       // Must be the first awaited call after the user gesture; the
-      // caller is responsible for not awaiting anything else first.
+      // caller invokes this synchronously inside the click handler.
       await sidebar.open();
-      sidebarOpenGuess = true;
       return { opened: true };
     } catch {
       return { opened: false };
     }
   },
 
-  async closeSurface(surface: Surface, _ctx: OpenContext): Promise<void> {
+  async closeFromRenderer(surface: Surface): Promise<void> {
     if (surface !== 'sidepanel') return;
     const sidebar = getSidebarAction();
     if (!sidebar?.close) return;
     try {
+      // Called from the renderer's click handler — that's the gesture
+      // context Firefox requires for `sidebarAction.close()` from the
+      // sidebar's own scripts. The caller (install-navigation-host)
+      // invokes this synchronously after openFromRenderer in the same
+      // task, so the gesture is still live here.
       await sidebar.close();
-      sidebarOpenGuess = false;
     } catch {
-      // Closing an already-closed sidebar throws on some Firefox versions —
-      // benign; the post-condition (sidebar closed) holds either way.
-      sidebarOpenGuess = false;
+      // No-gesture callers (e.g. SW-initiated reconciles) hit the
+      // Firefox "may only be called from a user input handler"
+      // restriction. Benign — only true callers from a click handler
+      // succeed; everything else is a best-effort no-op.
     }
+  },
+
+  async openFromSW(_surface: Surface, _ctx: OpenContext): Promise<OpenResult> {
+    return { opened: false };
+  },
+
+  async closeFromSW(_surface: Surface, _ctx: OpenContext): Promise<void> {
+    // No-op.
   },
 
   async surfaceIsOpen(surface: Surface, ctx: OpenContext): Promise<boolean | null> {

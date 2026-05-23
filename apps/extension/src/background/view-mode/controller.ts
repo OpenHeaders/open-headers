@@ -1,22 +1,28 @@
 /**
  * View-mode controller. Lives in the SW. Owns:
  *
- *   1. Boot reconciliation — on SW startup, snap the live toolbar binding
- *      and sidebar visibility to whatever stored state says. Firefox's
- *      manifest `sidebar_action.default_panel` causes the sidebar to
- *      auto-appear on temp install; we don't patch that, we reconcile
- *      it like any other pre-controller drift (e.g. user opened the
- *      sidebar via Firefox's menu while the SW was suspended).
+ *   1. Boot reconciliation — on SW startup, snap the live toolbar
+ *      binding (and best-effort the visible surface) to stored state.
+ *      Firefox's manifest-required `sidebar_action.default_panel` can
+ *      auto-open the sidebar on temp/initial install; we reconcile
+ *      that like any pre-controller drift.
  *
  *   2. The `switchViewMode` RPC handler — persist the new mode, re-bind
- *      the toolbar, close the source surface, and (Chromium popup
- *      destination) call action.openPopup. Sidepanel-destination opens
- *      happen in the renderer's gesture context, before this RPC fires.
+ *      the toolbar, close the source surface (SW-callable), and open
+ *      the destination surface (SW-callable). Adapter methods that the
+ *      browser can't satisfy from the SW are no-ops; the renderer
+ *      handled them in its gesture context already.
+ *
+ * Storage subscriber: rebinds toolbar on stored-mode changes from other
+ * pages (e.g. a second workspace tab on Chromium also touches viewMode).
+ * Does NOT close any surface — that's the transition handler's job and
+ * a reactive close would tear down a sidepanel mid-transition before
+ * its UI feedback could render.
  */
 
+import type { ViewMode } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import { getViewMode, onViewModeChanged, setViewMode } from '@/host/view-mode-storage';
-import type { ViewMode } from '@openheaders/core/types';
 import type { OpenContext, ViewModeAdapter } from './adapter';
 import { selectViewModeAdapter } from './select-adapter';
 
@@ -39,11 +45,6 @@ export class ViewModeController {
       logger.info('ViewMode', 'initial reconcile failed:', (error as Error).message);
     }
 
-    // Storage subscriber: rebind the toolbar to track stored mode, but
-    // do NOT close the sidebar here. Closing is the transition handler's
-    // job — closing reactively from a storage event would tear down the
-    // sidepanel page mid-transition before its UI feedback (e.g. the
-    // Firefox "click the toolbar" toast) can render.
     onViewModeChanged((next) => {
       void this.adapter.bindToolbarForMode(next).catch((error: Error) => {
         logger.info('ViewMode', 'rebind on storage change failed:', error.message);
@@ -55,12 +56,11 @@ export class ViewModeController {
    * Boot-only reconciliation. Snaps the toolbar binding to stored state
    * and best-effort closes a sidebar that shouldn't be open.
    *
-   * On Firefox the close attempt from the SW will fail because
-   * `sidebarAction.close()` requires a user gesture OR the sidebar's
-   * own script context — the SW has neither. The actual Firefox close
-   * happens from `apps/extension/src/sidepanel/self-close-if-popup-mode.ts`
-   * which runs inside the auto-opened sidebar page and closes itself
-   * when stored mode is popup. This SW path is still useful on Chromium
+   * On Firefox the SW close attempt is a no-op (gesture-bound). The
+   * actual Firefox close happens from
+   * `apps/extension/src/sidepanel/self-close-if-popup-mode.ts`, which
+   * runs inside the auto-opened sidebar page and closes itself when
+   * stored mode is popup. This SW path is still useful on Chromium
    * for the rare case where a stale sidebar is open at boot.
    */
   private async bootReconcile(mode: ViewMode): Promise<void> {
@@ -68,35 +68,46 @@ export class ViewModeController {
     if (mode === 'popup') {
       const isOpen = await this.adapter.surfaceIsOpen('sidepanel', {});
       if (isOpen === true) {
-        await this.adapter.closeSurface('sidepanel', {});
+        await this.adapter.closeFromSW('sidepanel', {});
       }
     }
   }
 
-  async switchViewMode(next: ViewMode, ctx: OpenContext): Promise<{ opened: boolean }> {
-    // Persist + rebind. setViewMode triggers the storage subscriber which
-    // also rebinds — both writes/binds are idempotent. We don't rely on
-    // the subscriber, so the explicit bind below guarantees the toolbar
-    // is correct by the time the RPC resolves.
+  async switchViewMode(next: ViewMode, source: ViewMode | null, ctx: OpenContext): Promise<{ opened: boolean }> {
+    // Ordering rationale (Chromium sidepanel→popup):
+    //   1. persist     — durable mode update
+    //   2. close source — sidepanel.close BEFORE openPopup. If we opened
+    //      the popup first, sidepanel.close would dismiss it (Chrome
+    //      auto-dismisses popups on focus/layout shifts).
+    //   3. bind        — setPopup configures action.openPopup's target;
+    //      must run before openFromSW for popup destination.
+    //   4. open dest   — action.openPopup with gesture-still-fresh from
+    //      the sender's activation transfer (~5s window).
+    //
+    // For popup→sidepanel the renderer already opened the sidepanel
+    // before the RPC fired; closeFromSW('popup') and openFromSW
+    // ('sidepanel') are both no-ops on Chromium.
+    //
+    // Firefox: closeFromSW + openFromSW are both no-ops; the renderer
+    // drove the gesture-bound ops itself. Bind is the only SW work.
     await setViewMode(next);
+
+    if (source && source !== next) {
+      try {
+        await this.adapter.closeFromSW(source, ctx);
+      } catch (error) {
+        logger.info('ViewMode', 'closeFromSW failed:', (error as Error).message);
+      }
+    }
+
     await this.adapter.bindToolbarForMode(next);
 
-    if (next === 'popup') {
-      // The renderer already closed the sidebar from its own gesture/
-      // own-script context — the SW can't satisfy Firefox's "close needs
-      // a gesture" rule. This call is a belt-and-braces no-op on the
-      // path where the renderer succeeded; it still runs in case the
-      // renderer wasn't a sidebar surface (e.g. an external surface
-      // forcing a mode change in the future).
-      await this.adapter.closeSurface('sidepanel', ctx);
-      // Chromium: action.openPopup. Firefox: no-op (no API); the user
-      // clicks the toolbar themselves once the binding has been switched.
-      return this.adapter.openSurface('popup', ctx);
+    try {
+      return await this.adapter.openFromSW(next, ctx);
+    } catch (error) {
+      logger.info('ViewMode', 'openFromSW failed:', (error as Error).message);
+      return { opened: false };
     }
-    // sidepanel destination: the renderer opened the sidebar from its
-    // gesture context before this RPC fired. The popup source surface
-    // self-closes (popups blur on focus change); no closeSurface needed.
-    return { opened: true };
   }
 }
 

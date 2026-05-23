@@ -75,8 +75,8 @@
   "commands": {
     "_execute_action": {
       "suggested_key": {
-        "default": "Ctrl+Shift+Period",
-        "mac": "Command+Shift+Period"
+        "default": "Ctrl+Shift+Comma",
+        "mac": "Command+Shift+Comma"
       },
       "description": "Open Open Headers popup"
     }
