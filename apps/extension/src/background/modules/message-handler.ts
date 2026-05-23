@@ -9,7 +9,7 @@
  * in `workspace-orchestrator.ts` — we call it, not inline it.
  */
 
-import type { LiveVariable, LiveVariableOverride, LiveWorkflow, OAuth2Auth, RefreshPolicy, Request, Template, TreeNode, Variable, WorkflowStep } from '@openheaders/core/types';
+import type { LiveVariable, LiveVariableOverride, LiveWorkflow, OAuth2Auth, RefreshPolicy, Request, Template, TreeNode, Variable, ViewMode, WorkflowStep } from '@openheaders/core/types';
 import { doesUrlMatchEntry, getRuleMatchPatterns } from '@openheaders/core/utils';
 import { buildWorkspaceExport, serializeWorkspaceExport } from '@openheaders/core/workspace-export';
 import { broadcast } from '@utils/bridge';
@@ -147,6 +147,7 @@ import { consumeImportHandoff, registerImportHandoff } from './workspace-export-
 import { findExportImportMatches } from './workspace-import-dedup';
 import { importWorkspace as importWorkspaceFromExport, previewWorkspaceImport } from './workspace-import-orchestrator';
 import { openWorkspaceIntent } from './workspace-navigator';
+import { getViewModeController } from '@/background/view-mode/controller';
 import { duplicateWorkspace as duplicateWorkspaceData } from './workspace-orchestrator';
 import { getActiveWorkspace, getActiveWorkspaceId, listWorkspaces } from './workspace-store';
 import { ordinalForTab, workspaceTabCount } from './workspace-tab-registry';
@@ -696,48 +697,17 @@ export function handleGeneralMessage(
         .then((result) => safeResponse(result))
         .catch((err: Error) => safeResponse({ ok: false, reason: err.message }));
       return true;
-    } else if (message.type === 'sidepanelToPopup') {
-      const sidePanelApi = (
-        chrome as unknown as {
-          sidePanel?: {
-            close?: (o: { windowId?: number; tabId?: number }) => Promise<void>;
-          };
-        }
-      ).sidePanel;
-      const actionApi = chrome.action as unknown as {
-        openPopup?: (o?: { windowId?: number }) => Promise<void>;
-      };
+    } else if (message.type === 'switchViewMode') {
+      const next = message.next as ViewMode;
       const windowId = message.windowId as number | undefined;
       const tabId = message.tabId as number | undefined;
-      const POST_CLOSE_SETTLE_MS = 500;
-
-      (async () => {
-        if (sidePanelApi?.close) {
-          const closeAttempts: { windowId?: number; tabId?: number }[] = [];
-          if (windowId != null) closeAttempts.push({ windowId });
-          if (tabId != null) closeAttempts.push({ tabId });
-          for (const opts of closeAttempts) {
-            try {
-              await sidePanelApi.close(opts);
-              break;
-            } catch (error) {
-              logger.info('ViewMode', 'sidePanel.close failed:', (error as Error).message);
-            }
-          }
-          await new Promise((resolve) => setTimeout(resolve, POST_CLOSE_SETTLE_MS));
-        }
-
-        if (!actionApi.openPopup) {
-          safeResponse({ success: true, opened: false, error: 'action.openPopup unavailable' });
-          return;
-        }
-        try {
-          await actionApi.openPopup(windowId != null ? { windowId } : undefined);
-          safeResponse({ success: true, opened: true });
-        } catch (error) {
-          safeResponse({ success: true, opened: false, error: (error as Error).message });
-        }
-      })();
+      getViewModeController()
+        .switchViewMode(next, { windowId, tabId })
+        .then((result) => safeResponse({ opened: result.opened }))
+        .catch((error: Error) => {
+          logger.info('ViewMode', 'switchViewMode rpc failed:', error.message);
+          safeResponse({ opened: false });
+        });
       return true;
     } else if (message.type === 'focusApp') {
       if (isWebSocketConnected()) {

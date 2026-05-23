@@ -27,9 +27,8 @@ const Header: React.FC = () => {
 
   const handleSwitchSurface = useCallback(async (): Promise<void> => {
     const next = surface.mode === 'popup' ? 'sidepanel' : 'popup';
-    let result: { opened: boolean };
     try {
-      result = await hostNavigation.switchViewMode(next);
+      await hostNavigation.switchViewMode(next);
     } catch {
       message.error('Could not switch view');
       return;
@@ -38,15 +37,11 @@ const Header: React.FC = () => {
       // We're inside the popup — close it so focus lands on the
       // sidepanel that just opened.
       window.close();
-      return;
     }
-    // We're inside the sidepanel switching to popup. switchViewMode
-    // already invoked openPopup() + closed the sidepanel. If the popup
-    // couldn't auto-open (typically because the extension isn't pinned
-    // to the toolbar) tell the user how to find it.
-    if (!result.opened) {
-      message.info('Popup mode active. Pin the extension and click the toolbar icon to open it.');
-    }
+    // Sidepanel → popup: the sidebar self-closes via the navigation
+    // host's renderer-side adapter call. On Chromium the popup
+    // auto-opens via action.openPopup; on Firefox the user clicks the
+    // toolbar themselves once the binding has switched.
   }, [surface.mode, message]);
 
   useEffect(() => {

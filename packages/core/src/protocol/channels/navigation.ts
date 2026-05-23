@@ -1,9 +1,10 @@
 /**
  * Navigation + launcher bridge RPCs — opening tabs, focusing the app,
  * the single cross-surface workspace-intent call, tab-ordinal bootstrap,
- * the delay-page bypass, and the sidepanel→popup view-mode transition.
+ * the delay-page bypass, and the view-mode transition RPC.
  */
 
+import type { ViewMode } from '../../types/view-mode';
 import type { IntentCallerContext, WorkspaceIntent } from '../../workspace-intent';
 import type { AppNavigationIntent } from '../messages';
 
@@ -64,13 +65,15 @@ export interface NavigationRpc {
   };
 
   // ── View-mode ────────────────────────────────────────────────
-  // Sidepanel → popup transition runs in the SW because the popup
-  // auto-closes on any focus change. If we open the popup first and
-  // close the sidepanel after, Chrome's focus restore at the end of
-  // the sidepanel close animation blurs the popup. Sequencing in the
-  // SW (close sidepanel, await, then openPopup) avoids the race.
-  sidepanelToPopup: {
-    req: { windowId?: number; tabId?: number };
-    res: { success: boolean; opened: boolean; error?: string };
+  // Single generic transition RPC. The renderer opens the destination
+  // surface itself when entering sidepanel mode (sidebar/panel open
+  // APIs are gesture-bound, must come from the click handler). The
+  // SW handles the rest: persist, re-bind the toolbar action, close
+  // the source surface, and — for popup-on-Chromium — call
+  // action.openPopup. Firefox returns { opened: false } for the
+  // popup destination since there's no API to open it programmatically.
+  switchViewMode: {
+    req: { next: ViewMode; windowId?: number; tabId?: number };
+    res: { opened: boolean };
   };
 }

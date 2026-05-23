@@ -1,3 +1,4 @@
+import './self-close-if-popup-mode';
 import '@/host/install-host-storage';
 import '@/host/install-host-bridge';
 import '@/host/install-host-logger';
