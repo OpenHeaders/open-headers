@@ -854,6 +854,66 @@
   opacity: 1;
 }
 
+/* ── Reveal-on-hover scrollbars ──────────────────────────────────────
+   Every scrollable region inside a dock panel gets a thin scrollbar
+   whose THUMB is transparent at rest and colours up while the panel
+   is hovered / focus-within / focused — same reveal pattern as
+   `.rules-panel-header-actions` above.
+
+   - The 10 px gutter is reserved whenever the inner content overflows
+     so hover-in / hover-out never causes a layout shift; we just
+     animate the thumb's background colour.
+   - We do NOT set `scrollbar-width`. Chromium 121+ honours that
+     property natively and, when set, ignores the `::-webkit-scrollbar`
+     pseudo entirely — landing us back on the browser's built-in
+     `thin` (~12 px) scrollbar with no hook for our reveal styling.
+     The webkit pseudo is the only way to get a sub-`thin` scrollbar
+     in Chromium right now.
+   - Scope is `.rules-dock-body *::-webkit-scrollbar`, so editor panes
+     (Monaco, tab strips outside the dock cards) and the activity bar
+     keep their own scrollbar treatments. */
+.rules-dock-body *::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+  background: transparent;
+}
+.rules-dock-body *::-webkit-scrollbar-track {
+  background: transparent;
+}
+.rules-dock-body *::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+  transition: background-color 0.28s ease-out;
+}
+.rules-dock-body *::-webkit-scrollbar-corner {
+  background: transparent;
+}
+.rules-dock-body *::-webkit-scrollbar-button {
+  display: none;
+}
+
+.rules-dock-body:hover *::-webkit-scrollbar-thumb,
+.rules-dock-body:focus-within *::-webkit-scrollbar-thumb,
+.rules-dock-body--focused *::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.22);
+}
+.rules-dock-body:hover *::-webkit-scrollbar-thumb:hover,
+.rules-dock-body:focus-within *::-webkit-scrollbar-thumb:hover,
+.rules-dock-body--focused *::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.38);
+}
+
+[data-theme='dark'] .rules-dock-body:hover *::-webkit-scrollbar-thumb,
+[data-theme='dark'] .rules-dock-body:focus-within *::-webkit-scrollbar-thumb,
+[data-theme='dark'] .rules-dock-body--focused *::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22);
+}
+[data-theme='dark'] .rules-dock-body:hover *::-webkit-scrollbar-thumb:hover,
+[data-theme='dark'] .rules-dock-body:focus-within *::-webkit-scrollbar-thumb:hover,
+[data-theme='dark'] .rules-dock-body--focused *::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.38);
+}
+
 .rules-panel-header-action {
   display: inline-flex;
   align-items: center;

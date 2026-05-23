@@ -175,6 +175,17 @@ function SideRegion<T extends string>({
     }
   }, [topActive, bottomActive]);
 
+  // Initial 60/40 (right region) / 50/50 (left region) via `defaultSizes`.
+  // We deliberately do NOT pass per-pane `preferredSize` here: Allotment's
+  // native sashreset would resize the left-adjacent pane to its
+  // preferredSize first, snapping back to the seed split. Omitting it
+  // makes sashreset fall through to `distributeViewSizes()` — equalize
+  // to 50/50 — which is the reset behavior the user asked for.
+  const sideDefaultSizes = useMemo(
+    () => [topSize.preferred, bottomSize.preferred],
+    [topSize.preferred, bottomSize.preferred],
+  );
+
   return (
     <div
       className={`rules-region rules-region-${region}`}
@@ -182,19 +193,21 @@ function SideRegion<T extends string>({
       tabIndex={-1}
       style={{ height: '100%', background: token.colorBgLayout }}
     >
-      <Allotment ref={allotmentRef} vertical proportionalLayout onDragEnd={handleDragEnd}>
-        <Allotment.Pane preferredSize={topSize.preferred} minSize={topSize.min} visible={topActive !== null}>
+      <Allotment
+        ref={allotmentRef}
+        vertical
+        proportionalLayout
+        onDragEnd={handleDragEnd}
+        defaultSizes={sideDefaultSizes}
+      >
+        <Allotment.Pane minSize={topSize.min} visible={topActive !== null}>
           {topActive && (
             <FocusAwareDockBody slot={topSlot} focusStore={focusStore} baseClass="rules-dock-body">
               {renderToolWindow(topActive, topSlot)}
             </FocusAwareDockBody>
           )}
         </Allotment.Pane>
-        <Allotment.Pane
-          preferredSize={bottomSize.preferred}
-          minSize={bottomSize.min}
-          visible={bottomActive !== null}
-        >
+        <Allotment.Pane minSize={bottomSize.min} visible={bottomActive !== null}>
           {bottomActive && (
             <FocusAwareDockBody slot={bottomSlot} focusStore={focusStore} baseClass="rules-dock-body">
               {renderToolWindow(bottomActive, bottomSlot)}
@@ -777,18 +790,29 @@ function ShellLayoutInner<T extends string>({
     [onVerticalResize],
   );
 
-  const topBottomHalves = useMemo(
-    () => ({
-      // Equal ratios (both = half of viewport) paired with
-      // `proportionalLayout` on the side-region Allotment produce a
-      // 50/50 split on first open that stays balanced on window resize.
-      // Previously 0.35 each left ~30% slack, which the first pane
-      // absorbed — making the top pane visibly taller than the bottom.
-      top: { preferred: Math.round(window.innerHeight * 0.5), min: 120 },
-      bottom: { preferred: Math.round(window.innerHeight * 0.5), min: 120 },
-    }),
-    [],
-  );
+  const topBottomHalves = useMemo(() => {
+    const vh = window.innerHeight;
+    // Equal ratios (both = half of viewport) paired with
+    // `proportionalLayout` on the side-region Allotment produce a
+    // 50/50 split on first open that stays balanced on window resize.
+    // Previously 0.35 each left ~30% slack, which the first pane
+    // absorbed — making the top pane visibly taller than the bottom.
+    return {
+      left: {
+        top: { preferred: Math.round(vh * 0.5), min: 120 },
+        bottom: { preferred: Math.round(vh * 0.5), min: 120 },
+      },
+      // Right region opens with a 60/40 split on a fresh profile:
+      // Docs (right-top) gets the larger pane for reading width, Scope
+      // (right-bottom) sits beneath at the smaller height that suits
+      // its inspector density. Drag-to-resize persists per-workspace
+      // via the side-region's onDragEnd path.
+      right: {
+        top: { preferred: Math.round(vh * 0.6), min: 120 },
+        bottom: { preferred: Math.round(vh * 0.4), min: 120 },
+      },
+    };
+  }, []);
 
   // ── Editor pane ───────────────────────────────────────────────────
 
@@ -804,7 +828,7 @@ function ShellLayoutInner<T extends string>({
   // still are.
   const leftSidebarPane = (
     <Allotment.Pane
-      preferredSize={sizes.sidebar.preferred}
+      preferredSize={sizes.sidebar.min}
       minSize={sizes.sidebar.min}
       maxSize={sizes.sidebar.max}
       visible={leftOpen}
@@ -814,17 +838,17 @@ function ShellLayoutInner<T extends string>({
         region="left"
         tl={tl}
         renderToolWindow={renderToolWindow}
-        topSize={topBottomHalves.top}
-        bottomSize={topBottomHalves.bottom}
+        topSize={topBottomHalves.left.top}
+        bottomSize={topBottomHalves.left.bottom}
         focusStore={focusStore}
-       
+
       />
     </Allotment.Pane>
   );
 
   const rightSidebarPane = (
     <Allotment.Pane
-      preferredSize={sizes.inspector.preferred}
+      preferredSize={sizes.inspector.min}
       minSize={sizes.inspector.min}
       maxSize={sizes.inspector.max}
       visible={rightOpen}
@@ -833,8 +857,8 @@ function ShellLayoutInner<T extends string>({
         region="right"
         tl={tl}
         renderToolWindow={renderToolWindow}
-        topSize={topBottomHalves.top}
-        bottomSize={topBottomHalves.bottom}
+        topSize={topBottomHalves.right.top}
+        bottomSize={topBottomHalves.right.bottom}
         focusStore={focusStore}
        
       />
@@ -901,6 +925,16 @@ function ShellLayoutInner<T extends string>({
       {bottomPane}
     </Allotment>
   );
+
+  // No `onReset` on the inner horizontal Allotments. Allotment's native
+  // sashreset handler (allotment.tsx:289-303) already does the right
+  // thing: on sash double-click it calls `resizeToPreferredSize` on the
+  // left-adjacent pane first, then the right-adjacent pane, falling
+  // back to `distributeViewSizes` only if neither has a `preferredSize`.
+  // Since the side panes carry `preferredSize={sideResetTargetPx}` and
+  // the editor pane has none, every sash (sidebar↔editor and
+  // editor↔inspector) natively snaps the SIDE pane to the symmetric
+  // target — exactly the behavior we want.
 
   // Three-column row — sidebar | middle | inspector. The `middle` slot
   // differs per alignment (e.g. center stacks editor+bottom in middle).
@@ -1170,10 +1204,19 @@ function ShellLayoutInner<T extends string>({
     // Subsequent updates (label toggle changes leftBarPreferred /
     // rightBarPreferred): Allotment doesn't auto-re-apply preferredSize
     // on prop change, so without a nudge the bars stay clamped to the
-    // previous mode's min/max. `reset()` re-runs the initial-layout
-    // path against the current `preferredSize` props, restoring the
-    // user's stored per-rail width across the toggle.
-    barsAllotmentRef.current?.reset();
+    // previous mode's min/max. Use `resize()` (not `reset()`) — we
+    // ship `onReset={handleBarsReset}` to make sash-dblclick snap to
+    // min, and `ref.reset()` delegates to that onReset, which would
+    // snap the bars to min on every prop change (e.g. right after the
+    // user releases a drag and the persisted width flows back in via
+    // preferredSize). Bypassing `reset()` keeps prop-driven sizing
+    // independent of dblclick-driven sizing.
+    const row = barsRowRef.current;
+    if (!row) return;
+    const total = row.clientWidth;
+    if (total <= 0) return;
+    const middleW = Math.max(0, total - leftBarPreferred - rightBarPreferred);
+    barsAllotmentRef.current?.resize([leftBarPreferred, middleW, rightBarPreferred]);
   }, [leftBarPreferred, rightBarPreferred]);
 
   // Allotment fires `onChange` for many things beyond user drags —
@@ -1226,9 +1269,38 @@ function ShellLayoutInner<T extends string>({
     };
   }, [activityBarWidths.left, activityBarWidths.right, onActivityBarResize, showToolWindowLabels]);
 
+  // Sash double-click on the activity-bar sashes snaps both rails to
+  // BAR_LABELED_MIN; the middle column absorbs the slack. We compute
+  // sizes from the live DOM so the snap respects the user's middle
+  // column width instead of overwriting it.
+  //
+  // ⚠ Allotment's `sashreset` listener (allotment.tsx:289) is registered
+  // in a useIsomorphicLayoutEffect with empty deps, so it captures the
+  // `onReset` prop ONCE at mount and never refreshes. A plain useCallback
+  // here would be invoked with stale closure values (e.g. an early
+  // `showToolWindowLabels === false` if labels were toggled on later).
+  // Use a ref shim: the `onReset` prop we hand to Allotment is stable;
+  // it just dispatches to the latest implementation stored in the ref.
+  const barsResetImplRef = useRef<() => void>(() => {});
+  barsResetImplRef.current = () => {
+    if (!showToolWindowLabels) return;
+    const row = barsRowRef.current;
+    if (!row) return;
+    const total = row.clientWidth;
+    if (total <= 0) return;
+    const leftW = BAR_LABELED_MIN;
+    const rightW = BAR_LABELED_MIN;
+    const middleW = Math.max(0, total - leftW - rightW);
+    barsAllotmentRef.current?.resize([leftW, middleW, rightW]);
+    if (leftW !== activityBarWidths.left || rightW !== activityBarWidths.right) {
+      onActivityBarResize({ left: leftW, right: rightW });
+    }
+  };
+  const handleBarsReset = useCallback(() => barsResetImplRef.current(), []);
+
   const mainRow = (
     <div className="rules-main-row" ref={barsRowRef}>
-      <Allotment ref={barsAllotmentRef} proportionalLayout={false}>
+      <Allotment ref={barsAllotmentRef} proportionalLayout={false} onReset={handleBarsReset}>
         <Allotment.Pane preferredSize={leftBarPreferred} minSize={barMin} maxSize={barMax}>
           <VerticalActivityBar<T>
             side="left"

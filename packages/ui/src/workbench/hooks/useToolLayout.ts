@@ -87,10 +87,13 @@ export interface WorkbenchViewState {
 /**
  * Fresh-profile seed (design § 8). On first open:
  *   - `http-rules` is active in `left-top`
- *   - `right-top` stacks `docs`, `var-scope` (active), `variables`
- *     as sibling tabs — Scope leads because it annotates the active
- *     editor tab, which is what users reach for first
- *   - `right-bottom` hosts `api-requests` (active)
+ *   - `right-top` stacks `docs` (active) + `variables`. Docs leads
+ *     because it's the orientation surface users reach for first on a
+ *     fresh profile.
+ *   - `right-bottom` stacks `var-scope` (active) + `api-requests`.
+ *     Scope sits below Docs because it annotates the active editor tab
+ *     and the smaller bottom pane is the right size for its inspector
+ *     density.
  * The shared normalizer fills in remaining `defaultSlot` registry
  * entries without activating them.
  */
@@ -100,10 +103,13 @@ const WORKSPACE_FRESH_DOCK_LAYOUT: ToolLayoutState<ToolWindowId> = normalizeDock
       'left-top': { windows: ['http-rules'], active: 'http-rules' },
       'left-bottom': { windows: [], active: null },
       'right-top': {
-        windows: ['docs', 'var-scope', 'variables'],
+        windows: ['docs', 'variables'],
+        active: 'docs',
+      },
+      'right-bottom': {
+        windows: ['var-scope', 'api-requests'],
         active: 'var-scope',
       },
-      'right-bottom': { windows: ['api-requests'], active: 'api-requests' },
       'bottom-left': { windows: [], active: null },
       'bottom-right': { windows: [], active: null },
     },
@@ -130,7 +136,7 @@ const FACTORY_EDITOR_TABS: PersistedTabSession<WorkbenchTab> = { tabs: [], activ
  */
 export const FACTORY_SIDEBAR_EXPANSIONS: SidebarExpansionsState = {
   sectionsExpanded: {
-    'http-rules': { rules: true, templates: true, environments: false },
+    'http-rules': { rules: false, templates: true, environments: false },
     'api-requests': { 'api-requests': true, environments: false },
     workflows: { workflows: true },
     variables: {

@@ -28,6 +28,15 @@ const BOTTOM_MIN = 220;
 const BOTTOM_MAX_RATIO = 0.6;
 const EDITOR_MIN = 400;
 
+// First-open viewport ratios. Inspector seeds at 31% (1.3× the legacy
+// 24%) because Docs + Scope live there and benefit from reading width.
+// Reset behavior is owned by Allotment's native sashreset → side panes'
+// `preferredSize` (set to each pane's min in ShellLayout), so reset
+// snaps to min-width.
+const SIDEBAR_SEED_RATIO = 0.22;
+const INSPECTOR_SEED_RATIO = 0.31;
+const BOTTOM_SEED_RATIO = 0.32;
+
 // ── Types ──────────────────────────────────────────────────────────
 
 interface PersistedLayout {
@@ -101,26 +110,26 @@ function computeSizes(vw: number, vh: number, persisted: PersistedLayout | null)
     };
   }
 
-  // First-open defaults: proportional to viewport
-  // Sidebar 20%: gives tree labels ~288px on a 1440px MacBook Air —
-  // enough breathing room for rule / request names without truncating,
-  // without eating too much editor width. The left-bottom pane (API
-  // Requests) shares the same width, so widening the sidebar widens
-  // both stacked tool windows.
-  // Inspector 20%: docs panel doesn't need more; keeps editor wider
+  // First-open defaults: proportional to viewport. Sidebar gives tree
+  // labels ~316px on a 1440px MacBook Air — enough breathing room for
+  // rule / request names without truncating, without eating too much
+  // editor width. The left-bottom pane (API Requests) shares the same
+  // width, so widening the sidebar widens both stacked tool windows.
+  // Inspector seeds wider (Docs + Scope live there) and the bottom
+  // panel takes about a third of the viewport height.
   return {
     sidebar: {
-      preferred: clamp(Math.round(vw * 0.22), SIDEBAR_MIN, SIDEBAR_MAX),
+      preferred: clamp(Math.round(vw * SIDEBAR_SEED_RATIO), SIDEBAR_MIN, SIDEBAR_MAX),
       min: SIDEBAR_MIN,
       max: SIDEBAR_MAX,
     },
     inspector: {
-      preferred: clamp(Math.round(vw * 0.24), INSPECTOR_MIN, inspectorMax),
+      preferred: clamp(Math.round(vw * INSPECTOR_SEED_RATIO), INSPECTOR_MIN, inspectorMax),
       min: INSPECTOR_MIN,
       max: inspectorMax,
     },
     bottom: {
-      preferred: clamp(Math.round(vh * 0.32), BOTTOM_MIN, bottomMax),
+      preferred: clamp(Math.round(vh * BOTTOM_SEED_RATIO), BOTTOM_MIN, bottomMax),
       min: BOTTOM_MIN,
       max: bottomMax,
     },
