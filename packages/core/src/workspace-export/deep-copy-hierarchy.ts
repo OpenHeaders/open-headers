@@ -16,17 +16,14 @@
  *     can rebind pause-marker keys, and the uid remaps so the entity
  *     finalizer can rewrite cross-entity references
  *
- * The hierarchy also lives at the seam between two callers:
- *   - `workspace-orchestrator.ts duplicateWorkspace` — regenerates uids
- *     so the cloned workspace has its own identity (the existing path).
- *   - the upcoming PR 2 importer — `new-uid` strategy regenerates uids
- *     the same way; `update` / `skip` strategies don't, but they don't
- *     call this helper at all (per-entity branching happens in the
- *     importer, before this).
+ * Sole live caller: the workspace importer's `new-uid` strategy
+ * (`update` / `skip` strategies don't call this helper — per-entity
+ * branching happens in the importer, before this). `duplicateWorkspace`
+ * previously consumed this helper too; post-Phase B it routes through
+ * the snapshot pipeline instead, where per-workspace oracles namespace
+ * entity uids and a uid-regen pass is unnecessary.
  *
- * Pure function; no storage reads. Tested transitively through
- * `duplicateWorkspace`'s existing coverage. PR 2 will add direct tests
- * when its branches start consuming it.
+ * Pure function; no storage reads.
  */
 
 import type { Collection, Folder } from '../types/index';

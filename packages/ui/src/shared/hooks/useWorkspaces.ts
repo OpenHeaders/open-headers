@@ -7,8 +7,8 @@
  * post-state broadcast. Writes (create / update / rename / delete /
  * setActive / reorder) go straight to the global oracle via the
  * renderer write client; only `duplicateWorkspace` stays on the bridge
- * because it deep-copies SW-owned per-workspace stores the renderer
- * cannot touch.
+ * because the SW runs the snapshot-pipeline replay against per-workspace
+ * services the renderer cannot reach.
  *
  * Every popup / sidepanel / workbench mount calling this hook stays in
  * sync automatically — the mirror's broadcast subscription drives a
@@ -17,7 +17,6 @@
 
 import { hostBridge } from '@openheaders/core/bridge';
 import type { ExtensionWorkspace } from '@openheaders/core/types';
-import { useCallback, useEffect, useState } from 'react';
 import { getActiveExtensionWorkspaceSyncMirror } from '@openheaders/ui/context';
 import {
   applyCreateWorkspace,
@@ -27,6 +26,7 @@ import {
   applySetActiveWorkspace,
   applyUpdateWorkspace,
 } from '@openheaders/ui/shared/sync/extension-workspace-write-client';
+import { useCallback, useEffect, useState } from 'react';
 
 const DEFAULT_SURFACE_ID = 'workspace-meta';
 
@@ -60,7 +60,10 @@ export interface UseWorkspacesApi {
     updates: { name?: string; description?: string; color?: string; icon?: string | null; orgId?: string },
   ) => Promise<WorkspaceUpdateResult>;
   deleteWorkspace: (id: string) => Promise<{ success: boolean; error?: string; activeWorkspaceId?: string }>;
-  duplicateWorkspace: (id: string, name?: string) => Promise<ExtensionWorkspace | null>;
+  duplicateWorkspace: (
+    id: string,
+    options?: { name?: string; targetOrgId?: string; includeSecrets?: boolean },
+  ) => Promise<ExtensionWorkspace | null>;
   setActiveWorkspace: (id: string) => Promise<boolean>;
   reorderWorkspaces: (idOrder: string[]) => Promise<boolean>;
 }
@@ -127,18 +130,24 @@ export function useWorkspaces(options: UseWorkspacesOptions = {}): UseWorkspaces
     async (id) => {
       const result = await applyDeleteWorkspace({ id }, { surfaceId });
       if (result.ok) return { success: true, activeWorkspaceId: result.activeWorkspaceId };
-      if (result.reason === 'last-workspace')
-        return { success: false, error: 'Cannot delete the last workspace' };
+      if (result.reason === 'last-workspace') return { success: false, error: 'Cannot delete the last workspace' };
       if (result.reason === 'not-found') return { success: false, error: 'Workspace not found' };
       return { success: false, error: result.message ?? 'Workspace delete failed' };
     },
     [surfaceId],
   );
 
-  const duplicateWorkspace = useCallback<UseWorkspacesApi['duplicateWorkspace']>(async (id, name) => {
-    // Stays on the bridge: deep-copies SW-owned per-workspace stores
-    // (rule / template / files / etc.) the renderer can't touch.
-    const resp = await hostBridge.call('duplicateWorkspace', { id, name }).catch(() => null);
+  const duplicateWorkspace = useCallback<UseWorkspacesApi['duplicateWorkspace']>(async (id, options) => {
+    // Stays on the bridge: SW runs the snapshot pipeline, which
+    // touches per-workspace services the renderer can't reach.
+    const resp = await hostBridge
+      .call('duplicateWorkspace', {
+        id,
+        name: options?.name,
+        targetOrgId: options?.targetOrgId,
+        includeSecrets: options?.includeSecrets,
+      })
+      .catch(() => null);
     return resp?.success ? (resp.workspace ?? null) : null;
   }, []);
 

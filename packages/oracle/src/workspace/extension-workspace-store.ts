@@ -169,6 +169,12 @@ export interface CreateWorkspaceInput {
   color?: string;
   icon?: string;
   kind?: ExtensionWorkspaceKind;
+  /**
+   * Target Org for the new workspace. Defaults to the user's home Org.
+   * Set by Duplicate-into to land the copy under a different Org than
+   * the source. Workspace.orgId is immutable post-create.
+   */
+  orgId?: string;
 }
 
 /**
@@ -188,7 +194,7 @@ export async function createWorkspace(input: CreateWorkspaceInput): Promise<Exte
   // to the `PRE_BOOTSTRAP_ORG_ID` sentinel when the snapshot isn't
   // installed yet (boot race / test harness); matches the envelope
   // mint helpers' sentinel convention.
-  const orgId = getIdentitySnapshot()?.user.homeOrgId ?? PRE_BOOTSTRAP_ORG_ID;
+  const orgId = input.orgId ?? getIdentitySnapshot()?.user.homeOrgId ?? PRE_BOOTSTRAP_ORG_ID;
   const slot: ExtensionWorkspaceSlot = {
     id,
     kind: input.kind ?? 'personal',

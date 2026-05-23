@@ -9,21 +9,22 @@
  * in `workspace-orchestrator.ts` — we call it, not inline it.
  */
 
-import type { LiveVariable, LiveVariableOverride, LiveWorkflow, OAuth2Auth, RefreshPolicy, Request, Template, TreeNode, Variable, ViewMode, WorkflowStep } from '@openheaders/core/types';
+import type { WorkspaceContentSnapshot } from '@openheaders/core/sync';
+import type {
+  LiveVariable,
+  LiveVariableOverride,
+  LiveWorkflow,
+  OAuth2Auth,
+  RefreshPolicy,
+  Request,
+  Template,
+  TreeNode,
+  Variable,
+  ViewMode,
+  WorkflowStep,
+} from '@openheaders/core/types';
 import { doesUrlMatchEntry, getRuleMatchPatterns } from '@openheaders/core/utils';
 import { buildWorkspaceExport, serializeWorkspaceExport } from '@openheaders/core/workspace-export';
-import { broadcast } from '@utils/bridge';
-import { runtime as browserRuntime, isChrome, isEdge, isFirefox, isSafari, tabs } from '@utils/browser-api';
-import { logger } from '@utils/logger';
-import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
-import type { WorkspaceContentSnapshot } from '@openheaders/core/sync';
-import { getStatusSnapshot } from '@openheaders/ui/shared/status';
-import { wsRequest } from '../ws-request';
-import type { MessageHandlerContext, SendResponse } from '@/types/browser';
-import type { PerfResourceEntry } from '@/types/perf';
-import { disableCacheBypassForTab, enableCacheBypassForTab } from './cache-bypass';
-import { fetchSourceMapText as fetchSourceMapTextHandler } from './fetch-source-map';
-import { fetchCookieJarForUrl as fetchCookieJarForUrlHandler } from './fetch-cookie-jar';
 import {
   createEnvironment,
   deleteEnvironment,
@@ -44,39 +45,11 @@ import {
   listImportReports,
   recordImportReport,
 } from '@openheaders/oracle/entity/import-reports-store';
-import {
-  clearWorkflowRunCache,
-  getWorkflowRunCache,
-  listCachesForWorkflow as listLiveCacheForWorkflow,
-} from '@openheaders/oracle/live/live-cache-store';
-import { refreshLiveWorkflowByUser, resetCircuitForWorkflow } from './live-refresh-scheduler';
-import {
-  createLiveVariable,
-  deleteLiveVariable,
-  getLiveVariable,
-  getLiveVariables,
-  setLiveVariableOverride,
-  updateLiveVariable,
-} from '@openheaders/oracle/live/live-variable-store';
-import {
-  createLiveWorkflow,
-  deleteLiveWorkflow,
-  getLiveWorkflow,
-  getLiveWorkflows,
-  updateLiveWorkflow,
-} from '@openheaders/oracle/live/live-workflow-store';
-import {
-  getOAuthRedirectUri,
-  launchAuthorizationCodeFlow,
-  OAuth2FlowError,
-  performClientCredentialsFlow,
-  performRefresh,
-} from './oauth-flow';
 import { deleteTokenBundle } from '@openheaders/oracle/entity/oauth-token-store';
-import { clearObservabilityLog, getObservabilityLog } from './observability-log';
-import { handleScriptHostRequest } from './offscreen-host';
-import { executeRequest, executeRequestDraft } from './request-executor';
-import { clearPendingScriptsReview, getPendingScriptsReview } from '@openheaders/oracle/entity/request-scripts-review-store';
+import {
+  clearPendingScriptsReview,
+  getPendingScriptsReview,
+} from '@openheaders/oracle/entity/request-scripts-review-store';
 import {
   addRequest,
   addRequestToCollection,
@@ -95,7 +68,6 @@ import {
   renameRequestFolder,
   updateRequest,
 } from '@openheaders/oracle/entity/request-store';
-import { getActiveRulesForTab, ingestPerfEntries } from './request-tracker';
 import { createRuleDraft, takeRuleDraft } from '@openheaders/oracle/entity/rule-draft-store';
 import {
   createCollection,
@@ -112,7 +84,6 @@ import {
   updateCollectionPinnedEnvs,
   updateCollectionVariables,
 } from '@openheaders/oracle/entity/rule-store';
-import { getTabSnapshot, recordScriptableFire } from './tab-telemetry';
 import {
   addTemplate,
   addTemplateToCollection,
@@ -131,6 +102,28 @@ import {
   updateTemplate,
 } from '@openheaders/oracle/entity/template-store';
 import {
+  clearWorkflowRunCache,
+  getWorkflowRunCache,
+  listCachesForWorkflow as listLiveCacheForWorkflow,
+} from '@openheaders/oracle/live/live-cache-store';
+import {
+  createLiveVariable,
+  deleteLiveVariable,
+  getLiveVariable,
+  getLiveVariables,
+  setLiveVariableOverride,
+  updateLiveVariable,
+} from '@openheaders/oracle/live/live-variable-store';
+import {
+  createLiveWorkflow,
+  deleteLiveWorkflow,
+  getLiveWorkflow,
+  getLiveWorkflows,
+  updateLiveWorkflow,
+} from '@openheaders/oracle/live/live-workflow-store';
+import { dispatchSyncRpc } from '@openheaders/oracle/rpc';
+import { getResolvedRules } from '@openheaders/oracle/rule-engine/variables-resolver';
+import {
   deleteAllTestRunsForOwner,
   deleteTestRunById,
   getTestRunById,
@@ -140,14 +133,36 @@ import {
   type TestRunOwner,
   type TestRunOwnerType,
 } from '@openheaders/oracle/test-run/test-run-store';
+import { getStatusSnapshot } from '@openheaders/ui/shared/status';
+import { broadcast } from '@utils/bridge';
+import { runtime as browserRuntime, isChrome, isEdge, isFirefox, isSafari, tabs } from '@utils/browser-api';
+import { logger } from '@utils/logger';
+import { getViewModeController } from '@/background/view-mode/controller';
+import type { MessageHandlerContext, SendResponse } from '@/types/browser';
+import type { PerfResourceEntry } from '@/types/perf';
+import { wsRequest } from '../ws-request';
+import { disableCacheBypassForTab, enableCacheBypassForTab } from './cache-bypass';
+import { fetchCookieJarForUrl as fetchCookieJarForUrlHandler } from './fetch-cookie-jar';
+import { fetchSourceMapText as fetchSourceMapTextHandler } from './fetch-source-map';
+import { refreshLiveWorkflowByUser, resetCircuitForWorkflow } from './live-refresh-scheduler';
+import {
+  getOAuthRedirectUri,
+  launchAuthorizationCodeFlow,
+  OAuth2FlowError,
+  performClientCredentialsFlow,
+  performRefresh,
+} from './oauth-flow';
+import { clearObservabilityLog, getObservabilityLog } from './observability-log';
+import { handleScriptHostRequest } from './offscreen-host';
+import { executeRequest, executeRequestDraft } from './request-executor';
+import { getActiveRulesForTab, ingestPerfEntries } from './request-tracker';
+import { getTabSnapshot, recordScriptableFire } from './tab-telemetry';
 import { startRun } from './test-runner';
-import { getResolvedRules } from '@openheaders/oracle/rule-engine/variables-resolver';
 import { gatherWorkspaceExport } from './workspace-export-gatherer';
 import { consumeImportHandoff, registerImportHandoff } from './workspace-export-handoff-store';
 import { findExportImportMatches } from './workspace-import-dedup';
 import { importWorkspace as importWorkspaceFromExport, previewWorkspaceImport } from './workspace-import-orchestrator';
 import { openWorkspaceIntent } from './workspace-navigator';
-import { getViewModeController } from '@/background/view-mode/controller';
 import { duplicateWorkspace as duplicateWorkspaceData } from './workspace-orchestrator';
 import { getActiveWorkspace, getActiveWorkspaceId, listWorkspaces } from './workspace-store';
 import { ordinalForTab, workspaceTabCount } from './workspace-tab-registry';
@@ -249,9 +264,7 @@ export function handleGeneralMessage(
         safeResponse({ available: false });
         return undefined;
       }
-      void wsRequest<{ workspaces: WorkspaceContentSnapshot[] }>(
-        { type: 'oh.sync.getDataPresence' },
-      )
+      void wsRequest<{ workspaces: WorkspaceContentSnapshot[] }>({ type: 'oh.sync.getDataPresence' })
         .then((resp) => safeResponse({ available: true, workspaces: resp.workspaces }))
         .catch((err: Error) => {
           logger.info('MessageHandler', `oh.sync.getPeerDataPresence relay failed: ${err.message}`);
@@ -270,10 +283,12 @@ export function handleGeneralMessage(
         safeResponse(syncResult.response);
         return undefined;
       }
-      syncResult.promise.then((response) => safeResponse(response)).catch((err: Error) => {
-        logger.info('MessageHandler', `sync rpc rejected: ${err.message}`);
-        safeResponse({ ok: false, error: err.message });
-      });
+      syncResult.promise
+        .then((response) => safeResponse(response))
+        .catch((err: Error) => {
+          logger.info('MessageHandler', `sync rpc rejected: ${err.message}`);
+          safeResponse({ ok: false, error: err.message });
+        });
       return true;
     }
 
@@ -313,7 +328,11 @@ export function handleGeneralMessage(
     } else if (message.type === 'getActiveWorkspace') {
       safeResponse({ workspace: getActiveWorkspace() });
     } else if (message.type === 'duplicateWorkspace') {
-      duplicateWorkspaceData(message.id as string, { name: message.name as string | undefined })
+      duplicateWorkspaceData(message.id as string, {
+        name: message.name as string | undefined,
+        targetOrgId: message.targetOrgId as string | undefined,
+        includeSecrets: message.includeSecrets as boolean | undefined,
+      })
         .then((workspace) => {
           if (!workspace) safeResponse({ success: false, error: 'Source workspace not found' });
           else safeResponse({ success: true, workspace });
@@ -699,10 +718,16 @@ export function handleGeneralMessage(
       return true;
     } else if (message.type === 'switchViewMode') {
       const next = message.next as ViewMode;
-      const windowId = message.windowId as number | undefined;
-      const tabId = message.tabId as number | undefined;
+      const source = (message.source as ViewMode | null | undefined) ?? null;
+      // Fall back to the message sender's tab/window when the renderer
+      // couldn't resolve them itself (sidebar surfaces sometimes can't
+      // call `tabs.query` before tear-down).
+      const senderWindowId = _sender.tab?.windowId;
+      const senderTabId = _sender.tab?.id;
+      const windowId = (message.windowId as number | undefined) ?? senderWindowId;
+      const tabId = (message.tabId as number | undefined) ?? senderTabId;
       getViewModeController()
-        .switchViewMode(next, { windowId, tabId })
+        .switchViewMode(next, source, { windowId, tabId })
         .then((result) => safeResponse({ opened: result.opened }))
         .catch((error: Error) => {
           logger.info('ViewMode', 'switchViewMode rpc failed:', error.message);

@@ -34,7 +34,7 @@ import { useIdentitySnapshot } from '@openheaders/ui/shared/hooks/useIdentitySna
 import { useOrgBindingPrefs } from '@openheaders/ui/shared/hooks/useOrgBindingPrefs';
 import type { UseWorkspacesApi } from '@openheaders/ui/shared/hooks/useWorkspaces';
 import { OrgIcon } from '@openheaders/ui/shared/workspace-org/OrgIcon';
-import { App as AntApp, Button, Form, Input, Modal, Select, Space, Typography, theme } from 'antd';
+import { App as AntApp, Button, Checkbox, Form, Input, Modal, Select, Space, Typography, theme } from 'antd';
 import type React from 'react';
 import { useCallback, useMemo, useState } from 'react';
 import HomeOrgIdentityCard from './HomeOrgIdentityCard';
@@ -65,6 +65,7 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
   const { message, modal } = AntApp.useApp();
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<ExtensionWorkspace | null>(null);
+  const [duplicateTarget, setDuplicateTarget] = useState<ExtensionWorkspace | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   const canDelete = api.workspaces.length > 1;
@@ -131,14 +132,9 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
     [api, modal, message],
   );
 
-  const handleDuplicate = useCallback(
-    async (workspace: ExtensionWorkspace) => {
-      const created = await api.duplicateWorkspace(workspace.id);
-      if (created) message.success(`Duplicated "${workspace.name}"`);
-      else message.error('Failed to duplicate workspace');
-    },
-    [api, message],
-  );
+  const handleDuplicate = useCallback((workspace: ExtensionWorkspace) => {
+    setDuplicateTarget(workspace);
+  }, []);
 
   const renderRow = (w: ExtensionWorkspace): React.ReactNode => (
     <SortableRow
@@ -148,7 +144,7 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
       canDelete={canDelete}
       onEdit={() => setEditTarget(w)}
       onDelete={() => handleDelete(w)}
-      onDuplicate={() => void handleDuplicate(w)}
+      onDuplicate={() => handleDuplicate(w)}
       onSwitch={() => onSwitch(w.id)}
       onIdentityChange={(identity) => {
         // Coerce undefined icon → null so the backend's "clear" path
@@ -210,6 +206,23 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({ api, activeWorkspac
             return false;
           }
           message.success(`Created "${ws.name}"`);
+          return true;
+        }}
+      />
+
+      <DuplicateWorkspaceModal
+        source={duplicateTarget}
+        catalogue={catalogue}
+        reach={reach}
+        onCancel={() => setDuplicateTarget(null)}
+        onSubmit={async (values) => {
+          if (!duplicateTarget) return false;
+          const created = await api.duplicateWorkspace(duplicateTarget.id, values);
+          if (!created) {
+            message.error('Failed to duplicate workspace');
+            return false;
+          }
+          message.success(`Duplicated "${duplicateTarget.name}" → "${created.name}"`);
           return true;
         }}
       />
@@ -567,6 +580,110 @@ const WorkspaceFormModal: React.FC<WorkspaceFormModalProps> = ({
           <Input.TextArea rows={2} maxLength={240} />
         </Form.Item>
       </Form>
+    </Modal>
+  );
+};
+
+// ── Duplicate-into modal ─────────────────────────────────────────────
+//
+// Always-open dialog from the row's Duplicate button. Three controls:
+// Name (pre-filled `Copy of {source}`), target Org (Select over the
+// snapshot's catalogue; default = source's Org), and Include-vault
+// checkbox (off by default — secrets re-entered in the duplicate).
+
+interface DuplicateFormValues {
+  name: string;
+  targetOrgId: string;
+  includeSecrets: boolean;
+}
+
+interface DuplicateWorkspaceModalProps {
+  source: ExtensionWorkspace | null;
+  catalogue: OrgDescriptor[];
+  reach: BackendReach | null;
+  onCancel: () => void;
+  onSubmit: (values: DuplicateFormValues) => Promise<boolean>;
+}
+
+const DuplicateWorkspaceModal: React.FC<DuplicateWorkspaceModalProps> = ({
+  source,
+  catalogue,
+  reach,
+  onCancel,
+  onSubmit,
+}) => {
+  const [form] = Form.useForm<DuplicateFormValues>();
+
+  const handleOk = useCallback(async () => {
+    try {
+      const values = await form.validateFields();
+      const ok = await onSubmit(values);
+      if (ok) {
+        form.resetFields();
+        onCancel();
+      }
+    } catch {
+      // validation error — keep modal open
+    }
+  }, [form, onSubmit, onCancel]);
+
+  return (
+    <Modal
+      open={source !== null}
+      title={source ? `Duplicate "${source.name}"` : 'Duplicate workspace'}
+      okText="Duplicate"
+      onCancel={() => {
+        form.resetFields();
+        onCancel();
+      }}
+      onOk={handleOk}
+      destroyOnClose
+    >
+      {source && (
+        <Form
+          form={form}
+          layout="vertical"
+          preserve={false}
+          initialValues={{
+            name: `Copy of ${source.name}`,
+            targetOrgId: source.orgId,
+            includeSecrets: false,
+          }}
+          onFinish={handleOk}
+        >
+          <Form.Item
+            name="name"
+            label="Name"
+            rules={[
+              { required: true, message: 'Name is required' },
+              { max: 60, message: 'Keep names under 60 characters' },
+            ]}
+          >
+            <Input autoFocus placeholder="Copy of …" />
+          </Form.Item>
+
+          <Form.Item name="targetOrgId" label="Into Org" rules={[{ required: true }]}>
+            <Select
+              options={catalogue.map((descriptor) => ({
+                value: descriptor.id,
+                label: (
+                  <Space size={6}>
+                    <OrgIcon descriptor={descriptor} size={13} />
+                    {orgFullLabel(descriptor, reach)}
+                  </Space>
+                ),
+              }))}
+            />
+          </Form.Item>
+
+          <Form.Item name="includeSecrets" valuePropName="checked" style={{ marginBottom: 4 }}>
+            <Checkbox>Include vault contents (secrets)</Checkbox>
+          </Form.Item>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            Re-enter secrets in the copy if needed. OAuth connections are re-authorized either way.
+          </Text>
+        </Form>
+      )}
     </Modal>
   );
 };

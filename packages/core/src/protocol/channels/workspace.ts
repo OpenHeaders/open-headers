@@ -31,7 +31,15 @@ export interface WorkspaceRpc {
     res: { workspace: ExtensionWorkspace };
   };
   duplicateWorkspace: {
-    req: { id: string; name?: string };
+    req: {
+      id: string;
+      name?: string;
+      /** Target Org for the copy. Omit to land in the source's Org. */
+      targetOrgId?: string;
+      /** When false, the copy lands with an empty vault and no OAuth
+       *  bundles — the user re-enters secrets in the duplicate. */
+      includeSecrets?: boolean;
+    };
     res: { success: boolean; workspace?: ExtensionWorkspace; error?: string };
   };
   exportWorkspace: {
