@@ -207,20 +207,7 @@ describe('applyUpdateWorkspace / applyRenameWorkspace', () => {
     expect(slot.icon).toBeUndefined();
   });
 
-  it('orgId flips the workspace org binding on the emitted slot (U3.7)', async () => {
-    mockCall.mockResolvedValue({ ok: true, outcomes: [] });
-    const existing = makeWorkspace('ws-a', 0, { orgId: 'org-old' });
-    const mirror = makeMirror([existing], 'ws-a');
-    await applyUpdateWorkspace(
-      { id: 'ws-a', updates: { orgId: 'org-new' } },
-      { surfaceId: 'workbench', mirror, context: makeContextHandle('workbench') },
-    );
-    const body = (mockCall.mock.calls[0][1] as { batch: MutationBatch }).batch.mutations[0].body;
-    const slot = (body as { item: { orgId: string } }).item;
-    expect(slot.orgId).toBe('org-new');
-  });
-
-  it('leaves the org binding untouched when orgId is absent from the patch', async () => {
+  it('preserves the org binding across every update — workspaces are immutable in their Org', async () => {
     mockCall.mockResolvedValue({ ok: true, outcomes: [] });
     const existing = makeWorkspace('ws-a', 0, { orgId: 'org-old' });
     const mirror = makeMirror([existing], 'ws-a');

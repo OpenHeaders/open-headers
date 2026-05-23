@@ -1,7 +1,6 @@
 export { applyModeSwitchVerdict, type ModeSwitchVerdictHandlers } from './apply-verdict';
 export { awaitJoinedOrg } from './await-joined-org';
 export { type ExecuteDiscardDeps, executeDiscard } from './execute-discard';
-export { type ExecutePublishDeps, type ExecutePublishInput, executePublish } from './execute-publish';
 export { type ExecuteRestoreDeps, executeRestore } from './execute-restore';
 export {
   type ExecuteUseTargetDeps,

@@ -93,12 +93,7 @@ export const DaemonAdminSchema = v.object({
  * Kept here (not in `identity.ts`) because audit log entries live on the
  * ACL axis — they're the forensic record of permission decisions.
  */
-export const CapabilitySchema = v.picklist([
-  'workspace.read',
-  'workspace.write',
-  'workspace.list',
-  'daemon.admin',
-]);
+export const CapabilitySchema = v.picklist(['workspace.read', 'workspace.write', 'workspace.list', 'daemon.admin']);
 
 export const CapabilityDenyReasonSchema = v.picklist([
   'no-current-user',
@@ -108,7 +103,6 @@ export const CapabilityDenyReasonSchema = v.picklist([
   'not-daemon-admin',
   'unknown-capability',
   'auth-required',
-  'target-org-not-authorized',
 ]);
 
 export const AuditDecisionSchema = v.object({

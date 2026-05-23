@@ -8,11 +8,6 @@ export type {
   DiscardResult,
 } from './discard-types';
 export type {
-  PublishedWorkspace,
-  PublishFailureReason,
-  PublishResult,
-} from './publish-types';
-export type {
   RestoredWorkspace,
   RestoreFailureReason,
   RestoreResult,

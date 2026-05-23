@@ -4,13 +4,7 @@
  * when the user changes `backend.mode`.
  */
 
-import type {
-  DiscardBackupArchive,
-  DiscardResult,
-  PublishResult,
-  RestoreResult,
-  WorkspaceContentSnapshot,
-} from '../../sync';
+import type { DiscardBackupArchive, DiscardResult, RestoreResult, WorkspaceContentSnapshot } from '../../sync';
 
 export interface ModeSwitchRpc {
   /**
@@ -123,32 +117,5 @@ export interface ModeSwitchRpc {
   'oh.sync.executeUseTarget': {
     req: { targetOrgId: string };
     res: DiscardResult;
-  };
-
-  /**
-   * Mode-switch Publish (Phase U5.6) — source-side, local-only, the
-   * deliberate per-workspace gesture that re-homes ONE workspace into an
-   * authenticated backend's `Org`.
-   *
-   * Publish is the ONLY path a workspace's data travels UP to a
-   * backend: a join (U5.2) never pushes the joiner's data up (the
-   * receiver-side org filter drops it structurally). Publish is the
-   * explicit, deliberate opt-in — invoked per workspace, never a
-   * join-time side effect.
-   *
-   * Mechanically one `Workspace.orgId` flip
-   * (UNIFIED_ORACLE_MODEL.md §6.5), no wire payload of substance. The
-   * request carries the workspace + the target `orgId`; the oracle
-   * applies the U5.6 Publish gate (`canPublishWorkspace`) — the caller
-   * must hold `workspace.write` on the workspace AND the target `Org`
-   * must be in the authorized (joined) set — before flipping. A stale
-   * or forged frame is refused with `target-not-authorized`.
-   *
-   * Idempotent: re-publishing a workspace already bound to the target
-   * `Org` is an `ok: true` no-op (`published.fromOrgId === targetOrgId`).
-   */
-  'oh.sync.publishWorkspace': {
-    req: { workspaceId: string; targetOrgId: string };
-    res: PublishResult;
   };
 }

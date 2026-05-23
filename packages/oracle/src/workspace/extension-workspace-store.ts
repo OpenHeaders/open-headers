@@ -277,47 +277,6 @@ export async function deleteWorkspace(id: string): Promise<DeleteWorkspaceResult
   return { ok: true, activeWorkspaceId };
 }
 
-// ── SW-internal Org re-home ───────────────────────────────────────────
-
-/**
- * Flip a workspace's `Org` binding (UNIFIED_ORACLE_MODEL.md §6.5).
- * Re-emits the workspace's `extensionWorkspace` set entry with the new
- * `orgId` and the EXISTING order key, so position is preserved — the
- * same position-preserving replace the renderer's `applyUpdateWorkspace`
- * does, just SW-side. A no-op when the workspace already carries
- * `orgId`.
- *
- * Used by the U5.3 Combine orchestrator to re-home this host's
- * workspaces into a joined backend's `Org`. Rejects when the workspace
- * is unknown or the oracle rejects the batch — the orchestrator reports
- * `rehome-failed` and preserves the workspaces that already flipped.
- */
-export async function setWorkspaceOrgId(id: string, orgId: string): Promise<void> {
-  const target = workspaces.find((w) => w.id === id);
-  if (!target) {
-    throw new Error(`WorkspaceStore.setWorkspaceOrgId: unknown workspace ${id}`);
-  }
-  if (target.orgId === orgId) return;
-  const slot: ExtensionWorkspaceSlot = {
-    id: target.id,
-    kind: target.kind,
-    name: target.name,
-    description: target.description,
-    color: target.color,
-    icon: target.icon,
-    createdAt: target.createdAt,
-    updatedAt: new Date().toISOString(),
-    source: target.source,
-    orgId,
-  };
-  const orderKey = currentOrderKey(id) ?? nextOrderKey();
-  await applyExtensionWorkspaceMutationOrThrow(
-    (ctx) => buildSetExtensionWorkspaceBatch({ slot, orderKey }, ctx),
-    'setWorkspaceOrgId',
-  );
-  logger.info('WorkspaceStore', `Re-homed workspace ${id} to org ${orgId}`);
-}
-
 /**
  * Promote a workspace to ACTIVE from SW-internal code (Phase U5.9 —
  * "join → adopt"). Emits the same `setActiveExtensionWorkspace` mutation
@@ -371,23 +330,6 @@ function nextOrderKey(): string {
   if (entries.length === 0) return seedKey();
   const max = entries[entries.length - 1].key;
   return keyBetween(max, null);
-}
-
-/**
- * The order key a workspace's `extensionWorkspace` set entry currently
- * holds, or `null` when the global oracle isn't up or the workspace
- * isn't a set member yet. A position-preserving replace re-emits
- * `addToSet` with this key (per the `liveOrderedSetItems` contract).
- */
-function currentOrderKey(workspaceId: string): string | null {
-  const oracle = getGlobalOracle();
-  if (!oracle) return null;
-  const entries = oracle.liveOrderedSetItems(
-    EXTENSION_WORKSPACE_ENTITY_TYPE,
-    EXTENSION_WORKSPACE_ID,
-    EXTENSION_WORKSPACES_SET_PATH,
-  );
-  return entries.find((e) => e.itemId === workspaceId)?.key ?? null;
 }
 
 // ── Bootstrap ─────────────────────────────────────────────────────────

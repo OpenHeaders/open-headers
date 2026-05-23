@@ -7,9 +7,9 @@
  * permanent fixture, not something that appears only once a second Org
  * exists. With one Org seeded it simply reads "On this device".
  *
- * Purely presentational: the interaction (opening the sync-scope
- * picker) is owned by {@link WorkspaceSyncScopePicker}, which wraps this
- * badge as its trigger.
+ * Purely presentational. A workspace's Org binding is set at create
+ * time and never changes (the Session-47 collapse — Duplicate-into
+ * replaces re-home), so this badge has no edit affordance attached.
  */
 
 import { type OrgDescriptor, orgIdentityLabel } from '@openheaders/core/identity';

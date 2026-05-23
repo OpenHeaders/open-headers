@@ -162,16 +162,16 @@ export interface ApplyUpdateWorkspaceInput {
    * Icon `null` clears the icon; `undefined` leaves it untouched; a
    * string value sets it.
    *
-   * `orgId` flips the workspace's Org binding (U3.7 sync-scope picker,
-   * UNIFIED_ORACLE_MODEL.md §6.5). It rides the `extensionWorkspace`
-   * singleton — the metadata channel — exactly like the other fields.
+   * `orgId` is intentionally absent — a workspace's Org binding is set
+   * at create time and never changes. Moving entities across Orgs is
+   * the Duplicate-into gesture, which mints a new workspace under the
+   * target Org rather than re-homing the existing one.
    */
   updates: {
     name?: string;
     description?: string;
     color?: string;
     icon?: string | null;
-    orgId?: string;
   };
 }
 
@@ -201,7 +201,7 @@ export async function applyUpdateWorkspace(
     createdAt: prev.createdAt,
     updatedAt: new Date().toISOString(),
     source: prev.source,
-    orgId: updates.orgId !== undefined ? updates.orgId : prev.orgId,
+    orgId: prev.orgId,
   };
   const payload = buildSetExtensionWorkspaceBatch({ slot: next, orderKey }, ctx);
   const result = await applySyncPayload(payload);

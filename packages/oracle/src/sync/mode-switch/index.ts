@@ -18,11 +18,6 @@ export {
   orchestrateDiscardWithBackup,
 } from './discard-orchestrator';
 export {
-  type OrchestratePublishDeps,
-  orchestratePublish,
-  type PublishWorkspaceInput,
-} from './publish-orchestrator';
-export {
   type ApplyRestoreDeps,
   applyDiscardRestoreArchive,
   type RestoreTargetMinter,

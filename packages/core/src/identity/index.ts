@@ -87,9 +87,7 @@ export {
   type CapabilityContext,
   type CapabilityDecision,
   type CapabilityDenyReason,
-  canPublishWorkspace,
   consumedOrgIds,
   hasCapability,
   type IdentitySnapshot,
-  type PublishGateContext,
 } from './resolver';
