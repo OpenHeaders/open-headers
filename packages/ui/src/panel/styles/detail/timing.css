@@ -2,6 +2,17 @@
 
 .dt-timing-view {
   padding: 4px 0;
+  /* Phase-group `<details>` summaries are sticky and slot below the
+   * View toolbar — `--oh-timing-toolbar-h` is published by
+   * `useMeasuredCssHeights` (see TimingView.tsx) so the join is flush. */
+  --dt-section-sticky-top: var(--oh-timing-toolbar-h, 30px);
+}
+
+/* Toolbar variant: reuses .dt-header-filter for the sticky bar but
+ * Timing has no filter input, so we push the View dropdown to the right
+ * via a flex spacer. */
+.dt-timing-toolbar-spacer {
+  flex: 1 1 auto;
 }
 .dt-timing-bar-section {
   padding: 8px 12px;

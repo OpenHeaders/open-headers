@@ -105,6 +105,14 @@ registerCategory({
 });
 
 registerCategory({
+  id: 'devpanelTiming',
+  label: 'DevTools Panel · Timing',
+  icon: <ApiOutlined />,
+  order: 20,
+  description: 'Defaults for the Timing tab in the DevTools panel — which bands are visible.',
+});
+
+registerCategory({
   id: 'editor',
   label: 'Code Editor',
   icon: <EditOutlined />,

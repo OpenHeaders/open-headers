@@ -1,3 +1,6 @@
+import { useCallback, useRef } from 'react';
+import { useMeasuredCssHeights } from '@openheaders/ui/shared/hooks/useMeasuredStickyOffset';
+import { useSetting } from '@openheaders/ui/workbench/settings/hooks';
 import { computeTimingContext, type CacheLabel } from '../../data/timing-context';
 import type { ConnectionReuseInfo } from '../../data/connection-reuse';
 import { parseServerTiming, type ServerTimingMetric } from '../../data/server-timing';
@@ -5,6 +8,7 @@ import { computeTimingPhases, type TimingGroup } from '../../data/timing-phases'
 import { computeTransferRate, findBottleneck, findWarnings } from '../../data/timing-insight';
 import type { RepeatStats } from '../../data/timing-repeats';
 import type { InspectorRequest } from '../../data/types';
+import { TimingViewMenu } from './timing/TimingMenus';
 
 const GROUP_LABEL: Record<TimingGroup, string> = {
   scheduling: 'Resource Scheduling',
@@ -41,13 +45,66 @@ interface TimingViewProps {
 }
 
 export default function TimingView({ request, connectionReuse, repeatStats, baselineMs }: TimingViewProps) {
+  const [showInsights, setShowInsights] = useSetting('devpanelTiming.showInsights');
+  const [showContextStrip, setShowContextStrip] = useSetting('devpanelTiming.showContextStrip');
+  const [showPhaseGroups, setShowPhaseGroups] = useSetting('devpanelTiming.showPhaseGroups');
+  const [showTimingBar, setShowTimingBar] = useSetting('devpanelTiming.showTimingBar');
+  const [showServerTiming, setShowServerTiming] = useSetting('devpanelTiming.showServerTiming');
+  const [showRepeats, setShowRepeats] = useSetting('devpanelTiming.showRepeats');
+  const toggleShowInsights = useCallback(() => setShowInsights(!showInsights), [showInsights, setShowInsights]);
+  const toggleShowContextStrip = useCallback(
+    () => setShowContextStrip(!showContextStrip),
+    [showContextStrip, setShowContextStrip],
+  );
+  const toggleShowPhaseGroups = useCallback(
+    () => setShowPhaseGroups(!showPhaseGroups),
+    [showPhaseGroups, setShowPhaseGroups],
+  );
+  const toggleShowTimingBar = useCallback(() => setShowTimingBar(!showTimingBar), [showTimingBar, setShowTimingBar]);
+  const toggleShowServerTiming = useCallback(
+    () => setShowServerTiming(!showServerTiming),
+    [showServerTiming, setShowServerTiming],
+  );
+  const toggleShowRepeats = useCallback(() => setShowRepeats(!showRepeats), [showRepeats, setShowRepeats]);
+
+  // The sticky toolbar publishes its measured height as
+  // `--oh-timing-toolbar-h`, which `.dt-timing-view` reads into
+  // `--dt-section-sticky-top` so phase-group summaries slot flush
+  // under the toolbar.
+  const paneRef = useRef<HTMLDivElement | null>(null);
+  const toolbarRef = useRef<HTMLDivElement | null>(null);
+  useMeasuredCssHeights(paneRef, [{ ref: toolbarRef, cssVar: '--oh-timing-toolbar-h' }]);
+
+  const toolbar = (
+    <div className="dt-header-filter dt-timing-toolbar" ref={toolbarRef}>
+      <span className="dt-timing-toolbar-spacer" aria-hidden="true" />
+      <TimingViewMenu
+        showInsights={showInsights}
+        showContextStrip={showContextStrip}
+        showPhaseGroups={showPhaseGroups}
+        showTimingBar={showTimingBar}
+        showServerTiming={showServerTiming}
+        showRepeats={showRepeats}
+        onToggleShowInsights={toggleShowInsights}
+        onToggleShowContextStrip={toggleShowContextStrip}
+        onToggleShowPhaseGroups={toggleShowPhaseGroups}
+        onToggleShowTimingBar={toggleShowTimingBar}
+        onToggleShowServerTiming={toggleShowServerTiming}
+        onToggleShowRepeats={toggleShowRepeats}
+      />
+    </div>
+  );
+
   const har = request.harEntry;
   const data = computeTimingPhases(har);
   if (!data) {
     return (
-      <span className="dt-col-muted" style={{ padding: 12 }}>
-        No timing data available.
-      </span>
+      <div className="dt-timing-view" ref={paneRef}>
+        {toolbar}
+        <span className="dt-col-muted" style={{ padding: 12 }}>
+          No timing data available.
+        </span>
+      </div>
     );
   }
 
@@ -62,8 +119,9 @@ export default function TimingView({ request, connectionReuse, repeatStats, base
   const barTotal = Math.max(data.totalMs, 1);
 
   return (
-    <div className="dt-timing-view">
-      {bottleneck && (
+    <div className="dt-timing-view" ref={paneRef}>
+      {toolbar}
+      {showInsights && bottleneck && (
         <div className="dt-timing-insight" data-kind="bottleneck">
           <span className="dt-timing-insight-icon" aria-hidden="true">
             ⚡
@@ -79,7 +137,7 @@ export default function TimingView({ request, connectionReuse, repeatStats, base
           </div>
         </div>
       )}
-      {warnings.map((w) => (
+      {showInsights && warnings.map((w) => (
         <div key={w.phase} className="dt-timing-insight" data-kind="warning">
           <span className="dt-timing-insight-icon" aria-hidden="true">
             ⚠
@@ -95,9 +153,9 @@ export default function TimingView({ request, connectionReuse, repeatStats, base
         </div>
       ))}
 
-      <TimingContextStrip context={context} />
+      {showContextStrip && <TimingContextStrip context={context} />}
 
-      {GROUP_ORDER.map((group) => {
+      {showPhaseGroups && GROUP_ORDER.map((group) => {
         const phases = data.byGroup[group];
         if (phases.length === 0) return null;
         return (
@@ -120,37 +178,41 @@ export default function TimingView({ request, connectionReuse, repeatStats, base
         );
       })}
 
-      <div className="dt-timing-bar-section">
-        <div className="dt-timing-bar">
-          {data.phases.map((p) => (
-            <div
-              key={p.key}
-              className="dt-timing-bar-segment"
-              style={{
-                width: `${Math.max((p.ms / barTotal) * 100, 0.5)}%`,
-                background: p.color,
-              }}
-              title={`${p.label}: ${formatMs(p.ms)}`}
-            />
-          ))}
-        </div>
-        <div className="dt-timing-bar-legend">
-          {data.phases.map((p) => (
-            <span key={p.key} className="dt-timing-legend-item">
-              <span className="dt-timing-legend-swatch" style={{ background: p.color }} />
-              {p.label}: {formatMs(p.ms)}
-            </span>
-          ))}
-        </div>
-      </div>
+      {showTimingBar && (
+        <>
+          <div className="dt-timing-bar-section">
+            <div className="dt-timing-bar">
+              {data.phases.map((p) => (
+                <div
+                  key={p.key}
+                  className="dt-timing-bar-segment"
+                  style={{
+                    width: `${Math.max((p.ms / barTotal) * 100, 0.5)}%`,
+                    background: p.color,
+                  }}
+                  title={`${p.label}: ${formatMs(p.ms)}`}
+                />
+              ))}
+            </div>
+            <div className="dt-timing-bar-legend">
+              {data.phases.map((p) => (
+                <span key={p.key} className="dt-timing-legend-item">
+                  <span className="dt-timing-legend-swatch" style={{ background: p.color }} />
+                  {p.label}: {formatMs(p.ms)}
+                </span>
+              ))}
+            </div>
+          </div>
 
-      <div className="dt-timing-total">
-        <strong>Total:</strong> {formatMs(data.totalMs)}
-      </div>
+          <div className="dt-timing-total">
+            <strong>Total:</strong> {formatMs(data.totalMs)}
+          </div>
+        </>
+      )}
 
-      {serverTiming.length > 0 && <ServerTimingSection metrics={serverTiming} />}
+      {showServerTiming && serverTiming.length > 0 && <ServerTimingSection metrics={serverTiming} />}
 
-      {repeatStats && <RepeatStatsSection stats={repeatStats} url={request.url} />}
+      {showRepeats && repeatStats && <RepeatStatsSection stats={repeatStats} url={request.url} />}
     </div>
   );
 }
