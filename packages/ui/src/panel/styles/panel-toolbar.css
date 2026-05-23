@@ -196,16 +196,24 @@
 
 .dt-morefilters-popover .ant-popover-inner {
   padding: 4px 0;
+  /* Antd defaults `.ant-popover-inner` to `max-width: 100vw` plus an
+   * internal width cap. Drop both so the menu grows to fit content
+   * width — height is capped on the inner content div instead (see
+   * `.dt-morefilters-menu` / `.dt-sortmode-submenu`). */
+  max-width: none;
+  width: max-content;
 }
 
 .dt-morefilters-menu {
   display: flex;
   flex-direction: column;
   min-width: 180px;
-  /* Cap the popover so a tall menu (Network View with its mode rows +
-   * builder) can't push the whole DevTools panel into a vertical
-   * scroll. The popover is portal-rendered to body, so its container
-   * has no implicit height cap. Matches the InfoPopover cap pattern. */
+  /* Width grows to content so long subtitles aren't cropped. Height
+   * is capped here directly (not on `.ant-popover-inner`, where antd's
+   * own size rules can outweigh ours) so a tall menu scrolls INSIDE
+   * the popover instead of pushing the whole DevTools surface into a
+   * vertical scroll. */
+  width: max-content;
   max-height: min(60vh, 480px);
   overflow-y: auto;
 }
@@ -250,7 +258,6 @@
  * have room to breathe. */
 .dt-network-view-menu {
   min-width: 320px;
-  max-width: 360px;
 }
 
 .dt-sortmode-heading {
@@ -359,23 +366,22 @@
   font-size: 10px;
   margin-left: 4px;
 }
+/* Submenu content for the Network View "Sort order" submenus. antd
+ * Popover provides the floating shell (positioning, flipping, portal,
+ * shadow); we just style the inner content area + apply the same
+ * height cap so the submenu doesn't blow out the surface either. */
 .dt-sortmode-submenu {
-  position: absolute;
-  top: -4px;
-  left: 100%;
+  display: flex;
+  flex-direction: column;
   min-width: 320px;
-  max-width: 380px;
-  background: var(--dt-bg);
-  border: 1px solid var(--dt-border);
-  border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.32);
-  padding: 4px 0;
-  z-index: 10;
-  /* Submenu can also outgrow the viewport (the builder + four
-   * subtitled mode rows together). Cap + scroll so the host popover
-   * stays bounded. Matches the InfoPopover cap pattern. */
   max-height: min(60vh, 480px);
   overflow-y: auto;
+}
+/* Submenus reuse `.dt-morefilters-popover` overlay styling, which
+ * already caps height via `.dt-morefilters-menu`. The submenu marker
+ * class is a no-op visually but useful for testing / theming. */
+.dt-sortmode-submenu-popover .ant-popover-inner-content {
+  padding: 0;
 }
 
 /* Custom-nested builder submenu — needs more padding for the row of

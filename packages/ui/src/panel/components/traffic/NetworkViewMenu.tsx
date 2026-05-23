@@ -1,6 +1,6 @@
 import { Popover } from 'antd';
 import { CheckOutlined, RightOutlined } from '@ant-design/icons';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type {
   DevpanelNetworkLayoutSetting,
   DevpanelNetworkSortBySetting,
@@ -22,6 +22,11 @@ import { COLUMN_DEFS, type ColumnKey } from './columns';
  * subtitles only render inside the hover submenu so the closed-state
  * dropdown stays compact. Column-header click still wins and shows
  * the active column under a Custom (column-click) row.
+ *
+ * Submenu positioning, collision detection, keyboard handling, and
+ * portaling are all delegated to antd `Popover` (trigger="hover",
+ * placement="rightTop") — one per group — so this component owns no
+ * coordinate math and no submenu open/close state.
  *
  * Column visibility lives on the column-header context menu — we
  * don't duplicate it here.
@@ -47,9 +52,9 @@ const GROUPS: ReadonlyArray<{
   },
 ];
 
-const SORTABLE_COLUMN_KEYS: ReadonlyArray<ColumnKey> = (
-  Object.keys(COLUMN_DEFS) as ColumnKey[]
-).filter((k) => COLUMN_DEFS[k].sortable);
+const SORTABLE_COLUMN_KEYS: ReadonlyArray<ColumnKey> = (Object.keys(COLUMN_DEFS) as ColumnKey[]).filter(
+  (k) => COLUMN_DEFS[k].sortable,
+);
 
 const MAX_NESTED_LEVELS = 4;
 
@@ -57,7 +62,7 @@ export function NetworkViewMenu({
   layout,
   sortKind,
   sortMode,
-  sortBy,
+  sortBy: _sortBy,
   sortDir,
   customNested,
   showFireDots,
@@ -85,7 +90,6 @@ export function NetworkViewMenu({
   onUseCustomNested: () => void;
   onToggleShowFireDots: () => void;
 }) {
-  const [openSubmenu, setOpenSubmenu] = useState<'priority' | 'grouping' | 'custom' | null>(null);
   const arrivalActive = sortKind === 'mode' && sortMode === 'arrival';
   const columnActive = sortKind === 'column';
   const customActive = sortKind === 'customNested';
@@ -144,18 +148,12 @@ export function NetworkViewMenu({
           modes={g.modes}
           active={!!groupActive(g.id)}
           activeMode={sortKind === 'mode' ? sortMode : null}
-          expanded={openSubmenu === g.id}
-          onEnter={() => setOpenSubmenu(g.id)}
-          onLeave={() => setOpenSubmenu((cur) => (cur === g.id ? null : cur))}
           onPick={onSortModeChange}
         />
       ))}
       <SortCustomNestedRow
         levels={customNested}
         active={customActive}
-        expanded={openSubmenu === 'custom'}
-        onEnter={() => setOpenSubmenu('custom')}
-        onLeave={() => setOpenSubmenu((cur) => (cur === 'custom' ? null : cur))}
         onChange={onCustomNestedChange}
         onActivate={onUseCustomNested}
       />
@@ -176,7 +174,13 @@ export function NetworkViewMenu({
     </div>
   );
   return (
-    <Popover content={content} trigger="click" placement="bottomRight" arrow={false} overlayClassName="dt-morefilters-popover">
+    <Popover
+      content={content}
+      trigger="click"
+      placement="bottomRight"
+      arrow={false}
+      overlayClassName="dt-morefilters-popover"
+    >
       <button type="button" className={`dt-toolbar-dropdown${activeBadgeCount > 0 ? ' dt-toolbar-dropdown--active' : ''}`}>
         View
         {activeBadgeCount > 0 && <span className="dt-toolbar-dropdown-count">{activeBadgeCount}</span>}
@@ -222,9 +226,6 @@ function SortGroupRow({
   modes,
   active,
   activeMode,
-  expanded,
-  onEnter,
-  onLeave,
   onPick,
 }: {
   label: string;
@@ -232,13 +233,39 @@ function SortGroupRow({
   modes: readonly NetworkSortMode[];
   active: boolean;
   activeMode: NetworkSortMode | null;
-  expanded: boolean;
-  onEnter: () => void;
-  onLeave: () => void;
   onPick: (m: NetworkSortMode) => void;
 }) {
+  const submenu = (
+    <div className="dt-sortmode-submenu" role="menu">
+      {modes.map((m) => {
+        const meta = NETWORK_SORT_MODE_META[m];
+        const isActive = activeMode === m;
+        return (
+          <button key={m} type="button" className="dt-sortmode-item" onClick={() => onPick(m)}>
+            <div className="dt-sortmode-item-body">
+              <div className="dt-sortmode-item-title">{meta.title}</div>
+              <div className="dt-sortmode-item-subtitle">{meta.subtitle}</div>
+            </div>
+            {isActive && (
+              <span className="dt-sortmode-item-check" aria-hidden="true">
+                <CheckOutlined />
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
   return (
-    <div className="dt-sortmode-grouprow" onMouseEnter={onEnter} onMouseLeave={onLeave}>
+    <Popover
+      content={submenu}
+      trigger="hover"
+      placement="rightTop"
+      arrow={false}
+      overlayClassName="dt-morefilters-popover dt-sortmode-submenu-popover"
+      mouseEnterDelay={0.05}
+      mouseLeaveDelay={0.1}
+    >
       <div className="dt-sortmode-item dt-sortmode-item--group">
         <div className="dt-sortmode-item-body">
           <div className="dt-sortmode-item-title">{label}</div>
@@ -253,53 +280,100 @@ function SortGroupRow({
           <RightOutlined />
         </span>
       </div>
-      {expanded && (
-        <div className="dt-sortmode-submenu" role="menu">
-          {modes.map((m) => {
-            const meta = NETWORK_SORT_MODE_META[m];
-            const isActive = activeMode === m;
-            return (
-              <button key={m} type="button" className="dt-sortmode-item" onClick={() => onPick(m)}>
-                <div className="dt-sortmode-item-body">
-                  <div className="dt-sortmode-item-title">{meta.title}</div>
-                  <div className="dt-sortmode-item-subtitle">{meta.subtitle}</div>
-                </div>
-                {isActive && (
-                  <span className="dt-sortmode-item-check" aria-hidden="true">
-                    <CheckOutlined />
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
+    </Popover>
   );
 }
 
 function SortCustomNestedRow({
   levels,
   active,
-  expanded,
-  onEnter,
-  onLeave,
   onChange,
   onActivate,
 }: {
   levels: readonly NetworkCustomNestedLevel[];
   active: boolean;
-  expanded: boolean;
-  onEnter: () => void;
-  onLeave: () => void;
   onChange: (next: NetworkCustomNestedLevel[]) => void;
   onActivate: () => void;
 }) {
-  const subtitle = levels.length === 0
-    ? 'Build a multi-key sort — column by column, with arrival as the final tiebreak.'
-    : `${levels.length} level${levels.length === 1 ? '' : 's'} — opens to edit.`;
+  const subtitle =
+    levels.length === 0
+      ? 'Build a multi-key sort — column by column, with arrival as the final tiebreak.'
+      : `${levels.length} level${levels.length === 1 ? '' : 's'} — opens to edit.`;
+  const submenu = (
+    <div className="dt-sortmode-submenu dt-sortmode-submenu--builder" role="menu">
+      <div className="dt-sortmode-builder-title">Sort by, in order</div>
+      {levels.length === 0 && <div className="dt-sortmode-builder-empty">No levels yet. Add one below.</div>}
+      {levels.map((lvl, i) => (
+        <div key={i} className="dt-sortmode-builder-row">
+          <span className="dt-sortmode-builder-step">{i + 1}.</span>
+          <select
+            value={lvl.key}
+            onChange={(e) => {
+              const next = levels.slice();
+              next[i] = { ...lvl, key: e.target.value as DevpanelNetworkSortBySetting };
+              onChange(next);
+            }}
+          >
+            <option value="id"># (Arrival)</option>
+            {SORTABLE_COLUMN_KEYS.map((k) => (
+              <option key={k} value={k}>
+                {COLUMN_DEFS[k].label}
+              </option>
+            ))}
+          </select>
+          <select
+            value={lvl.dir}
+            onChange={(e) => {
+              const next = levels.slice();
+              next[i] = { ...lvl, dir: e.target.value as DevpanelNetworkSortDirSetting };
+              onChange(next);
+            }}
+          >
+            <option value="asc">Asc</option>
+            <option value="desc">Desc</option>
+          </select>
+          <button
+            type="button"
+            className="dt-sortmode-builder-remove"
+            aria-label={`Remove level ${i + 1}`}
+            onClick={() => onChange(levels.filter((_, j) => j !== i))}
+          >
+            ×
+          </button>
+        </div>
+      ))}
+      {levels.length < MAX_NESTED_LEVELS && (
+        <button
+          type="button"
+          className="dt-sortmode-builder-add"
+          onClick={() => onChange([...levels, { key: defaultLevelKey(levels), dir: 'asc' }])}
+        >
+          + Add level
+        </button>
+      )}
+      <div className="dt-sortmode-builder-footer">
+        <span className="dt-sortmode-builder-tiebreak">Final tiebreak: arrival</span>
+        <button
+          type="button"
+          className="dt-sortmode-builder-apply"
+          onClick={onActivate}
+          disabled={levels.length === 0 || active}
+        >
+          {active ? 'Active' : 'Apply'}
+        </button>
+      </div>
+    </div>
+  );
   return (
-    <div className="dt-sortmode-grouprow" onMouseEnter={onEnter} onMouseLeave={onLeave}>
+    <Popover
+      content={submenu}
+      trigger="hover"
+      placement="rightTop"
+      arrow={false}
+      overlayClassName="dt-morefilters-popover dt-sortmode-submenu-popover"
+      mouseEnterDelay={0.05}
+      mouseLeaveDelay={0.1}
+    >
       <div className="dt-sortmode-item dt-sortmode-item--group">
         <div className="dt-sortmode-item-body">
           <div className="dt-sortmode-item-title">Custom (nested)</div>
@@ -314,79 +388,7 @@ function SortCustomNestedRow({
           <RightOutlined />
         </span>
       </div>
-      {expanded && (
-        <div className="dt-sortmode-submenu dt-sortmode-submenu--builder" role="menu">
-          <div className="dt-sortmode-builder-title">Sort by, in order</div>
-          {levels.length === 0 && (
-            <div className="dt-sortmode-builder-empty">No levels yet. Add one below.</div>
-          )}
-          {levels.map((lvl, i) => (
-            <div key={i} className="dt-sortmode-builder-row">
-              <span className="dt-sortmode-builder-step">{i + 1}.</span>
-              <select
-                value={lvl.key}
-                onChange={(e) => {
-                  const next = levels.slice();
-                  next[i] = { ...lvl, key: e.target.value as DevpanelNetworkSortBySetting };
-                  onChange(next);
-                }}
-              >
-                <option value="id"># (Arrival)</option>
-                {SORTABLE_COLUMN_KEYS.map((k) => (
-                  <option key={k} value={k}>
-                    {COLUMN_DEFS[k].label}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={lvl.dir}
-                onChange={(e) => {
-                  const next = levels.slice();
-                  next[i] = { ...lvl, dir: e.target.value as DevpanelNetworkSortDirSetting };
-                  onChange(next);
-                }}
-              >
-                <option value="asc">Asc</option>
-                <option value="desc">Desc</option>
-              </select>
-              <button
-                type="button"
-                className="dt-sortmode-builder-remove"
-                aria-label={`Remove level ${i + 1}`}
-                onClick={() => onChange(levels.filter((_, j) => j !== i))}
-              >
-                ×
-              </button>
-            </div>
-          ))}
-          {levels.length < MAX_NESTED_LEVELS && (
-            <button
-              type="button"
-              className="dt-sortmode-builder-add"
-              onClick={() =>
-                onChange([
-                  ...levels,
-                  { key: defaultLevelKey(levels), dir: 'asc' },
-                ])
-              }
-            >
-              + Add level
-            </button>
-          )}
-          <div className="dt-sortmode-builder-footer">
-            <span className="dt-sortmode-builder-tiebreak">Final tiebreak: arrival</span>
-            <button
-              type="button"
-              className="dt-sortmode-builder-apply"
-              onClick={onActivate}
-              disabled={levels.length === 0 || active}
-            >
-              {active ? 'Active' : 'Apply'}
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
+    </Popover>
   );
 }
 
