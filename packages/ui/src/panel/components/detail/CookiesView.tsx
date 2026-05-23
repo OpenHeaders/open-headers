@@ -162,33 +162,6 @@ export default function CookiesView({ request, pageOrigin, onCreateHeaderRule }:
 
   return (
     <div className="dt-cookies-pane" ref={paneRef}>
-      <div className="dt-cta-row dt-header-cta-row">
-        <button type="button" className="dt-btn dt-btn-primary" onClick={onCreateCookieOverride} title="Replace the Cookie header sent on this request">
-          Override Request Cookies
-        </button>
-        <button type="button" className="dt-btn dt-btn-primary" onClick={onCreateSetCookieOverride} title="Replace a Set-Cookie header coming back from the server">
-          Override Response Cookies
-        </button>
-        <button type="button" className="dt-btn dt-btn-primary" onClick={onCreateRemoveAllCookies} title="Drop the Cookie header entirely, so the server sees no cookies">
-          Don’t send any cookies
-        </button>
-      </div>
-
-      {footprintText && (
-        <div className="dt-header-footprint">
-          <span className="dt-header-footprint-dot" aria-hidden="true" />
-          <span className="dt-header-footprint-text">{footprintText}</span>
-        </div>
-      )}
-
-      {showInsights && insights.length > 0 && (
-        <div className="dt-header-insights">
-          {insights.map((ins) => (
-            <CookieInsightCard key={ins.id} insight={ins} onAction={handleInsightAction} />
-          ))}
-        </div>
-      )}
-
       <div className="dt-header-filter" ref={toolbarRef}>
         <input
           type="search"
@@ -223,6 +196,33 @@ export default function CookiesView({ request, pageOrigin, onCreateHeaderRule }:
           onToggleGroupByRole={toggleGroupByRole}
         />
       </div>
+
+      <div className="dt-cta-row dt-header-cta-row">
+        <button type="button" className="dt-btn dt-btn-primary" onClick={onCreateCookieOverride} title="Replace the Cookie header sent on this request">
+          Override Request Cookies
+        </button>
+        <button type="button" className="dt-btn dt-btn-primary" onClick={onCreateSetCookieOverride} title="Replace a Set-Cookie header coming back from the server">
+          Override Response Cookies
+        </button>
+        <button type="button" className="dt-btn dt-btn-primary" onClick={onCreateRemoveAllCookies} title="Drop the Cookie header entirely, so the server sees no cookies">
+          Don’t send any cookies
+        </button>
+      </div>
+
+      {footprintText && (
+        <div className="dt-header-footprint">
+          <span className="dt-header-footprint-dot" aria-hidden="true" />
+          <span className="dt-header-footprint-text">{footprintText}</span>
+        </div>
+      )}
+
+      {showInsights && insights.length > 0 && (
+        <div className="dt-header-insights">
+          {insights.map((ins) => (
+            <CookieInsightCard key={ins.id} insight={ins} onAction={handleInsightAction} />
+          ))}
+        </div>
+      )}
 
       <CookieSection
         label="Response Cookies"
