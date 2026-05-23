@@ -163,21 +163,9 @@ export function computeHeaderInsights(inputs: HeaderInsightInputs, nowMs = Date.
         },
       });
     }
-    // ── Missing HSTS on HTTPS HTML response ───────────────────
-    if (isHttpsUrl(url) && !lookup(responseHeaders, 'strict-transport-security')) {
-      out.push({
-        id: 'missing-hsts',
-        severity: 'warn',
-        title: 'No Strict-Transport-Security on HTTPS response',
-        action: {
-          kind: 'add-header',
-          direction: 'response',
-          headerName: 'Strict-Transport-Security',
-          value: 'max-age=31536000; includeSubDomains',
-          label: 'Add HSTS (1 year, subdomains)',
-        },
-      });
-    }
+    // No missing-HSTS insight: `Strict-Transport-Security` is a
+    // browser-protected response header that extensions can't add or
+    // modify, so there's nothing actionable to surface from here.
   }
 
   // ── HSTS: very short max-age warning ────────────────────────
