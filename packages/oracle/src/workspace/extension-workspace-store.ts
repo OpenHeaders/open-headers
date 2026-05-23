@@ -433,7 +433,7 @@ export async function bootstrap(): Promise<void> {
   // `bootstrap()` may run before `ensureSyntheticIdentity` has installed
   // the in-memory identity snapshot (each host's init sequence orders
   // workspace hydration earlier than identity hydration), so the
-  // synthetic home-org id is derived deterministically here from the
+  // private home Org id is derived deterministically here from the
   // host-install-id seed — same input `ensureSyntheticIdentity` will
   // use moments later, so the two end up referencing identical UUIDs.
   // Per UNIFIED_ORACLE_MODEL.md §5.1 this derivation is the recovery

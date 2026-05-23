@@ -585,7 +585,7 @@ const backgroundReady: Promise<void> = new Promise((resolve) => {
 
 /**
  * Human-readable name of the browser running this service worker — the
- * descriptive name stamped on the synthetic local-org at first boot so a
+ * descriptive name stamped on the private home Org at first boot so a
  * joined peer can tell one host's Org from another's.
  */
 function browserDisplayName(): string {

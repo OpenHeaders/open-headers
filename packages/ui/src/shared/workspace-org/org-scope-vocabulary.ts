@@ -98,7 +98,7 @@ function describeLocalScope(descriptor: OrgDescriptor, ctx: OrgScopeContext): st
 
 /**
  * **Personal** scope = a single-user Org that *does* have a backend —
- * either the user's own promoted home Org (a desktop they self-host)
+ * either the user's own connected home Org (a desktop they self-host)
  * or a joined peer of theirs (the loopback desktop seen from the
  * extension, a LAN/WAN personal daemon). Wording specializes on the
  * Org's `hostKind` first (what kind of backend hosts it) and on the
@@ -118,8 +118,8 @@ function describePersonalScope(descriptor: OrgDescriptor, ctx: OrgScopeContext):
     if (mode === 'remote-self-hosted') return 'Synced with your server over the internet (WAN).';
     return 'Synced with your server over the local network (LAN).';
   }
-  // hostKind === 'browser' here = a promoted browser Org (future). Generic
-  // is fine — the home browser Org doesn't promote on its own today.
+  // hostKind === 'browser' here = a connected browser Org (future). Generic
+  // is fine — the home browser Org doesn't connect on its own today.
   return SCOPE_FALLBACK_DESCRIPTION.personal;
 }
 

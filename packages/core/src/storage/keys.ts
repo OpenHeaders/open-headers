@@ -224,7 +224,7 @@ export const OH = {
    * backend's home `Org`; `recordJoinedOrg` (in `../identity`) appends
    * it here, and `refreshIdentitySnapshotFromHostStorage` folds the set
    * into `IdentitySnapshot.orgs` so `authorizedOrgIds` lets the joined
-   * backend's workspaces sync down. The synthetic home-org is NOT
+   * backend's workspaces sync down. The private home Org is NOT
    * stored here — it already rides {@link OH.syntheticIdentity}.
    */
   joinedOrgs: storageKey<Org[]>('oh.joinedOrgs'),

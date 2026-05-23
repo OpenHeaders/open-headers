@@ -56,7 +56,7 @@ export interface IdentitySnapshot {
   wraByWorkspaceId: ReadonlyMap<string, WorkspaceRoleAssignment>;
   /**
    * Org-id → Org row for every Org this identity belongs to. V5 ships a
-   * single synthetic home-org; multi-org membership (real team Orgs
+   * single private home Org; multi-org membership (real team Orgs
    * joined via a daemon) folds more rows in without changing the shape.
    * Consulted by the org-catalogue helpers that drive the workspace
    * org-binding UI (UNIFIED_ORACLE_MODEL.md §6.2 / §6.4).
@@ -122,7 +122,7 @@ export function hasCapability(
  * The authorized set is **every Org the identity belongs to** —
  * `snapshot.orgs`, which the registry keeps in lockstep with the
  * persisted membership rows. A fresh V5 install carries exactly one
- * (the synthetic home Org). Joining another backend adds that backend's
+ * (the private home Org). Joining another backend adds that backend's
  * Org to `snapshot.orgs` (Phase U5), and this helper folds it in with
  * no change at the call sites — that is what lets a joined backend's
  * workspaces sync down while the joiner's own Org stays unauthorized on
@@ -144,7 +144,7 @@ export function authorizedOrgIds(snapshot: IdentitySnapshot | null): ReadonlySet
  * joined backend — every authorized Org minus the identity's own home Org
  * (UNIFIED_ORACLE_MODEL.md §6.5, Phase U6).
  *
- * A fresh V5 install carries only its synthetic home Org, so this set is
+ * A fresh V5 install carries only its private home Org, so this set is
  * empty — nothing is consumed, nothing syncs down. After a join (U5.2)
  * the backend's Org folds into `snapshot.orgs`; it is authorized but not
  * the home Org, so it appears here.

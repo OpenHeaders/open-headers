@@ -122,7 +122,7 @@ function safeOsUsername(): string {
 }
 
 /**
- * Best-effort machine name for the synthetic local-org's descriptive
+ * Best-effort machine name for the private home Org's descriptive
  * name on first boot. The trailing `.local` macOS appends is stripped so
  * a joined peer reads `Daniels-MacBook-Pro`, not `Daniels-MacBook-Pro.local`.
  * Falls back to `'Local'` when `os.hostname` throws or is empty.
