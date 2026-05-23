@@ -72,6 +72,7 @@ const WorkspacePill: React.FC = () => {
     >
       <button
         type="button"
+        className="oh-workspace-pill"
         aria-label={`Active workspace: ${activeWorkspace.name}`}
         style={{
           display: 'inline-flex',
@@ -85,6 +86,9 @@ const WorkspacePill: React.FC = () => {
           cursor: 'pointer',
           fontSize: 12,
           color: token.colorText,
+          minWidth: 0,
+          maxWidth: '100%',
+          overflow: 'hidden',
         }}
       >
         {renderWorkspacePrefix({ icon: activeWorkspace.icon, color: activeWorkspace.color }, token, { size: 14 })}
@@ -94,14 +98,20 @@ const WorkspacePill: React.FC = () => {
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
+            flexShrink: 0,
           }}
         >
           {activeWorkspace.name}
         </span>
         {catalogue.length > 1 && (
-          <WorkspaceOrgBadge descriptor={describeOrg(snapshot, activeWorkspace.orgId)} compact />
+          <span
+            className="oh-workspace-pill-org"
+            style={{ display: 'inline-flex', alignItems: 'center', minWidth: 0, flexShrink: 1, overflow: 'hidden' }}
+          >
+            <WorkspaceOrgBadge descriptor={describeOrg(snapshot, activeWorkspace.orgId)} compact />
+          </span>
         )}
-        <DownOutlined style={{ fontSize: 8, color: token.colorTextTertiary }} />
+        <DownOutlined style={{ fontSize: 8, color: token.colorTextTertiary, flexShrink: 0 }} />
       </button>
     </Dropdown>
   );

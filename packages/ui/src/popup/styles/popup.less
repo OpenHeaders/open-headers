@@ -226,6 +226,7 @@ body {
   .header-rules-section .table-toolbar {
     height: auto !important;
   }
+
 }
 
 @container oh-shell (max-width: 320px) {
@@ -294,6 +295,28 @@ body {
     margin: 0 !important;
     border-radius: 0 !important;
   }
+
+  /* Debug Network modal: the per-step illustrative glyphs (DevTools menu
+   * mock, DevTools tab strip mock) are fixed-width SVGs with
+   * flex-shrink: 0 that crush the adjacent instructions to one letter
+   * per line on a narrow sidepanel. Stack the glyph BELOW the text
+   * instead of dropping it — the illustration is still useful, it just
+   * needs its own row when the modal is narrow. Modal is portaled so a
+   * viewport query (not the oh-shell container query) is the right hook. */
+  .oh-debug-step-body {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  .oh-debug-glyph {
+    align-self: center;
+    margin-top: 4px;
+    max-width: 100%;
+    overflow: hidden;
+  }
+  .oh-debug-glyph > svg {
+    max-width: 100%;
+    height: auto;
+  }
 }
 
 .header {
@@ -303,6 +326,24 @@ body {
   align-items: center;
   position: relative;
   z-index: 10;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+/* Left header group (logo + workspace pill) must be willing to shrink so
+ * the org badge inside the pill can ellipsize — otherwise a long device
+ * hostname pushes the right-side controls (rules switch, surface
+ * switch, settings) off-screen on the sidepanel. Ant Space's items
+ * default to flex-shrink: 0; override both layers. */
+.header > .ant-space:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.header > .ant-space:first-child > .ant-space-item:last-child {
+  min-width: 0;
+  flex-shrink: 1;
+}
+.header > .ant-space:last-child {
   flex-shrink: 0;
 }
 

@@ -36,7 +36,16 @@ export const WorkspaceOrgBadge: React.FC<WorkspaceOrgBadgeProps> = ({ descriptor
   const label = orgIdentityLabel(descriptor);
 
   return (
-    <Tooltip title={visual.description} placement="top" mouseEnterDelay={0.4}>
+    <Tooltip
+      title={
+        <>
+          <div style={{ fontWeight: 600 }}>{label}</div>
+          <div>{visual.description}</div>
+        </>
+      }
+      placement="top"
+      mouseEnterDelay={0.4}
+    >
       <Tag
         color={visual.tagColor}
         icon={<OrgIcon descriptor={descriptor} size={compact ? 11 : 12} />}
@@ -46,9 +55,27 @@ export const WorkspaceOrgBadge: React.FC<WorkspaceOrgBadgeProps> = ({ descriptor
           lineHeight: compact ? '16px' : '18px',
           paddingInline: compact ? 4 : 6,
           userSelect: 'none',
+          // Let the host (flex parent) decide the cap; this badge must
+          // be willing to shrink and ellipsize so long device names
+          // (e.g. "Engineering-Team-MacBook-Pro") don't push siblings
+          // off-screen on the sidepanel.
+          display: 'inline-flex',
+          alignItems: 'center',
+          maxWidth: '100%',
+          minWidth: 0,
+          overflow: 'hidden',
         }}
       >
-        {label}
+        <span
+          style={{
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            minWidth: 0,
+          }}
+        >
+          {label}
+        </span>
       </Tag>
     </Tooltip>
   );

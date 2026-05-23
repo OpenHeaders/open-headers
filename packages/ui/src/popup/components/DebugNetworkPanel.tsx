@@ -950,7 +950,7 @@ const DebugNetworkPanel: React.FC<DebugNetworkPanelProps> = ({ open, onClose }) 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
         <div style={stepCard}>
           <span style={stepIndex}>1</span>
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div className="oh-debug-step-body" style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <Text strong style={{ fontSize: 13 }}>
                 Open browser DevTools
@@ -1006,13 +1006,15 @@ const DebugNetworkPanel: React.FC<DebugNetworkPanelProps> = ({ open, onClose }) 
                 </div>
               )}
             </div>
-            <DevtoolsMenuGlyph />
+            <div className="oh-debug-glyph">
+              <DevtoolsMenuGlyph />
+            </div>
           </div>
         </div>
 
         <div style={stepCard}>
           <span style={stepIndex}>2</span>
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+          <div className="oh-debug-step-body" style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
             <Text strong style={{ fontSize: 13 }}>
               Click the{' '}
@@ -1044,7 +1046,9 @@ const DebugNetworkPanel: React.FC<DebugNetworkPanelProps> = ({ open, onClose }) 
               </Text>
             </div>
             </div>
-            <DevtoolsTabGlyph />
+            <div className="oh-debug-glyph">
+              <DevtoolsTabGlyph />
+            </div>
           </div>
         </div>
 
