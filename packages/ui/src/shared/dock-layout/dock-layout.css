@@ -464,6 +464,13 @@
   /* Center tabs within the activity bar's cross-axis so the narrower
      76px tab sits centered in the 80px bar rather than hugging an edge. */
   align-items: center;
+  /* Stretch the row to the bar's inner width on the cross-axis. Without
+     this, the parent `.rules-dock-strip--vertical`'s `align-items: center`
+     shrinks this row to its content size — which in compact (icon-only)
+     mode is just the 16px icon, defeating the active tab's `width: 100%`
+     merge rule (resolves to 16px of 16px instead of 16px of the full
+     bar). Stretching makes the merge land flush against the dock body. */
+  width: 100%;
 }
 
 .rules-dock-strip--horizontal .rules-dock-strip-tabs {
