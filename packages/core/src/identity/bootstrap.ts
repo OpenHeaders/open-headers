@@ -30,7 +30,7 @@ import type {
   User,
   UserIdentity,
 } from '../types';
-import { SYNTHETIC_SEEDS, deriveSyntheticUuidV7 } from './derive-uuid';
+import { deriveSyntheticUuidV7, SYNTHETIC_SEEDS } from './derive-uuid';
 
 /** Inputs to the bootstrap helper. */
 export interface BootstrapSyntheticIdentityInput {
@@ -103,14 +103,14 @@ export async function bootstrapSyntheticIdentity(
     id: userId,
     displayName,
     homeOrgId: orgId,
-    isSynthetic: true,
+    isStandalone: true,
   };
 
   const org: Org = {
     id: orgId,
     name: orgName,
     hostKind: input.hostKind,
-    isSynthetic: true,
+    isPrivate: true,
   };
 
   const userIdentity: UserIdentity = {

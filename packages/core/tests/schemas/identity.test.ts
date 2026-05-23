@@ -1,6 +1,6 @@
 /**
  * Phase U1 slice 1 schema coverage — the five fields landed per
- * UNIFIED_ORACLE_MODEL.md §5.3 (`User.isSynthetic`, `Org.isSynthetic`,
+ * UNIFIED_ORACLE_MODEL.md §5.3 (`User.isStandalone`, `Org.isPrivate`,
  * `'local'` in `UserIdentityKind`, `'local'` in `SessionSource`,
  * `DaemonConfig.hostInstallId`).
  *
@@ -32,9 +32,7 @@ describe('UuidV7Schema', () => {
   });
 
   it('rejects a UUIDv4', () => {
-    expect(
-      v.safeParse(UuidV7Schema, '01900000-0000-4000-8000-000000000001').success,
-    ).toBe(false);
+    expect(v.safeParse(UuidV7Schema, '01900000-0000-4000-8000-000000000001').success).toBe(false);
   });
 
   it('rejects a non-UUID string', () => {
@@ -42,66 +40,64 @@ describe('UuidV7Schema', () => {
   });
 });
 
-describe('UserSchema — isSynthetic landed (U1.1)', () => {
-  it('accepts a synthetic user row', () => {
+describe('UserSchema — isStandalone landed (U1.1)', () => {
+  it('accepts a standalone user row', () => {
     expect(
       v.parse(UserSchema, {
         id: USER_UUID,
         displayName: 'Local',
         homeOrgId: ORG_UUID,
-        isSynthetic: true,
+        isStandalone: true,
       }),
-    ).toMatchObject({ isSynthetic: true });
+    ).toMatchObject({ isStandalone: true });
   });
 
-  it('accepts a promoted (real) user row with same id', () => {
+  it('accepts a connected (real) user row with same id', () => {
     expect(
       v.parse(UserSchema, {
         id: USER_UUID,
         displayName: 'Alice',
         homeOrgId: ORG_UUID,
-        isSynthetic: false,
+        isStandalone: false,
       }),
-    ).toMatchObject({ isSynthetic: false });
+    ).toMatchObject({ isStandalone: false });
   });
 
-  it('rejects a missing isSynthetic field', () => {
-    expect(
-      v.safeParse(UserSchema, { id: USER_UUID, displayName: 'x', homeOrgId: ORG_UUID }).success,
-    ).toBe(false);
+  it('rejects a missing isStandalone field', () => {
+    expect(v.safeParse(UserSchema, { id: USER_UUID, displayName: 'x', homeOrgId: ORG_UUID }).success).toBe(false);
   });
 
-  it('rejects a non-boolean isSynthetic', () => {
+  it('rejects a non-boolean isStandalone', () => {
     expect(
       v.safeParse(UserSchema, {
         id: USER_UUID,
         displayName: 'x',
         homeOrgId: ORG_UUID,
-        isSynthetic: 'true',
+        isStandalone: 'true',
       }).success,
     ).toBe(false);
   });
 });
 
-describe('OrgSchema — isSynthetic + hostKind landed (U1.1 / Bug B)', () => {
-  it('accepts a synthetic org row', () => {
+describe('OrgSchema — isPrivate + hostKind landed (U1.1 / Bug B)', () => {
+  it('accepts a private org row', () => {
     expect(
       v.parse(OrgSchema, {
         id: ORG_UUID,
         name: 'Local',
         hostKind: 'browser',
-        isSynthetic: true,
+        isPrivate: true,
       }),
-    ).toMatchObject({ isSynthetic: true, hostKind: 'browser' });
+    ).toMatchObject({ isPrivate: true, hostKind: 'browser' });
   });
 
   it('accepts every hostKind picklist value', () => {
     for (const hostKind of ['browser', 'desktop', 'daemon'] as const) {
-      expect(v.safeParse(OrgSchema, { id: ORG_UUID, name: 'Local', hostKind, isSynthetic: true }).success).toBe(true);
+      expect(v.safeParse(OrgSchema, { id: ORG_UUID, name: 'Local', hostKind, isPrivate: true }).success).toBe(true);
     }
   });
 
-  it('rejects a missing isSynthetic field', () => {
+  it('rejects a missing isPrivate field', () => {
     expect(
       v.safeParse(OrgSchema, {
         id: ORG_UUID,
@@ -116,7 +112,7 @@ describe('OrgSchema — isSynthetic + hostKind landed (U1.1 / Bug B)', () => {
       v.safeParse(OrgSchema, {
         id: ORG_UUID,
         name: 'Local',
-        isSynthetic: true,
+        isPrivate: true,
       }).success,
     ).toBe(false);
   });
@@ -127,7 +123,7 @@ describe('OrgSchema — isSynthetic + hostKind landed (U1.1 / Bug B)', () => {
         id: ORG_UUID,
         name: 'Local',
         hostKind: 'team',
-        isSynthetic: true,
+        isPrivate: true,
       }).success,
     ).toBe(false);
   });

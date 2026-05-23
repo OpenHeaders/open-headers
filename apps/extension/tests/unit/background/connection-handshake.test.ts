@@ -32,7 +32,7 @@ const TEST_BACKEND_ORG = {
   id: '01900000-0000-7000-8000-0000000000bb',
   name: 'Backend Org',
   hostKind: 'desktop',
-  isSynthetic: true,
+  isPrivate: true,
 };
 
 function makeDeps(overrides: Partial<Parameters<typeof createConnectionHandshake>[0]> = {}) {

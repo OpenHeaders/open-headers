@@ -4,7 +4,7 @@
  * The base glyph is the host kind that minted the Org — browser /
  * desktop / daemon. A team Org adds a small "shared" overlay in the
  * bottom-right corner: team-ness is a membership fact (`scopeKind`),
- * orthogonal to the host kind. `isSynthetic` plays no part.
+ * orthogonal to the host kind. `isPrivate` plays no part.
  */
 
 import { TeamOutlined } from '@ant-design/icons';

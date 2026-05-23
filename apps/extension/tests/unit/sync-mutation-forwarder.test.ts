@@ -38,7 +38,7 @@ import { installSyntheticIdentityForTests } from './sync/_identity-test-setup';
 // only forwards envelopes whose Org is *consumed* (a joined backend's
 // Org). Joining `org-test` puts it in the consumed set so the forward /
 // flush mechanics under test aren't tenancy-filtered away.
-const CONSUMED_TEST_ORG: Org = { id: 'org-test', name: 'Test Backend Org', hostKind: 'desktop', isSynthetic: false };
+const CONSUMED_TEST_ORG: Org = { id: 'org-test', name: 'Test Backend Org', hostKind: 'desktop', isPrivate: false };
 
 const event = (overrides: Partial<OracleSyncBroadcastEvent> = {}): OracleSyncBroadcastEvent =>
   ({

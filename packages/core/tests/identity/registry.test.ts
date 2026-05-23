@@ -4,10 +4,13 @@
  * (Phase U5.2 "consume-first join", UNIFIED_ORACLE_MODEL.md §6.2).
  *
  * Pinned invariants:
- *   - The snapshot's `orgs` map always carries the synthetic home-org;
+ *   - The snapshot's `orgs` map always carries the home Org;
  *     `installIdentitySnapshot` folds any `joinedOrgs` in alongside it.
  *   - `recordJoinedOrg` persists the backend's Org under `OH.joinedOrgs`,
  *     deduplicated by id, and the refreshed snapshot authorizes it.
+ *   - Joined Orgs are normalized to `isPrivate: false` at the registry
+ *     boundary — anything that crossed a wire to get here is no longer
+ *     "stays on this device."
  *   - Re-joining the same backend is idempotent; a renamed Org overwrites
  *     the stale copy. The joiner's own home-org is never stored as joined.
  */
@@ -31,18 +34,26 @@ import { createHostStorageFake, type HostStorageFake } from './_host-storage-fak
 
 const NOW = '2026-05-20T00:00:00.000Z';
 
+/**
+ * Inbound test Orgs carry `isPrivate: true` to verify the registry's
+ * normalization at the boundary. The persisted projection always reads
+ * `isPrivate: false` — joined Orgs are never private.
+ */
 const BACKEND_ORG: Org = {
   id: '01900000-0000-7000-8000-0000000000bb',
   name: 'Backend Org',
   hostKind: 'desktop',
-  isSynthetic: true,
+  isPrivate: true,
 };
 const OTHER_ORG: Org = {
   id: '01900000-0000-7000-8000-0000000000cc',
   name: 'Other Backend',
   hostKind: 'desktop',
-  isSynthetic: true,
+  isPrivate: true,
 };
+
+/** The receiver-side projection of a joined Org — `isPrivate` stripped. */
+const normalized = (org: Org): Org => ({ ...org, isPrivate: false });
 
 describe('identity registry — joined-Org folding (U5.2)', () => {
   let fake: HostStorageFake;
@@ -67,7 +78,8 @@ describe('identity registry — joined-Org folding (U5.2)', () => {
     const result = await recordJoinedOrg(BACKEND_ORG);
     expect(result.snapshot).not.toBeNull();
     expect(authorizedOrgIds(result.snapshot).has(BACKEND_ORG.id)).toBe(true);
-    expect(await hostStorage.get(OH.joinedOrgs)).toEqual([BACKEND_ORG]);
+    // Persisted form has `isPrivate: false` regardless of inbound value.
+    expect(await hostStorage.get(OH.joinedOrgs)).toEqual([normalized(BACKEND_ORG)]);
   });
 
   it('reports firstJoin true on a new backend, false on every reconnect', async () => {
@@ -101,14 +113,14 @@ describe('identity registry — joined-Org folding (U5.2)', () => {
     await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     await recordJoinedOrg(BACKEND_ORG);
     await recordJoinedOrg(BACKEND_ORG);
-    expect(await hostStorage.get(OH.joinedOrgs)).toEqual([BACKEND_ORG]);
+    expect(await hostStorage.get(OH.joinedOrgs)).toEqual([normalized(BACKEND_ORG)]);
   });
 
   it('accumulates distinct backends', async () => {
     await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
     await recordJoinedOrg(BACKEND_ORG);
     const result = await recordJoinedOrg(OTHER_ORG);
-    expect(await hostStorage.get(OH.joinedOrgs)).toEqual([BACKEND_ORG, OTHER_ORG]);
+    expect(await hostStorage.get(OH.joinedOrgs)).toEqual([normalized(BACKEND_ORG), normalized(OTHER_ORG)]);
     expect(authorizedOrgIds(result.snapshot).has(BACKEND_ORG.id)).toBe(true);
     expect(authorizedOrgIds(result.snapshot).has(OTHER_ORG.id)).toBe(true);
   });
@@ -118,7 +130,26 @@ describe('identity registry — joined-Org folding (U5.2)', () => {
     await recordJoinedOrg(BACKEND_ORG);
     const renamed: Org = { ...BACKEND_ORG, name: 'Backend Org (renamed)' };
     await recordJoinedOrg(renamed);
-    expect(await hostStorage.get(OH.joinedOrgs)).toEqual([renamed]);
+    expect(await hostStorage.get(OH.joinedOrgs)).toEqual([normalized(renamed)]);
+  });
+
+  it('normalizes joined Orgs to isPrivate: false at the registry boundary', async () => {
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
+    // Inbound carries isPrivate: true (sender's home Org has no notion of
+    // who's listening); receiver-side normalization strips it.
+    await recordJoinedOrg(BACKEND_ORG);
+    const stored = await hostStorage.get(OH.joinedOrgs);
+    expect(stored?.[0].isPrivate).toBe(false);
+  });
+
+  it('corrects a legacy stored row that still reads isPrivate: true on next reconnect', async () => {
+    await ensureSyntheticIdentity({ hostKind: 'browser', now: NOW });
+    // Simulate a pre-normalization row written by an older code path.
+    await hostStorage.set(OH.joinedOrgs, [{ ...BACKEND_ORG }]); // isPrivate: true
+    // The reconnect's drift-update branch catches the stale flag and
+    // rewrites the row in place.
+    await recordJoinedOrg(BACKEND_ORG);
+    expect(await hostStorage.get(OH.joinedOrgs)).toEqual([normalized(BACKEND_ORG)]);
   });
 
   it('never stores the joiner own home-org as a joined Org', async () => {

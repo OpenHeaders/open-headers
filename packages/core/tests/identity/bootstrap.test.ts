@@ -52,10 +52,10 @@ describe('bootstrapSyntheticIdentity', () => {
     expect(r.localAdmin.userId).toBe(r.user.id);
   });
 
-  it('marks the synthetic axes (User.isSynthetic, Org.isSynthetic, kind=local, source=local, isLocal)', async () => {
+  it('marks the standalone axes (User.isStandalone, Org.isPrivate, kind=local, source=local, isLocal)', async () => {
     const r = await bootstrapSyntheticIdentity({ hostInstallId: 'host-abc', hostKind: 'desktop', now: NOW });
-    expect(r.user.isSynthetic).toBe(true);
-    expect(r.org.isSynthetic).toBe(true);
+    expect(r.user.isStandalone).toBe(true);
+    expect(r.org.isPrivate).toBe(true);
     expect(r.userIdentity.kind).toBe('local');
     expect(r.session.source).toBe('local');
     expect(r.localAdmin.isLocal).toBe(true);
@@ -73,12 +73,22 @@ describe('bootstrapSyntheticIdentity', () => {
     const a = await bootstrapSyntheticIdentity({ hostInstallId: 'host-abc', hostKind: 'desktop', now: NOW });
     const b = await bootstrapSyntheticIdentity({ hostInstallId: 'host-xyz', hostKind: 'desktop', now: NOW });
     const idsA = new Set([
-      a.user.id, a.org.id, a.userIdentity.id, a.session.id,
-      a.membership.id, a.principal.id, a.localAdmin.id,
+      a.user.id,
+      a.org.id,
+      a.userIdentity.id,
+      a.session.id,
+      a.membership.id,
+      a.principal.id,
+      a.localAdmin.id,
     ]);
     const idsB = new Set([
-      b.user.id, b.org.id, b.userIdentity.id, b.session.id,
-      b.membership.id, b.principal.id, b.localAdmin.id,
+      b.user.id,
+      b.org.id,
+      b.userIdentity.id,
+      b.session.id,
+      b.membership.id,
+      b.principal.id,
+      b.localAdmin.id,
     ]);
     for (const id of idsB) {
       expect(idsA.has(id)).toBe(false);

@@ -23,7 +23,7 @@ export interface InstallIdentitySnapshotInput {
   /**
    * Orgs this host joined by connecting to other backends (Phase U5.2 —
    * "consume-first join"). Folded into `IdentitySnapshot.orgs` alongside
-   * the synthetic home-org so `authorizedOrgIds` lets the joined
+   * the private home Org so `authorizedOrgIds` lets the joined
    * backend's workspaces sync down. Persisted under `OH.joinedOrgs`.
    */
   joinedOrgs?: ReadonlyArray<Org>;
@@ -35,8 +35,8 @@ export function installIdentitySnapshot(input: InstallIdentitySnapshotInput): Id
   for (const wra of input.wras) {
     wraByWorkspaceId.set(wra.workspaceId, wra);
   }
-  // Multi-org-native: `orgs` is a set on every host. The synthetic
-  // home-org seeds it; Orgs joined via `recordJoinedOrg` fold in with no
+  // Multi-org-native: `orgs` is a set on every host. The private
+  // home Org seeds it; Orgs joined via `recordJoinedOrg` fold in with no
   // change to the resolver or the org-catalogue helpers downstream. The
   // home-org row is written last so it always wins a same-id collision.
   const orgs = new Map<string, Org>();
@@ -121,16 +121,29 @@ export interface RecordJoinedOrgResult {
 /**
  * Record an Org joined by connecting to another backend (Phase U5.2).
  * Appends `org` to the persisted `OH.joinedOrgs` set (deduplicated by
- * id; the synthetic home-org is never stored here — it already rides
+ * id; the private home Org is never stored here — it already rides
  * `OH.syntheticIdentity`), then rebuilds the in-memory snapshot so the
  * resolver's `authorizedOrgIds` immediately includes it and the joined
  * backend's workspaces sync down.
  *
+ * **Joined Orgs are never private.** `Org.isPrivate` records "no backend
+ * hosts this Org" — true for a freshly-bootstrapped home Org, false the
+ * moment a backend connects. A joined Org has, by definition, crossed a
+ * wire to get here, so its `isPrivate` is false regardless of what the
+ * sender stamped on it. We normalize at the registry boundary
+ * (`{ ...org, isPrivate: false }`) so every downstream consumer
+ * (`classifyOrg`, the org-scope vocabulary, the badge/picker UI) reads a
+ * single honest signal — no defensive `(isPrivate, !isHome)` branches
+ * downstream.
+ *
  * Idempotent: re-joining the same backend (every reconnect re-sends
  * WELCOME) is a no-op once the Org is already on file — `firstJoin` is
- * then false. The `OH.joinedOrgs` read-modify-write is serialized through
- * {@link withJoinedOrgsLock} so concurrent joins of distinct Orgs can't
- * clobber each other.
+ * then false. A previously-stored row that carries the wrong
+ * `isPrivate: true` (legacy / pre-normalization) is corrected on the
+ * next reconnect via the same drift-update branch that catches a
+ * renamed Org. The `OH.joinedOrgs` read-modify-write is serialized
+ * through {@link withJoinedOrgsLock} so concurrent joins of distinct
+ * Orgs can't clobber each other.
  */
 export async function recordJoinedOrg(org: Org): Promise<RecordJoinedOrgResult> {
   const record = await hostStorage.get(OH.syntheticIdentity);
@@ -139,19 +152,22 @@ export async function recordJoinedOrg(org: Org): Promise<RecordJoinedOrgResult> 
     // only if a host somehow handshakes against itself; harmless to ignore.
     return { snapshot: await refreshIdentitySnapshotFromHostStorage(), firstJoin: false };
   }
+  // Normalize: joined Orgs are never private by definition.
+  const normalized: Org = org.isPrivate ? { ...org, isPrivate: false } : org;
   let firstJoin = false;
   await withJoinedOrgsLock(async () => {
     const existing = (await hostStorage.get(OH.joinedOrgs)) ?? [];
-    const known = existing.find((o) => o.id === org.id);
+    const known = existing.find((o) => o.id === normalized.id);
     if (!known) {
       firstJoin = true;
-      await hostStorage.set(OH.joinedOrgs, [...existing, org]);
-    } else if (known.name !== org.name || known.isSynthetic !== org.isSynthetic) {
-      // The backend renamed its Org since the last join — keep the
-      // freshest copy so the org-catalogue UI doesn't render a stale name.
+      await hostStorage.set(OH.joinedOrgs, [...existing, normalized]);
+    } else if (known.name !== normalized.name || known.isPrivate !== normalized.isPrivate) {
+      // The backend renamed its Org, OR the persisted row predates
+      // boundary-normalization (legacy `isPrivate: true`). Either way,
+      // re-store with the freshest normalized copy.
       await hostStorage.set(
         OH.joinedOrgs,
-        existing.map((o) => (o.id === org.id ? org : o)),
+        existing.map((o) => (o.id === normalized.id ? normalized : o)),
       );
     }
   });

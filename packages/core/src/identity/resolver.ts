@@ -5,8 +5,8 @@
  * Reads from a synchronous snapshot of the identity rows persisted by
  * `ensureSyntheticIdentity` + `ensureWorkspaceRoleAssignments`. Synthetic
  * rows resolve to ALLOW via the same branches a real Org / real WRA would
- * — no `if (mode === ...)` checks, no `user.isSynthetic` gating (the
- * `isSynthetic` flag is informational per §5.3).
+ * — no `if (mode === ...)` checks, no `user.isStandalone` gating (the
+ * `isStandalone` / `isPrivate` flags are informational per §5.3).
  */
 
 import type { DaemonAdmin, Org, OrgMembership, Principal, User, WorkspaceRoleAssignment } from '../types';

@@ -7,12 +7,13 @@
  * "where does this live?" badge + sync-scope picker + two-personal-Orgs
  * onboarding) needs to resolve it to a label, a colour, and a scope
  * class. That resolution is a pure function of identity state — no mode
- * checks, no `isSynthetic` gating beyond the §6.2 classification table.
+ * checks, just the §6.2 classification table over (`hostKind`,
+ * `isHome`, `isPrivate`).
  *
  * The model is multi-org-native on every host (extension SW included):
  * `snapshot.orgs` is a set, every helper here is pure over it, and there
  * are no single-org code branches. V5 simply happens to seed one Org row
- * (the synthetic home-org) until a daemon-join flow adds real Orgs — at
+ * (the private home Org) until a daemon-join flow adds more Orgs — at
  * which point every consumer lights up without a code change.
  */
 
@@ -23,11 +24,12 @@ import type { IdentitySnapshot } from './resolver';
 /**
  * The §6.2 sync-scope classification of an Org.
  *
- *   local    — the host's synthetic local-org. "Stuff I keep on this
- *              specific machine"; never crosses any wire.
- *   personal — a real single-user Org. "Stuff on my account, synced
- *              across my devices."
- *   team     — a real multi-user Org. Shared, ACL-governed.
+ *   local    — the host's private home Org. "Stuff I keep on this
+ *              specific device"; never crosses any wire.
+ *   personal — a single-user Org backed by a host (the user's own
+ *              desktop / personal daemon). "Stuff on my devices,
+ *              synced between them."
+ *   team     — a multi-user daemon Org. Shared, ACL-governed.
  */
 export type OrgScopeKind = 'local' | 'personal' | 'team';
 
@@ -38,22 +40,36 @@ export interface OrgDescriptor {
   scopeKind: OrgScopeKind;
   /** The kind of host process that minted the Org — drives the identity label + icon. */
   hostKind: HostKind;
-  isSynthetic: boolean;
+  /** True iff the Org has no backend hosting it (stays on this device). */
+  isPrivate: boolean;
   /** True for the user's home-org — the default binding for new workspaces. */
   isHome: boolean;
 }
 
 /**
- * Classify a single Org into its §6.2 scope kind, derived purely from
- * identity state — no static mode flag on the Org row:
+ * Classify a single Org into its §6.2 scope kind from `(hostKind, isHome,
+ * isPrivate)`:
  *
- *   - synthetic Org              → `local`  (the host-local org)
- *   - real Org, the user's home  → `personal` (synced across their devices)
- *   - real Org, not their home   → `team`   (shared with other members)
+ *   - home Org with `isPrivate: true` → `local`
+ *     (no backend hosts it, stays on this device)
+ *   - any Org with `hostKind === 'daemon'` → `team`
+ *     (a daemon is multi-user by definition — §5.6 / Session-44 design)
+ *   - everything else → `personal`
+ *     (a single-user host: the user's own browser / desktop seen from
+ *     here or from a joined peer of theirs)
+ *
+ * The `(isPrivate, !isHome)` cell is structurally unreachable —
+ * `recordJoinedOrg` stamps `isPrivate: false` on every joined Org at the
+ * receiver boundary, because anything that crossed a wire is no longer
+ * "stays on this device" by definition. The classifier doesn't carry a
+ * defensive case for it; if one shows up, that's a registry-boundary
+ * bug, not a classifier concern.
  */
 function classifyOrg(org: Org, homeOrgId: string): OrgScopeKind {
-  if (org.isSynthetic) return 'local';
-  return org.id === homeOrgId ? 'personal' : 'team';
+  const isHome = org.id === homeOrgId;
+  if (isHome && org.isPrivate) return 'local';
+  if (org.hostKind === 'daemon') return 'team';
+  return 'personal';
 }
 
 const SCOPE_ORDER: Record<OrgScopeKind, number> = { local: 0, personal: 1, team: 2 };
@@ -64,7 +80,7 @@ function toDescriptor(org: Org, homeOrgId: string): OrgDescriptor {
     name: org.name,
     scopeKind: classifyOrg(org, homeOrgId),
     hostKind: org.hostKind,
-    isSynthetic: org.isSynthetic,
+    isPrivate: org.isPrivate,
     isHome: org.id === homeOrgId,
   };
 }
@@ -105,8 +121,8 @@ export function describeOrg(snapshot: IdentitySnapshot | null, orgId: string): O
  * joined Org both read by their stored `name`; the user renames the home
  * Org through `renameHomeOrg`. Home-ness is conveyed separately by the
  * Org icon and the {@link orgHostKindHint} sub-label, never baked into
- * the name. `isSynthetic` plays no part — it records trust-by-process,
- * not whose Org it is.
+ * the name. `isPrivate` plays no part in the label — it records
+ * whether a backend hosts the Org, not whose Org it is.
  */
 export function orgIdentityLabel(descriptor: OrgDescriptor): string {
   return descriptor.name;

@@ -15,7 +15,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { installSyntheticIdentityForTests } from './_identity-test-setup';
 
-const CONSUMED_ORG: Org = { id: 'org-backend', name: 'Backend Org', hostKind: 'desktop', isSynthetic: false };
+const CONSUMED_ORG: Org = { id: 'org-backend', name: 'Backend Org', hostKind: 'desktop', isPrivate: false };
 
 const envelope = (overrides: Partial<MutationEnvelope> = {}): MutationEnvelope =>
   ({

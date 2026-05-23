@@ -3,9 +3,9 @@
  * (UNIFIED_ORACLE_MODEL.md §5.8). Slice 1 of Phase U2.
  *
  * Pinned invariants:
- *   - Synthetic identity rows resolve to ALLOW through the same branches
- *     a real LocalAdmin row would. The resolver does NOT consult
- *     `user.isSynthetic` (§5.3 — informational only).
+ *   - Standalone identity rows resolve to ALLOW through the same branches
+ *     a connected LocalAdmin row would. The resolver does NOT consult
+ *     `user.isStandalone` (§5.3 — informational only).
  *   - LocalAdmin auto-allows every `workspace.*` capability regardless of
  *     WRA presence (matches §5.8 example).
  *   - With no LocalAdmin, the WRA gate enforces three-tier role.
@@ -32,14 +32,7 @@ import {
 } from '../../src/identity';
 import { hostStorage, setHostStorage } from '../../src/storage/host-storage';
 import { OH } from '../../src/storage/keys';
-import type {
-  DaemonAdmin,
-  Org,
-  OrgMembership,
-  Principal,
-  User,
-  WorkspaceRoleAssignment,
-} from '../../src/types';
+import type { DaemonAdmin, Org, OrgMembership, Principal, User, WorkspaceRoleAssignment } from '../../src/types';
 import { createHostStorageFake } from './_host-storage-fake';
 
 const NOW = '2026-05-19T00:00:00.000Z';
@@ -59,7 +52,7 @@ function makeSnapshot(
     id: '01900000-aaaa-7000-8000-000000000aaa',
     displayName: 'Local',
     homeOrgId: '01900000-aaaa-7000-8000-000000000bbb',
-    isSynthetic: true,
+    isStandalone: true,
     ...overrides.user,
   };
   const principal: Principal = {
@@ -84,10 +77,10 @@ function makeSnapshot(
     wraByWorkspaceId.set(wra.workspaceId, wra);
   }
   const orgs = new Map<string, Org>([
-    [user.homeOrgId, { id: user.homeOrgId, name: 'Local', hostKind: 'browser', isSynthetic: true }],
+    [user.homeOrgId, { id: user.homeOrgId, name: 'Local', hostKind: 'browser', isPrivate: true }],
   ]);
   for (const orgId of overrides.extraOrgIds ?? []) {
-    orgs.set(orgId, { id: orgId, name: `Joined ${orgId}`, hostKind: 'desktop', isSynthetic: false });
+    orgs.set(orgId, { id: orgId, name: `Joined ${orgId}`, hostKind: 'desktop', isPrivate: false });
   }
   return { user, principal, membership, localAdmin, wraByWorkspaceId, orgs };
 }
@@ -182,11 +175,11 @@ describe('hasCapability', () => {
     });
   });
 
-  it('does not consult isSynthetic — real-user with same shape resolves identically', () => {
-    const synthetic = makeSnapshot({ user: { isSynthetic: true } });
-    const real = makeSnapshot({ user: { isSynthetic: false } });
-    expect(hasCapability(synthetic, 'workspace.write', { workspaceId: W1 })).toEqual(
-      hasCapability(real, 'workspace.write', { workspaceId: W1 }),
+  it('does not consult isStandalone — connected user with same shape resolves identically', () => {
+    const standalone = makeSnapshot({ user: { isStandalone: true } });
+    const connected = makeSnapshot({ user: { isStandalone: false } });
+    expect(hasCapability(standalone, 'workspace.write', { workspaceId: W1 })).toEqual(
+      hasCapability(connected, 'workspace.write', { workspaceId: W1 }),
     );
   });
 });

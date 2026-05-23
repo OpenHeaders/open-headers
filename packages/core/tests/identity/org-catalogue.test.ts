@@ -22,7 +22,7 @@ const TEAM_ORG = '01900000-aaaa-7000-8000-0000000000a3';
 const USER_ID = '01900000-aaaa-7000-8000-0000000000b1';
 
 function makeSnapshot(orgs: Org[], homeOrgId: string): IdentitySnapshot {
-  const user: User = { id: USER_ID, displayName: 'U', homeOrgId, isSynthetic: true };
+  const user: User = { id: USER_ID, displayName: 'U', homeOrgId, isStandalone: true };
   const principal: Principal = { id: 'p', userId: USER_ID, orgId: homeOrgId };
   const membership: OrgMembership = {
     id: 'm',
@@ -40,49 +40,66 @@ function makeSnapshot(orgs: Org[], homeOrgId: string): IdentitySnapshot {
   };
 }
 
-const syntheticLocal: Org = { id: LOCAL_ORG, name: 'This device', hostKind: 'browser', isSynthetic: true };
-const realHome: Org = { id: HOME_ORG, name: 'My account', hostKind: 'desktop', isSynthetic: false };
-const realTeam: Org = { id: TEAM_ORG, name: 'Acme', hostKind: 'daemon', isSynthetic: false };
+const privateHome: Org = { id: LOCAL_ORG, name: 'This device', hostKind: 'browser', isPrivate: true };
+const realHome: Org = { id: HOME_ORG, name: 'My account', hostKind: 'desktop', isPrivate: false };
+const realTeam: Org = { id: TEAM_ORG, name: 'Acme', hostKind: 'daemon', isPrivate: false };
 
 describe('orgCatalogue', () => {
   it('returns an empty list for a null snapshot', () => {
     expect(orgCatalogue(null)).toEqual([]);
   });
 
-  it('classifies a lone synthetic home-org as local', () => {
-    const catalogue = orgCatalogue(makeSnapshot([syntheticLocal], LOCAL_ORG));
+  it('classifies a lone private home-org as local', () => {
+    const catalogue = orgCatalogue(makeSnapshot([privateHome], LOCAL_ORG));
     expect(catalogue).toHaveLength(1);
-    expect(catalogue[0]).toMatchObject({ scopeKind: 'local', isHome: true, isSynthetic: true });
+    expect(catalogue[0]).toMatchObject({ scopeKind: 'local', isHome: true, isPrivate: true });
   });
 
-  it('classifies a real home-org as personal and a real non-home org as team', () => {
-    const catalogue = orgCatalogue(makeSnapshot([syntheticLocal, realHome, realTeam], HOME_ORG));
+  it('lights up all three scope kinds when the snapshot carries the right shapes', () => {
+    // privateHome is the user's home Org (private, browser); realHome is a
+    // joined desktop Org (single-user, personal); realTeam is a joined
+    // daemon Org (multi-user). The home is LOCAL_ORG.
+    const joinedDesktop: Org = { id: HOME_ORG, name: 'MacBook', hostKind: 'desktop', isPrivate: false };
+    const joinedDaemon: Org = { id: TEAM_ORG, name: 'Acme', hostKind: 'daemon', isPrivate: false };
+    const catalogue = orgCatalogue(makeSnapshot([privateHome, joinedDesktop, joinedDaemon], LOCAL_ORG));
     expect(catalogue.map((o) => o.scopeKind)).toEqual(['local', 'personal', 'team']);
-    expect(catalogue.find((o) => o.id === HOME_ORG)?.isHome).toBe(true);
-    expect(catalogue.find((o) => o.id === TEAM_ORG)?.isHome).toBe(false);
+    expect(catalogue.find((o) => o.id === LOCAL_ORG)?.isHome).toBe(true);
+    expect(catalogue.find((o) => o.id === HOME_ORG)?.isHome).toBe(false);
   });
 
   it('orders local → personal → team regardless of insertion order', () => {
-    const catalogue = orgCatalogue(makeSnapshot([realTeam, syntheticLocal, realHome], HOME_ORG));
+    const joinedDesktop: Org = { id: HOME_ORG, name: 'MacBook', hostKind: 'desktop', isPrivate: false };
+    const joinedDaemon: Org = { id: TEAM_ORG, name: 'Acme', hostKind: 'daemon', isPrivate: false };
+    const catalogue = orgCatalogue(makeSnapshot([joinedDaemon, privateHome, joinedDesktop], LOCAL_ORG));
     expect(catalogue.map((o) => o.scopeKind)).toEqual(['local', 'personal', 'team']);
+  });
+
+  it('classifies a joined non-daemon Org as personal — never local (registry boundary normalizes isPrivate)', () => {
+    // This is the post-Q5 bug-3b regression guard: a joined desktop must
+    // NOT classify as local just because the sender stamped isPrivate: true.
+    // The registry boundary normalizes joined Orgs to isPrivate: false; the
+    // classifier then resolves them to personal.
+    const joinedDesktop: Org = { id: HOME_ORG, name: 'MacBook', hostKind: 'desktop', isPrivate: false };
+    const catalogue = orgCatalogue(makeSnapshot([privateHome, joinedDesktop], LOCAL_ORG));
+    expect(catalogue.find((o) => o.id === HOME_ORG)?.scopeKind).toBe('personal');
   });
 });
 
 describe('describeOrg', () => {
   it('resolves a known org-id to its descriptor', () => {
-    const snap = makeSnapshot([syntheticLocal], LOCAL_ORG);
+    const snap = makeSnapshot([privateHome], LOCAL_ORG);
     expect(describeOrg(snap, LOCAL_ORG)?.name).toBe('This device');
   });
 
   it('carries the Org hostKind onto the descriptor', () => {
-    const snap = makeSnapshot([syntheticLocal, realHome, realTeam], HOME_ORG);
+    const snap = makeSnapshot([privateHome, realHome, realTeam], HOME_ORG);
     expect(describeOrg(snap, LOCAL_ORG)?.hostKind).toBe('browser');
     expect(describeOrg(snap, HOME_ORG)?.hostKind).toBe('desktop');
     expect(describeOrg(snap, TEAM_ORG)?.hostKind).toBe('daemon');
   });
 
   it('returns null for an org-id outside the authorized set', () => {
-    const snap = makeSnapshot([syntheticLocal], LOCAL_ORG);
+    const snap = makeSnapshot([privateHome], LOCAL_ORG);
     expect(describeOrg(snap, TEAM_ORG)).toBeNull();
     expect(describeOrg(null, LOCAL_ORG)).toBeNull();
   });
@@ -90,7 +107,7 @@ describe('describeOrg', () => {
 
 describe('orgIdentityLabel', () => {
   it('labels the home Org by its stored (renameable) name', () => {
-    const browserHome = describeOrg(makeSnapshot([syntheticLocal], LOCAL_ORG), LOCAL_ORG);
+    const browserHome = describeOrg(makeSnapshot([privateHome], LOCAL_ORG), LOCAL_ORG);
     expect(browserHome && orgIdentityLabel(browserHome)).toBe('This device');
 
     const desktopHome = describeOrg(makeSnapshot([realHome], HOME_ORG), HOME_ORG);
@@ -98,22 +115,23 @@ describe('orgIdentityLabel', () => {
   });
 
   it('labels a joined (non-home) Org by its stored name', () => {
-    const snap = makeSnapshot([syntheticLocal, realHome, realTeam], HOME_ORG);
+    const snap = makeSnapshot([privateHome, realHome, realTeam], HOME_ORG);
     const joined = describeOrg(snap, TEAM_ORG);
     expect(joined && orgIdentityLabel(joined)).toBe('Acme');
   });
 
-  it('ignores isSynthetic — a synthetic non-home Org still reads by name', () => {
-    const snap = makeSnapshot([syntheticLocal, realHome], HOME_ORG);
-    const joinedSynthetic = describeOrg(snap, LOCAL_ORG);
-    expect(joinedSynthetic?.isSynthetic).toBe(true);
-    expect(joinedSynthetic && orgIdentityLabel(joinedSynthetic)).toBe('This device');
+  it('reads a non-home Org by its stored name regardless of isPrivate', () => {
+    // A registry-correct snapshot has joined Orgs at isPrivate: false; the
+    // label is a pure projection of `name` either way.
+    const snap = makeSnapshot([privateHome, realHome], HOME_ORG);
+    const joined = describeOrg(snap, LOCAL_ORG);
+    expect(joined && orgIdentityLabel(joined)).toBe('This device');
   });
 });
 
 describe('orgHostKindHint', () => {
   it('gives the home Org a second-person host-kind hint', () => {
-    const browserHome = describeOrg(makeSnapshot([syntheticLocal], LOCAL_ORG), LOCAL_ORG);
+    const browserHome = describeOrg(makeSnapshot([privateHome], LOCAL_ORG), LOCAL_ORG);
     expect(browserHome && orgHostKindHint(browserHome)).toBe('This browser');
 
     const desktopHome = describeOrg(makeSnapshot([realHome], HOME_ORG), HOME_ORG);
@@ -128,7 +146,7 @@ describe('orgHostKindHint', () => {
   });
 
   it('gives a joined (non-home) Org no hint', () => {
-    const snap = makeSnapshot([syntheticLocal, realHome, realTeam], HOME_ORG);
+    const snap = makeSnapshot([privateHome, realHome, realTeam], HOME_ORG);
     expect(orgHostKindHint(describeOrg(snap, TEAM_ORG) as OrgDescriptor)).toBeNull();
     expect(orgHostKindHint(describeOrg(snap, LOCAL_ORG) as OrgDescriptor)).toBeNull();
   });
@@ -136,39 +154,40 @@ describe('orgHostKindHint', () => {
 
 describe('defaultNewWorkspaceOrgId', () => {
   it('returns the stored default when it names an authorized Org', () => {
-    const snap = makeSnapshot([syntheticLocal, realHome], HOME_ORG);
+    const snap = makeSnapshot([privateHome, realHome], HOME_ORG);
     expect(defaultNewWorkspaceOrgId(snap, LOCAL_ORG)).toBe(LOCAL_ORG);
   });
 
   it('ignores a stale stored default and picks the widest-reach Org', () => {
     // realHome is a desktop Org — wider reach than the browser local-org.
-    const snap = makeSnapshot([syntheticLocal, realHome], HOME_ORG);
+    const snap = makeSnapshot([privateHome, realHome], HOME_ORG);
     expect(defaultNewWorkspaceOrgId(snap, TEAM_ORG)).toBe(HOME_ORG);
   });
 
   it('defaults new workspaces to the widest-reach host, not the local browser', () => {
     // Home is the browser; a desktop Org was joined — new workspaces
     // follow the user up to the desktop rather than staying browser-local.
-    const browserHome: Org = { id: LOCAL_ORG, name: 'Chrome', hostKind: 'browser', isSynthetic: true };
-    const joinedDesktop: Org = { id: HOME_ORG, name: 'MacBook', hostKind: 'desktop', isSynthetic: true };
+    const browserHome: Org = { id: LOCAL_ORG, name: 'Chrome', hostKind: 'browser', isPrivate: true };
+    // Joined Orgs are normalized to isPrivate: false at the registry boundary.
+    const joinedDesktop: Org = { id: HOME_ORG, name: 'MacBook', hostKind: 'desktop', isPrivate: false };
     const snap = makeSnapshot([browserHome, joinedDesktop], LOCAL_ORG);
     expect(defaultNewWorkspaceOrgId(snap, null)).toBe(HOME_ORG);
   });
 
   it('prefers a daemon Org over desktop and browser', () => {
     // realTeam is a daemon Org — the widest reach of the three.
-    const snap = makeSnapshot([syntheticLocal, realHome, realTeam], HOME_ORG);
+    const snap = makeSnapshot([privateHome, realHome, realTeam], HOME_ORG);
     expect(defaultNewWorkspaceOrgId(snap, null)).toBe(TEAM_ORG);
   });
 
   it('defaults to the only Org when the identity holds just one', () => {
-    const snap = makeSnapshot([syntheticLocal], LOCAL_ORG);
+    const snap = makeSnapshot([privateHome], LOCAL_ORG);
     expect(defaultNewWorkspaceOrgId(snap, null)).toBe(LOCAL_ORG);
   });
 
   it('on a same-reach tie, prefers the joined Org over the home-org', () => {
-    const browserHome: Org = { id: LOCAL_ORG, name: 'Chrome', hostKind: 'browser', isSynthetic: true };
-    const joinedBrowser: Org = { id: HOME_ORG, name: 'Firefox', hostKind: 'browser', isSynthetic: true };
+    const browserHome: Org = { id: LOCAL_ORG, name: 'Chrome', hostKind: 'browser', isPrivate: true };
+    const joinedBrowser: Org = { id: HOME_ORG, name: 'Firefox', hostKind: 'browser', isPrivate: false };
     const snap = makeSnapshot([browserHome, joinedBrowser], LOCAL_ORG);
     expect(defaultNewWorkspaceOrgId(snap, null)).toBe(HOME_ORG);
   });

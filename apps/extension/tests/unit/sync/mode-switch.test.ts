@@ -184,7 +184,7 @@ describe('decideModeSwitch', () => {
   });
 
   it('forwards the probe targetOrg onto the show-dialog verdict (U5.5)', () => {
-    const targetOrg: Org = { id: WS_B, name: 'Desktop home', hostKind: 'desktop', isSynthetic: true };
+    const targetOrg: Org = { id: WS_B, name: 'Desktop home', hostKind: 'desktop', isPrivate: true };
     const verdict = decideModeSwitch({
       fromMode: 'in-browser',
       toMode: 'desktop-app',

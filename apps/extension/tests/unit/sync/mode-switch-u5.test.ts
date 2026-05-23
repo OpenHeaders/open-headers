@@ -96,7 +96,7 @@ function fakeStorage(initial: Org[]) {
 }
 
 function org(id: string): Org {
-  return { id, name: `Org ${id}`, hostKind: 'desktop', isSynthetic: true };
+  return { id, name: `Org ${id}`, hostKind: 'desktop', isPrivate: true };
 }
 
 describe('awaitJoinedOrg', () => {

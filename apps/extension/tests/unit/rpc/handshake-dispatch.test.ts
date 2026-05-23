@@ -101,7 +101,7 @@ describe('evaluateHello', () => {
           id: homeOrgId,
           name: 'Test Org',
           hostKind: 'browser',
-          isSynthetic: true,
+          isPrivate: true,
         });
       }
     });

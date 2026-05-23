@@ -56,7 +56,7 @@ const BACKEND_ORG: Org = {
   id: '01900000-0000-7000-8000-0000000000bb',
   name: 'Backend Org',
   hostKind: 'desktop',
-  isSynthetic: false,
+  isPrivate: false,
 };
 
 function emptySnapshot(workspaceId: string): WorkspaceSnapshot {

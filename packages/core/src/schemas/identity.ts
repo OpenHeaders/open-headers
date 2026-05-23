@@ -15,11 +15,7 @@
 
 import * as v from 'valibot';
 import { UuidV7Schema } from './common';
-import {
-  DaemonAdminSchema,
-  OrgMembershipSchema,
-  PrincipalSchema,
-} from './identity-acl';
+import { DaemonAdminSchema, OrgMembershipSchema, PrincipalSchema } from './identity-acl';
 
 // ── Enums ──────────────────────────────────────────────────────────
 
@@ -62,24 +58,30 @@ export const HostKindSchema = v.picklist(['browser', 'desktop', 'daemon']);
 // ── Entities ───────────────────────────────────────────────────────
 
 /**
- * `User` — one per app-instance identity. The synthetic local-user is
- * seeded deterministically from `host-install-id`; promotion flips
- * `isSynthetic` to `false` and updates `displayName` / attached
- * `UserIdentity` rows. `id` is the sentinel and NEVER changes
- * (ADR-3 / UNIFIED_ORACLE_MODEL.md §5.4 step 1).
+ * `User` — one per app-instance identity. The standalone local-user is
+ * seeded deterministically from `host-install-id` at bootstrap with no
+ * remote identity attached; the connect event (UNIFIED_ORACLE_MODEL.md
+ * §5.4 step 1) flips `isStandalone` to `false` and updates `displayName`
+ * / attached `UserIdentity` rows when the user connects to a real
+ * backend. `id` is the sentinel and NEVER changes (ADR-3).
+ *
+ * Brand-aligned vocabulary: this product positions "no account, no
+ * sign-in" as a feature — a standalone user isn't a placeholder or a
+ * lesser tier, it's the default and intended starting state.
  */
 export const UserSchema = v.object({
   id: UuidV7Schema,
   displayName: v.string(),
   homeOrgId: UuidV7Schema,
-  isSynthetic: v.boolean(),
+  /** True until the user connects to a real backend that attaches a verified identity. */
+  isStandalone: v.boolean(),
 });
 
 /**
- * `Org` — tenancy boundary. The synthetic local-org is seeded
+ * `Org` — tenancy boundary. The private home Org is seeded
  * deterministically from `host-install-id` and is the `org_id` stamped on
- * every Mode-1 mutation envelope. Becomes the `org_id` filter at the
- * transport boundary (UNIFIED_ORACLE_MODEL.md §6.1 / §8.2).
+ * every standalone-mode mutation envelope. Becomes the `org_id` filter
+ * at the transport boundary (UNIFIED_ORACLE_MODEL.md §6.1 / §8.2).
  *
  * Every Org is multi-org-capable — there is no static single-vs-multi
  * mode flag. Whether an Org reads as "personal" or "team" is derived at
@@ -89,12 +91,21 @@ export const UserSchema = v.object({
  * the one host-classification fact that *cannot* be derived after the
  * fact, so it is stamped at bootstrap and travels with the row when the
  * Org is joined. It drives the identity-label icon.
+ *
+ * `isPrivate` records whether the Org has no backend hosting it — true
+ * for a freshly-bootstrapped home Org (stays on this device, nothing
+ * else can see it); false the moment a backend (the user's own daemon,
+ * a LAN/WAN server, etc.) connects. A joined Org is **never** private
+ * by definition — anything that crossed a wire is no longer "stays on
+ * this device" — so `recordJoinedOrg` stamps `isPrivate: false` at the
+ * receiver boundary regardless of what the sender sent.
  */
 export const OrgSchema = v.object({
   id: UuidV7Schema,
   name: v.string(),
   hostKind: HostKindSchema,
-  isSynthetic: v.boolean(),
+  /** True iff no backend hosts this Org — i.e. it stays on this device. */
+  isPrivate: v.boolean(),
 });
 
 /**

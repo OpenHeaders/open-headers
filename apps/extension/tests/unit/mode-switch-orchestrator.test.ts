@@ -118,7 +118,7 @@ describe('requestModeSwitchVerdict', () => {
       id: '0193a8ff-c000-7000-8000-0000000000ff',
       name: 'Desktop home',
       hostKind: 'desktop',
-      isSynthetic: true,
+      isPrivate: true,
     };
     mockCall.mockResolvedValueOnce({ workspaces: [workspace({ rule: 1 })] });
     const verdict = await requestModeSwitchVerdict('in-browser', 'desktop-app', {
