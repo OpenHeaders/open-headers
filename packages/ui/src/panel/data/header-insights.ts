@@ -158,7 +158,7 @@ export function computeHeaderInsights(inputs: HeaderInsightInputs, nowMs = Date.
           kind: 'add-header',
           direction: 'response',
           headerName: 'Content-Security-Policy',
-          value: "default-src 'self'",
+          value: "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'",
           label: 'Add a baseline CSP',
         },
       });
