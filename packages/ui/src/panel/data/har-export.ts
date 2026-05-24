@@ -29,12 +29,22 @@ export interface HarDocument {
 }
 
 export function buildHar(entries: readonly InspectorRequest[]): HarDocument {
+  return buildHarFromEntries(entries.map((e) => e.harEntry));
+}
+
+/**
+ * Same envelope as `buildHar`, but takes raw `InspectorHarEntry[]`. Used
+ * by the Raw Data tab which only has access to a single entry, not the
+ * surrounding `InspectorRequest` wrapper. Keeps creator name / version
+ * / pages shape in lockstep with the "Copy all as HAR" export.
+ */
+export function buildHarFromEntries(entries: readonly InspectorHarEntry[]): HarDocument {
   return {
     log: {
       version: '1.2',
       creator: { name: 'Open Headers DevTools', version: getCreatorVersion() },
       pages: [],
-      entries: entries.map((e) => e.harEntry),
+      entries: [...entries],
     },
   };
 }

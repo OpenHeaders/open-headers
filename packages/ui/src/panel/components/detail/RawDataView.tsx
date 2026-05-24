@@ -18,6 +18,7 @@ import type { InspectorHarEntry } from '@openheaders/core/types';
 import { InfoTrigger, type InfoPopoverContent } from '@openheaders/ui/shared/info-popover';
 import { Popover } from 'antd';
 import { useMemo, useState } from 'react';
+import { buildHarFromEntries } from '../../data/har-export';
 import type { AnnotatedHeader } from '../../data/header-attribution';
 import type { InspectorRequest } from '../../data/types';
 import { maybeRedactHeaderValue } from './raw-data/redact';
@@ -126,16 +127,7 @@ export default function RawDataView({ request, requestHeaders }: RawDataViewProp
     }
   };
 
-  const harJson = useMemo(() => {
-    const envelope = {
-      log: {
-        version: '1.2',
-        creator: { name: 'Open Headers', version: '5' },
-        entries: [har],
-      },
-    };
-    return JSON.stringify(envelope, null, 2);
-  }, [har]);
+  const harJson = useMemo(() => JSON.stringify(buildHarFromEntries([har]), null, 2), [har]);
 
   const copyHar = async (): Promise<void> => {
     try {

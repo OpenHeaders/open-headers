@@ -8,6 +8,7 @@
  */
 
 import type { InspectorHarEntry } from '@openheaders/core/types';
+import { buildHarFromEntries } from '../../../data/har-export';
 
 export type SnippetFormat =
   | 'curl-unix'
@@ -223,7 +224,7 @@ function httpRaw({ harEntry, headers, includeHeaders, includeBody }: SnippetOpti
   return lines.join('\n');
 }
 
-// ── HAR (single entry, wrapped in a minimal log envelope) ──────────
+// ── HAR (single entry, wrapped in the same log envelope as "Copy all as HAR") ──
 
 function harSingleEntry({ harEntry, headers, includeHeaders, includeBody }: SnippetOptions): string {
   const cloned: InspectorHarEntry = JSON.parse(JSON.stringify(harEntry)) as InspectorHarEntry;
@@ -233,12 +234,5 @@ function harSingleEntry({ harEntry, headers, includeHeaders, includeBody }: Snip
       cloned.request.postData = { ...cloned.request.postData, text: '', params: [] };
     }
   }
-  const envelope = {
-    log: {
-      version: '1.2',
-      creator: { name: 'Open Headers', version: '5' },
-      entries: [cloned],
-    },
-  };
-  return JSON.stringify(envelope, null, 2);
+  return JSON.stringify(buildHarFromEntries([cloned]), null, 2);
 }
