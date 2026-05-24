@@ -70,6 +70,9 @@ export function useInspector(): UseInspectorResult {
         case 'har-body':
           store.ingestHarBody(msg.body);
           break;
+        case 'request-started':
+          store.ingestRequestStarted(msg.event);
+          break;
         case 'request-error':
           store.ingestRequestError(msg.error);
           break;

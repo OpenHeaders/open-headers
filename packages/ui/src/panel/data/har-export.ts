@@ -15,7 +15,7 @@
 import type { InspectorHarEntry } from '@openheaders/core/types';
 import { getBuildInfo } from '@openheaders/ui/shared/build-info';
 import { type HarPage, type InspectorPage, projectPagesForRefs } from './pages';
-import { type InspectorRequest, isErrorRequest } from './types';
+import { type InspectorRequest, isErrorRequest, isPendingRequest } from './types';
 
 function getCreatorVersion(): string {
   return getBuildInfo().version;
@@ -53,11 +53,12 @@ function collectRefs(entries: readonly { pageref?: string }[]): Set<string> {
 }
 
 export function buildHar(entries: readonly InspectorRequest[], pages: readonly InspectorPage[] = []): HarDocument {
-  // Skip error rows — they came from `chrome.webRequest.onErrorOccurred`
-  // and have only a synthetic HAR shell, no real wire data. Chrome's
-  // own HAR export omits them too; keeping them in our export would
-  // break consumers that round-trip through this file.
-  const exportable = entries.filter((e) => !isErrorRequest(e));
+  // Skip placeholder rows: error rows (from `onErrorOccurred`) and
+  // pending rows (from `onBeforeRequest` that haven't resolved). Both
+  // carry only a synthetic HAR shell, not real wire data. Chrome's
+  // own HAR export omits them too; keeping them would break consumers
+  // that round-trip through this file.
+  const exportable = entries.filter((e) => !isErrorRequest(e) && !isPendingRequest(e));
   const refs = collectRefs(exportable);
   return {
     log: {

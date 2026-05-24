@@ -143,6 +143,31 @@ export interface InspectorRequestError {
 }
 
 /**
+ * A network request the host's net stack observed at start
+ * (`chrome.webRequest.onBeforeRequest`) but for which neither a HAR
+ * entry nor an `onErrorOccurred` has yet arrived. The panel mints a
+ * `pending` row immediately on this signal so the user sees in-flight
+ * activity (matching Chrome's Network panel, which renders rows from
+ * the moment the request starts via CDP `requestWillBeSent`). The row
+ * is later superseded in place — by a HAR row if it completes, by an
+ * error row if it fails, or by an "(unknown)" placeholder on the next
+ * navigation if it does neither (Chrome's "abandoned mid-flight"
+ * semantics, which the extension APIs would otherwise miss because
+ * `onErrorOccurred` doesn't always fire for nav-canceled subresources).
+ */
+export interface InspectorRequestStarted {
+  requestId: string;
+  url: string;
+  method: string;
+  /** webRequest resource type (e.g. `xmlhttprequest`, `image`, `main_frame`). */
+  resourceType: string;
+  /** Document the request was initiated from. */
+  initiator?: string;
+  /** ISO timestamp at the moment `onBeforeRequest` fired. */
+  timestamp: string;
+}
+
+/**
  * Wire format for messages posted over the inspector port. Discriminated
  * union keyed by `type`. The panel's data layer parses incoming messages
  * against this shape.
@@ -158,6 +183,7 @@ export type InspectorPortMessage =
   | { type: 'fire'; record: RequestRecord; authoritative: boolean }
   | { type: 'har'; entry: InspectorHarEntry; chromeRequestId?: string }
   | { type: 'har-body'; body: InspectorHarBody }
+  | { type: 'request-started'; event: InspectorRequestStarted }
   | { type: 'request-error'; error: InspectorRequestError }
   | { type: 'nav'; url: string }
   | { type: 'nav-timing'; timing: InspectorNavTiming }

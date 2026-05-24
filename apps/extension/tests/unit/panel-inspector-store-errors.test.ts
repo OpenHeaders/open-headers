@@ -1,6 +1,6 @@
-import type { InspectorHarEntry, InspectorRequestError } from '@openheaders/core/types';
+import type { InspectorHarEntry, InspectorRequestError, InspectorRequestStarted } from '@openheaders/core/types';
 import { InspectorStore } from '@openheaders/ui/panel/data/inspector-store';
-import { isErrorRequest } from '@openheaders/ui/panel/data/types';
+import { isErrorRequest, isPendingRequest } from '@openheaders/ui/panel/data/types';
 import { describe, expect, it } from 'vitest';
 
 function makeError(overrides: Partial<InspectorRequestError> = {}): InspectorRequestError {
@@ -12,6 +12,17 @@ function makeError(overrides: Partial<InspectorRequestError> = {}): InspectorReq
     timestamp: '2026-05-24T10:00:00.000Z',
     error: 'net::ERR_BLOCKED_BY_CLIENT',
     fromCache: false,
+    ...overrides,
+  };
+}
+
+function makeStart(overrides: Partial<InspectorRequestStarted> = {}): InspectorRequestStarted {
+  return {
+    requestId: 'req-1',
+    url: 'https://api.openheaders.io/data',
+    method: 'GET',
+    resourceType: 'xmlhttprequest',
+    timestamp: '2026-05-24T10:00:00.000Z',
     ...overrides,
   };
 }
@@ -144,5 +155,66 @@ describe('InspectorStore.ingestRequestError', () => {
     expect(entries[0].error).toBeUndefined();
     expect(entries[0].statusCode).toBe(200);
     expect(entries[0].displayId).toBe(1);
+  });
+});
+
+describe('InspectorStore pending lifecycle', () => {
+  it('mints a pending row from a request-started event', () => {
+    const store = new InspectorStore();
+    store.ingestRequestStarted(makeStart());
+    const { entries } = store.getSnapshot();
+    expect(entries).toHaveLength(1);
+    expect(isPendingRequest(entries[0])).toBe(true);
+    expect(entries[0].chromeRequestId).toBe('req-1');
+    expect(entries[0].statusCode).toBeUndefined();
+  });
+
+  it('supersedes a pending row in place when its HAR arrives', () => {
+    const store = new InspectorStore();
+    store.ingestRequestStarted(makeStart({ requestId: 'req-9' }));
+    store.ingestHarEntry(makeHar('https://api.openheaders.io/data'), 'req-9');
+    const { entries } = store.getSnapshot();
+    expect(entries).toHaveLength(1);
+    expect(isPendingRequest(entries[0])).toBe(false);
+    expect(entries[0].statusCode).toBe(200);
+    // Display position preserved across supersession.
+    expect(entries[0].displayId).toBe(1);
+  });
+
+  it('supersedes a pending row in place when an error arrives', () => {
+    const store = new InspectorStore();
+    store.ingestRequestStarted(makeStart({ requestId: 'req-9' }));
+    store.ingestRequestError(
+      makeError({ requestId: 'req-9', url: 'https://api.openheaders.io/data' }),
+    );
+    const { entries } = store.getSnapshot();
+    expect(entries).toHaveLength(1);
+    expect(isPendingRequest(entries[0])).toBe(false);
+    expect(isErrorRequest(entries[0])).toBe(true);
+    expect(entries[0].displayId).toBe(1);
+  });
+
+  it('promotes still-pending rows to "(unknown)" on the next navigation', () => {
+    const store = new InspectorStore();
+    store.ingestRequestStarted(makeStart({ requestId: 'req-a' }));
+    store.ingestRequestStarted(
+      makeStart({ requestId: 'req-b', url: 'https://api.openheaders.io/other' }),
+    );
+    store.onNavigated('https://openheaders.io/page2');
+    const { entries } = store.getSnapshot();
+    expect(entries).toHaveLength(2);
+    for (const e of entries) {
+      expect(isPendingRequest(e)).toBe(false);
+      expect(isErrorRequest(e)).toBe(true);
+      expect(e.error?.reason).toBe('unknown');
+      expect(e.error?.code).toBe('oh:abandoned');
+    }
+  });
+
+  it('drops the start event when a HAR already exists for the requestId', () => {
+    const store = new InspectorStore();
+    store.ingestHarEntry(makeHar('https://api.openheaders.io/data'), 'req-1');
+    store.ingestRequestStarted(makeStart({ requestId: 'req-1' }));
+    expect(store.getSnapshot().entries).toHaveLength(1);
   });
 });

@@ -60,6 +60,7 @@ import type {
   InspectorNavTiming,
   InspectorPortMessage,
   InspectorRequestError,
+  InspectorRequestStarted,
   RequestRecord,
 } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
@@ -103,12 +104,18 @@ type BufferedFireMessage = { type: 'fire'; record: RequestRecord; authoritative:
 
 type BufferedErrorMessage = { type: 'request-error'; error: InspectorRequestError };
 
+type BufferedStartedMessage = { type: 'request-started'; event: InspectorRequestStarted };
+
 /** Cap on per-tab ring buffers — keeps memory bounded on long DevTools sessions. */
 const HAR_BUFFER_MAX = 500;
 const FIRE_BUFFER_MAX = 1000;
 /** Cap on per-tab error buffer — pathological pages (CSP-misconfigured,
  *  ad-blocker storms) can fire thousands of `onErrorOccurred` events. */
 const ERROR_BUFFER_MAX = 1000;
+/** Cap on per-tab started-row buffer — a noisy page can fire many
+ *  onBeforeRequest events per second; the panel only needs the most
+ *  recent batch to repopulate after a port reconnect. */
+const STARTED_BUFFER_MAX = 1000;
 /** Max age for an in-flight (requestId, t) entry before we drop it as stale. */
 const IN_FLIGHT_MAX_AGE_MS = 60_000;
 /**
@@ -146,6 +153,7 @@ interface TabSession {
   harBuffer: BufferedHarMessage[];
   fireBuffer: BufferedFireMessage[];
   errorBuffer: BufferedErrorMessage[];
+  startedBuffer: BufferedStartedMessage[];
   /** Per-URL FIFO of in-flight webRequest observations, head = oldest. */
   inFlightByUrl: Map<string, InFlightEntry[]>;
   unsubscribeFires: () => void;
@@ -294,6 +302,12 @@ function handleRequestError(session: TabSession, error: InspectorRequestError): 
   pushBounded(session.errorBuffer, msg, ERROR_BUFFER_MAX);
 }
 
+function handleRequestStarted(session: TabSession, event: InspectorRequestStarted): void {
+  const msg: BufferedStartedMessage = { type: 'request-started', event };
+  if (session.inspectorPorts.size > 0) broadcastToInspectorPorts(session, msg);
+  pushBounded(session.startedBuffer, msg, STARTED_BUFFER_MAX);
+}
+
 function flushBuffers(session: TabSession, port: chrome.runtime.Port): void {
   // HAR entries first, so a fire that references a request whose HAR was
   // already buffered finds its row on arrival. Fires carry their own
@@ -326,6 +340,16 @@ function flushBuffers(session: TabSession, port: chrome.runtime.Port): void {
       return;
     }
   }
+  // started-row replays come last so a reconnected panel sees completed
+  // / errored entries first and only then is told about still-in-flight
+  // rows — minimizes the pending → resolved flicker on reconnect.
+  for (const msg of session.startedBuffer) {
+    try {
+      port.postMessage(msg satisfies InspectorPortMessage);
+    } catch {
+      return;
+    }
+  }
 }
 
 function ensureSession(tabId: number): TabSession {
@@ -343,6 +367,7 @@ function ensureSession(tabId: number): TabSession {
     harBuffer: [],
     fireBuffer: [],
     errorBuffer: [],
+    startedBuffer: [],
     inFlightByUrl: new Map(),
     unsubscribeFires: () => {},
     unsubscribeRequestEvents: () => {},
@@ -354,7 +379,22 @@ function ensureSession(tabId: number): TabSession {
     handleFireRecord(session, record, false);
   });
   session.unsubscribeRequestEvents = subscribeRequestEvents(tabId, (event) => {
+    // Two side effects:
+    //   1. Record into the per-URL in-flight FIFO so HAR ↔ requestId
+    //      correlation still works (existing fire-join behavior).
+    //   2. Broadcast a `request-started` to the panel so it can mint a
+    //      pending row immediately, mirroring Chrome's Network UI which
+    //      renders rows from `Network.requestWillBeSent`. webRequest's
+    //      `onBeforeRequest` is the closest extension-API equivalent.
     recordInFlight(session, event.url, event.requestId, event.timestamp);
+    handleRequestStarted(session, {
+      requestId: event.requestId,
+      url: event.url,
+      method: event.method,
+      resourceType: event.resourceType,
+      timestamp: new Date(event.timestamp).toISOString(),
+      ...(event.initiator ? { initiator: event.initiator } : {}),
+    });
   });
   session.unsubscribeRequestErrors = subscribeRequestErrors(tabId, {
     send: (error) => handleRequestError(session, error),

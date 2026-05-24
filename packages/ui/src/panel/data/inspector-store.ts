@@ -51,6 +51,7 @@ import type {
   InspectorHarEntry,
   InspectorNavTiming,
   InspectorRequestError,
+  InspectorRequestStarted,
   RequestRecord,
 } from '@openheaders/core/types';
 import { lookupErrorCode } from './chromium-error-codes';
@@ -134,6 +135,29 @@ function synthesizeErrorHarEntry(err: InspectorRequestError, startedDateTime: st
     timings: { blocked: 0, dns: 0, connect: 0, send: 0, wait: 0, receive: 0 },
     _resourceType: err.resourceType,
     ...(err.initiator ? { _initiator: { type: 'other', url: err.initiator } } : {}),
+  };
+}
+
+/** Build the minimal `InspectorHarEntry` shell for a pending row.
+ *  Shape mirrors the error shell: no response, no timings — the
+ *  request just started, nothing else is known yet. */
+function synthesizePendingHarEntry(event: InspectorRequestStarted, startedDateTime: string): InspectorHarEntry {
+  return {
+    startedDateTime,
+    time: 0,
+    request: {
+      method: event.method,
+      url: event.url,
+      httpVersion: '',
+      headers: [],
+      queryString: [],
+      cookies: [],
+      headersSize: -1,
+      bodySize: -1,
+    },
+    timings: { blocked: 0, dns: 0, connect: 0, send: 0, wait: 0, receive: 0 },
+    _resourceType: event.resourceType,
+    ...(event.initiator ? { _initiator: { type: 'other', url: event.initiator } } : {}),
   };
 }
 
@@ -296,6 +320,13 @@ export class InspectorStore {
     this.navTiming = null;
     if (!this.preserveLog) {
       this.clearInternal();
+    } else {
+      // Pending rows that didn't resolve before the navigation killed
+      // them flip to a terminal "(unknown)" state — Chrome's UX for
+      // requests it acknowledged starting but never saw finish. Only
+      // runs when log is preserved; otherwise `clearInternal` drops
+      // them outright.
+      this.promotePendingToUnknown();
     }
     this.pageTracker.startPage(new Date().toISOString(), url ?? null);
     this.bump();
@@ -334,17 +365,19 @@ export class InspectorStore {
       }
     }
 
-    // HAR-supersedes-error: if an error row was previously created for
-    // this requestId (the error fired first, then the HAR materialized
-    // — a known race when Chromium emits both events), the real HAR
-    // entry is more useful. Replace the error row in place so its
-    // `displayId` and `arrivalIndex` are preserved (no visual jump).
+    // HAR-supersedes-pending / HAR-supersedes-error: if a placeholder
+    // row (pending from `onBeforeRequest`, or error from
+    // `onErrorOccurred`) was previously created for this requestId,
+    // the real HAR entry is the authoritative resolution. Replace the
+    // placeholder in place so its `displayId` and `arrivalIndex` are
+    // preserved (no visual jump).
     if (chromeRequestId) {
       const existingList = this.byRequestId.get(chromeRequestId);
       if (existingList) {
         for (const existingIdx of existingList) {
-          if (this.entries[existingIdx]?.error) {
-            this.supersedeErrorWithHar(existingIdx, har, chromeRequestId);
+          const existing = this.entries[existingIdx];
+          if (existing?.error || existing?.pending) {
+            this.supersedeWithHar(existingIdx, har, chromeRequestId);
             return;
           }
         }
@@ -475,12 +508,20 @@ export class InspectorStore {
   ingestRequestError(err: InspectorRequestError): void {
     if (!this.recording) return;
 
-    // 1. HAR already present for this requestId → HAR wins.
+    // 1a. HAR already present for this requestId → HAR wins, drop.
+    // 1b. Pending row present → promote in place (error is the terminal
+    //     resolution we were waiting for).
     if (err.requestId) {
       const existing = this.byRequestId.get(err.requestId);
       if (existing) {
         for (const idx of existing) {
-          if (!this.entries[idx]?.error) return;
+          const e = this.entries[idx];
+          if (!e) continue;
+          if (e.pending) {
+            this.supersedePendingWithError(idx, err);
+            return;
+          }
+          if (!e.error) return;
         }
       }
     }
@@ -630,14 +671,65 @@ export class InspectorStore {
   }
 
   /**
-   * Replace an error row in place with a real HAR entry. Used when an
-   * `onErrorOccurred` event landed first but the HAR pipeline later
-   * emitted a complete entry for the same request — a rare race in
-   * Chromium where both events fire for one request. The HAR is the
-   * more useful representation, so we keep the row's display position
-   * but swap in the full data and clear the `error` field.
+   * Promote a pending row in place to an error row. Used when
+   * `onErrorOccurred` arrives for a request whose start we already
+   * observed via `onBeforeRequest`. Preserves `arrivalIndex`,
+   * `displayId`, `pageref`; clears the `pending` marker; populates
+   * `error` + status fields the same way `ingestRequestError`'s new-
+   * row path would. Also writes the row into `errorRowByUrl` so a
+   * subsequent retry (different `requestId`, same URL) consolidates
+   * onto it via the existing `replaceErrorRow` path.
    */
-  private supersedeErrorWithHar(idx: number, har: InspectorHarEntry, chromeRequestId: string): void {
+  private supersedePendingWithError(idx: number, err: InspectorRequestError): void {
+    const existing = this.entries[idx];
+    const info = lookupErrorCode(err.error);
+    const ts = Date.parse(err.timestamp);
+    const safeTs = Number.isFinite(ts) ? ts : Date.now();
+    const startedDateTime = Number.isFinite(ts) ? err.timestamp : new Date(safeTs).toISOString();
+
+    const oldHarKey = harKey(existing.method, existing.url, existing.harEntry.startedDateTime);
+    const newHarKey = harKey(err.method, err.url, startedDateTime);
+    if (newHarKey !== oldHarKey) {
+      this.removeFromHarKey(oldHarKey, idx);
+      this.addToHarKey(newHarKey, idx);
+    }
+    const newList = this.byHarKey.get(newHarKey);
+    const positionInNewList = newList ? newList.indexOf(idx) : 0;
+    const newId = mintEntryId(newHarKey, positionInNewList, err.requestId || undefined, existing.arrivalIndex);
+    if (newId !== existing.id) {
+      const fires = this.firesByEntry.get(existing.id);
+      if (fires) {
+        this.firesByEntry.delete(existing.id);
+        this.firesByEntry.set(newId, fires);
+      }
+    }
+
+    const { pending: _drop, ...rest } = existing;
+    void _drop;
+    this.entries[idx] = {
+      ...rest,
+      id: newId,
+      harEntry: synthesizeErrorHarEntry(err, startedDateTime),
+      timestamp: safeTs,
+      statusCode: 0,
+      statusText: err.error,
+      resourceType: err.resourceType,
+      error: { code: err.error, reason: info.reason },
+    };
+    this.errorRowByUrl.set(errorUrlKey(err.method, err.url), idx);
+    this.bump();
+  }
+
+  /**
+   * Replace a placeholder row (pending from `onBeforeRequest`, or
+   * error from `onErrorOccurred`) in place with a real HAR entry. The
+   * pending case is the common one: the panel mints a row at request
+   * start and now upgrades it to the resolved HAR. The error case
+   * covers the rarer race where `onErrorOccurred` fired first but a
+   * HAR landed later. Either way, the row's display position is
+   * preserved and the `error` / `pending` markers are cleared.
+   */
+  private supersedeWithHar(idx: number, har: InspectorHarEntry, chromeRequestId: string): void {
     const existing = this.entries[idx];
     const method = har.request?.method ?? existing.method;
     const url = har.request?.url ?? existing.url;
@@ -681,8 +773,9 @@ export class InspectorStore {
       this.byRequestId.set(chromeRequestId, [idx]);
     }
 
-    const { error: _drop, ...rest } = existing;
-    void _drop;
+    const { error: _dropError, pending: _dropPending, ...rest } = existing;
+    void _dropError;
+    void _dropPending;
     this.entries[idx] = {
       ...rest,
       id: newId,
@@ -699,6 +792,85 @@ export class InspectorStore {
       resourceType: har._resourceType ?? existing.resourceType,
     };
     this.bump();
+  }
+
+  /**
+   * Mint a pending row from a `chrome.webRequest.onBeforeRequest`
+   * observation. The row carries a synthetic `harEntry` shell (no
+   * response) and `pending: true`; the existing request-state
+   * classifier returns `pending`, so the table renders "(pending)"
+   * with no further branching. A later HAR or error event supersedes
+   * this row in place; if neither arrives before the next navigation,
+   * `promotePendingToUnknown` converts it to an `(unknown)` placeholder
+   * — matching Chrome's "abandoned mid-flight" UX, which the extension
+   * APIs would otherwise miss.
+   *
+   * Dedup: if a row (HAR, error, or another pending) already exists
+   * for this `requestId`, drop the start event. The downstream events
+   * are more authoritative.
+   */
+  ingestRequestStarted(event: InspectorRequestStarted): void {
+    if (!this.recording) return;
+    if (!event.requestId) return;
+    const existing = this.byRequestId.get(event.requestId);
+    if (existing && existing.length > 0) return;
+
+    const ts = Date.parse(event.timestamp);
+    const safeTs = Number.isFinite(ts) ? ts : Date.now();
+    const startedDateTime = Number.isFinite(ts) ? event.timestamp : new Date(safeTs).toISOString();
+    const key = harKey(event.method, event.url, startedDateTime);
+    const existingForKey = this.byHarKey.get(key);
+    const arrivalIndex = this.arrivalCounter++;
+    const entryId = mintEntryId(key, existingForKey?.length ?? 0, event.requestId, arrivalIndex);
+    const pageref = this.pageTracker.ensurePage(startedDateTime);
+
+    const entry: InspectorRequest = {
+      id: entryId,
+      harEntry: synthesizePendingHarEntry(event, startedDateTime),
+      chromeRequestId: event.requestId,
+      method: event.method,
+      url: event.url,
+      timestamp: safeTs,
+      resourceType: event.resourceType,
+      fires: [],
+      arrivalIndex,
+      displayId: this.displayCounter++,
+      pageref,
+      pending: true,
+    };
+
+    const idx = this.entries.push(entry) - 1;
+    if (existingForKey) existingForKey.push(idx);
+    else this.byHarKey.set(key, [idx]);
+    const list = this.byRequestId.get(event.requestId);
+    if (list) list.push(idx);
+    else this.byRequestId.set(event.requestId, [idx]);
+    this.bump();
+  }
+
+  /**
+   * Promote every still-pending row to `(unknown)`. Called from
+   * `onNavigated` so rows that started but never resolved (the page
+   * killed them) flip to a terminal "(unknown)" state matching
+   * Chrome's "abandoned" UX. After promotion, `isErrorRequest` returns
+   * true for these rows so HAR export excludes them.
+   */
+  private promotePendingToUnknown(): void {
+    let changed = false;
+    for (let i = 0; i < this.entries.length; i++) {
+      const e = this.entries[i];
+      if (!e.pending) continue;
+      const { pending: _drop, ...rest } = e;
+      void _drop;
+      this.entries[i] = {
+        ...rest,
+        statusCode: 0,
+        statusText: 'unknown',
+        error: { code: 'oh:abandoned', reason: 'unknown' },
+      };
+      changed = true;
+    }
+    if (changed) this.bump();
   }
 
   ingestHarBody(body: InspectorHarBody): void {

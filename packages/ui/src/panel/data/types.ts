@@ -170,6 +170,15 @@ export interface InspectorRequest {
    *  Populated by the store via `PageTracker.ensurePage` at ingest. */
   pageref?: string;
   /**
+   * True for rows minted from `chrome.webRequest.onBeforeRequest` that
+   * have not yet been resolved by a HAR or error event. Mirrors the
+   * "request in flight" state Chrome's Network panel renders the
+   * moment a request starts (via CDP `requestWillBeSent`). Cleared in
+   * place when `ingestHarEntry` or `ingestRequestError` supersede the
+   * row. Skipped from HAR export — no completion data to serialize.
+   */
+  pending?: boolean;
+  /**
    * Set when the row represents a `chrome.webRequest.onErrorOccurred`
    * event — a request blocked, canceled, or failed before producing a
    * HAR-shaped response. The host's HAR pipeline never sees these, so
@@ -194,4 +203,10 @@ export function isErrorRequest(
   r: InspectorRequest,
 ): r is InspectorRequest & { error: NonNullable<InspectorRequest['error']> } {
   return r.error != null;
+}
+
+/** Type guard — row is a pending placeholder (request in flight, no
+ *  HAR or error yet). HAR export skips these. */
+export function isPendingRequest(r: InspectorRequest): boolean {
+  return r.pending === true;
 }
