@@ -1,0 +1,129 @@
+/* Raw Data tab — snippet export + raw HAR viewer.
+ *
+ * Layout: a flex column under .dt-tab-body. Two <details> summary rows
+ * (Export, Raw HAR) plus a sibling Monaco viewer that's only mounted
+ * when Raw HAR is open. Both summaries use .dt-section styling so the
+ * native disclosure markers match the Headers tab; right-aligned
+ * controls are absolute-positioned so the marker stays intact.
+ */
+
+.dt-rawdata-view {
+  padding: 4px 0;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.dt-rawdata-view > details {
+  flex: 0 0 auto;
+}
+
+/* Raw HAR's Monaco viewer is a SIBLING of its <details>, not a child —
+   <details> + Monaco was the layout-zero-height combo that wasted half
+   a session. As a sibling it takes whatever flex space the column has
+   left when Raw HAR is open. */
+.dt-rawdata-har-viewer {
+  flex: 1 1 auto;
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+}
+
+.dt-rawdata-har-viewer > * {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Snippet body is a SIBLING of the Export <details>, not a child —
+   <details> doesn't reliably propagate `flex-direction: column` to its
+   own children in Chrome, so the <pre> would render at its full
+   intrinsic height and leak past the section. As a flex sibling it's
+   sized directly by the column. */
+.dt-rawdata-export-body {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border-bottom: 1px solid var(--dt-border);
+}
+
+/* When Raw HAR is collapsed (Monaco sibling absent), the Export body
+   takes the freed space and the snippet auto-expands. */
+.dt-rawdata-view:has(.dt-rawdata-har--closed) .dt-rawdata-export-body {
+  flex: 1 1 auto;
+}
+
+.dt-rawdata-view:has(.dt-rawdata-har--closed) .dt-rawdata-export-body .dt-rawdata-snippet {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: calc(4 * 1.5em + 20px);
+}
+
+/* Summary row: native list-style marker (same as Headers tab) kept
+   intact by absolute-positioning the right-side controls. Title text
+   doesn't wrap when the pane is squeezed. */
+.dt-rawdata-view > details > summary {
+  padding-right: 240px;
+}
+
+.dt-rawdata-summary-label {
+  white-space: nowrap;
+}
+
+.dt-rawdata-summary-controls {
+  position: absolute;
+  right: 8px;
+  top: 0;
+  bottom: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+}
+
+.dt-rawdata-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dt-rawdata-field-label {
+  font-size: 11px;
+  color: var(--dt-muted, #888);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dt-rawdata-select {
+  background: var(--dt-bg);
+  color: var(--dt-fg);
+  border: 1px solid var(--dt-border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 12px;
+}
+
+.dt-rawdata-actions {
+  display: inline-flex;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.dt-rawdata-actions > button {
+  white-space: nowrap;
+}
+
+.dt-rawdata-snippet {
+  margin: 0;
+  padding: 10px 12px;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+  overflow: auto;
+  height: calc(4 * 1.5em + 20px);
+  background: var(--dt-bg-alt, rgba(0, 0, 0, 0.02));
+}

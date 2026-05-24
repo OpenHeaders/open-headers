@@ -114,6 +114,15 @@ export default function CodeViewer({
           automaticLayout: true,
           scrollBeyondLastLine: false,
           renderLineHighlight: 'none',
+          // Below-the-cursor placement avoids the flicker that happens
+          // when Monaco's content hover collides with the find widget
+          // (or the top of the viewport) and re-flips each frame.
+          hover: { above: false },
+          // Removes the empty extra-line gap Monaco reserves above line
+          // 1 to host the find widget. Find still slides in over the
+          // first line; the gap was a clipped-strip artifact above the
+          // find toolbar on narrow viewports.
+          find: { addExtraSpaceOnTop: false },
         }}
       />
     </div>

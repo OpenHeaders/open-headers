@@ -8,7 +8,7 @@ export type DetailSection =
   | 'cookies'
   | 'messages'
   | 'eventstream'
-  | 'har';
+  | 'rawdata';
 
 export type TabSource = 'network' | 'rules';
 

@@ -27,8 +27,8 @@ import InitiatorView from './detail/InitiatorView';
 import MessagesView, { hasWebSocketMessages } from './detail/MessagesView';
 import PayloadView from './detail/PayloadView';
 import PreviewView from './detail/PreviewView';
+import RawDataView from './detail/RawDataView';
 import TimingView from './detail/TimingView';
-import { JsonTree } from './JsonTree';
 import { ResponseBodyView } from './ResponseBodyView';
 
 interface InspectorDetailContentProps {
@@ -55,7 +55,7 @@ const PAYLOAD_SECTION: { key: DetailSection; label: string } = { key: 'payload',
 const COOKIES_SECTION: { key: DetailSection; label: string } = { key: 'cookies', label: 'Cookies' };
 const MESSAGES_SECTION: { key: DetailSection; label: string } = { key: 'messages', label: 'Messages' };
 const EVENTSTREAM_SECTION: { key: DetailSection; label: string } = { key: 'eventstream', label: 'EventStream' };
-const HAR_SECTION: { key: DetailSection; label: string } = { key: 'har', label: 'HAR' };
+const RAWDATA_SECTION: { key: DetailSection; label: string } = { key: 'rawdata', label: 'Raw Data' };
 
 function hasPayload(har: InspectorDetailContentProps['request']['harEntry']): boolean {
   if (har.request?.queryString && har.request.queryString.length > 0) return true;
@@ -186,7 +186,7 @@ export function InspectorDetailContent({
     { key: 'initiator', label: 'Initiator' },
     { key: 'timing', label: 'Timing' },
     ...(hasCookies(har) ? [COOKIES_SECTION] : []),
-    HAR_SECTION,
+    RAWDATA_SECTION,
   ];
 
   return (
@@ -267,11 +267,7 @@ export function InspectorDetailContent({
           <CookiesView request={request} pageOrigin={pageOrigin} onCreateHeaderRule={createHeaderRule} />
         )}
 
-        {section === 'har' && (
-          <div className="dt-panel-mono" style={{ fontSize: 12, lineHeight: 1.6 }}>
-            <JsonTree value={har} defaultExpandedDepth={2} />
-          </div>
-        )}
+        {section === 'rawdata' && <RawDataView request={request} requestHeaders={requestHeaders} />}
       </div>
 
       {section === 'preview' && <PreviewView request={request} />}

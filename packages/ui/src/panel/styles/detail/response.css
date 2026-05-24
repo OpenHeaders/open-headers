@@ -172,6 +172,18 @@
   outline: 1px solid rgba(255, 150, 0, 0.8);
 }
 
+/* Hide Monaco's action-item hover bubbles (the small "(⌥⌘L)" keyboard-
+ * shortcut popups attached to Find widget icons). Upstream bug:
+ * https://github.com/microsoft/monaco-editor/issues/5137 — Monaco
+ * hardcodes these to render ABOVE the icon with no public option to
+ * flip them, so in an embedded surface near the viewport top they
+ * clip and flicker. Aria-label keeps shortcuts available to screen
+ * readers; the visual bubble is the only thing we drop. */
+.workbench-hover,
+.workbench-hover-container {
+  display: none !important;
+}
+
 /* Preview content. */
 .dt-preview-image-container {
   flex: 1;
