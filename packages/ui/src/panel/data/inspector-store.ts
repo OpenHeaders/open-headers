@@ -510,15 +510,21 @@ export class InspectorStore {
     if (!this.recording) return;
 
     // 1a. HAR already present for this requestId → HAR wins, drop.
-    // 1b. Pending row present → promote in place (error is the terminal
-    //     resolution we were waiting for).
+    // 1b. Pending row present, OR a row promoted to `(unknown)` on the
+    //     last nav (`oh:abandoned`) → upgrade in place with the real
+    //     error code. The nav-promotion runs synchronously on the `nav`
+    //     event, but webRequest's `onErrorOccurred` for the
+    //     subresources Chrome canceled often arrives a beat later; we
+    //     keep the row at its original arrival position rather than
+    //     letting the lagging error event append a duplicate after the
+    //     new page's rows.
     if (err.requestId) {
       const existing = this.byRequestId.get(err.requestId);
       if (existing) {
         for (const idx of existing) {
           const e = this.entries[idx];
           if (!e) continue;
-          if (e.pending) {
+          if (e.pending || e.error?.code === 'oh:abandoned') {
             this.supersedePendingWithError(idx, err);
             return;
           }
@@ -684,11 +690,18 @@ export class InspectorStore {
   private supersedePendingWithError(idx: number, err: InspectorRequestError): void {
     const existing = this.entries[idx];
     const info = lookupErrorCode(err.error);
-    const ts = Date.parse(err.timestamp);
-    const safeTs = Number.isFinite(ts) ? ts : Date.now();
-    const startedDateTime = Number.isFinite(ts) ? err.timestamp : new Date(safeTs).toISOString();
 
-    const oldHarKey = harKey(existing.method, existing.url, existing.harEntry.startedDateTime);
+    // Preserve the original request-start instant (from `onBeforeRequest`)
+    // rather than adopting the error event's timestamp. The two clocks
+    // drift apart for cancellations triggered by navigation — the
+    // request started in the past, but `onErrorOccurred` fires "now",
+    // after the nav. Using the start time keeps the row sorting where
+    // Chrome's own Network panel places it (with the previous page's
+    // activity, not after the new nav row).
+    const startedDateTime = existing.harEntry.startedDateTime;
+    const safeTs = existing.timestamp;
+
+    const oldHarKey = harKey(existing.method, existing.url, startedDateTime);
     const newHarKey = harKey(err.method, err.url, startedDateTime);
     if (newHarKey !== oldHarKey) {
       this.removeFromHarKey(oldHarKey, idx);

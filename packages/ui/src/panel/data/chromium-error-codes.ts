@@ -49,8 +49,17 @@ const TABLE: Record<string, ErrorCodeInfo> = {
     description: 'The request was canceled — typically because the user navigated away or another script aborted it.',
   },
   'net::ERR_FAILED': {
-    reason: 'failed',
-    description: 'The request failed for an unspecified reason. Often a service-worker `respondWith` error or a network-stack edge case.',
+    // Chromium's catch-all "request failed for some reason we did not
+    // surface a specific code for". Chrome's own Network panel labels
+    // this exact case `(blocked:other)` — the underlying CDP
+    // `loadingFailed` event carries `blockedReason: 'other'` for many
+    // of the cases that fall here (subresource filter, COOP/COEP
+    // edges, certain CSP variants the network stack collapses to a
+    // generic failure). Mirror that label so cross-tool inspection
+    // matches; the raw code is still shown in the detail pane.
+    reason: 'blocked:other',
+    description:
+      "Chromium's catch-all `ERR_FAILED` — typically signals a request the browser refused to send for a policy reason it did not expose a specific code for (subresource filter, ad-block at a deeper layer, COOP/COEP, service-worker `respondWith` errors). Chrome's Network panel surfaces these as `(blocked:other)`.",
   },
   'net::ERR_CONNECTION_RESET': {
     reason: 'failed',

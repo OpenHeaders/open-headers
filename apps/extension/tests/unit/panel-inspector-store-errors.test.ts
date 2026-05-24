@@ -216,6 +216,39 @@ describe('InspectorStore pending lifecycle', () => {
     }
   });
 
+  it('upgrades a nav-promoted (unknown) row in place when the real error code arrives late', () => {
+    // Real-world ordering: user navigates while subresources are in
+    // flight. The `nav` message arrives first and flips pending rows
+    // to `(unknown)`; the corresponding `onErrorOccurred` events
+    // (typically `net::ERR_ABORTED`) arrive a beat later. We must
+    // upgrade the existing row in place — without this, the row goes
+    // (unknown) AND a duplicate `(canceled)` row appears at a later
+    // displayId, after the new page's nav row.
+    const store = new InspectorStore();
+    store.ingestRequestStarted(makeStart({ requestId: 'req-x', timestamp: '2026-05-25T00:00:00.000Z' }));
+    const beforeNav = store.getSnapshot().entries[0];
+    store.onNavigated('https://example.org/');
+    // Pending row is now (unknown).
+    expect(store.getSnapshot().entries[0].error?.code).toBe('oh:abandoned');
+    // Now the late error arrives.
+    store.ingestRequestError(
+      makeError({
+        requestId: 'req-x',
+        error: 'net::ERR_ABORTED',
+        timestamp: '2026-05-25T00:00:01.000Z',
+      }),
+    );
+    const { entries } = store.getSnapshot();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].error?.code).toBe('net::ERR_ABORTED');
+    expect(entries[0].error?.reason).toBe('canceled');
+    // Display position preserved.
+    expect(entries[0].displayId).toBe(beforeNav.displayId);
+    // Timestamp preserved (request-start, not error event time) so the
+    // row sorts before any post-nav activity.
+    expect(entries[0].timestamp).toBe(beforeNav.timestamp);
+  });
+
   it('drops the start event when a HAR already exists for the requestId', () => {
     const store = new InspectorStore();
     store.ingestHarEntry(makeHar('https://api.openheaders.io/data'), 'req-1');

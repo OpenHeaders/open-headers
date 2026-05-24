@@ -36,6 +36,11 @@ export type RequestState =
   | { kind: 'success'; status: number }
   | { kind: 'redirect'; status: number; location: string | null }
   | { kind: 'cached'; source: CacheSource; status: number }
+  /** A real HTTP response that the server returned with a 4xx or 5xx
+   *  code. Distinct from `failed` (net-stack failure, no HTTP exchange)
+   *  but rendered with the same red row styling — matches Chrome's
+   *  Network panel UX. */
+  | { kind: 'httpError'; status: number }
   | { kind: 'blocked'; reason: string }
   | { kind: 'failed'; reason: string };
 
@@ -95,15 +100,20 @@ export function classifyRequestState(entry: InspectorRequest): RequestState {
   if (!hasResponse(entry)) return { kind: 'pending' };
 
   // 2. Blocked — Chrome aborted before/at the wire.
+  //
+  //    Prefer `entry.error.reason` (the human-friendly mapping from
+  //    `chromium-error-codes.ts`) over the raw status text. Chromium's
+  //    `ERR_FAILED` maps to reason `'blocked:other'` to match Chrome's
+  //    Network panel, so the classifier sees it as blocked, not failed.
+  const blockedProbe = entry.error?.reason ?? statusText;
   if (statusCode === 0) {
-    if (isBlockedStatus(statusText)) return { kind: 'blocked', reason: statusText || 'blocked' };
-    // Non-blocked zero-status = some other wire failure.
-    return { kind: 'failed', reason: statusText || 'network error' };
+    if (isBlockedStatus(blockedProbe)) return { kind: 'blocked', reason: entry.error?.reason || statusText || 'blocked' };
+    return { kind: 'failed', reason: entry.error?.reason || statusText || 'network error' };
   }
   // Some recorders use a negative status as their "generic failure"
   // sentinel (no net-stack text, no HTTP response). Treat as failed.
-  if (statusCode < 0) return { kind: 'failed', reason: statusText || 'failed' };
-  if (isBlockedStatus(statusText)) return { kind: 'blocked', reason: statusText };
+  if (statusCode < 0) return { kind: 'failed', reason: entry.error?.reason || statusText || 'failed' };
+  if (isBlockedStatus(blockedProbe)) return { kind: 'blocked', reason: entry.error?.reason || statusText };
 
   // 3. Failed — status text reads as a net-stack error even with a
   //    non-zero synthetic status (rare but possible).
@@ -119,7 +129,15 @@ export function classifyRequestState(entry: InspectorRequest): RequestState {
     return { kind: 'redirect', status: statusCode, location };
   }
 
-  // 6. Default — real HTTP response.
+  // 6. HTTP error — 4xx (client error) or 5xx (server error). The
+  //    request itself succeeded at the network layer but the server
+  //    rejected it; visually treated as a failure to match Chrome's
+  //    "red row" convention.
+  if (statusCode >= 400) {
+    return { kind: 'httpError', status: statusCode };
+  }
+
+  // 7. Default — real HTTP response.
   return { kind: 'success', status: statusCode };
 }
 
@@ -135,6 +153,10 @@ export function rowStateClass(state: RequestState): string | null {
     case 'blocked':
       return 'dt-row--blocked';
     case 'failed':
+      return 'dt-row--failed';
+    case 'httpError':
+      // 4xx/5xx reuses the failed styling so the row is unmistakably
+      // flagged — same convention Chrome's Network panel applies.
       return 'dt-row--failed';
     case 'cached':
       return 'dt-row--cached';
@@ -163,6 +185,7 @@ export function statusText(state: RequestState, entry: InspectorRequest): string
     case 'cached':
     case 'redirect':
     case 'success':
+    case 'httpError':
       return String(state.status);
   }
 }
@@ -170,5 +193,5 @@ export function statusText(state: RequestState, entry: InspectorRequest): string
 /** True when the state should count for "this request warrants a
  *  second look" triage — red rows in Chrome-speak. */
 export function isErrorState(state: RequestState): boolean {
-  return state.kind === 'blocked' || state.kind === 'failed';
+  return state.kind === 'blocked' || state.kind === 'failed' || state.kind === 'httpError';
 }

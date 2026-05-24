@@ -75,6 +75,9 @@ function failureTier(entry: InspectorRequest): number {
   switch (state.kind) {
     case 'blocked':
     case 'failed':
+    case 'httpError':
+      // 4xx/5xx joins the leading triage tier — they're the rows the
+      // user most needs to inspect, alongside net-stack failures.
       return 0;
     case 'pending':
       return 1;
