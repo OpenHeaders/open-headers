@@ -184,7 +184,15 @@ function sortCompare(a: InspectorRequest, b: InspectorRequest, target: SortTarge
   } else {
     cmp = String(va).localeCompare(String(vb));
   }
-  return dir === 'asc' ? cmp : -cmp;
+  if (cmp !== 0) return dir === 'asc' ? cmp : -cmp;
+  // Tiebreak by request-start order regardless of the active sort
+  // direction. Many resources start in the same millisecond (typical
+  // HTML/CSS bundle dispatch) — without a stable tiebreak the affected
+  // rows shuffle every render and the visual order disagrees with
+  // Chrome's, which always falls back to start-order on ties. The
+  // direction stays ascending here so a `desc` sort still presents
+  // each tie group in arrival order rather than reversing it.
+  return a.arrivalIndex - b.arrivalIndex;
 }
 
 interface CellContext {
