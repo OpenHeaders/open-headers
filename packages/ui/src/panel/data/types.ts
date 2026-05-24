@@ -205,8 +205,17 @@ export function isErrorRequest(
   return r.error != null;
 }
 
-/** Type guard — row is a pending placeholder (request in flight, no
- *  HAR or error yet). HAR export skips these. */
+/**
+ * Type guard — row has not yet been resolved by any signal.
+ *
+ * A row stays "pending" while its final status is unknown. Once
+ * `webRequest.onCompleted` arrives we know the status code and the row
+ * is no longer pending for UI purposes (the classifier renders the
+ * real status). The `pending` flag itself stays set as an internal
+ * "still synthetic, replace me with a real HAR if one arrives" marker
+ * — but HAR export should include those rows, so the predicate
+ * gates on absent `statusCode` rather than the raw flag.
+ */
 export function isPendingRequest(r: InspectorRequest): boolean {
-  return r.pending === true;
+  return r.pending === true && r.statusCode == null;
 }

@@ -902,10 +902,16 @@ export class InspectorStore {
       ...(event.fromCache ? { _fromCache: 'memory' as const } : {}),
     };
 
-    const { pending: _drop, ...rest } = existing;
-    void _drop;
+    // Keep `pending: true` set — the row is *resolved* (we now know the
+    // status code) but still *synthetic*: a later HAR carries authoritative
+    // headers, cookies, body, and timing. Leaving `pending` on means the
+    // HAR-supersession check in `ingestHarEntry` still recognises this row
+    // as upgradable. The classifier already returns `success` (not
+    // `pending`) once `statusCode` is set, so the UI renders 200 — only
+    // `isPendingRequest()` keeps treating it as a placeholder until the
+    // real HAR lands.
     this.entries[target] = {
-      ...rest,
+      ...existing,
       harEntry: synthHar,
       statusCode: event.statusCode,
       statusText,
@@ -925,6 +931,12 @@ export class InspectorStore {
     for (let i = 0; i < this.entries.length; i++) {
       const e = this.entries[i];
       if (!e.pending) continue;
+      // Rows already resolved by `onCompleted` (statusCode is set, but
+      // `pending` lingers as the "still synthetic, upgrade me with a
+      // HAR" marker) are not actually unresolved — leave them alone so
+      // they keep their real status code and still accept a later HAR
+      // supersession.
+      if (e.statusCode != null) continue;
       const { pending: _drop, ...rest } = e;
       void _drop;
       this.entries[i] = {
