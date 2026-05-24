@@ -229,6 +229,13 @@ export class InspectorStore {
     if (this.byHarKey.has(key)) return;
 
     const pageref = this.pageTracker.ensurePage(har.startedDateTime);
+    // The document fetch is the closest proxy for "actual nav start":
+    // its `startedDateTime` is set by Chrome at request-start, which
+    // beats our nav-message arrival timestamp by ~100ms. Pin the
+    // page's start to it so exports line up with Chrome's HAR.
+    if (har._resourceType === 'document') {
+      this.pageTracker.adoptEarliestStart(har.startedDateTime);
+    }
     const entry: InspectorRequest = {
       id: key,
       harEntry: har,

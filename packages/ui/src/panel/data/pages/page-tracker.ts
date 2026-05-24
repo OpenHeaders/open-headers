@@ -36,11 +36,21 @@ export class PageTracker {
     return id;
   }
 
-  /** Update the current (most-recent) page with nav-timing data. */
+  /**
+   * Update the current page with nav-timing data. If no page exists
+   * (nav-timing landed before any `nav` event or HAR entry), lazy-
+   * create one so the URL + timings aren't lost — common when the
+   * panel opens after a navigation has already happened.
+   *
+   * `title` is only filled from `pageOrigin` when it's currently empty:
+   * the `nav` message carries the full URL (with trailing slash and
+   * path) and is the better source — Chrome's HAR uses the full URL,
+   * not the origin.
+   */
   attachNavTiming(timing: InspectorNavTiming): void {
+    if (this.pages.length === 0) this.startPage(new Date().toISOString(), timing.pageOrigin ?? null);
     const current = this.pages[this.pages.length - 1];
-    if (!current) return;
-    if (timing.pageOrigin) current.title = timing.pageOrigin;
+    if (!current.title && timing.pageOrigin) current.title = timing.pageOrigin;
     if (timing.dclMs != null) current.pageTimings.onContentLoad = timing.dclMs;
     if (timing.loadMs != null) current.pageTimings.onLoad = timing.loadMs;
   }
@@ -54,6 +64,22 @@ export class PageTracker {
     const current = this.pages[this.pages.length - 1];
     if (current) return current.id;
     return this.startPage(startedDateTime);
+  }
+
+  /**
+   * Adopt an earlier `startedDateTime` for the current page when a
+   * matching entry (typically the document fetch) reports one closer
+   * to the actual navigation start. Our `nav` message arrives after
+   * the browser already began the request, so the message-arrival
+   * timestamp drifts ~100ms past Chrome's HAR. Pinning to the earliest
+   * entry timestamp closes that gap.
+   */
+  adoptEarliestStart(startedDateTime: string): void {
+    const current = this.pages[this.pages.length - 1];
+    if (!current) return;
+    if (startedDateTime < current.startedDateTime) {
+      current.startedDateTime = startedDateTime;
+    }
   }
 
   /** Snapshot of all known pages in arrival order. */
