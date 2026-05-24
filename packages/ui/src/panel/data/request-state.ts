@@ -146,15 +146,20 @@ export function rowStateClass(state: RequestState): string | null {
 }
 
 /** Status-column text for a state. Covers non-HTTP states (pending,
- *  blocked, failed) that don't have a real status code. */
+ *  blocked, failed) that don't have a real status code.
+ *
+ *  When `entry.error` is set (the row came from
+ *  `chrome.webRequest.onErrorOccurred`), prefer the looked-up `reason`
+ *  over the raw `net::ERR_*` / `NS_ERROR_*` code — matches Chrome's
+ *  Network tab which shows `(blocked)`, `(canceled)`, `(failed)` etc. */
 export function statusText(state: RequestState, entry: InspectorRequest): string {
   switch (state.kind) {
     case 'pending':
       return '(pending)';
     case 'blocked':
-      return `(${entry.statusText || 'blocked'})`;
+      return `(${entry.error?.reason || entry.statusText || 'blocked'})`;
     case 'failed':
-      return `(${entry.statusText || 'failed'})`;
+      return `(${entry.error?.reason || entry.statusText || 'failed'})`;
     case 'cached':
     case 'redirect':
     case 'success':

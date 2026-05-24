@@ -19,9 +19,10 @@ import {
   buildReplaceUrlPartDraftFromRequest,
   handOffRuleDraft,
 } from '../data/rule-draft-bridge';
-import type { InspectorRequest } from '../data/types';
+import { type InspectorRequest, isErrorRequest } from '../data/types';
 import type { RulesByUid } from '../data/use-rules-lookup';
 import CookiesView from './detail/CookiesView';
+import { ErrorView } from './detail/ErrorView';
 import EventStreamView, { isEventStream } from './detail/EventStreamView';
 import { HeadersView } from './detail/HeadersView';
 import InitiatorView from './detail/InitiatorView';
@@ -93,6 +94,24 @@ export function InspectorDetailContent({
   const rootRef = useRef<HTMLDivElement>(null);
   const tabBodyRef = useRef<HTMLDivElement>(null);
   const { localCollections } = useRules();
+
+  // Error rows have no HAR response to attribute, no timing to chart,
+  // no cookies to enrich — short-circuit before doing any of that work
+  // and render the dedicated single-pane view.
+  if (isErrorRequest(request)) {
+    return (
+      <div ref={rootRef} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <div className="dt-detail-sections" role="tablist">
+          <button type="button" role="tab" className="dt-detail-section-tab" aria-selected>
+            Error
+          </button>
+        </div>
+        <div className="dt-tab-body" ref={tabBodyRef}>
+          <ErrorView request={request} />
+        </div>
+      </div>
+    );
+  }
 
   const ruleCollectionByUid = useMemo<Map<string, string | undefined>>(() => {
     const m = new Map<string, string | undefined>();
