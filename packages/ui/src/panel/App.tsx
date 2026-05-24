@@ -239,6 +239,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
     danglingFires,
     navTiming,
     initiatorChildren,
+    pages,
     clear: clearStore,
     preserveLog,
     setPreserveLog,
@@ -453,6 +454,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
         <InspectorDetailContent
           request={request}
           rulesByUid={rulesByUid}
+          pages={pages}
           getInitiatorChildren={getInitiatorChildren}
           getConnectionReuse={getConnectionReuse}
           getRepeatStats={getRepeatStats}
@@ -478,6 +480,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
       entries,
       groups,
       rulesByUid,
+      pages,
       getInitiatorChildren,
       getConnectionReuse,
       getRepeatStats,
@@ -506,18 +509,21 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   const finishTime = useMemo(() => formatFinishTime(entries), [entries]);
 
   // ── HAR export helpers ─────────────────────────────────────
-  const downloadHar = useCallback((subset: readonly InspectorRequest[], filename: string) => {
-    const json = serializeHar(subset);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 0);
-  }, []);
+  const downloadHar = useCallback(
+    (subset: readonly InspectorRequest[], filename: string) => {
+      const json = serializeHar(subset, pages);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    },
+    [pages],
+  );
 
   const handleSaveAllAsHar = useCallback(() => {
     downloadHar(entries, suggestHarFilename(entries));
@@ -532,13 +538,13 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   );
 
   const handleCopyAllAsHar = useCallback(async () => {
-    const json = serializeHar(entries);
+    const json = serializeHar(entries, pages);
     try {
       await navigator.clipboard.writeText(json);
     } catch {
       // Best-effort — clipboard may be gated in some DevTools contexts.
     }
-  }, [entries]);
+  }, [entries, pages]);
 
   // ── Tool window content ────────────────────────────────────
   const renderToolWindow = useCallback(

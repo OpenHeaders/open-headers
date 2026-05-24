@@ -48,6 +48,7 @@
 
 import type { InspectorHarBody, InspectorHarEntry, InspectorNavTiming, RequestRecord } from '@openheaders/core/types';
 import { resolveInitiatorRootUrl } from './initiator-graph';
+import { type InspectorPage, PageTracker } from './pages';
 import { type DanglingFire, type InspectorFire, type InspectorRequest, mergeFireEvidence } from './types';
 
 /** Window for promoting a URL+window dangling fire to a newly-arrived HAR entry. */
@@ -90,6 +91,13 @@ export interface InspectorSnapshot {
    * consumers correctly invalidate.
    */
   initiatorChildren: ReadonlyMap<string, readonly string[]>;
+  /**
+   * Tracked navigations, in arrival order. Each `InspectorPage` mirrors
+   * the HAR 1.2 `log.pages[i]` shape and is referenced from
+   * `InspectorRequest.pageref`. Used by the HAR exporter to emit a
+   * proper page-grouped HAR (matching Chrome's wire format).
+   */
+  pages: readonly InspectorPage[];
   version: number;
 }
 
@@ -125,11 +133,13 @@ export class InspectorStore {
   private displayCounter = 1;
   /** Cached snapshot — rebuilt only on bump() so useSyncExternalStore is stable. */
   private navTiming: InspectorNavTiming | null = null;
+  private pageTracker = new PageTracker();
   private snapshot: InspectorSnapshot = {
     entries: [],
     danglingFires: [],
     navTiming: null,
     initiatorChildren: new Map(),
+    pages: [],
     version: 0,
   };
   /**
@@ -166,6 +176,13 @@ export class InspectorStore {
   getRecording = (): boolean => this.recording;
 
   clear = (): void => {
+    this.clearInternal();
+    this.bump();
+  };
+
+  /** Inner clear without bump — composed by `clear` and `onNavigated`
+   *  (which needs to clear + start a new page + bump exactly once). */
+  private clearInternal(): void {
     this.entries = [];
     this.danglingFires = [];
     this.byHarKey.clear();
@@ -174,24 +191,25 @@ export class InspectorStore {
     this.firesByEntry.clear();
     this.danglingFireKeys.clear();
     this.displayCounter = 1;
-    this.bump();
-  };
+    this.pageTracker.reset();
+  }
 
   /** Called when the inspected window navigates. Respects preserve-log. */
-  onNavigated = (): void => {
+  onNavigated = (url?: string): void => {
     // Nav timing is scoped to the *current* page; reset regardless of
     // preserve-log so the status bar doesn't keep showing DCL/Load
     // numbers from a previous navigation.
     this.navTiming = null;
-    if (this.preserveLog) {
-      this.bump();
-      return;
+    if (!this.preserveLog) {
+      this.clearInternal();
     }
-    this.clear();
+    this.pageTracker.startPage(new Date().toISOString(), url ?? null);
+    this.bump();
   };
 
   setNavTiming = (timing: InspectorNavTiming): void => {
     this.navTiming = timing;
+    this.pageTracker.attachNavTiming(timing);
     this.bump();
   };
 
@@ -210,6 +228,7 @@ export class InspectorStore {
     // already landed via a live broadcast, so silently coalesce dupes.
     if (this.byHarKey.has(key)) return;
 
+    const pageref = this.pageTracker.ensurePage(har.startedDateTime);
     const entry: InspectorRequest = {
       id: key,
       harEntry: har,
@@ -226,6 +245,7 @@ export class InspectorStore {
       fires: [],
       arrivalIndex: this.arrivalCounter++,
       displayId: this.displayCounter++,
+      pageref,
     };
 
     // Sweep dangling fires that should attach to this new entry.
@@ -439,6 +459,7 @@ export class InspectorStore {
       danglingFires: this.danglingFires.slice(),
       navTiming: this.navTiming,
       initiatorChildren: new Map(this.initiatorChildren),
+      pages: this.pageTracker.list().slice(),
       version: this.version,
     };
     for (const listener of this.listeners) {

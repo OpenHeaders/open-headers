@@ -30,6 +30,7 @@ export interface UseInspectorResult {
   danglingFires: readonly ReturnType<InspectorStore['getSnapshot']>['danglingFires'][number][];
   navTiming: ReturnType<InspectorStore['getSnapshot']>['navTiming'];
   initiatorChildren: ReturnType<InspectorStore['getSnapshot']>['initiatorChildren'];
+  pages: ReturnType<InspectorStore['getSnapshot']>['pages'];
   tabId: number | null;
   ready: boolean;
   preserveLog: boolean;
@@ -70,7 +71,7 @@ export function useInspector(): UseInspectorResult {
           store.ingestHarBody(msg.body);
           break;
         case 'nav':
-          store.onNavigated();
+          store.onNavigated(msg.url);
           break;
         case 'nav-timing':
           store.setNavTiming(msg.timing);
@@ -136,6 +137,7 @@ export function useInspector(): UseInspectorResult {
     danglingFires: snapshot.danglingFires,
     navTiming: snapshot.navTiming,
     initiatorChildren: snapshot.initiatorChildren,
+    pages: snapshot.pages,
     tabId: tabIdRef.current,
     ready: readyRef.current,
     preserveLog: store.getPreserveLog(),

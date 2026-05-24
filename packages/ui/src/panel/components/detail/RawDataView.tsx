@@ -20,6 +20,7 @@ import { Popover } from 'antd';
 import { useMemo, useState } from 'react';
 import { buildHarFromEntries } from '../../data/har-export';
 import type { AnnotatedHeader } from '../../data/header-attribution';
+import type { InspectorPage } from '../../data/pages';
 import type { InspectorRequest } from '../../data/types';
 import { maybeRedactHeaderValue } from './raw-data/redact';
 import { generateSnippet, SNIPPET_FORMATS, type SnippetFormat } from './raw-data/snippet-generators';
@@ -40,6 +41,11 @@ interface RawDataViewProps {
    *  rule-mode toggle is flipped — the post-rule snippet reads directly
    *  off `request.harEntry`. */
   requestHeaders: readonly AnnotatedHeader[];
+  /** All known pages from the store. We only include the entry's own
+   *  `pageref` in the exported envelope (single-entry HAR shouldn't
+   *  carry pages it has no entries for) — the projection happens
+   *  inside `buildHarFromEntries`. */
+  pages: readonly InspectorPage[];
 }
 
 interface HeaderPair {
@@ -74,7 +80,7 @@ function applyRedaction(headers: readonly HeaderPair[], redact: boolean): Header
   return headers.map((h) => ({ name: h.name, value: maybeRedactHeaderValue(h.name, h.value, true) }));
 }
 
-export default function RawDataView({ request, requestHeaders }: RawDataViewProps) {
+export default function RawDataView({ request, requestHeaders, pages }: RawDataViewProps) {
   const har = request.harEntry;
 
   const [format, setFormat] = useState<SnippetFormat>('curl-unix');
@@ -112,8 +118,10 @@ export default function RawDataView({ request, requestHeaders }: RawDataViewProp
         format,
         includeHeaders,
         includeBody,
+        pageref: request.pageref,
+        pages,
       }),
-    [har, headersForSnippet, format, includeHeaders, includeBody],
+    [har, headersForSnippet, format, includeHeaders, includeBody, request.pageref, pages],
   );
 
   const copy = async (): Promise<void> => {
@@ -127,7 +135,10 @@ export default function RawDataView({ request, requestHeaders }: RawDataViewProp
     }
   };
 
-  const harJson = useMemo(() => JSON.stringify(buildHarFromEntries([har]), null, 2), [har]);
+  const harJson = useMemo(
+    () => JSON.stringify(buildHarFromEntries([{ harEntry: har, pageref: request.pageref }], pages), null, 2),
+    [har, request.pageref, pages],
+  );
 
   const copyHar = async (): Promise<void> => {
     try {

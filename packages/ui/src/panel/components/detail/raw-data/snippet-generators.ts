@@ -9,6 +9,7 @@
 
 import type { InspectorHarEntry } from '@openheaders/core/types';
 import { buildHarFromEntries } from '../../../data/har-export';
+import type { InspectorPage } from '../../../data/pages';
 
 export type SnippetFormat =
   | 'curl-unix'
@@ -49,6 +50,10 @@ export interface SnippetOptions {
   format: SnippetFormat;
   includeHeaders: boolean;
   includeBody: boolean;
+  /** Only consulted by the `har` format — used to emit `log.pages[]`
+   *  + entry `pageref` so the snippet matches Chrome's exported HAR. */
+  pageref?: string;
+  pages?: readonly InspectorPage[];
 }
 
 export function generateSnippet(opts: SnippetOptions): string {
@@ -226,7 +231,7 @@ function httpRaw({ harEntry, headers, includeHeaders, includeBody }: SnippetOpti
 
 // ── HAR (single entry, wrapped in the same log envelope as "Copy all as HAR") ──
 
-function harSingleEntry({ harEntry, headers, includeHeaders, includeBody }: SnippetOptions): string {
+function harSingleEntry({ harEntry, headers, includeHeaders, includeBody, pageref, pages }: SnippetOptions): string {
   const cloned: InspectorHarEntry = JSON.parse(JSON.stringify(harEntry)) as InspectorHarEntry;
   if (cloned.request) {
     cloned.request.headers = includeHeaders ? headers.map((h) => ({ name: h.name, value: h.value })) : [];
@@ -234,5 +239,5 @@ function harSingleEntry({ harEntry, headers, includeHeaders, includeBody }: Snip
       cloned.request.postData = { ...cloned.request.postData, text: '', params: [] };
     }
   }
-  return JSON.stringify(buildHarFromEntries([cloned]), null, 2);
+  return JSON.stringify(buildHarFromEntries([{ harEntry: cloned, pageref }], pages ?? []), null, 2);
 }

@@ -8,6 +8,7 @@ import { useRules } from '@openheaders/ui/shared/hooks/useRules';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { type AnnotatedHeader, attributeHeaders } from '../data/header-attribution';
 import type { DetailSection } from '../data/inspector-tab';
+import type { InspectorPage } from '../data/pages';
 import { findRuleCollectionId } from '../data/rule-collection';
 import {
   buildBlockDraftFromRequest,
@@ -34,6 +35,7 @@ import { ResponseBodyView } from './ResponseBodyView';
 interface InspectorDetailContentProps {
   request: InspectorRequest;
   rulesByUid: RulesByUid;
+  pages: readonly InspectorPage[];
   getInitiatorChildren: (url: string) => readonly InspectorRequest[];
   getConnectionReuse: (request: InspectorRequest) => import('../data/connection-reuse').ConnectionReuseInfo;
   getRepeatStats: (request: InspectorRequest) => import('../data/timing-repeats').RepeatStats | null;
@@ -70,6 +72,7 @@ function hasCookies(har: InspectorDetailContentProps['request']['harEntry']): bo
 export function InspectorDetailContent({
   request,
   rulesByUid,
+  pages,
   getInitiatorChildren,
   getConnectionReuse,
   getRepeatStats,
@@ -267,7 +270,9 @@ export function InspectorDetailContent({
           <CookiesView request={request} pageOrigin={pageOrigin} onCreateHeaderRule={createHeaderRule} />
         )}
 
-        {section === 'rawdata' && <RawDataView request={request} requestHeaders={requestHeaders} />}
+        {section === 'rawdata' && (
+          <RawDataView request={request} requestHeaders={requestHeaders} pages={pages} />
+        )}
       </div>
 
       {section === 'preview' && <PreviewView request={request} />}

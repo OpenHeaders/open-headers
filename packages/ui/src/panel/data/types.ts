@@ -166,4 +166,7 @@ export interface InspectorRequest {
   arrivalIndex: number;
   /** Sequential display id (1, 2, 3, ...) — reset on clear. Shown in UI. */
   displayId: number;
+  /** HAR `pageref` — id of the `InspectorPage` this entry belongs to.
+   *  Populated by the store via `PageTracker.ensurePage` at ingest. */
+  pageref?: string;
 }
