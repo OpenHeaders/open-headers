@@ -944,12 +944,15 @@ export class InspectorStore {
     for (let i = 0; i < this.entries.length; i++) {
       const e = this.entries[i];
       if (!e.pending) continue;
-      // Rows already resolved by `onCompleted` (statusCode is set, but
-      // `pending` lingers as the "still synthetic, upgrade me with a
-      // HAR" marker) are not actually unresolved — leave them alone so
-      // they keep their real status code and still accept a later HAR
-      // supersession.
-      if (e.statusCode != null) continue;
+      // Note: we DON'T skip rows that have a statusCode from
+      // `onCompleted`. A `pending: true` row at nav-time is one the
+      // devtools-API HAR pipeline never resolved, regardless of
+      // whether the webRequest-side completion event arrived. The
+      // body is missing (Preview would show an infinite skeleton),
+      // and that mismatch — webRequest reports 200, devtools reports
+      // nothing — is exactly the case Chrome's Network panel labels
+      // `(unknown)`. We follow the same convention so users don't
+      // click into a "200" row and find no response data.
       const { pending: _drop, ...rest } = e;
       void _drop;
       this.entries[i] = {

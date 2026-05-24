@@ -249,6 +249,35 @@ describe('InspectorStore pending lifecycle', () => {
     expect(entries[0].timestamp).toBe(beforeNav.timestamp);
   });
 
+  it('promotes pending rows to (unknown) on nav even if onCompleted set a statusCode', () => {
+    // Real-world: page's polling JS fires a request that the network
+    // stack completes (onCompleted returns 200) BUT the devtools HAR
+    // pipeline never resolves it — the page was being unloaded. Chrome
+    // labels this `(unknown)`; we must too, because without a HAR
+    // there's no response body to render (Preview shows an infinite
+    // skeleton) — showing 200 misleads the user.
+    const store = new InspectorStore();
+    store.ingestRequestStarted(makeStart({ requestId: 'req-poll' }));
+    store.ingestRequestCompleted({
+      requestId: 'req-poll',
+      url: 'https://api.openheaders.io/data',
+      method: 'GET',
+      resourceType: 'xmlhttprequest',
+      statusCode: 200,
+      statusLine: 'HTTP/1.1 200 OK',
+      timestamp: '2026-05-25T00:00:00.500Z',
+      fromCache: false,
+    });
+    // Row currently shows 200 (synthetic, pending: true).
+    expect(store.getSnapshot().entries[0].statusCode).toBe(200);
+    // User navigates away — the response was never delivered to the page.
+    store.onNavigated('https://example.org/');
+    const { entries } = store.getSnapshot();
+    expect(entries[0].statusCode).toBe(0);
+    expect(entries[0].error?.reason).toBe('unknown');
+    expect(isPendingRequest(entries[0])).toBe(false);
+  });
+
   it('drops the start event when a HAR already exists for the requestId', () => {
     const store = new InspectorStore();
     store.ingestHarEntry(makeHar('https://api.openheaders.io/data'), 'req-1');
