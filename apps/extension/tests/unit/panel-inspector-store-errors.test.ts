@@ -107,6 +107,33 @@ describe('InspectorStore.ingestRequestError', () => {
     expect(entries).toHaveLength(2);
   });
 
+  it('keeps two HAR entries that share startedDateTime but have distinct requestIds', () => {
+    // Real Chrome HAR exports occasionally contain two genuine
+    // concurrent fetches that start within the same millisecond
+    // (observed on price-api.crypto.com polling). Both rows must
+    // survive the replay-dedup; their unique `id`s keep React keys
+    // stable.
+    const store = new InspectorStore();
+    const url = 'https://price-api.crypto.com/meta/v2/all-tokens';
+    const startedDateTime = '2026-05-24T21:04:54.656Z';
+    store.ingestHarEntry(makeHar(url, startedDateTime), 'req-a');
+    store.ingestHarEntry(makeHar(url, startedDateTime), 'req-b');
+    const { entries } = store.getSnapshot();
+    expect(entries).toHaveLength(2);
+    expect(entries[0].id).not.toBe(entries[1].id);
+    expect(entries[0].chromeRequestId).toBe('req-a');
+    expect(entries[1].chromeRequestId).toBe('req-b');
+  });
+
+  it('still dedupes true replays (same requestId, same key) on flush', () => {
+    const store = new InspectorStore();
+    const har = makeHar('https://api.openheaders.io/a', '2026-05-24T10:00:00.000Z');
+    store.ingestHarEntry(har, 'req-1');
+    // Simulate the port flush replaying the same entry.
+    store.ingestHarEntry(har, 'req-1');
+    expect(store.getSnapshot().entries).toHaveLength(1);
+  });
+
   it('supersedes an existing error row when a HAR arrives for the same requestId', () => {
     const store = new InspectorStore();
     store.ingestRequestError(makeError({ requestId: 'req-1' }));

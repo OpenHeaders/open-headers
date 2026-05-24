@@ -96,6 +96,16 @@ function harKey(method: string, url: string, startedDateTime: string): string {
   return `${method}|${url}|${startedDateTime}`;
 }
 
+/** Mint a unique entry id from a `harKey`. The first entry for a given
+ *  key uses the bare key; subsequent entries (true concurrent fetches
+ *  starting in the same ms) get disambiguated by requestId or the
+ *  store's arrival counter so React `key` collisions don't occur. */
+function mintEntryId(key: string, existingCount: number, chromeRequestId: string | undefined, arrivalIndex: number): string {
+  if (existingCount === 0) return key;
+  if (chromeRequestId) return `${key}|${chromeRequestId}`;
+  return `${key}#${arrivalIndex}`;
+}
+
 /** Identity key for error-row dedup — drops `startedDateTime` so
  *  multiple webRequest retries (each with their own timestamp) collapse
  *  onto one row. See `ERROR_DEDUP_WINDOW_MS`. */
@@ -162,8 +172,24 @@ export interface InspectorSnapshot {
 export class InspectorStore {
   private entries: InspectorRequest[] = [];
   private danglingFires: DanglingFire[] = [];
-  /** Index for matching har-body follow-up messages to their entry. */
-  private byHarKey: Map<string, number> = new Map();
+  /**
+   * Index by `harKey` (= `method|url|startedDateTime`). Stores a list
+   * of entry indices per key rather than a single index because two
+   * genuinely-different concurrent fetches can share the same
+   * millisecond-precision `startedDateTime` — Chrome's own HAR exports
+   * occasionally contain such pairs (see e.g. parallel polling on
+   * `price-api.crypto.com/meta/v2/all-tokens`). `chromeRequestId` is
+   * the unique-per-request join key; we only treat a new HAR as a
+   * replay-dup when the existing entry shares that id too.
+   *
+   * Order within a list is arrival order — `ingestHarBody` picks the
+   * oldest entry without a body (FIFO) when multiple entries share a
+   * key. har-body messages identify their entry only by
+   * `(method, url, startedDateTime)`, so the body→entry attachment in
+   * the rare collision case isn't disambiguated by the bridge; FIFO
+   * is the best we can do without changing the devtools_page protocol.
+   */
+  private byHarKey: Map<string, number[]> = new Map();
   /**
    * Reverse index for the requestId → entry-index join.
    *
@@ -291,10 +317,22 @@ export class InspectorStore {
     const ts = harStartTime(har);
     const key = harKey(method, url, har.startedDateTime);
 
-    // De-dupe: Chrome forwards a HAR entry exactly once per request.
-    // The port's flush-on-connect can replay buffered entries that
-    // already landed via a live broadcast, so silently coalesce dupes.
-    if (this.byHarKey.has(key)) return;
+    // De-dupe: Chrome forwards a HAR entry exactly once per request,
+    // but the port's flush-on-connect can replay a HAR that already
+    // landed via a live broadcast. A true replay is one where the
+    // existing entry shares the same `chromeRequestId` (or both lack
+    // one). Entries that share only `(method, url, startedDateTime)`
+    // — two genuine concurrent fetches starting in the same ms — are
+    // NOT duplicates; they must each get their own row.
+    const existingForKey = this.byHarKey.get(key);
+    if (existingForKey) {
+      for (const existingIdx of existingForKey) {
+        const existing = this.entries[existingIdx];
+        if (!existing) continue;
+        if (chromeRequestId && existing.chromeRequestId === chromeRequestId) return;
+        if (!chromeRequestId && !existing.chromeRequestId) return;
+      }
+    }
 
     // HAR-supersedes-error: if an error row was previously created for
     // this requestId (the error fired first, then the HAR materialized
@@ -321,8 +359,10 @@ export class InspectorStore {
     if (har._resourceType === 'document') {
       this.pageTracker.adoptEarliestStart(har.startedDateTime);
     }
+    const arrivalIndex = this.arrivalCounter++;
+    const entryId = mintEntryId(key, existingForKey?.length ?? 0, chromeRequestId, arrivalIndex);
     const entry: InspectorRequest = {
-      id: key,
+      id: entryId,
       harEntry: har,
       chromeRequestId,
       method,
@@ -335,7 +375,7 @@ export class InspectorStore {
       duration: har.time,
       resourceType: har._resourceType,
       fires: [],
-      arrivalIndex: this.arrivalCounter++,
+      arrivalIndex,
       displayId: this.displayCounter++,
       pageref,
     };
@@ -389,10 +429,11 @@ export class InspectorStore {
     }
     this.danglingFires = kept;
     entry.fires = promoted;
-    this.firesByEntry.set(key, seenForThisEntry);
+    this.firesByEntry.set(entryId, seenForThisEntry);
 
     const idx = this.entries.push(entry) - 1;
-    this.byHarKey.set(key, idx);
+    if (existingForKey) existingForKey.push(idx);
+    else this.byHarKey.set(key, [idx]);
     if (chromeRequestId) {
       const list = this.byRequestId.get(chromeRequestId);
       if (list) list.push(idx);
@@ -405,7 +446,7 @@ export class InspectorStore {
     const parentUrl = resolveInitiatorRootUrl(har);
     if (parentUrl && parentUrl !== url) {
       const prev = this.initiatorChildren.get(parentUrl);
-      this.initiatorChildren.set(parentUrl, prev ? [...prev, key] : [key]);
+      this.initiatorChildren.set(parentUrl, prev ? [...prev, entryId] : [entryId]);
     }
 
     this.bump();
@@ -468,11 +509,12 @@ export class InspectorStore {
 
     // 3. New row.
     const key = harKey(err.method, err.url, startedDateTime);
-    if (this.byHarKey.has(key)) return;
-
+    const existingForKey = this.byHarKey.get(key);
     const pageref = this.pageTracker.ensurePage(startedDateTime);
+    const arrivalIndex = this.arrivalCounter++;
+    const entryId = mintEntryId(key, existingForKey?.length ?? 0, err.requestId || undefined, arrivalIndex);
     const entry: InspectorRequest = {
-      id: key,
+      id: entryId,
       harEntry: synthesizeErrorHarEntry(err, startedDateTime),
       chromeRequestId: err.requestId || undefined,
       method: err.method,
@@ -482,14 +524,15 @@ export class InspectorStore {
       statusText: err.error,
       resourceType: err.resourceType,
       fires: [],
-      arrivalIndex: this.arrivalCounter++,
+      arrivalIndex,
       displayId: this.displayCounter++,
       pageref,
       error: { code: err.error, reason: info.reason },
     };
 
     const idx = this.entries.push(entry) - 1;
-    this.byHarKey.set(key, idx);
+    if (existingForKey) existingForKey.push(idx);
+    else this.byHarKey.set(key, [idx]);
     this.errorRowByUrl.set(urlKey, idx);
     if (err.requestId) {
       const list = this.byRequestId.get(err.requestId);
@@ -497,6 +540,24 @@ export class InspectorStore {
       else this.byRequestId.set(err.requestId, [idx]);
     }
     this.bump();
+  }
+
+  /** Remove `idx` from `byHarKey[key]`'s list; drop the key entirely
+   *  when the list goes empty. */
+  private removeFromHarKey(key: string, idx: number): void {
+    const list = this.byHarKey.get(key);
+    if (!list) return;
+    const pos = list.indexOf(idx);
+    if (pos >= 0) list.splice(pos, 1);
+    if (list.length === 0) this.byHarKey.delete(key);
+  }
+
+  /** Append `idx` to `byHarKey[key]`'s list, creating the list when
+   *  absent. Order within the list is arrival order. */
+  private addToHarKey(key: string, idx: number): void {
+    const list = this.byHarKey.get(key);
+    if (list) list.push(idx);
+    else this.byHarKey.set(key, [idx]);
   }
 
   /**
@@ -514,14 +575,22 @@ export class InspectorStore {
     startedDateTime: string,
   ): void {
     const existing = this.entries[idx];
-    const newId = harKey(err.method, err.url, startedDateTime);
+    const oldHarKey = harKey(existing.method, existing.url, existing.harEntry.startedDateTime);
+    const newHarKey = harKey(err.method, err.url, startedDateTime);
 
-    // Re-key `byHarKey` only when the id actually changed — avoids
-    // briefly deleting + re-adding the same key (which would lose any
-    // `ingestHarBody` lookups racing with this update).
+    // Re-key `byHarKey` only when the bare key actually changed.
+    if (newHarKey !== oldHarKey) {
+      this.removeFromHarKey(oldHarKey, idx);
+      this.addToHarKey(newHarKey, idx);
+    }
+
+    // Entry id may also need to change — if we just took the spot of
+    // the first entry under the new key, the bare key is fine; otherwise
+    // a disambiguating suffix is added.
+    const newList = this.byHarKey.get(newHarKey);
+    const positionInNewList = newList ? newList.indexOf(idx) : 0;
+    const newId = mintEntryId(newHarKey, positionInNewList, err.requestId || undefined, existing.arrivalIndex);
     if (newId !== existing.id) {
-      this.byHarKey.delete(existing.id);
-      this.byHarKey.set(newId, idx);
       // `firesByEntry` is keyed by entry id — migrate the dedup set so
       // a fire that already attached to this row stays deduped.
       const fires = this.firesByEntry.get(existing.id);
@@ -573,11 +642,17 @@ export class InspectorStore {
     const method = har.request?.method ?? existing.method;
     const url = har.request?.url ?? existing.url;
     const ts = harStartTime(har);
-    const newId = harKey(method, url, har.startedDateTime);
+    const oldHarKey = harKey(existing.method, existing.url, existing.harEntry.startedDateTime);
+    const newHarKey = harKey(method, url, har.startedDateTime);
 
+    if (newHarKey !== oldHarKey) {
+      this.removeFromHarKey(oldHarKey, idx);
+      this.addToHarKey(newHarKey, idx);
+    }
+    const newList = this.byHarKey.get(newHarKey);
+    const positionInNewList = newList ? newList.indexOf(idx) : 0;
+    const newId = mintEntryId(newHarKey, positionInNewList, chromeRequestId, existing.arrivalIndex);
     if (newId !== existing.id) {
-      this.byHarKey.delete(existing.id);
-      this.byHarKey.set(newId, idx);
       const fires = this.firesByEntry.get(existing.id);
       if (fires) {
         this.firesByEntry.delete(existing.id);
@@ -628,10 +703,23 @@ export class InspectorStore {
 
   ingestHarBody(body: InspectorHarBody): void {
     const key = harKey(body.method, body.url, body.startedDateTime);
-    const idx = this.byHarKey.get(key);
-    if (idx == null) return;
-    const entry = this.entries[idx];
-    this.entries[idx] = {
+    const candidates = this.byHarKey.get(key);
+    if (!candidates || candidates.length === 0) return;
+    // har-body messages identify their entry only by
+    // `(method, url, startedDateTime)`. When two genuine concurrent
+    // fetches collide on that triple, we attach the body to the oldest
+    // entry without one (FIFO). Chrome emits bodies in entry-arrival
+    // order, so this matches in practice.
+    let target = -1;
+    for (const candidate of candidates) {
+      if (this.entries[candidate]?.responseBody == null) {
+        target = candidate;
+        break;
+      }
+    }
+    if (target === -1) return;
+    const entry = this.entries[target];
+    this.entries[target] = {
       ...entry,
       responseBody: body.content,
       responseBodyEncoding: body.encoding,
