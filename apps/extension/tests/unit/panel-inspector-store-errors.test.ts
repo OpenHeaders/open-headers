@@ -62,4 +62,60 @@ describe('InspectorStore.ingestRequestError', () => {
     const { entries } = store.getSnapshot();
     expect(entries[0].error?.reason).toBe('failed');
   });
+
+  it('consolidates retries of the same (method, url) onto one row', () => {
+    const store = new InspectorStore();
+    // First attempt: Chrome's net stack reports a generic failure.
+    store.ingestRequestError(
+      makeError({
+        requestId: 'req-1',
+        timestamp: '2026-05-24T10:00:00.000Z',
+        error: 'net::ERR_FAILED',
+      }),
+    );
+    // Retry on a NEW requestId roughly 300ms later: now blocked by the
+    // ad blocker. Chrome's UI consolidates these to one row — so should we.
+    store.ingestRequestError(
+      makeError({
+        requestId: 'req-2',
+        timestamp: '2026-05-24T10:00:00.300Z',
+        error: 'net::ERR_BLOCKED_BY_CLIENT',
+      }),
+    );
+    const { entries } = store.getSnapshot();
+    expect(entries).toHaveLength(1);
+    // Latest attempt wins — `(blocked)` supersedes `(failed)`.
+    expect(entries[0].error?.code).toBe('net::ERR_BLOCKED_BY_CLIENT');
+    expect(entries[0].error?.reason).toBe('blocked');
+    // Display position is stable across the supersession.
+    expect(entries[0].displayId).toBe(1);
+  });
+
+  it('treats errors outside the dedup window as separate rows', () => {
+    const store = new InspectorStore();
+    store.ingestRequestError(
+      makeError({ requestId: 'req-1', timestamp: '2026-05-24T10:00:00.000Z' }),
+    );
+    store.ingestRequestError(
+      makeError({
+        requestId: 'req-2',
+        timestamp: '2026-05-24T10:00:30.000Z',
+        error: 'net::ERR_BLOCKED_BY_CLIENT',
+      }),
+    );
+    const { entries } = store.getSnapshot();
+    expect(entries).toHaveLength(2);
+  });
+
+  it('supersedes an existing error row when a HAR arrives for the same requestId', () => {
+    const store = new InspectorStore();
+    store.ingestRequestError(makeError({ requestId: 'req-1' }));
+    // Now the HAR pipeline emits a complete entry for the same request.
+    store.ingestHarEntry(makeHar('https://blocked.openheaders.io/ad.js'), 'req-1');
+    const { entries } = store.getSnapshot();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].error).toBeUndefined();
+    expect(entries[0].statusCode).toBe(200);
+    expect(entries[0].displayId).toBe(1);
+  });
 });

@@ -64,6 +64,26 @@ const FIRE_TO_HAR_WINDOW_MS = 5_000;
 /** Window for attaching a URL+window arriving fire to a recent HAR entry. */
 const HAR_TO_FIRE_WINDOW_MS = 5_000;
 
+/**
+ * Window within which two `onErrorOccurred` events for the same
+ * `(method, url)` are treated as retries of one logical user-visible
+ * request rather than two distinct rows.
+ *
+ * Chrome's net stack can fire the event multiple times on different
+ * `requestId`s for a single logical request — e.g. an initial attempt
+ * trips `ERR_FAILED`, the stack retries, the retry then trips
+ * `ERR_BLOCKED_BY_CLIENT`. Chrome's own Network tab consolidates these
+ * to one row; we mirror that by replacing the existing error row in
+ * place (preserving `displayId` / `arrivalIndex`) with the latest
+ * attempt's data, so the user sees the most authoritative error code
+ * for that URL.
+ *
+ * The window is generous (5 s) because retry backoff can push the
+ * second attempt that far out; outside the window, two errors on the
+ * same URL are genuinely separate user-visible requests.
+ */
+const ERROR_DEDUP_WINDOW_MS = 5_000;
+
 /** Maximum dangling fires retained — bounded so a rule loop can't OOM the panel. */
 const MAX_DANGLING_FIRES = 5_000;
 
@@ -74,6 +94,37 @@ function harStartTime(entry: InspectorHarEntry): number {
 
 function harKey(method: string, url: string, startedDateTime: string): string {
   return `${method}|${url}|${startedDateTime}`;
+}
+
+/** Identity key for error-row dedup — drops `startedDateTime` so
+ *  multiple webRequest retries (each with their own timestamp) collapse
+ *  onto one row. See `ERROR_DEDUP_WINDOW_MS`. */
+function errorUrlKey(method: string, url: string): string {
+  return `${method}|${url}`;
+}
+
+/** Build the minimal `InspectorHarEntry` shell for an error row. No
+ *  `response` — the request never produced one. Carries enough request
+ *  detail that components reading `harEntry.request.{method,url}` don't
+ *  need to branch on `error`. */
+function synthesizeErrorHarEntry(err: InspectorRequestError, startedDateTime: string): InspectorHarEntry {
+  return {
+    startedDateTime,
+    time: 0,
+    request: {
+      method: err.method,
+      url: err.url,
+      httpVersion: '',
+      headers: [],
+      queryString: [],
+      cookies: [],
+      headersSize: -1,
+      bodySize: -1,
+    },
+    timings: { blocked: 0, dns: 0, connect: 0, send: 0, wait: 0, receive: 0 },
+    _resourceType: err.resourceType,
+    ...(err.initiator ? { _initiator: { type: 'other', url: err.initiator } } : {}),
+  };
 }
 
 function fireDedupKey(ruleUid: string, requestId: string | undefined, t: number): string {
@@ -124,6 +175,15 @@ export class InspectorStore {
    * mis-attach to the `https://b/` redirect target hop.
    */
   private byRequestId: Map<string, number[]> = new Map();
+  /**
+   * Secondary index for error-row dedup: `${method}|${url}` → idx of
+   * the most-recent error row for that URL. Lets `ingestRequestError`
+   * detect Chrome's retry-on-new-requestId pattern without a linear
+   * scan, and replace in place so the user sees one row per logical
+   * request. Pruned when the row's window expires or when the row is
+   * superseded by a real HAR entry. See `ERROR_DEDUP_WINDOW_MS`.
+   */
+  private errorRowByUrl: Map<string, number> = new Map();
   /**
    * Inverted initiator index: parent URL → entry ids whose `_initiator`
    * attributes them to that URL. Clone-on-write per parent so snapshot
@@ -194,6 +254,7 @@ export class InspectorStore {
     this.danglingFires = [];
     this.byHarKey.clear();
     this.byRequestId.clear();
+    this.errorRowByUrl.clear();
     this.initiatorChildren.clear();
     this.firesByEntry.clear();
     this.danglingFireKeys.clear();
@@ -234,6 +295,23 @@ export class InspectorStore {
     // The port's flush-on-connect can replay buffered entries that
     // already landed via a live broadcast, so silently coalesce dupes.
     if (this.byHarKey.has(key)) return;
+
+    // HAR-supersedes-error: if an error row was previously created for
+    // this requestId (the error fired first, then the HAR materialized
+    // — a known race when Chromium emits both events), the real HAR
+    // entry is more useful. Replace the error row in place so its
+    // `displayId` and `arrivalIndex` are preserved (no visual jump).
+    if (chromeRequestId) {
+      const existingList = this.byRequestId.get(chromeRequestId);
+      if (existingList) {
+        for (const existingIdx of existingList) {
+          if (this.entries[existingIdx]?.error) {
+            this.supersedeErrorWithHar(existingIdx, har, chromeRequestId);
+            return;
+          }
+        }
+      }
+    }
 
     const pageref = this.pageTracker.ensurePage(har.startedDateTime);
     // The document fetch is the closest proxy for "actual nav start":
@@ -342,55 +420,60 @@ export class InspectorStore {
    * stamps `entry.error` so the detail pane + HAR exporter can
    * branch on it.
    *
-   * Dedup: if a row with the same `chromeRequestId` already exists
-   * (the host did manage to emit a HAR for it), drop the error — the
-   * HAR row is the more useful representation.
+   * Dedup precedence:
+   *   1. If a real HAR row already exists for this `requestId`, drop —
+   *      the HAR pipeline already accounted for the request.
+   *   2. If an error row already exists for the same `(method, url)`
+   *      within `ERROR_DEDUP_WINDOW_MS`, treat the incoming event as a
+   *      retry of the same logical request and replace in place
+   *      (keeping `displayId` / `arrivalIndex` stable). This is the
+   *      common case where Chrome's net stack retries a blocked
+   *      request internally and fires the event on a new `requestId`.
+   *   3. Otherwise append a new row.
    */
   ingestRequestError(err: InspectorRequestError): void {
     if (!this.recording) return;
 
-    // Drop if a HAR row already exists for this requestId — the HAR
-    // pipeline already accounted for it, our row would just duplicate.
+    // 1. HAR already present for this requestId → HAR wins.
     if (err.requestId) {
       const existing = this.byRequestId.get(err.requestId);
-      if (existing && existing.length > 0) return;
+      if (existing) {
+        for (const idx of existing) {
+          if (!this.entries[idx]?.error) return;
+        }
+      }
     }
 
     const info = lookupErrorCode(err.error);
     const ts = Date.parse(err.timestamp);
     const safeTs = Number.isFinite(ts) ? ts : Date.now();
     const startedDateTime = Number.isFinite(ts) ? err.timestamp : new Date(safeTs).toISOString();
+    const urlKey = errorUrlKey(err.method, err.url);
 
-    // Synthetic HAR shell — enough structure for code that reads off
-    // `harEntry.request.{method,url}` to keep working without branches.
-    // No `response` — the classifier reads that as "blocked/failed
-    // before the wire", which is exactly what happened.
-    const synthHar: InspectorHarEntry = {
-      startedDateTime,
-      time: 0,
-      request: {
-        method: err.method,
-        url: err.url,
-        httpVersion: '',
-        headers: [],
-        queryString: [],
-        cookies: [],
-        headersSize: -1,
-        bodySize: -1,
-      },
-      timings: { blocked: 0, dns: 0, connect: 0, send: 0, wait: 0, receive: 0 },
-      _resourceType: err.resourceType,
-      ...(err.initiator ? { _initiator: { type: 'other', url: err.initiator } } : {}),
-    };
+    // 2. Retry consolidation. Chrome's UI does this too — without it
+    //    our count overshoots Chrome's by the number of internally-
+    //    retried failures (gtm.js → ERR_FAILED then ERR_BLOCKED_BY_CLIENT
+    //    is the canonical example).
+    const recentIdx = this.errorRowByUrl.get(urlKey);
+    if (recentIdx != null) {
+      const recent = this.entries[recentIdx];
+      if (recent?.error && Math.abs(safeTs - recent.timestamp) <= ERROR_DEDUP_WINDOW_MS) {
+        this.replaceErrorRow(recentIdx, err, info, safeTs, startedDateTime);
+        return;
+      }
+      // Stale — outside the window. Drop the index entry so the next
+      // error for this URL is treated as a fresh row.
+      this.errorRowByUrl.delete(urlKey);
+    }
 
+    // 3. New row.
     const key = harKey(err.method, err.url, startedDateTime);
     if (this.byHarKey.has(key)) return;
 
     const pageref = this.pageTracker.ensurePage(startedDateTime);
-
     const entry: InspectorRequest = {
       id: key,
-      harEntry: synthHar,
+      harEntry: synthesizeErrorHarEntry(err, startedDateTime),
       chromeRequestId: err.requestId || undefined,
       method: err.method,
       url: err.url,
@@ -407,11 +490,139 @@ export class InspectorStore {
 
     const idx = this.entries.push(entry) - 1;
     this.byHarKey.set(key, idx);
+    this.errorRowByUrl.set(urlKey, idx);
     if (err.requestId) {
       const list = this.byRequestId.get(err.requestId);
       if (list) list.push(idx);
       else this.byRequestId.set(err.requestId, [idx]);
     }
+    this.bump();
+  }
+
+  /**
+   * Replace an existing error row in place with a fresh error event
+   * for the same logical request. Preserves `arrivalIndex`, `displayId`,
+   * and `pageref` so the UI doesn't reflow. Re-keys `byHarKey` (since
+   * `startedDateTime` is part of the id) and updates `byRequestId` if
+   * the retry surfaced on a new `requestId`.
+   */
+  private replaceErrorRow(
+    idx: number,
+    err: InspectorRequestError,
+    info: ReturnType<typeof lookupErrorCode>,
+    safeTs: number,
+    startedDateTime: string,
+  ): void {
+    const existing = this.entries[idx];
+    const newId = harKey(err.method, err.url, startedDateTime);
+
+    // Re-key `byHarKey` only when the id actually changed — avoids
+    // briefly deleting + re-adding the same key (which would lose any
+    // `ingestHarBody` lookups racing with this update).
+    if (newId !== existing.id) {
+      this.byHarKey.delete(existing.id);
+      this.byHarKey.set(newId, idx);
+      // `firesByEntry` is keyed by entry id — migrate the dedup set so
+      // a fire that already attached to this row stays deduped.
+      const fires = this.firesByEntry.get(existing.id);
+      if (fires) {
+        this.firesByEntry.delete(existing.id);
+        this.firesByEntry.set(newId, fires);
+      }
+    }
+
+    if (err.requestId !== existing.chromeRequestId) {
+      if (existing.chromeRequestId) {
+        const oldList = this.byRequestId.get(existing.chromeRequestId);
+        if (oldList) {
+          const pos = oldList.indexOf(idx);
+          if (pos >= 0) oldList.splice(pos, 1);
+          if (oldList.length === 0) this.byRequestId.delete(existing.chromeRequestId);
+        }
+      }
+      if (err.requestId) {
+        const list = this.byRequestId.get(err.requestId);
+        if (list) list.push(idx);
+        else this.byRequestId.set(err.requestId, [idx]);
+      }
+    }
+
+    this.entries[idx] = {
+      ...existing,
+      id: newId,
+      harEntry: synthesizeErrorHarEntry(err, startedDateTime),
+      chromeRequestId: err.requestId || undefined,
+      timestamp: safeTs,
+      statusText: err.error,
+      resourceType: err.resourceType,
+      error: { code: err.error, reason: info.reason },
+    };
+    this.bump();
+  }
+
+  /**
+   * Replace an error row in place with a real HAR entry. Used when an
+   * `onErrorOccurred` event landed first but the HAR pipeline later
+   * emitted a complete entry for the same request — a rare race in
+   * Chromium where both events fire for one request. The HAR is the
+   * more useful representation, so we keep the row's display position
+   * but swap in the full data and clear the `error` field.
+   */
+  private supersedeErrorWithHar(idx: number, har: InspectorHarEntry, chromeRequestId: string): void {
+    const existing = this.entries[idx];
+    const method = har.request?.method ?? existing.method;
+    const url = har.request?.url ?? existing.url;
+    const ts = harStartTime(har);
+    const newId = harKey(method, url, har.startedDateTime);
+
+    if (newId !== existing.id) {
+      this.byHarKey.delete(existing.id);
+      this.byHarKey.set(newId, idx);
+      const fires = this.firesByEntry.get(existing.id);
+      if (fires) {
+        this.firesByEntry.delete(existing.id);
+        this.firesByEntry.set(newId, fires);
+      }
+    }
+
+    // Drop from the error-dedup map — this row is no longer an error.
+    this.errorRowByUrl.delete(errorUrlKey(existing.method, existing.url));
+
+    // The error row may have been stored under a different requestId
+    // (or none) when it was synthesized; ensure the HAR's requestId is
+    // mapped to this idx without duplicating.
+    if (existing.chromeRequestId && existing.chromeRequestId !== chromeRequestId) {
+      const oldList = this.byRequestId.get(existing.chromeRequestId);
+      if (oldList) {
+        const pos = oldList.indexOf(idx);
+        if (pos >= 0) oldList.splice(pos, 1);
+        if (oldList.length === 0) this.byRequestId.delete(existing.chromeRequestId);
+      }
+    }
+    const list = this.byRequestId.get(chromeRequestId);
+    if (list) {
+      if (!list.includes(idx)) list.push(idx);
+    } else {
+      this.byRequestId.set(chromeRequestId, [idx]);
+    }
+
+    const { error: _drop, ...rest } = existing;
+    void _drop;
+    this.entries[idx] = {
+      ...rest,
+      id: newId,
+      harEntry: har,
+      chromeRequestId,
+      method,
+      url,
+      timestamp: ts,
+      statusCode: har.response?.status,
+      statusText: har.response?.statusText,
+      mimeType: har.response?.content?.mimeType,
+      responseSize: har.response?.content?.size,
+      duration: har.time,
+      resourceType: har._resourceType ?? existing.resourceType,
+    };
     this.bump();
   }
 
