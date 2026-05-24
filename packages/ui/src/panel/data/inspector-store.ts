@@ -46,7 +46,14 @@
  * toggle (surfaced in the panel toolbar) disables the clear.
  */
 
-import type { InspectorHarBody, InspectorHarEntry, InspectorNavTiming, RequestRecord } from '@openheaders/core/types';
+import type {
+  InspectorHarBody,
+  InspectorHarEntry,
+  InspectorNavTiming,
+  InspectorRequestError,
+  RequestRecord,
+} from '@openheaders/core/types';
+import { lookupErrorCode } from './chromium-error-codes';
 import { resolveInitiatorRootUrl } from './initiator-graph';
 import { type InspectorPage, PageTracker } from './pages';
 import { type DanglingFire, type InspectorFire, type InspectorRequest, mergeFireEvidence } from './types';
@@ -323,6 +330,88 @@ export class InspectorStore {
       this.initiatorChildren.set(parentUrl, prev ? [...prev, key] : [key]);
     }
 
+    this.bump();
+  }
+
+  /**
+   * Ingest a blocked / canceled / failed request reported by
+   * `chrome.webRequest.onErrorOccurred`. Synthesizes a minimal
+   * `InspectorHarEntry` shell (no `response`, `statusCode: 0`,
+   * `statusText: <error code>`) so the existing request-state
+   * classifier naturally bins the row as `blocked`/`failed`, and
+   * stamps `entry.error` so the detail pane + HAR exporter can
+   * branch on it.
+   *
+   * Dedup: if a row with the same `chromeRequestId` already exists
+   * (the host did manage to emit a HAR for it), drop the error — the
+   * HAR row is the more useful representation.
+   */
+  ingestRequestError(err: InspectorRequestError): void {
+    if (!this.recording) return;
+
+    // Drop if a HAR row already exists for this requestId — the HAR
+    // pipeline already accounted for it, our row would just duplicate.
+    if (err.requestId) {
+      const existing = this.byRequestId.get(err.requestId);
+      if (existing && existing.length > 0) return;
+    }
+
+    const info = lookupErrorCode(err.error);
+    const ts = Date.parse(err.timestamp);
+    const safeTs = Number.isFinite(ts) ? ts : Date.now();
+    const startedDateTime = Number.isFinite(ts) ? err.timestamp : new Date(safeTs).toISOString();
+
+    // Synthetic HAR shell — enough structure for code that reads off
+    // `harEntry.request.{method,url}` to keep working without branches.
+    // No `response` — the classifier reads that as "blocked/failed
+    // before the wire", which is exactly what happened.
+    const synthHar: InspectorHarEntry = {
+      startedDateTime,
+      time: 0,
+      request: {
+        method: err.method,
+        url: err.url,
+        httpVersion: '',
+        headers: [],
+        queryString: [],
+        cookies: [],
+        headersSize: -1,
+        bodySize: -1,
+      },
+      timings: { blocked: 0, dns: 0, connect: 0, send: 0, wait: 0, receive: 0 },
+      _resourceType: err.resourceType,
+      ...(err.initiator ? { _initiator: { type: 'other', url: err.initiator } } : {}),
+    };
+
+    const key = harKey(err.method, err.url, startedDateTime);
+    if (this.byHarKey.has(key)) return;
+
+    const pageref = this.pageTracker.ensurePage(startedDateTime);
+
+    const entry: InspectorRequest = {
+      id: key,
+      harEntry: synthHar,
+      chromeRequestId: err.requestId || undefined,
+      method: err.method,
+      url: err.url,
+      timestamp: safeTs,
+      statusCode: 0,
+      statusText: err.error,
+      resourceType: err.resourceType,
+      fires: [],
+      arrivalIndex: this.arrivalCounter++,
+      displayId: this.displayCounter++,
+      pageref,
+      error: { code: err.error, reason: info.reason },
+    };
+
+    const idx = this.entries.push(entry) - 1;
+    this.byHarKey.set(key, idx);
+    if (err.requestId) {
+      const list = this.byRequestId.get(err.requestId);
+      if (list) list.push(idx);
+      else this.byRequestId.set(err.requestId, [idx]);
+    }
     this.bump();
   }
 

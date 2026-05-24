@@ -115,6 +115,34 @@ export interface InspectorNavTiming {
 }
 
 /**
+ * A blocked/canceled/failed network request the host's HAR pipeline
+ * never sees. `chrome.webRequest.onErrorOccurred` is the canonical
+ * signal — Chrome's own Network tab uses it to render rows that
+ * `devtools.network.onRequestFinished` skips. Surfaced as inline rows
+ * in the panel so our request count matches Chrome's.
+ *
+ * `requestId` joins to the in-flight observations the same way the HAR
+ * variant's `chromeRequestId` does. The error is emitted before the
+ * (now never-arriving) HAR, so the join key is observation-side only.
+ */
+export interface InspectorRequestError {
+  requestId: string;
+  url: string;
+  method: string;
+  /** Chrome's resourceType (e.g. 'xmlhttprequest', 'image'). */
+  resourceType: string;
+  /** ISO timestamp of the error event. */
+  timestamp: string;
+  /** Raw Chromium error code, e.g. `net::ERR_BLOCKED_BY_CLIENT`. */
+  error: string;
+  /** Page initiating the request. */
+  initiator?: string;
+  /** True when response headers had already been received before the
+   *  error fired (rare; the request technically reached the wire). */
+  fromCache: boolean;
+}
+
+/**
  * Wire format for messages posted over the inspector port. Discriminated
  * union keyed by `type`. The panel's data layer parses incoming messages
  * against this shape.
@@ -130,6 +158,7 @@ export type InspectorPortMessage =
   | { type: 'fire'; record: RequestRecord; authoritative: boolean }
   | { type: 'har'; entry: InspectorHarEntry; chromeRequestId?: string }
   | { type: 'har-body'; body: InspectorHarBody }
+  | { type: 'request-error'; error: InspectorRequestError }
   | { type: 'nav'; url: string }
   | { type: 'nav-timing'; timing: InspectorNavTiming }
   | { type: 'ready'; tabId: number };

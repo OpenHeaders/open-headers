@@ -201,6 +201,7 @@ export type {
   InspectorHarEntry,
   InspectorNavTiming,
   InspectorPortMessage,
+  InspectorRequestError,
 } from './devtools-inspector';
 
 // ── Workspace import dedup ─────────────────────────────────────────

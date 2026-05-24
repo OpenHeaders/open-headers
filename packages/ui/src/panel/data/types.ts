@@ -169,4 +169,29 @@ export interface InspectorRequest {
   /** HAR `pageref` — id of the `InspectorPage` this entry belongs to.
    *  Populated by the store via `PageTracker.ensurePage` at ingest. */
   pageref?: string;
+  /**
+   * Set when the row represents a `chrome.webRequest.onErrorOccurred`
+   * event — a request blocked, canceled, or failed before producing a
+   * HAR-shaped response. The host's HAR pipeline never sees these, so
+   * the panel synthesizes a minimal `harEntry` shell (no `response`,
+   * `statusCode: 0`) and stamps the real Chromium/Firefox error code
+   * here. HAR exports skip these rows so the file stays consumer-
+   * compatible with Chrome's HAR. The detail pane swaps in an
+   * error-only view when this is set.
+   */
+  error?: {
+    /** Raw error code from the host (`net::ERR_*` on Chromium,
+     *  `NS_ERROR_*` on Firefox). */
+    code: string;
+    /** Short human-readable summary, e.g. `blocked`, `failed`,
+     *  `canceled`. Drives the status-column text. */
+    reason: string;
+  };
+}
+
+/** Type guard — row is an error placeholder, not a real HAR row. */
+export function isErrorRequest(
+  r: InspectorRequest,
+): r is InspectorRequest & { error: NonNullable<InspectorRequest['error']> } {
+  return r.error != null;
 }

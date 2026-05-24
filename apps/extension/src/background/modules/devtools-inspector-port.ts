@@ -59,10 +59,12 @@ import type {
   InspectorHarEntry,
   InspectorNavTiming,
   InspectorPortMessage,
+  InspectorRequestError,
   RequestRecord,
 } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import { buildRuleSnapshot } from '@openheaders/oracle/rule-engine/rule-snapshot';
+import { subscribeRequestErrors } from './devtools-inspector-errors';
 import { isTracked, startTracking, stopTracking, subscribeFires, subscribeRequestEvents } from './tab-telemetry';
 
 export type {
@@ -99,9 +101,14 @@ type BufferedHarMessage =
 
 type BufferedFireMessage = { type: 'fire'; record: RequestRecord; authoritative: boolean };
 
+type BufferedErrorMessage = { type: 'request-error'; error: InspectorRequestError };
+
 /** Cap on per-tab ring buffers — keeps memory bounded on long DevTools sessions. */
 const HAR_BUFFER_MAX = 500;
 const FIRE_BUFFER_MAX = 1000;
+/** Cap on per-tab error buffer — pathological pages (CSP-misconfigured,
+ *  ad-blocker storms) can fire thousands of `onErrorOccurred` events. */
+const ERROR_BUFFER_MAX = 1000;
 /** Max age for an in-flight (requestId, t) entry before we drop it as stale. */
 const IN_FLIGHT_MAX_AGE_MS = 60_000;
 /**
@@ -138,10 +145,12 @@ interface TabSession {
   inspectorPorts: Set<chrome.runtime.Port>;
   harBuffer: BufferedHarMessage[];
   fireBuffer: BufferedFireMessage[];
+  errorBuffer: BufferedErrorMessage[];
   /** Per-URL FIFO of in-flight webRequest observations, head = oldest. */
   inFlightByUrl: Map<string, InFlightEntry[]>;
   unsubscribeFires: () => void;
   unsubscribeRequestEvents: () => void;
+  unsubscribeRequestErrors: () => void;
 }
 
 const sessions: Map<number, TabSession> = new Map();
@@ -279,6 +288,12 @@ function handleHarBodyMessage(session: TabSession, body: InspectorHarBody): void
   pushBounded(session.harBuffer, outgoing, HAR_BUFFER_MAX);
 }
 
+function handleRequestError(session: TabSession, error: InspectorRequestError): void {
+  const msg: BufferedErrorMessage = { type: 'request-error', error };
+  if (session.inspectorPorts.size > 0) broadcastToInspectorPorts(session, msg);
+  pushBounded(session.errorBuffer, msg, ERROR_BUFFER_MAX);
+}
+
 function flushBuffers(session: TabSession, port: chrome.runtime.Port): void {
   // HAR entries first, so a fire that references a request whose HAR was
   // already buffered finds its row on arrival. Fires carry their own
@@ -304,6 +319,13 @@ function flushBuffers(session: TabSession, port: chrome.runtime.Port): void {
       return;
     }
   }
+  for (const msg of session.errorBuffer) {
+    try {
+      port.postMessage(msg satisfies InspectorPortMessage);
+    } catch {
+      return;
+    }
+  }
 }
 
 function ensureSession(tabId: number): TabSession {
@@ -320,9 +342,11 @@ function ensureSession(tabId: number): TabSession {
     inspectorPorts: new Set(),
     harBuffer: [],
     fireBuffer: [],
+    errorBuffer: [],
     inFlightByUrl: new Map(),
     unsubscribeFires: () => {},
     unsubscribeRequestEvents: () => {},
+    unsubscribeRequestErrors: () => {},
   };
   // Subscribe BEFORE returning so any fire/observation that happens between
   // session creation and the caller's first message is captured.
@@ -331,6 +355,9 @@ function ensureSession(tabId: number): TabSession {
   });
   session.unsubscribeRequestEvents = subscribeRequestEvents(tabId, (event) => {
     recordInFlight(session, event.url, event.requestId, event.timestamp);
+  });
+  session.unsubscribeRequestErrors = subscribeRequestErrors(tabId, {
+    send: (error) => handleRequestError(session, error),
   });
   sessions.set(tabId, session);
   logger.debug(
@@ -347,6 +374,7 @@ function releaseSession(tabId: number): void {
   if (session.refCount > 0) return;
   session.unsubscribeFires();
   session.unsubscribeRequestEvents();
+  session.unsubscribeRequestErrors();
   stopTracking(tabId, trackingReason(tabId));
   sessions.delete(tabId);
   logger.debug('DevtoolsInspectorPort', `Session closed for tab ${tabId}`);
@@ -458,6 +486,7 @@ export const __internals = {
     for (const session of sessions.values()) {
       session.unsubscribeFires();
       session.unsubscribeRequestEvents();
+      session.unsubscribeRequestErrors();
     }
     sessions.clear();
     portsSetupDone = false;
