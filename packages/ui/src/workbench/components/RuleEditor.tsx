@@ -54,7 +54,7 @@ import { ConflictsProvider, type FieldConflictsApi } from '@openheaders/ui/share
 import { useEditorShell, useReprime } from '@openheaders/ui/shared/editor-shell';
 import { stableStringify } from '@openheaders/ui/shared/forms';
 import { applyRuleCreate, applyRulePublish } from '@openheaders/ui/shared/sync/rule-write-client';
-import { buildDraftConditions } from '../draft-conditions';
+import { buildDraftConditions, buildDraftHeaders } from '../draft-conditions';
 import { useInspectorNav } from '../hooks/useInspectorNav';
 import type { RuleDraftData } from '../hooks/useSaveRuleFlow';
 import { formatString } from '../languages/prettier';
@@ -397,9 +397,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
         // editor's "jump to response tab" heuristic fires.
         const targetsResponse = !!initialDraft.responseHeaders?.length;
         const targetsRequest = !!initialDraft.requestHeaders?.length;
-        if (initialDraft.requestHeaders) overlay.requestHeaders = initialDraft.requestHeaders;
+        if (initialDraft.requestHeaders) overlay.requestHeaders = buildDraftHeaders(initialDraft.requestHeaders);
         else if (targetsResponse) overlay.requestHeaders = [];
-        if (initialDraft.responseHeaders) overlay.responseHeaders = initialDraft.responseHeaders;
+        if (initialDraft.responseHeaders) overlay.responseHeaders = buildDraftHeaders(initialDraft.responseHeaders);
         else if (targetsRequest) overlay.responseHeaders = [];
       } else if (initialDraft.type === 'redirect') {
         if (initialDraft.redirectTo) overlay.redirectTo = initialDraft.redirectTo;
@@ -765,9 +765,9 @@ const RuleEditor: React.FC<RuleEditorProps> = ({
     if (initialDraft.type === 'header') {
       const targetsResponse = !!initialDraft.responseHeaders?.length;
       const targetsRequest = !!initialDraft.requestHeaders?.length;
-      if (initialDraft.requestHeaders) overlay.requestHeaders = initialDraft.requestHeaders;
+      if (initialDraft.requestHeaders) overlay.requestHeaders = buildDraftHeaders(initialDraft.requestHeaders);
       else if (targetsResponse) overlay.requestHeaders = [];
-      if (initialDraft.responseHeaders) overlay.responseHeaders = initialDraft.responseHeaders;
+      if (initialDraft.responseHeaders) overlay.responseHeaders = buildDraftHeaders(initialDraft.responseHeaders);
       else if (targetsRequest) overlay.responseHeaders = [];
     } else if (initialDraft.type === 'redirect') {
       if (initialDraft.redirectTo) overlay.redirectTo = initialDraft.redirectTo;

@@ -126,16 +126,20 @@ export function HeadersView({
     return out;
   }, [requestHeaders, responseHeaders, rulesByUid]);
 
+  // Insights run against the post-rule effective headers, not the raw
+  // HAR — once the user adds a rule that fixes the nudged condition
+  // (e.g. "Add a baseline CSP"), the insight should go quiet because
+  // the thing it was nudging for is now present in the live response.
   const insights = useMemo<readonly HeaderInsight[]>(
     () =>
       computeHeaderInsights({
         url: request.url,
         mimeType: request.mimeType ?? null,
         statusCode: request.statusCode ?? null,
-        requestHeaders: request.harEntry.request?.headers ?? [],
-        responseHeaders: request.harEntry.response?.headers ?? [],
+        requestHeaders,
+        responseHeaders,
       }),
-    [request.url, request.mimeType, request.statusCode, request.harEntry],
+    [request.url, request.mimeType, request.statusCode, requestHeaders, responseHeaders],
   );
 
   const footprint = useMemo(
