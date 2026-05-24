@@ -24,8 +24,27 @@ export class PageTracker {
     this.counter = 1;
   }
 
-  /** Start a new page. Returns the new page id. */
+  /**
+   * Start a new page. Returns the new page id.
+   *
+   * Race-handling: if the current page is a "ghost" (lazy-created from
+   * an early entry, no title or timings yet), absorb it instead of
+   * pushing a fresh page. This handles the common pattern where a
+   * navigation's document fetch arrives at the panel before the `nav`
+   * message does — we'd otherwise emit a titleless page_N followed by
+   * page_N+1 for the same navigation, splitting redirect chains across
+   * pages. Chrome treats redirects as one page; absorbing matches that.
+   */
   startPage(startedDateTime: string, url: string | null = null): string {
+    const current = this.pages[this.pages.length - 1];
+    if (current && !current.title && current.pageTimings.onContentLoad === -1 && current.pageTimings.onLoad === -1) {
+      current.title = url;
+      // Keep the earlier startedDateTime — the lazy ghost was created
+      // from the first entry, which is closer to actual nav start than
+      // the `nav` message's arrival timestamp.
+      if (startedDateTime < current.startedDateTime) current.startedDateTime = startedDateTime;
+      return current.id;
+    }
     const id = `page_${this.counter++}`;
     this.pages.push({
       id,
