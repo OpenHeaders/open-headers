@@ -47,6 +47,7 @@ export type ColumnKey =
   | 'time'
   | 'priority'
   | 'timestamp'
+  | 'requestNumber'
   | 'waterfall';
 
 export interface ColumnDef {
@@ -134,6 +135,21 @@ function countRequestCookies(entry: InspectorRequest): number {
 function priority(entry: InspectorRequest): string {
   const p = entry.harEntry._priority;
   return typeof p === 'string' ? p : '';
+}
+
+/**
+ * Chromium's session-global numeric request id, parsed from the
+ * `chromeRequestId` string the background attaches. Matches the
+ * "Request #" column Chrome's own Network panel surfaces: a
+ * monotonically-increasing integer assigned by the network service at
+ * `requestWillBeSent`, shared across tabs in the same browser session.
+ * Rows that pre-date our tab-telemetry tracking have no `chromeRequestId`
+ * and render as blank.
+ */
+function chromeRequestNumber(entry: InspectorRequest): number | null {
+  if (!entry.chromeRequestId) return null;
+  const n = Number.parseInt(entry.chromeRequestId, 10);
+  return Number.isFinite(n) ? n : null;
 }
 
 export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
@@ -322,6 +338,25 @@ export const COLUMN_DEFS: Record<ColumnKey, ColumnDef> = {
     sortable: true,
     extract: (e) => formatTimestamp(e.timestamp),
     getSortValue: (e) => e.timestamp,
+  },
+  requestNumber: {
+    // Chrome's session-global request identifier — shows the same
+    // number you'd see in Chrome's native Network panel under its
+    // "Request #" column. Useful when correlating rows across Chrome's
+    // panel and ours for the same capture. Hidden by default (omitted
+    // from DEFAULT_VISIBLE_COLUMNS); user-enabled via the column
+    // header context menu.
+    key: 'requestNumber',
+    label: 'Request #',
+    defaultWidth: 80,
+    minWidth: 56,
+    align: 'right',
+    sortable: true,
+    extract: (e) => chromeRequestNumber(e),
+    // Sort missing values to the bottom in ascending order so rows
+    // without a `chromeRequestId` (cold-start captures) don't dilute
+    // the leading edge.
+    getSortValue: (e) => chromeRequestNumber(e) ?? Number.POSITIVE_INFINITY,
   },
   waterfall: {
     key: 'waterfall',

@@ -39,6 +39,7 @@ const sortBySchema = v.picklist([
   'size',
   'time',
   'priority',
+  'requestNumber',
   'waterfall',
 ]);
 export type DevpanelNetworkSortBySetting = v.InferOutput<typeof sortBySchema>;
@@ -160,6 +161,7 @@ registerSetting({
     { value: 'size', label: 'Size', description: 'Wire bytes.' },
     { value: 'time', label: 'Time', description: 'Total request duration.' },
     { value: 'priority', label: 'Priority', description: 'Browser-assigned priority.' },
+    { value: 'requestNumber', label: 'Request #', description: "Chromium's session-global request id." },
   ],
 });
 
