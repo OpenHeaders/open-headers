@@ -15,7 +15,7 @@
 import type { InspectorHarEntry } from '@openheaders/core/types';
 import { getBuildInfo } from '@openheaders/ui/shared/build-info';
 import { type HarPage, type InspectorPage, projectPagesForRefs } from './pages';
-import type { InspectorRequest } from './types';
+import { type InspectorRequest, isErrorRequest } from './types';
 
 function getCreatorVersion(): string {
   return getBuildInfo().version;
@@ -53,13 +53,18 @@ function collectRefs(entries: readonly { pageref?: string }[]): Set<string> {
 }
 
 export function buildHar(entries: readonly InspectorRequest[], pages: readonly InspectorPage[] = []): HarDocument {
-  const refs = collectRefs(entries);
+  // Skip error rows — they came from `chrome.webRequest.onErrorOccurred`
+  // and have only a synthetic HAR shell, no real wire data. Chrome's
+  // own HAR export omits them too; keeping them in our export would
+  // break consumers that round-trip through this file.
+  const exportable = entries.filter((e) => !isErrorRequest(e));
+  const refs = collectRefs(exportable);
   return {
     log: {
       version: '1.2',
       creator: { name: 'Open Headers DevTools', version: getCreatorVersion() },
       pages: projectPagesForRefs(pages, refs),
-      entries: entries.map((e) => withPageref(e.harEntry, e.pageref)),
+      entries: exportable.map((e) => withPageref(e.harEntry, e.pageref)),
     },
   };
 }

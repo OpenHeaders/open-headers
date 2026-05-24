@@ -36,6 +36,19 @@ describe('buildHar', () => {
     const doc = buildHar([]);
     expect(doc.log.entries).toEqual([]);
   });
+
+  it('omits rows representing webRequest errors (no real HAR)', () => {
+    const ok = req('https://api.openheaders.io/a');
+    const errored: InspectorRequest = {
+      ...req('https://blocked.openheaders.io/b', 1),
+      statusCode: 0,
+      statusText: 'net::ERR_BLOCKED_BY_CLIENT',
+      error: { code: 'net::ERR_BLOCKED_BY_CLIENT', reason: 'blocked' },
+    };
+    const doc = buildHar([ok, errored]);
+    expect(doc.log.entries).toHaveLength(1);
+    expect(doc.log.entries[0].request?.url).toBe('https://api.openheaders.io/a');
+  });
 });
 
 describe('serializeHar', () => {
