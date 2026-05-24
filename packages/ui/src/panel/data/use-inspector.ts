@@ -73,6 +73,9 @@ export function useInspector(): UseInspectorResult {
         case 'request-started':
           store.ingestRequestStarted(msg.event);
           break;
+        case 'request-completed':
+          store.ingestRequestCompleted(msg.event);
+          break;
         case 'request-error':
           store.ingestRequestError(msg.error);
           break;

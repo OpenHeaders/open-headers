@@ -168,6 +168,29 @@ export interface InspectorRequestStarted {
 }
 
 /**
+ * A network request the host's net stack observed reaching completion
+ * (`chrome.webRequest.onCompleted`). The panel uses this as a secondary
+ * resolution signal for pending rows whose HAR never arrives —
+ * `chrome.devtools.network.onRequestFinished` has known coverage gaps
+ * for lazy-loaded modulepreload chunks and certain speculative loads,
+ * which Chrome's own HAR exporter happily includes via CDP. Subscribing
+ * to webRequest's completion event recovers them; rows that already
+ * had a HAR ignore the event so we don't double-count.
+ */
+export interface InspectorRequestCompleted {
+  requestId: string;
+  url: string;
+  method: string;
+  resourceType: string;
+  statusCode: number;
+  statusLine: string;
+  /** ISO timestamp of the completion event. */
+  timestamp: string;
+  /** True when the response was served from a local cache layer. */
+  fromCache: boolean;
+}
+
+/**
  * Wire format for messages posted over the inspector port. Discriminated
  * union keyed by `type`. The panel's data layer parses incoming messages
  * against this shape.
@@ -184,6 +207,7 @@ export type InspectorPortMessage =
   | { type: 'har'; entry: InspectorHarEntry; chromeRequestId?: string }
   | { type: 'har-body'; body: InspectorHarBody }
   | { type: 'request-started'; event: InspectorRequestStarted }
+  | { type: 'request-completed'; event: InspectorRequestCompleted }
   | { type: 'request-error'; error: InspectorRequestError }
   | { type: 'nav'; url: string }
   | { type: 'nav-timing'; timing: InspectorNavTiming }

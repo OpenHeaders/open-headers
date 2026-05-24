@@ -59,12 +59,14 @@ import type {
   InspectorHarEntry,
   InspectorNavTiming,
   InspectorPortMessage,
+  InspectorRequestCompleted,
   InspectorRequestError,
   InspectorRequestStarted,
   RequestRecord,
 } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import { buildRuleSnapshot } from '@openheaders/oracle/rule-engine/rule-snapshot';
+import { subscribeRequestCompletions } from './devtools-inspector-completions';
 import { subscribeRequestErrors } from './devtools-inspector-errors';
 import { isTracked, startTracking, stopTracking, subscribeFires, subscribeRequestEvents } from './tab-telemetry';
 
@@ -106,6 +108,8 @@ type BufferedErrorMessage = { type: 'request-error'; error: InspectorRequestErro
 
 type BufferedStartedMessage = { type: 'request-started'; event: InspectorRequestStarted };
 
+type BufferedCompletedMessage = { type: 'request-completed'; event: InspectorRequestCompleted };
+
 /** Cap on per-tab ring buffers — keeps memory bounded on long DevTools sessions. */
 const HAR_BUFFER_MAX = 500;
 const FIRE_BUFFER_MAX = 1000;
@@ -116,6 +120,10 @@ const ERROR_BUFFER_MAX = 1000;
  *  onBeforeRequest events per second; the panel only needs the most
  *  recent batch to repopulate after a port reconnect. */
 const STARTED_BUFFER_MAX = 1000;
+/** Cap on per-tab completed-event buffer — same rationale as the
+ *  started buffer; the panel resolves pending rows from these on
+ *  reconnect. */
+const COMPLETED_BUFFER_MAX = 1000;
 /** Max age for an in-flight (requestId, t) entry before we drop it as stale. */
 const IN_FLIGHT_MAX_AGE_MS = 60_000;
 /**
@@ -154,11 +162,13 @@ interface TabSession {
   fireBuffer: BufferedFireMessage[];
   errorBuffer: BufferedErrorMessage[];
   startedBuffer: BufferedStartedMessage[];
+  completedBuffer: BufferedCompletedMessage[];
   /** Per-URL FIFO of in-flight webRequest observations, head = oldest. */
   inFlightByUrl: Map<string, InFlightEntry[]>;
   unsubscribeFires: () => void;
   unsubscribeRequestEvents: () => void;
   unsubscribeRequestErrors: () => void;
+  unsubscribeRequestCompletions: () => void;
 }
 
 const sessions: Map<number, TabSession> = new Map();
@@ -308,6 +318,12 @@ function handleRequestStarted(session: TabSession, event: InspectorRequestStarte
   pushBounded(session.startedBuffer, msg, STARTED_BUFFER_MAX);
 }
 
+function handleRequestCompleted(session: TabSession, event: InspectorRequestCompleted): void {
+  const msg: BufferedCompletedMessage = { type: 'request-completed', event };
+  if (session.inspectorPorts.size > 0) broadcastToInspectorPorts(session, msg);
+  pushBounded(session.completedBuffer, msg, COMPLETED_BUFFER_MAX);
+}
+
 function flushBuffers(session: TabSession, port: chrome.runtime.Port): void {
   // HAR entries first, so a fire that references a request whose HAR was
   // already buffered finds its row on arrival. Fires carry their own
@@ -350,6 +366,13 @@ function flushBuffers(session: TabSession, port: chrome.runtime.Port): void {
       return;
     }
   }
+  for (const msg of session.completedBuffer) {
+    try {
+      port.postMessage(msg satisfies InspectorPortMessage);
+    } catch {
+      return;
+    }
+  }
 }
 
 function ensureSession(tabId: number): TabSession {
@@ -368,10 +391,12 @@ function ensureSession(tabId: number): TabSession {
     fireBuffer: [],
     errorBuffer: [],
     startedBuffer: [],
+    completedBuffer: [],
     inFlightByUrl: new Map(),
     unsubscribeFires: () => {},
     unsubscribeRequestEvents: () => {},
     unsubscribeRequestErrors: () => {},
+    unsubscribeRequestCompletions: () => {},
   };
   // Subscribe BEFORE returning so any fire/observation that happens between
   // session creation and the caller's first message is captured.
@@ -399,6 +424,9 @@ function ensureSession(tabId: number): TabSession {
   session.unsubscribeRequestErrors = subscribeRequestErrors(tabId, {
     send: (error) => handleRequestError(session, error),
   });
+  session.unsubscribeRequestCompletions = subscribeRequestCompletions(tabId, {
+    send: (event) => handleRequestCompleted(session, event),
+  });
   sessions.set(tabId, session);
   logger.debug(
     'DevtoolsInspectorPort',
@@ -415,6 +443,7 @@ function releaseSession(tabId: number): void {
   session.unsubscribeFires();
   session.unsubscribeRequestEvents();
   session.unsubscribeRequestErrors();
+  session.unsubscribeRequestCompletions();
   stopTracking(tabId, trackingReason(tabId));
   sessions.delete(tabId);
   logger.debug('DevtoolsInspectorPort', `Session closed for tab ${tabId}`);
@@ -527,6 +556,7 @@ export const __internals = {
       session.unsubscribeFires();
       session.unsubscribeRequestEvents();
       session.unsubscribeRequestErrors();
+      session.unsubscribeRequestCompletions();
     }
     sessions.clear();
     portsSetupDone = false;

@@ -201,6 +201,7 @@ export type {
   InspectorHarEntry,
   InspectorNavTiming,
   InspectorPortMessage,
+  InspectorRequestCompleted,
   InspectorRequestError,
   InspectorRequestStarted,
 } from './devtools-inspector';

@@ -50,6 +50,7 @@ import type {
   InspectorHarBody,
   InspectorHarEntry,
   InspectorNavTiming,
+  InspectorRequestCompleted,
   InspectorRequestError,
   InspectorRequestStarted,
   RequestRecord,
@@ -845,6 +846,70 @@ export class InspectorStore {
     const list = this.byRequestId.get(event.requestId);
     if (list) list.push(idx);
     else this.byRequestId.set(event.requestId, [idx]);
+    this.bump();
+  }
+
+  /**
+   * Resolve a pending row using a `chrome.webRequest.onCompleted`
+   * event as a secondary completion signal.
+   *
+   * `chrome.devtools.network.onRequestFinished` has documented coverage
+   * gaps (lazy-loaded modulepreload chunks, speculation rules) where
+   * Chrome's own Network panel still surfaces the request — via CDP —
+   * but the extension API silently drops the HAR. Without a backup
+   * signal those rows stay forever pending; webRequest's `onCompleted`
+   * fires for every observed completion and gives us a real status
+   * code to populate the row with.
+   *
+   * If the row was already resolved by a HAR or an error, this event
+   * is a no-op. If it's still pending, we stamp the synthetic harEntry
+   * with a minimal `response` (status + statusLine + fromCache marker)
+   * and clear `pending` so the panel renders the real status and HAR
+   * export includes the row.
+   */
+  ingestRequestCompleted(event: InspectorRequestCompleted): void {
+    if (!this.recording) return;
+    if (!event.requestId) return;
+    const list = this.byRequestId.get(event.requestId);
+    if (!list || list.length === 0) return;
+
+    let target = -1;
+    for (const idx of list) {
+      if (this.entries[idx]?.pending) {
+        target = idx;
+        break;
+      }
+    }
+    if (target === -1) return;
+
+    const existing = this.entries[target];
+    // Statusline parser: webRequest emits "HTTP/1.1 200 OK" — split off
+    // the reason phrase for the HAR shell's `statusText`.
+    const reasonMatch = /^\S+\s+\d+\s+(.*)$/.exec(event.statusLine);
+    const statusText = reasonMatch?.[1] ?? '';
+    const synthHar: InspectorHarEntry = {
+      ...existing.harEntry,
+      response: {
+        status: event.statusCode,
+        statusText,
+        httpVersion: '',
+        headers: [],
+        cookies: [],
+        content: { size: -1, mimeType: '' },
+        headersSize: -1,
+        bodySize: -1,
+      },
+      ...(event.fromCache ? { _fromCache: 'memory' as const } : {}),
+    };
+
+    const { pending: _drop, ...rest } = existing;
+    void _drop;
+    this.entries[target] = {
+      ...rest,
+      harEntry: synthHar,
+      statusCode: event.statusCode,
+      statusText,
+    };
     this.bump();
   }
 

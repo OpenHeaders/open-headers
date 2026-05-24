@@ -1,4 +1,9 @@
-import type { InspectorHarEntry, InspectorRequestError, InspectorRequestStarted } from '@openheaders/core/types';
+import type {
+  InspectorHarEntry,
+  InspectorRequestCompleted,
+  InspectorRequestError,
+  InspectorRequestStarted,
+} from '@openheaders/core/types';
 import { InspectorStore } from '@openheaders/ui/panel/data/inspector-store';
 import { isErrorRequest, isPendingRequest } from '@openheaders/ui/panel/data/types';
 import { describe, expect, it } from 'vitest';
@@ -216,5 +221,51 @@ describe('InspectorStore pending lifecycle', () => {
     store.ingestHarEntry(makeHar('https://api.openheaders.io/data'), 'req-1');
     store.ingestRequestStarted(makeStart({ requestId: 'req-1' }));
     expect(store.getSnapshot().entries).toHaveLength(1);
+  });
+
+  it('resolves a stale pending row via webRequest.onCompleted when no HAR arrives', () => {
+    // Real-world scenario: lazy-loaded modulepreload chunk that
+    // chrome.devtools.network.onRequestFinished silently drops, but
+    // webRequest.onCompleted still fires for. The row stays in the
+    // panel with its real status code instead of being permanently
+    // stuck on "(pending)".
+    const store = new InspectorStore();
+    store.ingestRequestStarted(makeStart({ requestId: 'req-lazy' }));
+    const completed: InspectorRequestCompleted = {
+      requestId: 'req-lazy',
+      url: 'https://api.openheaders.io/data',
+      method: 'GET',
+      resourceType: 'xmlhttprequest',
+      statusCode: 200,
+      statusLine: 'HTTP/1.1 200 OK',
+      timestamp: '2026-05-24T10:00:01.000Z',
+      fromCache: false,
+    };
+    store.ingestRequestCompleted(completed);
+    const { entries } = store.getSnapshot();
+    expect(entries).toHaveLength(1);
+    expect(isPendingRequest(entries[0])).toBe(false);
+    expect(entries[0].statusCode).toBe(200);
+    expect(entries[0].statusText).toBe('OK');
+    expect(entries[0].displayId).toBe(1);
+  });
+
+  it('ignores onCompleted when the row already has a real HAR', () => {
+    const store = new InspectorStore();
+    store.ingestHarEntry(makeHar('https://api.openheaders.io/data'), 'req-x');
+    const before = store.getSnapshot().entries[0];
+    store.ingestRequestCompleted({
+      requestId: 'req-x',
+      url: 'https://api.openheaders.io/data',
+      method: 'GET',
+      resourceType: 'xmlhttprequest',
+      statusCode: 500,
+      statusLine: 'HTTP/1.1 500 Internal Server Error',
+      timestamp: '2026-05-24T10:00:02.000Z',
+      fromCache: false,
+    });
+    // Status from the real HAR (200) is preserved — the secondary
+    // signal must not overwrite authoritative data.
+    expect(store.getSnapshot().entries[0]).toBe(before);
   });
 });
