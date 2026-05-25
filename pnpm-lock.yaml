@@ -444,6 +444,9 @@ importers:
 
   playground:
     devDependencies:
+      playwright:
+        specifier: ^1.58.2
+        version: 1.58.2
       vite:
         specifier: ^7.3.1
         version: 7.3.1(@types/node@22.19.15)(less@4.6.4)(lightningcss@1.32.0)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3)
