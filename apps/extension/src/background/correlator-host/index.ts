@@ -6,6 +6,7 @@
  * chrome-free by design. See `docs/REQUEST_LIFECYCLE_DESIGN.md` §6.2.
  */
 
+export { ChromeHarEventSource } from './chrome-har-source';
 export { ChromeWebRequestEventSource } from './chrome-webrequest-source';
 export { startLifecycleHost } from './lifecycle-host';
 export type { LifecycleHost } from './lifecycle-host';

@@ -23,11 +23,13 @@ import { HeuristicCorrelator } from '@openheaders/oracle/correlator-heuristic';
 import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
 import { logger } from '@utils/logger';
 
+import { ChromeHarEventSource } from './chrome-har-source';
 import { ChromeWebRequestEventSource } from './chrome-webrequest-source';
 import { installTabLifecycleBridge } from './tab-lifecycle-bridge';
 
 export interface LifecycleHost {
-  readonly source: ChromeWebRequestEventSource;
+  readonly webRequestSource: ChromeWebRequestEventSource;
+  readonly harSource: ChromeHarEventSource;
   readonly correlator: HeuristicCorrelator;
   readonly store: RequestLifecycleStore;
   /** Detach all chrome listeners — tests / SW shutdown only. */
@@ -37,10 +39,25 @@ export interface LifecycleHost {
 /**
  * Construct and boot one `LifecycleHost`. Idempotent at the call-site
  * level — `background.ts` invokes this exactly once per SW lifetime.
+ *
+ * Composes:
+ *   `ChromeWebRequestEventSource` (chrome adapter)
+ *        ↓ WebRequestEventSource seam
+ *   `ChromeHarEventSource`        (chrome adapter)
+ *        ↓ HarEventSource seam
+ *   `HeuristicCorrelator`        (oracle — chrome-free)
+ *        ↓ RequestCorrelator seam (subscribe)
+ *   `RequestLifecycleStore`      (oracle — pure reducer + LRU)
+ *
+ * Plus the per-tab `tab-lifecycle-bridge` (S6).
  */
 export function startLifecycleHost(): LifecycleHost {
-  const source = new ChromeWebRequestEventSource();
-  const correlator = new HeuristicCorrelator(source);
+  const webRequestSource = new ChromeWebRequestEventSource();
+  const harSource = new ChromeHarEventSource();
+  const correlator = new HeuristicCorrelator({
+    webRequest: webRequestSource,
+    har: harSource,
+  });
   const store = new RequestLifecycleStore({
     onReject: (update, reason) => {
       logger.warn('LifecycleHost', 'store rejected update', { kind: update.kind, reason });
@@ -57,13 +74,15 @@ export function startLifecycleHost(): LifecycleHost {
   logger.info('LifecycleHost', 'request lifecycle pipeline online');
 
   return {
-    source,
+    webRequestSource,
+    harSource,
     correlator,
     store,
     dispose: () => {
       detachBridge();
       correlator.dispose();
-      source.dispose();
+      webRequestSource.dispose();
+      harSource.dispose();
     },
   };
 }
