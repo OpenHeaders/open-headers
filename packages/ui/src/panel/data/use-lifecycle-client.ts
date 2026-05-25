@@ -37,6 +37,8 @@ const RECONNECT_DELAY_MS = 250;
 export interface UseLifecycleClientResult {
   readonly snapshot: LifecycleClientSnapshot;
   readonly tabId: number | null;
+  /** Underlying store — surfaced so `usePanelUiState` can clear it. */
+  readonly store: LifecycleClientStore;
 }
 
 export function useLifecycleClient(): UseLifecycleClientResult {
@@ -116,5 +118,5 @@ export function useLifecycleClient(): UseLifecycleClientResult {
 
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot);
 
-  return { snapshot, tabId: tabIdRef.current };
+  return { snapshot, tabId: tabIdRef.current, store };
 }
