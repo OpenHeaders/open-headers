@@ -395,6 +395,12 @@ export class InspectorStore {
     }
     const arrivalIndex = this.arrivalCounter++;
     const entryId = mintEntryId(key, existingForKey?.length ?? 0, chromeRequestId, arrivalIndex);
+    // Chromium tags failed requests with `response._error` (net-stack code)
+    // and `response.status: 0`. Lift that onto `entry.error` so the
+    // classifier + UI see the same shape as the `ingestRequestError` path,
+    // instead of an opaque status-0 row with no reason.
+    const harError = har.response?._error;
+    const harErrorInfo = harError && har.response?.status === 0 ? lookupErrorCode(harError) : null;
     const entry: InspectorRequest = {
       id: entryId,
       harEntry: har,
@@ -412,6 +418,7 @@ export class InspectorStore {
       arrivalIndex,
       displayId: this.displayCounter++,
       pageref,
+      ...(harError && harErrorInfo ? { error: { code: harError, reason: harErrorInfo.reason } } : {}),
     };
 
     // Sweep dangling fires that should attach to this new entry.
@@ -790,6 +797,12 @@ export class InspectorStore {
     const { error: _dropError, pending: _dropPending, ...rest } = existing;
     void _dropError;
     void _dropPending;
+    // Preserve / re-derive `error` from the HAR's `response._error`
+    // (Chromium net-stack code on failed requests). Without this, a
+    // pending row superseded by a status-0 HAR ends up with no error
+    // info at all.
+    const harError = har.response?._error;
+    const harErrorInfo = harError && har.response?.status === 0 ? lookupErrorCode(harError) : null;
     this.entries[idx] = {
       ...rest,
       id: newId,
@@ -804,6 +817,7 @@ export class InspectorStore {
       responseSize: har.response?.content?.size,
       duration: har.time,
       resourceType: har._resourceType ?? existing.resourceType,
+      ...(harError && harErrorInfo ? { error: { code: harError, reason: harErrorInfo.reason } } : {}),
     };
     this.bump();
   }

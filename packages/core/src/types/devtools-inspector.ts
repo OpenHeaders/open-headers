@@ -57,6 +57,11 @@ export interface InspectorHarEntry {
     redirectURL?: string;
     headersSize?: number;
     bodySize?: number;
+    /** Chromium extension: net-stack error code (e.g. "net::ERR_CERT_DATE_INVALID")
+     *  populated on `chrome.devtools.network.onRequestFinished` entries
+     *  whose underlying request failed before producing a real HTTP
+     *  response. Absent on successful responses. */
+    _error?: string;
   };
   cache?: unknown;
   timings?: {
