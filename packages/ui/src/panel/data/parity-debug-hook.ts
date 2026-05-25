@@ -25,12 +25,17 @@ interface ParityRow {
 }
 
 function toParityRow(entry: InspectorRequest): ParityRow {
+  // Internally we follow HAR's convention (statusCode: 0 sentinel for
+  // requests with no real HTTP response). Chrome's CDP-derived view has
+  // no status at all for those rows. 0 is never a valid HTTP status, so
+  // project it to null at the dump boundary.
+  const status = entry.statusCode && entry.statusCode > 0 ? entry.statusCode : null;
   return {
     displayId: entry.displayId,
     arrivalIndex: entry.arrivalIndex,
     method: entry.method,
     url: entry.url,
-    status: entry.statusCode ?? null,
+    status,
     statusText: entry.statusText ?? null,
     errorCode: entry.error?.code ?? null,
     errorReason: entry.error?.reason ?? null,
