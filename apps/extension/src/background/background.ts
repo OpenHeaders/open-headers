@@ -415,9 +415,11 @@ import { markBootPhase } from '@openheaders/oracle/sync/boot-telemetry';
 import { pruneOrphanOwners } from '@openheaders/oracle/test-run/test-run-store';
 import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
 import { auditHostPermissions } from './modules/permissions-audit';
+import { PageStreamHub } from '@openheaders/oracle/page-stream-hub';
 import { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import { startLifecycleHost } from './correlator-host';
 import { startLifecyclePortHost } from './lifecycle-port-host';
+import { startPagePortHost } from './page-port-host';
 import { startRuleEngineDriver } from './rule-engine-driver';
 import { startTabTelemetrySource } from './tab-telemetry-source';
 import {
@@ -729,6 +731,20 @@ async function initializeExtension(): Promise<void> {
   // `setupDevtoolsInspectorPorts` pipe below until W-b retirement.
   const lifecycleHub = new RequestLifecycleHub({ store: lifecycleHost.store });
   startLifecyclePortHost({ hub: lifecycleHub });
+  // Page stream hub + chrome port adapter, sibling of the lifecycle pipe.
+  // Publishes `PageWireMessage` envelopes on `oh-page:<tabId>` ports.
+  // Engine-side notifications are wired into `setupDevtoolsInspectorPorts`
+  // below — the devtools_page is the single source of nav events.
+  const pageHub = new PageStreamHub();
+  startPagePortHost({ hub: pageHub });
+  // Drop the tab's page list when the tab dies. Sibling of
+  // `RequestLifecycleStore`'s `forgetTab` driver — co-located here
+  // because the hub is the page list's authoritative owner.
+  if (chrome?.tabs?.onRemoved?.addListener) {
+    chrome.tabs.onRemoved.addListener((tabId: number) => {
+      pageHub.forgetTab(tabId);
+    });
+  }
   setupTabListeners(debouncedUpdateBadge);
   setupPeriodicCleanup();
   initializeActiveTabTracking();
@@ -741,7 +757,7 @@ async function initializeExtension(): Promise<void> {
   setupInjectListener();
   setupDelayBypassCleanup();
   setupTestRunnerPorts();
-  setupDevtoolsInspectorPorts();
+  setupDevtoolsInspectorPorts({ pageHub });
   // Awareness lifeline ports + workspace-coord runner are attached
   // inside `bootSyncEngine` below.
   setupOnRuleMatchedDebugBridge();

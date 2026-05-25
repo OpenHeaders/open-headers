@@ -118,6 +118,10 @@
     "./request-lifecycle": {
       "import": "./src/request-lifecycle/index.ts",
       "default": "./dist/request-lifecycle/index.js"
+    },
+    "./page-stream": {
+      "import": "./src/page-stream/index.ts",
+      "default": "./dist/page-stream/index.js"
     }
   },
   "scripts": {

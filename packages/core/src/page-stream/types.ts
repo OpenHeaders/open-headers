@@ -1,0 +1,52 @@
+/**
+ * Page stream — shared primitive for `@openheaders/core/page-stream`.
+ *
+ * The page stream is the **navigation** half of the network panel data
+ * plane, sibling to `request-lifecycle`. Lifecycles describe per-request
+ * shape; pages describe the navigations those requests belong to (HAR
+ * `log.pages[]`). They are emitted on a dedicated `oh-page:<tabId>`
+ * pipe so non-devtools hosts (desktop, daemon) can lift the page
+ * concept without inheriting any request shape, and vice versa.
+ *
+ * Model:
+ *   - One `Page` per navigation, with a sequential id (`page_1`, ...).
+ *   - `pageOrigin` + nav-timing milestones (`dclMs`, `loadMs`) fill in
+ *     monotonically as `performance.getEntriesByType('navigation')`
+ *     reports them. Fields can REFINE but never disappear (same
+ *     invariant 5 spirit as `RequestLifecycle`).
+ *   - A tab can have zero pages until the first navigation is observed;
+ *     the panel synthesizes a `page_1` placeholder only if no `Page` is
+ *     known by the time it needs a pageref (out of scope for this
+ *     module — consumer concern).
+ */
+
+import type { InspectorNavTiming } from '../types/devtools-inspector';
+
+export interface Page {
+  /** Sequential id assigned at creation, e.g. `page_1`. HAR pageref. */
+  readonly id: string;
+  /** Wall-clock ms at navigation start (or hub-side notification time). */
+  readonly startedAtMs: number;
+  /**
+   * Page URL — null until the host reports it via `nav` or `nav-timing`'s
+   * `pageOrigin`. The `nav` event's full URL wins if both arrive;
+   * `pageOrigin` is the fallback.
+   */
+  readonly url: string | null;
+  /** DOMContentLoaded ms (relative to navigation start). */
+  readonly dclMs?: number;
+  /** Load event ms (relative to navigation start). */
+  readonly loadMs?: number;
+}
+
+/**
+ * Wire-shaped diff emitted by the page hub and applied by the panel
+ * reducer. All updates carry `tabId` — clients filter by their own
+ * subscribed tab; the wire-level filter is the port name itself, but
+ * carrying `tabId` here keeps the union shape parallel to
+ * `RequestLifecycleUpdate` and matches a future multi-tab consumer.
+ */
+export type PageStreamUpdate =
+  | { kind: 'page-started'; tabId: number; page: Page }
+  | { kind: 'nav-timing-attached'; tabId: number; pageId: string; timing: InspectorNavTiming }
+  | { kind: 'tab-cleared'; tabId: number };

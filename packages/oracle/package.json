@@ -83,6 +83,10 @@
       "import": "./src/request-lifecycle-hub/index.ts",
       "default": "./dist/request-lifecycle-hub/index.js"
     },
+    "./page-stream-hub": {
+      "import": "./src/page-stream-hub/index.ts",
+      "default": "./dist/page-stream-hub/index.js"
+    },
     "./correlator-cdp": {
       "import": "./src/correlator-cdp/index.ts",
       "default": "./dist/correlator-cdp/index.js"

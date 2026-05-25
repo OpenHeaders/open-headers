@@ -66,6 +66,7 @@ import type {
   RequestRecord,
 } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
+import type { PageStreamHub } from '@openheaders/oracle/page-stream-hub';
 import { buildRuleSnapshot } from '@openheaders/oracle/rule-engine/rule-snapshot';
 import { subscribeRequestCompletions } from './devtools-inspector-completions';
 import { lookupCorsContext, subscribeCorsTracking } from './devtools-inspector-cors';
@@ -569,7 +570,22 @@ export function broadcastAuthoritativeFire(tabId: number, record: RequestRecord)
 
 let portsSetupDone = false;
 
-export function setupDevtoolsInspectorPorts(): void {
+/**
+ * Optional fanout to the host-neutral page stream hub. When supplied via
+ * `setupDevtoolsInspectorPorts({ pageHub })`, nav + nav-timing messages
+ * forwarded from the devtools_page are mirrored into the hub so the new
+ * `oh-page:<tabId>` port can broadcast them to its sinks. Legacy
+ * `devtools-inspector:<tabId>` broadcasts continue unchanged — parallel
+ * path until the renderer migration flips consumers off the legacy pipe.
+ */
+let pageStreamHub: PageStreamHub | null = null;
+
+export interface DevtoolsInspectorPortsOptions {
+  readonly pageHub?: PageStreamHub;
+}
+
+export function setupDevtoolsInspectorPorts(options?: DevtoolsInspectorPortsOptions): void {
+  if (options?.pageHub) pageStreamHub = options.pageHub;
   if (portsSetupDone) return;
   portsSetupDone = true;
   if (!chrome?.runtime?.onConnect?.addListener) {
@@ -612,13 +628,17 @@ function acceptHarSourcePort(tabId: number, port: chrome.runtime.Port): void {
       return;
     }
     if (msg?.type === 'nav' && typeof msg.url === 'string') {
-      // Live-only: a buffered nav would replay on a late-connecting
-      // inspector and wipe legitimate backlog from the HAR buffer.
+      // Live-only on the legacy port: a buffered nav would replay on a
+      // late-connecting inspector and wipe legitimate backlog from the
+      // HAR buffer. The page-stream hub keeps its own per-tab page list
+      // for replay on `oh-page:<tabId>` reconnect.
       broadcastToInspectorPorts(session, { type: 'nav', url: msg.url });
+      pageStreamHub?.notifyNavStarted(tabId, Date.now(), msg.url);
       return;
     }
     if (msg?.type === 'nav-timing' && msg.timing && typeof msg.timing === 'object') {
       broadcastToInspectorPorts(session, { type: 'nav-timing', timing: msg.timing });
+      pageStreamHub?.notifyNavTimingAttached(tabId, msg.timing);
     }
   });
   port.onDisconnect.addListener(() => {
