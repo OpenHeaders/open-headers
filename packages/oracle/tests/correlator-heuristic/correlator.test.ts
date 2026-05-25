@@ -633,6 +633,350 @@ describe('HeuristicCorrelator — H7 tab scope', () => {
   });
 });
 
+describe('HeuristicCorrelator — H5 CORS classification', () => {
+  const APP_ORIGIN = 'https://app.openheaders.io';
+  const API_ORIGIN = 'https://api.openheaders.io';
+
+  function emitCorsFlow(
+    webRequest: TestWebRequestSource,
+    opts: {
+      origin: string;
+      acao?: string;
+    },
+  ): void {
+    webRequest.emit(startEvent);
+    webRequest.emit({
+      method_kind: 'onSendHeaders',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_A,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 1,
+      requestHeaders: [{ name: 'Origin', value: opts.origin }],
+    });
+    webRequest.emit({
+      method_kind: 'onHeadersReceived',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_A,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 2,
+      statusCode: 200,
+      responseHeaders:
+        opts.acao !== undefined
+          ? [{ name: 'Access-Control-Allow-Origin', value: opts.acao }]
+          : [],
+    });
+  }
+
+  it('attaches cors verdict to the headers-received patch (cross-origin missing ACAO)', () => {
+    const { webRequest, har } = makeSources();
+    const correlator = new HeuristicCorrelator({ webRequest, har });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+
+    emitCorsFlow(webRequest, { origin: APP_ORIGIN });
+
+    const headers = collected.find(
+      (u) => u.kind === 'phase' && u.patch.phase === 'headers-received',
+    );
+    if (headers?.kind !== 'phase') throw new Error('expected headers-received phase');
+    expect(headers.patch.cors).toEqual({
+      isCrossOrigin: true,
+      rejection: { kind: 'missing-acao' },
+    });
+    correlator.dispose();
+  });
+
+  it('same-origin request emits no-rejection verdict', () => {
+    const { webRequest, har } = makeSources();
+    const correlator = new HeuristicCorrelator({ webRequest, har });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+
+    emitCorsFlow(webRequest, { origin: API_ORIGIN });
+
+    const headers = collected.find(
+      (u) => u.kind === 'phase' && u.patch.phase === 'headers-received',
+    );
+    if (headers?.kind !== 'phase') throw new Error('expected headers-received phase');
+    expect(headers.patch.cors).toEqual({
+      isCrossOrigin: false,
+      rejection: { kind: 'no-rejection' },
+    });
+    correlator.dispose();
+  });
+
+  it('cross-origin + ACAO=* emits no-rejection (cross-origin allowed)', () => {
+    const { webRequest, har } = makeSources();
+    const correlator = new HeuristicCorrelator({ webRequest, har });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+
+    emitCorsFlow(webRequest, { origin: APP_ORIGIN, acao: '*' });
+
+    const headers = collected.find(
+      (u) => u.kind === 'phase' && u.patch.phase === 'headers-received',
+    );
+    if (headers?.kind !== 'phase') throw new Error('expected headers-received phase');
+    expect(headers.patch.cors).toEqual({
+      isCrossOrigin: true,
+      rejection: { kind: 'no-rejection' },
+    });
+    correlator.dispose();
+  });
+});
+
+describe('HeuristicCorrelator — H6 error refinement on terminal phase', () => {
+  const APP_ORIGIN = 'https://app.openheaders.io';
+
+  it('refines net::ERR_FAILED to oh:cors-missing-acao when the verdict says so', () => {
+    const { webRequest, har } = makeSources();
+    const correlator = new HeuristicCorrelator({ webRequest, har });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+
+    webRequest.emit(startEvent);
+    webRequest.emit({
+      method_kind: 'onSendHeaders',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_A,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 1,
+      requestHeaders: [{ name: 'Origin', value: APP_ORIGIN }],
+    });
+    webRequest.emit({
+      method_kind: 'onHeadersReceived',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_A,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 2,
+      statusCode: 0,
+      responseHeaders: [],
+    });
+    webRequest.emit({
+      method_kind: 'onErrorOccurred',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_A,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 50,
+      error: 'net::ERR_FAILED',
+    });
+
+    const failed = collected.find((u) => u.kind === 'phase' && u.patch.phase === 'failed');
+    if (failed?.kind !== 'phase') throw new Error('expected failed phase');
+    expect(failed.patch.error?.code).toBe('oh:cors-missing-acao');
+    expect(failed.patch.error?.reason).toBe('net::ERR_FAILED');
+    expect(failed.patch.cors).toEqual({
+      isCrossOrigin: true,
+      rejection: { kind: 'missing-acao' },
+    });
+    correlator.dispose();
+  });
+
+  it('refines net::ERR_FAILED to oh:cors-origin-mismatch when ACAO disagrees', () => {
+    const { webRequest, har } = makeSources();
+    const correlator = new HeuristicCorrelator({ webRequest, har });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+
+    webRequest.emit(startEvent);
+    webRequest.emit({
+      method_kind: 'onSendHeaders',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_A,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 1,
+      requestHeaders: [{ name: 'Origin', value: APP_ORIGIN }],
+    });
+    webRequest.emit({
+      method_kind: 'onHeadersReceived',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_A,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 2,
+      statusCode: 200,
+      responseHeaders: [
+        { name: 'Access-Control-Allow-Origin', value: 'https://other.openheaders.io' },
+      ],
+    });
+    webRequest.emit({
+      method_kind: 'onErrorOccurred',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_A,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 50,
+      error: 'net::ERR_FAILED',
+    });
+
+    const failed = collected.find((u) => u.kind === 'phase' && u.patch.phase === 'failed');
+    if (failed?.kind !== 'phase') throw new Error('expected failed phase');
+    expect(failed.patch.error?.code).toBe('oh:cors-origin-mismatch');
+    correlator.dispose();
+  });
+
+  it('same-origin failure leaves net::ERR_FAILED untouched', () => {
+    const { webRequest, har } = makeSources();
+    const correlator = new HeuristicCorrelator({ webRequest, har });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+
+    webRequest.emit(startEvent);
+    webRequest.emit({
+      method_kind: 'onSendHeaders',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_A,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 1,
+      requestHeaders: [{ name: 'Origin', value: 'https://api.openheaders.io' }],
+    });
+    webRequest.emit({
+      method_kind: 'onHeadersReceived',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_A,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 2,
+      statusCode: 200,
+      responseHeaders: [],
+    });
+    webRequest.emit({
+      method_kind: 'onErrorOccurred',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_A,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 50,
+      error: 'net::ERR_FAILED',
+    });
+
+    const failed = collected.find((u) => u.kind === 'phase' && u.patch.phase === 'failed');
+    if (failed?.kind !== 'phase') throw new Error('expected failed phase');
+    expect(failed.patch.error?.code).toBe('net::ERR_FAILED');
+    correlator.dispose();
+  });
+
+  it('non-net::ERR_FAILED errors are not refined even with a CORS verdict', () => {
+    const { webRequest, har } = makeSources();
+    const correlator = new HeuristicCorrelator({ webRequest, har });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+
+    webRequest.emit(startEvent);
+    webRequest.emit({
+      method_kind: 'onSendHeaders',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_A,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 1,
+      requestHeaders: [{ name: 'Origin', value: 'https://app.openheaders.io' }],
+    });
+    webRequest.emit({
+      method_kind: 'onHeadersReceived',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_A,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 2,
+      statusCode: 0,
+      responseHeaders: [],
+    });
+    webRequest.emit({
+      method_kind: 'onErrorOccurred',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_A,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 50,
+      error: 'net::ERR_CONNECTION_REFUSED',
+    });
+
+    const failed = collected.find((u) => u.kind === 'phase' && u.patch.phase === 'failed');
+    if (failed?.kind !== 'phase') throw new Error('expected failed phase');
+    expect(failed.patch.error?.code).toBe('net::ERR_CONNECTION_REFUSED');
+    expect(failed.patch.cors?.rejection.kind).toBe('missing-acao');
+    correlator.dispose();
+  });
+});
+
+describe('HeuristicCorrelator — H5 detach + redirect scope', () => {
+  it('detachTab clears pending CORS context (no verdict on re-attached lifecycle)', () => {
+    const { webRequest, har } = makeSources();
+    const correlator = new HeuristicCorrelator({ webRequest, har });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+
+    webRequest.emit(startEvent);
+    webRequest.emit({
+      method_kind: 'onSendHeaders',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_A,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 1,
+      requestHeaders: [{ name: 'Origin', value: 'https://app.openheaders.io' }],
+    });
+
+    correlator.detachTab(TAB);
+    correlator.attachTab(TAB);
+
+    webRequest.emit({
+      method_kind: 'onHeadersReceived',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_A,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 2,
+      statusCode: 200,
+      responseHeaders: [],
+    });
+
+    // After detach + re-attach, prior origin is forgotten — the verdict
+    // for headers-received reports same-origin (no Origin captured).
+    const headers = collected.find(
+      (u) => u.kind === 'phase' && u.patch.phase === 'headers-received',
+    );
+    if (headers?.kind !== 'phase') throw new Error('expected headers-received phase');
+    expect(headers.patch.cors).toEqual({
+      isCrossOrigin: false,
+      rejection: { kind: 'no-rejection' },
+    });
+    correlator.dispose();
+  });
+});
+
 describe('HeuristicCorrelator — exposes no chrome surface', () => {
   it('module export does not name fromChromeWebRequest (kept out of oracle)', () => {
     const ctor = HeuristicCorrelator as unknown as Record<string, unknown>;

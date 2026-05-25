@@ -20,15 +20,20 @@
  *   - H3 closest-timestamp HAR ↔ requestId join (per-tab FIFO)       ✓
  *   - H7 invariant-8 late-arrival pair: forward-race
  *     {@link HarWaitingBuffer} + backward {@link FinalizedRetention}  ✓
+ *   - H5 CORS classification: `Origin` captured on `onSendHeaders`,
+ *     verdict computed on `onHeadersReceived` via {@link classifyCors},
+ *     stamped onto every subsequent `phase` patch                     ✓
+ *   - H6 `net::ERR_FAILED` → `oh:cors-*` error refinement pre-emit
+ *     via {@link refineUpdateWithCors}                                ✓
  *
  * Deliberately deferred (own future sessions):
  *   - H4 per-URL FIFO matching refinements beyond the verbatim port
- *   - H5/H6 CORS classification + `oh:cors-*` error refinement
  *   - H8/H9 per-hop HAR / `body-attached` attribution. Until H8 lands
  *     all HAR + body updates emit `hopIndex: 0`.
  */
 
 import type {
+  CorsVerdict,
   RequestCorrelator,
   RequestLifecycle,
   RequestLifecycleListener,
@@ -39,6 +44,9 @@ import { lifecycleKey } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarBody, InspectorHarEntry } from '@openheaders/core/types';
 
 import { BodyJoinMap } from './body-join-map';
+import { classifyCors, extractHeader } from './cors-classifier';
+import { CorsContextStore } from './cors-context-store';
+import { refineUpdateWithCors } from './cors-error-refinement';
 import type { WebRequestEvent, WebRequestEventSource } from './events';
 import { FinalizedRetention } from './finalized-retention';
 import { bodyAttachedUpdate, harAttachedUpdate, harEntryJoinFields, harEntryTimestamp } from './har-to-update';
@@ -71,6 +79,7 @@ export class HeuristicCorrelator implements RequestCorrelator {
   private readonly bodyJoin = new BodyJoinMap();
   private readonly harWaiting = new HarWaitingBuffer();
   private readonly finalizedRetention = new FinalizedRetention();
+  private readonly corsContext = new CorsContextStore();
   private readonly webRequestUnsubscribe: () => void;
   private readonly harUnsubscribe: () => void;
 
@@ -92,6 +101,7 @@ export class HeuristicCorrelator implements RequestCorrelator {
     this.bodyJoin.forgetTab(tabId);
     this.harWaiting.forgetTab(tabId);
     this.finalizedRetention.forgetTab(tabId);
+    this.corsContext.forgetTab(tabId);
   }
 
   subscribe(listener: RequestLifecycleListener): Unsubscribe {
@@ -123,12 +133,52 @@ export class HeuristicCorrelator implements RequestCorrelator {
     if (event.method_kind === 'onBeforeRequest') {
       this.inFlight.record(event.tabId, event.url, event.requestId, event.timeStamp, event.method);
     }
+    const verdict = this.maybeUpdateCorsContext(event);
     const updates = webRequestEventToUpdates(event);
-    for (const update of updates) this.emit(update);
+    for (const update of updates) this.emit(refineUpdateWithCors(update, verdict));
     // After the started emission seeds `recentLifecycles`, drain any
     // HAR entries that were held waiting for this in-flight slot.
     if (event.method_kind === 'onBeforeRequest') {
       this.drainHarWaiting(event.tabId);
+    }
+  }
+
+  /**
+   * Side-effects on the CORS context store + returns the verdict to
+   * stamp onto whatever updates this event produces.
+   *
+   * `onSendHeaders` is record-only (mapper emits nothing); the verdict
+   * is `undefined` because we don't have ACAO yet. `onHeadersReceived`
+   * finalizes a fresh verdict that refines the `headers-received`
+   * patch. `onCompleted` / `onErrorOccurred` *consume* the stored
+   * verdict — terminal-phase emission is the last reader.
+   *
+   * Non-CORS events (`onBeforeRequest`, `onBeforeRedirect`) return
+   * `undefined`. Redirect deliberately does not consume: the next hop's
+   * `onSendHeaders` overwrites the captured origin cleanly.
+   */
+  private maybeUpdateCorsContext(event: WebRequestEvent): CorsVerdict | undefined {
+    switch (event.method_kind) {
+      case 'onSendHeaders': {
+        this.corsContext.recordOrigin(
+          event.tabId,
+          event.requestId,
+          extractHeader(event.requestHeaders, 'Origin'),
+        );
+        return undefined;
+      }
+      case 'onHeadersReceived': {
+        const origin = this.corsContext.getOrigin(event.tabId, event.requestId);
+        const acao = extractHeader(event.responseHeaders, 'Access-Control-Allow-Origin');
+        const verdict = classifyCors({ origin, requestUrl: event.url, acao });
+        this.corsContext.finalize(event.tabId, event.requestId, verdict);
+        return verdict;
+      }
+      case 'onCompleted':
+      case 'onErrorOccurred':
+        return this.corsContext.consume(event.tabId, event.requestId);
+      default:
+        return undefined;
     }
   }
 

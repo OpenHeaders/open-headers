@@ -73,11 +73,21 @@ export class ChromeWebRequestEventSource implements WebRequestEventSource {
     }
 
     this.bind(wr.onBeforeRequest, (details) => this.fan(mapOnBeforeRequest(details)));
+    // `extraHeaders` is REQUIRED to see the `Origin` request header and
+    // `Access-Control-Allow-Origin` response header — Chrome treats both
+    // as "security-sensitive" and hides them from webRequest unless the
+    // listener explicitly opts in. Without this opt-in, `Origin` reads
+    // as null and the H5 CORS classifier sees every request as
+    // same-origin. The opt-in is paid only on the two events that need
+    // it; `onBeforeRedirect` keeps just `responseHeaders` since its
+    // verdict is overwritten on the next hop's `onSendHeaders`.
     this.bind(wr.onSendHeaders, (details) => this.fan(mapOnSendHeaders(details)), [
       'requestHeaders',
+      'extraHeaders',
     ]);
     this.bind(wr.onHeadersReceived, (details) => this.fan(mapOnHeadersReceived(details)), [
       'responseHeaders',
+      'extraHeaders',
     ]);
     this.bind(wr.onBeforeRedirect, (details) => this.fan(mapOnBeforeRedirect(details)), [
       'responseHeaders',

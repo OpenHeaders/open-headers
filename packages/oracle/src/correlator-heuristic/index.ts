@@ -20,6 +20,12 @@ export { HarWaitingBuffer } from './har-waiting-buffer';
 export type { HarDrainResult, HarRetry, HarWaitingDropLogger } from './har-waiting-buffer';
 export { FinalizedRetention } from './finalized-retention';
 export { LATE_ARRIVAL_WINDOW_MS, MAX_HAR_WAITING_PER_TAB } from './late-arrival-constants';
+export { classifyCors, extractHeader, isCrossOrigin } from './cors-classifier';
+export type { ClassifyCorsInput } from './cors-classifier';
+export { CorsContextStore } from './cors-context-store';
+export type { CorsContextDropLogger, CorsContextDropReason } from './cors-context-store';
+export { refineUpdateWithCors } from './cors-error-refinement';
+export { MAX_CORS_ENTRIES_PER_TAB } from './cors-constants';
 export type {
   OnBeforeRedirectEvent,
   OnBeforeRequestEvent,
