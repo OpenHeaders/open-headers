@@ -415,7 +415,9 @@ import { markBootPhase } from '@openheaders/oracle/sync/boot-telemetry';
 import { pruneOrphanOwners } from '@openheaders/oracle/test-run/test-run-store';
 import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
 import { auditHostPermissions } from './modules/permissions-audit';
+import { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import { startLifecycleHost } from './correlator-host';
+import { startLifecyclePortHost } from './lifecycle-port-host';
 import { startRuleEngineDriver } from './rule-engine-driver';
 import { startTabTelemetrySource } from './tab-telemetry-source';
 import {
@@ -721,6 +723,12 @@ async function initializeExtension(): Promise<void> {
   const lifecycleHost = startLifecycleHost();
   startRuleEngineDriver({ store: lifecycleHost.store, updateBadge: debouncedUpdateBadge });
   startTabTelemetrySource({ store: lifecycleHost.store });
+  // Lifecycle subscriber hub (U1-U5) + chrome port adapter (W-a). Publishes
+  // `LifecycleWireMessage` envelopes on `oh-lifecycle:<tabId>` ports for the
+  // panel client cache (P1-P6) to consume. Coexists with the legacy
+  // `setupDevtoolsInspectorPorts` pipe below until W-b retirement.
+  const lifecycleHub = new RequestLifecycleHub({ store: lifecycleHost.store });
+  startLifecyclePortHost({ hub: lifecycleHub });
   setupTabListeners(debouncedUpdateBadge);
   setupPeriodicCleanup();
   initializeActiveTabTracking();

@@ -79,6 +79,10 @@
       "import": "./src/request-lifecycle-store/index.ts",
       "default": "./dist/request-lifecycle-store/index.js"
     },
+    "./request-lifecycle-hub": {
+      "import": "./src/request-lifecycle-hub/index.ts",
+      "default": "./dist/request-lifecycle-hub/index.js"
+    },
     "./correlator-cdp": {
       "import": "./src/correlator-cdp/index.ts",
       "default": "./dist/correlator-cdp/index.js"
