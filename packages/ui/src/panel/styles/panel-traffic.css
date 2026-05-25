@@ -114,6 +114,28 @@
   background: var(--dt-row-selected);
 }
 
+/* Flash pulse for cross-row jumps (preflight ⇄ parent, etc.). The row
+ * picks up a warm yellow tint, then fades out over ~1s. The CSS
+ * animation is the timer — TrafficList only sets/clears the class. */
+.dt-row--flash {
+  animation: dt-row-flash 1000ms ease-out;
+}
+
+@keyframes dt-row-flash {
+  0% {
+    background: rgba(255, 213, 79, 0.55);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+.dt-preflight-info {
+  margin-left: 4px;
+  cursor: help;
+  opacity: 0.75;
+}
+
 .dt-row span {
   padding: 0 4px;
   overflow: hidden;

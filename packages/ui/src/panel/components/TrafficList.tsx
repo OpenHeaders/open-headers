@@ -270,7 +270,8 @@ function renderCell(
   }
   if (col.key === 'initiator') {
     // For preflight rows, Chrome shows "Preflight" linking to the
-    // parent CORS request instead of the JS stack that initiated it.
+    // parent CORS request instead of the JS stack that initiated it,
+    // with an info glyph whose tooltip explains the action.
     if (role.kind === 'preflight') {
       return (
         <span className="dt-col-muted">
@@ -281,10 +282,17 @@ function renderCell(
               e.stopPropagation();
               ctx.onJumpTo(role.peerId);
             }}
-            title="Jump to the originating request"
+            title="Select the request that initiated this preflight"
           >
             Preflight
           </button>
+          <span
+            className="dt-preflight-info"
+            aria-hidden="true"
+            title="Select the request that initiated this preflight"
+          >
+            ⓘ
+          </span>
         </span>
       );
     }
@@ -418,6 +426,30 @@ export function TrafficList({
   };
   const tableRef = useRef<HTMLDivElement>(null);
   const prevCountRef = useRef(0);
+  const [flashId, setFlashId] = useState<string | null>(null);
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (flashTimerRef.current != null) clearTimeout(flashTimerRef.current);
+    };
+  }, []);
+  const handleJumpTo = useCallback(
+    (id: string) => {
+      onSelect(id);
+      // Scroll target into view + 1s yellow flash that fades out — matches
+      // the affordance Chrome's Network panel applies when jumping between
+      // a preflight and its parent request.
+      const root = tableRef.current;
+      if (root) {
+        const row = root.querySelector<HTMLElement>(`[data-row-id="${CSS.escape(id)}"]`);
+        if (row) row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+      setFlashId(id);
+      if (flashTimerRef.current != null) clearTimeout(flashTimerRef.current);
+      flashTimerRef.current = setTimeout(() => setFlashId(null), 1000);
+    },
+    [onSelect],
+  );
 
   const [rowMenu, setRowMenu] = useState<RequestContextMenuState | null>(null);
   const [colMenu, setColMenu] = useState<ColumnHeaderContextMenuState | null>(null);
@@ -704,8 +736,9 @@ export function TrafficList({
             <button
               key={entry.id}
               type="button"
-              className={`dt-row dt-cols${stateClass ? ` ${stateClass}` : ''}`}
+              className={`dt-row dt-cols${stateClass ? ` ${stateClass}` : ''}${entry.id === flashId ? ' dt-row--flash' : ''}`}
               data-selected={entry.id === selectedId}
+              data-row-id={entry.id}
               onClick={() => onSelect(entry.id)}
               onContextMenu={(e) => {
                 e.preventDefault();
@@ -728,7 +761,7 @@ export function TrafficList({
               </span>
               {columns.map((col) => (
                 <span key={col.key}>
-                  {renderCell(col, entry, state, sizeInfo, { waterfall: { t0, tMax }, preflight, onJumpTo: onSelect })}
+                  {renderCell(col, entry, state, sizeInfo, { waterfall: { t0, tMax }, preflight, onJumpTo: handleJumpTo })}
                 </span>
               ))}
             </button>

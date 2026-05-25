@@ -52,9 +52,16 @@ export function derivePreflightPairs(entries: readonly InspectorRequest[]): Pref
     }
     bucket.push(e);
   }
-  // Ensure each bucket is in arrival order.
+  // Sort each bucket by wire-execution time, not panel arrival order.
+  // Preflight OPTIONS always dispatches before its parent on the wire,
+  // but our pending rows are minted from `onBeforeRequest`, which fires
+  // the parent first and the internally-generated preflight second.
+  // `timestamp` (parsed from HAR's `startedDateTime`) reflects what the
+  // network actually did, so the preflight reliably sorts ahead of its
+  // parent and the forward-scan pairing below finds it. Ties fall back
+  // to `arrivalIndex` for a stable order.
   for (const bucket of byUrl.values()) {
-    bucket.sort((a, b) => a.arrivalIndex - b.arrivalIndex);
+    bucket.sort((a, b) => a.timestamp - b.timestamp || a.arrivalIndex - b.arrivalIndex);
   }
 
   const out = new Map<string, PreflightRole>();
