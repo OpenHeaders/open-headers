@@ -808,7 +808,15 @@ export class InspectorStore {
     // pending row superseded by a status-0 HAR ends up with no error
     // info at all.
     const harError = har.response?._error;
-    const harErrorInfo = harError && har.response?.status === 0 ? lookupErrorCode(harError) : null;
+    const harStatus = har.response?.status;
+    const harErrorInfo = harError && harStatus === 0 ? lookupErrorCode(harError) : null;
+    // If `onCompleted` already stamped a real HTTP status on this row
+    // (e.g. the response landed before an unread body stream was later
+    // aborted on page close), prefer that over a status-0 HAR. The
+    // HAR's _error stays attached as auxiliary context, mirroring how
+    // Chrome's panel shows both the response and the body-abort.
+    const existingStatus = existing.statusCode;
+    const preserveStatus = typeof existingStatus === 'number' && existingStatus > 0 && harStatus === 0;
     this.entries[idx] = {
       ...rest,
       id: newId,
@@ -817,8 +825,8 @@ export class InspectorStore {
       method,
       url,
       timestamp: ts,
-      statusCode: har.response?.status,
-      statusText: har.response?.statusText,
+      statusCode: preserveStatus ? existingStatus : harStatus,
+      statusText: preserveStatus ? (existing.statusText ?? har.response?.statusText) : har.response?.statusText,
       mimeType: har.response?.content?.mimeType,
       responseSize: har.response?.content?.size,
       duration: har.time,
