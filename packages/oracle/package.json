@@ -74,11 +74,20 @@
     "./tracking/*": {
       "import": "./src/tracking/*.ts",
       "default": "./dist/tracking/*.js"
+    },
+    "./request-lifecycle-store": {
+      "import": "./src/request-lifecycle-store/index.ts",
+      "default": "./dist/request-lifecycle-store/index.js"
+    },
+    "./correlator-cdp": {
+      "import": "./src/correlator-cdp/index.ts",
+      "default": "./dist/correlator-cdp/index.js"
     }
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "clean": "rm -rf dist"
   },
   "dependencies": {
@@ -92,6 +101,7 @@
     "@types/chrome": "^0.1.38",
     "@types/node": "^22.19.15",
     "@types/ws": "^8.18.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
   }
 }

@@ -5,5 +5,5 @@
     "rootDir": ".",
     "types": ["chrome", "node"]
   },
-  "include": ["src"]
+  "include": ["src", "tests", "vitest.config.ts"]
 }
