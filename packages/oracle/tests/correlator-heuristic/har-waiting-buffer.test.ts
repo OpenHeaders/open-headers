@@ -33,9 +33,10 @@ describe('HarWaitingBuffer — hold / drain', () => {
     buf.hold(TAB, e1, T0);
     expect(buf.size()).toBe(1);
 
-    const matched = buf.drain(TAB, () => 'wr-1');
+    const matched = buf.drain(TAB, () => ({ requestId: 'wr-1', hopIndex: 0 }));
     expect(matched).toHaveLength(1);
     expect(matched[0]?.requestId).toBe('wr-1');
+    expect(matched[0]?.hopIndex).toBe(0);
     expect(matched[0]?.entry).toBe(e1);
     expect(buf.size()).toBe(0);
   });
@@ -45,7 +46,9 @@ describe('HarWaitingBuffer — hold / drain', () => {
     buf.hold(TAB, entry('GET', URL_A, T0), T0);
     buf.hold(TAB, entry('GET', URL_B, T0 + 5), T0 + 5);
 
-    const matched = buf.drain(TAB, (e) => (e.request?.url === URL_A ? 'wr-a' : undefined));
+    const matched = buf.drain(TAB, (e) =>
+      e.request?.url === URL_A ? { requestId: 'wr-a', hopIndex: 0 } : undefined,
+    );
     expect(matched).toHaveLength(1);
     expect(matched[0]?.requestId).toBe('wr-a');
     expect(buf.size()).toBe(1);
@@ -58,13 +61,30 @@ describe('HarWaitingBuffer — hold / drain', () => {
     buf.hold(TAB, first, T0);
     buf.hold(TAB, second, T0 + 5);
 
-    const matched = buf.drain(TAB, (e) => (e === first ? 'wr-first' : 'wr-second'));
+    const matched = buf.drain(TAB, (e) =>
+      e === first ? { requestId: 'wr-first', hopIndex: 0 } : { requestId: 'wr-second', hopIndex: 0 },
+    );
     expect(matched.map((m) => m.requestId)).toEqual(['wr-first', 'wr-second']);
+  });
+
+  it('drain propagates the hopIndex returned by retry', () => {
+    const buf = new HarWaitingBuffer();
+    const e1 = entry('GET', URL_A, T0);
+    const e2 = entry('GET', URL_B, T0 + 5);
+    buf.hold(TAB, e1, T0);
+    buf.hold(TAB, e2, T0 + 5);
+
+    const matched = buf.drain(TAB, (e) =>
+      e === e1
+        ? { requestId: 'wr-1', hopIndex: 0 }
+        : { requestId: 'wr-1', hopIndex: 1 },
+    );
+    expect(matched.map((m) => m.hopIndex)).toEqual([0, 1]);
   });
 
   it('drain on an unknown tab returns an empty array', () => {
     const buf = new HarWaitingBuffer();
-    expect(buf.drain(TAB, () => 'wr-1')).toEqual([]);
+    expect(buf.drain(TAB, () => ({ requestId: 'wr-1', hopIndex: 0 }))).toEqual([]);
   });
 
   it('hold is per-tab — sibling tabs do not see each other', () => {
@@ -72,7 +92,7 @@ describe('HarWaitingBuffer — hold / drain', () => {
     buf.hold(TAB, entry('GET', URL_A, T0), T0);
     buf.hold(TAB + 1, entry('GET', URL_A, T0), T0);
 
-    const matched = buf.drain(TAB, () => 'wr-1');
+    const matched = buf.drain(TAB, () => ({ requestId: 'wr-1', hopIndex: 0 }));
     expect(matched).toHaveLength(1);
     expect(buf.size()).toBe(1);
   });

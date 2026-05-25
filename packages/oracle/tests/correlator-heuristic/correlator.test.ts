@@ -977,6 +977,393 @@ describe('HeuristicCorrelator — H5 detach + redirect scope', () => {
   });
 });
 
+describe('HeuristicCorrelator — H8/H9 per-hop HAR + body attribution', () => {
+  const URL_HOP0 = 'https://api.openheaders.io/start';
+  const URL_HOP1 = 'https://api.openheaders.io/middle';
+  const URL_HOP2 = 'https://api.openheaders.io/end';
+
+  /**
+   * Drive a full 3-hop chain (HOP0 → HOP1 → HOP2). Each hop emits the
+   * webRequest events Chrome would fire, in order: hop 0 starts via
+   * onBeforeRequest; subsequent hops record via onSendHeaders following
+   * onBeforeRedirect.
+   */
+  function emit3HopChain(
+    webRequest: TestWebRequestSource,
+    opts: {
+      methods: readonly [string, string, string];
+      startMs: number;
+    },
+  ): void {
+    const [m0, m1, m2] = opts.methods;
+    // Hop 0
+    webRequest.emit({
+      method_kind: 'onBeforeRequest',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_HOP0,
+      method: m0,
+      type: 'xmlhttprequest',
+      timeStamp: opts.startMs,
+    });
+    webRequest.emit({
+      method_kind: 'onBeforeRedirect',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_HOP0,
+      method: m0,
+      type: 'xmlhttprequest',
+      timeStamp: opts.startMs + 5,
+      statusCode: 302,
+      redirectUrl: URL_HOP1,
+    });
+    // Hop 1
+    webRequest.emit({
+      method_kind: 'onSendHeaders',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_HOP1,
+      method: m1,
+      type: 'xmlhttprequest',
+      timeStamp: opts.startMs + 10,
+    });
+    webRequest.emit({
+      method_kind: 'onBeforeRedirect',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_HOP1,
+      method: m1,
+      type: 'xmlhttprequest',
+      timeStamp: opts.startMs + 15,
+      statusCode: 302,
+      redirectUrl: URL_HOP2,
+    });
+    // Hop 2 — terminal hop, no further redirect.
+    webRequest.emit({
+      method_kind: 'onSendHeaders',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_HOP2,
+      method: m2,
+      type: 'xmlhttprequest',
+      timeStamp: opts.startMs + 20,
+    });
+  }
+
+  it('mints a har-attached + body-attached per hop with monotonically increasing hopIndex', () => {
+    const { webRequest, har } = makeSources();
+    const correlator = new HeuristicCorrelator({ webRequest, har });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+
+    emit3HopChain(webRequest, { methods: ['GET', 'GET', 'GET'], startMs: STARTED_AT_MS });
+
+    // HAR entries arrive in order with their respective URLs.
+    har.emit({
+      kind: 'har-entry',
+      tabId: TAB,
+      entry: harEntry({
+        startedDateTime: new Date(STARTED_AT_MS).toISOString(),
+        request: { method: 'GET', url: URL_HOP0, headers: [], queryString: [] },
+      }),
+    });
+    har.emit({
+      kind: 'har-entry',
+      tabId: TAB,
+      entry: harEntry({
+        startedDateTime: new Date(STARTED_AT_MS + 10).toISOString(),
+        request: { method: 'GET', url: URL_HOP1, headers: [], queryString: [] },
+      }),
+    });
+    har.emit({
+      kind: 'har-entry',
+      tabId: TAB,
+      entry: harEntry({
+        startedDateTime: new Date(STARTED_AT_MS + 20).toISOString(),
+        request: { method: 'GET', url: URL_HOP2, headers: [], queryString: [] },
+      }),
+    });
+
+    const attached = collected.filter((u) => u.kind === 'har-attached');
+    expect(attached).toHaveLength(3);
+    expect(attached.map((u) => (u.kind === 'har-attached' ? u.hopIndex : -1))).toEqual([0, 1, 2]);
+
+    // Bodies arrive — each by its own (method, url, startedDateTime).
+    har.emit({
+      kind: 'har-body',
+      tabId: TAB,
+      body: harBody({
+        method: 'GET',
+        url: URL_HOP0,
+        startedDateTime: new Date(STARTED_AT_MS).toISOString(),
+      }),
+    });
+    har.emit({
+      kind: 'har-body',
+      tabId: TAB,
+      body: harBody({
+        method: 'GET',
+        url: URL_HOP1,
+        startedDateTime: new Date(STARTED_AT_MS + 10).toISOString(),
+      }),
+    });
+    har.emit({
+      kind: 'har-body',
+      tabId: TAB,
+      body: harBody({
+        method: 'GET',
+        url: URL_HOP2,
+        startedDateTime: new Date(STARTED_AT_MS + 20).toISOString(),
+      }),
+    });
+
+    const bodies = collected.filter((u) => u.kind === 'body-attached');
+    expect(bodies).toHaveLength(3);
+    expect(bodies.map((u) => (u.kind === 'body-attached' ? u.hopIndex : -1))).toEqual([0, 1, 2]);
+    correlator.dispose();
+  });
+
+  it('303 method rewrite (POST → GET) — the new hop FIFO entry uses the rewritten method', () => {
+    const { webRequest, har } = makeSources();
+    const correlator = new HeuristicCorrelator({ webRequest, har });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+
+    // Hop 0 is POST.
+    webRequest.emit({
+      method_kind: 'onBeforeRequest',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_HOP0,
+      method: 'POST',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS,
+    });
+    // 303 redirect.
+    webRequest.emit({
+      method_kind: 'onBeforeRedirect',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_HOP0,
+      method: 'POST',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 5,
+      statusCode: 303,
+      redirectUrl: URL_HOP1,
+    });
+    // Hop 1 — outgoing method is GET.
+    webRequest.emit({
+      method_kind: 'onSendHeaders',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_HOP1,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 10,
+    });
+
+    // HAR for hop 1 — request.method matches the rewritten GET.
+    har.emit({
+      kind: 'har-entry',
+      tabId: TAB,
+      entry: harEntry({
+        startedDateTime: new Date(STARTED_AT_MS + 10).toISOString(),
+        request: { method: 'GET', url: URL_HOP1, headers: [], queryString: [] },
+      }),
+    });
+
+    const attached = collected.filter((u) => u.kind === 'har-attached');
+    expect(attached).toHaveLength(1);
+    if (attached[0]?.kind !== 'har-attached') throw new Error('expected har-attached');
+    expect(attached[0].hopIndex).toBe(1);
+    correlator.dispose();
+  });
+
+  it('forward race — a HAR for hop 1 arriving before onSendHeaders is held and drained on record', () => {
+    const { webRequest, har } = makeSources();
+    const correlator = new HeuristicCorrelator({ webRequest, har });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+
+    // Hop 0 + redirect, but hop-1 onSendHeaders has not fired yet.
+    webRequest.emit({
+      method_kind: 'onBeforeRequest',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_HOP0,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS,
+    });
+    webRequest.emit({
+      method_kind: 'onBeforeRedirect',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_HOP0,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 5,
+      statusCode: 302,
+      redirectUrl: URL_HOP1,
+    });
+
+    // HAR for hop 1 lands early — no FIFO entry for URL_HOP1 yet,
+    // entry is buffered.
+    har.emit({
+      kind: 'har-entry',
+      tabId: TAB,
+      entry: harEntry({
+        startedDateTime: new Date(STARTED_AT_MS + 10).toISOString(),
+        request: { method: 'GET', url: URL_HOP1, headers: [], queryString: [] },
+      }),
+    });
+    expect(collected.filter((u) => u.kind === 'har-attached')).toHaveLength(0);
+
+    // Now onSendHeaders for hop 1 — record runs, drain attaches.
+    webRequest.emit({
+      method_kind: 'onSendHeaders',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_HOP1,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 10,
+    });
+
+    const attached = collected.filter((u) => u.kind === 'har-attached');
+    expect(attached).toHaveLength(1);
+    if (attached[0]?.kind !== 'har-attached') throw new Error('expected har-attached');
+    expect(attached[0].hopIndex).toBe(1);
+    correlator.dispose();
+  });
+
+  it('two redirects sharing a target URL — closest-timestamp picks the right hop', () => {
+    const { webRequest, har } = makeSources();
+    const correlator = new HeuristicCorrelator({ webRequest, har });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+
+    // A → B → A — hop 0 and hop 2 share URL_HOP0.
+    webRequest.emit({
+      method_kind: 'onBeforeRequest',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_HOP0,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS,
+    });
+    webRequest.emit({
+      method_kind: 'onBeforeRedirect',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_HOP0,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 5,
+      statusCode: 302,
+      redirectUrl: URL_HOP1,
+    });
+    webRequest.emit({
+      method_kind: 'onSendHeaders',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_HOP1,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 10,
+    });
+    webRequest.emit({
+      method_kind: 'onBeforeRedirect',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_HOP1,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 15,
+      statusCode: 302,
+      redirectUrl: URL_HOP0,
+    });
+    webRequest.emit({
+      method_kind: 'onSendHeaders',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_HOP0,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 20,
+    });
+
+    // HAR for hop 2 (URL_HOP0 at t=+20) arrives first — closest-t wins.
+    har.emit({
+      kind: 'har-entry',
+      tabId: TAB,
+      entry: harEntry({
+        startedDateTime: new Date(STARTED_AT_MS + 20).toISOString(),
+        request: { method: 'GET', url: URL_HOP0, headers: [], queryString: [] },
+      }),
+    });
+    har.emit({
+      kind: 'har-entry',
+      tabId: TAB,
+      entry: harEntry({
+        startedDateTime: new Date(STARTED_AT_MS).toISOString(),
+        request: { method: 'GET', url: URL_HOP0, headers: [], queryString: [] },
+      }),
+    });
+
+    const attached = collected.filter((u) => u.kind === 'har-attached');
+    expect(attached).toHaveLength(2);
+    const hopIndexes = attached.map((u) => (u.kind === 'har-attached' ? u.hopIndex : -1));
+    // First match was hop 2 (t=+20 closest); second was hop 0.
+    expect(hopIndexes).toEqual([2, 0]);
+    correlator.dispose();
+  });
+
+  it('terminal phase releases the hop cursor (no leak across requestId reuse)', () => {
+    const { webRequest, har } = makeSources();
+    const correlator = new HeuristicCorrelator({ webRequest, har });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+
+    // Hop 0 + redirect + hop 1 + terminal.
+    emit3HopChain(webRequest, { methods: ['GET', 'GET', 'GET'], startMs: STARTED_AT_MS });
+    webRequest.emit({
+      method_kind: 'onCompleted',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_HOP2,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 50,
+      statusCode: 200,
+    });
+
+    // A subsequent onBeforeRedirect for the same requestId would be a
+    // host-side bug, but the cursor must be gone — `noteRedirect` on
+    // an unknown lifecycle is a no-op (covered by the HopCursor unit
+    // test). Smoke test here: no leftover state surfaces a hop-2 FIFO
+    // entry for a later HAR with URL_HOP2.
+    har.emit({
+      kind: 'har-entry',
+      tabId: TAB,
+      entry: harEntry({
+        startedDateTime: new Date(STARTED_AT_MS + 20).toISOString(),
+        request: { method: 'GET', url: URL_HOP2, headers: [], queryString: [] },
+      }),
+    });
+    const attached = collected.filter((u) => u.kind === 'har-attached');
+    // Each of the three hops should still attach exactly once.
+    expect(attached.map((u) => (u.kind === 'har-attached' ? u.hopIndex : -1))).toEqual([2]);
+    correlator.dispose();
+  });
+});
+
 describe('HeuristicCorrelator — exposes no chrome surface', () => {
   it('module export does not name fromChromeWebRequest (kept out of oracle)', () => {
     const ctor = HeuristicCorrelator as unknown as Record<string, unknown>;

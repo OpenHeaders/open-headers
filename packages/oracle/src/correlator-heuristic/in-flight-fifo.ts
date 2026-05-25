@@ -56,6 +56,21 @@ interface InFlightEntry {
    * requestIds between the two.
    */
   method: string;
+  /**
+   * Redirect-hop index stamped at record time (H8/H9). Hop 0 is the
+   * lifecycle's original request; hop N is the request after the Nth
+   * redirect. The HAR for hop N matches by URL/timestamp/method and
+   * inherits this index — reading `redirectHopCount` from the
+   * lifecycle at HAR-attach time would race because HAR arrives
+   * after webRequest has already moved on.
+   */
+  hopIndex: number;
+}
+
+/** Resolved join target for a popped FIFO entry — `{ requestId, hopIndex }`. */
+export interface InFlightMatch {
+  readonly requestId: string;
+  readonly hopIndex: number;
 }
 
 /** Optional eviction hook — fires when a non-empty queue is dropped by the LRU cap. */
@@ -84,7 +99,14 @@ export class InFlightFifo {
    * without this sweep, stale heads would poison the FIFO and the next
    * HAR hit on the same URL would mis-attribute.
    */
-  record(tabId: number, url: string, requestId: string, t: number, method: string): void {
+  record(
+    tabId: number,
+    url: string,
+    requestId: string,
+    t: number,
+    method: string,
+    hopIndex: number,
+  ): void {
     const tabMap = this.ensureTab(tabId);
     let queue = tabMap.get(url);
     if (queue) {
@@ -97,7 +119,7 @@ export class InFlightFifo {
       queue = [];
     }
     tabMap.set(url, queue);
-    queue.push({ requestId, t, method });
+    queue.push({ requestId, t, method, hopIndex });
     // Bound the per-tab URL count. URLs that never produce a HAR entry
     // stay in the map until evicted here; the iteration-order eviction
     // drops the least-recently-touched URL first. Eviction is silent in
@@ -138,7 +160,12 @@ export class InFlightFifo {
    * `POP_FUTURE_SKEW_MS` past `harTimestamp` — Chrome sometimes stamps
    * the HAR start slightly before our `Date.now()` for the same event.
    */
-  popMatching(tabId: number, url: string, harTimestamp: number, harMethod: string): string | undefined {
+  popMatching(
+    tabId: number,
+    url: string,
+    harTimestamp: number,
+    harMethod: string,
+  ): InFlightMatch | undefined {
     const tabMap = this.perTab.get(tabId);
     if (!tabMap) return undefined;
     const queue = tabMap.get(url);
@@ -169,7 +196,7 @@ export class InFlightFifo {
     const matched = queue[bestIdx];
     queue.splice(bestIdx, 1);
     if (queue.length === 0) tabMap.delete(url);
-    return matched.requestId;
+    return { requestId: matched.requestId, hopIndex: matched.hopIndex };
   }
 
   /** Drop all in-flight state for a tab (invariant 2 — lifecycles die with the tab). */

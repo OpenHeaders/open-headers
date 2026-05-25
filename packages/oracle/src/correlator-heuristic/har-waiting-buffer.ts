@@ -31,19 +31,30 @@ export type HarWaitingDropLogger = (info: {
 }) => void;
 
 /**
- * Retry hook the correlator passes to {@link HarWaitingBuffer.drain}.
- * Returns the matched `requestId` (caller will emit `har-attached`) or
- * `undefined` to leave the entry in the buffer for another pass.
+ * Resolved retry outcome — the join target that minted the match.
+ * Mirrors {@link InFlightMatch}; defined locally to keep this module's
+ * import surface narrow.
  */
-export type HarRetry = (entry: InspectorHarEntry) => string | undefined;
+export interface HarRetryMatch {
+  readonly requestId: string;
+  readonly hopIndex: number;
+}
+
+/**
+ * Retry hook the correlator passes to {@link HarWaitingBuffer.drain}.
+ * Returns the matched `{ requestId, hopIndex }` (caller will emit
+ * `har-attached`) or `undefined` to leave the entry buffered.
+ */
+export type HarRetry = (entry: InspectorHarEntry) => HarRetryMatch | undefined;
 
 /**
  * Outcome of a successful drain pass — the buffer hands each matched
- * entry + its resolved `requestId` back so the correlator can emit.
+ * entry + its resolved join target back so the correlator can emit.
  */
 export interface HarDrainResult {
   readonly entry: InspectorHarEntry;
   readonly requestId: string;
+  readonly hopIndex: number;
 }
 
 export class HarWaitingBuffer {
@@ -92,9 +103,9 @@ export class HarWaitingBuffer {
     if (!queue || queue.length === 0) return [];
     const matched: HarDrainResult[] = [];
     for (let i = queue.length - 1; i >= 0; i--) {
-      const requestId = retry(queue[i].entry);
-      if (requestId === undefined) continue;
-      matched.push({ entry: queue[i].entry, requestId });
+      const hit = retry(queue[i].entry);
+      if (hit === undefined) continue;
+      matched.push({ entry: queue[i].entry, requestId: hit.requestId, hopIndex: hit.hopIndex });
       queue.splice(i, 1);
     }
     if (queue.length === 0) this.perTab.delete(tabId);

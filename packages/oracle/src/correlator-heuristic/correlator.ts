@@ -25,11 +25,15 @@
  *     stamped onto every subsequent `phase` patch                     ✓
  *   - H6 `net::ERR_FAILED` → `oh:cors-*` error refinement pre-emit
  *     via {@link refineUpdateWithCors}                                ✓
+ *   - H8/H9 per-hop HAR + body attribution via {@link HopCursor}: the
+ *     correlator stamps `hopIndex` into {@link InFlightFifo} at record
+ *     time (hop 0 at `onBeforeRequest`; hops ≥ 1 at the
+ *     `onSendHeaders` following an `onBeforeRedirect`). HAR entries
+ *     and their bodies inherit the stamp via the FIFO + body-join
+ *     map.                                                            ✓
  *
  * Deliberately deferred (own future sessions):
  *   - H4 per-URL FIFO matching refinements beyond the verbatim port
- *   - H8/H9 per-hop HAR / `body-attached` attribution. Until H8 lands
- *     all HAR + body updates emit `hopIndex: 0`.
  */
 
 import type {
@@ -52,7 +56,9 @@ import { FinalizedRetention } from './finalized-retention';
 import { bodyAttachedUpdate, harAttachedUpdate, harEntryJoinFields, harEntryTimestamp } from './har-to-update';
 import type { HarEvent, HarEventSource } from './har-events';
 import { HarWaitingBuffer } from './har-waiting-buffer';
+import { HopCursor } from './hop-cursor';
 import { InFlightFifo } from './in-flight-fifo';
+import type { InFlightMatch } from './in-flight-fifo';
 import { webRequestEventToUpdates } from './webrequest-to-update';
 
 /**
@@ -80,6 +86,7 @@ export class HeuristicCorrelator implements RequestCorrelator {
   private readonly harWaiting = new HarWaitingBuffer();
   private readonly finalizedRetention = new FinalizedRetention();
   private readonly corsContext = new CorsContextStore();
+  private readonly hopCursor = new HopCursor();
   private readonly webRequestUnsubscribe: () => void;
   private readonly harUnsubscribe: () => void;
 
@@ -102,6 +109,7 @@ export class HeuristicCorrelator implements RequestCorrelator {
     this.harWaiting.forgetTab(tabId);
     this.finalizedRetention.forgetTab(tabId);
     this.corsContext.forgetTab(tabId);
+    this.hopCursor.forgetTab(tabId);
   }
 
   subscribe(listener: RequestLifecycleListener): Unsubscribe {
@@ -125,14 +133,10 @@ export class HeuristicCorrelator implements RequestCorrelator {
   private onWebRequestEvent(event: WebRequestEvent): void {
     if (!this.attached.has(event.tabId)) return;
     this.gcLateArrival(event.timeStamp);
-    // Record onBeforeRequest into the join FIFO before mapping — the
-    // mapper's `started` update and the FIFO record share the same
-    // input; recording first keeps the FIFO authoritative even if a
-    // listener throws downstream (which the for-loop in `emit` already
-    // tolerates, but symmetric ordering is clearer to reason about).
-    if (event.method_kind === 'onBeforeRequest') {
-      this.inFlight.record(event.tabId, event.url, event.requestId, event.timeStamp, event.method);
-    }
+    // Bookkeeping before mapping — keeps the FIFO and hop-cursor
+    // authoritative even if a listener throws downstream (the for-loop
+    // in `emit` already tolerates, but ordering is clearer this way).
+    this.maybeUpdateHopBookkeeping(event);
     const verdict = this.maybeUpdateCorsContext(event);
     const updates = webRequestEventToUpdates(event);
     for (const update of updates) this.emit(refineUpdateWithCors(update, verdict));
@@ -140,6 +144,60 @@ export class HeuristicCorrelator implements RequestCorrelator {
     // HAR entries that were held waiting for this in-flight slot.
     if (event.method_kind === 'onBeforeRequest') {
       this.drainHarWaiting(event.tabId);
+    }
+  }
+
+  /**
+   * Side-effects on {@link InFlightFifo} + {@link HopCursor} that
+   * thread the correct hop index into every HAR / body attachment
+   * downstream (H8/H9).
+   *
+   *   - `onBeforeRequest` seeds hop 0 into both stores in lockstep.
+   *   - `onBeforeRedirect` advances the cursor but defers the FIFO
+   *     record: the next hop's actual outgoing method is unknown at
+   *     this point (a 303 rewrites POST→GET) and the HAR's method
+   *     gate would otherwise miss the join.
+   *   - `onSendHeaders` for hops ≥ 1 consumes the pending record and
+   *     stamps the FIFO entry with the now-known method. Hop 0's
+   *     `onSendHeaders` produces no FIFO record (it already exists)
+   *     but still runs for CORS-context capture downstream.
+   *
+   * Bookkeeping is silent on the H6 / non-CORS paths (`onHeadersReceived`,
+   * `onCompleted`, `onErrorOccurred`). Hop-cursor entries are released
+   * at terminal-phase emission (`emit` does the `forget`).
+   */
+  private maybeUpdateHopBookkeeping(event: WebRequestEvent): void {
+    switch (event.method_kind) {
+      case 'onBeforeRequest':
+        this.inFlight.record(event.tabId, event.url, event.requestId, event.timeStamp, event.method, 0);
+        this.hopCursor.start(event.tabId, event.requestId, event.method);
+        return;
+      case 'onBeforeRedirect':
+        this.hopCursor.noteRedirect(event.tabId, event.requestId);
+        return;
+      case 'onSendHeaders': {
+        const pending = this.hopCursor.consumePendingRecord(
+          event.tabId,
+          event.requestId,
+          event.method,
+        );
+        if (pending === undefined) return;
+        this.inFlight.record(
+          event.tabId,
+          event.url,
+          event.requestId,
+          event.timeStamp,
+          pending.method,
+          pending.hopIndex,
+        );
+        // A late HAR for the newly-recorded hop may already be sitting
+        // in the waiting buffer — drain to surface those attachments
+        // before the next event.
+        this.drainHarWaiting(event.tabId);
+        return;
+      }
+      default:
+        return;
     }
   }
 
@@ -199,25 +257,28 @@ export class HeuristicCorrelator implements RequestCorrelator {
     const { url, method } = harEntryJoinFields(entry);
     const ts = harEntryTimestamp(entry);
     if (!url || ts === null) return;
-    const requestId = this.inFlight.popMatching(tabId, url, ts, method);
-    if (requestId === undefined) {
+    const match = this.inFlight.popMatching(tabId, url, ts, method);
+    if (match === undefined) {
       // Forward race (H7): no in-flight slot recorded yet. Hold for
       // up to LATE_ARRIVAL_WINDOW_MS so the matching onBeforeRequest
-      // — if it lands within the window — can drain this entry.
+      // (or onSendHeaders for hops ≥ 1) — if it lands within the
+      // window — can drain this entry.
       this.harWaiting.hold(tabId, entry, ts);
       return;
     }
-    this.attachHarEntry(tabId, requestId, entry, method, url);
+    this.attachHarEntry(tabId, match, entry, method, url);
   }
 
   /**
-   * Mint a `har-attached` update for a resolved `(tabId, requestId)`.
+   * Mint a `har-attached` update for a resolved {@link InFlightMatch}.
    * Shared by the eager onHarEntry path and the drain path that fires
-   * after a late `onBeforeRequest` matches a buffered entry.
+   * after a late hop record matches a buffered entry. The `hopIndex`
+   * was stamped at FIFO record time (H8/H9) — body-join inherits it
+   * so the body emission stays consistent with its entry.
    */
   private attachHarEntry(
     tabId: number,
-    requestId: string,
+    match: InFlightMatch,
     entry: InspectorHarEntry,
     method: string,
     url: string,
@@ -227,19 +288,22 @@ export class HeuristicCorrelator implements RequestCorrelator {
     // before the HAR catches up, so a missing lifecycle here is a
     // genuine race (e.g. lifecycle was forgotten after tab close) —
     // drop rather than mint a floating attachment.
-    if (!this.recentLifecycles.has(lifecycleKey(tabId, requestId))) return;
-    // H2/H3 scope: hop 0 always. H8/H9 will derive correct per-hop
-    // attribution. The body-join map remembers the same hopIndex so
-    // the body emission stays consistent with its entry.
-    const hopIndex = 0;
-    this.bodyJoin.remember(tabId, method, url, entry.startedDateTime, { requestId, hopIndex });
-    this.emit(harAttachedUpdate({ tabId, requestId, hopIndex, entry }));
+    if (!this.recentLifecycles.has(lifecycleKey(tabId, match.requestId))) return;
+    this.bodyJoin.remember(tabId, method, url, entry.startedDateTime, {
+      requestId: match.requestId,
+      hopIndex: match.hopIndex,
+    });
+    this.emit(
+      harAttachedUpdate({ tabId, requestId: match.requestId, hopIndex: match.hopIndex, entry }),
+    );
   }
 
   /**
-   * After an `onBeforeRequest` records a new in-flight slot, retry any
-   * HAR entries previously held for this tab. Each successful match
-   * attaches via the shared `attachHarEntry` path.
+   * After a hop record lands (hop 0 at `onBeforeRequest` or hop ≥ 1
+   * at `onSendHeaders`), retry any HAR entries previously held for
+   * this tab. Each successful match attaches via the shared
+   * `attachHarEntry` path with its `hopIndex` recovered from the
+   * FIFO.
    */
   private drainHarWaiting(tabId: number): void {
     const matched = this.harWaiting.drain(tabId, (entry) => {
@@ -248,9 +312,9 @@ export class HeuristicCorrelator implements RequestCorrelator {
       if (!url || ts === null) return undefined;
       return this.inFlight.popMatching(tabId, url, ts, method);
     });
-    for (const { entry, requestId } of matched) {
+    for (const { entry, requestId, hopIndex } of matched) {
       const { url, method } = harEntryJoinFields(entry);
-      this.attachHarEntry(tabId, requestId, entry, method, url);
+      this.attachHarEntry(tabId, { requestId, hopIndex }, entry, method, url);
     }
   }
 
@@ -296,6 +360,11 @@ export class HeuristicCorrelator implements RequestCorrelator {
         update.requestId,
         update.patch.completedAtMs,
       );
+      // Hop bookkeeping is done — release the cursor. The FIFO entry
+      // for the current hop is consumed by its HAR (or expires via
+      // staleness sweep); the cursor exists only to bridge
+      // onBeforeRedirect → onSendHeaders and has no further role.
+      this.hopCursor.forget(update.tabId, update.requestId);
     }
     for (const listener of this.listeners) listener(update);
   }
