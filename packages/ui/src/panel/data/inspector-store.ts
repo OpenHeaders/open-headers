@@ -727,13 +727,19 @@ export class InspectorStore {
 
     const { pending: _drop, ...rest } = existing;
     void _drop;
+    // If `onCompleted` already stamped a real HTTP status on this
+    // pending row (headers arrived before the body aborted — the
+    // canonical abort-mid-body shape), preserve it. The error event
+    // describes the body failure; the response line is still valid
+    // and Chrome's panel shows both.
+    const hadStatus = typeof existing.statusCode === 'number' && existing.statusCode > 0;
     this.entries[idx] = {
       ...rest,
       id: newId,
       harEntry: synthesizeErrorHarEntry(err, startedDateTime),
       timestamp: safeTs,
-      statusCode: 0,
-      statusText: err.error,
+      statusCode: hadStatus ? existing.statusCode : 0,
+      statusText: hadStatus ? (existing.statusText ?? err.error) : err.error,
       resourceType: err.resourceType,
       error: { code: err.error, reason: info.reason },
     };
