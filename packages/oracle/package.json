@@ -82,6 +82,10 @@
     "./correlator-cdp": {
       "import": "./src/correlator-cdp/index.ts",
       "default": "./dist/correlator-cdp/index.js"
+    },
+    "./correlator-heuristic": {
+      "import": "./src/correlator-heuristic/index.ts",
+      "default": "./dist/correlator-heuristic/index.js"
     }
   },
   "scripts": {

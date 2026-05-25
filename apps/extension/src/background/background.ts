@@ -415,6 +415,7 @@ import { markBootPhase } from '@openheaders/oracle/sync/boot-telemetry';
 import { pruneOrphanOwners } from '@openheaders/oracle/test-run/test-run-store';
 import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
 import { auditHostPermissions } from './modules/permissions-audit';
+import { startLifecycleHost } from './correlator-host';
 import { setupRequestMonitoring } from './modules/request-monitor';
 import {
   getActiveRulesForTab,
@@ -712,6 +713,11 @@ async function initializeExtension(): Promise<void> {
     configuredRuleCount: 0,
   });
   setupRequestMonitoring(debouncedUpdateBadge);
+  // Request-lifecycle pipeline (H1): chrome.webRequest → HeuristicCorrelator →
+  // RequestLifecycleStore. Runs alongside request-monitor's legacy
+  // subscribers until rows RM3–RM6 retire them; invariant 7 ("sole
+  // webRequest subscriber") holds at integration level once that lands.
+  startLifecycleHost();
   setupTabListeners(debouncedUpdateBadge);
   setupPeriodicCleanup();
   initializeActiveTabTracking();
