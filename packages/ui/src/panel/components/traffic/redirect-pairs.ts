@@ -30,45 +30,38 @@ function isRedirectStatus(status: number | undefined): status is number {
 }
 
 export function deriveRedirectPairs(entries: readonly InspectorRequest[]): RedirectIndex {
-  // Bucket prospective sources by their `redirectURL`, so each follower
-  // lookup is O(1). Sort each bucket by timestamp so the nearest prior
-  // source wins when the same URL is redirected to repeatedly.
-  const byTargetUrl = new Map<string, InspectorRequest[]>();
+  // Direct lookup by `chromeRequestId`. Chrome's CDP and webRequest both
+  // reuse the same requestId across an entire redirect chain — each hop
+  // (source 3xx → next source 3xx → final 2xx) carries the same id. So
+  // a follower's source is exactly the prior entry in its requestId
+  // group whose `response.redirectURL` matches the follower's URL.
+  const byRequestId = new Map<string, InspectorRequest[]>();
   for (const e of entries) {
-    if (!isRedirectStatus(e.statusCode)) continue;
-    const target = redirectTargetUrl(e);
-    if (!target) continue;
-    let bucket = byTargetUrl.get(target);
-    if (!bucket) {
-      bucket = [];
-      byTargetUrl.set(target, bucket);
+    if (!e.chromeRequestId) continue;
+    let group = byRequestId.get(e.chromeRequestId);
+    if (!group) {
+      group = [];
+      byRequestId.set(e.chromeRequestId, group);
     }
-    bucket.push(e);
+    group.push(e);
   }
-  for (const bucket of byTargetUrl.values()) {
-    bucket.sort((a, b) => a.timestamp - b.timestamp || a.arrivalIndex - b.arrivalIndex);
+  for (const group of byRequestId.values()) {
+    group.sort((a, b) => a.arrivalIndex - b.arrivalIndex);
   }
 
   const out = new Map<string, { sourceId: string; sourceStatus: number }>();
-  for (const follower of entries) {
-    const bucket = byTargetUrl.get(follower.url);
-    if (!bucket) continue;
-    // Walk back from the most recent source; pick the latest one that
-    // started before this follower. Chrome reuses the requestId across
-    // a chain, so when both sides carry one we require them to match.
-    for (let i = bucket.length - 1; i >= 0; i--) {
-      const candidate = bucket[i];
-      if (candidate.id === follower.id) continue;
-      if (candidate.timestamp > follower.timestamp) continue;
-      if (
-        candidate.chromeRequestId &&
-        follower.chromeRequestId &&
-        candidate.chromeRequestId !== follower.chromeRequestId
-      ) {
-        continue;
+  for (const group of byRequestId.values()) {
+    for (let i = 0; i < group.length; i++) {
+      const follower = group[i];
+      // The source for this follower is the most recent prior hop in
+      // the same requestId group whose Location pointed here.
+      for (let j = i - 1; j >= 0; j--) {
+        const candidate = group[j];
+        if (!isRedirectStatus(candidate.statusCode)) continue;
+        if (candidate.harEntry.response?.redirectURL !== follower.url) continue;
+        out.set(follower.id, { sourceId: candidate.id, sourceStatus: candidate.statusCode });
+        break;
       }
-      out.set(follower.id, { sourceId: candidate.id, sourceStatus: candidate.statusCode as number });
-      break;
     }
   }
   return out;

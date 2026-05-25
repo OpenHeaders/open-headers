@@ -249,52 +249,48 @@ function popMatchingRequestId(
 ): string | undefined {
   const queue = session.inFlightByUrl.get(url);
   if (!queue || queue.length === 0) return undefined;
-  // Two-sided plausibility window with deliberately asymmetric handling:
-  //
-  //   - `head.t < harTimestamp - IN_FLIGHT_MAX_AGE_MS` — stale entries
-  //     are *dead*. The FIFO head is so old its own HAR was lost
-  //     (cancelled, evicted). Drop it and reconsider the next entry;
-  //     Chrome processes `onBeforeRequest` events in order, so an
-  //     older head with a missing HAR cannot belong to *this* HAR
-  //     either.
-  //
-  //   - `head.t > harTimestamp + POP_FUTURE_SKEW_MS` — future entries
-  //     are *live*. The FIFO head is for a request started *after*
-  //     this HAR's request — i.e. this HAR's own webRequest entry was
-  //     evicted/cancelled before its HAR landed. Popping would mis-
-  //     attribute a future requestId to a past HAR. We leave the head
-  //     in the queue (its real HAR is on its way) and return undefined
-  //     so the panel falls back to URL+window matching for *this* row
-  //     only. Subsequent HARs continue to pop correctly — a single
-  //     mis-ordered HAR degrades, never a cascade.
+  // Sweep entries that are too stale to belong to any future HAR.
   const lower = harTimestamp - IN_FLIGHT_MAX_AGE_MS;
-  while (queue.length > 0 && queue[0].t < lower) queue.shift();
+  for (let i = queue.length - 1; i >= 0; i--) {
+    if (queue[i].t < lower) queue.splice(i, 1);
+  }
   if (queue.length === 0) {
     session.inFlightByUrl.delete(url);
     return undefined;
   }
-  // Method-aware FIFO: scan for the first entry whose method matches the
-  // HAR's. Necessary for preflight-bearing requests (e.g. cross-origin POST
-  // with a custom header) where webRequest order (POST then internal OPTIONS)
-  // reverses HAR delivery order (OPTIONS then POST). Within a single method
-  // the queue order is still strict FIFO. Fallback to the head when no entry
-  // matches (e.g. HAR with empty method) preserves prior single-method
-  // behavior.
-  let idx = -1;
-  if (harMethod) {
-    for (let i = 0; i < queue.length; i++) {
-      if (queue[i].method === harMethod) {
-        idx = i;
-        break;
-      }
+  // Closest-timestamp match (with method gating). The queue's `t` is
+  // when `onBeforeRequest` fired in this process; HAR's `startedDateTime`
+  // is what Chrome stamped at the same point for the same request. They
+  // co-arrive tightly per request, so the entry whose `t` is closest to
+  // `harTimestamp` (within tolerance) is the correct match — robust to:
+  //
+  //   - Out-of-order HAR delivery (e.g. two redirects to the same target
+  //     URL; FIFO head-pop would pair them with the wrong queue entries
+  //     when the later HAR arrives first).
+  //   - Preflight-bearing POSTs (handled via the method gate, which also
+  //     constrains the candidate pool before timestamp matching).
+  //
+  // A small look-ahead skew accepts entries whose `t` is up to
+  // `POP_FUTURE_SKEW_MS` past `harTimestamp` — Chrome sometimes stamps
+  // the HAR start slightly before our `Date.now()` for the same event.
+  const upper = harTimestamp + POP_FUTURE_SKEW_MS;
+  let bestIdx = -1;
+  let bestDelta = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < queue.length; i++) {
+    const entry = queue[i];
+    if (harMethod && entry.method !== harMethod) continue;
+    if (entry.t > upper) continue;
+    const delta = Math.abs(entry.t - harTimestamp);
+    if (delta < bestDelta) {
+      bestDelta = delta;
+      bestIdx = i;
     }
   }
-  if (idx === -1) idx = 0;
-  const entry = queue[idx];
-  if (entry.t > harTimestamp + POP_FUTURE_SKEW_MS) return undefined;
-  queue.splice(idx, 1);
+  if (bestIdx === -1) return undefined;
+  const matched = queue[bestIdx];
+  queue.splice(bestIdx, 1);
   if (queue.length === 0) session.inFlightByUrl.delete(url);
-  return entry.requestId;
+  return matched.requestId;
 }
 
 function broadcastToInspectorPorts(session: TabSession, message: InspectorPortMessage): void {
