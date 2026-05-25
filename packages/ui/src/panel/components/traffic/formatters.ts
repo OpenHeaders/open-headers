@@ -70,23 +70,50 @@ function extractFilename(url: string): string {
  *   - fallback -> initiator type ("parser", "other", etc.)
  */
 export function formatInitiator(initiator: unknown): string {
+  const frame = getInitiatorFrame(initiator);
+  if (frame) {
+    const name = extractFilename(frame.url);
+    return frame.lineNumber != null ? `${name}:${frame.lineNumber + 1}` : name;
+  }
   if (!initiator || typeof initiator !== 'object') return '';
-  const obj = initiator as Record<string, unknown>;
-  const type = (obj.type as string) ?? '';
+  return ((initiator as Record<string, unknown>).type as string) ?? '';
+}
 
-  const stack = obj.stack as { callFrames?: Array<{ url?: string; lineNumber?: number }> } | undefined;
+/**
+ * Pull a `{ url, lineNumber?, columnNumber? }` frame out of a HAR
+ * `_initiator` blob — the exact same shape `hostNavigation.openResource`
+ * expects. Mirrors the precedence `formatInitiator` uses (stack top frame
+ * first, then bare `url`/`lineNumber`), so the column label and the
+ * click-to-Sources target are always consistent.
+ */
+export interface InitiatorFrame {
+  url: string;
+  lineNumber?: number;
+  columnNumber?: number;
+}
+
+export function getInitiatorFrame(initiator: unknown): InitiatorFrame | null {
+  if (!initiator || typeof initiator !== 'object') return null;
+  const obj = initiator as Record<string, unknown>;
+  const stack = obj.stack as
+    | { callFrames?: Array<{ url?: string; lineNumber?: number; columnNumber?: number }> }
+    | undefined;
   if (stack?.callFrames?.length) {
     const frame = stack.callFrames[0];
     if (frame.url) {
-      const name = extractFilename(frame.url);
-      return frame.lineNumber != null ? `${name}:${frame.lineNumber + 1}` : name;
+      return {
+        url: frame.url,
+        ...(frame.lineNumber != null ? { lineNumber: frame.lineNumber } : {}),
+        ...(frame.columnNumber != null ? { columnNumber: frame.columnNumber } : {}),
+      };
     }
   }
-
   if (typeof obj.url === 'string' && obj.url) {
-    const name = extractFilename(obj.url);
-    return typeof obj.lineNumber === 'number' ? `${name}:${obj.lineNumber + 1}` : name;
+    return {
+      url: obj.url,
+      ...(typeof obj.lineNumber === 'number' ? { lineNumber: obj.lineNumber } : {}),
+      ...(typeof obj.columnNumber === 'number' ? { columnNumber: obj.columnNumber } : {}),
+    };
   }
-
-  return type;
+  return null;
 }

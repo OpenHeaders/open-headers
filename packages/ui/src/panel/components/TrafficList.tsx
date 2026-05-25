@@ -22,8 +22,10 @@ import { ResourceFilter } from './ResourceFilter';
 import { ColumnHeaderContextMenu, type ColumnHeaderContextMenuState } from './traffic/ColumnHeaderContextMenu';
 import type { ColumnDef, ColumnKey } from './traffic/columns';
 import { COLUMN_DEFS, columnTrack, DEFAULT_COLUMN_MIN_WIDTH, DEFAULT_VISIBLE_COLUMNS } from './traffic/columns';
-import { extractName, formatInitiator, formatTimestamp, statusClass } from './traffic/formatters';
+import { hostNavigation } from '@openheaders/core/navigation';
+import { extractName, formatInitiator, formatTimestamp, getInitiatorFrame, statusClass } from './traffic/formatters';
 import { derivePreflightPairs, getRole, type PreflightIndex } from './traffic/preflight-pairs';
+import { deriveRedirectPairs, type RedirectIndex } from './traffic/redirect-pairs';
 import { RequestContextMenu, type RequestContextMenuState } from './traffic/RequestContextMenu';
 import ResourceIcon from './traffic/ResourceIcon';
 import { matchesResourceType, normalizeResourceType, RESOURCE_LABEL } from './traffic/resource-types';
@@ -198,6 +200,7 @@ function sortCompare(a: InspectorRequest, b: InspectorRequest, target: SortTarge
 interface CellContext {
   waterfall: { t0: number; tMax: number };
   preflight: PreflightIndex;
+  redirect: RedirectIndex;
   onJumpTo: (id: string) => void;
 }
 
@@ -269,8 +272,8 @@ function renderCell(
     return <span>{RESOURCE_LABEL[rawType] ?? rawType}</span>;
   }
   if (col.key === 'initiator') {
-    // For preflight rows, Chrome shows "Preflight" linking to the
-    // parent CORS request instead of the JS stack that initiated it,
+    // Preflight rows take priority: Chrome shows "Preflight" linking to
+    // the parent CORS request instead of the JS stack that initiated it,
     // with an info glyph whose tooltip explains the action.
     if (role.kind === 'preflight') {
       return (
@@ -293,6 +296,50 @@ function renderCell(
           >
             ⓘ
           </span>
+        </span>
+      );
+    }
+    // Redirect-target rows show the source's 3xx status as a jump link
+    // (Chrome's Network panel convention). Same scroll+flash UX as the
+    // preflight pair.
+    const redir = ctx.redirect.get(entry.id);
+    if (redir) {
+      return (
+        <span className="dt-col-muted">
+          <button
+            type="button"
+            className="dt-btn-link"
+            onClick={(e) => {
+              e.stopPropagation();
+              ctx.onJumpTo(redir.sourceId);
+            }}
+            title="Select the request that issued the redirect"
+          >
+            {redir.sourceStatus}
+          </button>
+        </span>
+      );
+    }
+    // JS-initiated rows: render the call-site as a clickable link that
+    // opens the host's Sources panel at the right line, mirroring
+    // Chrome's behavior and matching what the request-metadata detail
+    // pane's Initiator tab already does for the call stack.
+    const frame = getInitiatorFrame(entry.harEntry._initiator);
+    if (frame) {
+      const label = formatInitiator(entry.harEntry._initiator);
+      return (
+        <span className="dt-col-muted">
+          <button
+            type="button"
+            className="dt-btn-link"
+            onClick={(e) => {
+              e.stopPropagation();
+              hostNavigation.openResource(frame.url, frame.lineNumber, frame.columnNumber);
+            }}
+            title={frame.url}
+          >
+            {label}
+          </button>
         </span>
       );
     }
@@ -597,6 +644,9 @@ export function TrafficList({
   // with a dead link resolver. Kept at the full-entry scope so the
   // parent lookup is stable across filter changes.
   const preflight = useMemo(() => derivePreflightPairs(entries), [entries]);
+  // Redirect-target → source pairing, same scope/lifecycle as preflight
+  // so a follow-up still resolves even when its source is filtered out.
+  const redirect = useMemo(() => deriveRedirectPairs(entries), [entries]);
 
   // Waterfall reference window: earliest start vs. latest finish across
   // the visible, sorted rows. Recomputed with the rows so the bars
@@ -761,7 +811,7 @@ export function TrafficList({
               </span>
               {columns.map((col) => (
                 <span key={col.key}>
-                  {renderCell(col, entry, state, sizeInfo, { waterfall: { t0, tMax }, preflight, onJumpTo: handleJumpTo })}
+                  {renderCell(col, entry, state, sizeInfo, { waterfall: { t0, tMax }, preflight, redirect, onJumpTo: handleJumpTo })}
                 </span>
               ))}
             </button>
