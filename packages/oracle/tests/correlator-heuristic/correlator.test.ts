@@ -19,6 +19,7 @@ import type { InspectorHarBody, InspectorHarEntry } from '@openheaders/core/type
 import { HeuristicCorrelator } from '../../src/correlator-heuristic/correlator';
 import type { WebRequestEvent, WebRequestEventSource } from '../../src/correlator-heuristic/events';
 import type { HarEvent, HarEventSource } from '../../src/correlator-heuristic/har-events';
+import { LATE_ARRIVAL_WINDOW_MS } from '../../src/correlator-heuristic/late-arrival-constants';
 
 /** In-memory webRequest source for tests. */
 class TestWebRequestSource implements WebRequestEventSource {
@@ -369,6 +370,266 @@ describe('HeuristicCorrelator — detach clears HAR-side state', () => {
     // update (invariant 2 — lifecycles die with the tab).
     har.emit({ kind: 'har-body', tabId: TAB, body: harBody() });
     expect(collected.filter((u) => u.kind === 'body-attached')).toHaveLength(0);
+  });
+});
+
+describe('HeuristicCorrelator — H7 forward race (HAR before onBeforeRequest)', () => {
+  it('attaches a HAR entry that arrived before the matching webRequest start', () => {
+    const { webRequest, har } = makeSources();
+    const correlator = new HeuristicCorrelator({ webRequest, har });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+
+    // HAR lands first — buffered, no attachment yet.
+    har.emit({ kind: 'har-entry', tabId: TAB, entry: harEntry() });
+    expect(collected.filter((u) => u.kind === 'har-attached')).toHaveLength(0);
+
+    // Matching onBeforeRequest arrives within the window — drains.
+    webRequest.emit(startEvent);
+
+    const attached = collected.find((u) => u.kind === 'har-attached');
+    if (attached?.kind !== 'har-attached') throw new Error('expected har-attached');
+    expect(attached.requestId).toBe('wr-1');
+    correlator.dispose();
+  });
+
+  it('drops a HAR entry whose hold window elapses before any match arrives', () => {
+    const { webRequest, har } = makeSources();
+    const correlator = new HeuristicCorrelator({ webRequest, har });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+
+    har.emit({ kind: 'har-entry', tabId: TAB, entry: harEntry() });
+    // Some other request comes along past the window — its timeStamp
+    // ticks the gc clock and the held entry expires.
+    webRequest.emit({
+      ...startEvent,
+      requestId: 'wr-other',
+      url: 'https://api.openheaders.io/other',
+      timeStamp: STARTED_AT_MS + LATE_ARRIVAL_WINDOW_MS + 100,
+    });
+    // Now the matching onBeforeRequest finally arrives — too late.
+    webRequest.emit({
+      ...startEvent,
+      timeStamp: STARTED_AT_MS + LATE_ARRIVAL_WINDOW_MS + 200,
+    });
+
+    expect(collected.filter((u) => u.kind === 'har-attached')).toHaveLength(0);
+    correlator.dispose();
+  });
+
+  it('drains only the matching held entry — siblings stay buffered', () => {
+    const { webRequest, har } = makeSources();
+    const correlator = new HeuristicCorrelator({ webRequest, har });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+
+    har.emit({ kind: 'har-entry', tabId: TAB, entry: harEntry() });
+    har.emit({
+      kind: 'har-entry',
+      tabId: TAB,
+      entry: harEntry({
+        startedDateTime: new Date(STARTED_AT_MS + 10).toISOString(),
+        request: { method: 'GET', url: URL_B, headers: [], queryString: [] },
+      }),
+    });
+    // Only the URL_A request arrives.
+    webRequest.emit(startEvent);
+
+    const attached = collected.filter((u) => u.kind === 'har-attached');
+    expect(attached).toHaveLength(1);
+    if (attached[0]?.kind !== 'har-attached') throw new Error('expected har-attached');
+    expect(attached[0].requestId).toBe('wr-1');
+    correlator.dispose();
+  });
+});
+
+describe('HeuristicCorrelator — H7 backward retention (HAR after terminal phase)', () => {
+  it('attaches a HAR that arrives after onCompleted but within the window', () => {
+    const { webRequest, har } = makeSources();
+    const correlator = new HeuristicCorrelator({ webRequest, har });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+
+    webRequest.emit(startEvent);
+    webRequest.emit({
+      method_kind: 'onCompleted',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_A,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 50,
+      statusCode: 200,
+    });
+
+    // HAR arrives within window — `recentLifecycles` still holds wr-1.
+    har.emit({
+      kind: 'har-entry',
+      tabId: TAB,
+      entry: harEntry({
+        startedDateTime: new Date(STARTED_AT_MS + 100).toISOString(),
+      }),
+    });
+
+    expect(collected.filter((u) => u.kind === 'har-attached')).toHaveLength(1);
+    correlator.dispose();
+  });
+
+  it('drops a HAR that arrives past the retention window after terminal', () => {
+    const { webRequest, har } = makeSources();
+    const correlator = new HeuristicCorrelator({ webRequest, har });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+
+    webRequest.emit(startEvent);
+    webRequest.emit({
+      method_kind: 'onCompleted',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_A,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 50,
+      statusCode: 200,
+    });
+    // Another tab event ticks the gc clock past the window.
+    webRequest.emit({
+      ...startEvent,
+      requestId: 'wr-other',
+      url: 'https://api.openheaders.io/other',
+      timeStamp: STARTED_AT_MS + 50 + LATE_ARRIVAL_WINDOW_MS + 100,
+    });
+    // Late HAR — recentLifecycles for wr-1 is already pruned.
+    har.emit({
+      kind: 'har-entry',
+      tabId: TAB,
+      entry: harEntry({
+        startedDateTime: new Date(STARTED_AT_MS + 50 + LATE_ARRIVAL_WINDOW_MS + 200).toISOString(),
+      }),
+    });
+
+    expect(collected.filter((u) => u.kind === 'har-attached')).toHaveLength(0);
+    correlator.dispose();
+  });
+
+  it('failed phase also opens the retention window', () => {
+    const { webRequest, har } = makeSources();
+    const correlator = new HeuristicCorrelator({ webRequest, har });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+
+    webRequest.emit(startEvent);
+    webRequest.emit({
+      method_kind: 'onErrorOccurred',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_A,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 50,
+      error: 'net::ERR_FAILED',
+    });
+
+    har.emit({
+      kind: 'har-entry',
+      tabId: TAB,
+      entry: harEntry({ startedDateTime: new Date(STARTED_AT_MS + 100).toISOString() }),
+    });
+
+    expect(collected.filter((u) => u.kind === 'har-attached')).toHaveLength(1);
+    correlator.dispose();
+  });
+
+  it('expiring one terminal lifecycle does not affect siblings still in-window', () => {
+    const { webRequest, har } = makeSources();
+    const correlator = new HeuristicCorrelator({ webRequest, har });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+
+    // wr-1 completes at T0+50.
+    webRequest.emit(startEvent);
+    webRequest.emit({
+      method_kind: 'onCompleted',
+      tabId: TAB,
+      requestId: 'wr-1',
+      url: URL_A,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + 50,
+      statusCode: 200,
+    });
+    // wr-2 completes much later — still within its own window when
+    // wr-1 falls out.
+    webRequest.emit({
+      ...startEvent,
+      requestId: 'wr-2',
+      url: URL_B,
+      timeStamp: STARTED_AT_MS + LATE_ARRIVAL_WINDOW_MS,
+    });
+    webRequest.emit({
+      method_kind: 'onCompleted',
+      tabId: TAB,
+      requestId: 'wr-2',
+      url: URL_B,
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: STARTED_AT_MS + LATE_ARRIVAL_WINDOW_MS + 50,
+      statusCode: 200,
+    });
+    // Another event ticks gc past wr-1's window but not wr-2's.
+    webRequest.emit({
+      ...startEvent,
+      requestId: 'wr-3',
+      url: 'https://api.openheaders.io/z',
+      timeStamp: STARTED_AT_MS + LATE_ARRIVAL_WINDOW_MS + 100,
+    });
+    // HAR for wr-2 — should still attach.
+    har.emit({
+      kind: 'har-entry',
+      tabId: TAB,
+      entry: harEntry({
+        startedDateTime: new Date(STARTED_AT_MS + LATE_ARRIVAL_WINDOW_MS).toISOString(),
+        request: { method: 'GET', url: URL_B, headers: [], queryString: [] },
+      }),
+    });
+
+    const attached = collected.filter((u) => u.kind === 'har-attached');
+    expect(attached).toHaveLength(1);
+    if (attached[0]?.kind !== 'har-attached') throw new Error('expected har-attached');
+    expect(attached[0].requestId).toBe('wr-2');
+    correlator.dispose();
+  });
+});
+
+describe('HeuristicCorrelator — H7 tab scope', () => {
+  it('detachTab clears both H7 buffers without touching siblings', () => {
+    const { webRequest, har } = makeSources();
+    const correlator = new HeuristicCorrelator({ webRequest, har });
+    const collected: RequestLifecycleUpdate[] = [];
+    correlator.subscribe((u) => collected.push(u));
+    correlator.attachTab(TAB);
+    correlator.attachTab(TAB + 1);
+
+    // Hold a HAR for TAB and finalize a lifecycle on TAB.
+    har.emit({ kind: 'har-entry', tabId: TAB, entry: harEntry() });
+    webRequest.emit({ ...startEvent, tabId: TAB + 1, requestId: 'wr-sibling' });
+
+    correlator.detachTab(TAB);
+    // After detach, a matching onBeforeRequest for TAB must not
+    // attach the previously-held HAR (buffer was cleared on detach).
+    correlator.attachTab(TAB);
+    webRequest.emit(startEvent);
+
+    expect(collected.filter((u) => u.kind === 'har-attached')).toHaveLength(0);
+    correlator.dispose();
   });
 });
 
