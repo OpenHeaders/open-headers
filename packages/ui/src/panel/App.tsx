@@ -61,6 +61,7 @@ import { buildInspectorTab } from './data/inspector-tab';
 import { PANEL_TOOL_WINDOW_MAP, type PanelToolWindowId } from './data/tool-windows';
 import type { InspectorRequest } from './data/types';
 import { useCacheBypass } from './data/use-cache-bypass';
+import { useParityDebugHook } from './data/parity-debug-hook';
 import { useInspector } from './data/use-inspector';
 import { useInspectorEditorGroups } from './data/use-inspector-editor-groups';
 import { type PanelViewState, usePanelEditingScopeViewState, usePanelToolLayout } from './data/use-panel-tool-layout';
@@ -289,6 +290,7 @@ function PanelContentReady({ perTab }: { perTab: EditingScopeViewStateApi<PanelV
   // Session baseline for "Started +X ms" — first observed entry's
   // timestamp. Resets when `clear()` empties the entries list.
   const baselineMs = useMemo(() => (entries.length > 0 ? entries[0].timestamp : null), [entries]);
+  useParityDebugHook(entries, clearStore);
   const groups = useInspectorEditorGroups({ perTab });
   const tl = usePanelToolLayout(perTab);
   // Make `openDocs(sectionId)` from anywhere in the panel tree open the

@@ -53,6 +53,16 @@ chrome.devtools.panels.create(
   'panel.html',
 );
 
+// Eagerly load panel.html in a hidden iframe when the parity capture script has set the flag.
+chrome.storage.local.get('__oh_parity_hook__', (res) => {
+  if (!res?.__oh_parity_hook__) return;
+  const iframe = document.createElement('iframe');
+  iframe.src = 'panel.html';
+  iframe.style.display = 'none';
+  iframe.title = 'oh-parity-hook';
+  document.body.appendChild(iframe);
+});
+
 const tabId = chrome.devtools.inspectedWindow.tabId;
 
 let port: chrome.runtime.Port | null = null;
