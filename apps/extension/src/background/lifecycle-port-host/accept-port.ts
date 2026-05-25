@@ -4,9 +4,8 @@
  * attachment handle guards re-entry).
  */
 
-import type { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
+import { parseLifecyclePortName, type RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import { createPortSink } from './port-sink';
-import { parseLifecyclePortName } from './port-name';
 
 export function acceptLifecyclePort(hub: RequestLifecycleHub, port: chrome.runtime.Port): boolean {
   const tabId = parseLifecyclePortName(port.name);

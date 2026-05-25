@@ -9,15 +9,15 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
-import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
-
-import { acceptLifecyclePort } from '@/background/lifecycle-port-host/accept-port';
 import {
   LIFECYCLE_PORT_PREFIX,
   lifecyclePortName,
   parseLifecyclePortName,
-} from '@/background/lifecycle-port-host/port-name';
+  RequestLifecycleHub,
+} from '@openheaders/oracle/request-lifecycle-hub';
+import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
+
+import { acceptLifecyclePort } from '@/background/lifecycle-port-host/accept-port';
 import { createPortSink } from '@/background/lifecycle-port-host/port-sink';
 
 interface FakePort {

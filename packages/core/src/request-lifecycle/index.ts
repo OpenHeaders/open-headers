@@ -29,3 +29,10 @@ export {
   refinesField,
   urlChain,
 } from './invariants';
+
+export {
+  LIFECYCLE_PORT_PREFIX,
+  lifecyclePortName,
+  parseLifecyclePortName,
+} from './wire';
+export type { LifecycleWireMessage } from './wire';

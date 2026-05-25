@@ -15,7 +15,11 @@ import { logger } from '@utils/logger';
 import type { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import { acceptLifecyclePort } from './accept-port';
 
-export { LIFECYCLE_PORT_PREFIX, lifecyclePortName, parseLifecyclePortName } from './port-name';
+export {
+  LIFECYCLE_PORT_PREFIX,
+  lifecyclePortName,
+  parseLifecyclePortName,
+} from '@openheaders/oracle/request-lifecycle-hub';
 
 export interface LifecyclePortHost {
   /** Detach the onConnect listener. Tests / SW shutdown only. */

@@ -1,22 +1,17 @@
 /**
- * Wire envelope + sink seam for the request-lifecycle hub.
- *
- * `LifecycleWireMessage` is the only shape the hub emits. Two top-level
- * kinds keep `RequestLifecycleUpdate` semantically pure (engine→store
- * contract) — future wire-only concerns extend the envelope, not the
- * lifecycle union.
+ * Engine-side hub seams.
  *
  * `Sink` is the host-neutral delivery seam. The chrome adapter wraps a
  * `chrome.runtime.Port`; a desktop adapter would wrap an IPC channel; a
  * daemon adapter would wrap a WebSocket. Oracle never imports any of
  * those — the hub talks only to `Sink`.
+ *
+ * The wire envelope `LifecycleWireMessage` itself lives in
+ * `@openheaders/core/request-lifecycle` so the consumer side
+ * (`@openheaders/ui`) can import it without depending on oracle.
  */
 
 import type { RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
-
-export type LifecycleWireMessage =
-  | { kind: 'ready'; tabId: number }
-  | { kind: 'lifecycle-update'; update: RequestLifecycleUpdate };
 
 export interface Sink {
   /** First message after attach; signals the consumer the pipe is live. */
