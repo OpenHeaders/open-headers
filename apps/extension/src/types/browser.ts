@@ -34,14 +34,6 @@ export type SendResponse = (response: unknown) => void;
 /** Badge states used by the badge manager */
 export type BadgeState = 'none' | 'active' | 'disconnected' | 'paused';
 
-/** Pending request info tracked by the request monitor */
-export interface PendingRequest {
-  tabId: number;
-  url: string;
-  headersApplied: boolean;
-  method: string;
-}
-
 /** Context object passed to handleGeneralMessage */
 export interface MessageHandlerContext {
   isWebSocketConnected: () => boolean;

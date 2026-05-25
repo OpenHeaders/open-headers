@@ -416,7 +416,8 @@ import { pruneOrphanOwners } from '@openheaders/oracle/test-run/test-run-store';
 import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
 import { auditHostPermissions } from './modules/permissions-audit';
 import { startLifecycleHost } from './correlator-host';
-import { setupRequestMonitoring } from './modules/request-monitor';
+import { startRuleEngineDriver } from './rule-engine-driver';
+import { startTabTelemetrySource } from './tab-telemetry-source';
 import {
   getActiveRulesForTab,
   precompileRulePatterns,
@@ -712,12 +713,14 @@ async function initializeExtension(): Promise<void> {
     matchedRuleCount: 0,
     configuredRuleCount: 0,
   });
-  setupRequestMonitoring(debouncedUpdateBadge);
   // Request-lifecycle pipeline (H1): chrome.webRequest → HeuristicCorrelator →
-  // RequestLifecycleStore. Runs alongside request-monitor's legacy
-  // subscribers until rows RM3–RM6 retire them; invariant 7 ("sole
-  // webRequest subscriber") holds at integration level once that lands.
-  startLifecycleHost();
+  // RequestLifecycleStore. Invariant 7a (no rule-engine module subscribes
+  // to chrome.webRequest.* directly) is held by routing rule-engine and
+  // tab-telemetry through the store via the two drivers below; the legacy
+  // devtools-inspector listeners remain (7b) until the panel pipe lands.
+  const lifecycleHost = startLifecycleHost();
+  startRuleEngineDriver({ store: lifecycleHost.store, updateBadge: debouncedUpdateBadge });
+  startTabTelemetrySource({ store: lifecycleHost.store });
   setupTabListeners(debouncedUpdateBadge);
   setupPeriodicCleanup();
   initializeActiveTabTracking();
