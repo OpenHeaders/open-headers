@@ -54,7 +54,7 @@ describe('computeHeaderInsights', () => {
     expect(findInsight(out, 'missing-hsts')).toBeUndefined();
   });
 
-  it('flags missing CSP and HSTS on HTML HTTPS responses', () => {
+  it('flags missing CSP on HTML HTTPS responses', () => {
     const out = computeHeaderInsights({
       url: 'https://www.openheaders.io',
       mimeType: 'text/html; charset=utf-8',
@@ -63,7 +63,9 @@ describe('computeHeaderInsights', () => {
       responseHeaders: [],
     });
     expect(findInsight(out, 'missing-csp')?.severity).toBe('warn');
-    expect(findInsight(out, 'missing-hsts')?.severity).toBe('warn');
+    // HSTS is a browser-protected response header that extensions can't
+    // add, so we don't surface a missing-hsts insight.
+    expect(findInsight(out, 'missing-hsts')).toBeUndefined();
   });
 
   it('flags cookies missing Secure over HTTPS', () => {

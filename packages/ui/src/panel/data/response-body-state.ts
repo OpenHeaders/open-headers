@@ -78,8 +78,7 @@ function isCorsLikelyOpaque(request: InspectorRequest): boolean {
   // distinct from rule-blocks. When the mime-type is present but the
   // body is empty we have a clearer signal: chrome emitted headers
   // for an opaque response but withheld the body.
-  const status = request.statusCode ?? 0;
-  if (status !== 0) return false;
+  if (request.statusCode != null) return false;
   const statusText = (request.statusText ?? '').toLowerCase();
   // CORS/opaque frequently has no statusText + no response headers.
   const s = classifyRequestState(request);

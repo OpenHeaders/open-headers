@@ -33,7 +33,7 @@ export function RowChips({ meta, subtree }: { meta: InitiatorRowMeta; subtree: S
         {meta.statusCode}
       </Chip>,
     );
-  } else if (meta.statusCode != null && (meta.statusCode >= 400 || meta.statusCode === 0)) {
+  } else if (meta.statusCode != null && meta.statusCode >= 400) {
     chips.push(
       <Chip key="status" tone="warn" title="HTTP status">
         {meta.statusCode}

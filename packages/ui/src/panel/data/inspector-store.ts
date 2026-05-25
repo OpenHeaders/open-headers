@@ -90,6 +90,18 @@ const ERROR_DEDUP_WINDOW_MS = 5_000;
 /** Maximum dangling fires retained — bounded so a rule loop can't OOM the panel. */
 const MAX_DANGLING_FIRES = 5_000;
 
+/**
+ * HAR uses `response.status: 0` as the "no real HTTP response" sentinel
+ * (failed / aborted / blocked before headers arrived). Our internal model
+ * already expresses that as `statusCode: undefined`, so we normalize at the
+ * ingest boundary: `0` and `null` both become `undefined`. The HAR shell
+ * itself (`harEntry.response.status`) keeps the `0` for HAR-spec export
+ * compatibility — only the projected `entry.statusCode` is normalized.
+ */
+function normalizeStatus(s: number | undefined | null): number | undefined {
+  return s == null || s === 0 ? undefined : s;
+}
+
 function harStartTime(entry: InspectorHarEntry): number {
   const t = Date.parse(entry.startedDateTime);
   return Number.isFinite(t) ? t : Date.now();
@@ -430,12 +442,15 @@ export class InspectorStore {
     }
     const arrivalIndex = this.arrivalCounter++;
     const entryId = mintEntryId(key, existingForKey?.length ?? 0, chromeRequestId, arrivalIndex);
-    // Chromium tags failed requests with `response._error` (net-stack code)
-    // and `response.status: 0`. Lift that onto `entry.error` so the
-    // classifier + UI see the same shape as the `ingestRequestError` path,
-    // instead of an opaque status-0 row with no reason.
+    // Chromium tags failed requests with `response._error` (net-stack
+    // code). Lift that onto `entry.error` regardless of whether a wire
+    // status also landed — Chrome's loadingFailed CDP event fires only
+    // when the renderer considered the request a failure, even if a
+    // 2xx wire response arrived (CORS-blocked POST is the canonical
+    // case). The classifier then makes error-wins-over-status decisions
+    // off `entry.error`.
     const harError = har.response?._error;
-    const harErrorInfo = harError && har.response?.status === 0 ? lookupErrorCode(harError) : null;
+    const harErrorInfo = harError ? lookupErrorCode(harError) : null;
     const entry: InspectorRequest = {
       id: entryId,
       harEntry: har,
@@ -443,7 +458,7 @@ export class InspectorStore {
       method,
       url,
       timestamp: ts,
-      statusCode: har.response?.status,
+      statusCode: normalizeStatus(har.response?.status),
       statusText: har.response?.statusText,
       mimeType: har.response?.content?.mimeType,
       responseSize: har.response?.content?.size,
@@ -610,7 +625,7 @@ export class InspectorStore {
       method: err.method,
       url: err.url,
       timestamp: safeTs,
-      statusCode: 0,
+      statusCode: undefined,
       statusText: err.error,
       resourceType: err.resourceType,
       fires: [],
@@ -767,13 +782,13 @@ export class InspectorStore {
     // canonical abort-mid-body shape), preserve it. The error event
     // describes the body failure; the response line is still valid
     // and Chrome's panel shows both.
-    const hadStatus = typeof existing.statusCode === 'number' && existing.statusCode > 0;
+    const hadStatus = existing.statusCode != null;
     this.entries[idx] = {
       ...rest,
       id: newId,
       harEntry: synthesizeErrorHarEntry(err, startedDateTime),
       timestamp: safeTs,
-      statusCode: hadStatus ? existing.statusCode : 0,
+      statusCode: hadStatus ? existing.statusCode : undefined,
       statusText: hadStatus ? (existing.statusText ?? err.error) : err.error,
       resourceType: err.resourceType,
       error: { code: err.error, reason: info.reason },
@@ -843,8 +858,8 @@ export class InspectorStore {
     // pending row superseded by a status-0 HAR ends up with no error
     // info at all.
     const harError = har.response?._error;
-    const harStatus = har.response?.status;
-    const harErrorInfo = harError && harStatus === 0 ? lookupErrorCode(harError) : null;
+    const normalizedHarStatus = normalizeStatus(har.response?.status);
+    const harErrorInfo = harError ? lookupErrorCode(harError) : null;
     // If `onCompleted` already stamped a real HTTP status on this row
     // (e.g. the response landed before an unread body stream was later
     // aborted on page close), prefer that over a status-0 HAR. The
@@ -864,8 +879,8 @@ export class InspectorStore {
       existingStatus < 400 &&
       !!existing.harEntry.response?.redirectURL;
     const preserveStatus =
-      (typeof existingStatus === 'number' && existingStatus > 0 && harStatus === 0) ||
-      (wasRedirect && harStatus !== existingStatus);
+      (existingStatus != null && normalizedHarStatus == null) ||
+      (wasRedirect && normalizedHarStatus !== existingStatus);
     // When we're preserving a redirect-source status, patch the
     // *replacement* HAR's response shell too so the detail pane / HAR
     // export reflect the captured 3xx, not the HAR's wrong follow-up
@@ -896,7 +911,7 @@ export class InspectorStore {
       method,
       url,
       timestamp: ts,
-      statusCode: preserveStatus ? existingStatus : harStatus,
+      statusCode: preserveStatus ? existingStatus : normalizedHarStatus,
       statusText: preserveStatus ? (existing.statusText ?? har.response?.statusText) : har.response?.statusText,
       mimeType: har.response?.content?.mimeType,
       responseSize: har.response?.content?.size,
@@ -1183,7 +1198,7 @@ export class InspectorStore {
       void _drop;
       this.entries[i] = {
         ...rest,
-        statusCode: 0,
+        statusCode: undefined,
         statusText: 'unknown',
         error: { code: 'oh:abandoned', reason: 'unknown' },
       };

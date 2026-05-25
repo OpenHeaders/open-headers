@@ -2,7 +2,7 @@
  * Request-state taxonomy — the single source of truth for every UI
  * surface that needs to know "is this row red / grey / pending / a
  * redirect / a cache hit?". Replaces the scattered per-concern
- * predicates (`isBlockedRequest`, ad-hoc `statusCode === 0` checks,
+ * predicates (`isBlockedRequest`, ad-hoc `statusCode == null` checks,
  * ad-hoc `_fromCache` lookups) with one classifier and one
  * discriminated union.
  *
@@ -83,37 +83,38 @@ function cacheSource(entry: InspectorRequest): CacheSource | null {
   return null;
 }
 
-/** Did we observe a response at all? Used for the pending classifier. */
+/** Did we observe a response at all? Used for the pending classifier.
+ *  `entry.statusCode` is normalized at ingest — undefined means "no real
+ *  HTTP response" (HAR's status:0 sentinel collapses to undefined). */
 function hasResponse(entry: InspectorRequest): boolean {
-  if (entry.statusCode != null) return true;
-  const har = entry.harEntry;
-  return !!har?.response && typeof har.response.status === 'number' && har.response.status > 0;
+  return entry.statusCode != null;
 }
 
 // ── Classifier ──────────────────────────────────────────────────
 
 export function classifyRequestState(entry: InspectorRequest): RequestState {
   const statusText = entry.statusText ?? entry.harEntry?.response?.statusText ?? '';
-  const statusCode = entry.statusCode ?? entry.harEntry?.response?.status ?? 0;
+  const statusCode = entry.statusCode;
 
-  // 1. Pending — response still in flight.
-  if (!hasResponse(entry)) return { kind: 'pending' };
-
-  // 2. Blocked — Chrome aborted before/at the wire.
-  //
-  //    Prefer `entry.error.reason` (the human-friendly mapping from
-  //    `chromium-error-codes.ts`) over the raw status text. Chromium's
-  //    `ERR_FAILED` maps to reason `'blocked:other'` to match Chrome's
-  //    Network panel, so the classifier sees it as blocked, not failed.
-  const blockedProbe = entry.error?.reason ?? statusText;
-  if (statusCode === 0) {
-    if (isBlockedStatus(blockedProbe)) return { kind: 'blocked', reason: entry.error?.reason || statusText || 'blocked' };
-    return { kind: 'failed', reason: entry.error?.reason || statusText || 'network error' };
+  // 1. Error wins. When the request layer reported a net-stack failure
+  //    (`entry.error` set by `ingestRequestError` or lifted from
+  //    `har.response._error`), the panel surfaces the error regardless
+  //    of whether a wire response also arrived. Matches Chrome's Network
+  //    panel: a CORS-blocked POST whose 200 reached the wire still shows
+  //    as (failed) ERR_FAILED, because the renderer rejected it.
+  if (entry.error) {
+    const probe = entry.error.reason || statusText;
+    if (isBlockedStatus(probe)) return { kind: 'blocked', reason: entry.error.reason || statusText || 'blocked' };
+    return { kind: 'failed', reason: entry.error.reason || statusText || 'network error' };
   }
-  // Some recorders use a negative status as their "generic failure"
-  // sentinel (no net-stack text, no HTTP response). Treat as failed.
-  if (statusCode < 0) return { kind: 'failed', reason: entry.error?.reason || statusText || 'failed' };
-  if (isBlockedStatus(blockedProbe)) return { kind: 'blocked', reason: entry.error?.reason || statusText };
+
+  // 2. Pending — response still in flight (no status, no error).
+  if (statusCode == null) return { kind: 'pending' };
+
+  // 3. Some recorders use a negative status as their "generic failure"
+  //    sentinel (no net-stack text, no HTTP response). Treat as failed.
+  if (statusCode < 0) return { kind: 'failed', reason: statusText || 'failed' };
+  if (isBlockedStatus(statusText)) return { kind: 'blocked', reason: statusText };
 
   // 3. Failed — status text reads as a net-stack error even with a
   //    non-zero synthetic status (rare but possible).

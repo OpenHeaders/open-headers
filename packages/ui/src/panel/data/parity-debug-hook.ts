@@ -15,7 +15,16 @@ interface ParityRow {
   arrivalIndex: number;
   method: string;
   url: string;
+  /** Raw wire status (HTTP response status that reached the wire), or null
+   *  when no response landed. Independent of error classification — a
+   *  CORS-blocked POST can have status:200 here even when the renderer
+   *  rejected the response. Useful for diffs that care about wire reality. */
   status: number | null;
+  /** What the panel's Status column displays. Null when the row is blocked
+   *  / failed / pending (column shows an error label, not the status code).
+   *  Matches Chrome's Network panel convention. Use this for parity diffs
+   *  against Chrome's panel view. */
+  displayStatus: number | null;
   statusText: string | null;
   errorCode: string | null;
   errorReason: string | null;
@@ -24,25 +33,55 @@ interface ParityRow {
   resourceType: string | null;
 }
 
+interface ParityRowDebug extends ParityRow {
+  _chromeRequestId?: string;
+  _harResponseStatus?: number;
+  _harResponseError?: string;
+  _hasErrorField?: boolean;
+}
+
 function toParityRow(entry: InspectorRequest): ParityRow {
-  // Internally we follow HAR's convention (statusCode: 0 sentinel for
-  // requests with no real HTTP response). Chrome's CDP-derived view has
-  // no status at all for those rows. 0 is never a valid HTTP status, so
-  // project it to null at the dump boundary.
-  const status = entry.statusCode && entry.statusCode > 0 ? entry.statusCode : null;
-  return {
+  const state = classifyRequestState(entry);
+  let displayStatus: number | null = null;
+  switch (state.kind) {
+    case 'success':
+    case 'redirect':
+    case 'httpError':
+    case 'cached':
+      displayStatus = state.status;
+      break;
+    case 'pending':
+    case 'blocked':
+    case 'failed':
+      displayStatus = null;
+      break;
+  }
+  const row: ParityRowDebug = {
     displayId: entry.displayId,
     arrivalIndex: entry.arrivalIndex,
     method: entry.method,
     url: entry.url,
-    status,
+    status: entry.statusCode ?? null,
+    displayStatus,
     statusText: entry.statusText ?? null,
     errorCode: entry.error?.code ?? null,
     errorReason: entry.error?.reason ?? null,
     pending: isPendingRequest(entry),
-    state: classifyRequestState(entry),
+    state,
     resourceType: entry.resourceType ?? null,
   };
+  if (
+    entry.url.includes('/net/slow/3000') ||
+    entry.url.includes('/net/redirect') ||
+    entry.url.includes('/echo/') ||
+    entry.url.includes('/net/status/')
+  ) {
+    row._chromeRequestId = entry.chromeRequestId;
+    row._harResponseStatus = entry.harEntry?.response?.status;
+    row._harResponseError = entry.harEntry?.response?._error;
+    row._hasErrorField = entry.error != null;
+  }
+  return row;
 }
 
 declare global {

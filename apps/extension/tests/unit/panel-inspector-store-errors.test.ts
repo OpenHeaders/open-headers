@@ -49,7 +49,7 @@ describe('InspectorStore.ingestRequestError', () => {
     const row = entries[0];
     expect(isErrorRequest(row)).toBe(true);
     expect(row.url).toBe('https://blocked.openheaders.io/ad.js');
-    expect(row.statusCode).toBe(0);
+    expect(row.statusCode).toBeUndefined();
     expect(row.error?.code).toBe('net::ERR_BLOCKED_BY_CLIENT');
     expect(row.error?.reason).toBe('blocked');
   });
@@ -273,7 +273,7 @@ describe('InspectorStore pending lifecycle', () => {
     // User navigates away — the response was never delivered to the page.
     store.onNavigated('https://example.org/');
     const { entries } = store.getSnapshot();
-    expect(entries[0].statusCode).toBe(0);
+    expect(entries[0].statusCode).toBeUndefined();
     expect(entries[0].error?.reason).toBe('unknown');
     expect(isPendingRequest(entries[0])).toBe(false);
   });
