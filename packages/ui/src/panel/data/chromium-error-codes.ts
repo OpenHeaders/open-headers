@@ -32,6 +32,20 @@ const TABLE: Record<string, ErrorCodeInfo> = {
     reason: 'blocked:CORS',
     description: 'The response was blocked by Cross-Origin-Resource-Policy, Cross-Origin-Opener-Policy, or a CORS check.',
   },
+  // Refined locally from `net::ERR_FAILED` when the captured CORS context
+  // (Origin sent, response lacks Access-Control-Allow-Origin) indicates the
+  // browser's cross-origin check is what rejected the response. Chrome's own
+  // Network panel surfaces this case via CDP's `corsErrorStatus:
+  // MissingAllowOriginHeader`; webRequest only exposes the generic
+  // ERR_FAILED, so we synthesize the distinction in the background.
+  'oh:cors-missing-acao': {
+    reason: 'blocked:CORS',
+    description: 'The response was missing the Access-Control-Allow-Origin header required for this cross-origin request.',
+  },
+  'oh:cors-origin-mismatch': {
+    reason: 'blocked:CORS',
+    description: 'The response\'s Access-Control-Allow-Origin header did not match the request\'s Origin.',
+  },
   'net::ERR_BLOCKED_BY_CSP': {
     reason: 'blocked:CSP',
     description: 'The page\'s Content-Security-Policy disallowed this request.',
@@ -172,6 +186,32 @@ const TABLE: Record<string, ErrorCodeInfo> = {
     description: 'The channel was canceled before completion.',
   },
 };
+
+/**
+ * Codes that indicate the renderer rejected the response before any wire
+ * status the network stack observed could become user-visible. Distinct
+ * from body-side / transport failures (e.g. ERR_CONTENT_LENGTH_MISMATCH
+ * after a successful 200) where the panel keeps the wire status. Chrome's
+ * own Network panel suppresses the wire status only for these renderer
+ * rejections — the inspector's classifier mirrors that behavior so
+ * `displayStatus` matches what Chrome's panel shows.
+ */
+const RENDERER_REJECT_CODES: ReadonlySet<string> = new Set([
+  'net::ERR_BLOCKED_BY_CLIENT',
+  'net::ERR_BLOCKED_BY_RESPONSE',
+  'net::ERR_BLOCKED_BY_CSP',
+  'net::ERR_BLOCKED_BY_XSS_AUDITOR',
+  'net::ERR_BLOCKED_BY_ADMINISTRATOR',
+  'net::ERR_FAILED',
+  'net::ERR_UNSAFE_REDIRECT',
+  'oh:cors-missing-acao',
+  'oh:cors-origin-mismatch',
+]);
+
+export function isRendererRejectCode(code: string | undefined | null): boolean {
+  if (!code) return false;
+  return RENDERER_REJECT_CODES.has(code);
+}
 
 /**
  * Look up reason + description for a network error code. Returns a

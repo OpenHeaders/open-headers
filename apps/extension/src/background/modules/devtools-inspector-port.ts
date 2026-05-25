@@ -68,6 +68,7 @@ import type {
 import { logger } from '@utils/logger';
 import { buildRuleSnapshot } from '@openheaders/oracle/rule-engine/rule-snapshot';
 import { subscribeRequestCompletions } from './devtools-inspector-completions';
+import { lookupCorsContext, subscribeCorsTracking } from './devtools-inspector-cors';
 import { subscribeRequestErrors } from './devtools-inspector-errors';
 import {
   isTracked,
@@ -184,6 +185,7 @@ interface TabSession {
   unsubscribeRequestErrors: () => void;
   unsubscribeRequestCompletions: () => void;
   unsubscribeRequestRedirects: () => void;
+  unsubscribeCorsTracking: () => void;
 }
 
 const sessions: Map<number, TabSession> = new Map();
@@ -299,8 +301,8 @@ function handleFireRecord(session: TabSession, record: RequestRecord, authoritat
 function handleHarMessage(session: TabSession, entry: InspectorHarEntry): void {
   // Correlate before broadcasting so both live and replay paths carry the
   // join key. The panel store treats `chromeRequestId` as the primary
-  // join key; we intentionally do NOT mutate the HAR entry itself so the
-  // entry stays as `devtools_page` produced it.
+  // join key; we deliberately do NOT mutate the HAR's wire fields, only
+  // the auxiliary `response._error` (see refineHarCorsError below).
   //
   // Timestamp trust asymmetry: HAR's `startedDateTime` is parsed from a
   // string the devtools_page forwarded — it can be NaN if Chrome ever
@@ -310,9 +312,29 @@ function handleHarMessage(session: TabSession, entry: InspectorHarEntry): void {
   const harUrl = entry.request?.url ?? '';
   const harTs = Date.parse(entry.startedDateTime);
   const chromeRequestId = harUrl && Number.isFinite(harTs) ? popMatchingRequestId(session, harUrl, harTs) : undefined;
+  if (chromeRequestId) refineHarCorsError(session.tabId, chromeRequestId, entry);
   const outgoing: BufferedHarMessage = { type: 'har', entry, chromeRequestId };
   if (session.inspectorPorts.size > 0) broadcastToInspectorPorts(session, outgoing);
   pushBounded(session.harBuffer, outgoing, HAR_BUFFER_MAX);
+}
+
+/**
+ * Refine `response._error` from the generic `net::ERR_FAILED` to a CORS-
+ * specific code when the captured CORS context indicates the response
+ * failed the browser's cross-origin check. The panel lifts `_error` onto
+ * `entry.error` in `ingestHarEntry`; refining it here means the panel's
+ * classifier sees the refined code without needing CORS awareness of
+ * its own. Mirrors the parallel refinement in `devtools-inspector-errors.ts`
+ * so requests that produce only an `onErrorOccurred` (no HAR) get the
+ * same treatment.
+ */
+function refineHarCorsError(tabId: number, requestId: string, entry: InspectorHarEntry): void {
+  const response = entry.response;
+  if (!response || response._error !== 'net::ERR_FAILED') return;
+  const ctx = lookupCorsContext(tabId, requestId);
+  if (!ctx || !ctx.isCrossOrigin) return;
+  if (ctx.rejection.kind === 'missing-acao') response._error = 'oh:cors-missing-acao';
+  else if (ctx.rejection.kind === 'origin-mismatch') response._error = 'oh:cors-origin-mismatch';
 }
 
 function handleHarBodyMessage(session: TabSession, body: InspectorHarBody): void {
@@ -432,7 +454,12 @@ function ensureSession(tabId: number): TabSession {
     unsubscribeRequestErrors: () => {},
     unsubscribeRequestCompletions: () => {},
     unsubscribeRequestRedirects: () => {},
+    unsubscribeCorsTracking: () => {},
   };
+  // CORS tracking must subscribe BEFORE the error relay so the relay's
+  // `onErrorOccurred` listener can consult populated CORS context. Chrome
+  // dispatches `webRequest` listeners in registration order.
+  session.unsubscribeCorsTracking = subscribeCorsTracking(tabId);
   // Subscribe BEFORE returning so any fire/observation that happens between
   // session creation and the caller's first message is captured.
   session.unsubscribeFires = subscribeFires(tabId, (record) => {
@@ -491,6 +518,7 @@ function releaseSession(tabId: number): void {
   session.unsubscribeRequestErrors();
   session.unsubscribeRequestCompletions();
   session.unsubscribeRequestRedirects();
+  session.unsubscribeCorsTracking();
   stopTracking(tabId, trackingReason(tabId));
   sessions.delete(tabId);
   logger.debug('DevtoolsInspectorPort', `Session closed for tab ${tabId}`);
@@ -605,6 +633,7 @@ export const __internals = {
       session.unsubscribeRequestErrors();
       session.unsubscribeRequestCompletions();
       session.unsubscribeRequestRedirects();
+      session.unsubscribeCorsTracking();
     }
     sessions.clear();
     portsSetupDone = false;

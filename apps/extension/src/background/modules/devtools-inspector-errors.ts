@@ -14,9 +14,28 @@
  * both prefixes.
  */
 import type { InspectorRequestError } from '@openheaders/core/types';
+import { lookupCorsContext } from './devtools-inspector-cors';
 
 export interface RequestErrorRelay {
   send(error: InspectorRequestError): void;
+}
+
+/**
+ * Refine a generic `net::ERR_FAILED` to a CORS-specific code when the
+ * captured CORS context indicates the response failed the browser's
+ * cross-origin check. `net::ERR_FAILED` is Chromium's catch-all for
+ * renderer-rejected responses; without this refinement the panel cannot
+ * tell CORS failures from other renderer rejections. Non-`ERR_FAILED`
+ * codes and requests without CORS context are returned unchanged.
+ */
+function refineCorsError(tabId: number, error: InspectorRequestError): InspectorRequestError {
+  if (error.error !== 'net::ERR_FAILED') return error;
+  const ctx = lookupCorsContext(tabId, error.requestId);
+  if (!ctx || !ctx.isCrossOrigin) return error;
+  const r = ctx.rejection;
+  if (r.kind === 'missing-acao') return { ...error, error: 'oh:cors-missing-acao' };
+  if (r.kind === 'origin-mismatch') return { ...error, error: 'oh:cors-origin-mismatch' };
+  return error;
 }
 
 /**
@@ -31,7 +50,7 @@ export function subscribeRequestErrors(tabId: number, relay: RequestErrorRelay):
 
   const listener = (details: chrome.webRequest.OnErrorOccurredDetails) => {
     if (details.tabId !== tabId) return;
-    relay.send({
+    const raw: InspectorRequestError = {
       requestId: details.requestId,
       url: details.url,
       method: details.method,
@@ -40,7 +59,8 @@ export function subscribeRequestErrors(tabId: number, relay: RequestErrorRelay):
       error: details.error,
       initiator: details.initiator,
       fromCache: details.fromCache ?? false,
-    });
+    };
+    relay.send(refineCorsError(tabId, raw));
   };
 
   api.addListener(listener, { urls: ['<all_urls>'], tabId });
