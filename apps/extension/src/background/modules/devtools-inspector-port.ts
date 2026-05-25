@@ -165,6 +165,11 @@ interface InFlightEntry {
   /** webRequest `Date.now()` at onBeforeRequest. Used to weed out stale entries
    *  whose corresponding HAR never showed up (cancelled, served from bfcache). */
   t: number;
+  /** HTTP method — disambiguates a cross-origin POST from its internally-
+   *  generated preflight OPTIONS, which share a URL but arrive in opposite
+   *  orders on the webRequest side (POST first) vs the HAR side (OPTIONS
+   *  first). Without this, the FIFO swaps requestIds between the two. */
+  method: string;
 }
 
 interface TabSession {
@@ -195,7 +200,7 @@ function pushBounded<T>(buffer: T[], msg: T, max: number): void {
   if (buffer.length > max) buffer.splice(0, buffer.length - max);
 }
 
-function recordInFlight(session: TabSession, url: string, requestId: string, t: number): void {
+function recordInFlight(session: TabSession, url: string, requestId: string, t: number, method: string): void {
   // Sweep stale FIFO entries first, *before* moving the URL to the LRU
   // tail — so the iteration position reflects actual live in-flight
   // requests rather than a queue of long-cancelled ones still tying up
@@ -214,7 +219,7 @@ function recordInFlight(session: TabSession, url: string, requestId: string, t: 
     queue = [];
   }
   session.inFlightByUrl.set(url, queue);
-  queue.push({ requestId, t });
+  queue.push({ requestId, t, method });
   // Bound the total URL count. URLs that never produce a HAR entry stay
   // in the map until evicted here; the iteration-order eviction drops
   // the least-recently-touched URL first. Eviction is silent in the
@@ -236,7 +241,12 @@ function recordInFlight(session: TabSession, url: string, requestId: string, t: 
   }
 }
 
-function popMatchingRequestId(session: TabSession, url: string, harTimestamp: number): string | undefined {
+function popMatchingRequestId(
+  session: TabSession,
+  url: string,
+  harTimestamp: number,
+  harMethod: string,
+): string | undefined {
   const queue = session.inFlightByUrl.get(url);
   if (!queue || queue.length === 0) return undefined;
   // Two-sided plausibility window with deliberately asymmetric handling:
@@ -259,12 +269,32 @@ function popMatchingRequestId(session: TabSession, url: string, harTimestamp: nu
   //     mis-ordered HAR degrades, never a cascade.
   const lower = harTimestamp - IN_FLIGHT_MAX_AGE_MS;
   while (queue.length > 0 && queue[0].t < lower) queue.shift();
-  const head = queue[0];
-  if (!head) return undefined;
-  if (head.t > harTimestamp + POP_FUTURE_SKEW_MS) return undefined;
-  queue.shift();
+  if (queue.length === 0) {
+    session.inFlightByUrl.delete(url);
+    return undefined;
+  }
+  // Method-aware FIFO: scan for the first entry whose method matches the
+  // HAR's. Necessary for preflight-bearing requests (e.g. cross-origin POST
+  // with a custom header) where webRequest order (POST then internal OPTIONS)
+  // reverses HAR delivery order (OPTIONS then POST). Within a single method
+  // the queue order is still strict FIFO. Fallback to the head when no entry
+  // matches (e.g. HAR with empty method) preserves prior single-method
+  // behavior.
+  let idx = -1;
+  if (harMethod) {
+    for (let i = 0; i < queue.length; i++) {
+      if (queue[i].method === harMethod) {
+        idx = i;
+        break;
+      }
+    }
+  }
+  if (idx === -1) idx = 0;
+  const entry = queue[idx];
+  if (entry.t > harTimestamp + POP_FUTURE_SKEW_MS) return undefined;
+  queue.splice(idx, 1);
   if (queue.length === 0) session.inFlightByUrl.delete(url);
-  return head.requestId;
+  return entry.requestId;
 }
 
 function broadcastToInspectorPorts(session: TabSession, message: InspectorPortMessage): void {
@@ -310,8 +340,10 @@ function handleHarMessage(session: TabSession, entry: InspectorHarEntry): void {
   // in-flight `t` values come from our own `Date.now()` calls in
   // `recordRequestObservation` and are always finite by construction.
   const harUrl = entry.request?.url ?? '';
+  const harMethod = entry.request?.method ?? '';
   const harTs = Date.parse(entry.startedDateTime);
-  const chromeRequestId = harUrl && Number.isFinite(harTs) ? popMatchingRequestId(session, harUrl, harTs) : undefined;
+  const chromeRequestId =
+    harUrl && Number.isFinite(harTs) ? popMatchingRequestId(session, harUrl, harTs, harMethod) : undefined;
   if (chromeRequestId) refineHarCorsError(session.tabId, chromeRequestId, entry);
   const outgoing: BufferedHarMessage = { type: 'har', entry, chromeRequestId };
   if (session.inspectorPorts.size > 0) broadcastToInspectorPorts(session, outgoing);
@@ -473,7 +505,7 @@ function ensureSession(tabId: number): TabSession {
     //      pending row immediately, mirroring Chrome's Network UI which
     //      renders rows from `Network.requestWillBeSent`. webRequest's
     //      `onBeforeRequest` is the closest extension-API equivalent.
-    recordInFlight(session, event.url, event.requestId, event.timestamp);
+    recordInFlight(session, event.url, event.requestId, event.timestamp, event.method);
     handleRequestStarted(session, {
       requestId: event.requestId,
       url: event.url,
