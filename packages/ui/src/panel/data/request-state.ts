@@ -27,6 +27,7 @@
  * and a failed redirect is still "failed".
  */
 
+import { isRendererRejectCode } from './chromium-error-codes';
 import type { InspectorRequest } from './types';
 
 export type CacheSource = 'disk' | 'memory' | 'service-worker';
@@ -96,20 +97,33 @@ export function classifyRequestState(entry: InspectorRequest): RequestState {
   const statusText = entry.statusText ?? entry.harEntry?.response?.statusText ?? '';
   const statusCode = entry.statusCode;
 
-  // 1. Error wins. When the request layer reported a net-stack failure
-  //    (`entry.error` set by `ingestRequestError` or lifted from
-  //    `har.response._error`), the panel surfaces the error regardless
-  //    of whether a wire response also arrived. Matches Chrome's Network
-  //    panel: a CORS-blocked POST whose 200 reached the wire still shows
-  //    as (failed) ERR_FAILED, because the renderer rejected it.
-  if (entry.error) {
+  // 1. Renderer-rejected errors win even when a wire status arrived.
+  //    Chrome's Network panel suppresses the wire status only for the
+  //    renderer-reject family (CORS, CSP, COOP/COEP, blocked-by-client,
+  //    the generic ERR_FAILED catch-all the net stack uses for renderer
+  //    refusals). For body-side / transport failures that arrive AFTER
+  //    a successful response (canonical case: ERR_CONTENT_LENGTH_MISMATCH
+  //    on an aborted stream), Chrome's panel keeps showing the wire
+  //    status — we mirror that by falling through to the status path.
+  if (entry.error && isRendererRejectCode(entry.error.code)) {
     const probe = entry.error.reason || statusText;
     if (isBlockedStatus(probe)) return { kind: 'blocked', reason: entry.error.reason || statusText || 'blocked' };
     return { kind: 'failed', reason: entry.error.reason || statusText || 'network error' };
   }
 
-  // 2. Pending — response still in flight (no status, no error).
-  if (statusCode == null) return { kind: 'pending' };
+  // 2. Pending — response still in flight (no status, no error, no
+  //    renderer-side rejection above).
+  if (statusCode == null) {
+    if (entry.error) {
+      // Non-renderer-reject error with no wire status — typically DNS /
+      // connect failures (ERR_NAME_NOT_RESOLVED, ERR_CONNECTION_REFUSED,
+      // timeouts). Classify as failed with the looked-up reason.
+      const probe = entry.error.reason || statusText;
+      if (isBlockedStatus(probe)) return { kind: 'blocked', reason: entry.error.reason || statusText || 'blocked' };
+      return { kind: 'failed', reason: entry.error.reason || statusText || 'network error' };
+    }
+    return { kind: 'pending' };
+  }
 
   // 3. Some recorders use a negative status as their "generic failure"
   //    sentinel (no net-stack text, no HTTP response). Treat as failed.
