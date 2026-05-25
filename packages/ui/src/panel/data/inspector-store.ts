@@ -52,6 +52,7 @@ import type {
   InspectorNavTiming,
   InspectorRequestCompleted,
   InspectorRequestError,
+  InspectorRequestRedirect,
   InspectorRequestStarted,
   RequestRecord,
 } from '@openheaders/core/types';
@@ -161,6 +162,21 @@ function synthesizePendingHarEntry(event: InspectorRequestStarted, startedDateTi
     ...(event.initiator ? { _initiator: { type: 'other', url: event.initiator } } : {}),
   };
 }
+
+/** Canonical reason phrase for the 3xx statuses we synthesize from
+ *  `chrome.webRequest.onBeforeRedirect`. Matches what Chrome's HAR
+ *  exporter writes for the same status, so the row visually agrees
+ *  with neighbours when a HAR row does land. */
+const STATUS_TEXT_3XX: Record<number, string> = {
+  300: 'Multiple Choices',
+  301: 'Moved Permanently',
+  302: 'Found',
+  303: 'See Other',
+  304: 'Not Modified',
+  305: 'Use Proxy',
+  307: 'Temporary Redirect',
+  308: 'Permanent Redirect',
+};
 
 function fireDedupKey(ruleUid: string, requestId: string | undefined, t: number): string {
   // Fires without a requestId (scriptable-only) are deduped by `(ruleUid, t)`
@@ -377,7 +393,26 @@ export class InspectorStore {
       if (existingList) {
         for (const existingIdx of existingList) {
           const existing = this.entries[existingIdx];
-          if (existing?.error || existing?.pending) {
+          if (!existing) continue;
+          if (existing.error || existing.pending) {
+            this.supersedeWithHar(existingIdx, har, chromeRequestId);
+            return;
+          }
+          // Redirect-source row previously stamped by
+          // `ingestRequestRedirect`. The HAR is for this same hop —
+          // identifiable by matching URL on the same requestId.
+          // `supersedeWithHar` preserves the captured 3xx status via
+          // its `wasRedirect` guard, so the row gets HAR augmentation
+          // (real headers, timing) without losing the authoritative
+          // status. Without this branch, the HAR would be appended as
+          // a duplicate row.
+          if (
+            existing.url === url &&
+            typeof existing.statusCode === 'number' &&
+            existing.statusCode >= 300 &&
+            existing.statusCode < 400 &&
+            !!existing.harEntry.response?.redirectURL
+          ) {
             this.supersedeWithHar(existingIdx, har, chromeRequestId);
             return;
           }
@@ -815,12 +850,48 @@ export class InspectorStore {
     // aborted on page close), prefer that over a status-0 HAR. The
     // HAR's _error stays attached as auxiliary context, mirroring how
     // Chrome's panel shows both the response and the body-abort.
+    //
+    // Same defence covers the redirect-source case: when this row was
+    // stamped by `ingestRequestRedirect` with an authoritative 3xx,
+    // Chrome's HAR sometimes shows up later carrying the *follow-up's*
+    // 2xx as the status. The captured 3xx wins; the HAR is treated as
+    // augmentation only. We detect a redirect-source row by the
+    // `Location` carrier on its existing response (`redirectURL` set).
     const existingStatus = existing.statusCode;
-    const preserveStatus = typeof existingStatus === 'number' && existingStatus > 0 && harStatus === 0;
+    const wasRedirect =
+      typeof existingStatus === 'number' &&
+      existingStatus >= 300 &&
+      existingStatus < 400 &&
+      !!existing.harEntry.response?.redirectURL;
+    const preserveStatus =
+      (typeof existingStatus === 'number' && existingStatus > 0 && harStatus === 0) ||
+      (wasRedirect && harStatus !== existingStatus);
+    // When we're preserving a redirect-source status, patch the
+    // *replacement* HAR's response shell too so the detail pane / HAR
+    // export reflect the captured 3xx, not the HAR's wrong follow-up
+    // status. Other response fields (headers, cookies, timings) ride
+    // along from the HAR — they're still legitimate augmentation.
+    const harForRow: InspectorHarEntry =
+      wasRedirect && preserveStatus
+        ? {
+            ...har,
+            response: {
+              ...(har.response ?? {
+                status: 0,
+                statusText: '',
+                headers: [],
+                content: { size: 0, mimeType: '' },
+              }),
+              status: existingStatus as number,
+              statusText: existing.statusText ?? har.response?.statusText ?? '',
+              redirectURL: existing.harEntry.response?.redirectURL ?? har.response?.redirectURL,
+            },
+          }
+        : har;
     this.entries[idx] = {
       ...rest,
       id: newId,
-      harEntry: har,
+      harEntry: harForRow,
       chromeRequestId,
       method,
       url,
@@ -957,6 +1028,133 @@ export class InspectorStore {
       statusCode: event.statusCode,
       statusText,
     };
+    this.bump();
+  }
+
+  /**
+   * Stamp the source hop of a redirect with its authoritative 3xx
+   * status, sourced from `chrome.webRequest.onBeforeRedirect`. Chrome's
+   * `chrome.devtools.network.onRequestFinished` is unreliable for
+   * redirect source rows — drops some statuses entirely, mis-attributes
+   * others to the follow-up's 2xx — so this event is the source of
+   * truth for the row's response line.
+   *
+   * Three paths:
+   *
+   *   1. A pending row for `(requestId, sourceUrl)` exists (typical):
+   *      promote it in place to a resolved 3xx row. `displayId` and
+   *      `arrivalIndex` are preserved.
+   *   2. A row for `(requestId, sourceUrl)` already has this 3xx
+   *      status: dedup, no-op.
+   *   3. No matching row: mint a free-standing resolved 3xx row.
+   *
+   * A subsequent HAR for the same source hop is *not* allowed to
+   * downgrade the status — see `supersedeWithHar` and the
+   * `redirectURL` guard on the response shell.
+   */
+  ingestRequestRedirect(event: InspectorRequestRedirect): void {
+    if (!this.recording) return;
+    if (!event.requestId) return;
+
+    const ts = Date.parse(event.timestamp);
+    const safeTs = Number.isFinite(ts) ? ts : Date.now();
+    const startedDateTime = Number.isFinite(ts) ? event.timestamp : new Date(safeTs).toISOString();
+    const statusText = STATUS_TEXT_3XX[event.statusCode] ?? 'Redirect';
+
+    const list = this.byRequestId.get(event.requestId);
+    if (list && list.length > 0) {
+      for (const idx of list) {
+        const existing = this.entries[idx];
+        if (!existing || existing.url !== event.sourceUrl) continue;
+        // Dedup: already stamped with this exact status.
+        if (existing.statusCode === event.statusCode && existing.harEntry.response?.redirectURL === event.redirectUrl) {
+          return;
+        }
+        // Supersede in place. Preserve displayId/arrivalIndex/pageref.
+        const synthHar: InspectorHarEntry = {
+          ...existing.harEntry,
+          response: {
+            status: event.statusCode,
+            statusText,
+            httpVersion: '',
+            headers: [{ name: 'Location', value: event.redirectUrl }],
+            cookies: [],
+            content: { size: 0, mimeType: '' },
+            redirectURL: event.redirectUrl,
+            headersSize: -1,
+            bodySize: 0,
+          },
+        };
+        const { pending: _drop, ...rest } = existing;
+        void _drop;
+        this.entries[idx] = {
+          ...rest,
+          harEntry: synthHar,
+          statusCode: event.statusCode,
+          statusText,
+        };
+        this.bump();
+        return;
+      }
+    }
+
+    // No matching row — mint a free-standing resolved 3xx row. Happens
+    // when the redirect event arrives before the corresponding
+    // `request-started` (rare; the inspector port flushes started rows
+    // first, but a live race is possible on a slow first connection).
+    const key = harKey(event.method, event.sourceUrl, startedDateTime);
+    const existingForKey = this.byHarKey.get(key);
+    const arrivalIndex = this.arrivalCounter++;
+    const entryId = mintEntryId(key, existingForKey?.length ?? 0, event.requestId, arrivalIndex);
+    const pageref = this.pageTracker.ensurePage(startedDateTime);
+    const synthHar: InspectorHarEntry = {
+      startedDateTime,
+      time: 0,
+      request: {
+        method: event.method,
+        url: event.sourceUrl,
+        httpVersion: '',
+        headers: [],
+        queryString: [],
+        cookies: [],
+        headersSize: -1,
+        bodySize: -1,
+      },
+      response: {
+        status: event.statusCode,
+        statusText,
+        httpVersion: '',
+        headers: [{ name: 'Location', value: event.redirectUrl }],
+        cookies: [],
+        content: { size: 0, mimeType: '' },
+        redirectURL: event.redirectUrl,
+        headersSize: -1,
+        bodySize: 0,
+      },
+      timings: { blocked: 0, dns: 0, connect: 0, send: 0, wait: 0, receive: 0 },
+      _resourceType: event.resourceType,
+    };
+    const entry: InspectorRequest = {
+      id: entryId,
+      harEntry: synthHar,
+      chromeRequestId: event.requestId,
+      method: event.method,
+      url: event.sourceUrl,
+      timestamp: safeTs,
+      resourceType: event.resourceType,
+      statusCode: event.statusCode,
+      statusText,
+      fires: [],
+      arrivalIndex,
+      displayId: this.displayCounter++,
+      pageref,
+    };
+    const idx = this.entries.push(entry) - 1;
+    if (existingForKey) existingForKey.push(idx);
+    else this.byHarKey.set(key, [idx]);
+    const reqList = this.byRequestId.get(event.requestId);
+    if (reqList) reqList.push(idx);
+    else this.byRequestId.set(event.requestId, [idx]);
     this.bump();
   }
 

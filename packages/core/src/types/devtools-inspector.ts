@@ -196,6 +196,38 @@ export interface InspectorRequestCompleted {
 }
 
 /**
+ * A redirect hop synthesized from `chrome.webRequest.onBeforeRedirect`.
+ *
+ * Chrome's `chrome.devtools.network.onRequestFinished` HAR pipeline is
+ * inconsistent for redirect rows — for some status codes it omits the
+ * source hop entirely, for others it reports the source row with the
+ * follow-up's 2xx status. webRequest's redirect signal, by contrast,
+ * fires reliably once per hop with the actual 3xx status code, so we
+ * use it to authoritatively mint or upgrade the source row.
+ *
+ * The panel ingests this by finding the pending row for
+ * `(requestId, sourceUrl)` (created at the corresponding
+ * `onBeforeRequest`) and stamping it with the 3xx response. If no
+ * pending row exists yet, a resolved row is minted directly. A later
+ * HAR for the same source hop is ignored for status purposes — the
+ * status captured here wins.
+ */
+export interface InspectorRequestRedirect {
+  requestId: string;
+  /** URL of the request that produced the 3xx response (the source hop). */
+  sourceUrl: string;
+  method: string;
+  /** webRequest resource type (e.g. `main_frame`, `xmlhttprequest`). */
+  resourceType: string;
+  /** HTTP status code of the redirect (301/302/303/307/308). */
+  statusCode: number;
+  /** Resolved Location header target — the next hop's URL. */
+  redirectUrl: string;
+  /** ISO timestamp of the redirect event. */
+  timestamp: string;
+}
+
+/**
  * Wire format for messages posted over the inspector port. Discriminated
  * union keyed by `type`. The panel's data layer parses incoming messages
  * against this shape.
@@ -213,6 +245,7 @@ export type InspectorPortMessage =
   | { type: 'har-body'; body: InspectorHarBody }
   | { type: 'request-started'; event: InspectorRequestStarted }
   | { type: 'request-completed'; event: InspectorRequestCompleted }
+  | { type: 'request-redirect'; event: InspectorRequestRedirect }
   | { type: 'request-error'; error: InspectorRequestError }
   | { type: 'nav'; url: string }
   | { type: 'nav-timing'; timing: InspectorNavTiming }

@@ -31,6 +31,7 @@ import {
   recordObservedFire,
   recordObservedUrl,
   recordRequestObservation,
+  recordRequestRedirect,
   updateRequestDeliveryMode,
 } from './tab-telemetry';
 import { isTrackableUrl, normalizeUrlForTracking } from './url-utils';
@@ -302,6 +303,21 @@ export function setupRequestMonitoring(updateBadgeCallback: () => void): void {
             method: details.method,
             url: details.redirectUrl,
             resourceType: details.type as TrackedResourceType,
+            timestamp: t,
+          });
+          // Authoritative source-hop signal for the panel. Chrome's
+          // devtools-HAR pipeline is inconsistent for redirect rows
+          // (drops some statuses, mis-attributes others); webRequest
+          // fires reliably with the correct 3xx status, so the panel
+          // mints / upgrades the source row from this event instead of
+          // relying on HAR.
+          recordRequestRedirect(details.tabId, {
+            requestId: details.requestId,
+            sourceUrl: details.url,
+            method: details.method,
+            resourceType: details.type as TrackedResourceType,
+            statusCode: details.statusCode,
+            redirectUrl: details.redirectUrl,
             timestamp: t,
           });
         }

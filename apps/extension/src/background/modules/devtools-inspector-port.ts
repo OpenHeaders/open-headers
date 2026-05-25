@@ -61,6 +61,7 @@ import type {
   InspectorPortMessage,
   InspectorRequestCompleted,
   InspectorRequestError,
+  InspectorRequestRedirect,
   InspectorRequestStarted,
   RequestRecord,
 } from '@openheaders/core/types';
@@ -68,7 +69,14 @@ import { logger } from '@utils/logger';
 import { buildRuleSnapshot } from '@openheaders/oracle/rule-engine/rule-snapshot';
 import { subscribeRequestCompletions } from './devtools-inspector-completions';
 import { subscribeRequestErrors } from './devtools-inspector-errors';
-import { isTracked, startTracking, stopTracking, subscribeFires, subscribeRequestEvents } from './tab-telemetry';
+import {
+  isTracked,
+  startTracking,
+  stopTracking,
+  subscribeFires,
+  subscribeRequestEvents,
+  subscribeRequestRedirects,
+} from './tab-telemetry';
 
 export type {
   HarSourceMessage,
@@ -110,6 +118,8 @@ type BufferedStartedMessage = { type: 'request-started'; event: InspectorRequest
 
 type BufferedCompletedMessage = { type: 'request-completed'; event: InspectorRequestCompleted };
 
+type BufferedRedirectMessage = { type: 'request-redirect'; event: InspectorRequestRedirect };
+
 /** Cap on per-tab ring buffers — keeps memory bounded on long DevTools sessions. */
 const HAR_BUFFER_MAX = 500;
 const FIRE_BUFFER_MAX = 1000;
@@ -124,6 +134,9 @@ const STARTED_BUFFER_MAX = 1000;
  *  started buffer; the panel resolves pending rows from these on
  *  reconnect. */
 const COMPLETED_BUFFER_MAX = 1000;
+/** Cap on per-tab redirect-event buffer — redirect chains are rare; a
+ *  generous cap covers worst-case pathological loops. */
+const REDIRECT_BUFFER_MAX = 1000;
 /** Max age for an in-flight (requestId, t) entry before we drop it as stale. */
 const IN_FLIGHT_MAX_AGE_MS = 60_000;
 /**
@@ -163,12 +176,14 @@ interface TabSession {
   errorBuffer: BufferedErrorMessage[];
   startedBuffer: BufferedStartedMessage[];
   completedBuffer: BufferedCompletedMessage[];
+  redirectBuffer: BufferedRedirectMessage[];
   /** Per-URL FIFO of in-flight webRequest observations, head = oldest. */
   inFlightByUrl: Map<string, InFlightEntry[]>;
   unsubscribeFires: () => void;
   unsubscribeRequestEvents: () => void;
   unsubscribeRequestErrors: () => void;
   unsubscribeRequestCompletions: () => void;
+  unsubscribeRequestRedirects: () => void;
 }
 
 const sessions: Map<number, TabSession> = new Map();
@@ -324,6 +339,12 @@ function handleRequestCompleted(session: TabSession, event: InspectorRequestComp
   pushBounded(session.completedBuffer, msg, COMPLETED_BUFFER_MAX);
 }
 
+function handleRequestRedirect(session: TabSession, event: InspectorRequestRedirect): void {
+  const msg: BufferedRedirectMessage = { type: 'request-redirect', event };
+  if (session.inspectorPorts.size > 0) broadcastToInspectorPorts(session, msg);
+  pushBounded(session.redirectBuffer, msg, REDIRECT_BUFFER_MAX);
+}
+
 function flushBuffers(session: TabSession, port: chrome.runtime.Port): void {
   // HAR entries first, so a fire that references a request whose HAR was
   // already buffered finds its row on arrival. Fires carry their own
@@ -373,6 +394,18 @@ function flushBuffers(session: TabSession, port: chrome.runtime.Port): void {
       return;
     }
   }
+  // Redirects must replay AFTER started events so the panel has the
+  // pending source-hop row to upgrade in place. A redirect that arrived
+  // before its corresponding start would mint a free-standing row, then
+  // the start would create a second one — exactly the duplication we're
+  // here to prevent.
+  for (const msg of session.redirectBuffer) {
+    try {
+      port.postMessage(msg satisfies InspectorPortMessage);
+    } catch {
+      return;
+    }
+  }
 }
 
 function ensureSession(tabId: number): TabSession {
@@ -392,11 +425,13 @@ function ensureSession(tabId: number): TabSession {
     errorBuffer: [],
     startedBuffer: [],
     completedBuffer: [],
+    redirectBuffer: [],
     inFlightByUrl: new Map(),
     unsubscribeFires: () => {},
     unsubscribeRequestEvents: () => {},
     unsubscribeRequestErrors: () => {},
     unsubscribeRequestCompletions: () => {},
+    unsubscribeRequestRedirects: () => {},
   };
   // Subscribe BEFORE returning so any fire/observation that happens between
   // session creation and the caller's first message is captured.
@@ -427,6 +462,17 @@ function ensureSession(tabId: number): TabSession {
   session.unsubscribeRequestCompletions = subscribeRequestCompletions(tabId, {
     send: (event) => handleRequestCompleted(session, event),
   });
+  session.unsubscribeRequestRedirects = subscribeRequestRedirects(tabId, (event) => {
+    handleRequestRedirect(session, {
+      requestId: event.requestId,
+      sourceUrl: event.sourceUrl,
+      method: event.method,
+      resourceType: event.resourceType,
+      statusCode: event.statusCode,
+      redirectUrl: event.redirectUrl,
+      timestamp: new Date(event.timestamp).toISOString(),
+    });
+  });
   sessions.set(tabId, session);
   logger.debug(
     'DevtoolsInspectorPort',
@@ -444,6 +490,7 @@ function releaseSession(tabId: number): void {
   session.unsubscribeRequestEvents();
   session.unsubscribeRequestErrors();
   session.unsubscribeRequestCompletions();
+  session.unsubscribeRequestRedirects();
   stopTracking(tabId, trackingReason(tabId));
   sessions.delete(tabId);
   logger.debug('DevtoolsInspectorPort', `Session closed for tab ${tabId}`);
@@ -557,6 +604,7 @@ export const __internals = {
       session.unsubscribeRequestEvents();
       session.unsubscribeRequestErrors();
       session.unsubscribeRequestCompletions();
+      session.unsubscribeRequestRedirects();
     }
     sessions.clear();
     portsSetupDone = false;

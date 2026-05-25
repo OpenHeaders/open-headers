@@ -76,6 +76,9 @@ export function useInspector(): UseInspectorResult {
         case 'request-completed':
           store.ingestRequestCompleted(msg.event);
           break;
+        case 'request-redirect':
+          store.ingestRequestRedirect(msg.event);
+          break;
         case 'request-error':
           store.ingestRequestError(msg.error);
           break;

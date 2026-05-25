@@ -192,6 +192,25 @@ export interface RequestObservation {
 type RequestEventListener = (event: RequestObservation) => void;
 const requestEventListeners: Map<number, Set<RequestEventListener>> = new Map();
 
+/**
+ * A 3xx hop seen by `chrome.webRequest.onBeforeRedirect`. Carries the
+ * authoritative status code, which the panel uses to mint or upgrade
+ * the source row — Chrome's HAR pipeline is unreliable for redirect
+ * source hops (omits some statuses, mis-attributes others).
+ */
+export interface RequestRedirect {
+  requestId: string;
+  sourceUrl: string;
+  method: string;
+  resourceType: TrackedResourceType;
+  statusCode: number;
+  redirectUrl: string;
+  timestamp: number;
+}
+
+type RequestRedirectListener = (event: RequestRedirect) => void;
+const requestRedirectListeners: Map<number, Set<RequestRedirectListener>> = new Map();
+
 function emptyState(tabId: number): TabState {
   return {
     tabId,
@@ -285,6 +304,47 @@ export function subscribeRequestEvents(tabId: number, listener: RequestEventList
  */
 export function recordRequestObservation(tabId: number, event: RequestObservation): void {
   emitRequestObservation(tabId, event);
+}
+
+function emitRequestRedirect(tabId: number, event: RequestRedirect): void {
+  const set = requestRedirectListeners.get(tabId);
+  if (!set || set.size === 0) return;
+  for (const fn of set) {
+    try {
+      fn(event);
+    } catch {
+      // Listener failures must never corrupt telemetry state.
+    }
+  }
+}
+
+/**
+ * Subscribe to every redirect hop observed on this tab. The panel uses
+ * this to synthesize source-hop rows the Chrome DevTools HAR pipeline
+ * drops or mis-attributes.
+ */
+export function subscribeRequestRedirects(tabId: number, listener: RequestRedirectListener): () => void {
+  let set = requestRedirectListeners.get(tabId);
+  if (!set) {
+    set = new Set();
+    requestRedirectListeners.set(tabId, set);
+  }
+  set.add(listener);
+  return () => {
+    const current = requestRedirectListeners.get(tabId);
+    if (!current) return;
+    current.delete(listener);
+    if (current.size === 0) requestRedirectListeners.delete(tabId);
+  };
+}
+
+/**
+ * Record a redirect hop observation. Called from request-monitor's
+ * `onBeforeRedirect` handler for every tracked tab. Broadcasts to any
+ * `subscribeRequestRedirects` listeners; no state is stored here.
+ */
+export function recordRequestRedirect(tabId: number, event: RequestRedirect): void {
+  emitRequestRedirect(tabId, event);
 }
 
 function normalizeForAttribution(url: string): string {

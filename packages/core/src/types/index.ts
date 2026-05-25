@@ -203,6 +203,7 @@ export type {
   InspectorPortMessage,
   InspectorRequestCompleted,
   InspectorRequestError,
+  InspectorRequestRedirect,
   InspectorRequestStarted,
 } from './devtools-inspector';
 
