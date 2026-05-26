@@ -18,6 +18,7 @@
 import type { Page, PageStreamUpdate } from '@openheaders/core/page-stream';
 
 import { NOOP, reducePageUpdate } from './page-client-reducer';
+import { createSnapshotPublisher } from './snapshot-publisher';
 
 export interface PageClientSnapshot {
   /** Insertion-ordered. Same identity until a real mutation happens. */
@@ -30,41 +31,24 @@ const EMPTY_SNAPSHOT: PageClientSnapshot = Object.freeze({
 
 export class PageClientStore {
   private pages: readonly Page[] = EMPTY_SNAPSHOT.pages;
-  private snapshotCache: PageClientSnapshot = EMPTY_SNAPSHOT;
-  private snapshotDirty = false;
-  private readonly listeners = new Set<() => void>();
+  private readonly pub = createSnapshotPublisher<PageClientSnapshot>(
+    () => ({ pages: this.pages }),
+    EMPTY_SNAPSHOT,
+  );
 
   apply(update: PageStreamUpdate): void {
     const next = reducePageUpdate(this.pages, update);
     if (next === NOOP) return;
     this.pages = next;
-    this.snapshotDirty = true;
-    this.notify();
+    this.pub.markDirty();
   }
 
   clear(): void {
     if (this.pages.length === 0) return;
     this.pages = [];
-    this.snapshotDirty = true;
-    this.notify();
+    this.pub.markDirty();
   }
 
-  readonly subscribe = (listener: () => void): (() => void) => {
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
-  };
-
-  readonly getSnapshot = (): PageClientSnapshot => {
-    if (this.snapshotDirty) {
-      this.snapshotCache = { pages: this.pages };
-      this.snapshotDirty = false;
-    }
-    return this.snapshotCache;
-  };
-
-  private notify(): void {
-    for (const listener of this.listeners) listener();
-  }
+  readonly subscribe = this.pub.subscribe;
+  readonly getSnapshot = this.pub.getSnapshot;
 }

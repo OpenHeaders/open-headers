@@ -26,6 +26,7 @@
 import type { RequestLifecycle, RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
 
 import { NOOP, reduceClientUpdate } from './lifecycle-client-reducer';
+import { createSnapshotPublisher } from './snapshot-publisher';
 
 export interface LifecycleClientSnapshot {
   /** Identity map keyed by `requestId`. */
@@ -41,9 +42,13 @@ const EMPTY_SNAPSHOT: LifecycleClientSnapshot = Object.freeze({
 
 export class LifecycleClientStore {
   private byRequestId = new Map<string, RequestLifecycle>();
-  private snapshotCache: LifecycleClientSnapshot = EMPTY_SNAPSHOT;
-  private snapshotDirty = false;
-  private readonly listeners = new Set<() => void>();
+  private readonly pub = createSnapshotPublisher<LifecycleClientSnapshot>(
+    () => ({
+      byRequestId: new Map(this.byRequestId),
+      ordered: [...this.byRequestId.values()],
+    }),
+    EMPTY_SNAPSHOT,
+  );
 
   /** Apply one engine update. Noop reducer results skip notify. */
   apply(update: RequestLifecycleUpdate): void {
@@ -58,8 +63,7 @@ export class LifecycleClientStore {
     } else {
       this.byRequestId.set(requestId, result);
     }
-    this.snapshotDirty = true;
-    this.notify();
+    this.pub.markDirty();
   }
 
   /**
@@ -70,34 +74,11 @@ export class LifecycleClientStore {
   clear(): void {
     if (this.byRequestId.size === 0) return;
     this.byRequestId = new Map();
-    this.snapshotDirty = true;
-    this.notify();
+    this.pub.markDirty();
   }
 
-  /** React subscription. Returns the unsubscribe function. */
-  readonly subscribe = (listener: () => void): (() => void) => {
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
-  };
-
-  /** Stable snapshot — same reference until state actually changes. */
-  readonly getSnapshot = (): LifecycleClientSnapshot => {
-    if (this.snapshotDirty) {
-      const ordered = [...this.byRequestId.values()];
-      this.snapshotCache = {
-        byRequestId: new Map(this.byRequestId),
-        ordered,
-      };
-      this.snapshotDirty = false;
-    }
-    return this.snapshotCache;
-  };
-
-  private notify(): void {
-    for (const listener of this.listeners) listener();
-  }
+  readonly subscribe = this.pub.subscribe;
+  readonly getSnapshot = this.pub.getSnapshot;
 }
 
 function requestIdOf(update: RequestLifecycleUpdate): string {

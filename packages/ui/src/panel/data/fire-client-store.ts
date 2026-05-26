@@ -14,6 +14,7 @@
  */
 
 import type { InspectorFire } from './types';
+import { createSnapshotPublisher } from './snapshot-publisher';
 
 function dedupKey(ruleUid: string, requestId: string | undefined, t: number): string {
   return requestId ? `${ruleUid}:${requestId}` : `${ruleUid}:t:${t}`;
@@ -30,9 +31,10 @@ const EMPTY_SNAPSHOT: FireClientSnapshot = Object.freeze({
 export class FireClientStore {
   private fires: InspectorFire[] = [];
   private byKey = new Map<string, number>();
-  private snapshotCache: FireClientSnapshot = EMPTY_SNAPSHOT;
-  private snapshotDirty = false;
-  private readonly listeners = new Set<() => void>();
+  private readonly pub = createSnapshotPublisher<FireClientSnapshot>(
+    () => ({ fires: this.fires.slice() }),
+    EMPTY_SNAPSHOT,
+  );
 
   /** Insert or overwrite by `(ruleUid, requestId|t)`. */
   upsert(fire: InspectorFire): void {
@@ -44,34 +46,16 @@ export class FireClientStore {
       this.fires.push(fire);
       this.byKey.set(key, this.fires.length - 1);
     }
-    this.snapshotDirty = true;
-    this.notify();
+    this.pub.markDirty();
   }
 
   clear(): void {
     if (this.fires.length === 0) return;
     this.fires = [];
     this.byKey.clear();
-    this.snapshotDirty = true;
-    this.notify();
+    this.pub.markDirty();
   }
 
-  readonly subscribe = (listener: () => void): (() => void) => {
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
-  };
-
-  readonly getSnapshot = (): FireClientSnapshot => {
-    if (this.snapshotDirty) {
-      this.snapshotCache = { fires: this.fires.slice() };
-      this.snapshotDirty = false;
-    }
-    return this.snapshotCache;
-  };
-
-  private notify(): void {
-    for (const listener of this.listeners) listener();
-  }
+  readonly subscribe = this.pub.subscribe;
+  readonly getSnapshot = this.pub.getSnapshot;
 }
