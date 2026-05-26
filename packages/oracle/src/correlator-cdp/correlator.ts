@@ -17,12 +17,10 @@
 
 import type {
   RequestCorrelator,
-  RequestLifecycle,
   RequestLifecycleListener,
   RequestLifecycleUpdate,
   Unsubscribe,
 } from '@openheaders/core/request-lifecycle';
-import { lifecycleKey } from '@openheaders/core/request-lifecycle';
 
 import { cdpEventToUpdates } from './cdp-to-update';
 import type { CdpEventSource, CdpNetworkEvent } from './events';
@@ -37,13 +35,6 @@ export class NotImplementedError extends Error {
 export class CdpCorrelatorStub implements RequestCorrelator {
   private readonly listeners = new Set<RequestLifecycleListener>();
   private readonly attached = new Set<number>();
-  /**
-   * Local mirror of "what we've emitted so far" keyed by
-   * `(tabId, requestId)`. Used by the mapper to know whether to emit
-   * `started` or `redirect`; the store's own mirror is separate and
-   * downstream of this layer.
-   */
-  private readonly recentLifecycles = new Map<string, RequestLifecycle>();
   private readonly sourceUnsubscribe: () => void;
 
   constructor(source: CdpEventSource) {
@@ -68,10 +59,6 @@ export class CdpCorrelatorStub implements RequestCorrelator {
 
   detachTab(tabId: number): void {
     this.attached.delete(tabId);
-    // Drop per-tab projection state so a re-attach starts clean.
-    for (const key of this.recentLifecycles.keys()) {
-      if (key.startsWith(`${tabId}:`)) this.recentLifecycles.delete(key);
-    }
   }
 
   subscribe(listener: RequestLifecycleListener): Unsubscribe {
@@ -86,7 +73,6 @@ export class CdpCorrelatorStub implements RequestCorrelator {
     this.sourceUnsubscribe();
     this.listeners.clear();
     this.attached.clear();
-    this.recentLifecycles.clear();
   }
 
   private onEvent(event: CdpNetworkEvent): void {
@@ -96,12 +82,6 @@ export class CdpCorrelatorStub implements RequestCorrelator {
   }
 
   private emit(update: RequestLifecycleUpdate): void {
-    if (update.kind === 'started') {
-      this.recentLifecycles.set(
-        lifecycleKey(update.lifecycle.tabId, update.lifecycle.requestId),
-        update.lifecycle,
-      );
-    }
     for (const listener of this.listeners) listener(update);
   }
 }

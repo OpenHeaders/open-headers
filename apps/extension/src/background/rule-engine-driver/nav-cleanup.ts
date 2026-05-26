@@ -19,7 +19,7 @@ export function installNavCleanup(options: NavCleanupOptions): () => void {
   const api = getBrowserAPI().webNavigation;
   if (!api?.onBeforeNavigate) return noop;
 
-  const listener = (details: chrome.webNavigation.WebNavigationBaseCallbackDetails & { frameId: number }) => {
+  const listener = (details: chrome.webNavigation.WebNavigationBaseCallbackDetails) => {
     if (details.frameId !== 0) return;
     dropTabTracking(details.tabId);
     triggerBadgeIfActive(details.tabId, options.updateBadge);

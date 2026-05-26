@@ -134,11 +134,10 @@ describe('cdpEventToUpdates — canonical redirect + completion trace', () => {
   });
 });
 
-describe('cdpEventToUpdates — full trace fed through the store-style reducer holds', () => {
-  // A second-level assertion: the updates the mapper emits are a legal
-  // stream under the store's reducer. We don't import the store here;
-  // we just walk the canonical sequence and check it lands at a sane
-  // terminal state.
+describe('cdpEventToUpdates — full trace produces a coherent update stream', () => {
+  // Walk the canonical CDP sequence through the mapper and assert the
+  // emitted updates form a legal stream (kind ordering + identity
+  // preservation). The store reducer is exercised separately.
   it('start → redirect → headers-received → completed produces a coherent path', () => {
     const trace = [initialRequest, redirectStart, responseReceived, loadingFinished];
     const updates = trace.flatMap((e) => cdpEventToUpdates(e));
