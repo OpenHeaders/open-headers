@@ -14,23 +14,9 @@ import {
   CdpCorrelatorStub,
   NotImplementedError,
 } from '../../src/correlator-cdp/correlator';
-import type { CdpEventSource, CdpNetworkEvent } from '../../src/correlator-cdp/events';
+import type { CdpNetworkEvent } from '../../src/correlator-cdp/events';
 
-/** Bare-bones in-memory CDP source used only by these tests. */
-class TestSource implements CdpEventSource {
-  private readonly listeners = new Set<(event: CdpNetworkEvent) => void>();
-
-  subscribe(listener: (event: CdpNetworkEvent) => void): () => void {
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
-  }
-
-  emit(event: CdpNetworkEvent): void {
-    for (const fn of this.listeners) fn(event);
-  }
-}
+import { InMemoryCdpSource } from './in-memory-source';
 
 const TAB = 11;
 
@@ -54,7 +40,7 @@ describe('CdpCorrelatorStub — production-instantiation guard (K4)', () => {
 
 describe('CdpCorrelatorStub — attach / subscribe / emit (K2)', () => {
   it('does not emit before any tab is attached', () => {
-    const source = new TestSource();
+    const source = new InMemoryCdpSource();
     const correlator = new CdpCorrelatorStub(source);
     const listener: RequestLifecycleListener = vi.fn();
     correlator.subscribe(listener);
@@ -64,7 +50,7 @@ describe('CdpCorrelatorStub — attach / subscribe / emit (K2)', () => {
   });
 
   it('emits the mapped update for an attached tab', () => {
-    const source = new TestSource();
+    const source = new InMemoryCdpSource();
     const correlator = new CdpCorrelatorStub(source);
     const collected: RequestLifecycleUpdate[] = [];
     correlator.subscribe((u) => collected.push(u));
@@ -76,7 +62,7 @@ describe('CdpCorrelatorStub — attach / subscribe / emit (K2)', () => {
   });
 
   it('detachTab stops further emissions for that tab', () => {
-    const source = new TestSource();
+    const source = new InMemoryCdpSource();
     const correlator = new CdpCorrelatorStub(source);
     const fn = vi.fn();
     correlator.subscribe(fn);
@@ -89,7 +75,7 @@ describe('CdpCorrelatorStub — attach / subscribe / emit (K2)', () => {
   });
 
   it('dispose unsubscribes from the source and clears state', () => {
-    const source = new TestSource();
+    const source = new InMemoryCdpSource();
     const correlator = new CdpCorrelatorStub(source);
     const fn = vi.fn();
     correlator.subscribe(fn);
