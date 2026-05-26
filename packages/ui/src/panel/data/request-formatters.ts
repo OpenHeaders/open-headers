@@ -1,5 +1,5 @@
 /**
- * Request formatters — turn an `InspectorRequest` / its underlying HAR
+ * Request formatters — turn a `RequestLifecycle` / its current HAR
  * entry into the canonical text forms exposed by the row context menu
  * (Copy as cURL, Copy as fetch, Copy headers, etc).
  *
@@ -8,10 +8,14 @@
  * `'\''`) since the Network tab's default copy format is the POSIX
  * variant. Headers are deduplicated by case-insensitive name, matching
  * how the browser reports them.
+ *
+ * Until a HAR lands for the current hop, formatters that need request
+ * headers / body fall back to the lifecycle's url + method only.
  */
 
+import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarEntry } from '@openheaders/core/types';
-import type { InspectorRequest } from './types';
+import { currentHarEntry } from './inspector-row-projection';
 
 type Header = { name: string; value: string };
 
@@ -29,25 +33,24 @@ function filterRequestHeaders(headers: readonly Header[]): Header[] {
 
 function shellQuote(value: string): string {
   if (value === '') return "''";
-  // POSIX safe: close single quote, escape with \', reopen single quote.
   return `'${value.replace(/'/g, "'\\''")}'`;
 }
 
-export function formatCurl(request: InspectorRequest): string {
-  const har = request.harEntry;
-  const method = request.method || har.request?.method || 'GET';
-  const url = request.url;
+export function formatCurl(lc: RequestLifecycle): string {
+  const har = currentHarEntry(lc);
+  const method = (lc.method || har?.request?.method || 'GET').toUpperCase();
+  const url = lc.url;
   const parts: string[] = [`curl ${shellQuote(url)}`];
 
-  if (method.toUpperCase() !== 'GET') {
-    parts.push(`-X ${shellQuote(method.toUpperCase())}`);
+  if (method !== 'GET') {
+    parts.push(`-X ${shellQuote(method)}`);
   }
 
-  for (const h of filterRequestHeaders(har.request?.headers ?? [])) {
+  for (const h of filterRequestHeaders(har?.request?.headers ?? [])) {
     parts.push(`-H ${shellQuote(`${h.name}: ${h.value}`)}`);
   }
 
-  const body = har.request?.postData?.text;
+  const body = har?.request?.postData?.text;
   if (body != null && body.length > 0) {
     parts.push(`--data-raw ${shellQuote(body)}`);
   }
@@ -55,11 +58,11 @@ export function formatCurl(request: InspectorRequest): string {
   return parts.join(' \\\n  ');
 }
 
-export function formatFetch(request: InspectorRequest): string {
-  const har = request.harEntry;
-  const method = (request.method || har.request?.method || 'GET').toUpperCase();
-  const headers = filterRequestHeaders(har.request?.headers ?? []);
-  const body = har.request?.postData?.text;
+export function formatFetch(lc: RequestLifecycle): string {
+  const har = currentHarEntry(lc);
+  const method = (lc.method || har?.request?.method || 'GET').toUpperCase();
+  const headers = filterRequestHeaders(har?.request?.headers ?? []);
+  const body = har?.request?.postData?.text;
 
   const init: Record<string, unknown> = {};
   if (headers.length > 0) {
@@ -73,19 +76,19 @@ export function formatFetch(request: InspectorRequest): string {
   if (body != null && body.length > 0) init.body = body;
 
   const optsJson = Object.keys(init).length === 0 ? '' : `, ${JSON.stringify(init, null, 2)}`;
-  return `fetch(${JSON.stringify(request.url)}${optsJson})`;
+  return `fetch(${JSON.stringify(lc.url)}${optsJson})`;
 }
 
 export function formatHeadersBlock(headers: readonly Header[]): string {
   return headers.map((h) => `${h.name}: ${h.value}`).join('\n');
 }
 
-export function formatRequestHeaders(request: InspectorRequest): string {
-  return formatHeadersBlock(request.harEntry.request?.headers ?? []);
+export function formatRequestHeaders(lc: RequestLifecycle): string {
+  return formatHeadersBlock(currentHarEntry(lc)?.request?.headers ?? []);
 }
 
-export function formatResponseHeaders(request: InspectorRequest): string {
-  return formatHeadersBlock(request.harEntry.response?.headers ?? []);
+export function formatResponseHeaders(lc: RequestLifecycle): string {
+  return formatHeadersBlock(currentHarEntry(lc)?.response?.headers ?? []);
 }
 
 export function formatStatusLine(har: InspectorHarEntry): string {

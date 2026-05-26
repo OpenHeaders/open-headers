@@ -254,4 +254,28 @@ describe('usePanelData', () => {
     rerender({ inp: input });
     expect(result.current).toBe(first);
   });
+
+  it('exposes a getConnectionReuse closure over the lifecycle list', () => {
+    const a = lifecycle('a', 'https://openheaders.io/a', { startedAtMs: 100 });
+    const b = lifecycle('b', 'https://openheaders.io/b', { startedAtMs: 200 });
+    // Stamp a shared HAR connection id on both — reuse should detect it.
+    const connId = 'CONN-1';
+    a.har.get(0)!.connection = connId;
+    b.har.get(0)!.connection = connId;
+    const { result } = renderHook(() => usePanelData(snapshots([a, b])));
+    expect(result.current.getConnectionReuse(a).reused).toBe(false);
+    expect(result.current.getConnectionReuse(b).reused).toBe(true);
+    expect(result.current.getConnectionReuse(b).openedBy?.url).toBe('https://openheaders.io/a');
+  });
+
+  it('exposes a getRepeatStats closure over the lifecycle list', () => {
+    const a = lifecycle('a', 'https://openheaders.io/a', { startedAtMs: 100, completedAtMs: 200 });
+    const b = lifecycle('b', 'https://openheaders.io/a', { startedAtMs: 300, completedAtMs: 500 });
+    const { result } = renderHook(() => usePanelData(snapshots([a, b])));
+    const stats = result.current.getRepeatStats(a);
+    expect(stats).not.toBeNull();
+    expect(stats!.count).toBe(2);
+    expect(stats!.fastestMs).toBe(100);
+    expect(stats!.slowestMs).toBe(200);
+  });
 });

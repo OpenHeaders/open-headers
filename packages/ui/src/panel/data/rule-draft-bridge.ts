@@ -1,7 +1,7 @@
 /**
- * Rule draft handoff — builds a `RuleDraft` from an inspector request
- * entry, stashes it in the background via `createRuleDraft`, and
- * opens the workspace at `#/create/<type>/draft-<nonce>`.
+ * Rule draft handoff — builds a `RuleDraft` from a lifecycle,
+ * stashes it in the background via `createRuleDraft`, and opens the
+ * workspace at `#/create/<type>/draft-<nonce>`.
  *
  * Only the header CTA is wired for v1; the other five rule types
  * render as placeholder buttons that call `openPlaceholderRuleDraft`
@@ -9,6 +9,7 @@
  */
 
 import { hostBridge } from '@openheaders/core/bridge';
+import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type {
   BlockRuleDraft,
   DelayRuleDraft,
@@ -17,19 +18,18 @@ import type {
   RuleDraft,
 } from '@openheaders/core/types';
 import { openWorkspace } from '@openheaders/ui/shared/workspace-intent';
-import type { InspectorRequest } from './types';
 
 const HOST_PLACEHOLDER = 'NEW_HOST';
 
-/** Build a RuleDraft for a header rule pre-filled from a request. */
+/** Build a RuleDraft for a header rule pre-filled from a lifecycle. */
 export function buildHeaderDraftFromRequest(
-  request: InspectorRequest,
+  lc: RequestLifecycle,
   header: { direction: 'request' | 'response'; headerName: string; value?: string } | undefined,
 ): HeaderRuleDraft {
-  const method = request.method ? [request.method.toUpperCase()] : undefined;
+  const method = lc.method ? [lc.method.toUpperCase()] : undefined;
   const base: HeaderRuleDraft = {
     type: 'header',
-    url: request.url,
+    url: lc.url,
     ...(method ? { requestMethods: method } : {}),
   };
   if (!header) return base;
@@ -46,37 +46,37 @@ export function buildHeaderDraftFromRequest(
 
 /** Build a draft for a redirect rule pointing at the SAME url — the
  *  editor's redirectTo field opens empty for the user to fill. */
-export function buildRedirectDraftFromRequest(request: InspectorRequest): RedirectRuleDraft {
-  return { type: 'redirect', url: request.url, redirectTo: '' };
+export function buildRedirectDraftFromRequest(lc: RequestLifecycle): RedirectRuleDraft {
+  return { type: 'redirect', url: lc.url, redirectTo: '' };
 }
 
 /** Build a "replace host" redirect — preserves path/query but swaps
  *  the host for a clearly-marked placeholder so the user only has to
  *  replace one chunk. */
-export function buildReplaceHostDraftFromRequest(request: InspectorRequest): RedirectRuleDraft {
-  let target = request.url;
+export function buildReplaceHostDraftFromRequest(lc: RequestLifecycle): RedirectRuleDraft {
+  let target = lc.url;
   try {
-    const u = new URL(request.url);
+    const u = new URL(lc.url);
     u.host = HOST_PLACEHOLDER;
     target = u.toString();
   } catch {
     // leave target as-is for non-URL values
   }
-  return { type: 'redirect', url: request.url, redirectTo: target };
+  return { type: 'redirect', url: lc.url, redirectTo: target };
 }
 
-/** Build a "replace URL part" redirect — copies the request URL into
- *  the target verbatim, so the user can edit any segment in place. */
-export function buildReplaceUrlPartDraftFromRequest(request: InspectorRequest): RedirectRuleDraft {
-  return { type: 'redirect', url: request.url, redirectTo: request.url };
+/** Build a "replace URL part" redirect — copies the URL into the target
+ *  verbatim, so the user can edit any segment in place. */
+export function buildReplaceUrlPartDraftFromRequest(lc: RequestLifecycle): RedirectRuleDraft {
+  return { type: 'redirect', url: lc.url, redirectTo: lc.url };
 }
 
-export function buildDelayDraftFromRequest(request: InspectorRequest, delayMs = 1000): DelayRuleDraft {
-  return { type: 'delay', url: request.url, delayMs };
+export function buildDelayDraftFromRequest(lc: RequestLifecycle, delayMs = 1000): DelayRuleDraft {
+  return { type: 'delay', url: lc.url, delayMs };
 }
 
-export function buildBlockDraftFromRequest(request: InspectorRequest): BlockRuleDraft {
-  return { type: 'block', url: request.url };
+export function buildBlockDraftFromRequest(lc: RequestLifecycle): BlockRuleDraft {
+  return { type: 'block', url: lc.url };
 }
 
 /**
@@ -91,8 +91,6 @@ export function buildBlockDraftFromRequest(request: InspectorRequest): BlockRule
 export async function handOffRuleDraft(draft: RuleDraft): Promise<void> {
   const res = await hostBridge.call('createRuleDraft', { draft });
   if (!res.success || !res.nonce) {
-    // Validation failure — surface to the user. In the panel this
-    // translates to an AntD message; the caller wires the UX.
     throw new Error(res.error ?? 'Failed to create rule draft');
   }
   await openWorkspace({ kind: 'create-rule', ruleType: draft.type, draftNonce: res.nonce }, 'devpanel');

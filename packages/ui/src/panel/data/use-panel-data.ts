@@ -20,11 +20,11 @@
  *   - Initiator children resolver (closure over the index + lookup).
  *   - Status-bar totals (`totalBytesTransferred`, `totalResourceSize`,
  *     `finishTimeMs`, `baselineMs`).
+ *   - Per-row Timing-tab closures (`getConnectionReuse`, `getRepeatStats`)
+ *     — both are `(lifecycle) → result` closures over the full lifecycle
+ *     list, so consumers don't thread the array through prop chains.
  *
- * Intentionally NOT here yet (locked for the next-session atomic flip):
- *   - `getConnectionReuse`, `getRepeatStats` — depend on data helpers
- *     still typed against the legacy `InspectorRequest`. They join the
- *     hook the same session those helpers migrate.
+ * Intentionally NOT here yet (locked for follow-up sessions):
  *   - HAR export — its `pageToHar` projector ships in `./page-to-har`;
  *     the call site flips during the App.tsx flip.
  */
@@ -34,6 +34,7 @@ import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import type { InspectorNavTiming } from '@openheaders/core/types';
 import { useMemo } from 'react';
 
+import { computeConnectionReuse, type ConnectionReuseInfo } from './connection-reuse';
 import { type FireClientSnapshot } from './fire-client-store';
 import { buildInitiatorIndex, type InitiatorIndex } from './initiator-index';
 import { buildInspectorRows, type BuildInspectorRowsOptions } from './inspector-facet';
@@ -44,6 +45,7 @@ import {
 } from './inspector-row-projection';
 import { type LifecycleClientSnapshot } from './lifecycle-client-store';
 import { type PageClientSnapshot } from './page-client-store';
+import { computeRepeatStats, type RepeatStats } from './timing-repeats';
 import type { InspectorFire } from './types';
 
 export interface UsePanelDataInput {
@@ -67,6 +69,10 @@ export interface UsePanelDataResult {
   readonly lookupByRequestId: ReadonlyMap<string, InspectorRowWithFires>;
   readonly lookupByUrl: ReadonlyMap<string, InspectorRowWithFires>;
   readonly getInitiatorChildren: (url: string) => readonly InspectorRowWithFires[];
+  /** Per-row Timing-tab connection-reuse closure over the full lifecycle list. */
+  readonly getConnectionReuse: (lifecycle: RequestLifecycle) => ConnectionReuseInfo;
+  /** Per-row Timing-tab repeat-URL stats closure over the full lifecycle list. */
+  readonly getRepeatStats: (lifecycle: RequestLifecycle) => RepeatStats | null;
   readonly baselineMs: number | null;
   readonly totalBytesTransferred: number;
   readonly totalResourceSize: number;
@@ -158,6 +164,10 @@ export function usePanelData(input: UsePanelDataInput): UsePanelDataResult {
     const navTiming = projectNavTiming(pages);
     const baselineMs = rows.length > 0 ? rows[0].lifecycle.startedAtMs : null;
 
+    const getConnectionReuse = (lc: RequestLifecycle): ConnectionReuseInfo =>
+      computeConnectionReuse(lc, lifecycles);
+    const getRepeatStats = (lc: RequestLifecycle): RepeatStats | null => computeRepeatStats(lc, lifecycles);
+
     return {
       rows,
       dangling,
@@ -167,6 +177,8 @@ export function usePanelData(input: UsePanelDataInput): UsePanelDataResult {
       lookupByRequestId,
       lookupByUrl,
       getInitiatorChildren,
+      getConnectionReuse,
+      getRepeatStats,
       baselineMs,
       totalBytesTransferred,
       totalResourceSize,

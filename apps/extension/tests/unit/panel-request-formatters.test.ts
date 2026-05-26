@@ -1,70 +1,83 @@
+import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import type { InspectorHarEntry } from '@openheaders/core/types';
 import {
   formatCurl,
   formatFetch,
   formatRequestHeaders,
   formatResponseHeaders,
 } from '@openheaders/ui/panel/data/request-formatters';
-import type { InspectorRequest } from '@openheaders/ui/panel/data/types';
 import { describe, expect, it } from 'vitest';
-import type { InspectorHarEntry } from '@/background/modules/devtools-inspector-port';
 
-function makeRequest(
+function makeLifecycle(
   overrides: Partial<InspectorHarEntry['request']> = {},
   response?: InspectorHarEntry['response'],
-): InspectorRequest {
+): RequestLifecycle {
+  const method = overrides.method ?? 'GET';
+  const url = overrides.url ?? 'https://api.openheaders.io/v2/config';
   const har: InspectorHarEntry = {
     startedDateTime: '2026-04-16T00:00:00.000Z',
+    time: 0,
     request: {
-      method: 'GET',
-      url: 'https://api.openheaders.io/v2/config',
+      method,
+      url,
+      httpVersion: '',
       headers: [],
       queryString: [],
+      cookies: [],
+      headersSize: -1,
+      bodySize: -1,
       ...overrides,
     },
     response: response ?? {
       status: 200,
       statusText: 'OK',
+      httpVersion: '',
       headers: [],
+      cookies: [],
       content: { size: 0, mimeType: 'application/json' },
+      headersSize: -1,
+      bodySize: -1,
     },
+    timings: { blocked: 0, dns: 0, connect: 0, send: 0, wait: 0, receive: 0 },
   };
   return {
-    id: 'fixture',
-    harEntry: har,
-    method: har.request?.method ?? 'GET',
-    url: har.request?.url ?? '',
-    timestamp: Date.parse(har.startedDateTime),
+    tabId: 1,
+    requestId: 'fixture',
+    url,
+    method,
+    resourceType: 'xmlhttprequest',
+    phase: 'completed',
+    redirectHopCount: 0,
+    redirectHops: [],
+    startedAtMs: Date.parse(har.startedDateTime),
+    hopStartedAtMs: Date.parse(har.startedDateTime),
     statusCode: har.response?.status,
     statusText: har.response?.statusText,
-    mimeType: har.response?.content?.mimeType,
-    fires: [],
-    arrivalIndex: 0,
-    displayId: 1,
+    har: new Map([[0, har]]),
+    harBodyByHop: new Map(),
   };
 }
 
 describe('formatCurl', () => {
   it('emits a GET with the URL only when there are no headers or body', () => {
-    const req = makeRequest();
-    const out = formatCurl(req);
-    expect(out).toBe("curl 'https://api.openheaders.io/v2/config'");
+    expect(formatCurl(makeLifecycle())).toBe("curl 'https://api.openheaders.io/v2/config'");
   });
 
   it('includes -X <method> for non-GET requests', () => {
-    const req = makeRequest({ method: 'DELETE' });
-    expect(formatCurl(req)).toContain("-X 'DELETE'");
+    expect(formatCurl(makeLifecycle({ method: 'DELETE' }))).toContain("-X 'DELETE'");
   });
 
   it('drops forbidden / pseudo-header request headers (Host, :authority, Content-Length)', () => {
-    const req = makeRequest({
-      headers: [
-        { name: 'Host', value: 'api.openheaders.io' },
-        { name: ':authority', value: 'api.openheaders.io' },
-        { name: 'Content-Length', value: '0' },
-        { name: 'Accept', value: 'application/json' },
-      ],
-    });
-    const out = formatCurl(req);
+    const out = formatCurl(
+      makeLifecycle({
+        headers: [
+          { name: 'Host', value: 'api.openheaders.io' },
+          { name: ':authority', value: 'api.openheaders.io' },
+          { name: 'Content-Length', value: '0' },
+          { name: 'Accept', value: 'application/json' },
+        ],
+      }),
+    );
     expect(out).not.toContain('Host:');
     expect(out).not.toContain(':authority');
     expect(out).not.toContain('Content-Length');
@@ -72,49 +85,52 @@ describe('formatCurl', () => {
   });
 
   it('escapes single quotes in headers using POSIX quoting', () => {
-    const req = makeRequest({
-      headers: [{ name: 'Cookie', value: "session='abc'" }],
-    });
-    const out = formatCurl(req);
-    // single quote inside single-quoted string: closed, \\ escaped, reopened
+    const out = formatCurl(
+      makeLifecycle({
+        headers: [{ name: 'Cookie', value: "session='abc'" }],
+      }),
+    );
     expect(out).toContain("'Cookie: session='\\''abc'\\'''");
   });
 
   it('adds --data-raw for POST bodies', () => {
-    const req = makeRequest({
-      method: 'POST',
-      postData: { mimeType: 'application/json', text: '{"a":1}' },
-    });
-    expect(formatCurl(req)).toContain('--data-raw \'{"a":1}\'');
+    const out = formatCurl(
+      makeLifecycle({
+        method: 'POST',
+        postData: { mimeType: 'application/json', text: '{"a":1}' },
+      }),
+    );
+    expect(out).toContain('--data-raw \'{"a":1}\'');
   });
 });
 
 describe('formatFetch', () => {
   it('returns a minimal fetch call when the request is a bare GET', () => {
-    const req = makeRequest();
-    expect(formatFetch(req)).toBe('fetch("https://api.openheaders.io/v2/config")');
+    expect(formatFetch(makeLifecycle())).toBe('fetch("https://api.openheaders.io/v2/config")');
   });
 
   it('serializes method + headers + body when present', () => {
-    const req = makeRequest({
-      method: 'POST',
-      headers: [{ name: 'Accept', value: 'application/json' }],
-      postData: { mimeType: 'application/json', text: '{"a":1}' },
-    });
-    const out = formatFetch(req);
+    const out = formatFetch(
+      makeLifecycle({
+        method: 'POST',
+        headers: [{ name: 'Accept', value: 'application/json' }],
+        postData: { mimeType: 'application/json', text: '{"a":1}' },
+      }),
+    );
     expect(out).toContain('"method": "POST"');
     expect(out).toContain('"Accept": "application/json"');
     expect(out).toContain('"body": "{\\"a\\":1}"');
   });
 
   it('filters pseudo-headers from the fetch headers object', () => {
-    const req = makeRequest({
-      headers: [
-        { name: ':authority', value: 'api.openheaders.io' },
-        { name: 'X-Custom', value: 'value' },
-      ],
-    });
-    const out = formatFetch(req);
+    const out = formatFetch(
+      makeLifecycle({
+        headers: [
+          { name: ':authority', value: 'api.openheaders.io' },
+          { name: 'X-Custom', value: 'value' },
+        ],
+      }),
+    );
     expect(out).not.toContain(':authority');
     expect(out).toContain('"X-Custom": "value"');
   });
@@ -122,33 +138,40 @@ describe('formatFetch', () => {
 
 describe('formatRequestHeaders / formatResponseHeaders', () => {
   it('joins headers in "Name: value" lines for the request', () => {
-    const req = makeRequest({
-      headers: [
-        { name: 'Accept', value: 'application/json' },
-        { name: 'X-Foo', value: 'bar' },
-      ],
-    });
-    expect(formatRequestHeaders(req)).toBe('Accept: application/json\nX-Foo: bar');
+    const out = formatRequestHeaders(
+      makeLifecycle({
+        headers: [
+          { name: 'Accept', value: 'application/json' },
+          { name: 'X-Foo', value: 'bar' },
+        ],
+      }),
+    );
+    expect(out).toBe('Accept: application/json\nX-Foo: bar');
   });
 
   it('joins headers for the response', () => {
-    const req = makeRequest(
-      {},
-      {
-        status: 200,
-        statusText: 'OK',
-        headers: [
-          { name: 'Content-Type', value: 'application/json' },
-          { name: 'X-Request-Id', value: 'abc' },
-        ],
-        content: { size: 0, mimeType: 'application/json' },
-      },
+    const out = formatResponseHeaders(
+      makeLifecycle(
+        {},
+        {
+          status: 200,
+          statusText: 'OK',
+          httpVersion: '',
+          headers: [
+            { name: 'Content-Type', value: 'application/json' },
+            { name: 'X-Request-Id', value: 'abc' },
+          ],
+          cookies: [],
+          content: { size: 0, mimeType: 'application/json' },
+          headersSize: -1,
+          bodySize: -1,
+        },
+      ),
     );
-    expect(formatResponseHeaders(req)).toBe('Content-Type: application/json\nX-Request-Id: abc');
+    expect(out).toBe('Content-Type: application/json\nX-Request-Id: abc');
   });
 
   it('returns empty string when there are no headers', () => {
-    const req = makeRequest();
-    expect(formatResponseHeaders(req)).toBe('');
+    expect(formatResponseHeaders(makeLifecycle())).toBe('');
   });
 });
