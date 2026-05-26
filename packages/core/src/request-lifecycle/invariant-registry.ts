@@ -147,12 +147,12 @@ export const REQUEST_LIFECYCLE_INVARIANTS: readonly InvariantEntry[] = [
     name: 'single-webrequest-subscriber',
     summary:
       'Exactly one chrome.webRequest.*.addListener subscriber across the extension — the heuristic correlator. Integration-level, not unit.',
-    assertedBy: [],
-    pending: {
-      slice: 'C',
-      reason:
-        'Runtime check not yet implemented; needs a vitest scan of apps/extension/src/ asserting only correlator-host/chrome-webrequest-source.ts subscribes.',
-    },
+    assertedBy: [
+      {
+        path: 'apps/extension/tests/integration/invariant-7-single-webrequest-subscriber.test.ts',
+        marker: "describe('invariant 7 — single webRequest subscriber'",
+      },
+    ],
   },
   {
     id: 8,
