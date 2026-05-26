@@ -6,9 +6,9 @@
  * (a `ready` then the tab's page replay + live updates).
  *
  * Sibling of `startLifecyclePortHost`. Page notifications into the hub
- * (`notifyNavStarted`, `notifyNavTimingAttached`) are driven from the
- * existing devtools_page → background nav events; see
- * `wire-page-hub-from-har-source` in the background entry.
+ * (`notifyNavStarted`, `notifyNavTimingAttached`) are driven by
+ * `startDevtoolsPageNavBridge` — the inbound half exported from this
+ * module.
  */
 
 import { logger } from '@utils/logger';
@@ -20,6 +20,8 @@ export {
   pagePortName,
   parsePagePortName,
 } from '@openheaders/oracle/page-stream-hub';
+export { startDevtoolsPageNavBridge } from './devtools-page-nav-bridge';
+export type { DevtoolsPageNavBridge, DevtoolsPageNavBridgeOptions } from './devtools-page-nav-bridge';
 
 export interface PagePortHost {
   /** Detach the onConnect listener. Tests / SW shutdown only. */

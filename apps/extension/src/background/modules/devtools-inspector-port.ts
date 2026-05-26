@@ -69,7 +69,6 @@ import type {
   InspectorRequestStarted,
 } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
-import type { PageStreamHub } from '@openheaders/oracle/page-stream-hub';
 import { subscribeRequestCompletions } from './devtools-inspector-completions';
 import { lookupCorsContext, subscribeCorsTracking } from './devtools-inspector-cors';
 import { subscribeRequestErrors } from './devtools-inspector-errors';
@@ -512,22 +511,7 @@ function releaseSession(tabId: number): void {
 
 let portsSetupDone = false;
 
-/**
- * Optional fanout to the host-neutral page stream hub. When supplied via
- * `setupDevtoolsInspectorPorts({ pageHub })`, nav + nav-timing messages
- * forwarded from the devtools_page are mirrored into the hub so the new
- * `oh-page:<tabId>` port can broadcast them to its sinks. Legacy
- * `devtools-inspector:<tabId>` broadcasts continue unchanged — parallel
- * path until the renderer migration flips consumers off the legacy pipe.
- */
-let pageStreamHub: PageStreamHub | null = null;
-
-export interface DevtoolsInspectorPortsOptions {
-  readonly pageHub?: PageStreamHub;
-}
-
-export function setupDevtoolsInspectorPorts(options?: DevtoolsInspectorPortsOptions): void {
-  if (options?.pageHub) pageStreamHub = options.pageHub;
+export function setupDevtoolsInspectorPorts(): void {
   if (portsSetupDone) return;
   portsSetupDone = true;
   if (!chrome?.runtime?.onConnect?.addListener) {
@@ -569,19 +553,10 @@ function acceptHarSourcePort(tabId: number, port: chrome.runtime.Port): void {
       });
       return;
     }
-    if (msg?.type === 'nav' && typeof msg.url === 'string') {
-      // Live-only on the legacy port: a buffered nav would replay on a
-      // late-connecting inspector and wipe legitimate backlog from the
-      // HAR buffer. The page-stream hub keeps its own per-tab page list
-      // for replay on `oh-page:<tabId>` reconnect.
-      broadcastToInspectorPorts(session, { type: 'nav', url: msg.url });
-      pageStreamHub?.notifyNavStarted(tabId, Date.now(), msg.url);
-      return;
-    }
-    if (msg?.type === 'nav-timing' && msg.timing && typeof msg.timing === 'object') {
-      broadcastToInspectorPorts(session, { type: 'nav-timing', timing: msg.timing });
-      pageStreamHub?.notifyNavTimingAttached(tabId, msg.timing);
-    }
+    // `nav` and `nav-timing` are handled by
+    // `startDevtoolsPageNavBridge` (page-port-host), which listens on
+    // the same chrome port and forwards into `PageStreamHub`. No legacy
+    // inspector-port consumers remain.
   });
   port.onDisconnect.addListener(() => {
     releaseSession(tabId);

@@ -420,7 +420,7 @@ import { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
 import { RuleFireHub } from '@openheaders/oracle/rule-fire-hub';
 import { startLifecycleHost } from './correlator-host';
 import { startLifecyclePortHost } from './lifecycle-port-host';
-import { startPagePortHost } from './page-port-host';
+import { startDevtoolsPageNavBridge, startPagePortHost } from './page-port-host';
 import { startRuleFirePortHost } from './rule-fire-port-host';
 import { startTabTelemetryFiresBridge } from './modules/tab-telemetry-fires-bridge';
 import { startRuleEngineDriver } from './rule-engine-driver';
@@ -735,11 +735,13 @@ async function initializeExtension(): Promise<void> {
   const lifecycleHub = new RequestLifecycleHub({ store: lifecycleHost.store });
   startLifecyclePortHost({ hub: lifecycleHub });
   // Page stream hub + chrome port adapter, sibling of the lifecycle pipe.
-  // Publishes `PageWireMessage` envelopes on `oh-page:<tabId>` ports.
-  // Engine-side notifications are wired into `setupDevtoolsInspectorPorts`
-  // below — the devtools_page is the single source of nav events.
+  // Publishes `PageWireMessage` envelopes on `oh-page:<tabId>` ports. The
+  // devtools_page is the single source of nav events; its inbound half
+  // is `startDevtoolsPageNavBridge`, which listens on the same chrome
+  // port `ChromeHarEventSource` uses (`devtools-har-source:<tabId>`).
   const pageHub = new PageStreamHub();
   startPagePortHost({ hub: pageHub });
+  startDevtoolsPageNavBridge({ hub: pageHub });
   // Rule-fire pipe (W-a): per-tab broadcaster fed by tab-telemetry's
   // cross-tab fire stream + the DNR-debug authoritative path. Replaces
   // the legacy `devtools-inspector:` port's fire variant.
@@ -767,7 +769,7 @@ async function initializeExtension(): Promise<void> {
   setupInjectListener();
   setupDelayBypassCleanup();
   setupTestRunnerPorts();
-  setupDevtoolsInspectorPorts({ pageHub });
+  setupDevtoolsInspectorPorts();
   // Awareness lifeline ports + workspace-coord runner are attached
   // inside `bootSyncEngine` below.
   setupOnRuleMatchedDebugBridge({

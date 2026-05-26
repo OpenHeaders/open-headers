@@ -1,0 +1,112 @@
+/**
+ * Devtools-page nav bridge — chrome adapter forwarding `nav` /
+ * `nav-timing` messages from the devtools_page port into PageStreamHub.
+ */
+
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { PageStreamHub } from '@openheaders/oracle/page-stream-hub';
+import type { HarSourceMessage } from '@openheaders/core/types';
+
+import { startDevtoolsPageNavBridge } from '@/background/page-port-host/devtools-page-nav-bridge';
+
+interface FakePort {
+  name: string;
+  messageListeners: Array<(msg: HarSourceMessage) => void>;
+  onMessage: { addListener: (fn: (msg: HarSourceMessage) => void) => void };
+  onDisconnect: { addListener: (fn: () => void) => void };
+}
+
+function fakePort(name: string): FakePort {
+  const port: FakePort = {
+    name,
+    messageListeners: [],
+    onMessage: {
+      addListener: (fn) => {
+        port.messageListeners.push(fn);
+      },
+    },
+    onDisconnect: {
+      addListener: () => {},
+    },
+  };
+  return port;
+}
+
+let connectListener: ((port: chrome.runtime.Port) => void) | null;
+
+beforeEach(() => {
+  connectListener = null;
+  // Reset chrome.runtime.onConnect.addListener to capture the bridge's listener.
+  const onConnect = chrome.runtime.onConnect as unknown as {
+    addListener: ReturnType<typeof vi.fn>;
+    removeListener: ReturnType<typeof vi.fn>;
+  };
+  onConnect.addListener = vi.fn((fn: (port: chrome.runtime.Port) => void) => {
+    connectListener = fn;
+  });
+  onConnect.removeListener = vi.fn();
+});
+
+function emit(tabId: number, msg: HarSourceMessage): FakePort {
+  const port = fakePort(`devtools-har-source:${tabId}`);
+  connectListener?.(port as unknown as chrome.runtime.Port);
+  for (const listener of port.messageListeners) listener(msg);
+  return port;
+}
+
+describe('startDevtoolsPageNavBridge', () => {
+  it('ignores ports with the wrong prefix', () => {
+    const hub = new PageStreamHub();
+    const spy = vi.spyOn(hub, 'notifyNavStarted');
+    startDevtoolsPageNavBridge({ hub });
+    const port = fakePort('oh-page:1');
+    connectListener?.(port as unknown as chrome.runtime.Port);
+    expect(port.messageListeners).toHaveLength(0);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('forwards `nav` into notifyNavStarted with the injected clock', () => {
+    const hub = new PageStreamHub();
+    const spy = vi.spyOn(hub, 'notifyNavStarted');
+    startDevtoolsPageNavBridge({ hub, now: () => 1234 });
+    emit(7, { type: 'nav', url: 'https://openheaders.io/' });
+    expect(spy).toHaveBeenCalledWith(7, 1234, 'https://openheaders.io/');
+  });
+
+  it('forwards `nav-timing` into notifyNavTimingAttached', () => {
+    const hub = new PageStreamHub();
+    hub.notifyNavStarted(9, 100, 'https://openheaders.io/');
+    const spy = vi.spyOn(hub, 'notifyNavTimingAttached');
+    startDevtoolsPageNavBridge({ hub });
+    const timing = { pageOrigin: 'https://openheaders.io', dclMs: 250, loadMs: 500 };
+    emit(9, { type: 'nav-timing', timing });
+    expect(spy).toHaveBeenCalledWith(9, timing);
+  });
+
+  it('ignores `har` / `har-body` messages — those belong to the HAR adapter', () => {
+    const hub = new PageStreamHub();
+    const navSpy = vi.spyOn(hub, 'notifyNavStarted');
+    const timingSpy = vi.spyOn(hub, 'notifyNavTimingAttached');
+    startDevtoolsPageNavBridge({ hub });
+    emit(3, { type: 'har', entry: { startedDateTime: 'x' } });
+    emit(3, {
+      type: 'har-body',
+      method: 'GET',
+      url: 'https://openheaders.io/',
+      startedDateTime: 'x',
+    });
+    expect(navSpy).not.toHaveBeenCalled();
+    expect(timingSpy).not.toHaveBeenCalled();
+  });
+
+  it('dispose() removes the listener', () => {
+    const hub = new PageStreamHub();
+    const bridge = startDevtoolsPageNavBridge({ hub });
+    const onConnect = chrome.runtime.onConnect as unknown as {
+      removeListener: ReturnType<typeof vi.fn>;
+    };
+    bridge.dispose();
+    expect(onConnect.removeListener).toHaveBeenCalledTimes(1);
+  });
+});
