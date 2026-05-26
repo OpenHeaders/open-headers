@@ -170,6 +170,14 @@ type FireListener = (record: RequestRecord) => void;
 const fireListeners: Map<number, Set<FireListener>> = new Map();
 
 /**
+ * Cross-tab fire subscribers. Notified for every fire on every tab. Used
+ * by the rule-fire hub bridge to feed the per-tab broadcaster without
+ * needing a per-tab subscription dance.
+ */
+type GlobalFireListener = (tabId: number, record: RequestRecord) => void;
+const globalFireListeners: Set<GlobalFireListener> = new Set();
+
+/**
  * Every request observed on a tracked tab — not just matches. Feeds the
  * DevTools Inspector panel's traffic list via the devtools-inspector port
  * handler, which correlates each observation against the DevTools HAR
@@ -230,10 +238,18 @@ function emptyState(tabId: number): TabState {
 
 function emitFire(tabId: number, record: RequestRecord): void {
   const set = fireListeners.get(tabId);
-  if (!set || set.size === 0) return;
-  for (const fn of set) {
+  if (set && set.size > 0) {
+    for (const fn of set) {
+      try {
+        fn(record);
+      } catch {
+        // Subscriber failures must never corrupt telemetry state.
+      }
+    }
+  }
+  for (const fn of globalFireListeners) {
     try {
-      fn(record);
+      fn(tabId, record);
     } catch {
       // Subscriber failures must never corrupt telemetry state.
     }
@@ -246,6 +262,13 @@ function emitFire(tabId: number, record: RequestRecord): void {
  * they fire as long as the tab has any tracking reason active. Used by
  * the test-runner to drive its in-page widget without polling.
  */
+export function subscribeFiresAll(listener: GlobalFireListener): () => void {
+  globalFireListeners.add(listener);
+  return () => {
+    globalFireListeners.delete(listener);
+  };
+}
+
 export function subscribeFires(tabId: number, listener: FireListener): () => void {
   let set = fireListeners.get(tabId);
   if (!set) {

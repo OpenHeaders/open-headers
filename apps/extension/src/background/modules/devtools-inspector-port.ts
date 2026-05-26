@@ -9,16 +9,21 @@
  *     regardless of which panel is active. Carries HAR entries, response
  *     bodies, navigation events, and navigation timing.
  *   - `devtools-inspector:<tabId>` — opened by the Open Headers panel iframe
- *     when it is the focused DevTools tab. Receives fire / HAR / nav messages
- *     so the React store can render the traffic list.
+ *     when it is the focused DevTools tab. Receives HAR + nav + request
+ *     lifecycle observations so the React store can render the traffic list.
  *
  * The panel iframe is loaded lazily by Chrome — it only exists while the
  * Open Headers tab is the active DevTools panel. The har-source port, by
- * contrast, is alive for the lifetime of the DevTools window. Tracking and
- * fire capture must therefore be driven by the har-source port, not the
- * inspector port; otherwise requests issued before the user clicks the
- * Open Headers panel would have HAR captured (via the always-on har-source)
- * but no rule fires (because tab-telemetry tracking would not have started).
+ * contrast, is alive for the lifetime of the DevTools window. Tracking
+ * must therefore be driven by the har-source port, not the inspector port;
+ * otherwise requests issued before the user clicks the Open Headers panel
+ * would have HAR captured (via the always-on har-source) but no rule fires
+ * (because tab-telemetry tracking would not have started).
+ *
+ * Rule fires no longer flow through this pipe — they are owned by the
+ * engine-side `@openheaders/oracle/rule-fire-hub` and broadcast on
+ * `oh-fires:<tabId>` ports. This module keeps the HAR + nav legacy pipe
+ * until the parallel migration retires it.
  *
  * ## Per-tab session
  *
@@ -26,20 +31,20 @@
  * type. The session is ref-counted across both port kinds and owns:
  *
  *   - the tab-telemetry tracking reason
- *   - subscriptions to fire and request-observation streams
- *   - HAR + fire ring buffers replayed to late-connecting inspector ports
+ *   - subscriptions to request-observation streams
+ *   - HAR ring buffers replayed to late-connecting inspector ports
  *   - per-URL FIFO of in-flight `(requestId, t)` pairs used to attach a
  *     deterministic join key to outgoing HAR messages
  *
  * The first port to open creates the session and primes its subscriptions.
  * The last port to close tears it down.
  *
- * ## Deterministic fire ↔ HAR join
+ * ## Deterministic HAR ↔ requestId join
  *
  * Chrome's HAR entries do not carry a stable identifier per request. The
- * panel needs to join rule fires (which carry `requestId` from webRequest)
- * to HAR rows. We attach the requestId in the background, where both views
- * are visible:
+ * panel needs to join request observations (which carry `requestId` from
+ * webRequest) to HAR rows. We attach the requestId in the background,
+ * where both views are visible:
  *
  *   1. Every webRequest `onBeforeRequest` is recorded as a `RequestObservation`
  *      via `recordRequestObservation`. This module subscribes to that stream
@@ -48,9 +53,8 @@
  *      in-flight entry for that URL whose timestamp is plausibly close to
  *      the HAR's `startedDateTime`, and emit the requestId alongside the
  *      HAR message as `chromeRequestId`.
- *   3. The panel store joins fires to HAR rows by requestId. URL + window
- *      matching is kept only as a fallback for HAR entries that arrived
- *      before tracking was active (e.g. very early requests on a cold tab).
+ *   3. The panel data layer joins rule fires (from the `oh-fires` port)
+ *      to HAR rows by requestId.
  */
 
 import type {
@@ -63,11 +67,9 @@ import type {
   InspectorRequestError,
   InspectorRequestRedirect,
   InspectorRequestStarted,
-  RequestRecord,
 } from '@openheaders/core/types';
 import { logger } from '@utils/logger';
 import type { PageStreamHub } from '@openheaders/oracle/page-stream-hub';
-import { buildRuleSnapshot } from '@openheaders/oracle/rule-engine/rule-snapshot';
 import { subscribeRequestCompletions } from './devtools-inspector-completions';
 import { lookupCorsContext, subscribeCorsTracking } from './devtools-inspector-cors';
 import { subscribeRequestErrors } from './devtools-inspector-errors';
@@ -75,7 +77,6 @@ import {
   isTracked,
   startTracking,
   stopTracking,
-  subscribeFires,
   subscribeRequestEvents,
   subscribeRequestRedirects,
 } from './tab-telemetry';
@@ -107,12 +108,10 @@ function parsePortName(name: string, prefix: string): number | null {
 
 // ── Per-tab session ────────────────────────────────────────────────
 
-/** Buffered HAR/fire messages, replayed to late-connecting inspector ports. */
+/** Buffered HAR messages, replayed to late-connecting inspector ports. */
 type BufferedHarMessage =
   | { type: 'har'; entry: InspectorHarEntry; chromeRequestId?: string }
   | { type: 'har-body'; body: InspectorHarBody };
-
-type BufferedFireMessage = { type: 'fire'; record: RequestRecord; authoritative: boolean };
 
 type BufferedErrorMessage = { type: 'request-error'; error: InspectorRequestError };
 
@@ -124,7 +123,6 @@ type BufferedRedirectMessage = { type: 'request-redirect'; event: InspectorReque
 
 /** Cap on per-tab ring buffers — keeps memory bounded on long DevTools sessions. */
 const HAR_BUFFER_MAX = 500;
-const FIRE_BUFFER_MAX = 1000;
 /** Cap on per-tab error buffer — pathological pages (CSP-misconfigured,
  *  ad-blocker storms) can fire thousands of `onErrorOccurred` events. */
 const ERROR_BUFFER_MAX = 1000;
@@ -179,14 +177,12 @@ interface TabSession {
   refCount: number;
   inspectorPorts: Set<chrome.runtime.Port>;
   harBuffer: BufferedHarMessage[];
-  fireBuffer: BufferedFireMessage[];
   errorBuffer: BufferedErrorMessage[];
   startedBuffer: BufferedStartedMessage[];
   completedBuffer: BufferedCompletedMessage[];
   redirectBuffer: BufferedRedirectMessage[];
   /** Per-URL FIFO of in-flight webRequest observations, head = oldest. */
   inFlightByUrl: Map<string, InFlightEntry[]>;
-  unsubscribeFires: () => void;
   unsubscribeRequestEvents: () => void;
   unsubscribeRequestErrors: () => void;
   unsubscribeRequestCompletions: () => void;
@@ -304,27 +300,6 @@ function broadcastToInspectorPorts(session: TabSession, message: InspectorPortMe
   }
 }
 
-function handleFireRecord(session: TabSession, record: RequestRecord, authoritative: boolean): void {
-  // Snapshot here, at the panel-bound boundary, so the panel sees an
-  // immutable record of the rule as it was at fire time. Done once per
-  // emit (live broadcast + ring-buffer entry share the same record
-  // reference, so the freeze is a single allocation). If the rule was
-  // already gone from the registry by the time we snapshot, ship the
-  // record without a snapshot — the panel falls back to a "rule no
-  // longer exists" affordance for that fire.
-  const enriched = record.ruleSnapshot
-    ? record
-    : ((): RequestRecord => {
-        const snapshot = buildRuleSnapshot(record.ruleUid);
-        return snapshot ? { ...record, ruleSnapshot: snapshot } : record;
-      })();
-  const msg: BufferedFireMessage = { type: 'fire', record: enriched, authoritative };
-  if (session.inspectorPorts.size > 0) {
-    broadcastToInspectorPorts(session, msg);
-  }
-  pushBounded(session.fireBuffer, msg, FIRE_BUFFER_MAX);
-}
-
 function handleHarMessage(session: TabSession, entry: InspectorHarEntry): void {
   // Correlate before broadcasting so both live and replay paths carry the
   // join key. The panel store treats `chromeRequestId` as the primary
@@ -397,24 +372,12 @@ function handleRequestRedirect(session: TabSession, event: InspectorRequestRedir
 }
 
 function flushBuffers(session: TabSession, port: chrome.runtime.Port): void {
-  // HAR entries first, so a fire that references a request whose HAR was
-  // already buffered finds its row on arrival. Fires carry their own
-  // requestId; the order between the two streams is informational only,
-  // never required for correctness.
-  //
   // Failure semantics: a `postMessage` throw on a Chrome runtime port is
   // (in practice) only raised when the port is dead. We treat it as
   // "abort the rest of the flush" — pushing more messages would also
   // throw, and `port.onDisconnect` will run next to tear down the
   // session bookkeeping. Not "skip this message and continue."
   for (const msg of session.harBuffer) {
-    try {
-      port.postMessage(msg satisfies InspectorPortMessage);
-    } catch {
-      return;
-    }
-  }
-  for (const msg of session.fireBuffer) {
     try {
       port.postMessage(msg satisfies InspectorPortMessage);
     } catch {
@@ -472,13 +435,11 @@ function ensureSession(tabId: number): TabSession {
     refCount: 1,
     inspectorPorts: new Set(),
     harBuffer: [],
-    fireBuffer: [],
     errorBuffer: [],
     startedBuffer: [],
     completedBuffer: [],
     redirectBuffer: [],
     inFlightByUrl: new Map(),
-    unsubscribeFires: () => {},
     unsubscribeRequestEvents: () => {},
     unsubscribeRequestErrors: () => {},
     unsubscribeRequestCompletions: () => {},
@@ -489,11 +450,8 @@ function ensureSession(tabId: number): TabSession {
   // `onErrorOccurred` listener can consult populated CORS context. Chrome
   // dispatches `webRequest` listeners in registration order.
   session.unsubscribeCorsTracking = subscribeCorsTracking(tabId);
-  // Subscribe BEFORE returning so any fire/observation that happens between
+  // Subscribe BEFORE returning so any observation that happens between
   // session creation and the caller's first message is captured.
-  session.unsubscribeFires = subscribeFires(tabId, (record) => {
-    handleFireRecord(session, record, false);
-  });
   session.unsubscribeRequestEvents = subscribeRequestEvents(tabId, (event) => {
     // Two side effects:
     //   1. Record into the per-URL in-flight FIFO so HAR ↔ requestId
@@ -542,7 +500,6 @@ function releaseSession(tabId: number): void {
   if (!session) return;
   session.refCount--;
   if (session.refCount > 0) return;
-  session.unsubscribeFires();
   session.unsubscribeRequestEvents();
   session.unsubscribeRequestErrors();
   session.unsubscribeRequestCompletions();
@@ -551,21 +508,6 @@ function releaseSession(tabId: number): void {
   stopTracking(tabId, trackingReason(tabId));
   sessions.delete(tabId);
   logger.debug('DevtoolsInspectorPort', `Session closed for tab ${tabId}`);
-}
-
-/**
- * Broadcast an authoritative fire record to every open inspector port
- * for the given tab. Called from the onRuleMatchedDebug wiring on
- * Chrome/Edge. Separate from the `subscribeFires` path so the panel
- * can distinguish "Chrome told us this rule actually executed" from
- * "the URL matched the rule's conditions." Silent no-op on tabs with
- * no live session — the onRuleMatchedDebug listener is global and the
- * gating lives here.
- */
-export function broadcastAuthoritativeFire(tabId: number, record: RequestRecord): void {
-  const session = sessions.get(tabId);
-  if (!session) return;
-  handleFireRecord(session, record, true);
 }
 
 let portsSetupDone = false;
@@ -676,7 +618,6 @@ export const __internals = {
   },
   reset(): void {
     for (const session of sessions.values()) {
-      session.unsubscribeFires();
       session.unsubscribeRequestEvents();
       session.unsubscribeRequestErrors();
       session.unsubscribeRequestCompletions();

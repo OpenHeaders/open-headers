@@ -53,8 +53,14 @@
 import { logger } from '@utils/logger';
 import type { TrackedResourceType } from '@/types/browser';
 import { getDnrIdToRuleUid } from '../dnr-manager';
-import { broadcastAuthoritativeFire } from './devtools-inspector-port';
 import type { RequestRecord } from './tab-telemetry';
+
+export interface OnRuleMatchedDebugOptions {
+  /** Called for every authoritative fire the listener emits, in arrival
+   *  order. The handler owns delivery — typically into the rule-fire
+   *  hub bridge. */
+  readonly onAuthoritativeFire: (tabId: number, record: RequestRecord) => void;
+}
 
 /**
  * Translate Chrome's `resourceType` string to the tracked-resource-type
@@ -81,9 +87,10 @@ function normalizeResourceType(raw: string): TrackedResourceType {
 
 let bridgeSetupDone = false;
 
-export function setupOnRuleMatchedDebugBridge(): void {
+export function setupOnRuleMatchedDebugBridge(options: OnRuleMatchedDebugOptions): void {
   if (bridgeSetupDone) return;
   bridgeSetupDone = true;
+  const { onAuthoritativeFire } = options;
 
   // chrome.declarativeNetRequest.onRuleMatchedDebug is the authoritative
   // "this rule executed" signal on Chrome/Edge. Feature-detect through a
@@ -137,7 +144,7 @@ export function setupOnRuleMatchedDebugBridge(): void {
         evidence: 'matched',
         ...(info.request.requestId ? { requestId: info.request.requestId } : {}),
       };
-      broadcastAuthoritativeFire(tabId, record);
+      onAuthoritativeFire(tabId, record);
     } catch (err) {
       logger.info('OnRuleMatchedDebug', `Failed to forward fire: ${(err as Error).message}`);
     }

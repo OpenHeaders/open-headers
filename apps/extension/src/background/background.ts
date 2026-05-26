@@ -417,9 +417,12 @@ import { setupOnRuleMatchedDebugBridge } from './modules/on-rule-matched-debug';
 import { auditHostPermissions } from './modules/permissions-audit';
 import { PageStreamHub } from '@openheaders/oracle/page-stream-hub';
 import { RequestLifecycleHub } from '@openheaders/oracle/request-lifecycle-hub';
+import { RuleFireHub } from '@openheaders/oracle/rule-fire-hub';
 import { startLifecycleHost } from './correlator-host';
 import { startLifecyclePortHost } from './lifecycle-port-host';
 import { startPagePortHost } from './page-port-host';
+import { startRuleFirePortHost } from './rule-fire-port-host';
+import { startTabTelemetryFiresBridge } from './modules/tab-telemetry-fires-bridge';
 import { startRuleEngineDriver } from './rule-engine-driver';
 import { startTabTelemetrySource } from './tab-telemetry-source';
 import {
@@ -737,12 +740,19 @@ async function initializeExtension(): Promise<void> {
   // below — the devtools_page is the single source of nav events.
   const pageHub = new PageStreamHub();
   startPagePortHost({ hub: pageHub });
-  // Drop the tab's page list when the tab dies. Sibling of
+  // Rule-fire pipe (W-a): per-tab broadcaster fed by tab-telemetry's
+  // cross-tab fire stream + the DNR-debug authoritative path. Replaces
+  // the legacy `devtools-inspector:` port's fire variant.
+  const ruleFireHub = new RuleFireHub();
+  startRuleFirePortHost({ hub: ruleFireHub });
+  const firesBridge = startTabTelemetryFiresBridge({ hub: ruleFireHub });
+  // Drop the tab's page list + fire log when the tab dies. Sibling of
   // `RequestLifecycleStore`'s `forgetTab` driver — co-located here
-  // because the hub is the page list's authoritative owner.
+  // because the hubs are the authoritative owners of their per-tab state.
   if (chrome?.tabs?.onRemoved?.addListener) {
     chrome.tabs.onRemoved.addListener((tabId: number) => {
       pageHub.forgetTab(tabId);
+      ruleFireHub.forgetTab(tabId);
     });
   }
   setupTabListeners(debouncedUpdateBadge);
@@ -760,7 +770,9 @@ async function initializeExtension(): Promise<void> {
   setupDevtoolsInspectorPorts({ pageHub });
   // Awareness lifeline ports + workspace-coord runner are attached
   // inside `bootSyncEngine` below.
-  setupOnRuleMatchedDebugBridge();
+  setupOnRuleMatchedDebugBridge({
+    onAuthoritativeFire: (tabId, record) => firesBridge.notifyAuthoritativeFire(tabId, record),
+  });
 
   // Broadcast rule changes to all open extension pages (popup, workspace)
   // and prune any orphaned test-run owner buckets. The prune covers the

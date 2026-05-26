@@ -1,31 +1,30 @@
 /**
- * `useFireClient` — React hook that opens a fire-only reader on the
- * legacy `devtools-inspector:<tabId>` port and feeds the
- * `FireClientStore`. Transitional (Q3=B): replaced by a dedicated
- * engine-side `RuleFireHub` + `oh-fires:<tabId>` port in its own
- * session.
+ * `useFireClient` — React hook that opens the engine-side rule-fire pipe
+ * for the inspected tab and feeds the `FireClientStore`.
  *
- * Filters to the `fire` variant only — every other
- * `InspectorPortMessage` variant is now owned by the lifecycle /
- * page-stream pipes and is ignored here. Once the legacy port carries
- * only fires, retiring it is a one-shot delete.
+ * Pipe shape:
+ *   - Port name `oh-fires:<tabId>`.
+ *   - First message is a `'ready'` envelope (consumer discards it).
+ *   - Subsequent messages are `'fire-update'` envelopes carrying a
+ *     `RuleFireUpdate` — engine has already deduped + merged by
+ *     `(ruleUid, requestId)` (or `(ruleUid, t)` for scriptable fires),
+ *     so the store is a plain upsert/clear bag.
  *
  * Reconnect: same 250ms backoff as the lifecycle / page hooks. The
- * legacy port's "ready" envelope is ignored — fires accumulate
- * idempotently via the store's dedup, so replay-after-reconnect
- * cannot duplicate; we don't need to clear on `ready`.
+ * engine snapshot is replayed on each connect, so the store CAN clear
+ * on `'ready'` without losing data — but engine dedup already makes
+ * re-emits idempotent, so we don't bother.
  */
 
 import { type LifelinePort, lifelineTransport } from '@openheaders/core/awareness';
 import { hostNavigation } from '@openheaders/core/navigation';
-import type { InspectorPortMessage } from '@openheaders/core/types';
+import { type RuleFireWireMessage, ruleFirePortName } from '@openheaders/core/rule-fire-stream';
 import { useEffect, useRef, useSyncExternalStore } from 'react';
 
 import { FireClientStore, type FireClientSnapshot } from './fire-client-store';
 import type { InspectorFire } from './types';
 
 const RECONNECT_DELAY_MS = 250;
-const LEGACY_PORT_PREFIX = 'devtools-inspector:';
 
 export interface UseFireClientResult {
   readonly snapshot: FireClientSnapshot;
@@ -48,26 +47,31 @@ export function useFireClient(): UseFireClientResult {
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let disposed = false;
 
-    const handler = (msg: InspectorPortMessage): void => {
-      if (msg.type !== 'fire') return;
+    const handler = (msg: RuleFireWireMessage): void => {
+      if (msg.kind !== 'fire-update') return;
+      const update = msg.update;
+      if (update.kind === 'tab-cleared') {
+        store.clear();
+        return;
+      }
       const fire: InspectorFire = {
-        ruleUid: msg.record.ruleUid,
-        t: msg.record.t,
-        pattern: msg.record.pattern,
-        authoritative: msg.authoritative,
-        requestId: msg.record.requestId,
-        shadowedBy: msg.record.shadowedBy,
-        evidence: msg.record.evidence,
-        ...(msg.record.ruleSnapshot ? { ruleSnapshot: msg.record.ruleSnapshot } : {}),
+        ruleUid: update.record.ruleUid,
+        t: update.record.t,
+        pattern: update.record.pattern,
+        authoritative: update.authoritative,
+        requestId: update.record.requestId,
+        shadowedBy: update.record.shadowedBy,
+        evidence: update.record.evidence,
+        ...(update.record.ruleSnapshot ? { ruleSnapshot: update.record.ruleSnapshot } : {}),
       };
-      store.ingest(fire);
+      store.upsert(fire);
     };
 
     const connect = (): void => {
       if (disposed) return;
       let port: LifelinePort;
       try {
-        port = lifelineTransport.connect(`${LEGACY_PORT_PREFIX}${tabId}`);
+        port = lifelineTransport.connect(ruleFirePortName(tabId));
       } catch {
         activePort = null;
         if (disposed) return;
@@ -75,7 +79,7 @@ export function useFireClient(): UseFireClientResult {
         return;
       }
       activePort = port;
-      port.onMessage<InspectorPortMessage>(handler);
+      port.onMessage<RuleFireWireMessage>(handler);
       port.onDisconnect(() => {
         activePort = null;
         if (disposed) return;

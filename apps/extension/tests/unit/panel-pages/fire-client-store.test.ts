@@ -21,32 +21,23 @@ describe('FireClientStore', () => {
     expect(store.getSnapshot().fires).toEqual([]);
   });
 
-  it('ingest appends a new fire + notifies', () => {
+  it('upsert appends a new fire + notifies', () => {
     const store = new FireClientStore();
     const listener = vi.fn();
     store.subscribe(listener);
-    store.ingest(fire());
+    store.upsert(fire());
     expect(store.getSnapshot().fires).toHaveLength(1);
     expect(listener).toHaveBeenCalledTimes(1);
   });
 
-  it('dedups by (ruleUid, requestId) — second arrival with weaker evidence is NOOP', () => {
+  it('upsert by (ruleUid, requestId) overwrites the existing entry — engine has already deduped', () => {
     const store = new FireClientStore();
-    store.ingest(fire({ evidence: 'confirmed', authoritative: true }));
+    store.upsert(fire({ evidence: 'matched', authoritative: false }));
     const listener = vi.fn();
     store.subscribe(listener);
-    store.ingest(fire({ evidence: 'matched', authoritative: false }));
-    expect(listener).not.toHaveBeenCalled();
-    expect(store.getSnapshot().fires).toHaveLength(1);
-  });
-
-  it('upgrades existing fire when stronger evidence arrives', () => {
-    const store = new FireClientStore();
-    store.ingest(fire({ evidence: 'matched', authoritative: false }));
-    const listener = vi.fn();
-    store.subscribe(listener);
-    store.ingest(fire({ evidence: 'confirmed', authoritative: true }));
+    store.upsert(fire({ evidence: 'confirmed', authoritative: true }));
     expect(listener).toHaveBeenCalledTimes(1);
+    expect(store.getSnapshot().fires).toHaveLength(1);
     const stored = store.getSnapshot().fires[0];
     expect(stored.evidence).toBe('confirmed');
     expect(stored.authoritative).toBe(true);
@@ -54,8 +45,8 @@ describe('FireClientStore', () => {
 
   it('keeps scriptable-only fires (no requestId) as distinct entries when t differs', () => {
     const store = new FireClientStore();
-    store.ingest(fire({ requestId: undefined, t: 1 }));
-    store.ingest(fire({ requestId: undefined, t: 2 }));
+    store.upsert(fire({ requestId: undefined, t: 1 }));
+    store.upsert(fire({ requestId: undefined, t: 2 }));
     expect(store.getSnapshot().fires).toHaveLength(2);
   });
 
@@ -65,7 +56,7 @@ describe('FireClientStore', () => {
     store.subscribe(listener);
     store.clear();
     expect(listener).not.toHaveBeenCalled();
-    store.ingest(fire());
+    store.upsert(fire());
     listener.mockClear();
     store.clear();
     expect(listener).toHaveBeenCalledTimes(1);
@@ -76,7 +67,7 @@ describe('FireClientStore', () => {
     const store = new FireClientStore();
     const a = store.getSnapshot();
     expect(store.getSnapshot()).toBe(a);
-    store.ingest(fire());
+    store.upsert(fire());
     expect(store.getSnapshot()).not.toBe(a);
   });
 });

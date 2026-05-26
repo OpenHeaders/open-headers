@@ -1,14 +1,16 @@
 /**
  * DevTools inspector wire types.
  *
- * The extension's devtools port relays HAR + fire + nav messages between
- * the devtools page, the background, and the panel React store. The
+ * The extension's devtools port relays HAR + nav messages between the
+ * devtools page, the background, and the panel React store. The
  * background re-emits a subset of the source format to inspector
  * panels; both contracts live here so the panel's data layer can parse
  * against them without depending on engine internals.
+ *
+ * Rule fires are no longer carried here — the engine-side
+ * `@openheaders/oracle/rule-fire-hub` owns that pipe via the
+ * `oh-fires:<tabId>` port.
  */
-
-import type { RequestRecord } from './telemetry';
 
 /**
  * Full HAR entry forwarded verbatim from the devtools_page via
@@ -240,7 +242,6 @@ export interface InspectorRequestRedirect {
  * those rows.
  */
 export type InspectorPortMessage =
-  | { type: 'fire'; record: RequestRecord; authoritative: boolean }
   | { type: 'har'; entry: InspectorHarEntry; chromeRequestId?: string }
   | { type: 'har-body'; body: InspectorHarBody }
   | { type: 'request-started'; event: InspectorRequestStarted }

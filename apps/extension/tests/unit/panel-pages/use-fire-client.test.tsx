@@ -1,6 +1,6 @@
 /**
- * useFireClient — opens devtools-inspector:<tabId>, filters to `fire`
- * variant only, feeds the FireClientStore.
+ * useFireClient — opens oh-fires:<tabId> and feeds the FireClientStore
+ * from `RuleFireWireMessage` envelopes.
  */
 
 import { act, render } from '@testing-library/react';
@@ -94,32 +94,37 @@ describe('useFireClient', () => {
     }));
   });
 
-  it('opens devtools-inspector:<tabId>', () => {
+  it('opens oh-fires:<tabId>', () => {
     installNavigation(7);
-    const port = fakePort('devtools-inspector:7');
+    const port = fakePort('oh-fires:7');
     const connect = vi.fn(() => port);
     installTransport(connect);
     render(<Probe />);
-    expect(connect).toHaveBeenCalledWith('devtools-inspector:7');
+    expect(connect).toHaveBeenCalledWith('oh-fires:7');
   });
 
-  it('ingests fire messages only — ignores everything else', () => {
+  it('ingests fire-update envelopes and ignores ready / unrelated kinds', () => {
     installNavigation(7);
-    const port = fakePort('devtools-inspector:7');
+    const port = fakePort('oh-fires:7');
     installTransport(() => port);
     const { container } = render(<Probe />);
     act(() => {
-      port.emit({ type: 'har', entry: {}, chromeRequestId: 'r' });
-      port.emit({ type: 'nav', url: 'https://openheaders.io' });
+      port.emit({ kind: 'ready', tabId: 7 });
       port.emit({
-        type: 'fire',
-        authoritative: true,
-        record: {
-          ruleUid: 'rule_a',
-          t: 1,
-          pattern: '*',
-          requestId: 'r1',
-          evidence: 'confirmed',
+        kind: 'fire-update',
+        update: {
+          kind: 'fire',
+          tabId: 7,
+          authoritative: true,
+          record: {
+            ruleUid: 'rule_a',
+            url: 'https://openheaders.io/api',
+            pattern: '*',
+            resourceType: 'xmlhttprequest',
+            t: 1,
+            requestId: 'r1',
+            evidence: 'confirmed',
+          },
         },
       });
     });
@@ -127,10 +132,44 @@ describe('useFireClient', () => {
     expect(container.querySelector('li')?.textContent).toBe('rule_a:confirmed');
   });
 
+  it('clears the store on tab-cleared updates', () => {
+    installNavigation(7);
+    const port = fakePort('oh-fires:7');
+    installTransport(() => port);
+    const { container } = render(<Probe />);
+    act(() => {
+      port.emit({
+        kind: 'fire-update',
+        update: {
+          kind: 'fire',
+          tabId: 7,
+          authoritative: true,
+          record: {
+            ruleUid: 'rule_a',
+            url: 'https://openheaders.io/api',
+            pattern: '*',
+            resourceType: 'xmlhttprequest',
+            t: 1,
+            requestId: 'r1',
+            evidence: 'confirmed',
+          },
+        },
+      });
+    });
+    expect(container.querySelectorAll('li')).toHaveLength(1);
+    act(() => {
+      port.emit({
+        kind: 'fire-update',
+        update: { kind: 'tab-cleared', tabId: 7 },
+      });
+    });
+    expect(container.querySelectorAll('li')).toHaveLength(0);
+  });
+
   it('reconnects with the 250ms backoff after disconnect', () => {
     installNavigation(9);
-    const first = fakePort('devtools-inspector:9');
-    const second = fakePort('devtools-inspector:9');
+    const first = fakePort('oh-fires:9');
+    const second = fakePort('oh-fires:9');
     const connect = vi.fn().mockReturnValueOnce(first).mockReturnValueOnce(second);
     installTransport(connect);
     render(<Probe />);

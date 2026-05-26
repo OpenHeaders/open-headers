@@ -87,6 +87,10 @@
       "import": "./src/page-stream-hub/index.ts",
       "default": "./dist/page-stream-hub/index.js"
     },
+    "./rule-fire-hub": {
+      "import": "./src/rule-fire-hub/index.ts",
+      "default": "./dist/rule-fire-hub/index.js"
+    },
     "./correlator-cdp": {
       "import": "./src/correlator-cdp/index.ts",
       "default": "./dist/correlator-cdp/index.js"
