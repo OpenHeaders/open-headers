@@ -20,7 +20,7 @@
  *     module — consumer concern).
  */
 
-import type { InspectorNavTiming } from '../types/devtools-inspector';
+import type { InspectorNavTiming } from '../types/har-source';
 
 export interface Page {
   /** Sequential id assigned at creation, e.g. `page_1`. HAR pageref. */

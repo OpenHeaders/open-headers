@@ -20,7 +20,7 @@
  *      Heuristic uses an in-window buffer; HAR-body attachment is exempt.
  */
 
-import type { InspectorHarBody, InspectorHarEntry } from '../types/devtools-inspector';
+import type { InspectorHarBody, InspectorHarEntry } from '../types/har-source';
 
 /**
  * Steady phases a lifecycle passes through. `redirect` is an event, not a

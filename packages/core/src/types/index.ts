@@ -200,7 +200,7 @@ export type {
   InspectorHarBody,
   InspectorHarEntry,
   InspectorNavTiming,
-} from './devtools-inspector';
+} from './har-source';
 
 // ── Workspace import dedup ─────────────────────────────────────────
 export type { DedupMatchEntry, DedupMatchesResult, FindMatchesArgs } from './workspace-import';
