@@ -158,48 +158,6 @@ const fireListeners: Map<number, Set<FireListener>> = new Map();
 type GlobalFireListener = (tabId: number, record: RequestRecord) => void;
 const globalFireListeners: Set<GlobalFireListener> = new Set();
 
-/**
- * Every request observed on a tracked tab — not just matches. Feeds the
- * DevTools Inspector panel's traffic list via the devtools-inspector port
- * handler, which correlates each observation against the DevTools HAR
- * stream using the `(method, url, timestamp)` bucketing strategy.
- *
- * Separate listener set from `fireListeners` so subscribers that only
- * care about matches don't pay for every observed URL on a noisy page.
- */
-export interface RequestObservation {
-  /** Canonical Chrome webRequest id. Join key for HAR correlation. */
-  requestId: string;
-  method: string;
-  url: string;
-  resourceType: TrackedResourceType;
-  initiator?: string;
-  /** Wall-clock ms at onBeforeRequest — `Date.now()`, matching record.t. */
-  timestamp: number;
-}
-
-type RequestEventListener = (event: RequestObservation) => void;
-const requestEventListeners: Map<number, Set<RequestEventListener>> = new Map();
-
-/**
- * A 3xx hop seen by `chrome.webRequest.onBeforeRedirect`. Carries the
- * authoritative status code, which the panel uses to mint or upgrade
- * the source row — Chrome's HAR pipeline is unreliable for redirect
- * source hops (omits some statuses, mis-attributes others).
- */
-export interface RequestRedirect {
-  requestId: string;
-  sourceUrl: string;
-  method: string;
-  resourceType: TrackedResourceType;
-  statusCode: number;
-  redirectUrl: string;
-  timestamp: number;
-}
-
-type RequestRedirectListener = (event: RequestRedirect) => void;
-const requestRedirectListeners: Map<number, Set<RequestRedirectListener>> = new Map();
-
 function emptyState(tabId: number): TabState {
   return {
     tabId,
@@ -263,92 +221,6 @@ export function subscribeFires(tabId: number, listener: FireListener): () => voi
   };
 }
 
-function emitRequestObservation(tabId: number, event: RequestObservation): void {
-  const set = requestEventListeners.get(tabId);
-  if (!set || set.size === 0) return;
-  for (const fn of set) {
-    try {
-      fn(event);
-    } catch {
-      // Listener failures must never corrupt telemetry state.
-    }
-  }
-}
-
-/**
- * Subscribe to every request observed on this tab, match or not. Used by
- * the DevTools Inspector panel to build its traffic list and correlate
- * rule fires with specific requests. Unlike `subscribeFires`, this fires
- * BEFORE any rule-matching work so the panel sees the full stream.
- */
-export function subscribeRequestEvents(tabId: number, listener: RequestEventListener): () => void {
-  let set = requestEventListeners.get(tabId);
-  if (!set) {
-    set = new Set();
-    requestEventListeners.set(tabId, set);
-  }
-  set.add(listener);
-  return () => {
-    const current = requestEventListeners.get(tabId);
-    if (!current) return;
-    current.delete(listener);
-    if (current.size === 0) requestEventListeners.delete(tabId);
-  };
-}
-
-/**
- * Record a raw request observation. Called from request-monitor's
- * `onBeforeRequest` listener for every tracked tab, regardless of rule
- * matching. Broadcasts to any `subscribeRequestEvents` listeners. This
- * is a thin pass-through — the state itself is not stored because the
- * request list is bounded by the panel's own retention policy, not
- * tab-telemetry's page-scoped state.
- */
-export function recordRequestObservation(tabId: number, event: RequestObservation): void {
-  emitRequestObservation(tabId, event);
-}
-
-function emitRequestRedirect(tabId: number, event: RequestRedirect): void {
-  const set = requestRedirectListeners.get(tabId);
-  if (!set || set.size === 0) return;
-  for (const fn of set) {
-    try {
-      fn(event);
-    } catch {
-      // Listener failures must never corrupt telemetry state.
-    }
-  }
-}
-
-/**
- * Subscribe to every redirect hop observed on this tab. The panel uses
- * this to synthesize source-hop rows the Chrome DevTools HAR pipeline
- * drops or mis-attributes.
- */
-export function subscribeRequestRedirects(tabId: number, listener: RequestRedirectListener): () => void {
-  let set = requestRedirectListeners.get(tabId);
-  if (!set) {
-    set = new Set();
-    requestRedirectListeners.set(tabId, set);
-  }
-  set.add(listener);
-  return () => {
-    const current = requestRedirectListeners.get(tabId);
-    if (!current) return;
-    current.delete(listener);
-    if (current.size === 0) requestRedirectListeners.delete(tabId);
-  };
-}
-
-/**
- * Record a redirect hop observation. Called from request-monitor's
- * `onBeforeRedirect` handler for every tracked tab. Broadcasts to any
- * `subscribeRequestRedirects` listeners; no state is stored here.
- */
-export function recordRequestRedirect(tabId: number, event: RequestRedirect): void {
-  emitRequestRedirect(tabId, event);
-}
-
 function normalizeForAttribution(url: string): string {
   try {
     const u = new URL(url);
@@ -398,7 +270,6 @@ export function clearTab(tabId: number): void {
   disposeTab(state);
   tabs.delete(tabId);
   fireListeners.delete(tabId);
-  requestEventListeners.delete(tabId);
 }
 
 function disposeTab(state: TabState): void {
@@ -771,7 +642,6 @@ export function __resetForTests(): void {
   for (const state of tabs.values()) disposeTab(state);
   tabs.clear();
   fireListeners.clear();
-  requestEventListeners.clear();
 }
 
 export const __internals = {

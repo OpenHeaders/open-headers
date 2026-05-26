@@ -1,87 +1,27 @@
 /**
- * Lifecycle → tab-telemetry projection. Maps each emitted
- * `RequestLifecycleUpdate` onto the existing tab-telemetry API entry
- * points without mutating tab-telemetry's outer surface (TT5).
+ * Lifecycle → tab-telemetry projection. Forwards the parts of each
+ * `RequestLifecycleUpdate` that tab-telemetry still needs: phase-driven
+ * delivery-mode back-fill and main-frame error promotion. URL discovery
+ * is derived directly from the store snapshot by consumers (see
+ * `deriveObservedUrls` / `mainFrameRequestIdsMatchingCommit`).
  *
  * Tab-telemetry ingestion is gated by `isTracked(tabId)` inside the
- * tab-telemetry module itself; we still pre-check here to avoid
- * normalization work on untracked tabs (the original `request-monitor`
- * did the same thing).
+ * tab-telemetry module itself; we still pre-check here to avoid work
+ * on untracked tabs.
  */
 
-import type { RequestLifecycle, RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
+import type { RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
 import type { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
-import type { TrackedResourceType } from '@/types/browser';
 
-import {
-  isTracked as isTabTracked,
-  onMainFrameError,
-  recordRequestObservation,
-  recordRequestRedirect,
-  updateRequestDeliveryMode,
-} from '../modules/tab-telemetry';
-import { isTrackableUrl } from '../modules/url-utils';
+import { isTracked as isTabTracked, onMainFrameError, updateRequestDeliveryMode } from '../modules/tab-telemetry';
 
 export interface ProjectionOptions {
   readonly store: RequestLifecycleStore;
 }
 
 export function project(update: RequestLifecycleUpdate, options: ProjectionOptions): void {
-  switch (update.kind) {
-    case 'started':
-      projectStarted(update.lifecycle);
-      return;
-    case 'redirect':
-      projectRedirect(update, options);
-      return;
-    case 'phase':
-      projectPhase(update, options);
-      return;
-    default:
-      return;
-  }
-}
-
-function projectStarted(lifecycle: RequestLifecycle): void {
-  const { tabId, requestId, url, method, resourceType, initiator, startedAtMs } = lifecycle;
-  if (tabId === -1 || !isTabTracked(tabId)) return;
-  if (!isTrackableUrl(url)) return;
-  recordRequestObservation(tabId, {
-    requestId,
-    method,
-    url,
-    resourceType: resourceType as TrackedResourceType,
-    ...(initiator !== undefined ? { initiator } : {}),
-    timestamp: startedAtMs,
-  });
-}
-
-function projectRedirect(
-  update: Extract<RequestLifecycleUpdate, { kind: 'redirect' }>,
-  options: ProjectionOptions,
-): void {
-  const { tabId, requestId, hop, nextUrl } = update;
-  if (tabId === -1 || !isTabTracked(tabId)) return;
-  if (!isTrackableUrl(nextUrl)) return;
-  const lifecycle = options.store.get(tabId, requestId);
-  if (!lifecycle) return;
-  const resourceType = lifecycle.resourceType as TrackedResourceType;
-  recordRequestObservation(tabId, {
-    requestId,
-    method: lifecycle.method,
-    url: nextUrl,
-    resourceType,
-    timestamp: hop.timestampMs,
-  });
-  recordRequestRedirect(tabId, {
-    requestId,
-    sourceUrl: hop.sourceUrl,
-    method: lifecycle.method,
-    resourceType,
-    statusCode: hop.statusCode,
-    redirectUrl: hop.redirectUrl,
-    timestamp: hop.timestampMs,
-  });
+  if (update.kind !== 'phase') return;
+  projectPhase(update, options);
 }
 
 function projectPhase(
