@@ -1,11 +1,11 @@
 /**
- * Time-sliced, cancellable full-text search across InspectorRequest entries.
+ * Time-sliced, cancellable full-text search across inspector rows.
  *
- * ## Algorithm (Chrome DevTools-equivalent)
+ * ## Algorithm (host-DevTools-equivalent)
  *
  * The query compiles to a single native `RegExp` (with the `g` flag so
  * `exec` walks the string; `i` when case-insensitive). For each section
- * of each entry we call `regex.exec(text)` in a tight loop — V8's
+ * of each row we call `regex.exec(text)` in a tight loop — V8's
  * compiled Boyer-Moore/SIMD string search. Line numbers and surrounding
  * line text are computed inline per match; we never materialise a
  * lines array (`text.split('\n')` would be the bottleneck it used to be)
@@ -21,14 +21,11 @@
  *
  * In production this module runs inside a dedicated Web Worker
  * (`workers/search.worker.ts`). That alone is enough to guarantee the
- * panel's main thread is never blocked by search work, matching how
- * Chrome DevTools' own Network-panel search is architected.
+ * panel's main thread is never blocked by search work.
  *
  * Even inside the worker we time-slice: the scan loop checks elapsed
  * time after each match and yields (`scheduler.yield()` if available,
- * `MessageChannel` fallback) when `BUDGET_MS` is exceeded. This keeps
- * progress + abort signals snappy — a fresh abort can take effect
- * within ~8 ms of being posted, even mid-scan on a multi-MB body.
+ * `MessageChannel` fallback) when `BUDGET_MS` is exceeded.
  *
  * Progress reports `currentDisplayId` + `currentSection` +
  * `sectionScanned/sectionTotal` so the UI can render
@@ -40,13 +37,11 @@
  */
 
 import type { FilterConfig } from './filter-engine';
-import type { InspectorRequest } from './types';
+import type { InspectorRow } from './inspector-facet';
+import { currentHarEntry, currentResponseBody } from './inspector-row-projection';
 
 /**
  * Canonical section names emitted by {@link buildSearchableText}.
- * The engine is the source of truth: UI code should key off these
- * constants rather than bare string literals so renaming or adding
- * sections doesn't break renderers silently.
  */
 export const SECTION = {
   General: 'General',
@@ -74,28 +69,24 @@ export function sectionHasLineColumn(section: string): boolean {
 export interface SearchMatch {
   lineNumber: number;
   /**
-   * 1-based column within `lineNumber` where the match begins. Useful
-   * for pinpointing matches in minified bundles (where everything is
-   * on line 1 and only the column distinguishes rows) and for showing
-   * `L:42:17`-style coordinates in the UI.
+   * 1-based column within `lineNumber` where the match begins.
    */
   column: number;
   lineText: string;
   section: string;
   /**
-   * 0-based index of this match within its section. The viewer uses
-   * this to scroll to the N-th occurrence when the user clicks a
-   * specific match — without it, every click would land on the first
-   * match of the query in the body.
+   * 0-based index of this match within its section.
    */
   sectionIndex: number;
 }
 
 export interface SearchGroup {
+  /** `lifecycle.requestId` — stable identity of the row. */
   entryId: string;
   displayId: number;
   filename: string;
   origin: string;
+  /** Wall-clock ms at which the lifecycle started. */
   timestamp: number;
   matches: SearchMatch[];
 }
@@ -104,25 +95,22 @@ export interface SearchProgress {
   done: number;
   total: number;
   elapsedMs: number;
-  /** Entry the scanner is currently inside, or null between entries. */
+  /** Row the scanner is currently inside, or null between rows. */
   currentDisplayId?: number | null;
-  /** Section of the current entry being scanned (e.g. "Response"). */
+  /** Section of the current row being scanned (e.g. "Response"). */
   currentSection?: string | null;
-  /** Byte-level progress within the current section — lets the UI
-   *  show "45%" ticking up for a multi-MB body instead of a frozen
-   *  counter at the entry level. */
+  /** Byte-level progress within the current section. */
   sectionScanned?: number | null;
   sectionTotal?: number | null;
 }
 
 /** Max synchronous work between yields. */
 const BUDGET_MS = 8;
-/** Hard cap on matches per entry — prevents 1 entry from owning the whole scan. */
+/** Hard cap on matches per row — prevents 1 row from owning the whole scan. */
 const MAX_MATCHES_PER_ENTRY = 500;
 /** Display-cap for match line text — avoids shipping a full megabyte line to the UI. */
 const LINE_TEXT_CAP = 400;
-/** Context window before the match inside `lineText`. Makes the match
- *  visible even for minified single-line bodies. */
+/** Context window before the match inside `lineText`. */
 const LINE_CTX_BEFORE = Math.floor(LINE_TEXT_CAP / 4);
 
 function extractFilename(url: string): { filename: string; origin: string } {
@@ -136,14 +124,15 @@ function extractFilename(url: string): { filename: string; origin: string } {
   }
 }
 
-export function buildSearchableText(entry: InspectorRequest): Array<{ text: string; section: SectionName }> {
+export function buildSearchableText(row: InspectorRow): Array<{ text: string; section: SectionName }> {
   const parts: Array<{ text: string; section: SectionName }> = [];
-  const har = entry.harEntry;
+  const lc = row.lifecycle;
+  const har = currentHarEntry(lc);
 
-  const general = [entry.url, `${entry.method} ${entry.statusCode ?? ''} ${entry.statusText ?? ''}`].join('\n');
+  const general = [lc.url, `${lc.method} ${lc.statusCode ?? ''} ${lc.statusText ?? ''}`].join('\n');
   parts.push({ text: general, section: SECTION.General });
 
-  const reqHeaders = har.request?.headers;
+  const reqHeaders = har?.request?.headers;
   if (reqHeaders && reqHeaders.length > 0) {
     parts.push({
       text: reqHeaders.map((h) => `${h.name}: ${h.value}`).join('\n'),
@@ -151,7 +140,7 @@ export function buildSearchableText(entry: InspectorRequest): Array<{ text: stri
     });
   }
 
-  const resHeaders = har.response?.headers;
+  const resHeaders = har?.response?.headers;
   if (resHeaders && resHeaders.length > 0) {
     parts.push({
       text: resHeaders.map((h) => `${h.name}: ${h.value}`).join('\n'),
@@ -159,7 +148,7 @@ export function buildSearchableText(entry: InspectorRequest): Array<{ text: stri
     });
   }
 
-  const qs = har.request?.queryString;
+  const qs = har?.request?.queryString;
   if (qs && qs.length > 0) {
     parts.push({
       text: qs.map((q) => `${q.name}=${q.value}`).join('\n'),
@@ -167,13 +156,14 @@ export function buildSearchableText(entry: InspectorRequest): Array<{ text: stri
     });
   }
 
-  const postData = har.request?.postData;
+  const postData = har?.request?.postData;
   if (postData?.text) {
     parts.push({ text: postData.text, section: SECTION.RequestBody });
   }
 
-  if (entry.responseBody) {
-    parts.push({ text: entry.responseBody, section: SECTION.Response });
+  const body = currentResponseBody(lc);
+  if (body?.content) {
+    parts.push({ text: body.content, section: SECTION.Response });
   }
 
   return parts;
@@ -229,14 +219,6 @@ function yieldToEventLoop(): Promise<void> {
 
 type SectionTickCallback = (scanned: number, total: number) => void;
 
-/**
- * Scan a single section text for matches. Yields every `BUDGET_MS` so
- * the main thread stays responsive regardless of body size.
- *
- * Line tracking is carried across the loop: `line`, `lineStart`, and
- * `nextNewline` advance as we pass each match, so total newline-walk
- * cost is O(last-match-position) — not O(text.length × matches).
- */
 async function scanSectionAsync(
   text: string,
   section: string,
@@ -256,8 +238,6 @@ async function scanSectionAsync(
   matcher.lastIndex = 0;
   let chunkStart = performance.now();
 
-  // Emit an initial tick so the UI sees the section has started even
-  // if the first `exec` call is slow (e.g. no match in a 10 MB body).
   onTick(0, textLen);
 
   while (out.length < cap) {
@@ -279,12 +259,9 @@ async function scanSectionAsync(
       column: pos - lineStart + 1,
       lineText: text.slice(displayStart, displayEnd),
       section,
-      // Matches are pushed in scan order per section, so the array
-      // length at insertion time is the section-local 0-based index.
       sectionIndex: out.length,
     });
 
-    // Zero-length-match guard (e.g. user regex `/(?:)/`).
     if (m.index === matcher.lastIndex) matcher.lastIndex++;
 
     if (performance.now() - chunkStart > BUDGET_MS) {
@@ -295,19 +272,18 @@ async function scanSectionAsync(
     }
   }
 
-  // Final tick — scanner reached end-of-text or hit cap.
   onTick(textLen, textLen);
   return out;
 }
 
-async function scanEntryAsync(
-  entry: InspectorRequest,
+async function scanRowAsync(
+  row: InspectorRow,
   matcher: RegExp,
   cap: number,
   signal: AbortSignal,
   onSection: (section: string, scanned: number, total: number) => void,
 ): Promise<SearchGroup | null> {
-  const sections = buildSearchableText(entry);
+  const sections = buildSearchableText(row);
   const allMatches: SearchMatch[] = [];
 
   for (const { text, section } of sections) {
@@ -323,25 +299,26 @@ async function scanEntryAsync(
   }
 
   if (allMatches.length === 0) return null;
-  const { filename, origin } = extractFilename(entry.url);
+  const lc = row.lifecycle;
+  const { filename, origin } = extractFilename(lc.url);
   return {
-    entryId: entry.id,
-    displayId: entry.displayId,
+    entryId: lc.requestId,
+    displayId: row.displayId,
     filename,
     origin,
-    timestamp: entry.timestamp,
+    timestamp: lc.startedAtMs,
     matches: allMatches,
   };
 }
 
 /**
- * Sync single-entry scan — kept as a public export for tests. The live
+ * Sync single-row scan — kept as a public export for tests. The live
  * panel path goes through `runSearch` which uses the async scanner.
  */
-export function scanEntry(entry: InspectorRequest, query: string, config: FilterConfig): SearchGroup | null {
+export function scanEntry(row: InspectorRow, query: string, config: FilterConfig): SearchGroup | null {
   const matcher = compileMatcher(query, config);
   if (!matcher) return null;
-  const sections = buildSearchableText(entry);
+  const sections = buildSearchableText(row);
   const allMatches: SearchMatch[] = [];
 
   for (const { text, section } of sections) {
@@ -379,13 +356,14 @@ export function scanEntry(entry: InspectorRequest, query: string, config: Filter
   }
 
   if (allMatches.length === 0) return null;
-  const { filename, origin } = extractFilename(entry.url);
+  const lc = row.lifecycle;
+  const { filename, origin } = extractFilename(lc.url);
   return {
-    entryId: entry.id,
-    displayId: entry.displayId,
+    entryId: lc.requestId,
+    displayId: row.displayId,
     filename,
     origin,
-    timestamp: entry.timestamp,
+    timestamp: lc.startedAtMs,
     matches: allMatches,
   };
 }
@@ -397,20 +375,20 @@ export interface SearchCallbacks {
 }
 
 /**
- * Run a search across `entries`. Results stream via `onGroup`; progress
+ * Run a search across `rows`. Results stream via `onGroup`; progress
  * reports at every yield boundary (up to ~125 Hz); `onDone` fires once
  * the scan completes. If `signal.aborted`, the scan stops promptly and
  * no terminal callback fires.
  */
 export async function runSearch(
-  entries: readonly InspectorRequest[],
+  rows: readonly InspectorRow[],
   query: string,
   config: FilterConfig,
   signal: AbortSignal,
   callbacks: SearchCallbacks,
 ): Promise<void> {
   const start = performance.now();
-  const total = entries.length;
+  const total = rows.length;
   const matcher = compileMatcher(query, config);
 
   if (!matcher) {
@@ -436,16 +414,16 @@ export async function runSearch(
     });
   };
 
-  for (const entry of entries) {
+  for (const row of rows) {
     if (signal.aborted) return;
 
-    currentDisplayId = entry.displayId;
+    currentDisplayId = row.displayId;
     currentSection = null;
     sectionScanned = null;
     sectionTotal = null;
     reportProgress();
 
-    const group = await scanEntryAsync(entry, matcher, MAX_MATCHES_PER_ENTRY, signal, (section, scanned, total) => {
+    const group = await scanRowAsync(row, matcher, MAX_MATCHES_PER_ENTRY, signal, (section, scanned, total) => {
       currentSection = section;
       sectionScanned = scanned;
       sectionTotal = total;

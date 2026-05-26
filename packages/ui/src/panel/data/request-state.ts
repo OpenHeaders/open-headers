@@ -1,13 +1,10 @@
 /**
  * Request-state taxonomy — the single source of truth for every UI
  * surface that needs to know "is this row red / grey / pending / a
- * redirect / a cache hit?". Replaces the scattered per-concern
- * predicates (`isBlockedRequest`, ad-hoc `statusCode == null` checks,
- * ad-hoc `_fromCache` lookups) with one classifier and one
- * discriminated union.
+ * redirect / a cache hit?".
  *
  * Callers branch on `state.kind` — no more "is it both blocked and
- * cached?" ambiguity. Each entry has exactly one state.
+ * cached?" ambiguity. Each lifecycle has exactly one state.
  *
  * Precedence when multiple signals are present:
  *
@@ -27,8 +24,9 @@
  * and a failed redirect is still "failed".
  */
 
+import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { isRendererRejectCode } from './chromium-error-codes';
-import type { InspectorRequest } from './types';
+import { currentHarEntry } from './inspector-row-projection';
 
 export type CacheSource = 'disk' | 'memory' | 'service-worker';
 
@@ -39,22 +37,18 @@ export type RequestState =
   | { kind: 'cached'; source: CacheSource; status: number }
   /** A real HTTP response that the server returned with a 4xx or 5xx
    *  code. Distinct from `failed` (net-stack failure, no HTTP exchange)
-   *  but rendered with the same red row styling — matches Chrome's
-   *  Network panel UX. */
+   *  but rendered with the same red row styling. */
   | { kind: 'httpError'; status: number }
   | { kind: 'blocked'; reason: string }
   | { kind: 'failed'; reason: string };
 
 // ── Detection primitives ────────────────────────────────────────
 
-/** True when the status text / message reads as a Chrome net-stack block. */
 function isBlockedStatus(text: string): boolean {
   const t = text.toLowerCase();
   return t.includes('blocked') || t.includes('net::err_blocked');
 }
 
-/** Canonical failure codes surfaced in status text. `net::ERR_*` is
- *  Chrome's prefix; Firefox uses `NS_ERROR_*`; we match broadly. */
 function isFailureStatus(text: string): boolean {
   if (!text) return false;
   const t = text.toLowerCase();
@@ -72,95 +66,70 @@ function isFailureStatus(text: string): boolean {
   );
 }
 
-function cacheSource(entry: InspectorRequest): CacheSource | null {
-  const har = entry.harEntry;
-  // Chromium emits `_fetchedViaServiceWorker: true` when a service
-  // worker intercepted the fetch. Not all builds expose it in HAR, so
-  // fall back to a second signal if needed.
+function cacheSource(lifecycle: RequestLifecycle): CacheSource | null {
+  const har = currentHarEntry(lifecycle);
   if (har?._fetchedViaServiceWorker) return 'service-worker';
   const raw = har?._fromCache;
   if (raw === 'disk' || raw === 'memory') return raw;
   if (har?._servedFromCache) return 'memory';
+  // Lifecycle carries an aggregated `fromCache` boolean from the
+  // correlator (CORS/cache verdict). When set without a specific
+  // source, default to `memory` — same convention `_servedFromCache`
+  // uses.
+  if (lifecycle.fromCache) return 'memory';
   return null;
-}
-
-/** Did we observe a response at all? Used for the pending classifier.
- *  `entry.statusCode` is normalized at ingest — undefined means "no real
- *  HTTP response" (HAR's status:0 sentinel collapses to undefined). */
-function hasResponse(entry: InspectorRequest): boolean {
-  return entry.statusCode != null;
 }
 
 // ── Classifier ──────────────────────────────────────────────────
 
-export function classifyRequestState(entry: InspectorRequest): RequestState {
-  const statusText = entry.statusText ?? entry.harEntry?.response?.statusText ?? '';
-  const statusCode = entry.statusCode;
+export function classifyRequestState(lifecycle: RequestLifecycle): RequestState {
+  const har = currentHarEntry(lifecycle);
+  const statusText = lifecycle.statusText ?? har?.response?.statusText ?? '';
+  const statusCode = lifecycle.statusCode;
 
   // 1. Renderer-rejected errors win even when a wire status arrived.
-  //    Chrome's Network panel suppresses the wire status only for the
-  //    renderer-reject family (CORS, CSP, COOP/COEP, blocked-by-client,
-  //    the generic ERR_FAILED catch-all the net stack uses for renderer
-  //    refusals). For body-side / transport failures that arrive AFTER
-  //    a successful response (canonical case: ERR_CONTENT_LENGTH_MISMATCH
-  //    on an aborted stream), Chrome's panel keeps showing the wire
-  //    status — we mirror that by falling through to the status path.
-  if (entry.error && isRendererRejectCode(entry.error.code)) {
-    const probe = entry.error.reason || statusText;
-    if (isBlockedStatus(probe)) return { kind: 'blocked', reason: entry.error.reason || statusText || 'blocked' };
-    return { kind: 'failed', reason: entry.error.reason || statusText || 'network error' };
+  if (lifecycle.error && isRendererRejectCode(lifecycle.error.code)) {
+    const probe = lifecycle.error.reason || statusText;
+    if (isBlockedStatus(probe)) {
+      return { kind: 'blocked', reason: lifecycle.error.reason || statusText || 'blocked' };
+    }
+    return { kind: 'failed', reason: lifecycle.error.reason || statusText || 'network error' };
   }
 
-  // 2. Pending — response still in flight (no status, no error, no
-  //    renderer-side rejection above).
+  // 2. Pending — response still in flight (no status, no error).
   if (statusCode == null) {
-    if (entry.error) {
-      // Non-renderer-reject error with no wire status — typically DNS /
-      // connect failures (ERR_NAME_NOT_RESOLVED, ERR_CONNECTION_REFUSED,
-      // timeouts). Classify as failed with the looked-up reason.
-      const probe = entry.error.reason || statusText;
-      if (isBlockedStatus(probe)) return { kind: 'blocked', reason: entry.error.reason || statusText || 'blocked' };
-      return { kind: 'failed', reason: entry.error.reason || statusText || 'network error' };
+    if (lifecycle.error) {
+      const probe = lifecycle.error.reason || statusText;
+      if (isBlockedStatus(probe)) {
+        return { kind: 'blocked', reason: lifecycle.error.reason || statusText || 'blocked' };
+      }
+      return { kind: 'failed', reason: lifecycle.error.reason || statusText || 'network error' };
     }
     return { kind: 'pending' };
   }
 
-  // 3. Some recorders use a negative status as their "generic failure"
-  //    sentinel (no net-stack text, no HTTP response). Treat as failed.
   if (statusCode < 0) return { kind: 'failed', reason: statusText || 'failed' };
   if (isBlockedStatus(statusText)) return { kind: 'blocked', reason: statusText };
-
-  // 3. Failed — status text reads as a net-stack error even with a
-  //    non-zero synthetic status (rare but possible).
   if (isFailureStatus(statusText)) return { kind: 'failed', reason: statusText };
 
-  // 4. Cached — only if the response has a recognised cache source.
-  const src = cacheSource(entry);
+  const src = cacheSource(lifecycle);
   if (src) return { kind: 'cached', source: src, status: statusCode };
 
-  // 5. Redirect — 3xx with a Location / redirectURL.
   if (statusCode >= 300 && statusCode < 400) {
-    const location = entry.harEntry?.response?.redirectURL ?? null;
+    const location = har?.response?.redirectURL ?? null;
     return { kind: 'redirect', status: statusCode, location };
   }
 
-  // 6. HTTP error — 4xx (client error) or 5xx (server error). The
-  //    request itself succeeded at the network layer but the server
-  //    rejected it; visually treated as a failure to match Chrome's
-  //    "red row" convention.
   if (statusCode >= 400) {
     return { kind: 'httpError', status: statusCode };
   }
 
-  // 7. Default — real HTTP response.
   return { kind: 'success', status: statusCode };
 }
 
 // ── UX helpers ──────────────────────────────────────────────────
 
-/** Derive a stable CSS-class modifier for the row. UI picks the
- *  colour / opacity from this — keeps style workbench and state in
- *  lockstep. */
+/** Stable CSS-class modifier for the row. */
 export function rowStateClass(state: RequestState): string | null {
   switch (state.kind) {
     case 'pending':
@@ -168,10 +137,7 @@ export function rowStateClass(state: RequestState): string | null {
     case 'blocked':
       return 'dt-row--blocked';
     case 'failed':
-      return 'dt-row--failed';
     case 'httpError':
-      // 4xx/5xx reuses the failed styling so the row is unmistakably
-      // flagged — same convention Chrome's Network panel applies.
       return 'dt-row--failed';
     case 'cached':
       return 'dt-row--cached';
@@ -182,21 +148,15 @@ export function rowStateClass(state: RequestState): string | null {
   }
 }
 
-/** Status-column text for a state. Covers non-HTTP states (pending,
- *  blocked, failed) that don't have a real status code.
- *
- *  When `entry.error` is set (the row came from
- *  `chrome.webRequest.onErrorOccurred`), prefer the looked-up `reason`
- *  over the raw `net::ERR_*` / `NS_ERROR_*` code — matches Chrome's
- *  Network tab which shows `(blocked)`, `(canceled)`, `(failed)` etc. */
-export function statusText(state: RequestState, entry: InspectorRequest): string {
+/** Status-column text for a state. */
+export function statusText(state: RequestState, lifecycle: RequestLifecycle): string {
   switch (state.kind) {
     case 'pending':
       return '(pending)';
     case 'blocked':
-      return `(${entry.error?.reason || entry.statusText || 'blocked'})`;
+      return `(${lifecycle.error?.reason || lifecycle.statusText || 'blocked'})`;
     case 'failed':
-      return `(${entry.error?.reason || entry.statusText || 'failed'})`;
+      return `(${lifecycle.error?.reason || lifecycle.statusText || 'failed'})`;
     case 'cached':
     case 'redirect':
     case 'success':
@@ -205,8 +165,7 @@ export function statusText(state: RequestState, entry: InspectorRequest): string
   }
 }
 
-/** True when the state should count for "this request warrants a
- *  second look" triage — red rows in Chrome-speak. */
+/** True when the state warrants a "second look" — red rows in Chrome-speak. */
 export function isErrorState(state: RequestState): boolean {
   return state.kind === 'blocked' || state.kind === 'failed' || state.kind === 'httpError';
 }

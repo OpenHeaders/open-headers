@@ -1,29 +1,41 @@
+import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import type { InspectorHarBody, InspectorHarEntry } from '@openheaders/core/types';
 import { DEFAULT_FILTER_CONFIG } from '@openheaders/ui/panel/data/filter-engine';
+import type { InspectorRow } from '@openheaders/ui/panel/data/inspector-facet';
 import { createSearchHandler } from '@openheaders/ui/panel/data/search-worker-handler';
 import type { MainToWorker, WorkerToMain } from '@openheaders/ui/panel/data/search-worker-protocol';
-import type { InspectorRequest } from '@openheaders/ui/panel/data/types';
 import { describe, expect, it } from 'vitest';
-import type { InspectorHarEntry } from '@/background/modules/devtools-inspector-port';
 
-function makeRequest(id: string, responseBody: string, displayId = 1): InspectorRequest {
+function row(id: string, responseBody: string, displayId = 1): InspectorRow {
   const url = `https://api.openheaders.io/${id}`;
   const har: InspectorHarEntry = {
     startedDateTime: '2026-04-16T00:00:00.000Z',
     request: { method: 'GET', url, headers: [], queryString: [] },
     response: { status: 200, statusText: 'OK', headers: [], content: { size: 0, mimeType: 'application/json' } },
-  };
-  return {
-    id,
-    harEntry: har,
+  } as InspectorHarEntry;
+  const body: InspectorHarBody = {
     method: 'GET',
     url,
-    timestamp: 0,
-    statusCode: 200,
-    responseBody,
-    fires: [],
-    arrivalIndex: 0,
-    displayId,
+    startedDateTime: '2026-04-16T00:00:00.000Z',
+    content: responseBody,
+    encoding: '',
   };
+  const lc: RequestLifecycle = {
+    tabId: 1,
+    requestId: id,
+    url,
+    method: 'GET',
+    resourceType: 'xmlhttprequest',
+    phase: 'completed',
+    redirectHopCount: 0,
+    redirectHops: [],
+    startedAtMs: 0,
+    hopStartedAtMs: 0,
+    statusCode: 200,
+    har: new Map([[0, har]]),
+    harBodyByHop: new Map([[0, body]]),
+  };
+  return { lifecycle: lc, displayId, consolidatedRetryOf: [] };
 }
 
 function collect() {
@@ -32,7 +44,6 @@ function collect() {
   return { posted, handler };
 }
 
-/** Flush microtasks so runSearch's async work settles. */
 async function drain() {
   for (let i = 0; i < 10; i++) await Promise.resolve();
 }
@@ -40,45 +51,39 @@ async function drain() {
 describe('createSearchHandler', () => {
   it('runs a search and posts group + progress + done with matching sessionId', async () => {
     const { posted, handler } = collect();
-    const entries = [
-      makeRequest('a', 'hello world', 1),
-      makeRequest('b', 'nothing here', 2),
-      makeRequest('c', 'hello again', 3),
-    ];
+    const rows = [row('a', 'hello world', 1), row('b', 'nothing here', 2), row('c', 'hello again', 3)];
     const msg: MainToWorker = {
       type: 'search',
       sessionId: 42,
       query: 'hello',
       config: DEFAULT_FILTER_CONFIG,
-      entries,
+      rows,
     };
     handler.handle(msg);
     await drain();
 
-    // Every posted message carries sessionId 42.
     for (const p of posted) expect(p.sessionId).toBe(42);
 
     const groups = posted.filter((p) => p.type === 'group');
     const dones = posted.filter((p) => p.type === 'done');
-    expect(groups.length).toBe(2); // a and c match
+    expect(groups.length).toBe(2);
     expect(dones.length).toBe(1);
     expect(dones[0].type === 'done' && dones[0].progress.done).toBe(3);
   });
 
   it('a new search aborts the previous one — no further messages for the old session', async () => {
     const { posted, handler } = collect();
-    const bigBody = `${'x'.repeat(20_000)}needle${'y'.repeat(20_000)}`.repeat(100); // ~4 MB
-    const entries = Array.from({ length: 20 }, (_, i) => makeRequest(`big-${i}`, bigBody, i + 1));
+    const bigBody = `${'x'.repeat(20_000)}needle${'y'.repeat(20_000)}`.repeat(100);
+    const rows = Array.from({ length: 20 }, (_, i) => row(`big-${i}`, bigBody, i + 1));
 
     handler.handle({
       type: 'search',
       sessionId: 1,
       query: 'needle',
       config: DEFAULT_FILTER_CONFIG,
-      entries,
+      rows,
     });
 
-    // Yield once so the worker gets past entry #1.
     await Promise.resolve();
 
     handler.handle({
@@ -86,38 +91,34 @@ describe('createSearchHandler', () => {
       sessionId: 2,
       query: 'needle',
       config: DEFAULT_FILTER_CONFIG,
-      entries: [makeRequest('small', 'needle here', 1)],
+      rows: [row('small', 'needle here', 1)],
     });
 
     await drain();
 
-    // Session 2 must have completed (done message).
     const session2Done = posted.find((p) => p.sessionId === 2 && p.type === 'done');
     expect(session2Done).toBeDefined();
 
-    // Session 1 must NOT have a done message — it was aborted.
     const session1Done = posted.find((p) => p.sessionId === 1 && p.type === 'done');
     expect(session1Done).toBeUndefined();
   });
 
   it('abort message only aborts the matching sessionId — stale aborts are ignored', async () => {
     const { posted, handler } = collect();
-    const entries = [makeRequest('a', 'needle', 1)];
+    const rows = [row('a', 'needle', 1)];
 
     handler.handle({
       type: 'search',
       sessionId: 5,
       query: 'needle',
       config: DEFAULT_FILTER_CONFIG,
-      entries,
+      rows,
     });
 
-    // Stale abort for a prior session — must be ignored.
     handler.handle({ type: 'abort', sessionId: 4 });
 
     await drain();
 
-    // Session 5 completes normally.
     const done = posted.find((p) => p.type === 'done' && p.sessionId === 5);
     expect(done).toBeDefined();
   });
@@ -125,20 +126,19 @@ describe('createSearchHandler', () => {
   it('dispose aborts the in-flight run', async () => {
     const { posted, handler } = collect();
     const bigBody = `${'x'.repeat(20_000)}needle${'y'.repeat(20_000)}`.repeat(100);
-    const entries = Array.from({ length: 20 }, (_, i) => makeRequest(`e-${i}`, bigBody, i + 1));
+    const rows = Array.from({ length: 20 }, (_, i) => row(`e-${i}`, bigBody, i + 1));
 
     handler.handle({
       type: 'search',
       sessionId: 9,
       query: 'needle',
       config: DEFAULT_FILTER_CONFIG,
-      entries,
+      rows,
     });
     await Promise.resolve();
     handler.dispose();
     await drain();
 
-    // No done message because dispose aborted the run before completion.
     const done = posted.find((p) => p.type === 'done');
     expect(done).toBeUndefined();
   });

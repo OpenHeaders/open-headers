@@ -13,7 +13,7 @@
 
 import { useState } from 'react';
 import { DEFAULT_FILTER_CONFIG, type FilterConfig } from './filter-engine';
-import type { InspectorRequest } from './types';
+import type { InspectorRow } from './inspector-facet';
 import { type UseSearchResult, useSearch } from './use-search';
 
 export interface SearchSession {
@@ -27,8 +27,8 @@ export interface SearchSession {
   setDraftConfig: (c: FilterConfig) => void;
 }
 
-export function useSearchSession(entries: readonly InspectorRequest[]): SearchSession {
-  const search = useSearch(entries);
+export function useSearchSession(rows: readonly InspectorRow[]): SearchSession {
+  const search = useSearch(rows);
   const [draftQuery, setDraftQuery] = useState('');
   const [draftConfig, setDraftConfig] = useState<FilterConfig>(DEFAULT_FILTER_CONFIG);
   return { search, draftQuery, setDraftQuery, draftConfig, setDraftConfig };

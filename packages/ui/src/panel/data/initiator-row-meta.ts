@@ -2,14 +2,15 @@
  * Per-row metadata for the Initiator chain.
  *
  * Pulls resource type, initiator type, transferred size, duration,
- * status, third-party classification, and failure flag off an
- * `InspectorRequest`. The view consumes the result and renders a
+ * status, third-party classification, and failure flag off a
+ * `RequestLifecycle`. The view consumes the result and renders a
  * chip-strip — no view-side HAR plucking, no string-comparison logic
  * scattered across components.
  */
 
+import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import { currentHarEntry } from './inspector-row-projection';
 import { classifyRequestState } from './request-state';
-import type { InspectorRequest } from './types';
 
 export type InitiatorTypeLabel =
   | 'parser'
@@ -25,7 +26,7 @@ export type InitiatorTypeLabel =
 export interface InitiatorRowMeta {
   /** Normalized lowercase resource type (e.g. `script`, `stylesheet`, `image`). Null when unknown. */
   resourceType: string | null;
-  /** Coarse label for how Chrome attributed the load (`_initiator.type`). */
+  /** Coarse label for how the host attributed the load (`_initiator.type`). */
   initiatorType: InitiatorTypeLabel | null;
   /** Bytes transferred over the wire (preferred) or content size as fallback. Null when unknown. */
   sizeBytes: number | null;
@@ -75,12 +76,21 @@ function normalizeInitiatorType(raw: string | undefined): InitiatorTypeLabel | n
   }
 }
 
-function pickSizeBytes(entry: InspectorRequest): number | null {
-  const r = entry.harEntry.response;
+function pickSizeBytes(lifecycle: RequestLifecycle): number | null {
+  const r = currentHarEntry(lifecycle)?.response;
   if (!r) return null;
   if (typeof r.bodySize === 'number' && r.bodySize > 0) return r.bodySize;
   if (typeof r.content?.size === 'number' && r.content.size > 0) return r.content.size;
-  if (typeof entry.responseSize === 'number' && entry.responseSize > 0) return entry.responseSize;
+  return null;
+}
+
+function lifecycleDurationMs(lifecycle: RequestLifecycle): number | null {
+  const harTime = currentHarEntry(lifecycle)?.time;
+  if (typeof harTime === 'number' && harTime > 0) return harTime;
+  if (lifecycle.completedAtMs != null) {
+    const d = lifecycle.completedAtMs - lifecycle.startedAtMs;
+    if (d > 0) return d;
+  }
   return null;
 }
 
@@ -88,26 +98,30 @@ function pickSizeBytes(entry: InspectorRequest): number | null {
  * Cascade-context failure predicate. Differs from `classifyRequestState`
  * in that it also treats HTTP 4xx/5xx as failures — for the user
  * scanning a cascade tree for "what went wrong", an `HTTP 500` is just
- * as red-flag as a wire abort. Centralized here so the row-meta and the
- * cascade summary stay in sync.
+ * as red-flag as a wire abort. Centralized here so row-meta and cascade
+ * summary stay in sync.
  */
-export function isCascadeFailure(entry: InspectorRequest): boolean {
-  const s = classifyRequestState(entry);
+export function isCascadeFailure(lifecycle: RequestLifecycle): boolean {
+  const s = classifyRequestState(lifecycle);
   if (s.kind === 'failed' || s.kind === 'blocked') return true;
-  const code = entry.statusCode ?? entry.harEntry?.response?.status ?? 0;
+  const code = lifecycle.statusCode ?? currentHarEntry(lifecycle)?.response?.status ?? 0;
   return code >= 400;
 }
 
-export function computeInitiatorRowMeta(entry: InspectorRequest, pageOrigin: string | null): InitiatorRowMeta {
-  const initiator = entry.harEntry._initiator as Initiator | undefined;
-  const entryOrigin = originOf(entry.url);
+export function computeInitiatorRowMeta(
+  lifecycle: RequestLifecycle,
+  pageOrigin: string | null,
+): InitiatorRowMeta {
+  const initiator = currentHarEntry(lifecycle)?._initiator as Initiator | undefined;
+  const entryOrigin = originOf(lifecycle.url);
+  const rawType = lifecycle.resourceType;
   return {
-    resourceType: entry.resourceType ? entry.resourceType.toLowerCase() : null,
+    resourceType: rawType ? rawType.toLowerCase() : null,
     initiatorType: normalizeInitiatorType(initiator?.type),
-    sizeBytes: pickSizeBytes(entry),
-    durationMs: typeof entry.duration === 'number' && entry.duration > 0 ? entry.duration : null,
-    statusCode: entry.statusCode ?? null,
+    sizeBytes: pickSizeBytes(lifecycle),
+    durationMs: lifecycleDurationMs(lifecycle),
+    statusCode: lifecycle.statusCode ?? null,
     isThirdParty: pageOrigin != null && entryOrigin != null && entryOrigin !== pageOrigin,
-    isFailed: isCascadeFailure(entry),
+    isFailed: isCascadeFailure(lifecycle),
   };
 }

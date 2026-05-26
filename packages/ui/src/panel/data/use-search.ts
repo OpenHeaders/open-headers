@@ -20,9 +20,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DEFAULT_FILTER_CONFIG, type FilterConfig } from './filter-engine';
+import type { InspectorRow } from './inspector-facet';
 import { getDefaultSearchClient, type SearchHandle } from './search-client';
 import type { SearchGroup, SearchProgress } from './search-engine';
-import type { InspectorRequest } from './types';
 
 export type SearchStatus = 'idle' | 'running' | 'done';
 
@@ -56,7 +56,7 @@ const INITIAL_STATE: SearchState = {
   progress: ZERO_PROGRESS,
 };
 
-export function useSearch(entries: readonly InspectorRequest[]): UseSearchResult {
+export function useSearch(rows: readonly InspectorRow[]): UseSearchResult {
   const [state, setState] = useState<SearchState>(INITIAL_STATE);
   const handleRef = useRef<SearchHandle | null>(null);
   const disposeCurrentRef = useRef<(() => void) | null>(null);
@@ -79,26 +79,21 @@ export function useSearch(entries: readonly InspectorRequest[]): UseSearchResult
 
   const cancel = useCallback(() => {
     endCurrentRun();
-    // Hard reset — clicking Cancel means "throw this away", not
-    // "freeze the partial results". The user will re-run if they want
-    // another pass.
     setState(INITIAL_STATE);
   }, [endCurrentRun]);
 
   // Auto-cancel if the inspector is cleared mid-search (navigation,
   // Clear button). The worker has its own structured-cloned snapshot
-  // so it would happily keep scanning and return results for entry
+  // so it would happily keep scanning and return results for row
   // ids the UI no longer knows about — click-to-navigate would then
   // silently no-op. Cleaner to drop the search and let the user re-run.
-  //
-  // Ref-based status check avoids re-subscribing every render.
   const statusRef = useRef(state.status);
   statusRef.current = state.status;
   useEffect(() => {
-    if (entries.length === 0 && statusRef.current === 'running') {
+    if (rows.length === 0 && statusRef.current === 'running') {
       cancel();
     }
-  }, [entries.length, cancel]);
+  }, [rows.length, cancel]);
 
   const run = useCallback(
     (query: string, config: FilterConfig) => {
@@ -116,20 +111,11 @@ export function useSearch(entries: readonly InspectorRequest[]): UseSearchResult
         committedQuery: trimmed,
         committedConfig: config,
         results: [],
-        progress: { done: 0, total: entries.length, elapsedMs: 0 },
+        progress: { done: 0, total: rows.length, elapsedMs: 0 },
       });
 
-      // ── Per-run closure state ───────────────────────────
-      // Batch-and-throttle: every `onGroup` pushes into `batch`; every
-      // `onProgress` updates `latestProgress` in-place. One queued
-      // microtask flushes both into React state. React re-renders at
-      // most once per microtask checkpoint regardless of stream rate.
-      //
-      // `disposed` is flipped when a newer run() supersedes this one,
-      // when cancel/reset fires, or when `onDone` commits. Any pending
-      // flush that fires after `disposed = true` is a no-op.
       const batch: SearchGroup[] = [];
-      let latestProgress: SearchProgress = { done: 0, total: entries.length, elapsedMs: 0 };
+      let latestProgress: SearchProgress = { done: 0, total: rows.length, elapsedMs: 0 };
       let flushScheduled = false;
       let disposed = false;
 
@@ -162,7 +148,7 @@ export function useSearch(entries: readonly InspectorRequest[]): UseSearchResult
         queueMicrotask(() => flush());
       };
 
-      const handle = getDefaultSearchClient().submit(entries, trimmed, config, {
+      const handle = getDefaultSearchClient().submit(rows, trimmed, config, {
         onGroup: (g) => {
           if (disposed) return;
           batch.push(g);
@@ -186,7 +172,7 @@ export function useSearch(entries: readonly InspectorRequest[]): UseSearchResult
       });
       handleRef.current = handle;
     },
-    [entries, endCurrentRun],
+    [rows, endCurrentRun],
   );
 
   return { state, run, cancel };

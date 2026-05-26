@@ -29,8 +29,8 @@ import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 
 export interface InspectorRow {
   readonly lifecycle: RequestLifecycle;
-  /** Compact 1-indexed identifier, e.g. `"#42"`. */
-  readonly displayId: string;
+  /** 1-indexed sequence number (1, 2, 3, …); UI prepends `#` when rendering. */
+  readonly displayId: number;
   /**
    * Prior-attempt `requestId`s collapsed into this row by retry
    * consolidation. Empty when consolidation is off or the row is not a
@@ -78,7 +78,7 @@ export function buildInspectorRows(
 
   return projected.map((entry, index) => ({
     lifecycle: entry.lifecycle,
-    displayId: `#${index + 1}`,
+    displayId: index + 1,
     consolidatedRetryOf: entry.consolidatedRetryOf,
   }));
 }

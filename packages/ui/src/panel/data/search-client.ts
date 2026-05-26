@@ -11,10 +11,10 @@
  */
 
 import type { FilterConfig } from './filter-engine';
+import type { InspectorRow } from './inspector-facet';
 import type { SearchGroup, SearchProgress } from './search-engine';
 import { createDefaultTransport, type SearchTransport } from './search-transport';
 import type { MainToWorker } from './search-worker-protocol';
-import type { InspectorRequest } from './types';
 
 export interface SearchClientCallbacks {
   onGroup: (group: SearchGroup) => void;
@@ -45,9 +45,6 @@ export class SearchClient {
     this.unsubscribeError =
       transport.onError?.((err) => {
         this.dead = true;
-        // Unblock the active caller with a synthetic `onDone` so its
-        // state machine transitions out of `running`. Leaves any
-        // partial results the caller has already accumulated intact.
         const active = this.activeSession;
         this.activeSession = null;
         if (active) {
@@ -63,22 +60,17 @@ export class SearchClient {
   }
 
   submit(
-    entries: readonly InspectorRequest[],
+    rows: readonly InspectorRow[],
     query: string,
     config: FilterConfig,
     callbacks: SearchClientCallbacks,
   ): SearchHandle {
     if (this.dead) {
-      // Transport is unusable — synthesize a done immediately so the
-      // caller's state machine doesn't hang. The singleton wrapper
-      // (`getDefaultSearchClient`) replaces this dead client on the
-      // next `get()` so the next submit gets a fresh transport.
       const sessionId = this.nextSessionId++;
       queueMicrotask(() => callbacks.onDone({ done: 0, total: 0, elapsedMs: 0 }));
       return { sessionId, abort: () => {} };
     }
 
-    // New search preempts any prior one.
     this.activeSession?.handle.abort();
 
     const sessionId = this.nextSessionId++;
@@ -114,10 +106,7 @@ export class SearchClient {
       sessionId,
       query,
       config,
-      // Shallow-copy so a later mutation on the caller's array doesn't
-      // mutate what we just posted. `postMessage` structured-clones the
-      // deep content anyway, but the outer ref needs to be stable.
-      entries: Array.from(entries),
+      rows: Array.from(rows),
     };
     this.transport.send(searchMsg);
 
@@ -142,14 +131,12 @@ export class SearchClient {
 let defaultClient: SearchClient | null = null;
 
 /**
- * Lazily-constructed singleton client for the panel. Creating a
- * Worker has non-trivial cost (tens of ms on first use) and we want to
+ * Lazily-constructed singleton client for the panel. Creating a Worker
+ * has non-trivial cost (tens of ms on first use) and we want to
  * amortise that across the panel's lifetime, not pay it per hook
  * instance or per render.
  */
 export function getDefaultSearchClient(): SearchClient {
-  // If the previous client's worker died, drop it so the next call
-  // rebuilds with a fresh transport.
   if (defaultClient?.isDead()) defaultClient = null;
   if (!defaultClient) {
     defaultClient = new SearchClient(createDefaultTransport());

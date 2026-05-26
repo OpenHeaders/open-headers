@@ -1,28 +1,31 @@
+import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import type { InspectorHarEntry } from '@openheaders/core/types';
 import type { RequestState } from '@openheaders/ui/panel/data/request-state';
 import { formatSizeInfo, getSizeInfo, sortValueOf } from '@openheaders/ui/panel/data/size-info';
-import type { InspectorRequest } from '@openheaders/ui/panel/data/types';
 import { describe, expect, it } from 'vitest';
-import type { InspectorHarEntry } from '@/background/modules/devtools-inspector-port';
 
-function entry(opts: Partial<InspectorRequest> & { har?: Partial<InspectorHarEntry> } = {}): InspectorRequest {
-  const url = opts.url ?? 'https://api.openheaders.io/x';
+function makeLifecycle(harOverrides: Partial<InspectorHarEntry> = {}): RequestLifecycle {
+  const url = 'https://api.openheaders.io/x';
   const har: InspectorHarEntry = {
     startedDateTime: '2026-04-17T00:00:00.000Z',
     request: { method: 'GET', url, headers: [], queryString: [] },
     response: { status: 200, statusText: 'OK', headers: [], content: { size: 0, mimeType: 'text/plain' } },
-    ...(opts.har ?? {}),
-  };
+    ...harOverrides,
+  } as InspectorHarEntry;
   return {
-    id: url,
-    harEntry: har,
-    method: 'GET',
+    tabId: 1,
+    requestId: 'req-1',
     url,
-    timestamp: 0,
+    method: 'GET',
+    resourceType: 'xmlhttprequest',
+    phase: 'completed',
+    redirectHopCount: 0,
+    redirectHops: [],
+    startedAtMs: 0,
+    hopStartedAtMs: 0,
     statusCode: 200,
-    fires: [],
-    arrivalIndex: 0,
-    displayId: 1,
-    ...opts,
+    har: new Map([[0, har]]),
+    harBodyByHop: new Map(),
   };
 }
 
@@ -31,45 +34,39 @@ const PENDING: RequestState = { kind: 'pending' };
 
 describe('getSizeInfo', () => {
   it('pending state produces a pending SizeInfo', () => {
-    expect(getSizeInfo(entry(), PENDING)).toEqual({ kind: 'pending' });
+    expect(getSizeInfo(makeLifecycle(), PENDING)).toEqual({ kind: 'pending' });
   });
 
   it('cached state forwards the cache source', () => {
     const state: RequestState = { kind: 'cached', source: 'service-worker', status: 200 };
-    expect(getSizeInfo(entry(), state)).toEqual({ kind: 'cached', source: 'service-worker' });
+    expect(getSizeInfo(makeLifecycle(), state)).toEqual({ kind: 'cached', source: 'service-worker' });
   });
 
   it('extracts transferred (bodySize) and resource (content.size) from HAR', () => {
-    const e = entry({
-      har: {
-        response: {
-          status: 200,
-          statusText: 'OK',
-          headers: [],
-          bodySize: 4200,
-          content: { size: 12000, mimeType: 'text/css' },
-        },
+    const lc = makeLifecycle({
+      response: {
+        status: 200,
+        statusText: 'OK',
+        headers: [],
+        bodySize: 4200,
+        content: { size: 12000, mimeType: 'text/css' },
       },
     });
-    expect(getSizeInfo(e, S200)).toEqual({ kind: 'bytes', transferred: 4200, resource: 12000 });
+    expect(getSizeInfo(lc, S200)).toEqual({ kind: 'bytes', transferred: 4200, resource: 12000 });
   });
 
-  it('falls back to entry.responseSize when HAR bodySize is missing or -1', () => {
-    const e = entry({
-      responseSize: 4200,
-      har: {
-        response: { status: 200, statusText: 'OK', headers: [], bodySize: -1, content: { size: 4200, mimeType: '' } },
-      },
+  it('returns null when HAR bodySize is missing or -1', () => {
+    const lc = makeLifecycle({
+      response: { status: 200, statusText: 'OK', headers: [], bodySize: -1, content: { size: 4200, mimeType: '' } },
     });
-    expect(getSizeInfo(e, S200)).toEqual({ kind: 'bytes', transferred: 4200, resource: 4200 });
+    expect(getSizeInfo(lc, S200)).toEqual({ kind: 'bytes', transferred: null, resource: 4200 });
   });
 
   it('returns null for both values when nothing is known', () => {
-    const e = entry({
-      responseSize: undefined,
-      har: { response: { status: 200, statusText: 'OK', headers: [], content: { size: -1, mimeType: '' } } },
+    const lc = makeLifecycle({
+      response: { status: 200, statusText: 'OK', headers: [], content: { size: -1, mimeType: '' } },
     });
-    expect(getSizeInfo(e, S200)).toEqual({ kind: 'bytes', transferred: null, resource: null });
+    expect(getSizeInfo(lc, S200)).toEqual({ kind: 'bytes', transferred: null, resource: null });
   });
 });
 

@@ -1,13 +1,12 @@
 /**
  * Response body classification — the single source of truth for "what
- * should the Response/Preview tabs render for this entry?".
+ * should the Response/Preview tabs render for this lifecycle?".
  *
- * Chrome's Network tab makes a dozen distinct decisions for body
- * rendering (preflight → "no content for preflight", HEAD → "no body",
- * 304 → "cached", blocked → error, in-flight → spinner, etc.). Without
- * a classifier, the body views devolve into N cascaded ifs — easy to
+ * Without a classifier, the body views devolve into N cascaded ifs
+ * (preflight → "no content for preflight", HEAD → "no body", 304 →
+ * "cached", blocked → error, in-flight → spinner, etc.) — easy to
  * miss a case like "preflight still shows infinite skeleton because
- * responseBody is empty string, not null."
+ * the body string is empty, not null."
  *
  * The classifier centralises the decision: every body view consumes
  * a `BodyState` discriminated union and renders a single branch per
@@ -15,19 +14,10 @@
  * threading another condition through two UI files.
  */
 
+import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import { currentHarEntry, currentResponseBody } from './inspector-row-projection';
 import { classifyRequestState } from './request-state';
-import type { InspectorRequest } from './types';
 
-/**
- * Body classification.
- *
- *   - `loading`         Body fetch is in progress — panel still expects a har-body message.
- *   - `not-applicable`  Per-protocol no body (preflight / HEAD / 204 / 304 / 1xx / 101).
- *   - `empty`           Legitimately empty body (e.g. 200 with Content-Length: 0).
- *   - `unavailable`     Body should exist but isn't retrievable (blocked, opaque, cache miss).
- *   - `text`            Decoded text content (may be pretty-printed or syntax-highlighted).
- *   - `binary`          Base64-encoded payload — shown as hex / preview / decoded on demand.
- */
 export type BodyState =
   | { kind: 'loading' }
   | { kind: 'not-applicable'; reason: NotApplicableReason; message: string }
@@ -66,49 +56,48 @@ const UNAVAILABLE_COPY: Record<UnavailableReason, string> = {
   opaque: 'Response body not available — opaque cross-origin response',
   cache: 'Body not available — response was served from cache before DevTools opened',
   unknown:
-    "Body not captured. Chrome's entry.getContent returned empty — the response was streamed without buffering or served from cache.",
+    "Body not captured. The host returned no content — the response was streamed without buffering or served from cache.",
 };
 
 function isInformational(status: number | undefined): boolean {
   return status != null && status >= 100 && status < 200 && status !== 101;
 }
 
-function isCorsLikelyOpaque(request: InspectorRequest): boolean {
-  // Chrome reports opaque responses with status 0 and a blocked mark
-  // distinct from rule-blocks. When the mime-type is present but the
-  // body is empty we have a clearer signal: chrome emitted headers
-  // for an opaque response but withheld the body.
-  if (request.statusCode != null) return false;
-  const statusText = (request.statusText ?? '').toLowerCase();
-  // CORS/opaque frequently has no statusText + no response headers.
-  const s = classifyRequestState(request);
+function isOpaqueResponse(lifecycle: RequestLifecycle): boolean {
+  // Opaque responses are reported with no status and no statusText —
+  // the host emitted headers but withheld the body.
+  if (lifecycle.statusCode != null) return false;
+  const statusText = (lifecycle.statusText ?? '').toLowerCase();
+  const s = classifyRequestState(lifecycle);
   return s.kind !== 'blocked' && s.kind !== 'failed' && statusText === '';
 }
 
-function contentLengthZero(request: InspectorRequest): boolean {
-  const bodySize = request.harEntry.response?.bodySize;
-  const contentSize = request.harEntry.response?.content?.size;
+function contentLengthZero(lifecycle: RequestLifecycle): boolean {
+  const har = currentHarEntry(lifecycle);
+  const bodySize = har?.response?.bodySize;
+  const contentSize = har?.response?.content?.size;
   if (bodySize === 0 && (contentSize === 0 || contentSize == null)) return true;
-  // Content-Length header is the authoritative signal when bodySize
-  // / content.size are both `-1` (Chrome's "unknown size" sentinel).
-  const header = request.harEntry.response?.headers?.find((h) => h.name.toLowerCase() === 'content-length');
+  const header = har?.response?.headers?.find((h) => h.name.toLowerCase() === 'content-length');
   return header?.value === '0';
 }
 
-function servedFromCache(request: InspectorRequest): boolean {
-  const { _fromCache, _servedFromCache } = request.harEntry;
-  return _fromCache === 'disk' || _fromCache === 'memory' || _servedFromCache === true;
+function servedFromCache(lifecycle: RequestLifecycle): boolean {
+  const har = currentHarEntry(lifecycle);
+  if (har) {
+    if (har._fromCache === 'disk' || har._fromCache === 'memory') return true;
+    if (har._servedFromCache === true) return true;
+  }
+  return lifecycle.fromCache === true;
 }
 
 /**
- * Classify the current state of an entry's response body. Views should
- * render exactly the branch they're given — no fallbacks, no "if body
- * is empty but actually..." branches around the result.
+ * Classify the body state for a lifecycle. Views render exactly the
+ * branch they're given — no fallbacks around the result.
  */
-export function classifyBodyState(request: InspectorRequest): BodyState {
-  const method = request.method.toUpperCase();
-  const status = request.statusCode;
-  const resourceType = (request.resourceType ?? '').toLowerCase();
+export function classifyBodyState(lifecycle: RequestLifecycle): BodyState {
+  const method = lifecycle.method.toUpperCase();
+  const status = lifecycle.statusCode;
+  const resourceType = lifecycle.resourceType.toLowerCase();
 
   // ── Per-protocol "no body" rules ─────────────────────────
   if (resourceType === 'preflight') {
@@ -137,7 +126,7 @@ export function classifyBodyState(request: InspectorRequest): BodyState {
   }
 
   // ── Transport-level failure ──────────────────────────────
-  const reqState = classifyRequestState(request);
+  const reqState = classifyRequestState(lifecycle);
   if (reqState.kind === 'blocked') {
     return { kind: 'unavailable', reason: 'blocked', message: UNAVAILABLE_COPY.blocked };
   }
@@ -146,28 +135,27 @@ export function classifyBodyState(request: InspectorRequest): BodyState {
   }
 
   // ── In-flight ────────────────────────────────────────────
-  // `responseBody === undefined` means har-body hasn't arrived yet.
-  // Once the body message arrives, even an empty string flips to the
-  // "empty/unavailable" branch below, so the skeleton never hangs.
-  if (request.responseBody === undefined) {
+  // Body hasn't been attached yet (host hasn't called body-attached).
+  const body = currentResponseBody(lifecycle);
+  if (body == null) {
     return { kind: 'loading' };
   }
 
   // ── Empty body ───────────────────────────────────────────
-  if (request.responseBody === '') {
-    if (contentLengthZero(request)) return { kind: 'empty' };
-    if (isCorsLikelyOpaque(request)) {
+  if (body.content === '') {
+    if (contentLengthZero(lifecycle)) return { kind: 'empty' };
+    if (isOpaqueResponse(lifecycle)) {
       return { kind: 'unavailable', reason: 'opaque', message: UNAVAILABLE_COPY.opaque };
     }
-    if (servedFromCache(request)) {
+    if (servedFromCache(lifecycle)) {
       return { kind: 'unavailable', reason: 'cache', message: UNAVAILABLE_COPY.cache };
     }
     return { kind: 'unavailable', reason: 'unknown', message: UNAVAILABLE_COPY.unknown };
   }
 
   // ── Has content ──────────────────────────────────────────
-  if (request.responseBodyEncoding === 'base64') {
-    return { kind: 'binary', base64: request.responseBody };
+  if (body.encoding === 'base64') {
+    return { kind: 'binary', base64: body.content };
   }
-  return { kind: 'text', content: request.responseBody };
+  return { kind: 'text', content: body.content };
 }

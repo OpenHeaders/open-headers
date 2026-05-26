@@ -58,7 +58,7 @@ function fire(over: Partial<InspectorFire> = {}): InspectorFire {
   };
 }
 
-function row(lc: RequestLifecycle, displayId = '#1'): InspectorRow {
+function row(lc: RequestLifecycle, displayId = 1): InspectorRow {
   return { lifecycle: lc, displayId, consolidatedRetryOf: [] };
 }
 

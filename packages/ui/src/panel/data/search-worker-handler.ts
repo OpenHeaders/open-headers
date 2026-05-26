@@ -40,7 +40,7 @@ export function createSearchHandler(ctx: SearchHandlerContext): SearchHandler {
     currentAbort = ctrl;
 
     const sessionId = msg.sessionId;
-    runSearch(msg.entries, msg.query, msg.config, ctrl.signal, {
+    runSearch(msg.rows, msg.query, msg.config, ctrl.signal, {
       onGroup: (group) => {
         if (!ctrl.signal.aborted) ctx.post({ type: 'group', sessionId, group });
       },

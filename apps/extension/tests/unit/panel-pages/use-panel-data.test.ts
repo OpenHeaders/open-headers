@@ -142,7 +142,7 @@ describe('usePanelData', () => {
       ),
     );
     expect(result.current.rows.map((r) => r.lifecycle.requestId)).toEqual(['a', 'b']);
-    expect(result.current.rows.map((r) => r.displayId)).toEqual(['#1', '#2']);
+    expect(result.current.rows.map((r) => r.displayId)).toEqual([1, 2]);
   });
 
   it('attaches fires by requestId; unattached fires land in dangling', () => {

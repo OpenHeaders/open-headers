@@ -3,15 +3,19 @@
  *
  * Exposes `window.__OH_DUMP_PARITY_ROWS__()` returning a JSON-serializable
  * row list shaped to be diffed against the playground capture script's
- * Chrome ground-truth rows (see playground/scripts/capture-parity.mjs).
+ * ground-truth Chrome rows (see playground/scripts/capture-parity.mjs).
+ *
+ * Lifecycle objects carry per-hop attribution + structured error data
+ * that the denormalized legacy row erased — strictly better signal for
+ * the parity capture loop.
  */
 
+import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
 import { useEffect, useRef } from 'react';
+import { currentHarEntry, isPendingLifecycle } from './inspector-row-projection';
 import { classifyRequestState, type RequestState } from './request-state';
-import { isPendingRequest, type InspectorRequest } from './types';
 
 interface ParityRow {
-  displayId: number;
   arrivalIndex: number;
   method: string;
   url: string;
@@ -22,8 +26,7 @@ interface ParityRow {
   status: number | null;
   /** What the panel's Status column displays. Null when the row is blocked
    *  / failed / pending (column shows an error label, not the status code).
-   *  Matches Chrome's Network panel convention. Use this for parity diffs
-   *  against Chrome's panel view. */
+   *  Use this for parity diffs against Chrome's panel view. */
   displayStatus: number | null;
   statusText: string | null;
   errorCode: string | null;
@@ -34,14 +37,14 @@ interface ParityRow {
 }
 
 interface ParityRowDebug extends ParityRow {
-  _chromeRequestId?: string;
+  _requestId?: string;
   _harResponseStatus?: number;
   _harResponseError?: string;
   _hasErrorField?: boolean;
 }
 
-function toParityRow(entry: InspectorRequest): ParityRow {
-  const state = classifyRequestState(entry);
+function toParityRow(lc: RequestLifecycle, arrivalIndex: number): ParityRow {
+  const state = classifyRequestState(lc);
   let displayStatus: number | null = null;
   switch (state.kind) {
     case 'success':
@@ -56,30 +59,30 @@ function toParityRow(entry: InspectorRequest): ParityRow {
       displayStatus = null;
       break;
   }
+  const har = currentHarEntry(lc);
   const row: ParityRowDebug = {
-    displayId: entry.displayId,
-    arrivalIndex: entry.arrivalIndex,
-    method: entry.method,
-    url: entry.url,
-    status: entry.statusCode ?? null,
+    arrivalIndex,
+    method: lc.method,
+    url: lc.url,
+    status: lc.statusCode ?? null,
     displayStatus,
-    statusText: entry.statusText ?? null,
-    errorCode: entry.error?.code ?? null,
-    errorReason: entry.error?.reason ?? null,
-    pending: isPendingRequest(entry),
+    statusText: lc.statusText ?? null,
+    errorCode: lc.error?.code ?? null,
+    errorReason: lc.error?.reason ?? null,
+    pending: isPendingLifecycle(lc),
     state,
-    resourceType: entry.resourceType ?? null,
+    resourceType: lc.resourceType || null,
   };
   if (
-    entry.url.includes('/net/slow/3000') ||
-    entry.url.includes('/net/redirect') ||
-    entry.url.includes('/echo/') ||
-    entry.url.includes('/net/status/')
+    lc.url.includes('/net/slow/3000') ||
+    lc.url.includes('/net/redirect') ||
+    lc.url.includes('/echo/') ||
+    lc.url.includes('/net/status/')
   ) {
-    row._chromeRequestId = entry.chromeRequestId;
-    row._harResponseStatus = entry.harEntry?.response?.status;
-    row._harResponseError = entry.harEntry?.response?._error;
-    row._hasErrorField = entry.error != null;
+    row._requestId = lc.requestId;
+    row._harResponseStatus = har?.response?.status;
+    row._harResponseError = har?.response?._error;
+    row._hasErrorField = lc.error != null;
   }
   return row;
 }
@@ -92,16 +95,17 @@ declare global {
 }
 
 export function useParityDebugHook(
-  entries: readonly InspectorRequest[],
+  lifecycles: readonly RequestLifecycle[],
   clear: () => void,
 ): void {
-  const entriesRef = useRef(entries);
-  entriesRef.current = entries;
+  const lifecyclesRef = useRef(lifecycles);
+  lifecyclesRef.current = lifecycles;
   const clearRef = useRef(clear);
   clearRef.current = clear;
 
   useEffect(() => {
-    window.__OH_DUMP_PARITY_ROWS__ = () => entriesRef.current.map(toParityRow);
+    window.__OH_DUMP_PARITY_ROWS__ = () =>
+      lifecyclesRef.current.map((lc, i) => toParityRow(lc, i));
     window.__OH_CLEAR_PARITY__ = () => clearRef.current();
     return () => {
       delete window.__OH_DUMP_PARITY_ROWS__;

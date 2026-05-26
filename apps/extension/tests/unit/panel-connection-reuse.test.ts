@@ -5,8 +5,9 @@ import { describe, expect, it } from 'vitest';
 
 let _counter = 0;
 function lifecycle(url: string, connection?: string, startedAtMs?: number): RequestLifecycle {
-  const t = startedAtMs ?? ++_counter * 100;
-  const id = `req-${_counter}`;
+  const seq = ++_counter;
+  const t = startedAtMs ?? seq * 100;
+  const id = `req-${seq}`;
   const har: InspectorHarEntry = {
     startedDateTime: new Date(t).toISOString(),
     time: 0,

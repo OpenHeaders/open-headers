@@ -1,11 +1,12 @@
+import type { RequestLifecycle } from '@openheaders/core/request-lifecycle';
+import { currentHarEntry } from './inspector-row-projection';
 import { classifyRequestState } from './request-state';
-import type { InspectorRequest } from './types';
 
 /**
- * Toolbar-level coarse filters — mirrors Chrome's "More filters"
- * menu conventions. `hide*` filters exclude matching rows; `only*`
- * filters restrict the list to matching rows only. Multiple filters
- * compose via AND (a row must pass every active filter).
+ * Toolbar-level coarse filters — mirrors the "More filters" menu
+ * conventions. `hide*` filters exclude matching rows; `only*` filters
+ * restrict the list to matching rows only. Multiple filters compose
+ * via AND (a row must pass every active filter).
  */
 export interface FilterConfig {
   matchCase: boolean;
@@ -17,7 +18,7 @@ export interface FilterConfig {
   hideExtensionUrls: boolean;
   /** Show ONLY requests to a different origin from `pageOrigin`. */
   onlyThirdParty: boolean;
-  /** Show ONLY requests Chrome reported as blocked (status 0 / net::ERR_BLOCKED_*). */
+  /** Show ONLY requests the host reported as blocked. */
   onlyBlockedRequests: boolean;
   /** Inspected-window origin, used as the same-origin baseline for `onlyThirdParty`. */
   pageOrigin: string | null;
@@ -166,28 +167,44 @@ function textMatches(haystack: string, needle: string, config: FilterConfig): bo
   return h.includes(n);
 }
 
-function matchProperty(entry: InspectorRequest, key: PropertyFilterKey, value: string): boolean {
+function transferredBytes(lc: RequestLifecycle): number {
+  const bs = currentHarEntry(lc)?.response?.bodySize;
+  if (typeof bs === 'number' && bs >= 0) return bs;
+  const cs = currentHarEntry(lc)?.response?.content?.size;
+  if (typeof cs === 'number' && cs >= 0) return cs;
+  return 0;
+}
+
+function isFromCache(lc: RequestLifecycle): boolean {
+  if (lc.statusCode === 304) return true;
+  if (lc.fromCache === true) return true;
+  const har = currentHarEntry(lc);
+  if (!har) return false;
+  return har._fromCache === 'disk' || har._fromCache === 'memory' || har._servedFromCache === true;
+}
+
+function matchProperty(lc: RequestLifecycle, key: PropertyFilterKey, value: string): boolean {
   switch (key) {
     case 'domain': {
       try {
-        const hostname = new URL(entry.url).hostname.toLowerCase();
+        const hostname = new URL(lc.url).hostname.toLowerCase();
         return hostname.includes(value.toLowerCase());
       } catch {
         return false;
       }
     }
     case 'status-code': {
-      if (entry.statusCode == null) return false;
-      return String(entry.statusCode) === value;
+      if (lc.statusCode == null) return false;
+      return String(lc.statusCode) === value;
     }
     case 'method':
-      return entry.method.toLowerCase() === value.toLowerCase();
+      return lc.method.toLowerCase() === value.toLowerCase();
     case 'mime-type': {
-      const mime = (entry.mimeType ?? '').toLowerCase();
+      const mime = (currentHarEntry(lc)?.response?.content?.mimeType ?? '').toLowerCase();
       return mime.includes(value.toLowerCase());
     }
     case 'has-response-header': {
-      const headers = entry.harEntry?.response?.headers;
+      const headers = currentHarEntry(lc)?.response?.headers;
       if (!headers) return false;
       const target = value.toLowerCase();
       return headers.some((h) => h.name.toLowerCase() === target);
@@ -195,39 +212,35 @@ function matchProperty(entry: InspectorRequest, key: PropertyFilterKey, value: s
     case 'larger-than': {
       const threshold = parseSize(value);
       if (Number.isNaN(threshold)) return false;
-      return (entry.responseSize ?? 0) > threshold;
+      return transferredBytes(lc) > threshold;
     }
     case 'is': {
-      if (value.toLowerCase() === 'from-cache') {
-        if (entry.statusCode === 304) return true;
-        const har = entry.harEntry as unknown as Record<string, unknown>;
-        return har._fromCache === true || har._servedFromCache === true;
-      }
+      if (value.toLowerCase() === 'from-cache') return isFromCache(lc);
       return false;
     }
   }
 }
 
-function matchToken(entry: InspectorRequest, token: FilterToken, config: FilterConfig): boolean {
+function matchToken(lc: RequestLifecycle, token: FilterToken, config: FilterConfig): boolean {
   switch (token.type) {
     case 'text': {
-      const result = textMatches(entry.url, token.value, config);
+      const result = textMatches(lc.url, token.value, config);
       return token.negated ? !result : result;
     }
     case 'property': {
-      const result = matchProperty(entry, token.key, token.value);
+      const result = matchProperty(lc, token.key, token.value);
       return token.negated ? !result : result;
     }
     case 'regex': {
       if (!token.pattern) return true;
-      return token.pattern.test(entry.url);
+      return token.pattern.test(lc.url);
     }
   }
 }
 
-export function matchesUrlFilter(entry: InspectorRequest, tokens: FilterToken[], config: FilterConfig): boolean {
+export function matchesUrlFilter(lc: RequestLifecycle, tokens: FilterToken[], config: FilterConfig): boolean {
   for (const token of tokens) {
-    if (!matchToken(entry, token, config)) return false;
+    if (!matchToken(lc, token, config)) return false;
   }
   return true;
 }
@@ -252,24 +265,15 @@ function isFirstParty(url: string, pageOrigin: string): boolean {
 
 /**
  * Coarse row filters applied before the URL-filter token pass. Kept
- * separate so the URL filter can remain purely about URL/header/method
+ * separate so the URL filter stays purely about URL/header/method
  * token semantics and toolbar toggles stay an obvious pre-filter.
  */
-export function passesRowFilters(entry: InspectorRequest, config: FilterConfig): boolean {
-  if (config.hideDataUrls && isDataOrBlobUrl(entry.url)) return false;
-  if (config.hideExtensionUrls && isExtensionUrl(entry.url)) return false;
-  // `onlyThirdParty` only makes sense once we know the page origin — if
-  // it's not set yet the filter is a no-op rather than hiding everything.
-  // Using the strict first-party check means unparseable URLs (rare but
-  // possible for synthetic / data-stream entries) fall through rather
-  // than silently disappear.
-  if (config.onlyThirdParty && config.pageOrigin != null && isFirstParty(entry.url, config.pageOrigin)) return false;
-  // Chrome's "Blocked requests" filter includes both `net::ERR_BLOCKED_*`
-  // aborts and any wire-level failure (DNS, TLS, timeout) — the common
-  // user intent is "show me what didn't succeed". Mirror that: our
-  // `failed` + `blocked` states both qualify.
+export function passesRowFilters(lc: RequestLifecycle, config: FilterConfig): boolean {
+  if (config.hideDataUrls && isDataOrBlobUrl(lc.url)) return false;
+  if (config.hideExtensionUrls && isExtensionUrl(lc.url)) return false;
+  if (config.onlyThirdParty && config.pageOrigin != null && isFirstParty(lc.url, config.pageOrigin)) return false;
   if (config.onlyBlockedRequests) {
-    const s = classifyRequestState(entry);
+    const s = classifyRequestState(lc);
     if (s.kind !== 'blocked' && s.kind !== 'failed') return false;
   }
   return true;

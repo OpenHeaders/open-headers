@@ -41,7 +41,7 @@ describe('buildInspectorRows — ordering + displayId', () => {
       makeLifecycle({ requestId: 'b', startedAtMs: 100 }),
     ]);
     expect(rows.map((r: InspectorRow) => r.lifecycle.requestId)).toEqual(['a', 'b', 'c']);
-    expect(rows.map((r: InspectorRow) => r.displayId)).toEqual(['#1', '#2', '#3']);
+    expect(rows.map((r: InspectorRow) => r.displayId)).toEqual([1, 2, 3]);
   });
 
   it('returns empty rows for empty input', () => {
@@ -81,7 +81,7 @@ describe('buildInspectorRows — consolidateRetries (opt-in)', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]?.lifecycle.requestId).toBe('retry');
     expect(rows[0]?.consolidatedRetryOf).toEqual(['fail']);
-    expect(rows[0]?.displayId).toBe('#1');
+    expect(rows[0]?.displayId).toBe(1);
   });
 
   it('does not consolidate when URL differs', () => {
