@@ -52,22 +52,6 @@ export interface RedirectHop {
 }
 
 /**
- * Internal CORS classification produced by the heuristic correlator
- * before update emission. The UI never imports anything CORS-related —
- * by the time `phase` or `har-attached` updates leave the correlator the
- * `error.code` is already refined (e.g. `oh:cors-missing-acao`).
- */
-export type CorsRejection =
-  | { kind: 'no-rejection' }
-  | { kind: 'missing-acao' }
-  | { kind: 'origin-mismatch'; acao: string };
-
-export interface CorsVerdict {
-  isCrossOrigin: boolean;
-  rejection: CorsRejection;
-}
-
-/**
  * Per-request authoritative state owned by the engine-side store.
  *
  * Consumer-owned derived state ("inspector display id", "rule-engine
@@ -104,9 +88,6 @@ export interface RequestLifecycle {
   readonly statusText?: string;
   readonly fromCache?: boolean;
   readonly error?: RequestError;
-
-  /** Internal classification produced by the correlator before emission. */
-  readonly cors?: CorsVerdict;
 
   /**
    * Per-hop HAR shell forwarded from the devtools_page. Hop 0 is the
@@ -176,6 +157,5 @@ export interface RequestLifecyclePatch {
   statusText?: string;
   fromCache?: boolean;
   error?: RequestError;
-  cors?: CorsVerdict;
   completedAtMs?: number;
 }

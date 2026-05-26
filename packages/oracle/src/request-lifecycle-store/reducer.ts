@@ -139,7 +139,6 @@ function reduceRedirect(
     statusText: undefined,
     fromCache: undefined,
     error: undefined,
-    cors: undefined,
     completedAtMs: undefined,
   };
   return { kind: 'update', next };
@@ -175,7 +174,6 @@ function applyPatch(prev: RequestLifecycle, patch: RequestLifecyclePatch): Reque
     ...(patch.statusText !== undefined ? { statusText: patch.statusText } : {}),
     ...(patch.fromCache !== undefined ? { fromCache: patch.fromCache } : {}),
     ...(patch.error !== undefined ? { error: patch.error } : {}),
-    ...(patch.cors !== undefined ? { cors: patch.cors } : {}),
     ...(patch.completedAtMs !== undefined ? { completedAtMs: patch.completedAtMs } : {}),
   };
 }

@@ -1,29 +1,26 @@
 /**
- * Pure pre-emit refinement of `phase` updates with a CORS verdict (H6).
+ * Pure pre-emit refinement of `phase` updates' `error.code` using the
+ * CORS verdict (H6).
  *
- * Two refinements applied on a single helper call so the correlator
- * keeps one augmentation site:
+ * When the patch carries `error.code === 'net::ERR_FAILED'` AND the
+ * verdict indicates a cross-origin rejection, rewrite the code to a
+ * more specific `oh:cors-missing-acao` or `oh:cors-origin-mismatch`.
+ * The `reason` field is preserved as the original net-stack token so
+ * the UI can still surface it for diagnostics.
  *
- *   1. Stamp `patch.cors` on every `phase` update (headers-received,
- *      completed, failed) once a verdict is available — invariant 5
- *      monotonic refinement.
- *   2. When the patch carries `error.code === 'net::ERR_FAILED'` AND
- *      the verdict indicates a cross-origin rejection, rewrite the
- *      code to a more specific `oh:cors-missing-acao` or
- *      `oh:cors-origin-mismatch`. The `reason` field is preserved as
- *      the original net-stack token so the UI can still surface it
- *      for diagnostics.
+ * The verdict itself does NOT travel on the patch — it stays inside
+ * the correlator (engine-internal facet per design §9). The refined
+ * `error.code` IS observable to every downstream consumer; that's the
+ * load-bearing signal.
  *
  * Non-`net::ERR_FAILED` errors and same-origin / no-rejection verdicts
  * pass through untouched. Returns a new readonly update — never mutates
  * the input.
  */
 
-import type {
-  CorsVerdict,
-  RequestError,
-  RequestLifecycleUpdate,
-} from '@openheaders/core/request-lifecycle';
+import type { RequestError, RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
+
+import type { CorsVerdict } from './cors-types';
 
 /**
  * Apply CORS-driven refinements to a single update. The correlator
@@ -38,13 +35,14 @@ export function refineUpdateWithCors(
 ): RequestLifecycleUpdate {
   if (verdict === undefined) return update;
   if (update.kind !== 'phase') return update;
-  const refinedError = update.patch.error ? refineError(update.patch.error, verdict) : undefined;
+  if (update.patch.error === undefined) return update;
+  const refinedError = refineError(update.patch.error, verdict);
+  if (refinedError === undefined) return update;
   return {
     ...update,
     patch: {
       ...update.patch,
-      cors: verdict,
-      ...(refinedError !== undefined ? { error: refinedError } : {}),
+      error: refinedError,
     },
   };
 }

@@ -1,16 +1,15 @@
 /**
- * `refineUpdateWithCors` — pure pre-emit augmentation of phase updates
- * with a CORS verdict.
+ * `refineUpdateWithCors` — pure pre-emit refinement of phase updates'
+ * `error.code` using the CORS verdict. The verdict itself is
+ * engine-internal and does not travel on the patch.
  */
 
 import { describe, expect, it } from 'vitest';
 
-import type {
-  CorsVerdict,
-  RequestLifecycleUpdate,
-} from '@openheaders/core/request-lifecycle';
+import type { RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle';
 
 import { refineUpdateWithCors } from '../../src/correlator-heuristic/cors-error-refinement';
+import type { CorsVerdict } from '../../src/correlator-heuristic/cors-types';
 
 const TAB = 4;
 const REQ = 'wr-7';
@@ -42,29 +41,15 @@ describe('refineUpdateWithCors — passthroughs', () => {
     const u: RequestLifecycleUpdate = { kind: 'gone', tabId: TAB, requestId: REQ };
     expect(refineUpdateWithCors(u, missingAcao)).toBe(u);
   });
-});
 
-describe('refineUpdateWithCors — cors stamping', () => {
-  it('stamps cors on a headers-received patch', () => {
-    const refined = refineUpdateWithCors(
-      phaseUpdate({ phase: 'headers-received', statusCode: 200 }),
-      missingAcao,
-    );
-    expect(refined.kind).toBe('phase');
-    if (refined.kind !== 'phase') throw new Error('expected phase');
-    expect(refined.patch.cors).toEqual(missingAcao);
-    expect(refined.patch.phase).toBe('headers-received');
-    expect(refined.patch.statusCode).toBe(200);
+  it('returns a phase update with no error unchanged', () => {
+    const u = phaseUpdate({ phase: 'headers-received', statusCode: 200 });
+    expect(refineUpdateWithCors(u, missingAcao)).toBe(u);
   });
 
-  it('stamps cors on a completed patch and leaves error untouched', () => {
-    const refined = refineUpdateWithCors(
-      phaseUpdate({ phase: 'completed', statusCode: 200, completedAtMs: 1 }),
-      sameOrigin,
-    );
-    if (refined.kind !== 'phase') throw new Error('expected phase');
-    expect(refined.patch.cors).toEqual(sameOrigin);
-    expect(refined.patch.error).toBeUndefined();
+  it('returns a completed phase update unchanged (no error to refine)', () => {
+    const u = phaseUpdate({ phase: 'completed', statusCode: 200, completedAtMs: 1 });
+    expect(refineUpdateWithCors(u, sameOrigin)).toBe(u);
   });
 });
 
@@ -83,7 +68,6 @@ describe('refineUpdateWithCors — error code refinement', () => {
       code: 'oh:cors-missing-acao',
       reason: 'net::ERR_FAILED',
     });
-    expect(refined.patch.cors).toEqual(missingAcao);
   });
 
   it('net::ERR_FAILED + origin-mismatch → oh:cors-origin-mismatch', () => {
@@ -148,6 +132,5 @@ describe('refineUpdateWithCors — error code refinement', () => {
     refineUpdateWithCors(original, missingAcao);
     if (original.kind !== 'phase') throw new Error('expected phase');
     expect(original.patch.error).toBe(frozenError);
-    expect(original.patch.cors).toBeUndefined();
   });
 });

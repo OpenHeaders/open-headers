@@ -109,7 +109,6 @@ export function patchRefines(prev: RequestLifecycle, patch: RequestLifecyclePatc
   if ('statusText' in patch && patch.statusText === undefined && prev.statusText !== undefined) return false;
   if ('fromCache' in patch && patch.fromCache === undefined && prev.fromCache !== undefined) return false;
   if ('error' in patch && patch.error === undefined && prev.error !== undefined) return false;
-  if ('cors' in patch && patch.cors === undefined && prev.cors !== undefined) return false;
   if ('completedAtMs' in patch && patch.completedAtMs === undefined && prev.completedAtMs !== undefined) return false;
   return true;
 }

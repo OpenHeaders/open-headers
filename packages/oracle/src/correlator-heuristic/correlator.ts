@@ -37,15 +37,14 @@
  */
 
 import type {
-  CorsVerdict,
   RequestCorrelator,
-  RequestLifecycle,
   RequestLifecycleListener,
   RequestLifecycleUpdate,
   Unsubscribe,
 } from '@openheaders/core/request-lifecycle';
-import { lifecycleKey } from '@openheaders/core/request-lifecycle';
 import type { InspectorHarBody, InspectorHarEntry } from '@openheaders/core/types';
+
+import type { CorsVerdict } from './cors-types';
 
 import { BodyJoinMap } from './body-join-map';
 import { classifyCors, extractHeader } from './cors-classifier';
@@ -59,6 +58,7 @@ import { HarWaitingBuffer } from './har-waiting-buffer';
 import { HopCursor } from './hop-cursor';
 import { InFlightFifo } from './in-flight-fifo';
 import type { InFlightMatch } from './in-flight-fifo';
+import { RecentLifecyclesMirror } from './recent-lifecycles-mirror';
 import { webRequestEventToUpdates } from './webrequest-to-update';
 
 /**
@@ -74,13 +74,7 @@ export interface HeuristicCorrelatorSources {
 export class HeuristicCorrelator implements RequestCorrelator {
   private readonly listeners = new Set<RequestLifecycleListener>();
   private readonly attached = new Set<number>();
-  /**
-   * Local mirror of "what we've emitted so far" keyed by
-   * `(tabId, requestId)`. Lets the correlator project subsequent
-   * updates without re-reading store state. The store keeps its own
-   * authoritative mirror downstream.
-   */
-  private readonly recentLifecycles = new Map<string, RequestLifecycle>();
+  private readonly recentLifecycles = new RecentLifecyclesMirror();
   private readonly inFlight = new InFlightFifo();
   private readonly bodyJoin = new BodyJoinMap();
   private readonly harWaiting = new HarWaitingBuffer();
@@ -101,9 +95,7 @@ export class HeuristicCorrelator implements RequestCorrelator {
 
   detachTab(tabId: number): void {
     this.attached.delete(tabId);
-    for (const key of this.recentLifecycles.keys()) {
-      if (key.startsWith(`${tabId}:`)) this.recentLifecycles.delete(key);
-    }
+    this.recentLifecycles.forgetTab(tabId);
     this.inFlight.forgetTab(tabId);
     this.bodyJoin.forgetTab(tabId);
     this.harWaiting.forgetTab(tabId);
@@ -288,7 +280,7 @@ export class HeuristicCorrelator implements RequestCorrelator {
     // before the HAR catches up, so a missing lifecycle here is a
     // genuine race (e.g. lifecycle was forgotten after tab close) —
     // drop rather than mint a floating attachment.
-    if (!this.recentLifecycles.has(lifecycleKey(tabId, match.requestId))) return;
+    if (!this.recentLifecycles.has(tabId, match.requestId)) return;
     this.bodyJoin.remember(tabId, method, url, entry.startedDateTime, {
       requestId: match.requestId,
       hopIndex: match.hopIndex,
@@ -328,7 +320,7 @@ export class HeuristicCorrelator implements RequestCorrelator {
     this.harWaiting.gc(nowMs);
     const expired = this.finalizedRetention.gcExpired(nowMs);
     for (const { tabId, requestId } of expired) {
-      this.recentLifecycles.delete(lifecycleKey(tabId, requestId));
+      this.recentLifecycles.forget(tabId, requestId);
     }
   }
 
@@ -343,7 +335,8 @@ export class HeuristicCorrelator implements RequestCorrelator {
   private emit(update: RequestLifecycleUpdate): void {
     if (update.kind === 'started') {
       this.recentLifecycles.set(
-        lifecycleKey(update.lifecycle.tabId, update.lifecycle.requestId),
+        update.lifecycle.tabId,
+        update.lifecycle.requestId,
         update.lifecycle,
       );
     } else if (

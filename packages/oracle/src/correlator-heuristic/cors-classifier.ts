@@ -19,9 +19,8 @@
  *     or `*` for the response to pass the browser's CORS check.
  */
 
-import type { CorsVerdict } from '@openheaders/core/request-lifecycle';
-
 import type { WebRequestHeader } from './events';
+import type { CorsVerdict } from './cors-types';
 
 /**
  * Case-insensitive header lookup. Returns `null` (not `undefined`) when

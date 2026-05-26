@@ -40,7 +40,6 @@ const TRACKED_FIELDS = [
   'statusText',
   'fromCache',
   'error',
-  'cors',
   'completedAtMs',
 ] as const;
 type TrackedField = (typeof TRACKED_FIELDS)[number];
@@ -53,11 +52,6 @@ const arbError = fc.constantFrom(
   { code: 'net::ERR_FAILED', reason: 'failed' },
   { code: 'net::ERR_CONNECTION_RESET', reason: 'reset' },
   { code: 'oh:cors-missing-acao', reason: 'missing ACAO' },
-);
-const arbCors = fc.constantFrom<RequestLifecyclePatch['cors']>(
-  { isCrossOrigin: false, rejection: { kind: 'no-rejection' } },
-  { isCrossOrigin: true, rejection: { kind: 'missing-acao' } },
-  { isCrossOrigin: true, rejection: { kind: 'origin-mismatch', acao: 'https://other.openheaders.io' } },
 );
 const arbCompletedAtMs = fc.integer({ min: 1_000, max: 10_000 });
 
@@ -89,7 +83,6 @@ function arbAdditivePatch(prevPhase: RequestPhase): fc.Arbitrary<RequestLifecycl
         statusText: fc.option(arbStatusText, { nil: undefined }),
         fromCache: fc.option(arbFromCache, { nil: undefined }),
         error: fc.option(arbError, { nil: undefined }),
-        cors: fc.option(arbCors, { nil: undefined }),
         completedAtMs: fc.option(arbCompletedAtMs, { nil: undefined }),
       },
       { requiredKeys: [] },
@@ -101,7 +94,6 @@ function arbAdditivePatch(prevPhase: RequestPhase): fc.Arbitrary<RequestLifecycl
       if (rec.statusText !== undefined) patch.statusText = rec.statusText;
       if (rec.fromCache !== undefined) patch.fromCache = rec.fromCache;
       if (rec.error !== undefined) patch.error = rec.error;
-      if (rec.cors !== undefined) patch.cors = rec.cors;
       if (rec.completedAtMs !== undefined) patch.completedAtMs = rec.completedAtMs;
       return patch;
     });
@@ -163,7 +155,6 @@ describe('invariant 5 — monotonic information content (property)', () => {
           statusText: 'OK',
           fromCache: false,
           error: { code: 'net::ERR_FAILED', reason: 'failed' },
-          cors: { isCrossOrigin: true, rejection: { kind: 'missing-acao' } },
           completedAtMs: 2_000,
           phase: 'headers-received',
         };

@@ -8,8 +8,6 @@
  */
 
 export type {
-  CorsRejection,
-  CorsVerdict,
   RedirectHop,
   RequestError,
   RequestLifecycle,

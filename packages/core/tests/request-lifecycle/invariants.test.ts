@@ -171,11 +171,6 @@ describe('invariant 5 — monotonic information content (fields refine, never di
     expect(patchRefines(prev, patch)).toBe(false);
   });
 
-  it('patchRefines: rejects unsetting the cors verdict once classified', () => {
-    const prev = makeLifecycle({ cors: { isCrossOrigin: true, rejection: { kind: 'missing-acao' } } });
-    const patch = { cors: undefined } as unknown as RequestLifecyclePatch;
-    expect(patchRefines(prev, patch)).toBe(false);
-  });
 });
 
 describe('invariant 6 — redirect is the only retrograde transition', () => {

@@ -12,9 +12,10 @@
  * (`oh-fires:<tabId>`). Request lifecycle (started/completed/redirect/
  * error) travels via `@openheaders/oracle/request-lifecycle-hub`
  * (`oh-lifecycle:<tabId>`) as structured `RequestLifecycle`, not as
- * standalone wire messages — error refinement (`oh:cors-*` codes,
- * structured `CorsVerdict`) is produced by the oracle correlator and
- * carried on the lifecycle, not synthesized by the host.
+ * standalone wire messages — observable error refinement (`oh:cors-*`
+ * codes on `error.code`) is produced by the oracle correlator and
+ * carried on the lifecycle. The underlying CORS classification stays
+ * engine-internal (see `correlator-heuristic/cors-types.ts`).
  */
 
 /**

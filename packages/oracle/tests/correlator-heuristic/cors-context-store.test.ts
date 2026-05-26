@@ -4,10 +4,9 @@
 
 import { describe, expect, it, vi } from 'vitest';
 
-import type { CorsVerdict } from '@openheaders/core/request-lifecycle';
-
 import { MAX_CORS_ENTRIES_PER_TAB } from '../../src/correlator-heuristic/cors-constants';
 import { CorsContextStore } from '../../src/correlator-heuristic/cors-context-store';
+import type { CorsVerdict } from '../../src/correlator-heuristic/cors-types';
 
 const TAB = 9;
 const verdict = (): CorsVerdict => ({

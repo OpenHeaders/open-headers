@@ -19,16 +19,16 @@
  *
  * On redirect, the next hop fires its own `onSendHeaders` for the same
  * `requestId`; `recordOrigin` overwrites cleanly, so the captured
- * context always describes the current hop. The verdict in the
- * lifecycle's `cors` field is overwritten by the reducer on the next
- * `headers-received` patch (matching the existing reducer behavior that
- * resets `cors` to `undefined` on redirect).
+ * context always describes the current hop. The verdict drives the
+ * pre-emit `error.code` refinement on the lifecycle (see
+ * `cors-error-refinement.ts`); the verdict itself is engine-internal
+ * and never reaches the wire.
  */
 
 import { lifecycleKey } from '@openheaders/core/request-lifecycle';
-import type { CorsVerdict } from '@openheaders/core/request-lifecycle';
 
 import { MAX_CORS_ENTRIES_PER_TAB } from './cors-constants';
+import type { CorsVerdict } from './cors-types';
 
 interface PendingContext {
   /** `null` when the request carried no `Origin` header. */

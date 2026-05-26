@@ -56,7 +56,6 @@ function applyPatch(prev: RequestLifecycle, patch: RequestLifecyclePatch): Reque
     ...(patch.statusText !== undefined ? { statusText: patch.statusText } : {}),
     ...(patch.fromCache !== undefined ? { fromCache: patch.fromCache } : {}),
     ...(patch.error !== undefined ? { error: patch.error } : {}),
-    ...(patch.cors !== undefined ? { cors: patch.cors } : {}),
     ...(patch.completedAtMs !== undefined ? { completedAtMs: patch.completedAtMs } : {}),
   };
 }
@@ -76,7 +75,6 @@ function applyRedirect(prev: RequestLifecycle, hop: RedirectHop, nextUrl: string
     statusText: undefined,
     fromCache: undefined,
     error: undefined,
-    cors: undefined,
     completedAtMs: undefined,
   };
 }
