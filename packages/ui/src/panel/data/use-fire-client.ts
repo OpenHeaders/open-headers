@@ -10,21 +10,19 @@
  *     `(ruleUid, requestId)` (or `(ruleUid, t)` for scriptable fires),
  *     so the store is a plain upsert/clear bag.
  *
- * Reconnect: same 250ms backoff as the lifecycle / page hooks. The
- * engine snapshot is replayed on each connect, so the store CAN clear
- * on `'ready'` without losing data — but engine dedup already makes
- * re-emits idempotent, so we don't bother.
+ * Port lifecycle (connect / reconnect / cleanup) is delegated to
+ * `useLifelineClient`. Unlike the lifecycle / page hooks, the store is
+ * NOT cleared on `'ready'`: engine dedup already makes re-emits
+ * idempotent, so a reconnect-driven replay reapplies the same upserts
+ * without producing duplicates.
  */
 
-import { type LifelinePort, lifelineTransport } from '@openheaders/core/awareness';
-import { hostNavigation } from '@openheaders/core/navigation';
 import { type RuleFireWireMessage, ruleFirePortName } from '@openheaders/core/rule-fire-stream';
-import { useEffect, useRef, useSyncExternalStore } from 'react';
+import { useRef, useSyncExternalStore } from 'react';
 
 import { FireClientStore, type FireClientSnapshot } from './fire-client-store';
 import type { InspectorFire } from './types';
-
-const RECONNECT_DELAY_MS = 250;
+import { useLifelineClient } from './use-lifeline-client';
 
 export interface UseFireClientResult {
   readonly snapshot: FireClientSnapshot;
@@ -37,17 +35,9 @@ export function useFireClient(): UseFireClientResult {
   if (!storeRef.current) storeRef.current = new FireClientStore();
   const store = storeRef.current;
 
-  const tabIdRef = useRef<number | null>(hostNavigation.inspectedTabId());
-
-  useEffect(() => {
-    const tabId = tabIdRef.current;
-    if (tabId == null) return;
-
-    let activePort: LifelinePort | null = null;
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-    let disposed = false;
-
-    const handler = (msg: RuleFireWireMessage): void => {
+  const { tabId } = useLifelineClient<RuleFireWireMessage>({
+    portName: ruleFirePortName,
+    handler: (msg) => {
       if (msg.kind !== 'fire-update') return;
       const update = msg.update;
       if (update.kind === 'tab-cleared') {
@@ -65,48 +55,10 @@ export function useFireClient(): UseFireClientResult {
         ...(update.record.ruleSnapshot ? { ruleSnapshot: update.record.ruleSnapshot } : {}),
       };
       store.upsert(fire);
-    };
-
-    const connect = (): void => {
-      if (disposed) return;
-      let port: LifelinePort;
-      try {
-        port = lifelineTransport.connect(ruleFirePortName(tabId));
-      } catch {
-        activePort = null;
-        if (disposed) return;
-        reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
-        return;
-      }
-      activePort = port;
-      port.onMessage<RuleFireWireMessage>(handler);
-      port.onDisconnect(() => {
-        activePort = null;
-        if (disposed) return;
-        reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
-      });
-    };
-
-    connect();
-
-    return () => {
-      disposed = true;
-      if (reconnectTimer != null) {
-        clearTimeout(reconnectTimer);
-        reconnectTimer = null;
-      }
-      if (activePort) {
-        try {
-          activePort.disconnect();
-        } catch {
-          /* already disconnected */
-        }
-        activePort = null;
-      }
-    };
-  }, [store]);
+    },
+  });
 
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot);
 
-  return { snapshot, tabId: tabIdRef.current, store };
+  return { snapshot, tabId, store };
 }

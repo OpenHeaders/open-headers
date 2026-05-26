@@ -3,10 +3,10 @@
  * port for the panel's lifetime and exposes a stable
  * `LifecycleClientSnapshot` via `useSyncExternalStore`.
  *
- * On mount: read the inspected tab id (`null` outside a devtools host
- * → no-op hook, safe for unit tests). Open the lifecycle port, route
- * `LifecycleWireMessage` frames into the store, and reconnect on
- * disconnect (MV3 SW eviction, background crash).
+ * Port lifecycle (connect / reconnect / cleanup) is delegated to
+ * `useLifelineClient`; this file only owns the per-channel pieces: the
+ * wire-message router, the `LifecycleClientStore`, and the snapshot
+ * subscription.
  *
  * `ready` is intentionally absent from the return shape: the hub's
  * contract is "snapshot replay completes synchronously inside the same
@@ -21,18 +21,14 @@
  * before the reconnect.
  */
 
-import { type LifelinePort, lifelineTransport } from '@openheaders/core/awareness';
-import { hostNavigation } from '@openheaders/core/navigation';
 import {
   type LifecycleWireMessage,
   lifecyclePortName,
 } from '@openheaders/core/request-lifecycle';
-import { useEffect, useRef, useSyncExternalStore } from 'react';
+import { useRef, useSyncExternalStore } from 'react';
 
 import { LifecycleClientStore, type LifecycleClientSnapshot } from './lifecycle-client-store';
-
-/** Backoff for the panel→background port reconnect loop. */
-const RECONNECT_DELAY_MS = 250;
+import { useLifelineClient } from './use-lifeline-client';
 
 export interface UseLifecycleClientResult {
   readonly snapshot: LifecycleClientSnapshot;
@@ -46,17 +42,9 @@ export function useLifecycleClient(): UseLifecycleClientResult {
   if (!storeRef.current) storeRef.current = new LifecycleClientStore();
   const store = storeRef.current;
 
-  const tabIdRef = useRef<number | null>(hostNavigation.inspectedTabId());
-
-  useEffect(() => {
-    const tabId = tabIdRef.current;
-    if (tabId == null) return;
-
-    let activePort: LifelinePort | null = null;
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-    let disposed = false;
-
-    const handler = (msg: LifecycleWireMessage) => {
+  const { tabId } = useLifelineClient<LifecycleWireMessage>({
+    portName: lifecyclePortName,
+    handler: (msg) => {
       switch (msg.kind) {
         case 'ready':
           // Every `ready` precedes a fresh replay; drop accumulated
@@ -71,52 +59,10 @@ export function useLifecycleClient(): UseLifecycleClientResult {
           void _exhaustive;
         }
       }
-    };
-
-    const connect = (): void => {
-      if (disposed) return;
-      let port: LifelinePort;
-      try {
-        port = lifelineTransport.connect(lifecyclePortName(tabId));
-      } catch {
-        // Opening the lifeline can throw "Extension context invalidated"
-        // when the panel outlives an extension reload; back off and
-        // retry until either the inspected tab refreshes or the panel
-        // is torn down.
-        activePort = null;
-        if (disposed) return;
-        reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
-        return;
-      }
-      activePort = port;
-      port.onMessage<LifecycleWireMessage>(handler);
-      port.onDisconnect(() => {
-        activePort = null;
-        if (disposed) return;
-        reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
-      });
-    };
-
-    connect();
-
-    return () => {
-      disposed = true;
-      if (reconnectTimer != null) {
-        clearTimeout(reconnectTimer);
-        reconnectTimer = null;
-      }
-      if (activePort) {
-        try {
-          activePort.disconnect();
-        } catch {
-          // Already disconnected.
-        }
-        activePort = null;
-      }
-    };
-  }, [store]);
+    },
+  });
 
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot);
 
-  return { snapshot, tabId: tabIdRef.current, store };
+  return { snapshot, tabId, store };
 }
