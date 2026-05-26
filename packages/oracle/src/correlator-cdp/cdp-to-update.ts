@@ -102,6 +102,10 @@ function headersReceivedUpdate(
   };
 }
 
+// `loadingFinished` carries no status fields — `statusCode` / `statusText` /
+// `fromCache` were stamped earlier by `responseReceived`. Heuristic
+// `completedUpdate` re-stamps them (refinement-safe under invariant 5); CDP's
+// narrower payload is correct, not an oversight.
 function completedUpdate(
   event: Extract<CdpNetworkEvent, { method: 'Network.loadingFinished' }>,
 ): RequestLifecycleUpdate {

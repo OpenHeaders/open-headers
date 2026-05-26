@@ -16,7 +16,15 @@ import type { RequestLifecycleUpdate } from '@openheaders/core/request-lifecycle
 export interface Sink {
   /** First message after attach; signals the consumer the pipe is live. */
   deliverReady(tabId: number): void;
-  /** Lifecycle update for the tab the sink attached to. */
+  /**
+   * Lifecycle update for the tab the sink attached to.
+   *
+   * Reentrancy contract: `deliverUpdate` MUST NOT re-enter the store
+   * (e.g. by synchronously calling `store.apply(...)`). Sinks are pure
+   * delivery channels — re-entry during `attach`'s replay loop would
+   * interleave live updates into the replay stream for this and every
+   * other attached sink.
+   */
   deliverUpdate(update: RequestLifecycleUpdate): void;
   /**
    * Hub-initiated close. The adapter MAY ignore (e.g. if the underlying

@@ -131,9 +131,10 @@ function reduceRedirect(
     redirectHopCount: nextHopCount,
     redirectHops: [...prev.redirectHops, hop],
     hopStartedAtMs: hop.timestampMs,
-    // Per-hop resolution fields reset; they describe the current hop, and
-    // the redirect is the load-bearing carve-out from invariant 5 (the
-    // 3xx status is preserved on `hop.statusCode`, not on `statusCode`).
+    // invariant 5 carve-out — per-hop resolution fields reset on redirect.
+    // `patchRefines` would reject this as patch-disappearance if it ran here;
+    // it doesn't, because the reducer constructs `next` directly. The 3xx
+    // status is preserved on `hop.statusCode`, not on `statusCode`.
     statusCode: undefined,
     statusText: undefined,
     fromCache: undefined,

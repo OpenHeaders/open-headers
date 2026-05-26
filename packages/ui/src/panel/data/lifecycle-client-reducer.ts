@@ -69,6 +69,9 @@ function applyRedirect(prev: RequestLifecycle, hop: RedirectHop, nextUrl: string
     redirectHopCount: prev.redirectHopCount + 1,
     redirectHops: [...prev.redirectHops, hop],
     hopStartedAtMs: hop.timestampMs,
+    // invariant 5 carve-out — per-hop resolution fields reset on redirect.
+    // Twin of the engine-side reset in `oracle/request-lifecycle-store/reducer`;
+    // the engine already validated the redirect before it reached the wire.
     statusCode: undefined,
     statusText: undefined,
     fromCache: undefined,

@@ -52,6 +52,11 @@ export function webRequestEventToUpdates(event: WebRequestEvent): readonly Reque
   }
 }
 
+// duplicate-started carve-out: `onBeforeRequest` fires once per redirect hop
+// with the SAME `requestId`, so this mapper emits a second `started` after a
+// redirect. The store's reducer rejects the duplicate as `duplicate-started`
+// (invariant-8 test pins it). Do NOT filter here — the mapper is pure and the
+// reducer is the single boundary enforcer.
 function startedUpdate(
   event: Extract<WebRequestEvent, { method_kind: 'onBeforeRequest' }>,
 ): RequestLifecycleUpdate {

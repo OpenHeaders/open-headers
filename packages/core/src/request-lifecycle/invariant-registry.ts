@@ -162,7 +162,7 @@ export const REQUEST_LIFECYCLE_INVARIANTS: readonly InvariantEntry[] = [
     id: 8,
     name: 'totally-ordered-output',
     summary:
-      'Correlator output totally ordered per (tabId, requestId); heuristic uses an in-window buffer. HAR-body attachment is exempt.',
+      'Correlator output totally ordered per (tabId, requestId); heuristic uses an in-window buffer. HAR-body attachment is exempt. CDP not asserted: events arrive in-order from the source, so the buffer is heuristic-only by design.',
     assertedBy: [
       {
         path: 'packages/oracle/tests/correlator-heuristic/invariant-8-totally-ordered.test.ts',

@@ -97,6 +97,11 @@ export function refinesField<T>(prev: T | undefined, next: T | undefined): boole
  * `undefined` by the patch. Fields absent from the patch are unchanged
  * (which is trivially a refinement). The store calls this before
  * reducing a `phase` update onto current state.
+ *
+ * Phase carve-out: `phase` is required on `RequestLifecycle`, so a patch
+ * carrying `phase: undefined` is rejected unconditionally — there is no
+ * "prev was undefined" path for phase the way there is for the other
+ * (optional) fields below.
  */
 export function patchRefines(prev: RequestLifecycle, patch: RequestLifecyclePatch): boolean {
   if ('phase' in patch && patch.phase === undefined) return false;
