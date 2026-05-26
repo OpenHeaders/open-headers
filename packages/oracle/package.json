@@ -117,6 +117,7 @@
     "@types/chrome": "^0.1.38",
     "@types/node": "^22.19.15",
     "@types/ws": "^8.18.1",
+    "fast-check": "^4.8.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.0"
   }

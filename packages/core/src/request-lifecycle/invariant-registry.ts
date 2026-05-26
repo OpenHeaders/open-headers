@@ -159,11 +159,11 @@ export const REQUEST_LIFECYCLE_INVARIANTS: readonly InvariantEntry[] = [
     name: 'totally-ordered-output',
     summary:
       'Correlator output totally ordered per (tabId, requestId); heuristic uses an in-window buffer. HAR-body attachment is exempt.',
-    assertedBy: [],
-    pending: {
-      slice: 'B',
-      reason:
-        'Ordering buffer is unit-tested per-mechanism (har-waiting-buffer / hop-cursor) but no consolidated property-based assertion named for invariant 8 exists yet.',
-    },
+    assertedBy: [
+      {
+        path: 'packages/oracle/tests/correlator-heuristic/invariant-8-totally-ordered.test.ts',
+        marker: "describe('invariant 8 — totally-ordered output per (tabId, requestId)'",
+      },
+    ],
   },
 ];
