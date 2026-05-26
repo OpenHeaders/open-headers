@@ -18,7 +18,6 @@ import {
   onMainFrameError,
   onMainFrameRedirect,
   onMainFrameRequest,
-  recordObservedUrl,
   recordRequestObservation,
   recordRequestRedirect,
   updateRequestDeliveryMode,
@@ -50,7 +49,6 @@ function projectStarted(lifecycle: RequestLifecycle): void {
   if (tabId === -1 || !isTabTracked(tabId)) return;
   if (!isTrackableUrl(url)) return;
   const normalized = normalizeUrlForTracking(url);
-  recordObservedUrl(tabId, normalized);
   recordRequestObservation(tabId, {
     requestId,
     method,
@@ -75,7 +73,6 @@ function projectRedirect(
   if (!lifecycle) return;
   const resourceType = lifecycle.resourceType as TrackedResourceType;
   const normalized = normalizeUrlForTracking(nextUrl);
-  recordObservedUrl(tabId, normalized);
   recordRequestObservation(tabId, {
     requestId,
     method: lifecycle.method,

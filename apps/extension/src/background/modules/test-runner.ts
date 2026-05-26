@@ -62,11 +62,12 @@ import { runtime, tabs } from '@utils/browser-api';
 import { logger } from '@utils/logger';
 import { applyAllRules, applyAllRulesAsync } from '../dnr-manager';
 import { getPauseMarkers } from '@openheaders/oracle/entity/pause-markers-store';
+import type { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
+import { deriveObservedUrls } from '../tab-telemetry-source/observed-urls';
 import { matchRulesToRequest } from './request-tracker';
 import { getRules } from '@openheaders/oracle/entity/rule-store';
 import { arbitrate, type ShadowAttribution } from './shadow-arbitration';
 import {
-  getObservedUrls,
   getTabSnapshotForScope,
   type RequestRecord,
   startTracking,
@@ -505,7 +506,14 @@ function broadcastToRunPorts(run: ActiveRun, message: PortMessage): void {
  * startup from `background.ts`.
  */
 let portsSetupDone = false;
-export function setupTestRunnerPorts(): void {
+let lifecycleStoreRef: RequestLifecycleStore | null = null;
+
+export interface SetupTestRunnerPortsOptions {
+  readonly lifecycleStore: RequestLifecycleStore;
+}
+
+export function setupTestRunnerPorts(options: SetupTestRunnerPortsOptions): void {
+  lifecycleStoreRef = options.lifecycleStore;
   if (portsSetupDone) return;
   portsSetupDone = true;
   if (!chrome?.runtime?.onConnect?.addListener) {
@@ -762,9 +770,9 @@ function buildRun(run: ActiveRun): TestRun {
   // when the main frame commits to delay.html instead of the user URL.
   // Without this pass the rule surfaces as no-fire with no attribution.
   const noFireReasons: Record<string, ShadowAttribution> = {};
-  if (run.tabId != null) {
-    const observedUrls = getObservedUrls(run.tabId);
-    if (observedUrls.length > 0) {
+  if (run.tabId != null && lifecycleStoreRef !== null) {
+    const observedUrls = deriveObservedUrls(lifecycleStoreRef.snapshotTab(run.tabId));
+    if (observedUrls.size > 0) {
       for (const uid of run.ruleUids) {
         if (ruleStatuses[uid] !== 'no-fire') continue;
         for (const url of observedUrls) {

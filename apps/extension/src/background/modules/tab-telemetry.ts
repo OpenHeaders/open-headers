@@ -145,17 +145,6 @@ interface TabState {
   recentScriptable: Map<string, number>;
   /** `${uid}:${requestId}` — observed-fire dedup across redirect chains. */
   seen: Set<string>;
-  /**
-   * Every normalized URL observed on this tab since tracking started —
-   * main-frame navigations, redirects, sub-resources, XHRs, everything
-   * request-monitor sees. Used at test-session-finish time to re-run
-   * arbitration against the full observed-URL set, so no-fire rules can
-   * be promoted to shadowed when a sibling rule (delay / redirect / block)
-   * would have shadowed them on any URL the tab actually hit. This is
-   * the static "arbitrate-against-everything-observed" pass that catches
-   * shadows lost to the pre-commit pending-fires drop.
-   */
-  observedUrls: Set<string>;
 }
 
 const tabs: Map<number, TabState> = new Map();
@@ -232,7 +221,6 @@ function emptyState(tabId: number): TabState {
     pendingFallback: new Map(),
     recentScriptable: new Map(),
     seen: new Set(),
-    observedUrls: new Set(),
   };
 }
 
@@ -638,37 +626,6 @@ export function updateRequestDeliveryMode(tabId: number, requestId: string, mode
       if (record.requestId === requestId) record.deliveryMode = mode;
     }
   }
-}
-
-// ── Observed URL log ────────────────────────────────────────────────
-
-/**
- * Record a URL that Chrome observed on this tab, regardless of whether
- * any rule matched. Called from request-monitor for every trackable
- * request (onBeforeRequest + onBeforeRedirect), so the session-end
- * arbitration pass can re-check every URL against the full rule scope.
- *
- * No-op for untracked tabs. Normalization is the caller's responsibility
- * so this stays a trivial set.add.
- */
-export function recordObservedUrl(tabId: number, normalizedUrl: string): void {
-  const state = tabs.get(tabId);
-  if (!state) return;
-  state.observedUrls.add(normalizedUrl);
-}
-
-/**
- * Read every URL the tab has seen since tracking started. Used by
- * test-runner at session finish to run static arbitration against
- * each observed URL and promote no-fire rules to shadowed where a
- * sibling rule would have shadowed them on ANY hit URL (even ones
- * whose fire records were dropped at commit time by the pending-fires
- * pipeline — e.g. the delay → delay.html case).
- */
-export function getObservedUrls(tabId: number): string[] {
-  const state = tabs.get(tabId);
-  if (!state) return [];
-  return [...state.observedUrls];
 }
 
 // ── Main-frame chain tracking ───────────────────────────────────────

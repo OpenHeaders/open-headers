@@ -765,7 +765,7 @@ async function initializeExtension(): Promise<void> {
   void initializeViewMode();
   setupInjectListener();
   setupDelayBypassCleanup();
-  setupTestRunnerPorts();
+  setupTestRunnerPorts({ lifecycleStore: lifecycleHost.store });
   // Awareness lifeline ports + workspace-coord runner are attached
   // inside `bootSyncEngine` below.
   setupOnRuleMatchedDebugBridge({

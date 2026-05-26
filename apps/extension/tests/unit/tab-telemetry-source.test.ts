@@ -12,9 +12,9 @@ import type { RequestLifecycle, RequestLifecycleUpdate } from '@openheaders/core
 import { RequestLifecycleStore } from '@openheaders/oracle/request-lifecycle-store';
 
 import { startTabTelemetrySource } from '@/background/tab-telemetry-source';
+import { deriveObservedUrls } from '@/background/tab-telemetry-source/observed-urls';
 import {
   __resetForTests,
-  getObservedUrls,
   getTabSnapshot,
   recordObservedFire,
   startTracking,
@@ -23,6 +23,10 @@ import {
   type RequestObservation,
   type RequestRedirect,
 } from '@/background/modules/tab-telemetry';
+
+function observed(tabId: number): ReadonlySet<string> {
+  return deriveObservedUrls(store.snapshotTab(tabId));
+}
 
 function makeLifecycle(overrides: Partial<RequestLifecycle> = {}): RequestLifecycle {
   return {
@@ -57,12 +61,15 @@ afterEach(() => {
 });
 
 describe('tab-telemetry-source — started projection', () => {
-  it('is a no-op for untracked tabs', () => {
+  it('is a no-op on tab-telemetry surfaces for untracked tabs', () => {
+    const events: RequestObservation[] = [];
+    subscribeRequestEvents(1, (e) => events.push(e));
     store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1 }) });
-    expect(getObservedUrls(1)).toHaveLength(0);
+    expect(events).toHaveLength(0);
+    expect(getTabSnapshot(1).fires).toHaveLength(0);
   });
 
-  it('records observed URL + request observation for tracked tabs', () => {
+  it('emits request observations for tracked tabs and surfaces the URL via the store snapshot', () => {
     startTracking(1, 'test:t1');
     const events: RequestObservation[] = [];
     subscribeRequestEvents(1, (e) => events.push(e));
@@ -80,7 +87,7 @@ describe('tab-telemetry-source — started projection', () => {
       }),
     });
 
-    expect(getObservedUrls(1)).toEqual(['https://api.openheaders.io/x']);
+    expect([...observed(1)]).toEqual(['https://api.openheaders.io/x']);
     expect(events).toEqual([
       {
         requestId: 'r1',
@@ -163,7 +170,8 @@ describe('tab-telemetry-source — redirect projection', () => {
     };
     store.apply(redirect);
 
-    expect(getObservedUrls(1)).toContain('https://openheaders.io/b');
+    expect(observed(1).has('https://openheaders.io/b')).toBe(true);
+    expect(observed(1).has('https://openheaders.io/a')).toBe(true);
     expect(obs).toEqual([
       {
         requestId: 'r1',
@@ -240,12 +248,15 @@ describe('tab-telemetry-source — phase projection', () => {
 });
 
 describe('tab-telemetry-source — dispose', () => {
-  it('detaches the store subscription', () => {
+  it('detaches the store subscription so projection side effects stop', () => {
     startTracking(1, 'test:t1');
+    const events: RequestObservation[] = [];
+    subscribeRequestEvents(1, (e) => events.push(e));
+
     dispose();
     dispose = () => {}; // afterEach safety
 
     store.apply({ kind: 'started', lifecycle: makeLifecycle({ tabId: 1 }) });
-    expect(getObservedUrls(1)).toHaveLength(0);
+    expect(events).toHaveLength(0);
   });
 });
